@@ -12,44 +12,44 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ### Validated
 
-(None yet — ship to validate)
+- ✓ **AUTH-01**: User can sign up with email and password via Better Auth — v1.0
+- ✓ **AUTH-02**: First signup automatically creates an initial workspace — v1.0
+- ✓ **AUTH-03**: User session persists across browser refresh — v1.0
+- ✓ **AUTH-04**: Dashboard, campaigns and settings require active session — v1.0
+- ✓ **WORK-01**: Workspace membership controls access to all data — v1.0
+- ✓ **WORK-02**: No workspace ID can access data from another workspace — v1.0
+- ✓ **CAMP-01**: User can create a campaign with structured brief — v1.0
+- ✓ **CAMP-02**: User can list, view, update and delete campaigns — v1.0
+- ✓ **CAMP-03**: Campaign status lifecycle — v1.0
+- ✓ **UPLOAD-01**: User can request a presigned URL and upload directly to R2 — v1.0
+- ✓ **UPLOAD-02**: After upload, API confirms and saves asset metadata — v1.0
+- ✓ **UPLOAD-03**: Asset is linked to a campaign and workspace — v1.0
+- ✓ **PLAN-01**: API builds prompt and calls OpenAI text model — v1.0
+- ✓ **PLAN-02**: OpenAI returns structured JSON validated by Zod — v1.0
+- ✓ **PLAN-03**: User can view and approve/reject the generated plan — v1.0
+- ✓ **DERIV-01**: On plan approval, API creates derivations and emits Inngest events — v1.0
+- ✓ **DERIV-02**: Inngest handler downloads input, calls OpenAI image model, stores output — v1.0
+- ✓ **DERIV-03**: Derivation status lifecycle — v1.0
+- ✓ **DERIV-04**: UI polls via TanStack Query until final status — v1.0
+- ✓ **DERIV-05**: Failed derivations show clear error and allow retry — v1.0
+- ✓ **REVIEW-01**: User can approve or reject individual derivations — v1.0
+- ✓ **REVIEW-02**: User can regenerate a derivation with feedback linked to previous — v1.0
+- ✓ **REVIEW-03**: Derivations display in a gallery with preview and compare view — v1.0
+- ✓ **EXPORT-01**: User can export individual derivation via signed URL — v1.0
+- ✓ **EXPORT-02**: User can export all approved derivations as ZIP — v1.0
+- ✓ **EXPORT-03**: Format conversion uses sharp when needed — v1.0
+- ✓ **DASH-01**: Dashboard shows real campaign and usage metrics — v1.0
+- ✓ **DASH-02**: Loading/error/empty states replace simulated delays — v1.0
+- ✓ **SEC-01**: All API routes validate workspace membership — v1.0
+- ✓ **SEC-02**: Environment variables validated with Zod at startup — v1.0
+- ✓ **SEC-03**: API keys and secrets are server-side only — v1.0
+- ✓ **TEST-01**: Unit tests for env validation, schemas, repositories, prompt parser, R2 keys — v1.0
+- ✓ **TEST-02**: Integration tests for signup→workspace, CRUD, upload, plan, job, review/export — v1.0
+- ✓ **TEST-03**: npm test, lint, build pass — v1.0
 
 ### Active
 
-- [ ] **AUTH-01**: User can sign up with email and password via Better Auth
-- [ ] **AUTH-02**: First signup automatically creates an initial workspace
-- [ ] **AUTH-03**: User session persists across browser refresh
-- [ ] **AUTH-04**: Dashboard, campaigns and settings require active session
-- [ ] **WORK-01**: Workspace membership controls access to all data
-- [ ] **WORK-02**: No workspace ID can access data from another workspace
-- [ ] **CAMP-01**: User can create a campaign with structured brief (name, client/product, objective, audience, platforms, tone, offer, constraints, notes)
-- [ ] **CAMP-02**: User can list, view, update and delete campaigns
-- [ ] **CAMP-03**: Campaign status lifecycle: `draft | active | generating | completed | failed`
-- [ ] **UPLOAD-01**: User can request a presigned URL and upload PNG/JPEG/WebP up to 20MB directly to R2
-- [ ] **UPLOAD-02**: After upload, API confirms and saves asset with UUID key, type, size and dimensions
-- [ ] **UPLOAD-03**: Asset is linked to a campaign and workspace
-- [ ] **PLAN-01**: API builds prompt from brief + asset metadata and calls OpenAI text model
-- [ ] **PLAN-02**: OpenAI returns structured JSON (strategy, angles, hooks, CTAs) validated by Zod before saving
-- [ ] **PLAN-03**: User can view and approve/reject the generated plan
-- [ ] **DERIV-01**: On plan approval, API creates N derivations with status `queued`, estimates/discounts credits, emits Inngest event per derivation
-- [ ] **DERIV-02**: Inngest handler downloads input from R2, calls OpenAI image model, stores output back to R2, saves metadata in DB
-- [ ] **DERIV-03**: Derivation status lifecycle: `queued | processing | completed | approved | rejected | failed`
-- [ ] **DERIV-04**: UI polls via TanStack Query until derivation reaches final status
-- [ ] **DERIV-05**: Failed derivations show clear error and allow retry
-- [ ] **REVIEW-01**: User can approve or reject individual derivations
-- [ ] **REVIEW-02**: User can regenerate a derivation with feedback linked to the previous one
-- [ ] **REVIEW-03**: Derivations display in a gallery with preview and compare view
-- [ ] **EXPORT-01**: User can export an individual derivation as PNG/JPEG/WebP via signed URL
-- [ ] **EXPORT-02**: User can export all approved derivations as a ZIP generated with jszip
-- [ ] **EXPORT-03**: Format conversion uses sharp when chosen format differs from stored format
-- [ ] **DASH-01**: Dashboard shows real campaign and usage metrics from API
-- [ ] **DASH-02**: Loading/error/empty states replace simulated delays
-- [ ] **SEC-01**: All API routes validate workspace membership before serving data
-- [ ] **SEC-02**: Environment variables validated with Zod at startup
-- [ ] **SEC-03**: API keys and secrets are server-side only
-- [ ] **TEST-01**: Unit tests for env validation, Zod schemas, repositories with mocks, prompt parser, R2 key sanitization
-- [ ] **TEST-02**: Integration tests with mocks for signup→workspace, campaign CRUD, upload flow, plan generation, derivation job, review/export with auth
-- [ ] **TEST-03**: `npm test`, `npm run lint`, `npm run build` and security scan pass
+(None — all v1.0 requirements shipped)
 
 ### Out of Scope
 
@@ -110,4 +110,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-24 after starting milestone v1.0*
+*Last updated: 2026-04-24 after completing milestone v1.0*
