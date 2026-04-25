@@ -1,0 +1,100 @@
+"use client";
+
+import { motion } from "framer-motion";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useAppStore } from "@/lib/store";
+import { cn } from "@/lib/utils";
+import Sidebar from "./Sidebar";
+import TopBar from "./TopBar";
+import Footer from "./Footer";
+import { FolderOpen, LayoutDashboard, Settings } from "lucide-react";
+
+interface AppShellProps {
+  children: React.ReactNode;
+}
+
+export default function AppShell({ children }: AppShellProps) {
+  const sidebarCollapsed = useAppStore((s) => s.sidebarCollapsed);
+  const pathname = usePathname();
+  const sidebarWidth = sidebarCollapsed ? 64 : 240;
+
+  return (
+    <div
+      className="min-h-screen bg-[var(--deep-bg)]"
+      style={{ "--sidebar-width": `${sidebarWidth}px` } as React.CSSProperties}
+    >
+      {/* Sidebar */}
+      <Sidebar />
+
+      {/* Top Bar */}
+      <TopBar />
+
+      {/* Main Content Area */}
+      <motion.main
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3, delay: 0.1 }}
+        className={cn(
+          "min-h-screen pt-14 pb-20 md:pb-0 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] md:ml-[var(--sidebar-width)]"
+        )}
+      >
+        <div className="p-6 lg:p-8 min-h-[calc(100vh-3.5rem)]">
+          {children}
+        </div>
+        <Footer />
+      </motion.main>
+
+      <nav
+        className="fixed bottom-0 left-0 right-0 z-50 grid grid-cols-3 border-t border-[var(--border-dim)] bg-[rgba(10,15,26,0.96)] px-2 py-2 backdrop-blur md:hidden"
+        aria-label="Primary mobile navigation"
+      >
+        <MobileNavItem
+          href="/"
+          label="Dashboard"
+          icon={LayoutDashboard}
+          active={pathname === "/"}
+        />
+        <MobileNavItem
+          href="/campaigns"
+          label="Campaigns"
+          icon={FolderOpen}
+          active={pathname.startsWith("/campaigns")}
+        />
+        <MobileNavItem
+          href="/settings"
+          label="Settings"
+          icon={Settings}
+          active={pathname.startsWith("/settings")}
+        />
+      </nav>
+    </div>
+  );
+}
+
+function MobileNavItem({
+  href,
+  label,
+  icon: Icon,
+  active,
+}: {
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  active: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "flex flex-col items-center justify-center gap-1 rounded-md px-2 py-1.5 text-[11px] font-medium",
+        active
+          ? "bg-[rgba(99,102,241,0.12)] text-[var(--accent-blue-light)]"
+          : "text-[var(--text-secondary)]"
+      )}
+    >
+      <Icon size={18} aria-hidden="true" />
+      <span>{label}</span>
+    </Link>
+  );
+}

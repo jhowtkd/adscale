@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="280" viewBox="0 0 360 280" fill="none">
+  <!-- Background grid -->
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.5"/>
+    </pattern>
+    <linearGradient id="glow1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#6366f1" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="glow2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#14b8a6" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#14b8a6" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="glow3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a78bfa" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#a78bfa" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="360" height="280" fill="#0a0f1a"/>
+  <rect width="360" height="280" fill="url(#grid)"/>
+
+  <!-- Brief Document -->
+  <rect x="40" y="60" width="80" height="100" rx="8" fill="#111827" stroke="#2a364a" stroke-width="1.5"/>
+  <rect x="52" y="78" width="56" height="4" rx="2" fill="#475569"/>
+  <rect x="52" y="90" width="40" height="4" rx="2" fill="#312e81"/>
+  <rect x="52" y="102" width="48" height="4" rx="2" fill="#475569"/>
+  <rect x="52" y="114" width="32" height="4" rx="2" fill="#475569"/>
+  <circle cx="75" cy="145" r="12" fill="#6366f1" opacity="0.2"/>
+  <path d="M70 145l4 4 8-8" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Label -->
+  <text x="80" y="185" text-anchor="middle" fill="#6366f1" font-family="system-ui" font-size="11" font-weight="500">Brief</text>
+
+  <!-- Arrow 1: Brief → AI -->
+  <path d="M125 110 Q150 110, 160 100" stroke="#2a364a" stroke-width="1.5" stroke-dasharray="4 3" fill="none"/>
+  <polygon points="162,97 165,103 158,102" fill="#2a364a"/>
+
+  <!-- AI Brain -->
+  <circle cx="200" cy="85" r="35" fill="#111827" stroke="#312e81" stroke-width="1.5"/>
+  <circle cx="200" cy="85" r="35" fill="url(#glow1)"/>
+  <!-- Brain lines -->
+  <path d="M185 75 Q190 68, 200 70 Q210 72, 215 80" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+  <path d="M182 88 Q190 82, 200 85 Q210 88, 218 84" stroke="#818cf8" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+  <path d="M188 100 Q195 94, 200 96 Q205 98, 212 95" stroke="#6366f1" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+  <!-- Sparkles -->
+  <circle cx="175" cy="65" r="2" fill="#6366f1" opacity="0.6"/>
+  <circle cx="225" cy="70" r="1.5" fill="#a78bfa" opacity="0.5"/>
+  <circle cx="220" cy="105" r="2" fill="#818cf8" opacity="0.4"/>
+  <!-- Label -->
+  <text x="200" y="140" text-anchor="middle" fill="#a78bfa" font-family="system-ui" font-size="11" font-weight="500">AI Generate</text>
+
+  <!-- Arrow 2: AI → Variations -->
+  <path d="M240 95 Q260 110, 275 125" stroke="#2a364a" stroke-width="1.5" stroke-dasharray="4 3" fill="none"/>
+  <polygon points="277,122 280,128 273,127" fill="#2a364a"/>
+
+  <!-- Variations Grid -->
+  <g transform="translate(270, 130)">
+    <!-- Grid background -->
+    <rect x="0" y="0" width="72" height="72" rx="8" fill="#111827" stroke="#2a364a" stroke-width="1.5"/>
+    <rect x="0" y="0" width="72" height="72" rx="8" fill="url(#glow2)"/>
+
+    <!-- 4 ad cards -->
+    <rect x="8" y="8" width="26" height="26" rx="4" fill="#1a2235" stroke="#1e293b" stroke-width="1"/>
+    <rect x="11" y="18" width="20" height="3" rx="1.5" fill="#312e81"/>
+    <rect x="11" y="24" width="14" height="2" rx="1" fill="#475569"/>
+
+    <rect x="38" y="8" width="26" height="26" rx="4" fill="#1a2235" stroke="#1e293b" stroke-width="1"/>
+    <rect x="41" y="18" width="20" height="3" rx="1.5" fill="#312e81"/>
+    <rect x="41" y="24" width="14" height="2" rx="1" fill="#475569"/>
+
+    <rect x="8" y="38" width="26" height="26" rx="4" fill="#1a2235" stroke="#1e293b" stroke-width="1"/>
+    <rect x="11" y="48" width="20" height="3" rx="1.5" fill="#312e81"/>
+    <rect x="11" y="54" width="14" height="2" rx="1" fill="#475569"/>
+
+    <rect x="38" y="38" width="26" height="26" rx="4" fill="#1a2235" stroke="#1e293b" stroke-width="1"/>
+    <rect x="41" y="48" width="20" height="3" rx="1.5" fill="#312e81"/>
+    <rect x="41" y="54" width="14" height="2" rx="1" fill="#475569"/>
+  </g>
+  <!-- Label -->
+  <text x="306" y="225" text-anchor="middle" fill="#14b8a6" font-family="system-ui" font-size="11" font-weight="500">Variations</text>
+
+  <!-- Decorative elements -->
+  <!-- Floating dots -->
+  <circle cx="140" cy="170" r="3" fill="#6366f1" opacity="0.2"/>
+  <circle cx="260" cy="45" r="2" fill="#14b8a6" opacity="0.25"/>
+  <circle cx="330" cy="180" r="2.5" fill="#a78bfa" opacity="0.2"/>
+  <circle cx="50" cy="220" r="2" fill="#6366f1" opacity="0.15"/>
+
+  <!-- Subtle connecting lines -->
+  <path d="M130 75 L140 170" stroke="#1e293b" stroke-width="0.5" opacity="0.5"/>
+  <path d="M250 50 L260 45" stroke="#1e293b" stroke-width="0.5" opacity="0.5"/>
+</svg>

@@ -1,0 +1,275 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ============================================
+   ADScale - Global Design Tokens
+   ============================================ */
+
+@theme inline {
+  --color-background: var(--deep-bg);
+  --color-foreground: var(--text-primary);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-jetbrains-mono);
+  --font-heading: var(--font-inter);
+
+  /* Core colors mapped to shadcn */
+  --color-card: var(--surface-base);
+  --color-card-foreground: var(--text-primary);
+  --color-popover: var(--surface-raised);
+  --color-popover-foreground: var(--text-primary);
+  --color-primary: var(--accent-blue);
+  --color-primary-foreground: #ffffff;
+  --color-secondary: var(--surface-raised);
+  --color-secondary-foreground: var(--text-primary);
+  --color-muted: var(--surface-base);
+  --color-muted-foreground: var(--text-muted);
+  --color-accent: var(--surface-raised);
+  --color-accent-foreground: var(--text-primary);
+  --color-destructive: var(--accent-rose);
+  --color-border: var(--border-dim);
+  --color-input: var(--border-dim);
+  --color-ring: var(--accent-blue);
+
+  /* Chart colors */
+  --color-chart-1: var(--accent-blue);
+  --color-chart-2: var(--accent-teal);
+  --color-chart-3: var(--accent-purple);
+  --color-chart-4: var(--accent-amber);
+  --color-chart-5: var(--accent-rose);
+
+  /* Sidebar */
+  --color-sidebar: var(--surface-base);
+  --color-sidebar-foreground: var(--text-primary);
+  --color-sidebar-primary: var(--accent-blue);
+  --color-sidebar-primary-foreground: #ffffff;
+  --color-sidebar-accent: var(--surface-raised);
+  --color-sidebar-accent-foreground: var(--text-primary);
+  --color-sidebar-border: var(--border-dim);
+  --color-sidebar-ring: var(--accent-blue);
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+  --radius: 0.5rem;
+}
+
+:root {
+  --font-inter: Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-jetbrains-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* ============================================
+     Color Tokens - Dark Theme (Default)
+     ============================================ */
+  --deep-bg: #0a0f1a;
+  --surface-base: #111827;
+  --surface-raised: #1a2235;
+  --border-dim: #1e293b;
+  --border-medium: #2a364a;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #475569;
+
+  /* Accent Colors */
+  --accent-blue: #6366f1;
+  --accent-blue-light: #818cf8;
+  --accent-blue-dim: #312e81;
+  --accent-teal: #14b8a6;
+  --accent-amber: #f59e0b;
+  --accent-rose: #f43f5e;
+  --accent-purple: #a78bfa;
+
+  /* Status Colors */
+  --status-draft: #475569;
+  --status-active: #6366f1;
+  --status-processing: #f59e0b;
+  --status-completed: #14b8a6;
+  --status-failed: #f43f5e;
+
+  /* Gradients */
+  --gradient-sidebar: linear-gradient(180deg, #0f172a 0%, #0a0f1a 100%);
+  --gradient-card-hover: linear-gradient(135deg, rgba(99, 102, 241, 0.06) 0%, rgba(20, 184, 166, 0.04) 100%);
+  --gradient-progress: linear-gradient(90deg, #6366f1 0%, #14b8a6 100%);
+  --gradient-hero-glow: radial-gradient(ellipse at 50% 0%, rgba(99, 102, 241, 0.12) 0%, transparent 60%);
+  --gradient-glass: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%);
+
+  /* Easing */
+  --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-expo: cubic-bezier(0.19, 1, 0.22, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.6, 1);
+}
+
+/* ============================================
+   Base Styles
+   ============================================ */
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    background-color: var(--deep-bg);
+    color: var(--text-primary);
+    font-family: var(--font-inter), system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Scrollbar - Dark Theme */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--deep-bg);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-medium);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+  }
+
+  /* Firefox scrollbar */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-medium) var(--deep-bg);
+  }
+}
+
+/* ============================================
+   Animation Keyframes
+   ============================================ */
+
+@keyframes pulse-dot {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.4);
+    opacity: 0.5;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes hero-glow-pulse {
+  0%, 100% {
+    opacity: 0.15;
+  }
+  50% {
+    opacity: 0.2;
+  }
+}
+
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ============================================
+   Utility Classes
+   ============================================ */
+
+@layer utilities {
+  .animate-pulse-dot {
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+
+  .animate-shimmer {
+    animation: shimmer 1.5s linear infinite;
+  }
+
+  .animate-fade-in {
+    animation: fade-in 250ms var(--ease-out-expo) forwards;
+  }
+
+  .animate-hero-glow {
+    animation: hero-glow-pulse 8s ease-in-out infinite;
+  }
+
+  .gradient-sidebar {
+    background: var(--gradient-sidebar);
+  }
+
+  .gradient-card-hover {
+    background: var(--gradient-card-hover);
+  }
+
+  .gradient-progress {
+    background: var(--gradient-progress);
+  }
+
+  .gradient-hero-glow {
+    background: var(--gradient-hero-glow);
+  }
+
+  .gradient-glass {
+    background: var(--gradient-glass);
+  }
+
+  .glass-backdrop {
+    background: rgba(10, 15, 26, 0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  .glass-backdrop-strong {
+    background: rgba(10, 15, 26, 0.95);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+
+  .will-change-transform {
+    will-change: transform, opacity;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

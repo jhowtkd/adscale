@@ -1,0 +1,65 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import {
+  getDerivationById,
+  createDerivation,
+} from "@/server/repositories/derivation";
+import { inngest } from "@/server/jobs/client";
+
+const bodySchema = z.object({
+  feedback: z.string().optional(),
+});
+
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { workspace } = await requireWorkspaceAccess(request);
+    const { id } = await params;
+
+    const original = await getDerivationById(id, workspace.id);
+    if (!original) {
+      return NextResponse.json(
+        { error: "Derivation not found" },
+        { status: 404 }
+      );
+    }
+
+    const body = await request.json();
+    const parsed = bodySchema.safeParse(body);
+    const feedback = parsed.success ? parsed.data.feedback : undefined;
+
+    const newDerivation = await createDerivation({
+      campaignId: original.campaignId,
+      workspaceId: workspace.id,
+      planId: original.planId ?? undefined,
+      parentId: id,
+      feedback: feedback ?? undefined,
+      status: "queued",
+    });
+
+    await inngest.send({
+      name: "derivation.generate",
+      data: {
+        derivationId: newDerivation.id,
+        campaignId: original.campaignId,
+        workspaceId: workspace.id,
+      },
+    });
+
+    return NextResponse.json({ derivation: newDerivation }, { status: 201 });
+  } catch (error) {
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (error instanceof Error && error.message === "No workspace") {
+      return NextResponse.json({ error: "No workspace" }, { status: 403 });
+    }
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}

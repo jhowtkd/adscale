@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40" fill="none">
+  <!-- Geometric "A" logo formed by two overlapping triangles -->
+  <!-- Solid triangle (left) -->
+  <path d="M8 32L20 6L20 32H8Z" fill="#6366f1"/>
+  <!-- Outlined triangle (right, offset) -->
+  <path d="M20 32L32 32L20 6V32Z" fill="none" stroke="#6366f1" stroke-width="2"/>
+  <!-- Inner accent line suggesting scale/derivation -->
+  <path d="M16 24L24 24" stroke="#818cf8" stroke-width="1.5" stroke-linecap="round"/>
+</svg>
