@@ -9,7 +9,14 @@ export type AdPlatform = "Meta" | "TikTok" | "Google";
 export interface Campaign {
   id: string;
   name: string;
+  client?: string;
+  objective?: string;
+  audience?: string;
   platforms: AdPlatform[];
+  tone?: string;
+  offer?: string;
+  constraints?: string;
+  notes?: string;
   status: CampaignStatus;
   variations: number;
   creditsUsed: number;

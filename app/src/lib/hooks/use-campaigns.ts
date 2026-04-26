@@ -22,7 +22,14 @@ export interface Campaign {
 export interface UiCampaign {
   id: string;
   name: string;
+  client?: string;
+  objective?: string;
+  audience?: string;
   platforms: ("Meta" | "TikTok" | "Google")[];
+  tone?: string;
+  offer?: string;
+  constraints?: string;
+  notes?: string;
   status: Campaign["status"];
   variations: number;
   creditsUsed: number;
@@ -34,7 +41,14 @@ function toUiCampaign(c: Campaign): UiCampaign {
   return {
     id: c.id,
     name: c.name,
+    client: c.client ?? undefined,
+    objective: c.objective ?? undefined,
+    audience: c.audience ?? undefined,
     platforms: (c.platforms ?? []) as ("Meta" | "TikTok" | "Google")[],
+    tone: c.tone ?? undefined,
+    offer: c.offer ?? undefined,
+    constraints: c.constraints ?? undefined,
+    notes: c.notes ?? undefined,
     status: c.status,
     variations: 0,
     creditsUsed: 0,

@@ -102,14 +102,14 @@ const fieldVariants = {
 export default function BriefingStep({ campaign, onContinue, onSaveDraft }: BriefingStepProps) {
   const [formData, setFormData] = useState<BriefingFormData>({
     name: campaign?.name || "",
-    client: "",
-    objective: "",
-    audience: "",
+    client: campaign?.client || "",
+    objective: campaign?.objective || "",
+    audience: campaign?.audience || "",
     platforms: (campaign?.platforms as AdPlatform[]) || [],
-    tone: "",
-    offer: "",
-    constraints: "",
-    notes: "",
+    tone: campaign?.tone || "",
+    offer: campaign?.offer || "",
+    constraints: campaign?.constraints || "",
+    notes: campaign?.notes || "",
   });
 
   const [showNotes, setShowNotes] = useState(false);

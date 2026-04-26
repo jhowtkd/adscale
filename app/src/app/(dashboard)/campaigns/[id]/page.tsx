@@ -129,7 +129,14 @@ export default function CampaignWorkspacePage() {
     ? {
         id: realCampaign.id,
         name: realCampaign.name,
+        client: realCampaign.client,
+        objective: realCampaign.objective,
+        audience: realCampaign.audience,
         platforms: realCampaign.platforms as AdPlatform[],
+        tone: realCampaign.tone,
+        offer: realCampaign.offer,
+        constraints: realCampaign.constraints,
+        notes: realCampaign.notes,
         status: realCampaign.status,
         variations: realCampaign.variations,
         creditsUsed: realCampaign.creditsUsed,
@@ -282,7 +289,14 @@ export default function CampaignWorkspacePage() {
       if (campaign && !isNew) {
         updateCampaign.mutate({
           name: data.name,
+          client: data.client,
+          objective: data.objective,
+          audience: data.audience,
           platforms: data.platforms,
+          tone: data.tone,
+          offer: data.offer,
+          constraints: data.constraints,
+          notes: data.notes,
         });
       }
       addToast("success", "Briefing saved");
@@ -296,7 +310,14 @@ export default function CampaignWorkspacePage() {
       if (campaign && !isNew) {
         updateCampaign.mutate({
           name: data.name,
+          client: data.client,
+          objective: data.objective,
+          audience: data.audience,
           platforms: data.platforms,
+          tone: data.tone,
+          offer: data.offer,
+          constraints: data.constraints,
+          notes: data.notes,
           status: "draft",
         });
       }
@@ -437,6 +458,7 @@ export default function CampaignWorkspacePage() {
       case 1:
         return (
           <BriefingStep
+            key={campaign?.id ?? "new"}
             campaign={campaign}
             onContinue={handleBriefingContinue}
             onSaveDraft={handleSaveDraft}
