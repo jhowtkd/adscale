@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/api-client";
 import { useQuery } from "@tanstack/react-query";
 
 export interface DashboardData {
@@ -11,12 +12,19 @@ export interface DashboardData {
 }
 
 async function fetchDashboard(): Promise<DashboardData> {
-  const res = await fetch("/api/dashboard");
+  const res = await apiFetch("/api/dashboard");
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || "Failed to fetch dashboard");
   }
-  return res.json();
+  const data = await res.json();
+  return {
+    ...data,
+    recentActivity: (data.recentActivity ?? []).map((item: DashboardData["recentActivity"][number]) => ({
+      ...item,
+      timestamp: new Date(item.timestamp),
+    })),
+  };
 }
 
 export function useDashboard() {

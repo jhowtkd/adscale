@@ -2,7 +2,7 @@
 // ADScale - Mock Data
 // ============================================
 
-export type CampaignStatus = "draft" | "active" | "generating" | "completed" | "failed";
+export type CampaignStatus = "draft" | "active" | "generating" | "completed" | "failed" | "approved";
 
 export type AdPlatform = "Meta" | "TikTok" | "Google";
 

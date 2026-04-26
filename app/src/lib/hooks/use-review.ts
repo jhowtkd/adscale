@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/api-client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAppStore } from "@/lib/store";
 
@@ -17,7 +18,7 @@ export function useReviewDerivation(derivationId?: string) {
       if (!targetId) {
         throw new Error("No derivation ID");
       }
-      const res = await fetch(`/api/derivations/${targetId}/review`, {
+      const res = await apiFetch(`/api/derivations/${targetId}/review`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),

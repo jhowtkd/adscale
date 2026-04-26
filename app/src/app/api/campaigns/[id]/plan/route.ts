@@ -77,8 +77,7 @@ export async function POST(
     const completion = await openai.chat.completions.create({
       model: env.OPENAI_TEXT_MODEL,
       messages: [{ role: "user", content: prompt }],
-      temperature: 0.7,
-      max_tokens: 2048,
+      max_completion_tokens: 2048,
     });
 
     const rawContent = completion.choices[0]?.message?.content;

@@ -1,5 +1,4 @@
 import {
-  pgTable,
   text,
   timestamp,
   boolean,
@@ -8,13 +7,16 @@ import {
   jsonb,
   index,
   foreignKey,
+  pgSchema,
 } from "drizzle-orm/pg-core";
+
+export const adscaleSchema = pgSchema("adscale_app");
 
 // ============================================
 // Better Auth tables
 // ============================================
 
-export const user = pgTable("user", {
+export const user = adscaleSchema.table("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
@@ -24,7 +26,7 @@ export const user = pgTable("user", {
   updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
 });
 
-export const session = pgTable(
+export const session = adscaleSchema.table(
   "session",
   {
     id: text("id").primaryKey(),
@@ -41,7 +43,7 @@ export const session = pgTable(
   (table) => [index("session_user_id_idx").on(table.userId)]
 );
 
-export const account = pgTable(
+export const account = adscaleSchema.table(
   "account",
   {
     id: text("id").primaryKey(),
@@ -67,7 +69,7 @@ export const account = pgTable(
   (table) => [index("account_user_id_idx").on(table.userId)]
 );
 
-export const verification = pgTable("verification", {
+export const verification = adscaleSchema.table("verification", {
   id: text("id").primaryKey(),
   identifier: text("identifier").notNull(),
   value: text("value").notNull(),
@@ -80,7 +82,7 @@ export const verification = pgTable("verification", {
 // App tables
 // ============================================
 
-export const workspaces = pgTable("workspaces", {
+export const workspaces = adscaleSchema.table("workspaces", {
   id: uuid("id")
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
@@ -90,7 +92,7 @@ export const workspaces = pgTable("workspaces", {
   updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
 });
 
-export const workspaceMembers = pgTable(
+export const workspaceMembers = adscaleSchema.table(
   "workspace_members",
   {
     id: uuid("id")
@@ -111,7 +113,7 @@ export const workspaceMembers = pgTable(
   ]
 );
 
-export const campaigns = pgTable(
+export const campaigns = adscaleSchema.table(
   "campaigns",
   {
     id: uuid("id")
@@ -137,7 +139,7 @@ export const campaigns = pgTable(
   (table) => [index("campaigns_workspace_id_idx").on(table.workspaceId)]
 );
 
-export const campaignAssets = pgTable(
+export const campaignAssets = adscaleSchema.table(
   "campaign_assets",
   {
     id: uuid("id")
@@ -162,7 +164,7 @@ export const campaignAssets = pgTable(
   ]
 );
 
-export const creativePlans = pgTable(
+export const creativePlans = adscaleSchema.table(
   "creative_plans",
   {
     id: uuid("id")
@@ -188,7 +190,7 @@ export const creativePlans = pgTable(
   ]
 );
 
-export const derivations = pgTable(
+export const derivations = adscaleSchema.table(
   "derivations",
   {
     id: uuid("id")
@@ -223,7 +225,7 @@ export const derivations = pgTable(
   ]
 );
 
-export const usageEvents = pgTable(
+export const usageEvents = adscaleSchema.table(
   "usage_events",
   {
     id: uuid("id")
@@ -240,7 +242,7 @@ export const usageEvents = pgTable(
   (table) => [index("usage_events_workspace_id_idx").on(table.workspaceId)]
 );
 
-export const activityEvents = pgTable(
+export const activityEvents = adscaleSchema.table(
   "activity_events",
   {
     id: uuid("id")
@@ -262,7 +264,7 @@ export const activityEvents = pgTable(
   ]
 );
 
-export const exports = pgTable(
+export const exports = adscaleSchema.table(
   "exports",
   {
     id: uuid("id")

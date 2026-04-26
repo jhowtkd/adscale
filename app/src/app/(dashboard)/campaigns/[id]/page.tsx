@@ -153,6 +153,19 @@ export default function CampaignWorkspacePage() {
   const [currentStep, setCurrentStep] = useState<WizardStep>(1);
   const [direction, setDirection] = useState(1);
   const [planApproved, setPlanApproved] = useState(false);
+  const [hasSetInitialStep, setHasSetInitialStep] = useState(false);
+
+  // Auto-set initial step based on campaign progress
+  useEffect(() => {
+    if (hasSetInitialStep || isLoading || isNew) return;
+    if (derivationsData && derivationsData.length > 0) {
+      setCurrentStep(4);
+      setHasSetInitialStep(true);
+    } else if (planData) {
+      setCurrentStep(3);
+      setHasSetInitialStep(true);
+    }
+  }, [hasSetInitialStep, isLoading, isNew, derivationsData, planData]);
 
   // Auto-generate plan when entering step 3 if no plan exists
   useEffect(() => {

@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/api-client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAppStore } from "@/lib/store";
 
@@ -11,7 +12,7 @@ export function useRegenerateDerivation(derivationId?: string) {
       if (!targetId) {
         throw new Error("No derivation ID");
       }
-      const res = await fetch(`/api/derivations/${targetId}/regenerate`, {
+      const res = await apiFetch(`/api/derivations/${targetId}/regenerate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ feedback: payload?.feedback }),

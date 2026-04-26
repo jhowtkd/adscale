@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@/lib/store";
-import type { AdPlatform } from "@/lib/mock-data";
+import type { AdPlatform, CampaignStatus } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -337,7 +337,7 @@ export default function CampaignsListPage() {
     (data: {
       name: string;
       platforms: AdPlatform[];
-      status: "draft" | "active" | "generating" | "completed" | "failed";
+      status: CampaignStatus;
       variations: number;
       creditsUsed: number;
     }) => {

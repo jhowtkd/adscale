@@ -31,7 +31,7 @@ export async function POST(
 
     const body = await request.json();
     const parsed = createDerivationsSchema.safeParse(body);
-    const count = parsed.success ? (parsed.data.count ?? 3) : 3;
+    const count = parsed.success ? (parsed.data.count ?? 1) : 1;
 
     const plan = await getPlanByCampaign(campaignId, workspace.id);
 

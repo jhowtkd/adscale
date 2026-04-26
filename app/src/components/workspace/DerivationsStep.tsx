@@ -59,7 +59,7 @@ export default function DerivationsStep({
         filtered.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
         break;
       case "status":
-        const order = { completed: 0, generating: 1, queued: 2, failed: 3, draft: 4, active: 5 };
+        const order = { completed: 0, approved: 0, generating: 1, queued: 2, failed: 3, draft: 4, active: 5 };
         filtered.sort((a, b) => (order[a.status] ?? 99) - (order[b.status] ?? 99));
         break;
       default:

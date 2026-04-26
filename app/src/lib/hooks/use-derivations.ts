@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/api-client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export interface Derivation {
@@ -17,20 +18,24 @@ export interface Derivation {
 }
 
 async function fetchDerivations(campaignId: string): Promise<Derivation[]> {
-  const res = await fetch(`/api/campaigns/${campaignId}/derivations`);
+  const res = await apiFetch(`/api/campaigns/${campaignId}/derivations`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || "Failed to fetch derivations");
   }
   const data = await res.json();
-  return data.derivations as Derivation[];
+  return (data.derivations as Derivation[]).map((d) => ({
+    ...d,
+    createdAt: new Date(d.createdAt),
+    updatedAt: new Date(d.updatedAt),
+  }));
 }
 
 async function createDerivations(
   campaignId: string,
   count?: number
 ): Promise<Derivation[]> {
-  const res = await fetch(`/api/campaigns/${campaignId}/derivations`, {
+  const res = await apiFetch(`/api/campaigns/${campaignId}/derivations`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ count }),

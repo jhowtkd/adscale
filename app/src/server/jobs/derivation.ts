@@ -9,15 +9,10 @@ import { getAssetsByCampaign } from "../repositories/asset";
 import { getPlanByCampaign } from "../repositories/plan";
 import { getDerivationById } from "../repositories/derivation";
 import { trackUsage } from "../repositories/usage";
-import OpenAI from "openai";
+import OpenAI, { toFile } from "openai";
 import { env } from "../validation/env";
 
 const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
-
-function bufferToBase64DataUri(buffer: Buffer, mimeType: string): string {
-  const base64 = buffer.toString("base64");
-  return `data:${mimeType};base64,${base64}`;
-}
 
 export const derivationJob = inngest.createFunction(
   { id: "generate-derivation", retries: 2 },
@@ -57,11 +52,13 @@ export const derivationJob = inngest.createFunction(
       );
 
       // 3. Download input image (if asset exists)
-      let referenceImage: string | undefined;
+      let referenceImage: Awaited<ReturnType<typeof toFile>> | undefined;
       if (asset) {
         await step.run("download-asset", async () => {
           const buffer = await downloadBuffer(asset.key);
-          referenceImage = bufferToBase64DataUri(buffer, asset.type);
+          referenceImage = await toFile(buffer, "reference-image", {
+            type: asset.type,
+          });
           return { assetKey: asset.key, size: buffer.length };
         });
       }
@@ -70,19 +67,27 @@ export const derivationJob = inngest.createFunction(
       const result = await step.run("generate-image", async () => {
         const prompt = buildDerivationPrompt(plan, asset, derivation.feedback);
 
-        const request: OpenAI.Images.ImageGenerateParams = {
+        if (referenceImage) {
+          const response = await openai.images.edit({
+            model: env.OPENAI_IMAGE_MODEL,
+            image: referenceImage,
+            prompt,
+            n: 1,
+            size: "1024x1024",
+          });
+          const first = response.data?.[0];
+          if (!first) {
+            throw new Error("No image data returned from OpenAI");
+          }
+          return first;
+        }
+
+        const response = await openai.images.generate({
           model: env.OPENAI_IMAGE_MODEL,
           prompt,
           n: 1,
           size: "1024x1024",
-        };
-
-        // Include reference image if available
-        if (referenceImage) {
-          (request as unknown as Record<string, unknown>).image = [referenceImage];
-        }
-
-        const response = await openai.images.generate(request);
+        });
         const first = response.data?.[0];
         if (!first) {
           throw new Error("No image data returned from OpenAI");
@@ -92,16 +97,20 @@ export const derivationJob = inngest.createFunction(
 
       // 5. Upload output to R2
       const outputKey = await step.run("store-output", async () => {
-        if (!result.url) {
-          throw new Error("No image URL returned");
+        let buffer: Buffer;
+        if (result.b64_json) {
+          buffer = Buffer.from(result.b64_json, "base64");
+        } else if (result.url) {
+          const imageResponse = await fetch(result.url);
+          if (!imageResponse.ok) {
+            throw new Error(
+              `Failed to download generated image: ${imageResponse.status} ${imageResponse.statusText}`
+            );
+          }
+          buffer = Buffer.from(await imageResponse.arrayBuffer());
+        } else {
+          throw new Error("No image data returned");
         }
-        const imageResponse = await fetch(result.url);
-        if (!imageResponse.ok) {
-          throw new Error(
-            `Failed to download generated image: ${imageResponse.status} ${imageResponse.statusText}`
-          );
-        }
-        const buffer = Buffer.from(await imageResponse.arrayBuffer());
         const key = `derivations/${derivationId}/${Date.now()}.png`;
         await uploadBuffer(key, buffer, "image/png");
         return key;

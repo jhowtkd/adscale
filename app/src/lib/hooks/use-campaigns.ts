@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/api-client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export interface Campaign {
@@ -43,23 +44,32 @@ function toUiCampaign(c: Campaign): UiCampaign {
 }
 
 async function fetchCampaigns(): Promise<Campaign[]> {
-  const res = await fetch("/api/campaigns");
+  const res = await apiFetch("/api/campaigns");
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || "Failed to fetch campaigns");
   }
   const data = await res.json();
-  return data.campaigns;
+  return data.campaigns.map((c: Campaign) => ({
+    ...c,
+    createdAt: new Date(c.createdAt),
+    updatedAt: new Date(c.updatedAt),
+  }));
 }
 
 async function fetchCampaign(id: string): Promise<Campaign> {
-  const res = await fetch(`/api/campaigns/${id}`);
+  const res = await apiFetch(`/api/campaigns/${id}`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || "Failed to fetch campaign");
   }
   const data = await res.json();
-  return data.campaign;
+  const c = data.campaign as Campaign;
+  return {
+    ...c,
+    createdAt: new Date(c.createdAt),
+    updatedAt: new Date(c.updatedAt),
+  };
 }
 
 async function createCampaign(payload: {
@@ -74,7 +84,7 @@ async function createCampaign(payload: {
   constraints?: string;
   notes?: string;
 }): Promise<Campaign> {
-  const res = await fetch("/api/campaigns", {
+  const res = await apiFetch("/api/campaigns", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -84,14 +94,19 @@ async function createCampaign(payload: {
     throw new Error(err.error || "Failed to create campaign");
   }
   const data = await res.json();
-  return data.campaign;
+  const c = data.campaign as Campaign;
+  return {
+    ...c,
+    createdAt: new Date(c.createdAt),
+    updatedAt: new Date(c.updatedAt),
+  };
 }
 
 async function updateCampaign(
   id: string,
   payload: Partial<Campaign>
 ): Promise<Campaign> {
-  const res = await fetch(`/api/campaigns/${id}`, {
+  const res = await apiFetch(`/api/campaigns/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -101,11 +116,16 @@ async function updateCampaign(
     throw new Error(err.error || "Failed to update campaign");
   }
   const data = await res.json();
-  return data.campaign;
+  const c = data.campaign as Campaign;
+  return {
+    ...c,
+    createdAt: new Date(c.createdAt),
+    updatedAt: new Date(c.updatedAt),
+  };
 }
 
 async function deleteCampaign(id: string): Promise<void> {
-  const res = await fetch(`/api/campaigns/${id}`, {
+  const res = await apiFetch(`/api/campaigns/${id}`, {
     method: "DELETE",
   });
   if (!res.ok) {

@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/api-client";
 import { useMutation } from "@tanstack/react-query";
 import { useAppStore } from "@/lib/store";
 
@@ -18,7 +19,7 @@ export function useExport() {
 
   return useMutation<ExportResponse, Error, ExportPayload>({
     mutationFn: async (payload) => {
-      const res = await fetch("/api/exports", {
+      const res = await apiFetch("/api/exports", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

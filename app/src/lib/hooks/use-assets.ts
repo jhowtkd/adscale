@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/api-client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 export interface Asset {
@@ -29,7 +30,7 @@ async function getPresignedUrl(
   campaignId: string,
   file: File
 ): Promise<PresignResponse> {
-  const res = await fetch(`/api/campaigns/${campaignId}/assets/presign`, {
+  const res = await apiFetch(`/api/campaigns/${campaignId}/assets/presign`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -63,7 +64,7 @@ async function completeUpload(
   campaignId: string,
   payload: CompletePayload
 ): Promise<Asset> {
-  const res = await fetch(`/api/campaigns/${campaignId}/assets/complete`, {
+  const res = await apiFetch(`/api/campaigns/${campaignId}/assets/complete`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -73,7 +74,11 @@ async function completeUpload(
     throw new Error(err.error || "Failed to save asset");
   }
   const data = await res.json();
-  return data.asset;
+  const a = data.asset as Asset;
+  return {
+    ...a,
+    createdAt: new Date(a.createdAt),
+  };
 }
 
 export function useUploadAsset(campaignId: string) {

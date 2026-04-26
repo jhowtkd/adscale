@@ -37,6 +37,12 @@ const statusConfig: Record<
     bgColor: "rgba(20,184,166,0.15)",
     textColor: "#2dd4bf",
   },
+  approved: {
+    label: "Approved",
+    dotColor: "#10b981",
+    bgColor: "rgba(16,185,129,0.15)",
+    textColor: "#34d399",
+  },
   failed: {
     label: "Failed",
     dotColor: "#f43f5e",

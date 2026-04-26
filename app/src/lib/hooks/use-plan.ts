@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/api-client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export interface Plan {
@@ -14,7 +15,7 @@ export interface Plan {
 }
 
 async function fetchPlan(campaignId: string): Promise<Plan | null> {
-  const res = await fetch(`/api/campaigns/${campaignId}/plan`);
+  const res = await apiFetch(`/api/campaigns/${campaignId}/plan`);
   if (res.status === 404) {
     return null;
   }
@@ -23,11 +24,16 @@ async function fetchPlan(campaignId: string): Promise<Plan | null> {
     throw new Error(err.error || "Failed to fetch plan");
   }
   const data = await res.json();
-  return data.plan as Plan;
+  const p = data.plan as Plan;
+  return {
+    ...p,
+    createdAt: new Date(p.createdAt),
+    updatedAt: new Date(p.updatedAt),
+  };
 }
 
 async function generatePlan(campaignId: string): Promise<Plan> {
-  const res = await fetch(`/api/campaigns/${campaignId}/plan`, {
+  const res = await apiFetch(`/api/campaigns/${campaignId}/plan`, {
     method: "POST",
   });
   if (!res.ok) {
@@ -35,14 +41,19 @@ async function generatePlan(campaignId: string): Promise<Plan> {
     throw new Error(err.error || "Failed to generate plan");
   }
   const data = await res.json();
-  return data.plan as Plan;
+  const p = data.plan as Plan;
+  return {
+    ...p,
+    createdAt: new Date(p.createdAt),
+    updatedAt: new Date(p.updatedAt),
+  };
 }
 
 async function updatePlanStatus(
   campaignId: string,
   status: "approved" | "rejected"
 ): Promise<Plan> {
-  const res = await fetch(`/api/campaigns/${campaignId}/plan`, {
+  const res = await apiFetch(`/api/campaigns/${campaignId}/plan`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ status }),
@@ -52,7 +63,12 @@ async function updatePlanStatus(
     throw new Error(err.error || "Failed to update plan status");
   }
   const data = await res.json();
-  return data.plan as Plan;
+  const p = data.plan as Plan;
+  return {
+    ...p,
+    createdAt: new Date(p.createdAt),
+    updatedAt: new Date(p.updatedAt),
+  };
 }
 
 export function usePlan(campaignId: string) {
