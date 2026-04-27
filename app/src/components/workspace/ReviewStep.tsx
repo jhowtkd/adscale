@@ -15,9 +15,6 @@ import StatusBadge from "@/components/ui/StatusBadge";
 import ComparisonView from "./ComparisonView";
 import type { Derivation } from "@/lib/mock-data";
 import { platformColors } from "@/lib/mock-data";
-import { useReviewDerivation } from "@/lib/hooks/use-review";
-import { useRegenerateDerivation } from "@/lib/hooks/use-regenerate";
-import { useExport } from "@/lib/hooks/use-export";
 
 // ============================================
 // Types
@@ -30,6 +27,10 @@ interface ReviewStepProps {
   onRegenerate?: (id: string, feedback: string) => void;
   onDownload?: (id: string, format: string) => void;
   onExportAll?: (format: string) => void;
+  approvingId?: string | null;
+  rejectingId?: string | null;
+  regeneratingId?: string | null;
+  downloadingId?: string | null;
   isExporting?: boolean;
 }
 
@@ -44,6 +45,10 @@ export default function ReviewStep({
   onRegenerate,
   onDownload,
   onExportAll,
+  approvingId,
+  rejectingId,
+  regeneratingId,
+  downloadingId,
   isExporting: isExportingProp,
 }: ReviewStepProps) {
   const [selectedDerivationId, setSelectedDerivationId] = useState<string | null>(null);
@@ -51,10 +56,6 @@ export default function ReviewStep({
   const [rejectedIds, setRejectedIds] = useState<Set<string>>(new Set());
   const [exportFormat, setExportFormat] = useState("png");
   const [showComparison, setShowComparison] = useState(false);
-
-  const reviewMutation = useReviewDerivation();
-  const regenerateMutation = useRegenerateDerivation();
-  const exportMutation = useExport();
 
   // Filter only completed derivations for review
   const reviewableDerivations = derivations.filter((d) => d.status === "completed");
@@ -65,7 +66,7 @@ export default function ReviewStep({
   const selectedDerivation =
     reviewableDerivations.find((d) => d.id === selectedDerivationId) || null;
 
-  const isExporting = isExportingProp ?? (exportMutation.isPending && exportMutation.variables?.type === "batch");
+  const isExporting = isExportingProp ?? false;
 
   const handleApprove = (id: string) => {
     setReviewedIds((prev) => new Set([...prev, id]));
@@ -74,7 +75,6 @@ export default function ReviewStep({
       next.delete(id);
       return next;
     });
-    reviewMutation.mutate({ id, status: "approved" });
     onApprove?.(id);
   };
 
@@ -85,17 +85,14 @@ export default function ReviewStep({
       next.delete(id);
       return next;
     });
-    reviewMutation.mutate({ id, status: "rejected" });
     onReject?.(id, _reason);
   };
 
   const handleRegenerate = (id: string, feedback: string) => {
-    regenerateMutation.mutate({ id, feedback });
     onRegenerate?.(id, feedback);
   };
 
   const handleDownload = (id: string, format: string) => {
-    exportMutation.mutate({ type: "individual", derivationId: id, format: format as "png" | "jpeg" | "webp" });
     onDownload?.(id, format);
   };
 
@@ -126,24 +123,10 @@ export default function ReviewStep({
     return "border-[var(--border-dim)]";
   };
 
-  const isApprovingSelected =
-    reviewMutation.isPending &&
-    reviewMutation.variables?.status === "approved" &&
-    reviewMutation.variables?.id === selectedDerivationId;
-
-  const isRejectingSelected =
-    reviewMutation.isPending &&
-    reviewMutation.variables?.status === "rejected" &&
-    reviewMutation.variables?.id === selectedDerivationId;
-
-  const isRegeneratingSelected =
-    regenerateMutation.isPending &&
-    regenerateMutation.variables?.id === selectedDerivationId;
-
-  const isDownloadingSelected =
-    exportMutation.isPending &&
-    exportMutation.variables?.type === "individual" &&
-    exportMutation.variables?.derivationId === selectedDerivationId;
+  const isApprovingSelected = approvingId === selectedDerivationId;
+  const isRejectingSelected = rejectingId === selectedDerivationId;
+  const isRegeneratingSelected = regeneratingId === selectedDerivationId;
+  const isDownloadingSelected = downloadingId === selectedDerivationId;
 
   return (
     <div className="space-y-6">
@@ -372,10 +355,10 @@ export default function ReviewStep({
                         e.stopPropagation();
                         handleApprove(derivation.id);
                       }}
-                      disabled={reviewMutation.isPending && reviewMutation.variables?.id === derivation.id}
+                      disabled={approvingId === derivation.id}
                       className="w-10 h-10 rounded-full bg-[var(--accent-teal)] flex items-center justify-center text-white shadow-lg hover:bg-[var(--accent-teal)]/90 transition-colors disabled:opacity-60"
                     >
-                      {reviewMutation.isPending && reviewMutation.variables?.id === derivation.id && reviewMutation.variables?.status === "approved" ? (
+                      {approvingId === derivation.id ? (
                         <motion.div
                           animate={{ rotate: 360 }}
                           transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
@@ -393,10 +376,10 @@ export default function ReviewStep({
                         e.stopPropagation();
                         handleReject(derivation.id, "");
                       }}
-                      disabled={reviewMutation.isPending && reviewMutation.variables?.id === derivation.id}
+                      disabled={rejectingId === derivation.id}
                       className="w-10 h-10 rounded-full bg-[var(--accent-rose)] flex items-center justify-center text-white shadow-lg hover:bg-[var(--accent-rose)]/90 transition-colors disabled:opacity-60"
                     >
-                      {reviewMutation.isPending && reviewMutation.variables?.id === derivation.id && reviewMutation.variables?.status === "rejected" ? (
+                      {rejectingId === derivation.id ? (
                         <motion.div
                           animate={{ rotate: 360 }}
                           transition={{ duration: 1, repeat: Infinity, ease: "linear" }}

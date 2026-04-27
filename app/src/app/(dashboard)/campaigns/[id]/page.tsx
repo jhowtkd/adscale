@@ -497,6 +497,24 @@ export default function CampaignWorkspacePage() {
             onRegenerate={handleRegenerateWithFeedback}
             onDownload={handleExportDerivation}
             onExportAll={handleExportAll}
+            approvingId={
+              reviewMutation.isPending && reviewMutation.variables?.status === "approved"
+                ? reviewMutation.variables.id
+                : null
+            }
+            rejectingId={
+              reviewMutation.isPending && reviewMutation.variables?.status === "rejected"
+                ? reviewMutation.variables.id
+                : null
+            }
+            regeneratingId={
+              regenerateMutation.isPending ? regenerateMutation.variables?.id ?? null : null
+            }
+            downloadingId={
+              exportMutation.isPending && exportMutation.variables?.type === "individual"
+                ? exportMutation.variables.derivationId ?? null
+                : null
+            }
             isExporting={exportMutation.isPending && exportMutation.variables?.type === "batch"}
           />
         );
