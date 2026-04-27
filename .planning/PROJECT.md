@@ -49,13 +49,7 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ### Active
 
-- **I18N-01**: User can switch between PT-BR and EN via language switcher — v2.0
-- **I18N-02**: All UI labels, buttons, and messages are translated based on selected language — v2.0
-- **I18N-03**: AI-generated creative plans are produced in the user's selected language — v2.0
-- **I18N-04**: Derivation prompts and outputs respect the campaign's language setting — v2.0
-- **I18N-05**: User language preference is persisted (DB + cookie) across sessions — v2.0
-- **I18N-06**: Browser language detection sets default on first visit — v2.0
-- **I18N-07**: Validation errors and API messages are localized — v2.0
+(None — all v2.0 requirements shipped)
 
 ### Out of Scope
 
@@ -69,7 +63,7 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Context
 
-Current state: v1.0 MVP is live with real backend (Drizzle, Neon, Better Auth, Inngest, OpenAI, R2). Next milestone targets public launch in Brazil — full i18n with PT-BR as primary language, English as secondary. All AI-generated outputs (plans, derivations) must adapt to user's language preference.
+Current state: v2.0 complete. App is fully localized for PT-BR with English secondary. AI-generated plans and derivations respect user locale. Ready for public launch in Brazil.
 
 Key stack decisions:
 - Next.js App Router, React, TypeScript, Tailwind, shadcn/ui
@@ -86,8 +80,8 @@ Key stack decisions:
 - **Tech stack**: Stack chosen in `plan.md` is locked. No migration debates.
 - **Image model**: `OPENAI_IMAGE_MODEL=gpt-image-2-2026-04-21`. No silent fallback. If API rejects, show clear config error.
 - **Security**: Do not hardcode API keys. Do not commit `.env`. Validate input, file type, size and workspace access at boundaries.
-- **Timeline**: i18n milestone must fit in 4-5 phases. PT-BR is the launch language; EN is secondary for future expansion.
-- **Language model behavior**: Plan and derivation prompts must include the target language instruction. No silent fallback to English.
+- **Timeline**: v2.0 i18n complete in 4 phases. Ready for v3 planning.
+- **Language model behavior**: Plan and derivation prompts include the target language instruction. No silent fallback to English.
 
 ## Key Decisions
 

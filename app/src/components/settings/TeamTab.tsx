@@ -1,9 +1,10 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Users, UserPlus, Shield, Edit, Eye } from "lucide-react";
+import { UserPlus, Edit } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";
+import { useTranslations } from "next-intl";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -76,8 +77,17 @@ const roleConfig: Record<
   Viewer: { color: "var(--text-muted)", bg: "rgba(71,85,105,0.12)" },
 };
 
+const roleKeyMap: Record<TeamMember["role"], string> = {
+  Owner: "Owner",
+  Admin: "Admin",
+  Editor: "roleEditor",
+  Viewer: "roleViewer",
+};
+
 export default function TeamTab() {
   const addToast = useAppStore((s) => s.addToast);
+  const t = useTranslations("settings");
+  const tc = useTranslations("common");
 
   return (
     <motion.div
@@ -90,14 +100,14 @@ export default function TeamTab() {
       <motion.div variants={itemVariants} className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h3 className="text-[15px] font-semibold text-[var(--text-primary)]">
-            Team Members
+            {t("teamMembers")}
           </h3>
           <span className="text-xs text-[var(--text-muted)]">
-            {members.length} members
+            {t("membersCount", { count: members.length })}
           </span>
         </div>
         <button
-          onClick={() => addToast("info", "Team invites coming soon")}
+          onClick={() => addToast("info", tc("teamInvitesComingSoon"))}
           className={cn(
             "h-9 px-4 rounded-md text-sm font-medium text-white flex items-center gap-2",
             "bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-light)]",
@@ -106,7 +116,7 @@ export default function TeamTab() {
           )}
         >
           <UserPlus size={16} />
-          <span>Invite</span>
+          <span>{t("invite")}</span>
         </button>
       </motion.div>
 
@@ -155,7 +165,7 @@ export default function TeamTab() {
                 backgroundColor: roleConfig[member.role].bg,
               }}
             >
-              {member.role}
+              {t(roleKeyMap[member.role])}
             </span>
 
             {/* Status */}
@@ -174,7 +184,7 @@ export default function TeamTab() {
             {member.role !== "Owner" && (
               <div className="flex items-center gap-1 flex-shrink-0">
                 <button
-                  onClick={() => addToast("info", "Role management coming soon")}
+                  onClick={() => addToast("info", tc("roleManagementComingSoon"))}
                   className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[rgba(255,255,255,0.04)] transition-all"
                 >
                   <Edit size={14} />
@@ -194,12 +204,12 @@ export default function TeamTab() {
         )}
       >
         <h3 className="text-[15px] font-semibold text-[var(--text-primary)] mb-4">
-          Invite Team Members
+          {t("inviteTeamMembers")}
         </h3>
         <div className="flex items-center gap-3">
           <input
             type="text"
-            placeholder="colleague@company.com"
+            placeholder={t("team.invitePlaceholder")}
             className={cn(
               "flex-1 h-10 rounded-md border px-3 text-sm",
               "bg-[var(--surface-base)] text-[var(--text-primary)]",
@@ -217,12 +227,12 @@ export default function TeamTab() {
               "appearance-none cursor-pointer"
             )}
           >
-            <option>Editor</option>
-            <option>Admin</option>
-            <option>Viewer</option>
+            <option>{t("roleEditor")}</option>
+            <option>{t("roleAdmin")}</option>
+            <option>{t("roleViewer")}</option>
           </select>
           <button
-            onClick={() => addToast("info", "Invites coming soon")}
+            onClick={() => addToast("info", tc("invitesComingSoon"))}
             className={cn(
               "h-10 px-4 rounded-md text-sm font-medium text-white",
               "bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-light)]",
@@ -230,11 +240,11 @@ export default function TeamTab() {
               "transition-all duration-200"
             )}
           >
-            Send Invite
+            {t("sendInvite")}
           </button>
         </div>
         <p className="mt-2 text-xs text-[var(--text-muted)]">
-          Invited members will receive an email with a join link
+          {t("inviteEmailNote")}
         </p>
       </motion.div>
     </motion.div>
