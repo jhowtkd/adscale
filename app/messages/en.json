@@ -1,0 +1,109 @@
+{
+  "metadata": {
+    "title": "ADScale — AI-Powered Ad Creative Derivation",
+    "description": "Transform a single base creative into dozens of A/B test-ready variations for Meta Ads, TikTok, and Google Ads."
+  },
+  "navigation": {
+    "dashboard": "Dashboard",
+    "campaigns": "Campaigns",
+    "settings": "Settings",
+    "logout": "Logout",
+    "login": "Login",
+    "signup": "Sign up"
+  },
+  "language": {
+    "label": "Language",
+    "pt-BR": "Português (Brasil)",
+    "en": "English"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "submit": "Submit",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "close": "Close",
+    "continue": "Continue",
+    "back": "Back",
+    "next": "Next",
+    "approve": "Approve",
+    "reject": "Reject",
+    "retry": "Retry",
+    "download": "Download",
+    "preview": "Preview",
+    "generate": "Generate",
+    "regenerate": "Regenerate",
+    "export": "Export"
+  },
+  "campaign": {
+    "new": "New campaign",
+    "name": "Campaign name",
+    "client": "Client",
+    "product": "Product",
+    "objective": "Objective",
+    "audience": "Target audience",
+    "platforms": "Platforms",
+    "tone": "Tone of voice",
+    "offer": "Offer",
+    "constraints": "Constraints",
+    "notes": "Notes",
+    "brief": "Brief",
+    "plan": "Creative plan",
+    "derivations": "Derivations",
+    "review": "Review",
+    "status": {
+      "draft": "Draft",
+      "active": "Active",
+      "generating": "Generating",
+      "completed": "Completed",
+      "approved": "Approved",
+      "failed": "Failed"
+    }
+  },
+  "derivation": {
+    "title": "Derivations",
+    "queued": "Queued",
+    "processing": "Processing",
+    "completed": "Completed",
+    "failed": "Failed",
+    "generating": "Generating variations...",
+    "generateMore": "Generate more",
+    "noDerivations": "No derivations found",
+    "variation": "Variation"
+  },
+  "plan": {
+    "title": "Creative Plan",
+    "strategy": "Strategy",
+    "angles": "Creative angles",
+    "hooks": "Hooks",
+    "ctas": "CTAs",
+    "approvePlan": "Approve plan",
+    "generateDerivations": "Generate derivations"
+  },
+  "upload": {
+    "title": "Upload creative",
+    "dropzone": "Drag and drop or click to upload",
+    "supportedFormats": "PNG, JPEG, WebP up to 20MB",
+    "uploading": "Uploading..."
+  },
+  "auth": {
+    "email": "Email",
+    "password": "Password",
+    "confirmPassword": "Confirm password",
+    "forgotPassword": "Forgot password?",
+    "noAccount": "Don't have an account?",
+    "hasAccount": "Already have an account?"
+  },
+  "errors": {
+    "generic": "Something went wrong. Please try again.",
+    "unauthorized": "Unauthorized access",
+    "notFound": "Not found",
+    "validation": "Please check the fields and try again.",
+    "uploadFailed": "Upload failed. Please try again.",
+    "generationFailed": "Generation failed. Please try again."
+  }
+}

@@ -1,16 +1,14 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import type { CampaignStatus } from "@/lib/mock-data";
-
 interface StatusBadgeProps {
-  status: CampaignStatus;
+  status: string;
   showDot?: boolean;
   className?: string;
 }
 
 const statusConfig: Record<
-  CampaignStatus,
+  string,
   { label: string; dotColor: string; bgColor: string; textColor: string }
 > = {
   draft: {
@@ -56,7 +54,12 @@ export default function StatusBadge({
   showDot = true,
   className,
 }: StatusBadgeProps) {
-  const config = statusConfig[status];
+  const config = statusConfig[status] ?? {
+    label: status,
+    dotColor: "#94a3b8",
+    bgColor: "rgba(148,163,184,0.15)",
+    textColor: "#94a3b8",
+  };
 
   return (
     <span
@@ -73,7 +76,7 @@ export default function StatusBadge({
         <span
           className={cn(
             "inline-block h-1.5 w-1.5 rounded-full",
-            status === "generating" && "animate-pulse-dot"
+            (status === "generating" || status === "processing" || status === "queued") && "animate-pulse-dot"
           )}
           style={{ backgroundColor: config.dotColor }}
         />

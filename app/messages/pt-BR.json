@@ -1,0 +1,109 @@
+{
+  "metadata": {
+    "title": "ADScale — Derivação Criativa com IA",
+    "description": "Transforme uma única peça criativa em dezenas de variações prontas para teste A/B no Meta Ads, TikTok e Google Ads."
+  },
+  "navigation": {
+    "dashboard": "Dashboard",
+    "campaigns": "Campanhas",
+    "settings": "Configurações",
+    "logout": "Sair",
+    "login": "Entrar",
+    "signup": "Criar conta"
+  },
+  "language": {
+    "label": "Idioma",
+    "pt-BR": "Português (Brasil)",
+    "en": "English"
+  },
+  "common": {
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "delete": "Excluir",
+    "edit": "Editar",
+    "create": "Criar",
+    "submit": "Enviar",
+    "loading": "Carregando...",
+    "error": "Erro",
+    "success": "Sucesso",
+    "close": "Fechar",
+    "continue": "Continuar",
+    "back": "Voltar",
+    "next": "Próximo",
+    "approve": "Aprovar",
+    "reject": "Rejeitar",
+    "retry": "Tentar novamente",
+    "download": "Baixar",
+    "preview": "Visualizar",
+    "generate": "Gerar",
+    "regenerate": "Regenerar",
+    "export": "Exportar"
+  },
+  "campaign": {
+    "new": "Nova campanha",
+    "name": "Nome da campanha",
+    "client": "Cliente",
+    "product": "Produto",
+    "objective": "Objetivo",
+    "audience": "Público-alvo",
+    "platforms": "Plataformas",
+    "tone": "Tom de voz",
+    "offer": "Oferta",
+    "constraints": "Restrições",
+    "notes": "Observações",
+    "brief": "Briefing",
+    "plan": "Plano criativo",
+    "derivations": "Derivações",
+    "review": "Revisão",
+    "status": {
+      "draft": "Rascunho",
+      "active": "Ativa",
+      "generating": "Gerando",
+      "completed": "Concluída",
+      "approved": "Aprovada",
+      "failed": "Falhou"
+    }
+  },
+  "derivation": {
+    "title": "Derivações",
+    "queued": "Na fila",
+    "processing": "Processando",
+    "completed": "Concluída",
+    "failed": "Falhou",
+    "generating": "Gerando variações...",
+    "generateMore": "Gerar mais",
+    "noDerivations": "Nenhuma derivação encontrada",
+    "variation": "Variação"
+  },
+  "plan": {
+    "title": "Plano Criativo",
+    "strategy": "Estratégia",
+    "angles": "Ângulos criativos",
+    "hooks": "Ganchos",
+    "ctas": "CTAs",
+    "approvePlan": "Aprovar plano",
+    "generateDerivations": "Gerar derivações"
+  },
+  "upload": {
+    "title": "Upload de criativo",
+    "dropzone": "Arraste e solte ou clique para fazer upload",
+    "supportedFormats": "PNG, JPEG, WebP até 20MB",
+    "uploading": "Enviando..."
+  },
+  "auth": {
+    "email": "E-mail",
+    "password": "Senha",
+    "confirmPassword": "Confirmar senha",
+    "forgotPassword": "Esqueceu a senha?",
+    "noAccount": "Não tem uma conta?",
+    "hasAccount": "Já tem uma conta?"
+  },
+  "errors": {
+    "generic": "Algo deu errado. Tente novamente.",
+    "unauthorized": "Acesso não autorizado",
+    "notFound": "Não encontrado",
+    "validation": "Verifique os campos e tente novamente.",
+    "uploadFailed": "Falha no upload. Tente novamente.",
+    "generationFailed": "Falha na geração. Tente novamente."
+  }
+}

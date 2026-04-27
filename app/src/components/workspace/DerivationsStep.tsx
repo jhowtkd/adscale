@@ -19,6 +19,7 @@ interface DerivationsStepProps {
   onRegenerate: (id: string) => void;
   onGenerateMore: () => void;
   onReviewAll: () => void;
+  isGeneratingMore?: boolean;
 }
 
 type GridSize = "small" | "medium" | "large";
@@ -36,6 +37,7 @@ export default function DerivationsStep({
   onRegenerate,
   onGenerateMore,
   onReviewAll,
+  isGeneratingMore,
 }: DerivationsStepProps) {
   const [gridSize, setGridSize] = useState<GridSize>("medium");
   const [sortBy, setSortBy] = useState<SortOption>("newest");
@@ -261,10 +263,11 @@ export default function DerivationsStep({
       >
         <button
           onClick={onGenerateMore}
-          className="inline-flex items-center gap-2 rounded-md px-5 py-2.5 text-sm font-medium transition-all duration-200 bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] hover:border-[var(--border-medium)] active:scale-[0.98]"
+          disabled={isGeneratingMore}
+          className="inline-flex items-center gap-2 rounded-md px-5 py-2.5 text-sm font-medium transition-all duration-200 bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] hover:border-[var(--border-medium)] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Sparkles size={14} />
-          Generate More
+          {isGeneratingMore ? "Generating..." : "Generate More"}
         </button>
       </motion.div>
     </div>

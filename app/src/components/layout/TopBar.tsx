@@ -7,6 +7,7 @@ import {
   Bell,
   Coins,
 } from "lucide-react";
+import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 
 export default function TopBar() {
   const user = useAppStore((s) => s.user);
@@ -65,6 +66,9 @@ export default function TopBar() {
           <Coins size={14} />
           <span>{user.credits} credits</span>
         </div>
+
+        {/* Language Switcher */}
+        <LanguageSwitcher />
 
         {/* Notification Bell */}
         <button

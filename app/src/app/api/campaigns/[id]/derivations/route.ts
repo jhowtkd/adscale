@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { eq, and, sql } from "drizzle-orm";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCampaignById } from "@/server/repositories/campaign";
 import { getPlanByCampaign } from "@/server/repositories/plan";
@@ -8,6 +9,8 @@ import {
   getDerivationsByCampaign,
 } from "@/server/repositories/derivation";
 import { inngest } from "@/server/jobs/client";
+import { db } from "@/server/db";
+import { derivations } from "@/server/db/schema";
 import { env } from "@/server/validation/env";
 
 const createDerivationsSchema = z.object({
@@ -42,6 +45,24 @@ export async function POST(
 
     const plan = await getPlanByCampaign(campaignId, workspace.id);
 
+    // Rate limit: block if there are already queued/processing derivations
+    const existingQueued = await db.select({ id: derivations.id })
+      .from(derivations)
+      .where(
+        and(
+          eq(derivations.campaignId, campaignId),
+          eq(derivations.workspaceId, workspace.id),
+          sql`${derivations.status} IN ('queued', 'processing')`
+        )
+      )
+      .limit(1);
+    if (existingQueued.length > 0) {
+      return NextResponse.json(
+        { error: "Derivations already in progress for this campaign" },
+        { status: 429 }
+      );
+    }
+
     const created: Awaited<ReturnType<typeof createDerivation>>[] = [];
 
     for (let i = 0; i < count; i++) {
@@ -52,15 +73,22 @@ export async function POST(
         status: "queued",
       });
       created.push(derivation);
+      console.log(`[derivations POST] created derivationId=${derivation.id}`);
 
-      await inngest.send({
-        name: "derivation.generate",
-        data: {
-          derivationId: derivation.id,
-          campaignId,
-          workspaceId: workspace.id,
-        },
-      });
+      try {
+        await inngest.send({
+          name: "derivation.generate",
+          data: {
+            derivationId: derivation.id,
+            campaignId,
+            workspaceId: workspace.id,
+          },
+        });
+        console.log(`[derivations POST] event sent derivationId=${derivation.id}`);
+      } catch (sendErr) {
+        console.error(`[derivations POST] event send FAILED derivationId=${derivation.id}`, sendErr);
+        throw sendErr;
+      }
     }
 
     return NextResponse.json({ derivations: created }, { status: 201 });

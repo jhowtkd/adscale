@@ -38,6 +38,19 @@ export const derivationJob = inngest.createFunction(
     const { derivationId, campaignId, workspaceId } = event.data;
     console.log(`[derivationJob] START derivationId=${derivationId} campaignId=${campaignId}`);
 
+    // Idempotency check: if already completed, skip entirely
+    const existing = await step.run("check-idempotency", async () => {
+      const row = await db.select({ outputKey: derivations.outputKey, status: derivations.status })
+        .from(derivations)
+        .where(eq(derivations.id, derivationId))
+        .limit(1);
+      return row[0] ?? null;
+    });
+    if (existing?.outputKey) {
+      console.log(`[derivationJob] SKIP derivationId=${derivationId} already has outputKey=${existing.outputKey}`);
+      return { success: true, derivationId, outputKey: existing.outputKey, skipped: true };
+    }
+
     // 1. Update status to processing
     await step.run("mark-processing", async () => {
       console.log(`[mark-processing] derivationId=${derivationId}`);

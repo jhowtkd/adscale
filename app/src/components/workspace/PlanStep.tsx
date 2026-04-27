@@ -15,6 +15,7 @@ interface PlanStepProps {
   onApprove: () => void;
   onGenerateDerivations: () => void;
   approved: boolean;
+  isGenerating?: boolean;
 }
 
 // ============================================
@@ -48,7 +49,7 @@ function LoadingDots() {
 // Component
 // ============================================
 
-export default function PlanStep({ plan, onApprove, onGenerateDerivations, approved }: PlanStepProps) {
+export default function PlanStep({ plan, onApprove, onGenerateDerivations, approved, isGenerating }: PlanStepProps) {
   const [isLoading, setIsLoading] = useState(!plan);
   const [isEditing, setIsEditing] = useState(false);
 
@@ -112,13 +113,14 @@ export default function PlanStep({ plan, onApprove, onGenerateDerivations, appro
             className="mt-6 flex justify-center"
           >
             <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              whileHover={isGenerating ? undefined : { scale: 1.02 }}
+              whileTap={isGenerating ? undefined : { scale: 0.98 }}
               onClick={onGenerateDerivations}
-              className="inline-flex items-center gap-2 rounded-md px-8 py-3 text-sm font-medium text-white transition-all duration-200 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-light)] shadow-lg shadow-[rgba(99,102,241,0.2)]"
+              disabled={isGenerating}
+              className="inline-flex items-center gap-2 rounded-md px-8 py-3 text-sm font-medium text-white transition-all duration-200 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-light)] shadow-lg shadow-[rgba(99,102,241,0.2)] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Sparkles size={16} />
-              Generate Derivations
+              {isGenerating ? "Generating..." : "Generate Derivations"}
             </motion.button>
           </motion.div>
         )}

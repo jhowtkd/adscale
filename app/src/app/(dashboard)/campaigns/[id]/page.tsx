@@ -235,6 +235,7 @@ export default function CampaignWorkspacePage() {
         platform,
         prompt: d.prompt ?? "",
         creditCost: d.cost ? d.cost / 100 : 2.4,
+        imageUrl: d.imageUrl ?? undefined,
         createdAt: d.createdAt,
         completedAt: d.status === "completed" ? d.updatedAt : undefined,
       };
@@ -352,6 +353,7 @@ export default function CampaignWorkspacePage() {
   }, [updatePlanStatus, addToast]);
 
   const handleGenerateDerivations = useCallback(() => {
+    if (createDerivations.isPending) return;
     createDerivations.mutate(undefined, {
       onSuccess: () => {
         addToast("success", "Derivations queued for generation");
@@ -364,7 +366,7 @@ export default function CampaignWorkspacePage() {
         addToast("error", "Failed to queue derivations");
       },
     });
-  }, [createDerivations, handleNext, campaign, isNew, updateCampaign, addToast]);
+  }, [createDerivations, createDerivations.isPending, handleNext, campaign, isNew, updateCampaign, addToast]);
 
   // ============================================
   // Step 4: Derivations Handlers
@@ -474,6 +476,7 @@ export default function CampaignWorkspacePage() {
             onApprove={handleApprovePlan}
             onGenerateDerivations={handleGenerateDerivations}
             approved={planApproved || planData?.status === "approved"}
+            isGenerating={createDerivations.isPending}
           />
         );
       case 4:
@@ -486,6 +489,7 @@ export default function CampaignWorkspacePage() {
             onRegenerate={handleRegenerateDerivation}
             onGenerateMore={handleGenerateDerivations}
             onReviewAll={handleReviewAll}
+            isGeneratingMore={createDerivations.isPending}
           />
         );
       case 5:
