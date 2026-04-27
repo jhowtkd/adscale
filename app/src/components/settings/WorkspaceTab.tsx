@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Check, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";
+import { useTranslations } from "next-intl";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -27,6 +28,8 @@ export default function WorkspaceTab() {
   const workspaceSettings = useAppStore((s) => s.workspaceSettings);
   const updateWorkspaceSettings = useAppStore((s) => s.updateWorkspaceSettings);
   const addToast = useAppStore((s) => s.addToast);
+  const t = useTranslations("settings");
+  const tc = useTranslations("common");
 
   const [name, setName] = useState(workspaceSettings.name);
   const [slug, setSlug] = useState(workspaceSettings.slug);
@@ -49,7 +52,7 @@ export default function WorkspaceTab() {
     await new Promise((r) => setTimeout(r, 800));
     updateWorkspaceSettings({ name, slug, description, industry, website, timezone });
     setSaveState("saved");
-    addToast("success", "Workspace settings updated");
+    addToast("success", tc("workspaceUpdated"));
     setTimeout(() => setSaveState("idle"), 2000);
   };
 
@@ -66,18 +69,18 @@ export default function WorkspaceTab() {
           variants={itemVariants}
           className="text-[15px] font-semibold text-[var(--text-primary)] pb-3 border-b border-[var(--border-dim)]"
         >
-          Workspace Information
+          {t("workspaceInformation")}
         </motion.h3>
 
         <motion.div variants={itemVariants} className="space-y-2">
           <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
-            Workspace name
+            {t("workspaceName")}
           </label>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Your workspace name"
+            placeholder={t("workspace.namePlaceholder")}
             className={cn(
               "w-full h-10 rounded-md border px-3 text-sm",
               "bg-[var(--surface-base)] text-[var(--text-primary)]",
@@ -90,7 +93,7 @@ export default function WorkspaceTab() {
 
         <motion.div variants={itemVariants} className="space-y-2">
           <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
-            Workspace URL
+            {t("workspaceUrl")}
           </label>
           <div className="flex items-center h-10 rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-3 text-sm">
             <span className="text-[var(--text-muted)] select-none">
@@ -112,12 +115,12 @@ export default function WorkspaceTab() {
 
         <motion.div variants={itemVariants} className="space-y-2">
           <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
-            Description
+            {t("description")}
           </label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Describe your workspace..."
+            placeholder={t("workspace.descriptionPlaceholder")}
             rows={3}
             className={cn(
               "w-full rounded-md border px-3 py-2 text-sm resize-none",
@@ -131,7 +134,7 @@ export default function WorkspaceTab() {
 
         <motion.div variants={itemVariants} className="space-y-2">
           <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
-            Industry
+            {t("industry")}
           </label>
           <select
             value={industry}
@@ -159,13 +162,13 @@ export default function WorkspaceTab() {
 
         <motion.div variants={itemVariants} className="space-y-2">
           <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
-            Website
+            {t("website")}
           </label>
           <input
             type="url"
             value={website}
             onChange={(e) => setWebsite(e.target.value)}
-            placeholder="https://yourcompany.com"
+            placeholder={t("workspace.urlPlaceholder")}
             className={cn(
               "w-full h-10 rounded-md border px-3 text-sm",
               "bg-[var(--surface-base)] text-[var(--text-primary)]",
@@ -178,7 +181,7 @@ export default function WorkspaceTab() {
 
         <motion.div variants={itemVariants} className="space-y-2">
           <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
-            Timezone
+            {t("timeZone")}
           </label>
           <select
             value={timezone}
@@ -227,10 +230,10 @@ export default function WorkspaceTab() {
           {saveState === "saved" && <Check size={16} />}
           <span>
             {saveState === "saving"
-              ? "Saving..."
+              ? t("saving")
               : saveState === "saved"
-                ? "Saved"
-                : "Save Workspace"}
+                ? t("saved")
+                : t("saveWorkspace")}
           </span>
         </button>
       </motion.div>
@@ -246,15 +249,14 @@ export default function WorkspaceTab() {
         <div className="flex items-center gap-2">
           <AlertTriangle size={16} className="text-[var(--accent-rose)]" />
           <h3 className="text-[15px] font-semibold text-[var(--accent-rose)]">
-            Danger Zone
+            {t("dangerZone")}
           </h3>
         </div>
         <p className="text-sm text-[var(--text-secondary)]">
-          Deleting your workspace will permanently remove all campaigns,
-          derivations, and data. This cannot be undone.
+          {t("deleteWorkspaceWarning")}
         </p>
         <button
-          onClick={() => addToast("error", "Workspace deletion requires confirmation")}
+          onClick={() => addToast("error", tc("comingSoon"))}
           className={cn(
             "h-9 px-4 rounded-md text-sm font-medium text-white",
             "bg-[var(--accent-rose)] hover:brightness-110",
@@ -262,7 +264,7 @@ export default function WorkspaceTab() {
             "transition-all duration-200"
           )}
         >
-          Delete Workspace
+          {t("deleteWorkspace")}
         </button>
       </motion.div>
     </motion.div>

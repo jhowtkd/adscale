@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Camera, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";
+import { useTranslations } from "next-intl";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -27,6 +28,8 @@ export default function ProfileTab() {
   const profile = useAppStore((s) => s.profile);
   const updateProfile = useAppStore((s) => s.updateProfile);
   const addToast = useAppStore((s) => s.addToast);
+  const t = useTranslations("settings");
+  const tc = useTranslations("common");
 
   const [firstName, setFirstName] = useState(profile.firstName);
   const [lastName, setLastName] = useState(profile.lastName);
@@ -49,7 +52,7 @@ export default function ProfileTab() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) {
-      addToast("error", "Avatar must be under 5MB");
+      addToast("error", tc("avatarSizeError"));
       return;
     }
     const reader = new FileReader();
@@ -71,7 +74,7 @@ export default function ProfileTab() {
       avatar: avatarPreview,
     });
     setSaveState("saved");
-    addToast("success", "Profile updated successfully");
+    addToast("success", tc("profileUpdated"));
     setTimeout(() => setSaveState("idle"), 2000);
   };
 
@@ -137,14 +140,14 @@ export default function ProfileTab() {
             onClick={() => fileInputRef.current?.click()}
             className="text-sm text-[var(--accent-blue)] hover:underline"
           >
-            Change avatar
+            {t("changeAvatar")}
           </button>
           {avatarPreview && (
             <button
               onClick={() => setAvatarPreview("")}
               className="text-sm text-[var(--text-muted)] hover:text-[var(--accent-rose)] transition-colors"
             >
-              Remove
+              {t("remove")}
             </button>
           )}
         </div>
@@ -153,7 +156,7 @@ export default function ProfileTab() {
       {/* Form Fields */}
       <motion.div variants={itemVariants} className="space-y-2">
         <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
-          Full name
+          {t("fullName")}
         </label>
         <input
           type="text"
@@ -163,7 +166,7 @@ export default function ProfileTab() {
             setFirstName(parts[0] || "");
             setLastName(parts.slice(1).join(" ") || "");
           }}
-          placeholder="Your name"
+          placeholder={t("profile.namePlaceholder")}
           className={cn(
             "w-full h-10 rounded-md border px-3 text-sm",
             "bg-[var(--surface-base)] text-[var(--text-primary)]",
@@ -176,13 +179,13 @@ export default function ProfileTab() {
 
       <motion.div variants={itemVariants} className="space-y-2">
         <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
-          Email address
+          {t("emailAddress")}
         </label>
         <input
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@company.com"
+          placeholder={t("profile.emailPlaceholder")}
           className={cn(
             "w-full h-10 rounded-md border px-3 text-sm",
             "bg-[var(--surface-base)] text-[var(--text-primary)]",
@@ -192,18 +195,18 @@ export default function ProfileTab() {
           )}
         />
         <p className="text-xs text-[var(--text-muted)]">
-          Changing email will require verification
+          {t("emailVerificationNote")}
         </p>
       </motion.div>
 
       <motion.div variants={itemVariants} className="space-y-2">
         <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
-          Bio / Role
+          {t("bioRole")}
         </label>
         <textarea
           value={bio}
           onChange={(e) => setBio(e.target.value)}
-          placeholder="Tell us about yourself..."
+          placeholder={t("profile.bioPlaceholder")}
           rows={3}
           className={cn(
             "w-full rounded-md border px-3 py-2 text-sm resize-none",
@@ -217,7 +220,7 @@ export default function ProfileTab() {
 
       <motion.div variants={itemVariants} className="space-y-2">
         <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
-          Time zone
+          {t("timeZone")}
         </label>
         <select
           value={timezone}
@@ -265,10 +268,10 @@ export default function ProfileTab() {
           {saveState === "saved" && <Check size={16} />}
           <span>
             {saveState === "saving"
-              ? "Saving..."
+              ? t("saving")
               : saveState === "saved"
-                ? "Saved"
-                : "Save Changes"}
+                ? t("saved")
+                : t("saveChanges")}
           </span>
         </button>
       </motion.div>
