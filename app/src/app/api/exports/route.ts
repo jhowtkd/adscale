@@ -55,8 +55,9 @@ export async function POST(request: Request) {
     if (error instanceof Error && error.message === "No workspace") {
       return NextResponse.json({ error: "No workspace" }, { status: 403 });
     }
+    console.error("Export error:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Internal server error" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

@@ -96,8 +96,9 @@ export async function POST(
     try {
       parsedJson = JSON.parse(jsonString);
     } catch {
+      console.error("Invalid JSON from AI:", rawContent);
       return NextResponse.json(
-        { error: "Invalid JSON from AI", raw: rawContent },
+        { error: "Invalid JSON from AI" },
         { status: 502 }
       );
     }

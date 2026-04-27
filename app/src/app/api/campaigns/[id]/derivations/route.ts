@@ -31,7 +31,13 @@ export async function POST(
 
     const body = await request.json();
     const parsed = createDerivationsSchema.safeParse(body);
-    const count = parsed.success ? (parsed.data.count ?? 1) : 1;
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid request body", issues: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+    const count = parsed.data.count ?? 1;
 
     const plan = await getPlanByCampaign(campaignId, workspace.id);
 

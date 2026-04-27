@@ -29,7 +29,13 @@ export async function POST(
 
     const body = await request.json();
     const parsed = bodySchema.safeParse(body);
-    const feedback = parsed.success ? parsed.data.feedback : undefined;
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid request body", issues: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+    const feedback = parsed.data.feedback;
 
     const newDerivation = await createDerivation({
       campaignId: original.campaignId,
