@@ -32,6 +32,7 @@ export interface Derivation {
   platform: AdPlatform;
   prompt: string;
   creditCost: number;
+  imageUrl?: string;
   createdAt: Date;
   completedAt?: Date;
 }

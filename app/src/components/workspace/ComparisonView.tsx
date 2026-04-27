@@ -161,6 +161,14 @@ export default function ComparisonView({
                   {derivation.name.charAt(0)}
                 </span>
               </div>
+              {derivation.imageUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={derivation.imageUrl}
+                  alt={derivation.name}
+                  className="absolute inset-0 w-full h-full object-contain"
+                />
+              )}
             </div>
             <div className="mt-3 text-center space-y-1">
               <p className="text-xs text-[var(--text-primary)] font-medium">{derivation.name}</p>

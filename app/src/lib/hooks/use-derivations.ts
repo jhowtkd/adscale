@@ -10,6 +10,7 @@ export interface Derivation {
   status: string;
   prompt: string | null;
   outputKey: string | null;
+  imageUrl: string | null;
   format: string | null;
   cost: number | null;
   feedback: string | null;

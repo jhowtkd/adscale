@@ -209,29 +209,40 @@ export default function DerivationCard({
     >
       {/* ---- Image Area (4:5 aspect ratio) ---- */}
       <div className="relative aspect-[4/5] overflow-hidden bg-[var(--surface-raised)]">
-        {/* Placeholder gradient */}
-        <div
-          className={cn(
-            "absolute inset-0 transition-transform duration-300",
-            isCompleted && "group-hover:scale-[1.03]"
-          )}
-          style={{
-            background: `linear-gradient(135deg, 
-              ${platformStyle.bg} 0%, 
-              var(--surface-raised) 50%, 
-              ${platformStyle.bg} 100%)`,
-          }}
-        >
-          {/* Center icon/initial */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span
-              className="text-4xl font-bold opacity-20"
-              style={{ color: platformStyle.text }}
-            >
-              {derivation.name.charAt(0)}
-            </span>
+        {derivation.imageUrl ? (
+          <img
+            src={derivation.imageUrl}
+            alt={derivation.name}
+            className={cn(
+              "absolute inset-0 w-full h-full object-cover transition-transform duration-300",
+              isCompleted && "group-hover:scale-[1.03]"
+            )}
+            loading="lazy"
+          />
+        ) : (
+          <div
+            className={cn(
+              "absolute inset-0 transition-transform duration-300",
+              isCompleted && "group-hover:scale-[1.03]"
+            )}
+            style={{
+              background: `linear-gradient(135deg, 
+                ${platformStyle.bg} 0%, 
+                var(--surface-raised) 50%, 
+                ${platformStyle.bg} 100%)`,
+            }}
+          >
+            {/* Center icon/initial */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span
+                className="text-4xl font-bold opacity-20"
+                style={{ color: platformStyle.text }}
+              >
+                {derivation.name.charAt(0)}
+              </span>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Status overlay */}
         <StatusOverlay

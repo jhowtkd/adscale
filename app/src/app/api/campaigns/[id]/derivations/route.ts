@@ -8,6 +8,7 @@ import {
   getDerivationsByCampaign,
 } from "@/server/repositories/derivation";
 import { inngest } from "@/server/jobs/client";
+import { env } from "@/server/validation/env";
 
 const createDerivationsSchema = z.object({
   count: z.number().min(1).max(20).optional(),
@@ -86,7 +87,11 @@ export async function GET(
     const { id: campaignId } = await params;
 
     const items = await getDerivationsByCampaign(campaignId, workspace.id);
-    return NextResponse.json({ derivations: items });
+    const derivationsWithImageUrl = items.map((d) => ({
+      ...d,
+      imageUrl: d.outputKey ? `${env.R2_PUBLIC_BASE_URL}/${d.outputKey}` : null,
+    }));
+    return NextResponse.json({ derivations: derivationsWithImageUrl });
   } catch (error) {
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

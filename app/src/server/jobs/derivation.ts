@@ -19,7 +19,8 @@ export const derivationJob = inngest.createFunction(
     id: "generate-derivation",
     retries: 2,
     onFailure: async ({ event, error }) => {
-      const { derivationId } = event.data;
+      const originalEvent = event.data.event;
+      const { derivationId } = originalEvent.data;
       const message = error instanceof Error ? error.message : "Unknown error";
       await db
         .update(derivations)
@@ -66,12 +67,13 @@ export const derivationJob = inngest.createFunction(
     );
 
     // 3. Download input image (if asset exists)
-    const referenceImage = asset
+    const assetData = asset
       ? await step.run("download-asset", async () => {
           const buffer = await downloadBuffer(asset.key);
-          return toFile(buffer, "reference-image", {
+          return {
+            buffer: Buffer.from(buffer).toString("base64"),
             type: asset.type,
-          });
+          };
         })
       : undefined;
 
@@ -79,7 +81,11 @@ export const derivationJob = inngest.createFunction(
     const result = await step.run("generate-image", async () => {
       const prompt = buildDerivationPrompt(plan, asset, derivation.feedback);
 
-      if (referenceImage) {
+      if (assetData) {
+        const buffer = Buffer.from(assetData.buffer, "base64");
+        const referenceImage = await toFile(buffer, "reference-image", {
+          type: assetData.type,
+        });
         const response = await openai.images.edit({
           model: env.OPENAI_IMAGE_MODEL,
           image: referenceImage,

@@ -325,24 +325,37 @@ export default function ReviewStep({
 
               {/* Image area */}
               <div className="relative aspect-[4/5] overflow-hidden">
-                <div
-                  className={cn(
-                    "absolute inset-0 transition-all duration-300",
-                    isRejected && "grayscale-[60%]"
-                  )}
-                  style={{
-                    background: `linear-gradient(135deg, ${platformStyle.bg} 0%, var(--surface-raised) 50%, ${platformStyle.bg} 100%)`,
-                  }}
-                >
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span
-                      className="text-4xl font-bold opacity-20"
-                      style={{ color: platformStyle.text }}
-                    >
-                      {derivation.name.charAt(0)}
-                    </span>
+                {derivation.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={derivation.imageUrl}
+                    alt={derivation.name}
+                    className={cn(
+                      "absolute inset-0 w-full h-full object-cover transition-all duration-300",
+                      isRejected && "grayscale-[60%]"
+                    )}
+                    loading="lazy"
+                  />
+                ) : (
+                  <div
+                    className={cn(
+                      "absolute inset-0 transition-all duration-300",
+                      isRejected && "grayscale-[60%]"
+                    )}
+                    style={{
+                      background: `linear-gradient(135deg, ${platformStyle.bg} 0%, var(--surface-raised) 50%, ${platformStyle.bg} 100%)`,
+                    }}
+                  >
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span
+                        className="text-4xl font-bold opacity-20"
+                        style={{ color: platformStyle.text }}
+                      >
+                        {derivation.name.charAt(0)}
+                      </span>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Hover overlay with actions */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-[2]">
