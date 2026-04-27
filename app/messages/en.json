@@ -104,6 +104,7 @@
     "failedLoadActivity": "Failed to load activity feed.",
     "noRecentActivity": "No recent activity.",
     "showMore": "Show more",
+    "of": "of",
     "briefingSaved": "Briefing saved",
     "draftSaved": "Draft saved",
     "planApproved": "Creative plan approved!",
@@ -180,7 +181,10 @@
       "TikTok": "TikTok Ads",
       "Google": "Google Ads"
     },
-    "manageCampaigns": "Manage your creative derivation campaigns"
+    "manageCampaigns": "Manage your creative derivation campaigns",
+    "createNew": "Create New Campaign",
+    "createDescription": "Set up a new creative derivation campaign",
+    "cta": "Primary CTA"
   },
   "briefing": {
     "title": "Campaign Brief",
@@ -191,7 +195,15 @@
     "tonePlaceholder": "Select a tone",
     "offerPlaceholder": "e.g., 50% off summer collection, Limited time offer, Shop now...",
     "constraintsPlaceholder": "e.g., Must include logo in bottom right, No red backgrounds, Keep text under 20% of image...",
-    "notesPlaceholder": "Any other details the AI should consider..."
+    "notesPlaceholder": "Any other details the AI should consider...",
+    "ctaPlaceholder": "e.g., Shop Now, Learn More",
+    "clientHelp": "The brand or product being advertised",
+    "offerHelp": "What action should viewers take?",
+    "constraintsHelp": "Any rules or limitations for the generated creatives",
+    "addNotes": "Add notes",
+    "aiAssist": "AI will use this brief to generate your creative plan",
+    "saveDraft": "Save as Draft",
+    "saveContinue": "Save & Continue"
   },
   "derivation": {
     "title": "Derivations",
@@ -339,10 +351,48 @@
   "errors": {
     "generic": "Something went wrong. Please try again.",
     "unauthorized": "Unauthorized access",
+    "noWorkspace": "Workspace not found",
     "notFound": "Not found",
     "validation": "Please check the fields and try again.",
     "uploadFailed": "Upload failed. Please try again.",
-    "generationFailed": "Generation failed. Please try again."
+    "generationFailed": "Generation failed. Please try again.",
+    "campaignNotFound": "Campaign not found",
+    "planNotFound": "Plan not found",
+    "derivationNotFound": "Derivation not found",
+    "invalidInput": "Invalid input",
+    "invalidRequestBody": "Invalid request body",
+    "aiEmptyResponse": "Empty response from AI",
+    "aiInvalidJson": "Invalid JSON from AI",
+    "aiValidationFailed": "AI response validation failed",
+    "derivationsInProgress": "Derivations already in progress for this campaign",
+    "invalidFileType": "Invalid file type. Only PNG, JPEG, and WebP are allowed.",
+    "fileTooLarge": "File too large. Maximum size is 20MB.",
+    "invalidAssetKey": "Invalid asset key: must belong to the campaign",
+    "assetNotFound": "Asset not found in storage",
+    "assetTypeMismatch": "Asset type mismatch",
+    "assetSizeMismatch": "Asset size mismatch",
+    "invalidType": "Invalid type",
+    "derivationIdRequired": "derivationId is required",
+    "campaignIdRequired": "campaignId is required",
+    "invalidLocale": "Invalid locale",
+    "nameRequired": "Campaign name is required",
+    "clientRequired": "Client or product is required",
+    "objectiveRequired": "Campaign objective is required",
+    "platformRequired": "Select at least one platform",
+    "toneRequired": "Tone of voice is required",
+    "fetchDashboard": "Failed to fetch dashboard",
+    "fetchPlan": "Failed to fetch plan",
+    "generatePlan": "Failed to generate plan",
+    "updatePlan": "Failed to update plan status",
+    "getUploadUrl": "Failed to get upload URL",
+    "saveAsset": "Failed to save asset",
+    "fetchDerivations": "Failed to fetch derivations",
+    "createDerivations": "Failed to create derivations",
+    "fetchCampaigns": "Failed to fetch campaigns",
+    "fetchCampaign": "Failed to fetch campaign",
+    "createCampaign": "Failed to create campaign",
+    "updateCampaign": "Failed to update campaign",
+    "deleteCampaign": "Failed to delete campaign"
   },
   "review": {
     "title": "Review",
@@ -366,5 +416,14 @@
     "reviewAll": "Review All →",
     "backToGallery": "← Back to Gallery",
     "exportSelected": "Export Selected"
+  },
+  "toast": {
+    "regenerationQueued": "Regeneration queued",
+    "regenerationFailed": "Failed to regenerate",
+    "derivationApproved": "Derivation approved",
+    "derivationRejected": "Derivation rejected",
+    "statusUpdateFailed": "Failed to update status",
+    "exportReady": "Export ready — download started",
+    "exportFailed": "Failed to export"
   }
 }

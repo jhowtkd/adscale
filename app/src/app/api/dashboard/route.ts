@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { eq, desc } from "drizzle-orm";
+import { apiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCampaigns } from "@/server/repositories/campaign";
 import { db } from "@/server/db";
@@ -41,14 +42,11 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     if (error instanceof Error && error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError("unauthorized", 401);
     }
     if (error instanceof Error && error.message === "No workspace") {
-      return NextResponse.json({ error: "No workspace" }, { status: 403 });
+      return apiError("noWorkspace", 403);
     }
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return apiError("internalError", 500);
   }
 }

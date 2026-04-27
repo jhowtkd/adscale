@@ -112,7 +112,7 @@ function StatusOverlay({ status, progress }: { status: DerivationDisplayStatus; 
       return (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-[rgba(244,63,94,0.15)] rounded-t-[15px]">
           <AlertCircle size={24} className="text-[var(--accent-rose)] mb-2" />
-          <span className="text-sm text-[var(--accent-rose)] font-medium">Generation failed</span>
+          <span className="text-sm text-[var(--accent-rose)] font-medium">{t("failed")}</span>
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -156,6 +156,7 @@ export default function DerivationCard({
   gridSize = "medium",
 }: DerivationCardProps) {
   const commonT = useTranslations("common");
+  const toastT = useTranslations("toast");
   const isCompleted = derivation.status === "completed";
   const platformStyle = platformColors[derivation.platform] || {
     bg: "rgba(99,102,241,0.12)",
@@ -176,7 +177,7 @@ export default function DerivationCard({
         onRegenerate?.(derivation.id);
       },
       onError: (err) => {
-        addToast("error", err instanceof Error ? err.message : "Failed to regenerate");
+        addToast("error", err instanceof Error ? err.message : toastT("regenerationFailed"));
       },
     });
   };
@@ -190,7 +191,7 @@ export default function DerivationCard({
           onDownload?.(derivation.id);
         },
         onError: (err) => {
-          addToast("error", err instanceof Error ? err.message : "Failed to export");
+          addToast("error", err instanceof Error ? err.message : toastT("exportFailed"));
         },
       }
     );

@@ -103,6 +103,7 @@ const fieldVariants = {
 export default function BriefingStep({ campaign, onContinue, onSaveDraft }: BriefingStepProps) {
   const tCampaign = useTranslations("campaign");
   const tBriefing = useTranslations("briefing");
+  const tErrors = useTranslations("errors");
 
   const [formData, setFormData] = useState<BriefingFormData>({
     name: campaign?.name || "",
@@ -141,11 +142,11 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
 
   const validate = (): boolean => {
     const newErrors: Partial<Record<keyof BriefingFormData, string>> = {};
-    if (!formData.name.trim()) newErrors.name = "Campaign name is required";
-    if (!formData.client.trim()) newErrors.client = "Client or product is required";
-    if (!formData.objective) newErrors.objective = "Campaign objective is required";
-    if (formData.platforms.length === 0) newErrors.platforms = "Select at least one platform";
-    if (!formData.tone) newErrors.tone = "Tone of voice is required";
+    if (!formData.name.trim()) newErrors.name = tErrors("nameRequired");
+    if (!formData.client.trim()) newErrors.client = tErrors("clientRequired");
+    if (!formData.objective) newErrors.objective = tErrors("objectiveRequired");
+    if (formData.platforms.length === 0) newErrors.platforms = tErrors("platformRequired");
+    if (!formData.tone) newErrors.tone = tErrors("toneRequired");
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -196,7 +197,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
         {/* ---- Client / Product ---- */}
         <motion.div variants={fieldVariants}>
           <Label className="flex items-center gap-1 text-xs font-medium text-[var(--text-secondary)] mb-2">
-            Client or Product
+            {tCampaign("client")}
             <span className="text-[var(--accent-rose)]">*</span>
           </Label>
           <Input
@@ -210,7 +211,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
             )}
           />
           <p className="text-xs text-[var(--text-muted)] mt-1">
-            The brand or product being advertised
+            {tBriefing("clientHelp")}
           </p>
           {errors.client && (
             <motion.p
@@ -358,7 +359,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
         {/* ---- Offer / CTA ---- */}
         <motion.div variants={fieldVariants}>
           <Label className="text-xs font-medium text-[var(--text-secondary)] mb-2 block">
-            Offer or Call-to-Action
+            {tCampaign("offer")}
           </Label>
           <Textarea
             placeholder={tBriefing("offerPlaceholder")}
@@ -368,7 +369,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
             className="bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-blue)] focus:ring-[3px] focus:ring-[rgba(99,102,241,0.15)] resize-none"
           />
           <p className="text-xs text-[var(--text-muted)] mt-1">
-            What action should viewers take?
+            {tBriefing("offerHelp")}
           </p>
         </motion.div>
 
@@ -385,7 +386,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
             className="bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-blue)] focus:ring-[3px] focus:ring-[rgba(99,102,241,0.15)] resize-none"
           />
           <p className="text-xs text-[var(--text-muted)] mt-1">
-            Any rules or limitations for the generated creatives
+            {tBriefing("constraintsHelp")}
           </p>
         </motion.div>
 
@@ -397,7 +398,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
               onClick={() => setShowNotes(true)}
               className="text-sm text-[var(--accent-blue)] hover:text-[var(--accent-blue-light)] transition-colors"
             >
-              + Add notes
+              + {tBriefing("addNotes")}
             </button>
           </motion.div>
         ) : (
@@ -430,7 +431,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
       >
         <div className="inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-xs font-medium bg-[rgba(167,139,250,0.08)] text-[var(--accent-purple)] border border-[rgba(167,139,250,0.15)]">
           <Sparkles size={14} />
-          AI will use this brief to generate your creative plan
+          {tBriefing("aiAssist")}
         </div>
       </motion.div>
 
@@ -446,14 +447,14 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
           onClick={() => onSaveDraft(formData)}
           className="inline-flex items-center justify-center rounded-md px-5 py-2.5 text-sm font-medium transition-all duration-200 bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] hover:bg-[var(--surface-base)] hover:border-[var(--border-medium)] active:scale-[0.98]"
         >
-          Save as Draft
+          {tBriefing("saveDraft")}
         </button>
         <button
           type="button"
           onClick={handleContinue}
           className="inline-flex items-center justify-center rounded-md px-6 py-2.5 text-sm font-medium text-white transition-all duration-200 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-light)] hover:-translate-y-px active:scale-[0.98]"
         >
-          Save &amp; Continue
+          {tBriefing("saveContinue")}
         </button>
       </motion.div>
     </div>

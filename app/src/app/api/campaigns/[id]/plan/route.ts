@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { apiError } from "@/lib/api-response";
 import OpenAI from "openai";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCampaignById } from "@/server/repositories/campaign";
@@ -36,16 +37,16 @@ export async function GET(
 
     const plan = await getPlanByCampaign(campaignId, workspace.id);
     if (!plan) {
-      return NextResponse.json({ error: "Plan not found" }, { status: 404 });
+      return apiError("planNotFound", 404);
     }
 
     return NextResponse.json({ plan });
   } catch (error) {
     if (error instanceof Error && error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError("unauthorized", 401);
     }
     if (error instanceof Error && error.message === "No workspace") {
-      return NextResponse.json({ error: "No workspace" }, { status: 403 });
+      return apiError("noWorkspace", 403);
     }
     return NextResponse.json(
       { error: "Internal server error" },
@@ -64,10 +65,7 @@ export async function POST(
 
     const campaign = await getCampaignById(campaignId, workspace.id);
     if (!campaign) {
-      return NextResponse.json(
-        { error: "Campaign not found" },
-        { status: 404 }
-      );
+      return apiError("campaignNotFound", 404);
     }
 
     const assets = await getAssetsByCampaign(campaignId, workspace.id);
@@ -83,10 +81,7 @@ export async function POST(
 
     const rawContent = completion.choices[0]?.message?.content;
     if (!rawContent) {
-      return NextResponse.json(
-        { error: "Empty response from AI" },
-        { status: 502 }
-      );
+      return apiError("aiEmptyResponse", 502);
     }
 
     // Extract JSON from potential markdown code block
@@ -98,18 +93,12 @@ export async function POST(
       parsedJson = JSON.parse(jsonString);
     } catch {
       console.error("Invalid JSON from AI:", rawContent);
-      return NextResponse.json(
-        { error: "Invalid JSON from AI" },
-        { status: 502 }
-      );
+      return apiError("aiInvalidJson", 502);
     }
 
     const validated = planSchema.safeParse(parsedJson);
     if (!validated.success) {
-      return NextResponse.json(
-        { error: "AI response validation failed", issues: validated.error.flatten() },
-        { status: 502 }
-      );
+      return apiError("aiValidationFailed", 502, validated.error.flatten());
     }
 
     const plan = await createPlan(campaignId, workspace.id, validated.data);
@@ -117,10 +106,10 @@ export async function POST(
     return NextResponse.json({ plan }, { status: 201 });
   } catch (error) {
     if (error instanceof Error && error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError("unauthorized", 401);
     }
     if (error instanceof Error && error.message === "No workspace") {
-      return NextResponse.json({ error: "No workspace" }, { status: 403 });
+      return apiError("noWorkspace", 403);
     }
     return NextResponse.json(
       { error: "Internal server error" },
@@ -141,10 +130,7 @@ export async function PATCH(
     const parsed = updatePlanSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: "Invalid input", issues: parsed.error.flatten() },
-        { status: 400 }
-      );
+      return apiError("invalidInput", 400, parsed.error.flatten());
     }
 
     const plan = await getPlanByCampaign(campaignId, workspace.id);
@@ -160,10 +146,10 @@ export async function PATCH(
     return NextResponse.json({ plan: updated });
   } catch (error) {
     if (error instanceof Error && error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError("unauthorized", 401);
     }
     if (error instanceof Error && error.message === "No workspace") {
-      return NextResponse.json({ error: "No workspace" }, { status: 403 });
+      return apiError("noWorkspace", 403);
     }
     return NextResponse.json(
       { error: "Internal server error" },

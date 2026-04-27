@@ -38,6 +38,7 @@ import {
   MoreHorizontal,
   Plus,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 // ============================================
 // Animation Variants
@@ -94,13 +95,16 @@ const activityIconBgColors: Record<ActivityItem["type"], string> = {
 
 export default function DashboardPage() {
   const setCurrentPageTitle = useAppStore((s) => s.setCurrentPageTitle);
+  const tNav = useTranslations("navigation");
+  const t = useTranslations("common");
+  const tc = useTranslations("campaign");
 
   const { data: dashboardData, isLoading: isDashboardLoading, isError: isDashboardError } = useDashboard();
   const { campaigns, isLoading: isCampaignsLoading } = useCampaigns();
 
   useEffect(() => {
-    setCurrentPageTitle("Dashboard");
-  }, [setCurrentPageTitle]);
+    setCurrentPageTitle(tNav("dashboard"));
+  }, [setCurrentPageTitle, tNav]);
 
   const recentCampaigns = campaigns.slice(0, 5);
   const activityFeed = dashboardData?.recentActivity ?? [];
@@ -133,10 +137,10 @@ export default function DashboardPage() {
         <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-[var(--text-primary)]">
-              Welcome back 👋
+              {t("welcomeBack")}
             </h1>
             <p className="mt-1 text-sm text-[var(--text-secondary)]">
-              Here&apos;s what&apos;s happening with your campaigns
+              {t("dashboardSubtitle")}
             </p>
           </div>
           <motion.div
@@ -154,7 +158,7 @@ export default function DashboardPage() {
               )}
             >
               <Plus size={16} />
-              New Campaign
+              {tc("new")}
             </Link>
           </motion.div>
         </div>
@@ -164,7 +168,7 @@ export default function DashboardPage() {
       <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
         <StatsCard
           icon={FolderOpen}
-          label="Campaigns"
+          label={tNav("campaigns")}
           value={totalCampaigns}
           change={{ value: `${campaignsChange}%`, positive: true }}
           iconBgColor="rgba(99,102,241,0.12)"
@@ -173,7 +177,7 @@ export default function DashboardPage() {
         />
         <StatsCard
           icon={Layers}
-          label="Derivations This Month"
+          label={t("derivationsThisMonth")}
           value={derivationsThisMonth}
           change={{ value: `${derivationsChange}%`, positive: true }}
           iconBgColor="rgba(167,139,250,0.12)"
@@ -182,10 +186,10 @@ export default function DashboardPage() {
         />
         <StatsCard
           icon={Zap}
-          label="Credits Used"
+          label={t("creditsUsedLabel")}
           value={creditsUsed}
           change={{
-            value: `${creditsRemaining}% remaining`,
+            value: `${creditsRemaining}% ${t("remaining")}`,
             positive: false,
           }}
           iconBgColor="rgba(245,158,11,0.12)"
@@ -194,7 +198,7 @@ export default function DashboardPage() {
         />
         <StatsCard
           icon={Globe}
-          label="Active Platforms"
+          label={t("activePlatforms")}
           value={activePlatforms}
           iconBgColor="rgba(20,184,166,0.12)"
           iconColor="var(--accent-teal)"
@@ -211,17 +215,17 @@ export default function DashboardPage() {
       >
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-[15px] font-semibold text-[var(--text-primary)]">
-            Quick Actions
+            {t("quickActions")}
           </h2>
           <span className="text-sm text-[var(--text-muted)] cursor-default">
-            View all →
+            {t("viewAll")}
           </span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <QuickActionCard
             icon={Upload}
-            title="Upload Creative"
-            description="Start a new derivation from a base creative"
+            title={t("uploadCreative")}
+            description={t("uploadCreativeDesc")}
             iconBgColor="rgba(99,102,241,0.12)"
             iconColor="var(--accent-blue)"
             href="/campaigns"
@@ -229,8 +233,8 @@ export default function DashboardPage() {
           />
           <QuickActionCard
             icon={BarChart3}
-            title="View Reports"
-            description="Check performance of your derivations"
+            title={t("viewReports")}
+            description={t("viewReportsDesc")}
             iconBgColor="rgba(20,184,166,0.12)"
             iconColor="var(--accent-teal)"
             href="#"
@@ -239,8 +243,8 @@ export default function DashboardPage() {
           />
           <QuickActionCard
             icon={ImageIcon}
-            title="Browse Library"
-            description="Access all your generated creatives"
+            title={t("browseLibrary")}
+            description={t("browseLibraryDesc")}
             iconBgColor="rgba(167,139,250,0.12)"
             iconColor="var(--accent-purple)"
             href="/campaigns"
@@ -248,8 +252,8 @@ export default function DashboardPage() {
           />
           <QuickActionCard
             icon={Users}
-            title="Invite Team"
-            description="Add team members to your workspace"
+            title={t("inviteTeam")}
+            description={t("inviteTeamDesc")}
             iconBgColor="rgba(245,158,11,0.12)"
             iconColor="var(--accent-amber)"
             href="#"
@@ -267,13 +271,13 @@ export default function DashboardPage() {
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-dim)]">
           <h2 className="text-[15px] font-semibold text-[var(--text-primary)]">
-            Recent Campaigns
+            {t("recentCampaigns")}
           </h2>
           <Link
             href="/campaigns"
             className="text-sm text-[var(--accent-blue)] hover:text-[var(--accent-blue-light)] transition-colors"
           >
-            View All →
+            {t("viewAll")}
           </Link>
         </div>
 
@@ -298,11 +302,11 @@ export default function DashboardPage() {
           >
             {/* Table Header */}
             <div className="hidden sm:grid sm:grid-cols-[1fr_100px_80px_100px_80px_48px] gap-4 px-6 py-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
-              <span>Campaign</span>
-              <span className="text-center">Status</span>
-              <span className="text-center">Variations</span>
-              <span className="text-center">Modified</span>
-              <span className="text-right">Credits</span>
+              <span>{t("campaign")}</span>
+              <span className="text-center">{t("status")}</span>
+              <span className="text-center">{t("variations")}</span>
+              <span className="text-center">{t("modified")}</span>
+              <span className="text-right">{t("credits")}</span>
               <span />
             </div>
 
@@ -312,9 +316,9 @@ export default function DashboardPage() {
           </motion.div>
         ) : (
           <EmptyState
-            title="No campaigns yet"
-            description="Create your first campaign to get started"
-            action={{ label: "Create Campaign", onClick: () => {} }}
+            title={t("noCampaignsYet")}
+            description={t("createFirstCampaign")}
+            action={{ label: tc("new"), onClick: () => {} }}
           />
         )}
       </motion.section>
@@ -330,16 +334,16 @@ export default function DashboardPage() {
         >
           <div className="flex items-center gap-3 mb-4">
             <h2 className="text-[15px] font-semibold text-[var(--text-primary)]">
-              Credit Usage
+              {t("creditUsage")}
             </h2>
             <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-[var(--surface-raised)] text-[var(--text-muted)]">
-              This month
+              {t("thisMonth")}
             </span>
           </div>
 
           {/* Chart placeholder */}
           <div className="h-[120px] mb-4 flex items-center justify-center rounded-lg bg-[var(--surface-raised)]">
-            <p className="text-sm text-[var(--text-muted)]">No usage data yet</p>
+            <p className="text-sm text-[var(--text-muted)]">{t("noUsageData")}</p>
           </div>
 
           {/* Summary */}
@@ -347,11 +351,11 @@ export default function DashboardPage() {
             <span className="font-medium text-[var(--text-primary)]">
               {creditsUsed}
             </span>{" "}
-            of{" "}
+            {t("of")}{" "}
             <span className="font-medium text-[var(--text-primary)]">
               {creditsTotal}
             </span>{" "}
-            credits used this month
+            {t("creditsUsedThisMonth")}
           </p>
 
           {/* Progress bar */}
@@ -365,7 +369,7 @@ export default function DashboardPage() {
           </div>
 
           <button className="text-sm text-[var(--accent-blue)] hover:text-[var(--accent-blue-light)] transition-colors">
-            Upgrade plan
+            {t("upgradePlan")}
           </button>
         </motion.div>
 
@@ -381,7 +385,7 @@ export default function DashboardPage() {
           className="rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)] p-6"
         >
           <h2 className="text-[15px] font-semibold text-[var(--text-primary)] mb-4">
-            Activity Feed
+            {t("activityFeed")}
           </h2>
 
           {isDashboardLoading ? (
@@ -395,7 +399,7 @@ export default function DashboardPage() {
             </div>
           ) : isDashboardError ? (
             <p className="text-sm text-[var(--text-secondary)]">
-              Failed to load activity feed.
+              {t("failedLoadActivity")}
             </p>
           ) : activityFeed.length > 0 ? (
             <motion.div
@@ -449,13 +453,13 @@ export default function DashboardPage() {
             </motion.div>
           ) : (
             <p className="text-sm text-[var(--text-muted)]">
-              No recent activity.
+              {t("noRecentActivity")}
             </p>
           )}
 
           {activityFeed.length > 5 && (
             <button className="mt-4 text-sm text-[var(--accent-blue)] hover:text-[var(--accent-blue-light)] transition-colors">
-              Show more
+              {t("showMore")}
             </button>
           )}
         </motion.div>
@@ -489,6 +493,7 @@ function QuickActionCard({
   disabled = false,
   index,
 }: QuickActionCardProps) {
+  const t = useTranslations("common");
   const content = (
     <motion.div
       initial={{ opacity: 0, scale: 0.97 }}
@@ -523,7 +528,7 @@ function QuickActionCard({
 
   if (disabled) {
     return (
-      <div title="Coming soon">
+      <div title={t("comingSoon")}>
         {content}
       </div>
     );

@@ -41,7 +41,7 @@ async function getPresignedUrl(
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to get upload URL");
+    throw new Error(err.error || "Erro ao obter URL de upload");
   }
   return res.json();
 }
@@ -56,7 +56,7 @@ async function uploadToPresignedUrl(url: string, file: File): Promise<void> {
     body: file,
   });
   if (!res.ok) {
-    throw new Error("Upload to storage failed");
+    throw new Error("Falha no upload");
   }
 }
 
@@ -71,7 +71,7 @@ async function completeUpload(
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to save asset");
+    throw new Error(err.error || "Erro ao salvar asset");
   }
   const data = await res.json();
   const a = data.asset as Asset;

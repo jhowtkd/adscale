@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { apiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import {
   getCampaignById,
@@ -31,19 +32,16 @@ export async function GET(
     const campaign = await getCampaignById(id, workspace.id);
 
     if (!campaign) {
-      return NextResponse.json(
-        { error: "Campaign not found" },
-        { status: 404 }
-      );
+      return apiError("campaignNotFound", 404);
     }
 
     return NextResponse.json({ campaign });
   } catch (error) {
     if (error instanceof Error && error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError("unauthorized", 401);
     }
     if (error instanceof Error && error.message === "No workspace") {
-      return NextResponse.json({ error: "No workspace" }, { status: 403 });
+      return apiError("noWorkspace", 403);
     }
     return NextResponse.json(
       { error: "Internal server error" },
@@ -63,28 +61,22 @@ export async function PATCH(
     const parsed = updateCampaignSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: "Invalid input", issues: parsed.error.flatten() },
-        { status: 400 }
-      );
+      return apiError("invalidInput", 400, parsed.error.flatten());
     }
 
     const campaign = await updateCampaign(id, workspace.id, parsed.data);
 
     if (!campaign) {
-      return NextResponse.json(
-        { error: "Campaign not found" },
-        { status: 404 }
-      );
+      return apiError("campaignNotFound", 404);
     }
 
     return NextResponse.json({ campaign });
   } catch (error) {
     if (error instanceof Error && error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError("unauthorized", 401);
     }
     if (error instanceof Error && error.message === "No workspace") {
-      return NextResponse.json({ error: "No workspace" }, { status: 403 });
+      return apiError("noWorkspace", 403);
     }
     return NextResponse.json(
       { error: "Internal server error" },
@@ -103,19 +95,16 @@ export async function DELETE(
     const campaign = await deleteCampaign(id, workspace.id);
 
     if (!campaign) {
-      return NextResponse.json(
-        { error: "Campaign not found" },
-        { status: 404 }
-      );
+      return apiError("campaignNotFound", 404);
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
     if (error instanceof Error && error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError("unauthorized", 401);
     }
     if (error instanceof Error && error.message === "No workspace") {
-      return NextResponse.json({ error: "No workspace" }, { status: 403 });
+      return apiError("noWorkspace", 403);
     }
     return NextResponse.json(
       { error: "Internal server error" },

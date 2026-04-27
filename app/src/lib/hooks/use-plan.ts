@@ -21,7 +21,7 @@ async function fetchPlan(campaignId: string): Promise<Plan | null> {
   }
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to fetch plan");
+    throw new Error(err.error || "Erro ao carregar plano");
   }
   const data = await res.json();
   const p = data.plan as Plan;
@@ -38,7 +38,7 @@ async function generatePlan(campaignId: string): Promise<Plan> {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to generate plan");
+    throw new Error(err.error || "Erro ao gerar plano");
   }
   const data = await res.json();
   const p = data.plan as Plan;
@@ -60,7 +60,7 @@ async function updatePlanStatus(
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to update plan status");
+    throw new Error(err.error || "Erro ao atualizar plano");
   }
   const data = await res.json();
   const p = data.plan as Plan;

@@ -104,6 +104,7 @@
     "failedLoadActivity": "Falha ao carregar feed de atividades.",
     "noRecentActivity": "Nenhuma atividade recente.",
     "showMore": "Mostrar mais",
+    "of": "de",
     "briefingSaved": "Briefing salvo",
     "draftSaved": "Rascunho salvo",
     "planApproved": "Plano criativo aprovado!",
@@ -180,7 +181,10 @@
       "TikTok": "TikTok Ads",
       "Google": "Google Ads"
     },
-    "manageCampaigns": "Gerencie suas campanhas de derivação criativa"
+    "manageCampaigns": "Gerencie suas campanhas de derivação criativa",
+    "createNew": "Criar nova campanha",
+    "createDescription": "Configure uma nova campanha de derivação criativa",
+    "cta": "CTA principal"
   },
   "briefing": {
     "title": "Briefing da Campanha",
@@ -191,7 +195,15 @@
     "tonePlaceholder": "Selecione um tom",
     "offerPlaceholder": "ex: 50% off coleção de verão, Oferta por tempo limitado, Compre agora...",
     "constraintsPlaceholder": "ex: Deve incluir logo no canto inferior direito, Sem fundos vermelhos, Mantenha texto abaixo de 20% da imagem...",
-    "notesPlaceholder": "Qualquer outro detalhe que a IA deva considerar..."
+    "notesPlaceholder": "Qualquer outro detalhe que a IA deva considerar...",
+    "ctaPlaceholder": "ex: Compre Agora, Saiba Mais",
+    "clientHelp": "A marca ou produto sendo anunciado",
+    "offerHelp": "Qual ação os espectadores devem tomar?",
+    "constraintsHelp": "Quaisquer regras ou limitações para os criativos gerados",
+    "addNotes": "Adicionar notas",
+    "aiAssist": "A IA usará este brief para gerar seu plano criativo",
+    "saveDraft": "Salvar como rascunho",
+    "saveContinue": "Salvar e continuar"
   },
   "derivation": {
     "title": "Derivações",
@@ -339,10 +351,48 @@
   "errors": {
     "generic": "Algo deu errado. Tente novamente.",
     "unauthorized": "Acesso não autorizado",
+    "noWorkspace": "Workspace não encontrado",
     "notFound": "Não encontrado",
     "validation": "Verifique os campos e tente novamente.",
     "uploadFailed": "Falha no upload. Tente novamente.",
-    "generationFailed": "Falha na geração. Tente novamente."
+    "generationFailed": "Falha na geração. Tente novamente.",
+    "campaignNotFound": "Campanha não encontrada",
+    "planNotFound": "Plano não encontrado",
+    "derivationNotFound": "Derivação não encontrada",
+    "invalidInput": "Entrada inválida",
+    "invalidRequestBody": "Corpo da requisição inválido",
+    "aiEmptyResponse": "Resposta vazia da IA",
+    "aiInvalidJson": "JSON inválido da IA",
+    "aiValidationFailed": "Falha na validação da resposta da IA",
+    "derivationsInProgress": "Já existem derivações em andamento para esta campanha",
+    "invalidFileType": "Tipo de arquivo inválido. Apenas PNG, JPEG e WebP são permitidos.",
+    "fileTooLarge": "Arquivo muito grande. O tamanho máximo é 20MB.",
+    "invalidAssetKey": "Chave de asset inválida: deve pertencer à campanha",
+    "assetNotFound": "Asset não encontrado no storage",
+    "assetTypeMismatch": "Tipo de asset não corresponde",
+    "assetSizeMismatch": "Tamanho de asset não corresponde",
+    "invalidType": "Tipo inválido",
+    "derivationIdRequired": "ID da derivação é obrigatório",
+    "campaignIdRequired": "ID da campanha é obrigatório",
+    "invalidLocale": "Locale inválido",
+    "nameRequired": "Nome da campanha é obrigatório",
+    "clientRequired": "Cliente ou produto é obrigatório",
+    "objectiveRequired": "Objetivo da campanha é obrigatório",
+    "platformRequired": "Selecione pelo menos uma plataforma",
+    "toneRequired": "Tom de voz é obrigatório",
+    "fetchDashboard": "Falha ao carregar dashboard",
+    "fetchPlan": "Falha ao carregar plano",
+    "generatePlan": "Falha ao gerar plano",
+    "updatePlan": "Falha ao atualizar plano",
+    "getUploadUrl": "Falha ao obter URL de upload",
+    "saveAsset": "Falha ao salvar asset",
+    "fetchDerivations": "Falha ao carregar derivações",
+    "createDerivations": "Falha ao criar derivações",
+    "fetchCampaigns": "Falha ao carregar campanhas",
+    "fetchCampaign": "Falha ao carregar campanha",
+    "createCampaign": "Falha ao criar campanha",
+    "updateCampaign": "Falha ao atualizar campanha",
+    "deleteCampaign": "Falha ao excluir campanha"
   },
   "review": {
     "title": "Revisão",
@@ -366,5 +416,14 @@
     "reviewAll": "Revisar Tudo →",
     "backToGallery": "← Voltar para Galeria",
     "exportSelected": "Exportar selecionados"
+  },
+  "toast": {
+    "regenerationQueued": "Regeneração enfileirada",
+    "regenerationFailed": "Falha ao regenerar",
+    "derivationApproved": "Derivação aprovada",
+    "derivationRejected": "Derivação rejeitada",
+    "statusUpdateFailed": "Falha ao atualizar status",
+    "exportReady": "Exportação pronta — download iniciado",
+    "exportFailed": "Falha ao exportar"
   }
 }

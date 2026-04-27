@@ -56,6 +56,7 @@ import {
   Trash2,
   Archive,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 // ============================================
 // Types
@@ -153,6 +154,9 @@ function GridSkeleton() {
 
 export default function CampaignsListPage() {
   const setCurrentPageTitle = useAppStore((s) => s.setCurrentPageTitle);
+  const t = useTranslations("campaign");
+  const tc = useTranslations("common");
+  const te = useTranslations("errors");
 
   const { campaigns, isLoading, isError, error } = useCampaigns();
   const createCampaign = useCreateCampaign();
@@ -215,8 +219,8 @@ export default function CampaignsListPage() {
   // ---- Effects ----
 
   useEffect(() => {
-    setCurrentPageTitle("Campaigns");
-  }, [setCurrentPageTitle]);
+    setCurrentPageTitle(tc("campaign"));
+  }, [setCurrentPageTitle, tc]);
 
   // ---- Filtering & Sorting ----
 
@@ -277,19 +281,19 @@ export default function CampaignsListPage() {
     const filters: Array<{ label: string; onRemove: () => void }> = [];
     if (searchQuery) {
       filters.push({
-        label: `Search: "${searchQuery}"`,
+        label: `${tc("search")}: "${searchQuery}"`,
         onRemove: () => updateSearchQuery(""),
       });
     }
     if (statusFilter !== "all") {
       filters.push({
-        label: `Status: ${statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)}`,
+        label: `${tc("status")}: ${t(`status.${statusFilter}`)}`,
         onRemove: () => updateStatusFilter("all"),
       });
     }
     if (platformFilter !== "all") {
       filters.push({
-        label: `Platform: ${platformFilter}`,
+        label: `${tc("platforms")}: ${t(`platformNames.${platformFilter}`)}`,
         onRemove: () => updatePlatformFilter("all"),
       });
     }
@@ -301,6 +305,8 @@ export default function CampaignsListPage() {
     updateSearchQuery,
     updateStatusFilter,
     updatePlatformFilter,
+    t,
+    tc,
   ]);
 
   const hasActiveFilters = activeFilters.length > 0;
@@ -348,30 +354,30 @@ export default function CampaignsListPage() {
         },
         {
           onSuccess: () => {
-            toast.success(`Campaign "${data.name}" created successfully`);
+            toast.success(tc("campaignCreated", { name: data.name }));
             setModalOpen(false);
           },
           onError: (err) => {
-            toast.error(err.message || "Failed to create campaign");
+            toast.error(err.message || tc("failedCreateCampaign"));
           },
         }
       );
     },
-    [createCampaign]
+    [createCampaign, tc]
   );
 
   const handleDuplicate = useCallback(
     (id: string) => {
       duplicateCampaign.mutate(id, {
         onSuccess: () => {
-          toast.success("Campaign duplicated");
+          toast.success(tc("campaignDuplicated"));
         },
         onError: (err) => {
-          toast.error(err.message || "Failed to duplicate campaign");
+          toast.error(err.message || tc("failedDuplicateCampaign"));
         },
       });
     },
-    [duplicateCampaign]
+    [duplicateCampaign, tc]
   );
 
   const handleArchive = useCallback(
@@ -380,15 +386,15 @@ export default function CampaignsListPage() {
         { id, payload: { status: "draft" } },
         {
           onSuccess: () => {
-            toast.success("Campaign archived");
+            toast.success(tc("campaignArchived"));
           },
           onError: (err) => {
-            toast.error(err.message || "Failed to archive campaign");
+            toast.error(err.message || tc("failedArchiveCampaign"));
           },
         }
       );
     },
-    [updateCampaigns]
+    [updateCampaigns, tc]
   );
 
   const handleDelete = useCallback(
@@ -396,14 +402,14 @@ export default function CampaignsListPage() {
       deleteCampaigns.mutate(id, {
         onSuccess: () => {
           setDeleteTarget(null);
-          toast.success("Campaign deleted");
+          toast.success(tc("campaignDeleted"));
         },
         onError: (err) => {
-          toast.error(err.message || "Failed to delete campaign");
+          toast.error(err.message || tc("failedDeleteCampaign"));
         },
       });
     },
-    [deleteCampaigns]
+    [deleteCampaigns, tc]
   );
 
   const handleBulkArchive = useCallback(() => {
@@ -413,12 +419,12 @@ export default function CampaignsListPage() {
     Promise.all(promises)
       .then(() => {
         setSelectedIds(new Set());
-        toast.success(`${selectedIds.size} campaigns archived`);
+        toast.success(tc("campaignsArchived", { count: selectedIds.size }));
       })
       .catch(() => {
-        toast.error("Failed to archive some campaigns");
+        toast.error(tc("failedArchiveSome"));
       });
-  }, [selectedIds, updateCampaigns]);
+  }, [selectedIds, updateCampaigns, tc]);
 
   const handleBulkDelete = useCallback(() => {
     const promises = Array.from(selectedIds).map((id) =>
@@ -427,12 +433,12 @@ export default function CampaignsListPage() {
     Promise.all(promises)
       .then(() => {
         setSelectedIds(new Set());
-        toast.success(`${selectedIds.size} campaigns deleted`);
+        toast.success(tc("campaignsDeleted", { count: selectedIds.size }));
       })
       .catch(() => {
-        toast.error("Failed to delete some campaigns");
+        toast.error(tc("failedDeleteSome"));
       });
-  }, [selectedIds, deleteCampaigns]);
+  }, [selectedIds, deleteCampaigns, tc]);
 
   // ---- Pagination ----
 
@@ -471,14 +477,14 @@ export default function CampaignsListPage() {
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-[var(--text-primary)]">
-              Campaigns
+              {tc("campaign")}
             </h1>
             <span className="inline-flex items-center justify-center rounded-full bg-[var(--surface-raised)] text-[var(--text-secondary)] text-xs font-medium px-2.5 py-0.5 min-w-[24px] h-6">
               {filteredCampaigns.length}
             </span>
           </div>
           <p className="mt-1 text-sm text-[var(--text-secondary)]">
-            Manage your creative derivation campaigns
+            {t("manageCampaigns")}
           </p>
         </div>
 
@@ -492,7 +498,7 @@ export default function CampaignsListPage() {
             className="bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-light)] hover:-translate-y-px active:scale-[0.98] transition-all duration-200 h-9 px-4"
           >
             <Plus size={16} />
-            New Campaign
+            {t("new")}
           </Button>
         </motion.div>
       </motion.div>
@@ -516,7 +522,7 @@ export default function CampaignsListPage() {
               style={{ backgroundColor: "rgba(99,102,241,0.12)" }}
             >
               <span className="text-sm font-medium text-[var(--accent-blue-light)]">
-                {selectedIds.size} selected
+                {selectedIds.size} {tc("selected")}
               </span>
               <div className="flex items-center gap-2">
                 <Button
@@ -526,7 +532,7 @@ export default function CampaignsListPage() {
                   className="border-[var(--border-dim)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] h-7 text-xs"
                 >
                   <Archive size={14} className="mr-1" />
-                  Archive
+                  {tc("archive")}
                 </Button>
                 <Button
                   variant="destructive"
@@ -535,7 +541,7 @@ export default function CampaignsListPage() {
                   className="h-7 text-xs"
                 >
                   <Trash2 size={14} className="mr-1" />
-                  Delete
+                  {tc("delete")}
                 </Button>
                 <Button
                   variant="ghost"
@@ -543,7 +549,7 @@ export default function CampaignsListPage() {
                   onClick={() => setSelectedIds(new Set())}
                   className="text-[var(--text-muted)] hover:text-[var(--text-primary)] h-7 text-xs"
                 >
-                  Cancel
+                  {tc("cancel")}
                 </Button>
               </div>
             </motion.div>
@@ -562,7 +568,7 @@ export default function CampaignsListPage() {
               <Input
                 value={searchQuery}
                 onChange={(e) => updateSearchQuery(e.target.value)}
-                placeholder="Search campaigns..."
+                placeholder={tc("search")}
                 className="h-8 w-full pl-9 pr-8 bg-[var(--surface-raised)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] text-sm"
               />
               {searchQuery && (
@@ -583,14 +589,14 @@ export default function CampaignsListPage() {
                 onValueChange={(v) => updateStatusFilter(v as StatusFilter)}
               >
                 <SelectTrigger className="h-8 w-[140px] bg-[var(--surface-raised)] border-[var(--border-dim)] text-[var(--text-primary)] text-xs">
-                  <SelectValue placeholder="All Status" />
+                  <SelectValue placeholder={tc("allStatus")} />
                 </SelectTrigger>
                 <SelectContent className="bg-[var(--surface-raised)] border-[var(--border-dim)]">
-                  <SelectItem value="all" className="text-[var(--text-primary)] text-xs">All Status</SelectItem>
-                  <SelectItem value="draft" className="text-[var(--text-primary)] text-xs">Draft</SelectItem>
-                  <SelectItem value="active" className="text-[var(--text-primary)] text-xs">Active</SelectItem>
-                  <SelectItem value="generating" className="text-[var(--text-primary)] text-xs">Generating</SelectItem>
-                  <SelectItem value="completed" className="text-[var(--text-primary)] text-xs">Completed</SelectItem>
+                  <SelectItem value="all" className="text-[var(--text-primary)] text-xs">{tc("allStatus")}</SelectItem>
+                  <SelectItem value="draft" className="text-[var(--text-primary)] text-xs">{t("status.draft")}</SelectItem>
+                  <SelectItem value="active" className="text-[var(--text-primary)] text-xs">{t("status.active")}</SelectItem>
+                  <SelectItem value="generating" className="text-[var(--text-primary)] text-xs">{t("status.generating")}</SelectItem>
+                  <SelectItem value="completed" className="text-[var(--text-primary)] text-xs">{t("status.completed")}</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -600,13 +606,13 @@ export default function CampaignsListPage() {
                 onValueChange={(v) => updatePlatformFilter(v as PlatformFilter)}
               >
                 <SelectTrigger className="h-8 w-[150px] bg-[var(--surface-raised)] border-[var(--border-dim)] text-[var(--text-primary)] text-xs">
-                  <SelectValue placeholder="All Platforms" />
+                  <SelectValue placeholder={tc("allPlatforms")} />
                 </SelectTrigger>
                 <SelectContent className="bg-[var(--surface-raised)] border-[var(--border-dim)]">
-                  <SelectItem value="all" className="text-[var(--text-primary)] text-xs">All Platforms</SelectItem>
-                  <SelectItem value="Meta" className="text-[var(--text-primary)] text-xs">Meta</SelectItem>
-                  <SelectItem value="TikTok" className="text-[var(--text-primary)] text-xs">TikTok</SelectItem>
-                  <SelectItem value="Google" className="text-[var(--text-primary)] text-xs">Google</SelectItem>
+                  <SelectItem value="all" className="text-[var(--text-primary)] text-xs">{tc("allPlatforms")}</SelectItem>
+                  <SelectItem value="Meta" className="text-[var(--text-primary)] text-xs">{t("platformNames.Meta")}</SelectItem>
+                  <SelectItem value="TikTok" className="text-[var(--text-primary)] text-xs">{t("platformNames.TikTok")}</SelectItem>
+                  <SelectItem value="Google" className="text-[var(--text-primary)] text-xs">{t("platformNames.Google")}</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -616,14 +622,14 @@ export default function CampaignsListPage() {
                 onValueChange={(v) => updateSortOption(v as SortOption)}
               >
                 <SelectTrigger className="h-8 w-[140px] bg-[var(--surface-raised)] border-[var(--border-dim)] text-[var(--text-primary)] text-xs">
-                  <SelectValue placeholder="Sort" />
+                  <SelectValue placeholder={tc("sort")} />
                 </SelectTrigger>
                 <SelectContent className="bg-[var(--surface-raised)] border-[var(--border-dim)]">
-                  <SelectItem value="newest" className="text-[var(--text-primary)] text-xs">Newest</SelectItem>
-                  <SelectItem value="oldest" className="text-[var(--text-primary)] text-xs">Oldest</SelectItem>
-                  <SelectItem value="name-asc" className="text-[var(--text-primary)] text-xs">Name A-Z</SelectItem>
-                  <SelectItem value="name-desc" className="text-[var(--text-primary)] text-xs">Name Z-A</SelectItem>
-                  <SelectItem value="variations" className="text-[var(--text-primary)] text-xs">Most Derivations</SelectItem>
+                  <SelectItem value="newest" className="text-[var(--text-primary)] text-xs">{tc("newest")}</SelectItem>
+                  <SelectItem value="oldest" className="text-[var(--text-primary)] text-xs">{tc("oldest")}</SelectItem>
+                  <SelectItem value="name-asc" className="text-[var(--text-primary)] text-xs">{tc("nameAsc")}</SelectItem>
+                  <SelectItem value="name-desc" className="text-[var(--text-primary)] text-xs">{tc("nameDesc")}</SelectItem>
+                  <SelectItem value="variations" className="text-[var(--text-primary)] text-xs">{tc("mostDerivations")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -666,7 +672,7 @@ export default function CampaignsListPage() {
                 className="flex items-center gap-2 mt-3 pt-3 border-t border-[var(--border-dim)] overflow-hidden"
               >
                 <span className="text-[11px] text-[var(--text-muted)] uppercase tracking-wider">
-                  Filters:
+                  {tc("filters")}:
                 </span>
                 {activeFilters.map((filter, i) => (
                   <span
@@ -686,7 +692,7 @@ export default function CampaignsListPage() {
                   onClick={clearFilters}
                   className="text-xs text-[var(--accent-blue)] hover:text-[var(--accent-blue-light)] transition-colors ml-1"
                 >
-                  Clear all
+                  {tc("clearAll")}
                 </button>
               </motion.div>
             )}
@@ -701,30 +707,30 @@ export default function CampaignsListPage() {
         ) : isError ? (
           <EmptyState
             illustration="/empty-campaigns.svg"
-            title="Error loading campaigns"
-            description={error?.message || "Something went wrong. Please try again."}
+            title={tc("errorLoading")}
+            description={error?.message || te("generic")}
             action={{
-              label: "Retry",
+              label: tc("retry"),
               onClick: () => window.location.reload(),
             }}
           />
         ) : filteredCampaigns.length === 0 ? (
           <EmptyState
             illustration="/empty-campaigns.svg"
-            title={hasActiveFilters ? "No campaigns match your search" : "No campaigns yet"}
+            title={hasActiveFilters ? tc("noCampaignsMatch") : tc("noCampaignsYet")}
             description={
               hasActiveFilters
-                ? "Try adjusting your search terms or filters"
-                : "Create your first campaign to start generating ad variations"
+                ? tc("adjustFilters")
+                : tc("createFirstCampaign")
             }
             action={
               hasActiveFilters
                 ? {
-                    label: "Clear all filters",
+                    label: tc("clearAllFilters"),
                     onClick: clearFilters,
                   }
                 : {
-                    label: "Create Campaign",
+                    label: t("new"),
                     onClick: () => setModalOpen(true),
                   }
             }
@@ -755,7 +761,7 @@ export default function CampaignsListPage() {
                         style={
                           allSelected
                             ? {
-                                backgroundImage: `url("data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22white%22%3E%3Cpath%20d%3D%22M12.207%204.793a1%201%200%2001%200%201.414l-5%205a1%201%200%2001-1.414%200l-2-2a1%201%200%20011.414-1.414L6.5%209.086l4.293-4.293a1%201%200%20011.414%200z%22%2F%3E%3C%2Fsvg%3E")`,
+                                backgroundImage: `url("data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22white%22%3E%3Cpath%20d%3D%22M12.207%204.793a1%201%200%2001%200%201.414l-5%205a1%201%20%200%2001-1.414%200l-2-2a1%201%20%200%20011.414-1.414L6.5%209.086l4.293-4.293a1%201%20%200%20011.414%200z%22%2F%3E%3C%2Fsvg%3E")`,
                                 backgroundRepeat: "no-repeat",
                                 backgroundPosition: "center",
                               }
@@ -771,22 +777,22 @@ export default function CampaignsListPage() {
                       />
                     </TableHead>
                     <TableHead className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)] px-4 py-3">
-                      Campaign
+                      {tc("campaign")}
                     </TableHead>
                     <TableHead className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)] px-4 py-3 w-[140px]">
-                      Platforms
+                      {tc("platforms")}
                     </TableHead>
                     <TableHead className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)] px-4 py-3 w-[120px]">
-                      Status
+                      {tc("status")}
                     </TableHead>
                     <TableHead className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)] px-4 py-3 w-[100px]">
-                      Variations
+                      {tc("variations")}
                     </TableHead>
                     <TableHead className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)] px-4 py-3 w-[100px] hidden md:table-cell">
-                      Credits
+                      {tc("credits")}
                     </TableHead>
                     <TableHead className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)] px-4 py-3 w-[140px]">
-                      Modified
+                      {tc("modified")}
                     </TableHead>
                     <TableHead className="w-[56px] px-4 py-3" />
                   </tr>
@@ -832,15 +838,7 @@ export default function CampaignsListPage() {
           className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6"
         >
           <p className="text-sm text-[var(--text-muted)]">
-            Showing{" "}
-            <span className="text-[var(--text-primary)] font-medium">
-              {startIndex}-{endIndex}
-            </span>{" "}
-            of{" "}
-            <span className="text-[var(--text-primary)] font-medium">
-              {filteredCampaigns.length}
-            </span>{" "}
-            campaigns
+            {tc("showingResults", { start: startIndex, end: endIndex, total: filteredCampaigns.length })}
           </p>
 
           <div className="flex items-center gap-2">
@@ -920,14 +918,10 @@ export default function CampaignsListPage() {
         <DialogContent className="bg-[var(--surface-raised)] border-[var(--border-dim)] max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-[18px] font-semibold text-[var(--text-primary)]">
-              Delete Campaign
+              {tc("delete")}
             </DialogTitle>
             <DialogDescription className="text-sm text-[var(--text-secondary)]">
-              Are you sure you want to delete &quot;
-              <span className="text-[var(--text-primary)] font-medium">
-                {campaigns.find((c) => c.id === deleteTarget)?.name}
-              </span>
-              &quot;? This action cannot be undone.
+              {tc("deleteCampaignConfirm", { name: campaigns.find((c) => c.id === deleteTarget)?.name ?? "" })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex-row justify-end gap-2 pt-4">
@@ -936,14 +930,14 @@ export default function CampaignsListPage() {
               onClick={() => setDeleteTarget(null)}
               className="border-[var(--border-dim)] text-[var(--text-secondary)]"
             >
-              Cancel
+              {tc("cancel")}
             </Button>
             <Button
               variant="destructive"
               onClick={() => deleteTarget && handleDelete(deleteTarget)}
               className="bg-[var(--accent-rose)] text-white hover:opacity-90"
             >
-              Delete
+              {tc("delete")}
             </Button>
           </DialogFooter>
         </DialogContent>

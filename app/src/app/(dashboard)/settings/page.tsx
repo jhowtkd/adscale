@@ -9,13 +9,14 @@ import WorkspaceTab from "@/components/settings/WorkspaceTab";
 import TeamTab from "@/components/settings/TeamTab";
 import BillingTab from "@/components/settings/BillingTab";
 import IntegrationsTab from "@/components/settings/IntegrationsTab";
+import { useTranslations } from "next-intl";
 
 const tabs = [
-  { id: "profile", label: "Profile" },
-  { id: "workspace", label: "Workspace" },
-  { id: "team", label: "Team" },
-  { id: "billing", label: "Billing" },
-  { id: "integrations", label: "Integrations" },
+  { id: "profile", labelKey: "profileTab" },
+  { id: "workspace", labelKey: "workspaceTab" },
+  { id: "team", labelKey: "teamTab" },
+  { id: "billing", labelKey: "billingTab" },
+  { id: "integrations", labelKey: "integrationsTab" },
 ];
 
 const tabVariants = {
@@ -26,20 +27,21 @@ const tabVariants = {
 export default function SettingsPage() {
   const setCurrentPageTitle = useAppStore((s) => s.setCurrentPageTitle);
   const [activeTab, setActiveTab] = useState("profile");
+  const t = useTranslations("settings");
 
   useEffect(() => {
-    setCurrentPageTitle("Settings");
-  }, [setCurrentPageTitle]);
+    setCurrentPageTitle(t("title"));
+  }, [setCurrentPageTitle, t]);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-semibold text-[var(--text-primary)]">
-          Settings
+          {t("title")}
         </h1>
         <p className="mt-1 text-sm text-[var(--text-secondary)]">
-          Manage your profile, workspace, and preferences.
+          {t("managePreferences")}
         </p>
       </div>
 
@@ -57,7 +59,7 @@ export default function SettingsPage() {
                   : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
               )}
             >
-              {tab.label}
+              {t(tab.labelKey)}
               {activeTab === tab.id && (
                 <motion.div
                   layoutId="settings-tab-indicator"

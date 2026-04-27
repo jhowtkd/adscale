@@ -15,7 +15,7 @@ async function fetchDashboard(): Promise<DashboardData> {
   const res = await apiFetch("/api/dashboard");
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to fetch dashboard");
+    throw new Error(err.error || "Erro ao carregar dashboard");
   }
   const data = await res.json();
   return {

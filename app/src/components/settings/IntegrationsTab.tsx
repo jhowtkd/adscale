@@ -15,6 +15,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -111,8 +112,34 @@ const statusConfig: Record<
   error: { label: "Error", color: "var(--accent-rose)" },
 };
 
+const statusKeyMap: Record<IntegrationStatus, string> = {
+  connected: "connected",
+  not_connected: "notConnected",
+  error: "error",
+};
+
+const nameKeyMap: Record<string, string> = {
+  meta: "metaAds",
+  google: "googleAds",
+  tiktok: "tiktokAds",
+  slack: "slack",
+  webhook: "webhook",
+  api: "apiAccess",
+};
+
+const descKeyMap: Record<string, string> = {
+  meta: "metaAdsDesc",
+  google: "googleAdsDesc",
+  tiktok: "tiktokAdsDesc",
+  slack: "slackDesc",
+  webhook: "webhookDesc",
+  api: "apiAccessDesc",
+};
+
 export default function IntegrationsTab() {
   const addToast = useAppStore((s) => s.addToast);
+  const t = useTranslations("settings");
+  const tc = useTranslations("common");
   const [integrationStates, setIntegrationStates] = useState<
     Record<string, IntegrationStatus>
   >(
@@ -123,14 +150,15 @@ export default function IntegrationsTab() {
 
   const handleConnect = (id: string) => {
     const current = integrationStates[id];
+    const name = t(nameKeyMap[id]);
     if (current === "connected") {
       setIntegrationStates((prev) => ({ ...prev, [id]: "not_connected" }));
-      addToast("info", `${integrations.find((i) => i.id === id)?.name} disconnected`);
+      addToast("info", tc("disconnected", { name }));
     } else {
       setIntegrationStates((prev) => ({ ...prev, [id]: "connected" }));
       addToast(
         "success",
-        `${integrations.find((i) => i.id === id)?.name} connected`
+        tc("connected", { name })
       );
     }
   };
@@ -176,17 +204,17 @@ export default function IntegrationsTab() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
                     <h4 className="text-[15px] font-semibold text-[var(--text-primary)]">
-                      {integration.name}
+                      {t(nameKeyMap[integration.id])}
                     </h4>
                     <span
                       className="text-xs font-medium"
                       style={{ color: config.color }}
                     >
-                      {config.label}
+                      {t(`integrations.${statusKeyMap[status]}`)}
                     </span>
                   </div>
                   <p className="text-sm text-[var(--text-secondary)] mt-1 leading-relaxed">
-                    {integration.description}
+                    {t(descKeyMap[integration.id])}
                   </p>
                 </div>
               </div>
@@ -195,7 +223,7 @@ export default function IntegrationsTab() {
               <div className="pt-1">
                 {integration.id === "api" ? (
                   <button
-                    onClick={() => addToast("info", "API key management coming soon")}
+                    onClick={() => addToast("info", tc("apiKeyManagementComingSoon"))}
                     className={cn(
                       "h-8 px-3 rounded-md text-xs font-medium flex items-center gap-1.5",
                       "bg-[var(--surface-raised)] text-[var(--text-primary)]",
@@ -206,7 +234,7 @@ export default function IntegrationsTab() {
                     )}
                   >
                     <Settings size={14} />
-                    Configure
+                    {t("config")}
                   </button>
                 ) : (
                   <button
@@ -224,12 +252,12 @@ export default function IntegrationsTab() {
                     {isConnected ? (
                       <>
                         <Unlink size={14} />
-                        Disconnect
+                        {t("disconnect")}
                       </>
                     ) : (
                       <>
                         <ExternalLink size={14} />
-                        Connect
+                        {t("connect")}
                       </>
                     )}
                   </button>

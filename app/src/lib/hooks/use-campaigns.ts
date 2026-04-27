@@ -61,7 +61,7 @@ async function fetchCampaigns(): Promise<Campaign[]> {
   const res = await apiFetch("/api/campaigns");
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to fetch campaigns");
+    throw new Error(err.error || "Erro ao carregar campanhas");
   }
   const data = await res.json();
   return data.campaigns.map((c: Campaign) => ({
@@ -75,7 +75,7 @@ async function fetchCampaign(id: string): Promise<Campaign> {
   const res = await apiFetch(`/api/campaigns/${id}`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to fetch campaign");
+    throw new Error(err.error || "Erro ao carregar campanha");
   }
   const data = await res.json();
   const c = data.campaign as Campaign;
@@ -105,7 +105,7 @@ async function createCampaign(payload: {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to create campaign");
+    throw new Error(err.error || "Erro ao criar campanha");
   }
   const data = await res.json();
   const c = data.campaign as Campaign;
@@ -127,7 +127,7 @@ async function updateCampaign(
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to update campaign");
+    throw new Error(err.error || "Erro ao atualizar campanha");
   }
   const data = await res.json();
   const c = data.campaign as Campaign;
@@ -144,7 +144,7 @@ async function deleteCampaign(id: string): Promise<void> {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to delete campaign");
+    throw new Error(err.error || "Erro ao excluir campanha");
   }
 }
 

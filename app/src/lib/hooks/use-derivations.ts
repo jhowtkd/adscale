@@ -22,7 +22,7 @@ async function fetchDerivations(campaignId: string): Promise<Derivation[]> {
   const res = await apiFetch(`/api/campaigns/${campaignId}/derivations`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to fetch derivations");
+    throw new Error(err.error || "Erro ao carregar derivações");
   }
   const data = await res.json();
   return (data.derivations as Derivation[]).map((d) => ({
@@ -43,7 +43,7 @@ async function createDerivations(
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to create derivations");
+    throw new Error(err.error || "Erro ao criar derivações");
   }
   const data = await res.json();
   return data.derivations as Derivation[];

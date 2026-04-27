@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { apiError } from "@/lib/api-response";
 import { db } from "@/server/db";
 import { user } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
@@ -14,24 +15,18 @@ export async function POST(request: Request) {
   try {
     const session = await getSessionFromHeaders(request.headers);
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError("unauthorized", 401);
     }
 
     const body = await request.json();
     const parsed = updateLocaleSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: "Invalid request body", issues: parsed.error.flatten() },
-        { status: 400 }
-      );
+      return apiError("invalidRequestBody", 400, parsed.error.flatten());
     }
 
     const { locale } = parsed.data;
     if (!isValidLocale(locale)) {
-      return NextResponse.json(
-        { error: `Invalid locale: ${locale}` },
-        { status: 400 }
-      );
+      return apiError("invalidLocale", 400);
     }
 
     await db
@@ -42,9 +37,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, locale });
   } catch (error) {
     console.error("[POST /api/user/locale] error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return apiError("internalError", 500);
   }
 }

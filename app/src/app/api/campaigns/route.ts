@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { apiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import {
   createCampaign,
@@ -26,10 +27,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ campaigns: items });
   } catch (error) {
     if (error instanceof Error && error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError("unauthorized", 401);
     }
     if (error instanceof Error && error.message === "No workspace") {
-      return NextResponse.json({ error: "No workspace" }, { status: 403 });
+      return apiError("noWorkspace", 403);
     }
     return NextResponse.json(
       { error: "Internal server error" },
@@ -45,10 +46,7 @@ export async function POST(request: Request) {
     const parsed = createCampaignSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: "Invalid input", issues: parsed.error.flatten() },
-        { status: 400 }
-      );
+      return apiError("invalidInput", 400, parsed.error.flatten());
     }
 
     const campaign = await createCampaign(workspace.id, {

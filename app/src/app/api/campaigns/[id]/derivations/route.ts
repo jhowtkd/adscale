@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { apiError } from "@/lib/api-response";
 import { eq, and, sql } from "drizzle-orm";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCampaignById } from "@/server/repositories/campaign";
@@ -29,19 +30,13 @@ export async function POST(
 
     const campaign = await getCampaignById(campaignId, workspace.id);
     if (!campaign) {
-      return NextResponse.json(
-        { error: "Campaign not found" },
-        { status: 404 }
-      );
+      return apiError("campaignNotFound", 404);
     }
 
     const body = await request.json();
     const parsed = createDerivationsSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: "Invalid request body", issues: parsed.error.flatten() },
-        { status: 400 }
-      );
+      return apiError("invalidRequestBody", 400, parsed.error.flatten());
     }
     const count = parsed.data.count ?? 1;
 
@@ -59,10 +54,7 @@ export async function POST(
       )
       .limit(1);
     if (existingQueued.length > 0) {
-      return NextResponse.json(
-        { error: "Derivations already in progress for this campaign" },
-        { status: 429 }
-      );
+      return apiError("derivationsInProgress", 429);
     }
 
     const created: Awaited<ReturnType<typeof createDerivation>>[] = [];
@@ -97,10 +89,10 @@ export async function POST(
     return NextResponse.json({ derivations: created }, { status: 201 });
   } catch (error) {
     if (error instanceof Error && error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError("unauthorized", 401);
     }
     if (error instanceof Error && error.message === "No workspace") {
-      return NextResponse.json({ error: "No workspace" }, { status: 403 });
+      return apiError("noWorkspace", 403);
     }
     return NextResponse.json(
       { error: "Internal server error" },
@@ -125,10 +117,10 @@ export async function GET(
     return NextResponse.json({ derivations: derivationsWithImageUrl });
   } catch (error) {
     if (error instanceof Error && error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError("unauthorized", 401);
     }
     if (error instanceof Error && error.message === "No workspace") {
-      return NextResponse.json({ error: "No workspace" }, { status: 403 });
+      return apiError("noWorkspace", 403);
     }
     return NextResponse.json(
       { error: "Internal server error" },

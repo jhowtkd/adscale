@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { apiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCampaignById } from "@/server/repositories/campaign";
 import { createAsset } from "@/server/repositories/asset";
@@ -26,20 +27,14 @@ export async function POST(
 
     const campaign = await getCampaignById(campaignId, workspace.id);
     if (!campaign) {
-      return NextResponse.json(
-        { error: "Campaign not found" },
-        { status: 404 }
-      );
+      return apiError("campaignNotFound", 404);
     }
 
     const body = await request.json();
     const parsed = completeSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: "Invalid input", issues: parsed.error.flatten() },
-        { status: 400 }
-      );
+      return apiError("invalidInput", 400, parsed.error.flatten());
     }
 
     const { key, type, size, width, height } = parsed.data;
@@ -47,35 +42,23 @@ export async function POST(
     // Validate key starts with the campaign's asset prefix
     const expectedPrefix = `campaigns/${campaignId}/`;
     if (!key.startsWith(expectedPrefix)) {
-      return NextResponse.json(
-        { error: "Invalid asset key: must belong to the campaign" },
-        { status: 400 }
-      );
+      return apiError("invalidAssetKey", 400);
     }
 
     // Verify the object actually exists in R2
     const head = await headObject(key);
     if (!head) {
-      return NextResponse.json(
-        { error: "Asset not found in storage" },
-        { status: 400 }
-      );
+      return apiError("assetNotFound", 400);
     }
 
     // Verify Content-Type matches
     if (head.ContentType && head.ContentType !== type) {
-      return NextResponse.json(
-        { error: "Asset type mismatch" },
-        { status: 400 }
-      );
+      return apiError("assetTypeMismatch", 400);
     }
 
     // Verify size matches (with small tolerance)
     if (head.ContentLength && Math.abs(head.ContentLength - size) > 1024) {
-      return NextResponse.json(
-        { error: "Asset size mismatch" },
-        { status: 400 }
-      );
+      return apiError("assetSizeMismatch", 400);
     }
 
     const asset = await createAsset(workspace.id, campaignId, {
@@ -89,10 +72,10 @@ export async function POST(
     return NextResponse.json({ asset }, { status: 201 });
   } catch (error) {
     if (error instanceof Error && error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError("unauthorized", 401);
     }
     if (error instanceof Error && error.message === "No workspace") {
-      return NextResponse.json({ error: "No workspace" }, { status: 403 });
+      return apiError("noWorkspace", 403);
     }
     return NextResponse.json(
       { error: "Internal server error" },

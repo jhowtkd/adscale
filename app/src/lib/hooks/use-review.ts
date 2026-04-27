@@ -1,10 +1,12 @@
 import { apiFetch } from "@/lib/api-client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { useAppStore } from "@/lib/store";
 
 export function useReviewDerivation(derivationId?: string) {
   const queryClient = useQueryClient();
   const addToast = useAppStore((s) => s.addToast);
+  const t = useTranslations("toast");
 
   return useMutation({
     mutationFn: async ({
@@ -25,7 +27,7 @@ export function useReviewDerivation(derivationId?: string) {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Failed to update status");
+        throw new Error(err.error || t("statusUpdateFailed"));
       }
       return res.json();
     },
@@ -33,13 +35,13 @@ export function useReviewDerivation(derivationId?: string) {
       queryClient.invalidateQueries({ queryKey: ["derivations"] });
       addToast(
         "success",
-        `Derivation ${variables.status === "approved" ? "approved" : "rejected"}`
+        variables.status === "approved" ? t("derivationApproved") : t("derivationRejected")
       );
     },
     onError: (err) => {
       addToast(
         "error",
-        err instanceof Error ? err.message : "Failed to update status"
+        err instanceof Error ? err.message : t("statusUpdateFailed")
       );
     },
   });

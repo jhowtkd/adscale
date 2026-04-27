@@ -74,6 +74,7 @@ export default function NewCampaignModal({
   const tCampaign = useTranslations("campaign");
   const tBriefing = useTranslations("briefing");
   const tCommon = useTranslations("common");
+  const tErrors = useTranslations("errors");
 
   const OBJECTIVES = [
     { value: "awareness", label: tCampaign("objectives.awareness") },
@@ -145,10 +146,10 @@ export default function NewCampaignModal({
 
   const validate = useCallback((): boolean => {
     const newErrors: FormErrors = {};
-    if (!form.name.trim()) newErrors.name = "Campaign name is required";
-    if (!form.clientName.trim()) newErrors.clientName = "Client name is required";
-    if (!form.objective) newErrors.objective = "Objective is required";
-    if (form.platforms.length === 0) newErrors.platforms = "Select at least one platform";
+    if (!form.name.trim()) newErrors.name = tErrors("nameRequired");
+    if (!form.clientName.trim()) newErrors.clientName = tErrors("clientRequired");
+    if (!form.objective) newErrors.objective = tErrors("objectiveRequired");
+    if (form.platforms.length === 0) newErrors.platforms = tErrors("platformRequired");
     setErrors(newErrors);
     setTouched({
       name: true,
@@ -197,10 +198,10 @@ export default function NewCampaignModal({
         {/* Header */}
         <DialogHeader className="px-6 pt-6 pb-4">
           <DialogTitle className="text-[18px] font-semibold text-[var(--text-primary)]">
-            Create New Campaign
+            {tCampaign("createNew")}
           </DialogTitle>
           <DialogDescription className="text-sm text-[var(--text-secondary)]">
-            Set up a new creative derivation campaign
+            {tCampaign("createDescription")}
           </DialogDescription>
         </DialogHeader>
 
@@ -238,7 +239,7 @@ export default function NewCampaignModal({
           {/* Client/Product Name */}
           <div className="space-y-1.5">
             <Label className="text-[13px] text-[var(--text-secondary)]">
-              Client/Product Name <span className="text-[var(--accent-rose)]">*</span>
+              {tCampaign("client")} <span className="text-[var(--accent-rose)]">*</span>
             </Label>
             <Input
               value={form.clientName}
@@ -315,7 +316,7 @@ export default function NewCampaignModal({
             <Textarea
               value={form.targetAudience}
               onChange={(e) => updateField("targetAudience", e.target.value)}
-              placeholder="Describe your target audience..."
+              placeholder={tBriefing("audiencePlaceholder")}
               className="bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] min-h-[60px]"
             />
           </div>
@@ -389,12 +390,12 @@ export default function NewCampaignModal({
           {/* Primary CTA */}
           <div className="space-y-1.5">
             <Label className="text-[13px] text-[var(--text-secondary)]">
-              Primary CTA
+              {tCampaign("cta")}
             </Label>
             <Input
               value={form.primaryCTA}
               onChange={(e) => updateField("primaryCTA", e.target.value)}
-              placeholder="e.g., Shop Now, Learn More"
+              placeholder={tBriefing("ctaPlaceholder")}
               className="bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
             />
           </div>

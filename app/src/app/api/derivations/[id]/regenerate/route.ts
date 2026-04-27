@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { apiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import {
   getDerivationById,
@@ -23,19 +24,13 @@ export async function POST(
 
     const original = await getDerivationById(id, workspace.id);
     if (!original) {
-      return NextResponse.json(
-        { error: "Derivation not found" },
-        { status: 404 }
-      );
+      return apiError("derivationNotFound", 404);
     }
 
     const body = await request.json();
     const parsed = bodySchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: "Invalid request body", issues: parsed.error.flatten() },
-        { status: 400 }
-      );
+      return apiError("invalidRequestBody", 400, parsed.error.flatten());
     }
     const feedback = parsed.data.feedback;
 
@@ -61,10 +56,10 @@ export async function POST(
     return NextResponse.json({ derivation: newDerivation }, { status: 201 });
   } catch (error) {
     if (error instanceof Error && error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError("unauthorized", 401);
     }
     if (error instanceof Error && error.message === "No workspace") {
-      return NextResponse.json({ error: "No workspace" }, { status: 403 });
+      return apiError("noWorkspace", 403);
     }
     return NextResponse.json(
       { error: "Internal server error" },

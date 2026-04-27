@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { apiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { exportIndividual, exportAllApproved } from "@/server/services/export";
 
@@ -16,10 +17,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const parsed = bodySchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: "Invalid request body" },
-        { status: 400 }
-      );
+      return apiError("invalidRequestBody", 400);
     }
 
     const { type, derivationId, campaignId, format } = parsed.data;
@@ -27,10 +25,7 @@ export async function POST(request: Request) {
 
     if (type === "individual") {
       if (!derivationId) {
-        return NextResponse.json(
-          { error: "derivationId required" },
-          { status: 400 }
-        );
+        return apiError("derivationIdRequired", 400);
       }
       const { url } = await exportIndividual(derivationId, workspace.id, format);
       return NextResponse.json({ downloadUrl: url, expiresAt });
@@ -38,27 +33,21 @@ export async function POST(request: Request) {
 
     if (type === "batch") {
       if (!campaignId) {
-        return NextResponse.json(
-          { error: "campaignId required" },
-          { status: 400 }
-        );
+        return apiError("campaignIdRequired", 400);
       }
       const { url } = await exportAllApproved(campaignId, workspace.id, format);
       return NextResponse.json({ downloadUrl: url, expiresAt });
     }
 
-    return NextResponse.json({ error: "Invalid type" }, { status: 400 });
+    return apiError("invalidType", 400);
   } catch (error) {
     if (error instanceof Error && error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError("unauthorized", 401);
     }
     if (error instanceof Error && error.message === "No workspace") {
-      return NextResponse.json({ error: "No workspace" }, { status: 403 });
+      return apiError("noWorkspace", 403);
     }
     console.error("Export error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return apiError("internalError", 500);
   }
 }
