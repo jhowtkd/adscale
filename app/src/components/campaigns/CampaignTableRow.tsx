@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 import type { Campaign } from "@/lib/mock-data";
 import { platformColors } from "@/lib/mock-data";
 import StatusBadge from "@/components/ui/StatusBadge";
@@ -51,6 +52,8 @@ export default function CampaignTableRow({
   onArchive,
   onDelete,
 }: CampaignTableRowProps) {
+  const tCommon = useTranslations("common");
+
   const formattedDate = (() => {
     const d = formatDistanceToNow(campaign.lastModified, { addSuffix: false });
     return d
@@ -197,7 +200,7 @@ export default function CampaignTableRow({
                 className="flex items-center gap-2"
               >
                 <Pencil size={14} />
-                Edit
+                {tCommon("edit")}
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => onDuplicate(campaign.id)}
@@ -220,7 +223,7 @@ export default function CampaignTableRow({
                 className="flex items-center gap-2"
               >
                 <Trash2 size={14} />
-                Delete
+                {tCommon("delete")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

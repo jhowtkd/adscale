@@ -35,8 +35,8 @@ export const derivationJob = inngest.createFunction(
   },
   { event: "derivation.generate" },
   async ({ event, step }) => {
-    const { derivationId, campaignId, workspaceId } = event.data;
-    console.log(`[derivationJob] START derivationId=${derivationId} campaignId=${campaignId}`);
+    const { derivationId, campaignId, workspaceId, locale } = event.data;
+    console.log(`[derivationJob] START derivationId=${derivationId} campaignId=${campaignId} locale=${locale ?? "default"}`);
 
     // Idempotency check: if already completed, skip entirely
     const existing = await step.run("check-idempotency", async () => {
@@ -99,8 +99,8 @@ export const derivationJob = inngest.createFunction(
 
     // 4. Call OpenAI image model with reference image
     const result = await step.run("generate-image", async () => {
-      const prompt = buildDerivationPrompt(plan, asset, derivation.feedback);
-      console.log(`[generate-image] model=${env.OPENAI_IMAGE_MODEL} hasAsset=${!!assetData}`);
+      const prompt = buildDerivationPrompt(plan, asset, derivation.feedback, locale);
+      console.log(`[generate-image] model=${env.OPENAI_IMAGE_MODEL} hasAsset=${!!assetData} locale=${locale ?? "default"}`);
 
       if (assetData) {
         const buffer = Buffer.from(assetData.buffer, "base64");

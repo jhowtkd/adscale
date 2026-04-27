@@ -270,7 +270,7 @@ export default function DerivationsStep({
           className="inline-flex items-center gap-2 rounded-md px-5 py-2.5 text-sm font-medium transition-all duration-200 bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] hover:border-[var(--border-medium)] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Sparkles size={14} />
-          {isGeneratingMore ? tc("loading") : t("generateMore")}
+          {isGeneratingMore ? commonT("loading") : t("generateMore")}
         </button>
       </motion.div>
     </div>

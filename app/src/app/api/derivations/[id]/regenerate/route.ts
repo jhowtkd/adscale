@@ -5,6 +5,7 @@ import {
   getDerivationById,
   createDerivation,
 } from "@/server/repositories/derivation";
+import { getUserLocale } from "@/server/repositories/user";
 import { inngest } from "@/server/jobs/client";
 
 const bodySchema = z.object({
@@ -16,7 +17,8 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { workspace } = await requireWorkspaceAccess(request);
+    const { user, workspace } = await requireWorkspaceAccess(request);
+    const locale = await getUserLocale(user.id);
     const { id } = await params;
 
     const original = await getDerivationById(id, workspace.id);
@@ -52,6 +54,7 @@ export async function POST(
         derivationId: newDerivation.id,
         campaignId: original.campaignId,
         workspaceId: workspace.id,
+        locale: (user as { locale?: string }).locale,
       },
     });
 

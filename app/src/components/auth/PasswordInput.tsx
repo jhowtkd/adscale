@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Eye, EyeOff, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 
 // ============================================
 // Password Validation Utilities
@@ -73,6 +74,7 @@ export default function PasswordInput({
   error,
 }: PasswordInputProps) {
   const [visible, setVisible] = useState(false);
+  const t = useTranslations("auth");
 
   const requirements = useMemo(() => validatePassword(value), [value]);
   const strength = useMemo(
@@ -80,6 +82,13 @@ export default function PasswordInput({
     [requirements]
   );
   const config = strengthConfig[strength];
+
+  const requirementLabelMap: Record<string, string> = {
+    "8+ characters": t("requirements.length"),
+    "Uppercase letter": t("requirements.uppercase"),
+    "Number": t("requirements.number"),
+    "Special character": t("requirements.special"),
+  };
 
   return (
     <div className="space-y-2">
@@ -159,7 +168,7 @@ export default function PasswordInput({
             className="text-xs font-medium"
             style={{ color: config.color }}
           >
-            {config.label}
+            {strength !== "empty" ? t(`passwordStrength.${strength}`) : ""}
           </p>
         </motion.div>
       )}
@@ -167,7 +176,7 @@ export default function PasswordInput({
       {/* Hint text */}
       {showStrengthMeter && value.length === 0 && (
         <p className="text-xs text-[var(--text-muted)] pt-0.5">
-          Use 8+ characters with a mix of letters, numbers &amp; symbols
+          {t("passwordHint")}
         </p>
       )}
 
@@ -207,7 +216,7 @@ export default function PasswordInput({
                       : "text-[var(--text-muted)]"
                   }
                 >
-                  {req.label}
+                  {requirementLabelMap[req.label] ?? req.label}
                 </span>
               </motion.li>
             ))}

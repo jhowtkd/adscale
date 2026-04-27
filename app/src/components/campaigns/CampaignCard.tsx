@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 import type { Campaign } from "@/lib/mock-data";
 import { platformColors } from "@/lib/mock-data";
 import StatusBadge from "@/components/ui/StatusBadge";
@@ -15,6 +16,8 @@ interface CampaignCardProps {
 }
 
 export default function CampaignCard({ campaign, index }: CampaignCardProps) {
+  const tCampaign = useTranslations("campaign");
+
   const formattedDate = (() => {
     const d = formatDistanceToNow(campaign.lastModified, { addSuffix: false });
     return d
@@ -87,7 +90,7 @@ export default function CampaignCard({ campaign, index }: CampaignCardProps) {
           {/* Hover overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
             <span className="text-sm font-medium text-white bg-[var(--accent-blue)] px-4 py-2 rounded-md translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
-              Open Campaign
+              {tCampaign("brief")}
             </span>
           </div>
         </div>

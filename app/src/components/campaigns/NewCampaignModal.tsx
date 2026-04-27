@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 import type { CampaignStatus, AdPlatform } from "@/lib/mock-data";
 import {
   Dialog,
@@ -61,27 +62,6 @@ interface NewCampaignModalProps {
   }) => void;
 }
 
-const OBJECTIVES = [
-  { value: "awareness", label: "Awareness" },
-  { value: "consideration", label: "Consideration" },
-  { value: "conversion", label: "Conversion" },
-  { value: "retargeting", label: "Retargeting" },
-];
-
-const TONE_OPTIONS = [
-  { value: "professional", label: "Professional" },
-  { value: "casual", label: "Casual" },
-  { value: "bold", label: "Bold" },
-  { value: "emotional", label: "Emotional" },
-  { value: "luxury", label: "Luxury" },
-];
-
-const PLATFORM_OPTIONS: { value: AdPlatform; label: string }[] = [
-  { value: "Meta", label: "Meta Ads" },
-  { value: "TikTok", label: "TikTok Ads" },
-  { value: "Google", label: "Google Ads" },
-];
-
 // ============================================
 // Component
 // ============================================
@@ -91,6 +71,31 @@ export default function NewCampaignModal({
   onOpenChange,
   onSubmit,
 }: NewCampaignModalProps) {
+  const tCampaign = useTranslations("campaign");
+  const tBriefing = useTranslations("briefing");
+  const tCommon = useTranslations("common");
+
+  const OBJECTIVES = [
+    { value: "awareness", label: tCampaign("objectives.awareness") },
+    { value: "consideration", label: tCampaign("objectives.consideration") },
+    { value: "conversion", label: tCampaign("objectives.conversion") },
+    { value: "retargeting", label: tCampaign("objectives.retargeting") },
+  ];
+
+  const TONE_OPTIONS = [
+    { value: "professional", label: tCampaign("tones.professional") },
+    { value: "casual", label: tCampaign("tones.casual") },
+    { value: "bold", label: tCampaign("tones.bold") },
+    { value: "emotional", label: tCampaign("tones.emotional") },
+    { value: "luxury", label: tCampaign("tones.luxury") },
+  ];
+
+  const PLATFORM_OPTIONS: { value: AdPlatform; label: string }[] = [
+    { value: "Meta", label: tCampaign("platformNames.Meta") },
+    { value: "TikTok", label: tCampaign("platformNames.TikTok") },
+    { value: "Google", label: tCampaign("platformNames.Google") },
+  ];
+
   const [form, setForm] = useState<NewCampaignForm>({
     name: "",
     clientName: "",
@@ -204,13 +209,13 @@ export default function NewCampaignModal({
           {/* Campaign Name */}
           <div className="space-y-1.5">
             <Label className="text-[13px] text-[var(--text-secondary)]">
-              Campaign Name <span className="text-[var(--accent-rose)]">*</span>
+              {tCampaign("name")} <span className="text-[var(--accent-rose)]">*</span>
             </Label>
             <Input
               value={form.name}
               onChange={(e) => updateField("name", e.target.value)}
               onBlur={() => setTouched((p) => ({ ...p, name: true }))}
-              placeholder="e.g., Summer Sale Promo"
+              placeholder={tBriefing("namePlaceholder")}
               className={cn(
                 "bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]",
                 errors.name && "border-[var(--accent-rose)]"
@@ -239,7 +244,7 @@ export default function NewCampaignModal({
               value={form.clientName}
               onChange={(e) => updateField("clientName", e.target.value)}
               onBlur={() => setTouched((p) => ({ ...p, clientName: true }))}
-              placeholder="e.g., Nike Air Max"
+              placeholder={tBriefing("clientPlaceholder")}
               className={cn(
                 "bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]",
                 errors.clientName && "border-[var(--accent-rose)]"
@@ -262,7 +267,7 @@ export default function NewCampaignModal({
           {/* Objective */}
           <div className="space-y-1.5">
             <Label className="text-[13px] text-[var(--text-secondary)]">
-              Objective <span className="text-[var(--accent-rose)]">*</span>
+              {tCampaign("objective")} <span className="text-[var(--accent-rose)]">*</span>
             </Label>
             <Select
               value={form.objective}
@@ -274,7 +279,7 @@ export default function NewCampaignModal({
                   errors.objective && "border-[var(--accent-rose)]"
                 )}
               >
-                <SelectValue placeholder="Select objective" />
+                <SelectValue placeholder={tBriefing("objectivePlaceholder")} />
               </SelectTrigger>
               <SelectContent className="bg-[var(--surface-raised)] border-[var(--border-dim)]">
                 {OBJECTIVES.map((obj) => (
@@ -305,7 +310,7 @@ export default function NewCampaignModal({
           {/* Target Audience */}
           <div className="space-y-1.5">
             <Label className="text-[13px] text-[var(--text-secondary)]">
-              Target Audience
+              {tCampaign("audience")}
             </Label>
             <Textarea
               value={form.targetAudience}
@@ -318,7 +323,7 @@ export default function NewCampaignModal({
           {/* Platforms */}
           <div className="space-y-2">
             <Label className="text-[13px] text-[var(--text-secondary)]">
-              Platforms <span className="text-[var(--accent-rose)]">*</span>
+              {tCampaign("platforms")} <span className="text-[var(--accent-rose)]">*</span>
             </Label>
             <div className="flex flex-wrap gap-2">
               {PLATFORM_OPTIONS.map((platform) => {
@@ -358,14 +363,14 @@ export default function NewCampaignModal({
           {/* Tone of Voice */}
           <div className="space-y-1.5">
             <Label className="text-[13px] text-[var(--text-secondary)]">
-              Tone of Voice
+              {tCampaign("tone")}
             </Label>
             <Select
               value={form.toneOfVoice}
               onValueChange={(value) => updateField("toneOfVoice", value ?? "")}
             >
               <SelectTrigger className="w-full bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)]">
-                <SelectValue placeholder="Select tone" />
+                <SelectValue placeholder={tBriefing("tonePlaceholder")} />
               </SelectTrigger>
               <SelectContent className="bg-[var(--surface-raised)] border-[var(--border-dim)]">
                 {TONE_OPTIONS.map((tone) => (
@@ -397,7 +402,7 @@ export default function NewCampaignModal({
           {/* Offer/Promotion */}
           <div className="space-y-1.5">
             <Label className="text-[13px] text-[var(--text-secondary)]">
-              Offer/Promotion
+              {tCampaign("offer")}
             </Label>
             <Input
               value={form.offer}
@@ -410,7 +415,7 @@ export default function NewCampaignModal({
           {/* Constraints */}
           <div className="space-y-1.5">
             <Label className="text-[13px] text-[var(--text-secondary)]">
-              Constraints
+              {tCampaign("constraints")}
             </Label>
             <Textarea
               value={form.constraints}
@@ -423,12 +428,12 @@ export default function NewCampaignModal({
           {/* Notes */}
           <div className="space-y-1.5">
             <Label className="text-[13px] text-[var(--text-secondary)]">
-              Notes
+              {tCampaign("notes")}
             </Label>
             <Textarea
               value={form.notes}
               onChange={(e) => updateField("notes", e.target.value)}
-              placeholder="Any additional notes..."
+              placeholder={tBriefing("notesPlaceholder")}
               className="bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] min-h-[60px]"
             />
           </div>
@@ -441,13 +446,13 @@ export default function NewCampaignModal({
             onClick={handleCancel}
             className="border-[var(--border-dim)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-base)]"
           >
-            Cancel
+            {tCommon("cancel")}
           </Button>
           <Button
             onClick={handleSubmit}
             className="bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-light)]"
           >
-            Create Campaign
+            {tCommon("create")}
           </Button>
         </DialogFooter>
       </DialogContent>

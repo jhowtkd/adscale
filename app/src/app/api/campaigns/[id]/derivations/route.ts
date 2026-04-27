@@ -11,6 +11,7 @@ import {
 import { inngest } from "@/server/jobs/client";
 import { db } from "@/server/db";
 import { derivations } from "@/server/db/schema";
+import { getUserLocale } from "@/server/repositories/user";
 import { env } from "@/server/validation/env";
 
 const createDerivationsSchema = z.object({
@@ -22,7 +23,8 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { workspace } = await requireWorkspaceAccess(request);
+    const { user, workspace } = await requireWorkspaceAccess(request);
+    const locale = await getUserLocale(user.id);
     const { id: campaignId } = await params;
 
     const campaign = await getCampaignById(campaignId, workspace.id);
@@ -82,6 +84,7 @@ export async function POST(
             derivationId: derivation.id,
             campaignId,
             workspaceId: workspace.id,
+            locale: (user as { locale?: string }).locale,
           },
         });
         console.log(`[derivations POST] event sent derivationId=${derivation.id}`);

@@ -8,9 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 
 export default function LoginPage() {
   const router = useRouter();
+  const t = useTranslations("auth");
+  const tc = useTranslations("common");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -47,9 +50,9 @@ export default function LoginPage() {
       <AuthCard>
         <div className="space-y-6">
           <div className="space-y-2 text-center">
-            <h1 className="text-2xl font-semibold tracking-tight">Welcome back</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">{t("welcomeBack")}</h1>
             <p className="text-sm text-muted-foreground">
-              Sign in to your ADScale account
+              {t("signInSubtitle")}
             </p>
           </div>
 
@@ -60,11 +63,11 @@ export default function LoginPage() {
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t("email")}</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="you@example.com"
+                placeholder={t("emailPlaceholder")}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -73,21 +76,21 @@ export default function LoginPage() {
             <div className="space-y-2">
               <PasswordInput
                 id="login-password"
-                label="Password"
-                placeholder="Enter your password"
+                label={t("password")}
+                placeholder={t("passwordPlaceholder")}
                 value={password}
                 onChange={setPassword}
               />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Signing in..." : "Sign in"}
+              {loading ? t("signingIn") : t("signIn")}
             </Button>
           </form>
 
           <p className="text-center text-sm text-muted-foreground">
-            Don&apos;t have an account?{" "}
+            {t("noAccount")}{" "}
             <Link href="/signup" className="underline hover:text-primary">
-              Sign up
+              {t("signUp")}
             </Link>
           </p>
         </div>

@@ -36,7 +36,21 @@ export interface Plan {
   ctas: string[] | null;
 }
 
-export function buildPlanPrompt(campaign: Campaign, asset?: Asset) {
+function languageInstruction(locale?: string): string {
+  if (locale === "pt-BR") {
+    return "\n\nIMPORTANT: Respond entirely in Brazilian Portuguese (pt-BR). All strategy, angles, hooks, and CTAs must be written in Portuguese.";
+  }
+  return "";
+}
+
+function imageLanguageInstruction(locale?: string): string {
+  if (locale === "pt-BR") {
+    return "\n\nIMPORTANT: The advertisement concept, copy, and visual direction must be designed for a Brazilian Portuguese-speaking audience. Any text overlays or copy suggestions should be in Brazilian Portuguese (pt-BR).";
+  }
+  return "";
+}
+
+export function buildPlanPrompt(campaign: Campaign, asset?: Asset, locale?: string) {
   return `You are a creative strategist. Based on this campaign brief, generate a creative plan.
 
 Campaign: ${campaign.name}
@@ -56,13 +70,14 @@ Return ONLY a JSON object with this exact structure:
   "angles": ["string"],
   "hooks": ["string"],
   "ctas": ["string"]
-}`;
+}${languageInstruction(locale)}`;
 }
 
 export function buildDerivationPrompt(
   plan: Plan | null,
   asset: Asset | undefined,
-  feedback?: string | null
+  feedback?: string | null,
+  locale?: string
 ) {
   const parts: string[] = [
     "You are a world-class creative director and image generation specialist. Create a single high-quality advertising image based on the following creative brief.",
@@ -93,6 +108,8 @@ export function buildDerivationPrompt(
   parts.push(
     "\nGenerate a polished, professional advertisement image suitable for social media platforms."
   );
+
+  parts.push(imageLanguageInstruction(locale));
 
   return parts.join("\n");
 }

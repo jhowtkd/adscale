@@ -9,6 +9,7 @@ import {
   getPlanByCampaign,
   updatePlanStatus,
 } from "@/server/repositories/plan";
+import { getUserLocale } from "@/server/repositories/user";
 import { buildPlanPrompt } from "@/server/ai/prompt-builder";
 import { env } from "@/server/validation/env";
 
@@ -58,7 +59,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { workspace } = await requireWorkspaceAccess(request);
+    const { user, workspace } = await requireWorkspaceAccess(request);
     const { id: campaignId } = await params;
 
     const campaign = await getCampaignById(campaignId, workspace.id);
@@ -72,7 +73,7 @@ export async function POST(
     const assets = await getAssetsByCampaign(campaignId, workspace.id);
     const asset = assets[0];
 
-    const prompt = buildPlanPrompt(campaign, asset);
+    const prompt = buildPlanPrompt(campaign, asset, (user as { locale?: string }).locale);
 
     const completion = await openai.chat.completions.create({
       model: env.OPENAI_TEXT_MODEL,

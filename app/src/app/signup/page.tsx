@@ -8,9 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 
 export default function SignupPage() {
   const router = useRouter();
+  const t = useTranslations("auth");
+  const tc = useTranslations("common");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -48,9 +51,9 @@ export default function SignupPage() {
       <AuthCard>
         <div className="space-y-6">
           <div className="space-y-2 text-center">
-            <h1 className="text-2xl font-semibold tracking-tight">Create your account</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">{t("createAccountTitle")}</h1>
             <p className="text-sm text-muted-foreground">
-              Start generating ad variations with AI
+              {t("signUpSubtitle")}
             </p>
           </div>
 
@@ -61,22 +64,22 @@ export default function SignupPage() {
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
+              <Label htmlFor="name">{t("name")}</Label>
               <Input
                 id="name"
                 type="text"
-                placeholder="Your name"
+                placeholder={t("namePlaceholder")}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t("email")}</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="you@example.com"
+                placeholder={t("emailPlaceholder")}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -85,8 +88,8 @@ export default function SignupPage() {
             <div className="space-y-2">
               <PasswordInput
                 id="signup-password"
-                label="Password"
-                placeholder="Create a password"
+                label={t("password")}
+                placeholder={t("createPasswordPlaceholder")}
                 value={password}
                 onChange={setPassword}
                 showStrengthMeter
@@ -94,14 +97,14 @@ export default function SignupPage() {
               />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Creating account..." : "Create account"}
+              {loading ? t("creatingAccount") : t("signUp")}
             </Button>
           </form>
 
           <p className="text-center text-sm text-muted-foreground">
-            Already have an account?{" "}
+            {t("hasAccount")}{" "}
             <Link href="/login" className="underline hover:text-primary">
-              Sign in
+              {t("signIn")}
             </Link>
           </p>
         </div>
