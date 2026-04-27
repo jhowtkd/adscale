@@ -32,7 +32,7 @@ export const session = adscaleSchema.table(
     id: text("id").primaryKey(),
     userId: text("user_id")
       .notNull()
-      .references(() => user.id),
+      .references(() => user.id, { onDelete: "cascade" }),
     token: text("token").notNull().unique(),
     expiresAt: timestamp("expires_at", { mode: "date" }).notNull(),
     ipAddress: text("ip_address"),
@@ -49,7 +49,7 @@ export const account = adscaleSchema.table(
     id: text("id").primaryKey(),
     userId: text("user_id")
       .notNull()
-      .references(() => user.id),
+      .references(() => user.id, { onDelete: "cascade" }),
     accountId: text("account_id").notNull(),
     providerId: text("provider_id").notNull(),
     accessToken: text("access_token"),
@@ -100,10 +100,10 @@ export const workspaceMembers = adscaleSchema.table(
       .$defaultFn(() => crypto.randomUUID()),
     workspaceId: uuid("workspace_id")
       .notNull()
-      .references(() => workspaces.id),
+      .references(() => workspaces.id, { onDelete: "cascade" }),
     userId: text("user_id")
       .notNull()
-      .references(() => user.id),
+      .references(() => user.id, { onDelete: "cascade" }),
     role: text("role").notNull().default("member"),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
   },
@@ -121,7 +121,7 @@ export const campaigns = adscaleSchema.table(
       .$defaultFn(() => crypto.randomUUID()),
     workspaceId: uuid("workspace_id")
       .notNull()
-      .references(() => workspaces.id),
+      .references(() => workspaces.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     client: text("client"),
     product: text("product"),
@@ -147,10 +147,10 @@ export const campaignAssets = adscaleSchema.table(
       .$defaultFn(() => crypto.randomUUID()),
     campaignId: uuid("campaign_id")
       .notNull()
-      .references(() => campaigns.id),
+      .references(() => campaigns.id, { onDelete: "cascade" }),
     workspaceId: uuid("workspace_id")
       .notNull()
-      .references(() => workspaces.id),
+      .references(() => workspaces.id, { onDelete: "cascade" }),
     key: text("key").notNull(),
     type: text("type").notNull(),
     size: integer("size"),
@@ -172,10 +172,10 @@ export const creativePlans = adscaleSchema.table(
       .$defaultFn(() => crypto.randomUUID()),
     campaignId: uuid("campaign_id")
       .notNull()
-      .references(() => campaigns.id),
+      .references(() => campaigns.id, { onDelete: "cascade" }),
     workspaceId: uuid("workspace_id")
       .notNull()
-      .references(() => workspaces.id),
+      .references(() => workspaces.id, { onDelete: "cascade" }),
     strategy: text("strategy"),
     angles: text("angles").array(),
     hooks: text("hooks").array(),
@@ -198,11 +198,11 @@ export const derivations = adscaleSchema.table(
       .$defaultFn(() => crypto.randomUUID()),
     campaignId: uuid("campaign_id")
       .notNull()
-      .references(() => campaigns.id),
+      .references(() => campaigns.id, { onDelete: "cascade" }),
     workspaceId: uuid("workspace_id")
       .notNull()
-      .references(() => workspaces.id),
-    planId: uuid("plan_id").references(() => creativePlans.id),
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    planId: uuid("plan_id").references(() => creativePlans.id, { onDelete: "set null" }),
     parentId: uuid("parent_id"),
     status: text("status").notNull().default("queued"),
     prompt: text("prompt"),
@@ -221,7 +221,7 @@ export const derivations = adscaleSchema.table(
     foreignKey({
       columns: [table.parentId],
       foreignColumns: [table.id],
-    }),
+    }).onDelete("set null"),
   ]
 );
 
@@ -233,7 +233,7 @@ export const usageEvents = adscaleSchema.table(
       .$defaultFn(() => crypto.randomUUID()),
     workspaceId: uuid("workspace_id")
       .notNull()
-      .references(() => workspaces.id),
+      .references(() => workspaces.id, { onDelete: "cascade" }),
     type: text("type").notNull(),
     amount: integer("amount"),
     metadata: jsonb("metadata"),
@@ -250,10 +250,10 @@ export const activityEvents = adscaleSchema.table(
       .$defaultFn(() => crypto.randomUUID()),
     workspaceId: uuid("workspace_id")
       .notNull()
-      .references(() => workspaces.id),
+      .references(() => workspaces.id, { onDelete: "cascade" }),
     userId: text("user_id")
       .notNull()
-      .references(() => user.id),
+      .references(() => user.id, { onDelete: "cascade" }),
     type: text("type").notNull(),
     metadata: jsonb("metadata"),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
@@ -272,10 +272,10 @@ export const exports = adscaleSchema.table(
       .$defaultFn(() => crypto.randomUUID()),
     workspaceId: uuid("workspace_id")
       .notNull()
-      .references(() => workspaces.id),
+      .references(() => workspaces.id, { onDelete: "cascade" }),
     derivationId: uuid("derivation_id")
       .notNull()
-      .references(() => derivations.id),
+      .references(() => derivations.id, { onDelete: "cascade" }),
     format: text("format").notNull(),
     key: text("key").notNull(),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),

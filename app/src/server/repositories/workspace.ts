@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { db } from "../db";
 import { workspaces, workspaceMembers } from "../db/schema";
 
@@ -7,6 +7,7 @@ export async function getWorkspaceForUser(userId: string) {
     .select()
     .from(workspaceMembers)
     .where(eq(workspaceMembers.userId, userId))
+    .orderBy(desc(workspaceMembers.createdAt))
     .limit(1);
 
   if (member.length === 0) return null;
