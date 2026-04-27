@@ -469,6 +469,7 @@ export default function CampaignWorkspacePage() {
       case 3:
         return (
           <PlanStep
+            key={creativePlan?.id ?? "no-plan"}
             plan={creativePlan}
             onApprove={handleApprovePlan}
             onGenerateDerivations={handleGenerateDerivations}
