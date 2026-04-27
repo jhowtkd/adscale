@@ -22,6 +22,7 @@ export const derivationJob = inngest.createFunction(
       const originalEvent = event.data.event;
       const { derivationId } = originalEvent.data;
       const message = error instanceof Error ? error.message : "Unknown error";
+      console.error(`[Inngest onFailure] derivationId=${derivationId} error=${message}`);
       await db
         .update(derivations)
         .set({
@@ -35,9 +36,11 @@ export const derivationJob = inngest.createFunction(
   { event: "derivation.generate" },
   async ({ event, step }) => {
     const { derivationId, campaignId, workspaceId } = event.data;
+    console.log(`[derivationJob] START derivationId=${derivationId} campaignId=${campaignId}`);
 
     // 1. Update status to processing
     await step.run("mark-processing", async () => {
+      console.log(`[mark-processing] derivationId=${derivationId}`);
       await db
         .update(derivations)
         .set({ status: "processing", updatedAt: new Date() })
@@ -48,6 +51,7 @@ export const derivationJob = inngest.createFunction(
     const { plan, asset, derivation } = await step.run(
       "fetch-context",
       async () => {
+        console.log(`[fetch-context] derivationId=${derivationId}`);
         const derivation = await getDerivationById(derivationId, workspaceId);
         if (!derivation) {
           throw new Error("Derivation not found");
@@ -62,6 +66,7 @@ export const derivationJob = inngest.createFunction(
         const assets = await getAssetsByCampaign(campaignId, workspaceId);
         const asset = assets[0];
 
+        console.log(`[fetch-context] plan=${plan?.id ?? "none"} asset=${asset?.key ?? "none"}`);
         return { derivation, campaign, plan, asset };
       }
     );
@@ -69,7 +74,9 @@ export const derivationJob = inngest.createFunction(
     // 3. Download input image (if asset exists)
     const assetData = asset
       ? await step.run("download-asset", async () => {
+          console.log(`[download-asset] key=${asset.key}`);
           const buffer = await downloadBuffer(asset.key);
+          console.log(`[download-asset] downloaded ${buffer.length} bytes`);
           return {
             buffer: Buffer.from(buffer).toString("base64"),
             type: asset.type,
@@ -80,6 +87,7 @@ export const derivationJob = inngest.createFunction(
     // 4. Call OpenAI image model with reference image
     const result = await step.run("generate-image", async () => {
       const prompt = buildDerivationPrompt(plan, asset, derivation.feedback);
+      console.log(`[generate-image] model=${env.OPENAI_IMAGE_MODEL} hasAsset=${!!assetData}`);
 
       if (assetData) {
         const buffer = Buffer.from(assetData.buffer, "base64");
@@ -97,6 +105,7 @@ export const derivationJob = inngest.createFunction(
         if (!first) {
           throw new Error("No image data returned from OpenAI");
         }
+        console.log(`[generate-image] edit success url=${first.url ? "yes" : "no"} b64=${first.b64_json ? "yes" : "no"}`);
         return first;
       }
 
@@ -110,6 +119,7 @@ export const derivationJob = inngest.createFunction(
       if (!first) {
         throw new Error("No image data returned from OpenAI");
       }
+      console.log(`[generate-image] generate success url=${first.url ? "yes" : "no"} b64=${first.b64_json ? "yes" : "no"}`);
       return first;
     });
 
@@ -130,12 +140,15 @@ export const derivationJob = inngest.createFunction(
         throw new Error("No image data returned");
       }
       const key = `derivations/${derivationId}/${Date.now()}.png`;
+      console.log(`[store-output] uploading ${buffer.length} bytes to ${key}`);
       await uploadBuffer(key, buffer, "image/png");
+      console.log(`[store-output] upload success key=${key}`);
       return key;
     });
 
     // 6. Update derivation as completed
     await step.run("mark-completed", async () => {
+      console.log(`[mark-completed] derivationId=${derivationId} outputKey=${outputKey}`);
       await db
         .update(derivations)
         .set({
@@ -156,6 +169,7 @@ export const derivationJob = inngest.createFunction(
       });
     });
 
-    return { success: true, derivationId };
+    console.log(`[derivationJob] DONE derivationId=${derivationId} outputKey=${outputKey}`);
+    return { success: true, derivationId, outputKey };
   }
 );
