@@ -1,109 +1,118 @@
-# Roadmap: ADScale
+# Roadmap: ADScale v2.0 — Internacionalização PT-BR
 
-**Milestone:** v1.0 — Sair Do Mock → MVP Real
-**Defined:** 2026-04-24
-**Phases:** 5
-**Requirements:** 32 mapped
+## Milestone Overview
+
+**Version:** v2.0  
+**Name:** Internacionalização PT-BR  
+**Goal:** Prepare ADScale for public launch in Brazil by localizing the entire platform and adapting AI outputs to Portuguese.  
+**Phases:** 4 (6 → 9)  
+**Requirements:** 21  
 
 ---
 
-## Phase 1: Foundation — Server Layer, Auth & Infra
+## Phase 6: Foundation — i18n Infrastructure
 
-**Goal:** Establish the real server layer: database schema, auth system, R2 storage, Inngest queue, and env validation. Strip business data from Zustand.
+**Goal:** Set up the i18n library, language persistence, and detection pipeline.
 
-**Requirements:** AUTH-01, AUTH-02, AUTH-03, AUTH-04, WORK-01, WORK-02, SEC-02, SEC-03
+**Requirements:**
+- TECH-01: i18n library chosen and integrated
+- TECH-02: Translation keys organized by feature/domain
+- TECH-03: Server-side rendering renders correct lang attribute without hydration mismatch
+- LANG-01: User language preference stored in database
+- LANG-02: Cookie stores active language for SSR/initial render
+- LANG-03: Browser language detection sets default on first visit
+- LANG-05: Unauthenticated visitors see PT-BR by default
 
 **Success Criteria:**
-1. `npm run build` passes with new server layer and no mock imports in runtime code
-2. Better Auth signup/login/logout works end-to-end and creates a workspace on first signup
-3. Drizzle schema is defined and migrations can run against Neon
-4. R2 client can generate presigned URLs and upload/download objects
-5. Inngest client is configured and can receive local events
-6. Env validation throws clear errors if any required variable is missing or invalid
-7. `useAppStore` contains only UI state (sidebar, title, toasts); no campaign/derivation data
+1. App renders in PT-BR on first visit from Brazil
+2. Language switcher changes UI language instantly
+3. Refresh preserves selected language without flash
+4. Database schema supports per-user language preference
 
 ---
 
-## Phase 2: Campaigns, Upload & Dashboard
+## Phase 7: UI Translation
 
-**Goal:** Build campaign CRUD, presigned upload flow, asset linking, and connect dashboard to real APIs.
+**Goal:** Translate every user-facing surface in the app.
 
-**Requirements:** CAMP-01, CAMP-02, CAMP-03, UPLOAD-01, UPLOAD-02, UPLOAD-03, DASH-01, DASH-02
+**Requirements:**
+- I18N-01: Language switcher in UI header/settings
+- I18N-02: All UI labels, buttons, navigation translated
+- I18N-03: Form validation errors localized
+- I18N-04: API error responses localized
+- I18N-05: Toast notifications and empty states translated
+- I18N-06: Date, number, currency formatting uses PT-BR locale
+- LANG-04: Language preference persists across logout/login
 
 **Success Criteria:**
-1. User can create a campaign with full brief and see it in the list
-2. User can edit and delete campaigns; deletions cascade assets
-3. User can upload an image via presigned URL; asset appears in campaign with correct metadata
-4. Upload rejects wrong file types and files over 20MB with clear messages
-5. Dashboard shows real campaign count and recent activity from API
-6. All loading, error and empty states are real (no simulated delays)
-7. All routes enforce workspace membership
+1. Every visible text in the app has a PT-BR translation
+2. Validation errors appear in Portuguese
+3. Dates display as DD/MM/YYYY when PT-BR is active
+4. No hardcoded English strings remain in UI components
 
 ---
 
-## Phase 3: AI Plan & Derivation Jobs
+## Phase 8: AI Localization
 
-**Goal:** Integrate OpenAI for creative plan generation and image derivation via Inngest jobs.
+**Goal:** Adapt all OpenAI prompts and outputs to the user's language.
 
-**Requirements:** PLAN-01, PLAN-02, PLAN-03, DERIV-01, DERIV-02, DERIV-03, DERIV-04, DERIV-05
+**Requirements:**
+- AI-PT-01: Plan generation prompt instructs OpenAI to output in PT-BR
+- AI-PT-02: Derivation generation prompt instructs OpenAI in PT-BR
+- AI-PT-03: Regeneration feedback preserves language for revised outputs
+- AI-PT-04: Campaign brief field labels adapt to active language
+- AI-PT-05: Plan preview and derivation cards display text in produced language
+- TECH-04: Language context available in API routes
+- TECH-05: Prompt builder accepts language parameter
 
 **Success Criteria:**
-1. Plan generation API returns valid structured JSON saved to DB; invalid JSON shows error
-2. User can approve a plan; approval triggers derivation job creation
-3. Derivation jobs emit Inngest events and progress through `queued → processing → completed`
-4. Inngest handler downloads input from R2, calls OpenAI image model, stores output back to R2
-5. UI polls and updates derivation status in real time
-6. Failed derivations show clear error message and allow retry
-7. Usage/credits are estimated and tracked (simple MVP tracking, no billing)
+1. Creative plan generated in PT-BR contains Portuguese strategy/angles/hooks/ctas
+2. Derivation prompts reference Portuguese copy when PT-BR is selected
+3. Feedback regeneration produces revised content in the same language
+4. No English leaks in AI-generated content when PT-BR is active
 
 ---
 
-## Phase 4: Review, Regeneration & Export
+## Phase 9: Polish & QA
 
-**Goal:** Complete the creative workflow with review gallery, regeneration with feedback, and export pipeline.
+**Goal:** Fix edge cases, ensure no language leaks, and validate the full PT-BR experience.
 
-**Requirements:** REVIEW-01, REVIEW-02, REVIEW-03, EXPORT-01, EXPORT-02, EXPORT-03
+**Requirements:**
+- (Catch-all for edge cases discovered in previous phases)
 
 **Success Criteria:**
-1. User can approve or reject derivations from the gallery; status persists
-2. User can regenerate a derivation with feedback text linked to the previous one
-3. Gallery shows preview and compare view for derivations
-4. Individual export downloads the file in chosen format via signed URL
-5. Export-all-approved generates a ZIP with correct filenames
-6. Format conversion works when output format differs from stored format
-7. Export respects workspace boundaries
+1. Complete end-to-end test: signup → campaign → brief → upload → plan → derivation → review → export, all in PT-BR
+2. Switch to EN and verify full English experience works
+3. No hydration mismatches or flash of untranslated content
+4. All 57 existing tests still pass
+5. Build and lint clean
 
 ---
 
-## Phase 5: Hardening, Security & Tests
+## Requirement Coverage
 
-**Goal:** Lock down security, fill test coverage, and ensure the MVP passes all quality gates.
+| REQ-ID | Phase | Mapped |
+|--------|-------|--------|
+| I18N-01 | 7 | ✓ |
+| I18N-02 | 7 | ✓ |
+| I18N-03 | 7 | ✓ |
+| I18N-04 | 7 | ✓ |
+| I18N-05 | 7 | ✓ |
+| I18N-06 | 7 | ✓ |
+| LANG-01 | 6 | ✓ |
+| LANG-02 | 6 | ✓ |
+| LANG-03 | 6 | ✓ |
+| LANG-04 | 7 | ✓ |
+| LANG-05 | 6 | ✓ |
+| AI-PT-01 | 8 | ✓ |
+| AI-PT-02 | 8 | ✓ |
+| AI-PT-03 | 8 | ✓ |
+| AI-PT-04 | 8 | ✓ |
+| AI-PT-05 | 8 | ✓ |
+| TECH-01 | 6 | ✓ |
+| TECH-02 | 6 | ✓ |
+| TECH-03 | 6 | ✓ |
+| TECH-04 | 8 | ✓ |
+| TECH-05 | 8 | ✓ |
 
-**Requirements:** SEC-01, TEST-01, TEST-02, TEST-03
-
-**Success Criteria:**
-1. Every API route validates workspace membership before any DB query
-2. Unit tests cover env validation, Zod schemas, repositories (mocked), prompt parser, R2 key sanitization
-3. Integration tests cover signup→workspace, campaign CRUD, upload flow, plan generation, derivation job, review/export with auth
-4. `npm test` passes
-5. `npm run lint` passes
-6. `npm run build` passes
-7. `npx @Codex-flow/cli@latest security scan` passes with no critical issues
-
----
-
-## Summary
-
-| # | Phase | Goal | Requirements | Success Criteria |
-|---|-------|------|--------------|------------------|
-| 1 | Foundation | Server layer, auth, DB, R2, Inngest | 8 | 7 |
-| 2 | Campaigns & Upload | CRUD, upload, dashboard | 8 | 7 |
-| 3 | AI Plan & Derivation | OpenAI plan + image jobs | 8 | 7 |
-| 4 | Review & Export | Gallery, regeneration, export | 7 | 7 |
-| 5 | Hardening & Tests | Security, tests, quality gates | 3 | 7 |
-
-**Total:** 5 phases | 32 requirements | All covered ✓
-
----
-*Roadmap created: 2026-04-24*
-*Last updated: 2026-04-24 after initial creation*
+**Coverage:** 21/21 requirements mapped across 4 phases ✓

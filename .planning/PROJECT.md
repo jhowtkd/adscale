@@ -49,7 +49,13 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ### Active
 
-(None — all v1.0 requirements shipped)
+- **I18N-01**: User can switch between PT-BR and EN via language switcher — v2.0
+- **I18N-02**: All UI labels, buttons, and messages are translated based on selected language — v2.0
+- **I18N-03**: AI-generated creative plans are produced in the user's selected language — v2.0
+- **I18N-04**: Derivation prompts and outputs respect the campaign's language setting — v2.0
+- **I18N-05**: User language preference is persisted (DB + cookie) across sessions — v2.0
+- **I18N-06**: Browser language detection sets default on first visit — v2.0
+- **I18N-07**: Validation errors and API messages are localized — v2.0
 
 ### Out of Scope
 
@@ -63,7 +69,7 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Context
 
-Current state: frontend experience exists in `app/` but runtime behavior is mock/client-side. Next milestone must replace the mock path with a real SaaS backend while preserving the current product flow.
+Current state: v1.0 MVP is live with real backend (Drizzle, Neon, Better Auth, Inngest, OpenAI, R2). Next milestone targets public launch in Brazil — full i18n with PT-BR as primary language, English as secondary. All AI-generated outputs (plans, derivations) must adapt to user's language preference.
 
 Key stack decisions:
 - Next.js App Router, React, TypeScript, Tailwind, shadcn/ui
@@ -80,7 +86,8 @@ Key stack decisions:
 - **Tech stack**: Stack chosen in `plan.md` is locked. No migration debates.
 - **Image model**: `OPENAI_IMAGE_MODEL=gpt-image-2-2026-04-21`. No silent fallback. If API rejects, show clear config error.
 - **Security**: Do not hardcode API keys. Do not commit `.env`. Validate input, file type, size and workspace access at boundaries.
-- **Timeline**: MVP scope must fit in 5 phases. Billing and external integrations are stubbed.
+- **Timeline**: i18n milestone must fit in 4-5 phases. PT-BR is the launch language; EN is secondary for future expansion.
+- **Language model behavior**: Plan and derivation prompts must include the target language instruction. No silent fallback to English.
 
 ## Key Decisions
 
@@ -109,5 +116,17 @@ This document evolves at phase transitions and milestone boundaries.
 3. Audit Out of Scope — reasons still valid?
 4. Update Context with current state
 
+## Current Milestone: v2.0 Internacionalização PT-BR
+
+**Goal:** Prepare ADScale for public launch in Brazil by localizing the entire platform and adapting AI outputs to Portuguese.
+
+**Target features:**
+- Language switcher (PT-BR / EN) with persistent preference
+- Full UI translation coverage (labels, buttons, validation, errors)
+- AI plan generation in Portuguese when PT-BR is selected
+- Derivation prompts and image context in Portuguese when PT-BR is selected
+- Browser language detection for first-time users
+- Localized API error messages
+
 ---
-*Last updated: 2026-04-24 after completing milestone v1.0*
+*Last updated: 2026-04-24 after starting milestone v2.0*

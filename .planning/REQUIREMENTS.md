@@ -1,158 +1,78 @@
-# Requirements: ADScale
+# Requirements: ADScale v2.0 — Internacionalização PT-BR
 
-**Defined:** 2026-04-24
-**Core Value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
+## Overview
 
-## v1 Requirements
+Milestone v2.0 prepares ADScale for public launch in Brazil. Every user-facing surface must support Portuguese (PT-BR) as the primary language, with English (EN) as a secondary fallback. AI-generated outputs (creative plans, derivation prompts) must be produced in the user's selected language.
 
-### Authentication
+## Requirements
 
-- [ ] **AUTH-01**: User can sign up with email and password via Better Auth
-- [ ] **AUTH-02**: First signup automatically creates an initial workspace
-- [ ] **AUTH-03**: User session persists across browser refresh
-- [ ] **AUTH-04**: Dashboard, campaigns and settings require active session
+### I18N — Platform Internationalization
 
-### Workspace
+- [ ] **I18N-01**: User can switch between PT-BR and EN via a language switcher in the UI header or settings
+- [ ] **I18N-02**: All UI labels, buttons, navigation, and static messages are translated based on selected language
+- [ ] **I18N-03**: Form validation errors (Zod, client, server) are returned in the user's selected language
+- [ ] **I18N-04**: API error responses include localized messages where applicable
+- [ ] **I18N-05**: Toast notifications and empty states use translated copy
+- [ ] **I18N-06**: Date, number, and currency formatting use PT-BR locale conventions when PT-BR is active
 
-- [ ] **WORK-01**: Workspace membership controls access to all data
-- [ ] **WORK-02**: No workspace ID can access data from another workspace
+### LANG — Language Persistence & Detection
 
-### Campaigns
+- [ ] **LANG-01**: User language preference is stored in the database (user profile or workspace settings)
+- [ ] **LANG-02**: A cookie stores the active language for SSR/initial render without flashing
+- [ ] **LANG-03**: Browser language detection sets the default on first visit (pt → PT-BR, anything else → EN)
+- [ ] **LANG-04**: Language preference persists across browser refresh and logout/login
+- [ ] **LANG-05**: Unauthenticated visitors see PT-BR by default (Brazil launch market)
 
-- [ ] **CAMP-01**: User can create a campaign with structured brief (name, client/product, objective, audience, platforms, tone, offer, constraints, notes)
-- [ ] **CAMP-02**: User can list, view, update and delete campaigns
-- [ ] **CAMP-03**: Campaign status lifecycle: `draft | active | generating | completed | failed`
+### AI-PT — AI Outputs in Portuguese
 
-### Upload & Assets
+- [ ] **AI-PT-01**: Creative plan generation prompt instructs OpenAI to return strategy/angles/hooks/ctas in PT-BR when user language is PT-BR
+- [ ] **AI-PT-02**: Derivation generation prompt instructs OpenAI to produce the ad image concept/description in PT-BR when user language is PT-BR
+- [ ] **AI-PT-03**: Regeneration feedback prompt preserves the user's language for revised outputs
+- [ ] **AI-PT-04**: Campaign brief field labels and placeholders adapt to the active language
+- [ ] **AI-PT-05**: Plan preview and derivation cards display AI-generated text in the language it was produced
 
-- [ ] **UPLOAD-01**: User can request a presigned URL and upload PNG/JPEG/WebP up to 20MB directly to R2
-- [ ] **UPLOAD-02**: After upload, API confirms and saves asset with UUID key, type, size and dimensions
-- [ ] **UPLOAD-03**: Asset is linked to a campaign and workspace
+### TECH — Technical Foundation
 
-### AI Creative Plan
+- [ ] **TECH-01**: i18n library chosen and integrated (e.g. `next-intl` or `react-i18next` with Next.js App Router support)
+- [ ] **TECH-02**: Translation keys organized by feature/domain (auth, campaigns, plan, derivations, review, export, dashboard, errors)
+- [ ] **TECH-03**: Server-side rendering renders correct lang attribute and initial translations without hydration mismatch
+- [ ] **TECH-04**: Language context is available in API routes for localized error messages
+- [ ] **TECH-05**: Prompt builder accepts a `language` parameter and injects language instructions into OpenAI prompts
 
-- [ ] **PLAN-01**: API builds prompt from brief + asset metadata and calls OpenAI text model
-- [ ] **PLAN-02**: OpenAI returns structured JSON (strategy, angles, hooks, CTAs) validated by Zod before saving
-- [ ] **PLAN-03**: User can view and approve/reject the generated plan
+## Deferred (Future Milestones)
 
-### Derivations
-
-- [ ] **DERIV-01**: On plan approval, API creates N derivations with status `queued`, estimates/discounts credits, emits Inngest event per derivation
-- [ ] **DERIV-02**: Inngest handler downloads input from R2, calls OpenAI image model, stores output back to R2, saves metadata in DB
-- [ ] **DERIV-03**: Derivation status lifecycle: `queued | processing | completed | approved | rejected | failed`
-- [ ] **DERIV-04**: UI polls via TanStack Query until derivation reaches final status
-- [ ] **DERIV-05**: Failed derivations show clear error and allow retry
-
-### Review
-
-- [ ] **REVIEW-01**: User can approve or reject individual derivations
-- [ ] **REVIEW-02**: User can regenerate a derivation with feedback linked to the previous one
-- [ ] **REVIEW-03**: Derivations display in a gallery with preview and compare view
-
-### Export
-
-- [ ] **EXPORT-01**: User can export an individual derivation as PNG/JPEG/WebP via signed URL
-- [ ] **EXPORT-02**: User can export all approved derivations as a ZIP generated with jszip
-- [ ] **EXPORT-03**: Format conversion uses sharp when chosen format differs from stored format
-
-### Dashboard
-
-- [ ] **DASH-01**: Dashboard shows real campaign and usage metrics from API
-- [ ] **DASH-02**: Loading/error/empty states replace simulated delays
-
-### Security & Validation
-
-- [ ] **SEC-01**: All API routes validate workspace membership before serving data
-- [ ] **SEC-02**: Environment variables validated with Zod at startup
-- [ ] **SEC-03**: API keys and secrets are server-side only
-
-### Testing
-
-- [ ] **TEST-01**: Unit tests for env validation, Zod schemas, repositories with mocks, prompt parser, R2 key sanitization
-- [ ] **TEST-02**: Integration tests with mocks for signup→workspace, campaign CRUD, upload flow, plan generation, derivation job, review/export with auth
-- [ ] **TEST-03**: `npm test`, `npm run lint`, `npm run build` and security scan pass
-
-## v2 Requirements
-
-Deferred to future release. Tracked but not in current roadmap.
-
-### Billing
-
-- **BILL-01**: Real subscription billing with Stripe
-- **BILL-02**: Credit purchase and usage tracking
-- **BILL-03**: Plan limits and overage handling
-
-### Integrations
-
-- **INTG-01**: Direct Meta Ads export
-- **INTG-02**: Direct TikTok Ads export
-- **INTG-03**: Direct Google Ads export
-- **INTG-04**: Slack notifications for job completion
-
-### Admin
-
-- **ADMN-01**: Admin panel for user management
-- **ADMN-02**: API key management UI
+- Additional languages (ES, FR) — requires translation infrastructure maturity first
+- RTL layout support — not needed for PT-BR/EN
+- AI voiceover/text-to-speech localization — out of scope
 
 ## Out of Scope
 
-| Feature | Reason |
-|---------|--------|
-| Real billing/subscription processing | MVP uses simple usage/credits tracking only |
-| Direct Meta/TikTok/Google Ads export | Stubbed for future milestone |
-| Slack integration | Out of MVP |
-| API key management UI | Out of MVP |
-| OAuth login (Google/GitHub) | Email/password sufficient for v1 |
-| Real-time notifications | Polling sufficient for MVP |
-| Admin panel | Single workspace model for MVP |
-| Mobile app | Web-first, mobile later |
+- Auto-translation of existing user-generated content (briefs, feedback) — user input stays as-is
+- Region-specific compliance (LGPD) — separate milestone
+- Currency conversion — usage is credit-based, not monetary
 
 ## Traceability
 
-Which phases cover which requirements. Updated during roadmap creation.
-
-| Requirement | Phase | Status |
-|-------------|-------|--------|
-| AUTH-01 | Phase 1 | Pending |
-| AUTH-02 | Phase 1 | Pending |
-| AUTH-03 | Phase 1 | Pending |
-| AUTH-04 | Phase 1 | Pending |
-| WORK-01 | Phase 1 | Pending |
-| WORK-02 | Phase 1 | Pending |
-| SEC-02 | Phase 1 | Pending |
-| SEC-03 | Phase 1 | Pending |
-| CAMP-01 | Phase 2 | Pending |
-| CAMP-02 | Phase 2 | Pending |
-| CAMP-03 | Phase 2 | Pending |
-| UPLOAD-01 | Phase 2 | Pending |
-| UPLOAD-02 | Phase 2 | Pending |
-| UPLOAD-03 | Phase 2 | Pending |
-| DASH-01 | Phase 2 | Pending |
-| DASH-02 | Phase 2 | Pending |
-| PLAN-01 | Phase 3 | Pending |
-| PLAN-02 | Phase 3 | Pending |
-| PLAN-03 | Phase 3 | Pending |
-| DERIV-01 | Phase 3 | Pending |
-| DERIV-02 | Phase 3 | Pending |
-| DERIV-03 | Phase 3 | Pending |
-| DERIV-04 | Phase 3 | Pending |
-| DERIV-05 | Phase 3 | Pending |
-| REVIEW-01 | Phase 4 | Pending |
-| REVIEW-02 | Phase 4 | Pending |
-| REVIEW-03 | Phase 4 | Pending |
-| EXPORT-01 | Phase 4 | Pending |
-| EXPORT-02 | Phase 4 | Pending |
-| EXPORT-03 | Phase 4 | Pending |
-| SEC-01 | Phase 5 | Pending |
-| TEST-01 | Phase 5 | Pending |
-| TEST-02 | Phase 5 | Pending |
-| TEST-03 | Phase 5 | Pending |
-
-**Coverage:**
-- v1 requirements: 32 total
-- Mapped to phases: 32
-- Unmapped: 0 ✓
-
----
-*Requirements defined: 2026-04-24*
-*Last updated: 2026-04-24 after initial definition*
+| REQ-ID | Phase | Status |
+|--------|-------|--------|
+| I18N-01 | TBD | Not started |
+| I18N-02 | TBD | Not started |
+| I18N-03 | TBD | Not started |
+| I18N-04 | TBD | Not started |
+| I18N-05 | TBD | Not started |
+| I18N-06 | TBD | Not started |
+| LANG-01 | TBD | Not started |
+| LANG-02 | TBD | Not started |
+| LANG-03 | TBD | Not started |
+| LANG-04 | TBD | Not started |
+| LANG-05 | TBD | Not started |
+| AI-PT-01 | TBD | Not started |
+| AI-PT-02 | TBD | Not started |
+| AI-PT-03 | TBD | Not started |
+| AI-PT-04 | TBD | Not started |
+| AI-PT-05 | TBD | Not started |
+| TECH-01 | TBD | Not started |
+| TECH-02 | TBD | Not started |
+| TECH-03 | TBD | Not started |
+| TECH-04 | TBD | Not started |
+| TECH-05 | TBD | Not started |
