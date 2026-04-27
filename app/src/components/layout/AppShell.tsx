@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAppStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
 import Footer from "./Footer";
@@ -15,6 +16,7 @@ interface AppShellProps {
 }
 
 export default function AppShell({ children }: AppShellProps) {
+  const tNav = useTranslations("navigation");
   const sidebarCollapsed = useAppStore((s) => s.sidebarCollapsed);
   const pathname = usePathname();
   const sidebarWidth = sidebarCollapsed ? 64 : 240;
@@ -51,19 +53,19 @@ export default function AppShell({ children }: AppShellProps) {
       >
         <MobileNavItem
           href="/"
-          label="Dashboard"
+          label={tNav("dashboard")}
           icon={LayoutDashboard}
           active={pathname === "/"}
         />
         <MobileNavItem
           href="/campaigns"
-          label="Campaigns"
+          label={tNav("campaigns")}
           icon={FolderOpen}
           active={pathname.startsWith("/campaigns")}
         />
         <MobileNavItem
           href="/settings"
-          label="Settings"
+          label={tNav("settings")}
           icon={Settings}
           active={pathname.startsWith("/settings")}
         />

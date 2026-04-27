@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { Check, FileText, Upload, Sparkles, LayoutGrid, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 
 export type StepKey = 1 | 2 | 3 | 4 | 5;
 
@@ -12,20 +13,22 @@ interface Step {
   icon: typeof FileText;
 }
 
-const steps: Step[] = [
-  { key: 1, label: "Brief", icon: FileText },
-  { key: 2, label: "Upload", icon: Upload },
-  { key: 3, label: "Plan", icon: Sparkles },
-  { key: 4, label: "Gallery", icon: LayoutGrid },
-  { key: 5, label: "Review", icon: CheckCircle },
-];
-
 interface StepIndicatorProps {
   currentStep: StepKey;
   onStepClick?: (step: StepKey) => void;
 }
 
 export default function StepIndicator({ currentStep, onStepClick }: StepIndicatorProps) {
+  const t = useTranslations("steps");
+
+  const steps: Step[] = [
+    { key: 1, label: t("brief"), icon: FileText },
+    { key: 2, label: t("upload"), icon: Upload },
+    { key: 3, label: t("plan"), icon: Sparkles },
+    { key: 4, label: t("gallery"), icon: LayoutGrid },
+    { key: 5, label: t("review"), icon: CheckCircle },
+  ];
+
   return (
     <div className="flex items-center justify-center w-full py-6 px-4">
       <div className="flex items-center gap-0 max-w-[720px] w-full justify-between">

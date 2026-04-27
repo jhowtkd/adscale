@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, Clock, Sparkles } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import DerivationCard from "./DerivationCard";
 import type { Derivation } from "@/lib/mock-data";
@@ -39,6 +40,8 @@ export default function DerivationsStep({
   onReviewAll,
   isGeneratingMore,
 }: DerivationsStepProps) {
+  const t = useTranslations("derivation");
+  const commonT = useTranslations("common");
   const [gridSize, setGridSize] = useState<GridSize>("medium");
   const [sortBy, setSortBy] = useState<SortOption>("newest");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -97,7 +100,7 @@ export default function DerivationsStep({
         <div className="flex items-center gap-4">
           <div>
             <h3 className="text-[15px] font-semibold text-[var(--text-primary)]">
-              {completedCount}/{totalCount} variations generated
+              {completedCount}/{totalCount} {t("variationsGenerated")}
             </h3>
             <div className="flex items-center gap-2 mt-1.5">
               <div className="w-[200px] h-1.5 bg-[var(--border-dim)] rounded-full overflow-hidden">
@@ -117,7 +120,7 @@ export default function DerivationsStep({
         {/* Right: Meta info + controls */}
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
-            <span>~{totalCredits.toFixed(1)} credits used</span>
+            <span>~{totalCredits.toFixed(1)} {commonT("credits")}</span>
             <span className="mx-1">\u00b7</span>
             <Clock size={12} />
             <span>2m 34s</span>
@@ -206,7 +209,7 @@ export default function DerivationsStep({
             <div className="flex items-center gap-2">
               <Check size={18} className="text-[var(--accent-teal)]" />
               <span className="text-sm font-medium text-[var(--accent-teal)]">
-                All variations generated!
+                {t("allCompleted")}
               </span>
             </div>
             <motion.button
@@ -215,7 +218,7 @@ export default function DerivationsStep({
               onClick={onReviewAll}
               className="text-sm font-medium text-[var(--accent-blue)] hover:text-[var(--accent-blue-light)] transition-colors"
             >
-              Go to Review &rarr;
+              {t("goToReview")}
             </motion.button>
           </motion.div>
         )}
@@ -243,7 +246,7 @@ export default function DerivationsStep({
           className="flex flex-col items-center justify-center py-16 bg-[var(--surface-base)] rounded-xl border border-[var(--border-dim)]"
         >
           <p className="text-sm text-[var(--text-muted)] mb-4">
-            No derivations match the selected filter.
+            {t("noDerivations")}
           </p>
           <button
             onClick={() => setStatusFilter("all")}
@@ -267,7 +270,7 @@ export default function DerivationsStep({
           className="inline-flex items-center gap-2 rounded-md px-5 py-2.5 text-sm font-medium transition-all duration-200 bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] hover:border-[var(--border-medium)] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Sparkles size={14} />
-          {isGeneratingMore ? "Generating..." : "Generate More"}
+          {isGeneratingMore ? tc("loading") : t("generateMore")}
         </button>
       </motion.div>
     </div>

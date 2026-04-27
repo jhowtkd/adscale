@@ -11,6 +11,7 @@ import {
   Clock,
   Info,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import type { CreativePlan } from "@/lib/mock-data";
 
@@ -101,6 +102,9 @@ export default function CreativePlanCard({
   isEditing = false,
 }: CreativePlanCardProps) {
   const [copiedCta, setCopiedCta] = useState<string | null>(null);
+  const t = useTranslations("plan");
+  const commonT = useTranslations("common");
+  const campaignT = useTranslations("campaign");
 
   const handleCopyCta = (cta: string) => {
     navigator.clipboard.writeText(cta).catch(() => {});
@@ -175,7 +179,7 @@ export default function CreativePlanCard({
                 className="flex items-center gap-1 text-xs font-medium text-[var(--accent-teal)]"
               >
                 <Check size={14} strokeWidth={3} />
-                Approved
+                {campaignT("status.approved")}
               </motion.div>
             )}
           </div>
@@ -190,7 +194,7 @@ export default function CreativePlanCard({
           className="border-l-2 border-[var(--accent-purple)] pl-3"
         >
           <h4 className="text-[15px] font-semibold text-[var(--text-primary)] mb-2">
-            Strategy Overview
+            {t("strategy")}
           </h4>
           <p className="text-base leading-relaxed text-[var(--text-primary)]">
             {plan.strategy}
@@ -200,7 +204,7 @@ export default function CreativePlanCard({
         {/* ---- Creative Angles ---- */}
         <motion.div custom={2} variants={sectionVariants} initial="hidden" animate="show">
           <h4 className="text-[15px] font-semibold text-[var(--text-primary)] mb-3 flex items-center gap-2">
-            Creative Angles
+            {t("angles")}
             <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-[var(--surface-raised)] text-[var(--text-muted)]">
               {plan.angles.length}
             </span>
@@ -234,7 +238,7 @@ export default function CreativePlanCard({
         {/* ---- Hook Variations ---- */}
         <motion.div custom={3} variants={sectionVariants} initial="hidden" animate="show">
           <h4 className="text-[15px] font-semibold text-[var(--text-primary)] mb-3">
-            Hook Copy Variations
+            {t("hooks")}
           </h4>
           <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin">
             {plan.hooks.map((hook, i) => {
@@ -257,7 +261,7 @@ export default function CreativePlanCard({
         {/* ---- CTA Recommendations ---- */}
         <motion.div custom={4} variants={sectionVariants} initial="hidden" animate="show">
           <h4 className="text-[15px] font-semibold text-[var(--text-primary)] mb-3">
-            CTA Recommendations
+            {t("ctas")}
           </h4>
           <div className="flex flex-wrap gap-2">
             {plan.ctas.map((cta) => (
@@ -366,7 +370,7 @@ export default function CreativePlanCard({
             )}
           >
             <Check size={16} />
-            {approved ? "Plan Approved" : "Approve Plan"}
+            {approved ? campaignT("status.approved") : t("approvePlan")}
           </motion.button>
 
           <button
@@ -374,7 +378,7 @@ export default function CreativePlanCard({
             className="inline-flex items-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-all duration-200 bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] hover:bg-[var(--surface-base)] hover:border-[var(--border-medium)] active:scale-[0.98]"
           >
             <Pencil size={14} />
-            Edit
+            {commonT("edit")}
           </button>
         </div>
 
@@ -384,7 +388,7 @@ export default function CreativePlanCard({
             className="inline-flex items-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-all duration-200 text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.04)] hover:text-[var(--text-primary)] active:scale-[0.98]"
           >
             <RefreshCw size={14} />
-            Regenerate
+            {commonT("regenerate")}
           </button>
 
           <span className="text-xs text-[var(--text-muted)]">

@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { GripVertical, Check, X, RefreshCw, Download } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import type { Derivation } from "@/lib/mock-data";
 
@@ -40,6 +41,8 @@ export default function ComparisonView({
   isDownloading,
 }: ComparisonViewProps) {
   const [splitPosition, setSplitPosition] = useState(50);
+  const t = useTranslations("review");
+  const commonT = useTranslations("common");
   const [isDragging, setIsDragging] = useState(false);
   const [exportFormat, setExportFormat] = useState("png");
   const [showFeedback, setShowFeedback] = useState(false);
@@ -233,7 +236,7 @@ export default function ComparisonView({
             ) : (
               <Check size={16} />
             )}
-            Approve
+            {commonT("approve")}
           </motion.button>
 
           {/* Reject */}
@@ -263,7 +266,7 @@ export default function ComparisonView({
             ) : (
               <X size={16} />
             )}
-            Reject
+            {commonT("reject")}
           </motion.button>
 
           {/* Regenerate with feedback */}
@@ -293,7 +296,7 @@ export default function ComparisonView({
             ) : (
               <RefreshCw size={14} />
             )}
-            Regenerate
+            {commonT("regenerate")}
           </motion.button>
         </div>
 
@@ -327,7 +330,7 @@ export default function ComparisonView({
             ) : (
               <Download size={14} />
             )}
-            Download
+            {commonT("download")}
           </motion.button>
         </div>
       </div>
@@ -380,7 +383,7 @@ export default function ComparisonView({
                 }}
                 className="inline-flex items-center rounded-md px-4 py-2 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
               >
-                Cancel
+                {commonT("cancel")}
               </button>
             </div>
           </motion.div>

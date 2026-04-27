@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles } from "lucide-react";
+import { useTranslations } from "next-intl";
 import CreativePlanCard from "./CreativePlanCard";
 import type { CreativePlan } from "@/lib/mock-data";
 
@@ -50,6 +51,8 @@ function LoadingDots() {
 // ============================================
 
 export default function PlanStep({ plan, onApprove, onGenerateDerivations, approved, isGenerating }: PlanStepProps) {
+  const t = useTranslations("plan");
+  const tc = useTranslations("common");
   const [isLoading, setIsLoading] = useState(!plan);
   const [isEditing, setIsEditing] = useState(false);
 
@@ -75,7 +78,7 @@ export default function PlanStep({ plan, onApprove, onGenerateDerivations, appro
         </motion.div>
 
         <h3 className="text-[15px] font-semibold text-[var(--text-primary)] mb-2">
-          Generating your creative plan...
+          {t("generating")}
         </h3>
 
         <LoadingDots />
@@ -86,7 +89,7 @@ export default function PlanStep({ plan, onApprove, onGenerateDerivations, appro
   if (!plan) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] bg-[var(--surface-base)] rounded-xl border border-[var(--border-dim)]">
-        <p className="text-sm text-[var(--text-muted)]">No creative plan available.</p>
+        <p className="text-sm text-[var(--text-muted)]">{t("noPlan")}</p>
       </div>
     );
   }
@@ -120,7 +123,7 @@ export default function PlanStep({ plan, onApprove, onGenerateDerivations, appro
               className="inline-flex items-center gap-2 rounded-md px-8 py-3 text-sm font-medium text-white transition-all duration-200 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-light)] shadow-lg shadow-[rgba(99,102,241,0.2)] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Sparkles size={16} />
-              {isGenerating ? "Generating..." : "Generate Derivations"}
+              {isGenerating ? tc("loading") : t("generateDerivations")}
             </motion.button>
           </motion.div>
         )}

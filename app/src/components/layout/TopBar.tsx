@@ -2,6 +2,7 @@
 
 import { useAppStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 import {
   Search,
   Bell,
@@ -10,6 +11,7 @@ import {
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 
 export default function TopBar() {
+  const tCommon = useTranslations("common");
   const user = useAppStore((s) => s.user);
   const currentPageTitle = useAppStore((s) => s.currentPageTitle);
   const sidebarCollapsed = useAppStore((s) => s.sidebarCollapsed);
@@ -40,8 +42,8 @@ export default function TopBar() {
           />
           <input
             type="text"
-            aria-label="Search campaigns and derivations"
-            placeholder="Search campaigns, derivations..."
+            aria-label={tCommon("search")}
+            placeholder={tCommon("search")}
             className={cn(
               "w-full h-9 pl-9 pr-4 rounded-full text-sm",
               "bg-[var(--surface-raised)] text-[var(--text-primary)]",
@@ -64,7 +66,7 @@ export default function TopBar() {
           )}
         >
           <Coins size={14} />
-          <span>{user.credits} credits</span>
+          <span>{user.credits} {tCommon("credits")}</span>
         </div>
 
         {/* Language Switcher */}
@@ -73,7 +75,7 @@ export default function TopBar() {
         {/* Notification Bell */}
         <button
           type="button"
-          aria-label="Notifications"
+          aria-label={tCommon("notifications")}
           className={cn(
             "relative flex items-center justify-center h-9 w-9 rounded-full",
             "text-[var(--text-muted)] hover:text-[var(--text-primary)]",
@@ -92,7 +94,7 @@ export default function TopBar() {
         {/* User Avatar */}
         <button
           type="button"
-          aria-label={`${user.firstName} ${user.lastName} account menu`}
+          aria-label={tCommon("accountMenu")}
           className={cn(
             "flex items-center justify-center h-8 w-8 rounded-full",
             "bg-[var(--accent-blue-dim)] text-[var(--accent-blue-light)] text-xs font-semibold",

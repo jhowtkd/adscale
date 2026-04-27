@@ -4,6 +4,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Sparkles, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -100,6 +101,9 @@ const fieldVariants = {
 // ============================================
 
 export default function BriefingStep({ campaign, onContinue, onSaveDraft }: BriefingStepProps) {
+  const tCampaign = useTranslations("campaign");
+  const tBriefing = useTranslations("briefing");
+
   const [formData, setFormData] = useState<BriefingFormData>({
     name: campaign?.name || "",
     client: campaign?.client || "",
@@ -164,11 +168,11 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
         {/* ---- Campaign Info ---- */}
         <motion.div variants={fieldVariants}>
           <Label className="flex items-center gap-1 text-xs font-medium text-[var(--text-secondary)] mb-2">
-            Campaign Name
+            {tCampaign("name")}
             <span className="text-[var(--accent-rose)]">*</span>
           </Label>
           <Input
-            placeholder="e.g., Summer Sale Promo 2025"
+            placeholder={tBriefing("namePlaceholder")}
             value={formData.name}
             onChange={(e) => updateField("name", e.target.value)}
             className={cn(
@@ -196,7 +200,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
             <span className="text-[var(--accent-rose)]">*</span>
           </Label>
           <Input
-            placeholder="e.g., Nike Air Max or Acme SaaS"
+            placeholder={tBriefing("clientPlaceholder")}
             value={formData.client}
             onChange={(e) => updateField("client", e.target.value)}
             className={cn(
@@ -222,7 +226,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
         {/* ---- Campaign Objective ---- */}
         <motion.div variants={fieldVariants}>
           <Label className="flex items-center gap-1 text-xs font-medium text-[var(--text-secondary)] mb-2">
-            Campaign Objective
+            {tCampaign("objective")}
             <span className="text-[var(--accent-rose)]">*</span>
           </Label>
           <Select value={formData.objective} onValueChange={(v) => updateField("objective", v ?? "")}>
@@ -232,7 +236,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
                 errors.objective && "border-[var(--accent-rose)] ring-[3px] ring-[rgba(244,63,94,0.15)]"
               )}
             >
-              <SelectValue placeholder="Select an objective" />
+              <SelectValue placeholder={tBriefing("objectivePlaceholder")} />
             </SelectTrigger>
             <SelectContent className="bg-[var(--surface-raised)] border-[var(--border-dim)]">
               {objectives.map((obj) => (
@@ -260,10 +264,10 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
         {/* ---- Target Audience ---- */}
         <motion.div variants={fieldVariants}>
           <Label className="text-xs font-medium text-[var(--text-secondary)] mb-2 block">
-            Target Audience
+            {tCampaign("audience")}
           </Label>
           <Textarea
-            placeholder="e.g., Women 25-34, fitness enthusiasts, urban professionals..."
+            placeholder={tBriefing("audiencePlaceholder")}
             rows={3}
             value={formData.audience}
             onChange={(e) => updateField("audience", e.target.value)}
@@ -277,7 +281,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
         {/* ---- Platforms ---- */}
         <motion.div variants={fieldVariants}>
           <Label className="flex items-center gap-1 text-xs font-medium text-[var(--text-secondary)] mb-2">
-            Target Platforms
+            {tCampaign("platforms")}
             <span className="text-[var(--accent-rose)]">*</span>
           </Label>
           <div className="flex flex-wrap gap-2">
@@ -316,7 +320,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
         {/* ---- Tone of Voice ---- */}
         <motion.div variants={fieldVariants}>
           <Label className="flex items-center gap-1 text-xs font-medium text-[var(--text-secondary)] mb-2">
-            Tone of Voice
+            {tCampaign("tone")}
             <span className="text-[var(--accent-rose)]">*</span>
           </Label>
           <Select value={formData.tone} onValueChange={(v) => updateField("tone", v ?? "")}>
@@ -326,7 +330,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
                 errors.tone && "border-[var(--accent-rose)] ring-[3px] ring-[rgba(244,63,94,0.15)]"
               )}
             >
-              <SelectValue placeholder="Select a tone" />
+              <SelectValue placeholder={tBriefing("tonePlaceholder")} />
             </SelectTrigger>
             <SelectContent className="bg-[var(--surface-raised)] border-[var(--border-dim)]">
               {tones.map((tone) => (
@@ -357,7 +361,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
             Offer or Call-to-Action
           </Label>
           <Textarea
-            placeholder="e.g., 50% off summer collection, Limited time offer, Shop now..."
+            placeholder={tBriefing("offerPlaceholder")}
             rows={2}
             value={formData.offer}
             onChange={(e) => updateField("offer", e.target.value)}
@@ -371,10 +375,10 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
         {/* ---- Constraints ---- */}
         <motion.div variants={fieldVariants}>
           <Label className="text-xs font-medium text-[var(--text-secondary)] mb-2 block">
-            Creative Constraints
+            {tCampaign("constraints")}
           </Label>
           <Textarea
-            placeholder="e.g., Must include logo in bottom right, No red backgrounds, Keep text under 20% of image..."
+            placeholder={tBriefing("constraintsPlaceholder")}
             rows={2}
             value={formData.constraints}
             onChange={(e) => updateField("constraints", e.target.value)}
@@ -404,10 +408,10 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
             variants={fieldVariants}
           >
             <Label className="text-xs font-medium text-[var(--text-secondary)] mb-2 block">
-              Additional Notes
+              {tCampaign("notes")}
             </Label>
             <Textarea
-              placeholder="Any other details the AI should consider..."
+              placeholder={tBriefing("notesPlaceholder")}
               rows={3}
               value={formData.notes}
               onChange={(e) => updateField("notes", e.target.value)}

@@ -9,7 +9,11 @@
     "settings": "Configurações",
     "logout": "Sair",
     "login": "Entrar",
-    "signup": "Criar conta"
+    "signup": "Criar conta",
+    "workspace": "Workspace",
+    "account": "Conta",
+    "collapse": "Recolher",
+    "expand": "Expandir"
   },
   "language": {
     "label": "Idioma",
@@ -37,7 +41,11 @@
     "preview": "Visualizar",
     "generate": "Gerar",
     "regenerate": "Regenerar",
-    "export": "Exportar"
+    "export": "Exportar",
+    "search": "Buscar campanhas e derivações...",
+    "credits": "créditos",
+    "notifications": "Notificações",
+    "accountMenu": "Menu da conta"
   },
   "campaign": {
     "new": "Nova campanha",
@@ -55,6 +63,8 @@
     "plan": "Plano criativo",
     "derivations": "Derivações",
     "review": "Revisão",
+    "gallery": "Galeria",
+    "upload": "Upload",
     "status": {
       "draft": "Rascunho",
       "active": "Ativa",
@@ -62,7 +72,36 @@
       "completed": "Concluída",
       "approved": "Aprovada",
       "failed": "Falhou"
+    },
+    "objectives": {
+      "awareness": "Consciência",
+      "consideration": "Consideração",
+      "conversion": "Conversão",
+      "retargeting": "Remarketing"
+    },
+    "tones": {
+      "professional": "Profissional",
+      "casual": "Casual",
+      "bold": "Ousado",
+      "emotional": "Emocional",
+      "luxury": "Luxo"
+    },
+    "platformNames": {
+      "Meta": "Meta Ads",
+      "TikTok": "TikTok Ads",
+      "Google": "Google Ads"
     }
+  },
+  "briefing": {
+    "title": "Briefing da Campanha",
+    "namePlaceholder": "ex: Promoção de Verão 2025",
+    "clientPlaceholder": "ex: Nike Air Max ou Acme SaaS",
+    "objectivePlaceholder": "Selecione um objetivo",
+    "audiencePlaceholder": "ex: Mulheres 25-34, entusiastas de fitness, profissionais urbanos...",
+    "tonePlaceholder": "Selecione um tom",
+    "offerPlaceholder": "ex: 50% off coleção de verão, Oferta por tempo limitado, Compre agora...",
+    "constraintsPlaceholder": "ex: Deve incluir logo no canto inferior direito, Sem fundos vermelhos, Mantenha texto abaixo de 20% da imagem...",
+    "notesPlaceholder": "Qualquer outro detalhe que a IA deva considerar..."
   },
   "derivation": {
     "title": "Derivações",
@@ -73,7 +112,12 @@
     "generating": "Gerando variações...",
     "generateMore": "Gerar mais",
     "noDerivations": "Nenhuma derivação encontrada",
-    "variation": "Variação"
+    "variation": "Variação",
+    "variationsGenerated": "variações geradas",
+    "waiting": "Aguardando slot de processamento...",
+    "remaining": "restantes",
+    "allCompleted": "Todas as variações geradas!",
+    "goToReview": "Ir para Revisão →"
   },
   "plan": {
     "title": "Plano Criativo",
@@ -82,7 +126,9 @@
     "hooks": "Ganchos",
     "ctas": "CTAs",
     "approvePlan": "Aprovar plano",
-    "generateDerivations": "Gerar derivações"
+    "generateDerivations": "Gerar derivações",
+    "generating": "Gerando seu plano criativo...",
+    "noPlan": "Nenhum plano criativo disponível."
   },
   "upload": {
     "title": "Upload de criativo",
@@ -96,7 +142,41 @@
     "confirmPassword": "Confirmar senha",
     "forgotPassword": "Esqueceu a senha?",
     "noAccount": "Não tem uma conta?",
-    "hasAccount": "Já tem uma conta?"
+    "hasAccount": "Já tem uma conta?",
+    "signIn": "Entrar",
+    "signUp": "Criar conta",
+    "passwordRequirements": "Requisitos da senha",
+    "passwordStrength": {
+      "empty": "",
+      "weak": "Fraca",
+      "fair": "Razoável",
+      "good": "Boa",
+      "strong": "Forte"
+    }
+  },
+  "settings": {
+    "title": "Configurações",
+    "profile": {
+      "title": "Perfil",
+      "namePlaceholder": "Seu nome",
+      "emailPlaceholder": "voce@empresa.com",
+      "bioPlaceholder": "Conte-nos sobre você..."
+    },
+    "workspace": {
+      "title": "Workspace",
+      "namePlaceholder": "Nome do workspace",
+      "descriptionPlaceholder": "Descreva seu workspace...",
+      "urlPlaceholder": "https://suempresa.com"
+    },
+    "team": {
+      "title": "Time",
+      "invitePlaceholder": "colega@empresa.com"
+    },
+    "integrations": {
+      "connected": "Conectado",
+      "notConnected": "Não conectado",
+      "error": "Erro"
+    }
   },
   "errors": {
     "generic": "Algo deu errado. Tente novamente.",
@@ -105,5 +185,19 @@
     "validation": "Verifique os campos e tente novamente.",
     "uploadFailed": "Falha no upload. Tente novamente.",
     "generationFailed": "Falha na geração. Tente novamente."
+  },
+  "review": {
+    "title": "Revisão",
+    "feedbackPlaceholder": "O que você gostaria de mudar?",
+    "approve": "Aprovar",
+    "reject": "Rejeitar",
+    "compare": "Comparar"
+  },
+  "steps": {
+    "brief": "Brief",
+    "upload": "Upload",
+    "plan": "Plano",
+    "gallery": "Galeria",
+    "review": "Revisão"
   }
 }

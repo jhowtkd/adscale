@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDropzone } from "react-dropzone";
 import { Cloud, Upload, Check, AlertCircle, Lightbulb, Replace, FileImage } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
 // ============================================
@@ -45,6 +46,8 @@ export default function UploadStep({ onContinue }: UploadStepProps) {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const t = useTranslations("upload");
+  const commonT = useTranslations("common");
 
   const simulateUpload = useCallback((file: File) => {
     setIsUploading(true);
@@ -292,10 +295,10 @@ export default function UploadStep({ onContinue }: UploadStepProps) {
 
                   {/* Text */}
                   <h3 className="text-[15px] font-semibold text-[var(--text-primary)] mb-1">
-                    {isDragActive ? "Drop your creative here" : "Drop your creative here"}
+                    {isDragActive ? t("dropzone") : t("dropzone")}
                   </h3>
                   <p className="text-xs text-[var(--text-muted)] mb-4">
-                    Supports PNG, JPG, WebP up to {MAX_SIZE_MB}MB
+                    {t("supportedFormats")}
                   </p>
                   <button
                     type="button"
@@ -327,7 +330,7 @@ export default function UploadStep({ onContinue }: UploadStepProps) {
                           {Math.min(Math.round(uploadProgress), 100)}%
                         </p>
                         <p className="text-xs text-[var(--text-muted)] mt-1">
-                          Uploading...
+                          {t("uploading")}
                         </p>
                       </motion.div>
                     )}

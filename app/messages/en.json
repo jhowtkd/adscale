@@ -9,7 +9,11 @@
     "settings": "Settings",
     "logout": "Logout",
     "login": "Login",
-    "signup": "Sign up"
+    "signup": "Sign up",
+    "workspace": "Workspace",
+    "account": "Account",
+    "collapse": "Collapse",
+    "expand": "Expand"
   },
   "language": {
     "label": "Language",
@@ -37,7 +41,11 @@
     "preview": "Preview",
     "generate": "Generate",
     "regenerate": "Regenerate",
-    "export": "Export"
+    "export": "Export",
+    "search": "Search campaigns and derivations...",
+    "credits": "credits",
+    "notifications": "Notifications",
+    "accountMenu": "Account menu"
   },
   "campaign": {
     "new": "New campaign",
@@ -55,6 +63,8 @@
     "plan": "Creative plan",
     "derivations": "Derivations",
     "review": "Review",
+    "gallery": "Gallery",
+    "upload": "Upload",
     "status": {
       "draft": "Draft",
       "active": "Active",
@@ -62,7 +72,36 @@
       "completed": "Completed",
       "approved": "Approved",
       "failed": "Failed"
+    },
+    "objectives": {
+      "awareness": "Awareness",
+      "consideration": "Consideration",
+      "conversion": "Conversion",
+      "retargeting": "Retargeting"
+    },
+    "tones": {
+      "professional": "Professional",
+      "casual": "Casual",
+      "bold": "Bold",
+      "emotional": "Emotional",
+      "luxury": "Luxury"
+    },
+    "platformNames": {
+      "Meta": "Meta Ads",
+      "TikTok": "TikTok Ads",
+      "Google": "Google Ads"
     }
+  },
+  "briefing": {
+    "title": "Campaign Brief",
+    "namePlaceholder": "e.g., Summer Sale Promo 2025",
+    "clientPlaceholder": "e.g., Nike Air Max or Acme SaaS",
+    "objectivePlaceholder": "Select an objective",
+    "audiencePlaceholder": "e.g., Women 25-34, fitness enthusiasts, urban professionals...",
+    "tonePlaceholder": "Select a tone",
+    "offerPlaceholder": "e.g., 50% off summer collection, Limited time offer, Shop now...",
+    "constraintsPlaceholder": "e.g., Must include logo in bottom right, No red backgrounds, Keep text under 20% of image...",
+    "notesPlaceholder": "Any other details the AI should consider..."
   },
   "derivation": {
     "title": "Derivations",
@@ -73,7 +112,12 @@
     "generating": "Generating variations...",
     "generateMore": "Generate more",
     "noDerivations": "No derivations found",
-    "variation": "Variation"
+    "variation": "Variation",
+    "variationsGenerated": "variations generated",
+    "waiting": "Waiting for processing slot...",
+    "remaining": "remaining",
+    "allCompleted": "All variations generated!",
+    "goToReview": "Go to Review →"
   },
   "plan": {
     "title": "Creative Plan",
@@ -82,7 +126,9 @@
     "hooks": "Hooks",
     "ctas": "CTAs",
     "approvePlan": "Approve plan",
-    "generateDerivations": "Generate derivations"
+    "generateDerivations": "Generate derivations",
+    "generating": "Generating your creative plan...",
+    "noPlan": "No creative plan available."
   },
   "upload": {
     "title": "Upload creative",
@@ -96,7 +142,41 @@
     "confirmPassword": "Confirm password",
     "forgotPassword": "Forgot password?",
     "noAccount": "Don't have an account?",
-    "hasAccount": "Already have an account?"
+    "hasAccount": "Already have an account?",
+    "signIn": "Sign in",
+    "signUp": "Sign up",
+    "passwordRequirements": "Password requirements",
+    "passwordStrength": {
+      "empty": "",
+      "weak": "Weak",
+      "fair": "Fair",
+      "good": "Good",
+      "strong": "Strong"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "profile": {
+      "title": "Profile",
+      "namePlaceholder": "Your name",
+      "emailPlaceholder": "you@company.com",
+      "bioPlaceholder": "Tell us about yourself..."
+    },
+    "workspace": {
+      "title": "Workspace",
+      "namePlaceholder": "Your workspace name",
+      "descriptionPlaceholder": "Describe your workspace...",
+      "urlPlaceholder": "https://yourcompany.com"
+    },
+    "team": {
+      "title": "Team",
+      "invitePlaceholder": "colleague@company.com"
+    },
+    "integrations": {
+      "connected": "Connected",
+      "notConnected": "Not connected",
+      "error": "Error"
+    }
   },
   "errors": {
     "generic": "Something went wrong. Please try again.",
@@ -105,5 +185,19 @@
     "validation": "Please check the fields and try again.",
     "uploadFailed": "Upload failed. Please try again.",
     "generationFailed": "Generation failed. Please try again."
+  },
+  "review": {
+    "title": "Review",
+    "feedbackPlaceholder": "What would you like to change?",
+    "approve": "Approve",
+    "reject": "Reject",
+    "compare": "Compare"
+  },
+  "steps": {
+    "brief": "Brief",
+    "upload": "Upload",
+    "plan": "Plan",
+    "gallery": "Gallery",
+    "review": "Review"
   }
 }

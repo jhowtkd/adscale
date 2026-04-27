@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { Eye, Download, RefreshCw, Clock, AlertCircle } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import StatusBadge from "@/components/ui/StatusBadge";
 import type { Derivation } from "@/lib/mock-data";
@@ -80,14 +81,16 @@ function ProgressRing({ progress }: { progress: number }) {
 type DerivationDisplayStatus = Derivation["status"] | "queued";
 
 function StatusOverlay({ status, progress }: { status: DerivationDisplayStatus; progress?: number }) {
+  const t = useTranslations("derivation");
+  const commonT = useTranslations("common");
   switch (status) {
     case "queued":
       return (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-[rgba(10,15,26,0.7)] rounded-t-[15px]">
           <Clock size={24} className="text-[var(--text-muted)] mb-2" />
-          <span className="text-xs font-medium text-[var(--text-muted)]">Queued</span>
+          <span className="text-xs font-medium text-[var(--text-muted)]">{t("queued")}</span>
           <span className="text-[10px] text-[var(--text-muted)] mt-0.5">
-            Waiting for processing slot...
+            {t("waiting")}
           </span>
         </div>
       );
@@ -97,10 +100,10 @@ function StatusOverlay({ status, progress }: { status: DerivationDisplayStatus; 
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-[rgba(10,15,26,0.5)] rounded-t-[15px]">
           <ProgressRing progress={progress || 0} />
           <span className="text-xs font-medium text-[var(--text-primary)] mt-2">
-            Generating...
+            {commonT("loading")}
           </span>
           <span className="text-[10px] text-[var(--text-muted)] mt-0.5">
-            ~8s remaining
+            ~8s {t("remaining")}
           </span>
         </div>
       );
@@ -116,7 +119,7 @@ function StatusOverlay({ status, progress }: { status: DerivationDisplayStatus; 
             }}
             className="mt-2 inline-flex items-center rounded-md px-3 py-1.5 text-xs font-medium border border-[var(--accent-rose)]/30 text-[var(--accent-rose)] hover:bg-[var(--accent-rose)]/10 transition-colors"
           >
-            Retry
+            {commonT("retry")}
           </button>
         </div>
       );
@@ -152,6 +155,7 @@ export default function DerivationCard({
   onRegenerate,
   gridSize = "medium",
 }: DerivationCardProps) {
+  const commonT = useTranslations("common");
   const isCompleted = derivation.status === "completed";
   const platformStyle = platformColors[derivation.platform] || {
     bg: "rgba(99,102,241,0.12)",
@@ -285,14 +289,14 @@ export default function DerivationCard({
         {/* Row 4: Cost + Actions */}
         <div className="flex items-center justify-between pt-1">
           <span className="text-xs text-[var(--text-muted)]">
-            ~{derivation.creditCost} credits
+            ~{derivation.creditCost} {commonT("credits")}
           </span>
 
           <div className="flex items-center gap-1 opacity-50 group-hover:opacity-100 transition-opacity duration-200">
             <button
               onClick={() => onPreview(derivation.id)}
               className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[rgba(255,255,255,0.04)] transition-all duration-150"
-              title="Preview"
+              title={commonT("preview")}
             >
               <Eye size={16} />
             </button>
@@ -303,7 +307,7 @@ export default function DerivationCard({
                 "p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[rgba(255,255,255,0.04)] transition-all duration-150",
                 exportMutation.isPending && "opacity-50 cursor-wait"
               )}
-              title="Download"
+              title={commonT("download")}
             >
               {exportMutation.isPending ? (
                 <Spinner />
@@ -318,7 +322,7 @@ export default function DerivationCard({
                 "p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[rgba(255,255,255,0.04)] transition-all duration-150",
                 regenerateMutation.isPending && "opacity-50 cursor-wait"
               )}
-              title="Regenerate"
+              title={commonT("regenerate")}
             >
               {regenerateMutation.isPending ? (
                 <Spinner />

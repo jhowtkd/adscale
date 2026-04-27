@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
+import { useTranslations } from "next-intl";
 import {
   LayoutDashboard,
   FolderOpen,
@@ -14,16 +15,18 @@ import {
   ChevronRight,
 } from "lucide-react";
 
-const workspaceNavItems = [
-  { icon: LayoutDashboard, label: "Dashboard", href: "/" },
-  { icon: FolderOpen, label: "Campaigns", href: "/campaigns" },
-];
-
-const accountNavItems = [
-  { icon: Settings, label: "Settings", href: "/settings" },
-];
-
 export default function Sidebar() {
+  const tNav = useTranslations("navigation");
+
+  const workspaceNavItems = [
+    { icon: LayoutDashboard, label: tNav("dashboard"), href: "/" },
+    { icon: FolderOpen, label: tNav("campaigns"), href: "/campaigns" },
+  ];
+
+  const accountNavItems = [
+    { icon: Settings, label: tNav("settings"), href: "/settings" },
+  ];
+
   const sidebarCollapsed = useAppStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useAppStore((s) => s.toggleSidebar);
   const user = useAppStore((s) => s.user);
@@ -90,7 +93,7 @@ export default function Sidebar() {
                 transition={{ duration: 0.2 }}
                 className="px-3 mb-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]"
               >
-                Workspace
+                {tNav("workspace")}
               </motion.p>
             )}
           </AnimatePresence>
@@ -118,7 +121,7 @@ export default function Sidebar() {
                 transition={{ duration: 0.2 }}
                 className="px-3 mb-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]"
               >
-                Account
+                {tNav("account")}
               </motion.p>
             )}
           </AnimatePresence>
@@ -177,7 +180,7 @@ export default function Sidebar() {
             "hover:bg-[rgba(99,102,241,0.08)] hover:text-[var(--text-primary)]",
             sidebarCollapsed ? "justify-center w-full" : "w-full"
           )}
-          title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={sidebarCollapsed ? tNav("expand") : tNav("collapse")}
         >
           <motion.div
             animate={{ rotate: sidebarCollapsed ? 180 : 0 }}
@@ -198,7 +201,7 @@ export default function Sidebar() {
                 transition={{ duration: 0.2 }}
                 className="text-xs font-medium"
               >
-                Collapse
+                {tNav("collapse")}
               </motion.span>
             )}
           </AnimatePresence>
