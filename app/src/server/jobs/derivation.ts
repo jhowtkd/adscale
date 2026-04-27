@@ -15,75 +15,74 @@ import { env } from "../validation/env";
 const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 
 export const derivationJob = inngest.createFunction(
-  { id: "generate-derivation", retries: 2 },
+  {
+    id: "generate-derivation",
+    retries: 2,
+    onFailure: async ({ event, error }) => {
+      const { derivationId } = event.data;
+      const message = error instanceof Error ? error.message : "Unknown error";
+      await db
+        .update(derivations)
+        .set({
+          status: "failed",
+          prompt: message,
+          updatedAt: new Date(),
+        })
+        .where(eq(derivations.id, derivationId));
+    },
+  },
   { event: "derivation.generate" },
   async ({ event, step }) => {
     const { derivationId, campaignId, workspaceId } = event.data;
 
-    try {
-      // 1. Update status to processing
-      await step.run("mark-processing", async () => {
-        await db
-          .update(derivations)
-          .set({ status: "processing" })
-          .where(eq(derivations.id, derivationId));
-      });
+    // 1. Update status to processing
+    await step.run("mark-processing", async () => {
+      await db
+        .update(derivations)
+        .set({ status: "processing", updatedAt: new Date() })
+        .where(eq(derivations.id, derivationId));
+    });
 
-      // 2. Fetch derivation, campaign, plan, asset
-      const { plan, asset, derivation } = await step.run(
-        "fetch-context",
-        async () => {
-          const derivation = await getDerivationById(derivationId, workspaceId);
-          if (!derivation) {
-            throw new Error("Derivation not found");
-          }
-
-          const campaign = await getCampaignById(campaignId, workspaceId);
-          if (!campaign) {
-            throw new Error("Campaign not found");
-          }
-
-          const plan = await getPlanByCampaign(campaignId, workspaceId);
-          const assets = await getAssetsByCampaign(campaignId, workspaceId);
-          const asset = assets[0];
-
-          return { derivation, campaign, plan, asset };
+    // 2. Fetch derivation, campaign, plan, asset
+    const { plan, asset, derivation } = await step.run(
+      "fetch-context",
+      async () => {
+        const derivation = await getDerivationById(derivationId, workspaceId);
+        if (!derivation) {
+          throw new Error("Derivation not found");
         }
-      );
 
-      // 3. Download input image (if asset exists)
-      let referenceImage: Awaited<ReturnType<typeof toFile>> | undefined;
-      if (asset) {
-        await step.run("download-asset", async () => {
+        const campaign = await getCampaignById(campaignId, workspaceId);
+        if (!campaign) {
+          throw new Error("Campaign not found");
+        }
+
+        const plan = await getPlanByCampaign(campaignId, workspaceId);
+        const assets = await getAssetsByCampaign(campaignId, workspaceId);
+        const asset = assets[0];
+
+        return { derivation, campaign, plan, asset };
+      }
+    );
+
+    // 3. Download input image (if asset exists)
+    const referenceImage = asset
+      ? await step.run("download-asset", async () => {
           const buffer = await downloadBuffer(asset.key);
-          referenceImage = await toFile(buffer, "reference-image", {
+          return toFile(buffer, "reference-image", {
             type: asset.type,
           });
-          return { assetKey: asset.key, size: buffer.length };
-        });
-      }
+        })
+      : undefined;
 
-      // 4. Call OpenAI image model with reference image
-      const result = await step.run("generate-image", async () => {
-        const prompt = buildDerivationPrompt(plan, asset, derivation.feedback);
+    // 4. Call OpenAI image model with reference image
+    const result = await step.run("generate-image", async () => {
+      const prompt = buildDerivationPrompt(plan, asset, derivation.feedback);
 
-        if (referenceImage) {
-          const response = await openai.images.edit({
-            model: env.OPENAI_IMAGE_MODEL,
-            image: referenceImage,
-            prompt,
-            n: 1,
-            size: "1024x1024",
-          });
-          const first = response.data?.[0];
-          if (!first) {
-            throw new Error("No image data returned from OpenAI");
-          }
-          return first;
-        }
-
-        const response = await openai.images.generate({
+      if (referenceImage) {
+        const response = await openai.images.edit({
           model: env.OPENAI_IMAGE_MODEL,
+          image: referenceImage,
           prompt,
           n: 1,
           size: "1024x1024",
@@ -93,65 +92,64 @@ export const derivationJob = inngest.createFunction(
           throw new Error("No image data returned from OpenAI");
         }
         return first;
-      });
+      }
 
-      // 5. Upload output to R2
-      const outputKey = await step.run("store-output", async () => {
-        let buffer: Buffer;
-        if (result.b64_json) {
-          buffer = Buffer.from(result.b64_json, "base64");
-        } else if (result.url) {
-          const imageResponse = await fetch(result.url);
-          if (!imageResponse.ok) {
-            throw new Error(
-              `Failed to download generated image: ${imageResponse.status} ${imageResponse.statusText}`
-            );
-          }
-          buffer = Buffer.from(await imageResponse.arrayBuffer());
-        } else {
-          throw new Error("No image data returned");
+      const response = await openai.images.generate({
+        model: env.OPENAI_IMAGE_MODEL,
+        prompt,
+        n: 1,
+        size: "1024x1024",
+      });
+      const first = response.data?.[0];
+      if (!first) {
+        throw new Error("No image data returned from OpenAI");
+      }
+      return first;
+    });
+
+    // 5. Upload output to R2
+    const outputKey = await step.run("store-output", async () => {
+      let buffer: Buffer;
+      if (result.b64_json) {
+        buffer = Buffer.from(result.b64_json, "base64");
+      } else if (result.url) {
+        const imageResponse = await fetch(result.url);
+        if (!imageResponse.ok) {
+          throw new Error(
+            `Failed to download generated image: ${imageResponse.status} ${imageResponse.statusText}`
+          );
         }
-        const key = `derivations/${derivationId}/${Date.now()}.png`;
-        await uploadBuffer(key, buffer, "image/png");
-        return key;
-      });
+        buffer = Buffer.from(await imageResponse.arrayBuffer());
+      } else {
+        throw new Error("No image data returned");
+      }
+      const key = `derivations/${derivationId}/${Date.now()}.png`;
+      await uploadBuffer(key, buffer, "image/png");
+      return key;
+    });
 
-      // 6. Update derivation as completed
-      await step.run("mark-completed", async () => {
-        await db
-          .update(derivations)
-          .set({
-            status: "completed",
-            outputKey,
-            prompt: result.revised_prompt || derivation.prompt || "",
-            updatedAt: new Date(),
-          })
-          .where(eq(derivations.id, derivationId));
-      });
+    // 6. Update derivation as completed
+    await step.run("mark-completed", async () => {
+      await db
+        .update(derivations)
+        .set({
+          status: "completed",
+          outputKey,
+          prompt: result.revised_prompt || derivation.prompt || "",
+          updatedAt: new Date(),
+        })
+        .where(eq(derivations.id, derivationId));
+    });
 
-      // 7. Track usage
-      await step.run("track-usage", async () => {
-        await trackUsage(workspaceId, "derivation", 1, {
-          derivationId,
-          campaignId,
-          model: env.OPENAI_IMAGE_MODEL,
-        });
+    // 7. Track usage
+    await step.run("track-usage", async () => {
+      await trackUsage(workspaceId, "derivation", 1, {
+        derivationId,
+        campaignId,
+        model: env.OPENAI_IMAGE_MODEL,
       });
+    });
 
-      return { success: true, derivationId };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      await step.run("mark-failed", async () => {
-        await db
-          .update(derivations)
-          .set({
-            status: "failed",
-            prompt: message,
-            updatedAt: new Date(),
-          })
-          .where(eq(derivations.id, derivationId));
-      });
-      return { success: false, derivationId, error: message };
-    }
+    return { success: true, derivationId };
   }
 );
