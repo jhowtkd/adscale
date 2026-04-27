@@ -78,10 +78,33 @@ export async function updateCampaign(
   workspaceId: string,
   data: UpdateCampaignInput
 ) {
+  const {
+    name,
+    client,
+    product,
+    objective,
+    audience,
+    platforms,
+    tone,
+    offer,
+    constraints,
+    notes,
+    status,
+  } = data;
   const result = await db
     .update(campaigns)
     .set({
-      ...data,
+      ...(name !== undefined && { name }),
+      ...(client !== undefined && { client }),
+      ...(product !== undefined && { product }),
+      ...(objective !== undefined && { objective }),
+      ...(audience !== undefined && { audience }),
+      ...(platforms !== undefined && { platforms }),
+      ...(tone !== undefined && { tone }),
+      ...(offer !== undefined && { offer }),
+      ...(constraints !== undefined && { constraints }),
+      ...(notes !== undefined && { notes }),
+      ...(status !== undefined && { status }),
       updatedAt: new Date(),
     })
     .where(and(eq(campaigns.id, id), eq(campaigns.workspaceId, workspaceId)))
