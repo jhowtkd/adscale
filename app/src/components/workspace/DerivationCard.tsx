@@ -179,6 +179,12 @@ export default function DerivationCard({
   const exportMutation = useExport();
   const addToast = useAppStore((s) => s.addToast);
 
+  const aspectClass = {
+    "1:1": "aspect-square",
+    "4:5": "aspect-[4/5]",
+    "9:16": "aspect-[9/16]",
+  }[derivation.format] ?? "aspect-square";
+
   const handleRegenerate = () => {
     if (regenerateMutation.isPending) return;
     regenerateMutation.mutate(undefined, {
@@ -221,14 +227,14 @@ export default function DerivationCard({
         isCompleted && "hover:border-[var(--border-medium)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.08)]"
       )}
     >
-      {/* ---- Image Area (4:5 aspect ratio) ---- */}
-      <div className="relative aspect-[4/5] overflow-hidden bg-[var(--surface-raised)]">
+      {/* ---- Image Area ---- */}
+      <div className={cn("relative overflow-hidden rounded-lg bg-muted", aspectClass)}>
         {derivation.imageUrl ? (
           <img
             src={derivation.imageUrl}
             alt={derivation.name}
             className={cn(
-              "absolute inset-0 w-full h-full object-cover transition-transform duration-300",
+              "w-full h-full object-contain transition-transform duration-300",
               isCompleted && "group-hover:scale-[1.03]"
             )}
             loading="lazy"
