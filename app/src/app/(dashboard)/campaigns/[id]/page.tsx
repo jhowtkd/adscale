@@ -22,7 +22,7 @@ import BriefingStep from "@/components/workspace/BriefingStep";
 import type { BriefingFormData } from "@/components/workspace/BriefingStep";
 import UploadStep from "@/components/workspace/UploadStep";
 import DerivationsStep from "@/components/workspace/DerivationsStep";
-import ReviewStep from "@/components/workspace/ReviewStep";
+
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTranslations } from "next-intl";
 
@@ -30,7 +30,7 @@ import { useTranslations } from "next-intl";
 // Types
 // ============================================
 
-type WizardStep = 1 | 2 | 3 | 4;
+type WizardStep = 1 | 2 | 3;
 
 // ============================================
 // Step Navigation Labels
@@ -228,7 +228,7 @@ export default function CampaignWorkspacePage() {
   );
 
   const handleNext = useCallback(() => {
-    if (currentStep < 4) {
+    if (currentStep < 3) {
       goToStep((currentStep + 1) as WizardStep);
     }
   }, [currentStep, goToStep]);
@@ -338,7 +338,6 @@ export default function CampaignWorkspacePage() {
 
   const handlePreview = useCallback(
     (id: string) => {
-      setCurrentStep(4);
       addToast("info", tc("openingComparison"));
     },
     [addToast, tc]
@@ -450,37 +449,6 @@ export default function CampaignWorkspacePage() {
             isGeneratingMore={createDerivations.isPending}
           />
         );
-      case 4:
-        return (
-          <ReviewStep
-            derivations={allDerivations}
-            baseImageUrl={baseImageUrl}
-            onApprove={handleApproveDerivation}
-            onReject={handleRejectDerivation}
-            onRegenerate={handleRegenerateWithFeedback}
-            onDownload={handleExportDerivation}
-            onExportAll={handleExportAll}
-            approvingId={
-              reviewMutation.isPending && reviewMutation.variables?.status === "approved"
-                ? reviewMutation.variables.id
-                : null
-            }
-            rejectingId={
-              reviewMutation.isPending && reviewMutation.variables?.status === "rejected"
-                ? reviewMutation.variables.id
-                : null
-            }
-            regeneratingId={
-              regenerateMutation.isPending ? regenerateMutation.variables?.id ?? null : null
-            }
-            downloadingId={
-              exportMutation.isPending && exportMutation.variables?.type === "individual"
-                ? exportMutation.variables.derivationId ?? null
-                : null
-            }
-            isExporting={exportMutation.isPending && exportMutation.variables?.type === "batch"}
-          />
-        );
       default:
         return null;
     }
@@ -497,9 +465,7 @@ export default function CampaignWorkspacePage() {
       case 2:
         return direction === "prev" ? ts("backToBrief") : ts("startGeneration");
       case 3:
-        return direction === "prev" ? ts("backToUpload") : ts("reviewAll");
-      case 4:
-        return direction === "prev" ? ts("backToGallery") : ts("exportSelected");
+        return direction === "prev" ? ts("backToUpload") : "";
       default:
         return "";
     }
@@ -629,8 +595,7 @@ export default function CampaignWorkspacePage() {
           "bg-[var(--surface-base)] rounded-xl border border-[var(--border-dim)] min-h-[400px]",
           currentStep === 1 && "p-6 md:p-8",
           currentStep === 2 && "p-6 md:p-8",
-          currentStep === 3 && "p-6",
-          currentStep === 4 && "p-6"
+          currentStep === 3 && "p-6"
         )}
       >
         <AnimatePresence mode="wait" custom={direction}>
@@ -671,10 +636,10 @@ export default function CampaignWorkspacePage() {
 
           <button
             onClick={currentStep === 2 ? handleGenerateDerivations : handleNext}
-            disabled={currentStep === 2 || currentStep === 4 || createDerivations.isPending}
+            disabled={currentStep === 2 || currentStep === 3 || createDerivations.isPending}
             className={cn(
               "inline-flex items-center rounded-md px-6 py-2.5 text-sm font-medium transition-all duration-200",
-              currentStep === 2 || currentStep === 4 || createDerivations.isPending
+              currentStep === 2 || currentStep === 3 || createDerivations.isPending
                 ? "bg-[var(--surface-raised)] text-[var(--text-muted)] border border-[var(--border-dim)] cursor-default"
                 : "bg-[var(--accent-mint)] text-white hover:bg-[var(--accent-mint-light)] hover:-translate-y-px active:scale-[0.98]"
             )}
