@@ -1,2 +1,0 @@
-ALTER TABLE "adscale_app"."campaigns"
-ADD COLUMN "creative_level" text DEFAULT 'balanced' NOT NULL;
