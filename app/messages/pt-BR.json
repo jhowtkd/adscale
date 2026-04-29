@@ -231,6 +231,9 @@
       "conservative": "Conservador",
       "balanced": "Equilibrado",
       "bold": "Ousado"
+    },
+    "targetFormat": {
+      "label": "Formato alvo"
     }
   },
   "derivation": {
@@ -450,6 +453,7 @@
     "updateCampaign": "Falha ao atualizar campanha",
     "deleteCampaign": "Falha ao excluir campanha",
     "modeRequired": "Modo de derivação é obrigatório",
+    "targetFormatRequired": "Formato alvo é obrigatório para Variar formato",
     "ctaRequiredAtLeastOne": "Preencha ao menos um CTA para gerar derivações",
     "noCtasProvided": "Nenhum CTA foi preenchido. Preencha ao menos um CTA."
   },

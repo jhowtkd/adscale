@@ -13,6 +13,7 @@ import { useDeleteCampaign } from "@/lib/hooks/use-campaigns";
 import { useDerivations, useCreateDerivations } from "@/lib/hooks/use-derivations";
 import { useRegenerateDerivation } from "@/lib/hooks/use-regenerate";
 import { useExport } from "@/lib/hooks/use-export";
+import { useReviewDerivation } from "@/lib/hooks/use-review";
 import StatusBadge from "@/components/ui/StatusBadge";
 import StepIndicator from "@/components/workspace/StepIndicator";
 import type { StepKey } from "@/components/workspace/StepIndicator";
@@ -108,6 +109,7 @@ export default function CampaignWorkspacePage() {
   // Regenerate / export hooks
   const regenerateMutation = useRegenerateDerivation();
   const exportMutation = useExport();
+  const reviewMutation = useReviewDerivation();
 
   // Store actions
   const setCurrentPageTitle = useAppStore((s) => s.setCurrentPageTitle);
@@ -127,6 +129,7 @@ export default function CampaignWorkspacePage() {
         constraints: realCampaign.constraints,
         notes: realCampaign.notes,
         generationMode: realCampaign.generationMode,
+        creativeLevel: realCampaign.creativeLevel,
         ctaVariants: realCampaign.ctaVariants,
         targetFormats: realCampaign.targetFormats,
         status: realCampaign.status,
@@ -265,9 +268,10 @@ export default function CampaignWorkspacePage() {
           ctaVariants: data.ctaVariants.filter((v) => v.trim().length > 0).length > 0
             ? data.ctaVariants
             : undefined,
-          targetFormats: data.generationMode === "format_adaptation"
-            ? ["1:1", "4:5", "9:16"]
+          targetFormats: data.targetFormat
+            ? [data.targetFormat]
             : undefined,
+          creativeLevel: data.creativeLevel,
         });
       }
       addToast("success", tc("briefingSaved"));
@@ -294,9 +298,10 @@ export default function CampaignWorkspacePage() {
           ctaVariants: data.ctaVariants.filter((v) => v.trim().length > 0).length > 0
             ? data.ctaVariants
             : undefined,
-          targetFormats: data.generationMode === "format_adaptation"
-            ? ["1:1", "4:5", "9:16"]
+          targetFormats: data.targetFormat
+            ? [data.targetFormat]
             : undefined,
+          creativeLevel: data.creativeLevel,
         });
       }
       addToast("info", tc("draftSaved"));

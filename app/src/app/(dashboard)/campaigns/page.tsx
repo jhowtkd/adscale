@@ -346,6 +346,7 @@ export default function CampaignsListPage() {
       name: string;
       client: string;
       generationMode: "art_variation" | "format_adaptation";
+      targetFormats?: string[];
       constraints?: string;
       notes?: string;
       platforms: AdPlatform[];
@@ -358,6 +359,7 @@ export default function CampaignsListPage() {
           name: data.name,
           client: data.client,
           generationMode: data.generationMode,
+          targetFormats: data.targetFormats,
           constraints: data.constraints,
           notes: data.notes,
           platforms: data.platforms,

@@ -15,6 +15,7 @@ export interface Campaign {
   constraints: string | null;
   notes: string | null;
   generationMode: "art_variation" | "format_adaptation";
+  creativeLevel: "conservative" | "balanced" | "bold" | null;
   ctaVariants: string[] | null;
   targetFormats: string[] | null;
   status: "draft" | "active" | "generating" | "completed" | "failed";
@@ -40,6 +41,7 @@ export interface UiCampaign {
   constraints?: string;
   notes?: string;
   generationMode: Campaign["generationMode"];
+  creativeLevel?: "conservative" | "balanced" | "bold";
   ctaVariants?: string[];
   targetFormats?: string[];
   status: Campaign["status"];
@@ -62,6 +64,7 @@ function toUiCampaign(c: Campaign): UiCampaign {
     constraints: c.constraints ?? undefined,
     notes: c.notes ?? undefined,
     generationMode: c.generationMode,
+    creativeLevel: c.creativeLevel ?? undefined,
     ctaVariants: c.ctaVariants ?? undefined,
     targetFormats: c.targetFormats ?? undefined,
     status: c.status,
@@ -113,6 +116,7 @@ async function createCampaign(payload: {
   constraints?: string;
   notes?: string;
   generationMode?: "art_variation" | "format_adaptation";
+  creativeLevel?: "conservative" | "balanced" | "bold";
   ctaVariants?: string[];
   targetFormats?: string[];
 }): Promise<Campaign> {

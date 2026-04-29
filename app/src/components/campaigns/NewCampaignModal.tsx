@@ -33,6 +33,7 @@ interface NewCampaignForm {
   name: string;
   clientName: string;
   generationMode: "art_variation" | "format_adaptation";
+  targetFormat: string;
   constraints: string;
   notes: string;
 }
@@ -41,6 +42,7 @@ interface FormErrors {
   name?: string;
   clientName?: string;
   generationMode?: string;
+  targetFormat?: string;
 }
 
 interface NewCampaignModalProps {
@@ -50,6 +52,7 @@ interface NewCampaignModalProps {
     name: string;
     client: string;
     generationMode: "art_variation" | "format_adaptation";
+    targetFormats?: string[];
     constraints?: string;
     notes?: string;
     platforms: AdPlatform[];
@@ -90,6 +93,7 @@ export default function NewCampaignModal({
     name: "",
     clientName: "",
     generationMode: "art_variation",
+    targetFormat: "",
     constraints: "",
     notes: "",
   });
@@ -116,6 +120,9 @@ export default function NewCampaignModal({
     if (!form.name.trim()) newErrors.name = tErrors("nameRequired");
     if (!form.clientName.trim()) newErrors.clientName = tErrors("clientRequired");
     if (!form.generationMode) newErrors.generationMode = tErrors("modeRequired");
+    if (form.generationMode === "format_adaptation" && !form.targetFormat) {
+      newErrors.targetFormat = tErrors("targetFormatRequired");
+    }
     setErrors(newErrors);
     setTouched({
       name: true,
@@ -131,6 +138,9 @@ export default function NewCampaignModal({
       name: form.name,
       client: form.clientName,
       generationMode: form.generationMode,
+      targetFormats: form.generationMode === "format_adaptation" && form.targetFormat
+        ? [form.targetFormat]
+        : undefined,
       constraints: form.constraints || undefined,
       notes: form.notes || undefined,
       platforms: ["Meta"],
@@ -142,6 +152,7 @@ export default function NewCampaignModal({
       name: "",
       clientName: "",
       generationMode: "art_variation",
+      targetFormat: "",
       constraints: "",
       notes: "",
     });
@@ -272,6 +283,47 @@ export default function NewCampaignModal({
               )}
             </AnimatePresence>
           </div>
+
+          {/* Target Format */}
+          {form.generationMode === "format_adaptation" && (
+            <div className="space-y-1.5">
+              <Label className="text-[13px] text-[var(--text-secondary)]">
+                {tBriefing("targetFormat.label")} <span className="text-[var(--accent-rose)]">*</span>
+              </Label>
+              <div className="grid grid-cols-3 gap-3">
+                {["1:1", "4:5", "9:16"].map((fmt) => (
+                  <button
+                    key={fmt}
+                    type="button"
+                    onClick={() => updateField("targetFormat", fmt)}
+                    className={cn(
+                      "relative rounded-lg border px-3 py-2 text-sm text-center transition-all duration-200",
+                      form.targetFormat === fmt
+                        ? "border-[var(--accent-blue)] bg-[rgba(99,102,241,0.08)] ring-1 ring-[var(--accent-blue)]"
+                        : "border-[var(--border-dim)] bg-[var(--surface-base)] hover:border-[var(--border-medium)] hover:bg-[var(--surface-raised)]"
+                    )}
+                  >
+                    {fmt}
+                    {form.targetFormat === fmt && (
+                      <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-[var(--accent-blue)]" />
+                    )}
+                  </button>
+                ))}
+              </div>
+              <AnimatePresence>
+                {errors.targetFormat && (
+                  <motion.p
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    className="text-xs text-[var(--accent-rose)]"
+                  >
+                    {errors.targetFormat}
+                  </motion.p>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
 
           {/* Constraints */}
           <div className="space-y-1.5">

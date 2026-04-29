@@ -28,6 +28,7 @@ export interface BriefingFormData {
   notes: string;
   generationMode: "art_variation" | "format_adaptation";
   creativeLevel: "conservative" | "balanced" | "bold";
+  targetFormat?: string;
   ctaVariants: [string, string, string];
 }
 
@@ -79,6 +80,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
     notes: campaign?.notes || "",
     generationMode: campaign?.generationMode || "art_variation",
     creativeLevel: campaign?.creativeLevel || "balanced",
+    targetFormat: campaign?.targetFormats?.[0] || "",
     ctaVariants: [
       campaign?.ctaVariants?.[0] || "",
       campaign?.ctaVariants?.[1] || "",
@@ -227,6 +229,39 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
             ))}
           </div>
         </motion.div>
+
+        {/* ---- Target Format ---- */}
+        {formData.generationMode === "format_adaptation" && (
+          <motion.div variants={fieldVariants} className="space-y-2">
+            <Label className="text-xs font-medium text-[var(--text-secondary)]">
+              {tBriefing("targetFormat.label")}
+            </Label>
+            <RadioGroup
+              value={formData.targetFormat}
+              onValueChange={(value) => updateField("targetFormat", value)}
+              className="flex flex-col space-y-2"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="1:1" id="tf-1-1" />
+                <Label htmlFor="tf-1-1" className="text-sm text-[var(--text-primary)]">
+                  1:1
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="4:5" id="tf-4-5" />
+                <Label htmlFor="tf-4-5" className="text-sm text-[var(--text-primary)]">
+                  4:5
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="9:16" id="tf-9-16" />
+                <Label htmlFor="tf-9-16" className="text-sm text-[var(--text-primary)]">
+                  9:16
+                </Label>
+              </div>
+            </RadioGroup>
+          </motion.div>
+        )}
 
         {/* ---- Creative Level ---- */}
         {formData.generationMode === "art_variation" && (
