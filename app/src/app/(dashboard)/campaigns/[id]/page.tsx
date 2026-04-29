@@ -514,7 +514,7 @@ export default function CampaignWorkspacePage() {
         </h2>
         <Link
           href="/campaigns"
-          className="text-sm text-[var(--accent-blue)] hover:underline"
+          className="text-sm text-[var(--accent-mint)] hover:underline"
         >
           {tc("backToCampaigns")}
         </Link>
@@ -669,7 +669,7 @@ export default function CampaignWorkspacePage() {
               "inline-flex items-center rounded-md px-6 py-2.5 text-sm font-medium transition-all duration-200",
               currentStep === 2 || currentStep === 4 || createDerivations.isPending
                 ? "bg-[var(--surface-raised)] text-[var(--text-muted)] border border-[var(--border-dim)] cursor-default"
-                : "bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-light)] hover:-translate-y-px active:scale-[0.98]"
+                : "bg-[var(--accent-mint)] text-white hover:bg-[var(--accent-mint-light)] hover:-translate-y-px active:scale-[0.98]"
             )}
           >
             {createDerivations.isPending ? tc("loading") : getStepNavLabel(currentStep, "next")}

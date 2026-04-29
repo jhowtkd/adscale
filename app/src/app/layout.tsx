@@ -25,7 +25,7 @@ export default async function RootLayout({
 
   return (
     <html lang={locale} className="antialiased">
-      <body className="min-h-screen bg-[var(--deep-bg)] text-[var(--text-primary)] font-sans">
+      <body className="min-h-screen bg-background text-foreground font-sans">
         <NextIntlClientProvider messages={messages} locale={locale}>
           <QueryProvider>
             <TooltipProvider>
@@ -34,7 +34,7 @@ export default async function RootLayout({
                 position="bottom-right"
                 toastOptions={{
                   style: {
-                    background: "var(--surface-raised)",
+                    background: "var(--surface-base)",
                     border: "1px solid var(--border-dim)",
                     color: "var(--text-primary)",
                   },

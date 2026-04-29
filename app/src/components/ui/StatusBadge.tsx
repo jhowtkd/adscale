@@ -19,9 +19,9 @@ const statusConfig: Record<
     textColor: "#94a3b8",
   },
   active: {
-    dotColor: "#6366f1",
-    bgColor: "rgba(99,102,241,0.15)",
-    textColor: "#818cf8",
+    dotColor: "var(--accent-mint)",
+    bgColor: "var(--accent-mint-dim)",
+    textColor: "var(--accent-mint)",
   },
   queued: {
     dotColor: "#f59e0b",
@@ -39,14 +39,14 @@ const statusConfig: Record<
     textColor: "#fbbf24",
   },
   completed: {
-    dotColor: "#14b8a6",
-    bgColor: "rgba(20,184,166,0.15)",
-    textColor: "#2dd4bf",
+    dotColor: "var(--accent-mint)",
+    bgColor: "var(--accent-mint-dim)",
+    textColor: "var(--accent-mint)",
   },
   approved: {
-    dotColor: "#10b981",
-    bgColor: "rgba(16,185,129,0.15)",
-    textColor: "#34d399",
+    dotColor: "var(--accent-mint)",
+    bgColor: "var(--accent-mint-dim)",
+    textColor: "var(--accent-mint)",
   },
   rejected: {
     dotColor: "#f43f5e",

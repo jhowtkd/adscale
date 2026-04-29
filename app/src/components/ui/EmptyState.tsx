@@ -60,7 +60,7 @@ export default function EmptyState({
       {action && (
         <button
           onClick={action.onClick}
-          className="inline-flex items-center justify-center rounded-md px-5 py-2.5 text-sm font-medium text-white transition-all duration-200 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-light)] hover:-translate-y-px active:scale-[0.98]"
+          className="inline-flex items-center justify-center rounded-md px-5 py-2.5 text-sm font-medium text-white transition-all duration-200 bg-[var(--accent-mint)] hover:bg-[var(--accent-mint-light)] hover:-translate-y-px active:scale-[0.98]"
         >
           {action.label}
         </button>

@@ -21,33 +21,11 @@ export default function AuthCard({ children, className }: AuthCardProps) {
       className={cn(
         "w-full max-w-[420px] rounded-xl p-8",
         "bg-[var(--surface-base)] border border-[var(--border-dim)]",
-        "shadow-[0_24px_64px_rgba(0,0,0,0.5)]",
+        "shadow-[0_8px_32px_rgba(0,0,0,0.06)]",
         "relative overflow-hidden",
         className
       )}
     >
-      {/* Gradient border glow effect */}
-      <div
-        className="absolute inset-0 rounded-xl pointer-events-none"
-        style={{
-          background:
-            "linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(20,184,166,0.04) 50%, transparent 100%)",
-          mask: "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
-          maskComposite: "exclude",
-          WebkitMaskComposite: "xor",
-          padding: "1px",
-        }}
-      />
-
-      {/* Subtle glass shimmer */}
-      <div
-        className="absolute inset-0 rounded-xl pointer-events-none opacity-30"
-        style={{
-          background:
-            "linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%)",
-        }}
-      />
-
       {/* Content */}
       <div className="relative z-10">{children}</div>
     </motion.div>

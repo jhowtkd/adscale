@@ -5,7 +5,7 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ============================================
-   ADScale - Global Design Tokens
+   ADScale — Mint Receipt Design Tokens
    ============================================ */
 
 @theme inline {
@@ -13,14 +13,14 @@
   --color-foreground: var(--text-primary);
   --font-sans: var(--font-inter);
   --font-mono: var(--font-jetbrains-mono);
-  --font-heading: var(--font-inter);
+  --font-heading: var(--font-jetbrains-mono);
 
   /* Core colors mapped to shadcn */
   --color-card: var(--surface-base);
   --color-card-foreground: var(--text-primary);
   --color-popover: var(--surface-raised);
   --color-popover-foreground: var(--text-primary);
-  --color-primary: var(--accent-blue);
+  --color-primary: var(--accent-mint);
   --color-primary-foreground: #ffffff;
   --color-secondary: var(--surface-raised);
   --color-secondary-foreground: var(--text-primary);
@@ -31,32 +31,32 @@
   --color-destructive: var(--accent-rose);
   --color-border: var(--border-dim);
   --color-input: var(--border-dim);
-  --color-ring: var(--accent-blue);
+  --color-ring: var(--accent-mint);
 
   /* Chart colors */
-  --color-chart-1: var(--accent-blue);
-  --color-chart-2: var(--accent-teal);
-  --color-chart-3: var(--accent-purple);
-  --color-chart-4: var(--accent-amber);
-  --color-chart-5: var(--accent-rose);
+  --color-chart-1: var(--accent-mint);
+  --color-chart-2: var(--accent-secondary);
+  --color-chart-3: var(--accent-amber);
+  --color-chart-4: var(--accent-rose);
+  --color-chart-5: var(--text-secondary);
 
   /* Sidebar */
   --color-sidebar: var(--surface-base);
   --color-sidebar-foreground: var(--text-primary);
-  --color-sidebar-primary: var(--accent-blue);
+  --color-sidebar-primary: var(--accent-mint);
   --color-sidebar-primary-foreground: #ffffff;
   --color-sidebar-accent: var(--surface-raised);
   --color-sidebar-accent-foreground: var(--text-primary);
   --color-sidebar-border: var(--border-dim);
-  --color-sidebar-ring: var(--accent-blue);
+  --color-sidebar-ring: var(--accent-mint);
 
   /* Radius */
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
   --radius-full: 9999px;
-  --radius: 0.5rem;
+  --radius: 0.25rem;
 }
 
 :root {
@@ -64,39 +64,41 @@
   --font-jetbrains-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
   /* ============================================
-     Color Tokens - Dark Theme (Default)
+     Color Tokens — Mint Receipt (Light)
      ============================================ */
-  --deep-bg: #0a0f1a;
-  --surface-base: #111827;
-  --surface-raised: #1a2235;
-  --border-dim: #1e293b;
-  --border-medium: #2a364a;
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --text-muted: #475569;
+  --deep-bg: #F4F0E8;
+  --surface-base: #FFFFFF;
+  --surface-raised: #FAFAF8;
+  --border-dim: #E5E1D8;
+  --border-medium: #D1CCC3;
+  --text-primary: #1E241E;
+  --text-secondary: #6C7A6F;
+  --text-muted: #9BA8A0;
 
-  /* Accent Colors */
-  --accent-blue: #6366f1;
-  --accent-blue-light: #818cf8;
-  --accent-blue-dim: #312e81;
-  --accent-teal: #14b8a6;
-  --accent-amber: #f59e0b;
-  --accent-rose: #f43f5e;
-  --accent-purple: #a78bfa;
+  /* Accent Colors — single mint driver */
+  --accent-mint: #2FB67D;
+  --accent-mint-light: #4CD99A;
+  --accent-mint-dim: rgba(47, 182, 125, 0.12);
+  --accent-secondary: #6C7A6F;
+  --accent-amber: #D4A017;
+  --accent-rose: #E11D48;
+
+  /* Legacy aliases for gradual migration */
+  --accent-blue: #2FB67D;
+  --accent-blue-light: #4CD99A;
+  --accent-blue-dim: rgba(47, 182, 125, 0.12);
+  --accent-teal: #2FB67D;
+  --accent-purple: #2FB67D;
 
   /* Status Colors */
-  --status-draft: #475569;
-  --status-active: #6366f1;
-  --status-processing: #f59e0b;
-  --status-completed: #14b8a6;
-  --status-failed: #f43f5e;
+  --status-draft: #9BA8A0;
+  --status-active: #2FB67D;
+  --status-processing: #D4A017;
+  --status-completed: #2FB67D;
+  --status-failed: #E11D48;
 
-  /* Gradients */
-  --gradient-sidebar: linear-gradient(180deg, #0f172a 0%, #0a0f1a 100%);
-  --gradient-card-hover: linear-gradient(135deg, rgba(99, 102, 241, 0.06) 0%, rgba(20, 184, 166, 0.04) 100%);
-  --gradient-progress: linear-gradient(90deg, #6366f1 0%, #14b8a6 100%);
-  --gradient-hero-glow: radial-gradient(ellipse at 50% 0%, rgba(99, 102, 241, 0.12) 0%, transparent 60%);
-  --gradient-glass: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%);
+  /* Gradients — flat system, keep minimal progress bar only */
+  --gradient-progress: #2FB67D;
 
   /* Easing */
   --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
@@ -126,7 +128,7 @@
     scroll-behavior: smooth;
   }
 
-  /* Scrollbar - Dark Theme */
+  /* Scrollbar — Light Theme */
   ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
@@ -187,15 +189,6 @@
   }
 }
 
-@keyframes hero-glow-pulse {
-  0%, 100% {
-    opacity: 0.15;
-  }
-  50% {
-    opacity: 0.2;
-  }
-}
-
 @keyframes spin-slow {
   from {
     transform: rotate(0deg);
@@ -222,38 +215,18 @@
     animation: fade-in 250ms var(--ease-out-expo) forwards;
   }
 
-  .animate-hero-glow {
-    animation: hero-glow-pulse 8s ease-in-out infinite;
-  }
-
-  .gradient-sidebar {
-    background: var(--gradient-sidebar);
-  }
-
-  .gradient-card-hover {
-    background: var(--gradient-card-hover);
-  }
-
   .gradient-progress {
     background: var(--gradient-progress);
   }
 
-  .gradient-hero-glow {
-    background: var(--gradient-hero-glow);
-  }
-
-  .gradient-glass {
-    background: var(--gradient-glass);
-  }
-
   .glass-backdrop {
-    background: rgba(10, 15, 26, 0.85);
+    background: rgba(255, 255, 255, 0.85);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
   }
 
   .glass-backdrop-strong {
-    background: rgba(10, 15, 26, 0.95);
+    background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
   }

@@ -118,10 +118,16 @@ describe("buildDerivationPrompt", () => {
     const prompt = buildDerivationPrompt({
       generationMode: "format_adaptation",
       targetFormat: "9:16",
+      visualTokenBrief: "Blue gradient, white curved panel, red offer card, rounded CTA.",
     });
     expect(prompt).toContain("MODE: format_adaptation");
     expect(prompt).toContain("Target format: 9:16");
-    expect(prompt).toContain("proportion adaptation");
+    expect(prompt).toContain("same visual tokens");
+    expect(prompt).toContain("Do not place the original full image inside the new canvas");
+    expect(prompt).toContain("No blank bands, blurred padding, borders, or top/bottom filler");
+    expect(prompt).toContain("native story ad");
+    expect(prompt).toContain("Extracted Visual Token Brief");
+    expect(prompt).toContain("Blue gradient, white curved panel");
   });
 
   it("includes logo preservation rule", () => {

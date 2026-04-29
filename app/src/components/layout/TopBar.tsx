@@ -75,7 +75,7 @@ export default function TopBar() {
               "bg-[var(--surface-raised)] text-[var(--text-primary)]",
               "border border-[var(--border-dim)]",
               "placeholder:text-[var(--text-muted)]",
-              "focus:outline-none focus:border-[var(--accent-blue)] focus:ring-2 focus:ring-[rgba(99,102,241,0.15)]",
+              "focus:outline-none focus:border-[var(--accent-mint)] focus:ring-2 focus:ring-[rgba(47,182,125,0.15)]",
               "transition-all duration-200"
             )}
           />
@@ -88,7 +88,7 @@ export default function TopBar() {
         <div
           className={cn(
             "hidden sm:flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium",
-            "bg-[var(--accent-blue-dim)] text-[var(--accent-blue-light)]"
+            "bg-[var(--accent-mint-dim)] text-[var(--accent-mint)]"
           )}
         >
           <Coins size={14} />
@@ -107,7 +107,7 @@ export default function TopBar() {
           className={cn(
             "relative flex items-center justify-center h-9 w-9 rounded-full",
             "text-[var(--text-muted)] hover:text-[var(--text-primary)]",
-            "hover:bg-[rgba(255,255,255,0.04)]",
+            "hover:bg-[var(--surface-raised)]",
             "transition-all duration-200"
           )}
         >
@@ -129,7 +129,7 @@ export default function TopBar() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -8, scale: 0.98 }}
               transition={{ duration: 0.15 }}
-              className="absolute right-24 top-11 z-50 w-[360px] rounded-xl border border-[var(--border-dim)] bg-[var(--surface-raised)] shadow-[0_24px_80px_rgba(0,0,0,0.45)]"
+              className="absolute right-24 top-11 z-50 w-[360px] rounded-xl border border-[var(--border-dim)] bg-[var(--surface-raised)] shadow-[0_24px_80px_rgba(0,0,0,0.1)]"
             >
               <div className="flex items-center justify-between border-b border-[var(--border-dim)] px-4 py-3">
                 <div>
@@ -153,7 +153,7 @@ export default function TopBar() {
                       key={item.id}
                       className="flex gap-3 border-b border-[var(--border-dim)] px-4 py-3 last:border-b-0"
                     >
-                      <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-[rgba(99,102,241,0.12)] text-[var(--accent-blue)]">
+                      <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-[var(--accent-mint-dim)] text-[var(--accent-mint)]">
                         <Clock3 size={14} />
                       </div>
                       <div className="min-w-0 flex-1">
@@ -176,7 +176,7 @@ export default function TopBar() {
           aria-label={tCommon("accountMenu")}
           className={cn(
             "flex items-center justify-center h-8 w-8 rounded-full",
-            "bg-[var(--accent-blue-dim)] text-[var(--accent-blue-light)] text-xs font-semibold",
+            "bg-[var(--accent-mint-dim)] text-[var(--accent-mint)] text-xs font-semibold",
             "ring-2 ring-[var(--border-medium)] cursor-pointer",
             "hover:ring-[var(--border-medium)] hover:brightness-110",
             "transition-all duration-200"

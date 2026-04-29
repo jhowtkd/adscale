@@ -53,9 +53,9 @@ export default function StepIndicator({ currentStep, onStepClick }: StepIndicato
                   className={cn(
                     "relative flex items-center justify-center w-9 h-9 rounded-full transition-all duration-300",
                     isPending && "bg-[var(--surface-base)] border border-[var(--border-dim)] cursor-default",
-                    isActive && "border-2 border-[var(--accent-blue)] bg-[rgba(99,102,241,0.08)] cursor-default",
+                    isActive && "border-2 border-[var(--accent-mint)] bg-[var(--accent-mint-dim)] cursor-default",
                     isCompleted && "bg-[var(--accent-teal)] border-none cursor-pointer hover:scale-105",
-                    isActive && "shadow-[0_0_12px_rgba(99,102,241,0.2)]"
+                    isActive && "shadow-[0_0_12px_rgba(47,182,125,0.2)]"
                   )}
                 >
                   <motion.div
@@ -71,7 +71,7 @@ export default function StepIndicator({ currentStep, onStepClick }: StepIndicato
                         className={cn(
                           "text-sm font-semibold",
                           isPending && "text-[var(--text-muted)]",
-                          isActive && "text-[var(--accent-blue)]"
+                          isActive && "text-[var(--accent-mint)]"
                         )}
                       >
                         <Icon size={14} />
@@ -85,7 +85,7 @@ export default function StepIndicator({ currentStep, onStepClick }: StepIndicato
                   className={cn(
                     "text-xs font-medium transition-colors duration-200",
                     isPending && "text-[var(--text-muted)]",
-                    isActive && "text-[var(--accent-blue)]",
+                    isActive && "text-[var(--accent-mint)]",
                     isCompleted && "text-[var(--accent-teal)]"
                   )}
                 >

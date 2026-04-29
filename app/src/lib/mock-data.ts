@@ -417,9 +417,9 @@ export const mockDashboardStats: DashboardStats = {
 // ============================================
 
 export const platformColors: Record<AdPlatform, { bg: string; text: string }> = {
-  Meta: { bg: "rgba(99,102,241,0.12)", text: "#818cf8" },
-  TikTok: { bg: "rgba(244,63,94,0.12)", text: "#fb7185" },
-  Google: { bg: "rgba(20,184,166,0.12)", text: "#2dd4bf" },
+  Meta: { bg: "var(--accent-mint-dim)", text: "var(--accent-mint)" },
+  TikTok: { bg: "rgba(225,29,72,0.12)", text: "var(--accent-rose)" },
+  Google: { bg: "var(--accent-mint-dim)", text: "var(--accent-mint)" },
 };
 
 // ============================================

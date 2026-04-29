@@ -5,8 +5,9 @@ import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import {
   getDerivationById,
   createDerivation,
+  updateDerivationStatus,
 } from "@/server/repositories/derivation";
-import { updateCampaign } from "@/server/repositories/campaign";
+import { refreshCampaignStatus, updateCampaign } from "@/server/repositories/campaign";
 import { getUserLocale } from "@/server/repositories/user";
 import { inngest } from "@/server/jobs/client";
 
@@ -48,19 +49,37 @@ export async function POST(
       format: original.format ?? undefined,
     });
 
-    await inngest.send({
-      name: "derivation.generate",
-      data: {
-        derivationId: newDerivation.id,
-        campaignId: original.campaignId,
-        workspaceId: workspace.id,
-        locale,
-        generationMode: original.generationMode,
-        variantIndex: original.variantIndex,
-        ctaText: original.ctaText,
-        format: original.format,
-      },
-    });
+    try {
+      await inngest.send({
+        name: "derivation.generate",
+        data: {
+          derivationId: newDerivation.id,
+          campaignId: original.campaignId,
+          workspaceId: workspace.id,
+          locale,
+          generationMode: original.generationMode,
+          variantIndex: original.variantIndex,
+          ctaText: original.ctaText,
+          format: original.format,
+        },
+      });
+    } catch (sendErr) {
+      console.error(
+        `[regenerate POST] event send FAILED derivationId=${newDerivation.id}`,
+        sendErr
+      );
+      await updateDerivationStatus(newDerivation.id, workspace.id, "failed");
+      await refreshCampaignStatus(original.campaignId, workspace.id);
+
+      return NextResponse.json(
+        {
+          error:
+            "Nao foi possivel iniciar a geracao. Verifique se o worker local esta rodando.",
+          code: "generationWorkerUnavailable",
+        },
+        { status: 503 }
+      );
+    }
 
     await updateCampaign(original.campaignId, workspace.id, { status: "generating" });
 

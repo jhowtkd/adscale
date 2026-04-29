@@ -43,7 +43,7 @@ export default function CampaignCard({ campaign, index }: CampaignCardProps) {
       className={cn(
         "group rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)] overflow-hidden",
         "transition-all duration-300",
-        "hover:border-[var(--border-medium)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.25)]",
+        "hover:border-[var(--border-medium)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.08)]",
         "cursor-pointer"
       )}
     >
@@ -70,7 +70,7 @@ export default function CampaignCard({ campaign, index }: CampaignCardProps) {
                 <div
                   className="flex items-center justify-center w-12 h-12 rounded-lg"
                   style={{
-                    background: `linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(20,184,166,0.1) 100%)`,
+                    background: "var(--accent-mint-dim)",
                   }}
                 >
                   <ImageIcon size={24} className="text-[var(--text-muted)]" />
@@ -88,7 +88,7 @@ export default function CampaignCard({ campaign, index }: CampaignCardProps) {
           </div>
 
           {/* Hover overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+          <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
             <span className="text-sm font-medium text-white bg-[var(--accent-blue)] px-4 py-2 rounded-md translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
               {tCampaign("brief")}
             </span>

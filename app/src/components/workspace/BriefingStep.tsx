@@ -136,7 +136,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
             onChange={(e) => updateField("name", e.target.value)}
             className={cn(
               "h-10 bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]",
-              "focus:border-[var(--accent-blue)] focus:ring-[3px] focus:ring-[rgba(99,102,241,0.15)]",
+              "focus:border-[var(--accent-mint)] focus:ring-[3px] focus:ring-[rgba(47,182,125,0.15)]",
               errors.name && "border-[var(--accent-rose)] ring-[3px] ring-[rgba(244,63,94,0.15)]"
             )}
             autoFocus
@@ -164,7 +164,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
             onChange={(e) => updateField("client", e.target.value)}
             className={cn(
               "h-10 bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]",
-              "focus:border-[var(--accent-blue)] focus:ring-[3px] focus:ring-[rgba(99,102,241,0.15)]",
+              "focus:border-[var(--accent-mint)] focus:ring-[3px] focus:ring-[rgba(47,182,125,0.15)]",
               errors.client && "border-[var(--accent-rose)] ring-[3px] ring-[rgba(244,63,94,0.15)]"
             )}
           />
@@ -207,7 +207,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
                 className={cn(
                   "relative flex flex-col items-start gap-1 rounded-lg border px-4 py-3 text-left transition-all duration-200",
                   formData.generationMode === mode.value
-                    ? "border-[var(--accent-blue)] bg-[rgba(99,102,241,0.08)] ring-1 ring-[var(--accent-blue)]"
+                    ? "border-[var(--accent-mint)] bg-[var(--accent-mint-dim)] ring-1 ring-[var(--accent-mint)]"
                     : "border-[var(--border-dim)] bg-[var(--surface-base)] hover:border-[var(--border-medium)] hover:bg-[var(--surface-raised)]"
                 )}
               >
@@ -218,7 +218,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
                   {mode.description}
                 </span>
                 {formData.generationMode === mode.value && (
-                  <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-[var(--accent-blue)]" />
+                  <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-[var(--accent-mint)]" />
                 )}
               </button>
             ))}
@@ -254,7 +254,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
                 }}
                 className={cn(
                   "h-9 bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]",
-                  "focus:border-[var(--accent-blue)] focus:ring-[3px] focus:ring-[rgba(99,102,241,0.15)]"
+                  "focus:border-[var(--accent-mint)] focus:ring-[3px] focus:ring-[rgba(47,182,125,0.15)]"
                 )}
               />
             </div>
@@ -293,7 +293,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
             <button
               type="button"
               onClick={() => setShowNotes(true)}
-              className="text-sm text-[var(--accent-blue)] hover:text-[var(--accent-blue-light)] transition-colors"
+              className="text-sm text-[var(--accent-mint)] hover:text-[var(--accent-mint-light)] transition-colors"
             >
               + {tBriefing("addNotes")}
             </button>
@@ -313,7 +313,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
               rows={3}
               value={formData.notes}
               onChange={(e) => updateField("notes", e.target.value)}
-              className="bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-blue)] focus:ring-[3px] focus:ring-[rgba(99,102,241,0.15)] resize-none"
+              className="bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-mint)] focus:ring-[3px] focus:ring-[rgba(47,182,125,0.15)] resize-none"
             />
           </motion.div>
         )}
@@ -326,7 +326,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
         transition={{ delay: 0.5 }}
         className="fixed bottom-8 right-8 z-30"
       >
-        <div className="inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-xs font-medium bg-[rgba(167,139,250,0.08)] text-[var(--accent-purple)] border border-[rgba(167,139,250,0.15)]">
+        <div className="inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-xs font-medium bg-[var(--accent-mint-dim)] text-[var(--accent-mint)] border border-[var(--accent-mint)]/15">
           <Sparkles size={14} />
           {tBriefing("aiAssist")}
         </div>
@@ -349,7 +349,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
         <button
           type="button"
           onClick={handleContinue}
-          className="inline-flex items-center justify-center rounded-md px-6 py-2.5 text-sm font-medium text-white transition-all duration-200 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-light)] hover:-translate-y-px active:scale-[0.98]"
+          className="inline-flex items-center justify-center rounded-md px-6 py-2.5 text-sm font-medium text-white transition-all duration-200 bg-[var(--accent-mint)] hover:bg-[var(--accent-mint-light)] hover:-translate-y-px active:scale-[0.98]"
         >
           {tBriefing("saveContinue")}
         </button>

@@ -58,9 +58,8 @@ export default function BillingTab() {
               "relative overflow-hidden"
             )}
             style={{
-              background:
-                "linear-gradient(135deg, rgba(99,102,241,0.06) 0%, rgba(20,184,166,0.04) 100%)",
-              borderLeft: "3px solid var(--accent-blue)",
+              background: "var(--surface-base)",
+              borderLeft: "3px solid var(--accent-mint)",
             }}
           >
             <div className="flex items-center gap-2">
@@ -155,11 +154,7 @@ export default function BillingTab() {
                 initial={{ width: 0 }}
                 animate={{ width: `${usagePercent}%` }}
                 transition={{ duration: 0.8, ease: [0.19, 1, 0.22, 1] }}
-                className="h-full rounded-full"
-                style={{
-                  background:
-                    "linear-gradient(90deg, #6366f1 0%, #14b8a6 100%)",
-                }}
+                className="h-full rounded-full bg-[var(--accent-mint)]"
               />
             </div>
 

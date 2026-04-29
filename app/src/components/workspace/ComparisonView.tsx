@@ -108,7 +108,7 @@ export default function ComparisonView({
             <div
               className="relative w-full max-w-[400px] aspect-square rounded-lg overflow-hidden"
               style={{
-                background: `linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(20,184,166,0.05) 100%)`,
+                background: "var(--accent-mint-dim)",
               }}
             >
               <div className="absolute inset-0 flex items-center justify-center">
@@ -156,7 +156,7 @@ export default function ComparisonView({
             <div
               className="relative w-full max-w-[400px] aspect-square rounded-lg overflow-hidden"
               style={{
-                background: `linear-gradient(135deg, rgba(167,139,250,0.08) 0%, rgba(99,102,241,0.05) 100%)`,
+                background: "var(--accent-mint-dim)",
               }}
             >
               <div className="absolute inset-0 flex items-center justify-center">
@@ -196,7 +196,7 @@ export default function ComparisonView({
               "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2",
               "w-8 h-8 rounded-full bg-[var(--surface-raised)] border border-[var(--border-medium)]",
               "flex items-center justify-center cursor-col-resize shadow-lg",
-              "hover:border-[var(--accent-blue)] hover:shadow-[0_0_12px_rgba(99,102,241,0.2)]",
+              "hover:border-[var(--accent-mint)] hover:shadow-[0_0_12px_rgba(47,182,125,0.2)]",
               "transition-all duration-150"
             )}
             onMouseDown={handleMouseDown}
@@ -283,7 +283,7 @@ export default function ComparisonView({
             }}
             disabled={isRegenerating}
             className={cn(
-              "inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium border border-[var(--border-dim)] text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.04)] hover:text-[var(--text-primary)] transition-colors",
+              "inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium border border-[var(--border-dim)] text-[var(--text-secondary)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)] transition-colors",
               isRegenerating && "opacity-60 cursor-wait"
             )}
           >
@@ -305,7 +305,7 @@ export default function ComparisonView({
           <select
             value={exportFormat}
             onChange={(e) => setExportFormat(e.target.value)}
-            className="h-9 px-3 text-xs rounded-md bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] focus:border-[var(--accent-blue)] focus:outline-none"
+            className="h-9 px-3 text-xs rounded-md bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] focus:border-[var(--accent-mint)] focus:outline-none"
           >
             <option value="png">PNG</option>
             <option value="jpeg">JPEG</option>
@@ -317,7 +317,7 @@ export default function ComparisonView({
             onClick={() => onDownload(derivation.id, exportFormat)}
             disabled={isDownloading}
             className={cn(
-              "inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium border border-[var(--border-dim)] text-[var(--text-primary)] hover:bg-[rgba(255,255,255,0.04)] transition-colors",
+              "inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium border border-[var(--border-dim)] text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-colors",
               isDownloading && "opacity-60 cursor-wait"
             )}
           >
@@ -350,7 +350,7 @@ export default function ComparisonView({
               rows={3}
               value={feedback}
               onChange={(e) => setFeedback(e.target.value)}
-              className="w-full bg-[var(--surface-base)] border border-[var(--border-dim)] rounded-lg p-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-blue)] focus:ring-[3px] focus:ring-[rgba(99,102,241,0.15)] focus:outline-none resize-none"
+              className="w-full bg-[var(--surface-base)] border border-[var(--border-dim)] rounded-lg p-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-mint)] focus:ring-[3px] focus:ring-[rgba(47,182,125,0.15)] focus:outline-none resize-none"
             />
             <div className="flex items-center gap-2 mt-2">
               <button
@@ -363,7 +363,7 @@ export default function ComparisonView({
                 }}
                 disabled={isRegenerating}
                 className={cn(
-                  "inline-flex items-center rounded-md px-4 py-2 text-xs font-medium text-white bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-light)] transition-colors",
+                  "inline-flex items-center rounded-md px-4 py-2 text-xs font-medium text-white bg-[var(--accent-mint)] hover:bg-[var(--accent-mint-light)] transition-colors",
                   isRegenerating && "opacity-60 cursor-wait"
                 )}
               >

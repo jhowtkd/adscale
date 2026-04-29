@@ -103,7 +103,7 @@ function TableSkeleton() {
           key={i}
           className={cn(
             "px-4 py-4 border-b border-[var(--border-dim)] flex items-center gap-4",
-            i % 2 === 1 && "bg-[rgba(255,255,255,0.01)]"
+            i % 2 === 1 && "bg-[rgba(0,0,0,0.02)]"
           )}
         >
           <Skeleton className="h-4 w-4 flex-shrink-0" />
@@ -506,7 +506,7 @@ export default function CampaignsListPage() {
         >
           <Button
             onClick={() => setModalOpen(true)}
-            className="bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-light)] hover:-translate-y-px active:scale-[0.98] transition-all duration-200 h-9 px-4"
+            className="bg-[var(--accent-mint)] text-white hover:bg-[var(--accent-mint-light)] hover:-translate-y-px active:scale-[0.98] transition-all duration-200 h-9 px-4"
           >
             <Plus size={16} />
             {t("new")}
@@ -530,9 +530,9 @@ export default function CampaignsListPage() {
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] }}
               className="mb-3 flex items-center justify-between rounded-lg px-4 py-3"
-              style={{ backgroundColor: "rgba(99,102,241,0.12)" }}
+              style={{ backgroundColor: "var(--accent-mint-dim)" }}
             >
-              <span className="text-sm font-medium text-[var(--accent-blue-light)]">
+              <span className="text-sm font-medium text-[var(--accent-mint)]">
                 {selectedIds.size} {tc("selected")}
               </span>
               <div className="flex items-center gap-2">
@@ -653,7 +653,7 @@ export default function CampaignsListPage() {
                 className={cn(
                   "flex items-center justify-center h-7 w-7 rounded-md transition-all duration-200",
                   viewMode === "list"
-                    ? "bg-[var(--surface-base)] text-[var(--accent-blue)] shadow-sm"
+                    ? "bg-[var(--surface-base)] text-[var(--accent-mint)] shadow-sm"
                     : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                 )}
               >
@@ -702,7 +702,7 @@ export default function CampaignsListPage() {
                 ))}
                 <button
                   onClick={clearFilters}
-                  className="text-xs text-[var(--accent-blue)] hover:text-[var(--accent-blue-light)] transition-colors ml-1"
+                  className="text-xs text-[var(--accent-mint)] hover:text-[var(--accent-mint-light)] transition-colors ml-1"
                 >
                   {tc("clearAll")}
                 </button>
@@ -766,8 +766,8 @@ export default function CampaignsListPage() {
                         onChange={(e) => toggleSelectAll(e.target.checked)}
                         className={cn(
                           "h-[18px] w-[18px] rounded-sm border border-[var(--border-medium)] appearance-none cursor-pointer",
-                          "checked:bg-[var(--accent-blue)] checked:border-[var(--accent-blue)]",
-                          "indeterminate:bg-[var(--accent-blue)] indeterminate:border-[var(--accent-blue)]",
+                          "checked:bg-[var(--accent-mint)] checked:border-[var(--accent-mint)]",
+                          "indeterminate:bg-[var(--accent-mint)] indeterminate:border-[var(--accent-mint)]",
                           "transition-colors duration-150"
                         )}
                         style={
@@ -782,7 +782,7 @@ export default function CampaignsListPage() {
                                   backgroundImage: `url("data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22white%22%3E%3Cpath%20d%3D%22M3%208h10v1H3z%22%2F%3E%3C%2Fsvg%3E")`,
                                   backgroundRepeat: "no-repeat",
                                   backgroundPosition: "center",
-                                  backgroundColor: "var(--accent-blue)",
+                                  backgroundColor: "var(--accent-mint)",
                                 }
                               : {}
                         }
@@ -880,7 +880,7 @@ export default function CampaignsListPage() {
                   className={cn(
                     "h-8 w-8 p-0 text-xs font-medium",
                     currentPage === page
-                      ? "bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-light)] border-transparent"
+                      ? "bg-[var(--accent-mint)] text-white hover:bg-[var(--accent-mint-light)] border-transparent"
                       : "border-[var(--border-dim)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)]"
                   )}
                 >

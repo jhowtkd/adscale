@@ -59,8 +59,7 @@ export default function Sidebar() {
       transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
       className={cn(
         "fixed left-0 top-0 z-50 hidden h-screen flex-col border-r border-[var(--border-dim)] md:flex",
-        "bg-gradient-to-b from-[#0f172a] to-[var(--deep-bg)]",
-        "backdrop-blur-xl"
+        "bg-[var(--surface-base)]"
       )}
       style={{ willChange: "width" }}
     >
@@ -164,7 +163,7 @@ export default function Sidebar() {
             sidebarCollapsed ? "justify-center" : ""
           )}
         >
-          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[var(--accent-blue-dim)] flex items-center justify-center text-xs font-semibold text-[var(--accent-blue-light)] ring-2 ring-[var(--border-medium)]">
+          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[var(--accent-mint-dim)] flex items-center justify-center text-xs font-semibold text-[var(--accent-mint)] ring-2 ring-[var(--border-medium)]">
             {initials}
           </div>
           <AnimatePresence>
@@ -192,7 +191,7 @@ export default function Sidebar() {
           onClick={toggleSidebar}
           className={cn(
             "flex items-center gap-2 rounded-md px-3 py-2 text-[var(--text-muted)] transition-all duration-200",
-            "hover:bg-[rgba(99,102,241,0.08)] hover:text-[var(--text-primary)]",
+            "hover:bg-[var(--accent-mint-dim)] hover:text-[var(--text-primary)]",
             sidebarCollapsed ? "justify-center w-full" : "w-full"
           )}
           title={sidebarCollapsed ? tNav("expand") : tNav("collapse")}
@@ -246,15 +245,15 @@ function NavItem({ icon: Icon, label, href, active, collapsed }: NavItemProps) {
         "relative flex items-center gap-3 rounded-lg h-10 transition-all duration-150 group",
         collapsed ? "justify-center px-0" : "px-3",
         active
-          ? "bg-[rgba(99,102,241,0.12)] text-[var(--accent-blue)]"
-          : "text-[var(--text-secondary)] hover:bg-[rgba(99,102,241,0.08)] hover:text-[var(--text-primary)]"
+          ? "bg-[var(--accent-mint-dim)] text-[var(--accent-mint)]"
+          : "text-[var(--text-secondary)] hover:bg-[var(--accent-mint-dim)] hover:text-[var(--text-primary)]"
       )}
     >
       {/* Active left border indicator */}
       {active && (
         <motion.div
           layoutId="sidebar-active-indicator"
-          className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-[var(--accent-blue)]"
+          className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-[var(--accent-mint)]"
           transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
         />
       )}

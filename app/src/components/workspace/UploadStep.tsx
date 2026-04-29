@@ -199,7 +199,7 @@ export default function UploadStep({ campaignId, onContinue }: UploadStepProps) 
                   </div>
                   <button
                     onClick={handleReplace}
-                    className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.04)] hover:text-[var(--text-primary)] transition-all duration-200"
+                    className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)] transition-all duration-200"
                   >
                     <Replace size={14} />
                     {t("replace")}
@@ -249,7 +249,7 @@ export default function UploadStep({ campaignId, onContinue }: UploadStepProps) 
                 >
                   <button
                     onClick={onContinue}
-                    className="inline-flex items-center justify-center rounded-md px-6 py-2.5 text-sm font-medium text-white transition-all duration-200 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-light)] hover:-translate-y-px active:scale-[0.98]"
+                    className="inline-flex items-center justify-center rounded-md px-6 py-2.5 text-sm font-medium text-white transition-all duration-200 bg-[var(--accent-mint)] hover:bg-[var(--accent-mint-light)] hover:-translate-y-px active:scale-[0.98]"
                   >
                     {t("generateDerivations")}
                   </button>
@@ -268,13 +268,13 @@ export default function UploadStep({ campaignId, onContinue }: UploadStepProps) 
                   {...getRootProps()}
                   className={cn(
                     "relative flex flex-col items-center justify-center min-h-[360px] rounded-2xl border-2 border-dashed transition-all duration-200 cursor-pointer overflow-hidden",
-                    "bg-[rgba(99,102,241,0.02)]",
+                    "bg-[var(--accent-mint-dim)]",
                     isDragActive
-                      ? "border-[var(--accent-blue)] bg-[rgba(99,102,241,0.06)] scale-[1.01]"
+                      ? "border-[var(--accent-mint)] bg-[var(--accent-mint-dim)] scale-[1.01]"
                       : error
                       ? "border-[var(--accent-rose)]"
                       : "border-[var(--border-medium)]",
-                    "hover:border-[var(--accent-blue)] hover:bg-[rgba(99,102,241,0.04)]"
+                    "hover:border-[var(--accent-mint)] hover:bg-[var(--accent-mint-dim)]"
                   )}
                   style={{
                     backgroundImage:
@@ -298,7 +298,7 @@ export default function UploadStep({ campaignId, onContinue }: UploadStepProps) 
                       size={48}
                       className={cn(
                         "transition-colors duration-200",
-                        isDragActive ? "text-[var(--accent-blue)]" : "text-[var(--text-muted)]"
+                        isDragActive ? "text-[var(--accent-mint)]" : "text-[var(--text-muted)]"
                       )}
                     />
                   </motion.div>

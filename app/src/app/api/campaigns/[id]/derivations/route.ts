@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { eq, and, sql } from "drizzle-orm";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
-import { getCampaignById, updateCampaign } from "@/server/repositories/campaign";
+import {
+  getCampaignById,
+  refreshCampaignStatus,
+  updateCampaign,
+} from "@/server/repositories/campaign";
 import { getPlanByCampaign } from "@/server/repositories/plan";
 import {
   createDerivation,
+  failStaleActiveDerivations,
   getDerivationsByCampaign,
   updateDerivationStatus,
 } from "@/server/repositories/derivation";
@@ -16,6 +20,8 @@ import { derivations } from "@/server/db/schema";
 import { getUserLocale } from "@/server/repositories/user";
 import { getAssetsByCampaign } from "@/server/repositories/asset";
 import { env } from "@/server/validation/env";
+
+const STALE_ACTIVE_DERIVATION_MS = 10 * 60 * 1000;
 
 export async function POST(
   request: Request,
@@ -153,6 +159,16 @@ export async function GET(
   try {
     const { workspace } = await requireWorkspaceAccess(request);
     const { id: campaignId } = await params;
+
+    const staleBefore = new Date(Date.now() - STALE_ACTIVE_DERIVATION_MS);
+    const stale = await failStaleActiveDerivations(
+      campaignId,
+      workspace.id,
+      staleBefore
+    );
+    if (stale.length > 0) {
+      await refreshCampaignStatus(campaignId, workspace.id);
+    }
 
     const items = await getDerivationsByCampaign(campaignId, workspace.id);
     const derivationsWithImageUrl = items.map((d) => ({

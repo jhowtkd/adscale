@@ -46,7 +46,7 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/40 px-4">
+    <div className="flex min-h-screen items-center justify-center bg-[var(--deep-bg)] px-4">
       <AuthCard>
         <div className="space-y-6">
           <div className="space-y-2 text-center">

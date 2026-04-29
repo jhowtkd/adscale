@@ -83,6 +83,7 @@ export interface DerivationPromptConfig {
   variantIndex?: number;
   ctaText?: string | null;
   targetFormat?: string;
+  visualTokenBrief?: string | null;
 }
 
 export function buildDerivationPrompt(config: DerivationPromptConfig) {
@@ -96,6 +97,7 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
     variantIndex = 0,
     ctaText,
     targetFormat = "1:1",
+    visualTokenBrief,
   } = config;
 
   const isArtVariation = generationMode === "art_variation";
@@ -112,10 +114,21 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
     );
   } else {
     parts.push(
-      "MODE: format_adaptation — Adapt the original campaign asset to a DIFFERENT aspect ratio without reinventing the creative.",
-      `Target format: ${targetFormat}. Prioritize proportion adaptation. Reflow the layout to fit ${targetFormat} while keeping the original visual DNA, product treatment, and brand identity intact.`,
-      "Do NOT change the core concept, offer, or product. Only adapt spacing, cropping, and layout to the target ratio."
+      "MODE: format_adaptation — Rebuild the ad as a native layout for a DIFFERENT aspect ratio using the same visual tokens.",
+      "This is NOT a crop, resize, zoom, pasted reference, framed reference, or letterbox task. Do not place the original full image inside the new canvas.",
+      `Target format: ${targetFormat}. Create a new composition for this exact placement while keeping the original brand identity, offer, message hierarchy, and campaign recognition intact.`,
+      "Extract and reuse the reference's visual tokens: color palette, typography style, logo if present, main subject/photo treatment, graphic shapes, curved panels, textures, motifs, icons, CTA module, offer card, and spacing language.",
+      "Rebuild those tokens into a fresh layered advertising layout. Fill the entire canvas edge-to-edge with intentional background, shapes, and bleed areas. No blank bands, blurred padding, borders, or top/bottom filler.",
+      "Preserve the core concept, main subject, offer, CTA, and important copy, but reposition, resize, and regroup them so every key element remains visible and readable in the target format."
     );
+
+    if (targetFormat === "9:16") {
+      parts.push("For 9:16, design a native story ad: use vertical hierarchy, extended brand background, and intentionally rebuilt top/bottom zones. Keep essential content inside the central safe area, while decorative tokens can bleed to the edges.");
+    } else if (targetFormat === "4:5") {
+      parts.push("For 4:5, design a native portrait feed ad: balance the subject and copy blocks, rebuild the offer/CTA area, and avoid any appearance of a square asset padded into portrait.");
+    } else if (targetFormat === "1:1") {
+      parts.push("For 1:1, design a native square ad: rebalance the subject, headline, benefits, offer, and CTA into a compact composition without side cropping or pasted-format artifacts.");
+    }
   }
 
   parts.push(
@@ -155,11 +168,22 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
     if (isArtVariation) {
       parts.push("Keep the same format/proportions as the reference. Treat this as image-conditioned derivation, not text-to-image creation from scratch.");
     } else {
-      // format_adaptation: preserve visual identity but reflow layout for target format
-      parts.push("Reflow and reformulate the layout to fit the target format above while preserving the exact brand identity, product placement, colors, typography style, logo position, and visual hierarchy. Do not invent new elements.");
+      parts.push(
+        "Use the reference as a design system and token source, not as a crop template.",
+        "Do not paste, frame, or simply extend the original image. Recreate the ad from the recognizable parts and make the result look purpose-built for the target format.",
+        "Avoid cutting off text, faces, bodies, hands, products, logos, CTAs, price/discount boxes, or decorative shapes.",
+      );
     }
   } else {
     parts.push("\nNo reference asset was found. Produce a conservative ad concept from the campaign fields, but avoid pretending to follow a visual reference.");
+  }
+
+  if (!isArtVariation && visualTokenBrief?.trim()) {
+    parts.push(
+      "\nExtracted Visual Token Brief from the reference image:",
+      visualTokenBrief.trim(),
+      "Use this brief as the authoritative source for the rebuilt layout. The final image should look like a new ad from the same campaign system, not a reframed copy of the reference."
+    );
   }
 
   if (feedback && feedback.trim().length > 0) {

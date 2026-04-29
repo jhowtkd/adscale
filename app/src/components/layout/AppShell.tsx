@@ -48,7 +48,7 @@ export default function AppShell({ children }: AppShellProps) {
       </motion.main>
 
       <nav
-        className="fixed bottom-0 left-0 right-0 z-50 grid grid-cols-3 border-t border-[var(--border-dim)] bg-[rgba(10,15,26,0.96)] px-2 py-2 backdrop-blur md:hidden"
+        className="fixed bottom-0 left-0 right-0 z-50 grid grid-cols-3 border-t border-[var(--border-dim)] bg-white/95 px-2 py-2 backdrop-blur md:hidden"
         aria-label="Primary mobile navigation"
       >
         <MobileNavItem
@@ -91,7 +91,7 @@ function MobileNavItem({
       className={cn(
         "flex flex-col items-center justify-center gap-1 rounded-md px-2 py-1.5 text-[11px] font-medium",
         active
-          ? "bg-[rgba(99,102,241,0.12)] text-[var(--accent-blue-light)]"
+          ? "bg-[var(--accent-mint-dim)] text-[var(--accent-mint)]"
           : "text-[var(--text-secondary)]"
       )}
     >

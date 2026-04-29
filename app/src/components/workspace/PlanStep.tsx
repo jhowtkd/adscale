@@ -29,7 +29,7 @@ function LoadingDots() {
       {[0, 1, 2].map((i) => (
         <motion.div
           key={i}
-          className="w-2 h-2 rounded-full bg-[var(--accent-purple)]"
+          className="w-2 h-2 rounded-full bg-[var(--accent-mint)]"
           animate={{
             scale: [1, 1.3, 1],
             opacity: [0.4, 1, 0.4],
@@ -70,8 +70,8 @@ export default function PlanStep({ plan, onApprove, onGenerateDerivations, appro
           className="mb-4"
         >
           <div className="relative">
-            <Sparkles size={40} className="text-[var(--accent-purple)]" />
-            <div className="absolute inset-0 rounded-full border-2 border-[var(--accent-purple)] border-t-transparent animate-spin" 
+            <Sparkles size={40} className="text-[var(--accent-mint)]" />
+            <div className="absolute inset-0 rounded-full border-2 border-[var(--accent-mint)] border-t-transparent animate-spin" 
               style={{ width: 56, height: 56, top: -8, left: -8 }}
             />
           </div>

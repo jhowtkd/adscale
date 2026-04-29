@@ -1,4 +1,4 @@
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, inArray, lt } from "drizzle-orm";
 import { db } from "../db";
 import { derivations } from "../db/schema";
 
@@ -71,6 +71,29 @@ export async function updateDerivationStatus(
     )
     .returning();
   return result[0] ?? null;
+}
+
+export async function failStaleActiveDerivations(
+  campaignId: string,
+  workspaceId: string,
+  staleBefore: Date
+) {
+  return db
+    .update(derivations)
+    .set({
+      status: "failed",
+      prompt: "Generation worker did not pick up this job. Try again with the worker running.",
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(derivations.campaignId, campaignId),
+        eq(derivations.workspaceId, workspaceId),
+        inArray(derivations.status, ["queued", "processing"]),
+        lt(derivations.updatedAt, staleBefore)
+      )
+    )
+    .returning();
 }
 
 export async function getDerivationById(id: string, workspaceId: string) {

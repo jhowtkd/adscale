@@ -30,6 +30,7 @@ export function useRegenerateDerivation(derivationId?: string) {
       addToast("success", t("regenerationQueued"));
     },
     onError: (err) => {
+      queryClient.invalidateQueries({ queryKey: ["derivations"] });
       addToast(
         "error",
         err instanceof Error ? err.message : t("regenerationFailed")

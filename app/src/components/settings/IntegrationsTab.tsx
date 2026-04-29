@@ -53,8 +53,8 @@ const integrations: Integration[] = [
     description: "Export derivations directly to Meta Ads Manager",
     icon: <Megaphone size={22} />,
     status: "not_connected",
-    iconBg: "rgba(99,102,241,0.12)",
-    iconColor: "#818cf8",
+    iconBg: "var(--accent-mint-dim)",
+    iconColor: "var(--accent-mint)",
   },
   {
     id: "google",
@@ -62,8 +62,8 @@ const integrations: Integration[] = [
     description: "Push creatives to Google Ads campaigns",
     icon: <Search size={22} />,
     status: "not_connected",
-    iconBg: "rgba(20,184,166,0.12)",
-    iconColor: "#2dd4bf",
+    iconBg: "var(--accent-mint-dim)",
+    iconColor: "var(--accent-mint)",
   },
   {
     id: "tiktok",
@@ -71,8 +71,8 @@ const integrations: Integration[] = [
     description: "Upload variations to TikTok Ad Library",
     icon: <Music size={22} />,
     status: "not_connected",
-    iconBg: "rgba(244,63,94,0.12)",
-    iconColor: "#fb7185",
+    iconBg: "rgba(225,29,72,0.12)",
+    iconColor: "var(--accent-rose)",
   },
   {
     id: "slack",
@@ -80,8 +80,8 @@ const integrations: Integration[] = [
     description: "Get generation notifications in Slack",
     icon: <MessageSquare size={22} />,
     status: "not_connected",
-    iconBg: "rgba(167,139,250,0.12)",
-    iconColor: "#c4b5fd",
+    iconBg: "var(--accent-mint-dim)",
+    iconColor: "var(--accent-mint)",
   },
   {
     id: "webhook",
@@ -89,8 +89,8 @@ const integrations: Integration[] = [
     description: "Send events to your custom endpoint",
     icon: <Webhook size={22} />,
     status: "not_connected",
-    iconBg: "rgba(245,158,11,0.12)",
-    iconColor: "#fbbf24",
+    iconBg: "rgba(212,160,23,0.12)",
+    iconColor: "var(--accent-amber)",
   },
   {
     id: "api",
@@ -98,8 +98,8 @@ const integrations: Integration[] = [
     description: "Generate API keys for programmatic access",
     icon: <Key size={22} />,
     status: "connected",
-    iconBg: "rgba(99,102,241,0.12)",
-    iconColor: "#818cf8",
+    iconBg: "var(--accent-mint-dim)",
+    iconColor: "var(--accent-mint)",
   },
 ];
 

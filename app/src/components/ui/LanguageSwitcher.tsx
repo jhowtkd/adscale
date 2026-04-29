@@ -41,7 +41,7 @@ export default function LanguageSwitcher({ className }: { className?: string }) 
         onChange={(e) => handleChange(e.target.value as Locale)}
         disabled={isPending}
         className={cn(
-          "h-7 pl-1.5 pr-6 text-xs rounded-md bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] focus:border-[var(--accent-blue)] focus:outline-none appearance-none cursor-pointer",
+          "h-7 pl-1.5 pr-6 text-xs rounded-md bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] focus:border-[var(--accent-mint)] focus:outline-none appearance-none cursor-pointer",
           isPending && "opacity-50 cursor-wait"
         )}
         aria-label={t("label")}

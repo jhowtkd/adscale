@@ -43,12 +43,12 @@ export default function StatsCard({
       }}
       className={cn(
         "group relative rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)] p-5 transition-all duration-250 cursor-pointer will-change-transform",
-        "hover:border-[var(--border-medium)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.2)]",
+        "hover:border-[var(--border-medium)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)]",
         className
       )}
     >
-      {/* Hover gradient overlay */}
-      <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-[rgba(99,102,241,0.06)] to-[rgba(20,184,166,0.04)] opacity-0 transition-opacity duration-250 group-hover:opacity-100" />
+      {/* Hover flat overlay */}
+      <div className="absolute inset-0 rounded-xl border border-[var(--accent-mint)]/0 transition-all duration-250 group-hover:border-[var(--accent-mint)]/30" />
 
       <div className="relative z-10">
         {/* Icon */}
@@ -60,12 +60,12 @@ export default function StatsCard({
         </div>
 
         {/* Label */}
-        <p className="text-xs font-medium tracking-wide text-[var(--text-muted)] mb-1">
+        <p className="text-xs font-medium tracking-wide text-[var(--text-muted)] mb-1 font-mono">
           {label}
         </p>
 
         {/* Value */}
-        <p className="text-[22px] font-semibold leading-tight tracking-tight text-[var(--text-primary)] mb-1">
+        <p className="text-[22px] font-semibold leading-tight tracking-tight text-[var(--text-primary)] mb-1 font-mono">
           {value}
         </p>
 

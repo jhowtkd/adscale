@@ -171,7 +171,7 @@ export default function DerivationsStep({
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as SortOption)}
-            className="h-8 px-3 text-xs rounded-md bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] focus:border-[var(--accent-blue)] focus:outline-none"
+            className="h-8 px-3 text-xs rounded-md bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] focus:border-[var(--accent-mint)] focus:outline-none"
           >
             <option value="newest">{commonT("newest")}</option>
             <option value="oldest">{commonT("oldest")}</option>
@@ -201,7 +201,7 @@ export default function DerivationsStep({
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all duration-200 capitalize",
                 statusFilter === filter
-                  ? "bg-[var(--accent-blue-dim)] text-[var(--accent-blue-light)]"
+                  ? "bg-[var(--accent-mint-dim)] text-[var(--accent-mint)]"
                   : "bg-[var(--surface-raised)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
             )}
           >
@@ -228,11 +228,11 @@ export default function DerivationsStep({
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="flex items-center justify-between bg-[rgba(20,184,166,0.06)] border border-[var(--accent-teal)]/20 rounded-lg px-4 py-3"
+            className="flex items-center justify-between bg-[var(--accent-mint-dim)] border border-[var(--accent-mint)]/20 rounded-lg px-4 py-3"
           >
             <div className="flex items-center gap-2">
               <Check size={18} className="text-[var(--accent-teal)]" />
-              <span className="text-sm font-medium text-[var(--accent-teal)]">
+              <span className="text-sm font-medium text-[var(--accent-mint)]">
                 {t("allCompleted")}
               </span>
             </div>
@@ -240,7 +240,7 @@ export default function DerivationsStep({
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={onReviewAll}
-              className="text-sm font-medium text-[var(--accent-blue)] hover:text-[var(--accent-blue-light)] transition-colors"
+              className="text-sm font-medium text-[var(--accent-mint)] hover:text-[var(--accent-mint-light)] transition-colors"
             >
               {t("goToReview")}
             </motion.button>
@@ -274,7 +274,7 @@ export default function DerivationsStep({
           </p>
           <button
             onClick={() => setStatusFilter("all")}
-            className="text-sm text-[var(--accent-blue)] hover:text-[var(--accent-blue-light)] transition-colors"
+            className="text-sm text-[var(--accent-mint)] hover:text-[var(--accent-mint-light)] transition-colors"
           >
             {t("showAll")}
           </button>

@@ -85,7 +85,7 @@ export default function WorkspaceTab() {
               "w-full h-10 rounded-md border px-3 text-sm",
               "bg-[var(--surface-base)] text-[var(--text-primary)]",
               "placeholder:text-[var(--text-muted)]",
-              "focus:outline-none focus:border-[var(--accent-blue)] focus:ring-[3px] focus:ring-[rgba(99,102,241,0.15)]",
+              "focus:outline-none focus:border-[var(--accent-mint)] focus:ring-[3px] focus:ring-[rgba(47,182,125,0.15)]",
               "transition-all duration-200 border-[var(--border-dim)]"
             )}
           />
@@ -214,7 +214,7 @@ export default function WorkspaceTab() {
           disabled={!hasChanges || saveState !== "idle"}
           className={cn(
             "h-10 px-5 rounded-md text-sm font-medium text-white flex items-center gap-2",
-            "bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-light)]",
+            "bg-[var(--accent-mint)] hover:bg-[var(--accent-mint-light)]",
             "active:scale-[0.98] active:brightness-90",
             "transition-all duration-200",
             "disabled:opacity-50 disabled:cursor-not-allowed"

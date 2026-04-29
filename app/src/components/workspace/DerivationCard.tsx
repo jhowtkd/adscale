@@ -62,8 +62,8 @@ function ProgressRing({ progress }: { progress: number }) {
         />
         <defs>
           <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="var(--accent-blue)" />
-            <stop offset="100%" stopColor="var(--accent-teal)" />
+            <stop offset="0%" stopColor="var(--accent-mint)" />
+            <stop offset="100%" stopColor="var(--accent-mint)" />
           </linearGradient>
         </defs>
       </svg>
@@ -86,7 +86,7 @@ function StatusOverlay({ status, progress }: { status: DerivationDisplayStatus; 
   switch (status) {
     case "queued":
       return (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-[rgba(10,15,26,0.7)] rounded-t-[15px]">
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 rounded-t-[15px]">
           <Clock size={24} className="text-[var(--text-muted)] mb-2" />
           <span className="text-xs font-medium text-[var(--text-muted)]">{t("queued")}</span>
           <span className="text-[10px] text-[var(--text-muted)] mt-0.5">
@@ -97,7 +97,7 @@ function StatusOverlay({ status, progress }: { status: DerivationDisplayStatus; 
 
     case "generating":
       return (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-[rgba(10,15,26,0.5)] rounded-t-[15px]">
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/20 rounded-t-[15px]">
           <ProgressRing progress={progress || 0} />
           <span className="text-xs font-medium text-[var(--text-primary)] mt-2">
             {commonT("loading")}
@@ -209,7 +209,7 @@ export default function DerivationCard({
       whileHover={isCompleted ? { y: -4 } : undefined}
       className={cn(
         "group bg-[var(--surface-base)] rounded-[15px] border border-[var(--border-dim)] overflow-hidden transition-all duration-300",
-        isCompleted && "hover:border-[var(--border-medium)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.3)]"
+        isCompleted && "hover:border-[var(--border-medium)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.08)]"
       )}
     >
       {/* ---- Image Area (4:5 aspect ratio) ---- */}
@@ -303,7 +303,7 @@ export default function DerivationCard({
           <div className="flex items-center gap-1 opacity-50 group-hover:opacity-100 transition-opacity duration-200">
             <button
               onClick={() => onPreview(derivation.id)}
-              className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[rgba(255,255,255,0.04)] transition-all duration-150"
+              className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-all duration-150"
               title={commonT("preview")}
             >
               <Eye size={16} />
@@ -312,7 +312,7 @@ export default function DerivationCard({
               onClick={handleDownload}
               disabled={exportMutation.isPending}
               className={cn(
-                "p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[rgba(255,255,255,0.04)] transition-all duration-150",
+                "p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-all duration-150",
                 exportMutation.isPending && "opacity-50 cursor-wait"
               )}
               title={commonT("download")}
@@ -327,7 +327,7 @@ export default function DerivationCard({
               onClick={handleRegenerate}
               disabled={regenerateMutation.isPending}
               className={cn(
-                "p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[rgba(255,255,255,0.04)] transition-all duration-150",
+                "p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-all duration-150",
                 regenerateMutation.isPending && "opacity-50 cursor-wait"
               )}
               title={commonT("regenerate")}

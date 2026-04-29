@@ -54,7 +54,7 @@ function AccordionItem({ title, platformTags, children, index }: AccordionItemPr
             {platformTags.map((tag) => (
               <span
                 key={tag}
-                className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[var(--accent-blue-dim)] text-[var(--accent-blue-light)]"
+                className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[var(--accent-mint-dim)] text-[var(--accent-mint)]"
               >
                 {tag}
               </span>
@@ -133,14 +133,14 @@ export default function CreativePlanCard({
       className={cn(
         "relative bg-[var(--surface-base)] rounded-xl overflow-hidden",
         "border border-[var(--border-dim)]",
-        approved && "border-[var(--accent-teal)]/30"
+        approved && "border-[var(--accent-mint)]/30"
       )}
     >
       {/* Purple left border accent */}
       <div
         className={cn(
           "absolute left-0 top-0 bottom-0 w-[3px] transition-colors duration-400",
-          approved ? "bg-[var(--accent-teal)]" : "bg-[var(--accent-purple)]"
+          approved ? "bg-[var(--accent-mint)]" : "bg-[var(--accent-mint)]"
         )}
       />
 
@@ -154,9 +154,9 @@ export default function CreativePlanCard({
           className="flex items-center justify-between flex-wrap gap-3"
         >
           <div className="flex items-center gap-3">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[rgba(167,139,250,0.08)] border border-[rgba(167,139,250,0.15)]">
-              <Sparkles size={14} className="text-[var(--accent-purple)]" />
-              <span className="text-xs font-medium text-[var(--accent-purple)]">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--accent-mint-dim)] border border-[var(--accent-mint)]/15">
+              <Sparkles size={14} className="text-[var(--accent-mint)]" />
+              <span className="text-xs font-medium text-[var(--accent-mint)]">
                 AI Generated
               </span>
             </div>
@@ -191,7 +191,7 @@ export default function CreativePlanCard({
           variants={sectionVariants}
           initial="hidden"
           animate="show"
-          className="border-l-2 border-[var(--accent-purple)] pl-3"
+          className="border-l-2 border-[var(--accent-mint)] pl-3"
         >
           <h4 className="text-[15px] font-semibold text-[var(--text-primary)] mb-2">
             {t("strategy")}
@@ -212,7 +212,7 @@ export default function CreativePlanCard({
           <div className="space-y-4">
             {plan.angles.map((angle) => (
               <div key={angle.number} className="flex gap-3">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--accent-purple)] w-7 flex-shrink-0 pt-0.5">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--accent-mint)] w-7 flex-shrink-0 pt-0.5">
                   {String(angle.number).padStart(2, "0")}
                 </span>
                 <div>
@@ -268,7 +268,7 @@ export default function CreativePlanCard({
               <button
                 key={cta}
                 onClick={() => handleCopyCta(cta)}
-                className="relative inline-flex items-center rounded-full px-4 py-1.5 text-sm font-medium bg-[var(--accent-blue-dim)] text-[var(--accent-blue)] hover:bg-[rgba(99,102,241,0.2)] transition-colors duration-200"
+                className="relative inline-flex items-center rounded-full px-4 py-1.5 text-sm font-medium bg-[var(--accent-mint-dim)] text-[var(--accent-mint)] hover:bg-[rgba(47,182,125,0.2)] transition-colors duration-200"
                 title="Click to copy"
               >
                 {cta}
@@ -278,7 +278,7 @@ export default function CreativePlanCard({
                       initial={{ opacity: 0, scale: 0.8 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0 }}
-                      className="absolute inset-0 flex items-center justify-center rounded-full bg-[var(--accent-teal)] text-white text-xs font-medium"
+                      className="absolute inset-0 flex items-center justify-center rounded-full bg-[var(--accent-mint)] text-white text-xs font-medium"
                     >
                       Copied!
                     </motion.span>
@@ -334,7 +334,7 @@ export default function CreativePlanCard({
                     <span className="text-xs text-[var(--text-muted)] uppercase tracking-wide">
                       CTA
                     </span>
-                    <p className="text-sm text-[var(--accent-blue)] mt-0.5">
+                    <p className="text-sm text-[var(--accent-mint)] mt-0.5">
                       {plan.ctas[i % plan.ctas.length]}
                     </p>
                   </div>
@@ -385,7 +385,7 @@ export default function CreativePlanCard({
         <div className="flex items-center gap-3">
           <button
             onClick={onRegenerate}
-            className="inline-flex items-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-all duration-200 text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.04)] hover:text-[var(--text-primary)] active:scale-[0.98]"
+            className="inline-flex items-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-all duration-200 text-[var(--text-secondary)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)] active:scale-[0.98]"
           >
             <RefreshCw size={14} />
             {commonT("regenerate")}

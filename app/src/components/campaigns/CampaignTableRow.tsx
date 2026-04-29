@@ -74,8 +74,8 @@ export default function CampaignTableRow({
       transition={{ delay: index * 0.05 }}
       className={cn(
         "group border-b border-[var(--border-dim)] transition-colors duration-150 cursor-pointer",
-        index % 2 === 1 && "bg-[rgba(255,255,255,0.01)]",
-        selected && "bg-[rgba(99,102,241,0.06)] border-l-2 border-l-[var(--accent-blue)]",
+        index % 2 === 1 && "bg-[rgba(0,0,0,0.02)]",
+        selected && "bg-[var(--accent-mint-dim)] border-l-2 border-l-[var(--accent-mint)]",
         !selected && "hover:bg-[var(--surface-raised)]"
       )}
       style={{ height: 64 }}
@@ -180,7 +180,7 @@ export default function CampaignTableRow({
               className={cn(
                 "flex items-center justify-center h-8 w-8 rounded-md",
                 "text-[var(--text-muted)] opacity-0 group-hover:opacity-100",
-                "hover:bg-[rgba(255,255,255,0.04)] hover:text-[var(--text-primary)]",
+                "hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)]",
                 "transition-all duration-200",
                 "focus:opacity-100 data-[popup-open]:opacity-100"
               )}

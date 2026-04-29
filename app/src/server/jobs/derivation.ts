@@ -15,6 +15,7 @@ import { env } from "../validation/env";
 
 const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 const IMAGE_GENERATION_TIMEOUT_MS = 5 * 60 * 1000;
+const VISUAL_TOKEN_ANALYSIS_TIMEOUT_MS = 90 * 1000;
 
 function getTargetDimensions(format: string): { width: number; height: number } | null {
   switch (format) {
@@ -38,6 +39,111 @@ function formatToOpenAISize(format: string): "1024x1024" | "1024x1536" | "1536x1
     default:
       return "1024x1024";
   }
+}
+
+async function buildVisualTokenBrief(buffer: Buffer, mimeType: string, targetFormat: string) {
+  const dataUrl = `data:${mimeType};base64,${buffer.toString("base64")}`;
+  const analysisPrompt = [
+    "Analyze this advertising image as an art director preparing a native format adaptation.",
+    "Extract the reusable visual tokens, not a crop recipe.",
+    `Target output format: ${targetFormat}.`,
+    "Return a concise production brief with:",
+    "- brand colors and gradients",
+    "- typography style and hierarchy",
+    "- logo treatment and safe placement",
+    "- main subject/photo treatment",
+    "- graphic shapes, panels, borders, textures, motifs, icons, and patterns",
+    "- offer/CTA module structure",
+    "- layout relationships that must remain recognizable",
+    "- what can move/reflow for the target format",
+    "Do not tell the image generator to crop, frame, pad, or paste the original full image.",
+  ].join("\n");
+
+  const fallbackBrief = [
+    "The source image could not be analyzed in detail. Rebuild the ad as a native composition using the campaign's visible brand system and metadata.",
+    "Use a polished paid-social layout with full-bleed brand background, intentional graphic panels, clear headline hierarchy, readable benefit bullets, prominent offer card, and CTA module.",
+    `Target output format: ${targetFormat}. Do not crop, frame, pad, letterbox, or paste the original image.`,
+  ].join("\n");
+
+  try {
+    const response = await withTimeout(
+      openai.responses.create({
+        model: env.OPENAI_TEXT_MODEL,
+        input: [
+          {
+            type: "message",
+            role: "user",
+            content: [
+              { type: "input_text", text: analysisPrompt },
+              { type: "input_image", image_url: dataUrl, detail: "high" },
+            ],
+          },
+        ],
+        max_output_tokens: 1200,
+      }),
+      VISUAL_TOKEN_ANALYSIS_TIMEOUT_MS,
+      "Visual token analysis"
+    );
+
+    const brief = response.output_text?.trim();
+    if (brief) {
+      return brief;
+    }
+
+    console.warn("[generate-and-store-output] visual token analysis returned empty content; using fallback brief");
+    return fallbackBrief;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.warn(`[generate-and-store-output] visual token analysis failed; using fallback brief: ${message}`);
+  }
+
+  try {
+    const response = await withTimeout(
+      openai.chat.completions.create({
+      model: env.OPENAI_TEXT_MODEL,
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: analysisPrompt },
+            { type: "image_url", image_url: { url: dataUrl } },
+          ],
+        },
+      ],
+      max_completion_tokens: 900,
+      }),
+      VISUAL_TOKEN_ANALYSIS_TIMEOUT_MS,
+      "Visual token analysis fallback"
+    );
+
+    const brief = response.choices[0]?.message?.content?.trim();
+    if (brief) {
+      return brief;
+    }
+
+    console.warn("[generate-and-store-output] chat visual token analysis returned empty content; using fallback brief");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.warn(`[generate-and-store-output] chat visual token analysis failed; using fallback brief: ${message}`);
+  }
+
+  return fallbackBrief;
+}
+
+async function normalizeGeneratedImage(
+  buffer: Buffer,
+  dimensions: { width: number; height: number },
+  generationMode: "art_variation" | "format_adaptation",
+) {
+  const position = generationMode === "format_adaptation" ? "attention" : "centre";
+
+  return sharp(buffer)
+    .resize(dimensions.width, dimensions.height, {
+      fit: "cover",
+      position,
+    })
+    .png()
+    .toBuffer();
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
@@ -127,30 +233,44 @@ export const derivationJob = inngest.createFunction(
 
     // 3. Download, generate, and store inside one step to avoid persisting large blobs
     const generated = await step.run("generate-and-store-output", async () => {
+      const effectiveGenerationMode = generationMode ?? derivation.generationMode ?? "art_variation";
+      const targetFormat = format ?? derivation.format ?? "1:1";
+      let referenceBuffer: Buffer | null = null;
+      let visualTokenBrief: string | null = null;
+
+      if (asset) {
+        console.log(`[generate-and-store-output] downloading asset key=${asset.key}`);
+        referenceBuffer = await downloadBuffer(asset.key);
+        console.log(`[generate-and-store-output] downloaded ${referenceBuffer.length} bytes`);
+
+        if (effectiveGenerationMode === "format_adaptation") {
+          console.log(`[generate-and-store-output] extracting visual tokens for targetFormat=${targetFormat}`);
+          visualTokenBrief = await buildVisualTokenBrief(referenceBuffer, asset.type, targetFormat);
+          console.log(`[generate-and-store-output] visual token brief length=${visualTokenBrief.length}`);
+        }
+      }
+
       const prompt = buildDerivationPrompt({
         campaign,
         plan,
         asset,
         feedback: derivation.feedback,
         locale,
-        generationMode: generationMode ?? derivation.generationMode ?? "art_variation",
+        generationMode: effectiveGenerationMode,
         variantIndex: variantIndex ?? derivation.variantIndex ?? 0,
         ctaText: ctaText ?? derivation.ctaText ?? undefined,
-        targetFormat: format ?? derivation.format ?? "1:1",
+        targetFormat,
+        visualTokenBrief,
       });
       console.log(`[generate-and-store-output] model=${env.OPENAI_IMAGE_MODEL} hasAsset=${!!asset} locale=${locale ?? "default"}`);
 
       let result: OpenAI.Images.Image;
 
-      const targetFormat = format ?? derivation.format ?? "1:1";
       const openaiSize = formatToOpenAISize(targetFormat);
 
-      if (asset) {
-        // Use image edit with the asset as visual reference, requesting the correct size
-        console.log(`[generate-and-store-output] downloading asset key=${asset.key}`);
-        const buffer = await downloadBuffer(asset.key);
-        console.log(`[generate-and-store-output] downloaded ${buffer.length} bytes`);
-        const referenceImage = await toFile(buffer, "reference-image", {
+      if (asset && referenceBuffer && effectiveGenerationMode !== "format_adaptation") {
+        // Art variations use edit mode so the original asset remains a strong visual anchor.
+        const referenceImage = await toFile(referenceBuffer, "reference-image", {
           type: asset.type,
         });
         const response = await withTimeout(
@@ -171,7 +291,7 @@ export const derivationJob = inngest.createFunction(
         console.log(`[generate-and-store-output] edit success url=${first.url ? "yes" : "no"} b64=${first.b64_json ? "yes" : "no"}`);
         result = first;
       } else {
-        // No asset: use generate with correct size
+        // Format adaptations use generation from extracted visual tokens to avoid pasted/cropped references.
         const response = await withTimeout(
           openai.images.generate({
             model: env.OPENAI_IMAGE_MODEL,
@@ -208,13 +328,7 @@ export const derivationJob = inngest.createFunction(
       // Normalize output dimensions based on target format
       const dimensions = getTargetDimensions(targetFormat);
       if (dimensions) {
-        buffer = await sharp(buffer)
-          .resize(dimensions.width, dimensions.height, {
-            fit: "cover",
-            position: "centre",
-          })
-          .png()
-          .toBuffer();
+        buffer = await normalizeGeneratedImage(buffer, dimensions, effectiveGenerationMode);
       }
 
       const key = `derivations/${derivationId}/${Date.now()}.png`;

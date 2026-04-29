@@ -73,7 +73,7 @@ const roleConfig: Record<
 > = {
   Owner: { color: "var(--accent-amber)", bg: "rgba(245,158,11,0.12)" },
   Admin: { color: "var(--accent-rose)", bg: "rgba(244,63,94,0.12)" },
-  Editor: { color: "var(--accent-blue)", bg: "rgba(99,102,241,0.12)" },
+  Editor: { color: "var(--accent-mint)", bg: "var(--accent-mint-dim)" },
   Viewer: { color: "var(--text-muted)", bg: "rgba(71,85,105,0.12)" },
 };
 
@@ -185,7 +185,7 @@ export default function TeamTab() {
               <div className="flex items-center gap-1 flex-shrink-0">
                 <button
                   onClick={() => addToast("info", tc("roleManagementComingSoon"))}
-                  className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[rgba(255,255,255,0.04)] transition-all"
+                  className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-all"
                 >
                   <Edit size={14} />
                 </button>
@@ -214,7 +214,7 @@ export default function TeamTab() {
               "flex-1 h-10 rounded-md border px-3 text-sm",
               "bg-[var(--surface-base)] text-[var(--text-primary)]",
               "placeholder:text-[var(--text-muted)]",
-              "focus:outline-none focus:border-[var(--accent-blue)] focus:ring-[3px] focus:ring-[rgba(99,102,241,0.15)]",
+              "focus:outline-none focus:border-[var(--accent-mint)] focus:ring-[3px] focus:ring-[rgba(47,182,125,0.15)]",
               "transition-all duration-200 border-[var(--border-dim)]"
             )}
           />
@@ -235,7 +235,7 @@ export default function TeamTab() {
             onClick={() => addToast("info", tc("invitesComingSoon"))}
             className={cn(
               "h-10 px-4 rounded-md text-sm font-medium text-white",
-              "bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-light)]",
+              "bg-[var(--accent-mint)] hover:bg-[var(--accent-mint-light)]",
               "active:scale-[0.98]",
               "transition-all duration-200"
             )}

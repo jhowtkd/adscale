@@ -74,19 +74,19 @@ const activityIcons: Record<ActivityItem["type"], typeof Sparkles> = {
 };
 
 const activityIconColors: Record<ActivityItem["type"], string> = {
-  plan: "var(--accent-purple)",
-  derivation: "var(--accent-teal)",
-  campaign: "var(--accent-blue)",
-  export: "var(--accent-blue)",
+  plan: "var(--accent-mint)",
+  derivation: "var(--accent-mint)",
+  campaign: "var(--accent-mint)",
+  export: "var(--accent-mint)",
   alert: "var(--accent-amber)",
 };
 
 const activityIconBgColors: Record<ActivityItem["type"], string> = {
-  plan: "rgba(167,139,250,0.12)",
-  derivation: "rgba(20,184,166,0.12)",
-  campaign: "rgba(99,102,241,0.12)",
-  export: "rgba(99,102,241,0.12)",
-  alert: "rgba(245,158,11,0.12)",
+  plan: "var(--accent-mint-dim)",
+  derivation: "var(--accent-mint-dim)",
+  campaign: "var(--accent-mint-dim)",
+  export: "var(--accent-mint-dim)",
+  alert: "rgba(212,160,23,0.12)",
 };
 
 // ============================================
@@ -131,8 +131,8 @@ export default function DashboardPage() {
         transition={{ duration: 0.4, ease: [0.19, 1, 0.22, 1] }}
         className="relative rounded-xl px-6 py-5 overflow-hidden"
       >
-        {/* Hero glow background */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(99,102,241,0.12)_0%,transparent_60%)] animate-hero-glow" />
+        {/* Subtle flat background */}
+        <div className="absolute inset-0 bg-[var(--surface-raised)] rounded-xl" />
 
         <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -154,7 +154,7 @@ export default function DashboardPage() {
                 "inline-flex items-center gap-2 rounded-md px-6 py-3 text-sm font-medium text-white",
                 "bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-light)] hover:-translate-y-px",
                 "active:scale-[0.98] transition-all duration-200",
-                "hover:shadow-[0_4px_16px_rgba(99,102,241,0.3)]"
+                "hover:shadow-[0_4px_16px_rgba(47,182,125,0.2)]"
               )}
             >
               <Plus size={16} />
@@ -171,8 +171,8 @@ export default function DashboardPage() {
           label={tNav("campaigns")}
           value={totalCampaigns}
           change={{ value: `${campaignsChange}%`, positive: true }}
-          iconBgColor="rgba(99,102,241,0.12)"
-          iconColor="var(--accent-blue)"
+          iconBgColor="var(--accent-mint-dim)"
+          iconColor="var(--accent-mint)"
           index={0}
         />
         <StatsCard
@@ -180,8 +180,8 @@ export default function DashboardPage() {
           label={t("derivationsThisMonth")}
           value={derivationsThisMonth}
           change={{ value: `${derivationsChange}%`, positive: true }}
-          iconBgColor="rgba(167,139,250,0.12)"
-          iconColor="var(--accent-purple)"
+          iconBgColor="var(--accent-mint-dim)"
+          iconColor="var(--accent-mint)"
           index={1}
         />
         <StatsCard
@@ -192,7 +192,7 @@ export default function DashboardPage() {
             value: `${creditsRemaining}% ${t("remaining")}`,
             positive: false,
           }}
-          iconBgColor="rgba(245,158,11,0.12)"
+          iconBgColor="rgba(212,160,23,0.12)"
           iconColor="var(--accent-amber)"
           index={2}
         />
@@ -200,8 +200,8 @@ export default function DashboardPage() {
           icon={Globe}
           label={t("activePlatforms")}
           value={activePlatforms}
-          iconBgColor="rgba(20,184,166,0.12)"
-          iconColor="var(--accent-teal)"
+          iconBgColor="var(--accent-mint-dim)"
+          iconColor="var(--accent-mint)"
           index={3}
         />
       </section>
@@ -226,8 +226,8 @@ export default function DashboardPage() {
             icon={Upload}
             title={t("uploadCreative")}
             description={t("uploadCreativeDesc")}
-            iconBgColor="rgba(99,102,241,0.12)"
-            iconColor="var(--accent-blue)"
+            iconBgColor="var(--accent-mint-dim)"
+            iconColor="var(--accent-mint)"
             href="/campaigns"
             index={0}
           />
@@ -235,8 +235,8 @@ export default function DashboardPage() {
             icon={BarChart3}
             title={t("viewReports")}
             description={t("viewReportsDesc")}
-            iconBgColor="rgba(20,184,166,0.12)"
-            iconColor="var(--accent-teal)"
+            iconBgColor="var(--accent-mint-dim)"
+            iconColor="var(--accent-mint)"
             href="#"
             disabled
             index={1}
@@ -245,8 +245,8 @@ export default function DashboardPage() {
             icon={ImageIcon}
             title={t("browseLibrary")}
             description={t("browseLibraryDesc")}
-            iconBgColor="rgba(167,139,250,0.12)"
-            iconColor="var(--accent-purple)"
+            iconBgColor="var(--accent-mint-dim)"
+            iconColor="var(--accent-mint)"
             href="/campaigns"
             index={2}
           />
@@ -254,7 +254,7 @@ export default function DashboardPage() {
             icon={Users}
             title={t("inviteTeam")}
             description={t("inviteTeamDesc")}
-            iconBgColor="rgba(245,158,11,0.12)"
+            iconBgColor="rgba(212,160,23,0.12)"
             iconColor="var(--accent-amber)"
             href="#"
             index={3}
@@ -275,7 +275,7 @@ export default function DashboardPage() {
           </h2>
           <Link
             href="/campaigns"
-            className="text-sm text-[var(--accent-blue)] hover:text-[var(--accent-blue-light)] transition-colors"
+            className="text-sm text-[var(--accent-mint)] hover:text-[var(--accent-mint-light)] transition-colors"
           >
             {t("viewAll")}
           </Link>
@@ -368,7 +368,7 @@ export default function DashboardPage() {
             />
           </div>
 
-          <button className="text-sm text-[var(--accent-blue)] hover:text-[var(--accent-blue-light)] transition-colors">
+          <button className="text-sm text-[var(--accent-mint)] hover:text-[var(--accent-mint-light)] transition-colors">
             {t("upgradePlan")}
           </button>
         </motion.div>
@@ -458,7 +458,7 @@ export default function DashboardPage() {
           )}
 
           {activityFeed.length > 5 && (
-            <button className="mt-4 text-sm text-[var(--accent-blue)] hover:text-[var(--accent-blue-light)] transition-colors">
+            <button className="mt-4 text-sm text-[var(--accent-mint)] hover:text-[var(--accent-mint-light)] transition-colors">
               {t("showMore")}
             </button>
           )}
@@ -507,7 +507,7 @@ function QuickActionCard({
       className={cn(
         "group rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] p-5 transition-all duration-250",
         !disabled &&
-          "hover:border-[var(--border-medium)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.2)] cursor-pointer",
+          "hover:border-[var(--border-medium)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] cursor-pointer",
         disabled && "opacity-50 cursor-not-allowed"
       )}
     >
@@ -616,7 +616,7 @@ function CampaignRow({ campaign }: { campaign: UiCampaign }) {
           className={cn(
             "flex items-center justify-center h-8 w-8 rounded-md",
             "text-[var(--text-muted)] opacity-0 group-hover:opacity-100",
-            "hover:bg-[rgba(255,255,255,0.04)] hover:text-[var(--text-primary)]",
+            "hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)]",
             "transition-all duration-200"
           )}
           onClick={(e) => e.stopPropagation()}

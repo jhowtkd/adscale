@@ -164,7 +164,7 @@ export default function ReviewStep({
             <select
               value={exportFormat}
               onChange={(e) => setExportFormat(e.target.value)}
-              className="h-9 px-3 text-xs rounded-md bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] focus:border-[var(--accent-blue)] focus:outline-none"
+              className="h-9 px-3 text-xs rounded-md bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] focus:border-[var(--accent-mint)] focus:outline-none"
             >
               <option value="png">PNG</option>
               <option value="jpeg">JPEG</option>
@@ -221,7 +221,7 @@ export default function ReviewStep({
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handlePrevDerivation}
-                    className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[rgba(255,255,255,0.04)] transition-colors"
+                    className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-colors"
                   >
                     <ChevronLeft size={16} />
                   </button>
@@ -231,7 +231,7 @@ export default function ReviewStep({
                   </span>
                   <button
                     onClick={handleNextDerivation}
-                    className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[rgba(255,255,255,0.04)] transition-colors"
+                    className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-colors"
                   >
                     <ChevronRight size={16} />
                   </button>
@@ -289,8 +289,8 @@ export default function ReviewStep({
               className={cn(
                 "group relative bg-[var(--surface-base)] rounded-xl border-2 overflow-hidden cursor-pointer transition-all duration-300",
                 getCardBorderClass(derivation.id),
-                isSelected && "ring-2 ring-[var(--accent-blue)] ring-offset-1 ring-offset-[var(--deep-bg)]",
-                !isApproved && !isRejected && "hover:border-[var(--border-medium)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.2)]"
+                isSelected && "ring-2 ring-[var(--accent-mint)] ring-offset-1 ring-offset-[var(--deep-bg)]",
+                !isApproved && !isRejected && "hover:border-[var(--border-medium)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)]"
               )}
             >
               {/* Approved overlay */}
@@ -318,7 +318,7 @@ export default function ReviewStep({
 
               {/* Approved tint */}
               {isApproved && (
-                <div className="absolute inset-0 bg-[rgba(20,184,166,0.05)] pointer-events-none z-[1]" />
+                <div className="absolute inset-0 bg-[var(--accent-mint-dim)] pointer-events-none z-[1]" />
               )}
 
               {/* Rejected tint */}
@@ -346,7 +346,7 @@ export default function ReviewStep({
                       isRejected && "grayscale-[60%]"
                     )}
                     style={{
-                      background: `linear-gradient(135deg, ${platformStyle.bg} 0%, var(--surface-raised) 50%, ${platformStyle.bg} 100%)`,
+                      background: `linear-gradient(135deg, ${platformStyle.bg} 0%, var(--surface-raised) 100%)`,
                     }}
                   >
                     <div className="absolute inset-0 flex items-center justify-center">
@@ -372,7 +372,7 @@ export default function ReviewStep({
                         handleApprove(derivation.id);
                       }}
                       disabled={approvingId === derivation.id}
-                      className="w-10 h-10 rounded-full bg-[var(--accent-teal)] flex items-center justify-center text-white shadow-lg hover:bg-[var(--accent-teal)]/90 transition-colors disabled:opacity-60"
+                      className="w-10 h-10 rounded-full bg-[var(--accent-mint)] flex items-center justify-center text-white shadow-lg hover:bg-[var(--accent-mint)]/90 transition-colors disabled:opacity-60"
                     >
                       {approvingId === derivation.id ? (
                         <motion.div
