@@ -8,6 +8,7 @@ import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import type { Campaign } from "@/lib/mock-data";
 import type { AdPlatform } from "@/lib/mock-data";
 
@@ -26,6 +27,7 @@ export interface BriefingFormData {
   constraints: string;
   notes: string;
   generationMode: "art_variation" | "format_adaptation";
+  creativeLevel: "conservative" | "balanced" | "bold";
   ctaVariants: [string, string, string];
 }
 
@@ -76,6 +78,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
     constraints: campaign?.constraints || "",
     notes: campaign?.notes || "",
     generationMode: campaign?.generationMode || "art_variation",
+    creativeLevel: campaign?.creativeLevel || "balanced",
     ctaVariants: [
       campaign?.ctaVariants?.[0] || "",
       campaign?.ctaVariants?.[1] || "",
@@ -224,6 +227,39 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
             ))}
           </div>
         </motion.div>
+
+        {/* ---- Creative Level ---- */}
+        {formData.generationMode === "art_variation" && (
+          <motion.div variants={fieldVariants} className="space-y-2">
+            <Label className="text-xs font-medium text-[var(--text-secondary)]">
+              {tBriefing("creativeLevel.label")}
+            </Label>
+            <RadioGroup
+              value={formData.creativeLevel}
+              onValueChange={(value) => updateField("creativeLevel", value as BriefingFormData["creativeLevel"])}
+              className="flex flex-col space-y-2"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="conservative" id="cl-conservative" />
+                <Label htmlFor="cl-conservative" className="text-sm text-[var(--text-primary)]">
+                  {tBriefing("creativeLevel.conservative")}
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="balanced" id="cl-balanced" />
+                <Label htmlFor="cl-balanced" className="text-sm text-[var(--text-primary)]">
+                  {tBriefing("creativeLevel.balanced")}
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="bold" id="cl-bold" />
+                <Label htmlFor="cl-bold" className="text-sm text-[var(--text-primary)]">
+                  {tBriefing("creativeLevel.bold")}
+                </Label>
+              </div>
+            </RadioGroup>
+          </motion.div>
+        )}
 
         {/* ---- CTA Variants ---- */}
         <motion.div variants={fieldVariants} className="space-y-3">

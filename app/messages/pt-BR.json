@@ -225,7 +225,13 @@
     "ctaHelpArt": "Preencha ao menos um CTA. Campos vazios serão ignorados.",
     "ctaHelpFormat": "CTAs são opcionais. Cada formato recebe o CTA correspondente.",
     "ctaPiece": "CTA peça {number}",
-    "ctaFormat": "CTA {format}"
+    "ctaFormat": "CTA {format}",
+    "creativeLevel": {
+      "label": "Nível de criatividade",
+      "conservative": "Conservador",
+      "balanced": "Equilibrado",
+      "bold": "Ousado"
+    }
   },
   "derivation": {
     "title": "Derivações",
