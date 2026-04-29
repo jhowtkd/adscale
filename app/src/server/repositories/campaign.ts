@@ -26,6 +26,7 @@ export interface CreateCampaignInput {
   generationMode?: GenerationMode;
   ctaVariants?: string[];
   targetFormats?: string[];
+  creativeLevel?: string;
 }
 
 export interface UpdateCampaignInput {
@@ -43,6 +44,7 @@ export interface UpdateCampaignInput {
   generationMode?: GenerationMode;
   ctaVariants?: string[];
   targetFormats?: string[];
+  creativeLevel?: string;
 }
 
 export interface CampaignMetrics {
@@ -74,6 +76,7 @@ const campaignFields = {
   ctaVariants: campaigns.ctaVariants,
   targetFormats: campaigns.targetFormats,
   status: campaigns.status,
+  creativeLevel: campaigns.creativeLevel,
   createdAt: campaigns.createdAt,
   updatedAt: campaigns.updatedAt,
 };
@@ -180,6 +183,7 @@ export async function createCampaign(
       generationMode: data.generationMode ?? "art_variation",
       ctaVariants: data.ctaVariants ?? null,
       targetFormats: data.targetFormats ?? null,
+      creativeLevel: data.creativeLevel ?? "balanced",
       status: data.status ?? "draft",
     })
     .returning();
@@ -229,6 +233,7 @@ export async function updateCampaign(
     generationMode,
     ctaVariants,
     targetFormats,
+    creativeLevel,
     status,
   } = data;
   const result = await db
@@ -247,6 +252,7 @@ export async function updateCampaign(
       ...(generationMode !== undefined && { generationMode }),
       ...(ctaVariants !== undefined && { ctaVariants }),
       ...(targetFormats !== undefined && { targetFormats }),
+      ...(creativeLevel !== undefined && { creativeLevel }),
       ...(status !== undefined && { status }),
       updatedAt: new Date(),
     })
