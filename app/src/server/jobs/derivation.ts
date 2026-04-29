@@ -182,7 +182,7 @@ export const derivationJob = inngest.createFunction(
   },
   { event: "derivation.generate" },
   async ({ event, step }) => {
-    const { derivationId, campaignId, workspaceId, locale, generationMode, variantIndex, ctaText, format, creativeLevel } = event.data;
+    const { derivationId, campaignId, workspaceId, locale, generationMode, variantIndex, ctaText, format } = event.data;
     console.log(`[derivationJob] START derivationId=${derivationId} campaignId=${campaignId} locale=${locale ?? "default"}`);
 
     // Idempotency check: if already completed, skip entirely
