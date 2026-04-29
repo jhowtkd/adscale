@@ -10,6 +10,7 @@ import TeamTab from "@/components/settings/TeamTab";
 import BillingTab from "@/components/settings/BillingTab";
 import IntegrationsTab from "@/components/settings/IntegrationsTab";
 import { useTranslations } from "next-intl";
+import { Badge } from "@/components/ui/badge";
 
 const tabs = [
   { id: "profile", labelKey: "profileTab" },
@@ -28,6 +29,7 @@ export default function SettingsPage() {
   const setCurrentPageTitle = useAppStore((s) => s.setCurrentPageTitle);
   const [activeTab, setActiveTab] = useState("profile");
   const t = useTranslations("settings");
+  const tCommon = useTranslations("common");
 
   useEffect(() => {
     setCurrentPageTitle(t("title"));
@@ -51,16 +53,23 @@ export default function SettingsPage() {
           {tabs.map((tab) => (
             <button
               key={tab.id}
+              disabled={tab.id === "integrations"}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
                 "relative px-4 py-2.5 text-sm font-medium transition-colors duration-200",
+                tab.id === "integrations" && "opacity-50 cursor-not-allowed",
                 activeTab === tab.id
                   ? "text-[var(--accent-mint)]"
                   : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
               )}
             >
-              {t(tab.labelKey)}
-              {activeTab === tab.id && (
+              <span className="flex items-center gap-2">
+                {t(tab.labelKey)}
+                {tab.id === "integrations" && (
+                  <Badge variant="secondary">{tCommon("comingSoon")}</Badge>
+                )}
+              </span>
+              {activeTab === tab.id && tab.id !== "integrations" && (
                 <motion.div
                   layoutId="settings-tab-indicator"
                   className="absolute bottom-0 left-0 right-0 h-[2px] bg-[var(--accent-mint)]"
