@@ -183,7 +183,7 @@ export default function DerivationCard({
     "1:1": "aspect-square",
     "4:5": "aspect-[4/5]",
     "9:16": "aspect-[9/16]",
-  }[derivation.format] ?? "aspect-square";
+  }[derivation.format ?? ""] ?? "aspect-square";
 
   const handleRegenerate = () => {
     if (regenerateMutation.isPending) return;
