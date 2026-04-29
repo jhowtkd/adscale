@@ -273,6 +273,7 @@ export function useDuplicateCampaign() {
         constraints: original.constraints ?? undefined,
         notes: original.notes ?? undefined,
         generationMode: original.generationMode ?? undefined,
+        creativeLevel: original.creativeLevel ?? undefined,
         ctaVariants: original.ctaVariants ?? undefined,
         targetFormats: original.targetFormats ?? undefined,
       });

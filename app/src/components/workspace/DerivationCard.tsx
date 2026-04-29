@@ -85,7 +85,7 @@ function ProgressRing({ progress }: { progress: number }) {
 
 type DerivationDisplayStatus = Derivation["status"] | "queued";
 
-function StatusOverlay({ status, progress }: { status: DerivationDisplayStatus; progress?: number }) {
+function StatusOverlay({ status, progress, onRetry }: { status: DerivationDisplayStatus; progress?: number; onRetry?: () => void }) {
   const t = useTranslations("derivation");
   const commonT = useTranslations("common");
   switch (status) {
@@ -121,6 +121,7 @@ function StatusOverlay({ status, progress }: { status: DerivationDisplayStatus; 
           <button
             onClick={(e) => {
               e.stopPropagation();
+              onRetry?.();
             }}
             className="mt-2 inline-flex items-center rounded-md px-3 py-1.5 text-xs font-medium border border-[var(--accent-rose)]/30 text-[var(--accent-rose)] hover:bg-[var(--accent-rose)]/10 transition-colors"
           >
@@ -268,6 +269,7 @@ export default function DerivationCard({
         <StatusOverlay
           status={derivation.status}
           progress={derivation.status === "generating" ? simulatedProgress : undefined}
+          onRetry={handleRegenerate}
         />
       </div>
 

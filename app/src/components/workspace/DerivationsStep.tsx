@@ -58,7 +58,11 @@ export default function DerivationsStep({
     let filtered = [...derivations];
 
     // Status filter
-    if (statusFilter !== "all") {
+    if (statusFilter === "completed") {
+      filtered = filtered.filter((d) =>
+        ["completed", "approved", "rejected"].includes(d.status)
+      );
+    } else if (statusFilter !== "all") {
       filtered = filtered.filter((d) => d.status === statusFilter);
     }
 
