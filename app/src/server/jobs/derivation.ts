@@ -182,7 +182,7 @@ export const derivationJob = inngest.createFunction(
   },
   { event: "derivation.generate" },
   async ({ event, step }) => {
-    const { derivationId, campaignId, workspaceId, locale, generationMode, variantIndex, ctaText, format } = event.data;
+    const { derivationId, campaignId, workspaceId, locale, generationMode, variantIndex, ctaText, format, creativeLevel } = event.data;
     console.log(`[derivationJob] START derivationId=${derivationId} campaignId=${campaignId} locale=${locale ?? "default"}`);
 
     // Idempotency check: if already completed, skip entirely
@@ -261,6 +261,7 @@ export const derivationJob = inngest.createFunction(
         ctaText: ctaText ?? derivation.ctaText ?? undefined,
         targetFormat,
         visualTokenBrief,
+        creativeLevel: campaign.creativeLevel ?? "balanced",
       });
       console.log(`[generate-and-store-output] model=${env.OPENAI_IMAGE_MODEL} hasAsset=${!!asset} locale=${locale ?? "default"}`);
 
