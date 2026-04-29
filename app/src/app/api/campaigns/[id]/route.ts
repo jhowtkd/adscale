@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { apiError } from "@/lib/api-response";
+import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import {
   getCampaignById,
@@ -19,6 +19,9 @@ const updateCampaignSchema = z.object({
   offer: z.string().optional(),
   constraints: z.string().optional(),
   notes: z.string().optional(),
+  generationMode: z.enum(["art_variation", "format_adaptation"]).optional(),
+  ctaVariants: z.array(z.string()).max(3).optional(),
+  targetFormats: z.array(z.enum(["1:1", "4:5", "9:16"])).max(3).optional(),
   status: z.enum(["draft", "active", "generating", "completed", "failed"]).optional(),
 });
 
@@ -37,16 +40,7 @@ export async function GET(
 
     return NextResponse.json({ campaign });
   } catch (error) {
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return apiError("unauthorized", 401);
-    }
-    if (error instanceof Error && error.message === "No workspace") {
-      return apiError("noWorkspace", 403);
-    }
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return handleApiError(error, "campaigns.[id].GET");
   }
 }
 
@@ -72,16 +66,7 @@ export async function PATCH(
 
     return NextResponse.json({ campaign });
   } catch (error) {
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return apiError("unauthorized", 401);
-    }
-    if (error instanceof Error && error.message === "No workspace") {
-      return apiError("noWorkspace", 403);
-    }
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return handleApiError(error, "campaigns.[id].PATCH");
   }
 }
 
@@ -100,15 +85,6 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return apiError("unauthorized", 401);
-    }
-    if (error instanceof Error && error.message === "No workspace") {
-      return apiError("noWorkspace", 403);
-    }
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return handleApiError(error, "campaigns.[id].DELETE");
   }
 }

@@ -3,14 +3,13 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, Save, Trash2, Sparkles } from "lucide-react";
+import { ChevronLeft, Save, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";
-import type { Derivation, CreativePlan, AdPlatform, CampaignStatus } from "@/lib/mock-data";
+import type { Derivation, AdPlatform, CampaignStatus } from "@/lib/mock-data";
 import { useCampaign, useUpdateCampaign } from "@/lib/hooks/use-campaigns";
 import { useDeleteCampaign } from "@/lib/hooks/use-campaigns";
-import { usePlan, useGeneratePlan, useUpdatePlanStatus } from "@/lib/hooks/use-plan";
 import { useDerivations, useCreateDerivations } from "@/lib/hooks/use-derivations";
 import { useReviewDerivation } from "@/lib/hooks/use-review";
 import { useRegenerateDerivation } from "@/lib/hooks/use-regenerate";
@@ -21,7 +20,6 @@ import type { StepKey } from "@/components/workspace/StepIndicator";
 import BriefingStep from "@/components/workspace/BriefingStep";
 import type { BriefingFormData } from "@/components/workspace/BriefingStep";
 import UploadStep from "@/components/workspace/UploadStep";
-import PlanStep from "@/components/workspace/PlanStep";
 import DerivationsStep from "@/components/workspace/DerivationsStep";
 import ReviewStep from "@/components/workspace/ReviewStep";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -31,7 +29,7 @@ import { useTranslations } from "next-intl";
 // Types
 // ============================================
 
-type WizardStep = 1 | 2 | 3 | 4 | 5;
+type WizardStep = 1 | 2 | 3 | 4;
 
 // ============================================
 // Step Navigation Labels
@@ -96,8 +94,6 @@ export default function CampaignWorkspacePage() {
 
   const t = useTranslations("campaign");
   const td = useTranslations("derivation");
-  const tp = useTranslations("plan");
-  const tr = useTranslations("review");
   const ts = useTranslations("steps");
   const tc = useTranslations("common");
 
@@ -105,11 +101,6 @@ export default function CampaignWorkspacePage() {
   const { campaign: realCampaign, isLoading, isError } = useCampaign(campaignId);
   const updateCampaign = useUpdateCampaign(campaignId);
   const deleteCampaign = useDeleteCampaign();
-
-  // Plan hooks
-  const { data: planData, isLoading: planLoading } = usePlan(campaignId);
-  const generatePlan = useGeneratePlan(campaignId);
-  const updatePlanStatus = useUpdatePlanStatus(campaignId);
 
   // Derivation hooks
   const { data: derivationsData } = useDerivations(campaignId);
@@ -137,6 +128,9 @@ export default function CampaignWorkspacePage() {
         offer: realCampaign.offer,
         constraints: realCampaign.constraints,
         notes: realCampaign.notes,
+        generationMode: realCampaign.generationMode,
+        ctaVariants: realCampaign.ctaVariants,
+        targetFormats: realCampaign.targetFormats,
         status: realCampaign.status,
         variations: realCampaign.variations,
         creditsUsed: realCampaign.creditsUsed,
@@ -159,57 +153,18 @@ export default function CampaignWorkspacePage() {
   // Wizard state
   const [currentStep, setCurrentStep] = useState<WizardStep>(1);
   const [direction, setDirection] = useState(1);
-  const [planApproved, setPlanApproved] = useState(false);
   const [hasSetInitialStep, setHasSetInitialStep] = useState(false);
 
   // Auto-set initial step based on campaign progress
   useEffect(() => {
     if (hasSetInitialStep || isLoading || isNew) return;
     if (derivationsData && derivationsData.length > 0) {
-      setCurrentStep(4);
-      setHasSetInitialStep(true);
-    } else if (planData) {
-      setCurrentStep(3);
-      setHasSetInitialStep(true);
+      queueMicrotask(() => {
+        setCurrentStep(3);
+        setHasSetInitialStep(true);
+      });
     }
-  }, [hasSetInitialStep, isLoading, isNew, derivationsData, planData]);
-
-  // Auto-generate plan when entering step 3 if no plan exists
-  useEffect(() => {
-    if (
-      currentStep === 3 &&
-      !planData &&
-      !isNew &&
-      !planLoading &&
-      !generatePlan.isPending
-    ) {
-      generatePlan.mutate();
-    }
-  }, [currentStep, planData, isNew, planLoading, generatePlan]);
-
-  // Map DB plan to UI CreativePlan type
-  const creativePlan: CreativePlan | null = useMemo(() => {
-    if (!planData) return null;
-    const statusMap: Record<string, CampaignStatus> = {
-      draft: "draft",
-      approved: "completed",
-      rejected: "failed",
-    };
-    return {
-      id: planData.id,
-      campaignId: planData.campaignId,
-      strategy: planData.strategy ?? "",
-      angles: (planData.angles ?? []).map((a, i) => ({
-        number: i + 1,
-        title: a,
-        description: a,
-      })),
-      hooks: planData.hooks ?? [],
-      ctas: planData.ctas ?? [],
-      status: statusMap[planData.status] ?? "draft",
-      createdAt: planData.createdAt,
-    };
-  }, [planData]);
+  }, [hasSetInitialStep, isLoading, isNew, derivationsData]);
 
   // Map DB derivations to UI Derivation type
   const campaignPlatforms = campaign?.platforms?.length
@@ -224,9 +179,13 @@ export default function CampaignWorkspacePage() {
           ? "generating"
           : (d.status as CampaignStatus) ?? "draft";
       const platform = campaignPlatforms[i % campaignPlatforms.length] ?? "Meta";
-      const name = d.prompt
-        ? d.prompt.slice(0, 40) + (d.prompt.length > 40 ? "..." : "")
-        : `${td("variation")} ${i + 1}`;
+      const generationMode = (d.generationMode as "art_variation" | "format_adaptation" | undefined) ?? campaign?.generationMode;
+      const variantIndex = d.variantIndex ?? i;
+      const format = d.format;
+      const ctaText = d.ctaText;
+      const name = generationMode === "format_adaptation" && format
+        ? `${td("format")} ${format}`
+        : `${td("piece")} ${variantIndex + 1}`;
       return {
         id: d.id,
         campaignId: d.campaignId,
@@ -236,11 +195,15 @@ export default function CampaignWorkspacePage() {
         prompt: d.prompt ?? "",
         creditCost: d.cost ? d.cost / 100 : 2.4,
         imageUrl: d.imageUrl ?? undefined,
+        generationMode,
+        variantIndex,
+        ctaText: ctaText ?? undefined,
+        format: format ?? undefined,
         createdAt: d.createdAt,
         completedAt: d.status === "completed" ? d.updatedAt : undefined,
       };
     });
-  }, [derivationsData, campaignPlatforms, td]);
+  }, [derivationsData, campaignPlatforms, td, campaign?.generationMode]);
 
   // Set page title
   useEffect(() => {
@@ -261,7 +224,7 @@ export default function CampaignWorkspacePage() {
   );
 
   const handleNext = useCallback(() => {
-    if (currentStep < 5) {
+    if (currentStep < 4) {
       goToStep((currentStep + 1) as WizardStep);
     }
   }, [currentStep, goToStep]);
@@ -298,6 +261,13 @@ export default function CampaignWorkspacePage() {
           offer: data.offer,
           constraints: data.constraints,
           notes: data.notes,
+          generationMode: data.generationMode,
+          ctaVariants: data.ctaVariants.filter((v) => v.trim().length > 0).length > 0
+            ? data.ctaVariants
+            : undefined,
+          targetFormats: data.generationMode === "format_adaptation"
+            ? ["1:1", "4:5", "9:16"]
+            : undefined,
         });
       }
       addToast("success", tc("briefingSaved"));
@@ -320,6 +290,13 @@ export default function CampaignWorkspacePage() {
           constraints: data.constraints,
           notes: data.notes,
           status: "draft",
+          generationMode: data.generationMode,
+          ctaVariants: data.ctaVariants.filter((v) => v.trim().length > 0).length > 0
+            ? data.ctaVariants
+            : undefined,
+          targetFormats: data.generationMode === "format_adaptation"
+            ? ["1:1", "4:5", "9:16"]
+            : undefined,
         });
       }
       addToast("info", tc("draftSaved"));
@@ -327,37 +304,12 @@ export default function CampaignWorkspacePage() {
     [campaign, isNew, updateCampaign, addToast, tc]
   );
 
-  // ============================================
-  // Step 2: Upload Handlers
-  // ============================================
-
-  const handleUploadContinue = useCallback(() => {
-    addToast("success", tc("success"));
-    handleNext();
-  }, [addToast, tc, handleNext]);
-
-  // ============================================
-  // Step 3: Plan Handlers
-  // ============================================
-
-  const handleApprovePlan = useCallback(() => {
-    setPlanApproved(true);
-    updatePlanStatus.mutate("approved", {
-      onSuccess: () => {
-        addToast("success", tc("planApproved"));
-      },
-      onError: () => {
-        addToast("error", tc("failedApprovePlan"));
-      },
-    });
-  }, [updatePlanStatus, addToast, tc]);
-
   const handleGenerateDerivations = useCallback(() => {
     if (createDerivations.isPending) return;
     createDerivations.mutate(undefined, {
       onSuccess: () => {
         addToast("success", tc("derivationsQueued"));
-        handleNext();
+        goToStep(3);
         if (campaign && !isNew) {
           updateCampaign.mutate({ status: "generating" });
         }
@@ -366,7 +318,15 @@ export default function CampaignWorkspacePage() {
         addToast("error", tc("failedQueueDerivations"));
       },
     });
-  }, [createDerivations, createDerivations.isPending, handleNext, campaign, isNew, updateCampaign, addToast, tc]);
+  }, [createDerivations, createDerivations.isPending, goToStep, campaign, isNew, updateCampaign, addToast, tc]);
+
+  // ============================================
+  // Step 2: Upload Handlers
+  // ============================================
+
+  const handleUploadContinue = useCallback(() => {
+    handleGenerateDerivations();
+  }, [handleGenerateDerivations]);
 
   // ============================================
   // Step 4: Derivations Handlers
@@ -374,7 +334,7 @@ export default function CampaignWorkspacePage() {
 
   const handlePreview = useCallback(
     (id: string) => {
-      setCurrentStep(5);
+      setCurrentStep(4);
       addToast("info", tc("openingComparison"));
     },
     [addToast, tc]
@@ -399,7 +359,7 @@ export default function CampaignWorkspacePage() {
   );
 
   const handleReviewAll = useCallback(() => {
-    goToStep(5);
+    goToStep(4);
   }, [goToStep]);
 
   // ============================================
@@ -453,8 +413,6 @@ export default function CampaignWorkspacePage() {
   // Render Step Content
   // ============================================
 
-  const isPlanGenerating = generatePlan.isPending;
-
   const renderStepContent = () => {
     switch (currentStep) {
       case 1:
@@ -467,23 +425,12 @@ export default function CampaignWorkspacePage() {
           />
         );
       case 2:
-        return <UploadStep onContinue={handleUploadContinue} />;
+        return <UploadStep campaignId={campaignId} onContinue={handleUploadContinue} />;
       case 3:
-        return (
-          <PlanStep
-            key={creativePlan?.id ?? "no-plan"}
-            plan={creativePlan}
-            onApprove={handleApprovePlan}
-            onGenerateDerivations={handleGenerateDerivations}
-            approved={planApproved || planData?.status === "approved"}
-            isGenerating={createDerivations.isPending}
-          />
-        );
-      case 4:
         return (
           <DerivationsStep
             derivations={allDerivations}
-            campaignId={campaignId}
+            generationMode={campaign?.generationMode}
             onPreview={handlePreview}
             onDownload={handleDownloadDerivation}
             onRegenerate={handleRegenerateDerivation}
@@ -492,7 +439,7 @@ export default function CampaignWorkspacePage() {
             isGeneratingMore={createDerivations.isPending}
           />
         );
-      case 5:
+      case 4:
         return (
           <ReviewStep
             derivations={allDerivations}
@@ -536,12 +483,10 @@ export default function CampaignWorkspacePage() {
       case 1:
         return direction === "prev" ? "" : ts("continueToUpload");
       case 2:
-        return direction === "prev" ? ts("backToBrief") : ts("generatePlan");
+        return direction === "prev" ? ts("backToBrief") : ts("startGeneration");
       case 3:
-        return direction === "prev" ? ts("backToUpload") : ts("startGeneration");
+        return direction === "prev" ? ts("backToUpload") : ts("reviewAll");
       case 4:
-        return direction === "prev" ? ts("backToPlan") : ts("reviewAll");
-      case 5:
         return direction === "prev" ? ts("backToGallery") : ts("exportSelected");
       default:
         return "";
@@ -672,9 +617,8 @@ export default function CampaignWorkspacePage() {
           "bg-[var(--surface-base)] rounded-xl border border-[var(--border-dim)] min-h-[400px]",
           currentStep === 1 && "p-6 md:p-8",
           currentStep === 2 && "p-6 md:p-8",
-          currentStep === 3 && "p-0 overflow-hidden",
-          currentStep === 4 && "p-6",
-          currentStep === 5 && "p-6"
+          currentStep === 3 && "p-6",
+          currentStep === 4 && "p-6"
         )}
       >
         <AnimatePresence mode="wait" custom={direction}>
@@ -695,60 +639,38 @@ export default function CampaignWorkspacePage() {
         </AnimatePresence>
       </div>
 
-      {/* ---- Loading overlay for plan generation ---- */}
-      {isPlanGenerating && currentStep === 3 && (
+      {/* ---- Navigation Footer ---- */}
+      {currentStep !== 1 && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          transition={{ delay: 0.2 }}
+          className="flex items-center justify-between mt-6 max-w-[960px] mx-auto px-4"
         >
-          <div className="bg-[var(--surface-base)] rounded-xl border border-[var(--border-dim)] px-8 py-6 flex flex-col items-center gap-3">
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
-            >
-              <Sparkles size={28} className="text-[var(--accent-purple)]" />
-            </motion.div>
-            <p className="text-sm font-medium text-[var(--text-primary)]">
-              {tp("generating")}
-            </p>
-          </div>
+          <button
+            onClick={handlePrev}
+            className={cn(
+              "inline-flex items-center rounded-md px-5 py-2.5 text-sm font-medium transition-all duration-200",
+              "bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] hover:border-[var(--border-medium)] active:scale-[0.98]"
+            )}
+          >
+            {currentStep > 1 ? getStepNavLabel(currentStep, "prev") : ""}
+          </button>
+
+          <button
+            onClick={currentStep === 2 ? handleGenerateDerivations : handleNext}
+            disabled={currentStep === 2 || currentStep === 4 || createDerivations.isPending}
+            className={cn(
+              "inline-flex items-center rounded-md px-6 py-2.5 text-sm font-medium transition-all duration-200",
+              currentStep === 2 || currentStep === 4 || createDerivations.isPending
+                ? "bg-[var(--surface-raised)] text-[var(--text-muted)] border border-[var(--border-dim)] cursor-default"
+                : "bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-light)] hover:-translate-y-px active:scale-[0.98]"
+            )}
+          >
+            {createDerivations.isPending ? tc("loading") : getStepNavLabel(currentStep, "next")}
+          </button>
         </motion.div>
       )}
-
-      {/* ---- Navigation Footer ---- */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.2 }}
-        className="flex items-center justify-between mt-6 max-w-[960px] mx-auto px-4"
-      >
-        <button
-          onClick={handlePrev}
-          disabled={currentStep === 1}
-          className={cn(
-            "inline-flex items-center rounded-md px-5 py-2.5 text-sm font-medium transition-all duration-200",
-            currentStep === 1
-              ? "text-[var(--text-muted)] cursor-not-allowed"
-              : "bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] hover:border-[var(--border-medium)] active:scale-[0.98]"
-          )}
-        >
-          {currentStep > 1 ? getStepNavLabel(currentStep, "prev") : ""}
-        </button>
-
-        <button
-          onClick={handleNext}
-          disabled={currentStep === 5}
-          className={cn(
-            "inline-flex items-center rounded-md px-6 py-2.5 text-sm font-medium transition-all duration-200",
-            currentStep === 5
-              ? "bg-[var(--surface-raised)] text-[var(--text-muted)] border border-[var(--border-dim)] cursor-default"
-              : "bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-light)] hover:-translate-y-px active:scale-[0.98]"
-          )}
-        >
-          {getStepNavLabel(currentStep, "next")}
-        </button>
-      </motion.div>
     </div>
   );
 }

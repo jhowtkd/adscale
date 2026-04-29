@@ -81,4 +81,58 @@ describe("campaign repository", () => {
     expect(mockWhere).toHaveBeenCalledWith(expect.anything());
     expect(result).toEqual({ id: "camp-1" });
   });
+
+  it("createCampaign defaults generationMode to art_variation", async () => {
+    const mockReturning = vi.fn().mockResolvedValue([{ id: "camp-1" }]);
+    const mockValues = vi.fn().mockReturnValue({ returning: mockReturning });
+    (db.insert as ReturnType<typeof vi.fn>).mockReturnValue({ values: mockValues });
+
+    await createCampaign(workspaceId, { name: "Test Campaign" });
+
+    expect(mockValues).toHaveBeenCalledWith(
+      expect.objectContaining({ generationMode: "art_variation" })
+    );
+  });
+
+  it("createCampaign stores generationMode, ctaVariants, targetFormats", async () => {
+    const mockReturning = vi.fn().mockResolvedValue([{ id: "camp-1" }]);
+    const mockValues = vi.fn().mockReturnValue({ returning: mockReturning });
+    (db.insert as ReturnType<typeof vi.fn>).mockReturnValue({ values: mockValues });
+
+    await createCampaign(workspaceId, {
+      name: "Test Campaign",
+      generationMode: "format_adaptation",
+      ctaVariants: ["CTA 1:1", "CTA 4:5", "CTA 9:16"],
+      targetFormats: ["1:1", "4:5", "9:16"],
+    });
+
+    expect(mockValues).toHaveBeenCalledWith(
+      expect.objectContaining({
+        generationMode: "format_adaptation",
+        ctaVariants: ["CTA 1:1", "CTA 4:5", "CTA 9:16"],
+        targetFormats: ["1:1", "4:5", "9:16"],
+      })
+    );
+  });
+
+  it("updateCampaign updates generationMode, ctaVariants, targetFormats", async () => {
+    const mockReturning = vi.fn().mockResolvedValue([{ id: "camp-1" }]);
+    const mockWhere = vi.fn().mockReturnValue({ returning: mockReturning });
+    const mockSet = vi.fn().mockReturnValue({ where: mockWhere });
+    (db.update as ReturnType<typeof vi.fn>).mockReturnValue({ set: mockSet });
+
+    await updateCampaign("camp-1", workspaceId, {
+      generationMode: "art_variation",
+      ctaVariants: ["Compre", "Saiba mais"],
+      targetFormats: ["1:1"],
+    });
+
+    expect(mockSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        generationMode: "art_variation",
+        ctaVariants: ["Compre", "Saiba mais"],
+        targetFormats: ["1:1"],
+      })
+    );
+  });
 });

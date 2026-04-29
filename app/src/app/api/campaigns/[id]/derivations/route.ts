@@ -1,23 +1,21 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { apiError } from "@/lib/api-response";
+import { apiError, handleApiError } from "@/lib/api-response";
 import { eq, and, sql } from "drizzle-orm";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
-import { getCampaignById } from "@/server/repositories/campaign";
+import { getCampaignById, updateCampaign } from "@/server/repositories/campaign";
 import { getPlanByCampaign } from "@/server/repositories/plan";
 import {
   createDerivation,
   getDerivationsByCampaign,
+  updateDerivationStatus,
 } from "@/server/repositories/derivation";
 import { inngest } from "@/server/jobs/client";
 import { db } from "@/server/db";
 import { derivations } from "@/server/db/schema";
 import { getUserLocale } from "@/server/repositories/user";
+import { getAssetsByCampaign } from "@/server/repositories/asset";
 import { env } from "@/server/validation/env";
-
-const createDerivationsSchema = z.object({
-  count: z.number().min(1).max(20).optional(),
-});
 
 export async function POST(
   request: Request,
@@ -32,13 +30,6 @@ export async function POST(
     if (!campaign) {
       return apiError("campaignNotFound", 404);
     }
-
-    const body = await request.json();
-    const parsed = createDerivationsSchema.safeParse(body);
-    if (!parsed.success) {
-      return apiError("invalidRequestBody", 400, parsed.error.flatten());
-    }
-    const count = parsed.data.count ?? 1;
 
     const plan = await getPlanByCampaign(campaignId, workspace.id);
 
@@ -57,17 +48,71 @@ export async function POST(
       return apiError("derivationsInProgress", 429);
     }
 
-    const created: Awaited<ReturnType<typeof createDerivation>>[] = [];
+    // Build derivation jobs from campaign configuration
+    const generationMode = campaign.generationMode ?? "art_variation";
+    const jobs: Array<{
+      variantIndex: number;
+      ctaText: string | null;
+      format: string;
+    }> = [];
 
-    for (let i = 0; i < count; i++) {
+    if (generationMode === "art_variation") {
+      const ctaVariants = campaign.ctaVariants ?? [];
+      const validCtas = ctaVariants
+        .map((text, index) => ({ text: text.trim(), index }))
+        .filter((item) => item.text.length > 0);
+
+      if (validCtas.length === 0) {
+        return apiError("noCtasProvided", 400);
+      }
+
+      // Infer base format from the first campaign asset
+      const assets = await getAssetsByCampaign(campaignId, workspace.id);
+      const baseAsset = assets[0];
+      let baseFormat = "1:1";
+      if (baseAsset?.width && baseAsset?.height && baseAsset.width > 0 && baseAsset.height > 0) {
+        const ratio = baseAsset.height / baseAsset.width;
+        if (ratio > 1.35) baseFormat = "9:16";
+        else if (ratio > 1.1) baseFormat = "4:5";
+        else baseFormat = "1:1";
+      }
+
+      for (const item of validCtas) {
+        jobs.push({
+          variantIndex: item.index,
+          ctaText: item.text,
+          format: baseFormat,
+        });
+      }
+    } else {
+      // format_adaptation: always 3 formats
+      const formats = campaign.targetFormats ?? ["1:1", "4:5", "9:16"];
+      const ctaVariants = campaign.ctaVariants ?? [];
+      for (let i = 0; i < formats.length; i++) {
+        jobs.push({
+          variantIndex: i,
+          ctaText: ctaVariants[i]?.trim() || null,
+          format: formats[i],
+        });
+      }
+    }
+
+    const created: Awaited<ReturnType<typeof createDerivation>>[] = [];
+    let queuedCount = 0;
+
+    for (const job of jobs) {
       const derivation = await createDerivation({
         campaignId,
         workspaceId: workspace.id,
         planId: plan?.id ?? undefined,
         status: "queued",
+        generationMode,
+        variantIndex: job.variantIndex,
+        ctaText: job.ctaText ?? undefined,
+        format: job.format,
       });
       created.push(derivation);
-      console.log(`[derivations POST] created derivationId=${derivation.id}`);
+      console.log(`[derivations POST] created derivationId=${derivation.id} mode=${generationMode} index=${job.variantIndex} format=${job.format}`);
 
       try {
         await inngest.send({
@@ -76,28 +121,28 @@ export async function POST(
             derivationId: derivation.id,
             campaignId,
             workspaceId: workspace.id,
-            locale: (user as { locale?: string }).locale,
+            locale,
+            generationMode,
+            variantIndex: job.variantIndex,
+            ctaText: job.ctaText,
+            format: job.format,
           },
         });
         console.log(`[derivations POST] event sent derivationId=${derivation.id}`);
+        queuedCount++;
       } catch (sendErr) {
         console.error(`[derivations POST] event send FAILED derivationId=${derivation.id}`, sendErr);
-        throw sendErr;
+        await updateDerivationStatus(derivation.id, workspace.id, "failed");
       }
     }
 
+    await updateCampaign(campaignId, workspace.id, {
+      status: queuedCount > 0 ? "generating" : "failed",
+    });
+
     return NextResponse.json({ derivations: created }, { status: 201 });
   } catch (error) {
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return apiError("unauthorized", 401);
-    }
-    if (error instanceof Error && error.message === "No workspace") {
-      return apiError("noWorkspace", 403);
-    }
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return handleApiError(error, "campaigns.[id].derivations.POST");
   }
 }
 
@@ -116,15 +161,6 @@ export async function GET(
     }));
     return NextResponse.json({ derivations: derivationsWithImageUrl });
   } catch (error) {
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return apiError("unauthorized", 401);
-    }
-    if (error instanceof Error && error.message === "No workspace") {
-      return apiError("noWorkspace", 403);
-    }
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return handleApiError(error, "campaigns.[id].derivations.GET");
   }
 }

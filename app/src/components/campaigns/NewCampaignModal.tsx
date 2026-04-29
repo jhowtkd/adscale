@@ -24,7 +24,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Check } from "lucide-react";
 
 // ============================================
 // Types
@@ -33,12 +32,7 @@ import { Check } from "lucide-react";
 interface NewCampaignForm {
   name: string;
   clientName: string;
-  objective: string;
-  targetAudience: string;
-  platforms: AdPlatform[];
-  toneOfVoice: string;
-  primaryCTA: string;
-  offer: string;
+  generationMode: "art_variation" | "format_adaptation";
   constraints: string;
   notes: string;
 }
@@ -46,8 +40,7 @@ interface NewCampaignForm {
 interface FormErrors {
   name?: string;
   clientName?: string;
-  objective?: string;
-  platforms?: string;
+  generationMode?: string;
 }
 
 interface NewCampaignModalProps {
@@ -55,6 +48,10 @@ interface NewCampaignModalProps {
   onOpenChange: (open: boolean) => void;
   onSubmit: (campaign: {
     name: string;
+    client: string;
+    generationMode: "art_variation" | "format_adaptation";
+    constraints?: string;
+    notes?: string;
     platforms: AdPlatform[];
     status: CampaignStatus;
     variations: number;
@@ -76,36 +73,23 @@ export default function NewCampaignModal({
   const tCommon = useTranslations("common");
   const tErrors = useTranslations("errors");
 
-  const OBJECTIVES = [
-    { value: "awareness", label: tCampaign("objectives.awareness") },
-    { value: "consideration", label: tCampaign("objectives.consideration") },
-    { value: "conversion", label: tCampaign("objectives.conversion") },
-    { value: "retargeting", label: tCampaign("objectives.retargeting") },
-  ];
-
-  const TONE_OPTIONS = [
-    { value: "professional", label: tCampaign("tones.professional") },
-    { value: "casual", label: tCampaign("tones.casual") },
-    { value: "bold", label: tCampaign("tones.bold") },
-    { value: "emotional", label: tCampaign("tones.emotional") },
-    { value: "luxury", label: tCampaign("tones.luxury") },
-  ];
-
-  const PLATFORM_OPTIONS: { value: AdPlatform; label: string }[] = [
-    { value: "Meta", label: tCampaign("platformNames.Meta") },
-    { value: "TikTok", label: tCampaign("platformNames.TikTok") },
-    { value: "Google", label: tCampaign("platformNames.Google") },
+  const MODE_OPTIONS = [
+    {
+      value: "art_variation" as const,
+      label: tCampaign("modes.artVariation.label"),
+      description: tCampaign("modes.artVariation.description"),
+    },
+    {
+      value: "format_adaptation" as const,
+      label: tCampaign("modes.formatAdaptation.label"),
+      description: tCampaign("modes.formatAdaptation.description"),
+    },
   ];
 
   const [form, setForm] = useState<NewCampaignForm>({
     name: "",
     clientName: "",
-    objective: "",
-    targetAudience: "",
-    platforms: [],
-    toneOfVoice: "",
-    primaryCTA: "",
-    offer: "",
+    generationMode: "art_variation",
     constraints: "",
     notes: "",
   });
@@ -127,44 +111,29 @@ export default function NewCampaignModal({
     [touched]
   );
 
-  const togglePlatform = useCallback((platform: AdPlatform) => {
-    setForm((prev) => {
-      const has = prev.platforms.includes(platform);
-      return {
-        ...prev,
-        platforms: has
-          ? prev.platforms.filter((p) => p !== platform)
-          : [...prev.platforms, platform],
-      };
-    });
-    setErrors((prev) => {
-      const next = { ...prev };
-      delete next.platforms;
-      return next;
-    });
-  }, []);
-
   const validate = useCallback((): boolean => {
     const newErrors: FormErrors = {};
     if (!form.name.trim()) newErrors.name = tErrors("nameRequired");
     if (!form.clientName.trim()) newErrors.clientName = tErrors("clientRequired");
-    if (!form.objective) newErrors.objective = tErrors("objectiveRequired");
-    if (form.platforms.length === 0) newErrors.platforms = tErrors("platformRequired");
+    if (!form.generationMode) newErrors.generationMode = tErrors("modeRequired");
     setErrors(newErrors);
     setTouched({
       name: true,
       clientName: true,
-      objective: true,
-      platforms: true,
+      generationMode: true,
     });
     return Object.keys(newErrors).length === 0;
-  }, [form]);
+  }, [form, tErrors]);
 
   const handleSubmit = useCallback(() => {
     if (!validate()) return;
     onSubmit({
       name: form.name,
-      platforms: form.platforms,
+      client: form.clientName,
+      generationMode: form.generationMode,
+      constraints: form.constraints || undefined,
+      notes: form.notes || undefined,
+      platforms: ["Meta"],
       status: "draft",
       variations: 0,
       creditsUsed: 0,
@@ -172,12 +141,7 @@ export default function NewCampaignModal({
     setForm({
       name: "",
       clientName: "",
-      objective: "",
-      targetAudience: "",
-      platforms: [],
-      toneOfVoice: "",
-      primaryCTA: "",
-      offer: "",
+      generationMode: "art_variation",
       constraints: "",
       notes: "",
     });
@@ -194,7 +158,7 @@ export default function NewCampaignModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto bg-[var(--surface-raised)] border border-[var(--border-dim)] p-0 gap-0">
+      <DialogContent className="max-w-lg max-h-[calc(100vh-2rem)] overflow-hidden bg-[var(--surface-raised)] border border-[var(--border-dim)] p-0 gap-0">
         {/* Header */}
         <DialogHeader className="px-6 pt-6 pb-4">
           <DialogTitle className="text-[18px] font-semibold text-[var(--text-primary)]">
@@ -206,7 +170,7 @@ export default function NewCampaignModal({
         </DialogHeader>
 
         {/* Form */}
-        <div className="px-6 pb-4 space-y-5">
+        <div className="max-h-[calc(100vh-10rem)] overflow-y-auto px-6 pb-4 space-y-5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           {/* Campaign Name */}
           <div className="space-y-1.5">
             <Label className="text-[13px] text-[var(--text-secondary)]">
@@ -265,152 +229,48 @@ export default function NewCampaignModal({
             </AnimatePresence>
           </div>
 
-          {/* Objective */}
+          {/* Generation Mode */}
           <div className="space-y-1.5">
             <Label className="text-[13px] text-[var(--text-secondary)]">
-              {tCampaign("objective")} <span className="text-[var(--accent-rose)]">*</span>
+              {tCampaign("mode")} <span className="text-[var(--accent-rose)]">*</span>
             </Label>
-            <Select
-              value={form.objective}
-              onValueChange={(value) => updateField("objective", value ?? "")}
-            >
-              <SelectTrigger
-                className={cn(
-                  "w-full bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)]",
-                  errors.objective && "border-[var(--accent-rose)]"
-                )}
-              >
-                <SelectValue placeholder={tBriefing("objectivePlaceholder")} />
-              </SelectTrigger>
-              <SelectContent className="bg-[var(--surface-raised)] border-[var(--border-dim)]">
-                {OBJECTIVES.map((obj) => (
-                  <SelectItem
-                    key={obj.value}
-                    value={obj.value}
-                    className="text-[var(--text-primary)] hover:bg-[var(--surface-base)] focus:bg-[var(--surface-base)]"
-                  >
-                    {obj.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <AnimatePresence>
-              {errors.objective && (
-                <motion.p
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  className="text-xs text-[var(--accent-rose)]"
+            <div className="grid grid-cols-2 gap-3">
+              {MODE_OPTIONS.map((mode) => (
+                <button
+                  key={mode.value}
+                  type="button"
+                  onClick={() => updateField("generationMode", mode.value)}
+                  className={cn(
+                    "relative flex flex-col items-start gap-1 rounded-lg border px-4 py-3 text-left transition-all duration-200",
+                    form.generationMode === mode.value
+                      ? "border-[var(--accent-blue)] bg-[rgba(99,102,241,0.08)] ring-1 ring-[var(--accent-blue)]"
+                      : "border-[var(--border-dim)] bg-[var(--surface-base)] hover:border-[var(--border-medium)] hover:bg-[var(--surface-raised)]"
+                  )}
                 >
-                  {errors.objective}
-                </motion.p>
-              )}
-            </AnimatePresence>
-          </div>
-
-          {/* Target Audience */}
-          <div className="space-y-1.5">
-            <Label className="text-[13px] text-[var(--text-secondary)]">
-              {tCampaign("audience")}
-            </Label>
-            <Textarea
-              value={form.targetAudience}
-              onChange={(e) => updateField("targetAudience", e.target.value)}
-              placeholder={tBriefing("audiencePlaceholder")}
-              className="bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] min-h-[60px]"
-            />
-          </div>
-
-          {/* Platforms */}
-          <div className="space-y-2">
-            <Label className="text-[13px] text-[var(--text-secondary)]">
-              {tCampaign("platforms")} <span className="text-[var(--accent-rose)]">*</span>
-            </Label>
-            <div className="flex flex-wrap gap-2">
-              {PLATFORM_OPTIONS.map((platform) => {
-                const isSelected = form.platforms.includes(platform.value);
-                return (
-                  <button
-                    key={platform.value}
-                    type="button"
-                    onClick={() => togglePlatform(platform.value)}
-                    className={cn(
-                      "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium border transition-all duration-200",
-                      isSelected
-                        ? "bg-[rgba(99,102,241,0.15)] border-[var(--accent-blue)] text-[var(--accent-blue-light)]"
-                        : "bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border-medium)]"
-                    )}
-                  >
-                    {isSelected && <Check size={12} />}
-                    {platform.label}
-                  </button>
-                );
-              })}
+                  <span className="text-sm font-medium text-[var(--text-primary)]">
+                    {mode.label}
+                  </span>
+                  <span className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                    {mode.description}
+                  </span>
+                  {form.generationMode === mode.value && (
+                    <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-[var(--accent-blue)]" />
+                  )}
+                </button>
+              ))}
             </div>
             <AnimatePresence>
-              {errors.platforms && (
+              {errors.generationMode && (
                 <motion.p
                   initial={{ opacity: 0, y: -4 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -4 }}
                   className="text-xs text-[var(--accent-rose)]"
                 >
-                  {errors.platforms}
+                  {errors.generationMode}
                 </motion.p>
               )}
             </AnimatePresence>
-          </div>
-
-          {/* Tone of Voice */}
-          <div className="space-y-1.5">
-            <Label className="text-[13px] text-[var(--text-secondary)]">
-              {tCampaign("tone")}
-            </Label>
-            <Select
-              value={form.toneOfVoice}
-              onValueChange={(value) => updateField("toneOfVoice", value ?? "")}
-            >
-              <SelectTrigger className="w-full bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)]">
-                <SelectValue placeholder={tBriefing("tonePlaceholder")} />
-              </SelectTrigger>
-              <SelectContent className="bg-[var(--surface-raised)] border-[var(--border-dim)]">
-                {TONE_OPTIONS.map((tone) => (
-                  <SelectItem
-                    key={tone.value}
-                    value={tone.value}
-                    className="text-[var(--text-primary)] hover:bg-[var(--surface-base)] focus:bg-[var(--surface-base)]"
-                  >
-                    {tone.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Primary CTA */}
-          <div className="space-y-1.5">
-            <Label className="text-[13px] text-[var(--text-secondary)]">
-              {tCampaign("cta")}
-            </Label>
-            <Input
-              value={form.primaryCTA}
-              onChange={(e) => updateField("primaryCTA", e.target.value)}
-              placeholder={tBriefing("ctaPlaceholder")}
-              className="bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
-            />
-          </div>
-
-          {/* Offer/Promotion */}
-          <div className="space-y-1.5">
-            <Label className="text-[13px] text-[var(--text-secondary)]">
-              {tCampaign("offer")}
-            </Label>
-            <Input
-              value={form.offer}
-              onChange={(e) => updateField("offer", e.target.value)}
-              placeholder='e.g., 20% OFF, Free Shipping'
-              className="bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
-            />
           </div>
 
           {/* Constraints */}
@@ -421,7 +281,7 @@ export default function NewCampaignModal({
             <Textarea
               value={form.constraints}
               onChange={(e) => updateField("constraints", e.target.value)}
-              placeholder="No red backgrounds, Always show product, etc."
+              placeholder={tBriefing("constraintsPlaceholder")}
               className="bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] min-h-[60px]"
             />
           </div>

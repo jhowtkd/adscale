@@ -13,7 +13,6 @@ import { useTranslations } from "next-intl";
 export default function SignupPage() {
   const router = useRouter();
   const t = useTranslations("auth");
-  const tc = useTranslations("common");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

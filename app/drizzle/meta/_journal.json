@@ -8,6 +8,13 @@
       "when": 1777374655049,
       "tag": "0000_sleepy_moon_knight",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1777402461487,
+      "tag": "0001_add_v3_derivation_fields",
+      "breakpoints": true
     }
   ]
 }

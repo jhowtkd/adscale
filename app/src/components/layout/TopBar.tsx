@@ -1,21 +1,47 @@
 "use client";
 
+import { useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useAppStore } from "@/lib/store";
+import { authClient } from "@/lib/auth-client";
+import { useDashboard } from "@/lib/hooks/use-dashboard";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import {
   Search,
   Bell,
   Coins,
+  Clock3,
 } from "lucide-react";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
+import { formatDistanceToNow } from "date-fns";
 
 export default function TopBar() {
   const tCommon = useTranslations("common");
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const { data: session } = authClient.useSession();
+  const { data: dashboardData } = useDashboard();
   const user = useAppStore((s) => s.user);
   const currentPageTitle = useAppStore((s) => s.currentPageTitle);
   const sidebarCollapsed = useAppStore((s) => s.sidebarCollapsed);
   const sidebarWidth = sidebarCollapsed ? 64 : 240;
+  const sessionUser = session?.user;
+  const displayName =
+    sessionUser?.name?.trim() ||
+    `${user.firstName} ${user.lastName}`.trim() ||
+    sessionUser?.email ||
+    user.email;
+  const initials = useMemo(() => {
+    return (
+      displayName
+        .split(" ")
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0]?.toUpperCase() ?? "")
+        .join("") || "U"
+    );
+  }, [displayName]);
+  const notifications = dashboardData?.recentActivity ?? [];
 
   return (
     <header
@@ -57,7 +83,7 @@ export default function TopBar() {
       </div>
 
       {/* Right: Actions */}
-      <div className="flex items-center gap-2 pr-4">
+      <div className="relative flex items-center gap-2 pr-4">
         {/* Credit Balance Pill */}
         <div
           className={cn(
@@ -76,6 +102,8 @@ export default function TopBar() {
         <button
           type="button"
           aria-label={tCommon("notifications")}
+          aria-expanded={notificationsOpen}
+          onClick={() => setNotificationsOpen((open) => !open)}
           className={cn(
             "relative flex items-center justify-center h-9 w-9 rounded-full",
             "text-[var(--text-muted)] hover:text-[var(--text-primary)]",
@@ -84,12 +112,63 @@ export default function TopBar() {
           )}
         >
           <Bell size={18} />
-          {/* Unread dot */}
-          <span
-            aria-hidden="true"
-            className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-[var(--accent-rose)]"
-          />
+          {notifications.length > 0 && (
+            <span
+              aria-hidden="true"
+              className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--accent-rose)] px-1 text-[10px] font-semibold text-white"
+            >
+              {notifications.length > 9 ? "9+" : notifications.length}
+            </span>
+          )}
         </button>
+
+        <AnimatePresence>
+          {notificationsOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: -8, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -8, scale: 0.98 }}
+              transition={{ duration: 0.15 }}
+              className="absolute right-24 top-11 z-50 w-[360px] rounded-xl border border-[var(--border-dim)] bg-[var(--surface-raised)] shadow-[0_24px_80px_rgba(0,0,0,0.45)]"
+            >
+              <div className="flex items-center justify-between border-b border-[var(--border-dim)] px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">
+                    {tCommon("notifications")}
+                  </p>
+                  <p className="text-xs text-[var(--text-muted)]">
+                    {notifications.length} item{notifications.length === 1 ? "" : "s"}
+                  </p>
+                </div>
+                <Clock3 size={16} className="text-[var(--text-muted)]" />
+              </div>
+              <div className="max-h-[320px] overflow-y-auto">
+                {notifications.length === 0 ? (
+                  <div className="px-4 py-6 text-sm text-[var(--text-muted)]">
+                    Nenhuma notificação nova.
+                  </div>
+                ) : (
+                  notifications.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex gap-3 border-b border-[var(--border-dim)] px-4 py-3 last:border-b-0"
+                    >
+                      <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-[rgba(99,102,241,0.12)] text-[var(--accent-blue)]">
+                        <Clock3 size={14} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm text-[var(--text-primary)]">{item.message}</p>
+                        <p className="mt-1 text-xs text-[var(--text-muted)]">
+                          {formatDistanceToNow(item.timestamp, { addSuffix: true })}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* User Avatar */}
         <button
@@ -103,8 +182,7 @@ export default function TopBar() {
             "transition-all duration-200"
           )}
         >
-          {user.firstName[0]}
-          {user.lastName[0]}
+          {initials}
         </button>
       </div>
     </header>

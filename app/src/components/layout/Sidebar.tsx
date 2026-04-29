@@ -2,6 +2,7 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@/lib/store";
+import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -17,6 +18,7 @@ import {
 
 export default function Sidebar() {
   const tNav = useTranslations("navigation");
+  const { data: session } = authClient.useSession();
 
   const workspaceNavItems = [
     { icon: LayoutDashboard, label: tNav("dashboard"), href: "/" },
@@ -31,6 +33,20 @@ export default function Sidebar() {
   const toggleSidebar = useAppStore((s) => s.toggleSidebar);
   const user = useAppStore((s) => s.user);
   const pathname = usePathname();
+  const sessionUser = session?.user;
+  const displayName =
+    sessionUser?.name?.trim() ||
+    `${user.firstName} ${user.lastName}`.trim() ||
+    sessionUser?.email ||
+    user.email;
+  const displayEmail = sessionUser?.email || user.email;
+  const initials =
+    displayName
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? "")
+      .join("") || "U";
 
   const isActive = (href: string) => {
     if (href === "/") return pathname === "/";
@@ -149,8 +165,7 @@ export default function Sidebar() {
           )}
         >
           <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[var(--accent-blue-dim)] flex items-center justify-center text-xs font-semibold text-[var(--accent-blue-light)] ring-2 ring-[var(--border-medium)]">
-            {user.firstName[0]}
-            {user.lastName[0]}
+            {initials}
           </div>
           <AnimatePresence>
             {!sidebarCollapsed && (
@@ -162,10 +177,10 @@ export default function Sidebar() {
                 className="overflow-hidden min-w-0"
               >
                 <p className="text-sm font-medium text-[var(--text-primary)] truncate">
-                  {user.firstName} {user.lastName}
+                  {displayName}
                 </p>
                 <p className="text-xs text-[var(--text-muted)] truncate">
-                  {user.email}
+                  {displayEmail}
                 </p>
               </motion.div>
             )}

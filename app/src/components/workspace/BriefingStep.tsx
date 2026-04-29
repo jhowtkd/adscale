@@ -2,19 +2,12 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Sparkles, Check } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import type { Campaign } from "@/lib/mock-data";
 import type { AdPlatform } from "@/lib/mock-data";
 
@@ -32,6 +25,8 @@ export interface BriefingFormData {
   offer: string;
   constraints: string;
   notes: string;
+  generationMode: "art_variation" | "format_adaptation";
+  ctaVariants: [string, string, string];
 }
 
 interface BriefingStepProps {
@@ -39,40 +34,6 @@ interface BriefingStepProps {
   onContinue: (data: BriefingFormData) => void;
   onSaveDraft: (data: BriefingFormData) => void;
 }
-
-// ============================================
-// Constants
-// ============================================
-
-const objectives = [
-  "Brand Awareness",
-  "Conversions",
-  "App Installs",
-  "Lead Generation",
-  "Engagement",
-  "Traffic",
-  "Video Views",
-  "Sales",
-];
-
-const tones = [
-  "Professional",
-  "Casual",
-  "Playful",
-  "Urgent",
-  "Luxury",
-  "Friendly",
-  "Bold",
-  "Informative",
-  "Emotional",
-  "Humorous",
-];
-
-const platformOptions: { value: AdPlatform; label: string }[] = [
-  { value: "Meta", label: "Meta" },
-  { value: "TikTok", label: "TikTok" },
-  { value: "Google", label: "Google Ads" },
-];
 
 // ============================================
 // Animation variants
@@ -104,20 +65,25 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
   const tCampaign = useTranslations("campaign");
   const tBriefing = useTranslations("briefing");
   const tErrors = useTranslations("errors");
-
   const [formData, setFormData] = useState<BriefingFormData>({
     name: campaign?.name || "",
     client: campaign?.client || "",
     objective: campaign?.objective || "",
     audience: campaign?.audience || "",
-    platforms: (campaign?.platforms as AdPlatform[]) || [],
+    platforms: (campaign?.platforms as AdPlatform[]) || ["Meta"],
     tone: campaign?.tone || "",
     offer: campaign?.offer || "",
     constraints: campaign?.constraints || "",
     notes: campaign?.notes || "",
+    generationMode: campaign?.generationMode || "art_variation",
+    ctaVariants: [
+      campaign?.ctaVariants?.[0] || "",
+      campaign?.ctaVariants?.[1] || "",
+      campaign?.ctaVariants?.[2] || "",
+    ],
   });
 
-  const [showNotes, setShowNotes] = useState(false);
+  const [showNotes, setShowNotes] = useState(Boolean(campaign?.notes));
   const [errors, setErrors] = useState<Partial<Record<keyof BriefingFormData, string>>>({});
 
   const updateField = <K extends keyof BriefingFormData>(field: K, value: BriefingFormData[K]) => {
@@ -131,22 +97,14 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
     }
   };
 
-  const togglePlatform = (platform: AdPlatform) => {
-    setFormData((prev) => ({
-      ...prev,
-      platforms: prev.platforms.includes(platform)
-        ? prev.platforms.filter((p) => p !== platform)
-        : [...prev.platforms, platform],
-    }));
-  };
-
   const validate = (): boolean => {
     const newErrors: Partial<Record<keyof BriefingFormData, string>> = {};
     if (!formData.name.trim()) newErrors.name = tErrors("nameRequired");
     if (!formData.client.trim()) newErrors.client = tErrors("clientRequired");
-    if (!formData.objective) newErrors.objective = tErrors("objectiveRequired");
-    if (formData.platforms.length === 0) newErrors.platforms = tErrors("platformRequired");
-    if (!formData.tone) newErrors.tone = tErrors("toneRequired");
+    const hasAnyCta = formData.ctaVariants.some((v) => v.trim().length > 0);
+    if (formData.generationMode === "art_variation" && !hasAnyCta) {
+      newErrors.ctaVariants = tErrors("ctaRequiredAtLeastOne");
+    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -224,153 +182,92 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
           )}
         </motion.div>
 
-        {/* ---- Campaign Objective ---- */}
+        {/* ---- Generation Mode ---- */}
         <motion.div variants={fieldVariants}>
           <Label className="flex items-center gap-1 text-xs font-medium text-[var(--text-secondary)] mb-2">
-            {tCampaign("objective")}
-            <span className="text-[var(--accent-rose)]">*</span>
+            {tCampaign("mode")}
           </Label>
-          <Select value={formData.objective} onValueChange={(v) => updateField("objective", v ?? "")}>
-            <SelectTrigger
-              className={cn(
-                "h-10 bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)]",
-                errors.objective && "border-[var(--accent-rose)] ring-[3px] ring-[rgba(244,63,94,0.15)]"
-              )}
-            >
-              <SelectValue placeholder={tBriefing("objectivePlaceholder")} />
-            </SelectTrigger>
-            <SelectContent className="bg-[var(--surface-raised)] border-[var(--border-dim)]">
-              {objectives.map((obj) => (
-                <SelectItem
-                  key={obj}
-                  value={obj}
-                  className="text-[var(--text-primary)] hover:bg-[var(--surface-base)] focus:bg-[var(--surface-base)]"
-                >
-                  {obj}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {errors.objective && (
-            <motion.p
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-xs text-[var(--accent-rose)] mt-1"
-            >
-              {errors.objective}
-            </motion.p>
-          )}
-        </motion.div>
-
-        {/* ---- Target Audience ---- */}
-        <motion.div variants={fieldVariants}>
-          <Label className="text-xs font-medium text-[var(--text-secondary)] mb-2 block">
-            {tCampaign("audience")}
-          </Label>
-          <Textarea
-            placeholder={tBriefing("audiencePlaceholder")}
-            rows={3}
-            value={formData.audience}
-            onChange={(e) => updateField("audience", e.target.value)}
-            className="bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-blue)] focus:ring-[3px] focus:ring-[rgba(99,102,241,0.15)] resize-none"
-          />
-          <p className="text-xs text-[var(--text-muted)] mt-1">
-            Describe demographics, interests, and behaviors
-          </p>
-        </motion.div>
-
-        {/* ---- Platforms ---- */}
-        <motion.div variants={fieldVariants}>
-          <Label className="flex items-center gap-1 text-xs font-medium text-[var(--text-secondary)] mb-2">
-            {tCampaign("platforms")}
-            <span className="text-[var(--accent-rose)]">*</span>
-          </Label>
-          <div className="flex flex-wrap gap-2">
-            {platformOptions.map((platform) => {
-              const isSelected = formData.platforms.includes(platform.value);
-              return (
-                <motion.button
-                  key={platform.value}
-                  type="button"
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => togglePlatform(platform.value)}
-                  className={cn(
-                    "inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-all duration-200",
-                    isSelected
-                      ? "bg-[var(--accent-blue-dim)] text-[var(--accent-blue-light)]"
-                      : "bg-[var(--surface-raised)] text-[var(--text-secondary)] hover:scale-[1.02]"
-                  )}
-                >
-                  {isSelected && <Check size={14} strokeWidth={2.5} />}
-                  {platform.label}
-                </motion.button>
-              );
-            })}
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              {
+                value: "art_variation" as const,
+                label: tCampaign("modes.artVariation.label"),
+                description: tCampaign("modes.artVariation.description"),
+              },
+              {
+                value: "format_adaptation" as const,
+                label: tCampaign("modes.formatAdaptation.label"),
+                description: tCampaign("modes.formatAdaptation.description"),
+              },
+            ].map((mode) => (
+              <button
+                key={mode.value}
+                type="button"
+                onClick={() => updateField("generationMode", mode.value)}
+                className={cn(
+                  "relative flex flex-col items-start gap-1 rounded-lg border px-4 py-3 text-left transition-all duration-200",
+                  formData.generationMode === mode.value
+                    ? "border-[var(--accent-blue)] bg-[rgba(99,102,241,0.08)] ring-1 ring-[var(--accent-blue)]"
+                    : "border-[var(--border-dim)] bg-[var(--surface-base)] hover:border-[var(--border-medium)] hover:bg-[var(--surface-raised)]"
+                )}
+              >
+                <span className="text-sm font-medium text-[var(--text-primary)]">
+                  {mode.label}
+                </span>
+                <span className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                  {mode.description}
+                </span>
+                {formData.generationMode === mode.value && (
+                  <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-[var(--accent-blue)]" />
+                )}
+              </button>
+            ))}
           </div>
-          {errors.platforms && (
+        </motion.div>
+
+        {/* ---- CTA Variants ---- */}
+        <motion.div variants={fieldVariants} className="space-y-3">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-medium text-[var(--text-secondary)]">
+              {tBriefing("ctaVariants")}
+            </Label>
+            <span className="text-[11px] text-[var(--text-muted)]">
+              {formData.generationMode === "art_variation"
+                ? tBriefing("ctaHelpArt")
+                : tBriefing("ctaHelpFormat")}
+            </span>
+          </div>
+          {formData.ctaVariants.map((cta, idx) => (
+            <div key={idx} className="space-y-1">
+              <Label className="text-[11px] text-[var(--text-muted)]">
+                {formData.generationMode === "art_variation"
+                  ? tBriefing("ctaPiece", { number: idx + 1 })
+                  : tBriefing("ctaFormat", { format: ["1:1", "4:5", "9:16"][idx] })}
+              </Label>
+              <Input
+                placeholder={tBriefing("ctaPlaceholder")}
+                value={cta}
+                onChange={(e) => {
+                  const next: [string, string, string] = [...formData.ctaVariants] as [string, string, string];
+                  next[idx] = e.target.value;
+                  updateField("ctaVariants", next);
+                }}
+                className={cn(
+                  "h-9 bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]",
+                  "focus:border-[var(--accent-blue)] focus:ring-[3px] focus:ring-[rgba(99,102,241,0.15)]"
+                )}
+              />
+            </div>
+          ))}
+          {errors.ctaVariants && (
             <motion.p
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
               className="text-xs text-[var(--accent-rose)] mt-1"
             >
-              {errors.platforms}
+              {errors.ctaVariants}
             </motion.p>
           )}
-        </motion.div>
-
-        {/* ---- Tone of Voice ---- */}
-        <motion.div variants={fieldVariants}>
-          <Label className="flex items-center gap-1 text-xs font-medium text-[var(--text-secondary)] mb-2">
-            {tCampaign("tone")}
-            <span className="text-[var(--accent-rose)]">*</span>
-          </Label>
-          <Select value={formData.tone} onValueChange={(v) => updateField("tone", v ?? "")}>
-            <SelectTrigger
-              className={cn(
-                "h-10 bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)]",
-                errors.tone && "border-[var(--accent-rose)] ring-[3px] ring-[rgba(244,63,94,0.15)]"
-              )}
-            >
-              <SelectValue placeholder={tBriefing("tonePlaceholder")} />
-            </SelectTrigger>
-            <SelectContent className="bg-[var(--surface-raised)] border-[var(--border-dim)]">
-              {tones.map((tone) => (
-                <SelectItem
-                  key={tone}
-                  value={tone}
-                  className="text-[var(--text-primary)] hover:bg-[var(--surface-base)] focus:bg-[var(--surface-base)]"
-                >
-                  {tone}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {errors.tone && (
-            <motion.p
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-xs text-[var(--accent-rose)] mt-1"
-            >
-              {errors.tone}
-            </motion.p>
-          )}
-        </motion.div>
-
-        {/* ---- Offer / CTA ---- */}
-        <motion.div variants={fieldVariants}>
-          <Label className="text-xs font-medium text-[var(--text-secondary)] mb-2 block">
-            {tCampaign("offer")}
-          </Label>
-          <Textarea
-            placeholder={tBriefing("offerPlaceholder")}
-            rows={2}
-            value={formData.offer}
-            onChange={(e) => updateField("offer", e.target.value)}
-            className="bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-blue)] focus:ring-[3px] focus:ring-[rgba(99,102,241,0.15)] resize-none"
-          />
-          <p className="text-xs text-[var(--text-muted)] mt-1">
-            {tBriefing("offerHelp")}
-          </p>
         </motion.div>
 
         {/* ---- Constraints ---- */}

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { apiError } from "@/lib/api-response";
+import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import {
   createCampaign,
@@ -18,6 +18,9 @@ const createCampaignSchema = z.object({
   offer: z.string().optional(),
   constraints: z.string().optional(),
   notes: z.string().optional(),
+  generationMode: z.enum(["art_variation", "format_adaptation"]).optional(),
+  ctaVariants: z.array(z.string()).max(3).optional(),
+  targetFormats: z.array(z.enum(["1:1", "4:5", "9:16"])).max(3).optional(),
 });
 
 export async function GET(request: Request) {
@@ -26,16 +29,7 @@ export async function GET(request: Request) {
     const items = await getCampaigns(workspace.id);
     return NextResponse.json({ campaigns: items });
   } catch (error) {
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return apiError("unauthorized", 401);
-    }
-    if (error instanceof Error && error.message === "No workspace") {
-      return apiError("noWorkspace", 403);
-    }
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return handleApiError(error, "campaigns.GET");
   }
 }
 
@@ -56,15 +50,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ campaign }, { status: 201 });
   } catch (error) {
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (error instanceof Error && error.message === "No workspace") {
-      return NextResponse.json({ error: "No workspace" }, { status: 403 });
-    }
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return handleApiError(error, "campaigns.POST");
   }
 }

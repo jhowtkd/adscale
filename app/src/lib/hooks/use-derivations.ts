@@ -12,6 +12,9 @@ export interface Derivation {
   outputKey: string | null;
   imageUrl: string | null;
   format: string | null;
+  generationMode: string | null;
+  variantIndex: number | null;
+  ctaText: string | null;
   cost: number | null;
   feedback: string | null;
   createdAt: Date;
@@ -33,13 +36,12 @@ async function fetchDerivations(campaignId: string): Promise<Derivation[]> {
 }
 
 async function createDerivations(
-  campaignId: string,
-  count?: number
+  campaignId: string
 ): Promise<Derivation[]> {
   const res = await apiFetch(`/api/campaigns/${campaignId}/derivations`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ count }),
+    body: JSON.stringify({}),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -61,7 +63,7 @@ export function useDerivations(campaignId: string) {
           (d) => d.status === "queued" || d.status === "processing"
         )
       ) {
-        return 3000;
+        return 2000;
       }
       return false;
     },
@@ -71,11 +73,14 @@ export function useDerivations(campaignId: string) {
 export function useCreateDerivations(campaignId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (count?: number) => createDerivations(campaignId, count),
+    mutationFn: () => createDerivations(campaignId),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["derivations", campaignId],
       });
+      queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+      queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
   });
 }

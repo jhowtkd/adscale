@@ -7,12 +7,56 @@ export async function apiError(
   details?: unknown
 ) {
   const t = await getTranslations("errors");
+  const message = (() => {
+    try {
+      const translate = t as unknown as (key: string) => string;
+      return translate(code);
+    } catch {
+      return t("generic");
+    }
+  })();
+
   return NextResponse.json(
-    { error: t(code as any) || t("generic"), code, details },
+    { error: message, code, details },
     { status }
   );
 }
 
 export function apiSuccess<T>(data: T, status = 200) {
   return NextResponse.json(data, { status });
+}
+
+function serializeError(error: unknown) {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+      stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+    };
+  }
+
+  return { message: String(error) };
+}
+
+export async function handleApiError(error: unknown, context: string) {
+  if (error instanceof Error && error.message === "Unauthorized") {
+    return apiError("unauthorized", 401);
+  }
+
+  if (error instanceof Error && error.message === "No workspace") {
+    return apiError("noWorkspace", 403);
+  }
+
+  if (error instanceof SyntaxError) {
+    return apiError("invalidRequestBody", 400);
+  }
+
+  const errorId = crypto.randomUUID();
+  console.error("[api-error]", {
+    errorId,
+    context,
+    error: serializeError(error),
+  });
+
+  return apiError("internalError", 500, { errorId });
 }

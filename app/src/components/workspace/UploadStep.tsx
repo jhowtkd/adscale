@@ -6,6 +6,7 @@ import { useDropzone } from "react-dropzone";
 import { Cloud, Upload, Check, AlertCircle, Lightbulb, Replace, FileImage } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
+import { useUploadAsset } from "@/lib/hooks/use-assets";
 
 // ============================================
 // Types
@@ -18,6 +19,7 @@ interface UploadedFile {
 }
 
 interface UploadStepProps {
+  campaignId: string;
   onContinue: () => void;
 }
 
@@ -26,63 +28,71 @@ interface UploadStepProps {
 // ============================================
 
 const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
-const MAX_SIZE_MB = 20;
+const MAX_SIZE_MB = 50;
 const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 
-const tips = [
-  "Use high-resolution images (1080\u00d71080px minimum)",
-  "Clear subject with minimal background clutter",
-  "Ensure product is well-lit and in focus",
-  "Avoid heavy text overlays on base image",
-  "PNG format preserves transparency for overlays",
-];
+function readImageDimensions(file: File): Promise<{ preview: string; width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    const preview = URL.createObjectURL(file);
+    const img = new Image();
+
+    img.onload = () => {
+      resolve({ preview, width: img.width, height: img.height });
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(preview);
+      reject(new Error("invalid-image"));
+    };
+    img.src = preview;
+  });
+}
 
 // ============================================
 // Component
 // ============================================
 
-export default function UploadStep({ onContinue }: UploadStepProps) {
+export default function UploadStep({ campaignId, onContinue }: UploadStepProps) {
   const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const t = useTranslations("upload");
-  const commonT = useTranslations("common");
+  const uploadAsset = useUploadAsset(campaignId);
 
-  const simulateUpload = useCallback((file: File) => {
+  const tips = [
+    t("tipHighRes"),
+    t("tipClearSubject"),
+    t("tipWellLit"),
+    t("tipLimitedText"),
+    t("tipPng"),
+  ];
+
+  const uploadFile = useCallback(async (file: File) => {
     setIsUploading(true);
     setUploadProgress(0);
     setError(null);
 
-    const objectUrl = URL.createObjectURL(file);
-
-    // Simulate upload progress
-    const interval = setInterval(() => {
-      setUploadProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          return 100;
-        }
-        return prev + Math.random() * 25 + 10;
+    try {
+      const image = await readImageDimensions(file);
+      setUploadProgress(10);
+      await uploadAsset.mutateAsync({
+        file,
+        width: image.width,
+        height: image.height,
+        onProgress: (progress) => setUploadProgress(Math.max(10, progress)),
       });
-    }, 200);
-
-    // Get dimensions
-    const img = new Image();
-    img.onload = () => {
-      setTimeout(() => {
-        clearInterval(interval);
-        setUploadProgress(100);
-        setIsUploading(false);
-        setUploadedFile({
-          file,
-          preview: objectUrl,
-          dimensions: { width: img.width, height: img.height },
-        });
-      }, 600);
-    };
-    img.src = objectUrl;
-  }, []);
+      setUploadProgress(100);
+      setUploadedFile({
+        file,
+        preview: image.preview,
+        dimensions: { width: image.width, height: image.height },
+      });
+    } catch {
+      setError(t("uploadFailed"));
+    } finally {
+      setIsUploading(false);
+    }
+  }, [t, uploadAsset]);
 
   const onDrop = useCallback(
     (acceptedFiles: File[]) => {
@@ -93,18 +103,18 @@ export default function UploadStep({ onContinue }: UploadStepProps) {
       const file = acceptedFiles[0];
 
       if (!ACCEPTED_TYPES.includes(file.type)) {
-        setError("Invalid format. Please upload PNG, JPG, or WebP.");
+        setError(t("invalidFormat"));
         return;
       }
 
       if (file.size > MAX_SIZE_BYTES) {
-        setError(`File too large. Maximum size is ${MAX_SIZE_MB}MB.`);
+        setError(t("fileTooLarge", { max: MAX_SIZE_MB }));
         return;
       }
 
-      simulateUpload(file);
+      void uploadFile(file);
     },
-    [simulateUpload]
+    [t, uploadFile]
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -192,7 +202,7 @@ export default function UploadStep({ onContinue }: UploadStepProps) {
                     className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.04)] hover:text-[var(--text-primary)] transition-all duration-200"
                   >
                     <Replace size={14} />
-                    Replace
+                    {t("replace")}
                   </button>
                 </div>
 
@@ -201,13 +211,13 @@ export default function UploadStep({ onContinue }: UploadStepProps) {
                   {/* Format check */}
                   <div className="flex items-center gap-2 text-sm">
                     <Check size={16} className="text-[var(--accent-teal)]" />
-                    <span className="text-[var(--text-secondary)]">Format valid</span>
+                    <span className="text-[var(--text-secondary)]">{t("formatValid")}</span>
                   </div>
                   {/* Size check */}
                   <div className="flex items-center gap-2 text-sm">
                     <Check size={16} className="text-[var(--accent-teal)]" />
                     <span className="text-[var(--text-secondary)]">
-                      Under {MAX_SIZE_MB}MB
+                      {t("underLimit", { max: MAX_SIZE_MB })}
                     </span>
                   </div>
                   {/* Dimension check */}
@@ -220,10 +230,10 @@ export default function UploadStep({ onContinue }: UploadStepProps) {
                     <span className="text-[var(--text-secondary)]">
                       {uploadedFile.dimensions
                         ? `${uploadedFile.dimensions.width}\u00d7${uploadedFile.dimensions.height}px`
-                        : "Checking dimensions..."}
+                        : t("checkingDimensions")}
                       {!isValidDimensions(uploadedFile.dimensions) && (
                         <span className="text-[var(--accent-amber)] ml-1">
-                          (recommended 1080\u00d71080+)
+                          {t("recommendedDimensions")}
                         </span>
                       )}
                     </span>
@@ -241,7 +251,7 @@ export default function UploadStep({ onContinue }: UploadStepProps) {
                     onClick={onContinue}
                     className="inline-flex items-center justify-center rounded-md px-6 py-2.5 text-sm font-medium text-white transition-all duration-200 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-light)] hover:-translate-y-px active:scale-[0.98]"
                   >
-                    Generate Plan &rarr;
+                    {t("generateDerivations")}
                   </button>
                 </motion.div>
               </motion.div>
@@ -305,7 +315,7 @@ export default function UploadStep({ onContinue }: UploadStepProps) {
                     className="inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-all duration-200 bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] hover:border-[var(--border-medium)] active:scale-[0.98]"
                   >
                     <Upload size={14} className="mr-2" />
-                    or browse files
+                    {t("browseFiles")}
                   </button>
 
                   {/* Uploading state overlay */}
@@ -367,7 +377,7 @@ export default function UploadStep({ onContinue }: UploadStepProps) {
             <div className="flex items-center gap-2 mb-4">
               <Lightbulb size={18} className="text-[var(--accent-amber)]" />
               <h4 className="text-[15px] font-semibold text-[var(--text-primary)]">
-                Best Practices
+                {t("bestPractices")}
               </h4>
             </div>
             <ul className="space-y-3">

@@ -31,6 +31,7 @@
     "error": "Erro",
     "success": "Sucesso",
     "close": "Fechar",
+    "open": "Abrir",
     "continue": "Continuar",
     "back": "Voltar",
     "next": "Próximo",
@@ -48,6 +49,7 @@
     "accountMenu": "Menu da conta",
     "selected": "selecionado(s)",
     "archive": "Arquivar",
+    "duplicate": "Duplicar",
     "filters": "Filtros",
     "clearAll": "Limpar tudo",
     "allStatus": "Todos os status",
@@ -158,9 +160,12 @@
     "status": {
       "draft": "Rascunho",
       "active": "Ativa",
+      "queued": "Na fila",
+      "processing": "Processando",
       "generating": "Gerando",
       "completed": "Concluída",
       "approved": "Aprovada",
+      "rejected": "Rejeitada",
       "failed": "Falhou"
     },
     "objectives": {
@@ -184,8 +189,20 @@
     "manageCampaigns": "Gerencie suas campanhas de derivação criativa",
     "createNew": "Criar nova campanha",
     "createDescription": "Configure uma nova campanha de derivação criativa",
-    "cta": "CTA principal"
+    "cta": "CTA principal",
+    "mode": "Modo de derivação",
+    "modes": {
+      "artVariation": {
+        "label": "Variar arte",
+        "description": "Gere novas versões no mesmo formato da peça base"
+      },
+      "formatAdaptation": {
+        "label": "Variar formato",
+        "description": "Adapte a peça para 1:1, 4:5 e 9:16"
+      }
+    }
   },
+  "clientHelp": "A marca ou produto sendo anunciado",
   "briefing": {
     "title": "Briefing da Campanha",
     "namePlaceholder": "ex: Promoção de Verão 2025",
@@ -201,9 +218,14 @@
     "offerHelp": "Qual ação os espectadores devem tomar?",
     "constraintsHelp": "Quaisquer regras ou limitações para os criativos gerados",
     "addNotes": "Adicionar notas",
-    "aiAssist": "A IA usará este brief para gerar seu plano criativo",
+    "aiAssist": "A IA usará este brief para derivar a peça original",
     "saveDraft": "Salvar como rascunho",
-    "saveContinue": "Salvar e continuar"
+    "saveContinue": "Salvar e continuar",
+    "ctaVariants": "CTAs por peça",
+    "ctaHelpArt": "Preencha ao menos um CTA. Campos vazios serão ignorados.",
+    "ctaHelpFormat": "CTAs são opcionais. Cada formato recebe o CTA correspondente.",
+    "ctaPiece": "CTA peça {number}",
+    "ctaFormat": "CTA {format}"
   },
   "derivation": {
     "title": "Derivações",
@@ -219,7 +241,16 @@
     "waiting": "Aguardando slot de processamento...",
     "remaining": "restantes",
     "allCompleted": "Todas as variações geradas!",
-    "goToReview": "Ir para Revisão →"
+    "goToReview": "Ir para Revisão →",
+    "inProgress": "{count} em andamento",
+    "failedCount": "{count} com falha",
+    "ready": "Pronto para revisão",
+    "byAngle": "Por ângulo",
+    "byStatus": "Por status",
+    "showAll": "Mostrar tudo",
+    "piece": "Peça",
+    "format": "Formato",
+    "formatAdaptationComplete": "Formatos gerados"
   },
   "plan": {
     "title": "Plano Criativo",
@@ -235,8 +266,24 @@
   "upload": {
     "title": "Upload de criativo",
     "dropzone": "Arraste e solte ou clique para fazer upload",
-    "supportedFormats": "PNG, JPEG, WebP até 20MB",
-    "uploading": "Enviando..."
+    "supportedFormats": "PNG, JPEG, WebP até 50MB",
+    "uploading": "Enviando...",
+    "uploadFailed": "Falha no upload. Tente novamente.",
+    "invalidFormat": "Formato inválido. Envie PNG, JPG ou WebP.",
+    "fileTooLarge": "Arquivo muito grande. Máximo de {max}MB.",
+    "replace": "Trocar",
+    "formatValid": "Formato válido",
+    "underLimit": "Abaixo de {max}MB",
+    "checkingDimensions": "Verificando dimensões...",
+    "recommendedDimensions": "(recomendado 1080×1080+)",
+    "generateDerivations": "Gerar derivações →",
+    "browseFiles": "Procurar arquivos",
+    "bestPractices": "Boas práticas",
+    "tipHighRes": "Use imagens em alta resolução (mínimo 1080×1080px)",
+    "tipClearSubject": "Mantenha o assunto principal claro",
+    "tipWellLit": "Garanta boa iluminação e foco",
+    "tipLimitedText": "Evite excesso de texto na peça base",
+    "tipPng": "PNG preserva melhor transparências e detalhes"
   },
   "auth": {
     "email": "E-mail",
@@ -350,6 +397,7 @@
   },
   "errors": {
     "generic": "Algo deu errado. Tente novamente.",
+    "internalError": "Erro interno. Tente novamente.",
     "unauthorized": "Acesso não autorizado",
     "noWorkspace": "Workspace não encontrado",
     "notFound": "Não encontrado",
@@ -366,7 +414,8 @@
     "aiValidationFailed": "Falha na validação da resposta da IA",
     "derivationsInProgress": "Já existem derivações em andamento para esta campanha",
     "invalidFileType": "Tipo de arquivo inválido. Apenas PNG, JPEG e WebP são permitidos.",
-    "fileTooLarge": "Arquivo muito grande. O tamanho máximo é 20MB.",
+    "fileTooLarge": "Arquivo muito grande. O tamanho máximo é 50MB.",
+    "nothingToExport": "Nenhuma derivação aprovada com arquivo disponível para exportar.",
     "invalidAssetKey": "Chave de asset inválida: deve pertencer à campanha",
     "assetNotFound": "Asset não encontrado no storage",
     "assetTypeMismatch": "Tipo de asset não corresponde",
@@ -378,6 +427,7 @@
     "nameRequired": "Nome da campanha é obrigatório",
     "clientRequired": "Cliente ou produto é obrigatório",
     "objectiveRequired": "Objetivo da campanha é obrigatório",
+    "ctaRequired": "CTA principal é obrigatório",
     "platformRequired": "Selecione pelo menos uma plataforma",
     "toneRequired": "Tom de voz é obrigatório",
     "fetchDashboard": "Falha ao carregar dashboard",
@@ -392,7 +442,10 @@
     "fetchCampaign": "Falha ao carregar campanha",
     "createCampaign": "Falha ao criar campanha",
     "updateCampaign": "Falha ao atualizar campanha",
-    "deleteCampaign": "Falha ao excluir campanha"
+    "deleteCampaign": "Falha ao excluir campanha",
+    "modeRequired": "Modo de derivação é obrigatório",
+    "ctaRequiredAtLeastOne": "Preencha ao menos um CTA para gerar derivações",
+    "noCtasProvided": "Nenhum CTA foi preenchido. Preencha ao menos um CTA."
   },
   "review": {
     "title": "Revisão",
@@ -409,10 +462,10 @@
     "review": "Revisão",
     "continueToUpload": "Continuar para Upload →",
     "backToBrief": "← Voltar para Brief",
-    "generatePlan": "Gerar Plano →",
+    "generatePlan": "Gerar derivações →",
     "backToUpload": "← Voltar para Upload",
     "startGeneration": "Iniciar Geração →",
-    "backToPlan": "← Voltar para Plano",
+    "backToPlan": "← Voltar para Galeria",
     "reviewAll": "Revisar Tudo →",
     "backToGallery": "← Voltar para Galeria",
     "exportSelected": "Exportar selecionados"

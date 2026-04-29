@@ -31,6 +31,7 @@
     "error": "Error",
     "success": "Success",
     "close": "Close",
+    "open": "Open",
     "continue": "Continue",
     "back": "Back",
     "next": "Next",
@@ -48,6 +49,7 @@
     "accountMenu": "Account menu",
     "selected": "selected",
     "archive": "Archive",
+    "duplicate": "Duplicate",
     "filters": "Filters",
     "clearAll": "Clear all",
     "allStatus": "All Status",
@@ -158,9 +160,12 @@
     "status": {
       "draft": "Draft",
       "active": "Active",
+      "queued": "Queued",
+      "processing": "Processing",
       "generating": "Generating",
       "completed": "Completed",
       "approved": "Approved",
+      "rejected": "Rejected",
       "failed": "Failed"
     },
     "objectives": {
@@ -184,7 +189,18 @@
     "manageCampaigns": "Manage your creative derivation campaigns",
     "createNew": "Create New Campaign",
     "createDescription": "Set up a new creative derivation campaign",
-    "cta": "Primary CTA"
+    "cta": "Primary CTA",
+    "mode": "Derivation mode",
+    "modes": {
+      "artVariation": {
+        "label": "Vary art",
+        "description": "Generate new versions in the same format as the base creative"
+      },
+      "formatAdaptation": {
+        "label": "Vary format",
+        "description": "Adapt the creative to 1:1, 4:5, and 9:16"
+      }
+    }
   },
   "briefing": {
     "title": "Campaign Brief",
@@ -201,9 +217,14 @@
     "offerHelp": "What action should viewers take?",
     "constraintsHelp": "Any rules or limitations for the generated creatives",
     "addNotes": "Add notes",
-    "aiAssist": "AI will use this brief to generate your creative plan",
+    "aiAssist": "AI will use this brief to derive from the original asset",
     "saveDraft": "Save as Draft",
-    "saveContinue": "Save & Continue"
+    "saveContinue": "Save & Continue",
+    "ctaVariants": "CTAs per piece",
+    "ctaHelpArt": "Fill at least one CTA. Empty fields will be skipped.",
+    "ctaHelpFormat": "CTAs are optional. Each format gets its matching CTA.",
+    "ctaPiece": "CTA piece {number}",
+    "ctaFormat": "CTA {format}"
   },
   "derivation": {
     "title": "Derivations",
@@ -219,7 +240,16 @@
     "waiting": "Waiting for processing slot...",
     "remaining": "remaining",
     "allCompleted": "All variations generated!",
-    "goToReview": "Go to Review →"
+    "goToReview": "Go to Review →",
+    "inProgress": "{count} in progress",
+    "failedCount": "{count} failed",
+    "ready": "Ready for review",
+    "byAngle": "By angle",
+    "byStatus": "By status",
+    "showAll": "Show all",
+    "piece": "Piece",
+    "format": "Format",
+    "formatAdaptationComplete": "Formats generated"
   },
   "plan": {
     "title": "Creative Plan",
@@ -235,8 +265,24 @@
   "upload": {
     "title": "Upload creative",
     "dropzone": "Drag and drop or click to upload",
-    "supportedFormats": "PNG, JPEG, WebP up to 20MB",
-    "uploading": "Uploading..."
+    "supportedFormats": "PNG, JPEG, WebP up to 50MB",
+    "uploading": "Uploading...",
+    "uploadFailed": "Upload failed. Please try again.",
+    "invalidFormat": "Invalid format. Upload PNG, JPG, or WebP.",
+    "fileTooLarge": "File too large. Maximum size is {max}MB.",
+    "replace": "Replace",
+    "formatValid": "Format valid",
+    "underLimit": "Under {max}MB",
+    "checkingDimensions": "Checking dimensions...",
+    "recommendedDimensions": "(recommended 1080×1080+)",
+    "generateDerivations": "Generate derivations →",
+    "browseFiles": "Browse files",
+    "bestPractices": "Best practices",
+    "tipHighRes": "Use high-resolution images (1080×1080px minimum)",
+    "tipClearSubject": "Keep the main subject clear",
+    "tipWellLit": "Ensure the asset is well lit and in focus",
+    "tipLimitedText": "Avoid heavy text in the base asset",
+    "tipPng": "PNG preserves transparency and details"
   },
   "auth": {
     "email": "Email",
@@ -350,6 +396,7 @@
   },
   "errors": {
     "generic": "Something went wrong. Please try again.",
+    "internalError": "Internal error. Please try again.",
     "unauthorized": "Unauthorized access",
     "noWorkspace": "Workspace not found",
     "notFound": "Not found",
@@ -366,7 +413,8 @@
     "aiValidationFailed": "AI response validation failed",
     "derivationsInProgress": "Derivations already in progress for this campaign",
     "invalidFileType": "Invalid file type. Only PNG, JPEG, and WebP are allowed.",
-    "fileTooLarge": "File too large. Maximum size is 20MB.",
+    "fileTooLarge": "File too large. Maximum size is 50MB.",
+    "nothingToExport": "No approved derivation with an available file to export.",
     "invalidAssetKey": "Invalid asset key: must belong to the campaign",
     "assetNotFound": "Asset not found in storage",
     "assetTypeMismatch": "Asset type mismatch",
@@ -378,6 +426,7 @@
     "nameRequired": "Campaign name is required",
     "clientRequired": "Client or product is required",
     "objectiveRequired": "Campaign objective is required",
+    "ctaRequired": "Primary CTA is required",
     "platformRequired": "Select at least one platform",
     "toneRequired": "Tone of voice is required",
     "fetchDashboard": "Failed to fetch dashboard",
@@ -392,7 +441,10 @@
     "fetchCampaign": "Failed to fetch campaign",
     "createCampaign": "Failed to create campaign",
     "updateCampaign": "Failed to update campaign",
-    "deleteCampaign": "Failed to delete campaign"
+    "deleteCampaign": "Failed to delete campaign",
+    "modeRequired": "Derivation mode is required",
+    "ctaRequiredAtLeastOne": "Fill at least one CTA to generate derivations",
+    "noCtasProvided": "No CTA was provided. Fill at least one CTA."
   },
   "review": {
     "title": "Review",
@@ -409,10 +461,10 @@
     "review": "Review",
     "continueToUpload": "Continue to Upload →",
     "backToBrief": "← Back to Brief",
-    "generatePlan": "Generate Plan →",
+    "generatePlan": "Generate derivations →",
     "backToUpload": "← Back to Upload",
     "startGeneration": "Start Generation →",
-    "backToPlan": "← Back to Plan",
+    "backToPlan": "← Back to Gallery",
     "reviewAll": "Review All →",
     "backToGallery": "← Back to Gallery",
     "exportSelected": "Export Selected"

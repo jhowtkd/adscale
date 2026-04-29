@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@/lib/store";
 import type { AdPlatform, CampaignStatus } from "@/lib/mock-data";
@@ -64,7 +65,7 @@ import { useTranslations } from "next-intl";
 
 type ViewMode = "list" | "grid";
 type SortOption = "newest" | "oldest" | "name-asc" | "name-desc" | "variations";
-type StatusFilter = "all" | "draft" | "active" | "generating" | "completed";
+type StatusFilter = "all" | "draft" | "active" | "generating" | "completed" | "failed";
 type PlatformFilter = "all" | "Meta" | "TikTok" | "Google";
 
 // ============================================
@@ -153,6 +154,7 @@ function GridSkeleton() {
 // ============================================
 
 export default function CampaignsListPage() {
+  const router = useRouter();
   const setCurrentPageTitle = useAppStore((s) => s.setCurrentPageTitle);
   const t = useTranslations("campaign");
   const tc = useTranslations("common");
@@ -342,6 +344,10 @@ export default function CampaignsListPage() {
   const handleCreateCampaign = useCallback(
     (data: {
       name: string;
+      client: string;
+      generationMode: "art_variation" | "format_adaptation";
+      constraints?: string;
+      notes?: string;
       platforms: AdPlatform[];
       status: CampaignStatus;
       variations: number;
@@ -350,12 +356,17 @@ export default function CampaignsListPage() {
       createCampaign.mutate(
         {
           name: data.name,
+          client: data.client,
+          generationMode: data.generationMode,
+          constraints: data.constraints,
+          notes: data.notes,
           platforms: data.platforms,
         },
         {
-          onSuccess: () => {
+          onSuccess: (campaign) => {
             toast.success(tc("campaignCreated", { name: data.name }));
             setModalOpen(false);
+            router.push(`/campaigns/${campaign.id}`);
           },
           onError: (err) => {
             toast.error(err.message || tc("failedCreateCampaign"));
@@ -363,7 +374,7 @@ export default function CampaignsListPage() {
         }
       );
     },
-    [createCampaign, tc]
+    [createCampaign, router, tc]
   );
 
   const handleDuplicate = useCallback(
@@ -597,6 +608,7 @@ export default function CampaignsListPage() {
                   <SelectItem value="active" className="text-[var(--text-primary)] text-xs">{t("status.active")}</SelectItem>
                   <SelectItem value="generating" className="text-[var(--text-primary)] text-xs">{t("status.generating")}</SelectItem>
                   <SelectItem value="completed" className="text-[var(--text-primary)] text-xs">{t("status.completed")}</SelectItem>
+                  <SelectItem value="failed" className="text-[var(--text-primary)] text-xs">{t("status.failed")}</SelectItem>
                 </SelectContent>
               </Select>
 

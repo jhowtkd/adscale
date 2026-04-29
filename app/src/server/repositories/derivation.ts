@@ -10,6 +10,9 @@ export interface CreateDerivationInput {
   status?: string;
   feedback?: string;
   format?: string;
+  generationMode?: string;
+  variantIndex?: number;
+  ctaText?: string;
 }
 
 export async function createDerivation(data: CreateDerivationInput) {
@@ -23,6 +26,9 @@ export async function createDerivation(data: CreateDerivationInput) {
       status: data.status ?? "queued",
       feedback: data.feedback ?? null,
       format: data.format ?? null,
+      generationMode: data.generationMode ?? null,
+      variantIndex: data.variantIndex ?? null,
+      ctaText: data.ctaText ?? null,
     })
     .returning();
   return result[0];
@@ -54,7 +60,7 @@ export async function updateDerivationStatus(
     .update(derivations)
     .set({
       status,
-      outputKey: outputKey ?? null,
+      ...(outputKey !== undefined && { outputKey }),
       updatedAt: new Date(),
     })
     .where(

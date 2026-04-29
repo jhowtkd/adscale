@@ -14,7 +14,7 @@ import type { Derivation } from "@/lib/mock-data";
 
 interface DerivationsStepProps {
   derivations: Derivation[];
-  campaignId: string;
+  generationMode?: "art_variation" | "format_adaptation";
   onPreview: (id: string) => void;
   onDownload: (id: string) => void;
   onRegenerate: (id: string) => void;
@@ -33,6 +33,7 @@ type StatusFilter = "all" | "completed" | "generating" | "failed";
 
 export default function DerivationsStep({
   derivations,
+  generationMode,
   onPreview,
   onDownload,
   onRegenerate,
@@ -64,7 +65,17 @@ export default function DerivationsStep({
         filtered.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
         break;
       case "status":
-        const order = { completed: 0, approved: 0, generating: 1, queued: 2, failed: 3, draft: 4, active: 5 };
+        const order: Record<string, number> = {
+          completed: 0,
+          approved: 0,
+          rejected: 0,
+          generating: 1,
+          processing: 1,
+          queued: 2,
+          failed: 3,
+          draft: 4,
+          active: 5,
+        };
         filtered.sort((a, b) => (order[a.status] ?? 99) - (order[b.status] ?? 99));
         break;
       default:
@@ -75,7 +86,13 @@ export default function DerivationsStep({
   }, [derivations, sortBy, statusFilter]);
 
   // Stats
-  const completedCount = derivations.filter((d) => d.status === "completed").length;
+  const completedCount = derivations.filter((d) =>
+    ["completed", "approved", "rejected"].includes(d.status)
+  ).length;
+  const activeCount = derivations.filter((d) =>
+    ["queued", "processing", "generating"].includes(d.status)
+  ).length;
+  const failedCount = derivations.filter((d) => d.status === "failed").length;
   const totalCount = derivations.length;
   const isAllCompleted = totalCount > 0 && completedCount === totalCount;
   const totalCredits = derivations.reduce((sum, d) => sum + d.creditCost, 0);
@@ -123,7 +140,13 @@ export default function DerivationsStep({
             <span>~{totalCredits.toFixed(1)} {commonT("credits")}</span>
             <span className="mx-1">\u00b7</span>
             <Clock size={12} />
-            <span>2m 34s</span>
+            <span>
+              {activeCount > 0
+                ? t("inProgress", { count: activeCount })
+                : failedCount > 0
+                  ? t("failedCount", { count: failedCount })
+                  : t("ready")}
+            </span>
           </div>
 
           {/* Grid size toggle */}
@@ -150,10 +173,10 @@ export default function DerivationsStep({
             onChange={(e) => setSortBy(e.target.value as SortOption)}
             className="h-8 px-3 text-xs rounded-md bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] focus:border-[var(--accent-blue)] focus:outline-none"
           >
-            <option value="newest">Newest first</option>
-            <option value="oldest">Oldest first</option>
-            <option value="angle">By angle</option>
-            <option value="status">By status</option>
+            <option value="newest">{commonT("newest")}</option>
+            <option value="oldest">{commonT("oldest")}</option>
+            <option value="angle">{t("byAngle")}</option>
+            <option value="status">{t("byStatus")}</option>
           </select>
         </div>
       </motion.div>
@@ -170,6 +193,7 @@ export default function DerivationsStep({
             filter === "all"
               ? derivations.length
               : derivations.filter((d) => d.status === filter).length;
+          const label = filter === "all" ? commonT("allStatus") : t(filter);
           return (
             <button
               key={filter}
@@ -179,9 +203,9 @@ export default function DerivationsStep({
                 statusFilter === filter
                   ? "bg-[var(--accent-blue-dim)] text-[var(--accent-blue-light)]"
                   : "bg-[var(--surface-raised)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-              )}
-            >
-              {filter}
+            )}
+          >
+              {label}
               <span
                 className={cn(
                   "text-[10px] px-1.5 py-0.5 rounded-full",
@@ -252,7 +276,7 @@ export default function DerivationsStep({
             onClick={() => setStatusFilter("all")}
             className="text-sm text-[var(--accent-blue)] hover:text-[var(--accent-blue-light)] transition-colors"
           >
-            Show all
+            {t("showAll")}
           </button>
         </motion.div>
       )}
@@ -266,11 +290,15 @@ export default function DerivationsStep({
       >
         <button
           onClick={onGenerateMore}
-          disabled={isGeneratingMore}
+          disabled={isGeneratingMore || generationMode === "format_adaptation"}
           className="inline-flex items-center gap-2 rounded-md px-5 py-2.5 text-sm font-medium transition-all duration-200 bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] hover:border-[var(--border-medium)] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Sparkles size={14} />
-          {isGeneratingMore ? commonT("loading") : t("generateMore")}
+          {isGeneratingMore
+            ? commonT("loading")
+            : generationMode === "format_adaptation"
+              ? t("formatAdaptationComplete")
+              : t("generateMore")}
         </button>
       </motion.div>
     </div>

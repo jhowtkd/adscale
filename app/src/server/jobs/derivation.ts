@@ -4,15 +4,55 @@ import { derivations } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { uploadBuffer, downloadBuffer } from "../storage/r2";
 import { buildDerivationPrompt } from "../ai/prompt-builder";
-import { getCampaignById } from "../repositories/campaign";
+import { getCampaignById, refreshCampaignStatus } from "../repositories/campaign";
 import { getAssetsByCampaign } from "../repositories/asset";
 import { getPlanByCampaign } from "../repositories/plan";
 import { getDerivationById } from "../repositories/derivation";
 import { trackUsage } from "../repositories/usage";
 import OpenAI, { toFile } from "openai";
+import sharp from "sharp";
 import { env } from "../validation/env";
 
 const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
+const IMAGE_GENERATION_TIMEOUT_MS = 5 * 60 * 1000;
+
+function getTargetDimensions(format: string): { width: number; height: number } | null {
+  switch (format) {
+    case "1:1":
+      return { width: 1080, height: 1080 };
+    case "4:5":
+      return { width: 1080, height: 1350 };
+    case "9:16":
+      return { width: 1080, height: 1920 };
+    default:
+      return null;
+  }
+}
+
+function formatToOpenAISize(format: string): "1024x1024" | "1024x1536" | "1536x1024" {
+  switch (format) {
+    case "9:16":
+    case "4:5":
+      return "1024x1536";
+    case "1:1":
+    default:
+      return "1024x1024";
+  }
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  let timeout: NodeJS.Timeout;
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeout = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${Math.round(ms / 1000)}s`));
+    }, ms);
+  });
+
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    clearTimeout(timeout);
+  });
+}
 
 export const derivationJob = inngest.createFunction(
   {
@@ -20,7 +60,7 @@ export const derivationJob = inngest.createFunction(
     retries: 2,
     onFailure: async ({ event, error }) => {
       const originalEvent = event.data.event;
-      const { derivationId } = originalEvent.data;
+      const { derivationId, campaignId, workspaceId } = originalEvent.data;
       const message = error instanceof Error ? error.message : "Unknown error";
       console.error(`[Inngest onFailure] derivationId=${derivationId} error=${message}`);
       await db
@@ -31,11 +71,12 @@ export const derivationJob = inngest.createFunction(
           updatedAt: new Date(),
         })
         .where(eq(derivations.id, derivationId));
+      await refreshCampaignStatus(campaignId, workspaceId);
     },
   },
   { event: "derivation.generate" },
   async ({ event, step }) => {
-    const { derivationId, campaignId, workspaceId, locale } = event.data;
+    const { derivationId, campaignId, workspaceId, locale, generationMode, variantIndex, ctaText, format } = event.data;
     console.log(`[derivationJob] START derivationId=${derivationId} campaignId=${campaignId} locale=${locale ?? "default"}`);
 
     // Idempotency check: if already completed, skip entirely
@@ -61,7 +102,7 @@ export const derivationJob = inngest.createFunction(
     });
 
     // 2. Fetch derivation, campaign, plan, asset
-    const { plan, asset, derivation } = await step.run(
+    const { campaign, plan, asset, derivation } = await step.run(
       "fetch-context",
       async () => {
         console.log(`[fetch-context] derivationId=${derivationId}`);
@@ -84,60 +125,71 @@ export const derivationJob = inngest.createFunction(
       }
     );
 
-    // 3. Download input image (if asset exists)
-    const assetData = asset
-      ? await step.run("download-asset", async () => {
-          console.log(`[download-asset] key=${asset.key}`);
-          const buffer = await downloadBuffer(asset.key);
-          console.log(`[download-asset] downloaded ${buffer.length} bytes`);
-          return {
-            buffer: Buffer.from(buffer).toString("base64"),
-            type: asset.type,
-          };
-        })
-      : undefined;
+    // 3. Download, generate, and store inside one step to avoid persisting large blobs
+    const generated = await step.run("generate-and-store-output", async () => {
+      const prompt = buildDerivationPrompt({
+        campaign,
+        plan,
+        asset,
+        feedback: derivation.feedback,
+        locale,
+        generationMode: generationMode ?? derivation.generationMode ?? "art_variation",
+        variantIndex: variantIndex ?? derivation.variantIndex ?? 0,
+        ctaText: ctaText ?? derivation.ctaText ?? undefined,
+        targetFormat: format ?? derivation.format ?? "1:1",
+      });
+      console.log(`[generate-and-store-output] model=${env.OPENAI_IMAGE_MODEL} hasAsset=${!!asset} locale=${locale ?? "default"}`);
 
-    // 4. Call OpenAI image model with reference image
-    const result = await step.run("generate-image", async () => {
-      const prompt = buildDerivationPrompt(plan, asset, derivation.feedback, locale);
-      console.log(`[generate-image] model=${env.OPENAI_IMAGE_MODEL} hasAsset=${!!assetData} locale=${locale ?? "default"}`);
+      let result: OpenAI.Images.Image;
 
-      if (assetData) {
-        const buffer = Buffer.from(assetData.buffer, "base64");
+      const targetFormat = format ?? derivation.format ?? "1:1";
+      const openaiSize = formatToOpenAISize(targetFormat);
+
+      if (asset) {
+        // Use image edit with the asset as visual reference, requesting the correct size
+        console.log(`[generate-and-store-output] downloading asset key=${asset.key}`);
+        const buffer = await downloadBuffer(asset.key);
+        console.log(`[generate-and-store-output] downloaded ${buffer.length} bytes`);
         const referenceImage = await toFile(buffer, "reference-image", {
-          type: assetData.type,
+          type: asset.type,
         });
-        const response = await openai.images.edit({
-          model: env.OPENAI_IMAGE_MODEL,
-          image: referenceImage,
-          prompt,
-          n: 1,
-          size: "1024x1024",
-        });
+        const response = await withTimeout(
+          openai.images.edit({
+            model: env.OPENAI_IMAGE_MODEL,
+            image: referenceImage,
+            prompt,
+            n: 1,
+            size: openaiSize,
+          }),
+          IMAGE_GENERATION_TIMEOUT_MS,
+          "OpenAI image edit"
+        );
         const first = response.data?.[0];
         if (!first) {
           throw new Error("No image data returned from OpenAI");
         }
-        console.log(`[generate-image] edit success url=${first.url ? "yes" : "no"} b64=${first.b64_json ? "yes" : "no"}`);
-        return first;
+        console.log(`[generate-and-store-output] edit success url=${first.url ? "yes" : "no"} b64=${first.b64_json ? "yes" : "no"}`);
+        result = first;
+      } else {
+        // No asset: use generate with correct size
+        const response = await withTimeout(
+          openai.images.generate({
+            model: env.OPENAI_IMAGE_MODEL,
+            prompt,
+            n: 1,
+            size: openaiSize,
+          }),
+          IMAGE_GENERATION_TIMEOUT_MS,
+          "OpenAI image generation"
+        );
+        const first = response.data?.[0];
+        if (!first) {
+          throw new Error("No image data returned from OpenAI");
+        }
+        console.log(`[generate-and-store-output] generate success url=${first.url ? "yes" : "no"} b64=${first.b64_json ? "yes" : "no"}`);
+        result = first;
       }
 
-      const response = await openai.images.generate({
-        model: env.OPENAI_IMAGE_MODEL,
-        prompt,
-        n: 1,
-        size: "1024x1024",
-      });
-      const first = response.data?.[0];
-      if (!first) {
-        throw new Error("No image data returned from OpenAI");
-      }
-      console.log(`[generate-image] generate success url=${first.url ? "yes" : "no"} b64=${first.b64_json ? "yes" : "no"}`);
-      return first;
-    });
-
-    // 5. Upload output to R2
-    const outputKey = await step.run("store-output", async () => {
       let buffer: Buffer;
       if (result.b64_json) {
         buffer = Buffer.from(result.b64_json, "base64");
@@ -152,28 +204,45 @@ export const derivationJob = inngest.createFunction(
       } else {
         throw new Error("No image data returned");
       }
+
+      // Normalize output dimensions based on target format
+      const dimensions = getTargetDimensions(targetFormat);
+      if (dimensions) {
+        buffer = await sharp(buffer)
+          .resize(dimensions.width, dimensions.height, {
+            fit: "cover",
+            position: "centre",
+          })
+          .png()
+          .toBuffer();
+      }
+
       const key = `derivations/${derivationId}/${Date.now()}.png`;
-      console.log(`[store-output] uploading ${buffer.length} bytes to ${key}`);
+      console.log(`[generate-and-store-output] uploading ${buffer.length} bytes to ${key}`);
       await uploadBuffer(key, buffer, "image/png");
-      console.log(`[store-output] upload success key=${key}`);
-      return key;
+      console.log(`[generate-and-store-output] upload success key=${key}`);
+      return {
+        outputKey: key,
+        revisedPrompt: result.revised_prompt || derivation.prompt || "",
+      };
     });
 
-    // 6. Update derivation as completed
+    // 4. Update derivation as completed
     await step.run("mark-completed", async () => {
-      console.log(`[mark-completed] derivationId=${derivationId} outputKey=${outputKey}`);
+      console.log(`[mark-completed] derivationId=${derivationId} outputKey=${generated.outputKey}`);
       await db
         .update(derivations)
         .set({
           status: "completed",
-          outputKey,
-          prompt: result.revised_prompt || derivation.prompt || "",
+          outputKey: generated.outputKey,
+          prompt: generated.revisedPrompt,
           updatedAt: new Date(),
         })
         .where(eq(derivations.id, derivationId));
+      await refreshCampaignStatus(campaignId, workspaceId);
     });
 
-    // 7. Track usage
+    // 5. Track usage
     await step.run("track-usage", async () => {
       await trackUsage(workspaceId, "derivation", 1, {
         derivationId,
@@ -182,7 +251,7 @@ export const derivationJob = inngest.createFunction(
       });
     });
 
-    console.log(`[derivationJob] DONE derivationId=${derivationId} outputKey=${outputKey}`);
-    return { success: true, derivationId, outputKey };
+    console.log(`[derivationJob] DONE derivationId=${derivationId} outputKey=${generated.outputKey}`);
+    return { success: true, derivationId, outputKey: generated.outputKey };
   }
 );

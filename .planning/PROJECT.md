@@ -46,10 +46,31 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 - ✓ **TEST-01**: Unit tests for env validation, schemas, repositories, prompt parser, R2 keys — v1.0
 - ✓ **TEST-02**: Integration tests for signup→workspace, CRUD, upload, plan, job, review/export — v1.0
 - ✓ **TEST-03**: npm test, lint, build pass — v1.0
+- ✓ **I18N-01**: User can switch between PT-BR and EN via language switcher — v2.0
+- ✓ **I18N-02**: All UI labels, buttons, navigation translated — v2.0
+- ✓ **I18N-03**: Form validation errors localized — v2.0
+- ✓ **I18N-04**: API error responses include localized messages — v2.0
+- ✓ **I18N-05**: Toast notifications and empty states use translated copy — v2.0
+- ✓ **I18N-06**: Date, number, currency formatting use PT-BR locale — v2.0
+- ✓ **LANG-01**: User language preference stored in database — v2.0
+- ✓ **LANG-02**: Cookie stores active language for SSR/initial render — v2.0
+- ✓ **LANG-03**: Browser language detection sets default on first visit — v2.0
+- ✓ **LANG-04**: Language preference persists across logout/login — v2.0
+- ✓ **LANG-05**: Unauthenticated visitors see PT-BR by default — v2.0
+- ✓ **AI-PT-01**: Creative plan generation outputs in PT-BR when selected — v2.0
+- ✓ **AI-PT-02**: Derivation generation prompt uses PT-BR when selected — v2.0
+- ✓ **AI-PT-03**: Regeneration feedback preserves language for revised outputs — v2.0
+- ✓ **AI-PT-04**: Campaign brief field labels adapt to active language — v2.0
+- ✓ **AI-PT-05**: Plan preview and derivation cards display AI-generated text in produced language — v2.0
+- ✓ **TECH-01**: i18n library integrated (next-intl) — v2.0
+- ✓ **TECH-02**: Translation keys organized by feature/domain — v2.0
+- ✓ **TECH-03**: SSR renders correct lang attribute without hydration mismatch — v2.0
+- ✓ **TECH-04**: Language context available in API routes — v2.0
+- ✓ **TECH-05**: Prompt builder accepts language parameter — v2.0
 
 ### Active
 
-(None — all v2.0 requirements shipped)
+(None — all v2.0 requirements shipped; v3.0 requirements implemented in phases 10–14)
 
 ### Out of Scope
 
@@ -60,10 +81,15 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 - OAuth login (Google/GitHub) — email/password sufficient for v1
 - Real-time notifications — polling sufficient for MVP
 - Admin panel — single workspace model for MVP
+- LGPD compliance — separate milestone
+- Multi-format cross-combination (CTA × format) — out of v3.0 scope
+- Format adaptation beyond 1:1, 4:5, 9:16 — future milestone
+- AI-generated copy suggestions for CTAs — requires content model fine-tuning
+- Bulk CTA import from spreadsheet/CSV — future UX improvement
 
 ## Context
 
-Current state: v2.0 complete. App is fully localized for PT-BR with English secondary. AI-generated plans and derivations respect user locale. Ready for public launch in Brazil.
+Current state: v3.0 implementation complete (phases 10–14). ADScale now operates as a campaign derivation system with two modes: `Variar arte` (art variation) and `Variar formato` (format adaptation). Per-piece CTAs, explicit visual fidelity rules in prompts, sharp-based output normalization, and mode-aware gallery labels are all implemented. Build passes and 67 tests are green. Pending manual validation with `oficial.jpg` before milestone sign-off.
 
 Key stack decisions:
 - Next.js App Router, React, TypeScript, Tailwind, shadcn/ui
@@ -110,17 +136,22 @@ This document evolves at phase transitions and milestone boundaries.
 3. Audit Out of Scope — reasons still valid?
 4. Update Context with current state
 
-## Current Milestone: v2.0 Internacionalização PT-BR
+## Current Milestone: v3.0 Modos de Derivação Fiel
 
-**Goal:** Prepare ADScale for public launch in Brazil by localizing the entire platform and adapting AI outputs to Portuguese.
+**Goal:** Reposition ADScale as a campaign derivation system. Support two clear derivation modes — `Variar arte` and `Variar formato` — with per-piece CTAs, explicit visual fidelity rules, and less repetitive generation.
 
 **Target features:**
-- Language switcher (PT-BR / EN) with persistent preference
-- Full UI translation coverage (labels, buttons, validation, errors)
-- AI plan generation in Portuguese when PT-BR is selected
-- Derivation prompts and image context in Portuguese when PT-BR is selected
-- Browser language detection for first-time users
-- Localized API error messages
+- Mode selection at campaign creation: `Variar arte` or `Variar formato`
+- Art variation generates new versions in the same format as the base creative
+- Format adaptation resizes to 1:1, 4:5, and 9:16
+- Per-piece CTAs with mode-specific validation rules
+- Strong prompt differentiation between art variation and format adaptation
+- Sharp-based output normalization for all formats
+- Gallery labels and cards reflect mode, format, and applied CTA
+- Clean error messages instead of raw JSON in the UI
+- Backward compatibility for existing campaigns (fallback to `Variar arte`)
+
+**Status:** Implemented across phases 10–14. Build passes, 67 tests green. Manual QA pending with `oficial.jpg`.
 
 ---
-*Last updated: 2026-04-24 after starting milestone v2.0*
+*Last updated: 2026-04-28 after implementing phases 10–14*

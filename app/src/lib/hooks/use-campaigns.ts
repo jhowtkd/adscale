@@ -14,7 +14,16 @@ export interface Campaign {
   offer: string | null;
   constraints: string | null;
   notes: string | null;
+  generationMode: "art_variation" | "format_adaptation";
+  ctaVariants: string[] | null;
+  targetFormats: string[] | null;
   status: "draft" | "active" | "generating" | "completed" | "failed";
+  variations?: number;
+  creditsUsed?: number;
+  totalDerivations?: number;
+  activeDerivations?: number;
+  failedDerivations?: number;
+  completedDerivations?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -30,6 +39,9 @@ export interface UiCampaign {
   offer?: string;
   constraints?: string;
   notes?: string;
+  generationMode: Campaign["generationMode"];
+  ctaVariants?: string[];
+  targetFormats?: string[];
   status: Campaign["status"];
   variations: number;
   creditsUsed: number;
@@ -49,9 +61,12 @@ function toUiCampaign(c: Campaign): UiCampaign {
     offer: c.offer ?? undefined,
     constraints: c.constraints ?? undefined,
     notes: c.notes ?? undefined,
+    generationMode: c.generationMode,
+    ctaVariants: c.ctaVariants ?? undefined,
+    targetFormats: c.targetFormats ?? undefined,
     status: c.status,
-    variations: 0,
-    creditsUsed: 0,
+    variations: c.variations ?? 0,
+    creditsUsed: c.creditsUsed ?? 0,
     lastModified: c.updatedAt,
     createdAt: c.createdAt,
   };
@@ -97,6 +112,9 @@ async function createCampaign(payload: {
   offer?: string;
   constraints?: string;
   notes?: string;
+  generationMode?: "art_variation" | "format_adaptation";
+  ctaVariants?: string[];
+  targetFormats?: string[];
 }): Promise<Campaign> {
   const res = await apiFetch("/api/campaigns", {
     method: "POST",
@@ -165,6 +183,9 @@ export function useCampaign(id: string) {
     queryKey: ["campaigns", id],
     queryFn: () => fetchCampaign(id),
     enabled: !!id && id !== "new",
+    refetchInterval: (query) => {
+      return query.state.data?.status === "generating" ? 2000 : false;
+    },
   });
 
   return {
@@ -247,6 +268,9 @@ export function useDuplicateCampaign() {
         offer: original.offer ?? undefined,
         constraints: original.constraints ?? undefined,
         notes: original.notes ?? undefined,
+        generationMode: original.generationMode ?? undefined,
+        ctaVariants: original.ctaVariants ?? undefined,
+        targetFormats: original.targetFormats ?? undefined,
       });
       return copy;
     },

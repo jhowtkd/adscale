@@ -2,7 +2,16 @@
 // ADScale - Mock Data
 // ============================================
 
-export type CampaignStatus = "draft" | "active" | "generating" | "completed" | "failed" | "approved";
+export type CampaignStatus =
+  | "draft"
+  | "active"
+  | "queued"
+  | "processing"
+  | "generating"
+  | "completed"
+  | "failed"
+  | "approved"
+  | "rejected";
 
 export type AdPlatform = "Meta" | "TikTok" | "Google";
 
@@ -17,6 +26,9 @@ export interface Campaign {
   offer?: string;
   constraints?: string;
   notes?: string;
+  generationMode?: "art_variation" | "format_adaptation";
+  ctaVariants?: string[];
+  targetFormats?: string[];
   status: CampaignStatus;
   variations: number;
   creditsUsed: number;
@@ -33,6 +45,10 @@ export interface Derivation {
   prompt: string;
   creditCost: number;
   imageUrl?: string;
+  generationMode?: "art_variation" | "format_adaptation";
+  variantIndex?: number;
+  ctaText?: string;
+  format?: string;
   createdAt: Date;
   completedAt?: Date;
 }

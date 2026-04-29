@@ -1,4 +1,3 @@
-import { apiFetch } from "@/lib/api-client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 export interface Asset {
@@ -13,62 +12,50 @@ export interface Asset {
   createdAt: Date;
 }
 
-interface PresignResponse {
-  url: string;
-  key: string;
-}
-
-interface CompletePayload {
-  key: string;
-  type: string;
-  size?: number;
+interface UploadAssetInput {
+  file: File;
   width?: number;
   height?: number;
+  onProgress?: (progress: number) => void;
 }
 
-async function getPresignedUrl(
+async function uploadAssetToBackend(
   campaignId: string,
-  file: File
-): Promise<PresignResponse> {
-  const res = await apiFetch(`/api/campaigns/${campaignId}/assets/presign`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      filename: file.name,
-      contentType: file.type,
-      contentLength: file.size,
-    }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Erro ao obter URL de upload");
-  }
-  return res.json();
-}
-
-async function uploadToPresignedUrl(url: string, file: File): Promise<void> {
-  const res = await fetch(url, {
-    method: "PUT",
-    headers: {
-      "Content-Type": file.type,
-      "Content-Length": String(file.size),
-    },
-    body: file,
-  });
-  if (!res.ok) {
-    throw new Error("Falha no upload");
-  }
-}
-
-async function completeUpload(
-  campaignId: string,
-  payload: CompletePayload
+  file: File,
+  width?: number,
+  height?: number,
+  onProgress?: (progress: number) => void
 ): Promise<Asset> {
-  const res = await apiFetch(`/api/campaigns/${campaignId}/assets/complete`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+  const formData = new FormData();
+  formData.append("file", file);
+  if (width !== undefined) formData.append("width", String(width));
+  if (height !== undefined) formData.append("height", String(height));
+
+  const res = await new Promise<Response>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `/api/campaigns/${campaignId}/assets/upload`);
+
+    xhr.upload.onprogress = (event) => {
+      if (!event.lengthComputable || !onProgress) return;
+      onProgress(Math.round((event.loaded / event.total) * 100));
+    };
+
+    xhr.onload = () => {
+      resolve(
+        new Response(xhr.responseText, {
+          status: xhr.status,
+          statusText: xhr.statusText,
+          headers: new Headers({
+            "content-type": xhr.getResponseHeader("content-type") ?? "application/json",
+          }),
+        })
+      );
+    };
+
+    xhr.onerror = () => reject(new Error("Falha no upload"));
+    xhr.send(formData);
   });
+
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || "Erro ao salvar asset");
@@ -84,15 +71,8 @@ async function completeUpload(
 export function useUploadAsset(campaignId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (file: File) => {
-      const { url, key } = await getPresignedUrl(campaignId, file);
-      await uploadToPresignedUrl(url, file);
-      const asset = await completeUpload(campaignId, {
-        key,
-        type: file.type,
-        size: file.size,
-      });
-      return asset;
+    mutationFn: async ({ file, width, height, onProgress }: UploadAssetInput) => {
+      return uploadAssetToBackend(campaignId, file, width, height, onProgress);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId] });

@@ -23,6 +23,16 @@ const statusConfig: Record<
     bgColor: "rgba(99,102,241,0.15)",
     textColor: "#818cf8",
   },
+  queued: {
+    dotColor: "#f59e0b",
+    bgColor: "rgba(245,158,11,0.15)",
+    textColor: "#fbbf24",
+  },
+  processing: {
+    dotColor: "#f59e0b",
+    bgColor: "rgba(245,158,11,0.15)",
+    textColor: "#fbbf24",
+  },
   generating: {
     dotColor: "#f59e0b",
     bgColor: "rgba(245,158,11,0.15)",
@@ -37,6 +47,11 @@ const statusConfig: Record<
     dotColor: "#10b981",
     bgColor: "rgba(16,185,129,0.15)",
     textColor: "#34d399",
+  },
+  rejected: {
+    dotColor: "#f43f5e",
+    bgColor: "rgba(244,63,94,0.15)",
+    textColor: "#fb7185",
   },
   failed: {
     dotColor: "#f43f5e",

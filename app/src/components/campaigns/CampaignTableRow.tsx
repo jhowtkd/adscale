@@ -193,7 +193,7 @@ export default function CampaignTableRow({
                 className="flex items-center gap-2"
               >
                 <ExternalLink size={14} />
-                Open
+                {tCommon("open")}
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => { window.location.href = `/campaigns/${campaign.id}`; }}
@@ -207,7 +207,7 @@ export default function CampaignTableRow({
                 className="flex items-center gap-2"
               >
                 <Copy size={14} />
-                Duplicate
+                {tCommon("duplicate")}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
@@ -215,7 +215,7 @@ export default function CampaignTableRow({
                 className="flex items-center gap-2"
               >
                 <Archive size={14} />
-                Archive
+                {tCommon("archive")}
               </DropdownMenuItem>
               <DropdownMenuItem
                 variant="destructive"

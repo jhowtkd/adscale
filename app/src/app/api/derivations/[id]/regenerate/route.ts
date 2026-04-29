@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { apiError } from "@/lib/api-response";
+import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import {
   getDerivationById,
   createDerivation,
 } from "@/server/repositories/derivation";
+import { updateCampaign } from "@/server/repositories/campaign";
 import { getUserLocale } from "@/server/repositories/user";
 import { inngest } from "@/server/jobs/client";
 
@@ -41,6 +42,10 @@ export async function POST(
       parentId: id,
       feedback: feedback ?? undefined,
       status: "queued",
+      generationMode: original.generationMode ?? undefined,
+      variantIndex: original.variantIndex ?? undefined,
+      ctaText: original.ctaText ?? undefined,
+      format: original.format ?? undefined,
     });
 
     await inngest.send({
@@ -49,21 +54,18 @@ export async function POST(
         derivationId: newDerivation.id,
         campaignId: original.campaignId,
         workspaceId: workspace.id,
-        locale: (user as { locale?: string }).locale,
+        locale,
+        generationMode: original.generationMode,
+        variantIndex: original.variantIndex,
+        ctaText: original.ctaText,
+        format: original.format,
       },
     });
 
+    await updateCampaign(original.campaignId, workspace.id, { status: "generating" });
+
     return NextResponse.json({ derivation: newDerivation }, { status: 201 });
   } catch (error) {
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return apiError("unauthorized", 401);
-    }
-    if (error instanceof Error && error.message === "No workspace") {
-      return apiError("noWorkspace", 403);
-    }
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return handleApiError(error, "derivations.[id].regenerate.POST");
   }
 }

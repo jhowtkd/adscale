@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { apiError } from "@/lib/api-response";
+import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { exportIndividual, exportAllApproved } from "@/server/services/export";
 
@@ -41,13 +41,15 @@ export async function POST(request: Request) {
 
     return apiError("invalidType", 400);
   } catch (error) {
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return apiError("unauthorized", 401);
+    if (
+      error instanceof Error &&
+      (error.message === "No approved derivations" ||
+        error.message === "No exportable approved derivations" ||
+        error.message === "Derivation has no output file")
+    ) {
+      return apiError("nothingToExport", 400);
     }
-    if (error instanceof Error && error.message === "No workspace") {
-      return apiError("noWorkspace", 403);
-    }
-    console.error("Export error:", error);
-    return apiError("internalError", 500);
+
+    return handleApiError(error, "exports.POST");
   }
 }

@@ -266,8 +266,8 @@ export default function DerivationCard({
           <StatusBadge status={derivation.status} showDot={false} className="flex-shrink-0" />
         </div>
 
-        {/* Row 2: Platform tag */}
-        <div className="flex items-center gap-2">
+        {/* Row 2: Label + CTA */}
+        <div className="flex items-center gap-2 flex-wrap">
           <span
             className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium"
             style={{
@@ -277,9 +277,16 @@ export default function DerivationCard({
           >
             {derivation.platform}
           </span>
-          <span className="text-[10px] text-[var(--text-muted)]">
-            Angle 0{((index % 3) + 1)}
-          </span>
+          {derivation.ctaText && (
+            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium bg-[var(--surface-raised)] text-[var(--text-secondary)] border border-[var(--border-dim)]">
+              {derivation.ctaText}
+            </span>
+          )}
+          {derivation.format && (
+            <span className="text-[10px] text-[var(--text-muted)]">
+              {derivation.format}
+            </span>
+          )}
         </div>
 
         {/* Row 3: Prompt preview */}

@@ -77,7 +77,7 @@ describe("buildDerivationPrompt", () => {
       ctas: ["CTA 1"],
     };
 
-    const prompt = buildDerivationPrompt(plan, undefined, "Make it brighter");
+    const prompt = buildDerivationPrompt({ plan, feedback: "Make it brighter" });
     expect(prompt).toContain("Revision Feedback: Make it brighter");
   });
 
@@ -90,7 +90,7 @@ describe("buildDerivationPrompt", () => {
       ctas: null,
     };
 
-    const prompt = buildDerivationPrompt(plan, undefined, "");
+    const prompt = buildDerivationPrompt({ plan, feedback: "" });
     expect(prompt).not.toContain("Revision Feedback");
   });
 
@@ -103,7 +103,43 @@ describe("buildDerivationPrompt", () => {
       ctas: null,
     };
 
-    const prompt = buildDerivationPrompt(plan, undefined);
+    const prompt = buildDerivationPrompt({ plan });
     expect(prompt).toContain("Creative Strategy: Minimalist");
+  });
+
+  it("art_variation mode demands perceptible variation", () => {
+    const prompt = buildDerivationPrompt({ generationMode: "art_variation" });
+    expect(prompt).toContain("MODE: art_variation");
+    expect(prompt).toContain("PERCEPTIBLY DIFFERENT");
+    expect(prompt).toContain("Vary background, composition, CTA module placement, and visual hierarchy");
+  });
+
+  it("format_adaptation mode includes target format", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "format_adaptation",
+      targetFormat: "9:16",
+    });
+    expect(prompt).toContain("MODE: format_adaptation");
+    expect(prompt).toContain("Target format: 9:16");
+    expect(prompt).toContain("proportion adaptation");
+  });
+
+  it("includes logo preservation rule", () => {
+    const prompt = buildDerivationPrompt({});
+    expect(prompt).toContain("CRITICAL LOGO RULE");
+    expect(prompt).toContain("Do NOT invent a logo");
+  });
+
+  it("includes applied CTA when provided", () => {
+    const prompt = buildDerivationPrompt({ ctaText: "Compre agora" });
+    expect(prompt).toContain("Applied CTA text for this piece: Compre agora");
+  });
+
+  it("includes variant index for art_variation", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "art_variation",
+      variantIndex: 2,
+    });
+    expect(prompt).toContain("Variant index: 3");
   });
 });

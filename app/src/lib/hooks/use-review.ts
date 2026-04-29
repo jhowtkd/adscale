@@ -31,8 +31,13 @@ export function useReviewDerivation(derivationId?: string) {
       }
       return res.json();
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["derivations"] });
+      queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+      const campaignId = data?.derivation?.campaignId;
+      if (campaignId) {
+        queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId] });
+      }
       addToast(
         "success",
         variables.status === "approved" ? t("derivationApproved") : t("derivationRejected")
