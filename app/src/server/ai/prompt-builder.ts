@@ -50,6 +50,17 @@ function imageLanguageInstruction(locale?: string): string {
   return "";
 }
 
+const CREATIVITY_TEMPLATES: Record<string, string> = {
+  conservative: `CREATIVITY LEVEL: conservative.
+Stay close to the reference creative. Produce a fresh but restrained variation: refine composition, spacing, background treatment, CTA module placement, and hierarchy without changing the visual universe. Preserve the same brand palette, typography style, main subject/photo treatment, logo behavior, offer structure, and overall campaign recognition. Avoid experimental layouts, new scenes, unrelated motifs, or major copy/typography shifts.`,
+
+  balanced: `CREATIVITY LEVEL: balanced.
+Create a clearly new ad from the same campaign system. Keep brand identity, offer, main subject, typography style, logo behavior, and key message recognizable, but rebuild the composition with noticeable variation in layout, background, visual hierarchy, CTA module placement, supporting shapes, and rhythm. The result should feel like a sibling creative from the same campaign, not a near-copy.`,
+
+  bold: `CREATIVITY LEVEL: bold.
+Push the creative further while staying on-brand. Reinterpret the reference into a more distinctive composition with stronger changes to layout, background structure, visual hierarchy, scale, CTA module placement, decorative tokens, and energy. Preserve the core brand assets, campaign message, offer, logo behavior, and recognizable visual tokens. Do not invent a new brand, unrelated scene, or incompatible style.`,
+};
+
 export function buildPlanPrompt(campaign: Campaign, asset?: Asset, locale?: string) {
   return `You are a creative strategist. Based on this campaign brief, generate a creative plan.
 
@@ -84,6 +95,7 @@ export interface DerivationPromptConfig {
   ctaText?: string | null;
   targetFormat?: string;
   visualTokenBrief?: string | null;
+  creativeLevel?: string;
 }
 
 export function buildDerivationPrompt(config: DerivationPromptConfig) {
@@ -98,7 +110,13 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
     ctaText,
     targetFormat = "1:1",
     visualTokenBrief,
+    creativeLevel,
   } = config;
+
+  let effectiveCreativeLevel = creativeLevel;
+  if (generationMode === "art_variation" && !effectiveCreativeLevel) {
+    effectiveCreativeLevel = "balanced";
+  }
 
   const isArtVariation = generationMode === "art_variation";
 
@@ -128,6 +146,13 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
       parts.push("For 4:5, design a native portrait feed ad: balance the subject and copy blocks, rebuild the offer/CTA area, and avoid any appearance of a square asset padded into portrait.");
     } else if (targetFormat === "1:1") {
       parts.push("For 1:1, design a native square ad: rebalance the subject, headline, benefits, offer, and CTA into a compact composition without side cropping or pasted-format artifacts.");
+    }
+  }
+
+  if (generationMode === "art_variation" && effectiveCreativeLevel) {
+    const template = CREATIVITY_TEMPLATES[effectiveCreativeLevel];
+    if (template) {
+      parts.push(template);
     }
   }
 
