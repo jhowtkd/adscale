@@ -22,6 +22,7 @@ import { platformColors } from "@/lib/mock-data";
 
 interface ReviewStepProps {
   derivations: Derivation[];
+  baseImageUrl?: string;
   onApprove?: (id: string) => void;
   onReject?: (id: string, reason: string) => void;
   onRegenerate?: (id: string, feedback: string) => void;
@@ -40,6 +41,7 @@ interface ReviewStepProps {
 
 export default function ReviewStep({
   derivations,
+  baseImageUrl,
   onApprove,
   onReject,
   onRegenerate,
@@ -246,6 +248,7 @@ export default function ReviewStep({
               </div>
 
               <ComparisonView
+                baseImageUrl={baseImageUrl}
                 derivation={selectedDerivation}
                 onApprove={handleApprove}
                 onReject={handleReject}

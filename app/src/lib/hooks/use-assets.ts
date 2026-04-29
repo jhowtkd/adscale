@@ -1,4 +1,5 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/api-client";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export interface Asset {
   id: string;
@@ -10,6 +11,10 @@ export interface Asset {
   width: number | null;
   height: number | null;
   createdAt: Date;
+}
+
+export interface AssetWithUrl extends Asset {
+  url: string;
 }
 
 interface UploadAssetInput {
@@ -68,6 +73,21 @@ async function uploadAssetToBackend(
   };
 }
 
+async function fetchCampaignAssets(campaignId: string): Promise<AssetWithUrl[]> {
+  const res = await apiFetch(`/api/campaigns/${campaignId}/assets`);
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Erro ao carregar assets");
+  }
+
+  const data = await res.json();
+  return (data.assets as Asset[]).map((asset) => ({
+    ...asset,
+    createdAt: new Date(asset.createdAt),
+  })) as AssetWithUrl[];
+}
+
 export function useUploadAsset(campaignId: string) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -77,5 +97,13 @@ export function useUploadAsset(campaignId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId] });
     },
+  });
+}
+
+export function useCampaignAssets(campaignId: string) {
+  return useQuery({
+    queryKey: ["campaign-assets", campaignId],
+    queryFn: () => fetchCampaignAssets(campaignId),
+    enabled: !!campaignId && campaignId !== "new",
   });
 }

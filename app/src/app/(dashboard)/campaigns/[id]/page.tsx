@@ -11,6 +11,7 @@ import type { Derivation, AdPlatform, CampaignStatus } from "@/lib/mock-data";
 import { useCampaign, useUpdateCampaign } from "@/lib/hooks/use-campaigns";
 import { useDeleteCampaign } from "@/lib/hooks/use-campaigns";
 import { useDerivations, useCreateDerivations } from "@/lib/hooks/use-derivations";
+import { useCampaignAssets } from "@/lib/hooks/use-assets";
 import { useReviewDerivation } from "@/lib/hooks/use-review";
 import { useRegenerateDerivation } from "@/lib/hooks/use-regenerate";
 import { useExport } from "@/lib/hooks/use-export";
@@ -105,6 +106,7 @@ export default function CampaignWorkspacePage() {
   // Derivation hooks
   const { data: derivationsData } = useDerivations(campaignId);
   const createDerivations = useCreateDerivations(campaignId);
+  const { data: campaignAssets } = useCampaignAssets(campaignId);
 
   // Review / regenerate / export hooks
   const reviewMutation = useReviewDerivation();
@@ -204,6 +206,8 @@ export default function CampaignWorkspacePage() {
       };
     });
   }, [derivationsData, campaignPlatforms, td, campaign?.generationMode]);
+
+  const baseImageUrl = campaignAssets?.[0]?.url;
 
   // Set page title
   useEffect(() => {
@@ -443,6 +447,7 @@ export default function CampaignWorkspacePage() {
         return (
           <ReviewStep
             derivations={allDerivations}
+            baseImageUrl={baseImageUrl}
             onApprove={handleApproveDerivation}
             onReject={handleRejectDerivation}
             onRegenerate={handleRegenerateWithFeedback}
