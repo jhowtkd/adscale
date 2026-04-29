@@ -261,6 +261,7 @@ export const derivationJob = inngest.createFunction(
         ctaText: ctaText ?? derivation.ctaText ?? undefined,
         targetFormat,
         visualTokenBrief,
+        creativeLevel: campaign.creativeLevel ?? "balanced",
       });
       console.log(`[generate-and-store-output] model=${env.OPENAI_IMAGE_MODEL} hasAsset=${!!asset} locale=${locale ?? "default"}`);
 

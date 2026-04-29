@@ -91,16 +91,17 @@ export async function POST(
         });
       }
     } else {
-      // format_adaptation: always 3 formats
-      const formats = campaign.targetFormats ?? ["1:1", "4:5", "9:16"];
-      const ctaVariants = campaign.ctaVariants ?? [];
-      for (let i = 0; i < formats.length; i++) {
-        jobs.push({
-          variantIndex: i,
-          ctaText: ctaVariants[i]?.trim() || null,
-          format: formats[i],
-        });
+      // format_adaptation: single format only
+      const targetFormats = campaign.targetFormats;
+      if (!targetFormats || targetFormats.length !== 1) {
+        return apiError("invalidTargetFormats", 400);
       }
+      const ctaVariants = campaign.ctaVariants ?? [];
+      jobs.push({
+        variantIndex: 0,
+        ctaText: ctaVariants[0]?.trim() || null,
+        format: targetFormats[0],
+      });
     }
 
     const created: Awaited<ReturnType<typeof createDerivation>>[] = [];
@@ -132,6 +133,9 @@ export async function POST(
             variantIndex: job.variantIndex,
             ctaText: job.ctaText,
             format: job.format,
+            ...(generationMode === "art_variation" && {
+              creativeLevel: campaign.creativeLevel ?? "balanced",
+            }),
           },
         });
         console.log(`[derivations POST] event sent derivationId=${derivation.id}`);

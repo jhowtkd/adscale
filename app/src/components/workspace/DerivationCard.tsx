@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Eye, Download, RefreshCw, Clock, AlertCircle } from "lucide-react";
+import { Eye, Download, RefreshCw, Clock, AlertCircle, Check, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import StatusBadge from "@/components/ui/StatusBadge";
@@ -9,6 +9,7 @@ import type { Derivation } from "@/lib/mock-data";
 import { platformColors } from "@/lib/mock-data";
 import { useRegenerateDerivation } from "@/lib/hooks/use-regenerate";
 import { useExport } from "@/lib/hooks/use-export";
+import { Button } from "@/components/ui/button";
 import { useAppStore } from "@/lib/store";
 
 // ============================================
@@ -21,6 +22,10 @@ interface DerivationCardProps {
   onPreview: (id: string) => void;
   onDownload?: (id: string) => void;
   onRegenerate?: (id: string) => void;
+  onApprove?: () => void;
+  onReject?: () => void;
+  isApproving?: boolean;
+  isRejecting?: boolean;
   gridSize?: "small" | "medium" | "large";
 }
 
@@ -153,6 +158,10 @@ export default function DerivationCard({
   onPreview,
   onDownload,
   onRegenerate,
+  onApprove,
+  onReject,
+  isApproving,
+  isRejecting,
   gridSize = "medium",
 }: DerivationCardProps) {
   const commonT = useTranslations("common");
@@ -169,6 +178,12 @@ export default function DerivationCard({
   const regenerateMutation = useRegenerateDerivation(derivation.id);
   const exportMutation = useExport();
   const addToast = useAppStore((s) => s.addToast);
+
+  const aspectClass = {
+    "1:1": "aspect-square",
+    "4:5": "aspect-[4/5]",
+    "9:16": "aspect-[9/16]",
+  }[derivation.format ?? ""] ?? "aspect-square";
 
   const handleRegenerate = () => {
     if (regenerateMutation.isPending) return;
@@ -212,14 +227,14 @@ export default function DerivationCard({
         isCompleted && "hover:border-[var(--border-medium)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.08)]"
       )}
     >
-      {/* ---- Image Area (4:5 aspect ratio) ---- */}
-      <div className="relative aspect-[4/5] overflow-hidden bg-[var(--surface-raised)]">
+      {/* ---- Image Area ---- */}
+      <div className={cn("relative overflow-hidden rounded-lg bg-muted", aspectClass)}>
         {derivation.imageUrl ? (
           <img
             src={derivation.imageUrl}
             alt={derivation.name}
             className={cn(
-              "absolute inset-0 w-full h-full object-cover transition-transform duration-300",
+              "w-full h-full object-contain transition-transform duration-300",
               isCompleted && "group-hover:scale-[1.03]"
             )}
             loading="lazy"
@@ -340,6 +355,20 @@ export default function DerivationCard({
             </button>
           </div>
         </div>
+
+        {/* Row 5: Approve / Reject */}
+        {derivation.status === "completed" && onApprove && onReject && (
+          <div className="flex gap-2 mt-2">
+            <Button size="sm" variant="outline" onClick={onApprove} disabled={isApproving}>
+              <Check className="w-4 h-4 mr-1" />
+              {commonT("approve")}
+            </Button>
+            <Button size="sm" variant="outline" onClick={onReject} disabled={isRejecting}>
+              <X className="w-4 h-4 mr-1" />
+              {commonT("reject")}
+            </Button>
+          </div>
+        )}
       </div>
     </motion.div>
   );

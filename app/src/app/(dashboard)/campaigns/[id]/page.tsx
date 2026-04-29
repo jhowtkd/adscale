@@ -329,12 +329,15 @@ export default function CampaignWorkspacePage() {
   }, [handleGenerateDerivations]);
 
   // ============================================
-  // Step 4: Derivations Handlers
+  // Step 3: Derivations Handlers
   // ============================================
 
-  const handlePreview = useCallback((_id: string) => {
-    // Preview removed with ReviewStep — no-op
-  }, []);
+  const handlePreview = useCallback(
+    (id: string) => {
+      addToast("info", tc("openingComparison"));
+    },
+    [addToast, tc]
+  );
 
   const handleDownloadDerivation = useCallback(
     (id: string) => {
@@ -355,6 +358,52 @@ export default function CampaignWorkspacePage() {
   );
 
 
+  // ============================================
+  // Step 3: Gallery Review Handlers (inline in DerivationsStep)
+  // ============================================
+
+  const handleApproveDerivation = useCallback(
+    (id: string) => {
+      reviewMutation.mutate({ id, status: "approved" });
+    },
+    [reviewMutation]
+  );
+
+  const handleRejectDerivation = useCallback(
+    (id: string, _reason: string) => {
+      reviewMutation.mutate({ id, status: "rejected" });
+    },
+    [reviewMutation]
+  );
+
+  const handleRegenerateWithFeedback = useCallback(
+    (id: string, feedback: string) => {
+      regenerateMutation.mutate({ id, feedback });
+    },
+    [regenerateMutation]
+  );
+
+  const handleExportDerivation = useCallback(
+    (id: string, format: string) => {
+      exportMutation.mutate({
+        type: "individual",
+        derivationId: id,
+        format: format as "png" | "jpeg" | "webp",
+      });
+    },
+    [exportMutation]
+  );
+
+  const handleExportAll = useCallback(
+    (format: string) => {
+      exportMutation.mutate({
+        type: "batch",
+        campaignId,
+        format: format as "png" | "jpeg" | "webp",
+      });
+    },
+    [exportMutation, campaignId]
+  );
 
   // ============================================
   // Render Step Content
@@ -382,7 +431,18 @@ export default function CampaignWorkspacePage() {
             onDownload={handleDownloadDerivation}
             onRegenerate={handleRegenerateDerivation}
             onGenerateMore={handleGenerateDerivations}
-            onReviewAll={() => {}}
+            onApprove={handleApproveDerivation}
+            onReject={(id) => handleRejectDerivation(id, "")}
+            approvingId={
+              reviewMutation.isPending && reviewMutation.variables?.status === "approved"
+                ? reviewMutation.variables.id
+                : null
+            }
+            rejectingId={
+              reviewMutation.isPending && reviewMutation.variables?.status === "rejected"
+                ? reviewMutation.variables.id
+                : null
+            }
             isGeneratingMore={createDerivations.isPending}
           />
         );
@@ -402,8 +462,7 @@ export default function CampaignWorkspacePage() {
       case 2:
         return direction === "prev" ? ts("backToBrief") : ts("startGeneration");
       case 3:
-        return direction === "prev" ? ts("backToUpload") : ts("reviewAll");
-
+        return direction === "prev" ? ts("backToUpload") : "";
       default:
         return "";
     }
@@ -533,8 +592,7 @@ export default function CampaignWorkspacePage() {
           "bg-[var(--surface-base)] rounded-xl border border-[var(--border-dim)] min-h-[400px]",
           currentStep === 1 && "p-6 md:p-8",
           currentStep === 2 && "p-6 md:p-8",
-          currentStep === 3 && "p-6",
-
+          currentStep === 3 && "p-6"
         )}
       >
         <AnimatePresence mode="wait" custom={direction}>
@@ -575,10 +633,10 @@ export default function CampaignWorkspacePage() {
 
           <button
             onClick={currentStep === 2 ? handleGenerateDerivations : handleNext}
-            disabled={currentStep === 2 || createDerivations.isPending}
+            disabled={currentStep === 2 || currentStep === 3 || createDerivations.isPending}
             className={cn(
               "inline-flex items-center rounded-md px-6 py-2.5 text-sm font-medium transition-all duration-200",
-              currentStep === 2 || createDerivations.isPending
+              currentStep === 2 || currentStep === 3 || createDerivations.isPending
                 ? "bg-[var(--surface-raised)] text-[var(--text-muted)] border border-[var(--border-dim)] cursor-default"
                 : "bg-[var(--accent-mint)] text-white hover:bg-[var(--accent-mint-light)] hover:-translate-y-px active:scale-[0.98]"
             )}

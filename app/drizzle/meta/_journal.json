@@ -15,6 +15,13 @@
       "when": 1777402461487,
       "tag": "0001_add_v3_derivation_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1777486070606,
+      "tag": "0002_unique_jubilee",
+      "breakpoints": true
     }
   ]
 }
