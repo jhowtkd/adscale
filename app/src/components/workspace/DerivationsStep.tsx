@@ -19,7 +19,10 @@ interface DerivationsStepProps {
   onDownload: (id: string) => void;
   onRegenerate: (id: string) => void;
   onGenerateMore: () => void;
-  onReviewAll: () => void;
+  onApprove?: (id: string) => void;
+  onReject?: (id: string) => void;
+  approvingId?: string | null;
+  rejectingId?: string | null;
   isGeneratingMore?: boolean;
 }
 
@@ -38,7 +41,10 @@ export default function DerivationsStep({
   onDownload,
   onRegenerate,
   onGenerateMore,
-  onReviewAll,
+  onApprove,
+  onReject,
+  approvingId,
+  rejectingId,
   isGeneratingMore,
 }: DerivationsStepProps) {
   const t = useTranslations("derivation");
@@ -228,22 +234,12 @@ export default function DerivationsStep({
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="flex items-center justify-between bg-[var(--accent-mint-dim)] border border-[var(--accent-mint)]/20 rounded-lg px-4 py-3"
+            className="flex items-center gap-2 bg-[var(--accent-mint-dim)] border border-[var(--accent-mint)]/20 rounded-lg px-4 py-3"
           >
-            <div className="flex items-center gap-2">
-              <Check size={18} className="text-[var(--accent-teal)]" />
-              <span className="text-sm font-medium text-[var(--accent-mint)]">
-                {t("allCompleted")}
-              </span>
-            </div>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={onReviewAll}
-              className="text-sm font-medium text-[var(--accent-mint)] hover:text-[var(--accent-mint-light)] transition-colors"
-            >
-              {t("goToReview")}
-            </motion.button>
+            <Check size={18} className="text-[var(--accent-teal)]" />
+            <span className="text-sm font-medium text-[var(--accent-mint)]">
+              {t("allCompleted")}
+            </span>
           </motion.div>
         )}
       </AnimatePresence>
@@ -259,6 +255,10 @@ export default function DerivationsStep({
               onPreview={onPreview}
               onDownload={onDownload}
               onRegenerate={onRegenerate}
+              onApprove={() => onApprove?.(derivation.id)}
+              onReject={() => onReject?.(derivation.id)}
+              isApproving={approvingId === derivation.id}
+              isRejecting={rejectingId === derivation.id}
               gridSize={gridSize}
             />
           ))}

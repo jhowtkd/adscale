@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Eye, Download, RefreshCw, Clock, AlertCircle } from "lucide-react";
+import { Eye, Download, RefreshCw, Clock, AlertCircle, Check, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import StatusBadge from "@/components/ui/StatusBadge";
@@ -9,6 +9,7 @@ import type { Derivation } from "@/lib/mock-data";
 import { platformColors } from "@/lib/mock-data";
 import { useRegenerateDerivation } from "@/lib/hooks/use-regenerate";
 import { useExport } from "@/lib/hooks/use-export";
+import { Button } from "@/components/ui/button";
 import { useAppStore } from "@/lib/store";
 
 // ============================================
@@ -21,6 +22,10 @@ interface DerivationCardProps {
   onPreview: (id: string) => void;
   onDownload?: (id: string) => void;
   onRegenerate?: (id: string) => void;
+  onApprove?: () => void;
+  onReject?: () => void;
+  isApproving?: boolean;
+  isRejecting?: boolean;
   gridSize?: "small" | "medium" | "large";
 }
 
@@ -153,6 +158,10 @@ export default function DerivationCard({
   onPreview,
   onDownload,
   onRegenerate,
+  onApprove,
+  onReject,
+  isApproving,
+  isRejecting,
   gridSize = "medium",
 }: DerivationCardProps) {
   const commonT = useTranslations("common");
@@ -340,6 +349,20 @@ export default function DerivationCard({
             </button>
           </div>
         </div>
+
+        {/* Row 5: Approve / Reject */}
+        {derivation.status === "completed" && (
+          <div className="flex gap-2 mt-2">
+            <Button size="sm" variant="outline" onClick={onApprove} disabled={isApproving}>
+              <Check className="w-4 h-4 mr-1" />
+              {commonT("approve")}
+            </Button>
+            <Button size="sm" variant="outline" onClick={onReject} disabled={isRejecting}>
+              <X className="w-4 h-4 mr-1" />
+              {commonT("reject")}
+            </Button>
+          </div>
+        )}
       </div>
     </motion.div>
   );

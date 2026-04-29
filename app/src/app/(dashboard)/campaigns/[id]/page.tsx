@@ -439,7 +439,18 @@ export default function CampaignWorkspacePage() {
             onDownload={handleDownloadDerivation}
             onRegenerate={handleRegenerateDerivation}
             onGenerateMore={handleGenerateDerivations}
-            onReviewAll={handleReviewAll}
+            onApprove={handleApproveDerivation}
+            onReject={(id) => handleRejectDerivation(id, "")}
+            approvingId={
+              reviewMutation.isPending && reviewMutation.variables?.status === "approved"
+                ? reviewMutation.variables.id
+                : null
+            }
+            rejectingId={
+              reviewMutation.isPending && reviewMutation.variables?.status === "rejected"
+                ? reviewMutation.variables.id
+                : null
+            }
             isGeneratingMore={createDerivations.isPending}
           />
         );
