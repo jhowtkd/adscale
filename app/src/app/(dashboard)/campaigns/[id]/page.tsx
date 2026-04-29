@@ -11,8 +11,6 @@ import type { Derivation, AdPlatform, CampaignStatus } from "@/lib/mock-data";
 import { useCampaign, useUpdateCampaign } from "@/lib/hooks/use-campaigns";
 import { useDeleteCampaign } from "@/lib/hooks/use-campaigns";
 import { useDerivations, useCreateDerivations } from "@/lib/hooks/use-derivations";
-import { useCampaignAssets } from "@/lib/hooks/use-assets";
-import { useReviewDerivation } from "@/lib/hooks/use-review";
 import { useRegenerateDerivation } from "@/lib/hooks/use-regenerate";
 import { useExport } from "@/lib/hooks/use-export";
 import StatusBadge from "@/components/ui/StatusBadge";
@@ -22,7 +20,7 @@ import BriefingStep from "@/components/workspace/BriefingStep";
 import type { BriefingFormData } from "@/components/workspace/BriefingStep";
 import UploadStep from "@/components/workspace/UploadStep";
 import DerivationsStep from "@/components/workspace/DerivationsStep";
-import ReviewStep from "@/components/workspace/ReviewStep";
+
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTranslations } from "next-intl";
 
@@ -30,7 +28,7 @@ import { useTranslations } from "next-intl";
 // Types
 // ============================================
 
-type WizardStep = 1 | 2 | 3 | 4;
+type WizardStep = 1 | 2 | 3;
 
 // ============================================
 // Step Navigation Labels
@@ -106,10 +104,8 @@ export default function CampaignWorkspacePage() {
   // Derivation hooks
   const { data: derivationsData } = useDerivations(campaignId);
   const createDerivations = useCreateDerivations(campaignId);
-  const { data: campaignAssets } = useCampaignAssets(campaignId);
 
-  // Review / regenerate / export hooks
-  const reviewMutation = useReviewDerivation();
+  // Regenerate / export hooks
   const regenerateMutation = useRegenerateDerivation();
   const exportMutation = useExport();
 
@@ -207,7 +203,7 @@ export default function CampaignWorkspacePage() {
     });
   }, [derivationsData, campaignPlatforms, td, campaign?.generationMode]);
 
-  const baseImageUrl = campaignAssets?.[0]?.url;
+
 
   // Set page title
   useEffect(() => {
@@ -228,7 +224,7 @@ export default function CampaignWorkspacePage() {
   );
 
   const handleNext = useCallback(() => {
-    if (currentStep < 4) {
+    if (currentStep < 3) {
       goToStep((currentStep + 1) as WizardStep);
     }
   }, [currentStep, goToStep]);
@@ -336,13 +332,9 @@ export default function CampaignWorkspacePage() {
   // Step 4: Derivations Handlers
   // ============================================
 
-  const handlePreview = useCallback(
-    (id: string) => {
-      setCurrentStep(4);
-      addToast("info", tc("openingComparison"));
-    },
-    [addToast, tc]
-  );
+  const handlePreview = useCallback((_id: string) => {
+    // Preview removed with ReviewStep — no-op
+  }, []);
 
   const handleDownloadDerivation = useCallback(
     (id: string) => {
@@ -362,56 +354,7 @@ export default function CampaignWorkspacePage() {
     [regenerateMutation]
   );
 
-  const handleReviewAll = useCallback(() => {
-    goToStep(4);
-  }, [goToStep]);
 
-  // ============================================
-  // Step 5: Review Handlers
-  // ============================================
-
-  const handleApproveDerivation = useCallback(
-    (id: string) => {
-      reviewMutation.mutate({ id, status: "approved" });
-    },
-    [reviewMutation]
-  );
-
-  const handleRejectDerivation = useCallback(
-    (id: string, _reason: string) => {
-      reviewMutation.mutate({ id, status: "rejected" });
-    },
-    [reviewMutation]
-  );
-
-  const handleRegenerateWithFeedback = useCallback(
-    (id: string, feedback: string) => {
-      regenerateMutation.mutate({ id, feedback });
-    },
-    [regenerateMutation]
-  );
-
-  const handleExportDerivation = useCallback(
-    (id: string, format: string) => {
-      exportMutation.mutate({
-        type: "individual",
-        derivationId: id,
-        format: format as "png" | "jpeg" | "webp",
-      });
-    },
-    [exportMutation]
-  );
-
-  const handleExportAll = useCallback(
-    (format: string) => {
-      exportMutation.mutate({
-        type: "batch",
-        campaignId,
-        format: format as "png" | "jpeg" | "webp",
-      });
-    },
-    [exportMutation, campaignId]
-  );
 
   // ============================================
   // Render Step Content
@@ -439,39 +382,8 @@ export default function CampaignWorkspacePage() {
             onDownload={handleDownloadDerivation}
             onRegenerate={handleRegenerateDerivation}
             onGenerateMore={handleGenerateDerivations}
-            onReviewAll={handleReviewAll}
+            onReviewAll={() => {}}
             isGeneratingMore={createDerivations.isPending}
-          />
-        );
-      case 4:
-        return (
-          <ReviewStep
-            derivations={allDerivations}
-            baseImageUrl={baseImageUrl}
-            onApprove={handleApproveDerivation}
-            onReject={handleRejectDerivation}
-            onRegenerate={handleRegenerateWithFeedback}
-            onDownload={handleExportDerivation}
-            onExportAll={handleExportAll}
-            approvingId={
-              reviewMutation.isPending && reviewMutation.variables?.status === "approved"
-                ? reviewMutation.variables.id
-                : null
-            }
-            rejectingId={
-              reviewMutation.isPending && reviewMutation.variables?.status === "rejected"
-                ? reviewMutation.variables.id
-                : null
-            }
-            regeneratingId={
-              regenerateMutation.isPending ? regenerateMutation.variables?.id ?? null : null
-            }
-            downloadingId={
-              exportMutation.isPending && exportMutation.variables?.type === "individual"
-                ? exportMutation.variables.derivationId ?? null
-                : null
-            }
-            isExporting={exportMutation.isPending && exportMutation.variables?.type === "batch"}
           />
         );
       default:
@@ -491,8 +403,7 @@ export default function CampaignWorkspacePage() {
         return direction === "prev" ? ts("backToBrief") : ts("startGeneration");
       case 3:
         return direction === "prev" ? ts("backToUpload") : ts("reviewAll");
-      case 4:
-        return direction === "prev" ? ts("backToGallery") : ts("exportSelected");
+
       default:
         return "";
     }
@@ -623,7 +534,7 @@ export default function CampaignWorkspacePage() {
           currentStep === 1 && "p-6 md:p-8",
           currentStep === 2 && "p-6 md:p-8",
           currentStep === 3 && "p-6",
-          currentStep === 4 && "p-6"
+
         )}
       >
         <AnimatePresence mode="wait" custom={direction}>
@@ -664,10 +575,10 @@ export default function CampaignWorkspacePage() {
 
           <button
             onClick={currentStep === 2 ? handleGenerateDerivations : handleNext}
-            disabled={currentStep === 2 || currentStep === 4 || createDerivations.isPending}
+            disabled={currentStep === 2 || createDerivations.isPending}
             className={cn(
               "inline-flex items-center rounded-md px-6 py-2.5 text-sm font-medium transition-all duration-200",
-              currentStep === 2 || currentStep === 4 || createDerivations.isPending
+              currentStep === 2 || createDerivations.isPending
                 ? "bg-[var(--surface-raised)] text-[var(--text-muted)] border border-[var(--border-dim)] cursor-default"
                 : "bg-[var(--accent-mint)] text-white hover:bg-[var(--accent-mint-light)] hover:-translate-y-px active:scale-[0.98]"
             )}
