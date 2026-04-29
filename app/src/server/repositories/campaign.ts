@@ -11,6 +11,8 @@ export type CampaignStatus =
 
 export type GenerationMode = "art_variation" | "format_adaptation";
 
+export type CreativeLevel = "conservative" | "balanced" | "bold";
+
 export interface CreateCampaignInput {
   name: string;
   client?: string;
@@ -26,7 +28,7 @@ export interface CreateCampaignInput {
   generationMode?: GenerationMode;
   ctaVariants?: string[];
   targetFormats?: string[];
-  creativeLevel?: string;
+  creativeLevel?: CreativeLevel;
 }
 
 export interface UpdateCampaignInput {
@@ -44,7 +46,7 @@ export interface UpdateCampaignInput {
   generationMode?: GenerationMode;
   ctaVariants?: string[];
   targetFormats?: string[];
-  creativeLevel?: string;
+  creativeLevel?: CreativeLevel;
 }
 
 export interface CampaignMetrics {
