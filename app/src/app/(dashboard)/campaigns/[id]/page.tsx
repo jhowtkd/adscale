@@ -333,7 +333,7 @@ export default function CampaignWorkspacePage() {
   }, [handleGenerateDerivations]);
 
   // ============================================
-  // Step 4: Derivations Handlers
+  // Step 3: Derivations Handlers
   // ============================================
 
   const handlePreview = useCallback(
@@ -362,7 +362,7 @@ export default function CampaignWorkspacePage() {
   );
 
   // ============================================
-  // Step 5: Review Handlers
+  // Step 3: Gallery Review Handlers (inline in DerivationsStep)
   // ============================================
 
   const handleApproveDerivation = useCallback(
