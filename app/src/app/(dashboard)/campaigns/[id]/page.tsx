@@ -362,10 +362,6 @@ export default function CampaignWorkspacePage() {
     [regenerateMutation]
   );
 
-  const handleReviewAll = useCallback(() => {
-    goToStep(4);
-  }, [goToStep]);
-
   // ============================================
   // Step 5: Review Handlers
   // ============================================

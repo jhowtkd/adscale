@@ -351,7 +351,7 @@ export default function DerivationCard({
         </div>
 
         {/* Row 5: Approve / Reject */}
-        {derivation.status === "completed" && (
+        {derivation.status === "completed" && onApprove && onReject && (
           <div className="flex gap-2 mt-2">
             <Button size="sm" variant="outline" onClick={onApprove} disabled={isApproving}>
               <Check className="w-4 h-4 mr-1" />
