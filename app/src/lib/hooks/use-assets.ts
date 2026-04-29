@@ -96,6 +96,7 @@ export function useUploadAsset(campaignId: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId] });
+      queryClient.invalidateQueries({ queryKey: ["campaign-assets", campaignId] });
     },
   });
 }
