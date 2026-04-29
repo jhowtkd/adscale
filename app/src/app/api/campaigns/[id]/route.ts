@@ -21,9 +21,17 @@ const updateCampaignSchema = z.object({
   notes: z.string().optional(),
   generationMode: z.enum(["art_variation", "format_adaptation"]).optional(),
   ctaVariants: z.array(z.string()).max(3).optional(),
-  targetFormats: z.array(z.enum(["1:1", "4:5", "9:16"])).max(3).optional(),
+  targetFormats: z.array(z.enum(["1:1", "4:5", "9:16"])).max(1).optional(),
+  creativeLevel: z.enum(["conservative", "balanced", "bold"]).optional(),
   status: z.enum(["draft", "active", "generating", "completed", "failed"]).optional(),
-});
+})
+.refine(
+  (data) => {
+    const mode = data.generationMode ?? "art_variation";
+    return mode !== "format_adaptation" || (data.targetFormats?.length === 1);
+  },
+  { message: "format_adaptation requires exactly 1 targetFormat", path: ["targetFormats"] }
+);
 
 export async function GET(
   request: Request,
