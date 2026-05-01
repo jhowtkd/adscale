@@ -133,7 +133,7 @@ async function buildVisualTokenBrief(buffer: Buffer, mimeType: string, targetFor
 async function normalizeGeneratedImage(
   buffer: Buffer,
   dimensions: { width: number; height: number },
-  generationMode: "art_variation" | "format_adaptation",
+  generationMode: "art_variation" | "format_adaptation" | "restyling",
 ) {
   const position = generationMode === "format_adaptation" ? "attention" : "centre";
 
@@ -269,8 +269,41 @@ export const derivationJob = inngest.createFunction(
 
       const openaiSize = formatToOpenAISize(targetFormat);
 
-      if (asset && referenceBuffer && effectiveGenerationMode !== "format_adaptation") {
-        // Art variations use edit mode so the original asset remains a strong visual anchor.
+      if (effectiveGenerationMode === "restyling") {
+        // Restyling: download both base and style_reference assets
+        const assets = await getAssetsByCampaign(campaignId, workspaceId);
+        const baseAsset = assets.find((a) => a.role === "base") ?? assets[0];
+        const styleAsset = assets.find((a) => a.role === "style_reference") ?? assets[1];
+
+        if (!baseAsset || !styleAsset) {
+          throw new Error("Restyling requires both base and style_reference assets");
+        }
+
+        const baseBuffer = await downloadBuffer(baseAsset.key);
+        const styleBuffer = await downloadBuffer(styleAsset.key);
+
+        const baseFile = await toFile(baseBuffer, "base-image", { type: baseAsset.type });
+        const styleFile = await toFile(styleBuffer, "style-reference", { type: styleAsset.type });
+
+        const response = await withTimeout(
+          openai.images.edit({
+            model: env.OPENAI_IMAGE_MODEL,
+            image: [baseFile, styleFile], // SDK accepts array for two images
+            prompt,
+            n: 1,
+            size: openaiSize,
+          }),
+          IMAGE_GENERATION_TIMEOUT_MS,
+          "OpenAI image edit (restyling)"
+        );
+        const first = response.data?.[0];
+        if (!first) {
+          throw new Error("No image data returned from OpenAI");
+        }
+        console.log(`[generate-and-store-output] restyling success url=${first.url ? "yes" : "no"} b64=${first.b64_json ? "yes" : "no"}`);
+        result = first;
+      } else if (asset && referenceBuffer && effectiveGenerationMode !== "format_adaptation") {
+        // Art variations use edit mode with single image
         const referenceImage = await toFile(referenceBuffer, "reference-image", {
           type: asset.type,
         });
