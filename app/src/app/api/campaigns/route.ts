@@ -18,7 +18,7 @@ const createCampaignSchema = z.object({
   offer: z.string().optional(),
   constraints: z.string().optional(),
   notes: z.string().optional(),
-  generationMode: z.enum(["art_variation", "format_adaptation"]).optional(),
+  generationMode: z.enum(["art_variation", "format_adaptation", "restyling"]).optional(),
   ctaVariants: z.array(z.string()).max(3).optional(),
   targetFormats: z.array(z.enum(["1:1", "4:5", "9:16"])).max(1).optional(),
   creativeLevel: z.enum(["conservative", "balanced", "bold"]).optional().default("balanced"),

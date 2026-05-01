@@ -9,7 +9,7 @@ export type CampaignStatus =
   | "completed"
   | "failed";
 
-export type GenerationMode = "art_variation" | "format_adaptation";
+export type GenerationMode = "art_variation" | "format_adaptation" | "restyling";
 
 export type CreativeLevel = "conservative" | "balanced" | "bold";
 
