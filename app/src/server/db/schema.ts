@@ -161,6 +161,7 @@ export const campaignAssets = adscaleSchema.table(
     size: integer("size"),
     width: integer("width"),
     height: integer("height"),
+    role: text("role").notNull().default("base"),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
   },
   (table) => [
