@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, Save, Trash2 } from "lucide-react";
+import { ChevronLeft, Download, Save, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";
@@ -205,6 +205,11 @@ export default function CampaignWorkspacePage() {
       };
     });
   }, [derivationsData, campaignPlatforms, td, campaign?.generationMode]);
+
+  const approvedDerivation = useMemo(
+    () => allDerivations.find((derivation) => derivation.status === "approved"),
+    [allDerivations]
+  );
 
 
 
@@ -636,18 +641,34 @@ export default function CampaignWorkspacePage() {
             {currentStep > 1 ? getStepNavLabel(currentStep, "prev") : ""}
           </button>
 
-          <button
-            onClick={currentStep === 2 ? handleGenerateDerivations : handleNext}
-            disabled={currentStep === 2 || currentStep === 3 || createDerivations.isPending}
-            className={cn(
-              "inline-flex items-center rounded-md px-6 py-2.5 text-sm font-medium transition-all duration-200",
-              currentStep === 2 || currentStep === 3 || createDerivations.isPending
-                ? "bg-[var(--surface-raised)] text-[var(--text-muted)] border border-[var(--border-dim)] cursor-default"
-                : "bg-[var(--accent-mint)] text-white hover:bg-[var(--accent-mint-light)] hover:-translate-y-px active:scale-[0.98]"
-            )}
-          >
-            {createDerivations.isPending ? tc("loading") : getStepNavLabel(currentStep, "next")}
-          </button>
+          {currentStep === 3 && approvedDerivation ? (
+            <button
+              onClick={() => handleExportDerivation(approvedDerivation.id, "png")}
+              disabled={exportMutation.isPending}
+              className={cn(
+                "inline-flex items-center gap-2 rounded-md px-6 py-2.5 text-sm font-semibold transition-all duration-200 shadow-sm",
+                exportMutation.isPending
+                  ? "bg-[var(--surface-raised)] text-[var(--text-muted)] border border-[var(--border-dim)] cursor-default"
+                  : "bg-[var(--accent-mint)] text-white hover:bg-[var(--accent-mint-light)] hover:-translate-y-px active:scale-[0.98]"
+              )}
+            >
+              <Download size={14} />
+              {exportMutation.isPending ? tc("loading") : "Baixar arte aprovada"}
+            </button>
+          ) : (
+            <button
+              onClick={currentStep === 2 ? handleGenerateDerivations : handleNext}
+              disabled={currentStep === 2 || currentStep === 3 || createDerivations.isPending}
+              className={cn(
+                "inline-flex items-center rounded-md px-6 py-2.5 text-sm font-medium transition-all duration-200",
+                currentStep === 2 || currentStep === 3 || createDerivations.isPending
+                  ? "bg-[var(--surface-raised)] text-[var(--text-muted)] border border-[var(--border-dim)] cursor-default"
+                  : "bg-[var(--accent-mint)] text-white hover:bg-[var(--accent-mint-light)] hover:-translate-y-px active:scale-[0.98]"
+              )}
+            >
+              {createDerivations.isPending ? tc("loading") : getStepNavLabel(currentStep, "next")}
+            </button>
+          )}
         </motion.div>
       )}
     </div>
