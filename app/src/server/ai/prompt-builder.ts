@@ -50,15 +50,34 @@ function imageLanguageInstruction(locale?: string): string {
   return "";
 }
 
+const conservative = `CREATIVITY LEVEL: conservative.
+OPERATIONAL RULES FOR CONSERVATIVE:
+- Preserve character/product, brand palette, texture, typography style, and visual structure from the reference.
+- Change ONLY: layout/disposition, text content, CTA module placement, and minor spacing adjustments.
+- do not introduce new scenes, unrelated motifs, experimental layouts, or major copy shifts.
+- Maintain minimal structural change; the result should feel same visual universe to the reference.
+- Preserve logo behavior, offer structure, and overall campaign recognition.`;
+
+const balanced = `CREATIVITY LEVEL: balanced.
+OPERATIONAL RULES FOR BALANCED:
+- Create a noticeable new composition while keep brand identity recognizable.
+- Rebuild layout, visual hierarchy, CTA module placement, supporting shapes, rhythm, and spacing.
+- The result should feel like a sibling creative from the same campaign, not a near-copy.
+- Do NOT produce a near-identical copy; ensure perceptible difference in background, composition, CTA module, and visual hierarchy.
+- Preserve palette, character/product, texture, and brand system from the reference.`;
+
+const bold = `CREATIVITY LEVEL: bold.
+OPERATIONAL RULES FOR BOLD:
+- Push creative further with stronger changes to layout, background structure, visual hierarchy, scale, CTA module placement, decorative tokens, and energy.
+- You MAY change texture, character/visual treatment, background, layout, and creative energy.
+- preserve core brand assets, campaign message, offer, logo behavior, product, and CTA.
+- do not invent a new brand, unrelated scene, or incompatible style.
+- Preserve recognizable visual tokens and brand system.`;
+
 const CREATIVITY_TEMPLATES: Record<string, string> = {
-  conservative: `CREATIVITY LEVEL: conservative.
-Stay close to the reference creative. Produce a fresh but restrained variation: refine composition, spacing, background treatment, CTA module placement, and hierarchy without changing the visual universe. Preserve the same brand palette, typography style, main subject/photo treatment, logo behavior, offer structure, and overall campaign recognition. Avoid experimental layouts, new scenes, unrelated motifs, or major copy/typography shifts.`,
-
-  balanced: `CREATIVITY LEVEL: balanced.
-Create a clearly new ad from the same campaign system. Keep brand identity, offer, main subject, typography style, logo behavior, and key message recognizable, but rebuild the composition with noticeable variation in layout, background, visual hierarchy, CTA module placement, supporting shapes, and rhythm. The result should feel like a sibling creative from the same campaign, not a near-copy.`,
-
-  bold: `CREATIVITY LEVEL: bold.
-Push the creative further while staying on-brand. Reinterpret the reference into a more distinctive composition with stronger changes to layout, background structure, visual hierarchy, scale, CTA module placement, decorative tokens, and energy. Preserve the core brand assets, campaign message, offer, logo behavior, and recognizable visual tokens. Do not invent a new brand, unrelated scene, or incompatible style.`,
+  conservative,
+  balanced,
+  bold,
 };
 
 export function buildPlanPrompt(campaign: Campaign, asset?: Asset, locale?: string) {
@@ -90,7 +109,7 @@ export interface DerivationPromptConfig {
   asset?: Asset | null;
   feedback?: string | null;
   locale?: string;
-  generationMode?: "art_variation" | "format_adaptation";
+  generationMode?: "art_variation" | "format_adaptation" | "restyling";
   variantIndex?: number;
   ctaText?: string | null;
   targetFormat?: string;
@@ -130,7 +149,7 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
       "Requirements: produce a PERCEPTIBLY DIFFERENT result from the reference. Vary background, composition, CTA module placement, and visual hierarchy. Do NOT produce a near-identical copy.",
       "Preserve the original brand identity, palette, typography style, product treatment, and overall tone. Do not invent a new brand or unrelated visual universe."
     );
-  } else {
+  } else if (generationMode === "format_adaptation") {
     parts.push(
       "MODE: format_adaptation — Rebuild the ad as a native layout for a DIFFERENT aspect ratio using the same visual tokens.",
       "This is NOT a crop, resize, zoom, pasted reference, framed reference, or letterbox task. Do not place the original full image inside the new canvas.",
@@ -147,6 +166,19 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
     } else if (targetFormat === "1:1") {
       parts.push("For 1:1, design a native square ad: rebalance the subject, headline, benefits, offer, and CTA into a compact composition without side cropping or pasted-format artifacts.");
     }
+  } else if (generationMode === "restyling") {
+    parts.push(
+      "MODE: restyling — Apply the visual style of a reference image to the content of a base image.",
+      "BASE IMAGE CONTENT SOURCE: The base image provides the subject, product, offer, CTA, and factual content. preserve the base image subject, product, offer, CTA, and factual content.",
+      "STYLE REFERENCE DESIGN LANGUAGE: The style reference provides layout, visual style, typography aesthetic, color treatment, and design language. borrow only visual language from the style reference.",
+      "RULES:",
+      "- Preserve the base image subject, product, offer, CTA, and factual content exactly.",
+      "- do not copy factual content from the style reference.",
+      "- Apply the style reference's visual language (colors, typography style, layout rhythm, decorative elements) to the base image's content.",
+      "- The result should look like a restyled version of the base image, not a copy of the style reference.",
+      "- Keep the same format/proportions as the base image.",
+      "- Do NOT invent new facts, offers, or CTAs — use those from the base image only."
+    );
   }
 
   if (generationMode === "art_variation" && effectiveCreativeLevel) {
@@ -169,6 +201,16 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
 
   if (ctaText) {
     parts.push(`\nApplied CTA text for this piece: ${ctaText}`);
+    parts.push(`
+CRITICAL LITERAL CTA RULE: The CTA text above is MANDATORY and FINAL.
+- Do not use synonyms, paraphrases, or alternative phrasing for this CTA.
+- Do not translate the CTA into any language.
+- Do not rewrite or rephrase the CTA text.
+- Do not replace it with plan-recommended CTAs or any other text.
+- The exact CTA text above must appear verbatim in the generated output.`);
+    if (plan?.ctas && plan.ctas.length > 0) {
+      parts.push(`\nCTA Recommendations are secondary context only and must not override the literal CTA text.`);
+    }
   } else if (isArtVariation) {
     parts.push(`\nApplied CTA text for this piece: (use the original CTA from the reference)`);
   }
