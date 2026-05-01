@@ -92,6 +92,8 @@
     "uploadCreativeDesc": "Inicie uma nova derivação a partir de um criativo base",
     "viewReports": "Ver relatórios",
     "viewReportsDesc": "Verifique o desempenho das suas derivações",
+    "restyling": "Restilização",
+    "restylingDesc": "Redesenhe um criativo com novo estilo a partir de uma referência visual",
     "browseLibrary": "Navegar na biblioteca",
     "browseLibraryDesc": "Acesse todos os seus criativos gerados",
     "inviteTeam": "Convidar equipe",
@@ -488,5 +490,23 @@
     "statusUpdateFailed": "Falha ao atualizar status",
     "exportReady": "Exportação pronta — download iniciado",
     "exportFailed": "Falha ao exportar"
+  },
+  "restyling": {
+    "title": "Restilização de Criativo",
+    "nameLabel": "Nome da campanha",
+    "namePlaceholder": "Ex: Verão 2026 - Estilo minimalista",
+    "clientLabel": "Cliente / Marca",
+    "clientPlaceholder": "Ex: Loja XYZ",
+    "offerLabel": "Objetivo / Oferta",
+    "offerPlaceholder": "Ex: 20% off em toda linha",
+    "ctaLabel": "CTA Exato",
+    "ctaPlaceholder": "Ex: Compre Agora",
+    "notesLabel": "Notas",
+    "notesPlaceholder": "Ex: Manter logo no canto superior esquerdo",
+    "baseImageLabel": "Imagem Base (conteúdo a ser restilado)",
+    "baseImageRequired": "Imagem base é obrigatória",
+    "styleImageLabel": "Referência de Estilo (visual desejado)",
+    "styleImageRequired": "Referência de estilo é obrigatória",
+    "submit": "Iniciar Restilização"
   }
 }

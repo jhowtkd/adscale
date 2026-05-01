@@ -92,6 +92,8 @@
     "uploadCreativeDesc": "Start a new derivation from a base creative",
     "viewReports": "View Reports",
     "viewReportsDesc": "Check performance of your derivations",
+    "restyling": "Restyling",
+    "restylingDesc": "Redesign a creative with a new style from a visual reference",
     "browseLibrary": "Browse Library",
     "browseLibraryDesc": "Access all your generated creatives",
     "inviteTeam": "Invite Team",
@@ -477,5 +479,23 @@
     "statusUpdateFailed": "Failed to update status",
     "exportReady": "Export ready — download started",
     "exportFailed": "Failed to export"
+  },
+  "restyling": {
+    "title": "Creative Restyling",
+    "nameLabel": "Campaign name",
+    "namePlaceholder": "Ex: Summer 2026 - Minimalist style",
+    "clientLabel": "Client / Brand",
+    "clientPlaceholder": "Ex: Store XYZ",
+    "offerLabel": "Objective / Offer",
+    "offerPlaceholder": "Ex: 20% off on all items",
+    "ctaLabel": "Exact CTA",
+    "ctaPlaceholder": "Ex: Buy Now",
+    "notesLabel": "Notes",
+    "notesPlaceholder": "Ex: Keep logo in upper left corner",
+    "baseImageLabel": "Base Image (content to be restyled)",
+    "baseImageRequired": "Base image is required",
+    "styleImageLabel": "Style Reference (desired visual)",
+    "styleImageRequired": "Style reference is required",
+    "submit": "Start Restyling"
   }
 }

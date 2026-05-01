@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { useAppStore } from "@/lib/store";
@@ -12,6 +12,7 @@ import { useCampaigns } from "@/lib/hooks/use-campaigns";
 import StatsCard from "@/components/ui/StatsCard";
 import StatusBadge from "@/components/ui/StatusBadge";
 import EmptyState from "@/components/ui/EmptyState";
+import RestylingModal from "@/components/workspace/RestylingModal";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import {
@@ -121,6 +122,7 @@ export default function DashboardPage() {
   const creditPercent = 0;
 
   const isLoading = isDashboardLoading || isCampaignsLoading;
+  const [showRestylingModal, setShowRestylingModal] = useState(false);
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
@@ -232,13 +234,13 @@ export default function DashboardPage() {
             index={0}
           />
           <QuickActionCard
-            icon={BarChart3}
-            title={t("viewReports")}
-            description={t("viewReportsDesc")}
+            icon={Sparkles}
+            title={t("restyling")}
+            description={t("restylingDesc")}
             iconBgColor="var(--accent-mint-dim)"
             iconColor="var(--accent-mint)"
             href="#"
-            disabled
+            onClick={() => setShowRestylingModal(true)}
             index={1}
           />
           <QuickActionCard
@@ -464,6 +466,9 @@ export default function DashboardPage() {
           )}
         </motion.div>
       </section>
+
+      {/* Restyling Modal */}
+      <RestylingModal open={showRestylingModal} onOpenChange={setShowRestylingModal} />
     </div>
   );
 }
@@ -480,6 +485,7 @@ interface QuickActionCardProps {
   iconColor: string;
   href: string;
   disabled?: boolean;
+  onClick?: () => void;
   index: number;
 }
 
@@ -491,6 +497,7 @@ function QuickActionCard({
   iconColor,
   href,
   disabled = false,
+  onClick,
   index,
 }: QuickActionCardProps) {
   const t = useTranslations("common");
@@ -510,6 +517,7 @@ function QuickActionCard({
           "hover:border-[var(--border-medium)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] cursor-pointer",
         disabled && "opacity-50 cursor-not-allowed"
       )}
+      onClick={onClick}
     >
       <div
         className="flex h-10 w-10 items-center justify-center rounded-md mb-3 transition-transform duration-250 group-hover:scale-105"
@@ -625,5 +633,6 @@ function CampaignRow({ campaign }: { campaign: UiCampaign }) {
         </button>
       </div>
     </motion.div>
+
   );
 }
