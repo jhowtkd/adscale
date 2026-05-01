@@ -59,12 +59,12 @@ Milestone v3.0 repositions ADScale as a campaign derivation system, not a generi
 
 ### REST — Quick Tool Restilização
 
-- [ ] **REST-01**: Home substitui card desativado de relatórios por "Restilização".
-- [ ] **REST-02**: Modal rápido coleta: nome, cliente/marca, objetivo/oferta, CTA exato, observações, imagem base e imagem referência.
-- [ ] **REST-03**: `POST /api/quick-tools/restyling` recebe multipart form, cria campanha, salva dois assets e cria derivação com `generationMode: "restyling"`.
+- [x] **REST-01**: Home substitui card desativado de relatórios por "Restilização".
+- [x] **REST-02**: Modal rápido coleta: nome, cliente/marca, objetivo/oferta, CTA exato, observações, imagem base e imagem referência.
+- [x] **REST-03**: `POST /api/quick-tools/restyling` recebe multipart form, cria campanha, salva dois assets e cria derivação com `generationMode: "restyling"`.
 - [ ] **REST-04**: Adicionar campo `role` em `campaign_assets`: `base` ou `style_reference`, com `base` como padrão para assets antigos.
 - [ ] **REST-05**: No job de geração, `base` fornece marca, produto, paleta, informações, oferta e CTA; `style_reference` fornece apenas disposição, estilo visual e linguagem de design.
-- [ ] **REST-06**: Usar `images.edit` com as duas imagens como entrada (SDK aceita array); resultado salvo na campanha e usuário direcionado para galeria.
+- [x] **REST-06**: Usar `images.edit` com as duas imagens como entrada (SDK aceita array); resultado salvo na campanha e usuário direcionado para galeria.
 
 ## Deferred (Future Milestones)
 

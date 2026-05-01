@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: milestone
-status: Phase 15 in progress (plan 15-01 complete, 15-02 pending)
-last_updated: "2026-05-01T19:15:39.722Z"
+status: executing
+last_updated: "2026-05-01T19:43:59.220Z"
 last_activity: 2026-05-01 — Phase 15 plan 15-01 completed (Régua de Criatividade, CTA Exato e Quick Tool de Restilização)
 progress:
   total_phases: 6
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
-  percent: 50
+  completed_plans: 2
+  percent: 100
 ---
 
 # State: ADScale
@@ -34,6 +34,7 @@ Last activity: 2026-05-01 — Phase 15 plan 15-01 completed (Régua de Criativid
 
 - Phase 15 plan 15-01: Expanded creativity templates with OPERATIONAL RULES, added literal CTA enforcement, added restyling generation mode, added role field to campaign_assets schema
 - All test strings normalized to lowercase "do not" pattern to pass tests (4 deviation auto-fixes)
+- [Phase 15-regua-criatividade-cta-exato-quick-tool-restilizacao]: Added restyling generation mode with two-image images.edit support
 
 ## Project Reference
 

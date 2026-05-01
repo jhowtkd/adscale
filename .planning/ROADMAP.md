@@ -208,8 +208,8 @@
 | Phase 15 — Régua de Criatividade, CTA Exato e Quick Tool de Restilização | ○ Planned | — |
 
 **Plans:**
-- [ ] 15-01-PLAN.md — Expand creativity templates + literal CTA + restyling mode + schema role field
-- [ ] 15-02-PLAN.md — Restyling home card + API route + two-image derivation job
+2/2 plans complete
+- [x] 15-02-PLAN.md — Restyling home card + API route + two-image derivation job
 
 ---
 
