@@ -116,6 +116,41 @@
 
 ---
 
+## Phase 15: Régua de Criatividade, CTA Exato e Quick Tool de Restilização
+
+**Goal:** Rewrite creativity templates with operational rules, enforce literal CTA text, and add a quick restyling tool to the home screen.
+
+**Requirements:**
+- CR-01: `conservative` template preserves character/product, palette, texture, typography, brand, and visual structure; changes only layout/disposition and texts.
+- CR-02: `balanced` template changes layout, hierarchy, spacing, and CTA module; preserves palette, character/product, texture, and brand system.
+- CR-03: `bold` template may change texture, character/visual treatment, background, layout, and creative energy; preserves brand, product, offer, and CTA.
+- CTA-06: When `ctaText` exists, the prompt must require literal use without synonyms, translation, rewriting, or replacement with plan-recommended CTAs.
+- CTA-07: Plan-recommended CTA suggestions become secondary context and never override `ctaText`.
+- REST-01: Home screen replaces the disabled reports card with a "Restilização" quick tool.
+- REST-02: Restyling modal collects: name, client/brand, objective/offer, exact CTA, notes, base image, and style reference image.
+- REST-03: `POST /api/quick-tools/restyling` receives multipart form, creates a campaign, saves both images, and creates a derivation with `generationMode: "restyling"`.
+- REST-04: Add `role` field to `campaign_assets`: `base` or `style_reference`, defaulting to `base` for legacy assets.
+- REST-05: In generation job, `base` asset provides brand, product, palette, info, offer, and CTA; `style_reference` provides only layout, visual style, and design language.
+- REST-06: Use `images.edit` with both images as input (SDK accepts array); result is saved in the campaign and user is directed to the campaign gallery.
+
+**Success Criteria:**
+1. Each creativity level contains explicit operational rules in the prompt template.
+2. CTA literal enforcement appears as a critical rule in prompt output.
+3. Restyling separates base and style reference correctly in job logic.
+4. `POST /api/quick-tools/restyling` validates required fields and image types.
+5. The route creates a campaign, two assets with correct roles, a derivation, and an Inngest event.
+6. `restyling` generation calls `images.edit` with two images; `art_variation` continues using one image; `format_adaptation` continues using visual token generation.
+7. Unit tests pass: `prompt-builder.test.ts`, `prompt-parser.test.ts`, `derivation-job.test.ts`, `repositories/campaign.test.ts`.
+8. `npm run lint && npm run build` clean; `npx tsc --noEmit --pretty false` passes.
+
+**Assumptions:**
+- Restyling generates one image per execution.
+- The CTA in the quick tool is always the final visible CTA.
+- The campaign created by the quick tool appears in normal app history.
+- Base image dominates brand/content; style reference dominates style/layout.
+
+---
+
 ## Requirement Coverage
 
 | REQ-ID | Phase | Mapped | Status |
@@ -145,8 +180,19 @@
 | OUT-03 | 14 | ✓ | Implemented |
 | OUT-04 | 14 | ✓ | Implemented |
 | OUT-05 | 14 | ✓ | Implemented |
+| CR-01 | 15 | ✓ | Planned |
+| CR-02 | 15 | ✓ | Planned |
+| CR-03 | 15 | ✓ | Planned |
+| CTA-06 | 15 | ✓ | Planned |
+| CTA-07 | 15 | ✓ | Planned |
+| REST-01 | 15 | ✓ | Planned |
+| REST-02 | 15 | ✓ | Planned |
+| REST-03 | 15 | ✓ | Planned |
+| REST-04 | 15 | ✓ | Planned |
+| REST-05 | 15 | ✓ | Planned |
+| REST-06 | 15 | ✓ | Planned |
 
-**Coverage:** 25/25 requirements mapped across 5 phases ✓
+**Coverage:** 36/36 requirements mapped across 6 phases ✓
 
 ---
 
@@ -159,6 +205,11 @@
 | Phase 12 — Orquestração de Derivações | ✅ Complete | Integration tests pass |
 | Phase 13 — Prompt e Renderização Fiel | ✅ Complete | Prompt string tests + sharp normalization |
 | Phase 14 — Galeria, Mensagens e QA Final | ✅ Complete | Build + 67 tests passing |
+| Phase 15 — Régua de Criatividade, CTA Exato e Quick Tool de Restilização | ○ Planned | — |
+
+**Plans:**
+- [ ] 15-01-PLAN.md — Expand creativity templates + literal CTA + restyling mode + schema role field
+- [ ] 15-02-PLAN.md — Restyling home card + API route + two-image derivation job
 
 ---
 
