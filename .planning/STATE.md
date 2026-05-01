@@ -2,10 +2,10 @@
 
 ## Current Position
 
-Phase: Complete
-Plan: —
-Status: Implementing phases 10–14
-Last activity: 2026-04-28 — Phases 10–14 implemented, build + 67 tests passing
+Phase: 15 — Planned
+Plan: 15-01, 15-02
+Status: Phase 15 planned (2 plans); awaiting execution
+Last activity: 2026-05-01 — Phase 15 added to roadmap and planned (Régua de Criatividade, CTA Exato e Quick Tool de Restilização)
 
 ## Accumulated Context
 

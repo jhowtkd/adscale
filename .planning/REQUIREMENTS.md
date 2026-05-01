@@ -46,6 +46,26 @@ Milestone v3.0 repositions ADScale as a campaign derivation system, not a generi
 - [x] **OUT-04**: Botão `Gerar mais` respeita o modo da campanha, sem criar lotes genéricos.
 - [x] **OUT-05**: Erros de geração aparecem como mensagem legível, não JSON cru.
 
+### CR — Régua de Criatividade
+
+- [ ] **CR-01**: Template `conservative` preserva personagem/produto, paleta, textura, tipografia, marca e estrutura visual; muda apenas disposição/layout e textos.
+- [ ] **CR-02**: Template `balanced` muda layout, hierarquia, espaçamento e módulo de CTA; preserva paleta, personagem/produto, textura e sistema de marca.
+- [ ] **CR-03**: Template `bold` pode mudar textura, personagem/tratamento visual, fundo, layout e energia criativa; preserva marca, produto, oferta e CTA.
+
+### CTA — CTA Exato (extensões)
+
+- [ ] **CTA-06**: Quando `ctaText` existir, o prompt deve exigir uso literal, sem sinônimos, tradução, reescrita ou troca por CTAs do plano.
+- [ ] **CTA-07**: Recomendações de CTA do plano viram contexto secundário e nunca sobrescrevem `ctaText`.
+
+### REST — Quick Tool Restilização
+
+- [ ] **REST-01**: Home substitui card desativado de relatórios por "Restilização".
+- [ ] **REST-02**: Modal rápido coleta: nome, cliente/marca, objetivo/oferta, CTA exato, observações, imagem base e imagem referência.
+- [ ] **REST-03**: `POST /api/quick-tools/restyling` recebe multipart form, cria campanha, salva dois assets e cria derivação com `generationMode: "restyling"`.
+- [ ] **REST-04**: Adicionar campo `role` em `campaign_assets`: `base` ou `style_reference`, com `base` como padrão para assets antigos.
+- [ ] **REST-05**: No job de geração, `base` fornece marca, produto, paleta, informações, oferta e CTA; `style_reference` fornece apenas disposição, estilo visual e linguagem de design.
+- [ ] **REST-06**: Usar `images.edit` com as duas imagens como entrada (SDK aceita array); resultado salvo na campanha e usuário direcionado para galeria.
+
 ## Deferred (Future Milestones)
 
 - Multi-format cross-combination (CTA × format) — out of v3.0 scope
