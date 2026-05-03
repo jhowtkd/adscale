@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
+import { getTranslations } from "next-intl/server";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import {
   getDerivationById,
@@ -71,10 +72,10 @@ export async function POST(
       await updateDerivationStatus(newDerivation.id, workspace.id, "failed");
       await refreshCampaignStatus(original.campaignId, workspace.id);
 
+      const t = await getTranslations({ locale, namespace: "errors" });
       return NextResponse.json(
         {
-          error:
-            "Nao foi possivel iniciar a geracao. Verifique se o worker local esta rodando.",
+          error: t("generationWorkerUnavailable"),
           code: "generationWorkerUnavailable",
         },
         { status: 503 }

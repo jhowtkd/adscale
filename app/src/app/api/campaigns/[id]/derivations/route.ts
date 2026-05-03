@@ -177,7 +177,7 @@ export async function GET(
     const items = await getDerivationsByCampaign(campaignId, workspace.id);
     const derivationsWithImageUrl = items.map((d) => ({
       ...d,
-      imageUrl: d.outputKey ? `${env.R2_PUBLIC_BASE_URL}/${d.outputKey}` : null,
+      imageUrl: d.outputKey ? `${env.R2_PUBLIC_BASE_URL.replace(/\/$/, "")}/${d.outputKey}` : null,
     }));
     return NextResponse.json({ derivations: derivationsWithImageUrl });
   } catch (error) {

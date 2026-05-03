@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles,
@@ -39,7 +39,7 @@ interface AccordionItemProps {
   index: number;
 }
 
-function AccordionItem({ title, platformTags, children, index }: AccordionItemProps) {
+function AccordionItem({ title, platformTags, children }: AccordionItemProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -99,17 +99,42 @@ export default function CreativePlanCard({
   onEdit,
   onRegenerate,
   approved,
-  isEditing = false,
 }: CreativePlanCardProps) {
   const [copiedCta, setCopiedCta] = useState<string | null>(null);
   const t = useTranslations("plan");
   const commonT = useTranslations("common");
   const campaignT = useTranslations("campaign");
+  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleCopyCta = (cta: string) => {
-    navigator.clipboard.writeText(cta).catch(() => {});
-    setCopiedCta(cta);
-    setTimeout(() => setCopiedCta(null), 2000);
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current) {
+        clearTimeout(copyTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handleCopyCta = async (cta: string) => {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(cta);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = cta;
+        textarea.style.position = "fixed";
+        textarea.style.left = "-9999px";
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+      setCopiedCta(cta);
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+      copyTimeoutRef.current = setTimeout(() => setCopiedCta(null), 2000);
+    } catch {
+      // Silently ignore copy failures
+    }
   };
 
   const sectionVariants = {

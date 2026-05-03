@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { apiError } from "@/lib/api-response";
+import { apiError, handleApiError } from "@/lib/api-response";
 import { db } from "@/server/db";
 import { user } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
@@ -36,7 +36,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, locale });
   } catch (error) {
-    console.error("[POST /api/user/locale] error:", error);
-    return apiError("internalError", 500);
+    return handleApiError(error, "user.locale.POST");
   }
 }

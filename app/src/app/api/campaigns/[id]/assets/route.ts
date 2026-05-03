@@ -21,7 +21,7 @@ export async function GET(
     const assets = await getAssetsByCampaign(campaignId, workspace.id);
     const withUrls = assets.map((asset) => ({
       ...asset,
-      url: `${env.R2_PUBLIC_BASE_URL}/${asset.key}`,
+      url: `${env.R2_PUBLIC_BASE_URL.replace(/\/$/, "")}/${asset.key}`,
     }));
 
     return NextResponse.json({ assets: withUrls });

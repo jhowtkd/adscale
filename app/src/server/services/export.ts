@@ -13,11 +13,15 @@ import { getCampaignById } from "../repositories/campaign";
 import { createExportRecord } from "../repositories/export";
 
 async function convertImage(buffer: Buffer, format: "png" | "jpeg" | "webp") {
-  const converter = sharp(buffer);
-  if (format === "png") return converter.png().toBuffer();
-  if (format === "jpeg") return converter.jpeg().toBuffer();
-  if (format === "webp") return converter.webp().toBuffer();
-  return buffer;
+  try {
+    const converter = sharp(buffer);
+    if (format === "png") return await converter.png().toBuffer();
+    if (format === "jpeg") return await converter.jpeg().toBuffer();
+    if (format === "webp") return await converter.webp().toBuffer();
+    return buffer;
+  } catch {
+    throw new Error(`Failed to convert image to ${format}: invalid or corrupted image buffer`);
+  }
 }
 
 function getContentType(format: "png" | "jpeg" | "webp") {

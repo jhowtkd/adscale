@@ -51,13 +51,16 @@ export async function POST(
       return apiError("assetNotFound", 400);
     }
 
-    // Verify Content-Type matches
-    if (head.ContentType && head.ContentType !== type) {
+    // Verify Content-Type matches (ignore charset suffix)
+    if (head.ContentType && head.ContentType.split(";")[0].trim() !== type) {
       return apiError("assetTypeMismatch", 400);
     }
 
     // Verify size matches (with small tolerance)
-    if (head.ContentLength && Math.abs(head.ContentLength - size) > 1024) {
+    if (
+      typeof head.ContentLength === "number" &&
+      Math.abs(head.ContentLength - size) > 1024
+    ) {
       return apiError("assetSizeMismatch", 400);
     }
 

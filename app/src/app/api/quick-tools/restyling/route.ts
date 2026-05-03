@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
-import { createCampaign } from "@/server/repositories/campaign";
+import { createCampaign, deleteCampaign } from "@/server/repositories/campaign";
 import { createAsset } from "@/server/repositories/asset";
 import { createDerivation } from "@/server/repositories/derivation";
-import { uploadBuffer } from "@/server/storage/r2";
+import { uploadBuffer, deleteObject } from "@/server/storage/r2";
 import { inngest } from "@/server/jobs/client";
 import { getUserLocale } from "@/server/repositories/user";
 
@@ -66,63 +66,67 @@ export async function POST(request: Request) {
     });
 
     // Upload base image
-    const baseKey = `campaigns/${campaign.id}/${crypto.randomUUID()}-base.${baseImage.type.split("/")[1]}`;
+    const baseKey = `campaigns/${campaign.id}/${crypto.randomUUID()}-base.${baseImage.type.split("/")[1] ?? "bin"}`;
     const baseBuffer = Buffer.from(await baseImage.arrayBuffer());
     await uploadBuffer(baseKey, baseBuffer, baseImage.type);
 
-    const baseAsset = await createAsset(workspace.id, campaign.id, {
-      key: baseKey,
-      type: baseImage.type,
-      size: baseImage.size,
-    });
-
     // Upload style reference image
-    const styleKey = `campaigns/${campaign.id}/${crypto.randomUUID()}-style.${styleImage.type.split("/")[1]}`;
+    const styleKey = `campaigns/${campaign.id}/${crypto.randomUUID()}-style.${styleImage.type.split("/")[1] ?? "bin"}`;
     const styleBuffer = Buffer.from(await styleImage.arrayBuffer());
     await uploadBuffer(styleKey, styleBuffer, styleImage.type);
 
-    const styleAsset = await createAsset(workspace.id, campaign.id, {
-      key: styleKey,
-      type: styleImage.type,
-      size: styleImage.size,
-    });
+    try {
+      await createAsset(workspace.id, campaign.id, {
+        key: baseKey,
+        type: baseImage.type,
+        size: baseImage.size,
+      });
 
-    // Update asset roles if the role field is available
-    // Note: The role field was added in plan 15-01, migration may need to be run
-    // For now, we rely on ordering: first is base, second is style_reference
+      await createAsset(workspace.id, campaign.id, {
+        key: styleKey,
+        type: styleImage.type,
+        size: styleImage.size,
+      });
 
-    // Create derivation
-    const derivation = await createDerivation({
-      campaignId: campaign.id,
-      workspaceId: workspace.id,
-      status: "queued",
-      generationMode: "restyling",
-      format: "1:1",
-      variantIndex: 0,
-      ctaText: typeof ctaText === "string" ? ctaText.trim() : undefined,
-    });
-
-    // Send Inngest event
-    await inngest.send({
-      name: "derivation.generate",
-      data: {
-        derivationId: derivation.id,
+      // Create derivation
+      const derivation = await createDerivation({
         campaignId: campaign.id,
         workspaceId: workspace.id,
-        locale,
+        status: "queued",
         generationMode: "restyling",
+        format: "1:1",
         variantIndex: 0,
         ctaText: typeof ctaText === "string" ? ctaText.trim() : undefined,
-        format: "1:1",
-        creativeLevel: "balanced",
-      },
-    });
+      });
 
-    return NextResponse.json({
-      campaignId: campaign.id,
-      derivationId: derivation.id,
-      redirectUrl: `/campaigns/${campaign.id}`,
-    }, { status: 201 });
+      // Send Inngest event
+      await inngest.send({
+        name: "derivation.generate",
+        data: {
+          derivationId: derivation.id,
+          campaignId: campaign.id,
+          workspaceId: workspace.id,
+          locale,
+          generationMode: "restyling",
+          variantIndex: 0,
+          ctaText: typeof ctaText === "string" ? ctaText.trim() : undefined,
+          format: "1:1",
+          creativeLevel: "balanced",
+        },
+      });
+
+      return NextResponse.json({
+        campaignId: campaign.id,
+        derivationId: derivation.id,
+        redirectUrl: `/campaigns/${campaign.id}`,
+      }, { status: 201 });
+    } catch (err) {
+      // Compensating transaction: clean up R2 files and DB campaign on failure
+      await deleteObject(baseKey).catch(() => {});
+      await deleteObject(styleKey).catch(() => {});
+      await deleteCampaign(campaign.id, workspace.id).catch(() => {});
+      throw err;
+    }
   } catch (error) {
     return handleApiError(error, "quick-tools.restyling.POST");
   }

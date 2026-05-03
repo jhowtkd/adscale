@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { eq, desc } from "drizzle-orm";
-import { apiError } from "@/lib/api-response";
+import { handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCampaigns } from "@/server/repositories/campaign";
 import { db } from "@/server/db";
@@ -41,12 +41,6 @@ export async function GET(request: Request) {
       recentActivity: activity,
     });
   } catch (error) {
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return apiError("unauthorized", 401);
-    }
-    if (error instanceof Error && error.message === "No workspace") {
-      return apiError("noWorkspace", 403);
-    }
-    return apiError("internalError", 500);
+    return handleApiError(error, "dashboard.GET");
   }
 }

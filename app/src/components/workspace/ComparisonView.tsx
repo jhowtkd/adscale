@@ -41,7 +41,6 @@ export default function ComparisonView({
   isDownloading,
 }: ComparisonViewProps) {
   const [splitPosition, setSplitPosition] = useState(50);
-  const t = useTranslations("review");
   const commonT = useTranslations("common");
   const [isDragging, setIsDragging] = useState(false);
   const [exportFormat, setExportFormat] = useState("png");

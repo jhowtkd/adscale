@@ -1,13 +1,11 @@
 "use client";
 
-import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   Check,
   CreditCard,
   Download,
   TrendingUp,
-  Zap,
   Coins,
 } from "lucide-react";
 import { cn } from "@/lib/utils";

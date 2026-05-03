@@ -39,6 +39,13 @@ export default function ProfileTab() {
   const [avatarPreview, setAvatarPreview] = useState(profile.avatar);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
+  }, []);
 
   const hasChanges =
     firstName !== profile.firstName ||
@@ -75,7 +82,8 @@ export default function ProfileTab() {
     });
     setSaveState("saved");
     addToast("success", tc("profileUpdated"));
-    setTimeout(() => setSaveState("idle"), 2000);
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => setSaveState("idle"), 2000);
   };
 
   return (

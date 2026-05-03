@@ -21,13 +21,13 @@ export async function POST(request: Request) {
     }
 
     const { type, derivationId, campaignId, format } = parsed.data;
-    const expiresAt = new Date(Date.now() + 300 * 1000).toISOString();
 
     if (type === "individual") {
       if (!derivationId) {
         return apiError("derivationIdRequired", 400);
       }
       const { url } = await exportIndividual(derivationId, workspace.id, format);
+      const expiresAt = new Date(Date.now() + 300 * 1000).toISOString();
       return NextResponse.json({ downloadUrl: url, expiresAt });
     }
 
@@ -36,6 +36,7 @@ export async function POST(request: Request) {
         return apiError("campaignIdRequired", 400);
       }
       const { url } = await exportAllApproved(campaignId, workspace.id, format);
+      const expiresAt = new Date(Date.now() + 300 * 1000).toISOString();
       return NextResponse.json({ downloadUrl: url, expiresAt });
     }
 

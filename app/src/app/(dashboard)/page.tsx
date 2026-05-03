@@ -15,24 +15,16 @@ import EmptyState from "@/components/ui/EmptyState";
 import RestylingModal from "@/components/workspace/RestylingModal";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  Tooltip as RechartsTooltip,
-  ResponsiveContainer,
-  Cell,
-} from "recharts";
+// Recharts imports reserved for future credit usage chart
+// import { BarChart, Bar, XAxis, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from "recharts";
 import {
   FolderOpen,
   Layers,
   Zap,
   Globe,
   Upload,
-  BarChart3,
   ImageIcon,
   Users,
-  ChevronRight,
   Sparkles,
   Download,
   AlertTriangle,
@@ -121,7 +113,6 @@ export default function DashboardPage() {
   const creditsRemaining = 100;
   const creditPercent = 0;
 
-  const isLoading = isDashboardLoading || isCampaignsLoading;
   const [showRestylingModal, setShowRestylingModal] = useState(false);
 
   return (
