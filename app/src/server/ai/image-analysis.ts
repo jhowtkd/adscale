@@ -57,3 +57,61 @@ export async function analyzeImageContent(
   const jsonString = raw.replace(/```(?:json)?\s*([\s\S]*?)\s*```/, "$1").trim();
   return JSON.parse(jsonString) as ContentBrief;
 }
+
+
+export interface StyleBrief {
+  colorPalette: { dominant: string[]; accents: string[]; gradients: string };
+  typography: { personality: string; effects: string[] };
+  textures: string[];
+  composition: string;
+  mood: string;
+  decorativeElements: string[];
+  photoTreatment: string;
+}
+
+const STYLE_SYSTEM_PROMPT = `You are a visual style analyst. Analyze the provided image as a STYLE SOURCE ONLY.
+Extract visual language elements: color palette, typography personality, textures, composition style, mood, decorative elements, and photo treatment.
+Do NOT describe the subject matter or content — only the visual style.
+Return ONLY a JSON object with this exact structure:
+{
+  "colorPalette": { "dominant": ["color1", "color2"], "accents": ["accent1"], "gradients": "description" },
+  "typography": { "personality": "grunge, elegant, bold, etc", "effects": ["torn edges", "glow", "outline"] },
+  "textures": ["grain", "halftone", "noise"],
+  "composition": "layering, collage, centered, etc",
+  "mood": "dark, energetic, nostalgic, etc",
+  "decorativeElements": ["shapes", "badges", "stickers"],
+  "photoTreatment": "black & white, duotone, high contrast, etc"
+}`;
+
+export async function analyzeImageStyle(
+  imageBuffer: Buffer,
+  mimeType: string
+): Promise<StyleBrief> {
+  const base64 = imageBuffer.toString("base64");
+  const dataUrl = `data:${mimeType};base64,${base64}`;
+
+  const response = await openai.chat.completions.create({
+    model: env.OPENAI_TEXT_MODEL,
+    messages: [
+      { role: "system", content: STYLE_SYSTEM_PROMPT },
+      {
+        role: "user",
+        content: [
+          {
+            type: "image_url",
+            image_url: { url: dataUrl, detail: "high" },
+          },
+        ],
+      },
+    ],
+    max_completion_tokens: 2048,
+  });
+
+  const raw = response.choices[0]?.message?.content;
+  if (!raw) {
+    throw new Error("Empty vision response for style analysis");
+  }
+
+  const jsonString = raw.replace(/```(?:json)?\s*([\s\S]*?)\s*```/, "$1").trim();
+  return JSON.parse(jsonString) as StyleBrief;
+}

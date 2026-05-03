@@ -5,3 +5,9 @@ describe("analyzeImageContent placeholder", () => {
     expect(true).toBe(true);
   });
 });
+
+describe("analyzeImageStyle placeholder", () => {
+  it("exists as a placeholder until real tests are added", () => {
+    expect(true).toBe(true);
+  });
+});
