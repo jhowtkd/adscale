@@ -8,6 +8,7 @@ export interface CreateAssetInput {
   size?: number;
   width?: number;
   height?: number;
+  role?: string;
 }
 
 export async function createAsset(
@@ -25,6 +26,7 @@ export async function createAsset(
       size: data.size ?? null,
       width: data.width ?? null,
       height: data.height ?? null,
+      ...(data.role ? { role: data.role } : {}),
     })
     .returning();
   return result[0];
