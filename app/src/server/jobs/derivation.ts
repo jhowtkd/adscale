@@ -4,6 +4,8 @@ import { derivations } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { uploadBuffer, downloadBuffer } from "../storage/r2";
 import { buildDerivationPrompt } from "../ai/prompt-builder";
+import { analyzeImageContent, analyzeImageStyle } from "@/server/ai/image-analysis";
+import { buildRestylingPrompt } from "@/server/ai/prompt-builder";
 import { getCampaignById, refreshCampaignStatus } from "../repositories/campaign";
 import { getAssetsByCampaign } from "../repositories/asset";
 import { getPlanByCampaign } from "../repositories/plan";
@@ -270,7 +272,6 @@ export const derivationJob = inngest.createFunction(
       const openaiSize = formatToOpenAISize(targetFormat);
 
       if (effectiveGenerationMode === "restyling") {
-        // Restyling: download both base and style_reference assets
         const assets = await getAssetsByCampaign(campaignId, workspaceId);
         const baseAsset = assets.find((a) => a.role === "base") ?? assets[0];
         const styleAsset = assets.find((a) => a.role === "style_reference") ?? assets[1];
@@ -282,25 +283,56 @@ export const derivationJob = inngest.createFunction(
         const baseBuffer = await downloadBuffer(baseAsset.key);
         const styleBuffer = await downloadBuffer(styleAsset.key);
 
-        const baseFile = await toFile(baseBuffer, "base-image", { type: baseAsset.type });
-        const styleFile = await toFile(styleBuffer, "style-reference", { type: styleAsset.type });
+        let unifiedPrompt: string;
+
+        try {
+          const [contentBrief, styleBrief] = await Promise.all([
+            analyzeImageContent(baseBuffer, baseAsset.type),
+            analyzeImageStyle(styleBuffer, styleAsset.type),
+          ]);
+
+          unifiedPrompt = buildRestylingPrompt(
+            contentBrief,
+            styleBrief,
+            campaign,
+            ctaText ?? derivation.ctaText ?? undefined,
+            locale
+          );
+        } catch (analysisErr) {
+          console.error(
+            `[restyling] vision analysis failed, falling back to legacy prompt.`,
+            analysisErr
+          );
+          unifiedPrompt = buildDerivationPrompt({
+            campaign,
+            plan,
+            asset: baseAsset,
+            feedback: derivation.feedback,
+            locale,
+            generationMode: "restyling",
+            variantIndex,
+            ctaText,
+            targetFormat,
+            creativeLevel: campaign.creativeLevel ?? "balanced",
+          });
+        }
 
         const response = await withTimeout(
-          openai.images.edit({
+          openai.images.generate({
             model: env.OPENAI_IMAGE_MODEL,
-            image: [baseFile, styleFile], // SDK accepts array for two images
-            prompt,
+            prompt: unifiedPrompt,
             n: 1,
             size: openaiSize,
           }),
           IMAGE_GENERATION_TIMEOUT_MS,
-          "OpenAI image edit (restyling)"
+          "OpenAI image generation (restyling)"
         );
+
         const first = response.data?.[0];
         if (!first) {
           throw new Error("No image data returned from OpenAI");
         }
-        console.log(`[generate-and-store-output] restyling success url=${first.url ? "yes" : "no"} b64=${first.b64_json ? "yes" : "no"}`);
+        console.log(`[generate-and-store-output] restyling generate success`);
         result = first;
       } else if (asset && referenceBuffer && effectiveGenerationMode !== "format_adaptation") {
         // Art variations use edit mode with single image
@@ -348,7 +380,7 @@ export const derivationJob = inngest.createFunction(
       if (result.b64_json) {
         buffer = Buffer.from(result.b64_json, "base64");
       } else if (result.url) {
-        const imageResponse = await fetch(result.url);
+        const imageResponse = await fetch(result.url, { signal: AbortSignal.timeout(30_000) });
         if (!imageResponse.ok) {
           throw new Error(
             `Failed to download generated image: ${imageResponse.status} ${imageResponse.statusText}`
