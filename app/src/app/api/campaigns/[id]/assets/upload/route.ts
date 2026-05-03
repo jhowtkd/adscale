@@ -10,8 +10,14 @@ const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
 const MAX_SIZE = 50 * 1024 * 1024;
 
 const uploadSchema = z.object({
-  width: z.coerce.number().int().positive().optional(),
-  height: z.coerce.number().int().positive().optional(),
+  width: z.preprocess(
+    (v) => (v === null || v === "" || v === undefined ? undefined : v),
+    z.coerce.number().int().positive().optional()
+  ),
+  height: z.preprocess(
+    (v) => (v === null || v === "" || v === undefined ? undefined : v),
+    z.coerce.number().int().positive().optional()
+  ),
 });
 
 export async function POST(
@@ -51,7 +57,8 @@ export async function POST(
       return apiError("invalidInput", 400, parsed.error.flatten());
     }
 
-    const key = `campaigns/${campaignId}/${crypto.randomUUID()}-${file.name}`;
+    const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_").replace(/\.{2,}/g, ".");
+    const key = `campaigns/${campaignId}/${crypto.randomUUID()}-${safeName}`;
     const buffer = Buffer.from(await file.arrayBuffer());
 
     await uploadBuffer(key, buffer, file.type);

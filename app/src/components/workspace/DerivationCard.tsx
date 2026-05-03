@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import { motion } from "framer-motion";
 import { Eye, Download, RefreshCw, Clock, AlertCircle, Check, X } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -163,7 +165,7 @@ export default function DerivationCard({
   onReject,
   isApproving,
   isRejecting,
-  gridSize = "medium",
+
 }: DerivationCardProps) {
   const commonT = useTranslations("common");
   const toastT = useTranslations("toast");

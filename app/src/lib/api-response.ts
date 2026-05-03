@@ -52,11 +52,15 @@ export async function handleApiError(error: unknown, context: string) {
   }
 
   const errorId = crypto.randomUUID();
+  const serialized = serializeError(error);
   console.error("[api-error]", {
     errorId,
     context,
-    error: serializeError(error),
+    error: serialized,
   });
 
-  return apiError("internalError", 500, { errorId });
+  return apiError("internalError", 500, {
+    errorId,
+    ...(process.env.NODE_ENV === "development" && { devError: serialized }),
+  });
 }

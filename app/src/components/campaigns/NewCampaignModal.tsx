@@ -17,13 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+
 
 // ============================================
 // Types
@@ -132,34 +126,39 @@ export default function NewCampaignModal({
     return Object.keys(newErrors).length === 0;
   }, [form, tErrors]);
 
-  const handleSubmit = useCallback(() => {
-    if (!validate()) return;
-    onSubmit({
-      name: form.name,
-      client: form.clientName,
-      generationMode: form.generationMode,
-      targetFormats: form.generationMode === "format_adaptation" && form.targetFormat
-        ? [form.targetFormat]
-        : undefined,
-      constraints: form.constraints || undefined,
-      notes: form.notes || undefined,
-      platforms: ["Meta"],
-      status: "draft",
-      variations: 0,
-      creditsUsed: 0,
-    });
-    setForm({
-      name: "",
-      clientName: "",
-      generationMode: "art_variation",
-      targetFormat: "",
-      constraints: "",
-      notes: "",
-    });
-    setErrors({});
-    setTouched({});
-    onOpenChange(false);
-  }, [form, validate, onSubmit, onOpenChange]);
+  const handleSubmit = useCallback(
+    (e?: React.FormEvent) => {
+      e?.preventDefault();
+      if (!validate()) return;
+      onSubmit({
+        name: form.name,
+        client: form.clientName,
+        generationMode: form.generationMode,
+        targetFormats:
+          form.generationMode === "format_adaptation" && form.targetFormat
+            ? [form.targetFormat]
+            : undefined,
+        constraints: form.constraints || undefined,
+        notes: form.notes || undefined,
+        platforms: ["Meta"],
+        status: "draft",
+        variations: 0,
+        creditsUsed: 0,
+      });
+      setForm({
+        name: "",
+        clientName: "",
+        generationMode: "art_variation",
+        targetFormat: "",
+        constraints: "",
+        notes: "",
+      });
+      setErrors({});
+      setTouched({});
+      onOpenChange(false);
+    },
+    [form, validate, onSubmit, onOpenChange]
+  );
 
   const handleCancel = useCallback(() => {
     onOpenChange(false);
@@ -181,7 +180,10 @@ export default function NewCampaignModal({
         </DialogHeader>
 
         {/* Form */}
-        <div className="max-h-[calc(100vh-10rem)] overflow-y-auto px-6 pb-4 space-y-5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+        <form
+          onSubmit={handleSubmit}
+          className="max-h-[calc(100vh-10rem)] overflow-y-auto px-6 pb-4 space-y-5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+        >
           {/* Campaign Name */}
           <div className="space-y-1.5">
             <Label className="text-[13px] text-[var(--text-secondary)]">
@@ -350,11 +352,12 @@ export default function NewCampaignModal({
               className="bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] min-h-[60px]"
             />
           </div>
-        </div>
+        </form>
 
         {/* Footer */}
         <DialogFooter className="px-6 py-4 border-t border-[var(--border-dim)] flex-row justify-end gap-2">
           <Button
+            type="button"
             variant="outline"
             onClick={handleCancel}
             className="border-[var(--border-dim)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-base)]"
@@ -362,6 +365,7 @@ export default function NewCampaignModal({
             {tCommon("cancel")}
           </Button>
           <Button
+            type="submit"
             onClick={handleSubmit}
             className="bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-light)]"
           >

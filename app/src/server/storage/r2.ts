@@ -49,7 +49,7 @@ export async function deleteObject(key: string) {
 }
 
 export function getPublicUrl(key: string) {
-  return `${env.R2_PUBLIC_BASE_URL}/${key}`;
+  return `${env.R2_PUBLIC_BASE_URL.replace(/\/$/, "")}/${key}`;
 }
 
 export async function uploadBuffer(key: string, buffer: Buffer, contentType: string) {

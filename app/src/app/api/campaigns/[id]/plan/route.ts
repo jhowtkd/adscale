@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { apiError } from "@/lib/api-response";
+import { apiError, handleApiError } from "@/lib/api-response";
 import OpenAI from "openai";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCampaignById } from "@/server/repositories/campaign";
@@ -10,7 +10,7 @@ import {
   getPlanByCampaign,
   updatePlanStatus,
 } from "@/server/repositories/plan";
-import { getUserLocale } from "@/server/repositories/user";
+
 import { buildPlanPrompt } from "@/server/ai/prompt-builder";
 import { env } from "@/server/validation/env";
 
@@ -42,16 +42,7 @@ export async function GET(
 
     return NextResponse.json({ plan });
   } catch (error) {
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return apiError("unauthorized", 401);
-    }
-    if (error instanceof Error && error.message === "No workspace") {
-      return apiError("noWorkspace", 403);
-    }
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return handleApiError(error, "campaigns.[id].plan.GET");
   }
 }
 
@@ -105,16 +96,7 @@ export async function POST(
 
     return NextResponse.json({ plan }, { status: 201 });
   } catch (error) {
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return apiError("unauthorized", 401);
-    }
-    if (error instanceof Error && error.message === "No workspace") {
-      return apiError("noWorkspace", 403);
-    }
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return handleApiError(error, "campaigns.[id].plan.POST");
   }
 }
 
@@ -145,15 +127,6 @@ export async function PATCH(
 
     return NextResponse.json({ plan: updated });
   } catch (error) {
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return apiError("unauthorized", 401);
-    }
-    if (error instanceof Error && error.message === "No workspace") {
-      return apiError("noWorkspace", 403);
-    }
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return handleApiError(error, "campaigns.[id].plan.PATCH");
   }
 }

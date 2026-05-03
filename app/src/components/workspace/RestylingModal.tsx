@@ -72,41 +72,55 @@ export default function RestylingModal({ open, onOpenChange }: RestylingModalPro
     return Object.keys(newErrors).length === 0;
   }, [form.name, baseImage, styleImage, tErrors, t]);
 
-  const handleSubmit = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validate()) return;
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!validate()) return;
 
-    setIsSubmitting(true);
-    try {
-      const formData = new FormData();
-      formData.append("name", form.name.trim());
-      formData.append("client", form.client.trim());
-      formData.append("offer", form.offer.trim());
-      formData.append("ctaText", form.ctaText.trim());
-      formData.append("notes", form.notes.trim());
-      if (baseImage) formData.append("baseImage", baseImage);
-      if (styleImage) formData.append("styleImage", styleImage);
+      setIsSubmitting(true);
+      const controller = new AbortController();
 
-      const res = await fetch("/api/quick-tools/restyling", {
-        method: "POST",
-        body: formData,
-      });
+      try {
+        const formData = new FormData();
+        formData.append("name", form.name.trim());
+        formData.append("client", form.client.trim());
+        formData.append("offer", form.offer.trim());
+        formData.append("ctaText", form.ctaText.trim());
+        formData.append("notes", form.notes.trim());
+        if (baseImage) formData.append("baseImage", baseImage);
+        if (styleImage) formData.append("styleImage", styleImage);
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.message || "Submission failed");
+        const res = await fetch("/api/quick-tools/restyling", {
+          method: "POST",
+          body: formData,
+          signal: controller.signal,
+        });
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          const devMsg = data.details?.devError?.message;
+          throw new Error(
+            devMsg || data.error || data.message || "Submission failed"
+          );
+        }
+
+        const data = await res.json();
+        onOpenChange(false);
+        router.push(data.redirectUrl || `/campaigns/${data.campaignId}`);
+      } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") return;
+        console.error("[RestylingModal] submit error:", err);
+        setErrors({
+          name: err instanceof Error ? err.message : "Submission failed",
+        });
+      } finally {
+        setIsSubmitting(false);
       }
 
-      const data = await res.json();
-      onOpenChange(false);
-      router.push(data.redirectUrl || `/campaigns/${data.campaignId}`);
-    } catch (err) {
-      console.error("[RestylingModal] submit error:", err);
-      setErrors({ name: err instanceof Error ? err.message : "Submission failed" });
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [form, baseImage, styleImage, validate, onOpenChange, router, t]);
+      return () => controller.abort();
+    },
+    [form, baseImage, styleImage, validate, onOpenChange, router]
+  );
 
   const handleBaseImageChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;

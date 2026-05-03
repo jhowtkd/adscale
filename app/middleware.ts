@@ -4,7 +4,6 @@ import { isValidLocale, defaultLocale } from "@/i18n/config";
 
 const PROTECTED_PREFIXES = ["/campaigns", "/settings"];
 const PROTECTED_EXACT = ["/"];
-const PUBLIC_LOCALE_PATHS = ["/login", "/signup"];
 
 function isProtectedPath(pathname: string): boolean {
   if (PROTECTED_EXACT.includes(pathname)) return true;

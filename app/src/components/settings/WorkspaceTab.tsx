@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Check, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -38,6 +38,13 @@ export default function WorkspaceTab() {
   const [website, setWebsite] = useState(workspaceSettings.website);
   const [timezone, setTimezone] = useState(workspaceSettings.timezone);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
+  }, []);
 
   const hasChanges =
     name !== workspaceSettings.name ||
@@ -53,7 +60,8 @@ export default function WorkspaceTab() {
     updateWorkspaceSettings({ name, slug, description, industry, website, timezone });
     setSaveState("saved");
     addToast("success", tc("workspaceUpdated"));
-    setTimeout(() => setSaveState("idle"), 2000);
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => setSaveState("idle"), 2000);
   };
 
   return (

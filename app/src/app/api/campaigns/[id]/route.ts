@@ -7,6 +7,9 @@ import {
   updateCampaign,
   deleteCampaign,
 } from "@/server/repositories/campaign";
+import { getAssetsByCampaign } from "@/server/repositories/asset";
+import { getDerivationsByCampaign } from "@/server/repositories/derivation";
+import { deleteObject } from "@/server/storage/r2";
 
 const updateCampaignSchema = z.object({
   name: z.string().min(1).max(255).optional(),
@@ -19,7 +22,7 @@ const updateCampaignSchema = z.object({
   offer: z.string().optional(),
   constraints: z.string().optional(),
   notes: z.string().optional(),
-  generationMode: z.enum(["art_variation", "format_adaptation"]).optional(),
+  generationMode: z.enum(["art_variation", "format_adaptation", "restyling"]).optional(),
   ctaVariants: z.array(z.string()).max(3).optional(),
   targetFormats: z.array(z.enum(["1:1", "4:5", "9:16"])).max(1).optional(),
   creativeLevel: z.enum(["conservative", "balanced", "bold"]).optional(),
@@ -85,11 +88,23 @@ export async function DELETE(
   try {
     const { workspace } = await requireWorkspaceAccess(request);
     const { id } = await params;
+
+    // Collect R2 keys before deleting DB records (cascade would lose references)
+    const assets = await getAssetsByCampaign(id, workspace.id);
+    const derivations = await getDerivationsByCampaign(id, workspace.id);
+    const keysToDelete: string[] = [
+      ...assets.map((a) => a.key),
+      ...derivations.map((d) => d.outputKey).filter((k): k is string => !!k),
+    ];
+
     const campaign = await deleteCampaign(id, workspace.id);
 
     if (!campaign) {
       return apiError("campaignNotFound", 404);
     }
+
+    // Best-effort cleanup of R2 files
+    await Promise.allSettled(keysToDelete.map((key) => deleteObject(key)));
 
     return NextResponse.json({ success: true });
   } catch (error) {

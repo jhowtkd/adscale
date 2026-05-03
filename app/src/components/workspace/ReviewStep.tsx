@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Check,
   X,
-  Download,
   FileArchive,
   ChevronLeft,
   ChevronRight,
@@ -270,7 +269,7 @@ export default function ReviewStep({
           const isApproved = reviewedIds.has(derivation.id);
           const isRejected = rejectedIds.has(derivation.id);
           const isSelected = selectedDerivationId === derivation.id;
-          const platformStyle = platformColors[derivation.platform];
+          const platformStyle = platformColors[derivation.platform as keyof typeof platformColors] || { bg: "var(--surface-raised)", text: "var(--text-muted)" };
 
           return (
             <motion.div

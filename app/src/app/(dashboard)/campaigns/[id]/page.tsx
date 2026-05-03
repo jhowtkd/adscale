@@ -116,8 +116,9 @@ export default function CampaignWorkspacePage() {
   const addToast = useAppStore((s) => s.addToast);
 
   // Combine real campaign with mock fallback for new campaigns
-  const campaign = realCampaign
-    ? {
+  const campaign = useMemo(() => {
+    if (realCampaign) {
+      return {
         id: realCampaign.id,
         name: realCampaign.name,
         client: realCampaign.client,
@@ -137,19 +138,22 @@ export default function CampaignWorkspacePage() {
         creditsUsed: realCampaign.creditsUsed,
         lastModified: realCampaign.lastModified,
         createdAt: realCampaign.createdAt,
-      }
-    : isNew
-      ? {
-          id: "new",
-          name: t("new"),
-          platforms: [] as AdPlatform[],
-          status: "draft" as const,
-          variations: 0,
-          creditsUsed: 0,
-          lastModified: new Date(),
-          createdAt: new Date(),
-        }
-      : null;
+      };
+    }
+    if (isNew) {
+      return {
+        id: "new",
+        name: t("new"),
+        platforms: [] as AdPlatform[],
+        status: "draft" as const,
+        variations: 0,
+        creditsUsed: 0,
+        lastModified: new Date(),
+        createdAt: new Date(),
+      };
+    }
+    return null;
+  }, [realCampaign, isNew, t]);
 
   // Wizard state
   const [currentStep, setCurrentStep] = useState<WizardStep>(1);
@@ -168,12 +172,11 @@ export default function CampaignWorkspacePage() {
   }, [hasSetInitialStep, isLoading, isNew, derivationsData]);
 
   // Map DB derivations to UI Derivation type
-  const campaignPlatforms = campaign?.platforms?.length
-    ? campaign.platforms
-    : (["Meta"] as AdPlatform[]);
-
   const allDerivations: Derivation[] = useMemo(() => {
     const items = derivationsData ?? [];
+    const campaignPlatforms = campaign?.platforms?.length
+      ? campaign.platforms
+      : (["Meta"] as AdPlatform[]);
     return items.map((d, i) => {
       const status: CampaignStatus =
         d.status === "queued" || d.status === "processing"
@@ -204,7 +207,7 @@ export default function CampaignWorkspacePage() {
         completedAt: d.status === "completed" ? d.updatedAt : undefined,
       };
     });
-  }, [derivationsData, campaignPlatforms, td, campaign?.generationMode]);
+  }, [derivationsData, campaign, td]);
 
   const approvedDerivation = useMemo(
     () => allDerivations.find((derivation) => derivation.status === "approved"),
@@ -328,7 +331,7 @@ export default function CampaignWorkspacePage() {
         addToast("error", tc("failedQueueDerivations"));
       },
     });
-  }, [createDerivations, createDerivations.isPending, goToStep, campaign, isNew, updateCampaign, addToast, tc]);
+  }, [createDerivations, goToStep, campaign, isNew, updateCampaign, addToast, tc]);
 
   // ============================================
   // Step 2: Upload Handlers
@@ -343,7 +346,7 @@ export default function CampaignWorkspacePage() {
   // ============================================
 
   const handlePreview = useCallback(
-    (id: string) => {
+    () => {
       addToast("info", tc("openingComparison"));
     },
     [addToast, tc]
@@ -380,17 +383,10 @@ export default function CampaignWorkspacePage() {
   );
 
   const handleRejectDerivation = useCallback(
-    (id: string, _reason: string) => {
+    (id: string) => {
       reviewMutation.mutate({ id, status: "rejected" });
     },
     [reviewMutation]
-  );
-
-  const handleRegenerateWithFeedback = useCallback(
-    (id: string, feedback: string) => {
-      regenerateMutation.mutate({ id, feedback });
-    },
-    [regenerateMutation]
   );
 
   const handleExportDerivation = useCallback(
@@ -402,17 +398,6 @@ export default function CampaignWorkspacePage() {
       });
     },
     [exportMutation]
-  );
-
-  const handleExportAll = useCallback(
-    (format: string) => {
-      exportMutation.mutate({
-        type: "batch",
-        campaignId,
-        format: format as "png" | "jpeg" | "webp",
-      });
-    },
-    [exportMutation, campaignId]
   );
 
   // ============================================
@@ -442,7 +427,7 @@ export default function CampaignWorkspacePage() {
             onRegenerate={handleRegenerateDerivation}
             onGenerateMore={handleGenerateDerivations}
             onApprove={handleApproveDerivation}
-            onReject={(id) => handleRejectDerivation(id, "")}
+            onReject={handleRejectDerivation}
             approvingId={
               reviewMutation.isPending && reviewMutation.variables?.status === "approved"
                 ? reviewMutation.variables.id
