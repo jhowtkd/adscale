@@ -80,12 +80,14 @@ export async function POST(request: Request) {
         key: baseKey,
         type: baseImage.type,
         size: baseImage.size,
+        role: "base",
       });
 
       await createAsset(workspace.id, campaign.id, {
         key: styleKey,
         type: styleImage.type,
         size: styleImage.size,
+        role: "style_reference",
       });
 
       // Create derivation
