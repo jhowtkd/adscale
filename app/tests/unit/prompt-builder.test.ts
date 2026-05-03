@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildDerivationPrompt, type DerivationPromptConfig } from "@/server/ai/prompt-builder";
+import { buildDerivationPrompt, buildRestylingPrompt, type DerivationPromptConfig, type Campaign } from "@/server/ai/prompt-builder";
 
 describe("buildDerivationPrompt creativity level", () => {
   it("art_variation + conservative contains CREATIVITY LEVEL: conservative", () => {
@@ -136,5 +136,40 @@ describe("buildDerivationPrompt restyling mode", () => {
     expect(prompt).toContain("STYLE REFERENCE DESIGN LANGUAGE");
     expect(prompt).toContain("borrow only visual language from the style reference");
     expect(prompt).toContain("do not copy factual content from the style reference");
+  });
+});
+
+describe("buildRestylingPrompt", () => {
+  it("includes content brief and style brief in prompt", () => {
+    const prompt = buildRestylingPrompt(
+      {
+        product: "Agronomy course",
+        offer: "50% off enrollment",
+        cta: { text: "Sign up now", style: "red button" },
+        brandElements: ["UCDB logo"],
+        keyVisual: "Student with tablet",
+        textContent: { headline: "AGRONOMY", bullets: ["Field experience"] },
+        format: "1:1",
+      },
+      {
+        colorPalette: { dominant: ["black"], accents: ["yellow"], gradients: "none" },
+        typography: { personality: "grunge", effects: ["torn edges"] },
+        textures: ["grain", "noise"],
+        composition: "collage",
+        mood: "energetic",
+        decorativeElements: ["badges"],
+        photoTreatment: "high contrast",
+      },
+      { name: "UCDB Agronomy", client: "UCDB" } as Campaign,
+      "INSCREVA-SE",
+      "pt-BR"
+    );
+
+    expect(prompt).toContain("Agronomy course");
+    expect(prompt).toContain("50% off enrollment");
+    expect(prompt).toContain("grunge");
+    expect(prompt).toContain("collage");
+    expect(prompt).toContain("INSCREVA-SE");
+    expect(prompt).toContain("portugues brasileiro");
   });
 });

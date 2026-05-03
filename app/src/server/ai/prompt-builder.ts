@@ -1,3 +1,5 @@
+import type { ContentBrief, StyleBrief } from "./image-analysis";
+
 export interface Campaign {
   id: string;
   workspaceId: string;
@@ -268,6 +270,49 @@ CRITICAL LITERAL CTA RULE: The CTA text above is MANDATORY and FINAL.
   );
 
   parts.push(imageLanguageInstruction(locale));
+
+  return parts.join("\n");
+}
+
+export function buildRestylingPrompt(
+  content: ContentBrief,
+  style: StyleBrief,
+  campaign: Campaign,
+  ctaText?: string | null,
+  locale?: string
+): string {
+  const parts: string[] = [
+    "You are an advertising creative engine. Create a completely new advertising image from scratch.",
+    "",
+    "CONTENT TO COMMUNICATE (from original ad):",
+    `- Product/Service: ${content.product}`,
+    `- Offer: ${content.offer}`,
+    `- Main Visual: ${content.keyVisual}`,
+    `- Headline: ${content.textContent.headline}`,
+    `- Supporting Points: ${content.textContent.bullets.join(" | ")}`,
+    `- Brand Elements: ${content.brandElements.join(", ")}`,
+    `- CTA: ${ctaText || content.cta.text}`,
+    "",
+    "VISUAL STYLE TO APPLY (from reference image):",
+    `- Color Palette: ${style.colorPalette.dominant.join(", ")} with accents ${style.colorPalette.accents.join(", ")}`,
+    `- Typography Personality: ${style.typography.personality} (${style.typography.effects.join(", ")})`,
+    `- Textures: ${style.textures.join(", ")}`,
+    `- Composition: ${style.composition}`,
+    `- Mood: ${style.mood}`,
+    `- Decorative Elements: ${style.decorativeElements.join(", ")}`,
+    `- Photo Treatment: ${style.photoTreatment}`,
+    "",
+    "CRITICAL RULES:",
+    "- Do NOT copy content from the style reference. Use ONLY its visual language.",
+    "- Reimagine the ad concept through the lens of this aesthetic.",
+    "- The result should feel like an original ad, not a collage or pasted overlay.",
+    "- Fill the entire canvas edge-to-edge. No blank bands, blurred padding, or borders.",
+    "- Do NOT invent new facts, offers, or CTAs — use those from the content brief only.",
+    "- Preserve the brand logo and CTA text exactly as specified.",
+  ];
+
+  parts.push(imageLanguageInstruction(locale));
+  parts.push("\nOutput: a polished, professional ad image suitable for paid social.");
 
   return parts.join("\n");
 }
