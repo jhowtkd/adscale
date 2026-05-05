@@ -46,6 +46,11 @@
     "search": "Search campaigns and derivations...",
     "credits": "credits",
     "notifications": "Notifications",
+    "item": "item",
+    "items": "items",
+    "clear": "Clear",
+    "clearSearch": "Clear search",
+    "noNotifications": "No new notifications.",
     "accountMenu": "Account menu",
     "selected": "selected",
     "archive": "Archive",
@@ -85,6 +90,7 @@
     "derivationsThisMonth": "Derivations This Month",
     "creditsUsedLabel": "Credits Used",
     "activePlatforms": "Active Platforms",
+    "vsLastMonth": "vs last month",
     "remaining": "remaining",
     "quickActions": "Quick Actions",
     "viewAll": "View all →",
@@ -393,6 +399,7 @@
     "workspaceTab": "Workspace",
     "teamTab": "Team",
     "billingTab": "Billing",
+    "plansTab": "Plans",
     "integrationsTab": "Integrations",
     "managePreferences": "Manage your profile, workspace, and preferences."
   },
@@ -496,6 +503,8 @@
     "baseImageRequired": "Base image is required",
     "styleImageLabel": "Style Reference (desired visual)",
     "styleImageRequired": "Style reference is required",
+    "selectFile": "Select file",
+    "replaceFile": "Replace file",
     "submit": "Start Restyling"
   }
 }

@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
+import { ImageIcon, UploadCloud } from "lucide-react";
 
 interface RestylingModalProps {
   open: boolean;
@@ -136,14 +138,17 @@ export default function RestylingModal({ open, onOpenChange }: RestylingModalPro
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] overflow-y-auto p-0 sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{t("title")}</DialogTitle>
+          <div className="border-b border-[var(--border-dim)] px-5 py-4">
+            <DialogTitle className="text-[18px]">{t("title")}</DialogTitle>
+          </div>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4 mt-2">
-          {/* Name */}
-          <div className="space-y-1.5">
+        <form onSubmit={handleSubmit} className="space-y-5 px-5 pb-5">
+          <div className="grid gap-4 sm:grid-cols-2">
+            {/* Name */}
+            <div className="space-y-1.5 sm:col-span-2">
             <Label htmlFor="restyling-name">{t("nameLabel")}</Label>
             <Input
               id="restyling-name"
@@ -153,10 +158,10 @@ export default function RestylingModal({ open, onOpenChange }: RestylingModalPro
               disabled={isSubmitting}
             />
             {errors.name && <p className="text-sm text-red-500">{errors.name}</p>}
-          </div>
+            </div>
 
-          {/* Client */}
-          <div className="space-y-1.5">
+            {/* Client */}
+            <div className="space-y-1.5">
             <Label htmlFor="restyling-client">{t("clientLabel")}</Label>
             <Input
               id="restyling-client"
@@ -165,10 +170,10 @@ export default function RestylingModal({ open, onOpenChange }: RestylingModalPro
               placeholder={t("clientPlaceholder")}
               disabled={isSubmitting}
             />
-          </div>
+            </div>
 
-          {/* Offer */}
-          <div className="space-y-1.5">
+            {/* Offer */}
+            <div className="space-y-1.5">
             <Label htmlFor="restyling-offer">{t("offerLabel")}</Label>
             <Input
               id="restyling-offer"
@@ -177,10 +182,10 @@ export default function RestylingModal({ open, onOpenChange }: RestylingModalPro
               placeholder={t("offerPlaceholder")}
               disabled={isSubmitting}
             />
-          </div>
+            </div>
 
-          {/* CTA Text */}
-          <div className="space-y-1.5">
+            {/* CTA Text */}
+            <div className="space-y-1.5 sm:col-span-2">
             <Label htmlFor="restyling-cta">{t("ctaLabel")}</Label>
             <Input
               id="restyling-cta"
@@ -189,10 +194,10 @@ export default function RestylingModal({ open, onOpenChange }: RestylingModalPro
               placeholder={t("ctaPlaceholder")}
               disabled={isSubmitting}
             />
-          </div>
+            </div>
 
-          {/* Notes */}
-          <div className="space-y-1.5">
+            {/* Notes */}
+            <div className="space-y-1.5 sm:col-span-2">
             <Label htmlFor="restyling-notes">{t("notesLabel")}</Label>
             <Textarea
               id="restyling-notes"
@@ -202,42 +207,34 @@ export default function RestylingModal({ open, onOpenChange }: RestylingModalPro
               rows={3}
               disabled={isSubmitting}
             />
+            </div>
           </div>
 
-          {/* Base Image */}
-          <div className="space-y-1.5">
-            <Label htmlFor="restyling-base-image">{t("baseImageLabel")}</Label>
-            <Input
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FilePicker
               id="restyling-base-image"
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
+              label={t("baseImageLabel")}
+              selectLabel={t("selectFile")}
+              replaceLabel={t("replaceFile")}
+              file={baseImage}
+              error={errors.baseImage}
+              disabled={isSubmitting}
               onChange={handleBaseImageChange}
-              disabled={isSubmitting}
             />
-            {baseImage && (
-              <p className="text-sm text-[var(--text-muted)]">{baseImage.name}</p>
-            )}
-            {errors.baseImage && <p className="text-sm text-red-500">{errors.baseImage}</p>}
-          </div>
-
-          {/* Style Reference Image */}
-          <div className="space-y-1.5">
-            <Label htmlFor="restyling-style-image">{t("styleImageLabel")}</Label>
-            <Input
+            <FilePicker
               id="restyling-style-image"
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              onChange={handleStyleImageChange}
+              label={t("styleImageLabel")}
+              selectLabel={t("selectFile")}
+              replaceLabel={t("replaceFile")}
+              file={styleImage}
+              error={errors.styleImage}
               disabled={isSubmitting}
+              onChange={handleStyleImageChange}
             />
-            {styleImage && (
-              <p className="text-sm text-[var(--text-muted)]">{styleImage.name}</p>
-            )}
-            {errors.styleImage && <p className="text-sm text-red-500">{errors.styleImage}</p>}
           </div>
 
           {/* Actions */}
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="flex flex-col-reverse gap-3 border-t border-[var(--border-dim)] pt-4 sm:flex-row sm:justify-end">
             <Button
               type="button"
               variant="outline"
@@ -253,5 +250,68 @@ export default function RestylingModal({ open, onOpenChange }: RestylingModalPro
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function FilePicker({
+  id,
+  label,
+  selectLabel,
+  replaceLabel,
+  file,
+  error,
+  disabled,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  selectLabel: string;
+  replaceLabel: string;
+  file: File | null;
+  error?: string;
+  disabled: boolean;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={id}>{label}</Label>
+      <label
+        htmlFor={id}
+        className={cn(
+          "flex min-h-[116px] cursor-pointer flex-col justify-between rounded-lg border border-dashed border-[var(--border-medium)] bg-[var(--surface-raised)] p-4 transition-colors",
+          "hover:border-[var(--accent-mint)] hover:bg-white",
+          disabled && "pointer-events-none opacity-60",
+          error && "border-[var(--accent-rose)] bg-red-50"
+        )}
+      >
+        <span className="flex items-start gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[var(--accent-mint-dim)] text-[var(--accent-mint)]">
+            {file ? <ImageIcon size={18} /> : <UploadCloud size={18} />}
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-medium text-[var(--text-primary)]">
+              {file ? file.name : "PNG, JPG, WebP"}
+            </span>
+            {file && (
+              <span className="mt-1 block text-xs text-[var(--text-muted)]">
+                {(file.size / 1024 / 1024).toFixed(1)} MB
+              </span>
+            )}
+          </span>
+        </span>
+        <span className="text-xs font-medium text-[var(--accent-mint)]">
+          {file ? replaceLabel : selectLabel}
+        </span>
+      </label>
+      <Input
+        id={id}
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        onChange={onChange}
+        disabled={disabled}
+        className="sr-only"
+      />
+      {error && <p className="text-sm text-red-500">{error}</p>}
+    </div>
   );
 }

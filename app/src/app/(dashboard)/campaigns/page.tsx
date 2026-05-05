@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@/lib/store";
 import type { AdPlatform, CampaignStatus } from "@/lib/mock-data";
@@ -155,6 +155,7 @@ function GridSkeleton() {
 
 export default function CampaignsListPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const setCurrentPageTitle = useAppStore((s) => s.setCurrentPageTitle);
   const t = useTranslations("campaign");
   const tc = useTranslations("common");
@@ -171,7 +172,7 @@ export default function CampaignsListPage() {
   const [modalOpen, setModalOpen] = useState(false);
 
   // Filters
-  const [searchQuery, setSearchQuery] = useState("");
+  const searchQuery = searchParams.get("q") ?? "";
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [platformFilter, setPlatformFilter] = useState<PlatformFilter>("all");
   const [sortOption, setSortOption] = useState<SortOption>("newest");
@@ -187,9 +188,16 @@ export default function CampaignsListPage() {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const updateSearchQuery = useCallback((value: string) => {
-    setSearchQuery(value);
+    const params = new URLSearchParams(searchParams.toString());
+    if (value.trim()) {
+      params.set("q", value);
+    } else {
+      params.delete("q");
+    }
+    const query = params.toString();
+    router.replace(`/campaigns${query ? `?${query}` : ""}`, { scroll: false });
     setCurrentPage(1);
-  }, []);
+  }, [router, searchParams]);
 
   const updateStatusFilter = useCallback((value: StatusFilter) => {
     setStatusFilter(value);
@@ -212,11 +220,11 @@ export default function CampaignsListPage() {
   }, []);
 
   const clearFilters = useCallback(() => {
-    setSearchQuery("");
+    updateSearchQuery("");
     setStatusFilter("all");
     setPlatformFilter("all");
     setCurrentPage(1);
-  }, []);
+  }, [updateSearchQuery]);
 
   // ---- Effects ----
 

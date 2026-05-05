@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import type { LucideIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 interface StatsCardProps {
   icon: LucideIcon;
@@ -28,6 +29,8 @@ export default function StatsCard({
   index = 0,
   className,
 }: StatsCardProps) {
+  const t = useTranslations("common");
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 24 }}
@@ -82,7 +85,7 @@ export default function StatsCard({
               {change.positive !== false ? "▲" : "▼"} {change.value}
             </span>
             {change.positive !== undefined && (
-              <span className="text-[var(--text-muted)] text-xs">vs last month</span>
+              <span className="text-[var(--text-muted)] text-xs">{t("vsLastMonth")}</span>
             )}
           </div>
         )}

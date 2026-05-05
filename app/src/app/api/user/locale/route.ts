@@ -34,7 +34,13 @@ export async function POST(request: Request) {
       .set({ locale, updatedAt: new Date() })
       .where(eq(user.id, session.user.id));
 
-    return NextResponse.json({ success: true, locale });
+    const response = NextResponse.json({ success: true, locale });
+    response.cookies.set("locale", locale, {
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
+      sameSite: "lax",
+    });
+    return response;
   } catch (error) {
     return handleApiError(error, "user.locale.POST");
   }

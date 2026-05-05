@@ -46,6 +46,11 @@
     "search": "Buscar campanhas e derivações...",
     "credits": "créditos",
     "notifications": "Notificações",
+    "item": "item",
+    "items": "itens",
+    "clear": "Limpar",
+    "clearSearch": "Limpar busca",
+    "noNotifications": "Nenhuma notificação nova.",
     "accountMenu": "Menu da conta",
     "selected": "selecionado(s)",
     "archive": "Arquivar",
@@ -85,6 +90,7 @@
     "derivationsThisMonth": "Derivações este mês",
     "creditsUsedLabel": "Créditos usados",
     "activePlatforms": "Plataformas ativas",
+    "vsLastMonth": "vs mês anterior",
     "remaining": "restante",
     "quickActions": "Ações rápidas",
     "viewAll": "Ver tudo →",
@@ -403,6 +409,7 @@
     "workspaceTab": "Workspace",
     "teamTab": "Equipe",
     "billingTab": "Faturamento",
+    "plansTab": "Planos",
     "integrationsTab": "Integrações",
     "managePreferences": "Gerencie seu perfil, workspace e preferências."
   },
@@ -507,6 +514,8 @@
     "baseImageRequired": "Imagem base é obrigatória",
     "styleImageLabel": "Referência de Estilo (visual desejado)",
     "styleImageRequired": "Referência de estilo é obrigatória",
+    "selectFile": "Selecionar arquivo",
+    "replaceFile": "Trocar arquivo",
     "submit": "Iniciar Restilização"
   }
 }
