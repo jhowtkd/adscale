@@ -30,6 +30,7 @@ import {
   AlertTriangle,
   MoreHorizontal,
   Plus,
+  ArrowRight,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
@@ -116,20 +117,17 @@ export default function DashboardPage() {
   const [showRestylingModal, setShowRestylingModal] = useState(false);
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8">
+    <div className="mx-auto max-w-7xl space-y-8">
       {/* ---- Welcome Banner ---- */}
       <motion.section
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: [0.19, 1, 0.22, 1] }}
-        className="relative rounded-xl px-6 py-5 overflow-hidden"
+        className="relative overflow-hidden rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] px-5 py-5 sm:px-6"
       >
-        {/* Subtle flat background */}
-        <div className="absolute inset-0 bg-[var(--surface-raised)] rounded-xl" />
-
         <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-[var(--text-primary)]">
+          <div className="min-w-0">
+            <h1 className="text-[24px] font-semibold leading-tight text-[var(--text-primary)] sm:text-[28px]">
               {t("welcomeBack")}
             </h1>
             <p className="mt-1 text-sm text-[var(--text-secondary)]">
@@ -144,7 +142,7 @@ export default function DashboardPage() {
             <Link
               href="/campaigns"
               className={cn(
-                "inline-flex items-center gap-2 rounded-md px-6 py-3 text-sm font-medium text-white",
+                "inline-flex h-10 items-center justify-center gap-2 rounded-md px-4 text-sm font-medium text-white sm:px-5",
                 "bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-light)] hover:-translate-y-px",
                 "active:scale-[0.98] transition-all duration-200",
                 "hover:shadow-[0_4px_16px_rgba(47,182,125,0.2)]"
@@ -204,17 +202,24 @@ export default function DashboardPage() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.4, duration: 0.3 }}
-        className="rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)] p-6"
+        className="space-y-4"
       >
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between">
           <h2 className="text-[15px] font-semibold text-[var(--text-primary)]">
             {t("quickActions")}
           </h2>
-          <span className="text-sm text-[var(--text-muted)] cursor-default">
-            {t("viewAll")}
-          </span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <QuickActionCard
+            icon={Sparkles}
+            title={t("restyling")}
+            description={t("restylingDesc")}
+            iconBgColor="var(--accent-mint-dim)"
+            iconColor="var(--accent-mint)"
+            onClick={() => setShowRestylingModal(true)}
+            featured
+            index={0}
+          />
           <QuickActionCard
             icon={Upload}
             title={t("uploadCreative")}
@@ -222,16 +227,6 @@ export default function DashboardPage() {
             iconBgColor="var(--accent-mint-dim)"
             iconColor="var(--accent-mint)"
             href="/campaigns"
-            index={0}
-          />
-          <QuickActionCard
-            icon={Sparkles}
-            title={t("restyling")}
-            description={t("restylingDesc")}
-            iconBgColor="var(--accent-mint-dim)"
-            iconColor="var(--accent-mint)"
-            href="#"
-            onClick={() => setShowRestylingModal(true)}
             index={1}
           />
           <QuickActionCard
@@ -249,7 +244,7 @@ export default function DashboardPage() {
             description={t("inviteTeamDesc")}
             iconBgColor="rgba(212,160,23,0.12)"
             iconColor="var(--accent-amber)"
-            href="#"
+            disabled
             index={3}
           />
         </div>
@@ -260,7 +255,7 @@ export default function DashboardPage() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.5, duration: 0.35 }}
-        className="rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)] overflow-hidden"
+        className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] overflow-hidden"
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-dim)]">
           <h2 className="text-[15px] font-semibold text-[var(--text-primary)]">
@@ -323,7 +318,7 @@ export default function DashboardPage() {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6, duration: 0.4, ease: [0.19, 1, 0.22, 1] }}
-          className="rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)] p-6"
+          className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-5 sm:p-6"
         >
           <div className="flex items-center gap-3 mb-4">
             <h2 className="text-[15px] font-semibold text-[var(--text-primary)]">
@@ -335,7 +330,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Chart placeholder */}
-          <div className="h-[120px] mb-4 flex items-center justify-center rounded-lg bg-[var(--surface-raised)]">
+          <div className="h-[120px] mb-4 flex items-center justify-center rounded-md bg-[var(--surface-raised)]">
             <p className="text-sm text-[var(--text-muted)]">{t("noUsageData")}</p>
           </div>
 
@@ -375,7 +370,7 @@ export default function DashboardPage() {
             duration: 0.4,
             ease: [0.19, 1, 0.22, 1],
           }}
-          className="rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)] p-6"
+          className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-5 sm:p-6"
         >
           <h2 className="text-[15px] font-semibold text-[var(--text-primary)] mb-4">
             {t("activityFeed")}
@@ -474,9 +469,10 @@ interface QuickActionCardProps {
   description: string;
   iconBgColor: string;
   iconColor: string;
-  href: string;
+  href?: string;
   disabled?: boolean;
   onClick?: () => void;
+  featured?: boolean;
   index: number;
 }
 
@@ -489,6 +485,7 @@ function QuickActionCard({
   href,
   disabled = false,
   onClick,
+  featured = false,
   index,
 }: QuickActionCardProps) {
   const t = useTranslations("common");
@@ -503,18 +500,28 @@ function QuickActionCard({
       }}
       whileHover={disabled ? {} : { y: -2 }}
       className={cn(
-        "group rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] p-5 transition-all duration-250",
+        "group h-full rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-4 transition-all duration-250 sm:p-5",
+        featured && "border-[var(--accent-mint)]/40 bg-[linear-gradient(135deg,rgba(47,182,125,0.1),rgba(255,255,255,0)_48%)]",
         !disabled &&
           "hover:border-[var(--border-medium)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] cursor-pointer",
         disabled && "opacity-50 cursor-not-allowed"
       )}
       onClick={onClick}
     >
-      <div
-        className="flex h-10 w-10 items-center justify-center rounded-md mb-3 transition-transform duration-250 group-hover:scale-105"
-        style={{ backgroundColor: iconBgColor }}
-      >
-        <Icon size={20} style={{ color: iconColor }} />
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md transition-transform duration-250 group-hover:scale-105"
+          style={{ backgroundColor: iconBgColor }}
+        >
+          <Icon size={20} style={{ color: iconColor }} />
+        </div>
+        {!disabled && (
+          <ArrowRight
+            size={16}
+            className="shrink-0 text-[var(--text-muted)] opacity-0 transition-all duration-200 group-hover:translate-x-0.5 group-hover:opacity-100"
+            aria-hidden="true"
+          />
+        )}
       </div>
       <h3 className="text-[15px] font-semibold text-[var(--text-primary)] mb-1">
         {title}
@@ -527,14 +534,26 @@ function QuickActionCard({
 
   if (disabled) {
     return (
-      <div title={t("comingSoon")}>
+      <div title={t("comingSoon")} className={cn("h-full", featured && "sm:col-span-2 lg:col-span-1")}>
         {content}
       </div>
     );
   }
 
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={cn("block h-full text-left", featured && "sm:col-span-2 lg:col-span-1")}
+      >
+        {content}
+      </button>
+    );
+  }
+
   return (
-    <Link href={href} className="block">
+    <Link href={href ?? "#"} className={cn("block h-full", featured && "sm:col-span-2 lg:col-span-1")}>
       {content}
     </Link>
   );

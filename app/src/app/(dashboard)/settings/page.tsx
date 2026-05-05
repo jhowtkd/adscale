@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { motion } from "framer-motion";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAppStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import ProfileTab from "@/components/settings/ProfileTab";
 import WorkspaceTab from "@/components/settings/WorkspaceTab";
 import TeamTab from "@/components/settings/TeamTab";
 import BillingTab from "@/components/settings/BillingTab";
+import PlansTab from "@/components/settings/PlansTab";
 import IntegrationsTab from "@/components/settings/IntegrationsTab";
 import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
@@ -17,8 +19,11 @@ const tabs = [
   { id: "workspace", labelKey: "workspaceTab" },
   { id: "team", labelKey: "teamTab" },
   { id: "billing", labelKey: "billingTab" },
+  { id: "plans", labelKey: "plansTab" },
   { id: "integrations", labelKey: "integrationsTab" },
 ];
+
+const tabIds = tabs.map((tab) => tab.id);
 
 const tabVariants = {
   hidden: { opacity: 0, y: 8 },
@@ -27,16 +32,18 @@ const tabVariants = {
 
 export default function SettingsPage() {
   const setCurrentPageTitle = useAppStore((s) => s.setCurrentPageTitle);
-  const [activeTab, setActiveTab] = useState("profile");
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const t = useTranslations("settings");
-  const tCommon = useTranslations("common");
+  const requestedTab = searchParams.get("tab");
+  const activeTab = requestedTab && tabIds.includes(requestedTab) ? requestedTab : "profile";
 
   useEffect(() => {
     setCurrentPageTitle(t("title"));
   }, [setCurrentPageTitle, t]);
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-semibold text-[var(--text-primary)]">
@@ -53,11 +60,9 @@ export default function SettingsPage() {
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              disabled={tab.id === "integrations"}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => router.replace(`/settings?tab=${tab.id}`, { scroll: false })}
               className={cn(
                 "relative px-4 py-2.5 text-sm font-medium transition-colors duration-200",
-                tab.id === "integrations" && "opacity-50 cursor-not-allowed",
                 activeTab === tab.id
                   ? "text-[var(--accent-mint)]"
                   : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
@@ -65,11 +70,9 @@ export default function SettingsPage() {
             >
               <span className="flex items-center gap-2">
                 {t(tab.labelKey)}
-                {tab.id === "integrations" && (
-                  <Badge variant="secondary">{tCommon("comingSoon")}</Badge>
-                )}
+                {tab.id === "integrations" && <Badge variant="secondary">Setup</Badge>}
               </span>
-              {activeTab === tab.id && tab.id !== "integrations" && (
+              {activeTab === tab.id && (
                 <motion.div
                   layoutId="settings-tab-indicator"
                   className="absolute bottom-0 left-0 right-0 h-[2px] bg-[var(--accent-mint)]"
@@ -92,6 +95,7 @@ export default function SettingsPage() {
         {activeTab === "workspace" && <WorkspaceTab />}
         {activeTab === "team" && <TeamTab />}
         {activeTab === "billing" && <BillingTab />}
+        {activeTab === "plans" && <PlansTab />}
         {activeTab === "integrations" && <IntegrationsTab />}
       </motion.div>
     </div>
