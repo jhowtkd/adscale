@@ -370,8 +370,8 @@ export default function CampaignWorkspacePage() {
   );
 
   const handleRegenerateDerivation = useCallback(
-    (id: string) => {
-      regenerateMutation.mutate({ id });
+    (id: string, feedback?: string) => {
+      regenerateMutation.mutate({ id, feedback });
     },
     [regenerateMutation]
   );

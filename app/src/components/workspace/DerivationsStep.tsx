@@ -17,7 +17,7 @@ interface DerivationsStepProps {
   generationMode?: "art_variation" | "format_adaptation";
   onPreview: (id: string) => void;
   onDownload: (id: string) => void;
-  onRegenerate: (id: string) => void;
+  onRegenerate: (id: string, feedback?: string) => void;
   onGenerateMore: () => void;
   onApprove?: (id: string) => void;
   onReject?: (id: string) => void;

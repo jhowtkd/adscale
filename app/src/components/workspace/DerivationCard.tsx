@@ -23,7 +23,7 @@ interface DerivationCardProps {
   index: number;
   onPreview: (id: string) => void;
   onDownload?: (id: string) => void;
-  onRegenerate?: (id: string) => void;
+  onRegenerate?: (id: string, feedback?: string) => void;
   onApprove?: () => void;
   onReject?: () => void;
   isApproving?: boolean;
@@ -345,6 +345,19 @@ export default function DerivationCard({
           </span>
 
           <div className="flex items-center gap-1 opacity-50 group-hover:opacity-100 transition-opacity duration-200">
+            {derivation.regenerationSuggestion && (
+              <button
+                onClick={() => onRegenerate?.(derivation.id, derivation.regenerationSuggestion || "")}
+                disabled={regenerateMutation.isPending}
+                className={cn(
+                  "p-1.5 rounded-md text-[var(--accent-blue)] hover:text-[var(--accent-blue-light)] hover:bg-[var(--accent-blue)]/10 transition-all duration-150",
+                  regenerateMutation.isPending && "opacity-50 cursor-wait"
+                )}
+                title={t("regenerateWithImprovements")}
+              >
+                <RefreshCw size={16} />
+              </button>
+            )}
             <button
               onClick={() => onPreview(derivation.id)}
               className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-all duration-150"

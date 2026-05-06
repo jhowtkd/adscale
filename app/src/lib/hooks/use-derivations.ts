@@ -80,7 +80,8 @@ export function useDerivations(campaignId: string) {
           (d) =>
             d.status === "queued" ||
             d.status === "processing" ||
-            d.scoreStatus === "heuristic"
+            d.scoreStatus === "heuristic" ||
+            (d.status === "completed" && d.scoreStatus === "pending")
         )
       ) {
         return 2000;
