@@ -23,6 +23,7 @@ interface DerivationsStepProps {
   onReject?: (id: string) => void;
   approvingId?: string | null;
   rejectingId?: string | null;
+  regeneratingId?: string | null;
   isGeneratingMore?: boolean;
 }
 
@@ -45,6 +46,7 @@ export default function DerivationsStep({
   onReject,
   approvingId,
   rejectingId,
+  regeneratingId,
   isGeneratingMore,
 }: DerivationsStepProps) {
   const t = useTranslations("derivation");
@@ -267,6 +269,7 @@ export default function DerivationsStep({
               onReject={() => onReject?.(derivation.id)}
               isApproving={approvingId === derivation.id}
               isRejecting={rejectingId === derivation.id}
+              regeneratingId={regeneratingId}
               gridSize={gridSize}
             />
           ))}

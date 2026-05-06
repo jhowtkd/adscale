@@ -444,6 +444,7 @@ export default function CampaignWorkspacePage() {
                 ? reviewMutation.variables.id
                 : null
             }
+            regeneratingId={regenerateMutation.isPending ? regenerateMutation.variables?.id ?? null : null}
             isGeneratingMore={createDerivations.isPending}
           />
         );
