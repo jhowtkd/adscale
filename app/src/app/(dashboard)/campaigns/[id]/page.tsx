@@ -203,6 +203,12 @@ export default function CampaignWorkspacePage() {
         variantIndex,
         ctaText: ctaText ?? undefined,
         format: format ?? undefined,
+        qualityScore: d.qualityScore ?? undefined,
+        scoreStatus: d.scoreStatus ?? undefined,
+        scoreBreakdown: d.scoreBreakdown ?? undefined,
+        scoreIssues: d.scoreIssues ?? undefined,
+        regenerationSuggestion: d.regenerationSuggestion ?? undefined,
+        scoredAt: d.scoredAt ?? undefined,
         createdAt: d.createdAt,
         completedAt: d.status === "completed" ? d.updatedAt : undefined,
       };

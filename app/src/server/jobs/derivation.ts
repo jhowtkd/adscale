@@ -473,24 +473,11 @@ export const derivationJob = inngest.createFunction(
       await uploadBuffer(key, buffer, "image/png");
       console.log(`[generate-and-store-output] upload success key=${key}`);
 
-      await scoreCompletedDerivation(
-        derivationId,
-        workspaceId,
-        buffer,
-        campaign,
-        {
-          ctaText: ctaText ?? derivation.ctaText ?? null,
-          format: targetFormat,
-          generationMode: effectiveGenerationMode,
-          feedback: derivation.feedback ?? null,
-          parentId: derivation.parentId ?? null,
-        },
-        locale
-      );
-
       return {
         outputKey: key,
         revisedPrompt: result.revised_prompt || derivation.prompt || "",
+        targetFormat,
+        effectiveGenerationMode,
       };
     });
 
@@ -509,7 +496,33 @@ export const derivationJob = inngest.createFunction(
       await refreshCampaignStatus(campaignId, workspaceId);
     });
 
-    // 5. Track usage
+    // 5. Score derivation (non-blocking; runs after completed)
+    await step.run("score-derivation", async () => {
+      console.log(`[score-derivation] derivationId=${derivationId} outputKey=${generated.outputKey}`);
+      try {
+        const scoreBuffer = await downloadBuffer(generated.outputKey);
+        await scoreCompletedDerivation(
+          derivationId,
+          workspaceId,
+          scoreBuffer,
+          campaign,
+          {
+            ctaText: ctaText ?? derivation.ctaText ?? null,
+            format: generated.targetFormat,
+            generationMode: generated.effectiveGenerationMode,
+            feedback: derivation.feedback ?? null,
+            parentId: derivation.parentId ?? null,
+          },
+          locale
+        );
+        console.log(`[score-derivation] done derivationId=${derivationId}`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        console.warn(`[score-derivation] failed derivationId=${derivationId}: ${message}`);
+      }
+    });
+
+    // 6. Track usage
     await step.run("track-usage", async () => {
       await trackUsage(workspaceId, "derivation", 1, {
         derivationId,
