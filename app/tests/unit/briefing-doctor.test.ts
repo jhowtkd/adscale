@@ -83,6 +83,34 @@ describe("briefing doctor local rules", () => {
     );
   });
 
+  it("flags square format with vertical platform", () => {
+    const result = analyzeBriefingLocal({
+      ...baseBriefing,
+      generationMode: "format_adaptation",
+      platforms: ["TikTok"],
+      targetFormat: "1:1",
+    });
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "platforms", severity: "medium" }),
+      ])
+    );
+  });
+
+  it("does not flag format mismatch for non-vertical platforms", () => {
+    const result = analyzeBriefingLocal({
+      ...baseBriefing,
+      generationMode: "format_adaptation",
+      platforms: ["Meta"],
+      targetFormat: "1:1",
+    });
+    expect(result.issues).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "platforms" }),
+      ])
+    );
+  });
+
   it("applies a patch to one field only", () => {
     const result = applyBriefingFieldPatch(baseBriefing, {
       field: "audience",

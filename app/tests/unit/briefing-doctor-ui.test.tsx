@@ -57,7 +57,7 @@ describe("BriefingDoctor UI", () => {
     expect(mockMutate).toHaveBeenCalledTimes(1);
   });
 
-  it("applying a suggestion patch triggers state update without errors", async () => {
+  it("applying a suggestion patch updates the corresponding field", () => {
     mockUseMutation.mockReturnValue({
       mutate: mockMutate,
       data: {
@@ -85,8 +85,11 @@ describe("BriefingDoctor UI", () => {
     });
 
     renderBriefingStep();
-    const applyButton = await screen.findByRole("button", { name: /doctor.apply/i });
-    expect(() => fireEvent.click(applyButton)).not.toThrow();
+    const applyButton = screen.getByRole("button", { name: /doctor.apply/i });
+    fireEvent.click(applyButton);
+
+    const constraintsTextarea = screen.getByPlaceholderText("constraintsPlaceholder") as HTMLTextAreaElement;
+    expect(constraintsTextarea).toHaveValue("Keep text under 15% of image");
   });
 
   it("continue remains clickable when local warnings exist", () => {

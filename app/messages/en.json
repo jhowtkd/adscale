@@ -245,6 +245,48 @@
         "ready": "Ready",
         "needs_attention": "Needs attention",
         "weak": "Weak"
+      },
+      "issues": {
+        "objectiveMissing": {
+          "message": "Objective is missing.",
+          "impact": "The generated creative may not know what action or outcome to optimize for."
+        },
+        "audienceMissing": {
+          "message": "Audience is missing.",
+          "impact": "The model may produce generic copy and visuals."
+        },
+        "audienceBroad": {
+          "message": "Audience is too broad.",
+          "impact": "More specific audiences usually produce sharper hooks and visuals."
+        },
+        "offerMissing": {
+          "message": "Offer is missing.",
+          "impact": "The ad may lack a concrete reason to click."
+        },
+        "offerWeak": {
+          "message": "Offer could be more specific.",
+          "impact": "Numbers, deadlines, or benefits make the creative easier to understand."
+        },
+        "ctaMissing": {
+          "message": "At least one CTA is missing.",
+          "impact": "Generated pieces need a clear action to preserve campaign intent."
+        },
+        "ctaGeneric": {
+          "message": "CTA is generic.",
+          "impact": "A more specific CTA can better match the offer and campaign goal."
+        },
+        "ctaLong": {
+          "message": "CTA may be too long.",
+          "impact": "Long CTAs can become hard to render legibly in generated ads."
+        },
+        "targetFormatMissing": {
+          "message": "Target format is missing.",
+          "impact": "Format adaptation needs one exact output ratio."
+        },
+        "platformFormatMismatch": {
+          "message": "Square format with vertical platform.",
+          "impact": "TikTok performs best with 9:16. Consider switching the target format."
+        }
       }
     }
   },

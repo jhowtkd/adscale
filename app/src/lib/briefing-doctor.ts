@@ -20,8 +20,8 @@ export interface BriefingDoctorInput {
 export interface BriefingDoctorIssue {
   field: keyof BriefingDoctorInput;
   severity: BriefingDoctorSeverity;
-  message: string;
-  impact: string;
+  messageKey: string;
+  impactKey: string;
 }
 
 export interface BriefingFieldPatch {
@@ -59,8 +59,8 @@ export function analyzeBriefingLocal(input: BriefingDoctorInput): BriefingLocalA
     issues.push({
       field: "objective",
       severity: "high",
-      message: "Objective is missing.",
-      impact: "The generated creative may not know what action or outcome to optimize for.",
+      messageKey: "doctor.issues.objectiveMissing.message",
+      impactKey: "doctor.issues.objectiveMissing.impact",
     });
   }
 
@@ -69,15 +69,15 @@ export function analyzeBriefingLocal(input: BriefingDoctorInput): BriefingLocalA
     issues.push({
       field: "audience",
       severity: "high",
-      message: "Audience is missing.",
-      impact: "The model may produce generic copy and visuals.",
+      messageKey: "doctor.issues.audienceMissing.message",
+      impactKey: "doctor.issues.audienceMissing.impact",
     });
   } else if (genericAudiences.has(audience) || audience.length < 8) {
     issues.push({
       field: "audience",
       severity: "medium",
-      message: "Audience is too broad.",
-      impact: "More specific audiences usually produce sharper hooks and visuals.",
+      messageKey: "doctor.issues.audienceBroad.message",
+      impactKey: "doctor.issues.audienceBroad.impact",
     });
   }
 
@@ -85,15 +85,15 @@ export function analyzeBriefingLocal(input: BriefingDoctorInput): BriefingLocalA
     issues.push({
       field: "offer",
       severity: "medium",
-      message: "Offer is missing.",
-      impact: "The ad may lack a concrete reason to click.",
+      messageKey: "doctor.issues.offerMissing.message",
+      impactKey: "doctor.issues.offerMissing.impact",
     });
   } else if (!hasOfferSignal(input.offer)) {
     issues.push({
       field: "offer",
       severity: "low",
-      message: "Offer could be more specific.",
-      impact: "Numbers, deadlines, or benefits make the creative easier to understand.",
+      messageKey: "doctor.issues.offerWeak.message",
+      impactKey: "doctor.issues.offerWeak.impact",
     });
   }
 
@@ -102,8 +102,8 @@ export function analyzeBriefingLocal(input: BriefingDoctorInput): BriefingLocalA
     issues.push({
       field: "ctaVariants",
       severity: "high",
-      message: "At least one CTA is missing.",
-      impact: "Generated pieces need a clear action to preserve campaign intent.",
+      messageKey: "doctor.issues.ctaMissing.message",
+      impactKey: "doctor.issues.ctaMissing.impact",
     });
   }
 
@@ -113,8 +113,8 @@ export function analyzeBriefingLocal(input: BriefingDoctorInput): BriefingLocalA
       issues.push({
         field: "ctaVariants",
         severity: "medium",
-        message: "CTA is generic.",
-        impact: "A more specific CTA can better match the offer and campaign goal.",
+        messageKey: "doctor.issues.ctaGeneric.message",
+        impactKey: "doctor.issues.ctaGeneric.impact",
       });
       break;
     }
@@ -122,8 +122,8 @@ export function analyzeBriefingLocal(input: BriefingDoctorInput): BriefingLocalA
       issues.push({
         field: "ctaVariants",
         severity: "low",
-        message: "CTA may be too long.",
-        impact: "Long CTAs can become hard to render legibly in generated ads.",
+        messageKey: "doctor.issues.ctaLong.message",
+        impactKey: "doctor.issues.ctaLong.impact",
       });
       break;
     }
@@ -134,8 +134,18 @@ export function analyzeBriefingLocal(input: BriefingDoctorInput): BriefingLocalA
       issues.push({
         field: "targetFormat",
         severity: "high",
-        message: "Target format is missing.",
-        impact: "Format adaptation needs one exact output ratio.",
+        messageKey: "doctor.issues.targetFormatMissing.message",
+        impactKey: "doctor.issues.targetFormatMissing.impact",
+      });
+    }
+
+    const hasVerticalPlatform = input.platforms.some((p) => p === "TikTok");
+    if (hasVerticalPlatform && input.targetFormat === "1:1") {
+      issues.push({
+        field: "platforms",
+        severity: "medium",
+        messageKey: "doctor.issues.platformFormatMismatch.message",
+        impactKey: "doctor.issues.platformFormatMismatch.impact",
       });
     }
   }

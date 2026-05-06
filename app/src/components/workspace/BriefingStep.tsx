@@ -383,8 +383,8 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
             <div className="space-y-2">
               {localAnalysis.issues.slice(0, 3).map((issue, index) => (
                 <div key={`${issue.field}-${index}`} className="rounded-md bg-[var(--surface-raised)] p-2">
-                  <p className="text-xs font-medium text-[var(--text-primary)]">{issue.message}</p>
-                  <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{issue.impact}</p>
+                  <p className="text-xs font-medium text-[var(--text-primary)]">{tBriefing(issue.messageKey)}</p>
+                  <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{tBriefing(issue.impactKey)}</p>
                 </div>
               ))}
             </div>

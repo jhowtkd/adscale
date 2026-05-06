@@ -255,6 +255,48 @@
         "ready": "Pronto",
         "needs_attention": "Atenção",
         "weak": "Fraco"
+      },
+      "issues": {
+        "objectiveMissing": {
+          "message": "Objetivo está ausente.",
+          "impact": "O criativo gerado pode não saber qual ação ou resultado otimizar."
+        },
+        "audienceMissing": {
+          "message": "Público-alvo está ausente.",
+          "impact": "O modelo pode produzir copy e visuais genéricos."
+        },
+        "audienceBroad": {
+          "message": "Público-alvo muito amplo.",
+          "impact": "Audiências mais específicas costumam gerar ganchos e visuais mais afiados."
+        },
+        "offerMissing": {
+          "message": "Oferta está ausente.",
+          "impact": "O anúncio pode não ter um motivo concreto para clicar."
+        },
+        "offerWeak": {
+          "message": "Oferta pode ser mais específica.",
+          "impact": "Números, prazos ou benefícios tornam o criativo mais fácil de entender."
+        },
+        "ctaMissing": {
+          "message": "Pelo menos um CTA está ausente.",
+          "impact": "As peças geradas precisam de uma ação clara para preservar a intenção da campanha."
+        },
+        "ctaGeneric": {
+          "message": "CTA é genérico.",
+          "impact": "Um CTA mais específico pode combinar melhor com a oferta e o objetivo da campanha."
+        },
+        "ctaLong": {
+          "message": "CTA pode estar muito longo.",
+          "impact": "CTAs longos podem ficar difíceis de ler nos anúncios gerados."
+        },
+        "targetFormatMissing": {
+          "message": "Formato alvo está ausente.",
+          "impact": "Adaptação de formato precisa de uma proporção de saída exata."
+        },
+        "platformFormatMismatch": {
+          "message": "Formato quadrado com plataforma vertical.",
+          "impact": "TikTok funciona melhor em 9:16. Considere mudar o formato alvo."
+        }
       }
     }
   },
