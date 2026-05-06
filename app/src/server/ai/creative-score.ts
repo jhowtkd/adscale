@@ -107,7 +107,7 @@ The regenerationSuggestion must preserve the exact CTA text, format, and generat
         role: "user",
         content: [
           { type: "input_text", text: prompt },
-          { type: "input_image", image_url: dataUrl },
+          { type: "input_image", image_url: dataUrl, detail: "high" }
         ],
       },
     ],
@@ -153,8 +153,14 @@ The regenerationSuggestion must preserve the exact CTA text, format, and generat
     scoreStatus: "analyzed",
     scoreBreakdown: breakdown,
     scoreIssues: parsed.scoreIssues ?? [],
-    regenerationSuggestion:
-      parsed.regenerationSuggestion ?? "Refine the creative while preserving the exact CTA text.",
+    regenerationSuggestion: buildRegenerationSuggestion({
+      ctaText: input.derivation.ctaText,
+      format: input.derivation.format,
+      generationMode: input.derivation.generationMode,
+      scoreIssues: parsed.scoreIssues ?? [],
+      modelSuggestion:
+        parsed.regenerationSuggestion ?? "Refine the creative while preserving the exact CTA text.",
+    }),
   };
 }
 
