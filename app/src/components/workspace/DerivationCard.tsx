@@ -155,6 +155,13 @@ function Spinner({ className }: { className?: string }) {
 // Main Component
 // ============================================
 
+function getScoreLabel(score: number | null | undefined, t: (key: string) => string) {
+  if (score == null) return null;
+  if (score >= 80) return t("scoreStrong");
+  if (score >= 60) return t("scoreAdjust");
+  return t("scoreWeak");
+}
+
 export default function DerivationCard({
   derivation,
   index,
@@ -167,6 +174,7 @@ export default function DerivationCard({
   isRejecting,
 
 }: DerivationCardProps) {
+  const t = useTranslations("derivation");
   const commonT = useTranslations("common");
   const toastT = useTranslations("toast");
   const isCompleted = derivation.status === "completed";
@@ -282,7 +290,19 @@ export default function DerivationCard({
           <h4 className="text-sm font-semibold text-[var(--text-primary)] truncate">
             {derivation.name}
           </h4>
-          <StatusBadge status={derivation.status} showDot={false} className="flex-shrink-0" />
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            {derivation.qualityScore != null && (
+              <div className="inline-flex items-center gap-1 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-2 py-1">
+                <span className="text-xs font-semibold text-[var(--text-primary)]">
+                  {derivation.qualityScore}
+                </span>
+                <span className="text-[10px] text-[var(--text-muted)]">
+                  {getScoreLabel(derivation.qualityScore, t)}
+                </span>
+              </div>
+            )}
+            <StatusBadge status={derivation.status} showDot={false} />
+          </div>
         </div>
 
         {/* Row 2: Label + CTA */}
@@ -312,6 +332,11 @@ export default function DerivationCard({
         <p className="text-[13px] text-[var(--text-secondary)] line-clamp-2 leading-relaxed">
           {derivation.prompt}
         </p>
+        {derivation.scoreIssues?.[0] && (
+          <p className="text-[11px] text-[var(--text-muted)] line-clamp-1">
+            {derivation.scoreIssues[0]}
+          </p>
+        )}
 
         {/* Row 4: Cost + Actions */}
         <div className="flex items-center justify-between pt-1">

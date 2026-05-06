@@ -267,7 +267,11 @@
     "showAll": "Mostrar tudo",
     "piece": "Peça",
     "format": "Formato",
-    "formatAdaptationComplete": "Formatos gerados"
+    "formatAdaptationComplete": "Formatos gerados",
+    "bestFirst": "Melhores primeiro",
+    "scoreStrong": "Forte",
+    "scoreAdjust": "Ajustar",
+    "scoreWeak": "Fraco"
   },
   "plan": {
     "title": "Plano Criativo",

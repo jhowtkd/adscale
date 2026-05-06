@@ -27,7 +27,7 @@ interface DerivationsStepProps {
 }
 
 type GridSize = "small" | "medium" | "large";
-type SortOption = "newest" | "oldest" | "angle" | "status";
+type SortOption = "best" | "newest" | "oldest" | "angle" | "status";
 type StatusFilter = "all" | "completed" | "generating" | "failed";
 
 // ============================================
@@ -50,7 +50,7 @@ export default function DerivationsStep({
   const t = useTranslations("derivation");
   const commonT = useTranslations("common");
   const [gridSize, setGridSize] = useState<GridSize>("medium");
-  const [sortBy, setSortBy] = useState<SortOption>("newest");
+  const [sortBy, setSortBy] = useState<SortOption>("best");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
   // Filter and sort derivations
@@ -68,6 +68,9 @@ export default function DerivationsStep({
 
     // Sort
     switch (sortBy) {
+      case "best":
+        filtered.sort((a, b) => (b.qualityScore ?? -1) - (a.qualityScore ?? -1));
+        break;
       case "newest":
         filtered.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
         break;
@@ -183,6 +186,7 @@ export default function DerivationsStep({
             onChange={(e) => setSortBy(e.target.value as SortOption)}
             className="h-8 px-3 text-xs rounded-md bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] focus:border-[var(--accent-mint)] focus:outline-none"
           >
+            <option value="best">{t("bestFirst")}</option>
             <option value="newest">{commonT("newest")}</option>
             <option value="oldest">{commonT("oldest")}</option>
             <option value="angle">{t("byAngle")}</option>

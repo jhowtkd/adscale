@@ -257,7 +257,11 @@
     "showAll": "Show all",
     "piece": "Piece",
     "format": "Format",
-    "formatAdaptationComplete": "Formats generated"
+    "formatAdaptationComplete": "Formats generated",
+    "bestFirst": "Best first",
+    "scoreStrong": "Strong",
+    "scoreAdjust": "Adjust",
+    "scoreWeak": "Weak"
   },
   "plan": {
     "title": "Creative Plan",
