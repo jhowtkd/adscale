@@ -242,6 +242,20 @@
     },
     "targetFormat": {
       "label": "Formato alvo"
+    },
+    "doctor": {
+      "title": "Briefing Doctor",
+      "subtitle": "Revise lacunas antes de gerar.",
+      "analyze": "Analisar briefing",
+      "analyzing": "Analisando...",
+      "apply": "Aplicar",
+      "analysisFailed": "Não foi possível analisar com IA. As checagens locais continuam disponíveis.",
+      "noLocalIssues": "Nenhum problema óbvio no briefing.",
+      "readiness": {
+        "ready": "Pronto",
+        "needs_attention": "Atenção",
+        "weak": "Fraco"
+      }
     }
   },
   "derivation": {

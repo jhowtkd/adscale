@@ -232,7 +232,21 @@
     "ctaHelpArt": "Fill at least one CTA. Empty fields will be skipped.",
     "ctaHelpFormat": "CTAs are optional. Each format gets its matching CTA.",
     "ctaPiece": "CTA piece {number}",
-    "ctaFormat": "CTA {format}"
+    "ctaFormat": "CTA {format}",
+    "doctor": {
+      "title": "Briefing Doctor",
+      "subtitle": "Review gaps before generating.",
+      "analyze": "Analyze briefing",
+      "analyzing": "Analyzing...",
+      "apply": "Apply",
+      "analysisFailed": "Could not analyze with AI. Local checks are still available.",
+      "noLocalIssues": "No obvious issues in the briefing.",
+      "readiness": {
+        "ready": "Ready",
+        "needs_attention": "Needs attention",
+        "weak": "Weak"
+      }
+    }
   },
   "derivation": {
     "title": "Derivations",
