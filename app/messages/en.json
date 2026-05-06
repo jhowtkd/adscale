@@ -261,7 +261,10 @@
     "bestFirst": "Best first",
     "scoreStrong": "Strong",
     "scoreAdjust": "Adjust",
-    "scoreWeak": "Weak"
+    "scoreWeak": "Weak",
+    "regenerateWithImprovements": "Regenerate with improvements",
+    "creativeScore": "Creative score",
+    "detectedIssues": "Detected issues"
   },
   "plan": {
     "title": "Creative Plan",

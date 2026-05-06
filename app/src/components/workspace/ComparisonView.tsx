@@ -44,6 +44,7 @@ export default function ComparisonView({
   const commonT = useTranslations("common");
   const [isDragging, setIsDragging] = useState(false);
   const [exportFormat, setExportFormat] = useState("png");
+  const t = useTranslations("derivation");
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedback, setFeedback] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
@@ -213,6 +214,46 @@ export default function ComparisonView({
         </div>
       </div>
 
+      {/* ---- Score Panel ---- */}
+      {derivation.qualityScore != null && (
+        <div className="bg-[var(--surface-raised)] rounded-lg border border-[var(--border-dim)] p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-[var(--text-primary)]">
+              {t("creativeScore")}
+            </span>
+            <span className="text-sm font-semibold text-[var(--text-primary)]">
+              {derivation.qualityScore}
+            </span>
+          </div>
+          {derivation.scoreBreakdown && (
+            <div className="grid grid-cols-5 gap-2">
+              {Object.entries(derivation.scoreBreakdown).map(([key, value]) => (
+                <div key={key} className="text-center">
+                  <div className="text-[10px] text-[var(--text-muted)] capitalize">
+                    {key.replace(/([A-Z])/g, " $1").trim()}
+                  </div>
+                  <div className="text-xs font-semibold text-[var(--text-primary)]">{value}</div>
+                </div>
+              ))}
+            </div>
+          )}
+          {derivation.scoreIssues && derivation.scoreIssues.length > 0 && (
+            <div>
+              <span className="text-[11px] font-medium text-[var(--text-muted)]">
+                {t("detectedIssues")}
+              </span>
+              <ul className="mt-1 space-y-0.5">
+                {derivation.scoreIssues.map((issue, i) => (
+                  <li key={i} className="text-[11px] text-[var(--text-secondary)]">
+                    • {issue}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ---- Toolbar ---- */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-2">
@@ -267,6 +308,33 @@ export default function ComparisonView({
             )}
             {commonT("reject")}
           </motion.button>
+
+          {/* Guided regeneration */}
+          {derivation.regenerationSuggestion && (
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                setFeedback(derivation.regenerationSuggestion || "");
+                setShowFeedback(true);
+              }}
+              disabled={isRegenerating}
+              className={cn(
+                "inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium border border-[var(--accent-blue)]/30 text-[var(--accent-blue)] hover:bg-[var(--accent-blue)]/10 transition-colors",
+                isRegenerating && "opacity-60 cursor-wait"
+              )}
+            >
+              {isRegenerating ? (
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                  className="w-4 h-4 border-2 border-current border-t-transparent rounded-full"
+                />
+              ) : (
+                <RefreshCw size={14} />
+              )}
+              {t("regenerateWithImprovements")}
+            </motion.button>
+          )}
 
           {/* Regenerate with feedback */}
           <motion.button

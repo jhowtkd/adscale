@@ -271,7 +271,10 @@
     "bestFirst": "Melhores primeiro",
     "scoreStrong": "Forte",
     "scoreAdjust": "Ajustar",
-    "scoreWeak": "Fraco"
+    "scoreWeak": "Fraco",
+    "regenerateWithImprovements": "Regenerar com melhorias",
+    "creativeScore": "Score criativo",
+    "detectedIssues": "Problemas detectados"
   },
   "plan": {
     "title": "Plano Criativo",
