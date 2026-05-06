@@ -16,6 +16,7 @@ const fieldSchema = z.enum([
   "notes",
   "targetFormat",
   "ctaVariants",
+  "platforms",
 ]);
 
 const briefingSchema = z.object({

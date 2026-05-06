@@ -142,4 +142,43 @@ describe("POST /api/briefing-doctor/analyze", () => {
     const body = await response.json();
     expect(body.analysis.fieldPatches).toEqual([]);
   });
+
+  it("accepts platforms field in AI response without 502", async () => {
+    mockCreate.mockResolvedValue({
+      output_text: JSON.stringify({
+        overallScore: 75,
+        readiness: "needs_attention",
+        issues: [
+          {
+            field: "platforms",
+            severity: "medium",
+            message: "TikTok with square format.",
+            impact: "Consider 9:16 for better performance.",
+          },
+        ],
+        suggestions: [
+          {
+            field: "platforms",
+            title: "Switch platform",
+            suggestedValue: ["TikTok"],
+            rationale: "Vertical platform needs vertical format.",
+          },
+        ],
+        improvedBrief: {},
+        fieldPatches: [{ field: "platforms", value: ["TikTok"] }],
+      }),
+    });
+
+    const request = new Request("http://localhost/api/briefing-doctor/analyze", {
+      method: "POST",
+      body: JSON.stringify(validPayload),
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.analysis.issues[0].field).toBe("platforms");
+    expect(body.analysis.suggestions[0].field).toBe("platforms");
+    expect(body.analysis.fieldPatches[0].field).toBe("platforms");
+  });
 });
