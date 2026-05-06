@@ -1,6 +1,16 @@
 import { apiFetch } from "@/lib/api-client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
+export type ScoreStatus = "pending" | "heuristic" | "analyzed" | "failed";
+
+export interface CreativeScoreBreakdown {
+  ctaClarity: number;
+  textLegibility: number;
+  briefMatch: number;
+  visualQuality: number;
+  formatFit: number;
+}
+
 export interface Derivation {
   id: string;
   campaignId: string;
@@ -17,6 +27,12 @@ export interface Derivation {
   ctaText: string | null;
   cost: number | null;
   feedback: string | null;
+  qualityScore?: number | null;
+  scoreStatus?: ScoreStatus | null;
+  scoreBreakdown?: CreativeScoreBreakdown | null;
+  scoreIssues?: string[] | null;
+  regenerationSuggestion?: string | null;
+  scoredAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -32,6 +48,7 @@ async function fetchDerivations(campaignId: string): Promise<Derivation[]> {
     ...d,
     createdAt: new Date(d.createdAt),
     updatedAt: new Date(d.updatedAt),
+    scoredAt: d.scoredAt ? new Date(d.scoredAt) : null,
   }));
 }
 
@@ -60,7 +77,10 @@ export function useDerivations(campaignId: string) {
       const data = query.state.data as Derivation[] | undefined;
       if (
         data?.some(
-          (d) => d.status === "queued" || d.status === "processing"
+          (d) =>
+            d.status === "queued" ||
+            d.status === "processing" ||
+            d.scoreStatus === "heuristic"
         )
       ) {
         return 2000;

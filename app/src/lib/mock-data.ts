@@ -37,6 +37,16 @@ export interface Campaign {
   createdAt: Date;
 }
 
+export type ScoreStatus = "pending" | "heuristic" | "analyzed" | "failed";
+
+export interface CreativeScoreBreakdown {
+  ctaClarity: number;
+  textLegibility: number;
+  briefMatch: number;
+  visualQuality: number;
+  formatFit: number;
+}
+
 export interface Derivation {
   id: string;
   campaignId: string;
@@ -50,6 +60,12 @@ export interface Derivation {
   variantIndex?: number;
   ctaText?: string;
   format?: string;
+  qualityScore?: number | null;
+  scoreStatus?: ScoreStatus | null;
+  scoreBreakdown?: CreativeScoreBreakdown | null;
+  scoreIssues?: string[] | null;
+  regenerationSuggestion?: string | null;
+  scoredAt?: Date | null;
   createdAt: Date;
   completedAt?: Date;
 }
