@@ -61,6 +61,61 @@ import { getUserLocale } from "@/server/repositories/user";
 import { createCampaign } from "@/server/repositories/campaign";
 import { POST, parseStyleIntensity } from "@/app/api/quick-tools/restyling/route";
 
+// Use global File if available (Node 18+), otherwise create a minimal implementation
+const GlobalFile = typeof File !== "undefined" ? File : class FilePolyfill {
+  name: string;
+  type: string;
+  size: number;
+  constructor(parts: BlobPart[], name: string, options?: FilePropertyBag) {
+    this.name = name;
+    this.type = options?.type ?? "";
+    this.size = 4;
+  }
+  arrayBuffer(): Promise<ArrayBuffer> {
+    return Promise.resolve(new ArrayBuffer(4));
+  }
+  slice(): Blob {
+    return new Blob([]);
+  }
+  text(): Promise<string> {
+    return Promise.resolve("test");
+  }
+  stream(): ReadableStream<Uint8Array> {
+    return new ReadableStream({
+      start(controller) {
+        controller.enqueue(new Uint8Array([116, 101, 115, 116]));
+        controller.close();
+      }
+    });
+  }
+};
+
+// Create a mock FormData that avoids using native FormData which has issues with File in Node
+function createMockFormData(entries: Record<string, string | InstanceType<typeof GlobalFile>>) {
+  const data = new Map<string, string | InstanceType<typeof GlobalFile>>();
+  for (const [key, value] of Object.entries(entries)) {
+    data.set(key, value);
+  }
+  return {
+    get: (key: string) => data.get(key) ?? null,
+    append: (key: string, value: string | InstanceType<typeof GlobalFile>) => data.set(key, value),
+    has: (key: string) => data.has(key),
+    [Symbol.iterator]: function* () {
+      for (const [key, value] of data) {
+        yield [key, value];
+      }
+    },
+  };
+}
+
+// Create a mock Request with custom formData
+function createMockRequest(entries: Record<string, string | InstanceType<typeof GlobalFile>>) {
+  const formData = createMockFormData(entries);
+  return {
+    formData: () => Promise.resolve(formData),
+  } as unknown as Request;
+}
+
 describe("parseStyleIntensity", () => {
   it("parses valid intensities", () => {
     expect(parseStyleIntensity("soft")).toBe("soft");
@@ -102,16 +157,14 @@ describe("POST /api/quick-tools/restyling", () => {
   });
 
   it("creates restyling campaign with selected styleIntensity", async () => {
-    const formData = new FormData();
-    formData.append("name", "Restyle");
-    formData.append("styleIntensity", "strong");
-    formData.append("baseImage", new File(["base"], "base.png", { type: "image/png" }));
-    formData.append("styleImage", new File(["style"], "style.png", { type: "image/png" }));
+    const request = createMockRequest({
+      name: "Restyle",
+      styleIntensity: "strong",
+      baseImage: new GlobalFile([], "base.png", { type: "image/png" }),
+      styleImage: new GlobalFile([], "style.png", { type: "image/png" }),
+    });
 
-    const response = await POST(new Request("http://localhost/api/quick-tools/restyling", {
-      method: "POST",
-      body: formData,
-    }));
+    const response = await POST(request);
 
     expect(response.status).toBe(201);
     expect(createCampaign).toHaveBeenCalledWith(
@@ -121,15 +174,13 @@ describe("POST /api/quick-tools/restyling", () => {
   }, TEST_TIMEOUT);
 
   it("defaults missing styleIntensity to medium", async () => {
-    const formData = new FormData();
-    formData.append("name", "Restyle");
-    formData.append("baseImage", new File(["base"], "base.png", { type: "image/png" }));
-    formData.append("styleImage", new File(["style"], "style.png", { type: "image/png" }));
+    const request = createMockRequest({
+      name: "Restyle",
+      baseImage: new GlobalFile([], "base.png", { type: "image/png" }),
+      styleImage: new GlobalFile([], "style.png", { type: "image/png" }),
+    });
 
-    await POST(new Request("http://localhost/api/quick-tools/restyling", {
-      method: "POST",
-      body: formData,
-    }));
+    await POST(request);
 
     expect(createCampaign).toHaveBeenCalledWith(
       "ws-1",
@@ -138,16 +189,14 @@ describe("POST /api/quick-tools/restyling", () => {
   }, TEST_TIMEOUT);
 
   it("rejects invalid styleIntensity", async () => {
-    const formData = new FormData();
-    formData.append("name", "Restyle");
-    formData.append("styleIntensity", "extreme");
-    formData.append("baseImage", new File(["base"], "base.png", { type: "image/png" }));
-    formData.append("styleImage", new File(["style"], "style.png", { type: "image/png" }));
+    const request = createMockRequest({
+      name: "Restyle",
+      styleIntensity: "extreme",
+      baseImage: new GlobalFile([], "base.png", { type: "image/png" }),
+      styleImage: new GlobalFile([], "style.png", { type: "image/png" }),
+    });
 
-    const response = await POST(new Request("http://localhost/api/quick-tools/restyling", {
-      method: "POST",
-      body: formData,
-    }));
+    const response = await POST(request);
 
     expect(response.status).toBe(400);
   }, TEST_TIMEOUT);
