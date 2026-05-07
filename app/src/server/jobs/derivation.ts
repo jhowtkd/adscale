@@ -367,7 +367,8 @@ export const derivationJob = inngest.createFunction(
             styleBrief,
             campaign,
             ctaText ?? derivation.ctaText ?? undefined,
-            locale
+            locale,
+            campaign.styleIntensity ?? "medium"
           );
         } catch (analysisErr) {
           console.error(

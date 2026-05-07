@@ -76,6 +76,38 @@ vi.mock("@/server/ai/creative-score", () => ({
   analyzeDerivationCreative: vi.fn().mockRejectedValue(new Error("vision unavailable")),
 }));
 
+vi.mock("@/server/ai/prompt-builder", () => ({
+  buildDerivationPrompt: vi.fn().mockReturnValue("mock derivation prompt"),
+  buildRestylingPrompt: vi.fn().mockReturnValue("mock restyling prompt"),
+}));
+
+vi.mock("@/server/ai/image-analysis", () => ({
+  analyzeImageContent: vi.fn().mockResolvedValue({
+    product: "Test Product",
+    offer: "50% off",
+    keyVisual: "Test visual",
+    textContent: { headline: "TEST", bullets: ["bullet"] },
+    brandElements: ["logo"],
+    cta: { text: "Buy", style: "button" },
+    format: "1:1",
+  }),
+  analyzeImageStyle: vi.fn().mockResolvedValue({
+    colorPalette: { dominant: ["black"], accents: ["yellow"], gradients: "none" },
+    typography: { personality: "bold", effects: ["shadow"] },
+    textures: ["smooth"],
+    composition: "centered",
+    mood: "energetic",
+    decorativeElements: ["badges"],
+    photoTreatment: "high contrast",
+  }),
+}));
+
+vi.mock("@/server/storage/r2", () => ({
+  uploadBuffer: vi.fn().mockResolvedValue(undefined),
+  deleteObject: vi.fn().mockResolvedValue(undefined),
+  downloadBuffer: vi.fn().mockResolvedValue(Buffer.from("fake-image")),
+}));
+
 import { db } from "@/server/db";
 import { inngest } from "@/server/jobs/client";
 import { createDerivation, updateDerivationStatus } from "@/server/repositories/derivation";
@@ -86,6 +118,7 @@ import { getUserLocale } from "@/server/repositories/user";
 import { getAssetsByCampaign } from "@/server/repositories/asset";
 import { scoreCompletedDerivation } from "@/server/jobs/derivation";
 import { POST } from "@/app/api/campaigns/[id]/derivations/route";
+import { buildRestylingPrompt } from "@/server/ai/prompt-builder";
 
 describe("derivation job flow", () => {
   const workspaceId = "ws-123";
@@ -158,6 +191,56 @@ describe("derivation job flow", () => {
     const updated = await updateDerivationStatus("deriv-1", workspaceId, "failed");
 
     expect(updated).toEqual({ id: "deriv-1", status: "failed" });
+  });
+
+  it("passes campaign styleIntensity to buildRestylingPrompt for restyling mode", async () => {
+    const mockedBuildRestylingPrompt = vi.mocked(buildRestylingPrompt);
+    mockedBuildRestylingPrompt.mockReturnValue("mock restyling prompt with intensity");
+
+    // Simulate what the job does: call buildRestylingPrompt with campaign.styleIntensity
+    const campaign = {
+      id: campaignId,
+      workspaceId,
+      name: "Restyle",
+      generationMode: "restyling",
+      creativeLevel: "balanced",
+      styleIntensity: "strong",
+      status: "active",
+    };
+
+    buildRestylingPrompt(
+      {
+        product: "Test",
+        offer: "50% off",
+        keyVisual: "Visual",
+        textContent: { headline: "H", bullets: ["B"] },
+        brandElements: ["logo"],
+        cta: { text: "CTA", style: "button" },
+        format: "1:1",
+      },
+      {
+        colorPalette: { dominant: ["black"], accents: ["yellow"], gradients: "none" },
+        typography: { personality: "bold", effects: ["shadow"] },
+        textures: ["smooth"],
+        composition: "centered",
+        mood: "energetic",
+        decorativeElements: ["badges"],
+        photoTreatment: "high contrast",
+      },
+      campaign,
+      "INSCREVA-SE",
+      "pt-BR",
+      campaign.styleIntensity ?? "medium"
+    );
+
+    expect(mockedBuildRestylingPrompt).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ styleIntensity: "strong" }),
+      expect.anything(),
+      expect.anything(),
+      "strong"
+    );
   });
 
   it("score failures update score status without changing completed status", async () => {
