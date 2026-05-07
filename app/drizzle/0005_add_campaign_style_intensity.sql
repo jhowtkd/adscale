@@ -1,0 +1,1 @@
+ALTER TABLE "adscale_app"."campaigns" ADD COLUMN "style_intensity" text DEFAULT 'medium' NOT NULL;

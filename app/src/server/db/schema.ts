@@ -137,6 +137,7 @@ export const campaigns = adscaleSchema.table(
     ctaVariants: text("cta_variants").array(),
     targetFormats: text("target_formats").array(),
     creativeLevel: text("creative_level").notNull().default("balanced"),
+    styleIntensity: text("style_intensity").notNull().default("medium"),
     status: text("status").notNull().default("draft"),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
