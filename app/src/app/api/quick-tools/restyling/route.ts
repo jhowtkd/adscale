@@ -7,21 +7,10 @@ import { createDerivation } from "@/server/repositories/derivation";
 import { uploadBuffer, deleteObject } from "@/server/storage/r2";
 import { inngest } from "@/server/jobs/client";
 import { getUserLocale } from "@/server/repositories/user";
+import { parseStyleIntensity } from "@/lib/style-intensity";
 
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
 const MAX_SIZE = 50 * 1024 * 1024; // 50MB
-
-export function parseStyleIntensity(
-  raw: FormDataEntryValue | null
-): "soft" | "medium" | "strong" | null {
-  if (typeof raw === "string" && ["soft", "medium", "strong"].includes(raw)) {
-    return raw as "soft" | "medium" | "strong";
-  }
-  if (raw == null) {
-    return "medium";
-  }
-  return null;
-}
 
 export async function POST(request: Request) {
   try {
