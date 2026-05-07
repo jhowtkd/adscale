@@ -11,6 +11,18 @@ import { getUserLocale } from "@/server/repositories/user";
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
 const MAX_SIZE = 50 * 1024 * 1024; // 50MB
 
+export function parseStyleIntensity(
+  raw: FormDataEntryValue | null
+): "soft" | "medium" | "strong" | null {
+  if (typeof raw === "string" && ["soft", "medium", "strong"].includes(raw)) {
+    return raw as "soft" | "medium" | "strong";
+  }
+  if (raw == null) {
+    return "medium";
+  }
+  return null;
+}
+
 export async function POST(request: Request) {
   try {
     const { user, workspace } = await requireWorkspaceAccess(request);
@@ -56,11 +68,7 @@ export async function POST(request: Request) {
     }
 
     // Parse and validate style intensity
-    const styleIntensity = typeof styleIntensityRaw === "string" && ["soft", "medium", "strong"].includes(styleIntensityRaw)
-      ? styleIntensityRaw
-      : styleIntensityRaw == null
-        ? "medium"
-        : null;
+    const styleIntensity = parseStyleIntensity(styleIntensityRaw);
 
     if (!styleIntensity) {
       return apiError("invalidInput", 400, { message: "Invalid style intensity" });

@@ -1,17 +1,10 @@
 import { describe, it, expect } from "vitest";
+import { parseStyleIntensity } from "@/app/api/quick-tools/restyling/route";
 
-function parseStyleIntensity(raw: FormDataEntryValue | null): "soft" | "medium" | "strong" | null {
-  if (typeof raw === "string" && ["soft", "medium", "strong"].includes(raw)) {
-    return raw as "soft" | "medium" | "strong";
-  }
-  if (raw == null) {
-    return "medium";
-  }
-  return null;
-}
-
-describe("quick-tools restyling styleIntensity parsing", () => {
-  it("parses strong styleIntensity", () => {
+describe("parseStyleIntensity", () => {
+  it("parses valid intensities", () => {
+    expect(parseStyleIntensity("soft")).toBe("soft");
+    expect(parseStyleIntensity("medium")).toBe("medium");
     expect(parseStyleIntensity("strong")).toBe("strong");
   });
 
@@ -19,7 +12,18 @@ describe("quick-tools restyling styleIntensity parsing", () => {
     expect(parseStyleIntensity(null)).toBe("medium");
   });
 
-  it("rejects invalid styleIntensity", () => {
+  it("defaults undefined to medium", () => {
+    expect(parseStyleIntensity(undefined)).toBe("medium");
+  });
+
+  it("rejects invalid string values", () => {
     expect(parseStyleIntensity("extreme")).toBeNull();
+    expect(parseStyleIntensity("")).toBeNull();
+    expect(parseStyleIntensity("hard")).toBeNull();
+  });
+
+  it("rejects non-string values", () => {
+    expect(parseStyleIntensity(123 as unknown as string)).toBeNull();
+    expect(parseStyleIntensity({} as unknown as string)).toBeNull();
   });
 });
