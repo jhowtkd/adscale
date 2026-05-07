@@ -568,6 +568,16 @@
     "styleImageRequired": "Style reference is required",
     "selectFile": "Select file",
     "replaceFile": "Replace file",
-    "submit": "Start Restyling"
-  }
+    "submit": "Start Restyling",
+    "styleIntensityLabel": "Style intensity",
+    "styleIntensity": {
+      "soft": "Soft",
+      "medium": "Medium",
+      "strong": "Strong",
+      "help": {
+        "soft": "Applies color, texture, and mood without moving far from the base creative.",
+        "medium": "Balances the base creative with typography, treatment, and rhythm from the reference.",
+        "strong": "Pulls more of the reference visual language without copying its content."
+      }
+    }
 }

@@ -22,6 +22,7 @@ interface RestylingForm {
   offer: string;
   ctaText: string;
   notes: string;
+  styleIntensity: "soft" | "medium" | "strong";
 }
 
 interface FormErrors {
@@ -42,6 +43,7 @@ export default function RestylingModal({ open, onOpenChange }: RestylingModalPro
     offer: "",
     ctaText: "",
     notes: "",
+    styleIntensity: "medium",
   });
   const [baseImage, setBaseImage] = useState<File | null>(null);
   const [styleImage, setStyleImage] = useState<File | null>(null);
@@ -89,6 +91,7 @@ export default function RestylingModal({ open, onOpenChange }: RestylingModalPro
         formData.append("offer", form.offer.trim());
         formData.append("ctaText", form.ctaText.trim());
         formData.append("notes", form.notes.trim());
+        formData.append("styleIntensity", form.styleIntensity);
         if (baseImage) formData.append("baseImage", baseImage);
         if (styleImage) formData.append("styleImage", styleImage);
 
@@ -208,6 +211,34 @@ export default function RestylingModal({ open, onOpenChange }: RestylingModalPro
               disabled={isSubmitting}
             />
             </div>
+          </div>
+
+          {/* Style Intensity */}
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label>{t("styleIntensityLabel")}</Label>
+            <div className="flex gap-2">
+              {(["soft", "medium", "strong"] as const).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  aria-pressed={form.styleIntensity === option}
+                  onClick={() => updateField("styleIntensity", option)}
+                  disabled={isSubmitting}
+                  className={cn(
+                    "flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+                    form.styleIntensity === option
+                      ? "border-[var(--accent-mint)] bg-[var(--accent-mint-dim)] text-[var(--accent-mint)]"
+                      : "border-[var(--border-medium)] bg-[var(--surface-raised)] text-[var(--text-muted)] hover:border-[var(--accent-mint)] hover:text-[var(--text-primary)]",
+                    isSubmitting && "pointer-events-none opacity-60"
+                  )}
+                >
+                  {t(`styleIntensity.${option}`)}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-[var(--text-muted)]">
+              {t(`styleIntensity.help.${form.styleIntensity}`)}
+            </p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
