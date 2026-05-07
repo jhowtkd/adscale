@@ -7,6 +7,7 @@ import { createDerivation } from "@/server/repositories/derivation";
 import { uploadBuffer, deleteObject } from "@/server/storage/r2";
 import { inngest } from "@/server/jobs/client";
 import { getUserLocale } from "@/server/repositories/user";
+import { parseStyleIntensity } from "@/lib/style-intensity";
 
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
 const MAX_SIZE = 50 * 1024 * 1024; // 50MB
@@ -24,6 +25,7 @@ export async function POST(request: Request) {
     const offer = formData.get("offer");
     const ctaText = formData.get("ctaText");
     const notes = formData.get("notes");
+    const styleIntensityRaw = formData.get("styleIntensity");
     const baseImage = formData.get("baseImage");
     const styleImage = formData.get("styleImage");
 
@@ -54,6 +56,13 @@ export async function POST(request: Request) {
       return apiError("fileTooLarge", 400);
     }
 
+    // Parse and validate style intensity
+    const styleIntensity = parseStyleIntensity(styleIntensityRaw);
+
+    if (!styleIntensity) {
+      return apiError("invalidInput", 400, { message: "Invalid style intensity" });
+    }
+
     // Create campaign with restyling mode
     const campaign = await createCampaign(workspace.id, {
       name: name.trim(),
@@ -62,6 +71,7 @@ export async function POST(request: Request) {
       notes: typeof notes === "string" ? notes.trim() : undefined,
       generationMode: "restyling",
       creativeLevel: "balanced",
+      styleIntensity: styleIntensity as "soft" | "medium" | "strong",
       status: "draft",
     });
 

@@ -10,7 +10,7 @@ vi.mock("@/server/db", () => ({
 }));
 
 import { db } from "@/server/db";
-import { createDerivation } from "@/server/repositories/derivation";
+import { createDerivation, updateDerivationScore } from "@/server/repositories/derivation";
 
 describe("derivation repository", () => {
   const workspaceId = "ws-123";
@@ -58,6 +58,38 @@ describe("derivation repository", () => {
         generationMode: null,
         variantIndex: null,
         ctaText: null,
+      })
+    );
+  });
+
+  it("updateDerivationScore persists score data", async () => {
+    const mockReturning = vi.fn().mockResolvedValue([{ id: "deriv-1", qualityScore: 87 }]);
+    const mockWhere = vi.fn().mockReturnValue({ returning: mockReturning });
+    const mockSet = vi.fn().mockReturnValue({ where: mockWhere });
+    (db.update as ReturnType<typeof vi.fn>).mockReturnValue({ set: mockSet });
+
+    const result = await updateDerivationScore("deriv-1", workspaceId, {
+      qualityScore: 87,
+      scoreStatus: "analyzed",
+      scoreBreakdown: {
+        ctaClarity: 90,
+        textLegibility: 82,
+        briefMatch: 88,
+        visualQuality: 85,
+        formatFit: 91,
+      },
+      scoreIssues: ["CTA could be more prominent"],
+      regenerationSuggestion: "Make the CTA more prominent while preserving the exact CTA text.",
+    });
+
+    expect(result).toEqual({ id: "deriv-1", qualityScore: 87 });
+    expect(mockSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        qualityScore: 87,
+        scoreStatus: "analyzed",
+        regenerationSuggestion: "Make the CTA more prominent while preserving the exact CTA text.",
+        updatedAt: expect.any(Date),
+        scoredAt: expect.any(Date),
       })
     );
   });

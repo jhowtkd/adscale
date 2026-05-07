@@ -183,7 +183,7 @@ export default function CampaignWorkspacePage() {
           ? "generating"
           : (d.status as CampaignStatus) ?? "draft";
       const platform = campaignPlatforms[i % campaignPlatforms.length] ?? "Meta";
-      const generationMode = (d.generationMode as "art_variation" | "format_adaptation" | undefined) ?? campaign?.generationMode;
+      const generationMode = (d.generationMode as "art_variation" | "format_adaptation" | "restyling" | undefined) ?? campaign?.generationMode;
       const variantIndex = d.variantIndex ?? i;
       const format = d.format;
       const ctaText = d.ctaText;
@@ -203,6 +203,12 @@ export default function CampaignWorkspacePage() {
         variantIndex,
         ctaText: ctaText ?? undefined,
         format: format ?? undefined,
+        qualityScore: d.qualityScore ?? undefined,
+        scoreStatus: d.scoreStatus ?? undefined,
+        scoreBreakdown: d.scoreBreakdown ?? undefined,
+        scoreIssues: d.scoreIssues ?? undefined,
+        regenerationSuggestion: d.regenerationSuggestion ?? undefined,
+        scoredAt: d.scoredAt ?? undefined,
         createdAt: d.createdAt,
         completedAt: d.status === "completed" ? d.updatedAt : undefined,
       };
@@ -364,8 +370,8 @@ export default function CampaignWorkspacePage() {
   );
 
   const handleRegenerateDerivation = useCallback(
-    (id: string) => {
-      regenerateMutation.mutate({ id });
+    (id: string, feedback?: string) => {
+      regenerateMutation.mutate({ id, feedback });
     },
     [regenerateMutation]
   );
@@ -438,6 +444,7 @@ export default function CampaignWorkspacePage() {
                 ? reviewMutation.variables.id
                 : null
             }
+            regeneratingId={regenerateMutation.isPending ? regenerateMutation.variables?.id ?? null : null}
             isGeneratingMore={createDerivations.isPending}
           />
         );

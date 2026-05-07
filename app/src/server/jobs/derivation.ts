@@ -9,11 +9,15 @@ import { buildRestylingPrompt } from "@/server/ai/prompt-builder";
 import { getCampaignById, refreshCampaignStatus } from "../repositories/campaign";
 import { getAssetsByCampaign } from "../repositories/asset";
 import { getPlanByCampaign } from "../repositories/plan";
-import { getDerivationById } from "../repositories/derivation";
+import { getDerivationById, updateDerivationScore } from "../repositories/derivation";
 import { trackUsage } from "../repositories/usage";
 import OpenAI, { toFile } from "openai";
 import sharp from "sharp";
 import { env } from "../validation/env";
+import {
+  scoreDerivationHeuristic,
+  analyzeDerivationCreative,
+} from "@/server/ai/creative-score";
 
 const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 const IMAGE_GENERATION_TIMEOUT_MS = 5 * 60 * 1000;
@@ -162,6 +166,73 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   });
 }
 
+export async function scoreCompletedDerivation(
+  derivationId: string,
+  workspaceId: string,
+  normalizedBuffer: Buffer,
+  campaign: {
+    name: string;
+    client: string | null;
+    product: string | null;
+    offer: string | null;
+    objective: string | null;
+    audience: string | null;
+  },
+  derivation: {
+    ctaText: string | null;
+    format: string | null;
+    generationMode: string | null;
+    feedback: string | null;
+    parentId: string | null;
+  },
+  locale?: string
+) {
+  const effectiveGenerationMode = derivation.generationMode ?? "art_variation";
+  const targetFormat = derivation.format ?? "1:1";
+
+  try {
+    const heuristicScore = scoreDerivationHeuristic({
+      status: "completed",
+      format: targetFormat,
+      generationMode: effectiveGenerationMode,
+      ctaText: derivation.ctaText,
+      parentId: derivation.parentId,
+    });
+    await updateDerivationScore(derivationId, workspaceId, heuristicScore);
+
+    try {
+      const visualScore = await analyzeDerivationCreative({
+        imageBuffer: normalizedBuffer,
+        mimeType: "image/png",
+        campaign: {
+          name: campaign.name,
+          client: campaign.client ?? "",
+          product: campaign.product ?? "",
+          offer: campaign.offer ?? "",
+          objective: campaign.objective ?? "",
+          audience: campaign.audience ?? "",
+        },
+        derivation: {
+          ctaText: derivation.ctaText,
+          format: targetFormat,
+          generationMode: effectiveGenerationMode,
+          feedback: derivation.feedback,
+        },
+        locale: locale ?? "pt-BR",
+      });
+      await updateDerivationScore(derivationId, workspaceId, visualScore);
+    } catch (error) {
+      console.warn("[generate-and-store-output] creative visual scoring failed", error);
+      await updateDerivationScore(derivationId, workspaceId, {
+        ...heuristicScore,
+        scoreStatus: "failed",
+      });
+    }
+  } catch (error) {
+    console.warn("[generate-and-store-output] creative scoring failed", error);
+  }
+}
+
 export const derivationJob = inngest.createFunction(
   {
     id: "generate-derivation",
@@ -296,7 +367,8 @@ export const derivationJob = inngest.createFunction(
             styleBrief,
             campaign,
             ctaText ?? derivation.ctaText ?? undefined,
-            locale
+            locale,
+            campaign.styleIntensity ?? "medium"
           );
         } catch (analysisErr) {
           console.error(
@@ -401,9 +473,12 @@ export const derivationJob = inngest.createFunction(
       console.log(`[generate-and-store-output] uploading ${buffer.length} bytes to ${key}`);
       await uploadBuffer(key, buffer, "image/png");
       console.log(`[generate-and-store-output] upload success key=${key}`);
+
       return {
         outputKey: key,
         revisedPrompt: result.revised_prompt || derivation.prompt || "",
+        targetFormat,
+        effectiveGenerationMode,
       };
     });
 
@@ -422,7 +497,33 @@ export const derivationJob = inngest.createFunction(
       await refreshCampaignStatus(campaignId, workspaceId);
     });
 
-    // 5. Track usage
+    // 5. Score derivation (non-blocking; runs after completed)
+    await step.run("score-derivation", async () => {
+      console.log(`[score-derivation] derivationId=${derivationId} outputKey=${generated.outputKey}`);
+      try {
+        const scoreBuffer = await downloadBuffer(generated.outputKey);
+        await scoreCompletedDerivation(
+          derivationId,
+          workspaceId,
+          scoreBuffer,
+          campaign,
+          {
+            ctaText: ctaText ?? derivation.ctaText ?? null,
+            format: generated.targetFormat,
+            generationMode: generated.effectiveGenerationMode,
+            feedback: derivation.feedback ?? null,
+            parentId: derivation.parentId ?? null,
+          },
+          locale
+        );
+        console.log(`[score-derivation] done derivationId=${derivationId}`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        console.warn(`[score-derivation] failed derivationId=${derivationId}: ${message}`);
+      }
+    });
+
+    // 6. Track usage
     await step.run("track-usage", async () => {
       await trackUsage(workspaceId, "derivation", 1, {
         derivationId,

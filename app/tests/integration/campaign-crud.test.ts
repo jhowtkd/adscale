@@ -78,4 +78,20 @@ describe("campaign CRUD with workspace isolation", () => {
     expect(deleted).toEqual({ id: "camp-1" });
     expect(mockWhere).toHaveBeenCalledWith(expect.anything());
   });
+
+  it("passes styleIntensity when creating a campaign", async () => {
+    const mockReturning = vi.fn().mockResolvedValue([{ id: "camp-1" }]);
+    const mockValues = vi.fn().mockReturnValue({ returning: mockReturning });
+    (db.insert as ReturnType<typeof vi.fn>).mockReturnValue({ values: mockValues });
+
+    await createCampaign(workspaceA, {
+      name: "Restyling",
+      generationMode: "restyling",
+      styleIntensity: "strong",
+    });
+
+    expect(mockValues).toHaveBeenCalledWith(
+      expect.objectContaining({ styleIntensity: "strong" })
+    );
+  });
 });

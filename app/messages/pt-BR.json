@@ -242,6 +242,62 @@
     },
     "targetFormat": {
       "label": "Formato alvo"
+    },
+    "doctor": {
+      "title": "Briefing Doctor",
+      "subtitle": "Revise lacunas antes de gerar.",
+      "analyze": "Analisar briefing",
+      "analyzing": "Analisando...",
+      "apply": "Aplicar",
+      "analysisFailed": "Não foi possível analisar com IA. As checagens locais continuam disponíveis.",
+      "noLocalIssues": "Nenhum problema óbvio no briefing.",
+      "readiness": {
+        "ready": "Pronto",
+        "needs_attention": "Atenção",
+        "weak": "Fraco"
+      },
+      "issues": {
+        "objectiveMissing": {
+          "message": "Objetivo está ausente.",
+          "impact": "O criativo gerado pode não saber qual ação ou resultado otimizar."
+        },
+        "audienceMissing": {
+          "message": "Público-alvo está ausente.",
+          "impact": "O modelo pode produzir copy e visuais genéricos."
+        },
+        "audienceBroad": {
+          "message": "Público-alvo muito amplo.",
+          "impact": "Audiências mais específicas costumam gerar ganchos e visuais mais afiados."
+        },
+        "offerMissing": {
+          "message": "Oferta está ausente.",
+          "impact": "O anúncio pode não ter um motivo concreto para clicar."
+        },
+        "offerWeak": {
+          "message": "Oferta pode ser mais específica.",
+          "impact": "Números, prazos ou benefícios tornam o criativo mais fácil de entender."
+        },
+        "ctaMissing": {
+          "message": "Pelo menos um CTA está ausente.",
+          "impact": "As peças geradas precisam de uma ação clara para preservar a intenção da campanha."
+        },
+        "ctaGeneric": {
+          "message": "CTA é genérico.",
+          "impact": "Um CTA mais específico pode combinar melhor com a oferta e o objetivo da campanha."
+        },
+        "ctaLong": {
+          "message": "CTA pode estar muito longo.",
+          "impact": "CTAs longos podem ficar difíceis de ler nos anúncios gerados."
+        },
+        "targetFormatMissing": {
+          "message": "Formato alvo está ausente.",
+          "impact": "Adaptação de formato precisa de uma proporção de saída exata."
+        },
+        "platformFormatMismatch": {
+          "message": "Formato quadrado com plataforma vertical.",
+          "impact": "TikTok funciona melhor em 9:16. Considere mudar o formato alvo."
+        }
+      }
     }
   },
   "derivation": {
@@ -267,7 +323,14 @@
     "showAll": "Mostrar tudo",
     "piece": "Peça",
     "format": "Formato",
-    "formatAdaptationComplete": "Formatos gerados"
+    "formatAdaptationComplete": "Formatos gerados",
+    "bestFirst": "Melhores primeiro",
+    "scoreStrong": "Forte",
+    "scoreAdjust": "Ajustar",
+    "scoreWeak": "Fraco",
+    "regenerateWithImprovements": "Regenerar com melhorias",
+    "creativeScore": "Score criativo",
+    "detectedIssues": "Problemas detectados"
   },
   "plan": {
     "title": "Plano Criativo",
@@ -516,6 +579,17 @@
     "styleImageRequired": "Referência de estilo é obrigatória",
     "selectFile": "Selecionar arquivo",
     "replaceFile": "Trocar arquivo",
-    "submit": "Iniciar Restilização"
+    "submit": "Iniciar Restilização",
+    "styleIntensityLabel": "Intensidade do estilo",
+    "styleIntensity": {
+      "soft": "Suave",
+      "medium": "Médio",
+      "strong": "Forte",
+      "help": {
+        "soft": "Aplica cor, textura e humor sem se afastar muito do criativo base.",
+        "medium": "Equilibra o criativo base com tipografia, tratamento e ritmo da referência.",
+        "strong": "Puxa mais da linguagem visual da referência sem copiar seu conteúdo."
+      }
+    }
   }
 }

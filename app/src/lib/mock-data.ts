@@ -26,8 +26,9 @@ export interface Campaign {
   offer?: string;
   constraints?: string;
   notes?: string;
-  generationMode?: "art_variation" | "format_adaptation";
+  generationMode?: "art_variation" | "format_adaptation" | "restyling";
   creativeLevel?: "conservative" | "balanced" | "bold";
+  styleIntensity?: "soft" | "medium" | "strong";
   ctaVariants?: string[];
   targetFormats?: string[];
   status: CampaignStatus;
@@ -35,6 +36,16 @@ export interface Campaign {
   creditsUsed: number;
   lastModified: Date;
   createdAt: Date;
+}
+
+export type ScoreStatus = "pending" | "heuristic" | "analyzed" | "failed";
+
+export interface CreativeScoreBreakdown {
+  ctaClarity: number;
+  textLegibility: number;
+  briefMatch: number;
+  visualQuality: number;
+  formatFit: number;
 }
 
 export interface Derivation {
@@ -46,10 +57,16 @@ export interface Derivation {
   prompt: string;
   creditCost: number;
   imageUrl?: string;
-  generationMode?: "art_variation" | "format_adaptation";
+  generationMode?: "art_variation" | "format_adaptation" | "restyling";
   variantIndex?: number;
   ctaText?: string;
   format?: string;
+  qualityScore?: number | null;
+  scoreStatus?: ScoreStatus | null;
+  scoreBreakdown?: CreativeScoreBreakdown | null;
+  scoreIssues?: string[] | null;
+  regenerationSuggestion?: string | null;
+  scoredAt?: Date | null;
   createdAt: Date;
   completedAt?: Date;
 }

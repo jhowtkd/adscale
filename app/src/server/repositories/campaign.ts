@@ -13,6 +13,8 @@ export type GenerationMode = "art_variation" | "format_adaptation" | "restyling"
 
 export type CreativeLevel = "conservative" | "balanced" | "bold";
 
+export type StyleIntensity = "soft" | "medium" | "strong";
+
 export interface CreateCampaignInput {
   name: string;
   client?: string;
@@ -29,6 +31,7 @@ export interface CreateCampaignInput {
   ctaVariants?: string[];
   targetFormats?: string[];
   creativeLevel?: CreativeLevel;
+  styleIntensity?: StyleIntensity;
 }
 
 export interface UpdateCampaignInput {
@@ -47,6 +50,7 @@ export interface UpdateCampaignInput {
   ctaVariants?: string[];
   targetFormats?: string[];
   creativeLevel?: CreativeLevel;
+  styleIntensity?: StyleIntensity;
 }
 
 export interface CampaignMetrics {
@@ -79,6 +83,7 @@ const campaignFields = {
   targetFormats: campaigns.targetFormats,
   status: campaigns.status,
   creativeLevel: campaigns.creativeLevel,
+  styleIntensity: campaigns.styleIntensity,
   createdAt: campaigns.createdAt,
   updatedAt: campaigns.updatedAt,
 };
@@ -186,6 +191,7 @@ export async function createCampaign(
       ctaVariants: data.ctaVariants ?? null,
       targetFormats: data.targetFormats ?? null,
       creativeLevel: data.creativeLevel ?? "balanced",
+      styleIntensity: data.styleIntensity ?? "medium",
       status: data.status ?? "draft",
     })
     .returning();
@@ -236,6 +242,7 @@ export async function updateCampaign(
     ctaVariants,
     targetFormats,
     creativeLevel,
+    styleIntensity,
     status,
   } = data;
   const result = await db
@@ -255,6 +262,7 @@ export async function updateCampaign(
       ...(ctaVariants !== undefined && { ctaVariants }),
       ...(targetFormats !== undefined && { targetFormats }),
       ...(creativeLevel !== undefined && { creativeLevel }),
+      ...(styleIntensity !== undefined && { styleIntensity }),
       ...(status !== undefined && { status }),
       updatedAt: new Date(),
     })

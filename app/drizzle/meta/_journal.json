@@ -29,6 +29,20 @@
       "when": 1777808935959,
       "tag": "0003_add_campaign_assets_role",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1778065611509,
+      "tag": "0004_creative_scoring",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1778179354724,
+      "tag": "0005_add_campaign_style_intensity",
+      "breakpoints": true
     }
   ]
 }

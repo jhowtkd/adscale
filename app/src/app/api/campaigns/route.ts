@@ -22,6 +22,7 @@ const createCampaignSchema = z.object({
   ctaVariants: z.array(z.string()).max(3).optional(),
   targetFormats: z.array(z.enum(["1:1", "4:5", "9:16"])).max(1).optional(),
   creativeLevel: z.enum(["conservative", "balanced", "bold"]).optional().default("balanced"),
+  styleIntensity: z.enum(["soft", "medium", "strong"]).optional(),
 })
 .refine(
   (data) => {

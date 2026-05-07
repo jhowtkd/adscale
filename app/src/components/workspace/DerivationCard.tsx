@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import StatusBadge from "@/components/ui/StatusBadge";
 import type { Derivation } from "@/lib/mock-data";
 import { platformColors } from "@/lib/mock-data";
-import { useRegenerateDerivation } from "@/lib/hooks/use-regenerate";
+
 import { useExport } from "@/lib/hooks/use-export";
 import { Button } from "@/components/ui/button";
 import { useAppStore } from "@/lib/store";
@@ -23,11 +23,12 @@ interface DerivationCardProps {
   index: number;
   onPreview: (id: string) => void;
   onDownload?: (id: string) => void;
-  onRegenerate?: (id: string) => void;
+  onRegenerate?: (id: string, feedback?: string) => void;
   onApprove?: () => void;
   onReject?: () => void;
   isApproving?: boolean;
   isRejecting?: boolean;
+  regeneratingId?: string | null;
   gridSize?: "small" | "medium" | "large";
 }
 
@@ -155,6 +156,13 @@ function Spinner({ className }: { className?: string }) {
 // Main Component
 // ============================================
 
+function getScoreLabel(score: number | null | undefined, t: (key: string) => string) {
+  if (score == null) return null;
+  if (score >= 80) return t("scoreStrong");
+  if (score >= 60) return t("scoreAdjust");
+  return t("scoreWeak");
+}
+
 export default function DerivationCard({
   derivation,
   index,
@@ -165,8 +173,10 @@ export default function DerivationCard({
   onReject,
   isApproving,
   isRejecting,
+  regeneratingId,
 
 }: DerivationCardProps) {
+  const t = useTranslations("derivation");
   const commonT = useTranslations("common");
   const toastT = useTranslations("toast");
   const isCompleted = derivation.status === "completed";
@@ -178,7 +188,7 @@ export default function DerivationCard({
   // Simulated progress per derivation
   const simulatedProgress = Math.min(10 + ((index * 37 + 42) % 90), 98);
 
-  const regenerateMutation = useRegenerateDerivation(derivation.id);
+  const isRegenerating = regeneratingId === derivation.id;
   const exportMutation = useExport();
   const addToast = useAppStore((s) => s.addToast);
 
@@ -189,15 +199,8 @@ export default function DerivationCard({
   }[derivation.format ?? ""] ?? "aspect-square";
 
   const handleRegenerate = () => {
-    if (regenerateMutation.isPending) return;
-    regenerateMutation.mutate(undefined, {
-      onSuccess: () => {
-        onRegenerate?.(derivation.id);
-      },
-      onError: (err) => {
-        addToast("error", err instanceof Error ? err.message : toastT("regenerationFailed"));
-      },
-    });
+    if (isRegenerating) return;
+    onRegenerate?.(derivation.id);
   };
 
   const handleDownload = () => {
@@ -282,7 +285,19 @@ export default function DerivationCard({
           <h4 className="text-sm font-semibold text-[var(--text-primary)] truncate">
             {derivation.name}
           </h4>
-          <StatusBadge status={derivation.status} showDot={false} className="flex-shrink-0" />
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            {derivation.qualityScore != null && (
+              <div className="inline-flex items-center gap-1 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-2 py-1">
+                <span className="text-xs font-semibold text-[var(--text-primary)]">
+                  {derivation.qualityScore}
+                </span>
+                <span className="text-[10px] text-[var(--text-muted)]">
+                  {getScoreLabel(derivation.qualityScore, t)}
+                </span>
+              </div>
+            )}
+            <StatusBadge status={derivation.status} showDot={false} />
+          </div>
         </div>
 
         {/* Row 2: Label + CTA */}
@@ -312,6 +327,11 @@ export default function DerivationCard({
         <p className="text-[13px] text-[var(--text-secondary)] line-clamp-2 leading-relaxed">
           {derivation.prompt}
         </p>
+        {derivation.scoreIssues?.[0] && (
+          <p className="text-[11px] text-[var(--text-muted)] line-clamp-1">
+            {derivation.scoreIssues[0]}
+          </p>
+        )}
 
         {/* Row 4: Cost + Actions */}
         <div className="flex items-center justify-between pt-1">
@@ -320,6 +340,19 @@ export default function DerivationCard({
           </span>
 
           <div className="flex items-center gap-1 opacity-50 group-hover:opacity-100 transition-opacity duration-200">
+            {derivation.regenerationSuggestion && (
+              <button
+                onClick={() => onRegenerate?.(derivation.id, derivation.regenerationSuggestion || "")}
+                disabled={isRegenerating}
+                className={cn(
+                  "p-1.5 rounded-md text-[var(--accent-blue)] hover:text-[var(--accent-blue-light)] hover:bg-[var(--accent-blue)]/10 transition-all duration-150",
+                  isRegenerating && "opacity-50 cursor-wait"
+                )}
+                title={t("regenerateWithImprovements")}
+              >
+                <RefreshCw size={16} />
+              </button>
+            )}
             <button
               onClick={() => onPreview(derivation.id)}
               className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-all duration-150"
@@ -344,14 +377,14 @@ export default function DerivationCard({
             </button>
             <button
               onClick={handleRegenerate}
-              disabled={regenerateMutation.isPending}
+              disabled={isRegenerating}
               className={cn(
                 "p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-all duration-150",
-                regenerateMutation.isPending && "opacity-50 cursor-wait"
+                isRegenerating && "opacity-50 cursor-wait"
               )}
               title={commonT("regenerate")}
             >
-              {regenerateMutation.isPending ? (
+              {isRegenerating ? (
                 <Spinner />
               ) : (
                 <RefreshCw size={16} />

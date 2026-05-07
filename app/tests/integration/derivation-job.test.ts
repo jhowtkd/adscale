@@ -4,6 +4,15 @@ vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn().mockResolvedValue((key: string) => key),
 }));
 
+vi.mock("openai", () => ({
+  default: class MockOpenAI {
+    chat = { completions: { create: vi.fn() } };
+    images = { generate: vi.fn(), edit: vi.fn() };
+    responses = { create: vi.fn() };
+  },
+  toFile: vi.fn(),
+}));
+
 vi.mock("@/server/db", () => ({
   db: {
     insert: vi.fn(),
@@ -15,6 +24,7 @@ vi.mock("@/server/db", () => ({
 vi.mock("@/server/jobs/client", () => ({
   inngest: {
     send: vi.fn().mockResolvedValue(undefined),
+    createFunction: vi.fn().mockReturnValue({}),
   },
 }));
 
@@ -43,7 +53,59 @@ vi.mock("@/server/repositories/asset", () => ({
 vi.mock("@/server/validation/env", () => ({
   env: {
     R2_PUBLIC_BASE_URL: "https://r2.example.com",
+    OPENAI_API_KEY: "test-key",
+    OPENAI_TEXT_MODEL: "gpt-5-mini",
+    OPENAI_IMAGE_MODEL: "gpt-image-2-2026-04-21",
   },
+}));
+
+vi.mock("@/server/ai/creative-score", () => ({
+  scoreDerivationHeuristic: vi.fn().mockReturnValue({
+    qualityScore: 72,
+    scoreStatus: "heuristic",
+    scoreBreakdown: {
+      ctaClarity: 70,
+      textLegibility: 70,
+      briefMatch: 75,
+      visualQuality: 72,
+      formatFit: 73,
+    },
+    scoreIssues: [],
+    regenerationSuggestion: "Improve contrast while preserving the exact CTA text.",
+  }),
+  analyzeDerivationCreative: vi.fn().mockRejectedValue(new Error("vision unavailable")),
+}));
+
+vi.mock("@/server/ai/prompt-builder", () => ({
+  buildDerivationPrompt: vi.fn().mockReturnValue("mock derivation prompt"),
+  buildRestylingPrompt: vi.fn().mockReturnValue("mock restyling prompt"),
+}));
+
+vi.mock("@/server/ai/image-analysis", () => ({
+  analyzeImageContent: vi.fn().mockResolvedValue({
+    product: "Test Product",
+    offer: "50% off",
+    keyVisual: "Test visual",
+    textContent: { headline: "TEST", bullets: ["bullet"] },
+    brandElements: ["logo"],
+    cta: { text: "Buy", style: "button" },
+    format: "1:1",
+  }),
+  analyzeImageStyle: vi.fn().mockResolvedValue({
+    colorPalette: { dominant: ["black"], accents: ["yellow"], gradients: "none" },
+    typography: { personality: "bold", effects: ["shadow"] },
+    textures: ["smooth"],
+    composition: "centered",
+    mood: "energetic",
+    decorativeElements: ["badges"],
+    photoTreatment: "high contrast",
+  }),
+}));
+
+vi.mock("@/server/storage/r2", () => ({
+  uploadBuffer: vi.fn().mockResolvedValue(undefined),
+  deleteObject: vi.fn().mockResolvedValue(undefined),
+  downloadBuffer: vi.fn().mockResolvedValue(Buffer.from("fake-image")),
 }));
 
 import { db } from "@/server/db";
@@ -54,7 +116,9 @@ import { getCampaignById, updateCampaign, refreshCampaignStatus } from "@/server
 import { getPlanByCampaign } from "@/server/repositories/plan";
 import { getUserLocale } from "@/server/repositories/user";
 import { getAssetsByCampaign } from "@/server/repositories/asset";
+import { scoreCompletedDerivation } from "@/server/jobs/derivation";
 import { POST } from "@/app/api/campaigns/[id]/derivations/route";
+import { buildRestylingPrompt, type Campaign } from "@/server/ai/prompt-builder";
 
 describe("derivation job flow", () => {
   const workspaceId = "ws-123";
@@ -127,6 +191,103 @@ describe("derivation job flow", () => {
     const updated = await updateDerivationStatus("deriv-1", workspaceId, "failed");
 
     expect(updated).toEqual({ id: "deriv-1", status: "failed" });
+  });
+
+  it("passes campaign styleIntensity to buildRestylingPrompt for restyling mode", async () => {
+    const mockedBuildRestylingPrompt = vi.mocked(buildRestylingPrompt);
+    mockedBuildRestylingPrompt.mockReturnValue("mock restyling prompt with intensity");
+
+    // Simulate what the job does: call buildRestylingPrompt with campaign.styleIntensity
+    const campaign = {
+      id: campaignId,
+      workspaceId,
+      name: "Restyle",
+      generationMode: "restyling",
+      creativeLevel: "balanced",
+      styleIntensity: "strong",
+      status: "active",
+      client: null,
+      product: null,
+      objective: null,
+      audience: null,
+      platforms: null,
+      tone: null,
+      offer: null,
+      constraints: null,
+      notes: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as Campaign;
+
+    buildRestylingPrompt(
+      {
+        product: "Test",
+        offer: "50% off",
+        keyVisual: "Visual",
+        textContent: { headline: "H", bullets: ["B"] },
+        brandElements: ["logo"],
+        cta: { text: "CTA", style: "button" },
+        format: "1:1",
+      },
+      {
+        colorPalette: { dominant: ["black"], accents: ["yellow"], gradients: "none" },
+        typography: { personality: "bold", effects: ["shadow"] },
+        textures: ["smooth"],
+        composition: "centered",
+        mood: "energetic",
+        decorativeElements: ["badges"],
+        photoTreatment: "high contrast",
+      },
+      campaign,
+      "INSCREVA-SE",
+      "pt-BR",
+      campaign.styleIntensity ?? "medium"
+    );
+
+    expect(mockedBuildRestylingPrompt).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ styleIntensity: "strong" }),
+      expect.anything(),
+      expect.anything(),
+      "strong"
+    );
+  });
+
+  it("score failures update score status without changing completed status", async () => {
+    const mockReturning = vi.fn().mockResolvedValue([{ id: "deriv-1", qualityScore: 72 }]);
+    const mockWhere = vi.fn().mockReturnValue({ returning: mockReturning });
+    const mockSet = vi.fn().mockReturnValue({ where: mockWhere });
+    (db.update as ReturnType<typeof vi.fn>).mockReturnValue({ set: mockSet });
+
+    await expect(
+      scoreCompletedDerivation(
+        "deriv-1",
+        workspaceId,
+        Buffer.from("fake"),
+        {
+          name: "Summer",
+          client: "Client",
+          product: "Product",
+          offer: "50% off",
+          objective: "Sales",
+          audience: "Parents",
+        },
+        {
+          ctaText: "Buy now",
+          format: "1:1",
+          generationMode: "art_variation",
+          feedback: null,
+          parentId: null,
+        }
+      )
+    ).resolves.toBeUndefined();
+
+    expect(mockSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scoreStatus: "failed",
+      })
+    );
   });
 });
 

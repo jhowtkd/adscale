@@ -135,4 +135,45 @@ describe("campaign repository", () => {
       })
     );
   });
+
+  it("createCampaign defaults styleIntensity to medium", async () => {
+    const mockReturning = vi.fn().mockResolvedValue([{ id: "camp-1" }]);
+    const mockValues = vi.fn().mockReturnValue({ returning: mockReturning });
+    (db.insert as ReturnType<typeof vi.fn>).mockReturnValue({ values: mockValues });
+
+    await createCampaign(workspaceId, { name: "Restyling" });
+
+    expect(mockValues).toHaveBeenCalledWith(
+      expect.objectContaining({ styleIntensity: "medium" })
+    );
+  });
+
+  it("createCampaign stores styleIntensity", async () => {
+    const mockReturning = vi.fn().mockResolvedValue([{ id: "camp-1" }]);
+    const mockValues = vi.fn().mockReturnValue({ returning: mockReturning });
+    (db.insert as ReturnType<typeof vi.fn>).mockReturnValue({ values: mockValues });
+
+    await createCampaign(workspaceId, {
+      name: "Restyling",
+      generationMode: "restyling",
+      styleIntensity: "strong",
+    });
+
+    expect(mockValues).toHaveBeenCalledWith(
+      expect.objectContaining({ styleIntensity: "strong" })
+    );
+  });
+
+  it("updateCampaign updates styleIntensity", async () => {
+    const mockReturning = vi.fn().mockResolvedValue([{ id: "camp-1" }]);
+    const mockWhere = vi.fn().mockReturnValue({ returning: mockReturning });
+    const mockSet = vi.fn().mockReturnValue({ where: mockWhere });
+    (db.update as ReturnType<typeof vi.fn>).mockReturnValue({ set: mockSet });
+
+    await updateCampaign("camp-1", workspaceId, { styleIntensity: "soft" });
+
+    expect(mockSet).toHaveBeenCalledWith(
+      expect.objectContaining({ styleIntensity: "soft" })
+    );
+  });
 });

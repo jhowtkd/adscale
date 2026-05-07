@@ -2,6 +2,24 @@ import { eq, and, desc, inArray, lt } from "drizzle-orm";
 import { db } from "../db";
 import { derivations } from "../db/schema";
 
+export type ScoreStatus = "pending" | "heuristic" | "analyzed" | "failed";
+
+export interface CreativeScoreBreakdown {
+  ctaClarity: number;
+  textLegibility: number;
+  briefMatch: number;
+  visualQuality: number;
+  formatFit: number;
+}
+
+export interface UpdateDerivationScoreInput {
+  qualityScore?: number | null;
+  scoreStatus: ScoreStatus;
+  scoreBreakdown?: CreativeScoreBreakdown | null;
+  scoreIssues?: string[] | null;
+  regenerationSuggestion?: string | null;
+}
+
 export interface CreateDerivationInput {
   campaignId: string;
   workspaceId: string;
@@ -125,4 +143,30 @@ export async function getApprovedDerivationsByCampaign(
       )
     )
     .orderBy(desc(derivations.createdAt));
+}
+
+export async function updateDerivationScore(
+  id: string,
+  workspaceId: string,
+  data: UpdateDerivationScoreInput
+) {
+  const result = await db
+    .update(derivations)
+    .set({
+      qualityScore: data.qualityScore ?? null,
+      scoreStatus: data.scoreStatus,
+      scoreBreakdown: data.scoreBreakdown ?? null,
+      scoreIssues: data.scoreIssues ?? null,
+      regenerationSuggestion: data.regenerationSuggestion ?? null,
+      scoredAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(derivations.id, id),
+        eq(derivations.workspaceId, workspaceId)
+      )
+    )
+    .returning();
+  return result[0] ?? null;
 }

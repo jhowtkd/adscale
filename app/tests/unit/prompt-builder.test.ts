@@ -140,30 +140,30 @@ describe("buildDerivationPrompt restyling mode", () => {
 });
 
 describe("buildRestylingPrompt", () => {
+  const contentBrief = {
+    product: "Agronomy course",
+    offer: "50% off enrollment",
+    cta: { text: "Sign up now", style: "red button" },
+    brandElements: ["UCDB logo"],
+    keyVisual: "Student with tablet",
+    textContent: { headline: "AGRONOMY", bullets: ["Field experience"] },
+    format: "1:1",
+  };
+
+  const styleBrief = {
+    colorPalette: { dominant: ["black"], accents: ["yellow"], gradients: "none" },
+    typography: { personality: "grunge", effects: ["torn edges"] },
+    textures: ["grain", "noise"],
+    composition: "collage",
+    mood: "energetic",
+    decorativeElements: ["badges"],
+    photoTreatment: "high contrast",
+  };
+
+  const campaign = { name: "UCDB Agronomy", client: "UCDB" } as Campaign;
+
   it("includes content brief and style brief in prompt", () => {
-    const prompt = buildRestylingPrompt(
-      {
-        product: "Agronomy course",
-        offer: "50% off enrollment",
-        cta: { text: "Sign up now", style: "red button" },
-        brandElements: ["UCDB logo"],
-        keyVisual: "Student with tablet",
-        textContent: { headline: "AGRONOMY", bullets: ["Field experience"] },
-        format: "1:1",
-      },
-      {
-        colorPalette: { dominant: ["black"], accents: ["yellow"], gradients: "none" },
-        typography: { personality: "grunge", effects: ["torn edges"] },
-        textures: ["grain", "noise"],
-        composition: "collage",
-        mood: "energetic",
-        decorativeElements: ["badges"],
-        photoTreatment: "high contrast",
-      },
-      { name: "UCDB Agronomy", client: "UCDB" } as Campaign,
-      "INSCREVA-SE",
-      "pt-BR"
-    );
+    const prompt = buildRestylingPrompt(contentBrief, styleBrief, campaign, "INSCREVA-SE", "pt-BR");
 
     expect(prompt).toContain("Agronomy course");
     expect(prompt).toContain("50% off enrollment");
@@ -171,5 +171,28 @@ describe("buildRestylingPrompt", () => {
     expect(prompt).toContain("collage");
     expect(prompt).toContain("INSCREVA-SE");
     expect(prompt).toContain("portugues brasileiro");
+  });
+
+  it("includes soft style intensity instruction", () => {
+    const prompt = buildRestylingPrompt(contentBrief, styleBrief, campaign, "INSCREVA-SE", "pt-BR", "soft");
+    expect(prompt).toContain("STYLE INTENSITY: soft");
+    expect(prompt).toContain("Borrow mainly palette, subtle texture, and mood");
+  });
+
+  it("includes medium style intensity instruction by default", () => {
+    const prompt = buildRestylingPrompt(contentBrief, styleBrief, campaign, "INSCREVA-SE", "pt-BR");
+    expect(prompt).toContain("STYLE INTENSITY: medium");
+    expect(prompt).toContain("Balance base content with reference style");
+  });
+
+  it("includes strong style intensity instruction", () => {
+    const prompt = buildRestylingPrompt(contentBrief, styleBrief, campaign, "INSCREVA-SE", "pt-BR", "strong");
+    expect(prompt).toContain("STYLE INTENSITY: strong");
+    expect(prompt).toContain("high presence");
+  });
+
+  it("normalizes invalid style intensity to medium", () => {
+    const prompt = buildRestylingPrompt(contentBrief, styleBrief, campaign, "INSCREVA-SE", "pt-BR", "extreme" as never);
+    expect(prompt).toContain("STYLE INTENSITY: medium");
   });
 });

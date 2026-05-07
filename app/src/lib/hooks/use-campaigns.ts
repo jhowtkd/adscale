@@ -14,8 +14,9 @@ export interface Campaign {
   offer: string | null;
   constraints: string | null;
   notes: string | null;
-  generationMode: "art_variation" | "format_adaptation";
+  generationMode: "art_variation" | "format_adaptation" | "restyling";
   creativeLevel: "conservative" | "balanced" | "bold" | null;
+  styleIntensity: "soft" | "medium" | "strong" | null;
   ctaVariants: string[] | null;
   targetFormats: string[] | null;
   status: "draft" | "active" | "generating" | "completed" | "failed";
@@ -42,6 +43,7 @@ export interface UiCampaign {
   notes?: string;
   generationMode: Campaign["generationMode"];
   creativeLevel?: "conservative" | "balanced" | "bold";
+  styleIntensity?: "soft" | "medium" | "strong";
   ctaVariants?: string[];
   targetFormats?: string[];
   status: Campaign["status"];
@@ -65,6 +67,7 @@ function toUiCampaign(c: Campaign): UiCampaign {
     notes: c.notes ?? undefined,
     generationMode: c.generationMode,
     creativeLevel: c.creativeLevel ?? undefined,
+    styleIntensity: c.styleIntensity ?? undefined,
     ctaVariants: c.ctaVariants ?? undefined,
     targetFormats: c.targetFormats ?? undefined,
     status: c.status,
@@ -115,8 +118,9 @@ async function createCampaign(payload: {
   offer?: string;
   constraints?: string;
   notes?: string;
-  generationMode?: "art_variation" | "format_adaptation";
+  generationMode?: "art_variation" | "format_adaptation" | "restyling";
   creativeLevel?: "conservative" | "balanced" | "bold";
+  styleIntensity?: "soft" | "medium" | "strong";
   ctaVariants?: string[];
   targetFormats?: string[];
 }): Promise<Campaign> {
@@ -274,6 +278,7 @@ export function useDuplicateCampaign() {
         notes: original.notes ?? undefined,
         generationMode: original.generationMode ?? undefined,
         creativeLevel: original.creativeLevel ?? undefined,
+        styleIntensity: original.styleIntensity ?? undefined,
         ctaVariants: original.ctaVariants ?? undefined,
         targetFormats: original.targetFormats ?? undefined,
       });

@@ -232,7 +232,63 @@
     "ctaHelpArt": "Fill at least one CTA. Empty fields will be skipped.",
     "ctaHelpFormat": "CTAs are optional. Each format gets its matching CTA.",
     "ctaPiece": "CTA piece {number}",
-    "ctaFormat": "CTA {format}"
+    "ctaFormat": "CTA {format}",
+    "doctor": {
+      "title": "Briefing Doctor",
+      "subtitle": "Review gaps before generating.",
+      "analyze": "Analyze briefing",
+      "analyzing": "Analyzing...",
+      "apply": "Apply",
+      "analysisFailed": "Could not analyze with AI. Local checks are still available.",
+      "noLocalIssues": "No obvious issues in the briefing.",
+      "readiness": {
+        "ready": "Ready",
+        "needs_attention": "Needs attention",
+        "weak": "Weak"
+      },
+      "issues": {
+        "objectiveMissing": {
+          "message": "Objective is missing.",
+          "impact": "The generated creative may not know what action or outcome to optimize for."
+        },
+        "audienceMissing": {
+          "message": "Audience is missing.",
+          "impact": "The model may produce generic copy and visuals."
+        },
+        "audienceBroad": {
+          "message": "Audience is too broad.",
+          "impact": "More specific audiences usually produce sharper hooks and visuals."
+        },
+        "offerMissing": {
+          "message": "Offer is missing.",
+          "impact": "The ad may lack a concrete reason to click."
+        },
+        "offerWeak": {
+          "message": "Offer could be more specific.",
+          "impact": "Numbers, deadlines, or benefits make the creative easier to understand."
+        },
+        "ctaMissing": {
+          "message": "At least one CTA is missing.",
+          "impact": "Generated pieces need a clear action to preserve campaign intent."
+        },
+        "ctaGeneric": {
+          "message": "CTA is generic.",
+          "impact": "A more specific CTA can better match the offer and campaign goal."
+        },
+        "ctaLong": {
+          "message": "CTA may be too long.",
+          "impact": "Long CTAs can become hard to render legibly in generated ads."
+        },
+        "targetFormatMissing": {
+          "message": "Target format is missing.",
+          "impact": "Format adaptation needs one exact output ratio."
+        },
+        "platformFormatMismatch": {
+          "message": "Square format with vertical platform.",
+          "impact": "TikTok performs best with 9:16. Consider switching the target format."
+        }
+      }
+    }
   },
   "derivation": {
     "title": "Derivations",
@@ -257,7 +313,14 @@
     "showAll": "Show all",
     "piece": "Piece",
     "format": "Format",
-    "formatAdaptationComplete": "Formats generated"
+    "formatAdaptationComplete": "Formats generated",
+    "bestFirst": "Best first",
+    "scoreStrong": "Strong",
+    "scoreAdjust": "Adjust",
+    "scoreWeak": "Weak",
+    "regenerateWithImprovements": "Regenerate with improvements",
+    "creativeScore": "Creative score",
+    "detectedIssues": "Detected issues"
   },
   "plan": {
     "title": "Creative Plan",
@@ -505,6 +568,17 @@
     "styleImageRequired": "Style reference is required",
     "selectFile": "Select file",
     "replaceFile": "Replace file",
-    "submit": "Start Restyling"
+    "submit": "Start Restyling",
+    "styleIntensityLabel": "Style intensity",
+    "styleIntensity": {
+      "soft": "Soft",
+      "medium": "Medium",
+      "strong": "Strong",
+      "help": {
+        "soft": "Applies color, texture, and mood without moving far from the base creative.",
+        "medium": "Balances the base creative with typography, treatment, and rhythm from the reference.",
+        "strong": "Pulls more of the reference visual language without copying its content."
+      }
+    }
   }
 }

@@ -11,6 +11,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import type { Campaign } from "@/lib/mock-data";
 import type { AdPlatform } from "@/lib/mock-data";
+import {
+  analyzeBriefingLocal,
+  applyBriefingFieldPatch,
+  type BriefingFieldPatch,
+} from "@/lib/briefing-doctor";
+import { useBriefingDoctorAnalysis } from "@/lib/hooks/use-briefing-doctor";
 
 // ============================================
 // Types
@@ -26,7 +32,7 @@ export interface BriefingFormData {
   offer: string;
   constraints: string;
   notes: string;
-  generationMode: "art_variation" | "format_adaptation";
+  generationMode: "art_variation" | "format_adaptation" | "restyling";
   creativeLevel: "conservative" | "balanced" | "bold";
   targetFormat?: string;
   ctaVariants: [string, string, string];
@@ -90,6 +96,19 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
 
   const [showNotes, setShowNotes] = useState(Boolean(campaign?.notes));
   const [errors, setErrors] = useState<Partial<Record<keyof BriefingFormData, string>>>({});
+
+  const briefingDoctor = useBriefingDoctorAnalysis();
+  const localAnalysis = analyzeBriefingLocal(formData);
+  const aiAnalysis = briefingDoctor.data;
+
+  const handleAnalyzeBriefing = () => {
+    briefingDoctor.mutate(formData);
+  };
+
+  const handleApplyPatch = (patch: BriefingFieldPatch) => {
+    const next = applyBriefingFieldPatch(formData, patch);
+    setFormData(next as BriefingFormData);
+  };
 
   const updateField = <K extends keyof BriefingFormData>(field: K, value: BriefingFormData[K]) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -339,6 +358,79 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
               {errors.ctaVariants}
             </motion.p>
           )}
+        </motion.div>
+
+        {/* ---- Briefing Doctor ---- */}
+        <motion.div
+          variants={fieldVariants}
+          className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-4 space-y-3"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+                {tBriefing("doctor.title")}
+              </h3>
+              <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                {tBriefing("doctor.subtitle")}
+              </p>
+            </div>
+            <span className="rounded-md bg-[var(--surface-raised)] px-2 py-1 text-xs text-[var(--text-secondary)]">
+              {tBriefing(`doctor.readiness.${aiAnalysis?.readiness ?? localAnalysis.readiness}`)}
+            </span>
+          </div>
+
+          {localAnalysis.issues.length > 0 ? (
+            <div className="space-y-2">
+              {localAnalysis.issues.slice(0, 3).map((issue, index) => (
+                <div key={`${issue.field}-${index}`} className="rounded-md bg-[var(--surface-raised)] p-2">
+                  <p className="text-xs font-medium text-[var(--text-primary)]">{tBriefing(issue.messageKey)}</p>
+                  <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{tBriefing(issue.impactKey)}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-[var(--text-secondary)]">
+              {tBriefing("doctor.noLocalIssues")}
+            </p>
+          )}
+
+          {briefingDoctor.isError && (
+            <p className="text-xs text-[var(--accent-rose)]">
+              {tBriefing("doctor.analysisFailed")}
+            </p>
+          )}
+
+          {aiAnalysis?.suggestions?.length ? (
+            <div className="space-y-2">
+              {aiAnalysis.suggestions.slice(0, 4).map((suggestion, index) => {
+                const patch = aiAnalysis.fieldPatches.find((item) => item.field === suggestion.field);
+                return (
+                  <div key={`${suggestion.field}-${index}`} className="rounded-md border border-[var(--border-dim)] p-3">
+                    <p className="text-xs font-medium text-[var(--text-primary)]">{suggestion.title}</p>
+                    <p className="text-[11px] text-[var(--text-muted)] mt-1">{suggestion.rationale}</p>
+                    {patch && (
+                      <button
+                        type="button"
+                        onClick={() => handleApplyPatch(patch)}
+                        className="mt-2 text-xs font-medium text-[var(--accent-mint)] hover:text-[var(--accent-mint-light)]"
+                      >
+                        {tBriefing("doctor.apply")}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+
+          <button
+            type="button"
+            onClick={handleAnalyzeBriefing}
+            disabled={briefingDoctor.isPending}
+            className="inline-flex items-center rounded-md border border-[var(--border-dim)] px-3 py-2 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--surface-raised)] disabled:opacity-60"
+          >
+            {briefingDoctor.isPending ? tBriefing("doctor.analyzing") : tBriefing("doctor.analyze")}
+          </button>
         </motion.div>
 
         {/* ---- Constraints ---- */}
