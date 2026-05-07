@@ -32,7 +32,7 @@ export interface BriefingFormData {
   offer: string;
   constraints: string;
   notes: string;
-  generationMode: "art_variation" | "format_adaptation";
+  generationMode: "art_variation" | "format_adaptation" | "restyling";
   creativeLevel: "conservative" | "balanced" | "bold";
   targetFormat?: string;
   ctaVariants: [string, string, string];

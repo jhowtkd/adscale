@@ -74,7 +74,7 @@ export async function POST(request: Request) {
       notes: typeof notes === "string" ? notes.trim() : undefined,
       generationMode: "restyling",
       creativeLevel: "balanced",
-      styleIntensity,
+      styleIntensity: styleIntensity as "soft" | "medium" | "strong",
       status: "draft",
     });
 

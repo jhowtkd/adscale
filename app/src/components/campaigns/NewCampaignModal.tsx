@@ -26,7 +26,7 @@ import { Label } from "@/components/ui/label";
 interface NewCampaignForm {
   name: string;
   clientName: string;
-  generationMode: "art_variation" | "format_adaptation";
+  generationMode: "art_variation" | "format_adaptation" | "restyling";
   targetFormat: string;
   constraints: string;
   notes: string;
@@ -45,7 +45,7 @@ interface NewCampaignModalProps {
   onSubmit: (campaign: {
     name: string;
     client: string;
-    generationMode: "art_variation" | "format_adaptation";
+    generationMode: "art_variation" | "format_adaptation" | "restyling";
     targetFormats?: string[];
     constraints?: string;
     notes?: string;

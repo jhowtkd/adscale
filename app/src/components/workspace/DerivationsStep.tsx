@@ -14,7 +14,7 @@ import type { Derivation } from "@/lib/mock-data";
 
 interface DerivationsStepProps {
   derivations: Derivation[];
-  generationMode?: "art_variation" | "format_adaptation";
+  generationMode?: "art_variation" | "format_adaptation" | "restyling";
   onPreview: (id: string) => void;
   onDownload: (id: string) => void;
   onRegenerate: (id: string, feedback?: string) => void;

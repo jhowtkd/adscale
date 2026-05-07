@@ -353,7 +353,7 @@ export default function CampaignsListPage() {
     (data: {
       name: string;
       client: string;
-      generationMode: "art_variation" | "format_adaptation";
+      generationMode: "art_variation" | "format_adaptation" | "restyling";
       targetFormats?: string[];
       constraints?: string;
       notes?: string;

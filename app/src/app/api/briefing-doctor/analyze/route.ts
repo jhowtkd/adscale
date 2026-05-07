@@ -29,7 +29,7 @@ const briefingSchema = z.object({
   offer: z.string().optional().default(""),
   constraints: z.string().optional().default(""),
   notes: z.string().optional().default(""),
-  generationMode: z.enum(["art_variation", "format_adaptation"]),
+  generationMode: z.enum(["art_variation", "format_adaptation", "restyling"]),
   creativeLevel: z.enum(["conservative", "balanced", "bold"]),
   targetFormat: z.string().optional().default(""),
   ctaVariants: z.array(z.string()).max(3).optional().default([]),

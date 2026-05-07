@@ -57,7 +57,7 @@ export interface Derivation {
   prompt: string;
   creditCost: number;
   imageUrl?: string;
-  generationMode?: "art_variation" | "format_adaptation";
+  generationMode?: "art_variation" | "format_adaptation" | "restyling";
   variantIndex?: number;
   ctaText?: string;
   format?: string;

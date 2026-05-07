@@ -38,6 +38,7 @@ export interface Campaign {
   offer: string | null;
   constraints: string | null;
   notes: string | null;
+  styleIntensity?: string | null;
   status: string;
   createdAt: Date | string;
   updatedAt: Date | string;

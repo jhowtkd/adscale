@@ -183,7 +183,7 @@ export default function CampaignWorkspacePage() {
           ? "generating"
           : (d.status as CampaignStatus) ?? "draft";
       const platform = campaignPlatforms[i % campaignPlatforms.length] ?? "Meta";
-      const generationMode = (d.generationMode as "art_variation" | "format_adaptation" | undefined) ?? campaign?.generationMode;
+      const generationMode = (d.generationMode as "art_variation" | "format_adaptation" | "restyling" | undefined) ?? campaign?.generationMode;
       const variantIndex = d.variantIndex ?? i;
       const format = d.format;
       const ctaText = d.ctaText;

@@ -118,7 +118,7 @@ import { getUserLocale } from "@/server/repositories/user";
 import { getAssetsByCampaign } from "@/server/repositories/asset";
 import { scoreCompletedDerivation } from "@/server/jobs/derivation";
 import { POST } from "@/app/api/campaigns/[id]/derivations/route";
-import { buildRestylingPrompt } from "@/server/ai/prompt-builder";
+import { buildRestylingPrompt, type Campaign } from "@/server/ai/prompt-builder";
 
 describe("derivation job flow", () => {
   const workspaceId = "ws-123";
@@ -206,7 +206,18 @@ describe("derivation job flow", () => {
       creativeLevel: "balanced",
       styleIntensity: "strong",
       status: "active",
-    };
+      client: null,
+      product: null,
+      objective: null,
+      audience: null,
+      platforms: null,
+      tone: null,
+      offer: null,
+      constraints: null,
+      notes: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as Campaign;
 
     buildRestylingPrompt(
       {
