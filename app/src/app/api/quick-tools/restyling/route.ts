@@ -24,6 +24,7 @@ export async function POST(request: Request) {
     const offer = formData.get("offer");
     const ctaText = formData.get("ctaText");
     const notes = formData.get("notes");
+    const styleIntensityRaw = formData.get("styleIntensity");
     const baseImage = formData.get("baseImage");
     const styleImage = formData.get("styleImage");
 
@@ -54,6 +55,17 @@ export async function POST(request: Request) {
       return apiError("fileTooLarge", 400);
     }
 
+    // Parse and validate style intensity
+    const styleIntensity = typeof styleIntensityRaw === "string" && ["soft", "medium", "strong"].includes(styleIntensityRaw)
+      ? styleIntensityRaw
+      : styleIntensityRaw == null
+        ? "medium"
+        : null;
+
+    if (!styleIntensity) {
+      return apiError("invalidInput", 400, { message: "Invalid style intensity" });
+    }
+
     // Create campaign with restyling mode
     const campaign = await createCampaign(workspace.id, {
       name: name.trim(),
@@ -62,6 +74,7 @@ export async function POST(request: Request) {
       notes: typeof notes === "string" ? notes.trim() : undefined,
       generationMode: "restyling",
       creativeLevel: "balanced",
+      styleIntensity,
       status: "draft",
     });
 
