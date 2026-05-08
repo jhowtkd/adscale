@@ -11,6 +11,7 @@ import { useTranslations } from "next-intl";
 import {
   LayoutDashboard,
   FolderOpen,
+  LayoutTemplate,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -23,6 +24,7 @@ export default function Sidebar() {
   const workspaceNavItems = [
     { icon: LayoutDashboard, label: tNav("dashboard"), href: "/" },
     { icon: FolderOpen, label: tNav("campaigns"), href: "/campaigns" },
+    { icon: LayoutTemplate, label: tNav("templates"), href: "/templates" },
   ];
 
   const accountNavItems = [

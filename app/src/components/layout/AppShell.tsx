@@ -9,7 +9,7 @@ import { useTranslations } from "next-intl";
 import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
 import Footer from "./Footer";
-import { FolderOpen, LayoutDashboard, Settings } from "lucide-react";
+import { FolderOpen, LayoutDashboard, LayoutTemplate, Settings } from "lucide-react";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -48,7 +48,7 @@ export default function AppShell({ children }: AppShellProps) {
       </motion.main>
 
       <nav
-        className="fixed bottom-0 left-0 right-0 z-50 grid grid-cols-3 border-t border-[var(--border-dim)] bg-white/95 px-2 py-2 backdrop-blur md:hidden"
+        className="fixed bottom-0 left-0 right-0 z-50 grid grid-cols-4 border-t border-[var(--border-dim)] bg-white/95 px-2 py-2 backdrop-blur md:hidden"
         aria-label="Primary mobile navigation"
       >
         <MobileNavItem
@@ -62,6 +62,12 @@ export default function AppShell({ children }: AppShellProps) {
           label={tNav("campaigns")}
           icon={FolderOpen}
           active={pathname.startsWith("/campaigns")}
+        />
+        <MobileNavItem
+          href="/templates"
+          label={tNav("templates")}
+          icon={LayoutTemplate}
+          active={pathname.startsWith("/templates")}
         />
         <MobileNavItem
           href="/settings"
