@@ -4,8 +4,7 @@ import { derivations } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { uploadBuffer, downloadBuffer } from "../storage/r2";
 import { buildDerivationPrompt } from "../ai/prompt-builder";
-import { analyzeImageContent, analyzeImageStyle } from "@/server/ai/image-analysis";
-import { buildRestylingPrompt } from "@/server/ai/prompt-builder";
+
 import { getCampaignById, refreshCampaignStatus } from "../repositories/campaign";
 import { getAssetsByCampaign } from "../repositories/asset";
 import { getPlanByCampaign } from "../repositories/plan";
@@ -354,57 +353,26 @@ export const derivationJob = inngest.createFunction(
         const baseBuffer = await downloadBuffer(baseAsset.key);
         const styleBuffer = await downloadBuffer(styleAsset.key);
 
-        let unifiedPrompt: string;
-
-        try {
-          const [contentBrief, styleBrief] = await Promise.all([
-            analyzeImageContent(baseBuffer, baseAsset.type),
-            analyzeImageStyle(styleBuffer, styleAsset.type),
-          ]);
-
-          unifiedPrompt = buildRestylingPrompt(
-            contentBrief,
-            styleBrief,
-            campaign,
-            ctaText ?? derivation.ctaText ?? undefined,
-            locale,
-            campaign.styleIntensity ?? "medium"
-          );
-        } catch (analysisErr) {
-          console.error(
-            `[restyling] vision analysis failed, falling back to legacy prompt.`,
-            analysisErr
-          );
-          unifiedPrompt = buildDerivationPrompt({
-            campaign,
-            plan,
-            asset: baseAsset,
-            feedback: derivation.feedback,
-            locale,
-            generationMode: "restyling",
-            variantIndex,
-            ctaText,
-            targetFormat,
-            creativeLevel: campaign.creativeLevel ?? "balanced",
-          });
-        }
+        const baseFile = await toFile(baseBuffer, "base-image", { type: baseAsset.type });
+        const styleFile = await toFile(styleBuffer, "style-reference", { type: styleAsset.type });
 
         const response = await withTimeout(
-          openai.images.generate({
+          openai.images.edit({
             model: env.OPENAI_IMAGE_MODEL,
-            prompt: unifiedPrompt,
+            image: [baseFile, styleFile],
+            prompt,
             n: 1,
             size: openaiSize,
           }),
           IMAGE_GENERATION_TIMEOUT_MS,
-          "OpenAI image generation (restyling)"
+          "OpenAI image edit (restyling)"
         );
 
         const first = response.data?.[0];
         if (!first) {
           throw new Error("No image data returned from OpenAI");
         }
-        console.log(`[generate-and-store-output] restyling generate success`);
+        console.log(`[generate-and-store-output] restyling edit success`);
         result = first;
       } else if (asset && referenceBuffer && effectiveGenerationMode !== "format_adaptation") {
         // Art variations use edit mode with single image
