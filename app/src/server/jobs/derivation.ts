@@ -22,7 +22,20 @@ const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 const IMAGE_GENERATION_TIMEOUT_MS = 5 * 60 * 1000;
 const VISUAL_TOKEN_ANALYSIS_TIMEOUT_MS = 90 * 1000;
 
-function getTargetDimensions(format: string): { width: number; height: number } | null {
+function getTargetDimensions(format: string, isPreview?: boolean): { width: number; height: number } | null {
+  if (isPreview) {
+    switch (format) {
+      case "1:1":
+        return { width: 512, height: 512 };
+      case "4:5":
+        return { width: 512, height: 640 };
+      case "9:16":
+        return { width: 512, height: 768 };
+      default:
+        return null;
+    }
+  }
+
   switch (format) {
     case "1:1":
       return { width: 1080, height: 1080 };
@@ -35,7 +48,11 @@ function getTargetDimensions(format: string): { width: number; height: number } 
   }
 }
 
-function formatToOpenAISize(format: string): "1024x1024" | "1024x1536" | "1536x1024" {
+function formatToOpenAISize(format: string, isPreview?: boolean): "512x512" | "1024x1024" | "1024x1536" | "1536x1024" {
+  if (isPreview) {
+    return "512x512";
+  }
+
   switch (format) {
     case "9:16":
     case "4:5":
@@ -254,7 +271,7 @@ export const derivationJob = inngest.createFunction(
   },
   { event: "derivation.generate" },
   async ({ event, step }) => {
-    const { derivationId, campaignId, workspaceId, locale, generationMode, variantIndex, ctaText, format } = event.data;
+    const { derivationId, campaignId, workspaceId, locale, generationMode, variantIndex, ctaText, format, isPreview } = event.data;
     console.log(`[derivationJob] START derivationId=${derivationId} campaignId=${campaignId} locale=${locale ?? "default"}`);
 
     // Idempotency check: if already completed, skip entirely
@@ -339,7 +356,7 @@ export const derivationJob = inngest.createFunction(
 
       let result: OpenAI.Images.Image;
 
-      const openaiSize = formatToOpenAISize(targetFormat);
+      const openaiSize = formatToOpenAISize(targetFormat, isPreview);
 
       if (effectiveGenerationMode === "restyling") {
         const assets = await getAssetsByCampaign(campaignId, workspaceId);
@@ -432,7 +449,7 @@ export const derivationJob = inngest.createFunction(
       }
 
       // Normalize output dimensions based on target format
-      const dimensions = getTargetDimensions(targetFormat);
+      const dimensions = getTargetDimensions(targetFormat, isPreview);
       if (dimensions) {
         buffer = await normalizeGeneratedImage(buffer, dimensions, effectiveGenerationMode);
       }

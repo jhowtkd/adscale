@@ -39,8 +39,13 @@ export async function POST(
 
     const plan = await getPlanByCampaign(campaignId, workspace.id);
 
-    const body = await request.json();
-    const isPreview = body.preview === true;
+    let isPreview = false;
+    try {
+      const body = await request.json();
+      isPreview = body.preview === true;
+    } catch {
+      // No body or invalid JSON, treat as non-preview
+    }
 
     // Rate limit: block if there are already queued/processing derivations
     const existingQueued = await db.select({ id: derivations.id })
