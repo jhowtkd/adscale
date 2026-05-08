@@ -225,6 +225,7 @@ export const derivations = adscaleSchema.table(
     scoreBreakdown: jsonb("score_breakdown"),
     scoreIssues: jsonb("score_issues"),
     regenerationSuggestion: text("regeneration_suggestion"),
+    isPreview: boolean("is_preview").notNull().default(false),
     scoredAt: timestamp("scored_at", { mode: "date" }),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
