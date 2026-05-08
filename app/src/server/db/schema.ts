@@ -145,6 +145,37 @@ export const campaigns = adscaleSchema.table(
   (table) => [index("campaigns_workspace_id_idx").on(table.workspaceId)]
 );
 
+export const campaignTemplates = adscaleSchema.table(
+  "campaign_templates",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    client: text("client"),
+    product: text("product"),
+    objective: text("objective"),
+    audience: text("audience"),
+    platforms: text("platforms").array(),
+    tone: text("tone"),
+    offer: text("offer"),
+    constraints: text("constraints"),
+    notes: text("notes"),
+    generationMode: text("generation_mode").notNull().default("art_variation"),
+    creativeLevel: text("creative_level").notNull().default("balanced"),
+    styleIntensity: text("style_intensity").notNull().default("medium"),
+    ctaVariants: text("cta_variants").array(),
+    targetFormats: text("target_formats").array(),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [index("campaign_templates_workspace_id_idx").on(table.workspaceId)]
+);
+
 export const campaignAssets = adscaleSchema.table(
   "campaign_assets",
   {

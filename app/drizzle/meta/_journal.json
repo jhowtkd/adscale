@@ -43,6 +43,13 @@
       "when": 1778179354724,
       "tag": "0005_add_campaign_style_intensity",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1778228755766,
+      "tag": "0006_stormy_brother_voodoo",
+      "breakpoints": true
     }
   ]
 }
