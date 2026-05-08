@@ -6,6 +6,7 @@
   "navigation": {
     "dashboard": "Dashboard",
     "campaigns": "Campaigns",
+    "templates": "Templates",
     "settings": "Settings",
     "logout": "Logout",
     "login": "Login",
@@ -55,6 +56,7 @@
     "selected": "selected",
     "archive": "Archive",
     "duplicate": "Duplicate",
+    "saveAsTemplate": "Save as template",
     "filters": "Filters",
     "clearAll": "Clear all",
     "allStatus": "All Status",
@@ -580,5 +582,25 @@
         "strong": "Pulls more of the reference visual language without copying its content."
       }
     }
+  },
+  "template": {
+    "title": "Templates",
+    "subtitle": "Reuse saved campaign briefings",
+    "saveAsTemplate": "Save as template",
+    "saveDescription": "Save \"{campaignName}\" briefing as a reusable template.",
+    "templateName": "Template name",
+    "namePlaceholder": "Ex: Black Friday - Electronics",
+    "description": "Description",
+    "descriptionPlaceholder": "Context about when to use this template...",
+    "useTemplate": "Use template",
+    "createFromCampaign": "Create template",
+    "selectTemplate": "Select template (optional)",
+    "noTemplatesAvailable": "No templates available. Create one from an existing campaign.",
+    "prefilledFromTemplate": "Prefilled from template: {name}",
+    "ctaCount": "{count} CTAs defined",
+    "formats": "Formats",
+    "deleteConfirm": "Are you sure you want to delete this template?",
+    "emptyTitle": "No templates yet",
+    "emptyDescription": "Save a campaign briefing as a template to reuse it in new campaigns."
   }
 }
