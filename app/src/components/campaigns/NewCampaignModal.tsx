@@ -17,6 +17,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { useTemplates } from "@/lib/hooks/use-templates";
+import { ChevronDown } from "lucide-react";
 
 
 // ============================================
@@ -30,6 +32,7 @@ interface NewCampaignForm {
   targetFormat: string;
   constraints: string;
   notes: string;
+  templateId: string;
 }
 
 interface FormErrors {
@@ -70,6 +73,8 @@ export default function NewCampaignModal({
   const tCommon = useTranslations("common");
   const tErrors = useTranslations("errors");
 
+  const { data: templates } = useTemplates();
+
   const MODE_OPTIONS = [
     {
       value: "art_variation" as const,
@@ -90,6 +95,7 @@ export default function NewCampaignModal({
     targetFormat: "",
     constraints: "",
     notes: "",
+    templateId: "",
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
@@ -152,6 +158,7 @@ export default function NewCampaignModal({
         targetFormat: "",
         constraints: "",
         notes: "",
+        templateId: "",
       });
       setErrors({});
       setTouched({});
@@ -212,6 +219,27 @@ export default function NewCampaignModal({
               )}
             </AnimatePresence>
           </div>
+
+          {/* Template Selector */}
+          <TemplateSelector
+            value={form.templateId}
+            onChange={(templateId) => {
+              setForm((prev) => ({ ...prev, templateId }));
+              if (templateId) {
+                const template = templates?.find((t) => t.id === templateId);
+                if (template) {
+                  setForm((prev) => ({
+                    ...prev,
+                    clientName: template.client ?? prev.clientName,
+                    generationMode: template.generationMode,
+                    constraints: template.constraints ?? prev.constraints,
+                    notes: template.notes ?? prev.notes,
+                    targetFormat: template.targetFormats?.[0] ?? prev.targetFormat,
+                  }));
+                }
+              }
+            }}
+          />
 
           {/* Client/Product Name */}
           <div className="space-y-1.5">
@@ -374,5 +402,56 @@ export default function NewCampaignModal({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function TemplateSelector({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const { data: templates, isLoading } = useTemplates();
+  const tTemplate = useTranslations("template");
+
+  if (isLoading) {
+    return (
+      <div className="h-10 bg-[var(--surface-base)] border border-[var(--border-dim)] rounded-md animate-pulse" />
+    );
+  }
+
+  if (!templates || templates.length === 0) {
+    return (
+      <p className="text-xs text-[var(--text-muted)] py-2">
+        {tTemplate("noTemplatesAvailable")}
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-[13px] text-[var(--text-secondary)]">
+        {tTemplate("selectTemplate")}
+      </Label>
+      <div className="relative">
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full h-10 px-3 pr-10 bg-[var(--surface-base)] border border-[var(--border-dim)] rounded-md text-sm text-[var(--text-primary)] appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-[var(--accent-blue)] focus:border-[var(--accent-blue)]"
+        >
+          <option value="">{tTemplate("selectTemplate")}</option>
+          {templates.map((template) => (
+            <option key={template.id} value={template.id}>
+              {template.name}
+            </option>
+          ))}
+        </select>
+        <ChevronDown
+          size={16}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none"
+        />
+      </div>
+    </div>
   );
 }
