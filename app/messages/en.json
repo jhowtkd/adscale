@@ -348,6 +348,8 @@
     "underLimit": "Under {max}MB",
     "checkingDimensions": "Checking dimensions...",
     "recommendedDimensions": "(recommended 1080×1080+)",
+    "generatePreview": "Generate preview",
+    "previewLabel": "Preview",
     "generateDerivations": "Generate derivations →",
     "browseFiles": "Browse files",
     "bestPractices": "Best practices",
