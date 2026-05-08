@@ -4,7 +4,7 @@ import { useState, useMemo, useCallback, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@/lib/store";
-import type { AdPlatform, CampaignStatus } from "@/lib/mock-data";
+import type { AdPlatform, CampaignStatus, Campaign } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -35,6 +35,7 @@ import {
 import CampaignCard from "@/components/campaigns/CampaignCard";
 import CampaignTableRow from "@/components/campaigns/CampaignTableRow";
 import NewCampaignModal from "@/components/campaigns/NewCampaignModal";
+import SaveTemplateModal from "@/components/templates/SaveTemplateModal";
 import EmptyState from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -186,6 +187,7 @@ export default function CampaignsListPage() {
 
   // Delete confirmation
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [saveTemplateCampaign, setSaveTemplateCampaign] = useState<Campaign | null>(null);
 
   const updateSearchQuery = useCallback((value: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -830,6 +832,7 @@ export default function CampaignsListPage() {
                       onDuplicate={handleDuplicate}
                       onArchive={handleArchive}
                       onDelete={setDeleteTarget}
+                      onSaveAsTemplate={setSaveTemplateCampaign}
                     />
                   ))}
                 </TableBody>
@@ -933,6 +936,14 @@ export default function CampaignsListPage() {
         open={modalOpen}
         onOpenChange={setModalOpen}
         onSubmit={handleCreateCampaign}
+      />
+
+      {/* ============ Save Template Modal ============ */}
+      <SaveTemplateModal
+        open={!!saveTemplateCampaign}
+        onOpenChange={(open) => !open && setSaveTemplateCampaign(null)}
+        campaignId={saveTemplateCampaign?.id ?? ""}
+        campaignName={saveTemplateCampaign?.name ?? ""}
       />
 
       {/* ============ Delete Confirmation Dialog ============ */}

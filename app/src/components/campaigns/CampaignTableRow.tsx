@@ -12,6 +12,7 @@ import {
   MoreHorizontal,
   Pencil,
   Copy,
+  LayoutTemplate,
   Archive,
   Trash2,
   ExternalLink,
@@ -32,6 +33,7 @@ interface CampaignTableRowProps {
   onDuplicate: (id: string) => void;
   onArchive: (id: string) => void;
   onDelete: (id: string) => void;
+  onSaveAsTemplate: (campaign: Campaign) => void;
 }
 
 const rowVariants = {
@@ -51,6 +53,7 @@ export default function CampaignTableRow({
   onDuplicate,
   onArchive,
   onDelete,
+  onSaveAsTemplate,
 }: CampaignTableRowProps) {
   const tCommon = useTranslations("common");
 
@@ -208,6 +211,13 @@ export default function CampaignTableRow({
               >
                 <Copy size={14} />
                 {tCommon("duplicate")}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => onSaveAsTemplate(campaign)}
+                className="flex items-center gap-2"
+              >
+                <LayoutTemplate size={14} />
+                {tCommon("saveAsTemplate")}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
