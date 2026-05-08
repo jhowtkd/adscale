@@ -323,18 +323,20 @@ export default function CampaignWorkspacePage() {
     [campaign, isNew, updateCampaign, addToast, tc]
   );
 
-  const handleGenerateDerivations = useCallback(() => {
+  const handleGenerateDerivations = useCallback((options?: { preview?: boolean }) => {
     if (createDerivations.isPending) return;
-    createDerivations.mutate(undefined, {
+    createDerivations.mutate(options, {
       onSuccess: () => {
-        addToast("success", tc("derivationsQueued"));
-        goToStep(3);
+        addToast("success", options?.preview ? tc("previewQueued") : tc("derivationsQueued"));
+        if (!options?.preview) {
+          goToStep(3);
+        }
         if (campaign && !isNew) {
           updateCampaign.mutate({ status: "generating" });
         }
       },
       onError: () => {
-        addToast("error", tc("failedQueueDerivations"));
+        addToast("error", options?.preview ? tc("failedQueuePreview") : tc("failedQueueDerivations"));
       },
     });
   }, [createDerivations, goToStep, campaign, isNew, updateCampaign, addToast, tc]);
@@ -346,6 +348,14 @@ export default function CampaignWorkspacePage() {
   const handleUploadContinue = useCallback(() => {
     handleGenerateDerivations();
   }, [handleGenerateDerivations]);
+
+  const handleGeneratePreview = useCallback(() => {
+    handleGenerateDerivations({ preview: true });
+  }, [handleGenerateDerivations]);
+
+  const hasActivePreview = useMemo(() => {
+    return allDerivations.some((d) => d.isPreview && ["queued", "processing", "generating", "completed"].includes(d.status));
+  }, [allDerivations]);
 
   // ============================================
   // Step 3: Derivations Handlers
@@ -422,7 +432,14 @@ export default function CampaignWorkspacePage() {
           />
         );
       case 2:
-        return <UploadStep campaignId={campaignId} onContinue={handleUploadContinue} />;
+        return (
+          <UploadStep
+            campaignId={campaignId}
+            onContinue={handleUploadContinue}
+            onGeneratePreview={handleGeneratePreview}
+            hasPreview={hasActivePreview}
+          />
+        );
       case 3:
         return (
           <DerivationsStep
@@ -649,7 +666,7 @@ export default function CampaignWorkspacePage() {
             </button>
           ) : (
             <button
-              onClick={currentStep === 2 ? handleGenerateDerivations : handleNext}
+              onClick={currentStep === 2 ? () => handleGenerateDerivations() : handleNext}
               disabled={currentStep === 2 || currentStep === 3 || createDerivations.isPending}
               className={cn(
                 "inline-flex items-center rounded-md px-6 py-2.5 text-sm font-medium transition-all duration-200",

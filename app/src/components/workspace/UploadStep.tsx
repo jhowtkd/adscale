@@ -21,6 +21,8 @@ interface UploadedFile {
 interface UploadStepProps {
   campaignId: string;
   onContinue: () => void;
+  onGeneratePreview?: () => void;
+  hasPreview?: boolean;
 }
 
 // ============================================
@@ -51,7 +53,7 @@ function readImageDimensions(file: File): Promise<{ preview: string; width: numb
 // Component
 // ============================================
 
-export default function UploadStep({ campaignId, onContinue }: UploadStepProps) {
+export default function UploadStep({ campaignId, onContinue, onGeneratePreview, hasPreview }: UploadStepProps) {
   const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
@@ -240,18 +242,25 @@ export default function UploadStep({ campaignId, onContinue }: UploadStepProps) 
                   </div>
                 </div>
 
-                {/* Continue button */}
+                {/* Preview + Generate buttons */}
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.3 }}
-                  className="mt-6 flex justify-end"
+                  className="mt-6 flex justify-end gap-3"
                 >
+                  <button
+                    onClick={onGeneratePreview}
+                    disabled={!onGeneratePreview}
+                    className="inline-flex items-center justify-center rounded-md px-6 py-2.5 text-sm font-medium transition-all duration-200 border border-[var(--border-dim)] bg-[var(--surface-raised)] text-[var(--text-primary)] hover:border-[var(--border-medium)] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {t("generatePreview")}
+                  </button>
                   <button
                     onClick={onContinue}
                     className="inline-flex items-center justify-center rounded-md px-6 py-2.5 text-sm font-medium text-white transition-all duration-200 bg-[var(--accent-mint)] hover:bg-[var(--accent-mint-light)] hover:-translate-y-px active:scale-[0.98]"
                   >
-                    {t("generateDerivations")}
+                    {hasPreview ? t("generateAll") : t("generateDerivations")}
                   </button>
                 </motion.div>
               </motion.div>

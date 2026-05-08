@@ -53,12 +53,13 @@ async function fetchDerivations(campaignId: string): Promise<Derivation[]> {
 }
 
 async function createDerivations(
-  campaignId: string
+  campaignId: string,
+  options?: { preview?: boolean }
 ): Promise<Derivation[]> {
   const res = await apiFetch(`/api/campaigns/${campaignId}/derivations`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({}),
+    body: JSON.stringify({ preview: options?.preview ?? false }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -94,7 +95,7 @@ export function useDerivations(campaignId: string) {
 export function useCreateDerivations(campaignId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => createDerivations(campaignId),
+    mutationFn: (options?: { preview?: boolean }) => createDerivations(campaignId, options),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["derivations", campaignId],
