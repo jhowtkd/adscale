@@ -39,6 +39,9 @@ export async function POST(
 
     const plan = await getPlanByCampaign(campaignId, workspace.id);
 
+    const body = await request.json();
+    const isPreview = body.preview === true;
+
     // Rate limit: block if there are already queued/processing derivations
     const existingQueued = await db.select({ id: derivations.id })
       .from(derivations)
@@ -104,10 +107,27 @@ export async function POST(
       });
     }
 
+    // If preview mode, delete existing preview derivations and only create one
+    if (isPreview) {
+      const existingPreviews = await db.select({ id: derivations.id })
+        .from(derivations)
+        .where(
+          and(
+            eq(derivations.campaignId, campaignId),
+            eq(derivations.workspaceId, workspace.id),
+            eq(derivations.isPreview, true)
+          )
+        );
+      for (const preview of existingPreviews) {
+        await db.delete(derivations).where(eq(derivations.id, preview.id));
+      }
+    }
+
+    const jobsToCreate = isPreview ? jobs.slice(0, 1) : jobs;
     const created: Awaited<ReturnType<typeof createDerivation>>[] = [];
     let queuedCount = 0;
 
-    for (const job of jobs) {
+    for (const job of jobsToCreate) {
       const derivation = await createDerivation({
         campaignId,
         workspaceId: workspace.id,
@@ -117,9 +137,10 @@ export async function POST(
         variantIndex: job.variantIndex,
         ctaText: job.ctaText ?? undefined,
         format: job.format,
+        isPreview,
       });
       created.push(derivation);
-      console.log(`[derivations POST] created derivationId=${derivation.id} mode=${generationMode} index=${job.variantIndex} format=${job.format}`);
+      console.log(`[derivations POST] created derivationId=${derivation.id} mode=${generationMode} index=${job.variantIndex} format=${job.format} isPreview=${isPreview}`);
 
       try {
         await inngest.send({
@@ -133,6 +154,7 @@ export async function POST(
             variantIndex: job.variantIndex,
             ctaText: job.ctaText,
             format: job.format,
+            isPreview,
             ...(generationMode === "art_variation" && {
               creativeLevel: campaign.creativeLevel ?? "balanced",
             }),
