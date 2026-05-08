@@ -67,6 +67,7 @@ export interface Derivation {
   scoreIssues?: string[] | null;
   regenerationSuggestion?: string | null;
   scoredAt?: Date | null;
+  isPreview?: boolean;
   createdAt: Date;
   completedAt?: Date;
 }

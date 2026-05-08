@@ -229,8 +229,11 @@ export default function DerivationCard({
       }}
       whileHover={isCompleted ? { y: -4 } : undefined}
       className={cn(
-        "group bg-[var(--surface-base)] rounded-[15px] border border-[var(--border-dim)] overflow-hidden transition-all duration-300",
-        isCompleted && "hover:border-[var(--border-medium)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.08)]"
+        "group bg-[var(--surface-base)] rounded-[15px] border overflow-hidden transition-all duration-300",
+        derivation.isPreview
+          ? "border-dashed border-orange-400/60"
+          : "border-[var(--border-dim)]",
+        isCompleted && !derivation.isPreview && "hover:border-[var(--border-medium)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.08)]"
       )}
     >
       {/* ---- Image Area ---- */}
@@ -267,6 +270,15 @@ export default function DerivationCard({
                 {derivation.name.charAt(0)}
               </span>
             </div>
+          </div>
+        )}
+
+        {/* Preview badge */}
+        {derivation.isPreview && (
+          <div className="absolute top-2 right-2 z-10">
+            <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 text-orange-700 text-xs font-medium px-2 py-1 border border-dashed border-orange-400">
+              Preview
+            </span>
           </div>
         )}
 
@@ -362,12 +374,12 @@ export default function DerivationCard({
             </button>
             <button
               onClick={handleDownload}
-              disabled={exportMutation.isPending}
+              disabled={exportMutation.isPending || derivation.isPreview}
               className={cn(
                 "p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-all duration-150",
-                exportMutation.isPending && "opacity-50 cursor-wait"
+                (exportMutation.isPending || derivation.isPreview) && "opacity-50 cursor-not-allowed"
               )}
-              title={commonT("download")}
+              title={derivation.isPreview ? "Baixe a versão final" : commonT("download")}
             >
               {exportMutation.isPending ? (
                 <Spinner />
