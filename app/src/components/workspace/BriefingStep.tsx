@@ -456,6 +456,12 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
                   {tBriefing("creativeLevel.bold")}
                 </Label>
               </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="extreme" id="cl-extreme" />
+                <Label htmlFor="cl-extreme" className="text-sm text-[var(--text-primary)]">
+                  {tBriefing("creativeLevel.extreme")}
+                </Label>
+              </div>
             </RadioGroup>
           </motion.div>
         )}
