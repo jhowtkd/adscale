@@ -11,7 +11,7 @@ export type CampaignStatus =
 
 export type GenerationMode = "art_variation" | "format_adaptation" | "restyling";
 
-export type CreativeLevel = "conservative" | "balanced" | "bold";
+export type CreativeLevel = "conservative" | "balanced" | "bold" | "extreme";
 
 export type StyleIntensity = "soft" | "medium" | "strong";
 
