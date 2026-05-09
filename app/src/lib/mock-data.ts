@@ -27,7 +27,7 @@ export interface Campaign {
   constraints?: string;
   notes?: string;
   generationMode?: "art_variation" | "format_adaptation" | "restyling";
-  creativeLevel?: "conservative" | "balanced" | "bold";
+  creativeLevel?: "conservative" | "balanced" | "bold" | "extreme";
   styleIntensity?: "soft" | "medium" | "strong";
   ctaVariants?: string[];
   targetFormats?: string[];

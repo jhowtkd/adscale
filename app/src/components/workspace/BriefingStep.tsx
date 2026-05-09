@@ -9,8 +9,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { Campaign } from "@/lib/mock-data";
 import type { AdPlatform } from "@/lib/mock-data";
+import { platformColors } from "@/lib/mock-data";
 import {
   analyzeBriefingLocal,
   applyBriefingFieldPatch,
@@ -33,7 +41,7 @@ export interface BriefingFormData {
   constraints: string;
   notes: string;
   generationMode: "art_variation" | "format_adaptation" | "restyling";
-  creativeLevel: "conservative" | "balanced" | "bold";
+  creativeLevel: "conservative" | "balanced" | "bold" | "extreme";
   targetFormat?: string;
   ctaVariants: [string, string, string];
 }
@@ -204,6 +212,143 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
               {errors.client}
             </motion.p>
           )}
+        </motion.div>
+
+        {/* ---- Objective ---- */}
+        <motion.div variants={fieldVariants} className="space-y-2">
+          <Label className="text-xs font-medium text-[var(--text-secondary)]">
+            {tCampaign("objective")}
+          </Label>
+          <Select
+            value={formData.objective}
+            onValueChange={(value) => updateField("objective", value ?? "")}
+          >
+            <SelectTrigger
+              className={cn(
+                "w-full h-10 bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)]",
+                !formData.objective && "text-[var(--text-muted)]"
+              )}
+            >
+              <SelectValue placeholder={tBriefing("objectivePlaceholder")} />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(tCampaign.raw("objectives") as Record<string, string>).map(
+                ([key, label]) => (
+                  <SelectItem key={key} value={key}>
+                    {label}
+                  </SelectItem>
+                )
+              )}
+            </SelectContent>
+          </Select>
+        </motion.div>
+
+        {/* ---- Audience ---- */}
+        <motion.div variants={fieldVariants} className="space-y-2">
+          <Label className="text-xs font-medium text-[var(--text-secondary)]">
+            {tCampaign("audience")}
+          </Label>
+          <Textarea
+            placeholder={tBriefing("audiencePlaceholder")}
+            rows={2}
+            value={formData.audience}
+            onChange={(e) => updateField("audience", e.target.value)}
+            className="bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-mint)] focus:ring-[3px] focus:ring-[rgba(47,182,125,0.15)] resize-none"
+          />
+        </motion.div>
+
+        {/* ---- Platforms ---- */}
+        <motion.div variants={fieldVariants} className="space-y-2">
+          <Label className="text-xs font-medium text-[var(--text-secondary)]">
+            {tCampaign("platforms")}
+          </Label>
+          <div className="flex flex-wrap gap-2">
+            {(["Meta", "TikTok", "Google"] as AdPlatform[]).map((platform) => {
+              const colors = platformColors[platform];
+              const isSelected = formData.platforms.includes(platform);
+              return (
+                <button
+                  key={platform}
+                  type="button"
+                  onClick={() => {
+                    const next = isSelected
+                      ? formData.platforms.filter((p) => p !== platform)
+                      : [...formData.platforms, platform];
+                    if (next.length > 0) {
+                      updateField("platforms", next);
+                    }
+                  }}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all duration-200 border",
+                    isSelected
+                      ? "border-transparent"
+                      : "border-[var(--border-dim)] bg-[var(--surface-base)] text-[var(--text-muted)] hover:border-[var(--border-medium)] hover:text-[var(--text-secondary)]"
+                  )}
+                  style={
+                    isSelected
+                      ? {
+                          backgroundColor: colors.bg,
+                          color: colors.text,
+                          borderColor: "transparent",
+                        }
+                      : undefined
+                  }
+                >
+                  <span
+                    className={cn(
+                      "h-2 w-2 rounded-full",
+                      isSelected ? "opacity-100" : "opacity-40 bg-[var(--text-muted)]"
+                    )}
+                    style={isSelected ? { backgroundColor: colors.text } : undefined}
+                  />
+                  {(tCampaign.raw("platformNames") as Record<string, string>)[platform] || platform}
+                </button>
+              );
+            })}
+          </div>
+        </motion.div>
+
+        {/* ---- Tone ---- */}
+        <motion.div variants={fieldVariants} className="space-y-2">
+          <Label className="text-xs font-medium text-[var(--text-secondary)]">
+            {tCampaign("tone")}
+          </Label>
+          <Select
+            value={formData.tone}
+            onValueChange={(value) => updateField("tone", value ?? "")}
+          >
+            <SelectTrigger
+              className={cn(
+                "w-full h-10 bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)]",
+                !formData.tone && "text-[var(--text-muted)]"
+              )}
+            >
+              <SelectValue placeholder={tBriefing("tonePlaceholder")} />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(tCampaign.raw("tones") as Record<string, string>).map(
+                ([key, label]) => (
+                  <SelectItem key={key} value={key}>
+                    {label}
+                  </SelectItem>
+                )
+              )}
+            </SelectContent>
+          </Select>
+        </motion.div>
+
+        {/* ---- Offer ---- */}
+        <motion.div variants={fieldVariants} className="space-y-2">
+          <Label className="text-xs font-medium text-[var(--text-secondary)]">
+            {tCampaign("offer")}
+          </Label>
+          <Input
+            placeholder={tBriefing("offerPlaceholder")}
+            value={formData.offer}
+            onChange={(e) => updateField("offer", e.target.value)}
+            className="h-10 bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-mint)] focus:ring-[3px] focus:ring-[rgba(47,182,125,0.15)]"
+          />
+          <p className="text-xs text-[var(--text-muted)]">{tBriefing("offerHelp")}</p>
         </motion.div>
 
         {/* ---- Generation Mode ---- */}
