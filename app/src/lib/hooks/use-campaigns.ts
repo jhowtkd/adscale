@@ -15,7 +15,7 @@ export interface Campaign {
   constraints: string | null;
   notes: string | null;
   generationMode: "art_variation" | "format_adaptation" | "restyling";
-  creativeLevel: "conservative" | "balanced" | "bold" | null;
+  creativeLevel: "conservative" | "balanced" | "bold" | "extreme" | null;
   styleIntensity: "soft" | "medium" | "strong" | null;
   ctaVariants: string[] | null;
   targetFormats: string[] | null;
@@ -42,7 +42,7 @@ export interface UiCampaign {
   constraints?: string;
   notes?: string;
   generationMode: Campaign["generationMode"];
-  creativeLevel?: "conservative" | "balanced" | "bold";
+  creativeLevel?: "conservative" | "balanced" | "bold" | "extreme";
   styleIntensity?: "soft" | "medium" | "strong";
   ctaVariants?: string[];
   targetFormats?: string[];
@@ -119,7 +119,7 @@ async function createCampaign(payload: {
   constraints?: string;
   notes?: string;
   generationMode?: "art_variation" | "format_adaptation" | "restyling";
-  creativeLevel?: "conservative" | "balanced" | "bold";
+  creativeLevel?: "conservative" | "balanced" | "bold" | "extreme";
   styleIntensity?: "soft" | "medium" | "strong";
   ctaVariants?: string[];
   targetFormats?: string[];

@@ -82,30 +82,41 @@ const conservative = `CREATIVITY LEVEL: conservative.
 OPERATIONAL RULES FOR CONSERVATIVE:
 - Preserve character/product, brand palette, texture, typography style, and visual structure from the reference.
 - Change ONLY: layout/disposition, text content, CTA module placement, and minor spacing adjustments.
-- do not introduce new scenes, unrelated motifs, experimental layouts, or major copy shifts.
-- Maintain minimal structural change; the result should feel same visual universe to the reference.
+- Do not introduce new scenes, unrelated motifs, experimental layouts, or major copy shifts.
+- Maintain minimal structural change; the result should feel like the same visual universe as the reference.
 - Preserve logo behavior, offer structure, and overall campaign recognition.`;
 
 const balanced = `CREATIVITY LEVEL: balanced.
 OPERATIONAL RULES FOR BALANCED:
-- Create a noticeable new composition while keep brand identity recognizable.
+- Create a noticeably new composition while keeping brand identity recognizable.
 - Rebuild layout, visual hierarchy, CTA module placement, supporting shapes, rhythm, and spacing.
 - The result should feel like a sibling creative from the same campaign, not a near-copy.
-- Do NOT produce a near-identical copy; ensure perceptible difference in background, composition, CTA module, and visual hierarchy.
+- Ensure perceptible difference in background, composition, CTA module, and visual hierarchy.
 - Preserve palette, character/product, texture, and brand system from the reference.`;
 
 const bold = `CREATIVITY LEVEL: bold.
 OPERATIONAL RULES FOR BOLD:
-- Push creative further with stronger changes to layout, background structure, visual hierarchy, scale, CTA module placement, decorative tokens, and energy.
-- You MAY change texture, character/visual treatment, background, layout, and creative energy.
-- preserve core brand assets, campaign message, offer, logo behavior, product, and CTA.
-- do not invent a new brand, unrelated scene, or incompatible style.
-- Preserve recognizable visual tokens and brand system.`;
+- Change the background structure completely. Use a different scene, texture, or environment.
+- Reorganize visual hierarchy: resize, reposition, and regroup key elements.
+- Apply new lighting treatment, shadows, and color grading while staying within the brand palette.
+- Preserve core brand assets (logo, product), campaign message, offer, and CTA.
+- Do not invent a new brand or unrelated visual universe.
+- The result must be clearly a different creative from the same campaign.`;
+
+const extreme = `CREATIVITY LEVEL: extreme.
+OPERATIONAL RULES FOR EXTREME:
+- Reimagine the entire visual context: new scene, new environment, new background treatment.
+- Change product angle, framing, scale, or photo treatment dramatically.
+- Rebuild composition from scratch: new hierarchy, new spacing language, new rhythm.
+- Apply bold lighting shifts, contrast changes, and atmospheric treatment.
+- Preserve only: brand identity (logo behavior, palette family), campaign message, offer, and CTA.
+- The result should be almost unrecognizable side-by-side with the reference, yet clearly belong to the same campaign when viewed independently.`;
 
 const CREATIVITY_TEMPLATES: Record<string, string> = {
   conservative,
   balanced,
   bold,
+  extreme,
 };
 
 export function buildPlanPrompt(campaign: Campaign, asset?: Asset, locale?: string) {

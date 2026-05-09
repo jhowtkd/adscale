@@ -240,7 +240,8 @@
       "label": "Nível de criatividade",
       "conservative": "Conservador",
       "balanced": "Equilibrado",
-      "bold": "Ousado"
+      "bold": "Ousado",
+      "extreme": "Extremo"
     },
     "targetFormat": {
       "label": "Formato alvo"

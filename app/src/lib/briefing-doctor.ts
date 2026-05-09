@@ -12,7 +12,7 @@ export interface BriefingDoctorInput {
   constraints: string;
   notes: string;
   generationMode: "art_variation" | "format_adaptation" | "restyling";
-  creativeLevel: "conservative" | "balanced" | "bold";
+  creativeLevel: "conservative" | "balanced" | "bold" | "extreme";
   targetFormat?: string;
   ctaVariants: [string, string, string] | string[];
 }

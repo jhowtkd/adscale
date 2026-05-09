@@ -235,6 +235,13 @@
     "ctaHelpFormat": "CTAs are optional. Each format gets its matching CTA.",
     "ctaPiece": "CTA piece {number}",
     "ctaFormat": "CTA {format}",
+    "creativeLevel": {
+      "label": "Creativity level",
+      "conservative": "Conservative",
+      "balanced": "Balanced",
+      "bold": "Bold",
+      "extreme": "Extreme"
+    },
     "doctor": {
       "title": "Briefing Doctor",
       "subtitle": "Review gaps before generating.",
