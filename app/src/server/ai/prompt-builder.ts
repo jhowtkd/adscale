@@ -190,20 +190,20 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
     );
   } else if (generationMode === "format_adaptation") {
     parts.push(
-      "MODE: format_adaptation — Rebuild the ad as a native layout for a DIFFERENT aspect ratio using the same visual tokens.",
-      "This is NOT a crop, resize, zoom, pasted reference, framed reference, or letterbox task. Do not place the original full image inside the new canvas.",
-      `Target format: ${targetFormat}. Create a new composition for this exact placement while keeping the original brand identity, offer, message hierarchy, and campaign recognition intact.`,
-      "Extract and reuse the reference's visual tokens: color palette, typography style, logo if present, main subject/photo treatment, graphic shapes, curved panels, textures, motifs, icons, CTA module, offer card, and spacing language.",
-      "Rebuild those tokens into a fresh layered advertising layout. Fill the entire canvas edge-to-edge with intentional background, shapes, and bleed areas. No blank bands, blurred padding, borders, or top/bottom filler.",
-      "Preserve the core concept, main subject, offer, CTA, and important copy, but reposition, resize, and regroup them so every key element remains visible and readable in the target format."
+      "MODE: format_adaptation — You are EDITING an existing ad to fit a DIFFERENT aspect ratio.",
+      "You can see the original image. Your job is to PRESERVE every visual element exactly as it appears, and only REPOSITION them to fit the target format.",
+      "PRESERVE EXACTLY: the original photo/subject, all text copy (headlines, subheads, bullets, CTA), the logo, brand colors, background color/texture, offer cards, discount badges, decorative shapes, icons, and graphic panels.",
+      "DO NOT: create new photos, rewrite text, add new elements, remove elements, change colors, or invent new brand assets.",
+      `Target format: ${targetFormat}. Rearrange the existing elements into a native composition for this format. Fill the entire canvas edge-to-edge. No blank bands, blurred padding, or letterboxing.`,
+      "The result must be immediately recognizable as the same ad — same content, same visual identity, just fitting a different frame."
     );
 
     if (targetFormat === "9:16") {
-      parts.push("For 9:16, design a native story ad: use vertical hierarchy, extended brand background, and intentionally rebuilt top/bottom zones. Keep essential content inside the central safe area, while decorative tokens can bleed to the edges.");
+      parts.push("For 9:16 (vertical story): stack elements vertically. Place headline and photo in the upper half, offer/CTA in the lower half. Extend background to fill top and bottom.");
     } else if (targetFormat === "4:5") {
-      parts.push("For 4:5, design a native portrait feed ad: balance the subject and copy blocks, rebuild the offer/CTA area, and avoid any appearance of a square asset padded into portrait.");
+      parts.push("For 4:5 (portrait feed): balance subject and copy vertically. Keep photo prominence, stack text below or beside. Rebuild offer/CTA area to feel native to portrait.");
     } else if (targetFormat === "1:1") {
-      parts.push("For 1:1, design a native square ad: rebalance the subject, headline, benefits, offer, and CTA into a compact composition without side cropping or pasted-format artifacts.");
+      parts.push("For 1:1 (square): compress layout into a compact square. Keep all key elements visible and readable. Avoid cropping faces, text, or logos.");
     }
   } else if (generationMode === "restyling") {
     parts.push(
