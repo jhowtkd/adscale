@@ -284,7 +284,7 @@ CRITICAL LITERAL CTA RULE: The CTA text above is MANDATORY and FINAL.
     parts.push("\nNo reference asset was found. Produce a conservative ad concept from the campaign fields, but avoid pretending to follow a visual reference.");
   }
 
-  if (!isArtVariation && visualTokenBrief?.trim()) {
+  if (!isArtVariation && visualTokenBrief?.trim() && generationMode !== "format_adaptation") {
     parts.push(
       "\nExtracted Visual Token Brief from the reference image:",
       visualTokenBrief.trim(),
