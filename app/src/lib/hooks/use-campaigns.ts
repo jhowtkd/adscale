@@ -19,6 +19,13 @@ export interface Campaign {
   styleIntensity: "soft" | "medium" | "strong" | null;
   ctaVariants: string[] | null;
   targetFormats: string[] | null;
+  creativeDiagnosisStatus: "pending" | "analyzing" | "ready" | "failed";
+  creativeDiagnosis: {
+    detectedConcept: string;
+    elementsToPreserve: string[];
+    variationOpportunities: string[];
+  } | null;
+  creativeDiagnosisSource: "ai" | "edited" | "regenerated" | null;
   status: "draft" | "active" | "generating" | "completed" | "failed";
   variations?: number;
   creditsUsed?: number;
@@ -46,6 +53,13 @@ export interface UiCampaign {
   styleIntensity?: "soft" | "medium" | "strong";
   ctaVariants?: string[];
   targetFormats?: string[];
+  creativeDiagnosisStatus?: "pending" | "analyzing" | "ready" | "failed";
+  creativeDiagnosis?: {
+    detectedConcept: string;
+    elementsToPreserve: string[];
+    variationOpportunities: string[];
+  };
+  creativeDiagnosisSource?: "ai" | "edited" | "regenerated";
   status: Campaign["status"];
   variations: number;
   creditsUsed: number;
@@ -70,6 +84,9 @@ function toUiCampaign(c: Campaign): UiCampaign {
     styleIntensity: c.styleIntensity ?? undefined,
     ctaVariants: c.ctaVariants ?? undefined,
     targetFormats: c.targetFormats ?? undefined,
+    creativeDiagnosisStatus: c.creativeDiagnosisStatus ?? undefined,
+    creativeDiagnosis: c.creativeDiagnosis ?? undefined,
+    creativeDiagnosisSource: c.creativeDiagnosisSource ?? undefined,
     status: c.status,
     variations: c.variations ?? 0,
     creditsUsed: c.creditsUsed ?? 0,

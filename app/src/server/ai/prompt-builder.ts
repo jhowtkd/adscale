@@ -44,6 +44,12 @@ export interface Campaign {
   updatedAt: Date | string;
 }
 
+export interface CreativeDiagnosis {
+  detectedConcept: string;
+  elementsToPreserve: string[];
+  variationOpportunities: string[];
+}
+
 export interface Asset {
   id: string;
   campaignId: string;
@@ -154,6 +160,7 @@ export interface DerivationPromptConfig {
   targetFormat?: string;
   visualTokenBrief?: string | null;
   creativeLevel?: string;
+  creativeDiagnosis?: CreativeDiagnosis | null;
 }
 
 export function buildDerivationPrompt(config: DerivationPromptConfig) {
@@ -169,6 +176,7 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
     targetFormat = "1:1",
     visualTokenBrief,
     creativeLevel,
+    creativeDiagnosis,
   } = config;
 
   let effectiveCreativeLevel = creativeLevel;
@@ -225,6 +233,17 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
     if (template) {
       parts.push(template);
     }
+  }
+
+  if (generationMode === "art_variation" && creativeDiagnosis) {
+    parts.push(
+      "",
+      "APPROVED CREATIVE DIAGNOSIS:",
+      `- Detected Concept: ${creativeDiagnosis.detectedConcept}`,
+      `- Elements to Preserve: ${creativeDiagnosis.elementsToPreserve.join("; ")}`,
+      `- Variation Opportunities: ${creativeDiagnosis.variationOpportunities.join("; ")}`,
+      "Use the Approved Creative Diagnosis as the primary creative direction. Preserve the listed elements. Explore the listed opportunities within the selected creativity level."
+    );
   }
 
   parts.push(

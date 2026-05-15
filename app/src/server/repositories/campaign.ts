@@ -15,6 +15,12 @@ export type CreativeLevel = "conservative" | "balanced" | "bold" | "extreme";
 
 export type StyleIntensity = "soft" | "medium" | "strong";
 
+export interface CreativeDiagnosis {
+  detectedConcept: string;
+  elementsToPreserve: string[];
+  variationOpportunities: string[];
+}
+
 export interface CreateCampaignInput {
   name: string;
   client?: string;
@@ -32,6 +38,10 @@ export interface CreateCampaignInput {
   targetFormats?: string[];
   creativeLevel?: CreativeLevel;
   styleIntensity?: StyleIntensity;
+  creativeDiagnosisStatus?: "pending" | "analyzing" | "ready" | "failed";
+  creativeDiagnosis?: CreativeDiagnosis | null;
+  creativeDiagnosisSource?: "ai" | "edited" | "regenerated" | null;
+  creativeDiagnosisUpdatedAt?: Date | null;
 }
 
 export interface UpdateCampaignInput {
@@ -51,6 +61,10 @@ export interface UpdateCampaignInput {
   targetFormats?: string[];
   creativeLevel?: CreativeLevel;
   styleIntensity?: StyleIntensity;
+  creativeDiagnosisStatus?: "pending" | "analyzing" | "ready" | "failed";
+  creativeDiagnosis?: CreativeDiagnosis | null;
+  creativeDiagnosisSource?: "ai" | "edited" | "regenerated" | null;
+  creativeDiagnosisUpdatedAt?: Date | null;
 }
 
 export interface CampaignMetrics {
@@ -84,6 +98,10 @@ const campaignFields = {
   status: campaigns.status,
   creativeLevel: campaigns.creativeLevel,
   styleIntensity: campaigns.styleIntensity,
+  creativeDiagnosisStatus: campaigns.creativeDiagnosisStatus,
+  creativeDiagnosis: campaigns.creativeDiagnosis,
+  creativeDiagnosisSource: campaigns.creativeDiagnosisSource,
+  creativeDiagnosisUpdatedAt: campaigns.creativeDiagnosisUpdatedAt,
   createdAt: campaigns.createdAt,
   updatedAt: campaigns.updatedAt,
 };
@@ -192,6 +210,9 @@ export async function createCampaign(
       targetFormats: data.targetFormats ?? null,
       creativeLevel: data.creativeLevel ?? "balanced",
       styleIntensity: data.styleIntensity ?? "medium",
+      creativeDiagnosisStatus: data.creativeDiagnosisStatus ?? "pending",
+      creativeDiagnosis: data.creativeDiagnosis ?? null,
+      creativeDiagnosisSource: data.creativeDiagnosisSource ?? null,
       status: data.status ?? "draft",
     })
     .returning();
@@ -243,6 +264,10 @@ export async function updateCampaign(
     targetFormats,
     creativeLevel,
     styleIntensity,
+    creativeDiagnosisStatus,
+    creativeDiagnosis,
+    creativeDiagnosisSource,
+    creativeDiagnosisUpdatedAt,
     status,
   } = data;
   const result = await db
@@ -263,6 +288,10 @@ export async function updateCampaign(
       ...(targetFormats !== undefined && { targetFormats }),
       ...(creativeLevel !== undefined && { creativeLevel }),
       ...(styleIntensity !== undefined && { styleIntensity }),
+      ...(creativeDiagnosisStatus !== undefined && { creativeDiagnosisStatus }),
+      ...(creativeDiagnosis !== undefined && { creativeDiagnosis }),
+      ...(creativeDiagnosisSource !== undefined && { creativeDiagnosisSource }),
+      ...(creativeDiagnosisUpdatedAt !== undefined && { creativeDiagnosisUpdatedAt }),
       ...(status !== undefined && { status }),
       updatedAt: new Date(),
     })

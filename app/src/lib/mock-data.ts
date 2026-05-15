@@ -31,6 +31,13 @@ export interface Campaign {
   styleIntensity?: "soft" | "medium" | "strong";
   ctaVariants?: string[];
   targetFormats?: string[];
+  creativeDiagnosisStatus?: "pending" | "analyzing" | "ready" | "failed";
+  creativeDiagnosis?: {
+    detectedConcept: string;
+    elementsToPreserve: string[];
+    variationOpportunities: string[];
+  } | null;
+  creativeDiagnosisSource?: "ai" | "edited" | "regenerated" | null;
   status: CampaignStatus;
   variations: number;
   creditsUsed: number;

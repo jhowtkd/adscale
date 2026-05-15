@@ -18,8 +18,27 @@ vi.mock("@/lib/hooks/use-briefing-doctor", () => ({
   useBriefingDoctorAnalysis: () => mockUseMutation(),
 }));
 
+vi.mock("@/lib/hooks/use-creative-diagnosis", () => ({
+  useGenerateCreativeDiagnosis: () => ({
+    mutate: vi.fn(),
+    isPending: false,
+  }),
+  useUpdateCreativeDiagnosis: () => ({
+    mutate: vi.fn(),
+    isPending: false,
+  }),
+  useRegenerateCreativeDiagnosis: () => ({
+    mutate: vi.fn(),
+    isPending: false,
+  }),
+}));
+
 vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string) => key,
+  useTranslations: () => {
+    const t = (key: string) => key;
+    t.raw = (key: string) => key;
+    return t;
+  },
 }));
 
 function renderBriefingStep(props = {}) {

@@ -17,6 +17,7 @@ import {
   scoreDerivationHeuristic,
   analyzeDerivationCreative,
 } from "@/server/ai/creative-score";
+import { normalizeCreativeDiagnosis } from "@/server/ai/creative-diagnosis";
 
 const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 const IMAGE_GENERATION_TIMEOUT_MS = 5 * 60 * 1000;
@@ -103,6 +104,7 @@ export async function scoreCompletedDerivation(
     offer: string | null;
     objective: string | null;
     audience: string | null;
+    creativeLevel?: string | null;
   },
   derivation: {
     ctaText: string | null;
@@ -110,6 +112,7 @@ export async function scoreCompletedDerivation(
     generationMode: string | null;
     feedback: string | null;
     parentId: string | null;
+    creativeLevel?: string | null;
   },
   locale?: string
 ) {
@@ -143,6 +146,7 @@ export async function scoreCompletedDerivation(
           format: targetFormat,
           generationMode: effectiveGenerationMode,
           feedback: derivation.feedback,
+          creativeLevel: campaign.creativeLevel ?? null,
         },
         locale: locale ?? "pt-BR",
       });
@@ -253,6 +257,7 @@ export const derivationJob = inngest.createFunction(
         ctaText: ctaText ?? derivation.ctaText ?? undefined,
         targetFormat,
         creativeLevel: campaign.creativeLevel ?? "balanced",
+        creativeDiagnosis: normalizeCreativeDiagnosis(campaign.creativeDiagnosis) ?? null,
       });
       console.log(`[generate-and-store-output] model=${env.OPENAI_IMAGE_MODEL} hasAsset=${!!asset} locale=${locale ?? "default"}`);
 
@@ -426,6 +431,7 @@ export const derivationJob = inngest.createFunction(
             generationMode: generated.effectiveGenerationMode,
             feedback: derivation.feedback ?? null,
             parentId: derivation.parentId ?? null,
+            creativeLevel: campaign.creativeLevel ?? null,
           },
           locale
         );

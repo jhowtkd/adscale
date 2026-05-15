@@ -241,10 +241,40 @@
       "conservative": "Conservador",
       "balanced": "Equilibrado",
       "bold": "Ousado",
-      "extreme": "Extremo"
+      "extreme": "Extremo",
+      "contract": {
+        "conservative": "Preserva a estrutura e composição originais. Alterações mínimas mantendo a peça imediatamente reconhecível.",
+        "balanced": "Muda composição ou conceito com segurança, preservando produto, oferta, CTA e identidade de marca.",
+        "bold": "Reorganiza hierarquia visual e cenário, mantendo ativos centrais da marca e mensagem da campanha.",
+        "extreme": "Cria uma nova leitura criativa mantendo produto, oferta, CTA e restrições de marca."
+      }
     },
     "targetFormat": {
       "label": "Formato alvo"
+    },
+    "diagnosis": {
+      "title": "Diagnóstico Criativo",
+      "subtitle": "Análise da peça original para guiar as variações.",
+      "status": {
+        "pending": "Não analisado",
+        "analyzing": "Analisando",
+        "ready": "Pronto",
+        "failed": "Falhou"
+      },
+      "detectedConcept": "Conceito detectado",
+      "elementsToPreserve": "Elementos para preservar",
+      "variationOpportunities": "Oportunidades de variação",
+      "generate": "Gerar diagnóstico",
+      "regenerate": "Regenerar",
+      "edit": "Editar",
+      "save": "Salvar",
+      "cancel": "Cancelar",
+      "retry": "Tentar novamente",
+      "analyzing": "Analisando criativo...",
+      "failed": "Não foi possível analisar o criativo. Você pode editar manualmente ou tentar novamente.",
+      "pending": "Analise o criativo para obter um diagnóstico que guiará a geração de variações.",
+      "listPlaceholder": "Um item por linha",
+      "listHelp": "Digite um item por linha."
     },
     "doctor": {
       "title": "Briefing Doctor",

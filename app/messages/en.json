@@ -240,7 +240,37 @@
       "conservative": "Conservative",
       "balanced": "Balanced",
       "bold": "Bold",
-      "extreme": "Extreme"
+      "extreme": "Extreme",
+      "contract": {
+        "conservative": "Preserves original structure and composition. Minimal changes keep the creative immediately recognizable.",
+        "balanced": "Safely changes composition or concept while preserving product, offer, CTA, and brand identity.",
+        "bold": "Reorganizes visual hierarchy and scene while keeping core brand assets and campaign message.",
+        "extreme": "Creates a new creative reading while keeping product, offer, CTA, and brand constraints."
+      }
+    },
+    "diagnosis": {
+      "title": "Creative Diagnosis",
+      "subtitle": "Analysis of the original piece to guide variations.",
+      "status": {
+        "pending": "Not analyzed",
+        "analyzing": "Analyzing",
+        "ready": "Ready",
+        "failed": "Failed"
+      },
+      "detectedConcept": "Detected concept",
+      "elementsToPreserve": "Elements to preserve",
+      "variationOpportunities": "Variation opportunities",
+      "generate": "Generate diagnosis",
+      "regenerate": "Regenerate",
+      "edit": "Edit",
+      "save": "Save",
+      "cancel": "Cancel",
+      "retry": "Retry",
+      "analyzing": "Analyzing creative...",
+      "failed": "Could not analyze the creative. You can edit manually or try again.",
+      "pending": "Analyze the creative to get a diagnosis that will guide variation generation.",
+      "listPlaceholder": "One item per line",
+      "listHelp": "Type one item per line."
     },
     "doctor": {
       "title": "Briefing Doctor",

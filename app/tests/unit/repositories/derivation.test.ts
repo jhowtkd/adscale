@@ -77,6 +77,7 @@ describe("derivation repository", () => {
         briefMatch: 88,
         visualQuality: 85,
         formatFit: 91,
+        variationLevelFit: 87,
       },
       scoreIssues: ["CTA could be more prominent"],
       regenerationSuggestion: "Make the CTA more prominent while preserving the exact CTA text.",

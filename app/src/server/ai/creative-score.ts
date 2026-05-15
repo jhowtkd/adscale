@@ -1,7 +1,9 @@
 import OpenAI from "openai";
 import { env } from "@/server/validation/env";
 
-const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
+function getOpenAI() {
+  return new OpenAI({ apiKey: env.OPENAI_API_KEY });
+}
 
 export interface ScoreResult {
   qualityScore: number;
@@ -12,6 +14,7 @@ export interface ScoreResult {
     briefMatch: number;
     visualQuality: number;
     formatFit: number;
+    variationLevelFit: number;
   };
   scoreIssues: string[];
   regenerationSuggestion: string;
@@ -42,6 +45,7 @@ export function scoreDerivationHeuristic(input: HeuristicInput): ScoreResult {
     briefMatch: clamped - 1,
     visualQuality: clamped - 3,
     formatFit: clamped,
+    variationLevelFit: clamped,
   };
 
   return {
@@ -69,6 +73,7 @@ export interface AnalyzeInput {
     format: string | null | undefined;
     generationMode: string | null | undefined;
     feedback: string | null | undefined;
+    creativeLevel?: string | null | undefined;
   };
   locale: string;
 }
@@ -81,10 +86,13 @@ export async function analyzeDerivationCreative(input: AnalyzeInput): Promise<Sc
   const format = input.derivation.format ?? "unknown";
   const generationMode = input.derivation.generationMode ?? "unknown";
 
+  const creativeLevel = input.derivation.creativeLevel ?? "balanced";
+
   const prompt = `Evaluate the generated ad as a reviewer. Do not invent a new CTA.
 The exact CTA, if present, must remain: ${ctaText}.
 The target format must remain: ${format}.
 The generation mode must remain: ${generationMode}.
+The creativity/variation level is: ${creativeLevel}.
 Return only JSON with qualityScore, scoreBreakdown, scoreIssues, regenerationSuggestion.
 
 Campaign context:
@@ -97,9 +105,16 @@ Campaign context:
 
 Score each criterion from 0 to 100.
 Provide 1-3 specific issues.
+
+CRITICAL: scoreBreakdown MUST include variationLevelFit. Evaluate it as follows based on the selected creativity level:
+- conservative: did the output preserve layout and recognizable structure? High score if nearly identical structure with minor changes.
+- balanced: did it change composition or concept without losing campaign intent? High score if clearly a sibling creative.
+- bold: did it change background and hierarchy while preserving core brand assets? High score if dramatically different but same campaign.
+- extreme: did it create a fresh reading while preserving product, offer, CTA, and brand constraints? High score if almost unrecognizable side-by-side yet clearly same campaign independently.
+
 The regenerationSuggestion must preserve the exact CTA text, format, and generation mode.`;
 
-  const response = await openai.responses.create({
+  const response = await getOpenAI().responses.create({
     model: env.OPENAI_TEXT_MODEL,
     input: [
       { role: "system", content: "You are an expert creative director scoring ad creatives." },
@@ -131,6 +146,7 @@ The regenerationSuggestion must preserve the exact CTA text, format, and generat
       briefMatch?: number;
       visualQuality?: number;
       formatFit?: number;
+      variationLevelFit?: number;
     };
     scoreIssues?: string[];
     regenerationSuggestion?: string;
@@ -144,6 +160,7 @@ The regenerationSuggestion must preserve the exact CTA text, format, and generat
     briefMatch: clamp(parsed.scoreBreakdown?.briefMatch ?? 70),
     visualQuality: clamp(parsed.scoreBreakdown?.visualQuality ?? 70),
     formatFit: clamp(parsed.scoreBreakdown?.formatFit ?? 70),
+    variationLevelFit: clamp(parsed.scoreBreakdown?.variationLevelFit ?? 70),
   };
 
   const qualityScore = clamp(parsed.qualityScore ?? 70);

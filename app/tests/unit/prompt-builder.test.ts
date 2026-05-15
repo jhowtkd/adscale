@@ -19,7 +19,7 @@ describe("buildDerivationPrompt creativity level", () => {
     expect(prompt).toContain("OPERATIONAL RULES FOR CONSERVATIVE");
     expect(prompt).toContain("minimal structural change");
     expect(prompt).toContain("same visual universe");
-    expect(prompt).toContain("do not introduce new scenes");
+    expect(prompt).toContain("Do not introduce new scenes");
   });
 
   it("art_variation + balanced contains CREATIVITY LEVEL: balanced", () => {
@@ -37,9 +37,9 @@ describe("buildDerivationPrompt creativity level", () => {
     });
 
     expect(prompt).toContain("OPERATIONAL RULES FOR BALANCED");
-    expect(prompt).toContain("noticeable new composition");
+    expect(prompt).toContain("noticeably new composition");
     expect(prompt).toContain("sibling creative from the same campaign");
-    expect(prompt).toContain("keep brand identity recognizable");
+    expect(prompt).toContain("keeping brand identity recognizable");
   });
 
   it("art_variation + bold contains CREATIVITY LEVEL: bold", () => {
@@ -57,9 +57,9 @@ describe("buildDerivationPrompt creativity level", () => {
     });
 
     expect(prompt).toContain("OPERATIONAL RULES FOR BOLD");
-    expect(prompt).toContain("stronger changes to layout");
-    expect(prompt).toContain("preserve core brand assets");
-    expect(prompt).toContain("do not invent a new brand");
+    expect(prompt).toContain("Change the background structure completely");
+    expect(prompt).toContain("Preserve core brand assets");
+    expect(prompt).toContain("Do not invent a new brand");
   });
 
   it("format_adaptation + any creativeLevel does NOT contain CREATIVITY LEVEL", () => {
@@ -75,6 +75,33 @@ describe("buildDerivationPrompt creativity level", () => {
       generationMode: "art_variation",
     });
     expect(prompt).toContain("CREATIVITY LEVEL: balanced");
+  });
+
+  it("art_variation includes approved creative diagnosis when provided", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "art_variation",
+      creativeDiagnosis: {
+        detectedConcept: "Premium skincare promotion.",
+        elementsToPreserve: ["product", "logo"],
+        variationOpportunities: ["stronger contrast"],
+      },
+    });
+    expect(prompt).toContain("APPROVED CREATIVE DIAGNOSIS");
+    expect(prompt).toContain("Premium skincare promotion.");
+    expect(prompt).toContain("product; logo");
+    expect(prompt).toContain("stronger contrast");
+  });
+
+  it("format_adaptation does not include creative diagnosis", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "format_adaptation",
+      creativeDiagnosis: {
+        detectedConcept: "Test",
+        elementsToPreserve: ["a"],
+        variationOpportunities: ["b"],
+      },
+    });
+    expect(prompt).not.toContain("APPROVED CREATIVE DIAGNOSIS");
   });
 });
 
