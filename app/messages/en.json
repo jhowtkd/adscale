@@ -147,7 +147,9 @@
     "invitesComingSoon": "Invites coming soon",
     "apiKeyManagementComingSoon": "API key management coming soon",
     "disconnected": "{name} disconnected",
-    "connected": "{name} connected"
+    "connected": "{name} connected",
+    "packageQueued": "Delivery package queued",
+    "packageFailed": "Failed to queue delivery package"
   },
   "campaign": {
     "new": "New campaign",
@@ -358,6 +360,7 @@
     "scoreAdjust": "Adjust",
     "scoreWeak": "Weak",
     "regenerateWithImprovements": "Regenerate with improvements",
+    "generatePackage": "Generate package",
     "creativeScore": "Creative score",
     "detectedIssues": "Detected issues"
   },
@@ -621,6 +624,15 @@
         "strong": "Pulls more of the reference visual language without copying its content."
       }
     }
+  },
+  "deliveryPackage": {
+    "title": "Generate delivery package",
+    "description": "Create final formats from this approved creative.",
+    "generate": "Generate package",
+    "ready": "Already ready",
+    "confirm": "Generate selected formats",
+    "cancel": "Cancel",
+    "generating": "Generating..."
   },
   "template": {
     "title": "Templates",

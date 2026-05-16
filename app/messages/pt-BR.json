@@ -147,7 +147,9 @@
     "invitesComingSoon": "Convites em breve",
     "apiKeyManagementComingSoon": "Gerenciamento de chaves API em breve",
     "disconnected": "{name} desconectado",
-    "connected": "{name} conectado"
+    "connected": "{name} conectado",
+    "packageQueued": "Pacote de entrega enfileirado",
+    "packageFailed": "Falha ao enfileirar pacote de entrega"
   },
   "campaign": {
     "new": "Nova campanha",
@@ -362,6 +364,7 @@
     "scoreAdjust": "Ajustar",
     "scoreWeak": "Fraco",
     "regenerateWithImprovements": "Regenerar com melhorias",
+    "generatePackage": "Gerar pacote",
     "creativeScore": "Score criativo",
     "detectedIssues": "Problemas detectados"
   },
@@ -626,6 +629,15 @@
         "strong": "Puxa mais da linguagem visual da referência sem copiar seu conteúdo."
       }
     }
+  },
+  "deliveryPackage": {
+    "title": "Gerar pacote de entrega",
+    "description": "Crie formatos finais a partir deste criativo aprovado.",
+    "generate": "Gerar pacote",
+    "ready": "Já pronto",
+    "confirm": "Gerar formatos selecionados",
+    "cancel": "Cancelar",
+    "generating": "Gerando..."
   },
   "template": {
     "title": "Templates",

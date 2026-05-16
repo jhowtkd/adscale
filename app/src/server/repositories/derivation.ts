@@ -148,6 +148,31 @@ export async function getApprovedDerivationsByCampaign(
     .orderBy(desc(derivations.createdAt));
 }
 
+export async function getActivePackageChildren({
+  parentId,
+  workspaceId,
+  formats,
+}: {
+  parentId: string;
+  workspaceId: string;
+  formats: string[];
+}) {
+  if (formats.length === 0) return [];
+
+  return db
+    .select()
+    .from(derivations)
+    .where(
+      and(
+        eq(derivations.parentId, parentId),
+        eq(derivations.workspaceId, workspaceId),
+        eq(derivations.generationMode, "format_adaptation"),
+        inArray(derivations.format, formats),
+        inArray(derivations.status, ["queued", "processing"])
+      )
+    );
+}
+
 export async function updateDerivationScore(
   id: string,
   workspaceId: string,

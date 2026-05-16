@@ -161,6 +161,7 @@ export interface DerivationPromptConfig {
   visualTokenBrief?: string | null;
   creativeLevel?: string;
   creativeDiagnosis?: CreativeDiagnosis | null;
+  packageSource?: "campaign_asset" | "approved_derivation";
 }
 
 export function buildDerivationPrompt(config: DerivationPromptConfig) {
@@ -205,6 +206,14 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
       `Target format: ${targetFormat}. Rearrange the existing elements into a native composition for this format. Fill the entire canvas edge-to-edge. No blank bands, blurred padding, or letterboxing.`,
       "The result must be immediately recognizable as the same ad — same content, same visual identity, just fitting a different frame."
     );
+
+    if (config.packageSource === "approved_derivation") {
+      parts.push(
+        "The uploaded reference image is the approved winning creative from this campaign.",
+        "Preserve this winner's visible copy, CTA, product, offer, brand cues, and design identity.",
+        "Only rearrange the approved winner into the target format. Do not return to the original campaign asset or invent a new concept."
+      );
+    }
 
     if (targetFormat === "9:16") {
       parts.push("For 9:16 (vertical story): stack elements vertically. Place headline and photo in the upper half, offer/CTA in the lower half. Extend background to fill top and bottom.");
@@ -286,8 +295,12 @@ CRITICAL LITERAL CTA RULE: The CTA text above is MANDATORY and FINAL.
     }
   }
 
-  if (asset) {
-    parts.push(`\nReference Asset Key: ${asset.key} (${asset.type})`);
+  if (asset || config.packageSource === "approved_derivation") {
+    if (asset) {
+      parts.push(`\nReference Asset Key: ${asset.key} (${asset.type})`);
+    } else {
+      parts.push("\nReference Asset: approved winning derivation output (image/png)");
+    }
     parts.push("The uploaded reference image is your visual source of truth. Use its actual content — colors, layout, product placement, typography style, logo position, and visual hierarchy — as the foundation.");
 
     if (isArtVariation) {

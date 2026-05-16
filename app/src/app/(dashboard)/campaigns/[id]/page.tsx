@@ -14,6 +14,9 @@ import { useDerivations, useCreateDerivations } from "@/lib/hooks/use-derivation
 import { useRegenerateDerivation } from "@/lib/hooks/use-regenerate";
 import { useExport } from "@/lib/hooks/use-export";
 import { useReviewDerivation } from "@/lib/hooks/use-review";
+import { useCreateDeliveryPackage } from "@/lib/hooks/use-delivery-package";
+import DeliveryPackageModal from "@/components/workspace/DeliveryPackageModal";
+import type { DeliveryFormat } from "@/components/workspace/DeliveryPackageModal";
 import StatusBadge from "@/components/ui/StatusBadge";
 import StepIndicator from "@/components/workspace/StepIndicator";
 import type { StepKey } from "@/components/workspace/StepIndicator";
@@ -110,6 +113,7 @@ export default function CampaignWorkspacePage() {
   const regenerateMutation = useRegenerateDerivation();
   const exportMutation = useExport();
   const reviewMutation = useReviewDerivation();
+  const createDeliveryPackage = useCreateDeliveryPackage();
 
   // Store actions
   const setCurrentPageTitle = useAppStore((s) => s.setCurrentPageTitle);
@@ -223,7 +227,15 @@ export default function CampaignWorkspacePage() {
     [allDerivations]
   );
 
+  const [deliveryModalOpen, setDeliveryModalOpen] = useState(false);
+  const [selectedDeliverySource, setSelectedDeliverySource] = useState<Derivation | null>(null);
 
+  const handleDeliveryModalOpenChange = useCallback((open: boolean) => {
+    setDeliveryModalOpen(open);
+    if (!open) {
+      setSelectedDeliverySource(null);
+    }
+  }, []);
 
   // Set page title
   useEffect(() => {
@@ -408,6 +420,36 @@ export default function CampaignWorkspacePage() {
     [reviewMutation]
   );
 
+  const handleCreateDeliveryPackage = useCallback(
+    (id: string) => {
+      const derivation = allDerivations.find((d) => d.id === id);
+      if (derivation) {
+        setSelectedDeliverySource(derivation);
+        setDeliveryModalOpen(true);
+      }
+    },
+    [allDerivations]
+  );
+
+  const handleConfirmDeliveryPackage = useCallback(
+    (formats: DeliveryFormat[]) => {
+      if (!selectedDeliverySource) return;
+      createDeliveryPackage.mutate(
+        { derivationId: selectedDeliverySource.id, formats },
+        {
+          onSuccess: () => {
+            addToast("success", tc("packageQueued"));
+            handleDeliveryModalOpenChange(false);
+          },
+          onError: () => {
+            addToast("error", tc("packageFailed"));
+          },
+        }
+      );
+    },
+    [selectedDeliverySource, createDeliveryPackage, addToast, tc, handleDeliveryModalOpenChange]
+  );
+
   const handleExportDerivation = useCallback(
     (id: string, format: string) => {
       exportMutation.mutate({
@@ -454,6 +496,7 @@ export default function CampaignWorkspacePage() {
             onGenerateMore={handleGenerateDerivations}
             onApprove={handleApproveDerivation}
             onReject={handleRejectDerivation}
+            onCreateDeliveryPackage={handleCreateDeliveryPackage}
             approvingId={
               reviewMutation.isPending && reviewMutation.variables?.status === "approved"
                 ? reviewMutation.variables.id
@@ -634,6 +677,17 @@ export default function CampaignWorkspacePage() {
           </motion.div>
         </AnimatePresence>
       </div>
+
+      {/* ---- Delivery Package Modal ---- */}
+      {selectedDeliverySource && (
+        <DeliveryPackageModal
+          open={deliveryModalOpen}
+          sourceFormat={selectedDeliverySource.format ?? null}
+          isSubmitting={createDeliveryPackage.isPending}
+          onOpenChange={handleDeliveryModalOpenChange}
+          onConfirm={handleConfirmDeliveryPackage}
+        />
+      )}
 
       {/* ---- Navigation Footer ---- */}
       {currentStep !== 1 && (

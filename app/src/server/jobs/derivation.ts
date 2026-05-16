@@ -211,7 +211,7 @@ export const derivationJob = inngest.createFunction(
     });
 
     // 2. Fetch derivation, campaign, plan, asset
-    const { campaign, plan, asset, derivation } = await step.run(
+    const { campaign, plan, asset, derivation, parentDerivation } = await step.run(
       "fetch-context",
       async () => {
         console.log(`[fetch-context] derivationId=${derivationId}`);
@@ -229,8 +229,16 @@ export const derivationJob = inngest.createFunction(
         const assets = await getAssetsByCampaign(campaignId, workspaceId);
         const asset = assets[0];
 
-        console.log(`[fetch-context] plan=${plan?.id ?? "none"} asset=${asset?.key ?? "none"}`);
-        return { derivation, campaign, plan, asset };
+        let parentDerivation = null;
+        if (derivation.parentId) {
+          parentDerivation = await getDerivationById(derivation.parentId, workspaceId);
+          if (parentDerivation && parentDerivation.campaignId !== campaignId) {
+            throw new Error("Parent derivation does not belong to this campaign");
+          }
+        }
+
+        console.log(`[fetch-context] plan=${plan?.id ?? "none"} asset=${asset?.key ?? "none"} parent=${parentDerivation?.id ?? "none"}`);
+        return { derivation, campaign, plan, asset, parentDerivation };
       }
     );
 
@@ -239,11 +247,27 @@ export const derivationJob = inngest.createFunction(
       const effectiveGenerationMode = generationMode ?? derivation.generationMode ?? "art_variation";
       const targetFormat = format ?? derivation.format ?? "1:1";
       let referenceBuffer: Buffer | null = null;
+      let referenceMimeType: string | null = null;
 
-      if (asset) {
+      const usesParentOutput =
+        effectiveGenerationMode === "format_adaptation" &&
+        derivation.parentId &&
+        parentDerivation?.outputKey;
+
+      if (usesParentOutput) {
+        console.log(`[generate-and-store-output] downloading parent output key=${parentDerivation!.outputKey}`);
+        referenceBuffer = await downloadBuffer(parentDerivation!.outputKey!);
+        referenceMimeType = "image/png";
+        console.log(`[generate-and-store-output] downloaded ${referenceBuffer.length} bytes from parent`);
+      } else if (asset) {
         console.log(`[generate-and-store-output] downloading asset key=${asset.key}`);
         referenceBuffer = await downloadBuffer(asset.key);
+        referenceMimeType = asset.type;
         console.log(`[generate-and-store-output] downloaded ${referenceBuffer.length} bytes`);
+      }
+
+      if (derivation.parentId && !parentDerivation?.outputKey && effectiveGenerationMode === "format_adaptation") {
+        throw new Error("Parent derivation output is missing. Cannot perform package format adaptation without the approved winner image.");
       }
 
       const prompt = buildDerivationPrompt({
@@ -258,6 +282,7 @@ export const derivationJob = inngest.createFunction(
         targetFormat,
         creativeLevel: campaign.creativeLevel ?? "balanced",
         creativeDiagnosis: normalizeCreativeDiagnosis(campaign.creativeDiagnosis) ?? null,
+        packageSource: usesParentOutput ? "approved_derivation" : "campaign_asset",
       });
       console.log(`[generate-and-store-output] model=${env.OPENAI_IMAGE_MODEL} hasAsset=${!!asset} locale=${locale ?? "default"}`);
 
@@ -298,10 +323,10 @@ export const derivationJob = inngest.createFunction(
         }
         console.log(`[generate-and-store-output] restyling edit success`);
         result = first;
-      } else if (asset && referenceBuffer) {
+      } else if (referenceBuffer && referenceMimeType) {
         // Try edit mode first (works for art_variation and format_adaptation)
         const referenceImage = await toFile(referenceBuffer, "reference-image", {
-          type: asset.type,
+          type: referenceMimeType,
         });
 
         try {

@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { motion } from "framer-motion";
-import { Eye, Download, RefreshCw, Clock, AlertCircle, Check, X } from "lucide-react";
+import { Eye, Download, RefreshCw, Clock, AlertCircle, Check, X, Package } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import StatusBadge from "@/components/ui/StatusBadge";
@@ -26,6 +26,7 @@ interface DerivationCardProps {
   onRegenerate?: (id: string, feedback?: string) => void;
   onApprove?: () => void;
   onReject?: () => void;
+  onCreateDeliveryPackage?: () => void;
   isApproving?: boolean;
   isRejecting?: boolean;
   regeneratingId?: string | null;
@@ -171,6 +172,7 @@ export default function DerivationCard({
   onRegenerate,
   onApprove,
   onReject,
+  onCreateDeliveryPackage,
   isApproving,
   isRejecting,
   regeneratingId,
@@ -415,6 +417,21 @@ export default function DerivationCard({
             <Button size="sm" variant="outline" onClick={onReject} disabled={isRejecting}>
               <X className="w-4 h-4 mr-1" />
               {commonT("reject")}
+            </Button>
+          </div>
+        )}
+
+        {/* Row 6: Delivery Package */}
+        {derivation.status === "approved" && derivation.imageUrl && onCreateDeliveryPackage && (
+          <div className="flex gap-2 mt-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onCreateDeliveryPackage}
+              className="border-[var(--accent-mint)] text-[var(--accent-mint)] hover:bg-[var(--accent-mint-dim)]"
+            >
+              <Package className="w-4 h-4 mr-1" />
+              {t("generatePackage")}
             </Button>
           </div>
         )}
