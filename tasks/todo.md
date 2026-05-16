@@ -116,7 +116,7 @@ Mode: Brainstorming only
 - [x] Propose 2-3 approaches — with trade-offs and recommendation
 - [x] Present design — get approval section by section
 - [x] Write design doc — save to `docs/plans/YYYY-MM-DD-<topic>-design.md` and commit
-- [ ] Transition to implementation — invoke writing-plans skill
+- [x] Transition to implementation — invoke writing-plans skill
 
 ## Notes
 
@@ -124,3 +124,4 @@ Mode: Brainstorming only
 - Next feature should build on the current demo-ready `art_variation` path unless the user deliberately chooses a new surface.
 - Direction chosen: assistive QA for approved pieces before export, not a hard export gate.
 - Design approved and documented in `docs/plans/2026-05-16-creative-qa-before-export-design.md`.
+- Implementation plan written in `docs/plans/2026-05-16-creative-qa-before-export.md`.
