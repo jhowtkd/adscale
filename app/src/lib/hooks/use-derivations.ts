@@ -33,6 +33,11 @@ export interface Derivation {
   scoreIssues?: string[] | null;
   regenerationSuggestion?: string | null;
   scoredAt?: Date | null;
+  qaStatus?: "pending" | "ready" | "warning" | "review" | "failed" | null;
+  qaChecklist?: Record<string, { status: string; note: string }> | null;
+  qaIssues?: string[] | null;
+  qaSuggestions?: string[] | null;
+  qaAnalyzedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -49,6 +54,7 @@ async function fetchDerivations(campaignId: string): Promise<Derivation[]> {
     createdAt: new Date(d.createdAt),
     updatedAt: new Date(d.updatedAt),
     scoredAt: d.scoredAt ? new Date(d.scoredAt) : null,
+    qaAnalyzedAt: d.qaAnalyzedAt ? new Date(d.qaAnalyzedAt) : null,
   }));
 }
 

@@ -74,6 +74,11 @@ export interface Derivation {
   scoreIssues?: string[] | null;
   regenerationSuggestion?: string | null;
   scoredAt?: Date | null;
+  qaStatus?: "pending" | "ready" | "warning" | "review" | "failed" | null;
+  qaChecklist?: Record<string, { status: string; note: string }> | null;
+  qaIssues?: string[] | null;
+  qaSuggestions?: string[] | null;
+  qaAnalyzedAt?: Date | null;
   isPreview?: boolean;
   createdAt: Date;
   completedAt?: Date;

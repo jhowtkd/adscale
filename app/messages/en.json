@@ -149,7 +149,9 @@
     "disconnected": "{name} disconnected",
     "connected": "{name} connected",
     "packageQueued": "Delivery package queued",
-    "packageFailed": "Failed to queue delivery package"
+    "packageFailed": "Failed to queue delivery package",
+    "creativeQaComplete": "Creative QA complete",
+    "creativeQaFailed": "Could not review the creative now"
   },
   "campaign": {
     "new": "New campaign",
@@ -362,7 +364,12 @@
     "regenerateWithImprovements": "Regenerate with improvements",
     "generatePackage": "Generate package",
     "creativeScore": "Creative score",
-    "detectedIssues": "Detected issues"
+    "detectedIssues": "Detected issues",
+    "runQa": "Review QA",
+    "rerunQa": "Rerun QA",
+    "qaReady": "Ready",
+    "qaWarning": "Warning",
+    "qaReview": "Review"
   },
   "plan": {
     "title": "Creative Plan",
@@ -522,6 +529,8 @@
     "campaignNotFound": "Campaign not found",
     "planNotFound": "Plan not found",
     "derivationNotFound": "Derivation not found",
+    "derivationNotApprovedForQa": "Derivation must be approved before QA",
+    "derivationMissingOutput": "Derivation is missing output image",
     "invalidInput": "Invalid input",
     "invalidRequestBody": "Invalid request body",
     "aiEmptyResponse": "Empty response from AI",

@@ -198,3 +198,29 @@ export async function updateDerivationScore(
     .returning();
   return result[0] ?? null;
 }
+
+export async function updateDerivationQa(
+  id: string,
+  workspaceId: string,
+  qa: {
+    qaStatus: string;
+    qaChecklist: unknown;
+    qaIssues: string[];
+    qaSuggestions: string[];
+  }
+) {
+  const now = new Date();
+  const [updated] = await db
+    .update(derivations)
+    .set({
+      qaStatus: qa.qaStatus,
+      qaChecklist: qa.qaChecklist,
+      qaIssues: qa.qaIssues,
+      qaSuggestions: qa.qaSuggestions,
+      qaAnalyzedAt: now,
+      updatedAt: now,
+    })
+    .where(and(eq(derivations.id, id), eq(derivations.workspaceId, workspaceId)))
+    .returning();
+  return updated ?? null;
+}

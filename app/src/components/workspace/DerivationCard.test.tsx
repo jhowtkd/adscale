@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import DerivationCard from "./DerivationCard";
 
 vi.mock("next-intl", () => ({
@@ -76,5 +76,66 @@ describe("DerivationCard", () => {
     expect(
       screen.queryByRole("button", { name: /generatePackage/i })
     ).not.toBeInTheDocument();
+  });
+
+  it("shows QA button for approved derivation with image", () => {
+    render(
+      <DerivationCard
+        derivation={baseDerivation}
+        index={0}
+        onPreview={vi.fn()}
+        onRunQa={vi.fn()}
+      />
+    );
+
+    expect(
+      screen.getByRole("button", { name: /runQa/i })
+    ).toBeInTheDocument();
+  });
+
+  it("does not show QA button for non-approved derivation", () => {
+    render(
+      <DerivationCard
+        derivation={{ ...baseDerivation, status: "completed" }}
+        index={0}
+        onPreview={vi.fn()}
+        onRunQa={vi.fn()}
+      />
+    );
+
+    expect(
+      screen.queryByRole("button", { name: /runQa/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows rerun label when QA result exists", () => {
+    render(
+      <DerivationCard
+        derivation={{ ...baseDerivation, qaStatus: "warning", qaIssues: ["Issue 1"] }}
+        index={0}
+        onPreview={vi.fn()}
+        onRunQa={vi.fn()}
+      />
+    );
+
+    expect(
+      screen.getByRole("button", { name: /rerunQa/i })
+    ).toBeInTheDocument();
+    expect(screen.getByText("Issue 1")).toBeInTheDocument();
+  });
+
+  it("calls onRunQa when QA button is clicked", () => {
+    const onRunQa = vi.fn();
+    render(
+      <DerivationCard
+        derivation={baseDerivation}
+        index={0}
+        onPreview={vi.fn()}
+        onRunQa={onRunQa}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /runQa/i }));
+    expect(onRunQa).toHaveBeenCalledTimes(1);
   });
 });

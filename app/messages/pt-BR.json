@@ -149,7 +149,9 @@
     "disconnected": "{name} desconectado",
     "connected": "{name} conectado",
     "packageQueued": "Pacote de entrega enfileirado",
-    "packageFailed": "Falha ao enfileirar pacote de entrega"
+    "packageFailed": "Falha ao enfileirar pacote de entrega",
+    "creativeQaComplete": "QA da arte concluído",
+    "creativeQaFailed": "Não foi possível revisar a arte agora"
   },
   "campaign": {
     "new": "Nova campanha",
@@ -366,7 +368,12 @@
     "regenerateWithImprovements": "Regenerar com melhorias",
     "generatePackage": "Gerar pacote",
     "creativeScore": "Score criativo",
-    "detectedIssues": "Problemas detectados"
+    "detectedIssues": "Problemas detectados",
+    "runQa": "QA da arte",
+    "rerunQa": "Revisar novamente",
+    "qaReady": "Pronta",
+    "qaWarning": "Atenção",
+    "qaReview": "Revisar"
   },
   "plan": {
     "title": "Plano Criativo",
@@ -526,6 +533,8 @@
     "campaignNotFound": "Campanha não encontrada",
     "planNotFound": "Plano não encontrado",
     "derivationNotFound": "Derivação não encontrada",
+    "derivationNotApprovedForQa": "Derivação deve estar aprovada antes do QA",
+    "derivationMissingOutput": "Derivação está sem imagem de saída",
     "invalidInput": "Entrada inválida",
     "invalidRequestBody": "Corpo da requisição inválido",
     "aiEmptyResponse": "Resposta vazia da IA",

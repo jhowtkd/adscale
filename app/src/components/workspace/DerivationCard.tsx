@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { motion } from "framer-motion";
-import { Eye, Download, RefreshCw, Clock, AlertCircle, Check, X, Package } from "lucide-react";
+import { Eye, Download, RefreshCw, Clock, AlertCircle, Check, X, Package, ShieldCheck } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import StatusBadge from "@/components/ui/StatusBadge";
@@ -27,6 +27,8 @@ interface DerivationCardProps {
   onApprove?: () => void;
   onReject?: () => void;
   onCreateDeliveryPackage?: () => void;
+  onRunQa?: () => void;
+  qaAnalyzingId?: string | null;
   isApproving?: boolean;
   isRejecting?: boolean;
   regeneratingId?: string | null;
@@ -164,6 +166,13 @@ function getScoreLabel(score: number | null | undefined, t: (key: string) => str
   return t("scoreWeak");
 }
 
+function getQaLabelKey(status: string | null | undefined) {
+  if (status === "ready") return "qaReady";
+  if (status === "warning") return "qaWarning";
+  if (status === "review") return "qaReview";
+  return null;
+}
+
 export default function DerivationCard({
   derivation,
   index,
@@ -173,10 +182,11 @@ export default function DerivationCard({
   onApprove,
   onReject,
   onCreateDeliveryPackage,
+  onRunQa,
+  qaAnalyzingId,
   isApproving,
   isRejecting,
   regeneratingId,
-
 }: DerivationCardProps) {
   const t = useTranslations("derivation");
   const commonT = useTranslations("common");
@@ -191,8 +201,18 @@ export default function DerivationCard({
   const simulatedProgress = Math.min(10 + ((index * 37 + 42) % 90), 98);
 
   const isRegenerating = regeneratingId === derivation.id;
+  const isQaAnalyzing = qaAnalyzingId === derivation.id;
   const exportMutation = useExport();
   const addToast = useAppStore((s) => s.addToast);
+
+  const qaStatusColor = (
+    {
+      ready: "text-[var(--accent-mint)]",
+      warning: "text-amber-500",
+      review: "text-[var(--accent-rose)]",
+    } as Record<string, string>
+  )[derivation.qaStatus ?? ""] ?? "text-[var(--text-muted)]";
+  const qaLabelKey = getQaLabelKey(derivation.qaStatus);
 
   const aspectClass = {
     "1:1": "aspect-square",
@@ -421,18 +441,48 @@ export default function DerivationCard({
           </div>
         )}
 
-        {/* Row 6: Delivery Package */}
-        {derivation.status === "approved" && derivation.imageUrl && onCreateDeliveryPackage && (
-          <div className="flex gap-2 mt-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={onCreateDeliveryPackage}
-              className="border-[var(--accent-mint)] text-[var(--accent-mint)] hover:bg-[var(--accent-mint-dim)]"
-            >
-              <Package className="w-4 h-4 mr-1" />
-              {t("generatePackage")}
-            </Button>
+        {/* Row 6: QA + Delivery Package */}
+        {derivation.status === "approved" && derivation.imageUrl && (
+          <div className="flex flex-col gap-2 mt-2">
+            {onRunQa && (
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={onRunQa}
+                  disabled={isQaAnalyzing}
+                  className="border-[var(--border-dim)] text-[var(--text-secondary)] hover:bg-[var(--surface-raised)]"
+                >
+                  {isQaAnalyzing ? (
+                    <Spinner className="mr-1" />
+                  ) : (
+                    <ShieldCheck className="w-4 h-4 mr-1" />
+                  )}
+                  {derivation.qaStatus && derivation.qaStatus !== "pending" ? t("rerunQa") : t("runQa")}
+                </Button>
+                {qaLabelKey && (
+                  <span className={cn("text-xs font-medium", qaStatusColor)}>
+                    {t(qaLabelKey)}
+                  </span>
+                )}
+              </div>
+            )}
+            {derivation.qaIssues && derivation.qaIssues.length > 0 && (
+              <p className="text-[11px] text-[var(--text-muted)] line-clamp-1">
+                {derivation.qaIssues[0]}
+              </p>
+            )}
+            {onCreateDeliveryPackage && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={onCreateDeliveryPackage}
+                className="border-[var(--accent-mint)] text-[var(--accent-mint)] hover:bg-[var(--accent-mint-dim)] w-fit"
+              >
+                <Package className="w-4 h-4 mr-1" />
+                {t("generatePackage")}
+              </Button>
+            )}
           </div>
         )}
       </div>

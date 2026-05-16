@@ -125,3 +125,68 @@ Mode: Brainstorming only
 - Direction chosen: assistive QA for approved pieces before export, not a hard export gate.
 - Design approved and documented in `docs/plans/2026-05-16-creative-qa-before-export-design.md`.
 - Implementation plan written in `docs/plans/2026-05-16-creative-qa-before-export.md`.
+
+
+---
+
+## Implementation Review: Creative QA Before Export
+
+Date: 2026-05-16
+Status: Completed
+
+### Files Changed
+
+- `app/src/server/db/schema.ts` — added `qaStatus`, `qaChecklist`, `qaIssues`, `qaSuggestions`, `qaAnalyzedAt` to `derivations`
+- `app/drizzle/0008_creative_qa.sql` — migration for QA fields
+- `app/src/server/ai/creative-qa.ts` — normalizer, prompt builder, and OpenAI analyzer
+- `app/src/server/ai/creative-qa.test.ts` — tests for normalizer and prompt builder
+- `app/src/server/repositories/derivation.ts` — added `updateDerivationQa` helper
+- `app/src/server/repositories/derivation.test.ts` — unit tests for `updateDerivationQa`
+- `app/src/app/api/derivations/[id]/qa/route.ts` — POST endpoint for running QA
+- `app/src/app/api/derivations/[id]/qa/route.test.ts` — unit tests for endpoint (404, 409, 400, success, error)
+- `app/src/lib/hooks/use-creative-qa.ts` — TanStack Query mutation hook
+- `app/src/lib/hooks/use-creative-qa.test.tsx` — hook tests for post, error, invalidation
+- `app/src/lib/hooks/use-derivations.ts` — extended `Derivation` type with QA fields
+- `app/src/lib/mock-data.ts` — extended `Derivation` type with QA fields
+- `app/src/app/(dashboard)/campaigns/[id]/page.tsx` — wired `useCreativeQa`, handler, and prop mapping
+- `app/src/components/workspace/DerivationCard.tsx` — QA button, status chip, issue display
+- `app/src/components/workspace/DerivationCard.test.tsx` — tests for QA button visibility, rerun, click
+- `app/src/components/workspace/DerivationsStep.tsx` — passed `onRunQa` and `qaAnalyzingId` through
+- `app/messages/en.json` — added `runQa`, `rerunQa`, `qaReady`, `qaWarning`, `qaReview`, `creativeQaComplete`, `creativeQaFailed`, error keys
+- `app/messages/pt-BR.json` — added Portuguese equivalents
+- `tasks/todo.md` — this implementation review
+
+### Commands Run & Results
+
+```bash
+cd app
+npx drizzle-kit check
+# Everything's fine
+
+npx vitest run --config config/vitest.config.ts --passWithNoTests creative-qa.test.ts qa/route.test.ts use-creative-qa.test.tsx DerivationCard.test.tsx derivation.test.ts
+# 7 test files / 30 tests passed
+
+npm run lint
+# 0 errors, only pre-existing template warnings
+
+npm run test
+# 33 test files / 179 tests passed; pre-existing template.test.ts env blocker still fails
+
+DATABASE_URL=... BETTER_AUTH_SECRET=... BETTER_AUTH_URL=... OPENAI_API_KEY=... R2_ACCOUNT_ID=... R2_ACCESS_KEY_ID=... R2_SECRET_ACCESS_KEY=... R2_BUCKET=... R2_PUBLIC_BASE_URL=... INNGEST_EVENT_KEY=... INNGEST_SIGNING_KEY=... APP_URL=... npm run build
+# Build succeeds; TypeScript clean; Better Auth low-entropy warnings acceptable with dummy env
+```
+
+### Known Blockers
+
+1. **Full repository test suite** still fails on the pre-existing `src/server/repositories/template.test.ts` environment/database setup. All new creative-qa tests pass.
+2. **Build without env vars** fails at module load because `env.ts` validates required secrets. Build succeeds with dummy env values supplied.
+
+### Acceptance Criteria Coverage
+
+- [x] Approved derivations with images can run QA via POST `/api/derivations/[id]/qa`.
+- [x] QA result is normalized, persisted on derivations, exposed to client types, and visible in the gallery/card flow.
+- [x] Export remains available regardless of QA status.
+- [x] QA evaluates legibility, CTA/offer, briefing fit, format fit, and creative risk.
+- [x] Rerun QA overwrites the prior result timestamp/data.
+- [x] Focused tests cover AI normalization/prompt, route, repository helper, hook, and card UI.
+- [x] `tasks/todo.md` has an implementation review with files, commands, blockers, and acceptance criteria coverage.

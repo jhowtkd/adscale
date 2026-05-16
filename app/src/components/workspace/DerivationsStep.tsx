@@ -22,6 +22,8 @@ interface DerivationsStepProps {
   onApprove?: (id: string) => void;
   onReject?: (id: string) => void;
   onCreateDeliveryPackage?: (id: string) => void;
+  onRunQa?: (id: string) => void;
+  qaAnalyzingId?: string | null;
   approvingId?: string | null;
   rejectingId?: string | null;
   regeneratingId?: string | null;
@@ -46,6 +48,8 @@ export default function DerivationsStep({
   onApprove,
   onReject,
   onCreateDeliveryPackage,
+  onRunQa,
+  qaAnalyzingId,
   approvingId,
   rejectingId,
   regeneratingId,
@@ -270,6 +274,8 @@ export default function DerivationsStep({
               onApprove={() => onApprove?.(derivation.id)}
               onReject={() => onReject?.(derivation.id)}
               onCreateDeliveryPackage={() => onCreateDeliveryPackage?.(derivation.id)}
+              onRunQa={() => onRunQa?.(derivation.id)}
+              qaAnalyzingId={qaAnalyzingId}
               isApproving={approvingId === derivation.id}
               isRejecting={rejectingId === derivation.id}
               regeneratingId={regeneratingId}

@@ -15,6 +15,7 @@ import { useRegenerateDerivation } from "@/lib/hooks/use-regenerate";
 import { useExport } from "@/lib/hooks/use-export";
 import { useReviewDerivation } from "@/lib/hooks/use-review";
 import { useCreateDeliveryPackage } from "@/lib/hooks/use-delivery-package";
+import { useCreativeQa } from "@/lib/hooks/use-creative-qa";
 import DeliveryPackageModal from "@/components/workspace/DeliveryPackageModal";
 import type { DeliveryFormat } from "@/components/workspace/DeliveryPackageModal";
 import StatusBadge from "@/components/ui/StatusBadge";
@@ -216,6 +217,11 @@ export default function CampaignWorkspacePage() {
         scoreIssues: d.scoreIssues ?? undefined,
         regenerationSuggestion: d.regenerationSuggestion ?? undefined,
         scoredAt: d.scoredAt ?? undefined,
+        qaStatus: d.qaStatus ?? undefined,
+        qaChecklist: d.qaChecklist ?? undefined,
+        qaIssues: d.qaIssues ?? undefined,
+        qaSuggestions: d.qaSuggestions ?? undefined,
+        qaAnalyzedAt: d.qaAnalyzedAt ?? undefined,
         createdAt: d.createdAt,
         completedAt: d.status === "completed" ? d.updatedAt : undefined,
       };
@@ -226,6 +232,8 @@ export default function CampaignWorkspacePage() {
     () => allDerivations.find((derivation) => derivation.status === "approved"),
     [allDerivations]
   );
+
+  const creativeQa = useCreativeQa();
 
   const [deliveryModalOpen, setDeliveryModalOpen] = useState(false);
   const [selectedDeliverySource, setSelectedDeliverySource] = useState<Derivation | null>(null);
@@ -420,6 +428,19 @@ export default function CampaignWorkspacePage() {
     [reviewMutation]
   );
 
+  const handleRunQa = useCallback(
+    (id: string) => {
+      creativeQa.mutate(
+        { derivationId: id },
+        {
+          onSuccess: () => addToast("success", tc("creativeQaComplete")),
+          onError: () => addToast("error", tc("creativeQaFailed")),
+        }
+      );
+    },
+    [creativeQa, addToast, tc]
+  );
+
   const handleCreateDeliveryPackage = useCallback(
     (id: string) => {
       const derivation = allDerivations.find((d) => d.id === id);
@@ -497,6 +518,8 @@ export default function CampaignWorkspacePage() {
             onApprove={handleApproveDerivation}
             onReject={handleRejectDerivation}
             onCreateDeliveryPackage={handleCreateDeliveryPackage}
+            onRunQa={handleRunQa}
+            qaAnalyzingId={creativeQa.isPending ? creativeQa.variables?.derivationId ?? null : null}
             approvingId={
               reviewMutation.isPending && reviewMutation.variables?.status === "approved"
                 ? reviewMutation.variables.id
