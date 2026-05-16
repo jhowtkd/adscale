@@ -100,3 +100,27 @@ npm run build                                      # Succeeds with env vars; Typ
 
 - `getActivePackageChildren` filters by `status in ("queued", "processing")`. If a child fails and the user retries, the old failed row remains; a new child will be created because failed rows are not considered active. This matches the intended behavior.
 - The campaign page invalidates `["derivations"]` and `["campaigns"]` on success, which refreshes the gallery and campaign list after the package is queued.
+
+
+---
+
+# Proxima Feature
+
+Date: 2026-05-16
+Mode: Brainstorming only
+
+## Checklist
+
+- [x] Explore project context — check files, docs, recent commits
+- [x] Ask clarifying questions — one at a time, understand purpose/constraints/success criteria
+- [x] Propose 2-3 approaches — with trade-offs and recommendation
+- [x] Present design — get approval section by section
+- [x] Write design doc — save to `docs/plans/YYYY-MM-DD-<topic>-design.md` and commit
+- [ ] Transition to implementation — invoke writing-plans skill
+
+## Notes
+
+- Do not implement during brainstorming.
+- Next feature should build on the current demo-ready `art_variation` path unless the user deliberately chooses a new surface.
+- Direction chosen: assistive QA for approved pieces before export, not a hard export gate.
+- Design approved and documented in `docs/plans/2026-05-16-creative-qa-before-export-design.md`.
