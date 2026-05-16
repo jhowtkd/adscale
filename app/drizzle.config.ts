@@ -8,4 +8,8 @@ export default defineConfig({
   dbCredentials: {
     url: process.env.DATABASE_URL!,
   },
+  // Aplicar migrações em schemas não padrão
+  migrations: {
+    schema: "public",
+  },
 });

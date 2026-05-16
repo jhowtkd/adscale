@@ -1,10 +1,22 @@
 import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const processes = [];
 let shuttingDown = false;
 
+function resolveCommand(cmd) {
+  // Prefer local node_modules bin
+  const localBin = join(__dirname, "..", "node_modules", ".bin", cmd);
+  return localBin;
+}
+
 function start(name, command, args) {
-  const child = spawn(command, args, {
+  const resolvedCmd = resolveCommand(command);
+  const child = spawn(resolvedCmd, args, {
     env: process.env,
     shell: false,
     stdio: "inherit",
