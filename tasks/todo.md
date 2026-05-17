@@ -206,7 +206,7 @@ Mode: Brainstorming only
 - [x] Propose 2-3 approaches — with trade-offs and recommendation
 - [x] Present design — get approval section by section
 - [x] Write design doc — save to `docs/plans/YYYY-MM-DD-<topic>-design.md` and commit
-- [ ] Transition to implementation — invoke writing-plans skill
+- [x] Transition to implementation — invoke writing-plans skill
 
 ## Notes
 
@@ -224,3 +224,4 @@ Mode: Brainstorming only
 - Design section approved: architecture/data model.
 - Design section approved: generation behavior, error handling, and testing.
 - Design doc created: `docs/plans/2026-05-17-client-reference-library-design.md`.
+- Implementation plan created: `docs/plans/2026-05-17-client-reference-library.md`.
