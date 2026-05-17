@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { motion } from "framer-motion";
-import { Eye, Download, RefreshCw, Clock, AlertCircle, Check, X, Package, ShieldCheck } from "lucide-react";
+import { Eye, Download, RefreshCw, Clock, AlertCircle, Check, X, Package, ShieldCheck, BookmarkPlus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import StatusBadge from "@/components/ui/StatusBadge";
@@ -28,7 +28,9 @@ interface DerivationCardProps {
   onReject?: () => void;
   onCreateDeliveryPackage?: () => void;
   onRunQa?: () => void;
+  onSaveAsReference?: () => void;
   qaAnalyzingId?: string | null;
+  isSavingReference?: boolean;
   isApproving?: boolean;
   isRejecting?: boolean;
   regeneratingId?: string | null;
@@ -183,7 +185,9 @@ export default function DerivationCard({
   onReject,
   onCreateDeliveryPackage,
   onRunQa,
+  onSaveAsReference,
   qaAnalyzingId,
+  isSavingReference,
   isApproving,
   isRejecting,
   regeneratingId,
@@ -481,6 +485,22 @@ export default function DerivationCard({
               >
                 <Package className="w-4 h-4 mr-1" />
                 {t("generatePackage")}
+              </Button>
+            )}
+            {onSaveAsReference && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={onSaveAsReference}
+                disabled={isSavingReference}
+                className="border-[var(--border-dim)] text-[var(--text-secondary)] hover:bg-[var(--surface-raised)] w-fit"
+              >
+                {isSavingReference ? (
+                  <Spinner className="mr-1" />
+                ) : (
+                  <BookmarkPlus className="w-4 h-4 mr-1" />
+                )}
+                {t("saveAsReference")}
               </Button>
             )}
           </div>

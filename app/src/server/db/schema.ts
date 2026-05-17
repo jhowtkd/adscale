@@ -114,6 +114,53 @@ export const workspaceMembers = adscaleSchema.table(
   ]
 );
 
+export const clientProfiles = adscaleSchema.table(
+  "client_profiles",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    visualNotes: text("visual_notes"),
+    toneNotes: text("tone_notes"),
+    constraints: text("constraints"),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("client_profiles_workspace_id_idx").on(table.workspaceId),
+  ]
+);
+
+export const clientReferences = adscaleSchema.table(
+  "client_references",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    clientProfileId: uuid("client_profile_id")
+      .notNull()
+      .references(() => clientProfiles.id, { onDelete: "cascade" }),
+    assetKey: text("asset_key").notNull(),
+    label: text("label").notNull(),
+    kind: text("kind").notNull().default("other"),
+    notes: text("notes"),
+    sourceDerivationId: uuid("source_derivation_id").references(() => derivations.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("client_references_workspace_id_idx").on(table.workspaceId),
+    index("client_references_client_profile_id_idx").on(table.clientProfileId),
+  ]
+);
+
 export const campaigns = adscaleSchema.table(
   "campaigns",
   {
@@ -142,6 +189,8 @@ export const campaigns = adscaleSchema.table(
     creativeDiagnosis: jsonb("creative_diagnosis"),
     creativeDiagnosisSource: text("creative_diagnosis_source"),
     creativeDiagnosisUpdatedAt: timestamp("creative_diagnosis_updated_at", { mode: "date" }),
+    clientProfileId: uuid("client_profile_id").references(() => clientProfiles.id, { onDelete: "set null" }),
+    selectedReferenceIds: text("selected_reference_ids").array(),
     status: text("status").notNull().default("draft"),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),

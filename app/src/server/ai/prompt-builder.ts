@@ -148,6 +148,14 @@ Return ONLY a JSON object with this exact structure:
 }${languageInstruction(locale)}`;
 }
 
+export interface ClientReferenceContext {
+  id: string;
+  kind: "style" | "product" | "layout" | "logo" | "negative" | "other";
+  label: string;
+  notes: string | null;
+  assetKey: string;
+}
+
 export interface DerivationPromptConfig {
   campaign?: Campaign | null;
   plan?: Plan | null;
@@ -162,6 +170,7 @@ export interface DerivationPromptConfig {
   creativeLevel?: string;
   creativeDiagnosis?: CreativeDiagnosis | null;
   packageSource?: "campaign_asset" | "approved_derivation";
+  clientReferences?: ClientReferenceContext[];
 }
 
 export function buildDerivationPrompt(config: DerivationPromptConfig) {
@@ -332,6 +341,15 @@ CRITICAL LITERAL CTA RULE: The CTA text above is MANDATORY and FINAL.
     parts.push(
       `\nVariant index: ${variantIndex + 1}. Make sure this version is visually distinct from other potential variants.`
     );
+  }
+
+  if (config.clientReferences?.length) {
+    parts.push("\nCLIENT REFERENCE LIBRARY:");
+    for (const ref of config.clientReferences) {
+      const intent = ref.kind === "negative" ? "Avoid repeating this pattern" : "Use as auxiliary visual guidance";
+      parts.push(`- ${ref.kind}: ${ref.label}. ${intent}. Notes: ${ref.notes ?? "None"}. Asset: ${ref.assetKey}`);
+    }
+    parts.push("These references are auxiliary context only. They must not override the primary campaign asset, literal CTA, target format, or campaign constraints.");
   }
 
   parts.push(

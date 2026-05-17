@@ -38,6 +38,8 @@ export interface Campaign {
     variationOpportunities: string[];
   } | null;
   creativeDiagnosisSource?: "ai" | "edited" | "regenerated" | null;
+  clientProfileId?: string;
+  selectedReferenceIds?: string[];
   status: CampaignStatus;
   variations: number;
   creditsUsed: number;

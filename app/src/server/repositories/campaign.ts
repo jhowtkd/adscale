@@ -42,6 +42,8 @@ export interface CreateCampaignInput {
   creativeDiagnosis?: CreativeDiagnosis | null;
   creativeDiagnosisSource?: "ai" | "edited" | "regenerated" | null;
   creativeDiagnosisUpdatedAt?: Date | null;
+  clientProfileId?: string | null;
+  selectedReferenceIds?: string[] | null;
 }
 
 export interface UpdateCampaignInput {
@@ -65,6 +67,8 @@ export interface UpdateCampaignInput {
   creativeDiagnosis?: CreativeDiagnosis | null;
   creativeDiagnosisSource?: "ai" | "edited" | "regenerated" | null;
   creativeDiagnosisUpdatedAt?: Date | null;
+  clientProfileId?: string | null;
+  selectedReferenceIds?: string[] | null;
 }
 
 export interface CampaignMetrics {
@@ -102,6 +106,8 @@ const campaignFields = {
   creativeDiagnosis: campaigns.creativeDiagnosis,
   creativeDiagnosisSource: campaigns.creativeDiagnosisSource,
   creativeDiagnosisUpdatedAt: campaigns.creativeDiagnosisUpdatedAt,
+  clientProfileId: campaigns.clientProfileId,
+  selectedReferenceIds: campaigns.selectedReferenceIds,
   createdAt: campaigns.createdAt,
   updatedAt: campaigns.updatedAt,
 };
@@ -213,6 +219,8 @@ export async function createCampaign(
       creativeDiagnosisStatus: data.creativeDiagnosisStatus ?? "pending",
       creativeDiagnosis: data.creativeDiagnosis ?? null,
       creativeDiagnosisSource: data.creativeDiagnosisSource ?? null,
+      clientProfileId: data.clientProfileId ?? null,
+      selectedReferenceIds: data.selectedReferenceIds ?? null,
       status: data.status ?? "draft",
     })
     .returning();
@@ -293,6 +301,8 @@ export async function updateCampaign(
       ...(creativeDiagnosisSource !== undefined && { creativeDiagnosisSource }),
       ...(creativeDiagnosisUpdatedAt !== undefined && { creativeDiagnosisUpdatedAt }),
       ...(status !== undefined && { status }),
+      ...(data.clientProfileId !== undefined && { clientProfileId: data.clientProfileId }),
+      ...(data.selectedReferenceIds !== undefined && { selectedReferenceIds: data.selectedReferenceIds }),
       updatedAt: new Date(),
     })
     .where(and(eq(campaigns.id, id), eq(campaigns.workspaceId, workspaceId)))

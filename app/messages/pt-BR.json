@@ -216,7 +216,6 @@
       }
     }
   },
-  "clientHelp": "A marca ou produto sendo anunciado",
   "briefing": {
     "title": "Briefing da Campanha",
     "namePlaceholder": "ex: Promoção de Verão 2025",
@@ -228,6 +227,16 @@
     "constraintsPlaceholder": "ex: Deve incluir logo no canto inferior direito, Sem fundos vermelhos, Mantenha texto abaixo de 20% da imagem...",
     "notesPlaceholder": "Qualquer outro detalhe que a IA deva considerar...",
     "ctaPlaceholder": "ex: Compre Agora, Saiba Mais",
+    "clientProfileLabel": "Perfil do cliente",
+    "createClientProfile": "Criar perfil",
+    "clientProfilePlaceholder": "Selecione um perfil de cliente",
+    "noClientProfile": "Nenhum",
+    "newProfileNamePlaceholder": "Nome do perfil",
+    "newProfileNotesPlaceholder": "Notas opcionais...",
+    "saveProfile": "Salvar",
+    "cancelProfile": "Cancelar",
+    "noReferences": "Nenhuma referência ainda para este perfil",
+    "selectReferences": "Selecione referências para usar",
     "clientHelp": "A marca ou produto sendo anunciado",
     "offerHelp": "Qual ação os espectadores devem tomar?",
     "constraintsHelp": "Quaisquer regras ou limitações para os criativos gerados",
@@ -367,6 +376,8 @@
     "scoreWeak": "Fraco",
     "regenerateWithImprovements": "Regenerar com melhorias",
     "generatePackage": "Gerar pacote",
+    "saveAsReference": "Salvar como referência",
+    "referenceSaved": "Referência salva",
     "creativeScore": "Score criativo",
     "detectedIssues": "Problemas detectados",
     "runQa": "QA da arte",

@@ -16,6 +16,7 @@ import { useExport } from "@/lib/hooks/use-export";
 import { useReviewDerivation } from "@/lib/hooks/use-review";
 import { useCreateDeliveryPackage } from "@/lib/hooks/use-delivery-package";
 import { useCreativeQa } from "@/lib/hooks/use-creative-qa";
+import { useSaveDerivationAsReference } from "@/lib/hooks/use-client-profiles";
 import DeliveryPackageModal from "@/components/workspace/DeliveryPackageModal";
 import type { DeliveryFormat } from "@/components/workspace/DeliveryPackageModal";
 import StatusBadge from "@/components/ui/StatusBadge";
@@ -115,6 +116,7 @@ export default function CampaignWorkspacePage() {
   const exportMutation = useExport();
   const reviewMutation = useReviewDerivation();
   const createDeliveryPackage = useCreateDeliveryPackage();
+  const saveDerivationAsReference = useSaveDerivationAsReference();
 
   // Store actions
   const setCurrentPageTitle = useAppStore((s) => s.setCurrentPageTitle);
@@ -138,6 +140,8 @@ export default function CampaignWorkspacePage() {
         creativeLevel: realCampaign.creativeLevel,
         ctaVariants: realCampaign.ctaVariants,
         targetFormats: realCampaign.targetFormats,
+        clientProfileId: realCampaign.clientProfileId,
+        selectedReferenceIds: realCampaign.selectedReferenceIds,
         creativeDiagnosisStatus: realCampaign.creativeDiagnosisStatus,
         creativeDiagnosis: realCampaign.creativeDiagnosis,
         creativeDiagnosisSource: realCampaign.creativeDiagnosisSource,
@@ -234,6 +238,7 @@ export default function CampaignWorkspacePage() {
   );
 
   const creativeQa = useCreativeQa();
+  const [savingReferenceId, setSavingReferenceId] = useState<string | null>(null);
 
   const [deliveryModalOpen, setDeliveryModalOpen] = useState(false);
   const [selectedDeliverySource, setSelectedDeliverySource] = useState<Derivation | null>(null);
@@ -309,6 +314,8 @@ export default function CampaignWorkspacePage() {
             ? [data.targetFormat]
             : undefined,
           creativeLevel: data.creativeLevel,
+          clientProfileId: data.clientProfileId,
+          selectedReferenceIds: data.selectedReferenceIds,
         });
       }
       addToast("success", tc("briefingSaved"));
@@ -339,6 +346,8 @@ export default function CampaignWorkspacePage() {
             ? [data.targetFormat]
             : undefined,
           creativeLevel: data.creativeLevel,
+          clientProfileId: data.clientProfileId,
+          selectedReferenceIds: data.selectedReferenceIds,
         });
       }
       addToast("info", tc("draftSaved"));
@@ -375,6 +384,33 @@ export default function CampaignWorkspacePage() {
   const handleGeneratePreview = useCallback(() => {
     handleGenerateDerivations({ preview: true });
   }, [handleGenerateDerivations]);
+
+  const handleSaveAsReference = useCallback((id: string) => {
+    const derivation = allDerivations.find((item) => item.id === id);
+    const clientProfileId = campaign?.clientProfileId;
+    if (!derivation || !clientProfileId) return;
+
+    setSavingReferenceId(id);
+    saveDerivationAsReference.mutate(
+      {
+        derivationId: id,
+        clientProfileId,
+        label: derivation.name,
+        kind: "style",
+      },
+      {
+        onSuccess: () => {
+          addToast("success", td("referenceSaved"));
+        },
+        onError: () => {
+          addToast("error", tc("errorLoading"));
+        },
+        onSettled: () => {
+          setSavingReferenceId(null);
+        },
+      }
+    );
+  }, [allDerivations, campaign?.clientProfileId, saveDerivationAsReference, addToast, td, tc]);
 
   const hasActivePreview = useMemo(() => {
     return allDerivations.some((d) => d.isPreview && ["queued", "processing", "generating", "completed"].includes(d.status));
@@ -519,7 +555,9 @@ export default function CampaignWorkspacePage() {
             onReject={handleRejectDerivation}
             onCreateDeliveryPackage={handleCreateDeliveryPackage}
             onRunQa={handleRunQa}
+            onSaveAsReference={campaign?.clientProfileId ? handleSaveAsReference : undefined}
             qaAnalyzingId={creativeQa.isPending ? creativeQa.variables?.derivationId ?? null : null}
+            savingReferenceId={savingReferenceId}
             approvingId={
               reviewMutation.isPending && reviewMutation.variables?.status === "approved"
                 ? reviewMutation.variables.id

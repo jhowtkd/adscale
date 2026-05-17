@@ -9,6 +9,7 @@ import { getCampaignById, refreshCampaignStatus } from "../repositories/campaign
 import { getAssetsByCampaign } from "../repositories/asset";
 import { getPlanByCampaign } from "../repositories/plan";
 import { getDerivationById, updateDerivationScore } from "../repositories/derivation";
+import { getClientReferencesByIds } from "../repositories/client-reference";
 import { trackUsage } from "../repositories/usage";
 import OpenAI, { toFile } from "openai";
 import sharp from "sharp";
@@ -242,7 +243,22 @@ export const derivationJob = inngest.createFunction(
       }
     );
 
-    // 3. Download, generate, and store inside one step to avoid persisting large blobs
+    // 3. Fetch selected client references for prompt context
+    const clientReferences = await step.run("fetch-client-references", async () => {
+      const ids = campaign.selectedReferenceIds ?? [];
+      if (ids.length === 0) return [];
+      const refs = await getClientReferencesByIds(workspaceId, ids);
+      console.log(`[fetch-client-references] loaded ${refs.length} references`);
+      return refs.map((r) => ({
+        id: r.id,
+        kind: r.kind as "style" | "product" | "layout" | "logo" | "negative" | "other",
+        label: r.label,
+        notes: r.notes,
+        assetKey: r.assetKey,
+      }));
+    });
+
+    // 4. Download, generate, and store inside one step to avoid persisting large blobs
     const generated = await step.run("generate-and-store-output", async () => {
       const effectiveGenerationMode = generationMode ?? derivation.generationMode ?? "art_variation";
       const targetFormat = format ?? derivation.format ?? "1:1";
@@ -283,6 +299,7 @@ export const derivationJob = inngest.createFunction(
         creativeLevel: campaign.creativeLevel ?? "balanced",
         creativeDiagnosis: normalizeCreativeDiagnosis(campaign.creativeDiagnosis) ?? null,
         packageSource: usesParentOutput ? "approved_derivation" : "campaign_asset",
+        clientReferences,
       });
       console.log(`[generate-and-store-output] model=${env.OPENAI_IMAGE_MODEL} hasAsset=${!!asset} locale=${locale ?? "default"}`);
 

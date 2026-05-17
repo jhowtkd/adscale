@@ -55,6 +55,10 @@ vi.mock("../repositories/derivation", () => ({
   updateDerivationScore: vi.fn(),
 }));
 
+vi.mock("../repositories/client-reference", () => ({
+  getClientReferencesByIds: vi.fn(() => Promise.resolve([])),
+}));
+
 vi.mock("../repositories/usage", () => ({
   trackUsage: vi.fn(),
 }));

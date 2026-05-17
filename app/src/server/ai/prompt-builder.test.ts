@@ -58,4 +58,44 @@ describe("buildDerivationPrompt", () => {
     expect(prompt).toContain("MODE: restyling");
     expect(prompt).toContain("STYLE REFERENCE DESIGN LANGUAGE");
   });
+
+  it("renders client references under CLIENT REFERENCE LIBRARY section", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "art_variation",
+      targetFormat: "1:1",
+      clientReferences: [
+        { id: "r1", kind: "style", label: "Hero shot", notes: "Use warm tones", assetKey: "assets/hero.png" },
+        { id: "r2", kind: "negative", label: "Old layout", notes: "Avoid clutter", assetKey: "assets/old.png" },
+      ],
+    });
+
+    expect(prompt).toContain("CLIENT REFERENCE LIBRARY:");
+    expect(prompt).toContain("style: Hero shot. Use as auxiliary visual guidance");
+    expect(prompt).toContain("negative: Old layout. Avoid repeating this pattern");
+    expect(prompt).toContain("These references are auxiliary context only");
+  });
+
+  it("does not include CLIENT REFERENCE LIBRARY when no references provided", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "art_variation",
+      targetFormat: "1:1",
+    });
+
+    expect(prompt).not.toContain("CLIENT REFERENCE LIBRARY:");
+  });
+
+  it("preserves literal CTA text even with client references", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "art_variation",
+      targetFormat: "1:1",
+      ctaText: "Buy Now",
+      clientReferences: [
+        { id: "r1", kind: "style", label: "Hero", notes: null, assetKey: "assets/hero.png" },
+      ],
+    });
+
+    expect(prompt).toContain("CRITICAL LITERAL CTA RULE");
+    expect(prompt).toContain("Buy Now");
+    expect(prompt).toContain("CLIENT REFERENCE LIBRARY:");
+  });
 });

@@ -225,3 +225,57 @@ Mode: Brainstorming only
 - Design section approved: generation behavior, error handling, and testing.
 - Design doc created: `docs/plans/2026-05-17-client-reference-library-design.md`.
 - Implementation plan created: `docs/plans/2026-05-17-client-reference-library.md`.
+
+
+---
+
+## Implementation Review: Client Reference Library
+
+Date: 2026-05-17
+Status: Completed
+
+### Files Changed
+
+- `app/src/server/db/schema.ts` — added `clientProfiles` and `clientReferences`; extended campaigns with `clientProfileId` and `selectedReferenceIds`
+- `app/drizzle/0009_client_reference_library.sql` — migration for profiles, references, and campaign reference fields
+- `app/src/server/repositories/client-reference.ts` — repository helpers for profiles, references, workspace validation, and selected reference lookup
+- `app/src/server/repositories/campaign.ts` — persists selected client profile and reference IDs
+- `app/src/app/api/client-profiles/*` — profile and reference endpoints
+- `app/src/app/api/derivations/[id]/save-reference/route.ts` — saves approved derivation output as a reusable reference
+- `app/src/lib/hooks/use-client-profiles.ts` — profile/reference query and mutation hooks
+- `app/src/components/workspace/BriefingStep.tsx` — profile select, inline profile creation, and reference checklist
+- `app/src/components/workspace/DerivationCard.tsx` / `DerivationsStep.tsx` / campaign page — approved derivation save-as-reference action
+- `app/src/server/ai/prompt-builder.ts` and `app/src/server/jobs/derivation.ts` — selected references are appended as auxiliary prompt context
+- `app/messages/en.json` and `app/messages/pt-BR.json` — UI translations
+
+### Commands Run & Results
+
+```bash
+cd app
+npx drizzle-kit check
+# Everything's fine
+
+npx vitest run --config config/vitest.config.ts --passWithNoTests src/server/repositories/client-reference.test.ts src/app/api/client-profiles/route.test.ts 'src/app/api/client-profiles/[id]/references/route.test.ts' 'src/app/api/derivations/[id]/save-reference/route.test.ts' src/lib/hooks/use-client-profiles.test.tsx src/components/workspace/BriefingStep.test.tsx src/server/ai/prompt-builder.test.ts src/server/jobs/derivation.test.ts src/components/workspace/DerivationCard.test.tsx
+# 9 test files / 45 tests passed
+
+npm run lint
+# 0 errors; 3 pre-existing template warnings
+
+DATABASE_URL=... BETTER_AUTH_SECRET=... BETTER_AUTH_URL=... OPENAI_API_KEY=... R2_ACCOUNT_ID=... R2_ACCESS_KEY_ID=... R2_SECRET_ACCESS_KEY=... R2_BUCKET=... R2_PUBLIC_BASE_URL=... INNGEST_EVENT_KEY=... INNGEST_SIGNING_KEY=... APP_URL=... npm run build
+# Build succeeds; TypeScript clean
+```
+
+### Acceptance Criteria Coverage
+
+- [x] Workspace-scoped client/brand profiles and visual references exist in schema and migration.
+- [x] Briefing can select a client profile, create a lightweight profile inline, and toggle references.
+- [x] Selected references persist on the campaign and reload when the campaign is reopened.
+- [x] Derivation job passes selected references into the prompt as auxiliary context only.
+- [x] Prompt guardrails preserve CTA, format, generation mode, and campaign constraints over reference context.
+- [x] Approved derivations with output can be saved as references for reuse.
+- [x] Focused tests cover repository, API routes, hooks, prompt builder, job integration, and briefing UI.
+
+### Known Blockers
+
+- Full suite still has the pre-existing `template.test.ts` environment/database blocker.
+- Build without required env vars still fails at env validation; dummy env build succeeds.

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Sparkles, RefreshCw, Edit3, Check, X, Wand2 } from "lucide-react";
+import { Sparkles, RefreshCw, Edit3, Check, X, Wand2, Plus, ImageOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
@@ -30,6 +30,11 @@ import {
   useUpdateCreativeDiagnosis,
   useRegenerateCreativeDiagnosis,
 } from "@/lib/hooks/use-creative-diagnosis";
+import {
+  useClientProfiles,
+  useCreateClientProfile,
+  useClientReferences,
+} from "@/lib/hooks/use-client-profiles";
 
 // ============================================
 // Types
@@ -49,6 +54,8 @@ export interface BriefingFormData {
   creativeLevel: "conservative" | "balanced" | "bold" | "extreme";
   targetFormat?: string;
   ctaVariants: [string, string, string];
+  clientProfileId?: string | null;
+  selectedReferenceIds?: string[];
 }
 
 interface BriefingStepProps {
@@ -333,6 +340,8 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
       campaign?.ctaVariants?.[1] || "",
       campaign?.ctaVariants?.[2] || "",
     ],
+    clientProfileId: campaign?.clientProfileId ?? null,
+    selectedReferenceIds: campaign?.selectedReferenceIds ?? [],
   });
 
   const [showNotes, setShowNotes] = useState(Boolean(campaign?.notes));
@@ -354,6 +363,14 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
   const regenerateDiagnosis = useRegenerateCreativeDiagnosis(campaign?.id ?? "");
   const localAnalysis = analyzeBriefingLocal(formData);
   const aiAnalysis = briefingDoctor.data;
+
+  const { data: clientProfilesData } = useClientProfiles();
+  const createProfile = useCreateClientProfile();
+  const { data: clientReferencesData } = useClientReferences(formData.clientProfileId);
+
+  const [showCreateProfile, setShowCreateProfile] = useState(false);
+  const [newProfileName, setNewProfileName] = useState("");
+  const [newProfileNotes, setNewProfileNotes] = useState("");
 
   const handleAnalyzeBriefing = () => {
     briefingDoctor.mutate(formData);
@@ -503,6 +520,148 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
             >
               {errors.client}
             </motion.p>
+          )}
+        </motion.div>
+
+        {/* ---- Client Profile ---- */}
+        <motion.div variants={fieldVariants} className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-medium text-[var(--text-secondary)]">
+              {tBriefing("clientProfileLabel")}
+            </Label>
+            <button
+              type="button"
+              onClick={() => setShowCreateProfile((s) => !s)}
+              className="inline-flex items-center gap-1 text-xs text-[var(--accent-mint)] hover:text-[var(--accent-mint-light)] transition-colors"
+            >
+              <Plus size={12} />
+              {tBriefing("createClientProfile")}
+            </button>
+          </div>
+          <Select
+            value={formData.clientProfileId ?? ""}
+            onValueChange={(value) => {
+              updateField("clientProfileId", value || null);
+              updateField("selectedReferenceIds", []);
+            }}
+          >
+            <SelectTrigger
+              className={cn(
+                "w-full h-10 bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)]",
+                !formData.clientProfileId && "text-[var(--text-muted)]"
+              )}
+            >
+              <SelectValue placeholder={tBriefing("clientProfilePlaceholder")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">{tBriefing("noClientProfile")}</SelectItem>
+              {clientProfilesData?.map((profile) => (
+                <SelectItem key={profile.id} value={profile.id}>
+                  {profile.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {showCreateProfile && (
+            <div className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] p-3 space-y-2">
+              <Input
+                placeholder={tBriefing("newProfileNamePlaceholder")}
+                value={newProfileName}
+                onChange={(e) => setNewProfileName(e.target.value)}
+                className="h-9 bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] text-xs placeholder:text-[var(--text-muted)]"
+              />
+              <Textarea
+                placeholder={tBriefing("newProfileNotesPlaceholder")}
+                rows={2}
+                value={newProfileNotes}
+                onChange={(e) => setNewProfileNotes(e.target.value)}
+                className="bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] text-xs placeholder:text-[var(--text-muted)] resize-none"
+              />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!newProfileName.trim()) return;
+                    createProfile.mutate(
+                      { name: newProfileName.trim(), description: newProfileNotes.trim() || undefined },
+                      {
+                        onSuccess: (data) => {
+                          updateField("clientProfileId", data.id);
+                          updateField("selectedReferenceIds", []);
+                          setShowCreateProfile(false);
+                          setNewProfileName("");
+                          setNewProfileNotes("");
+                        },
+                      }
+                    );
+                  }}
+                  disabled={!newProfileName.trim() || createProfile.isPending}
+                  className="inline-flex items-center gap-1 rounded-md bg-[var(--accent-mint)] px-3 py-1.5 text-xs font-medium text-white hover:bg-[var(--accent-mint-light)] disabled:opacity-60"
+                >
+                  <Check size={12} />
+                  {tBriefing("saveProfile")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCreateProfile(false);
+                    setNewProfileName("");
+                    setNewProfileNotes("");
+                  }}
+                  className="inline-flex items-center gap-1 rounded-md border border-[var(--border-dim)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--surface-base)]"
+                >
+                  <X size={12} />
+                  {tBriefing("cancelProfile")}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {formData.clientProfileId && clientReferencesData && (
+            <div className="space-y-2">
+              {clientReferencesData.length === 0 ? (
+                <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
+                  <ImageOff size={14} />
+                  {tBriefing("noReferences")}
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-medium text-[var(--text-secondary)]">
+                    {tBriefing("selectReferences")}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {clientReferencesData.map((ref) => {
+                      const isSelected = formData.selectedReferenceIds?.includes(ref.id);
+                      return (
+                        <button
+                          key={ref.id}
+                          type="button"
+                          onClick={() => {
+                            const current = formData.selectedReferenceIds ?? [];
+                            const next = isSelected
+                              ? current.filter((id) => id !== ref.id)
+                              : [...current, ref.id];
+                            updateField("selectedReferenceIds", next);
+                          }}
+                          className={cn(
+                            "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-all duration-200",
+                            isSelected
+                              ? "border-[var(--accent-mint)] bg-[var(--accent-mint-dim)] text-[var(--accent-mint)]"
+                              : "border-[var(--border-dim)] bg-[var(--surface-base)] text-[var(--text-secondary)] hover:border-[var(--border-medium)] hover:text-[var(--text-primary)]"
+                          )}
+                          title={ref.notes ?? ""}
+                        >
+                          <span className={cn("h-1.5 w-1.5 rounded-full", isSelected ? "bg-[var(--accent-mint)]" : "bg-[var(--text-muted)]")} />
+                          {ref.label}
+                          <span className="text-[10px] opacity-70">({ref.kind})</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </motion.div>
 

@@ -26,6 +26,8 @@ export interface Campaign {
     variationOpportunities: string[];
   } | null;
   creativeDiagnosisSource: "ai" | "edited" | "regenerated" | null;
+  clientProfileId?: string | null;
+  selectedReferenceIds?: string[] | null;
   status: "draft" | "active" | "generating" | "completed" | "failed";
   variations?: number;
   creditsUsed?: number;
@@ -60,6 +62,8 @@ export interface UiCampaign {
     variationOpportunities: string[];
   };
   creativeDiagnosisSource?: "ai" | "edited" | "regenerated";
+  clientProfileId?: string;
+  selectedReferenceIds?: string[];
   status: Campaign["status"];
   variations: number;
   creditsUsed: number;
@@ -84,6 +88,8 @@ function toUiCampaign(c: Campaign): UiCampaign {
     styleIntensity: c.styleIntensity ?? undefined,
     ctaVariants: c.ctaVariants ?? undefined,
     targetFormats: c.targetFormats ?? undefined,
+    clientProfileId: c.clientProfileId ?? undefined,
+    selectedReferenceIds: c.selectedReferenceIds ?? undefined,
     creativeDiagnosisStatus: c.creativeDiagnosisStatus ?? undefined,
     creativeDiagnosis: c.creativeDiagnosis ?? undefined,
     creativeDiagnosisSource: c.creativeDiagnosisSource ?? undefined,
@@ -140,6 +146,8 @@ async function createCampaign(payload: {
   styleIntensity?: "soft" | "medium" | "strong";
   ctaVariants?: string[];
   targetFormats?: string[];
+  clientProfileId?: string;
+  selectedReferenceIds?: string[];
 }): Promise<Campaign> {
   const res = await apiFetch("/api/campaigns", {
     method: "POST",
