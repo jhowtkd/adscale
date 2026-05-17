@@ -190,3 +190,37 @@ DATABASE_URL=... BETTER_AUTH_SECRET=... BETTER_AUTH_URL=... OPENAI_API_KEY=... R
 - [x] Rerun QA overwrites the prior result timestamp/data.
 - [x] Focused tests cover AI normalization/prompt, route, repository helper, hook, and card UI.
 - [x] `tasks/todo.md` has an implementation review with files, commands, blockers, and acceptance criteria coverage.
+
+
+---
+
+# Novas Sugestoes de Features
+
+Date: 2026-05-16
+Mode: Brainstorming only
+
+## Checklist
+
+- [x] Explore project context — check files, docs, recent commits
+- [x] Ask clarifying questions — one at a time, understand purpose/constraints/success criteria
+- [x] Propose 2-3 approaches — with trade-offs and recommendation
+- [x] Present design — get approval section by section
+- [x] Write design doc — save to `docs/plans/YYYY-MM-DD-<topic>-design.md` and commit
+- [ ] Transition to implementation — invoke writing-plans skill
+
+## Notes
+
+- Do not implement during brainstorming.
+- Separate genuinely new product wedges from already-planned refinements.
+- Current strongest gap: the codebase has creative plan API/hooks/components, but the live campaign wizard does not use the plan step.
+- Candidate directions:
+  1. Creative Plan visivel no wizard, connecting briefing, diagnosis, hooks, CTAs, and generation.
+  2. Comparador de vencedor, explaining why the best scored outputs are stronger.
+  3. Next best action dashboard, surfacing the next operational step per campaign.
+- Direction selected by user: Biblioteca de referencias de marca/cliente.
+- Scope refinement: Hibrido enxuto — lightweight client/brand profile plus reusable visual references.
+- Recommended approach accepted: add reusable client references inside the campaign flow, plus a small "save approved image as reference" path after review.
+- Design section approved: UX/product flow.
+- Design section approved: architecture/data model.
+- Design section approved: generation behavior, error handling, and testing.
+- Design doc created: `docs/plans/2026-05-17-client-reference-library-design.md`.
