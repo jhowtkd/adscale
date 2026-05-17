@@ -218,6 +218,59 @@ Mode: Brainstorming only
   2. Comparador de vencedor, explaining why the best scored outputs are stronger.
   3. Next best action dashboard, surfacing the next operational step per campaign.
 - Direction selected by user: Biblioteca de referencias de marca/cliente.
+
+
+---
+
+# Novas Sugestoes de Features - 2026-05-17
+
+Date: 2026-05-17
+Mode: Brainstorming only
+
+## Checklist
+
+- [x] Explore project context — check files, docs, recent commits
+- [x] Ask clarifying questions — one at a time, understand purpose/constraints/success criteria
+- [x] Propose 2-3 approaches — with trade-offs and recommendation
+- [x] Present design — get approval section by section
+- [x] Write design doc — save to `docs/plans/YYYY-MM-DD-<topic>-design.md` and commit
+- [x] Transition to implementation — invoke writing-plans skill
+
+## Notes
+
+- Do not implement during brainstorming.
+- Focus on feature suggestions that are genuinely new relative to delivery package, Creative QA, and client reference library.
+- Context checked: recent commits, existing plans, campaign wizard, dashboard, plan API/UI, export service, usage tracking, and current derivation review flow.
+- Strong gaps found:
+  1. Creative plan API/components exist, but the live campaign workspace currently runs only briefing -> upload -> derivations.
+  2. Dashboard credit/usage stats are placeholders even though campaigns, derivations, usage events, and exports already exist.
+  3. The gallery can sort by score and inspect cards, but there is no explicit winner comparison or decision rationale flow.
+- Correction from user: "novas funcoes" means new product capabilities, not improvements to existing surfaces. Reframe suggestions away from incremental flow polish.
+- Direction selected by user:
+  1. Gerador de Landing Page Match.
+  2. Persona Simulator after Landing Page Match.
+- Persona Simulator intent: simulate reactions from different audiences such as skeptical buyer, warm lead, financial decision maker, and beginner user; output what each persona understands, rejects, wants, and would click.
+- Landing Page Match scope selected by user: full landing page with multiple sections, more powerful even with larger scope.
+- Landing Page Match output selected by user: exportable HTML ready to download/copy into Webflow, Framer, or a website.
+- Landing Page Match source selected by user: approved derivation plus campaign briefing, preserving coherence with the winning creative and using offer/CTA/audience from the briefing.
+
+## Approved Design
+
+- First version: direct HTML export from an approved derivation.
+- UI entry: "Generate landing page" action on approved derivation cards.
+- Backend: `POST /api/derivations/[id]/landing-page`.
+- Generation: AI returns structured landing page JSON.
+- Rendering: server converts validated JSON to standalone HTML with embedded CSS.
+- Storage/export: upload HTML and return a download URL.
+- Persona Simulator remains the next function after Landing Page Match.
+
+## Documents
+
+- `docs/plans/2026-05-17-landing-page-match-design.md`
+- `docs/plans/2026-05-17-landing-page-match.md`
+
+## Prior Client Reference Notes
+
 - Scope refinement: Hibrido enxuto — lightweight client/brand profile plus reusable visual references.
 - Recommended approach accepted: add reusable client references inside the campaign flow, plus a small "save approved image as reference" path after review.
 - Design section approved: UX/product flow.
