@@ -376,6 +376,7 @@
     "scoreWeak": "Fraco",
     "regenerateWithImprovements": "Regenerar com melhorias",
     "generatePackage": "Gerar pacote",
+    "generateLandingPage": "Gerar landing page",
     "saveAsReference": "Salvar como referência",
     "referenceSaved": "Referência salva",
     "creativeScore": "Score criativo",
@@ -617,7 +618,9 @@
     "derivationRejected": "Derivação rejeitada",
     "statusUpdateFailed": "Falha ao atualizar status",
     "exportReady": "Exportação pronta — download iniciado",
-    "exportFailed": "Falha ao exportar"
+    "exportFailed": "Falha ao exportar",
+    "landingPageReady": "Landing page pronta — download iniciado",
+    "landingPageFailed": "Falha ao gerar landing page"
   },
   "restyling": {
     "title": "Restilização de Criativo",

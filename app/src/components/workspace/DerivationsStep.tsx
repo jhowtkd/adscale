@@ -24,11 +24,13 @@ interface DerivationsStepProps {
   onCreateDeliveryPackage?: (id: string) => void;
   onRunQa?: (id: string) => void;
   onSaveAsReference?: (id: string) => void;
+  onGenerateLandingPage?: (id: string) => void;
   qaAnalyzingId?: string | null;
   savingReferenceId?: string | null;
   approvingId?: string | null;
   rejectingId?: string | null;
   regeneratingId?: string | null;
+  landingPageGeneratingId?: string | null;
   isGeneratingMore?: boolean;
 }
 
@@ -52,11 +54,13 @@ export default function DerivationsStep({
   onCreateDeliveryPackage,
   onRunQa,
   onSaveAsReference,
+  onGenerateLandingPage,
   qaAnalyzingId,
   savingReferenceId,
   approvingId,
   rejectingId,
   regeneratingId,
+  landingPageGeneratingId,
   isGeneratingMore,
 }: DerivationsStepProps) {
   const t = useTranslations("derivation");
@@ -280,11 +284,13 @@ export default function DerivationsStep({
               onCreateDeliveryPackage={() => onCreateDeliveryPackage?.(derivation.id)}
               onRunQa={() => onRunQa?.(derivation.id)}
               onSaveAsReference={onSaveAsReference ? () => onSaveAsReference(derivation.id) : undefined}
+              onGenerateLandingPage={onGenerateLandingPage ? () => onGenerateLandingPage(derivation.id) : undefined}
               qaAnalyzingId={qaAnalyzingId}
               isSavingReference={savingReferenceId === derivation.id}
               isApproving={approvingId === derivation.id}
               isRejecting={rejectingId === derivation.id}
               regeneratingId={regeneratingId}
+              landingPageGeneratingId={landingPageGeneratingId}
               gridSize={gridSize}
             />
           ))}

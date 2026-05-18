@@ -332,3 +332,72 @@ DATABASE_URL=... BETTER_AUTH_SECRET=... BETTER_AUTH_URL=... OPENAI_API_KEY=... R
 
 - Full suite still has the pre-existing `template.test.ts` environment/database blocker.
 - Build without required env vars still fails at env validation; dummy env build succeeds.
+
+
+---
+
+## Implementation Review: Landing Page Match
+
+Date: 2026-05-17
+Status: Completed
+
+### Files Changed
+
+- `app/src/server/db/schema.ts` — added `landingPages` table with workspace, campaign, and derivation foreign keys
+- `app/drizzle/0010_landing_pages.sql` — migration for landing_pages table and indexes
+- `app/src/server/repositories/landing-page.ts` — repository for create, complete, fail, and list by derivation
+- `app/src/server/repositories/landing-page.test.ts` — unit tests for repository with mocked database
+- `app/src/server/ai/landing-page.ts` — prompt builder, strict JSON normalizer, and OpenAI generator
+- `app/src/server/ai/landing-page.test.ts` — tests for prompt builder, normalizer, and generator mocking
+- `app/src/server/services/landing-page-renderer.ts` — server-side standalone HTML renderer with inline responsive CSS
+- `app/src/server/services/landing-page-renderer.test.ts` — tests for HTML output, escaping, sections, and image inclusion
+- `app/src/app/api/derivations/[id]/landing-page/route.ts` — POST endpoint requiring approved derivation with outputKey
+- `app/src/app/api/derivations/[id]/landing-page/route.test.ts` — tests for 404, 409, 400, success, and failure paths
+- `app/src/lib/hooks/use-landing-page.ts` — TanStack Query mutation hook with toast and download open
+- `app/src/lib/hooks/use-landing-page.test.tsx` — hook tests for post, success window open, and error toast
+- `app/src/components/workspace/DerivationCard.tsx` — added "Generate landing page" action for approved derivations with images
+- `app/src/components/workspace/DerivationCard.test.tsx` — tests for visibility, approval gating, image gating, click, and loading state
+- `app/src/components/workspace/DerivationsStep.tsx` — passed `onGenerateLandingPage` and `landingPageGeneratingId` through
+- `app/src/app/(dashboard)/campaigns/[id]/page.tsx` — wired `useGenerateLandingPage`, handler, and prop mapping
+- `app/messages/en.json` — added `generateLandingPage`, `landingPageReady`, `landingPageFailed`
+- `app/messages/pt-BR.json` — added Portuguese equivalents
+
+### Commands Run & Results
+
+```bash
+cd app
+npx drizzle-kit check
+# Everything's fine 🐶🔥
+
+npm run test -- --run src/server/ai/landing-page.test.ts src/app/api/derivations/'[id]'/landing-page/route.test.ts src/lib/hooks/use-landing-page.test.tsx src/server/services/landing-page-renderer.test.ts src/server/repositories/landing-page.test.ts src/components/workspace/DerivationCard.test.tsx
+# 6 test files / 39 tests passed
+
+npm run lint
+# 0 errors; 3 pre-existing warnings in unrelated template files
+
+DATABASE_URL=postgresql://localhost:5432/test BETTER_AUTH_SECRET=01234567890123456789012345678901 BETTER_AUTH_URL=http://localhost:3000 OPENAI_API_KEY=sk-test1234567890123456789012345678901234567890 OPENAI_TEXT_MODEL=gpt-4o OPENAI_IMAGE_MODEL=gpt-image-1 R2_ACCOUNT_ID=test R2_ACCESS_KEY_ID=test R2_SECRET_ACCESS_KEY=test R2_BUCKET=test R2_PUBLIC_BASE_URL=https://test.example.com INNGEST_EVENT_KEY=test INNGEST_SIGNING_KEY=test APP_URL=http://localhost:3000 npm run build
+# Build succeeds; TypeScript clean; Better Auth low-entropy warnings acceptable with dummy env
+```
+
+### Acceptance Criteria Coverage
+
+- [x] `landing_pages` schema and migration exist and pass drizzle check.
+- [x] Repository can create queued records, complete records, fail records, and list by derivation/workspace.
+- [x] AI module builds a prompt from campaign + derivation context, including client, product, notes, offer, CTA, audience, objective, constraints, and approved creative context.
+- [x] AI normalizer fills required sections with safe defaults and avoids requiring fake proof.
+- [x] Renderer emits complete standalone HTML with inline responsive CSS, escaped user/model copy, and optional approved creative image URL.
+- [x] API POST requires workspace access, approved derivation, outputKey, and campaign; on success returns landingPage + downloadUrl + expiresAt; on failure marks landing page failed where a row was created.
+- [x] Client hook posts to the endpoint, opens the returned download URL, and uses toast behavior consistent with useExport.
+- [x] UI shows Generate landing page only for approved derivations with images, passes through DerivationsStep, and wires campaign page mutation.
+- [x] Translations exist in en and pt-BR.
+- [x] Focused tests cover the new behavior.
+
+### Known Blockers
+
+- Full suite still has the pre-existing `template.test.ts` environment/database blocker.
+- Build without required env vars still fails at env validation; dummy env build succeeds.
+
+### Codex Review Notes
+
+- Codex tightened the worker output before integration so the landing-page prompt includes client, product, and campaign notes, not only objective, audience, offer, tone, constraints, and CTA variants.
+- Codex reran the focused tests, drizzle check, lint, and dummy-env build in the active workspace after porting the approved diff.

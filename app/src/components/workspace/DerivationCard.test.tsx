@@ -138,4 +138,79 @@ describe("DerivationCard", () => {
     fireEvent.click(screen.getByRole("button", { name: /runQa/i }));
     expect(onRunQa).toHaveBeenCalledTimes(1);
   });
+
+  it("shows generate landing page for approved derivations with images", () => {
+    render(
+      <DerivationCard
+        derivation={baseDerivation}
+        index={0}
+        onPreview={vi.fn()}
+        onGenerateLandingPage={vi.fn()}
+      />
+    );
+
+    expect(
+      screen.getByRole("button", { name: /generateLandingPage/i })
+    ).toBeInTheDocument();
+  });
+
+  it("does not show generate landing page for unapproved derivations", () => {
+    render(
+      <DerivationCard
+        derivation={{ ...baseDerivation, status: "completed" }}
+        index={0}
+        onPreview={vi.fn()}
+        onGenerateLandingPage={vi.fn()}
+      />
+    );
+
+    expect(
+      screen.queryByRole("button", { name: /generateLandingPage/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it("does not show generate landing page when imageUrl is missing", () => {
+    render(
+      <DerivationCard
+        derivation={{ ...baseDerivation, imageUrl: undefined }}
+        index={0}
+        onPreview={vi.fn()}
+        onGenerateLandingPage={vi.fn()}
+      />
+    );
+
+    expect(
+      screen.queryByRole("button", { name: /generateLandingPage/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it("calls onGenerateLandingPage when clicked", () => {
+    const onGenerateLandingPage = vi.fn();
+    render(
+      <DerivationCard
+        derivation={baseDerivation}
+        index={0}
+        onPreview={vi.fn()}
+        onGenerateLandingPage={onGenerateLandingPage}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /generateLandingPage/i }));
+    expect(onGenerateLandingPage).toHaveBeenCalledTimes(1);
+  });
+
+  it("disables generate landing page when active derivation matches", () => {
+    render(
+      <DerivationCard
+        derivation={baseDerivation}
+        index={0}
+        onPreview={vi.fn()}
+        onGenerateLandingPage={vi.fn()}
+        landingPageGeneratingId={baseDerivation.id}
+      />
+    );
+
+    const btn = screen.getByRole("button", { name: /generateLandingPage/i });
+    expect(btn).toBeDisabled();
+  });
 });

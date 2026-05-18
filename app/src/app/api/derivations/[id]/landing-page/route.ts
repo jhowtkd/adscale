@@ -1,0 +1,112 @@
+import { NextResponse } from "next/server";
+import { apiError, handleApiError } from "@/lib/api-response";
+import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { getDerivationById } from "@/server/repositories/derivation";
+import { getCampaignById } from "@/server/repositories/campaign";
+import {
+  createLandingPage,
+  completeLandingPage,
+  failLandingPage,
+} from "@/server/repositories/landing-page";
+import { generateLandingPageStructure } from "@/server/ai/landing-page";
+import { renderLandingPageHtml } from "@/server/services/landing-page-renderer";
+import {
+  uploadBuffer,
+  getPresignedDownloadUrl,
+  getPublicUrl,
+} from "@/server/storage/r2";
+
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { workspace } = await requireWorkspaceAccess(request);
+    const { id } = await params;
+
+    const derivation = await getDerivationById(id, workspace.id);
+    if (!derivation) {
+      return apiError("derivationNotFound", 404);
+    }
+    if (derivation.status !== "approved") {
+      return apiError("derivationNotApproved", 409);
+    }
+    if (!derivation.outputKey) {
+      return apiError("derivationMissingOutput", 400);
+    }
+
+    const campaign = await getCampaignById(derivation.campaignId, workspace.id);
+    if (!campaign) {
+      return apiError("campaignNotFound", 404);
+    }
+
+    const landingPage = await createLandingPage({
+      workspaceId: workspace.id,
+      campaignId: derivation.campaignId,
+      sourceDerivationId: derivation.id,
+    });
+
+    try {
+      const structure = await generateLandingPageStructure(
+        {
+          name: campaign.name,
+          client: campaign.client,
+          product: campaign.product,
+          objective: campaign.objective,
+          audience: campaign.audience,
+          offer: campaign.offer,
+          tone: campaign.tone,
+          constraints: campaign.constraints,
+          notes: campaign.notes,
+          ctaVariants: campaign.ctaVariants,
+        },
+        {
+          prompt: derivation.prompt,
+          ctaText: derivation.ctaText,
+          format: derivation.format,
+        }
+      );
+
+      const imageUrl = getPublicUrl(derivation.outputKey);
+      const html = renderLandingPageHtml({ structure, imageUrl });
+
+      const htmlKey = `landing-pages/${workspace.id}/${derivation.id}/${Date.now()}.html`;
+      await uploadBuffer(htmlKey, Buffer.from(html, "utf-8"), "text/html");
+
+      const completed = await completeLandingPage({
+        id: landingPage.id,
+        workspaceId: workspace.id,
+        title: structure.title,
+        structure,
+        htmlKey,
+      });
+
+      const downloadUrl = await getPresignedDownloadUrl(htmlKey);
+      const expiresAt = new Date(Date.now() + 300 * 1000).toISOString();
+
+      return NextResponse.json({
+        landingPage: {
+          id: completed?.id ?? landingPage.id,
+          status: "completed" as const,
+          title: completed?.title ?? structure.title,
+          htmlKey: completed?.htmlKey ?? htmlKey,
+        },
+        downloadUrl,
+        expiresAt,
+      });
+    } catch (innerError) {
+      console.error("[landing-page POST] generation failed", innerError);
+      await failLandingPage({
+        id: landingPage.id,
+        workspaceId: workspace.id,
+        error:
+          innerError instanceof Error
+            ? innerError.message
+            : "Landing page generation failed",
+      });
+      return handleApiError(innerError, "derivations.[id].landing-page.POST");
+    }
+  } catch (error) {
+    return handleApiError(error, "derivations.[id].landing-page.POST");
+  }
+}

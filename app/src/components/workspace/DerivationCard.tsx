@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { motion } from "framer-motion";
-import { Eye, Download, RefreshCw, Clock, AlertCircle, Check, X, Package, ShieldCheck, BookmarkPlus } from "lucide-react";
+import { Eye, Download, RefreshCw, Clock, AlertCircle, Check, X, Package, ShieldCheck, BookmarkPlus, FileText } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import StatusBadge from "@/components/ui/StatusBadge";
@@ -29,11 +29,13 @@ interface DerivationCardProps {
   onCreateDeliveryPackage?: () => void;
   onRunQa?: () => void;
   onSaveAsReference?: () => void;
+  onGenerateLandingPage?: () => void;
   qaAnalyzingId?: string | null;
   isSavingReference?: boolean;
   isApproving?: boolean;
   isRejecting?: boolean;
   regeneratingId?: string | null;
+  landingPageGeneratingId?: string | null;
   gridSize?: "small" | "medium" | "large";
 }
 
@@ -186,11 +188,13 @@ export default function DerivationCard({
   onCreateDeliveryPackage,
   onRunQa,
   onSaveAsReference,
+  onGenerateLandingPage,
   qaAnalyzingId,
   isSavingReference,
   isApproving,
   isRejecting,
   regeneratingId,
+  landingPageGeneratingId,
 }: DerivationCardProps) {
   const t = useTranslations("derivation");
   const commonT = useTranslations("common");
@@ -206,6 +210,7 @@ export default function DerivationCard({
 
   const isRegenerating = regeneratingId === derivation.id;
   const isQaAnalyzing = qaAnalyzingId === derivation.id;
+  const isGeneratingLandingPage = landingPageGeneratingId === derivation.id;
   const exportMutation = useExport();
   const addToast = useAppStore((s) => s.addToast);
 
@@ -501,6 +506,22 @@ export default function DerivationCard({
                   <BookmarkPlus className="w-4 h-4 mr-1" />
                 )}
                 {t("saveAsReference")}
+              </Button>
+            )}
+            {onGenerateLandingPage && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={onGenerateLandingPage}
+                disabled={isGeneratingLandingPage}
+                className="border-[var(--accent-blue)] text-[var(--accent-blue)] hover:bg-[var(--accent-blue)]/10 w-fit"
+              >
+                {isGeneratingLandingPage ? (
+                  <Spinner className="mr-1" />
+                ) : (
+                  <FileText className="w-4 h-4 mr-1" />
+                )}
+                {t("generateLandingPage")}
               </Button>
             )}
           </div>

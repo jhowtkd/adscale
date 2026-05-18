@@ -391,3 +391,33 @@ export const exports = adscaleSchema.table(
     index("exports_derivation_id_idx").on(table.derivationId),
   ]
 );
+
+export const landingPages = adscaleSchema.table(
+  "landing_pages",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    campaignId: uuid("campaign_id")
+      .notNull()
+      .references(() => campaigns.id, { onDelete: "cascade" }),
+    sourceDerivationId: uuid("source_derivation_id")
+      .notNull()
+      .references(() => derivations.id, { onDelete: "cascade" }),
+    status: text("status").notNull().default("queued"),
+    title: text("title"),
+    structure: jsonb("structure"),
+    htmlKey: text("html_key"),
+    error: text("error"),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("landing_pages_workspace_id_idx").on(table.workspaceId),
+    index("landing_pages_campaign_id_idx").on(table.campaignId),
+    index("landing_pages_source_derivation_id_idx").on(table.sourceDerivationId),
+  ]
+);

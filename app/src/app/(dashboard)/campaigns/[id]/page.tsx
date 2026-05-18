@@ -17,6 +17,7 @@ import { useReviewDerivation } from "@/lib/hooks/use-review";
 import { useCreateDeliveryPackage } from "@/lib/hooks/use-delivery-package";
 import { useCreativeQa } from "@/lib/hooks/use-creative-qa";
 import { useSaveDerivationAsReference } from "@/lib/hooks/use-client-profiles";
+import { useGenerateLandingPage } from "@/lib/hooks/use-landing-page";
 import DeliveryPackageModal from "@/components/workspace/DeliveryPackageModal";
 import type { DeliveryFormat } from "@/components/workspace/DeliveryPackageModal";
 import StatusBadge from "@/components/ui/StatusBadge";
@@ -117,6 +118,7 @@ export default function CampaignWorkspacePage() {
   const reviewMutation = useReviewDerivation();
   const createDeliveryPackage = useCreateDeliveryPackage();
   const saveDerivationAsReference = useSaveDerivationAsReference();
+  const generateLandingPage = useGenerateLandingPage();
 
   // Store actions
   const setCurrentPageTitle = useAppStore((s) => s.setCurrentPageTitle);
@@ -385,6 +387,13 @@ export default function CampaignWorkspacePage() {
     handleGenerateDerivations({ preview: true });
   }, [handleGenerateDerivations]);
 
+  const handleGenerateLandingPage = useCallback(
+    (id: string) => {
+      generateLandingPage.mutate({ derivationId: id });
+    },
+    [generateLandingPage]
+  );
+
   const handleSaveAsReference = useCallback((id: string) => {
     const derivation = allDerivations.find((item) => item.id === id);
     const clientProfileId = campaign?.clientProfileId;
@@ -556,6 +565,7 @@ export default function CampaignWorkspacePage() {
             onCreateDeliveryPackage={handleCreateDeliveryPackage}
             onRunQa={handleRunQa}
             onSaveAsReference={campaign?.clientProfileId ? handleSaveAsReference : undefined}
+            onGenerateLandingPage={handleGenerateLandingPage}
             qaAnalyzingId={creativeQa.isPending ? creativeQa.variables?.derivationId ?? null : null}
             savingReferenceId={savingReferenceId}
             approvingId={
@@ -569,6 +579,9 @@ export default function CampaignWorkspacePage() {
                 : null
             }
             regeneratingId={regenerateMutation.isPending ? regenerateMutation.variables?.id ?? null : null}
+            landingPageGeneratingId={
+              generateLandingPage.isPending ? generateLandingPage.variables?.derivationId ?? null : null
+            }
             isGeneratingMore={createDerivations.isPending}
           />
         );

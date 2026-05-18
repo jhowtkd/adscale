@@ -373,6 +373,7 @@
     "scoreWeak": "Weak",
     "regenerateWithImprovements": "Regenerate with improvements",
     "generatePackage": "Generate package",
+    "generateLandingPage": "Generate landing page",
     "saveAsReference": "Save as reference",
     "referenceSaved": "Reference saved",
     "creativeScore": "Creative score",
@@ -613,7 +614,9 @@
     "derivationRejected": "Derivation rejected",
     "statusUpdateFailed": "Failed to update status",
     "exportReady": "Export ready — download started",
-    "exportFailed": "Failed to export"
+    "exportFailed": "Failed to export",
+    "landingPageReady": "Landing page ready — download started",
+    "landingPageFailed": "Failed to generate landing page"
   },
   "restyling": {
     "title": "Creative Restyling",
