@@ -6,6 +6,7 @@ import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import {
   getDerivationById,
   createDerivation,
+  getActiveChildrenByParent,
   updateDerivationStatus,
 } from "@/server/repositories/derivation";
 import { refreshCampaignStatus, updateCampaign } from "@/server/repositories/campaign";
@@ -13,7 +14,7 @@ import { getUserLocale } from "@/server/repositories/user";
 import { inngest } from "@/server/jobs/client";
 
 const bodySchema = z.object({
-  feedback: z.string().optional(),
+  feedback: z.string().trim().max(2000).optional(),
 });
 
 export async function POST(
@@ -25,17 +26,22 @@ export async function POST(
     const locale = await getUserLocale(user.id);
     const { id } = await params;
 
-    const original = await getDerivationById(id, workspace.id);
-    if (!original) {
-      return apiError("derivationNotFound", 404);
-    }
-
     const body = await request.json();
     const parsed = bodySchema.safeParse(body);
     if (!parsed.success) {
       return apiError("invalidRequestBody", 400, parsed.error.flatten());
     }
     const feedback = parsed.data.feedback;
+
+    const original = await getDerivationById(id, workspace.id);
+    if (!original) {
+      return apiError("derivationNotFound", 404);
+    }
+
+    const activeChildren = await getActiveChildrenByParent(id, workspace.id);
+    if (activeChildren.length > 0) {
+      return apiError("derivationRegenerationInProgress", 429);
+    }
 
     const newDerivation = await createDerivation({
       campaignId: original.campaignId,

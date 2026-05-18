@@ -59,6 +59,11 @@ export async function POST(
       return apiError("campaignNotFound", 404);
     }
 
+    const existingPlan = await getPlanByCampaign(campaignId, workspace.id);
+    if (existingPlan) {
+      return NextResponse.json({ plan: existingPlan, cached: true });
+    }
+
     const assets = await getAssetsByCampaign(campaignId, workspace.id);
     const asset = assets[0];
 

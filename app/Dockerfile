@@ -10,9 +10,6 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Copy env file for build time
-COPY .env.docker .env.local
-
 # Build the application
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build

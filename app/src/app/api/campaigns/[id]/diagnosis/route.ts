@@ -34,6 +34,16 @@ export async function POST(
     if (campaign.generationMode !== "art_variation") {
       return apiError("diagnosisOnlyForArtVariation", 400);
     }
+    if (campaign.creativeDiagnosisStatus === "analyzing") {
+      return apiError("diagnosisInProgress", 429);
+    }
+    if (campaign.creativeDiagnosisStatus === "ready" && campaign.creativeDiagnosis) {
+      return NextResponse.json({
+        diagnosis: campaign.creativeDiagnosis,
+        source: campaign.creativeDiagnosisSource ?? "cached",
+        cached: true,
+      });
+    }
 
     // Mark as analyzing
     await updateCampaign(id, workspace.id, {

@@ -20,19 +20,19 @@ const fieldSchema = z.enum([
 ]);
 
 const briefingSchema = z.object({
-  name: z.string().min(1),
-  client: z.string().min(1),
-  objective: z.string().optional().default(""),
-  audience: z.string().optional().default(""),
-  platforms: z.array(z.string()).optional().default([]),
-  tone: z.string().optional().default(""),
-  offer: z.string().optional().default(""),
-  constraints: z.string().optional().default(""),
-  notes: z.string().optional().default(""),
+  name: z.string().min(1).max(255),
+  client: z.string().min(1).max(255),
+  objective: z.string().max(2000).optional().default(""),
+  audience: z.string().max(2000).optional().default(""),
+  platforms: z.array(z.string().max(80)).max(10).optional().default([]),
+  tone: z.string().max(500).optional().default(""),
+  offer: z.string().max(1000).optional().default(""),
+  constraints: z.string().max(2000).optional().default(""),
+  notes: z.string().max(3000).optional().default(""),
   generationMode: z.enum(["art_variation", "format_adaptation", "restyling"]),
   creativeLevel: z.enum(["conservative", "balanced", "bold"]),
-  targetFormat: z.string().optional().default(""),
-  ctaVariants: z.array(z.string()).max(3).optional().default([]),
+  targetFormat: z.string().max(20).optional().default(""),
+  ctaVariants: z.array(z.string().max(120)).max(3).optional().default([]),
 });
 
 const bodySchema = z.object({

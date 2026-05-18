@@ -401,3 +401,312 @@ DATABASE_URL=postgresql://localhost:5432/test BETTER_AUTH_SECRET=012345678901234
 
 - Codex tightened the worker output before integration so the landing-page prompt includes client, product, and campaign notes, not only objective, audience, offer, tone, constraints, and CTA variants.
 - Codex reran the focused tests, drizzle check, lint, and dummy-env build in the active workspace after porting the approved diff.
+
+
+---
+
+# Security Gap Audit
+
+Date: 2026-05-18
+Mode: Read-only audit
+
+## Completion Contract
+
+Objective: Test the ADScale app for concrete security gaps in authentication, authorization, object access, storage/upload, generated HTML, dependency posture, and expensive AI/job endpoints.
+
+Constraints:
+- Keep product code read-only during the audit.
+- Use the real app code under `app/` as source of truth.
+- Use isolated worker context for delegated analysis.
+- If a critical/high issue requires a fix, stop and re-plan before implementation; fixes must follow TDD.
+
+Allowed write scope:
+- `tasks/todo.md` for plan, evidence, and final review notes.
+
+Out of scope:
+- Public internet attack testing.
+- Secret rotation or live account changes.
+- Committing, pushing, or changing production code.
+
+Verification commands:
+- `npm audit --omit=dev --audit-level=moderate`
+- route/API focused tests where a suspected gap has an existing or quick test path
+- static code review of `app/src/app/api`, `app/src/server/auth`, `app/src/server/repositories`, `app/src/server/storage`, middleware, and generated HTML rendering
+- Kimi/subagent read-only reviews in isolated context
+
+Acceptance criteria:
+- [ ] Attack surface mapped with reachability.
+- [ ] Dependency/security tooling run and results recorded.
+- [ ] Auth and workspace/IDOR checks reviewed for protected API routes.
+- [ ] Storage/upload and generated HTML paths reviewed.
+- [ ] Findings include file:line, exploit scenario, severity, and remediation.
+- [ ] Non-findings recorded to avoid duplicate review loops.
+
+Stop conditions:
+- A critical/high exploitable gap is confirmed and needs code changes.
+- Verification tooling cannot run for an environment reason that blocks confidence.
+- Worker output lacks evidence and must be narrowed/re-run.
+
+## Checklist
+
+- [x] Review repo instructions, lessons, and current workspace state.
+- [x] Create isolated Kimi worktree for read-only security pass.
+- [x] Map route/auth/storage/generated-output attack surface.
+- [x] Run dependency and static checks.
+- [x] Review delegated findings against source evidence.
+- [x] Document final review and remaining risks.
+
+## Review
+
+Status: Completed read-only audit. No product code was changed.
+
+### Commands Run & Results
+
+```bash
+cd app
+npm audit --omit=dev --audit-level=moderate
+# Failed: 19 vulnerabilities (1 low, 10 moderate, 8 high).
+# High advisories included next@16.2.4, OpenTelemetry Prometheus exporter chain,
+# fast-uri, fast-xml-builder, kysely, and protobufjs.
+
+npm ls next @opentelemetry/auto-instrumentations-node @opentelemetry/exporter-prometheus hono drizzle-kit next-intl fast-uri fast-xml-builder kysely protobufjs --depth=4
+# Confirmed vulnerable paths through next@16.2.4, inngest, better-auth/drizzle-orm,
+# @aws-sdk/xml-builder, shadcn/@modelcontextprotocol, next-intl, and drizzle-kit.
+
+npx drizzle-kit check
+# Passed.
+
+npm run test -- tests/integration/upload-flow.test.ts tests/integration/campaign-crud.test.ts src/server/services/landing-page-renderer.test.ts src/app/api/derivations/'[id]'/landing-page/route.test.ts src/app/api/derivations/'[id]'/delivery-package/route.test.ts src/app/api/derivations/'[id]'/qa/route.test.ts src/app/api/derivations/'[id]'/save-reference/route.test.ts src/app/api/client-profiles/route.test.ts src/app/api/client-profiles/'[id]'/references/route.test.ts
+# Passed: 9 files / 49 tests.
+
+npm run lint
+# Passed: 0 errors, 3 pre-existing warnings in template files.
+
+DATABASE_URL=postgresql://localhost:5432/test BETTER_AUTH_SECRET=01234567890123456789012345678901 BETTER_AUTH_URL=http://localhost:3000 OPENAI_API_KEY=sk-test1234567890123456789012345678901234567890 OPENAI_TEXT_MODEL=gpt-4o OPENAI_IMAGE_MODEL=gpt-image-1 R2_ACCOUNT_ID=test R2_ACCESS_KEY_ID=test R2_SECRET_ACCESS_KEY=test R2_BUCKET=test R2_PUBLIC_BASE_URL=https://test.example.com INNGEST_EVENT_KEY=test INNGEST_SIGNING_KEY=test APP_URL=http://localhost:3000 npm run build
+# Passed. Better Auth emitted expected low-entropy warnings for dummy secret.
+```
+
+### Findings
+
+#### HIGH-1: Regeneration can enqueue unlimited expensive image jobs
+
+Location:
+- `app/src/app/api/derivations/[id]/regenerate/route.ts:15`
+- `app/src/app/api/derivations/[id]/regenerate/route.ts:40`
+- `app/src/app/api/derivations/[id]/regenerate/route.ts:54`
+- contrast with the active-generation guard in `app/src/app/api/campaigns/[id]/derivations/route.ts:50`
+
+Exploit: Any authenticated user with access to a derivation can loop `POST /api/derivations/:id/regenerate`. The route accepts unbounded optional `feedback`, creates a new queued derivation each time, and immediately sends an Inngest `derivation.generate` event. The campaign generation endpoint has a queued/processing guard; this endpoint does not.
+
+Impact: Authenticated AI-spend and worker-queue DoS.
+
+Remediation: Add a per-source active-child guard, per-workspace/user quota or rate limit, and a max length for `feedback`.
+
+#### HIGH-2: Vulnerable runtime dependencies are present in production graph
+
+Location:
+- `app/package.json:34`
+- `app/package.json:37`
+- `app/package.json:38`
+- `app/package-lock.json:26`
+- `app/package-lock.json:29`
+
+Exploit: `npm audit` reports high-severity advisories for `next@16.2.4` and transitive production dependencies including the OpenTelemetry Prometheus exporter chain through `inngest`, `fast-uri`, `fast-xml-builder`, `kysely`, and `protobufjs`. The Next advisories include DoS, middleware/proxy bypass, cache poisoning, XSS, and SSRF classes.
+
+Impact: Depends on deployment shape, but the affected packages are in the runtime dependency graph, not only dev tooling.
+
+Remediation: Upgrade Next to the patched compatible release, then update/override vulnerable transitive packages through dependency upgrades or package-manager overrides. Re-run `npm audit --omit=dev --audit-level=moderate` after the bump.
+
+#### MEDIUM-3: Expensive AI endpoints are repeatable without quota, dedupe, or idempotency
+
+Location:
+- `app/src/app/api/derivations/[id]/landing-page/route.ts:43`
+- `app/src/app/api/derivations/[id]/landing-page/route.ts:50`
+- `app/src/app/api/campaigns/[id]/plan/route.ts:67`
+- `app/src/app/api/briefing-doctor/analyze/route.ts:116`
+- `app/src/app/api/derivations/[id]/qa/route.ts:27`
+- `app/src/app/api/campaigns/[id]/diagnosis/route.ts:54`
+
+Exploit: An authenticated user can repeatedly trigger synchronous OpenAI calls, R2 downloads/uploads, or image analysis. Landing-page generation also creates a new DB row and uploads a new HTML object on each request.
+
+Impact: Authenticated cost amplification and request-worker exhaustion.
+
+Remediation: Add per-workspace AI quotas/rate limits, request dedupe for identical approved-derivation actions, and "reuse latest completed result unless force=true" behavior.
+
+#### MEDIUM-4: Presigned uploads allow storage-cost abuse and orphaned objects
+
+Location:
+- `app/src/app/api/campaigns/[id]/assets/presign/route.ts:20`
+- `app/src/app/api/campaigns/[id]/assets/presign/route.ts:52`
+- `app/src/app/api/campaigns/[id]/assets/presign/route.ts:53`
+- `app/src/server/storage/r2.ts:21`
+
+Exploit: An authenticated user can repeatedly request presigned PUT URLs, upload up to 50MB per URL, and never call `/complete`. Because metadata is created only after completion, these objects are not tracked by the app and can accumulate in R2.
+
+Impact: Authenticated storage DoS / bill growth.
+
+Remediation: Persist pending upload records, enforce upload quotas, and add scheduled cleanup for uncompleted keys under `campaigns/:id/`.
+
+#### MEDIUM-5: Client reference creation accepts arbitrary storage object keys
+
+Location:
+- `app/src/app/api/client-profiles/[id]/references/route.ts:20`
+- `app/src/app/api/client-profiles/[id]/references/route.ts:55`
+- `app/src/app/api/client-profiles/[id]/references/route.ts:60`
+- `app/src/server/repositories/client-reference.ts:65`
+
+Exploit: `POST /api/client-profiles/:id/references` verifies that the profile belongs to the caller's workspace, but accepts `assetKey` directly from the request and persists it. A user who learns another workspace's R2 key can store that key as their own reference. Current generation only passes the key as prompt text, but this becomes direct cross-workspace object confusion if references are later displayed or downloaded by key.
+
+Impact: Tenant-integrity break and future IDOR risk.
+
+Remediation: Create references from owned asset/derivation IDs, or validate `assetKey` against a caller-owned `campaignAssets.key` or `derivations.outputKey` row before insert.
+
+#### MEDIUM-6: Docker build context includes `.env.docker` secrets in builder layer
+
+Location:
+- `app/.dockerignore:16`
+- `app/Dockerfile:13`
+- `app/Dockerfile:14`
+
+Exploit: `.dockerignore` explicitly allows `.env.docker`, and the Dockerfile copies it into `.env.local` during the builder stage. Even if final runtime layers do not copy `.env.local`, CI cache, image build logs, or accidental builder-stage publication can expose DB, OpenAI, R2, auth, and Inngest secrets.
+
+Impact: Build-chain secret disclosure.
+
+Remediation: Use BuildKit secrets or runtime environment injection. Do not include real secrets in Docker context or intermediate image layers.
+
+#### LOW-7: Campaign create/update can persist cross-workspace client profile IDs
+
+Location:
+- `app/src/app/api/campaigns/route.ts:26`
+- `app/src/app/api/campaigns/route.ts:57`
+- `app/src/app/api/campaigns/[id]/route.ts:30`
+- `app/src/server/repositories/campaign.ts:222`
+- `app/src/server/repositories/campaign.ts:304`
+- `app/src/server/db/schema.ts:192`
+
+Exploit: `clientProfileId` is accepted on campaign create/update and written directly. The DB FK proves the profile exists globally, not that it belongs to the campaign workspace. Current later lookups for selected references filter by workspace, so I did not confirm direct disclosure today.
+
+Impact: Tenant-integrity bug and future IDOR footgun.
+
+Remediation: When `clientProfileId` is non-null, validate `getClientProfile(workspace.id, clientProfileId)` before create/update. Normalize `selectedReferenceIds` to owned references as well.
+
+### Non-Findings
+
+- No unauthenticated object-data routes found. `health` is public and returns only service/timestamp.
+- Campaign, derivation, asset, template, plan, export, dashboard, QA, and review routes consistently pass `workspace.id` into repository lookups/updates.
+- Export paths scope through `getDerivationById(derivationId, workspaceId)` and `getApprovedDerivationsByCampaign(campaignId, workspaceId)`.
+- Generated landing-page HTML escapes text and image URL before interpolation; focused renderer tests passed.
+- Open redirects were not evident: auth redirects use fixed `/login`, and quick-tool redirects are server-generated relative campaign paths.
+- I did not confirm user-controlled SSRF. The only server-side external image fetch found uses the URL returned by OpenAI's image API.
+
+### Stop Condition Triggered
+
+High-severity gaps were confirmed. Do not apply fixes inside this read-only audit. Next step should be a correction plan with TDD-first tests for regeneration limits, quota/idempotency, dependency upgrades, and tenant-owned reference validation.
+
+# Security Gap Fixes
+
+Date: 2026-05-18
+Mode: Kimi-orchestrated implementation with Codex review/integration
+
+## Completion Contract
+
+Objective: Fix the concrete security gaps found in the audit without changing unrelated product behavior.
+
+Constraints:
+- Codex owns planning, review, integration, and final verification.
+- Kimi must work only in an isolated worktree and must not commit, merge, push, or touch secrets.
+- Keep the fix simple and local to the affected surfaces.
+- Add tests before or alongside fixes for every product-code security behavior changed.
+- Do not mask dependency problems by deleting functionality unless the package is unused or clearly misclassified.
+
+Allowed write scope:
+- `app/package.json`
+- `app/package-lock.json`
+- `app/Dockerfile`
+- `app/.dockerignore`
+- `app/src/app/api/**`
+- `app/src/server/**`
+- `app/drizzle/**`
+- `app/tests/**`
+- `app/src/**/*.test.ts`
+- `tasks/todo.md`
+
+Out of scope:
+- Secret rotation or live infrastructure changes.
+- New billing/product quota UI.
+- Reworking auth providers.
+- Changing public API contracts unless required for safety.
+- Commit/push.
+
+Verification commands:
+- `cd app && npm audit --omit=dev --audit-level=moderate`
+- `cd app && npx drizzle-kit check`
+- `cd app && npm run test -- tests/integration/upload-flow.test.ts tests/integration/campaign-crud.test.ts src/server/services/landing-page-renderer.test.ts src/app/api/derivations/'[id]'/landing-page/route.test.ts src/app/api/derivations/'[id]'/delivery-package/route.test.ts src/app/api/derivations/'[id]'/qa/route.test.ts src/app/api/derivations/'[id]'/save-reference/route.test.ts src/app/api/client-profiles/route.test.ts src/app/api/client-profiles/'[id]'/references/route.test.ts`
+- `cd app && npm run lint`
+- `cd app && DATABASE_URL=postgresql://localhost:5432/test BETTER_AUTH_SECRET=01234567890123456789012345678901 BETTER_AUTH_URL=http://localhost:3000 OPENAI_API_KEY=sk-test1234567890123456789012345678901234567890 OPENAI_TEXT_MODEL=gpt-4o OPENAI_IMAGE_MODEL=gpt-image-1 R2_ACCOUNT_ID=test R2_ACCESS_KEY_ID=test R2_SECRET_ACCESS_KEY=test R2_BUCKET=test R2_PUBLIC_BASE_URL=https://test.example.com INNGEST_EVENT_KEY=test INNGEST_SIGNING_KEY=test APP_URL=http://localhost:3000 npm run build`
+
+Acceptance criteria:
+- [x] Regeneration has a tested active-child guard and bounded feedback input.
+- [x] Repeatable expensive AI endpoints either reuse existing completed output where appropriate or enforce a tested cheap guard/idempotency check.
+- [x] Presigned uploads leave a trackable pending record or otherwise enforce app-owned cleanup/quota behavior with tests.
+- [x] Client reference creation validates that stored object keys belong to the current workspace.
+- [x] Campaign create/update validates `clientProfileId` belongs to the current workspace.
+- [x] Docker build no longer copies `.env.docker` or secrets into image layers/context.
+- [x] Production dependency audit is clean at `moderate` or every remaining advisory is explicitly non-runtime/unfixable with evidence.
+- [x] Existing focused behavior tests still pass.
+
+Stop conditions:
+- Dependency upgrades require a framework migration beyond this security patch.
+- Kimi changes unrelated product flows or broad architecture.
+- Tests cannot run because of an environmental blocker that prevents confidence.
+
+## Checklist
+
+- [x] Review repo instructions, lessons, current audit findings, and workspace state.
+- [x] Write correction contract and allowed scope.
+- [x] Create isolated Kimi worktree.
+- [x] Delegate implementation with contract and verification commands.
+- [x] Audit Kimi diff and evidence.
+- [x] Port approved patch to the main workspace.
+- [x] Rerun verification in the main workspace.
+- [x] Document final review.
+
+## Review
+
+Status: Completed. Kimi was delegated in `/Users/jhonatan/Repos/ADScale_2-kimi-security-fixes`, but produced no file diff after exploration, so Codex applied the controlled patch in the main workspace and verified it locally.
+
+### Changes
+
+- Added an active-child guard and 2000-character feedback cap to derivation regeneration.
+- Added idempotency/reuse guards for landing-page generation, creative plans, QA analysis, and creative diagnosis concurrency.
+- Added bounded input validation for Briefing Doctor prompt fields.
+- Added `pending_uploads` schema/migration plus presign/complete tracking for direct uploads.
+- Added workspace ownership checks for arbitrary client reference asset keys.
+- Added campaign create/update validation for `clientProfileId` and selected reference ownership.
+- Removed `.env.docker` from the Docker build path/context.
+- Upgraded runtime security posture: `next` and `eslint-config-next` to `16.2.6`, `next-intl` lockfile update, and package overrides for patched `postcss` and `esbuild`.
+
+### Verification
+
+```bash
+cd app
+npm audit --omit=dev --audit-level=moderate
+# Passed: found 0 vulnerabilities.
+
+npx drizzle-kit check
+# Passed: Everything's fine.
+
+npm run test -- tests/integration/upload-flow.test.ts tests/integration/campaign-crud.test.ts src/server/services/landing-page-renderer.test.ts src/app/api/derivations/'[id]'/regenerate/route.test.ts src/app/api/derivations/'[id]'/landing-page/route.test.ts src/app/api/derivations/'[id]'/delivery-package/route.test.ts src/app/api/derivations/'[id]'/qa/route.test.ts src/app/api/derivations/'[id]'/save-reference/route.test.ts src/app/api/client-profiles/route.test.ts src/app/api/client-profiles/'[id]'/references/route.test.ts
+# Passed: 10 files / 56 tests.
+
+npm run lint
+# Passed: 0 errors, 3 pre-existing warnings in template files.
+
+DATABASE_URL=postgresql://localhost:5432/test BETTER_AUTH_SECRET=01234567890123456789012345678901 BETTER_AUTH_URL=http://localhost:3000 OPENAI_API_KEY=sk-test1234567890123456789012345678901234567890 OPENAI_TEXT_MODEL=gpt-4o OPENAI_IMAGE_MODEL=gpt-image-1 R2_ACCOUNT_ID=test R2_ACCESS_KEY_ID=test R2_SECRET_ACCESS_KEY=test R2_BUCKET=test R2_PUBLIC_BASE_URL=https://test.example.com INNGEST_EVENT_KEY=test INNGEST_SIGNING_KEY=test APP_URL=http://localhost:3000 npm run build
+# Passed. Better Auth low-entropy warnings were expected because dummy env vars were used.
+```
+
+### Residual Notes
+
+- Upload cleanup is now trackable through `pending_uploads`; actual R2 object deletion for expired pending keys should be scheduled as an operational job if storage churn becomes significant.
+- The Kimi worktree remains disposable and contains no useful diff.

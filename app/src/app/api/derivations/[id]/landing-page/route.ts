@@ -7,6 +7,7 @@ import {
   createLandingPage,
   completeLandingPage,
   failLandingPage,
+  getLandingPagesByDerivation,
 } from "@/server/repositories/landing-page";
 import { generateLandingPageStructure } from "@/server/ai/landing-page";
 import { renderLandingPageHtml } from "@/server/services/landing-page-renderer";
@@ -38,6 +39,20 @@ export async function POST(
     const campaign = await getCampaignById(derivation.campaignId, workspace.id);
     if (!campaign) {
       return apiError("campaignNotFound", 404);
+    }
+
+    const existingPages = await getLandingPagesByDerivation(workspace.id, derivation.id);
+    const completedPage = existingPages.find((page) => page.status === "completed" && page.htmlKey);
+    if (completedPage?.htmlKey) {
+      const downloadUrl = await getPresignedDownloadUrl(completedPage.htmlKey);
+      return NextResponse.json({
+        landingPage: completedPage,
+        downloadUrl,
+        expiresAt: new Date(Date.now() + 300 * 1000).toISOString(),
+      });
+    }
+    if (existingPages.some((page) => page.status === "queued")) {
+      return apiError("landingPageGenerationInProgress", 429);
     }
 
     const landingPage = await createLandingPage({

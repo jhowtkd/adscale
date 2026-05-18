@@ -13,4 +13,3 @@ README.md
 !.next/standalone
 !.next/static
 !docker/
-!.env.docker

@@ -6,6 +6,7 @@ import {
   createClientReference,
   getClientProfile,
   getClientReferences,
+  isWorkspaceReferenceAssetKey,
 } from "@/server/repositories/client-reference";
 
 const referenceKindSchema = z.enum([
@@ -55,6 +56,14 @@ export async function POST(
     const profile = await getClientProfile(workspace.id, id);
     if (!profile) {
       return apiError("clientProfileNotFound", 404);
+    }
+
+    const ownsAssetKey = await isWorkspaceReferenceAssetKey(
+      workspace.id,
+      parsed.data.assetKey
+    );
+    if (!ownsAssetKey) {
+      return apiError("referenceAssetNotFound", 400);
     }
 
     const reference = await createClientReference(workspace.id, {

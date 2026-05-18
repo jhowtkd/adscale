@@ -3,6 +3,7 @@ import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCampaignById } from "@/server/repositories/campaign";
+import { createPendingUpload, failExpiredPendingUploads } from "@/server/repositories/asset";
 import { getPresignedUploadUrl } from "@/server/storage/r2";
 
 const presignSchema = z.object({
@@ -18,6 +19,7 @@ const ALLOWED_TYPES = [
 ];
 
 const MAX_SIZE = 50 * 1024 * 1024; // 50MB
+const PRESIGN_TTL_SECONDS = 300;
 
 export async function POST(
   request: Request,
@@ -49,10 +51,23 @@ export async function POST(
       return apiError("fileTooLarge", 400);
     }
 
+    await failExpiredPendingUploads();
+
     const key = `campaigns/${campaignId}/${crypto.randomUUID()}-${filename}`;
     const url = await getPresignedUploadUrl(key, contentType, contentLength);
+    const expiresAt = new Date(Date.now() + PRESIGN_TTL_SECONDS * 1000);
 
-    return NextResponse.json({ url, key });
+    await createPendingUpload({
+      workspaceId: workspace.id,
+      campaignId,
+      key,
+      filename,
+      contentType,
+      contentLength,
+      expiresAt,
+    });
+
+    return NextResponse.json({ url, key, expiresAt: expiresAt.toISOString() });
   } catch (error) {
     return handleApiError(error, "campaigns.[id].assets.presign.POST");
   }

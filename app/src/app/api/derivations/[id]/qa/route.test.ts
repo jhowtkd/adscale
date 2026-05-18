@@ -190,6 +190,32 @@ describe("POST /api/derivations/[id]/qa", () => {
     );
   });
 
+  it("returns cached QA without re-running analyzer", async () => {
+    mockGetDerivationById.mockResolvedValue({
+      id: "derivation-id",
+      status: "approved",
+      outputKey: "derivations/test.png",
+      campaignId: "campaign-id",
+      workspaceId: "workspace-1",
+      qaStatus: "passed",
+      qaChecklist: { legibility: { status: "passed", note: "Readable" } },
+      qaIssues: [],
+      qaSuggestions: ["Keep it"],
+    } as Awaited<ReturnType<typeof getDerivationById>>);
+
+    const res = await POST(requestFor("derivation-id"), {
+      params: paramsWith("derivation-id"),
+    });
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.cached).toBe(true);
+    expect(body.qa.status).toBe("passed");
+    expect(mockGetCampaignById).not.toHaveBeenCalled();
+    expect(mockDownloadBuffer).not.toHaveBeenCalled();
+    expect(mockAnalyzeCreativeQa).not.toHaveBeenCalled();
+  });
+
   it("returns 500 when analyzer throws", async () => {
     mockGetDerivationById.mockResolvedValue({
       id: "derivation-id",

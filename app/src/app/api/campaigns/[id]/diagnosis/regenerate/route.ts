@@ -22,6 +22,9 @@ export async function POST(
     if (campaign.generationMode !== "art_variation") {
       return apiError("diagnosisOnlyForArtVariation", 400);
     }
+    if (campaign.creativeDiagnosisStatus === "analyzing") {
+      return apiError("diagnosisInProgress", 429);
+    }
 
     await updateCampaign(id, workspace.id, {
       creativeDiagnosisStatus: "analyzing",

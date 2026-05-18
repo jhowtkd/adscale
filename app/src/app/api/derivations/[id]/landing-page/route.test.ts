@@ -22,6 +22,7 @@ vi.mock("@/server/repositories/landing-page", () => ({
   createLandingPage: vi.fn(),
   completeLandingPage: vi.fn(),
   failLandingPage: vi.fn(),
+  getLandingPagesByDerivation: vi.fn(),
 }));
 
 vi.mock("@/server/ai/landing-page", () => ({
@@ -48,6 +49,7 @@ import {
   createLandingPage,
   completeLandingPage,
   failLandingPage,
+  getLandingPagesByDerivation,
 } from "@/server/repositories/landing-page";
 import { generateLandingPageStructure } from "@/server/ai/landing-page";
 import { uploadBuffer } from "@/server/storage/r2";
@@ -57,6 +59,7 @@ const mockGetCampaignById = vi.mocked(getCampaignById);
 const mockCreateLandingPage = vi.mocked(createLandingPage);
 const mockCompleteLandingPage = vi.mocked(completeLandingPage);
 const mockFailLandingPage = vi.mocked(failLandingPage);
+const mockGetLandingPagesByDerivation = vi.mocked(getLandingPagesByDerivation);
 const mockGenerateLandingPageStructure = vi.mocked(generateLandingPageStructure);
 const mockUploadBuffer = vi.mocked(uploadBuffer);
 
@@ -74,6 +77,7 @@ function paramsWith(id: string) {
 describe("POST /api/derivations/[id]/landing-page", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetLandingPagesByDerivation.mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -221,6 +225,63 @@ describe("POST /api/derivations/[id]/landing-page", () => {
       Buffer.from("<html>test</html>", "utf-8"),
       "text/html"
     );
+  });
+
+  it("returns existing completed landing page without regenerating", async () => {
+    mockGetDerivationById.mockResolvedValue({
+      id: "derivation-id",
+      status: "approved",
+      outputKey: "derivations/test.png",
+      campaignId: "campaign-id",
+      workspaceId: "workspace-1",
+    } as Awaited<ReturnType<typeof getDerivationById>>);
+    mockGetCampaignById.mockResolvedValue({
+      id: "campaign-id",
+      name: "Summer Sale",
+    } as Awaited<ReturnType<typeof getCampaignById>>);
+    mockGetLandingPagesByDerivation.mockResolvedValue([
+      {
+        id: "lp-existing",
+        status: "completed",
+        htmlKey: "landing-pages/workspace-1/derivation-id/existing.html",
+        title: "Existing",
+      },
+    ] as Awaited<ReturnType<typeof getLandingPagesByDerivation>>);
+
+    const res = await POST(requestFor("derivation-id"), {
+      params: paramsWith("derivation-id"),
+    });
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.cached).toBeUndefined();
+    expect(body.landingPage.id).toBe("lp-existing");
+    expect(mockCreateLandingPage).not.toHaveBeenCalled();
+    expect(mockGenerateLandingPageStructure).not.toHaveBeenCalled();
+  });
+
+  it("rejects duplicate landing page generation while queued", async () => {
+    mockGetDerivationById.mockResolvedValue({
+      id: "derivation-id",
+      status: "approved",
+      outputKey: "derivations/test.png",
+      campaignId: "campaign-id",
+      workspaceId: "workspace-1",
+    } as Awaited<ReturnType<typeof getDerivationById>>);
+    mockGetCampaignById.mockResolvedValue({
+      id: "campaign-id",
+      name: "Summer Sale",
+    } as Awaited<ReturnType<typeof getCampaignById>>);
+    mockGetLandingPagesByDerivation.mockResolvedValue([
+      { id: "lp-queued", status: "queued", htmlKey: null },
+    ] as Awaited<ReturnType<typeof getLandingPagesByDerivation>>);
+
+    const res = await POST(requestFor("derivation-id"), {
+      params: paramsWith("derivation-id"),
+    });
+
+    expect(res.status).toBe(429);
+    expect(mockCreateLandingPage).not.toHaveBeenCalled();
   });
 
   it("marks landing page failed when AI or upload throws", async () => {

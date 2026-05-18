@@ -6,6 +6,10 @@ import {
   createCampaign,
   getCampaigns,
 } from "@/server/repositories/campaign";
+import {
+  getClientProfile,
+  getClientReferencesByIds,
+} from "@/server/repositories/client-reference";
 
 const createCampaignSchema = z.object({
   name: z.string().min(1).max(255),
@@ -52,6 +56,23 @@ export async function POST(request: Request) {
 
     if (!parsed.success) {
       return apiError("invalidInput", 400, parsed.error.flatten());
+    }
+
+    if (parsed.data.clientProfileId) {
+      const profile = await getClientProfile(workspace.id, parsed.data.clientProfileId);
+      if (!profile) {
+        return apiError("clientProfileNotFound", 400);
+      }
+    }
+
+    if (parsed.data.selectedReferenceIds?.length) {
+      const references = await getClientReferencesByIds(
+        workspace.id,
+        parsed.data.selectedReferenceIds
+      );
+      if (references.length !== parsed.data.selectedReferenceIds.length) {
+        return apiError("clientReferenceNotFound", 400);
+      }
     }
 
     const campaign = await createCampaign(workspace.id, {

@@ -253,6 +253,34 @@ export const campaignAssets = adscaleSchema.table(
     index("campaign_assets_campaign_id_idx").on(table.campaignId),
     index("campaign_assets_workspace_id_idx").on(table.workspaceId),
   ]
+  );
+
+export const pendingUploads = adscaleSchema.table(
+  "pending_uploads",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    campaignId: uuid("campaign_id")
+      .notNull()
+      .references(() => campaigns.id, { onDelete: "cascade" }),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    key: text("key").notNull().unique(),
+    filename: text("filename").notNull(),
+    contentType: text("content_type").notNull(),
+    contentLength: integer("content_length").notNull(),
+    status: text("status").notNull().default("pending"),
+    expiresAt: timestamp("expires_at", { mode: "date" }).notNull(),
+    completedAt: timestamp("completed_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("pending_uploads_campaign_id_idx").on(table.campaignId),
+    index("pending_uploads_workspace_id_idx").on(table.workspaceId),
+    index("pending_uploads_status_expires_at_idx").on(table.status, table.expiresAt),
+  ]
 );
 
 export const creativePlans = adscaleSchema.table(

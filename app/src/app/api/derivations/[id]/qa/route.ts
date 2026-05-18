@@ -20,6 +20,18 @@ export async function POST(
     if (!derivation) return apiError("derivationNotFound", 404);
     if (derivation.status !== "approved") return apiError("derivationNotApprovedForQa", 409);
     if (!derivation.outputKey) return apiError("derivationMissingOutput", 400);
+    if (derivation.qaStatus && derivation.qaStatus !== "pending") {
+      return NextResponse.json({
+        qa: {
+          status: derivation.qaStatus,
+          checklist: derivation.qaChecklist,
+          issues: derivation.qaIssues ?? [],
+          suggestions: derivation.qaSuggestions ?? [],
+        },
+        derivation,
+        cached: true,
+      });
+    }
 
     const campaign = await getCampaignById(derivation.campaignId, workspace.id);
     if (!campaign) return apiError("campaignNotFound", 404);

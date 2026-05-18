@@ -1,6 +1,8 @@
 import { eq, and, desc, inArray } from "drizzle-orm";
 import { db } from "../db";
 import { clientProfiles, clientReferences } from "../db/schema";
+import { isWorkspaceAssetKey } from "./asset";
+import { isWorkspaceDerivationOutputKey } from "./derivation";
 
 export type ClientReferenceKind =
   | "style"
@@ -112,4 +114,14 @@ export async function getClientReferencesByIds(
       )
     )
     .orderBy(desc(clientReferences.createdAt));
+}
+
+export async function isWorkspaceReferenceAssetKey(
+  workspaceId: string,
+  assetKey: string
+) {
+  return (
+    (await isWorkspaceAssetKey(workspaceId, assetKey)) ||
+    (await isWorkspaceDerivationOutputKey(workspaceId, assetKey))
+  );
 }

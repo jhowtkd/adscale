@@ -9,6 +9,10 @@ import {
 } from "@/server/repositories/campaign";
 import { getAssetsByCampaign } from "@/server/repositories/asset";
 import { getDerivationsByCampaign } from "@/server/repositories/derivation";
+import {
+  getClientProfile,
+  getClientReferencesByIds,
+} from "@/server/repositories/client-reference";
 import { deleteObject } from "@/server/storage/r2";
 
 const updateCampaignSchema = z.object({
@@ -70,6 +74,23 @@ export async function PATCH(
 
     if (!parsed.success) {
       return apiError("invalidInput", 400, parsed.error.flatten());
+    }
+
+    if (parsed.data.clientProfileId) {
+      const profile = await getClientProfile(workspace.id, parsed.data.clientProfileId);
+      if (!profile) {
+        return apiError("clientProfileNotFound", 400);
+      }
+    }
+
+    if (parsed.data.selectedReferenceIds?.length) {
+      const references = await getClientReferencesByIds(
+        workspace.id,
+        parsed.data.selectedReferenceIds
+      );
+      if (references.length !== parsed.data.selectedReferenceIds.length) {
+        return apiError("clientReferenceNotFound", 400);
+      }
     }
 
     const campaign = await updateCampaign(id, workspace.id, parsed.data);

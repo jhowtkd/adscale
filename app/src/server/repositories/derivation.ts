@@ -173,6 +173,39 @@ export async function getActivePackageChildren({
     );
 }
 
+export async function getActiveChildrenByParent(
+  parentId: string,
+  workspaceId: string
+) {
+  return db
+    .select()
+    .from(derivations)
+    .where(
+      and(
+        eq(derivations.parentId, parentId),
+        eq(derivations.workspaceId, workspaceId),
+        inArray(derivations.status, ["queued", "processing"])
+      )
+    );
+}
+
+export async function isWorkspaceDerivationOutputKey(
+  workspaceId: string,
+  assetKey: string
+) {
+  const result = await db
+    .select({ id: derivations.id })
+    .from(derivations)
+    .where(
+      and(
+        eq(derivations.workspaceId, workspaceId),
+        eq(derivations.outputKey, assetKey)
+      )
+    )
+    .limit(1);
+  return result.length > 0;
+}
+
 export async function updateDerivationScore(
   id: string,
   workspaceId: string,

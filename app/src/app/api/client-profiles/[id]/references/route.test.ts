@@ -14,6 +14,7 @@ vi.mock("@/server/repositories/client-reference", () => ({
   getClientReferences: vi.fn(),
   createClientReference: vi.fn(),
   getClientProfile: vi.fn(() => Promise.resolve({ id: "profile-id", workspaceId: "workspace-1" })),
+  isWorkspaceReferenceAssetKey: vi.fn(() => Promise.resolve(true)),
 }));
 
 vi.mock("next-intl/server", () => ({
@@ -24,11 +25,13 @@ import {
   getClientReferences,
   createClientReference,
   getClientProfile,
+  isWorkspaceReferenceAssetKey,
 } from "@/server/repositories/client-reference";
 
 const mockGetClientReferences = vi.mocked(getClientReferences);
 const mockCreateClientReference = vi.mocked(createClientReference);
 const mockGetClientProfile = vi.mocked(getClientProfile);
+const mockIsWorkspaceReferenceAssetKey = vi.mocked(isWorkspaceReferenceAssetKey);
 
 function requestWith(body: unknown): Request {
   return new Request(
@@ -103,6 +106,21 @@ describe("POST /api/client-profiles/[id]/references", () => {
 
     expect(res.status).toBe(201);
     expect(body.reference).toEqual(reference);
+    expect(mockIsWorkspaceReferenceAssetKey).toHaveBeenCalledWith(
+      "workspace-1",
+      "assets/key.png"
+    );
+  });
+
+  it("rejects asset keys that do not belong to the workspace", async () => {
+    mockIsWorkspaceReferenceAssetKey.mockResolvedValueOnce(false);
+
+    const res = await POST(requestWith({ assetKey: "assets/key.png", label: "Hero", kind: "style" }), {
+      params: paramsWith("profile-id"),
+    });
+
+    expect(res.status).toBe(400);
+    expect(mockCreateClientReference).not.toHaveBeenCalled();
   });
 
   it("rejects missing assetKey", async () => {
