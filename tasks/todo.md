@@ -132,6 +132,34 @@ npx eslint src/server/validation/env.ts src/server/db/schema.ts tests/unit/billi
 - Implemented through an isolated Kimi worktree, then reviewed and ported only the approved diff back to the main checkout.
 - The Drizzle migration was written manually because this repo already has manually maintained migration files beyond the journal snapshot.
 
+## Implementation Review: Stripe Checkout and Portal
+
+Date: 2026-05-19
+Status: Completed
+
+### Files Changed
+
+- `app/src/server/billing/plans.ts` — server-side plan key to Stripe price ID mapping.
+- `app/src/server/billing/stripe.ts` — Stripe client initialized from env.
+- `app/src/server/billing/sessions.ts` — customer reuse/create flow plus Checkout and Portal session creation.
+- `app/src/server/repositories/billing.ts` — workspace-scoped billing customer lookup and upsert.
+- `app/src/app/api/billing/checkout/route.ts` — authenticated subscription Checkout endpoint.
+- `app/src/app/api/billing/portal/route.ts` — authenticated Billing Portal endpoint.
+- Focused tests for route behavior and session helper behavior.
+
+### Commands Run & Results
+
+```bash
+cd app
+npm run test -- src/server/billing/sessions.test.ts src/app/api/billing/checkout/route.test.ts src/app/api/billing/portal/route.test.ts  # 3 files / 10 passed
+npx eslint src/server/billing/plans.ts src/server/billing/stripe.ts src/server/billing/sessions.ts src/server/billing/sessions.test.ts src/server/repositories/billing.ts src/app/api/billing/checkout/route.ts src/app/api/billing/checkout/route.test.ts src/app/api/billing/portal/route.ts src/app/api/billing/portal/route.test.ts  # passed
+```
+
+### Notes
+
+- Checkout creates or reuses a Stripe customer per workspace and attaches workspace/user/plan metadata to the session.
+- Portal intentionally requires a previously saved Stripe customer, so users without billing history get a controlled 404 instead of a broken Stripe call.
+
 ---
 
 # Novas Sugestoes de Melhorias

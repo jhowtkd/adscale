@@ -1,0 +1,16 @@
+import { env } from "@/server/validation/env";
+
+export const billingPlanKeys = ["starter", "growth", "scale"] as const;
+
+export type BillingPlanKey = (typeof billingPlanKeys)[number];
+
+const priceIdsByPlan: Record<BillingPlanKey, string> = {
+  starter: env.STRIPE_STARTER_PRICE_ID,
+  growth: env.STRIPE_GROWTH_PRICE_ID,
+  scale: env.STRIPE_SCALE_PRICE_ID,
+};
+
+export function getStripePriceId(planKey: BillingPlanKey) {
+  return priceIdsByPlan[planKey];
+}
+
