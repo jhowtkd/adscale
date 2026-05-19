@@ -264,6 +264,29 @@ npm run build  # passed with dummy env; only Better Auth low-entropy dummy secre
 - Settings now has a real checkout/portal path instead of only static pricing simulation.
 - Build includes `/api/billing/status`, `/api/billing/checkout`, `/api/billing/portal`, and `/api/billing/webhook`.
 
+## Launch Review
+
+Date: 2026-05-19
+Status: Completed
+
+Review doc saved at `docs/plans/2026-05-19-finalizacao-prompt-auth-billing-review.md`.
+
+Final continuation added:
+
+- `app/src/lib/hooks/use-billing.ts`
+- `app/src/lib/hooks/use-billing.test.tsx`
+- `app/src/components/layout/TopBar.tsx` now reads real billing credits.
+- Settings billing/plans now use the shared billing hook.
+
+Final verification:
+
+```bash
+cd app
+npm run test -- src/lib/hooks/use-billing.test.tsx src/server/billing/events.test.ts src/app/api/billing/webhook/route.test.ts src/server/billing/credits.test.ts src/server/billing/gates.test.ts src/server/billing/sessions.test.ts src/app/api/billing/checkout/route.test.ts src/app/api/billing/portal/route.test.ts  # 8 files / 28 passed
+npx eslint src/lib/hooks/use-billing.ts src/lib/hooks/use-billing.test.tsx src/components/settings/BillingTab.tsx src/components/settings/PlansTab.tsx src/components/layout/TopBar.tsx  # passed
+npm run build  # passed with dummy env; Better Auth low-entropy dummy secret warning only
+```
+
 ---
 
 # Novas Sugestoes de Melhorias

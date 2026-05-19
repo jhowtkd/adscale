@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useAppStore } from "@/lib/store";
 import { authClient } from "@/lib/auth-client";
 import { useDashboard } from "@/lib/hooks/use-dashboard";
+import { useBillingStatus } from "@/lib/hooks/use-billing";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -37,6 +38,7 @@ export default function TopBar() {
   const [notificationsCleared, setNotificationsCleared] = useState(false);
   const { data: session } = authClient.useSession();
   const { data: dashboardData } = useDashboard();
+  const { data: billingStatus } = useBillingStatus();
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -62,6 +64,7 @@ export default function TopBar() {
   }, [displayName]);
   const notificationItems = notificationsCleared ? [] : dashboardData?.recentActivity ?? [];
   const globalSearch = searchParams.get("q") ?? "";
+  const creditBalance = billingStatus?.creditBalance ?? user.credits;
 
   const updateGlobalSearch = (value: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -144,7 +147,7 @@ export default function TopBar() {
           )}
         >
           <Coins size={14} />
-          <span>{user.credits} {tCommon("credits")}</span>
+          <span>{creditBalance} {tCommon("credits")}</span>
         </div>
 
         {/* Language Switcher */}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Calculator, CreditCard, DollarSign, ShieldCheck, TrendingUp } from "lucide-react";
 import {
@@ -10,19 +10,11 @@ import {
   USD_BRL_PLANNING_RATE,
   usdCurrency,
 } from "./pricing-model";
+import { useBillingPortal, useBillingStatus } from "@/lib/hooks/use-billing";
 
 export default function BillingTab() {
-  const [billingStatus, setBillingStatus] = useState<{
-    hasCustomer: boolean;
-    subscription: {
-      status: string;
-      planKey: string;
-      currentPeriodEnd: string | null;
-      cancelAtPeriodEnd: boolean;
-    } | null;
-    creditBalance: number;
-  } | null>(null);
-  const [portalLoading, setPortalLoading] = useState(false);
+  const { data: billingStatus } = useBillingStatus();
+  const portal = useBillingPortal();
   const [campaignsPerMonth, setCampaignsPerMonth] = useState(pricingAssumptions.campaignsPerMonth);
   const [imagesPerCampaign, setImagesPerCampaign] = useState(pricingAssumptions.imagesPerCampaign);
   const [planInputTokens, setPlanInputTokens] = useState(pricingAssumptions.planInputTokens);
@@ -52,33 +44,6 @@ export default function BillingTab() {
       referenceImageTokens,
     ]
   );
-
-  useEffect(() => {
-    let mounted = true;
-    fetch("/api/billing/status")
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data) => {
-        if (mounted && data?.billing) setBillingStatus(data.billing);
-      })
-      .catch(() => {});
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  async function openPortal() {
-    setPortalLoading(true);
-    try {
-      const response = await fetch("/api/billing/portal", { method: "POST" });
-      const data = await response.json();
-      if (!response.ok || !data.url) {
-        throw new Error(data.code ?? "portal_failed");
-      }
-      window.location.href = data.url;
-    } finally {
-      setPortalLoading(false);
-    }
-  }
 
   return (
     <motion.div
@@ -157,11 +122,11 @@ export default function BillingTab() {
             </div>
             <button
               type="button"
-              onClick={openPortal}
-              disabled={!billingStatus?.hasCustomer || portalLoading}
+              onClick={() => portal.mutate()}
+              disabled={!billingStatus?.hasCustomer || portal.isPending}
               className="mt-5 h-10 w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] text-sm font-medium text-[var(--text-primary)] transition-all hover:border-[var(--border-medium)] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {portalLoading ? "Abrindo..." : "Gerenciar cobrança"}
+              {portal.isPending ? "Abrindo..." : "Gerenciar cobrança"}
             </button>
           </div>
 
