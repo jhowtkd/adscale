@@ -15,6 +15,13 @@ const envSchema = z.object({
   INNGEST_EVENT_KEY: z.string(),
   INNGEST_SIGNING_KEY: z.string(),
   APP_URL: z.string().url(),
+  STRIPE_SECRET_KEY: z.string().startsWith("sk_"),
+  STRIPE_WEBHOOK_SECRET: z.string().startsWith("whsec_"),
+  STRIPE_STARTER_PRICE_ID: z.string().startsWith("price_"),
+  STRIPE_GROWTH_PRICE_ID: z.string().startsWith("price_"),
+  STRIPE_SCALE_PRICE_ID: z.string().startsWith("price_"),
+  STRIPE_SUCCESS_URL: z.string().url(),
+  STRIPE_CANCEL_URL: z.string().url(),
 });
 
 export const env = envSchema.parse(process.env);

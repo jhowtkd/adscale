@@ -114,6 +114,101 @@ export const workspaceMembers = adscaleSchema.table(
   ]
 );
 
+// ============================================
+// Billing tables
+// ============================================
+
+export const billingCustomers = adscaleSchema.table(
+  "billing_customers",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .unique()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    stripeCustomerId: text("stripe_customer_id").notNull().unique(),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("billing_customers_workspace_id_idx").on(table.workspaceId),
+    index("billing_customers_stripe_customer_id_idx").on(table.stripeCustomerId),
+  ]
+);
+
+export const subscriptions = adscaleSchema.table(
+  "subscriptions",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    billingCustomerId: uuid("billing_customer_id").references(() => billingCustomers.id, {
+      onDelete: "set null",
+    }),
+    stripeSubscriptionId: text("stripe_subscription_id").notNull().unique(),
+    stripeCustomerId: text("stripe_customer_id").notNull(),
+    status: text("status").notNull(),
+    planKey: text("plan_key").notNull(),
+    priceId: text("price_id").notNull(),
+    currentPeriodStart: timestamp("current_period_start", { mode: "date" }),
+    currentPeriodEnd: timestamp("current_period_end", { mode: "date" }),
+    cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("subscriptions_workspace_id_idx").on(table.workspaceId),
+    index("subscriptions_billing_customer_id_idx").on(table.billingCustomerId),
+    index("subscriptions_status_idx").on(table.status),
+  ]
+);
+
+export const creditGrants = adscaleSchema.table(
+  "credit_grants",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    source: text("source").notNull(),
+    sourceId: text("source_id"),
+    amount: integer("amount").notNull(),
+    remaining: integer("remaining").notNull(),
+    expiresAt: timestamp("expires_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("credit_grants_workspace_id_idx").on(table.workspaceId),
+    index("credit_grants_source_id_idx").on(table.sourceId),
+  ]
+);
+
+export const processedStripeEvents = adscaleSchema.table(
+  "processed_stripe_events",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    stripeEventId: text("stripe_event_id").notNull().unique(),
+    type: text("type").notNull(),
+    payload: jsonb("payload"),
+    processedAt: timestamp("processed_at", { mode: "date" }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("processed_stripe_events_stripe_event_id_idx").on(table.stripeEventId),
+    index("processed_stripe_events_type_idx").on(table.type),
+  ]
+);
+
 export const clientProfiles = adscaleSchema.table(
   "client_profiles",
   {

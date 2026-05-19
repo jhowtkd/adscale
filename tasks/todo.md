@@ -105,6 +105,33 @@ Mode: Brainstorming / planning only
 
 Plano inicial criado a partir do estado atual do repositorio. Direcao aprovada: manter Better Auth como auth principal do MVP e integrar Stripe como fonte de verdade de cobranca. Design salvo em `docs/plans/2026-05-19-finalizacao-prompt-auth-billing-design.md`; plano de implementacao salvo em `docs/plans/2026-05-19-finalizacao-prompt-auth-billing.md`.
 
+## Implementation Review: Billing Foundation
+
+Date: 2026-05-19
+Status: Completed
+
+### Files Changed
+
+- `app/package.json` / `app/package-lock.json` — added the Stripe SDK dependency.
+- `app/src/server/validation/env.ts` — added required Stripe secret, webhook, price ID and redirect URL variables.
+- `app/src/server/db/schema.ts` — added billing customers, subscriptions, credit grants and processed Stripe event tables under `adscale_app`.
+- `app/drizzle/0012_billing_foundation.sql` — additive migration for the billing foundation.
+- `app/tests/unit/billing-schema.test.ts` — focused schema contract test.
+
+### Commands Run & Results
+
+```bash
+cd app
+npm run test -- tests/unit/billing-schema.test.ts  # 1 file / 4 passed
+npx drizzle-kit check                              # passed
+npx eslint src/server/validation/env.ts src/server/db/schema.ts tests/unit/billing-schema.test.ts  # passed
+```
+
+### Notes
+
+- Implemented through an isolated Kimi worktree, then reviewed and ported only the approved diff back to the main checkout.
+- The Drizzle migration was written manually because this repo already has manually maintained migration files beyond the journal snapshot.
+
 ---
 
 # Novas Sugestoes de Melhorias
