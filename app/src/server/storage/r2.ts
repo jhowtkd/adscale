@@ -29,7 +29,10 @@ export async function getPresignedUploadUrl(
     ContentType: contentType,
     ContentLength: contentLength,
   });
-  return getSignedUrl(r2, command, { expiresIn: 300 });
+  return getSignedUrl(r2, command, {
+    expiresIn: 300,
+    signableHeaders: new Set(["content-type"]),
+  });
 }
 
 export async function getPresignedDownloadUrl(key: string) {

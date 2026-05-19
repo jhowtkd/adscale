@@ -8,7 +8,7 @@ import {
   getPendingUpload,
   markPendingUploadCompleted,
 } from "@/server/repositories/asset";
-import { headObject } from "@/server/storage/r2";
+import { headObject, deleteObject } from "@/server/storage/r2";
 
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
 const MAX_SIZE = 50 * 1024 * 1024; // 50MB
@@ -73,6 +73,7 @@ export async function POST(
 
     // Verify Content-Type matches (ignore charset suffix)
     if (head.ContentType && head.ContentType.split(";")[0].trim() !== type) {
+      await deleteObject(key);
       return apiError("assetTypeMismatch", 400);
     }
 
@@ -81,6 +82,7 @@ export async function POST(
       typeof head.ContentLength === "number" &&
       Math.abs(head.ContentLength - size) > 1024
     ) {
+      await deleteObject(key);
       return apiError("assetSizeMismatch", 400);
     }
 

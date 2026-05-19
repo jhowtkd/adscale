@@ -3,7 +3,7 @@ import { handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCampaignById } from "@/server/repositories/campaign";
 import { getAssetsByCampaign } from "@/server/repositories/asset";
-import { env } from "@/server/validation/env";
+import { getPresignedDownloadUrl } from "@/server/storage/r2";
 
 export async function GET(
   request: Request,
@@ -19,10 +19,12 @@ export async function GET(
     }
 
     const assets = await getAssetsByCampaign(campaignId, workspace.id);
-    const withUrls = assets.map((asset) => ({
-      ...asset,
-      url: `${env.R2_PUBLIC_BASE_URL.replace(/\/$/, "")}/${asset.key}`,
-    }));
+    const withUrls = await Promise.all(
+      assets.map(async (asset) => ({
+        ...asset,
+        url: await getPresignedDownloadUrl(asset.key),
+      }))
+    );
 
     return NextResponse.json({ assets: withUrls });
   } catch (error) {

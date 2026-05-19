@@ -19,7 +19,7 @@ import { db } from "@/server/db";
 import { derivations } from "@/server/db/schema";
 import { getUserLocale } from "@/server/repositories/user";
 import { getAssetsByCampaign } from "@/server/repositories/asset";
-import { env } from "@/server/validation/env";
+import { getPresignedDownloadUrl } from "@/server/storage/r2";
 
 const STALE_ACTIVE_DERIVATION_MS = 10 * 60 * 1000;
 
@@ -202,10 +202,12 @@ export async function GET(
     }
 
     const items = await getDerivationsByCampaign(campaignId, workspace.id);
-    const derivationsWithImageUrl = items.map((d) => ({
-      ...d,
-      imageUrl: d.outputKey ? `${env.R2_PUBLIC_BASE_URL.replace(/\/$/, "")}/${d.outputKey}` : null,
-    }));
+    const derivationsWithImageUrl = await Promise.all(
+      items.map(async (d) => ({
+        ...d,
+        imageUrl: d.outputKey ? await getPresignedDownloadUrl(d.outputKey) : null,
+      }))
+    );
     return NextResponse.json({ derivations: derivationsWithImageUrl });
   } catch (error) {
     return handleApiError(error, "campaigns.[id].derivations.GET");

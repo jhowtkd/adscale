@@ -33,6 +33,14 @@ export async function POST(
       return apiError("campaignNotFound", 404);
     }
 
+    const contentLengthHeader = request.headers.get("content-length");
+    if (contentLengthHeader) {
+      const contentLength = parseInt(contentLengthHeader, 10);
+      if (!isNaN(contentLength) && contentLength > MAX_SIZE) {
+        return apiError("fileTooLarge", 400);
+      }
+    }
+
     const formData = await request.formData();
     const file = formData.get("file");
 
