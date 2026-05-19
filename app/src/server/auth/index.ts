@@ -3,6 +3,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "../db";
 import * as schema from "../db/schema";
 import { env } from "../validation/env";
+import { buildTrustedOrigins } from "./config";
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -11,17 +12,18 @@ export const auth = betterAuth({
   }),
   secret: env.BETTER_AUTH_SECRET,
   baseURL: env.BETTER_AUTH_URL,
-  trustedOrigins: [
-    env.BETTER_AUTH_URL,
-    env.APP_URL,
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-  ],
+  trustedOrigins: buildTrustedOrigins({
+    betterAuthUrl: env.BETTER_AUTH_URL,
+    appUrl: env.APP_URL,
+    isDevelopment: process.env.NODE_ENV !== "production",
+  }),
   emailAndPassword: {
     enabled: true,
     autoSignIn: true,
+    // Password reset needs a production email provider decision before enabling sendResetPassword.
   },
   socialProviders: {},
+  // Email verification needs a production email provider decision before enabling emailVerification.
   databaseHooks: {
     user: {
       create: {
