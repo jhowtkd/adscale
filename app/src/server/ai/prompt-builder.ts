@@ -173,6 +173,50 @@ export interface DerivationPromptConfig {
   clientReferences?: ClientReferenceContext[];
 }
 
+function buildHardRulesSection(
+  config: Pick<DerivationPromptConfig, "ctaText" | "locale" | "targetFormat"> & {
+    isArtVariation: boolean;
+    hasPlanCtas: boolean;
+  }
+): string[] {
+  const { ctaText, locale, targetFormat = "1:1", isArtVariation, hasPlanCtas } = config;
+  const rules = [
+    "",
+    "HARD RULES / NON-NEGOTIABLE CONTRACT:",
+    `- Target format: ${targetFormat}. This target format overrides any flexible layout suggestion.`,
+    "- CRITICAL LOGO RULE: Do NOT invent a logo. Preserve the logo ONLY if it already exists in the reference asset. If no logo is visible in the reference, do not add one.",
+  ];
+
+  if (ctaText) {
+    rules.push(
+      `- Applied CTA text for this piece: ${ctaText}`,
+      "- CRITICAL LITERAL CTA RULE: The CTA text above is MANDATORY and FINAL.",
+      "- Do not use synonyms, paraphrases, or alternative phrasing for this CTA.",
+      "- Do not translate the CTA into any language.",
+      "- Do not rewrite or rephrase the CTA text.",
+      "- Do not replace it with plan-recommended CTAs or any other text.",
+      "- The exact CTA text above must appear verbatim in the generated output."
+    );
+
+    if (hasPlanCtas) {
+      rules.push("- CTA Recommendations are secondary context only and must not override the literal CTA text.");
+    }
+  } else if (isArtVariation) {
+    rules.push("- Applied CTA text for this piece: use the original CTA from the reference.");
+  }
+
+  const imageLanguage = imageLanguageInstruction(locale).trim();
+  if (imageLanguage) {
+    rules.push(`- ${imageLanguage}`);
+  }
+
+  rules.push(
+    "- Creative strategy, diagnosis, feedback, and client references are flexible guidance only; they must not override these hard rules."
+  );
+
+  return rules;
+}
+
 export function buildDerivationPrompt(config: DerivationPromptConfig) {
   const {
     campaign,
@@ -199,6 +243,16 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
   const parts: string[] = [
     "You are an advertising derivation engine, not a generic creative generator.",
   ];
+
+  parts.push(
+    ...buildHardRulesSection({
+      ctaText,
+      locale,
+      targetFormat,
+      isArtVariation,
+      hasPlanCtas: Boolean(plan?.ctas?.length),
+    })
+  );
 
   if (isArtVariation) {
     parts.push(
@@ -266,30 +320,12 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
 
   parts.push(
     "",
-    "CRITICAL LOGO RULE: Do NOT invent a logo. Preserve the logo ONLY if it already exists in the reference asset. If no logo is visible in the reference, do not add one.",
-    "",
     `Campaign: ${campaign?.name || "N/A"}`,
     `Client/Product: ${campaign?.client || campaign?.product || "N/A"}`,
     `Objective: ${campaign?.objective || "N/A"}`,
     `Constraints: ${campaign?.constraints || "None"}`,
     `Notes: ${campaign?.notes || "None"}`,
   );
-
-  if (ctaText) {
-    parts.push(`\nApplied CTA text for this piece: ${ctaText}`);
-    parts.push(`
-CRITICAL LITERAL CTA RULE: The CTA text above is MANDATORY and FINAL.
-- Do not use synonyms, paraphrases, or alternative phrasing for this CTA.
-- Do not translate the CTA into any language.
-- Do not rewrite or rephrase the CTA text.
-- Do not replace it with plan-recommended CTAs or any other text.
-- The exact CTA text above must appear verbatim in the generated output.`);
-    if (plan?.ctas && plan.ctas.length > 0) {
-      parts.push(`\nCTA Recommendations are secondary context only and must not override the literal CTA text.`);
-    }
-  } else if (isArtVariation) {
-    parts.push(`\nApplied CTA text for this piece: (use the original CTA from the reference)`);
-  }
 
   if (plan) {
     parts.push(`\nCreative Strategy: ${plan.strategy}`);
@@ -355,8 +391,6 @@ CRITICAL LITERAL CTA RULE: The CTA text above is MANDATORY and FINAL.
   parts.push(
     "\nOutput: a polished, professional ad image suitable for paid social, with controlled variation and high brand fidelity."
   );
-
-  parts.push(imageLanguageInstruction(locale));
 
   return parts.join("\n");
 }

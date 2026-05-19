@@ -2,6 +2,30 @@ import { describe, it, expect } from "vitest";
 import { buildDerivationPrompt } from "./prompt-builder";
 
 describe("buildDerivationPrompt", () => {
+  it("places hard rules before flexible creative guidance", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "art_variation",
+      targetFormat: "1:1",
+      ctaText: "Comprar agora",
+      plan: {
+        id: "plan-1",
+        strategy: "Use a playful summer concept",
+        angles: ["Seasonal freshness"],
+        hooks: ["Oferta por tempo limitado"],
+        ctas: ["Ver ofertas"],
+      },
+    });
+
+    expect(prompt.indexOf("HARD RULES / NON-NEGOTIABLE CONTRACT")).toBeGreaterThan(-1);
+    expect(prompt.indexOf("HARD RULES / NON-NEGOTIABLE CONTRACT")).toBeLessThan(
+      prompt.indexOf("Creative Strategy: Use a playful summer concept")
+    );
+    expect(prompt.indexOf("CRITICAL LITERAL CTA RULE")).toBeLessThan(
+      prompt.indexOf("CTA Recommendations:")
+    );
+    expect(prompt).toContain("CTA Recommendations are secondary context only and must not override the literal CTA text.");
+  });
+
   it("describes the reference as approved winner for package format adaptation", () => {
     const prompt = buildDerivationPrompt({
       generationMode: "format_adaptation",
@@ -73,6 +97,7 @@ describe("buildDerivationPrompt", () => {
     expect(prompt).toContain("style: Hero shot. Use as auxiliary visual guidance");
     expect(prompt).toContain("negative: Old layout. Avoid repeating this pattern");
     expect(prompt).toContain("These references are auxiliary context only");
+    expect(prompt).toContain("must not override the primary campaign asset, literal CTA, target format, or campaign constraints");
   });
 
   it("does not include CLIENT REFERENCE LIBRARY when no references provided", () => {
@@ -97,5 +122,20 @@ describe("buildDerivationPrompt", () => {
     expect(prompt).toContain("CRITICAL LITERAL CTA RULE");
     expect(prompt).toContain("Buy Now");
     expect(prompt).toContain("CLIENT REFERENCE LIBRARY:");
+  });
+
+  it("keeps target format and pt-BR visible text requirements in hard rules", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "format_adaptation",
+      targetFormat: "9:16",
+      locale: "pt-BR",
+      ctaText: "Agende agora",
+    });
+
+    const hardRulesIndex = prompt.indexOf("HARD RULES / NON-NEGOTIABLE CONTRACT");
+    expect(hardRulesIndex).toBeGreaterThan(-1);
+    expect(prompt.indexOf("Target format: 9:16")).toBeGreaterThan(hardRulesIndex);
+    expect(prompt.indexOf("IDIOMA OBRIGATORIO")).toBeGreaterThan(hardRulesIndex);
+    expect(prompt).toContain("todo texto visivel, CTA, chamada, legenda e direcao textual deve estar em portugues brasileiro");
   });
 });
