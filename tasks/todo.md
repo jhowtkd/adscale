@@ -185,6 +185,7 @@ npx eslint src/server/billing/events.ts src/server/billing/events.test.ts src/se
 
 - Webhooks now reject missing/invalid Stripe signatures before event processing.
 - Subscription state is written only from signed Stripe events; checkout return URLs do not activate plans.
+- Paid invoices provision plan credits through `credit_grants` using the invoice ID as the source reference.
 
 ## Implementation Review: Credit Entitlement Service
 

@@ -1,13 +1,18 @@
 import type Stripe from "stripe";
 
 import {
+  createCreditGrant,
   getSubscriptionByStripeSubscriptionId,
   hasProcessedStripeEvent,
   recordProcessedStripeEvent,
   saveBillingCustomer,
   upsertSubscription,
 } from "@/server/repositories/billing";
-import { getPlanKeyForStripePriceId, getStripePriceId } from "./plans";
+import {
+  getPlanKeyForStripePriceId,
+  getStripePriceId,
+  planCreditGrants,
+} from "./plans";
 
 export type StripeEventProcessResult =
   | { status: "processed"; type: string }
@@ -86,6 +91,35 @@ async function processSubscriptionChanged(event: Stripe.Event) {
   });
 }
 
+async function processInvoicePaid(event: Stripe.Event) {
+  const invoice = event.data.object as Stripe.Invoice;
+  const invoiceWithSubscription = invoice as Stripe.Invoice & {
+    subscription?: string | Stripe.Subscription | null;
+  };
+  const stripeSubscriptionId = stringId(invoiceWithSubscription.subscription);
+  if (!stripeSubscriptionId) {
+    throw new Error("Missing invoice subscription");
+  }
+
+  const subscription = await getSubscriptionByStripeSubscriptionId(stripeSubscriptionId);
+  if (!subscription) {
+    throw new Error("Missing local subscription for paid invoice");
+  }
+
+  const amount = planCreditGrants[subscription.planKey as keyof typeof planCreditGrants];
+  if (!amount) {
+    throw new Error("Missing credit grant amount for plan");
+  }
+
+  await createCreditGrant({
+    workspaceId: subscription.workspaceId,
+    source: "stripe_invoice",
+    sourceId: invoice.id,
+    amount,
+    expiresAt: subscription.currentPeriodEnd,
+  });
+}
+
 export async function processStripeEvent(event: Stripe.Event): Promise<StripeEventProcessResult> {
   if (await hasProcessedStripeEvent(event.id)) {
     return { status: "skipped", reason: "already_processed" };
@@ -99,6 +133,9 @@ export async function processStripeEvent(event: Stripe.Event): Promise<StripeEve
     case "customer.subscription.updated":
     case "customer.subscription.deleted":
       await processSubscriptionChanged(event);
+      break;
+    case "invoice.paid":
+      await processInvoicePaid(event);
       break;
     default:
       return { status: "skipped", reason: "unsupported_event" };

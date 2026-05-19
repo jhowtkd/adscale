@@ -10,6 +10,7 @@ vi.mock("@/server/validation/env", () => ({
 }));
 
 vi.mock("@/server/repositories/billing", () => ({
+  createCreditGrant: vi.fn(),
   getSubscriptionByStripeSubscriptionId: vi.fn(),
   hasProcessedStripeEvent: vi.fn(),
   recordProcessedStripeEvent: vi.fn(),
@@ -18,6 +19,7 @@ vi.mock("@/server/repositories/billing", () => ({
 }));
 
 import {
+  createCreditGrant,
   getSubscriptionByStripeSubscriptionId,
   hasProcessedStripeEvent,
   recordProcessedStripeEvent,
@@ -26,6 +28,7 @@ import {
 } from "@/server/repositories/billing";
 import { processStripeEvent } from "./events";
 
+const mockCreateCreditGrant = vi.mocked(createCreditGrant);
 const mockGetSubscription = vi.mocked(getSubscriptionByStripeSubscriptionId);
 const mockHasProcessedStripeEvent = vi.mocked(hasProcessedStripeEvent);
 const mockRecordProcessedStripeEvent = vi.mocked(recordProcessedStripeEvent);
@@ -155,5 +158,39 @@ describe("processStripeEvent", () => {
         planKey: "scale",
       })
     );
+  });
+
+  it("grants plan credits from paid invoices", async () => {
+    const periodEnd = new Date("2026-06-19T00:00:00.000Z");
+    mockGetSubscription.mockResolvedValue({
+      id: "local-sub-id",
+      workspaceId: "workspace-1",
+      billingCustomerId: null,
+      stripeSubscriptionId: "sub_123",
+      stripeCustomerId: "cus_123",
+      status: "active",
+      planKey: "growth",
+      priceId: "price_growth",
+      currentPeriodStart: new Date("2026-05-19T00:00:00.000Z"),
+      currentPeriodEnd: periodEnd,
+      cancelAtPeriodEnd: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const event = stripeEvent("invoice.paid", {
+      id: "in_123",
+      subscription: "sub_123",
+    });
+
+    const result = await processStripeEvent(event);
+
+    expect(mockCreateCreditGrant).toHaveBeenCalledWith({
+      workspaceId: "workspace-1",
+      source: "stripe_invoice",
+      sourceId: "in_123",
+      amount: 500,
+      expiresAt: periodEnd,
+    });
+    expect(result).toEqual({ status: "processed", type: "invoice.paid" });
   });
 });

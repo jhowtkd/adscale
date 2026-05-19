@@ -4,6 +4,12 @@ export const billingPlanKeys = ["starter", "growth", "scale"] as const;
 
 export type BillingPlanKey = (typeof billingPlanKeys)[number];
 
+export const planCreditGrants: Record<BillingPlanKey, number> = {
+  starter: 100,
+  growth: 500,
+  scale: 1500,
+};
+
 const priceIdsByPlan: Record<BillingPlanKey, string> = {
   starter: env.STRIPE_STARTER_PRICE_ID,
   growth: env.STRIPE_GROWTH_PRICE_ID,
