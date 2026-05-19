@@ -1,3 +1,112 @@
+# Finalizacao do ADScale: Prompt, Auth e Billing
+
+Date: 2026-05-19
+Mode: Brainstorming / planning only
+
+## Checklist
+
+- [x] Revisar contexto do projeto, instrucoes locais e trabalho recente
+- [x] Mapear superficies atuais de prompt, autenticacao, cobranca e creditos
+- [x] Propor abordagens com trade-offs
+- [x] Dividir demandas em epicos priorizados
+- [x] Validar direcao com o usuario antes de escrever design doc
+- [x] Documentar design aprovado em `docs/plans/2026-05-19-finalizacao-prompt-auth-billing-design.md`
+- [x] Transicionar para plano de implementacao apos aprovacao
+
+## Contexto observado
+
+- O app real fica em `app/`; docs e tarefas ficam na raiz.
+- A geracao de imagens passa por `app/src/server/ai/prompt-builder.ts`, `app/src/server/jobs/derivation.ts` e os fluxos de campanha/derivacao.
+- Ja existem contratos importantes de prompt: CTA literal, modos `art_variation`, `format_adaptation`, `restyling`, nivel criativo, diagnostico criativo e referencias de cliente.
+- Autenticacao ja usa Better Auth com Drizzle/Postgres em `app/src/server/auth/index.ts` e tabelas de usuario/sessao/workspace em `app/src/server/db/schema.ts`.
+- Billing ainda parece ser principalmente UI/simulador em settings; Stripe nao esta instalado no pacote.
+- Ja existe `usage_events`, mas ainda nao ha uma camada clara de assinatura, creditos, entitlement e bloqueio de uso por plano.
+
+## Abordagens
+
+### Recomendada: endurecer o MVP atual com Better Auth + Stripe Checkout + creditos internos
+
+- Mantem Better Auth como autenticacao gratuita/self-hosted.
+- Adiciona Stripe Checkout/Customer Portal para reduzir codigo proprio de pagamento.
+- Usa webhooks Stripe como fonte de verdade de assinatura.
+- Usa creditos internos para controlar custo de IA e bloquear geracoes sem plano/credito.
+- Refina prompt/briefing com contratos testaveis antes de alterar muitos fluxos de UI.
+
+### Alternativa 2: migrar autenticacao para Supabase Auth
+
+- Bom free tier e painel pronto.
+- Aumenta risco de prazo porque migraria a base de auth/workspace ja existente.
+- Melhor apenas se houver necessidade forte de OAuth/email transacional/painel gerenciado imediatamente.
+
+### Alternativa 3: lancar sem billing real, apenas manual/trial
+
+- Menor escopo tecnico.
+- Nao resolve cobranca confiavel nem controle de custo.
+- Risco alto se usuarios reais puderem gerar imagens sem limite de pagamento.
+
+## Epicos propostos
+
+### Epico 1: Prompt Input Prime
+
+- Criar contrato de briefing obrigatorio por modo: objetivo, publico, oferta, CTA literal, elementos obrigatorios, elementos proibidos, formato e referencias.
+- Transformar campos soltos em prompt estruturado com prioridades: leis rigidas, brief de campanha, diagnostico, referencias, preferencias.
+- Adicionar prompt preview/debug interno para ver o prompt final salvo na derivacao.
+- Salvar metadados de prompt por derivacao para auditoria e reproducibilidade.
+- Criar testes de prompt para CTA literal, portugues, formato, referencias, diagnostico e limites por modo.
+- Validar manualmente com 3 campanhas reais: produto, servico e restyling.
+
+### Epico 2: Autenticacao Segura e Gratuita
+
+- Manter Better Auth + Postgres/Drizzle como base gratuita/self-hosted.
+- Revisar schema de usuario, sessao e workspace para garantir unicidade, ownership e roles.
+- Adicionar verificacao de email e reset de senha se ainda faltar provedor de email.
+- Endurecer sessoes: expiracao, refresh, trusted origins, logout, troca de senha revogando outras sessoes.
+- Mapear workspace ativo como fronteira obrigatoria em toda rota privada.
+- Adicionar testes de auth/workspace para acesso negado, troca de workspace e sessao ausente.
+
+### Epico 3: Stripe Billing e Entitlements
+
+- Instalar Stripe SDK e variaveis `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, price IDs e success/cancel URLs.
+- Criar tabelas para `stripeCustomerId`, assinatura, status, plano, priceId, periodo atual e creditos.
+- Criar endpoint de Checkout Session para escolher plano.
+- Criar Customer Portal para trocar/cancelar plano.
+- Criar webhook Stripe com verificacao de assinatura.
+- Processar eventos centrais: checkout concluido, assinatura criada/atualizada/cancelada, invoice pago/falhou.
+- Provisionar creditos/limites somente a partir dos webhooks.
+- Mostrar status real de plano/cobranca em Settings.
+
+### Epico 4: Creditos, Limites e Protecao de Custo
+
+- Definir custo em creditos por acao: plano criativo, geracao, restyling, pacote multiformato, landing page.
+- Criar servico central `canSpend` / `recordUsage` para todas as rotas/jobs.
+- Bloquear antes de enfileirar job quando nao houver credito/plano ativo.
+- Debitar somente quando a operacao chegar em estado cobrado, com idempotencia por job/derivacao.
+- Exibir creditos restantes no dashboard/topbar com fonte real.
+- Alertar em 80% e bloquear em 100%, preservando acesso de leitura/export.
+
+### Epico 5: Hardening Final e Prova de Pronto
+
+- Rodar migracoes/Drizzle check.
+- Rodar testes focados de prompt, auth, billing e creditos.
+- Rodar lint e build com env dummy completo.
+- Fazer smoke manual: signup/login, criar campanha, gerar imagem, consumir credito, checkout teste, webhook teste, portal.
+- Atualizar docs de setup de env e Stripe test mode.
+- Produzir checklist final de go/no-go.
+
+## Recomendacao de ordem
+
+1. Prompt Input Prime.
+2. Auth hardening.
+3. Stripe + entitlements.
+4. Creditos/bloqueios.
+5. Hardening final.
+
+## Review
+
+Plano inicial criado a partir do estado atual do repositorio. Direcao aprovada: manter Better Auth como auth principal do MVP e integrar Stripe como fonte de verdade de cobranca. Design salvo em `docs/plans/2026-05-19-finalizacao-prompt-auth-billing-design.md`; plano de implementacao salvo em `docs/plans/2026-05-19-finalizacao-prompt-auth-billing.md`.
+
+---
+
 # Novas Sugestoes de Melhorias
 
 Date: 2026-05-16
