@@ -12,6 +12,7 @@ import {
 import { refreshCampaignStatus, updateCampaign } from "@/server/repositories/campaign";
 import { getUserLocale } from "@/server/repositories/user";
 import { inngest } from "@/server/jobs/client";
+import { spendCreditsOrApiError } from "@/server/billing/gates";
 
 const bodySchema = z.object({
   feedback: z.string().trim().max(2000).optional(),
@@ -42,6 +43,14 @@ export async function POST(
     if (activeChildren.length > 0) {
       return apiError("derivationRegenerationInProgress", 429);
     }
+
+    const creditError = await spendCreditsOrApiError({
+      workspaceId: workspace.id,
+      action: "regeneration",
+      idempotencyKey: `regeneration:${id}:${feedback ?? ""}`,
+      metadata: { sourceDerivationId: id },
+    });
+    if (creditError) return creditError;
 
     const newDerivation = await createDerivation({
       campaignId: original.campaignId,

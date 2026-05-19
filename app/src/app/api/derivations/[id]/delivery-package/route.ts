@@ -11,6 +11,7 @@ import {
 import { updateCampaign } from "@/server/repositories/campaign";
 import { getUserLocale } from "@/server/repositories/user";
 import { inngest } from "@/server/jobs/client";
+import { spendCreditsOrApiError } from "@/server/billing/gates";
 
 const bodySchema = z.object({
   formats: z.array(z.enum(["1:1", "4:5", "9:16"])).min(1),
@@ -60,6 +61,17 @@ export async function POST(
     const formatsToCreate = generatableFormats.filter(
       (format) => !activeFormats.has(format)
     );
+
+    if (formatsToCreate.length > 0) {
+      const creditError = await spendCreditsOrApiError({
+        workspaceId: workspace.id,
+        action: "delivery_package_child",
+        amount: formatsToCreate.length * 5,
+        idempotencyKey: `delivery-package:${source.id}:${formatsToCreate.sort().join(",")}`,
+        metadata: { sourceDerivationId: source.id, formats: formatsToCreate },
+      });
+      if (creditError) return creditError;
+    }
 
     const queued: { id: string; format: string }[] = [];
     const failed: { id: string; format: string }[] = [];

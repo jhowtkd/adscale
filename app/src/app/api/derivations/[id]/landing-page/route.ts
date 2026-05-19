@@ -16,6 +16,7 @@ import {
   getPresignedDownloadUrl,
   getPublicUrl,
 } from "@/server/storage/r2";
+import { spendCreditsOrApiError } from "@/server/billing/gates";
 
 export async function POST(
   request: Request,
@@ -54,6 +55,14 @@ export async function POST(
     if (existingPages.some((page) => page.status === "queued")) {
       return apiError("landingPageGenerationInProgress", 429);
     }
+
+    const creditError = await spendCreditsOrApiError({
+      workspaceId: workspace.id,
+      action: "landing_page",
+      idempotencyKey: `landing-page:${derivation.id}`,
+      metadata: { sourceDerivationId: derivation.id, campaignId: derivation.campaignId },
+    });
+    if (creditError) return creditError;
 
     const landingPage = await createLandingPage({
       workspaceId: workspace.id,

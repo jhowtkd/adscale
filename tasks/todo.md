@@ -213,6 +213,30 @@ npx eslint src/server/billing/credits.ts src/server/billing/credits.test.ts src/
 - `recordUsage` returns duplicate results without debiting grants when the same idempotency key is retried.
 - Entitlement requires an active/trialing subscription plus enough unexpired credit grant balance.
 
+## Implementation Review: Credit Gates
+
+Date: 2026-05-19
+Status: Completed
+
+### Files Changed
+
+- `app/src/server/billing/gates.ts` — shared API helper that records usage or returns a 402 response.
+- Expensive route gates added to plan generation, image derivation, restyling, regeneration, delivery package children, and landing page generation.
+- Existing route tests updated to mock the billing gate; `app/src/server/billing/gates.test.ts` added for blocked/allowed behavior.
+
+### Commands Run & Results
+
+```bash
+cd app
+npm run test -- src/server/billing/gates.test.ts src/server/billing/credits.test.ts src/app/api/derivations/[id]/regenerate/route.test.ts src/app/api/derivations/[id]/delivery-package/route.test.ts src/app/api/derivations/[id]/landing-page/route.test.ts  # 5 files / 26 passed
+npx eslint src/server/billing/gates.ts src/server/billing/gates.test.ts src/app/api/campaigns/[id]/plan/route.ts src/app/api/campaigns/[id]/derivations/route.ts src/app/api/quick-tools/restyling/route.ts src/app/api/derivations/[id]/regenerate/route.ts src/app/api/derivations/[id]/regenerate/route.test.ts src/app/api/derivations/[id]/delivery-package/route.ts src/app/api/derivations/[id]/delivery-package/route.test.ts src/app/api/derivations/[id]/landing-page/route.ts src/app/api/derivations/[id]/landing-page/route.test.ts  # passed
+```
+
+### Notes
+
+- Routes now fail before expensive AI/work enqueue when the workspace has no active subscription or insufficient credits.
+- Idempotency keys are stable for retries on campaign/derivation/landing-page surfaces.
+
 ---
 
 # Novas Sugestoes de Melhorias

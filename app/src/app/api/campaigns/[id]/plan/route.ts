@@ -13,6 +13,7 @@ import {
 
 import { buildPlanPrompt } from "@/server/ai/prompt-builder";
 import { env } from "@/server/validation/env";
+import { spendCreditsOrApiError } from "@/server/billing/gates";
 
 const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 
@@ -63,6 +64,14 @@ export async function POST(
     if (existingPlan) {
       return NextResponse.json({ plan: existingPlan, cached: true });
     }
+
+    const creditError = await spendCreditsOrApiError({
+      workspaceId: workspace.id,
+      action: "creative_plan",
+      idempotencyKey: `creative-plan:${campaignId}`,
+      metadata: { campaignId },
+    });
+    if (creditError) return creditError;
 
     const assets = await getAssetsByCampaign(campaignId, workspace.id);
     const asset = assets[0];

@@ -20,6 +20,7 @@ import { derivations } from "@/server/db/schema";
 import { getUserLocale } from "@/server/repositories/user";
 import { getAssetsByCampaign } from "@/server/repositories/asset";
 import { getPresignedDownloadUrl } from "@/server/storage/r2";
+import { spendCreditsOrApiError } from "@/server/billing/gates";
 
 const STALE_ACTIVE_DERIVATION_MS = 10 * 60 * 1000;
 
@@ -129,6 +130,17 @@ export async function POST(
     }
 
     const jobsToCreate = isPreview ? jobs.slice(0, 1) : jobs;
+    const creditError = await spendCreditsOrApiError({
+      workspaceId: workspace.id,
+      action: "image_derivation",
+      amount: jobsToCreate.length * 5,
+      idempotencyKey: `derivations:${campaignId}:${isPreview ? "preview" : "batch"}:${jobsToCreate
+        .map((job) => `${job.variantIndex}:${job.ctaText ?? ""}:${job.format}`)
+        .join("|")}`,
+      metadata: { campaignId, count: jobsToCreate.length, preview: isPreview },
+    });
+    if (creditError) return creditError;
+
     const created: Awaited<ReturnType<typeof createDerivation>>[] = [];
     let queuedCount = 0;
 

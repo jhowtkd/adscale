@@ -39,6 +39,10 @@ vi.mock("@/server/storage/r2", () => ({
   getPublicUrl: vi.fn(() => "https://cdn.example.com/image.png"),
 }));
 
+vi.mock("@/server/billing/gates", () => ({
+  spendCreditsOrApiError: vi.fn(() => Promise.resolve(null)),
+}));
+
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
 }));

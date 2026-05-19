@@ -8,6 +8,7 @@ import { uploadBuffer, deleteObject } from "@/server/storage/r2";
 import { inngest } from "@/server/jobs/client";
 import { getUserLocale } from "@/server/repositories/user";
 import { parseStyleIntensity } from "@/lib/style-intensity";
+import { spendCreditsOrApiError } from "@/server/billing/gates";
 
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
 const MAX_SIZE = 50 * 1024 * 1024; // 50MB
@@ -62,6 +63,23 @@ export async function POST(request: Request) {
     if (!styleIntensity) {
       return apiError("invalidInput", 400, { message: "Invalid style intensity" });
     }
+
+    const creditError = await spendCreditsOrApiError({
+      workspaceId: workspace.id,
+      action: "restyling",
+      idempotencyKey: [
+        "restyling",
+        workspace.id,
+        name.trim(),
+        baseImage.name,
+        baseImage.size,
+        styleImage.name,
+        styleImage.size,
+        typeof ctaText === "string" ? ctaText.trim() : "",
+      ].join(":"),
+      metadata: { tool: "restyling" },
+    });
+    if (creditError) return creditError;
 
     // Create campaign with restyling mode
     const campaign = await createCampaign(workspace.id, {
