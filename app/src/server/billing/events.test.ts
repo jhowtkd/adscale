@@ -1,0 +1,159 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type Stripe from "stripe";
+
+vi.mock("@/server/validation/env", () => ({
+  env: {
+    STRIPE_STARTER_PRICE_ID: "price_starter",
+    STRIPE_GROWTH_PRICE_ID: "price_growth",
+    STRIPE_SCALE_PRICE_ID: "price_scale",
+  },
+}));
+
+vi.mock("@/server/repositories/billing", () => ({
+  getSubscriptionByStripeSubscriptionId: vi.fn(),
+  hasProcessedStripeEvent: vi.fn(),
+  recordProcessedStripeEvent: vi.fn(),
+  saveBillingCustomer: vi.fn(),
+  upsertSubscription: vi.fn(),
+}));
+
+import {
+  getSubscriptionByStripeSubscriptionId,
+  hasProcessedStripeEvent,
+  recordProcessedStripeEvent,
+  saveBillingCustomer,
+  upsertSubscription,
+} from "@/server/repositories/billing";
+import { processStripeEvent } from "./events";
+
+const mockGetSubscription = vi.mocked(getSubscriptionByStripeSubscriptionId);
+const mockHasProcessedStripeEvent = vi.mocked(hasProcessedStripeEvent);
+const mockRecordProcessedStripeEvent = vi.mocked(recordProcessedStripeEvent);
+const mockSaveBillingCustomer = vi.mocked(saveBillingCustomer);
+const mockUpsertSubscription = vi.mocked(upsertSubscription);
+
+function stripeEvent(type: string, object: unknown): Stripe.Event {
+  return {
+    id: `evt_${type}`,
+    type,
+    data: { object },
+  } as Stripe.Event;
+}
+
+describe("processStripeEvent", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockHasProcessedStripeEvent.mockResolvedValue(false);
+    mockGetSubscription.mockResolvedValue(
+      null as Awaited<ReturnType<typeof getSubscriptionByStripeSubscriptionId>>
+    );
+  });
+
+  it("skips already processed events", async () => {
+    mockHasProcessedStripeEvent.mockResolvedValue(true);
+
+    const result = await processStripeEvent(stripeEvent("checkout.session.completed", {}));
+
+    expect(result).toEqual({ status: "skipped", reason: "already_processed" });
+    expect(mockUpsertSubscription).not.toHaveBeenCalled();
+    expect(mockRecordProcessedStripeEvent).not.toHaveBeenCalled();
+  });
+
+  it("links checkout completion to workspace customer and subscription", async () => {
+    const event = stripeEvent("checkout.session.completed", {
+      customer: "cus_123",
+      subscription: "sub_123",
+      metadata: {
+        workspaceId: "workspace-1",
+        planKey: "growth",
+      },
+    });
+
+    const result = await processStripeEvent(event);
+
+    expect(mockSaveBillingCustomer).toHaveBeenCalledWith({
+      workspaceId: "workspace-1",
+      stripeCustomerId: "cus_123",
+    });
+    expect(mockUpsertSubscription).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: "workspace-1",
+        stripeCustomerId: "cus_123",
+        stripeSubscriptionId: "sub_123",
+        status: "checkout_completed",
+        planKey: "growth",
+        priceId: "price_growth",
+      })
+    );
+    expect(mockRecordProcessedStripeEvent).toHaveBeenCalledWith({
+      stripeEventId: event.id,
+      type: "checkout.session.completed",
+      payload: event,
+    });
+    expect(result).toEqual({ status: "processed", type: "checkout.session.completed" });
+  });
+
+  it("updates subscription state from Stripe subscription events", async () => {
+    const event = stripeEvent("customer.subscription.updated", {
+      id: "sub_123",
+      customer: "cus_123",
+      status: "active",
+      metadata: { workspaceId: "workspace-1" },
+      items: { data: [{ price: { id: "price_starter" } }] },
+      current_period_start: 1_700_000_000,
+      current_period_end: 1_702_592_000,
+      cancel_at_period_end: false,
+    });
+
+    const result = await processStripeEvent(event);
+
+    expect(mockUpsertSubscription).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: "workspace-1",
+        stripeCustomerId: "cus_123",
+        stripeSubscriptionId: "sub_123",
+        status: "active",
+        planKey: "starter",
+        priceId: "price_starter",
+        cancelAtPeriodEnd: false,
+      })
+    );
+    expect(result).toEqual({ status: "processed", type: "customer.subscription.updated" });
+  });
+
+  it("uses existing subscription workspace when deleted event lacks metadata", async () => {
+    mockGetSubscription.mockResolvedValue({
+      id: "local-sub-id",
+      workspaceId: "workspace-1",
+      billingCustomerId: null,
+      stripeSubscriptionId: "sub_123",
+      stripeCustomerId: "cus_123",
+      status: "active",
+      planKey: "scale",
+      priceId: "price_scale",
+      currentPeriodStart: null,
+      currentPeriodEnd: null,
+      cancelAtPeriodEnd: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const event = stripeEvent("customer.subscription.deleted", {
+      id: "sub_123",
+      customer: "cus_123",
+      status: "canceled",
+      metadata: {},
+      items: { data: [{ price: { id: "price_scale" } }] },
+      cancel_at_period_end: false,
+    });
+
+    await processStripeEvent(event);
+
+    expect(mockUpsertSubscription).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: "workspace-1",
+        status: "canceled",
+        planKey: "scale",
+      })
+    );
+  });
+});

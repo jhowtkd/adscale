@@ -59,7 +59,7 @@ describe("POST /api/billing/portal", () => {
   it("returns an error when Stripe does not return a portal URL", async () => {
     mockCreatePortalSession.mockResolvedValue({
       url: null,
-    } as Awaited<ReturnType<typeof createPortalSession>>);
+    } as unknown as Awaited<ReturnType<typeof createPortalSession>>);
 
     const res = await POST(new Request("http://localhost/api/billing/portal", {
       method: "POST",

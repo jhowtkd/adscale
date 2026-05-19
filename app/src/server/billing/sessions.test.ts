@@ -45,7 +45,9 @@ describe("billing sessions", () => {
   });
 
   it("creates a Stripe customer before checkout when workspace has none", async () => {
-    mockGetBillingCustomerByWorkspace.mockResolvedValue(null);
+    mockGetBillingCustomerByWorkspace.mockResolvedValue(
+      null as Awaited<ReturnType<typeof getBillingCustomerByWorkspace>>
+    );
     stripeMocks.customerCreate.mockResolvedValue({ id: "cus_new" });
     mockSaveBillingCustomer.mockResolvedValue({
       id: "billing-customer-id",
@@ -112,7 +114,9 @@ describe("billing sessions", () => {
   });
 
   it("returns null for portal when no customer exists", async () => {
-    mockGetBillingCustomerByWorkspace.mockResolvedValue(null);
+    mockGetBillingCustomerByWorkspace.mockResolvedValue(
+      null as Awaited<ReturnType<typeof getBillingCustomerByWorkspace>>
+    );
 
     await expect(
       createPortalSession({ workspace: { id: "workspace-1" } })

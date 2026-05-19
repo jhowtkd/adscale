@@ -14,3 +14,6 @@ export function getStripePriceId(planKey: BillingPlanKey) {
   return priceIdsByPlan[planKey];
 }
 
+export function getPlanKeyForStripePriceId(priceId: string) {
+  return billingPlanKeys.find((planKey) => priceIdsByPlan[planKey] === priceId) ?? null;
+}

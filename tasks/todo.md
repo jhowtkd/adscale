@@ -160,6 +160,32 @@ npx eslint src/server/billing/plans.ts src/server/billing/stripe.ts src/server/b
 - Checkout creates or reuses a Stripe customer per workspace and attaches workspace/user/plan metadata to the session.
 - Portal intentionally requires a previously saved Stripe customer, so users without billing history get a controlled 404 instead of a broken Stripe call.
 
+## Implementation Review: Signed Stripe Webhooks
+
+Date: 2026-05-19
+Status: Completed
+
+### Files Changed
+
+- `app/src/app/api/billing/webhook/route.ts` — raw-body webhook route with Stripe signature verification.
+- `app/src/server/billing/events.ts` — idempotent event processor for checkout completion and subscription created/updated/deleted.
+- `app/src/server/repositories/billing.ts` — subscription upsert, processed-event lookup/recording, and workspace-scoped subscription lookup.
+- `app/src/server/billing/plans.ts` — reverse lookup from Stripe price ID to internal plan key.
+- Focused webhook/event tests plus type-cleanup in existing billing tests.
+
+### Commands Run & Results
+
+```bash
+cd app
+npm run test -- src/server/billing/events.test.ts src/app/api/billing/webhook/route.test.ts src/server/billing/sessions.test.ts src/app/api/billing/portal/route.test.ts  # 4 files / 14 passed
+npx eslint src/server/billing/events.ts src/server/billing/events.test.ts src/server/billing/plans.ts src/server/billing/sessions.test.ts src/server/repositories/billing.ts src/app/api/billing/webhook/route.ts src/app/api/billing/webhook/route.test.ts src/app/api/billing/portal/route.test.ts  # passed
+```
+
+### Notes
+
+- Webhooks now reject missing/invalid Stripe signatures before event processing.
+- Subscription state is written only from signed Stripe events; checkout return URLs do not activate plans.
+
 ---
 
 # Novas Sugestoes de Melhorias

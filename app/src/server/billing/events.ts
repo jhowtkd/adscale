@@ -1,0 +1,114 @@
+import type Stripe from "stripe";
+
+import {
+  getSubscriptionByStripeSubscriptionId,
+  hasProcessedStripeEvent,
+  recordProcessedStripeEvent,
+  saveBillingCustomer,
+  upsertSubscription,
+} from "@/server/repositories/billing";
+import { getPlanKeyForStripePriceId, getStripePriceId } from "./plans";
+
+export type StripeEventProcessResult =
+  | { status: "processed"; type: string }
+  | { status: "skipped"; reason: "already_processed" | "unsupported_event" };
+
+function stringId(value: unknown) {
+  if (typeof value === "string") return value;
+  if (value && typeof value === "object" && "id" in value) {
+    const id = (value as { id?: unknown }).id;
+    return typeof id === "string" ? id : null;
+  }
+  return null;
+}
+
+function dateFromStripeSeconds(value: unknown) {
+  return typeof value === "number" ? new Date(value * 1000) : null;
+}
+
+function firstSubscriptionPriceId(subscription: Stripe.Subscription) {
+  return subscription.items.data[0]?.price.id ?? null;
+}
+
+async function processCheckoutCompleted(event: Stripe.Event) {
+  const session = event.data.object as Stripe.Checkout.Session;
+  const workspaceId = session.metadata?.workspaceId;
+  const planKey = session.metadata?.planKey;
+  const stripeCustomerId = stringId(session.customer);
+  const stripeSubscriptionId = stringId(session.subscription);
+
+  if (!workspaceId || !planKey || !stripeCustomerId || !stripeSubscriptionId) {
+    throw new Error("Missing checkout session billing metadata");
+  }
+
+  await saveBillingCustomer({ workspaceId, stripeCustomerId });
+  await upsertSubscription({
+    workspaceId,
+    stripeCustomerId,
+    stripeSubscriptionId,
+    status: "checkout_completed",
+    planKey,
+    priceId: getStripePriceId(planKey as Parameters<typeof getStripePriceId>[0]),
+  });
+}
+
+async function processSubscriptionChanged(event: Stripe.Event) {
+  const subscription = event.data.object as Stripe.Subscription;
+  const subscriptionPeriod = subscription as Stripe.Subscription & {
+    current_period_start?: number;
+    current_period_end?: number;
+  };
+  const stripeSubscriptionId = subscription.id;
+  const stripeCustomerId = stringId(subscription.customer);
+  const priceId = firstSubscriptionPriceId(subscription);
+  const existing = await getSubscriptionByStripeSubscriptionId(stripeSubscriptionId);
+  const workspaceId = subscription.metadata.workspaceId ?? existing?.workspaceId;
+  const planKey =
+    subscription.metadata.planKey ??
+    (priceId ? getPlanKeyForStripePriceId(priceId) : null) ??
+    existing?.planKey;
+
+  if (!workspaceId || !stripeCustomerId || !priceId || !planKey) {
+    throw new Error("Missing subscription billing metadata");
+  }
+
+  await saveBillingCustomer({ workspaceId, stripeCustomerId });
+  await upsertSubscription({
+    workspaceId,
+    stripeCustomerId,
+    stripeSubscriptionId,
+    status: subscription.status,
+    planKey,
+    priceId,
+    currentPeriodStart: dateFromStripeSeconds(subscriptionPeriod.current_period_start),
+    currentPeriodEnd: dateFromStripeSeconds(subscriptionPeriod.current_period_end),
+    cancelAtPeriodEnd: subscription.cancel_at_period_end,
+  });
+}
+
+export async function processStripeEvent(event: Stripe.Event): Promise<StripeEventProcessResult> {
+  if (await hasProcessedStripeEvent(event.id)) {
+    return { status: "skipped", reason: "already_processed" };
+  }
+
+  switch (event.type) {
+    case "checkout.session.completed":
+      await processCheckoutCompleted(event);
+      break;
+    case "customer.subscription.created":
+    case "customer.subscription.updated":
+    case "customer.subscription.deleted":
+      await processSubscriptionChanged(event);
+      break;
+    default:
+      return { status: "skipped", reason: "unsupported_event" };
+  }
+
+  await recordProcessedStripeEvent({
+    stripeEventId: event.id,
+    type: event.type,
+    payload: event,
+  });
+
+  return { status: "processed", type: event.type };
+}
