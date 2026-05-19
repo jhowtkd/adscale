@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Calculator, CreditCard, DollarSign, ShieldCheck, TrendingUp } from "lucide-react";
 import {
@@ -12,6 +12,17 @@ import {
 } from "./pricing-model";
 
 export default function BillingTab() {
+  const [billingStatus, setBillingStatus] = useState<{
+    hasCustomer: boolean;
+    subscription: {
+      status: string;
+      planKey: string;
+      currentPeriodEnd: string | null;
+      cancelAtPeriodEnd: boolean;
+    } | null;
+    creditBalance: number;
+  } | null>(null);
+  const [portalLoading, setPortalLoading] = useState(false);
   const [campaignsPerMonth, setCampaignsPerMonth] = useState(pricingAssumptions.campaignsPerMonth);
   const [imagesPerCampaign, setImagesPerCampaign] = useState(pricingAssumptions.imagesPerCampaign);
   const [planInputTokens, setPlanInputTokens] = useState(pricingAssumptions.planInputTokens);
@@ -41,6 +52,33 @@ export default function BillingTab() {
       referenceImageTokens,
     ]
   );
+
+  useEffect(() => {
+    let mounted = true;
+    fetch("/api/billing/status")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (mounted && data?.billing) setBillingStatus(data.billing);
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  async function openPortal() {
+    setPortalLoading(true);
+    try {
+      const response = await fetch("/api/billing/portal", { method: "POST" });
+      const data = await response.json();
+      if (!response.ok || !data.url) {
+        throw new Error(data.code ?? "portal_failed");
+      }
+      window.location.href = data.url;
+    } finally {
+      setPortalLoading(false);
+    }
+  }
 
   return (
     <motion.div
@@ -112,11 +150,19 @@ export default function BillingTab() {
               </h3>
             </div>
             <div className="space-y-3 text-sm">
-              <Line label="Crédito interno" value="R$ 0,50 protegido" />
-              <Line label="Imagem gpt-image-2" value="4 créditos" />
-              <Line label="Plano criativo" value="1 crédito" />
-              <Line label="Restilização" value="5-7 créditos" />
+              <Line label="Plano atual" value={billingStatus?.subscription?.planKey ?? "Sem plano ativo"} />
+              <Line label="Status" value={billingStatus?.subscription?.status ?? "Inativo"} />
+              <Line label="Créditos disponíveis" value={`${billingStatus?.creditBalance ?? 0}`} />
+              <Line label="Renovação" value={billingStatus?.subscription?.currentPeriodEnd ? new Date(billingStatus.subscription.currentPeriodEnd).toLocaleDateString("pt-BR") : "-"} />
             </div>
+            <button
+              type="button"
+              onClick={openPortal}
+              disabled={!billingStatus?.hasCustomer || portalLoading}
+              className="mt-5 h-10 w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] text-sm font-medium text-[var(--text-primary)] transition-all hover:border-[var(--border-medium)] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {portalLoading ? "Abrindo..." : "Gerenciar cobrança"}
+            </button>
           </div>
 
           <div className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-5">

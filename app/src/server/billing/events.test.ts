@@ -188,7 +188,7 @@ describe("processStripeEvent", () => {
       workspaceId: "workspace-1",
       source: "stripe_invoice",
       sourceId: "in_123",
-      amount: 500,
+      amount: 120,
       expiresAt: periodEnd,
     });
     expect(result).toEqual({ status: "processed", type: "invoice.paid" });

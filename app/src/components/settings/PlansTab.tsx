@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { Check, Crown, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -8,6 +9,29 @@ import { brlCurrency, calculateForecast, planTiers } from "./pricing-model";
 const forecast = calculateForecast();
 
 export default function PlansTab() {
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+
+  async function startCheckout(planName: string) {
+    const planKey = planName.toLowerCase();
+    if (!["starter", "growth", "scale"].includes(planKey)) return;
+
+    setLoadingPlan(planName);
+    try {
+      const response = await fetch("/api/billing/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planKey }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.url) {
+        throw new Error(data.code ?? "checkout_failed");
+      }
+      window.location.href = data.url;
+    } finally {
+      setLoadingPlan(null);
+    }
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -84,14 +108,16 @@ export default function PlansTab() {
 
               <button
                 type="button"
+                onClick={() => startCheckout(tier.name)}
+                disabled={tier.trial || loadingPlan === tier.name}
                 className={cn(
-                  "mt-5 h-10 rounded-md text-sm font-medium transition-all",
+                  "mt-5 h-10 rounded-md text-sm font-medium transition-all disabled:cursor-not-allowed disabled:opacity-60",
                   tier.recommended
                     ? "bg-[var(--accent-mint)] text-white hover:bg-[var(--accent-mint-light)]"
                     : "border border-[var(--border-dim)] bg-[var(--surface-raised)] text-[var(--text-primary)] hover:border-[var(--border-medium)]"
                 )}
               >
-                {tier.trial ? "Ativar trial" : "Selecionar plano"}
+                {loadingPlan === tier.name ? "Abrindo..." : tier.trial ? "Trial incluso" : "Selecionar plano"}
               </button>
             </article>
           );

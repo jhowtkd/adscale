@@ -238,6 +238,32 @@ npx eslint src/server/billing/gates.ts src/server/billing/gates.test.ts src/app/
 - Routes now fail before expensive AI/work enqueue when the workspace has no active subscription or insufficient credits.
 - Idempotency keys are stable for retries on campaign/derivation/landing-page surfaces.
 
+## Implementation Review: Billing UI and Final Verification
+
+Date: 2026-05-19
+Status: Completed
+
+### Files Changed
+
+- `app/src/app/api/billing/status/route.ts` — authenticated billing summary for Settings.
+- `app/src/components/settings/BillingTab.tsx` — shows real plan/status/credit balance and opens the Stripe portal.
+- `app/src/components/settings/PlansTab.tsx` — paid plan buttons now start Stripe Checkout.
+- `app/src/server/billing/plans.ts` / `events.ts` — plan credit grants aligned with displayed plan credits.
+
+### Commands Run & Results
+
+```bash
+cd app
+npm run test -- src/server/billing/events.test.ts src/app/api/billing/webhook/route.test.ts src/server/billing/credits.test.ts src/server/billing/gates.test.ts src/server/billing/sessions.test.ts src/app/api/billing/checkout/route.test.ts src/app/api/billing/portal/route.test.ts  # 7 files / 25 passed
+npx eslint src/server/billing/events.ts src/server/billing/events.test.ts src/server/billing/plans.ts src/server/repositories/billing.ts src/app/api/billing/status/route.ts src/components/settings/BillingTab.tsx src/components/settings/PlansTab.tsx  # passed
+npm run build  # passed with dummy env; only Better Auth low-entropy dummy secret warning
+```
+
+### Notes
+
+- Settings now has a real checkout/portal path instead of only static pricing simulation.
+- Build includes `/api/billing/status`, `/api/billing/checkout`, `/api/billing/portal`, and `/api/billing/webhook`.
+
 ---
 
 # Novas Sugestoes de Melhorias
