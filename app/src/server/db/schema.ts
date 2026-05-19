@@ -465,10 +465,14 @@ export const usageEvents = adscaleSchema.table(
       .references(() => workspaces.id, { onDelete: "cascade" }),
     type: text("type").notNull(),
     amount: integer("amount"),
+    idempotencyKey: text("idempotency_key").unique(),
     metadata: jsonb("metadata"),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
   },
-  (table) => [index("usage_events_workspace_id_idx").on(table.workspaceId)]
+  (table) => [
+    index("usage_events_workspace_id_idx").on(table.workspaceId),
+    index("usage_events_idempotency_key_idx").on(table.idempotencyKey),
+  ]
 );
 
 export const activityEvents = adscaleSchema.table(

@@ -1,8 +1,9 @@
-import { eq } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNull, or } from "drizzle-orm";
 
 import { db } from "../db";
 import {
   billingCustomers,
+  creditGrants,
   processedStripeEvents,
   subscriptions,
 } from "../db/schema";
@@ -118,6 +119,46 @@ export async function recordProcessedStripeEvent(data: {
       type: data.type,
       payload: data.payload,
     })
+    .returning();
+
+  return rows[0];
+}
+
+export async function getActiveSubscriptionByWorkspace(workspaceId: string) {
+  const rows = await db
+    .select()
+    .from(subscriptions)
+    .where(
+      and(
+        eq(subscriptions.workspaceId, workspaceId),
+        inArray(subscriptions.status, ["active", "trialing"])
+      )
+    )
+    .orderBy(desc(subscriptions.updatedAt))
+    .limit(1);
+
+  return rows[0] ?? null;
+}
+
+export async function getAvailableCreditGrants(workspaceId: string) {
+  return db
+    .select()
+    .from(creditGrants)
+    .where(
+      and(
+        eq(creditGrants.workspaceId, workspaceId),
+        gt(creditGrants.remaining, 0),
+        or(isNull(creditGrants.expiresAt), gt(creditGrants.expiresAt, new Date()))
+      )
+    )
+    .orderBy(asc(creditGrants.expiresAt), asc(creditGrants.createdAt));
+}
+
+export async function updateCreditGrantRemaining(id: string, remaining: number) {
+  const rows = await db
+    .update(creditGrants)
+    .set({ remaining })
+    .where(eq(creditGrants.id, id))
     .returning();
 
   return rows[0];

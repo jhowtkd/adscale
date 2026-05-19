@@ -186,6 +186,33 @@ npx eslint src/server/billing/events.ts src/server/billing/events.test.ts src/se
 - Webhooks now reject missing/invalid Stripe signatures before event processing.
 - Subscription state is written only from signed Stripe events; checkout return URLs do not activate plans.
 
+## Implementation Review: Credit Entitlement Service
+
+Date: 2026-05-19
+Status: Completed
+
+### Files Changed
+
+- `app/src/server/billing/credits.ts` — central `canSpend` and `recordUsage` service with cost map and grant debit logic.
+- `app/src/server/repositories/billing.ts` — active subscription lookup, available credit grants, and grant balance updates.
+- `app/src/server/repositories/usage.ts` — idempotency-key lookup and usage recording support.
+- `app/src/server/db/schema.ts` / `app/drizzle/0013_usage_idempotency.sql` — `usage_events.idempotency_key` for duplicate-safe billing records.
+- `app/src/server/billing/credits.test.ts` — focused service tests.
+
+### Commands Run & Results
+
+```bash
+cd app
+npm run test -- src/server/billing/credits.test.ts  # 1 file / 5 passed
+npx drizzle-kit check                              # passed
+npx eslint src/server/billing/credits.ts src/server/billing/credits.test.ts src/server/repositories/billing.ts src/server/repositories/usage.ts src/server/db/schema.ts  # passed
+```
+
+### Notes
+
+- `recordUsage` returns duplicate results without debiting grants when the same idempotency key is retried.
+- Entitlement requires an active/trialing subscription plus enough unexpired credit grant balance.
+
 ---
 
 # Novas Sugestoes de Melhorias
