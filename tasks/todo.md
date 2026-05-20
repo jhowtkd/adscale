@@ -329,7 +329,7 @@ Status: In Progress
 - [x] Forward Stripe webhooks to `/api/billing/webhook`.
 - [x] Complete Checkout with a test card.
 - [x] Confirm webhook-created subscription and credit grant.
-- [ ] Confirm a paid generation debits credits.
+- [x] Confirm a paid generation debits credits.
 
 ### Initial Findings
 
@@ -362,7 +362,7 @@ Status: In Progress
 
 ### Remaining
 
-- Paid generation credit debit still needs an end-to-end campaign/generation smoke.
+- No billing smoke item remains open. The next launch-hardening target is migration hygiene because the local Drizzle journal is behind manually added SQL files.
 
 ### Verification
 
@@ -372,6 +372,30 @@ npm run test -- src/server/billing/events.test.ts src/app/api/billing/webhook/ro
 npx eslint src/server/billing/events.ts src/server/billing/events.test.ts src/server/validation/env.ts src/server/validation/env.test.ts src/app/api/billing/webhook/route.test.ts  # passed
 npm run build  # passed; only Next middleware/proxy convention warning
 ```
+
+### Credit Debit Smoke Result
+
+Date: 2026-05-20
+
+- Used `kimi-orchestrator` preflight and created isolated worktree `/tmp/adscale-kimi-credit-debit-smoke` on branch `codex/kimi-credit-debit-smoke`.
+- Kimi did not return a useful final plan before the local smoke completed, and the isolated worktree stayed clean.
+- Started the app locally with the existing ignored `.env.local`.
+- Logged in as smoke user `stripe-smoke-20260520070430@example.com`.
+- Confirmed initial credit balance from database: `120`.
+- Created campaign `7930797f-fb12-4e25-ad14-46dc6d2bdde0` through authenticated `POST /api/campaigns`.
+- Triggered authenticated preview generation through `POST /api/campaigns/7930797f-fb12-4e25-ad14-46dc6d2bdde0/derivations`.
+- Route returned `201` and queued derivation `c20ea865-4784-4464-970c-436844d2abd5`.
+- Confirmed database credit balance changed from `120` to `115`.
+- Confirmed latest `usage_events` row:
+  - `type`: `image_derivation`
+  - `amount`: `5`
+  - `idempotency_key`: `derivations:7930797f-fb12-4e25-ad14-46dc6d2bdde0:preview:0:Testar agora:1:1`
+
+### Smoke Environment Notes
+
+- The local database was missing manually added migrations because `drizzle/meta/_journal.json` only tracks through `0007_creative_diagnosis`.
+- For the smoke, the missing manual SQL migrations `0006_add_is_preview_to_derivations.sql`, `0007_creative_diagnosis.sql`, `0008_creative_qa.sql`, `0009_client_reference_library.sql`, `0010_landing_pages.sql`, and `0011_pending_uploads.sql` were applied directly to the local database.
+- This is not an app runtime bug, but it is a launch hygiene risk: the migration journal should be repaired or a production migration procedure should be documented before deploy.
 
 ---
 

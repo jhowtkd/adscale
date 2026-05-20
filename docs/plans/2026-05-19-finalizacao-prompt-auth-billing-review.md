@@ -118,6 +118,8 @@ Date: 2026-05-20
 - Growth Checkout completed with Stripe test card.
 - Signed webhook replay for the real `invoice.paid` event returned 200.
 - Billing UI showed `growth`, `active`, and `120` credits.
+- Authenticated preview generation smoke then debited credits from `120` to `115`.
+- The debit created a `usage_events` row with `type=image_derivation`, `amount=5`, and an idempotency key for the preview derivation.
 
 Issues found and fixed:
 
@@ -125,6 +127,10 @@ Issues found and fixed:
 - Stripe webhook event order is not guaranteed; `invoice.paid` can arrive before `customer.subscription.created`.
 - Current Stripe invoice payloads can store subscription id under `parent.subscription_details.subscription`, not top-level `subscription`.
 
+Operational note:
+
+- The local database needed manual application of SQL migrations after the Drizzle journal stopped tracking newer hand-written migration files. Before production deploy, repair migration tracking or document an explicit production migration procedure.
+
 ## Go / No-Go
 
-Go for a controlled test-mode launch after production env values are configured and a manual Stripe smoke is completed.
+Go for a controlled test-mode launch after production env values are configured and the migration procedure is cleaned up.
