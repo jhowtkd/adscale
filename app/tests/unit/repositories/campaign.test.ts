@@ -36,27 +36,87 @@ describe("campaign repository", () => {
   });
 
   it("getCampaigns filters by workspaceId", async () => {
-    const mockOrderBy = vi.fn().mockResolvedValue([{ id: "camp-1" }]);
-    const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
-    const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
-    (db.select as ReturnType<typeof vi.fn>).mockReturnValue({ from: mockFrom });
+    const mockCampaignOrderBy = vi.fn().mockResolvedValue([
+      { id: "camp-1", status: "draft" },
+    ]);
+    const mockCampaignWhere = vi.fn().mockReturnValue({ orderBy: mockCampaignOrderBy });
+    const mockCampaignFrom = vi.fn().mockReturnValue({ where: mockCampaignWhere });
+
+    const mockMetricsGroupBy = vi.fn().mockResolvedValue([
+      {
+        campaignId: "camp-1",
+        variations: 2,
+        creditsUsed: 18,
+        totalDerivations: 3,
+        activeDerivations: 0,
+        failedDerivations: 1,
+        completedDerivations: 2,
+      },
+    ]);
+    const mockMetricsWhere = vi.fn().mockReturnValue({ groupBy: mockMetricsGroupBy });
+    const mockMetricsFrom = vi.fn().mockReturnValue({ where: mockMetricsWhere });
+
+    (db.select as ReturnType<typeof vi.fn>)
+      .mockReturnValueOnce({ from: mockMetricsFrom })
+      .mockReturnValueOnce({ from: mockCampaignFrom });
 
     const result = await getCampaigns(workspaceId);
 
-    expect(mockWhere).toHaveBeenCalledWith(expect.anything());
-    expect(result).toEqual([{ id: "camp-1" }]);
+    expect(mockMetricsWhere).toHaveBeenCalledWith(expect.anything());
+    expect(mockCampaignWhere).toHaveBeenCalledWith(expect.anything());
+    expect(result).toEqual([
+      {
+        id: "camp-1",
+        status: "completed",
+        variations: 2,
+        creditsUsed: 18,
+        totalDerivations: 3,
+        activeDerivations: 0,
+        failedDerivations: 1,
+        completedDerivations: 2,
+      },
+    ]);
   });
 
   it("getCampaignById filters by id and workspaceId", async () => {
-    const mockLimit = vi.fn().mockResolvedValue([{ id: "camp-1" }]);
-    const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit });
-    const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
-    (db.select as ReturnType<typeof vi.fn>).mockReturnValue({ from: mockFrom });
+    const mockCampaignLimit = vi.fn().mockResolvedValue([
+      { id: "camp-1", status: "draft" },
+    ]);
+    const mockCampaignWhere = vi.fn().mockReturnValue({ limit: mockCampaignLimit });
+    const mockCampaignFrom = vi.fn().mockReturnValue({ where: mockCampaignWhere });
+
+    const mockMetricsGroupBy = vi.fn().mockResolvedValue([
+      {
+        campaignId: "camp-1",
+        variations: 0,
+        creditsUsed: 0,
+        totalDerivations: 1,
+        activeDerivations: 1,
+        failedDerivations: 0,
+        completedDerivations: 0,
+      },
+    ]);
+    const mockMetricsWhere = vi.fn().mockReturnValue({ groupBy: mockMetricsGroupBy });
+    const mockMetricsFrom = vi.fn().mockReturnValue({ where: mockMetricsWhere });
+
+    (db.select as ReturnType<typeof vi.fn>)
+      .mockReturnValueOnce({ from: mockMetricsFrom })
+      .mockReturnValueOnce({ from: mockCampaignFrom });
 
     const result = await getCampaignById("camp-1", workspaceId);
 
-    expect(mockWhere).toHaveBeenCalledWith(expect.anything());
-    expect(result).toEqual({ id: "camp-1" });
+    expect(mockMetricsWhere).toHaveBeenCalledWith(expect.anything());
+    expect(mockCampaignWhere).toHaveBeenCalledWith(expect.anything());
+    expect(result).toEqual({
+      id: "camp-1",
+      status: "generating",
+      variations: 0,
+      creditsUsed: 0,
+      totalDerivations: 1,
+      activeDerivations: 1,
+      failedDerivations: 0,
+      completedDerivations: 0,
+    });
   });
 
   it("updateCampaign filters by id and workspaceId", async () => {

@@ -1,4 +1,4 @@
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, asc, sql, or, ilike, arrayContains } from "drizzle-orm";
 import { db } from "../db";
 import { campaigns, derivations } from "../db/schema";
 
@@ -14,6 +14,22 @@ export type GenerationMode = "art_variation" | "format_adaptation" | "restyling"
 export type CreativeLevel = "conservative" | "balanced" | "bold" | "extreme";
 
 export type StyleIntensity = "soft" | "medium" | "strong";
+
+export type CampaignListSortOption =
+  | "newest"
+  | "oldest"
+  | "name-asc"
+  | "name-desc"
+  | "variations";
+
+export interface CampaignListQuery {
+  searchQuery?: string;
+  statusFilter?: CampaignStatus | "all";
+  platformFilter?: "Meta" | "TikTok" | "Google" | "all";
+  sortOption?: CampaignListSortOption;
+  limit?: number;
+  offset?: number;
+}
 
 export interface CreativeDiagnosis {
   detectedConcept: string;
@@ -82,6 +98,7 @@ export interface CampaignMetrics {
 
 type CampaignRow = typeof campaigns.$inferSelect;
 type CampaignWithMetrics = CampaignRow & CampaignMetrics;
+type CampaignMetricsRow = CampaignMetrics & { campaignId: string };
 
 const campaignFields = {
   id: campaigns.id,
@@ -116,6 +133,15 @@ function toNumber(value: unknown) {
   return Number(value ?? 0);
 }
 
+const emptyCampaignMetrics: CampaignMetrics = {
+  variations: 0,
+  creditsUsed: 0,
+  totalDerivations: 0,
+  activeDerivations: 0,
+  failedDerivations: 0,
+  completedDerivations: 0,
+};
+
 function withDerivedStatus<T extends Partial<CampaignWithMetrics>>(row: T): T {
   if (!("totalDerivations" in row)) {
     return row;
@@ -145,52 +171,110 @@ function withDerivedStatus<T extends Partial<CampaignWithMetrics>>(row: T): T {
   } as T;
 }
 
-function metricsSelect(workspaceId: string) {
+function buildCampaignMetricsRow(row: Partial<CampaignMetricsRow> | undefined): CampaignMetricsRow {
   return {
-    variations: sql<number>`(
-      select count(*)::int
-      from ${derivations}
-      where ${derivations.campaignId} = ${campaigns.id}
-        and ${derivations.workspaceId} = ${workspaceId}
-        and ${derivations.status} in ('completed', 'approved', 'rejected')
-        and ${derivations.outputKey} is not null
-    )`,
-    creditsUsed: sql<number>`(
-      select coalesce(sum(coalesce(${derivations.cost}, 0)), 0)::int
-      from ${derivations}
-      where ${derivations.campaignId} = ${campaigns.id}
-        and ${derivations.workspaceId} = ${workspaceId}
-        and ${derivations.status} in ('completed', 'approved', 'rejected')
-    )`,
-    totalDerivations: sql<number>`(
-      select count(*)::int
-      from ${derivations}
-      where ${derivations.campaignId} = ${campaigns.id}
-        and ${derivations.workspaceId} = ${workspaceId}
-    )`,
-    activeDerivations: sql<number>`(
-      select count(*)::int
-      from ${derivations}
-      where ${derivations.campaignId} = ${campaigns.id}
-        and ${derivations.workspaceId} = ${workspaceId}
-        and ${derivations.status} in ('queued', 'processing')
-    )`,
-    failedDerivations: sql<number>`(
-      select count(*)::int
-      from ${derivations}
-      where ${derivations.campaignId} = ${campaigns.id}
-        and ${derivations.workspaceId} = ${workspaceId}
-        and ${derivations.status} = 'failed'
-    )`,
-    completedDerivations: sql<number>`(
-      select count(*)::int
-      from ${derivations}
-      where ${derivations.campaignId} = ${campaigns.id}
-        and ${derivations.workspaceId} = ${workspaceId}
-        and ${derivations.status} in ('completed', 'approved', 'rejected')
-        and ${derivations.outputKey} is not null
-    )`,
+    campaignId: row?.campaignId ?? "",
+    variations: toNumber(row?.variations),
+    creditsUsed: toNumber(row?.creditsUsed),
+    totalDerivations: toNumber(row?.totalDerivations),
+    activeDerivations: toNumber(row?.activeDerivations),
+    failedDerivations: toNumber(row?.failedDerivations),
+    completedDerivations: toNumber(row?.completedDerivations),
   };
+}
+
+async function getCampaignMetrics(workspaceId: string, campaignId?: string) {
+  const whereClause = campaignId
+    ? and(eq(derivations.workspaceId, workspaceId), eq(derivations.campaignId, campaignId))
+    : eq(derivations.workspaceId, workspaceId);
+
+  const rows = await db
+    .select({
+      campaignId: derivations.campaignId,
+      variations: sql<number>`count(*) filter (
+        where ${derivations.status} in ('completed', 'approved', 'rejected')
+          and ${derivations.outputKey} is not null
+      )::int`.as("variations"),
+      creditsUsed: sql<number>`coalesce(sum(
+        case
+          when ${derivations.status} in ('completed', 'approved', 'rejected')
+          then coalesce(${derivations.cost}, 0)
+          else 0
+        end
+      ), 0)::int`.as("creditsUsed"),
+      totalDerivations: sql<number>`count(*)::int`.as("totalDerivations"),
+      activeDerivations: sql<number>`count(*) filter (
+        where ${derivations.status} in ('queued', 'processing')
+      )::int`.as("activeDerivations"),
+      failedDerivations: sql<number>`count(*) filter (
+        where ${derivations.status} = 'failed'
+      )::int`.as("failedDerivations"),
+      completedDerivations: sql<number>`count(*) filter (
+        where ${derivations.status} in ('completed', 'approved', 'rejected')
+          and ${derivations.outputKey} is not null
+      )::int`.as("completedDerivations"),
+    })
+    .from(derivations)
+    .where(whereClause)
+    .groupBy(derivations.campaignId);
+
+  return new Map(rows.map((row) => [row.campaignId, buildCampaignMetricsRow(row)]));
+}
+
+function mergeCampaignMetrics<T extends CampaignRow>(
+  row: T,
+  metrics?: CampaignMetricsRow
+) {
+  const campaignMetrics: Partial<CampaignMetricsRow> = metrics ? { ...metrics } : {};
+  delete campaignMetrics.campaignId;
+  return withDerivedStatus({
+    ...row,
+    ...emptyCampaignMetrics,
+    ...campaignMetrics,
+  });
+}
+
+function buildCampaignListConditions(workspaceId: string, query: CampaignListQuery) {
+  const conditions = [eq(campaigns.workspaceId, workspaceId)];
+
+  const trimmedSearchQuery = query.searchQuery?.trim();
+  if (trimmedSearchQuery) {
+    const pattern = `%${trimmedSearchQuery}%`;
+    conditions.push(
+      or(
+        ilike(campaigns.name, pattern),
+        sql<boolean>`exists (
+          select 1
+          from unnest(coalesce(${campaigns.platforms}, array[]::text[])) as platform
+          where platform ilike ${pattern}
+        )`
+      )!
+    );
+  }
+
+  if (query.statusFilter && query.statusFilter !== "all") {
+    conditions.push(eq(campaigns.status, query.statusFilter));
+  }
+
+  if (query.platformFilter && query.platformFilter !== "all") {
+    conditions.push(arrayContains(campaigns.platforms, [query.platformFilter]));
+  }
+
+  return conditions;
+}
+
+function buildCampaignListOrder(sortOption: CampaignListSortOption | undefined) {
+  switch (sortOption ?? "newest") {
+    case "oldest":
+      return [asc(campaigns.updatedAt), asc(campaigns.id)];
+    case "name-asc":
+      return [asc(campaigns.name), asc(campaigns.id)];
+    case "name-desc":
+      return [desc(campaigns.name), asc(campaigns.id)];
+    case "newest":
+    default:
+      return [desc(campaigns.updatedAt), asc(campaigns.id)];
+  }
 }
 
 export async function createCampaign(
@@ -228,27 +312,105 @@ export async function createCampaign(
 }
 
 export async function getCampaigns(workspaceId: string) {
+  const metricsByCampaignId = await getCampaignMetrics(workspaceId);
   const rows = await db
     .select({
       ...campaignFields,
-      ...metricsSelect(workspaceId),
     })
     .from(campaigns)
     .where(eq(campaigns.workspaceId, workspaceId))
     .orderBy(desc(campaigns.updatedAt));
-  return rows.map(withDerivedStatus);
+  return rows.map((row) => mergeCampaignMetrics(row, metricsByCampaignId.get(row.id)));
+}
+
+export async function getCampaignsPage(
+  workspaceId: string,
+  query: CampaignListQuery = {}
+) {
+  const conditions = buildCampaignListConditions(workspaceId, query);
+  const whereClause = conditions.length === 1 ? conditions[0] : and(...conditions);
+  const totalRows = await db
+    .select({ count: sql<number>`count(*)::int`.as("count") })
+    .from(campaigns)
+    .where(whereClause);
+
+  const metrics = db
+    .select({
+      campaignId: derivations.campaignId,
+      variations: sql<number>`count(*) filter (
+        where ${derivations.status} in ('completed', 'approved', 'rejected')
+          and ${derivations.outputKey} is not null
+      )::int`.as("variations"),
+      creditsUsed: sql<number>`coalesce(sum(
+        case
+          when ${derivations.status} in ('completed', 'approved', 'rejected')
+          then coalesce(${derivations.cost}, 0)
+          else 0
+        end
+      ), 0)::int`.as("creditsUsed"),
+      totalDerivations: sql<number>`count(*)::int`.as("totalDerivations"),
+      activeDerivations: sql<number>`count(*) filter (
+        where ${derivations.status} in ('queued', 'processing')
+      )::int`.as("activeDerivations"),
+      failedDerivations: sql<number>`count(*) filter (
+        where ${derivations.status} = 'failed'
+      )::int`.as("failedDerivations"),
+      completedDerivations: sql<number>`count(*) filter (
+        where ${derivations.status} in ('completed', 'approved', 'rejected')
+          and ${derivations.outputKey} is not null
+      )::int`.as("completedDerivations"),
+    })
+    .from(derivations)
+    .where(eq(derivations.workspaceId, workspaceId))
+    .groupBy(derivations.campaignId)
+    .as("campaign_metrics");
+
+  const orderBy =
+    query.sortOption === "variations"
+      ? [desc(sql<number>`coalesce(${metrics.variations}, 0)`), desc(campaigns.updatedAt), asc(campaigns.id)]
+      : buildCampaignListOrder(query.sortOption);
+
+  const queryBuilder = db
+    .select({
+      ...campaignFields,
+      variations: sql<number>`coalesce(${metrics.variations}, 0)::int`.as("variations"),
+      creditsUsed: sql<number>`coalesce(${metrics.creditsUsed}, 0)::int`.as("creditsUsed"),
+      totalDerivations: sql<number>`coalesce(${metrics.totalDerivations}, 0)::int`.as("totalDerivations"),
+      activeDerivations: sql<number>`coalesce(${metrics.activeDerivations}, 0)::int`.as("activeDerivations"),
+      failedDerivations: sql<number>`coalesce(${metrics.failedDerivations}, 0)::int`.as("failedDerivations"),
+      completedDerivations: sql<number>`coalesce(${metrics.completedDerivations}, 0)::int`.as("completedDerivations"),
+    })
+    .from(campaigns)
+    .leftJoin(metrics, eq(metrics.campaignId, campaigns.id))
+    .where(whereClause)
+    .orderBy(...orderBy);
+
+  const limitedQuery =
+    typeof query.limit === "number" ? queryBuilder.limit(query.limit) : queryBuilder;
+  const pagedQuery =
+    typeof query.offset === "number" && query.offset > 0
+      ? limitedQuery.offset(query.offset)
+      : limitedQuery;
+
+  const rows = await pagedQuery;
+  return {
+    campaigns: rows.map(withDerivedStatus),
+    totalCount: totalRows[0]?.count ?? 0,
+  };
 }
 
 export async function getCampaignById(id: string, workspaceId: string) {
+  const metricsByCampaignId = await getCampaignMetrics(workspaceId, id);
   const result = await db
     .select({
       ...campaignFields,
-      ...metricsSelect(workspaceId),
     })
     .from(campaigns)
     .where(and(eq(campaigns.id, id), eq(campaigns.workspaceId, workspaceId)))
     .limit(1);
-  return result[0] ? withDerivedStatus(result[0]) : null;
+  return result[0]
+    ? mergeCampaignMetrics(result[0], metricsByCampaignId.get(result[0].id))
+    : null;
 }
 
 export async function updateCampaign(

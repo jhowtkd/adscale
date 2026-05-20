@@ -9,6 +9,13 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { Readable } from "stream";
 import { env } from "../validation/env";
 
+const DOWNLOAD_URL_CACHE_TTL_MS = 4 * 60 * 1000;
+
+const downloadUrlCache = new Map<
+  string,
+  { url: string; expiresAt: number }
+>();
+
 const r2 = new S3Client({
   region: "auto",
   endpoint: `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
@@ -36,11 +43,22 @@ export async function getPresignedUploadUrl(
 }
 
 export async function getPresignedDownloadUrl(key: string) {
+  const now = Date.now();
+  const cached = downloadUrlCache.get(key);
+  if (cached && cached.expiresAt > now) {
+    return cached.url;
+  }
+
   const command = new GetObjectCommand({
     Bucket: env.R2_BUCKET,
     Key: key,
   });
-  return getSignedUrl(r2, command, { expiresIn: 300 });
+  const url = await getSignedUrl(r2, command, { expiresIn: 300 });
+  downloadUrlCache.set(key, {
+    url,
+    expiresAt: now + DOWNLOAD_URL_CACHE_TTL_MS,
+  });
+  return url;
 }
 
 export async function deleteObject(key: string) {

@@ -4,7 +4,7 @@ import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import {
   createCampaign,
-  getCampaigns,
+  getCampaignsPage,
 } from "@/server/repositories/campaign";
 import {
   getClientProfile,
@@ -41,8 +41,44 @@ const createCampaignSchema = z.object({
 export async function GET(request: Request) {
   try {
     const { workspace } = await requireWorkspaceAccess(request);
-    const items = await getCampaigns(workspace.id);
-    return NextResponse.json({ campaigns: items });
+    const url = new URL(request.url);
+    const parsePositiveInt = (value: string | null, fallback: number) => {
+      const parsed = Number(value);
+      return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+    };
+    const searchQuery = url.searchParams.get("q") ?? undefined;
+    const statusFilter = (url.searchParams.get("status") ?? "all") as
+      | "all"
+      | "draft"
+      | "active"
+      | "generating"
+      | "completed"
+      | "failed";
+    const platformFilter = (url.searchParams.get("platform") ?? "all") as
+      | "all"
+      | "Meta"
+      | "TikTok"
+      | "Google";
+    const sortOption = (url.searchParams.get("sort") ?? "newest") as
+      | "newest"
+      | "oldest"
+      | "name-asc"
+      | "name-desc"
+      | "variations";
+    const page = parsePositiveInt(url.searchParams.get("page"), 1);
+    const limitParam = url.searchParams.get("limit");
+    const limit = limitParam ? parsePositiveInt(limitParam, 10) : undefined;
+    const offset = limit && page > 1 ? (page - 1) * limit : 0;
+
+    const result = await getCampaignsPage(workspace.id, {
+      searchQuery,
+      statusFilter,
+      platformFilter,
+      sortOption,
+      limit,
+      offset,
+    });
+    return NextResponse.json(result);
   } catch (error) {
     return handleApiError(error, "campaigns.GET");
   }

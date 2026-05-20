@@ -39,6 +39,27 @@ export interface Campaign {
   updatedAt: Date;
 }
 
+export type CampaignListSortOption =
+  | "newest"
+  | "oldest"
+  | "name-asc"
+  | "name-desc"
+  | "variations";
+
+export interface CampaignListQuery {
+  searchQuery?: string;
+  statusFilter?: "all" | "draft" | "active" | "generating" | "completed" | "failed";
+  platformFilter?: "all" | "Meta" | "TikTok" | "Google";
+  sortOption?: CampaignListSortOption;
+  page?: number;
+  limit?: number;
+}
+
+export interface CampaignListResponse {
+  campaigns: Campaign[];
+  totalCount: number;
+}
+
 export interface UiCampaign {
   id: string;
   name: string;
@@ -101,18 +122,30 @@ function toUiCampaign(c: Campaign): UiCampaign {
   };
 }
 
-async function fetchCampaigns(): Promise<Campaign[]> {
-  const res = await apiFetch("/api/campaigns");
+async function fetchCampaigns(query?: CampaignListQuery): Promise<CampaignListResponse> {
+  const params = new URLSearchParams();
+  if (query?.searchQuery) params.set("q", query.searchQuery);
+  if (query?.statusFilter && query.statusFilter !== "all") params.set("status", query.statusFilter);
+  if (query?.platformFilter && query.platformFilter !== "all") params.set("platform", query.platformFilter);
+  if (query?.sortOption && query.sortOption !== "newest") params.set("sort", query.sortOption);
+  if (query?.page && query.page > 1) params.set("page", String(query.page));
+  if (query?.limit) params.set("limit", String(query.limit));
+
+  const res = await apiFetch(`/api/campaigns${params.toString() ? `?${params.toString()}` : ""}`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || "Erro ao carregar campanhas");
   }
   const data = await res.json();
-  return data.campaigns.map((c: Campaign) => ({
-    ...c,
-    createdAt: new Date(c.createdAt),
-    updatedAt: new Date(c.updatedAt),
-  }));
+  const rawCampaigns = (data.campaigns ?? data ?? []) as Campaign[];
+  return {
+    campaigns: rawCampaigns.map((c: Campaign) => ({
+      ...c,
+      createdAt: new Date(c.createdAt),
+      updatedAt: new Date(c.updatedAt),
+    })),
+    totalCount: typeof data.totalCount === "number" ? data.totalCount : rawCampaigns.length,
+  };
 }
 
 async function fetchCampaign(id: string): Promise<Campaign> {
@@ -199,15 +232,16 @@ async function deleteCampaign(id: string): Promise<void> {
   }
 }
 
-export function useCampaigns() {
+export function useCampaigns(filters?: CampaignListQuery) {
   const query = useQuery({
-    queryKey: ["campaigns"],
-    queryFn: fetchCampaigns,
+    queryKey: ["campaigns", filters ?? {}],
+    queryFn: () => fetchCampaigns(filters),
   });
 
   return {
     ...query,
-    campaigns: (query.data ?? []).map(toUiCampaign),
+    campaigns: (query.data?.campaigns ?? []).map(toUiCampaign),
+    totalCount: query.data?.totalCount ?? 0,
   };
 }
 

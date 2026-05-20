@@ -238,6 +238,114 @@ npx eslint src/server/billing/gates.ts src/server/billing/gates.test.ts src/app/
 - Routes now fail before expensive AI/work enqueue when the workspace has no active subscription or insufficient credits.
 - Idempotency keys are stable for retries on campaign/derivation/landing-page surfaces.
 
+# Complexity Optimizer Audit
+
+Date: 2026-05-20
+Mode: Audit/report only
+
+## Checklist
+
+- [x] Review local instructions, current task file, and relevant project memory
+- [x] Establish stack, commands, and likely performance-sensitive paths
+- [x] Run first-pass complexity scanner across the repository
+- [x] Manually inspect and rank the top actionable hotspots
+- [x] Document findings, risks, and verification recommendations
+
+## Notes
+
+- No code changes are planned unless explicitly requested after the report.
+- The app runtime lives under `app/`; repo-level planning artifacts live at the root.
+- Stack detected: Next.js 16.2.6, React 19, TypeScript, Drizzle/Postgres, Inngest, Vitest, ESLint.
+- Main verification commands detected: `npm run test`, `npm run lint`, `npm run build`, and `npx drizzle-kit check` when schema is touched.
+- First-pass scanner completed; main leads are UI filtering/render loops and route-level per-item DB/job work.
+
+## Review
+
+Scanner output: 80 leads total: 73 nested/callback loops, 6 sort-in-loop leads, 1 potential query-in-loop lead.
+
+Top ranked hotspots:
+
+1. `app/src/server/repositories/campaign.ts` computes six derivation metrics through correlated subqueries per campaign row. This is likely the highest-impact server-side hotspot for campaign lists and dashboard reads. Recommended fix: aggregate derivation metrics once with grouped counts/sums, then join or merge by campaign id.
+2. `app/src/app/api/campaigns/[id]/derivations/route.ts` signs every derivation image URL on every GET. Because `useDerivations` polls every 2 seconds while work is active, old completed items are re-signed repeatedly. Recommended fix: avoid re-signing unchanged rows on polling paths, or split image URL signing into a targeted/lazy endpoint.
+3. `app/src/app/(dashboard)/campaigns/page.tsx` fetches all campaigns, then filters, sorts, and paginates client-side. Current complexity is acceptable for small workspaces but becomes expensive with hundreds/thousands of campaigns and creates an unbounded API payload. Recommended fix: add API-level search/filter/sort/pagination before this screen becomes data-heavy.
+4. `app/src/components/workspace/DerivationsStep.tsx` performs several full-array passes for counts plus filter/sort work. This is a medium-risk UI render hotspot once campaigns hold many derivations. Recommended fix: derive counts and filtered/sorted rows in one memoized pass/group.
+5. Route-level per-item creation in derivation and delivery-package POST handlers is currently bounded by small product limits, so it is lower priority than the scanner severity suggests. Batch delete/insert/send can be considered later, but only with careful idempotency and queue-failure behavior.
+
+Verification recommended if implementing:
+
+- For campaign metric aggregation: add/adjust `app/tests/unit/repositories/campaign.test.ts`, run the focused repository tests, and run `npx drizzle-kit check` if indexes/schema change.
+- For derivation polling/signing: add route tests around `GET /api/campaigns/[id]/derivations`, verify private URL behavior is preserved, and manually smoke a generating campaign.
+- For campaign list pagination: add API route tests plus UI behavior checks for filters, sorting, selection, and pagination.
+
+## Implementation Plan
+
+- [x] Isolar a implementação em worktree codex/kimi-campaign-metrics
+- [x] Trocar as subqueries correlacionadas de métricas de campanha por agregação única por campanha
+- [x] Ajustar ou adicionar testes do repositório para preservar o contrato atual
+- [x] Verificar com testes focados e checks relevantes
+- [x] Revisar o diff e integrar apenas o que for aprovado
+
+## Implementation Review
+
+Date: 2026-05-20
+Status: Completed
+
+### Files Changed
+
+- `app/src/server/repositories/campaign.ts` — replaced six correlated metric subqueries with workspace-scoped grouped aggregation and a small merge step.
+- `app/tests/unit/repositories/campaign.test.ts` — updated the repository contract tests to cover metric aggregation and derived status behavior.
+
+### Commands Run & Results
+
+```bash
+cd app
+npm test -- tests/unit/repositories/campaign.test.ts  # passed, 11 tests
+npm run lint -- src/server/repositories/campaign.ts tests/unit/repositories/campaign.test.ts  # passed
+```
+
+### Notes
+
+- The query shape changed from per-campaign correlated subqueries to two bounded queries plus an in-memory merge.
+- The public campaign payload no longer exposes internal metric identifiers; it keeps the same user-facing fields and derived status behavior.
+
+## Remaining Complexity Tasks
+
+- [x] Add cached presigned download URL reuse for repeated polling paths
+- [x] Consolidate derivation list counts and sorting into a single memoized pass
+- [x] Move campaigns list search, sort, and pagination to the server-facing API
+- [x] Verify the remaining changes with focused tests, lint, and build
+
+## Implementation Review: Remaining Complexity Tasks
+
+Date: 2026-05-20
+Status: Completed
+
+### Files Changed
+
+- `app/src/server/storage/r2.ts` — added in-memory reuse for presigned download URLs so repeated polling does not re-sign the same key within the cache window.
+- `app/tests/unit/r2-presigned-download-cache.test.ts` — covered same-key reuse and different-key re-signing.
+- `app/src/components/workspace/DerivationsStep.tsx` — consolidated counts, filtering, and sorting into a single memoized pass and removed repeated per-filter scans.
+- `app/src/server/repositories/campaign.ts` — added server-side campaign list filtering, sorting, and pagination with grouped metrics merged in once per page.
+- `app/src/app/api/campaigns/route.ts` — now accepts `q`, `status`, `platform`, `sort`, `page`, and `limit` and returns paginated campaign results plus a total count.
+- `app/src/app/api/campaigns/route.test.ts` — verifies the paginated API contract and query param forwarding.
+- `app/src/lib/hooks/use-campaigns.ts` — updated the client hook to consume paginated campaign responses.
+- `app/src/app/(dashboard)/campaigns/page.tsx` — switched the campaigns screen to server-driven search, sort, and pagination.
+
+### Commands Run & Results
+
+```bash
+cd app
+npm test -- tests/unit/repositories/campaign.test.ts tests/unit/r2-presigned-download-cache.test.ts src/app/api/campaigns/route.test.ts  # 3 files / 14 passed
+npm run lint -- src/server/repositories/campaign.ts src/server/storage/r2.ts src/components/workspace/DerivationsStep.tsx src/app/api/campaigns/route.ts src/app/api/campaigns/route.test.ts src/lib/hooks/use-campaigns.ts src/app/(dashboard)/campaigns/page.tsx tests/unit/r2-presigned-download-cache.test.ts tests/unit/repositories/campaign.test.ts  # passed
+RESEND_API_KEY=re_dummy EMAIL_FROM=dummy@example.com npm run build  # passed
+```
+
+### Notes
+
+- The campaign list now avoids fetching the full workspace set just to sort and paginate in the browser.
+- The derivations view now computes its visible counts in one pass and no longer rescans the list for each filter chip.
+- The presigned download helper keeps its behavior intact while avoiding duplicate signing work for repeated requests to the same key.
+
 ## Implementation Review: Billing UI and Final Verification
 
 Date: 2026-05-19

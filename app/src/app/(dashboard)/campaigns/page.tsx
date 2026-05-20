@@ -162,7 +162,6 @@ export default function CampaignsListPage() {
   const tc = useTranslations("common");
   const te = useTranslations("errors");
 
-  const { campaigns, isLoading, isError, error } = useCampaigns();
   const createCampaign = useCreateCampaign();
   const updateCampaigns = useUpdateCampaigns();
   const deleteCampaigns = useDeleteCampaigns();
@@ -173,7 +172,6 @@ export default function CampaignsListPage() {
   const [modalOpen, setModalOpen] = useState(false);
 
   // Filters
-  const searchQuery = searchParams.get("q") ?? "";
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [platformFilter, setPlatformFilter] = useState<PlatformFilter>("all");
   const [sortOption, setSortOption] = useState<SortOption>("newest");
@@ -184,6 +182,18 @@ export default function CampaignsListPage() {
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const searchQuery = searchParams.get("q") ?? "";
+
+  const campaignQuery = {
+    searchQuery,
+    statusFilter,
+    platformFilter,
+    sortOption,
+    page: currentPage,
+    limit: itemsPerPage,
+  };
+
+  const { campaigns, totalCount, isLoading, isError, error } = useCampaigns(campaignQuery);
 
   // Delete confirmation
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
@@ -199,26 +209,31 @@ export default function CampaignsListPage() {
     const query = params.toString();
     router.replace(`/campaigns${query ? `?${query}` : ""}`, { scroll: false });
     setCurrentPage(1);
+    setSelectedIds(new Set());
   }, [router, searchParams]);
 
   const updateStatusFilter = useCallback((value: StatusFilter) => {
     setStatusFilter(value);
     setCurrentPage(1);
+    setSelectedIds(new Set());
   }, []);
 
   const updatePlatformFilter = useCallback((value: PlatformFilter) => {
     setPlatformFilter(value);
     setCurrentPage(1);
+    setSelectedIds(new Set());
   }, []);
 
   const updateSortOption = useCallback((value: SortOption) => {
     setSortOption(value);
     setCurrentPage(1);
+    setSelectedIds(new Set());
   }, []);
 
   const updateItemsPerPage = useCallback((value: number) => {
     setItemsPerPage(value);
     setCurrentPage(1);
+    setSelectedIds(new Set());
   }, []);
 
   const clearFilters = useCallback(() => {
@@ -234,59 +249,10 @@ export default function CampaignsListPage() {
     setCurrentPageTitle(tc("campaign"));
   }, [setCurrentPageTitle, tc]);
 
-  // ---- Filtering & Sorting ----
+  // ---- Pagination ----
 
-  const filteredCampaigns = useMemo(() => {
-    let result = [...campaigns];
-
-    // Search
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(
-        (c) =>
-          c.name.toLowerCase().includes(q) ||
-          c.platforms.some((p) => p.toLowerCase().includes(q))
-      );
-    }
-
-    // Status filter
-    if (statusFilter !== "all") {
-      result = result.filter((c) => c.status === statusFilter);
-    }
-
-    // Platform filter
-    if (platformFilter !== "all") {
-      result = result.filter((c) => c.platforms.includes(platformFilter as AdPlatform));
-    }
-
-    // Sort
-    switch (sortOption) {
-      case "newest":
-        result.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
-        break;
-      case "oldest":
-        result.sort((a, b) => a.lastModified.getTime() - b.lastModified.getTime());
-        break;
-      case "name-asc":
-        result.sort((a, b) => a.name.localeCompare(b.name));
-        break;
-      case "name-desc":
-        result.sort((a, b) => b.name.localeCompare(a.name));
-        break;
-      case "variations":
-        result.sort((a, b) => b.variations - a.variations);
-        break;
-    }
-
-    return result;
-  }, [campaigns, searchQuery, statusFilter, platformFilter, sortOption]);
-
-  // Pagination
-  const totalPages = Math.max(1, Math.ceil(filteredCampaigns.length / itemsPerPage));
-  const paginatedCampaigns = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    return filteredCampaigns.slice(start, start + itemsPerPage);
-  }, [filteredCampaigns, currentPage, itemsPerPage]);
+  const totalPages = Math.max(1, Math.ceil(totalCount / itemsPerPage));
+  const visibleCurrentPage = Math.min(currentPage, totalPages);
 
   // Active filters
   const activeFilters = useMemo(() => {
@@ -337,17 +303,16 @@ export default function CampaignsListPage() {
   const toggleSelectAll = useCallback(
     (checked: boolean) => {
       if (checked) {
-        setSelectedIds(new Set(paginatedCampaigns.map((c) => c.id)));
+        setSelectedIds(new Set(campaigns.map((c) => c.id)));
       } else {
         setSelectedIds(new Set());
       }
     },
-    [paginatedCampaigns]
+    [campaigns]
   );
 
   const allSelected =
-    paginatedCampaigns.length > 0 &&
-    paginatedCampaigns.every((c) => selectedIds.has(c.id));
+    campaigns.length > 0 && campaigns.every((c) => selectedIds.has(c.id));
 
   // ---- Action Handlers ----
 
@@ -465,8 +430,8 @@ export default function CampaignsListPage() {
 
   // ---- Pagination ----
 
-  const startIndex = (currentPage - 1) * itemsPerPage + 1;
-  const endIndex = Math.min(currentPage * itemsPerPage, filteredCampaigns.length);
+  const startIndex = totalCount === 0 ? 0 : (visibleCurrentPage - 1) * itemsPerPage + 1;
+  const endIndex = Math.min(visibleCurrentPage * itemsPerPage, totalCount);
 
   const pageNumbers = useMemo(() => {
     const pages: (number | "ellipsis")[] = [];
@@ -476,15 +441,15 @@ export default function CampaignsListPage() {
       for (let i = 1; i <= totalPages; i++) pages.push(i);
     } else {
       pages.push(1);
-      if (currentPage > 3) pages.push("ellipsis");
-      const start = Math.max(2, currentPage - 1);
-      const end = Math.min(totalPages - 1, currentPage + 1);
+      if (visibleCurrentPage > 3) pages.push("ellipsis");
+      const start = Math.max(2, visibleCurrentPage - 1);
+      const end = Math.min(totalPages - 1, visibleCurrentPage + 1);
       for (let i = start; i <= end; i++) pages.push(i);
-      if (currentPage < totalPages - 2) pages.push("ellipsis");
+      if (visibleCurrentPage < totalPages - 2) pages.push("ellipsis");
       pages.push(totalPages);
     }
     return pages;
-  }, [currentPage, totalPages]);
+  }, [visibleCurrentPage, totalPages]);
 
   // ---- Render ----
 
@@ -503,7 +468,7 @@ export default function CampaignsListPage() {
               {tc("campaign")}
             </h1>
             <span className="inline-flex items-center justify-center rounded-full bg-[var(--surface-raised)] text-[var(--text-secondary)] text-xs font-medium px-2.5 py-0.5 min-w-[24px] h-6">
-              {filteredCampaigns.length}
+              {totalCount}
             </span>
           </div>
           <p className="mt-1 text-sm text-[var(--text-secondary)]">
@@ -738,7 +703,7 @@ export default function CampaignsListPage() {
               onClick: () => window.location.reload(),
             }}
           />
-        ) : filteredCampaigns.length === 0 ? (
+        ) : campaigns.length === 0 ? (
           <EmptyState
             illustration="/empty-campaigns.svg"
             title={hasActiveFilters ? tc("noCampaignsMatch") : tc("noCampaignsYet")}
@@ -822,7 +787,7 @@ export default function CampaignsListPage() {
                   </tr>
                 </TableHeader>
                 <TableBody>
-                  {paginatedCampaigns.map((campaign, index) => (
+                  {campaigns.map((campaign, index) => (
                     <CampaignTableRow
                       key={campaign.id}
                       campaign={campaign}
@@ -847,7 +812,7 @@ export default function CampaignsListPage() {
             animate="visible"
             className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5"
           >
-            {paginatedCampaigns.map((campaign, index) => (
+            {campaigns.map((campaign, index) => (
               <CampaignCard key={campaign.id} campaign={campaign} index={index} />
             ))}
           </motion.div>
@@ -855,7 +820,7 @@ export default function CampaignsListPage() {
       </div>
 
       {/* ============ Pagination ============ */}
-      {!isLoading && !isError && filteredCampaigns.length > 0 && (
+      {!isLoading && !isError && totalCount > 0 && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -863,7 +828,7 @@ export default function CampaignsListPage() {
           className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6"
         >
           <p className="text-sm text-[var(--text-muted)]">
-            {tc("showingResults", { start: startIndex, end: endIndex, total: filteredCampaigns.length })}
+            {tc("showingResults", { start: startIndex, end: endIndex, total: totalCount })}
           </p>
 
           <div className="flex items-center gap-2">
@@ -872,7 +837,7 @@ export default function CampaignsListPage() {
               variant="outline"
               size="sm"
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
+              disabled={visibleCurrentPage === 1}
               className="h-8 px-2 border-[var(--border-dim)] text-[var(--text-secondary)] disabled:opacity-30"
             >
               <ChevronLeft size={16} />
@@ -887,12 +852,12 @@ export default function CampaignsListPage() {
               ) : (
                 <Button
                   key={page}
-                  variant={currentPage === page ? "default" : "outline"}
+                  variant={visibleCurrentPage === page ? "default" : "outline"}
                   size="sm"
                   onClick={() => setCurrentPage(page)}
                   className={cn(
                     "h-8 w-8 p-0 text-xs font-medium",
-                    currentPage === page
+                    visibleCurrentPage === page
                       ? "bg-[var(--accent-mint)] text-white hover:bg-[var(--accent-mint-light)] border-transparent"
                       : "border-[var(--border-dim)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)]"
                   )}
@@ -907,7 +872,7 @@ export default function CampaignsListPage() {
               variant="outline"
               size="sm"
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
+              disabled={visibleCurrentPage === totalPages}
               className="h-8 px-2 border-[var(--border-dim)] text-[var(--text-secondary)] disabled:opacity-30"
             >
               <ChevronRight size={16} />

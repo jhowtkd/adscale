@@ -38,6 +38,9 @@ type GridSize = "small" | "medium" | "large";
 type SortOption = "best" | "newest" | "oldest" | "angle" | "status";
 type StatusFilter = "all" | "completed" | "generating" | "failed";
 
+const COMPLETED_STATUSES = new Set(["completed", "approved", "rejected"]);
+const ACTIVE_STATUSES = new Set(["queued", "processing", "generating"]);
+
 // ============================================
 // Component
 // ============================================
@@ -69,20 +72,56 @@ export default function DerivationsStep({
   const [sortBy, setSortBy] = useState<SortOption>("best");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
-  // Filter and sort derivations
-  const filteredDerivations = useMemo(() => {
-    let filtered = [...derivations];
+  const {
+    filteredDerivations,
+    completedCount,
+    activeCount,
+    failedCount,
+    totalCount,
+    isAllCompleted,
+    totalCredits,
+    statusCounts,
+  } = useMemo(() => {
+    const filtered: Derivation[] = [];
+    let completed = 0;
+    let active = 0;
+    let failed = 0;
+    let credits = 0;
+    const counts: Record<StatusFilter, number> = {
+      all: 0,
+      completed: 0,
+      generating: 0,
+      failed: 0,
+    };
 
-    // Status filter
-    if (statusFilter === "completed") {
-      filtered = filtered.filter((d) =>
-        ["completed", "approved", "rejected"].includes(d.status)
-      );
-    } else if (statusFilter !== "all") {
-      filtered = filtered.filter((d) => d.status === statusFilter);
+    for (const derivation of derivations) {
+      credits += derivation.creditCost;
+      counts.all++;
+
+      if (COMPLETED_STATUSES.has(derivation.status)) {
+        completed++;
+        counts.completed++;
+      }
+      if (ACTIVE_STATUSES.has(derivation.status)) {
+        active++;
+        counts.generating++;
+      }
+      if (derivation.status === "failed") {
+        failed++;
+        counts.failed++;
+      }
+
+      const matchesStatus =
+        statusFilter === "all" ||
+        (statusFilter === "completed"
+          ? COMPLETED_STATUSES.has(derivation.status)
+          : derivation.status === statusFilter);
+
+      if (matchesStatus) {
+        filtered.push(derivation);
+      }
     }
 
-    // Sort
     switch (sortBy) {
       case "best":
         filtered.sort((a, b) => (b.qualityScore ?? -1) - (a.qualityScore ?? -1));
@@ -93,7 +132,7 @@ export default function DerivationsStep({
       case "oldest":
         filtered.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
         break;
-      case "status":
+      case "status": {
         const order: Record<string, number> = {
           completed: 0,
           approved: 0,
@@ -107,24 +146,22 @@ export default function DerivationsStep({
         };
         filtered.sort((a, b) => (order[a.status] ?? 99) - (order[b.status] ?? 99));
         break;
+      }
       default:
         break;
     }
 
-    return filtered;
+    return {
+      filteredDerivations: filtered,
+      completedCount: completed,
+      activeCount: active,
+      failedCount: failed,
+      totalCount: derivations.length,
+      isAllCompleted: derivations.length > 0 && completed === derivations.length,
+      totalCredits: credits,
+      statusCounts: counts,
+    };
   }, [derivations, sortBy, statusFilter]);
-
-  // Stats
-  const completedCount = derivations.filter((d) =>
-    ["completed", "approved", "rejected"].includes(d.status)
-  ).length;
-  const activeCount = derivations.filter((d) =>
-    ["queued", "processing", "generating"].includes(d.status)
-  ).length;
-  const failedCount = derivations.filter((d) => d.status === "failed").length;
-  const totalCount = derivations.length;
-  const isAllCompleted = totalCount > 0 && completedCount === totalCount;
-  const totalCredits = derivations.reduce((sum, d) => sum + d.creditCost, 0);
 
   // Grid classes
   const gridClasses = {
@@ -220,9 +257,7 @@ export default function DerivationsStep({
       >
         {(["all", "completed", "generating", "failed"] as StatusFilter[]).map((filter) => {
           const count =
-            filter === "all"
-              ? derivations.length
-              : derivations.filter((d) => d.status === filter).length;
+            filter === "all" ? statusCounts.all : statusCounts[filter];
           const label = filter === "all" ? commonT("allStatus") : t(filter);
           return (
             <button
