@@ -18,6 +18,14 @@ vi.mock("@/server/repositories/billing", () => ({
   upsertSubscription: vi.fn(),
 }));
 
+vi.mock("./stripe", () => ({
+  stripe: {
+    subscriptions: {
+      retrieve: vi.fn(),
+    },
+  },
+}));
+
 import {
   createCreditGrant,
   getSubscriptionByStripeSubscriptionId,
@@ -27,6 +35,7 @@ import {
   upsertSubscription,
 } from "@/server/repositories/billing";
 import { processStripeEvent } from "./events";
+import { stripe } from "./stripe";
 
 const mockCreateCreditGrant = vi.mocked(createCreditGrant);
 const mockGetSubscription = vi.mocked(getSubscriptionByStripeSubscriptionId);
@@ -34,6 +43,7 @@ const mockHasProcessedStripeEvent = vi.mocked(hasProcessedStripeEvent);
 const mockRecordProcessedStripeEvent = vi.mocked(recordProcessedStripeEvent);
 const mockSaveBillingCustomer = vi.mocked(saveBillingCustomer);
 const mockUpsertSubscription = vi.mocked(upsertSubscription);
+const mockStripeSubscriptionRetrieve = vi.mocked(stripe.subscriptions.retrieve);
 
 function stripeEvent(type: string, object: unknown): Stripe.Event {
   return {
@@ -50,6 +60,7 @@ describe("processStripeEvent", () => {
     mockGetSubscription.mockResolvedValue(
       null as Awaited<ReturnType<typeof getSubscriptionByStripeSubscriptionId>>
     );
+    mockStripeSubscriptionRetrieve.mockReset();
   });
 
   it("skips already processed events", async () => {
@@ -184,6 +195,98 @@ describe("processStripeEvent", () => {
 
     const result = await processStripeEvent(event);
 
+    expect(mockCreateCreditGrant).toHaveBeenCalledWith({
+      workspaceId: "workspace-1",
+      source: "stripe_invoice",
+      sourceId: "in_123",
+      amount: 120,
+      expiresAt: periodEnd,
+    });
+    expect(result).toEqual({ status: "processed", type: "invoice.paid" });
+  });
+
+  it("syncs subscription before granting credits when invoice arrives first", async () => {
+    const periodEnd = new Date("2026-06-19T00:00:00.000Z");
+    mockGetSubscription.mockResolvedValueOnce(null);
+    mockStripeSubscriptionRetrieve.mockResolvedValue({
+      id: "sub_123",
+      customer: "cus_123",
+      status: "active",
+      metadata: {
+        workspaceId: "workspace-1",
+        planKey: "growth",
+      },
+      items: { data: [{ price: { id: "price_growth" } }] },
+      current_period_start: 1779148800,
+      current_period_end: 1781827200,
+      cancel_at_period_end: false,
+    } as Stripe.Response<Stripe.Subscription>);
+    mockUpsertSubscription.mockResolvedValue({
+      id: "local-sub-id",
+      workspaceId: "workspace-1",
+      billingCustomerId: null,
+      stripeSubscriptionId: "sub_123",
+      stripeCustomerId: "cus_123",
+      status: "active",
+      planKey: "growth",
+      priceId: "price_growth",
+      currentPeriodStart: new Date("2026-05-19T00:00:00.000Z"),
+      currentPeriodEnd: periodEnd,
+      cancelAtPeriodEnd: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const event = stripeEvent("invoice.paid", {
+      id: "in_123",
+      subscription: "sub_123",
+    });
+
+    const result = await processStripeEvent(event);
+
+    expect(mockStripeSubscriptionRetrieve).toHaveBeenCalledWith("sub_123");
+    expect(mockSaveBillingCustomer).toHaveBeenCalledWith({
+      workspaceId: "workspace-1",
+      stripeCustomerId: "cus_123",
+    });
+    expect(mockCreateCreditGrant).toHaveBeenCalledWith({
+      workspaceId: "workspace-1",
+      source: "stripe_invoice",
+      sourceId: "in_123",
+      amount: 120,
+      expiresAt: periodEnd,
+    });
+    expect(result).toEqual({ status: "processed", type: "invoice.paid" });
+  });
+
+  it("reads subscription ids from current Stripe invoice parent details", async () => {
+    const periodEnd = new Date("2026-06-19T00:00:00.000Z");
+    mockGetSubscription.mockResolvedValue({
+      id: "local-sub-id",
+      workspaceId: "workspace-1",
+      billingCustomerId: null,
+      stripeSubscriptionId: "sub_123",
+      stripeCustomerId: "cus_123",
+      status: "active",
+      planKey: "growth",
+      priceId: "price_growth",
+      currentPeriodStart: new Date("2026-05-19T00:00:00.000Z"),
+      currentPeriodEnd: periodEnd,
+      cancelAtPeriodEnd: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const event = stripeEvent("invoice.paid", {
+      id: "in_123",
+      parent: {
+        subscription_details: {
+          subscription: "sub_123",
+        },
+      },
+    });
+
+    const result = await processStripeEvent(event);
+
+    expect(mockGetSubscription).toHaveBeenCalledWith("sub_123");
     expect(mockCreateCreditGrant).toHaveBeenCalledWith({
       workspaceId: "workspace-1",
       source: "stripe_invoice",

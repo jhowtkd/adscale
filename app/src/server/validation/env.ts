@@ -1,6 +1,10 @@
 import { z } from "zod";
 
-const envSchema = z.object({
+const stripeServerKeySchema = z.string().refine((value) => value.startsWith("sk_") || value.startsWith("rk_"), {
+  message: "Stripe server key must start with sk_ or rk_",
+});
+
+export const envSchema = z.object({
   DATABASE_URL: z.string().url(),
   BETTER_AUTH_SECRET: z.string().min(32),
   BETTER_AUTH_URL: z.string().url(),
@@ -15,7 +19,7 @@ const envSchema = z.object({
   INNGEST_EVENT_KEY: z.string(),
   INNGEST_SIGNING_KEY: z.string(),
   APP_URL: z.string().url(),
-  STRIPE_SECRET_KEY: z.string().startsWith("sk_"),
+  STRIPE_SECRET_KEY: stripeServerKeySchema,
   STRIPE_WEBHOOK_SECRET: z.string().startsWith("whsec_"),
   STRIPE_STARTER_PRICE_ID: z.string().startsWith("price_"),
   STRIPE_GROWTH_PRICE_ID: z.string().startsWith("price_"),

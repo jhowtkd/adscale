@@ -106,6 +106,25 @@ Webhook events to enable:
 9. Run a generation and confirm usage records/debits credits.
 10. Open Customer Portal from Settings -> Billing.
 
+## Stripe Test-Mode Smoke Result
+
+Date: 2026-05-20
+
+- Stripe CLI installed and authenticated in test/sandbox mode.
+- Test products/prices created for Starter, Growth and Scale.
+- Local ignored env configured with Stripe test-mode values.
+- Local app and Stripe webhook forwarding started.
+- Smoke user signed up successfully.
+- Growth Checkout completed with Stripe test card.
+- Signed webhook replay for the real `invoice.paid` event returned 200.
+- Billing UI showed `growth`, `active`, and `120` credits.
+
+Issues found and fixed:
+
+- Local Stripe CLI key extraction can produce a restricted/CLI key path; app env validation now accepts Stripe server keys beginning with `sk_` or `rk_`.
+- Stripe webhook event order is not guaranteed; `invoice.paid` can arrive before `customer.subscription.created`.
+- Current Stripe invoice payloads can store subscription id under `parent.subscription_details.subscription`, not top-level `subscription`.
+
 ## Go / No-Go
 
 Go for a controlled test-mode launch after production env values are configured and a manual Stripe smoke is completed.

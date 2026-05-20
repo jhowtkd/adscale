@@ -313,6 +313,66 @@ npm run build  # passed with local placeholder Stripe env; only middleware/proxy
 - Ignored local env files were filled with non-secret Stripe placeholders so local build/smoke can run without weakening tracked secrets hygiene.
 - Real Stripe test-mode values still need to be configured before a full checkout/webhook browser smoke.
 
+## Stripe Test-Mode Smoke
+
+Date: 2026-05-20
+Status: In Progress
+
+### Checklist
+
+- [x] Confirm current repo is clean before smoke work.
+- [x] Check local Stripe env readiness without printing secrets.
+- [x] Install Stripe CLI locally.
+- [x] Authenticate Stripe CLI or identify the required user login step.
+- [x] Configure real Stripe test-mode secret, webhook secret, and price IDs in ignored local env.
+- [x] Start the local app.
+- [x] Forward Stripe webhooks to `/api/billing/webhook`.
+- [x] Complete Checkout with a test card.
+- [x] Confirm webhook-created subscription and credit grant.
+- [ ] Confirm a paid generation debits credits.
+
+### Initial Findings
+
+- Stripe CLI was not installed at the start of the smoke.
+- Stripe CLI `1.41.1` is now installed.
+- Stripe CLI is not authenticated yet; browser opened the Stripe login page, so user account login/authorization is the next required step.
+- Local Stripe env keys are present only as placeholders, except success/cancel URLs.
+- Port `3000` was free before starting the app.
+
+### Progress
+
+- Stripe CLI authenticated successfully.
+- Test products/prices created for Starter, Growth and Scale.
+- Ignored `.env.local` configured with Stripe test-mode values.
+- Stripe webhook forwarding is running locally.
+- App is running at `http://localhost:3000`.
+
+### Smoke Results
+
+- Created Stripe test products/prices for Starter, Growth and Scale.
+- Created local smoke user `stripe-smoke-20260520070430@example.com`.
+- Completed Growth Checkout with Stripe test card.
+- Confirmed Stripe Checkout redirected back to `http://localhost:3000/settings?tab=billing&checkout=success`.
+- Confirmed subscription state in UI: `growth` / `active`.
+- Found and fixed a real webhook ordering/API-version issue:
+  - `invoice.paid` can arrive before `customer.subscription.created`.
+  - Current Stripe invoice payload stores subscription under `parent.subscription_details.subscription`, not only top-level `subscription`.
+- Replayed the signed real `invoice.paid` webhook to `/api/billing/webhook`; route returned 200.
+- Confirmed UI shows `120 créditos` after credit grant.
+
+### Remaining
+
+- Paid generation credit debit still needs an end-to-end campaign/generation smoke.
+
+### Verification
+
+```bash
+cd app
+npm run test -- src/server/billing/events.test.ts src/app/api/billing/webhook/route.test.ts src/server/validation/env.test.ts src/server/billing/credits.test.ts src/server/billing/gates.test.ts src/server/billing/sessions.test.ts src/app/api/billing/checkout/route.test.ts src/app/api/billing/portal/route.test.ts  # 8 files / 30 passed
+npx eslint src/server/billing/events.ts src/server/billing/events.test.ts src/server/validation/env.ts src/server/validation/env.test.ts src/app/api/billing/webhook/route.test.ts  # passed
+npm run build  # passed; only Next middleware/proxy convention warning
+```
+
 ---
 
 # Novas Sugestoes de Melhorias

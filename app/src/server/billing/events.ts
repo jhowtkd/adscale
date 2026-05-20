@@ -13,6 +13,7 @@ import {
   getStripePriceId,
   planCreditGrants,
 } from "./plans";
+import { stripe } from "./stripe";
 
 export type StripeEventProcessResult =
   | { status: "processed"; type: string }
@@ -33,6 +34,34 @@ function dateFromStripeSeconds(value: unknown) {
 
 function firstSubscriptionPriceId(subscription: Stripe.Subscription) {
   return subscription.items.data[0]?.price.id ?? null;
+}
+
+function invoiceSubscriptionId(invoice: Stripe.Invoice) {
+  const legacyInvoice = invoice as Stripe.Invoice & {
+    subscription?: string | Stripe.Subscription | null;
+  };
+  const currentInvoice = invoice as Stripe.Invoice & {
+    parent?: {
+      subscription_details?: {
+        subscription?: string | Stripe.Subscription | null;
+      } | null;
+    } | null;
+    lines?: {
+      data?: Array<{
+        parent?: {
+          subscription_item_details?: {
+            subscription?: string | Stripe.Subscription | null;
+          } | null;
+        } | null;
+      }>;
+    };
+  };
+
+  return (
+    stringId(legacyInvoice.subscription) ??
+    stringId(currentInvoice.parent?.subscription_details?.subscription) ??
+    stringId(currentInvoice.lines?.data?.[0]?.parent?.subscription_item_details?.subscription)
+  );
 }
 
 async function processCheckoutCompleted(event: Stripe.Event) {
@@ -59,6 +88,10 @@ async function processCheckoutCompleted(event: Stripe.Event) {
 
 async function processSubscriptionChanged(event: Stripe.Event) {
   const subscription = event.data.object as Stripe.Subscription;
+  await syncSubscription(subscription);
+}
+
+async function syncSubscription(subscription: Stripe.Subscription) {
   const subscriptionPeriod = subscription as Stripe.Subscription & {
     current_period_start?: number;
     current_period_end?: number;
@@ -78,7 +111,7 @@ async function processSubscriptionChanged(event: Stripe.Event) {
   }
 
   await saveBillingCustomer({ workspaceId, stripeCustomerId });
-  await upsertSubscription({
+  return upsertSubscription({
     workspaceId,
     stripeCustomerId,
     stripeSubscriptionId,
@@ -93,15 +126,16 @@ async function processSubscriptionChanged(event: Stripe.Event) {
 
 async function processInvoicePaid(event: Stripe.Event) {
   const invoice = event.data.object as Stripe.Invoice;
-  const invoiceWithSubscription = invoice as Stripe.Invoice & {
-    subscription?: string | Stripe.Subscription | null;
-  };
-  const stripeSubscriptionId = stringId(invoiceWithSubscription.subscription);
+  const stripeSubscriptionId = invoiceSubscriptionId(invoice);
   if (!stripeSubscriptionId) {
     throw new Error("Missing invoice subscription");
   }
 
-  const subscription = await getSubscriptionByStripeSubscriptionId(stripeSubscriptionId);
+  let subscription = await getSubscriptionByStripeSubscriptionId(stripeSubscriptionId);
+  if (!subscription) {
+    const stripeSubscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+    subscription = await syncSubscription(stripeSubscription);
+  }
   if (!subscription) {
     throw new Error("Missing local subscription for paid invoice");
   }
