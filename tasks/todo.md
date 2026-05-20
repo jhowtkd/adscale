@@ -287,6 +287,32 @@ npx eslint src/lib/hooks/use-billing.ts src/lib/hooks/use-billing.test.tsx src/c
 npm run build  # passed with dummy env; Better Auth low-entropy dummy secret warning only
 ```
 
+## Launch Setup Review
+
+Date: 2026-05-20
+Status: Completed
+
+### Files Changed
+
+- `app/.env.example` — safe local setup template with required database, auth, OpenAI, storage, Inngest and Stripe variables.
+- `app/.gitignore` — keeps real `.env*` files ignored while allowing the safe example file to be tracked.
+- `app/README.md` — replaced generated starter text with ADScale local setup, Stripe test-mode setup, verification commands and manual smoke checklist.
+- `docs/plans/2026-05-19-finalizacao-prompt-auth-billing-review.md` — added final setup/smoke documentation notes.
+
+### Commands Run & Results
+
+```bash
+cd app
+npm run test -- src/lib/hooks/use-billing.test.tsx src/server/billing/events.test.ts src/app/api/billing/webhook/route.test.ts src/server/billing/credits.test.ts src/server/billing/gates.test.ts src/server/billing/sessions.test.ts src/app/api/billing/checkout/route.test.ts src/app/api/billing/portal/route.test.ts  # 8 files / 28 passed
+npx eslint src/lib/hooks/use-billing.ts src/lib/hooks/use-billing.test.tsx src/components/settings/BillingTab.tsx src/components/settings/PlansTab.tsx src/components/layout/TopBar.tsx  # passed
+npm run build  # passed with local placeholder Stripe env; only middleware/proxy convention warning
+```
+
+### Notes
+
+- Ignored local env files were filled with non-secret Stripe placeholders so local build/smoke can run without weakening tracked secrets hygiene.
+- Real Stripe test-mode values still need to be configured before a full checkout/webhook browser smoke.
+
 ---
 
 # Novas Sugestoes de Melhorias

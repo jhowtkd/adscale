@@ -71,6 +71,8 @@ Required:
 - `STRIPE_SUCCESS_URL`
 - `STRIPE_CANCEL_URL`
 
+Safe placeholders are documented in `app/.env.example`. Local ignored env files can use placeholder Stripe values to keep non-billing development paths bootable, but Checkout and Portal require real Stripe test or live values.
+
 Stripe webhook endpoint:
 
 ```text
@@ -90,6 +92,19 @@ Webhook events to enable:
 - Manual Stripe test-mode smoke still requires real Stripe test keys, price IDs, and webhook secret.
 - Failed generation refund policy is not automatic yet. Credits are charged at route entry/enqueue time.
 - Existing lint warnings remain in templates UI files unrelated to this billing work.
+
+## Manual Smoke Checklist
+
+1. Start the app with all env values present.
+2. Start Stripe CLI forwarding to `/api/billing/webhook`.
+3. Log in and confirm Settings -> Billing shows current state.
+4. Attempt a paid generation without credits and confirm it is blocked.
+5. Select a paid plan from Settings -> Plans.
+6. Complete Stripe Checkout with a test card.
+7. Confirm webhook processing creates/updates customer, subscription, and credit grant.
+8. Confirm Settings -> Billing shows active plan and credits.
+9. Run a generation and confirm usage records/debits credits.
+10. Open Customer Portal from Settings -> Billing.
 
 ## Go / No-Go
 
