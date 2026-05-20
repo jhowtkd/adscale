@@ -12,20 +12,29 @@ CREATE TABLE IF NOT EXISTS "adscale_app"."landing_pages" (
   "updated_at" timestamp DEFAULT now() NOT NULL
 );
 
-ALTER TABLE "adscale_app"."landing_pages"
-  ADD CONSTRAINT "landing_pages_workspace_id_workspaces_id_fk"
-  FOREIGN KEY ("workspace_id") REFERENCES "adscale_app"."workspaces"("id")
-  ON DELETE cascade;
+DO $$ BEGIN
+  ALTER TABLE "adscale_app"."landing_pages"
+    ADD CONSTRAINT "landing_pages_workspace_id_workspaces_id_fk"
+    FOREIGN KEY ("workspace_id") REFERENCES "adscale_app"."workspaces"("id")
+    ON DELETE cascade;
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
-ALTER TABLE "adscale_app"."landing_pages"
-  ADD CONSTRAINT "landing_pages_campaign_id_campaigns_id_fk"
-  FOREIGN KEY ("campaign_id") REFERENCES "adscale_app"."campaigns"("id")
-  ON DELETE cascade;
+DO $$ BEGIN
+  ALTER TABLE "adscale_app"."landing_pages"
+    ADD CONSTRAINT "landing_pages_campaign_id_campaigns_id_fk"
+    FOREIGN KEY ("campaign_id") REFERENCES "adscale_app"."campaigns"("id")
+    ON DELETE cascade;
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
-ALTER TABLE "adscale_app"."landing_pages"
-  ADD CONSTRAINT "landing_pages_source_derivation_id_derivations_id_fk"
-  FOREIGN KEY ("source_derivation_id") REFERENCES "adscale_app"."derivations"("id")
-  ON DELETE cascade;
+DO $$ BEGIN
+  ALTER TABLE "adscale_app"."landing_pages"
+    ADD CONSTRAINT "landing_pages_source_derivation_id_derivations_id_fk"
+    FOREIGN KEY ("source_derivation_id") REFERENCES "adscale_app"."derivations"("id")
+    ON DELETE cascade;
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
 CREATE INDEX IF NOT EXISTS "landing_pages_workspace_id_idx"
   ON "adscale_app"."landing_pages" ("workspace_id");

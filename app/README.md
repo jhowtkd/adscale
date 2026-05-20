@@ -101,6 +101,8 @@ Schema check:
 npx drizzle-kit check
 ```
 
+Migration hygiene note: The Drizzle journal and latest snapshot track migrations 0000-0013. Migrations 0008-0013 were made idempotent with `IF NOT EXISTS` / `duplicate_object` exception blocks so they are safe to re-run on databases where they may have been manually applied. If your `__drizzle_migrations` table already contains rows for 0008-0013 with old checksums, reconcile those rows before running `migrate`.
+
 Lint and build:
 
 ```bash

@@ -316,7 +316,7 @@ npm run build  # passed with local placeholder Stripe env; only middleware/proxy
 ## Stripe Test-Mode Smoke
 
 Date: 2026-05-20
-Status: In Progress
+Status: Completed
 
 ### Checklist
 
@@ -396,6 +396,64 @@ Date: 2026-05-20
 - The local database was missing manually added migrations because `drizzle/meta/_journal.json` only tracks through `0007_creative_diagnosis`.
 - For the smoke, the missing manual SQL migrations `0006_add_is_preview_to_derivations.sql`, `0007_creative_diagnosis.sql`, `0008_creative_qa.sql`, `0009_client_reference_library.sql`, `0010_landing_pages.sql`, and `0011_pending_uploads.sql` were applied directly to the local database.
 - This is not an app runtime bug, but it is a launch hygiene risk: the migration journal should be repaired or a production migration procedure should be documented before deploy.
+
+## Migration Hygiene
+
+Date: 2026-05-20
+Status: In Progress
+
+### Checklist
+
+- [x] Confirm current repo is clean before migration hygiene work.
+- [x] Inspect app-specific instructions and Kimi orchestration contract.
+- [x] Confirm Drizzle baseline state and current `drizzle-kit check` result.
+- [x] Use isolated Kimi worktree to analyze the safest journal/migration repair.
+- [x] Port only the approved migration hygiene diff back to the main checkout.
+- [x] Verify the repair with focused Drizzle checks and migration-safety review.
+- [x] Document final migration procedure and residual risks, if any.
+
+### Initial Findings
+
+- `app/drizzle/meta/_journal.json` currently tracks migrations only through `0007_creative_diagnosis`.
+- SQL files exist through `0013_usage_idempotency.sql`, including the unjournaled billing and usage migrations already used by the app.
+- `npx drizzle-kit check` passes in the current state, but it does not prove future deploy migrations will apply the unjournaled SQL files.
+- Some older manual SQL files are not fully idempotent, so adding them to the journal without a compatibility strategy could break a database where they were applied manually before being tracked.
+
+### Review
+
+Status: Completed.
+
+### Files Changed
+
+- `app/drizzle/0008_creative_qa.sql` — split column additions into idempotent `ADD COLUMN IF NOT EXISTS` statements.
+- `app/drizzle/0009_client_reference_library.sql` — wrapped foreign-key constraint creation in duplicate-safe `DO $$ ... duplicate_object` blocks.
+- `app/drizzle/0010_landing_pages.sql` — wrapped foreign-key constraint creation in duplicate-safe `DO $$ ... duplicate_object` blocks.
+- `app/drizzle/0011_pending_uploads.sql` — made table creation, indexes, and foreign-key constraints idempotent.
+- `app/drizzle/meta/_journal.json` — added entries for `0008` through `0013`.
+- `app/drizzle/meta/0013_snapshot.json` — added a current schema snapshot so future Drizzle generation starts from the post-0013 schema.
+- `app/drizzle/0006_add_is_preview_to_derivations.sql` — removed orphaned manual migration already covered by `0006_stormy_brother_voodoo.sql`.
+- `app/README.md` — added migration hygiene note for operators.
+- `docs/plans/2026-05-19-finalizacao-prompt-auth-billing-review.md` — documented strategy, deploy steps, and residual risks.
+
+### Commands Run & Results
+
+```bash
+cd app
+npx drizzle-kit check
+# passed
+
+python3 -m json.tool app/drizzle/meta/_journal.json >/dev/null
+# passed
+
+npx drizzle-kit generate --name post_hygiene_probe
+# passed in a temporary probe copy with 0013_snapshot.json present: no schema changes
+```
+
+### Notes
+
+- Kimi worked in isolated worktree `/tmp/adscale-kimi-migration-hygiene` on branch `codex/kimi-migration-hygiene`.
+- The worker temporarily changed `app/package-lock.json` while installing dependencies in the worktree; that file was intentionally not ported back.
+- The follow-up cleanup removed the snapshot-generation caveat and the orphaned `0006_add_is_preview_to_derivations.sql` file.
 
 ---
 

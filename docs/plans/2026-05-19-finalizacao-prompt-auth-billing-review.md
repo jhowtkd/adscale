@@ -134,3 +134,80 @@ Operational note:
 ## Go / No-Go
 
 Go for a controlled test-mode launch after production env values are configured and the migration procedure is cleaned up.
+
+
+## Migration Hygiene Repair
+
+Date: 2026-05-20
+Status: Completed in isolated worktree
+
+### Problem
+
+`app/drizzle/meta/_journal.json` only tracked migrations through `0007_creative_diagnosis`, while SQL files existed through `0013_usage_idempotency`. Some of these missing migrations were applied manually during local smoke testing, creating a gap where:
+- Fresh databases could not migrate automatically to the full billing/usage schema.
+- Existing databases with manually applied migrations would fail on duplicate objects if the journal were simply updated without idempotency changes.
+
+### Strategy
+
+Make migrations 0008-0013 idempotent and register them in the journal. This is the minimal safe fix because:
+- These files were never tracked in the journal, so there are no stored checksums to conflict with.
+- `IF NOT EXISTS` and `duplicate_object` exception handling make re-running safe on existing DBs.
+- Fresh DBs will execute the full sequential chain 0000-0013.
+
+### Changes
+
+1. `app/drizzle/0008_creative_qa.sql`
+   - Split multi-column `ADD COLUMN` into separate `ALTER TABLE` statements with `IF NOT EXISTS` per column.
+
+2. `app/drizzle/0009_client_reference_library.sql`
+   - Wrapped all `ALTER TABLE ... ADD CONSTRAINT` FK statements in `DO $$ ... EXCEPTION WHEN duplicate_object THEN null; END $$;` blocks.
+
+3. `app/drizzle/0010_landing_pages.sql`
+   - Wrapped all `ALTER TABLE ... ADD CONSTRAINT` FK statements in `DO $$ ... EXCEPTION WHEN duplicate_object THEN null; END $$;` blocks.
+
+4. `app/drizzle/0011_pending_uploads.sql`
+   - Changed `CREATE TABLE` to `CREATE TABLE IF NOT EXISTS`.
+   - Wrapped FK constraints in `DO $$ ... EXCEPTION WHEN duplicate_object` blocks.
+   - Changed `CREATE INDEX` to `CREATE INDEX IF NOT EXISTS` for all three indexes.
+
+5. `app/drizzle/meta/_journal.json`
+   - Added journal entries for 0008-0013 with sequential idx values and unique timestamps.
+
+6. `app/drizzle/meta/0013_snapshot.json`
+   - Added a current schema snapshot so future `drizzle-kit generate` runs diff from the post-0013 schema state instead of the older 0006 snapshot.
+
+7. `app/drizzle/0006_add_is_preview_to_derivations.sql`
+   - Removed the orphaned manual file because its `is_preview` column is already included in the journaled `0006_stormy_brother_voodoo.sql`.
+
+No changes were needed for:
+- `0012_billing_foundation.sql` — already idempotent (`CREATE TABLE IF NOT EXISTS`, `DO $$` FK blocks, `CREATE INDEX IF NOT EXISTS`).
+- `0013_usage_idempotency.sql` — already idempotent (`ADD COLUMN IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`).
+
+### Verification
+
+```bash
+cd app
+npx drizzle-kit check
+# Result: Everything's fine
+
+npx drizzle-kit generate --name post_hygiene_probe
+# Result, with 0013_snapshot.json present in a temporary probe copy: No schema changes, nothing to migrate
+```
+
+Static review confirmed no `ADD COLUMN`, `CREATE TABLE`, `ADD CONSTRAINT`, or `CREATE INDEX` statements in 0008-0011 remain without idempotency guards.
+
+### Operator Steps for Production Deploy
+
+1. Before running `drizzle-kit migrate` against production, verify that the production `__drizzle_migrations` table does not already contain rows for tags 0008-0013 with checksums of the old (non-idempotent) file content. If it does, those rows must be reconciled first because the file content changed.
+   - If the production DB was never manually patched with these migrations, no action is needed; `migrate` will run them normally.
+   - If the production DB has these migrations already in `__drizzle_migrations` from a previous partial deploy, the checksums will mismatch. In that case, either:
+     a) Update the checksum values in `__drizzle_migrations` to match the new files, or
+     b) Remove the 0008-0013 rows from `__drizzle_migrations` (safe because the SQL is now idempotent).
+
+2. Run `drizzle-kit migrate` in production.
+
+3. Verify that all expected billing/usage tables and columns exist.
+
+### Residual Risks
+
+- **Checksum edge case**: If any environment inserted 0008-0013 into `__drizzle_migrations` with the old file checksums, `migrate` will fail with a checksum mismatch. The operator must resolve this manually per the steps above.
