@@ -1,0 +1,74 @@
+services:
+  - type: web
+    name: adscale-app
+    runtime: node
+    plan: free
+    region: oregon
+    rootDir: app
+    branch: main
+    autoDeployTrigger: commit
+    buildCommand: npm ci && npm run build
+    preDeployCommand: npm run db:migrate
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: adscale-postgres
+          property: connectionString
+      - key: BETTER_AUTH_SECRET
+        generateValue: true
+      - key: BETTER_AUTH_URL
+        value: https://adscale-app.onrender.com
+      - key: APP_URL
+        value: https://adscale-app.onrender.com
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_TEXT_MODEL
+        value: gpt-5-mini
+      - key: OPENAI_IMAGE_MODEL
+        value: gpt-image-2-2026-04-21
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET
+        sync: false
+      - key: R2_PUBLIC_BASE_URL
+        sync: false
+      - key: INNGEST_EVENT_KEY
+        sync: false
+      - key: INNGEST_SIGNING_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_STARTER_PRICE_ID
+        sync: false
+      - key: STRIPE_GROWTH_PRICE_ID
+        sync: false
+      - key: STRIPE_SCALE_PRICE_ID
+        sync: false
+      - key: STRIPE_SUCCESS_URL
+        value: https://adscale-app.onrender.com/settings?tab=billing&checkout=success
+      - key: STRIPE_CANCEL_URL
+        value: https://adscale-app.onrender.com/settings?tab=plans&checkout=cancel
+
+databases:
+  - name: adscale-postgres
+    databaseName: adscale_db
+    user: adscale
+    plan: free
+    postgresMajorVersion: "16"
+    ipAllowList: []

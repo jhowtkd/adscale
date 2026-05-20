@@ -1169,3 +1169,145 @@ DATABASE_URL=postgresql://localhost:5432/test BETTER_AUTH_SECRET=012345678901234
 
 - Upload cleanup is now trackable through `pending_uploads`; actual R2 object deletion for expired pending keys should be scheduled as an operational job if storage churn becomes significant.
 - The Kimi worktree remains disposable and contains no useful diff.
+
+# Render Deployment Prep
+
+Date: 2026-05-20
+Mode: Render Blueprint preparation for the nested Next.js app in `app/`
+
+## Completion Contract
+
+Objective: Prepare ADScale_2 for a Render deployment using a versioned Blueprint while keeping secrets out of Git and preserving the current app architecture.
+
+Constraints:
+- The runnable app lives in `app/`; repo-level deploy files live at the Git root.
+- Use Render Blueprint because the app needs a web service plus PostgreSQL and many runtime secrets.
+- Do not copy values from `.env.docker` or `.env.local` into tracked files.
+- Keep changes limited to deployment configuration and documentation.
+
+Expected Render resources:
+- Web service for the Next.js app.
+- Managed PostgreSQL database wired through `DATABASE_URL`.
+- Runtime env vars for Better Auth, OpenAI, R2, Inngest, app URLs, and Stripe.
+
+Verification commands:
+- `render blueprints validate` if Render CLI is available.
+- `cd app && npm run lint`
+- `cd app && DATABASE_URL=postgresql://localhost:5432/test BETTER_AUTH_SECRET=01234567890123456789012345678901 BETTER_AUTH_URL=http://localhost:3000 OPENAI_API_KEY=sk-test1234567890123456789012345678901234567890 OPENAI_TEXT_MODEL=gpt-4o OPENAI_IMAGE_MODEL=gpt-image-1 R2_ACCOUNT_ID=test R2_ACCESS_KEY_ID=test R2_SECRET_ACCESS_KEY=test R2_BUCKET=test R2_PUBLIC_BASE_URL=https://test.example.com INNGEST_EVENT_KEY=test INNGEST_SIGNING_KEY=test APP_URL=http://localhost:3000 STRIPE_SECRET_KEY=sk_test_123 STRIPE_WEBHOOK_SECRET=whsec_test STRIPE_STARTER_PRICE_ID=price_starter STRIPE_GROWTH_PRICE_ID=price_growth STRIPE_SCALE_PRICE_ID=price_scale STRIPE_SUCCESS_URL=http://localhost:3000/settings?tab=billing\\&checkout=success STRIPE_CANCEL_URL=http://localhost:3000/settings?tab=plans\\&checkout=cancel npm run build`
+
+## Checklist
+
+- [x] Confirm Git remote exists for Render Blueprint flow.
+- [x] Confirm app runtime, build/start commands, health endpoint, and env contract.
+- [x] Add `render.yaml` at the Git root.
+- [x] Add Render deployment notes without secrets.
+- [x] Validate Blueprint syntax/tooling where possible.
+- [x] Run local lint/build checks.
+- [x] Document final review and remaining deploy-time actions.
+
+## Review
+
+Status: Prepared for Render Blueprint deployment.
+
+### Changes
+
+- Added `render.yaml` at the Git root for a Render Node web service with `rootDir: app`.
+- Added a managed Render PostgreSQL database wired into the app through `DATABASE_URL`.
+- Added `preDeployCommand: npm run db:migrate` so Drizzle migrations run before each deploy.
+- Added all required runtime env vars from `app/src/server/validation/env.ts`, using `sync: false` for secrets and `generateValue: true` for `BETTER_AUTH_SECRET`.
+- Added `docs/render-deployment.md` with the deploy flow, required secret list, URL follow-up values, and Inngest/Stripe callback endpoints.
+- Added `engines.node = 20.x` to `app/package.json` to match the existing Docker runtime.
+
+### Verification
+
+```bash
+render blueprints validate render.yaml
+# Blocked locally: installed Render CLI is v2.6.1 and does not include the blueprints command.
+
+ruby -e 'require "yaml"; YAML.load_file("render.yaml"); puts "YAML ok"'
+# Passed.
+
+cd app && npx drizzle-kit check
+# Passed: Everything's fine.
+
+cd app && npm run lint
+# Passed with 0 errors and 3 pre-existing warnings in template files.
+
+cd app && DATABASE_URL=postgresql://localhost:5432/test BETTER_AUTH_SECRET=01234567890123456789012345678901 BETTER_AUTH_URL=http://localhost:3000 OPENAI_API_KEY=sk-test1234567890123456789012345678901234567890 OPENAI_TEXT_MODEL=gpt-4o OPENAI_IMAGE_MODEL=gpt-image-1 R2_ACCOUNT_ID=test R2_ACCESS_KEY_ID=test R2_SECRET_ACCESS_KEY=test R2_BUCKET=test R2_PUBLIC_BASE_URL=https://test.example.com INNGEST_EVENT_KEY=test INNGEST_SIGNING_KEY=test APP_URL=http://localhost:3000 STRIPE_SECRET_KEY=sk_test_123 STRIPE_WEBHOOK_SECRET=whsec_test STRIPE_STARTER_PRICE_ID=price_starter STRIPE_GROWTH_PRICE_ID=price_growth STRIPE_SCALE_PRICE_ID=price_scale STRIPE_SUCCESS_URL='http://localhost:3000/settings?tab=billing&checkout=success' STRIPE_CANCEL_URL='http://localhost:3000/settings?tab=plans&checkout=cancel' npm run build
+# Passed. Better Auth low-entropy warnings were expected because dummy env vars were used.
+
+git diff --check
+# Passed.
+```
+
+### Remaining Deploy-Time Actions
+
+- Upgrade Render CLI to v2.7.0+ or validate the Blueprint in the Render Dashboard.
+- Commit and push `render.yaml`, then open `https://dashboard.render.com/blueprint/new?repo=https://github.com/jhowtkd/adscale`.
+- Fill all `sync: false` secrets in Render.
+- If Render assigns a different service URL than `https://adscale-app.onrender.com`, update `BETTER_AUTH_URL`, `APP_URL`, `STRIPE_SUCCESS_URL`, and `STRIPE_CANCEL_URL`.
+- Configure external callbacks after deploy: Inngest at `/api/inngest` and Stripe at `/api/billing/webhook`.
+
+# Resend Auth Email Setup
+
+Date: 2026-05-20
+Mode: Better Auth production email setup with Resend
+
+## Completion Contract
+
+Objective: Wire Resend into Better Auth for email verification and password reset without committing API keys or changing unrelated auth behavior.
+
+Constraints:
+- Treat any pasted Resend API key as exposed and do not write it to tracked files.
+- Use `RESEND_API_KEY` and `EMAIL_FROM` env vars only.
+- Avoid adding an SDK dependency if the Resend HTTP API is enough.
+- Keep the implementation server-only.
+
+## Checklist
+
+- [x] Add env validation and examples for Resend.
+- [x] Add server-only Resend email helper.
+- [x] Enable Better Auth verification and password reset send hooks.
+- [x] Update Render Blueprint/docs with new env vars.
+- [x] Run focused auth/env/build checks.
+
+## Review
+
+Status: Completed.
+
+### Changes
+
+- Added `RESEND_API_KEY` and `EMAIL_FROM` to env validation and `.env.example`.
+- Added a server-only Resend HTTP email helper without introducing a new SDK dependency.
+- Enabled Better Auth email verification on sign-up/sign-in and password reset emails.
+- Required email verification before email/password sessions are created.
+- Revoked other sessions after password reset.
+- Added focused tests for the Resend email helper and env validation.
+- Added `RESEND_API_KEY` and `EMAIL_FROM` to `render.yaml` as deploy-time env vars.
+- Documented Resend deploy setup and the need to revoke pasted API keys.
+- Synchronized `app/package-lock.json` so Render's `npm ci` build command can run.
+
+### Verification
+
+```bash
+rg -n "re_EXPOSED|RESEND_API_KEY|EMAIL_FROM|sendVerificationEmail|sendResetPassword|requireEmailVerification" app/src app/.env.example render.yaml docs/render-deployment.md tasks/todo.md
+# Passed: the pasted Resend key literal was not found in tracked files.
+
+cd app && npm ci --package-lock-only --ignore-scripts
+# Passed, confirming package-lock.json is now compatible with npm ci.
+
+cd app && npm run test -- src/server/services/email.test.ts src/server/validation/env.test.ts --run
+# Passed: 2 files / 5 tests.
+
+cd app && npm run lint
+# Passed with 0 errors and 3 pre-existing warnings in template files.
+
+cd app && DATABASE_URL=postgresql://localhost:5432/test BETTER_AUTH_SECRET=01234567890123456789012345678901 BETTER_AUTH_URL=http://localhost:3000 OPENAI_API_KEY=sk-test1234567890123456789012345678901234567890 OPENAI_TEXT_MODEL=gpt-4o OPENAI_IMAGE_MODEL=gpt-image-1 R2_ACCOUNT_ID=test R2_ACCESS_KEY_ID=test R2_SECRET_ACCESS_KEY=test R2_BUCKET=test R2_PUBLIC_BASE_URL=https://test.example.com INNGEST_EVENT_KEY=test INNGEST_SIGNING_KEY=test RESEND_API_KEY=re_test EMAIL_FROM='ADScale <onboarding@example.com>' APP_URL=http://localhost:3000 STRIPE_SECRET_KEY=sk_test_123 STRIPE_WEBHOOK_SECRET=whsec_test STRIPE_STARTER_PRICE_ID=price_starter STRIPE_GROWTH_PRICE_ID=price_growth STRIPE_SCALE_PRICE_ID=price_scale STRIPE_SUCCESS_URL='http://localhost:3000/settings?tab=billing&checkout=success' STRIPE_CANCEL_URL='http://localhost:3000/settings?tab=plans&checkout=cancel' npm run build
+# Passed. Better Auth low-entropy warnings were expected because dummy env vars were used.
+```
+
+### Remaining Deploy-Time Actions
+
+- Revoke the pasted Resend API key and create a fresh one.
+- Set the fresh key in Render as `RESEND_API_KEY`; do not commit it.
+- Use `onboarding@resend.dev` only for smoke testing. Verify a real domain in Resend before production sending.

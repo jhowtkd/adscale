@@ -14,6 +14,8 @@ const baseEnv = {
   R2_PUBLIC_BASE_URL: "https://assets.example.com",
   INNGEST_EVENT_KEY: "event-key",
   INNGEST_SIGNING_KEY: "signing-key",
+  RESEND_API_KEY: "re_test",
+  EMAIL_FROM: "ADScale <onboarding@example.com>",
   APP_URL: "http://localhost:3000",
   STRIPE_WEBHOOK_SECRET: "whsec_test",
   STRIPE_STARTER_PRICE_ID: "price_starter",

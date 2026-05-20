@@ -3,6 +3,10 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "../db";
 import * as schema from "../db/schema";
 import { env } from "../validation/env";
+import {
+  sendPasswordResetEmail as sendPasswordResetMessage,
+  sendVerificationEmail as sendVerificationMessage,
+} from "../services/email";
 import { buildTrustedOrigins } from "./config";
 
 export const auth = betterAuth({
@@ -20,10 +24,21 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     autoSignIn: true,
-    // Password reset needs a production email provider decision before enabling sendResetPassword.
+    requireEmailVerification: true,
+    revokeSessionsOnPasswordReset: true,
+    sendResetPassword: async ({ user, url }) => {
+      await sendPasswordResetMessage({ to: user.email, url });
+    },
   },
   socialProviders: {},
-  // Email verification needs a production email provider decision before enabling emailVerification.
+  emailVerification: {
+    sendOnSignUp: true,
+    sendOnSignIn: true,
+    autoSignInAfterVerification: true,
+    sendVerificationEmail: async ({ user, url }) => {
+      await sendVerificationMessage({ to: user.email, url });
+    },
+  },
   databaseHooks: {
     user: {
       create: {

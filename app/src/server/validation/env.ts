@@ -18,6 +18,8 @@ export const envSchema = z.object({
   R2_PUBLIC_BASE_URL: z.string().url(),
   INNGEST_EVENT_KEY: z.string(),
   INNGEST_SIGNING_KEY: z.string(),
+  RESEND_API_KEY: z.string().startsWith("re_"),
+  EMAIL_FROM: z.string().min(3),
   APP_URL: z.string().url(),
   STRIPE_SECRET_KEY: stripeServerKeySchema,
   STRIPE_WEBHOOK_SECRET: z.string().startsWith("whsec_"),
