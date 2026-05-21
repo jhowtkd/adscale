@@ -1,0 +1,258 @@
+"use client";
+
+import { useCallback, useState, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Upload, X, Image as ImageIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+interface RestylingUploadProps {
+  label: string;
+  description?: string;
+  accept?: string;
+  value: File | null;
+  onChange: (file: File) => void;
+  error?: string | null;
+  translations: {
+    dragDrop: string;
+    onlyImages: string;
+    maxSize: string;
+  };
+}
+
+const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/webp"];
+const MAX_SIZE_MB = 50;
+const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+export function RestylingUpload({
+  label,
+  description,
+  accept,
+  value,
+  onChange,
+  error,
+  translations,
+}: RestylingUploadProps) {
+  const [isDragActive, setIsDragActive] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragActive(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragActive(false);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const validateFile = useCallback(
+    (file: File): string | null => {
+      if (!ACCEPTED_TYPES.includes(file.type)) {
+        return translations.onlyImages;
+      }
+      if (file.size > MAX_SIZE_BYTES) {
+        return translations.maxSize;
+      }
+      return null;
+    },
+    [translations]
+  );
+
+  const handleFile = useCallback(
+    (file: File) => {
+      const validationError = validateFile(file);
+      if (validationError) {
+        setLocalError(validationError);
+        return;
+      }
+      setLocalError(null);
+      onChange(file);
+    },
+    [validateFile, onChange]
+  );
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragActive(false);
+
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        handleFile(files[0]);
+      }
+    },
+    [handleFile]
+  );
+
+  const handleInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = e.target.files;
+      if (files && files.length > 0) {
+        handleFile(files[0]);
+      }
+      if (inputRef.current) {
+        inputRef.current.value = "";
+      }
+    },
+    [handleFile]
+  );
+
+  const handleClick = useCallback(() => {
+    inputRef.current?.click();
+  }, []);
+
+  const handleRemove = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      e.preventDefault();
+      onChange(null as unknown as File);
+      if (inputRef.current) {
+        inputRef.current.value = "";
+      }
+    },
+    [onChange]
+  );
+
+  const displayError = error || localError;
+
+  return (
+    <div className="w-full">
+      <label className="block text-sm font-semibold text-[var(--text-primary)] mb-1.5">
+        {label}
+      </label>
+      {description && (
+        <p className="text-xs text-[var(--text-muted)] mb-3">{description}</p>
+      )}
+
+      <AnimatePresence mode="wait">
+        {value ? (
+          <motion.div
+            key="file-selected"
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.98 }}
+            transition={{ duration: 0.25, ease: [0.19, 1, 0.22, 1] as const }}
+            className="relative rounded-xl border border-[var(--border-dim)] bg-[var(--surface-raised)] overflow-hidden"
+          >
+            <div className="flex items-center gap-4 p-4">
+              <div className="w-16 h-16 rounded-lg overflow-hidden bg-[var(--neutral)] flex-shrink-0">
+                <img
+                  src={URL.createObjectURL(value)}
+                  alt={value.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-[var(--text-primary)] truncate">
+                  {value.name}
+                </p>
+                <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                  {formatFileSize(value.size)}
+                </p>
+              </div>
+              <button
+                onClick={handleRemove}
+                className="inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-[var(--surface-base)] transition-colors duration-200"
+              >
+                <X size={18} className="text-[var(--text-muted)]" />
+              </button>
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="upload-zone"
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.98 }}
+            transition={{ duration: 0.25, ease: [0.19, 1, 0.22, 1] as const }}
+          >
+            <div
+              onClick={handleClick}
+              onDragEnter={handleDragEnter}
+              onDragLeave={handleDragLeave}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+              className={cn(
+                "relative flex flex-col items-center justify-center min-h-[180px] rounded-xl border-2 border-dashed transition-all duration-200 cursor-pointer",
+                isDragActive
+                  ? "border-[var(--accent-mint)] bg-[var(--accent-mint-dim)]"
+                  : displayError
+                  ? "border-[var(--accent-rose)]"
+                  : "border-[var(--border-medium)] bg-[var(--surface-raised)] hover:border-[var(--accent-mint)] hover:bg-[var(--accent-mint-dim)]"
+              )}
+            >
+              <input
+                ref={inputRef}
+                type="file"
+                accept={accept || ACCEPTED_TYPES.join(",")}
+                onChange={handleInputChange}
+                className="hidden"
+              />
+
+              <motion.div
+                animate={isDragActive ? { y: [0, -6, 0] } : { y: 0 }}
+                transition={
+                  isDragActive
+                    ? { duration: 0.6, repeat: Infinity, ease: "easeInOut" }
+                    : {}
+                }
+                className="mb-3"
+              >
+                <Upload
+                  size={32}
+                  className={cn(
+                    "transition-colors duration-200",
+                    isDragActive
+                      ? "text-[var(--accent-mint)]"
+                      : displayError
+                      ? "text-[var(--accent-rose)]"
+                      : "text-[var(--text-muted)]"
+                  )}
+                />
+              </motion.div>
+
+              <p className="text-sm font-medium text-[var(--text-primary)] mb-1">
+                {translations.dragDrop}
+              </p>
+              <p className="text-xs text-[var(--text-muted)]">
+                {translations.onlyImages} ({translations.maxSize})
+              </p>
+
+              <AnimatePresence>
+                {displayError && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[rgba(244,63,94,0.08)] border border-[var(--accent-rose)]/20"
+                  >
+                    <X size={14} className="text-[var(--accent-rose)]" />
+                    <span className="text-xs text-[var(--accent-rose)]">
+                      {displayError}
+                    </span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+export default RestylingUpload;
