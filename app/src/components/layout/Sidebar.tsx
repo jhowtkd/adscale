@@ -15,6 +15,7 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  Sparkles,
 } from "lucide-react";
 
 export default function Sidebar() {
@@ -25,6 +26,7 @@ export default function Sidebar() {
     { icon: LayoutDashboard, label: tNav("dashboard"), href: "/" },
     { icon: FolderOpen, label: tNav("campaigns"), href: "/campaigns" },
     { icon: LayoutTemplate, label: tNav("templates"), href: "/templates" },
+    { icon: Sparkles, label: tNav("restyling"), href: "/restyling" },
   ];
 
   const accountNavItems = [

@@ -624,34 +624,43 @@
   },
   "restyling": {
     "title": "Restilização de Criativo",
-    "nameLabel": "Nome da campanha",
+    "description": "Redesenhe um criativo com novo estilo a partir de uma referência visual",
+    "name": "Nome da campanha",
     "namePlaceholder": "Ex: Verão 2026 - Estilo minimalista",
+    "nameRequired": "Nome da campanha é obrigatório",
     "clientLabel": "Cliente / Marca",
     "clientPlaceholder": "Ex: Loja XYZ",
     "offerLabel": "Objetivo / Oferta",
     "offerPlaceholder": "Ex: 20% off em toda linha",
     "ctaLabel": "CTA Exato",
     "ctaPlaceholder": "Ex: Compre Agora",
+    "ctaText": "Texto do CTA",
+    "ctaTextPlaceholder": "Ex: Compre Agora",
     "notesLabel": "Notas",
     "notesPlaceholder": "Ex: Manter logo no canto superior esquerdo",
     "baseImageLabel": "Imagem Base (conteúdo a ser restilado)",
+    "baseImageDescription": "Envie o criativo que deseja restilar",
     "baseImageRequired": "Imagem base é obrigatória",
     "styleImageLabel": "Referência de Estilo (visual desejado)",
+    "styleImageDescription": "Envie o estilo visual que deseja aplicar",
     "styleImageRequired": "Referência de estilo é obrigatória",
     "selectFile": "Selecionar arquivo",
     "replaceFile": "Trocar arquivo",
     "submit": "Iniciar Restilização",
+    "submitLabel": "Gerar Derivações",
+    "cancelLabel": "Cancelar",
     "styleIntensityLabel": "Intensidade do estilo",
     "styleIntensity": {
       "soft": "Suave",
+      "softDescription": "Aplica cor, textura e humor sem se afastar muito do criativo base.",
       "medium": "Médio",
+      "mediumDescription": "Equilibra o criativo base com tipografia, tratamento e ritmo da referência.",
       "strong": "Forte",
-      "help": {
-        "soft": "Aplica cor, textura e humor sem se afastar muito do criativo base.",
-        "medium": "Equilibra o criativo base com tipografia, tratamento e ritmo da referência.",
-        "strong": "Puxa mais da linguagem visual da referência sem copiar seu conteúdo."
-      }
-    }
+      "strongDescription": "Puxa mais da linguagem visual da referência sem copiar seu conteúdo."
+    },
+    "dragDrop": "Arraste e solte sua imagem aqui",
+    "onlyImages": "Apenas PNG, JPG, WebP",
+    "maxSize": "Máx 50 MB"
   },
   "deliveryPackage": {
     "title": "Gerar pacote de entrega",
