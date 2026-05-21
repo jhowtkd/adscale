@@ -620,34 +620,43 @@
   },
   "restyling": {
     "title": "Creative Restyling",
-    "nameLabel": "Campaign name",
+    "description": "Redesign a creative with a new style from a visual reference",
+    "name": "Campaign name",
     "namePlaceholder": "Ex: Summer 2026 - Minimalist style",
+    "nameRequired": "Campaign name is required",
     "clientLabel": "Client / Brand",
     "clientPlaceholder": "Ex: Store XYZ",
     "offerLabel": "Objective / Offer",
     "offerPlaceholder": "Ex: 20% off on all items",
     "ctaLabel": "Exact CTA",
     "ctaPlaceholder": "Ex: Buy Now",
+    "ctaText": "CTA Text",
+    "ctaTextPlaceholder": "Ex: Buy Now",
     "notesLabel": "Notes",
     "notesPlaceholder": "Ex: Keep logo in upper left corner",
     "baseImageLabel": "Base Image (content to be restyled)",
+    "baseImageDescription": "Upload the creative you want to restyle",
     "baseImageRequired": "Base image is required",
     "styleImageLabel": "Style Reference (desired visual)",
+    "styleImageDescription": "Upload the visual style you want to apply",
     "styleImageRequired": "Style reference is required",
     "selectFile": "Select file",
     "replaceFile": "Replace file",
     "submit": "Start Restyling",
+    "submitLabel": "Gerar Derivation",
+    "cancelLabel": "Cancel",
     "styleIntensityLabel": "Style intensity",
     "styleIntensity": {
       "soft": "Soft",
+      "softDescription": "Applies color, texture, and mood without moving far from the base creative.",
       "medium": "Medium",
+      "mediumDescription": "Balances the base creative with typography, treatment, and rhythm from the reference.",
       "strong": "Strong",
-      "help": {
-        "soft": "Applies color, texture, and mood without moving far from the base creative.",
-        "medium": "Balances the base creative with typography, treatment, and rhythm from the reference.",
-        "strong": "Pulls more of the reference visual language without copying its content."
-      }
-    }
+      "strongDescription": "Pulls more of the reference visual language without copying its content."
+    },
+    "dragDrop": "Drag & drop your image here",
+    "onlyImages": "PNG, JPG, WebP only",
+    "maxSize": "Max 50 MB"
   },
   "deliveryPackage": {
     "title": "Generate delivery package",
