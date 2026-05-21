@@ -2,7 +2,7 @@
 
 import { useCallback, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Upload, X, Image as ImageIcon } from "lucide-react";
+import { Upload, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface RestylingUploadProps {
@@ -10,7 +10,7 @@ interface RestylingUploadProps {
   description?: string;
   accept?: string;
   value: File | null;
-  onChange: (file: File) => void;
+  onChange: (file: File | null) => void;
   error?: string | null;
   translations: {
     dragDrop: string;
@@ -232,21 +232,19 @@ export function RestylingUpload({
                 {translations.onlyImages} ({translations.maxSize})
               </p>
 
-              <AnimatePresence>
-                {displayError && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[rgba(244,63,94,0.08)] border border-[var(--accent-rose)]/20"
-                  >
-                    <X size={14} className="text-[var(--accent-rose)]" />
-                    <span className="text-xs text-[var(--accent-rose)]">
-                      {displayError}
-                    </span>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              {displayError && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[rgba(244,63,94,0.08)] border border-[var(--accent-rose)]/20"
+                >
+                  <X size={14} className="text-[var(--accent-rose)]" />
+                  <span className="text-xs text-[var(--accent-rose)]">
+                    {displayError}
+                  </span>
+                </motion.div>
+              )}
             </div>
           </motion.div>
         )}
