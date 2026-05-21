@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { NextResponse } from "next/server";
 
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn().mockResolvedValue((key: string) => key),
@@ -236,10 +237,7 @@ describe("POST /api/restyling", () => {
 
   it("returns 402 when credits insufficient", async () => {
     (spendCreditsOrApiError as ReturnType<typeof vi.fn>).mockResolvedValue(
-      new Response(JSON.stringify({ error: "insufficientCredits", message: "Not enough credits" }), {
-        status: 402,
-        headers: { "Content-Type": "application/json" },
-      })
+      NextResponse.json({ error: "insufficientCredits" }, { status: 402 })
     );
 
     const formData = createMockFormData({
