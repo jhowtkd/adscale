@@ -22,7 +22,6 @@ export default function TemplateCard({
 }: TemplateCardProps) {
   const tTemplate = useTranslations("template");
   const tCampaign = useTranslations("campaign");
-  const tCommon = useTranslations("common");
 
   const modeLabels: Record<string, string> = {
     art_variation: tCampaign("modes.artVariation.label"),

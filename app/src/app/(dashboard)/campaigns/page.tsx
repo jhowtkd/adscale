@@ -43,7 +43,6 @@ export default function CampaignsListPage() {
     sortOption,
     selectedIds,
     setSelectedIds,
-    currentPage,
     setCurrentPage,
     itemsPerPage,
     searchQuery,

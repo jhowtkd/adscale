@@ -38,14 +38,6 @@ interface CampaignListCardProps {
   onSaveAsTemplate: (campaign: Campaign) => void;
 }
 
-const cardVariants = {
-  hidden: { opacity: 0, y: 12 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.35, ease: [0.19, 1, 0.22, 1] as [number, number, number, number] },
-  },
-};
 
 function CampaignListCard({
   campaign,

@@ -2,7 +2,6 @@
 
 import React, { useRef } from "react";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
@@ -38,14 +37,6 @@ interface CampaignTableRowProps {
   onSaveAsTemplate: (campaign: Campaign) => void;
 }
 
-const rowVariants = {
-  hidden: { opacity: 0, x: -10 },
-  visible: {
-    opacity: 1,
-    x: 0,
-    transition: { duration: 0.35, ease: [0.19, 1, 0.22, 1] as [number, number, number, number] },
-  },
-};
 
 function CampaignTableRow({
   campaign,

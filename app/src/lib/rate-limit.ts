@@ -3,7 +3,6 @@
  * Upstash Redis support can be added later by swapping the store.
  */
 
-import { logger } from "./logger";
 
 export type RateLimitCategory = "auth" | "ai" | "general";
 

@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Plus, FileText } from "lucide-react";
@@ -16,7 +15,6 @@ import TemplateCard from "@/components/templates/TemplateCard";
 export default function TemplatesPage() {
   const router = useRouter();
   const tTemplate = useTranslations("template");
-  const tCommon = useTranslations("common");
 
   const { data: templates, isLoading } = useTemplates();
   const deleteTemplate = useDeleteTemplate();

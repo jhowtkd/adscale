@@ -2,28 +2,7 @@ import type { ContentBrief, StyleBrief } from "./image-analysis";
 
 export type StyleIntensity = "soft" | "medium" | "strong";
 
-const RESTYLING_INTENSITY_PROMPTS: Record<StyleIntensity, string> = {
-  soft: [
-    "STYLE INTENSITY: soft.",
-    "Use the style reference lightly.",
-    "Prioritize the base ad content and layout.",
-    "Borrow mainly palette, subtle texture, and mood.",
-  ].join("\n"),
-  medium: [
-    "STYLE INTENSITY: medium.",
-    "Balance base content with reference style.",
-    "Apply palette, typography, photo treatment, rhythm, and moderate composition influence.",
-  ].join("\n"),
-  strong: [
-    "STYLE INTENSITY: strong.",
-    "Apply the reference visual language with high presence.",
-    "Allow stronger typography, texture, composition, and energy shifts while preserving campaign content.",
-  ].join("\n"),
-};
 
-function normalizeStyleIntensity(value?: string | null): StyleIntensity {
-  return value === "soft" || value === "strong" || value === "medium" ? value : "medium";
-}
 
 export interface Campaign {
   id: string;
@@ -435,6 +414,31 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
   );
 
   return parts.join("\n");
+}
+
+
+
+const RESTYLING_INTENSITY_PROMPTS: Record<StyleIntensity, string> = {
+  soft: [
+    "STYLE INTENSITY: soft.",
+    "Use the style reference lightly.",
+    "Prioritize the base ad content and layout.",
+    "Borrow mainly palette, subtle texture, and mood.",
+  ].join("\n"),
+  medium: [
+    "STYLE INTENSITY: medium.",
+    "Balance base content with reference style.",
+    "Apply palette, typography, photo treatment, rhythm, and moderate composition influence.",
+  ].join("\n"),
+  strong: [
+    "STYLE INTENSITY: strong.",
+    "Apply the reference visual language with high presence.",
+    "Allow stronger typography, texture, composition, and energy shifts while preserving campaign content.",
+  ].join("\n"),
+};
+
+function normalizeStyleIntensity(value?: string | null): StyleIntensity {
+  return value === "soft" || value === "strong" || value === "medium" ? value : "medium";
 }
 
 export function buildRestylingPrompt(
