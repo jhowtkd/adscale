@@ -7,6 +7,7 @@ import QueryProvider from "@/components/providers/QueryProvider";
 import A11yProvider from "@/components/providers/A11yProvider";
 import CookieBanner from "@/components/cookie-consent/CookieBanner";
 import { SentryErrorBoundary } from "@/components/providers/SentryErrorBoundary";
+import ToastStack from "@/components/providers/ToastStack";
 import "./globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -53,6 +54,7 @@ export default async function RootLayout({
                       },
                     }}
                   />
+                  <ToastStack />
                 </SentryErrorBoundary>
               </TooltipProvider>
             </A11yProvider>

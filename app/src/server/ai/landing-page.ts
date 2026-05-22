@@ -37,7 +37,7 @@ const REQUIRED_SECTIONS: LandingPageSectionKey[] = [
 ];
 
 function getOpenAI() {
-  return new OpenAI({ apiKey: env.OPENAI_API_KEY });
+  return new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 60_000 });
 }
 
 export function buildLandingPagePrompt(

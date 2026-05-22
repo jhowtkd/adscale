@@ -35,7 +35,7 @@ const CRITERIA: CreativeQaCriterion[] = [
 ];
 
 function getOpenAI() {
-  return new OpenAI({ apiKey: env.OPENAI_API_KEY });
+  return new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 60_000 });
 }
 
 function asStatus(value: unknown): CreativeQaStatus {

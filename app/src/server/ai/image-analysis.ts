@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import { env } from "@/server/validation/env";
 
-const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
+const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 60_000 });
 
 export interface ContentBrief {
   product: string;

@@ -2,7 +2,7 @@ import OpenAI from "openai";
 import { env } from "@/server/validation/env";
 
 function getOpenAI() {
-  return new OpenAI({ apiKey: env.OPENAI_API_KEY });
+  return new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 60_000 });
 }
 
 export interface CreativeDiagnosis {

@@ -22,7 +22,7 @@ import {
 import { normalizeCreativeDiagnosis } from "@/server/ai/creative-diagnosis";
 import { getTargetDimensions, formatToOpenAISize } from "@/lib/formats";
 
-const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
+const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 120_000 });
 const IMAGE_GENERATION_TIMEOUT_MS = 5 * 60 * 1000;
 
 export async function normalizeGeneratedImage(

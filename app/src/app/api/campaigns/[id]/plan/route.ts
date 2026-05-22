@@ -16,7 +16,7 @@ import { buildPlanPrompt } from "@/server/ai/prompt-builder";
 import { env } from "@/server/validation/env";
 import { spendCreditsOrApiError } from "@/server/billing/gates";
 
-const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
+const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 60_000 });
 
 const planSchema = z.object({
   strategy: z.string(),

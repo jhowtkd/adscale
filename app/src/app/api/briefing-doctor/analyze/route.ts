@@ -6,7 +6,7 @@ import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getUserLocale } from "@/server/repositories/user";
 import { env } from "@/server/validation/env";
 
-const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
+const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 60_000 });
 
 const fieldSchema = z.enum([
   "objective",

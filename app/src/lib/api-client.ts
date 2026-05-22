@@ -2,6 +2,7 @@ export async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Pr
   const res = await fetch(input, {
     ...init,
     credentials: "include",
+    signal: init?.signal ?? AbortSignal.timeout(30_000),
   });
 
   if (res.status === 401) {

@@ -21,6 +21,7 @@ export async function sendEmail(input: SendEmailInput) {
       html: input.html,
       text: input.text,
     }),
+    signal: AbortSignal.timeout(10_000),
   });
 
   if (!response.ok) {
