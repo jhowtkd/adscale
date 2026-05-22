@@ -1,6 +1,7 @@
 "use client";
 
 import EmptyState from "@/components/ui/EmptyState";
+import { AlertCircle, ImageOff, Search } from "lucide-react";
 
 import dynamic from "next/dynamic";
 
@@ -111,7 +112,7 @@ export default function CampaignsListPage() {
           viewMode === "list" ? <TableSkeleton /> : <GridSkeleton />
         ) : isError ? (
           <EmptyState
-            illustration="/empty-campaigns.svg"
+            icon={AlertCircle}
             title={tc("errorLoading")}
             description={error?.message || te("generic")}
             action={{
@@ -121,7 +122,7 @@ export default function CampaignsListPage() {
           />
         ) : campaigns.length === 0 ? (
           <EmptyState
-            illustration="/empty-campaigns.svg"
+            icon={hasActiveFilters ? Search : ImageOff}
             title={hasActiveFilters ? tc("noCampaignsMatch") : tc("noCampaignsYet")}
             description={
               hasActiveFilters

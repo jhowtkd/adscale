@@ -140,6 +140,10 @@
     "campaignsDeleted": "{count} campanhas excluídas",
     "failedDeleteSome": "Falha ao excluir algumas campanhas",
     "comingSoon": "Em breve",
+    "sending": "Enviando...",
+    "inviteSent": "Convite enviado com sucesso",
+    "memberRemoved": "Membro removido",
+    "invalidEmail": "Por favor, insira um e-mail válido",
     "avatarSizeError": "O avatar deve ter menos de 5MB",
     "profileUpdated": "Perfil atualizado com sucesso",
     "workspaceUpdated": "Configurações do workspace atualizadas",
@@ -152,7 +156,12 @@
     "packageQueued": "Pacote de entrega enfileirado",
     "packageFailed": "Falha ao enfileirar pacote de entrega",
     "creativeQaComplete": "QA da arte concluído",
-    "creativeQaFailed": "Não foi possível revisar a arte agora"
+    "creativeQaFailed": "Não foi possível revisar a arte agora",
+    "emptyState": {
+      "uploadCreative": "Envie criativo",
+      "fillBrief": "Preencha brief",
+      "approveVariations": "Aprove variações"
+    }
   },
   "campaign": {
     "new": "Nova campanha",
@@ -392,7 +401,10 @@
     "rerunQa": "Revisar novamente",
     "qaReady": "Pronta",
     "qaWarning": "Atenção",
-    "qaReview": "Revisar"
+    "qaReview": "Revisar",
+    "emptyTitle": "Nenhuma derivação ainda",
+    "emptyDescription": "Gere suas primeiras variações a partir do plano criativo",
+    "emptyAction": "Gerar derivações"
   },
   "plan": {
     "title": "Plano Criativo",

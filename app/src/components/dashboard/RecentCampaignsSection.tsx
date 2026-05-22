@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import EmptyState from "@/components/ui/EmptyState";
+import { ImageOff } from "lucide-react";
 import { CampaignRow } from "./CampaignRow";
 import type { UiCampaign } from "@/lib/hooks/use-campaigns";
 import { useTranslations } from "next-intl";
@@ -62,9 +63,15 @@ export function RecentCampaignsSection({ campaigns, isLoading }: RecentCampaigns
         </div>
       ) : (
         <EmptyState
+          icon={ImageOff}
           title={t("noCampaignsYet")}
           description={t("createFirstCampaign")}
-          action={{ label: tc("new"), onClick: () => {} }}
+          action={{ label: tc("new"), href: "/campaigns/new" }}
+          steps={[
+            t("emptyState.uploadCreative"),
+            t("emptyState.fillBrief"),
+            t("emptyState.approveVariations"),
+          ]}
         />
       )}
     </section>

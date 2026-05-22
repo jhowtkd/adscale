@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
 import { Plus, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import EmptyState from "@/components/ui/EmptyState";
 import {
   useTemplates,
   useDeleteTemplate,
@@ -80,21 +80,15 @@ export default function TemplatesPage() {
           ))}
         </div>
       ) : (
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col items-center justify-center py-20 text-center"
-        >
-          <div className="w-16 h-16 rounded-full bg-[var(--surface-raised)] flex items-center justify-center mb-4">
-            <FileText size={28} className="text-[var(--text-muted)]" />
-          </div>
-          <h3 className="text-base font-medium text-[var(--text-primary)] mb-1">
-            {tTemplate("emptyTitle")}
-          </h3>
-          <p className="text-sm text-[var(--text-secondary)] max-w-sm">
-            {tTemplate("emptyDescription")}
-          </p>
-        </motion.div>
+        <EmptyState
+          icon={FileText}
+          title={tTemplate("emptyTitle")}
+          description={tTemplate("emptyDescription")}
+          action={{
+            label: tTemplate("createFromCampaign"),
+            href: "/campaigns",
+          }}
+        />
       )}
     </div>
   );

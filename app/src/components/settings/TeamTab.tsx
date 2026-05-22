@@ -1,10 +1,17 @@
 "use client";
 
+import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
-import { UserPlus, Edit } from "lucide-react";
+import { UserPlus, Edit, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";
 import { useTranslations } from "next-intl";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  useWorkspaceMembers,
+  useRemoveMember,
+  useInviteMember,
+} from "@/lib/hooks/use-workspace-team";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -29,43 +36,7 @@ interface TeamMember {
   email: string;
   role: "Owner" | "Admin" | "Editor" | "Viewer";
   status: "Active" | "Pending";
-  initials: string;
 }
-
-const members: TeamMember[] = [
-  {
-    id: "1",
-    name: "Alex Johnson",
-    email: "alex@company.com",
-    role: "Owner",
-    status: "Active",
-    initials: "AJ",
-  },
-  {
-    id: "2",
-    name: "Sarah Chen",
-    email: "sarah@company.com",
-    role: "Admin",
-    status: "Active",
-    initials: "SC",
-  },
-  {
-    id: "3",
-    name: "Mike Ross",
-    email: "mike@company.com",
-    role: "Editor",
-    status: "Active",
-    initials: "MR",
-  },
-  {
-    id: "4",
-    name: "Pending invite",
-    email: "dev@company.com",
-    role: "Editor",
-    status: "Pending",
-    initials: "?",
-  },
-];
 
 const roleConfig: Record<
   TeamMember["role"],
@@ -84,10 +55,70 @@ const roleKeyMap: Record<TeamMember["role"], string> = {
   Viewer: "roleViewer",
 };
 
+function getInitials(name: string): string {
+  if (!name || !name.trim()) return "?";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  return (
+    parts[0].charAt(0).toUpperCase() +
+    parts[parts.length - 1].charAt(0).toUpperCase()
+  );
+}
+
 export default function TeamTab() {
   const addToast = useAppStore((s) => s.addToast);
   const t = useTranslations("settings");
   const tc = useTranslations("common");
+
+  const { data: membersData, isLoading, isError, error } = useWorkspaceMembers();
+  const removeMember = useRemoveMember();
+  const inviteMember = useInviteMember();
+
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<"Editor" | "Admin" | "Viewer">("Editor");
+
+  const members: TeamMember[] = useMemo(() => {
+    if (!membersData) return [];
+    return membersData.map((m) => ({
+      id: m.id,
+      name: m.name,
+      email: m.email,
+      role: m.role,
+      status: "Active" as const,
+    }));
+  }, [membersData]);
+
+  const handleSendInvite = () => {
+    if (!inviteEmail.trim() || !inviteEmail.includes("@")) {
+      addToast("error", tc("invalidEmail"));
+      return;
+    }
+    inviteMember.mutate(
+      { email: inviteEmail.trim(), role: inviteRole },
+      {
+        onSuccess: () => {
+          addToast("success", tc("inviteSent"));
+          setInviteEmail("");
+          setInviteRole("Editor");
+        },
+        onError: (err) => {
+          addToast("error", err.message || tc("error"));
+        },
+      }
+    );
+  };
+
+  const handleRemove = (member: TeamMember) => {
+    if (member.role === "Owner") return;
+    removeMember.mutate(member.id, {
+      onSuccess: () => {
+        addToast("success", tc("memberRemoved"));
+      },
+      onError: (err) => {
+        addToast("error", err.message || tc("error"));
+      },
+    });
+  };
 
   return (
     <motion.div
@@ -107,7 +138,10 @@ export default function TeamTab() {
           </span>
         </div>
         <button
-          onClick={() => addToast("info", tc("teamInvitesComingSoon"))}
+          onClick={() => {
+            const el = document.getElementById("invite-section");
+            el?.scrollIntoView({ behavior: "smooth", block: "center" });
+          }}
           className={cn(
             "h-9 px-4 rounded-md text-sm font-medium text-white flex items-center gap-2",
             "bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-light)]",
@@ -120,83 +154,123 @@ export default function TeamTab() {
         </button>
       </motion.div>
 
-      {/* Members List */}
-      <div className="space-y-2">
-        {members.map((member, index) => (
-          <motion.div
-            key={member.id}
-            variants={itemVariants}
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.35, delay: index * 0.06 }}
-            className={cn(
-              "flex items-center gap-4 py-3 px-4 rounded-lg",
-              "bg-[var(--surface-base)] border border-[var(--border-dim)]",
-              "hover:border-[var(--border-medium)] transition-all duration-200"
-            )}
-          >
-            {/* Avatar */}
+      {/* Loading State */}
+      {isLoading && (
+        <div className="space-y-2">
+          {Array.from({ length: 3 }).map((_, i) => (
             <div
-              className={cn(
-                "w-9 h-9 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0",
-                member.status === "Pending"
-                  ? "bg-[var(--border-dim)] text-[var(--text-muted)]"
-                  : "bg-[var(--accent-blue-dim)] text-[var(--accent-blue-light)]"
-              )}
+              key={i}
+              className="flex items-center gap-4 py-3 px-4 rounded-lg bg-[var(--surface-base)] border border-[var(--border-dim)]"
             >
-              {member.initials}
-            </div>
-
-            {/* Info */}
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-[var(--text-primary)] truncate">
-                {member.name}
-              </p>
-              <p className="text-xs text-[var(--text-muted)] truncate">
-                {member.email}
-              </p>
-            </div>
-
-            {/* Role Badge */}
-            <span
-              className="text-xs font-medium px-2.5 py-1 rounded-full flex-shrink-0"
-              style={{
-                color: roleConfig[member.role].color,
-                backgroundColor: roleConfig[member.role].bg,
-              }}
-            >
-              {t(roleKeyMap[member.role])}
-            </span>
-
-            {/* Status */}
-            <span
-              className={cn(
-                "text-xs flex-shrink-0",
-                member.status === "Active"
-                  ? "text-[var(--accent-teal)]"
-                  : "text-[var(--text-muted)]"
-              )}
-            >
-              {member.status}
-            </span>
-
-            {/* Actions */}
-            {member.role !== "Owner" && (
-              <div className="flex items-center gap-1 flex-shrink-0">
-                <button
-                  onClick={() => addToast("info", tc("roleManagementComingSoon"))}
-                  className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-all"
-                >
-                  <Edit size={14} />
-                </button>
+              <Skeleton className="w-9 h-9 rounded-full flex-shrink-0" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-1/3" />
+                <Skeleton className="h-3 w-1/2" />
               </div>
-            )}
-          </motion.div>
-        ))}
-      </div>
+              <Skeleton className="h-5 w-16 rounded-full" />
+              <Skeleton className="h-4 w-12" />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Error State */}
+      {isError && !isLoading && (
+        <motion.div
+          variants={itemVariants}
+          className="rounded-lg border border-[var(--accent-rose)]/30 bg-[var(--accent-rose)]/10 px-4 py-3 text-sm text-[var(--accent-rose)]"
+        >
+          {error?.message || tc("error")}
+        </motion.div>
+      )}
+
+      {/* Members List */}
+      {!isLoading && !isError && (
+        <div className="space-y-2">
+          {members.map((member, index) => (
+            <motion.div
+              key={member.id}
+              variants={itemVariants}
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.35, delay: index * 0.06 }}
+              className={cn(
+                "flex items-center gap-4 py-3 px-4 rounded-lg",
+                "bg-[var(--surface-base)] border border-[var(--border-dim)]",
+                "hover:border-[var(--border-medium)] transition-all duration-200"
+              )}
+            >
+              {/* Avatar */}
+              <div
+                className={cn(
+                  "w-9 h-9 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0",
+                  member.status === "Pending"
+                    ? "bg-[var(--border-dim)] text-[var(--text-muted)]"
+                    : "bg-[var(--accent-blue-dim)] text-[var(--accent-blue-light)]"
+                )}
+              >
+                {getInitials(member.name)}
+              </div>
+
+              {/* Info */}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-[var(--text-primary)] truncate">
+                  {member.name}
+                </p>
+                <p className="text-xs text-[var(--text-muted)] truncate">
+                  {member.email}
+                </p>
+              </div>
+
+              {/* Role Badge */}
+              <span
+                className="text-xs font-medium px-2.5 py-1 rounded-full flex-shrink-0"
+                style={{
+                  color: roleConfig[member.role].color,
+                  backgroundColor: roleConfig[member.role].bg,
+                }}
+              >
+                {t(roleKeyMap[member.role])}
+              </span>
+
+              {/* Status */}
+              <span
+                className={cn(
+                  "text-xs flex-shrink-0",
+                  member.status === "Active"
+                    ? "text-[var(--accent-teal)]"
+                    : "text-[var(--text-muted)]"
+                )}
+              >
+                {member.status}
+              </span>
+
+              {/* Actions */}
+              {member.role !== "Owner" && (
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <button
+                    onClick={() => addToast("info", tc("roleManagementComingSoon"))}
+                    className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-all"
+                  >
+                    <Edit size={14} />
+                  </button>
+                  <button
+                    onClick={() => handleRemove(member)}
+                    disabled={removeMember.isPending}
+                    className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--accent-rose)] hover:bg-[var(--surface-raised)] transition-all disabled:opacity-50"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              )}
+            </motion.div>
+          ))}
+        </div>
+      )}
 
       {/* Invite Section */}
       <motion.div
+        id="invite-section"
         variants={itemVariants}
         className={cn(
           "rounded-xl p-6 border border-[var(--border-dim)]",
@@ -208,7 +282,9 @@ export default function TeamTab() {
         </h3>
         <div className="flex items-center gap-3">
           <input
-            type="text"
+            type="email"
+            value={inviteEmail}
+            onChange={(e) => setInviteEmail(e.target.value)}
             placeholder={t("team.invitePlaceholder")}
             className={cn(
               "flex-1 h-10 rounded-md border px-3 text-sm",
@@ -219,6 +295,8 @@ export default function TeamTab() {
             )}
           />
           <select
+            value={inviteRole}
+            onChange={(e) => setInviteRole(e.target.value as "Editor" | "Admin" | "Viewer")}
             className={cn(
               "h-10 rounded-md border px-3 text-sm",
               "bg-[var(--surface-base)] text-[var(--text-primary)]",
@@ -227,20 +305,22 @@ export default function TeamTab() {
               "appearance-none cursor-pointer"
             )}
           >
-            <option>{t("roleEditor")}</option>
-            <option>{t("roleAdmin")}</option>
-            <option>{t("roleViewer")}</option>
+            <option value="Editor">{t("roleEditor")}</option>
+            <option value="Admin">{t("roleAdmin")}</option>
+            <option value="Viewer">{t("roleViewer")}</option>
           </select>
           <button
-            onClick={() => addToast("info", tc("invitesComingSoon"))}
+            onClick={handleSendInvite}
+            disabled={inviteMember.isPending}
             className={cn(
               "h-10 px-4 rounded-md text-sm font-medium text-white",
               "bg-[var(--accent-mint)] hover:bg-[var(--accent-mint-light)]",
               "active:scale-[0.98]",
-              "transition-all duration-200"
+              "transition-all duration-200",
+              "disabled:opacity-60 disabled:cursor-not-allowed"
             )}
           >
-            {t("sendInvite")}
+            {inviteMember.isPending ? tc("sending") : t("sendInvite")}
           </button>
         </div>
         <p className="mt-2 text-xs text-[var(--text-muted)]">

@@ -140,6 +140,10 @@
     "campaignsDeleted": "{count} campaigns deleted",
     "failedDeleteSome": "Failed to delete some campaigns",
     "comingSoon": "Coming soon",
+    "sending": "Sending...",
+    "inviteSent": "Invite sent successfully",
+    "memberRemoved": "Member removed",
+    "invalidEmail": "Please enter a valid email address",
     "avatarSizeError": "Avatar must be under 5MB",
     "profileUpdated": "Profile updated successfully",
     "workspaceUpdated": "Workspace settings updated",
@@ -152,7 +156,12 @@
     "packageQueued": "Delivery package queued",
     "packageFailed": "Failed to queue delivery package",
     "creativeQaComplete": "Creative QA complete",
-    "creativeQaFailed": "Could not review the creative now"
+    "creativeQaFailed": "Could not review the creative now",
+    "emptyState": {
+      "uploadCreative": "Upload creative",
+      "fillBrief": "Fill brief",
+      "approveVariations": "Approve variations"
+    }
   },
   "campaign": {
     "new": "New campaign",
@@ -389,7 +398,10 @@
     "rerunQa": "Rerun QA",
     "qaReady": "Ready",
     "qaWarning": "Warning",
-    "qaReview": "Review"
+    "qaReview": "Review",
+    "emptyTitle": "No derivations yet",
+    "emptyDescription": "Generate your first variations from the creative plan",
+    "emptyAction": "Generate derivations"
   },
   "plan": {
     "title": "Creative Plan",

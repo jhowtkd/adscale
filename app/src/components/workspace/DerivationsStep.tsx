@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { Check, Clock, Sparkles } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
+import EmptyState from "@/components/ui/EmptyState";
 import DerivationCard from "./DerivationCard";
 import type { Derivation } from "@/lib/mock-data";
 
@@ -284,7 +285,17 @@ export default function DerivationsStep({
       )}
 
       {/* ---- Derivations Grid ---- */}
-      {filteredDerivations.length > 0 ? (
+      {derivations.length === 0 ? (
+        <EmptyState
+          icon={Sparkles}
+          title={t("emptyTitle")}
+          description={t("emptyDescription")}
+          action={{
+            label: t("emptyAction"),
+            onClick: onGenerateMore,
+          }}
+        />
+      ) : filteredDerivations.length > 0 ? (
         <div className={cn("grid gap-4", gridClasses[gridSize])}>
           {filteredDerivations.map((derivation, i) => (
             <DerivationCard
