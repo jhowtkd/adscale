@@ -24,7 +24,6 @@ interface PreflightScoreCardProps {
   result?: PreflightResult | null;
   status?: "pending" | "analyzing" | "completed" | "failed" | "empty";
   onReanalyze?: () => void;
-  onApplySuggestion?: (suggestion: string) => void;
   className?: string;
 }
 
@@ -139,7 +138,6 @@ export default function PreflightScoreCard({
   result,
   status = "empty",
   onReanalyze,
-  onApplySuggestion,
   className,
 }: PreflightScoreCardProps) {
   const t = useTranslations("preflight");
@@ -324,14 +322,7 @@ export default function PreflightScoreCard({
                       <span className="text-xs text-[var(--text-primary)] leading-relaxed">
                         {suggestion}
                       </span>
-                      {onApplySuggestion && (
-                        <button
-                          onClick={() => onApplySuggestion(suggestion)}
-                          className="shrink-0 rounded-md border border-[var(--border-dim)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)] transition-all"
-                        >
-                          {t("applyToBrief")}
-                        </button>
-                      )}
+
                     </li>
                   ))}
                 </ul>

@@ -6,35 +6,11 @@ import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCampaignById } from "@/server/repositories/campaign";
 import { getAssetWithMetadata, updateAssetMetadata } from "@/server/repositories/asset";
 import { downloadBuffer } from "@/server/storage/r2";
-import { analyzePreflight, type PreflightResult } from "@/server/ai/preflight-analysis";
+import { analyzePreflight, preflightResultSchema } from "@/server/ai/preflight-analysis";
 import { logger } from "@/lib/logger";
 
 const preflightMetadataSchema = z.object({
-  preflightResult: z.object({
-    overallScore: z.number().min(0).max(100),
-    breakdown: z.object({
-      technicalQuality: z.object({ score: z.number(), suggestion: z.string() }),
-      textLegibility: z.object({ score: z.number(), suggestion: z.string() }),
-      visualHierarchy: z.object({ score: z.number(), suggestion: z.string() }),
-      ctaProminence: z.object({ score: z.number(), suggestion: z.string() }),
-      composition: z.object({ score: z.number(), suggestion: z.string() }),
-      brandConsistency: z.object({ score: z.number(), suggestion: z.string() }),
-      platformReadiness: z.object({ score: z.number(), suggestion: z.string() }),
-    }),
-    criticalIssues: z.array(z.string()),
-    suggestions: z.array(z.string()),
-    technical: z.object({
-      actualWidth: z.number().int(),
-      actualHeight: z.number().int(),
-      claimedWidth: z.number().int().nullable(),
-      claimedHeight: z.number().int().nullable(),
-      aspectRatio: z.string(),
-      format: z.string(),
-      fileSizeBytes: z.number().int(),
-      hasAlpha: z.boolean(),
-      estimatedContrast: z.number().min(0).max(1),
-    }),
-  }),
+  preflightResult: preflightResultSchema,
   analyzedAt: z.string().datetime(),
 });
 

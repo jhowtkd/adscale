@@ -8,6 +8,7 @@ import {
   updateCompetitorAnalysis,
   deleteCompetitorAnalysis,
 } from "@/server/repositories/competitor-analysis";
+import { deleteObject } from "@/server/storage/r2";
 import { getPublicUrl } from "@/server/storage/r2";
 
 const updateSchema = z.object({
@@ -48,6 +49,12 @@ export async function PATCH(
 
     const data = parsed.data;
 
+    const hasAnalysisUpdate =
+      data.analysis !== undefined ||
+      data.strengths !== undefined ||
+      data.weaknesses !== undefined ||
+      data.differentiators !== undefined;
+
     const updated = await updateCompetitorAnalysis(competitorId, workspace.id, {
       ...(data.name !== undefined && { name: data.name }),
       ...(data.platform !== undefined && { platform: data.platform }),
@@ -57,6 +64,7 @@ export async function PATCH(
       ...(data.weaknesses !== undefined && { weaknesses: data.weaknesses }),
       ...(data.differentiators !== undefined && { differentiators: data.differentiators }),
       ...(data.analysis !== undefined && { analysis: data.analysis }),
+      ...(hasAnalysisUpdate && { analyzedAt: new Date() }),
     });
 
     if (!updated) {
@@ -90,6 +98,17 @@ export async function DELETE(
     const existing = await getCompetitorAnalysisById(competitorId, workspace.id);
     if (!existing || existing.campaignId !== campaignId) {
       return apiError("notFound", 404);
+    }
+
+    // Delete screenshots from R2 before deleting the DB row
+    if (existing.screenshots && existing.screenshots.length > 0) {
+      await Promise.all(
+        existing.screenshots.map((key) =>
+          deleteObject(key).catch(() => {
+            // Ignore errors for individual deletions
+          })
+        )
+      );
     }
 
     await deleteCompetitorAnalysis(competitorId, workspace.id);

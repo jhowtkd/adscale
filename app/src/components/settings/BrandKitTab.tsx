@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Check, Upload, X, Wand2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -33,18 +33,22 @@ function TagInput({
   onChange,
   placeholder,
   validator,
+  normalizer,
 }: {
   tags: string[];
   onChange: (tags: string[]) => void;
   placeholder?: string;
   validator?: (tag: string) => boolean;
+  normalizer?: (tag: string) => string;
 }) {
   const [input, setInput] = useState("");
+
+  const normalize = (tag: string) => (normalizer ? normalizer(tag) : tag);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" || e.key === ",") {
       e.preventDefault();
-      const trimmed = input.trim();
+      const trimmed = normalize(input.trim());
       if (trimmed && (!validator || validator(trimmed))) {
         if (!tags.includes(trimmed)) {
           onChange([...tags, trimmed]);
@@ -143,20 +147,49 @@ export default function BrandKitTab() {
     }
   }, [brandKit]);
 
-  const hasChanges =
-    name !== (brandKit?.name || "") ||
-    description !== (brandKit?.description || "") ||
-    visualNotes !== (brandKit?.visualNotes || "") ||
-    toneNotes !== (brandKit?.toneNotes || "") ||
-    constraints !== (brandKit?.constraints || "") ||
-    JSON.stringify(brandColors) !==
-      JSON.stringify(brandKit?.brandColors || []) ||
-    JSON.stringify(brandFonts) !==
-      JSON.stringify(brandKit?.brandFonts || []) ||
-    logoAssetKey !== (brandKit?.logoAssetKey || null) ||
-    toneOfVoice !== (brandKit?.toneOfVoice || "") ||
-    prohibitedElements !== (brandKit?.prohibitedElements || "") ||
-    requiredElements !== (brandKit?.requiredElements || "");
+  const hasChanges = useMemo(() => {
+    if (!brandKit) {
+      return (
+        name !== "" ||
+        description !== "" ||
+        visualNotes !== "" ||
+        toneNotes !== "" ||
+        constraints !== "" ||
+        brandColors.length > 0 ||
+        brandFonts.length > 0 ||
+        logoAssetKey !== null ||
+        toneOfVoice !== "" ||
+        prohibitedElements !== "" ||
+        requiredElements !== ""
+      );
+    }
+    return (
+      name !== (brandKit.name || "") ||
+      description !== (brandKit.description || "") ||
+      visualNotes !== (brandKit.visualNotes || "") ||
+      toneNotes !== (brandKit.toneNotes || "") ||
+      constraints !== (brandKit.constraints || "") ||
+      JSON.stringify(brandColors) !== JSON.stringify(brandKit.brandColors || []) ||
+      JSON.stringify(brandFonts) !== JSON.stringify(brandKit.brandFonts || []) ||
+      logoAssetKey !== (brandKit.logoAssetKey || null) ||
+      toneOfVoice !== (brandKit.toneOfVoice || "") ||
+      prohibitedElements !== (brandKit.prohibitedElements || "") ||
+      requiredElements !== (brandKit.requiredElements || "")
+    );
+  }, [
+    brandKit,
+    name,
+    description,
+    visualNotes,
+    toneNotes,
+    constraints,
+    brandColors,
+    brandFonts,
+    logoAssetKey,
+    toneOfVoice,
+    prohibitedElements,
+    requiredElements,
+  ]);
 
   const handleSave = async () => {
     setSaveState("saving");
@@ -194,7 +227,8 @@ export default function BrandKitTab() {
       e.preventDefault();
       setIsDragging(false);
       const file = e.dataTransfer.files[0];
-      if (file) handleLogoUpload(file);
+      if (!file) return;
+      handleLogoUpload(file);
     },
     []
   );
@@ -401,7 +435,7 @@ export default function BrandKitTab() {
                 }}
                 onDragLeave={() => setIsDragging(false)}
                 onDrop={handleFileDrop}
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => !uploadLogo.isPending && fileInputRef.current?.click()}
                 className={cn(
                   "flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-6 py-8 cursor-pointer transition-all",
                   isDragging
@@ -409,7 +443,11 @@ export default function BrandKitTab() {
                     : "border-[var(--border-dim)] bg-[var(--surface-base)] hover:border-[var(--border-medium)] hover:bg-[var(--surface-raised)]"
                 )}
               >
-                <Upload size={24} className="text-[var(--text-muted)]" />
+                {uploadLogo.isPending ? (
+                  <div className="h-6 w-6 border-2 border-[var(--text-muted)] border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Upload size={24} className="text-[var(--text-muted)]" />
+                )}
                 <p className="text-sm text-[var(--text-secondary)]">
                   {t("brandKit.logoDropzone")}
                 </p>
@@ -440,7 +478,14 @@ export default function BrandKitTab() {
               tags={brandColors}
               onChange={setBrandColors}
               placeholder={t("brandKit.colorsPlaceholder")}
-              validator={(tag) => /^#([0-9A-Fa-f]{6})$/.test(tag)}
+              validator={(tag) => /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(tag)}
+              normalizer={(tag) => {
+                const hex = tag.replace("#", "");
+                if (hex.length === 3) {
+                  return "#" + hex.split("").map((c) => c + c).join("");
+                }
+                return tag;
+              }}
             />
             <p className="text-[10px] text-[var(--text-muted)]">
               {t("brandKit.colorsHelp")}
@@ -628,6 +673,7 @@ export default function BrandKitTab() {
             </p>
             <button
               onClick={() => {
+                if (!window.confirm(t("brandKit.confirmClear"))) return;
                 clearBrandKit.mutate(undefined, {
                   onSuccess: () => {
                     addToast("success", t("brandKit.cleared"));

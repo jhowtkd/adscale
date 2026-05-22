@@ -36,7 +36,7 @@ async function fetchBrandKit(): Promise<BrandKitWithUrl | null> {
   const res = await apiFetch("/api/workspace/brand-kit");
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Erro ao carregar brand kit");
+    throw new Error(err.error || "Failed to load brand kit");
   }
   const data = await res.json();
   if (!data.brandKit) return null;
@@ -61,7 +61,7 @@ async function updateBrandKit(
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Erro ao salvar brand kit");
+    throw new Error(err.error || "Failed to save brand kit");
   }
   const data = await res.json();
   const bk = data.brandKit as BrandKit;
@@ -83,7 +83,7 @@ async function extractBrandKit(file: File): Promise<ExtractedBrandKit> {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Erro ao extrair brand kit");
+    throw new Error(err.error || "Failed to extract brand kit");
   }
   const data = await res.json();
   return data.extracted as ExtractedBrandKit;
@@ -118,13 +118,13 @@ async function uploadLogo(
       );
     };
 
-    xhr.onerror = () => reject(new Error("Falha no upload"));
+    xhr.onerror = () => reject(new Error("Upload failed"));
     xhr.send(formData);
   });
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Erro ao fazer upload do logo");
+    throw new Error(err.error || "Failed to upload logo");
   }
   const data = await res.json();
   return data;
@@ -136,7 +136,7 @@ async function clearBrandKit(): Promise<BrandKitWithUrl | null> {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Erro ao limpar brand kit");
+    throw new Error(err.error || "Failed to clear brand kit");
   }
   const data = await res.json();
   if (!data.brandKit) return null;
@@ -156,12 +156,16 @@ export function useBrandKit() {
   });
 }
 
+function getBrandKitQueryKey() {
+  return ["brand-kit"];
+}
+
 export function useUpdateBrandKit() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: updateBrandKit,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["brand-kit"] });
+      queryClient.invalidateQueries({ queryKey: getBrandKitQueryKey() });
     },
   });
 }
@@ -183,7 +187,7 @@ export function useUploadLogo() {
       onProgress?: (progress: number) => void;
     }) => uploadLogo(file, onProgress),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["brand-kit"] });
+      queryClient.invalidateQueries({ queryKey: getBrandKitQueryKey() });
     },
   });
 }
@@ -193,7 +197,7 @@ export function useClearBrandKit() {
   return useMutation({
     mutationFn: clearBrandKit,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["brand-kit"] });
+      queryClient.invalidateQueries({ queryKey: getBrandKitQueryKey() });
     },
   });
 }

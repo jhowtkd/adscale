@@ -67,6 +67,15 @@ export default function UploadStep({ campaignId, onContinue, onGeneratePreview, 
   const existingAsset = uploadedFile ? null : existingAssets[0] ?? null;
   const hasUploadedCreative = Boolean(uploadedFile || existingAsset);
 
+  // Cleanup blob URL on unmount or when uploadedFile changes
+  useEffect(() => {
+    return () => {
+      if (uploadedFile?.preview) {
+        URL.revokeObjectURL(uploadedFile.preview);
+      }
+    };
+  }, [uploadedFile?.preview]);
+
   const activeAssetId = latestAssetId ?? existingAsset?.id ?? null;
 
   const preflightQuery = usePreflightScore(activeAssetId, campaignId);
