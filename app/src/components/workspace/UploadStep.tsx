@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
-import { Cloud, Upload, Check, AlertCircle, Lightbulb, Replace, FileImage } from "lucide-react";
+import { Cloud, Upload, Check, AlertCircle, Lightbulb, Replace, FileImage, Eye, EyeOff } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { useCampaignAssets, useUploadAsset } from "@/lib/hooks/use-assets";
+import { usePreflightScore, useAnalyzePreflight } from "@/lib/hooks/use-preflight";
+import PreflightScoreCard from "@/components/campaigns/PreflightScoreCard";
 
 // ============================================
 // Types
@@ -57,11 +59,28 @@ export default function UploadStep({ campaignId, onContinue, onGeneratePreview, 
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPreflight, setShowPreflight] = useState(true);
   const t = useTranslations("upload");
+  const tPreflight = useTranslations("preflight");
   const uploadAsset = useUploadAsset(campaignId);
   const { data: existingAssets = [] } = useCampaignAssets(campaignId);
   const existingAsset = uploadedFile ? null : existingAssets[0] ?? null;
   const hasUploadedCreative = Boolean(uploadedFile || existingAsset);
+
+  const activeAssetId = uploadedFile
+    ? null
+    : existingAsset?.id ?? null;
+
+  const preflightQuery = usePreflightScore(activeAssetId, campaignId);
+  const analyzePreflight = useAnalyzePreflight();
+
+  // Auto-trigger preflight when a new asset appears
+  useEffect(() => {
+    if (!showPreflight) return;
+    if (activeAssetId && !preflightQuery.data && preflightQuery.status === "pending") {
+      analyzePreflight.mutate({ campaignId, assetId: activeAssetId });
+    }
+  }, [activeAssetId, showPreflight, campaignId, preflightQuery.data, preflightQuery.status, analyzePreflight]);
 
   const tips = [
     t("tipHighRes"),
@@ -79,7 +98,7 @@ export default function UploadStep({ campaignId, onContinue, onGeneratePreview, 
     try {
       const image = await readImageDimensions(file);
       setUploadProgress(10);
-      await uploadAsset.mutateAsync({
+      const asset = await uploadAsset.mutateAsync({
         file,
         width: image.width,
         height: image.height,
@@ -91,6 +110,10 @@ export default function UploadStep({ campaignId, onContinue, onGeneratePreview, 
         preview: image.preview,
         dimensions: { width: image.width, height: image.height },
       });
+      // Trigger preflight after successful upload
+      if (showPreflight && asset?.id) {
+        analyzePreflight.mutate({ campaignId, assetId: asset.id });
+      }
     } catch {
       setError(t("uploadFailed"));
     } finally {
@@ -257,6 +280,32 @@ export default function UploadStep({ campaignId, onContinue, onGeneratePreview, 
                   </span>
                 </div>
               </div>
+
+              {/* Preflight toggle */}
+              <div className="mt-4 flex items-center justify-end">
+                <button
+                  onClick={() => setShowPreflight((s) => !s)}
+                  className="inline-flex items-center gap-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
+                >
+                  {showPreflight ? <Eye size={14} /> : <EyeOff size={14} />}
+                  {showPreflight ? t("hidePreflight") : t("showPreflight")}
+                </button>
+              </div>
+
+              {/* Preflight Score Card */}
+              {showPreflight && activeAssetId && (
+                <div className="mt-3">
+                  <PreflightScoreCard
+                    result={preflightQuery.data?.preflight ?? null}
+                    status={
+                      analyzePreflight.isPending
+                        ? "analyzing"
+                        : preflightQuery.data?.status ?? "pending"
+                    }
+                    onReanalyze={() => analyzePreflight.mutate({ campaignId, assetId: activeAssetId })}
+                  />
+                </div>
+              )}
 
               {/* Preview + Generate buttons */}
               <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end animate-fade-in" style={{ animationDelay: "300ms" }}>

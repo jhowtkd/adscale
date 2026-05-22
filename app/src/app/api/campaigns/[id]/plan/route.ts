@@ -15,6 +15,11 @@ import {
 import { buildPlanPrompt } from "@/server/ai/prompt-builder";
 import { env } from "@/server/validation/env";
 import { spendCreditsOrApiError } from "@/server/billing/gates";
+import {
+  shouldSendToUser,
+  getUserLocale,
+  sendPlanReadyEmail,
+} from "@/server/services/notifications";
 
 const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 60_000 });
 
@@ -108,6 +113,20 @@ export async function POST(
     }
 
     const plan = await createPlan(campaignId, workspace.id, validated.data);
+
+    try {
+      const { send, email } = await shouldSendToUser(user.id);
+      if (send && email) {
+        const locale = await getUserLocale(user.id);
+        await sendPlanReadyEmail({
+          to: email,
+          campaignName: campaign.name,
+          locale,
+        });
+      }
+    } catch (emailErr) {
+      logger.warn("[plan POST] failed to send plan ready email", emailErr);
+    }
 
     return NextResponse.json({ plan }, { status: 201 });
   } catch (error) {

@@ -173,6 +173,7 @@ export async function POST(
             derivationId: derivation.id,
             campaignId,
             workspaceId: workspace.id,
+            triggeredByUserId: user.id,
             locale,
             generationMode,
             variantIndex: job.variantIndex,

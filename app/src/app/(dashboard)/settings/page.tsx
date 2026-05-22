@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import ProfileTab from "@/components/settings/ProfileTab";
 import WorkspaceTab from "@/components/settings/WorkspaceTab";
 import TeamTab from "@/components/settings/TeamTab";
+import BrandKitTab from "@/components/settings/BrandKitTab";
 import BillingTab from "@/components/settings/BillingTab";
 import PlansTab from "@/components/settings/PlansTab";
 import IntegrationsTab from "@/components/settings/IntegrationsTab";
@@ -18,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 const tabs = [
   { id: "profile", labelKey: "profileTab" },
   { id: "workspace", labelKey: "workspaceTab" },
+  { id: "brandKit", labelKey: "brandKitTab" },
   { id: "team", labelKey: "teamTab" },
   { id: "billing", labelKey: "billingTab" },
   { id: "plans", labelKey: "plansTab" },
@@ -95,6 +97,7 @@ export default function SettingsPage() {
       >
         {activeTab === "profile" && <ProfileTab />}
         {activeTab === "workspace" && <WorkspaceTab />}
+        {activeTab === "brandKit" && <BrandKitTab />}
         {activeTab === "team" && <TeamTab />}
         {activeTab === "billing" && <BillingTab />}
         {activeTab === "plans" && <PlansTab />}

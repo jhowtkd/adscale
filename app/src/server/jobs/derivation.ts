@@ -2,7 +2,12 @@ import { inngest } from "./client";
 import { logger } from "@/lib/logger";
 import { db } from "../db";
 import { derivations } from "../db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
+import {
+  shouldSendToUser,
+  getUserLocale,
+  sendDerivationCompleteEmail,
+} from "@/server/services/notifications";
 import { uploadBuffer, downloadBuffer } from "../storage/r2";
 import { buildDerivationPrompt } from "../ai/prompt-builder";
 
@@ -12,6 +17,8 @@ import { getPlanByCampaign } from "../repositories/plan";
 import { getDerivationById, updateDerivationScore } from "../repositories/derivation";
 import { getClientReferencesByIds } from "../repositories/client-reference";
 import { trackUsage } from "../repositories/usage";
+import { getBrandKitByWorkspace } from "../db/repositories/brand-kit";
+import { getCompetitorAnalysesByCampaign } from "../repositories/competitor-analysis";
 import OpenAI, { toFile } from "openai";
 import sharp from "sharp";
 import { env } from "../validation/env";
@@ -165,7 +172,7 @@ export const derivationJob = inngest.createFunction(
   },
   { event: "derivation.generate" },
   async ({ event, step }) => {
-    const { derivationId, campaignId, workspaceId, locale, generationMode, variantIndex, ctaText, format, isPreview } = event.data;
+    const { derivationId, campaignId, workspaceId, triggeredByUserId, locale, generationMode, variantIndex, ctaText, format, isPreview } = event.data;
     logger.info(`[derivationJob] START derivationId=${derivationId} campaignId=${campaignId} locale=${locale ?? "default"}`);
 
     // Idempotency check: if already completed, skip entirely
@@ -190,8 +197,8 @@ export const derivationJob = inngest.createFunction(
         .where(eq(derivations.id, derivationId));
     });
 
-    // 2. Fetch derivation, campaign, plan, asset
-    const { campaign, plan, asset, derivation, parentDerivation } = await step.run(
+    // 2. Fetch derivation, campaign, plan, asset, brand kit, competitors
+    const { campaign, plan, asset, derivation, parentDerivation, brandKit, competitorAnalyses } = await step.run(
       "fetch-context",
       async () => {
         logger.info(`[fetch-context] derivationId=${derivationId}`);
@@ -217,8 +224,11 @@ export const derivationJob = inngest.createFunction(
           }
         }
 
-        logger.info(`[fetch-context] plan=${plan?.id ?? "none"} asset=${asset?.key ?? "none"} parent=${parentDerivation?.id ?? "none"}`);
-        return { derivation, campaign, plan, asset, parentDerivation };
+        const brandKit = await getBrandKitByWorkspace(workspaceId);
+        const competitorAnalyses = await getCompetitorAnalysesByCampaign(campaignId, workspaceId);
+
+        logger.info(`[fetch-context] plan=${plan?.id ?? "none"} asset=${asset?.key ?? "none"} parent=${parentDerivation?.id ?? "none"} brandKit=${brandKit ? "yes" : "no"} competitors=${competitorAnalyses.length}`);
+        return { derivation, campaign, plan, asset, parentDerivation, brandKit, competitorAnalyses };
       }
     );
 
@@ -279,6 +289,40 @@ export const derivationJob = inngest.createFunction(
         creativeDiagnosis: normalizeCreativeDiagnosis(campaign.creativeDiagnosis) ?? null,
         packageSource: usesParentOutput ? "approved_derivation" : "campaign_asset",
         clientReferences,
+        brandKit: brandKit ? {
+          name: brandKit.name,
+          description: brandKit.description ?? undefined,
+          visualNotes: brandKit.visualNotes ?? undefined,
+          toneNotes: brandKit.toneNotes ?? undefined,
+          constraints: brandKit.constraints ?? undefined,
+          colors: Array.isArray(brandKit.brandColors) ? brandKit.brandColors as string[] : undefined,
+          fonts: Array.isArray(brandKit.brandFonts) ? brandKit.brandFonts as string[] : undefined,
+          logoAssetKey: brandKit.logoAssetKey ?? undefined,
+          toneOfVoice: brandKit.toneOfVoice ?? undefined,
+          prohibitedElements: brandKit.prohibitedElements ?? undefined,
+          requiredElements: brandKit.requiredElements ?? undefined,
+        } : null,
+        competitorAnalyses: competitorAnalyses.map((a) => {
+          const analysis = (a.analysis ?? {}) as Record<string, unknown>;
+          const vp = analysis.visualPatterns as Record<string, unknown> | undefined;
+          const msg = analysis.messaging as Record<string, unknown> | undefined;
+          return {
+            visualPatterns: {
+              colors: Array.isArray(vp?.colors) ? vp.colors as string[] : undefined,
+              composition: typeof vp?.composition === "string" ? vp.composition : undefined,
+              typography: typeof vp?.typography === "string" ? vp.typography : undefined,
+            },
+            messaging: {
+              headlineStyle: typeof msg?.headlineStyle === "string" ? msg.headlineStyle : undefined,
+              ctaStyle: typeof msg?.ctaStyle === "string" ? msg.ctaStyle : undefined,
+              offerType: typeof msg?.offerType === "string" ? msg.offerType : undefined,
+            },
+            strengths: Array.isArray(a.strengths) ? a.strengths as string[] : [],
+            weaknesses: Array.isArray(a.weaknesses) ? a.weaknesses as string[] : [],
+            differentiationOpportunities: Array.isArray(a.differentiators) ? a.differentiators as string[] : [],
+          };
+        }),
+        preflightResult: asset?.metadata ? (asset.metadata as Record<string, unknown>).preflightResult as import("@/server/ai/preflight-analysis").PreflightResult | undefined : null,
       });
       logger.info(`[generate-and-store-output] model=${env.OPENAI_IMAGE_MODEL} hasAsset=${!!asset} locale=${locale ?? "default"}`);
 
@@ -435,6 +479,47 @@ export const derivationJob = inngest.createFunction(
         .where(eq(derivations.id, derivationId));
       await refreshCampaignStatus(campaignId, workspaceId);
     });
+
+    // 4b. Send completion email if all derivations are done
+    if (triggeredByUserId) {
+      await step.run("notify-completion", async () => {
+        const active = await db
+          .select({ id: derivations.id })
+          .from(derivations)
+          .where(
+            and(
+              eq(derivations.campaignId, campaignId),
+              eq(derivations.workspaceId, workspaceId),
+              sql`${derivations.status} IN ('queued', 'processing')`
+            )
+          )
+          .limit(1);
+
+        if (active.length === 0) {
+          const { send, email } = await shouldSendToUser(triggeredByUserId);
+          if (send && email) {
+            const completedCount = await db
+              .select({ count: sql<number>`count(*)::int`.as("count") })
+              .from(derivations)
+              .where(
+                and(
+                  eq(derivations.campaignId, campaignId),
+                  eq(derivations.workspaceId, workspaceId),
+                  eq(derivations.status, "completed")
+                )
+              );
+            const userLocale = await getUserLocale(triggeredByUserId);
+            await sendDerivationCompleteEmail({
+              to: email,
+              campaignName: campaign.name,
+              derivationCount: completedCount[0]?.count ?? 0,
+              locale: userLocale,
+            });
+            logger.info(`[notify-completion] sent email to ${email} for campaign=${campaignId}`);
+          }
+        }
+      });
+    }
 
     // 5. Score derivation (non-blocking; runs after completed)
     await step.run("score-derivation", async () => {

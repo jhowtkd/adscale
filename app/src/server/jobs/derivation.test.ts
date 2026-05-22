@@ -69,6 +69,14 @@ vi.mock("../repositories/plan", () => ({
   getPlanByCampaign: vi.fn(),
 }));
 
+vi.mock("../db/repositories/brand-kit", () => ({
+  getBrandKitByWorkspace: vi.fn(),
+}));
+
+vi.mock("../repositories/competitor-analysis", () => ({
+  getCompetitorAnalysesByCampaign: vi.fn(),
+}));
+
 vi.mock("../repositories/derivation", () => ({
   getDerivationById: vi.fn(),
   updateDerivationScore: vi.fn(),
@@ -123,12 +131,18 @@ vi.mock("../validation/env", () => ({
   },
 }));
 
+const mockLimit = vi.fn(() => Promise.resolve([]));
+const mockOrderBy = vi.fn(() => ({
+  limit: mockLimit,
+}));
+
 vi.mock("../db", () => ({
   db: {
     select: vi.fn(() => ({
       from: vi.fn(() => ({
         where: vi.fn(() => ({
-          limit: vi.fn(() => Promise.resolve([])),
+          limit: mockLimit,
+          orderBy: mockOrderBy,
         })),
       })),
     })),
@@ -146,12 +160,16 @@ import { getDerivationById } from "../repositories/derivation";
 import { getCampaignById } from "../repositories/campaign";
 import { getAssetsByCampaign } from "../repositories/asset";
 import { getPlanByCampaign } from "../repositories/plan";
+import { getBrandKitByWorkspace } from "../db/repositories/brand-kit";
+import { getCompetitorAnalysesByCampaign } from "../repositories/competitor-analysis";
 import { downloadBuffer } from "../storage/r2";
 
 const mockGetDerivationById = vi.mocked(getDerivationById);
 const mockGetCampaignById = vi.mocked(getCampaignById);
 const mockGetAssetsByCampaign = vi.mocked(getAssetsByCampaign);
 const mockGetPlanByCampaign = vi.mocked(getPlanByCampaign);
+const mockGetBrandKitByWorkspace = vi.mocked(getBrandKitByWorkspace);
+const mockGetCompetitorAnalysesByCampaign = vi.mocked(getCompetitorAnalysesByCampaign);
 const mockDownloadBuffer = vi.mocked(downloadBuffer);
 
 async function runDerivationJob(eventData: Record<string, unknown>) {
@@ -172,6 +190,8 @@ describe("derivationJob", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     sharpOperations.length = 0;
+    mockGetBrandKitByWorkspace.mockResolvedValue(null);
+    mockGetCompetitorAnalysesByCampaign.mockResolvedValue([]);
   });
 
   it("normalizes generated images without cropping the foreground", async () => {
@@ -358,6 +378,9 @@ describe("derivationJob", () => {
         width: 1080,
         height: 1080,
         role: "base",
+        metadata: null,
+        analysisStatus: null,
+        analyzedAt: null,
         createdAt: new Date(),
       },
     ]);
@@ -429,6 +452,9 @@ describe("derivationJob", () => {
         width: 1080,
         height: 1080,
         role: "base",
+        metadata: null,
+        analysisStatus: null,
+        analyzedAt: null,
         createdAt: new Date(),
       },
     ]);

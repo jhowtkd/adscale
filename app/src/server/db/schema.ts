@@ -23,6 +23,9 @@ export const user = adscaleSchema.table("user", {
   emailVerified: boolean("email_verified").notNull().default(false),
   image: text("image"),
   locale: text("locale").notNull().default("pt-BR"),
+  emailNotificationsEnabled: boolean("email_notifications_enabled").notNull().default(true),
+  lowCreditsNotifiedAt: timestamp("low_credits_notified_at", { mode: "date" }),
+  trialExpiringNotifiedAt: timestamp("trial_expiring_notified_at", { mode: "date" }),
   onboardingCompletedAt: timestamp("onboarding_completed_at", { mode: "date" }),
   createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
@@ -249,11 +252,46 @@ export const clientProfiles = adscaleSchema.table(
     visualNotes: text("visual_notes"),
     toneNotes: text("tone_notes"),
     constraints: text("constraints"),
+    brandColors: jsonb("brand_colors"),
+    brandFonts: jsonb("brand_fonts"),
+    logoAssetKey: text("logo_asset_key"),
+    toneOfVoice: text("tone_of_voice"),
+    prohibitedElements: text("prohibited_elements"),
+    requiredElements: text("required_elements"),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
   },
   (table) => [
     index("client_profiles_workspace_id_idx").on(table.workspaceId),
+  ]
+);
+
+export const competitorAnalyses = adscaleSchema.table(
+  "competitor_analyses",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    campaignId: uuid("campaign_id")
+      .references(() => campaigns.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    platform: text("platform"),
+    website: text("website"),
+    screenshots: text("screenshots").array(),
+    strengths: jsonb("strengths"),
+    weaknesses: jsonb("weaknesses"),
+    differentiators: jsonb("differentiators"),
+    analysis: jsonb("analysis"),
+    analyzedAt: timestamp("analyzed_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("competitor_analyses_workspace_id_idx").on(table.workspaceId),
+    index("competitor_analyses_campaign_id_idx").on(table.campaignId),
   ]
 );
 
@@ -368,6 +406,9 @@ export const campaignAssets = adscaleSchema.table(
     width: integer("width"),
     height: integer("height"),
     role: text("role").notNull().default("base"),
+    metadata: jsonb("metadata"),
+    analysisStatus: text("analysis_status").default("pending"),
+    analyzedAt: timestamp("analyzed_at", { mode: "date" }),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
   },
   (table) => [
@@ -572,5 +613,30 @@ export const landingPages = adscaleSchema.table(
     index("landing_pages_workspace_id_idx").on(table.workspaceId),
     index("landing_pages_campaign_id_idx").on(table.campaignId),
     index("landing_pages_source_derivation_id_idx").on(table.sourceDerivationId),
+  ]
+);
+
+
+export const shareLinks = adscaleSchema.table(
+  "share_links",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    token: text("token").notNull().unique(),
+    campaignId: uuid("campaign_id")
+      .notNull()
+      .references(() => campaigns.id, { onDelete: "cascade" }),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    derivationIds: text("derivation_ids").array().notNull(),
+    expiresAt: timestamp("expires_at", { mode: "date" }).notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("share_links_token_idx").on(table.token),
+    index("share_links_campaign_id_idx").on(table.campaignId),
+    index("share_links_workspace_id_idx").on(table.workspaceId),
   ]
 );

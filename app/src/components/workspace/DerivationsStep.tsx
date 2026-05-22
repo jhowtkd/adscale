@@ -1,11 +1,15 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Check, Clock, Sparkles } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import EmptyState from "@/components/ui/EmptyState";
 import DerivationCard from "./DerivationCard";
+import DerivationComparisonModal from "./DerivationComparisonModal";
+import BulkActionsBar from "./BulkActionsBar";
+import { useZipExport } from "@/lib/hooks/use-zip-export";
+import { useShareLink } from "@/lib/hooks/use-share-link";
 import type { Derivation } from "@/lib/mock-data";
 
 // ============================================
@@ -71,6 +75,13 @@ export default function DerivationsStep({
   const [gridSize, setGridSize] = useState<GridSize>("medium");
   const [sortBy, setSortBy] = useState<SortOption>("best");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isCompareOpen, setIsCompareOpen] = useState(false);
+
+  const isSelectionMode = selectedIds.length > 0;
+
+  const zipExport = useZipExport();
+  const shareLink = useShareLink();
 
   const {
     filteredDerivations,
@@ -163,6 +174,36 @@ export default function DerivationsStep({
     };
   }, [derivations, sortBy, statusFilter]);
 
+  const toggleSelection = useCallback((id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  }, []);
+
+  const selectAll = useCallback(() => {
+    setSelectedIds(filteredDerivations.map((d) => d.id));
+  }, [filteredDerivations]);
+
+  const clearSelection = useCallback(() => {
+    setSelectedIds([]);
+  }, []);
+
+  const handleBulkDownloadZip = useCallback(() => {
+    if (selectedIds.length === 0) return;
+    zipExport.mutate({ derivationIds: selectedIds }, {
+      onSuccess: () => clearSelection(),
+    });
+  }, [selectedIds, zipExport, clearSelection]);
+
+  const handleBulkCreateShareLink = useCallback(() => {
+    if (selectedIds.length === 0) return;
+    const campaignId = derivations[0]?.campaignId;
+    if (!campaignId) return;
+    shareLink.mutate({ campaignId, derivationIds: selectedIds }, {
+      onSuccess: () => clearSelection(),
+    });
+  }, [selectedIds, derivations, shareLink, clearSelection]);
+
   // Grid classes
   const gridClasses = {
     small: "grid-cols-[repeat(auto-fill,minmax(200px,1fr))]",
@@ -191,13 +232,43 @@ export default function DerivationsStep({
               </div>
             </div>
           </div>
+
+          {filteredDerivations.length > 0 && (
+            <div className="flex items-center gap-2 pl-4 border-l border-[var(--border-dim)]">
+              {isSelectionMode ? (
+                <>
+                  <button
+                    onClick={clearSelection}
+                    className="text-xs text-[var(--text-muted)] hover:text-[var(--accent-rose)] transition-colors"
+                  >
+                    {t("clearSelection")}
+                  </button>
+                  {selectedIds.length === 2 && (
+                    <button
+                      onClick={() => setIsCompareOpen(true)}
+                      className="text-xs font-medium text-[var(--accent-blue)] hover:text-[var(--accent-blue-light)] transition-colors"
+                    >
+                      {t("compare")}
+                    </button>
+                  )}
+                </>
+              ) : (
+                <button
+                  onClick={selectAll}
+                  className="text-xs text-[var(--accent-mint)] hover:text-[var(--accent-mint-light)] transition-colors"
+                >
+                  {t("selectAll")}
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Right: Meta info + controls */}
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
             <span>~{totalCredits.toFixed(1)} {commonT("credits")}</span>
-            <span className="mx-1">\u00b7</span>
+            <span className="mx-1">·</span>
             <Clock size={12} />
             <span>
               {activeCount > 0
@@ -297,29 +368,59 @@ export default function DerivationsStep({
         />
       ) : filteredDerivations.length > 0 ? (
         <div className={cn("grid gap-4", gridClasses[gridSize])}>
-          {filteredDerivations.map((derivation, i) => (
-            <DerivationCard
-              key={derivation.id}
-              derivation={derivation}
-              index={i}
-              onPreview={onPreview}
-              onDownload={onDownload}
-              onRegenerate={onRegenerate}
-              onApprove={() => onApprove?.(derivation.id)}
-              onReject={() => onReject?.(derivation.id)}
-              onCreateDeliveryPackage={() => onCreateDeliveryPackage?.(derivation.id)}
-              onRunQa={() => onRunQa?.(derivation.id)}
-              onSaveAsReference={onSaveAsReference ? () => onSaveAsReference(derivation.id) : undefined}
-              onGenerateLandingPage={onGenerateLandingPage ? () => onGenerateLandingPage(derivation.id) : undefined}
-              qaAnalyzingId={qaAnalyzingId}
-              isSavingReference={savingReferenceId === derivation.id}
-              isApproving={approvingId === derivation.id}
-              isRejecting={rejectingId === derivation.id}
-              regeneratingId={regeneratingId}
-              landingPageGeneratingId={landingPageGeneratingId}
-              gridSize={gridSize}
-            />
-          ))}
+          {filteredDerivations.map((derivation, i) => {
+            const isSelected = selectedIds.includes(derivation.id);
+            return (
+              <div key={derivation.id} className="relative group/card">
+                {/* Checkbox */}
+                <div
+                  className={cn(
+                    "absolute top-2 left-2 z-20 transition-opacity duration-200",
+                    isSelectionMode ? "opacity-100" : "opacity-0 group-hover/card:opacity-100"
+                  )}
+                >
+                  <label
+                    className={cn(
+                      "flex items-center justify-center w-6 h-6 rounded-md border shadow-sm cursor-pointer transition-all duration-150",
+                      isSelected
+                        ? "bg-[var(--accent-mint)] border-[var(--accent-mint)] text-white"
+                        : "bg-white/90 border-[var(--border-dim)] hover:border-[var(--accent-mint)]"
+                    )}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleSelection(derivation.id)}
+                      className="sr-only"
+                    />
+                    {isSelected && <Check size={14} />}
+                  </label>
+                </div>
+
+                <DerivationCard
+                  derivation={derivation}
+                  index={i}
+                  onPreview={onPreview}
+                  onDownload={onDownload}
+                  onRegenerate={onRegenerate}
+                  onApprove={() => onApprove?.(derivation.id)}
+                  onReject={() => onReject?.(derivation.id)}
+                  onCreateDeliveryPackage={() => onCreateDeliveryPackage?.(derivation.id)}
+                  onRunQa={() => onRunQa?.(derivation.id)}
+                  onSaveAsReference={onSaveAsReference ? () => onSaveAsReference(derivation.id) : undefined}
+                  onGenerateLandingPage={onGenerateLandingPage ? () => onGenerateLandingPage(derivation.id) : undefined}
+                  qaAnalyzingId={qaAnalyzingId}
+                  isSavingReference={savingReferenceId === derivation.id}
+                  isApproving={approvingId === derivation.id}
+                  isRejecting={rejectingId === derivation.id}
+                  regeneratingId={regeneratingId}
+                  landingPageGeneratingId={landingPageGeneratingId}
+                  gridSize={gridSize}
+                />
+              </div>
+            );
+          })}
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center py-16 bg-[var(--surface-base)] rounded-xl border border-[var(--border-dim)] animate-fade-in">
@@ -350,6 +451,62 @@ export default function DerivationsStep({
               : t("generateMore")}
         </button>
       </div>
+
+      {/* ---- Bulk Actions Bar ---- */}
+      {isSelectionMode && (
+        <BulkActionsBar
+          selectedCount={selectedIds.length}
+          onApproveAll={() => {
+            selectedIds.forEach((id) => onApprove?.(id));
+            clearSelection();
+          }}
+          onRejectAll={() => {
+            selectedIds.forEach((id) => onReject?.(id));
+            clearSelection();
+          }}
+          onExportAll={() => {
+            selectedIds.forEach((id) => onDownload?.(id));
+            clearSelection();
+          }}
+          onDownloadZip={handleBulkDownloadZip}
+          onCreateShareLink={handleBulkCreateShareLink}
+          onClear={clearSelection}
+          isApproving={!!approvingId}
+          isRejecting={!!rejectingId}
+          isExporting={false}
+          isDownloadingZip={zipExport.isPending}
+          isCreatingShareLink={shareLink.isPending}
+        />
+      )}
+
+      {/* ---- Comparison Modal ---- */}
+      {selectedIds.length === 2 && (
+        <DerivationComparisonModal
+          derivationA={filteredDerivations.find((d) => d.id === selectedIds[0])!}
+          derivationB={filteredDerivations.find((d) => d.id === selectedIds[1])!}
+          open={isCompareOpen}
+          onOpenChange={(open) => {
+            setIsCompareOpen(open);
+            if (!open) clearSelection();
+          }}
+          onApproveA={() => {
+            onApprove?.(selectedIds[0]);
+            setIsCompareOpen(false);
+            clearSelection();
+          }}
+          onApproveB={() => {
+            onApprove?.(selectedIds[1]);
+            setIsCompareOpen(false);
+            clearSelection();
+          }}
+          onRejectBoth={() => {
+            onReject?.(selectedIds[0]);
+            onReject?.(selectedIds[1]);
+            setIsCompareOpen(false);
+            clearSelection();
+          }}
+        />
+      )}
     </div>
   );
 }

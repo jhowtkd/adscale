@@ -36,6 +36,15 @@ vi.mock("@/lib/hooks/use-client-profiles", () => ({
   useClientReferences: vi.fn(),
 }));
 
+vi.mock("@/lib/hooks/use-brand-kit", () => ({
+  useBrandKit: () => ({ data: null }),
+}));
+
+vi.mock("@/lib/hooks/use-assets", () => ({
+  useCampaignAssets: () => ({ data: [] }),
+  useUploadAsset: () => ({ mutateAsync: vi.fn() }),
+}));
+
 import {
   useClientProfiles,
   useCreateClientProfile,
@@ -45,6 +54,16 @@ import {
 const mockUseClientProfiles = vi.mocked(useClientProfiles);
 const mockUseCreateClientProfile = vi.mocked(useCreateClientProfile);
 const mockUseClientReferences = vi.mocked(useClientReferences);
+
+// Provide QueryClient for TanStack Query hooks
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: false } },
+});
+
+function Wrapper({ children }: { children: React.ReactNode }) {
+  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+}
 
 describe("BriefingStep", () => {
   beforeEach(() => {
@@ -89,7 +108,8 @@ describe("BriefingStep", () => {
         }}
         onContinue={vi.fn()}
         onSaveDraft={vi.fn()}
-      />
+      />,
+      { wrapper: Wrapper }
     );
 
     expect(screen.getByText("Hero")).toBeInTheDocument();
@@ -113,7 +133,8 @@ describe("BriefingStep", () => {
         }}
         onContinue={vi.fn()}
         onSaveDraft={vi.fn()}
-      />
+      />,
+      { wrapper: Wrapper }
     );
 
     expect(screen.getByText("Hero")).toBeInTheDocument();
@@ -137,7 +158,8 @@ describe("BriefingStep", () => {
         }}
         onContinue={vi.fn()}
         onSaveDraft={vi.fn()}
-      />
+      />,
+      { wrapper: Wrapper }
     );
 
     const heroBtn = screen.getByRole("button", { name: /Hero/i });
@@ -170,7 +192,8 @@ describe("BriefingStep", () => {
         }}
         onContinue={vi.fn()}
         onSaveDraft={vi.fn()}
-      />
+      />,
+      { wrapper: Wrapper }
     );
 
     fireEvent.click(screen.getByText("createClientProfile"));

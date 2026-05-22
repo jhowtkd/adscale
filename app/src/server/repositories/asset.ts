@@ -130,3 +130,43 @@ export async function failExpiredPendingUploads(now = new Date()) {
     .where(and(eq(pendingUploads.status, "pending"), lt(pendingUploads.expiresAt, now)))
     .returning();
 }
+
+export async function updateAssetMetadata(
+  assetId: string,
+  workspaceId: string,
+  metadata: Record<string, unknown>,
+  analysisStatus: "pending" | "analyzing" | "completed" | "failed"
+) {
+  const result = await db
+    .update(campaignAssets)
+    .set({
+      metadata,
+      analysisStatus,
+      analyzedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(campaignAssets.id, assetId),
+        eq(campaignAssets.workspaceId, workspaceId)
+      )
+    )
+    .returning();
+  return result[0] ?? null;
+}
+
+export async function getAssetWithMetadata(
+  assetId: string,
+  workspaceId: string
+) {
+  const result = await db
+    .select()
+    .from(campaignAssets)
+    .where(
+      and(
+        eq(campaignAssets.id, assetId),
+        eq(campaignAssets.workspaceId, workspaceId)
+      )
+    )
+    .limit(1);
+  return result[0] ?? null;
+}

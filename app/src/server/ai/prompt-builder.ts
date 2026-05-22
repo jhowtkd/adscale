@@ -1,4 +1,10 @@
 import type { ContentBrief, StyleBrief } from "./image-analysis";
+import type { ExtractedBrandKit } from "./brand-kit-extractor";
+import type { CompetitorAnalysisResult } from "./competitor-analyzer";
+import type { PreflightResult } from "./preflight-analysis";
+import { buildBrandKitPromptSection } from "./brand-kit-extractor";
+import { buildCompetitorContextPromptSection } from "./competitor-analyzer";
+import { buildPreflightPromptSection } from "./preflight-analysis";
 
 export type StyleIntensity = "soft" | "medium" | "strong";
 
@@ -150,6 +156,16 @@ export interface DerivationPromptConfig {
   creativeDiagnosis?: CreativeDiagnosis | null;
   packageSource?: "campaign_asset" | "approved_derivation";
   clientReferences?: ClientReferenceContext[];
+  brandKit?: (Partial<ExtractedBrandKit> & {
+    name?: string;
+    description?: string;
+    visualNotes?: string;
+    toneNotes?: string;
+    constraints?: string;
+    logoAssetKey?: string | null;
+  }) | null;
+  competitorAnalyses?: CompetitorAnalysisResult[] | null;
+  preflightResult?: PreflightResult | null;
 }
 
 function buildHardRulesSection(
@@ -344,6 +360,13 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
     `Notes: ${campaign?.notes || "None"}`,
   );
 
+  if (config.brandKit) {
+    const brandKitSection = buildBrandKitPromptSection(config.brandKit);
+    if (brandKitSection.trim()) {
+      parts.push("", "--- BRAND KIT GUIDELINES ---", brandKitSection, "--- END BRAND KIT ---");
+    }
+  }
+
   if (plan) {
     parts.push(`\nCreative Strategy: ${plan.strategy}`);
     if (plan.angles && plan.angles.length > 0) {
@@ -354,6 +377,13 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
     }
     if (plan.ctas && plan.ctas.length > 0) {
       parts.push(`\nCTA Recommendations:\n${plan.ctas.map((c) => `- ${c}`).join("\n")}`);
+    }
+  }
+
+  if (config.competitorAnalyses && config.competitorAnalyses.length > 0) {
+    const competitorSection = buildCompetitorContextPromptSection(config.competitorAnalyses);
+    if (competitorSection.trim()) {
+      parts.push(competitorSection);
     }
   }
 
@@ -388,6 +418,13 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
       visualTokenBrief.trim(),
       "Use this brief as the authoritative source for the rebuilt layout. The final image should look like a new ad from the same campaign system, not a reframed copy of the reference."
     );
+  }
+
+  if (config.preflightResult) {
+    const preflightSection = buildPreflightPromptSection(config.preflightResult);
+    if (preflightSection.trim()) {
+      parts.push("", "--- PRE-FLIGHT ASSET ANALYSIS ---", preflightSection, "--- END PRE-FLIGHT ---");
+    }
   }
 
   if (feedback && feedback.trim().length > 0) {

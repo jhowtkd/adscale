@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Sparkles, RefreshCw, Edit3, Check, X, Wand2, Plus, ImageOff } from "lucide-react";
+import { Sparkles, RefreshCw, Edit3, Check, X, Wand2, Plus, ImageOff, BarChart3, ChevronUp, ChevronDown, AlertTriangle, Lightbulb } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
@@ -35,6 +35,10 @@ import {
   useCreateClientProfile,
   useClientReferences,
 } from "@/lib/hooks/use-client-profiles";
+import { useBrandKit } from "@/lib/hooks/use-brand-kit";
+import CompetitorAnalysisSection from "@/components/campaigns/CompetitorAnalysisSection";
+import { useCampaignAssets } from "@/lib/hooks/use-assets";
+import { usePreflightScore } from "@/lib/hooks/use-preflight";
 
 // ============================================
 // Types
@@ -293,6 +297,70 @@ function CreativeDiagnosisCard({
 }
 
 // ============================================
+// Preflight Summary (compact)
+// ============================================
+
+function PreflightSummary({
+  campaignId,
+  tBriefing,
+}: {
+  campaignId: string;
+  tBriefing: (key: string, values?: Record<string, string | number | Date>) => string;
+}) {
+  const { data: assets = [] } = useCampaignAssets(campaignId);
+  const firstAsset = assets[0];
+  const preflight = usePreflightScore(firstAsset?.id ?? null, campaignId);
+  const result = preflight.data?.preflight;
+  const [expanded, setExpanded] = useState(false);
+
+  if (!result || preflight.data?.status !== "completed") return null;
+
+  const scoreColor =
+    result.overallScore >= 80
+      ? "text-[var(--accent-teal)] bg-[var(--accent-teal)]/10 border-[var(--accent-teal)]/20"
+      : result.overallScore >= 50
+        ? "text-[var(--accent-amber)] bg-[var(--accent-amber)]/10 border-[var(--accent-amber)]/20"
+        : "text-[var(--accent-rose)] bg-[var(--accent-rose)]/10 border-[var(--accent-rose)]/20";
+
+  return (
+    <div className="animate-fade-in" style={{ animationDelay: "540ms" }}>
+      <button
+        type="button"
+        onClick={() => setExpanded((s) => !s)}
+        className={cn(
+          "w-full flex items-center justify-between rounded-lg border px-4 py-3 text-left transition-all",
+          scoreColor
+        )}
+      >
+        <div className="flex items-center gap-2">
+          <BarChart3 size={16} />
+          <span className="text-xs font-semibold">
+            {tBriefing("preflightSummary")}: {result.overallScore}/100
+          </span>
+        </div>
+        {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+      </button>
+      {expanded && (
+        <div className="mt-2 rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] p-3 space-y-2">
+          {result.suggestions.slice(0, 3).map((s, i) => (
+            <div key={i} className="flex items-start gap-2 text-xs text-[var(--text-primary)]">
+              <Lightbulb size={12} className="mt-0.5 shrink-0 text-[var(--accent-amber)]" />
+              {s}
+            </div>
+          ))}
+          {result.criticalIssues.length > 0 && (
+            <div className="flex items-start gap-2 text-xs text-[var(--accent-rose)]">
+              <AlertTriangle size={12} className="mt-0.5 shrink-0" />
+              {result.criticalIssues[0]}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================
 // Component
 // ============================================
 
@@ -345,6 +413,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
   const { data: clientProfilesData } = useClientProfiles();
   const createProfile = useCreateClientProfile();
   const { data: clientReferencesData } = useClientReferences(formData.clientProfileId);
+  const { data: brandKitData } = useBrandKit();
 
   const [showCreateProfile, setShowCreateProfile] = useState(false);
   const [newProfileName, setNewProfileName] = useState("");
@@ -695,6 +764,51 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
               )}
             </div>
           )}
+
+          {/* ---- Brand Kit Summary ---- */}
+          {formData.clientProfileId && brandKitData && (
+            <div className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-semibold text-[var(--text-primary)]">
+                  {tBriefing("brandKitTitle")}
+                </h4>
+                {brandKitData.logoUrl && (
+                  <img
+                    src={brandKitData.logoUrl}
+                    alt="Logo"
+                    className="h-6 w-6 object-contain rounded"
+                  />
+                )}
+              </div>
+              {brandKitData.brandColors && brandKitData.brandColors.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {brandKitData.brandColors.map((color) => (
+                    <div key={color} className="flex items-center gap-1">
+                      <div
+                        className="h-3 w-3 rounded-full border border-[var(--border-dim)]"
+                        style={{ backgroundColor: color }}
+                      />
+                      <span className="text-[10px] text-[var(--text-muted)] font-mono">
+                        {color}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {brandKitData.brandFonts && brandKitData.brandFonts.length > 0 && (
+                <p className="text-[11px] text-[var(--text-secondary)]">
+                  <span className="font-medium">{tBriefing("brandKitFonts")}:</span>{" "}
+                  {brandKitData.brandFonts.join(", ")}
+                </p>
+              )}
+              {brandKitData.toneOfVoice && (
+                <p className="text-[11px] text-[var(--text-secondary)]">
+                  <span className="font-medium">{tBriefing("brandKitTone")}:</span>{" "}
+                  {brandKitData.toneOfVoice}
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* ---- Objective ---- */}
@@ -834,6 +948,18 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
           <p className="text-xs text-[var(--text-muted)]">{tBriefing("offerHelp")}</p>
         </div>
 
+        {/* ---- Competitor Analysis ---- */}
+        {campaign?.id && (
+          <div className="animate-fade-in" style={{ animationDelay: "380ms" }}>
+            <CompetitorAnalysisSection
+              campaignId={campaign.id}
+              onApplyToBrief={(text) => {
+                updateField("notes", formData.notes ? `${formData.notes}\n\n${text}` : text);
+              }}
+            />
+          </div>
+        )}
+
         {/* ---- Generation Mode ---- */}
         <div  className="animate-fade-in" style={{ animationDelay: "400ms" }}>
           <Label className="flex items-center gap-1 text-xs font-medium text-[var(--text-secondary)] mb-2">
@@ -961,6 +1087,11 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
               ))}
             </RadioGroup>
           </div>
+        )}
+
+        {/* ---- Preflight Summary ---- */}
+        {campaign?.id && (
+          <PreflightSummary campaignId={campaign.id} tBriefing={tBriefing} />
         )}
 
         {/* ---- Creative Diagnosis ---- */}

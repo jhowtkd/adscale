@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import SocialAuthButtons from "@/components/auth/SocialAuthButtons";
+import { authClient } from "@/lib/auth-client";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -18,6 +19,9 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showMagicLink, setShowMagicLink] = useState(false);
+  const [magicLinkSent, setMagicLinkSent] = useState(false);
+  const [magicLinkLoading, setMagicLinkLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -45,6 +49,29 @@ export default function LoginPage() {
     }
   }
 
+  async function handleMagicLink(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError("");
+    setMagicLinkLoading(true);
+
+    try {
+      const { error: magicLinkError } = await authClient.signIn.magicLink({
+        email,
+        callbackURL: "/",
+      });
+
+      if (magicLinkError) {
+        throw new Error(magicLinkError.message || t("genericError"));
+      }
+
+      setMagicLinkSent(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("genericError"));
+    } finally {
+      setMagicLinkLoading(false);
+    }
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-[var(--deep-bg)] px-4">
       <AuthCard>
@@ -56,47 +83,116 @@ export default function LoginPage() {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {error}
+          {showMagicLink ? (
+            <form onSubmit={handleMagicLink} className="space-y-4">
+              {error && (
+                <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {error}
+                </div>
+              )}
+              {magicLinkSent ? (
+                <div className="rounded-md bg-[var(--accent-mint)]/10 px-3 py-2 text-sm text-[var(--accent-mint)]">
+                  {t("magicLinkSent")}
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="magic-email">{t("email")}</Label>
+                    <Input
+                      id="magic-email"
+                      type="email"
+                      autoComplete="email"
+                      placeholder={t("emailPlaceholder")}
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <Button type="submit" className="w-full" disabled={magicLinkLoading}>
+                    {magicLinkLoading ? t("sendingMagicLink") : t("sendMagicLink")}
+                  </Button>
+                </>
+              )}
+              <p className="text-center text-sm text-muted-foreground">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowMagicLink(false);
+                    setMagicLinkSent(false);
+                    setError("");
+                  }}
+                  className="underline hover:text-primary"
+                >
+                  {t("backToLogin")}
+                </button>
+              </p>
+            </form>
+          ) : (
+            <>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {error && (
+                  <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                    {error}
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="email">{t("email")}</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    autoComplete="email"
+                    placeholder={t("emailPlaceholder")}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="login-password">{t("password")}</Label>
+                    <Link
+                      href="/forgot-password"
+                      className="text-xs text-[var(--text-secondary)] underline hover:text-primary"
+                    >
+                      {t("forgotPassword")}
+                    </Link>
+                  </div>
+                  <PasswordInput
+                    id="login-password"
+                    placeholder={t("passwordPlaceholder")}
+                    value={password}
+                    onChange={setPassword}
+                    autoComplete="current-password"
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? t("signingIn") : t("signIn")}
+                </Button>
+              </form>
+
+              <SocialAuthButtons mode="login" />
+
+              <div className="space-y-3 text-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowMagicLink(true);
+                    setError("");
+                  }}
+                  className="text-sm text-[var(--text-secondary)] underline hover:text-primary"
+                >
+                  {t("magicLink")}
+                </button>
               </div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="email">{t("email")}</Label>
-              <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                placeholder={t("emailPlaceholder")}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <PasswordInput
-                id="login-password"
-                label={t("password")}
-                placeholder={t("passwordPlaceholder")}
-                value={password}
-                onChange={setPassword}
-                autoComplete="current-password"
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? t("signingIn") : t("signIn")}
-            </Button>
-          </form>
 
-          <SocialAuthButtons mode="login" />
-
-          <p className="text-center text-sm text-muted-foreground">
-            {t("noAccount")}{" "}
-            <Link href="/signup" className="underline hover:text-primary">
-              {t("signUp")}
-            </Link>
-          </p>
+              <p className="text-center text-sm text-muted-foreground">
+                {t("noAccount")}{" "}
+                <Link href="/signup" className="underline hover:text-primary">
+                  {t("signUp")}
+                </Link>
+              </p>
+            </>
+          )}
         </div>
       </AuthCard>
     </div>

@@ -7,6 +7,14 @@ import {
   getUsageByIdempotencyKey,
   trackUsage,
 } from "@/server/repositories/usage";
+import {
+  getWorkspaceNotificationRecipients,
+  sendLowCreditsEmail,
+} from "@/server/services/notifications";
+import { db } from "@/server/db";
+import { user } from "@/server/db/schema";
+import { eq } from "drizzle-orm";
+import { logger } from "@/lib/logger";
 
 export const CREDIT_COSTS = {
   creative_plan: 1,
@@ -107,6 +115,29 @@ export async function recordUsage(input: {
     },
     input.idempotencyKey
   );
+
+  const newBalance = check.balance - check.amount;
+  if (newBalance < 10) {
+    try {
+      const recipients = await getWorkspaceNotificationRecipients(input.workspaceId);
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      for (const recipient of recipients) {
+        if (!recipient.lowCreditsNotifiedAt || recipient.lowCreditsNotifiedAt < oneDayAgo) {
+          await sendLowCreditsEmail({
+            to: recipient.email,
+            creditBalance: newBalance,
+            locale: recipient.locale,
+          });
+          await db
+            .update(user)
+            .set({ lowCreditsNotifiedAt: new Date() })
+            .where(eq(user.id, recipient.userId));
+        }
+      }
+    } catch (notifyErr) {
+      logger.warn("[recordUsage] failed to send low credits email", notifyErr);
+    }
+  }
 
   return { status: "recorded" as const, usage, check };
 }

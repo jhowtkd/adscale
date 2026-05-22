@@ -1,11 +1,13 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { magicLink } from "better-auth/plugins/magic-link";
 import { db } from "../db";
 import * as schema from "../db/schema";
 import { env } from "../validation/env";
 import {
   sendPasswordResetEmail as sendPasswordResetMessage,
   sendVerificationEmail as sendVerificationMessage,
+  sendMagicLinkEmail as sendMagicLinkMessage,
 } from "../services/email";
 import { buildTrustedOrigins } from "./config";
 
@@ -52,6 +54,13 @@ export const auth = betterAuth({
       await sendVerificationMessage({ to: user.email, url });
     },
   },
+  plugins: [
+    magicLink({
+      sendMagicLink: async ({ email, url }) => {
+        await sendMagicLinkMessage({ to: email, url });
+      },
+    }),
+  ],
   databaseHooks: {
     user: {
       create: {

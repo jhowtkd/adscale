@@ -86,6 +86,20 @@ export function sendPasswordResetEmail(input: { to: string; url: string }) {
   });
 }
 
+export function sendMagicLinkEmail(input: { to: string; url: string }) {
+  return sendEmail({
+    to: input.to,
+    subject: "Sign in to ADScale",
+    text: `Sign in to ADScale by opening this link: ${input.url}`,
+    html: authEmailHtml({
+      title: "Sign in to ADScale",
+      body: "Click the button below to sign in to your ADScale account. This link will expire in 5 minutes.",
+      cta: "Sign in",
+      url: input.url,
+    }),
+  });
+}
+
 export function sendInviteEmail(input: {
   to: string;
   workspaceName: string;

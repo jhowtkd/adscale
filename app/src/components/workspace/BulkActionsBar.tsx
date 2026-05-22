@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, X, Package, Loader2 } from "lucide-react";
+import { Check, X, Package, Download, Link2, Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 
@@ -9,10 +9,14 @@ interface BulkActionsBarProps {
   onApproveAll: () => void;
   onRejectAll: () => void;
   onExportAll: () => void;
+  onDownloadZip?: () => void;
+  onCreateShareLink?: () => void;
   onClear: () => void;
   isApproving?: boolean;
   isRejecting?: boolean;
   isExporting?: boolean;
+  isDownloadingZip?: boolean;
+  isCreatingShareLink?: boolean;
 }
 
 export default function BulkActionsBar({
@@ -20,10 +24,14 @@ export default function BulkActionsBar({
   onApproveAll,
   onRejectAll,
   onExportAll,
+  onDownloadZip,
+  onCreateShareLink,
   onClear,
   isApproving,
   isRejecting,
   isExporting,
+  isDownloadingZip,
+  isCreatingShareLink,
 }: BulkActionsBarProps) {
   const t = useTranslations("derivation");
   const commonT = useTranslations("common");
@@ -81,11 +89,45 @@ export default function BulkActionsBar({
             {t("exportPackageBulk")}
           </Button>
 
+          {onDownloadZip && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onDownloadZip}
+              disabled={isDownloadingZip}
+              className="border-[var(--accent-teal)] text-[var(--accent-teal)] hover:bg-[var(--accent-teal)]/10"
+            >
+              {isDownloadingZip ? (
+                <Loader2 size={14} className="animate-spin mr-1" />
+              ) : (
+                <Download size={14} className="mr-1" />
+              )}
+              {t("downloadZip")}
+            </Button>
+          )}
+
+          {onCreateShareLink && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onCreateShareLink}
+              disabled={isCreatingShareLink}
+              className="border-[var(--accent-violet)] text-[var(--accent-violet)] hover:bg-[var(--accent-violet)]/10"
+            >
+              {isCreatingShareLink ? (
+                <Loader2 size={14} className="animate-spin mr-1" />
+              ) : (
+                <Link2 size={14} className="mr-1" />
+              )}
+              {t("createShareLink")}
+            </Button>
+          )}
+
           <Button
             size="sm"
             variant="ghost"
             onClick={onClear}
-            disabled={isApproving || isRejecting || isExporting}
+            disabled={isApproving || isRejecting || isExporting || isDownloadingZip || isCreatingShareLink}
             className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
           >
             {commonT("clear")}
