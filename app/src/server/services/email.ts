@@ -91,7 +91,7 @@ export function sendInviteEmail(input: {
   workspaceName: string;
   token: string;
 }) {
-  const url = `${env.APP_URL}/api/workspace/invites?token=${input.token}`;
+  const url = `${env.APP_URL}/invite?token=${input.token}`;
   return sendEmail({
     to: input.to,
     subject: `You've been invited to join ${input.workspaceName} on ADScale`,

@@ -62,7 +62,7 @@ export async function removeMember(workspaceId: string, userId: string) {
   return result[0] ?? null;
 }
 
-export async function acceptInvite(token: string, userId: string) {
+export async function acceptInvite(token: string, userId: string, userEmail: string) {
   const invite = await db
     .select()
     .from(workspaceInvites)
@@ -77,6 +77,10 @@ export async function acceptInvite(token: string, userId: string) {
 
   if (existing.expiresAt < new Date()) {
     throw new Error("Invite expired");
+  }
+
+  if (existing.email.toLowerCase() !== userEmail.toLowerCase()) {
+    throw new Error("Invite email mismatch");
   }
 
   const existingMember = await db

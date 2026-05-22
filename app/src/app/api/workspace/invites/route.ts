@@ -46,6 +46,11 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    const session = await getSessionFromHeaders(request.headers);
+    if (!session) {
+      return apiError("unauthorized", 401);
+    }
+
     const body = await request.json();
     const parsed = acceptInviteSchema.safeParse(body);
 
@@ -53,7 +58,7 @@ export async function PATCH(request: Request) {
       return apiError("invalidInput", 400, parsed.error.flatten());
     }
 
-    await acceptInvite(parsed.data.token);
+    await acceptInvite(parsed.data.token, session.user.id, session.user.email);
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -62,6 +67,9 @@ export async function PATCH(request: Request) {
     }
     if (error instanceof Error && error.message === "Invite expired") {
       return apiError("inviteExpired", 410);
+    }
+    if (error instanceof Error && error.message === "Invite email mismatch") {
+      return apiError("inviteEmailMismatch", 403);
     }
     return handleApiError(error, "workspace.invites.PATCH");
   }
