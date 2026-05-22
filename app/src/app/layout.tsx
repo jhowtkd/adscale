@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import QueryProvider from "@/components/providers/QueryProvider";
 import A11yProvider from "@/components/providers/A11yProvider";
 import CookieBanner from "@/components/cookie-consent/CookieBanner";
+import { SentryErrorBoundary } from "@/components/providers/SentryErrorBoundary";
 import "./globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -38,20 +39,22 @@ export default async function RootLayout({
           <QueryProvider>
             <A11yProvider>
               <TooltipProvider>
-                <main id="main" className="contents">
-                  {children}
-                </main>
-                <Toaster
-                position="bottom-right"
-                toastOptions={{
-                  style: {
-                    background: "var(--surface-base)",
-                    border: "1px solid var(--border-dim)",
-                    color: "var(--text-primary)",
-                  },
-                }}
-              />
-            </TooltipProvider>
+                <SentryErrorBoundary>
+                  <main id="main" className="contents">
+                    {children}
+                  </main>
+                  <Toaster
+                    position="bottom-right"
+                    toastOptions={{
+                      style: {
+                        background: "var(--surface-base)",
+                        border: "1px solid var(--border-dim)",
+                        color: "var(--text-primary)",
+                      },
+                    }}
+                  />
+                </SentryErrorBoundary>
+              </TooltipProvider>
             </A11yProvider>
           </QueryProvider>
         </NextIntlClientProvider>

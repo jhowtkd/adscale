@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { getTranslations } from "next-intl/server";
+import { captureException } from "@/lib/sentry";
+import { logger } from "@/lib/logger";
 
 export async function apiError(
   code: string,
@@ -53,11 +55,12 @@ export async function handleApiError(error: unknown, context: string) {
 
   const errorId = crypto.randomUUID();
   const serialized = serializeError(error);
-  console.error("[api-error]", {
+  logger.error("[api-error]", {
     errorId,
     context,
     error: serialized,
   });
+  captureException(error, { errorId, context });
 
   return apiError("internalError", 500, {
     errorId,

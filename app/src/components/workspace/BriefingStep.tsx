@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sparkles, RefreshCw, Edit3, Check, X, Wand2, Plus, ImageOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
@@ -24,6 +24,7 @@ import {
   type BriefingFieldPatch,
 } from "@/lib/briefing-doctor";
 import { useBriefingDoctorAnalysis } from "@/lib/hooks/use-briefing-doctor";
+import { useBriefingAutoSave } from "@/lib/hooks/use-briefing-autosave";
 import {
   useGenerateCreativeDiagnosis,
   useUpdateCreativeDiagnosis,
@@ -349,6 +350,20 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
   const [newProfileName, setNewProfileName] = useState("");
   const [newProfileNotes, setNewProfileNotes] = useState("");
 
+  const campaignId = campaign?.id ?? "new";
+  const autoSave = useBriefingAutoSave(campaignId, formData);
+  const [showRestoreBanner, setShowRestoreBanner] = useState(false);
+
+  // Show restore banner if there's a draft and we're on a new/empty campaign
+  useEffect(() => {
+    if (autoSave.hasDraft && !campaign?.name && !campaign?.client) {
+      const draft = autoSave.restoreDraft();
+      if (draft && (draft.name.trim() || draft.client.trim())) {
+        setShowRestoreBanner(true);
+      }
+    }
+  }, [autoSave.hasDraft, campaign]);
+
   const handleAnalyzeBriefing = () => {
     briefingDoctor.mutate(formData);
   };
@@ -429,12 +444,63 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
 
   const handleContinue = () => {
     if (validate()) {
+      autoSave.clearDraft();
       onContinue(formData);
     }
   };
 
+  const handleSaveDraftLocal = () => {
+    autoSave.clearDraft();
+    onSaveDraft(formData);
+  };
+
+  const handleRestoreDraft = () => {
+    const draft = autoSave.restoreDraft();
+    if (draft) {
+      setFormData(draft);
+      setShowNotes(Boolean(draft.notes));
+    }
+    setShowRestoreBanner(false);
+  };
+
+  const handleDiscardDraft = () => {
+    autoSave.clearDraft();
+    setShowRestoreBanner(false);
+  };
+
   return (
     <div className="relative">
+      {showRestoreBanner && (
+        <div className="max-w-[720px] mx-auto mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 animate-fade-in">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium text-amber-900">
+                {tBriefing("draftFoundTitle")}
+              </p>
+              <p className="text-xs text-amber-700 mt-0.5">
+                {tBriefing("draftFoundDesc")}
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={handleDiscardDraft}
+                className="text-xs font-medium text-amber-700 hover:text-amber-900 transition-colors"
+              >
+                {tBriefing("discard")}
+              </button>
+              <button
+                type="button"
+                onClick={handleRestoreDraft}
+                className="inline-flex items-center rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 transition-colors"
+              >
+                {tBriefing("restore")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <form
         className="max-w-[720px] mx-auto space-y-5"
         onSubmit={(e) => e.preventDefault()}
@@ -1090,13 +1156,24 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
 
       {/* ---- Form Actions ---- */}
       <div className="max-w-[720px] mx-auto mt-8 flex items-center justify-between animate-fade-in" style={{ animationDelay: "400ms" }}>
-        <button
-          type="button"
-          onClick={() => onSaveDraft(formData)}
-          className="inline-flex items-center justify-center rounded-md px-5 py-2.5 text-sm font-medium transition-all duration-200 bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] hover:bg-[var(--surface-base)] hover:border-[var(--border-medium)] active:scale-[0.98]"
-        >
-          {tBriefing("saveDraft")}
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleSaveDraftLocal}
+            className="inline-flex items-center justify-center rounded-md px-5 py-2.5 text-sm font-medium transition-all duration-200 bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] hover:bg-[var(--surface-base)] hover:border-[var(--border-medium)] active:scale-[0.98]"
+          >
+            {tBriefing("saveDraft")}
+          </button>
+          {autoSave.isSaving ? (
+            <span className="text-xs text-[var(--text-muted)] animate-fade-in">
+              {tBriefing("saving")}
+            </span>
+          ) : autoSave.lastSavedAt ? (
+            <span className="text-xs text-[var(--text-muted)] animate-fade-in">
+              {tBriefing("draftAutoSaved")}
+            </span>
+          ) : null}
+        </div>
         <button
           type="button"
           onClick={handleContinue}
