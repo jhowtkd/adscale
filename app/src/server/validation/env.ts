@@ -30,4 +30,19 @@ export const envSchema = z.object({
   STRIPE_CANCEL_URL: z.string().url(),
 });
 
-export const env = envSchema.parse(process.env);
+const parsed = envSchema.safeParse(process.env);
+
+export const env: z.infer<typeof envSchema> = parsed.success
+  ? parsed.data
+  : new Proxy({} as z.infer<typeof envSchema>, {
+      get(_, key: string) {
+        const issue = parsed.error.issues.find((i) => i.path[0] === key);
+        if (issue) {
+          if (process.env.NODE_ENV === "test") {
+            return undefined;
+          }
+          throw new Error(`Env validation failed for ${key}: ${issue.message}`);
+        }
+        return process.env[key];
+      },
+    });

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import {
   Check,
   X,
@@ -132,11 +131,7 @@ export default function ReviewStep({
   return (
     <div className="space-y-6">
       {/* ---- Header Stats ---- */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-between flex-wrap gap-4"
-      >
+      <div className="flex items-center justify-between flex-wrap gap-4 animate-fade-in">
         <div className="flex items-center gap-4">
           <div>
             <h3 className="text-[15px] font-semibold text-[var(--text-primary)]">
@@ -144,13 +139,11 @@ export default function ReviewStep({
             </h3>
             <div className="flex items-center gap-2 mt-1.5">
               <div className="w-[200px] h-1.5 bg-[var(--border-dim)] rounded-full overflow-hidden">
-                <motion.div
-                  className="h-full bg-[var(--accent-teal)] rounded-full"
-                  initial={{ width: 0 }}
-                  animate={{
+                <div
+                  className="h-full bg-[var(--accent-teal)] rounded-full transition-all duration-500"
+                  style={{
                     width: totalCount > 0 ? `${(approvedCount / totalCount) * 100}%` : "0%",
                   }}
-                  transition={{ duration: 0.5 }}
                 />
               </div>
             </div>
@@ -171,12 +164,11 @@ export default function ReviewStep({
             </select>
           </div>
 
-          <motion.button
-            whileTap={{ scale: 0.98 }}
+          <button
             onClick={handleExportAll}
             disabled={approvedCount === 0 || isExporting}
             className={cn(
-              "inline-flex items-center gap-2 rounded-md px-5 py-2 text-sm font-medium transition-all duration-200",
+              "inline-flex items-center gap-2 rounded-md px-5 py-2 text-sm font-medium transition-all duration-200 active:scale-[0.98]",
               approvedCount > 0 && !isExporting
                 ? "bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-light)]"
                 : "bg-[var(--surface-raised)] text-[var(--text-muted)] border border-[var(--border-dim)] cursor-not-allowed"
@@ -184,11 +176,7 @@ export default function ReviewStep({
           >
             {isExporting ? (
               <>
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                  className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
-                />
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 Preparing...
               </>
             ) : (
@@ -197,71 +185,63 @@ export default function ReviewStep({
                 Export All Approved
               </>
             )}
-          </motion.button>
+          </button>
         </div>
-      </motion.div>
+      </div>
 
       {/* ---- Comparison View (when a derivation is selected) ---- */}
-      <AnimatePresence>
-        {showComparison && selectedDerivation && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.3 }}
-            className="overflow-hidden"
-          >
-            <div className="bg-[var(--surface-base)] rounded-xl border border-[var(--border-dim)] p-4">
-              {/* Comparison header */}
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="text-sm font-semibold text-[var(--text-primary)]">
-                  Compare: {selectedDerivation.name}
-                </h4>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handlePrevDerivation}
-                    className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-colors"
-                  >
-                    <ChevronLeft size={16} />
-                  </button>
-                  <span className="text-xs text-[var(--text-muted)]">
-                    {reviewableDerivations.findIndex((d) => d.id === selectedDerivationId) + 1} /{" "}
-                    {totalCount}
-                  </span>
-                  <button
-                    onClick={handleNextDerivation}
-                    className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-colors"
-                  >
-                    <ChevronRight size={16} />
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowComparison(false);
-                      setSelectedDerivationId(null);
-                    }}
-                    className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--accent-rose)] hover:bg-[rgba(244,63,94,0.08)] transition-colors ml-2"
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
+      {showComparison && selectedDerivation && (
+        <div className="overflow-hidden animate-fade-in">
+          <div className="bg-[var(--surface-base)] rounded-xl border border-[var(--border-dim)] p-4">
+            {/* Comparison header */}
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-sm font-semibold text-[var(--text-primary)]">
+                Compare: {selectedDerivation.name}
+              </h4>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handlePrevDerivation}
+                  className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-colors"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <span className="text-xs text-[var(--text-muted)]">
+                  {reviewableDerivations.findIndex((d) => d.id === selectedDerivationId) + 1} /{" "}
+                  {totalCount}
+                </span>
+                <button
+                  onClick={handleNextDerivation}
+                  className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-colors"
+                >
+                  <ChevronRight size={16} />
+                </button>
+                <button
+                  onClick={() => {
+                    setShowComparison(false);
+                    setSelectedDerivationId(null);
+                  }}
+                  className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--accent-rose)] hover:bg-[rgba(244,63,94,0.08)] transition-colors ml-2"
+                >
+                  <X size={16} />
+                </button>
               </div>
-
-              <ComparisonView
-                baseImageUrl={baseImageUrl}
-                derivation={selectedDerivation}
-                onApprove={handleApprove}
-                onReject={handleReject}
-                onRegenerate={handleRegenerate}
-                onDownload={handleDownload}
-                isApproving={isApprovingSelected}
-                isRejecting={isRejectingSelected}
-                isRegenerating={isRegeneratingSelected}
-                isDownloading={isDownloadingSelected}
-              />
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+
+            <ComparisonView
+              baseImageUrl={baseImageUrl}
+              derivation={selectedDerivation}
+              onApprove={handleApprove}
+              onReject={handleReject}
+              onRegenerate={handleRegenerate}
+              onDownload={handleDownload}
+              isApproving={isApprovingSelected}
+              isRejecting={isRejectingSelected}
+              isRegenerating={isRegeneratingSelected}
+              isDownloading={isDownloadingSelected}
+            />
+          </div>
+        </div>
+      )}
 
       {/* ---- Review Grid ---- */}
       <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
@@ -272,25 +252,19 @@ export default function ReviewStep({
           const platformStyle = platformColors[derivation.platform as keyof typeof platformColors] || { bg: "var(--surface-raised)", text: "var(--text-muted)" };
 
           return (
-            <motion.div
+            <div
               key={derivation.id}
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{
-                delay: i * 0.06,
-                duration: 0.35,
-                ease: [0.19, 1, 0.22, 1] as const,
-              }}
               onClick={() => {
                 setSelectedDerivationId(derivation.id);
                 setShowComparison(true);
               }}
               className={cn(
-                "group relative bg-[var(--surface-base)] rounded-xl border-2 overflow-hidden cursor-pointer transition-all duration-300",
+                "group relative bg-[var(--surface-base)] rounded-xl border-2 overflow-hidden cursor-pointer transition-all duration-300 animate-fade-in",
                 getCardBorderClass(derivation.id),
                 isSelected && "ring-2 ring-[var(--accent-mint)] ring-offset-1 ring-offset-[var(--deep-bg)]",
                 !isApproved && !isRejected && "hover:border-[var(--border-medium)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)]"
               )}
+              style={{ animationDelay: `${Math.min(i * 60, 600)}ms` }}
             >
               {/* Approved overlay */}
               {isApproved && (
@@ -362,48 +336,34 @@ export default function ReviewStep({
                 {/* Hover overlay with actions */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-[2]">
                   <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2">
-                    <motion.button
-                      initial={false}
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
+                    <button
                       onClick={(e) => {
                         e.stopPropagation();
                         handleApprove(derivation.id);
                       }}
                       disabled={approvingId === derivation.id}
-                      className="w-10 h-10 rounded-full bg-[var(--accent-mint)] flex items-center justify-center text-white shadow-lg hover:bg-[var(--accent-mint)]/90 transition-colors disabled:opacity-60"
+                      className="w-10 h-10 rounded-full bg-[var(--accent-mint)] flex items-center justify-center text-white shadow-lg hover:bg-[var(--accent-mint)]/90 transition-all duration-200 hover:scale-110 active:scale-90 disabled:opacity-60"
                     >
                       {approvingId === derivation.id ? (
-                        <motion.div
-                          animate={{ rotate: 360 }}
-                          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                          className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
-                        />
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                       ) : (
                         <Check size={18} />
                       )}
-                    </motion.button>
-                    <motion.button
-                      initial={false}
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
+                    </button>
+                    <button
                       onClick={(e) => {
                         e.stopPropagation();
                         handleReject(derivation.id, "");
                       }}
                       disabled={rejectingId === derivation.id}
-                      className="w-10 h-10 rounded-full bg-[var(--accent-rose)] flex items-center justify-center text-white shadow-lg hover:bg-[var(--accent-rose)]/90 transition-colors disabled:opacity-60"
+                      className="w-10 h-10 rounded-full bg-[var(--accent-rose)] flex items-center justify-center text-white shadow-lg hover:bg-[var(--accent-rose)]/90 transition-all duration-200 hover:scale-110 active:scale-90 disabled:opacity-60"
                     >
                       {rejectingId === derivation.id ? (
-                        <motion.div
-                          animate={{ rotate: 360 }}
-                          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                          className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
-                        />
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                       ) : (
                         <X size={18} />
                       )}
-                    </motion.button>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -431,7 +391,7 @@ export default function ReviewStep({
                   </span>
                 </div>
               </div>
-            </motion.div>
+            </div>
           );
         })}
       </div>
@@ -448,12 +408,7 @@ export default function ReviewStep({
 
       {/* ---- Gallery Strip at bottom ---- */}
       {reviewableDerivations.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="bg-[var(--surface-base)] rounded-xl border border-[var(--border-dim)] p-4"
-        >
+        <div className="bg-[var(--surface-base)] rounded-xl border border-[var(--border-dim)] p-4 animate-fade-in" style={{ animationDelay: "300ms" }}>
           <h4 className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wide mb-3">
             All Derivations ({reviewableDerivations.length})
           </h4>
@@ -496,7 +451,7 @@ export default function ReviewStep({
               );
             })}
           </div>
-        </motion.div>
+        </div>
       )}
     </div>
   );

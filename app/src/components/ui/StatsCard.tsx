@@ -1,6 +1,7 @@
 "use client";
 
-import { motion } from "framer-motion";
+
+import React from "react";
 import { cn } from "@/lib/utils";
 import type { LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -19,7 +20,7 @@ interface StatsCardProps {
   className?: string;
 }
 
-export default function StatsCard({
+function StatsCard({
   icon: Icon,
   label,
   value,
@@ -32,23 +33,14 @@ export default function StatsCard({
   const t = useTranslations("common");
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{
-        duration: 0.5,
-        delay: index * 0.08,
-        ease: [0.19, 1, 0.22, 1],
-      }}
-      whileHover={{
-        y: -2,
-        transition: { duration: 0.25, ease: [0.4, 0, 0.2, 1] },
-      }}
+    <div
       className={cn(
         "group relative rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)] p-5 transition-all duration-250 cursor-pointer will-change-transform",
-        "hover:border-[var(--border-medium)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)]",
+        "hover:border-[var(--border-medium)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] hover:-translate-y-0.5",
+        "animate-fade-in",
         className
       )}
+      style={{ animationDelay: `${index * 80}ms` }}
     >
       {/* Hover flat overlay */}
       <div className="absolute inset-0 rounded-xl border border-[var(--accent-mint)]/0 transition-all duration-250 group-hover:border-[var(--accent-mint)]/30" />
@@ -90,6 +82,8 @@ export default function StatsCard({
           </div>
         )}
       </div>
-    </motion.div>
+    </div>
   );
 }
+
+export default React.memo(StatsCard);

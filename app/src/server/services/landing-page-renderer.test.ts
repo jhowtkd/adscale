@@ -13,6 +13,7 @@ function makeStructure(): Parameters<typeof renderLandingPageHtml>[0]["structure
       offer: { headline: "Offer", body: "Offer body.", cta: "Claim" },
       faq: {
         headline: "FAQ",
+        body: "",
         items: [{ question: "Q1?", answer: "A1." }],
       },
       finalCta: { headline: "Final", body: "Final body.", cta: "End" },

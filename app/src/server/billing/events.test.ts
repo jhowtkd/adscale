@@ -58,7 +58,7 @@ describe("processStripeEvent", () => {
     vi.clearAllMocks();
     mockHasProcessedStripeEvent.mockResolvedValue(false);
     mockGetSubscription.mockResolvedValue(
-      null as Awaited<ReturnType<typeof getSubscriptionByStripeSubscriptionId>>
+      null as unknown as Awaited<ReturnType<typeof getSubscriptionByStripeSubscriptionId>>
     );
     mockStripeSubscriptionRetrieve.mockReset();
   });
@@ -207,7 +207,7 @@ describe("processStripeEvent", () => {
 
   it("syncs subscription before granting credits when invoice arrives first", async () => {
     const periodEnd = new Date("2026-06-19T00:00:00.000Z");
-    mockGetSubscription.mockResolvedValueOnce(null);
+    mockGetSubscription.mockResolvedValueOnce(null as any);
     mockStripeSubscriptionRetrieve.mockResolvedValue({
       id: "sub_123",
       customer: "cus_123",
@@ -220,7 +220,7 @@ describe("processStripeEvent", () => {
       current_period_start: 1779148800,
       current_period_end: 1781827200,
       cancel_at_period_end: false,
-    } as Stripe.Response<Stripe.Subscription>);
+    } as unknown as Stripe.Response<Stripe.Subscription>);
     mockUpsertSubscription.mockResolvedValue({
       id: "local-sub-id",
       workspaceId: "workspace-1",

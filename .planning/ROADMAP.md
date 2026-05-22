@@ -205,7 +205,7 @@
 | Phase 12 — Orquestração de Derivações | ✅ Complete | Integration tests pass |
 | Phase 13 — Prompt e Renderização Fiel | ✅ Complete | Prompt string tests + sharp normalization |
 | Phase 14 — Galeria, Mensagens e QA Final | ✅ Complete | Build + 67 tests passing |
-| Phase 15 — Régua de Criatividade, CTA Exato e Quick Tool de Restilização | ○ Planned | — |
+| Phase 15 — Régua de Criatividade, CTA Exato e Quick Tool de Restilização | ✅ Complete | prompt-builder tests + build clean |
 
 **Plans:**
 2/2 plans complete

@@ -89,7 +89,7 @@ describe("POST /api/derivations/[id]/landing-page", () => {
   });
 
   it("returns 404 when derivation is missing", async () => {
-    mockGetDerivationById.mockResolvedValue(null);
+    mockGetDerivationById.mockResolvedValue(null as any);
 
     const res = await POST(requestFor("missing-id"), {
       params: paramsWith("missing-id"),
@@ -190,7 +190,7 @@ describe("POST /api/derivations/[id]/landing-page", () => {
         benefits: { headline: "Be", body: "B" },
         trust: { headline: "T", body: "B" },
         offer: { headline: "O", body: "B", cta: "C" },
-        faq: { headline: "F", items: [{ question: "Q", answer: "A" }] },
+        faq: { headline: "F", body: "B", items: [{ question: "Q", answer: "A" }] },
         finalCta: { headline: "FC", body: "B", cta: "C" },
       },
     });

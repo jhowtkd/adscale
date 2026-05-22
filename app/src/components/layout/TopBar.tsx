@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAppStore } from "@/lib/store";
 import { authClient } from "@/lib/auth-client";
@@ -36,6 +36,7 @@ export default function TopBar() {
   const tCommon = useTranslations("common");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notificationsCleared, setNotificationsCleared] = useState(false);
+  const bellRef = useRef<HTMLButtonElement | null>(null);
   const { data: session } = authClient.useSession();
   const { data: dashboardData } = useDashboard();
   const { data: billingStatus } = useBillingStatus();
@@ -155,9 +156,11 @@ export default function TopBar() {
 
         {/* Notification Bell */}
         <button
+          ref={(el) => { if (el) bellRef.current = el; }}
           type="button"
           aria-label={tCommon("notifications")}
           aria-expanded={notificationsOpen}
+          aria-haspopup="dialog"
           onClick={() => setNotificationsOpen((open) => !open)}
           className={cn(
             "relative flex items-center justify-center h-9 w-9 rounded-full",
@@ -170,7 +173,7 @@ export default function TopBar() {
           {notificationItems.length > 0 && (
             <span
               aria-hidden="true"
-              className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--accent-rose)] px-1 text-[10px] font-semibold text-white"
+              className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--accent-rose)] px-1 text-xs font-semibold text-white"
             >
               {notificationItems.length > 9 ? "9+" : notificationItems.length}
             </span>
@@ -179,59 +182,13 @@ export default function TopBar() {
 
         <AnimatePresence>
           {notificationsOpen && (
-            <motion.div
-              initial={{ opacity: 0, y: -8, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -8, scale: 0.98 }}
-              transition={{ duration: 0.15 }}
-              className="absolute right-16 top-11 z-50 w-[360px] rounded-xl border border-[var(--border-dim)] bg-[var(--surface-raised)] shadow-[0_24px_80px_rgba(0,0,0,0.1)]"
-            >
-              <div className="flex items-center justify-between border-b border-[var(--border-dim)] px-4 py-3">
-                <div>
-                  <p className="text-sm font-semibold text-[var(--text-primary)]">
-                    {tCommon("notifications")}
-                  </p>
-                  <p className="text-xs text-[var(--text-muted)]">
-                    {notificationItems.length} {notificationItems.length === 1 ? tCommon("item") : tCommon("items")}
-                  </p>
-                </div>
-                {notificationItems.length > 0 ? (
-                  <button
-                    type="button"
-                    onClick={() => setNotificationsCleared(true)}
-                    className="rounded-md px-2 py-1 text-xs font-medium text-[var(--accent-mint)] hover:bg-[var(--accent-mint-dim)]"
-                  >
-                    {tCommon("clear")}
-                  </button>
-                ) : (
-                  <Clock3 size={16} className="text-[var(--text-muted)]" />
-                )}
-              </div>
-              <div className="max-h-[320px] overflow-y-auto">
-                {notificationItems.length === 0 ? (
-                  <div className="px-4 py-6 text-sm text-[var(--text-muted)]">
-                    {tCommon("noNotifications")}
-                  </div>
-                ) : (
-                  notificationItems.map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex gap-3 border-b border-[var(--border-dim)] px-4 py-3 last:border-b-0"
-                    >
-                      <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-[var(--accent-mint-dim)] text-[var(--accent-mint)]">
-                        <Clock3 size={14} />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm text-[var(--text-primary)]">{item.message}</p>
-                        <p className="mt-1 text-xs text-[var(--text-muted)]">
-                          {formatDistanceToNow(item.timestamp, { addSuffix: true })}
-                        </p>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </motion.div>
+            <NotificationPanel
+              items={notificationItems}
+              onClose={() => setNotificationsOpen(false)}
+              onClear={() => setNotificationsCleared(true)}
+              bellRef={bellRef}
+              tCommon={tCommon}
+            />
           )}
         </AnimatePresence>
 
@@ -298,5 +255,161 @@ export default function TopBar() {
         </DropdownMenu>
       </div>
     </header>
+  );
+}
+
+// ============================================
+// Notification Panel with Focus Trap
+// ============================================
+
+interface NotificationPanelProps {
+  items: Array<{ id: string; message: string; timestamp: Date }>;
+  onClose: () => void;
+  onClear: () => void;
+  bellRef: React.RefObject<HTMLButtonElement | null>;
+  tCommon: (key: string) => string;
+}
+
+function NotificationPanel({ items, onClose, onClear, bellRef, tCommon }: NotificationPanelProps) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  // Focus trap + Escape handler
+  useEffect(() => {
+    // Store previous focus
+    previousFocusRef.current = document.activeElement as HTMLElement;
+
+    // Move focus to panel
+    const panel = panelRef.current;
+    if (panel) {
+      const focusable = getFocusableElements(panel);
+      if (focusable.length > 0) {
+        focusable[0].focus();
+      } else {
+        panel.focus();
+      }
+    }
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+        return;
+      }
+
+      if (e.key === "Tab" && panel) {
+        const focusable = getFocusableElements(panel);
+        if (focusable.length === 0) return;
+
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      // Return focus to bell button
+      bellRef.current?.focus();
+    };
+  }, [onClose, bellRef]);
+
+  // Click outside to close
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        panelRef.current &&
+        !panelRef.current.contains(e.target as Node) &&
+        !bellRef.current?.contains(e.target as Node)
+      ) {
+        onClose();
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [onClose, bellRef]);
+
+  return (
+    <motion.div
+      ref={panelRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label={tCommon("notifications")}
+      tabIndex={-1}
+      initial={{ opacity: 0, y: -8, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -8, scale: 0.98 }}
+      transition={{ duration: 0.15 }}
+      className="absolute right-16 top-11 z-50 w-[360px] max-w-[calc(100vw-2rem)] rounded-xl border border-[var(--border-dim)] bg-[var(--surface-raised)] shadow-[0_24px_80px_rgba(0,0,0,0.1)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-mint)]"
+    >
+      <div className="flex items-center justify-between border-b border-[var(--border-dim)] px-4 py-3">
+        <div>
+          <p className="text-sm font-semibold text-[var(--text-primary)]">
+            {tCommon("notifications")}
+          </p>
+          <p className="text-xs text-[var(--text-muted)]">
+            {items.length} {items.length === 1 ? tCommon("item") : tCommon("items")}
+          </p>
+        </div>
+        {items.length > 0 ? (
+          <button
+            type="button"
+            onClick={onClear}
+            className="rounded-md px-2 py-1 text-xs font-medium text-[var(--accent-mint)] hover:bg-[var(--accent-mint-dim)]"
+          >
+            {tCommon("clear")}
+          </button>
+        ) : (
+          <Clock3 size={16} className="text-[var(--text-muted)]" />
+        )}
+      </div>
+      <div className="max-h-[320px] overflow-y-auto">
+        {items.length === 0 ? (
+          <div className="px-4 py-6 text-sm text-[var(--text-muted)]">
+            {tCommon("noNotifications")}
+          </div>
+        ) : (
+          items.map((item) => (
+            <div
+              key={item.id}
+              className="flex gap-3 border-b border-[var(--border-dim)] px-4 py-3 last:border-b-0"
+            >
+              <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-[var(--accent-mint-dim)] text-[var(--accent-mint)]">
+                <Clock3 size={14} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm text-[var(--text-primary)]">{item.message}</p>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">
+                  {formatDistanceToNow(item.timestamp, { addSuffix: true })}
+                </p>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
+function getFocusableElements(container: HTMLElement): HTMLElement[] {
+  const selectors = [
+    'a[href]',
+    'button:not([disabled])',
+    'input:not([disabled])',
+    'select:not([disabled])',
+    'textarea:not([disabled])',
+    '[tabindex]:not([tabindex="-1"])',
+  ];
+  return Array.from(container.querySelectorAll<HTMLElement>(selectors.join(","))).filter(
+    (el) => el.offsetParent !== null
   );
 }

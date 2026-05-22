@@ -66,6 +66,7 @@ export default function LoginPage() {
               <Input
                 id="email"
                 type="email"
+                autoComplete="email"
                 placeholder={t("emailPlaceholder")}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -79,6 +80,7 @@ export default function LoginPage() {
                 placeholder={t("passwordPlaceholder")}
                 value={password}
                 onChange={setPassword}
+                autoComplete="current-password"
               />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>

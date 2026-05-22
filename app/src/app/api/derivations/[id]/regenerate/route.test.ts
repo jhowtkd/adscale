@@ -121,7 +121,7 @@ describe("POST /api/derivations/[id]/regenerate", () => {
       workspaceId: "workspace-1",
       status: "queued",
     } as Awaited<ReturnType<typeof createDerivation>>);
-    mockInngestSend.mockResolvedValue(undefined);
+    mockInngestSend.mockResolvedValue({ ids: ["event-id"] });
 
     const res = await POST(requestWith({ feedback: "try a warmer style" }), {
       params: paramsWith("source-id"),

@@ -1,6 +1,5 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
@@ -21,24 +20,6 @@ interface RestylingFormProps {
     name?: string;
   };
 }
-
-const containerVariants = {
-  hidden: {},
-  show: {
-    transition: {
-      staggerChildren: 0.05,
-    },
-  },
-};
-
-const fieldVariants = {
-  hidden: { opacity: 0, y: 12 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.35, ease: [0.19, 1, 0.22, 1] as const },
-  },
-};
 
 const intensityOptions = [
   {
@@ -74,14 +55,9 @@ export default function RestylingForm({
   const t = useTranslations("restyling");
 
   return (
-    <motion.div
-      variants={containerVariants}
-      initial="hidden"
-      animate="show"
-      className="max-w-[720px] mx-auto space-y-5"
-    >
+    <div className="max-w-[720px] mx-auto space-y-5">
       {/* ---- Name ---- */}
-      <motion.div variants={fieldVariants}>
+      <div>
         <Label className="flex items-center gap-1 text-xs font-medium text-[var(--text-secondary)] mb-2">
           {t("name")}
           <span className="text-[var(--accent-rose)]">*</span>
@@ -98,18 +74,14 @@ export default function RestylingForm({
           autoFocus
         />
         {errors.name && (
-          <motion.p
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-xs text-[var(--accent-rose)] mt-1"
-          >
+          <p className="text-xs text-[var(--accent-rose)] mt-1 animate-fade-in">
             {errors.name}
-          </motion.p>
+          </p>
         )}
-      </motion.div>
+      </div>
 
       {/* ---- Client / Offer ---- */}
-      <motion.div variants={fieldVariants}>
+      <div>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label className="text-xs font-medium text-[var(--text-secondary)]">
@@ -134,10 +106,10 @@ export default function RestylingForm({
             />
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {/* ---- CTA Text ---- */}
-      <motion.div variants={fieldVariants}>
+      <div>
         <Label className="text-xs font-medium text-[var(--text-secondary)] mb-2 block">
           {t("ctaText")}
         </Label>
@@ -147,10 +119,10 @@ export default function RestylingForm({
           onChange={(e) => onCtaTextChange(e.target.value)}
           className="h-10 bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-blue)] focus:ring-[3px] focus:ring-[rgba(99,102,241,0.15)]"
         />
-      </motion.div>
+      </div>
 
       {/* ---- Style Intensity ---- */}
-      <motion.div variants={fieldVariants}>
+      <div>
         <Label className="text-xs font-medium text-[var(--text-secondary)] mb-3 block">
           {t("styleIntensity.label")}
         </Label>
@@ -189,7 +161,7 @@ export default function RestylingForm({
             );
           })}
         </div>
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
 }

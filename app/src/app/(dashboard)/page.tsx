@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
 import Link from "next/link";
 import { useAppStore } from "@/lib/store";
 import { platformColors } from "@/lib/mock-data";
@@ -9,10 +8,16 @@ import type { ActivityItem } from "@/lib/mock-data";
 import type { UiCampaign } from "@/lib/hooks/use-campaigns";
 import { useDashboard } from "@/lib/hooks/use-dashboard";
 import { useCampaigns } from "@/lib/hooks/use-campaigns";
+import { useBillingStatus } from "@/lib/hooks/use-billing";
 import StatsCard from "@/components/ui/StatsCard";
 import StatusBadge from "@/components/ui/StatusBadge";
 import EmptyState from "@/components/ui/EmptyState";
-import RestylingModal from "@/components/workspace/RestylingModal";
+import dynamic from "next/dynamic";
+
+const RestylingModal = dynamic(() => import("@/components/workspace/RestylingModal"), {
+  ssr: false,
+  loading: () => null,
+});
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 // Recharts imports reserved for future credit usage chart
@@ -33,27 +38,6 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-
-// ============================================
-// Animation Variants
-// ============================================
-
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.06 },
-  },
-};
-
-const rowVariants = {
-  hidden: { opacity: 0, x: -12 },
-  visible: {
-    opacity: 1,
-    x: 0,
-    transition: { duration: 0.35, ease: [0.19, 1, 0.22, 1] as [number, number, number, number] },
-  },
-};
 
 // ============================================
 // Activity Icon Mapper
@@ -120,12 +104,10 @@ export default function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-8">
+      <CreditAlertBanner />
       {/* ---- Welcome Banner ---- */}
-      <motion.section
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: [0.19, 1, 0.22, 1] }}
-        className="relative overflow-hidden rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] px-5 py-5 sm:px-6"
+      <section
+        className="relative overflow-hidden rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] px-5 py-5 sm:px-6 animate-fade-in"
       >
         <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="min-w-0">
@@ -136,10 +118,9 @@ export default function DashboardPage() {
               {t("dashboardSubtitle")}
             </p>
           </div>
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.2, duration: 0.3, ease: [0.19, 1, 0.22, 1] }}
+          <div
+            className="animate-fade-in"
+            style={{ animationDelay: "150ms" }}
           >
             <Link
               href="/campaigns"
@@ -153,9 +134,9 @@ export default function DashboardPage() {
               <Plus size={16} />
               {tc("new")}
             </Link>
-          </motion.div>
+          </div>
         </div>
-      </motion.section>
+      </section>
 
       {/* ---- Stats Cards Grid ---- */}
       <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
@@ -200,11 +181,9 @@ export default function DashboardPage() {
       </section>
 
       {/* ---- Quick Actions ---- */}
-      <motion.section
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.4, duration: 0.3 }}
-        className="space-y-4"
+      <section
+        className="space-y-4 animate-fade-in"
+        style={{ animationDelay: "200ms" }}
       >
         <div className="flex items-center justify-between">
           <h2 className="text-[15px] font-semibold text-[var(--text-primary)]">
@@ -250,14 +229,12 @@ export default function DashboardPage() {
             index={3}
           />
         </div>
-      </motion.section>
+      </section>
 
       {/* ---- Recent Campaigns ---- */}
-      <motion.section
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.5, duration: 0.35 }}
-        className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] overflow-hidden"
+      <section
+        className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] overflow-hidden animate-fade-in"
+        style={{ animationDelay: "300ms" }}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-dim)]">
           <h2 className="text-[15px] font-semibold text-[var(--text-primary)]">
@@ -284,14 +261,9 @@ export default function DashboardPage() {
             ))}
           </div>
         ) : recentCampaigns.length > 0 ? (
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-            className="divide-y divide-[var(--border-dim)]"
-          >
+          <div className="divide-y divide-[var(--border-dim)]">
             {/* Table Header */}
-            <div className="hidden sm:grid sm:grid-cols-[1fr_100px_80px_100px_80px_48px] gap-4 px-6 py-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
+            <div className="hidden sm:grid sm:grid-cols-[1fr_100px_80px_100px_80px_48px] gap-4 px-6 py-3 text-xs font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
               <span>{t("campaign")}</span>
               <span className="text-center">{t("status")}</span>
               <span className="text-center">{t("variations")}</span>
@@ -303,7 +275,7 @@ export default function DashboardPage() {
             {recentCampaigns.map((campaign) => (
               <CampaignRow key={campaign.id} campaign={campaign} />
             ))}
-          </motion.div>
+          </div>
         ) : (
           <EmptyState
             title={t("noCampaignsYet")}
@@ -311,22 +283,20 @@ export default function DashboardPage() {
             action={{ label: tc("new"), onClick: () => {} }}
           />
         )}
-      </motion.section>
+      </section>
 
       {/* ---- Bottom Row: Credit Usage + Activity Feed ---- */}
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Credit Usage */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6, duration: 0.4, ease: [0.19, 1, 0.22, 1] }}
-          className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-5 sm:p-6"
+        <div
+          className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-5 sm:p-6 animate-fade-in"
+          style={{ animationDelay: "400ms" }}
         >
           <div className="flex items-center gap-3 mb-4">
             <h2 className="text-[15px] font-semibold text-[var(--text-primary)]">
               {t("creditUsage")}
             </h2>
-            <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-[var(--surface-raised)] text-[var(--text-muted)]">
+            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-[var(--surface-raised)] text-[var(--text-muted)]">
               {t("thisMonth")}
             </span>
           </div>
@@ -350,29 +320,21 @@ export default function DashboardPage() {
 
           {/* Progress bar */}
           <div className="h-1.5 w-full rounded-full bg-[var(--border-dim)] overflow-hidden mb-4">
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${creditPercent}%` }}
-              transition={{ delay: 0.8, duration: 0.6, ease: [0.19, 1, 0.22, 1] }}
-              className="h-full rounded-full gradient-progress"
+            <div
+              className="h-full rounded-full gradient-progress transition-all duration-600"
+              style={{ width: `${creditPercent}%`, transitionDelay: "500ms" }}
             />
           </div>
 
           <button className="text-sm text-[var(--accent-mint)] hover:text-[var(--accent-mint-light)] transition-colors">
             {t("upgradePlan")}
           </button>
-        </motion.div>
+        </div>
 
         {/* Activity Feed */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{
-            delay: 0.7,
-            duration: 0.4,
-            ease: [0.19, 1, 0.22, 1],
-          }}
-          className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-5 sm:p-6"
+        <div
+          className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-5 sm:p-6 animate-fade-in"
+          style={{ animationDelay: "500ms" }}
         >
           <h2 className="text-[15px] font-semibold text-[var(--text-primary)] mb-4">
             {t("activityFeed")}
@@ -392,17 +354,12 @@ export default function DashboardPage() {
               {t("failedLoadActivity")}
             </p>
           ) : activityFeed.length > 0 ? (
-            <motion.div
-              variants={containerVariants}
-              initial="hidden"
-              animate="visible"
-              className="space-y-4"
-            >
-              {activityFeed.slice(0, 5).map((item) => (
-                <motion.div
+            <div className="space-y-4">
+              {activityFeed.slice(0, 5).map((item, index) => (
+                <div
                   key={item.id}
-                  variants={rowVariants}
-                  className="flex items-start gap-3"
+                  className="flex items-start gap-3 animate-fade-in"
+                  style={{ animationDelay: `${600 + index * 60}ms` }}
                 >
                   <div
                     className="flex-shrink-0 flex items-center justify-center w-7 h-7 rounded-full"
@@ -425,7 +382,7 @@ export default function DashboardPage() {
                       {item.message}
                     </p>
                   </div>
-                  <span className="flex-shrink-0 text-[11px] text-[var(--text-muted)]">
+                  <span className="flex-shrink-0 text-xs text-[var(--text-muted)]">
                     {(() => {
                       const d = formatDistanceToNow(new Date(item.timestamp), { addSuffix: false });
                       return d
@@ -438,9 +395,9 @@ export default function DashboardPage() {
                         .replace(/ months? ago/, "mo ago");
                     })()}
                   </span>
-                </motion.div>
+                </div>
               ))}
-            </motion.div>
+            </div>
           ) : (
             <p className="text-sm text-[var(--text-muted)]">
               {t("noRecentActivity")}
@@ -452,7 +409,7 @@ export default function DashboardPage() {
               {t("showMore")}
             </button>
           )}
-        </motion.div>
+        </div>
       </section>
 
       {/* Restyling Modal */}
@@ -492,22 +449,15 @@ function QuickActionCard({
 }: QuickActionCardProps) {
   const t = useTranslations("common");
   const content = (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.97 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{
-        delay: 0.45 + index * 0.06,
-        duration: 0.3,
-        ease: [0.4, 0, 0.2, 1],
-      }}
-      whileHover={disabled ? {} : { y: -2 }}
+    <div
       className={cn(
-        "group h-full rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-4 transition-all duration-250 sm:p-5",
+        "animate-fade-in group h-full rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-4 transition-all duration-250 sm:p-5",
         featured && "border-[var(--accent-mint)]/40 bg-[linear-gradient(135deg,rgba(47,182,125,0.1),rgba(255,255,255,0)_48%)]",
         !disabled &&
-          "hover:border-[var(--border-medium)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] cursor-pointer",
+          "hover:border-[var(--border-medium)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 cursor-pointer",
         disabled && "opacity-50 cursor-not-allowed"
       )}
+      style={{ animationDelay: `${250 + index * 60}ms` }}
       onClick={onClick}
     >
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -531,7 +481,7 @@ function QuickActionCard({
       <p className="text-[13px] text-[var(--text-secondary)] leading-snug line-clamp-2">
         {description}
       </p>
-    </motion.div>
+    </div>
   );
 
   if (disabled) {
@@ -562,13 +512,61 @@ function QuickActionCard({
 }
 
 // ============================================
+// Credit Alert Banner
+// ============================================
+
+function CreditAlertBanner() {
+  const { data: billing } = useBillingStatus();
+  const subscription = billing?.subscription;
+  const isTrialing = subscription?.status === "trialing";
+  const isActive = subscription?.status === "active";
+  const hasPlan = isActive || isTrialing;
+  const balance = billing?.creditBalance ?? 0;
+  const lowCredits = balance <= 10 && hasPlan;
+  const noPlan = !hasPlan;
+
+  if (!lowCredits && !noPlan) return null;
+
+  return (
+    <div
+      className={cn(
+        "rounded-lg border px-5 py-4 text-sm flex items-center justify-between gap-4 animate-fade-in",
+        noPlan
+          ? "border-[var(--accent-mint)]/30 bg-[var(--accent-mint)]/10 text-[var(--accent-mint)]"
+          : "border-[var(--status-amber-bg)] bg-[var(--status-amber-bg)]/30 text-[var(--status-amber-text)]"
+      )}
+    >
+      <div className="flex items-center gap-2">
+        <AlertTriangle size={16} />
+        <span>
+          {noPlan
+            ? "Você ainda não tem um plano ativo. Comece seu trial gratuito de 14 dias."
+            : `Você está com poucos créditos (${balance} restantes). Considere fazer um upgrade de plano.`}
+        </span>
+      </div>
+      <Link
+        href="/settings"
+        className={cn(
+          "inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-medium transition-all",
+          noPlan
+            ? "bg-[var(--accent-mint)] text-white hover:bg-[var(--accent-mint-light)]"
+            : "bg-[var(--status-amber-text)] text-white hover:opacity-90"
+        )}
+      >
+        {noPlan ? "Começar trial" : "Fazer upgrade"}
+        <ArrowRight size={14} />
+      </Link>
+    </div>
+  );
+}
+
+// ============================================
 // Campaign Row
 // ============================================
 
 function CampaignRow({ campaign }: { campaign: UiCampaign }) {
   return (
-    <motion.div
-      variants={rowVariants}
+    <div
       className={cn(
         "group grid grid-cols-1 sm:grid-cols-[1fr_100px_80px_100px_80px_48px] gap-2 sm:gap-4 px-4 sm:px-6 py-3 items-center",
         "transition-colors duration-150 hover:bg-[var(--surface-raised)] cursor-pointer"
@@ -586,7 +584,7 @@ function CampaignRow({ campaign }: { campaign: UiCampaign }) {
               return (
                 <span
                   key={platform}
-                  className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium"
+                  className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
                   style={{
                     backgroundColor: colors.bg,
                     color: colors.text,
@@ -644,7 +642,7 @@ function CampaignRow({ campaign }: { campaign: UiCampaign }) {
           <MoreHorizontal size={16} />
         </button>
       </div>
-    </motion.div>
+    </div>
 
   );
 }

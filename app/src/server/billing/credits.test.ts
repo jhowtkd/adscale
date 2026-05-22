@@ -62,7 +62,7 @@ describe("credit entitlement service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetUsageByIdempotencyKey.mockResolvedValue(
-      null as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>
+      null as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>
     );
     mockGetActiveSubscription.mockResolvedValue(activeSubscription);
     mockGetAvailableCreditGrants.mockResolvedValue([grant("grant-1", 20)]);
@@ -76,7 +76,7 @@ describe("credit entitlement service", () => {
 
   it("blocks inactive subscriptions", async () => {
     mockGetActiveSubscription.mockResolvedValue(
-      null as Awaited<ReturnType<typeof getActiveSubscriptionByWorkspace>>
+      null as unknown as Awaited<ReturnType<typeof getActiveSubscriptionByWorkspace>>
     );
 
     const result = await canSpend("workspace-1", "image_derivation");

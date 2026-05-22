@@ -131,7 +131,7 @@ describe("POST /api/client-profiles/[id]/references", () => {
   });
 
   it("rejects profile outside workspace", async () => {
-    mockGetClientProfile.mockResolvedValueOnce(null);
+    mockGetClientProfile.mockResolvedValueOnce(null as any);
 
     const res = await POST(requestWith({ assetKey: "assets/key.png", label: "Hero", kind: "style" }), {
       params: paramsWith("profile-id"),

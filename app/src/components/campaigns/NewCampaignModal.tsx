@@ -29,7 +29,7 @@ interface NewCampaignForm {
   name: string;
   clientName: string;
   generationMode: "art_variation" | "format_adaptation" | "restyling";
-  targetFormat: string;
+  targetFormats: string[];
   constraints: string;
   notes: string;
   templateId: string;
@@ -39,7 +39,7 @@ interface FormErrors {
   name?: string;
   clientName?: string;
   generationMode?: string;
-  targetFormat?: string;
+  targetFormats?: string;
 }
 
 interface NewCampaignModalProps {
@@ -92,7 +92,7 @@ export default function NewCampaignModal({
     name: "",
     clientName: "",
     generationMode: "art_variation",
-    targetFormat: "",
+    targetFormats: ["1:1"],
     constraints: "",
     notes: "",
     templateId: "",
@@ -120,8 +120,8 @@ export default function NewCampaignModal({
     if (!form.name.trim()) newErrors.name = tErrors("nameRequired");
     if (!form.clientName.trim()) newErrors.clientName = tErrors("clientRequired");
     if (!form.generationMode) newErrors.generationMode = tErrors("modeRequired");
-    if (form.generationMode === "format_adaptation" && !form.targetFormat) {
-      newErrors.targetFormat = tErrors("targetFormatRequired");
+    if (form.generationMode === "format_adaptation" && form.targetFormats.length === 0) {
+      newErrors.targetFormats = tErrors("targetFormatRequired");
     }
     setErrors(newErrors);
     setTouched({
@@ -141,8 +141,8 @@ export default function NewCampaignModal({
         client: form.clientName,
         generationMode: form.generationMode,
         targetFormats:
-          form.generationMode === "format_adaptation" && form.targetFormat
-            ? [form.targetFormat]
+          form.generationMode === "format_adaptation"
+            ? form.targetFormats
             : undefined,
         constraints: form.constraints || undefined,
         notes: form.notes || undefined,
@@ -155,7 +155,7 @@ export default function NewCampaignModal({
         name: "",
         clientName: "",
         generationMode: "art_variation",
-        targetFormat: "",
+        targetFormats: ["1:1"],
         constraints: "",
         notes: "",
         templateId: "",
@@ -234,7 +234,7 @@ export default function NewCampaignModal({
                     generationMode: template.generationMode,
                     constraints: template.constraints ?? prev.constraints,
                     notes: template.notes ?? prev.notes,
-                    targetFormat: template.targetFormats?.[0] ?? prev.targetFormat,
+                    targetFormats: template.targetFormats ?? prev.targetFormats,
                   }));
                 }
               }
@@ -320,35 +320,48 @@ export default function NewCampaignModal({
               <Label className="text-[13px] text-[var(--text-secondary)]">
                 {tBriefing("targetFormat.label")} <span className="text-[var(--accent-rose)]">*</span>
               </Label>
-              <div className="grid grid-cols-3 gap-3">
-                {["1:1", "4:5", "9:16"].map((fmt) => (
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { id: "1:1", label: "1:1" },
+                  { id: "4:5", label: "4:5" },
+                  { id: "9:16", label: "9:16" },
+                  { id: "1.91:1", label: "1.91:1" },
+                  { id: "16:9", label: "16:9" },
+                ].map((fmt) => (
                   <button
-                    key={fmt}
+                    key={fmt.id}
                     type="button"
-                    onClick={() => updateField("targetFormat", fmt)}
+                    onClick={() => {
+                      const current = form.targetFormats;
+                      if (current.includes(fmt.id)) {
+                        updateField("targetFormats", current.filter((f) => f !== fmt.id));
+                      } else {
+                        updateField("targetFormats", [...current, fmt.id]);
+                      }
+                    }}
                     className={cn(
                       "relative rounded-lg border px-3 py-2 text-sm text-center transition-all duration-200",
-                      form.targetFormat === fmt
+                      form.targetFormats.includes(fmt.id)
                         ? "border-[var(--accent-blue)] bg-[rgba(99,102,241,0.08)] ring-1 ring-[var(--accent-blue)]"
                         : "border-[var(--border-dim)] bg-[var(--surface-base)] hover:border-[var(--border-medium)] hover:bg-[var(--surface-raised)]"
                     )}
                   >
-                    {fmt}
-                    {form.targetFormat === fmt && (
+                    {fmt.label}
+                    {form.targetFormats.includes(fmt.id) && (
                       <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-[var(--accent-blue)]" />
                     )}
                   </button>
                 ))}
               </div>
               <AnimatePresence>
-                {errors.targetFormat && (
+                {errors.targetFormats && (
                   <motion.p
                     initial={{ opacity: 0, y: -4 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -4 }}
                     className="text-xs text-[var(--accent-rose)]"
                   >
-                    {errors.targetFormat}
+                    {errors.targetFormats}
                   </motion.p>
                 )}
               </AnimatePresence>

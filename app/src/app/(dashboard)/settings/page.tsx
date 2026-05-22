@@ -11,6 +11,7 @@ import TeamTab from "@/components/settings/TeamTab";
 import BillingTab from "@/components/settings/BillingTab";
 import PlansTab from "@/components/settings/PlansTab";
 import IntegrationsTab from "@/components/settings/IntegrationsTab";
+import PrivacyTab from "@/components/settings/PrivacyTab";
 import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
 
@@ -21,6 +22,7 @@ const tabs = [
   { id: "billing", labelKey: "billingTab" },
   { id: "plans", labelKey: "plansTab" },
   { id: "integrations", labelKey: "integrationsTab" },
+  { id: "privacy", labelKey: "privacyTab" },
 ];
 
 const tabIds = tabs.map((tab) => tab.id);
@@ -97,6 +99,7 @@ export default function SettingsPage() {
         {activeTab === "billing" && <BillingTab />}
         {activeTab === "plans" && <PlansTab />}
         {activeTab === "integrations" && <IntegrationsTab />}
+        {activeTab === "privacy" && <PrivacyTab />}
       </motion.div>
     </div>
   );

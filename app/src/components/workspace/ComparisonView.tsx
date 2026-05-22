@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { GripVertical, Check, X, RefreshCw, Download } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
@@ -258,30 +257,24 @@ export default function ComparisonView({
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-2">
           {/* Approve */}
-          <motion.button
-            whileTap={{ scale: 0.95 }}
+          <button
             onClick={() => onApprove(derivation.id)}
             disabled={isApproving}
             className={cn(
-              "inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium text-white bg-[var(--accent-teal)] hover:opacity-90 transition-opacity",
+              "inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium text-white bg-[var(--accent-teal)] hover:opacity-90 transition-opacity active:scale-[0.95]",
               isApproving && "opacity-60 cursor-wait"
             )}
           >
             {isApproving ? (
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
-              />
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
             ) : (
               <Check size={16} />
             )}
             {commonT("approve")}
-          </motion.button>
+          </button>
 
           {/* Reject */}
-          <motion.button
-            whileTap={{ scale: 0.95 }}
+          <button
             onClick={() => {
               if (showFeedback) {
                 onReject(derivation.id, feedback);
@@ -293,52 +286,42 @@ export default function ComparisonView({
             }}
             disabled={isRejecting}
             className={cn(
-              "inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium border border-[var(--accent-rose)]/30 text-[var(--accent-rose)] hover:bg-[var(--accent-rose)]/10 transition-colors",
+              "inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium border border-[var(--accent-rose)]/30 text-[var(--accent-rose)] hover:bg-[var(--accent-rose)]/10 transition-colors active:scale-[0.95]",
               isRejecting && "opacity-60 cursor-wait"
             )}
           >
             {isRejecting ? (
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                className="w-4 h-4 border-2 border-[var(--accent-rose)] border-t-transparent rounded-full"
-              />
+              <div className="w-4 h-4 border-2 border-[var(--accent-rose)] border-t-transparent rounded-full animate-spin" />
             ) : (
               <X size={16} />
             )}
             {commonT("reject")}
-          </motion.button>
+          </button>
 
           {/* Guided regeneration */}
           {derivation.regenerationSuggestion && (
-            <motion.button
-              whileTap={{ scale: 0.95 }}
+            <button
               onClick={() => {
                 setFeedback(derivation.regenerationSuggestion || "");
                 setShowFeedback(true);
               }}
               disabled={isRegenerating}
               className={cn(
-                "inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium border border-[var(--accent-blue)]/30 text-[var(--accent-blue)] hover:bg-[var(--accent-blue)]/10 transition-colors",
+                "inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium border border-[var(--accent-blue)]/30 text-[var(--accent-blue)] hover:bg-[var(--accent-blue)]/10 transition-colors active:scale-[0.95]",
                 isRegenerating && "opacity-60 cursor-wait"
               )}
             >
               {isRegenerating ? (
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                  className="w-4 h-4 border-2 border-current border-t-transparent rounded-full"
-                />
+                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
               ) : (
                 <RefreshCw size={14} />
               )}
               {t("regenerateWithImprovements")}
-            </motion.button>
+            </button>
           )}
 
           {/* Regenerate with feedback */}
-          <motion.button
-            whileTap={{ scale: 0.95 }}
+          <button
             onClick={() => {
               if (showFeedback && feedback.trim()) {
                 onRegenerate(derivation.id, feedback);
@@ -350,21 +333,17 @@ export default function ComparisonView({
             }}
             disabled={isRegenerating}
             className={cn(
-              "inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium border border-[var(--border-dim)] text-[var(--text-secondary)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)] transition-colors",
+              "inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium border border-[var(--border-dim)] text-[var(--text-secondary)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)] transition-colors active:scale-[0.95]",
               isRegenerating && "opacity-60 cursor-wait"
             )}
           >
             {isRegenerating ? (
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                className="w-4 h-4 border-2 border-current border-t-transparent rounded-full"
-              />
+              <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
             ) : (
               <RefreshCw size={14} />
             )}
             {commonT("regenerate")}
-          </motion.button>
+          </button>
         </div>
 
         {/* Export controls */}
@@ -379,83 +358,69 @@ export default function ComparisonView({
             <option value="webp">WebP</option>
           </select>
 
-          <motion.button
-            whileTap={{ scale: 0.95 }}
+          <button
             onClick={() => onDownload(derivation.id, exportFormat)}
             disabled={isDownloading}
             className={cn(
-              "inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium border border-[var(--border-dim)] text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-colors",
+              "inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium border border-[var(--border-dim)] text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-colors active:scale-[0.95]",
               isDownloading && "opacity-60 cursor-wait"
             )}
           >
             {isDownloading ? (
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                className="w-4 h-4 border-2 border-current border-t-transparent rounded-full"
-              />
+              <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
             ) : (
               <Download size={14} />
             )}
             {commonT("download")}
-          </motion.button>
+          </button>
         </div>
       </div>
 
       {/* ---- Feedback textarea ---- */}
-      <AnimatePresence>
-        {showFeedback && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] as const }}
-            className="overflow-hidden"
-          >
-            <textarea
-              placeholder="What would you like changed?"
-              rows={3}
-              value={feedback}
-              onChange={(e) => setFeedback(e.target.value)}
-              className="w-full bg-[var(--surface-base)] border border-[var(--border-dim)] rounded-lg p-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-mint)] focus:ring-[3px] focus:ring-[rgba(47,182,125,0.15)] focus:outline-none resize-none"
-            />
-            <div className="flex items-center gap-2 mt-2">
-              <button
-                onClick={() => {
-                  if (feedback.trim()) {
-                    onRegenerate(derivation.id, feedback);
-                    setShowFeedback(false);
-                    setFeedback("");
-                  }
-                }}
-                disabled={isRegenerating}
-                className={cn(
-                  "inline-flex items-center rounded-md px-4 py-2 text-xs font-medium text-white bg-[var(--accent-mint)] hover:bg-[var(--accent-mint-light)] transition-colors",
-                  isRegenerating && "opacity-60 cursor-wait"
-                )}
-              >
-                {isRegenerating ? (
-                  <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                    className="w-3 h-3 border-2 border-white border-t-transparent rounded-full mr-1.5"
-                  />
-                ) : null}
-                Submit Feedback
-              </button>
-              <button
-                onClick={() => {
-                  setShowFeedback(false);
-                  setFeedback("");
-                }}
-                className="inline-flex items-center rounded-md px-4 py-2 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
-              >
-                {commonT("cancel")}
-              </button>
-            </div>
-          </motion.div>
+      <div
+        className={cn(
+          "overflow-hidden transition-all duration-300",
+          showFeedback ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
         )}
-      </AnimatePresence>
+      >
+        <textarea
+          placeholder="What would you like changed?"
+          rows={3}
+          value={feedback}
+          onChange={(e) => setFeedback(e.target.value)}
+          className="w-full bg-[var(--surface-base)] border border-[var(--border-dim)] rounded-lg p-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-mint)] focus:ring-[3px] focus:ring-[rgba(47,182,125,0.15)] focus:outline-none resize-none"
+        />
+        <div className="flex items-center gap-2 mt-2">
+          <button
+            onClick={() => {
+              if (feedback.trim()) {
+                onRegenerate(derivation.id, feedback);
+                setShowFeedback(false);
+                setFeedback("");
+              }
+            }}
+            disabled={isRegenerating}
+            className={cn(
+              "inline-flex items-center rounded-md px-4 py-2 text-xs font-medium text-white bg-[var(--accent-mint)] hover:bg-[var(--accent-mint-light)] transition-colors",
+              isRegenerating && "opacity-60 cursor-wait"
+            )}
+          >
+            {isRegenerating ? (
+              <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin mr-1.5" />
+            ) : null}
+            Submit Feedback
+          </button>
+          <button
+            onClick={() => {
+              setShowFeedback(false);
+              setFeedback("");
+            }}
+            className="inline-flex items-center rounded-md px-4 py-2 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+          >
+            {commonT("cancel")}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

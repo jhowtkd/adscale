@@ -19,50 +19,10 @@ import {
   analyzeDerivationCreative,
 } from "@/server/ai/creative-score";
 import { normalizeCreativeDiagnosis } from "@/server/ai/creative-diagnosis";
+import { getTargetDimensions, formatToOpenAISize } from "@/lib/formats";
 
 const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 const IMAGE_GENERATION_TIMEOUT_MS = 5 * 60 * 1000;
-
-function getTargetDimensions(format: string, isPreview?: boolean): { width: number; height: number } | null {
-  if (isPreview) {
-    switch (format) {
-      case "1:1":
-        return { width: 512, height: 512 };
-      case "4:5":
-        return { width: 512, height: 640 };
-      case "9:16":
-        return { width: 512, height: 768 };
-      default:
-        return null;
-    }
-  }
-
-  switch (format) {
-    case "1:1":
-      return { width: 1080, height: 1080 };
-    case "4:5":
-      return { width: 1080, height: 1350 };
-    case "9:16":
-      return { width: 1080, height: 1920 };
-    default:
-      return null;
-  }
-}
-
-function formatToOpenAISize(format: string, isPreview?: boolean): "512x512" | "1024x1024" | "1024x1536" | "1536x1024" {
-  if (isPreview) {
-    return "1024x1024";
-  }
-
-  switch (format) {
-    case "9:16":
-    case "4:5":
-      return "1024x1536";
-    case "1:1":
-    default:
-      return "1024x1024";
-  }
-}
 
 export async function normalizeGeneratedImage(
   buffer: Buffer,

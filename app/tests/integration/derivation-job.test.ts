@@ -349,28 +349,6 @@ describe("POST /api/campaigns/[id]/derivations", () => {
     expect(inngest.send).toHaveBeenCalledTimes(1);
   });
 
-  it("targetFormats with > 1 item returns error 400", async () => {
-    (getCampaignById as ReturnType<typeof vi.fn>).mockResolvedValue({
-      id: campaignId,
-      workspaceId,
-      generationMode: "format_adaptation",
-      targetFormats: ["1:1", "4:5"],
-      ctaVariants: [],
-      creativeLevel: "balanced",
-      status: "active",
-    });
-
-    const mockLimit = vi.fn().mockResolvedValue([]);
-    const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit });
-    const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
-    (db.select as ReturnType<typeof vi.fn>).mockReturnValue({ from: mockFrom });
-
-    const request = new Request("http://localhost/api/campaigns/camp-456/derivations", { method: "POST" });
-    const response = await POST(request, { params: Promise.resolve({ id: campaignId }) });
-
-    expect(response.status).toBe(400);
-  });
-
   it("art_variation without an uploaded base asset returns error 400", async () => {
     (getCampaignById as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: campaignId,

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import { useTranslations } from "next-intl";
 import CreativePlanCard from "./CreativePlanCard";
@@ -27,19 +26,10 @@ function LoadingDots() {
   return (
     <div className="flex items-center gap-1.5">
       {[0, 1, 2].map((i) => (
-        <motion.div
+        <div
           key={i}
-          className="w-2 h-2 rounded-full bg-[var(--accent-mint)]"
-          animate={{
-            scale: [1, 1.3, 1],
-            opacity: [0.4, 1, 0.4],
-          }}
-          transition={{
-            duration: 1.4,
-            repeat: Infinity,
-            delay: i * 0.2,
-            ease: "easeInOut",
-          }}
+          className="w-2 h-2 rounded-full bg-[var(--accent-mint)] animate-pulse"
+          style={{ animationDelay: `${i * 200}ms` }}
         />
       ))}
     </div>
@@ -59,30 +49,22 @@ export default function PlanStep({ plan, onApprove, onGenerateDerivations, appro
   // Simulate loading if no plan yet
   if (isLoading && !plan) {
     return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="flex flex-col items-center justify-center min-h-[400px] bg-[var(--surface-base)] rounded-xl border border-[var(--border-dim)]"
-      >
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
-          className="mb-4"
-        >
+      <div className="flex flex-col items-center justify-center min-h-[400px] bg-[var(--surface-base)] rounded-xl border border-[var(--border-dim)] animate-fade-in">
+        <div className="mb-4">
           <div className="relative">
             <Sparkles size={40} className="text-[var(--accent-mint)]" />
             <div className="absolute inset-0 rounded-full border-2 border-[var(--accent-mint)] border-t-transparent animate-spin" 
               style={{ width: 56, height: 56, top: -8, left: -8 }}
             />
           </div>
-        </motion.div>
+        </div>
 
         <h3 className="text-[15px] font-semibold text-[var(--text-primary)] mb-2">
           {t("generating")}
         </h3>
 
         <LoadingDots />
-      </motion.div>
+      </div>
     );
   }
 
@@ -106,28 +88,18 @@ export default function PlanStep({ plan, onApprove, onGenerateDerivations, appro
       />
 
       {/* Generate Derivations button - shown when approved */}
-      <AnimatePresence>
-        {approved && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] as const }}
-            className="mt-6 flex justify-center"
+      {approved && (
+        <div className="mt-6 flex justify-center animate-fade-in">
+          <button
+            onClick={onGenerateDerivations}
+            disabled={isGenerating}
+            className="inline-flex items-center gap-2 rounded-md px-8 py-3 text-sm font-medium text-white transition-all duration-200 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-light)] hover:-translate-y-px active:scale-[0.98] shadow-lg shadow-[rgba(99,102,241,0.2)] disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <motion.button
-              whileHover={isGenerating ? undefined : { scale: 1.02 }}
-              whileTap={isGenerating ? undefined : { scale: 0.98 }}
-              onClick={onGenerateDerivations}
-              disabled={isGenerating}
-              className="inline-flex items-center gap-2 rounded-md px-8 py-3 text-sm font-medium text-white transition-all duration-200 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-light)] shadow-lg shadow-[rgba(99,102,241,0.2)] disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Sparkles size={16} />
-              {isGenerating ? tc("loading") : t("generateDerivations")}
-            </motion.button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            <Sparkles size={16} />
+            {isGenerating ? tc("loading") : t("generateDerivations")}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

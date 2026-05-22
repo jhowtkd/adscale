@@ -61,6 +61,7 @@ interface PasswordInputProps {
   showStrengthMeter?: boolean;
   showRequirements?: boolean;
   error?: string;
+  autoComplete?: string;
 }
 
 export default function PasswordInput({
@@ -72,6 +73,7 @@ export default function PasswordInput({
   showStrengthMeter = false,
   showRequirements = false,
   error,
+  autoComplete = "current-password",
 }: PasswordInputProps) {
   const [visible, setVisible] = useState(false);
   const t = useTranslations("auth");
@@ -105,6 +107,7 @@ export default function PasswordInput({
         <input
           id={id}
           type={visible ? "text" : "password"}
+          autoComplete={autoComplete}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}

@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+
 import { cn } from "@/lib/utils";
 
 interface AuthCardProps {
@@ -10,24 +10,18 @@ interface AuthCardProps {
 
 export default function AuthCard({ children, className }: AuthCardProps) {
   return (
-    <motion.div
-      initial={{ opacity: 0, x: 40 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{
-        duration: 0.5,
-        delay: 0.2,
-        ease: [0.19, 1, 0.22, 1],
-      }}
+    <div
       className={cn(
-        "w-full max-w-[420px] rounded-xl p-8",
+        "w-full max-w-[420px] rounded-xl p-8 animate-fade-in",
         "bg-[var(--surface-base)] border border-[var(--border-dim)]",
         "shadow-[0_8px_32px_rgba(0,0,0,0.06)]",
         "relative overflow-hidden",
         className
       )}
+      style={{ animationDelay: "200ms" }}
     >
       {/* Content */}
       <div className="relative z-10">{children}</div>
-    </motion.div>
+    </div>
   );
 }

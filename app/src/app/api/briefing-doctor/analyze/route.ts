@@ -65,7 +65,7 @@ const analysisSchema = z.object({
   })),
 });
 
-const validFormats = new Set(["1:1", "4:5", "9:16"]);
+const validFormats = new Set(["1:1", "4:5", "9:16", "1.91:1", "16:9"]);
 
 function buildPrompt(briefing: z.infer<typeof briefingSchema>, locale: string) {
   return [
@@ -74,7 +74,7 @@ function buildPrompt(briefing: z.infer<typeof briefingSchema>, locale: string) {
     `User locale: ${locale}. Respond in this locale.`,
     "Do not invent factual discounts, deadlines, claims, guarantees, or benefits.",
     "Do not overwrite existing CTA text. CTA ideas are alternatives only.",
-    "Allowed target formats: 1:1, 4:5, 9:16.",
+    "Allowed target formats: 1:1, 4:5, 9:16, 1.91:1, 16:9.",
     "Do not silently change generationMode.",
     "",
     `Briefing: ${JSON.stringify(briefing)}`,

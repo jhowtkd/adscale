@@ -36,7 +36,7 @@ export interface BriefingLocalAnalysis {
 
 const genericAudiences = new Set(["todos", "todo mundo", "everyone", "all", "geral", "público geral", "publico geral"]);
 const genericCtas = new Set(["clique aqui", "click here", "saiba mais", "learn more", "ver mais"]);
-const validFormats = new Set(["1:1", "4:5", "9:16"]);
+const validFormats = new Set(["1:1", "4:5", "9:16", "1.91:1", "16:9"]);
 
 function isBlank(value?: string | null) {
   return !value || value.trim().length === 0;

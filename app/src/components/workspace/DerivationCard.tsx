@@ -2,7 +2,6 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { motion } from "framer-motion";
 import { Eye, Download, RefreshCw, Clock, AlertCircle, Check, X, Package, ShieldCheck, BookmarkPlus, FileText } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
@@ -61,7 +60,7 @@ function ProgressRing({ progress }: { progress: number }) {
           strokeWidth={3}
         />
         {/* Progress circle */}
-        <motion.circle
+        <circle
           cx={32}
           cy={32}
           r={radius}
@@ -70,9 +69,8 @@ function ProgressRing({ progress }: { progress: number }) {
           strokeWidth={3}
           strokeLinecap="round"
           strokeDasharray={circumference}
-          initial={{ strokeDashoffset: circumference }}
-          animate={{ strokeDashoffset: offset }}
-          transition={{ duration: 0.5, ease: "easeOut" }}
+          strokeDashoffset={offset}
+          className="transition-all duration-500 ease-out"
           transform="rotate(-90 32 32)"
         />
         <defs>
@@ -151,10 +149,8 @@ function StatusOverlay({ status, progress, onRetry }: { status: DerivationDispla
 
 function Spinner({ className }: { className?: string }) {
   return (
-    <motion.div
-      animate={{ rotate: 360 }}
-      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-      className={cn("w-4 h-4 border-2 border-current border-t-transparent rounded-full", className)}
+    <div
+      className={cn("w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin", className)}
     />
   );
 }
@@ -250,22 +246,15 @@ export default function DerivationCard({
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{
-        duration: 0.35,
-        delay: index * 0.08,
-        ease: [0.19, 1, 0.22, 1] as const,
-      }}
-      whileHover={isCompleted ? { y: -4 } : undefined}
+    <div
       className={cn(
-        "group bg-[var(--surface-base)] rounded-[15px] border overflow-hidden transition-all duration-300",
+        "animate-fade-in group bg-[var(--surface-base)] rounded-[15px] border overflow-hidden transition-all duration-300",
         derivation.isPreview
           ? "border-dashed border-orange-400/60"
           : "border-[var(--border-dim)]",
-        isCompleted && !derivation.isPreview && "hover:border-[var(--border-medium)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.08)]"
+        isCompleted && !derivation.isPreview && "hover:border-[var(--border-medium)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.08)] hover:-translate-y-1"
       )}
+      style={{ animationDelay: `${index * 80}ms` }}
     >
       {/* ---- Image Area ---- */}
       <div className={cn("relative overflow-hidden rounded-lg bg-muted", aspectClass)}>
@@ -527,6 +516,6 @@ export default function DerivationCard({
           </div>
         )}
       </div>
-    </motion.div>
+    </div>
   );
 }

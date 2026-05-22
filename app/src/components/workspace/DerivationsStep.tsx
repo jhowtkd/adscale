@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { Check, Clock, Sparkles } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
@@ -173,12 +172,7 @@ export default function DerivationsStep({
   return (
     <div className="space-y-5">
       {/* ---- Stats Bar ---- */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="flex items-center justify-between flex-wrap gap-4"
-      >
+      <div className="flex items-center justify-between flex-wrap gap-4 animate-fade-in">
         {/* Left: Progress */}
         <div className="flex items-center gap-4">
           <div>
@@ -187,13 +181,11 @@ export default function DerivationsStep({
             </h3>
             <div className="flex items-center gap-2 mt-1.5">
               <div className="w-[200px] h-1.5 bg-[var(--border-dim)] rounded-full overflow-hidden">
-                <motion.div
-                  className="h-full gradient-progress rounded-full"
-                  initial={{ width: 0 }}
-                  animate={{
+                <div
+                  className="h-full gradient-progress rounded-full transition-all duration-500 ease-out"
+                  style={{
                     width: totalCount > 0 ? `${(completedCount / totalCount) * 100}%` : "0%",
                   }}
-                  transition={{ duration: 0.5, ease: "easeOut" }}
                 />
               </div>
             </div>
@@ -246,15 +238,10 @@ export default function DerivationsStep({
             <option value="status">{t("byStatus")}</option>
           </select>
         </div>
-      </motion.div>
+      </div>
 
       {/* ---- Status Filter Pills ---- */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.1 }}
-        className="flex items-center gap-2 flex-wrap"
-      >
+      <div className="flex items-center gap-2 flex-wrap animate-fade-in" style={{ animationDelay: "100ms" }}>
         {(["all", "completed", "generating", "failed"] as StatusFilter[]).map((filter) => {
           const count =
             filter === "all" ? statusCounts.all : statusCounts[filter];
@@ -268,8 +255,8 @@ export default function DerivationsStep({
                 statusFilter === filter
                   ? "bg-[var(--accent-mint-dim)] text-[var(--accent-mint)]"
                   : "bg-[var(--surface-raised)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-            )}
-          >
+              )}
+            >
               {label}
               <span
                 className={cn(
@@ -284,24 +271,17 @@ export default function DerivationsStep({
             </button>
           );
         })}
-      </motion.div>
+      </div>
 
       {/* ---- All Completed Banner ---- */}
-      <AnimatePresence>
-        {isAllCompleted && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="flex items-center gap-2 bg-[var(--accent-mint-dim)] border border-[var(--accent-mint)]/20 rounded-lg px-4 py-3"
-          >
-            <Check size={18} className="text-[var(--accent-teal)]" />
-            <span className="text-sm font-medium text-[var(--accent-mint)]">
-              {t("allCompleted")}
-            </span>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {isAllCompleted && (
+        <div className="flex items-center gap-2 bg-[var(--accent-mint-dim)] border border-[var(--accent-mint)]/20 rounded-lg px-4 py-3 animate-fade-in">
+          <Check size={18} className="text-[var(--accent-teal)]" />
+          <span className="text-sm font-medium text-[var(--accent-mint)]">
+            {t("allCompleted")}
+          </span>
+        </div>
+      )}
 
       {/* ---- Derivations Grid ---- */}
       {filteredDerivations.length > 0 ? (
@@ -331,11 +311,7 @@ export default function DerivationsStep({
           ))}
         </div>
       ) : (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="flex flex-col items-center justify-center py-16 bg-[var(--surface-base)] rounded-xl border border-[var(--border-dim)]"
-        >
+        <div className="flex flex-col items-center justify-center py-16 bg-[var(--surface-base)] rounded-xl border border-[var(--border-dim)] animate-fade-in">
           <p className="text-sm text-[var(--text-muted)] mb-4">
             {t("noDerivations")}
           </p>
@@ -345,16 +321,11 @@ export default function DerivationsStep({
           >
             {t("showAll")}
           </button>
-        </motion.div>
+        </div>
       )}
 
       {/* ---- Generate More button ---- */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.3 }}
-        className="flex justify-center pt-4"
-      >
+      <div className="flex justify-center pt-4 animate-fade-in" style={{ animationDelay: "300ms" }}>
         <button
           onClick={onGenerateMore}
           disabled={isGeneratingMore || generationMode === "format_adaptation"}
@@ -367,7 +338,7 @@ export default function DerivationsStep({
               ? t("formatAdaptationComplete")
               : t("generateMore")}
         </button>
-      </motion.div>
+      </div>
     </div>
   );
 }

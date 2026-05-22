@@ -531,6 +531,7 @@
     "billingTab": "Billing",
     "plansTab": "Plans",
     "integrationsTab": "Integrations",
+    "privacyTab": "Privacy",
     "managePreferences": "Manage your profile, workspace, and preferences."
   },
   "errors": {

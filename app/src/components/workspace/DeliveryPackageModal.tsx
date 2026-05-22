@@ -12,9 +12,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export type DeliveryFormat = "1:1" | "4:5" | "9:16";
+export type DeliveryFormat = "1:1" | "4:5" | "9:16" | "1.91:1" | "16:9";
 
-const ALL_FORMATS: DeliveryFormat[] = ["1:1", "4:5", "9:16"];
+const ALL_FORMATS: DeliveryFormat[] = ["1:1", "4:5", "9:16", "1.91:1", "16:9"];
 
 interface DeliveryPackageModalProps {
   open: boolean;
@@ -36,6 +36,8 @@ export default function DeliveryPackageModal({
     "1:1": true,
     "4:5": true,
     "9:16": true,
+    "1.91:1": true,
+    "16:9": true,
   });
 
   const toggleFormat = useCallback((format: DeliveryFormat) => {

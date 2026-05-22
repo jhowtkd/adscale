@@ -1,6 +1,7 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import BriefingStep from "@/components/workspace/BriefingStep";
 
 const mockMutate = vi.fn();
@@ -42,13 +43,18 @@ vi.mock("next-intl", () => ({
 }));
 
 function renderBriefingStep(props = {}) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   return render(
-    <BriefingStep
-      campaign={null}
-      onContinue={vi.fn()}
-      onSaveDraft={vi.fn()}
-      {...props}
-    />
+    <QueryClientProvider client={queryClient}>
+      <BriefingStep
+        campaign={null}
+        onContinue={vi.fn()}
+        onSaveDraft={vi.fn()}
+        {...props}
+      />
+    </QueryClientProvider>
   );
 }
 

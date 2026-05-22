@@ -55,7 +55,7 @@ describe("POST /api/derivations/[id]/save-reference", () => {
   });
 
   it("rejects missing derivation", async () => {
-    mockGetDerivationById.mockResolvedValue(null);
+    mockGetDerivationById.mockResolvedValue(null as any);
 
     const res = await POST(requestWith({ clientProfileId: "550e8400-e29b-41d4-a716-446655440000", label: "Hero" }), {
       params: paramsWith("missing-id"),
@@ -142,7 +142,7 @@ describe("POST /api/derivations/[id]/save-reference", () => {
       workspaceId: "workspace-1",
       campaignId: "campaign-id",
     } as Awaited<ReturnType<typeof getDerivationById>>);
-    mockGetClientProfile.mockResolvedValueOnce(null);
+    mockGetClientProfile.mockResolvedValueOnce(null as any);
 
     const res = await POST(
       requestWith({ clientProfileId: "550e8400-e29b-41d4-a716-446655440001", label: "Winner", kind: "style" }),

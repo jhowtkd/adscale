@@ -4,8 +4,8 @@ import BriefingStep from "./BriefingStep";
 
 vi.mock("next-intl", () => ({
   useTranslations: () => {
-    const t = (key: string) => key;
-    (t as unknown as { raw: (key: string) => Record<string, string> }).raw = (key: string) => {
+    const t = ((key: string) => key) as any;
+    (t as any).raw = (key: string) => {
       if (key === "objectives") return { awareness: "Awareness", conversion: "Conversion" };
       if (key === "tones") return { professional: "Professional", casual: "Casual" };
       if (key === "platformNames") return { Meta: "Meta Ads", TikTok: "TikTok Ads", Google: "Google Ads" };

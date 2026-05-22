@@ -14,7 +14,7 @@ import { inngest } from "@/server/jobs/client";
 import { spendCreditsOrApiError } from "@/server/billing/gates";
 
 const bodySchema = z.object({
-  formats: z.array(z.enum(["1:1", "4:5", "9:16"])).min(1),
+  formats: z.array(z.string()).min(1),
 });
 
 export async function POST(

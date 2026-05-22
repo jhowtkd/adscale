@@ -14,49 +14,49 @@ const statusConfig: Record<
   { dotColor: string; bgColor: string; textColor: string }
 > = {
   draft: {
-    dotColor: "#475569",
-    bgColor: "rgba(71,85,105,0.15)",
-    textColor: "#94a3b8",
+    dotColor: "var(--status-draft-dot)",
+    bgColor: "var(--status-draft-bg)",
+    textColor: "var(--status-draft-text)",
   },
   active: {
-    dotColor: "var(--accent-mint)",
-    bgColor: "var(--accent-mint-dim)",
-    textColor: "var(--accent-mint)",
+    dotColor: "var(--status-active-dot)",
+    bgColor: "var(--status-active-bg)",
+    textColor: "var(--status-active-text)",
   },
   queued: {
-    dotColor: "#f59e0b",
-    bgColor: "rgba(245,158,11,0.15)",
-    textColor: "#fbbf24",
+    dotColor: "var(--status-queued-dot)",
+    bgColor: "var(--status-queued-bg)",
+    textColor: "var(--status-queued-text)",
   },
   processing: {
-    dotColor: "#f59e0b",
-    bgColor: "rgba(245,158,11,0.15)",
-    textColor: "#fbbf24",
+    dotColor: "var(--status-processing-dot)",
+    bgColor: "var(--status-processing-bg)",
+    textColor: "var(--status-processing-text)",
   },
   generating: {
-    dotColor: "#f59e0b",
-    bgColor: "rgba(245,158,11,0.15)",
-    textColor: "#fbbf24",
+    dotColor: "var(--status-generating-dot)",
+    bgColor: "var(--status-generating-bg)",
+    textColor: "var(--status-generating-text)",
   },
   completed: {
-    dotColor: "var(--accent-mint)",
-    bgColor: "var(--accent-mint-dim)",
-    textColor: "var(--accent-mint)",
+    dotColor: "var(--status-completed-dot)",
+    bgColor: "var(--status-completed-bg)",
+    textColor: "var(--status-completed-text)",
   },
   approved: {
-    dotColor: "var(--accent-mint)",
-    bgColor: "var(--accent-mint-dim)",
-    textColor: "var(--accent-mint)",
+    dotColor: "var(--status-approved-dot)",
+    bgColor: "var(--status-approved-bg)",
+    textColor: "var(--status-approved-text)",
   },
   rejected: {
-    dotColor: "#f43f5e",
-    bgColor: "rgba(244,63,94,0.15)",
-    textColor: "#fb7185",
+    dotColor: "var(--status-rejected-dot)",
+    bgColor: "var(--status-rejected-bg)",
+    textColor: "var(--status-rejected-text)",
   },
   failed: {
-    dotColor: "#f43f5e",
-    bgColor: "rgba(244,63,94,0.15)",
-    textColor: "#fb7185",
+    dotColor: "var(--status-failed-dot)",
+    bgColor: "var(--status-failed-bg)",
+    textColor: "var(--status-failed-text)",
   },
 };
 
@@ -76,7 +76,7 @@ export default function StatusBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.06em] leading-tight",
+        "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.06em] leading-tight",
         className
       )}
       style={{

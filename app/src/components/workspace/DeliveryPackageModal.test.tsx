@@ -53,6 +53,8 @@ describe("DeliveryPackageModal", () => {
     );
 
     fireEvent.click(screen.getByLabelText("9:16"));
+    fireEvent.click(screen.getByLabelText("1.91:1"));
+    fireEvent.click(screen.getByLabelText("16:9"));
     fireEvent.click(screen.getByRole("button", { name: /confirm/i }));
 
     expect(onConfirm).toHaveBeenCalledWith(["1:1", "4:5"]);
@@ -71,6 +73,8 @@ describe("DeliveryPackageModal", () => {
 
     fireEvent.click(screen.getByLabelText("4:5"));
     fireEvent.click(screen.getByLabelText("9:16"));
+    fireEvent.click(screen.getByLabelText("1.91:1"));
+    fireEvent.click(screen.getByLabelText("16:9"));
 
     expect(screen.getByRole("button", { name: /confirm/i })).toBeDisabled();
   });

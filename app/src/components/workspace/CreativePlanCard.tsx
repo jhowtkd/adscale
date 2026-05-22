@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles,
   Check,
@@ -61,30 +60,21 @@ function AccordionItem({ title, platformTags, children }: AccordionItemProps) {
             ))}
           </div>
         </div>
-        <motion.div
-          animate={{ rotate: isOpen ? 180 : 0 }}
-          transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] as const }}
-        >
+        <div className={cn("transition-transform duration-300", isOpen && "rotate-180")}>
           <ChevronDown size={16} className="text-[var(--text-muted)]" />
-        </motion.div>
+        </div>
       </button>
 
-      <AnimatePresence initial={false}>
-        {isOpen && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{
-              height: { duration: 0.3, ease: [0.4, 0, 0.2, 1] as const },
-              opacity: { duration: 0.2, delay: isOpen ? 0.05 : 0 },
-            }}
-            className="overflow-hidden"
-          >
-            <div className="px-4 py-4 bg-[var(--surface-base)]">{children}</div>
-          </motion.div>
+      <div
+        className={cn(
+          "grid overflow-hidden transition-all duration-300",
+          isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
         )}
-      </AnimatePresence>
+      >
+        <div className="min-h-0">
+          <div className="px-4 py-4 bg-[var(--surface-base)]">{children}</div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -137,26 +127,10 @@ export default function CreativePlanCard({
     }
   };
 
-  const sectionVariants = {
-    hidden: { opacity: 0, y: 16 },
-    show: (i: number) => ({
-      opacity: 1,
-      y: 0,
-      transition: {
-        delay: i * 0.1,
-        duration: 0.4,
-        ease: [0.19, 1, 0.22, 1] as const,
-      },
-    }),
-  };
-
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 40 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] as const, delay: 0.2 }}
+    <div
       className={cn(
-        "relative bg-[var(--surface-base)] rounded-xl overflow-hidden",
+        "relative bg-[var(--surface-base)] rounded-xl overflow-hidden animate-fade-in",
         "border border-[var(--border-dim)]",
         approved && "border-[var(--accent-mint)]/30"
       )}
@@ -171,13 +145,7 @@ export default function CreativePlanCard({
 
       <div className="pl-6 pr-6 py-6 space-y-6">
         {/* ---- Header ---- */}
-        <motion.div
-          custom={0}
-          variants={sectionVariants}
-          initial="hidden"
-          animate="show"
-          className="flex items-center justify-between flex-wrap gap-3"
-        >
+        <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
             <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--accent-mint-dim)] border border-[var(--accent-mint)]/15">
               <Sparkles size={14} className="text-[var(--accent-mint)]" />
@@ -197,37 +165,26 @@ export default function CreativePlanCard({
               ~{plan.angles.length * 2.4} credits estimated
             </span>
             {approved && (
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ type: "spring", stiffness: 400, damping: 15 }}
-                className="flex items-center gap-1 text-xs font-medium text-[var(--accent-teal)]"
-              >
+              <div className="flex items-center gap-1 text-xs font-medium text-[var(--accent-teal)] animate-fade-in">
                 <Check size={14} strokeWidth={3} />
                 {campaignT("status.approved")}
-              </motion.div>
+              </div>
             )}
           </div>
-        </motion.div>
+        </div>
 
         {/* ---- Strategy Summary ---- */}
-        <motion.div
-          custom={1}
-          variants={sectionVariants}
-          initial="hidden"
-          animate="show"
-          className="border-l-2 border-[var(--accent-mint)] pl-3"
-        >
+        <div className="border-l-2 border-[var(--accent-mint)] pl-3">
           <h4 className="text-[15px] font-semibold text-[var(--text-primary)] mb-2">
             {t("strategy")}
           </h4>
           <p className="text-base leading-relaxed text-[var(--text-primary)]">
             {plan.strategy}
           </p>
-        </motion.div>
+        </div>
 
         {/* ---- Creative Angles ---- */}
-        <motion.div custom={2} variants={sectionVariants} initial="hidden" animate="show">
+        <div>
           <h4 className="text-[15px] font-semibold text-[var(--text-primary)] mb-3 flex items-center gap-2">
             {t("angles")}
             <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-[var(--surface-raised)] text-[var(--text-muted)]">
@@ -258,10 +215,10 @@ export default function CreativePlanCard({
               </div>
             ))}
           </div>
-        </motion.div>
+        </div>
 
         {/* ---- Hook Variations ---- */}
-        <motion.div custom={3} variants={sectionVariants} initial="hidden" animate="show">
+        <div>
           <h4 className="text-[15px] font-semibold text-[var(--text-primary)] mb-3">
             {t("hooks")}
           </h4>
@@ -281,10 +238,10 @@ export default function CreativePlanCard({
               );
             })}
           </div>
-        </motion.div>
+        </div>
 
         {/* ---- CTA Recommendations ---- */}
-        <motion.div custom={4} variants={sectionVariants} initial="hidden" animate="show">
+        <div>
           <h4 className="text-[15px] font-semibold text-[var(--text-primary)] mb-3">
             {t("ctas")}
           </h4>
@@ -297,25 +254,18 @@ export default function CreativePlanCard({
                 title="Click to copy"
               >
                 {cta}
-                <AnimatePresence>
-                  {copiedCta === cta && (
-                    <motion.span
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="absolute inset-0 flex items-center justify-center rounded-full bg-[var(--accent-mint)] text-white text-xs font-medium"
-                    >
-                      Copied!
-                    </motion.span>
-                  )}
-                </AnimatePresence>
+                {copiedCta === cta && (
+                  <span className="absolute inset-0 flex items-center justify-center rounded-full bg-[var(--accent-mint)] text-white text-xs font-medium animate-fade-in">
+                    Copied!
+                  </span>
+                )}
               </button>
             ))}
           </div>
-        </motion.div>
+        </div>
 
         {/* ---- Variation Breakdown (Accordion) ---- */}
-        <motion.div custom={5} variants={sectionVariants} initial="hidden" animate="show">
+        <div>
           <h4 className="text-[15px] font-semibold text-[var(--text-primary)] mb-3 flex items-center gap-2">
             Planned Variations
             <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-[var(--surface-raised)] text-[var(--text-muted)]">
@@ -372,19 +322,13 @@ export default function CreativePlanCard({
               </AccordionItem>
             ))}
           </div>
-        </motion.div>
+        </div>
       </div>
 
       {/* ---- Action Bar ---- */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.5 }}
-        className="sticky bottom-0 z-10 flex items-center justify-between px-6 py-4 bg-[var(--surface-base)] border-t border-[var(--border-dim)]"
-      >
+      <div className="sticky bottom-0 z-10 flex items-center justify-between px-6 py-4 bg-[var(--surface-base)] border-t border-[var(--border-dim)]">
         <div className="flex items-center gap-3">
-          <motion.button
-            whileTap={{ scale: 0.98 }}
+          <button
             onClick={onApprove}
             disabled={approved}
             className={cn(
@@ -396,7 +340,7 @@ export default function CreativePlanCard({
           >
             <Check size={16} />
             {approved ? campaignT("status.approved") : t("approvePlan")}
-          </motion.button>
+          </button>
 
           <button
             onClick={onEdit}
@@ -420,7 +364,7 @@ export default function CreativePlanCard({
             ~{plan.angles.length * 2.4} credits total
           </span>
         </div>
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
 }

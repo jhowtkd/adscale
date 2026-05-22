@@ -1,8 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { motion } from "framer-motion";
-import { Calculator, CreditCard, DollarSign, ShieldCheck, TrendingUp } from "lucide-react";
+import { Calculator, CreditCard, DollarSign, ShieldCheck, TrendingUp, Check, Zap, Crown } from "lucide-react";
 import {
   brlCurrency,
   calculateForecast,
@@ -10,11 +9,18 @@ import {
   USD_BRL_PLANNING_RATE,
   usdCurrency,
 } from "./pricing-model";
-import { useBillingPortal, useBillingStatus } from "@/lib/hooks/use-billing";
+import { useBillingPortal, useBillingStatus, useStartCheckout } from "@/lib/hooks/use-billing";
+
+const planConfig = {
+  starter: { name: "Starter", credits: 30, price: "R$ 29/mês", icon: Zap, color: "var(--text-secondary)" },
+  growth: { name: "Growth", credits: 120, price: "R$ 79/mês", icon: TrendingUp, color: "var(--accent-mint)" },
+  scale: { name: "Scale", credits: 360, price: "R$ 199/mês", icon: Crown, color: "var(--accent-amber)" },
+};
 
 export default function BillingTab() {
   const { data: billingStatus } = useBillingStatus();
   const portal = useBillingPortal();
+  const checkout = useStartCheckout();
   const [campaignsPerMonth, setCampaignsPerMonth] = useState(pricingAssumptions.campaignsPerMonth);
   const [imagesPerCampaign, setImagesPerCampaign] = useState(pricingAssumptions.imagesPerCampaign);
   const [planInputTokens, setPlanInputTokens] = useState(pricingAssumptions.planInputTokens);
@@ -45,13 +51,21 @@ export default function BillingTab() {
     ]
   );
 
+  const subscription = billingStatus?.subscription;
+  const isTrialing = subscription?.status === "trialing";
+  const isActive = subscription?.status === "active";
+  const hasPlan = isActive || isTrialing;
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25 }}
-      className="space-y-6"
-    >
+    <div className="animate-fade-in space-y-6">
+      {/* Credit balance alert */}
+      {(billingStatus?.creditBalance ?? 0) <= 10 && hasPlan && (
+        <div className="rounded-lg border border-[var(--status-amber-bg)] bg-[var(--status-amber-bg)]/30 p-4 text-sm text-[var(--status-amber-text)]">
+          ⚠️ Você está com poucos créditos ({billingStatus?.creditBalance ?? 0} restantes).
+          {isTrialing ? " Seu trial termina em breve." : " Considere fazer um upgrade de plano."}
+        </div>
+      )}
+
       <div className="grid gap-4 lg:grid-cols-4">
         <MetricCard
           icon={Calculator}
@@ -78,6 +92,55 @@ export default function BillingTab() {
           caption={`${usdCurrency.format(forecast.imageCost)} em USD`}
         />
       </div>
+
+      {!hasPlan && (
+        <section className="space-y-4">
+          <h3 className="text-[15px] font-semibold text-[var(--text-primary)]">Escolha um plano</h3>
+          <p className="text-sm text-[var(--text-secondary)]">
+            Todos os planos incluem <strong>14 dias de trial gratuito</strong>. Cancele a qualquer momento.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {(Object.entries(planConfig) as [keyof typeof planConfig, (typeof planConfig)["starter"]][]).map(
+              ([key, plan]) => (
+                <div
+                  key={key}
+                  className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-5 transition-all hover:-translate-y-0.5 hover:shadow-md"
+                >
+                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-md" style={{ background: `${plan.color}20`, color: plan.color }}>
+                    <plan.icon size={20} />
+                  </div>
+                  <h4 className="text-base font-semibold text-[var(--text-primary)]">{plan.name}</h4>
+                  <p className="mt-1 text-2xl font-bold text-[var(--text-primary)]">{plan.price}</p>
+                  <p className="text-sm text-[var(--text-secondary)]">{plan.credits} créditos/mês</p>
+                  <ul className="mt-4 space-y-2">
+                    <li className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+                      <Check size={14} style={{ color: plan.color }} />
+                      Geração de planos criativos
+                    </li>
+                    <li className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+                      <Check size={14} style={{ color: plan.color }} />
+                      Derivações de imagem
+                    </li>
+                    <li className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+                      <Check size={14} style={{ color: plan.color }} />
+                      Exportação em ZIP
+                    </li>
+                  </ul>
+                  <button
+                    type="button"
+                    onClick={() => checkout.mutate(key)}
+                    disabled={checkout.isPending}
+                    className="mt-5 h-10 w-full rounded-md text-sm font-medium text-white transition-all hover:opacity-90 disabled:opacity-60"
+                    style={{ background: plan.color }}
+                  >
+                    {checkout.isPending ? "Redirecionando..." : "Começar trial"}
+                  </button>
+                </div>
+              )
+            )}
+          </div>
+        </section>
+      )}
 
       <section className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
         <div className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-5">
@@ -113,21 +176,47 @@ export default function BillingTab() {
               <h3 className="text-[15px] font-semibold text-[var(--text-primary)]">
                 Controle financeiro
               </h3>
+              {isTrialing && (
+                <span className="ml-auto rounded-full bg-[var(--status-amber-bg)] px-2 py-0.5 text-xs font-medium text-[var(--status-amber-text)]">
+                  Trial
+                </span>
+              )}
             </div>
             <div className="space-y-3 text-sm">
-              <Line label="Plano atual" value={billingStatus?.subscription?.planKey ?? "Sem plano ativo"} />
-              <Line label="Status" value={billingStatus?.subscription?.status ?? "Inativo"} />
+              <Line label="Plano atual" value={subscription?.planKey ? planConfig[subscription.planKey as keyof typeof planConfig]?.name ?? subscription.planKey : "Sem plano ativo"} />
+              <Line label="Status" value={isTrialing ? "Trial (14 dias)" : subscription?.status ?? "Inativo"} />
               <Line label="Créditos disponíveis" value={`${billingStatus?.creditBalance ?? 0}`} />
-              <Line label="Renovação" value={billingStatus?.subscription?.currentPeriodEnd ? new Date(billingStatus.subscription.currentPeriodEnd).toLocaleDateString("pt-BR") : "-"} />
+              <Line label="Renovação" value={subscription?.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString("pt-BR") : "-"} />
             </div>
-            <button
-              type="button"
-              onClick={() => portal.mutate()}
-              disabled={!billingStatus?.hasCustomer || portal.isPending}
-              className="mt-5 h-10 w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] text-sm font-medium text-[var(--text-primary)] transition-all hover:border-[var(--border-medium)] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {portal.isPending ? "Abrindo..." : "Gerenciar cobrança"}
-            </button>
+            {hasPlan ? (
+              <div className="mt-5 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => portal.mutate()}
+                  disabled={portal.isPending}
+                  className="h-10 flex-1 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] text-sm font-medium text-[var(--text-primary)] transition-all hover:border-[var(--border-medium)] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {portal.isPending ? "Abrindo..." : "Gerenciar cobrança"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => checkout.mutate("growth")}
+                  disabled={checkout.isPending}
+                  className="h-10 flex-1 rounded-md bg-[var(--accent-mint)] text-sm font-medium text-white transition-all hover:bg-[var(--accent-mint-light)] disabled:opacity-60"
+                >
+                  {checkout.isPending ? "Redirecionando..." : "Fazer upgrade"}
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => checkout.mutate("starter")}
+                disabled={checkout.isPending}
+                className="mt-5 h-10 w-full rounded-md bg-[var(--accent-mint)] text-sm font-medium text-white transition-all hover:bg-[var(--accent-mint-light)] disabled:opacity-60"
+              >
+                {checkout.isPending ? "Redirecionando..." : "Começar trial grátis"}
+              </button>
+            )}
           </div>
 
           <div className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-5">
@@ -142,7 +231,7 @@ export default function BillingTab() {
           </div>
         </div>
       </section>
-    </motion.div>
+    </div>
   );
 }
 

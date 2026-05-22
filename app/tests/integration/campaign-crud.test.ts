@@ -21,6 +21,24 @@ import {
 describe("campaign CRUD with workspace isolation", () => {
   const workspaceA = "ws-a";
 
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  function mockSelectChain(returnValue: unknown) {
+    const limitFn = vi.fn().mockResolvedValue(returnValue);
+    const orderByFn = vi.fn().mockResolvedValue(returnValue);
+    const groupByFn = vi.fn().mockResolvedValue(returnValue);
+    const whereFn = vi.fn().mockReturnValue({
+      limit: limitFn,
+      orderBy: orderByFn,
+      groupBy: groupByFn,
+    });
+    const fromFn = vi.fn().mockReturnValue({ where: whereFn });
+    (db.select as ReturnType<typeof vi.fn>).mockReturnValue({ from: fromFn });
+    return { fromFn, whereFn, limitFn, orderByFn, groupByFn };
+  }
+
   it("creates a campaign in workspace A", async () => {
     const mockReturning = vi.fn().mockResolvedValue([{ id: "camp-1", name: "Campaign A" }]);
     const mockValues = vi.fn().mockReturnValue({ returning: mockReturning });
@@ -35,10 +53,7 @@ describe("campaign CRUD with workspace isolation", () => {
   });
 
   it("lists only campaigns in the requesting workspace", async () => {
-    const mockOrderBy = vi.fn().mockResolvedValue([{ id: "camp-1", workspaceId: workspaceA }]);
-    const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
-    const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
-    (db.select as ReturnType<typeof vi.fn>).mockReturnValue({ from: mockFrom });
+    mockSelectChain([{ id: "camp-1", workspaceId: workspaceA }]);
 
     const campaigns = await getCampaigns(workspaceA);
 
@@ -46,10 +61,7 @@ describe("campaign CRUD with workspace isolation", () => {
   });
 
   it("does not find campaign from workspace B in workspace A", async () => {
-    const mockLimit = vi.fn().mockResolvedValue([]);
-    const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit });
-    const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
-    (db.select as ReturnType<typeof vi.fn>).mockReturnValue({ from: mockFrom });
+    mockSelectChain([]);
 
     const campaign = await getCampaignById("camp-from-b", workspaceA);
 

@@ -18,8 +18,13 @@ import { useCreateDeliveryPackage } from "@/lib/hooks/use-delivery-package";
 import { useCreativeQa } from "@/lib/hooks/use-creative-qa";
 import { useSaveDerivationAsReference } from "@/lib/hooks/use-client-profiles";
 import { useGenerateLandingPage } from "@/lib/hooks/use-landing-page";
-import DeliveryPackageModal from "@/components/workspace/DeliveryPackageModal";
+import dynamic from "next/dynamic";
 import type { DeliveryFormat } from "@/components/workspace/DeliveryPackageModal";
+
+const DeliveryPackageModal = dynamic(() => import("@/components/workspace/DeliveryPackageModal"), {
+  ssr: false,
+  loading: () => null,
+});
 import StatusBadge from "@/components/ui/StatusBadge";
 import StepIndicator from "@/components/workspace/StepIndicator";
 import type { StepKey } from "@/components/workspace/StepIndicator";
@@ -312,9 +317,7 @@ export default function CampaignWorkspacePage() {
           ctaVariants: data.ctaVariants.filter((v) => v.trim().length > 0).length > 0
             ? data.ctaVariants
             : undefined,
-          targetFormats: data.targetFormat
-            ? [data.targetFormat]
-            : undefined,
+          targetFormats: data.targetFormats,
           creativeLevel: data.creativeLevel,
           clientProfileId: data.clientProfileId,
           selectedReferenceIds: data.selectedReferenceIds,
@@ -344,9 +347,7 @@ export default function CampaignWorkspacePage() {
           ctaVariants: data.ctaVariants.filter((v) => v.trim().length > 0).length > 0
             ? data.ctaVariants
             : undefined,
-          targetFormats: data.targetFormat
-            ? [data.targetFormat]
-            : undefined,
+          targetFormats: data.targetFormats,
           creativeLevel: data.creativeLevel,
           clientProfileId: data.clientProfileId,
           selectedReferenceIds: data.selectedReferenceIds,

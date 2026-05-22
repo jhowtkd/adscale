@@ -73,7 +73,7 @@
   --border-medium: #D1CCC3;
   --text-primary: #1E241E;
   --text-secondary: #6C7A6F;
-  --text-muted: #9BA8A0;
+  --text-muted: #66786C;
 
   /* Accent Colors — single mint driver */
   --accent-mint: #2FB67D;
@@ -96,6 +96,35 @@
   --status-processing: #D4A017;
   --status-completed: #2FB67D;
   --status-failed: #E11D48;
+
+  /* Status Badge Tokens — text uses text-primary for WCAG AA contrast */
+  --status-draft-bg: rgba(71, 85, 105, 0.12);
+  --status-draft-text: var(--text-primary);
+  --status-draft-dot: #475569;
+  --status-active-bg: var(--accent-mint-dim);
+  --status-active-text: var(--text-primary);
+  --status-active-dot: var(--accent-mint);
+  --status-queued-bg: rgba(245, 158, 11, 0.12);
+  --status-queued-text: var(--text-primary);
+  --status-queued-dot: #F59E0B;
+  --status-processing-bg: rgba(245, 158, 11, 0.12);
+  --status-processing-text: var(--text-primary);
+  --status-processing-dot: #F59E0B;
+  --status-generating-bg: rgba(245, 158, 11, 0.12);
+  --status-generating-text: var(--text-primary);
+  --status-generating-dot: #F59E0B;
+  --status-completed-bg: var(--accent-mint-dim);
+  --status-completed-text: var(--text-primary);
+  --status-completed-dot: var(--accent-mint);
+  --status-approved-bg: var(--accent-mint-dim);
+  --status-approved-text: var(--text-primary);
+  --status-approved-dot: var(--accent-mint);
+  --status-rejected-bg: rgba(244, 63, 94, 0.12);
+  --status-rejected-text: var(--text-primary);
+  --status-rejected-dot: #F43F5E;
+  --status-failed-bg: rgba(244, 63, 94, 0.12);
+  --status-failed-text: var(--text-primary);
+  --status-failed-dot: #F43F5E;
 
   /* Gradients — flat system, keep minimal progress bar only */
   --gradient-progress: #2FB67D;

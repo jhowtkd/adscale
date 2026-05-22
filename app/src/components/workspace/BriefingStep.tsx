@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "framer-motion";
 import { Sparkles, RefreshCw, Edit3, Check, X, Wand2, Plus, ImageOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
@@ -52,7 +51,7 @@ export interface BriefingFormData {
   notes: string;
   generationMode: "art_variation" | "format_adaptation" | "restyling";
   creativeLevel: "conservative" | "balanced" | "bold" | "extreme";
-  targetFormat?: string;
+  targetFormats?: string[];
   ctaVariants: [string, string, string];
   clientProfileId?: string | null;
   selectedReferenceIds?: string[];
@@ -293,28 +292,6 @@ function CreativeDiagnosisCard({
 }
 
 // ============================================
-// Animation variants
-// ============================================
-
-const containerVariants = {
-  hidden: {},
-  show: {
-    transition: {
-      staggerChildren: 0.05,
-    },
-  },
-};
-
-const fieldVariants = {
-  hidden: { opacity: 0, y: 12 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.35, ease: [0.19, 1, 0.22, 1] as const },
-  },
-};
-
-// ============================================
 // Component
 // ============================================
 
@@ -334,7 +311,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
     notes: campaign?.notes || "",
     generationMode: campaign?.generationMode || "art_variation",
     creativeLevel: campaign?.creativeLevel || "balanced",
-    targetFormat: campaign?.targetFormats?.[0] || "",
+    targetFormats: campaign?.targetFormats ?? ["1:1"],
     ctaVariants: [
       campaign?.ctaVariants?.[0] || "",
       campaign?.ctaVariants?.[1] || "",
@@ -458,15 +435,12 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
 
   return (
     <div className="relative">
-      <motion.form
-        variants={containerVariants}
-        initial="hidden"
-        animate="show"
+      <form
         className="max-w-[720px] mx-auto space-y-5"
         onSubmit={(e) => e.preventDefault()}
       >
         {/* ---- Campaign Info ---- */}
-        <motion.div variants={fieldVariants}>
+        <div  className="animate-fade-in">
           <Label className="flex items-center gap-1 text-xs font-medium text-[var(--text-secondary)] mb-2">
             {tCampaign("name")}
             <span className="text-[var(--accent-rose)]">*</span>
@@ -483,18 +457,14 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
             autoFocus
           />
           {errors.name && (
-            <motion.p
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-xs text-[var(--accent-rose)] mt-1"
-            >
+            <p className="text-xs text-[var(--accent-rose)] mt-1 animate-fade-in">
               {errors.name}
-            </motion.p>
+            </p>
           )}
-        </motion.div>
+        </div>
 
         {/* ---- Client / Product ---- */}
-        <motion.div variants={fieldVariants}>
+        <div  className="animate-fade-in" style={{ animationDelay: "50ms" }}>
           <Label className="flex items-center gap-1 text-xs font-medium text-[var(--text-secondary)] mb-2">
             {tCampaign("client")}
             <span className="text-[var(--accent-rose)]">*</span>
@@ -513,18 +483,14 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
             {tBriefing("clientHelp")}
           </p>
           {errors.client && (
-            <motion.p
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-xs text-[var(--accent-rose)] mt-1"
-            >
+            <p className="text-xs text-[var(--accent-rose)] mt-1 animate-fade-in">
               {errors.client}
-            </motion.p>
+            </p>
           )}
-        </motion.div>
+        </div>
 
         {/* ---- Client Profile ---- */}
-        <motion.div variants={fieldVariants} className="space-y-2">
+        <div className="animate-fade-in space-y-2" style={{ animationDelay: "100ms" }}>
           <div className="flex items-center justify-between">
             <Label className="text-xs font-medium text-[var(--text-secondary)]">
               {tBriefing("clientProfileLabel")}
@@ -663,10 +629,10 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
               )}
             </div>
           )}
-        </motion.div>
+        </div>
 
         {/* ---- Objective ---- */}
-        <motion.div variants={fieldVariants} className="space-y-2">
+        <div className="animate-fade-in space-y-2" style={{ animationDelay: "150ms" }}>
           <Label className="text-xs font-medium text-[var(--text-secondary)]">
             {tCampaign("objective")}
           </Label>
@@ -692,10 +658,10 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
               )}
             </SelectContent>
           </Select>
-        </motion.div>
+        </div>
 
         {/* ---- Audience ---- */}
-        <motion.div variants={fieldVariants} className="space-y-2">
+        <div className="animate-fade-in space-y-2" style={{ animationDelay: "200ms" }}>
           <Label className="text-xs font-medium text-[var(--text-secondary)]">
             {tCampaign("audience")}
           </Label>
@@ -706,10 +672,10 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
             onChange={(e) => updateField("audience", e.target.value)}
             className="bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-mint)] focus:ring-[3px] focus:ring-[rgba(47,182,125,0.15)] resize-none"
           />
-        </motion.div>
+        </div>
 
         {/* ---- Platforms ---- */}
-        <motion.div variants={fieldVariants} className="space-y-2">
+        <div className="animate-fade-in space-y-2" style={{ animationDelay: "250ms" }}>
           <Label className="text-xs font-medium text-[var(--text-secondary)]">
             {tCampaign("platforms")}
           </Label>
@@ -757,10 +723,10 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
               );
             })}
           </div>
-        </motion.div>
+        </div>
 
         {/* ---- Tone ---- */}
-        <motion.div variants={fieldVariants} className="space-y-2">
+        <div className="animate-fade-in space-y-2" style={{ animationDelay: "300ms" }}>
           <Label className="text-xs font-medium text-[var(--text-secondary)]">
             {tCampaign("tone")}
           </Label>
@@ -786,10 +752,10 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
               )}
             </SelectContent>
           </Select>
-        </motion.div>
+        </div>
 
         {/* ---- Offer ---- */}
-        <motion.div variants={fieldVariants} className="space-y-2">
+        <div className="animate-fade-in space-y-2" style={{ animationDelay: "350ms" }}>
           <Label className="text-xs font-medium text-[var(--text-secondary)]">
             {tCampaign("offer")}
           </Label>
@@ -800,10 +766,10 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
             className="h-10 bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-mint)] focus:ring-[3px] focus:ring-[rgba(47,182,125,0.15)]"
           />
           <p className="text-xs text-[var(--text-muted)]">{tBriefing("offerHelp")}</p>
-        </motion.div>
+        </div>
 
         {/* ---- Generation Mode ---- */}
-        <motion.div variants={fieldVariants}>
+        <div  className="animate-fade-in" style={{ animationDelay: "400ms" }}>
           <Label className="flex items-center gap-1 text-xs font-medium text-[var(--text-secondary)] mb-2">
             {tCampaign("mode")}
           </Label>
@@ -843,44 +809,62 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
               </button>
             ))}
           </div>
-        </motion.div>
+        </div>
 
-        {/* ---- Target Format ---- */}
+        {/* ---- Target Formats ---- */}
         {formData.generationMode === "format_adaptation" && (
-          <motion.div variants={fieldVariants} className="space-y-2">
+          <div className="animate-fade-in space-y-3" style={{ animationDelay: "450ms" }}>
             <Label className="text-xs font-medium text-[var(--text-secondary)]">
               {tBriefing("targetFormat.label")}
             </Label>
-            <RadioGroup
-              value={formData.targetFormat}
-              onValueChange={(value) => updateField("targetFormat", value)}
-              className="flex flex-col space-y-2"
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="1:1" id="tf-1-1" />
-                <Label htmlFor="tf-1-1" className="text-sm text-[var(--text-primary)]">
-                  1:1
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="4:5" id="tf-4-5" />
-                <Label htmlFor="tf-4-5" className="text-sm text-[var(--text-primary)]">
-                  4:5
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="9:16" id="tf-9-16" />
-                <Label htmlFor="tf-9-16" className="text-sm text-[var(--text-primary)]">
-                  9:16
-                </Label>
-              </div>
-            </RadioGroup>
-          </motion.div>
+            <p className="text-xs text-[var(--text-muted)]">
+              Selecione os formatos que deseja gerar. Cada formato consome créditos separadamente.
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {[
+                { id: "1:1", label: "1:1 Quadrado", desc: "Meta Feed, Google Display" },
+                { id: "4:5", label: "4:5 Retrato", desc: "Meta Feed, Google Discovery" },
+                { id: "9:16", label: "9:16 Stories", desc: "Meta Stories/Reels, Google PMax" },
+                { id: "1.91:1", label: "1.91:1 Horizontal", desc: "Meta Link, Google Display" },
+                { id: "16:9", label: "16:9 Widescreen", desc: "Google Display, YouTube" },
+              ].map((fmt) => (
+                <label
+                  key={fmt.id}
+                  className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-all ${
+                    formData.targetFormats?.includes(fmt.id)
+                      ? "border-[var(--accent-mint)] bg-[var(--accent-mint-dim)]"
+                      : "border-[var(--border-dim)] bg-[var(--surface-raised)] hover:bg-[var(--deep-bg)]"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={formData.targetFormats?.includes(fmt.id) ?? false}
+                    onChange={(e) => {
+                      const current = formData.targetFormats ?? [];
+                      if (e.target.checked) {
+                        updateField("targetFormats", [...current, fmt.id]);
+                      } else {
+                        updateField(
+                          "targetFormats",
+                          current.filter((f) => f !== fmt.id)
+                        );
+                      }
+                    }}
+                    className="mt-0.5 accent-[var(--accent-mint)]"
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-[var(--text-primary)]">{fmt.label}</p>
+                    <p className="text-xs text-[var(--text-muted)]">{fmt.desc}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
         )}
 
         {/* ---- Creative Level ---- */}
         {formData.generationMode === "art_variation" && (
-          <motion.div variants={fieldVariants} className="space-y-3">
+          <div className="animate-fade-in space-y-3" style={{ animationDelay: "500ms" }}>
             <Label className="text-xs font-medium text-[var(--text-secondary)]">
               {tBriefing("creativeLevel.label")}
             </Label>
@@ -910,12 +894,12 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
                 </div>
               ))}
             </RadioGroup>
-          </motion.div>
+          </div>
         )}
 
         {/* ---- Creative Diagnosis ---- */}
         {formData.generationMode === "art_variation" && campaign?.id && (
-          <motion.div variants={fieldVariants}>
+          <div  className="animate-fade-in" style={{ animationDelay: "550ms" }}>
             <CreativeDiagnosisCard
               campaign={campaign}
               editing={editingDiagnosis}
@@ -938,11 +922,11 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
               isSaving={updateDiagnosis.isPending}
               tBriefing={tBriefing}
             />
-          </motion.div>
+          </div>
         )}
 
         {/* ---- CTA Variants ---- */}
-        <motion.div variants={fieldVariants} className="space-y-3">
+        <div className="animate-fade-in space-y-3" style={{ animationDelay: "600ms" }}>
           <div className="flex items-center justify-between">
             <Label className="text-xs font-medium text-[var(--text-secondary)]">
               {tBriefing("ctaVariants")}
@@ -958,7 +942,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
               <Label className="text-[11px] text-[var(--text-muted)]">
                 {formData.generationMode === "art_variation"
                   ? tBriefing("ctaPiece", { number: idx + 1 })
-                  : tBriefing("ctaFormat", { format: ["1:1", "4:5", "9:16"][idx] })}
+                  : tBriefing("ctaFormat", { format: formData.targetFormats?.[idx] ?? "" })}
               </Label>
               <Input
                 placeholder={tBriefing("ctaPlaceholder")}
@@ -976,21 +960,14 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
             </div>
           ))}
           {errors.ctaVariants && (
-            <motion.p
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-xs text-[var(--accent-rose)] mt-1"
-            >
+            <p className="text-xs text-[var(--accent-rose)] mt-1 animate-fade-in">
               {errors.ctaVariants}
-            </motion.p>
+            </p>
           )}
-        </motion.div>
+        </div>
 
         {/* ---- Briefing Doctor ---- */}
-        <motion.div
-          variants={fieldVariants}
-          className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-4 space-y-3"
-        >
+        <div className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-4 space-y-3 animate-fade-in">
           <div className="flex items-center justify-between gap-3">
             <div>
               <h3 className="text-sm font-semibold text-[var(--text-primary)]">
@@ -1057,10 +1034,10 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
           >
             {briefingDoctor.isPending ? tBriefing("doctor.analyzing") : tBriefing("doctor.analyze")}
           </button>
-        </motion.div>
+        </div>
 
         {/* ---- Constraints ---- */}
-        <motion.div variants={fieldVariants}>
+        <div  className="animate-fade-in" style={{ animationDelay: "650ms" }}>
           <Label className="text-xs font-medium text-[var(--text-secondary)] mb-2 block">
             {tCampaign("constraints")}
           </Label>
@@ -1074,11 +1051,11 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
           <p className="text-xs text-[var(--text-muted)] mt-1">
             {tBriefing("constraintsHelp")}
           </p>
-        </motion.div>
+        </div>
 
         {/* ---- Additional Notes (expandable) ---- */}
         {!showNotes ? (
-          <motion.div variants={fieldVariants}>
+          <div  className="animate-fade-in" style={{ animationDelay: "700ms" }}>
             <button
               type="button"
               onClick={() => setShowNotes(true)}
@@ -1086,14 +1063,9 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
             >
               + {tBriefing("addNotes")}
             </button>
-          </motion.div>
+          </div>
         ) : (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            transition={{ duration: 0.3, ease: [0.4, 0, 0.6, 1] as const }}
-            variants={fieldVariants}
-          >
+          <div className="animate-fade-in">
             <Label className="text-xs font-medium text-[var(--text-secondary)] mb-2 block">
               {tCampaign("notes")}
             </Label>
@@ -1104,30 +1076,20 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
               onChange={(e) => updateField("notes", e.target.value)}
               className="bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-mint)] focus:ring-[3px] focus:ring-[rgba(47,182,125,0.15)] resize-none"
             />
-          </motion.div>
+          </div>
         )}
-      </motion.form>
+      </form>
 
       {/* ---- AI Assist Badge ---- */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.5 }}
-        className="fixed bottom-8 right-8 z-30"
-      >
+      <div className="fixed bottom-8 right-8 z-30 animate-fade-in" style={{ animationDelay: "500ms" }}>
         <div className="inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-xs font-medium bg-[var(--accent-mint-dim)] text-[var(--accent-mint)] border border-[var(--accent-mint)]/15">
           <Sparkles size={14} />
           {tBriefing("aiAssist")}
         </div>
-      </motion.div>
+      </div>
 
       {/* ---- Form Actions ---- */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.4 }}
-        className="max-w-[720px] mx-auto mt-8 flex items-center justify-between"
-      >
+      <div className="max-w-[720px] mx-auto mt-8 flex items-center justify-between animate-fade-in" style={{ animationDelay: "400ms" }}>
         <button
           type="button"
           onClick={() => onSaveDraft(formData)}
@@ -1142,7 +1104,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
         >
           {tBriefing("saveContinue")}
         </button>
-      </motion.div>
+      </div>
     </div>
   );
 }

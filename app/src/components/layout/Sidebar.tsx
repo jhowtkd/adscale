@@ -110,7 +110,7 @@ export default function Sidebar() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className="px-3 mb-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]"
+                className="px-3 mb-2 text-xs font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]"
               >
                 {tNav("workspace")}
               </motion.p>
@@ -138,7 +138,7 @@ export default function Sidebar() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className="px-3 mb-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]"
+                className="px-3 mb-2 text-xs font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]"
               >
                 {tNav("account")}
               </motion.p>

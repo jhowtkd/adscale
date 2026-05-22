@@ -28,7 +28,7 @@ const updateCampaignSchema = z.object({
   notes: z.string().optional(),
   generationMode: z.enum(["art_variation", "format_adaptation", "restyling"]).optional(),
   ctaVariants: z.array(z.string()).max(3).optional(),
-  targetFormats: z.array(z.enum(["1:1", "4:5", "9:16"])).max(1).optional(),
+  targetFormats: z.array(z.string()).max(5).optional(),
   creativeLevel: z.enum(["conservative", "balanced", "bold", "extreme"]).optional(),
   styleIntensity: z.enum(["soft", "medium", "strong"]).optional(),
   clientProfileId: z.string().uuid().nullable().optional(),

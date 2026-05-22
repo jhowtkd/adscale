@@ -129,7 +129,7 @@ describe("POST /api/briefing-doctor/analyze", () => {
         issues: [],
         suggestions: [],
         improvedBrief: {},
-        fieldPatches: [{ field: "targetFormat", value: "16:9" }],
+        fieldPatches: [{ field: "targetFormat", value: "99:99" }],
       }),
     });
 

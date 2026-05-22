@@ -1,7 +1,8 @@
 "use client";
 
-import { motion } from "framer-motion";
+
 import Link from "next/link";
+import React from "react";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import type { Campaign } from "@/lib/mock-data";
@@ -15,7 +16,7 @@ interface CampaignCardProps {
   index: number;
 }
 
-export default function CampaignCard({ campaign, index }: CampaignCardProps) {
+function CampaignCard({ campaign, index }: CampaignCardProps) {
   const tCampaign = useTranslations("campaign");
 
   const formattedDate = (() => {
@@ -31,21 +32,14 @@ export default function CampaignCard({ campaign, index }: CampaignCardProps) {
   })();
 
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.96 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{
-        delay: index * 0.08,
-        duration: 0.4,
-        ease: [0.19, 1, 0.22, 1] as [number, number, number, number],
-      }}
-      whileHover={{ y: -4 }}
-      className={cn(
+    <div
+      className={cn("animate-fade-in",
         "group rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)] overflow-hidden",
         "transition-all duration-300",
-        "hover:border-[var(--border-medium)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.08)]",
+        "hover:border-[var(--border-medium)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.08)] hover:-translate-y-1",
         "cursor-pointer"
       )}
+      style={{ animationDelay: `${index * 80}ms` }}
     >
       <Link href={`/campaigns/${campaign.id}`} className="block">
         {/* Top Section - Preview */}
@@ -75,7 +69,7 @@ export default function CampaignCard({ campaign, index }: CampaignCardProps) {
                 >
                   <ImageIcon size={24} className="text-[var(--text-muted)]" />
                 </div>
-                <span className="text-[11px] text-[var(--text-muted)]">
+                <span className="text-xs text-[var(--text-muted)]">
                   {campaign.name
                     .split(" ")
                     .map((w) => w[0])
@@ -109,7 +103,7 @@ export default function CampaignCard({ campaign, index }: CampaignCardProps) {
               return (
                 <span
                   key={platform}
-                  className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium"
+                  className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
                   style={{
                     backgroundColor: colors?.bg || "rgba(99,102,241,0.12)",
                     color: colors?.text || "#818cf8",
@@ -120,14 +114,14 @@ export default function CampaignCard({ campaign, index }: CampaignCardProps) {
               );
             })}
             <div className="ml-auto">
-              <StatusBadge status={campaign.status} showDot={false} className="text-[10px] px-2 py-0.5" />
+              <StatusBadge status={campaign.status} showDot={false} className="text-xs px-2 py-0.5" />
             </div>
           </div>
 
           {/* Footer */}
           <div className="flex items-center justify-between mt-3 pt-3 border-t border-[var(--border-dim)]">
             <div className="flex items-center gap-3">
-              <span className="flex items-center gap-1 text-[11px] text-[var(--text-secondary)]">
+              <span className="flex items-center gap-1 text-xs text-[var(--text-secondary)]">
                 <Layers size={12} />
                 {campaign.variations > 0 ? campaign.variations : "—"}
               </span>
@@ -142,6 +136,8 @@ export default function CampaignCard({ campaign, index }: CampaignCardProps) {
           </div>
         </div>
       </Link>
-    </motion.div>
+    </div>
   );
 }
+
+export default React.memo(CampaignCard);

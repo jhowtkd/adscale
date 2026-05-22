@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAppStore } from "@/lib/store";
@@ -33,19 +33,16 @@ export default function AppShell({ children }: AppShellProps) {
       <TopBar />
 
       {/* Main Content Area */}
-      <motion.main
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.3, delay: 0.1 }}
+      <main
         className={cn(
-          "min-h-screen pt-14 pb-20 md:pb-0 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] md:ml-[var(--sidebar-width)]"
+          "min-h-screen pt-14 pb-20 md:pb-0 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] md:ml-[var(--sidebar-width)] animate-fade-in"
         )}
       >
         <div className="p-6 lg:p-8 min-h-[calc(100vh-3.5rem)]">
           {children}
         </div>
         <Footer />
-      </motion.main>
+      </main>
 
       <nav
         className="fixed bottom-0 left-0 right-0 z-50 grid grid-cols-4 border-t border-[var(--border-dim)] bg-white/95 px-2 py-2 backdrop-blur md:hidden"
@@ -95,7 +92,7 @@ function MobileNavItem({
     <Link
       href={href}
       className={cn(
-        "flex flex-col items-center justify-center gap-1 rounded-md px-2 py-1.5 text-[11px] font-medium",
+        "flex flex-col items-center justify-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium",
         active
           ? "bg-[var(--accent-mint-dim)] text-[var(--accent-mint)]"
           : "text-[var(--text-secondary)]"

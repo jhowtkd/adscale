@@ -89,7 +89,7 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Context
 
-Current state: v3.0 implementation complete (phases 10–14). ADScale now operates as a campaign derivation system with two modes: `Variar arte` (art variation) and `Variar formato` (format adaptation). Per-piece CTAs, explicit visual fidelity rules in prompts, sharp-based output normalization, and mode-aware gallery labels are all implemented. Build passes and 67 tests are green. Pending manual validation with `oficial.jpg` before milestone sign-off.
+Current state: v3.0 milestone complete (phases 10–15). ADScale now operates as a campaign derivation system with three modes: `Variar arte` (art variation), `Variar formato` (format adaptation), and `Restilização` (style transfer). Per-piece CTAs, explicit visual fidelity rules, creativity level templates with operational rules, literal CTA enforcement, and a quick restyling tool are all implemented. Build passes and tests are green. Ready for v4.0 planning.
 
 Key stack decisions:
 - Next.js App Router, React, TypeScript, Tailwind, shadcn/ui
@@ -136,22 +136,28 @@ This document evolves at phase transitions and milestone boundaries.
 3. Audit Out of Scope — reasons still valid?
 4. Update Context with current state
 
-## Current Milestone: v3.0 Modos de Derivação Fiel
+## Milestone History
 
-**Goal:** Reposition ADScale as a campaign derivation system. Support two clear derivation modes — `Variar arte` and `Variar formato` — with per-piece CTAs, explicit visual fidelity rules, and less repetitive generation.
+### v3.0 Modos de Derivação Fiel ✅
+- Art variation, format adaptation, restyling
+- Creativity templates with operational rules
+- Literal CTA enforcement
+- Phases 10–15 archived
 
-**Target features:**
-- Mode selection at campaign creation: `Variar arte` or `Variar formato`
-- Art variation generates new versions in the same format as the base creative
-- Format adaptation resizes to 1:1, 4:5, and 9:16
-- Per-piece CTAs with mode-specific validation rules
-- Strong prompt differentiation between art variation and format adaptation
-- Sharp-based output normalization for all formats
-- Gallery labels and cards reflect mode, format, and applied CTA
-- Clean error messages instead of raw JSON in the UI
-- Backward compatibility for existing campaigns (fallback to `Variar arte`)
+### v4.0 Monetização & Compliance ✅
+- Stripe subscriptions with 14-day trial
+- Plan cards, upgrade flow, credit alerts
+- LGPD: privacy page, terms, cookie banner, data export, account deletion
+- Phases 16–17 archived
 
-**Status:** Implemented across phases 10–14. Build passes, 67 tests green. Manual QA pending with `oficial.jpg`.
+## Next Milestone: v5.0 (TBD)
+
+**Candidates:**
+- OAuth login (Google/GitHub) — aumenta conversão de signup
+- Admin panel & workspace management — multi-usuário, convites, roles
+- Real-time notifications (WebSocket/SSE) — geração completa em tempo real
+- Direct Meta/TikTok/Google Ads export — upload direto de criativos
+- API key management — integração com ferramentas externas
 
 ---
-*Last updated: 2026-04-28 after implementing phases 10–14*
+*Last updated: 2026-05-22 after completing v4.0*

@@ -104,17 +104,19 @@ export async function POST(
         });
       }
     } else {
-      // format_adaptation: single format only
+      // format_adaptation: generate for all selected target formats
       const targetFormats = campaign.targetFormats;
-      if (!targetFormats || targetFormats.length !== 1) {
+      if (!targetFormats || targetFormats.length === 0) {
         return apiError("invalidTargetFormats", 400);
       }
       const ctaVariants = campaign.ctaVariants ?? [];
-      jobs.push({
-        variantIndex: 0,
-        ctaText: ctaVariants[0]?.trim() || null,
-        format: targetFormats[0],
-      });
+      for (const format of targetFormats) {
+        jobs.push({
+          variantIndex: 0,
+          ctaText: ctaVariants[0]?.trim() || null,
+          format,
+        });
+      }
     }
 
     // If preview mode, delete existing preview derivations and only create one

@@ -154,6 +154,38 @@ async function processInvoicePaid(event: Stripe.Event) {
   });
 }
 
+async function processInvoicePaymentFailed(event: Stripe.Event) {
+  const invoice = event.data.object as Stripe.Invoice;
+  const stripeSubscriptionId = invoiceSubscriptionId(invoice);
+  if (!stripeSubscriptionId) {
+    throw new Error("Missing invoice subscription");
+  }
+
+  let subscription = await getSubscriptionByStripeSubscriptionId(stripeSubscriptionId);
+  if (!subscription) {
+    const stripeSubscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+    subscription = await syncSubscription(stripeSubscription);
+  }
+  if (!subscription) {
+    throw new Error("Missing local subscription for failed invoice");
+  }
+
+  // Mark subscription as past_due if it's the first failed payment
+  if (subscription.status === "active" || subscription.status === "trialing") {
+    await upsertSubscription({
+      workspaceId: subscription.workspaceId,
+      stripeCustomerId: subscription.stripeCustomerId,
+      stripeSubscriptionId: subscription.stripeSubscriptionId,
+      status: "past_due",
+      planKey: subscription.planKey,
+      priceId: subscription.priceId,
+      currentPeriodStart: subscription.currentPeriodStart,
+      currentPeriodEnd: subscription.currentPeriodEnd,
+      cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+    });
+  }
+}
+
 export async function processStripeEvent(event: Stripe.Event): Promise<StripeEventProcessResult> {
   if (await hasProcessedStripeEvent(event.id)) {
     return { status: "skipped", reason: "already_processed" };
@@ -170,6 +202,9 @@ export async function processStripeEvent(event: Stripe.Event): Promise<StripeEve
       break;
     case "invoice.paid":
       await processInvoicePaid(event);
+      break;
+    case "invoice.payment_failed":
+      await processInvoicePaymentFailed(event);
       break;
     default:
       return { status: "skipped", reason: "unsupported_event" };

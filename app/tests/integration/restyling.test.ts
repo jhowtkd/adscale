@@ -74,6 +74,14 @@ function createMockFormData(entries: Record<string, string | File | null>): Form
   return formData;
 }
 
+function createMockRequest(formData: FormData): Request {
+  const request = new Request("http://localhost/api/restyling", {
+    method: "POST",
+  });
+  vi.spyOn(request, "formData").mockResolvedValue(formData);
+  return request;
+}
+
 describe("POST /api/restyling", () => {
   const workspaceId = "ws-123";
   const userId = "user-123";
@@ -108,12 +116,7 @@ describe("POST /api/restyling", () => {
       styleIntensity: "medium",
     });
 
-    const request = new Request("http://localhost/api/restyling", {
-      method: "POST",
-      body: formData,
-    });
-
-    const response = await POST(request);
+    const response = await POST(createMockRequest(formData));
     const body = await response.json();
 
     expect(response.status).toBe(201);
@@ -162,12 +165,7 @@ describe("POST /api/restyling", () => {
       styleIntensity: "medium",
     });
 
-    const request = new Request("http://localhost/api/restyling", {
-      method: "POST",
-      body: formData,
-    });
-
-    const response = await POST(request);
+    const response = await POST(createMockRequest(formData));
 
     expect(response.status).toBe(400);
     const body = await response.json();
@@ -181,12 +179,7 @@ describe("POST /api/restyling", () => {
       styleIntensity: "medium",
     });
 
-    const request = new Request("http://localhost/api/restyling", {
-      method: "POST",
-      body: formData,
-    });
-
-    const response = await POST(request);
+    const response = await POST(createMockRequest(formData));
 
     expect(response.status).toBe(400);
     const body = await response.json();
@@ -202,12 +195,7 @@ describe("POST /api/restyling", () => {
       styleIntensity: "medium",
     });
 
-    const request = new Request("http://localhost/api/restyling", {
-      method: "POST",
-      body: formData,
-    });
-
-    const response = await POST(request);
+    const response = await POST(createMockRequest(formData));
 
     expect(response.status).toBe(400);
     const body = await response.json();
@@ -223,12 +211,7 @@ describe("POST /api/restyling", () => {
       styleIntensity: "medium",
     });
 
-    const request = new Request("http://localhost/api/restyling", {
-      method: "POST",
-      body: formData,
-    });
-
-    const response = await POST(request);
+    const response = await POST(createMockRequest(formData));
 
     expect(response.status).toBe(400);
     const body = await response.json();
@@ -247,12 +230,7 @@ describe("POST /api/restyling", () => {
       styleIntensity: "medium",
     });
 
-    const request = new Request("http://localhost/api/restyling", {
-      method: "POST",
-      body: formData,
-    });
-
-    const response = await POST(request);
+    const response = await POST(createMockRequest(formData));
 
     expect(response.status).toBe(402);
   });
@@ -269,12 +247,7 @@ describe("POST /api/restyling", () => {
       styleIntensity: "medium",
     });
 
-    const request = new Request("http://localhost/api/restyling", {
-      method: "POST",
-      body: formData,
-    });
-
-    await POST(request);
+    await POST(createMockRequest(formData));
 
     expect(deleteObject).toHaveBeenCalledTimes(2);
     expect(deleteCampaign).toHaveBeenCalledWith(campaignId, workspaceId);

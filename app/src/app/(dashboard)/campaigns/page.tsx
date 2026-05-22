@@ -2,7 +2,6 @@
 
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@/lib/store";
 import type { AdPlatform, CampaignStatus, Campaign } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
@@ -34,8 +33,18 @@ import {
 
 import CampaignCard from "@/components/campaigns/CampaignCard";
 import CampaignTableRow from "@/components/campaigns/CampaignTableRow";
-import NewCampaignModal from "@/components/campaigns/NewCampaignModal";
-import SaveTemplateModal from "@/components/templates/SaveTemplateModal";
+import CampaignListCard from "@/components/campaigns/CampaignListCard";
+import dynamic from "next/dynamic";
+
+const NewCampaignModal = dynamic(() => import("@/components/campaigns/NewCampaignModal"), {
+  ssr: false,
+  loading: () => null,
+});
+
+const SaveTemplateModal = dynamic(() => import("@/components/templates/SaveTemplateModal"), {
+  ssr: false,
+  loading: () => null,
+});
 import EmptyState from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -68,18 +77,6 @@ type ViewMode = "list" | "grid";
 type SortOption = "newest" | "oldest" | "name-asc" | "name-desc" | "variations";
 type StatusFilter = "all" | "draft" | "active" | "generating" | "completed" | "failed";
 type PlatformFilter = "all" | "Meta" | "TikTok" | "Google";
-
-// ============================================
-// Animation Variants
-// ============================================
-
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.05 },
-  },
-};
 
 // ============================================
 // Loading Skeletons
@@ -456,11 +453,8 @@ export default function CampaignsListPage() {
   return (
     <div className="max-w-7xl mx-auto">
       {/* ============ Header ============ */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, ease: [0.19, 1, 0.22, 1] as [number, number, number, number] }}
-        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-6 border-b border-[var(--border-dim)]"
+      <div
+        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-6 border-b border-[var(--border-dim)] animate-fade-in"
       >
         <div>
           <div className="flex items-center gap-3">
@@ -476,11 +470,7 @@ export default function CampaignsListPage() {
           </p>
         </div>
 
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.2, duration: 0.3 }}
-        >
+        <div className="animate-fade-in" style={{ animationDelay: "150ms" }}>
           <Button
             onClick={() => setModalOpen(true)}
             className="bg-[var(--accent-mint)] text-white hover:bg-[var(--accent-mint-light)] hover:-translate-y-px active:scale-[0.98] transition-all duration-200 h-9 px-4"
@@ -488,61 +478,50 @@ export default function CampaignsListPage() {
             <Plus size={16} />
             {t("new")}
           </Button>
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
 
       {/* ============ Filter Toolbar ============ */}
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1, duration: 0.3, ease: [0.19, 1, 0.22, 1] as [number, number, number, number] }}
-        className="mt-5"
-      >
+      <div className="mt-5 animate-fade-in" style={{ animationDelay: "80ms" }}>
         {/* Bulk action bar */}
-        <AnimatePresence>
-          {selectedIds.size > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] }}
-              className="mb-3 flex items-center justify-between rounded-lg px-4 py-3"
-              style={{ backgroundColor: "var(--accent-mint-dim)" }}
-            >
-              <span className="text-sm font-medium text-[var(--accent-mint)]">
-                {selectedIds.size} {tc("selected")}
-              </span>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleBulkArchive}
-                  className="border-[var(--border-dim)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] h-7 text-xs"
-                >
-                  <Archive size={14} className="mr-1" />
-                  {tc("archive")}
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={handleBulkDelete}
-                  className="h-7 text-xs"
-                >
-                  <Trash2 size={14} className="mr-1" />
-                  {tc("delete")}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelectedIds(new Set())}
-                  className="text-[var(--text-muted)] hover:text-[var(--text-primary)] h-7 text-xs"
-                >
-                  {tc("cancel")}
-                </Button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {selectedIds.size > 0 && (
+          <div
+            className="mb-3 flex items-center justify-between rounded-lg px-4 py-3 transition-all duration-250"
+            style={{ backgroundColor: "var(--accent-mint-dim)" }}
+          >
+            <span className="text-sm font-medium text-[var(--accent-mint)]">
+              {selectedIds.size} {tc("selected")}
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleBulkArchive}
+                className="border-[var(--border-dim)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] h-7 text-xs"
+              >
+                <Archive size={14} className="mr-1" />
+                {tc("archive")}
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleBulkDelete}
+                className="h-7 text-xs"
+              >
+                <Trash2 size={14} className="mr-1" />
+                {tc("delete")}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedIds(new Set())}
+                className="text-[var(--text-muted)] hover:text-[var(--text-primary)] h-7 text-xs"
+              >
+                {tc("cancel")}
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Filters */}
         <div className="rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)] p-3">
@@ -651,43 +630,37 @@ export default function CampaignsListPage() {
           </div>
 
           {/* Active filter pills */}
-          <AnimatePresence>
-            {hasActiveFilters && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.2 }}
-                className="flex items-center gap-2 mt-3 pt-3 border-t border-[var(--border-dim)] overflow-hidden"
-              >
-                <span className="text-[11px] text-[var(--text-muted)] uppercase tracking-wider">
-                  {tc("filters")}:
-                </span>
-                {activeFilters.map((filter, i) => (
-                  <span
-                    key={i}
-                    className="inline-flex items-center gap-1 rounded-full bg-[var(--surface-raised)] text-[var(--text-secondary)] text-xs px-2.5 py-1 border border-[var(--border-dim)]"
-                  >
-                    {filter.label}
-                    <button
-                      onClick={filter.onRemove}
-                      className="ml-0.5 text-[var(--text-muted)] hover:text-[var(--accent-rose)] transition-colors"
-                    >
-                      <X size={12} />
-                    </button>
-                  </span>
-                ))}
-                <button
-                  onClick={clearFilters}
-                  className="text-xs text-[var(--accent-mint)] hover:text-[var(--accent-mint-light)] transition-colors ml-1"
+          {hasActiveFilters && (
+            <div
+              className="flex items-center gap-2 mt-3 pt-3 border-t border-[var(--border-dim)] overflow-hidden transition-all duration-250"
+            >
+              <span className="text-xs text-[var(--text-muted)] uppercase tracking-wider">
+                {tc("filters")}:
+              </span>
+              {activeFilters.map((filter, i) => (
+                <span
+                  key={i}
+                  className="inline-flex items-center gap-1 rounded-full bg-[var(--surface-raised)] text-[var(--text-secondary)] text-xs px-2.5 py-1 border border-[var(--border-dim)]"
                 >
-                  {tc("clearAll")}
-                </button>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                  {filter.label}
+                  <button
+                    onClick={filter.onRemove}
+                    className="ml-0.5 text-[var(--text-muted)] hover:text-[var(--accent-rose)] transition-colors"
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              ))}
+              <button
+                onClick={clearFilters}
+                className="text-xs text-[var(--accent-mint)] hover:text-[var(--accent-mint-light)] transition-colors ml-1"
+              >
+                {tc("clearAll")}
+              </button>
+            </div>
+          )}
         </div>
-      </motion.div>
+      </div>
 
       {/* ============ Content ============ */}
       <div className="mt-5">
@@ -726,106 +699,120 @@ export default function CampaignsListPage() {
           />
         ) : viewMode === "list" ? (
           /* ============ List View ============ */
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-            className="rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)] overflow-hidden"
-          >
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader className="sticky top-0 z-20">
-                  <tr className="border-b border-[var(--border-dim)] bg-[var(--surface-raised)]">
-                    <TableHead className="w-[44px] px-4 py-3">
-                      <input
-                        type="checkbox"
-                        checked={allSelected}
-                        onChange={(e) => toggleSelectAll(e.target.checked)}
-                        className={cn(
-                          "h-[18px] w-[18px] rounded-sm border border-[var(--border-medium)] appearance-none cursor-pointer",
-                          "checked:bg-[var(--accent-mint)] checked:border-[var(--accent-mint)]",
-                          "indeterminate:bg-[var(--accent-mint)] indeterminate:border-[var(--accent-mint)]",
-                          "transition-colors duration-150"
-                        )}
-                        style={
-                          allSelected
-                            ? {
-                                backgroundImage: `url("data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22white%22%3E%3Cpath%20d%3D%22M12.207%204.793a1%201%200%2001%200%201.414l-5%205a1%201%20%200%2001-1.414%200l-2-2a1%201%20%200%20011.414-1.414L6.5%209.086l4.293-4.293a1%201%20%200%20011.414%200z%22%2F%3E%3C%2Fsvg%3E")`,
-                                backgroundRepeat: "no-repeat",
-                                backgroundPosition: "center",
-                              }
-                            : selectedIds.size > 0
+          <>
+            {/* Desktop Table */}
+            <div
+              className="hidden md:block rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)] overflow-hidden"
+            >
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader className="sticky top-0 z-20">
+                    <tr className="border-b border-[var(--border-dim)] bg-[var(--surface-raised)]">
+                      <TableHead className="w-[44px] px-4 py-3">
+                        <input
+                          type="checkbox"
+                          checked={allSelected}
+                          onChange={(e) => toggleSelectAll(e.target.checked)}
+                          className={cn(
+                            "h-[18px] w-[18px] rounded-sm border border-[var(--border-medium)] appearance-none cursor-pointer",
+                            "checked:bg-[var(--accent-mint)] checked:border-[var(--accent-mint)]",
+                            "indeterminate:bg-[var(--accent-mint)] indeterminate:border-[var(--accent-mint)]",
+                            "transition-colors duration-150"
+                          )}
+                          style={
+                            allSelected
                               ? {
-                                  backgroundImage: `url("data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22white%22%3E%3Cpath%20d%3D%22M3%208h10v1H3z%22%2F%3E%3C%2Fsvg%3E")`,
+                                  backgroundImage: `url("data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22white%22%3E%3Cpath%20d%3D%22M12.207%204.793a1%201%20%200%2001%200%201.414l-5%205a1%201%20%200%2001-1.414%200l-2-2a1%201%20%200%20011.414-1.414L6.5%209.086l4.293-4.293a1%201%20%200%20011.414%200z%22%2F%3E%3C%2Fsvg%3E")`,
                                   backgroundRepeat: "no-repeat",
                                   backgroundPosition: "center",
-                                  backgroundColor: "var(--accent-mint)",
                                 }
-                              : {}
-                        }
+                              : selectedIds.size > 0
+                                ? {
+                                    backgroundImage: `url("data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22white%22%3E%3Cpath%20d%3D%22M3%208h10v1H3z%22%2F%3E%3C%2Fsvg%3E")`,
+                                    backgroundRepeat: "no-repeat",
+                                    backgroundPosition: "center",
+                                    backgroundColor: "var(--accent-mint)",
+                                  }
+                                : {}
+                          }
+                        />
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)] px-4 py-3">
+                        {tc("campaign")}
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)] px-4 py-3 w-[140px]">
+                        {tc("platforms")}
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)] px-4 py-3 w-[120px]">
+                        {tc("status")}
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)] px-4 py-3 w-[100px]">
+                        {tc("variations")}
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)] px-4 py-3 w-[100px] hidden md:table-cell">
+                        {tc("credits")}
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)] px-4 py-3 w-[140px]">
+                        {tc("modified")}
+                      </TableHead>
+                      <TableHead className="w-[56px] px-4 py-3" />
+                    </tr>
+                  </TableHeader>
+                  <TableBody>
+                    {campaigns.map((campaign, index) => (
+                      <CampaignTableRow
+                        key={campaign.id}
+                        campaign={campaign}
+                        index={index}
+                        selected={selectedIds.has(campaign.id)}
+                        onSelect={(checked) => toggleSelect(campaign.id, checked)}
+                        onDuplicate={handleDuplicate}
+                        onArchive={handleArchive}
+                        onDelete={setDeleteTarget}
+                        onSaveAsTemplate={setSaveTemplateCampaign}
                       />
-                    </TableHead>
-                    <TableHead className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)] px-4 py-3">
-                      {tc("campaign")}
-                    </TableHead>
-                    <TableHead className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)] px-4 py-3 w-[140px]">
-                      {tc("platforms")}
-                    </TableHead>
-                    <TableHead className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)] px-4 py-3 w-[120px]">
-                      {tc("status")}
-                    </TableHead>
-                    <TableHead className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)] px-4 py-3 w-[100px]">
-                      {tc("variations")}
-                    </TableHead>
-                    <TableHead className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)] px-4 py-3 w-[100px] hidden md:table-cell">
-                      {tc("credits")}
-                    </TableHead>
-                    <TableHead className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)] px-4 py-3 w-[140px]">
-                      {tc("modified")}
-                    </TableHead>
-                    <TableHead className="w-[56px] px-4 py-3" />
-                  </tr>
-                </TableHeader>
-                <TableBody>
-                  {campaigns.map((campaign, index) => (
-                    <CampaignTableRow
-                      key={campaign.id}
-                      campaign={campaign}
-                      index={index}
-                      selected={selectedIds.has(campaign.id)}
-                      onSelect={(checked) => toggleSelect(campaign.id, checked)}
-                      onDuplicate={handleDuplicate}
-                      onArchive={handleArchive}
-                      onDelete={setDeleteTarget}
-                      onSaveAsTemplate={setSaveTemplateCampaign}
-                    />
-                  ))}
-                </TableBody>
-              </Table>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
-          </motion.div>
+
+            {/* Mobile Cards */}
+            <div
+              className="md:hidden space-y-3"
+            >
+              {campaigns.map((campaign, index) => (
+                <CampaignListCard
+                  key={campaign.id}
+                  campaign={campaign}
+                  index={index}
+                  selected={selectedIds.has(campaign.id)}
+                  onSelect={(checked) => toggleSelect(campaign.id, checked)}
+                  onDuplicate={handleDuplicate}
+                  onArchive={handleArchive}
+                  onDelete={setDeleteTarget}
+                  onSaveAsTemplate={setSaveTemplateCampaign}
+                />
+              ))}
+            </div>
+          </>
         ) : (
           /* ============ Grid View ============ */
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
+          <div
             className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5"
           >
             {campaigns.map((campaign, index) => (
               <CampaignCard key={campaign.id} campaign={campaign} index={index} />
             ))}
-          </motion.div>
+          </div>
         )}
       </div>
 
       {/* ============ Pagination ============ */}
       {!isLoading && !isError && totalCount > 0 && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
-          className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6"
+        <div
+          className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 animate-fade-in"
+          style={{ animationDelay: "200ms" }}
         >
           <p className="text-sm text-[var(--text-muted)]">
             {tc("showingResults", { start: startIndex, end: endIndex, total: totalCount })}
@@ -893,7 +880,7 @@ export default function CampaignsListPage() {
               </SelectContent>
             </Select>
           </div>
-        </motion.div>
+        </div>
       )}
 
       {/* ============ New Campaign Modal ============ */}

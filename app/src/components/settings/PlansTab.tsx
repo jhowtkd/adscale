@@ -142,7 +142,7 @@ export default function PlansTab() {
 function PlanStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-md bg-[var(--surface-raised)] p-2">
-      <p className="text-[11px] text-[var(--text-muted)]">{label}</p>
+      <p className="text-xs text-[var(--text-muted)]">{label}</p>
       <p className="mt-0.5 font-semibold text-[var(--text-primary)]">{value}</p>
     </div>
   );

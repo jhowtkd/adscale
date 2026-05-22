@@ -1,6 +1,5 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { Check, FileText, Upload, LayoutGrid } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
@@ -57,12 +56,7 @@ export default function StepIndicator({ currentStep, onStepClick }: StepIndicato
                     isActive && "shadow-[0_0_12px_rgba(47,182,125,0.2)]"
                   )}
                 >
-                  <motion.div
-                    initial={false}
-                    animate={isActive ? { scale: [0.8, 1] } : { scale: 1 }}
-                    transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                    className="flex items-center justify-center"
-                  >
+                  <div className="flex items-center justify-center">
                     {isCompleted ? (
                       <Check size={16} className="text-white" strokeWidth={3} />
                     ) : (
@@ -76,7 +70,7 @@ export default function StepIndicator({ currentStep, onStepClick }: StepIndicato
                         <Icon size={14} />
                       </span>
                     )}
-                  </motion.div>
+                  </div>
                 </button>
 
                 {/* Label */}
@@ -98,14 +92,12 @@ export default function StepIndicator({ currentStep, onStepClick }: StepIndicato
                   {/* Background line */}
                   <div className="absolute inset-0 bg-[var(--border-dim)] rounded-full" />
                   {/* Completed fill */}
-                  {isCompleted && (
-                    <motion.div
-                      initial={{ scaleX: 0 }}
-                      animate={{ scaleX: 1 }}
-                      transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
-                      className="absolute inset-0 bg-[var(--accent-teal)] rounded-full origin-left"
-                    />
-                  )}
+                  <div
+                    className={cn(
+                      "absolute inset-0 bg-[var(--accent-teal)] rounded-full origin-left transition-transform duration-400 ease-[cubic-bezier(0.4,0,0.2,1)]",
+                      isCompleted ? "scale-x-100" : "scale-x-0"
+                    )}
+                  />
                 </div>
               )}
             </div>

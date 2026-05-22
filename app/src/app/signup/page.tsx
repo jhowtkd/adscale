@@ -16,12 +16,19 @@ export default function SignupPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [consent, setConsent] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
+
+    if (!consent) {
+      setError("Voce precisa aceitar os Termos de Uso e a Politica de Privacidade para continuar.");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -67,6 +74,7 @@ export default function SignupPage() {
               <Input
                 id="name"
                 type="text"
+                autoComplete="name"
                 placeholder={t("namePlaceholder")}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -78,6 +86,7 @@ export default function SignupPage() {
               <Input
                 id="email"
                 type="email"
+                autoComplete="email"
                 placeholder={t("emailPlaceholder")}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -93,8 +102,28 @@ export default function SignupPage() {
                 onChange={setPassword}
                 showStrengthMeter
                 showRequirements
+                autoComplete="new-password"
               />
             </div>
+            <label className="flex items-start gap-2 text-xs text-[var(--text-secondary)]">
+              <input
+                type="checkbox"
+                checked={consent}
+                onChange={(e) => setConsent(e.target.checked)}
+                className="mt-0.5 accent-[var(--accent-mint)]"
+              />
+              <span>
+                Eu concordo com os{" "}
+                <Link href="/terms" className="text-[var(--accent-mint)] hover:underline" target="_blank">
+                  Termos de Uso
+                </Link>{" "}
+                e a{" "}
+                <Link href="/privacy" className="text-[var(--accent-mint)] hover:underline" target="_blank">
+                  Politica de Privacidade
+                </Link>
+                .
+              </span>
+            </label>
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? t("creatingAccount") : t("signUp")}
             </Button>

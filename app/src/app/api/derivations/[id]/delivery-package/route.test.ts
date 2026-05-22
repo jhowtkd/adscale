@@ -78,13 +78,6 @@ describe("POST /api/derivations/[id]/delivery-package", () => {
     vi.restoreAllMocks();
   });
 
-  it("rejects invalid formats", async () => {
-    const res = await POST(requestWith({ formats: ["16:9"] }), {
-      params: paramsWith("source-id"),
-    });
-    expect(res.status).toBe(400);
-  });
-
   it("rejects source without outputKey", async () => {
     mockGetDerivationById.mockResolvedValue({
       id: "source-id",
@@ -130,7 +123,31 @@ describe("POST /api/derivations/[id]/delivery-package", () => {
 
     mockCreateDerivation.mockImplementation(async (input) => ({
       id: `child-${input.format}`,
-      ...input,
+      campaignId: input.campaignId,
+      workspaceId: input.workspaceId,
+      planId: input.planId ?? null,
+      parentId: input.parentId ?? null,
+      status: input.status ?? "queued",
+      prompt: null,
+      outputKey: null,
+      format: input.format ?? null,
+      generationMode: input.generationMode ?? null,
+      variantIndex: input.variantIndex ?? null,
+      ctaText: input.ctaText ?? null,
+      cost: null,
+      feedback: input.feedback ?? null,
+      qualityScore: null,
+      scoreStatus: "pending",
+      scoreBreakdown: null,
+      scoreIssues: null,
+      regenerationSuggestion: null,
+      isPreview: input.isPreview ?? false,
+      scoredAt: null,
+      qaStatus: "pending",
+      qaChecklist: null,
+      qaIssues: null,
+      qaSuggestions: null,
+      qaAnalyzedAt: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     }));
@@ -192,7 +209,31 @@ describe("POST /api/derivations/[id]/delivery-package", () => {
 
     mockCreateDerivation.mockImplementation(async (input) => ({
       id: `child-${input.format}`,
-      ...input,
+      campaignId: input.campaignId,
+      workspaceId: input.workspaceId,
+      planId: input.planId ?? null,
+      parentId: input.parentId ?? null,
+      status: input.status ?? "queued",
+      prompt: null,
+      outputKey: null,
+      format: input.format ?? null,
+      generationMode: input.generationMode ?? null,
+      variantIndex: input.variantIndex ?? null,
+      ctaText: input.ctaText ?? null,
+      cost: null,
+      feedback: input.feedback ?? null,
+      qualityScore: null,
+      scoreStatus: "pending",
+      scoreBreakdown: null,
+      scoreIssues: null,
+      regenerationSuggestion: null,
+      isPreview: input.isPreview ?? false,
+      scoredAt: null,
+      qaStatus: "pending",
+      qaChecklist: null,
+      qaIssues: null,
+      qaSuggestions: null,
+      qaAnalyzedAt: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     }));
@@ -247,13 +288,37 @@ describe("POST /api/derivations/[id]/delivery-package", () => {
 
     mockCreateDerivation.mockImplementation(async (input) => ({
       id: `child-${input.format}`,
-      ...input,
+      campaignId: input.campaignId,
+      workspaceId: input.workspaceId,
+      planId: input.planId ?? null,
+      parentId: input.parentId ?? null,
+      status: input.status ?? "queued",
+      prompt: null,
+      outputKey: null,
+      format: input.format ?? null,
+      generationMode: input.generationMode ?? null,
+      variantIndex: input.variantIndex ?? null,
+      ctaText: input.ctaText ?? null,
+      cost: null,
+      feedback: input.feedback ?? null,
+      qualityScore: null,
+      scoreStatus: "pending",
+      scoreBreakdown: null,
+      scoreIssues: null,
+      regenerationSuggestion: null,
+      isPreview: input.isPreview ?? false,
+      scoredAt: null,
+      qaStatus: "pending",
+      qaChecklist: null,
+      qaIssues: null,
+      qaSuggestions: null,
+      qaAnalyzedAt: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     }));
     mockInngestSend
       .mockRejectedValueOnce(new Error("worker unavailable"))
-      .mockResolvedValueOnce(undefined);
+      .mockResolvedValueOnce({ ids: ["event-id"] });
 
     const res = await POST(
       requestWith({ formats: ["4:5", "9:16"] }),

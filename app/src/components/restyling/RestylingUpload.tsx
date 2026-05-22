@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useState, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { Upload, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -138,117 +137,89 @@ export function RestylingUpload({
         <p className="text-xs text-[var(--text-muted)] mb-3">{description}</p>
       )}
 
-      <AnimatePresence mode="wait">
-        {value ? (
-          <motion.div
-            key="file-selected"
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.98 }}
-            transition={{ duration: 0.25, ease: [0.19, 1, 0.22, 1] as const }}
-            className="relative rounded-xl border border-[var(--border-dim)] bg-[var(--surface-raised)] overflow-hidden"
-          >
-            <div className="flex items-center gap-4 p-4">
-              <div className="w-16 h-16 rounded-lg overflow-hidden bg-[var(--neutral)] flex-shrink-0">
-                <img
-                  src={URL.createObjectURL(value)}
-                  alt={value.name}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-[var(--text-primary)] truncate">
-                  {value.name}
-                </p>
-                <p className="text-xs text-[var(--text-muted)] mt-0.5">
-                  {formatFileSize(value.size)}
-                </p>
-              </div>
-              <button
-                onClick={handleRemove}
-                className="inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-[var(--surface-base)] transition-colors duration-200"
-              >
-                <X size={18} className="text-[var(--text-muted)]" />
-              </button>
-            </div>
-          </motion.div>
-        ) : (
-          <motion.div
-            key="upload-zone"
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.98 }}
-            transition={{ duration: 0.25, ease: [0.19, 1, 0.22, 1] as const }}
-          >
-            <div
-              onClick={handleClick}
-              onDragEnter={handleDragEnter}
-              onDragLeave={handleDragLeave}
-              onDragOver={handleDragOver}
-              onDrop={handleDrop}
-              className={cn(
-                "relative flex flex-col items-center justify-center min-h-[180px] rounded-xl border-2 border-dashed transition-all duration-200 cursor-pointer",
-                isDragActive
-                  ? "border-[var(--accent-mint)] bg-[var(--accent-mint-dim)]"
-                  : displayError
-                  ? "border-[var(--accent-rose)]"
-                  : "border-[var(--border-medium)] bg-[var(--surface-raised)] hover:border-[var(--accent-mint)] hover:bg-[var(--accent-mint-dim)]"
-              )}
-            >
-              <input
-                ref={inputRef}
-                type="file"
-                accept={accept || ACCEPTED_TYPES.join(",")}
-                onChange={handleInputChange}
-                className="hidden"
+      {value ? (
+        <div className="relative rounded-xl border border-[var(--border-dim)] bg-[var(--surface-raised)] overflow-hidden animate-fade-in transition-all duration-250">
+          <div className="flex items-center gap-4 p-4">
+            <div className="w-16 h-16 rounded-lg overflow-hidden bg-[var(--neutral)] flex-shrink-0">
+              <img
+                src={URL.createObjectURL(value)}
+                alt={value.name}
+                className="w-full h-full object-cover"
               />
-
-              <motion.div
-                animate={isDragActive ? { y: [0, -6, 0] } : { y: 0 }}
-                transition={
-                  isDragActive
-                    ? { duration: 0.6, repeat: Infinity, ease: "easeInOut" }
-                    : {}
-                }
-                className="mb-3"
-              >
-                <Upload
-                  size={32}
-                  className={cn(
-                    "transition-colors duration-200",
-                    isDragActive
-                      ? "text-[var(--accent-mint)]"
-                      : displayError
-                      ? "text-[var(--accent-rose)]"
-                      : "text-[var(--text-muted)]"
-                  )}
-                />
-              </motion.div>
-
-              <p className="text-sm font-medium text-[var(--text-primary)] mb-1">
-                {translations.dragDrop}
-              </p>
-              <p className="text-xs text-[var(--text-muted)]">
-                {translations.onlyImages} ({translations.maxSize})
-              </p>
-
-              {displayError && (
-                <motion.div
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[rgba(244,63,94,0.08)] border border-[var(--accent-rose)]/20"
-                >
-                  <X size={14} className="text-[var(--accent-rose)]" />
-                  <span className="text-xs text-[var(--accent-rose)]">
-                    {displayError}
-                  </span>
-                </motion.div>
-              )}
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-[var(--text-primary)] truncate">
+                {value.name}
+              </p>
+              <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                {formatFileSize(value.size)}
+              </p>
+            </div>
+            <button
+              onClick={handleRemove}
+              className="inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-[var(--surface-base)] transition-colors duration-200"
+            >
+              <X size={18} className="text-[var(--text-muted)]" />
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="animate-fade-in transition-all duration-250">
+          <div
+            onClick={handleClick}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+            className={cn(
+              "relative flex flex-col items-center justify-center min-h-[180px] rounded-xl border-2 border-dashed transition-all duration-200 cursor-pointer",
+              isDragActive
+                ? "border-[var(--accent-mint)] bg-[var(--accent-mint-dim)]"
+                : displayError
+                ? "border-[var(--accent-rose)]"
+                : "border-[var(--border-medium)] bg-[var(--surface-raised)] hover:border-[var(--accent-mint)] hover:bg-[var(--accent-mint-dim)]"
+            )}
+          >
+            <input
+              ref={inputRef}
+              type="file"
+              accept={accept || ACCEPTED_TYPES.join(",")}
+              onChange={handleInputChange}
+              className="hidden"
+            />
+
+            <div className="mb-3">
+              <Upload
+                size={32}
+                className={cn(
+                  "transition-colors duration-200",
+                  isDragActive
+                    ? "text-[var(--accent-mint)]"
+                    : displayError
+                    ? "text-[var(--accent-rose)]"
+                    : "text-[var(--text-muted)]"
+                )}
+              />
+            </div>
+
+            <p className="text-sm font-medium text-[var(--text-primary)] mb-1">
+              {translations.dragDrop}
+            </p>
+            <p className="text-xs text-[var(--text-muted)]">
+              {translations.onlyImages} ({translations.maxSize})
+            </p>
+
+            {displayError && (
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[rgba(244,63,94,0.08)] border border-[var(--accent-rose)]/20 animate-fade-in">
+                <X size={14} className="text-[var(--accent-rose)]" />
+                <span className="text-xs text-[var(--accent-rose)]">
+                  {displayError}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
