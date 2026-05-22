@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { apiError, handleApiError } from "@/lib/api-response";
+import { checkRateLimit } from "@/lib/with-rate-limit";
 import { logger } from "@/lib/logger";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCampaignById } from "@/server/repositories/campaign";
@@ -16,6 +17,12 @@ export async function POST(
   try {
     const { workspace } = await requireWorkspaceAccess(request);
     const { id: campaignId } = await params;
+
+    const rateLimitResult = checkRateLimit(request, {
+      category: "ai",
+      workspaceId: workspace.id,
+    });
+    if (rateLimitResult) return rateLimitResult;
 
     const campaign = await getCampaignById(campaignId, workspace.id);
     if (!campaign) {

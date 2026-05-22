@@ -224,6 +224,13 @@
         "label": "Variar formato",
         "description": "Adapte a peça para 1:1, 4:5 e 9:16"
       }
+    },
+    "kanban": {
+      "draft": "Rascunho",
+      "inProgress": "Em andamento",
+      "review": "Revisão",
+      "approved": "Aprovada",
+      "rejected": "Rejeitada"
     }
   },
   "briefing": {
@@ -645,6 +652,7 @@
     "plansTab": "Planos",
     "integrationsTab": "Integrações",
     "privacyTab": "Privacidade",
+    "creditHistoryTab": "Histórico de uso",
     "managePreferences": "Gerencie seu perfil, workspace e preferências.",
     "brandKit": {
       "title": "Brand Kit",
@@ -866,6 +874,48 @@
     "deleteConfirm": "Tem certeza que deseja excluir este template?",
     "emptyTitle": "Nenhum template ainda",
     "emptyDescription": "Salve o briefing de uma campanha como template para reutilizá-lo em novas campanhas."
+  },
+  "creditHistory": {
+    "title": "Histórico de Uso de Créditos",
+    "subtitle": "Acompanhe onde seus créditos foram utilizados",
+    "date": "Data",
+    "campaign": "Campanha",
+    "derivation": "Derivação",
+    "type": "Tipo",
+    "amount": "Quantidade",
+    "description": "Descrição",
+    "totalSpent": "Total gasto",
+    "remainingCredits": "Créditos restantes",
+    "averagePerCampaign": "Média por campanha",
+    "filterDateRange": "Período",
+    "filterCampaign": "Campanha",
+    "thisMonth": "Este mês",
+    "last3Months": "Últimos 3 meses",
+    "thisYear": "Este ano",
+    "allTime": "Todo o período",
+    "allCampaigns": "Todas as campanhas",
+    "noTransactions": "Nenhuma transação encontrada",
+    "types": {
+      "usage": "Uso",
+      "refund": "Reembolso",
+      "grant": "Concessão",
+      "purchase": "Compra"
+    },
+    "usageOverTime": "Uso ao longo do tempo"
+  },
+  "analytics": {
+    "approvalRate": "Taxa de aprovação",
+    "activeDerivations": "Derivações ativas",
+    "creditEfficiency": "Eficiência de crédito",
+    "monthOverMonth": "Variação vs mês anterior",
+    "creditsByMonth": "Créditos usados por mês",
+    "derivationsByStatus": "Derivações por status",
+    "topCampaigns": "Top campanhas",
+    "statusCompleted": "Concluídas",
+    "statusActive": "Ativas",
+    "statusFailed": "Falhas",
+    "approved": "aprovadas",
+    "noData": "Sem dados disponíveis"
   },
   "notifications": {
     "derivationCompleteSubject": "Suas derivações estão prontas",

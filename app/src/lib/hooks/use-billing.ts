@@ -69,3 +69,58 @@ export function useBillingPortal() {
   });
 }
 
+export interface CreditTransaction {
+  id: string;
+  userId: string;
+  workspaceId: string;
+  campaignId: string | null;
+  campaignName: string | null;
+  derivationId: string | null;
+  amount: number;
+  type: "usage" | "refund" | "grant" | "purchase";
+  description: string | null;
+  createdAt: string | null;
+}
+
+export interface CreditHistorySummary {
+  totalSpent: number;
+  remainingCredits: number;
+  averagePerCampaign: number;
+  transactionCount: number;
+}
+
+export interface CreditHistoryResponse {
+  transactions: CreditTransaction[];
+  summary: CreditHistorySummary;
+  campaigns: Array<{ id: string; name: string }>;
+}
+
+async function fetchCreditHistory(params?: {
+  from?: string;
+  to?: string;
+  campaignId?: string;
+}): Promise<CreditHistoryResponse> {
+  const url = new URL("/api/billing/history", window.location.origin);
+  if (params?.from) url.searchParams.set("from", params.from);
+  if (params?.to) url.searchParams.set("to", params.to);
+  if (params?.campaignId) url.searchParams.set("campaignId", params.campaignId);
+
+  const res = await apiFetch(url.toString());
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Erro ao carregar histórico");
+  }
+  return res.json();
+}
+
+export function useCreditHistory(params?: {
+  from?: string;
+  to?: string;
+  campaignId?: string;
+}) {
+  return useQuery({
+    queryKey: ["billing", "history", params],
+    queryFn: () => fetchCreditHistory(params),
+  });
+}
+

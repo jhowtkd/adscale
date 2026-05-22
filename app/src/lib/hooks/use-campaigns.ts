@@ -88,6 +88,10 @@ export interface UiCampaign {
   status: Campaign["status"];
   variations: number;
   creditsUsed: number;
+  totalDerivations: number;
+  activeDerivations: number;
+  failedDerivations: number;
+  completedDerivations: number;
   lastModified: Date;
   createdAt: Date;
 }
@@ -117,6 +121,10 @@ function toUiCampaign(c: Campaign): UiCampaign {
     status: c.status,
     variations: c.variations ?? 0,
     creditsUsed: c.creditsUsed ?? 0,
+    totalDerivations: c.totalDerivations ?? 0,
+    activeDerivations: c.activeDerivations ?? 0,
+    failedDerivations: c.failedDerivations ?? 0,
+    completedDerivations: c.completedDerivations ?? 0,
     lastModified: c.updatedAt,
     createdAt: c.createdAt,
   };

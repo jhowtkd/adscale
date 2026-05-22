@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
+import { checkRateLimit } from "@/lib/with-rate-limit";
 import { logger } from "@/lib/logger";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCampaignById } from "@/server/repositories/campaign";
@@ -22,6 +23,12 @@ export async function POST(
   try {
     const { workspace } = await requireWorkspaceAccess(request);
     const { id: campaignId } = await params;
+
+    const rateLimitResult = checkRateLimit(request, {
+      category: "ai",
+      workspaceId: workspace.id,
+    });
+    if (rateLimitResult) return rateLimitResult;
 
     const campaign = await getCampaignById(campaignId, workspace.id);
     if (!campaign) {
@@ -64,18 +71,13 @@ export async function POST(
     const name = (formData.get("name") as string | null) ?? undefined;
     const platform = (formData.get("platform") as string | null) ?? undefined;
 
-    // Analyze each screenshot and merge results
-    const analyses = [];
-    for (const file of validFiles) {
-      const buffer = Buffer.from(await file.arrayBuffer());
-      const result = await analyzeCompetitorCreative(
-        buffer,
-        file.type,
-        name,
-        platform
-      );
-      analyses.push(result);
-    }
+    // Analyze each screenshot in parallel and merge results
+    const analyses = await Promise.all(
+      validFiles.map(async (file) => {
+        const buffer = Buffer.from(await file.arrayBuffer());
+        return analyzeCompetitorCreative(buffer, file.type, name, platform);
+      })
+    );
 
     // Merge multiple analyses into a single result
     const merged = mergeAnalyses(analyses);

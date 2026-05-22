@@ -8,3 +8,5 @@ export { RecentCampaignsSection } from "./RecentCampaignsSection";
 export { CreditUsagePanel } from "./CreditUsagePanel";
 export { ActivityFeedPanel } from "./ActivityFeedPanel";
 export { OnboardingTour } from "./OnboardingTour";
+export { ChartCard } from "./ChartCard";
+export { AnalyticsSection } from "./AnalyticsSection";

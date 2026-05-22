@@ -137,10 +137,27 @@ export async function updateAssetMetadata(
   metadata: Record<string, unknown>,
   analysisStatus: "pending" | "analyzing" | "completed" | "failed"
 ) {
+  // Read existing metadata first to merge (preserve other fields)
+  const existing = await db
+    .select({ metadata: campaignAssets.metadata })
+    .from(campaignAssets)
+    .where(
+      and(
+        eq(campaignAssets.id, assetId),
+        eq(campaignAssets.workspaceId, workspaceId)
+      )
+    )
+    .limit(1);
+
+  const mergedMetadata = {
+    ...(existing[0]?.metadata ?? {}),
+    ...metadata,
+  };
+
   const result = await db
     .update(campaignAssets)
     .set({
-      metadata,
+      metadata: mergedMetadata,
       analysisStatus,
       analyzedAt: new Date(),
     })

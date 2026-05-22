@@ -10,7 +10,7 @@ import { analyzePreflight, type PreflightResult } from "@/server/ai/preflight-an
 import { logger } from "@/lib/logger";
 
 const preflightMetadataSchema = z.object({
-  preflight: z.object({
+  preflightResult: z.object({
     overallScore: z.number().min(0).max(100),
     breakdown: z.object({
       technicalQuality: z.object({ score: z.number(), suggestion: z.string() }),
@@ -56,7 +56,17 @@ export async function GET(
       return apiError("notFound", 404);
     }
 
-    if (!asset.metadata || asset.analysisStatus !== "completed") {
+    // Stale analysis check: if analyzing for > 5 min, treat as failed
+    const isStaleAnalyzing =
+      asset.analysisStatus === "analyzing" &&
+      asset.analyzedAt &&
+      Date.now() - new Date(asset.analyzedAt).getTime() > 5 * 60 * 1000;
+
+    if (isStaleAnalyzing) {
+      return NextResponse.json({ preflight: null, status: "failed" });
+    }
+
+    if (!asset.metadata || (asset.analysisStatus !== "completed" && asset.analysisStatus !== "analyzing")) {
       return NextResponse.json({ preflight: null, status: asset.analysisStatus ?? "pending" });
     }
 
@@ -66,7 +76,7 @@ export async function GET(
     }
 
     return NextResponse.json({
-      preflight: parsed.data.preflight,
+      preflight: parsed.data.preflightResult,
       status: asset.analysisStatus,
       analyzedAt: parsed.data.analyzedAt,
     });
@@ -99,7 +109,13 @@ export async function POST(
       return apiError("notFound", 404);
     }
 
-    if (asset.analysisStatus === "analyzing") {
+    // Race-condition guard + stale check
+    const isStaleAnalyzing =
+      asset.analysisStatus === "analyzing" &&
+      asset.analyzedAt &&
+      Date.now() - new Date(asset.analyzedAt).getTime() > 5 * 60 * 1000;
+
+    if (asset.analysisStatus === "analyzing" && !isStaleAnalyzing) {
       return apiError("analysisInProgress", 429);
     }
 
@@ -107,7 +123,7 @@ export async function POST(
       const parsed = preflightMetadataSchema.safeParse(asset.metadata);
       if (parsed.success) {
         return NextResponse.json({
-          preflight: parsed.data.preflight,
+          preflight: parsed.data.preflightResult,
           status: asset.analysisStatus,
           analyzedAt: parsed.data.analyzedAt,
           cached: true,
@@ -143,7 +159,7 @@ export async function POST(
       });
 
       const metadata = {
-        preflight: result,
+        preflightResult: result,
         analyzedAt: new Date().toISOString(),
       };
 
@@ -156,7 +172,7 @@ export async function POST(
       });
     } catch (error) {
       logger.warn("[preflight.POST] analysis failed", error);
-      await updateAssetMetadata(assetId, workspace.id, {}, "failed");
+      await updateAssetMetadata(assetId, workspace.id, { preflightResult: null }, "failed");
       return apiError("preflightAnalysisFailed", 500);
     }
   } catch (error) {

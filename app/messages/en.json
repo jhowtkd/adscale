@@ -224,6 +224,13 @@
         "label": "Vary format",
         "description": "Adapt the creative to 1:1, 4:5, and 9:16"
       }
+    },
+    "kanban": {
+      "draft": "Draft",
+      "inProgress": "In Progress",
+      "review": "Review",
+      "approved": "Approved",
+      "rejected": "Rejected"
     }
   },
   "briefing": {
@@ -642,6 +649,7 @@
     "plansTab": "Plans",
     "integrationsTab": "Integrations",
     "privacyTab": "Privacy",
+    "creditHistoryTab": "Usage History",
     "managePreferences": "Manage your profile, workspace, and preferences.",
     "brandKit": {
       "title": "Brand Kit",
@@ -862,6 +870,48 @@
     "deleteConfirm": "Are you sure you want to delete this template?",
     "emptyTitle": "No templates yet",
     "emptyDescription": "Save a campaign briefing as a template to reuse it in new campaigns."
+  },
+  "creditHistory": {
+    "title": "Credit Usage History",
+    "subtitle": "Track where your credits were used",
+    "date": "Date",
+    "campaign": "Campaign",
+    "derivation": "Derivation",
+    "type": "Type",
+    "amount": "Amount",
+    "description": "Description",
+    "totalSpent": "Total spent",
+    "remainingCredits": "Remaining credits",
+    "averagePerCampaign": "Average per campaign",
+    "filterDateRange": "Period",
+    "filterCampaign": "Campaign",
+    "thisMonth": "This month",
+    "last3Months": "Last 3 months",
+    "thisYear": "This year",
+    "allTime": "All time",
+    "allCampaigns": "All campaigns",
+    "noTransactions": "No transactions found",
+    "types": {
+      "usage": "Usage",
+      "refund": "Refund",
+      "grant": "Grant",
+      "purchase": "Purchase"
+    },
+    "usageOverTime": "Usage over time"
+  },
+  "analytics": {
+    "approvalRate": "Approval rate",
+    "activeDerivations": "Active derivations",
+    "creditEfficiency": "Credit efficiency",
+    "monthOverMonth": "Month-over-month change",
+    "creditsByMonth": "Credits used per month",
+    "derivationsByStatus": "Derivations by status",
+    "topCampaigns": "Top campaigns",
+    "statusCompleted": "Completed",
+    "statusActive": "Active",
+    "statusFailed": "Failed",
+    "approved": "approved",
+    "noData": "No data available"
   },
   "notifications": {
     "derivationCompleteSubject": "Your derivations are ready",

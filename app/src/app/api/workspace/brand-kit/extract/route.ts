@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { apiError, handleApiError } from "@/lib/api-response";
+import { checkRateLimit } from "@/lib/with-rate-limit";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { extractBrandKitFromImage } from "@/server/ai/brand-kit-extractor";
 
@@ -8,7 +9,13 @@ const MAX_SIZE = 10 * 1024 * 1024;
 
 export async function POST(request: Request) {
   try {
-    await requireWorkspaceAccess(request);
+    const { workspace } = await requireWorkspaceAccess(request);
+
+    const rateLimitResult = checkRateLimit(request, {
+      category: "ai",
+      workspaceId: workspace.id,
+    });
+    if (rateLimitResult) return rateLimitResult;
 
     const contentLengthHeader = request.headers.get("content-length");
     if (contentLengthHeader) {

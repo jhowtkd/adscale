@@ -10,6 +10,7 @@ import {
   usdCurrency,
 } from "./pricing-model";
 import { useBillingPortal, useBillingStatus, useStartCheckout } from "@/lib/hooks/use-billing";
+import { useRouter } from "next/navigation";
 
 const planConfig = {
   starter: { name: "Starter", credits: 30, price: "R$ 29/mês", icon: Zap, color: "var(--text-secondary)" },
@@ -18,6 +19,7 @@ const planConfig = {
 };
 
 export default function BillingTab() {
+  const router = useRouter();
   const { data: billingStatus } = useBillingStatus();
   const portal = useBillingPortal();
   const checkout = useStartCheckout();
@@ -189,33 +191,51 @@ export default function BillingTab() {
               <Line label="Renovação" value={subscription?.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString("pt-BR") : "-"} />
             </div>
             {hasPlan ? (
-              <div className="mt-5 flex gap-3">
+              <>
+                <div className="mt-5 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => portal.mutate()}
+                    disabled={portal.isPending}
+                    className="h-10 flex-1 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] text-sm font-medium text-[var(--text-primary)] transition-all hover:border-[var(--border-medium)] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {portal.isPending ? "Abrindo..." : "Gerenciar cobrança"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => checkout.mutate("growth")}
+                    disabled={checkout.isPending}
+                    className="h-10 flex-1 rounded-md bg-[var(--accent-mint)] text-sm font-medium text-white transition-all hover:bg-[var(--accent-mint-light)] disabled:opacity-60"
+                  >
+                    {checkout.isPending ? "Redirecionando..." : "Fazer upgrade"}
+                  </button>
+                </div>
                 <button
                   type="button"
-                  onClick={() => portal.mutate()}
-                  disabled={portal.isPending}
-                  className="h-10 flex-1 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] text-sm font-medium text-[var(--text-primary)] transition-all hover:border-[var(--border-medium)] disabled:cursor-not-allowed disabled:opacity-60"
+                  onClick={() => router.replace("/settings?tab=creditHistory", { scroll: false })}
+                  className="mt-3 h-10 w-full rounded-md border border-[var(--border-dim)] bg-transparent text-sm font-medium text-[var(--text-secondary)] transition-all hover:text-[var(--text-primary)]"
                 >
-                  {portal.isPending ? "Abrindo..." : "Gerenciar cobrança"}
+                  Ver histórico de uso →
                 </button>
-                <button
-                  type="button"
-                  onClick={() => checkout.mutate("growth")}
-                  disabled={checkout.isPending}
-                  className="h-10 flex-1 rounded-md bg-[var(--accent-mint)] text-sm font-medium text-white transition-all hover:bg-[var(--accent-mint-light)] disabled:opacity-60"
-                >
-                  {checkout.isPending ? "Redirecionando..." : "Fazer upgrade"}
-                </button>
-              </div>
+              </>
             ) : (
-              <button
-                type="button"
-                onClick={() => checkout.mutate("starter")}
-                disabled={checkout.isPending}
-                className="mt-5 h-10 w-full rounded-md bg-[var(--accent-mint)] text-sm font-medium text-white transition-all hover:bg-[var(--accent-mint-light)] disabled:opacity-60"
-              >
-                {checkout.isPending ? "Redirecionando..." : "Começar trial grátis"}
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => checkout.mutate("starter")}
+                  disabled={checkout.isPending}
+                  className="mt-5 h-10 w-full rounded-md bg-[var(--accent-mint)] text-sm font-medium text-white transition-all hover:bg-[var(--accent-mint-light)] disabled:opacity-60"
+                >
+                  {checkout.isPending ? "Redirecionando..." : "Começar trial grátis"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => router.replace("/settings?tab=creditHistory", { scroll: false })}
+                  className="mt-3 h-10 w-full rounded-md border border-[var(--border-dim)] bg-transparent text-sm font-medium text-[var(--text-secondary)] transition-all hover:text-[var(--text-primary)]"
+                >
+                  Ver histórico de uso →
+                </button>
+              </>
             )}
           </div>
 

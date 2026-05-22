@@ -294,7 +294,7 @@ export default function BrandKitTab() {
         <input
           ref={extractInputRef}
           type="file"
-          accept="image/png,image/jpeg,image/webp,application/pdf"
+          accept="image/png,image/jpeg,image/webp"
           onChange={handleExtractFile}
           className="hidden"
         />

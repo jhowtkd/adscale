@@ -15,6 +15,7 @@ import {
   CreditUsagePanel,
   ActivityFeedPanel,
   OnboardingTour,
+  AnalyticsSection,
 } from "@/components/dashboard";
 import { useTranslations } from "next-intl";
 
@@ -90,6 +91,7 @@ export default function DashboardPage() {
         campaignsChange={campaignsChange}
         derivationsChange={derivationsChange}
       />
+      <AnalyticsSection campaigns={campaigns} isLoading={isCampaignsLoading} />
       <div data-tour-step="2">
         <QuickActionsGrid onRestylingClick={() => setShowRestylingModal(true)} />
       </div>

@@ -190,7 +190,7 @@ describe("derivationJob", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     sharpOperations.length = 0;
-    mockGetBrandKitByWorkspace.mockResolvedValue(null);
+    mockGetBrandKitByWorkspace.mockResolvedValue(null as any);
     mockGetCompetitorAnalysesByCampaign.mockResolvedValue([]);
   });
 

@@ -62,7 +62,23 @@ export async function extractBrandKitFromImage(
   }
 
   const jsonString = raw.replace(/```(?:json)?\s*([\s\S]*?)\s*```/, "$1").trim();
-  const parsed = JSON.parse(jsonString);
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(jsonString);
+  } catch {
+    // Fallback: try to extract the first JSON object from the raw text
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        parsed = JSON.parse(jsonMatch[0]);
+      } catch {
+        throw new Error("Failed to parse brand kit extraction response. The AI returned invalid JSON. Please try again.");
+      }
+    } else {
+      throw new Error("Failed to parse brand kit extraction response. The AI returned invalid JSON. Please try again.");
+    }
+  }
 
   const validated = extractionSchema.safeParse(parsed);
   if (!validated.success) {

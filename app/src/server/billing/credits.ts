@@ -15,6 +15,7 @@ import { db } from "@/server/db";
 import { user } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { logger } from "@/lib/logger";
+import { createCreditTransaction } from "@/server/repositories/credit-transactions";
 
 export const CREDIT_COSTS = {
   creative_plan: 1,
@@ -82,6 +83,7 @@ export async function recordUsage(input: {
   idempotencyKey: string;
   amount?: number;
   metadata?: Record<string, unknown>;
+  userId?: string;
 }) {
   const existing = await getUsageByIdempotencyKey(
     input.workspaceId,
@@ -115,6 +117,27 @@ export async function recordUsage(input: {
     },
     input.idempotencyKey
   );
+
+  if (input.userId) {
+    try {
+      const meta = input.metadata ?? {};
+      await createCreditTransaction({
+        userId: input.userId,
+        workspaceId: input.workspaceId,
+        campaignId: typeof meta.campaignId === "string" ? meta.campaignId : null,
+        derivationId: typeof meta.sourceDerivationId === "string"
+          ? meta.sourceDerivationId
+          : typeof meta.derivationId === "string"
+            ? meta.derivationId
+            : null,
+        amount: -check.amount,
+        type: "usage",
+        description: input.action,
+      });
+    } catch (txErr) {
+      logger.warn("[recordUsage] failed to create credit transaction", txErr);
+    }
+  }
 
   const newBalance = check.balance - check.amount;
   if (newBalance < 10) {

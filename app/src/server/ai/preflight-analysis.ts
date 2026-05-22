@@ -94,9 +94,9 @@ async function analyzeTechnical(
   const actualWidth = metadata.width ?? 0;
   const actualHeight = metadata.height ?? 0;
 
-  // Estimate contrast using standard deviation of first channel
-  // Higher std = higher contrast (more variation between light and dark)
-  const luminanceStd = stats.channels[0]?.stdev ?? 0;
+  // Estimate contrast using luminance standard deviation (grayscale)
+  const grayStats = await sharp(buffer).greyscale().stats();
+  const luminanceStd = grayStats.channels[0]?.stdev ?? 0;
   // Normalize roughly: sRGB std max is around 128, so divide by 128
   const estimatedContrast = Math.min(1, Math.max(0, luminanceStd / 128));
 
@@ -119,6 +119,7 @@ async function analyzeTechnical(
 }
 
 function simplifyRatio(w: number, h: number): string {
+  if (w === 0 || h === 0) return "unknown";
   const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
   const d = gcd(w, h);
   return `${w / d}:${h / d}`;
@@ -206,7 +207,12 @@ async function analyzeCreative(
   brief?: CampaignBrief,
   locale?: string
 ): Promise<Omit<PreflightResult, "technical">> {
-  const base64 = buffer.toString("base64");
+  // Resize to reasonable max dimension before sending to OpenAI (max 20MB, tokens scale with size)
+  const resized = await sharp(buffer)
+    .resize(2048, 2048, { fit: "inside", withoutEnlargement: true })
+    .toBuffer();
+
+  const base64 = resized.toString("base64");
   const dataUrl = `data:${mimeType};base64,${base64}`;
 
   const prompt = buildPreflightUserPrompt(technical, brief);
@@ -313,12 +319,22 @@ function normalizePreflightResult(raw: unknown): Omit<PreflightResult, "technica
 // Public API
 // ============================================
 
+const ALLOWED_PREFLIGHT_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
+
 export async function analyzePreflight(input: PreflightInput): Promise<PreflightResult> {
+  if (!ALLOWED_PREFLIGHT_TYPES.includes(input.mimeType)) {
+    throw new Error(`Unsupported file type for preflight analysis: ${input.mimeType}`);
+  }
+
   const technical = await analyzeTechnical(
     input.assetBuffer,
     input.claimedWidth,
     input.claimedHeight
   );
+
+  if (technical.actualWidth < 100 || technical.actualHeight < 100) {
+    throw new Error(`Image dimensions too small for meaningful analysis: ${technical.actualWidth}x${technical.actualHeight}`);
+  }
 
   const creative = await analyzeCreative(
     input.assetBuffer,

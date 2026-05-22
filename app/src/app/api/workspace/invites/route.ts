@@ -4,6 +4,7 @@ import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getSessionFromHeaders } from "@/server/auth/session";
 import { inviteMember, acceptInvite } from "@/server/auth/team";
+import { getPendingInvitations, cancelInvitation } from "@/server/repositories/invitation";
 import { sendInviteEmail } from "@/server/services/email";
 
 const createInviteSchema = z.object({
@@ -14,6 +15,16 @@ const createInviteSchema = z.object({
 const acceptInviteSchema = z.object({
   token: z.string().min(1),
 });
+
+export async function GET(request: Request) {
+  try {
+    const { workspace } = await requireWorkspaceAccess(request);
+    const invites = await getPendingInvitations(workspace.id);
+    return NextResponse.json({ invites });
+  } catch (error) {
+    return handleApiError(error, "workspace.invites.GET");
+  }
+}
 
 export async function POST(request: Request) {
   try {
@@ -72,5 +83,27 @@ export async function PATCH(request: Request) {
       return apiError("inviteEmailMismatch", 403);
     }
     return handleApiError(error, "workspace.invites.PATCH");
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const { workspace } = await requireWorkspaceAccess(request);
+    const url = new URL(request.url);
+    const inviteId = url.searchParams.get("id");
+
+    if (!inviteId) {
+      return apiError("invalidInput", 400);
+    }
+
+    const canceled = await cancelInvitation(inviteId, workspace.id);
+
+    if (!canceled) {
+      return apiError("notFound", 404);
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return handleApiError(error, "workspace.invites.DELETE");
   }
 }

@@ -60,27 +60,25 @@ export default function UploadStep({ campaignId, onContinue, onGeneratePreview, 
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPreflight, setShowPreflight] = useState(true);
+  const [latestAssetId, setLatestAssetId] = useState<string | null>(null);
   const t = useTranslations("upload");
-  const tPreflight = useTranslations("preflight");
   const uploadAsset = useUploadAsset(campaignId);
   const { data: existingAssets = [] } = useCampaignAssets(campaignId);
   const existingAsset = uploadedFile ? null : existingAssets[0] ?? null;
   const hasUploadedCreative = Boolean(uploadedFile || existingAsset);
 
-  const activeAssetId = uploadedFile
-    ? null
-    : existingAsset?.id ?? null;
+  const activeAssetId = latestAssetId ?? existingAsset?.id ?? null;
 
   const preflightQuery = usePreflightScore(activeAssetId, campaignId);
   const analyzePreflight = useAnalyzePreflight();
 
-  // Auto-trigger preflight when a new asset appears
+  // Auto-trigger preflight when a new asset appears (only when query is idle, not on every fetch)
   useEffect(() => {
     if (!showPreflight) return;
-    if (activeAssetId && !preflightQuery.data && preflightQuery.status === "pending") {
+    if (activeAssetId && !preflightQuery.data && preflightQuery.fetchStatus === "idle") {
       analyzePreflight.mutate({ campaignId, assetId: activeAssetId });
     }
-  }, [activeAssetId, showPreflight, campaignId, preflightQuery.data, preflightQuery.status, analyzePreflight]);
+  }, [activeAssetId, showPreflight, campaignId, preflightQuery.data, preflightQuery.fetchStatus, analyzePreflight]);
 
   const tips = [
     t("tipHighRes"),
@@ -110,6 +108,9 @@ export default function UploadStep({ campaignId, onContinue, onGeneratePreview, 
         preview: image.preview,
         dimensions: { width: image.width, height: image.height },
       });
+      if (asset?.id) {
+        setLatestAssetId(asset.id);
+      }
       // Trigger preflight after successful upload
       if (showPreflight && asset?.id) {
         analyzePreflight.mutate({ campaignId, assetId: asset.id });
@@ -297,11 +298,7 @@ export default function UploadStep({ campaignId, onContinue, onGeneratePreview, 
                 <div className="mt-3">
                   <PreflightScoreCard
                     result={preflightQuery.data?.preflight ?? null}
-                    status={
-                      analyzePreflight.isPending
-                        ? "analyzing"
-                        : preflightQuery.data?.status ?? "pending"
-                    }
+                    status={preflightQuery.data?.status ?? "pending"}
                     onReanalyze={() => analyzePreflight.mutate({ campaignId, assetId: activeAssetId })}
                   />
                 </div>

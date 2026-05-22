@@ -145,6 +145,7 @@ export async function POST(
         .map((job) => `${job.variantIndex}:${job.ctaText ?? ""}:${job.format}`)
         .join("|")}`,
       metadata: { campaignId, count: jobsToCreate.length, preview: isPreview },
+      userId: user.id,
     });
     if (creditError) return creditError;
 

@@ -10,6 +10,7 @@ import CampaignsBulkActionsBar from "@/components/campaigns/CampaignsBulkActions
 import CampaignsFilterToolbar from "@/components/campaigns/CampaignsFilterToolbar";
 import CampaignsListView from "@/components/campaigns/CampaignsListView";
 import CampaignsGridView from "@/components/campaigns/CampaignsGridView";
+import KanbanBoard from "@/components/campaigns/KanbanBoard";
 import CampaignsPagination from "@/components/campaigns/CampaignsPagination";
 import DeleteCampaignDialog from "@/components/campaigns/DeleteCampaignDialog";
 import TableSkeleton from "@/components/campaigns/TableSkeleton";
@@ -152,8 +153,10 @@ export default function CampaignsListPage() {
             onDelete={setDeleteTarget}
             onSaveAsTemplate={setSaveTemplateCampaign}
           />
-        ) : (
+        ) : viewMode === "grid" ? (
           <CampaignsGridView campaigns={campaigns} />
+        ) : (
+          <KanbanBoard campaigns={campaigns} />
         )}
       </div>
 

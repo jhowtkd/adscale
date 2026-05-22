@@ -7,13 +7,14 @@ import {
   getCompetitorAnalysesByCampaign,
   createCompetitorAnalysis,
 } from "@/server/repositories/competitor-analysis";
+import { isWorkspaceAssetKey } from "@/server/repositories/asset";
 import { getPublicUrl } from "@/server/storage/r2";
 
 const createSchema = z.object({
   name: z.string().min(1),
   platform: z.string().optional().nullable(),
   website: z.string().optional().nullable(),
-  screenshotKeys: z.array(z.string()).optional(),
+  screenshotKeys: z.array(z.string()).max(10).optional(),
   strengths: z.array(z.string()).optional(),
   weaknesses: z.array(z.string()).optional(),
   differentiators: z.array(z.string()).optional(),
@@ -67,6 +68,19 @@ export async function POST(
     }
 
     const data = parsed.data;
+
+    // Validate screenshot keys belong to the workspace
+    if (data.screenshotKeys && data.screenshotKeys.length > 0) {
+      const validations = await Promise.all(
+        data.screenshotKeys.map((key) => isWorkspaceAssetKey(workspace.id, key))
+      );
+      const invalidIndex = validations.findIndex((v) => !v);
+      if (invalidIndex !== -1) {
+        return apiError("invalidInput", 400, {
+          detail: `Screenshot key ${invalidIndex + 1} does not belong to this workspace`,
+        });
+      }
+    }
 
     const analysis = await createCompetitorAnalysis(workspace.id, {
       campaignId,

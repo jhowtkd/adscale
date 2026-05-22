@@ -45,6 +45,7 @@ import {
   type DifferentiationStrategy,
 } from "@/lib/hooks/use-competitor-analysis";
 import { apiFetch } from "@/lib/api-client";
+import { useAppStore } from "@/lib/store";
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -113,6 +114,7 @@ export default function CompetitorAnalysisSection({
   const analyzeScreenshots = useAnalyzeCompetitorScreenshots();
   const generateStrategy = useGenerateDifferentiationStrategy();
   const deleteCompetitor = useDeleteCompetitorAnalysis();
+  const addToast = useAppStore((s) => s.addToast);
 
   const [expanded, setExpanded] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -311,7 +313,8 @@ export default function CompetitorAnalysisSection({
       const result = await generateStrategy.mutateAsync(campaignId);
       setStrategy(result);
     } catch (err) {
-      // handled by mutation error state
+      const message = err instanceof Error ? err.message : t("strategyFailed");
+      addToast("error", message);
     } finally {
       setIsGeneratingStrategy(false);
     }

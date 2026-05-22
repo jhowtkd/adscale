@@ -10,6 +10,7 @@ import WorkspaceTab from "@/components/settings/WorkspaceTab";
 import TeamTab from "@/components/settings/TeamTab";
 import BrandKitTab from "@/components/settings/BrandKitTab";
 import BillingTab from "@/components/settings/BillingTab";
+import CreditHistoryTab from "@/components/settings/CreditHistoryTab";
 import PlansTab from "@/components/settings/PlansTab";
 import IntegrationsTab from "@/components/settings/IntegrationsTab";
 import PrivacyTab from "@/components/settings/PrivacyTab";
@@ -22,6 +23,7 @@ const tabs = [
   { id: "brandKit", labelKey: "brandKitTab" },
   { id: "team", labelKey: "teamTab" },
   { id: "billing", labelKey: "billingTab" },
+  { id: "creditHistory", labelKey: "creditHistoryTab" },
   { id: "plans", labelKey: "plansTab" },
   { id: "integrations", labelKey: "integrationsTab" },
   { id: "privacy", labelKey: "privacyTab" },
@@ -100,6 +102,7 @@ export default function SettingsPage() {
         {activeTab === "brandKit" && <BrandKitTab />}
         {activeTab === "team" && <TeamTab />}
         {activeTab === "billing" && <BillingTab />}
+        {activeTab === "creditHistory" && <CreditHistoryTab />}
         {activeTab === "plans" && <PlansTab />}
         {activeTab === "integrations" && <IntegrationsTab />}
         {activeTab === "privacy" && <PrivacyTab />}

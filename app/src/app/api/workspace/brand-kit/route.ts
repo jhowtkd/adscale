@@ -7,7 +7,11 @@ import {
   upsertBrandKit,
   deleteBrandKit,
 } from "@/server/db/repositories/brand-kit";
+import { deleteObject } from "@/server/storage/r2";
 import { getPublicUrl } from "@/server/storage/r2";
+import { db } from "@/server/db";
+import { clientReferences } from "@/server/db/schema";
+import { eq, and } from "drizzle-orm";
 
 const brandKitSchema = z.object({
   name: z.string().trim().min(1).max(120).optional(),
@@ -59,6 +63,26 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
   try {
     const { workspace } = await requireWorkspaceAccess(request);
+
+    // Delete logo from R2 and client_references before clearing brand kit
+    const existing = await getBrandKitByWorkspace(workspace.id);
+    if (existing?.logoAssetKey) {
+      try {
+        await deleteObject(existing.logoAssetKey);
+      } catch {
+        // Ignore R2 deletion errors (file may already be gone)
+      }
+      await db
+        .delete(clientReferences)
+        .where(
+          and(
+            eq(clientReferences.workspaceId, workspace.id),
+            eq(clientReferences.assetKey, existing.logoAssetKey),
+            eq(clientReferences.kind, "logo")
+          )
+        );
+    }
+
     const brandKit = await deleteBrandKit(workspace.id);
     return NextResponse.json({
       brandKit,

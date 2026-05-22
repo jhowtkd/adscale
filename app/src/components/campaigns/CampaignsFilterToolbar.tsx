@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, X, List, LayoutGrid } from "lucide-react";
+import { Search, X, List, LayoutGrid, Columns3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import {
@@ -154,6 +154,17 @@ export default function CampaignsFilterToolbar({
               )}
             >
               <LayoutGrid size={16} />
+            </button>
+            <button
+              onClick={() => onViewModeChange("board")}
+              className={cn(
+                "flex items-center justify-center h-7 w-7 rounded-md transition-all duration-200",
+                viewMode === "board"
+                  ? "bg-[var(--surface-base)] text-[var(--accent-mint)] shadow-sm"
+                  : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+              )}
+            >
+              <Columns3 size={16} />
             </button>
           </div>
         </div>

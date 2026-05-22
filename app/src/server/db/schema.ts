@@ -130,6 +130,7 @@ export const workspaceInvites = adscaleSchema.table(
     email: text("email").notNull(),
     role: text("role").notNull().default("member"),
     token: text("token").notNull().unique(),
+    status: text("status").notNull().default("pending"),
     expiresAt: timestamp("expires_at", { mode: "date" }).notNull(),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     createdBy: text("created_by")
@@ -638,5 +639,32 @@ export const shareLinks = adscaleSchema.table(
     index("share_links_token_idx").on(table.token),
     index("share_links_campaign_id_idx").on(table.campaignId),
     index("share_links_workspace_id_idx").on(table.workspaceId),
+  ]
+);
+
+export const creditTransactions = adscaleSchema.table(
+  "credit_transactions",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    campaignId: uuid("campaign_id").references(() => campaigns.id, { onDelete: "set null" }),
+    derivationId: uuid("derivation_id").references(() => derivations.id, { onDelete: "set null" }),
+    amount: integer("amount").notNull(),
+    type: text("type").notNull(),
+    description: text("description"),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("credit_transactions_workspace_id_idx").on(table.workspaceId),
+    index("credit_transactions_user_id_idx").on(table.userId),
+    index("credit_transactions_campaign_id_idx").on(table.campaignId),
+    index("credit_transactions_created_at_idx").on(table.createdAt),
   ]
 );

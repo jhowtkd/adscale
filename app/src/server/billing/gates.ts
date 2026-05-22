@@ -9,6 +9,7 @@ export async function spendCreditsOrApiError(input: {
   idempotencyKey: string;
   amount?: number;
   metadata?: Record<string, unknown>;
+  userId?: string;
 }): Promise<NextResponse | null> {
   const result = await recordUsage(input);
 
