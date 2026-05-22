@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logger } from "@/lib/logger";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
@@ -105,7 +106,7 @@ export async function POST(
 
         queued.push({ id: child.id, format });
       } catch (sendErr) {
-        console.error(
+        logger.error(
           `[delivery-package POST] event send FAILED derivationId=${child.id}`,
           sendErr
         );

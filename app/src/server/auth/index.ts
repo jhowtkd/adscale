@@ -30,7 +30,20 @@ export const auth = betterAuth({
       await sendPasswordResetMessage({ to: user.email, url });
     },
   },
-  socialProviders: {},
+  socialProviders: {
+    google: env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
+      ? {
+          clientId: env.GOOGLE_CLIENT_ID,
+          clientSecret: env.GOOGLE_CLIENT_SECRET,
+        }
+      : undefined,
+    github: env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET
+      ? {
+          clientId: env.GITHUB_CLIENT_ID,
+          clientSecret: env.GITHUB_CLIENT_SECRET,
+        }
+      : undefined,
+  },
   emailVerification: {
     sendOnSignUp: true,
     sendOnSignIn: true,

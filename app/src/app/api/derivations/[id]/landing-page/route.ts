@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logger } from "@/lib/logger";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getDerivationById } from "@/server/repositories/derivation";
@@ -119,7 +120,7 @@ export async function POST(
         expiresAt,
       });
     } catch (innerError) {
-      console.error("[landing-page POST] generation failed", innerError);
+      logger.error("[landing-page POST] generation failed", innerError);
       await failLandingPage({
         id: landingPage.id,
         workspaceId: workspace.id,

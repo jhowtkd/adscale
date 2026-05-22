@@ -23,6 +23,7 @@ export const user = adscaleSchema.table("user", {
   emailVerified: boolean("email_verified").notNull().default(false),
   image: text("image"),
   locale: text("locale").notNull().default("pt-BR"),
+  onboardingCompletedAt: timestamp("onboarding_completed_at", { mode: "date" }),
   createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
 });

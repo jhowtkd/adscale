@@ -456,7 +456,12 @@
       "number": "Number",
       "special": "Special character"
     },
-    "passwordHint": "Use 8+ characters with a mix of letters, numbers & symbols"
+    "passwordHint": "Use 8+ characters with a mix of letters, numbers & symbols",
+    "orContinueWith": "or continue with",
+    "socialConsentPrefix": "By continuing, you agree to our",
+    "terms": "Terms of Use",
+    "and": "and",
+    "privacy": "Privacy Policy"
   },
   "settings": {
     "title": "Settings",
@@ -680,6 +685,19 @@
     "confirm": "Generate selected formats",
     "cancel": "Cancel",
     "generating": "Generating..."
+  },
+  "onboarding": {
+    "skip": "Skip tour",
+    "step": "Step",
+    "back": "Back",
+    "next": "Next",
+    "finish": "Get started",
+    "step1Title": "Welcome to ADScale! 👋",
+    "step1Desc": "This is your dashboard. Track campaigns, credits, and quick actions here. Let's create your first campaign?",
+    "step2Title": "Quick actions",
+    "step2Desc": "Upload a base creative to generate AI variations, use restyling for new styles, or browse your library.",
+    "step3Title": "Track everything",
+    "step3Desc": "Your recent campaigns appear here. Track derivation status, approve creatives, and export delivery packages."
   },
   "template": {
     "title": "Templates",

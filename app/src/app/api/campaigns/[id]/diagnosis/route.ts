@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logger } from "@/lib/logger";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
@@ -90,7 +91,7 @@ export async function POST(
 
       return NextResponse.json({ diagnosis: result.diagnosis, source: result.source });
     } catch (error) {
-      console.warn("[diagnosis.POST] analysis failed", error);
+      logger.warn("[diagnosis.POST] analysis failed", error);
       await updateCampaign(id, workspace.id, {
         creativeDiagnosisStatus: "failed",
       });

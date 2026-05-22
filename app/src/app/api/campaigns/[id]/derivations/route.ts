@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logger } from "@/lib/logger";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { eq, and, sql } from "drizzle-orm";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
@@ -163,7 +164,7 @@ export async function POST(
         isPreview,
       });
       created.push(derivation);
-      console.log(`[derivations POST] created derivationId=${derivation.id} mode=${generationMode} index=${job.variantIndex} format=${job.format} isPreview=${isPreview}`);
+      logger.info(`[derivations POST] created derivationId=${derivation.id} mode=${generationMode} index=${job.variantIndex} format=${job.format} isPreview=${isPreview}`);
 
       try {
         await inngest.send({
@@ -183,10 +184,10 @@ export async function POST(
             }),
           },
         });
-        console.log(`[derivations POST] event sent derivationId=${derivation.id}`);
+        logger.info(`[derivations POST] event sent derivationId=${derivation.id}`);
         queuedCount++;
       } catch (sendErr) {
-        console.error(`[derivations POST] event send FAILED derivationId=${derivation.id}`, sendErr);
+        logger.error(`[derivations POST] event send FAILED derivationId=${derivation.id}`, sendErr);
         await updateDerivationStatus(derivation.id, workspace.id, "failed");
       }
     }

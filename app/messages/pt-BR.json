@@ -459,7 +459,12 @@
       "number": "Número",
       "special": "Caractere especial"
     },
-    "passwordHint": "Use 8+ caracteres com uma mistura de letras, números e símbolos"
+    "passwordHint": "Use 8+ caracteres com uma mistura de letras, números e símbolos",
+    "orContinueWith": "ou continue com",
+    "socialConsentPrefix": "Ao continuar, você concorda com os",
+    "terms": "Termos de Uso",
+    "and": "e a",
+    "privacy": "Política de Privacidade"
   },
   "settings": {
     "title": "Configurações",
@@ -684,6 +689,19 @@
     "confirm": "Gerar formatos selecionados",
     "cancel": "Cancelar",
     "generating": "Gerando..."
+  },
+  "onboarding": {
+    "skip": "Pular tour",
+    "step": "Passo",
+    "back": "Voltar",
+    "next": "Próximo",
+    "finish": "Começar",
+    "step1Title": "Bem-vindo ao ADScale! 👋",
+    "step1Desc": "Este é seu dashboard. Aqui você acompanha campanhas, créditos e ações rápidas. Vamos criar sua primeira campanha?",
+    "step2Title": "Ações rápidas",
+    "step2Desc": "Envie um criativo base para gerar variações com IA, use a restilização para novos estilos, ou navegue na sua biblioteca.",
+    "step3Title": "Acompanhe tudo",
+    "step3Desc": "Suas campanhas recentes aparecem aqui. Acompanhe o status de derivações, aprove peças e exporte pacotes de entrega."
   },
   "template": {
     "title": "Templates",

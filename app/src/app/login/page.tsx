@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import SocialAuthButtons from "@/components/auth/SocialAuthButtons";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -87,6 +88,8 @@ export default function LoginPage() {
               {loading ? t("signingIn") : t("signIn")}
             </Button>
           </form>
+
+          <SocialAuthButtons mode="login" />
 
           <p className="text-center text-sm text-muted-foreground">
             {t("noAccount")}{" "}

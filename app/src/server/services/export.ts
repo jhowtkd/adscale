@@ -1,4 +1,5 @@
 import JSZip from "jszip";
+import { logger } from "@/lib/logger";
 import sharp from "sharp";
 import {
   getPresignedDownloadUrl,
@@ -89,7 +90,7 @@ export async function exportAllApproved(
   for (let i = 0; i < items.length; i++) {
     const d = items[i];
     if (!d.outputKey) {
-      console.warn(`[exportAllApproved] skipping derivation without outputKey id=${d.id}`);
+      logger.warn(`[exportAllApproved] skipping derivation without outputKey id=${d.id}`);
       continue;
     }
 
@@ -108,7 +109,7 @@ export async function exportAllApproved(
       folder.file(fileName, finalBuffer);
       addedFiles++;
     } catch (error) {
-      console.error(`[exportAllApproved] failed to add derivation id=${d.id} key=${d.outputKey}`, error);
+      logger.error(`[exportAllApproved] failed to add derivation id=${d.id} key=${d.outputKey}`, error);
     }
   }
 

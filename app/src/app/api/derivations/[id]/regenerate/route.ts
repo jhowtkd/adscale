@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logger } from "@/lib/logger";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { getTranslations } from "next-intl/server";
@@ -80,7 +81,7 @@ export async function POST(
         },
       });
     } catch (sendErr) {
-      console.error(
+      logger.error(
         `[regenerate POST] event send FAILED derivationId=${newDerivation.id}`,
         sendErr
       );

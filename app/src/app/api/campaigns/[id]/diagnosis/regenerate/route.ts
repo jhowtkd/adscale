@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logger } from "@/lib/logger";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCampaignById, updateCampaign } from "@/server/repositories/campaign";
@@ -70,7 +71,7 @@ export async function POST(
 
       return NextResponse.json({ diagnosis: result.diagnosis, source: "regenerated" });
     } catch (error) {
-      console.warn("[diagnosis.regenerate.POST] analysis failed", error);
+      logger.warn("[diagnosis.regenerate.POST] analysis failed", error);
       await updateCampaign(id, workspace.id, {
         creativeDiagnosisStatus: "failed",
       });

@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import SocialAuthButtons from "@/components/auth/SocialAuthButtons";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -128,6 +129,8 @@ export default function SignupPage() {
               {loading ? t("creatingAccount") : t("signUp")}
             </Button>
           </form>
+
+          <SocialAuthButtons mode="signup" />
 
           <p className="text-center text-sm text-muted-foreground">
             {t("hasAccount")}{" "}

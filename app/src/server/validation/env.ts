@@ -28,6 +28,10 @@ export const envSchema = z.object({
   STRIPE_SCALE_PRICE_ID: z.string().startsWith("price_"),
   STRIPE_SUCCESS_URL: z.string().url(),
   STRIPE_CANCEL_URL: z.string().url(),
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  GITHUB_CLIENT_ID: z.string().optional(),
+  GITHUB_CLIENT_SECRET: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

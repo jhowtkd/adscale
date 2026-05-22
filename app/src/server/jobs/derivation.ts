@@ -1,4 +1,5 @@
 import { inngest } from "./client";
+import { logger } from "@/lib/logger";
 import { db } from "../db";
 import { derivations } from "../db/schema";
 import { eq } from "drizzle-orm";
@@ -131,14 +132,14 @@ export async function scoreCompletedDerivation(
       });
       await updateDerivationScore(derivationId, workspaceId, visualScore);
     } catch (error) {
-      console.warn("[generate-and-store-output] creative visual scoring failed", error);
+      logger.warn("[generate-and-store-output] creative visual scoring failed", error);
       await updateDerivationScore(derivationId, workspaceId, {
         ...heuristicScore,
         scoreStatus: "failed",
       });
     }
   } catch (error) {
-    console.warn("[generate-and-store-output] creative scoring failed", error);
+    logger.warn("[generate-and-store-output] creative scoring failed", error);
   }
 }
 
@@ -150,7 +151,7 @@ export const derivationJob = inngest.createFunction(
       const originalEvent = event.data.event;
       const { derivationId, campaignId, workspaceId } = originalEvent.data;
       const message = error instanceof Error ? error.message : "Unknown error";
-      console.error(`[Inngest onFailure] derivationId=${derivationId} error=${message}`);
+      logger.error(`[Inngest onFailure] derivationId=${derivationId} error=${message}`);
       await db
         .update(derivations)
         .set({
@@ -165,7 +166,7 @@ export const derivationJob = inngest.createFunction(
   { event: "derivation.generate" },
   async ({ event, step }) => {
     const { derivationId, campaignId, workspaceId, locale, generationMode, variantIndex, ctaText, format, isPreview } = event.data;
-    console.log(`[derivationJob] START derivationId=${derivationId} campaignId=${campaignId} locale=${locale ?? "default"}`);
+    logger.info(`[derivationJob] START derivationId=${derivationId} campaignId=${campaignId} locale=${locale ?? "default"}`);
 
     // Idempotency check: if already completed, skip entirely
     const existing = await step.run("check-idempotency", async () => {
@@ -176,13 +177,13 @@ export const derivationJob = inngest.createFunction(
       return row[0] ?? null;
     });
     if (existing?.outputKey) {
-      console.log(`[derivationJob] SKIP derivationId=${derivationId} already has outputKey=${existing.outputKey}`);
+      logger.info(`[derivationJob] SKIP derivationId=${derivationId} already has outputKey=${existing.outputKey}`);
       return { success: true, derivationId, outputKey: existing.outputKey, skipped: true };
     }
 
     // 1. Update status to processing
     await step.run("mark-processing", async () => {
-      console.log(`[mark-processing] derivationId=${derivationId}`);
+      logger.info(`[mark-processing] derivationId=${derivationId}`);
       await db
         .update(derivations)
         .set({ status: "processing", updatedAt: new Date() })
@@ -193,7 +194,7 @@ export const derivationJob = inngest.createFunction(
     const { campaign, plan, asset, derivation, parentDerivation } = await step.run(
       "fetch-context",
       async () => {
-        console.log(`[fetch-context] derivationId=${derivationId}`);
+        logger.info(`[fetch-context] derivationId=${derivationId}`);
         const derivation = await getDerivationById(derivationId, workspaceId);
         if (!derivation) {
           throw new Error("Derivation not found");
@@ -216,7 +217,7 @@ export const derivationJob = inngest.createFunction(
           }
         }
 
-        console.log(`[fetch-context] plan=${plan?.id ?? "none"} asset=${asset?.key ?? "none"} parent=${parentDerivation?.id ?? "none"}`);
+        logger.info(`[fetch-context] plan=${plan?.id ?? "none"} asset=${asset?.key ?? "none"} parent=${parentDerivation?.id ?? "none"}`);
         return { derivation, campaign, plan, asset, parentDerivation };
       }
     );
@@ -226,7 +227,7 @@ export const derivationJob = inngest.createFunction(
       const ids = campaign.selectedReferenceIds ?? [];
       if (ids.length === 0) return [];
       const refs = await getClientReferencesByIds(workspaceId, ids);
-      console.log(`[fetch-client-references] loaded ${refs.length} references`);
+      logger.info(`[fetch-client-references] loaded ${refs.length} references`);
       return refs.map((r) => ({
         id: r.id,
         kind: r.kind as "style" | "product" | "layout" | "logo" | "negative" | "other",
@@ -249,15 +250,15 @@ export const derivationJob = inngest.createFunction(
         parentDerivation?.outputKey;
 
       if (usesParentOutput) {
-        console.log(`[generate-and-store-output] downloading parent output key=${parentDerivation!.outputKey}`);
+        logger.info(`[generate-and-store-output] downloading parent output key=${parentDerivation!.outputKey}`);
         referenceBuffer = await downloadBuffer(parentDerivation!.outputKey!);
         referenceMimeType = "image/png";
-        console.log(`[generate-and-store-output] downloaded ${referenceBuffer.length} bytes from parent`);
+        logger.info(`[generate-and-store-output] downloaded ${referenceBuffer.length} bytes from parent`);
       } else if (asset) {
-        console.log(`[generate-and-store-output] downloading asset key=${asset.key}`);
+        logger.info(`[generate-and-store-output] downloading asset key=${asset.key}`);
         referenceBuffer = await downloadBuffer(asset.key);
         referenceMimeType = asset.type;
-        console.log(`[generate-and-store-output] downloaded ${referenceBuffer.length} bytes`);
+        logger.info(`[generate-and-store-output] downloaded ${referenceBuffer.length} bytes`);
       }
 
       if (derivation.parentId && !parentDerivation?.outputKey && effectiveGenerationMode === "format_adaptation") {
@@ -279,7 +280,7 @@ export const derivationJob = inngest.createFunction(
         packageSource: usesParentOutput ? "approved_derivation" : "campaign_asset",
         clientReferences,
       });
-      console.log(`[generate-and-store-output] model=${env.OPENAI_IMAGE_MODEL} hasAsset=${!!asset} locale=${locale ?? "default"}`);
+      logger.info(`[generate-and-store-output] model=${env.OPENAI_IMAGE_MODEL} hasAsset=${!!asset} locale=${locale ?? "default"}`);
 
       let result: OpenAI.Images.Image;
 
@@ -316,7 +317,7 @@ export const derivationJob = inngest.createFunction(
         if (!first) {
           throw new Error("No image data returned from OpenAI");
         }
-        console.log(`[generate-and-store-output] restyling edit success`);
+        logger.info(`[generate-and-store-output] restyling edit success`);
         result = first;
       } else if (referenceBuffer && referenceMimeType) {
         // Try edit mode first (works for art_variation and format_adaptation)
@@ -340,12 +341,12 @@ export const derivationJob = inngest.createFunction(
           if (!first) {
             throw new Error("No image data returned from OpenAI");
           }
-          console.log(`[generate-and-store-output] edit success mode=${effectiveGenerationMode} url=${first.url ? "yes" : "no"} b64=${first.b64_json ? "yes" : "no"}`);
+          logger.info(`[generate-and-store-output] edit success mode=${effectiveGenerationMode} url=${first.url ? "yes" : "no"} b64=${first.b64_json ? "yes" : "no"}`);
           result = first;
         } catch (editErr) {
           // Fallback to generate for format_adaptation if edit fails
           if (effectiveGenerationMode === "format_adaptation") {
-            console.warn(`[generate-and-store-output] edit failed for format_adaptation, falling back to generate:`, editErr);
+            logger.warn(`[generate-and-store-output] edit failed for format_adaptation, falling back to generate:`, editErr);
             const response = await withTimeout(
               openai.images.generate({
                 model: env.OPENAI_IMAGE_MODEL,
@@ -360,7 +361,7 @@ export const derivationJob = inngest.createFunction(
             if (!first) {
               throw new Error("No image data returned from OpenAI fallback");
             }
-            console.log(`[generate-and-store-output] fallback generate success`);
+            logger.info(`[generate-and-store-output] fallback generate success`);
             result = first;
           } else {
             throw editErr;
@@ -382,7 +383,7 @@ export const derivationJob = inngest.createFunction(
         if (!first) {
           throw new Error("No image data returned from OpenAI");
         }
-        console.log(`[generate-and-store-output] generate success (no asset)`);
+        logger.info(`[generate-and-store-output] generate success (no asset)`);
         result = first;
       }
 
@@ -408,9 +409,9 @@ export const derivationJob = inngest.createFunction(
       }
 
       const key = `derivations/${derivationId}/${Date.now()}.png`;
-      console.log(`[generate-and-store-output] uploading ${buffer.length} bytes to ${key}`);
+      logger.info(`[generate-and-store-output] uploading ${buffer.length} bytes to ${key}`);
       await uploadBuffer(key, buffer, "image/png");
-      console.log(`[generate-and-store-output] upload success key=${key}`);
+      logger.info(`[generate-and-store-output] upload success key=${key}`);
 
       return {
         outputKey: key,
@@ -422,7 +423,7 @@ export const derivationJob = inngest.createFunction(
 
     // 4. Update derivation as completed
     await step.run("mark-completed", async () => {
-      console.log(`[mark-completed] derivationId=${derivationId} outputKey=${generated.outputKey}`);
+      logger.info(`[mark-completed] derivationId=${derivationId} outputKey=${generated.outputKey}`);
       await db
         .update(derivations)
         .set({
@@ -437,7 +438,7 @@ export const derivationJob = inngest.createFunction(
 
     // 5. Score derivation (non-blocking; runs after completed)
     await step.run("score-derivation", async () => {
-      console.log(`[score-derivation] derivationId=${derivationId} outputKey=${generated.outputKey}`);
+      logger.info(`[score-derivation] derivationId=${derivationId} outputKey=${generated.outputKey}`);
       try {
         const scoreBuffer = await downloadBuffer(generated.outputKey);
         await scoreCompletedDerivation(
@@ -455,10 +456,10 @@ export const derivationJob = inngest.createFunction(
           },
           locale
         );
-        console.log(`[score-derivation] done derivationId=${derivationId}`);
+        logger.info(`[score-derivation] done derivationId=${derivationId}`);
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";
-        console.warn(`[score-derivation] failed derivationId=${derivationId}: ${message}`);
+        logger.warn(`[score-derivation] failed derivationId=${derivationId}: ${message}`);
       }
     });
 
@@ -471,7 +472,7 @@ export const derivationJob = inngest.createFunction(
       });
     });
 
-    console.log(`[derivationJob] DONE derivationId=${derivationId} outputKey=${generated.outputKey}`);
+    logger.info(`[derivationJob] DONE derivationId=${derivationId} outputKey=${generated.outputKey}`);
     return { success: true, derivationId, outputKey: generated.outputKey };
   }
 );
