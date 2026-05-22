@@ -85,3 +85,22 @@ export function sendPasswordResetEmail(input: { to: string; url: string }) {
     }),
   });
 }
+
+export function sendInviteEmail(input: {
+  to: string;
+  workspaceName: string;
+  token: string;
+}) {
+  const url = `${env.APP_URL}/api/workspace/invites?token=${input.token}`;
+  return sendEmail({
+    to: input.to,
+    subject: `You've been invited to join ${input.workspaceName} on ADScale`,
+    text: `You've been invited to join ${input.workspaceName} on ADScale. Accept the invite by opening this link: ${url}`,
+    html: authEmailHtml({
+      title: "Workspace Invite",
+      body: `You've been invited to join <strong>${escapeHtml(input.workspaceName)}</strong> on ADScale.`,
+      cta: "Accept Invite",
+      url,
+    }),
+  });
+}

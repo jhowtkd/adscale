@@ -115,6 +115,31 @@ export const workspaceMembers = adscaleSchema.table(
   ]
 );
 
+export const workspaceInvites = adscaleSchema.table(
+  "workspace_invites",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    role: text("role").notNull().default("member"),
+    token: text("token").notNull().unique(),
+    expiresAt: timestamp("expires_at", { mode: "date" }).notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    index("workspace_invites_workspace_id_idx").on(table.workspaceId),
+    index("workspace_invites_token_idx").on(table.token),
+    index("workspace_invites_email_idx").on(table.email),
+  ]
+);
+
 // ============================================
 // Billing tables
 // ============================================
