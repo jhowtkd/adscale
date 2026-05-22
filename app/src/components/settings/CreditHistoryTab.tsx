@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { useCreditHistory } from "@/lib/hooks/use-billing";
 import {
   Table,
@@ -45,6 +45,7 @@ function getDateRange(range: string) {
 export default function CreditHistoryTab() {
   const t = useTranslations("creditHistory");
   const tc = useTranslations("common");
+  const locale = useLocale();
   const [dateRange, setDateRange] = useState("thisMonth");
   const [campaignFilter, setCampaignFilter] = useState("all");
 
@@ -153,7 +154,7 @@ export default function CreditHistoryTab() {
                   tick={{ fontSize: 12, fill: "var(--text-secondary)" }}
                   tickFormatter={(value: string) => {
                     const d = new Date(value);
-                    return `${d.getDate()}/${d.getMonth() + 1}`;
+                    return d.toLocaleDateString(locale, { day: "numeric", month: "numeric" });
                   }}
                 />
                 <YAxis tick={{ fontSize: 12, fill: "var(--text-secondary)" }} />
@@ -164,7 +165,7 @@ export default function CreditHistoryTab() {
                     borderRadius: 8,
                     fontSize: 12,
                   }}
-                  formatter={(value: unknown) => [`${value} créditos`, "Uso"]}
+                  formatter={(value: unknown) => [`${value} ${tc("credits")}`, t("usage")]}
                 />
                 <Bar dataKey="amount" radius={[4, 4, 0, 0]}>
                   {chartData.map((_, index) => (
@@ -208,7 +209,7 @@ export default function CreditHistoryTab() {
                 <TableRow key={tx.id}>
                   <TableCell className="text-[var(--text-primary)]">
                     {tx.createdAt
-                      ? new Date(tx.createdAt).toLocaleDateString("pt-BR")
+                      ? new Date(tx.createdAt).toLocaleDateString(locale)
                       : "—"}
                   </TableCell>
                   <TableCell className="text-[var(--text-primary)]">

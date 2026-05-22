@@ -17,7 +17,7 @@ function isApiMutation(request: NextRequest): boolean {
   return ["POST", "PATCH", "PUT", "DELETE"].includes(request.method);
 }
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Rate limit API mutations
@@ -32,7 +32,7 @@ export function middleware(request: NextRequest) {
       ? "ai"
       : "general";
 
-    const result = rateLimit(request, category);
+    const result = await rateLimit(request, category);
     if (!result.success) {
       return NextResponse.json(
         {

@@ -8,6 +8,7 @@ import {
   updateCompetitorAnalysis,
   deleteCompetitorAnalysis,
 } from "@/server/repositories/competitor-analysis";
+import { isWorkspaceAssetKey } from "@/server/repositories/asset";
 import { deleteObject } from "@/server/storage/r2";
 import { getPublicUrl } from "@/server/storage/r2";
 
@@ -48,6 +49,19 @@ export async function PATCH(
     }
 
     const data = parsed.data;
+
+    // Validate screenshot keys belong to the workspace
+    if (data.screenshotKeys && data.screenshotKeys.length > 0) {
+      const validations = await Promise.all(
+        data.screenshotKeys.map((key) => isWorkspaceAssetKey(workspace.id, key))
+      );
+      const invalidIndex = validations.findIndex((v) => !v);
+      if (invalidIndex !== -1) {
+        return apiError("invalidInput", 400, {
+          detail: `Screenshot key ${invalidIndex + 1} does not belong to this workspace`,
+        });
+      }
+    }
 
     const hasAnalysisUpdate =
       data.analysis !== undefined ||

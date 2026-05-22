@@ -18,7 +18,7 @@ export async function POST(
     const { workspace } = await requireWorkspaceAccess(request);
     const { id: campaignId } = await params;
 
-    const rateLimitResult = checkRateLimit(request, {
+    const rateLimitResult = await checkRateLimit(request, {
       category: "ai",
       workspaceId: workspace.id,
     });

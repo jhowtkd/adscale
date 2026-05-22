@@ -32,14 +32,15 @@ export async function GET(
       return apiError("notFound", 404);
     }
 
-    // Stale analysis check: if analyzing for > 5 min, treat as failed
+    // Stale analysis check: if analyzing for > 5 min, reset to pending
     const isStaleAnalyzing =
       asset.analysisStatus === "analyzing" &&
       asset.analyzedAt &&
       Date.now() - new Date(asset.analyzedAt).getTime() > 5 * 60 * 1000;
 
     if (isStaleAnalyzing) {
-      return NextResponse.json({ preflight: null, status: "failed" });
+      await updateAssetMetadata(assetId, workspace.id, {}, "pending");
+      return NextResponse.json({ preflight: null, status: "pending" });
     }
 
     if (!asset.metadata || (asset.analysisStatus !== "completed" && asset.analysisStatus !== "analyzing")) {
@@ -69,7 +70,7 @@ export async function POST(
     const { workspace } = await requireWorkspaceAccess(request);
     const { id: campaignId, assetId } = await params;
 
-    const rateLimitResult = checkRateLimit(request, {
+    const rateLimitResult = await checkRateLimit(request, {
       category: "ai",
       workspaceId: workspace.id,
     });

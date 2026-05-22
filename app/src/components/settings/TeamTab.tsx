@@ -49,8 +49,8 @@ const roleConfig: Record<
 };
 
 const roleKeyMap: Record<TeamMember["role"], string> = {
-  Owner: "Owner",
-  Admin: "Admin",
+  Owner: "roleOwner",
+  Admin: "roleAdmin",
   Editor: "roleEditor",
   Viewer: "roleViewer",
 };
@@ -281,34 +281,46 @@ export default function TeamTab() {
           {t("inviteTeamMembers")}
         </h3>
         <div className="flex items-center gap-3">
-          <input
-            type="email"
-            value={inviteEmail}
-            onChange={(e) => setInviteEmail(e.target.value)}
-            placeholder={t("team.invitePlaceholder")}
-            className={cn(
-              "flex-1 h-10 rounded-md border px-3 text-sm",
-              "bg-[var(--surface-base)] text-[var(--text-primary)]",
-              "placeholder:text-[var(--text-muted)]",
-              "focus:outline-none focus:border-[var(--accent-mint)] focus:ring-[3px] focus:ring-[rgba(47,182,125,0.15)]",
-              "transition-all duration-200 border-[var(--border-dim)]"
-            )}
-          />
-          <select
-            value={inviteRole}
-            onChange={(e) => setInviteRole(e.target.value as "Editor" | "Admin" | "Viewer")}
-            className={cn(
-              "h-10 rounded-md border px-3 text-sm",
-              "bg-[var(--surface-base)] text-[var(--text-primary)]",
-              "focus:outline-none focus:border-[var(--accent-blue)]",
-              "transition-all duration-200 border-[var(--border-dim)]",
-              "appearance-none cursor-pointer"
-            )}
-          >
-            <option value="Editor">{t("roleEditor")}</option>
-            <option value="Admin">{t("roleAdmin")}</option>
-            <option value="Viewer">{t("roleViewer")}</option>
-          </select>
+          <div className="flex-1">
+            <label htmlFor="invite-email" className="sr-only">
+              {t("emailAddress")}
+            </label>
+            <input
+              id="invite-email"
+              type="email"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              placeholder={t("team.invitePlaceholder")}
+              className={cn(
+                "w-full h-10 rounded-md border px-3 text-sm",
+                "bg-[var(--surface-base)] text-[var(--text-primary)]",
+                "placeholder:text-[var(--text-muted)]",
+                "focus:outline-none focus:border-[var(--accent-mint)] focus:ring-[3px] focus:ring-[rgba(47,182,125,0.15)]",
+                "transition-all duration-200 border-[var(--border-dim)]"
+              )}
+            />
+          </div>
+          <div>
+            <label htmlFor="invite-role" className="sr-only">
+              {t("team.roleLabel")}
+            </label>
+            <select
+              id="invite-role"
+              value={inviteRole}
+              onChange={(e) => setInviteRole(e.target.value as "Editor" | "Admin" | "Viewer")}
+              className={cn(
+                "h-10 rounded-md border px-3 text-sm",
+                "bg-[var(--surface-base)] text-[var(--text-primary)]",
+                "focus:outline-none focus:border-[var(--accent-blue)]",
+                "transition-all duration-200 border-[var(--border-dim)]",
+                "appearance-none cursor-pointer"
+              )}
+            >
+              <option value="Editor">{t("roleEditor")}</option>
+              <option value="Admin">{t("roleAdmin")}</option>
+              <option value="Viewer">{t("roleViewer")}</option>
+            </select>
+          </div>
           <button
             onClick={handleSendInvite}
             disabled={inviteMember.isPending}

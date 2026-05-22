@@ -12,7 +12,7 @@ const bodySchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    const limit = rateLimit(request, "general");
+    const limit = await rateLimit(request, "general");
     if (!limit.success) {
       return apiError("rateLimitExceeded", 429);
     }

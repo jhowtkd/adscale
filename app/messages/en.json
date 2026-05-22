@@ -590,7 +590,8 @@
     },
     "team": {
       "title": "Team",
-      "invitePlaceholder": "colleague@company.com"
+      "invitePlaceholder": "colleague@company.com",
+      "roleLabel": "Role"
     },
     "integrations": {
       "connected": "Connected",
@@ -625,6 +626,7 @@
     "inviteEmailNote": "Invited members will receive an email with a join link",
     "roleEditor": "Editor",
     "roleAdmin": "Admin",
+    "roleOwner": "Owner",
     "roleViewer": "Viewer",
     "config": "Configure",
     "connect": "Connect",
@@ -682,7 +684,8 @@
       "clearTitle": "Clear Brand Kit",
       "clearWarning": "This will remove all brand kit information. The profile will remain.",
       "clearButton": "Clear",
-      "cleared": "Brand kit cleared"
+      "cleared": "Brand kit cleared",
+      "confirmClear": "Are you sure you want to clear all brand kit information? This action cannot be undone."
     }
   },
   "errors": {
@@ -808,7 +811,7 @@
     "selectFile": "Select file",
     "replaceFile": "Replace file",
     "submit": "Start Restyling",
-    "submitLabel": "Gerar Derivation",
+    "submitLabel": "Generate Derivation",
     "cancelLabel": "Cancel",
     "styleIntensityLabel": "Style intensity",
     "styleIntensity": {
@@ -897,7 +900,16 @@
       "grant": "Grant",
       "purchase": "Purchase"
     },
-    "usageOverTime": "Usage over time"
+    "usageOverTime": "Usage over time",
+    "usage": "Usage"
+  },
+  "share": {
+    "title": "ADScale Gallery",
+    "description": "Public gallery of approved creatives.",
+    "fallbackTitle": "Gallery",
+    "sharedVia": "Shared gallery via ADScale",
+    "noImages": "No images available in this gallery.",
+    "publicGallery": "Public gallery"
   },
   "analytics": {
     "approvalRate": "Approval rate",

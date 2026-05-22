@@ -6,11 +6,16 @@ import { eq, inArray } from "drizzle-orm";
 import { getPublicUrl } from "@/server/storage/r2";
 import GalleryGrid from "./GalleryGrid";
 import type { Metadata } from "next";
+import { getLocale, getTranslations } from "next-intl/server";
 
-export const metadata: Metadata = {
-  title: "Galeria ADScale",
-  description: "Galeria pública de criativos aprovados.",
-};
+export async function generateMetadata({ params }: SharePageProps): Promise<Metadata> {
+  const locale = await getLocale();
+  const t = await getTranslations({ locale, namespace: "share" });
+  return {
+    title: t("title"),
+    description: t("description"),
+  };
+}
 
 interface SharePageProps {
   params: Promise<{ token: string }>;
@@ -23,6 +28,9 @@ export default async function SharePage({ params }: SharePageProps) {
   if (!link) {
     notFound();
   }
+
+  const locale = await getLocale();
+  const t = await getTranslations({ locale, namespace: "share" });
 
   const [campaign] = await db
     .select({ name: campaigns.name, client: campaigns.client })
@@ -60,7 +68,7 @@ export default async function SharePage({ params }: SharePageProps) {
       <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="mb-8 text-center">
           <h1 className="text-2xl font-bold text-[var(--text-primary)] sm:text-3xl">
-            {campaign?.name ?? "Galeria"}
+            {campaign?.name ?? t("fallbackTitle")}
           </h1>
           {campaign?.client && (
             <p className="mt-1 text-sm text-[var(--text-muted)]">
@@ -68,13 +76,13 @@ export default async function SharePage({ params }: SharePageProps) {
             </p>
           )}
           <p className="mt-2 text-xs text-[var(--text-muted)]">
-            Galeria compartilhada via ADScale
+            {t("sharedVia")}
           </p>
         </div>
 
         {galleryItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-[var(--text-muted)]">
-            <p className="text-sm">Nenhuma imagem disponível nesta galeria.</p>
+            <p className="text-sm">{t("noImages")}</p>
           </div>
         ) : (
           <GalleryGrid items={galleryItems} />
@@ -83,7 +91,7 @@ export default async function SharePage({ params }: SharePageProps) {
         <div className="mt-12 flex items-center justify-center gap-2 text-xs text-[var(--text-muted)] opacity-60">
           <span className="font-semibold text-[var(--accent-mint)]">ADScale</span>
           <span>·</span>
-          <span>Galeria pública</span>
+          <span>{t("publicGallery")}</span>
         </div>
       </div>
     </main>

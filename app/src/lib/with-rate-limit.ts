@@ -7,10 +7,10 @@ interface RateLimitOptions {
   workspaceId?: string;
 }
 
-export function checkRateLimit(request: Request, options: RateLimitOptions = {}) {
-  const result = options.workspaceId
+export async function checkRateLimit(request: Request, options: RateLimitOptions = {}) {
+  const result = await (options.workspaceId
     ? rateLimitWorkspace(request, options.workspaceId, options.category ?? "ai")
-    : rateLimit(request, options.category ?? "general");
+    : rateLimit(request, options.category ?? "general"));
 
   if (!result.success) {
     logger.warn("Rate limit exceeded", {

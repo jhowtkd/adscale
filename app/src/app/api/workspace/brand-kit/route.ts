@@ -9,9 +9,7 @@ import {
 } from "@/server/db/repositories/brand-kit";
 import { deleteObject } from "@/server/storage/r2";
 import { getPublicUrl } from "@/server/storage/r2";
-import { db } from "@/server/db";
-import { clientReferences } from "@/server/db/schema";
-import { eq, and } from "drizzle-orm";
+import { isWorkspaceAssetKey } from "@/server/repositories/asset";
 
 const brandKitSchema = z.object({
   name: z.string().trim().min(1).max(120).optional(),
@@ -50,6 +48,15 @@ export async function POST(request: Request) {
       return apiError("invalidInput", 400, parsed.error.flatten());
     }
 
+    if (parsed.data.logoAssetKey) {
+      const valid = await isWorkspaceAssetKey(workspace.id, parsed.data.logoAssetKey);
+      if (!valid) {
+        return apiError("invalidInput", 400, {
+          detail: "logoAssetKey does not belong to this workspace",
+        });
+      }
+    }
+
     const brandKit = await upsertBrandKit(workspace.id, parsed.data);
     return NextResponse.json({
       brandKit,
@@ -64,7 +71,7 @@ export async function DELETE(request: Request) {
   try {
     const { workspace } = await requireWorkspaceAccess(request);
 
-    // Delete logo from R2 and client_references before clearing brand kit
+    // Delete logo from R2 before clearing brand kit (repo handles client_references)
     const existing = await getBrandKitByWorkspace(workspace.id);
     if (existing?.logoAssetKey) {
       try {
@@ -72,15 +79,6 @@ export async function DELETE(request: Request) {
       } catch {
         // Ignore R2 deletion errors (file may already be gone)
       }
-      await db
-        .delete(clientReferences)
-        .where(
-          and(
-            eq(clientReferences.workspaceId, workspace.id),
-            eq(clientReferences.assetKey, existing.logoAssetKey),
-            eq(clientReferences.kind, "logo")
-          )
-        );
     }
 
     const brandKit = await deleteBrandKit(workspace.id);

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { ChartCard } from "./ChartCard";
 import { CheckCircle2, Clock, TrendingUp, Zap } from "lucide-react";
 import type { UiCampaign } from "@/lib/hooks/use-campaigns";
@@ -119,6 +119,7 @@ function HorizontalBarChart({
 export function AnalyticsSection({ campaigns, isLoading }: AnalyticsSectionProps) {
   const t = useTranslations("analytics");
   const tc = useTranslations("common");
+  const locale = useLocale();
 
   const metrics = useMemo(() => {
     const totalDerivations = campaigns.reduce((s, c) => s + c.totalDerivations, 0);
@@ -159,7 +160,7 @@ export function AnalyticsSection({ campaigns, isLoading }: AnalyticsSectionProps
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      const label = d.toLocaleDateString("pt-BR", { month: "short" });
+      const label = d.toLocaleDateString(locale, { month: "short" });
       const value = campaigns
         .filter((c) => {
           const cd = c.createdAt;
