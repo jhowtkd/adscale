@@ -112,6 +112,10 @@ describe("buildDerivationPrompt", () => {
     expect(prompt).toContain("MODE: art_variation");
     expect(prompt).toContain("PERCEPTIBLY DIFFERENT");
     expect(prompt).toContain("Vary background, composition, CTA module placement, and visual hierarchy");
+    expect(prompt).toContain("ANTI-CROPPING RULE");
+    expect(prompt).toContain("REARRANGEMENT RULE");
+    expect(prompt).toContain("LAYOUT SAFETY PASS");
+    expect(prompt).toContain("SAFE MARGIN RULE");
   });
 
   it("format_adaptation mode includes target format", () => {

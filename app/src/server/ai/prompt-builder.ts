@@ -217,6 +217,34 @@ function buildHardRulesSection(
   return rules;
 }
 
+function buildArtVariationFallbackPreservation(
+  campaign: Campaign | null | undefined,
+  asset: Asset | null | undefined,
+  ctaText: string | null | undefined
+): string[] {
+  const fallback: string[] = [];
+
+  const clientOrProduct = campaign?.client || campaign?.product;
+  if (clientOrProduct) fallback.push(`- Brand/product from brief: ${clientOrProduct}.`);
+  if (campaign?.offer) fallback.push(`- Offer from brief: ${campaign.offer}.`);
+  if (ctaText) fallback.push(`- Exact CTA for this variation: ${ctaText}.`);
+  if (campaign?.objective) fallback.push(`- Campaign objective: ${campaign.objective}.`);
+  if (campaign?.constraints) fallback.push(`- Constraints: ${campaign.constraints}.`);
+  if (asset?.width && asset.height) {
+    fallback.push(`- Reference asset dimensions: ${asset.width}x${asset.height}px; keep all visible information inside this same proportion.`);
+  }
+
+  if (fallback.length === 0) return [];
+
+  return [
+    "",
+    "BRIEF-BASED PRESERVATION FALLBACK:",
+    "No approved creative diagnosis is attached to this generation. Use the reference image plus the brief below as the minimum preservation checklist:",
+    ...fallback,
+    "Do not let creative exploration override these items; use them to decide what must remain legible and present.",
+  ];
+}
+
 export function buildDerivationPrompt(config: DerivationPromptConfig) {
   const {
     campaign,
@@ -256,8 +284,16 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
 
   if (isArtVariation) {
     parts.push(
-      "MODE: art_variation — Generate a new artistic version of the original campaign asset while keeping the SAME format/proportions.",
+      "MODE: art_variation — Recompose the original campaign asset into a new artistic variation while keeping the SAME format/proportions.",
       "Requirements: produce a PERCEPTIBLY DIFFERENT result from the reference. Vary background, composition, CTA module placement, and visual hierarchy. Do NOT produce a near-identical copy.",
+      "MANDATORY PRESERVATION: preserve every important piece of campaign information from the reference: visible headline, offer, discount/price, CTA, product/service, logo if present, legal/small-print text if present, and key visual subject.",
+      "ANTI-CROPPING RULE: do not crop, hide, truncate, blur, or cover text, faces, products, logos, offer cards, CTA buttons, price/discount badges, or other information-bearing elements.",
+      "REARRANGEMENT RULE: when changing the composition, rebuild the layout by resizing, grouping, and repositioning elements so all preserved information remains visible, readable, and intentionally arranged inside the canvas.",
+      "LAYOUT SAFETY PASS: before finalizing, check the four canvas edges and all text boxes; if any important information touches an edge, overlaps, or becomes too small to read, reduce scale and rebalance whitespace instead of cropping.",
+      "SAFE MARGIN RULE: keep logos, CTA buttons, badges, legal copy, all text, faces, and key product/service visuals at least 8% of the canvas width/height away from the edges unless the original brand system intentionally uses full-bleed decorative background only.",
+      "BRAND LOCKUP RULE: do not place vertical or horizontal logos flush against any edge. Move, scale, or rotate brand marks so the complete logo has visible breathing room and cannot be cut by platform placements.",
+      "THUMBNAIL LEGIBILITY RULE: secondary information such as duration, online/onsite labels, start date, badges, and offer details must remain readable when the image is viewed small; increase contrast, font weight, or grouping instead of shrinking them.",
+      "Do not solve a crowded layout by deleting information. Use hierarchy, grouping, spacing, and background extension to make the preserved information fit.",
       "Preserve the original brand identity, palette, typography style, product treatment, and overall tone. Do not invent a new brand or unrelated visual universe."
     );
   } else if (generationMode === "format_adaptation") {
@@ -316,6 +352,8 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
       `- Variation Opportunities: ${creativeDiagnosis.variationOpportunities.join("; ")}`,
       "Use the Approved Creative Diagnosis as the primary creative direction. Preserve the listed elements. Explore the listed opportunities within the selected creativity level."
     );
+  } else if (generationMode === "art_variation") {
+    parts.push(...buildArtVariationFallbackPreservation(campaign, asset, ctaText ?? null));
   }
 
   parts.push(
@@ -349,7 +387,11 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
     parts.push("The uploaded reference image is your visual source of truth. Use its actual content — colors, layout, product placement, typography style, logo position, and visual hierarchy — as the foundation.");
 
     if (isArtVariation) {
-      parts.push("Keep the same format/proportions as the reference. Treat this as image-conditioned derivation, not text-to-image creation from scratch.");
+      parts.push(
+        "Keep the same format/proportions as the reference. Treat this as image-conditioned derivation, not text-to-image creation from scratch.",
+        "Use the reference as the complete source of truth for what information must survive. Rearrange the ad, do not crop out content.",
+        "If the original ad is dense, prioritize a cleaner hierarchy that still includes all critical copy and brand/product elements."
+      );
     } else {
       parts.push(
         "Use the reference as a design system and token source, not as a crop template.",

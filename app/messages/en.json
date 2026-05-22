@@ -8,6 +8,7 @@
     "campaigns": "Campaigns",
     "templates": "Templates",
     "settings": "Settings",
+    "restyling": "Restyling",
     "logout": "Logout",
     "login": "Login",
     "signup": "Sign up",
@@ -404,12 +405,14 @@
     "invalidFormat": "Invalid format. Upload PNG, JPG, or WebP.",
     "fileTooLarge": "File too large. Maximum size is {max}MB.",
     "replace": "Replace",
+    "uploadedAsset": "Uploaded creative",
     "formatValid": "Format valid",
     "underLimit": "Under {max}MB",
     "checkingDimensions": "Checking dimensions...",
     "recommendedDimensions": "(recommended 1080×1080+)",
     "generatePreview": "Generate preview",
     "previewLabel": "Preview",
+    "generateAll": "Generate all →",
     "generateDerivations": "Generate derivations →",
     "browseFiles": "Browse files",
     "bestPractices": "Best practices",
@@ -582,7 +585,8 @@
     "deleteCampaign": "Failed to delete campaign",
     "modeRequired": "Derivation mode is required",
     "ctaRequiredAtLeastOne": "Fill at least one CTA to generate derivations",
-    "noCtasProvided": "No CTA was provided. Fill at least one CTA."
+    "noCtasProvided": "No CTA was provided. Fill at least one CTA.",
+    "missingBaseAsset": "Upload a base creative before generating variations."
   },
   "review": {
     "title": "Review",
@@ -622,10 +626,13 @@
     "title": "Creative Restyling",
     "description": "Redesign a creative with a new style from a visual reference",
     "name": "Campaign name",
+    "nameLabel": "Campaign name",
     "namePlaceholder": "Ex: Summer 2026 - Minimalist style",
     "nameRequired": "Campaign name is required",
+    "client": "Client / Brand",
     "clientLabel": "Client / Brand",
     "clientPlaceholder": "Ex: Store XYZ",
+    "offer": "Objective / Offer",
     "offerLabel": "Objective / Offer",
     "offerPlaceholder": "Ex: 20% off on all items",
     "ctaLabel": "Exact CTA",
@@ -647,12 +654,18 @@
     "cancelLabel": "Cancel",
     "styleIntensityLabel": "Style intensity",
     "styleIntensity": {
+      "label": "Style intensity",
       "soft": "Soft",
       "softDescription": "Applies color, texture, and mood without moving far from the base creative.",
       "medium": "Medium",
       "mediumDescription": "Balances the base creative with typography, treatment, and rhythm from the reference.",
       "strong": "Strong",
-      "strongDescription": "Pulls more of the reference visual language without copying its content."
+      "strongDescription": "Pulls more of the reference visual language without copying its content.",
+      "help": {
+        "soft": "Subtle adjustment that keeps the base creative structure intact.",
+        "medium": "Balances base creative preservation with a clear reference influence.",
+        "strong": "A more visible transformation while preserving content and CTA."
+      }
     },
     "dragDrop": "Drag & drop your image here",
     "onlyImages": "PNG, JPG, WebP only",

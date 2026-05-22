@@ -16,6 +16,7 @@ describe("normalizeCreativeQaResult", () => {
       checklist: {
         legibility: { status: "passed", note: "Readable." },
         ctaOffer: { status: "passed", note: "CTA preserved." },
+        informationPreservation: { status: "warning", note: "Offer badge is close to the edge." },
         briefMatch: { status: "warning", note: "Audience could be clearer." },
         formatFit: { status: "passed", note: "Fits 4:5." },
         creativeRisk: { status: "warning", note: "Generic visual." },
@@ -26,6 +27,7 @@ describe("normalizeCreativeQaResult", () => {
 
     expect(result.status).toBe("warning");
     expect(result.checklist.legibility.status).toBe("passed");
+    expect(result.checklist.informationPreservation.status).toBe("warning");
     expect(result.issues).toEqual(["Audience could be clearer."]);
   });
 
@@ -77,5 +79,7 @@ describe("buildCreativeQaPrompt", () => {
     expect(prompt).toContain("20% off");
     expect(prompt).toContain("4:5");
     expect(prompt).toContain("Return only JSON");
+    expect(prompt).toContain("informationPreservation");
+    expect(prompt).toContain("cropped, hidden, truncated, blurred, overlapped, deleted");
   });
 });

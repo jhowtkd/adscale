@@ -1419,3 +1419,65 @@ cd app && DATABASE_URL=postgresql://localhost:5432/test BETTER_AUTH_SECRET=01234
 - Revoke the pasted Resend API key and create a fresh one.
 - Set the fresh key in Render as `RESEND_API_KEY`; do not commit it.
 - Use `onboarding@resend.dev` only for smoke testing. Verify a real domain in Resend before production sending.
+
+# Runtime Smoke Review: Local App Testability
+
+Date: 2026-05-21
+Status: Completed
+
+## What Was Checked
+
+- Confirmed the runnable app is `app/` and started the local dev stack on `http://localhost:3000`.
+- Verified `/api/health` returns 200.
+- Checked environment readiness without exposing secret values.
+- Reproduced and fixed the dashboard runtime crash caused by an unmapped platform badge color.
+- Added missing `pt-BR` and `en` restyling translation keys used by the dashboard/sidebar modal.
+
+## Results
+
+- App is running locally at `http://localhost:3000`.
+- Inngest dev server is running at `http://localhost:8288`.
+- `RESEND_API_KEY` and `EMAIL_FROM` are not saved in `app/.env.local`; the current local process was started with temporary dummy values so the app can be navigated.
+- Focused validation passed: message JSON parse, ESLint for `src/app/(dashboard)/page.tsx`, and browser reload of `/`.
+
+# Upload UX and Art Variation Contract Pass
+
+Date: 2026-05-21
+Status: Completed
+
+## Checklist
+
+- [x] Map current upload flow and art variation prompt contract.
+- [x] Make the upload button explicitly open the file picker.
+- [x] Improve upload layout responsiveness so action rows wrap instead of clipping.
+- [x] Fix campaign header/footer wrapping on narrow mobile viewports.
+- [x] Strengthen `art_variation` prompt rules against cropped information and poor rearrangement.
+- [x] Prevent post-generation normalization from cropping generated foreground information.
+- [x] Strengthen creative diagnosis to preserve exact visible copy and dense-layout rearrangement opportunities.
+- [x] Block art variation generation when no base creative has been uploaded.
+- [x] Reuse an already-uploaded campaign asset in the upload step after reload/navigation.
+- [x] Add brief-based preservation fallback when no creative diagnosis is attached.
+- [x] Add explicit scoring/QA criteria for information preservation and poor crop-based rearrangement.
+- [x] Add focused prompt tests for the new anti-cropping/rearrangement contract.
+- [x] Validate the upload button opens the file picker in the browser.
+- [x] Validate upload step on a narrow mobile viewport without horizontal overflow.
+- [x] Validate a real generated variation against an actual key ad and compare whether information is preserved.
+
+## Review
+
+- `UploadStep` now calls the dropzone `open()` API from the visible "Procurar arquivos" button, so users do not have to drag files.
+- Upload metadata/action rows now have responsive wrapping and minimum button heights to reduce clipped controls on constrained screens.
+- Campaign page header and step footer now wrap/stack on narrow screens; a 360px-class mobile smoke showed no horizontal overflow and full-width footer buttons.
+- `art_variation` prompts now explicitly require preserving visible headline, offer, price/discount, CTA, product/service, logo, small print, and key subject while rearranging rather than cropping.
+- Generated image normalization now uses a blurred/extended background plus a contained foreground composite instead of a pure `cover` resize, preventing the app from cropping the model output during final sizing.
+- Creative diagnosis now asks the vision model to quote legible visible copy verbatim and identify crowded-layout rearrangement opportunities, so the generation prompt has sharper preservation inputs when diagnosis is present.
+- The derivations API now refuses `art_variation` jobs without a base asset, avoiding poor text-to-image fallback when the user has not actually uploaded a key creative.
+- `UploadStep` now reads existing campaign assets, so an already-uploaded creative remains available after refresh/navigation instead of forcing a drag/drop-only repeat.
+- When no approved creative diagnosis exists, the derivation prompt now adds a brief-based preservation checklist with brand/product, offer, exact CTA, objective, constraints, and asset dimensions.
+- Creative scoring and manual QA now include `informationPreservation`, explicitly checking whether important text, offer, CTA, logo, product/service, badges, small print, faces, or other information-bearing elements were cropped, hidden, deleted, overlapped, or made unreadable.
+- Focused validation passed: `npm run test -- src/server/ai/prompt-builder.test.ts tests/unit/prompt-parser.test.ts src/server/jobs/derivation.test.ts tests/unit/creative-diagnosis.test.ts tests/integration/derivation-job.test.ts src/server/ai/creative-qa.test.ts tests/unit/ai/creative-score.test.ts tests/unit/creative-score.test.ts tests/unit/repositories/derivation.test.ts --run`, JSON parse for both message files, and ESLint for the touched upload/API/generation/prompt/diagnosis/scoring files.
+- Browser smoke created temporary campaigns, reached the upload step on desktop and mobile, confirmed clicking "Procurar arquivos" opened the file picker, uploaded `key-ad.jpg`, reloaded the route, confirmed the saved creative was still recognized with a clean file name and no horizontal overflow, then deleted the temporary campaigns.
+- After credits were restored, a real CENBRAP key ad was uploaded through the browser UI and generated through the real OpenAI image path.
+- The first renewed preview exposed an OpenAI API constraint: `512x512` preview requests are below the current minimum pixel budget. The preview request now asks OpenAI for `1024x1024` and still normalizes the local preview output to the intended preview dimensions.
+- Real preview and final `art_variation` jobs completed successfully. The final QA pass used regenerated derivation `28cd0310-b605-4844-8c78-99b0c5b3df6c`, preserving CENBRAP branding, CTA, offer, headline hierarchy, online/preparatorio/inicio imediato copy, and the key face/subject without cropping or overlap.
+- QA returned `ready`; all checklist criteria passed, including `informationPreservation`, `formatFit`, `ctaOffer`, `legibility`, `briefMatch`, and `creativeRisk`. Remaining notes are non-blocking review suggestions for small-feed legibility and extra safe margin around the vertical logo.

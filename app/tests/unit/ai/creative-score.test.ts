@@ -13,6 +13,8 @@ vi.mock("openai", () => {
               briefMatch: 86,
               visualQuality: 82,
               formatFit: 84,
+              variationLevelFit: 83,
+              informationPreservation: 52,
             },
             scoreIssues: ["CTA contrast could be stronger"],
             regenerationSuggestion: "Increase CTA contrast while preserving the exact CTA text.",
@@ -75,6 +77,7 @@ describe("creative scoring", () => {
 
     expect(result.scoreStatus).toBe("analyzed");
     expect(result.qualityScore).toBe(84);
+    expect(result.scoreBreakdown.informationPreservation).toBe(52);
     expect(result.regenerationSuggestion).toContain("preserving the exact CTA text");
   });
 

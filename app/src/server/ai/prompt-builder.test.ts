@@ -71,6 +71,79 @@ describe("buildDerivationPrompt", () => {
 
     expect(prompt).toContain("MODE: art_variation");
     expect(prompt).toContain("PERCEPTIBLY DIFFERENT");
+    expect(prompt).toContain("MANDATORY PRESERVATION");
+    expect(prompt).toContain("ANTI-CROPPING RULE");
+    expect(prompt).toContain("REARRANGEMENT RULE");
+    expect(prompt).toContain("LAYOUT SAFETY PASS");
+    expect(prompt).toContain("SAFE MARGIN RULE");
+    expect(prompt).toContain("BRAND LOCKUP RULE");
+    expect(prompt).toContain("THUMBNAIL LEGIBILITY RULE");
+  });
+
+  it("requires art_variation to preserve visible ad information while rearranging", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "art_variation",
+      targetFormat: "1:1",
+      ctaText: "Teste agora",
+      campaign: {
+        id: "campaign-1",
+        workspaceId: "workspace-1",
+        name: "Campaign",
+        client: "ADScale",
+        product: null,
+        objective: "Lead generation",
+        audience: null,
+        platforms: ["Meta"],
+        tone: null,
+        offer: "Auditoria gratuita",
+        constraints: "Preservar selo LGPD",
+        notes: null,
+        status: "draft",
+        createdAt: new Date("2026-05-21"),
+        updatedAt: new Date("2026-05-21"),
+      },
+      asset: {
+        id: "asset-1",
+        campaignId: "campaign-1",
+        workspaceId: "workspace-1",
+        key: "uploads/reference.png",
+        type: "image/png",
+        size: 10,
+        width: 1080,
+        height: 1080,
+        createdAt: new Date("2026-05-21"),
+      },
+    });
+
+    expect(prompt).toContain("visible headline, offer, discount/price, CTA");
+    expect(prompt).toContain("do not crop, hide, truncate, blur, or cover");
+    expect(prompt).toContain("all preserved information remains visible, readable, and intentionally arranged");
+    expect(prompt).toContain("reduce scale and rebalance whitespace instead of cropping");
+    expect(prompt).toContain("at least 8% of the canvas width/height away from the edges");
+    expect(prompt).toContain("do not place vertical or horizontal logos flush against any edge");
+    expect(prompt).toContain("secondary information such as duration");
+    expect(prompt).toContain("Use hierarchy, grouping, spacing, and background extension");
+    expect(prompt).toContain("Rearrange the ad, do not crop out content");
+    expect(prompt).toContain("BRIEF-BASED PRESERVATION FALLBACK");
+    expect(prompt).toContain("Brand/product from brief: ADScale");
+    expect(prompt).toContain("Exact CTA for this variation: Teste agora");
+    expect(prompt).toContain("Reference asset dimensions: 1080x1080px");
+  });
+
+  it("uses approved creative diagnosis instead of fallback preservation when present", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "art_variation",
+      targetFormat: "1:1",
+      creativeDiagnosis: {
+        detectedConcept: "A high-urgency offer ad",
+        elementsToPreserve: ["headline: Oferta relampago", "CTA: Comprar agora"],
+        variationOpportunities: ["Rebalance text hierarchy"],
+      },
+    });
+
+    expect(prompt).toContain("APPROVED CREATIVE DIAGNOSIS");
+    expect(prompt).toContain("headline: Oferta relampago");
+    expect(prompt).not.toContain("BRIEF-BASED PRESERVATION FALLBACK");
   });
 
   it("includes restyling mode instructions", () => {

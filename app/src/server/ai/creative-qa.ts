@@ -6,6 +6,7 @@ export type CreativeQaCheckStatus = "passed" | "warning" | "failed";
 export type CreativeQaCriterion =
   | "legibility"
   | "ctaOffer"
+  | "informationPreservation"
   | "briefMatch"
   | "formatFit"
   | "creativeRisk";
@@ -27,6 +28,7 @@ export interface CreativeQaResult {
 const CRITERIA: CreativeQaCriterion[] = [
   "legibility",
   "ctaOffer",
+  "informationPreservation",
   "briefMatch",
   "formatFit",
   "creativeRisk",
@@ -108,7 +110,7 @@ export function buildCreativeQaPrompt(input: Omit<AnalyzeCreativeQaInput, "image
 Return only JSON with status, checklist, issues, and suggestions.
 
 Allowed status values: ready, warning, review.
-Checklist keys: legibility, ctaOffer, briefMatch, formatFit, creativeRisk.
+Checklist keys: legibility, ctaOffer, informationPreservation, briefMatch, formatFit, creativeRisk.
 Each checklist item must include status passed/warning/failed and a short note.
 
 Export must remain allowed. Use warning or review to guide the user, not to block them.
@@ -128,7 +130,9 @@ Derivation:
 - Format: ${input.derivation.format ?? "unknown"}
 - Generation mode: ${input.derivation.generationMode ?? "unknown"}
 
-Evaluate legibility, exact CTA and offer preservation, briefing fit, format fit, and simple creative risk.
+Evaluate legibility, exact CTA and offer preservation, information preservation, briefing fit, format fit, and simple creative risk.
+For informationPreservation, check whether important text, offer, CTA, logo, product/service, badges, small print, faces, and other information-bearing elements from the brief or creative diagnosis were cropped, hidden, truncated, blurred, overlapped, deleted, or made too small to read.
+For art_variation, also check whether the result rearranged elements intentionally instead of solving the variation by cropping the key ad.
 Do not invent new facts, claims, offers, products, logos, or CTAs.
 Keep issues and suggestions short and actionable.
 Locale for user-facing notes: ${input.locale}.`;

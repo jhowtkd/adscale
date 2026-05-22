@@ -84,6 +84,10 @@ export async function POST(
       // Infer base format from the first campaign asset
       const assets = await getAssetsByCampaign(campaignId, workspace.id);
       const baseAsset = assets[0];
+      if (!baseAsset) {
+        return apiError("missingBaseAsset", 400);
+      }
+
       let baseFormat = "1:1";
       if (baseAsset?.width && baseAsset?.height && baseAsset.width > 0 && baseAsset.height > 0) {
         const ratio = baseAsset.height / baseAsset.width;

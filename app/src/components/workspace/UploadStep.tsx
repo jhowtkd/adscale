@@ -6,7 +6,7 @@ import { useDropzone } from "react-dropzone";
 import { Cloud, Upload, Check, AlertCircle, Lightbulb, Replace, FileImage } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
-import { useUploadAsset } from "@/lib/hooks/use-assets";
+import { useCampaignAssets, useUploadAsset } from "@/lib/hooks/use-assets";
 
 // ============================================
 // Types
@@ -60,6 +60,9 @@ export default function UploadStep({ campaignId, onContinue, onGeneratePreview, 
   const [error, setError] = useState<string | null>(null);
   const t = useTranslations("upload");
   const uploadAsset = useUploadAsset(campaignId);
+  const { data: existingAssets = [] } = useCampaignAssets(campaignId);
+  const existingAsset = uploadedFile ? null : existingAssets[0] ?? null;
+  const hasUploadedCreative = Boolean(uploadedFile || existingAsset);
 
   const tips = [
     t("tipHighRes"),
@@ -119,7 +122,7 @@ export default function UploadStep({ campaignId, onContinue, onGeneratePreview, 
     [t, uploadFile]
   );
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+  const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
     onDrop,
     accept: {
       "image/png": [".png"],
@@ -137,6 +140,7 @@ export default function UploadStep({ campaignId, onContinue, onGeneratePreview, 
     setUploadedFile(null);
     setUploadProgress(0);
     setError(null);
+    open();
   };
 
   const formatFileSize = (bytes: number): string => {
@@ -144,19 +148,37 @@ export default function UploadStep({ campaignId, onContinue, onGeneratePreview, 
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
+  const getAssetName = (key: string): string => {
+    return decodeURIComponent(key.split("/").pop() || key).replace(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-/i,
+      ""
+    );
+  };
+
   const isValidDimensions = (dim: { width: number; height: number } | null): boolean => {
     if (!dim) return true; // Can't check yet, assume OK
     return dim.width >= 1080 && dim.height >= 1080;
   };
 
+  const displayedDimensions =
+    uploadedFile?.dimensions ??
+    (existingAsset?.width && existingAsset.height
+      ? { width: existingAsset.width, height: existingAsset.height }
+      : null);
+  const displayedName =
+    uploadedFile?.file.name ?? (existingAsset ? getAssetName(existingAsset.key) : t("uploadedAsset"));
+  const displayedType = uploadedFile?.file.type ?? existingAsset?.type ?? "image";
+  const displayedSize = uploadedFile?.file.size ?? existingAsset?.size ?? null;
+
   return (
-    <div className="max-w-[960px] mx-auto">
-      <div className="flex gap-6">
+    <div className="mx-auto w-full max-w-[960px]">
+      <input {...getInputProps()} className="sr-only" />
+      <div className="flex flex-col gap-5 lg:flex-row lg:gap-6">
         {/* Main upload area */}
-        <div className="flex-1">
+        <div className="min-w-0 flex-1">
           <AnimatePresence mode="wait">
             {/* ---- Uploaded State ---- */}
-            {uploadedFile ? (
+            {hasUploadedCreative ? (
               <motion.div
                 key="uploaded"
                 initial={{ opacity: 0, scale: 0.98 }}
@@ -169,39 +191,41 @@ export default function UploadStep({ campaignId, onContinue, onGeneratePreview, 
                   <div className="relative max-h-[400px] overflow-hidden rounded-xl">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={uploadedFile.preview}
-                      alt={uploadedFile.file.name}
+                      src={uploadedFile?.preview ?? existingAsset?.url ?? ""}
+                      alt={displayedName}
                       className="max-h-[400px] w-auto object-contain rounded-xl"
                     />
                   </div>
                 </div>
 
                 {/* File Info Bar */}
-                <div className="flex items-center justify-between bg-[var(--surface-raised)] rounded-lg px-4 py-3 border border-[var(--border-dim)]">
-                  <div className="flex items-center gap-3">
+                <div className="flex flex-col gap-3 rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 items-center gap-3">
                     <FileImage size={18} className="text-[var(--accent-blue)]" />
-                    <div>
-                      <p className="text-sm text-[var(--text-primary)] font-medium">
-                        {uploadedFile.file.name}
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-[var(--text-primary)]">
+                        {displayedName}
                       </p>
-                      <div className="flex items-center gap-3 mt-0.5">
-                        <span className="text-xs text-[var(--text-muted)]">
-                          {formatFileSize(uploadedFile.file.size)}
-                        </span>
-                        {uploadedFile.dimensions && (
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+                        {displayedSize && (
                           <span className="text-xs text-[var(--text-muted)]">
-                            {uploadedFile.dimensions.width} \u00d7 {uploadedFile.dimensions.height}px
+                            {formatFileSize(displayedSize)}
+                          </span>
+                        )}
+                        {displayedDimensions && (
+                          <span className="text-xs text-[var(--text-muted)]">
+                            {displayedDimensions.width} \u00d7 {displayedDimensions.height}px
                           </span>
                         )}
                         <span className="text-xs text-[var(--text-muted)] uppercase">
-                          {uploadedFile.file.type.split("/")[1]}
+                          {displayedType.split("/")[1] ?? "image"}
                         </span>
                       </div>
                     </div>
                   </div>
                   <button
                     onClick={handleReplace}
-                    className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)] transition-all duration-200"
+                    className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition-all duration-200 hover:bg-[var(--surface-base)] hover:text-[var(--text-primary)]"
                   >
                     <Replace size={14} />
                     {t("replace")}
@@ -224,16 +248,16 @@ export default function UploadStep({ campaignId, onContinue, onGeneratePreview, 
                   </div>
                   {/* Dimension check */}
                   <div className="flex items-center gap-2 text-sm">
-                    {isValidDimensions(uploadedFile.dimensions) ? (
+                    {isValidDimensions(displayedDimensions) ? (
                       <Check size={16} className="text-[var(--accent-teal)]" />
                     ) : (
                       <AlertCircle size={16} className="text-[var(--accent-amber)]" />
                     )}
                     <span className="text-[var(--text-secondary)]">
-                      {uploadedFile.dimensions
-                        ? `${uploadedFile.dimensions.width}\u00d7${uploadedFile.dimensions.height}px`
+                      {displayedDimensions
+                        ? `${displayedDimensions.width}\u00d7${displayedDimensions.height}px`
                         : t("checkingDimensions")}
-                      {!isValidDimensions(uploadedFile.dimensions) && (
+                      {!isValidDimensions(displayedDimensions) && (
                         <span className="text-[var(--accent-amber)] ml-1">
                           {t("recommendedDimensions")}
                         </span>
@@ -247,18 +271,18 @@ export default function UploadStep({ campaignId, onContinue, onGeneratePreview, 
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.3 }}
-                  className="mt-6 flex justify-end gap-3"
+                  className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"
                 >
                   <button
                     onClick={onGeneratePreview}
                     disabled={!onGeneratePreview}
-                    className="inline-flex items-center justify-center rounded-md px-6 py-2.5 text-sm font-medium transition-all duration-200 border border-[var(--border-dim)] bg-[var(--surface-raised)] text-[var(--text-primary)] hover:border-[var(--border-medium)] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="inline-flex min-h-10 items-center justify-center rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-6 py-2.5 text-sm font-medium text-[var(--text-primary)] transition-all duration-200 hover:border-[var(--border-medium)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {t("generatePreview")}
                   </button>
                   <button
                     onClick={onContinue}
-                    className="inline-flex items-center justify-center rounded-md px-6 py-2.5 text-sm font-medium text-white transition-all duration-200 bg-[var(--accent-mint)] hover:bg-[var(--accent-mint-light)] hover:-translate-y-px active:scale-[0.98]"
+                    className="inline-flex min-h-10 items-center justify-center rounded-md bg-[var(--accent-mint)] px-6 py-2.5 text-sm font-medium text-white transition-all duration-200 hover:-translate-y-px hover:bg-[var(--accent-mint-light)] active:scale-[0.98]"
                   >
                     {hasPreview ? t("generateAll") : t("generateDerivations")}
                   </button>
@@ -291,8 +315,6 @@ export default function UploadStep({ campaignId, onContinue, onGeneratePreview, 
                     backgroundSize: "20px 20px",
                   }}
                 >
-                  <input {...getInputProps()} />
-
                   {/* Cloud Icon */}
                   <motion.div
                     animate={isDragActive ? { y: [0, -8, 0] } : { y: 0 }}
@@ -321,7 +343,11 @@ export default function UploadStep({ campaignId, onContinue, onGeneratePreview, 
                   </p>
                   <button
                     type="button"
-                    className="inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-all duration-200 bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] hover:border-[var(--border-medium)] active:scale-[0.98]"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      open();
+                    }}
+                    className="inline-flex min-h-10 items-center justify-center rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition-all duration-200 hover:border-[var(--border-medium)] active:scale-[0.98]"
                   >
                     <Upload size={14} className="mr-2" />
                     {t("browseFiles")}
@@ -380,7 +406,7 @@ export default function UploadStep({ campaignId, onContinue, onGeneratePreview, 
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.3, duration: 0.4, ease: [0.19, 1, 0.22, 1] as const }}
-          className="hidden lg:block w-[280px] flex-shrink-0"
+          className="hidden w-[280px] flex-shrink-0 lg:block"
         >
           <div className="bg-[var(--surface-raised)] rounded-lg p-5 border border-[var(--border-dim)]">
             <div className="flex items-center gap-2 mb-4">

@@ -88,11 +88,11 @@ export default function Sidebar() {
               className="overflow-hidden"
             >
               <Image
-                src="/logo-wordmark.svg"
+                src="/adscale-logo.svg"
                 alt="ADScale"
-                width={100}
-                height={20}
-                className="object-contain"
+                width={128}
+                height={22}
+                className="h-[22px] w-auto object-contain"
               />
             </motion.div>
           )}

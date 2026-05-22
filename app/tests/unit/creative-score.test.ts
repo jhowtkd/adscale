@@ -23,7 +23,9 @@ describe("scoreDerivationHeuristic", () => {
       parentId: null,
     });
     expect(result.scoreBreakdown).toHaveProperty("variationLevelFit");
+    expect(result.scoreBreakdown).toHaveProperty("informationPreservation");
     expect(typeof result.scoreBreakdown.variationLevelFit).toBe("number");
+    expect(typeof result.scoreBreakdown.informationPreservation).toBe("number");
   });
 
   it("returns scores within 0–100", () => {
@@ -40,6 +42,8 @@ describe("scoreDerivationHeuristic", () => {
     expect(result.scoreBreakdown.ctaClarity).toBeLessThanOrEqual(100);
     expect(result.scoreBreakdown.variationLevelFit).toBeGreaterThanOrEqual(0);
     expect(result.scoreBreakdown.variationLevelFit).toBeLessThanOrEqual(100);
+    expect(result.scoreBreakdown.informationPreservation).toBeGreaterThanOrEqual(0);
+    expect(result.scoreBreakdown.informationPreservation).toBeLessThanOrEqual(100);
   });
 });
 

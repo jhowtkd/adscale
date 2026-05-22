@@ -1,13 +1,32 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+const sharpOperations = vi.hoisted(() => [] as Array<{ method: string; args: unknown[] }>);
+
 vi.mock("sharp", () => ({
-  default: vi.fn(() => ({
-    resize: vi.fn(() => ({
-      png: vi.fn(() => ({
-        toBuffer: vi.fn(() => Promise.resolve(Buffer.from("normalized"))),
-      })),
-    })),
-  })),
+  default: vi.fn((input: unknown) => {
+    sharpOperations.push({ method: "sharp", args: [input] });
+    const chain = {
+      resize: vi.fn((...args: unknown[]) => {
+        sharpOperations.push({ method: "resize", args });
+        return chain;
+      }),
+      blur: vi.fn((...args: unknown[]) => {
+        sharpOperations.push({ method: "blur", args });
+        return chain;
+      }),
+      modulate: vi.fn((...args: unknown[]) => {
+        sharpOperations.push({ method: "modulate", args });
+        return chain;
+      }),
+      composite: vi.fn((...args: unknown[]) => {
+        sharpOperations.push({ method: "composite", args });
+        return chain;
+      }),
+      png: vi.fn(() => chain),
+      toBuffer: vi.fn(() => Promise.resolve(Buffer.from("normalized"))),
+    };
+    return chain;
+  }),
 }));
 
 vi.mock("openai", () => ({
@@ -122,7 +141,7 @@ vi.mock("../db", () => ({
   },
 }));
 
-import { derivationJob } from "./derivation";
+import { derivationJob, normalizeGeneratedImage } from "./derivation";
 import { getDerivationById } from "../repositories/derivation";
 import { getCampaignById } from "../repositories/campaign";
 import { getAssetsByCampaign } from "../repositories/asset";
@@ -152,6 +171,41 @@ async function runDerivationJob(eventData: Record<string, unknown>) {
 describe("derivationJob", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    sharpOperations.length = 0;
+  });
+
+  it("normalizes generated images without cropping the foreground", async () => {
+    const output = await normalizeGeneratedImage(
+      Buffer.from("wide-generated-image"),
+      { width: 1080, height: 1920 },
+      "art_variation"
+    );
+
+    expect(output).toEqual(Buffer.from("normalized"));
+    expect(sharpOperations).toContainEqual({
+      method: "resize",
+      args: [
+        1080,
+        1920,
+        expect.objectContaining({ fit: "cover", position: "centre" }),
+      ],
+    });
+    expect(sharpOperations).toContainEqual({
+      method: "resize",
+      args: [
+        1080,
+        1920,
+        expect.objectContaining({
+          fit: "contain",
+          position: "centre",
+          background: { r: 0, g: 0, b: 0, alpha: 0 },
+        }),
+      ],
+    });
+    expect(sharpOperations).toContainEqual({
+      method: "composite",
+      args: [[expect.objectContaining({ gravity: "centre" })]],
+    });
   });
 
   it("uses parent outputKey as reference image for package format adaptation", async () => {

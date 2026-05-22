@@ -8,6 +8,7 @@
     "campaigns": "Campanhas",
     "templates": "Templates",
     "settings": "Configurações",
+    "restyling": "Restilização",
     "logout": "Sair",
     "login": "Entrar",
     "signup": "Criar conta",
@@ -407,12 +408,14 @@
     "invalidFormat": "Formato inválido. Envie PNG, JPG ou WebP.",
     "fileTooLarge": "Arquivo muito grande. Máximo de {max}MB.",
     "replace": "Trocar",
+    "uploadedAsset": "Criativo enviado",
     "formatValid": "Formato válido",
     "underLimit": "Abaixo de {max}MB",
     "checkingDimensions": "Verificando dimensões...",
     "recommendedDimensions": "(recomendado 1080×1080+)",
     "generatePreview": "Gerar pré-visualização",
     "previewLabel": "Pré-visualização",
+    "generateAll": "Gerar todas →",
     "generateDerivations": "Gerar derivações →",
     "browseFiles": "Procurar arquivos",
     "bestPractices": "Boas práticas",
@@ -586,7 +589,8 @@
     "modeRequired": "Modo de derivação é obrigatório",
     "targetFormatRequired": "Formato alvo é obrigatório para Variar formato",
     "ctaRequiredAtLeastOne": "Preencha ao menos um CTA para gerar derivações",
-    "noCtasProvided": "Nenhum CTA foi preenchido. Preencha ao menos um CTA."
+    "noCtasProvided": "Nenhum CTA foi preenchido. Preencha ao menos um CTA.",
+    "missingBaseAsset": "Envie um criativo base antes de gerar variações."
   },
   "review": {
     "title": "Revisão",
@@ -626,10 +630,13 @@
     "title": "Restilização de Criativo",
     "description": "Redesenhe um criativo com novo estilo a partir de uma referência visual",
     "name": "Nome da campanha",
+    "nameLabel": "Nome da campanha",
     "namePlaceholder": "Ex: Verão 2026 - Estilo minimalista",
     "nameRequired": "Nome da campanha é obrigatório",
+    "client": "Cliente / Marca",
     "clientLabel": "Cliente / Marca",
     "clientPlaceholder": "Ex: Loja XYZ",
+    "offer": "Objetivo / Oferta",
     "offerLabel": "Objetivo / Oferta",
     "offerPlaceholder": "Ex: 20% off em toda linha",
     "ctaLabel": "CTA Exato",
@@ -651,12 +658,18 @@
     "cancelLabel": "Cancelar",
     "styleIntensityLabel": "Intensidade do estilo",
     "styleIntensity": {
+      "label": "Intensidade do estilo",
       "soft": "Suave",
       "softDescription": "Aplica cor, textura e humor sem se afastar muito do criativo base.",
       "medium": "Médio",
       "mediumDescription": "Equilibra o criativo base com tipografia, tratamento e ritmo da referência.",
       "strong": "Forte",
-      "strongDescription": "Puxa mais da linguagem visual da referência sem copiar seu conteúdo."
+      "strongDescription": "Puxa mais da linguagem visual da referência sem copiar seu conteúdo.",
+      "help": {
+        "soft": "Ajuste sutil, mantendo a estrutura principal do criativo base.",
+        "medium": "Equilibra preservação do criativo base com presença clara da referência.",
+        "strong": "Transformação mais marcada, ainda respeitando conteúdo e CTA."
+      }
     },
     "dragDrop": "Arraste e solte sua imagem aqui",
     "onlyImages": "Apenas PNG, JPG, WebP",

@@ -648,15 +648,15 @@ export default function CampaignWorkspacePage() {
   }
 
   return (
-    <div className="max-w-[1100px] mx-auto pb-20">
+    <div className="max-w-[1100px] min-w-0 mx-auto pb-20">
       {/* ---- Page Header ---- */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3 }}
-        className="flex items-center justify-between mb-2"
+        className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-2"
       >
-        <div className="flex items-center gap-4">
+        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
           {/* Back button */}
           <Link
             href="/campaigns"
@@ -667,8 +667,8 @@ export default function CampaignWorkspacePage() {
           </Link>
 
           {/* Campaign title + status */}
-          <div className="flex items-center gap-3">
-            <h1 className="text-lg font-semibold text-[var(--text-primary)]">
+          <div className="flex min-w-0 items-center gap-3">
+            <h1 className="min-w-0 truncate text-lg font-semibold text-[var(--text-primary)]">
               {campaign?.name || t("new")}
             </h1>
             {campaign?.status && <StatusBadge status={campaign.status} />}
@@ -676,12 +676,12 @@ export default function CampaignWorkspacePage() {
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-2">
+        <div className="flex w-full items-center justify-end gap-2 sm:w-auto">
           <button
             onClick={() => {
               addToast("info", tc("draftSaved"));
             }}
-            className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-all duration-200 bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] hover:border-[var(--border-medium)] active:scale-[0.98]"
+            className="inline-flex min-h-10 min-w-0 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-all duration-200 bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] hover:border-[var(--border-medium)] active:scale-[0.98]"
           >
             <Save size={14} />
             {tc("saveDraft")}
@@ -701,7 +701,7 @@ export default function CampaignWorkspacePage() {
                   });
                 }
               }}
-              className="p-2 rounded-md text-[var(--accent-rose)] hover:bg-[rgba(244,63,94,0.08)] transition-colors"
+              className="min-h-10 shrink-0 rounded-md p-2 text-[var(--accent-rose)] hover:bg-[rgba(244,63,94,0.08)] transition-colors"
               title={tc("deleteDraft")}
             >
               <Trash2 size={16} />
@@ -716,7 +716,7 @@ export default function CampaignWorkspacePage() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.1 }}
-          className="text-sm text-[var(--text-muted)] ml-[120px] mb-4"
+          className="text-sm text-[var(--text-muted)] md:ml-[120px] mb-4"
         >
           {campaign.platforms?.join(", ") || tc("noPlatformsSet")}
         </motion.p>
@@ -769,12 +769,12 @@ export default function CampaignWorkspacePage() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2 }}
-          className="flex items-center justify-between mt-6 max-w-[960px] mx-auto px-4"
+          className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between mt-6 max-w-[960px] mx-auto px-4"
         >
           <button
             onClick={handlePrev}
             className={cn(
-              "inline-flex items-center rounded-md px-5 py-2.5 text-sm font-medium transition-all duration-200",
+              "inline-flex min-h-10 w-full items-center justify-center rounded-md px-5 py-2.5 text-sm font-medium transition-all duration-200 sm:w-auto",
               "bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] hover:border-[var(--border-medium)] active:scale-[0.98]"
             )}
           >
@@ -786,7 +786,7 @@ export default function CampaignWorkspacePage() {
               onClick={() => handleExportDerivation(approvedDerivation.id, "png")}
               disabled={exportMutation.isPending}
               className={cn(
-                "inline-flex items-center gap-2 rounded-md px-6 py-2.5 text-sm font-semibold transition-all duration-200 shadow-sm",
+                "inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-md px-6 py-2.5 text-sm font-semibold transition-all duration-200 shadow-sm sm:w-auto",
                 exportMutation.isPending
                   ? "bg-[var(--surface-raised)] text-[var(--text-muted)] border border-[var(--border-dim)] cursor-default"
                   : "bg-[var(--accent-mint)] text-white hover:bg-[var(--accent-mint-light)] hover:-translate-y-px active:scale-[0.98]"
@@ -800,7 +800,7 @@ export default function CampaignWorkspacePage() {
               onClick={currentStep === 2 ? () => handleGenerateDerivations() : handleNext}
               disabled={currentStep === 2 || currentStep === 3 || createDerivations.isPending}
               className={cn(
-                "inline-flex items-center rounded-md px-6 py-2.5 text-sm font-medium transition-all duration-200",
+                "inline-flex min-h-10 w-full items-center justify-center rounded-md px-6 py-2.5 text-sm font-medium transition-all duration-200 sm:w-auto",
                 currentStep === 2 || currentStep === 3 || createDerivations.isPending
                   ? "bg-[var(--surface-raised)] text-[var(--text-muted)] border border-[var(--border-dim)] cursor-default"
                   : "bg-[var(--accent-mint)] text-white hover:bg-[var(--accent-mint-light)] hover:-translate-y-px active:scale-[0.98]"

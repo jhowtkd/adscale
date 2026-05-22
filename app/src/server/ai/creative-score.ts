@@ -15,6 +15,7 @@ export interface ScoreResult {
     visualQuality: number;
     formatFit: number;
     variationLevelFit: number;
+    informationPreservation: number;
   };
   scoreIssues: string[];
   regenerationSuggestion: string;
@@ -46,6 +47,7 @@ export function scoreDerivationHeuristic(input: HeuristicInput): ScoreResult {
     visualQuality: clamped - 3,
     formatFit: clamped,
     variationLevelFit: clamped,
+    informationPreservation: clamped - 2,
   };
 
   return {
@@ -74,6 +76,7 @@ export interface AnalyzeInput {
     generationMode: string | null | undefined;
     feedback: string | null | undefined;
     creativeLevel?: string | null | undefined;
+    creativeDiagnosis?: unknown;
   };
   locale: string;
 }
@@ -102,9 +105,16 @@ Campaign context:
 - Offer: ${input.campaign.offer}
 - Objective: ${input.campaign.objective}
 - Audience: ${input.campaign.audience}
+- Creative diagnosis / preservation checklist: ${JSON.stringify(input.derivation.creativeDiagnosis ?? null)}
 
 Score each criterion from 0 to 100.
 Provide 1-3 specific issues.
+
+CRITICAL INFORMATION PRESERVATION:
+- Compare the output against the campaign context, exact CTA, offer, product/service, brand cues, and any creative diagnosis / preservation checklist.
+- Penalize heavily if important text, offer, CTA, logo, product, badge, legal/small-print, face, or other information-bearing element appears cropped, hidden, truncated, blurred, overlapped, deleted, or too small to read.
+- Penalize if the composition changed by merely cropping the source instead of rearranging elements into a deliberate layout.
+- scoreBreakdown MUST include informationPreservation.
 
 CRITICAL: scoreBreakdown MUST include variationLevelFit. Evaluate it as follows based on the selected creativity level:
 - conservative: did the output preserve layout and recognizable structure? High score if nearly identical structure with minor changes.
@@ -147,6 +157,7 @@ The regenerationSuggestion must preserve the exact CTA text, format, and generat
       visualQuality?: number;
       formatFit?: number;
       variationLevelFit?: number;
+      informationPreservation?: number;
     };
     scoreIssues?: string[];
     regenerationSuggestion?: string;
@@ -161,6 +172,7 @@ The regenerationSuggestion must preserve the exact CTA text, format, and generat
     visualQuality: clamp(parsed.scoreBreakdown?.visualQuality ?? 70),
     formatFit: clamp(parsed.scoreBreakdown?.formatFit ?? 70),
     variationLevelFit: clamp(parsed.scoreBreakdown?.variationLevelFit ?? 70),
+    informationPreservation: clamp(parsed.scoreBreakdown?.informationPreservation ?? 70),
   };
 
   const qualityScore = clamp(parsed.qualityScore ?? 70);

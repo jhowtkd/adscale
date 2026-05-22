@@ -72,10 +72,12 @@ Return ONLY a JSON object with this exact structure:
 
 Rules:
 - detectedConcept: a concise paragraph describing the core creative concept.
-- elementsToPreserve: visual or textual elements that must remain intact across variations (product, offer, CTA, brand cues, palette, etc).
-- variationOpportunities: concrete directions the model can explore for stronger variations.
+- elementsToPreserve: include every visible information-bearing element that must remain intact across variations: exact headline copy, offer, price/discount, CTA, product/service, logo/brand cues, legal or small-print text, faces, products, badges, and any important edge-aligned elements.
+- When visible text is legible, quote it verbatim inside elementsToPreserve instead of summarizing it.
+- variationOpportunities: concrete directions the model can explore for stronger variations, focused on hierarchy, spacing, grouping, background, and composition changes that do not remove or crop required information.
+- Include at least one opportunity about rearranging crowded elements more cleanly when the reference ad is dense.
 - Do not invent facts not supported by the briefing or image.
-- Keep each array to 3–6 items.${languageInstruction(locale)}`;
+- Keep each array to 4–8 items when enough information is visible.${languageInstruction(locale)}`;
 }
 
 export function normalizeCreativeDiagnosis(

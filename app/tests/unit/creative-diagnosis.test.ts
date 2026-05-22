@@ -76,6 +76,9 @@ describe("buildCreativeDiagnosisPrompt", () => {
     expect(prompt).toContain('"detectedConcept"');
     expect(prompt).toContain('"elementsToPreserve"');
     expect(prompt).toContain('"variationOpportunities"');
+    expect(prompt).toContain("quote it verbatim");
+    expect(prompt).toContain("exact headline copy, offer, price/discount, CTA");
+    expect(prompt).toContain("do not remove or crop required information");
   });
 
   it("uses pt-BR language when locale is pt-BR", () => {

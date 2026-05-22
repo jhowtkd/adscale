@@ -11,6 +11,7 @@ export interface CreativeScoreBreakdown {
   visualQuality: number;
   formatFit: number;
   variationLevelFit: number;
+  informationPreservation: number;
 }
 
 export interface UpdateDerivationScoreInput {

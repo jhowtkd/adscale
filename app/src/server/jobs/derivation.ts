@@ -51,7 +51,7 @@ function getTargetDimensions(format: string, isPreview?: boolean): { width: numb
 
 function formatToOpenAISize(format: string, isPreview?: boolean): "512x512" | "1024x1024" | "1024x1536" | "1536x1024" {
   if (isPreview) {
-    return "512x512";
+    return "1024x1024";
   }
 
   switch (format) {
@@ -64,18 +64,34 @@ function formatToOpenAISize(format: string, isPreview?: boolean): "512x512" | "1
   }
 }
 
-async function normalizeGeneratedImage(
+export async function normalizeGeneratedImage(
   buffer: Buffer,
   dimensions: { width: number; height: number },
   generationMode: "art_variation" | "format_adaptation" | "restyling",
 ) {
-  const position = generationMode === "format_adaptation" ? "attention" : "centre";
+  const backgroundPosition = generationMode === "format_adaptation" ? "attention" : "centre";
 
-  return sharp(buffer)
+  const background = await sharp(buffer)
     .resize(dimensions.width, dimensions.height, {
       fit: "cover",
-      position,
+      position: backgroundPosition,
     })
+    .blur(24)
+    .modulate({ brightness: 0.82, saturation: 0.9 })
+    .png()
+    .toBuffer();
+
+  const foreground = await sharp(buffer)
+    .resize(dimensions.width, dimensions.height, {
+      fit: "contain",
+      position: "centre",
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .png()
+    .toBuffer();
+
+  return sharp(background)
+    .composite([{ input: foreground, gravity: "centre" }])
     .png()
     .toBuffer();
 }
@@ -106,6 +122,7 @@ export async function scoreCompletedDerivation(
     objective: string | null;
     audience: string | null;
     creativeLevel?: string | null;
+    creativeDiagnosis?: unknown;
   },
   derivation: {
     ctaText: string | null;
@@ -148,6 +165,7 @@ export async function scoreCompletedDerivation(
           generationMode: effectiveGenerationMode,
           feedback: derivation.feedback,
           creativeLevel: campaign.creativeLevel ?? null,
+          creativeDiagnosis: campaign.creativeDiagnosis ?? null,
         },
         locale: locale ?? "pt-BR",
       });

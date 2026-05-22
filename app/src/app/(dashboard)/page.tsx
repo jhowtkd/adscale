@@ -83,6 +83,8 @@ const activityIconBgColors: Record<ActivityItem["type"], string> = {
   alert: "rgba(212,160,23,0.12)",
 };
 
+const fallbackPlatformColors = { bg: "var(--surface-raised)", text: "var(--text-secondary)" };
+
 // ============================================
 // Dashboard Page
 // ============================================
@@ -580,7 +582,7 @@ function CampaignRow({ campaign }: { campaign: UiCampaign }) {
           </p>
           <div className="flex items-center gap-1.5 mt-1">
             {campaign.platforms.map((platform) => {
-              const colors = platformColors[platform];
+              const colors = platformColors[platform as keyof typeof platformColors] ?? fallbackPlatformColors;
               return (
                 <span
                   key={platform}
