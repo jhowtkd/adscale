@@ -118,7 +118,7 @@ export default function DashboardPage() {
         <div className="space-y-3">
           <CreditChart data={stats.creditUsageSeries} />
           <div data-tour-step="3">
-            <CampaignList campaigns={stats.recentCampaigns} />
+            <CampaignList campaigns={stats.recentCampaigns.map((c) => ({ ...c, updatedAt: c.updatedAt.toString() }))} />
           </div>
         </div>
 
@@ -129,7 +129,7 @@ export default function DashboardPage() {
             total={stats.creditsTotal}
             planKey={stats.subscription.planKey}
           />
-          <ActivityFeed activities={stats.recentActivity} />
+          <ActivityFeed activities={stats.recentActivity.map((a) => ({ ...a, createdAt: a.createdAt.toString() }))} />
         </div>
       </div>
 
