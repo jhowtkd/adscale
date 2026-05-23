@@ -195,7 +195,7 @@ export default function CompetitorAnalysisSection({
         setFormData((prev) => ({ ...prev, files: [...prev.files, ...pending] }));
       }
     },
-    [formData.files]
+    [formData.files, validateFiles]
   );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {

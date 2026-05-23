@@ -129,7 +129,7 @@ export default function UploadStep({ campaignId, onContinue, onGeneratePreview, 
     } finally {
       setIsUploading(false);
     }
-  }, [t, uploadAsset]);
+  }, [t, uploadAsset, analyzePreflight, campaignId, showPreflight]);
 
   const onDrop = useCallback(
     (acceptedFiles: File[]) => {

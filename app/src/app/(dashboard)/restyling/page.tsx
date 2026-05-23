@@ -88,7 +88,7 @@ export default function RestylingPage() {
         setIsSubmitting(false);
       }
     },
-    [name, client, offer, ctaText, styleIntensity, baseImage, styleImage, validate, router, tCommon, t]
+    [name, client, offer, ctaText, styleIntensity, baseImage, styleImage, validate, router, tCommon]
   );
 
   const handleCancel = useCallback(() => {
