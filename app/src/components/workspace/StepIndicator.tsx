@@ -1,10 +1,10 @@
 "use client";
 
-import { Check, FileText, Upload, LayoutGrid } from "lucide-react";
+import { Check, FileText, Upload, LayoutGrid, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 
-export type StepKey = 1 | 2 | 3;
+export type StepKey = 1 | 2 | 3 | 4;
 
 interface Step {
   key: StepKey;
@@ -23,7 +23,8 @@ export default function StepIndicator({ currentStep, onStepClick }: StepIndicato
   const steps: Step[] = [
     { key: 1, label: t("brief"), icon: FileText },
     { key: 2, label: t("upload"), icon: Upload },
-    { key: 3, label: t("gallery"), icon: LayoutGrid },
+    { key: 3, label: t("plan"), icon: Sparkles },
+    { key: 4, label: t("gallery"), icon: LayoutGrid },
   ];
 
   return (
