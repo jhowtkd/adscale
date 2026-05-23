@@ -1,9 +1,9 @@
-export { KpiCard } from "./KpiCard";
-export { CampaignList } from "./CampaignList";
-export { CreditPanel } from "./CreditPanel";
-export { ActivityFeed } from "./ActivityFeed";
-export { CreditChart } from "./CreditChart";
-export { QuickActions } from "./QuickActions";
+export { default as KpiCard } from "./KpiCard";
+export { default as CampaignList } from "./CampaignList";
+export { default as CreditPanel } from "./CreditPanel";
+export { default as ActivityFeed } from "./ActivityFeed";
+export { default as CreditChart } from "./CreditChart";
+export { default as QuickActions } from "./QuickActions";
 export { OnboardingTour } from "./OnboardingTour";
 export { CreditAlertBanner } from "./CreditAlertBanner";
 export { QuickActionCard } from "./QuickActionCard";
