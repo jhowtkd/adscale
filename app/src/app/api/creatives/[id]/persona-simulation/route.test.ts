@@ -73,25 +73,24 @@ function paramsWith(id: string) {
   return Promise.resolve({ id });
 }
 
+const mockResult = {
+  understands: "The offer is clear and the discount is attractive.",
+  rejects: "The brand is unfamiliar and the urgency feels forced.",
+  wants: "More social proof and a longer return window.",
+  wouldClick: true,
+  rationale: "The discount is compelling enough to overcome skepticism.",
+};
+
 const mockResults = {
-  personas: [
-    {
-      name: "Ana",
-      ageRange: "25-34",
-      painPoints: ["Preço alto"],
-      desires: ["Qualidade"],
-      objections: ["Não conhece a marca"],
-      predictedReaction: "Positiva",
-    },
-  ],
-  summary: "Resumo",
+  skeptical_buyer: mockResult,
+  warm_lead: { ...mockResult, wouldClick: true, rationale: "Already interested, this pushes me over." },
+  financial_decision_maker: { ...mockResult, wouldClick: false, rationale: "ROI is not clearly stated." },
+  beginner: { ...mockResult, understands: "I understand there is a sale.", wouldClick: true },
 };
 
 const mockCampaign = {
   id: "campaign-id",
   name: "Summer Sale",
-  client: "Acme",
-  product: "Dress",
   objective: "Conversion",
   audience: "Women 25-34",
   offer: "20% off",
@@ -100,6 +99,40 @@ const mockCampaign = {
   notes: null,
   ctaVariants: ["Shop Now"],
 };
+
+function makeMockSimulation(overrides?: Partial<{
+  id: string;
+  status: string;
+  cacheExpiresAt: Date | null;
+  error: string | null;
+}>): {
+  id: string;
+  workspaceId: string;
+  campaignId: string;
+  sourceType: string;
+  sourceId: string;
+  status: string;
+  results: typeof mockResults;
+  cacheExpiresAt: Date | null;
+  error: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+} {
+  return {
+    id: "sim-1",
+    workspaceId: "workspace-1",
+    campaignId: "campaign-id",
+    sourceType: "derivation",
+    sourceId: "derivation-id",
+    status: "completed",
+    results: mockResults,
+    cacheExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    error: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  };
+}
 
 describe("POST /api/creatives/[id]/persona-simulation", () => {
   beforeEach(() => {
@@ -154,16 +187,7 @@ describe("POST /api/creatives/[id]/persona-simulation", () => {
     mockGetCampaignById.mockResolvedValue(mockCampaign as Awaited<ReturnType<typeof getCampaignById>>);
     mockGetPersonaSimulationBySource.mockResolvedValue(undefined);
     mockSimulatePersonas.mockResolvedValue(mockResults);
-    mockCreatePersonaSimulation.mockResolvedValue({
-      id: "sim-1",
-      workspaceId: "workspace-1",
-      campaignId: "campaign-id",
-      sourceType: "derivation",
-      sourceId: "derivation-id",
-      results: mockResults,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
+    mockCreatePersonaSimulation.mockResolvedValue(makeMockSimulation());
 
     const res = await POST(postRequest("derivation-id", { sourceType: "derivation" }), {
       params: paramsWith("derivation-id"),
@@ -193,16 +217,7 @@ describe("POST /api/creatives/[id]/persona-simulation", () => {
 
     mockGetCampaignById.mockResolvedValue(mockCampaign as Awaited<ReturnType<typeof getCampaignById>>);
 
-    const cachedSimulation = {
-      id: "sim-1",
-      workspaceId: "workspace-1",
-      campaignId: "campaign-id",
-      sourceType: "derivation",
-      sourceId: "derivation-id",
-      results: mockResults,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+    const cachedSimulation = makeMockSimulation();
     mockGetPersonaSimulationBySource.mockResolvedValue(cachedSimulation);
     mockIsCacheValid.mockReturnValue(true);
 
@@ -229,16 +244,7 @@ describe("GET /api/creatives/[id]/persona-simulation", () => {
   });
 
   it("returns 200 with existing simulation", async () => {
-    const simulation = {
-      id: "sim-1",
-      workspaceId: "workspace-1",
-      campaignId: "campaign-id",
-      sourceType: "derivation",
-      sourceId: "derivation-id",
-      results: mockResults,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+    const simulation = makeMockSimulation();
     mockGetPersonaSimulationBySource.mockResolvedValue(simulation);
     mockIsCacheValid.mockReturnValue(true);
 
@@ -263,16 +269,9 @@ describe("GET /api/creatives/[id]/persona-simulation", () => {
   });
 
   it("returns stale: true when cache is expired", async () => {
-    const simulation = {
-      id: "sim-1",
-      workspaceId: "workspace-1",
-      campaignId: "campaign-id",
-      sourceType: "derivation",
-      sourceId: "derivation-id",
-      results: mockResults,
-      createdAt: new Date(Date.now() - 48 * 60 * 60 * 1000),
-      updatedAt: new Date(Date.now() - 48 * 60 * 60 * 1000),
-    };
+    const simulation = makeMockSimulation({
+      cacheExpiresAt: new Date(Date.now() - 48 * 60 * 60 * 1000),
+    });
     mockGetPersonaSimulationBySource.mockResolvedValue(simulation);
     mockIsCacheValid.mockReturnValue(false);
 

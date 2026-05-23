@@ -213,4 +213,63 @@ describe("DerivationCard", () => {
     const btn = screen.getByRole("button", { name: /generateLandingPage/i });
     expect(btn).toBeDisabled();
   });
+
+  it("shows simulate personas button when callback is provided for approved derivation", () => {
+    render(
+      <DerivationCard
+        derivation={baseDerivation}
+        index={0}
+        onPreview={vi.fn()}
+        onSimulatePersonas={vi.fn()}
+      />
+    );
+
+    expect(
+      screen.getByRole("button", { name: /simulatePersonas/i })
+    ).toBeInTheDocument();
+  });
+
+  it("does not show simulate personas button when callback is not provided", () => {
+    render(
+      <DerivationCard
+        derivation={baseDerivation}
+        index={0}
+        onPreview={vi.fn()}
+      />
+    );
+
+    expect(
+      screen.queryByRole("button", { name: /simulatePersonas/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it("calls onSimulatePersonas when clicked", () => {
+    const onSimulatePersonas = vi.fn();
+    render(
+      <DerivationCard
+        derivation={baseDerivation}
+        index={0}
+        onPreview={vi.fn()}
+        onSimulatePersonas={onSimulatePersonas}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /simulatePersonas/i }));
+    expect(onSimulatePersonas).toHaveBeenCalledTimes(1);
+  });
+
+  it("disables simulate personas when active derivation matches", () => {
+    render(
+      <DerivationCard
+        derivation={baseDerivation}
+        index={0}
+        onPreview={vi.fn()}
+        onSimulatePersonas={vi.fn()}
+        simulatingPersonasId={baseDerivation.id}
+      />
+    );
+
+    const btn = screen.getByRole("button", { name: /simulatePersonas/i });
+    expect(btn).toBeDisabled();
+  });
 });
