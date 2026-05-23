@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { ALLOWED_IMAGE_TYPES, isAllowedImageType } from "@/lib/upload-config";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
@@ -10,12 +11,11 @@ import {
 } from "@/server/repositories/asset";
 import { headObject, deleteObject } from "@/server/storage/r2";
 
-const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
 const MAX_SIZE = 50 * 1024 * 1024; // 50MB
 
 const completeSchema = z.object({
   key: z.string().min(1),
-  type: z.enum(ALLOWED_TYPES),
+  type: z.enum(ALLOWED_IMAGE_TYPES),
   size: z.number().int().min(1).max(MAX_SIZE),
   width: z.number().int().positive().optional(),
   height: z.number().int().positive().optional(),

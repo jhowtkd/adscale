@@ -211,4 +211,95 @@ describe("buildDerivationPrompt", () => {
     expect(prompt.indexOf("IDIOMA OBRIGATORIO")).toBeGreaterThan(hardRulesIndex);
     expect(prompt).toContain("todo texto visivel, CTA, chamada, legenda e direcao textual deve estar em portugues brasileiro");
   });
+
+  it("includes brand kit colors, fonts, and tone when brandKit is provided", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "art_variation",
+      targetFormat: "1:1",
+      brandKit: {
+        name: "Acme Brand",
+        colors: ["#FF0000", "#00FF00"],
+        fonts: ["Montserrat", "Open Sans"],
+        toneOfVoice: "Bold and energetic",
+        description: "Premium tech brand",
+      },
+    });
+
+    expect(prompt).toContain("--- BRAND KIT GUIDELINES ---");
+    expect(prompt).toContain("Brand Colors: #FF0000, #00FF00");
+    expect(prompt).toContain("Brand Fonts: Montserrat, Open Sans");
+    expect(prompt).toContain("Tone of Voice: Bold and energetic");
+    expect(prompt).toContain("--- END BRAND KIT ---");
+  });
+
+  it("includes competitor context when competitorAnalyses is provided", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "art_variation",
+      targetFormat: "1:1",
+      competitorAnalyses: [
+        {
+          visualPatterns: {
+            colors: ["blue", "white"],
+            composition: "Centered product with text overlay",
+            typography: "Sans-serif bold",
+          },
+          messaging: {
+            headlineStyle: "Direct benefit-driven",
+            ctaStyle: "High contrast button",
+            offerType: "Percentage discount",
+          },
+          strengths: ["Strong color contrast", "Clear CTA"],
+          weaknesses: ["Cluttered layout"],
+          differentiationOpportunities: ["Use warmer tones"],
+        },
+      ],
+    });
+
+    expect(prompt).toContain("--- Competitor Analysis Context ---");
+    expect(prompt).toContain("Competitor 1:");
+    expect(prompt).toContain("Colors: blue, white");
+    expect(prompt).toContain("Strengths: Strong color contrast; Clear CTA");
+    expect(prompt).toContain("Weaknesses: Cluttered layout");
+    expect(prompt).toContain("Opportunities: Use warmer tones");
+    expect(prompt).toContain("--- End Competitor Context ---");
+  });
+
+  it("includes pre-flight analysis when preflightResult is provided", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "art_variation",
+      targetFormat: "1:1",
+      preflightResult: {
+        overallScore: 82,
+        breakdown: {
+          technicalQuality: { score: 90, suggestion: "Good resolution" },
+          textLegibility: { score: 75, suggestion: "Text slightly small" },
+          visualHierarchy: { score: 85, suggestion: "Clear hierarchy" },
+          ctaProminence: { score: 80, suggestion: "CTA visible" },
+          composition: { score: 88, suggestion: "Well balanced" },
+          brandConsistency: { score: 82, suggestion: "On brand" },
+          platformReadiness: { score: 78, suggestion: "Suitable for Meta" },
+        },
+        criticalIssues: ["Headline may be hard to read on mobile"],
+        suggestions: ["Increase headline font size", "Add more contrast to CTA"],
+        technical: {
+          actualWidth: 1080,
+          actualHeight: 1080,
+          claimedWidth: null,
+          claimedHeight: null,
+          aspectRatio: "1:1",
+          format: "png",
+          fileSizeBytes: 204800,
+          hasAlpha: true,
+          estimatedContrast: 0.72,
+        },
+      },
+    });
+
+    expect(prompt).toContain("--- PRE-FLIGHT ASSET ANALYSIS ---");
+    expect(prompt).toContain("## Pre-flight Analysis Results");
+    expect(prompt).toContain("Overall Score: 82/100");
+    expect(prompt).toContain("Headline may be hard to read on mobile");
+    expect(prompt).toContain("Increase headline font size");
+    expect(prompt).toContain("--- END PRE-FLIGHT ---");
+  });
 });

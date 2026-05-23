@@ -2,13 +2,13 @@
 
 import React from "react";
 import { cn } from "@/lib/utils";
-import type { Campaign } from "@/lib/mock-data";
+import type { UiCampaign } from "@/lib/hooks/use-campaigns";
 import KanbanCard from "./KanbanCard";
 
 interface KanbanColumnProps {
   title: string;
   count: number;
-  campaigns: Campaign[];
+  campaigns: UiCampaign[];
   accentColor: string;
 }
 

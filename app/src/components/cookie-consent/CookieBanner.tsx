@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore, useState } from "react";
 import Link from "next/link";
 
 export type ConsentPreferences = {
@@ -25,14 +25,17 @@ function saveConsent(prefs: ConsentPreferences) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
 }
 
-export function useCookieConsent() {
-  const [prefs, setPrefs] = useState<ConsentPreferences | null>(null);
-  const [mounted, setMounted] = useState(false);
+function useMounted() {
+  return useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
+}
 
-  useEffect(() => {
-    setMounted(true);
-    setPrefs(getStoredConsent());
-  }, []);
+export function useCookieConsent() {
+  const [prefs, setPrefs] = useState<ConsentPreferences | null>(() => getStoredConsent());
+  const mounted = useMounted();
 
   const acceptAll = () => {
     const all: ConsentPreferences = { necessary: true, analytics: true, marketing: true };

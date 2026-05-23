@@ -1,9 +1,5 @@
-import OpenAI from "openai";
 import { env } from "@/server/validation/env";
-
-function getOpenAI() {
-  return new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 60_000 });
-}
+import { getOpenAI, extractOutputText } from "./utils";
 
 export interface CreativeDiagnosis {
   detectedConcept: string;
@@ -142,7 +138,7 @@ export async function analyzeCreativeDiagnosis(
     },
   });
 
-  const raw = (response as unknown as { output_text?: string }).output_text;
+  const raw = extractOutputText(response);
   if (!raw) {
     throw new Error("Empty response for creative diagnosis");
   }

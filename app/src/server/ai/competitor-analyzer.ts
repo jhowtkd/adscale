@@ -1,11 +1,7 @@
-import OpenAI from "openai";
 import { z } from "zod";
+import { getOpenAI } from "./utils";
 import { env } from "@/server/validation/env";
 import { logger } from "@/lib/logger";
-
-function getOpenAI() {
-  return new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 60_000 });
-}
 
 // ── Schemas ───────────────────────────────────────────────────────────
 

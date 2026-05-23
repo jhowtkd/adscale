@@ -1,5 +1,5 @@
-import OpenAI from "openai";
 import { env } from "@/server/validation/env";
+import { getOpenAI, extractOutputText } from "./utils";
 
 export type CreativeQaStatus = "ready" | "warning" | "review" | "failed";
 export type CreativeQaCheckStatus = "passed" | "warning" | "failed";
@@ -33,10 +33,6 @@ const CRITERIA: CreativeQaCriterion[] = [
   "formatFit",
   "creativeRisk",
 ];
-
-function getOpenAI() {
-  return new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 60_000 });
-}
 
 function asStatus(value: unknown): CreativeQaStatus {
   return value === "ready" || value === "warning" || value === "review" ? value : "warning";
@@ -155,7 +151,7 @@ export async function analyzeCreativeQa(input: AnalyzeCreativeQaInput): Promise<
     text: { format: { type: "json_object" } },
   });
 
-  const raw = (response as unknown as { output_text?: string }).output_text;
+  const raw = extractOutputText(response);
   if (!raw) throw new Error("Empty vision response for creative QA");
   return normalizeCreativeQaResult(JSON.parse(raw));
 }

@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { logger } from "@/lib/logger";
 import { ImageIcon, UploadCloud } from "lucide-react";
 
 interface RestylingModalProps {
@@ -114,7 +115,7 @@ export default function RestylingModal({ open, onOpenChange }: RestylingModalPro
         router.push(data.redirectUrl || `/campaigns/${data.campaignId}`);
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") return;
-        console.error("[RestylingModal] submit error:", err);
+        logger.error("[RestylingModal] submit error", { error: err instanceof Error ? err.message : String(err) });
         setErrors({
           name: err instanceof Error ? err.message : "Submission failed",
         });

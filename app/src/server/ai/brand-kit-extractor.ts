@@ -1,10 +1,6 @@
-import OpenAI from "openai";
 import { z } from "zod";
+import { getOpenAI } from "./utils";
 import { env } from "@/server/validation/env";
-
-function getOpenAI() {
-  return new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 60_000 });
-}
 
 const extractionSchema = z.object({
   colors: z.array(z.string()).describe("Array of hex color codes extracted from the brand guide"),

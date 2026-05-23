@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { ALLOWED_IMAGE_TYPES, isAllowedImageType } from "@/lib/upload-config";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
@@ -6,7 +7,6 @@ import { getCampaignById } from "@/server/repositories/campaign";
 import { createAsset } from "@/server/repositories/asset";
 import { uploadBuffer } from "@/server/storage/r2";
 
-const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
 const MAX_SIZE = 50 * 1024 * 1024;
 
 const uploadSchema = z.object({
@@ -48,7 +48,7 @@ export async function POST(
       return apiError("invalidInput", 400);
     }
 
-    if (!ALLOWED_TYPES.includes(file.type as (typeof ALLOWED_TYPES)[number])) {
+    if (!isAllowedImageType(file.type)) {
       return apiError("invalidFileType", 400);
     }
 

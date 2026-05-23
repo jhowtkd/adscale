@@ -311,7 +311,7 @@ export async function createCampaign(
   return result[0];
 }
 
-export async function getCampaigns(workspaceId: string) {
+export async function getCampaigns(workspaceId: string, limit = 50) {
   const metricsByCampaignId = await getCampaignMetrics(workspaceId);
   const rows = await db
     .select({
@@ -319,7 +319,8 @@ export async function getCampaigns(workspaceId: string) {
     })
     .from(campaigns)
     .where(eq(campaigns.workspaceId, workspaceId))
-    .orderBy(desc(campaigns.updatedAt));
+    .orderBy(desc(campaigns.updatedAt))
+    .limit(limit);
   return rows.map((row) => mergeCampaignMetrics(row, metricsByCampaignId.get(row.id)));
 }
 

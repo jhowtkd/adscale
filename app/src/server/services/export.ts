@@ -87,29 +87,38 @@ export async function exportAllApproved(
   const folder = zip.folder("derivations") || zip;
   let addedFiles = 0;
 
-  for (let i = 0; i < items.length; i++) {
-    const d = items[i];
-    if (!d.outputKey) {
-      logger.warn(`[exportAllApproved] skipping derivation without outputKey id=${d.id}`);
-      continue;
-    }
-
-    try {
-      const buffer = await downloadBuffer(d.outputKey);
-      const storedFormat = d.format?.toLowerCase() as
-        | "png"
-        | "jpeg"
-        | "webp"
-        | undefined;
-      const finalBuffer =
-        storedFormat === format ? buffer : await convertImage(buffer, format);
-
+  const BATCH_SIZE = 5;
+  for (let batchStart = 0; batchStart < items.length; batchStart += BATCH_SIZE) {
+    const batch = items.slice(batchStart, batchStart + BATCH_SIZE);
+    const results = await Promise.all(
+      batch.map(async (d) => {
+        if (!d.outputKey) {
+          logger.warn(`[exportAllApproved] skipping derivation without outputKey id=${d.id}`);
+          return null;
+        }
+        try {
+          const buffer = await downloadBuffer(d.outputKey);
+          const storedFormat = d.format?.toLowerCase() as
+            | "png"
+            | "jpeg"
+            | "webp"
+            | undefined;
+          const finalBuffer =
+            storedFormat === format ? buffer : await convertImage(buffer, format);
+          return { d, finalBuffer };
+        } catch (error) {
+          logger.error(`[exportAllApproved] failed to add derivation id=${d.id} key=${d.outputKey}`, error);
+          return null;
+        }
+      })
+    );
+    for (const result of results) {
+      if (!result) continue;
+      const { finalBuffer } = result;
       const safeName = campaign.name.replace(/[^a-z0-9]/gi, "-").toLowerCase();
       const fileName = `${safeName}-${addedFiles + 1}.${format}`;
       folder.file(fileName, finalBuffer);
       addedFiles++;
-    } catch (error) {
-      logger.error(`[exportAllApproved] failed to add derivation id=${d.id} key=${d.outputKey}`, error);
     }
   }
 

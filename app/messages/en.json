@@ -275,6 +275,9 @@
         "extreme": "Creates a new creative reading while keeping product, offer, CTA, and brand constraints."
       }
     },
+    "targetFormat": {
+      "label": "Target format"
+    },
     "diagnosis": {
       "title": "Creative Diagnosis",
       "subtitle": "Analysis of the original piece to guide variations.",
@@ -572,7 +575,13 @@
     "socialConsentPrefix": "By continuing, you agree to our",
     "terms": "Terms of Use",
     "and": "and",
-    "privacy": "Privacy Policy"
+    "privacy": "Privacy Policy",
+    "inviteTitle": "Team Invite",
+    "inviteSubtitle": "Accept your invitation to join the workspace",
+    "processingInvite": "Processing your invitation...",
+    "inviteSuccess": "You have successfully joined the workspace!",
+    "redirecting": "Redirecting to dashboard...",
+    "invalidToken": "Invalid or missing invitation token"
   },
   "settings": {
     "title": "Settings",
@@ -744,7 +753,13 @@
     "modeRequired": "Derivation mode is required",
     "ctaRequiredAtLeastOne": "Fill at least one CTA to generate derivations",
     "noCtasProvided": "No CTA was provided. Fill at least one CTA.",
-    "missingBaseAsset": "Upload a base creative before generating variations."
+    "missingBaseAsset": "Upload a base creative before generating variations.",
+    "forbidden": "Access denied",
+    "inviteNotFound": "Invite not found",
+    "inviteExpired": "This invite has expired",
+    "inviteEmailMismatch": "Invite email does not match your account",
+    "cannotRemoveSelf": "You cannot remove yourself",
+    "memberNotFound": "Member not found"
   },
   "review": {
     "title": "Review",

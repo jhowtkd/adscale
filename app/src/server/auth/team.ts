@@ -2,8 +2,6 @@ import { eq, and, desc } from "drizzle-orm";
 import { db } from "../db";
 import { workspaceMembers, workspaceInvites, user } from "../db/schema";
 
-const INVITE_EXPIRATION_DAYS = 7;
-
 export async function getWorkspaceMembers(workspaceId: string) {
   return db
     .select({
@@ -20,32 +18,6 @@ export async function getWorkspaceMembers(workspaceId: string) {
     .innerJoin(user, eq(workspaceMembers.userId, user.id))
     .where(eq(workspaceMembers.workspaceId, workspaceId))
     .orderBy(desc(workspaceMembers.createdAt));
-}
-
-export async function inviteMember(
-  workspaceId: string,
-  email: string,
-  role: string,
-  createdBy: string
-) {
-  const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + INVITE_EXPIRATION_DAYS);
-
-  const token = crypto.randomUUID();
-
-  const result = await db
-    .insert(workspaceInvites)
-    .values({
-      workspaceId,
-      email: email.toLowerCase().trim(),
-      role,
-      token,
-      expiresAt,
-      createdBy,
-    })
-    .returning();
-
-  return result[0];
 }
 
 export async function removeMember(workspaceId: string, userId: string) {

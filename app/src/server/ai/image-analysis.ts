@@ -1,7 +1,5 @@
-import OpenAI from "openai";
 import { env } from "@/server/validation/env";
-
-const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 60_000 });
+import { getOpenAI } from "@/server/ai/utils";
 
 export interface ContentBrief {
   product: string;
@@ -32,7 +30,7 @@ export async function analyzeImageContent(
   const base64 = imageBuffer.toString("base64");
   const dataUrl = `data:${mimeType};base64,${base64}`;
 
-  const response = await openai.chat.completions.create({
+  const response = await getOpenAI().chat.completions.create({
     model: env.OPENAI_TEXT_MODEL,
     messages: [
       { role: "system", content: CONTENT_SYSTEM_PROMPT },
@@ -90,7 +88,7 @@ export async function analyzeImageStyle(
   const base64 = imageBuffer.toString("base64");
   const dataUrl = `data:${mimeType};base64,${base64}`;
 
-  const response = await openai.chat.completions.create({
+  const response = await getOpenAI().chat.completions.create({
     model: env.OPENAI_TEXT_MODEL,
     messages: [
       { role: "system", content: STYLE_SYSTEM_PROMPT },

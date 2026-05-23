@@ -259,9 +259,9 @@ export const derivationJob = inngest.createFunction(
         derivation.parentId &&
         parentDerivation?.outputKey;
 
-      if (usesParentOutput) {
-        logger.info(`[generate-and-store-output] downloading parent output key=${parentDerivation!.outputKey}`);
-        referenceBuffer = await downloadBuffer(parentDerivation!.outputKey!);
+      if (usesParentOutput && parentDerivation?.outputKey) {
+        logger.info(`[generate-and-store-output] downloading parent output key=${parentDerivation.outputKey}`);
+        referenceBuffer = await downloadBuffer(parentDerivation.outputKey);
         referenceMimeType = "image/png";
         logger.info(`[generate-and-store-output] downloaded ${referenceBuffer.length} bytes from parent`);
       } else if (asset) {
@@ -325,6 +325,12 @@ export const derivationJob = inngest.createFunction(
         preflightResult: asset?.metadata ? (asset.metadata as Record<string, unknown>).preflightResult as import("@/server/ai/preflight-analysis").PreflightResult | undefined : null,
       });
       logger.info(`[generate-and-store-output] model=${env.OPENAI_IMAGE_MODEL} hasAsset=${!!asset} locale=${locale ?? "default"}`);
+
+      // Persist the built prompt before generation
+      await db
+        .update(derivations)
+        .set({ inputPrompt: prompt, updatedAt: new Date() })
+        .where(eq(derivations.id, derivationId));
 
       let result: OpenAI.Images.Image;
 

@@ -508,6 +508,7 @@ export const derivations = adscaleSchema.table(
     qaIssues: jsonb("qa_issues"),
     qaSuggestions: jsonb("qa_suggestions"),
     qaAnalyzedAt: timestamp("qa_analyzed_at", { mode: "date" }),
+    inputPrompt: text("input_prompt"),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
   },
@@ -516,6 +517,7 @@ export const derivations = adscaleSchema.table(
     index("derivations_workspace_id_idx").on(table.workspaceId),
     index("derivations_plan_id_idx").on(table.planId),
     index("derivations_parent_id_idx").on(table.parentId),
+    index("derivations_workspace_campaign_idx").on(table.workspaceId, table.campaignId),
     foreignKey({
       columns: [table.parentId],
       foreignColumns: [table.id],

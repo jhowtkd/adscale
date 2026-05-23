@@ -99,12 +99,33 @@ export async function recordUsage(input: {
   }
 
   let remainingToDebit = check.amount;
-  const grants = await getAvailableCreditGrants(input.workspaceId);
-  for (const grant of grants) {
-    if (remainingToDebit <= 0) break;
-    const debit = Math.min(grant.remaining, remainingToDebit);
-    await updateCreditGrantRemaining(grant.id, grant.remaining - debit);
-    remainingToDebit -= debit;
+  try {
+    await db.transaction(async (tx) => {
+      const grants = await getAvailableCreditGrants(input.workspaceId, tx, true);
+      const balance = totalRemaining(grants);
+      if (balance < check.amount) {
+        throw new Error("insufficient_credits");
+      }
+
+      for (const grant of grants) {
+        if (remainingToDebit <= 0) break;
+        const debit = Math.min(grant.remaining, remainingToDebit);
+        await updateCreditGrantRemaining(grant.id, grant.remaining - debit, tx);
+        remainingToDebit -= debit;
+      }
+
+      if (remainingToDebit > 0) {
+        throw new Error("insufficient_credits");
+      }
+    });
+  } catch (err) {
+    if (err instanceof Error && err.message === "insufficient_credits") {
+      return {
+        status: "blocked" as const,
+        check: { ...check, allowed: false, reason: "insufficient_credits" as const },
+      };
+    }
+    throw err;
   }
 
   const usage = await trackUsage(

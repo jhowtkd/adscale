@@ -37,6 +37,7 @@ export default function LanguageSwitcher({ className }: { className?: string }) 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ locale: newLocale }),
+        signal: AbortSignal.timeout(5000),
       });
     } catch {
       // Silent fail — cookie is the source of truth

@@ -59,13 +59,13 @@ export default function Sidebar() {
 
   return (
     <motion.aside
-      animate={{ width: sidebarCollapsed ? 64 : 240 }}
+      animate={{ scaleX: sidebarCollapsed ? 64 / 240 : 1 }}
       transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
       className={cn(
         "fixed left-0 top-0 z-50 hidden h-screen flex-col border-r border-[var(--border-dim)] md:flex",
         "bg-[var(--surface-base)]"
       )}
-      style={{ willChange: "width" }}
+      style={{ width: 240, willChange: "transform" }}
     >
       {/* Logo Section */}
       <div className="flex h-14 items-center gap-3 px-4 border-b border-[var(--border-dim)] overflow-hidden">

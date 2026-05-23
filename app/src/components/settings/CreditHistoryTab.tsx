@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { useTranslations, useLocale } from "next-intl";
 import { useCreditHistory } from "@/lib/hooks/use-billing";
 import {
@@ -18,7 +19,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
+const BarChart = dynamic(() => import("recharts").then(m => ({ default: m.BarChart })));
+const Bar = dynamic(() => import("recharts").then(m => ({ default: m.Bar })));
+const XAxis = dynamic(() => import("recharts").then(m => ({ default: m.XAxis })));
+const YAxis = dynamic(() => import("recharts").then(m => ({ default: m.YAxis })));
+const Tooltip = dynamic(() => import("recharts").then(m => ({ default: m.Tooltip })));
+const ResponsiveContainer = dynamic(() => import("recharts").then(m => ({ default: m.ResponsiveContainer })));
+const Cell = dynamic(() => import("recharts").then(m => ({ default: m.Cell })));
 
 function getDateRange(range: string) {
   const now = new Date();
@@ -59,7 +66,7 @@ export default function CreditHistoryTab() {
     [dateParams, campaignFilter]
   );
 
-  const { data, isLoading } = useCreditHistory(queryParams);
+  const { data, isLoading, isError } = useCreditHistory(queryParams);
 
   const transactions = data?.transactions ?? [];
   const summary = data?.summary;
@@ -192,7 +199,13 @@ export default function CreditHistoryTab() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading ? (
+            {isError ? (
+              <TableRow>
+                <TableCell colSpan={6} className="py-8 text-center text-sm text-red-500">
+                  {tc("error")}
+                </TableCell>
+              </TableRow>
+            ) : isLoading ? (
               <TableRow>
                 <TableCell colSpan={6} className="py-8 text-center text-sm text-[var(--text-secondary)]">
                   {tc("loading")}

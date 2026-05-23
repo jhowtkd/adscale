@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
-import OpenAI from "openai";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getUserLocale } from "@/server/repositories/user";
 import { env } from "@/server/validation/env";
-
-const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 60_000 });
+import { getOpenAI } from "@/server/ai/utils";
 
 const fieldSchema = z.enum([
   "objective",
@@ -113,7 +111,7 @@ export async function POST(request: Request) {
       return apiError("invalidInput", 400, parsed.error.flatten());
     }
 
-    const response = await openai.responses.create({
+    const response = await getOpenAI().responses.create({
       model: env.OPENAI_TEXT_MODEL,
       input: [
         {

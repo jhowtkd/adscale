@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Sparkles, RefreshCw, Edit3, Check, X, Wand2, Plus, ImageOff, BarChart3, ChevronUp, ChevronDown, AlertTriangle, Lightbulb } from "lucide-react";
+import { Sparkles, Check, X, Plus, ImageOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
@@ -37,12 +37,11 @@ import {
 } from "@/lib/hooks/use-client-profiles";
 import { useBrandKit } from "@/lib/hooks/use-brand-kit";
 import CompetitorAnalysisSection from "@/components/campaigns/CompetitorAnalysisSection";
-import { useCampaignAssets } from "@/lib/hooks/use-assets";
-import { usePreflightScore } from "@/lib/hooks/use-preflight";
 
-// ============================================
+import PreflightSummary from "./PreflightSummary";
+import CreativeDiagnosisCard from "./CreativeDiagnosisCard";
+import BriefingRestoreBanner from "./BriefingRestoreBanner";
 // Types
-// ============================================
 
 export interface BriefingFormData {
   name: string;
@@ -68,301 +67,7 @@ interface BriefingStepProps {
   onSaveDraft: (data: BriefingFormData) => void;
 }
 
-interface CreativeDiagnosisCardProps {
-  campaign: Campaign;
-  editing: boolean;
-  localDiagnosis: {
-    detectedConcept: string;
-    elementsToPreserve: string;
-    variationOpportunities: string;
-  };
-  setLocalDiagnosis: (value: { detectedConcept: string; elementsToPreserve: string; variationOpportunities: string }) => void;
-  onEdit: () => void;
-  onSave: () => void;
-  onCancel: () => void;
-  onGenerate: () => void;
-  onRegenerate: () => void;
-  isGenerating: boolean;
-  isSaving: boolean;
-  tBriefing: (key: string, values?: Record<string, string | number | Date>) => string;
-}
-
-function CreativeDiagnosisCard({
-  campaign,
-  editing,
-  localDiagnosis,
-  setLocalDiagnosis,
-  onEdit,
-  onSave,
-  onCancel,
-  onGenerate,
-  onRegenerate,
-  isGenerating,
-  isSaving,
-  tBriefing,
-}: CreativeDiagnosisCardProps) {
-  const status = campaign.creativeDiagnosisStatus ?? "pending";
-  const diagnosis = campaign.creativeDiagnosis;
-  const hasDiagnosis = status === "ready" && diagnosis != null;
-  const isFailed = status === "failed";
-  const isAnalyzing = status === "analyzing" || isGenerating;
-
-  return (
-    <div className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-4 space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h3 className="text-sm font-semibold text-[var(--text-primary)]">
-            {tBriefing("diagnosis.title")}
-          </h3>
-          <p className="text-xs text-[var(--text-muted)] mt-0.5">
-            {tBriefing("diagnosis.subtitle")}
-          </p>
-        </div>
-        <span
-          className={cn(
-            "rounded-md px-2 py-1 text-xs font-medium",
-            isAnalyzing && "bg-amber-500/10 text-amber-500",
-            hasDiagnosis && "bg-[var(--accent-mint)]/10 text-[var(--accent-mint)]",
-            isFailed && "bg-[var(--accent-rose)]/10 text-[var(--accent-rose)]",
-            status === "pending" && "bg-[var(--surface-raised)] text-[var(--text-secondary)]"
-          )}
-        >
-          {tBriefing(`diagnosis.status.${isAnalyzing ? "analyzing" : hasDiagnosis ? "ready" : isFailed ? "failed" : "pending"}`)}
-        </span>
-      </div>
-
-      {isAnalyzing && (
-        <p className="text-xs text-[var(--text-secondary)]">{tBriefing("diagnosis.analyzing")}</p>
-      )}
-
-      {isFailed && !editing && (
-        <div className="space-y-2">
-          <p className="text-xs text-[var(--accent-rose)]">{tBriefing("diagnosis.failed")}</p>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={onRegenerate}
-              disabled={isGenerating}
-              className="inline-flex items-center gap-1 rounded-md border border-[var(--border-dim)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--surface-raised)] disabled:opacity-60"
-            >
-              <RefreshCw size={12} />
-              {tBriefing("diagnosis.retry")}
-            </button>
-            <button
-              type="button"
-              onClick={onEdit}
-              className="inline-flex items-center gap-1 rounded-md border border-[var(--border-dim)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--surface-raised)]"
-            >
-              <Edit3 size={12} />
-              {tBriefing("diagnosis.edit")}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {hasDiagnosis && !editing && (
-        <div className="space-y-3">
-          <div className="rounded-md bg-[var(--surface-raised)] p-3 space-y-2">
-            <div>
-              <p className="text-[11px] font-medium text-[var(--text-secondary)] uppercase tracking-wide">
-                {tBriefing("diagnosis.detectedConcept")}
-              </p>
-              <p className="text-xs text-[var(--text-primary)] mt-0.5">{diagnosis.detectedConcept}</p>
-            </div>
-            <div>
-              <p className="text-[11px] font-medium text-[var(--text-secondary)] uppercase tracking-wide">
-                {tBriefing("diagnosis.elementsToPreserve")}
-              </p>
-              <ul className="mt-0.5 space-y-0.5">
-                {diagnosis.elementsToPreserve.map((item, i) => (
-                  <li key={i} className="text-xs text-[var(--text-primary)] list-disc list-inside">
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <p className="text-[11px] font-medium text-[var(--text-secondary)] uppercase tracking-wide">
-                {tBriefing("diagnosis.variationOpportunities")}
-              </p>
-              <ul className="mt-0.5 space-y-0.5">
-                {diagnosis.variationOpportunities.map((item, i) => (
-                  <li key={i} className="text-xs text-[var(--text-primary)] list-disc list-inside">
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={onEdit}
-              className="inline-flex items-center gap-1 rounded-md border border-[var(--border-dim)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--surface-raised)]"
-            >
-              <Edit3 size={12} />
-              {tBriefing("diagnosis.edit")}
-            </button>
-            <button
-              type="button"
-              onClick={onRegenerate}
-              disabled={isGenerating}
-              className="inline-flex items-center gap-1 rounded-md border border-[var(--border-dim)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--surface-raised)] disabled:opacity-60"
-            >
-              <RefreshCw size={12} />
-              {tBriefing("diagnosis.regenerate")}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {status === "pending" && !editing && (
-        <div className="space-y-2">
-          <p className="text-xs text-[var(--text-secondary)]">{tBriefing("diagnosis.pending")}</p>
-          <button
-            type="button"
-            onClick={onGenerate}
-            disabled={isGenerating}
-            className="inline-flex items-center gap-1 rounded-md border border-[var(--border-dim)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--surface-raised)] disabled:opacity-60"
-          >
-            <Wand2 size={12} />
-            {tBriefing("diagnosis.generate")}
-          </button>
-        </div>
-      )}
-
-      {editing && (
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <Label className="text-[11px] font-medium text-[var(--text-secondary)]">
-              {tBriefing("diagnosis.detectedConcept")}
-            </Label>
-            <Textarea
-              rows={2}
-              value={localDiagnosis.detectedConcept}
-              onChange={(e) => setLocalDiagnosis({ ...localDiagnosis, detectedConcept: e.target.value })}
-              className="bg-[var(--surface-raised)] border-[var(--border-dim)] text-[var(--text-primary)] text-xs placeholder:text-[var(--text-muted)] resize-none"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-[11px] font-medium text-[var(--text-secondary)]">
-              {tBriefing("diagnosis.elementsToPreserve")}
-            </Label>
-            <Textarea
-              rows={3}
-              value={localDiagnosis.elementsToPreserve}
-              onChange={(e) => setLocalDiagnosis({ ...localDiagnosis, elementsToPreserve: e.target.value })}
-              placeholder={tBriefing("diagnosis.listPlaceholder")}
-              className="bg-[var(--surface-raised)] border-[var(--border-dim)] text-[var(--text-primary)] text-xs placeholder:text-[var(--text-muted)] resize-none"
-            />
-            <p className="text-[10px] text-[var(--text-muted)]">{tBriefing("diagnosis.listHelp")}</p>
-          </div>
-          <div className="space-y-1">
-            <Label className="text-[11px] font-medium text-[var(--text-secondary)]">
-              {tBriefing("diagnosis.variationOpportunities")}
-            </Label>
-            <Textarea
-              rows={3}
-              value={localDiagnosis.variationOpportunities}
-              onChange={(e) => setLocalDiagnosis({ ...localDiagnosis, variationOpportunities: e.target.value })}
-              placeholder={tBriefing("diagnosis.listPlaceholder")}
-              className="bg-[var(--surface-raised)] border-[var(--border-dim)] text-[var(--text-primary)] text-xs placeholder:text-[var(--text-muted)] resize-none"
-            />
-            <p className="text-[10px] text-[var(--text-muted)]">{tBriefing("diagnosis.listHelp")}</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={onSave}
-              disabled={isSaving}
-              className="inline-flex items-center gap-1 rounded-md bg-[var(--accent-mint)] px-3 py-1.5 text-xs font-medium text-white hover:bg-[var(--accent-mint-light)] disabled:opacity-60"
-            >
-              <Check size={12} />
-              {tBriefing("diagnosis.save")}
-            </button>
-            <button
-              type="button"
-              onClick={onCancel}
-              className="inline-flex items-center gap-1 rounded-md border border-[var(--border-dim)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--surface-raised)]"
-            >
-              <X size={12} />
-              {tBriefing("diagnosis.cancel")}
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ============================================
-// Preflight Summary (compact)
-// ============================================
-
-function PreflightSummary({
-  campaignId,
-  tBriefing,
-}: {
-  campaignId: string;
-  tBriefing: (key: string, values?: Record<string, string | number | Date>) => string;
-}) {
-  const { data: assets = [] } = useCampaignAssets(campaignId);
-  const firstAsset = assets[0];
-  const preflight = usePreflightScore(firstAsset?.id ?? null, campaignId);
-  const result = preflight.data?.preflight;
-  const [expanded, setExpanded] = useState(false);
-
-  if (!result || preflight.data?.status !== "completed") return null;
-
-  const scoreColor =
-    result.overallScore >= 80
-      ? "text-[var(--accent-teal)] bg-[var(--accent-teal)]/10 border-[var(--accent-teal)]/20"
-      : result.overallScore >= 50
-        ? "text-[var(--accent-amber)] bg-[var(--accent-amber)]/10 border-[var(--accent-amber)]/20"
-        : "text-[var(--accent-rose)] bg-[var(--accent-rose)]/10 border-[var(--accent-rose)]/20";
-
-  return (
-    <div className="animate-fade-in" style={{ animationDelay: "540ms" }}>
-      <button
-        type="button"
-        onClick={() => setExpanded((s) => !s)}
-        className={cn(
-          "w-full flex items-center justify-between rounded-lg border px-4 py-3 text-left transition-all",
-          scoreColor
-        )}
-      >
-        <div className="flex items-center gap-2">
-          <BarChart3 size={16} />
-          <span className="text-xs font-semibold">
-            {tBriefing("preflightSummary")}: {result.overallScore}/100
-          </span>
-        </div>
-        {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-      </button>
-      {expanded && (
-        <div className="mt-2 rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] p-3 space-y-2">
-          {result.suggestions.slice(0, 3).map((s, i) => (
-            <div key={i} className="flex items-start gap-2 text-xs text-[var(--text-primary)]">
-              <Lightbulb size={12} className="mt-0.5 shrink-0 text-[var(--accent-amber)]" />
-              {s}
-            </div>
-          ))}
-          {result.criticalIssues.length > 0 && (
-            <div className="flex items-start gap-2 text-xs text-[var(--accent-rose)]">
-              <AlertTriangle size={12} className="mt-0.5 shrink-0" />
-              {result.criticalIssues[0]}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ============================================
 // Component
-// ============================================
 
 export default function BriefingStep({ campaign, onContinue, onSaveDraft }: BriefingStepProps) {
   const tCampaign = useTranslations("campaign");
@@ -428,7 +133,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
     if (autoSave.hasDraft && !campaign?.name && !campaign?.client) {
       const draft = autoSave.restoreDraft();
       if (draft && (draft.name.trim() || draft.client.trim())) {
-        setShowRestoreBanner(true);
+        requestAnimationFrame(() => setShowRestoreBanner(true));
       }
     }
   }, [autoSave.hasDraft, campaign]);
@@ -540,34 +245,11 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
   return (
     <div className="relative">
       {showRestoreBanner && (
-        <div className="max-w-[720px] mx-auto mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 animate-fade-in">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-sm font-medium text-amber-900">
-                {tBriefing("draftFoundTitle")}
-              </p>
-              <p className="text-xs text-amber-700 mt-0.5">
-                {tBriefing("draftFoundDesc")}
-              </p>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={handleDiscardDraft}
-                className="text-xs font-medium text-amber-700 hover:text-amber-900 transition-colors"
-              >
-                {tBriefing("discard")}
-              </button>
-              <button
-                type="button"
-                onClick={handleRestoreDraft}
-                className="inline-flex items-center rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 transition-colors"
-              >
-                {tBriefing("restore")}
-              </button>
-            </div>
-          </div>
-        </div>
+        <BriefingRestoreBanner
+          tBriefing={tBriefing}
+          onRestore={handleRestoreDraft}
+          onDiscard={handleDiscardDraft}
+        />
       )}
 
       <form

@@ -11,6 +11,10 @@ vi.mock("@/server/repositories/usage", () => ({
   trackUsage: vi.fn(),
 }));
 
+vi.spyOn(db, "transaction").mockImplementation(async (callback) => callback({} as never));
+
+import { db } from "@/server/db";
+
 import {
   getActiveSubscriptionByWorkspace,
   getAvailableCreditGrants,
@@ -147,8 +151,8 @@ describe("credit entitlement service", () => {
       metadata: { derivationId: "123" },
     });
 
-    expect(mockUpdateCreditGrantRemaining).toHaveBeenCalledWith("grant-1", 0);
-    expect(mockUpdateCreditGrantRemaining).toHaveBeenCalledWith("grant-2", 5);
+    expect(mockUpdateCreditGrantRemaining).toHaveBeenCalledWith("grant-1", 0, expect.anything());
+    expect(mockUpdateCreditGrantRemaining).toHaveBeenCalledWith("grant-2", 5, expect.anything());
     expect(mockTrackUsage).toHaveBeenCalledWith(
       "workspace-1",
       "image_derivation",

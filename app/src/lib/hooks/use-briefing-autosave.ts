@@ -29,25 +29,19 @@ export function useBriefingAutoSave(
   campaignId: string,
   formData: BriefingFormData
 ) {
-  const [state, setState] = useState<AutoSaveState>({
-    hasDraft: false,
-    isSaving: false,
-    lastSavedAt: null,
+  const key = getStorageKey(campaignId);
+
+  const [state, setState] = useState<AutoSaveState>(() => {
+    const existing = localStorage.getItem(key);
+    const draft = existing ? deserializeDraft(existing) : null;
+    return {
+      hasDraft: !!draft,
+      isSaving: false,
+      lastSavedAt: null,
+    };
   });
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const key = getStorageKey(campaignId);
-
-  // Check for existing draft on mount
-  useEffect(() => {
-    const existing = localStorage.getItem(key);
-    if (existing) {
-      const draft = deserializeDraft(existing);
-      if (draft) {
-        setState((s) => ({ ...s, hasDraft: true }));
-      }
-    }
-  }, [key]);
 
   // Auto-save on formData change (debounced)
   useEffect(() => {
@@ -67,11 +61,15 @@ export function useBriefingAutoSave(
         clearTimeout(debounceRef.current);
         debounceRef.current = null;
       }
-      setState((s) => ({ ...s, isSaving: false }));
+      requestAnimationFrame(() => {
+        setState((s) => ({ ...s, isSaving: false }));
+      });
       return;
     }
 
-    setState((s) => ({ ...s, isSaving: true }));
+    requestAnimationFrame(() => {
+      setState((s) => ({ ...s, isSaving: true }));
+    });
 
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);

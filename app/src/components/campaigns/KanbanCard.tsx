@@ -4,12 +4,12 @@ import Link from "next/link";
 import React from "react";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
-import type { Campaign } from "@/lib/mock-data";
+import type { UiCampaign } from "@/lib/hooks/use-campaigns";
 import { platformColors } from "@/lib/mock-data";
 import StatusBadge from "@/components/ui/StatusBadge";
 
 interface KanbanCardProps {
-  campaign: Campaign;
+  campaign: UiCampaign;
   index: number;
 }
 

@@ -6,6 +6,7 @@ import { getCampaignById, updateCampaign } from "@/server/repositories/campaign"
 import { getAssetsByCampaign } from "@/server/repositories/asset";
 import { downloadBuffer } from "@/server/storage/r2";
 import { analyzeCreativeDiagnosis } from "@/server/ai/creative-diagnosis";
+import { spendCreditsOrApiError } from "@/server/billing/gates";
 
 export async function POST(
   request: Request,
@@ -26,6 +27,15 @@ export async function POST(
     if (campaign.creativeDiagnosisStatus === "analyzing") {
       return apiError("diagnosisInProgress", 429);
     }
+
+    const creditError = await spendCreditsOrApiError({
+      workspaceId: workspace.id,
+      action: "creative_qa",
+      amount: 1,
+      idempotencyKey: `diagnosis-regenerate:${id}`,
+      metadata: { campaignId: id },
+    });
+    if (creditError) return creditError;
 
     await updateCampaign(id, workspace.id, {
       creativeDiagnosisStatus: "analyzing",

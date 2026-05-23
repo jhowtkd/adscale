@@ -84,18 +84,21 @@ export function useDerivations(campaignId: string) {
     enabled: !!campaignId && campaignId !== "new",
     refetchInterval: (query) => {
       const data = query.state.data as Derivation[] | undefined;
-      if (
-        data?.some(
-          (d) =>
-            d.status === "queued" ||
-            d.status === "processing" ||
-            d.scoreStatus === "heuristic" ||
-            (d.status === "completed" && d.scoreStatus === "pending")
-        )
-      ) {
-        return 2000;
-      }
-      return false;
+      const hasPending = data?.some(
+        (d) =>
+          d.status === "queued" ||
+          d.status === "processing" ||
+          d.scoreStatus === "heuristic" ||
+          (d.status === "completed" && d.scoreStatus === "pending")
+      );
+      if (!hasPending) return false;
+
+      // Progressive backoff based on time since first pending observation
+      const pendingSince = query.state.dataUpdatedAt;
+      const elapsed = Date.now() - pendingSince;
+      if (elapsed < 30000) return 3000;      // First 30s: every 3s
+      if (elapsed < 120000) return 5000;     // Next 90s: every 5s
+      return 10000;                           // After 2min: every 10s
     },
   });
 }

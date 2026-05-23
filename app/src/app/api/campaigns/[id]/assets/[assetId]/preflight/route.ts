@@ -8,6 +8,7 @@ import { getAssetWithMetadata, updateAssetMetadata } from "@/server/repositories
 import { downloadBuffer } from "@/server/storage/r2";
 import { analyzePreflight, preflightResultSchema } from "@/server/ai/preflight-analysis";
 import { logger } from "@/lib/logger";
+import { spendCreditsOrApiError } from "@/server/billing/gates";
 
 const preflightMetadataSchema = z.object({
   preflightResult: preflightResultSchema,
@@ -107,6 +108,15 @@ export async function POST(
         });
       }
     }
+
+    const creditError = await spendCreditsOrApiError({
+      workspaceId: workspace.id,
+      action: "creative_qa",
+      amount: 1,
+      idempotencyKey: `preflight:${campaignId}:${assetId}`,
+      metadata: { campaignId, assetId },
+    });
+    if (creditError) return creditError;
 
     await updateAssetMetadata(assetId, workspace.id, {}, "analyzing");
 

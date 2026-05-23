@@ -6,6 +6,7 @@ import { getCampaignById } from "@/server/repositories/campaign";
 import { getUserLocale } from "@/server/repositories/user";
 import { downloadBuffer } from "@/server/storage/r2";
 import { analyzeCreativeQa } from "@/server/ai/creative-qa";
+import { spendCreditsOrApiError } from "@/server/billing/gates";
 
 export async function POST(
   request: Request,
@@ -32,6 +33,15 @@ export async function POST(
         cached: true,
       });
     }
+
+    const creditError = await spendCreditsOrApiError({
+      workspaceId: workspace.id,
+      action: "creative_qa",
+      amount: 1,
+      idempotencyKey: `qa:${id}`,
+      metadata: { derivationId: id, campaignId: derivation.campaignId },
+    });
+    if (creditError) return creditError;
 
     const campaign = await getCampaignById(derivation.campaignId, workspace.id);
     if (!campaign) return apiError("campaignNotFound", 404);

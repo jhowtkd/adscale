@@ -31,6 +31,10 @@ vi.mock("@/server/ai/creative-qa", () => ({
   analyzeCreativeQa: vi.fn(),
 }));
 
+vi.mock("@/server/billing/gates", () => ({
+  spendCreditsOrApiError: vi.fn(() => Promise.resolve(null)),
+}));
+
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
 }));

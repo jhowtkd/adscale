@@ -133,17 +133,19 @@ export default function BrandKitTab() {
 
   useEffect(() => {
     if (brandKit) {
-      setName(brandKit.name || "");
-      setDescription(brandKit.description || "");
-      setVisualNotes(brandKit.visualNotes || "");
-      setToneNotes(brandKit.toneNotes || "");
-      setConstraints(brandKit.constraints || "");
-      setBrandColors(brandKit.brandColors || []);
-      setBrandFonts(brandKit.brandFonts || []);
-      setLogoAssetKey(brandKit.logoAssetKey || null);
-      setToneOfVoice(brandKit.toneOfVoice || "");
-      setProhibitedElements(brandKit.prohibitedElements || "");
-      setRequiredElements(brandKit.requiredElements || "");
+      requestAnimationFrame(() => {
+        setName(brandKit.name || "");
+        setDescription(brandKit.description || "");
+        setVisualNotes(brandKit.visualNotes || "");
+        setToneNotes(brandKit.toneNotes || "");
+        setConstraints(brandKit.constraints || "");
+        setBrandColors(brandKit.brandColors || []);
+        setBrandFonts(brandKit.brandFonts || []);
+        setLogoAssetKey(brandKit.logoAssetKey || null);
+        setToneOfVoice(brandKit.toneOfVoice || "");
+        setProhibitedElements(brandKit.prohibitedElements || "");
+        setRequiredElements(brandKit.requiredElements || "");
+      });
     }
   }, [brandKit]);
 
@@ -222,17 +224,6 @@ export default function BrandKitTab() {
     );
   };
 
-  const handleFileDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      setIsDragging(false);
-      const file = e.dataTransfer.files[0];
-      if (!file) return;
-      handleLogoUpload(file);
-    },
-    []
-  );
-
   const handleLogoUpload = (file: File) => {
     const allowed = ["image/png", "image/jpeg", "image/webp"];
     if (!allowed.includes(file.type)) {
@@ -256,6 +247,17 @@ export default function BrandKitTab() {
       }
     );
   };
+
+  const handleFileDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragging(false);
+      const file = e.dataTransfer.files[0];
+      if (!file) return;
+      handleLogoUpload(file);
+    },
+    []
+  );
 
   const handleExtract = () => {
     extractInputRef.current?.click();

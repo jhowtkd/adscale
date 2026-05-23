@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { logger } from "@/lib/logger";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
-import OpenAI from "openai";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCampaignById } from "@/server/repositories/campaign";
 import { getAssetsByCampaign } from "@/server/repositories/asset";
@@ -11,17 +10,15 @@ import {
   getPlanByCampaign,
   updatePlanStatus,
 } from "@/server/repositories/plan";
-
 import { buildPlanPrompt } from "@/server/ai/prompt-builder";
 import { env } from "@/server/validation/env";
+import { getOpenAI } from "@/server/ai/utils";
 import { spendCreditsOrApiError } from "@/server/billing/gates";
 import {
   shouldSendToUser,
   getUserLocale,
   sendPlanReadyEmail,
 } from "@/server/services/notifications";
-
-const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 60_000 });
 
 const planSchema = z.object({
   strategy: z.string(),
@@ -84,7 +81,7 @@ export async function POST(
 
     const prompt = buildPlanPrompt(campaign, asset, (user as { locale?: string }).locale);
 
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAI().chat.completions.create({
       model: env.OPENAI_TEXT_MODEL,
       messages: [{ role: "user", content: prompt }],
       max_completion_tokens: 2048,

@@ -1,9 +1,5 @@
-import OpenAI from "openai";
 import { env } from "@/server/validation/env";
-
-function getOpenAI() {
-  return new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 60_000 });
-}
+import { getOpenAI, extractOutputText } from "./utils";
 
 export interface ScoreResult {
   qualityScore: number;
@@ -143,7 +139,7 @@ The regenerationSuggestion must preserve the exact CTA text, format, and generat
     },
   });
 
-  const raw = (response as unknown as { output_text?: string }).output_text;
+  const raw = extractOutputText(response);
   if (!raw) {
     throw new Error("Empty vision response for creative scoring");
   }

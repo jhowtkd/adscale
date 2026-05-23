@@ -10,11 +10,48 @@ import { Readable } from "stream";
 import { env } from "../validation/env";
 
 const DOWNLOAD_URL_CACHE_TTL_MS = 4 * 60 * 1000;
+const DOWNLOAD_URL_CACHE_MAX_ENTRIES = 1000;
 
-const downloadUrlCache = new Map<
+class LRUCache<K, V> {
+  private cache = new Map<K, V>();
+  private maxSize: number;
+
+  constructor(maxSize: number) {
+    this.maxSize = maxSize;
+  }
+
+  get(key: K): V | undefined {
+    const value = this.cache.get(key);
+    if (value !== undefined) {
+      // Move to front (most recently used)
+      this.cache.delete(key);
+      this.cache.set(key, value);
+    }
+    return value;
+  }
+
+  set(key: K, value: V): void {
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
+    } else if (this.cache.size >= this.maxSize) {
+      // Evict least recently used (first entry)
+      const firstKey = this.cache.keys().next().value;
+      if (firstKey !== undefined) {
+        this.cache.delete(firstKey);
+      }
+    }
+    this.cache.set(key, value);
+  }
+
+  clear(): void {
+    this.cache.clear();
+  }
+}
+
+const downloadUrlCache = new LRUCache<
   string,
   { url: string; expiresAt: number }
->();
+>(DOWNLOAD_URL_CACHE_MAX_ENTRIES);
 
 const r2 = new S3Client({
   region: "auto",

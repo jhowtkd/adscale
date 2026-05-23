@@ -44,6 +44,12 @@ const webhookSchema = z.discriminatedUnion("type", [
 
 export async function POST(request: Request) {
   try {
+    // Verify webhook secret to prevent unauthorized access
+    const secret = request.headers.get("x-webhook-secret");
+    if (secret !== process.env.NOTIFICATION_WEBHOOK_SECRET) {
+      return apiError("unauthorized", 401);
+    }
+
     const body = await request.json();
     const parsed = webhookSchema.safeParse(body);
 

@@ -9,6 +9,7 @@ import {
   generateDifferentiationStrategy,
   type CompetitorAnalysisResult,
 } from "@/server/ai/competitor-analyzer";
+import { spendCreditsOrApiError } from "@/server/billing/gates";
 
 export async function POST(
   request: Request,
@@ -78,6 +79,15 @@ export async function POST(
     if (competitorResults.length === 0) {
       return apiError("invalidInput", 400, { detail: "No analyzed competitor data available" });
     }
+
+    const creditError = await spendCreditsOrApiError({
+      workspaceId: workspace.id,
+      action: "creative_plan",
+      amount: 1,
+      idempotencyKey: `competitor-strategy:${campaignId}`,
+      metadata: { campaignId, competitorCount: competitorResults.length },
+    });
+    if (creditError) return creditError;
 
     const strategy = await generateDifferentiationStrategy(
       {

@@ -1,12 +1,18 @@
+import { eq, and } from "drizzle-orm";
 import { getSession, getSessionFromHeaders } from "./session";
 import { getWorkspaceForUser } from "../repositories/workspace";
+import { db } from "../db";
+import { workspaceMembers } from "../db/schema";
 
 export const AUTH_ERROR_CODES = {
   unauthorized: "unauthorized",
   noWorkspace: "no_workspace",
+  forbidden: "forbidden",
 } as const;
 
 export type AuthErrorCode = (typeof AUTH_ERROR_CODES)[keyof typeof AUTH_ERROR_CODES];
+
+export type WorkspaceMemberRole = "owner" | "admin" | "member";
 
 export class WorkspaceAuthError extends Error {
   constructor(
@@ -37,4 +43,28 @@ export async function requireWorkspaceAccess(request?: Request) {
   }
 
   return { user: session.user, workspace };
+}
+
+export async function requireRole(
+  workspaceId: string,
+  userId: string,
+  allowedRoles: WorkspaceMemberRole[]
+) {
+  const membership = await db
+    .select({ role: workspaceMembers.role })
+    .from(workspaceMembers)
+    .where(
+      and(
+        eq(workspaceMembers.workspaceId, workspaceId),
+        eq(workspaceMembers.userId, userId)
+      )
+    )
+    .limit(1);
+
+  const userRole = membership[0]?.role;
+  if (!userRole || !allowedRoles.includes(userRole as WorkspaceMemberRole)) {
+    throw new WorkspaceAuthError(AUTH_ERROR_CODES.forbidden, "Forbidden");
+  }
+
+  return { role: userRole as WorkspaceMemberRole };
 }

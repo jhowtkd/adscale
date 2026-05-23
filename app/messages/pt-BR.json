@@ -575,7 +575,13 @@
     "socialConsentPrefix": "Ao continuar, você concorda com os",
     "terms": "Termos de Uso",
     "and": "e a",
-    "privacy": "Política de Privacidade"
+    "privacy": "Política de Privacidade",
+    "inviteTitle": "Convite para equipe",
+    "inviteSubtitle": "Aceite seu convite para entrar no workspace",
+    "processingInvite": "Processando seu convite...",
+    "inviteSuccess": "Você entrou no workspace com sucesso!",
+    "redirecting": "Redirecionando para o dashboard...",
+    "invalidToken": "Token de convite inválido ou ausente"
   },
   "settings": {
     "title": "Configurações",
@@ -593,7 +599,8 @@
     },
     "team": {
       "title": "Time",
-      "invitePlaceholder": "colega@empresa.com"
+      "invitePlaceholder": "colega@empresa.com",
+      "roleLabel": "Função"
     },
     "integrations": {
       "connected": "Conectado",
@@ -628,6 +635,7 @@
     "inviteEmailNote": "Os membros convidados receberão um e-mail com um link de ingresso",
     "roleEditor": "Editor",
     "roleAdmin": "Admin",
+    "roleOwner": "Proprietário",
     "roleViewer": "Visualizador",
     "config": "Configurar",
     "connect": "Conectar",
@@ -685,7 +693,8 @@
       "clearTitle": "Limpar Brand Kit",
       "clearWarning": "Isso removerá todas as informações do brand kit. O perfil permanecerá.",
       "clearButton": "Limpar",
-      "cleared": "Brand kit limpo"
+      "cleared": "Brand kit limpo",
+      "confirmClear": "Tem certeza de que deseja limpar todas as informações do brand kit? Esta ação não pode ser desfeita."
     }
   },
   "errors": {
@@ -745,7 +754,13 @@
     "targetFormatRequired": "Formato alvo é obrigatório para Variar formato",
     "ctaRequiredAtLeastOne": "Preencha ao menos um CTA para gerar derivações",
     "noCtasProvided": "Nenhum CTA foi preenchido. Preencha ao menos um CTA.",
-    "missingBaseAsset": "Envie um criativo base antes de gerar variações."
+    "missingBaseAsset": "Envie um criativo base antes de gerar variações.",
+    "forbidden": "Acesso negado",
+    "inviteNotFound": "Convite não encontrado",
+    "inviteExpired": "Este convite expirou",
+    "inviteEmailMismatch": "O e-mail do convite não corresponde à sua conta",
+    "cannotRemoveSelf": "Você não pode se remover",
+    "memberNotFound": "Membro não encontrado"
   },
   "review": {
     "title": "Revisão",
@@ -901,7 +916,16 @@
       "grant": "Concessão",
       "purchase": "Compra"
     },
-    "usageOverTime": "Uso ao longo do tempo"
+    "usageOverTime": "Uso ao longo do tempo",
+    "usage": "Uso"
+  },
+  "share": {
+    "title": "Galeria ADScale",
+    "description": "Galeria pública de criativos aprovados.",
+    "fallbackTitle": "Galeria",
+    "sharedVia": "Galeria compartilhada via ADScale",
+    "noImages": "Nenhuma imagem disponível nesta galeria.",
+    "publicGallery": "Galeria pública"
   },
   "analytics": {
     "approvalRate": "Taxa de aprovação",

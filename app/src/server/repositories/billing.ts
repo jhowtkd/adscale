@@ -8,6 +8,8 @@ import {
   subscriptions,
 } from "../db/schema";
 
+type DbOrTx = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
+
 export async function getBillingCustomerByWorkspace(workspaceId: string) {
   const rows = await db
     .select()
@@ -140,8 +142,9 @@ export async function getActiveSubscriptionByWorkspace(workspaceId: string) {
   return rows[0] ?? null;
 }
 
-export async function getAvailableCreditGrants(workspaceId: string) {
-  return db
+export async function getAvailableCreditGrants(workspaceId: string, tx?: DbOrTx, lock = false) {
+  const client = tx ?? db;
+  const query = client
     .select()
     .from(creditGrants)
     .where(
@@ -152,10 +155,16 @@ export async function getAvailableCreditGrants(workspaceId: string) {
       )
     )
     .orderBy(asc(creditGrants.expiresAt), asc(creditGrants.createdAt));
+
+  if (lock) {
+    return query.for('update');
+  }
+  return query;
 }
 
-export async function updateCreditGrantRemaining(id: string, remaining: number) {
-  const rows = await db
+export async function updateCreditGrantRemaining(id: string, remaining: number, tx?: DbOrTx) {
+  const client = tx ?? db;
+  const rows = await client
     .update(creditGrants)
     .set({ remaining })
     .where(eq(creditGrants.id, id))

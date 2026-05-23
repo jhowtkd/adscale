@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { ALLOWED_IMAGE_TYPES, isAllowedImageType } from "@/lib/upload-config";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
@@ -11,12 +12,6 @@ const presignSchema = z.object({
   contentType: z.string().min(1),
   contentLength: z.number().int().positive(),
 });
-
-const ALLOWED_TYPES = [
-  "image/png",
-  "image/jpeg",
-  "image/webp",
-];
 
 const MAX_SIZE = 50 * 1024 * 1024; // 50MB
 const PRESIGN_TTL_SECONDS = 300;
@@ -43,7 +38,7 @@ export async function POST(
 
     const { filename, contentType, contentLength } = parsed.data;
 
-    if (!ALLOWED_TYPES.includes(contentType)) {
+    if (!isAllowedImageType(contentType)) {
       return apiError("invalidFileType", 400);
     }
 

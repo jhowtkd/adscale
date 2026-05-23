@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { Check, Clock, Sparkles } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import EmptyState from "@/components/ui/EmptyState";
 import DerivationCard from "./DerivationCard";
-import DerivationComparisonModal from "./DerivationComparisonModal";
+const DerivationComparisonModal = dynamic(() => import("./DerivationComparisonModal"), { loading: () => null });
 import BulkActionsBar from "./BulkActionsBar";
 import { useZipExport } from "@/lib/hooks/use-zip-export";
 import { useShareLink } from "@/lib/hooks/use-share-link";

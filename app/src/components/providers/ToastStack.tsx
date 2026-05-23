@@ -58,17 +58,22 @@ function ToastItem({
 
   useEffect(() => {
     const start = Date.now();
-    const interval = setInterval(() => {
+    let rafId: number;
+
+    const tick = () => {
       const elapsed = Date.now() - start;
       const remaining = Math.max(0, 100 - (elapsed / duration) * 100);
       setProgress(remaining);
       if (remaining <= 0) {
-        clearInterval(interval);
         setExiting(true);
         setTimeout(() => onRemove(id), 300);
+      } else {
+        rafId = requestAnimationFrame(tick);
       }
-    }, 50);
-    return () => clearInterval(interval);
+    };
+
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
   }, [id, onRemove]);
 
   const handleDismiss = () => {

@@ -27,7 +27,7 @@ export default function TermsPage() {
           <p className="mt-2">
             ADScale é uma plataforma SaaS que utiliza inteligência artificial para gerar
             planos criativos e variações de imagens a partir de briefings e referências visuais.
-            O serviço é fornecido "como está", sem garantias de resultados específicos.
+            O serviço é fornecido &quot;como está&quot;, sem garantias de resultados específicos.
           </p>
         </div>
 

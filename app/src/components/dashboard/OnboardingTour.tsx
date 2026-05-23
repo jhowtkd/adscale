@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useSyncExternalStore, useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { X, ChevronRight, ChevronLeft, Sparkles } from "lucide-react";
@@ -23,11 +23,11 @@ export function OnboardingTour({ steps, onComplete, onSkip }: OnboardingTourProp
   const [currentStep, setCurrentStep] = useState(0);
   const [tooltipPos, setTooltipPos] = useState<{ top: number; left: number; placement: "top" | "bottom" | "left" | "right" }>({ top: 0, left: 0, placement: "bottom" });
   const [highlightPos, setHighlightPos] = useState({ top: 0, left: 0, width: 0, height: 0 });
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
 
   const calculatePositions = useCallback(() => {
     const step = steps[currentStep];
@@ -76,10 +76,11 @@ export function OnboardingTour({ steps, onComplete, onSkip }: OnboardingTourProp
   }, [currentStep, steps]);
 
   useEffect(() => {
-    calculatePositions();
+    const rafId = requestAnimationFrame(() => calculatePositions());
     window.addEventListener("resize", calculatePositions);
     window.addEventListener("scroll", calculatePositions, true);
     return () => {
+      cancelAnimationFrame(rafId);
       window.removeEventListener("resize", calculatePositions);
       window.removeEventListener("scroll", calculatePositions, true);
     };

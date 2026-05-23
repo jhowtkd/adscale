@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { ALLOWED_IMAGE_TYPES, isAllowedImageType } from "@/lib/upload-config";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { checkRateLimit } from "@/lib/with-rate-limit";
@@ -6,8 +7,8 @@ import { logger } from "@/lib/logger";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCampaignById } from "@/server/repositories/campaign";
 import { analyzeCompetitorCreative } from "@/server/ai/competitor-analyzer";
+import { spendCreditsOrApiError } from "@/server/billing/gates";
 
-const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
 const MAX_SIZE = 50 * 1024 * 1024; // 50MB
 const MAX_FILES = 3;
 
@@ -59,7 +60,7 @@ export async function POST(
       if (!(file instanceof File)) {
         return apiError("invalidInput", 400);
       }
-      if (!ALLOWED_TYPES.includes(file.type as (typeof ALLOWED_TYPES)[number])) {
+      if (!isAllowedImageType(file.type)) {
         return apiError("invalidFileType", 400);
       }
       if (file.size <= 0 || file.size > MAX_SIZE) {
@@ -70,6 +71,15 @@ export async function POST(
 
     const name = (formData.get("name") as string | null) ?? undefined;
     const platform = (formData.get("platform") as string | null) ?? undefined;
+
+    const creditError = await spendCreditsOrApiError({
+      workspaceId: workspace.id,
+      action: "image_derivation",
+      amount: 5,
+      idempotencyKey: `competitor-analyze:${campaignId}:${validFiles.map((f) => f.name).join("|")}`,
+      metadata: { campaignId, fileCount: validFiles.length },
+    });
+    if (creditError) return creditError;
 
     // Analyze each screenshot in parallel and merge results
     const analyses = await Promise.all(

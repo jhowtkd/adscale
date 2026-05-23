@@ -1,8 +1,7 @@
 import { eq, and, desc } from "drizzle-orm";
 import { db } from "@/server/db";
 import { workspaceInvites } from "@/server/db/schema";
-
-const INVITE_EXPIRATION_DAYS = 7;
+import { INVITE_EXPIRATION_DAYS } from "@/server/config";
 
 export async function createInvitation(data: {
   workspaceId: string;
@@ -43,16 +42,6 @@ export async function getPendingInvitations(workspaceId: string) {
     .orderBy(desc(workspaceInvites.createdAt));
 }
 
-export async function getInvitationByToken(token: string) {
-  const result = await db
-    .select()
-    .from(workspaceInvites)
-    .where(eq(workspaceInvites.token, token))
-    .limit(1);
-
-  return result[0] ?? null;
-}
-
 export async function cancelInvitation(inviteId: string, workspaceId: string) {
   const result = await db
     .delete(workspaceInvites)
@@ -62,16 +51,6 @@ export async function cancelInvitation(inviteId: string, workspaceId: string) {
         eq(workspaceInvites.workspaceId, workspaceId)
       )
     )
-    .returning();
-
-  return result[0] ?? null;
-}
-
-export async function markInvitationAccepted(inviteId: string) {
-  const result = await db
-    .update(workspaceInvites)
-    .set({ status: "accepted" })
-    .where(eq(workspaceInvites.id, inviteId))
     .returning();
 
   return result[0] ?? null;

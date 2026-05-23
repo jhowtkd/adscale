@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
-import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { requireWorkspaceAccess, requireRole } from "@/server/auth/workspace";
 import { getSessionFromHeaders } from "@/server/auth/session";
-import { inviteMember, acceptInvite } from "@/server/auth/team";
-import { getPendingInvitations, cancelInvitation } from "@/server/repositories/invitation";
+import { acceptInvite } from "@/server/auth/team";
+import { createInvitation, getPendingInvitations, cancelInvitation } from "@/server/repositories/invitation";
 import { sendInviteEmail } from "@/server/services/email";
 
 const createInviteSchema = z.object({
@@ -20,7 +20,8 @@ export async function GET(request: Request) {
   try {
     const { workspace } = await requireWorkspaceAccess(request);
     const invites = await getPendingInvitations(workspace.id);
-    return NextResponse.json({ invites });
+    const sanitized = invites.map(({ token, ...rest }) => rest);
+    return NextResponse.json({ invites: sanitized });
   } catch (error) {
     return handleApiError(error, "workspace.invites.GET");
   }
@@ -29,6 +30,8 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const { user, workspace } = await requireWorkspaceAccess(request);
+    await requireRole(workspace.id, user.id, ["owner", "admin"]);
+
     const body = await request.json();
     const parsed = createInviteSchema.safeParse(body);
 
@@ -36,12 +39,16 @@ export async function POST(request: Request) {
       return apiError("invalidInput", 400, parsed.error.flatten());
     }
 
-    const invite = await inviteMember(
-      workspace.id,
-      parsed.data.email,
-      parsed.data.role,
-      user.id
-    );
+    if (parsed.data.role === "admin") {
+      await requireRole(workspace.id, user.id, ["owner"]);
+    }
+
+    const invite = await createInvitation({
+      workspaceId: workspace.id,
+      email: parsed.data.email,
+      role: parsed.data.role,
+      createdBy: user.id,
+    });
 
     await sendInviteEmail({
       to: parsed.data.email,
@@ -88,7 +95,9 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const { workspace } = await requireWorkspaceAccess(request);
+    const { user, workspace } = await requireWorkspaceAccess(request);
+    await requireRole(workspace.id, user.id, ["owner", "admin"]);
+
     const url = new URL(request.url);
     const inviteId = url.searchParams.get("id");
 

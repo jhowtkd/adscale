@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { ALLOWED_IMAGE_TYPES, isAllowedImageType } from "@/lib/upload-config";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { uploadBuffer, getPublicUrl } from "@/server/storage/r2";
@@ -8,7 +9,6 @@ import {
   upsertBrandKit,
 } from "@/server/db/repositories/brand-kit";
 
-const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
 const MAX_SIZE = 10 * 1024 * 1024;
 
 export async function POST(request: Request) {
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
       return apiError("invalidInput", 400);
     }
 
-    if (!ALLOWED_TYPES.includes(file.type as (typeof ALLOWED_TYPES)[number])) {
+    if (!isAllowedImageType(file.type)) {
       return apiError("invalidFileType", 400);
     }
 

@@ -49,6 +49,10 @@ export async function handleApiError(error: unknown, context: string) {
     return apiError("noWorkspace", 403);
   }
 
+  if (error instanceof Error && error.message === "Forbidden") {
+    return apiError("forbidden", 403);
+  }
+
   if (error instanceof SyntaxError) {
     return apiError("invalidRequestBody", 400);
   }

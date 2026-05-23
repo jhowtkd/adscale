@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import * as React from "react";
 
 export default function A11yProvider({
   children,
@@ -13,9 +14,10 @@ export default function A11yProvider({
       typeof window !== "undefined"
     ) {
       // Dynamically import axe-core only in development
-      import("@axe-core/react").then((axe) => {
-        const React = require("react");
-        const ReactDOM = require("react-dom");
+      Promise.all([
+        import("@axe-core/react"),
+        import("react-dom"),
+      ]).then(([axe, ReactDOM]) => {
         axe.default(React, ReactDOM, 1000, {
           rules: [
             {

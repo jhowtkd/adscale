@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
-import { db } from "../db";
-import { campaigns, creditTransactions } from "../db/schema";
+import { db } from "@/server/db";
+import { campaigns, creditTransactions } from "@/server/db/schema";
 
 export async function createCreditTransaction(data: {
   userId: string;

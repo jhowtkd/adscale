@@ -191,7 +191,7 @@ export function AnalyticsSection({ campaigns, isLoading }: AnalyticsSectionProps
       totalDerivations,
       totalCredits,
     };
-  }, [campaigns, tc, t]);
+  }, [campaigns, t]);
 
   if (isLoading) {
     return (

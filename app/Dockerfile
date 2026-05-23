@@ -38,7 +38,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/drizzle.config.ts ./
 COPY --from=builder --chown=nextjs:nodejs /app/package*.json ./
 
 # Install drizzle-kit for migrations
-RUN npm ci --only=production && npm install drizzle-kit
+RUN npm ci --only=production
 
 COPY --chown=nextjs:nodejs docker/entrypoint.sh ./
 RUN chmod +x entrypoint.sh

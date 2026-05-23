@@ -2,11 +2,11 @@
 
 import { useMemo } from "react";
 import { useTranslations } from "next-intl";
-import type { Campaign } from "@/lib/mock-data";
+import type { UiCampaign } from "@/lib/hooks/use-campaigns";
 import KanbanColumn from "./KanbanColumn";
 
 interface KanbanBoardProps {
-  campaigns: Campaign[];
+  campaigns: UiCampaign[];
 }
 
 const columnConfig = [

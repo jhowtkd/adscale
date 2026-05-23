@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { rateLimit } from "@/lib/rate-limit";
+import { getSessionFromHeaders } from "@/server/auth/session";
 
 const PROTECTED_PREFIXES = ["/campaigns", "/settings"];
 const PROTECTED_EXACT = ["/"];
@@ -57,11 +58,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const sessionCookie =
-    request.cookies.get("better-auth.session_token")?.value ??
-    request.cookies.get("__Secure-better-auth.session_token")?.value;
-
-  if (!sessionCookie) {
+  try {
+    const session = await getSessionFromHeaders(request.headers);
+    if (!session) {
+      const loginUrl = new URL("/login", request.url);
+      return NextResponse.redirect(loginUrl);
+    }
+  } catch {
     const loginUrl = new URL("/login", request.url);
     return NextResponse.redirect(loginUrl);
   }

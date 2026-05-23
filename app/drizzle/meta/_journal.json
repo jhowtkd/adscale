@@ -127,6 +127,13 @@
       "when": 1779652386215,
       "tag": "0017_client_profiles_workspace_unique",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1779652386216,
+      "tag": "0018_add_derivation_input_prompt",
+      "breakpoints": true
     }
   ]
 }

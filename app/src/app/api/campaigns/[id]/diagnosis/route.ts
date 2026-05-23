@@ -10,6 +10,7 @@ import {
   analyzeCreativeDiagnosis,
   normalizeCreativeDiagnosis,
 } from "@/server/ai/creative-diagnosis";
+import { spendCreditsOrApiError } from "@/server/billing/gates";
 
 const updateDiagnosisSchema = z.object({
   diagnosis: z.object({
@@ -45,6 +46,15 @@ export async function POST(
         cached: true,
       });
     }
+
+    const creditError = await spendCreditsOrApiError({
+      workspaceId: workspace.id,
+      action: "creative_qa",
+      amount: 1,
+      idempotencyKey: `diagnosis:${id}`,
+      metadata: { campaignId: id },
+    });
+    if (creditError) return creditError;
 
     // Mark as analyzing
     await updateCampaign(id, workspace.id, {

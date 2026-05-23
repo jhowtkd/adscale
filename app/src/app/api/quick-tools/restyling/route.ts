@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { ALLOWED_IMAGE_TYPES, isAllowedImageType } from "@/lib/upload-config";
 import { apiError, handleApiError } from "@/lib/api-response";
+import { logger } from "@/lib/logger";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { createCampaign, deleteCampaign } from "@/server/repositories/campaign";
 import { createAsset } from "@/server/repositories/asset";
@@ -10,7 +12,6 @@ import { getUserLocale } from "@/server/repositories/user";
 import { parseStyleIntensity } from "@/lib/style-intensity";
 import { spendCreditsOrApiError } from "@/server/billing/gates";
 
-const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
 const MAX_SIZE = 50 * 1024 * 1024; // 50MB
 
 export async function POST(request: Request) {
@@ -42,10 +43,10 @@ export async function POST(request: Request) {
     }
 
     // Validate file types
-    if (!ALLOWED_TYPES.includes(baseImage.type as (typeof ALLOWED_TYPES)[number])) {
+    if (!isAllowedImageType(baseImage.type)) {
       return apiError("invalidFileType", 400, { message: "Base image must be PNG, JPEG, or WebP" });
     }
-    if (!ALLOWED_TYPES.includes(styleImage.type as (typeof ALLOWED_TYPES)[number])) {
+    if (!isAllowedImageType(styleImage.type)) {
       return apiError("invalidFileType", 400, { message: "Style image must be PNG, JPEG, or WebP" });
     }
 
@@ -152,9 +153,9 @@ export async function POST(request: Request) {
       }, { status: 201 });
     } catch (err) {
       // Compensating transaction: clean up R2 files and DB campaign on failure
-      await deleteObject(baseKey).catch(() => {});
-      await deleteObject(styleKey).catch(() => {});
-      await deleteCampaign(campaign.id, workspace.id).catch(() => {});
+      await deleteObject(baseKey).catch((e) => logger.error("cleanup failed", e));
+      await deleteObject(styleKey).catch((e) => logger.error("cleanup failed", e));
+      await deleteCampaign(campaign.id, workspace.id).catch((e) => logger.error("cleanup failed", e));
       throw err;
     }
   } catch (error) {

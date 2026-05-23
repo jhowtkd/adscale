@@ -1,0 +1,15 @@
+iteration	commit	metric	delta	status	description
+0	8348993	9	0.0	baseline	initial state - 9 critical/high issues detectable
+1	e065a0f	8	-1	keep	add security headers (CSP, HSTS, X-Frame, etc.)
+2	6b5f460	7	-1	keep	lazy-load ReactQueryDevtools in dev only + gcTime
+3	702cbb0	7	0	keep	replace unbounded Map with LRU cache for presigned URLs
+4	9a5db37	7	0	keep	add progressive backoff to derivation polling
+5	7df1c68	6	-1	keep	fail-closed rate limiting + add read category
+6	427630d	5	-1	keep	deduplicate getOpenAI() into singleton factory
+7	68e6fc4	5	0	keep	paginate getCampaigns() with default limit of 50
+8	ac63e8e	4	-1	keep	replace unsafe 'as unknown as' with Zod extractOutputText
+9	a809761	3	-1	keep	protect notifications webhook with API key
+10	e5bb62a	3	0	keep	remove non-null assertions from derivation job
+11	22607fc	2	-1	keep	centralize ALLOWED_TYPES into upload-config.ts
+12	6710170	1	-1	keep	extract CreativeDiagnosisCard from BriefingStep
+13	f38610d	0	-1	keep	extract PreflightSummary and RestoreBanner, BriefingStep now 1000 lines

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
-import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { requireWorkspaceAccess, requireRole } from "@/server/auth/workspace";
 import {
   getWorkspaceMembers,
   removeMember,
@@ -24,6 +24,8 @@ export async function GET(request: Request) {
 export async function DELETE(request: Request) {
   try {
     const { user, workspace } = await requireWorkspaceAccess(request);
+    await requireRole(workspace.id, user.id, ["owner", "admin"]);
+
     const url = new URL(request.url);
     const userId = url.searchParams.get("userId");
 

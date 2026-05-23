@@ -36,9 +36,10 @@ describe("campaign repository", () => {
   });
 
   it("getCampaigns filters by workspaceId", async () => {
-    const mockCampaignOrderBy = vi.fn().mockResolvedValue([
+    const mockCampaignLimit = vi.fn().mockResolvedValue([
       { id: "camp-1", status: "draft" },
     ]);
+    const mockCampaignOrderBy = vi.fn().mockReturnValue({ limit: mockCampaignLimit });
     const mockCampaignWhere = vi.fn().mockReturnValue({ orderBy: mockCampaignOrderBy });
     const mockCampaignFrom = vi.fn().mockReturnValue({ where: mockCampaignWhere });
 

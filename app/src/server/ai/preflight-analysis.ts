@@ -1,11 +1,7 @@
-import OpenAI from "openai";
 import { z } from "zod";
+import { getOpenAI, extractOutputText } from "./utils";
 import sharp from "sharp";
 import { env } from "@/server/validation/env";
-
-function getOpenAI() {
-  return new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 60_000 });
-}
 
 // ============================================
 // Zod Schema
@@ -236,7 +232,7 @@ async function analyzeCreative(
     },
   });
 
-  const raw = (response as unknown as { output_text?: string }).output_text;
+  const raw = extractOutputText(response);
   if (!raw) {
     throw new Error("Empty vision response for preflight analysis");
   }
@@ -279,10 +275,6 @@ function normalizePreflightResult(raw: unknown): Omit<PreflightResult, "technica
 
   const overallScore = clamp(Number(obj.overallScore ?? 70));
 
-  const criticalIssues = Array.isArray(obj.criticalIssues)
-    ? obj.criticalIssues.filter((s): s is string => typeof s === "string")
-    : [];
-
   const suggestions = Array.isArray(obj.suggestions)
     ? obj.suggestions.filter((s): s is string => typeof s === "string")
     : [];
@@ -298,14 +290,13 @@ function normalizePreflightResult(raw: unknown): Omit<PreflightResult, "technica
     { name: "technicalQuality", ...breakdown.technicalQuality },
   ];
 
+  const criticalIssuesSet = new Set<string>();
   for (const dim of dims) {
     if (dim.score < 50) {
-      const issue = `${dim.name}: ${dim.suggestion}`;
-      if (!criticalIssues.includes(issue)) {
-        criticalIssues.push(issue);
-      }
+      criticalIssuesSet.add(`${dim.name}: ${dim.suggestion}`);
     }
   }
+  const criticalIssues = [...criticalIssuesSet];
 
   return {
     overallScore,

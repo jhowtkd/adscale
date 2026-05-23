@@ -27,7 +27,7 @@ describe("campaign CRUD with workspace isolation", () => {
 
   function mockSelectChain(returnValue: unknown) {
     const limitFn = vi.fn().mockResolvedValue(returnValue);
-    const orderByFn = vi.fn().mockResolvedValue(returnValue);
+    const orderByFn = vi.fn().mockReturnValue({ limit: limitFn });
     const groupByFn = vi.fn().mockResolvedValue(returnValue);
     const whereFn = vi.fn().mockReturnValue({
       limit: limitFn,

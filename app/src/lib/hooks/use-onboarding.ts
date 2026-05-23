@@ -8,7 +8,9 @@ export function useOnboarding() {
   const { data, isLoading } = useQuery({
     queryKey: ["onboarding-status"],
     queryFn: async () => {
-      const res = await fetch("/api/user/onboarding");
+      const res = await fetch("/api/user/onboarding", {
+        signal: AbortSignal.timeout(10000),
+      });
       if (!res.ok) throw new Error("Failed to fetch onboarding status");
       return res.json() as Promise<{ completed: boolean }>;
     },
@@ -17,7 +19,10 @@ export function useOnboarding() {
 
   const completeMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch("/api/user/onboarding", { method: "POST" });
+      const res = await fetch("/api/user/onboarding", {
+        method: "POST",
+        signal: AbortSignal.timeout(10000),
+      });
       if (!res.ok) throw new Error("Failed to complete onboarding");
       return res.json();
     },

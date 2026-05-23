@@ -11,7 +11,7 @@
 
 import { logger } from "./logger";
 
-export type RateLimitCategory = "auth" | "ai" | "general";
+export type RateLimitCategory = "auth" | "ai" | "general" | "read";
 
 interface RateLimitResult {
   success: boolean;
@@ -29,6 +29,7 @@ const DEFAULTS: Record<RateLimitCategory, LimiterOptions> = {
   auth: { windowMs: 60 * 1000, maxRequests: 10 },
   ai: { windowMs: 60 * 1000, maxRequests: 5 },
   general: { windowMs: 60 * 1000, maxRequests: 30 },
+  read: { windowMs: 60 * 1000, maxRequests: 60 },
 };
 
 /* ------------------------------------------------------------------ */
@@ -124,12 +125,13 @@ class UpstashRedisStore implements RateLimitStore {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(pipeline),
+      signal: AbortSignal.timeout(5000),
     });
 
     if (!res.ok) {
       logger.warn("Upstash Redis rate-limit pipeline failed", { status: res.status });
-      // Fail open — allow request if Redis is down
-      return { success: true, limit: maxRequests, remaining: maxRequests - 1, reset: now + windowMs };
+      // Fail closed — block request if Redis is down to prevent abuse
+      return { success: false, limit: maxRequests, remaining: 0, reset: now + windowMs };
     }
 
     const results = (await res.json()) as Array<{ result: number | null; error?: string }>;

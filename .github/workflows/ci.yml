@@ -75,6 +75,16 @@ jobs:
           STRIPE_SUCCESS_URL: http://localhost:3000/settings?tab=billing&checkout=success
           STRIPE_CANCEL_URL: http://localhost:3000/settings?tab=plans&checkout=cancel
 
+      - name: Cache Next.js build
+        uses: actions/cache@v4
+        with:
+          path: |
+            app/.next/cache
+            app/node_modules/.cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-
+
       - name: Build
         run: npm run build
         env:
