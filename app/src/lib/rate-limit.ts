@@ -102,7 +102,6 @@ class UpstashRedisStore implements RateLimitStore {
   async hit(key: string, windowMs: number, maxRequests: number): Promise<RateLimitResult> {
     const now = Date.now();
     const windowStart = now - windowMs;
-    const expiresAt = Math.ceil((now + windowMs) / 1000);
 
     // Use Upstash Redis JSON array pipeline:
     // 1. RPUSH the new timestamp

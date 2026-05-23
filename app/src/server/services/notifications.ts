@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "@/server/db";
 import { user, workspaceMembers } from "@/server/db/schema";
 import { sendEmail } from "@/server/services/email";

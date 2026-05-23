@@ -85,7 +85,6 @@ async function analyzeTechnical(
   claimedHeight?: number | null
 ): Promise<TechnicalAnalysis> {
   const metadata = await sharp(buffer).metadata();
-  const stats = await sharp(buffer).stats();
 
   const actualWidth = metadata.width ?? 0;
   const actualHeight = metadata.height ?? 0;

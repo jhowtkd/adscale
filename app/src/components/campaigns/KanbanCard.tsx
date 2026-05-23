@@ -3,7 +3,7 @@
 import Link from "next/link";
 import React from "react";
 import { cn } from "@/lib/utils";
-import { useTranslations } from "next-intl";
+
 import type { UiCampaign } from "@/lib/hooks/use-campaigns";
 import { platformColors } from "@/lib/mock-data";
 import StatusBadge from "@/components/ui/StatusBadge";
@@ -26,8 +26,6 @@ const statusBorderColors: Record<string, string> = {
 };
 
 function KanbanCard({ campaign, index }: KanbanCardProps) {
-  const tCampaign = useTranslations("campaign");
-
   const borderColor = statusBorderColors[campaign.status] ?? "var(--border-dim)";
 
   return (

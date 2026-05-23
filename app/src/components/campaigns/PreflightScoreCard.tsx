@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   RefreshCw,
   AlertTriangle,
-  CheckCircle2,
+
   Lightbulb,
   ChevronDown,
   ChevronUp,
@@ -67,25 +67,6 @@ function ScoreBar({ label, score }: { label: string; score: number }) {
           animate={{ width: `${score}%` }}
           transition={{ duration: 0.6, ease: "easeOut" }}
         />
-      </div>
-    </div>
-  );
-}
-
-function SkeletonCard() {
-  return (
-    <div className="animate-pulse space-y-4 rounded-xl border border-[var(--border-dim)] bg-[var(--surface-raised)] p-4">
-      <div className="flex items-center gap-3">
-        <div className="h-10 w-10 rounded-full bg-[var(--border-dim)]" />
-        <div className="space-y-2 flex-1">
-          <div className="h-4 w-1/3 rounded bg-[var(--border-dim)]" />
-          <div className="h-3 w-1/2 rounded bg-[var(--border-dim)]" />
-        </div>
-      </div>
-      <div className="space-y-2">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="h-2 rounded bg-[var(--border-dim)]" />
-        ))}
       </div>
     </div>
   );

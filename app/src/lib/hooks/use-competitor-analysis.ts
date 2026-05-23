@@ -173,6 +173,9 @@ export function useGenerateDifferentiationStrategy() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: generateDifferentiationStrategy,
+    onSuccess: (_, campaignId) => {
+      queryClient.invalidateQueries({ queryKey: ["competitor-analyses", campaignId] });
+    },
   });
 }
 

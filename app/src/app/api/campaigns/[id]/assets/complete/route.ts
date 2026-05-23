@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { ALLOWED_IMAGE_TYPES, isAllowedImageType } from "@/lib/upload-config";
+import { ALLOWED_IMAGE_TYPES } from "@/lib/upload-config";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";

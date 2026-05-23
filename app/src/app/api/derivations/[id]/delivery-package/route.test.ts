@@ -148,6 +148,7 @@ describe("POST /api/derivations/[id]/delivery-package", () => {
       qaIssues: null,
       qaSuggestions: null,
       qaAnalyzedAt: null,
+      inputPrompt: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     }));
@@ -234,6 +235,7 @@ describe("POST /api/derivations/[id]/delivery-package", () => {
       qaIssues: null,
       qaSuggestions: null,
       qaAnalyzedAt: null,
+      inputPrompt: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     }));
@@ -313,6 +315,7 @@ describe("POST /api/derivations/[id]/delivery-package", () => {
       qaIssues: null,
       qaSuggestions: null,
       qaAnalyzedAt: null,
+      inputPrompt: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     }));

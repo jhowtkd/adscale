@@ -183,14 +183,14 @@ async function runDerivationJob(eventData: Record<string, unknown>) {
     }),
   } as unknown;
 
-  return (derivationJob as unknown).fn({ event, step });
+  return (derivationJob as unknown as { fn: (args: { event: unknown; step: unknown }) => Promise<unknown> }).fn({ event, step });
 }
 
 describe("derivationJob", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     sharpOperations.length = 0;
-    mockGetBrandKitByWorkspace.mockResolvedValue(null as unknown);
+    mockGetBrandKitByWorkspace.mockResolvedValue(null as never);
     mockGetCompetitorAnalysesByCampaign.mockResolvedValue([]);
   });
 
@@ -290,7 +290,7 @@ describe("derivationJob", () => {
     } as Awaited<ReturnType<typeof getCampaignById>>);
 
     mockGetAssetsByCampaign.mockResolvedValue([]);
-    mockGetPlanByCampaign.mockResolvedValue(null as unknown);
+    mockGetPlanByCampaign.mockResolvedValue(null as never);
 
     await runDerivationJob({
       derivationId: "child-id",
@@ -384,7 +384,7 @@ describe("derivationJob", () => {
         createdAt: new Date(),
       },
     ]);
-    mockGetPlanByCampaign.mockResolvedValue(null as unknown);
+    mockGetPlanByCampaign.mockResolvedValue(null as never);
 
     await expect(
       runDerivationJob({
@@ -458,7 +458,7 @@ describe("derivationJob", () => {
         createdAt: new Date(),
       },
     ]);
-    mockGetPlanByCampaign.mockResolvedValue(null as unknown);
+    mockGetPlanByCampaign.mockResolvedValue(null as never);
 
     await runDerivationJob({
       derivationId: "derivation-id",

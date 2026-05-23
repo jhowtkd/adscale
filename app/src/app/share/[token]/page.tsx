@@ -8,6 +8,7 @@ import GalleryGrid from "./GalleryGrid";
 import type { Metadata } from "next";
 import { getLocale, getTranslations } from "next-intl/server";
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function generateMetadata({ params }: SharePageProps): Promise<Metadata> {
   const locale = await getLocale();
   const t = await getTranslations({ locale, namespace: "share" });

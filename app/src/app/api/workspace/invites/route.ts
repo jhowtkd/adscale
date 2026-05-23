@@ -20,6 +20,7 @@ export async function GET(request: Request) {
   try {
     const { workspace } = await requireWorkspaceAccess(request);
     const invites = await getPendingInvitations(workspace.id);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const sanitized = invites.map(({ token, ...rest }) => rest);
     return NextResponse.json({ invites: sanitized });
   } catch (error) {

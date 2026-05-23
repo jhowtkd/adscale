@@ -123,7 +123,7 @@ import { getUserLocale } from "@/server/repositories/user";
 import { getAssetsByCampaign } from "@/server/repositories/asset";
 import { scoreCompletedDerivation } from "@/server/jobs/derivation";
 import { POST } from "@/app/api/campaigns/[id]/derivations/route";
-import { type Campaign } from "@/server/ai/prompt-builder";
+
 
 describe("derivation job flow", () => {
   const workspaceId = "ws-123";

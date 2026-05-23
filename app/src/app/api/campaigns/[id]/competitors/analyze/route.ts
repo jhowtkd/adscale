@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { ALLOWED_IMAGE_TYPES, isAllowedImageType, validateImageMagicBytes } from "@/lib/upload-config";
-import { z } from "zod";
+import { isAllowedImageType, validateImageMagicBytes } from "@/lib/upload-config";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { checkRateLimit } from "@/lib/with-rate-limit";
 import { logger } from "@/lib/logger";
@@ -11,11 +10,6 @@ import { spendCreditsOrApiError } from "@/server/billing/gates";
 
 const MAX_SIZE = 50 * 1024 * 1024; // 50MB
 const MAX_FILES = 3;
-
-const analyzeQuerySchema = z.object({
-  name: z.string().optional(),
-  platform: z.string().optional(),
-});
 
 export async function POST(
   request: Request,
