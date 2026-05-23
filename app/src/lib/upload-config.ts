@@ -16,3 +16,28 @@ export const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 export function isAllowedImageType(type: string): type is AllowedImageType {
   return ALLOWED_IMAGE_TYPES.includes(type as AllowedImageType);
 }
+
+// Magic bytes for image validation (prevents spoofing file.type)
+const MAGIC_BYTES: Record<AllowedImageType, number[][]> = {
+  "image/png": [[0x89, 0x50, 0x4e, 0x47]],
+  "image/jpeg": [[0xff, 0xd8, 0xff]],
+  "image/webp": [[0x52, 0x49, 0x46, 0x46]], // WEBP starts with RIFF
+};
+
+/**
+ * Validates file magic bytes to ensure the file content matches the claimed type.
+ * This prevents clients from spoofing file.type with malicious files.
+ */
+export async function validateImageMagicBytes(
+  file: File,
+  expectedType: AllowedImageType
+): Promise<boolean> {
+  const signatures = MAGIC_BYTES[expectedType];
+  if (!signatures) return false;
+
+  const header = new Uint8Array(await file.slice(0, 8).arrayBuffer());
+
+  return signatures.some((sig) =>
+    sig.every((byte, i) => header[i] === byte)
+  );
+}

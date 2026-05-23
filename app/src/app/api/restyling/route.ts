@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { ALLOWED_IMAGE_TYPES, isAllowedImageType } from "@/lib/upload-config";
+import { ALLOWED_IMAGE_TYPES, isAllowedImageType, validateImageMagicBytes } from "@/lib/upload-config";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { logger } from "@/lib/logger";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
@@ -44,6 +44,13 @@ export async function POST(request: Request) {
     }
     if (!isAllowedImageType(styleImage.type)) {
       return apiError("invalidFileType", 400, { message: "Style image must be PNG, JPEG, or WebP" });
+    }
+
+    if (!(await validateImageMagicBytes(baseImage, baseImage.type))) {
+      return apiError("invalidFileType", 400, { message: "Base image failed magic bytes validation" });
+    }
+    if (!(await validateImageMagicBytes(styleImage, styleImage.type))) {
+      return apiError("invalidFileType", 400, { message: "Style image failed magic bytes validation" });
     }
 
     if (baseImage.size <= 0 || baseImage.size > MAX_SIZE) {

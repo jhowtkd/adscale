@@ -61,7 +61,11 @@ import { spendCreditsOrApiError } from "@/server/billing/gates";
 import { POST } from "@/app/api/restyling/route";
 
 function createMockFile(name: string, type: string, size: number): File {
-  return new File([new Blob([new ArrayBuffer(size)])], name, { type });
+  const pngMagic = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+  const buffer = new ArrayBuffer(Math.max(size, pngMagic.length));
+  const view = new Uint8Array(buffer);
+  view.set(pngMagic);
+  return new File([new Blob([buffer])], name, { type });
 }
 
 function createMockFormData(entries: Record<string, string | File | null>): FormData {

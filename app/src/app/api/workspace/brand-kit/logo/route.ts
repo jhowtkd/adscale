@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { ALLOWED_IMAGE_TYPES, isAllowedImageType } from "@/lib/upload-config";
+import { ALLOWED_IMAGE_TYPES, isAllowedImageType, validateImageMagicBytes } from "@/lib/upload-config";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { uploadBuffer, getPublicUrl } from "@/server/storage/r2";
@@ -31,6 +31,10 @@ export async function POST(request: Request) {
     }
 
     if (!isAllowedImageType(file.type)) {
+      return apiError("invalidFileType", 400);
+    }
+
+    if (!(await validateImageMagicBytes(file, file.type))) {
       return apiError("invalidFileType", 400);
     }
 
