@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import type { Derivation } from "@/lib/mock-data";
 
-type WizardStep = 1 | 2 | 3;
+type WizardStep = 1 | 2 | 3 | 4;
 
 interface WizardNavigationFooterProps {
   currentStep: WizardStep;
@@ -50,7 +50,7 @@ export default function WizardNavigationFooter({
         {currentStep > 1 ? getStepNavLabel(currentStep, "prev") : ""}
       </button>
 
-      {currentStep === 3 && approvedDerivation ? (
+      {currentStep === 4 && approvedDerivation ? (
         <button
           onClick={() => onExport(approvedDerivation.id, "png")}
           disabled={exportMutationPending}
@@ -67,10 +67,10 @@ export default function WizardNavigationFooter({
       ) : (
         <button
           onClick={currentStep === 2 ? onNext : onNext}
-          disabled={currentStep === 2 || currentStep === 3 || createDerivationsPending}
+          disabled={currentStep === 2 || currentStep === 3 || currentStep === 4 || createDerivationsPending}
           className={cn(
             "inline-flex min-h-10 w-full items-center justify-center rounded-md px-6 py-2.5 text-sm font-medium transition-all duration-200 sm:w-auto",
-            currentStep === 2 || currentStep === 3 || createDerivationsPending
+            currentStep === 2 || currentStep === 3 || currentStep === 4 || createDerivationsPending
               ? "bg-[var(--surface-raised)] text-[var(--text-muted)] border border-[var(--border-dim)] cursor-default"
               : "bg-[var(--accent-mint)] text-white hover:bg-[var(--accent-mint-light)] hover:-translate-y-px active:scale-[0.98]"
           )}

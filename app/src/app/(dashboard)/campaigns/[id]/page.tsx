@@ -20,6 +20,7 @@ const PersonaSimulationModal = dynamic(() => import("@/components/workspace/Pers
 import StepIndicator from "@/components/workspace/StepIndicator";
 import BriefingStep from "@/components/workspace/BriefingStep";
 import UploadStep from "@/components/workspace/UploadStep";
+import PlanStep from "@/components/workspace/PlanStep";
 import DerivationsStep from "@/components/workspace/DerivationsStep";
 
 import CampaignWorkspaceHeader from "@/components/campaigns/CampaignWorkspaceHeader";
@@ -66,8 +67,11 @@ export default function CampaignWorkspacePage() {
     handleBriefingContinue,
     handleSaveDraft,
     handleGenerateDerivations,
-    handleUploadContinue,
+    handleContinueToPlan,
+    handleSkipPlan,
     handleGeneratePreview,
+    handleSkipPlan,
+    handleApprovePlanAndGenerate,
     handleGenerateLandingPage,
     handleSaveAsReference,
     hasActivePreview,
@@ -131,7 +135,8 @@ export default function CampaignWorkspacePage() {
           "bg-[var(--surface-base)] rounded-xl border border-[var(--border-dim)] min-h-[400px]",
           currentStep === 1 && "p-6 md:p-8",
           currentStep === 2 && "p-6 md:p-8",
-          currentStep === 3 && "p-6"
+          currentStep === 3 && "p-6",
+          currentStep === 4 && "p-6"
         )}
       >
         <AnimatePresence mode="wait" custom={direction}>
@@ -158,12 +163,21 @@ export default function CampaignWorkspacePage() {
             {currentStep === 2 && (
               <UploadStep
                 campaignId={campaignId}
-                onContinue={handleUploadContinue}
+                onContinueToPlan={handleUploadContinue}
+                onSkipPlan={handleSkipPlan}
                 onGeneratePreview={handleGeneratePreview}
                 hasPreview={hasActivePreview}
               />
             )}
             {currentStep === 3 && (
+              <PlanStep
+                campaignId={campaignId}
+                onApproveAndGenerate={handleApprovePlanAndGenerate}
+                onSkipPlan={handleSkipPlan}
+                onBack={handlePrev}
+              />
+            )}
+            {currentStep === 4 && (
               <DerivationsStep
                 derivations={allDerivations}
                 generationMode={campaign?.generationMode}

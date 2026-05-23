@@ -12,6 +12,7 @@ import { useExport } from "@/lib/hooks/use-export";
 import { useReviewDerivation } from "@/lib/hooks/use-review";
 import { useCreateDeliveryPackage } from "@/lib/hooks/use-delivery-package";
 import { useCreativeQa } from "@/lib/hooks/use-creative-qa";
+import { usePlan, useGeneratePlan, useUpdatePlanStatus } from "./use-plan";
 import { useSaveDerivationAsReference } from "@/lib/hooks/use-client-profiles";
 import { useGenerateLandingPage } from "@/lib/hooks/use-landing-page";
 import type { BriefingFormData } from "@/components/workspace/BriefingStep";
@@ -19,7 +20,7 @@ import type { StepKey } from "@/components/workspace/StepIndicator";
 import type { DeliveryFormat } from "@/components/workspace/DeliveryPackageModal";
 import { useTranslations } from "next-intl";
 
-export type WizardStep = 1 | 2 | 3;
+export type WizardStep = 1 | 2 | 3 | 4;
 
 export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
   const router = useRouter();
@@ -43,6 +44,9 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
   const saveDerivationAsReference = useSaveDerivationAsReference();
   const generateLandingPage = useGenerateLandingPage();
   const creativeQa = useCreativeQa();
+  const { data: planData } = usePlan(campaignId);
+  const generatePlanMutation = useGeneratePlan(campaignId);
+  const updatePlanStatusMutation = useUpdatePlanStatus(campaignId);
 
   const campaign = useMemo(() => {
     if (realCampaign) {
@@ -101,7 +105,7 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
     if (hasSetInitialStep || isLoading || isNew) return;
     if (derivationsData && derivationsData.length > 0) {
       queueMicrotask(() => {
-        setCurrentStep(3);
+        setCurrentStep(4);
         setHasSetInitialStep(true);
       });
     }
@@ -180,7 +184,7 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
   );
 
   const handleNext = useCallback(() => {
-    if (currentStep < 3) goToStep((currentStep + 1) as WizardStep);
+    if (currentStep < 4) goToStep((currentStep + 1) as WizardStep);
   }, [currentStep, goToStep]);
 
   const handlePrev = useCallback(() => {
@@ -259,7 +263,7 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
       createDerivations.mutate(options, {
         onSuccess: () => {
           addToast("success", options?.preview ? tc("previewQueued") : tc("derivationsQueued"));
-          if (!options?.preview) goToStep(3);
+          if (!options?.preview) goToStep(4);
           if (campaign && !isNew) updateCampaign.mutate({ status: "generating" });
         },
         onError: () => {
@@ -270,13 +274,29 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
     [createDerivations, goToStep, campaign, isNew, updateCampaign, addToast, tc]
   );
 
-  const handleUploadContinue = useCallback(() => {
-    handleGenerateDerivations();
-  }, [handleGenerateDerivations]);
+  const handleContinueToPlan = useCallback(() => {
+    goToStep(3);
+  }, [goToStep]);
 
   const handleGeneratePreview = useCallback(() => {
     handleGenerateDerivations({ preview: true });
   }, [handleGenerateDerivations]);
+
+  const handleSkipPlan = useCallback(() => {
+    handleGenerateDerivations();
+  }, [handleGenerateDerivations]);
+
+  const handleApprovePlanAndGenerate = useCallback(() => {
+    if (!planData) {
+      handleGenerateDerivations();
+      return;
+    }
+    updatePlanStatusMutation.mutate("approved", {
+      onSuccess: () => {
+        handleGenerateDerivations();
+      },
+    });
+  }, [planData, updatePlanStatusMutation, handleGenerateDerivations]);
 
   const handleGenerateLandingPage = useCallback(
     (id: string) => generateLandingPage.mutate({ derivationId: id }),
@@ -396,9 +416,11 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
         case 1:
           return direction === "prev" ? "" : ts("continueToUpload");
         case 2:
-          return direction === "prev" ? ts("backToBrief") : ts("startGeneration");
+          return direction === "prev" ? ts("backToBrief") : ts("continueToPlan");
         case 3:
-          return direction === "prev" ? ts("backToUpload") : "";
+          return direction === "prev" ? ts("backToUpload") : ts("generateDerivations");
+        case 4:
+          return direction === "prev" ? ts("backToPlan") : "";
         default:
           return "";
       }
@@ -425,7 +447,7 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
     handleBriefingContinue,
     handleSaveDraft,
     handleGenerateDerivations,
-    handleUploadContinue,
+    handleContinueToPlan,
     handleGeneratePreview,
     handleGenerateLandingPage,
     handleSaveAsReference,
@@ -453,5 +475,10 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
     createDerivationsPending: createDerivations.isPending,
     exportPending: exportMutation.isPending,
     deliveryPackagePending: createDeliveryPackage.isPending,
+    planData,
+    generatePlanPending: generatePlanMutation.isPending,
+    updatePlanStatusPending: updatePlanStatusMutation.isPending,
+    handleSkipPlan,
+    handleApprovePlanAndGenerate,
   };
 }
