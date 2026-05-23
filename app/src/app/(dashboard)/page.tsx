@@ -1,57 +1,28 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useAppStore } from "@/lib/store";
-import { useDashboard } from "@/lib/hooks/use-dashboard";
-import { useCampaigns } from "@/lib/hooks/use-campaigns";
-import { useOnboarding } from "@/lib/hooks/use-onboarding";
-import dynamic from "next/dynamic";
+import { useDashboardStats } from "@/lib/hooks/use-dashboard-stats";
 import {
-  CreditAlertBanner,
-  WelcomeBanner,
-  StatsCardsGrid,
-  QuickActionsGrid,
-  RecentCampaignsSection,
-  CreditUsagePanel,
-  ActivityFeedPanel,
+  KpiCard,
+  QuickActions,
+  CreditChart,
+  CampaignList,
+  CreditPanel,
+  ActivityFeed,
   OnboardingTour,
-  AnalyticsSection,
 } from "@/components/dashboard";
 import { useTranslations } from "next-intl";
-
-const RestylingModal = dynamic(() => import("@/components/workspace/RestylingModal"), {
-  ssr: false,
-  loading: () => null,
-});
+import { useEffect, useState } from "react";
+import { useAppStore } from "@/lib/store";
+import { useOnboarding } from "@/lib/hooks/use-onboarding";
 
 export default function DashboardPage() {
-  const setCurrentPageTitle = useAppStore((s) => s.setCurrentPageTitle);
+  const t = useTranslations("dashboard");
   const tNav = useTranslations("navigation");
-
-  const { data: dashboardData, isLoading: isDashboardLoading, isError: isDashboardError } = useDashboard();
-  const { campaigns, isLoading: isCampaignsLoading } = useCampaigns();
-
-  useEffect(() => {
-    setCurrentPageTitle(tNav("dashboard"));
-  }, [setCurrentPageTitle, tNav]);
-
-  const recentCampaigns = campaigns.slice(0, 5);
-  const activityFeed = dashboardData?.recentActivity ?? [];
-
-  // Stats (with fallbacks for data not yet in scope)
-  const totalCampaigns = dashboardData?.campaignCount ?? recentCampaigns.length ?? 0;
-  const derivationsThisMonth = 0;
-  const creditsUsed = 0;
-  const creditsTotal = 1000;
-  const activePlatforms = new Set(recentCampaigns.flatMap((c) => c.platforms)).size;
-  const campaignsChange = 0;
-  const derivationsChange = 0;
-  const creditsRemaining = 100;
-  const creditPercent = 0;
-
-  const [showRestylingModal, setShowRestylingModal] = useState(false);
-  const { completed: onboardingCompleted, isLoading: isOnboardingLoading, complete: completeOnboarding } = useOnboarding();
   const tOnboarding = useTranslations("onboarding");
+  const setCurrentPageTitle = useAppStore((s) => s.setCurrentPageTitle);
+  const { data: stats, isLoading, error } = useDashboardStats();
+
+  const { completed: onboardingCompleted, isLoading: isOnboardingLoading, complete: completeOnboarding } = useOnboarding();
 
   const tourSteps = [
     {
@@ -76,44 +47,92 @@ export default function DashboardPage() {
 
   const showTour = !isOnboardingLoading && !onboardingCompleted;
 
+  useEffect(() => {
+    setCurrentPageTitle(tNav("dashboard"));
+  }, [setCurrentPageTitle, tNav]);
+
+  if (isLoading) {
+    return <DashboardSkeleton />;
+  }
+
+  if (error || !stats) {
+    return <DashboardError />;
+  }
+
   return (
-    <div className="mx-auto max-w-7xl space-y-8">
-      <CreditAlertBanner />
-      <div data-tour-step="1">
-        <WelcomeBanner />
+    <div className="p-8 max-w-[1400px]">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-8" data-tour-step="1">
+        <div>
+          <h1 className="text-lg font-semibold text-[#e8e8ec]">Dashboard</h1>
+          <p className="text-[13px] text-[#4a4a52]">
+            {stats.totalCampaigns} campanhas, {stats.derivationsThisMonth} derivações este mês
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <a
+            href="/campaigns/new"
+            className="flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-[#0a0a0f] bg-[#2fb67d] rounded-[4px] hover:bg-[#259d6a] transition-colors"
+          >
+            + Nova Campanha
+          </a>
+        </div>
       </div>
-      <StatsCardsGrid
-        totalCampaigns={totalCampaigns}
-        derivationsThisMonth={derivationsThisMonth}
-        creditsUsed={creditsUsed}
-        creditsRemaining={creditsRemaining}
-        activePlatforms={activePlatforms}
-        campaignsChange={campaignsChange}
-        derivationsChange={derivationsChange}
-      />
-      <AnalyticsSection campaigns={campaigns} isLoading={isCampaignsLoading} />
+
+      {/* Quick Actions */}
       <div data-tour-step="2">
-        <QuickActionsGrid onRestylingClick={() => setShowRestylingModal(true)} />
+        <QuickActions />
       </div>
-      <div data-tour-step="3">
-        <RecentCampaignsSection
-        campaigns={recentCampaigns}
-        isLoading={isCampaignsLoading}
-      />
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <CreditUsagePanel
-          creditsUsed={creditsUsed}
-          creditsTotal={creditsTotal}
-          creditPercent={creditPercent}
+
+      {/* KPIs */}
+      <div className="grid grid-cols-4 gap-3 mt-6">
+        <KpiCard
+          label={t("kpi.campaigns")}
+          value={stats.totalCampaigns}
+          change={stats.campaignsChange}
+          changeLabel={t("kpi.vsLastMonth")}
         />
-        <ActivityFeedPanel
-          activityFeed={activityFeed}
-          isLoading={isDashboardLoading}
-          isError={isDashboardError}
+        <KpiCard
+          label={t("kpi.derivations")}
+          value={stats.derivationsThisMonth}
+          change={stats.derivationsChange}
+          changeLabel={t("kpi.vsLastMonth")}
         />
-      </section>
+        <KpiCard
+          label={t("kpi.approval")}
+          value={`${stats.approvalRate}%`}
+          change={stats.approvalChange}
+          changeLabel={t("kpi.vsLastMonth")}
+        />
+        <KpiCard
+          label={t("kpi.credits")}
+          value={stats.creditsRemaining}
+          change={-stats.creditsUsedThisMonth}
+          changeLabel={t("kpi.usedThisMonth")}
+        />
       </div>
-      <RestylingModal open={showRestylingModal} onOpenChange={setShowRestylingModal} />
+
+      {/* Main Grid */}
+      <div className="grid grid-cols-[1fr_320px] gap-3 mt-6">
+        {/* Left Column */}
+        <div className="space-y-3">
+          <CreditChart data={stats.creditUsageSeries} />
+          <div data-tour-step="3">
+            <CampaignList campaigns={stats.recentCampaigns} />
+          </div>
+        </div>
+
+        {/* Right Column */}
+        <div className="space-y-3">
+          <CreditPanel
+            remaining={stats.creditsRemaining}
+            total={stats.creditsTotal}
+            planKey={stats.subscription.planKey}
+          />
+          <ActivityFeed activities={stats.recentActivity} />
+        </div>
+      </div>
+
       {showTour && (
         <OnboardingTour
           steps={tourSteps}
@@ -121,6 +140,34 @@ export default function DashboardPage() {
           onSkip={completeOnboarding}
         />
       )}
+    </div>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="p-8 animate-pulse">
+      <div className="h-6 bg-[#1a1a24] rounded-[4px] w-32 mb-2" />
+      <div className="h-4 bg-[#1a1a24] rounded-[4px] w-64 mb-8" />
+      <div className="grid grid-cols-4 gap-3">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-28 bg-[#1a1a24] rounded-[4px]" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DashboardError() {
+  return (
+    <div className="p-8 text-center">
+      <p className="text-[#e8e8ec]">Erro ao carregar dashboard</p>
+      <button
+        onClick={() => window.location.reload()}
+        className="mt-4 px-4 py-2 text-sm text-[#0a0a0f] bg-[#2fb67d] rounded-[4px]"
+      >
+        Tentar novamente
+      </button>
     </div>
   );
 }
