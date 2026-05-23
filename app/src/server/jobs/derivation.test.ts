@@ -173,7 +173,7 @@ const mockGetCompetitorAnalysesByCampaign = vi.mocked(getCompetitorAnalysesByCam
 const mockDownloadBuffer = vi.mocked(downloadBuffer);
 
 async function runDerivationJob(eventData: Record<string, unknown>) {
-  const event = { data: eventData } as any;
+  const event = { data: eventData } as unknown;
   const step = {
     run: vi.fn(async (name: string, fn: () => Promise<unknown>) => {
       if (name === "check-idempotency") {
@@ -181,16 +181,16 @@ async function runDerivationJob(eventData: Record<string, unknown>) {
       }
       return fn();
     }),
-  } as any;
+  } as unknown;
 
-  return (derivationJob as any).fn({ event, step });
+  return (derivationJob as unknown).fn({ event, step });
 }
 
 describe("derivationJob", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     sharpOperations.length = 0;
-    mockGetBrandKitByWorkspace.mockResolvedValue(null as any);
+    mockGetBrandKitByWorkspace.mockResolvedValue(null as unknown);
     mockGetCompetitorAnalysesByCampaign.mockResolvedValue([]);
   });
 
@@ -290,7 +290,7 @@ describe("derivationJob", () => {
     } as Awaited<ReturnType<typeof getCampaignById>>);
 
     mockGetAssetsByCampaign.mockResolvedValue([]);
-    mockGetPlanByCampaign.mockResolvedValue(null as any);
+    mockGetPlanByCampaign.mockResolvedValue(null as unknown);
 
     await runDerivationJob({
       derivationId: "child-id",
@@ -384,7 +384,7 @@ describe("derivationJob", () => {
         createdAt: new Date(),
       },
     ]);
-    mockGetPlanByCampaign.mockResolvedValue(null as any);
+    mockGetPlanByCampaign.mockResolvedValue(null as unknown);
 
     await expect(
       runDerivationJob({
@@ -458,7 +458,7 @@ describe("derivationJob", () => {
         createdAt: new Date(),
       },
     ]);
-    mockGetPlanByCampaign.mockResolvedValue(null as any);
+    mockGetPlanByCampaign.mockResolvedValue(null as unknown);
 
     await runDerivationJob({
       derivationId: "derivation-id",

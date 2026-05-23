@@ -207,7 +207,7 @@ describe("processStripeEvent", () => {
 
   it("syncs subscription before granting credits when invoice arrives first", async () => {
     const periodEnd = new Date("2026-06-19T00:00:00.000Z");
-    mockGetSubscription.mockResolvedValueOnce(null as any);
+    mockGetSubscription.mockResolvedValueOnce(null as unknown);
     mockStripeSubscriptionRetrieve.mockResolvedValue({
       id: "sub_123",
       customer: "cus_123",
