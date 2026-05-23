@@ -70,7 +70,6 @@ export default function CampaignWorkspacePage() {
     handleContinueToPlan,
     handleSkipPlan,
     handleGeneratePreview,
-    handleSkipPlan,
     handleApprovePlanAndGenerate,
     handleGenerateLandingPage,
     handleSaveAsReference,
@@ -163,7 +162,7 @@ export default function CampaignWorkspacePage() {
             {currentStep === 2 && (
               <UploadStep
                 campaignId={campaignId}
-                onContinueToPlan={handleUploadContinue}
+                onContinueToPlan={handleContinueToPlan}
                 onSkipPlan={handleSkipPlan}
                 onGeneratePreview={handleGeneratePreview}
                 hasPreview={hasActivePreview}
