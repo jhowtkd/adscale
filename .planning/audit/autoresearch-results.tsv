@@ -17,3 +17,5 @@ iteration	commit	metric	delta	status	description
 15	810cc94	4	0	keep	replace console.error with structured logger in RestylingModal
 16	112be5c	4	0	keep	replace require with dynamic import in QueryProvider + fix terms quotes
 17	07eb179	2	-2	keep	fix all ESLint errors — any, set-state-in-effect, require imports
+18	94f910a	0	0	keep	add magic bytes validation to 6 upload handlers — centralize upload config
+19	94f910a	0	0	keep	final verification — 0 critical/high/medium, 0 ESLint errors, 318 tests passing
