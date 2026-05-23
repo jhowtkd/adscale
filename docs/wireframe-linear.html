@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ADScale — Linear Style Dashboard</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0e0e10; color: #c8c8d0; font-size: 13px; }
+
+  /* App Shell */
+  .app { display: flex; height: 100vh; }
+
+  /* Narrow Sidebar (Linear style) */
+  .sidebar { width: 60px; background: #0e0e10; border-right: 1px solid #1e1e24; display: flex; flex-direction: column; align-items: center; padding: 12px 0; gap: 4px; }
+  .sidebar .logo { width: 36px; height: 36px; border-radius: 8px; background: #2fb67d; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #0e0e10; font-size: 14px; margin-bottom: 16px; }
+  .nav-item { width: 44px; height: 44px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; cursor: pointer; color: #6e6e7a; transition: 0.15s; position: relative; }
+  .nav-item:hover { background: #1e1e24; color: #c8c8d0; }
+  .nav-item.active { background: #1e1e24; color: #2fb67d; }
+  .nav-badge { position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: #f59e0b; }
+
+  /* Main Content */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* Topbar */
+  .topbar { height: 48px; border-bottom: 1px solid #1e1e24; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; }
+  .topbar-left { display: flex; align-items: center; gap: 12px; }
+  .topbar-title { font-size: 15px; font-weight: 600; color: #e2e2e8; }
+  .topbar-badge { font-size: 11px; padding: 2px 8px; border-radius: 4px; background: #1e1e24; color: #6e6e7a; }
+  .topbar-right { display: flex; gap: 8px; }
+  .btn { padding: 6px 12px; border-radius: 6px; border: none; font-size: 12px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+  .btn-primary { background: #2fb67d; color: #0e0e10; }
+  .btn-ghost { background: transparent; color: #6e6e7a; border: 1px solid #1e1e24; }
+
+  /* Content Scroll */
+  .content { flex: 1; overflow: auto; padding: 24px 32px; }
+
+  /* KPI Row (Linear: clean, compact) */
+  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  .kpi { background: #131318; border: 1px solid #1e1e24; border-radius: 8px; padding: 16px; }
+  .kpi-label { font-size: 12px; color: #6e6e7a; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.3px; }
+  .kpi-value { font-size: 28px; font-weight: 600; color: #e2e2e8; font-family: 'SF Mono', monospace; }
+  .kpi-change { font-size: 12px; margin-top: 4px; }
+  .kpi-change.up { color: #2fb67d; }
+  .kpi-change.down { color: #ef4444; }
+
+  /* Two Column Layout */
+  .two-col { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 24px; }
+
+  /* Section Card */
+  .section { background: #131318; border: 1px solid #1e1e24; border-radius: 8px; overflow: hidden; }
+  .section-header { padding: 12px 16px; border-bottom: 1px solid #1e1e24; display: flex; align-items: center; justify-content: space-between; }
+  .section-title { font-size: 13px; font-weight: 600; color: #e2e2e8; }
+  .section-actions { display: flex; gap: 8px; }
+  .section-body { padding: 0; }
+
+  /* Campaign List (Linear style: dense rows) */
+  .list-row { display: grid; grid-template-columns: 40px 2fr 1fr 1fr 1fr 80px 40px; align-items: center; padding: 10px 16px; border-bottom: 1px solid #1a1a22; gap: 12px; cursor: pointer; transition: 0.1s; }
+  .list-row:hover { background: #1a1a22; }
+  .list-row:last-child { border-bottom: none; }
+  .list-thumb { width: 32px; height: 32px; border-radius: 6px; background: #1e1e24; }
+  .list-name { font-weight: 500; color: #e2e2e8; }
+  .list-name span { color: #6e6e7a; font-weight: 400; margin-left: 8px; }
+  .list-status { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .status-dot.green { background: #2fb67d; }
+  .status-dot.yellow { background: #f59e0b; }
+  .status-dot.gray { background: #6e6e7a; }
+  .list-meta { font-size: 12px; color: #6e6e7a; }
+  .list-progress { display: flex; align-items: center; gap: 8px; }
+  .progress-bar { width: 60px; height: 4px; border-radius: 2px; background: #1e1e24; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 2px; background: #2fb67d; }
+  .list-actions { opacity: 0; transition: 0.15s; }
+  .list-row:hover .list-actions { opacity: 1; }
+  .action-btn { width: 28px; height: 28px; border-radius: 4px; border: none; background: transparent; color: #6e6e7a; cursor: pointer; }
+  .action-btn:hover { background: #2a2a32; color: #e2e2e8; }
+
+  /* Quick Actions (compact chips) */
+  .quick-actions { display: flex; gap: 8px; padding: 12px 16px; }
+  .quick-chip { padding: 8px 14px; border-radius: 6px; background: #1a1a22; border: 1px solid #1e1e24; cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 6px; transition: 0.15s; }
+  .quick-chip:hover { background: #22222c; border-color: #2fb67d; }
+
+  /* Activity Feed */
+  .activity-item { display: flex; gap: 12px; padding: 10px 16px; border-bottom: 1px solid #1a1a22; }
+  .activity-item:last-child { border-bottom: none; }
+  .activity-icon { width: 28px; height: 28px; border-radius: 6px; background: #1e1e24; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
+  .activity-text { font-size: 12px; line-height: 1.4; }
+  .activity-text strong { color: #e2e2e8; font-weight: 500; }
+  .activity-time { font-size: 11px; color: #4a4a52; margin-top: 2px; }
+
+  /* Credit mini bar */
+  .credit-mini { padding: 12px 16px; }
+  .credit-mini-top { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px; }
+  .credit-mini-bar { height: 6px; border-radius: 3px; background: #1e1e24; overflow: hidden; }
+  .credit-mini-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #2fb67d, #38f9d7); width: 65%; }
+
+  /* Chart area */
+  .chart-area { padding: 16px; height: 200px; display: flex; align-items: flex-end; gap: 8px; }
+  .chart-bar { flex: 1; border-radius: 4px 4px 0 0; background: #1e1e24; position: relative; }
+  .chart-bar-fill { position: absolute; bottom: 0; left: 0; right: 0; border-radius: 4px 4px 0 0; background: #2fb67d; opacity: 0.6; }
+  .chart-label { position: absolute; bottom: -18px; left: 50%; transform: translateX(-50%); font-size: 10px; color: #4a4a52; white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- Narrow Sidebar -->
+  <div class="sidebar">
+    <div class="logo">A</div>
+    <div class="nav-item active">⌘</div>
+    <div class="nav-item">⚡</div>
+    <div class="nav-item">📁</div>
+    <div class="nav-item">📊</div>
+    <div style="flex:1"></div>
+    <div class="nav-item">⚙</div>
+    <div class="nav-item">👤</div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+
+    <!-- Topbar -->
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-title">Dashboard</div>
+        <div class="topbar-badge">Acme Inc.</div>
+      </div>
+      <div class="topbar-right">
+        <button class="btn btn-ghost">⌘K Buscar</button>
+        <button class="btn btn-primary">+ Nova Campanha</button>
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div class="content">
+
+      <!-- KPIs -->
+      <div class="kpi-row">
+        <div class="kpi">
+          <div class="kpi-label">Campanhas</div>
+          <div class="kpi-value">47</div>
+          <div class="kpi-change up">↑ 12% vs mês passado</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Derivações este mês</div>
+          <div class="kpi-value">128</div>
+          <div class="kpi-change up">↑ 8% vs mês passado</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Taxa de Aprovação</div>
+          <div class="kpi-value">84%</div>
+          <div class="kpi-change up">↑ 3% vs mês passado</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Créditos Restantes</div>
+          <div class="kpi-value">340</div>
+          <div class="kpi-change down">↓ 45 usados este mês</div>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div style="margin-bottom: 16px;">
+        <div class="quick-actions" style="background: #131318; border: 1px solid #1e1e24; border-radius: 8px;">
+          <div class="quick-chip">⚡ Restyling Rápido</div>
+          <div class="quick-chip">📤 Upload Criativo</div>
+          <div class="quick-chip">📚 Biblioteca</div>
+          <div class="quick-chip">👥 Convidar Equipe</div>
+        </div>
+      </div>
+
+      <!-- Two Column: Campaigns + Right Panel -->
+      <div class="two-col">
+
+        <!-- Left: Campaign List + Chart -->
+        <div>
+          <!-- Chart -->
+          <div class="section" style="margin-bottom: 16px;">
+            <div class="section-header">
+              <div class="section-title">Créditos por Semana</div>
+              <div class="section-actions">
+                <button class="btn btn-ghost" style="padding: 4px 8px; font-size: 11px;">7D</button>
+                <button class="btn btn-ghost" style="padding: 4px 8px; font-size: 11px;">30D</button>
+                <button class="btn btn-ghost" style="padding: 4px 8px; font-size: 11px;">90D</button>
+              </div>
+            </div>
+            <div class="chart-area">
+              <div class="chart-bar" style="height: 60%"><div class="chart-bar-fill" style="height: 40%"></div><div class="chart-label">Seg</div></div>
+              <div class="chart-bar" style="height: 80%"><div class="chart-bar-fill" style="height: 55%"></div><div class="chart-label">Ter</div></div>
+              <div class="chart-bar" style="height: 100%"><div class="chart-bar-fill" style="height: 70%"></div><div class="chart-label">Qua</div></div>
+              <div class="chart-bar" style="height: 70%"><div class="chart-bar-fill" style="height: 45%"></div><div class="chart-label">Qui</div></div>
+              <div class="chart-bar" style="height: 90%"><div class="chart-bar-fill" style="height: 60%"></div><div class="chart-label">Sex</div></div>
+              <div class="chart-bar" style="height: 50%"><div class="chart-bar-fill" style="height: 30%"></div><div class="chart-label">Sab</div></div>
+              <div class="chart-bar" style="height: 40%"><div class="chart-bar-fill" style="height: 25%"></div><div class="chart-label">Dom</div></div>
+            </div>
+          </div>
+
+          <!-- Campaign List -->
+          <div class="section">
+            <div class="section-header">
+              <div class="section-title">Campanhas Recentes</div>
+              <div class="section-actions">
+                <button class="btn btn-ghost" style="padding: 4px 8px; font-size: 11px;">Ver Todas →</button>
+              </div>
+            </div>
+            <div class="section-body">
+              <div class="list-row">
+                <div class="list-thumb" style="background: linear-gradient(135deg, #667eea, #764ba2);"></div>
+                <div class="list-name">Verão 2025 <span>12 peças</span></div>
+                <div class="list-status"><span class="status-dot green"></span> Ativa</div>
+                <div class="list-meta">Meta, TikTok</div>
+                <div class="list-progress"><div class="progress-bar"><div class="progress-fill" style="width: 75%"></div></div><span style="font-size: 11px; color: #6e6e7a;">9/12</span></div>
+                <div class="list-meta">2h atrás</div>
+                <div class="list-actions"><button class="action-btn">⋮</button></div>
+              </div>
+              <div class="list-row">
+                <div class="list-thumb" style="background: linear-gradient(135deg, #43e97b, #38f9d7);"></div>
+                <div class="list-name">Black Friday Tech <span>24 peças</span></div>
+                <div class="list-status"><span class="status-dot green"></span> Ativa</div>
+                <div class="list-meta">Meta, Google</div>
+                <div class="list-progress"><div class="progress-bar"><div class="progress-fill" style="width: 90%"></div></div><span style="font-size: 11px; color: #6e6e7a;">22/24</span></div>
+                <div class="list-meta">1d atrás</div>
+                <div class="list-actions"><button class="action-btn">⋮</button></div>
+              </div>
+              <div class="list-row">
+                <div class="list-thumb" style="background: linear-gradient(135deg, #f093fb, #f5576c);"></div>
+                <div class="list-name">Lançamento App Fitness <span>6 peças</span></div>
+                <div class="list-status"><span class="status-dot yellow"></span> Rascunho</div>
+                <div class="list-meta">TikTok</div>
+                <div class="list-progress"><div class="progress-bar"><div class="progress-fill" style="width: 33%"></div></div><span style="font-size: 11px; color: #6e6e7a;">2/6</span></div>
+                <div class="list-meta">3d atrás</div>
+                <div class="list-actions"><button class="action-btn">⋮</button></div>
+              </div>
+              <div class="list-row">
+                <div class="list-thumb" style="background: linear-gradient(135deg, #4facfe, #00f2fe);"></div>
+                <div class="list-name">Natal 2025 <span>18 peças</span></div>
+                <div class="list-status"><span class="status-dot gray"></span> Arquivada</div>
+                <div class="list-meta">Meta</div>
+                <div class="list-progress"><div class="progress-bar"><div class="progress-fill" style="width: 100%"></div></div><span style="font-size: 11px; color: #6e6e7a;">18/18</span></div>
+                <div class="list-meta">2s atrás</div>
+                <div class="list-actions"><button class="action-btn">⋮</button></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Activity + Credits -->
+        <div>
+
+          <!-- Credit Usage -->
+          <div class="section" style="margin-bottom: 16px;">
+            <div class="section-header">
+              <div class="section-title">Créditos</div>
+              <button class="btn btn-ghost" style="padding: 4px 8px; font-size: 11px;">Upgrade</button>
+            </div>
+            <div class="credit-mini">
+              <div class="credit-mini-top">
+                <span>340 / 1,000</span>
+                <span style="color: #2fb67d;">34%</span>
+              </div>
+              <div class="credit-mini-bar"><div class="credit-mini-fill"></div></div>
+              <div style="margin-top: 8px; font-size: 11px; color: #4a4a52;">Renova em 12 dias</div>
+            </div>
+          </div>
+
+          <!-- Activity Feed -->
+          <div class="section">
+            <div class="section-header">
+              <div class="section-title">Atividade</div>
+              <button class="btn btn-ghost" style="padding: 4px 8px; font-size: 11px;">Ver Mais →</button>
+            </div>
+            <div class="section-body">
+              <div class="activity-item">
+                <div class="activity-icon">✓</div>
+                <div>
+                  <div class="activity-text"><strong>Derivação #3</strong> aprovada em <strong>Verão 2025</strong></div>
+                  <div class="activity-time">2 minutos atrás</div>
+                </div>
+              </div>
+              <div class="activity-item">
+                <div class="activity-icon">⚡</div>
+                <div>
+                  <div class="activity-text"><strong>5 derivações</strong> geradas em <strong>Black Friday</strong></div>
+                  <div class="activity-time">15 minutos atrás</div>
+                </div>
+              </div>
+              <div class="activity-item">
+                <div class="activity-icon">📤</div>
+                <div>
+                  <div class="activity-text"><strong>Novo criativo</strong> enviado para análise</div>
+                  <div class="activity-time">1 hora atrás</div>
+                </div>
+              </div>
+              <div class="activity-item">
+                <div class="activity-icon">👤</div>
+                <div>
+                  <div class="activity-text"><strong>Maria S.</strong> aceitou o convite</div>
+                  <div class="activity-time">3 horas atrás</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

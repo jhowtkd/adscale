@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ADScale — Notion Style Dashboard</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #ffffff; color: #37352f; font-size: 14px; }
+
+  /* App Shell */
+  .app { display: flex; height: 100vh; }
+
+  /* Notion Sidebar */
+  .sidebar { width: 240px; background: #f7f6f3; border-right: 1px solid #e9e9e7; display: flex; flex-direction: column; padding: 8px; }
+  .workspace-header { display: flex; align-items: center; gap: 8px; padding: 8px 12px; margin-bottom: 8px; font-weight: 600; font-size: 14px; }
+  .workspace-icon { width: 20px; height: 20px; border-radius: 4px; background: #2fb67d; }
+  .nav-section { margin-bottom: 8px; }
+  .nav-item { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 4px; font-size: 14px; cursor: pointer; transition: 0.1s; color: #6b6b67; }
+  .nav-item:hover { background: #ebebea; }
+  .nav-item.active { background: #ebebea; color: #37352f; font-weight: 500; }
+  .nav-icon { width: 20px; text-align: center; font-size: 16px; }
+  .nav-toggle { margin-left: auto; font-size: 10px; color: #b4b4b0; }
+
+  .sidebar-divider { height: 1px; background: #e9e9e7; margin: 8px 12px; }
+
+  .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #b4b4b0; padding: 6px 12px; }
+
+  /* Main */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .content { flex: 1; overflow: auto; padding: 60px 100px; max-width: 900px; margin: 0 auto; width: 100%; }
+
+  /* Notion-style Typography */
+  h1 { font-size: 40px; font-weight: 700; margin-bottom: 8px; color: #37352f; }
+  .subtitle { color: #9ca3af; font-size: 16px; margin-bottom: 32px; }
+
+  /* Notion Blocks */
+  .block { margin-bottom: 4px; padding: 3px 2px; border-radius: 4px; }
+  .block:hover { background: #f7f6f3; }
+
+  /* Callout Block */
+  .callout { display: flex; gap: 12px; padding: 16px; background: #f7f6f3; border-radius: 4px; margin: 16px 0; }
+  .callout-icon { font-size: 20px; flex-shrink: 0; }
+  .callout-text { font-size: 14px; line-height: 1.5; }
+
+  /* Database Block (Notion table) */
+  .database { margin: 24px 0; border: 1px solid #e9e9e7; border-radius: 4px; overflow: hidden; }
+  .db-header { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid #e9e9e7; background: #f7f6f3; }
+  .db-icon { font-size: 18px; }
+  .db-title { font-weight: 600; font-size: 14px; }
+  .db-views { display: flex; gap: 4px; margin-left: auto; }
+  .db-view { padding: 4px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; }
+  .db-view.active { background: #ffffff; border: 1px solid #e9e9e7; }
+  .db-view:not(.active) { color: #9ca3af; }
+
+  .db-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 100px; gap: 8px; padding: 10px 16px; border-bottom: 1px solid #f0f0ee; align-items: center; font-size: 14px; }
+  .db-row:hover { background: #f7f6f3; }
+  .db-row.header { font-size: 12px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.3px; padding: 8px 16px; }
+  .db-cell { display: flex; align-items: center; gap: 8px; }
+  .db-thumb { width: 24px; height: 24px; border-radius: 4px; background: #e9e9e7; }
+  .db-tag { padding: 2px 8px; border-radius: 4px; font-size: 12px; }
+  .db-tag.green { background: #e8f5e9; color: #2e7d32; }
+  .db-tag.yellow { background: #fff8e1; color: #f57f17; }
+  .db-tag.gray { background: #f5f5f5; color: #616161; }
+  .db-progress { width: 80px; height: 4px; border-radius: 2px; background: #e9e9e7; overflow: hidden; }
+  .db-progress-fill { height: 100%; border-radius: 2px; background: #2fb67d; }
+
+  /* Toggle Block */
+  .toggle { display: flex; align-items: center; gap: 8px; padding: 6px 2px; cursor: pointer; font-weight: 500; }
+  .toggle-arrow { font-size: 10px; color: #9ca3af; transition: 0.15s; }
+  .toggle-content { padding-left: 24px; }
+
+  /* Grid of cards (Gallery view) */
+  .gallery { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 16px 0; }
+  .gallery-card { border: 1px solid #e9e9e7; border-radius: 4px; overflow: hidden; cursor: pointer; transition: 0.15s; }
+  .gallery-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+  .gallery-img { width: 100%; height: 140px; background: #f0f0ee; }
+  .gallery-info { padding: 12px; }
+  .gallery-title { font-weight: 500; font-size: 14px; margin-bottom: 4px; }
+  .gallery-meta { font-size: 12px; color: #9ca3af; }
+
+  /* Stats row */
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin: 24px 0; }
+  .stat-card { padding: 20px; border: 1px solid #e9e9e7; border-radius: 4px; }
+  .stat-value { font-size: 32px; font-weight: 700; color: #37352f; margin-bottom: 4px; }
+  .stat-label { font-size: 12px; color: #9ca3af; }
+  .stat-change { font-size: 12px; margin-top: 4px; }
+  .stat-change.up { color: #2e7d32; }
+
+  /* Button (Notion style) */
+  .notion-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 4px; border: 1px solid #e9e9e7; background: #ffffff; cursor: pointer; font-size: 14px; }
+  .notion-btn:hover { background: #f7f6f3; }
+  .notion-btn-primary { background: #2fb67d; color: #fff; border-color: #2fb67d; }
+  .notion-btn-primary:hover { background: #259d6a; }
+
+  /* Link appearance */
+  .link { color: #37352f; text-decoration: underline; text-decoration-color: #d1d1cf; cursor: pointer; }
+  .link:hover { text-decoration-color: #37352f; }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- Notion Sidebar -->
+  <div class="sidebar">
+    <div class="workspace-header">
+      <div class="workspace-icon"></div>
+      <span>Acme Inc.</span>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-item active"><span class="nav-icon">🏠</span> Dashboard</div>
+      <div class="nav-item"><span class="nav-icon">⚡</span> Quick Tools</div>
+      <div class="nav-item"><span class="nav-icon">📚</span> Biblioteca</div>
+      <div class="nav-item"><span class="nav-icon">⚙</span> Configurações</div>
+    </div>
+
+    <div class="sidebar-divider"></div>
+
+    <div class="section-title">Campanhas</div>
+    <div class="nav-section">
+      <div class="nav-item"><span class="nav-icon">▸</span> Verão 2025 <span class="nav-toggle">12</span></div>
+      <div class="nav-item"><span class="nav-icon">▸</span> Black Friday <span class="nav-toggle">24</span></div>
+      <div class="nav-item"><span class="nav-icon">▸</span> Natal 2025 <span class="nav-toggle">18</span></div>
+      <div class="nav-item"><span class="nav-icon">+</span> Nova Campanha</div>
+    </div>
+
+    <div class="sidebar-divider"></div>
+
+    <div class="section-title">Equipe</div>
+    <div class="nav-section">
+      <div class="nav-item"><span class="nav-icon">👤</span> João D.</div>
+      <div class="nav-item"><span class="nav-icon">👤</span> Maria S.</div>
+      <div class="nav-item"><span class="nav-icon">+</span> Convidar</div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="content">
+
+      <h1>Dashboard</h1>
+      <div class="subtitle">Visão geral do workspace — 47 campanhas, 128 derivações este mês</div>
+
+      <!-- Stats -->
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-value">47</div>
+          <div class="stat-label">Campanhas</div>
+          <div class="stat-change up">↑ 12% vs mês passado</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">128</div>
+          <div class="stat-label">Derivações</div>
+          <div class="stat-change up">↑ 8% vs mês passado</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">84%</div>
+          <div class="stat-label">Aprovação</div>
+          <div class="stat-change up">↑ 3% vs mês passado</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">340</div>
+          <div class="stat-label">Créditos</div>
+          <div class="stat-change" style="color: #ef4444;">↓ 45 usados</div>
+        </div>
+      </div>
+
+      <!-- Callout -->
+      <div class="callout">
+        <div class="callout-icon">💡</div>
+        <div class="callout-text">
+          <strong>Dica:</strong> Use <span class="link">Quick Tools</span> para gerar variações rapidamente sem criar uma campanha. 
+          <span class="link">Restyling</span> permite aplicar um estilo em múltiplos criativos de uma vez.
+        </div>
+      </div>
+
+      <!-- Quick Actions Toggle -->
+      <div class="toggle">
+        <span class="toggle-arrow">▶</span>
+        <span>⚡ Ações Rápidas</span>
+      </div>
+
+      <!-- Campaigns Database -->
+      <div style="margin-top: 24px;">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+          <span style="font-size: 20px;">📊</span>
+          <span style="font-weight: 600; font-size: 16px;">Campanhas</span>
+          <span style="color: #9ca3af; font-size: 14px;">— banco de dados</span>
+        </div>
+
+        <div class="database">
+          <div class="db-header">
+            <div class="db-views">
+              <div class="db-view active">📋 Table</div>
+              <div class="db-view">▦ Board</div>
+              <div class="db-view">▭ Gallery</div>
+              <div class="db-view">📅 Calendar</div>
+            </div>
+            <button class="notion-btn" style="margin-left: auto;">+ Nova</button>
+          </div>
+          <div class="db-row header">
+            <div class="db-cell">Nome</div>
+            <div class="db-cell">Status</div>
+            <div class="db-cell">Plataformas</div>
+            <div class="db-cell">Progresso</div>
+            <div class="db-cell">Atualizado</div>
+          </div>
+          <div class="db-row">
+            <div class="db-cell"><div class="db-thumb" style="background: linear-gradient(135deg, #667eea, #764ba2);"></div> Verão 2025</div>
+            <div class="db-cell"><span class="db-tag green">Ativa</span></div>
+            <div class="db-cell">Meta, TikTok</div>
+            <div class="db-cell"><div class="db-progress"><div class="db-progress-fill" style="width: 75%"></div></div> 9/12</div>
+            <div class="db-cell">2h atrás</div>
+          </div>
+          <div class="db-row">
+            <div class="db-cell"><div class="db-thumb" style="background: linear-gradient(135deg, #43e97b, #38f9d7);"></div> Black Friday Tech</div>
+            <div class="db-cell"><span class="db-tag green">Ativa</span></div>
+            <div class="db-cell">Meta, Google</div>
+            <div class="db-cell"><div class="db-progress"><div class="db-progress-fill" style="width: 90%"></div></div> 22/24</div>
+            <div class="db-cell">1d atrás</div>
+          </div>
+          <div class="db-row">
+            <div class="db-cell"><div class="db-thumb" style="background: linear-gradient(135deg, #f093fb, #f5576c);"></div> Lançamento App Fitness</div>
+            <div class="db-cell"><span class="db-tag yellow">Rascunho</span></div>
+            <div class="db-cell">TikTok</div>
+            <div class="db-cell"><div class="db-progress"><div class="db-progress-fill" style="width: 33%"></div></div> 2/6</div>
+            <div class="db-cell">3d atrás</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Gallery View Toggle -->
+      <div class="toggle">
+        <span class="toggle-arrow">▶</span>
+        <span>🖼 Derivações Recentes (Gallery)</span>
+      </div>
+
+      <!-- Activity -->
+      <div style="margin-top: 24px;">
+        <div style="font-weight: 600; margin-bottom: 12px;">📋 Atividade Recente</div>
+        <div class="block">✅ Derivação #3 aprovada em <strong>Verão 2025</strong> — 2 min atrás</div>
+        <div class="block">⚡ 5 derivações geradas em <strong>Black Friday</strong> — 15 min atrás</div>
+        <div class="block">📤 Novo criativo enviado para análise — 1h atrás</div>
+        <div class="block">👤 Maria S. aceitou o convite — 3h atrás</div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

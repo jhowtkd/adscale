@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ADScale — Pinterest Style Wireframe</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0a0a0f; color: #e2e2e2; }
+
+  /* Topbar */
+  .topbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 24px; border-bottom: 1px solid #1a1a2e; background: #0f0f1a; position: sticky; top: 0; z-index: 100; }
+  .topbar .logo { font-size: 20px; font-weight: 700; color: #2fb67d; }
+  .topbar .search { flex: 1; max-width: 400px; margin: 0 24px; }
+  .topbar .search input { width: 100%; padding: 10px 16px; border-radius: 24px; border: 1px solid #1a1a2e; background: #1a1a2e; color: #e2e2e2; font-size: 14px; }
+  .topbar .actions { display: flex; gap: 12px; align-items: center; }
+  .btn { padding: 10px 20px; border-radius: 24px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .btn-primary { background: #2fb67d; color: #0a0a0f; }
+  .btn-ghost { background: transparent; color: #e2e2e2; border: 1px solid #1a1a2e; }
+  .avatar { width: 36px; height: 36px; border-radius: 50%; background: #2fb67d; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: #0a0a0f; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 8px; padding: 16px 24px; border-bottom: 1px solid #1a1a2e; }
+  .tab { padding: 8px 16px; border-radius: 20px; font-size: 14px; cursor: pointer; transition: 0.2s; }
+  .tab:hover { background: #1a1a2e; }
+  .tab.active { background: #2fb67d; color: #0a0a0f; font-weight: 600; }
+
+  /* Masonry Grid */
+  .masonry { padding: 24px; column-count: 5; column-gap: 16px; }
+  @media (max-width: 1400px) { .masonry { column-count: 4; } }
+  @media (max-width: 1100px) { .masonry { column-count: 3; } }
+  @media (max-width: 768px) { .masonry { column-count: 2; } }
+
+  .card { break-inside: avoid; margin-bottom: 16px; border-radius: 16px; overflow: hidden; background: #14141f; border: 1px solid #1a1a2e; transition: transform 0.2s, box-shadow 0.2s; cursor: pointer; position: relative; }
+  .card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0,0,0,0.4); }
+  .card img { width: 100%; display: block; background: #1a1a2e; }
+  .card-info { padding: 12px; }
+  .card-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .card-meta { font-size: 12px; color: #888; display: flex; gap: 8px; align-items: center; }
+  .badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: #1a1a2e; }
+  .badge.approved { background: rgba(47,182,125,0.15); color: #2fb67d; }
+  .badge.pending { background: rgba(245,158,11,0.15); color: #f59e0b; }
+
+  /* Hover overlay */
+  .card-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); opacity: 0; transition: 0.2s; display: flex; flex-direction: column; justify-content: space-between; padding: 12px; }
+  .card:hover .card-overlay { opacity: 1; }
+  .overlay-top { display: flex; justify-content: flex-end; gap: 8px; }
+  .overlay-btn { width: 36px; height: 36px; border-radius: 50%; border: none; background: rgba(255,255,255,0.9); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+  .overlay-bottom { display: flex; gap: 8px; }
+  .overlay-bottom .btn { padding: 8px 16px; font-size: 13px; border-radius: 20px; }
+
+  /* Placeholder images */
+  .img-tall { height: 280px; }
+  .img-short { height: 180px; }
+  .img-square { height: 220px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">ADScale</div>
+  <div class="search"><input placeholder="Buscar criativos, campanhas..."/></div>
+  <div class="actions">
+    <button class="btn btn-primary">+ Novo Criativo</button>
+    <button class="btn btn-ghost">⚡ Quick Tools</button>
+    <div class="avatar">JD</div>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active">Todos</div>
+  <div class="tab">Campanhas</div>
+  <div class="tab">Derivações</div>
+  <div class="tab">⭐ Favoritos</div>
+  <div class="tab">Arquivados</div>
+</div>
+
+<div class="masonry">
+
+  <!-- Card 1: Campanha -->
+  <div class="card">
+    <div class="card-overlay">
+      <div class="overlay-top">
+        <button class="overlay-btn">⭐</button>
+        <button class="overlay-btn">⋮</button>
+      </div>
+      <div class="overlay-bottom">
+        <button class="btn btn-primary">Ver Campanha</button>
+        <button class="overlay-btn">↗</button>
+      </div>
+    </div>
+    <div class="img-tall" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"></div>
+    <div class="card-info">
+      <div class="card-title">Campanha Verão 2025</div>
+      <div class="card-meta">
+        <span class="badge">12 peças</span>
+        <span class="badge approved">8 aprovadas</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card 2: Derivação -->
+  <div class="card">
+    <div class="card-overlay">
+      <div class="overlay-top">
+        <button class="overlay-btn">⭐</button>
+        <button class="overlay-btn">⋮</button>
+      </div>
+      <div class="overlay-bottom">
+        <button class="btn btn-primary">Aprovar</button>
+        <button class="overlay-btn">↗</button>
+      </div>
+    </div>
+    <div class="img-short" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);"></div>
+    <div class="card-info">
+      <div class="card-title">Derivação #3 — CTA "Compre Agora"</div>
+      <div class="card-meta">
+        <span class="badge pending">Em análise</span>
+        <span>Meta 1:1</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card 3 -->
+  <div class="card">
+    <div class="img-square" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);"></div>
+    <div class="card-info">
+      <div class="card-title">Black Friday Tech</div>
+      <div class="card-meta">
+        <span class="badge">24 peças</span>
+        <span class="badge approved">20 aprovadas</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card 4 -->
+  <div class="card">
+    <div class="img-tall" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);"></div>
+    <div class="card-info">
+      <div class="card-title">Derivação #1 — Estilo Minimalista</div>
+      <div class="card-meta">
+        <span class="badge approved">Aprovada</span>
+        <span>TikTok 9:16</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card 5 -->
+  <div class="card">
+    <div class="img-short" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);"></div>
+    <div class="card-info">
+      <div class="card-title">Lançamento App Fitness</div>
+      <div class="card-meta">
+        <span class="badge">6 peças</span>
+        <span class="badge pending">2 pendentes</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card 6 -->
+  <div class="card">
+    <div class="img-square" style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);"></div>
+    <div class="card-info">
+      <div class="card-title">Derivação #5 — Restyling</div>
+      <div class="card-meta">
+        <span class="badge approved">Aprovada</span>
+        <span>Meta 4:5</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card 7 -->
+  <div class="card">
+    <div class="img-tall" style="background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);"></div>
+    <div class="card-info">
+      <div class="card-title">Campanha Natal 2025</div>
+      <div class="card-meta">
+        <span class="badge">18 peças</span>
+        <span class="badge">Rascunho</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card 8 -->
+  <div class="card">
+    <div class="img-short" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"></div>
+    <div class="card-info">
+      <div class="card-title">Derivação #2 — Variação de Cor</div>
+      <div class="card-meta">
+        <span class="badge approved">Aprovada</span>
+        <span>Google Ads</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

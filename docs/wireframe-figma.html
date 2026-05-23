@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ADScale — Figma Style Wireframe</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0a0a0f; color: #e2e2e2; overflow: hidden; }
+
+  /* App Shell */
+  .app { display: flex; height: 100vh; }
+
+  /* Left Sidebar */
+  .sidebar { width: 240px; background: #0f0f1a; border-right: 1px solid #1a1a2e; display: flex; flex-direction: column; padding: 16px; }
+  .sidebar .logo { font-size: 20px; font-weight: 700; color: #2fb67d; margin-bottom: 24px; padding: 0 8px; }
+  .nav-section { margin-bottom: 20px; }
+  .nav-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #666; margin-bottom: 8px; padding: 0 8px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px; font-size: 13px; cursor: pointer; transition: 0.15s; margin-bottom: 2px; }
+  .nav-item:hover { background: #1a1a2e; }
+  .nav-item.active { background: #1a1a2e; color: #2fb67d; }
+  .nav-icon { width: 20px; text-align: center; font-size: 16px; }
+
+  /* Main Canvas Area */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* Toolbar */
+  .toolbar { height: 48px; background: #0f0f1a; border-bottom: 1px solid #1a1a2e; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; }
+  .toolbar-left { display: flex; align-items: center; gap: 12px; }
+  .toolbar-right { display: flex; align-items: center; gap: 12px; }
+  .tool-btn { width: 32px; height: 32px; border-radius: 6px; border: none; background: transparent; color: #888; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+  .tool-btn:hover { background: #1a1a2e; color: #e2e2e2; }
+  .tool-btn.active { background: #2fb67d; color: #0a0a0f; }
+  .breadcrumb { font-size: 13px; color: #888; }
+  .breadcrumb span { color: #e2e2e2; }
+
+  /* Canvas */
+  .canvas { flex: 1; overflow: auto; position: relative; background: #0a0a0f; }
+  .canvas-inner { position: absolute; min-width: 2000px; min-height: 1200px; padding: 40px; }
+
+  /* Frame (Board) — like Figma frames */
+  .frame { position: absolute; background: #14141f; border: 1px solid #1a1a2e; border-radius: 8px; overflow: hidden; }
+  .frame-header { padding: 10px 14px; border-bottom: 1px solid #1a1a2e; display: flex; align-items: center; justify-content: space-between; }
+  .frame-title { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .frame-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .frame-dot.green { background: #2fb67d; }
+  .frame-dot.yellow { background: #f59e0b; }
+  .frame-dot.gray { background: #666; }
+  .frame-count { font-size: 11px; color: #666; }
+
+  .frame-content { padding: 12px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .thumb { width: 100%; aspect-ratio: 1; border-radius: 6px; background: #1a1a2e; cursor: pointer; transition: 0.15s; position: relative; }
+  .thumb:hover { outline: 2px solid #2fb67d; outline-offset: -2px; }
+  .thumb-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.6); opacity: 0; transition: 0.15s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .thumb:hover .thumb-overlay { opacity: 1; }
+  .thumb-btn { width: 28px; height: 28px; border-radius: 50%; border: none; background: rgba(255,255,255,0.9); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+
+  /* Frame sizes for variety */
+  .frame-1 { width: 340px; top: 40px; left: 40px; }
+  .frame-2 { width: 340px; top: 40px; left: 400px; }
+  .frame-3 { width: 280px; top: 40px; left: 760px; }
+  .frame-4 { width: 340px; top: 320px; left: 40px; }
+  .frame-5 { width: 280px; top: 400px; left: 400px; }
+
+  /* Right Panel (Properties) */
+  .right-panel { width: 240px; background: #0f0f1a; border-left: 1px solid #1a1a2e; padding: 16px; }
+  .panel-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #666; margin-bottom: 16px; }
+  .prop-group { margin-bottom: 20px; }
+  .prop-label { font-size: 11px; color: #888; margin-bottom: 6px; }
+  .prop-value { font-size: 13px; padding: 8px; background: #1a1a2e; border-radius: 6px; }
+  .prop-row { display: flex; justify-content: space-between; font-size: 13px; padding: 6px 0; border-bottom: 1px solid #1a1a2e; }
+  .prop-row:last-child { border-bottom: none; }
+
+  /* Zoom controls */
+  .zoom-bar { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #14141f; border: 1px solid #1a1a2e; border-radius: 8px; padding: 6px 12px; display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .zoom-btn { width: 28px; height: 28px; border-radius: 6px; border: none; background: transparent; color: #888; cursor: pointer; }
+  .zoom-btn:hover { background: #1a1a2e; color: #e2e2e2; }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- Left Sidebar -->
+  <div class="sidebar">
+    <div class="logo">ADScale</div>
+
+    <div class="nav-section">
+      <div class="nav-title">Workspace</div>
+      <div class="nav-item active"><span class="nav-icon">▭</span> Canvas</div>
+      <div class="nav-item"><span class="nav-icon">⚡</span> Quick Tools</div>
+      <div class="nav-item"><span class="nav-icon">📁</span> Biblioteca</div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">Campanhas</div>
+      <div class="nav-item"><span class="nav-icon">🟢</span> Verão 2025</div>
+      <div class="nav-item"><span class="nav-icon">🟡</span> Black Friday</div>
+      <div class="nav-item"><span class="nav-icon">⚪</span> Natal 2025</div>
+      <div class="nav-item"><span class="nav-icon">+</span> Nova Campanha</div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">Conta</div>
+      <div class="nav-item"><span class="nav-icon">⚙</span> Configurações</div>
+      <div class="nav-item"><span class="nav-icon">👤</span> João D.</div>
+    </div>
+  </div>
+
+  <!-- Main Area -->
+  <div class="main">
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <div class="breadcrumb">Workspace / <span>Dashboard Canvas</span></div>
+      </div>
+      <div class="toolbar-right">
+        <button class="tool-btn active">🖱</button>
+        <button class="tool-btn">✋</button>
+        <button class="tool-btn">🔍</button>
+        <button class="tool-btn">⬜</button>
+        <div style="width: 1px; height: 20px; background: #1a1a2e;"></div>
+        <button class="tool-btn" style="width: auto; padding: 0 12px; font-size: 12px;">+ Nova Campanha</button>
+      </div>
+    </div>
+
+    <!-- Canvas -->
+    <div class="canvas">
+      <div class="canvas-inner">
+
+        <!-- Frame 1 -->
+        <div class="frame frame-1">
+          <div class="frame-header">
+            <div class="frame-title"><span class="frame-dot green"></span> Campanha Verão 2025</div>
+            <div class="frame-count">12 peças</div>
+          </div>
+          <div class="frame-content">
+            <div class="thumb" style="background: linear-gradient(135deg, #667eea, #764ba2);">
+              <div class="thumb-overlay">
+                <button class="thumb-btn">⭐</button>
+                <button class="thumb-btn">↗</button>
+              </div>
+            </div>
+            <div class="thumb" style="background: linear-gradient(135deg, #f093fb, #f5576c);">
+              <div class="thumb-overlay"><button class="thumb-btn">⭐</button></div>
+            </div>
+            <div class="thumb" style="background: linear-gradient(135deg, #4facfe, #00f2fe);">
+              <div class="thumb-overlay"><button class="thumb-btn">⭐</button></div>
+            </div>
+            <div class="thumb" style="background: #1a1a2e; display: flex; align-items: center; justify-content: center; color: #666; font-size: 20px;">+9</div>
+          </div>
+        </div>
+
+        <!-- Frame 2 -->
+        <div class="frame frame-2">
+          <div class="frame-header">
+            <div class="frame-title"><span class="frame-dot yellow"></span> Black Friday Tech</div>
+            <div class="frame-count">24 peças</div>
+          </div>
+          <div class="frame-content">
+            <div class="thumb" style="background: linear-gradient(135deg, #43e97b, #38f9d7);">
+              <div class="thumb-overlay"><button class="thumb-btn">⭐</button></div>
+            </div>
+            <div class="thumb" style="background: linear-gradient(135deg, #fa709a, #fee140);">
+              <div class="thumb-overlay"><button class="thumb-btn">⭐</button></div>
+            </div>
+            <div class="thumb" style="background: linear-gradient(135deg, #a8edea, #fed6e3);">
+              <div class="thumb-overlay"><button class="thumb-btn">⭐</button></div>
+            </div>
+            <div class="thumb" style="background: #1a1a2e; display: flex; align-items: center; justify-content: center; color: #666; font-size: 20px;">+21</div>
+          </div>
+        </div>
+
+        <!-- Frame 3 -->
+        <div class="frame frame-3">
+          <div class="frame-header">
+            <div class="frame-title"><span class="frame-dot gray"></span> Rascunhos</div>
+            <div class="frame-count">5 peças</div>
+          </div>
+          <div class="frame-content">
+            <div class="thumb" style="background: linear-gradient(135deg, #ff9a9e, #fecfef);">
+              <div class="thumb-overlay"><button class="thumb-btn">⭐</button></div>
+            </div>
+            <div class="thumb" style="background: linear-gradient(135deg, #667eea, #764ba2);">
+              <div class="thumb-overlay"><button class="thumb-btn">⭐</button></div>
+            </div>
+            <div class="thumb" style="background: #1a1a2e; display: flex; align-items: center; justify-content: center; color: #666; font-size: 20px;">+3</div>
+          </div>
+        </div>
+
+        <!-- Frame 4 -->
+        <div class="frame frame-4">
+          <div class="frame-header">
+            <div class="frame-title"><span class="frame-dot green"></span> Lançamento App Fitness</div>
+            <div class="frame-count">6 peças</div>
+          </div>
+          <div class="frame-content">
+            <div class="thumb" style="background: linear-gradient(135deg, #f093fb, #f5576c);">
+              <div class="thumb-overlay"><button class="thumb-btn">⭐</button></div>
+            </div>
+            <div class="thumb" style="background: linear-gradient(135deg, #4facfe, #00f2fe);">
+              <div class="thumb-overlay"><button class="thumb-btn">⭐</button></div>
+            </div>
+            <div class="thumb" style="background: linear-gradient(135deg, #43e97b, #38f9d7);">
+              <div class="thumb-overlay"><button class="thumb-btn">⭐</button></div>
+            </div>
+            <div class="thumb" style="background: #1a1a2e; display: flex; align-items: center; justify-content: center; color: #666; font-size: 20px;">+3</div>
+          </div>
+        </div>
+
+        <!-- Frame 5: Unlinked Derivations -->
+        <div class="frame frame-5">
+          <div class="frame-header">
+            <div class="frame-title"><span class="frame-dot yellow"></span> Derivações Avulsas</div>
+            <div class="frame-count">3 peças</div>
+          </div>
+          <div class="frame-content">
+            <div class="thumb" style="background: linear-gradient(135deg, #fa709a, #fee140);">
+              <div class="thumb-overlay"><button class="thumb-btn">⭐</button></div>
+            </div>
+            <div class="thumb" style="background: linear-gradient(135deg, #a8edea, #fed6e3);">
+              <div class="thumb-overlay"><button class="thumb-btn">⭐</button></div>
+            </div>
+            <div class="thumb" style="background: linear-gradient(135deg, #ff9a9e, #fecfef);">
+              <div class="thumb-overlay"><button class="thumb-btn">⭐</button></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Zoom Bar -->
+    <div class="zoom-bar">
+      <button class="zoom-btn">−</button>
+      <span>100%</span>
+      <button class="zoom-btn">+</button>
+    </div>
+
+  </div>
+
+  <!-- Right Panel -->
+  <div class="right-panel">
+    <div class="panel-title">Propriedades</div>
+
+    <div class="prop-group">
+      <div class="prop-label">Campanha Selecionada</div>
+      <div class="prop-value">Verão 2025</div>
+    </div>
+
+    <div class="prop-group">
+      <div class="prop-label">Status</div>
+      <div class="prop-value" style="color: #2fb67d;">● Ativa</div>
+    </div>
+
+    <div class="prop-group">
+      <div class="prop-label">Estatísticas</div>
+      <div class="prop-row"><span>Peças</span><span>12</span></div>
+      <div class="prop-row"><span>Aprovadas</span><span>8</span></div>
+      <div class="prop-row"><span>Pendentes</span><span>3</span></div>
+      <div class="prop-row"><span>Rejeitadas</span><span>1</span></div>
+    </div>
+
+    <div class="prop-group">
+      <div class="prop-label">Créditos Usados</div>
+      <div class="prop-value">45 / 120</div>
+    </div>
+
+    <div class="prop-group">
+      <div class="prop-label">Plataformas</div>
+      <div class="prop-value">Meta, TikTok</div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>
