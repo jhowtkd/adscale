@@ -13,3 +13,7 @@ iteration	commit	metric	delta	status	description
 11	22607fc	2	-1	keep	centralize ALLOWED_TYPES into upload-config.ts
 12	6710170	1	-1	keep	extract CreativeDiagnosisCard from BriefingStep
 13	f38610d	0	-1	keep	extract PreflightSummary and RestoreBanner, BriefingStep now 1000 lines
+14	c626784	4	0	keep	replace require(react) with ESM dynamic import in A11yProvider
+15	810cc94	4	0	keep	replace console.error with structured logger in RestylingModal
+16	112be5c	4	0	keep	replace require with dynamic import in QueryProvider + fix terms quotes
+17	07eb179	2	-2	keep	fix all ESLint errors — any, set-state-in-effect, require imports
