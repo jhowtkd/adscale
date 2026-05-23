@@ -30,6 +30,7 @@ interface DerivationsStepProps {
   onRunQa?: (id: string) => void;
   onSaveAsReference?: (id: string) => void;
   onGenerateLandingPage?: (id: string) => void;
+  onSimulatePersonas?: (id: string) => void;
   qaAnalyzingId?: string | null;
   savingReferenceId?: string | null;
   approvingId?: string | null;
@@ -63,6 +64,7 @@ export default function DerivationsStep({
   onRunQa,
   onSaveAsReference,
   onGenerateLandingPage,
+  onSimulatePersonas,
   qaAnalyzingId,
   savingReferenceId,
   approvingId,
@@ -411,6 +413,7 @@ export default function DerivationsStep({
                   onRunQa={() => onRunQa?.(derivation.id)}
                   onSaveAsReference={onSaveAsReference ? () => onSaveAsReference(derivation.id) : undefined}
                   onGenerateLandingPage={onGenerateLandingPage ? () => onGenerateLandingPage(derivation.id) : undefined}
+                  onSimulatePersonas={onSimulatePersonas && derivation.status === "approved" && derivation.outputKey ? () => onSimulatePersonas(derivation.id) : undefined}
                   qaAnalyzingId={qaAnalyzingId}
                   isSavingReference={savingReferenceId === derivation.id}
                   isApproving={approvingId === derivation.id}

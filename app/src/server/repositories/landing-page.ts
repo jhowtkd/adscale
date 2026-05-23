@@ -70,6 +70,15 @@ export async function failLandingPage(input: {
   return result[0] ?? null;
 }
 
+export async function getLandingPageById(id: string, workspaceId: string) {
+  const result = await db
+    .select()
+    .from(landingPages)
+    .where(and(eq(landingPages.id, id), eq(landingPages.workspaceId, workspaceId)))
+    .limit(1);
+  return result[0] ?? null;
+}
+
 export async function getLandingPagesByDerivation(
   workspaceId: string,
   sourceDerivationId: string

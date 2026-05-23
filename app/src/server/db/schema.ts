@@ -6,6 +6,8 @@ import {
   integer,
   jsonb,
   index,
+  uniqueIndex,
+  varchar,
   foreignKey,
   pgSchema,
 } from "drizzle-orm/pg-core";
@@ -645,6 +647,32 @@ export const shareLinks = adscaleSchema.table(
   ]
 );
 
+export const personaSimulations = adscaleSchema.table(
+  "persona_simulations",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    campaignId: uuid("campaign_id")
+      .notNull()
+      .references(() => campaigns.id, { onDelete: "cascade" }),
+    sourceType: varchar("source_type", { length: 32 }).notNull(),
+    sourceId: uuid("source_id").notNull(),
+    status: varchar("status", { length: 32 }).notNull().default("pending"),
+    results: jsonb("results"),
+    cacheExpiresAt: timestamp("cache_expires_at", { mode: "date" }),
+    error: text("error"),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("persona_simulations_source_idx").on(table.workspaceId, table.sourceType, table.sourceId),
+  ]
+);
+
 export const creditTransactions = adscaleSchema.table(
   "credit_transactions",
   {
@@ -671,3 +699,6 @@ export const creditTransactions = adscaleSchema.table(
     index("credit_transactions_created_at_idx").on(table.createdAt),
   ]
 );
+
+export type PersonaSimulation = typeof personaSimulations.$inferSelect;
+export type NewPersonaSimulation = typeof personaSimulations.$inferInsert;

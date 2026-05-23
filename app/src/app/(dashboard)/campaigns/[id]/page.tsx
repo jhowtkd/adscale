@@ -1,12 +1,18 @@
 "use client";
 
 import { useParams } from "next/navigation";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";
 import dynamic from "next/dynamic";
 
 const DeliveryPackageModal = dynamic(() => import("@/components/workspace/DeliveryPackageModal"), {
+  ssr: false,
+  loading: () => null,
+});
+
+const PersonaSimulationModal = dynamic(() => import("@/components/workspace/PersonaSimulationModal"), {
   ssr: false,
   loading: () => null,
 });
@@ -38,6 +44,9 @@ export default function CampaignWorkspacePage() {
   const isNew = campaignId === "new";
   const tc = useTranslations("common");
   const addToast = useAppStore((s) => s.addToast);
+
+  const [personaModalOpen, setPersonaModalOpen] = useState(false);
+  const [selectedSimulationId, setSelectedSimulationId] = useState<string | null>(null);
 
   const {
     campaign,
@@ -85,6 +94,16 @@ export default function CampaignWorkspacePage() {
     exportPending,
     deliveryPackagePending,
   } = useCampaignWorkspace(campaignId, isNew);
+
+  const handleSimulatePersonas = (derivationId: string) => {
+    setSelectedSimulationId(derivationId);
+    setPersonaModalOpen(true);
+  };
+
+  const handleClosePersonaModal = () => {
+    setPersonaModalOpen(false);
+    setSelectedSimulationId(null);
+  };
 
   if (isLoading && !isNew) return <CampaignSkeleton />;
   if (isError && !isNew) return <CampaignErrorState />;
@@ -158,6 +177,7 @@ export default function CampaignWorkspacePage() {
                 onRunQa={handleRunQa}
                 onSaveAsReference={campaign?.clientProfileId ? handleSaveAsReference : undefined}
                 onGenerateLandingPage={handleGenerateLandingPage}
+                onSimulatePersonas={handleSimulatePersonas}
                 qaAnalyzingId={creativeQaPending ? creativeQaVariables?.derivationId ?? null : null}
                 savingReferenceId={savingReferenceId}
                 approvingId={reviewPending && reviewVariables?.status === "approved" ? reviewVariables.id : null}
@@ -178,6 +198,16 @@ export default function CampaignWorkspacePage() {
           isSubmitting={deliveryPackagePending}
           onOpenChange={handleDeliveryModalOpenChange}
           onConfirm={handleConfirmDeliveryPackage}
+        />
+      )}
+
+      {selectedSimulationId && (
+        <PersonaSimulationModal
+          isOpen={personaModalOpen}
+          onClose={handleClosePersonaModal}
+          sourceType="derivation"
+          sourceId={selectedSimulationId}
+          campaignName={campaign?.name}
         />
       )}
 

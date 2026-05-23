@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { Eye, Download, RefreshCw, Clock, AlertCircle, Check, X, Package, ShieldCheck, BookmarkPlus, FileText } from "lucide-react";
+import { Eye, Download, RefreshCw, Clock, AlertCircle, Check, X, Package, ShieldCheck, BookmarkPlus, FileText, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import StatusBadge from "@/components/ui/StatusBadge";
@@ -29,12 +29,14 @@ interface DerivationCardProps {
   onRunQa?: () => void;
   onSaveAsReference?: () => void;
   onGenerateLandingPage?: () => void;
+  onSimulatePersonas?: () => void;
   qaAnalyzingId?: string | null;
   isSavingReference?: boolean;
   isApproving?: boolean;
   isRejecting?: boolean;
   regeneratingId?: string | null;
   landingPageGeneratingId?: string | null;
+  simulatingPersonasId?: string | null;
   gridSize?: "small" | "medium" | "large";
 }
 
@@ -185,12 +187,14 @@ export default function DerivationCard({
   onRunQa,
   onSaveAsReference,
   onGenerateLandingPage,
+  onSimulatePersonas,
   qaAnalyzingId,
   isSavingReference,
   isApproving,
   isRejecting,
   regeneratingId,
   landingPageGeneratingId,
+  simulatingPersonasId,
 }: DerivationCardProps) {
   const t = useTranslations("derivation");
   const commonT = useTranslations("common");
@@ -207,6 +211,7 @@ export default function DerivationCard({
   const isRegenerating = regeneratingId === derivation.id;
   const isQaAnalyzing = qaAnalyzingId === derivation.id;
   const isGeneratingLandingPage = landingPageGeneratingId === derivation.id;
+  const isSimulatingPersonas = simulatingPersonasId === derivation.id;
   const exportMutation = useExport();
   const addToast = useAppStore((s) => s.addToast);
 
@@ -511,6 +516,22 @@ export default function DerivationCard({
                   <FileText className="w-4 h-4 mr-1" />
                 )}
                 {t("generateLandingPage")}
+              </Button>
+            )}
+            {onSimulatePersonas && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={onSimulatePersonas}
+                disabled={isSimulatingPersonas}
+                className="border-[var(--accent-purple)] text-[var(--accent-purple)] hover:bg-[var(--accent-purple)]/10 w-fit"
+              >
+                {isSimulatingPersonas ? (
+                  <Spinner className="mr-1" />
+                ) : (
+                  <Users className="w-4 h-4 mr-1" />
+                )}
+                {t("simulatePersonas")}
               </Button>
             )}
           </div>
