@@ -258,3 +258,11 @@ export async function updateDerivationQa(
     .returning();
   return updated ?? null;
 }
+
+export async function getDerivationsByWorkspace(workspaceId: string) {
+  return db
+    .select()
+    .from(derivations)
+    .where(eq(derivations.workspaceId, workspaceId))
+    .orderBy(desc(derivations.createdAt));
+}
