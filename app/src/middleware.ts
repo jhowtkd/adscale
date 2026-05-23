@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { rateLimit } from "@/lib/rate-limit";
-import { getSessionFromHeaders } from "@/server/auth/session";
 
 const PROTECTED_PREFIXES = ["/campaigns", "/settings"];
 const PROTECTED_EXACT = ["/"];
@@ -16,6 +15,15 @@ function isProtectedPath(pathname: string): boolean {
 function isApiMutation(request: NextRequest): boolean {
   if (!request.nextUrl.pathname.startsWith("/api/")) return false;
   return ["POST", "PATCH", "PUT", "DELETE"].includes(request.method);
+}
+
+/**
+ * Check for session cookie presence without validating against the database.
+ * Actual session validation happens in server components (Node.js runtime).
+ * This avoids importing pg/crypto into the Edge runtime.
+ */
+function hasSessionCookie(request: NextRequest): boolean {
+  return request.cookies.has("better-auth.session_token") || request.cookies.has("session");
 }
 
 export async function middleware(request: NextRequest) {
@@ -53,18 +61,12 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Auth protection for frontend routes
+  // Auth protection for frontend routes — check cookie presence only
   if (!isProtectedPath(pathname)) {
     return NextResponse.next();
   }
 
-  try {
-    const session = await getSessionFromHeaders(request.headers);
-    if (!session) {
-      const loginUrl = new URL("/login", request.url);
-      return NextResponse.redirect(loginUrl);
-    }
-  } catch {
+  if (!hasSessionCookie(request)) {
     const loginUrl = new URL("/login", request.url);
     return NextResponse.redirect(loginUrl);
   }

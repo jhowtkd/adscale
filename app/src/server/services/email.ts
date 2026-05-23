@@ -8,6 +8,10 @@ type SendEmailInput = {
 };
 
 export async function sendEmail(input: SendEmailInput) {
+  if (!env.RESEND_API_KEY || env.RESEND_API_KEY.startsWith("re_test")) {
+    console.warn("[email] Skipping email send — no RESEND_API_KEY configured:", input.to, input.subject);
+    return;
+  }
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {

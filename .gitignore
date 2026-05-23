@@ -30,3 +30,5 @@ coverage/
 .cache/
 tmp/
 .worktrees/
+.playwright-mcp/
+autoresearch-results-plan.tsv

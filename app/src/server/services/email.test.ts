@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const env = {
-  RESEND_API_KEY: "re_test",
+  RESEND_API_KEY: "re_live_valid_key",
   EMAIL_FROM: "ADScale <onboarding@example.com>",
 };
 
@@ -33,7 +33,7 @@ describe("email service", () => {
       expect.objectContaining({
         method: "POST",
         headers: expect.objectContaining({
-          Authorization: "Bearer re_test",
+          Authorization: "Bearer re_live_valid_key",
           "Content-Type": "application/json",
         }),
       })
@@ -61,4 +61,5 @@ describe("email service", () => {
       })
     ).rejects.toThrow("Resend email failed: 401 invalid api key");
   });
+
 });
