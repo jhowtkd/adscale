@@ -21,9 +21,10 @@ interface UploadedFile {
 
 interface UploadStepProps {
   campaignId: string;
-  onContinue: () => void;
-  onGeneratePreview?: () => void;
   hasPreview?: boolean;
+  onContinueToPlan: () => void;
+  onSkipPlan: () => void;
+  onGeneratePreview: () => void;
 }
 
 // ============================================
@@ -54,7 +55,7 @@ function readImageDimensions(file: File): Promise<{ preview: string; width: numb
 // Component
 // ============================================
 
-export default function UploadStep({ campaignId, onContinue, onGeneratePreview, hasPreview }: UploadStepProps) {
+export default function UploadStep({ campaignId, hasPreview, onContinueToPlan, onSkipPlan, onGeneratePreview }: UploadStepProps) {
   const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
@@ -313,20 +314,25 @@ export default function UploadStep({ campaignId, onContinue, onGeneratePreview, 
                 </div>
               )}
 
-              {/* Preview + Generate buttons */}
+              {/* Plan navigation buttons */}
               <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end animate-fade-in" style={{ animationDelay: "300ms" }}>
                 <button
                   onClick={onGeneratePreview}
-                  disabled={!onGeneratePreview}
-                  className="inline-flex min-h-10 items-center justify-center rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-6 py-2.5 text-sm font-medium text-[var(--text-primary)] transition-all duration-200 hover:border-[var(--border-medium)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex min-h-10 items-center justify-center rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-6 py-2.5 text-sm font-medium text-[var(--text-primary)] transition-all duration-200 hover:border-[var(--border-medium)] active:scale-[0.98]"
                 >
                   {t("generatePreview")}
                 </button>
                 <button
-                  onClick={onContinue}
+                  onClick={onSkipPlan}
+                  className="inline-flex min-h-10 items-center justify-center px-6 py-2.5 text-sm font-medium text-[var(--text-muted)] transition-all duration-200 hover:text-[var(--text-secondary)] active:scale-[0.98]"
+                >
+                  {t("skipPlan")}
+                </button>
+                <button
+                  onClick={onContinueToPlan}
                   className="inline-flex min-h-10 items-center justify-center rounded-md bg-[var(--accent-mint)] px-6 py-2.5 text-sm font-medium text-white transition-all duration-200 hover:-translate-y-px hover:bg-[var(--accent-mint-light)] active:scale-[0.98]"
                 >
-                  {hasPreview ? t("generateAll") : t("generateDerivations")}
+                  {t("continueToPlan")}
                 </button>
               </div>
             </div>
