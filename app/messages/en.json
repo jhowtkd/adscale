@@ -163,6 +163,16 @@
       "approveVariations": "Approve variations"
     }
   },
+  "dashboard": {
+    "kpi": {
+      "campaigns": "Campaigns",
+      "derivations": "Derivations",
+      "approval": "Approval",
+      "credits": "Credits",
+      "vsLastMonth": "vs last month",
+      "usedThisMonth": "used this month"
+    }
+  },
   "campaign": {
     "new": "New campaign",
     "name": "Campaign name",
@@ -796,7 +806,27 @@
     "shareLinkCopied": "Public link copied to clipboard",
     "shareLinkFailed": "Failed to create public link",
     "landingPageReady": "Landing page ready — download started",
-    "landingPageFailed": "Failed to generate landing page"
+    "landingPageFailed": "Failed to generate landing page",
+    "personaSimulationComplete": "Persona analysis complete",
+    "personaSimulationFailed": "Failed to analyze personas"
+  },
+  "personaSimulation": {
+    "simulatePersonas": "Simulate Personas",
+    "skeptical_buyer": "Skeptical Buyer",
+    "warm_lead": "Warm Lead",
+    "financial_decision_maker": "Financial Decision Maker",
+    "beginner": "Beginner",
+    "understands": "Understands",
+    "rejects": "Rejects",
+    "wants": "Wants",
+    "wouldClick": "Would click?",
+    "rationale": "Why",
+    "yes": "Yes",
+    "no": "No",
+    "reGenerate": "Generate again",
+    "cachedResult": "Cached result",
+    "personaAnalysis": "Persona Analysis",
+    "personaAnalysisSubtitle": "See how different audiences react to this creative"
   },
   "restyling": {
     "title": "Creative Restyling",

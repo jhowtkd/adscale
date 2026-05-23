@@ -163,6 +163,16 @@
       "approveVariations": "Aprove variações"
     }
   },
+  "dashboard": {
+    "kpi": {
+      "campaigns": "Campanhas",
+      "derivations": "Derivações",
+      "approval": "Aprovação",
+      "credits": "Créditos",
+      "vsLastMonth": "vs mês passado",
+      "usedThisMonth": "usados este mês"
+    }
+  },
   "campaign": {
     "new": "Nova campanha",
     "name": "Nome da campanha",
@@ -797,7 +807,27 @@
     "shareLinkCopied": "Link público copiado para a área de transferência",
     "shareLinkFailed": "Falha ao criar link público",
     "landingPageReady": "Landing page pronta — download iniciado",
-    "landingPageFailed": "Falha ao gerar landing page"
+    "landingPageFailed": "Falha ao gerar landing page",
+    "personaSimulationComplete": "Análise de personas concluída",
+    "personaSimulationFailed": "Falha ao analisar personas"
+  },
+  "personaSimulation": {
+    "simulatePersonas": "Simular Personas",
+    "skeptical_buyer": "Comprador Cético",
+    "warm_lead": "Lead Aquecido",
+    "financial_decision_maker": "Decisor Financeiro",
+    "beginner": "Iniciante",
+    "understands": "Entende",
+    "rejects": "Rejeita",
+    "wants": "Quer",
+    "wouldClick": "Clicaria?",
+    "rationale": "Por quê",
+    "yes": "Sim",
+    "no": "Não",
+    "reGenerate": "Gerar novamente",
+    "cachedResult": "Resultado em cache",
+    "personaAnalysis": "Análise de Personas",
+    "personaAnalysisSubtitle": "Veja como diferentes audiências reagem a este criativo"
   },
   "restyling": {
     "title": "Restilização de Criativo",
