@@ -1,4 +1,2 @@
 iteration	commit	metric	delta	status	description
-51359b6
-0\t51359b6\t318\t0\tbaseline\tInitial state: 318 tests pass, build OK
-1	92d071a	366	+48	keep	Dashboard v2.0: repository + API + hook + 6 UI components + page + cleanup
+0	-	366	0	baseline	initial state — 366 tests passing, build passes
