@@ -40,6 +40,7 @@
     "approve": "Aprovar",
     "reject": "Rejeitar",
     "retry": "Tentar novamente",
+    "tryAgain": "Tentar novamente",
     "download": "Baixar",
     "preview": "Visualizar",
     "generate": "Gerar",
@@ -235,6 +236,11 @@
         "description": "Adapte a peça para 1:1, 4:5 e 9:16"
       }
     },
+    "continueToPlan": "Continuar para Plano",
+    "backToPlan": "Voltar ao Plano",
+    "skipPlan": "Pular Plano",
+    "generatingPlan": "Gerando plano criativo com IA...",
+    "generateDerivations": "Gerar Derivações",
     "kanban": {
       "draft": "Rascunho",
       "inProgress": "Em andamento",
@@ -782,7 +788,7 @@
   "steps": {
     "brief": "Brief",
     "upload": "Upload",
-    "plan": "Plano",
+    "plan": "Plano Criativo",
     "gallery": "Galeria",
     "review": "Revisão",
     "continueToUpload": "Continuar para Upload →",

@@ -40,6 +40,7 @@
     "approve": "Approve",
     "reject": "Reject",
     "retry": "Retry",
+    "tryAgain": "Try Again",
     "download": "Download",
     "preview": "Preview",
     "generate": "Generate",
@@ -235,6 +236,11 @@
         "description": "Adapt the creative to 1:1, 4:5, and 9:16"
       }
     },
+    "continueToPlan": "Continue to Plan",
+    "backToPlan": "Back to Plan",
+    "skipPlan": "Skip Plan",
+    "generatingPlan": "Generating creative plan with AI...",
+    "generateDerivations": "Generate Derivations",
     "kanban": {
       "draft": "Draft",
       "inProgress": "In Progress",
@@ -781,7 +787,7 @@
   "steps": {
     "brief": "Brief",
     "upload": "Upload",
-    "plan": "Plan",
+    "plan": "Creative Plan",
     "gallery": "Gallery",
     "review": "Review",
     "continueToUpload": "Continue to Upload →",
