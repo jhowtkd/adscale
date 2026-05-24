@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import { apiFetch } from "@/lib/api-fetch";
+import { apiFetch } from "@/lib/api-client";
 
 export interface AutoBriefingResult {
   extracted: {
