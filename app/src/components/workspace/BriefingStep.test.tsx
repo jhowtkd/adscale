@@ -45,6 +45,10 @@ vi.mock("@/lib/hooks/use-assets", () => ({
   useUploadAsset: () => ({ mutateAsync: vi.fn() }),
 }));
 
+vi.mock("@/lib/hooks/use-auto-briefing", () => ({
+  useAutoBriefing: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
+
 import {
   useClientProfiles,
   useCreateClientProfile,
@@ -207,5 +211,29 @@ describe("BriefingStep", () => {
         expect.anything()
       );
     });
+  });
+
+  it("opens auto-briefing modal when extract button is clicked", () => {
+    render(
+      <BriefingStep
+        campaign={{
+          id: "cmp-1",
+          name: "Test",
+          client: "Acme",
+          platforms: ["Meta"],
+          status: "draft",
+          variations: 0,
+          creditsUsed: 0,
+          lastModified: new Date(),
+          createdAt: new Date(),
+        }}
+        onContinue={vi.fn()}
+        onSaveDraft={vi.fn()}
+      />,
+      { wrapper: Wrapper }
+    );
+
+    fireEvent.click(screen.getByText("extractFromImage"));
+    expect(screen.getByText("dropzoneText")).toBeInTheDocument();
   });
 });
