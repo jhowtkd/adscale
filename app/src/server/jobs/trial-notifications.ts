@@ -9,8 +9,7 @@ import {
 } from "@/server/services/notifications";
 
 export const trialNotificationJob = inngest.createFunction(
-  { id: "trial-expiring-notification" },
-  { cron: "0 9 * * *" }, // Daily at 9 AM
+  { id: "trial-expiring-notification", triggers: [{ cron: "0 9 * * *" }] },
   async ({ step }) => {
     const now = new Date();
     const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);

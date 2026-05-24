@@ -169,8 +169,8 @@ export const derivationJob = inngest.createFunction(
         .where(eq(derivations.id, derivationId));
       await refreshCampaignStatus(campaignId, workspaceId);
     },
+    triggers: [{ event: "derivation.generate" }],
   },
-  { event: "derivation.generate" },
   async ({ event, step }) => {
     const { derivationId, campaignId, workspaceId, triggeredByUserId, locale, generationMode, variantIndex, ctaText, format, isPreview } = event.data;
     logger.info(`[derivationJob] START derivationId=${derivationId} campaignId=${campaignId} locale=${locale ?? "default"}`);
