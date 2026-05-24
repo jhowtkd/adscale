@@ -13,6 +13,7 @@ import { uploadBuffer, downloadBuffer } from "../storage/r2";
 import { buildDerivationPrompt } from "../ai/prompt-builder";
 
 import { getCampaignById, refreshCampaignStatus } from "../repositories/campaign";
+import { createNotification } from "../repositories/notification";
 import { getAssetsByCampaign } from "../repositories/asset";
 import { getPlanByCampaign } from "../repositories/plan";
 import { getDerivationById, updateDerivationScore } from "../repositories/derivation";
@@ -157,7 +158,7 @@ export const derivationJob = inngest.createFunction(
     retries: 2,
     onFailure: async ({ event, error, step }) => {
       const originalEvent = event.data.event;
-      const { derivationId, campaignId, workspaceId } = originalEvent.data;
+      const { derivationId, campaignId, workspaceId, triggeredByUserId } = originalEvent.data;
       const message = error instanceof Error ? error.message : "Unknown error";
       logger.error(`[Inngest onFailure] derivationId=${derivationId} error=${message}`);
       await step.run("mark-failed", async () => {
@@ -176,6 +177,20 @@ export const derivationJob = inngest.createFunction(
         status: "failed",
         updatedAt: new Date().toISOString(),
       });
+      if (triggeredByUserId) {
+        await step.run("notify-failure", async () => {
+          const campaign = await getCampaignById(campaignId, workspaceId);
+          await createNotification({
+            userId: triggeredByUserId,
+            workspaceId,
+            type: "derivation_failed",
+            title: "Falha na geração",
+            message: `A derivação da campanha "${campaign?.name ?? "Desconhecida"}" falhou.`,
+            derivationId,
+            campaignId,
+          });
+        });
+      }
     },
     triggers: [{ event: "derivation.generate" }],
   },
@@ -516,6 +531,21 @@ export const derivationJob = inngest.createFunction(
       outputKey: generated.outputKey,
       updatedAt: new Date().toISOString(),
     });
+
+    if (triggeredByUserId) {
+      await step.run("notify-completion", async () => {
+        const campaign = await getCampaignById(campaignId, workspaceId);
+        await createNotification({
+          userId: triggeredByUserId,
+          workspaceId,
+          type: "derivation_completed",
+          title: "Derivação pronta",
+          message: `Uma derivação da campanha "${campaign?.name ?? "Desconhecida"}" foi gerada com sucesso.`,
+          derivationId,
+          campaignId,
+        });
+      });
+    }
 
     // 4b. Send completion email if all derivations are done
     if (triggeredByUserId) {

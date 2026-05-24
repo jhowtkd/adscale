@@ -700,5 +700,37 @@ export const creditTransactions = adscaleSchema.table(
   ]
 );
 
+export const notifications = adscaleSchema.table(
+  "notifications",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    type: varchar("type", { length: 32 }).notNull(),
+    title: text("title").notNull(),
+    message: text("message").notNull(),
+    derivationId: uuid("derivation_id").references(() => derivations.id, { onDelete: "set null" }),
+    campaignId: uuid("campaign_id").references(() => campaigns.id, { onDelete: "set null" }),
+    readAt: timestamp("read_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("notifications_user_id_idx").on(table.userId),
+    index("notifications_workspace_id_idx").on(table.workspaceId),
+    index("notifications_read_at_idx").on(table.readAt),
+    index("notifications_created_at_idx").on(table.createdAt),
+  ]
+);
+
+export type Notification = typeof notifications.$inferSelect;
+export type NewNotification = typeof notifications.$inferInsert;
+
 export type PersonaSimulation = typeof personaSimulations.$inferSelect;
 export type NewPersonaSimulation = typeof personaSimulations.$inferInsert;

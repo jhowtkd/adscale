@@ -5,16 +5,20 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useAppStore } from "@/lib/store";
 import { authClient } from "@/lib/auth-client";
 import { useDashboard } from "@/lib/hooks/use-dashboard";
-import { useBillingStatus } from "@/lib/hooks/use-billing";
+import {
+  useNotifications,
+  useMarkAllNotificationsAsRead,
+  useClearAllNotifications,
+  useMarkNotificationAsRead,
+  type NotificationItem,
+} from "@/lib/hooks/use-notifications";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Search,
   Bell,
-  Coins,
   Clock3,
-  X,
   CreditCard,
   LogOut,
   Settings,
@@ -35,18 +39,17 @@ import {
 export default function TopBar() {
   const tCommon = useTranslations("common");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [notificationsCleared, setNotificationsCleared] = useState(false);
   const bellRef = useRef<HTMLButtonElement | null>(null);
   const { data: session } = authClient.useSession();
   const { data: dashboardData } = useDashboard();
-  const { data: billingStatus } = useBillingStatus();
-  const pathname = usePathname();
+  const { data: notificationsData } = useNotifications();
+  const markAllAsRead = useMarkAllNotificationsAsRead();
+  const clearAll = useClearAllNotifications();
+  const markAsRead = useMarkNotificationAsRead();
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const pathname = usePathname();
   const user = useAppStore((s) => s.user);
   const currentPageTitle = useAppStore((s) => s.currentPageTitle);
-  const sidebarCollapsed = useAppStore((s) => s.sidebarCollapsed);
-  const sidebarWidth = sidebarCollapsed ? 64 : 240;
   const sessionUser = session?.user;
   const displayName =
     sessionUser?.name?.trim() ||
@@ -63,20 +66,9 @@ export default function TopBar() {
         .join("") || "U"
     );
   }, [displayName]);
-  const notificationItems = notificationsCleared ? [] : dashboardData?.recentActivity ?? [];
-  const globalSearch = searchParams.get("q") ?? "";
-  const creditBalance = billingStatus?.creditBalance ?? user.credits;
-
-  const updateGlobalSearch = (value: string) => {
-    const params = new URLSearchParams(searchParams.toString());
-    if (value.trim()) {
-      params.set("q", value);
-    } else {
-      params.delete("q");
-    }
-    const query = params.toString();
-    router.replace(`/campaigns${query ? `?${query}` : ""}`, { scroll: false });
-  };
+  const notificationItems = notificationsData ?? [];
+  const unreadCount = notificationItems.filter((n) => !n.readAt).length;
+  const isDashboard = pathname === "/";
 
   const goToSettings = (tab: string) => {
     router.push(`/settings?tab=${tab}`);
@@ -85,112 +77,95 @@ export default function TopBar() {
   return (
     <header
       className={cn(
-        "fixed top-0 right-0 left-0 md:left-[var(--sidebar-width)] z-40 h-14 flex items-center justify-between gap-4",
-        "border-b border-[var(--border-dim)] glass-backdrop",
-        "transition-all duration-300"
+        "fixed top-0 right-0 left-0 md:left-[var(--sidebar-width)] z-40 flex items-center justify-between gap-4",
+        "border-b border-[var(--border-dim)] bg-[var(--surface-base)]",
+        "transition-all duration-300",
+        isDashboard ? "h-14 px-8" : "h-14 px-4"
       )}
-      style={{ "--sidebar-width": `${sidebarWidth}px` } as React.CSSProperties}
     >
-      {/* Left: Page Title */}
-      <div className="flex items-center pl-6">
+      {/* Left: Page Title + Subtitle on dashboard */}
+      <div className="flex items-center gap-6">
         <h1 className="text-lg font-semibold text-[var(--text-primary)] tracking-tight">
           {currentPageTitle}
         </h1>
-      </div>
-
-      {/* Center: Search */}
-      <div className="hidden md:flex items-center justify-center flex-1 max-w-xs">
-        <div className="relative w-full">
-          <Search
-            size={16}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]"
-          />
-          <input
-            type="text"
-            aria-label={tCommon("search")}
-            placeholder={tCommon("search")}
-            value={globalSearch}
-            onChange={(e) => updateGlobalSearch(e.target.value)}
-            onFocus={() => {
-              if (!pathname.startsWith("/campaigns")) {
-                router.replace("/campaigns", { scroll: false });
-              }
-            }}
-            className={cn(
-              "w-full h-9 pl-9 pr-9 rounded-full text-sm",
-              "bg-[var(--surface-raised)] text-[var(--text-primary)]",
-              "border border-[var(--border-dim)]",
-              "placeholder:text-[var(--text-muted)]",
-              "focus:outline-none focus:border-[var(--accent-mint)] focus:ring-2 focus:ring-[rgba(47,182,125,0.15)]",
-              "transition-all duration-200"
-            )}
-          />
-          {globalSearch && (
-            <button
-              type="button"
-              aria-label={tCommon("clearSearch")}
-              onClick={() => updateGlobalSearch("")}
-              className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-[var(--text-muted)] hover:bg-[var(--surface-base)] hover:text-[var(--text-primary)]"
-            >
-              <X size={14} />
-            </button>
-          )}
-        </div>
+        {isDashboard && dashboardData && (
+          <span className="hidden md:inline text-sm text-[var(--text-muted)]">
+            {(dashboardData as any).totalCampaigns ?? 0} campanhas, {(dashboardData as any).derivationsThisMonth ?? 0} derivações
+          </span>
+        )}
       </div>
 
       {/* Right: Actions */}
-      <div className="relative flex items-center gap-2 pr-4">
-        {/* Credit Balance Pill */}
-        <div
-          className={cn(
-            "hidden sm:flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium",
-            "bg-[var(--accent-mint-dim)] text-[var(--accent-mint)]"
-          )}
-        >
-          <Coins size={14} />
-          <span>{creditBalance} {tCommon("credits")}</span>
-        </div>
-
-        {/* Language Switcher */}
-        <LanguageSwitcher />
-
-        {/* Notification Bell */}
-        <button
-          ref={(el) => { if (el) bellRef.current = el; }}
-          type="button"
-          aria-label={tCommon("notifications")}
-          aria-expanded={notificationsOpen}
-          aria-haspopup="dialog"
-          onClick={() => setNotificationsOpen((open) => !open)}
-          className={cn(
-            "relative flex items-center justify-center h-9 w-9 rounded-full",
-            "text-[var(--text-muted)] hover:text-[var(--text-primary)]",
-            "hover:bg-[var(--surface-raised)]",
-            "transition-all duration-200"
-          )}
-        >
-          <Bell size={18} />
-          {notificationItems.length > 0 && (
-            <span
-              aria-hidden="true"
-              className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--accent-rose)] px-1 text-xs font-semibold text-white"
+      <div className="flex items-center gap-2">
+        {isDashboard && (
+          <>
+            <button
+              onClick={() => router.push("/campaigns")}
+              className={cn(
+                "hidden sm:flex items-center gap-2 px-5 py-2.5 text-sm text-[var(--text-secondary)]",
+                "border border-transparent rounded-[4px] hover:bg-[var(--surface-raised)] transition-colors"
+              )}
             >
-              {notificationItems.length > 9 ? "9+" : notificationItems.length}
-            </span>
-          )}
-        </button>
+              <Search size={16} strokeWidth={1.5} />
+              Buscar
+            </button>
+            <a
+              href="/campaigns/new"
+              className={cn(
+                "flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-[#0a0a0f]",
+                "bg-[#2fb67d] rounded-[4px] hover:bg-[#259d6a] transition-colors"
+              )}
+            >
+              + Nova Campanha
+            </a>
+          </>
+        )}
 
-        <AnimatePresence>
-          {notificationsOpen && (
-            <NotificationPanel
-              items={notificationItems}
-              onClose={() => setNotificationsOpen(false)}
-              onClear={() => setNotificationsCleared(true)}
-              bellRef={bellRef}
-              tCommon={tCommon}
-            />
-          )}
-        </AnimatePresence>
+        {!isDashboard && (
+          <>
+            <LanguageSwitcher />
+
+            {/* Notification Bell */}
+            <button
+              ref={(el) => { if (el) bellRef.current = el; }}
+              type="button"
+              aria-label={tCommon("notifications")}
+              aria-expanded={notificationsOpen}
+              aria-haspopup="dialog"
+              onClick={() => setNotificationsOpen((open) => !open)}
+              className={cn(
+                "relative flex items-center justify-center h-9 w-9 rounded-full",
+                "text-[var(--text-muted)] hover:text-[var(--text-primary)]",
+                "hover:bg-[var(--surface-raised)]",
+                "transition-all duration-200"
+              )}
+            >
+              <Bell size={18} />
+              {unreadCount > 0 && (
+                <span
+                  aria-hidden="true"
+                  className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--accent-rose)] px-1 text-xs font-semibold text-white"
+                >
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </button>
+
+            <AnimatePresence>
+              {notificationsOpen && (
+                <NotificationPanel
+                  items={notificationItems}
+                  onClose={() => setNotificationsOpen(false)}
+                  onClear={() => clearAll.mutate()}
+                  onMarkAsRead={(id) => markAsRead.mutate(id)}
+                  onMarkAllAsRead={() => markAllAsRead.mutate()}
+                  bellRef={bellRef}
+                  tCommon={tCommon}
+                />
+              )}
+            </AnimatePresence>
+          </>
+        )}
 
         {/* User Avatar */}
         <DropdownMenu>
@@ -263,23 +238,21 @@ export default function TopBar() {
 // ============================================
 
 interface NotificationPanelProps {
-  items: Array<{ id: string; message: string; timestamp: Date }>;
+  items: NotificationItem[];
   onClose: () => void;
   onClear: () => void;
+  onMarkAsRead: (id: string) => void;
+  onMarkAllAsRead: () => void;
   bellRef: React.RefObject<HTMLButtonElement | null>;
   tCommon: (key: string) => string;
 }
 
-function NotificationPanel({ items, onClose, onClear, bellRef, tCommon }: NotificationPanelProps) {
+function NotificationPanel({ items, onClose, onClear, onMarkAsRead, onMarkAllAsRead, bellRef, tCommon }: NotificationPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
-  // Focus trap + Escape handler
   useEffect(() => {
-    // Store previous focus
     previousFocusRef.current = document.activeElement as HTMLElement;
-
-    // Move focus to panel
     const panel = panelRef.current;
     if (panel) {
       const focusable = getFocusableElements(panel);
@@ -317,12 +290,10 @@ function NotificationPanel({ items, onClose, onClear, bellRef, tCommon }: Notifi
     document.addEventListener("keydown", handleKeyDown);
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
-      // Return focus to bell button
       bellRef.current?.focus();
     };
   }, [onClose, bellRef]);
 
-  // Click outside to close
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (
@@ -361,13 +332,22 @@ function NotificationPanel({ items, onClose, onClear, bellRef, tCommon }: Notifi
           </p>
         </div>
         {items.length > 0 ? (
-          <button
-            type="button"
-            onClick={onClear}
-            className="rounded-md px-2 py-1 text-xs font-medium text-[var(--accent-mint)] hover:bg-[var(--accent-mint-dim)]"
-          >
-            {tCommon("clear")}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onMarkAllAsRead}
+              className="rounded-md px-2 py-1 text-xs font-medium text-[var(--accent-mint)] hover:bg-[var(--accent-mint-dim)]"
+            >
+              {tCommon("markAllAsRead") ?? "Marcar todas"}
+            </button>
+            <button
+              type="button"
+              onClick={onClear}
+              className="rounded-md px-2 py-1 text-xs font-medium text-[var(--text-muted)] hover:bg-[var(--surface-base)]"
+            >
+              {tCommon("clear")}
+            </button>
+          </div>
         ) : (
           <Clock3 size={16} className="text-[var(--text-muted)]" />
         )}
@@ -381,17 +361,32 @@ function NotificationPanel({ items, onClose, onClear, bellRef, tCommon }: Notifi
           items.map((item) => (
             <div
               key={item.id}
-              className="flex gap-3 border-b border-[var(--border-dim)] px-4 py-3 last:border-b-0"
+              onClick={() => {
+                if (!item.readAt) onMarkAsRead(item.id);
+              }}
+              className={cn(
+                "flex gap-3 border-b border-[var(--border-dim)] px-4 py-3 last:border-b-0 cursor-pointer transition-colors",
+                item.readAt ? "opacity-60" : "hover:bg-[var(--surface-base)]"
+              )}
             >
-              <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-[var(--accent-mint-dim)] text-[var(--accent-mint)]">
-                <Clock3 size={14} />
+              <div className={cn(
+                "mt-0.5 flex h-8 w-8 items-center justify-center rounded-full shrink-0",
+                item.readAt
+                  ? "bg-[var(--surface-raised)] text-[var(--text-muted)]"
+                  : "bg-[var(--accent-mint-dim)] text-[var(--accent-mint)]"
+              )}>
+                <Bell size={14} />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-sm text-[var(--text-primary)]">{item.message}</p>
+                <p className="text-sm font-medium text-[var(--text-primary)]">{item.title}</p>
+                <p className="text-sm text-[var(--text-secondary)]">{item.message}</p>
                 <p className="mt-1 text-xs text-[var(--text-muted)]">
-                  {formatDistanceToNow(item.timestamp, { addSuffix: true })}
+                  {formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}
                 </p>
               </div>
+              {!item.readAt && (
+                <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-[var(--accent-mint)]" />
+              )}
             </div>
           ))
         )}
