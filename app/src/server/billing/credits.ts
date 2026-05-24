@@ -25,6 +25,7 @@ export const CREDIT_COSTS = {
   delivery_package_child: 5,
   landing_page: 10,
   creative_qa: 1,
+  copy_generation: 2,
 } as const;
 
 export type CreditAction = keyof typeof CREDIT_COSTS;

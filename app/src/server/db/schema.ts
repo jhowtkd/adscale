@@ -342,6 +342,7 @@ export const campaigns = adscaleSchema.table(
     tone: text("tone"),
     offer: text("offer"),
     constraints: text("constraints"),
+    platformSpecificNotes: jsonb("platform_specific_notes"),
     notes: text("notes"),
     generationMode: text("generation_mode").notNull().default("art_variation"),
     ctaVariants: text("cta_variants").array(),
@@ -500,6 +501,32 @@ export const creativePlans = adscaleSchema.table(
   (table) => [
     index("creative_plans_campaign_id_idx").on(table.campaignId),
     index("creative_plans_workspace_id_idx").on(table.workspaceId),
+  ]
+);
+
+export const derivationCopyVariants = adscaleSchema.table(
+  "derivation_copy_variants",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    derivationId: uuid("derivation_id")
+      .notNull()
+      .references(() => derivations.id, { onDelete: "cascade" }),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    headline: text("headline").notNull(),
+    ctaText: text("cta_text"),
+    toneLabel: text("tone_label"),
+    confidenceScore: integer("confidence_score"),
+    isSelected: boolean("is_selected").default(false),
+    metadata: jsonb("metadata"),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("derivation_copy_variants_derivation_id_idx").on(table.derivationId),
+    index("derivation_copy_variants_workspace_id_idx").on(table.workspaceId),
   ]
 );
 

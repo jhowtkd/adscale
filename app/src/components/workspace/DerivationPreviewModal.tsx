@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useExport } from "@/lib/hooks/use-export";
 import { useAppStore } from "@/lib/store";
+import CopyVariantsPanel from "./CopyVariantsPanel";
 
 // ============================================
 // Types
@@ -302,6 +303,11 @@ export default function DerivationPreviewModal({
                     {derivation.ctaText}
                   </span>
                 </div>
+              )}
+
+              {/* Copy Variants */}
+              {derivation.id && (
+                <CopyVariantsPanel derivationId={derivation.id} />
               )}
 
               {/* Score breakdown */}

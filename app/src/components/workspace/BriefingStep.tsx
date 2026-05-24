@@ -37,6 +37,7 @@ import {
 } from "@/lib/hooks/use-client-profiles";
 import { useBrandKit } from "@/lib/hooks/use-brand-kit";
 import CompetitorAnalysisSection from "@/components/campaigns/CompetitorAnalysisSection";
+import FormatAdaptationPreview from "./FormatAdaptationPreview";
 
 import PreflightSummary from "./PreflightSummary";
 import CreativeDiagnosisCard from "./CreativeDiagnosisCard";
@@ -749,6 +750,11 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
                 </label>
               ))}
             </div>
+
+            {/* Smart Resize Preview */}
+            {campaign?.id && (
+              <FormatAdaptationPreview campaignId={campaign.id} />
+            )}
           </div>
         )}
 

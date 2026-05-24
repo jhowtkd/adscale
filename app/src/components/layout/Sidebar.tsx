@@ -10,7 +10,7 @@ export default function Sidebar() {
   const topNav = [
     { icon: LayoutDashboard, href: "/" },
     { icon: FolderOpen, href: "/campaigns" },
-    { icon: LayoutTemplate, href: "/templates" },
+    { icon: LayoutTemplate, href: "/library" },
     { icon: Sparkles, href: "/restyling" },
   ];
   const bottomNav = [

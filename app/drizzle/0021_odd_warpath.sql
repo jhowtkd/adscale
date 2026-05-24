@@ -1,0 +1,1 @@
+ALTER TABLE "adscale_app"."campaigns" ADD COLUMN "platform_specific_notes" jsonb;

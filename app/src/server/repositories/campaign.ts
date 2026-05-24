@@ -47,6 +47,7 @@ export interface CreateCampaignInput {
   tone?: string;
   offer?: string;
   constraints?: string;
+  platformSpecificNotes?: Record<string, unknown> | null;
   notes?: string;
   status?: CampaignStatus;
   generationMode?: GenerationMode;
@@ -72,6 +73,7 @@ export interface UpdateCampaignInput {
   tone?: string;
   offer?: string;
   constraints?: string;
+  platformSpecificNotes?: Record<string, unknown> | null;
   notes?: string;
   status?: CampaignStatus;
   generationMode?: GenerationMode;
@@ -112,6 +114,7 @@ const campaignFields = {
   tone: campaigns.tone,
   offer: campaigns.offer,
   constraints: campaigns.constraints,
+  platformSpecificNotes: campaigns.platformSpecificNotes,
   notes: campaigns.notes,
   generationMode: campaigns.generationMode,
   ctaVariants: campaigns.ctaVariants,
@@ -294,6 +297,7 @@ export async function createCampaign(
       tone: data.tone ?? null,
       offer: data.offer ?? null,
       constraints: data.constraints ?? null,
+      platformSpecificNotes: data.platformSpecificNotes ?? null,
       notes: data.notes ?? null,
       generationMode: data.generationMode ?? "art_variation",
       ctaVariants: data.ctaVariants ?? null,
@@ -429,6 +433,7 @@ export async function updateCampaign(
     tone,
     offer,
     constraints,
+    platformSpecificNotes,
     notes,
     generationMode,
     ctaVariants,
@@ -453,6 +458,7 @@ export async function updateCampaign(
       ...(tone !== undefined && { tone }),
       ...(offer !== undefined && { offer }),
       ...(constraints !== undefined && { constraints }),
+      ...(platformSpecificNotes !== undefined && { platformSpecificNotes }),
       ...(notes !== undefined && { notes }),
       ...(generationMode !== undefined && { generationMode }),
       ...(ctaVariants !== undefined && { ctaVariants }),

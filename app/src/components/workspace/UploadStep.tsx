@@ -2,12 +2,15 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
-import { Cloud, Upload, Check, AlertCircle, Lightbulb, Replace, FileImage, Eye, EyeOff } from "lucide-react";
+import { Cloud, Upload, Check, AlertCircle, Lightbulb, Replace, FileImage, Eye, EyeOff, Library } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { useCampaignAssets, useUploadAsset } from "@/lib/hooks/use-assets";
 import { usePreflightScore, useAnalyzePreflight } from "@/lib/hooks/use-preflight";
 import PreflightScoreCard from "@/components/campaigns/PreflightScoreCard";
+import AssetLibraryModal from "./AssetLibraryModal";
+import { apiFetch } from "@/lib/api-client";
+import type { WorkspaceAsset } from "@/lib/hooks/use-workspace-assets";
 
 // ============================================
 // Types
@@ -62,6 +65,8 @@ export default function UploadStep({ campaignId, hasPreview, onContinueToPlan, o
   const [error, setError] = useState<string | null>(null);
   const [showPreflight, setShowPreflight] = useState(true);
   const [latestAssetId, setLatestAssetId] = useState<string | null>(null);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [isLinking, setIsLinking] = useState(false);
   const t = useTranslations("upload");
   const uploadAsset = useUploadAsset(campaignId);
   const { data: existingAssets = [] } = useCampaignAssets(campaignId);
@@ -174,6 +179,30 @@ export default function UploadStep({ campaignId, hasPreview, onContinueToPlan, o
     setUploadProgress(0);
     setError(null);
     open();
+  };
+
+  const handleSelectFromLibrary = async (asset: WorkspaceAsset) => {
+    setIsLinking(true);
+    setError(null);
+    try {
+      const res = await apiFetch(`/api/campaigns/${campaignId}/assets/link`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workspaceAssetId: asset.id }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to link asset");
+      }
+      const { asset: linkedAsset } = await res.json();
+      if (linkedAsset?.id) {
+        setLatestAssetId(linkedAsset.id);
+      }
+    } catch {
+      setError(t("linkFailed"));
+    } finally {
+      setIsLinking(false);
+    }
   };
 
   const formatFileSize = (bytes: number): string => {
@@ -375,17 +404,31 @@ export default function UploadStep({ campaignId, hasPreview, onContinueToPlan, o
                 <p className="text-xs text-[var(--text-muted)] mb-4">
                   {t("supportedFormats")}
                 </p>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    open();
-                  }}
-                  className="inline-flex min-h-10 items-center justify-center rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition-all duration-200 hover:border-[var(--border-medium)] active:scale-[0.98]"
-                >
-                  <Upload size={14} className="mr-2" />
-                  {t("browseFiles")}
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      open();
+                    }}
+                    className="inline-flex min-h-10 items-center justify-center rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition-all duration-200 hover:border-[var(--border-medium)] active:scale-[0.98]"
+                  >
+                    <Upload size={14} className="mr-2" />
+                    {t("browseFiles")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setLibraryOpen(true);
+                    }}
+                    disabled={isLinking}
+                    className="inline-flex min-h-10 items-center justify-center rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition-all duration-200 hover:border-[var(--border-medium)] hover:text-[var(--text-primary)] active:scale-[0.98] disabled:opacity-50"
+                  >
+                    <Library size={14} className="mr-2" />
+                    {isLinking ? t("linking") : t("chooseFromLibrary")}
+                  </button>
+                </div>
 
                 {/* Uploading state overlay */}
                 {isUploading && (
@@ -417,6 +460,12 @@ export default function UploadStep({ campaignId, hasPreview, onContinueToPlan, o
             </div>
           )}
         </div>
+
+        <AssetLibraryModal
+          open={libraryOpen}
+          onOpenChange={setLibraryOpen}
+          onSelect={handleSelectFromLibrary}
+        />
 
         {/* ---- Tips Panel (desktop only) ---- */}
         <div className="hidden w-[280px] flex-shrink-0 lg:block animate-fade-in" style={{ animationDelay: "300ms" }}>

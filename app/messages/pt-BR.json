@@ -543,7 +543,10 @@
     "tipLimitedText": "Evite excesso de texto na peça base",
     "tipPng": "PNG preserva melhor transparências e detalhes",
     "showPreflight": "Mostrar análise pré-voo",
-    "hidePreflight": "Ocultar análise pré-voo"
+    "hidePreflight": "Ocultar análise pré-voo",
+    "chooseFromLibrary": "Escolher da biblioteca",
+    "linking": "Vinculando...",
+    "linkFailed": "Falha ao vincular asset. Tente novamente."
   },
   "preflight": {
     "title": "Análise de Criativo Base",
@@ -955,6 +958,26 @@
     "deleteConfirm": "Tem certeza que deseja excluir este template?",
     "emptyTitle": "Nenhum template ainda",
     "emptyDescription": "Salve o briefing de uma campanha como template para reutilizá-lo em novas campanhas."
+  },
+  "library": {
+    "title": "Biblioteca",
+    "subtitle": "Gerencie seus assets criativos em um só lugar",
+    "upload": "Upload",
+    "searchPlaceholder": "Buscar por nome, tag ou descrição...",
+    "deleteConfirm": "Tem certeza que deseja excluir este asset?",
+    "emptyTitle": "Nenhum asset ainda",
+    "emptyDescription": "Faça upload de imagens, logos e vídeos para reutilizá-los em campanhas.",
+    "chooseFromLibrary": "Escolher da biblioteca",
+    "useAsset": "Usar este asset",
+    "cancel": "Cancelar"
+  },
+  "copyGenerator": {
+    "title": "Copy Alternativas",
+    "generate": "Gerar copy",
+    "generating": "Gerando...",
+    "empty": "Nenhuma copy gerada ainda. Clique em 'Gerar copy' para criar variações.",
+    "apply": "Aplicar",
+    "applied": "Aplicada"
   },
   "creditHistory": {
     "title": "Histórico de Uso de Créditos",

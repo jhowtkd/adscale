@@ -1,3 +1,59 @@
+# Layers Observed Behaviour — Research Plan
+
+Date: 2026-05-24
+Mode: Design research planning
+
+## Checklist
+
+- [x] Load `/layers-observed-behaviour`
+- [x] Confirm mode: plan research from scratch
+- [x] Define learning goals
+- [x] Identify target participants
+- [x] Design study method and interview guide
+- [x] Define synthesis format
+- [x] Save results to `docs/layers-design-session-2026-05-24.md`
+
+## Review
+
+Completed a plan-mode observed behaviour pass. The output treats current ADScale behaviour claims as assumptions, not validated research. Recommended a first round of 6-8 JTBD interviews with artifact walkthroughs across agency operators, in-house marketing generalists, and founder/operators who recently created or adapted paid-social creatives.
+
+# Layers Surface — ADScale UI Audit
+
+Date: 2026-05-24
+Mode: Surface audit / decision inventory
+
+## Checklist
+
+- [x] Load `/layers-surface`
+- [x] Review repo task notes and lower-layer session context
+- [ ] Confirm capture destination, product/feature scope, medium, and lower-layer inputs
+- [ ] Inspect existing surface work in code/docs for the chosen scope
+- [ ] Audit vocabulary, object consistency, completeness, emotional register, feedback, hierarchy, accessibility, and consistency
+- [ ] Save findings and decision inventory
+- [ ] Add review section with verification evidence and caveats
+
+## Review
+
+Pending scope confirmation.
+
+# Layers Orient — ADScale Geral
+
+Date: 2026-05-24
+Mode: Design diagnostic
+
+## Checklist
+
+- [x] Load project lessons relevant to this repo
+- [x] Confirm capture destination for the design session
+- [x] Inspect current product docs, recent design plans, schema, and campaign workspace flow
+- [x] Audit all seven Layers of Product Design
+- [x] Identify bottleneck layer and next recommended skill
+- [x] Save results to `docs/layers-design-session-2026-05-24.md`
+
+## Review
+
+Diagnosed ADScale geral as an existing product with a problematic flow. The lowest unstable layer is Observed behaviour: the product has many plausible and implemented capabilities, but little repo-visible evidence of real user behaviour or agency workflow traces. Recommended next step is `/layers-observed-behaviour`; if release pressure makes that too slow, the pragmatic fallback is `/layers-conceptual-model` to clean up the object model around the existing feature set.
+
 # Persistent Agent Memory via Zep
 
 Date: 2026-05-24
