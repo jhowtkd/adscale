@@ -12,9 +12,7 @@ interface WizardNavigationFooterProps {
   currentStep: WizardStep;
   approvedDerivation?: Derivation;
   exportMutationPending: boolean;
-  createDerivationsPending: boolean;
   onPrev: () => void;
-  onNext: () => void;
   onExport: (id: string, format: string) => void;
   getStepNavLabel: (step: WizardStep, direction: "prev" | "next") => string;
 }
@@ -23,9 +21,7 @@ export default function WizardNavigationFooter({
   currentStep,
   approvedDerivation,
   exportMutationPending,
-  createDerivationsPending,
   onPrev,
-  onNext,
   onExport,
   getStepNavLabel,
 }: WizardNavigationFooterProps) {
@@ -50,7 +46,7 @@ export default function WizardNavigationFooter({
         {currentStep > 1 ? getStepNavLabel(currentStep, "prev") : ""}
       </button>
 
-      {currentStep === 4 && approvedDerivation ? (
+      {currentStep === 4 && approvedDerivation && (
         <button
           onClick={() => onExport(approvedDerivation.id, "png")}
           disabled={exportMutationPending}
@@ -62,20 +58,7 @@ export default function WizardNavigationFooter({
           )}
         >
           <Download size={14} />
-          {exportMutationPending ? tc("loading") : "Baixar arte aprovada"}
-        </button>
-      ) : (
-        <button
-          onClick={currentStep === 2 ? onNext : onNext}
-          disabled={currentStep === 2 || currentStep === 3 || currentStep === 4 || createDerivationsPending}
-          className={cn(
-            "inline-flex min-h-10 w-full items-center justify-center rounded-md px-6 py-2.5 text-sm font-medium transition-all duration-200 sm:w-auto",
-            currentStep === 2 || currentStep === 3 || currentStep === 4 || createDerivationsPending
-              ? "bg-[var(--surface-raised)] text-[var(--text-muted)] border border-[var(--border-dim)] cursor-default"
-              : "bg-[var(--accent-mint)] text-white hover:bg-[var(--accent-mint-light)] hover:-translate-y-px active:scale-[0.98]"
-          )}
-        >
-          {createDerivationsPending ? tc("loading") : getStepNavLabel(currentStep, "next")}
+          {exportMutationPending ? tc("loading") : tc("downloadApprovedCreative")}
         </button>
       )}
     </motion.div>

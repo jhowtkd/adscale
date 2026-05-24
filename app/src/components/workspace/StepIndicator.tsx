@@ -49,6 +49,14 @@ export default function StepIndicator({ currentStep, onStepClick }: StepIndicato
                     }
                   }}
                   disabled={!isCompleted || !onStepClick}
+                  aria-current={isActive ? "step" : undefined}
+                  aria-label={
+                    isActive
+                      ? t("currentStep", { step: step.label })
+                      : isCompleted
+                        ? t("completedStep", { step: step.label })
+                        : t("lockedStep", { step: step.label })
+                  }
                   className={cn(
                     "relative flex items-center justify-center w-9 h-9 rounded-full transition-all duration-300",
                     isPending && "bg-[var(--surface-base)] border border-[var(--border-dim)] cursor-default",

@@ -17,6 +17,52 @@ Mode: Design research planning
 
 Completed a plan-mode observed behaviour pass. The output treats current ADScale behaviour claims as assumptions, not validated research. Recommended a first round of 6-8 JTBD interviews with artifact walkthroughs across agency operators, in-house marketing generalists, and founder/operators who recently created or adapted paid-social creatives.
 
+# Surface Fixes — Main Campaign Flow
+
+Date: 2026-05-24
+Mode: Bounded implementation
+
+## Checklist
+
+- [x] Confirm target findings from the surface audit
+- [x] Move hardcoded surface copy into i18n
+- [x] Add accessible labels/states to the main wizard and gallery actions
+- [x] Remove disabled-looking duplicate wizard next controls where step-level actions own progression
+- [x] Run focused verification
+- [x] Define conceptual-model vocabulary for remaining cross-layer issues
+- [x] Fold single export and package generation into the Prepare Delivery flow
+- [x] Document review, evidence, and remaining cross-layer limits
+
+## Review
+
+Implemented a bounded surface cleanup for the main campaign flow:
+
+- Moved hardcoded labels from `BriefingStep`, `DerivationCard`, `FormatAdaptationPreview`, and `WizardNavigationFooter` into `pt-BR` / `en` messages.
+- Added accessible names/states for step navigation, derivation card icon actions, draft deletion, reference chips, upload progress, and upload errors.
+- Removed the disabled duplicate "next" footer control on steps where the step itself owns progression.
+- Hardened briefing autosave so missing or incomplete `localStorage` does not crash tests or nonstandard runtimes.
+- Added a conceptual model section to `docs/layers-design-session-2026-05-24.md` to resolve the main vocabulary decision: user-facing generated outputs are **Creative Variants / Variações criativas**, while `derivation` remains an internal technical term for now.
+- Updated visible message copy to use creative variants instead of derivations across the main UI.
+
+Verification:
+
+- `node -e "JSON.parse(...pt-BR); JSON.parse(...en)"` passed.
+- Focused ESLint passed with no warnings for touched app files.
+- `npm run test -- src/components/workspace/DerivationCard.test.tsx src/components/workspace/BriefingStep.test.tsx` passed: 2 files / 21 tests.
+
+Additional hierarchy fix after conceptual-model pass: approved creative variants now make `Prepare delivery` the primary action, with QA/reference/landing/persona actions remaining secondary.
+
+Interaction-flow fix: `Prepare delivery` now opens a single delivery modal that supports downloading the approved creative immediately and generating selected final formats from the same place. The single-file download remains available even when no extra package format is selected.
+
+Latest verification:
+
+- Translation JSON parse passed for `pt-BR` and `en`.
+- Focused ESLint passed for the delivery modal, campaign workspace page, and campaign workspace hook.
+- `npm run test -- src/components/workspace/DeliveryPackageModal.test.tsx src/components/workspace/DerivationCard.test.tsx src/components/workspace/BriefingStep.test.tsx` passed: 3 files / 26 tests.
+- `git diff --check` passed.
+
+Caveat: broader cross-layer decisions still remain for bulk ZIP/share-link behavior and live browser/screen-reader validation.
+
 # Layers Surface — ADScale UI Audit
 
 Date: 2026-05-24
@@ -26,15 +72,21 @@ Mode: Surface audit / decision inventory
 
 - [x] Load `/layers-surface`
 - [x] Review repo task notes and lower-layer session context
-- [ ] Confirm capture destination, product/feature scope, medium, and lower-layer inputs
-- [ ] Inspect existing surface work in code/docs for the chosen scope
-- [ ] Audit vocabulary, object consistency, completeness, emotional register, feedback, hierarchy, accessibility, and consistency
-- [ ] Save findings and decision inventory
-- [ ] Add review section with verification evidence and caveats
+- [x] Confirm capture destination, product/feature scope, medium, and lower-layer inputs
+- [x] Inspect existing surface work in code/docs for the chosen scope
+- [x] Audit vocabulary, object consistency, completeness, emotional register, feedback, hierarchy, accessibility, and consistency
+- [x] Save findings and decision inventory
+- [x] Add review section with verification evidence and caveats
 
 ## Review
 
-Pending scope confirmation.
+Scope confirmed from recommendation: audit the main campaign creation flow (`briefing -> upload -> plan -> gallery/review/export`) as a screen UI web app, using `docs/layers-design-session-2026-05-24.md` as the lower-layer base and explicitly marking lower-layer risks.
+
+Completed a surface audit and decision inventory in `docs/layers-design-session-2026-05-24.md`. Evidence inspected included the campaign workspace page, `StepIndicator`, `BriefingStep`, `UploadStep`, `PlanStep`, `DerivationsStep`, `DerivationCard`, `WizardNavigationFooter`, bulk actions, status/empty states, the creative-plan wizard design docs, and `pt-BR` translations.
+
+Main result: the surface is visually coherent and the four-step flow exists, but the experience is semantically crowded. The strongest issues are cross-layer: unclear canonical vocabulary, unclear starting object (`campaign` vs `offer/product` vs `base creative`), and too many post-generation actions with similar prominence. Surface-level follow-ups are gallery hierarchy, upload-step route hierarchy, diagnose/explain/recover error copy, accessibility labels/states, and translation cleanup.
+
+Caveat: this was a static repo/code audit, not a live browser or screen-reader run. Recommended next move is `/layers-conceptual-model` before detailed copy/UI polish.
 
 # Layers Orient — ADScale Geral
 

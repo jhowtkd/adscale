@@ -2,25 +2,26 @@
 
 import { useSmartResizePreview } from "@/lib/hooks/use-smart-resize";
 import { Loader2, Check, AlertTriangle } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 interface FormatAdaptationPreviewProps {
   campaignId: string;
 }
 
-const FORMAT_LABELS: Record<string, string> = {
-  "1:1": "Quadrado",
-  "4:5": "Retrato",
-  "9:16": "Stories",
-};
-
 export default function FormatAdaptationPreview({ campaignId }: FormatAdaptationPreviewProps) {
+  const t = useTranslations("upload");
   const { data, isLoading } = useSmartResizePreview(campaignId);
+  const formatLabels: Record<string, string> = {
+    "1:1": t("formatLabels.square"),
+    "4:5": t("formatLabels.portrait"),
+    "9:16": t("formatLabels.stories"),
+  };
 
   if (isLoading) {
     return (
       <div className="flex items-center gap-2 text-xs text-[var(--text-muted)] py-3">
         <Loader2 size={14} className="animate-spin" />
-        Analisando imagem base...
+        {t("analyzingBaseImage")}
       </div>
     );
   }
@@ -82,7 +83,7 @@ export default function FormatAdaptationPreview({ campaignId }: FormatAdaptation
                 </div>
               </div>
               <div className="text-center">
-                <p className="text-xs font-medium text-[var(--text-primary)]">{FORMAT_LABELS[format] ?? format}</p>
+                <p className="text-xs font-medium text-[var(--text-primary)]">{formatLabels[format] ?? format}</p>
                 <p className="text-[10px] text-[var(--text-muted)]">
                   {Math.round(crop.x * 100)}%, {Math.round(crop.y * 100)}% • {Math.round(crop.width * 100)}%×{Math.round(crop.height * 100)}%
                 </p>

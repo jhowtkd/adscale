@@ -25,6 +25,25 @@ function deserializeDraft(raw: string): BriefingFormData | null {
   }
 }
 
+function getDraft(key: string): BriefingFormData | null {
+  const storage = globalThis.localStorage;
+  if (typeof storage?.getItem !== "function") return null;
+  const raw = storage.getItem(key);
+  return raw ? deserializeDraft(raw) : null;
+}
+
+function setDraft(key: string, data: BriefingFormData) {
+  const storage = globalThis.localStorage;
+  if (typeof storage?.setItem !== "function") return;
+  storage.setItem(key, serializeDraft(data));
+}
+
+function removeDraft(key: string) {
+  const storage = globalThis.localStorage;
+  if (typeof storage?.removeItem !== "function") return;
+  storage.removeItem(key);
+}
+
 export function useBriefingAutoSave(
   campaignId: string,
   formData: BriefingFormData
@@ -32,8 +51,7 @@ export function useBriefingAutoSave(
   const key = getStorageKey(campaignId);
 
   const [state, setState] = useState<AutoSaveState>(() => {
-    const existing = localStorage.getItem(key);
-    const draft = existing ? deserializeDraft(existing) : null;
+    const draft = getDraft(key);
     return {
       hasDraft: !!draft,
       isSaving: false,
@@ -76,7 +94,7 @@ export function useBriefingAutoSave(
     }
 
     debounceRef.current = setTimeout(() => {
-      localStorage.setItem(key, serializeDraft(formData));
+      setDraft(key, formData);
       setState({
         hasDraft: true,
         isSaving: false,
@@ -92,13 +110,11 @@ export function useBriefingAutoSave(
   }, [formData, key]);
 
   const restoreDraft = useCallback((): BriefingFormData | null => {
-    const raw = localStorage.getItem(key);
-    if (!raw) return null;
-    return deserializeDraft(raw);
+    return getDraft(key);
   }, [key]);
 
   const clearDraft = useCallback(() => {
-    localStorage.removeItem(key);
+    removeDraft(key);
     setState({
       hasDraft: false,
       isSaving: false,

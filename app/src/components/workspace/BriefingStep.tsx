@@ -129,17 +129,18 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
 
   const campaignId = campaign?.id ?? "new";
   const autoSave = useBriefingAutoSave(campaignId, formData);
+  const { clearDraft, hasDraft, isSaving, lastSavedAt, restoreDraft } = autoSave;
   const [showRestoreBanner, setShowRestoreBanner] = useState(false);
 
   // Show restore banner if there's a draft and we're on a new/empty campaign
   useEffect(() => {
-    if (autoSave.hasDraft && !campaign?.name && !campaign?.client) {
-      const draft = autoSave.restoreDraft();
+    if (hasDraft && !campaign?.name && !campaign?.client) {
+      const draft = restoreDraft();
       if (draft && (draft.name.trim() || draft.client.trim())) {
         requestAnimationFrame(() => setShowRestoreBanner(true));
       }
     }
-  }, [autoSave.hasDraft, campaign]);
+  }, [hasDraft, campaign?.name, campaign?.client, restoreDraft]);
 
   const handleAnalyzeBriefing = () => {
     briefingDoctor.mutate(formData);
@@ -221,18 +222,18 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
 
   const handleContinue = () => {
     if (validate()) {
-      autoSave.clearDraft();
+      clearDraft();
       onContinue(formData);
     }
   };
 
   const handleSaveDraftLocal = () => {
-    autoSave.clearDraft();
+    clearDraft();
     onSaveDraft(formData);
   };
 
   const handleRestoreDraft = () => {
-    const draft = autoSave.restoreDraft();
+    const draft = restoreDraft();
     if (draft) {
       setFormData(draft);
       setShowNotes(Boolean(draft.notes));
@@ -241,9 +242,17 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
   };
 
   const handleDiscardDraft = () => {
-    autoSave.clearDraft();
+    clearDraft();
     setShowRestoreBanner(false);
   };
+
+  const targetFormatOptions = [
+    { id: "1:1", label: tBriefing("targetFormats.square.label"), desc: tBriefing("targetFormats.square.description") },
+    { id: "4:5", label: tBriefing("targetFormats.portrait.label"), desc: tBriefing("targetFormats.portrait.description") },
+    { id: "9:16", label: tBriefing("targetFormats.stories.label"), desc: tBriefing("targetFormats.stories.description") },
+    { id: "1.91:1", label: tBriefing("targetFormats.horizontal.label"), desc: tBriefing("targetFormats.horizontal.description") },
+    { id: "16:9", label: tBriefing("targetFormats.widescreen.label"), desc: tBriefing("targetFormats.widescreen.description") },
+  ];
 
   return (
     <div className="relative">
@@ -430,6 +439,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
                               : [...current, ref.id];
                             updateField("selectedReferenceIds", next);
                           }}
+                          aria-pressed={isSelected}
                           className={cn(
                             "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-all duration-200",
                             isSelected
@@ -458,6 +468,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
                   {tBriefing("brandKitTitle")}
                 </h4>
                 {brandKitData.logoUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={brandKitData.logoUrl}
                     alt="Logo"
@@ -709,16 +720,10 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
               {tBriefing("targetFormat.label")}
             </Label>
             <p className="text-xs text-[var(--text-muted)]">
-              Selecione os formatos que deseja gerar. Cada formato consome créditos separadamente.
+              {tBriefing("targetFormatsHelp")}
             </p>
             <div className="grid gap-2 sm:grid-cols-2">
-              {[
-                { id: "1:1", label: "1:1 Quadrado", desc: "Meta Feed, Google Display" },
-                { id: "4:5", label: "4:5 Retrato", desc: "Meta Feed, Google Discovery" },
-                { id: "9:16", label: "9:16 Stories", desc: "Meta Stories/Reels, Google PMax" },
-                { id: "1.91:1", label: "1.91:1 Horizontal", desc: "Meta Link, Google Display" },
-                { id: "16:9", label: "16:9 Widescreen", desc: "Google Display, YouTube" },
-              ].map((fmt) => (
+              {targetFormatOptions.map((fmt) => (
                 <label
                   key={fmt.id}
                   className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-all ${
@@ -1012,11 +1017,11 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
           >
             {tBriefing("saveDraft")}
           </button>
-          {autoSave.isSaving ? (
+          {isSaving ? (
             <span className="text-xs text-[var(--text-muted)] animate-fade-in">
               {tBriefing("saving")}
             </span>
-          ) : autoSave.lastSavedAt ? (
+          ) : lastSavedAt ? (
             <span className="text-xs text-[var(--text-muted)] animate-fade-in">
               {tBriefing("draftAutoSaved")}
             </span>

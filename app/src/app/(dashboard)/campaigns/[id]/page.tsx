@@ -62,7 +62,6 @@ export default function CampaignWorkspacePage() {
     selectedDeliverySource,
     handleDeliveryModalOpenChange,
     handlePrev,
-    handleNext,
     handleStepClick,
     handleBriefingContinue,
     handleSaveDraft,
@@ -73,7 +72,6 @@ export default function CampaignWorkspacePage() {
     handleApprovePlanAndGenerate,
     handleGenerateLandingPage,
     handleSaveAsReference,
-    hasActivePreview,
     handlePreview,
     handleDownloadDerivation,
     handleRegenerateDerivation,
@@ -82,6 +80,7 @@ export default function CampaignWorkspacePage() {
     handleRunQa,
     handleCreateDeliveryPackage,
     handleConfirmDeliveryPackage,
+    handleDownloadDeliverySource,
     handleExportDerivation,
     handleDelete,
     getStepNavLabel,
@@ -165,7 +164,6 @@ export default function CampaignWorkspacePage() {
                 onContinueToPlan={handleContinueToPlan}
                 onSkipPlan={handleSkipPlan}
                 onGeneratePreview={handleGeneratePreview}
-                hasPreview={hasActivePreview}
               />
             )}
             {currentStep === 3 && (
@@ -209,8 +207,10 @@ export default function CampaignWorkspacePage() {
         <DeliveryPackageModal
           open={deliveryModalOpen}
           sourceFormat={selectedDeliverySource.format ?? null}
+          isDownloading={exportPending}
           isSubmitting={deliveryPackagePending}
           onOpenChange={handleDeliveryModalOpenChange}
+          onDownloadCurrent={handleDownloadDeliverySource}
           onConfirm={handleConfirmDeliveryPackage}
         />
       )}
@@ -229,9 +229,7 @@ export default function CampaignWorkspacePage() {
         currentStep={currentStep}
         approvedDerivation={approvedDerivation}
         exportMutationPending={exportPending}
-        createDerivationsPending={createDerivationsPending}
         onPrev={handlePrev}
-        onNext={handleNext}
         onExport={handleExportDerivation}
         getStepNavLabel={getStepNavLabel}
       />

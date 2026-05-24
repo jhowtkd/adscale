@@ -14,6 +14,7 @@ describe("DeliveryPackageModal", () => {
         sourceFormat="1:1"
         isSubmitting={false}
         onOpenChange={vi.fn()}
+        onDownloadCurrent={vi.fn()}
         onConfirm={vi.fn()}
       />
     );
@@ -31,6 +32,7 @@ describe("DeliveryPackageModal", () => {
         sourceFormat="1:1"
         isSubmitting={false}
         onOpenChange={vi.fn()}
+        onDownloadCurrent={vi.fn()}
         onConfirm={vi.fn()}
       />
     );
@@ -48,6 +50,7 @@ describe("DeliveryPackageModal", () => {
         sourceFormat="1:1"
         isSubmitting={false}
         onOpenChange={vi.fn()}
+        onDownloadCurrent={vi.fn()}
         onConfirm={onConfirm}
       />
     );
@@ -67,6 +70,7 @@ describe("DeliveryPackageModal", () => {
         sourceFormat="1:1"
         isSubmitting={false}
         onOpenChange={vi.fn()}
+        onDownloadCurrent={vi.fn()}
         onConfirm={vi.fn()}
       />
     );
@@ -79,4 +83,26 @@ describe("DeliveryPackageModal", () => {
     expect(screen.getByRole("button", { name: /confirm/i })).toBeDisabled();
   });
 
+  it("downloads the current creative even when no extra formats are selected", () => {
+    const onDownloadCurrent = vi.fn();
+    render(
+      <DeliveryPackageModal
+        open
+        sourceFormat="1:1"
+        isSubmitting={false}
+        onOpenChange={vi.fn()}
+        onDownloadCurrent={onDownloadCurrent}
+        onConfirm={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByLabelText("4:5"));
+    fireEvent.click(screen.getByLabelText("9:16"));
+    fireEvent.click(screen.getByLabelText("1.91:1"));
+    fireEvent.click(screen.getByLabelText("16:9"));
+    fireEvent.click(screen.getByRole("button", { name: /downloadCurrent/i }));
+
+    expect(screen.getByRole("button", { name: /confirm/i })).toBeDisabled();
+    expect(onDownloadCurrent).toHaveBeenCalledOnce();
+  });
 });

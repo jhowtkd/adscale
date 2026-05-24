@@ -24,7 +24,6 @@ interface UploadedFile {
 
 interface UploadStepProps {
   campaignId: string;
-  hasPreview?: boolean;
   onContinueToPlan: () => void;
   onSkipPlan: () => void;
   onGeneratePreview: () => void;
@@ -58,7 +57,7 @@ function readImageDimensions(file: File): Promise<{ preview: string; width: numb
 // Component
 // ============================================
 
-export default function UploadStep({ campaignId, hasPreview, onContinueToPlan, onSkipPlan, onGeneratePreview }: UploadStepProps) {
+export default function UploadStep({ campaignId, onContinueToPlan, onSkipPlan, onGeneratePreview }: UploadStepProps) {
   const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
@@ -432,7 +431,10 @@ export default function UploadStep({ campaignId, hasPreview, onContinueToPlan, o
 
                 {/* Uploading state overlay */}
                 {isUploading && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-[var(--surface-base)]/80 rounded-2xl animate-fade-in">
+                  <div
+                    className="absolute inset-0 flex flex-col items-center justify-center bg-[var(--surface-base)]/80 rounded-2xl animate-fade-in"
+                    aria-live="polite"
+                  >
                     {/* Progress bar */}
                     <div className="w-64 h-1 bg-[var(--border-dim)] rounded-full overflow-hidden mb-3">
                       <div
@@ -451,7 +453,10 @@ export default function UploadStep({ campaignId, hasPreview, onContinueToPlan, o
 
                 {/* Error state */}
                 {error && (
-                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-lg bg-[rgba(244,63,94,0.08)] border border-[var(--accent-rose)]/20 animate-fade-in">
+                  <div
+                    className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-lg bg-[rgba(244,63,94,0.08)] border border-[var(--accent-rose)]/20 animate-fade-in"
+                    role="alert"
+                  >
                     <AlertCircle size={16} className="text-[var(--accent-rose)]" />
                     <span className="text-sm text-[var(--accent-rose)]">{error}</span>
                   </div>

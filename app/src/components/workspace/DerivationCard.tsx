@@ -302,7 +302,7 @@ export default function DerivationCard({
         {derivation.isPreview && (
           <div className="absolute top-2 right-2 z-10">
             <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 text-orange-700 text-xs font-medium px-2 py-1 border border-dashed border-orange-400">
-              Preview
+              {t("previewBadge")}
             </span>
           </div>
         )}
@@ -381,6 +381,7 @@ export default function DerivationCard({
               <button
                 onClick={() => onRegenerate?.(derivation.id, derivation.regenerationSuggestion || "")}
                 disabled={isRegenerating}
+                aria-label={t("regenerateDerivationWithImprovements", { name: derivation.name })}
                 className={cn(
                   "p-1.5 rounded-md text-[var(--accent-blue)] hover:text-[var(--accent-blue-light)] hover:bg-[var(--accent-blue)]/10 transition-all duration-150",
                   isRegenerating && "opacity-50 cursor-wait"
@@ -392,6 +393,7 @@ export default function DerivationCard({
             )}
             <button
               onClick={() => onPreview(derivation.id)}
+              aria-label={t("previewDerivation", { name: derivation.name })}
               className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-all duration-150"
               title={commonT("preview")}
             >
@@ -400,11 +402,12 @@ export default function DerivationCard({
             <button
               onClick={handleDownload}
               disabled={exportMutation.isPending || derivation.isPreview}
+              aria-label={t("downloadDerivation", { name: derivation.name })}
               className={cn(
                 "p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-all duration-150",
                 (exportMutation.isPending || derivation.isPreview) && "opacity-50 cursor-not-allowed"
               )}
-              title={derivation.isPreview ? "Baixe a versão final" : commonT("download")}
+              title={derivation.isPreview ? t("downloadFinalVersion") : commonT("download")}
             >
               {exportMutation.isPending ? (
                 <Spinner />
@@ -415,6 +418,7 @@ export default function DerivationCard({
             <button
               onClick={handleRegenerate}
               disabled={isRegenerating}
+              aria-label={t("regenerateDerivation", { name: derivation.name })}
               className={cn(
                 "p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-all duration-150",
                 isRegenerating && "opacity-50 cursor-wait"
@@ -447,6 +451,16 @@ export default function DerivationCard({
         {/* Row 6: QA + Delivery Package */}
         {derivation.status === "approved" && derivation.imageUrl && (
           <div className="flex flex-col gap-2 mt-2">
+            {onCreateDeliveryPackage && (
+              <Button
+                size="sm"
+                onClick={onCreateDeliveryPackage}
+                className="w-fit bg-[var(--accent-mint)] text-white hover:bg-[var(--accent-mint-light)]"
+              >
+                <Package className="w-4 h-4 mr-1" />
+                {t("generatePackage")}
+              </Button>
+            )}
             {onRunQa && (
               <div className="flex items-center gap-2">
                 <Button
@@ -474,17 +488,6 @@ export default function DerivationCard({
               <p className="text-[11px] text-[var(--text-muted)] line-clamp-1">
                 {derivation.qaIssues[0]}
               </p>
-            )}
-            {onCreateDeliveryPackage && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={onCreateDeliveryPackage}
-                className="border-[var(--accent-mint)] text-[var(--accent-mint)] hover:bg-[var(--accent-mint-dim)] w-fit"
-              >
-                <Package className="w-4 h-4 mr-1" />
-                {t("generatePackage")}
-              </Button>
             )}
             {onSaveAsReference && (
               <Button

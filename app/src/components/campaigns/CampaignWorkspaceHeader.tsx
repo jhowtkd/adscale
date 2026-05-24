@@ -67,6 +67,7 @@ export default function CampaignWorkspaceHeader({
             onClick={onDelete}
             className="min-h-10 shrink-0 rounded-md p-2 text-[var(--accent-rose)] hover:bg-[rgba(244,63,94,0.08)] transition-colors"
             title={tc("deleteDraft")}
+            aria-label={tc("deleteDraft")}
           >
             <Trash2 size={16} />
           </button>

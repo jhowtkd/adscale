@@ -47,7 +47,12 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
     const hasActive = derivationsData?.some(
       (d) => d.status === "queued" || d.status === "processing"
     );
-    setEnableDerivationsPolling(!hasActive);
+    const nextEnablePolling = !hasActive;
+    queueMicrotask(() => {
+      setEnableDerivationsPolling((current) =>
+        current === nextEnablePolling ? current : nextEnablePolling
+      );
+    });
   }, [derivationsData]);
   const regenerateMutation = useRegenerateDerivation();
   const exportMutation = useExport();
@@ -410,6 +415,11 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
     [exportMutation]
   );
 
+  const handleDownloadDeliverySource = useCallback(() => {
+    if (!selectedDeliverySource) return;
+    handleExportDerivation(selectedDeliverySource.id, "png");
+  }, [selectedDeliverySource, handleExportDerivation]);
+
   const handleDelete = useCallback(() => {
     if (confirm(tc("confirmDeleteDraft"))) {
       deleteCampaign.mutate(campaignId, {
@@ -472,6 +482,7 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
     handleRunQa,
     handleCreateDeliveryPackage,
     handleConfirmDeliveryPackage,
+    handleDownloadDeliverySource,
     handleExportDerivation,
     handleDelete,
     getStepNavLabel,
