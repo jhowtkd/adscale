@@ -42,6 +42,7 @@
     "retry": "Tentar novamente",
     "tryAgain": "Tentar novamente",
     "download": "Baixar",
+    "downloadApprovedCreative": "Baixar arte aprovada",
     "preview": "Visualizar",
     "generate": "Gerar",
     "regenerate": "Regenerar",
@@ -253,7 +254,8 @@
       "review": "Revisão",
       "approved": "Aprovada",
       "rejected": "Rejeitada"
-    }
+    },
+    "generateWithoutPlan": "Gerar sem Plano"
   },
   "briefing": {
     "title": "Briefing da Campanha",
@@ -504,7 +506,13 @@
     "exportPackageBulk": "Exportar pacote",
     "downloadZip": "Baixar ZIP",
     "createShareLink": "Criar link público",
-    "liveUpdates": "Atualizações em tempo real"
+    "liveUpdates": "Atualizações em tempo real",
+    "previewBadge": "Prévia",
+    "downloadFinalVersion": "Baixe a versão final",
+    "previewDerivation": "Visualizar {name}",
+    "downloadDerivation": "Baixar {name}",
+    "regenerateDerivation": "Regenerar {name}",
+    "regenerateDerivationWithImprovements": "Regenerar {name} com melhorias sugeridas"
   },
   "plan": {
     "title": "Plano Criativo",
@@ -533,6 +541,29 @@
     "recommendedDimensions": "(recomendado 1080×1080+)",
     "generatePreview": "Gerar pré-visualização",
     "previewLabel": "Pré-visualização",
+    "targetFormatsHelp": "Selecione os formatos que deseja gerar. Cada formato consome créditos separadamente.",
+    "targetFormats": {
+      "square": {
+        "label": "1:1 Quadrado",
+        "description": "Meta Feed, Google Display"
+      },
+      "portrait": {
+        "label": "4:5 Retrato",
+        "description": "Meta Feed, Google Discovery"
+      },
+      "stories": {
+        "label": "9:16 Stories",
+        "description": "Meta Stories/Reels, Google PMax"
+      },
+      "horizontal": {
+        "label": "1.91:1 Horizontal",
+        "description": "Meta Link, Google Display"
+      },
+      "widescreen": {
+        "label": "16:9 Widescreen",
+        "description": "Google Display, YouTube"
+      }
+    },
     "generateAll": "Gerar todas →",
     "generateDerivations": "Gerar derivações →",
     "browseFiles": "Procurar arquivos",
@@ -546,7 +577,13 @@
     "hidePreflight": "Ocultar análise pré-voo",
     "chooseFromLibrary": "Escolher da biblioteca",
     "linking": "Vinculando...",
-    "linkFailed": "Falha ao vincular asset. Tente novamente."
+    "linkFailed": "Falha ao vincular asset. Tente novamente.",
+    "analyzingBaseImage": "Analisando imagem base...",
+    "formatLabels": {
+      "square": "Quadrado",
+      "portrait": "Retrato",
+      "stories": "Stories"
+    }
   },
   "preflight": {
     "title": "Análise de Criativo Base",
@@ -832,7 +869,11 @@
     "backToPlan": "← Voltar para Galeria",
     "reviewAll": "Revisar Tudo →",
     "backToGallery": "← Voltar para Galeria",
-    "exportSelected": "Exportar selecionados"
+    "exportSelected": "Exportar selecionados",
+    "goToStep": "Ir para {step}",
+    "currentStep": "{step}, etapa atual",
+    "completedStep": "{step}, etapa concluída",
+    "lockedStep": "{step}, etapa ainda não disponível"
   },
   "toast": {
     "regenerationQueued": "Regeneração enfileirada",

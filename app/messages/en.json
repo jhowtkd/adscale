@@ -42,6 +42,7 @@
     "retry": "Retry",
     "tryAgain": "Try Again",
     "download": "Download",
+    "downloadApprovedCreative": "Download approved creative",
     "preview": "Preview",
     "generate": "Generate",
     "regenerate": "Regenerate",
@@ -253,7 +254,8 @@
       "review": "Review",
       "approved": "Approved",
       "rejected": "Rejected"
-    }
+    },
+    "generateWithoutPlan": "Generate without Plan"
   },
   "briefing": {
     "title": "Campaign Brief",
@@ -504,7 +506,13 @@
     "exportPackageBulk": "Export package",
     "downloadZip": "Download ZIP",
     "createShareLink": "Create public link",
-    "liveUpdates": "Live updates"
+    "liveUpdates": "Live updates",
+    "previewBadge": "Preview",
+    "downloadFinalVersion": "Download the final version",
+    "previewDerivation": "Preview {name}",
+    "downloadDerivation": "Download {name}",
+    "regenerateDerivation": "Regenerate {name}",
+    "regenerateDerivationWithImprovements": "Regenerate {name} with suggested improvements"
   },
   "plan": {
     "title": "Creative Plan",
@@ -533,6 +541,29 @@
     "recommendedDimensions": "(recommended 1080×1080+)",
     "generatePreview": "Generate preview",
     "previewLabel": "Preview",
+    "targetFormatsHelp": "Select the formats you want to generate. Each format uses credits separately.",
+    "targetFormats": {
+      "square": {
+        "label": "1:1 Square",
+        "description": "Meta Feed, Google Display"
+      },
+      "portrait": {
+        "label": "4:5 Portrait",
+        "description": "Meta Feed, Google Discovery"
+      },
+      "stories": {
+        "label": "9:16 Stories",
+        "description": "Meta Stories/Reels, Google PMax"
+      },
+      "horizontal": {
+        "label": "1.91:1 Horizontal",
+        "description": "Meta Link, Google Display"
+      },
+      "widescreen": {
+        "label": "16:9 Widescreen",
+        "description": "Google Display, YouTube"
+      }
+    },
     "generateAll": "Generate all →",
     "generateDerivations": "Generate derivations →",
     "browseFiles": "Browse files",
@@ -546,7 +577,13 @@
     "hidePreflight": "Hide preflight analysis",
     "chooseFromLibrary": "Choose from library",
     "linking": "Linking...",
-    "linkFailed": "Failed to link asset. Please try again."
+    "linkFailed": "Failed to link asset. Please try again.",
+    "analyzingBaseImage": "Analyzing base image...",
+    "formatLabels": {
+      "square": "Square",
+      "portrait": "Portrait",
+      "stories": "Stories"
+    }
   },
   "preflight": {
     "title": "Pre-flight Creative Analysis",
@@ -831,7 +868,11 @@
     "backToPlan": "← Back to Gallery",
     "reviewAll": "Review All →",
     "backToGallery": "← Back to Gallery",
-    "exportSelected": "Export Selected"
+    "exportSelected": "Export Selected",
+    "goToStep": "Go to {step}",
+    "currentStep": "{step}, current step",
+    "completedStep": "{step}, completed step",
+    "lockedStep": "{step}, not available yet"
   },
   "toast": {
     "regenerationQueued": "Regeneration queued",
