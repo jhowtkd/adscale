@@ -48,18 +48,7 @@ export default function AutoBriefingModal({
   const uploadAsset = useUploadAsset(campaignId);
   const autoBriefing = useAutoBriefing(campaignId);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    const dropped = e.dataTransfer.files[0];
-    if (dropped) validateAndSetFile(dropped);
-  }, []);
-
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = e.target.files?.[0];
-    if (selected) validateAndSetFile(selected);
-  }, []);
-
-  const validateAndSetFile = (f: File) => {
+  const validateAndSetFile = useCallback((f: File) => {
     setError(null);
     setResult(null);
     setSelectedFields(new Set());
@@ -75,7 +64,18 @@ export default function AutoBriefingModal({
 
     setFile(f);
     setPreview(URL.createObjectURL(f));
-  };
+  }, [t]);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    const dropped = e.dataTransfer.files[0];
+    if (dropped) validateAndSetFile(dropped);
+  }, [validateAndSetFile]);
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files?.[0];
+    if (selected) validateAndSetFile(selected);
+  }, [validateAndSetFile]);
 
   const handleAnalyze = async () => {
     if (!file) return;

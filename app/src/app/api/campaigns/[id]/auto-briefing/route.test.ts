@@ -34,6 +34,7 @@ vi.mock("@/server/billing/gates", () => ({
   spendCreditsOrApiError: vi.fn(() => Promise.resolve(null)),
 }));
 
+import { NextResponse } from "next/server";
 import { getCampaignById } from "@/server/repositories/campaign";
 import { downloadBuffer } from "@/server/storage/r2";
 import { analyzeImageContent } from "@/server/ai/image-analysis";
@@ -68,7 +69,7 @@ describe("POST /api/campaigns/:id/auto-briefing", () => {
   });
 
   it("returns 400 when request body is invalid", async () => {
-    mockGetCampaignById.mockResolvedValue({ id: "camp-1" } as any);
+    mockGetCampaignById.mockResolvedValue({ id: "camp-1" } as unknown as Awaited<ReturnType<typeof getCampaignById>>);
 
     const res = await POST(
       new Request("http://localhost/api/campaigns/camp-1/auto-briefing", {
@@ -82,11 +83,9 @@ describe("POST /api/campaigns/:id/auto-briefing", () => {
   });
 
   it("returns 402 when credit spending fails", async () => {
-    mockGetCampaignById.mockResolvedValue({ id: "camp-1" } as any);
+    mockGetCampaignById.mockResolvedValue({ id: "camp-1" } as unknown as Awaited<ReturnType<typeof getCampaignById>>);
     mockSpendCredits.mockResolvedValue(
-      new Response(JSON.stringify({ error: "insufficientCredits" }), {
-        status: 402,
-      })
+      NextResponse.json({ error: "insufficientCredits" }, { status: 402 })
     );
 
     const res = await POST(
@@ -102,7 +101,7 @@ describe("POST /api/campaigns/:id/auto-briefing", () => {
   });
 
   it("analyzes image and returns extracted fields with confidence", async () => {
-    mockGetCampaignById.mockResolvedValue({ id: "camp-1" } as any);
+    mockGetCampaignById.mockResolvedValue({ id: "camp-1" } as unknown as Awaited<ReturnType<typeof getCampaignById>>);
     mockSpendCredits.mockResolvedValue(null);
     mockDownloadBuffer.mockResolvedValue(Buffer.from("fake-image"));
     mockAnalyzeImageContent.mockResolvedValue({
@@ -159,7 +158,7 @@ describe("POST /api/campaigns/:id/auto-briefing", () => {
   });
 
   it("uses webp mime type for webp images", async () => {
-    mockGetCampaignById.mockResolvedValue({ id: "camp-1" } as any);
+    mockGetCampaignById.mockResolvedValue({ id: "camp-1" } as unknown as Awaited<ReturnType<typeof getCampaignById>>);
     mockSpendCredits.mockResolvedValue(null);
     mockDownloadBuffer.mockResolvedValue(Buffer.from("fake-image"));
     mockAnalyzeImageContent.mockResolvedValue({
@@ -187,7 +186,7 @@ describe("POST /api/campaigns/:id/auto-briefing", () => {
   });
 
   it("returns low confidence when fields are empty", async () => {
-    mockGetCampaignById.mockResolvedValue({ id: "camp-1" } as any);
+    mockGetCampaignById.mockResolvedValue({ id: "camp-1" } as unknown as Awaited<ReturnType<typeof getCampaignById>>);
     mockSpendCredits.mockResolvedValue(null);
     mockDownloadBuffer.mockResolvedValue(Buffer.from("fake-image"));
     mockAnalyzeImageContent.mockResolvedValue({

@@ -34,7 +34,7 @@ function createWrapper() {
 
 function setupMocks(overrides?: {
   uploadMutateAsync?: () => Promise<{ key: string }>;
-  briefingMutateAsync?: () => Promise<any>;
+  briefingMutateAsync?: () => Promise<unknown>;
   uploadPending?: boolean;
   briefingPending?: boolean;
 }) {
@@ -64,12 +64,12 @@ function setupMocks(overrides?: {
   mockUseUploadAsset.mockReturnValue({
     mutateAsync: uploadMutateAsync,
     isPending: overrides?.uploadPending ?? false,
-  } as any);
+  } as unknown as ReturnType<typeof useUploadAsset>);
 
   mockUseAutoBriefing.mockReturnValue({
     mutateAsync: briefingMutateAsync,
     isPending: overrides?.briefingPending ?? false,
-  } as any);
+  } as unknown as ReturnType<typeof useAutoBriefing>);
 
   return { uploadMutateAsync, briefingMutateAsync };
 }
