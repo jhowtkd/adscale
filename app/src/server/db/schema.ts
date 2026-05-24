@@ -449,6 +449,34 @@ export const pendingUploads = adscaleSchema.table(
   ]
 );
 
+export const workspaceAssets = adscaleSchema.table(
+  "workspace_assets",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    key: text("key").notNull().unique(),
+    type: text("type").notNull(),
+    size: integer("size").notNull(),
+    width: integer("width"),
+    height: integer("height"),
+    tags: jsonb("tags").$type<string[]>(),
+    aiDescription: text("ai_description"),
+    source: text("source").notNull().default("upload"),
+    metadata: jsonb("metadata"),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("workspace_assets_workspace_id_idx").on(table.workspaceId),
+    index("workspace_assets_source_idx").on(table.source),
+  ]
+);
+
 export const creativePlans = adscaleSchema.table(
   "creative_plans",
   {

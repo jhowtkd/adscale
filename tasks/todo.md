@@ -1,3 +1,38 @@
+# Persistent Agent Memory via Zep
+
+Date: 2026-05-24
+Mode: Repo mapping / memory seeding
+
+## Checklist
+
+- [x] Review existing project lessons and repo instructions
+- [x] Map the live repository structure, runtime entrypoints, stack, and verification commands
+- [x] Extract durable agent guidance from repo docs and prior memory
+- [x] Store selective, source-backed memories in Zep without secrets or raw `.env` values
+- [x] Re-query Zep to verify the stored project memory is discoverable
+- [x] Document results and caveats in this task review
+
+## Review
+
+Seeded Zep with durable ADScale_2 memories covering:
+
+- Repo/app boundary: repo-level planning at `/Users/jhonatan/Repos/ADScale_2`, runnable app at `app/`.
+- Current stack from live files: Next.js 16.2.6, React 19.2.4, TypeScript, Tailwind 4, shadcn/base-nova, Drizzle/Postgres, Better Auth, Stripe, Inngest, R2, Resend, next-intl, Vitest, Sentry.
+- Source layout: App Router/API routes, domain components, server modules, repositories, AI, billing, jobs, storage, validation.
+- Env contract: required config names only, no raw secret values stored.
+- Verification commands from `app/`: focused Vitest, full test, lint, build, Drizzle checks/migrate.
+- Agent guidance: plan in `tasks/todo.md`, track progress, add review, verify before done, update lessons after corrections.
+- Product contracts: workspace isolation, CTA literal, target formats, creative levels, client references, diagnosis/QA, landing pages, persona simulations, review/export flows.
+- Drizzle migration caution: check journal/snapshots/live migrations before migration repairs.
+- Status-triage lesson: separate active blockers from historical checklist residue.
+
+Zep write verification:
+
+- Stored episodes: `3234d0b4-4edb-4c05-8cf4-afba626144b6`, `506f409a-0224-4b8b-b7e1-20a740fac4a4`, `e3aa8007-bcb8-4849-93db-a568dc8036cc`, `398ec023-5c8e-4299-9716-352c2f733f0f`, `50ff3d84-f21f-410e-81cc-a8ed08f5401d`, `ef339fb8-f323-4ed4-9e64-db90660e01eb`, `7f4091d3-40e7-48cc-a007-3c362f4e228d`, `573b2094-a830-4fa7-a95b-1069439b7280`, `06d25513-3095-4163-8bbd-ce116d30c5ea`.
+- Re-query confirmed discoverability for the app path, Render deploy facts, stack, source layout, and Drizzle/Postgres facts.
+
+Caveat: the default shared graph scope returned a Zep 404, so the memories were stored under the persistent user scope with `project=ADScale_2`. Agents should search Zep by project name before work.
+
 # Finalizacao do ADScale: Prompt, Auth e Billing
 
 Date: 2026-05-19
