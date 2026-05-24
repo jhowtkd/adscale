@@ -495,7 +495,8 @@
     "rejectAll": "Rejeitar todos",
     "exportPackageBulk": "Exportar pacote",
     "downloadZip": "Baixar ZIP",
-    "createShareLink": "Criar link público"
+    "createShareLink": "Criar link público",
+    "liveUpdates": "Atualizações em tempo real"
   },
   "plan": {
     "title": "Plano Criativo",

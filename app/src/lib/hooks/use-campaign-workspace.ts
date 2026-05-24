@@ -35,8 +35,20 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
   const { campaign: realCampaign, isLoading, isError } = useCampaign(campaignId);
   const updateCampaign = useUpdateCampaign(campaignId);
   const deleteCampaign = useDeleteCampaign();
-  const { data: derivationsData } = useDerivations(campaignId);
+
+  // Disable derivations polling when real-time subscriptions are active
+  const [enableDerivationsPolling, setEnableDerivationsPolling] = useState(true);
+  const { data: derivationsData } = useDerivations(campaignId, {
+    enablePolling: enableDerivationsPolling,
+  });
   const createDerivations = useCreateDerivations(campaignId);
+
+  useEffect(() => {
+    const hasActive = derivationsData?.some(
+      (d) => d.status === "queued" || d.status === "processing"
+    );
+    setEnableDerivationsPolling(!hasActive);
+  }, [derivationsData]);
   const regenerateMutation = useRegenerateDerivation();
   const exportMutation = useExport();
   const reviewMutation = useReviewDerivation();

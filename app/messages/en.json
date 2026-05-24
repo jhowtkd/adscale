@@ -495,7 +495,8 @@
     "rejectAll": "Reject all",
     "exportPackageBulk": "Export package",
     "downloadZip": "Download ZIP",
-    "createShareLink": "Create public link"
+    "createShareLink": "Create public link",
+    "liveUpdates": "Live updates"
   },
   "plan": {
     "title": "Creative Plan",

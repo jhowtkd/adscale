@@ -77,12 +77,17 @@ async function createDerivations(
   return data.derivations as Derivation[];
 }
 
-export function useDerivations(campaignId: string) {
+export function useDerivations(
+  campaignId: string,
+  options?: { enablePolling?: boolean }
+) {
+  const enablePolling = options?.enablePolling ?? true;
   return useQuery({
     queryKey: ["derivations", campaignId],
     queryFn: () => fetchDerivations(campaignId),
     enabled: !!campaignId && campaignId !== "new",
     refetchInterval: (query) => {
+      if (!enablePolling) return false;
       const data = query.state.data as Derivation[] | undefined;
       const hasPending = data?.some(
         (d) =>

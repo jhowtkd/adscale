@@ -179,6 +179,7 @@ export default function CampaignWorkspacePage() {
             {currentStep === 4 && (
               <DerivationsStep
                 derivations={allDerivations}
+                campaignId={campaignId}
                 generationMode={campaign?.generationMode}
                 onPreview={handlePreview}
                 onDownload={handleDownloadDerivation}

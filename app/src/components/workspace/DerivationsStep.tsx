@@ -11,6 +11,7 @@ const DerivationComparisonModal = dynamic(() => import("./DerivationComparisonMo
 import BulkActionsBar from "./BulkActionsBar";
 import { useZipExport } from "@/lib/hooks/use-zip-export";
 import { useShareLink } from "@/lib/hooks/use-share-link";
+import { useDerivationRealtime } from "@/lib/hooks/use-derivation-realtime";
 import type { Derivation } from "@/lib/mock-data";
 
 // ============================================
@@ -19,6 +20,7 @@ import type { Derivation } from "@/lib/mock-data";
 
 interface DerivationsStepProps {
   derivations: Derivation[];
+  campaignId?: string;
   generationMode?: "art_variation" | "format_adaptation" | "restyling";
   onPreview: (id: string) => void;
   onDownload: (id: string) => void;
@@ -48,11 +50,48 @@ const COMPLETED_STATUSES = new Set(["completed", "approved", "rejected"]);
 const ACTIVE_STATUSES = new Set(["queued", "processing", "generating"]);
 
 // ============================================
+// Real-time subscription helpers
+// ============================================
+
+function DerivationRealtimeSubscriber({
+  derivationId,
+  campaignId,
+}: {
+  derivationId: string;
+  campaignId: string;
+}) {
+  useDerivationRealtime(derivationId, campaignId);
+  return null;
+}
+
+function DerivationRealtimeSync({
+  derivations,
+  campaignId,
+}: {
+  derivations: Derivation[];
+  campaignId: string;
+}) {
+  const active = derivations.filter((d) => ACTIVE_STATUSES.has(d.status));
+  return (
+    <>
+      {active.map((d) => (
+        <DerivationRealtimeSubscriber
+          key={d.id}
+          derivationId={d.id}
+          campaignId={campaignId}
+        />
+      ))}
+    </>
+  );
+}
+
+// ============================================
 // Component
 // ============================================
 
 export default function DerivationsStep({
   derivations,
+  campaignId,
   generationMode,
   onPreview,
   onDownload,
@@ -280,6 +319,16 @@ export default function DerivationsStep({
                   ? t("failedCount", { count: failedCount })
                   : t("ready")}
             </span>
+            {campaignId && activeCount > 0 && (
+              <>
+                <span className="mx-1">·</span>
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--accent-mint)] opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--accent-mint)]" />
+                </span>
+                <span className="text-[var(--accent-mint)]">{t("liveUpdates")}</span>
+              </>
+            )}
           </div>
 
           {/* Grid size toggle */}
@@ -438,6 +487,14 @@ export default function DerivationsStep({
             {t("showAll")}
           </button>
         </div>
+      )}
+
+      {/* ---- Real-time subscribers (invisible) ---- */}
+      {campaignId && (
+        <DerivationRealtimeSync
+          derivations={derivations}
+          campaignId={campaignId}
+        />
       )}
 
       {/* ---- Generate More button ---- */}
