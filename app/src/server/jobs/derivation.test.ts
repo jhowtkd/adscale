@@ -90,6 +90,17 @@ vi.mock("../repositories/usage", () => ({
   trackUsage: vi.fn(),
 }));
 
+vi.mock("./client", () => ({
+  inngest: {
+    createFunction: vi.fn((_opts: unknown, handler: unknown) => ({
+      fn: handler,
+    })),
+    realtime: {
+      publish: vi.fn(() => Promise.resolve()),
+    },
+  },
+}));
+
 vi.mock("@/server/ai/creative-score", () => ({
   scoreDerivationHeuristic: vi.fn(() => ({
     qualityScore: 75,
@@ -181,6 +192,9 @@ async function runDerivationJob(eventData: Record<string, unknown>) {
       }
       return fn();
     }),
+    realtime: {
+      publish: vi.fn(() => Promise.resolve()),
+    },
   } as unknown;
 
   return (derivationJob as unknown as { fn: (args: { event: unknown; step: unknown }) => Promise<unknown> }).fn({ event, step });

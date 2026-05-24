@@ -1,4 +1,5 @@
 import { inngest } from "./client";
+import { derivationChannel } from "./channels";
 import { logger } from "@/lib/logger";
 import { db } from "../db";
 import { derivations } from "../db/schema";
@@ -170,12 +171,23 @@ export const derivationJob = inngest.createFunction(
           .where(eq(derivations.id, derivationId));
         await refreshCampaignStatus(campaignId, workspaceId);
       });
+      await step.realtime.publish("status-failed", derivationChannel({ derivationId }).status, {
+        derivationId,
+        status: "failed",
+        updatedAt: new Date().toISOString(),
+      });
     },
     triggers: [{ event: "derivation.generate" }],
   },
   async ({ event, step }) => {
     const { derivationId, campaignId, workspaceId, triggeredByUserId, locale, generationMode, variantIndex, ctaText, format, isPreview } = event.data;
     logger.info(`[derivationJob] START derivationId=${derivationId} campaignId=${campaignId} locale=${locale ?? "default"}`);
+
+    await inngest.realtime.publish(derivationChannel({ derivationId }).status, {
+      derivationId,
+      status: "queued",
+      updatedAt: new Date().toISOString(),
+    });
 
     // Idempotency check: if already completed, skip entirely
     const existing = await step.run("check-idempotency", async () => {
@@ -197,6 +209,11 @@ export const derivationJob = inngest.createFunction(
         .update(derivations)
         .set({ status: "processing", updatedAt: new Date() })
         .where(eq(derivations.id, derivationId));
+    });
+    await step.realtime.publish("status-processing", derivationChannel({ derivationId }).status, {
+      derivationId,
+      status: "processing",
+      updatedAt: new Date().toISOString(),
     });
 
     // 2. Fetch derivation, campaign, plan, asset, brand kit, competitors
@@ -327,6 +344,12 @@ export const derivationJob = inngest.createFunction(
         preflightResult: asset?.metadata ? (asset.metadata as Record<string, unknown>).preflightResult as import("@/server/ai/preflight-analysis").PreflightResult | undefined : null,
       });
       logger.info(`[generate-and-store-output] model=${env.OPENAI_IMAGE_MODEL} hasAsset=${!!asset} locale=${locale ?? "default"}`);
+
+      await step.realtime.publish("status-generating", derivationChannel({ derivationId }).status, {
+        derivationId,
+        status: "generating",
+        updatedAt: new Date().toISOString(),
+      });
 
       // Persist the built prompt before generation
       await db
@@ -486,6 +509,12 @@ export const derivationJob = inngest.createFunction(
         })
         .where(eq(derivations.id, derivationId));
       await refreshCampaignStatus(campaignId, workspaceId);
+    });
+    await step.realtime.publish("status-completed", derivationChannel({ derivationId }).status, {
+      derivationId,
+      status: "completed",
+      outputKey: generated.outputKey,
+      updatedAt: new Date().toISOString(),
     });
 
     // 4b. Send completion email if all derivations are done
