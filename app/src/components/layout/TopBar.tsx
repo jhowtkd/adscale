@@ -18,6 +18,8 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Search,
   Bell,
+  CheckCircle2,
+  AlertCircle,
   Clock3,
   CreditCard,
   LogOut,
@@ -26,8 +28,9 @@ import {
   User,
   Users,
 } from "lucide-react";
+import Link from "next/link";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, isToday, isYesterday, isThisWeek } from "date-fns";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -103,7 +106,7 @@ export default function TopBar() {
               onClick={() => router.push("/campaigns")}
               className={cn(
                 "hidden sm:flex items-center gap-2 px-5 py-2.5 text-sm text-[var(--text-secondary)]",
-                "border border-transparent rounded-[4px] hover:bg-[var(--surface-raised)] transition-colors"
+                "border border-transparent rounded-[4px] hover:bg-[var(--surface-raised)] transition-colors duration-200"
               )}
             >
               <Search size={16} strokeWidth={1.5} />
@@ -113,7 +116,7 @@ export default function TopBar() {
               href="/campaigns/new"
               className={cn(
                 "flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-[#0a0a0f]",
-                "bg-[#2fb67d] rounded-[4px] hover:bg-[#259d6a] transition-colors"
+                "bg-[#2fb67d] rounded-[4px] hover:bg-[#259d6a] transition-colors duration-200"
               )}
             >
               + Nova Campanha
@@ -358,41 +361,85 @@ function NotificationPanel({ items, onClose, onClear, onMarkAsRead, onMarkAllAsR
             {tCommon("noNotifications")}
           </div>
         ) : (
-          items.map((item) => (
-            <div
-              key={item.id}
-              onClick={() => {
-                if (!item.readAt) onMarkAsRead(item.id);
-              }}
-              className={cn(
-                "flex gap-3 border-b border-[var(--border-dim)] px-4 py-3 last:border-b-0 cursor-pointer transition-colors",
-                item.readAt ? "opacity-60" : "hover:bg-[var(--surface-base)]"
-              )}
-            >
-              <div className={cn(
-                "mt-0.5 flex h-8 w-8 items-center justify-center rounded-full shrink-0",
-                item.readAt
-                  ? "bg-[var(--surface-raised)] text-[var(--text-muted)]"
-                  : "bg-[var(--accent-mint-dim)] text-[var(--accent-mint)]"
-              )}>
-                <Bell size={14} />
+          groupNotificationsByDate(items, tCommon).map((group) => (
+            <div key={group.label}>
+              <div className="sticky top-0 bg-[var(--surface-raised)] px-4 py-1.5 text-xs font-medium text-[var(--text-muted)] border-b border-[var(--border-dim)]">
+                {group.label}
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-[var(--text-primary)]">{item.title}</p>
-                <p className="text-sm text-[var(--text-secondary)]">{item.message}</p>
-                <p className="mt-1 text-xs text-[var(--text-muted)]">
-                  {formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}
-                </p>
-              </div>
-              {!item.readAt && (
-                <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-[var(--accent-mint)]" />
-              )}
+              {group.items.map((item) => {
+            const href = item.campaignId
+              ? `/campaigns/${item.campaignId}${item.derivationId ? `?derivation=${item.derivationId}` : ""}`
+              : "#";
+            const Icon = item.type === "derivation_failed" ? AlertCircle : CheckCircle2;
+            const iconColor = item.type === "derivation_failed"
+              ? "text-[var(--accent-rose)] bg-[var(--accent-rose-dim)]"
+              : item.readAt
+                ? "bg-[var(--surface-raised)] text-[var(--text-muted)]"
+                : "bg-[var(--accent-mint-dim)] text-[var(--accent-mint)]";
+
+            return (
+              <Link
+                key={item.id}
+                href={href}
+                onClick={() => {
+                  if (!item.readAt) onMarkAsRead(item.id);
+                }}
+                className={cn(
+                  "flex gap-3 border-b border-[var(--border-dim)] px-4 py-3 last:border-b-0 transition-colors",
+                  item.readAt ? "opacity-60" : "hover:bg-[var(--surface-base)]"
+                )}
+              >
+                <div className={cn(
+                  "mt-0.5 flex h-8 w-8 items-center justify-center rounded-full shrink-0",
+                  iconColor
+                )}>
+                  <Icon size={14} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-[var(--text-primary)]">{item.title}</p>
+                  <p className="text-sm text-[var(--text-secondary)]">{item.message}</p>
+                  <p className="mt-1 text-xs text-[var(--text-muted)]">
+                    {formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}
+                  </p>
+                </div>
+                {!item.readAt && (
+                  <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-[var(--accent-mint)]" />
+                )}
+              </Link>
+            );
+          })}
             </div>
           ))
         )}
       </div>
     </motion.div>
   );
+}
+
+function groupNotificationsByDate(
+  items: NotificationItem[],
+  t: (key: string) => string
+) {
+  const groups: { label: string; items: NotificationItem[] }[] = [];
+  const today: NotificationItem[] = [];
+  const yesterday: NotificationItem[] = [];
+  const thisWeek: NotificationItem[] = [];
+  const older: NotificationItem[] = [];
+
+  for (const item of items) {
+    const date = new Date(item.createdAt);
+    if (isToday(date)) today.push(item);
+    else if (isYesterday(date)) yesterday.push(item);
+    else if (isThisWeek(date, { weekStartsOn: 1 })) thisWeek.push(item);
+    else older.push(item);
+  }
+
+  if (today.length) groups.push({ label: t("today") ?? "Hoje", items: today });
+  if (yesterday.length) groups.push({ label: t("yesterday") ?? "Ontem", items: yesterday });
+  if (thisWeek.length) groups.push({ label: t("thisWeek") ?? "Esta semana", items: thisWeek });
+  if (older.length) groups.push({ label: t("older") ?? "Anteriores", items: older });
+
+  return groups;
 }
 
 function getFocusableElements(container: HTMLElement): HTMLElement[] {
