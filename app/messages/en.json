@@ -422,6 +422,27 @@
           "impact": "TikTok performs best with 9:16. Consider switching the target format."
         }
       }
+    },
+    "extractFromImage": "Extract from image",
+    "extractFromImageDesc": "Upload an existing creative to auto-fill the briefing",
+    "dropzoneText": "Drag and drop or click to select",
+    "analyzingImage": "Analyzing creative with AI...",
+    "analyzeImage": "Analyze creative",
+    "analysisFailed": "AI analysis failed. Please try again.",
+    "fieldsDetected": "{count} fields detected",
+    "highConfidence": "High confidence",
+    "mediumConfidence": "Medium confidence",
+    "lowConfidence": "Low confidence",
+    "applyExtracted": "Apply ({count})",
+    "briefingExtracted": "Briefing auto-filled. Please review before continuing.",
+    "field": {
+      "client": "Client / Product",
+      "product": "Product",
+      "offer": "Offer",
+      "objective": "Objective",
+      "audience": "Audience",
+      "ctaText": "CTA",
+      "constraints": "Constraints"
     }
   },
   "derivation": {

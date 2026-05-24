@@ -154,20 +154,22 @@ export const derivationJob = inngest.createFunction(
   {
     id: "generate-derivation",
     retries: 2,
-    onFailure: async ({ event, error }) => {
+    onFailure: async ({ event, error, step }) => {
       const originalEvent = event.data.event;
       const { derivationId, campaignId, workspaceId } = originalEvent.data;
       const message = error instanceof Error ? error.message : "Unknown error";
       logger.error(`[Inngest onFailure] derivationId=${derivationId} error=${message}`);
-      await db
-        .update(derivations)
-        .set({
-          status: "failed",
-          prompt: message,
-          updatedAt: new Date(),
-        })
-        .where(eq(derivations.id, derivationId));
-      await refreshCampaignStatus(campaignId, workspaceId);
+      await step.run("mark-failed", async () => {
+        await db
+          .update(derivations)
+          .set({
+            status: "failed",
+            prompt: message,
+            updatedAt: new Date(),
+          })
+          .where(eq(derivations.id, derivationId));
+        await refreshCampaignStatus(campaignId, workspaceId);
+      });
     },
     triggers: [{ event: "derivation.generate" }],
   },

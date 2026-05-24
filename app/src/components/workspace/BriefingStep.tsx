@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Sparkles, Check, X, Plus, ImageOff } from "lucide-react";
+import { Sparkles, Check, X, Plus, ImageOff, ScanLine } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
@@ -41,6 +41,7 @@ import CompetitorAnalysisSection from "@/components/campaigns/CompetitorAnalysis
 import PreflightSummary from "./PreflightSummary";
 import CreativeDiagnosisCard from "./CreativeDiagnosisCard";
 import BriefingRestoreBanner from "./BriefingRestoreBanner";
+import AutoBriefingModal from "./AutoBriefingModal";
 // Types
 
 export interface BriefingFormData {
@@ -97,6 +98,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
 
   const [showNotes, setShowNotes] = useState(Boolean(campaign?.notes));
   const [errors, setErrors] = useState<Partial<Record<keyof BriefingFormData, string>>>({});
+  const [autoBriefingOpen, setAutoBriefingOpen] = useState(false);
 
   const [editingDiagnosis, setEditingDiagnosis] = useState(false);
   const [localDiagnosis, setLocalDiagnosis] = useState(() => {
@@ -630,6 +632,20 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
           <p className="text-xs text-[var(--text-muted)]">{tBriefing("offerHelp")}</p>
         </div>
 
+        {/* ---- Auto Briefing ---- */}
+        {campaign?.id && (
+          <div className="animate-fade-in" style={{ animationDelay: "375ms" }}>
+            <button
+              type="button"
+              onClick={() => setAutoBriefingOpen(true)}
+              className="w-full flex items-center justify-center gap-2 h-10 rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] text-[var(--text-secondary)] text-sm font-medium hover:border-[var(--accent-mint)] hover:text-[var(--accent-mint)] transition-colors"
+            >
+              <ScanLine size={16} />
+              {tBriefing("extractFromImage")}
+            </button>
+          </div>
+        )}
+
         {/* ---- Competitor Analysis ---- */}
         {campaign?.id && (
           <div className="animate-fade-in" style={{ animationDelay: "380ms" }}>
@@ -958,6 +974,19 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
           </div>
         )}
       </form>
+
+      {/* ---- Auto Briefing Modal ---- */}
+      {campaign?.id && (
+        <AutoBriefingModal
+          open={autoBriefingOpen}
+          onOpenChange={setAutoBriefingOpen}
+          campaignId={campaign.id}
+          onApply={(partial) => {
+            setFormData((prev) => ({ ...prev, ...partial }));
+            if (partial.constraints) setShowNotes(true);
+          }}
+        />
+      )}
 
       {/* ---- AI Assist Badge ---- */}
       <div className="fixed bottom-8 right-8 z-30 animate-fade-in" style={{ animationDelay: "500ms" }}>

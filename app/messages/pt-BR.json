@@ -422,6 +422,27 @@
           "impact": "TikTok funciona melhor em 9:16. Considere mudar o formato alvo."
         }
       }
+    },
+    "extractFromImage": "Extrair de imagem",
+    "extractFromImageDesc": "Faça upload de um criativo existente para preencher o briefing automaticamente",
+    "dropzoneText": "Arraste e solte ou clique para selecionar",
+    "analyzingImage": "Analisando criativo com IA...",
+    "analyzeImage": "Analisar criativo",
+    "analysisFailed": "Falha na análise com IA. Tente novamente.",
+    "fieldsDetected": "{count} campos detectados",
+    "highConfidence": "Alta confiança",
+    "mediumConfidence": "Confiança média",
+    "lowConfidence": "Baixa confiança",
+    "applyExtracted": "Aplicar ({count})",
+    "briefingExtracted": "Briefing preenchido automaticamente. Revise antes de continuar.",
+    "field": {
+      "client": "Cliente / Produto",
+      "product": "Produto",
+      "offer": "Oferta",
+      "objective": "Objetivo",
+      "audience": "Público-alvo",
+      "ctaText": "CTA",
+      "constraints": "Restrições"
     }
   },
   "derivation": {
