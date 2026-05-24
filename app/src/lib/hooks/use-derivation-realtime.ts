@@ -3,12 +3,19 @@
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRealtime } from "inngest/react";
-import { derivationChannel } from "@/server/jobs/channels";
 import { getDerivationRealtimeToken } from "@/app/actions/realtime";
+
+interface DerivationStatusMessage {
+  derivationId: string;
+  status: string;
+  imageUrl?: string | null;
+  outputKey?: string | null;
+  updatedAt: string;
+}
 
 export function useDerivationRealtime(derivationId: string, campaignId: string) {
   const queryClient = useQueryClient();
-  const channel = derivationChannel({ derivationId });
+  const channel = `derivation:${derivationId}`;
 
   const { connectionStatus, messages } = useRealtime({
     channel,
@@ -19,7 +26,7 @@ export function useDerivationRealtime(derivationId: string, campaignId: string) 
 
   // Sync incoming messages to TanStack Query cache
   useEffect(() => {
-    const statusMsg = messages.byTopic.status?.data;
+    const statusMsg = messages.byTopic.status?.data as DerivationStatusMessage | undefined;
     if (!statusMsg) return;
 
     // Update the derivations list cache
