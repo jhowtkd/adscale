@@ -6,6 +6,7 @@ export interface SmartResizeAnalysis {
   safeZones: Array<{ x: number; y: number; width: number; height: number; label: string }>;
   criticalElements: Array<{ x: number; y: number; width: number; height: number; type: string }>;
   platformRecommendations: Array<{ platform: string; recommendation: string; compliance: string }>;
+  validationIssues?: string[];
 }
 
 export async function analyzeSmartResize(imageBase64: string): Promise<SmartResizeAnalysis> {
@@ -63,15 +64,20 @@ Guidelines:
       },
     ],
     response_format: { type: "json_object" },
-    max_tokens: 1200,
+    max_tokens: 2200,
   });
 
   const content = response.choices[0]?.message?.content;
   if (!content) throw new Error("OpenAI returned empty content");
 
   try {
-    const analysis = JSON.parse(content) as SmartResizeAnalysis;
-    validateSmartResizeAnalysis(analysis);
+    const parsed = JSON.parse(content) as Partial<SmartResizeAnalysis>;
+    const analysis = normalizeSmartResizeAnalysis(parsed);
+    if (analysis.validationIssues?.length) {
+      logger.warn("[smart-resize] analysis returned unsafe crops", {
+        issues: analysis.validationIssues,
+      });
+    }
     return analysis;
   } catch {
     logger.error("[smart-resize] invalid JSON response", { content: content.slice(0, 200) });
@@ -79,19 +85,58 @@ Guidelines:
   }
 }
 
-function validateSmartResizeAnalysis(analysis: SmartResizeAnalysis): void {
-  for (const [ratio, crop] of Object.entries(analysis.crops)) {
-    if (crop.x < 0 || crop.y < 0 || crop.width <= 0 || crop.height <= 0) {
-      throw new Error(
-        `Invalid crop for ${ratio}: negative origin or non-positive size (x=${crop.x}, y=${crop.y}, width=${crop.width}, height=${crop.height})`
+function normalizeSmartResizeAnalysis(analysis: Partial<SmartResizeAnalysis>): SmartResizeAnalysis {
+  const issues: string[] = [];
+  const requiredRatios = ["1:1", "4:5", "9:16"];
+  const sourceCrops = analysis.crops && typeof analysis.crops === "object" ? analysis.crops : {};
+  const crops: SmartResizeAnalysis["crops"] = {};
+
+  for (const ratio of requiredRatios) {
+    const crop = sourceCrops[ratio];
+    if (!crop || typeof crop !== "object") {
+      issues.push(`Missing crop for ${ratio}; defaulted to full canvas`);
+      crops[ratio] = { x: 0, y: 0, width: 1, height: 1 };
+      continue;
+    }
+
+    const x = Number(crop.x);
+    const y = Number(crop.y);
+    const width = Number(crop.width);
+    const height = Number(crop.height);
+
+    if (![x, y, width, height].every(Number.isFinite)) {
+      issues.push(`Invalid crop for ${ratio}: non-numeric coordinates; defaulted to full canvas`);
+      crops[ratio] = { x: 0, y: 0, width: 1, height: 1 };
+      continue;
+    }
+
+    if (x < 0 || y < 0 || width <= 0 || height <= 0) {
+      issues.push(
+        `Invalid crop for ${ratio}: negative origin or non-positive size (x=${x}, y=${y}, width=${width}, height=${height})`
       );
     }
-    if (crop.x + crop.width > 1 || crop.y + crop.height > 1) {
-      throw new Error(
-        `Invalid crop for ${ratio}: exceeds canvas bounds (x+width=${crop.x + crop.width}, y+height=${crop.y + crop.height})`
+    if (x + width > 1 || y + height > 1) {
+      issues.push(
+        `Invalid crop for ${ratio}: exceeds canvas bounds (x+width=${x + width}, y+height=${y + height})`
       );
     }
+
+    const safeX = Math.min(Math.max(x, 0), 1);
+    const safeY = Math.min(Math.max(y, 0), 1);
+    const safeWidth = Math.min(Math.max(width, 0.001), 1 - safeX);
+    const safeHeight = Math.min(Math.max(height, 0.001), 1 - safeY);
+    crops[ratio] = { x: safeX, y: safeY, width: safeWidth, height: safeHeight };
   }
+
+  return {
+    crops,
+    safeZones: Array.isArray(analysis.safeZones) ? analysis.safeZones : [],
+    criticalElements: Array.isArray(analysis.criticalElements) ? analysis.criticalElements : [],
+    platformRecommendations: Array.isArray(analysis.platformRecommendations)
+      ? analysis.platformRecommendations
+      : [],
+    validationIssues: issues.length > 0 ? issues : undefined,
+  };
 }
 
 export function getPlatformRules(): Record<string, { textMaxPercent: number; safeZones: string[]; notes: string }> {

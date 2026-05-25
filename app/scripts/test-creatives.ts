@@ -105,22 +105,36 @@ function evaluateQuality(test: TestResult): QualityEvaluation {
 
   const result = test.result as Record<string, unknown>;
 
+  const toStringList = (value: unknown): string[] => {
+    if (Array.isArray(value)) {
+      return value.map((item) => String(item)).filter(Boolean);
+    }
+    if (value && typeof value === "object") {
+      return Object.values(value).map((item) => String(item)).filter(Boolean);
+    }
+    if (typeof value === "string") {
+      return [value];
+    }
+    return [];
+  };
+
   // 1. analyzeCreativeQa -> status can be "ready" | "warning" | "review" | "failed"
   if (test.function === "analyzeCreativeQa" || test.function.startsWith("output_qa_")) {
     const qaStatus = (result as { status?: string }).status;
+    const issues = toStringList(result.issues);
     if (qaStatus === "failed") {
-      blockingIssues.push(`QA failed: ${(result as { issues?: string[] }).issues?.join("; ") || "unknown issues"}`);
+      blockingIssues.push(`QA failed: ${issues.join("; ") || "unknown issues"}`);
       return { executionStatus, qualityStatus: "fail", blockingIssues };
     }
     if (qaStatus === "review" || qaStatus === "warning") {
-      blockingIssues.push(`QA requires review: ${(result as { issues?: string[] }).issues?.join("; ") || "check needed"}`);
+      blockingIssues.push(`QA requires review: ${issues.join("; ") || "check needed"}`);
       return { executionStatus, qualityStatus: "review", blockingIssues };
     }
   }
 
   // 2. analyzeDerivationCreative -> scoreIssues array
   if (test.function === "analyzeDerivationCreative" || test.function.startsWith("output_derivation_")) {
-    const scoreIssues = (result as { scoreIssues?: string[] }).scoreIssues;
+    const scoreIssues = toStringList(result.scoreIssues);
     if (scoreIssues && scoreIssues.length > 0) {
       blockingIssues.push(`Derivation issues: ${scoreIssues.join("; ")}`);
       // If issues mention "crop", "truncate", "missing", "CTA" -> fail, else review
@@ -144,6 +158,12 @@ function evaluateQuality(test: TestResult): QualityEvaluation {
 
   // 4. analyzeSmartResize -> crops that may exceed canvas
   if (test.function === "analyzeSmartResize") {
+    const validationIssues = toStringList(result.validationIssues);
+    if (validationIssues.length > 0) {
+      blockingIssues.push(...validationIssues.map((issue) => `SmartResize validation: ${issue}`));
+      return { executionStatus, qualityStatus: "fail", blockingIssues };
+    }
+
     const crops = (result as { crops?: Record<string, { x: number; y: number; width: number; height: number }> }).crops;
     if (crops) {
       for (const [ratio, crop] of Object.entries(crops)) {
