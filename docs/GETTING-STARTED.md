@@ -462,6 +462,17 @@ docker compose logs postgres
 
 Ensure the `init.sql` mounted at `/docker-entrypoint-initdb.d/init.sql` runs without errors.
 
+## Next Steps
+
+Once the dev server is running and the installation is verified, follow these guides for day-to-day development:
+
+| Document | What You'll Learn |
+|----------|-------------------|
+| [`DEVELOPMENT.md`](DEVELOPMENT.md) | Build commands, code style, linting, formatting, and branch conventions |
+| [`TESTING.md`](TESTING.md) | Test framework, running the suite, writing new tests, and CI integration |
+| [`API.md`](API.md) | Authentication, endpoints, request/response formats, and error codes |
+| [`DEPLOYMENT.md`](DEPLOYMENT.md) | Deployment targets, build pipeline, and rollback procedures |
+
 ---
 
 *Last updated: 2026-05-22*

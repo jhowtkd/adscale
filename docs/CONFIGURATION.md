@@ -288,3 +288,176 @@ Variables marked `sync: false` in `render.yaml` are **not** auto-created. You mu
 
 ### 10. Timezone hardcoded
 `src/i18n.ts` hardcodes `timeZone: "America/Sao_Paulo"`. If your user base spans multiple timezones, you may need to make this dynamic.
+
+---
+
+## Config File Format
+
+Key configuration files use JSON or ECMAScript module formats. Below are the top-level structures for the most frequently referenced files.
+
+### `components.json`
+
+```json
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "base-nova",
+  "rsc": true,
+  "tsx": true,
+  "tailwind": {
+    "config": "",
+    "css": "src/app/globals.css",
+    "baseColor": "neutral",
+    "cssVariables": true,
+    "prefix": ""
+  },
+  "iconLibrary": "lucide",
+  "aliases": {
+    "components": "@/components",
+    "utils": "@/lib/utils",
+    "ui": "@/components/ui",
+    "lib": "@/lib",
+    "hooks": "@/hooks"
+  }
+}
+```
+
+### `tsconfig.json`
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": ["node_modules"]
+}
+```
+
+### `postcss.config.mjs`
+
+```js
+export default {
+  plugins: {
+    "@tailwindcss/postcss": {},
+  },
+};
+```
+
+### `drizzle.config.ts`
+
+```ts
+export default defineConfig({
+  schema: "./src/server/db/schema.ts",
+  out: "./drizzle",
+  dialect: "postgresql",
+  schemaFilter: ["adscale_app"],
+  dbCredentials: { url: process.env.DATABASE_URL! },
+  migrations: { schema: "public" },
+});
+```
+
+---
+
+## Required vs Optional Settings
+
+At startup, `src/server/validation/env.ts` validates every environment variable with a Zod schema. **Missing required variables cause the process to throw immediately.** Optional variables are defined with `.optional()` or `.default()` in the schema.
+
+### Required (startup fails if missing)
+
+All variables listed in [Required Variables](#required-variables) are mandatory. The Zod schema does not provide fallbacks for these.
+
+### Optional (startup succeeds if missing)
+
+| Variable | Behavior when missing |
+|----------|----------------------|
+| `GOOGLE_CLIENT_ID` | OAuth login disabled |
+| `GOOGLE_CLIENT_SECRET` | OAuth login disabled |
+| `GITHUB_CLIENT_ID` | OAuth login disabled |
+| `GITHUB_CLIENT_SECRET` | OAuth login disabled |
+| `SENTRY_DSN` | Sentry error tracking disabled |
+| `SENTRY_ORG` | Sentry error tracking disabled |
+| `SENTRY_PROJECT` | Sentry error tracking disabled |
+
+### Optional with built-in defaults
+
+| Variable | Default | Source |
+|----------|---------|--------|
+| `OPENAI_TEXT_MODEL` | `gpt-5-mini` | Zod schema default |
+| `OPENAI_IMAGE_MODEL` | `gpt-image-2-2026-04-21` | Zod schema default |
+
+---
+
+## Defaults
+
+Beyond environment variable defaults, the application defines defaults in the database schema and API schemas.
+
+### Environment variable defaults
+
+| Variable | Default | Defined in |
+|----------|---------|------------|
+| `OPENAI_TEXT_MODEL` | `gpt-5-mini` | `src/server/validation/env.ts` |
+| `OPENAI_IMAGE_MODEL` | `gpt-image-2-2026-04-21` | `src/server/validation/env.ts` |
+
+### Database schema defaults
+
+| Column | Default | Context |
+|--------|---------|---------|
+| `locale` | `pt-BR` | `users` table |
+| `email_notifications_enabled` | `true` | `users` table |
+| `role` | `member` | `members`, `invitations` tables |
+| `status` | `pending` | `invitations`, `campaigns`, `tasks` tables |
+| `generation_mode` | `art_variation` | `creatives`, `variations` tables |
+| `creative_level` | `balanced` | `creatives`, `variations` tables |
+| `style_intensity` | `medium` | `creatives`, `variations` tables |
+| `creative_diagnosis_status` | `pending` | `creatives` table |
+| `cancel_at_period_end` | `false` | `subscriptions` table |
+| `is_selected` | `false` | `briefing_references` table |
+| `is_preview` | `false` | `creatives` table |
+| `qa_status` | `pending` | `creatives` table |
+| `source` | `upload` | `briefing_references` table |
+| `score_status` | `pending` | `score_requests` table |
+
+---
+
+## Per-Environment Overrides
+
+The application supports environment-specific configuration through multiple mechanisms.
+
+### Local development
+
+- **`.env.local`** — Loaded automatically by Next.js during `next dev`. Copy from `.env.example` and fill in real values.
+- **`TEST_DATABASE_URL`** — Used by `config/vitest.config.ts` and `scripts/setup-test-db.ts` when running tests. Falls back to `postgres://test:test@localhost:5433/adscale_test` in the setup script if unset.
+
+### Docker
+
+- **`.env.docker`** — Explicitly loaded by the `app` service in `docker-compose.yml` via `env_file`. This file should mirror `.env.local` but with Docker-network-compatible hostnames (e.g., `postgres:5432` instead of `localhost:5432`).
+
+### Production (Render)
+
+- **`render.yaml`** — Defines environment variables directly. Some are hardcoded (e.g., `NODE_ENV=production`), some are auto-generated (`BETTER_AUTH_SECRET`), some reference the managed database (`DATABASE_URL`), and sensitive values are marked `sync: false` and must be set manually in the Render dashboard.
+
+### `NODE_ENV` conditionals
+
+Several behaviors change based on `NODE_ENV`:
+
+| Behavior | Development | Production | Test |
+|----------|-------------|------------|------|
+| Console removal | No | Yes (`next.config.ts`) | No |
+| Sentry traces sample rate | `1.0` | `0.1` (`instrumentation.ts`) | `1.0` |
+| Sentry debug mode | Yes | No (`instrumentation.ts`) | No |
+| Error stack traces in API responses | Yes | No (`lib/api-response.ts`) | No |
+| React Query devtools | Yes | No (`components/providers/QueryProvider.tsx`) | No |
+| Rate limit strictness | Relaxed | Strict (`lib/rate-limit.ts`) | Relaxed |

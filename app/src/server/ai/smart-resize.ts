@@ -1,8 +1,5 @@
-import OpenAI from "openai";
-import { env } from "@/server/validation/env";
+import { getOpenAI } from "./utils";
 import { logger } from "@/lib/logger";
-
-const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 60_000 });
 
 export interface SmartResizeAnalysis {
   crops: Record<string, { x: number; y: number; width: number; height: number }>;
@@ -18,7 +15,7 @@ export async function analyzeSmartResize(imageBase64: string): Promise<SmartResi
     ? imageBase64
     : `data:image/png;base64,${imageBase64}`;
 
-  const response = await openai.chat.completions.create({
+  const response = await getOpenAI().chat.completions.create({
     model: "gpt-4o-mini",
     messages: [
       {
@@ -73,10 +70,27 @@ Guidelines:
   if (!content) throw new Error("OpenAI returned empty content");
 
   try {
-    return JSON.parse(content) as SmartResizeAnalysis;
+    const analysis = JSON.parse(content) as SmartResizeAnalysis;
+    validateSmartResizeAnalysis(analysis);
+    return analysis;
   } catch {
     logger.error("[smart-resize] invalid JSON response", { content: content.slice(0, 200) });
     throw new Error("Invalid analysis response from AI");
+  }
+}
+
+function validateSmartResizeAnalysis(analysis: SmartResizeAnalysis): void {
+  for (const [ratio, crop] of Object.entries(analysis.crops)) {
+    if (crop.x < 0 || crop.y < 0 || crop.width <= 0 || crop.height <= 0) {
+      throw new Error(
+        `Invalid crop for ${ratio}: negative origin or non-positive size (x=${crop.x}, y=${crop.y}, width=${crop.width}, height=${crop.height})`
+      );
+    }
+    if (crop.x + crop.width > 1 || crop.y + crop.height > 1) {
+      throw new Error(
+        `Invalid crop for ${ratio}: exceeds canvas bounds (x+width=${crop.x + crop.width}, y+height=${crop.y + crop.height})`
+      );
+    }
   }
 }
 

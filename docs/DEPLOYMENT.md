@@ -526,6 +526,66 @@ docker compose logs -f
 docker compose logs -f app
 ```
 
+## Build Pipeline
+
+The project uses a **CI-only GitHub Actions workflow** (`.github/workflows/ci.yml`). There is no automated deploy step in CI — Render deployments are triggered by the Blueprint's `autoDeployTrigger: commit`.
+
+### CI Workflow
+
+**Triggers:**
+
+- Push to `main`
+- Pull request to `main`
+
+**Job:** `test` running on `ubuntu-latest`
+
+**Steps:**
+
+| Step | Command |
+|------|---------|
+| Checkout | `actions/checkout@v4` |
+| Setup Node.js 20 | `actions/setup-node@v4` with npm cache (`cache-dependency-path: app/package-lock.json`) |
+| Install dependencies | `cd app && npm ci` |
+| Lint | `cd app && npm run lint` |
+| Type check | `cd app && npm run typecheck` |
+| Run migrations | `cd app && npx drizzle-kit migrate` |
+| Run tests | `cd app && npm test -- --run` |
+| Build | `cd app && npm run build` |
+
+**Test database service:**
+
+A PostgreSQL 16 (Alpine) container is started as a service for the migration and test steps:
+
+| Setting | Value |
+|---------|-------|
+| Image | `postgres:16-alpine` |
+| Database | `adscale_test` |
+| User / Password | `test` / `test` |
+| Port | `5432` |
+
+**Build environment variables:**
+
+The `npm run build` step runs with mock values so the Next.js standalone build can complete without production secrets:
+
+| Variable | Mock Value |
+|----------|------------|
+| `DATABASE_URL` | `postgres://test:test@localhost:5432/adscale_test` |
+| `BETTER_AUTH_SECRET` | `01234567890123456789012345678901` |
+| `BETTER_AUTH_URL` | `http://localhost:3000` |
+| `APP_URL` | `http://localhost:3000` |
+| `OPENAI_API_KEY` | `sk-test1234567890123456789012345678901234567890` |
+| `OPENAI_TEXT_MODEL` | `gpt-4o` |
+| `OPENAI_IMAGE_MODEL` | `gpt-image-1` |
+| `R2_ACCOUNT_ID` | `test` |
+| `R2_ACCESS_KEY_ID` | `test` |
+| `R2_SECRET_ACCESS_KEY` | `test` |
+| `R2_BUCKET` | `test` |
+| `R2_PUBLIC_BASE_URL` | `https://test.example.com` |
+| `INNGEST_EVENT_KEY` | `test` |
+| `INNGEST_SIGNING_KEY` | `test` |
+
+<!-- VERIFY: The CI workflow does not include a deploy or release job. Render handles deployment separately via the Blueprint auto-deploy trigger. -->
+
 ---
 
 ## Related Documentation

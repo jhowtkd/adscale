@@ -1,8 +1,5 @@
-import OpenAI from "openai";
-import { env } from "@/server/validation/env";
+import { getOpenAI } from "./utils";
 import { logger } from "@/lib/logger";
-
-const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 60_000 });
 
 export interface CopyVariant {
   headline: string;
@@ -44,7 +41,7 @@ export async function generateCopyVariants(
 
   logger.info("[copy-generator] generating variants", { count, tones: requestedTones });
 
-  const response = await openai.chat.completions.create({
+  const response = await getOpenAI().chat.completions.create({
     model: "gpt-4o-mini",
     messages: [
       {

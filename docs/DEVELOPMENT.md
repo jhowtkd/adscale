@@ -656,6 +656,80 @@ Before opening a PR or merging:
 - Screenshots (for UI changes)
 - Testing steps
 
+## Local Setup
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd ADScale_2/app
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Configure environment variables**
+   ```bash
+   cp .env.example .env
+   ```
+   Fill in the required values. See [CONFIGURATION.md](./CONFIGURATION.md) for a full description of each variable.
+
+4. **Start developing**
+   Follow the daily workflow in [Development Environment Overview](#development-environment-overview).
+
+## Build Commands
+
+All scripts are defined in `app/package.json`. The key commands for building, testing, and verification:
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Starts Next.js and Inngest dev server together |
+| `npm run dev:next` | Starts Next.js dev server only (port 3000) |
+| `npm run build` | Production build with standalone output |
+| `npm start` | Starts production server (requires build first) |
+| `npm run lint` | Runs ESLint across the codebase |
+| `npm test` | Runs Vitest test suite once |
+| `npm run test:db:setup` | Sets up the test database |
+| `npm run test:db:teardown` | Tears down the test database |
+| `npm run inngest:dev` | Starts Inngest CLI manually |
+| `npm run db:generate` | Generates Drizzle migration files |
+| `npm run db:migrate` | Runs pending migrations |
+| `npm run db:push` | Pushes schema changes directly (dev only) |
+| `npm run db:studio` | Opens Drizzle Studio |
+
+> See [Available npm Scripts](#available-npm-scripts) for additional context and usage notes.
+
+## Code Style
+
+### ESLint
+
+The project uses **ESLint** with the Next.js preset (`eslint-config-next`).
+
+- **Config file:** `app/eslint.config.mjs`
+- **Run:** `npm run lint`
+
+No additional formatter (Prettier or Biome) is configured. ESLint handles both linting and formatting rules.
+
+For detailed conventions, see [Code Style & Linting](#code-style--linting).
+
+## Branch Conventions
+
+- **Default branch:** `main`
+- **Branch naming patterns:**
+  - `feature/description` — new features
+  - `fix/description` — bug fixes
+  - `chore/description` — maintenance and tooling
+
+## PR Process
+
+1. Create a branch from `main` following the [branch conventions](#branch-conventions) above.
+2. Ensure `npm run lint` and `npm test` pass locally.
+3. If you changed the database schema, run `npm run db:generate` and commit the resulting migration files.
+4. Push your branch and open a pull request against `main`.
+5. Include a clear description of what changed and why, testing steps, and screenshots for UI changes.
+6. Wait for CI to pass before merging.
+
 ---
 
 *Document generated from codebase exploration. Last updated: 2026-05-22.*

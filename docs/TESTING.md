@@ -702,6 +702,43 @@ The test suite currently covers:
 
 ---
 
+## Coverage Requirements
+
+No coverage threshold is currently configured in `vitest.config.ts` or `package.json`.
+
+You can generate a coverage report locally using:
+
+```bash
+npx vitest run --config config/vitest.config.ts --coverage
+```
+
+> Note: `@vitest/coverage-v8` must be installed for coverage reports.
+
+---
+
+## CI Integration
+
+Tests run in GitHub Actions via the **CI** workflow (`.github/workflows/ci.yml`).
+
+**Triggers:**
+- Push to `main`
+- Pull requests targeting `main`
+
+**Test job steps:**
+
+| Step | Command |
+|------|---------|
+| Install dependencies | `cd app && npm ci` |
+| Run lint | `cd app && npm run lint` |
+| Run typecheck | `cd app && npm run typecheck` |
+| Run migrations | `cd app && npx drizzle-kit migrate` |
+| Run tests | `cd app && npm test -- --run` |
+| Run build | `cd app && npm run build` |
+
+The job runs on `ubuntu-latest` with a PostgreSQL 16 service container. The test database is provisioned from migrations using `DATABASE_URL=postgres://test:test@localhost:5432/adscale_test`.
+
+---
+
 ## Related Documentation
 
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — System architecture and module boundaries

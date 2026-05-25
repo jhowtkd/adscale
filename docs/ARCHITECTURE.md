@@ -698,6 +698,32 @@ Server verifies upload, inserts campaign_assets record
 - **SQL injection prevention** via Drizzle ORM parameterized queries
 - **XSS mitigation** via React's built-in escaping + `escapeHtml` in landing page renderer
 
+## Key Abstractions
+
+The codebase is organized around a small set of load-bearing abstractions that shape how data, auth, AI, and UI interact.
+
+| Abstraction | Location | Purpose |
+|-------------|----------|---------|
+| `requireWorkspaceAccess` | `server/auth/workspace.ts` | Resolves the authenticated user and their active workspace on every protected API request. Throws `WorkspaceAuthError` if the session is missing or the user has no workspace. |
+| `WorkspaceAuthError` | `server/auth/workspace.ts` | Typed error class carrying an `AuthErrorCode` (`unauthorized`, `noWorkspace`, `forbidden`). API error middleware translates these into localized HTTP responses. |
+| `env` / `envSchema` | `server/validation/env.ts` | Zod schema that validates all `process.env` values at startup. Uses a fail-fast Proxy that throws on first access to any invalid/missing variable. |
+| `apiError` / `handleApiError` | `lib/api-response.ts` | Standardized API error envelope with localized messages via `next-intl`, plus a centralized exception handler that logs to Sentry and returns safe 500 responses. |
+| Repository functions | `server/repositories/*.ts` | Per-domain data access layer (Campaign, Derivation, Asset, Billing, etc.). Each file exports typed `Create*Input` / `Update*Input` interfaces and async query functions over Drizzle ORM. |
+| `useAppStore` | `lib/store.ts` | Zustand store for lightweight client UI state (`sidebarCollapsed`, `toasts`, `currentPageTitle`). Only `sidebarCollapsed` is persisted to `localStorage`. |
+| TanStack Query hooks | `lib/hooks/*.ts` | Server-state hooks per domain (`useDashboard`, `useCampaigns`, `useDerivations`, etc.). Handle caching, invalidation, and background refetching. |
+| `buildDerivationPrompt` | `server/ai/prompt-builder.ts` | Composable prompt builder that assembles OpenAI image-generation prompts from campaign briefs, creative plans, client references, brand kits, and competitor context. |
+| `CreativeContract` | `server/ai/creative-contract.ts` | Structured contract extracted from reference assets that defines required elements (CTA, offer, legal terms), optional elements, and format rules. Used to validate AI output compliance. |
+| `canSpend` / `spendCreditsOrApiError` | `server/billing/credits.ts` / `server/billing/gates.ts` | Credit gate abstractions that check active subscription + available credits before any chargeable operation. Returns HTTP 402 when credits are exhausted. |
+| `derivationJob` | `server/jobs/derivation.ts` | Inngest background function that runs the 8-step derivation pipeline (idempotency → processing → generate → normalize → upload → score → track usage). |
+| `AdFormat` / `AD_FORMATS` | `lib/formats.ts` | Canonical definitions for supported ad aspect ratios (1:1, 4:5, 9:16, 1.91:1, 16:9) including dimensions, platform mappings, and OpenAI size targets. |
+
+### Design Patterns
+
+- **Repository Pattern** — All database access lives in `server/repositories/` (and `server/db/repositories/`). Route handlers never import Drizzle directly; they call repository functions that accept `workspaceId` for tenant scoping.
+- **Fail-Fast Config** — The `env` Proxy throws immediately on first access to any missing or invalid environment variable, preventing the app from starting in a misconfigured state.
+- **Typed Error Boundaries** — `WorkspaceAuthError` carries a discriminating code, allowing middleware and API handlers to map errors to precise HTTP status codes and localized messages.
+- **Composable Prompt Builder** — The AI layer assembles prompts through dedicated builder functions (`buildDerivationPrompt`, `buildCreativeDiagnosisPrompt`, `buildLandingPagePrompt`) rather than string concatenation inline, keeping prompt engineering testable and versioned.
+
 ---
 
 *Document generated from codebase exploration. Last updated: 2026-05-22.*

@@ -1117,3 +1117,154 @@ Receives event triggers from the Inngest platform and serves the function regist
 ### Credit Spending
 
 Most generative endpoints (`plan`, `derivations`, `restyling`, `regeneration`, `delivery-package`, `landing-page`) call `spendCreditsOrApiError` before proceeding. If the workspace has insufficient credits, an error response is returned immediately.
+
+## Endpoints Overview
+
+The following tables summarize every HTTP endpoint. See the [Endpoints](#endpoints) section above for full request/response schemas and examples.
+
+### System & Auth
+
+| Method | Path | Description | Auth Required |
+|--------|------|-------------|---------------|
+| GET | `/api/health` | Public health check | No |
+| GET, POST | `/api/auth/[...all]` | Better Auth proxy (login, register, OAuth, etc.) | No |
+
+### User
+
+| Method | Path | Description | Auth Required |
+|--------|------|-------------|---------------|
+| DELETE | `/api/user/account` | Delete account and all workspace data | Yes |
+| GET | `/api/user/export` | Export all user data | Yes |
+| POST | `/api/user/locale` | Update locale preference | Yes |
+| GET, POST | `/api/user/onboarding` | Get or complete onboarding status | Yes |
+
+### Dashboard
+
+| Method | Path | Description | Auth Required |
+|--------|------|-------------|---------------|
+| GET | `/api/dashboard` | Workspace dashboard metrics | Yes |
+| GET | `/api/dashboard/stats` | Dashboard statistics | Yes |
+
+### Campaigns
+
+| Method | Path | Description | Auth Required |
+|--------|------|-------------|---------------|
+| GET, POST | `/api/campaigns` | List or create campaigns | Yes |
+| DELETE, GET, PATCH | `/api/campaigns/:id` | Get, update, or delete a campaign | Yes |
+
+### Campaign Assets
+
+| Method | Path | Description | Auth Required |
+|--------|------|-------------|---------------|
+| GET | `/api/campaigns/:id/assets` | List campaign assets | Yes |
+| GET, POST | `/api/campaigns/:id/assets/:assetId/preflight` | Get or run preflight analysis | Yes |
+| POST | `/api/campaigns/:id/assets/complete` | Complete a presigned upload | Yes |
+| POST | `/api/campaigns/:id/assets/link` | Link a workspace asset to the campaign | Yes |
+| POST | `/api/campaigns/:id/assets/presign` | Request a presigned upload URL | Yes |
+| POST | `/api/campaigns/:id/assets/upload` | Server-side asset upload | Yes |
+
+### Campaign Competitors
+
+| Method | Path | Description | Auth Required |
+|--------|------|-------------|---------------|
+| GET, POST | `/api/campaigns/:id/competitors` | List or add competitor analyses | Yes |
+| DELETE, PATCH | `/api/campaigns/:id/competitors/:competitorId` | Update or delete a competitor | Yes |
+| POST | `/api/campaigns/:id/competitors/analyze` | Analyze competitor creative | Yes |
+| POST | `/api/campaigns/:id/competitors/strategy` | Generate differentiation strategy | Yes |
+
+### Campaign Plan, Diagnosis & Briefing
+
+| Method | Path | Description | Auth Required |
+|--------|------|-------------|---------------|
+| GET, PATCH, POST | `/api/campaigns/:id/plan` | Get, generate, or approve creative plan | Yes |
+| PATCH, POST | `/api/campaigns/:id/diagnosis` | Get/run or manually update diagnosis | Yes |
+| POST | `/api/campaigns/:id/diagnosis/regenerate` | Force regenerate diagnosis | Yes |
+| POST | `/api/campaigns/:id/auto-briefing` | Auto-generate briefing from image | Yes |
+| GET | `/api/campaigns/:id/smart-resize-preview` | Smart resize analysis preview | Yes |
+
+### Derivations
+
+| Method | Path | Description | Auth Required |
+|--------|------|-------------|---------------|
+| GET, POST | `/api/campaigns/:id/derivations` | List or queue derivations | Yes |
+| PATCH | `/api/derivations/:id/review` | Approve or reject a derivation | Yes |
+| POST | `/api/derivations/:id/regenerate` | Create a child derivation with feedback | Yes |
+| POST | `/api/derivations/:id/delivery-package` | Generate format-adapted child derivations | Yes |
+| POST | `/api/derivations/:id/qa` | Run creative QA analysis | Yes |
+| POST | `/api/derivations/:id/landing-page` | Generate a landing page | Yes |
+| POST | `/api/derivations/:id/save-reference` | Save as client profile reference | Yes |
+| GET, POST | `/api/derivations/:id/copy-variants` | List or generate copy variants | Yes |
+| PATCH | `/api/derivations/:id/copy-variants/:variantId` | Select or deselect a copy variant | Yes |
+
+### Client Profiles
+
+| Method | Path | Description | Auth Required |
+|--------|------|-------------|---------------|
+| GET, POST | `/api/client-profiles` | List or create client profiles | Yes |
+| GET, POST | `/api/client-profiles/:id/references` | List or add reference assets | Yes |
+
+### Templates
+
+| Method | Path | Description | Auth Required |
+|--------|------|-------------|---------------|
+| GET, POST | `/api/templates` | List or create templates | Yes |
+| DELETE, GET | `/api/templates/:id` | Get or delete a template | Yes |
+
+### Restyling & Quick Tools
+
+| Method | Path | Description | Auth Required |
+|--------|------|-------------|---------------|
+| POST | `/api/restyling` | Standalone restyling workflow | Yes |
+| POST | `/api/quick-tools/restyling` | Restyling shortcut | Yes |
+| POST | `/api/briefing-doctor/analyze` | Analyze campaign briefing | Yes |
+
+### Exports
+
+| Method | Path | Description | Auth Required |
+|--------|------|-------------|---------------|
+| POST | `/api/exports` | Export derivations as images | Yes |
+| POST | `/api/export/zip` | Export derivations as a ZIP archive | Yes |
+
+### Billing
+
+| Method | Path | Description | Auth Required |
+|--------|------|-------------|---------------|
+| GET | `/api/billing/history` | Credit transaction history | Yes |
+| GET | `/api/billing/status` | Get billing status | Yes |
+| POST | `/api/billing/checkout` | Create Stripe Checkout session | Yes |
+| POST | `/api/billing/portal` | Create Stripe Customer Portal session | Yes |
+| POST | `/api/billing/webhook` | Stripe webhook receiver | No |
+
+### Workspace
+
+| Method | Path | Description | Auth Required |
+|--------|------|-------------|---------------|
+| GET, POST | `/api/workspace/assets` | List or upload workspace assets | Yes |
+| DELETE, GET, PATCH | `/api/workspace/assets/:id` | Get, update, or delete a workspace asset | Yes |
+| DELETE, GET, POST | `/api/workspace/brand-kit` | Get, create, or delete brand kit | Yes |
+| POST | `/api/workspace/brand-kit/extract` | Extract brand kit from image | Yes |
+| POST | `/api/workspace/brand-kit/logo` | Upload brand kit logo | Yes |
+| POST | `/api/workspace/invites/accept` | Accept a workspace invitation | Yes |
+| DELETE, GET, PATCH, POST | `/api/workspace/invites` | Manage workspace invitations | Yes |
+| DELETE, GET | `/api/workspace/members` | List or remove workspace members | Yes |
+
+### Notifications & Share
+
+| Method | Path | Description | Auth Required |
+|--------|------|-------------|---------------|
+| DELETE, GET, PATCH | `/api/notifications` | List, mark all read, or delete notifications | Yes |
+| PATCH | `/api/notifications/:id/read` | Mark a single notification as read | Yes |
+| POST | `/api/notifications/webhook` | Internal notification delivery webhook | No |
+| POST | `/api/share` | Create a shareable link for derivations | Yes |
+
+### Creatives
+
+| Method | Path | Description | Auth Required |
+|--------|------|-------------|---------------|
+| GET, POST | `/api/creatives/:id/persona-simulation` | Get or run persona simulation | Yes |
+
+### Platform
+
+| Method | Path | Description | Auth Required |
+|--------|------|-------------|---------------|
+| GET, POST, PUT | `/api/inngest` | Inngest event receiver and sync | No |
