@@ -296,6 +296,9 @@
     "analyzing": "Analyzing...",
     "applySuggestion": "Apply suggestion",
     "aiSuggestion": "AI Suggestion",
+    "formatSquare": "Square",
+    "formatPortrait": "Portrait",
+    "formatStories": "Stories",
     "ctaFormat": "CTA format {format}",
     "modes": {
       "artVariation": {

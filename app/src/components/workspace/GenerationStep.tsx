@@ -23,12 +23,6 @@ interface GenerationStepProps {
   onBack: () => void;
 }
 
-const targetFormatOptions = [
-  { id: "1:1", label: "1:1", description: "Quadrado" },
-  { id: "4:5", label: "4:5", description: "Retrato" },
-  { id: "9:16", label: "9:16", description: "Stories" },
-];
-
 const generationModes = [
   {
     value: "art_variation" as const,
@@ -86,6 +80,12 @@ export default function GenerationStep({
 }: GenerationStepProps) {
   const t = useTranslations("generation");
   const tCommon = useTranslations("common");
+
+  const targetFormatOptions = [
+    { id: "1:1", label: "1:1", description: t("formatSquare") },
+    { id: "4:5", label: "4:5", description: t("formatPortrait") },
+    { id: "9:16", label: "9:16", description: t("formatStories") },
+  ];
 
   const [config, setConfig] = useState<GenerationConfig>({
     generationMode: initialData?.generationMode ?? "art_variation",
