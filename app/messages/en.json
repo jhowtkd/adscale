@@ -129,6 +129,7 @@
     "of": "of",
     "briefingSaved": "Briefing saved",
     "draftSaved": "Draft saved",
+    "generationConfigSaved": "Generation settings saved",
     "planApproved": "Creative plan approved!",
     "failedApprovePlan": "Failed to approve plan",
     "derivationsQueued": "Creative variants queued for generation",
@@ -280,6 +281,45 @@
       "rejected": "Rejected"
     },
     "generateWithoutPlan": "Generate without Plan"
+  },
+  "generation": {
+    "derivationMode": "Derivation Mode",
+    "creativityProfile": "Creativity Profile",
+    "outputFormat": "Output Format",
+    "ctaPerPiece": "CTA per Piece",
+    "useAllSuggestions": "Use all AI suggestions",
+    "suggestion": "Suggestion",
+    "generatingSuggestions": "Generating suggestions...",
+    "formatHelp": "Select the desired formats for the variants",
+    "ctaPlaceholder": "e.g., Buy Now, Learn More",
+    "ctaPiece": "CTA piece {number}",
+    "ctaFormat": "CTA format {format}",
+    "modes": {
+      "artVariation": {
+        "label": "Vary art",
+        "description": "Generate new versions in the same format as the base creative"
+      },
+      "formatAdaptation": {
+        "label": "Vary format",
+        "description": "Adapt the creative to 1:1, 4:5, and 9:16"
+      },
+      "restyling": {
+        "label": "Restyling",
+        "description": "Apply a new visual style while maintaining structure"
+      }
+    },
+    "creativeLevel": {
+      "conservative": "Conservative",
+      "balanced": "Balanced",
+      "bold": "Bold",
+      "extreme": "Extreme"
+    },
+    "creativeLevel.contract": {
+      "conservative": "Maintains the essence of the original piece, changing only subtle details",
+      "balanced": "Balances innovation and familiarity, ideal for A/B testing",
+      "bold": "Significant visual changes while preserving the central message",
+      "extreme": "Complete reinvention of the piece, maximum creativity and differentiation"
+    }
   },
   "briefing": {
     "title": "Campaign Brief",
@@ -928,13 +968,17 @@
   "steps": {
     "brief": "Brief",
     "upload": "Upload",
+    "generation": "Generation",
     "plan": "Creative Plan",
     "gallery": "Gallery",
     "review": "Review",
     "continueToUpload": "Continue to Upload →",
     "backToBrief": "← Back to Brief",
-    "generatePlan": "Generate variants →",
+    "continueToGeneration": "Continue to Generation →",
     "backToUpload": "← Back to Upload",
+    "continueToPlan": "Continue to Plan →",
+    "backToGeneration": "← Back to Generation",
+    "generatePlan": "Generate variants →",
     "startGeneration": "Start Generation →",
     "backToPlan": "← Back to Gallery",
     "reviewAll": "Review All →",

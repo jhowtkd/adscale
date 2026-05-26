@@ -129,6 +129,7 @@
     "of": "de",
     "briefingSaved": "Briefing salvo",
     "draftSaved": "Rascunho salvo",
+    "generationConfigSaved": "Configurações de geração salvas",
     "planApproved": "Plano criativo aprovado!",
     "failedApprovePlan": "Falha ao aprovar plano",
     "derivationsQueued": "Variações criativas enfileiradas para geração",
@@ -280,6 +281,45 @@
       "rejected": "Rejeitada"
     },
     "generateWithoutPlan": "Gerar sem Plano"
+  },
+  "generation": {
+    "derivationMode": "Modo de Derivação",
+    "creativityProfile": "Perfil de Criatividade",
+    "outputFormat": "Formato de Saída",
+    "ctaPerPiece": "CTA por Peça",
+    "useAllSuggestions": "Usar todas as sugestões da IA",
+    "suggestion": "Sugestão",
+    "generatingSuggestions": "Gerando sugestões...",
+    "formatHelp": "Selecione os formatos desejados para as variações",
+    "ctaPlaceholder": "ex: Compre Agora, Saiba Mais",
+    "ctaPiece": "CTA peça {number}",
+    "ctaFormat": "CTA formato {format}",
+    "modes": {
+      "artVariation": {
+        "label": "Variar arte",
+        "description": "Gere novas versões no mesmo formato da peça base"
+      },
+      "formatAdaptation": {
+        "label": "Variar formato",
+        "description": "Adapte a peça para 1:1, 4:5 e 9:16"
+      },
+      "restyling": {
+        "label": "Restilização",
+        "description": "Aplique um novo estilo visual mantendo a estrutura"
+      }
+    },
+    "creativeLevel": {
+      "conservative": "Conservador",
+      "balanced": "Equilibrado",
+      "bold": "Ousado",
+      "extreme": "Extremo"
+    },
+    "creativeLevel.contract": {
+      "conservative": "Mantém a essência da peça original, alterando apenas detalhes sutis",
+      "balanced": "Equilibra inovação e familiaridade, ideal para testes A/B",
+      "bold": "Mudanças visuais significativas enquanto preserva a mensagem central",
+      "extreme": "Reinvenção completa da peça, máxima criatividade e diferenciação"
+    }
   },
   "briefing": {
     "title": "Briefing da Campanha",
@@ -929,13 +969,17 @@
   "steps": {
     "brief": "Brief",
     "upload": "Upload",
+    "generation": "Geração",
     "plan": "Plano Criativo",
     "gallery": "Galeria",
     "review": "Revisão",
     "continueToUpload": "Continuar para Upload →",
     "backToBrief": "← Voltar para Brief",
-    "generatePlan": "Gerar variações →",
+    "continueToGeneration": "Continuar para Geração →",
     "backToUpload": "← Voltar para Upload",
+    "continueToPlan": "Continuar para Plano →",
+    "backToGeneration": "← Voltar para Geração",
+    "generatePlan": "Gerar variações →",
     "startGeneration": "Iniciar Geração →",
     "backToPlan": "← Voltar para Galeria",
     "reviewAll": "Revisar Tudo →",
