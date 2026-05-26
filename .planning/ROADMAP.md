@@ -116,6 +116,95 @@
 
 ---
 
+---
+
+## Phase 18: Formulário Simplificado de Briefing
+
+**Goal:** Replace the multi-step campaign brief wizard with a minimal single-page form. Only campaign name, client, and client profile are required. Key creative upload is optional at creation time.
+
+**Requirements:**
+- BRIEF-01: User can create campaign with only name, client, and client profile
+- BRIEF-02: Creation form is a single page (no multi-step wizard)
+- BRIEF-03: Required fields are campaign name, client, and client profile
+- BRIEF-04: Key creative upload is optional at creation time
+
+**Success Criteria:**
+1. User sees a single-page campaign creation form with exactly 3 required fields
+2. Form validates name, client, and client profile before allowing submission
+3. Key creative upload is optional and does not block campaign creation
+4. Old multi-step wizard is replaced (routes redirect or are removed)
+5. UI uses existing design system (shadcn/ui components, Tailwind, i18n)
+
+---
+
+## Phase 19: Análise Visual e Dedução com IA
+
+**Goal:** When user uploads a key creative, trigger async AI visual analysis to deduce campaign fields (product, objective, target audience, tone, offer, platforms). Present deduced fields in an editable form. Handle failures gracefully.
+
+**Requirements:**
+- AI-01: Key creative upload triggers automatic visual analysis via AI
+- AI-02: AI deduces campaign fields from image (product, objective, target audience, tone, offer, platforms)
+- AI-03: Deduced fields are presented in an editable form
+- AI-04: User can edit any auto-filled field before saving
+- AI-05: If analysis fails, form loads empty without blocking the flow
+- AI-06: Analysis is non-blocking; upload completes independently of analysis
+- AI-07: Analysis result is stored in the asset metadata
+
+**Success Criteria:**
+1. Uploading a key creative triggers async AI visual analysis automatically
+2. AI returns structured deduced fields with confidence indicators
+3. Deduced fields appear in editable form alongside the simplified brief fields
+4. User can modify any auto-filled value before saving the campaign
+5. Analysis failures are handled gracefully — form works without AI data, user sees a non-blocking warning
+6. Analysis results persist in campaign asset metadata for future reference
+7. Visual analysis completes within 10 seconds for typical images (≤5MB)
+
+---
+
+## Phase 20: Modo de Geração com Configurações Avançadas
+
+**Goal:** Move advanced briefing settings (creativity profile, per-piece CTA, output format, derivation mode) into the generation mode screen. Add AI-powered suggestions for creativity profile and CTAs based on campaign context and visual analysis.
+
+**Requirements:**
+- GEN-01: Creativity profile (conservative, balanced, bold) configurable in generation mode
+- GEN-02: Per-piece CTA configurable in generation mode with AI suggestions
+- GEN-03: Output format (1:1, 4:5, 9:16) configurable in generation mode
+- GEN-04: Derivation mode (art variation, format adaptation, restyling) in generation mode
+- GEN-05: AI suggestions for creativity profile based on analyzed piece
+- GEN-06: AI suggestions for CTAs based on campaign context
+
+**Success Criteria:**
+1. Generation mode screen shows creativity profile selector with 3 clear options
+2. CTA fields appear per-piece with AI-generated suggestions that can be accepted or edited
+3. Output format selector adapts to the chosen derivation mode (e.g., disabled for format adaptation)
+4. AI suggests a creativity profile based on visual analysis of the uploaded piece
+5. AI suggests CTAs relevant to the deduced campaign context and product
+6. All advanced settings are pre-filled with sensible defaults from brief/AI analysis
+7. Settings persist when user navigates back from generation mode without losing state
+
+---
+
+## Phase 21: Remoção do Briefing Doctor e Limpeza
+
+**Goal:** Remove Briefing Doctor from the entire codebase — UI components, API routes, hooks, translations, and documentation. Ensure no references remain and build stays clean.
+
+**Requirements:**
+- CLEAN-01: Briefing Doctor is removed from the creation flow
+- CLEAN-02: Briefing Doctor routes, hooks, and components are removed
+- CLEAN-03: Briefing Doctor translations are removed from i18n files
+- CLEAN-04: Briefing Doctor references are removed from documentation
+
+**Success Criteria:**
+1. No Briefing Doctor UI appears anywhere in the app (creation, edit, or campaign view)
+2. All Briefing Doctor components, hooks, and API routes are deleted from the codebase
+3. i18n files contain no Briefing Doctor translation keys in PT-BR or EN
+4. Documentation (README, inline comments, type definitions) has no Briefing Doctor references
+5. No runtime errors from missing Briefing Doctor code or broken imports
+6. Build passes without Briefing Doctor imports; lint is clean
+7. Existing campaigns that used Briefing Doctor still display correctly (data preserved, UI removed)
+
+---
+
 ## Phase 15: Régua de Criatividade, CTA Exato e Quick Tool de Restilização
 
 **Goal:** Rewrite creativity templates with operational rules, enforce literal CTA text, and add a quick restyling tool to the home screen.
@@ -191,8 +280,29 @@
 | REST-04 | 15 | ✓ | Planned |
 | REST-05 | 15 | ✓ | Planned |
 | REST-06 | 15 | ✓ | Planned |
+| BRIEF-01 | 18 | ✓ | Planned |
+| BRIEF-02 | 18 | ✓ | Planned |
+| BRIEF-03 | 18 | ✓ | Planned |
+| BRIEF-04 | 18 | ✓ | Planned |
+| AI-01 | 19 | ✓ | Planned |
+| AI-02 | 19 | ✓ | Planned |
+| AI-03 | 19 | ✓ | Planned |
+| AI-04 | 19 | ✓ | Planned |
+| AI-05 | 19 | ✓ | Planned |
+| AI-06 | 19 | ✓ | Planned |
+| AI-07 | 19 | ✓ | Planned |
+| GEN-01 | 20 | ✓ | Planned |
+| GEN-02 | 20 | ✓ | Planned |
+| GEN-03 | 20 | ✓ | Planned |
+| GEN-04 | 20 | ✓ | Planned |
+| GEN-05 | 20 | ✓ | Planned |
+| GEN-06 | 20 | ✓ | Planned |
+| CLEAN-01 | 21 | ✓ | Planned |
+| CLEAN-02 | 21 | ✓ | Planned |
+| CLEAN-03 | 21 | ✓ | Planned |
+| CLEAN-04 | 21 | ✓ | Planned |
 
-**Coverage:** 36/36 requirements mapped across 6 phases ✓
+**Coverage:** 57/57 requirements mapped across 10 phases ✓
 
 ---
 
@@ -206,6 +316,10 @@
 | Phase 13 — Prompt e Renderização Fiel | ✅ Complete | Prompt string tests + sharp normalization |
 | Phase 14 — Galeria, Mensagens e QA Final | ✅ Complete | Build + 67 tests passing |
 | Phase 15 — Régua de Criatividade, CTA Exato e Quick Tool de Restilização | ✅ Complete | prompt-builder tests + build clean |
+| Phase 18 — Formulário Simplificado de Briefing | 🔄 Planned | — |
+| Phase 19 — Análise Visual e Dedução com IA | 🔄 Planned | — |
+| Phase 20 — Modo de Geração com Configurações Avançadas | 🔄 Planned | — |
+| Phase 21 — Remoção do Briefing Doctor e Limpeza | 🔄 Planned | — |
 
 **Plans:**
 2/2 plans complete

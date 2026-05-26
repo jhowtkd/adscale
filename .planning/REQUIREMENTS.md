@@ -54,27 +54,27 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| BRIEF-01 | Phase 18 | Pending |
-| BRIEF-02 | Phase 18 | Pending |
-| BRIEF-03 | Phase 18 | Pending |
-| BRIEF-04 | Phase 18 | Pending |
-| AI-01 | Phase 19 | Pending |
-| AI-02 | Phase 19 | Pending |
-| AI-03 | Phase 19 | Pending |
-| AI-04 | Phase 19 | Pending |
-| AI-05 | Phase 19 | Pending |
-| AI-06 | Phase 19 | Pending |
-| AI-07 | Phase 19 | Pending |
-| GEN-01 | Phase 20 | Pending |
-| GEN-02 | Phase 20 | Pending |
-| GEN-03 | Phase 20 | Pending |
-| GEN-04 | Phase 20 | Pending |
-| GEN-05 | Phase 20 | Pending |
-| GEN-06 | Phase 20 | Pending |
-| CLEAN-01 | Phase 21 | Pending |
-| CLEAN-02 | Phase 21 | Pending |
-| CLEAN-03 | Phase 21 | Pending |
-| CLEAN-04 | Phase 21 | Pending |
+| BRIEF-01 | Phase 18 | Planned |
+| BRIEF-02 | Phase 18 | Planned |
+| BRIEF-03 | Phase 18 | Planned |
+| BRIEF-04 | Phase 18 | Planned |
+| AI-01 | Phase 19 | Planned |
+| AI-02 | Phase 19 | Planned |
+| AI-03 | Phase 19 | Planned |
+| AI-04 | Phase 19 | Planned |
+| AI-05 | Phase 19 | Planned |
+| AI-06 | Phase 19 | Planned |
+| AI-07 | Phase 19 | Planned |
+| GEN-01 | Phase 20 | Planned |
+| GEN-02 | Phase 20 | Planned |
+| GEN-03 | Phase 20 | Planned |
+| GEN-04 | Phase 20 | Planned |
+| GEN-05 | Phase 20 | Planned |
+| GEN-06 | Phase 20 | Planned |
+| CLEAN-01 | Phase 21 | Planned |
+| CLEAN-02 | Phase 21 | Planned |
+| CLEAN-03 | Phase 21 | Planned |
+| CLEAN-04 | Phase 21 | Planned |
 
 **Coverage:**
 - v5.0 requirements: 21 total
@@ -83,4 +83,4 @@
 
 ---
 *Requirements defined: 2026-05-26*
-*Last updated: 2026-05-26 after initial definition*
+*Last updated: 2026-05-26 after v5.0 roadmap creation*
