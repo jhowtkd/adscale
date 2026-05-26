@@ -15,15 +15,6 @@ vi.mock("next-intl", () => ({
   },
 }));
 
-vi.mock("@/lib/hooks/use-briefing-doctor", () => ({
-  useBriefingDoctorAnalysis: () => ({
-    mutate: vi.fn(),
-    data: null,
-    isPending: false,
-    isError: false,
-  }),
-}));
-
 vi.mock("@/lib/hooks/use-creative-diagnosis", () => ({
   useGenerateCreativeDiagnosis: () => ({ mutate: vi.fn(), isPending: false }),
   useUpdateCreativeDiagnosis: () => ({ mutate: vi.fn(), isPending: false }),
