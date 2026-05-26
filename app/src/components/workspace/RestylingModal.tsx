@@ -311,9 +311,9 @@ function FilePicker({
         htmlFor={id}
         className={cn(
           "flex min-h-[116px] cursor-pointer flex-col justify-between rounded-lg border border-dashed border-[var(--border-medium)] bg-[var(--surface-raised)] p-4 transition-colors",
-          "hover:border-[var(--accent-mint)] hover:bg-white",
+          "hover:border-[var(--accent-mint)] hover:bg-[var(--surface-base)]",
           disabled && "pointer-events-none opacity-60",
-          error && "border-[var(--accent-rose)] bg-red-50"
+          error && "border-[var(--accent-rose)] bg-[rgba(225,29,72,0.12)]"
         )}
       >
         <span className="flex items-start gap-3">

@@ -33,7 +33,7 @@ export default function AppShell({ children }: AppShellProps) {
       <TopBar />
 
       {/* Main Content Area */}
-      <main
+      <div
         className={cn(
           "min-h-screen pt-14 pb-20 md:pb-0 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] md:ml-[var(--sidebar-width)] animate-fade-in"
         )}
@@ -42,10 +42,10 @@ export default function AppShell({ children }: AppShellProps) {
           {children}
         </div>
         <Footer />
-      </main>
+      </div>
 
       <nav
-        className="fixed bottom-0 left-0 right-0 z-50 grid grid-cols-4 border-t border-[var(--border-dim)] bg-white/95 px-2 py-2 backdrop-blur md:hidden"
+        className="fixed bottom-0 left-0 right-0 z-50 grid grid-cols-4 border-t border-[var(--border-dim)] bg-[var(--surface-base)]/95 px-2 py-2 backdrop-blur md:hidden"
         aria-label="Primary mobile navigation"
       >
         <MobileNavItem

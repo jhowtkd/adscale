@@ -13,6 +13,7 @@ import { updateCampaign } from "@/server/repositories/campaign";
 import { getUserLocale } from "@/server/repositories/user";
 import { inngest } from "@/server/jobs/client";
 import { spendCreditsOrApiError } from "@/server/billing/gates";
+import { recordBrandMemoryEvent } from "@/server/memory/brand-memory-dispatch";
 
 const bodySchema = z.object({
   formats: z.array(z.string()).min(1),
@@ -120,6 +121,30 @@ export async function POST(
         status: "generating",
       });
     }
+
+    await recordBrandMemoryEvent({
+      type: "delivery_prepared",
+      workspaceId: workspace.id,
+      campaignId: source.campaignId,
+      derivationId: source.id,
+      occurredAt: new Date(),
+      summary: `Delivery package was prepared from approved creative ${source.id}.`,
+      payload: {
+        source: {
+          id: source.id,
+          format: source.format,
+          ctaText: source.ctaText,
+          generationMode: source.generationMode,
+          qualityScore: source.qualityScore,
+          qaStatus: source.qaStatus,
+        },
+        requestedFormats,
+        readyFormats,
+        queued,
+        failed,
+        skipped: [...activeFormats],
+      },
+    });
 
     return NextResponse.json({
       source: { id: source.id, format: source.format },

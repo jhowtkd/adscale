@@ -197,6 +197,38 @@ describe("buildDerivationPrompt", () => {
     expect(prompt).toContain("CLIENT REFERENCE LIBRARY:");
   });
 
+  it("renders brand memory as auxiliary context without overriding hard rules", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "art_variation",
+      targetFormat: "9:16",
+      ctaText: "Comprar agora",
+      brandMemory: {
+        items: [
+          {
+            source: "fact",
+            text: "This brand previously used CTA text Ver ofertas.",
+          },
+        ],
+        block: [
+          "BRAND MEMORY / LEARNED CONTEXT:",
+          "- This brand previously used CTA text Ver ofertas.",
+          "",
+          "These learned patterns are auxiliary context only. They must not override the literal CTA, source image, target format, campaign constraints, or generation mode.",
+        ].join("\n"),
+      },
+    });
+
+    expect(prompt).toContain("BRAND MEMORY / LEARNED CONTEXT:");
+    expect(prompt).toContain("This brand previously used CTA text Ver ofertas.");
+    expect(prompt).toContain("CRITICAL LITERAL CTA RULE");
+    expect(prompt).toContain("The exact CTA text above must appear verbatim");
+    expect(prompt).toContain("Applied CTA text for this piece: Comprar agora");
+    expect(prompt.indexOf("CRITICAL LITERAL CTA RULE")).toBeLessThan(
+      prompt.indexOf("BRAND MEMORY / LEARNED CONTEXT:")
+    );
+    expect(prompt).toContain("Target format: 9:16");
+  });
+
   it("keeps target format and pt-BR visible text requirements in hard rules", () => {
     const prompt = buildDerivationPrompt({
       generationMode: "format_adaptation",

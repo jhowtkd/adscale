@@ -371,6 +371,14 @@
     "cancelProfile": "Cancel",
     "noReferences": "No references yet for this profile",
     "selectReferences": "Select references to use",
+    "brandMemoryTitle": "Learned about this brand",
+    "brandMemoryLoading": "Looking up recent learnings...",
+    "brandMemorySource": {
+      "fact": "learned",
+      "episode": "history",
+      "entity": "profile",
+      "context": "context"
+    },
     "brandKitTitle": "Brand Kit",
     "brandKitFonts": "Fonts",
     "brandKitTone": "Tone",

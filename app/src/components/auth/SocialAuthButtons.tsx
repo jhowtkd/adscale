@@ -63,7 +63,7 @@ export default function SocialAuthButtons({ mode }: SocialAuthButtonsProps) {
         <Button
           type="button"
           variant="outline"
-          className="w-full gap-2 border-[var(--border-dim)] bg-white hover:bg-gray-50 text-[var(--text-primary)]"
+          className="w-full gap-2 border-[var(--border-dim)] bg-[var(--surface-raised)] hover:bg-[var(--surface-base)] text-[var(--text-primary)]"
           onClick={() => handleSocialSignIn("google")}
           disabled={loading !== null}
         >
@@ -74,7 +74,7 @@ export default function SocialAuthButtons({ mode }: SocialAuthButtonsProps) {
         <Button
           type="button"
           variant="outline"
-          className="w-full gap-2 border-[var(--border-dim)] bg-white hover:bg-gray-50 text-[var(--text-primary)]"
+          className="w-full gap-2 border-[var(--border-dim)] bg-[var(--surface-raised)] hover:bg-[var(--surface-base)] text-[var(--text-primary)]"
           onClick={() => handleSocialSignIn("github")}
           disabled={loading !== null}
         >

@@ -17,10 +17,11 @@ import { createNotification } from "../repositories/notification";
 import { getAssetsByCampaign } from "../repositories/asset";
 import { getPlanByCampaign } from "../repositories/plan";
 import { getDerivationById, updateDerivationScore } from "../repositories/derivation";
-import { getClientReferencesByIds } from "../repositories/client-reference";
+import { getClientProfile, getClientReferencesByIds } from "../repositories/client-reference";
 import { trackUsage } from "../repositories/usage";
 import { getBrandKitByWorkspace } from "../db/repositories/brand-kit";
 import { getCompetitorAnalysesByCampaign } from "../repositories/competitor-analysis";
+import { getBrandMemoryContext } from "@/server/memory/brand-memory-context";
 import OpenAI, { toFile } from "openai";
 import sharp from "sharp";
 import { env } from "../validation/env";
@@ -232,7 +233,7 @@ export const derivationJob = inngest.createFunction(
     });
 
     // 2. Fetch derivation, campaign, plan, asset, brand kit, competitors
-    const { campaign, plan, asset, derivation, parentDerivation, brandKit, competitorAnalyses } = await step.run(
+    const { campaign, plan, asset, derivation, parentDerivation, brandKit, competitorAnalyses, clientProfile } = await step.run(
       "fetch-context",
       async () => {
         logger.info(`[fetch-context] derivationId=${derivationId}`);
@@ -258,11 +259,14 @@ export const derivationJob = inngest.createFunction(
           }
         }
 
+        const clientProfile = campaign.clientProfileId
+          ? await getClientProfile(workspaceId, campaign.clientProfileId)
+          : null;
         const brandKit = await getBrandKitByWorkspace(workspaceId);
         const competitorAnalyses = await getCompetitorAnalysesByCampaign(campaignId, workspaceId);
 
         logger.info(`[fetch-context] plan=${plan?.id ?? "none"} asset=${asset?.key ?? "none"} parent=${parentDerivation?.id ?? "none"} brandKit=${brandKit ? "yes" : "no"} competitors=${competitorAnalyses.length}`);
-        return { derivation, campaign, plan, asset, parentDerivation, brandKit, competitorAnalyses };
+        return { derivation, campaign, plan, asset, parentDerivation, brandKit, competitorAnalyses, clientProfile };
       }
     );
 
@@ -281,10 +285,26 @@ export const derivationJob = inngest.createFunction(
       }));
     });
 
+    const effectiveGenerationMode = generationMode ?? derivation.generationMode ?? "art_variation";
+    const targetFormat = format ?? derivation.format ?? "1:1";
+    const effectiveCtaText = ctaText ?? derivation.ctaText ?? undefined;
+
+    const brandMemory = await step.run("fetch-brand-memory", async () =>
+      getBrandMemoryContext({
+        workspaceId,
+        clientProfileName: clientProfile?.name ?? null,
+        client: campaign.client,
+        product: campaign.product,
+        offer: campaign.offer,
+        audience: campaign.audience,
+        generationMode: effectiveGenerationMode,
+        targetFormat,
+        ctaText: effectiveCtaText ?? null,
+      })
+    );
+
     // 4. Download, generate, and store inside one step to avoid persisting large blobs
     const generated = await step.run("generate-and-store-output", async () => {
-      const effectiveGenerationMode = generationMode ?? derivation.generationMode ?? "art_variation";
-      const targetFormat = format ?? derivation.format ?? "1:1";
       let referenceBuffer: Buffer | null = null;
       let referenceMimeType: string | null = null;
 
@@ -317,12 +337,13 @@ export const derivationJob = inngest.createFunction(
         locale,
         generationMode: effectiveGenerationMode,
         variantIndex: variantIndex ?? derivation.variantIndex ?? 0,
-        ctaText: ctaText ?? derivation.ctaText ?? undefined,
+        ctaText: effectiveCtaText,
         targetFormat,
         creativeLevel: campaign.creativeLevel ?? "balanced",
         creativeDiagnosis: normalizeCreativeDiagnosis(campaign.creativeDiagnosis) ?? null,
         packageSource: usesParentOutput ? "approved_derivation" : "campaign_asset",
         clientReferences,
+        brandMemory,
         brandKit: brandKit ? {
           name: brandKit.name,
           description: brandKit.description ?? undefined,

@@ -84,6 +84,11 @@ vi.mock("../repositories/derivation", () => ({
 
 vi.mock("../repositories/client-reference", () => ({
   getClientReferencesByIds: vi.fn(() => Promise.resolve([])),
+  getClientProfile: vi.fn(() => Promise.resolve(null)),
+}));
+
+vi.mock("@/server/memory/brand-memory-context", () => ({
+  getBrandMemoryContext: vi.fn(() => Promise.resolve({ items: [], block: "" })),
 }));
 
 vi.mock("../repositories/usage", () => ({
@@ -174,6 +179,7 @@ import { getPlanByCampaign } from "../repositories/plan";
 import { getBrandKitByWorkspace } from "../db/repositories/brand-kit";
 import { getCompetitorAnalysesByCampaign } from "../repositories/competitor-analysis";
 import { downloadBuffer } from "../storage/r2";
+import { getBrandMemoryContext } from "@/server/memory/brand-memory-context";
 
 const mockGetDerivationById = vi.mocked(getDerivationById);
 const mockGetCampaignById = vi.mocked(getCampaignById);
@@ -182,6 +188,7 @@ const mockGetPlanByCampaign = vi.mocked(getPlanByCampaign);
 const mockGetBrandKitByWorkspace = vi.mocked(getBrandKitByWorkspace);
 const mockGetCompetitorAnalysesByCampaign = vi.mocked(getCompetitorAnalysesByCampaign);
 const mockDownloadBuffer = vi.mocked(downloadBuffer);
+const mockGetBrandMemoryContext = vi.mocked(getBrandMemoryContext);
 
 async function runDerivationJob(eventData: Record<string, unknown>) {
   const event = { data: eventData } as unknown;
@@ -206,6 +213,7 @@ describe("derivationJob", () => {
     sharpOperations.length = 0;
     mockGetBrandKitByWorkspace.mockResolvedValue(null as never);
     mockGetCompetitorAnalysesByCampaign.mockResolvedValue([]);
+    mockGetBrandMemoryContext.mockResolvedValue({ items: [], block: "" });
   });
 
   it("normalizes generated images without cropping the foreground", async () => {

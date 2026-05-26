@@ -37,7 +37,6 @@ vi.mock("next-intl/server", () => ({
 }));
 
 import { getDerivationById } from "@/server/repositories/derivation";
-import { getLandingPageById } from "@/server/repositories/landing-page";
 import { getCampaignById } from "@/server/repositories/campaign";
 import {
   createPersonaSimulation,
@@ -47,7 +46,6 @@ import {
 import { simulatePersonas } from "@/server/ai/persona-simulator";
 
 const mockGetDerivationById = vi.mocked(getDerivationById);
-const mockGetLandingPageById = vi.mocked(getLandingPageById);
 const mockGetCampaignById = vi.mocked(getCampaignById);
 const mockGetPersonaSimulationBySource = vi.mocked(getPersonaSimulationBySource);
 const mockCreatePersonaSimulation = vi.mocked(createPersonaSimulation);

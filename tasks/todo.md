@@ -1,3 +1,72 @@
+# Zep Brand Memory Engine
+
+Date: 2026-05-26
+Mode: Product architecture planning and implementation
+
+## Checklist
+
+- [x] Review local Zep docs and current ADScale memory surfaces
+- [x] Confirm Postgres remains source of truth and Zep is auxiliary learned context
+- [x] Draft implementation plan in `docs/plans/2026-05-26-zep-brand-memory-engine.md`
+- [x] Review plan with user before implementation
+- [x] Implement Wave 1: Zep foundation and disabled-safe memory subsystem
+- [x] Implement Wave 2: async ingestion events from product actions
+- [x] Implement Wave 3: retrieval into generation prompts with contract tests
+- [x] Implement Wave 4: read-only brand memory panel
+- [x] Run full verification bundle and document results
+
+## Review
+
+Implemented the Zep Brand Memory Engine behind optional configuration.
+
+What changed:
+
+- Added optional `ZEP_ENABLED`, `ZEP_API_KEY`, and `ZEP_GRAPH_PREFIX` env support.
+- Added `@getzep/zep-cloud` and a server-only memory subsystem under `app/src/server/memory`.
+- Added per-workspace graph ids, disabled-safe no-op behavior, payload sanitization, event preparation, ingestion, retrieval, and prompt-block formatting.
+- Added an Inngest `brand-memory.ingest` job and registered it in `/api/inngest`.
+- Emitted non-blocking memory events from campaign create/update, profile/reference creation, creative approval/rejection, QA, persona tests, save-as-reference, and delivery package preparation.
+- Added learned brand memory retrieval into derivation generation prompts while preserving hard rules for literal CTA, target format, source image, campaign constraints, and generation mode.
+- Added `GET /api/client-profiles/[id]/memory`, `useClientProfileMemory`, and a compact read-only "Aprendido sobre esta marca" briefing panel.
+- Fixed the workspace asset invalid-file-type unit test so the full test suite can run green in the Node/jsdom test environment.
+
+Verification:
+
+- Focused Zep/prompt/API/UI tests passed: 13 files / 73 tests.
+- Full `npm test` passed: 91 files / 446 passed / 1 skipped.
+- Focused ESLint passed with no errors or warnings.
+- `npm run build` passed.
+- `npx drizzle-kit check` passed.
+- `git diff --check` passed.
+
+# Dark Interface Alignment
+
+Date: 2026-05-25
+Mode: Visual bug fix
+
+## Checklist
+
+- [x] Capture current beige interface state in browser
+- [x] Locate the theme/layout styles causing the beige surface
+- [x] Restore the app shell to a black wireframe-aligned visual base
+- [x] Verify in browser with screenshot and console/runtime check
+- [x] Document result and remaining caveats
+
+## Review
+
+Restored the UI shell to the black wireframe-aligned visual base by replacing the beige/white design tokens with dark tokens, darkening glass surfaces, mobile navigation, social auth buttons, shared gallery surfaces, upload/error states, preview gradients, selection controls, and logo containment surfaces.
+
+Verification:
+
+- Browser viewport screenshot confirmed the dashboard renders on a black base.
+- Runtime color check confirmed `body` is `rgb(5, 5, 9)`, header is `rgb(10, 10, 15)`, and zero visible nodes use exact white/beige backgrounds in the checked viewport.
+- Layout accessibility overlay was reduced by removing the duplicate shell `<main>` landmark and adding accessible labels to sidebar icon links.
+- Focused ESLint completed with no errors. Remaining warnings are pre-existing image/hook warnings in gallery/settings/preview components.
+
+Remaining caveat:
+
+- The dashboard still reports 500s from `/api/notifications`, `/api/dashboard`, and `/api/dashboard/stats`; those are API/runtime issues outside this visual theme fix.
+
 # Layers Observed Behaviour — Research Plan
 
 Date: 2026-05-24

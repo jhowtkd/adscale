@@ -14,6 +14,7 @@ import {
   getClientReferencesByIds,
 } from "@/server/repositories/client-reference";
 import { deleteObject } from "@/server/storage/r2";
+import { recordBrandMemoryEvent } from "@/server/memory/brand-memory-dispatch";
 
 const updateCampaignSchema = z.object({
   name: z.string().min(1).max(255).optional(),
@@ -98,6 +99,35 @@ export async function PATCH(
     if (!campaign) {
       return apiError("campaignNotFound", 404);
     }
+
+    await recordBrandMemoryEvent({
+      type: "campaign_created_or_updated",
+      workspaceId: workspace.id,
+      clientProfileId: campaign.clientProfileId,
+      campaignId: campaign.id,
+      occurredAt: campaign.updatedAt,
+      summary: `Campaign "${campaign.name}" was updated for ${campaign.client ?? campaign.product ?? "an unspecified client/product"}.`,
+      payload: {
+        action: "updated",
+        updatedFields: Object.keys(parsed.data),
+        campaign: {
+          name: campaign.name,
+          client: campaign.client,
+          product: campaign.product,
+          objective: campaign.objective,
+          audience: campaign.audience,
+          platforms: campaign.platforms,
+          tone: campaign.tone,
+          offer: campaign.offer,
+          constraints: campaign.constraints,
+          generationMode: campaign.generationMode,
+          ctaVariants: campaign.ctaVariants,
+          targetFormats: campaign.targetFormats,
+          creativeLevel: campaign.creativeLevel,
+          selectedReferenceIds: campaign.selectedReferenceIds,
+        },
+      },
+    });
 
     return NextResponse.json({ campaign });
   } catch (error) {

@@ -436,7 +436,7 @@ export default function DerivationsStep({
                       "flex items-center justify-center w-6 h-6 rounded-md border shadow-sm cursor-pointer transition-all duration-150",
                       isSelected
                         ? "bg-[var(--accent-mint)] border-[var(--accent-mint)] text-white"
-                        : "bg-white/90 border-[var(--border-dim)] hover:border-[var(--accent-mint)]"
+                        : "bg-[var(--surface-base)]/90 border-[var(--border-medium)] hover:border-[var(--accent-mint)]"
                     )}
                     onClick={(e) => e.stopPropagation()}
                   >

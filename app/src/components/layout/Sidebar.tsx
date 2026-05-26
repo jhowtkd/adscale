@@ -8,14 +8,14 @@ export default function Sidebar() {
   const isActive = (href: string) => href === "/" ? pathname === "/" : pathname.startsWith(href);
 
   const topNav = [
-    { icon: LayoutDashboard, href: "/" },
-    { icon: FolderOpen, href: "/campaigns" },
-    { icon: LayoutTemplate, href: "/library" },
-    { icon: Sparkles, href: "/restyling" },
+    { icon: LayoutDashboard, href: "/", label: "Dashboard" },
+    { icon: FolderOpen, href: "/campaigns", label: "Campaigns" },
+    { icon: LayoutTemplate, href: "/library", label: "Library" },
+    { icon: Sparkles, href: "/restyling", label: "Restyling" },
   ];
   const bottomNav = [
-    { icon: Settings, href: "/settings" },
-    { icon: User, href: "/profile" },
+    { icon: Settings, href: "/settings", label: "Settings" },
+    { icon: User, href: "/profile", label: "Profile" },
   ];
 
   return (
@@ -24,16 +24,16 @@ export default function Sidebar() {
         <div className="w-8 h-8 rounded-[4px] bg-[#2fb67d] flex items-center justify-center font-bold text-[#0a0a0f] text-sm">A</div>
       </div>
       <nav className="flex-1 flex flex-col items-center gap-2 py-4">
-        {topNav.map(({ icon: Icon, href }) => (
-          <Link key={href} href={href} className={`w-10 h-10 rounded-[4px] flex items-center justify-center transition-colors duration-200 ${isActive(href) ? "text-[#2fb67d] bg-[rgba(47,182,125,0.08)]" : "text-[#6e6e7a] hover:bg-[#1a1a24] hover:text-[#b4b4be]"}`}>
-            <Icon size={24} strokeWidth={1.5} />
+        {topNav.map(({ icon: Icon, href, label }) => (
+          <Link key={href} href={href} aria-label={label} title={label} className={`w-10 h-10 rounded-[4px] flex items-center justify-center transition-colors duration-200 ${isActive(href) ? "text-[#2fb67d] bg-[rgba(47,182,125,0.08)]" : "text-[#6e6e7a] hover:bg-[#1a1a24] hover:text-[#b4b4be]"}`}>
+            <Icon size={24} strokeWidth={1.5} aria-hidden="true" />
           </Link>
         ))}
       </nav>
       <div className="flex flex-col items-center gap-2 py-4 border-t border-[#1a1a24]">
-        {bottomNav.map(({ icon: Icon, href }) => (
-          <Link key={href} href={href} className={`w-10 h-10 rounded-[4px] flex items-center justify-center transition-colors duration-200 ${isActive(href) ? "text-[#2fb67d] bg-[rgba(47,182,125,0.08)]" : "text-[#6e6e7a] hover:bg-[#1a1a24] hover:text-[#b4b4be]"}`}>
-            <Icon size={24} strokeWidth={1.5} />
+        {bottomNav.map(({ icon: Icon, href, label }) => (
+          <Link key={href} href={href} aria-label={label} title={label} className={`w-10 h-10 rounded-[4px] flex items-center justify-center transition-colors duration-200 ${isActive(href) ? "text-[#2fb67d] bg-[rgba(47,182,125,0.08)]" : "text-[#6e6e7a] hover:bg-[#1a1a24] hover:text-[#b4b4be]"}`}>
+            <Icon size={24} strokeWidth={1.5} aria-hidden="true" />
           </Link>
         ))}
       </div>

@@ -411,7 +411,7 @@ export default function BrandKitTab() {
                 <img
                   src={brandKit.logoUrl}
                   alt="Logo"
-                  className="h-16 w-16 object-contain rounded-md bg-white"
+                  className="h-16 w-16 object-contain rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)]"
                 />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-[var(--text-primary)] truncate">

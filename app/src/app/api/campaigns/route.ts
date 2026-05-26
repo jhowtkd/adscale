@@ -10,6 +10,7 @@ import {
   getClientProfile,
   getClientReferencesByIds,
 } from "@/server/repositories/client-reference";
+import { recordBrandMemoryEvent } from "@/server/memory/brand-memory-dispatch";
 
 const createCampaignSchema = z.object({
   name: z.string().min(1).max(255),
@@ -108,6 +109,34 @@ export async function POST(request: Request) {
     const campaign = await createCampaign(workspace.id, {
       ...parsed.data,
       status: "draft",
+    });
+
+    await recordBrandMemoryEvent({
+      type: "campaign_created_or_updated",
+      workspaceId: workspace.id,
+      clientProfileId: campaign.clientProfileId,
+      campaignId: campaign.id,
+      occurredAt: campaign.createdAt,
+      summary: `Campaign "${campaign.name}" was created for ${campaign.client ?? campaign.product ?? "an unspecified client/product"}.`,
+      payload: {
+        action: "created",
+        campaign: {
+          name: campaign.name,
+          client: campaign.client,
+          product: campaign.product,
+          objective: campaign.objective,
+          audience: campaign.audience,
+          platforms: campaign.platforms,
+          tone: campaign.tone,
+          offer: campaign.offer,
+          constraints: campaign.constraints,
+          generationMode: campaign.generationMode,
+          ctaVariants: campaign.ctaVariants,
+          targetFormats: campaign.targetFormats,
+          creativeLevel: campaign.creativeLevel,
+          selectedReferenceIds: campaign.selectedReferenceIds,
+        },
+      },
     });
 
     return NextResponse.json({ campaign }, { status: 201 });

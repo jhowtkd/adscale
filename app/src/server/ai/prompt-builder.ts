@@ -4,6 +4,7 @@ import type { PreflightResult } from "./preflight-analysis";
 import { buildBrandKitPromptSection } from "./brand-kit-extractor";
 import { buildCompetitorContextPromptSection } from "./competitor-analyzer";
 import { buildPreflightPromptSection } from "./preflight-analysis";
+import type { BrandMemoryContext } from "@/server/memory/brand-memory-context";
 
 
 
@@ -163,6 +164,7 @@ export interface DerivationPromptConfig {
   }) | null;
   competitorAnalyses?: CompetitorAnalysisResult[] | null;
   preflightResult?: PreflightResult | null;
+  brandMemory?: BrandMemoryContext | null;
 }
 
 function buildHardRulesSection(
@@ -384,6 +386,10 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
     }
   }
 
+  if (config.brandMemory?.block?.trim()) {
+    parts.push("", config.brandMemory.block.trim());
+  }
+
   if (asset || config.packageSource === "approved_derivation") {
     if (asset) {
       parts.push(`\nReference Asset Key: ${asset.key} (${asset.type})`);
@@ -449,5 +455,4 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
 
   return parts.join("\n");
 }
-
 

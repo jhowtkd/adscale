@@ -8,6 +8,7 @@ import {
   getClientReferences,
   isWorkspaceReferenceAssetKey,
 } from "@/server/repositories/client-reference";
+import { recordBrandMemoryEvent } from "@/server/memory/brand-memory-dispatch";
 
 const referenceKindSchema = z.enum([
   "style",
@@ -69,6 +70,25 @@ export async function POST(
     const reference = await createClientReference(workspace.id, {
       clientProfileId: id,
       ...parsed.data,
+    });
+
+    await recordBrandMemoryEvent({
+      type: "creative_saved_as_reference",
+      workspaceId: workspace.id,
+      clientProfileId: id,
+      occurredAt: reference.createdAt,
+      summary: `Reference "${reference.label}" was added to brand/client profile "${profile.name}".`,
+      payload: {
+        action: "manual_reference_added",
+        profile: { id: profile.id, name: profile.name },
+        reference: {
+          label: reference.label,
+          kind: reference.kind,
+          notes: reference.notes,
+          assetKey: reference.assetKey,
+          sourceDerivationId: reference.sourceDerivationId,
+        },
+      },
     });
 
     return NextResponse.json({ reference }, { status: 201 });

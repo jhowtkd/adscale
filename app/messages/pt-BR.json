@@ -278,6 +278,14 @@
     "cancelProfile": "Cancelar",
     "noReferences": "Nenhuma referência ainda para este perfil",
     "selectReferences": "Selecione referências para usar",
+    "brandMemoryTitle": "Aprendido sobre esta marca",
+    "brandMemoryLoading": "Buscando aprendizados recentes...",
+    "brandMemorySource": {
+      "fact": "aprendido",
+      "episode": "histórico",
+      "entity": "perfil",
+      "context": "contexto"
+    },
     "clientHelp": "A marca ou produto sendo anunciado",
     "offerHelp": "Qual ação os espectadores devem tomar?",
     "constraintsHelp": "Quaisquer regras ou limitações para os criativos gerados",

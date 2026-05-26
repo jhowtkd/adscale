@@ -3,7 +3,8 @@ import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { updateDerivationStatus } from "@/server/repositories/derivation";
-import { refreshCampaignStatus } from "@/server/repositories/campaign";
+import { getCampaignById, refreshCampaignStatus } from "@/server/repositories/campaign";
+import { recordBrandMemoryEvent } from "@/server/memory/brand-memory-dispatch";
 
 const bodySchema = z.object({
   status: z.enum(["approved", "rejected"]),
@@ -33,6 +34,50 @@ export async function PATCH(
     }
 
     await refreshCampaignStatus(updated.campaignId, workspace.id);
+
+    const campaign = await getCampaignById(updated.campaignId, workspace.id);
+    await recordBrandMemoryEvent({
+      type: parsed.data.status === "approved" ? "creative_approved" : "creative_rejected",
+      workspaceId: workspace.id,
+      clientProfileId: campaign?.clientProfileId,
+      campaignId: updated.campaignId,
+      derivationId: updated.id,
+      occurredAt: updated.updatedAt,
+      summary:
+        parsed.data.status === "approved"
+          ? `Creative was approved for campaign "${campaign?.name ?? updated.campaignId}".`
+          : `Creative was rejected for campaign "${campaign?.name ?? updated.campaignId}".`,
+      payload: {
+        campaign: campaign
+          ? {
+              name: campaign.name,
+              client: campaign.client,
+              product: campaign.product,
+              objective: campaign.objective,
+              audience: campaign.audience,
+              offer: campaign.offer,
+              tone: campaign.tone,
+              constraints: campaign.constraints,
+              ctaVariants: campaign.ctaVariants,
+              creativeLevel: campaign.creativeLevel,
+              selectedReferenceIds: campaign.selectedReferenceIds,
+            }
+          : null,
+        derivation: {
+          status: updated.status,
+          format: updated.format,
+          generationMode: updated.generationMode,
+          ctaText: updated.ctaText,
+          qualityScore: updated.qualityScore,
+          scoreStatus: updated.scoreStatus,
+          scoreIssues: updated.scoreIssues,
+          regenerationSuggestion: updated.regenerationSuggestion,
+          qaStatus: updated.qaStatus,
+          qaIssues: updated.qaIssues,
+          feedback: updated.feedback,
+        },
+      },
+    });
 
     return NextResponse.json({ derivation: updated });
   } catch (error) {

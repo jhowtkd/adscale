@@ -33,6 +33,7 @@ import {
 import {
   useClientProfiles,
   useCreateClientProfile,
+  useClientProfileMemory,
   useClientReferences,
 } from "@/lib/hooks/use-client-profiles";
 import { useBrandKit } from "@/lib/hooks/use-brand-kit";
@@ -121,6 +122,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
   const { data: clientProfilesData } = useClientProfiles();
   const createProfile = useCreateClientProfile();
   const { data: clientReferencesData } = useClientReferences(formData.clientProfileId);
+  const { data: clientMemoryData, isLoading: clientMemoryLoading } = useClientProfileMemory(formData.clientProfileId);
   const { data: brandKitData } = useBrandKit();
 
   const [showCreateProfile, setShowCreateProfile] = useState(false);
@@ -459,6 +461,37 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
               )}
             </div>
           )}
+
+          {formData.clientProfileId &&
+            (clientMemoryLoading || Boolean(clientMemoryData?.items.length)) && (
+              <div className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Sparkles size={14} className="text-[var(--accent-mint)]" />
+                  <h4 className="text-xs font-semibold text-[var(--text-primary)]">
+                    {tBriefing("brandMemoryTitle")}
+                  </h4>
+                </div>
+                {clientMemoryLoading ? (
+                  <p className="text-[11px] text-[var(--text-muted)]">
+                    {tBriefing("brandMemoryLoading")}
+                  </p>
+                ) : (
+                  <ul className="space-y-1.5">
+                    {clientMemoryData?.items.slice(0, 4).map((item, index) => (
+                      <li key={`${item.source}-${index}`} className="flex gap-2 text-[11px] text-[var(--text-secondary)]">
+                        <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-mint)]" />
+                        <span>
+                          {item.text}
+                          <span className="ml-1 text-[10px] text-[var(--text-muted)]">
+                            {tBriefing(`brandMemorySource.${item.source}`)}
+                          </span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
 
           {/* ---- Brand Kit Summary ---- */}
           {formData.clientProfileId && brandKitData && (

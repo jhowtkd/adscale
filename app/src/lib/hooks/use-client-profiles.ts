@@ -26,6 +26,18 @@ export interface ClientReference {
   url?: string;
 }
 
+export interface ClientProfileMemoryItem {
+  text: string;
+  source: "fact" | "episode" | "entity" | "context";
+  createdAt?: string;
+  relevance?: number;
+}
+
+export interface ClientProfileMemoryResponse {
+  enabled: boolean;
+  items: ClientProfileMemoryItem[];
+}
+
 async function fetchClientProfiles(): Promise<ClientProfile[]> {
   const res = await apiFetch("/api/client-profiles");
   if (!res.ok) {
@@ -51,6 +63,17 @@ async function fetchClientReferences(clientProfileId: string): Promise<ClientRef
     ...r,
     createdAt: new Date(r.createdAt),
   }));
+}
+
+async function fetchClientProfileMemory(
+  clientProfileId: string
+): Promise<ClientProfileMemoryResponse> {
+  const res = await apiFetch(`/api/client-profiles/${clientProfileId}/memory`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Erro ao carregar memória da marca");
+  }
+  return res.json();
 }
 
 async function createClientProfile(payload: {
@@ -151,6 +174,14 @@ export function useClientReferences(clientProfileId?: string | null) {
   return useQuery({
     queryKey: ["client-references", clientProfileId],
     queryFn: () => fetchClientReferences(clientProfileId!),
+    enabled: !!clientProfileId,
+  });
+}
+
+export function useClientProfileMemory(clientProfileId?: string | null) {
+  return useQuery({
+    queryKey: ["client-profile-memory", clientProfileId],
+    queryFn: () => fetchClientProfileMemory(clientProfileId!),
     enabled: !!clientProfileId,
   });
 }

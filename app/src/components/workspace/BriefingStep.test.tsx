@@ -33,6 +33,7 @@ vi.mock("@/lib/hooks/use-creative-diagnosis", () => ({
 vi.mock("@/lib/hooks/use-client-profiles", () => ({
   useClientProfiles: vi.fn(),
   useCreateClientProfile: vi.fn(),
+  useClientProfileMemory: vi.fn(),
   useClientReferences: vi.fn(),
 }));
 
@@ -52,11 +53,13 @@ vi.mock("@/lib/hooks/use-auto-briefing", () => ({
 import {
   useClientProfiles,
   useCreateClientProfile,
+  useClientProfileMemory,
   useClientReferences,
 } from "@/lib/hooks/use-client-profiles";
 
 const mockUseClientProfiles = vi.mocked(useClientProfiles);
 const mockUseCreateClientProfile = vi.mocked(useCreateClientProfile);
+const mockUseClientProfileMemory = vi.mocked(useClientProfileMemory);
 const mockUseClientReferences = vi.mocked(useClientReferences);
 
 // Provide QueryClient for TanStack Query hooks
@@ -88,6 +91,12 @@ describe("BriefingStep", () => {
       isPending: false,
       error: null,
     } as ReturnType<typeof useClientReferences>);
+    mockUseClientProfileMemory.mockReturnValue({
+      data: { enabled: true, items: [] },
+      isLoading: false,
+      isPending: false,
+      error: null,
+    } as ReturnType<typeof useClientProfileMemory>);
     mockUseCreateClientProfile.mockReturnValue({
       mutate: vi.fn(),
       isPending: false,
@@ -143,6 +152,41 @@ describe("BriefingStep", () => {
 
     expect(screen.getByText("Hero")).toBeInTheDocument();
     expect(screen.getByText("Logo")).toBeInTheDocument();
+  });
+
+  it("shows learned brand memory when available", () => {
+    mockUseClientProfileMemory.mockReturnValue({
+      data: {
+        enabled: true,
+        items: [{ text: "Acme favors direct CTAs.", source: "fact" }],
+      },
+      isLoading: false,
+      isPending: false,
+      error: null,
+    } as ReturnType<typeof useClientProfileMemory>);
+
+    render(
+      <BriefingStep
+        campaign={{
+          id: "cmp-1",
+          name: "Test",
+          client: "Acme",
+          platforms: ["Meta"],
+          status: "draft",
+          variations: 0,
+          creditsUsed: 0,
+          lastModified: new Date(),
+          createdAt: new Date(),
+          clientProfileId: "profile-1",
+        }}
+        onContinue={vi.fn()}
+        onSaveDraft={vi.fn()}
+      />,
+      { wrapper: Wrapper }
+    );
+
+    expect(screen.getByText("brandMemoryTitle")).toBeInTheDocument();
+    expect(screen.getByText("Acme favors direct CTAs.")).toBeInTheDocument();
   });
 
   it("checking references updates selectedReferenceIds", () => {

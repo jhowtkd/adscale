@@ -48,4 +48,20 @@ describe("envSchema", () => {
   it("rejects publishable Stripe keys", () => {
     expect(() => schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "pk_test_dummy" })).toThrow();
   });
+
+  it("accepts optional Zep memory configuration", () => {
+    expect(
+      schema.parse({
+        ...baseEnv,
+        STRIPE_SECRET_KEY: "sk_test_dummy",
+        ZEP_ENABLED: "true",
+        ZEP_API_KEY: "zep_test_key",
+        ZEP_GRAPH_PREFIX: "adscale_test",
+      })
+    ).toMatchObject({
+      ZEP_ENABLED: "true",
+      ZEP_API_KEY: "zep_test_key",
+      ZEP_GRAPH_PREFIX: "adscale_test",
+    });
+  });
 });

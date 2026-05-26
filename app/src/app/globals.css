@@ -5,7 +5,7 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ============================================
-   ADScale — Mint Receipt Design Tokens
+   ADScale — Black Wireframe Design Tokens
    ============================================ */
 
 @theme inline {
@@ -64,22 +64,22 @@
   --font-jetbrains-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
   /* ============================================
-     Color Tokens — Mint Receipt (Light)
+     Color Tokens — Black Wireframe
      ============================================ */
-  --deep-bg: #F4F0E8;
-  --surface-base: #FFFFFF;
-  --surface-raised: #FAFAF8;
-  --border-dim: #E5E1D8;
-  --border-medium: #D1CCC3;
-  --text-primary: #1E241E;
-  --text-secondary: #6C7A6F;
-  --text-muted: #66786C;
+  --deep-bg: #050509;
+  --surface-base: #0a0a0f;
+  --surface-raised: #101017;
+  --border-dim: #1a1a24;
+  --border-medium: #2a2a36;
+  --text-primary: #f2f2f5;
+  --text-secondary: #b4b4be;
+  --text-muted: #777783;
 
   /* Accent Colors — single mint driver */
   --accent-mint: #2FB67D;
   --accent-mint-light: #4CD99A;
   --accent-mint-dim: rgba(47, 182, 125, 0.12);
-  --accent-secondary: #6C7A6F;
+  --accent-secondary: #8d8d98;
   --accent-amber: #D4A017;
   --accent-rose: #E11D48;
 
@@ -91,26 +91,26 @@
   --accent-purple: #2FB67D;
 
   /* Status Colors */
-  --status-draft: #9BA8A0;
+  --status-draft: #777783;
   --status-active: #2FB67D;
   --status-processing: #D4A017;
   --status-completed: #2FB67D;
   --status-failed: #E11D48;
 
   /* Status Badge Tokens — text uses text-primary for WCAG AA contrast */
-  --status-draft-bg: rgba(71, 85, 105, 0.12);
+  --status-draft-bg: rgba(180, 180, 190, 0.12);
   --status-draft-text: var(--text-primary);
-  --status-draft-dot: #475569;
+  --status-draft-dot: #8d8d98;
   --status-active-bg: var(--accent-mint-dim);
   --status-active-text: var(--text-primary);
   --status-active-dot: var(--accent-mint);
-  --status-queued-bg: rgba(245, 158, 11, 0.12);
+  --status-queued-bg: rgba(245, 158, 11, 0.16);
   --status-queued-text: var(--text-primary);
   --status-queued-dot: #F59E0B;
-  --status-processing-bg: rgba(245, 158, 11, 0.12);
+  --status-processing-bg: rgba(245, 158, 11, 0.16);
   --status-processing-text: var(--text-primary);
   --status-processing-dot: #F59E0B;
-  --status-generating-bg: rgba(245, 158, 11, 0.12);
+  --status-generating-bg: rgba(245, 158, 11, 0.16);
   --status-generating-text: var(--text-primary);
   --status-generating-dot: #F59E0B;
   --status-completed-bg: var(--accent-mint-dim);
@@ -119,10 +119,10 @@
   --status-approved-bg: var(--accent-mint-dim);
   --status-approved-text: var(--text-primary);
   --status-approved-dot: var(--accent-mint);
-  --status-rejected-bg: rgba(244, 63, 94, 0.12);
+  --status-rejected-bg: rgba(244, 63, 94, 0.16);
   --status-rejected-text: var(--text-primary);
   --status-rejected-dot: #F43F5E;
-  --status-failed-bg: rgba(244, 63, 94, 0.12);
+  --status-failed-bg: rgba(244, 63, 94, 0.16);
   --status-failed-text: var(--text-primary);
   --status-failed-dot: #F43F5E;
 
@@ -157,7 +157,7 @@
     scroll-behavior: smooth;
   }
 
-  /* Scrollbar — Light Theme */
+  /* Scrollbar — Black Theme */
   ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
@@ -249,13 +249,13 @@
   }
 
   .glass-backdrop {
-    background: rgba(255, 255, 255, 0.85);
+    background: rgba(10, 10, 15, 0.88);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
   }
 
   .glass-backdrop-strong {
-    background: rgba(255, 255, 255, 0.95);
+    background: rgba(10, 10, 15, 0.96);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
   }

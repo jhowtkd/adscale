@@ -33,17 +33,9 @@ vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
 }));
 
-import {
-  createWorkspaceAsset,
-  getWorkspaceAssets,
-} from "@/server/repositories/workspace-asset";
-import { uploadBuffer } from "@/server/storage/r2";
-import { inngest } from "@/server/jobs/client";
+import { getWorkspaceAssets } from "@/server/repositories/workspace-asset";
 
-const mockCreateWorkspaceAsset = vi.mocked(createWorkspaceAsset);
 const mockGetWorkspaceAssets = vi.mocked(getWorkspaceAssets);
-const mockUploadBuffer = vi.mocked(uploadBuffer);
-const mockInngestSend = vi.mocked(inngest.send);
 
 describe("GET /api/workspace/assets", () => {
   beforeEach(() => {
@@ -117,15 +109,17 @@ describe("POST /api/workspace/assets", () => {
     const { isAllowedImageType } = await import("@/lib/upload-config");
     vi.mocked(isAllowedImageType).mockReturnValueOnce(false);
 
-    const form = new FormData();
-    form.append("file", new File(["x"], "test.exe", { type: "application/exe" }));
+    const request = new Request("http://localhost/api/workspace/assets", {
+      method: "POST",
+    });
+    vi.spyOn(request, "formData").mockResolvedValue({
+      get: (name: string) =>
+        name === "file"
+          ? new File(["x"], "test.exe", { type: "application/exe" })
+          : null,
+    } as unknown as FormData);
 
-    const res = await POST(
-      new Request("http://localhost/api/workspace/assets", {
-        method: "POST",
-        body: form,
-      })
-    );
+    const res = await POST(request);
 
     expect(res.status).toBe(400);
   });

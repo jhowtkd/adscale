@@ -4,6 +4,7 @@ import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getDerivationById } from "@/server/repositories/derivation";
 import { createClientReference, getClientProfile } from "@/server/repositories/client-reference";
+import { recordBrandMemoryEvent } from "@/server/memory/brand-memory-dispatch";
 
 const referenceKindSchema = z.enum([
   "style",
@@ -58,6 +59,34 @@ export async function POST(
       kind: parsed.data.kind,
       notes: parsed.data.notes,
       sourceDerivationId: id,
+    });
+
+    await recordBrandMemoryEvent({
+      type: "creative_saved_as_reference",
+      workspaceId: workspace.id,
+      clientProfileId: profile.id,
+      campaignId: derivation.campaignId,
+      derivationId: derivation.id,
+      occurredAt: reference.createdAt,
+      summary: `Approved creative was saved as "${reference.label}" (${reference.kind}) for brand/client profile "${profile.name}".`,
+      payload: {
+        action: "approved_creative_saved_as_reference",
+        profile: { id: profile.id, name: profile.name },
+        reference: {
+          label: reference.label,
+          kind: reference.kind,
+          notes: reference.notes,
+          assetKey: reference.assetKey,
+        },
+        derivation: {
+          id: derivation.id,
+          format: derivation.format,
+          generationMode: derivation.generationMode,
+          ctaText: derivation.ctaText,
+          qualityScore: derivation.qualityScore,
+          qaStatus: derivation.qaStatus,
+        },
+      },
     });
 
     return NextResponse.json({ reference }, { status: 201 });

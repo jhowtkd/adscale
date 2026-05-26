@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   useClientProfiles,
   useCreateClientProfile,
+  useClientProfileMemory,
   useClientReferences,
   useSaveDerivationAsReference,
 } from "./use-client-profiles";
@@ -111,6 +112,44 @@ describe("useClientReferences", () => {
 
   it("does not fetch when profile id is null", () => {
     const { result } = renderHook(() => useClientReferences(null), {
+      wrapper: createWrapper(),
+    });
+
+    expect(result.current.isLoading).toBe(false);
+    expect(mockApiFetch).not.toHaveBeenCalled();
+  });
+});
+
+describe("useClientProfileMemory", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("fetches learned memory for a selected profile", async () => {
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          enabled: true,
+          items: [{ text: "Acme favors direct CTAs.", source: "fact" }],
+        }),
+    } as unknown as Response);
+
+    const { result } = renderHook(() => useClientProfileMemory("p1"), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(result.current.data?.items).toHaveLength(1);
+    });
+
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      "/api/client-profiles/p1/memory"
+    );
+  });
+
+  it("does not fetch memory when profile id is null", () => {
+    const { result } = renderHook(() => useClientProfileMemory(null), {
       wrapper: createWrapper(),
     });
 

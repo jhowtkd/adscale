@@ -11,6 +11,7 @@ import {
   isCacheValid,
 } from "@/server/repositories/persona-simulation";
 import { simulatePersonas } from "@/server/ai/persona-simulator";
+import { recordBrandMemoryEvent } from "@/server/memory/brand-memory-dispatch";
 
 const postBodySchema = z.object({
   sourceType: z.enum(["derivation", "landing_page"]),
@@ -106,6 +107,32 @@ export async function POST(
       creativeId,
       results
     );
+
+    await recordBrandMemoryEvent({
+      type: "persona_test_completed",
+      workspaceId: workspace.id,
+      clientProfileId: campaign.clientProfileId,
+      campaignId: campaign.id,
+      derivationId: sourceType === "derivation" ? creativeId : null,
+      occurredAt: simulation.createdAt,
+      summary: `Persona test completed for ${sourceType} in campaign "${campaign.name}".`,
+      payload: {
+        sourceType,
+        sourceId: creativeId,
+        campaign: {
+          name: campaign.name,
+          client: campaign.client,
+          product: campaign.product,
+          objective: campaign.objective,
+          audience: campaign.audience,
+          offer: campaign.offer,
+          tone: campaign.tone,
+          constraints: campaign.constraints,
+          ctaVariants: campaign.ctaVariants,
+        },
+        results,
+      },
+    });
 
     return NextResponse.json({
       simulation,

@@ -31,7 +31,7 @@ export default function GalleryGrid({ items }: GalleryGridProps) {
             key={item.id}
             onClick={() => setSelectedId(item.id)}
             className={cn(
-              "group relative aspect-square overflow-hidden rounded-lg border border-[var(--border-medium)] bg-white shadow-sm transition hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[var(--accent-mint)]"
+              "group relative aspect-square overflow-hidden rounded-lg border border-[var(--border-medium)] bg-[var(--surface-raised)] shadow-[0_12px_40px_rgba(0,0,0,0.35)] transition hover:border-[var(--accent-mint)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-mint)]"
             )}
           >
             <img
@@ -60,7 +60,7 @@ export default function GalleryGrid({ items }: GalleryGridProps) {
           aria-modal="true"
         >
           <div
-            className="relative max-h-[90vh] max-w-4xl overflow-hidden rounded-xl bg-white shadow-2xl"
+            className="relative max-h-[90vh] max-w-4xl overflow-hidden rounded-xl bg-[var(--surface-base)] shadow-2xl ring-1 ring-[var(--border-medium)]"
             onClick={(e) => e.stopPropagation()}
           >
             <button

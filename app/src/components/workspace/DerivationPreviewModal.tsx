@@ -228,7 +228,7 @@ export default function DerivationPreviewModal({
               <div
                 className="w-[60vw] max-w-[600px] h-[60vh] rounded-lg flex items-center justify-center"
                 style={{
-                  background: `linear-gradient(135deg, ${platformStyle.bg} 0%, #FAFAF8 50%, ${platformStyle.bg} 100%)`,
+                  background: `linear-gradient(135deg, ${platformStyle.bg} 0%, var(--surface-raised) 50%, ${platformStyle.bg} 100%)`,
                 }}
               >
                 <span
