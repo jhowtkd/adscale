@@ -165,8 +165,6 @@ export default function CampaignWorkspacePage() {
               <UploadStep
                 campaignId={campaignId}
                 onContinueToPlan={handleContinueToPlan}
-                onSkipPlan={handleSkipPlan}
-                onGeneratePreview={handleGeneratePreview}
               />
             )}
             {currentStep === 3 && campaign && (
@@ -180,11 +178,11 @@ export default function CampaignWorkspacePage() {
                   offer: campaign.offer || undefined,
                   platforms: campaign.platforms,
                 }}
-                initialData={generationConfig || {
+                initialData={{
                   generationMode: campaign.generationMode,
                   creativeLevel: campaign.creativeLevel,
                   targetFormats: campaign.targetFormats,
-                  ctaVariants: campaign.ctaVariants as [string, string, string] || ["", "", ""],
+                  ctaVariants: (campaign.ctaVariants as [string, string, string]) || ["", "", ""],
                 }}
                 onContinue={handleGenerationContinue}
                 onBack={handlePrev}

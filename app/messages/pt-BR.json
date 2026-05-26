@@ -644,6 +644,7 @@
     "underLimit": "Abaixo de {max}MB",
     "checkingDimensions": "Verificando dimensões...",
     "recommendedDimensions": "(recomendado 1080×1080+)",
+    "continueToPlan": "Continuar para Geração →",
     "generatePreview": "Gerar pré-visualização",
     "previewLabel": "Pré-visualização",
     "targetFormatsHelp": "Selecione os formatos que deseja gerar. Cada formato consome créditos separadamente.",
