@@ -296,10 +296,10 @@
 | GEN-04 | 20 | ✓ | Complete    | 2026-05-26 |
 | GEN-05 | 20 | ✓ | Complete    | 2026-05-26 |
 | GEN-06 | 20 | ✓ | Complete    | 2026-05-26 |
-| CLEAN-01 | 21 | ✓ | Planned |
-| CLEAN-02 | 21 | ✓ | Planned |
-| CLEAN-03 | 21 | ✓ | Planned |
-| CLEAN-04 | 21 | ✓ | Planned |
+| CLEAN-01 | 21 | ✓ | Complete    | 2026-05-26 |
+| CLEAN-02 | 21 | ✓ | Complete    | 2026-05-26 |
+| CLEAN-03 | 21 | ✓ | Complete    | 2026-05-26 |
+| CLEAN-04 | 21 | ✓ | Complete    | 2026-05-26 |
 
 **Coverage:** 57/57 requirements mapped across 10 phases ✓
 
@@ -318,10 +318,10 @@
 | Phase 18 — Formulário Simplificado de Briefing | ✅ Complete | Build passes, 2/2 plans done |
 | Phase 19 — Análise Visual e Dedução com IA | ✅ Complete | 2/2 plans complete |
 | Phase 20 — Modo de Geração com Configurações Avançadas | ✅ Complete | 3/3 plans complete |
-| Phase 21 — Remoção do Briefing Doctor e Limpeza | 🔄 Planned | — |
+| Phase 21 — Remoção do Briefing Doctor e Limpeza | ✅ Complete | 1/1 plans complete, build clean |
 
 **Plans:**
-7/7 plans complete
+3/2 plans complete
 - [x] 18-01-PLAN.md — Backend API Simplification (POST accepts only name/client/clientProfileId)
 - [x] 18-02-PLAN.md — Simplified Creation UI
 - [x] 19-01-PLAN.md — Backend AI Analysis Infrastructure
@@ -329,6 +329,7 @@
 - [x] 20-01-PLAN.md — Backend AI Suggestions for Generation Mode
 - [x] 20-02-PLAN.md — Frontend Generation Mode Step Component
 - [x] 20-03-PLAN.md — Frontend Flow Integration and Translations
+- [x] 21-01-PLAN.md — Remove Briefing Doctor and Cleanup
 
 ---
 

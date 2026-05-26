@@ -1,25 +1,25 @@
 ---
 gsd_state_version: 1.0
-milestone: v5.0
-milestone_name: Simplificação do Fluxo de Criação de Campanha
-status: in_progress
-last_updated: "2026-05-26T23:35:00.000Z"
-last_activity: 2026-05-26 — Completed plan 20-02 (Frontend Generation Mode Step Component)
+milestone: v3.0
+milestone_name: milestone
+status: completed
+last_updated: "2026-05-26T23:52:54Z"
+last_activity: 2026-05-26 — Completed plan 21-01 (Remove Briefing Doctor and Cleanup)
 progress:
-  total_phases: 4
-  completed_phases: 3
-  total_plans: 7
-  completed_plans: 7
+  total_phases: 10
+  completed_phases: 2
+  total_plans: 2
+  completed_plans: 8
 ---
 
 # State: ADScale
 
 ## Current Position
 
-Phase: 20-modo-de-geracao-com-configuracoes-avancadas
-Plan: 20-03 (complete)
-Status: Plan 20-03 complete — Frontend Flow Integration and Translations
-Last activity: 2026-05-26 — Completed plan 20-03 (Frontend Flow Integration and Translations)
+Phase: 21-remocao-do-briefing-doctor-e-limpeza
+Plan: 21-01 (complete)
+Status: Plan 21-01 complete — Remove Briefing Doctor and Cleanup
+Last activity: 2026-05-26 — Completed plan 21-01 (Remove Briefing Doctor and Cleanup)
 
 ## Accumulated Context
 
@@ -76,9 +76,9 @@ Last activity: 2026-05-26 — Completed plan 20-03 (Frontend Flow Integration an
 
 ## Next Steps
 
-1. Plan 20-03 complete — Flow Integration and Translations done
-2. Phase 20 complete — All 3 plans done
-3. Phase 21: Remove Briefing Doctor and cleanup
+1. Plan 21-01 complete — Briefing Doctor removed and cleanup done
+2. Phase 21 complete — All plans done
+3. Milestone v5.0 complete — All 4 phases (18-21) done
 
 ## Project Reference
 
@@ -86,4 +86,4 @@ See: .planning/PROJECT.md (updated 2026-05-26)
 See: .planning/milestones/v5.0/v5.0-ROADMAP.md (created 2026-05-26)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
-**Current focus:** Milestone v5.0 — Simplificação do Fluxo de Criação de Campanha (plan 20-02 complete, ready for 20-03)
+**Current focus:** Milestone v5.0 — Simplificação do Fluxo de Criação de Campanha (all phases complete, ready for milestone close)
