@@ -316,14 +316,15 @@
 | Phase 13 — Prompt e Renderização Fiel | ✅ Complete | Prompt string tests + sharp normalization |
 | Phase 14 — Galeria, Mensagens e QA Final | ✅ Complete | Build + 67 tests passing |
 | Phase 15 — Régua de Criatividade, CTA Exato e Quick Tool de Restilização | ✅ Complete | prompt-builder tests + build clean |
-| Phase 18 — Formulário Simplificado de Briefing | 🔄 Planned | — |
+| Phase 18 — Formulário Simplificado de Briefing | 🔄 In Progress | API tests passing |
 | Phase 19 — Análise Visual e Dedução com IA | 🔄 Planned | — |
 | Phase 20 — Modo de Geração com Configurações Avançadas | 🔄 Planned | — |
 | Phase 21 — Remoção do Briefing Doctor e Limpeza | 🔄 Planned | — |
 
 **Plans:**
-2/2 plans complete
-- [x] 15-02-PLAN.md — Restyling home card + API route + two-image derivation job
+1/2 plans complete for Phase 18
+- [x] 18-01-PLAN.md — Backend API Simplification (POST accepts only name/client/clientProfileId)
+- [ ] 18-02-PLAN.md — Simplified Creation UI
 
 ---
 

@@ -2,25 +2,25 @@
 gsd_state_version: 1.0
 milestone: v5.0
 milestone_name: Simplificação do Fluxo de Criação de Campanha
-status: planning
-last_updated: "2026-05-26T00:00:00.000Z"
-last_activity: 2026-05-26 — Roadmap created for v5.0 (phases 18–21)
+status: in_progress
+last_updated: "2026-05-26T21:33:47Z"
+last_activity: 2026-05-26 — Completed plan 18-01 (Backend API Simplification)
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_plans: 1
+  completed_plans: 1
+  percent: 25
 ---
 
 # State: ADScale
 
 ## Current Position
 
-Phase: Not started (roadmap created)
-Plan: —
-Status: Planning v5.0 phases 18–21
-Last activity: 2026-05-26 — Roadmap created for v5.0
+Phase: 18-formulario-simplificado-de-briefing
+Plan: 18-01 (complete)
+Status: In Progress — Phase 18, Plan 1 of 2 complete
+Last activity: 2026-05-26 — Completed plan 18-01 (Backend API Simplification)
 
 ## Accumulated Context
 
@@ -50,11 +50,15 @@ Last activity: 2026-05-26 — Roadmap created for v5.0
 - Advanced settings (creativity profile, per-piece CTA) will move to generation mode
 - Briefing Doctor will be removed from the flow
 - Form fields: campaign name, client, client profile (required); AI-deduced fields (editable)
+- **18-01:** `client` is now required in campaign creation (was optional)
+- **18-01:** `clientProfileId` is required-but-nullable (enforces explicit choice, allows "no profile")
+- **18-01:** All other campaign fields remain optional for backward compatibility
+- **18-01:** Frontend creation hook sends only 3 required fields (name, client, clientProfileId)
 
 ## Next Steps
 
-1. Create phase 18 plan (Formulário Simplificado)
-2. Begin implementation of phase 18
+1. Execute plan 18-02 (Simplified Creation UI)
+2. Continue implementation of phase 18
 3. Validate BRIEF-01 through BRIEF-04
 
 ## Project Reference
@@ -63,4 +67,4 @@ See: .planning/PROJECT.md (updated 2026-05-26)
 See: .planning/milestones/v5.0/v5.0-ROADMAP.md (created 2026-05-26)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
-**Current focus:** Milestone v5.0 — Simplificação do Fluxo de Criação de Campanha (planning)
+**Current focus:** Milestone v5.0 — Simplificação do Fluxo de Criação de Campanha (plan 18-01 complete, ready for 18-02)
