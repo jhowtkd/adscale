@@ -166,6 +166,9 @@
     "packageFailed": "Failed to queue delivery package",
     "creativeQaComplete": "Creative QA complete",
     "creativeQaFailed": "Could not review the creative now",
+    "confidenceHigh": "High",
+    "confidenceMedium": "Medium",
+    "confidenceLow": "Low",
     "emptyState": {
       "uploadCreative": "Upload creative",
       "fillBrief": "Fill brief",
@@ -237,6 +240,21 @@
     "keyCreative": "Key Creative",
     "uploadCreativeHint": "Click to upload key creative",
     "maxFileSize": "max. 10 MB",
+    "analyzing": "Analyzing...",
+    "uploading": "Uploading...",
+    "analyzingCreative": "Analyzing the creative...",
+    "aiDeducedFields": "AI Deduced Fields",
+    "aiFieldsHint": "Review and edit fields before saving",
+    "analysisFailed": "Could not automatically analyze the image",
+    "analysisFailedHint": "You can fill in the fields manually",
+    "placeholder": {
+      "product": "Ex: Running shoes",
+      "objective": "Ex: Conversion",
+      "targetAudience": "Ex: Young adults 18-35",
+      "tone": "Ex: Energetic",
+      "offer": "Ex: 20% off",
+      "platforms": "Ex: Instagram, Facebook"
+    },
     "cta": "Primary CTA",
     "mode": "Generation mode",
     "modes": {

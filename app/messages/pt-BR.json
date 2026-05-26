@@ -166,6 +166,9 @@
     "packageFailed": "Falha ao enfileirar pacote de entrega",
     "creativeQaComplete": "QA da arte concluído",
     "creativeQaFailed": "Não foi possível revisar a arte agora",
+    "confidenceHigh": "Alta",
+    "confidenceMedium": "Média",
+    "confidenceLow": "Baixa",
     "emptyState": {
       "uploadCreative": "Envie criativo",
       "fillBrief": "Preencha brief",
@@ -237,6 +240,21 @@
     "keyCreative": "Peça-chave",
     "uploadCreativeHint": "Clique para fazer upload da peça-chave",
     "maxFileSize": "máx. 10 MB",
+    "analyzing": "Analisando...",
+    "uploading": "Enviando...",
+    "analyzingCreative": "Analisando a peça criativa...",
+    "aiDeducedFields": "Campos deduzidos pela IA",
+    "aiFieldsHint": "Revise e edite os campos antes de salvar",
+    "analysisFailed": "Não foi possível analisar a imagem automaticamente",
+    "analysisFailedHint": "Você pode preencher os campos manualmente",
+    "placeholder": {
+      "product": "Ex: Tênis de corrida",
+      "objective": "Ex: Conversão",
+      "targetAudience": "Ex: Jovens 18-35",
+      "tone": "Ex: Energético",
+      "offer": "Ex: 20% de desconto",
+      "platforms": "Ex: Instagram, Facebook"
+    },
     "cta": "CTA principal",
     "mode": "Modo de geração",
     "modes": {
