@@ -11,10 +11,10 @@ export interface BriefingDoctorInput {
   offer: string;
   constraints: string;
   notes: string;
-  generationMode: "art_variation" | "format_adaptation" | "restyling";
-  creativeLevel: "conservative" | "balanced" | "bold" | "extreme";
+  generationMode?: "art_variation" | "format_adaptation" | "restyling";
+  creativeLevel?: "conservative" | "balanced" | "bold" | "extreme";
   targetFormat?: string;
-  ctaVariants: [string, string, string] | string[];
+  ctaVariants?: [string, string, string] | string[];
 }
 
 export interface BriefingDoctorIssue {
@@ -97,7 +97,7 @@ export function analyzeBriefingLocal(input: BriefingDoctorInput): BriefingLocalA
     });
   }
 
-  const ctas = input.ctaVariants.map((cta) => cta.trim()).filter(Boolean);
+  const ctas = (input.ctaVariants ?? []).map((cta) => cta.trim()).filter(Boolean);
   if (input.generationMode === "art_variation" && ctas.length === 0) {
     issues.push({
       field: "ctaVariants",
@@ -168,7 +168,7 @@ export function applyBriefingFieldPatch(
 
   if (patch.field === "ctaVariants") {
     const incoming = Array.isArray(patch.value) ? patch.value : [patch.value];
-    const next = [...current.ctaVariants] as [string, string, string];
+    const next = [...(current.ctaVariants || ["", "", ""])] as [string, string, string];
     for (const suggestion of incoming) {
       const emptyIndex = next.findIndex((cta) => cta.trim().length === 0);
       if (emptyIndex === -1) break;

@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import type { Derivation } from "@/lib/mock-data";
 
-type WizardStep = 1 | 2 | 3 | 4;
+type WizardStep = 1 | 2 | 3 | 4 | 5;
 
 interface WizardNavigationFooterProps {
   currentStep: WizardStep;
@@ -46,7 +46,7 @@ export default function WizardNavigationFooter({
         {currentStep > 1 ? getStepNavLabel(currentStep, "prev") : ""}
       </button>
 
-      {currentStep === 4 && approvedDerivation && (
+      {currentStep === 5 && approvedDerivation && (
         <button
           onClick={() => onExport(approvedDerivation.id, "png")}
           disabled={exportMutationPending}

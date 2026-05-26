@@ -220,12 +220,6 @@ export function useCampaignWorkspace() {
           offer: data.offer,
           constraints: data.constraints,
           notes: data.notes,
-          generationMode: data.generationMode,
-          ctaVariants: data.ctaVariants.filter((v) => v.trim().length > 0).length > 0
-            ? data.ctaVariants
-            : undefined,
-          targetFormats: data.targetFormats,
-          creativeLevel: data.creativeLevel,
           clientProfileId: data.clientProfileId,
           selectedReferenceIds: data.selectedReferenceIds,
         });
@@ -250,12 +244,6 @@ export function useCampaignWorkspace() {
           constraints: data.constraints,
           notes: data.notes,
           status: "draft",
-          generationMode: data.generationMode,
-          ctaVariants: data.ctaVariants.filter((v) => v.trim().length > 0).length > 0
-            ? data.ctaVariants
-            : undefined,
-          targetFormats: data.targetFormats,
-          creativeLevel: data.creativeLevel,
           clientProfileId: data.clientProfileId,
           selectedReferenceIds: data.selectedReferenceIds,
         });

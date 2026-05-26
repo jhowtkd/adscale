@@ -71,8 +71,7 @@ export function useBriefingAutoSave(
       !formData.audience.trim() &&
       !formData.offer.trim() &&
       !formData.constraints.trim() &&
-      !formData.notes.trim() &&
-      formData.ctaVariants.every((c) => !c.trim());
+      !formData.notes.trim();
 
     if (isEssentiallyEmpty) {
       if (debounceRef.current) {
