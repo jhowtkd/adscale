@@ -70,7 +70,15 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ### Active
 
-(None — all v2.0 requirements shipped; v3.0 requirements implemented in phases 10–14)
+- [ ] **SIMP-01**: Usuário pode criar campanha com formulário simplificado (nome, cliente, perfil)
+- [ ] **SIMP-02**: Usuário pode fazer upload da peça-chave
+- [ ] **SIMP-03**: IA analisa visualmente a peça-chave e deduz informações da campanha
+- [ ] **SIMP-04**: Campos deduzidos são apresentados em formulário editável
+- [ ] **SIMP-05**: Usuário pode editar informações auto-preenchidas antes de salvar
+- [ ] **SIMP-06**: Modo de geração inclui perfil de criatividade com sugestões da IA
+- [ ] **SIMP-07**: Modo de geração inclui CTA por peça com sugestões da IA
+- [ ] **SIMP-08**: Briefing Doctor é removido do fluxo
+- [ ] **SIMP-09**: Campos avançados do briefing antigo são movidos para modo de geração
 
 ### Out of Scope
 
@@ -86,10 +94,14 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 - Format adaptation beyond 1:1, 4:5, 9:16 — future milestone
 - AI-generated copy suggestions for CTAs — requires content model fine-tuning
 - Bulk CTA import from spreadsheet/CSV — future UX improvement
+- Briefing Doctor — removed in v5.0; replaced by AI visual analysis of key creative
+- Multi-step campaign brief form — replaced by simplified single-page flow in v5.0
 
 ## Context
 
-Current state: v3.0 milestone complete (phases 10–15). ADScale now operates as a campaign derivation system with three modes: `Variar arte` (art variation), `Variar formato` (format adaptation), and `Restilização` (style transfer). Per-piece CTAs, explicit visual fidelity rules, creativity level templates with operational rules, literal CTA enforcement, and a quick restyling tool are all implemented. Build passes and tests are green. Ready for v4.0 planning.
+Current state: v4.0 milestone complete (phases 16–17). ADScale has monetization via Stripe subscriptions with trial period, LGPD compliance features, and the three derivation modes from v3.0. Build passes and tests are green.
+
+v5.0 goal: Simplify campaign creation from multi-step brief to single-page flow. AI will visually analyze the uploaded key creative to deduce and auto-fill campaign information (product, style, message). Advanced settings (creativity profile, per-piece CTA) move to generation mode. Briefing Doctor will be removed.
 
 Key stack decisions:
 - Next.js App Router, React, TypeScript, Tailwind, shadcn/ui
@@ -150,7 +162,27 @@ This document evolves at phase transitions and milestone boundaries.
 - LGPD: privacy page, terms, cookie banner, data export, account deletion
 - Phases 16–17 archived
 
-## Next Milestone: v5.0 (TBD)
+### v5.0 Simplificação do Fluxo de Criação de Campanha (Em andamento)
+- Formulário simplificado de briefing
+- Análise visual da peça-chave com extração de informações via IA
+- Auto-preenchimento editável dos campos deduzidos
+- Configurações avançadas movidas para modo de geração
+- Remoção do Briefing Doctor
+- Phases 18+ em andamento
+
+## Current Milestone: v5.0 Simplificação do Fluxo de Criação de Campanha
+
+**Goal:** Reduzir o formulário de briefing para uma única página minimalista, usando análise visual da peça-chave para deduzir e auto-preencher informações da campanha via IA.
+
+**Target features:**
+- Formulário simplificado: nome da campanha, cliente, perfil do cliente
+- Upload da peça-chave com análise visual e interpretação via IA
+- Auto-preenchimento editável dos campos deduzidos pela IA
+- Modo de geração: perfil de criatividade, CTA por peça (com sugestões da IA)
+- Remoção do Briefing Doctor
+- Movimentação de configurações avançadas do briefing para o modo de geração
+
+## Next Milestone: v6.0 (TBD)
 
 **Candidates:**
 - OAuth login (Google/GitHub) — aumenta conversão de signup
@@ -160,4 +192,4 @@ This document evolves at phase transitions and milestone boundaries.
 - API key management — integração com ferramentas externas
 
 ---
-*Last updated: 2026-05-22 after completing v4.0*
+*Last updated: 2026-05-26 after starting v5.0 milestone*
