@@ -141,13 +141,10 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
     });
   }, []);
 
-  const briefingDoctor = useBriefingDoctorAnalysis();
   const generateDiagnosis = useGenerateCreativeDiagnosis(campaign?.id ?? "");
   const updateDiagnosis = useUpdateCreativeDiagnosis(campaign?.id ?? "");
   const regenerateDiagnosis = useRegenerateCreativeDiagnosis(campaign?.id ?? "");
   const { data: diagnosisAssets = [], isLoading: diagnosisAssetsLoading } = useCampaignAssets(campaign?.id ?? "new");
-  const localAnalysis = analyzeBriefingLocal(formData);
-  const aiAnalysis = briefingDoctor.data;
   const hasDiagnosisAsset = diagnosisAssets.length > 0;
 
   const { data: clientProfilesData } = useClientProfiles();
@@ -174,15 +171,6 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
       }
     }
   }, [hasDraft, campaign?.name, campaign?.client, restoreDraft]);
-
-  const handleAnalyzeBriefing = () => {
-    briefingDoctor.mutate(formData);
-  };
-
-  const handleApplyPatch = (patch: BriefingFieldPatch) => {
-    const next = applyBriefingFieldPatch(formData, patch);
-    setFormData(next as BriefingFormData);
-  };
 
   const updateField = <K extends keyof BriefingFormData>(field: K, value: BriefingFormData[K]) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
