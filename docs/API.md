@@ -71,7 +71,6 @@ All errors are returned as JSON with a consistent shape.
 | 429 | `derivationsInProgress` | Campaign already has queued/processing derivations. |
 | 429 | `diagnosisInProgress` | Creative diagnosis is already running. |
 | 429 | `landingPageGenerationInProgress` | Landing page already queued. |
-| 502 | `briefingDoctorFailed` | AI assistant returned empty or invalid response. |
 | 503 | `generationWorkerUnavailable` | Inngest event could not be sent. |
 | 500 | `internalError` | Unexpected server error (includes `errorId` for support). |
 
@@ -891,51 +890,6 @@ Identical to `POST /api/restyling`. Provides a restyling shortcut under the quic
 
 ---
 
-### Briefing Doctor
-
-#### `POST /api/briefing-doctor/analyze`
-
-Analyze a campaign briefing using OpenAI and return structured feedback.
-
-**Request body**
-
-```json
-{
-  "briefing": {
-    "name": "Summer Sale",
-    "client": "Acme",
-    "objective": "Boost Q3 revenue",
-    "audience": "18-34 urban",
-    "platforms": ["Meta", "TikTok"],
-    "tone": "Playful",
-    "offer": "20% off",
-    "constraints": "No neon colors",
-    "notes": "Beach setting",
-    "generationMode": "art_variation",
-    "creativeLevel": "balanced",
-    "targetFormat": "1:1",
-    "ctaVariants": ["Shop Now"]
-  }
-}
-```
-
-**Response**
-
-```json
-{
-  "analysis": {
-    "overallScore": 85,
-    "readiness": "ready",
-    "issues": [],
-    "suggestions": [],
-    "improvedBrief": {},
-    "fieldPatches": []
-  }
-}
-```
-
----
-
 ### Exports
 
 #### `POST /api/exports`
@@ -1216,7 +1170,6 @@ The following tables summarize every HTTP endpoint. See the [Endpoints](#endpoin
 |--------|------|-------------|---------------|
 | POST | `/api/restyling` | Standalone restyling workflow | Yes |
 | POST | `/api/quick-tools/restyling` | Restyling shortcut | Yes |
-| POST | `/api/briefing-doctor/analyze` | Analyze campaign briefing | Yes |
 
 ### Exports
 
