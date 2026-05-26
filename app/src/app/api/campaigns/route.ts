@@ -14,7 +14,7 @@ import { recordBrandMemoryEvent } from "@/server/memory/brand-memory-dispatch";
 
 const createCampaignSchema = z.object({
   name: z.string().min(1).max(255),
-  client: z.string().optional(),
+  client: z.string().min(1),
   product: z.string().optional(),
   objective: z.string().optional(),
   audience: z.string().optional(),
@@ -28,7 +28,7 @@ const createCampaignSchema = z.object({
   targetFormats: z.array(z.string()).max(5).optional(),
   creativeLevel: z.enum(["conservative", "balanced", "bold", "extreme"]).optional().default("balanced"),
   styleIntensity: z.enum(["soft", "medium", "strong"]).optional(),
-  clientProfileId: z.string().uuid().nullable().optional(),
+  clientProfileId: z.string().uuid().nullable(),
   selectedReferenceIds: z.array(z.string().uuid()).optional(),
 })
 ;
