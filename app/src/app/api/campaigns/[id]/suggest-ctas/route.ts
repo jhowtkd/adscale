@@ -47,7 +47,8 @@ export async function POST(
     const { campaignContext, existingCtas } = parsed.data;
 
     // Check cache first (stored in platformSpecificNotes)
-    const cachedSuggestions = campaign.platformSpecificNotes?._ctaSuggestions;
+    const notes = campaign.platformSpecificNotes as Record<string, unknown> | null;
+    const cachedSuggestions = notes?._ctaSuggestions;
     if (cachedSuggestions && Array.isArray(cachedSuggestions)) {
       return apiSuccess({ suggestions: cachedSuggestions });
     }
@@ -56,7 +57,7 @@ export async function POST(
     const suggestions = await generateCtaSuggestions(campaignContext, existingCtas);
 
     // Cache suggestions in campaign metadata
-    const currentNotes = campaign.platformSpecificNotes ?? {};
+    const currentNotes = (campaign.platformSpecificNotes ?? {}) as Record<string, unknown>;
     await updateCampaign(campaignId, workspace.id, {
       platformSpecificNotes: {
         ...currentNotes,

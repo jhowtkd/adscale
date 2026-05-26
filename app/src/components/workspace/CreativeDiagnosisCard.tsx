@@ -26,6 +26,8 @@ export interface CreativeDiagnosisCardProps {
   onRegenerate: () => void;
   isGenerating: boolean;
   isSaving: boolean;
+  canGenerate?: boolean;
+  generateDisabledReason?: string;
   tBriefing: (key: string, values?: Record<string, string | number | Date>) => string;
 }
 
@@ -41,6 +43,8 @@ export default function CreativeDiagnosisCard({
   onRegenerate,
   isGenerating,
   isSaving,
+  canGenerate = true,
+  generateDisabledReason,
   tBriefing,
 }: CreativeDiagnosisCardProps) {
   const status = campaign.creativeDiagnosisStatus ?? "pending";
@@ -162,10 +166,13 @@ export default function CreativeDiagnosisCard({
       {status === "pending" && !editing && (
         <div className="space-y-2">
           <p className="text-xs text-[var(--text-secondary)]">{tBriefing("diagnosis.pending")}</p>
+          {!canGenerate && generateDisabledReason && (
+            <p className="text-xs text-[var(--accent-rose)]">{generateDisabledReason}</p>
+          )}
           <button
             type="button"
             onClick={onGenerate}
-            disabled={isGenerating}
+            disabled={isGenerating || !canGenerate}
             className="inline-flex items-center gap-1 rounded-md border border-[var(--border-dim)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--surface-raised)] disabled:opacity-60"
           >
             <Wand2 size={12} />
