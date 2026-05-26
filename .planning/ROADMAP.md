@@ -280,17 +280,16 @@
 | REST-04 | 15 | ✓ | Planned |
 | REST-05 | 15 | ✓ | Planned |
 | REST-06 | 15 | ✓ | Planned |
-| BRIEF-01 | 18 | ✓ | Planned |
-| BRIEF-02 | 18 | ✓ | Planned |
+| BRIEF-01 | 18 | ✓ | Complete    | 2026-05-26 | BRIEF-02 | 18 | ✓ | Planned |
 | BRIEF-03 | 18 | ✓ | Planned |
 | BRIEF-04 | 18 | ✓ | Planned |
-| AI-01 | 19 | ✓ | Planned |
-| AI-02 | 19 | ✓ | Planned |
+| AI-01 | 19 | ✓ | Complete    | 2026-05-26 |
+| AI-02 | 19 | ✓ | Complete    | 2026-05-26 |
 | AI-03 | 19 | ✓ | Planned |
 | AI-04 | 19 | ✓ | Planned |
 | AI-05 | 19 | ✓ | Planned |
-| AI-06 | 19 | ✓ | Planned |
-| AI-07 | 19 | ✓ | Planned |
+| AI-06 | 19 | ✓ | Complete    | 2026-05-26 |
+| AI-07 | 19 | ✓ | Complete    | 2026-05-26 |
 | GEN-01 | 20 | ✓ | Planned |
 | GEN-02 | 20 | ✓ | Planned |
 | GEN-03 | 20 | ✓ | Planned |
@@ -317,14 +316,15 @@
 | Phase 14 — Galeria, Mensagens e QA Final | ✅ Complete | Build + 67 tests passing |
 | Phase 15 — Régua de Criatividade, CTA Exato e Quick Tool de Restilização | ✅ Complete | prompt-builder tests + build clean |
 | Phase 18 — Formulário Simplificado de Briefing | ✅ Complete | Build passes, 2/2 plans done |
-| Phase 19 — Análise Visual e Dedução com IA | 🔄 Planned | — |
+| Phase 19 — Análise Visual e Dedução com IA | 🔄 In Progress | 1/2 plans complete |
 | Phase 20 — Modo de Geração com Configurações Avançadas | 🔄 Planned | — |
 | Phase 21 — Remoção do Briefing Doctor e Limpeza | 🔄 Planned | — |
 
 **Plans:**
-2/2 plans complete for Phase 18
+3/3 plans complete
 - [x] 18-01-PLAN.md — Backend API Simplification (POST accepts only name/client/clientProfileId)
 - [x] 18-02-PLAN.md — Simplified Creation UI
+- [x] 19-01-PLAN.md — Backend AI Analysis Infrastructure
 
 ---
 

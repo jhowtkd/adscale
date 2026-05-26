@@ -1,26 +1,25 @@
 ---
 gsd_state_version: 1.0
-milestone: v5.0
-milestone_name: Simplificação do Fluxo de Criação de Campanha
-status: in_progress
-last_updated: "2026-05-26T21:33:47Z"
+milestone: v3.0
+milestone_name: milestone
+status: completed
+last_updated: "2026-05-26T21:44:19.143Z"
 last_activity: 2026-05-26 — Completed plan 18-02 (Frontend Simplified Creation Form)
 progress:
-  total_phases: 4
-  completed_phases: 0
-  total_plans: 2
-  completed_plans: 2
-  percent: 50
+  total_phases: 10
+  completed_phases: 1
+  total_plans: 3
+  completed_plans: 3
 ---
 
 # State: ADScale
 
 ## Current Position
 
-Phase: 18-formulario-simplificado-de-briefing
-Plan: 18-02 (complete)
-Status: Phase 18 complete — both plans done
-Last activity: 2026-05-26 — Completed plan 18-02 (Frontend Simplified Creation Form)
+Phase: 19-analise-visual-e-deducao-com-ia
+Plan: 19-01 (complete)
+Status: Plan 19-01 complete — Backend AI Analysis Infrastructure implemented
+Last activity: 2026-05-26 — Completed plan 19-01 (Backend AI Analysis Infrastructure)
 
 ## Accumulated Context
 
@@ -57,12 +56,16 @@ Last activity: 2026-05-26 — Completed plan 18-02 (Frontend Simplified Creation
 - **18-02:** Upload zone in creation modal is visual-only; actual upload happens in campaign workspace
 - **18-02:** Client profile selector uses native `<select>` with existing useClientProfiles hook
 - **18-02:** Old wizard elements (template selector, generation mode, target formats) removed from creation modal
+- **19-01:** OpenAI structured output requires `.nullable()` not `.optional()` for all fields
+- **19-01:** AI vision analysis uses `getPublicUrl(asset.key)` to construct image URLs dynamically
+- **19-01:** Analysis failures gracefully return 200 with empty result and "failed" status
+- **19-01:** Existing `getAssetWithMetadata`/`updateAssetMetadata` handle metadata merging for analysis results
 
 ## Next Steps
 
-1. Phase 18 complete — ready for Phase 19: AI Visual Analysis and Deduction
-2. Validate BRIEF-01 through BRIEF-04 end-to-end
-3. Continue with Phase 19 planning
+1. Plan 19-01 complete — continue with Plan 19-02: Frontend AI-deduced fields integration
+2. Validate AI-01 through AI-07 end-to-end
+3. Proceed with Phase 19 planning if more plans exist
 
 ## Project Reference
 
