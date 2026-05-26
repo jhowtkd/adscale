@@ -294,8 +294,8 @@
 | GEN-02 | 20 | ✓ | Planned |
 | GEN-03 | 20 | ✓ | Planned |
 | GEN-04 | 20 | ✓ | Planned |
-| GEN-05 | 20 | ✓ | Planned |
-| GEN-06 | 20 | ✓ | Planned |
+| GEN-05 | 20 | ✓ | Complete    | 2026-05-26 |
+| GEN-06 | 20 | ✓ | Complete    | 2026-05-26 |
 | CLEAN-01 | 21 | ✓ | Planned |
 | CLEAN-02 | 21 | ✓ | Planned |
 | CLEAN-03 | 21 | ✓ | Planned |
@@ -317,15 +317,16 @@
 | Phase 15 — Régua de Criatividade, CTA Exato e Quick Tool de Restilização | ✅ Complete | prompt-builder tests + build clean |
 | Phase 18 — Formulário Simplificado de Briefing | ✅ Complete | Build passes, 2/2 plans done |
 | Phase 19 — Análise Visual e Dedução com IA | ✅ Complete | 2/2 plans complete |
-| Phase 20 — Modo de Geração com Configurações Avançadas | 🔄 Planned | — |
+| Phase 20 — Modo de Geração com Configurações Avançadas | 🔄 In Progress | 1/3 plans complete |
 | Phase 21 — Remoção do Briefing Doctor e Limpeza | 🔄 Planned | — |
 
 **Plans:**
-4/4 plans complete
+5/5 plans complete
 - [x] 18-01-PLAN.md — Backend API Simplification (POST accepts only name/client/clientProfileId)
 - [x] 18-02-PLAN.md — Simplified Creation UI
 - [x] 19-01-PLAN.md — Backend AI Analysis Infrastructure
 - [x] 19-02-PLAN.md — Frontend Upload & AI Deduction UI
+- [x] 20-01-PLAN.md — Backend AI Suggestions for Generation Mode
 
 ---
 
