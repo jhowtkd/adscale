@@ -17,12 +17,6 @@ import {
 import type { Campaign } from "@/lib/mock-data";
 import type { AdPlatform } from "@/lib/mock-data";
 import { platformColors } from "@/lib/mock-data";
-import {
-  analyzeBriefingLocal,
-  applyBriefingFieldPatch,
-  type BriefingFieldPatch,
-} from "@/lib/briefing-doctor";
-import { useBriefingDoctorAnalysis } from "@/lib/hooks/use-briefing-doctor";
 import { useBriefingAutoSave } from "@/lib/hooks/use-briefing-autosave";
 import {
   useGenerateCreativeDiagnosis,
