@@ -54,6 +54,7 @@ export default function NewCampaignModal({
   onSubmit,
 }: NewCampaignModalProps) {
   const tCampaign = useTranslations("campaign");
+  const tBriefing = useTranslations("briefing");
   const tCommon = useTranslations("common");
   const tErrors = useTranslations("errors");
 
@@ -164,7 +165,7 @@ export default function NewCampaignModal({
               value={form.name}
               onChange={(e) => updateField("name", e.target.value)}
               onBlur={() => setTouched((p) => ({ ...p, name: true }))}
-              placeholder={tCampaign("namePlaceholder")}
+              placeholder={tBriefing("namePlaceholder")}
               className={cn(
                 "bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]",
                 errors.name && "border-[var(--accent-rose)]"
@@ -193,7 +194,7 @@ export default function NewCampaignModal({
               value={form.clientName}
               onChange={(e) => updateField("clientName", e.target.value)}
               onBlur={() => setTouched((p) => ({ ...p, clientName: true }))}
-              placeholder={tCampaign("clientPlaceholder")}
+              placeholder={tBriefing("clientPlaceholder")}
               className={cn(
                 "bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]",
                 errors.clientName && "border-[var(--accent-rose)]"

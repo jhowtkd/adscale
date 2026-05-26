@@ -72,6 +72,7 @@
     "allPlatforms": "All Platforms",
     "sort": "Sort",
     "newest": "Newest",
+    "optional": "optional",
     "oldest": "Oldest",
     "nameAsc": "Name A-Z",
     "nameDesc": "Name Z-A",
@@ -230,7 +231,12 @@
     },
     "manageCampaigns": "Manage your campaigns and creative variants",
     "createNew": "Create New Campaign",
-    "createDescription": "Set up a new campaign to generate creative variants",
+    "createDescription": "Fill in the basic campaign details. You can add the key creative now or later.",
+    "clientProfile": "Client Profile",
+    "selectClientProfile": "Select a client profile",
+    "keyCreative": "Key Creative",
+    "uploadCreativeHint": "Click to upload key creative",
+    "maxFileSize": "max. 10 MB",
     "cta": "Primary CTA",
     "mode": "Generation mode",
     "modes": {
@@ -302,6 +308,28 @@
     "targetFormat": {
       "label": "Target format"
     },
+    "targetFormats": {
+      "square": {
+        "label": "1:1 Square",
+        "description": "Meta Feed, Google Display"
+      },
+      "portrait": {
+        "label": "4:5 Portrait",
+        "description": "Meta Feed, Google Discovery"
+      },
+      "stories": {
+        "label": "9:16 Stories",
+        "description": "Meta Stories/Reels, Google PMax"
+      },
+      "horizontal": {
+        "label": "1.91:1 Horizontal",
+        "description": "Meta Link, Google Display"
+      },
+      "widescreen": {
+        "label": "16:9 Widescreen",
+        "description": "Google Display, YouTube"
+      }
+    },
     "diagnosis": {
       "title": "Creative Diagnosis",
       "subtitle": "Analysis of the original piece to guide variations.",
@@ -323,6 +351,13 @@
       "analyzing": "Analyzing creative...",
       "failed": "Could not analyze the creative. You can edit manually or try again.",
       "pending": "Analyze the creative to get a diagnosis that will guide variation generation.",
+      "missingCreative": "Upload the original creative before generating the diagnosis.",
+      "baseCreativeTitle": "Base creative for diagnosis",
+      "baseCreativeHelp": "Upload the original piece here so ADScale can analyze composition, copy, offer and visual hierarchy.",
+      "baseCreativeReady": "Creative attached. The diagnosis will use this piece as the source of truth.",
+      "uploadBaseCreative": "Upload creative",
+      "replaceBaseCreative": "Replace creative",
+      "baseCreativeUploadFailed": "Could not upload the creative. Try another image.",
       "listPlaceholder": "One item per line",
       "listHelp": "Type one item per line.",
       "preflightSummary": "Preflight Summary"
@@ -655,10 +690,18 @@
     "name": "Name",
     "signingIn": "Signing in...",
     "creatingAccount": "Creating account...",
+    "genericError": "Something went wrong. Please try again.",
     "passwordPlaceholder": "Enter your password",
     "createPasswordPlaceholder": "Create a password",
     "namePlaceholder": "Your name",
     "emailPlaceholder": "you@example.com",
+    "magicLink": "Sign in with magic link",
+    "sendMagicLink": "Send magic link",
+    "sendingMagicLink": "Sending link...",
+    "magicLinkSent": "We sent a magic link to your email.",
+    "backToLogin": "Back to password",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
     "requirements": {
       "length": "8+ characters",
       "uppercase": "Uppercase letter",
@@ -825,7 +868,8 @@
     "campaignIdRequired": "campaignId is required",
     "invalidLocale": "Invalid locale",
     "nameRequired": "Campaign name is required",
-    "clientRequired": "Client or product is required",
+    "clientRequired": "Please enter the client name",
+    "clientProfileRequired": "Please select a client profile",
     "objectiveRequired": "Campaign objective is required",
     "ctaRequired": "Primary CTA is required",
     "platformRequired": "Select at least one platform",

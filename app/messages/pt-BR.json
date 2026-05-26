@@ -72,6 +72,7 @@
     "allPlatforms": "Todas as plataformas",
     "sort": "Ordenar",
     "newest": "Mais recente",
+    "optional": "opcional",
     "oldest": "Mais antigo",
     "nameAsc": "Nome A-Z",
     "nameDesc": "Nome Z-A",
@@ -230,7 +231,12 @@
     },
     "manageCampaigns": "Gerencie suas campanhas e variações criativas",
     "createNew": "Criar nova campanha",
-    "createDescription": "Configure uma nova campanha para gerar variações criativas",
+    "createDescription": "Preencha os dados básicos da campanha. Você pode adicionar a peça-chave agora ou depois.",
+    "clientProfile": "Perfil do cliente",
+    "selectClientProfile": "Selecione um perfil de cliente",
+    "keyCreative": "Peça-chave",
+    "uploadCreativeHint": "Clique para fazer upload da peça-chave",
+    "maxFileSize": "máx. 10 MB",
     "cta": "CTA principal",
     "mode": "Modo de geração",
     "modes": {
@@ -320,6 +326,28 @@
     "targetFormat": {
       "label": "Formato alvo"
     },
+    "targetFormats": {
+      "square": {
+        "label": "1:1 Quadrado",
+        "description": "Meta Feed, Google Display"
+      },
+      "portrait": {
+        "label": "4:5 Retrato",
+        "description": "Meta Feed, Google Discovery"
+      },
+      "stories": {
+        "label": "9:16 Stories",
+        "description": "Meta Stories/Reels, Google PMax"
+      },
+      "horizontal": {
+        "label": "1.91:1 Horizontal",
+        "description": "Meta Link, Google Display"
+      },
+      "widescreen": {
+        "label": "16:9 Widescreen",
+        "description": "Google Display, YouTube"
+      }
+    },
     "diagnosis": {
       "title": "Diagnóstico Criativo",
       "subtitle": "Análise da peça original para guiar as variações.",
@@ -341,6 +369,13 @@
       "analyzing": "Analisando criativo...",
       "failed": "Não foi possível analisar o criativo. Você pode editar manualmente ou tentar novamente.",
       "pending": "Analise o criativo para obter um diagnóstico que guiará a geração de variações.",
+      "missingCreative": "Envie a peça original antes de gerar o diagnóstico.",
+      "baseCreativeTitle": "Criativo base para diagnóstico",
+      "baseCreativeHelp": "Envie a peça original aqui para o ADScale analisar composição, texto, oferta e hierarquia visual.",
+      "baseCreativeReady": "Criativo anexado. O diagnóstico vai usar essa peça como fonte principal.",
+      "uploadBaseCreative": "Enviar criativo",
+      "replaceBaseCreative": "Trocar criativo",
+      "baseCreativeUploadFailed": "Não foi possível enviar o criativo. Tente outra imagem.",
       "listPlaceholder": "Um item por linha",
       "listHelp": "Digite um item por linha.",
       "preflightSummary": "Resumo Pré-voo"
@@ -655,10 +690,18 @@
     "name": "Nome",
     "signingIn": "Entrando...",
     "creatingAccount": "Criando conta...",
+    "genericError": "Algo deu errado. Tente novamente.",
     "passwordPlaceholder": "Digite sua senha",
     "createPasswordPlaceholder": "Crie uma senha",
     "namePlaceholder": "Seu nome",
     "emailPlaceholder": "voce@exemplo.com",
+    "magicLink": "Entrar com link mágico",
+    "sendMagicLink": "Enviar link mágico",
+    "sendingMagicLink": "Enviando link...",
+    "magicLinkSent": "Enviamos um link mágico para o seu e-mail.",
+    "backToLogin": "Voltar para senha",
+    "showPassword": "Mostrar senha",
+    "hidePassword": "Ocultar senha",
     "requirements": {
       "length": "8+ caracteres",
       "uppercase": "Letra maiúscula",
@@ -825,7 +868,8 @@
     "campaignIdRequired": "ID da campanha é obrigatório",
     "invalidLocale": "Locale inválido",
     "nameRequired": "Nome da campanha é obrigatório",
-    "clientRequired": "Cliente ou produto é obrigatório",
+    "clientRequired": "Informe o nome do cliente",
+    "clientProfileRequired": "Selecione um perfil de cliente",
     "objectiveRequired": "Objetivo da campanha é obrigatório",
     "ctaRequired": "CTA principal é obrigatório",
     "platformRequired": "Selecione pelo menos uma plataforma",
