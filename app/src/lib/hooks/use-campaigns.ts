@@ -187,7 +187,7 @@ async function createCampaign(payload: {
   styleIntensity?: "soft" | "medium" | "strong";
   ctaVariants?: string[];
   targetFormats?: string[];
-  clientProfileId?: string;
+  clientProfileId?: string | null;
   selectedReferenceIds?: string[];
 }): Promise<Campaign> {
   const res = await apiFetch("/api/campaigns", {

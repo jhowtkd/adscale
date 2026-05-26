@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAppStore } from "@/lib/store";
-import type { AdPlatform, CampaignStatus, Campaign } from "@/lib/mock-data";
+import type { Campaign } from "@/lib/mock-data";
 import { toast } from "sonner";
 
 import {
@@ -167,24 +167,13 @@ export function useCampaignsPage() {
     (data: {
       name: string;
       client: string;
-      generationMode: "art_variation" | "format_adaptation" | "restyling";
-      targetFormats?: string[];
-      constraints?: string;
-      notes?: string;
-      platforms: AdPlatform[];
-      status: CampaignStatus;
-      variations: number;
-      creditsUsed: number;
+      clientProfileId: string | null;
     }) => {
       createCampaign.mutate(
         {
           name: data.name,
           client: data.client,
-          generationMode: data.generationMode,
-          targetFormats: data.targetFormats,
-          constraints: data.constraints,
-          notes: data.notes,
-          platforms: data.platforms,
+          clientProfileId: data.clientProfileId,
         },
         {
           onSuccess: (campaign) => {

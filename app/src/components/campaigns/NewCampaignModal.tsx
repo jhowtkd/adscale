@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
-import type { CampaignStatus, AdPlatform } from "@/lib/mock-data";
+import type { Campaign } from "@/lib/mock-data";
 import {
   Dialog,
   DialogContent,
@@ -48,14 +48,7 @@ interface NewCampaignModalProps {
   onSubmit: (campaign: {
     name: string;
     client: string;
-    generationMode: "art_variation" | "format_adaptation" | "restyling";
-    targetFormats?: string[];
-    constraints?: string;
-    notes?: string;
-    platforms: AdPlatform[];
-    status: CampaignStatus;
-    variations: number;
-    creditsUsed: number;
+    clientProfileId: string | null;
   }) => void;
 }
 
@@ -139,17 +132,7 @@ export default function NewCampaignModal({
       onSubmit({
         name: form.name,
         client: form.clientName,
-        generationMode: form.generationMode,
-        targetFormats:
-          form.generationMode === "format_adaptation"
-            ? form.targetFormats
-            : undefined,
-        constraints: form.constraints || undefined,
-        notes: form.notes || undefined,
-        platforms: ["Meta"],
-        status: "draft",
-        variations: 0,
-        creditsUsed: 0,
+        clientProfileId: null,
       });
       setForm({
         name: "",
