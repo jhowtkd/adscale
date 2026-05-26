@@ -33,8 +33,7 @@ export async function middleware(request: NextRequest) {
   if (isApiMutation(request)) {
     const category = pathname.startsWith("/api/auth")
       ? "auth"
-      : pathname.startsWith("/api/briefing-doctor") ||
-        pathname.startsWith("/api/campaigns") ||
+      : pathname.startsWith("/api/campaigns") ||
         pathname.startsWith("/api/derivations") ||
         pathname.startsWith("/api/restyling") ||
         pathname.startsWith("/api/quick-tools")
