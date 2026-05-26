@@ -4,7 +4,6 @@ import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
-import type { Campaign } from "@/lib/mock-data";
 import {
   Dialog,
   DialogContent,
@@ -15,11 +14,9 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { useTemplates } from "@/lib/hooks/use-templates";
-import { ChevronDown } from "lucide-react";
-
+import { useClientProfiles } from "@/lib/hooks/use-client-profiles";
+import { ChevronDown, Upload, X } from "lucide-react";
 
 // ============================================
 // Types
@@ -28,24 +25,19 @@ import { ChevronDown } from "lucide-react";
 interface NewCampaignForm {
   name: string;
   clientName: string;
-  generationMode: "art_variation" | "format_adaptation" | "restyling";
-  targetFormats: string[];
-  constraints: string;
-  notes: string;
-  templateId: string;
+  clientProfileId: string | null;
 }
 
 interface FormErrors {
   name?: string;
   clientName?: string;
-  generationMode?: string;
-  targetFormats?: string;
+  clientProfileId?: string;
 }
 
 interface NewCampaignModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (campaign: {
+  onSubmit: (data: {
     name: string;
     client: string;
     clientProfileId: string | null;
@@ -62,36 +54,19 @@ export default function NewCampaignModal({
   onSubmit,
 }: NewCampaignModalProps) {
   const tCampaign = useTranslations("campaign");
-  const tBriefing = useTranslations("briefing");
   const tCommon = useTranslations("common");
   const tErrors = useTranslations("errors");
 
-  const { data: templates } = useTemplates();
-
-  const MODE_OPTIONS = [
-    {
-      value: "art_variation" as const,
-      label: tCampaign("modes.artVariation.label"),
-      description: tCampaign("modes.artVariation.description"),
-    },
-    {
-      value: "format_adaptation" as const,
-      label: tCampaign("modes.formatAdaptation.label"),
-      description: tCampaign("modes.formatAdaptation.description"),
-    },
-  ];
+  const { data: clientProfiles, isLoading: profilesLoading } = useClientProfiles();
 
   const [form, setForm] = useState<NewCampaignForm>({
     name: "",
     clientName: "",
-    generationMode: "art_variation",
-    targetFormats: ["1:1"],
-    constraints: "",
-    notes: "",
-    templateId: "",
+    clientProfileId: null,
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const updateField = useCallback(
     <K extends keyof NewCampaignForm>(field: K, value: NewCampaignForm[K]) => {
@@ -112,15 +87,12 @@ export default function NewCampaignModal({
     const newErrors: FormErrors = {};
     if (!form.name.trim()) newErrors.name = tErrors("nameRequired");
     if (!form.clientName.trim()) newErrors.clientName = tErrors("clientRequired");
-    if (!form.generationMode) newErrors.generationMode = tErrors("modeRequired");
-    if (form.generationMode === "format_adaptation" && form.targetFormats.length === 0) {
-      newErrors.targetFormats = tErrors("targetFormatRequired");
-    }
+    if (!form.clientProfileId) newErrors.clientProfileId = tErrors("clientProfileRequired");
     setErrors(newErrors);
     setTouched({
       name: true,
       clientName: true,
-      generationMode: true,
+      clientProfileId: true,
     });
     return Object.keys(newErrors).length === 0;
   }, [form, tErrors]);
@@ -132,19 +104,16 @@ export default function NewCampaignModal({
       onSubmit({
         name: form.name,
         client: form.clientName,
-        clientProfileId: null,
+        clientProfileId: form.clientProfileId,
       });
       setForm({
         name: "",
         clientName: "",
-        generationMode: "art_variation",
-        targetFormats: ["1:1"],
-        constraints: "",
-        notes: "",
-        templateId: "",
+        clientProfileId: null,
       });
       setErrors({});
       setTouched({});
+      setSelectedFile(null);
       onOpenChange(false);
     },
     [form, validate, onSubmit, onOpenChange]
@@ -154,7 +123,19 @@ export default function NewCampaignModal({
     onOpenChange(false);
     setErrors({});
     setTouched({});
+    setSelectedFile(null);
   }, [onOpenChange]);
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+    }
+  }, []);
+
+  const handleRemoveFile = useCallback(() => {
+    setSelectedFile(null);
+  }, []);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -183,7 +164,7 @@ export default function NewCampaignModal({
               value={form.name}
               onChange={(e) => updateField("name", e.target.value)}
               onBlur={() => setTouched((p) => ({ ...p, name: true }))}
-              placeholder={tBriefing("namePlaceholder")}
+              placeholder={tCampaign("namePlaceholder")}
               className={cn(
                 "bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]",
                 errors.name && "border-[var(--accent-rose)]"
@@ -203,27 +184,6 @@ export default function NewCampaignModal({
             </AnimatePresence>
           </div>
 
-          {/* Template Selector */}
-          <TemplateSelector
-            value={form.templateId}
-            onChange={(templateId) => {
-              setForm((prev) => ({ ...prev, templateId }));
-              if (templateId) {
-                const template = templates?.find((t) => t.id === templateId);
-                if (template) {
-                  setForm((prev) => ({
-                    ...prev,
-                    clientName: template.client ?? prev.clientName,
-                    generationMode: template.generationMode,
-                    constraints: template.constraints ?? prev.constraints,
-                    notes: template.notes ?? prev.notes,
-                    targetFormats: template.targetFormats ?? prev.targetFormats,
-                  }));
-                }
-              }
-            }}
-          />
-
           {/* Client/Product Name */}
           <div className="space-y-1.5">
             <Label className="text-[13px] text-[var(--text-secondary)]">
@@ -233,7 +193,7 @@ export default function NewCampaignModal({
               value={form.clientName}
               onChange={(e) => updateField("clientName", e.target.value)}
               onBlur={() => setTouched((p) => ({ ...p, clientName: true }))}
-              placeholder={tBriefing("clientPlaceholder")}
+              placeholder={tCampaign("clientPlaceholder")}
               className={cn(
                 "bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]",
                 errors.clientName && "border-[var(--accent-rose)]"
@@ -253,128 +213,97 @@ export default function NewCampaignModal({
             </AnimatePresence>
           </div>
 
-          {/* Generation Mode */}
+          {/* Client Profile */}
           <div className="space-y-1.5">
             <Label className="text-[13px] text-[var(--text-secondary)]">
-              {tCampaign("mode")} <span className="text-[var(--accent-rose)]">*</span>
+              {tCampaign("clientProfile")} <span className="text-[var(--accent-rose)]">*</span>
             </Label>
-            <div className="grid grid-cols-2 gap-3">
-              {MODE_OPTIONS.map((mode) => (
-                <button
-                  key={mode.value}
-                  type="button"
-                  onClick={() => updateField("generationMode", mode.value)}
-                  className={cn(
-                    "relative flex flex-col items-start gap-1 rounded-lg border px-4 py-3 text-left transition-all duration-200",
-                    form.generationMode === mode.value
-                      ? "border-[var(--accent-blue)] bg-[rgba(99,102,241,0.08)] ring-1 ring-[var(--accent-blue)]"
-                      : "border-[var(--border-dim)] bg-[var(--surface-base)] hover:border-[var(--border-medium)] hover:bg-[var(--surface-raised)]"
-                  )}
-                >
-                  <span className="text-sm font-medium text-[var(--text-primary)]">
-                    {mode.label}
-                  </span>
-                  <span className="text-xs text-[var(--text-secondary)] leading-relaxed">
-                    {mode.description}
-                  </span>
-                  {form.generationMode === mode.value && (
-                    <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-[var(--accent-blue)]" />
-                  )}
-                </button>
-              ))}
+            <div className="relative">
+              <select
+                value={form.clientProfileId ?? ""}
+                onChange={(e) => updateField("clientProfileId", e.target.value || null)}
+                onBlur={() => setTouched((p) => ({ ...p, clientProfileId: true }))}
+                className={cn(
+                  "w-full h-10 px-3 pr-10 bg-[var(--surface-base)] border rounded-md text-sm text-[var(--text-primary)] appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-[var(--accent-blue)] focus:border-[var(--accent-blue)]",
+                  errors.clientProfileId && "border-[var(--accent-rose)]"
+                )}
+              >
+                <option value="">{profilesLoading ? tCommon("loading") : tCampaign("selectClientProfile")}</option>
+                {clientProfiles?.map((profile) => (
+                  <option key={profile.id} value={profile.id}>
+                    {profile.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                size={16}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none"
+              />
             </div>
             <AnimatePresence>
-              {errors.generationMode && (
+              {errors.clientProfileId && (
                 <motion.p
                   initial={{ opacity: 0, y: -4 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -4 }}
                   className="text-xs text-[var(--accent-rose)]"
                 >
-                  {errors.generationMode}
+                  {errors.clientProfileId}
                 </motion.p>
               )}
             </AnimatePresence>
           </div>
 
-          {/* Target Format */}
-          {form.generationMode === "format_adaptation" && (
-            <div className="space-y-1.5">
-              <Label className="text-[13px] text-[var(--text-secondary)]">
-                {tBriefing("targetFormat.label")} <span className="text-[var(--accent-rose)]">*</span>
-              </Label>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { id: "1:1", label: "1:1" },
-                  { id: "4:5", label: "4:5" },
-                  { id: "9:16", label: "9:16" },
-                  { id: "1.91:1", label: "1.91:1" },
-                  { id: "16:9", label: "16:9" },
-                ].map((fmt) => (
+          {/* Optional Upload */}
+          <div className="space-y-1.5">
+            <Label className="text-[13px] text-[var(--text-secondary)]">
+              {tCampaign("keyCreative")} <span className="text-[var(--text-muted)]">({tCommon("optional")})</span>
+            </Label>
+            <div
+              className={cn(
+                "border border-dashed rounded-lg p-4 transition-colors",
+                selectedFile
+                  ? "border-[var(--accent-mint)] bg-[rgba(47,182,125,0.05)]"
+                  : "border-[var(--border-dim)] hover:border-[var(--border-medium)] hover:bg-[var(--surface-raised)]"
+              )}
+            >
+              {selectedFile ? (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Upload size={16} className="text-[var(--accent-mint)]" />
+                    <span className="text-sm text-[var(--text-primary)] truncate max-w-[200px]">
+                      {selectedFile.name}
+                    </span>
+                    <span className="text-xs text-[var(--text-muted)]">
+                      {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                    </span>
+                  </div>
                   <button
-                    key={fmt.id}
                     type="button"
-                    onClick={() => {
-                      const current = form.targetFormats;
-                      if (current.includes(fmt.id)) {
-                        updateField("targetFormats", current.filter((f) => f !== fmt.id));
-                      } else {
-                        updateField("targetFormats", [...current, fmt.id]);
-                      }
-                    }}
-                    className={cn(
-                      "relative rounded-lg border px-3 py-2 text-sm text-center transition-all duration-200",
-                      form.targetFormats.includes(fmt.id)
-                        ? "border-[var(--accent-blue)] bg-[rgba(99,102,241,0.08)] ring-1 ring-[var(--accent-blue)]"
-                        : "border-[var(--border-dim)] bg-[var(--surface-base)] hover:border-[var(--border-medium)] hover:bg-[var(--surface-raised)]"
-                    )}
+                    onClick={handleRemoveFile}
+                    className="p-1 hover:bg-[var(--surface-base)] rounded"
                   >
-                    {fmt.label}
-                    {form.targetFormats.includes(fmt.id) && (
-                      <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-[var(--accent-blue)]" />
-                    )}
+                    <X size={14} className="text-[var(--text-muted)]" />
                   </button>
-                ))}
-              </div>
-              <AnimatePresence>
-                {errors.targetFormats && (
-                  <motion.p
-                    initial={{ opacity: 0, y: -4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -4 }}
-                    className="text-xs text-[var(--accent-rose)]"
-                  >
-                    {errors.targetFormats}
-                  </motion.p>
-                )}
-              </AnimatePresence>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center gap-2 cursor-pointer">
+                  <Upload size={24} className="text-[var(--text-muted)]" />
+                  <span className="text-sm text-[var(--text-secondary)]">
+                    {tCampaign("uploadCreativeHint")}
+                  </span>
+                  <span className="text-xs text-[var(--text-muted)]">
+                    PNG, JPG, WebP — {tCampaign("maxFileSize")}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                </label>
+              )}
             </div>
-          )}
-
-          {/* Constraints */}
-          <div className="space-y-1.5">
-            <Label className="text-[13px] text-[var(--text-secondary)]">
-              {tCampaign("constraints")}
-            </Label>
-            <Textarea
-              value={form.constraints}
-              onChange={(e) => updateField("constraints", e.target.value)}
-              placeholder={tBriefing("constraintsPlaceholder")}
-              className="bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] min-h-[60px]"
-            />
-          </div>
-
-          {/* Notes */}
-          <div className="space-y-1.5">
-            <Label className="text-[13px] text-[var(--text-secondary)]">
-              {tCampaign("notes")}
-            </Label>
-            <Textarea
-              value={form.notes}
-              onChange={(e) => updateField("notes", e.target.value)}
-              placeholder={tBriefing("notesPlaceholder")}
-              className="bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] min-h-[60px]"
-            />
           </div>
         </form>
 
@@ -398,56 +327,5 @@ export default function NewCampaignModal({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function TemplateSelector({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  const { data: templates, isLoading } = useTemplates();
-  const tTemplate = useTranslations("template");
-
-  if (isLoading) {
-    return (
-      <div className="h-10 bg-[var(--surface-base)] border border-[var(--border-dim)] rounded-md animate-pulse" />
-    );
-  }
-
-  if (!templates || templates.length === 0) {
-    return (
-      <p className="text-xs text-[var(--text-muted)] py-2">
-        {tTemplate("noTemplatesAvailable")}
-      </p>
-    );
-  }
-
-  return (
-    <div className="space-y-1.5">
-      <Label className="text-[13px] text-[var(--text-secondary)]">
-        {tTemplate("selectTemplate")}
-      </Label>
-      <div className="relative">
-        <select
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="w-full h-10 px-3 pr-10 bg-[var(--surface-base)] border border-[var(--border-dim)] rounded-md text-sm text-[var(--text-primary)] appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-[var(--accent-blue)] focus:border-[var(--accent-blue)]"
-        >
-          <option value="">{tTemplate("selectTemplate")}</option>
-          {templates.map((template) => (
-            <option key={template.id} value={template.id}>
-              {template.name}
-            </option>
-          ))}
-        </select>
-        <ChevronDown
-          size={16}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none"
-        />
-      </div>
-    </div>
   );
 }
