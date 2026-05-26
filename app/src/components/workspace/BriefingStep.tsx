@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Sparkles, Check, X, Plus, ImageOff, ScanLine } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Sparkles, Check, X, Plus, ImageOff, ScanLine, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
@@ -37,6 +37,7 @@ import {
   useClientReferences,
 } from "@/lib/hooks/use-client-profiles";
 import { useBrandKit } from "@/lib/hooks/use-brand-kit";
+import { useCampaignAssets, useUploadAsset, type AssetWithUrl } from "@/lib/hooks/use-assets";
 import CompetitorAnalysisSection from "@/components/campaigns/CompetitorAnalysisSection";
 import FormatAdaptationPreview from "./FormatAdaptationPreview";
 
@@ -44,6 +45,9 @@ import PreflightSummary from "./PreflightSummary";
 import CreativeDiagnosisCard from "./CreativeDiagnosisCard";
 import BriefingRestoreBanner from "./BriefingRestoreBanner";
 import AutoBriefingModal from "./AutoBriefingModal";
+import { CreativeUploadWithAnalysis } from "@/components/campaigns/CreativeUploadWithAnalysis";
+import { AIDeducedFieldsEditor } from "@/components/campaigns/AIDeducedFieldsEditor";
+import type { AiDeducedFields } from "@/server/validation/ai-deduction";
 // Types
 
 export interface BriefingFormData {
@@ -112,12 +116,59 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
     };
   });
 
+  // AI-deduced fields from creative analysis
+  const [aiDeducedFields, setAiDeducedFields] = useState<AiDeducedFields | null>(null);
+  const [hasUserEdits, setHasUserEdits] = useState(false);
+
+  const handleAnalysisComplete = useCallback((analysis: AiDeducedFields) => {
+    setAiDeducedFields(analysis);
+    setHasUserEdits(false);
+    
+    // Auto-fill form fields with AI-deduced values (only if field is empty)
+    setFormData((prev) => {
+      const next = { ...prev };
+      if (analysis.objective?.value && !next.objective) {
+        next.objective = analysis.objective.value;
+      }
+      if (analysis.targetAudience?.value && !next.audience) {
+        next.audience = analysis.targetAudience.value;
+      }
+      if (analysis.tone?.value && !next.tone) {
+        next.tone = analysis.tone.value;
+      }
+      if (analysis.offer?.value && !next.offer) {
+        next.offer = analysis.offer.value;
+      }
+      if (analysis.platforms?.value?.length && next.platforms.length === 0) {
+        next.platforms = analysis.platforms.value as AdPlatform[];
+      }
+      return next;
+    });
+  }, []);
+
+  const handleAiFieldsChange = useCallback((fields: Partial<Record<string, string>>) => {
+    setHasUserEdits(true);
+    setFormData((prev) => {
+      const next = { ...prev };
+      if (fields.objective !== undefined) next.objective = fields.objective;
+      if (fields.targetAudience !== undefined) next.audience = fields.targetAudience;
+      if (fields.tone !== undefined) next.tone = fields.tone;
+      if (fields.offer !== undefined) next.offer = fields.offer;
+      if (fields.platforms !== undefined) {
+        next.platforms = fields.platforms.split(", ").filter(Boolean) as AdPlatform[];
+      }
+      return next;
+    });
+  }, []);
+
   const briefingDoctor = useBriefingDoctorAnalysis();
   const generateDiagnosis = useGenerateCreativeDiagnosis(campaign?.id ?? "");
   const updateDiagnosis = useUpdateCreativeDiagnosis(campaign?.id ?? "");
   const regenerateDiagnosis = useRegenerateCreativeDiagnosis(campaign?.id ?? "");
+  const { data: diagnosisAssets = [], isLoading: diagnosisAssetsLoading } = useCampaignAssets(campaign?.id ?? "new");
   const localAnalysis = analyzeBriefingLocal(formData);
   const aiAnalysis = briefingDoctor.data;
+  const hasDiagnosisAsset = diagnosisAssets.length > 0;
 
   const { data: clientProfilesData } = useClientProfiles();
   const createProfile = useCreateClientProfile();
@@ -177,7 +228,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
   };
 
   const handleGenerateDiagnosis = () => {
-    if (!campaign?.id) return;
+    if (!campaign?.id || !hasDiagnosisAsset) return;
     generateDiagnosis.mutate(undefined, {
       onSuccess: (data) => {
         setLocalDiagnosis({
@@ -191,7 +242,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
   };
 
   const handleRegenerateDiagnosis = () => {
-    if (!campaign?.id) return;
+    if (!campaign?.id || !hasDiagnosisAsset) return;
     regenerateDiagnosis.mutate(undefined, {
       onSuccess: (data) => {
         setLocalDiagnosis({
@@ -692,7 +743,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
         )}
 
         {/* ---- Competitor Analysis ---- */}
-        {campaign?.id && (
+        {campaign?.id && campaign.id !== "new" && (
           <div className="animate-fade-in" style={{ animationDelay: "380ms" }}>
             <CompetitorAnalysisSection
               campaignId={campaign.id}
@@ -790,7 +841,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
             </div>
 
             {/* Smart Resize Preview */}
-            {campaign?.id && (
+            {campaign?.id && campaign.id !== "new" && (
               <FormatAdaptationPreview campaignId={campaign.id} />
             )}
           </div>
@@ -832,13 +883,36 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
         )}
 
         {/* ---- Preflight Summary ---- */}
-        {campaign?.id && (
+        {campaign?.id && campaign.id !== "new" && (
           <PreflightSummary campaignId={campaign.id} tBriefing={tBriefing} />
         )}
 
         {/* ---- Creative Diagnosis ---- */}
-        {formData.generationMode === "art_variation" && campaign?.id && (
-          <div  className="animate-fade-in" style={{ animationDelay: "550ms" }}>
+        {formData.generationMode === "art_variation" && campaign?.id && campaign.id !== "new" && (
+          <div className="animate-fade-in space-y-3" style={{ animationDelay: "550ms" }}>
+            <div className="rounded-lg border border-[var(--accent-mint)]/30 bg-[var(--accent-mint)]/[0.04] p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Sparkles size={16} className="text-[var(--accent-mint)]" />
+                <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+                  {tBriefing("diagnosis.baseCreativeTitle")}
+                </h3>
+              </div>
+              <CreativeUploadWithAnalysis
+                campaignId={campaign.id}
+                onAnalysisComplete={handleAnalysisComplete}
+              />
+            </div>
+
+            {/* AI Deduced Fields Editor */}
+            {aiDeducedFields && (
+              <div className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-card)] p-4">
+                <AIDeducedFieldsEditor
+                  analysis={aiDeducedFields}
+                  onChange={handleAiFieldsChange}
+                />
+              </div>
+            )}
+
             <CreativeDiagnosisCard
               campaign={campaign}
               editing={editingDiagnosis}
@@ -859,6 +933,8 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
               onRegenerate={handleRegenerateDiagnosis}
               isGenerating={generateDiagnosis.isPending || regenerateDiagnosis.isPending}
               isSaving={updateDiagnosis.isPending}
+              canGenerate={hasDiagnosisAsset}
+              generateDisabledReason={tBriefing("diagnosis.missingCreative")}
               tBriefing={tBriefing}
             />
           </div>
@@ -1020,7 +1096,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
       </form>
 
       {/* ---- Auto Briefing Modal ---- */}
-      {campaign?.id && (
+      {campaign?.id && campaign.id !== "new" && (
         <AutoBriefingModal
           open={autoBriefingOpen}
           onOpenChange={setAutoBriefingOpen}
@@ -1068,6 +1144,103 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
           {tBriefing("saveContinue")}
         </button>
       </div>
+    </div>
+  );
+}
+
+interface BaseCreativeUploadCardProps {
+  campaignId: string;
+  assets: AssetWithUrl[];
+  isLoading: boolean;
+  tBriefing: (key: string, values?: Record<string, string | number | Date>) => string;
+}
+
+function BaseCreativeUploadCard({ campaignId, assets, isLoading, tBriefing }: BaseCreativeUploadCardProps) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const uploadAsset = useUploadAsset(campaignId);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const firstAsset = assets[0] ?? null;
+  const isUploading = uploadAsset.isPending;
+
+  const handleFile = async (file: File | undefined) => {
+    if (!file) return;
+    setUploadError(null);
+    setUploadProgress(0);
+
+    try {
+      await uploadAsset.mutateAsync({
+        file,
+        onProgress: (progress) => setUploadProgress(progress),
+      });
+      setUploadProgress(100);
+    } catch {
+      setUploadError(tBriefing("diagnosis.baseCreativeUploadFailed"));
+    } finally {
+      if (inputRef.current) {
+        inputRef.current.value = "";
+      }
+    }
+  };
+
+  return (
+    <div className="rounded-lg border border-[var(--accent-mint)]/30 bg-[var(--accent-mint)]/[0.04] p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-[var(--accent-mint)]/25 bg-[var(--accent-mint)]/10 text-[var(--accent-mint)]">
+            {firstAsset ? <Check size={18} /> : <ImageOff size={18} />}
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-[var(--text-primary)]">
+              {tBriefing("diagnosis.baseCreativeTitle")}
+            </p>
+            <p className="mt-0.5 text-xs leading-relaxed text-[var(--text-secondary)]">
+              {firstAsset
+                ? tBriefing("diagnosis.baseCreativeReady")
+                : tBriefing("diagnosis.baseCreativeHelp")}
+            </p>
+            {uploadError && (
+              <p className="mt-1 text-xs text-[var(--accent-rose)]">{uploadError}</p>
+            )}
+          </div>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2">
+          {firstAsset?.url && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={firstAsset.url}
+              alt=""
+              className="h-11 w-11 rounded-md border border-[var(--border-dim)] object-cover"
+            />
+          )}
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(event) => void handleFile(event.target.files?.[0])}
+          />
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            disabled={isLoading || isUploading}
+            className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--accent-mint)]/40 bg-[var(--surface-base)] px-3 text-xs font-medium text-[var(--text-primary)] transition hover:bg-[var(--surface-raised)] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Upload size={13} />
+            {firstAsset ? tBriefing("diagnosis.replaceBaseCreative") : tBriefing("diagnosis.uploadBaseCreative")}
+          </button>
+        </div>
+      </div>
+
+      {isUploading && (
+        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[var(--surface-raised)]">
+          <div
+            className="h-full rounded-full bg-[var(--accent-mint)] transition-all"
+            style={{ width: `${Math.max(8, uploadProgress)}%` }}
+          />
+        </div>
+      )}
     </div>
   );
 }
