@@ -57,6 +57,74 @@ describe("analyzeCampaignCreative", () => {
     expect(result.analyzedAt).toBeDefined();
   });
 
+  it("returns creativity profile suggestion when provided by AI", async () => {
+    mockCreate.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              product: { value: "Running Shoes", confidence: "high" },
+              suggestedCreativeLevel: { value: "bold", confidence: "high", reasoning: "High energy design with vibrant colors" },
+            }),
+          },
+        },
+      ],
+    } as any);
+
+    const result = await analyzeCampaignCreative("https://example.com/image.jpg");
+
+    expect(result.suggestedCreativeLevel?.value).toBe("bold");
+    expect(result.suggestedCreativeLevel?.confidence).toBe("high");
+    expect(result.suggestedCreativeLevel?.reasoning).toBe("High energy design with vibrant colors");
+  });
+
+  it("returns CTA suggestions when provided by AI", async () => {
+    mockCreate.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              product: { value: "Running Shoes", confidence: "high" },
+              suggestedCtas: [
+                { value: "Compre Agora", confidence: "high" },
+                { value: "Aproveite 50% OFF", confidence: "medium" },
+                { value: "Saiba Mais", confidence: "medium" },
+              ],
+            }),
+          },
+        },
+      ],
+    } as any);
+
+    const result = await analyzeCampaignCreative("https://example.com/image.jpg");
+
+    expect(result.suggestedCtas).toHaveLength(3);
+    expect(result.suggestedCtas?.[0].value).toBe("Compre Agora");
+    expect(result.suggestedCtas?.[0].confidence).toBe("high");
+  });
+
+  it("filters out null suggestion values", async () => {
+    mockCreate.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              product: { value: "Running Shoes", confidence: "high" },
+              suggestedCreativeLevel: null,
+              suggestedCtas: null,
+            }),
+          },
+        },
+      ],
+    } as any);
+
+    const result = await analyzeCampaignCreative("https://example.com/image.jpg");
+
+    expect(result.suggestedCreativeLevel).toBeUndefined();
+    expect(result.suggestedCtas).toBeUndefined();
+    expect(result.product?.value).toBe("Running Shoes");
+  });
+
   it("returns empty object when AI returns no content", async () => {
     mockCreate.mockResolvedValue({
       choices: [{ message: { content: null } }],
