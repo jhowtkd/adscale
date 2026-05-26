@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useSuggestCtas, type CampaignContext } from "@/lib/hooks/use-generation-suggestions";
+import { useSuggestCtas, useSuggestCreativeLevel, type CampaignContext } from "@/lib/hooks/use-generation-suggestions";
 
 export interface GenerationConfig {
   generationMode: "art_variation" | "format_adaptation" | "restyling";
@@ -101,6 +101,7 @@ export default function GenerationStep({
   ]);
 
   const suggestCtas = useSuggestCtas(campaignId);
+  const { data: creativeLevelSuggestion, isLoading: isLoadingCreativeLevel } = useSuggestCreativeLevel(campaignId);
 
   const handleSuggestCtas = useCallback(async () => {
     if (!campaignContext) return;
@@ -147,7 +148,14 @@ export default function GenerationStep({
     updateField("ctaVariants", next);
   };
 
+  const handleApplyCreativeLevelSuggestion = () => {
+    if (creativeLevelSuggestion?.suggestedLevel) {
+      updateField("creativeLevel", creativeLevelSuggestion.suggestedLevel);
+    }
+  };
+
   const hasSuggestions = ctaSuggestions.some((s) => s !== null);
+  const hasCreativeLevelSuggestion = creativeLevelSuggestion?.suggestedLevel && creativeLevelSuggestion.suggestedLevel !== config.creativeLevel;
 
   return (
     <div className="max-w-[720px] mx-auto space-y-8">
@@ -196,7 +204,33 @@ export default function GenerationStep({
 
       {/* ---- Creativity Profile ---- */}
       <section className="animate-fade-in space-y-3" style={{ animationDelay: "100ms" }}>
-        <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("creativityProfile")}</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("creativityProfile")}</h2>
+          {isLoadingCreativeLevel && (
+            <span className="inline-flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
+              <Sparkles size={12} className="animate-pulse" />
+              {t("analyzing")}
+            </span>
+          )}
+          {hasCreativeLevelSuggestion && (
+            <button
+              type="button"
+              onClick={handleApplyCreativeLevelSuggestion}
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--accent-mint)] hover:text-[var(--accent-mint-light)] transition-colors"
+            >
+              <Sparkles size={12} />
+              {t("applySuggestion")}
+            </button>
+          )}
+        </div>
+        {hasCreativeLevelSuggestion && creativeLevelSuggestion.reasoning && (
+          <div className="rounded-lg border border-[var(--accent-mint)]/20 bg-[var(--accent-mint)]/5 px-3 py-2">
+            <p className="text-xs text-[var(--text-secondary)]">
+              <span className="font-medium text-[var(--accent-mint)]">{t("aiSuggestion")}:</span>{" "}
+              {creativeLevelSuggestion.reasoning}
+            </p>
+          </div>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {creativeLevels.map((level) => {
             const Icon = level.icon;

@@ -293,6 +293,9 @@
     "formatHelp": "Selecione os formatos desejados para as variações",
     "ctaPlaceholder": "ex: Compre Agora, Saiba Mais",
     "ctaPiece": "CTA peça {number}",
+    "analyzing": "Analisando...",
+    "applySuggestion": "Aplicar sugestão",
+    "aiSuggestion": "Sugestão da IA",
     "ctaFormat": "CTA formato {format}",
     "modes": {
       "artVariation": {
