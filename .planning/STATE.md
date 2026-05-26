@@ -4,13 +4,13 @@ milestone: v5.0
 milestone_name: Simplificação do Fluxo de Criação de Campanha
 status: in_progress
 last_updated: "2026-05-26T21:33:47Z"
-last_activity: 2026-05-26 — Completed plan 18-01 (Backend API Simplification)
+last_activity: 2026-05-26 — Completed plan 18-02 (Frontend Simplified Creation Form)
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 1
-  completed_plans: 1
-  percent: 25
+  total_plans: 2
+  completed_plans: 2
+  percent: 50
 ---
 
 # State: ADScale
@@ -18,9 +18,9 @@ progress:
 ## Current Position
 
 Phase: 18-formulario-simplificado-de-briefing
-Plan: 18-01 (complete)
-Status: In Progress — Phase 18, Plan 1 of 2 complete
-Last activity: 2026-05-26 — Completed plan 18-01 (Backend API Simplification)
+Plan: 18-02 (complete)
+Status: Phase 18 complete — both plans done
+Last activity: 2026-05-26 — Completed plan 18-02 (Frontend Simplified Creation Form)
 
 ## Accumulated Context
 
@@ -54,12 +54,15 @@ Last activity: 2026-05-26 — Completed plan 18-01 (Backend API Simplification)
 - **18-01:** `clientProfileId` is required-but-nullable (enforces explicit choice, allows "no profile")
 - **18-01:** All other campaign fields remain optional for backward compatibility
 - **18-01:** Frontend creation hook sends only 3 required fields (name, client, clientProfileId)
+- **18-02:** Upload zone in creation modal is visual-only; actual upload happens in campaign workspace
+- **18-02:** Client profile selector uses native `<select>` with existing useClientProfiles hook
+- **18-02:** Old wizard elements (template selector, generation mode, target formats) removed from creation modal
 
 ## Next Steps
 
-1. Execute plan 18-02 (Simplified Creation UI)
-2. Continue implementation of phase 18
-3. Validate BRIEF-01 through BRIEF-04
+1. Phase 18 complete — ready for Phase 19: AI Visual Analysis and Deduction
+2. Validate BRIEF-01 through BRIEF-04 end-to-end
+3. Continue with Phase 19 planning
 
 ## Project Reference
 
