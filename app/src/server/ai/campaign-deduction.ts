@@ -28,6 +28,15 @@ const CampaignDeductionResponseSchema = z.object({
     value: z.array(z.string()).nullable().describe("Advertising platforms (e.g., Facebook, Instagram, Google)"),
     confidence: z.enum(["high", "medium", "low"]).describe("Confidence level"),
   }).nullable(),
+  suggestedCreativeLevel: z.object({
+    value: z.enum(["conservative", "balanced", "bold"]).nullable().describe("Suggested creativity level based on visual analysis"),
+    confidence: z.enum(["high", "medium", "low"]).describe("Confidence level"),
+    reasoning: z.string().nullable().describe("Reasoning for the suggested creativity level"),
+  }).nullable(),
+  suggestedCtas: z.array(z.object({
+    value: z.string().describe("Suggested call-to-action text"),
+    confidence: z.enum(["high", "medium", "low"]).describe("Confidence level"),
+  })).max(3).nullable().describe("Up to 3 suggested CTAs based on campaign context"),
 });
 
 export type CampaignDeductionResult = AiDeducedFields;
@@ -48,9 +57,11 @@ Return your analysis as structured JSON with these fields:
 - tone: The tone of voice (professional, playful, urgent, luxurious, etc.)
 - offer: Any promotion, discount, or offer mentioned
 - platforms: Which advertising platforms this creative seems designed for
+- suggestedCreativeLevel: Analyze visual complexity, brand consistency, and creative energy to suggest a creativity profile. Use "conservative" for clean, minimal, corporate styles; "balanced" for standard commercial aesthetics; "bold" for high energy, experimental, or provocative designs.
+- suggestedCtas: Based on the offer, product, and target audience visible in the creative, suggest up to 3 compelling calls-to-action in Portuguese (Brazilian). These should be action-oriented phrases that would drive engagement.
 
 For each field, provide a confidence level: "high" (clearly visible), "medium" (inferred), or "low" (uncertain).
-If a field cannot be determined, omit it or set value to empty string with "low" confidence.
+If a field cannot be determined, omit it or set value to empty string/null with "low" confidence.
 Be concise but accurate. Do not invent information not present in the image.`,
         },
         {
@@ -68,7 +79,7 @@ Be concise but accurate. Do not invent information not present in the image.`,
         },
       ],
       response_format: zodResponseFormat(CampaignDeductionResponseSchema, "campaign_deduction"),
-      max_tokens: 1000,
+      max_tokens: 1500,
     });
 
     const content = response.choices[0]?.message?.content;
