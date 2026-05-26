@@ -20,6 +20,7 @@ const PersonaSimulationModal = dynamic(() => import("@/components/workspace/Pers
 import StepIndicator from "@/components/workspace/StepIndicator";
 import BriefingStep from "@/components/workspace/BriefingStep";
 import UploadStep from "@/components/workspace/UploadStep";
+import GenerationStep from "@/components/workspace/GenerationStep";
 import PlanStep from "@/components/workspace/PlanStep";
 import DerivationsStep from "@/components/workspace/DerivationsStep";
 
@@ -65,6 +66,7 @@ export default function CampaignWorkspacePage() {
     handleStepClick,
     handleBriefingContinue,
     handleSaveDraft,
+    handleGenerationContinue,
     handleGenerateDerivations,
     handleContinueToPlan,
     handleSkipPlan,
@@ -133,8 +135,9 @@ export default function CampaignWorkspacePage() {
           "bg-[var(--surface-base)] rounded-xl border border-[var(--border-dim)] min-h-[400px]",
           currentStep === 1 && "p-6 md:p-8",
           currentStep === 2 && "p-6 md:p-8",
-          currentStep === 3 && "p-6",
-          currentStep === 4 && "p-6"
+          currentStep === 3 && "p-6 md:p-8",
+          currentStep === 4 && "p-6",
+          currentStep === 5 && "p-6"
         )}
       >
         <AnimatePresence mode="wait" custom={direction}>
@@ -166,7 +169,28 @@ export default function CampaignWorkspacePage() {
                 onGeneratePreview={handleGeneratePreview}
               />
             )}
-            {currentStep === 3 && (
+            {currentStep === 3 && campaign && (
+              <GenerationStep
+                campaignId={campaignId}
+                campaignContext={{
+                  product: campaign.client || undefined,
+                  objective: campaign.objective || undefined,
+                  targetAudience: campaign.audience || undefined,
+                  tone: campaign.tone || undefined,
+                  offer: campaign.offer || undefined,
+                  platforms: campaign.platforms,
+                }}
+                initialData={generationConfig || {
+                  generationMode: campaign.generationMode,
+                  creativeLevel: campaign.creativeLevel,
+                  targetFormats: campaign.targetFormats,
+                  ctaVariants: campaign.ctaVariants as [string, string, string] || ["", "", ""],
+                }}
+                onContinue={handleGenerationContinue}
+                onBack={handlePrev}
+              />
+            )}
+            {currentStep === 4 && (
               <PlanStep
                 campaignId={campaignId}
                 onApproveAndGenerate={handleApprovePlanAndGenerate}
@@ -174,7 +198,7 @@ export default function CampaignWorkspacePage() {
                 onBack={handlePrev}
               />
             )}
-            {currentStep === 4 && (
+            {currentStep === 5 && (
               <DerivationsStep
                 derivations={allDerivations}
                 campaignId={campaignId}

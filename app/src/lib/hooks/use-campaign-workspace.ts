@@ -16,11 +16,12 @@ import { usePlan, useGeneratePlan, useUpdatePlanStatus } from "./use-plan";
 import { useSaveDerivationAsReference } from "@/lib/hooks/use-client-profiles";
 import { useGenerateLandingPage } from "@/lib/hooks/use-landing-page";
 import type { BriefingFormData } from "@/components/workspace/BriefingStep";
+import type { GenerationConfig } from "@/components/workspace/GenerationStep";
 import type { StepKey } from "@/components/workspace/StepIndicator";
 import type { DeliveryFormat } from "@/components/workspace/DeliveryPackageModal";
 import { useTranslations } from "next-intl";
 
-export type WizardStep = 1 | 2 | 3 | 4;
+export type WizardStep = 1 | 2 | 3 | 4 | 5;
 
 export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
   const router = useRouter();
@@ -122,7 +123,7 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
     if (hasSetInitialStep || isLoading || isNew) return;
     if (derivationsData && derivationsData.length > 0) {
       queueMicrotask(() => {
-        setCurrentStep(4);
+        setCurrentStep(5);
         setHasSetInitialStep(true);
       });
     }
@@ -201,7 +202,7 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
   );
 
   const handleNext = useCallback(() => {
-    if (currentStep < 4) goToStep((currentStep + 1) as WizardStep);
+    if (currentStep < 5) goToStep((currentStep + 1) as WizardStep);
   }, [currentStep, goToStep]);
 
   const handlePrev = useCallback(() => {
@@ -214,6 +215,9 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
     },
     [currentStep, goToStep]
   );
+
+  // Generation config state
+  const [generationConfig, setGenerationConfig] = useState<GenerationConfig | null>(null);
 
   // Step 1 handlers
   const handleBriefingContinue = useCallback(
@@ -229,12 +233,6 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
           offer: data.offer,
           constraints: data.constraints,
           notes: data.notes,
-          generationMode: data.generationMode,
-          ctaVariants: data.ctaVariants.filter((v) => v.trim().length > 0).length > 0
-            ? data.ctaVariants
-            : undefined,
-          targetFormats: data.targetFormats,
-          creativeLevel: data.creativeLevel,
           clientProfileId: data.clientProfileId,
           selectedReferenceIds: data.selectedReferenceIds,
         });
@@ -259,12 +257,6 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
           constraints: data.constraints,
           notes: data.notes,
           status: "draft",
-          generationMode: data.generationMode,
-          ctaVariants: data.ctaVariants.filter((v) => v.trim().length > 0).length > 0
-            ? data.ctaVariants
-            : undefined,
-          targetFormats: data.targetFormats,
-          creativeLevel: data.creativeLevel,
           clientProfileId: data.clientProfileId,
           selectedReferenceIds: data.selectedReferenceIds,
         });
@@ -272,6 +264,26 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
       addToast("info", tc("draftSaved"));
     },
     [campaign, isNew, updateCampaign, addToast, tc]
+  );
+
+  // Step 3 handler (Generation)
+  const handleGenerationContinue = useCallback(
+    (config: GenerationConfig) => {
+      setGenerationConfig(config);
+      if (campaign && !isNew) {
+        updateCampaign.mutate({
+          generationMode: config.generationMode,
+          creativeLevel: config.creativeLevel,
+          targetFormats: config.targetFormats,
+          ctaVariants: config.ctaVariants.filter((v) => v.trim().length > 0).length > 0
+            ? config.ctaVariants
+            : undefined,
+        });
+      }
+      addToast("success", tc("generationConfigSaved"));
+      handleNext();
+    },
+    [campaign, isNew, updateCampaign, addToast, tc, handleNext]
   );
 
   const handleGenerateDerivations = useCallback(
@@ -438,10 +450,12 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
         case 1:
           return direction === "prev" ? "" : ts("continueToUpload");
         case 2:
-          return direction === "prev" ? ts("backToBrief") : ts("continueToPlan");
+          return direction === "prev" ? ts("backToBrief") : ts("continueToGeneration");
         case 3:
-          return direction === "prev" ? ts("backToUpload") : ts("generateDerivations");
+          return direction === "prev" ? ts("backToUpload") : ts("continueToPlan");
         case 4:
+          return direction === "prev" ? ts("backToGeneration") : ts("generateDerivations");
+        case 5:
           return direction === "prev" ? ts("backToPlan") : "";
         default:
           return "";
@@ -468,6 +482,8 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
     handleStepClick,
     handleBriefingContinue,
     handleSaveDraft,
+    handleGenerationContinue,
+    generationConfig,
     handleGenerateDerivations,
     handleContinueToPlan,
     handleGeneratePreview,
