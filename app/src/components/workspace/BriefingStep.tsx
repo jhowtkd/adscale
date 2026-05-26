@@ -7,7 +7,6 @@ import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
   SelectContent,
@@ -39,7 +38,6 @@ import {
 import { useBrandKit } from "@/lib/hooks/use-brand-kit";
 import { useCampaignAssets, useUploadAsset, type AssetWithUrl } from "@/lib/hooks/use-assets";
 import CompetitorAnalysisSection from "@/components/campaigns/CompetitorAnalysisSection";
-import FormatAdaptationPreview from "./FormatAdaptationPreview";
 
 import PreflightSummary from "./PreflightSummary";
 import CreativeDiagnosisCard from "./CreativeDiagnosisCard";
@@ -60,10 +58,6 @@ export interface BriefingFormData {
   offer: string;
   constraints: string;
   notes: string;
-  generationMode: "art_variation" | "format_adaptation" | "restyling";
-  creativeLevel: "conservative" | "balanced" | "bold" | "extreme";
-  targetFormats?: string[];
-  ctaVariants: [string, string, string];
   clientProfileId?: string | null;
   selectedReferenceIds?: string[];
 }
@@ -90,14 +84,6 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
     offer: campaign?.offer || "",
     constraints: campaign?.constraints || "",
     notes: campaign?.notes || "",
-    generationMode: campaign?.generationMode || "art_variation",
-    creativeLevel: campaign?.creativeLevel || "balanced",
-    targetFormats: campaign?.targetFormats ?? ["1:1"],
-    ctaVariants: [
-      campaign?.ctaVariants?.[0] || "",
-      campaign?.ctaVariants?.[1] || "",
-      campaign?.ctaVariants?.[2] || "",
-    ],
     clientProfileId: campaign?.clientProfileId ?? null,
     selectedReferenceIds: campaign?.selectedReferenceIds ?? [],
   });
@@ -219,10 +205,6 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
     const newErrors: Partial<Record<keyof BriefingFormData, string>> = {};
     if (!formData.name.trim()) newErrors.name = tErrors("nameRequired");
     if (!formData.client.trim()) newErrors.client = tErrors("clientRequired");
-    const hasAnyCta = formData.ctaVariants.some((v) => v.trim().length > 0);
-    if (formData.generationMode === "art_variation" && !hasAnyCta) {
-      newErrors.ctaVariants = tErrors("ctaRequiredAtLeastOne");
-    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -298,14 +280,6 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
     clearDraft();
     setShowRestoreBanner(false);
   };
-
-  const targetFormatOptions = [
-    { id: "1:1", label: tBriefing("targetFormats.square.label"), desc: tBriefing("targetFormats.square.description") },
-    { id: "4:5", label: tBriefing("targetFormats.portrait.label"), desc: tBriefing("targetFormats.portrait.description") },
-    { id: "9:16", label: tBriefing("targetFormats.stories.label"), desc: tBriefing("targetFormats.stories.description") },
-    { id: "1.91:1", label: tBriefing("targetFormats.horizontal.label"), desc: tBriefing("targetFormats.horizontal.description") },
-    { id: "16:9", label: tBriefing("targetFormats.widescreen.label"), desc: tBriefing("targetFormats.widescreen.description") },
-  ];
 
   return (
     <div className="relative">
@@ -754,142 +728,14 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
           </div>
         )}
 
-        {/* ---- Generation Mode ---- */}
-        <div  className="animate-fade-in" style={{ animationDelay: "400ms" }}>
-          <Label className="flex items-center gap-1 text-xs font-medium text-[var(--text-secondary)] mb-2">
-            {tCampaign("mode")}
-          </Label>
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              {
-                value: "art_variation" as const,
-                label: tCampaign("modes.artVariation.label"),
-                description: tCampaign("modes.artVariation.description"),
-              },
-              {
-                value: "format_adaptation" as const,
-                label: tCampaign("modes.formatAdaptation.label"),
-                description: tCampaign("modes.formatAdaptation.description"),
-              },
-            ].map((mode) => (
-              <button
-                key={mode.value}
-                type="button"
-                onClick={() => updateField("generationMode", mode.value)}
-                className={cn(
-                  "relative flex flex-col items-start gap-1 rounded-lg border px-4 py-3 text-left transition-all duration-200",
-                  formData.generationMode === mode.value
-                    ? "border-[var(--accent-mint)] bg-[var(--accent-mint-dim)] ring-1 ring-[var(--accent-mint)]"
-                    : "border-[var(--border-dim)] bg-[var(--surface-base)] hover:border-[var(--border-medium)] hover:bg-[var(--surface-raised)]"
-                )}
-              >
-                <span className="text-sm font-medium text-[var(--text-primary)]">
-                  {mode.label}
-                </span>
-                <span className="text-xs text-[var(--text-secondary)] leading-relaxed">
-                  {mode.description}
-                </span>
-                {formData.generationMode === mode.value && (
-                  <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-[var(--accent-mint)]" />
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* ---- Target Formats ---- */}
-        {formData.generationMode === "format_adaptation" && (
-          <div className="animate-fade-in space-y-3" style={{ animationDelay: "450ms" }}>
-            <Label className="text-xs font-medium text-[var(--text-secondary)]">
-              {tBriefing("targetFormat.label")}
-            </Label>
-            <p className="text-xs text-[var(--text-muted)]">
-              {tBriefing("targetFormatsHelp")}
-            </p>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {targetFormatOptions.map((fmt) => (
-                <label
-                  key={fmt.id}
-                  className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-all ${
-                    formData.targetFormats?.includes(fmt.id)
-                      ? "border-[var(--accent-mint)] bg-[var(--accent-mint-dim)]"
-                      : "border-[var(--border-dim)] bg-[var(--surface-raised)] hover:bg-[var(--deep-bg)]"
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={formData.targetFormats?.includes(fmt.id) ?? false}
-                    onChange={(e) => {
-                      const current = formData.targetFormats ?? [];
-                      if (e.target.checked) {
-                        updateField("targetFormats", [...current, fmt.id]);
-                      } else {
-                        updateField(
-                          "targetFormats",
-                          current.filter((f) => f !== fmt.id)
-                        );
-                      }
-                    }}
-                    className="mt-0.5 accent-[var(--accent-mint)]"
-                  />
-                  <div>
-                    <p className="text-sm font-medium text-[var(--text-primary)]">{fmt.label}</p>
-                    <p className="text-xs text-[var(--text-muted)]">{fmt.desc}</p>
-                  </div>
-                </label>
-              ))}
-            </div>
-
-            {/* Smart Resize Preview */}
-            {campaign?.id && campaign.id !== "new" && (
-              <FormatAdaptationPreview campaignId={campaign.id} />
-            )}
-          </div>
-        )}
-
-        {/* ---- Creative Level ---- */}
-        {formData.generationMode === "art_variation" && (
-          <div className="animate-fade-in space-y-3" style={{ animationDelay: "500ms" }}>
-            <Label className="text-xs font-medium text-[var(--text-secondary)]">
-              {tBriefing("creativeLevel.label")}
-            </Label>
-            <RadioGroup
-              value={formData.creativeLevel}
-              onValueChange={(value) => updateField("creativeLevel", value as BriefingFormData["creativeLevel"])}
-              className="flex flex-col space-y-3"
-            >
-              {(
-                [
-                  "conservative",
-                  "balanced",
-                  "bold",
-                  "extreme",
-                ] as BriefingFormData["creativeLevel"][]
-              ).map((level) => (
-                <div key={level} className="flex items-start space-x-2">
-                  <RadioGroupItem value={level} id={`cl-${level}`} className="mt-0.5" />
-                  <div className="flex flex-col">
-                    <Label htmlFor={`cl-${level}`} className="text-sm text-[var(--text-primary)] font-medium">
-                      {tBriefing(`creativeLevel.${level}`)}
-                    </Label>
-                    <span className="text-[11px] text-[var(--text-muted)] leading-relaxed">
-                      {tBriefing(`creativeLevel.contract.${level}`)}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </RadioGroup>
-          </div>
-        )}
-
         {/* ---- Preflight Summary ---- */}
         {campaign?.id && campaign.id !== "new" && (
           <PreflightSummary campaignId={campaign.id} tBriefing={tBriefing} />
         )}
 
         {/* ---- Creative Diagnosis ---- */}
-        {formData.generationMode === "art_variation" && campaign?.id && campaign.id !== "new" && (
-          <div className="animate-fade-in space-y-3" style={{ animationDelay: "550ms" }}>
+        {campaign?.id && campaign.id !== "new" && (
+          <div className="animate-fade-in space-y-3" style={{ animationDelay: "400ms" }}>
             <div className="rounded-lg border border-[var(--accent-mint)]/30 bg-[var(--accent-mint)]/[0.04] p-4">
               <div className="flex items-center gap-2 mb-3">
                 <Sparkles size={16} className="text-[var(--accent-mint)]" />
@@ -939,47 +785,6 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
             />
           </div>
         )}
-
-        {/* ---- CTA Variants ---- */}
-        <div className="animate-fade-in space-y-3" style={{ animationDelay: "600ms" }}>
-          <div className="flex items-center justify-between">
-            <Label className="text-xs font-medium text-[var(--text-secondary)]">
-              {tBriefing("ctaVariants")}
-            </Label>
-            <span className="text-[11px] text-[var(--text-muted)]">
-              {formData.generationMode === "art_variation"
-                ? tBriefing("ctaHelpArt")
-                : tBriefing("ctaHelpFormat")}
-            </span>
-          </div>
-          {formData.ctaVariants.map((cta, idx) => (
-            <div key={idx} className="space-y-1">
-              <Label className="text-[11px] text-[var(--text-muted)]">
-                {formData.generationMode === "art_variation"
-                  ? tBriefing("ctaPiece", { number: idx + 1 })
-                  : tBriefing("ctaFormat", { format: formData.targetFormats?.[idx] ?? "" })}
-              </Label>
-              <Input
-                placeholder={tBriefing("ctaPlaceholder")}
-                value={cta}
-                onChange={(e) => {
-                  const next: [string, string, string] = [...formData.ctaVariants] as [string, string, string];
-                  next[idx] = e.target.value;
-                  updateField("ctaVariants", next);
-                }}
-                className={cn(
-                  "h-9 bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]",
-                  "focus:border-[var(--accent-mint)] focus:ring-[3px] focus:ring-[rgba(47,182,125,0.15)]"
-                )}
-              />
-            </div>
-          ))}
-          {errors.ctaVariants && (
-            <p className="text-xs text-[var(--accent-rose)] mt-1 animate-fade-in">
-              {errors.ctaVariants}
-            </p>
-          )}
-        </div>
 
         {/* ---- Briefing Doctor ---- */}
         <div className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-4 space-y-3 animate-fade-in">
