@@ -8,8 +8,8 @@ last_activity: 2026-05-26 — Completed plan 20-02 (Frontend Generation Mode Ste
 progress:
   total_phases: 4
   completed_phases: 3
-  total_plans: 6
-  completed_plans: 6
+  total_plans: 7
+  completed_plans: 7
 ---
 
 # State: ADScale
@@ -17,9 +17,9 @@ progress:
 ## Current Position
 
 Phase: 20-modo-de-geracao-com-configuracoes-avancadas
-Plan: 20-02 (complete)
-Status: Plan 20-02 complete — Frontend Generation Mode Step Component implemented
-Last activity: 2026-05-26 — Completed plan 20-02 (Frontend Generation Mode Step Component)
+Plan: 20-03 (complete)
+Status: Plan 20-03 complete — Frontend Flow Integration and Translations
+Last activity: 2026-05-26 — Completed plan 20-03 (Frontend Flow Integration and Translations)
 
 ## Accumulated Context
 
@@ -70,11 +70,14 @@ Last activity: 2026-05-26 — Completed plan 20-02 (Frontend Generation Mode Ste
 - **20-02:** Generation settings extracted from BriefingStep into dedicated GenerationStep component
 - **20-02:** Campaign workspace expanded from 4 to 5 steps (Brief → Upload → Generation → Plan → Gallery)
 - **20-02:** AI suggestions displayed as clickable chips with confidence-based color coding
+- **20-03:** AI creative level suggestion integrated into GenerationStep with explicit apply button (not auto-applied)
+- **20-03:** UploadStep simplified to single "Continue to Generation" button to enforce flow
+- **20-03:** Generation navigation fixed to land on Gallery (step 5) after generating derivations
 
 ## Next Steps
 
-1. Plan 20-02 complete — Generation Mode UI ready
-2. Execute plan 20-03: Flow Integration (wire suggestions into generation flow)
+1. Plan 20-03 complete — Flow Integration and Translations done
+2. Phase 20 complete — All 3 plans done
 3. Phase 21: Remove Briefing Doctor and cleanup
 
 ## Project Reference

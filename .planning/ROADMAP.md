@@ -290,10 +290,10 @@
 | AI-05 | 19 | ✓ | Complete    | 2026-05-26 |
 | AI-06 | 19 | ✓ | Complete    | 2026-05-26 |
 | AI-07 | 19 | ✓ | Complete    | 2026-05-26 |
-| GEN-01 | 20 | ✓ | Planned |
-| GEN-02 | 20 | ✓ | Planned |
-| GEN-03 | 20 | ✓ | Planned |
-| GEN-04 | 20 | ✓ | Planned |
+| GEN-01 | 20 | ✓ | Complete    | 2026-05-26 |
+| GEN-02 | 20 | ✓ | Complete    | 2026-05-26 |
+| GEN-03 | 20 | ✓ | Complete    | 2026-05-26 |
+| GEN-04 | 20 | ✓ | Complete    | 2026-05-26 |
 | GEN-05 | 20 | ✓ | Complete    | 2026-05-26 |
 | GEN-06 | 20 | ✓ | Complete    | 2026-05-26 |
 | CLEAN-01 | 21 | ✓ | Planned |
@@ -317,17 +317,18 @@
 | Phase 15 — Régua de Criatividade, CTA Exato e Quick Tool de Restilização | ✅ Complete | prompt-builder tests + build clean |
 | Phase 18 — Formulário Simplificado de Briefing | ✅ Complete | Build passes, 2/2 plans done |
 | Phase 19 — Análise Visual e Dedução com IA | ✅ Complete | 2/2 plans complete |
-| Phase 20 — Modo de Geração com Configurações Avançadas | 🔄 In Progress | 2/3 plans complete |
+| Phase 20 — Modo de Geração com Configurações Avançadas | ✅ Complete | 3/3 plans complete |
 | Phase 21 — Remoção do Briefing Doctor e Limpeza | 🔄 Planned | — |
 
 **Plans:**
-6/6 plans complete
+7/7 plans complete
 - [x] 18-01-PLAN.md — Backend API Simplification (POST accepts only name/client/clientProfileId)
 - [x] 18-02-PLAN.md — Simplified Creation UI
 - [x] 19-01-PLAN.md — Backend AI Analysis Infrastructure
 - [x] 19-02-PLAN.md — Frontend Upload & AI Deduction UI
 - [x] 20-01-PLAN.md — Backend AI Suggestions for Generation Mode
 - [x] 20-02-PLAN.md — Frontend Generation Mode Step Component
+- [x] 20-03-PLAN.md — Frontend Flow Integration and Translations
 
 ---
 
