@@ -115,8 +115,6 @@ app/tests/
 │   ├── env-validation.test.ts        # Environment variable schemas
 │   ├── prompt-builder.test.ts        # AI prompt generation logic
 │   ├── prompt-parser.test.ts         # Prompt parsing utilities
-│   ├── briefing-doctor.test.ts       # Briefing analysis logic
-│   ├── briefing-doctor-ui.test.tsx   # BriefingDoctor React component
 │   ├── restyling-modal.test.tsx      # RestylingModal React component
 │   ├── creative-diagnosis.test.ts    # Creative diagnosis logic
 │   ├── creative-score.test.ts        # Heuristic scoring logic
@@ -137,7 +135,6 @@ app/tests/
     ├── upload-size-header.test.ts    # Upload size constraints
     ├── derivation-job.test.ts        # Derivation job orchestration
     ├── plan-generation.test.ts       # Plan generation flow
-    ├── briefing-doctor.test.ts       # Briefing Doctor API route
     ├── restyling.test.ts             # Restyling API flow
     ├── quick-tools-restyling.test.ts # Quick tools restyling
     ├── review-export.test.ts         # Review + export flow
@@ -287,50 +284,6 @@ Integration tests verify API routes and multi-step workflows by importing route 
 
 ### API Route Testing
 
-```ts
-// tests/integration/briefing-doctor.test.ts
-import { describe, expect, it, vi, beforeEach } from "vitest";
-
-vi.mock("@/server/auth/workspace", () => ({
-  requireWorkspaceAccess: vi.fn().mockResolvedValue({
-    user: { id: "user-1" },
-    workspace: { id: "workspace-1" },
-  }),
-}));
-
-const mockCreate = vi.hoisted(() => vi.fn());
-
-vi.mock("openai", () => ({
-  default: class MockOpenAI {
-    responses = { create: mockCreate };
-  },
-}));
-
-import { POST } from "@/app/api/briefing-doctor/analyze/route";
-
-describe("POST /api/briefing-doctor/analyze", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("returns structured analysis from AI response", async () => {
-    mockCreate.mockResolvedValue({
-      output_text: JSON.stringify({ overallScore: 82, /* ... */ }),
-    });
-
-    const request = new Request("http://localhost/api/briefing-doctor/analyze", {
-      method: "POST",
-      body: JSON.stringify({ briefing: { /* ... */ } }),
-    });
-
-    const response = await POST(request);
-    expect(response.status).toBe(200);
-    const body = await response.json();
-    expect(body.analysis.overallScore).toBe(82);
-  });
-});
-```
-
 ### Multi-Module Workflow Tests
 
 Tests that span repositories, job queues, and storage:
@@ -434,27 +387,6 @@ vi.mock("next-intl/server", () => ({
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
 }));
-```
-
-### Mocking Custom Hooks
-
-```ts
-const mockMutate = vi.fn();
-const mockUseMutation = vi.fn();
-
-vi.mock("@/lib/hooks/use-briefing-doctor", () => ({
-  useBriefingDoctorAnalysis: () => mockUseMutation(),
-}));
-
-beforeEach(() => {
-  vi.clearAllMocks();
-  mockUseMutation.mockReturnValue({
-    mutate: mockMutate,
-    data: undefined,
-    isPending: false,
-    isError: false,
-  });
-});
 ```
 
 ### Mocking Return Values per Test
@@ -569,7 +501,7 @@ const mockGetWorkspaceForUser = getWorkspaceForUser as ReturnType<typeof vi.fn>;
 
 - **Describe blocks:** Module or feature name (`describe("campaign repository")`)
 - **It blocks:** Complete sentence describing behavior (`it("rejects empty name")`)
-- **File names:** kebab-case matching the source file (`briefing-doctor-ui.test.tsx`)
+- **File names:** kebab-case matching the source file (`creative-diagnosis.test.tsx`)
 
 ---
 
