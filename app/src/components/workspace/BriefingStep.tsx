@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Sparkles, Check, X, Plus, ImageOff, ScanLine, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
