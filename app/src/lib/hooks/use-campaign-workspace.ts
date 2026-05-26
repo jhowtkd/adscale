@@ -292,7 +292,7 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
       createDerivations.mutate(options, {
         onSuccess: () => {
           addToast("success", options?.preview ? tc("previewQueued") : tc("derivationsQueued"));
-          if (!options?.preview) goToStep(4);
+          if (!options?.preview) goToStep(5);
           if (campaign && !isNew) updateCampaign.mutate({ status: "generating" });
         },
         onError: () => {
