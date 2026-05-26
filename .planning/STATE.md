@@ -17,9 +17,9 @@ progress:
 ## Current Position
 
 Phase: 19-analise-visual-e-deducao-com-ia
-Plan: 19-01 (complete)
-Status: Plan 19-01 complete — Backend AI Analysis Infrastructure implemented
-Last activity: 2026-05-26 — Completed plan 19-01 (Backend AI Analysis Infrastructure)
+Plan: 19-02 (complete)
+Status: Plan 19-02 complete — Frontend Upload & AI Deduction UI implemented
+Last activity: 2026-05-26 — Completed plan 19-02 (Frontend Upload & AI Deduction UI)
 
 ## Accumulated Context
 
@@ -60,12 +60,16 @@ Last activity: 2026-05-26 — Completed plan 19-01 (Backend AI Analysis Infrastr
 - **19-01:** AI vision analysis uses `getPublicUrl(asset.key)` to construct image URLs dynamically
 - **19-01:** Analysis failures gracefully return 200 with empty result and "failed" status
 - **19-01:** Existing `getAssetWithMetadata`/`updateAssetMetadata` handle metadata merging for analysis results
+- **19-02:** AI analysis integrated into BriefingStep (not page.tsx) since form state lives there
+- **19-02:** CreativeUploadWithAnalysis replaces BaseCreativeUploadCard to enable automatic AI trigger
+- **19-02:** Auto-filled form fields only when empty (never overwrite user manual input)
+- **19-02:** AIDeducedFieldsEditor shows confidence badges with color-coded borders (high/medium/low)
 
 ## Next Steps
 
-1. Plan 19-01 complete — continue with Plan 19-02: Frontend AI-deduced fields integration
+1. Plan 19-02 complete — Phase 19 done (both plans: 19-01 backend, 19-02 frontend)
 2. Validate AI-01 through AI-07 end-to-end
-3. Proceed with Phase 19 planning if more plans exist
+3. Proceed to Phase 20: Modo de Geração com Configurações Avançadas
 
 ## Project Reference
 
