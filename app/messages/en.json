@@ -156,6 +156,7 @@
     "invalidEmail": "Please enter a valid email address",
     "avatarSizeError": "Avatar must be under 5MB",
     "profileUpdated": "Profile updated successfully",
+    "tourRestarted": "Tour restarted. Will be shown on your next dashboard visit.",
     "workspaceUpdated": "Workspace settings updated",
     "teamInvitesComingSoon": "Team invites coming soon",
     "roleManagementComingSoon": "Role management coming soon",
@@ -810,6 +811,12 @@
     "privacyTab": "Privacy",
     "creditHistoryTab": "Usage History",
     "managePreferences": "Manage your profile, workspace, and preferences.",
+    "onboarding": {
+      "preferences": "Onboarding Preferences",
+      "restartDescription": "The tour will be shown again on your next dashboard visit.",
+      "restartTour": "Restart Welcome Tour",
+      "restarting": "Restarting..."
+    },
     "brandKit": {
       "title": "Brand Kit",
       "subtitle": "Manage your workspace brand guidelines",
@@ -1049,7 +1056,11 @@
     "step2Title": "Quick actions",
     "step2Desc": "Upload a base creative to generate AI variations, use restyling for new styles, or browse your library.",
     "step3Title": "Track everything",
-    "step3Desc": "Your recent campaigns appear here. Track creative variant status, approve creatives, and export delivery packages."
+    "step3Desc": "Your recent campaigns appear here. Track creative variant status, approve creatives, and export delivery packages.",
+    "step4Title": "Create New Campaign",
+    "step4Desc": "Click here to start a new campaign. You can create from scratch or use a template.",
+    "step5Title": "Your Credits",
+    "step5Desc": "Track your available credits and monthly usage. Upgrade when you need more."
   },
   "template": {
     "title": "Templates",

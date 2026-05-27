@@ -2,10 +2,11 @@
 
 import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Camera, Check } from "lucide-react";
+import { Camera, Check, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";
 import { useTranslations } from "next-intl";
+import { useOnboarding } from "@/lib/hooks/use-onboarding";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -69,6 +70,8 @@ export default function ProfileTab() {
     reader.readAsDataURL(file);
   };
 
+  const { completed: onboardingCompleted, restart, isRestarting } = useOnboarding();
+
   const handleSave = async () => {
     setSaveState("saving");
     await new Promise((r) => setTimeout(r, 800));
@@ -84,6 +87,11 @@ export default function ProfileTab() {
     addToast("success", tc("profileUpdated"));
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(() => setSaveState("idle"), 2000);
+  };
+
+  const handleRestartTour = () => {
+    restart();
+    addToast("success", tc("tourRestarted"));
   };
 
   return (
@@ -252,6 +260,30 @@ export default function ProfileTab() {
           <option value="Australia/Sydney">Sydney (AEDT)</option>
         </select>
       </motion.div>
+
+      {/* Onboarding */}
+      {onboardingCompleted && (
+        <motion.div variants={itemVariants} className="space-y-3 pt-4 border-t border-[var(--border-dim)]">
+          <div>
+            <h3 className="text-sm font-medium text-[var(--text-primary)]">{t("onboarding.preferences")}</h3>
+            <p className="text-xs text-[var(--text-muted)] mt-1">{t("onboarding.restartDescription")}</p>
+          </div>
+          <button
+            onClick={handleRestartTour}
+            disabled={isRestarting}
+            className={cn(
+              "inline-flex items-center gap-2 h-9 px-4 rounded-md text-sm font-medium",
+              "border border-[var(--border-dim)] bg-[var(--surface-base)] text-[var(--text-primary)]",
+              "hover:bg-[var(--surface-raised)] hover:border-[var(--border-medium)]",
+              "transition-all duration-200",
+              "disabled:opacity-50 disabled:cursor-not-allowed"
+            )}
+          >
+            <RotateCcw size={14} />
+            {isRestarting ? t("onboarding.restarting") : t("onboarding.restartTour")}
+          </button>
+        </motion.div>
+      )}
 
       {/* Save Button */}
       <motion.div variants={itemVariants} className="flex justify-end pt-2">

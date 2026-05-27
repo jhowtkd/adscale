@@ -31,10 +31,26 @@ export function useOnboarding() {
     },
   });
 
+  const restartMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/user/onboarding/restart", {
+        method: "POST",
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!res.ok) throw new Error("Failed to restart onboarding");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.setQueryData(["onboarding-status"], { completed: false });
+    },
+  });
+
   return {
     completed: data?.completed ?? true, // default to true if loading/error to avoid showing tour
     isLoading,
     complete: completeMutation.mutate,
     isCompleting: completeMutation.isPending,
+    restart: restartMutation.mutate,
+    isRestarting: restartMutation.isPending,
   };
 }

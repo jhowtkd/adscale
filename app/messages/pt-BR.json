@@ -156,6 +156,7 @@
     "invalidEmail": "Por favor, insira um e-mail válido",
     "avatarSizeError": "O avatar deve ter menos de 5MB",
     "profileUpdated": "Perfil atualizado com sucesso",
+    "tourRestarted": "Tour reiniciado. Será exibido na próxima visita ao dashboard.",
     "workspaceUpdated": "Configurações do workspace atualizadas",
     "teamInvitesComingSoon": "Convites de equipe em breve",
     "roleManagementComingSoon": "Gerenciamento de funções em breve",
@@ -810,6 +811,12 @@
     "privacyTab": "Privacidade",
     "creditHistoryTab": "Histórico de uso",
     "managePreferences": "Gerencie seu perfil, workspace e preferências.",
+    "onboarding": {
+      "preferences": "Preferências de Onboarding",
+      "restartDescription": "O tour será exibido novamente na próxima visita ao dashboard.",
+      "restartTour": "Reiniciar Tour de Boas-vindas",
+      "restarting": "Reiniciando..."
+    },
     "brandKit": {
       "title": "Brand Kit",
       "subtitle": "Gerencie as diretrizes de marca do seu workspace",
@@ -1050,7 +1057,11 @@
     "step2Title": "Ações rápidas",
     "step2Desc": "Envie um criativo base para gerar variações com IA, use a restilização para novos estilos, ou navegue na sua biblioteca.",
     "step3Title": "Acompanhe tudo",
-    "step3Desc": "Suas campanhas recentes aparecem aqui. Acompanhe o status de variações criativas, aprove peças e exporte pacotes de entrega."
+    "step3Desc": "Suas campanhas recentes aparecem aqui. Acompanhe o status de variações criativas, aprove peças e exporte pacotes de entrega.",
+    "step4Title": "Criar Nova Campanha",
+    "step4Desc": "Clique aqui para iniciar uma nova campanha. Você pode escolher criar do zero ou usar um template.",
+    "step5Title": "Seus Créditos",
+    "step5Desc": "Acompanhe seus créditos disponíveis e consumo mensal. Upgrade quando precisar de mais."
   },
   "template": {
     "title": "Templates",

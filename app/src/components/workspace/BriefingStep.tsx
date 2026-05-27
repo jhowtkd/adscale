@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Sparkles, Check, X, Plus, ImageOff, ScanLine, Upload } from "lucide-react";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
@@ -922,9 +923,12 @@ function BaseCreativeUploadCard({ campaignId, assets, isLoading, tBriefing }: Ba
             {firstAsset ? <Check size={18} /> : <ImageOff size={18} />}
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-[var(--text-primary)]">
-              {tBriefing("diagnosis.baseCreativeTitle")}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold text-[var(--text-primary)]">
+                {tBriefing("diagnosis.baseCreativeTitle")}
+              </p>
+              <InfoTooltip text="Upload da imagem base que será usada para criar variações. A IA analisa a imagem para sugerir campos do brief." />
+            </div>
             <p className="mt-0.5 text-xs leading-relaxed text-[var(--text-secondary)]">
               {firstAsset
                 ? tBriefing("diagnosis.baseCreativeReady")

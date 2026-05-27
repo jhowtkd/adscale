@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useSuggestCtas, useSuggestCreativeLevel, type CampaignContext } from "@/lib/hooks/use-generation-suggestions";
 
 export interface GenerationConfig {
@@ -166,7 +167,10 @@ export default function GenerationStep({
     <div className="max-w-[720px] mx-auto space-y-8">
       {/* ---- Derivation Mode ---- */}
       <section className="animate-fade-in space-y-3">
-        <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("derivationMode")}</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("derivationMode")}</h2>
+          <InfoTooltip text="Variação de arte: mantém a essência visual. Adaptação de formato: ajusta para diferentes proporções. Restyling: aplica um novo estilo visual." />
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {generationModes.map((mode) => {
             const Icon = mode.icon;
@@ -210,7 +214,10 @@ export default function GenerationStep({
       {/* ---- Creativity Profile ---- */}
       <section className="animate-fade-in space-y-3" style={{ animationDelay: "100ms" }}>
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("creativityProfile")}</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("creativityProfile")}</h2>
+            <InfoTooltip text="Define o nível de variação visual nas derivações. Conservador mantém mais do original, audaz cria variações mais distintas." />
+          </div>
           {isLoadingCreativeLevel && (
             <span className="inline-flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
               <Sparkles size={12} className="animate-pulse" />
@@ -322,7 +329,10 @@ export default function GenerationStep({
       {/* ---- CTA per Piece ---- */}
       <section className="animate-fade-in space-y-4" style={{ animationDelay: "300ms" }}>
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("ctaPerPiece")}</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("ctaPerPiece")}</h2>
+            <InfoTooltip text="Call-to-Action: o texto que aparece no botão da peça. A IA sugere opções baseadas no contexto da campanha." />
+          </div>
           {hasSuggestions && (
             <button
               type="button"

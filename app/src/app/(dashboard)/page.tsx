@@ -58,6 +58,18 @@ export default function DashboardPage() {
       description: tOnboarding("step3Desc"),
       placement: "top" as const,
     },
+    {
+      target: '[data-tour-step="4"]',
+      title: tOnboarding("step4Title"),
+      description: tOnboarding("step4Desc"),
+      placement: "bottom" as const,
+    },
+    {
+      target: '[data-tour-step="5"]',
+      title: tOnboarding("step5Title"),
+      description: tOnboarding("step5Desc"),
+      placement: "left" as const,
+    },
   ];
 
   const showTour = !isOnboardingLoading && !onboardingCompleted;
@@ -88,6 +100,7 @@ export default function DashboardPage() {
           <Link
             href="/campaigns/new"
             className="flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-[#0a0a0f] bg-[#2fb67d] rounded-[4px] hover:bg-[#259d6a] transition-colors"
+            data-tour-step="4"
           >
             + Nova Campanha
           </Link>
@@ -139,11 +152,13 @@ export default function DashboardPage() {
 
         {/* Right Column */}
         <div className="space-y-3">
-          <CreditPanel
-            remaining={stats.creditsRemaining}
-            total={stats.creditsTotal}
-            planKey={stats.subscription.planKey}
-          />
+          <div data-tour-step="5">
+            <CreditPanel
+              remaining={stats.creditsRemaining}
+              total={stats.creditsTotal}
+              planKey={stats.subscription.planKey}
+            />
+          </div>
           <ActivityFeed activities={stats.recentActivity.map((a) => ({ ...a, createdAt: a.createdAt.toString() }))} />
         </div>
       </div>
