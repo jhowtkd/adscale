@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { Eye, Download, RefreshCw, Clock, AlertCircle, Check, X, Package, ShieldCheck, BookmarkPlus, FileText, Users } from "lucide-react";
+import { Eye, Download, RefreshCw, Clock, AlertCircle, Check, X, Package, ShieldCheck, BookmarkPlus, FileText, Users, Scale } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import StatusBadge from "@/components/ui/StatusBadge";
@@ -30,6 +30,9 @@ interface DerivationCardProps {
   onSaveAsReference?: () => void;
   onGenerateLandingPage?: () => void;
   onSimulatePersonas?: () => void;
+  onCompare?: () => void;
+  isCompareMode?: boolean;
+  isSelectedForCompare?: boolean;
   qaAnalyzingId?: string | null;
   isSavingReference?: boolean;
   isApproving?: boolean;
@@ -188,6 +191,9 @@ export default function DerivationCard({
   onSaveAsReference,
   onGenerateLandingPage,
   onSimulatePersonas,
+  onCompare,
+  isCompareMode,
+  isSelectedForCompare,
   qaAnalyzingId,
   isSavingReference,
   isApproving,
@@ -257,7 +263,8 @@ export default function DerivationCard({
         derivation.isPreview
           ? "border-dashed border-orange-400/60"
           : "border-[var(--border-dim)]",
-        isCompleted && !derivation.isPreview && "hover:border-[var(--border-medium)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.08)] hover:-translate-y-1"
+        isCompleted && !derivation.isPreview && "hover:border-[var(--border-medium)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.08)] hover:-translate-y-1",
+        isSelectedForCompare && "ring-2 ring-[var(--accent-mint)] border-[var(--accent-mint)]"
       )}
       style={{ animationDelay: `${index * 80}ms` }}
     >
@@ -431,6 +438,21 @@ export default function DerivationCard({
                 <RefreshCw size={16} />
               )}
             </button>
+            {isCompleted && (
+              <button
+                onClick={onCompare}
+                aria-label={t("compare")}
+                className={cn(
+                  "p-1.5 rounded-md transition-all duration-150",
+                  isSelectedForCompare
+                    ? "text-[var(--accent-mint)] bg-[var(--accent-mint)]/10"
+                    : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)]"
+                )}
+                title={t("compare")}
+              >
+                <Scale size={16} />
+              </button>
+            )}
           </div>
         </div>
 

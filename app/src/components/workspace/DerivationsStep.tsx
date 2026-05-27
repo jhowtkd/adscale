@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { Check, Clock, Sparkles } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -119,8 +119,22 @@ export default function DerivationsStep({
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isCompareOpen, setIsCompareOpen] = useState(false);
+  const [compareMode, setCompareMode] = useState<'idle' | 'selecting' | 'comparing'>('idle');
+  const [firstCompareSelection, setFirstCompareSelection] = useState<string | null>(null);
 
   const isSelectionMode = selectedIds.length > 0;
+
+  // ESC key to cancel compare mode
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && compareMode === 'selecting') {
+        setCompareMode('idle');
+        setFirstCompareSelection(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [compareMode]);
 
   const zipExport = useZipExport();
   const shareLink = useShareLink();
@@ -227,6 +241,31 @@ export default function DerivationsStep({
   }, [filteredDerivations]);
 
   const clearSelection = useCallback(() => {
+    setSelectedIds([]);
+  }, []);
+
+  const handleCompareClick = useCallback((id: string) => {
+    if (compareMode === 'idle') {
+      setCompareMode('selecting');
+      setFirstCompareSelection(id);
+    } else if (compareMode === 'selecting') {
+      if (id === firstCompareSelection) {
+        // Cancel if clicking the same card
+        setCompareMode('idle');
+        setFirstCompareSelection(null);
+      } else {
+        // Open comparison
+        setSelectedIds([firstCompareSelection!, id]);
+        setCompareMode('comparing');
+        setIsCompareOpen(true);
+      }
+    }
+  }, [compareMode, firstCompareSelection]);
+
+  const handleCloseComparison = useCallback(() => {
+    setIsCompareOpen(false);
+    setCompareMode('idle');
+    setFirstCompareSelection(null);
     setSelectedIds([]);
   }, []);
 
@@ -463,6 +502,9 @@ export default function DerivationsStep({
                   onSaveAsReference={onSaveAsReference ? () => onSaveAsReference(derivation.id) : undefined}
                   onGenerateLandingPage={onGenerateLandingPage ? () => onGenerateLandingPage(derivation.id) : undefined}
                   onSimulatePersonas={onSimulatePersonas && derivation.status === "approved" && derivation.outputKey ? () => onSimulatePersonas(derivation.id) : undefined}
+                  onCompare={() => handleCompareClick(derivation.id)}
+                  isCompareMode={compareMode !== 'idle'}
+                  isSelectedForCompare={firstCompareSelection === derivation.id}
                   qaAnalyzingId={qaAnalyzingId}
                   isSavingReference={savingReferenceId === derivation.id}
                   isApproving={approvingId === derivation.id}
@@ -547,24 +589,20 @@ export default function DerivationsStep({
           derivationB={filteredDerivations.find((d) => d.id === selectedIds[1])!}
           open={isCompareOpen}
           onOpenChange={(open) => {
-            setIsCompareOpen(open);
-            if (!open) clearSelection();
+            if (!open) handleCloseComparison();
           }}
           onApproveA={() => {
             onApprove?.(selectedIds[0]);
-            setIsCompareOpen(false);
-            clearSelection();
+            handleCloseComparison();
           }}
           onApproveB={() => {
             onApprove?.(selectedIds[1]);
-            setIsCompareOpen(false);
-            clearSelection();
+            handleCloseComparison();
           }}
           onRejectBoth={() => {
             onReject?.(selectedIds[0]);
             onReject?.(selectedIds[1]);
-            setIsCompareOpen(false);
-            clearSelection();
+            handleCloseComparison();
           }}
         />
       )}

@@ -575,7 +575,18 @@
     "downloadDerivation": "Download {name}",
     "regenerateDerivation": "Regenerate {name}",
     "regenerateDerivationWithImprovements": "Regenerate {name} with suggested improvements",
-    "simulatePersonas": "Simulate personas"
+    "simulatePersonas": "Simulate personas",
+    "compare": "Compare",
+    "compareTitle": "Compare Variants",
+    "selectForCompare": "Select for comparison",
+    "approveA": "Approve A",
+    "approveB": "Approve B",
+    "rejectBoth": "Reject both",
+    "zoomSyncOn": "Zoom sync enabled",
+    "zoomSyncOff": "Zoom sync disabled",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "resetZoom": "Reset zoom"
   },
   "plan": {
     "title": "Creative Plan",
