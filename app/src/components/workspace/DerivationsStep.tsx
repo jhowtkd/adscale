@@ -385,7 +385,36 @@ export default function DerivationsStep({
 
           {filteredDerivations.length > 0 && (
             <div className="flex items-center gap-2 pl-4 border-l border-[var(--border-dim)]">
-              {isSelectionMode ? (
+              {/* Master checkbox for select all */}
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <div className={cn(
+                  "flex items-center justify-center w-5 h-5 rounded border transition-all duration-150",
+                  selectedIds.length === filteredDerivations.length && filteredDerivations.length > 0
+                    ? "bg-[var(--accent-mint)] border-[var(--accent-mint)] text-white"
+                    : selectedIds.length > 0
+                      ? "bg-[var(--accent-mint)]/50 border-[var(--accent-mint)]"
+                      : "bg-[var(--surface-base)] border-[var(--border-medium)] hover:border-[var(--accent-mint)]"
+                )}>
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.length === filteredDerivations.length && filteredDerivations.length > 0}
+                    onChange={() => {
+                      if (selectedIds.length === filteredDerivations.length) {
+                        clearSelection();
+                      } else {
+                        selectAll();
+                      }
+                    }}
+                    className="sr-only"
+                  />
+                  {selectedIds.length === filteredDerivations.length && filteredDerivations.length > 0 && <Check size={12} />}
+                </div>
+                <span className="text-xs text-[var(--text-muted)]">
+                  {selectedIds.length > 0 ? `${selectedIds.length}/${filteredDerivations.length}` : t("selectAll")}
+                </span>
+              </label>
+
+              {isSelectionMode && (
                 <>
                   <button
                     onClick={clearSelection}
@@ -402,13 +431,6 @@ export default function DerivationsStep({
                     </button>
                   )}
                 </>
-              ) : (
-                <button
-                  onClick={selectAll}
-                  className="text-xs text-[var(--accent-mint)] hover:text-[var(--accent-mint-light)] transition-colors"
-                >
-                  {t("selectAll")}
-                </button>
               )}
             </div>
           )}
