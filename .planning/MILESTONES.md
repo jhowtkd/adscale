@@ -1,11 +1,33 @@
 # Milestones: ADScale
 
-## v5.0 Simplificação do Fluxo de Criação de Campanha (Shipped: 2026-05-26)
+## v6.0 Performance & Otimização (Shipped: 2026-05-27)
 
-**Phases completed:** 4 phases, 3 plans, 0 tasks
+**Phases completed:** 4 phases (22→25), 4 plans
+**Requirements:** 12/12 complete
 
 **Key accomplishments:**
-- (none recorded)
+- Code splitting e lazy loading com next/dynamic — bundle reduzido de ~2.9MB para 2.39MB
+- TanStack Query otimizado com staleTime presets (STATIC/SEMI_STATIC/DYNAMIC) e prefetch on hover
+- Cache de análise visual da IA por 24h (evita re-computação de análises)
+- Redimensionamento automático de imagens >5MB para 1024px antes do upload
+- Componente OptimizedImage com skeleton loading e lazy loading
+- Remoção de 7 dependências não utilizadas (~171 packages removidos)
+- VirtualList para listas grandes (>20 itens) com @tanstack/react-virtual
+- Resource hints (preconnect/dns-prefetch) para R2 CDN melhorando FCP
+
+---
+
+## v5.0 Simplificação do Fluxo de Criação de Campanha (Shipped: 2026-05-26)
+
+**Phases completed:** 4 phases, 4 plans
+**Requirements:** 12/12 complete
+
+**Key accomplishments:**
+- Single-page campaign creation form (name, client, profile)
+- AI visual analysis of key creative with deduced fields
+- Editable auto-filled campaign information
+- Generation mode with creativity profile and CTA suggestions
+- Briefing Doctor completely removed
 
 ---
 

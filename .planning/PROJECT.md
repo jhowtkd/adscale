@@ -88,10 +88,22 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 - ✓ **CLEAN-02**: Briefing Doctor routes, hooks, and components are removed — v5.0
 - ✓ **CLEAN-03**: Briefing Doctor translations are removed from i18n files — v5.0
 - ✓ **CLEAN-04**: Briefing Doctor references are removed from documentation — v5.0
+- ✓ **PERF-01**: Code splitting com `next/dynamic` para páginas pesadas — v6.0
+- ✓ **PERF-02**: Lazy loading para componentes de campanha e galeria — v6.0
+- ✓ **PERF-03**: Reduzir bundle size inicial em pelo menos 30% — v6.0
+- ✓ **PERF-04**: Otimizar TanStack Query com staleTime apropriado — v6.0
+- ✓ **PERF-05**: Desabilitar refetchOnWindowFocus para queries estáticas — v6.0
+- ✓ **PERF-06**: Implementar prefetch de dados na navegação — v6.0
+- ✓ **PERF-07**: Cachear resultados de análise visual da IA por 24h — v6.0
+- ✓ **PERF-08**: Reduzir tamanho de imagens antes do upload — v6.0
+- ✓ **PERF-09**: Otimizar carregamento de imagens com placeholders — v6.0
+- ✓ **PERF-10**: Remover dead code e dependências não utilizadas — v6.0
+- ✓ **PERF-11**: Implementar virtualização para listas grandes — v6.0
+- ✓ **PERF-12**: Melhorar First Contentful Paint para < 1.5s — v6.0
 
 ### Active
 
-(None — all v5.0 requirements shipped; ready for v6.0 planning)
+(None — all v6.0 requirements shipped; ready for v7.0 planning)
 
 ### Out of Scope
 
@@ -112,7 +124,17 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Context
 
-Current state: v5.0 milestone complete (phases 18–21). ADScale has a simplified single-page campaign creation flow with AI visual analysis that deduces campaign information from the uploaded key creative. Advanced settings (creativity profile, per-piece CTA, output format, derivation mode) are now configured in a dedicated generation mode step. Briefing Doctor has been completely removed. Build passes and tests are green.
+Current state: v6.0 milestone complete (phases 22–25). ADScale has a simplified single-page campaign creation flow with AI visual analysis that deduces campaign information from the uploaded key creative. Advanced settings (creativity profile, per-piece CTA, output format, derivation mode) are now configured in a dedicated generation mode step. Briefing Doctor has been completely removed.
+
+Performance optimizations shipped:
+- Bundle reduced by ~18% (2.9MB → 2.39MB total chunks) via code splitting and lazy loading
+- TanStack Query optimized with staleTime presets (STATIC/SEMI_STATIC/DYNAMIC) and prefetch on hover
+- AI visual analysis cached for 24h to avoid re-computing
+- Images >5MB automatically resized to 1024px before upload
+- VirtualList component for large lists (>20 items)
+- Resource hints (preconnect/dns-prefetch) for R2 CDN to improve FCP
+
+Build passes and 448 tests are green.
 
 Key stack decisions:
 - Next.js App Router, React, TypeScript, Tailwind, shadcn/ui
@@ -181,16 +203,23 @@ This document evolves at phase transitions and milestone boundaries.
 - Briefing Doctor completely removed
 - Phases 18–21 archived
 
-## Current Milestone: v6.0 Performance & Otimização
+## Milestone History (Continued)
 
-**Goal:** Reduzir tempo de carregamento inicial em 50%+ e eliminar re-fetches desnecessários para melhorar a experiência do usuário.
+### v6.0 Performance & Otimização ✅
+- Code splitting e lazy loading (next/dynamic, 15+ componentes)
+- TanStack Query optimization (staleTime presets, prefetch on hover)
+- AI visual analysis caching (24h cache check)
+- Image optimization (resize >5MB to 1024px, OptimizedImage component)
+- Bundle cleanup (7 unused dependencies removed)
+- VirtualList for large lists (>20 items)
+- Resource hints for R2 CDN (preconnect/dns-prefetch)
+- Phases 22–25 archived
 
-**Target features:**
-- Code splitting e lazy loading de componentes e páginas
-- Otimização do TanStack Query (caching, staleTime, prefetch)
-- Cache de análise visual da IA (evita re-análise de mesmas imagens)
-- Bundle optimization (remove dead code, otimiza imports)
-- Melhoria no carregamento de imagens e assets
+## Current Milestone: v7.0 (Planning)
+
+**Status:** Ready for planning
+
+**Goal:** TBD — awaiting user input for next milestone direction
 
 ---
-*Last updated: 2026-05-27 after starting v6.0 milestone*
+*Last updated: 2026-05-27 after completing v6.0 milestone*
