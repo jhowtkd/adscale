@@ -1,68 +1,63 @@
-# Requirements: ADScale v7.0 — Experiência do Usuário
+# Requirements: ADScale v8.0 — Galeria de Revisão Aprimorada
 
 **Defined:** 2026-05-27
 **Core Value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-## v7.0 Requirements
+## v8.0 Requirements
 
-### ONB — Onboarding Aprimorado
+### COMP — Comparação Lado a Lado
 
-- [x] **ONB-01**: Novo usuário vê um onboarding step-by-step no primeiro login (welcome tour)
-- [x] **ONB-02**: Onboarding pode ser reiniciado a qualquer momento nas settings
-- [x] **ONB-03**: Tooltips contextuais explicam features principais (campanha, upload, geração, review)
-- [x] **ONB-04**: Progresso do onboarding é salvo no banco de dados (per-user)
-- [x] **ONB-05**: Onboarding é skipável e não bloqueia o uso do app
+- [ ] **COMP-01**: Usuário pode selecionar duas derivações para comparar lado a lado
+- [ ] **COMP-02**: Visualização split-pane mostra ambas as derivações simultaneamente
+- [ ] **COMP-03**: Usuário pode sincronizar zoom e pan entre as duas imagens
+- [ ] **COMP-04**: Metadados de ambas as derivações são visíveis (CTA, formato, score, status)
 
-### TPL — Templates de Campanha
+### FILT — Filtros Avançados na Galeria
 
-- [x] **TPL-01**: Usuário pode salvar uma campanha existente como template
-- [x] **TPL-02**: Usuário pode criar nova campanha a partir de template existente
-- [x] **TPL-03**: Templates preservam campos do brief (objetivo, público-alvo, tom, etc)
-- [x] **TPL-04**: Templates são listados em galeria/modal ao iniciar criação de campanha
-- [x] **TPL-05**: Templates são salvos por workspace (isolamento de dados)
-- [x] **TPL-06**: Usuário pode renomear e deletar templates
+- [ ] **FILT-01**: Usuário pode filtrar derivações por status (approved, rejected, pending, failed)
+- [ ] **FILT-02**: Usuário pode filtrar por formato de imagem (1:1, 4:5, 9:16)
+- [ ] **FILT-03**: Usuário pode filtrar por texto do CTA (busca parcial)
+- [ ] **FILT-04**: Usuário pode filtrar por range de quality score (0-100)
+- [ ] **FILT-05**: Filtros são persistidos na URL para compartilhamento/bookmark
 
-### ANL — Analytics
+### BATCH — Batch Approve/Reject
 
-- [x] **ANL-01**: Dashboard mostra métricas de uso (campanhas criadas, derivations geradas, aprovadas)
-- [x] **ANL-02**: Dashboard mostra taxa de aprovação de derivations (% aprovadas vs rejeitadas)
-- [x] **ANL-03**: Dashboard mostra tempo médio de geração de derivations
-- [x] **ANL-04**: Dashboard mostra créditos usados por período (semana/mês)
-- [x] **ANL-05**: API de analytics com agregações por workspace e período
+- [ ] **BATCH-01**: Usuário pode selecionar múltiplas derivações via checkboxes
+- [ ] **BATCH-02**: Barra de ações em lote aparece quando há seleção (approve all, reject all)
+- [ ] **BATCH-03**: Batch operations atualizam o status de todas as derivações selecionadas
+- [ ] **BATCH-04**: Usuário pode selecionar/deselecionar todas as derivações visíveis
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Analytics em tempo real | Agregações diárias/semanais são suficientes |
-| Templates compartilhados entre workspaces | Isolamento de dados é prioridade |
-| Gamificação do onboarding | Fora do escopo deste milestone |
-| Tour interativo com hotspots | Tooltips são suficientes por ora |
+| Comparação de mais de 2 derivações | Complexidade de UI alta, 2 é o caso de uso principal |
+| Filtros por cor/dominância visual | Requer análise de imagem adicional, fora do escopo |
+| Batch regenerate | Requer fila de jobs complexa, fora deste milestone |
+| Gallery view modes (lista vs grid) | Já existe grid view, não é prioridade |
+| Exportação direta da galeria | Feature separada, requer design de UX |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ONB-01 | Phase 26 | ✅ Complete |
-| ONB-02 | Phase 26 | ✅ Complete |
-| ONB-03 | Phase 26 | ✅ Complete |
-| ONB-04 | Phase 26 | ✅ Complete |
-| ONB-05 | Phase 26 | ✅ Complete |
-| TPL-01 | Phase 27 | ✅ Complete |
-| TPL-02 | Phase 27 | ✅ Complete |
-| TPL-03 | Phase 27 | ✅ Complete |
-| TPL-04 | Phase 27 | ✅ Complete |
-| TPL-05 | Phase 27 | ✅ Complete |
-| TPL-06 | Phase 27 | ✅ Complete |
-| ANL-01 | Phase 28 | ✅ Complete |
-| ANL-02 | Phase 28 | ✅ Complete |
-| ANL-03 | Phase 28 | ✅ Complete |
-| ANL-04 | Phase 28 | ✅ Complete |
-| ANL-05 | Phase 28 | ✅ Complete |
+| COMP-01 | Phase 29 | Pending |
+| COMP-02 | Phase 29 | Pending |
+| COMP-03 | Phase 29 | Pending |
+| COMP-04 | Phase 29 | Pending |
+| FILT-01 | Phase 30 | Pending |
+| FILT-02 | Phase 30 | Pending |
+| FILT-03 | Phase 30 | Pending |
+| FILT-04 | Phase 30 | Pending |
+| FILT-05 | Phase 30 | Pending |
+| BATCH-01 | Phase 31 | Pending |
+| BATCH-02 | Phase 31 | Pending |
+| BATCH-03 | Phase 31 | Pending |
+| BATCH-04 | Phase 31 | Pending |
 
 **Coverage:**
-- v7.0 requirements: 16 total
-- Mapped to phases: 16
+- v8.0 requirements: 13 total
+- Mapped to phases: 13
 - Unmapped: 0 ✓
 
 ---

@@ -72,16 +72,33 @@
 
 ---
 
+## Completed Milestones
+
+### v7.0 — Experiência do Usuário ✅
+**Shipped:** 2026-05-27
+**Phases:** 3 (26→28)
+**Requirements:** 16/16 complete
+
+**Delivered:**
+- Onboarding tour de 5 passos com driver.js
+- Tooltips contextuais para features complexas
+- Progresso salvo no banco de dados, reiniciável via Settings
+- Templates de campanha: salvar, usar, renomear, deletar
+- Template selector no modal de nova campanha
+- 6 KPIs no dashboard: campanhas, derivações, total, taxa aprovação, tempo médio, créditos
+- Seletor de período: semana/mês/trimestre
+- Dados reais de créditos a partir de creditTransactions
+
 ## Active Milestone
 
-### v7.0 — Experiência do Usuário (In Progress)
+### v8.0 — Galeria de Revisão Aprimorada (In Progress)
 **Started:** 2026-05-27
-**Goal:** Melhorar a experiência do usuário com onboarding guiado, templates de campanha reutilizáveis e analytics no dashboard.
+**Goal:** Melhorar a galeria de revisão de derivações com comparação lado a lado, filtros avançados e aprovação em lote.
 
 **Phases:**
-- Phase 26: Onboarding Aprimorado (5 requirements)
-- Phase 27: Templates de Campanha (6 requirements)
-- Phase 28: Analytics no Dashboard (5 requirements)
+- Phase 29: Comparação Lado a Lado
+- Phase 30: Filtros Avançados na Galeria
+- Phase 31: Batch Approve/Reject
 
 ---
 

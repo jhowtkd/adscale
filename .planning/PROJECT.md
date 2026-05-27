@@ -215,14 +215,21 @@ This document evolves at phase transitions and milestone boundaries.
 - Resource hints for R2 CDN (preconnect/dns-prefetch)
 - Phases 22–25 archived
 
-## Current Milestone: v7.0 Experiência do Usuário
+### v7.0 Experiência do Usuário ✅
+- Onboarding aprimorado com tour de 5 passos e tooltips contextuais
+- Templates de campanha reutilizáveis (salvar, usar, renomear, deletar)
+- Analytics no dashboard com 6 KPIs e seletor de período
+- Phases 26–28 archived
 
-**Goal:** Melhorar a experiência do usuário com onboarding guiado, templates de campanha reutilizáveis e analytics no dashboard.
+## Current Milestone: v8.0 Galeria de Revisão Aprimorada
+
+**Goal:** Melhorar a galeria de revisão de derivações com comparação lado a lado, filtros avançados e aprovação em lote.
 
 **Target features:**
-- **Onboarding aprimorado:** Fluxo de primeiro uso com tooltips contextuais, progresso salvo e reiniciável
-- **Templates de campanha:** Salvar campanhas como templates e criar novas a partir de templates existentes
-- **Analytics no dashboard:** Métricas de uso, taxa de aprovação, tempo de geração, créditos consumidos
+- **Comparação lado a lado:** Visualizar duas derivações simultaneamente para comparação detalhada
+- **Filtros avançados:** Filtrar por status, formato, CTA, score de qualidade, data de criação
+- **Batch approve/reject:** Selecionar múltiplas derivações e aprovar/rejeitar em lote
+- **Melhorias de UX:** Atalhos de teclado, visualização em tela cheia, zoom na imagem
 
 ---
-*Last updated: 2026-05-27 after starting v7.0 milestone*
+*Last updated: 2026-05-27 after completing v7.0 milestone, starting v8.0*

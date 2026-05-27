@@ -1,139 +1,76 @@
-# Roadmap: ADScale v7.0 — Experiência do Usuário
+# Roadmap: ADScale v8.0 — Galeria de Revisão Aprimorada
 
-## Milestone Overview
+## Overview
 
-**Version:** v7.0  
-**Name:** Experiência do Usuário  
-**Goal:** Melhorar a experiência do usuário com onboarding guiado, templates de campanha reutilizáveis e analytics no dashboard.  
-**Phases:** 3 (26 → 28)  
-**Requirements:** 16  
-**Previous milestone:** v6.0 ended at phases 22–25  
+| # | Phase | Goal | Requirements | Success Criteria |
+|---|-------|------|--------------|------------------|
+| 29 | Comparação Lado a Lado | Permitir comparar duas derivações simultaneamente | COMP-01..04 | 4 |
+| 30 | Filtros Avançados na Galeria | Filtrar derivações por múltiplos critérios | FILT-01..05 | 5 |
+| 31 | Batch Approve/Reject | Aprovar/rejeitar múltiplas derivações em lote | BATCH-01..04 | 4 |
 
----
-
-## Phase 26: Onboarding Aprimorado ✅ Complete
-
-**Goal:** Implementar fluxo de onboarding step-by-step com tooltips contextuais e progresso persistente.
-
-**Requirements:**
-- ✅ ONB-01: Welcome tour no primeiro login
-- ✅ ONB-02: Onboarding reiniciável nas settings
-- ✅ ONB-03: Tooltips contextuais nas features principais
-- ✅ ONB-04: Progresso salvo no banco de dados
-- ✅ ONB-05: Onboarding skipável
-
-**Decisions Locked:**
-- Tour: dashboard-only, 5 steps (existing OnboardingTour component)
-- Tooltips: InfoTooltip component with @base-ui/react/tooltip
-- Persistência: existing `onboardingCompletedAt` timestamp
-- Restart: Settings ProfileTab with POST /api/user/onboarding/restart
-
-**Results:**
-- Tour expanded from 3 to 5 steps (added New Campaign + Credits)
-- InfoTooltip component created and integrated in 4 complex features
-- Restart endpoint and Settings integration working
-- 448 tests passing, build clean
+**13 requirements** | **3 phases** | All covered ✓
 
 ---
 
-## Phase 27: Templates de Campanha
+## Phase 29: Comparação Lado a Lado
 
-**Goal:** Permitir salvar campanhas como templates e criar novas campanhas a partir de templates existentes.
+**Goal:** Permitir que usuários comparem duas derivações lado a lado com zoom sincronizado.
 
-**Requirements:**
-- TPL-01: Salvar campanha como template
-- TPL-02: Criar campanha a partir de template
-- TPL-03: Templates preservam campos do brief
-- TPL-04: Galeria/modal de templates na criação
-- TPL-05: Isolamento por workspace
-- TPL-06: Renomear e deletar templates
-
-**Decisions Locked:**
-- Schema: tabela `campaign_templates` com FK para workspace
-- Campos preservados: brief completo (objetivo, público, tom, oferta, plataformas)
-- NÃO preservar: nome da campanha, imagens, derivations
-- UI: modal de seleção ao clicar "Nova Campanha" com opção "Usar Template"
+**Requirements:** COMP-01, COMP-02, COMP-03, COMP-04
 
 **Success Criteria:**
-1. Usuário pode salvar qualquer campanha como template
-2. Template aparece na galeria ao criar nova campanha
-3. Campos do brief são pré-preenchidos ao usar template
-4. Templates são isolados por workspace
-5. Usuário pode gerenciar templates (renomear, deletar)
+1. Usuário pode clicar em "Compare" em uma derivação e selecionar uma segunda para comparar
+2. Visualização split-pane renderiza ambas as imagens sem distorção
+3. Zoom in/out em uma imagem sincroniza com a outra (quando sincronização está ativa)
+4. Metadados (CTA, formato, score, status) são visíveis para ambas as derivações
+5. Usuário pode sair do modo de comparação e voltar para a galeria
+
+**Depends on:** Phase 28 ( Analytics no Dashboard — concluído)
 
 ---
 
-## Phase 28: Analytics no Dashboard
+## Phase 30: Filtros Avançados na Galeria
 
-**Goal:** Adicionar métricas de uso, taxa de aprovação e consumo de créditos ao dashboard.
+**Goal:** Permitir filtragem de derivações por status, formato, CTA, score e persistir filtros na URL.
 
-**Requirements:**
-- ANL-01: Métricas de uso (campanhas, derivations, aprovações)
-- ANL-02: Taxa de aprovação de derivations
-- ANL-03: Tempo médio de geração
-- ANL-04: Créditos usados por período
-- ANL-05: API de analytics com agregações
-
-**Decisions Locked:**
-- Dados: agregar de tabelas existentes (campaigns, derivations, billing)
-- Períodos: semana e mês (dropdown no dashboard)
-- Visualização: cards com KPIs + gráfico de linha para tendências
-- Performance: usar views materializadas ou cachear agregações
+**Requirements:** FILT-01, FILT-02, FILT-03, FILT-04, FILT-05
 
 **Success Criteria:**
-1. Dashboard mostra KPIs atualizados em tempo real
-2. Gráficos mostram tendências por período selecionado
-3. Taxa de aprovação é calculada corretamente
-4. API retorna agregações por workspace e período
-5. Dados carregam em < 2s
+1. Dropdown/filter chips permitem selecionar múltiplos status simultaneamente
+2. Filtro de formato mostra opções 1:1, 4:5, 9:16
+3. Busca por CTA funciona com texto parcial (case-insensitive)
+4. Slider range permite filtrar por quality score mínimo/máximo
+5. Filtros aplicados são refletidos na URL (query params) para bookmarking
+6. Contador mostra quantas derivações correspondem aos filtros ativos
+7. Botão "Limpar filtros" restaura visualização completa
+
+**Depends on:** Phase 29
 
 ---
 
-## Requirement Coverage
+## Phase 31: Batch Approve/Reject
 
-| REQ-ID | Phase | Mapped | Status |
-|--------|-------|--------|--------|
-| ONB-01 | 26 | ✓ | Planned |
-| ONB-02 | 26 | ✓ | Planned |
-| ONB-03 | 26 | ✓ | Planned |
-| ONB-04 | 26 | ✓ | Planned |
-| ONB-05 | 26 | ✓ | Planned |
-| TPL-01 | 27 | ✓ | Planned |
-| TPL-02 | 27 | ✓ | Planned |
-| TPL-03 | 27 | ✓ | Planned |
-| TPL-04 | 27 | ✓ | Planned |
-| TPL-05 | 27 | ✓ | Planned |
-| TPL-06 | 27 | ✓ | Planned |
-| ANL-01 | 28 | ✓ | Planned |
-| ANL-02 | 28 | ✓ | Planned |
-| ANL-03 | 28 | ✓ | Planned |
-| ANL-04 | 28 | ✓ | Planned |
-| ANL-05 | 28 | ✓ | Planned |
+**Goal:** Permitir seleção múltipla de derivações e ações em lote (approve/reject).
 
-**Coverage:** 16/16 requirements mapped across 3 phases ✓
+**Requirements:** BATCH-01, BATCH-02, BATCH-03, BATCH-04
+
+**Success Criteria:**
+1. Checkboxes aparecem em cada card de derivação no hover ou quando modo de seleção está ativo
+2. Barra de ações flutuante aparece no topo quando há itens selecionados
+3. "Approve All" e "Reject All" atualizam o status de todas as derivações selecionadas
+4. Checkbox no header seleciona/deseleciona todas as derivações visíveis (considerando filtros)
+5. Contador na barra mostra "X selecionados"
+6. Após ação em lote, seleção é limpa e galeria atualiza
+
+**Depends on:** Phase 30
 
 ---
 
-## Phase Status
+## Archive Notes
 
-| Phase | Status | Tests |
-|-------|--------|-------|
-| Phase 26 — Onboarding Aprimorado | ✅ Complete | 448 |
-| Phase 27 — Templates de Campanha | 🔄 Planned | — |
-| Phase 28 — Analytics no Dashboard | 🔄 Planned | — |
-
-**Plans:**
-1/3 plans complete
+- Previous roadmap: `.planning/milestones/v7.0-ROADMAP.md`
+- v7.0 ended at Phase 28
+- v8.0 starts at Phase 29
 
 ---
-
-## Test Plan
-
-- Testes de onboarding: verificar tour automático, skip, reinício
-- Testes de templates: CRUD de templates, criação a partir de template
-- Testes de analytics: verificar agregações corretas, filtros de período
-- Testes de integração: templates isolados por workspace
-
----
-
-*Created: 2026-05-27 for v7.0 milestone*
+*Roadmap created: 2026-05-27*
