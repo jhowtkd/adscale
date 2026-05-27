@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
+import { STALE_TIME } from "@/lib/query-config";
 import type { DashboardStats } from "@/server/repositories/dashboard";
 
 async function fetchDashboardStats(): Promise<DashboardStats> {
@@ -14,7 +15,6 @@ export function useDashboardStats() {
   return useQuery({
     queryKey: ["dashboard", "stats"],
     queryFn: fetchDashboardStats,
-    refetchInterval: 30000,
-    staleTime: 10000,
+    staleTime: STALE_TIME.DYNAMIC,
   });
 }

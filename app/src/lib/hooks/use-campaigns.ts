@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/api-client";
+import { STALE_TIME } from "@/lib/query-config";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export interface Campaign {
@@ -244,6 +245,7 @@ export function useCampaigns(filters?: CampaignListQuery) {
   const query = useQuery({
     queryKey: ["campaigns", filters ?? {}],
     queryFn: () => fetchCampaigns(filters),
+    staleTime: STALE_TIME.SEMI_STATIC,
   });
 
   return {
@@ -258,6 +260,7 @@ export function useCampaign(id: string) {
     queryKey: ["campaigns", id],
     queryFn: () => fetchCampaign(id),
     enabled: !!id && id !== "new",
+    staleTime: STALE_TIME.SEMI_STATIC,
     refetchInterval: (query) => {
       return query.state.data?.status === "generating" ? 2000 : false;
     },

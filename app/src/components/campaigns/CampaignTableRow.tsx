@@ -25,6 +25,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { usePrefetchCampaign } from "@/lib/hooks/use-prefetch";
 
 interface CampaignTableRowProps {
   campaign: Campaign;
@@ -51,6 +52,7 @@ function CampaignTableRow({
   const tCommon = useTranslations("common");
   const router = useRouter();
   const rowRef = useRef<HTMLTableRowElement>(null);
+  const { prefetch } = usePrefetchCampaign();
 
   const formattedDate = (() => {
     const d = formatDistanceToNow(campaign.lastModified, { addSuffix: false });
@@ -83,6 +85,7 @@ function CampaignTableRow({
       aria-label={`${campaign.name}, status ${campaign.status}`}
       onClick={handleRowClick}
       onKeyDown={handleKeyDown}
+      onMouseEnter={() => prefetch(campaign.id)}
       className={cn("animate-fade-in",
         "group border-b border-[var(--border-dim)] transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-mint)] focus-visible:ring-inset",
         "md:table-row flex flex-col rounded-xl md:rounded-none mb-3 md:mb-0 bg-[var(--surface-base)] md:bg-transparent shadow-sm md:shadow-none p-4 md:p-0",

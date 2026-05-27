@@ -2,14 +2,16 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, FolderOpen, LayoutTemplate, Settings, Sparkles, User } from "lucide-react";
+import { usePrefetchCampaigns } from "@/lib/hooks/use-prefetch";
 
 export default function Sidebar() {
   const pathname = usePathname();
   const isActive = (href: string) => href === "/" ? pathname === "/" : pathname.startsWith(href);
+  const { prefetch: prefetchCampaigns } = usePrefetchCampaigns();
 
   const topNav = [
     { icon: LayoutDashboard, href: "/", label: "Dashboard" },
-    { icon: FolderOpen, href: "/campaigns", label: "Campaigns" },
+    { icon: FolderOpen, href: "/campaigns", label: "Campaigns", onHover: prefetchCampaigns },
     { icon: LayoutTemplate, href: "/library", label: "Library" },
     { icon: Sparkles, href: "/restyling", label: "Restyling" },
   ];
@@ -24,8 +26,15 @@ export default function Sidebar() {
         <div className="w-8 h-8 rounded-[4px] bg-[#2fb67d] flex items-center justify-center font-bold text-[#0a0a0f] text-sm">A</div>
       </div>
       <nav className="flex-1 flex flex-col items-center gap-2 py-4">
-        {topNav.map(({ icon: Icon, href, label }) => (
-          <Link key={href} href={href} aria-label={label} title={label} className={`w-10 h-10 rounded-[4px] flex items-center justify-center transition-colors duration-200 ${isActive(href) ? "text-[#2fb67d] bg-[rgba(47,182,125,0.08)]" : "text-[#6e6e7a] hover:bg-[#1a1a24] hover:text-[#b4b4be]"}`}>
+        {topNav.map(({ icon: Icon, href, label, onHover }) => (
+          <Link 
+            key={href} 
+            href={href} 
+            aria-label={label} 
+            title={label} 
+            className={`w-10 h-10 rounded-[4px] flex items-center justify-center transition-colors duration-200 ${isActive(href) ? "text-[#2fb67d] bg-[rgba(47,182,125,0.08)]" : "text-[#6e6e7a] hover:bg-[#1a1a24] hover:text-[#b4b4be]"}`}
+            onMouseEnter={onHover}
+          >
             <Icon size={24} strokeWidth={1.5} aria-hidden="true" />
           </Link>
         ))}

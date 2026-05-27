@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/api-client";
+import { STALE_TIME } from "@/lib/query-config";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export interface BrandKit {
@@ -153,6 +154,7 @@ export function useBrandKit() {
   return useQuery({
     queryKey: ["brand-kit"],
     queryFn: fetchBrandKit,
+    staleTime: STALE_TIME.STATIC,
   });
 }
 

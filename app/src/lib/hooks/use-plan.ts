@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/api-client";
+import { STALE_TIME } from "@/lib/query-config";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export interface Plan {
@@ -76,6 +77,7 @@ export function usePlan(campaignId: string) {
     queryKey: ["plans", campaignId],
     queryFn: () => fetchPlan(campaignId),
     enabled: !!campaignId && campaignId !== "new",
+    staleTime: STALE_TIME.STATIC,
   });
 }
 

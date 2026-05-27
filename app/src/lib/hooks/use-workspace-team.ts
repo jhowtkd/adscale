@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/api-client";
+import { STALE_TIME } from "@/lib/query-config";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export interface WorkspaceMember {
@@ -45,6 +46,7 @@ export function useWorkspaceMembers() {
   return useQuery({
     queryKey: ["workspace-members"],
     queryFn: fetchWorkspaceMembers,
+    staleTime: STALE_TIME.STATIC,
   });
 }
 

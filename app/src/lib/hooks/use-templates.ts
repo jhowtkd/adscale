@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/api-client";
+import { STALE_TIME } from "@/lib/query-config";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export interface CampaignTemplate {
@@ -90,6 +91,7 @@ export function useTemplates() {
   return useQuery({
     queryKey: ["templates"],
     queryFn: fetchTemplates,
+    staleTime: STALE_TIME.STATIC,
   });
 }
 
@@ -98,6 +100,7 @@ export function useTemplate(id: string) {
     queryKey: ["templates", id],
     queryFn: () => fetchTemplate(id),
     enabled: !!id,
+    staleTime: STALE_TIME.STATIC,
   });
 }
 

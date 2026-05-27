@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
+import { STALE_TIME } from "@/lib/query-config";
 
 export interface WorkspaceAsset {
   id: string;
@@ -44,6 +45,7 @@ export function useWorkspaceAssets(options: {
       if (!res.ok) throw new Error("Failed to load assets");
       return res.json();
     },
+    staleTime: STALE_TIME.STATIC,
   });
 }
 

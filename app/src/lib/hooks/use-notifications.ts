@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/api-client";
+import { STALE_TIME } from "@/lib/query-config";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export interface NotificationItem {
@@ -61,6 +62,7 @@ export function useNotifications() {
   return useQuery({
     queryKey: ["notifications"],
     queryFn: fetchNotifications,
+    staleTime: STALE_TIME.DYNAMIC,
   });
 }
 

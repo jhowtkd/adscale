@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/api-client";
+import { STALE_TIME } from "@/lib/query-config";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export type ScoreStatus = "pending" | "heuristic" | "analyzed" | "failed";
@@ -86,6 +87,7 @@ export function useDerivations(
     queryKey: ["derivations", campaignId],
     queryFn: () => fetchDerivations(campaignId),
     enabled: !!campaignId && campaignId !== "new",
+    staleTime: STALE_TIME.DYNAMIC,
     refetchInterval: (query) => {
       if (!enablePolling) return false;
       const data = query.state.data as Derivation[] | undefined;

@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/api-client";
+import { STALE_TIME } from "@/lib/query-config";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export interface BillingStatus {
@@ -50,6 +51,7 @@ export function useBillingStatus() {
   return useQuery({
     queryKey: ["billing", "status"],
     queryFn: fetchBillingStatus,
+    staleTime: STALE_TIME.SEMI_STATIC,
   });
 }
 
@@ -121,6 +123,7 @@ export function useCreditHistory(params?: {
   return useQuery({
     queryKey: ["billing", "history", params],
     queryFn: () => fetchCreditHistory(params),
+    staleTime: STALE_TIME.SEMI_STATIC,
   });
 }
 

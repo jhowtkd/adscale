@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/api-client";
+import { STALE_TIME } from "@/lib/query-config";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export interface ClientProfile {
@@ -157,6 +158,7 @@ export function useClientProfiles() {
   return useQuery({
     queryKey: ["client-profiles"],
     queryFn: fetchClientProfiles,
+    staleTime: STALE_TIME.STATIC,
   });
 }
 
@@ -175,6 +177,7 @@ export function useClientReferences(clientProfileId?: string | null) {
     queryKey: ["client-references", clientProfileId],
     queryFn: () => fetchClientReferences(clientProfileId!),
     enabled: !!clientProfileId,
+    staleTime: STALE_TIME.STATIC,
   });
 }
 
@@ -183,6 +186,7 @@ export function useClientProfileMemory(clientProfileId?: string | null) {
     queryKey: ["client-profile-memory", clientProfileId],
     queryFn: () => fetchClientProfileMemory(clientProfileId!),
     enabled: !!clientProfileId,
+    staleTime: STALE_TIME.STATIC,
   });
 }
 
