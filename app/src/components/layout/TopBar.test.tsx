@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import TopBar from "./TopBar";
 
 vi.mock("@/lib/store", () => ({
-  useAppStore: vi.fn((selector: any) =>
+  useAppStore: vi.fn((selector: (state: { user: { firstName: string; lastName: string; email: string }; currentPageTitle: string }) => unknown) =>
     selector({
       user: { firstName: "Test", lastName: "User", email: "test@example.com" },
       currentPageTitle: "Dashboard",
@@ -82,7 +82,7 @@ describe("TopBar notifications", () => {
           updatedAt: new Date(),
         },
       ],
-    } as any);
+    } as { data: typeof mockNotifications });
 
     render(<TopBar />, { wrapper: createWrapper() });
 
@@ -106,7 +106,7 @@ describe("TopBar notifications", () => {
           updatedAt: new Date(),
         },
       ],
-    } as any);
+    } as { data: typeof mockNotifications });
 
     render(<TopBar />, { wrapper: createWrapper() });
 
@@ -130,7 +130,7 @@ describe("TopBar notifications", () => {
           updatedAt: new Date(),
         },
       ],
-    } as any);
+    } as { data: typeof mockNotifications });
 
     render(<TopBar />, { wrapper: createWrapper() });
 

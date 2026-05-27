@@ -51,7 +51,7 @@ describe("GET /api/notifications", () => {
         updatedAt: new Date(),
       },
     ];
-    mockGetNotificationsByUser.mockResolvedValue(mockNotifications as any);
+    mockGetNotificationsByUser.mockResolvedValue(mockNotifications as unknown as typeof mockNotifications);
 
     const res = await GET(new Request("http://localhost/api/notifications"));
     const body = await res.json();

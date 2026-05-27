@@ -39,7 +39,7 @@ describe("PATCH /api/notifications/[id]/read", () => {
       createdAt: new Date(),
       updatedAt: new Date(),
     };
-    mockMarkNotificationAsRead.mockResolvedValue(mockNotification as any);
+    mockMarkNotificationAsRead.mockResolvedValue(mockNotification as unknown as typeof mockNotification);
 
     const res = await PATCH(
       new Request("http://localhost/api/notifications/notif-1/read"),
@@ -53,7 +53,7 @@ describe("PATCH /api/notifications/[id]/read", () => {
   });
 
   it("returns 404 when notification not found", async () => {
-    mockMarkNotificationAsRead.mockResolvedValue(null as any);
+    mockMarkNotificationAsRead.mockResolvedValue(null as unknown as typeof mockNotification);
 
     const res = await PATCH(
       new Request("http://localhost/api/notifications/notif-999/read"),

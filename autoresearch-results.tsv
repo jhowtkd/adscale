@@ -1,5 +1,2 @@
 iteration	commit	metric	delta	status	description
-0	-	366	0	baseline	initial state — 366 tests passing, build passes
-1	074fca2	366	0	keep	API route created — build passes, tests pass
-2	3740b78	366	0	keep	useAutoBriefing hook created
-3	-	366	0	keep	AutoBriefingModal component created
+0	6017e07	17	0.0	baseline	initial state after audit-fix (17 errors, 31 warnings)

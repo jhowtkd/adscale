@@ -49,7 +49,7 @@ describe("POST /api/campaigns/[id]/suggest-ctas", () => {
           create: mockCreate,
         },
       },
-    } as any);
+    } as unknown);
   });
 
   afterEach(() => {
@@ -77,7 +77,7 @@ describe("POST /api/campaigns/[id]/suggest-ctas", () => {
           },
         },
       ],
-    } as any);
+    } as unknown);
 
     const res = await POST(
       new Request("http://localhost/api/campaigns/camp-1/suggest-ctas", {
@@ -137,7 +137,7 @@ describe("POST /api/campaigns/[id]/suggest-ctas", () => {
 
     mockCreate.mockResolvedValue({
       choices: [{ message: { content: null } }],
-    } as any);
+    } as unknown);
 
     const res = await POST(
       new Request("http://localhost/api/campaigns/camp-1/suggest-ctas", {
@@ -215,7 +215,7 @@ describe("POST /api/campaigns/[id]/suggest-ctas", () => {
           },
         },
       ],
-    } as any);
+    } as unknown);
 
     const res = await POST(
       new Request("http://localhost/api/campaigns/camp-1/suggest-ctas", {
