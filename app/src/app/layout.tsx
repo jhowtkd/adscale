@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { Toaster } from "@/components/ui/sonner";
@@ -16,8 +16,17 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: meta?.title ?? "ADScale",
     description: meta?.description ?? "",
+    other: {
+      "dns-prefetch": "//r2.adscale.com",
+    },
   };
 }
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#050509",
+};
 
 export default async function RootLayout({
   children,
@@ -29,6 +38,10 @@ export default async function RootLayout({
 
   return (
     <html lang={locale} className="antialiased">
+      <head>
+        <link rel="preconnect" href="https://r2.adscale.com" />
+        <link rel="dns-prefetch" href="https://r2.adscale.com" />
+      </head>
       <body className="min-h-screen bg-background text-foreground font-sans">
         <a
           href="#main"
