@@ -47,7 +47,7 @@ describe("analyzeCampaignCreative", () => {
           },
         },
       ],
-    } as any);
+    } as unknown);
 
     const result = await analyzeCampaignCreative("https://example.com/image.jpg");
 
@@ -69,7 +69,7 @@ describe("analyzeCampaignCreative", () => {
           },
         },
       ],
-    } as any);
+    } as unknown);
 
     const result = await analyzeCampaignCreative("https://example.com/image.jpg");
 
@@ -94,7 +94,7 @@ describe("analyzeCampaignCreative", () => {
           },
         },
       ],
-    } as any);
+    } as unknown);
 
     const result = await analyzeCampaignCreative("https://example.com/image.jpg");
 
@@ -116,7 +116,7 @@ describe("analyzeCampaignCreative", () => {
           },
         },
       ],
-    } as any);
+    } as unknown);
 
     const result = await analyzeCampaignCreative("https://example.com/image.jpg");
 
@@ -128,7 +128,7 @@ describe("analyzeCampaignCreative", () => {
   it("returns empty object when AI returns no content", async () => {
     mockCreate.mockResolvedValue({
       choices: [{ message: { content: null } }],
-    } as any);
+    } as unknown);
 
     const result = await analyzeCampaignCreative("https://example.com/image.jpg");
     expect(result).toEqual({});
@@ -137,7 +137,7 @@ describe("analyzeCampaignCreative", () => {
   it("returns empty object on invalid JSON", async () => {
     mockCreate.mockResolvedValue({
       choices: [{ message: { content: "not valid json" } }],
-    } as any);
+    } as unknown);
 
     const result = await analyzeCampaignCreative("https://example.com/image.jpg");
     expect(result).toEqual({});
