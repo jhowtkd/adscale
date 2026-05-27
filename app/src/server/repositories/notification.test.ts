@@ -9,9 +9,7 @@ const {
   returningMock,
   updateMock,
   setMock,
-  updateWhereMock,
   deleteMock,
-  deleteWhereMock,
   limitMock,
   orderByMock,
 } = vi.hoisted(() => {
