@@ -4,6 +4,7 @@ import EmptyState from "@/components/ui/EmptyState";
 import { AlertCircle, ImageOff, Search } from "lucide-react";
 
 import dynamic from "next/dynamic";
+import { useSearchParams } from "next/navigation";
 
 import CampaignsHeader from "@/components/campaigns/CampaignsHeader";
 import CampaignsBulkActionsBar from "@/components/campaigns/CampaignsBulkActionsBar";
@@ -41,6 +42,7 @@ const SaveTemplateModal = dynamic(() => import("@/components/templates/SaveTempl
 });
 
 export default function CampaignsListPage() {
+  const searchParams = useSearchParams();
   const {
     campaigns,
     totalCount,
@@ -190,6 +192,7 @@ export default function CampaignsListPage() {
         open={modalOpen}
         onOpenChange={setModalOpen}
         onSubmit={handleCreateCampaign}
+        initialTemplateId={searchParams.get("templateId")}
       />
 
       <SaveTemplateModal

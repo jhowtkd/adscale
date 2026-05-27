@@ -15,12 +15,12 @@
 
 ### TPL — Templates de Campanha
 
-- [ ] **TPL-01**: Usuário pode salvar uma campanha existente como template
-- [ ] **TPL-02**: Usuário pode criar nova campanha a partir de template existente
-- [ ] **TPL-03**: Templates preservam campos do brief (objetivo, público-alvo, tom, etc)
-- [ ] **TPL-04**: Templates são listados em galeria/modal ao iniciar criação de campanha
-- [ ] **TPL-05**: Templates são salvos por workspace (isolamento de dados)
-- [ ] **TPL-06**: Usuário pode renomear e deletar templates
+- [x] **TPL-01**: Usuário pode salvar uma campanha existente como template
+- [x] **TPL-02**: Usuário pode criar nova campanha a partir de template existente
+- [x] **TPL-03**: Templates preservam campos do brief (objetivo, público-alvo, tom, etc)
+- [x] **TPL-04**: Templates são listados em galeria/modal ao iniciar criação de campanha
+- [x] **TPL-05**: Templates são salvos por workspace (isolamento de dados)
+- [x] **TPL-06**: Usuário pode renomear e deletar templates
 
 ### ANL — Analytics
 
@@ -48,12 +48,12 @@
 | ONB-03 | Phase 26 | ✅ Complete |
 | ONB-04 | Phase 26 | ✅ Complete |
 | ONB-05 | Phase 26 | ✅ Complete |
-| TPL-01 | Phase 27 | Pending |
-| TPL-02 | Phase 27 | Pending |
-| TPL-03 | Phase 27 | Pending |
-| TPL-04 | Phase 27 | Pending |
-| TPL-05 | Phase 27 | Pending |
-| TPL-06 | Phase 27 | Pending |
+| TPL-01 | Phase 27 | ✅ Complete |
+| TPL-02 | Phase 27 | ✅ Complete |
+| TPL-03 | Phase 27 | ✅ Complete |
+| TPL-04 | Phase 27 | ✅ Complete |
+| TPL-05 | Phase 27 | ✅ Complete |
+| TPL-06 | Phase 27 | ✅ Complete |
 | ANL-01 | Phase 28 | Pending |
 | ANL-02 | Phase 28 | Pending |
 | ANL-03 | Phase 28 | Pending |

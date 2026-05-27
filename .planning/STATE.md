@@ -4,23 +4,23 @@ milestone: v7.0
 milestone_name: Experiência do Usuário
 status: executing
 last_updated: "2026-05-27T17:50:00.000Z"
-last_activity: 2026-05-27 — Phase 26 completed (Onboarding Aprimorado)
+last_activity: 2026-05-27 — Phase 27 completed (Templates de Campanha)
 progress:
   total_phases: 3
-  completed_phases: 1
-  total_plans: 1
-  completed_plans: 1
-  percent: 33
+  completed_phases: 2
+  total_plans: 2
+  completed_plans: 2
+  percent: 67
 ---
 
 # State: ADScale
 
 ## Current Position
 
-Phase: 26 — Onboarding Aprimorado
+Phase: 27 — Templates de Campanha
 Plan: ✅ Complete
 Status: Completed
-Last activity: 2026-05-27 — Phase 26 implemented and committed
+Last activity: 2026-05-27 — Phase 27 implemented and committed
 
 ## Accumulated Context
 

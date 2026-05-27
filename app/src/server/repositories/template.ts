@@ -76,6 +76,27 @@ export async function getTemplateById(id: string, workspaceId: string) {
   return result[0] ?? null;
 }
 
+export async function updateTemplate(
+  id: string,
+  workspaceId: string,
+  data: { name?: string; description?: string }
+) {
+  const result = await db
+    .update(campaignTemplates)
+    .set({
+      ...data,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(campaignTemplates.id, id),
+        eq(campaignTemplates.workspaceId, workspaceId)
+      )
+    )
+    .returning();
+  return result[0] ?? null;
+}
+
 export async function deleteTemplate(id: string, workspaceId: string) {
   const result = await db
     .delete(campaignTemplates)

@@ -1,45 +1,36 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
-import {
-  getTemplateById,
-  deleteTemplate,
-} from "@/server/repositories/template";
+import { updateTemplate } from "@/server/repositories/template";
 
-export async function GET(
+const updateTemplateSchema = z.object({
+  name: z.string().min(1).max(255).optional(),
+  description: z.string().optional(),
+});
+
+export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { workspace } = await requireWorkspaceAccess(request);
     const { id } = await params;
-    const template = await getTemplateById(id, workspace.id);
+    const body = await request.json();
+    const parsed = updateTemplateSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return apiError("invalidInput", 400, parsed.error.flatten());
+    }
+
+    const template = await updateTemplate(id, workspace.id, parsed.data);
 
     if (!template) {
-      return apiError("notFound", 404, { message: "Template not found" });
+      return apiError("notFound", 404);
     }
 
     return NextResponse.json({ template });
   } catch (error) {
-    return handleApiError(error, "templates.[id].GET");
-  }
-}
-
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { workspace } = await requireWorkspaceAccess(request);
-    const { id } = await params;
-    const template = await deleteTemplate(id, workspace.id);
-
-    if (!template) {
-      return apiError("notFound", 404, { message: "Template not found" });
-    }
-
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    return handleApiError(error, "templates.[id].DELETE");
+    return handleApiError(error, "templates.[id].PATCH");
   }
 }

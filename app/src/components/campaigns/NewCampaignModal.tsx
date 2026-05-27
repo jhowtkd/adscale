@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
@@ -16,7 +16,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useClientProfiles } from "@/lib/hooks/use-client-profiles";
-import { ChevronDown, Upload, X } from "lucide-react";
+import { useTemplates } from "@/lib/hooks/use-templates";
+import { ChevronDown, Upload, X, FileText } from "lucide-react";
 
 // ============================================
 // Types
@@ -26,6 +27,7 @@ interface NewCampaignForm {
   name: string;
   clientName: string;
   clientProfileId: string | null;
+  templateId: string | null;
 }
 
 interface FormErrors {
@@ -42,6 +44,7 @@ interface NewCampaignModalProps {
     client: string;
     clientProfileId: string | null;
   }) => void;
+  initialTemplateId?: string | null;
 }
 
 // ============================================
@@ -52,18 +55,22 @@ export default function NewCampaignModal({
   open,
   onOpenChange,
   onSubmit,
+  initialTemplateId = null,
 }: NewCampaignModalProps) {
   const tCampaign = useTranslations("campaign");
   const tBriefing = useTranslations("briefing");
   const tCommon = useTranslations("common");
   const tErrors = useTranslations("errors");
+  const tTemplate = useTranslations("template");
 
   const { data: clientProfiles, isLoading: profilesLoading } = useClientProfiles();
+  const { data: templates } = useTemplates();
 
   const [form, setForm] = useState<NewCampaignForm>({
     name: "",
     clientName: "",
     clientProfileId: null,
+    templateId: initialTemplateId,
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
@@ -83,6 +90,20 @@ export default function NewCampaignModal({
     },
     [touched]
   );
+
+  // Pre-fill form when template is selected
+  useEffect(() => {
+    if (form.templateId && templates) {
+      const template = templates.find((t) => t.id === form.templateId);
+      if (template) {
+        setForm((prev) => ({
+          ...prev,
+          name: template.name || prev.name,
+          clientName: template.client || prev.clientName,
+        }));
+      }
+    }
+  }, [form.templateId, templates]);
 
   const validate = useCallback((): boolean => {
     const newErrors: FormErrors = {};
@@ -111,6 +132,7 @@ export default function NewCampaignModal({
         name: "",
         clientName: "",
         clientProfileId: null,
+        templateId: null,
       });
       setErrors({});
       setTouched({});
@@ -184,6 +206,36 @@ export default function NewCampaignModal({
               )}
             </AnimatePresence>
           </div>
+
+          {/* Template Selector */}
+          {templates && templates.length > 0 && (
+            <div className="space-y-1.5">
+              <Label className="text-[13px] text-[var(--text-secondary)]">
+                {tTemplate("useTemplate")} <span className="text-[var(--text-muted)]">({tCommon("optional")})</span>
+              </Label>
+              <div className="relative">
+                <select
+                  value={form.templateId ?? ""}
+                  onChange={(e) => updateField("templateId", e.target.value || null)}
+                  className="w-full h-10 px-3 pr-10 bg-[var(--surface-base)] border border-[var(--border-dim)] rounded-md text-sm text-[var(--text-primary)] appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-[var(--accent-blue)] focus:border-[var(--accent-blue)]"
+                >
+                  <option value="">{tTemplate("selectTemplate")}</option>
+                  {templates.map((template) => (
+                    <option key={template.id} value={template.id}>
+                      {template.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  size={16}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none"
+                />
+              </div>
+              <p className="text-xs text-[var(--text-muted)]">
+                {tTemplate("templateHint")}
+              </p>
+            </div>
+          )}
 
           {/* Client/Product Name */}
           <div className="space-y-1.5">

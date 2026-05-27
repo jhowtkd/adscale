@@ -8,6 +8,7 @@ import EmptyState from "@/components/ui/EmptyState";
 import {
   useTemplates,
   useDeleteTemplate,
+  useUpdateTemplate,
   type CampaignTemplate,
 } from "@/lib/hooks/use-templates";
 import TemplateCard from "@/components/templates/TemplateCard";
@@ -18,17 +19,25 @@ export default function TemplatesPage() {
 
   const { data: templates, isLoading } = useTemplates();
   const deleteTemplate = useDeleteTemplate();
+  const updateTemplate = useUpdateTemplate();
 
   const handleUseTemplate = (template: CampaignTemplate) => {
-    // Navigate to campaign creation with template data in query param
-    const encoded = encodeURIComponent(JSON.stringify(template));
-    router.push(`/campaigns?template=${encoded}`);
+    // Navigate to campaign creation with template ID
+    router.push(`/campaigns?templateId=${template.id}`);
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm(tTemplate("deleteConfirm"))) return;
     try {
       await deleteTemplate.mutateAsync(id);
+    } catch {
+      // Error handled by hook toast
+    }
+  };
+
+  const handleRename = async (id: string, name: string) => {
+    try {
+      await updateTemplate.mutateAsync({ id, data: { name } });
     } catch {
       // Error handled by hook toast
     }
@@ -74,6 +83,7 @@ export default function TemplatesPage() {
               index={index}
               onUse={handleUseTemplate}
               onDelete={handleDelete}
+              onRename={handleRename}
             />
           ))}
         </div>

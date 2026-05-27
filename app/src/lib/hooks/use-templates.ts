@@ -114,6 +114,34 @@ export function useCreateTemplate() {
   });
 }
 
+async function updateTemplateRequest(
+  id: string,
+  data: { name?: string; description?: string }
+): Promise<CampaignTemplate> {
+  const res = await apiFetch(`/api/templates/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Erro ao atualizar template");
+  }
+  const result = await res.json();
+  return result.template as CampaignTemplate;
+}
+
+export function useUpdateTemplate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { name?: string; description?: string } }) =>
+      updateTemplateRequest(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["templates"] });
+    },
+  });
+}
+
 export function useDeleteTemplate() {
   const queryClient = useQueryClient();
   return useMutation({

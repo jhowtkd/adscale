@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Trash2, Copy } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Trash2, Copy, Pencil, Check, X } from "lucide-react";
 import type { CampaignTemplate } from "@/lib/hooks/use-templates";
 
 interface TemplateCardProps {
@@ -12,6 +14,7 @@ interface TemplateCardProps {
   index: number;
   onUse: (template: CampaignTemplate) => void;
   onDelete: (id: string) => void;
+  onRename: (id: string, name: string) => void;
 }
 
 export default function TemplateCard({
@@ -19,14 +22,29 @@ export default function TemplateCard({
   index,
   onUse,
   onDelete,
+  onRename,
 }: TemplateCardProps) {
   const tTemplate = useTranslations("template");
   const tCampaign = useTranslations("campaign");
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState(template.name);
 
   const modeLabels: Record<string, string> = {
     art_variation: tCampaign("modes.artVariation.label"),
     format_adaptation: tCampaign("modes.formatAdaptation.label"),
     restyling: tCampaign("modes.restyling.label"),
+  };
+
+  const handleSave = () => {
+    if (editName.trim() && editName.trim() !== template.name) {
+      onRename(template.id, editName.trim());
+    }
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    setEditName(template.name);
+    setIsEditing(false);
   };
 
   return (
@@ -37,10 +55,39 @@ export default function TemplateCard({
       className="bg-[var(--surface-raised)] border border-[var(--border-dim)] rounded-lg p-5 hover:border-[var(--border-medium)] transition-colors"
     >
       <div className="flex items-start justify-between mb-3">
-        <div className="min-w-0">
-          <h3 className="text-sm font-semibold text-[var(--text-primary)] truncate">
-            {template.name}
-          </h3>
+        <div className="min-w-0 flex-1">
+          {isEditing ? (
+            <div className="flex items-center gap-2">
+              <Input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="h-8 text-sm bg-[var(--surface-base)] border-[var(--border-dim)]"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSave();
+                  if (e.key === "Escape") handleCancel();
+                }}
+              />
+              <button onClick={handleSave} className="text-[var(--accent-mint)] hover:text-[var(--accent-mint-light)]">
+                <Check size={16} />
+              </button>
+              <button onClick={handleCancel} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+                <X size={16} />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-[var(--text-primary)] truncate">
+                {template.name}
+              </h3>
+              <button
+                onClick={() => setIsEditing(true)}
+                className="text-[var(--text-muted)] hover:text-[var(--accent-mint)] transition-colors"
+              >
+                <Pencil size={12} />
+              </button>
+            </div>
+          )}
           {template.description && (
             <p className="text-xs text-[var(--text-secondary)] mt-1 line-clamp-2">
               {template.description}
