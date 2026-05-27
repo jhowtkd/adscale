@@ -1,2 +1,4 @@
 iteration	commit	metric	delta	status	description
 0	6017e07	17	0.0	baseline	initial state after audit-fix (17 errors, 31 warnings)
+1	3d1b943	8	-9	keep	fix any types in test files
+2	95bec86	0	-8	keep	fix setState in effects and any types in source files
