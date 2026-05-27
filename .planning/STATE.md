@@ -3,24 +3,24 @@ gsd_state_version: 1.0
 milestone: v6.0
 milestone_name: Performance & Otimização
 status: executing
-last_updated: "2026-05-27T14:45:00.000Z"
-last_activity: 2026-05-27 — Phase 23 completed (TanStack Query Otimização)
+last_updated: "2026-05-27T15:00:00.000Z"
+last_activity: 2026-05-27 — Phase 24 completed (Cache de Análise e Otimização de Imagens)
 progress:
   total_phases: 4
-  completed_phases: 2
-  total_plans: 2
-  completed_plans: 2
-  percent: 50
+  completed_phases: 3
+  total_plans: 3
+  completed_plans: 3
+  percent: 75
 ---
 
 # State: ADScale
 
 ## Current Position
 
-Phase: 24 — Cache de Análise e Otimização de Imagens
+Phase: 25 — Bundle Optimization e Virtualização
 Plan: —
-Status: Ready to start phase 24
-Last activity: 2026-05-27 — Phase 23 completed (TanStack Query Otimização)
+Status: Ready to start phase 25
+Last activity: 2026-05-27 — Phase 24 completed (Cache de Análise e Otimização de Imagens)
 
 ## Accumulated Context
 
@@ -33,6 +33,9 @@ Last activity: 2026-05-27 — Phase 23 completed (TanStack Query Otimização)
 - 448 tests passing, build clean
 - Tech debt: 24 pre-existing ESLint warnings, mock-data.ts used for types in some UI components
 - Performance issues identified: no code splitting, poor query caching, no image optimization, large bundle
+- Phase 22: Code splitting + lazy loading implemented; bundle reduced from ~2.9MB to 2.39MB total chunks
+- Phase 23: TanStack Query optimized with staleTime presets (STATIC/SEMI_STATIC/DYNAMIC), prefetching on hover
+- Phase 24: AI visual analysis caching (24h), image resizing (>5MB → 1024px), OptimizedImage component with skeleton
 
 ## v6.0 Roadmap
 
@@ -57,9 +60,9 @@ Last activity: 2026-05-27 — Phase 23 completed (TanStack Query Otimização)
 
 ## Next Steps
 
-1. Create phase 22 plan (Code Splitting e Lazy Loading)
-2. Begin implementation of phase 22
-3. Validate PERF-01 through PERF-03
+1. Create phase 25 plan (Bundle Optimization e Virtualização)
+2. Begin implementation of phase 25
+3. Validate PERF-10 through PERF-12
 
 ## Project Reference
 
