@@ -215,11 +215,14 @@ This document evolves at phase transitions and milestone boundaries.
 - Resource hints for R2 CDN (preconnect/dns-prefetch)
 - Phases 22–25 archived
 
-## Current Milestone: v7.0 (Planning)
+## Current Milestone: v7.0 Experiência do Usuário
 
-**Status:** Ready for planning
+**Goal:** Melhorar a experiência do usuário com onboarding guiado, templates de campanha reutilizáveis e analytics no dashboard.
 
-**Goal:** TBD — awaiting user input for next milestone direction
+**Target features:**
+- **Onboarding aprimorado:** Fluxo de primeiro uso com tooltips contextuais, progresso salvo e reiniciável
+- **Templates de campanha:** Salvar campanhas como templates e criar novas a partir de templates existentes
+- **Analytics no dashboard:** Métricas de uso, taxa de aprovação, tempo de geração, créditos consumidos
 
 ---
-*Last updated: 2026-05-27 after completing v6.0 milestone*
+*Last updated: 2026-05-27 after starting v7.0 milestone*

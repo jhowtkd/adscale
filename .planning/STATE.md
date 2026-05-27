@@ -1,25 +1,26 @@
 ---
 gsd_state_version: 1.0
-milestone: v6.0
-milestone_name: Performance & Otimização
-status: completed
-last_updated: "2026-05-27T15:30:00.000Z"
-last_activity: 2026-05-27 — Milestone v6.0 completed and archived
+milestone: v7.0
+milestone_name: Experiência do Usuário
+status: planning
+last_updated: "2026-05-27T15:45:00.000Z"
+last_activity: 2026-05-27 — Milestone v7.0 initialized
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 4
-  completed_plans: 4
-  percent: 100
+  total_phases: 3
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # State: ADScale
 
 ## Current Position
 
-Milestone: v6.0 — Performance & Otimização ✅ COMPLETE
-Status: Archived
-Last activity: 2026-05-27 — Milestone v6.0 completed, tagged, and archived
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-05-27 — Milestone v7.0 initialized with 16 requirements across 3 phases
 
 ## Accumulated Context
 
@@ -30,41 +31,37 @@ Last activity: 2026-05-27 — Milestone v6.0 completed, tagged, and archived
 - Milestone v5.0 delivered: simplified single-page campaign creation, AI visual analysis, generation mode with suggestions, Briefing Doctor removed
 - Milestone v6.0 delivered: code splitting, TanStack Query optimization, AI analysis caching, image optimization, bundle cleanup, list virtualization
 - 448 tests passing, build clean
-- Bundle: 2.39MB total chunks (reduced from ~2.9MB)
+- Bundle: 2.39MB total chunks
 - Tech debt: minimal (24 pre-existing ESLint warnings)
 
-## v6.0 Summary
+## v7.0 Roadmap
 
-| Phase | Name | Requirements | Status |
-|-------|------|-------------|--------|
-| 22 | Code Splitting e Lazy Loading | PERF-01..03 | ✅ Complete |
-| 23 | TanStack Query Otimização | PERF-04..06 | ✅ Complete |
-| 24 | Cache de Análise e Otimização de Imagens | PERF-07..09 | ✅ Complete |
-| 25 | Bundle Optimization e Virtualização | PERF-10..12 | ✅ Complete |
+| Phase | Name | Requirements |
+|-------|------|-------------|
+| 26 | Onboarding Aprimorado | ONB-01..05 |
+| 27 | Templates de Campanha | TPL-01..06 |
+| 28 | Analytics no Dashboard | ANL-01..05 |
 
-**Coverage:** 12/12 requirements satisfied ✓
+**Coverage:** 16/16 requirements mapped ✓
 
 ## Decisions Made
 
-- v6.0 focused on performance optimization rather than new features
-- Code splitting with next/dynamic for heavy components
-- TanStack Query staleTime presets by data volatility (STATIC/SEMI_STATIC/DYNAMIC)
-- AI visual analysis caches for 24h
-- Images >5MB auto-resized to 1024px before upload
-- Virtualization activated only for lists >20 items
-- 7 unused dependencies removed from package.json
+- v7.0 will focus on UX improvements: onboarding, templates, analytics
+- Onboarding: driver.js ou react-joyride para tour, tooltips com Popover do Radix
+- Templates: tabela `campaign_templates` com FK para workspace, brief completo preservado
+- Analytics: agregar de tabelas existentes, períodos semana/mês, cachear agregações
 
 ## Next Steps
 
-1. ✅ Milestone v6.0 archived
-2. Tag v6.0 pushed
-3. Plan milestone v7.0 — awaiting user direction
+1. Discuss Phase 26 approach (Onboarding Aprimorado)
+2. Create Phase 26 plan
+3. Execute Phase 26
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-05-27)  
-See: .planning/milestones/v6.0-ROADMAP.md  
-See: .planning/milestones/v6.0-REQUIREMENTS.md
+See: .planning/REQUIREMENTS.md  
+See: .planning/ROADMAP.md
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
-**Current focus:** Milestone v6.0 — Performance & Otimização (archived)
+**Current focus:** Milestone v7.0 — Experiência do Usuário (planning)

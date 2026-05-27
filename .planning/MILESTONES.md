@@ -71,4 +71,18 @@
 - Workspace isolation on all API routes
 
 ---
-*Last updated: 2026-04-24*
+
+## Active Milestone
+
+### v7.0 — Experiência do Usuário (In Progress)
+**Started:** 2026-05-27
+**Goal:** Melhorar a experiência do usuário com onboarding guiado, templates de campanha reutilizáveis e analytics no dashboard.
+
+**Phases:**
+- Phase 26: Onboarding Aprimorado (5 requirements)
+- Phase 27: Templates de Campanha (6 requirements)
+- Phase 28: Analytics no Dashboard (5 requirements)
+
+---
+
+*Last updated: 2026-05-27*
