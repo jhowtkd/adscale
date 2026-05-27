@@ -13,15 +13,21 @@ vi.mock("./billing", () => ({
   getActiveSubscriptionByWorkspace: vi.fn(),
 }));
 
+vi.mock("./credit-transactions", () => ({
+  getCreditTransactionsForWorkspace: vi.fn(),
+}));
+
 import { getCampaigns } from "./campaign";
 import { getDerivationsByWorkspace } from "./derivation";
 import { getAvailableCreditGrants, getActiveSubscriptionByWorkspace } from "./billing";
+import { getCreditTransactionsForWorkspace } from "./credit-transactions";
 import { getDashboardStats } from "./dashboard";
 
 const mockGetCampaigns = vi.mocked(getCampaigns);
 const mockGetDerivationsByWorkspace = vi.mocked(getDerivationsByWorkspace);
 const mockGetAvailableCreditGrants = vi.mocked(getAvailableCreditGrants);
 const mockGetActiveSubscriptionByWorkspace = vi.mocked(getActiveSubscriptionByWorkspace);
+const mockGetCreditTransactionsForWorkspace = vi.mocked(getCreditTransactionsForWorkspace);
 
 describe("getDashboardStats", () => {
   beforeEach(() => {
@@ -44,6 +50,7 @@ describe("getDashboardStats", () => {
         id: "deriv-1",
         status: "approved",
         createdAt: new Date(),
+        updatedAt: new Date(),
       },
     ] as unknown as Awaited<ReturnType<typeof getDerivationsByWorkspace>>);
 
@@ -51,6 +58,7 @@ describe("getDashboardStats", () => {
       {
         id: "grant-1",
         remaining: 500,
+        amount: 1000,
       },
     ] as unknown as Awaited<ReturnType<typeof getAvailableCreditGrants>>);
 
@@ -58,6 +66,8 @@ describe("getDashboardStats", () => {
       planKey: "starter",
       status: "active",
     } as unknown as Awaited<ReturnType<typeof getActiveSubscriptionByWorkspace>>);
+
+    mockGetCreditTransactionsForWorkspace.mockResolvedValue([]);
 
     const result = await getDashboardStats("ws-1");
 
@@ -74,6 +84,7 @@ describe("getDashboardStats", () => {
     mockGetDerivationsByWorkspace.mockResolvedValue([] as unknown as Awaited<ReturnType<typeof getDerivationsByWorkspace>>);
     mockGetAvailableCreditGrants.mockResolvedValue([] as unknown as Awaited<ReturnType<typeof getAvailableCreditGrants>>);
     mockGetActiveSubscriptionByWorkspace.mockResolvedValue(null);
+    mockGetCreditTransactionsForWorkspace.mockResolvedValue([]);
 
     const result = await getDashboardStats("ws-1");
 

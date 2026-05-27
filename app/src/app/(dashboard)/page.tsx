@@ -35,7 +35,8 @@ export default function DashboardPage() {
   const tNav = useTranslations("navigation");
   const tOnboarding = useTranslations("onboarding");
   const setCurrentPageTitle = useAppStore((s) => s.setCurrentPageTitle);
-  const { data: stats, isLoading, error } = useDashboardStats();
+  const [period, setPeriod] = useState<"week" | "month" | "quarter">("month");
+  const { data: stats, isLoading, error } = useDashboardStats(period);
 
   const { completed: onboardingCompleted, isLoading: isOnboardingLoading, complete: completeOnboarding } = useOnboarding();
 
@@ -93,10 +94,20 @@ export default function DashboardPage() {
         <div>
           <h1 className="text-lg font-semibold text-[#e8e8ec]">Dashboard</h1>
           <p className="text-[13px] text-[#4a4a52]">
-            {stats.totalCampaigns} campanhas, {stats.derivationsThisMonth} derivações este mês
+            {stats.totalCampaigns} campanhas, {stats.derivationsThisMonth} derivações no período
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-3">
+          {/* Period Selector */}
+          <select
+            value={period}
+            onChange={(e) => setPeriod(e.target.value as "week" | "month" | "quarter")}
+            className="h-9 px-3 bg-[#1a1a24] border border-[#2a2a35] rounded-[4px] text-[13px] text-[#e8e8ec] focus:outline-none focus:ring-1 focus:ring-[#2fb67d]"
+          >
+            <option value="week">{t("period.week")}</option>
+            <option value="month">{t("period.month")}</option>
+            <option value="quarter">{t("period.quarter")}</option>
+          </select>
           <Link
             href="/campaigns/new"
             className="flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-[#0a0a0f] bg-[#2fb67d] rounded-[4px] hover:bg-[#259d6a] transition-colors"
@@ -113,7 +124,7 @@ export default function DashboardPage() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-4 gap-3 mt-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mt-6">
         <KpiCard
           label={t("kpi.campaigns")}
           value={stats.totalCampaigns}
@@ -127,10 +138,19 @@ export default function DashboardPage() {
           changeLabel={t("kpi.vsLastMonth")}
         />
         <KpiCard
+          label={t("kpi.totalDerivations")}
+          value={stats.totalDerivations}
+        />
+        <KpiCard
           label={t("kpi.approval")}
           value={`${stats.approvalRate}%`}
           change={stats.approvalChange}
           changeLabel={t("kpi.vsLastMonth")}
+        />
+        <KpiCard
+          label={t("kpi.avgGenerationTime")}
+          value={`${stats.avgGenerationTimeSeconds}s`}
+          changeLabel={t("kpi.seconds")}
         />
         <KpiCard
           label={t("kpi.credits")}
@@ -179,8 +199,8 @@ function DashboardSkeleton() {
     <div className="p-8 animate-pulse">
       <div className="h-6 bg-[#1a1a24] rounded-[4px] w-32 mb-2" />
       <div className="h-4 bg-[#1a1a24] rounded-[4px] w-64 mb-8" />
-      <div className="grid grid-cols-4 gap-3">
-        {Array.from({ length: 4 }).map((_, i) => (
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        {Array.from({ length: 6 }).map((_, i) => (
           <div key={i} className="h-28 bg-[#1a1a24] rounded-[4px]" />
         ))}
       </div>

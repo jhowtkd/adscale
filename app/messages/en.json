@@ -178,13 +178,22 @@
     }
   },
   "dashboard": {
+    "period": {
+      "label": "Period",
+      "week": "Last week",
+      "month": "This month",
+      "quarter": "Last quarter"
+    },
     "kpi": {
       "campaigns": "Campaigns",
       "derivations": "Creative Variants",
-      "approval": "Approval",
-      "credits": "Credits",
-      "vsLastMonth": "vs last month",
-      "usedThisMonth": "used this month"
+      "totalDerivations": "Total Variants",
+      "approval": "Approval Rate",
+      "avgGenerationTime": "Avg Generation Time",
+      "credits": "Available Credits",
+      "vsLastMonth": "vs previous period",
+      "usedThisMonth": "used this period",
+      "seconds": "seconds"
     }
   },
   "campaign": {

@@ -24,11 +24,11 @@
 
 ### ANL — Analytics
 
-- [ ] **ANL-01**: Dashboard mostra métricas de uso (campanhas criadas, derivations geradas, aprovadas)
-- [ ] **ANL-02**: Dashboard mostra taxa de aprovação de derivations (% aprovadas vs rejeitadas)
-- [ ] **ANL-03**: Dashboard mostra tempo médio de geração de derivations
-- [ ] **ANL-04**: Dashboard mostra créditos usados por período (semana/mês)
-- [ ] **ANL-05**: API de analytics com agregações por workspace e período
+- [x] **ANL-01**: Dashboard mostra métricas de uso (campanhas criadas, derivations geradas, aprovadas)
+- [x] **ANL-02**: Dashboard mostra taxa de aprovação de derivations (% aprovadas vs rejeitadas)
+- [x] **ANL-03**: Dashboard mostra tempo médio de geração de derivations
+- [x] **ANL-04**: Dashboard mostra créditos usados por período (semana/mês)
+- [x] **ANL-05**: API de analytics com agregações por workspace e período
 
 ## Out of Scope
 
@@ -54,11 +54,11 @@
 | TPL-04 | Phase 27 | ✅ Complete |
 | TPL-05 | Phase 27 | ✅ Complete |
 | TPL-06 | Phase 27 | ✅ Complete |
-| ANL-01 | Phase 28 | Pending |
-| ANL-02 | Phase 28 | Pending |
-| ANL-03 | Phase 28 | Pending |
-| ANL-04 | Phase 28 | Pending |
-| ANL-05 | Phase 28 | Pending |
+| ANL-01 | Phase 28 | ✅ Complete |
+| ANL-02 | Phase 28 | ✅ Complete |
+| ANL-03 | Phase 28 | ✅ Complete |
+| ANL-04 | Phase 28 | ✅ Complete |
+| ANL-05 | Phase 28 | ✅ Complete |
 
 **Coverage:**
 - v7.0 requirements: 16 total

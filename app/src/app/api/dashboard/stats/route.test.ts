@@ -50,7 +50,7 @@ describe("GET /api/dashboard/stats", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(mockGetDashboardStats).toHaveBeenCalledWith("workspace-1");
+    expect(mockGetDashboardStats).toHaveBeenCalledWith("workspace-1", "month");
     expect(body.totalCampaigns).toBe(5);
     expect(body.approvalRate).toBe(80);
   });
