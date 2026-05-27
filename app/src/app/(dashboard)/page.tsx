@@ -4,17 +4,31 @@ import { useDashboardStats } from "@/lib/hooks/use-dashboard-stats";
 import {
   KpiCard,
   QuickActions,
-  CreditChart,
   CampaignList,
   CreditPanel,
-  ActivityFeed,
-  OnboardingTour,
 } from "@/components/dashboard";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { useAppStore } from "@/lib/store";
 import { useOnboarding } from "@/lib/hooks/use-onboarding";
 import Link from "next/link";
+import dynamic from "next/dynamic";
+
+const CreditChart = dynamic(() => import("@/components/dashboard/CreditChart"), {
+  loading: () => <div className="h-[300px] w-full bg-[#1a1a24] rounded-[4px] animate-pulse" />,
+});
+
+const ActivityFeed = dynamic(() => import("@/components/dashboard/ActivityFeed"), {
+  loading: () => <div className="h-[200px] w-full bg-[#1a1a24] rounded-[4px] animate-pulse" />,
+});
+
+const OnboardingTour = dynamic(
+  () => import("@/components/dashboard/OnboardingTour").then((mod) => mod.OnboardingTour),
+  {
+    loading: () => null,
+    ssr: false,
+  }
+);
 
 export default function DashboardPage() {
   const t = useTranslations("dashboard");

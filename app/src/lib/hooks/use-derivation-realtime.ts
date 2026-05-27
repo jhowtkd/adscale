@@ -30,11 +30,11 @@ export function useDerivationRealtime(derivationId: string, campaignId: string) 
     if (!statusMsg) return;
 
     // Update the derivations list cache
-    queryClient.setQueryData<unknown[]>(
+    queryClient.setQueryData(
       ["derivations", campaignId],
-      (old) => {
+      (old: unknown) => {
         if (!Array.isArray(old)) return old;
-        return old.map((d: { id: string; imageUrl?: string; outputKey?: string; status?: string; updatedAt?: Date }) =>
+        return old.map((d: Record<string, unknown>) =>
           d.id === statusMsg.derivationId
             ? {
                 ...d,

@@ -1,10 +1,7 @@
 export { default as KpiCard } from "./KpiCard";
 export { default as CampaignList } from "./CampaignList";
 export { default as CreditPanel } from "./CreditPanel";
-export { default as ActivityFeed } from "./ActivityFeed";
-export { default as CreditChart } from "./CreditChart";
 export { default as QuickActions } from "./QuickActions";
-export { OnboardingTour } from "./OnboardingTour";
 export { CreditAlertBanner } from "./CreditAlertBanner";
 export { QuickActionCard } from "./QuickActionCard";
 export { CampaignRow } from "./CampaignRow";

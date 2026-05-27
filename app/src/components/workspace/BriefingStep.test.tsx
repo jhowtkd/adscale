@@ -248,7 +248,7 @@ describe("BriefingStep", () => {
     });
   });
 
-  it("opens auto-briefing modal when extract button is clicked", () => {
+  it("opens auto-briefing modal when extract button is clicked", async () => {
     render(
       <BriefingStep
         campaign={{
@@ -269,6 +269,6 @@ describe("BriefingStep", () => {
     );
 
     fireEvent.click(screen.getByText("extractFromImage"));
-    expect(screen.getByText("dropzoneText")).toBeInTheDocument();
+    expect(await screen.findByText("dropzoneText")).toBeInTheDocument();
   });
 });

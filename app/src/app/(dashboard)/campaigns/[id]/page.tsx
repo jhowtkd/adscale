@@ -19,10 +19,38 @@ const PersonaSimulationModal = dynamic(() => import("@/components/workspace/Pers
 
 import StepIndicator from "@/components/workspace/StepIndicator";
 import BriefingStep from "@/components/workspace/BriefingStep";
-import UploadStep from "@/components/workspace/UploadStep";
-import GenerationStep from "@/components/workspace/GenerationStep";
-import PlanStep from "@/components/workspace/PlanStep";
-import DerivationsStep from "@/components/workspace/DerivationsStep";
+
+const UploadStep = dynamic(() => import("@/components/workspace/UploadStep"), {
+  loading: () => (
+    <div className="flex items-center justify-center h-64">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+    </div>
+  ),
+});
+
+const GenerationStep = dynamic(() => import("@/components/workspace/GenerationStep"), {
+  loading: () => (
+    <div className="flex items-center justify-center h-64">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+    </div>
+  ),
+});
+
+const PlanStep = dynamic(() => import("@/components/workspace/PlanStep"), {
+  loading: () => (
+    <div className="flex items-center justify-center h-64">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+    </div>
+  ),
+});
+
+const DerivationsStep = dynamic(() => import("@/components/workspace/DerivationsStep"), {
+  loading: () => (
+    <div className="flex items-center justify-center h-64">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+    </div>
+  ),
+});
 
 import CampaignWorkspaceHeader from "@/components/campaigns/CampaignWorkspaceHeader";
 import CampaignClientSubtitle from "@/components/campaigns/CampaignClientSubtitle";

@@ -8,9 +8,21 @@ import dynamic from "next/dynamic";
 import CampaignsHeader from "@/components/campaigns/CampaignsHeader";
 import CampaignsBulkActionsBar from "@/components/campaigns/CampaignsBulkActionsBar";
 import CampaignsFilterToolbar from "@/components/campaigns/CampaignsFilterToolbar";
-import CampaignsListView from "@/components/campaigns/CampaignsListView";
-import CampaignsGridView from "@/components/campaigns/CampaignsGridView";
-import KanbanBoard from "@/components/campaigns/KanbanBoard";
+const CampaignsListView = dynamic(() => import("@/components/campaigns/CampaignsListView"), {
+  loading: () => <TableSkeleton />,
+});
+
+const CampaignsGridView = dynamic(() => import("@/components/campaigns/CampaignsGridView"), {
+  loading: () => <GridSkeleton />,
+});
+
+const KanbanBoard = dynamic(() => import("@/components/campaigns/KanbanBoard"), {
+  loading: () => (
+    <div className="flex items-center justify-center h-64">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+    </div>
+  ),
+});
 import CampaignsPagination from "@/components/campaigns/CampaignsPagination";
 import DeleteCampaignDialog from "@/components/campaigns/DeleteCampaignDialog";
 import TableSkeleton from "@/components/campaigns/TableSkeleton";

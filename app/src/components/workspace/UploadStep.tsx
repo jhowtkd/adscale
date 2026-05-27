@@ -8,7 +8,13 @@ import { cn } from "@/lib/utils";
 import { useCampaignAssets, useUploadAsset } from "@/lib/hooks/use-assets";
 import { usePreflightScore, useAnalyzePreflight } from "@/lib/hooks/use-preflight";
 import PreflightScoreCard from "@/components/campaigns/PreflightScoreCard";
-import AssetLibraryModal from "./AssetLibraryModal";
+import dynamic from "next/dynamic";
+
+const AssetLibraryModal = dynamic(() => import("./AssetLibraryModal"), {
+  loading: () => null,
+  ssr: false,
+});
+
 import { apiFetch } from "@/lib/api-client";
 import type { WorkspaceAsset } from "@/lib/hooks/use-workspace-assets";
 

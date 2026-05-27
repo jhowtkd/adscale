@@ -5,17 +5,58 @@ import { motion } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAppStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import dynamic from "next/dynamic";
 import ProfileTab from "@/components/settings/ProfileTab";
-import WorkspaceTab from "@/components/settings/WorkspaceTab";
-import TeamTab from "@/components/settings/TeamTab";
-import BrandKitTab from "@/components/settings/BrandKitTab";
-import BillingTab from "@/components/settings/BillingTab";
-import CreditHistoryTab from "@/components/settings/CreditHistoryTab";
-import PlansTab from "@/components/settings/PlansTab";
-import IntegrationsTab from "@/components/settings/IntegrationsTab";
-import PrivacyTab from "@/components/settings/PrivacyTab";
 import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
+
+const WorkspaceTab = dynamic(() => import("@/components/settings/WorkspaceTab"), {
+  loading: () => <SettingsTabSkeleton />,
+});
+
+const TeamTab = dynamic(() => import("@/components/settings/TeamTab"), {
+  loading: () => <SettingsTabSkeleton />,
+});
+
+const BrandKitTab = dynamic(() => import("@/components/settings/BrandKitTab"), {
+  loading: () => <SettingsTabSkeleton />,
+});
+
+const BillingTab = dynamic(() => import("@/components/settings/BillingTab"), {
+  loading: () => <SettingsTabSkeleton />,
+});
+
+const CreditHistoryTab = dynamic(() => import("@/components/settings/CreditHistoryTab"), {
+  loading: () => <SettingsTabSkeleton />,
+});
+
+const PlansTab = dynamic(() => import("@/components/settings/PlansTab"), {
+  loading: () => <SettingsTabSkeleton />,
+});
+
+const IntegrationsTab = dynamic(() => import("@/components/settings/IntegrationsTab"), {
+  loading: () => <SettingsTabSkeleton />,
+});
+
+const PrivacyTab = dynamic(() => import("@/components/settings/PrivacyTab"), {
+  loading: () => <SettingsTabSkeleton />,
+});
+
+function SettingsTabSkeleton() {
+  return (
+    <div className="space-y-4 rounded-xl border p-6 animate-pulse">
+      <div className="h-6 bg-muted rounded w-1/3" />
+      <div className="grid gap-4 sm:grid-cols-2">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="space-y-2">
+            <div className="h-4 bg-muted rounded w-24" />
+            <div className="h-10 bg-muted rounded w-full" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 const tabs = [
   { id: "profile", labelKey: "profileTab" },

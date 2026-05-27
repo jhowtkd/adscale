@@ -31,12 +31,25 @@ import {
 } from "@/lib/hooks/use-client-profiles";
 import { useBrandKit } from "@/lib/hooks/use-brand-kit";
 import { useCampaignAssets, useUploadAsset, type AssetWithUrl } from "@/lib/hooks/use-assets";
-import CompetitorAnalysisSection from "@/components/campaigns/CompetitorAnalysisSection";
+import dynamic from "next/dynamic";
+
+const CompetitorAnalysisSection = dynamic(() => import("@/components/campaigns/CompetitorAnalysisSection"), {
+  loading: () => (
+    <div className="space-y-4 animate-pulse">
+      <div className="h-6 bg-muted rounded w-1/3" />
+      <div className="h-32 bg-muted rounded w-full" />
+    </div>
+  ),
+});
+
+const AutoBriefingModal = dynamic(() => import("./AutoBriefingModal"), {
+  loading: () => null,
+  ssr: false,
+});
 
 import PreflightSummary from "./PreflightSummary";
 import CreativeDiagnosisCard from "./CreativeDiagnosisCard";
 import BriefingRestoreBanner from "./BriefingRestoreBanner";
-import AutoBriefingModal from "./AutoBriefingModal";
 import { CreativeUploadWithAnalysis } from "@/components/campaigns/CreativeUploadWithAnalysis";
 import { AIDeducedFieldsEditor } from "@/components/campaigns/AIDeducedFieldsEditor";
 import type { AiDeducedFields } from "@/server/validation/ai-deduction";

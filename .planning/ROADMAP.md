@@ -11,7 +11,7 @@
 
 ---
 
-## Phase 22: Code Splitting e Lazy Loading
+## Phase 22: Code Splitting e Lazy Loading ⏳ In Progress
 
 **Goal:** Implementar code splitting com next/dynamic e lazy loading para reduzir o bundle inicial em pelo menos 30%.
 
@@ -19,6 +19,13 @@
 - PERF-01: Implementar code splitting com `next/dynamic` para páginas pesadas
 - PERF-02: Implementar lazy loading para componentes de campanha e galeria
 - PERF-03: Reduzir bundle size inicial em pelo menos 30%
+
+**Decisions Locked:**
+- Estratégia: Híbrida (rotas principais + componentes modais/pesados)
+- Loading states: Skeleton screens (páginas/componentes grandes), spinners (modais menores)
+- NÃO lazy load: BriefingStep, DerivationCard, CreativePlanCard (core UX)
+- Monitoramento: @next/bundle-analyzer + script CI
+- Target bundle: < 2.0MB (redução de 30%)
 
 **Success Criteria:**
 1. Páginas de campanha e dashboard usam dynamic imports

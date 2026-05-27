@@ -7,9 +7,9 @@
 
 ### PERF — Performance e Otimização
 
-- [ ] **PERF-01**: Implementar code splitting com `next/dynamic` para páginas pesadas
-- [ ] **PERF-02**: Implementar lazy loading para componentes de campanha e galeria
-- [ ] **PERF-03**: Reduzir bundle size inicial em pelo menos 30%
+- [x] **PERF-01**: Implementar code splitting com `next/dynamic` para páginas pesadas
+- [x] **PERF-02**: Implementar lazy loading para componentes de campanha e galeria
+- [x] **PERF-03**: Reduzir bundle size inicial em pelo menos 30%
 - [ ] **PERF-04**: Otimizar TanStack Query com staleTime apropriado para cada recurso
 - [ ] **PERF-05**: Desabilitar refetchOnWindowFocus para queries que não mudam frequentemente
 - [ ] **PERF-06**: Implementar prefetch de dados na navegação entre páginas
@@ -33,9 +33,9 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PERF-01 | Phase 22 | Pending |
-| PERF-02 | Phase 22 | Pending |
-| PERF-03 | Phase 22 | Pending |
+| PERF-01 | Phase 22 | ✅ Complete |
+| PERF-02 | Phase 22 | ✅ Complete |
+| PERF-03 | Phase 22 | ✅ Complete |
 | PERF-04 | Phase 23 | Pending |
 | PERF-05 | Phase 23 | Pending |
 | PERF-06 | Phase 23 | Pending |
