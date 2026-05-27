@@ -14,6 +14,7 @@ import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { useAppStore } from "@/lib/store";
 import { useOnboarding } from "@/lib/hooks/use-onboarding";
+import Link from "next/link";
 
 export default function DashboardPage() {
   const t = useTranslations("dashboard");
@@ -70,12 +71,12 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <a
+          <Link
             href="/campaigns/new"
             className="flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-[#0a0a0f] bg-[#2fb67d] rounded-[4px] hover:bg-[#259d6a] transition-colors"
           >
             + Nova Campanha
-          </a>
+          </Link>
         </div>
       </div>
 
