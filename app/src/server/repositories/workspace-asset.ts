@@ -1,4 +1,4 @@
-import { eq, and, desc, ilike, sql } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { db } from "../db";
 import { workspaceAssets } from "../db/schema";
 
