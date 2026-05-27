@@ -2,7 +2,7 @@
 gsd_state_version: 1.0
 milestone: v6.0
 milestone_name: Performance & Otimização
-status: completed
+status: auditing
 last_updated: "2026-05-27T15:15:00.000Z"
 last_activity: 2026-05-27 — Phase 25 completed (Bundle Optimization e Virtualização)
 progress:
