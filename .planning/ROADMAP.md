@@ -11,29 +11,28 @@
 
 ---
 
-## Phase 26: Onboarding Aprimorado
+## Phase 26: Onboarding Aprimorado ✅ Complete
 
 **Goal:** Implementar fluxo de onboarding step-by-step com tooltips contextuais e progresso persistente.
 
 **Requirements:**
-- ONB-01: Welcome tour no primeiro login
-- ONB-02: Onboarding reiniciável nas settings
-- ONB-03: Tooltips contextuais nas features principais
-- ONB-04: Progresso salvo no banco de dados
-- ONB-05: Onboarding skipável
+- ✅ ONB-01: Welcome tour no primeiro login
+- ✅ ONB-02: Onboarding reiniciável nas settings
+- ✅ ONB-03: Tooltips contextuais nas features principais
+- ✅ ONB-04: Progresso salvo no banco de dados
+- ✅ ONB-05: Onboarding skipável
 
 **Decisions Locked:**
-- Biblioteca: driver.js ou react-joyride para tour
-- Tooltips: componente próprio com Popover do Radix
-- Persistência: coluna `onboardingCompleted` na tabela `users`
-- Skip: botão visível em todos os steps
+- Tour: dashboard-only, 5 steps (existing OnboardingTour component)
+- Tooltips: InfoTooltip component with @base-ui/react/tooltip
+- Persistência: existing `onboardingCompletedAt` timestamp
+- Restart: Settings ProfileTab with POST /api/user/onboarding/restart
 
-**Success Criteria:**
-1. Novo usuário vê tour automático no primeiro acesso
-2. Tooltips aparecem em hover/focus nas features principais
-3. Progresso persiste após logout/login
-4. Usuário pode reiniciar tour nas settings
-5. Usuário pode pular tour a qualquer momento
+**Results:**
+- Tour expanded from 3 to 5 steps (added New Campaign + Credits)
+- InfoTooltip component created and integrated in 4 complex features
+- Restart endpoint and Settings integration working
+- 448 tests passing, build clean
 
 ---
 
@@ -119,12 +118,12 @@
 
 | Phase | Status | Tests |
 |-------|--------|-------|
-| Phase 26 — Onboarding Aprimorado | 🔄 Planned | — |
+| Phase 26 — Onboarding Aprimorado | ✅ Complete | 448 |
 | Phase 27 — Templates de Campanha | 🔄 Planned | — |
 | Phase 28 — Analytics no Dashboard | 🔄 Planned | — |
 
 **Plans:**
-0/3 plans complete
+1/3 plans complete
 
 ---
 

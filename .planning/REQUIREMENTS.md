@@ -7,11 +7,11 @@
 
 ### ONB — Onboarding Aprimorado
 
-- [ ] **ONB-01**: Novo usuário vê um onboarding step-by-step no primeiro login (welcome tour)
-- [ ] **ONB-02**: Onboarding pode ser reiniciado a qualquer momento nas settings
-- [ ] **ONB-03**: Tooltips contextuais explicam features principais (campanha, upload, geração, review)
-- [ ] **ONB-04**: Progresso do onboarding é salvo no banco de dados (per-user)
-- [ ] **ONB-05**: Onboarding é skipável e não bloqueia o uso do app
+- [x] **ONB-01**: Novo usuário vê um onboarding step-by-step no primeiro login (welcome tour)
+- [x] **ONB-02**: Onboarding pode ser reiniciado a qualquer momento nas settings
+- [x] **ONB-03**: Tooltips contextuais explicam features principais (campanha, upload, geração, review)
+- [x] **ONB-04**: Progresso do onboarding é salvo no banco de dados (per-user)
+- [x] **ONB-05**: Onboarding é skipável e não bloqueia o uso do app
 
 ### TPL — Templates de Campanha
 
@@ -43,11 +43,11 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ONB-01 | Phase 26 | Pending |
-| ONB-02 | Phase 26 | Pending |
-| ONB-03 | Phase 26 | Pending |
-| ONB-04 | Phase 26 | Pending |
-| ONB-05 | Phase 26 | Pending |
+| ONB-01 | Phase 26 | ✅ Complete |
+| ONB-02 | Phase 26 | ✅ Complete |
+| ONB-03 | Phase 26 | ✅ Complete |
+| ONB-04 | Phase 26 | ✅ Complete |
+| ONB-05 | Phase 26 | ✅ Complete |
 | TPL-01 | Phase 27 | Pending |
 | TPL-02 | Phase 27 | Pending |
 | TPL-03 | Phase 27 | Pending |
