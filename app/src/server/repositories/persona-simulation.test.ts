@@ -179,7 +179,7 @@ describe("persona simulation repository", () => {
         id: "ps-1",
         status: "completed",
         cacheExpiresAt: new Date(Date.now() + 1000 * 60 * 60),
-      } as any;
+      } as Parameters<typeof isCacheValid>[0];
 
       expect(isCacheValid(simulation)).toBe(true);
     });
@@ -189,7 +189,7 @@ describe("persona simulation repository", () => {
         id: "ps-1",
         status: "completed",
         cacheExpiresAt: new Date(Date.now() - 1000 * 60),
-      } as any;
+      } as Parameters<typeof isCacheValid>[0];
 
       expect(isCacheValid(simulation)).toBe(false);
     });
@@ -199,7 +199,7 @@ describe("persona simulation repository", () => {
         id: "ps-1",
         status: "pending",
         cacheExpiresAt: new Date(Date.now() + 1000 * 60 * 60),
-      } as any;
+      } as Parameters<typeof isCacheValid>[0];
 
       expect(isCacheValid(simulation)).toBe(false);
     });
@@ -209,7 +209,7 @@ describe("persona simulation repository", () => {
         id: "ps-1",
         status: "completed",
         cacheExpiresAt: null,
-      } as any;
+      } as Parameters<typeof isCacheValid>[0];
 
       expect(isCacheValid(simulation)).toBe(false);
     });
