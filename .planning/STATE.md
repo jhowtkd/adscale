@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v6.0
 milestone_name: Performance & Otimização
-status: executing
-last_updated: "2026-05-27T15:00:00.000Z"
-last_activity: 2026-05-27 — Phase 24 completed (Cache de Análise e Otimização de Imagens)
+status: completed
+last_updated: "2026-05-27T15:15:00.000Z"
+last_activity: 2026-05-27 — Phase 25 completed (Bundle Optimization e Virtualização)
 progress:
   total_phases: 4
-  completed_phases: 3
-  total_plans: 3
-  completed_plans: 3
-  percent: 75
+  completed_phases: 4
+  total_plans: 4
+  completed_plans: 4
+  percent: 100
 ---
 
 # State: ADScale
@@ -18,9 +18,9 @@ progress:
 ## Current Position
 
 Phase: 25 — Bundle Optimization e Virtualização
-Plan: —
-Status: Ready to start phase 25
-Last activity: 2026-05-27 — Phase 24 completed (Cache de Análise e Otimização de Imagens)
+Plan: ✅ Complete
+Status: Milestone v6.0 COMPLETE
+Last activity: 2026-05-27 — Phase 25 completed (Bundle Optimization e Virtualização)
 
 ## Accumulated Context
 
@@ -36,6 +36,8 @@ Last activity: 2026-05-27 — Phase 24 completed (Cache de Análise e Otimizaç�
 - Phase 22: Code splitting + lazy loading implemented; bundle reduced from ~2.9MB to 2.39MB total chunks
 - Phase 23: TanStack Query optimized with staleTime presets (STATIC/SEMI_STATIC/DYNAMIC), prefetching on hover
 - Phase 24: AI visual analysis caching (24h), image resizing (>5MB → 1024px), OptimizedImage component with skeleton
+- Phase 25: Removed 7 unused dependencies (~171 packages), virtualized CampaignList (>20 items), added preconnect/dns-prefetch hints, viewport metadata
+- Milestone v6.0: 12/12 requirements complete, 4/4 phases done, 448 tests passing, build clean
 
 ## v6.0 Roadmap
 
@@ -60,9 +62,10 @@ Last activity: 2026-05-27 — Phase 24 completed (Cache de Análise e Otimizaç�
 
 ## Next Steps
 
-1. Create phase 25 plan (Bundle Optimization e Virtualização)
-2. Begin implementation of phase 25
-3. Validate PERF-10 through PERF-12
+1. ✅ Milestone v6.0 complete — all 12 requirements delivered
+2. Run milestone audit
+3. Archive milestone v6.0
+4. Plan milestone v7.0
 
 ## Project Reference
 

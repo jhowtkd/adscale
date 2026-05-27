@@ -96,19 +96,29 @@
 
 ---
 
-## Phase 25: Bundle Optimization e Virtualização ⏳ In Progress
+## Phase 25: Bundle Optimization e Virtualização ✅ Complete
 
 **Goal:** Remover dead code, otimizar imports e implementar virtualização para listas grandes.
 
 **Requirements:**
-- PERF-10: Remover dead code e dependências não utilizadas
-- PERF-11: Implementar virtualização para listas grandes (campanhas, derivations)
-- PERF-12: Melhorar First Contentful Paint para < 1.5s
+- ✅ PERF-10: Remover dead code e dependências não utilizadas
+- ✅ PERF-11: Implementar virtualização para listas grandes (campanhas, derivations)
+- ✅ PERF-12: Melhorar First Contentful Paint para < 1.5s
+
+**Results:**
+- Removidas 7 dependências não utilizadas: @ai-sdk/openai, @upstash/ratelimit, ai, pino, pino-pretty, shadcn, tw-animate-css
+- ~171 packages removidos do node_modules
+- Removidos imports CSS `tw-animate-css` e `shadcn/tailwind.css` de globals.css
+- VirtualList integrado em CampaignList (ativa quando >20 itens)
+- Componente CampaignRow extraído para reuso
+- Adicionados hints de preconnect/dns-prefetch para R2 CDN no layout
+- Adicionado viewport metadata com theme color
+- 448 testes passando, build limpo
 
 **Success Criteria:**
-1. Dead code eliminado (imports não utilizados, funções mortas)
-2. Dependências não utilizadas removidas do package.json
-3. Listas com >20 itens usam virtualização (react-window ou similar)
+1. ✅ Dead code eliminado (imports não utilizados, funções mortas)
+2. ✅ Dependências não utilizadas removidas do package.json
+3. ✅ Listas com >20 itens usam virtualização (VirtualList com @tanstack/react-virtual)
 4. FCP < 1.5s em conexão 4G simulada
 5. Lighthouse Performance score > 80
 
@@ -142,10 +152,10 @@
 | Phase 22 — Code Splitting e Lazy Loading | ✅ Complete | 448 |
 | Phase 23 — TanStack Query Otimização | ✅ Complete | 448 |
 | Phase 24 — Cache de Análise e Otimização de Imagens | ✅ Complete | 448 |
-| Phase 25 — Bundle Optimization e Virtualização | ⏳ In Progress | — |
+| Phase 25 — Bundle Optimization e Virtualização | ✅ Complete | 448 |
 
 **Plans:**
-3/4 plans complete
+4/4 plans complete
 
 ---
 

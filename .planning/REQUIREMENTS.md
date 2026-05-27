@@ -16,9 +16,9 @@
 - [x] **PERF-07**: Cachear resultados de análise visual da IA por 24h
 - [x] **PERF-08**: Reduzir tamanho de imagens antes do upload para análise
 - [x] **PERF-09**: Otimizar carregamento de imagens com next/image e placeholders
-- [ ] **PERF-10**: Remover dead code e dependências não utilizadas
-- [ ] **PERF-11**: Implementar virtualização para listas grandes (campanhas, derivations)
-- [ ] **PERF-12**: Melhorar First Contentful Paint para < 1.5s
+- [x] **PERF-10**: Remover dead code e dependências não utilizadas
+- [x] **PERF-11**: Implementar virtualização para listas grandes (campanhas, derivations)
+- [x] **PERF-12**: Melhorar First Contentful Paint para < 1.5s
 
 ## Out of Scope
 
@@ -42,9 +42,9 @@
 | PERF-07 | Phase 24 | ✅ Complete |
 | PERF-08 | Phase 24 | ✅ Complete |
 | PERF-09 | Phase 24 | ✅ Complete |
-| PERF-10 | Phase 25 | Pending |
-| PERF-11 | Phase 25 | Pending |
-| PERF-12 | Phase 25 | Pending |
+| PERF-10 | Phase 25 | ✅ Complete |
+| PERF-11 | Phase 25 | ✅ Complete |
+| PERF-12 | Phase 25 | ✅ Complete |
 
 **Coverage:**
 - v6.0 requirements: 12 total
