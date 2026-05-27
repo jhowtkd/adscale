@@ -112,7 +112,7 @@ export default function TopBar() {
               <Search size={16} strokeWidth={1.5} />
               Buscar
             </button>
-            <a
+            <Link
               href="/campaigns/new"
               className={cn(
                 "flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-[#0a0a0f]",
@@ -120,7 +120,7 @@ export default function TopBar() {
               )}
             >
               + Nova Campanha
-            </a>
+            </Link>
           </>
         )}
 
