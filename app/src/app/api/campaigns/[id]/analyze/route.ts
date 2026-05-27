@@ -31,6 +31,22 @@ export async function POST(
       return apiError("assetNotFound", 404);
     }
 
+    // Check if we have a recent cached analysis (within 24h)
+    const analyzedAt = asset.analyzedAt;
+    const cacheValid = analyzedAt && 
+      asset.analysisStatus === "completed" &&
+      (Date.now() - new Date(analyzedAt).getTime()) < 24 * 60 * 60 * 1000;
+    
+    const cachedResult = (asset.metadata as Record<string, unknown> | undefined)?.analysisResult as Record<string, unknown> | undefined;
+    
+    if (cacheValid && cachedResult && Object.keys(cachedResult).length > 0) {
+      return apiSuccess({
+        analysis: cachedResult,
+        status: "completed",
+        cached: true,
+      });
+    }
+
     // Update status to pending
     await updateAssetMetadata(assetId, workspace.id, {}, "pending");
 
@@ -49,6 +65,7 @@ export async function POST(
       return apiSuccess({
         analysis: result,
         status: "completed",
+        cached: false,
       });
     } catch (aiError) {
       console.error("AI analysis failed:", aiError);

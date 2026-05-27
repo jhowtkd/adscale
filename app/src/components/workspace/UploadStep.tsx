@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { useCampaignAssets, useUploadAsset } from "@/lib/hooks/use-assets";
 import { usePreflightScore, useAnalyzePreflight } from "@/lib/hooks/use-preflight";
 import PreflightScoreCard from "@/components/campaigns/PreflightScoreCard";
+import { resizeImageForUpload, shouldResizeImage } from "@/lib/image-utils";
 import dynamic from "next/dynamic";
 
 const AssetLibraryModal = dynamic(() => import("./AssetLibraryModal"), {
@@ -112,17 +113,25 @@ export default function UploadStep({ campaignId, onContinueToPlan }: UploadStepP
     setError(null);
 
     try {
-      const image = await readImageDimensions(file);
+      // Resize image if needed (larger than 5MB)
+      let uploadFile = file;
+      if (shouldResizeImage(file, 5)) {
+        setUploadProgress(5);
+        const resizedBlob = await resizeImageForUpload(file);
+        uploadFile = new File([resizedBlob], file.name, { type: file.type });
+      }
+      
+      const image = await readImageDimensions(uploadFile);
       setUploadProgress(10);
       const asset = await uploadAsset.mutateAsync({
-        file,
+        file: uploadFile,
         width: image.width,
         height: image.height,
         onProgress: (progress) => setUploadProgress(Math.max(10, progress)),
       });
       setUploadProgress(100);
       setUploadedFile({
-        file,
+        file: uploadFile,
         preview: image.preview,
         dimensions: { width: image.width, height: image.height },
       });

@@ -50,6 +50,7 @@ const AutoBriefingModal = dynamic(() => import("./AutoBriefingModal"), {
 import PreflightSummary from "./PreflightSummary";
 import CreativeDiagnosisCard from "./CreativeDiagnosisCard";
 import BriefingRestoreBanner from "./BriefingRestoreBanner";
+import { OptimizedImage } from "@/components/ui/OptimizedImage";
 import { CreativeUploadWithAnalysis } from "@/components/campaigns/CreativeUploadWithAnalysis";
 import { AIDeducedFieldsEditor } from "@/components/campaigns/AIDeducedFieldsEditor";
 import type { AiDeducedFields } from "@/server/validation/ai-deduction";
@@ -937,11 +938,11 @@ function BaseCreativeUploadCard({ campaignId, assets, isLoading, tBriefing }: Ba
 
         <div className="flex shrink-0 items-center gap-2">
           {firstAsset?.url && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <OptimizedImage
               src={firstAsset.url}
               alt=""
               className="h-11 w-11 rounded-md border border-[var(--border-dim)] object-cover"
+              lazy={false}
             />
           )}
           <input
