@@ -1,5 +1,14 @@
 # Milestones: ADScale
 
+## v5.0 Simplificação do Fluxo de Criação de Campanha (Shipped: 2026-05-26)
+
+**Phases completed:** 4 phases, 3 plans, 0 tasks
+
+**Key accomplishments:**
+- (none recorded)
+
+---
+
 ## Completed Milestones
 
 ### v2.0 — Internacionalização PT-BR

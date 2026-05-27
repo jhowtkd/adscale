@@ -67,18 +67,31 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 - ✓ **TECH-03**: SSR renders correct lang attribute without hydration mismatch — v2.0
 - ✓ **TECH-04**: Language context available in API routes — v2.0
 - ✓ **TECH-05**: Prompt builder accepts language parameter — v2.0
+- ✓ **BRIEF-01**: User can create campaign with only name, client, and client profile — v5.0
+- ✓ **BRIEF-02**: Creation form is a single page (no multi-step wizard) — v5.0
+- ✓ **BRIEF-03**: Required fields are campaign name, client, and client profile — v5.0
+- ✓ **BRIEF-04**: Key creative upload is optional at creation time — v5.0
+- ✓ **AI-01**: Key creative upload triggers automatic visual analysis via AI — v5.0
+- ✓ **AI-02**: AI deduces campaign fields from image (product, objective, target audience, tone, offer, platforms) — v5.0
+- ✓ **AI-03**: Deduced fields are presented in an editable form — v5.0
+- ✓ **AI-04**: User can edit any auto-filled field before saving — v5.0
+- ✓ **AI-05**: If analysis fails, form loads empty without blocking the flow — v5.0
+- ✓ **AI-06**: Analysis is non-blocking; upload completes independently of analysis — v5.0
+- ✓ **AI-07**: Analysis result is stored in the asset metadata — v5.0
+- ✓ **GEN-01**: Creativity profile (conservative, balanced, bold) configurable in generation mode — v5.0
+- ✓ **GEN-02**: Per-piece CTA configurable in generation mode with AI suggestions — v5.0
+- ✓ **GEN-03**: Output format (1:1, 4:5, 9:16) configurable in generation mode — v5.0
+- ✓ **GEN-04**: Derivation mode (art variation, format adaptation, restyling) in generation mode — v5.0
+- ✓ **GEN-05**: AI suggestions for creativity profile based on analyzed piece — v5.0
+- ✓ **GEN-06**: AI suggestions for CTAs based on campaign context — v5.0
+- ✓ **CLEAN-01**: Briefing Doctor is removed from the creation flow — v5.0
+- ✓ **CLEAN-02**: Briefing Doctor routes, hooks, and components are removed — v5.0
+- ✓ **CLEAN-03**: Briefing Doctor translations are removed from i18n files — v5.0
+- ✓ **CLEAN-04**: Briefing Doctor references are removed from documentation — v5.0
 
 ### Active
 
-- [ ] **SIMP-01**: Usuário pode criar campanha com formulário simplificado (nome, cliente, perfil)
-- [ ] **SIMP-02**: Usuário pode fazer upload da peça-chave
-- [ ] **SIMP-03**: IA analisa visualmente a peça-chave e deduz informações da campanha
-- [ ] **SIMP-04**: Campos deduzidos são apresentados em formulário editável
-- [ ] **SIMP-05**: Usuário pode editar informações auto-preenchidas antes de salvar
-- [ ] **SIMP-06**: Modo de geração inclui perfil de criatividade com sugestões da IA
-- [ ] **SIMP-07**: Modo de geração inclui CTA por peça com sugestões da IA
-- [ ] **SIMP-08**: Briefing Doctor é removido do fluxo
-- [ ] **SIMP-09**: Campos avançados do briefing antigo são movidos para modo de geração
+(None — all v5.0 requirements shipped; ready for v6.0 planning)
 
 ### Out of Scope
 
@@ -99,9 +112,7 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Context
 
-Current state: v4.0 milestone complete (phases 16–17). ADScale has monetization via Stripe subscriptions with trial period, LGPD compliance features, and the three derivation modes from v3.0. Build passes and tests are green.
-
-v5.0 goal: Simplify campaign creation from multi-step brief to single-page flow. AI will visually analyze the uploaded key creative to deduce and auto-fill campaign information (product, style, message). Advanced settings (creativity profile, per-piece CTA) move to generation mode. Briefing Doctor will be removed.
+Current state: v5.0 milestone complete (phases 18–21). ADScale has a simplified single-page campaign creation flow with AI visual analysis that deduces campaign information from the uploaded key creative. Advanced settings (creativity profile, per-piece CTA, output format, derivation mode) are now configured in a dedicated generation mode step. Briefing Doctor has been completely removed. Build passes and tests are green.
 
 Key stack decisions:
 - Next.js App Router, React, TypeScript, Tailwind, shadcn/ui
@@ -162,27 +173,15 @@ This document evolves at phase transitions and milestone boundaries.
 - LGPD: privacy page, terms, cookie banner, data export, account deletion
 - Phases 16–17 archived
 
-### v5.0 Simplificação do Fluxo de Criação de Campanha (Em andamento)
-- Formulário simplificado de briefing
-- Análise visual da peça-chave com extração de informações via IA
-- Auto-preenchimento editável dos campos deduzidos
-- Configurações avançadas movidas para modo de geração
-- Remoção do Briefing Doctor
-- Phases 18+ em andamento
+### v5.0 Simplificação do Fluxo de Criação de Campanha ✅
+- Single-page campaign creation form (name, client, profile)
+- AI visual analysis of key creative with deduced fields
+- Editable auto-filled campaign information
+- Generation mode with creativity profile and CTA suggestions
+- Briefing Doctor completely removed
+- Phases 18–21 archived
 
-## Current Milestone: v5.0 Simplificação do Fluxo de Criação de Campanha
-
-**Goal:** Reduzir o formulário de briefing para uma única página minimalista, usando análise visual da peça-chave para deduzir e auto-preencher informações da campanha via IA.
-
-**Target features:**
-- Formulário simplificado: nome da campanha, cliente, perfil do cliente
-- Upload da peça-chave com análise visual e interpretação via IA
-- Auto-preenchimento editável dos campos deduzidos pela IA
-- Modo de geração: perfil de criatividade, CTA por peça (com sugestões da IA)
-- Remoção do Briefing Doctor
-- Movimentação de configurações avançadas do briefing para o modo de geração
-
-## Next Milestone: v6.0 (TBD)
+## Current Milestone: v6.0 (TBD)
 
 **Candidates:**
 - OAuth login (Google/GitHub) — aumenta conversão de signup
@@ -192,4 +191,4 @@ This document evolves at phase transitions and milestone boundaries.
 - API key management — integração com ferramentas externas
 
 ---
-*Last updated: 2026-05-26 after starting v5.0 milestone*
+*Last updated: 2026-05-26 after completing v5.0 milestone*
