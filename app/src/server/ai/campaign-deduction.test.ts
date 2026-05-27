@@ -24,7 +24,7 @@ mockOpenAI.mockReturnValue({
       create: mockCreate,
     },
   },
-} as any);
+} as unknown);
 
 describe("analyzeCampaignCreative", () => {
   beforeEach(() => {
