@@ -120,7 +120,7 @@ describe("notification repository", () => {
 
   describe("getUnreadNotificationCount", () => {
     it("returns count of unread notifications", async () => {
-      (whereMock as any).mockResolvedValue([{ id: "notif-1" }, { id: "notif-2" }]);
+      (whereMock as unknown).mockResolvedValue([{ id: "notif-1" }, { id: "notif-2" }]);
 
       const result = await getUnreadNotificationCount("user-1", "ws-1");
 
@@ -128,7 +128,7 @@ describe("notification repository", () => {
     });
 
     it("returns 0 when no unread notifications", async () => {
-      (whereMock as any).mockResolvedValue([]);
+      (whereMock as unknown).mockResolvedValue([]);
 
       const result = await getUnreadNotificationCount("user-1", "ws-1");
 
