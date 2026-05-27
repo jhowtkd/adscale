@@ -181,14 +181,16 @@ This document evolves at phase transitions and milestone boundaries.
 - Briefing Doctor completely removed
 - Phases 18–21 archived
 
-## Current Milestone: v6.0 (TBD)
+## Current Milestone: v6.0 Performance & Otimização
 
-**Candidates:**
-- OAuth login (Google/GitHub) — aumenta conversão de signup
-- Admin panel & workspace management — multi-usuário, convites, roles
-- Real-time notifications (WebSocket/SSE) — geração completa em tempo real
-- Direct Meta/TikTok/Google Ads export — upload direto de criativos
-- API key management — integração com ferramentas externas
+**Goal:** Reduzir tempo de carregamento inicial em 50%+ e eliminar re-fetches desnecessários para melhorar a experiência do usuário.
+
+**Target features:**
+- Code splitting e lazy loading de componentes e páginas
+- Otimização do TanStack Query (caching, staleTime, prefetch)
+- Cache de análise visual da IA (evita re-análise de mesmas imagens)
+- Bundle optimization (remove dead code, otimiza imports)
+- Melhoria no carregamento de imagens e assets
 
 ---
-*Last updated: 2026-05-26 after completing v5.0 milestone*
+*Last updated: 2026-05-27 after starting v6.0 milestone*

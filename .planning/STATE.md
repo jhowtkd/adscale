@@ -1,25 +1,26 @@
 ---
 gsd_state_version: 1.0
-milestone: v5.0
-milestone_name: Simplificação do Fluxo de Criação de Campanha
-status: completed
-last_updated: "2026-05-26T23:58:26.249Z"
-last_activity: 2026-05-26 — Completed milestone v5.0 (phases 18-21)
+milestone: v6.0
+milestone_name: Performance & Otimização
+status: defining_requirements
+last_updated: "2026-05-27T00:00:00.000Z"
+last_activity: 2026-05-27 — Milestone v6.0 started
 progress:
   total_phases: 4
-  completed_phases: 4
-  total_plans: 8
-  completed_plans: 8
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # State: ADScale
 
 ## Current Position
 
-Phase: 21-remocao-do-briefing-doctor-e-limpeza
-Plan: 21-01 (complete)
-Status: Milestone v5.0 complete — All 4 phases (18-21) done
-Last activity: 2026-05-26 — Completed milestone v5.0
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements for v6.0
+Last activity: 2026-05-27 — Milestone v6.0 started (Performance & Otimização)
 
 ## Accumulated Context
 
@@ -31,25 +32,39 @@ Last activity: 2026-05-26 — Completed milestone v5.0
 - Milestone v5.0 ended at phases 18-21; v6.0 continues numbering from phase 22
 - 448 tests passing, build clean
 - Tech debt: 24 pre-existing ESLint warnings, mock-data.ts used for types in some UI components
+- Performance issues identified: no code splitting, poor query caching, no image optimization, large bundle
+
+## v6.0 Roadmap
+
+| Phase | Name | Requirements |
+|-------|------|-------------|
+| 22 | Code Splitting e Lazy Loading | PERF-01..03 |
+| 23 | TanStack Query Otimização | PERF-04..06 |
+| 24 | Cache de Análise e Otimização de Imagens | PERF-07..09 |
+| 25 | Bundle Optimization e Virtualização | PERF-10..12 |
+
+**Coverage:** 12/12 requirements mapped ✓
 
 ## Decisions Made
 
-- v5.0 simplified campaign creation from multi-step brief to single-page flow
-- AI visually analyzes uploaded key creative to deduce campaign information
-- Advanced settings (creativity profile, per-piece CTA) moved to generation mode
-- Briefing Doctor removed from the flow
-- Form fields: campaign name, client, client profile (required); AI-deduced fields (editable)
+- v6.0 will focus on performance optimization
+- Code splitting with next/dynamic to reduce initial bundle
+- TanStack Query optimization to eliminate unnecessary re-fetches
+- AI visual analysis caching to avoid re-analyzing same images
+- Image optimization with next/image and resizing
+- Virtualization for large lists
+- Target: Lighthouse Performance > 80, FCP < 1.5s, bundle < 2.0MB
 
 ## Next Steps
 
-1. Milestone v5.0 complete — All phases done
-2. Ready for v6.0 planning
-3. Candidate features: OAuth, admin panel, real-time notifications, direct ad platform export, API key management
+1. Create phase 22 plan (Code Splitting e Lazy Loading)
+2. Begin implementation of phase 22
+3. Validate PERF-01 through PERF-03
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-05-26)  
-See: .planning/milestones/v5.0/v5.0-ROADMAP.md (created 2026-05-26)
+See: .planning/PROJECT.md (updated 2026-05-27)  
+See: .planning/ROADMAP.md (created 2026-05-27)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
-**Current focus:** Planning next milestone (v6.0)
+**Current focus:** Milestone v6.0 — Performance & Otimização (defining requirements)
