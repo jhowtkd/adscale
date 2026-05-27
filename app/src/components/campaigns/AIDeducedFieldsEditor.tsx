@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { Sparkles, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,18 @@ interface EditableField {
   isArray?: boolean;
 }
 
+function getInitialFields(analysis: AiDeducedFields | null): Record<string, string> {
+  if (!analysis) return {};
+  return {
+    product: analysis.product?.value || "",
+    objective: analysis.objective?.value || "",
+    targetAudience: analysis.targetAudience?.value || "",
+    tone: analysis.tone?.value || "",
+    offer: analysis.offer?.value || "",
+    platforms: analysis.platforms?.value?.join(", ") || "",
+  };
+}
+
 export function AIDeducedFieldsEditor({ 
   analysis, 
   onChange, 
@@ -28,8 +40,16 @@ export function AIDeducedFieldsEditor({
   const tCampaign = useTranslations("campaign");
   const tCommon = useTranslations("common");
   
-  const [editedFields, setEditedFields] = useState<Record<string, string>>({});
+  const [editedFields, setEditedFields] = useState<Record<string, string>>(() => getInitialFields(analysis));
   const [hasUserEdits, setHasUserEdits] = useState(false);
+  const [prevAnalysis, setPrevAnalysis] = useState<AiDeducedFields | null>(analysis);
+
+  // Reset edited fields when analysis changes (but preserve user edits)
+  if (analysis !== prevAnalysis && !hasUserEdits) {
+    setPrevAnalysis(analysis);
+    const initialValues = getInitialFields(analysis);
+    setEditedFields(initialValues);
+  }
 
   // Convert analysis to editable fields
   const fields: EditableField[] = analysis ? [
@@ -40,17 +60,6 @@ export function AIDeducedFieldsEditor({
     { key: "offer", label: tCampaign("offer"), value: analysis.offer?.value || "", confidence: analysis.offer?.confidence },
     { key: "platforms", label: tCampaign("platforms"), value: analysis.platforms?.value?.join(", ") || "", confidence: analysis.platforms?.confidence, isArray: true },
   ] : [];
-
-  // Reset edited fields when analysis changes (but preserve user edits)
-  useEffect(() => {
-    if (analysis && !hasUserEdits) {
-      const initialValues: Record<string, string> = {};
-      fields.forEach(field => {
-        initialValues[field.key] = field.value;
-      });
-      setEditedFields(initialValues);
-    }
-  }, [analysis]);
 
   const handleFieldChange = useCallback((key: string, value: string) => {
     setEditedFields(prev => {

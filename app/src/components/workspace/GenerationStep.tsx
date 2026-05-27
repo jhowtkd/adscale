@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Sparkles, Wand2, LayoutTemplate, Paintbrush, Lightbulb, Zap, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
@@ -125,9 +125,14 @@ export default function GenerationStep({
   }, [campaignContext, config.ctaVariants, suggestCtas]);
 
   // Auto-suggest CTAs when component mounts if we have context
+  const hasAutoSuggested = useRef(false);
   useEffect(() => {
-    if (campaignContext && campaignId !== "new") {
-      handleSuggestCtas();
+    if (campaignContext && campaignId !== "new" && !hasAutoSuggested.current) {
+      hasAutoSuggested.current = true;
+      // Defer to next tick to avoid setState-during-render warning
+      queueMicrotask(() => {
+        handleSuggestCtas();
+      });
     }
   }, [campaignContext, campaignId, handleSuggestCtas]);
 

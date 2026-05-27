@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 
 export interface DashboardData {
   campaignCount: number;
+  totalCampaigns?: number;
+  derivationsThisMonth?: number;
   recentActivity: Array<{
     id: string;
     type: "plan" | "derivation" | "campaign" | "export" | "alert";

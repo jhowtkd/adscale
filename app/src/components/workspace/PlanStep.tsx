@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { Sparkles, ArrowRight, SkipForward } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { usePlan, useGeneratePlan, useUpdatePlanStatus } from "@/lib/hooks/use-plan";
+import type { CampaignStatus } from "@/lib/mock-data";
 import CreativePlanCard from "./CreativePlanCard";
 
 interface PlanStepProps {
@@ -136,7 +137,7 @@ export default function PlanStep({
             : [],
           hooks: plan.hooks ?? [],
           ctas: plan.ctas ?? [],
-          status: plan.status as any,
+          status: plan.status as CampaignStatus,
           createdAt: plan.createdAt,
         }}
         onApprove={handleApprove}

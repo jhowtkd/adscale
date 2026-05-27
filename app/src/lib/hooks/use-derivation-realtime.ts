@@ -34,7 +34,7 @@ export function useDerivationRealtime(derivationId: string, campaignId: string) 
       ["derivations", campaignId],
       (old) => {
         if (!Array.isArray(old)) return old;
-        return old.map((d: any) =>
+        return old.map((d: { id: string; imageUrl?: string; outputKey?: string; status?: string; updatedAt?: Date }) =>
           d.id === statusMsg.derivationId
             ? {
                 ...d,

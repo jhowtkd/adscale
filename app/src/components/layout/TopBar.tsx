@@ -93,7 +93,7 @@ export default function TopBar() {
         </h1>
         {isDashboard && dashboardData && (
           <span className="hidden md:inline text-sm text-[var(--text-muted)]">
-            {(dashboardData as any).totalCampaigns ?? 0} campanhas, {(dashboardData as any).derivationsThisMonth ?? 0} derivações
+            {dashboardData.totalCampaigns ?? 0} campanhas, {dashboardData.derivationsThisMonth ?? 0} derivações
           </span>
         )}
       </div>
