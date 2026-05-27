@@ -221,15 +221,23 @@ This document evolves at phase transitions and milestone boundaries.
 - Analytics no dashboard com 6 KPIs e seletor de período
 - Phases 26–28 archived
 
-## Current Milestone: v8.0 Galeria de Revisão Aprimorada
+### v8.0 Galeria de Revisão Aprimorada ✅
+- Comparação lado a lado com zoom sincronizado e pan
+- Filtros avançados: status, formato, CTA, quality score range
+- Persistência de filtros na URL
+- Batch approve/reject com master checkbox
+- Phases 29–31 archived
 
-**Goal:** Melhorar a galeria de revisão de derivações com comparação lado a lado, filtros avançados e aprovação em lote.
+## Current Milestone: v9.0 (Próximo)
 
-**Target features:**
-- **Comparação lado a lado:** Visualizar duas derivações simultaneamente para comparação detalhada
-- **Filtros avançados:** Filtrar por status, formato, CTA, score de qualidade, data de criação
-- **Batch approve/reject:** Selecionar múltiplas derivações e aprovar/rejeitar em lote
-- **Melhorias de UX:** Atalhos de teclado, visualização em tela cheia, zoom na imagem
+**Goal:** A definir — aguardando input do usuário.
+
+**Áreas potenciais:**
+- Exportação direta para plataformas (Meta Ads, TikTok, Google Ads)
+- Melhorias na galeria: anotações, comparação 3+, slider antes/depois
+- Automação: agendamento de geração, regras de aprovação automática
+- Colaboração: comentários em derivações, assignees, notificações
+- A/B Testing: criar variações para teste, métricas de performance
 
 ---
-*Last updated: 2026-05-27 after completing v7.0 milestone, starting v8.0*
+*Last updated: 2026-05-27 after completing v8.0 milestone*

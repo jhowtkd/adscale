@@ -89,16 +89,20 @@
 - Seletor de período: semana/mês/trimestre
 - Dados reais de créditos a partir de creditTransactions
 
-## Active Milestone
+## Completed Milestones
 
-### v8.0 — Galeria de Revisão Aprimorada (In Progress)
-**Started:** 2026-05-27
-**Goal:** Melhorar a galeria de revisão de derivações com comparação lado a lado, filtros avançados e aprovação em lote.
+### v8.0 — Galeria de Revisão Aprimorada ✅
+**Shipped:** 2026-05-27
+**Phases:** 3 (29→31)
+**Requirements:** 13/13 complete
 
-**Phases:**
-- Phase 29: Comparação Lado a Lado
-- Phase 30: Filtros Avançados na Galeria
-- Phase 31: Batch Approve/Reject
+**Delivered:**
+- Comparação lado a lado de 2 derivações com zoom sincronizado e pan
+- Botão Compare em cada card com modo de seleção visual
+- Filtros avançados: status, formato (1:1, 4:5, 9:16), CTA (busca parcial), quality score range
+- Persistência de filtros na URL para bookmarking
+- Batch approve/reject com master checkbox e contador de seleção
+- Bulk actions bar flutuante com approve/reject/export/download/share
 
 ---
 
