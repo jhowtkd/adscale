@@ -586,7 +586,10 @@
     "zoomSyncOff": "Sincronização de zoom desativada",
     "zoomIn": "Aumentar zoom",
     "zoomOut": "Diminuir zoom",
-    "resetZoom": "Resetar zoom"
+    "resetZoom": "Resetar zoom",
+    "searchCta": "Buscar CTA...",
+    "results": "resultados",
+    "clearFilters": "Limpar filtros"
   },
   "plan": {
     "title": "Plano Criativo",

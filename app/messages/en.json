@@ -586,7 +586,10 @@
     "zoomSyncOff": "Zoom sync disabled",
     "zoomIn": "Zoom in",
     "zoomOut": "Zoom out",
-    "resetZoom": "Reset zoom"
+    "resetZoom": "Reset zoom",
+    "searchCta": "Search CTA...",
+    "results": "results",
+    "clearFilters": "Clear filters"
   },
   "plan": {
     "title": "Creative Plan",

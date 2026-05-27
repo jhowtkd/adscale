@@ -2,8 +2,9 @@
 
 import { useState, useMemo, useCallback, useEffect } from "react";
 import dynamic from "next/dynamic";
-import { Check, Clock, Sparkles } from "lucide-react";
+import { Check, Clock, Sparkles, Search, X } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import EmptyState from "@/components/ui/EmptyState";
 import DerivationCard from "./DerivationCard";
@@ -114,9 +115,17 @@ export default function DerivationsStep({
 }: DerivationsStepProps) {
   const t = useTranslations("derivation");
   const commonT = useTranslations("common");
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
   const [gridSize, setGridSize] = useState<GridSize>("medium");
   const [sortBy, setSortBy] = useState<SortOption>("best");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [formatFilter, setFormatFilter] = useState<string[]>([]);
+  const [ctaSearch, setCtaSearch] = useState("");
+  const [scoreMin, setScoreMin] = useState<number | null>(null);
+  const [scoreMax, setScoreMax] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isCompareOpen, setIsCompareOpen] = useState(false);
   const [compareMode, setCompareMode] = useState<'idle' | 'selecting' | 'comparing'>('idle');
@@ -139,6 +148,38 @@ export default function DerivationsStep({
   const zipExport = useZipExport();
   const shareLink = useShareLink();
 
+  // URL sync
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (statusFilter !== "all") params.set("status", statusFilter);
+    else params.delete("status");
+    if (formatFilter.length > 0) params.set("formats", formatFilter.join(","));
+    else params.delete("formats");
+    if (ctaSearch) params.set("cta", ctaSearch);
+    else params.delete("cta");
+    if (scoreMin != null) params.set("scoreMin", String(scoreMin));
+    else params.delete("scoreMin");
+    if (scoreMax != null) params.set("scoreMax", String(scoreMax));
+    else params.delete("scoreMax");
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }, [statusFilter, formatFilter, ctaSearch, scoreMin, scoreMax, router, pathname, searchParams]);
+
+  // Load filters from URL
+  useEffect(() => {
+    const status = searchParams.get("status") as StatusFilter;
+    if (status && ["all", "completed", "generating", "failed"].includes(status)) {
+      setStatusFilter(status);
+    }
+    const formats = searchParams.get("formats");
+    if (formats) setFormatFilter(formats.split(","));
+    const cta = searchParams.get("cta");
+    if (cta) setCtaSearch(cta);
+    const min = searchParams.get("scoreMin");
+    if (min) setScoreMin(Number(min));
+    const max = searchParams.get("scoreMax");
+    if (max) setScoreMax(Number(max));
+  }, [searchParams]);
+
   const {
     filteredDerivations,
     completedCount,
@@ -148,6 +189,7 @@ export default function DerivationsStep({
     isAllCompleted,
     totalCredits,
     statusCounts,
+    activeFiltersCount,
   } = useMemo(() => {
     const filtered: Derivation[] = [];
     let completed = 0;
@@ -184,7 +226,18 @@ export default function DerivationsStep({
           ? COMPLETED_STATUSES.has(derivation.status)
           : derivation.status === statusFilter);
 
-      if (matchesStatus) {
+      const matchesFormat =
+        formatFilter.length === 0 || formatFilter.includes(derivation.format ?? "");
+
+      const matchesCta =
+        !ctaSearch ||
+        (derivation.ctaText?.toLowerCase().includes(ctaSearch.toLowerCase()) ?? false);
+
+      const matchesScore =
+        (scoreMin == null || (derivation.qualityScore ?? 0) >= scoreMin) &&
+        (scoreMax == null || (derivation.qualityScore ?? 100) <= scoreMax);
+
+      if (matchesStatus && matchesFormat && matchesCta && matchesScore) {
         filtered.push(derivation);
       }
     }
@@ -218,6 +271,13 @@ export default function DerivationsStep({
         break;
     }
 
+    const activeFiltersCount =
+      (statusFilter !== "all" ? 1 : 0) +
+      formatFilter.length +
+      (ctaSearch ? 1 : 0) +
+      (scoreMin != null ? 1 : 0) +
+      (scoreMax != null ? 1 : 0);
+
     return {
       filteredDerivations: filtered,
       completedCount: completed,
@@ -227,8 +287,9 @@ export default function DerivationsStep({
       isAllCompleted: derivations.length > 0 && completed === derivations.length,
       totalCredits: credits,
       statusCounts: counts,
+      activeFiltersCount,
     };
-  }, [derivations, sortBy, statusFilter]);
+  }, [derivations, sortBy, statusFilter, formatFilter, ctaSearch, scoreMin, scoreMax]);
 
   const toggleSelection = useCallback((id: string) => {
     setSelectedIds((prev) =>
@@ -242,6 +303,14 @@ export default function DerivationsStep({
 
   const clearSelection = useCallback(() => {
     setSelectedIds([]);
+  }, []);
+
+  const clearFilters = useCallback(() => {
+    setStatusFilter("all");
+    setFormatFilter([]);
+    setCtaSearch("");
+    setScoreMin(null);
+    setScoreMax(null);
   }, []);
 
   const handleCompareClick = useCallback((id: string) => {
@@ -434,6 +503,87 @@ export default function DerivationsStep({
             </button>
           );
         })}
+      </div>
+
+      {/* ---- Advanced Filters ---- */}
+      <div className="flex items-center gap-3 flex-wrap animate-fade-in" style={{ animationDelay: "150ms" }}>
+        {/* Format filter */}
+        {["1:1", "4:5", "9:16"].map((fmt) => (
+          <button
+            key={fmt}
+            onClick={() =>
+              setFormatFilter((prev) =>
+                prev.includes(fmt) ? prev.filter((f) => f !== fmt) : [...prev, fmt]
+              )
+            }
+            className={cn(
+              "inline-flex items-center rounded-full px-3 py-1.5 text-xs font-medium transition-all duration-200",
+              formatFilter.includes(fmt)
+                ? "bg-[var(--accent-blue)]/10 text-[var(--accent-blue)] border border-[var(--accent-blue)]/20"
+                : "bg-[var(--surface-raised)] text-[var(--text-secondary)] border border-[var(--border-dim)] hover:text-[var(--text-primary)]"
+            )}
+          >
+            {fmt}
+          </button>
+        ))}
+
+        {/* CTA Search */}
+        <div className="relative">
+          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+          <input
+            type="text"
+            value={ctaSearch}
+            onChange={(e) => setCtaSearch(e.target.value)}
+            placeholder={t("searchCta")}
+            className="h-8 pl-8 pr-3 text-xs rounded-md bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] focus:border-[var(--accent-mint)] focus:outline-none w-40"
+          />
+          {ctaSearch && (
+            <button
+              onClick={() => setCtaSearch("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+            >
+              <X size={12} />
+            </button>
+          )}
+        </div>
+
+        {/* Score range */}
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            min={0}
+            max={100}
+            value={scoreMin ?? ""}
+            onChange={(e) => setScoreMin(e.target.value ? Number(e.target.value) : null)}
+            placeholder="Min"
+            className="h-8 w-14 px-2 text-xs rounded-md bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] focus:border-[var(--accent-mint)] focus:outline-none text-center"
+          />
+          <span className="text-xs text-[var(--text-muted)]">-</span>
+          <input
+            type="number"
+            min={0}
+            max={100}
+            value={scoreMax ?? ""}
+            onChange={(e) => setScoreMax(e.target.value ? Number(e.target.value) : null)}
+            placeholder="Max"
+            className="h-8 w-14 px-2 text-xs rounded-md bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] focus:border-[var(--accent-mint)] focus:outline-none text-center"
+          />
+        </div>
+
+        {/* Active filters count + clear */}
+        {activeFiltersCount > 0 && (
+          <>
+            <span className="text-xs text-[var(--text-muted)]">
+              {filteredDerivations.length} {t("results")}
+            </span>
+            <button
+              onClick={clearFilters}
+              className="text-xs text-[var(--accent-rose)] hover:text-[var(--accent-rose-light)] transition-colors"
+            >
+              {t("clearFilters")}
+            </button>
+          </>
+        )}
       </div>
 
       {/* ---- All Completed Banner ---- */}
