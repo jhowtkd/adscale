@@ -72,7 +72,7 @@ export async function generateCopyVariants(
       confidenceScore: Math.min(Math.max(Math.round(v.confidenceScore ?? 70), 0), 100),
       reasoning: v.reasoning ?? "",
     }));
-  } catch (err) {
+  } catch (_err) {
     logger.error("[copy-generator] failed to parse response", { content: content.slice(0, 200) });
     throw new Error("Invalid response format from AI");
   }
