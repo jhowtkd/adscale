@@ -228,16 +228,14 @@ This document evolves at phase transitions and milestone boundaries.
 - Batch approve/reject com master checkbox
 - Phases 29–31 archived
 
-## Current Milestone: v9.0 (Próximo)
+## Current Milestone: v9.0 Galeria de Revisão v2
 
-**Goal:** A definir — aguardando input do usuário.
+**Goal:** Evoluir a galeria de revisão com anotações visuais, comparação de múltiplas derivações e slider interativo.
 
-**Áreas potenciais:**
-- Exportação direta para plataformas (Meta Ads, TikTok, Google Ads)
-- Melhorias na galeria: anotações, comparação 3+, slider antes/depois
-- Automação: agendamento de geração, regras de aprovação automática
-- Colaboração: comentários em derivações, assignees, notificações
-- A/B Testing: criar variações para teste, métricas de performance
+**Target features:**
+- **Anotações visuais:** Desenhar, adicionar textos e marcas em cima das imagens de derivação
+- **Comparação 3+:** Visualizar 3, 4 ou mais derivações simultaneamente em grid
+- **Slider antes/depois:** Comparar duas derivações com slider de divisão arrastável
 
 ---
-*Last updated: 2026-05-27 after completing v8.0 milestone*
+*Last updated: 2026-05-27 after starting v9.0 milestone*

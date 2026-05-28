@@ -106,4 +106,17 @@
 
 ---
 
+## Active Milestone
+
+### v9.0 — Galeria de Revisão v2 (In Progress)
+**Started:** 2026-05-27
+**Goal:** Evoluir a galeria de revisão com anotações visuais, comparação de múltiplas derivações e slider interativo.
+
+**Phases:**
+- Phase 32: Anotações Visuais
+- Phase 33: Comparação 3+ Derivações
+- Phase 34: Slider Antes/Depois
+
+---
+
 *Last updated: 2026-05-27*

@@ -1,63 +1,64 @@
-# Requirements: ADScale v8.0 — Galeria de Revisão Aprimorada
+# Requirements: ADScale v9.0 — Galeria de Revisão v2
 
 **Defined:** 2026-05-27
 **Core Value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-## v8.0 Requirements
+## v9.0 Requirements
 
-### COMP — Comparação Lado a Lado
+### ANOT — Anotações Visuais
 
-- [x] **COMP-01**: Usuário pode selecionar duas derivações para comparar lado a lado
-- [x] **COMP-02**: Visualização split-pane mostra ambas as derivações simultaneamente
-- [x] **COMP-03**: Usuário pode sincronizar zoom e pan entre as duas imagens
-- [x] **COMP-04**: Metadados de ambas as derivações são visíveis (CTA, formato, score, status)
+- [ ] **ANOT-01**: Usuário pode desenhar livremente em cima da imagem da derivação (freehand drawing)
+- [ ] **ANOT-02**: Usuário pode adicionar textos em posições específicas da imagem
+- [ ] **ANOT-03**: Usuário pode adicionar formas geométricas (círculo, retângulo, seta) na imagem
+- [ ] **ANOT-04**: Anotações são salvas por derivação e persistem entre sessões
+- [ ] **ANOT-05**: Usuário pode apagar anotações individuais ou limpar todas
 
-### FILT — Filtros Avançados na Galeria
+### MULTI — Comparação 3+ Derivações
 
-- [x] **FILT-01**: Usuário pode filtrar derivações por status (approved, rejected, pending, failed)
-- [x] **FILT-02**: Usuário pode filtrar por formato de imagem (1:1, 4:5, 9:16)
-- [x] **FILT-03**: Usuário pode filtrar por texto do CTA (busca parcial)
-- [x] **FILT-04**: Usuário pode filtrar por range de quality score (0-100)
-- [x] **FILT-05**: Filtros são persistidos na URL para compartilhamento/bookmark
+- [ ] **MULTI-01**: Usuário pode selecionar 3, 4 ou mais derivações para comparar simultaneamente
+- [ ] **MULTI-02**: Visualização em grid adaptativo (2x2, 3x3, etc.) baseado na quantidade selecionada
+- [ ] **MULTI-03**: Cada célula do grid tem zoom/pan independente
+- [ ] **MULTI-04**: Usuário pode remover uma derivação do grid de comparação
+- [ ] **MULTI-05**: Metadados visíveis em cada célula do grid
 
-### BATCH — Batch Approve/Reject
+### SLIDER — Slider Antes/Depois
 
-- [x] **BATCH-01**: Usuário pode selecionar múltiplas derivações via checkboxes
-- [x] **BATCH-02**: Barra de ações em lote aparece quando há seleção (approve all, reject all)
-- [x] **BATCH-03**: Batch operations atualizam o status de todas as derivações selecionadas
-- [x] **BATCH-04**: Usuário pode selecionar/deselecionar todas as derivações visíveis
+- [ ] **SLIDER-01**: Usuário pode comparar duas derivações com slider de divisão arrastável
+- [ ] **SLIDER-02**: Slider vertical ou horizontal com handle visível
+- [ ] **SLIDER-03**: Ambos os lados do slider mantêm aspect ratio e posição sincronizada
+- [ ] **SLIDER-04**: Usuário pode alternar entre modo slider e modo split-pane
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Comparação de mais de 2 derivações | Complexidade de UI alta, 2 é o caso de uso principal |
-| Filtros por cor/dominância visual | Requer análise de imagem adicional, fora do escopo |
-| Batch regenerate | Requer fila de jobs complexa, fora deste milestone |
-| Gallery view modes (lista vs grid) | Já existe grid view, não é prioridade |
-| Exportação direta da galeria | Feature separada, requer design de UX |
+| Camadas de anotação (layers) | Complexidade de UI alta, anotações simples são suficientes |
+| Comparação com a imagem base original | Requer tracking do asset original, fora do escopo |
+| Colaboração em anotações (múltiplos usuários) | Requer sistema de colaboração, milestone separado |
+| Exportação de imagens com anotações | Feature separada, requer render server-side |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| COMP-01 | Phase 29 | ✅ Complete |
-| COMP-02 | Phase 29 | ✅ Complete |
-| COMP-03 | Phase 29 | ✅ Complete |
-| COMP-04 | Phase 29 | ✅ Complete |
-| FILT-01 | Phase 30 | ✅ Complete |
-| FILT-02 | Phase 30 | ✅ Complete |
-| FILT-03 | Phase 30 | ✅ Complete |
-| FILT-04 | Phase 30 | ✅ Complete |
-| FILT-05 | Phase 30 | ✅ Complete |
-| BATCH-01 | Phase 31 | ✅ Complete |
-| BATCH-02 | Phase 31 | ✅ Complete |
-| BATCH-03 | Phase 31 | ✅ Complete |
-| BATCH-04 | Phase 31 | ✅ Complete |
+| ANOT-01 | Phase 32 | Pending |
+| ANOT-02 | Phase 32 | Pending |
+| ANOT-03 | Phase 32 | Pending |
+| ANOT-04 | Phase 32 | Pending |
+| ANOT-05 | Phase 32 | Pending |
+| MULTI-01 | Phase 33 | Pending |
+| MULTI-02 | Phase 33 | Pending |
+| MULTI-03 | Phase 33 | Pending |
+| MULTI-04 | Phase 33 | Pending |
+| MULTI-05 | Phase 33 | Pending |
+| SLIDER-01 | Phase 34 | Pending |
+| SLIDER-02 | Phase 34 | Pending |
+| SLIDER-03 | Phase 34 | Pending |
+| SLIDER-04 | Phase 34 | Pending |
 
 **Coverage:**
-- v8.0 requirements: 13 total
-- Mapped to phases: 13
+- v9.0 requirements: 14 total
+- Mapped to phases: 14
 - Unmapped: 0 ✓
 
 ---

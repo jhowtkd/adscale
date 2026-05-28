@@ -1,76 +1,75 @@
-# Roadmap: ADScale v8.0 — Galeria de Revisão Aprimorada
+# Roadmap: ADScale v9.0 — Galeria de Revisão v2
 
 ## Overview
 
 | # | Phase | Goal | Requirements | Success Criteria |
 |---|-------|------|--------------|------------------|
-| 29 | Comparação Lado a Lado | Permitir comparar duas derivações simultaneamente | COMP-01..04 | 4 |
-| 30 | Filtros Avançados na Galeria | Filtrar derivações por múltiplos critérios | FILT-01..05 | 5 |
-| 31 | Batch Approve/Reject | Aprovar/rejeitar múltiplas derivações em lote | BATCH-01..04 | 4 |
+| 32 | Anotações Visuais | Permitir desenhar e adicionar notas em derivações | ANOT-01..05 | 5 |
+| 33 | Comparação 3+ Derivações | Comparar múltiplas derivações em grid adaptativo | MULTI-01..05 | 5 |
+| 34 | Slider Antes/Depois | Comparar duas derivações com slider de divisão | SLIDER-01..04 | 4 |
 
-**13 requirements** | **3 phases** | All covered ✓
-
----
-
-## Phase 29: Comparação Lado a Lado
-
-**Goal:** Permitir que usuários comparem duas derivações lado a lado com zoom sincronizado.
-
-**Requirements:** COMP-01, COMP-02, COMP-03, COMP-04
-
-**Success Criteria:**
-1. Usuário pode clicar em "Compare" em uma derivação e selecionar uma segunda para comparar
-2. Visualização split-pane renderiza ambas as imagens sem distorção
-3. Zoom in/out em uma imagem sincroniza com a outra (quando sincronização está ativa)
-4. Metadados (CTA, formato, score, status) são visíveis para ambas as derivações
-5. Usuário pode sair do modo de comparação e voltar para a galeria
-
-**Depends on:** Phase 28 ( Analytics no Dashboard — concluído)
+**14 requirements** | **3 phases** | All covered ✓
 
 ---
 
-## Phase 30: Filtros Avançados na Galeria
+## Phase 32: Anotações Visuais
 
-**Goal:** Permitir filtragem de derivações por status, formato, CTA, score e persistir filtros na URL.
+**Goal:** Permitir que usuários desenhem, adicionem textos e formas em cima das imagens de derivação.
 
-**Requirements:** FILT-01, FILT-02, FILT-03, FILT-04, FILT-05
+**Requirements:** ANOT-01, ANOT-02, ANOT-03, ANOT-04, ANOT-05
 
 **Success Criteria:**
-1. Dropdown/filter chips permitem selecionar múltiplos status simultaneamente
-2. Filtro de formato mostra opções 1:1, 4:5, 9:16
-3. Busca por CTA funciona com texto parcial (case-insensitive)
-4. Slider range permite filtrar por quality score mínimo/máximo
-5. Filtros aplicados são refletidos na URL (query params) para bookmarking
-6. Contador mostra quantas derivações correspondem aos filtros ativos
-7. Botão "Limpar filtros" restaura visualização completa
+1. Usuário pode desenhar livremente na imagem com mouse/touch
+2. Usuário pode adicionar textos em posições específicas
+3. Usuário pode adicionar formas (círculo, retângulo, seta)
+4. Anotações persistem no banco de dados por derivação
+5. Usuário pode apagar anotações individuais ou limpar todas
+6. Toolbar de ferramentas de anotação visível no modo de edição
 
-**Depends on:** Phase 29
+**Depends on:** Phase 31 (Batch Approve/Reject — concluído)
 
 ---
 
-## Phase 31: Batch Approve/Reject
+## Phase 33: Comparação 3+ Derivações
 
-**Goal:** Permitir seleção múltipla de derivações e ações em lote (approve/reject).
+**Goal:** Permitir comparação de 3, 4 ou mais derivações simultaneamente em grid adaptativo.
 
-**Requirements:** BATCH-01, BATCH-02, BATCH-03, BATCH-04
+**Requirements:** MULTI-01, MULTI-02, MULTI-03, MULTI-04, MULTI-05
 
 **Success Criteria:**
-1. Checkboxes aparecem em cada card de derivação no hover ou quando modo de seleção está ativo
-2. Barra de ações flutuante aparece no topo quando há itens selecionados
-3. "Approve All" e "Reject All" atualizam o status de todas as derivações selecionadas
-4. Checkbox no header seleciona/deseleciona todas as derivações visíveis (considerando filtros)
-5. Contador na barra mostra "X selecionados"
-6. Após ação em lote, seleção é limpa e galeria atualiza
+1. Usuário pode selecionar mais de 2 derivações para comparar
+2. Grid adaptativo: 2 colunas (3-4 itens), 3 colunas (5-9 itens), etc.
+3. Cada célula tem zoom/pan independente
+4. Usuário pode remover uma derivação do grid
+5. Metadados visíveis em cada célula
+6. Botão "Adicionar mais" para incluir derivações ao grid existente
 
-**Depends on:** Phase 30
+**Depends on:** Phase 32
+
+---
+
+## Phase 34: Slider Antes/Depois
+
+**Goal:** Permitir comparação de duas derivações com slider de divisão arrastável.
+
+**Requirements:** SLIDER-01, SLIDER-02, SLIDER-03, SLIDER-04
+
+**Success Criteria:**
+1. Slider vertical ou horizontal divide a imagem em duas partes
+2. Handle arrastável move a divisão
+3. Ambos os lados mantêm aspect ratio e posição sincronizada
+4. Toggle para alternar entre modo slider e modo split-pane
+5. Zoom sincronizado em ambos os lados
+
+**Depends on:** Phase 33
 
 ---
 
 ## Archive Notes
 
-- Previous roadmap: `.planning/milestones/v7.0-ROADMAP.md`
-- v7.0 ended at Phase 28
-- v8.0 starts at Phase 29
+- Previous roadmap: `.planning/milestones/v8.0-ROADMAP.md`
+- v8.0 ended at Phase 31
+- v9.0 starts at Phase 32
 
 ---
 *Roadmap created: 2026-05-27*
