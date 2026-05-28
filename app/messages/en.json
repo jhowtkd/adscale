@@ -589,7 +589,19 @@
     "resetZoom": "Reset zoom",
     "searchCta": "Search CTA...",
     "results": "results",
-    "clearFilters": "Clear filters"
+    "clearFilters": "Clear filters",
+    "annotate": "Annotate",
+    "annotateTitle": "Annotate: {name}",
+    "annotationsCount": "annotations",
+    "select": "Select",
+    "draw": "Draw",
+    "text": "Text",
+    "circle": "Circle",
+    "rectangle": "Rectangle",
+    "arrow": "Arrow",
+    "clearAll": "Clear all",
+    "confirmClearAnnotations": "Are you sure you want to clear all annotations?",
+    "annotationHint": "Click and drag to draw. Click to add text."
   },
   "plan": {
     "title": "Creative Plan",

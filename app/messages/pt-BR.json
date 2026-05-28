@@ -589,7 +589,19 @@
     "resetZoom": "Resetar zoom",
     "searchCta": "Buscar CTA...",
     "results": "resultados",
-    "clearFilters": "Limpar filtros"
+    "clearFilters": "Limpar filtros",
+    "annotate": "Anotar",
+    "annotateTitle": "Anotar: {name}",
+    "annotationsCount": "anotações",
+    "select": "Selecionar",
+    "draw": "Desenhar",
+    "text": "Texto",
+    "circle": "Círculo",
+    "rectangle": "Retângulo",
+    "arrow": "Seta",
+    "clearAll": "Limpar todas",
+    "confirmClearAnnotations": "Tem certeza que deseja apagar todas as anotações?",
+    "annotationHint": "Clique e arraste para desenhar. Clique para adicionar texto."
   },
   "plan": {
     "title": "Plano Criativo",

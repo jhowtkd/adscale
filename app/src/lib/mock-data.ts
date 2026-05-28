@@ -59,6 +59,32 @@ export interface CreativeScoreBreakdown {
   informationPreservation?: number;
 }
 
+// ============================================
+// Annotations
+// ============================================
+
+export type AnnotationType = "freehand" | "text" | "circle" | "rectangle" | "arrow";
+
+export interface Annotation {
+  id: string;
+  type: AnnotationType;
+  x: number; // normalized 0-1
+  y: number; // normalized 0-1
+  color: string;
+  strokeWidth: number;
+  // freehand
+  path?: string; // SVG path data
+  // text
+  text?: string;
+  fontSize?: number;
+  // shapes
+  width?: number; // normalized 0-1
+  height?: number; // normalized 0-1
+  // arrow
+  endX?: number; // normalized 0-1
+  endY?: number; // normalized 0-1
+}
+
 export interface Derivation {
   id: string;
   campaignId: string;
@@ -85,6 +111,7 @@ export interface Derivation {
   qaSuggestions?: string[] | null;
   qaAnalyzedAt?: Date | null;
   isPreview?: boolean;
+  annotations?: Annotation[];
   createdAt: Date;
   completedAt?: Date;
 }

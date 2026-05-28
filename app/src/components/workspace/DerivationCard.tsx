@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { Eye, Download, RefreshCw, Clock, AlertCircle, Check, X, Package, ShieldCheck, BookmarkPlus, FileText, Users, Scale } from "lucide-react";
+import { Eye, Download, RefreshCw, Clock, AlertCircle, Check, X, Package, ShieldCheck, BookmarkPlus, FileText, Users, Scale, PenTool } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import StatusBadge from "@/components/ui/StatusBadge";
@@ -31,6 +31,7 @@ interface DerivationCardProps {
   onGenerateLandingPage?: () => void;
   onSimulatePersonas?: () => void;
   onCompare?: () => void;
+  onAnnotate?: () => void;
   isCompareMode?: boolean;
   isSelectedForCompare?: boolean;
   qaAnalyzingId?: string | null;
@@ -192,6 +193,7 @@ export default function DerivationCard({
   onGenerateLandingPage,
   onSimulatePersonas,
   onCompare,
+  onAnnotate,
   isCompareMode,
   isSelectedForCompare,
   qaAnalyzingId,
@@ -439,19 +441,29 @@ export default function DerivationCard({
               )}
             </button>
             {isCompleted && (
-              <button
-                onClick={onCompare}
-                aria-label={t("compare")}
-                className={cn(
-                  "p-1.5 rounded-md transition-all duration-150",
-                  isSelectedForCompare
-                    ? "text-[var(--accent-mint)] bg-[var(--accent-mint)]/10"
-                    : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)]"
-                )}
-                title={t("compare")}
-              >
-                <Scale size={16} />
-              </button>
+              <>
+                <button
+                  onClick={onAnnotate}
+                  aria-label={t("annotate")}
+                  className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-all duration-150"
+                  title={t("annotate")}
+                >
+                  <PenTool size={16} />
+                </button>
+                <button
+                  onClick={onCompare}
+                  aria-label={t("compare")}
+                  className={cn(
+                    "p-1.5 rounded-md transition-all duration-150",
+                    isSelectedForCompare
+                      ? "text-[var(--accent-mint)] bg-[var(--accent-mint)]/10"
+                      : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)]"
+                  )}
+                  title={t("compare")}
+                >
+                  <Scale size={16} />
+                </button>
+              </>
             )}
           </div>
         </div>

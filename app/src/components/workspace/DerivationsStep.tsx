@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import EmptyState from "@/components/ui/EmptyState";
 import DerivationCard from "./DerivationCard";
 const DerivationComparisonModal = dynamic(() => import("./DerivationComparisonModal"), { loading: () => null });
+const AnnotationModal = dynamic(() => import("./AnnotationModal"), { loading: () => null });
 import BulkActionsBar from "./BulkActionsBar";
 import { useZipExport } from "@/lib/hooks/use-zip-export";
 import { useShareLink } from "@/lib/hooks/use-share-link";
@@ -130,6 +131,7 @@ export default function DerivationsStep({
   const [isCompareOpen, setIsCompareOpen] = useState(false);
   const [compareMode, setCompareMode] = useState<'idle' | 'selecting' | 'comparing'>('idle');
   const [firstCompareSelection, setFirstCompareSelection] = useState<string | null>(null);
+  const [annotateDerivationId, setAnnotateDerivationId] = useState<string | null>(null);
 
   const isSelectionMode = selectedIds.length > 0;
 
@@ -336,6 +338,14 @@ export default function DerivationsStep({
     setCompareMode('idle');
     setFirstCompareSelection(null);
     setSelectedIds([]);
+  }, []);
+
+  const handleAnnotate = useCallback((id: string) => {
+    setAnnotateDerivationId(id);
+  }, []);
+
+  const handleCloseAnnotation = useCallback(() => {
+    setAnnotateDerivationId(null);
   }, []);
 
   const handleBulkDownloadZip = useCallback(() => {
@@ -675,6 +685,7 @@ export default function DerivationsStep({
                   onGenerateLandingPage={onGenerateLandingPage ? () => onGenerateLandingPage(derivation.id) : undefined}
                   onSimulatePersonas={onSimulatePersonas && derivation.status === "approved" && derivation.outputKey ? () => onSimulatePersonas(derivation.id) : undefined}
                   onCompare={() => handleCompareClick(derivation.id)}
+                  onAnnotate={() => handleAnnotate(derivation.id)}
                   isCompareMode={compareMode !== 'idle'}
                   isSelectedForCompare={firstCompareSelection === derivation.id}
                   qaAnalyzingId={qaAnalyzingId}
@@ -775,6 +786,17 @@ export default function DerivationsStep({
             onReject?.(selectedIds[0]);
             onReject?.(selectedIds[1]);
             handleCloseComparison();
+          }}
+        />
+      )}
+
+      {/* ---- Annotation Modal ---- */}
+      {annotateDerivationId && (
+        <AnnotationModal
+          derivation={filteredDerivations.find((d) => d.id === annotateDerivationId)!}
+          open={!!annotateDerivationId}
+          onOpenChange={(open) => {
+            if (!open) handleCloseAnnotation();
           }}
         />
       )}
