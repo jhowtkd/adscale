@@ -42,10 +42,10 @@ const nextConfig: NextConfig = {
             value: [
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-              "style-src 'self' 'unsafe-inline'",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "img-src 'self' blob: data: https:",
-              "font-src 'self'",
-              "connect-src 'self' https://*.sentry.io https://api.stripe.com",
+              "font-src 'self' https://fonts.gstatic.com",
+              "connect-src 'self' https://*.sentry.io https://api.stripe.com https://fonts.googleapis.com",
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'",
