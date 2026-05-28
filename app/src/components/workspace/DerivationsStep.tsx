@@ -317,18 +317,22 @@ export default function DerivationsStep({
 
   const handleCompareClick = useCallback((id: string) => {
     if (compareMode === 'idle') {
+      // Start selection mode with this card
       setCompareMode('selecting');
       setFirstCompareSelection(id);
+      setSelectedIds([id]);
     } else if (compareMode === 'selecting') {
       if (id === firstCompareSelection) {
         // Cancel if clicking the same card
         setCompareMode('idle');
         setFirstCompareSelection(null);
+        setSelectedIds([]);
       } else {
-        // Open comparison
-        setSelectedIds([firstCompareSelection!, id]);
-        setCompareMode('comparing');
-        setIsCompareOpen(true);
+        // Add to selection
+        setSelectedIds((prev) => {
+          const next = [...prev, id];
+          return next;
+        });
       }
     }
   }, [compareMode, firstCompareSelection]);
@@ -337,7 +341,6 @@ export default function DerivationsStep({
     setIsCompareOpen(false);
     setCompareMode('idle');
     setFirstCompareSelection(null);
-    setSelectedIds([]);
   }, []);
 
   const handleAnnotate = useCallback((id: string) => {
@@ -432,12 +435,15 @@ export default function DerivationsStep({
                   >
                     {t("clearSelection")}
                   </button>
-                  {selectedIds.length === 2 && (
+                  {selectedIds.length >= 2 && (
                     <button
-                      onClick={() => setIsCompareOpen(true)}
+                      onClick={() => {
+                        setCompareMode('comparing');
+                        setIsCompareOpen(true);
+                      }}
                       className="text-xs font-medium text-[var(--accent-blue)] hover:text-[var(--accent-blue-light)] transition-colors"
                     >
-                      {t("compare")}
+                      {t("compareCount", { count: selectedIds.length })}
                     </button>
                   )}
                 </>
@@ -687,7 +693,7 @@ export default function DerivationsStep({
                   onCompare={() => handleCompareClick(derivation.id)}
                   onAnnotate={() => handleAnnotate(derivation.id)}
                   isCompareMode={compareMode !== 'idle'}
-                  isSelectedForCompare={firstCompareSelection === derivation.id}
+                  isSelectedForCompare={selectedIds.includes(derivation.id)}
                   qaAnalyzingId={qaAnalyzingId}
                   isSavingReference={savingReferenceId === derivation.id}
                   isApproving={approvingId === derivation.id}
@@ -766,26 +772,28 @@ export default function DerivationsStep({
       )}
 
       {/* ---- Comparison Modal ---- */}
-      {selectedIds.length === 2 && (
+      {selectedIds.length >= 2 && isCompareOpen && (
         <DerivationComparisonModal
-          derivationA={filteredDerivations.find((d) => d.id === selectedIds[0])!}
-          derivationB={filteredDerivations.find((d) => d.id === selectedIds[1])!}
+          derivations={filteredDerivations.filter((d) => selectedIds.includes(d.id))}
           open={isCompareOpen}
           onOpenChange={(open) => {
             if (!open) handleCloseComparison();
           }}
-          onApproveA={() => {
-            onApprove?.(selectedIds[0]);
-            handleCloseComparison();
+          onApprove={(id) => {
+            onApprove?.(id);
           }}
-          onApproveB={() => {
-            onApprove?.(selectedIds[1]);
-            handleCloseComparison();
+          onReject={(id) => {
+            onReject?.(id);
           }}
-          onRejectBoth={() => {
-            onReject?.(selectedIds[0]);
-            onReject?.(selectedIds[1]);
-            handleCloseComparison();
+          onRemove={(id) => {
+            setSelectedIds((prev) => {
+              const next = prev.filter((x) => x !== id);
+              if (next.length < 2) {
+                setIsCompareOpen(false);
+                setCompareMode('idle');
+              }
+              return next;
+            });
           }}
         />
       )}
