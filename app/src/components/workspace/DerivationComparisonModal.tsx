@@ -10,9 +10,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Plus, Minus, Maximize2, X } from "lucide-react";
+import { Plus, Minus, Maximize2, X, Columns2, FlipHorizontal } from "lucide-react";
 import type { Derivation } from "@/lib/mock-data";
 import { platformColors } from "@/lib/mock-data";
+import BeforeAfterSlider from "./BeforeAfterSlider";
 
 // ============================================
 // Types
@@ -361,6 +362,9 @@ function ComparisonColumn({
 // Main Component
 // ============================================
 
+type ViewMode = "grid" | "slider";
+type SliderDirection = "horizontal" | "vertical";
+
 export default function DerivationComparisonModal({
   derivations,
   open,
@@ -371,6 +375,10 @@ export default function DerivationComparisonModal({
 }: DerivationComparisonModalProps) {
   const t = useTranslations("derivation");
   const [zooms, setZooms] = useState<Record<string, ZoomState>>({});
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [sliderDirection, setSliderDirection] = useState<SliderDirection>("horizontal");
+
+  const isExactlyTwo = derivations.length === 2;
 
   // Initialize zoom states for new derivations
   useEffect(() => {
@@ -405,25 +413,94 @@ export default function DerivationComparisonModal({
             <DialogTitle className="text-base font-semibold text-[var(--text-primary)]">
               {t("compareTitle")} ({derivations.length})
             </DialogTitle>
+
+            {/* View mode toggle (only for 2 items) */}
+            {isExactlyTwo && (
+              <div className="flex items-center gap-2">
+                <div className="flex items-center bg-[var(--surface-raised)] rounded-md border border-[var(--border-dim)]">
+                  <button
+                    onClick={() => setViewMode("grid")}
+                    className={cn(
+                      "p-2 rounded-md transition-all duration-150",
+                      viewMode === "grid"
+                        ? "bg-[var(--accent-mint)]/10 text-[var(--accent-mint)]"
+                        : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                    )}
+                    title={t("gridView")}
+                  >
+                    <Columns2 size={16} />
+                  </button>
+                  <button
+                    onClick={() => setViewMode("slider")}
+                    className={cn(
+                      "p-2 rounded-md transition-all duration-150",
+                      viewMode === "slider"
+                        ? "bg-[var(--accent-mint)]/10 text-[var(--accent-mint)]"
+                        : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                    )}
+                    title={t("sliderView")}
+                  >
+                    <FlipHorizontal size={16} />
+                  </button>
+                </div>
+
+                {viewMode === "slider" && (
+                  <div className="flex items-center bg-[var(--surface-raised)] rounded-md border border-[var(--border-dim)]">
+                    <button
+                      onClick={() => setSliderDirection("horizontal")}
+                      className={cn(
+                        "p-2 rounded-md transition-all duration-150",
+                        sliderDirection === "horizontal"
+                          ? "bg-[var(--accent-mint)]/10 text-[var(--accent-mint)]"
+                          : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                      )}
+                      title={t("horizontal")}
+                    >
+                      <FlipHorizontal size={16} className="rotate-90" />
+                    </button>
+                    <button
+                      onClick={() => setSliderDirection("vertical")}
+                      className={cn(
+                        "p-2 rounded-md transition-all duration-150",
+                        sliderDirection === "vertical"
+                          ? "bg-[var(--accent-mint)]/10 text-[var(--accent-mint)]"
+                          : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                      )}
+                      title={t("vertical")}
+                    >
+                      <FlipHorizontal size={16} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </DialogHeader>
 
         <div className="px-6 py-4 overflow-y-auto">
-          <div className={cn("grid gap-4", gridCols)}>
-            {derivations.map((derivation, i) => (
-              <ComparisonColumn
-                key={derivation.id}
-                derivation={derivation}
-                index={i}
-                t={t}
-                zoom={zooms[derivation.id] ?? { scale: 1, translateX: 0, translateY: 0 }}
-                onZoomChange={(zoom) => handleZoomChange(derivation.id, zoom)}
-                onApprove={onApprove ? () => onApprove(derivation.id) : undefined}
-                onReject={onReject ? () => onReject(derivation.id) : undefined}
-                onRemove={onRemove ? () => onRemove(derivation.id) : undefined}
-              />
-            ))}
-          </div>
+          {isExactlyTwo && viewMode === "slider" ? (
+            <BeforeAfterSlider
+              derivationA={derivations[0]}
+              derivationB={derivations[1]}
+              direction={sliderDirection}
+            />
+          ) : (
+            <div className={cn("grid gap-4", gridCols)}>
+              {derivations.map((derivation, i) => (
+                <ComparisonColumn
+                  key={derivation.id}
+                  derivation={derivation}
+                  index={i}
+                  t={t}
+                  zoom={zooms[derivation.id] ?? { scale: 1, translateX: 0, translateY: 0 }}
+                  onZoomChange={(zoom) => handleZoomChange(derivation.id, zoom)}
+                  onApprove={onApprove ? () => onApprove(derivation.id) : undefined}
+                  onReject={onReject ? () => onReject(derivation.id) : undefined}
+                  onRemove={onRemove ? () => onRemove(derivation.id) : undefined}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
