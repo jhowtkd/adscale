@@ -17,7 +17,7 @@ import { extractBrandKitFromImage } from "@/server/ai/brand-kit-extractor";
 import { env } from "@/server/validation/env";
 import OpenAI from "openai";
 import { buildDerivationPrompt } from "@/server/ai/prompt-builder";
-import { getCachedAnalysis, invalidateCache } from "@/server/ai/analysis-cache";
+import { getCachedAnalysis } from "@/server/ai/analysis-cache";
 
 // ── Paths ───────────────────────────────────────────────────────────────
 
@@ -39,7 +39,7 @@ function getImageFiles(dir: string): string[] {
 async function getImageMeta(filePath: string) {
   const buffer = fs.readFileSync(filePath);
   const metadata = await sharp(buffer).metadata();
-  const stats = await sharp(buffer).stats();
+  await sharp(buffer).stats();
 
   // Extract dominant colors by resizing to 1x1 and getting pixel
   const dominant = await sharp(buffer).resize(1, 1).raw().toBuffer();
@@ -73,9 +73,7 @@ function loadImageBuffer(filePath: string): Buffer {
   return fs.readFileSync(filePath);
 }
 
-function fileToBase64(filePath: string): string {
-  return fs.readFileSync(filePath).toString("base64");
-}
+
 
 function escapeHtml(str: string): string {
   return str

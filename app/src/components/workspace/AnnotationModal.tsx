@@ -17,7 +17,6 @@ import {
   ArrowRight,
   MousePointer,
   Trash2,
-  X,
   Minus,
   Plus,
 } from "lucide-react";

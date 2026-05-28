@@ -194,7 +194,6 @@ export default function DerivationCard({
   onSimulatePersonas,
   onCompare,
   onAnnotate,
-  isCompareMode,
   isSelectedForCompare,
   qaAnalyzingId,
   isSavingReference,

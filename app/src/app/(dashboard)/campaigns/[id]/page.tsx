@@ -98,7 +98,6 @@ export default function CampaignWorkspacePage() {
     handleGenerateDerivations,
     handleContinueToPlan,
     handleSkipPlan,
-    handleGeneratePreview,
     handleApprovePlanAndGenerate,
     handleGenerateLandingPage,
     handleSaveAsReference,

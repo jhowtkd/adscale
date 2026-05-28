@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import { useTranslations } from "next-intl";
-import { Search, Upload, ImageIcon, Trash2, Tag, X } from "lucide-react";
+import { Search, Upload, ImageIcon, Trash2, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -10,7 +10,6 @@ import {
   useDeleteWorkspaceAsset,
   type WorkspaceAsset,
 } from "@/lib/hooks/use-workspace-assets";
-import { apiFetch } from "@/lib/api-client";
 import { useQueryClient } from "@tanstack/react-query";
 
 export default function LibraryPage() {

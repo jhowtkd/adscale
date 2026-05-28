@@ -21,7 +21,7 @@ export function CreativeUploadWithAnalysis({
   const tCommon = useTranslations("common");
   
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  const [, setUploadProgress] = useState(0);
   
   const uploadAsset = useUploadAsset(campaignId);
   const { analyze, isAnalyzing, analysisResult, analysisError } = useCreativeAnalysis(campaignId);

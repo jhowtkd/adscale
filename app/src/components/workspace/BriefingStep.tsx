@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { Sparkles, Check, X, Plus, ImageOff, ScanLine, Upload } from "lucide-react";
-import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { useState, useEffect, useCallback } from "react";
+import { Sparkles, Check, X, Plus, ImageOff, ScanLine } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
@@ -31,7 +30,7 @@ import {
   useClientReferences,
 } from "@/lib/hooks/use-client-profiles";
 import { useBrandKit } from "@/lib/hooks/use-brand-kit";
-import { useCampaignAssets, useUploadAsset, type AssetWithUrl } from "@/lib/hooks/use-assets";
+import { useCampaignAssets } from "@/lib/hooks/use-assets";
 import dynamic from "next/dynamic";
 
 const CompetitorAnalysisSection = dynamic(() => import("@/components/campaigns/CompetitorAnalysisSection"), {
@@ -51,7 +50,6 @@ const AutoBriefingModal = dynamic(() => import("./AutoBriefingModal"), {
 import PreflightSummary from "./PreflightSummary";
 import CreativeDiagnosisCard from "./CreativeDiagnosisCard";
 import BriefingRestoreBanner from "./BriefingRestoreBanner";
-import { OptimizedImage } from "@/components/ui/OptimizedImage";
 import { CreativeUploadWithAnalysis } from "@/components/campaigns/CreativeUploadWithAnalysis";
 import { AIDeducedFieldsEditor } from "@/components/campaigns/AIDeducedFieldsEditor";
 import type { AiDeducedFields } from "@/server/validation/ai-deduction";
@@ -113,11 +111,9 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
 
   // AI-deduced fields from creative analysis
   const [aiDeducedFields, setAiDeducedFields] = useState<AiDeducedFields | null>(null);
-  const [hasUserEdits, setHasUserEdits] = useState(false);
 
   const handleAnalysisComplete = useCallback((analysis: AiDeducedFields) => {
     setAiDeducedFields(analysis);
-    setHasUserEdits(false);
     
     // Auto-fill form fields with AI-deduced values (only if field is empty)
     setFormData((prev) => {
@@ -142,7 +138,6 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
   }, []);
 
   const handleAiFieldsChange = useCallback((fields: Partial<Record<string, string>>) => {
-    setHasUserEdits(true);
     setFormData((prev) => {
       const next = { ...prev };
       if (fields.objective !== undefined) next.objective = fields.objective;
@@ -159,7 +154,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
   const generateDiagnosis = useGenerateCreativeDiagnosis(campaign?.id ?? "");
   const updateDiagnosis = useUpdateCreativeDiagnosis(campaign?.id ?? "");
   const regenerateDiagnosis = useRegenerateCreativeDiagnosis(campaign?.id ?? "");
-  const { data: diagnosisAssets = [], isLoading: diagnosisAssetsLoading } = useCampaignAssets(campaign?.id ?? "new");
+  const { data: diagnosisAssets = [] } = useCampaignAssets(campaign?.id ?? "new");
   const hasDiagnosisAsset = diagnosisAssets.length > 0;
 
   const { data: clientProfilesData } = useClientProfiles();
@@ -876,106 +871,6 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
           {tBriefing("saveContinue")}
         </button>
       </div>
-    </div>
-  );
-}
-
-interface BaseCreativeUploadCardProps {
-  campaignId: string;
-  assets: AssetWithUrl[];
-  isLoading: boolean;
-  tBriefing: (key: string, values?: Record<string, string | number | Date>) => string;
-}
-
-function BaseCreativeUploadCard({ campaignId, assets, isLoading, tBriefing }: BaseCreativeUploadCardProps) {
-  const inputRef = useRef<HTMLInputElement | null>(null);
-  const uploadAsset = useUploadAsset(campaignId);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const firstAsset = assets[0] ?? null;
-  const isUploading = uploadAsset.isPending;
-
-  const handleFile = async (file: File | undefined) => {
-    if (!file) return;
-    setUploadError(null);
-    setUploadProgress(0);
-
-    try {
-      await uploadAsset.mutateAsync({
-        file,
-        onProgress: (progress) => setUploadProgress(progress),
-      });
-      setUploadProgress(100);
-    } catch {
-      setUploadError(tBriefing("diagnosis.baseCreativeUploadFailed"));
-    } finally {
-      if (inputRef.current) {
-        inputRef.current.value = "";
-      }
-    }
-  };
-
-  return (
-    <div className="rounded-lg border border-[var(--accent-mint)]/30 bg-[var(--accent-mint)]/[0.04] p-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-[var(--accent-mint)]/25 bg-[var(--accent-mint)]/10 text-[var(--accent-mint)]">
-            {firstAsset ? <Check size={18} /> : <ImageOff size={18} />}
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <p className="text-sm font-semibold text-[var(--text-primary)]">
-                {tBriefing("diagnosis.baseCreativeTitle")}
-              </p>
-              <InfoTooltip text="Upload da imagem base que será usada para criar variações. A IA analisa a imagem para sugerir campos do brief." />
-            </div>
-            <p className="mt-0.5 text-xs leading-relaxed text-[var(--text-secondary)]">
-              {firstAsset
-                ? tBriefing("diagnosis.baseCreativeReady")
-                : tBriefing("diagnosis.baseCreativeHelp")}
-            </p>
-            {uploadError && (
-              <p className="mt-1 text-xs text-[var(--accent-rose)]">{uploadError}</p>
-            )}
-          </div>
-        </div>
-
-        <div className="flex shrink-0 items-center gap-2">
-          {firstAsset?.url && (
-            <OptimizedImage
-              src={firstAsset.url}
-              alt=""
-              className="h-11 w-11 rounded-md border border-[var(--border-dim)] object-cover"
-              lazy={false}
-            />
-          )}
-          <input
-            ref={inputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(event) => void handleFile(event.target.files?.[0])}
-          />
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            disabled={isLoading || isUploading}
-            className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--accent-mint)]/40 bg-[var(--surface-base)] px-3 text-xs font-medium text-[var(--text-primary)] transition hover:bg-[var(--surface-raised)] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <Upload size={13} />
-            {firstAsset ? tBriefing("diagnosis.replaceBaseCreative") : tBriefing("diagnosis.uploadBaseCreative")}
-          </button>
-        </div>
-      </div>
-
-      {isUploading && (
-        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[var(--surface-raised)]">
-          <div
-            className="h-full rounded-full bg-[var(--accent-mint)] transition-all"
-            style={{ width: `${Math.max(8, uploadProgress)}%` }}
-          />
-        </div>
-      )}
     </div>
   );
 }

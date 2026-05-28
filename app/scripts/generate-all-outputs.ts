@@ -303,7 +303,7 @@ async function main() {
 function generateIndexHtml(
   results: GenerationResult[],
   adFiles: string[],
-  refFiles: string[]
+  _refFiles: string[]
 ) {
   function fileToDataUri(filePath: string): string {
     const buffer = fs.readFileSync(filePath);

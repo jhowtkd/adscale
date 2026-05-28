@@ -42,11 +42,6 @@ export default function PlanStep({
     });
   };
 
-  const handleReject = () => {
-    if (!plan) return;
-    updatePlanStatus.mutate("rejected");
-  };
-
   const handleRegenerate = () => {
     generatePlan.mutate();
   };

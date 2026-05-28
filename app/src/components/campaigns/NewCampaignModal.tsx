@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useClientProfiles } from "@/lib/hooks/use-client-profiles";
 import { useTemplates } from "@/lib/hooks/use-templates";
-import { ChevronDown, Upload, X, FileText } from "lucide-react";
+import { ChevronDown, Upload, X } from "lucide-react";
 
 // ============================================
 // Types
