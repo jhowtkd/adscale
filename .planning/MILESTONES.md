@@ -106,17 +106,31 @@
 
 ---
 
-## Active Milestone
+### v9.0 — Galeria de Revisão v2 ✅
+**Shipped:** 2026-05-28
+**Phases:** 3 (32→34)
+**Requirements:** 14/14 complete
 
-### v9.0 — Galeria de Revisão v2 (In Progress)
-**Started:** 2026-05-27
-**Goal:** Evoluir a galeria de revisão com anotações visuais, comparação de múltiplas derivações e slider interativo.
-
-**Phases:**
-- Phase 32: Anotações Visuais
-- Phase 33: Comparação 3+ Derivações
-- Phase 34: Slider Antes/Depois
+**Delivered:**
+- Anotações visuais: desenho livre, textos, formas (círculo, retângulo, seta) em canvas
+- Toolbar de anotações com seletor de cores, espessura e tamanho de fonte
+- Persistência de anotações no localStorage por derivação
+- Comparação de 3+ derivações em grid adaptativo (2→4 colunas)
+- Zoom/pan independente em cada célula do grid de comparação
+- Remoção individual de derivações do grid
+- Slider antes/depois com divisão arrastável (horizontal/vertical)
+- Toggle entre grid view e slider view quando comparando 2 derivações
 
 ---
 
-*Last updated: 2026-05-27*
+## Active Milestone
+
+### v10.0 — ??? (Planning)
+**Status:** Waiting for requirements
+**Goal:** TBD
+
+**Next step:** Define v10.0 scope and requirements
+
+---
+
+*Last updated: 2026-05-28*
