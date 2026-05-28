@@ -103,7 +103,14 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ### Active
 
-(None — all v6.0 requirements shipped; ready for v7.0 planning)
+- **UI-01**: Interface visual refinada com atenção a detalhes, espaçamento e consistência
+- **UI-02**: Microanimações em interações (hover, transições, loading states, modais)
+- **UI-03**: Layout responsivo para mobile e tablet (sidebar, galeria, formulários)
+- **UI-04**: Componentes polish (cards, botões, inputs, badges com estados refinados)
+- **UI-05**: Empty states e error states com ilustrações e copy contextual
+- **UI-06**: Scroll behaviors e transições de página suaves
+- **UI-07**: Focus states e acessibilidade de navegação por teclado
+- **UI-08**: Skeleton loading refinado e shimmer effects
 
 ### Out of Scope
 
@@ -228,14 +235,26 @@ This document evolves at phase transitions and milestone boundaries.
 - Batch approve/reject com master checkbox
 - Phases 29–31 archived
 
-## Current Milestone: v9.0 Galeria de Revisão v2
+### v9.0 Galeria de Revisão v2 ✅
+- Anotações visuais (freehand, text, shapes) em canvas
+- Toolbar de anotações com cores, espessura e tamanho de fonte
+- Persistência de anotações no localStorage
+- Comparação de 3+ derivações em grid adaptativo
+- Zoom/pan independente em cada célula
+- Slider antes/depois com divisão arrastável
+- Toggle entre grid view e slider view
+- Phases 32–34 archived
 
-**Goal:** Evoluir a galeria de revisão com anotações visuais, comparação de múltiplas derivações e slider interativo.
+## Current Milestone: v10.0 Refinamento de Interface
+
+**Goal:** Revisão geral da interface do app focada em deixá-lo mais refinado, com microanimações e responsivo.
 
 **Target features:**
-- **Anotações visuais:** Desenhar, adicionar textos e marcas em cima das imagens de derivação
-- **Comparação 3+:** Visualizar 3, 4 ou mais derivações simultaneamente em grid
-- **Slider antes/depois:** Comparar duas derivações com slider de divisão arrastável
+- **Refinamento visual:** Atenção a detalhes, espaçamento, consistência e componentes polish
+- **Microanimações:** Hover states, transições, loading states, modais, toast notifications
+- **Responsividade:** Layout adaptativo para mobile e tablet (sidebar, galeria, formulários)
+- **Estados refinados:** Empty states, error states, skeleton loading com shimmer
+- **Acessibilidade:** Focus states, navegação por teclado, scroll behaviors suaves
 
 ---
-*Last updated: 2026-05-27 after starting v9.0 milestone*
+*Last updated: 2026-05-28 after starting v10.0 milestone*
