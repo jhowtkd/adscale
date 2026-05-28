@@ -1,75 +1,112 @@
-# Roadmap: ADScale v9.0 — Galeria de Revisão v2
+# Roadmap: ADScale v10.0 — Refinamento de Interface
 
 ## Overview
 
 | # | Phase | Goal | Requirements | Success Criteria |
 |---|-------|------|--------------|------------------|
-| 32 | Anotações Visuais | Permitir desenhar e adicionar notas em derivações | ANOT-01..05 | 5 |
-| 33 | Comparação 3+ Derivações | Comparar múltiplas derivações em grid adaptativo | MULTI-01..05 | 5 |
-| 34 | Slider Antes/Depois | Comparar duas derivações com slider de divisão | SLIDER-01..04 | 4 |
+| 35 | Animation Foundation | Establish shared animation primitives and hooks | ANIM-01, ANIM-04, ANIM-05, A11Y-03, A11Y-04 | 5 |
+| 36 | Core Component Polish | Apply animations to Button, Card, Input, Badge | COMP-01..04 | 4 |
+| 37 | Layout Responsive | Responsive AppShell, sidebar, grids, smooth scroll | RESP-01..04, A11Y-05 | 5 |
+| 38 | Feature Components | Gallery responsive, touch gestures, modals, stagger | RESP-05, ANIM-02, ANIM-03 | 4 |
+| 39 | States & Accessibility | Empty/error states, final a11y verification | A11Y-01, A11Y-02 | 4 |
 
-**14 requirements** | **3 phases** | All covered ✓
-
----
-
-## Phase 32: Anotações Visuais
-
-**Goal:** Permitir que usuários desenhem, adicionem textos e formas em cima das imagens de derivação.
-
-**Requirements:** ANOT-01, ANOT-02, ANOT-03, ANOT-04, ANOT-05
-
-**Success Criteria:**
-1. Usuário pode desenhar livremente na imagem com mouse/touch
-2. Usuário pode adicionar textos em posições específicas
-3. Usuário pode adicionar formas (círculo, retângulo, seta)
-4. Anotações persistem no banco de dados por derivação
-5. Usuário pode apagar anotações individuais ou limpar todas
-6. Toolbar de ferramentas de anotação visível no modo de edição
-
-**Depends on:** Phase 31 (Batch Approve/Reject — concluído)
+**19 requirements** | **5 phases** | All covered ✓
 
 ---
 
-## Phase 33: Comparação 3+ Derivações
+## Phase 35: Animation Foundation
 
-**Goal:** Permitir comparação de 3, 4 ou mais derivações simultaneamente em grid adaptativo.
+**Goal:** Establish shared animation primitives, hooks, and CSS foundations that all subsequent UI work depends on.
 
-**Requirements:** MULTI-01, MULTI-02, MULTI-03, MULTI-04, MULTI-05
+**Requirements:** ANIM-01, ANIM-04, ANIM-05, A11Y-03, A11Y-04
 
 **Success Criteria:**
-1. Usuário pode selecionar mais de 2 derivações para comparar
-2. Grid adaptativo: 2 colunas (3-4 itens), 3 colunas (5-9 itens), etc.
-3. Cada célula tem zoom/pan independente
-4. Usuário pode remover uma derivação do grid
-5. Metadados visíveis em cada célula
-6. Botão "Adicionar mais" para incluir derivações ao grid existente
+1. User hovers over any button and sees a smooth color/opacity transition within 150ms
+2. User focuses any input via keyboard and sees a visible focus ring with smooth transition
+3. User toggles system "Reduce motion" preference and all animations disable instantly
+4. User sees skeleton screens with shimmer effect instead of spinners when data loads
+5. User triggers a toast notification and sees smooth slide-in/slide-out animation
 
-**Depends on:** Phase 32
+**Depends on:** Phase 34 (Slider Antes/Depois — concluído)
+
+**Spike:** None (Framer Motion patterns well-documented, 166+ refs in codebase)
 
 ---
 
-## Phase 34: Slider Antes/Depois
+## Phase 36: Core Component Polish
 
-**Goal:** Permitir comparação de duas derivações com slider de divisão arrastável.
+**Goal:** Apply animation primitives to the most-used components (Button, Card, Input, Badge) for immediate user-visible impact.
 
-**Requirements:** SLIDER-01, SLIDER-02, SLIDER-03, SLIDER-04
+**Requirements:** COMP-01, COMP-02, COMP-03, COMP-04
 
 **Success Criteria:**
-1. Slider vertical ou horizontal divide a imagem em duas partes
-2. Handle arrastável move a divisão
-3. Ambos os lados mantêm aspect ratio e posição sincronizada
-4. Toggle para alternar entre modo slider e modo split-pane
-5. Zoom sincronizado em ambos os lados
+1. User hovers over a campaign card and it lifts with enhanced shadow (translateY -2px, shadow-lg)
+2. User clicks a button and sees active scale down to 0.97 with smooth spring
+3. User focuses an input and border color transitions smoothly with subtle shadow glow
+4. User sees badge color transition smoothly when derivation status changes
 
-**Depends on:** Phase 33
+**Depends on:** Phase 35
+
+---
+
+## Phase 37: Layout Responsive
+
+**Goal:** Make AppShell, sidebar, grids, and forms responsive with mobile-first breakpoints.
+
+**Requirements:** RESP-01, RESP-02, RESP-03, RESP-04, A11Y-05
+
+**Success Criteria:**
+1. User opens app on 375px width and sidebar collapses to hamburger menu drawer
+2. User resizes browser and campaign grid smoothly transitions from 1→2→3→4 columns
+3. User views campaign form on mobile and fields stack vertically in single column
+4. User scrolls down on mobile and TopBar smoothly hides; scrolls up and it reappears
+5. User clicks nav link and page smoothly scrolls to section with eased animation
+
+**Depends on:** Phase 36
+
+**Spike:** Canvas annotation coordinate scaling on responsive resize (non-trivial math problem)
+
+---
+
+## Phase 38: Feature Components
+
+**Goal:** Adapt feature-specific components (gallery, comparison, modals) to be responsive and animated.
+
+**Requirements:** RESP-05, ANIM-02, ANIM-03
+
+**Success Criteria:**
+1. User opens modal/dialog and content fades in with scale from 0.95→1 over 200ms
+2. User loads gallery page and cards enter with staggered fade-in (50ms delay each)
+3. User swipes left/right on mobile gallery to navigate between derivation views
+4. User pinches to zoom on mobile comparison view
+
+**Depends on:** Phase 37
+
+**Spike:** Mobile touch interaction for comparison view (may require gesture library research)
+
+---
+
+## Phase 39: States & Accessibility
+
+**Goal:** Final polish pass on empty/error states, focus management, reduced motion support, and full test verification.
+
+**Requirements:** A11Y-01, A11Y-02
+
+**Success Criteria:**
+1. User visits empty campaign list and sees contextual illustration with "No campaigns yet" copy
+2. User encounters form validation error and sees input shake with red border and helpful message
+3. User visits empty derivation gallery and sees illustration with "No derivations yet" copy
+4. User navigates entire app via keyboard and every interactive element shows visible focus state
+
+**Depends on:** Phase 38
 
 ---
 
 ## Archive Notes
 
-- Previous roadmap: `.planning/milestones/v8.0-ROADMAP.md`
-- v8.0 ended at Phase 31
-- v9.0 starts at Phase 32
+- Previous roadmap: `.planning/milestones/v9.0-ROADMAP.md`
+- v9.0 ended at Phase 34
+- v10.0 starts at Phase 35
 
 ---
-*Roadmap created: 2026-05-27*
+*Roadmap created: 2026-05-28*

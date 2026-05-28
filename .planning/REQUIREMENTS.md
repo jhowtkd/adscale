@@ -58,30 +58,30 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ANIM-01 | TBD | Pending |
-| ANIM-02 | TBD | Pending |
-| ANIM-03 | TBD | Pending |
-| ANIM-04 | TBD | Pending |
-| ANIM-05 | TBD | Pending |
-| RESP-01 | TBD | Pending |
-| RESP-02 | TBD | Pending |
-| RESP-03 | TBD | Pending |
-| RESP-04 | TBD | Pending |
-| RESP-05 | TBD | Pending |
-| COMP-01 | TBD | Pending |
-| COMP-02 | TBD | Pending |
-| COMP-03 | TBD | Pending |
-| COMP-04 | TBD | Pending |
-| A11Y-01 | TBD | Pending |
-| A11Y-02 | TBD | Pending |
-| A11Y-03 | TBD | Pending |
-| A11Y-04 | TBD | Pending |
-| A11Y-05 | TBD | Pending |
+| ANIM-01 | 35 | Planned |
+| ANIM-02 | 38 | Planned |
+| ANIM-03 | 38 | Planned |
+| ANIM-04 | 35 | Planned |
+| ANIM-05 | 35 | Planned |
+| RESP-01 | 37 | Planned |
+| RESP-02 | 37 | Planned |
+| RESP-03 | 37 | Planned |
+| RESP-04 | 37 | Planned |
+| RESP-05 | 38 | Planned |
+| COMP-01 | 36 | Planned |
+| COMP-02 | 36 | Planned |
+| COMP-03 | 36 | Planned |
+| COMP-04 | 36 | Planned |
+| A11Y-01 | 39 | Planned |
+| A11Y-02 | 39 | Planned |
+| A11Y-03 | 35 | Planned |
+| A11Y-04 | 35 | Planned |
+| A11Y-05 | 37 | Planned |
 
 **Coverage:**
 - v10.0 requirements: 19 total
-- Mapped to phases: 0 (será preenchido pelo roadmap)
-- Unmapped: 19
+- Mapped to phases: 19 (100%)
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-05-28*

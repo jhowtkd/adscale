@@ -4,9 +4,9 @@ milestone: v10.0
 milestone_name: Refinamento de Interface
 status: planning
 last_updated: "2026-05-28T00:00:00.000Z"
-last_activity: 2026-05-28 — Milestone v10.0 started
+last_activity: 2026-05-28 — Milestone v10.0 roadmap created (phases 35-39)
 progress:
-  total_phases: 0
+  total_phases: 5
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -17,10 +17,10 @@ progress:
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: Not started (roadmap defined)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-05-28 — Milestone v10.0 started
+Status: Roadmap created, ready to begin Phase 35
+Last activity: 2026-05-28 — Milestone v10.0 roadmap created with 5 phases (35-39)
 
 ## Accumulated Context
 
@@ -36,6 +36,22 @@ Last activity: 2026-05-28 — Milestone v10.0 started
 - 448 tests passing, build clean
 - Bundle: ~2.4MB total chunks
 - Tech debt: minimal (24 pre-existing ESLint warnings)
+
+## v10.0 Roadmap Summary
+
+| Phase | Name | Requirements | Status |
+|-------|------|--------------|--------|
+| 35 | Animation Foundation | ANIM-01, ANIM-04, ANIM-05, A11Y-03, A11Y-04 | Planned |
+| 36 | Core Component Polish | COMP-01, COMP-02, COMP-03, COMP-04 | Planned |
+| 37 | Layout Responsive | RESP-01, RESP-02, RESP-03, RESP-04, A11Y-05 | Planned |
+| 38 | Feature Components | RESP-05, ANIM-02, ANIM-03 | Planned |
+| 39 | States & Accessibility | A11Y-01, A11Y-02 | Planned |
+
+**Constraints:**
+- Bundle size must not inflate beyond current ~2.4MB
+- All 448 tests must continue passing
+- Canvas annotation responsive scaling needs spike in Phase 37
+- Mobile touch interaction for comparison view may need spike in Phase 38
 
 ## Completed Milestones
 
@@ -53,13 +69,13 @@ Last activity: 2026-05-28 — Milestone v10.0 started
 
 ## Next Steps
 
-1. Define v10.0 requirements
-2. Create v10.0 roadmap
-3. Begin Phase 35
+1. Begin Phase 35: Animation Foundation
+2. Create PLAN.md for Phase 35
+3. Execute Phase 35
 
 ## Project Reference
 
 See: .planning/PROJECT.md
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
-**Current focus:** Defining v10.0 requirements
+**Current focus:** v10.0 UI refinement — animations, responsive design, component polish, accessibility
