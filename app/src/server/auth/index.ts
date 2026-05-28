@@ -26,7 +26,7 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     autoSignIn: true,
-    requireEmailVerification: true,
+    requireEmailVerification: process.env.NODE_ENV === "production",
     revokeSessionsOnPasswordReset: true,
     sendResetPassword: async ({ user, url }) => {
       await sendPasswordResetMessage({ to: user.email, url });
