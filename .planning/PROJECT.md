@@ -103,14 +103,29 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ### Active
 
-- **UI-01**: Interface visual refinada com atenção a detalhes, espaçamento e consistência
-- **UI-02**: Microanimações em interações (hover, transições, loading states, modais)
-- **UI-03**: Layout responsivo para mobile e tablet (sidebar, galeria, formulários)
-- **UI-04**: Componentes polish (cards, botões, inputs, badges com estados refinados)
-- **UI-05**: Empty states e error states com ilustrações e copy contextual
-- **UI-06**: Scroll behaviors e transições de página suaves
-- **UI-07**: Focus states e acessibilidade de navegação por teclado
-- **UI-08**: Skeleton loading refinado e shimmer effects
+(None — all v10.0 requirements shipped; ready for v11.0 planning)
+
+### Validated (v10.0)
+
+- ✓ **ANIM-01**: Hover/focus states com transições suaves em todos elementos interativos — v10.0
+- ✓ **ANIM-02**: Modais/diálogos com animações de enter/exit — v10.0
+- ✓ **ANIM-03**: Stagger animations em listas e galerias — v10.0
+- ✓ **ANIM-04**: Skeleton loading com shimmer effect — v10.0
+- ✓ **ANIM-05**: Toast notifications com animações suaves — v10.0
+- ✓ **RESP-01**: Sidebar colapsa em drawer em mobile — v10.0
+- ✓ **RESP-02**: Grids adaptativos conforme breakpoint — v10.0
+- ✓ **RESP-03**: Formulários empilhados em mobile — v10.0
+- ✓ **RESP-04**: TopBar com scroll behavior (hide/show) — v10.0
+- ✓ **RESP-05**: Touch gestures otimizados para galeria — v10.0
+- ✓ **COMP-01**: Cards com hover lift e shadow — v10.0
+- ✓ **COMP-02**: Botões com active scale e estados refinados — v10.0
+- ✓ **COMP-03**: Inputs com focus glow transition — v10.0
+- ✓ **COMP-04**: Badges com status transition suave — v10.0
+- ✓ **A11Y-01**: Empty states com ilustrações e copy contextual — v10.0
+- ✓ **A11Y-02**: Error states com feedback visual — v10.0
+- ✓ **A11Y-03**: Focus states visíveis em todos interativos — v10.0
+- ✓ **A11Y-04**: Reduced motion support (prefers-reduced-motion) — v10.0
+- ✓ **A11Y-05**: Scroll suave entre seções — v10.0
 
 ### Out of Scope
 
@@ -245,16 +260,21 @@ This document evolves at phase transitions and milestone boundaries.
 - Toggle entre grid view e slider view
 - Phases 32–34 archived
 
-## Current Milestone: v10.0 Refinamento de Interface
+### v10.0 Refinamento de Interface ✅
+- Animation Foundation: variants, easings, transitions, hooks (useReducedMotion, useMediaQuery)
+- Reusable animation components: FadeIn, StaggerContainer, ShimmerSkeleton
+- Core Component Polish: Card hover lift, Button active scale, Input focus glow, Badge transitions
+- Layout Responsive: Mobile sidebar drawer, TopBar scroll behavior, responsive grids, form stacking
+- Feature Components: Stagger animations in lists/galleries, enhanced modal animations
+- States & Accessibility: Enhanced empty states, shake animation, reduced motion support
+- Phases 35–39 archived
 
-**Goal:** Revisão geral da interface do app focada em deixá-lo mais refinado, com microanimações e responsivo.
+## Current Milestone: v11.0 (Planning)
+
+**Goal:** TBD
 
 **Target features:**
-- **Refinamento visual:** Atenção a detalhes, espaçamento, consistência e componentes polish
-- **Microanimações:** Hover states, transições, loading states, modais, toast notifications
-- **Responsividade:** Layout adaptativo para mobile e tablet (sidebar, galeria, formulários)
-- **Estados refinados:** Empty states, error states, skeleton loading com shimmer
-- **Acessibilidade:** Focus states, navegação por teclado, scroll behaviors suaves
+- TBD
 
 ---
-*Last updated: 2026-05-28 after starting v10.0 milestone*
+*Last updated: 2026-05-28 after completing v10.0 milestone*

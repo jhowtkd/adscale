@@ -123,13 +123,30 @@
 
 ---
 
+### v10.0 — Refinamento de Interface ✅
+**Shipped:** 2026-05-28
+**Phases:** 5 (35→39)
+**Requirements:** 19/19 complete
+
+**Delivered:**
+- Animation Foundation: variants, easings, transitions, custom hooks (useReducedMotion, useMediaQuery, useScrollDirection)
+- Reusable animation components: FadeIn, StaggerContainer
+- Core Component Polish: Card hover lift/shadow, Button active scale, Input focus glow, Badge transitions
+- Layout Responsive: Mobile sidebar drawer with hamburger menu, TopBar hide/show on scroll
+- Form stacking on mobile (grid-cols-1 sm:grid-cols-2)
+- Feature Components: Stagger animations in campaign grid/list, enhanced modal animations
+- States & Accessibility: Enhanced empty states with icon backgrounds, shake animation for errors
+- Reduced motion support throughout all animations
+
+---
+
 ## Active Milestone
 
-### v10.0 — ??? (Planning)
+### v11.0 — TBD (Planning)
 **Status:** Waiting for requirements
 **Goal:** TBD
 
-**Next step:** Define v10.0 scope and requirements
+**Next step:** Define v11.0 scope and requirements
 
 ---
 
