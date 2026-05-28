@@ -11,6 +11,7 @@ import CampaignTableRow from "./CampaignTableRow";
 import CampaignListCard from "./CampaignListCard";
 import type { Campaign } from "@/lib/mock-data";
 import { useTranslations } from "next-intl";
+import { StaggerContainer, StaggerItem } from "@/components/animations/StaggerContainer";
 
 interface CampaignsListViewProps {
   campaigns: Campaign[];
@@ -115,21 +116,22 @@ export default function CampaignsListView({
       </div>
 
       {/* Mobile Cards */}
-      <div className="md:hidden space-y-3">
+      <StaggerContainer className="md:hidden space-y-3" staggerDelay={0.04}>
         {campaigns.map((campaign, index) => (
-          <CampaignListCard
-            key={campaign.id}
-            campaign={campaign}
-            index={index}
-            selected={selectedIds.has(campaign.id)}
-            onSelect={(checked) => onToggleSelect(campaign.id, checked)}
-            onDuplicate={onDuplicate}
-            onArchive={onArchive}
-            onDelete={onDelete}
-            onSaveAsTemplate={onSaveAsTemplate}
-          />
+          <StaggerItem key={campaign.id}>
+            <CampaignListCard
+              campaign={campaign}
+              index={index}
+              selected={selectedIds.has(campaign.id)}
+              onSelect={(checked) => onToggleSelect(campaign.id, checked)}
+              onDuplicate={onDuplicate}
+              onArchive={onArchive}
+              onDelete={onDelete}
+              onSaveAsTemplate={onSaveAsTemplate}
+            />
+          </StaggerItem>
         ))}
-      </div>
+      </StaggerContainer>
     </>
   );
 }

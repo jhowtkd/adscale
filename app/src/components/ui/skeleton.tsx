@@ -1,6 +1,31 @@
 import { cn } from "@/lib/utils"
+import { useReducedMotion } from "@/lib/hooks/use-reduced-motion"
 
-function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
+interface SkeletonProps extends React.ComponentProps<"div"> {
+  shimmer?: boolean
+}
+
+function Skeleton({ className, shimmer = true, ...props }: SkeletonProps) {
+  const reducedMotion = useReducedMotion()
+
+  if (shimmer && !reducedMotion) {
+    return (
+      <div
+        data-slot="skeleton"
+        className={cn(
+          "relative overflow-hidden rounded-md bg-muted",
+          className
+        )}
+        {...props}
+      >
+        <div
+          className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-muted-foreground/10 to-transparent"
+          aria-hidden="true"
+        />
+      </div>
+    )
+  }
+
   return (
     <div
       data-slot="skeleton"

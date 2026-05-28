@@ -15,6 +15,8 @@ import {
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { usePathname, useRouter } from "next/navigation";
+import { useScrollDirection } from "@/lib/hooks/use-scroll-direction";
+import { useIsMobile } from "@/lib/hooks/use-media-query";
 import {
   Search,
   Bell,
@@ -27,6 +29,7 @@ import {
   Shield,
   User,
   Users,
+  Menu,
 } from "lucide-react";
 import Link from "next/link";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
@@ -39,11 +42,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-export default function TopBar() {
+export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
   const tCommon = useTranslations("common");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const bellRef = useRef<HTMLButtonElement | null>(null);
   const { data: session } = authClient.useSession();
+  const scrollDirection = useScrollDirection();
+  const isMobile = useIsMobile();
   const { data: dashboardData } = useDashboard();
   const { data: notificationsData } = useNotifications();
   const markAllAsRead = useMarkAllNotificationsAsRead();
@@ -77,17 +82,29 @@ export default function TopBar() {
     router.push(`/settings?tab=${tab}`);
   };
 
+  const isTopBarHidden = isMobile && scrollDirection === "down";
+
   return (
     <header
       className={cn(
         "fixed top-0 right-0 left-0 md:left-[var(--sidebar-width)] z-40 flex items-center justify-between gap-4",
         "border-b border-[var(--border-dim)] bg-[var(--surface-base)]",
-        "transition-all duration-300",
-        isDashboard ? "h-14 px-8" : "h-14 px-4"
+        "transition-transform duration-300 ease-out",
+        isDashboard ? "h-14 px-4 md:px-8" : "h-14 px-4",
+        isTopBarHidden && "-translate-y-full"
       )}
     >
-      {/* Left: Page Title + Subtitle on dashboard */}
-      <div className="flex items-center gap-6">
+      {/* Left: Menu button + Page Title */}
+      <div className="flex items-center gap-4">
+        {isMobile && onMenuClick && (
+          <button
+            onClick={onMenuClick}
+            className="flex items-center justify-center h-9 w-9 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-colors duration-200"
+            aria-label="Open menu"
+          >
+            <Menu size={20} />
+          </button>
+        )}
         <h1 className="text-lg font-semibold text-[var(--text-primary)] tracking-tight">
           {currentPageTitle}
         </h1>

@@ -1,5 +1,6 @@
 {
   "workflow": {
-    "auto_advance": true
+    "auto_advance": true,
+    "research": true
   }
 }

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { type LucideIcon, ChevronRight } from "lucide-react";
+import { FadeIn } from "@/components/animations/FadeIn";
 
 interface EmptyStateAction {
   label: string;
@@ -43,11 +44,13 @@ export default function EmptyState({
   ) : null;
 
   return (
-    <div className="flex flex-col items-center justify-center py-14 px-6 animate-fade-in">
+    <FadeIn animation="fadeInUp" className="flex flex-col items-center justify-center py-14 px-6">
       <div className="flex flex-col items-center text-center max-w-md">
-        {/* Icon */}
-        <div className="mb-4">
-          <Icon size={48} className="text-[var(--text-muted)]" strokeWidth={1.5} />
+        {/* Icon with background */}
+        <div className="mb-5">
+          <div className="w-16 h-16 rounded-2xl bg-[var(--surface-raised)] border border-[var(--border-dim)] flex items-center justify-center">
+            <Icon size={32} className="text-[var(--text-muted)]" strokeWidth={1.5} />
+          </div>
         </div>
 
         {/* Title */}
@@ -56,7 +59,7 @@ export default function EmptyState({
         </h3>
 
         {/* Description */}
-        <p className="text-sm text-[var(--text-secondary)] mb-6">
+        <p className="text-sm text-[var(--text-secondary)] mb-6 leading-relaxed">
           {description}
         </p>
 
@@ -84,6 +87,6 @@ export default function EmptyState({
         {/* Action */}
         {actionContent}
       </div>
-    </div>
+    </FadeIn>
   );
 }

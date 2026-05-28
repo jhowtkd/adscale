@@ -2,6 +2,7 @@
 
 import CampaignCard from "./CampaignCard";
 import type { Campaign } from "@/lib/mock-data";
+import { StaggerContainer, StaggerItem } from "@/components/animations/StaggerContainer";
 
 interface CampaignsGridViewProps {
   campaigns: Campaign[];
@@ -9,10 +10,12 @@ interface CampaignsGridViewProps {
 
 export default function CampaignsGridView({ campaigns }: CampaignsGridViewProps) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+    <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5" staggerDelay={0.05}>
       {campaigns.map((campaign, index) => (
-        <CampaignCard key={campaign.id} campaign={campaign} index={index} />
+        <StaggerItem key={campaign.id}>
+          <CampaignCard campaign={campaign} index={index} />
+        </StaggerItem>
       ))}
-    </div>
+    </StaggerContainer>
   );
 }
