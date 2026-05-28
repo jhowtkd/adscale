@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { InMemoryObjectStorage } from "../../src/server/storage/in-memory-object-storage";
 
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn().mockResolvedValue((key: string) => key),
@@ -18,24 +19,22 @@ vi.mock("@/server/repositories/asset", () => ({
   markPendingUploadCompleted: vi.fn(),
 }));
 
-vi.mock("@/server/storage/r2", () => ({
-  headObject: vi.fn(),
-  deleteObject: vi.fn().mockResolvedValue(undefined),
-}));
-
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCampaignById } from "@/server/repositories/campaign";
 import { getPendingUpload, createAsset, markPendingUploadCompleted } from "@/server/repositories/asset";
-import { headObject, deleteObject } from "@/server/storage/r2";
-import { POST } from "@/app/api/campaigns/[id]/assets/complete/route";
+import { createPostHandler } from "@/app/api/campaigns/[id]/assets/complete/handler";
 
 describe("POST /api/campaigns/[id]/assets/complete", () => {
   const workspaceId = "ws-123";
   const campaignId = "camp-456";
   const key = "campaigns/camp-456/uuid-1.png";
+  let storage: InMemoryObjectStorage;
+  let POST: ReturnType<typeof createPostHandler>;
 
   beforeEach(() => {
     vi.clearAllMocks();
+    storage = new InMemoryObjectStorage();
+    POST = createPostHandler({ storage });
     (requireWorkspaceAccess as ReturnType<typeof vi.fn>).mockResolvedValue({
       workspace: { id: workspaceId },
     });
@@ -56,10 +55,8 @@ describe("POST /api/campaigns/[id]/assets/complete", () => {
       expiresAt: new Date(Date.now() + 10000),
     });
 
-    (headObject as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ContentType: "text/plain",
-      ContentLength: 1024,
-    });
+    // Seed storage with object having wrong content type
+    await storage.put(key, Buffer.from("test"), "text/plain");
 
     const request = new Request("http://localhost/api/campaigns/camp-456/assets/complete", {
       method: "POST",
@@ -71,7 +68,7 @@ describe("POST /api/campaigns/[id]/assets/complete", () => {
 
     expect(response.status).toBe(400);
     expect(body.error).toBe("assetTypeMismatch");
-    expect(deleteObject).toHaveBeenCalledWith(key);
+    expect(storage.keys()).not.toContain(key);
     expect(createAsset).not.toHaveBeenCalled();
     expect(markPendingUploadCompleted).not.toHaveBeenCalled();
   });
@@ -87,10 +84,8 @@ describe("POST /api/campaigns/[id]/assets/complete", () => {
       expiresAt: new Date(Date.now() + 10000),
     });
 
-    (headObject as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ContentType: "image/png",
-      ContentLength: 9999,
-    });
+    // Seed storage with object having wrong size (larger)
+    await storage.put(key, Buffer.from("x".repeat(9999)), "image/png");
 
     const request = new Request("http://localhost/api/campaigns/camp-456/assets/complete", {
       method: "POST",
@@ -102,7 +97,7 @@ describe("POST /api/campaigns/[id]/assets/complete", () => {
 
     expect(response.status).toBe(400);
     expect(body.error).toBe("assetSizeMismatch");
-    expect(deleteObject).toHaveBeenCalledWith(key);
+    expect(storage.keys()).not.toContain(key);
     expect(createAsset).not.toHaveBeenCalled();
     expect(markPendingUploadCompleted).not.toHaveBeenCalled();
   });

@@ -1,11 +1,7 @@
 import JSZip from "jszip";
 import { logger } from "@/lib/logger";
 import sharp from "sharp";
-import {
-  getPresignedDownloadUrl,
-  uploadBuffer,
-  downloadBuffer,
-} from "../storage/r2";
+import { ObjectStorage } from "../storage/object-storage";
 import {
   getDerivationById,
   getApprovedDerivationsByCampaign,
@@ -35,6 +31,7 @@ function getContentType(format: "png" | "jpeg" | "webp") {
 }
 
 export async function exportIndividual(
+  storage: ObjectStorage,
   derivationId: string,
   workspaceId: string,
   format: "png" | "jpeg" | "webp"
@@ -54,21 +51,22 @@ export async function exportIndividual(
     | undefined;
 
   if (storedFormat === format) {
-    const url = await getPresignedDownloadUrl(derivation.outputKey);
+    const url = await storage.signedDownloadUrl(derivation.outputKey);
     await createExportRecord(workspaceId, derivationId, format, derivation.outputKey);
     return { url, key: derivation.outputKey };
   }
 
-  const buffer = await downloadBuffer(derivation.outputKey);
+  const buffer = await storage.get(derivation.outputKey);
   const converted = await convertImage(buffer, format);
   const newKey = `exports/${workspaceId}/${derivationId}/${Date.now()}.${format}`;
-  await uploadBuffer(newKey, converted, getContentType(format));
+  await storage.put(newKey, converted, getContentType(format));
   await createExportRecord(workspaceId, derivationId, format, newKey);
-  const url = await getPresignedDownloadUrl(newKey);
+  const url = await storage.signedDownloadUrl(newKey);
   return { url, key: newKey };
 }
 
 export async function exportAllApproved(
+  storage: ObjectStorage,
   campaignId: string,
   workspaceId: string,
   format: "png" | "jpeg" | "webp"
@@ -97,7 +95,7 @@ export async function exportAllApproved(
           return null;
         }
         try {
-          const buffer = await downloadBuffer(d.outputKey);
+          const buffer = await storage.get(d.outputKey);
           const storedFormat = d.format?.toLowerCase() as
             | "png"
             | "jpeg"
@@ -128,12 +126,12 @@ export async function exportAllApproved(
 
   const zipBuffer = await zip.generateAsync({ type: "nodebuffer" });
   const zipKey = `exports/${workspaceId}/${campaignId}/${Date.now()}-all.zip`;
-  await uploadBuffer(zipKey, zipBuffer, "application/zip");
+  await storage.put(zipKey, zipBuffer, "application/zip");
 
   for (const d of items) {
     await createExportRecord(workspaceId, d.id, format, zipKey);
   }
 
-  const url = await getPresignedDownloadUrl(zipKey);
+  const url = await storage.signedDownloadUrl(zipKey);
   return { url, key: zipKey };
 }

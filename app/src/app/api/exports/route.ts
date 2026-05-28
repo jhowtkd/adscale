@@ -3,6 +3,7 @@ import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { exportIndividual, exportAllApproved } from "@/server/services/export";
+import { objectStorage } from "@/server/storage";
 
 const bodySchema = z.object({
   type: z.enum(["individual", "batch"]),
@@ -26,7 +27,7 @@ export async function POST(request: Request) {
       if (!derivationId) {
         return apiError("derivationIdRequired", 400);
       }
-      const { url } = await exportIndividual(derivationId, workspace.id, format);
+      const { url } = await exportIndividual(objectStorage, derivationId, workspace.id, format);
       const expiresAt = new Date(Date.now() + 300 * 1000).toISOString();
       return NextResponse.json({ downloadUrl: url, expiresAt });
     }
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
       if (!campaignId) {
         return apiError("campaignIdRequired", 400);
       }
-      const { url } = await exportAllApproved(campaignId, workspace.id, format);
+      const { url } = await exportAllApproved(objectStorage, campaignId, workspace.id, format);
       const expiresAt = new Date(Date.now() + 300 * 1000).toISOString();
       return NextResponse.json({ downloadUrl: url, expiresAt });
     }
