@@ -40,7 +40,7 @@ export default function CreditChart({ data }: CreditChartProps) {
             Sem dados de uso de créditos
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
             <BarChart data={filteredData} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border-dim)" vertical={false} />
               <XAxis dataKey="date" tickFormatter={(date) => new Date(date).toLocaleDateString("pt-BR", { weekday: "short" })}
