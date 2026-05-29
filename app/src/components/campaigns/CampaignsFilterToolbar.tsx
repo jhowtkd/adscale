@@ -65,6 +65,7 @@ export default function CampaignsFilterToolbar({
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder={tc("search")}
+              aria-label={tc("search")}
               className="h-8 w-full pl-9 pr-8 bg-[var(--surface-raised)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] text-sm"
             />
             {searchQuery && (
@@ -85,7 +86,7 @@ export default function CampaignsFilterToolbar({
               value={statusFilter}
               onValueChange={(v) => onStatusChange(v as StatusFilter)}
             >
-              <SelectTrigger className="h-8 w-[140px] bg-[var(--surface-raised)] border-[var(--border-dim)] text-[var(--text-primary)] text-xs">
+              <SelectTrigger aria-label={tc("allStatus")} className="h-8 w-[140px] bg-[var(--surface-raised)] border-[var(--border-dim)] text-[var(--text-primary)] text-xs">
                 <SelectValue placeholder={tc("allStatus")} />
               </SelectTrigger>
               <SelectContent className="bg-[var(--surface-raised)] border-[var(--border-dim)]">
@@ -103,7 +104,7 @@ export default function CampaignsFilterToolbar({
               value={platformFilter}
               onValueChange={(v) => onPlatformChange(v as PlatformFilter)}
             >
-              <SelectTrigger className="h-8 w-[150px] bg-[var(--surface-raised)] border-[var(--border-dim)] text-[var(--text-primary)] text-xs">
+              <SelectTrigger aria-label={tc("allPlatforms")} className="h-8 w-[150px] bg-[var(--surface-raised)] border-[var(--border-dim)] text-[var(--text-primary)] text-xs">
                 <SelectValue placeholder={tc("allPlatforms")} />
               </SelectTrigger>
               <SelectContent className="bg-[var(--surface-raised)] border-[var(--border-dim)]">
@@ -119,7 +120,7 @@ export default function CampaignsFilterToolbar({
               value={sortOption}
               onValueChange={(v) => onSortChange(v as SortOption)}
             >
-              <SelectTrigger className="h-8 w-[140px] bg-[var(--surface-raised)] border-[var(--border-dim)] text-[var(--text-primary)] text-xs">
+              <SelectTrigger aria-label={tc("sort")} className="h-8 w-[140px] bg-[var(--surface-raised)] border-[var(--border-dim)] text-[var(--text-primary)] text-xs">
                 <SelectValue placeholder={tc("sort")} />
               </SelectTrigger>
               <SelectContent className="bg-[var(--surface-raised)] border-[var(--border-dim)]">
@@ -190,6 +191,7 @@ export default function CampaignsFilterToolbar({
                 {filter.label}
                 <button
                   onClick={filter.onRemove}
+                  aria-label={tc("clear")}
                   className="ml-0.5 text-[var(--text-muted)] hover:text-[var(--accent-rose)] transition-colors"
                 >
                   <X size={12} />

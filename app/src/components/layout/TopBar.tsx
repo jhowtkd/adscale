@@ -127,7 +127,7 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
                 "border border-transparent rounded-[4px] hover:bg-[var(--surface-raised)] transition-colors duration-200"
               )}
             >
-              <Search size={16} strokeWidth={1.5} />
+              <Search size={16} strokeWidth={1.5} aria-hidden="true" />
               Buscar
             </button>
             <Link
@@ -148,7 +148,7 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
             <button
               ref={(el) => { if (el) bellRef.current = el; }}
               type="button"
-              aria-label={tCommon("notifications")}
+              aria-label={`${tCommon("notifications")}${unreadCount > 0 ? ` (${unreadCount})` : ''}`}
               aria-expanded={notificationsOpen}
               aria-haspopup="dialog"
               onClick={() => setNotificationsOpen((open) => !open)}
@@ -159,7 +159,7 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
                 "transition-all duration-200"
               )}
             >
-              <Bell size={18} />
+              <Bell size={18} aria-hidden="true" />
               {unreadCount > 0 && (
                 <span
                   aria-hidden="true"

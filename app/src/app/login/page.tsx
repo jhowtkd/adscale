@@ -74,7 +74,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[var(--deep-bg)] px-4 relative overflow-hidden">
+    <main className="flex min-h-screen items-center justify-center bg-[var(--deep-bg)] px-4 relative overflow-hidden">
       {/* Background effects */}
       <div className="absolute inset-0 dot-grid opacity-50" />
       <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-[var(--accent-green)]/[0.02] rounded-full blur-[120px] pointer-events-none" />
@@ -200,6 +200,6 @@ export default function LoginPage() {
           )}
         </div>
       </AuthCard>
-    </div>
+    </main>
   );
 }

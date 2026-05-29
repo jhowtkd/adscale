@@ -244,9 +244,9 @@ function EmptyState({ searchQuery }: { searchQuery: string }) {
       <div className="mb-6">
         <img src="/images/empty-state.svg" alt="Nenhuma campanha" className="w-48 h-48 object-contain" />
       </div>
-      <h3 className="text-xl font-bold text-[var(--text-primary)] mb-2">
+      <h2 className="text-xl font-bold text-[var(--text-primary)] mb-2">
         {searchQuery ? "Nenhuma campanha encontrada" : "Nenhuma campanha ainda"}
-      </h3>
+      </h2>
       <p className="text-sm text-[var(--text-muted)] mt-2 max-w-md text-center font-medium">
         {searchQuery 
           ? "Tente ajustar sua busca ou filtros"
@@ -297,9 +297,9 @@ function DashboardError() {
       <div className="w-24 h-24 rounded-2xl bg-[var(--surface-raised)] border-[3px] border-[var(--accent-rose)]/30 flex items-center justify-center mb-6 shadow-[0_0_40px_rgba(225,29,72,0.15)]">
         <span className="text-4xl text-[var(--accent-rose)] font-black">!</span>
       </div>
-      <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">
+      <h2 className="text-lg font-bold text-[var(--text-primary)] mb-2">
         Erro ao carregar
-      </h3>
+      </h2>
       <p className="text-sm text-[var(--text-muted)] mb-6">Erro ao carregar dashboard</p>
       <button
         onClick={() => window.location.reload()}
