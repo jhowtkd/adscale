@@ -54,7 +54,7 @@ export default function PrivacyTab() {
       {/* Data Export */}
       <div className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-5">
         <div className="mb-4 flex items-center gap-2">
-          <Download size={18} className="text-[var(--accent-mint)]" />
+          <Download size={18} className="text-[var(--accent-green)]" />
           <h3 className="text-[15px] font-semibold text-[var(--text-primary)]">
             Exportar meus dados
           </h3>
@@ -76,7 +76,7 @@ export default function PrivacyTab() {
       {/* Legal Links */}
       <div className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-5">
         <div className="mb-4 flex items-center gap-2">
-          <FileText size={18} className="text-[var(--accent-mint)]" />
+          <FileText size={18} className="text-[var(--accent-green)]" />
           <h3 className="text-[15px] font-semibold text-[var(--text-primary)]">
             Documentos legais
           </h3>

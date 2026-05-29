@@ -43,7 +43,7 @@ export default function PlansTab() {
               className={cn(
                 "relative flex min-h-[360px] flex-col rounded-lg border bg-[var(--surface-base)] p-5",
                 tier.recommended
-                  ? "border-[var(--accent-mint)] shadow-[0_12px_32px_rgba(47,182,125,0.14)]"
+                  ? "border-[var(--accent-green)] shadow-[0_12px_32px_var(--accent-green-dim)0.14)]"
                   : "border-[var(--border-dim)]"
               )}
             >
@@ -52,14 +52,14 @@ export default function PlansTab() {
                   className={cn(
                     "rounded-full px-2.5 py-1 text-xs font-medium",
                     tier.recommended
-                      ? "bg-[var(--accent-mint-dim)] text-[var(--accent-mint)]"
+                      ? "bg-[var(--accent-green-dim)] text-[var(--accent-green)]"
                       : "bg-[var(--surface-raised)] text-[var(--text-secondary)]"
                   )}
                 >
                   {tier.badge}
                 </span>
                 {tier.recommended ? (
-                  <Crown size={16} className="text-[var(--accent-mint)]" />
+                  <Crown size={16} className="text-[var(--accent-green)]" />
                 ) : (
                   <Sparkles size={16} className="text-[var(--text-muted)]" />
                 )}
@@ -85,7 +85,7 @@ export default function PlansTab() {
               <ul className="mt-5 flex-1 space-y-2">
                 {tier.features.map((feature) => (
                   <li key={feature} className="flex gap-2 text-sm text-[var(--text-secondary)]">
-                    <Check size={15} className="mt-0.5 shrink-0 text-[var(--accent-mint)]" />
+                    <Check size={15} className="mt-0.5 shrink-0 text-[var(--accent-green)]" />
                     <span>{feature}</span>
                   </li>
                 ))}
@@ -98,7 +98,7 @@ export default function PlansTab() {
                 className={cn(
                   "mt-5 h-10 rounded-md text-sm font-medium transition-all disabled:cursor-not-allowed disabled:opacity-60",
                   tier.recommended
-                    ? "bg-[var(--accent-mint)] text-white hover:bg-[var(--accent-mint-light)]"
+                    ? "bg-[var(--accent-green)] text-white hover:bg-[var(--accent-green-light)]"
                     : "border border-[var(--border-dim)] bg-[var(--surface-raised)] text-[var(--text-primary)] hover:border-[var(--border-medium)]"
                 )}
               >

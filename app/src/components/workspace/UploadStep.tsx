@@ -359,7 +359,7 @@ export default function UploadStep({ campaignId, onContinueToPlan }: UploadStepP
               <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end animate-fade-in" style={{ animationDelay: "300ms" }}>
                 <button
                   onClick={onContinueToPlan}
-                  className="inline-flex min-h-10 items-center justify-center rounded-md bg-[var(--accent-mint)] px-6 py-2.5 text-sm font-medium text-white transition-all duration-200 hover:-translate-y-px hover:bg-[var(--accent-mint-light)] active:scale-[0.98]"
+                  className="inline-flex min-h-10 items-center justify-center rounded-md bg-[var(--accent-green)] px-6 py-2.5 text-sm font-medium text-white transition-all duration-200 hover:-translate-y-px hover:bg-[var(--accent-green-light)] active:scale-[0.98]"
                 >
                   {t("continueToPlan")}
                 </button>
@@ -372,13 +372,13 @@ export default function UploadStep({ campaignId, onContinueToPlan }: UploadStepP
                 {...getRootProps()}
                 className={cn(
                   "relative flex flex-col items-center justify-center min-h-[360px] rounded-2xl border-2 border-dashed transition-all duration-200 cursor-pointer overflow-hidden",
-                  "bg-[var(--accent-mint-dim)]",
+                  "bg-[var(--accent-green-dim)]",
                   isDragActive
-                    ? "border-[var(--accent-mint)] bg-[var(--accent-mint-dim)] scale-[1.01]"
+                    ? "border-[var(--accent-green)] bg-[var(--accent-green-dim)] scale-[1.01]"
                     : error
                     ? "border-[var(--accent-rose)]"
                     : "border-[var(--border-medium)]",
-                  "hover:border-[var(--accent-mint)] hover:bg-[var(--accent-mint-dim)]"
+                  "hover:border-[var(--accent-green)] hover:bg-[var(--accent-green-dim)]"
                 )}
                 style={{
                   backgroundImage:
@@ -392,7 +392,7 @@ export default function UploadStep({ campaignId, onContinueToPlan }: UploadStepP
                     size={48}
                     className={cn(
                       "transition-colors duration-200",
-                      isDragActive ? "text-[var(--accent-mint)]" : "text-[var(--text-muted)]"
+                      isDragActive ? "text-[var(--accent-green)]" : "text-[var(--text-muted)]"
                     )}
                   />
                 </div>

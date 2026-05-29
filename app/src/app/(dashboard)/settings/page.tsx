@@ -111,7 +111,7 @@ export default function SettingsPage() {
               className={cn(
                 "relative px-4 py-2.5 text-sm font-medium transition-colors duration-200",
                 activeTab === tab.id
-                  ? "text-[var(--accent-mint)]"
+                  ? "text-[var(--accent-green)]"
                   : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
               )}
             >
@@ -122,7 +122,7 @@ export default function SettingsPage() {
               {activeTab === tab.id && (
                 <motion.div
                   layoutId="settings-tab-indicator"
-                  className="absolute bottom-0 left-0 right-0 h-[2px] bg-[var(--accent-mint)]"
+                  className="absolute bottom-0 left-0 right-0 h-[2px] bg-[var(--accent-green)]"
                   transition={{ type: "spring", stiffness: 500, damping: 30 }}
                 />
               )}

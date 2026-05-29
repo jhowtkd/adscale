@@ -21,7 +21,7 @@ export interface Campaign {
   client?: string;
   objective?: string;
   audience?: string;
-  platforms: AdPlatform[];
+  platforms?: AdPlatform[];
   tone?: string;
   offer?: string;
   constraints?: string;
@@ -480,9 +480,9 @@ export const mockDashboardStats: DashboardStats = {
 // ============================================
 
 export const platformColors: Record<AdPlatform, { bg: string; text: string }> = {
-  Meta: { bg: "var(--accent-mint-dim)", text: "var(--accent-mint)" },
+  Meta: { bg: "var(--accent-green-dim)", text: "var(--accent-green)" },
   TikTok: { bg: "rgba(225,29,72,0.12)", text: "var(--accent-rose)" },
-  Google: { bg: "var(--accent-mint-dim)", text: "var(--accent-mint)" },
+  Google: { bg: "var(--accent-green-dim)", text: "var(--accent-green)" },
 };
 
 // ============================================

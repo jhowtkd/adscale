@@ -204,7 +204,7 @@ describe("BriefingStep", () => {
     const heroBtn = screen.getByRole("button", { name: /Hero/i });
     fireEvent.click(heroBtn);
 
-    expect(heroBtn.className).toContain("border-[var(--accent-mint)]");
+    expect(heroBtn.className).toContain("border-[var(--accent-green)]");
   });
 
   it("creating a new client profile from briefing adds it to selection", async () => {

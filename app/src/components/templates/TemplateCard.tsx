@@ -68,7 +68,7 @@ export default function TemplateCard({
                   if (e.key === "Escape") handleCancel();
                 }}
               />
-              <button onClick={handleSave} className="text-[var(--accent-mint)] hover:text-[var(--accent-mint-light)]">
+              <button onClick={handleSave} className="text-[var(--accent-green)] hover:text-[var(--accent-green-light)]">
                 <Check size={16} />
               </button>
               <button onClick={handleCancel} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]">
@@ -82,7 +82,7 @@ export default function TemplateCard({
               </h3>
               <button
                 onClick={() => setIsEditing(true)}
-                className="text-[var(--text-muted)] hover:text-[var(--accent-mint)] transition-colors"
+                className="text-[var(--text-muted)] hover:text-[var(--accent-green)] transition-colors"
               >
                 <Pencil size={12} />
               </button>

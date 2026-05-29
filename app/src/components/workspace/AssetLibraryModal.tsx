@@ -90,7 +90,7 @@ export default function AssetLibraryModal({
                   onClick={() => setSelectedId(asset.id)}
                   className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${
                     selectedId === asset.id
-                      ? "border-[var(--accent-mint)] ring-2 ring-[var(--accent-mint)]/20"
+                      ? "border-[var(--accent-green)] ring-2 ring-[var(--accent-green)]/20"
                       : "border-transparent hover:border-[var(--border-medium)]"
                   }`}
                 >
@@ -101,8 +101,8 @@ export default function AssetLibraryModal({
                     loading="lazy"
                   />
                   {selectedId === asset.id && (
-                    <div className="absolute inset-0 bg-[var(--accent-mint)]/20 flex items-center justify-center">
-                      <div className="bg-[var(--accent-mint)] text-white rounded-full p-1">
+                    <div className="absolute inset-0 bg-[var(--accent-green)]/20 flex items-center justify-center">
+                      <div className="bg-[var(--accent-green)] text-white rounded-full p-1">
                         <Check size={16} />
                       </div>
                     </div>
@@ -129,7 +129,7 @@ export default function AssetLibraryModal({
           <Button
             onClick={handleConfirm}
             disabled={!selectedAsset}
-            className="bg-[var(--accent-mint)] text-white hover:bg-[var(--accent-mint-light)]"
+            className="bg-[var(--accent-green)] text-white hover:bg-[var(--accent-green-light)]"
           >
             {t("useAsset")}
           </Button>

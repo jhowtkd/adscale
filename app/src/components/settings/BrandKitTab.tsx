@@ -14,6 +14,7 @@ import {
   useUploadLogo,
   useClearBrandKit,
 } from "@/lib/hooks/use-brand-kit";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -66,14 +67,14 @@ function TagInput({
       className={cn(
         "w-full min-h-[40px] rounded-md border px-2 py-1.5 flex flex-wrap gap-1.5",
         "bg-[var(--surface-base)] border-[var(--border-dim)]",
-        "focus-within:border-[var(--accent-mint)] focus-within:ring-[3px] focus-within:ring-[rgba(47,182,125,0.15)]",
+        "focus-within:border-[var(--accent-green)] focus-within:ring-[3px] focus-within:ring-[var(--accent-green-dim)0.15)]",
         "transition-all duration-200"
       )}
     >
       {tags.map((tag) => (
         <span
           key={tag}
-          className="inline-flex items-center gap-1 rounded-md bg-[var(--accent-mint-dim)] px-2 py-0.5 text-xs font-medium text-[var(--accent-mint)]"
+          className="inline-flex items-center gap-1 rounded-md bg-[var(--accent-green-dim)] px-2 py-0.5 text-xs font-medium text-[var(--accent-green)]"
         >
           {tag}
           <button
@@ -116,6 +117,7 @@ export default function BrandKitTab() {
   const [brandColors, setBrandColors] = useState<string[]>([]);
   const [brandFonts, setBrandFonts] = useState<string[]>([]);
   const [logoAssetKey, setLogoAssetKey] = useState<string | null>(null);
+  const [showClearDialog, setShowClearDialog] = useState(false);
   const [toneOfVoice, setToneOfVoice] = useState("");
   const [prohibitedElements, setProhibitedElements] = useState("");
   const [requiredElements, setRequiredElements] = useState("");
@@ -375,7 +377,7 @@ export default function BrandKitTab() {
                 "w-full h-10 rounded-md border px-3 text-sm",
                 "bg-[var(--surface-base)] text-[var(--text-primary)]",
                 "placeholder:text-[var(--text-muted)]",
-                "focus:outline-none focus:border-[var(--accent-mint)] focus:ring-[3px] focus:ring-[rgba(47,182,125,0.15)]",
+                "focus:outline-none focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)0.15)]",
                 "transition-all duration-200 border-[var(--border-dim)]"
               )}
             />
@@ -441,7 +443,7 @@ export default function BrandKitTab() {
                 className={cn(
                   "flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-6 py-8 cursor-pointer transition-all",
                   isDragging
-                    ? "border-[var(--accent-mint)] bg-[var(--accent-mint-dim)]"
+                    ? "border-[var(--accent-green)] bg-[var(--accent-green-dim)]"
                     : "border-[var(--border-dim)] bg-[var(--surface-base)] hover:border-[var(--border-medium)] hover:bg-[var(--surface-raised)]"
                 )}
               >
@@ -635,7 +637,7 @@ export default function BrandKitTab() {
               }
               className={cn(
                 "h-10 px-5 rounded-md text-sm font-medium text-white flex items-center gap-2",
-                "bg-[var(--accent-mint)] hover:bg-[var(--accent-mint-light)]",
+                "bg-[var(--accent-green)] hover:bg-[var(--accent-green-light)]",
                 "active:scale-[0.98] active:brightness-90",
                 "transition-all duration-200",
                 "disabled:opacity-50 disabled:cursor-not-allowed"
@@ -674,17 +676,7 @@ export default function BrandKitTab() {
               {t("brandKit.clearWarning")}
             </p>
             <button
-              onClick={() => {
-                if (!window.confirm(t("brandKit.confirmClear"))) return;
-                clearBrandKit.mutate(undefined, {
-                  onSuccess: () => {
-                    addToast("success", t("brandKit.cleared"));
-                  },
-                  onError: (err) => {
-                    addToast("error", err.message || tc("error"));
-                  },
-                });
-              }}
+              onClick={() => setShowClearDialog(true)}
               disabled={clearBrandKit.isPending || !brandKit}
               className={cn(
                 "h-9 px-4 rounded-md text-sm font-medium text-white",
@@ -699,6 +691,24 @@ export default function BrandKitTab() {
           </motion.div>
         </div>
       )}
+      <ConfirmDialog
+        open={showClearDialog}
+        onOpenChange={setShowClearDialog}
+        title={t("brandKit.clearTitle") || "Limpar Brand Kit"}
+        description={t("brandKit.confirmClear") || "Tem certeza que deseja limpar o Brand Kit? Esta ação não pode ser desfeita."}
+        confirmLabel={t("brandKit.clearConfirm") || "Limpar"}
+        variant="destructive"
+        onConfirm={() => {
+          clearBrandKit.mutate(undefined, {
+            onSuccess: () => {
+              addToast("success", t("brandKit.cleared"));
+            },
+            onError: (err) => {
+              addToast("error", err.message || tc("error"));
+            },
+          });
+        }}
+      />
     </motion.div>
   );
 }

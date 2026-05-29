@@ -18,9 +18,6 @@ const createCampaignSchema = z.object({
   product: z.string().optional(),
   objective: z.string().optional(),
   audience: z.string().optional(),
-  platforms: z.array(z.string()).optional(),
-  tone: z.string().optional(),
-  offer: z.string().optional(),
   constraints: z.string().optional(),
   notes: z.string().optional(),
   generationMode: z.enum(["art_variation", "format_adaptation", "restyling"]).optional(),
@@ -28,8 +25,6 @@ const createCampaignSchema = z.object({
   targetFormats: z.array(z.string()).max(5).optional(),
   creativeLevel: z.enum(["conservative", "balanced", "bold", "extreme"]).optional().default("balanced"),
   styleIntensity: z.enum(["soft", "medium", "strong"]).optional(),
-  clientProfileId: z.string().uuid().nullable(),
-  selectedReferenceIds: z.array(z.string().uuid()).optional(),
 })
 ;
 
@@ -89,23 +84,6 @@ export async function POST(request: Request) {
       return apiError("invalidInput", 400, parsed.error.flatten());
     }
 
-    if (parsed.data.clientProfileId) {
-      const profile = await getClientProfile(workspace.id, parsed.data.clientProfileId);
-      if (!profile) {
-        return apiError("clientProfileNotFound", 400);
-      }
-    }
-
-    if (parsed.data.selectedReferenceIds?.length) {
-      const references = await getClientReferencesByIds(
-        workspace.id,
-        parsed.data.selectedReferenceIds
-      );
-      if (references.length !== parsed.data.selectedReferenceIds.length) {
-        return apiError("clientReferenceNotFound", 400);
-      }
-    }
-
     const campaign = await createCampaign(workspace.id, {
       ...parsed.data,
       status: "draft",
@@ -114,7 +92,6 @@ export async function POST(request: Request) {
     await recordBrandMemoryEvent({
       type: "campaign_created_or_updated",
       workspaceId: workspace.id,
-      clientProfileId: campaign.clientProfileId,
       campaignId: campaign.id,
       occurredAt: campaign.createdAt,
       summary: `Campaign "${campaign.name}" was created for ${campaign.client ?? campaign.product ?? "an unspecified client/product"}.`,
@@ -126,9 +103,6 @@ export async function POST(request: Request) {
           product: campaign.product,
           objective: campaign.objective,
           audience: campaign.audience,
-          platforms: campaign.platforms,
-          tone: campaign.tone,
-          offer: campaign.offer,
           constraints: campaign.constraints,
           generationMode: campaign.generationMode,
           ctaVariants: campaign.ctaVariants,

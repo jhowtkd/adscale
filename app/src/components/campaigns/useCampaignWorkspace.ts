@@ -57,17 +57,12 @@ export function useCampaignWorkspace() {
         client: realCampaign.client,
         objective: realCampaign.objective,
         audience: realCampaign.audience,
-        platforms: realCampaign.platforms as AdPlatform[],
-        tone: realCampaign.tone,
-        offer: realCampaign.offer,
         constraints: realCampaign.constraints,
         notes: realCampaign.notes,
         generationMode: realCampaign.generationMode,
         creativeLevel: realCampaign.creativeLevel,
         ctaVariants: realCampaign.ctaVariants,
         targetFormats: realCampaign.targetFormats,
-        clientProfileId: realCampaign.clientProfileId,
-        selectedReferenceIds: realCampaign.selectedReferenceIds,
         creativeDiagnosisStatus: realCampaign.creativeDiagnosisStatus,
         creativeDiagnosis: realCampaign.creativeDiagnosis,
         creativeDiagnosisSource: realCampaign.creativeDiagnosisSource,
@@ -82,7 +77,6 @@ export function useCampaignWorkspace() {
       return {
         id: "new",
         name: t("new"),
-        platforms: [] as AdPlatform[],
         status: "draft" as const,
         variations: 0,
         creditsUsed: 0,
@@ -107,21 +101,18 @@ export function useCampaignWorkspace() {
     }
   }, [hasSetInitialStep, isLoading, isNew, derivationsData]);
 
-  const allDerivations: Derivation[] = useMemo(() => {
+  const allDerivations = useMemo(() => {
     const items = derivationsData ?? [];
-    const campaignPlatforms = campaign?.platforms?.length
-      ? campaign.platforms
-      : (["Meta"] as AdPlatform[]);
     return items.map((d, i) => {
       const status: CampaignStatus =
         d.status === "queued" || d.status === "processing"
           ? "generating"
           : (d.status as CampaignStatus) ?? "draft";
-      const platform = campaignPlatforms[i % campaignPlatforms.length] ?? "Meta";
+      const platform: AdPlatform = "Meta";
       const generationMode = (d.generationMode as "art_variation" | "format_adaptation" | "restyling" | undefined) ?? campaign?.generationMode;
       const variantIndex = d.variantIndex ?? i;
-      const format = d.format;
-      const ctaText = d.ctaText;
+      const format = d.format ?? undefined;
+      const ctaText = d.ctaText ?? undefined;
       const name = generationMode === "format_adaptation" && format
         ? `${td("format")} ${format}`
         : `${td("piece")} ${variantIndex + 1}`;
@@ -136,21 +127,10 @@ export function useCampaignWorkspace() {
         imageUrl: d.imageUrl ?? undefined,
         generationMode,
         variantIndex,
-        ctaText: ctaText ?? undefined,
-        format: format ?? undefined,
-        qualityScore: d.qualityScore ?? undefined,
-        scoreStatus: d.scoreStatus ?? undefined,
-        scoreBreakdown: d.scoreBreakdown ?? undefined,
-        scoreIssues: d.scoreIssues ?? undefined,
-        regenerationSuggestion: d.regenerationSuggestion ?? undefined,
-        scoredAt: d.scoredAt ?? undefined,
-        qaStatus: d.qaStatus ?? undefined,
-        qaChecklist: d.qaChecklist ?? undefined,
-        qaIssues: d.qaIssues ?? undefined,
-        qaSuggestions: d.qaSuggestions ?? undefined,
-        qaAnalyzedAt: d.qaAnalyzedAt ?? undefined,
+        ctaText,
+        format,
         createdAt: d.createdAt,
-        completedAt: d.status === "completed" ? d.updatedAt : undefined,
+        updatedAt: d.updatedAt,
       };
     });
   }, [derivationsData, campaign, td]);
@@ -215,13 +195,8 @@ export function useCampaignWorkspace() {
           client: data.client,
           objective: data.objective,
           audience: data.audience,
-          platforms: data.platforms,
-          tone: data.tone,
-          offer: data.offer,
           constraints: data.constraints,
           notes: data.notes,
-          clientProfileId: data.clientProfileId,
-          selectedReferenceIds: data.selectedReferenceIds,
         });
       }
       addToast("success", tc("briefingSaved"));
@@ -238,14 +213,9 @@ export function useCampaignWorkspace() {
           client: data.client,
           objective: data.objective,
           audience: data.audience,
-          platforms: data.platforms,
-          tone: data.tone,
-          offer: data.offer,
           constraints: data.constraints,
           notes: data.notes,
           status: "draft",
-          clientProfileId: data.clientProfileId,
-          selectedReferenceIds: data.selectedReferenceIds,
         });
       }
       addToast("info", tc("draftSaved"));
@@ -287,34 +257,12 @@ export function useCampaignWorkspace() {
   );
 
   const handleSaveAsReference = useCallback((id: string) => {
-    const derivation = allDerivations.find((item) => item.id === id);
-    const clientProfileId = campaign?.clientProfileId;
-    if (!derivation || !clientProfileId) return;
-
-    setSavingReferenceId(id);
-    saveDerivationAsReference.mutate(
-      {
-        derivationId: id,
-        clientProfileId,
-        label: derivation.name,
-        kind: "style",
-      },
-      {
-        onSuccess: () => {
-          addToast("success", td("referenceSaved"));
-        },
-        onError: () => {
-          addToast("error", tc("errorLoading"));
-        },
-        onSettled: () => {
-          setSavingReferenceId(null);
-        },
-      }
-    );
-  }, [allDerivations, campaign?.clientProfileId, saveDerivationAsReference, addToast, td, tc]);
+    // Client profile feature removed
+    addToast("info", "Feature unavailable");
+  }, [addToast]);
 
   const hasActivePreview = useMemo(() => {
-    return allDerivations.some((d) => d.isPreview && ["queued", "processing", "generating", "completed"].includes(d.status));
+    return false;
   }, [allDerivations]);
 
   const handlePreview = useCallback(

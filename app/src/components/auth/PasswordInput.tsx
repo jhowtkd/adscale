@@ -115,11 +115,11 @@ export default function PasswordInput({
             "w-full h-10 rounded-md border px-3 pr-10 text-sm",
             "bg-[var(--surface-base)] text-[var(--text-primary)]",
             "placeholder:text-[var(--text-muted)]",
-            "focus:outline-none focus:ring-[3px] focus:shadow-[0_0_0_3px_rgba(47,182,125,0.1)]",
+            "focus:outline-none focus:ring-[3px] focus:shadow-[0_0_0_3px_var(--accent-green-dim)0.1)]",
             "transition-all duration-200",
             error
               ? "border-[var(--accent-rose)] focus:border-[var(--accent-rose)] focus:ring-[rgba(244,63,94,0.15)]"
-              : "border-[var(--border-dim)] focus:border-[var(--accent-mint)] focus:ring-[rgba(47,182,125,0.15)]"
+              : "border-[var(--border-dim)] focus:border-[var(--accent-green)] focus:ring-[var(--accent-green-dim)0.15)]"
           )}
         />
 
@@ -127,6 +127,7 @@ export default function PasswordInput({
         <button
           type="button"
           onClick={() => setVisible(!visible)}
+          aria-label={visible ? "Hide password" : "Show password"}
           className={cn(
             "absolute right-3 top-1/2 -translate-y-1/2",
             "text-[var(--text-muted)] hover:text-[var(--text-secondary)]",

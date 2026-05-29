@@ -97,13 +97,13 @@ export default function DeliveryPackageModal({
                   className={cn(
                     "flex items-center gap-3 rounded-lg border p-3 transition-colors cursor-pointer",
                     selected[format]
-                      ? "border-[var(--accent-mint)] bg-[var(--accent-mint-dim)]"
+                      ? "border-[var(--accent-green)] bg-[var(--accent-green-dim)]"
                       : "border-[var(--border-dim)] bg-[var(--surface-base)]"
                   )}
                 >
                   <input
                     type="checkbox"
-                    className="h-4 w-4 rounded border-[var(--border-dim)] text-[var(--accent-mint)] focus:ring-[var(--accent-mint)]"
+                    className="h-4 w-4 rounded border-[var(--border-dim)] text-[var(--accent-green)] focus:ring-[var(--accent-green)]"
                     checked={selected[format]}
                     disabled={isSource}
                     onChange={() => toggleFormat(format)}
@@ -113,7 +113,7 @@ export default function DeliveryPackageModal({
                     {format}
                   </span>
                   {isSource && (
-                    <span className="text-xs text-[var(--accent-mint)] font-medium">
+                    <span className="text-xs text-[var(--accent-green)] font-medium">
                       {t("ready")}
                     </span>
                   )}
@@ -130,7 +130,7 @@ export default function DeliveryPackageModal({
           <Button
             onClick={handleConfirm}
             disabled={isSubmitting || !hasGeneratableSelection}
-            className="bg-[var(--accent-mint)] text-white hover:bg-[var(--accent-mint-light)]"
+            className="bg-[var(--accent-green)] text-white hover:bg-[var(--accent-green-light)]"
           >
             {isSubmitting ? t("generating") : t("confirm")}
           </Button>

@@ -32,9 +32,9 @@ export default function CampaignsHeader({ count, onNewCampaign }: CampaignsHeade
       <div className="animate-fade-in" style={{ animationDelay: "150ms" }}>
         <Button
           onClick={onNewCampaign}
-          className="bg-[var(--accent-mint)] text-white hover:bg-[var(--accent-mint-light)] hover:-translate-y-px active:scale-[0.98] transition-all duration-200 h-9 px-4"
+          className="bg-[var(--accent-green)] text-[var(--ink)] hover:bg-[var(--accent-green-light)] hover:-translate-y-px active:scale-[0.98] transition-all duration-300 h-9 px-4 text-sm font-semibold"
         >
-          <Plus size={16} />
+          <Plus size={14} />
           {t("new")}
         </Button>
       </div>

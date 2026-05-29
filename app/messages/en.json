@@ -328,13 +328,13 @@
       "conservative": "Conservative",
       "balanced": "Balanced",
       "bold": "Bold",
-      "extreme": "Extreme"
-    },
-    "creativeLevel.contract": {
-      "conservative": "Maintains the essence of the original piece, changing only subtle details",
-      "balanced": "Balances innovation and familiarity, ideal for A/B testing",
-      "bold": "Significant visual changes while preserving the central message",
-      "extreme": "Complete reinvention of the piece, maximum creativity and differentiation"
+      "extreme": "Extreme",
+      "contract": {
+        "conservative": "Maintains the essence of the original piece, changing only subtle details",
+        "balanced": "Balances innovation and familiarity, ideal for A/B testing",
+        "bold": "Significant visual changes while preserving the central message",
+        "extreme": "Complete reinvention of the piece, maximum creativity and differentiation"
+      }
     }
   },
   "briefing": {

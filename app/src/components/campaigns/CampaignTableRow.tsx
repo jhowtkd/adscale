@@ -80,17 +80,13 @@ function CampaignTableRow({
   return (
     <tr
       ref={rowRef}
-      role="link"
-      tabIndex={0}
-      aria-label={`${campaign.name}, status ${campaign.status}`}
-      onClick={handleRowClick}
-      onKeyDown={handleKeyDown}
+      tabIndex={-1}
       onMouseEnter={() => prefetch(campaign.id)}
       className={cn("animate-fade-in",
-        "group border-b border-[var(--border-dim)] transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-mint)] focus-visible:ring-inset",
+        "group border-b border-[var(--border-dim)] transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-green)] focus-visible:ring-inset",
         "md:table-row flex flex-col rounded-xl md:rounded-none mb-3 md:mb-0 bg-[var(--surface-base)] md:bg-transparent shadow-sm md:shadow-none p-4 md:p-0",
         index % 2 === 1 && "md:bg-[rgba(0,0,0,0.02)]",
-        selected && "bg-[var(--accent-mint-dim)] border-l-2 border-l-[var(--accent-mint)] md:border-l-0 md:border-l-transparent",
+        selected && "bg-[var(--accent-green-dim)] border-l-2 border-l-[var(--accent-green)] md:border-l-0 md:border-l-transparent",
         !selected && "hover:bg-[var(--surface-raised)]"
       )}
     >
@@ -99,15 +95,17 @@ function CampaignTableRow({
         className="hidden md:table-cell px-4 py-3 w-[44px]"
         onClick={(e) => e.stopPropagation()}
       >
+        <label className="sr-only" htmlFor={`select-${campaign.id}`}>Select {campaign.name}</label>
         <input
+          id={`select-${campaign.id}`}
           type="checkbox"
           checked={selected}
           onChange={(e) => onSelect(e.target.checked)}
           className={cn(
             "h-[18px] w-[18px] rounded-sm border border-[var(--border-medium)] appearance-none cursor-pointer",
-            "checked:bg-[var(--accent-mint)] checked:border-[var(--accent-mint)]",
-            "checked:bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22white%22%3E%3Cpath%20d%3D%22M12.207%204.793a1%201%200%2001%200%201.414l-5%205a1%201%20%200%2001-1.414%200l-2-2a1%201%20%200%20011.414-1.414L6.5%209.086l4.293-4.293a1%201%20%200%20011.414%200z%22%2F%3E%3C%2Fsvg%3E')]",
-            "indeterminate:bg-[var(--accent-mint)] indeterminate:border-[var(--accent-mint)]",
+            "checked:bg-[var(--accent-green)] checked:border-[var(--accent-green)]",
+            "checked:bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22white%22%3E%3Cpath%20d%3D%22M12.207%204.793a1%201%20%2001%200%201.414l-5%205a1%201%20%200%2001-1.414%200l-2-2a1%201%20%200%20011.414-1.414L6.5%209.086l4.293-4.293a1%201%20%200%20011.414%200z%22%2F%3E%3C%2Fsvg%3E')]",
+            "indeterminate:bg-[var(--accent-green)] indeterminate:border-[var(--accent-green)]",
             "indeterminate:bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22white%22%3E%3Cpath%20d%3D%22M3%208h10v1H3z%22%2F%3E%3C%2Fsvg%3E')]",
             "transition-colors duration-150"
           )}
@@ -127,11 +125,11 @@ function CampaignTableRow({
       <td className="md:table-cell px-0 md:px-4 py-0 md:py-3 min-w-[200px]">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-[var(--text-primary)] group-hover:text-[var(--accent-mint)] transition-colors duration-150 truncate">
+            <p className="text-sm font-semibold text-[var(--text-primary)] group-hover:text-[var(--accent-green)] transition-colors duration-150 truncate">
               {campaign.name}
             </p>
             <p className="text-[13px] text-[var(--text-secondary)] truncate mt-0.5 md:hidden">
-              {campaign.platforms.join(", ")}
+              {campaign.platforms?.join(", ")}
             </p>
           </div>
           {/* Mobile: actions dropdown */}
@@ -201,7 +199,7 @@ function CampaignTableRow({
       {/* Platforms — desktop only */}
       <td className="hidden md:table-cell px-4 py-3 w-[140px]">
         <div className="flex items-center gap-1.5 flex-wrap">
-          {campaign.platforms.map((platform) => {
+          {campaign.platforms?.map((platform) => {
             const colors = platformColors[platform as keyof typeof platformColors];
             return (
               <span
@@ -225,7 +223,7 @@ function CampaignTableRow({
           <StatusBadge status={campaign.status} />
           {/* Mobile: inline platform tags */}
           <div className="flex items-center gap-1.5 flex-wrap md:hidden">
-            {campaign.platforms.map((platform) => {
+            {campaign.platforms?.map((platform) => {
               const colors = platformColors[platform as keyof typeof platformColors];
               return (
                 <span

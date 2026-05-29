@@ -29,10 +29,13 @@ import {
   Shield,
   User,
   Users,
-  Menu,
+  LayoutDashboard,
+  FolderOpen,
+  LayoutTemplate,
 } from "lucide-react";
 import Link from "next/link";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
+import ThemeToggle from "@/components/ui/ThemeToggle";
 import { formatDistanceToNow, isToday, isYesterday, isThisWeek } from "date-fns";
 import {
   DropdownMenu,
@@ -87,36 +90,34 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
   return (
     <header
       className={cn(
-        "fixed top-0 right-0 left-0 md:left-[var(--sidebar-width)] z-40 flex items-center justify-between gap-4",
+        "fixed top-0 right-0 left-0 z-40 flex items-center justify-between gap-4",
         "border-b border-[var(--border-dim)] bg-[var(--surface-base)]",
         "transition-transform duration-300 ease-out",
-        isDashboard ? "h-14 px-4 md:px-8" : "h-14 px-4",
+        isDashboard ? "h-14 px-6 lg:px-8" : "h-14 px-6",
         isTopBarHidden && "-translate-y-full"
       )}
     >
-      {/* Left: Menu button + Page Title */}
-      <div className="flex items-center gap-4">
-        {isMobile && onMenuClick && (
-          <button
-            onClick={onMenuClick}
-            className="flex items-center justify-center h-9 w-9 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-colors duration-200"
-            aria-label="Open menu"
-          >
-            <Menu size={20} />
-          </button>
-        )}
-        <h1 className="text-lg font-semibold text-[var(--text-primary)] tracking-tight">
-          {currentPageTitle}
-        </h1>
-        {isDashboard && dashboardData && (
-          <span className="hidden md:inline text-sm text-[var(--text-muted)]">
-            {dashboardData.totalCampaigns ?? 0} campanhas, {dashboardData.derivationsThisMonth ?? 0} derivações
-          </span>
-        )}
+      {/* Left: Logo + Navigation */}
+      <div className="flex items-center gap-8">
+        {/* Logo */}
+        <Link href="/" className="flex items-center gap-2 shrink-0">
+          <img src="/images/logo.svg" alt="ADScale" className="h-8 w-auto" />
+        </Link>
+
+        {/* Navigation */}
+        <nav className="hidden md:flex items-center gap-1">
+          <NavLink href="/" icon={LayoutDashboard} label="Dashboard" active={pathname === "/"} />
+          <NavLink href="/campaigns" icon={FolderOpen} label="Campanhas" active={pathname.startsWith("/campaigns")} />
+          <NavLink href="/templates" icon={LayoutTemplate} label="Templates" active={pathname.startsWith("/templates")} />
+          <NavLink href="/settings" icon={Settings} label="Configurações" active={pathname.startsWith("/settings")} />
+        </nav>
       </div>
 
       {/* Right: Actions */}
       <div className="flex items-center gap-2">
+        <LanguageSwitcher />
+        <ThemeToggle />
+
         {isDashboard && (
           <>
             <button
@@ -132,8 +133,8 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
             <Link
               href="/campaigns/new"
               className={cn(
-                "flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-[#0a0a0f]",
-                "bg-[#2fb67d] rounded-[4px] hover:bg-[#259d6a] transition-colors duration-200"
+                "flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-[var(--deep-bg)]",
+                "bg-[var(--accent-green)] rounded-md hover:bg-[var(--accent-green-light)] transition-colors duration-200"
               )}
             >
               + Nova Campanha
@@ -143,8 +144,6 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
 
         {!isDashboard && (
           <>
-            <LanguageSwitcher />
-
             {/* Notification Bell */}
             <button
               ref={(el) => { if (el) bellRef.current = el; }}
@@ -164,7 +163,7 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
               {unreadCount > 0 && (
                 <span
                   aria-hidden="true"
-                  className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--accent-rose)] px-1 text-xs font-semibold text-white"
+                  className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--accent-rose)] px-1 text-xs font-semibold text-[var(--deep-bg)]"
                 >
                   {unreadCount > 9 ? "9+" : unreadCount}
                 </span>
@@ -192,7 +191,7 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
           <DropdownMenuTrigger
             className={cn(
               "flex h-8 w-8 items-center justify-center rounded-full",
-              "bg-[var(--accent-mint-dim)] text-[var(--accent-mint)] text-xs font-semibold",
+              "bg-[var(--accent-green-dim)] text-[var(--accent-green)] text-xs font-semibold",
               "ring-2 ring-[var(--border-medium)] cursor-pointer",
               "hover:ring-[var(--border-medium)] hover:brightness-110",
               "transition-all duration-200"
@@ -340,7 +339,7 @@ function NotificationPanel({ items, onClose, onClear, onMarkAsRead, onMarkAllAsR
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -8, scale: 0.98 }}
       transition={{ duration: 0.15 }}
-      className="absolute right-16 top-11 z-50 w-[360px] max-w-[calc(100vw-2rem)] rounded-xl border border-[var(--border-dim)] bg-[var(--surface-raised)] shadow-[0_24px_80px_rgba(0,0,0,0.1)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-mint)]"
+      className="absolute right-16 top-11 z-50 w-[360px] max-w-[calc(100vw-2rem)] rounded-xl border border-[var(--border-dim)] bg-[var(--surface-raised)] shadow-[0_24px_80px_rgba(0,0,0,0.1)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-green)]"
     >
       <div className="flex items-center justify-between border-b border-[var(--border-dim)] px-4 py-3">
         <div>
@@ -356,7 +355,7 @@ function NotificationPanel({ items, onClose, onClear, onMarkAsRead, onMarkAllAsR
             <button
               type="button"
               onClick={onMarkAllAsRead}
-              className="rounded-md px-2 py-1 text-xs font-medium text-[var(--accent-mint)] hover:bg-[var(--accent-mint-dim)]"
+              className="rounded-md px-2 py-1 text-xs font-medium text-[var(--accent-green)] hover:bg-[var(--accent-green-dim)]"
             >
               {tCommon("markAllAsRead") ?? "Marcar todas"}
             </button>
@@ -392,7 +391,7 @@ function NotificationPanel({ items, onClose, onClear, onMarkAsRead, onMarkAllAsR
               ? "text-[var(--accent-rose)] bg-[var(--accent-rose-dim)]"
               : item.readAt
                 ? "bg-[var(--surface-raised)] text-[var(--text-muted)]"
-                : "bg-[var(--accent-mint-dim)] text-[var(--accent-mint)]";
+                : "bg-[var(--accent-green-dim)] text-[var(--accent-green)]";
 
             return (
               <Link
@@ -420,7 +419,7 @@ function NotificationPanel({ items, onClose, onClear, onMarkAsRead, onMarkAllAsR
                   </p>
                 </div>
                 {!item.readAt && (
-                  <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-[var(--accent-mint)]" />
+                  <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-[var(--accent-green)]" />
                 )}
               </Link>
             );
@@ -457,6 +456,34 @@ function groupNotificationsByDate(
   if (older.length) groups.push({ label: t("older") ?? "Anteriores", items: older });
 
   return groups;
+}
+
+// Navigation Link Component
+function NavLink({
+  href,
+  icon: Icon,
+  label,
+  active,
+}: {
+  href: string;
+  icon: typeof LayoutDashboard;
+  label: string;
+  active: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+        active
+          ? "bg-[var(--accent-green-dim)] text-[var(--accent-green)]"
+          : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)]"
+      )}
+    >
+      <Icon size={16} aria-hidden="true" />
+      {label}
+    </Link>
+  );
 }
 
 function getFocusableElements(container: HTMLElement): HTMLElement[] {

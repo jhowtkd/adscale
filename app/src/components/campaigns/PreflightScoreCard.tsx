@@ -86,7 +86,7 @@ function AnalyzingCard() {
     <div className="rounded-xl border border-[var(--border-dim)] bg-[var(--surface-raised)] p-4 space-y-3">
       <div className="flex items-center gap-3">
         <div className="relative">
-          <RefreshCw size={20} className="animate-spin text-[var(--accent-mint)]" />
+          <RefreshCw size={20} className="animate-spin text-[var(--accent-green)]" />
         </div>
         <div>
           <h4 className="text-sm font-semibold text-[var(--text-primary)]">{t("analyzingTitle")}</h4>
@@ -102,7 +102,7 @@ function AnalyzingCard() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: i * 0.15 }}
           >
-            <div className="h-1.5 w-1.5 rounded-full bg-[var(--accent-mint)] animate-pulse" />
+            <div className="h-1.5 w-1.5 rounded-full bg-[var(--accent-green)] animate-pulse" />
             {step}
           </motion.div>
         ))}

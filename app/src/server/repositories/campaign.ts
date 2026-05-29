@@ -115,6 +115,8 @@ const campaignFields = {
   offer: campaigns.offer,
   constraints: campaigns.constraints,
   platformSpecificNotes: campaigns.platformSpecificNotes,
+  clientProfileId: campaigns.clientProfileId,
+  selectedReferenceIds: campaigns.selectedReferenceIds,
   notes: campaigns.notes,
   generationMode: campaigns.generationMode,
   ctaVariants: campaigns.ctaVariants,
@@ -126,8 +128,6 @@ const campaignFields = {
   creativeDiagnosis: campaigns.creativeDiagnosis,
   creativeDiagnosisSource: campaigns.creativeDiagnosisSource,
   creativeDiagnosisUpdatedAt: campaigns.creativeDiagnosisUpdatedAt,
-  clientProfileId: campaigns.clientProfileId,
-  selectedReferenceIds: campaigns.selectedReferenceIds,
   createdAt: campaigns.createdAt,
   updatedAt: campaigns.updatedAt,
 };
@@ -243,24 +243,11 @@ function buildCampaignListConditions(workspaceId: string, query: CampaignListQue
   const trimmedSearchQuery = query.searchQuery?.trim();
   if (trimmedSearchQuery) {
     const pattern = `%${trimmedSearchQuery}%`;
-    conditions.push(
-      or(
-        ilike(campaigns.name, pattern),
-        sql<boolean>`exists (
-          select 1
-          from unnest(coalesce(${campaigns.platforms}, array[]::text[])) as platform
-          where platform ilike ${pattern}
-        )`
-      )!
-    );
+    conditions.push(ilike(campaigns.name, pattern));
   }
 
   if (query.statusFilter && query.statusFilter !== "all") {
     conditions.push(eq(campaigns.status, query.statusFilter));
-  }
-
-  if (query.platformFilter && query.platformFilter !== "all") {
-    conditions.push(arrayContains(campaigns.platforms, [query.platformFilter]));
   }
 
   return conditions;

@@ -69,7 +69,7 @@ export default function CookieBanner() {
         <div className="text-sm text-[var(--text-secondary)]">
           <p>
             Utilizamos cookies para melhorar sua experiencia.{" "}
-            <Link href="/privacy" className="text-[var(--accent-mint)] hover:underline">
+            <Link href="/privacy" className="text-[var(--accent-green)] hover:underline">
               Saiba mais
             </Link>
             .
@@ -77,7 +77,7 @@ export default function CookieBanner() {
         </div>
 
         {!showDetails ? (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <button
               type="button"
               onClick={acceptNecessary}
@@ -88,7 +88,7 @@ export default function CookieBanner() {
             <button
               type="button"
               onClick={acceptAll}
-              className="h-9 rounded-md bg-[var(--accent-mint)] px-4 text-xs font-medium text-white transition-all hover:bg-[var(--accent-mint-light)]"
+              className="h-9 rounded-md bg-[var(--accent-green)] px-4 text-xs font-medium text-white transition-all hover:bg-[var(--accent-green-light)]"
             >
               Aceitar todos
             </button>
@@ -102,16 +102,16 @@ export default function CookieBanner() {
           </div>
         ) : (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-              <input type="checkbox" checked disabled className="accent-[var(--accent-mint)]" />
+            <label htmlFor="cookie-necessary" className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+              <input type="checkbox" id="cookie-necessary" checked disabled className="accent-[var(--accent-green)]" />
               Necessarios (obrigatorio)
             </label>
-            <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-              <input type="checkbox" id="cookie-analytics" className="accent-[var(--accent-mint)]" />
+            <label htmlFor="cookie-analytics" className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+              <input type="checkbox" id="cookie-analytics" className="accent-[var(--accent-green)]" />
               Analiticos
             </label>
-            <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-              <input type="checkbox" id="cookie-marketing" className="accent-[var(--accent-mint)]" />
+            <label htmlFor="cookie-marketing" className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+              <input type="checkbox" id="cookie-marketing" className="accent-[var(--accent-green)]" />
               Marketing
             </label>
             <button
@@ -122,7 +122,7 @@ export default function CookieBanner() {
                 saveConsent({ necessary: true, analytics, marketing });
                 window.location.reload();
               }}
-              className="h-9 rounded-md bg-[var(--accent-mint)] px-4 text-xs font-medium text-white transition-all hover:bg-[var(--accent-mint-light)]"
+              className="h-9 rounded-md bg-[var(--accent-green)] px-4 text-xs font-medium text-white transition-all hover:bg-[var(--accent-green-light)]"
             >
               Salvar preferencias
             </button>

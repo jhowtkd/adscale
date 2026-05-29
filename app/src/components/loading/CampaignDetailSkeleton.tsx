@@ -19,7 +19,7 @@ export function CampaignDetailSkeleton() {
       
       <Skeleton className="h-12 w-full" />
       
-      <div className="bg-[var(--surface-base)] rounded-xl border border-[var(--border-dim)] min-h-[400px] p-6 md:p-8 space-y-4">
+      <div className="glass-card rounded-xl min-h-[400px] p-6 md:p-8 space-y-4">
         <Skeleton className="h-8 w-64" />
         <div className="grid gap-4 sm:grid-cols-2">
           {Array.from({ length: 4 }).map((_, i) => (

@@ -80,7 +80,7 @@ export default function ComparisonView({
 
   if (!derivation) {
     return (
-      <div className="flex items-center justify-center h-[400px] bg-[var(--surface-base)] rounded-xl border border-[var(--border-dim)]">
+      <div className="flex items-center justify-center h-[400px] glass-card rounded-xl">
         <p className="text-sm text-[var(--text-muted)]">Select a derivation to compare</p>
       </div>
     );
@@ -91,7 +91,7 @@ export default function ComparisonView({
       {/* ---- Split View ---- */}
       <div
         ref={containerRef}
-        className="relative h-[500px] bg-[var(--surface-base)] rounded-xl border border-[var(--border-dim)] overflow-hidden select-none"
+        className="relative h-[500px] glass-card rounded-xl overflow-hidden select-none"
         onMouseMove={handleMouseMove}
         style={{ cursor: isDragging ? "col-resize" : "default" }}
       >
@@ -107,7 +107,7 @@ export default function ComparisonView({
             <div
               className="relative w-full max-w-[400px] aspect-square rounded-lg overflow-hidden"
               style={{
-                background: "var(--accent-mint-dim)",
+                background: "var(--accent-green-dim)",
               }}
             >
               <div className="absolute inset-0 flex items-center justify-center">
@@ -155,7 +155,7 @@ export default function ComparisonView({
             <div
               className="relative w-full max-w-[400px] aspect-square rounded-lg overflow-hidden"
               style={{
-                background: "var(--accent-mint-dim)",
+                background: "var(--accent-green-dim)",
               }}
             >
               <div className="absolute inset-0 flex items-center justify-center">
@@ -195,7 +195,7 @@ export default function ComparisonView({
               "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2",
               "w-8 h-8 rounded-full bg-[var(--surface-raised)] border border-[var(--border-medium)]",
               "flex items-center justify-center cursor-col-resize shadow-lg",
-              "hover:border-[var(--accent-mint)] hover:shadow-[0_0_12px_rgba(47,182,125,0.2)]",
+              "hover:border-[var(--accent-green)] hover:shadow-[0_0_12px_var(--accent-green-dim)0.2)]",
               "transition-all duration-150"
             )}
             onMouseDown={handleMouseDown}
@@ -351,7 +351,7 @@ export default function ComparisonView({
           <select
             value={exportFormat}
             onChange={(e) => setExportFormat(e.target.value)}
-            className="h-9 px-3 text-xs rounded-md bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] focus:border-[var(--accent-mint)] focus:outline-none"
+            className="h-9 px-3 text-xs rounded-md bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] focus:border-[var(--accent-green)] focus:outline-none"
           >
             <option value="png">PNG</option>
             <option value="jpeg">JPEG</option>
@@ -388,7 +388,7 @@ export default function ComparisonView({
           rows={3}
           value={feedback}
           onChange={(e) => setFeedback(e.target.value)}
-          className="w-full bg-[var(--surface-base)] border border-[var(--border-dim)] rounded-lg p-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-mint)] focus:ring-[3px] focus:ring-[rgba(47,182,125,0.15)] focus:outline-none resize-none"
+          className="w-full bg-[var(--surface-base)] border border-[var(--border-dim)] rounded-lg p-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)0.15)] focus:outline-none resize-none"
         />
         <div className="flex items-center gap-2 mt-2">
           <button
@@ -401,7 +401,7 @@ export default function ComparisonView({
             }}
             disabled={isRegenerating}
             className={cn(
-              "inline-flex items-center rounded-md px-4 py-2 text-xs font-medium text-white bg-[var(--accent-mint)] hover:bg-[var(--accent-mint-light)] transition-colors",
+              "inline-flex items-center rounded-md px-4 py-2 text-xs font-medium text-white bg-[var(--accent-green)] hover:bg-[var(--accent-green-light)] transition-colors",
               isRegenerating && "opacity-60 cursor-wait"
             )}
           >

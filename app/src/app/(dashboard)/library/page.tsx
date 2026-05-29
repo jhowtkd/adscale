@@ -1,10 +1,18 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { Search, Upload, ImageIcon, Trash2, Tag } from "lucide-react";
+import { Search, Upload, ImageIcon, Trash2, Tag, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   useWorkspaceAssets,
   useDeleteWorkspaceAsset,
@@ -14,13 +22,16 @@ import { useQueryClient } from "@tanstack/react-query";
 
 export default function LibraryPage() {
   const t = useTranslations("library");
+  const tCommon = useTranslations("common");
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [dragOver, setDragOver] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const xhrRef = useRef<XMLHttpRequest | null>(null);
 
   const { data, isLoading } = useWorkspaceAssets({ q: debouncedSearch || undefined });
   const deleteAsset = useDeleteWorkspaceAsset();
@@ -30,10 +41,11 @@ export default function LibraryPage() {
     setTimeout(() => setDebouncedSearch(value), 300);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm(t("deleteConfirm"))) return;
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
     try {
-      await deleteAsset.mutateAsync(id);
+      await deleteAsset.mutateAsync(deleteTarget.id);
+      setDeleteTarget(null);
     } catch {
       // Error handled by hook toast
     }
@@ -48,6 +60,8 @@ export default function LibraryPage() {
     formData.append("file", file);
 
     const xhr = new XMLHttpRequest();
+    xhrRef.current = xhr;
+
     xhr.upload.addEventListener("progress", (e) => {
       if (e.lengthComputable) {
         setUploadProgress(Math.round((e.loaded / e.total) * 100));
@@ -57,6 +71,7 @@ export default function LibraryPage() {
     xhr.addEventListener("load", () => {
       setIsUploading(false);
       setUploadProgress(0);
+      xhrRef.current = null;
       if (xhr.status === 201) {
         queryClient.invalidateQueries({ queryKey: ["workspace-assets"] });
       }
@@ -65,11 +80,26 @@ export default function LibraryPage() {
     xhr.addEventListener("error", () => {
       setIsUploading(false);
       setUploadProgress(0);
+      xhrRef.current = null;
+    });
+
+    xhr.addEventListener("abort", () => {
+      setIsUploading(false);
+      setUploadProgress(0);
+      xhrRef.current = null;
     });
 
     xhr.open("POST", "/api/workspace/assets");
     xhr.send(formData);
   }, [queryClient]);
+
+  useEffect(() => {
+    return () => {
+      if (xhrRef.current) {
+        xhrRef.current.abort();
+      }
+    };
+  }, []);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -159,7 +189,7 @@ export default function LibraryPage() {
       ) : data?.assets && data.assets.length > 0 ? (
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
           {data.assets.map((asset) => (
-            <AssetCard key={asset.id} asset={asset} onDelete={handleDelete} />
+            <AssetCard key={asset.id} asset={asset} onDelete={() => setDeleteTarget({ id: asset.id, name: asset.name })} />
           ))}
         </div>
       ) : (
@@ -169,6 +199,40 @@ export default function LibraryPage() {
           <p className="text-sm mt-1">{t("emptyDescription")}</p>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
+        <DialogContent className="bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-[var(--text-primary)]">
+              <AlertTriangle size={20} className="text-[var(--accent-rose)]" />
+              {t("deleteConfirmTitle") || "Confirmar exclusão"}
+            </DialogTitle>
+            <DialogDescription className="text-[var(--text-secondary)]">
+              {deleteTarget?.name 
+                ? (t("deleteConfirmDescription", { name: deleteTarget.name }) || `Tem certeza que deseja excluir "${deleteTarget.name}"? Esta ação não pode ser desfeita.`)
+                : "Tem certeza que deseja excluir este item? Esta ação não pode ser desfeita."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="border-t border-[var(--border-dim)] pt-4">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteTarget(null)}
+              className="border-[var(--border-dim)] text-[var(--text-secondary)]"
+            >
+              {tCommon("cancel")}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={deleteAsset.isPending}
+              className="bg-[var(--accent-rose)] text-white hover:bg-[var(--accent-rose)]/80"
+            >
+              {deleteAsset.isPending ? tCommon("loading") : t("deleteConfirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -178,12 +242,12 @@ function AssetCard({
   onDelete,
 }: {
   asset: WorkspaceAsset;
-  onDelete: (id: string) => void;
+  onDelete: () => void;
 }) {
   const imageUrl = asset.url;
 
   return (
-    <div className="group relative bg-[var(--surface-raised)] border border-[var(--border-dim)] rounded-lg overflow-hidden hover:border-[var(--border-default)] transition-all">
+    <div className="group relative bg-[var(--surface-raised)] border border-[var(--border-dim)] rounded-lg overflow-hidden hover:border-[var(--border-medium)] transition-all">
       {/* Image */}
       <div className="aspect-square relative">
         <img
@@ -197,7 +261,7 @@ function AssetCard({
           <Button
             size="sm"
             variant="destructive"
-            onClick={() => onDelete(asset.id)}
+            onClick={onDelete}
             className="h-8 w-8 p-0"
           >
             <Trash2 size={14} />

@@ -81,8 +81,8 @@ function ProgressRing({ progress }: { progress: number }) {
         />
         <defs>
           <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="var(--accent-mint)" />
-            <stop offset="100%" stopColor="var(--accent-mint)" />
+            <stop offset="0%" stopColor="var(--accent-green)" />
+            <stop offset="100%" stopColor="var(--accent-green)" />
           </linearGradient>
         </defs>
       </svg>
@@ -224,7 +224,7 @@ export default function DerivationCard({
 
   const qaStatusColor = (
     {
-      ready: "text-[var(--accent-mint)]",
+      ready: "text-[var(--accent-green)]",
       warning: "text-amber-500",
       review: "text-[var(--accent-rose)]",
     } as Record<string, string>
@@ -260,12 +260,12 @@ export default function DerivationCard({
   return (
     <div
       className={cn(
-        "animate-fade-in group bg-[var(--surface-base)] rounded-[15px] border overflow-hidden transition-all duration-300",
+        "animate-fade-in group glass-card rounded-[15px] overflow-hidden transition-all duration-300",
         derivation.isPreview
           ? "border-dashed border-orange-400/60"
-          : "border-[var(--border-dim)]",
+          : "",
         isCompleted && !derivation.isPreview && "hover:border-[var(--border-medium)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.08)] hover:-translate-y-1",
-        isSelectedForCompare && "ring-2 ring-[var(--accent-mint)] border-[var(--accent-mint)]"
+        isSelectedForCompare && "ring-2 ring-[var(--accent-green)] border-[var(--accent-green)]"
       )}
       style={{ animationDelay: `${index * 80}ms` }}
     >
@@ -455,7 +455,7 @@ export default function DerivationCard({
                   className={cn(
                     "p-1.5 rounded-md transition-all duration-150",
                     isSelectedForCompare
-                      ? "text-[var(--accent-mint)] bg-[var(--accent-mint)]/10"
+                      ? "text-[var(--accent-green)] bg-[var(--accent-green)]/10"
                       : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)]"
                   )}
                   title={t("compare")}
@@ -488,7 +488,7 @@ export default function DerivationCard({
               <Button
                 size="sm"
                 onClick={onCreateDeliveryPackage}
-                className="w-fit bg-[var(--accent-mint)] text-white hover:bg-[var(--accent-mint-light)]"
+                className="w-fit bg-[var(--accent-green)] text-white hover:bg-[var(--accent-green-light)]"
               >
                 <Package className="w-4 h-4 mr-1" />
                 {t("generatePackage")}

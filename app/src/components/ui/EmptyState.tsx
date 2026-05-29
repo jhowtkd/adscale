@@ -11,7 +11,8 @@ interface EmptyStateAction {
 }
 
 interface EmptyStateProps {
-  icon: LucideIcon;
+  icon?: LucideIcon;
+  image?: string;
   title: string;
   description: string;
   action?: EmptyStateAction;
@@ -20,6 +21,7 @@ interface EmptyStateProps {
 
 export default function EmptyState({
   icon: Icon,
+  image,
   title,
   description,
   action,
@@ -29,14 +31,14 @@ export default function EmptyState({
     action.href ? (
       <Link
         href={action.href}
-        className="inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200 bg-[var(--accent-mint)] text-white hover:bg-[var(--accent-mint-light)] active:scale-[0.98]"
+        className="inline-flex items-center justify-center rounded-lg px-4 py-2 text-[13px] font-medium transition-all duration-300 bg-[var(--accent-green)] text-[var(--ink)] hover:bg-[var(--accent-green-light)] active:scale-[0.98]"
       >
         {action.label}
       </Link>
     ) : (
       <button
         onClick={action.onClick}
-        className="inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200 bg-[var(--accent-mint)] text-white hover:bg-[var(--accent-mint-light)] active:scale-[0.98]"
+        className="inline-flex items-center justify-center rounded-lg px-4 py-2 text-[13px] font-medium transition-all duration-300 bg-[var(--accent-green)] text-[var(--ink)] hover:bg-[var(--accent-green-light)] active:scale-[0.98]"
       >
         {action.label}
       </button>
@@ -46,11 +48,15 @@ export default function EmptyState({
   return (
     <FadeIn animation="fadeInUp" className="flex flex-col items-center justify-center py-14 px-6">
       <div className="flex flex-col items-center text-center max-w-md">
-        {/* Icon with background */}
+        {/* Icon or Image */}
         <div className="mb-5">
-          <div className="w-16 h-16 rounded-2xl bg-[var(--surface-raised)] border border-[var(--border-dim)] flex items-center justify-center">
-            <Icon size={32} className="text-[var(--text-muted)]" strokeWidth={1.5} />
-          </div>
+          {image ? (
+            <img src={image} alt={title} className="w-48 h-48 object-contain" />
+          ) : Icon ? (
+            <div className="w-16 h-16 rounded-2xl glass-card flex items-center justify-center">
+              <Icon size={32} className="text-[var(--accent-green)]" strokeWidth={1.5} />
+            </div>
+          ) : null}
         </div>
 
         {/* Title */}
@@ -69,7 +75,7 @@ export default function EmptyState({
             {steps.map((step, index) => (
               <div key={index} className="flex items-center gap-2">
                 <div className="flex items-center gap-1.5">
-                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[var(--accent-mint-dim)] text-[var(--accent-mint)] text-[10px] font-semibold">
+                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[var(--accent-green-dim)] text-[var(--accent-green)] text-[10px] font-semibold">
                     {index + 1}
                   </span>
                   <span className="text-xs text-[var(--text-secondary)]">

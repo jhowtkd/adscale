@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import {
   Pencil,
   Type,
@@ -61,6 +62,7 @@ export default function AnnotationModal({
   const [activeColor, setActiveColor] = useState("#ef4444");
   const [strokeWidth, setStrokeWidth] = useState(3);
   const [fontSize, setFontSize] = useState(16);
+  const [showClearDialog, setShowClearDialog] = useState(false);
 
   const {
     annotations,
@@ -70,9 +72,7 @@ export default function AnnotationModal({
   } = useAnnotations(derivation.id);
 
   const handleClearAll = () => {
-    if (window.confirm(t("confirmClearAnnotations"))) {
-      clearAnnotations();
-    }
+    setShowClearDialog(true);
   };
 
   return (
@@ -113,7 +113,7 @@ export default function AnnotationModal({
                     className={cn(
                       "p-2 rounded-md transition-all duration-150",
                       activeTool === tool.id
-                        ? "bg-[var(--accent-mint)]/10 text-[var(--accent-mint)]"
+                        ? "bg-[var(--accent-green)]/10 text-[var(--accent-green)]"
                         : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-base)]"
                     )}
                     title={t(tool.label)}
@@ -215,6 +215,16 @@ export default function AnnotationModal({
           </Button>
         </div>
       </DialogContent>
+      <ConfirmDialog
+        open={showClearDialog}
+        onOpenChange={setShowClearDialog}
+        title={t("confirmClearAnnotationsTitle") || "Limpar anotações"}
+        description={t("confirmClearAnnotations") || "Tem certeza que deseja limpar todas as anotações? Esta ação não pode ser desfeita."}
+        confirmLabel={t("clearAll") || "Limpar tudo"}
+        onConfirm={() => {
+          clearAnnotations();
+        }}
+      />
     </Dialog>
   );
 }

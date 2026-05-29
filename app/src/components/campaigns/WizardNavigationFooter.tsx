@@ -54,7 +54,7 @@ export default function WizardNavigationFooter({
             "inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-md px-6 py-2.5 text-sm font-semibold transition-all duration-200 shadow-sm sm:w-auto",
             exportMutationPending
               ? "bg-[var(--surface-raised)] text-[var(--text-muted)] border border-[var(--border-dim)] cursor-default"
-              : "bg-[var(--accent-mint)] text-white hover:bg-[var(--accent-mint-light)] hover:-translate-y-px active:scale-[0.98]"
+              : "bg-[var(--accent-green)] text-white hover:bg-[var(--accent-green-light)] hover:-translate-y-px active:scale-[0.98]"
           )}
         >
           <Download size={14} />

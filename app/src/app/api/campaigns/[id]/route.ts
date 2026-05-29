@@ -20,9 +20,6 @@ const updateCampaignSchema = z.object({
   product: z.string().optional(),
   objective: z.string().optional(),
   audience: z.string().optional(),
-  platforms: z.array(z.string()).optional(),
-  tone: z.string().optional(),
-  offer: z.string().optional(),
   constraints: z.string().optional(),
   notes: z.string().optional(),
   generationMode: z.enum(["art_variation", "format_adaptation", "restyling"]).optional(),
@@ -30,8 +27,6 @@ const updateCampaignSchema = z.object({
   targetFormats: z.array(z.string()).max(5).optional(),
   creativeLevel: z.enum(["conservative", "balanced", "bold", "extreme"]).optional(),
   styleIntensity: z.enum(["soft", "medium", "strong"]).optional(),
-  clientProfileId: z.string().uuid().nullable().optional(),
-  selectedReferenceIds: z.array(z.string().uuid()).optional(),
   status: z.enum(["draft", "active", "generating", "completed", "failed"]).optional(),
 })
 .refine(
@@ -75,23 +70,6 @@ export async function PATCH(
       return apiError("invalidInput", 400, parsed.error.flatten());
     }
 
-    if (parsed.data.clientProfileId) {
-      const profile = await getClientProfile(workspace.id, parsed.data.clientProfileId);
-      if (!profile) {
-        return apiError("clientProfileNotFound", 400);
-      }
-    }
-
-    if (parsed.data.selectedReferenceIds?.length) {
-      const references = await getClientReferencesByIds(
-        workspace.id,
-        parsed.data.selectedReferenceIds
-      );
-      if (references.length !== parsed.data.selectedReferenceIds.length) {
-        return apiError("clientReferenceNotFound", 400);
-      }
-    }
-
     const campaign = await updateCampaign(id, workspace.id, parsed.data);
 
     if (!campaign) {
@@ -101,7 +79,6 @@ export async function PATCH(
     await recordBrandMemoryEvent({
       type: "campaign_created_or_updated",
       workspaceId: workspace.id,
-      clientProfileId: campaign.clientProfileId,
       campaignId: campaign.id,
       occurredAt: campaign.updatedAt,
       summary: `Campaign "${campaign.name}" was updated for ${campaign.client ?? campaign.product ?? "an unspecified client/product"}.`,
@@ -114,15 +91,11 @@ export async function PATCH(
           product: campaign.product,
           objective: campaign.objective,
           audience: campaign.audience,
-          platforms: campaign.platforms,
-          tone: campaign.tone,
-          offer: campaign.offer,
           constraints: campaign.constraints,
           generationMode: campaign.generationMode,
           ctaVariants: campaign.ctaVariants,
           targetFormats: campaign.targetFormats,
           creativeLevel: campaign.creativeLevel,
-          selectedReferenceIds: campaign.selectedReferenceIds,
         },
       },
     });

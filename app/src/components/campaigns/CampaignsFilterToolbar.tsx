@@ -70,6 +70,7 @@ export default function CampaignsFilterToolbar({
             {searchQuery && (
               <button
                 onClick={() => onSearchChange("")}
+                aria-label="Clear search"
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
               >
                 <X size={14} />
@@ -135,10 +136,12 @@ export default function CampaignsFilterToolbar({
           <div className="ml-auto flex items-center rounded-lg bg-[var(--surface-raised)] p-0.5">
             <button
               onClick={() => onViewModeChange("list")}
+              aria-label="List view"
+              aria-pressed={viewMode === "list"}
               className={cn(
                 "flex items-center justify-center h-7 w-7 rounded-md transition-all duration-200",
                 viewMode === "list"
-                  ? "bg-[var(--surface-base)] text-[var(--accent-mint)] shadow-sm"
+                  ? "bg-[var(--surface-base)] text-[var(--accent-green)] shadow-sm"
                   : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
               )}
             >
@@ -146,6 +149,8 @@ export default function CampaignsFilterToolbar({
             </button>
             <button
               onClick={() => onViewModeChange("grid")}
+              aria-label="Grid view"
+              aria-pressed={viewMode === "grid"}
               className={cn(
                 "flex items-center justify-center h-7 w-7 rounded-md transition-all duration-200",
                 viewMode === "grid"
@@ -157,10 +162,12 @@ export default function CampaignsFilterToolbar({
             </button>
             <button
               onClick={() => onViewModeChange("board")}
+              aria-label="Board view"
+              aria-pressed={viewMode === "board"}
               className={cn(
                 "flex items-center justify-center h-7 w-7 rounded-md transition-all duration-200",
                 viewMode === "board"
-                  ? "bg-[var(--surface-base)] text-[var(--accent-mint)] shadow-sm"
+                  ? "bg-[var(--surface-base)] text-[var(--accent-green)] shadow-sm"
                   : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
               )}
             >
@@ -191,7 +198,7 @@ export default function CampaignsFilterToolbar({
             ))}
             <button
               onClick={onClearFilters}
-              className="text-xs text-[var(--accent-mint)] hover:text-[var(--accent-mint-light)] transition-colors ml-1"
+              className="text-xs text-[var(--accent-green)] hover:text-[var(--accent-green-light)] transition-colors ml-1"
             >
               {tc("clearAll")}
             </button>

@@ -205,7 +205,7 @@ function ComparisonColumn({
   const qaLabelKey = getQaLabelKey(derivation.qaStatus);
   const qaStatusColor = (
     {
-      ready: "text-[var(--accent-mint)]",
+      ready: "text-[var(--accent-green)]",
       warning: "text-amber-500",
       review: "text-[var(--accent-rose)]",
     } as Record<string, string>
@@ -337,7 +337,7 @@ function ComparisonColumn({
               size="sm"
               variant="outline"
               onClick={onApprove}
-              className="flex-1 border-[var(--accent-mint)] text-[var(--accent-mint)] hover:bg-[var(--accent-mint-dim)] text-xs"
+              className="flex-1 border-[var(--accent-green)] text-[var(--accent-green)] hover:bg-[var(--accent-green-dim)] text-xs"
             >
               {t("approve")}
             </Button>
@@ -423,7 +423,7 @@ export default function DerivationComparisonModal({
                     className={cn(
                       "p-2 rounded-md transition-all duration-150",
                       viewMode === "grid"
-                        ? "bg-[var(--accent-mint)]/10 text-[var(--accent-mint)]"
+                        ? "bg-[var(--accent-green)]/10 text-[var(--accent-green)]"
                         : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                     )}
                     title={t("gridView")}
@@ -435,7 +435,7 @@ export default function DerivationComparisonModal({
                     className={cn(
                       "p-2 rounded-md transition-all duration-150",
                       viewMode === "slider"
-                        ? "bg-[var(--accent-mint)]/10 text-[var(--accent-mint)]"
+                        ? "bg-[var(--accent-green)]/10 text-[var(--accent-green)]"
                         : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                     )}
                     title={t("sliderView")}
@@ -451,7 +451,7 @@ export default function DerivationComparisonModal({
                       className={cn(
                         "p-2 rounded-md transition-all duration-150",
                         sliderDirection === "horizontal"
-                          ? "bg-[var(--accent-mint)]/10 text-[var(--accent-mint)]"
+                          ? "bg-[var(--accent-green)]/10 text-[var(--accent-green)]"
                           : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                       )}
                       title={t("horizontal")}
@@ -463,7 +463,7 @@ export default function DerivationComparisonModal({
                       className={cn(
                         "p-2 rounded-md transition-all duration-150",
                         sliderDirection === "vertical"
-                          ? "bg-[var(--accent-mint)]/10 text-[var(--accent-mint)]"
+                          ? "bg-[var(--accent-green)]/10 text-[var(--accent-green)]"
                           : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                       )}
                       title={t("vertical")}

@@ -9,7 +9,7 @@ export default function PublicLayout({
     <div className="min-h-screen bg-[var(--deep-bg)]">
       <header className="border-b border-[var(--border-dim)] bg-[var(--surface-base)]">
         <div className="mx-auto flex h-14 max-w-7xl items-center px-6">
-          <Link href="/" className="text-lg font-bold text-[var(--accent-mint)]">
+          <Link href="/" className="text-lg font-bold text-[var(--accent-green)]">
             ADScale
           </Link>
         </div>

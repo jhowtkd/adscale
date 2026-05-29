@@ -416,7 +416,7 @@ export default function CompetitorAnalysisSection({
                                 href={comp.website.startsWith("http") ? comp.website : `https://${comp.website}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center gap-0.5 text-[10px] text-[var(--accent-mint)] hover:underline"
+                                className="inline-flex items-center gap-0.5 text-[10px] text-[var(--accent-green)] hover:underline"
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 {comp.website.replace(/^https?:\/\//, "").slice(0, 24)}
@@ -444,7 +444,7 @@ export default function CompetitorAnalysisSection({
                       <div className="mt-2.5 grid gap-2 sm:grid-cols-2">
                         {strengths.length > 0 && (
                           <div>
-                            <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--accent-mint)]">
+                            <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--accent-green)]">
                               {t("strengths")}
                             </p>
                             <ul className="mt-1 space-y-0.5">
@@ -476,7 +476,7 @@ export default function CompetitorAnalysisSection({
                     {/* Differentiation tip */}
                     {differentiators.length > 0 && (
                       <div className="mt-2">
-                        <span className="inline-flex items-center gap-1 rounded-md bg-[var(--accent-mint)]/10 px-2 py-1 text-[11px] font-medium text-[var(--accent-mint)]">
+                        <span className="inline-flex items-center gap-1 rounded-md bg-[var(--accent-green)]/10 px-2 py-1 text-[11px] font-medium text-[var(--accent-green)]">
                           <Lightbulb size={10} />
                           {differentiators[0]}
                         </span>
@@ -514,7 +514,7 @@ export default function CompetitorAnalysisSection({
 
           {/* Strategy card */}
           {strategy && (
-            <div className="rounded-md border border-[var(--accent-mint)]/20 bg-[var(--accent-mint)]/5 p-3 space-y-2">
+            <div className="rounded-md border border-[var(--accent-green)]/20 bg-[var(--accent-green)]/5 p-3 space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <h4 className="text-sm font-semibold text-[var(--text-primary)]">
                   {t("strategyTitle")}
@@ -523,7 +523,7 @@ export default function CompetitorAnalysisSection({
                   <button
                     type="button"
                     onClick={handleApplyStrategy}
-                    className="inline-flex items-center gap-1 rounded-md bg-[var(--accent-mint)] px-2.5 py-1 text-[11px] font-medium text-white hover:bg-[var(--accent-mint-light)] transition-colors"
+                    className="inline-flex items-center gap-1 rounded-md bg-[var(--accent-green)] px-2.5 py-1 text-[11px] font-medium text-white hover:bg-[var(--accent-green-light)] transition-colors"
                   >
                     <Check size={10} />
                     {t("applyToBrief")}
@@ -635,7 +635,7 @@ export default function CompetitorAnalysisSection({
                 className={cn(
                   "flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed px-4 py-6 transition-colors",
                   dragActive
-                    ? "border-[var(--accent-mint)] bg-[var(--accent-mint)]/5"
+                    ? "border-[var(--accent-green)] bg-[var(--accent-green)]/5"
                     : "border-[var(--border-dim)] bg-[var(--surface-raised)] hover:border-[var(--border-medium)]"
                 )}
               >
@@ -706,7 +706,7 @@ export default function CompetitorAnalysisSection({
                     void handleAnalyze();
                   }
                 }}
-                className="h-4 w-4 accent-[var(--accent-mint)] rounded border-[var(--border-dim)]"
+                className="h-4 w-4 accent-[var(--accent-green)] rounded border-[var(--border-dim)]"
               />
               <span className="text-xs text-[var(--text-primary)]">{t("analyzeWithAI")}</span>
             </label>
@@ -719,7 +719,7 @@ export default function CompetitorAnalysisSection({
                 </p>
                 {analysisPreview.strengths.length > 0 && (
                   <div>
-                    <p className="text-[10px] font-medium text-[var(--accent-mint)]">
+                    <p className="text-[10px] font-medium text-[var(--accent-green)]">
                       {t("strengths")}
                     </p>
                     <ul className="mt-0.5 space-y-0.5">
@@ -779,7 +779,7 @@ export default function CompetitorAnalysisSection({
             <Button
               onClick={handleSave}
               disabled={isSaving || isAnalyzing}
-              className="text-xs bg-[var(--accent-mint)] text-white hover:bg-[var(--accent-mint-light)]"
+              className="text-xs bg-[var(--accent-green)] text-white hover:bg-[var(--accent-green-light)]"
             >
               {isSaving ? tCommon("sending") : tCommon("save")}
             </Button>

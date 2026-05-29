@@ -49,7 +49,7 @@ export default function BulkActionsBar({
             variant="outline"
             onClick={onApproveAll}
             disabled={isApproving}
-            className="border-[var(--accent-mint)] text-[var(--accent-mint)] hover:bg-[var(--accent-mint-dim)]"
+            className="border-[var(--accent-green)] text-[var(--accent-green)] hover:bg-[var(--accent-green-dim)]"
           >
             {isApproving ? (
               <Loader2 size={14} className="animate-spin mr-1" />

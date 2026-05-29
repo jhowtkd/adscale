@@ -171,7 +171,7 @@ export default function AutoBriefingModal({
               onDrop={handleDrop}
               className={cn(
                 "border-2 border-dashed rounded-xl p-8 text-center transition-colors",
-                "border-[var(--border-dim)] hover:border-[var(--accent-mint)]",
+                "border-[var(--border-dim)] hover:border-[var(--accent-green)]",
                 "bg-[var(--surface-base)]"
               )}
             >
@@ -281,7 +281,7 @@ export default function AutoBriefingModal({
                       "w-full text-left p-3 rounded-lg border transition-all",
                       "flex items-start gap-3",
                       isSelected
-                        ? "border-[var(--accent-mint)] bg-[var(--accent-mint-dim)]"
+                        ? "border-[var(--accent-green)] bg-[var(--accent-green-dim)]"
                         : "border-[var(--border-dim)] hover:border-[var(--border-medium)]"
                     )}
                   >
@@ -289,7 +289,7 @@ export default function AutoBriefingModal({
                       className={cn(
                         "mt-0.5 w-5 h-5 rounded flex items-center justify-center flex-shrink-0 transition-colors",
                         isSelected
-                          ? "bg-[var(--accent-mint)] text-white"
+                          ? "bg-[var(--accent-green)] text-white"
                           : "border-2 border-[var(--border-medium)]"
                       )}
                     >

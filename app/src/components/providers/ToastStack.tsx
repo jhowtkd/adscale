@@ -14,10 +14,10 @@ const icons = {
 
 const styles = {
   success: {
-    border: "border-[var(--accent-mint)]/30",
-    bg: "bg-[var(--accent-mint)]/8",
-    icon: "text-[var(--accent-mint)]",
-    progress: "bg-[var(--accent-mint)]",
+    border: "border-[var(--accent-green)]/30",
+    bg: "bg-[var(--accent-green)]/8",
+    icon: "text-[var(--accent-green)]",
+    progress: "bg-[var(--accent-green)]",
   },
   error: {
     border: "border-[var(--accent-rose)]/30",

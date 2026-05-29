@@ -44,7 +44,7 @@ const roleConfig: Record<
 > = {
   Owner: { color: "var(--accent-amber)", bg: "rgba(245,158,11,0.12)" },
   Admin: { color: "var(--accent-rose)", bg: "rgba(244,63,94,0.12)" },
-  Editor: { color: "var(--accent-mint)", bg: "var(--accent-mint-dim)" },
+  Editor: { color: "var(--accent-green)", bg: "var(--accent-green-dim)" },
   Viewer: { color: "var(--text-muted)", bg: "rgba(71,85,105,0.12)" },
 };
 
@@ -295,7 +295,7 @@ export default function TeamTab() {
                 "w-full h-10 rounded-md border px-3 text-sm",
                 "bg-[var(--surface-base)] text-[var(--text-primary)]",
                 "placeholder:text-[var(--text-muted)]",
-                "focus:outline-none focus:border-[var(--accent-mint)] focus:ring-[3px] focus:ring-[rgba(47,182,125,0.15)]",
+                "focus:outline-none focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)0.15)]",
                 "transition-all duration-200 border-[var(--border-dim)]"
               )}
             />
@@ -326,7 +326,7 @@ export default function TeamTab() {
             disabled={inviteMember.isPending}
             className={cn(
               "h-10 px-4 rounded-md text-sm font-medium text-white",
-              "bg-[var(--accent-mint)] hover:bg-[var(--accent-mint-light)]",
+              "bg-[var(--accent-green)] hover:bg-[var(--accent-green-light)]",
               "active:scale-[0.98]",
               "transition-all duration-200",
               "disabled:opacity-60 disabled:cursor-not-allowed"

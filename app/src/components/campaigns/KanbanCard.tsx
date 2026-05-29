@@ -58,7 +58,7 @@ function KanbanCard({ campaign, index }: KanbanCardProps) {
 
         {/* Platform tags + Status */}
         <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-          {campaign.platforms.slice(0, 2).map((platform) => {
+          {campaign.platforms?.slice(0, 2).map((platform) => {
             const colors = platformColors[platform as keyof typeof platformColors];
             return (
               <span

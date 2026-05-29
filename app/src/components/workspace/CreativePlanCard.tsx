@@ -53,7 +53,7 @@ function AccordionItem({ title, platformTags, children }: AccordionItemProps) {
             {platformTags.map((tag) => (
               <span
                 key={tag}
-                className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[var(--accent-mint-dim)] text-[var(--accent-mint)]"
+                className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[var(--accent-green-dim)] text-[var(--accent-green)]"
               >
                 {tag}
               </span>
@@ -132,14 +132,14 @@ export default function CreativePlanCard({
       className={cn(
         "relative bg-[var(--surface-base)] rounded-xl overflow-hidden animate-fade-in",
         "border border-[var(--border-dim)]",
-        approved && "border-[var(--accent-mint)]/30"
+        approved && "border-[var(--accent-green)]/30"
       )}
     >
       {/* Purple left border accent */}
       <div
         className={cn(
           "absolute left-0 top-0 bottom-0 w-[3px] transition-colors duration-400",
-          approved ? "bg-[var(--accent-mint)]" : "bg-[var(--accent-mint)]"
+          approved ? "bg-[var(--accent-green)]" : "bg-[var(--accent-green)]"
         )}
       />
 
@@ -147,9 +147,9 @@ export default function CreativePlanCard({
         {/* ---- Header ---- */}
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--accent-mint-dim)] border border-[var(--accent-mint)]/15">
-              <Sparkles size={14} className="text-[var(--accent-mint)]" />
-              <span className="text-xs font-medium text-[var(--accent-mint)]">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--accent-green-dim)] border border-[var(--accent-green)]/15">
+              <Sparkles size={14} className="text-[var(--accent-green)]" />
+              <span className="text-xs font-medium text-[var(--accent-green)]">
                 AI Generated
               </span>
             </div>
@@ -174,7 +174,7 @@ export default function CreativePlanCard({
         </div>
 
         {/* ---- Strategy Summary ---- */}
-        <div className="border-l-2 border-[var(--accent-mint)] pl-3">
+        <div className="border-l-2 border-[var(--accent-green)] pl-3">
           <h4 className="text-[15px] font-semibold text-[var(--text-primary)] mb-2">
             {t("strategy")}
           </h4>
@@ -194,7 +194,7 @@ export default function CreativePlanCard({
           <div className="space-y-4">
             {plan.angles.map((angle) => (
               <div key={angle.number} className="flex gap-3">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--accent-mint)] w-7 flex-shrink-0 pt-0.5">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--accent-green)] w-7 flex-shrink-0 pt-0.5">
                   {String(angle.number).padStart(2, "0")}
                 </span>
                 <div>
@@ -250,12 +250,12 @@ export default function CreativePlanCard({
               <button
                 key={cta}
                 onClick={() => handleCopyCta(cta)}
-                className="relative inline-flex items-center rounded-full px-4 py-1.5 text-sm font-medium bg-[var(--accent-mint-dim)] text-[var(--accent-mint)] hover:bg-[rgba(47,182,125,0.2)] transition-colors duration-200"
+                className="relative inline-flex items-center rounded-full px-4 py-1.5 text-sm font-medium bg-[var(--accent-green-dim)] text-[var(--accent-green)] hover:bg-[var(--accent-green-dim)0.2)] transition-colors duration-200"
                 title="Click to copy"
               >
                 {cta}
                 {copiedCta === cta && (
-                  <span className="absolute inset-0 flex items-center justify-center rounded-full bg-[var(--accent-mint)] text-white text-xs font-medium animate-fade-in">
+                  <span className="absolute inset-0 flex items-center justify-center rounded-full bg-[var(--accent-green)] text-white text-xs font-medium animate-fade-in">
                     Copied!
                   </span>
                 )}
@@ -309,7 +309,7 @@ export default function CreativePlanCard({
                     <span className="text-xs text-[var(--text-muted)] uppercase tracking-wide">
                       CTA
                     </span>
-                    <p className="text-sm text-[var(--accent-mint)] mt-0.5">
+                    <p className="text-sm text-[var(--accent-green)] mt-0.5">
                       {plan.ctas[i % plan.ctas.length]}
                     </p>
                   </div>

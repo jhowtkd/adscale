@@ -43,7 +43,7 @@ function StatsCard({
       style={{ animationDelay: `${index * 80}ms` }}
     >
       {/* Hover flat overlay */}
-      <div className="absolute inset-0 rounded-xl border border-[var(--accent-mint)]/0 transition-all duration-250 group-hover:border-[var(--accent-mint)]/30" />
+      <div className="absolute inset-0 rounded-xl border border-[var(--accent-green)]/0 transition-all duration-250 group-hover:border-[var(--accent-green)]/30" />
 
       <div className="relative z-10">
         {/* Icon */}

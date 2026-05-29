@@ -31,7 +31,7 @@ export default function GalleryGrid({ items }: GalleryGridProps) {
             key={item.id}
             onClick={() => setSelectedId(item.id)}
             className={cn(
-              "group relative aspect-square overflow-hidden rounded-lg border border-[var(--border-medium)] bg-[var(--surface-raised)] shadow-[0_12px_40px_rgba(0,0,0,0.35)] transition hover:border-[var(--accent-mint)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-mint)]"
+              "group relative aspect-square overflow-hidden rounded-lg border border-[var(--border-medium)] bg-[var(--surface-raised)] shadow-[0_12px_40px_rgba(0,0,0,0.35)] transition hover:border-[var(--accent-green)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-green)]"
             )}
           >
             <img

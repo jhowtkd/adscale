@@ -13,7 +13,7 @@ export default function CampaignErrorState() {
       </h2>
       <Link
         href="/campaigns"
-        className="text-sm text-[var(--accent-mint)] hover:underline"
+        className="text-sm text-[var(--accent-green)] hover:underline"
       >
         {tc("backToCampaigns")}
       </Link>

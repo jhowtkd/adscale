@@ -90,7 +90,7 @@ export default async function SharePage({ params }: SharePageProps) {
         )}
 
         <div className="mt-12 flex items-center justify-center gap-2 text-xs text-[var(--text-muted)] opacity-60">
-          <span className="font-semibold text-[var(--accent-mint)]">ADScale</span>
+          <span className="font-semibold text-[var(--accent-green)]">ADScale</span>
           <span>·</span>
           <span>{t("publicGallery")}</span>
         </div>

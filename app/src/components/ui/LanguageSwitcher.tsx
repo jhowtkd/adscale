@@ -56,7 +56,7 @@ export default function LanguageSwitcher({ className }: { className?: string }) 
         onClick={() => setOpen((value) => !value)}
         className={cn(
           "flex h-9 items-center gap-1 rounded-full border border-[var(--border-dim)] bg-[var(--surface-raised)] px-2 text-sm",
-          "hover:border-[var(--border-medium)] focus:border-[var(--accent-mint)] focus:outline-none focus:ring-2 focus:ring-[rgba(47,182,125,0.15)]",
+          "hover:border-[var(--border-medium)] focus:border-[var(--accent-green)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-green-dim)0.15)]",
           isPending && "opacity-50 cursor-wait"
         )}
         aria-label={t("label")}
@@ -76,8 +76,8 @@ export default function LanguageSwitcher({ className }: { className?: string }) 
               type="button"
               onClick={() => handleChange(loc)}
               className={cn(
-                "flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--accent-mint-dim)]",
-                loc === locale && "font-medium text-[var(--accent-mint)]"
+                "flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--accent-green-dim)]",
+                loc === locale && "font-medium text-[var(--accent-green)]"
               )}
             >
               <span className="text-base leading-none" aria-hidden="true">

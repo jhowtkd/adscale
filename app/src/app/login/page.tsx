@@ -74,7 +74,11 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[var(--deep-bg)] px-4">
+    <div className="flex min-h-screen items-center justify-center bg-[var(--deep-bg)] px-4 relative overflow-hidden">
+      {/* Background effects */}
+      <div className="absolute inset-0 dot-grid opacity-50" />
+      <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-[var(--accent-green)]/[0.02] rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-[var(--accent-green)]/[0.01] rounded-full blur-[100px] pointer-events-none" />
       <AuthCard>
         <div className="space-y-6">
           <div className="space-y-2 text-center">
@@ -92,7 +96,7 @@ export default function LoginPage() {
                 </div>
               )}
               {magicLinkSent ? (
-                <div className="rounded-md bg-[var(--accent-mint)]/10 px-3 py-2 text-sm text-[var(--accent-mint)]">
+                <div className="rounded-md bg-[var(--accent-green)]/10 px-3 py-2 text-sm text-[var(--accent-green)]">
                   {t("magicLinkSent")}
                 </div>
               ) : (
@@ -153,7 +157,7 @@ export default function LoginPage() {
                     <Label htmlFor="login-password">{t("password")}</Label>
                     <Link
                       href="/forgot-password"
-                      className="text-xs text-[var(--text-secondary)] underline hover:text-primary"
+                      className="text-xs text-[var(--text-secondary)] underline hover:text-primary py-2 px-1 -mx-1"
                     >
                       {t("forgotPassword")}
                     </Link>
@@ -180,7 +184,7 @@ export default function LoginPage() {
                     setShowMagicLink(true);
                     setError("");
                   }}
-                  className="text-sm text-[var(--text-secondary)] underline hover:text-primary"
+                  className="text-sm text-[var(--text-secondary)] underline hover:text-primary py-2 px-1"
                 >
                   {t("magicLink")}
                 </button>
@@ -188,7 +192,7 @@ export default function LoginPage() {
 
               <p className="text-center text-sm text-muted-foreground">
                 {t("noAccount")}{" "}
-                <Link href="/signup" className="underline hover:text-primary">
+                <Link href="/signup" className="underline hover:text-primary py-1 px-1">
                   {t("signUp")}
                 </Link>
               </p>

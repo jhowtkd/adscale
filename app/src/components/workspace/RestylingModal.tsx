@@ -228,8 +228,8 @@ export default function RestylingModal({ open, onOpenChange }: RestylingModalPro
                   className={cn(
                     "flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
                     form.styleIntensity === option
-                      ? "border-[var(--accent-mint)] bg-[var(--accent-mint-dim)] text-[var(--accent-mint)]"
-                      : "border-[var(--border-medium)] bg-[var(--surface-raised)] text-[var(--text-muted)] hover:border-[var(--accent-mint)] hover:text-[var(--text-primary)]",
+                      ? "border-[var(--accent-green)] bg-[var(--accent-green-dim)] text-[var(--accent-green)]"
+                      : "border-[var(--border-medium)] bg-[var(--surface-raised)] text-[var(--text-muted)] hover:border-[var(--accent-green)] hover:text-[var(--text-primary)]",
                     isSubmitting && "pointer-events-none opacity-60"
                   )}
                 >
@@ -311,13 +311,13 @@ function FilePicker({
         htmlFor={id}
         className={cn(
           "flex min-h-[116px] cursor-pointer flex-col justify-between rounded-lg border border-dashed border-[var(--border-medium)] bg-[var(--surface-raised)] p-4 transition-colors",
-          "hover:border-[var(--accent-mint)] hover:bg-[var(--surface-base)]",
+          "hover:border-[var(--accent-green)] hover:bg-[var(--surface-base)]",
           disabled && "pointer-events-none opacity-60",
           error && "border-[var(--accent-rose)] bg-[rgba(225,29,72,0.12)]"
         )}
       >
         <span className="flex items-start gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[var(--accent-mint-dim)] text-[var(--accent-mint)]">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[var(--accent-green-dim)] text-[var(--accent-green)]">
             {file ? <ImageIcon size={18} /> : <UploadCloud size={18} />}
           </span>
           <span className="min-w-0">
@@ -331,7 +331,7 @@ function FilePicker({
             )}
           </span>
         </span>
-        <span className="text-xs font-medium text-[var(--accent-mint)]">
+        <span className="text-xs font-medium text-[var(--accent-green)]">
           {file ? replaceLabel : selectLabel}
         </span>
       </label>

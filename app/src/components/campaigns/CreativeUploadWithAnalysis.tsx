@@ -73,7 +73,7 @@ export function CreativeUploadWithAnalysis({
         className={cn(
           "border border-dashed rounded-lg p-6 transition-colors relative",
           selectedFile
-            ? "border-[var(--accent-mint)] bg-[rgba(47,182,125,0.05)]"
+            ? "border-[var(--accent-green)] bg-[var(--accent-green-dim)0.05)]"
             : "border-[var(--border-dim)] hover:border-[var(--border-medium)] hover:bg-[var(--surface-raised)]",
           isProcessing && "opacity-75"
         )}
@@ -82,7 +82,7 @@ export function CreativeUploadWithAnalysis({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-[var(--surface-base)] flex items-center justify-center">
-                <Upload size={20} className="text-[var(--accent-mint)]" />
+                <Upload size={20} className="text-[var(--accent-green)]" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-[var(--text-primary)] truncate">

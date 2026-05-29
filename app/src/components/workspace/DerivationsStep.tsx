@@ -403,10 +403,10 @@ export default function DerivationsStep({
                 <div className={cn(
                   "flex items-center justify-center w-5 h-5 rounded border transition-all duration-150",
                   selectedIds.length === filteredDerivations.length && filteredDerivations.length > 0
-                    ? "bg-[var(--accent-mint)] border-[var(--accent-mint)] text-white"
+                    ? "bg-[var(--accent-green)] border-[var(--accent-green)] text-white"
                     : selectedIds.length > 0
-                      ? "bg-[var(--accent-mint)]/50 border-[var(--accent-mint)]"
-                      : "bg-[var(--surface-base)] border-[var(--border-medium)] hover:border-[var(--accent-mint)]"
+                      ? "bg-[var(--accent-green)]/50 border-[var(--accent-green)]"
+                      : "bg-[var(--surface-base)] border-[var(--border-medium)] hover:border-[var(--accent-green)]"
                 )}>
                   <input
                     type="checkbox"
@@ -469,10 +469,10 @@ export default function DerivationsStep({
               <>
                 <span className="mx-1">·</span>
                 <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--accent-mint)] opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--accent-mint)]" />
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--accent-green)] opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--accent-green)]" />
                 </span>
-                <span className="text-[var(--accent-mint)]">{t("liveUpdates")}</span>
+                <span className="text-[var(--accent-green)]">{t("liveUpdates")}</span>
               </>
             )}
           </div>
@@ -499,7 +499,7 @@ export default function DerivationsStep({
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as SortOption)}
-            className="h-8 px-3 text-xs rounded-md bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] focus:border-[var(--accent-mint)] focus:outline-none"
+            className="h-8 px-3 text-xs rounded-md bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] focus:border-[var(--accent-green)] focus:outline-none"
           >
             <option value="best">{t("bestFirst")}</option>
             <option value="newest">{commonT("newest")}</option>
@@ -523,7 +523,7 @@ export default function DerivationsStep({
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all duration-200 capitalize",
                 statusFilter === filter
-                  ? "bg-[var(--accent-mint-dim)] text-[var(--accent-mint)]"
+                  ? "bg-[var(--accent-green-dim)] text-[var(--accent-green)]"
                   : "bg-[var(--surface-raised)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
               )}
             >
@@ -573,7 +573,7 @@ export default function DerivationsStep({
             value={ctaSearch}
             onChange={(e) => setCtaSearch(e.target.value)}
             placeholder={t("searchCta")}
-            className="h-8 pl-8 pr-3 text-xs rounded-md bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] focus:border-[var(--accent-mint)] focus:outline-none w-40"
+            className="h-8 pl-8 pr-3 text-xs rounded-md bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] focus:border-[var(--accent-green)] focus:outline-none w-40"
           />
           {ctaSearch && (
             <button
@@ -594,7 +594,7 @@ export default function DerivationsStep({
             value={scoreMin ?? ""}
             onChange={(e) => setScoreMin(e.target.value ? Number(e.target.value) : null)}
             placeholder="Min"
-            className="h-8 w-14 px-2 text-xs rounded-md bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] focus:border-[var(--accent-mint)] focus:outline-none text-center"
+            className="h-8 w-14 px-2 text-xs rounded-md bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] focus:border-[var(--accent-green)] focus:outline-none text-center"
           />
           <span className="text-xs text-[var(--text-muted)]">-</span>
           <input
@@ -604,7 +604,7 @@ export default function DerivationsStep({
             value={scoreMax ?? ""}
             onChange={(e) => setScoreMax(e.target.value ? Number(e.target.value) : null)}
             placeholder="Max"
-            className="h-8 w-14 px-2 text-xs rounded-md bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] focus:border-[var(--accent-mint)] focus:outline-none text-center"
+            className="h-8 w-14 px-2 text-xs rounded-md bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] focus:border-[var(--accent-green)] focus:outline-none text-center"
           />
         </div>
 
@@ -626,9 +626,9 @@ export default function DerivationsStep({
 
       {/* ---- All Completed Banner ---- */}
       {isAllCompleted && (
-        <div className="flex items-center gap-2 bg-[var(--accent-mint-dim)] border border-[var(--accent-mint)]/20 rounded-lg px-4 py-3 animate-fade-in">
+        <div className="flex items-center gap-2 bg-[var(--accent-green-dim)] border border-[var(--accent-green)]/20 rounded-lg px-4 py-3 animate-fade-in">
           <Check size={18} className="text-[var(--accent-teal)]" />
-          <span className="text-sm font-medium text-[var(--accent-mint)]">
+          <span className="text-sm font-medium text-[var(--accent-green)]">
             {t("allCompleted")}
           </span>
         </div>
@@ -662,8 +662,8 @@ export default function DerivationsStep({
                     className={cn(
                       "flex items-center justify-center w-6 h-6 rounded-md border shadow-sm cursor-pointer transition-all duration-150",
                       isSelected
-                        ? "bg-[var(--accent-mint)] border-[var(--accent-mint)] text-white"
-                        : "bg-[var(--surface-base)]/90 border-[var(--border-medium)] hover:border-[var(--accent-mint)]"
+                        ? "bg-[var(--accent-green)] border-[var(--accent-green)] text-white"
+                        : "bg-[var(--surface-base)]/90 border-[var(--border-medium)] hover:border-[var(--accent-green)]"
                     )}
                     onClick={(e) => e.stopPropagation()}
                   >
@@ -707,13 +707,13 @@ export default function DerivationsStep({
           })}
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center py-16 bg-[var(--surface-base)] rounded-xl border border-[var(--border-dim)] animate-fade-in">
+        <div className="flex flex-col items-center justify-center py-16 glass-card rounded-xl animate-fade-in">
           <p className="text-sm text-[var(--text-muted)] mb-4">
             {t("noDerivations")}
           </p>
           <button
             onClick={() => setStatusFilter("all")}
-            className="text-sm text-[var(--accent-mint)] hover:text-[var(--accent-mint-light)] transition-colors"
+            className="text-sm text-[var(--accent-green)] hover:text-[var(--accent-green-light)] transition-colors"
           >
             {t("showAll")}
           </button>

@@ -63,7 +63,7 @@ export default function SocialAuthButtons({ mode }: SocialAuthButtonsProps) {
         <Button
           type="button"
           variant="outline"
-          className="w-full gap-2 border-[var(--border-dim)] bg-[var(--surface-raised)] hover:bg-[var(--surface-base)] text-[var(--text-primary)]"
+          className="w-full gap-2 border-[var(--border-dim)] bg-[var(--surface-raised)] hover:bg-[var(--surface-base)] text-[var(--text-primary)] min-h-[44px]"
           onClick={() => handleSocialSignIn("google")}
           disabled={loading !== null}
         >
@@ -74,7 +74,7 @@ export default function SocialAuthButtons({ mode }: SocialAuthButtonsProps) {
         <Button
           type="button"
           variant="outline"
-          className="w-full gap-2 border-[var(--border-dim)] bg-[var(--surface-raised)] hover:bg-[var(--surface-base)] text-[var(--text-primary)]"
+          className="w-full gap-2 border-[var(--border-dim)] bg-[var(--surface-raised)] hover:bg-[var(--surface-base)] text-[var(--text-primary)] min-h-[44px]"
           onClick={() => handleSocialSignIn("github")}
           disabled={loading !== null}
         >
@@ -86,11 +86,11 @@ export default function SocialAuthButtons({ mode }: SocialAuthButtonsProps) {
       {mode === "signup" && (
         <p className="text-center text-[11px] text-[var(--text-secondary)] leading-relaxed">
           {t("socialConsentPrefix")}{" "}
-          <Link href="/terms" className="text-[var(--accent-mint)] hover:underline" target="_blank">
+          <Link href="/terms" className="text-[var(--accent-green)] hover:underline" target="_blank">
             {t("terms")}
           </Link>{" "}
           {t("and")}{" "}
-          <Link href="/privacy" className="text-[var(--accent-mint)] hover:underline" target="_blank">
+          <Link href="/privacy" className="text-[var(--accent-green)] hover:underline" target="_blank">
             {t("privacy")}
           </Link>
           .

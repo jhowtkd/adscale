@@ -68,7 +68,7 @@ export default function CreativeDiagnosisCard({
           className={cn(
             "rounded-md px-2 py-1 text-xs font-medium",
             isAnalyzing && "bg-amber-500/10 text-amber-500",
-            hasDiagnosis && "bg-[var(--accent-mint)]/10 text-[var(--accent-mint)]",
+            hasDiagnosis && "bg-[var(--accent-green)]/10 text-[var(--accent-green)]",
             isFailed && "bg-[var(--accent-rose)]/10 text-[var(--accent-rose)]",
             status === "pending" && "bg-[var(--surface-raised)] text-[var(--text-secondary)]"
           )}
@@ -225,7 +225,7 @@ export default function CreativeDiagnosisCard({
               type="button"
               onClick={onSave}
               disabled={isSaving}
-              className="inline-flex items-center gap-1 rounded-md bg-[var(--accent-mint)] px-3 py-1.5 text-xs font-medium text-white hover:bg-[var(--accent-mint-light)] disabled:opacity-60"
+              className="inline-flex items-center gap-1 rounded-md bg-[var(--accent-green)] px-3 py-1.5 text-xs font-medium text-white hover:bg-[var(--accent-green-light)] disabled:opacity-60"
             >
               <Check size={12} />
               {tBriefing("diagnosis.save")}

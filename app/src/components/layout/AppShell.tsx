@@ -1,14 +1,9 @@
 "use client";
 
-
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
-import { useAppStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
-import { motion, AnimatePresence } from "framer-motion";
-import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
 import Footer from "./Footer";
 import { FolderOpen, LayoutDashboard, LayoutTemplate, Settings } from "lucide-react";
@@ -19,59 +14,22 @@ interface AppShellProps {
 
 export default function AppShell({ children }: AppShellProps) {
   const tNav = useTranslations("navigation");
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const sidebarCollapsed = useAppStore((s) => s.sidebarCollapsed);
   const pathname = usePathname();
-  const sidebarWidth = sidebarCollapsed ? 64 : 240;
 
   return (
-    <div
-      className="min-h-screen bg-[var(--deep-bg)]"
-      style={{ "--sidebar-width": `${sidebarWidth}px` } as React.CSSProperties}
-    >
-      {/* Sidebar - Desktop */}
-      <Sidebar />
-
-      {/* Mobile Menu Drawer */}
-      <AnimatePresence>
-        {mobileMenuOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm md:hidden"
-              onClick={() => setMobileMenuOpen(false)}
-            />
-            <motion.div
-              initial={{ x: "-100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "-100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="fixed left-0 top-0 bottom-0 z-50 w-64 bg-[#0e0e14] border-r border-[#1a1a24] md:hidden"
-            >
-              <Sidebar mobile onClose={() => setMobileMenuOpen(false)} />
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-
+    <div className="min-h-screen bg-[var(--deep-bg)]">
       {/* Top Bar */}
-      <TopBar onMenuClick={() => setMobileMenuOpen(true)} />
+      <TopBar />
 
-      {/* Main Content Area */}
-      <div
-        className={cn(
-          "min-h-screen pt-14 pb-20 md:pb-0 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] md:ml-[var(--sidebar-width)]"
-        )}
-      >
-        <div className="p-6 lg:p-8 min-h-[calc(100vh-3.5rem)]">
+      {/* Main Content Area - full width */}
+      <div className="min-h-screen pt-14 pb-20 md:pb-0 dot-grid">
+        <div className="min-h-[calc(100vh-3.5rem)] relative">
           {children}
         </div>
         <Footer />
       </div>
 
+      {/* Bottom Navigation - Mobile */}
       <nav
         className="fixed bottom-0 left-0 right-0 z-50 grid grid-cols-4 border-t border-[var(--border-dim)] bg-[var(--surface-base)]/95 px-2 py-2 backdrop-blur md:hidden"
         aria-label="Primary mobile navigation"
@@ -122,7 +80,7 @@ function MobileNavItem({
       className={cn(
         "flex flex-col items-center justify-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium",
         active
-          ? "bg-[var(--accent-mint-dim)] text-[var(--accent-mint)]"
+          ? "bg-[var(--accent-green-dim)] text-[var(--accent-green)]"
           : "text-[var(--text-secondary)]"
       )}
     >

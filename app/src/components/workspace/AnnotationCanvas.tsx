@@ -386,12 +386,12 @@ export default function AnnotationCanvas({
               }
             }}
             placeholder="Digite o texto..."
-            className="h-8 px-2 text-sm bg-transparent text-[var(--text-primary)] border border-[var(--border-dim)] rounded focus:border-[var(--accent-mint)] focus:outline-none w-40"
+            className="h-8 px-2 text-sm bg-transparent text-[var(--text-primary)] border border-[var(--border-dim)] rounded focus:border-[var(--accent-green)] focus:outline-none w-40"
             autoFocus
           />
           <button
             onClick={handleTextSubmit}
-            className="px-2 py-1 text-xs font-medium bg-[var(--accent-mint)] text-white rounded hover:bg-[var(--accent-mint-light)]"
+            className="px-2 py-1 text-xs font-medium bg-[var(--accent-green)] text-white rounded hover:bg-[var(--accent-green-light)]"
           >
             OK
           </button>

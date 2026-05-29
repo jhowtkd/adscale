@@ -53,8 +53,8 @@ const integrations: Integration[] = [
     description: "Export derivations directly to Meta Ads Manager",
     icon: <Megaphone size={22} />,
     status: "not_connected",
-    iconBg: "var(--accent-mint-dim)",
-    iconColor: "var(--accent-mint)",
+    iconBg: "var(--accent-green-dim)",
+    iconColor: "var(--accent-green)",
   },
   {
     id: "google",
@@ -62,8 +62,8 @@ const integrations: Integration[] = [
     description: "Push creatives to Google Ads campaigns",
     icon: <Search size={22} />,
     status: "not_connected",
-    iconBg: "var(--accent-mint-dim)",
-    iconColor: "var(--accent-mint)",
+    iconBg: "var(--accent-green-dim)",
+    iconColor: "var(--accent-green)",
   },
   {
     id: "tiktok",
@@ -80,8 +80,8 @@ const integrations: Integration[] = [
     description: "Get generation notifications in Slack",
     icon: <MessageSquare size={22} />,
     status: "not_connected",
-    iconBg: "var(--accent-mint-dim)",
-    iconColor: "var(--accent-mint)",
+    iconBg: "var(--accent-green-dim)",
+    iconColor: "var(--accent-green)",
   },
   {
     id: "webhook",
@@ -98,8 +98,8 @@ const integrations: Integration[] = [
     description: "Generate API keys for programmatic access",
     icon: <Key size={22} />,
     status: "connected",
-    iconBg: "var(--accent-mint-dim)",
-    iconColor: "var(--accent-mint)",
+    iconBg: "var(--accent-green-dim)",
+    iconColor: "var(--accent-green)",
   },
 ];
 

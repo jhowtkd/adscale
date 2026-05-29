@@ -14,7 +14,7 @@ import { useRouter } from "next/navigation";
 
 const planConfig = {
   starter: { name: "Starter", credits: 30, price: "R$ 29/mês", icon: Zap, color: "var(--text-secondary)" },
-  growth: { name: "Growth", credits: 120, price: "R$ 79/mês", icon: TrendingUp, color: "var(--accent-mint)" },
+  growth: { name: "Growth", credits: 120, price: "R$ 79/mês", icon: TrendingUp, color: "var(--accent-green)" },
   scale: { name: "Scale", credits: 360, price: "R$ 199/mês", icon: Crown, color: "var(--accent-amber)" },
 };
 
@@ -155,7 +155,7 @@ export default function BillingTab() {
                 Ajuste os volumes para prever custo operacional antes de liberar créditos.
               </p>
             </div>
-            <span className="rounded-full bg-[var(--accent-mint-dim)] px-2.5 py-1 text-xs font-medium text-[var(--accent-mint)]">
+            <span className="rounded-full bg-[var(--accent-green-dim)] px-2.5 py-1 text-xs font-medium text-[var(--accent-green)]">
               R$ {USD_BRL_PLANNING_RATE.toFixed(2)}/US$
             </span>
           </div>
@@ -174,7 +174,7 @@ export default function BillingTab() {
         <div className="space-y-4">
           <div className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-5">
             <div className="mb-4 flex items-center gap-2">
-              <CreditCard size={18} className="text-[var(--accent-mint)]" />
+              <CreditCard size={18} className="text-[var(--accent-green)]" />
               <h3 className="text-[15px] font-semibold text-[var(--text-primary)]">
                 Controle financeiro
               </h3>
@@ -205,7 +205,7 @@ export default function BillingTab() {
                     type="button"
                     onClick={() => checkout.mutate("growth")}
                     disabled={checkout.isPending}
-                    className="h-10 flex-1 rounded-md bg-[var(--accent-mint)] text-sm font-medium text-white transition-all hover:bg-[var(--accent-mint-light)] disabled:opacity-60"
+                    className="h-10 flex-1 rounded-md bg-[var(--accent-green)] text-sm font-medium text-white transition-all hover:bg-[var(--accent-green-light)] disabled:opacity-60"
                   >
                     {checkout.isPending ? "Redirecionando..." : "Fazer upgrade"}
                   </button>
@@ -224,7 +224,7 @@ export default function BillingTab() {
                   type="button"
                   onClick={() => checkout.mutate("starter")}
                   disabled={checkout.isPending}
-                  className="mt-5 h-10 w-full rounded-md bg-[var(--accent-mint)] text-sm font-medium text-white transition-all hover:bg-[var(--accent-mint-light)] disabled:opacity-60"
+                  className="mt-5 h-10 w-full rounded-md bg-[var(--accent-green)] text-sm font-medium text-white transition-all hover:bg-[var(--accent-green-light)] disabled:opacity-60"
                 >
                   {checkout.isPending ? "Redirecionando..." : "Começar trial grátis"}
                 </button>
@@ -268,7 +268,7 @@ function MetricCard({
 }) {
   return (
     <div className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-4">
-      <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-md bg-[var(--accent-mint-dim)] text-[var(--accent-mint)]">
+      <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-md bg-[var(--accent-green-dim)] text-[var(--accent-green)]">
         <Icon size={18} />
       </div>
       <p className="text-xs font-medium text-[var(--text-muted)]">{label}</p>
@@ -295,7 +295,7 @@ function NumberField({
         min={0}
         value={value}
         onChange={(event) => onChange(Number(event.target.value) || 0)}
-        className="h-9 w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent-mint)] focus:ring-2 focus:ring-[rgba(47,182,125,0.15)]"
+        className="h-9 w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent-green)] focus:ring-2 focus:ring-[var(--accent-green-dim)0.15)]"
       />
     </label>
   );

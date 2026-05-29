@@ -316,14 +316,14 @@ export default function NewCampaignModal({
               className={cn(
                 "border border-dashed rounded-lg p-4 transition-colors",
                 selectedFile
-                  ? "border-[var(--accent-mint)] bg-[rgba(47,182,125,0.05)]"
+                  ? "border-[var(--accent-green)] bg-[var(--accent-green-dim)0.05)]"
                   : "border-[var(--border-dim)] hover:border-[var(--border-medium)] hover:bg-[var(--surface-raised)]"
               )}
             >
               {selectedFile ? (
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Upload size={16} className="text-[var(--accent-mint)]" />
+                    <Upload size={16} className="text-[var(--accent-green)]" />
                     <span className="text-sm text-[var(--text-primary)] truncate max-w-[200px]">
                       {selectedFile.name}
                     </span>

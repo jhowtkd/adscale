@@ -69,7 +69,6 @@ export function useBriefingAutoSave(
       !formData.client.trim() &&
       !formData.objective.trim() &&
       !formData.audience.trim() &&
-      !formData.offer.trim() &&
       !formData.constraints.trim() &&
       !formData.notes.trim();
 

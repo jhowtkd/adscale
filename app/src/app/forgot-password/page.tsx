@@ -54,7 +54,7 @@ export default function ForgotPasswordPage() {
 
           {success ? (
             <div className="space-y-4">
-              <div className="rounded-md bg-[var(--accent-mint)]/10 px-3 py-2 text-sm text-[var(--accent-mint)]">
+              <div className="rounded-md bg-[var(--accent-green)]/10 px-3 py-2 text-sm text-[var(--accent-green)]">
                 {t("resetLinkSent")}
               </div>
               <p className="text-center text-sm text-muted-foreground">

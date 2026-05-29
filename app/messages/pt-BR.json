@@ -328,13 +328,13 @@
       "conservative": "Conservador",
       "balanced": "Equilibrado",
       "bold": "Ousado",
-      "extreme": "Extremo"
-    },
-    "creativeLevel.contract": {
-      "conservative": "Mantém a essência da peça original, alterando apenas detalhes sutis",
-      "balanced": "Equilibra inovação e familiaridade, ideal para testes A/B",
-      "bold": "Mudanças visuais significativas enquanto preserva a mensagem central",
-      "extreme": "Reinvenção completa da peça, máxima criatividade e diferenciação"
+      "extreme": "Extremo",
+      "contract": {
+        "conservative": "Mantém a essência da peça original, alterando apenas detalhes sutis",
+        "balanced": "Equilibra inovação e familiaridade, ideal para testes A/B",
+        "bold": "Mudanças visuais significativas enquanto preserva a mensagem central",
+        "extreme": "Reinvenção completa da peça, máxima criatividade e diferenciação"
+      }
     }
   },
   "briefing": {

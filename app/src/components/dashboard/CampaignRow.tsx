@@ -28,7 +28,7 @@ export function CampaignRow({ campaign }: CampaignRowProps) {
             {campaign.name}
           </p>
           <div className="flex items-center gap-1.5 mt-1">
-            {campaign.platforms.map((platform) => {
+            {campaign.platforms?.map((platform) => {
               const colors = platformColors[platform as keyof typeof platformColors] ?? fallbackPlatformColors;
               return (
                 <span

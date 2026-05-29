@@ -78,11 +78,24 @@ export function OnboardingTour({ steps, onComplete, onSkip }: OnboardingTourProp
   useEffect(() => {
     const rafId = requestAnimationFrame(() => calculatePositions());
     window.addEventListener("resize", calculatePositions);
-    window.addEventListener("scroll", calculatePositions, true);
+    
+    // Throttled scroll handler using RAF
+    let ticking = false;
+    const throttledScroll = () => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          calculatePositions();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+    window.addEventListener("scroll", throttledScroll, true);
+    
     return () => {
       cancelAnimationFrame(rafId);
       window.removeEventListener("resize", calculatePositions);
-      window.removeEventListener("scroll", calculatePositions, true);
+      window.removeEventListener("scroll", throttledScroll, true);
     };
   }, [calculatePositions]);
 
@@ -138,7 +151,7 @@ export function OnboardingTour({ steps, onComplete, onSkip }: OnboardingTourProp
       {/* Highlight border */}
       {highlightPos.width > 0 && (
         <div
-          className="absolute rounded-xl border-2 border-[var(--accent-mint)] shadow-[0_0_0_4px_rgba(47,182,125,0.2),0_0_24px_rgba(47,182,125,0.15)] transition-all duration-300 pointer-events-none"
+          className="absolute rounded-xl border-2 border-[var(--accent-green)] shadow-[0_0_0_4px_var(--accent-green-dim)0.2),0_0_24px_var(--accent-green-dim)0.15)] transition-all duration-300 pointer-events-none"
           style={{
             top: highlightPos.top,
             left: highlightPos.left,
@@ -164,10 +177,14 @@ export function OnboardingTour({ steps, onComplete, onSkip }: OnboardingTourProp
           )}
         />
 
+        <div aria-live="polite" aria-atomic="true" className="sr-only">
+          Passo {currentStep + 1} de {steps.length}: {steps[currentStep]?.title}
+        </div>
+
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--accent-mint-dim)]">
-              <Sparkles size={14} className="text-[var(--accent-mint)]" />
+            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--accent-green-dim)]">
+              <Sparkles size={14} className="text-[var(--accent-green)]" />
             </div>
             <h3 className="text-[15px] font-semibold text-[var(--text-primary)]">
               {steps[currentStep]?.title}
@@ -195,7 +212,7 @@ export function OnboardingTour({ steps, onComplete, onSkip }: OnboardingTourProp
                 onClick={() => setCurrentStep(i)}
                 className={cn(
                   "h-1.5 rounded-full transition-all duration-200",
-                  i === currentStep ? "w-5 bg-[var(--accent-mint)]" : "w-1.5 bg-[var(--border-dim)] hover:bg-[var(--border-medium)]"
+                  i === currentStep ? "w-5 bg-[var(--accent-green)]" : "w-1.5 bg-[var(--border-dim)] hover:bg-[var(--border-medium)]"
                 )}
                 aria-label={`${t("step")} ${i + 1}`}
               />
@@ -214,7 +231,7 @@ export function OnboardingTour({ steps, onComplete, onSkip }: OnboardingTourProp
             )}
             <button
               onClick={handleNext}
-              className="flex items-center gap-1 rounded-md bg-[var(--accent-mint)] px-3.5 py-1.5 text-[13px] font-medium text-white hover:bg-[var(--accent-mint-hover)] transition-colors"
+              className="flex items-center gap-1 rounded-md bg-[var(--accent-green)] px-3.5 py-1.5 text-[13px] font-medium text-white hover:bg-[var(--accent-green-hover)] transition-colors"
             >
               {isLast ? t("finish") : t("next")}
               {!isLast && <ChevronRight size={14} />}

@@ -93,7 +93,8 @@ export default function CampaignsListPage() {
   } = useCampaignsPage();
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <main className="max-w-7xl mx-auto">
+      <h1 className="sr-only">{tc("pageTitle") ?? "Campaigns"}</h1>
       <CampaignsHeader count={totalCount} onNewCampaign={() => setModalOpen(true)} />
 
       <div className="mt-5 animate-fade-in" style={{ animationDelay: "80ms" }}>
@@ -208,6 +209,6 @@ export default function CampaignsListPage() {
         campaignName={campaigns.find((c) => c.id === deleteTarget)?.name ?? ""}
         onConfirm={() => deleteTarget && handleDelete(deleteTarget)}
       />
-    </div>
+    </main>
   );
 }

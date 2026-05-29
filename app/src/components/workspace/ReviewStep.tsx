@@ -156,7 +156,7 @@ export default function ReviewStep({
             <select
               value={exportFormat}
               onChange={(e) => setExportFormat(e.target.value)}
-              className="h-9 px-3 text-xs rounded-md bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] focus:border-[var(--accent-mint)] focus:outline-none"
+              className="h-9 px-3 text-xs rounded-md bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] focus:border-[var(--accent-green)] focus:outline-none"
             >
               <option value="png">PNG</option>
               <option value="jpeg">JPEG</option>
@@ -192,7 +192,7 @@ export default function ReviewStep({
       {/* ---- Comparison View (when a derivation is selected) ---- */}
       {showComparison && selectedDerivation && (
         <div className="overflow-hidden animate-fade-in">
-          <div className="bg-[var(--surface-base)] rounded-xl border border-[var(--border-dim)] p-4">
+          <div className="glass-card rounded-xl p-4">
             {/* Comparison header */}
             <div className="flex items-center justify-between mb-4">
               <h4 className="text-sm font-semibold text-[var(--text-primary)]">
@@ -261,7 +261,7 @@ export default function ReviewStep({
               className={cn(
                 "group relative bg-[var(--surface-base)] rounded-xl border-2 overflow-hidden cursor-pointer transition-all duration-300 animate-fade-in",
                 getCardBorderClass(derivation.id),
-                isSelected && "ring-2 ring-[var(--accent-mint)] ring-offset-1 ring-offset-[var(--deep-bg)]",
+                isSelected && "ring-2 ring-[var(--accent-green)] ring-offset-1 ring-offset-[var(--deep-bg)]",
                 !isApproved && !isRejected && "hover:border-[var(--border-medium)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)]"
               )}
               style={{ animationDelay: `${Math.min(i * 60, 600)}ms` }}
@@ -291,7 +291,7 @@ export default function ReviewStep({
 
               {/* Approved tint */}
               {isApproved && (
-                <div className="absolute inset-0 bg-[var(--accent-mint-dim)] pointer-events-none z-[1]" />
+                <div className="absolute inset-0 bg-[var(--accent-green-dim)] pointer-events-none z-[1]" />
               )}
 
               {/* Rejected tint */}
@@ -342,7 +342,7 @@ export default function ReviewStep({
                         handleApprove(derivation.id);
                       }}
                       disabled={approvingId === derivation.id}
-                      className="w-10 h-10 rounded-full bg-[var(--accent-mint)] flex items-center justify-center text-white shadow-lg hover:bg-[var(--accent-mint)]/90 transition-all duration-200 hover:scale-110 active:scale-90 disabled:opacity-60"
+                      className="w-10 h-10 rounded-full bg-[var(--accent-green)] flex items-center justify-center text-white shadow-lg hover:bg-[var(--accent-green)]/90 transition-all duration-200 hover:scale-110 active:scale-90 disabled:opacity-60"
                     >
                       {approvingId === derivation.id ? (
                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -398,7 +398,7 @@ export default function ReviewStep({
 
       {/* Empty state */}
       {reviewableDerivations.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-16 bg-[var(--surface-base)] rounded-xl border border-[var(--border-dim)]">
+        <div className="flex flex-col items-center justify-center py-16 glass-card rounded-xl">
           <p className="text-sm text-[var(--text-muted)] mb-2">No completed derivations to review.</p>
           <p className="text-xs text-[var(--text-muted)]">
             Wait for generation to complete or go back to generate more.
@@ -408,7 +408,7 @@ export default function ReviewStep({
 
       {/* ---- Gallery Strip at bottom ---- */}
       {reviewableDerivations.length > 0 && (
-        <div className="bg-[var(--surface-base)] rounded-xl border border-[var(--border-dim)] p-4 animate-fade-in" style={{ animationDelay: "300ms" }}>
+        <div className="glass-card rounded-xl p-4 animate-fade-in" style={{ animationDelay: "300ms" }}>
           <h4 className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wide mb-3">
             All Derivations ({reviewableDerivations.length})
           </h4>

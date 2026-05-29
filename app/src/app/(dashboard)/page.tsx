@@ -1,25 +1,22 @@
 "use client";
 
 import { useDashboardStats } from "@/lib/hooks/use-dashboard-stats";
-import {
-  KpiCard,
-  QuickActions,
-  CampaignList,
-  CreditPanel,
-} from "@/components/dashboard";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { useAppStore } from "@/lib/store";
 import { useOnboarding } from "@/lib/hooks/use-onboarding";
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import { Search, Plus, LayoutGrid, List, Zap } from "lucide-react";
+import VisualCampaignCard from "@/components/dashboard/VisualCampaignCard";
+import CreditPanel from "@/components/dashboard/CreditPanel";
 
 const CreditChart = dynamic(() => import("@/components/dashboard/CreditChart"), {
-  loading: () => <div className="h-[300px] w-full bg-[#1a1a24] rounded-[4px] animate-pulse" />,
+  loading: () => <div className="h-[300px] w-full bg-[var(--surface-raised)] rounded-xl animate-pulse border-2 border-[var(--border-dim)]" />,
 });
 
 const ActivityFeed = dynamic(() => import("@/components/dashboard/ActivityFeed"), {
-  loading: () => <div className="h-[200px] w-full bg-[#1a1a24] rounded-[4px] animate-pulse" />,
+  loading: () => <div className="h-[200px] w-full bg-[var(--surface-raised)] rounded-xl animate-pulse border-2 border-[var(--border-dim)]" />,
 });
 
 const OnboardingTour = dynamic(
@@ -35,6 +32,8 @@ export default function DashboardPage() {
   const tNav = useTranslations("navigation");
   const tOnboarding = useTranslations("onboarding");
   const setCurrentPageTitle = useAppStore((s) => s.setCurrentPageTitle);
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [searchQuery, setSearchQuery] = useState("");
   const [period, setPeriod] = useState<"week" | "month" | "quarter">("month");
   const { data: stats, isLoading, error } = useDashboardStats(period);
 
@@ -79,6 +78,10 @@ export default function DashboardPage() {
     setCurrentPageTitle(tNav("dashboard"));
   }, [setCurrentPageTitle, tNav]);
 
+  const filteredCampaigns = stats?.recentCampaigns.filter((campaign) =>
+    campaign.name.toLowerCase().includes(searchQuery.toLowerCase())
+  ) ?? [];
+
   if (isLoading) {
     return <DashboardSkeleton />;
   }
@@ -88,100 +91,141 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="p-8 max-w-[1400px]">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8" data-tour-step="1">
-        <div>
-          <h1 className="text-lg font-semibold text-[#e8e8ec]">Dashboard</h1>
-          <p className="text-[13px] text-[#4a4a52]">
-            {stats.totalCampaigns} campanhas, {stats.derivationsThisMonth} derivações no período
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          {/* Period Selector */}
-          <select
-            value={period}
-            onChange={(e) => setPeriod(e.target.value as "week" | "month" | "quarter")}
-            className="h-9 px-3 bg-[#1a1a24] border border-[#2a2a35] rounded-[4px] text-[13px] text-[#e8e8ec] focus:outline-none focus:ring-1 focus:ring-[#2fb67d]"
-          >
-            <option value="week">{t("period.week")}</option>
-            <option value="month">{t("period.month")}</option>
-            <option value="quarter">{t("period.quarter")}</option>
-          </select>
-          <Link
-            href="/campaigns/new"
-            className="flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-[#0a0a0f] bg-[#2fb67d] rounded-[4px] hover:bg-[#259d6a] transition-colors"
-            data-tour-step="4"
-          >
-            + Nova Campanha
-          </Link>
-        </div>
-      </div>
+    <main className="w-full">
+      {/* Bold Header Section */}
+      <section className="relative border-b-2 border-[var(--border-dim)] bg-[var(--surface-base)] overflow-hidden">
+        {/* Subtle grid pattern background */}
+        <div 
+          className="absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage: `linear-gradient(rgba(0, 232, 94, 0.3) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(0, 232, 94, 0.3) 1px, transparent 1px)`,
+            backgroundSize: '50px 50px'
+          }}
+        />
+        
+        <div className="relative max-w-[1600px] mx-auto px-6 lg:px-8 py-8">
+          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6" data-tour-step="1">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-3">
+                <Zap size={24} className="text-[var(--accent-green)]" />
+                <h1 
+                  className="text-3xl md:text-4xl font-black text-[var(--text-primary)] tracking-tight"
+                  style={{ fontFamily: 'var(--font-heading)', lineHeight: 1.2 }}
+                >
+                  Campanhas
+                </h1>
+              </div>
+              <p className="text-sm font-medium text-[var(--text-muted)] pl-10">
+                <span className="text-[var(--accent-green)] font-bold">{stats.totalCampaigns}</span> campanhas ativas ·{" "}
+                <span className="text-[var(--accent-green)] font-bold">{stats.derivationsThisMonth}</span> derivações este mês
+              </p>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                <input
+                  type="text"
+                  role="searchbox"
+                  aria-label="Buscar campanhas"
+                  placeholder="Buscar..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-11 pl-9 pr-4 bg-[var(--deep-bg)] border-2 border-[var(--border-dim)] rounded-xl text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--accent-green)]/50 focus:ring-2 focus:ring-[var(--accent-green)]/20 w-[220px] transition-all font-medium"
+                />
+              </div>
 
-      {/* Quick Actions */}
-      <div data-tour-step="2">
-        <QuickActions />
-      </div>
-
-      {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mt-6">
-        <KpiCard
-          label={t("kpi.campaigns")}
-          value={stats.totalCampaigns}
-          change={stats.campaignsChange}
-          changeLabel={t("kpi.vsLastMonth")}
-        />
-        <KpiCard
-          label={t("kpi.derivations")}
-          value={stats.derivationsThisMonth}
-          change={stats.derivationsChange}
-          changeLabel={t("kpi.vsLastMonth")}
-        />
-        <KpiCard
-          label={t("kpi.totalDerivations")}
-          value={stats.totalDerivations}
-        />
-        <KpiCard
-          label={t("kpi.approval")}
-          value={`${stats.approvalRate}%`}
-          change={stats.approvalChange}
-          changeLabel={t("kpi.vsLastMonth")}
-        />
-        <KpiCard
-          label={t("kpi.avgGenerationTime")}
-          value={`${stats.avgGenerationTimeSeconds}s`}
-          changeLabel={t("kpi.seconds")}
-        />
-        <KpiCard
-          label={t("kpi.credits")}
-          value={stats.creditsRemaining}
-          change={-stats.creditsUsedThisMonth}
-          changeLabel={t("kpi.usedThisMonth")}
-        />
-      </div>
-
-      {/* Main Grid */}
-      <div className="grid grid-cols-[1fr_320px] gap-3 mt-6">
-        {/* Left Column */}
-        <div className="space-y-3">
-          <CreditChart data={stats.creditUsageSeries} />
-          <div data-tour-step="3">
-            <CampaignList campaigns={stats.recentCampaigns.map((c) => ({ ...c, updatedAt: c.updatedAt.toString() }))} />
+              <div className="flex items-center bg-[var(--deep-bg)] border-2 border-[var(--border-dim)] rounded-xl p-1" role="group" aria-label="Visualização">
+                <button
+                  onClick={() => setViewMode("grid")}
+                  className={`p-2.5 rounded-lg transition-all ${
+                    viewMode === "grid"
+                      ? "bg-[var(--surface-raised)] text-[var(--accent-green)] shadow-[0_0_12px_var(--accent-green-dim)]"
+                      : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+                  }`}
+                  aria-label="Visualização em grade"
+                  aria-pressed={viewMode === "grid"}
+                >
+                  <LayoutGrid size={18} aria-hidden="true" />
+                </button>
+                <button
+                  onClick={() => setViewMode("list")}
+                  className={`p-2.5 rounded-lg transition-all ${
+                    viewMode === "list"
+                      ? "bg-[var(--surface-raised)] text-[var(--accent-green)] shadow-[0_0_12px_var(--accent-green-dim)]"
+                      : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+                  }`}
+                  aria-label="Visualização em lista"
+                  aria-pressed={viewMode === "list"}
+                >
+                  <List size={18} aria-hidden="true" />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
+      </section>
 
-        {/* Right Column */}
-        <div className="space-y-3">
-          <div data-tour-step="5">
-            <CreditPanel
-              remaining={stats.creditsRemaining}
-              total={stats.creditsTotal}
-              planKey={stats.subscription.planKey}
-            />
-          </div>
-          <ActivityFeed activities={stats.recentActivity.map((a) => ({ ...a, createdAt: a.createdAt.toString() }))} />
+      {/* Campaigns Grid Section */}
+      <section className="py-10" style={{ contentVisibility: "auto" }}>
+        <div className="max-w-[1600px] mx-auto px-6 lg:px-8" data-tour-step="2">
+          {filteredCampaigns.length > 0 ? (
+            <div 
+              className="grid gap-5"
+              style={{
+                gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+                containIntrinsicHeight: "350px"
+              }}
+            >
+              {filteredCampaigns.map((campaign, index) => (
+                <VisualCampaignCard
+                  key={campaign.id}
+                  id={campaign.id}
+                  name={campaign.name}
+                  thumbnailUrl={campaign.thumbnailUrl}
+                  pieceCount={campaign.pieceCount}
+                  approvedCount={campaign.approvedCount}
+                  status={campaign.status}
+                  updatedAt={campaign.updatedAt.toString()}
+                  index={index}
+                />
+              ))}
+            </div>
+          ) : (
+            <EmptyState searchQuery={searchQuery} />
+          )}
         </div>
-      </div>
+      </section>
+
+      {/* Bold Stats Section */}
+      <section className="border-t-2 border-[var(--border-dim)] bg-[var(--surface-base)] relative overflow-hidden">
+        <div 
+          className="absolute inset-0 opacity-[0.02]"
+          style={{
+            backgroundImage: `radial-gradient(circle at 50% 50%, var(--accent-green) 1px, transparent 1px)`,
+            backgroundSize: '30px 30px'
+          }}
+        />
+        
+        <div className="relative max-w-[1600px] mx-auto px-6 lg:px-8 py-10">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-8">
+            <div className="space-y-8">
+              <CreditChart data={stats.creditUsageSeries} />
+            </div>
+            <div className="space-y-8">
+              <div data-tour-step="5">
+                <CreditPanel
+                  remaining={stats.creditsRemaining}
+                  total={stats.creditsTotal}
+                  planKey={stats.subscription.planKey}
+                />
+              </div>
+              <ActivityFeed activities={stats.recentActivity.map((a) => ({ ...a, createdAt: a.createdAt.toString() }))} />
+            </div>
+          </div>
+        </div>
+      </section>
 
       {showTour && (
         <OnboardingTour
@@ -190,31 +234,76 @@ export default function DashboardPage() {
           onSkip={completeOnboarding}
         />
       )}
+    </main>
+  );
+}
+
+function EmptyState({ searchQuery }: { searchQuery: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-24">
+      <div className="mb-6">
+        <img src="/images/empty-state.svg" alt="Nenhuma campanha" className="w-48 h-48 object-contain" />
+      </div>
+      <h3 className="text-xl font-bold text-[var(--text-primary)] mb-2">
+        {searchQuery ? "Nenhuma campanha encontrada" : "Nenhuma campanha ainda"}
+      </h3>
+      <p className="text-sm text-[var(--text-muted)] mt-2 max-w-md text-center font-medium">
+        {searchQuery 
+          ? "Tente ajustar sua busca ou filtros"
+          : "Crie sua primeira campanha para começar a gerar criativos com IA"
+        }
+      </p>
+      {!searchQuery && (
+        <Link
+          href="/campaigns/new"
+          className="mt-8 flex items-center gap-2 px-6 py-3 text-sm font-bold text-[var(--deep-bg)] bg-[var(--accent-green)] rounded-xl hover:bg-[var(--accent-green-light)] transition-all hover:shadow-[0_0_20px_var(--accent-green-dim)] hover:scale-105"
+        >
+          <Plus size={16} strokeWidth={3} aria-hidden="true" />
+          Criar Campanha
+        </Link>
+      )}
     </div>
   );
 }
 
 function DashboardSkeleton() {
   return (
-    <div className="p-8 animate-pulse">
-      <div className="h-6 bg-[#1a1a24] rounded-[4px] w-32 mb-2" />
-      <div className="h-4 bg-[#1a1a24] rounded-[4px] w-64 mb-8" />
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="h-28 bg-[#1a1a24] rounded-[4px]" />
-        ))}
-      </div>
+    <div className="w-full">
+      <section className="border-b border-[var(--border-dim)] glass-card">
+        <div className="max-w-[1600px] mx-auto px-6 lg:px-8 py-8">
+          <div className="h-10 bg-[var(--surface-raised)] rounded-xl w-64 mb-3" />
+          <div className="h-5 bg-[var(--surface-raised)] rounded-lg w-96" />
+        </div>
+      </section>
+      <section className="py-10">
+        <div className="max-w-[1600px] mx-auto px-6 lg:px-8">
+          <div className="grid gap-5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))" }}>
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div 
+                key={i} 
+                className="aspect-[4/3] glass-card rounded-2xl animate-pulse" 
+              />
+            ))}
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
 
 function DashboardError() {
   return (
-    <div className="p-8 text-center">
-      <p className="text-[#e8e8ec]">Erro ao carregar dashboard</p>
+    <div className="flex flex-col items-center justify-center min-h-[60vh]">
+      <div className="w-24 h-24 rounded-2xl bg-[var(--surface-raised)] border-[3px] border-[var(--accent-rose)]/30 flex items-center justify-center mb-6 shadow-[0_0_40px_rgba(225,29,72,0.15)]">
+        <span className="text-4xl text-[var(--accent-rose)] font-black">!</span>
+      </div>
+      <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">
+        Erro ao carregar
+      </h3>
+      <p className="text-sm text-[var(--text-muted)] mb-6">Erro ao carregar dashboard</p>
       <button
         onClick={() => window.location.reload()}
-        className="mt-4 px-4 py-2 text-sm text-[#0a0a0f] bg-[#2fb67d] rounded-[4px]"
+        className="px-6 py-3 text-sm font-bold text-[var(--ink)] bg-[var(--accent-green)] rounded-xl hover:bg-[var(--accent-green-light)] transition-all hover:shadow-[0_0_30px_var(--accent-green-dim)]"
       >
         Tentar novamente
       </button>

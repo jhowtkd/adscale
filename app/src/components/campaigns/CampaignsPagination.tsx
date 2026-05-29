@@ -73,7 +73,7 @@ export default function CampaignsPagination({
               className={cn(
                 "h-8 w-8 p-0 text-xs font-medium",
                 visibleCurrentPage === page
-                  ? "bg-[var(--accent-mint)] text-white hover:bg-[var(--accent-mint-light)] border-transparent"
+                  ? "bg-[var(--accent-green)] text-white hover:bg-[var(--accent-green-light)] border-transparent"
                   : "border-[var(--border-dim)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)]"
               )}
             >

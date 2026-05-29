@@ -78,7 +78,7 @@ export default function CopyVariantsPanel({ derivationId }: CopyVariantsPanelPro
               onClick={() => select.mutate({ variantId: variant.id, isSelected: !variant.isSelected })}
               className={`w-full text-left rounded-lg border p-3 transition-all ${
                 variant.isSelected
-                  ? "border-[var(--accent-mint)] bg-[var(--accent-mint)]/5"
+                  ? "border-[var(--accent-green)] bg-[var(--accent-green)]/5"
                   : "border-[var(--border-dim)] hover:border-[var(--border-medium)]"
               }`}
             >
@@ -94,7 +94,7 @@ export default function CopyVariantsPanel({ derivationId }: CopyVariantsPanelPro
                   )}
                 </div>
                 {variant.isSelected && (
-                  <Check size={16} className="text-[var(--accent-mint)] shrink-0 mt-0.5" />
+                  <Check size={16} className="text-[var(--accent-green)] shrink-0 mt-0.5" />
                 )}
               </div>
               <div className="flex items-center gap-2 mt-2">

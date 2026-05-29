@@ -183,7 +183,7 @@ export default function GenerationStep({
                 className={cn(
                   "relative flex flex-col items-start gap-2 rounded-lg border px-4 py-4 text-left transition-all duration-200",
                   isSelected
-                    ? "border-[var(--accent-mint)] bg-[var(--accent-mint-dim)] ring-1 ring-[var(--accent-mint)]"
+                    ? "border-[var(--accent-green)] bg-[var(--accent-green-dim)] ring-1 ring-[var(--accent-green)]"
                     : "border-[var(--border-dim)] bg-[var(--surface-base)] hover:border-[var(--border-medium)] hover:bg-[var(--surface-raised)]"
                 )}
               >
@@ -191,7 +191,7 @@ export default function GenerationStep({
                   size={20}
                   className={cn(
                     "transition-colors",
-                    isSelected ? "text-[var(--accent-mint)]" : "text-[var(--text-muted)]"
+                    isSelected ? "text-[var(--accent-green)]" : "text-[var(--text-muted)]"
                   )}
                 />
                 <div>
@@ -203,7 +203,7 @@ export default function GenerationStep({
                   </span>
                 </div>
                 {isSelected && (
-                  <span className="absolute top-3 right-3 h-2 w-2 rounded-full bg-[var(--accent-mint)]" />
+                  <span className="absolute top-3 right-3 h-2 w-2 rounded-full bg-[var(--accent-green)]" />
                 )}
               </button>
             );
@@ -228,7 +228,7 @@ export default function GenerationStep({
             <button
               type="button"
               onClick={handleApplyCreativeLevelSuggestion}
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--accent-mint)] hover:text-[var(--accent-mint-light)] transition-colors"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--accent-green)] hover:text-[var(--accent-green-light)] transition-colors"
             >
               <Sparkles size={12} />
               {t("applySuggestion")}
@@ -236,9 +236,9 @@ export default function GenerationStep({
           )}
         </div>
         {hasCreativeLevelSuggestion && creativeLevelSuggestion.reasoning && (
-          <div className="rounded-lg border border-[var(--accent-mint)]/20 bg-[var(--accent-mint)]/5 px-3 py-2">
+          <div className="rounded-lg border border-[var(--accent-green)]/20 bg-[var(--accent-green)]/5 px-3 py-2">
             <p className="text-xs text-[var(--text-secondary)]">
-              <span className="font-medium text-[var(--accent-mint)]">{t("aiSuggestion")}:</span>{" "}
+              <span className="font-medium text-[var(--accent-green)]">{t("aiSuggestion")}:</span>{" "}
               {creativeLevelSuggestion.reasoning}
             </p>
           </div>
@@ -255,7 +255,7 @@ export default function GenerationStep({
                 className={cn(
                   "relative flex items-start gap-3 rounded-lg border px-4 py-3 text-left transition-all duration-200",
                   isSelected
-                    ? "border-[var(--accent-mint)] bg-[var(--accent-mint-dim)] ring-1 ring-[var(--accent-mint)]"
+                    ? "border-[var(--accent-green)] bg-[var(--accent-green-dim)] ring-1 ring-[var(--accent-green)]"
                     : "border-[var(--border-dim)] bg-[var(--surface-base)] hover:border-[var(--border-medium)] hover:bg-[var(--surface-raised)]"
                 )}
               >
@@ -263,7 +263,7 @@ export default function GenerationStep({
                   size={18}
                   className={cn(
                     "mt-0.5 shrink-0",
-                    isSelected ? "text-[var(--accent-mint)]" : "text-[var(--text-muted)]"
+                    isSelected ? "text-[var(--accent-green)]" : "text-[var(--text-muted)]"
                   )}
                 />
                 <div>
@@ -275,7 +275,7 @@ export default function GenerationStep({
                   </span>
                 </div>
                 {isSelected && (
-                  <span className="absolute top-3 right-3 h-2 w-2 rounded-full bg-[var(--accent-mint)]" />
+                  <span className="absolute top-3 right-3 h-2 w-2 rounded-full bg-[var(--accent-green)]" />
                 )}
               </button>
             );
@@ -306,14 +306,14 @@ export default function GenerationStep({
                   className={cn(
                     "inline-flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-all duration-200",
                     isSelected
-                      ? "border-[var(--accent-mint)] bg-[var(--accent-mint-dim)] text-[var(--accent-mint)]"
+                      ? "border-[var(--accent-green)] bg-[var(--accent-green-dim)] text-[var(--accent-green)]"
                       : "border-[var(--border-dim)] bg-[var(--surface-base)] text-[var(--text-secondary)] hover:border-[var(--border-medium)] hover:text-[var(--text-primary)]"
                   )}
                 >
                   <span
                     className={cn(
                       "h-2 w-2 rounded-full",
-                      isSelected ? "bg-[var(--accent-mint)]" : "bg-[var(--text-muted)]"
+                      isSelected ? "bg-[var(--accent-green)]" : "bg-[var(--text-muted)]"
                     )}
                   />
                   {fmt.label}
@@ -337,7 +337,7 @@ export default function GenerationStep({
             <button
               type="button"
               onClick={handleApplyAllSuggestions}
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--accent-mint)] hover:text-[var(--accent-mint-light)] transition-colors"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--accent-green)] hover:text-[var(--accent-green-light)] transition-colors"
             >
               <Sparkles size={14} />
               {t("useAllSuggestions")}
@@ -362,7 +362,7 @@ export default function GenerationStep({
               }}
               className={cn(
                 "h-10 bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]",
-                "focus:border-[var(--accent-mint)] focus:ring-[3px] focus:ring-[rgba(47,182,125,0.15)]"
+                "focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)0.15)]"
               )}
             />
             {ctaSuggestions[idx] && (
@@ -374,7 +374,7 @@ export default function GenerationStep({
                   className={cn(
                     "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium transition-all",
                     ctaSuggestions[idx]!.confidence === "high"
-                      ? "bg-[var(--accent-mint)]/10 text-[var(--accent-mint)] border border-[var(--accent-mint)]/20 hover:bg-[var(--accent-mint)]/20"
+                      ? "bg-[var(--accent-green)]/10 text-[var(--accent-green)] border border-[var(--accent-green)]/20 hover:bg-[var(--accent-green)]/20"
                       : ctaSuggestions[idx]!.confidence === "medium"
                       ? "bg-[var(--accent-blue)]/10 text-[var(--accent-blue)] border border-[var(--accent-blue)]/20 hover:bg-[var(--accent-blue)]/20"
                       : "bg-[var(--surface-raised)] text-[var(--text-secondary)] border border-[var(--border-dim)] hover:bg-[var(--surface-base)]"
@@ -408,7 +408,7 @@ export default function GenerationStep({
         <button
           type="button"
           onClick={() => onContinue(config)}
-          className="inline-flex items-center justify-center rounded-md px-6 py-2.5 text-sm font-medium text-white transition-all duration-200 bg-[var(--accent-mint)] hover:bg-[var(--accent-mint-light)] hover:-translate-y-px active:scale-[0.98]"
+          className="inline-flex items-center justify-center rounded-md px-6 py-2.5 text-sm font-medium text-white transition-all duration-200 bg-[var(--accent-green)] hover:bg-[var(--accent-green-light)] hover:-translate-y-px active:scale-[0.98]"
         >
           {tCommon("continue")}
         </button>

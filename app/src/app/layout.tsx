@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Inter, Space_Mono } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { Toaster } from "@/components/ui/sonner";
@@ -8,6 +9,8 @@ import A11yProvider from "@/components/providers/A11yProvider";
 import CookieBanner from "@/components/cookie-consent/CookieBanner";
 import { SentryErrorBoundary } from "@/components/providers/SentryErrorBoundary";
 import ToastStack from "@/components/providers/ToastStack";
+import ThemeProvider from "@/components/providers/ThemeProvider";
+import { Agentation } from "agentation";
 import "./globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -22,10 +25,23 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
+
+const spaceMono = Space_Mono({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  variable: "--font-space-mono",
+  display: "swap",
+});
+
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#050509",
+  themeColor: "#0a0a0a",
 };
 
 export default async function RootLayout({
@@ -37,15 +53,19 @@ export default async function RootLayout({
   const messages = await getMessages();
 
   return (
-    <html lang={locale} className="antialiased">
+    <html lang={locale} className={`${inter.variable} ${spaceMono.variable} light antialiased`} suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://r2.adscale.com" />
         <link rel="dns-prefetch" href="https://r2.adscale.com" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
       </head>
       <body className="min-h-screen bg-background text-foreground font-sans">
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
         <a
           href="#main"
-          className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:bg-[var(--surface-base)] focus:text-[var(--text-primary)] focus:rounded-md focus:shadow-lg focus:ring-2 focus:ring-[var(--accent-mint)]"
+          className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:bg-[var(--surface-base)] focus:text-[var(--text-primary)] focus:rounded-md focus:shadow-lg focus:ring-2 focus:ring-[var(--accent-green)]"
         >
           Pular para conteúdo principal
         </a>
@@ -74,6 +94,10 @@ export default async function RootLayout({
           </QueryProvider>
         </NextIntlClientProvider>
         <CookieBanner />
+        </ThemeProvider>
+        {process.env.NODE_ENV === "development" && (
+          <Agentation endpoint="http://localhost:4747" />
+        )}
       </body>
     </html>
   );

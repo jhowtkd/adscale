@@ -74,7 +74,7 @@ export function AIDeducedFieldsEditor({
     switch (confidence) {
       case "high":
         return (
-          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[rgba(47,182,125,0.15)] text-[var(--accent-mint)]">
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--accent-green-dim)0.15)] text-[var(--accent-green)]">
             {tCommon("confidenceHigh")}
           </span>
         );
@@ -146,7 +146,7 @@ export function AIDeducedFieldsEditor({
               placeholder={tCampaign(`placeholder.${field.key}`)}
               className={cn(
                 "w-full h-9 px-3 bg-[var(--surface-base)] border rounded-md text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-blue)] focus:border-[var(--accent-blue)] transition-colors",
-                field.confidence === "high" && "border-[var(--accent-mint)]/30",
+                field.confidence === "high" && "border-[var(--accent-green)]/30",
                 field.confidence === "medium" && "border-amber-500/30",
                 field.confidence === "low" && "border-red-500/30"
               )}

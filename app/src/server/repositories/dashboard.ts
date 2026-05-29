@@ -26,7 +26,7 @@ export interface DashboardStats {
     pieceCount: number;
     approvedCount: number;
     status: string;
-    platforms: string[];
+
     updatedAt: Date;
   }[];
   recentActivity: {
@@ -191,7 +191,7 @@ export async function getDashboardStats(
       pieceCount: c.totalDerivations ?? 0,
       approvedCount: c.completedDerivations ?? 0,
       status: c.status,
-      platforms: c.platforms ?? [],
+      platforms: [],
       updatedAt: c.updatedAt,
     })),
     recentActivity,

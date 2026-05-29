@@ -74,17 +74,12 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
         client: realCampaign.client,
         objective: realCampaign.objective,
         audience: realCampaign.audience,
-        platforms: realCampaign.platforms as AdPlatform[],
-        tone: realCampaign.tone,
-        offer: realCampaign.offer,
         constraints: realCampaign.constraints,
         notes: realCampaign.notes,
         generationMode: realCampaign.generationMode,
         creativeLevel: realCampaign.creativeLevel,
         ctaVariants: realCampaign.ctaVariants,
         targetFormats: realCampaign.targetFormats,
-        clientProfileId: realCampaign.clientProfileId,
-        selectedReferenceIds: realCampaign.selectedReferenceIds,
         creativeDiagnosisStatus: realCampaign.creativeDiagnosisStatus,
         creativeDiagnosis: realCampaign.creativeDiagnosis,
         creativeDiagnosisSource: realCampaign.creativeDiagnosisSource,
@@ -99,7 +94,6 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
       return {
         id: "new",
         name: t("new"),
-        platforms: [] as AdPlatform[],
         status: "draft" as const,
         variations: 0,
         creditsUsed: 0,
@@ -129,21 +123,18 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
     }
   }, [hasSetInitialStep, isLoading, isNew, derivationsData]);
 
-  const allDerivations: Derivation[] = useMemo(() => {
+  const allDerivations = useMemo(() => {
     const items = derivationsData ?? [];
-    const campaignPlatforms = campaign?.platforms?.length
-      ? campaign.platforms
-      : (["Meta"] as AdPlatform[]);
     return items.map((d, i) => {
       const status: CampaignStatus =
         d.status === "queued" || d.status === "processing"
           ? "generating"
           : (d.status as CampaignStatus) ?? "draft";
-      const platform = campaignPlatforms[i % campaignPlatforms.length] ?? "Meta";
+      const platform: AdPlatform = "Meta";
       const generationMode = (d.generationMode as "art_variation" | "format_adaptation" | "restyling" | undefined) ?? campaign?.generationMode;
       const variantIndex = d.variantIndex ?? i;
-      const format = d.format;
-      const ctaText = d.ctaText;
+      const format = d.format ?? undefined;
+      const ctaText = d.ctaText ?? undefined;
       const name = generationMode === "format_adaptation" && format
         ? `${td("format")} ${format}`
         : `${td("piece")} ${variantIndex + 1}`;
@@ -158,21 +149,10 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
         imageUrl: d.imageUrl ?? undefined,
         generationMode,
         variantIndex,
-        ctaText: ctaText ?? undefined,
-        format: format ?? undefined,
-        qualityScore: d.qualityScore ?? undefined,
-        scoreStatus: d.scoreStatus ?? undefined,
-        scoreBreakdown: d.scoreBreakdown ?? undefined,
-        scoreIssues: d.scoreIssues ?? undefined,
-        regenerationSuggestion: d.regenerationSuggestion ?? undefined,
-        scoredAt: d.scoredAt ?? undefined,
-        qaStatus: d.qaStatus ?? undefined,
-        qaChecklist: d.qaChecklist ?? undefined,
-        qaIssues: d.qaIssues ?? undefined,
-        qaSuggestions: d.qaSuggestions ?? undefined,
-        qaAnalyzedAt: d.qaAnalyzedAt ?? undefined,
+        format,
+        ctaText,
         createdAt: d.createdAt,
-        completedAt: d.status === "completed" ? d.updatedAt : undefined,
+        updatedAt: d.updatedAt,
       };
     });
   }, [derivationsData, campaign, td]);
@@ -228,13 +208,8 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
           client: data.client,
           objective: data.objective,
           audience: data.audience,
-          platforms: data.platforms,
-          tone: data.tone,
-          offer: data.offer,
           constraints: data.constraints,
           notes: data.notes,
-          clientProfileId: data.clientProfileId,
-          selectedReferenceIds: data.selectedReferenceIds,
         });
       }
       addToast("success", tc("briefingSaved"));
@@ -251,14 +226,9 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
           client: data.client,
           objective: data.objective,
           audience: data.audience,
-          platforms: data.platforms,
-          tone: data.tone,
-          offer: data.offer,
           constraints: data.constraints,
           notes: data.notes,
           status: "draft",
-          clientProfileId: data.clientProfileId,
-          selectedReferenceIds: data.selectedReferenceIds,
         });
       }
       addToast("info", tc("draftSaved"));
@@ -334,26 +304,13 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
 
   const handleSaveAsReference = useCallback(
     (id: string) => {
-      const derivation = allDerivations.find((item) => item.id === id);
-      const clientProfileId = campaign?.clientProfileId;
-      if (!derivation || !clientProfileId) return;
-      setSavingReferenceId(id);
-      saveDerivationAsReference.mutate(
-        { derivationId: id, clientProfileId, label: derivation.name, kind: "style" },
-        {
-          onSuccess: () => addToast("success", td("referenceSaved")),
-          onError: () => addToast("error", tc("errorLoading")),
-          onSettled: () => setSavingReferenceId(null),
-        }
-      );
+      addToast("info", "Feature unavailable");
     },
-    [allDerivations, campaign?.clientProfileId, saveDerivationAsReference, addToast, td, tc]
+    [addToast]
   );
 
   const hasActivePreview = useMemo(() => {
-    return allDerivations.some((d) =>
-      d.isPreview && ["queued", "processing", "generating", "completed"].includes(d.status)
-    );
+    return false;
   }, [allDerivations]);
 
   // Step 3 handlers
@@ -432,16 +389,23 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
     handleExportDerivation(selectedDeliverySource.id, "png");
   }, [selectedDeliverySource, handleExportDerivation]);
 
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
+  const handleDeleteClick = useCallback(() => {
+    setShowDeleteDialog(true);
+  }, []);
+
   const handleDelete = useCallback(() => {
-    if (confirm(tc("confirmDeleteDraft"))) {
-      deleteCampaign.mutate(campaignId, {
-        onSuccess: () => {
-          addToast("success", tc("draftDeleted"));
-          router.push("/campaigns");
-        },
-        onError: () => addToast("error", tc("failedDeleteDraft")),
-      });
-    }
+    deleteCampaign.mutate(campaignId, {
+      onSuccess: () => {
+        addToast("success", tc("draftDeleted"));
+        setShowDeleteDialog(false);
+        router.push("/campaigns");
+      },
+      onError: () => {
+        addToast("error", tc("failedDeleteDraft"));
+      },
+    });
   }, [campaignId, deleteCampaign, addToast, tc, router]);
 
   const getStepNavLabel = useCallback(
@@ -501,6 +465,9 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
     handleDownloadDeliverySource,
     handleExportDerivation,
     handleDelete,
+    handleDeleteClick,
+    showDeleteDialog,
+    setShowDeleteDialog,
     getStepNavLabel,
     // Mutation pending states for UI
     creativeQaPending: creativeQa.isPending,

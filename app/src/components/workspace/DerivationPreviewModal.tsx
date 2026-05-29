@@ -137,7 +137,7 @@ export default function DerivationPreviewModal({
 
   const qaStatusColor = (
     {
-      ready: "text-[var(--accent-mint)]",
+      ready: "text-[var(--accent-green)]",
       warning: "text-amber-500",
       review: "text-[var(--accent-rose)]",
     } as Record<string, string>
@@ -384,7 +384,7 @@ export default function DerivationPreviewModal({
                 <div className="flex gap-2">
                   <Button
                     size="sm"
-                    className="flex-1 bg-[var(--accent-mint)] text-white hover:bg-[var(--accent-mint)]/90"
+                    className="flex-1 bg-[var(--accent-green)] text-white hover:bg-[var(--accent-green)]/90"
                     onClick={() => onApprove?.(derivation.id)}
                     disabled={isApproving}
                   >

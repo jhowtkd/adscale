@@ -1,5 +1,6 @@
 "use client";
 import { Check, Zap, Upload, Users } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface Activity {
   id: string;
@@ -13,10 +14,17 @@ interface ActivityFeedProps {
 }
 
 const activityIcons: Record<string, React.ReactNode> = {
-  derivation_approved: <Check size={16} />,
-  derivations_generated: <Zap size={16} />,
-  creative_uploaded: <Upload size={16} />,
-  invite_accepted: <Users size={16} />,
+  derivation_approved: <Check size={14} />,
+  derivations_generated: <Zap size={14} />,
+  creative_uploaded: <Upload size={14} />,
+  invite_accepted: <Users size={14} />,
+};
+
+const activityColors: Record<string, string> = {
+  derivation_approved: "text-[var(--accent-green)]",
+  derivations_generated: "text-[var(--accent-amber)]",
+  creative_uploaded: "text-[var(--accent-green)]",
+  invite_accepted: "text-[var(--accent-secondary)]",
 };
 
 function formatTimeAgo(date: string): string {
@@ -31,20 +39,23 @@ function formatTimeAgo(date: string): string {
 
 export default function ActivityFeed({ activities }: ActivityFeedProps) {
   return (
-    <div className="bg-[#0e0e14] border border-[#1a1a24] rounded-[4px] overflow-hidden">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#1a1a24]">
-        <h3 className="text-base font-semibold text-[#e8e8ec]">Atividade</h3>
-        <span className="text-sm text-[#b4b4be] hover:text-[#2fb67d] cursor-pointer transition-colors duration-200">Ver Mais →</span>
+    <div className="glass-card rounded-xl overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border-dim)]">
+        <h3 className="text-sm font-semibold text-[var(--text-primary)]">Atividade</h3>
+        <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-secondary)] hover:text-[var(--accent-green)] cursor-pointer transition-colors duration-200">Ver Mais →</span>
       </div>
-      <div className="py-2">
-        {activities.map((activity) => (
-          <div key={activity.id} className="flex gap-3.5 px-6 py-3.5 border-b border-[#14141c] last:border-b-0 hover:bg-[#16161f] transition-colors duration-200">
-            <div className="w-8 h-8 rounded-[4px] bg-[#1a1a24] flex items-center justify-center text-[#b4b4be] flex-shrink-0">
-              {activityIcons[activity.type] ?? <Check size={16} />}
+      <div className="divide-y divide-[var(--border-dim)] max-h-[300px] overflow-y-auto">
+        {activities.slice(0, 5).map((activity) => (
+          <div key={activity.id} className="flex gap-3 px-5 py-3 last:border-b-0 hover:bg-[var(--surface-raised)]/50 transition-colors duration-200">
+            <div className={cn(
+              "w-7 h-7 rounded-lg bg-[var(--surface-raised)] flex items-center justify-center flex-shrink-0",
+              activityColors[activity.type] ?? "text-[var(--text-secondary)]"
+            )}>
+              {activityIcons[activity.type] ?? <Check size={14} />}
             </div>
-            <div>
-              <div className="text-sm text-[#b4b4be] leading-snug" dangerouslySetInnerHTML={{ __html: activity.description }} />
-              <div className="text-[13px] text-[#6e6e7a] mt-1">{formatTimeAgo(activity.createdAt)}</div>
+            <div className="min-w-0">
+              <div className="text-xs text-[var(--text-secondary)] leading-snug truncate" dangerouslySetInnerHTML={{ __html: activity.description }} />
+              <div className="text-[10px] text-[var(--text-muted)] mt-0.5 font-mono">{formatTimeAgo(activity.createdAt)}</div>
             </div>
           </div>
         ))}
@@ -52,3 +63,4 @@ export default function ActivityFeed({ activities }: ActivityFeedProps) {
     </div>
   );
 }
+

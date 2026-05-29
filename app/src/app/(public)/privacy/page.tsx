@@ -83,7 +83,7 @@ export default function PrivacyPage() {
           </ul>
           <p className="mt-2">
             Para exercer seus direitos, envie um e-mail para{" "}
-            <a href="mailto:privacidade@adscale.io" className="text-[var(--accent-mint)] hover:underline">
+            <a href="mailto:privacidade@adscale.io" className="text-[var(--accent-green)] hover:underline">
               privacidade@adscale.io
             </a>.
           </p>

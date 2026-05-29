@@ -49,12 +49,12 @@ export default function PlanStep({
   // Loading state
   if (generatePlan.isPending || isPlanLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] bg-[var(--surface-base)] rounded-xl border border-[var(--border-dim)]">
+      <div className="flex flex-col items-center justify-center min-h-[400px] glass-card rounded-xl">
         <div className="mb-4">
           <div className="relative">
-            <Sparkles size={40} className="text-[var(--accent-mint)]" />
+            <Sparkles size={40} className="text-[var(--accent-green)]" />
             <div
-              className="absolute inset-0 rounded-full border-2 border-[var(--accent-mint)] border-t-transparent animate-spin"
+              className="absolute inset-0 rounded-full border-2 border-[var(--accent-green)] border-t-transparent animate-spin"
               style={{ width: 56, height: 56, top: -8, left: -8 }}
             />
           </div>
@@ -66,7 +66,7 @@ export default function PlanStep({
           {[0, 1, 2].map((i) => (
             <div
               key={i}
-              className="w-2 h-2 rounded-full bg-[var(--accent-mint)] animate-pulse"
+              className="w-2 h-2 rounded-full bg-[var(--accent-green)] animate-pulse"
               style={{ animationDelay: `${i * 200}ms` }}
             />
           ))}
@@ -78,7 +78,7 @@ export default function PlanStep({
   // Error state
   if (generatePlan.isError) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] bg-[var(--surface-base)] rounded-xl border border-[var(--border-dim)]">
+      <div className="flex flex-col items-center justify-center min-h-[400px] glass-card rounded-xl">
         <p className="text-sm text-[var(--text-muted)] mb-4">
           {tc("errorLoading")}
         </p>
@@ -96,7 +96,7 @@ export default function PlanStep({
   // No plan state
   if (!plan) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] bg-[var(--surface-base)] rounded-xl border border-[var(--border-dim)]">
+      <div className="flex flex-col items-center justify-center min-h-[400px] glass-card rounded-xl">
         <p className="text-sm text-[var(--text-muted)]">{t("noPlan")}</p>
       </div>
     );

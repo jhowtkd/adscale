@@ -66,7 +66,7 @@ export default function FormatAdaptationPreview({ campaignId }: FormatAdaptation
               >
                 {/* Crop overlay visualization */}
                 <div
-                  className="absolute border-2 border-[var(--accent-mint)] rounded bg-[var(--accent-mint)]/5"
+                  className="absolute border-2 border-[var(--accent-green)] rounded bg-[var(--accent-green)]/5"
                   style={{
                     left: `${crop.x * 100}%`,
                     top: `${crop.y * 100}%`,
@@ -76,10 +76,10 @@ export default function FormatAdaptationPreview({ campaignId }: FormatAdaptation
                 />
                 {/* Center crosshair */}
                 <div className="absolute inset-0 flex items-center justify-center opacity-30">
-                  <div className="w-full h-px bg-[var(--accent-mint)]" />
+                  <div className="w-full h-px bg-[var(--accent-green)]" />
                 </div>
                 <div className="absolute inset-0 flex items-center justify-center opacity-30">
-                  <div className="h-full w-px bg-[var(--accent-mint)]" />
+                  <div className="h-full w-px bg-[var(--accent-green)]" />
                 </div>
               </div>
               <div className="text-center">

@@ -84,10 +84,10 @@ export default function CreditHistoryTab() {
   }, [transactions]);
 
   const typeColors: Record<string, string> = {
-    usage: "#ef4444",
-    refund: "#22c55e",
-    grant: "#3b82f6",
-    purchase: "#2FB67D",
+    usage: "var(--accent-rose)",
+    refund: "var(--accent-green)",
+    grant: "var(--accent-secondary)",
+    purchase: "var(--accent-green)",
   };
 
   return (
@@ -176,7 +176,7 @@ export default function CreditHistoryTab() {
                 />
                 <Bar dataKey="amount" radius={[4, 4, 0, 0]}>
                   {chartData.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill="#2FB67D" />
+                    <Cell key={`cell-${index}`} fill="var(--accent-green)" />
                   ))}
                 </Bar>
               </BarChart>
@@ -235,8 +235,8 @@ export default function CreditHistoryTab() {
                     <span
                       className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
                       style={{
-                        background: `${typeColors[tx.type] ?? "#6b7280"}20`,
-                        color: typeColors[tx.type] ?? "#6b7280",
+                        background: typeColors[tx.type] ? `${typeColors[tx.type]}20` : 'rgba(141, 141, 152, 0.12)',
+                        color: typeColors[tx.type] ?? 'var(--text-secondary)',
                       }}
                     >
                       {t(`types.${tx.type}`)}
@@ -245,7 +245,7 @@ export default function CreditHistoryTab() {
                   <TableCell
                     className="font-medium"
                     style={{
-                      color: tx.amount < 0 ? "#ef4444" : "#22c55e",
+                      color: tx.amount < 0 ? 'var(--accent-rose)' : 'var(--accent-green)',
                     }}
                   >
                     {tx.amount > 0 ? `+${tx.amount}` : tx.amount}

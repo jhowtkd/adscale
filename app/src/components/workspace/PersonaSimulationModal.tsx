@@ -55,34 +55,34 @@ function PersonaCard({ personaKey, result }: PersonaCardProps) {
   const Icon = personaIcons[personaKey];
 
   return (
-    <div className="bg-[#0e0e14] border border-[#1a1a24] rounded-xl p-4 space-y-3">
+    <div className="bg-[var(--surface-base)] border border-[var(--border-dim)] rounded-xl p-4 space-y-3">
       {/* Header */}
       <div className="flex items-center gap-2">
         <Icon size={18} className="text-[var(--text-secondary)]" />
-        <h3 className="text-sm font-semibold text-[#e8e8ec]">{t(personaKey)}</h3>
+        <h3 className="text-sm font-semibold text-[var(--text-primary)]">{t(personaKey)}</h3>
       </div>
 
       {/* Sections */}
       <div className="space-y-2">
-        <div className="border-l-2 border-l-[#2fb67d] pl-3">
-          <span className="text-[10px] uppercase font-medium text-[#2fb67d]">
+        <div className="bg-[var(--accent-green-dim)] rounded-lg p-3">
+          <span className="text-[10px] uppercase font-medium text-[var(--accent-green)]">
             {t("understands")}
           </span>
-          <p className="text-xs text-[#b4b4be] mt-0.5 leading-relaxed">{result.understands}</p>
+          <p className="text-xs text-[var(--text-secondary)] mt-0.5 leading-relaxed">{result.understands}</p>
         </div>
 
-        <div className="border-l-2 border-l-[#ef4444] pl-3">
-          <span className="text-[10px] uppercase font-medium text-[#ef4444]">
+        <div className="bg-[var(--accent-rose)]/10 rounded-lg p-3">
+          <span className="text-[10px] uppercase font-medium text-[var(--accent-rose)]">
             {t("rejects")}
           </span>
-          <p className="text-xs text-[#b4b4be] mt-0.5 leading-relaxed">{result.rejects}</p>
+          <p className="text-xs text-[var(--text-secondary)] mt-0.5 leading-relaxed">{result.rejects}</p>
         </div>
 
-        <div className="border-l-2 border-l-[#f59e0b] pl-3">
-          <span className="text-[10px] uppercase font-medium text-[#f59e0b]">
+        <div className="bg-[var(--accent-amber)]/10 rounded-lg p-3">
+          <span className="text-[10px] uppercase font-medium text-[var(--accent-amber)]">
             {t("wants")}
           </span>
-          <p className="text-xs text-[#b4b4be] mt-0.5 leading-relaxed">{result.wants}</p>
+          <p className="text-xs text-[var(--text-secondary)] mt-0.5 leading-relaxed">{result.wants}</p>
         </div>
       </div>
 
@@ -92,8 +92,8 @@ function PersonaCard({ personaKey, result }: PersonaCardProps) {
           className={cn(
             "text-xs shrink-0",
             result.wouldClick
-              ? "bg-[#2fb67d]/10 text-[#2fb67d] border-[#2fb67d]/20"
-              : "bg-[#ef4444]/10 text-[#ef4444] border-[#ef4444]/20"
+              ? "bg-[var(--accent-green-dim)] text-[var(--accent-green)] border-[var(--accent-green)]/20"
+              : "bg-[var(--accent-rose)]/10 text-[var(--accent-rose)] border-[var(--accent-rose)]/20"
           )}
         >
           {result.wouldClick ? t("yes") : t("no")}
@@ -102,7 +102,7 @@ function PersonaCard({ personaKey, result }: PersonaCardProps) {
           <span className="text-[10px] uppercase font-medium text-[var(--text-muted)]">
             {t("rationale")}
           </span>
-          <p className="text-xs text-[#b4b4be] mt-0.5 leading-relaxed">{result.rationale}</p>
+          <p className="text-xs text-[var(--text-secondary)] mt-0.5 leading-relaxed">{result.rationale}</p>
         </div>
       </div>
     </div>
@@ -115,23 +115,23 @@ function PersonaCard({ personaKey, result }: PersonaCardProps) {
 
 function SkeletonCard() {
   return (
-    <div className="bg-[#0e0e14] border border-[#1a1a24] rounded-xl p-4 space-y-3">
+    <div className="bg-[var(--surface-base)] border border-[var(--border-dim)] rounded-xl p-4 space-y-3">
       <div className="flex items-center gap-2">
         <Skeleton className="h-5 w-5 rounded-full" />
         <Skeleton className="h-4 w-32" />
       </div>
       <div className="space-y-2">
-        <div className="border-l-2 border-l-[#1a1a24] pl-3 space-y-1">
+        <div className="bg-[var(--surface-raised)] rounded-lg p-3 space-y-1">
           <Skeleton className="h-3 w-16" />
           <Skeleton className="h-3 w-full" />
           <Skeleton className="h-3 w-3/4" />
         </div>
-        <div className="border-l-2 border-l-[#1a1a24] pl-3 space-y-1">
+        <div className="bg-[var(--surface-raised)] rounded-lg p-3 space-y-1">
           <Skeleton className="h-3 w-16" />
           <Skeleton className="h-3 w-full" />
           <Skeleton className="h-3 w-2/3" />
         </div>
-        <div className="border-l-2 border-l-[#1a1a24] pl-3 space-y-1">
+        <div className="bg-[var(--surface-raised)] rounded-lg p-3 space-y-1">
           <Skeleton className="h-3 w-16" />
           <Skeleton className="h-3 w-full" />
         </div>
@@ -180,17 +180,17 @@ export default function PersonaSimulationModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-5xl bg-[#0a0a0f] border-[#1a1a24] text-[#e8e8ec]">
+      <DialogContent className="max-w-5xl bg-[var(--deep-bg)] border-[var(--border-dim)] text-[var(--text-primary)]">
         <DialogHeader>
-          <DialogTitle className="text-lg font-semibold text-[#e8e8ec]">
+          <DialogTitle className="text-lg font-semibold text-[var(--text-primary)]">
             {t("personaAnalysis")}
           </DialogTitle>
           {campaignName ? (
-            <DialogDescription className="text-sm text-[#b4b4be]">
+            <DialogDescription className="text-sm text-[var(--text-secondary)]">
               {campaignName}
             </DialogDescription>
           ) : (
-            <DialogDescription className="text-sm text-[#b4b4be]">
+            <DialogDescription className="text-sm text-[var(--text-secondary)]">
               {t("personaAnalysisSubtitle")}
             </DialogDescription>
           )}
@@ -205,12 +205,12 @@ export default function PersonaSimulationModal({
             </div>
           ) : isError ? (
             <div className="flex flex-col items-center justify-center py-12 gap-4">
-              <p className="text-sm text-[#ef4444]">{commonT("error")}</p>
+              <p className="text-sm text-[var(--accent-rose)]">{commonT("error")}</p>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => refetch()}
-                className="border-[#1a1a24] text-[#b4b4be] hover:bg-[#0e0e14]"
+                className="border-[var(--border-dim)] text-[var(--text-secondary)] hover:bg-[var(--surface-raised)]"
               >
                 {commonT("retry")}
               </Button>
@@ -232,13 +232,13 @@ export default function PersonaSimulationModal({
           )}
         </div>
 
-        <DialogFooter className="border-t border-[#1a1a24] bg-transparent">
+        <DialogFooter className="border-t border-[var(--border-dim)] bg-transparent">
           <Button
             variant="outline"
             size="sm"
             onClick={handleRegenerate}
             disabled={isGenerating}
-            className="border-[var(--accent-mint)] text-[var(--accent-mint)] hover:bg-[var(--accent-mint-dim)]"
+            className="border-[var(--accent-green)] text-[var(--accent-green)] hover:bg-[var(--accent-green-dim)]"
           >
             {isGenerating ? (
               <RefreshCw className="w-4 h-4 mr-1 animate-spin" />
@@ -251,7 +251,7 @@ export default function PersonaSimulationModal({
             variant="outline"
             size="sm"
             onClick={onClose}
-            className="border-[#1a1a24] text-[#b4b4be] hover:bg-[#0e0e14]"
+            className="border-[var(--border-dim)] text-[var(--text-secondary)] hover:bg-[var(--surface-raised)]"
           >
             {commonT("close")}
           </Button>

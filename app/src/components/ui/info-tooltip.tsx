@@ -21,7 +21,7 @@ export function InfoTooltip({ text, className, side = "top" }: InfoTooltipProps)
       <Tooltip>
         <TooltipTrigger
           className={cn(
-            "inline-flex items-center justify-center rounded-full p-0.5 text-[var(--text-muted)] transition-colors hover:text-[var(--accent-mint)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-mint)]",
+            "inline-flex items-center justify-center rounded-full p-0.5 text-[var(--text-muted)] transition-colors hover:text-[var(--accent-green)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-green)]",
             className
           )}
           aria-label="Mais informações"

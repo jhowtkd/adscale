@@ -36,7 +36,7 @@ export function QuickActionCard({
     <div
       className={cn(
         "animate-fade-in group h-full rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-4 transition-all duration-250 sm:p-5",
-        featured && "border-[var(--accent-mint)]/40 bg-[linear-gradient(135deg,rgba(47,182,125,0.1),rgba(255,255,255,0)_48%)]",
+        featured && "border-[var(--accent-green)]/40 bg-[linear-gradient(135deg,var(--accent-green-dim)0.1),rgba(255,255,255,0)_48%)]",
         !disabled &&
           "hover:border-[var(--border-medium)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 cursor-pointer",
         disabled && "opacity-50 cursor-not-allowed"

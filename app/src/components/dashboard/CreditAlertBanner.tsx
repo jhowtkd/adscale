@@ -22,7 +22,7 @@ export function CreditAlertBanner() {
       className={cn(
         "rounded-lg border px-5 py-4 text-sm flex items-center justify-between gap-4 animate-fade-in",
         noPlan
-          ? "border-[var(--accent-mint)]/30 bg-[var(--accent-mint)]/10 text-[var(--accent-mint)]"
+          ? "border-[var(--accent-green)]/30 bg-[var(--accent-green)]/10 text-[var(--accent-green)]"
           : "border-[var(--status-amber-bg)] bg-[var(--status-amber-bg)]/30 text-[var(--status-amber-text)]"
       )}
     >
@@ -39,7 +39,7 @@ export function CreditAlertBanner() {
         className={cn(
           "inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-medium transition-all",
           noPlan
-            ? "bg-[var(--accent-mint)] text-white hover:bg-[var(--accent-mint-light)]"
+            ? "bg-[var(--accent-green)] text-white hover:bg-[var(--accent-green-light)]"
             : "bg-[var(--status-amber-text)] text-white hover:opacity-90"
         )}
       >

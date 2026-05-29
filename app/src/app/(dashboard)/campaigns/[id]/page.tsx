@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";
 import dynamic from "next/dynamic";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 const DeliveryPackageModal = dynamic(() => import("@/components/workspace/DeliveryPackageModal"), {
   ssr: false,
@@ -112,6 +113,9 @@ export default function CampaignWorkspacePage() {
     handleDownloadDeliverySource,
     handleExportDerivation,
     handleDelete,
+    handleDeleteClick,
+    showDeleteDialog,
+    setShowDeleteDialog,
     getStepNavLabel,
     creativeQaPending,
     creativeQaVariables,
@@ -148,18 +152,18 @@ export default function CampaignWorkspacePage() {
         isNew={isNew}
         isDraft={campaign?.status === "draft"}
         onSaveDraft={() => addToast("info", tc("draftSaved"))}
-        onDelete={handleDelete}
+        onDelete={handleDeleteClick}
       />
 
       {campaign && (
-        <CampaignClientSubtitle platformsText={campaign.platforms?.join(", ")} />
+        <CampaignClientSubtitle platformsText="" />
       )}
 
       <StepIndicator currentStep={currentStep} onStepClick={handleStepClick} />
 
       <div
         className={cn(
-          "bg-[var(--surface-base)] rounded-xl border border-[var(--border-dim)] min-h-[400px]",
+          "glass-card rounded-xl min-h-[400px]",
           currentStep === 1 && "p-6 md:p-8",
           currentStep === 2 && "p-6 md:p-8",
           currentStep === 3 && "p-6 md:p-8",
@@ -201,9 +205,6 @@ export default function CampaignWorkspacePage() {
                   product: campaign.client || undefined,
                   objective: campaign.objective || undefined,
                   targetAudience: campaign.audience || undefined,
-                  tone: campaign.tone || undefined,
-                  offer: campaign.offer || undefined,
-                  platforms: campaign.platforms,
                 }}
                 initialData={{
                   generationMode: campaign.generationMode,
@@ -236,7 +237,7 @@ export default function CampaignWorkspacePage() {
                 onReject={handleRejectDerivation}
                 onCreateDeliveryPackage={handleCreateDeliveryPackage}
                 onRunQa={handleRunQa}
-                onSaveAsReference={campaign?.clientProfileId ? handleSaveAsReference : undefined}
+                onSaveAsReference={undefined}
                 onGenerateLandingPage={handleGenerateLandingPage}
                 onSimulatePersonas={handleSimulatePersonas}
                 qaAnalyzingId={creativeQaPending ? creativeQaVariables?.derivationId ?? null : null}
@@ -281,6 +282,16 @@ export default function CampaignWorkspacePage() {
         onPrev={handlePrev}
         onExport={handleExportDerivation}
         getStepNavLabel={getStepNavLabel}
+      />
+
+      <ConfirmDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        title="Excluir campanha"
+        description="Tem certeza que deseja excluir esta campanha? Esta ação não pode ser desfeita."
+        confirmLabel="Excluir"
+        variant="destructive"
+        onConfirm={handleDelete}
       />
     </div>
   );
