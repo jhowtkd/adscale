@@ -362,41 +362,42 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
         />
       )}
 
-      {/* ---- AI Assist Badge ---- */}
-      <div className="fixed bottom-8 right-8 z-30 animate-fade-in" style={{ animationDelay: "500ms" }}>
-        <div className="inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-xs font-medium bg-[var(--accent-green-dim)] text-[var(--accent-green)] border border-[var(--accent-green)]/15">
-          <Sparkles size={14} />
-          {tBriefing("aiAssist")}
+      {/* ---- AI Assist Badge + Form Actions ---- */}
+      <div className="max-w-[720px] mx-auto mt-8 space-y-4 animate-fade-in" style={{ animationDelay: "400ms" }}>
+        <div className="flex justify-end animate-fade-in" style={{ animationDelay: "500ms" }}>
+          <div className="inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-xs font-medium bg-[var(--accent-green-dim)] text-[var(--accent-green)] border border-[var(--accent-green)]/15">
+            <Sparkles size={14} />
+            {tBriefing("aiAssist")}
+          </div>
         </div>
-      </div>
 
-      {/* ---- Form Actions ---- */}
-      <div className="max-w-[720px] mx-auto mt-8 flex items-center justify-between animate-fade-in" style={{ animationDelay: "400ms" }}>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleSaveDraftLocal}
+              className="inline-flex items-center justify-center rounded-md px-5 py-2.5 text-sm font-medium transition-all duration-200 bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] hover:bg-[var(--surface-base)] hover:border-[var(--border-medium)] active:scale-[0.98]"
+            >
+              {tBriefing("saveDraft")}
+            </button>
+            {isSaving ? (
+              <span className="text-xs text-[var(--text-muted)] animate-fade-in">
+                {tBriefing("saving")}
+              </span>
+            ) : lastSavedAt ? (
+              <span className="text-xs text-[var(--text-muted)] animate-fade-in">
+                {tBriefing("draftAutoSaved")}
+              </span>
+            ) : null}
+          </div>
           <button
             type="button"
-            onClick={handleSaveDraftLocal}
-            className="inline-flex items-center justify-center rounded-md px-5 py-2.5 text-sm font-medium transition-all duration-200 bg-[var(--surface-raised)] text-[var(--text-primary)] border border-[var(--border-dim)] hover:bg-[var(--surface-base)] hover:border-[var(--border-medium)] active:scale-[0.98]"
+            onClick={handleContinue}
+            className="inline-flex items-center justify-center rounded-md px-6 py-2.5 text-sm font-medium text-white transition-all duration-200 bg-[var(--accent-green)] hover:bg-[var(--accent-green-light)] hover:-translate-y-px active:scale-[0.98]"
           >
-            {tBriefing("saveDraft")}
+            {tBriefing("saveContinue")}
           </button>
-          {isSaving ? (
-            <span className="text-xs text-[var(--text-muted)] animate-fade-in">
-              {tBriefing("saving")}
-            </span>
-          ) : lastSavedAt ? (
-            <span className="text-xs text-[var(--text-muted)] animate-fade-in">
-              {tBriefing("draftAutoSaved")}
-            </span>
-          ) : null}
         </div>
-        <button
-          type="button"
-          onClick={handleContinue}
-          className="inline-flex items-center justify-center rounded-md px-6 py-2.5 text-sm font-medium text-white transition-all duration-200 bg-[var(--accent-green)] hover:bg-[var(--accent-green-light)] hover:-translate-y-px active:scale-[0.98]"
-        >
-          {tBriefing("saveContinue")}
-        </button>
       </div>
     </div>
   );
