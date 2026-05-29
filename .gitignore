@@ -18,6 +18,14 @@ Thumbs.db
 node_modules/
 .next/
 dist/
+
+# Agent/IDE artifacts
+.opencode/
+.playwright-cli/
+screenshots/
+
+# Project-specific
+PRODUCT.md
 build/
 __pycache__/
 *.pyc
