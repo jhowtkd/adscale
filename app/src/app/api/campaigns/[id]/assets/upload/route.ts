@@ -28,6 +28,10 @@ export async function POST(
     const { workspace } = await requireWorkspaceAccess(request);
     const { id: campaignId } = await params;
 
+    if (!z.string().uuid().safeParse(campaignId).success) {
+      return apiError("campaignNotFound", 404);
+    }
+
     const campaign = await getCampaignById(campaignId, workspace.id);
     if (!campaign) {
       return apiError("campaignNotFound", 404);
