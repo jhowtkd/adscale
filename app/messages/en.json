@@ -174,7 +174,8 @@
     "emptyState": {
       "uploadCreative": "Upload creative",
       "fillBrief": "Fill brief",
-      "approveVariations": "Approve variations"
+      "approveVariations": "Approve variations",
+      "pageTitle": "Campaigns"
     }
   },
   "dashboard": {

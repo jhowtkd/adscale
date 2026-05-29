@@ -53,7 +53,7 @@ export default async function RootLayout({
   const messages = await getMessages();
 
   return (
-    <html lang={locale} className={`${inter.variable} ${spaceMono.variable} light antialiased`} suppressHydrationWarning>
+    <html lang={locale} className={`${inter.variable} ${spaceMono.variable} light antialiased`} suppressHydrationWarning data-scroll-behavior="smooth">
       <head>
         <link rel="preconnect" href="https://r2.adscale.com" />
         <link rel="dns-prefetch" href="https://r2.adscale.com" />

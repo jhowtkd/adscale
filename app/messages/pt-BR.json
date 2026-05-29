@@ -174,7 +174,8 @@
     "emptyState": {
       "uploadCreative": "Envie criativo",
       "fillBrief": "Preencha brief",
-      "approveVariations": "Aprove variações"
+      "approveVariations": "Aprove variações",
+      "pageTitle": "Campanhas"
     }
   },
   "dashboard": {
