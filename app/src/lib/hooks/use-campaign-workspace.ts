@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import type { Derivation, AdPlatform, CampaignStatus } from "@/lib/mock-data";
 import { useAppStore } from "@/lib/store";
-import { useCampaign, useUpdateCampaign } from "@/lib/hooks/use-campaigns";
+import { useCampaign, useUpdateCampaign, useCreateCampaign } from "@/lib/hooks/use-campaigns";
 import { useDeleteCampaign } from "@/lib/hooks/use-campaigns";
 import { useDerivations, useCreateDerivations } from "@/lib/hooks/use-derivations";
 import { useRegenerateDerivation } from "@/lib/hooks/use-regenerate";
@@ -35,6 +35,7 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
 
   const { campaign: realCampaign, isLoading, isError } = useCampaign(campaignId);
   const updateCampaign = useUpdateCampaign(campaignId);
+  const createCampaign = useCreateCampaign();
   const deleteCampaign = useDeleteCampaign();
 
   // Disable derivations polling when real-time subscriptions are active
@@ -201,7 +202,25 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
 
   // Step 1 handlers
   const handleBriefingContinue = useCallback(
-    (data: BriefingFormData) => {
+    async (data: BriefingFormData) => {
+      if (isNew) {
+        try {
+          const newCampaign = await createCampaign.mutateAsync({
+            name: data.name,
+            client: data.client,
+            objective: data.objective,
+            audience: data.audience,
+            constraints: data.constraints,
+            notes: data.notes,
+          });
+          addToast("success", tc("campaignCreated", { name: data.name }));
+          router.push(`/campaigns/${newCampaign.id}`);
+          return;
+        } catch {
+          addToast("error", tc("failedCreateCampaign"));
+          return;
+        }
+      }
       if (campaign && !isNew) {
         updateCampaign.mutate({
           name: data.name,
@@ -215,11 +234,29 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
       addToast("success", tc("briefingSaved"));
       handleNext();
     },
-    [campaign, isNew, updateCampaign, addToast, tc, handleNext]
+    [campaign, isNew, createCampaign, updateCampaign, addToast, tc, handleNext, router]
   );
 
   const handleSaveDraft = useCallback(
-    (data: BriefingFormData) => {
+    async (data: BriefingFormData) => {
+      if (isNew) {
+        try {
+          const newCampaign = await createCampaign.mutateAsync({
+            name: data.name,
+            client: data.client,
+            objective: data.objective,
+            audience: data.audience,
+            constraints: data.constraints,
+            notes: data.notes,
+          });
+          addToast("success", tc("campaignCreated", { name: data.name }));
+          router.push(`/campaigns/${newCampaign.id}`);
+          return;
+        } catch {
+          addToast("error", tc("failedCreateCampaign"));
+          return;
+        }
+      }
       if (campaign && !isNew) {
         updateCampaign.mutate({
           name: data.name,
@@ -233,7 +270,7 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
       }
       addToast("info", tc("draftSaved"));
     },
-    [campaign, isNew, updateCampaign, addToast, tc]
+    [campaign, isNew, createCampaign, updateCampaign, addToast, tc, router]
   );
 
   // Step 3 handler (Generation)
