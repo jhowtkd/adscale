@@ -59,7 +59,10 @@ export default function NewCampaignModal({
     clientName: "",
   });
   const [errors, setErrors] = useState<FormErrors>({});
-  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [touched, setTouched] = useState<Record<keyof NewCampaignForm, boolean>>({
+    name: false,
+    clientName: false,
+  });
 
   const updateField = useCallback(
     <K extends keyof NewCampaignForm>(field: K, value: NewCampaignForm[K]) => {
@@ -101,7 +104,7 @@ export default function NewCampaignModal({
         clientName: "",
       });
       setErrors({});
-      setTouched({});
+      setTouched({ name: false, clientName: false });
       onOpenChange(false);
     },
     [form, validate, onSubmit, onOpenChange]
@@ -109,8 +112,9 @@ export default function NewCampaignModal({
 
   const handleCancel = useCallback(() => {
     onOpenChange(false);
+    setForm({ name: "", clientName: "" });
     setErrors({});
-    setTouched({});
+    setTouched({ name: false, clientName: false });
   }, [onOpenChange]);
 
   return (
@@ -133,14 +137,17 @@ export default function NewCampaignModal({
         >
           {/* Campaign Name */}
           <div className="space-y-1.5">
-            <Label className="text-[13px] text-[var(--text-secondary)]">
+            <Label htmlFor="campaign-name" className="text-[13px] text-[var(--text-secondary)]">
               {tCampaign("name")} <span className="text-[var(--accent-rose)]">*</span>
             </Label>
             <Input
+              id="campaign-name"
               value={form.name}
               onChange={(e) => updateField("name", e.target.value)}
               onBlur={() => setTouched((p) => ({ ...p, name: true }))}
               placeholder={tBriefing("namePlaceholder")}
+              aria-invalid={!!errors.name}
+              aria-describedby={errors.name ? "name-error" : undefined}
               className={cn(
                 "bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]",
                 errors.name && "border-[var(--accent-rose)]"
@@ -149,6 +156,7 @@ export default function NewCampaignModal({
             <AnimatePresence>
               {errors.name && (
                 <motion.p
+                  id="name-error"
                   initial={{ opacity: 0, y: -4 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -4 }}
@@ -162,14 +170,17 @@ export default function NewCampaignModal({
 
           {/* Client/Brand Name */}
           <div className="space-y-1.5">
-            <Label className="text-[13px] text-[var(--text-secondary)]">
+            <Label htmlFor="campaign-client" className="text-[13px] text-[var(--text-secondary)]">
               {tCampaign("client")} <span className="text-[var(--accent-rose)]">*</span>
             </Label>
             <Input
+              id="campaign-client"
               value={form.clientName}
               onChange={(e) => updateField("clientName", e.target.value)}
               onBlur={() => setTouched((p) => ({ ...p, clientName: true }))}
               placeholder={tBriefing("clientPlaceholder")}
+              aria-invalid={!!errors.clientName}
+              aria-describedby={errors.clientName ? "client-error" : undefined}
               className={cn(
                 "bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]",
                 errors.clientName && "border-[var(--accent-rose)]"
@@ -178,6 +189,7 @@ export default function NewCampaignModal({
             <AnimatePresence>
               {errors.clientName && (
                 <motion.p
+                  id="client-error"
                   initial={{ opacity: 0, y: -4 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -4 }}
@@ -188,26 +200,25 @@ export default function NewCampaignModal({
               )}
             </AnimatePresence>
           </div>
-        </form>
 
-        {/* Footer */}
-        <DialogFooter className="px-6 py-4 border-t border-[var(--border-dim)] flex-row justify-end gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleCancel}
-            className="border-[var(--border-dim)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-base)]"
-          >
-            {tCommon("cancel")}
-          </Button>
-          <Button
-            type="submit"
-            onClick={handleSubmit}
-            className="bg-[var(--accent-green)] text-white hover:opacity-90"
-          >
-            {tCommon("create")}
-          </Button>
-        </DialogFooter>
+          {/* Footer */}
+          <DialogFooter className="px-6 py-4 border-t border-[var(--border-dim)] flex-row justify-end gap-2 -mx-6 -mb-4 mt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCancel}
+              className="border-[var(--border-dim)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-base)]"
+            >
+              {tCommon("cancel")}
+            </Button>
+            <Button
+              type="submit"
+              className="bg-[var(--accent-green)] text-white hover:opacity-90"
+            >
+              {tCommon("create")}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );
