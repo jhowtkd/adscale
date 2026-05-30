@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import type { Derivation, AdPlatform, CampaignStatus } from "@/lib/mock-data";
 import { useAppStore } from "@/lib/store";
 import { useCampaign, useUpdateCampaign, useCreateCampaign } from "@/lib/hooks/use-campaigns";
@@ -15,19 +16,21 @@ import { useCreativeQa } from "@/lib/hooks/use-creative-qa";
 import { usePlan, useGeneratePlan, useUpdatePlanStatus } from "./use-plan";
 import { useSaveDerivationAsReference } from "@/lib/hooks/use-client-profiles";
 import { useGenerateLandingPage } from "@/lib/hooks/use-landing-page";
-import type { BriefingFormData } from "@/components/workspace/BriefingStep";
-import type { GenerationConfig } from "@/components/workspace/GenerationStep";
-import type { StepKey } from "@/components/workspace/StepIndicator";
 import type { DeliveryFormat } from "@/components/workspace/DeliveryPackageModal";
 import { useTranslations } from "next-intl";
 
-export type WizardStep = 1 | 2 | 3 | 4 | 5;
+export type WorkspaceState =
+  | "piloto"           // upload + briefing
+  | "acoes"            // action buttons + derivation grid
+  | "derivando"        // configuring derivation
+  | "estilizando"      // configuring styling
+  | "gerando";         // loading while generating
 
 export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const t = useTranslations("campaign");
   const td = useTranslations("derivation");
-  const ts = useTranslations("steps");
   const tc = useTranslations("common");
 
   const setCurrentPageTitle = useAppStore((s) => s.setCurrentPageTitle);
@@ -109,20 +112,42 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
     setCurrentPageTitle(campaign?.name || tc("campaign"));
   }, [setCurrentPageTitle, campaign?.name, tc]);
 
-  // Wizard state
-  const [currentStep, setCurrentStep] = useState<WizardStep>(1);
-  const [direction, setDirection] = useState(1);
-  const [hasSetInitialStep, setHasSetInitialStep] = useState(false);
+  // Workspace state
+  const [workspaceState, setWorkspaceState] = useState<WorkspaceState>("piloto");
 
   useEffect(() => {
-    if (hasSetInitialStep || isLoading || isNew) return;
-    if (derivationsData && derivationsData.length > 0) {
-      queueMicrotask(() => {
-        setCurrentStep(5);
-        setHasSetInitialStep(true);
-      });
+    if (isLoading || isNew) return;
+    if (derivationsData && derivationsData.length > 0 && workspaceState === "piloto") {
+      setWorkspaceState("acoes");
     }
-  }, [hasSetInitialStep, isLoading, isNew, derivationsData]);
+  }, [isLoading, isNew, derivationsData, workspaceState]);
+
+  const goToActions = useCallback(() => setWorkspaceState("acoes"), []);
+  const goToDerivation = useCallback(() => setWorkspaceState("derivando"), []);
+  const goToStyling = useCallback(() => setWorkspaceState("estilizando"), []);
+  const goToGenerating = useCallback(() => setWorkspaceState("gerando"), []);
+
+  const savePilot = useCallback(
+    async (assetId: string, briefing: {
+      objective?: string;
+      audience?: string;
+      tone?: string;
+      platforms?: string;
+      ctaText?: string;
+      constraints?: string;
+      notes?: string;
+    }) => {
+      const res = await fetch(`/api/campaigns/${campaignId}/pilot`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assetId, briefing }),
+      });
+      if (!res.ok) throw new Error("Failed to save pilot");
+      queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId] });
+      setWorkspaceState("acoes");
+    },
+    [campaignId, queryClient]
+  );
 
   const allDerivations = useMemo(() => {
     const items = derivationsData ?? [];
@@ -172,134 +197,13 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
     if (!open) setSelectedDeliverySource(null);
   }, []);
 
-  // Navigation
-  const goToStep = useCallback(
-    (step: WizardStep) => {
-      setDirection(step > currentStep ? 1 : -1);
-      setCurrentStep(step);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    },
-    [currentStep]
-  );
-
-  const handleNext = useCallback(() => {
-    if (currentStep < 5) goToStep((currentStep + 1) as WizardStep);
-  }, [currentStep, goToStep]);
-
-  const handlePrev = useCallback(() => {
-    if (currentStep > 1) goToStep((currentStep - 1) as WizardStep);
-  }, [currentStep, goToStep]);
-
-  const handleStepClick = useCallback(
-    (step: StepKey) => {
-      if (step < currentStep) goToStep(step as WizardStep);
-    },
-    [currentStep, goToStep]
-  );
-
-  // Generation config state
-  const [generationConfig, setGenerationConfig] = useState<GenerationConfig | null>(null);
-
-  // Step 1 handlers
-  const handleBriefingContinue = useCallback(
-    async (data: BriefingFormData) => {
-      if (isNew) {
-        try {
-          const newCampaign = await createCampaign.mutateAsync({
-            name: data.name,
-            client: data.client,
-            objective: data.objective,
-            audience: data.audience,
-            constraints: data.constraints,
-            notes: data.notes,
-          });
-          addToast("success", tc("campaignCreated", { name: data.name }));
-          router.push(`/campaigns/${newCampaign.id}`);
-          return;
-        } catch {
-          addToast("error", tc("failedCreateCampaign"));
-          return;
-        }
-      }
-      if (campaign && !isNew) {
-        updateCampaign.mutate({
-          name: data.name,
-          client: data.client,
-          objective: data.objective,
-          audience: data.audience,
-          constraints: data.constraints,
-          notes: data.notes,
-        });
-      }
-      addToast("success", tc("briefingSaved"));
-      handleNext();
-    },
-    [campaign, isNew, createCampaign, updateCampaign, addToast, tc, handleNext, router]
-  );
-
-  const handleSaveDraft = useCallback(
-    async (data: BriefingFormData) => {
-      if (isNew) {
-        try {
-          const newCampaign = await createCampaign.mutateAsync({
-            name: data.name,
-            client: data.client,
-            objective: data.objective,
-            audience: data.audience,
-            constraints: data.constraints,
-            notes: data.notes,
-          });
-          addToast("success", tc("campaignCreated", { name: data.name }));
-          router.push(`/campaigns/${newCampaign.id}`);
-          return;
-        } catch {
-          addToast("error", tc("failedCreateCampaign"));
-          return;
-        }
-      }
-      if (campaign && !isNew) {
-        updateCampaign.mutate({
-          name: data.name,
-          client: data.client,
-          objective: data.objective,
-          audience: data.audience,
-          constraints: data.constraints,
-          notes: data.notes,
-          status: "draft",
-        });
-      }
-      addToast("info", tc("draftSaved"));
-    },
-    [campaign, isNew, createCampaign, updateCampaign, addToast, tc, router]
-  );
-
-  // Step 3 handler (Generation)
-  const handleGenerationContinue = useCallback(
-    (config: GenerationConfig) => {
-      setGenerationConfig(config);
-      if (campaign && !isNew) {
-        updateCampaign.mutate({
-          generationMode: config.generationMode,
-          creativeLevel: config.creativeLevel,
-          targetFormats: config.targetFormats,
-          ctaVariants: config.ctaVariants.filter((v) => v.trim().length > 0).length > 0
-            ? config.ctaVariants
-            : undefined,
-        });
-      }
-      addToast("success", tc("generationConfigSaved"));
-      handleNext();
-    },
-    [campaign, isNew, updateCampaign, addToast, tc, handleNext]
-  );
-
   const handleGenerateDerivations = useCallback(
     (options?: { preview?: boolean }) => {
       if (createDerivations.isPending) return;
       createDerivations.mutate(options, {
         onSuccess: () => {
           addToast("success", options?.preview ? tc("previewQueued") : tc("derivationsQueued"));
-          if (!options?.preview) goToStep(5);
+          if (!options?.preview) setWorkspaceState("gerando");
           if (campaign && !isNew) updateCampaign.mutate({ status: "generating" });
         },
         onError: () => {
@@ -307,32 +211,8 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
         },
       });
     },
-    [createDerivations, goToStep, campaign, isNew, updateCampaign, addToast, tc]
+    [createDerivations, campaign, isNew, updateCampaign, addToast, tc]
   );
-
-  const handleContinueToPlan = useCallback(() => {
-    goToStep(3);
-  }, [goToStep]);
-
-  const handleGeneratePreview = useCallback(() => {
-    handleGenerateDerivations({ preview: true });
-  }, [handleGenerateDerivations]);
-
-  const handleSkipPlan = useCallback(() => {
-    handleGenerateDerivations();
-  }, [handleGenerateDerivations]);
-
-  const handleApprovePlanAndGenerate = useCallback(() => {
-    if (!planData) {
-      handleGenerateDerivations();
-      return;
-    }
-    updatePlanStatusMutation.mutate("approved", {
-      onSuccess: () => {
-        handleGenerateDerivations();
-      },
-    });
-  }, [planData, updatePlanStatusMutation, handleGenerateDerivations]);
 
   const handleGenerateLandingPage = useCallback(
     (id: string) => generateLandingPage.mutate({ derivationId: id }),
@@ -350,7 +230,6 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
     return false;
   }, [allDerivations]);
 
-  // Step 3 handlers
   const handlePreview = useCallback(() => addToast("info", tc("openingComparison")), [addToast, tc]);
 
   const handleDownloadDerivation = useCallback(
@@ -445,49 +324,23 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
     });
   }, [campaignId, deleteCampaign, addToast, tc, router]);
 
-  const getStepNavLabel = useCallback(
-    (step: WizardStep, direction: "prev" | "next") => {
-      switch (step) {
-        case 1:
-          return direction === "prev" ? "" : ts("continueToUpload");
-        case 2:
-          return direction === "prev" ? ts("backToBrief") : ts("continueToGeneration");
-        case 3:
-          return direction === "prev" ? ts("backToUpload") : ts("continueToPlan");
-        case 4:
-          return direction === "prev" ? ts("backToGeneration") : ts("generateDerivations");
-        case 5:
-          return direction === "prev" ? ts("backToPlan") : "";
-        default:
-          return "";
-      }
-    },
-    [ts]
-  );
-
   return {
     campaign,
     isLoading,
     isError,
     allDerivations,
     approvedDerivation,
-    currentStep,
-    direction,
+    workspaceState,
     savingReferenceId,
     deliveryModalOpen,
     selectedDeliverySource,
     handleDeliveryModalOpenChange,
-    goToStep,
-    handleNext,
-    handlePrev,
-    handleStepClick,
-    handleBriefingContinue,
-    handleSaveDraft,
-    handleGenerationContinue,
-    generationConfig,
+    goToActions,
+    goToDerivation,
+    goToStyling,
+    goToGenerating,
+    savePilot,
     handleGenerateDerivations,
-    handleContinueToPlan,
-    handleGeneratePreview,
     handleGenerateLandingPage,
     handleSaveAsReference,
     hasActivePreview,
@@ -505,7 +358,6 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
     handleDeleteClick,
     showDeleteDialog,
     setShowDeleteDialog,
-    getStepNavLabel,
     // Mutation pending states for UI
     creativeQaPending: creativeQa.isPending,
     creativeQaVariables: creativeQa.variables,
@@ -521,7 +373,5 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
     planData,
     generatePlanPending: generatePlanMutation.isPending,
     updatePlanStatusPending: updatePlanStatusMutation.isPending,
-    handleSkipPlan,
-    handleApprovePlanAndGenerate,
   };
 }
