@@ -2,7 +2,8 @@
 
 import { useParams } from "next/navigation";
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import Link from "next/link";
+import { Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";
 import dynamic from "next/dynamic";
@@ -18,56 +19,21 @@ const PersonaSimulationModal = dynamic(() => import("@/components/workspace/Pers
   loading: () => null,
 });
 
-import StepIndicator from "@/components/workspace/StepIndicator";
-import BriefingStep from "@/components/workspace/BriefingStep";
+import PilotUploadPanel from "@/components/workspace/PilotUploadPanel";
+import PilotBriefingForm from "@/components/workspace/PilotBriefingForm";
+import PilotSidebar from "@/components/workspace/PilotSidebar";
+import ActionCards from "@/components/workspace/ActionCards";
+import DerivationGrid from "@/components/workspace/DerivationGrid";
+import DerivarModal from "@/components/workspace/DerivarModal";
+import EstilizarModal from "@/components/workspace/EstilizarModal";
 
-const UploadStep = dynamic(() => import("@/components/workspace/UploadStep"), {
-  loading: () => (
-    <div className="flex items-center justify-center h-64">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-    </div>
-  ),
-});
-
-const GenerationStep = dynamic(() => import("@/components/workspace/GenerationStep"), {
-  loading: () => (
-    <div className="flex items-center justify-center h-64">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-    </div>
-  ),
-});
-
-const PlanStep = dynamic(() => import("@/components/workspace/PlanStep"), {
-  loading: () => (
-    <div className="flex items-center justify-center h-64">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-    </div>
-  ),
-});
-
-const DerivationsStep = dynamic(() => import("@/components/workspace/DerivationsStep"), {
-  loading: () => (
-    <div className="flex items-center justify-center h-64">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-    </div>
-  ),
-});
-
-import CampaignWorkspaceHeader from "@/components/campaigns/CampaignWorkspaceHeader";
 import CampaignClientSubtitle from "@/components/campaigns/CampaignClientSubtitle";
-import WizardNavigationFooter from "@/components/campaigns/WizardNavigationFooter";
 import CampaignSkeleton from "@/components/campaigns/CampaignSkeleton";
 import CampaignErrorState from "@/components/campaigns/CampaignErrorState";
 import CampaignNotFoundState from "@/components/campaigns/CampaignNotFoundState";
 
 import { useCampaignWorkspace } from "@/lib/hooks/use-campaign-workspace";
 import { useTranslations } from "next-intl";
-
-const stepVariants = {
-  enter: (direction: number) => ({ x: direction > 0 ? 20 : -20, opacity: 0 }),
-  center: { x: 0, opacity: 1 },
-  exit: (direction: number) => ({ x: direction > 0 ? -20 : 20, opacity: 0 }),
-};
 
 export default function CampaignWorkspacePage() {
   const params = useParams();
@@ -79,29 +45,41 @@ export default function CampaignWorkspacePage() {
   const [personaModalOpen, setPersonaModalOpen] = useState(false);
   const [selectedSimulationId, setSelectedSimulationId] = useState<string | null>(null);
 
+  const [analysis, setAnalysis] = useState({
+    detectedConcept: "",
+    tone: "",
+    elements: "",
+    format: "",
+    suggestedObjective: "",
+    suggestedAudience: "",
+    suggestedTone: "",
+    suggestedPlatforms: "",
+    suggestedCta: "",
+  });
+  const [pilotAssetId, setPilotAssetId] = useState<string | null>(null);
+  const [showDerivarModal, setShowDerivarModal] = useState(false);
+  const [showEstilizarModal, setShowEstilizarModal] = useState(false);
+
   const {
     campaign,
     isLoading,
     isError,
     allDerivations,
     approvedDerivation,
-    currentStep,
-    direction,
+    workspaceState,
     savingReferenceId,
     deliveryModalOpen,
     selectedDeliverySource,
     handleDeliveryModalOpenChange,
-    handlePrev,
-    handleStepClick,
-    handleBriefingContinue,
-    handleSaveDraft,
-    handleGenerationContinue,
+    goToActions,
+    goToDerivation,
+    goToStyling,
+    goToGenerating,
+    savePilot,
     handleGenerateDerivations,
-    handleContinueToPlan,
-    handleSkipPlan,
-    handleApprovePlanAndGenerate,
     handleGenerateLandingPage,
     handleSaveAsReference,
+    hasActivePreview,
     handlePreview,
     handleDownloadDerivation,
     handleRegenerateDerivation,
@@ -116,7 +94,6 @@ export default function CampaignWorkspacePage() {
     handleDeleteClick,
     showDeleteDialog,
     setShowDeleteDialog,
-    getStepNavLabel,
     creativeQaPending,
     creativeQaVariables,
     reviewPending,
@@ -128,6 +105,9 @@ export default function CampaignWorkspacePage() {
     createDerivationsPending,
     exportPending,
     deliveryPackagePending,
+    planData,
+    generatePlanPending,
+    updatePlanStatusPending,
   } = useCampaignWorkspace(campaignId, isNew);
 
   const handleSimulatePersonas = (derivationId: string) => {
@@ -140,117 +120,172 @@ export default function CampaignWorkspacePage() {
     setSelectedSimulationId(null);
   };
 
+  const handleAssetUploaded = (assetId: string) => setPilotAssetId(assetId);
+  const handleAnalysisComplete = (analysisData: {
+    detectedConcept: string;
+    tone: string;
+    elements: string;
+    format: string;
+    suggestedObjective?: string;
+    suggestedAudience?: string;
+    suggestedTone?: string;
+    suggestedPlatforms?: string;
+    suggestedCta?: string;
+  }) =>
+    setAnalysis({
+      detectedConcept: analysisData.detectedConcept,
+      tone: analysisData.tone,
+      elements: analysisData.elements,
+      format: analysisData.format,
+      suggestedObjective: analysisData.suggestedObjective ?? "",
+      suggestedAudience: analysisData.suggestedAudience ?? "",
+      suggestedTone: analysisData.suggestedTone ?? "",
+      suggestedPlatforms: analysisData.suggestedPlatforms ?? "",
+      suggestedCta: analysisData.suggestedCta ?? "",
+    });
+  const handleBriefingSubmit = (briefing: {
+    objective: string;
+    audience: string;
+    tone: string;
+    platforms: string;
+    ctaText: string;
+    constraints: string;
+  }) => {
+    if (pilotAssetId) {
+      savePilot(pilotAssetId, briefing);
+    }
+  };
+
+  const handleSkipBriefing = () => {
+    if (pilotAssetId) {
+      savePilot(pilotAssetId, {});
+    } else {
+      goToActions();
+    }
+  };
+
   if (isLoading && !isNew) return <CampaignSkeleton />;
   if (isError && !isNew) return <CampaignErrorState />;
   if (!campaign && !isNew) return <CampaignNotFoundState />;
 
+  const isDraft = campaign?.status === "draft";
+
   return (
     <div className="max-w-[1100px] min-w-0 mx-auto pb-20">
-      <CampaignWorkspaceHeader
-        campaignName={campaign?.name || ""}
-        status={campaign?.status}
-        isNew={isNew}
-        isDraft={campaign?.status === "draft"}
-        onSaveDraft={() => addToast("info", tc("draftSaved"))}
-        onDelete={handleDeleteClick}
-      />
+      {/* Simplified Header */}
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
+        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+          <Link
+            href="/campaigns"
+            className="inline-flex items-center gap-1.5 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+          >
+            ← {tc("backToCampaigns")}
+          </Link>
+          <div className="flex min-w-0 items-center gap-3">
+            <h1 className="min-w-0 truncate text-lg font-semibold text-[var(--text-primary)]">
+              {campaign?.name || ""}
+            </h1>
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-mono font-bold uppercase tracking-[0.2em] leading-tight"
+              style={{
+                backgroundColor: "rgba(0,179,74,0.15)",
+                color: "var(--accent-green)",
+              }}
+            >
+              <span
+                className="inline-block h-1.5 w-1.5 rounded-full"
+                style={{ backgroundColor: "var(--accent-green)" }}
+              />
+              Piloto
+            </span>
+          </div>
+        </div>
+        {isDraft && !isNew && (
+          <button
+            onClick={handleDeleteClick}
+            className="min-h-10 shrink-0 rounded-md p-2 text-[var(--accent-rose)] hover:bg-[rgba(244,63,94,0.08)] transition-colors"
+            title={tc("deleteDraft")}
+            aria-label={tc("deleteDraft")}
+          >
+            <Trash2 size={16} />
+          </button>
+        )}
+      </div>
 
-      {campaign && (
-        <CampaignClientSubtitle platformsText="" />
-      )}
-
-      <StepIndicator currentStep={currentStep} onStepClick={handleStepClick} />
+      {campaign && <CampaignClientSubtitle platformsText="" />}
 
       <div
         className={cn(
           "glass-card rounded-xl min-h-[400px]",
-          currentStep === 1 && "p-6 md:p-8",
-          currentStep === 2 && "p-6 md:p-8",
-          currentStep === 3 && "p-6 md:p-8",
-          currentStep === 4 && "p-6",
-          currentStep === 5 && "p-6"
+          workspaceState === "piloto" && "p-6 md:p-8"
         )}
       >
-        <AnimatePresence mode="wait" custom={direction}>
-          <motion.div
-            key={currentStep}
-            custom={direction}
-            variants={stepVariants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            transition={{
-              x: { type: "tween", duration: 0.2, ease: [0.4, 0, 0.2, 1] as const },
-              opacity: { duration: 0.2 },
-            }}
-          >
-            {currentStep === 1 && campaign && (
-              <BriefingStep
-                key={campaign.id}
-                campaign={campaign}
-                onContinue={handleBriefingContinue}
-                onSaveDraft={handleSaveDraft}
-              />
-            )}
-            {currentStep === 2 && (
-              <UploadStep
-                campaignId={campaignId}
-                onContinueToPlan={handleContinueToPlan}
-              />
-            )}
-            {currentStep === 3 && campaign && (
-              <GenerationStep
-                campaignId={campaignId}
-                campaignContext={{
-                  product: campaign.client || undefined,
-                  objective: campaign.objective || undefined,
-                  targetAudience: campaign.audience || undefined,
+        {workspaceState === "piloto" && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <PilotUploadPanel
+              onAssetUploaded={handleAssetUploaded}
+              onAnalysisComplete={handleAnalysisComplete}
+            />
+            <PilotBriefingForm
+              analysis={analysis}
+              onSubmit={handleBriefingSubmit}
+              onSkip={handleSkipBriefing}
+            />
+          </div>
+        )}
+
+        {(workspaceState === "acoes" || workspaceState === "derivando" || workspaceState === "estilizando") && (
+          <div className="flex gap-6">
+            <PilotSidebar
+              campaign={{ name: campaign?.name || "", client: campaign?.client }}
+              briefing={{
+                objective: analysis.suggestedObjective,
+                audience: analysis.suggestedAudience,
+                tone: analysis.suggestedTone,
+                platforms: analysis.suggestedPlatforms,
+                ctaText: analysis.suggestedCta,
+              }}
+            />
+            <div className="flex-1 min-w-0 space-y-6">
+              <div>
+                <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-1">
+                  Ações disponíveis
+                </h2>
+                <p className="text-xs text-[var(--text-secondary)]">
+                  Escolha uma ação para gerar novas variações do criativo.
+                </p>
+              </div>
+              <ActionCards
+                onDerivar={() => {
+                  setShowDerivarModal(true);
+                  goToDerivation();
                 }}
-                initialData={{
-                  generationMode: campaign.generationMode,
-                  creativeLevel: campaign.creativeLevel,
-                  targetFormats: campaign.targetFormats,
-                  ctaVariants: (campaign.ctaVariants as [string, string, string]) || ["", "", ""],
+                onEstilizar={() => {
+                  setShowEstilizarModal(true);
+                  goToStyling();
                 }}
-                onContinue={handleGenerationContinue}
-                onBack={handlePrev}
               />
-            )}
-            {currentStep === 4 && (
-              <PlanStep
-                campaignId={campaignId}
-                onApproveAndGenerate={handleApprovePlanAndGenerate}
-                onSkipPlan={handleSkipPlan}
-                onBack={handlePrev}
-              />
-            )}
-            {currentStep === 5 && (
-              <DerivationsStep
-                derivations={allDerivations}
-                campaignId={campaignId}
-                generationMode={campaign?.generationMode}
-                onPreview={handlePreview}
-                onDownload={handleDownloadDerivation}
-                onRegenerate={handleRegenerateDerivation}
-                onGenerateMore={handleGenerateDerivations}
-                onApprove={handleApproveDerivation}
-                onReject={handleRejectDerivation}
-                onCreateDeliveryPackage={handleCreateDeliveryPackage}
-                onRunQa={handleRunQa}
-                onSaveAsReference={undefined}
-                onGenerateLandingPage={handleGenerateLandingPage}
-                onSimulatePersonas={handleSimulatePersonas}
-                qaAnalyzingId={creativeQaPending ? creativeQaVariables?.derivationId ?? null : null}
-                savingReferenceId={savingReferenceId}
-                approvingId={reviewPending && reviewVariables?.status === "approved" ? reviewVariables.id : null}
-                rejectingId={reviewPending && reviewVariables?.status === "rejected" ? reviewVariables.id : null}
-                regeneratingId={regeneratePending ? regenerateVariables?.id ?? null : null}
-                landingPageGeneratingId={landingPagePending ? landingPageVariables?.derivationId ?? null : null}
-                isGeneratingMore={createDerivationsPending}
-              />
-            )}
-          </motion.div>
-        </AnimatePresence>
+              <div>
+                <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-3">
+                  Derivações
+                </h2>
+                <DerivationGrid
+                  derivations={allDerivations}
+                  onAddNew={() => setShowDerivarModal(true)}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {workspaceState === "gerando" && (
+          <div className="flex items-center justify-center h-[400px]">
+            <div className="flex flex-col items-center gap-3">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+              <p className="text-sm text-[var(--text-secondary)]">Gerando derivações...</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {selectedDeliverySource && (
@@ -275,13 +310,28 @@ export default function CampaignWorkspacePage() {
         />
       )}
 
-      <WizardNavigationFooter
-        currentStep={currentStep}
-        approvedDerivation={approvedDerivation}
-        exportMutationPending={exportPending}
-        onPrev={handlePrev}
-        onExport={handleExportDerivation}
-        getStepNavLabel={getStepNavLabel}
+      <DerivarModal
+        open={showDerivarModal}
+        onClose={() => {
+          setShowDerivarModal(false);
+          goToActions();
+        }}
+        onSelect={(mode, config) => {
+          setShowDerivarModal(false);
+          handleGenerateDerivations();
+        }}
+      />
+
+      <EstilizarModal
+        open={showEstilizarModal}
+        onClose={() => {
+          setShowEstilizarModal(false);
+          goToActions();
+        }}
+        onSubmit={(data) => {
+          setShowEstilizarModal(false);
+          handleGenerateDerivations();
+        }}
       />
 
       <ConfirmDialog
