@@ -193,7 +193,6 @@ export default function CampaignsListPage() {
         open={modalOpen}
         onOpenChange={setModalOpen}
         onSubmit={handleCreateCampaign}
-        initialTemplateId={searchParams.get("templateId")}
       />
 
       <SaveTemplateModal

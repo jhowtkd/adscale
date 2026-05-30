@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
@@ -15,9 +15,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useClientProfiles } from "@/lib/hooks/use-client-profiles";
-import { useTemplates } from "@/lib/hooks/use-templates";
-import { ChevronDown, Upload, X } from "lucide-react";
 
 // ============================================
 // Types
@@ -26,14 +23,11 @@ import { ChevronDown, Upload, X } from "lucide-react";
 interface NewCampaignForm {
   name: string;
   clientName: string;
-  clientProfileId: string | null;
-  templateId: string | null;
 }
 
 interface FormErrors {
   name?: string;
   clientName?: string;
-  clientProfileId?: string;
 }
 
 interface NewCampaignModalProps {
@@ -44,7 +38,6 @@ interface NewCampaignModalProps {
     client: string;
     clientProfileId: string | null;
   }) => void;
-  initialTemplateId?: string | null;
 }
 
 // ============================================
@@ -55,30 +48,21 @@ export default function NewCampaignModal({
   open,
   onOpenChange,
   onSubmit,
-  initialTemplateId = null,
 }: NewCampaignModalProps) {
   const tCampaign = useTranslations("campaign");
   const tBriefing = useTranslations("briefing");
   const tCommon = useTranslations("common");
   const tErrors = useTranslations("errors");
-  const tTemplate = useTranslations("template");
-
-  const { data: clientProfiles, isLoading: profilesLoading } = useClientProfiles();
-  const { data: templates } = useTemplates();
 
   const [form, setForm] = useState<NewCampaignForm>({
     name: "",
     clientName: "",
-    clientProfileId: null,
-    templateId: initialTemplateId,
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const updateField = useCallback(
     <K extends keyof NewCampaignForm>(field: K, value: NewCampaignForm[K]) => {
-      if (value === null) return;
       setForm((prev) => ({ ...prev, [field]: value }));
       if (touched[field]) {
         setErrors((prev) => {
@@ -91,30 +75,14 @@ export default function NewCampaignModal({
     [touched]
   );
 
-  // Pre-fill form when template is selected
-  useEffect(() => {
-    if (form.templateId && templates) {
-      const template = templates.find((t) => t.id === form.templateId);
-      if (template) {
-        setForm((prev) => ({
-          ...prev,
-          name: template.name || prev.name,
-          clientName: template.client || prev.clientName,
-        }));
-      }
-    }
-  }, [form.templateId, templates]);
-
   const validate = useCallback((): boolean => {
     const newErrors: FormErrors = {};
     if (!form.name.trim()) newErrors.name = tErrors("nameRequired");
     if (!form.clientName.trim()) newErrors.clientName = tErrors("clientRequired");
-    if (!form.clientProfileId) newErrors.clientProfileId = tErrors("clientProfileRequired");
     setErrors(newErrors);
     setTouched({
       name: true,
       clientName: true,
-      clientProfileId: true,
     });
     return Object.keys(newErrors).length === 0;
   }, [form, tErrors]);
@@ -126,17 +94,14 @@ export default function NewCampaignModal({
       onSubmit({
         name: form.name,
         client: form.clientName,
-        clientProfileId: form.clientProfileId,
+        clientProfileId: null,
       });
       setForm({
         name: "",
         clientName: "",
-        clientProfileId: null,
-        templateId: null,
       });
       setErrors({});
       setTouched({});
-      setSelectedFile(null);
       onOpenChange(false);
     },
     [form, validate, onSubmit, onOpenChange]
@@ -146,19 +111,7 @@ export default function NewCampaignModal({
     onOpenChange(false);
     setErrors({});
     setTouched({});
-    setSelectedFile(null);
   }, [onOpenChange]);
-
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
-    }
-  }, []);
-
-  const handleRemoveFile = useCallback(() => {
-    setSelectedFile(null);
-  }, []);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -207,37 +160,7 @@ export default function NewCampaignModal({
             </AnimatePresence>
           </div>
 
-          {/* Template Selector */}
-          {templates && templates.length > 0 && (
-            <div className="space-y-1.5">
-              <Label className="text-[13px] text-[var(--text-secondary)]">
-                {tTemplate("useTemplate")} <span className="text-[var(--text-muted)]">({tCommon("optional")})</span>
-              </Label>
-              <div className="relative">
-                <select
-                  value={form.templateId ?? ""}
-                  onChange={(e) => updateField("templateId", e.target.value || null)}
-                  className="w-full h-10 px-3 pr-10 bg-[var(--surface-base)] border border-[var(--border-dim)] rounded-md text-sm text-[var(--text-primary)] appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-[var(--accent-blue)] focus:border-[var(--accent-blue)]"
-                >
-                  <option value="">{tTemplate("selectTemplate")}</option>
-                  {templates.map((template) => (
-                    <option key={template.id} value={template.id}>
-                      {template.name}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown
-                  size={16}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none"
-                />
-              </div>
-              <p className="text-xs text-[var(--text-muted)]">
-                {tTemplate("templateHint")}
-              </p>
-            </div>
-          )}
-
-          {/* Client/Product Name */}
+          {/* Client/Brand Name */}
           <div className="space-y-1.5">
             <Label className="text-[13px] text-[var(--text-secondary)]">
               {tCampaign("client")} <span className="text-[var(--accent-rose)]">*</span>
@@ -265,99 +188,6 @@ export default function NewCampaignModal({
               )}
             </AnimatePresence>
           </div>
-
-          {/* Client Profile */}
-          <div className="space-y-1.5">
-            <Label className="text-[13px] text-[var(--text-secondary)]">
-              {tCampaign("clientProfile")} <span className="text-[var(--accent-rose)]">*</span>
-            </Label>
-            <div className="relative">
-              <select
-                value={form.clientProfileId ?? ""}
-                onChange={(e) => updateField("clientProfileId", e.target.value || null)}
-                onBlur={() => setTouched((p) => ({ ...p, clientProfileId: true }))}
-                className={cn(
-                  "w-full h-10 px-3 pr-10 bg-[var(--surface-base)] border rounded-md text-sm text-[var(--text-primary)] appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-[var(--accent-blue)] focus:border-[var(--accent-blue)]",
-                  errors.clientProfileId && "border-[var(--accent-rose)]"
-                )}
-              >
-                <option value="">{profilesLoading ? tCommon("loading") : tCampaign("selectClientProfile")}</option>
-                {clientProfiles?.map((profile) => (
-                  <option key={profile.id} value={profile.id}>
-                    {profile.name}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown
-                size={16}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none"
-              />
-            </div>
-            <AnimatePresence>
-              {errors.clientProfileId && (
-                <motion.p
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  className="text-xs text-[var(--accent-rose)]"
-                >
-                  {errors.clientProfileId}
-                </motion.p>
-              )}
-            </AnimatePresence>
-          </div>
-
-          {/* Optional Upload */}
-          <div className="space-y-1.5">
-            <Label className="text-[13px] text-[var(--text-secondary)]">
-              {tCampaign("keyCreative")} <span className="text-[var(--text-muted)]">({tCommon("optional")})</span>
-            </Label>
-            <div
-              className={cn(
-                "border border-dashed rounded-lg p-4 transition-colors",
-                selectedFile
-                  ? "border-[var(--accent-green)] bg-[var(--accent-green-dim)0.05)]"
-                  : "border-[var(--border-dim)] hover:border-[var(--border-medium)] hover:bg-[var(--surface-raised)]"
-              )}
-            >
-              {selectedFile ? (
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Upload size={16} className="text-[var(--accent-green)]" />
-                    <span className="text-sm text-[var(--text-primary)] truncate max-w-[200px]">
-                      {selectedFile.name}
-                    </span>
-                    <span className="text-xs text-[var(--text-muted)]">
-                      {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleRemoveFile}
-                    className="p-1 hover:bg-[var(--surface-base)] rounded"
-                  >
-                    <X size={14} className="text-[var(--text-muted)]" />
-                  </button>
-                </div>
-              ) : (
-                <label className="flex flex-col items-center gap-2 cursor-pointer">
-                  <Upload size={24} className="text-[var(--text-muted)]" />
-                  <span className="text-sm text-[var(--text-secondary)]">
-                    {tCampaign("uploadCreativeHint")}
-                  </span>
-                  <span className="text-xs text-[var(--text-muted)]">
-                    PNG, JPG, WebP — {tCampaign("maxFileSize")}
-                  </span>
-                  <input
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    onChange={handleFileSelect}
-                    className="hidden"
-                  />
-                </label>
-              )}
-            </div>
-          </div>
         </form>
 
         {/* Footer */}
@@ -373,7 +203,7 @@ export default function NewCampaignModal({
           <Button
             type="submit"
             onClick={handleSubmit}
-            className="bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-light)]"
+            className="bg-[var(--accent-green)] text-white hover:opacity-90"
           >
             {tCommon("create")}
           </Button>
