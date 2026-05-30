@@ -40,3 +40,5 @@ tmp/
 .worktrees/
 .playwright-mcp/
 autoresearch-results-plan.tsv
+mockup-*.png
+mockup-*.html
