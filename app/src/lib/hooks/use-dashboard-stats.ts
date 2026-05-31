@@ -16,5 +16,6 @@ export function useDashboardStats(period: AnalyticsPeriod = "month") {
     queryKey: ["dashboard", "stats", period],
     queryFn: () => fetchDashboardStats(period),
     staleTime: STALE_TIME.DYNAMIC,
+    placeholderData: (previous) => previous,
   });
 }

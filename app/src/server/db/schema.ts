@@ -575,6 +575,7 @@ export const derivations = adscaleSchema.table(
     index("derivations_plan_id_idx").on(table.planId),
     index("derivations_parent_id_idx").on(table.parentId),
     index("derivations_workspace_campaign_idx").on(table.workspaceId, table.campaignId),
+    index("derivations_workspace_created_at_idx").on(table.workspaceId, table.createdAt),
     foreignKey({
       columns: [table.parentId],
       foreignColumns: [table.id],

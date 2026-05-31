@@ -5,7 +5,6 @@ import { useMemo, useState, useRef, useEffect, useEffectEvent } from "react";
 import { AnimatePresence, m } from "framer-motion";
 import { useAppStore } from "@/lib/store";
 import { authClient } from "@/lib/auth-client";
-import { useDashboard } from "@/lib/hooks/use-dashboard";
 import {
   useNotifications,
   useMarkAllNotificationsAsRead,
@@ -53,8 +52,9 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
   const { data: session } = authClient.useSession();
   const scrollDirection = useScrollDirection();
   const isMobile = useIsMobile();
-  const { data: dashboardData } = useDashboard();
-  const { data: notificationsData } = useNotifications();
+  const { data: notificationsData } = useNotifications({
+    enabled: notificationsOpen,
+  });
   const markAllAsRead = useMarkAllNotificationsAsRead();
   const clearAll = useClearAllNotifications();
   const markAsRead = useMarkNotificationAsRead();
@@ -101,10 +101,12 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
       {/* Left: Logo + Navigation */}
       <div className="flex items-center gap-8">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 shrink-0">
-          <Image src="/images/logo.svg" alt="ADScale" className="h-8 w-auto" 
+        <Link href="/" className="flex items-center gap-2 shrink-0" aria-label="ADScale — Dashboard">
+          <Image src="/images/logo.svg" alt="" aria-hidden="true" className="h-8 w-auto" 
         width={800}
         height={800}
+        priority
+        loading="eager"
         unoptimized
       />
         </Link>
@@ -127,6 +129,7 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
           <>
             <button type="button"
               onClick={() => router.push("/campaigns")}
+              aria-label="Buscar campanhas"
               className={cn(
                 "hidden sm:flex items-center gap-2 px-5 py-2.5 text-sm text-[var(--text-secondary)]",
                 "border border-transparent rounded-[4px] hover:bg-[var(--surface-raised)] transition-colors duration-200"

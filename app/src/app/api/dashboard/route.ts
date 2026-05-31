@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { eq, desc } from "drizzle-orm";
 import { handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
-import { getCampaigns } from "@/server/repositories/campaign";
+import { getCampaigns, getWorkspaceCampaignCount } from "@/server/repositories/campaign";
 import { db } from "@/server/db";
 import { activityEvents } from "@/server/db/schema";
 
@@ -10,8 +10,10 @@ export async function GET(request: Request) {
   try {
     const { workspace } = await requireWorkspaceAccess(request);
 
-    const campaignList = await getCampaigns(workspace.id);
-    const campaignCount = campaignList.length;
+    const [campaignCount, campaignList] = await Promise.all([
+      getWorkspaceCampaignCount(workspace.id),
+      getCampaigns(workspace.id, 5),
+    ]);
 
     const recentActivity = await db
       .select()

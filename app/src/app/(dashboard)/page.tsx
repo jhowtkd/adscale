@@ -33,7 +33,8 @@ export default function DashboardPage() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [searchQuery, setSearchQuery] = useState("");
   const [period, setPeriod] = useState<"week" | "month" | "quarter">("month");
-  const { data: stats, isLoading, error } = useDashboardStats(period);
+  const { data: stats, isLoading, isFetching, error } = useDashboardStats(period);
+  const statsPending = isLoading && !stats;
 
   const { completed: onboardingCompleted, isLoading: isOnboardingLoading, complete: completeOnboarding } = useOnboarding();
 
@@ -76,16 +77,12 @@ export default function DashboardPage() {
     campaign.name.toLowerCase().includes(searchQuery.toLowerCase())
   ) ?? [];
 
-  if (isLoading) {
-    return <DashboardSkeleton />;
-  }
-
-  if (error || !stats) {
+  if (error && !stats) {
     return <DashboardError />;
   }
 
   return (
-    <main className="w-full">
+    <div className="w-full">
       {/* Bold Header Section */}
       <section className="relative border-b-2 border-[var(--border-dim)] bg-[var(--surface-base)] overflow-hidden">
         {/* Subtle grid pattern background */}
@@ -111,8 +108,19 @@ export default function DashboardPage() {
                 </h1>
               </div>
               <p className="text-sm font-medium text-[var(--text-muted)] pl-10">
-                <span className="text-[var(--accent-green)] font-bold">{stats.totalCampaigns}</span> campanhas ativas ·{" "}
-                <span className="text-[var(--accent-green)] font-bold">{stats.derivationsThisMonth}</span> derivações este mês
+                {statsPending ? (
+                  <span className="inline-block h-4 w-56 bg-[var(--surface-raised)] rounded animate-pulse" />
+                ) : (
+                  <>
+                    <span className="text-[var(--accent-green)] font-bold">{stats!.totalCampaigns}</span> campanhas
+                    ativas ·{" "}
+                    <span className="text-[var(--accent-green)] font-bold">{stats!.derivationsThisMonth}</span>{" "}
+                    derivações este mês
+                    {isFetching && !statsPending ? (
+                      <span className="sr-only">Atualizando estatísticas</span>
+                    ) : null}
+                  </>
+                )}
               </p>
             </div>
             
@@ -163,7 +171,9 @@ export default function DashboardPage() {
       {/* Campaigns Grid Section */}
       <section className="py-10" style={{ contentVisibility: "auto" }}>
         <div className="max-w-[1600px] mx-auto px-6 lg:px-8" data-tour-step="2">
-          {filteredCampaigns.length > 0 ? (
+          {statsPending ? (
+            <CampaignGridSkeleton />
+          ) : filteredCampaigns.length > 0 ? (
             <div 
               className="grid gap-5"
               style={{
@@ -192,7 +202,10 @@ export default function DashboardPage() {
       </section>
 
       {/* Bold Stats Section */}
-      <section className="border-t-2 border-[var(--border-dim)] bg-[var(--surface-base)] relative overflow-hidden">
+      <section
+        className="border-t-2 border-[var(--border-dim)] bg-[var(--surface-base)] relative overflow-hidden"
+        aria-busy={statsPending}
+      >
         <div 
           className="absolute inset-0 opacity-[0.02]"
           style={{
@@ -202,21 +215,30 @@ export default function DashboardPage() {
         />
         
         <div className="relative max-w-[1600px] mx-auto px-6 lg:px-8 py-10">
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-8">
-            <div className="space-y-8">
-              <CreditChart data={stats.creditUsageSeries} />
-            </div>
-            <div className="space-y-8">
-              <div data-tour-step="5">
-                <CreditPanel
-                  remaining={stats.creditsRemaining}
-                  total={stats.creditsTotal}
-                  planKey={stats.subscription.planKey}
+          {statsPending ? (
+            <StatsSectionSkeleton />
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-8">
+              <div className="space-y-8">
+                <CreditChart data={stats!.creditUsageSeries} />
+              </div>
+              <div className="space-y-8">
+                <div data-tour-step="5">
+                  <CreditPanel
+                    remaining={stats!.creditsRemaining}
+                    total={stats!.creditsTotal}
+                    planKey={stats!.subscription.planKey}
+                  />
+                </div>
+                <ActivityFeed
+                  activities={stats!.recentActivity.map((a) => ({
+                    ...a,
+                    createdAt: a.createdAt.toString(),
+                  }))}
                 />
               </div>
-              <ActivityFeed activities={stats.recentActivity.map((a) => ({ ...a, createdAt: a.createdAt.toString() }))} />
             </div>
-          </div>
+          )}
         </div>
       </section>
 
@@ -227,7 +249,7 @@ export default function DashboardPage() {
           onSkip={completeOnboarding}
         />
       )}
-    </main>
+    </div>
   );
 }
 
@@ -235,11 +257,17 @@ function EmptyState({ searchQuery }: { searchQuery: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-24">
       <div className="mb-6">
-        <Image src="/images/empty-state.svg" alt="Nenhuma campanha" className="size-48 object-contain" 
-        width={800}
-        height={800}
-        unoptimized
-      />
+        <Image
+          src="/images/empty-state.svg"
+          alt=""
+          aria-hidden="true"
+          className="size-48 object-contain"
+          width={192}
+          height={192}
+          priority
+          loading="eager"
+          unoptimized
+        />
       </div>
       <h2 className="text-xl font-bold text-[var(--text-primary)] mb-2">
         {searchQuery ? "Nenhuma campanha encontrada" : "Nenhuma campanha ainda"}
@@ -263,27 +291,27 @@ function EmptyState({ searchQuery }: { searchQuery: string }) {
   );
 }
 
-function DashboardSkeleton() {
+function CampaignGridSkeleton() {
   return (
-    <div className="w-full">
-      <section className="border-b border-[var(--border-dim)] glass-card">
-        <div className="max-w-[1600px] mx-auto px-6 lg:px-8 py-8">
-          <div className="h-10 bg-[var(--surface-raised)] rounded-xl w-64 mb-3" />
-          <div className="h-5 bg-[var(--surface-raised)] rounded-lg w-96" />
-        </div>
-      </section>
-      <section className="py-10">
-        <div className="max-w-[1600px] mx-auto px-6 lg:px-8">
-          <div className="grid gap-5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))" }}>
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div 
-                key={i} 
-                className="aspect-[4/3] glass-card rounded-2xl animate-pulse" 
-              />
-            ))}
-          </div>
-        </div>
-      </section>
+    <div
+      className="grid gap-5"
+      style={{ gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))" }}
+    >
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="aspect-[4/3] glass-card rounded-2xl animate-pulse" />
+      ))}
+    </div>
+  );
+}
+
+function StatsSectionSkeleton() {
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-8">
+      <div className="h-[300px] w-full bg-[var(--surface-raised)] rounded-xl animate-pulse border-2 border-[var(--border-dim)]" />
+      <div className="space-y-8">
+        <div className="h-40 w-full bg-[var(--surface-raised)] rounded-xl animate-pulse border-2 border-[var(--border-dim)]" />
+        <div className="h-[200px] w-full bg-[var(--surface-raised)] rounded-xl animate-pulse border-2 border-[var(--border-dim)]" />
+      </div>
     </div>
   );
 }
@@ -291,6 +319,7 @@ function DashboardSkeleton() {
 function DashboardError() {
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh]">
+      <h1 className="sr-only">Campanhas</h1>
       <div className="size-24 rounded-2xl bg-[var(--surface-raised)] border-[3px] border-[var(--accent-rose)]/30 flex items-center justify-center mb-6 shadow-[0_0_40px_rgba(225,29,72,0.15)]">
         <span className="text-4xl text-[var(--accent-rose)] font-black">!</span>
       </div>

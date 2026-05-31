@@ -1,14 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET } from "./route";
 
-vi.mock("@/server/auth/workspace", () => ({
-  requireWorkspaceAccess: vi.fn(() =>
-    Promise.resolve({
-      user: { id: "user-1" },
-      workspace: { id: "workspace-1" },
-    })
-  ),
-}));
+vi.mock("@/server/auth/workspace", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/server/auth/workspace")>();
+  return {
+    ...actual,
+    requireWorkspaceAccess: vi.fn(() =>
+      Promise.resolve({
+        user: { id: "user-1" },
+        workspace: { id: "workspace-1" },
+      })
+    ),
+  };
+});
 
 vi.mock("@/server/repositories/dashboard", () => ({
   getDashboardStats: vi.fn(),
@@ -19,7 +23,11 @@ vi.mock("next-intl/server", () => ({
 }));
 
 import { getDashboardStats } from "@/server/repositories/dashboard";
-import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import {
+  AUTH_ERROR_CODES,
+  requireWorkspaceAccess,
+  WorkspaceAuthError,
+} from "@/server/auth/workspace";
 
 const mockGetDashboardStats = vi.mocked(getDashboardStats);
 const mockRequireWorkspaceAccess = vi.mocked(requireWorkspaceAccess);
@@ -56,7 +64,9 @@ describe("GET /api/dashboard/stats", () => {
   });
 
   it("returns 401 when workspace access is unauthorized", async () => {
-    mockRequireWorkspaceAccess.mockRejectedValueOnce(new Error("Unauthorized"));
+    mockRequireWorkspaceAccess.mockRejectedValueOnce(
+      new WorkspaceAuthError(AUTH_ERROR_CODES.unauthorized, "Unauthorized")
+    );
 
     const res = await GET(new Request("http://localhost/api/dashboard/stats"));
     expect(res.status).toBe(401);

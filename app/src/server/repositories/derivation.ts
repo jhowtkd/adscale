@@ -1,4 +1,4 @@
-import { eq, and, desc, inArray, lt } from "drizzle-orm";
+import { eq, and, desc, inArray, lt, sql } from "drizzle-orm";
 import { db } from "../db";
 import { derivations } from "../db/schema";
 
@@ -265,4 +265,64 @@ export async function getDerivationsByWorkspace(workspaceId: string) {
     .from(derivations)
     .where(eq(derivations.workspaceId, workspaceId))
     .orderBy(desc(derivations.createdAt));
+}
+
+export interface DerivationDashboardAnalytics {
+  totalDerivations: number;
+  derivationsThisPeriod: number;
+  derivationsPreviousPeriod: number;
+  approvedDerivations: number;
+  approvedThisPeriod: number;
+  approvedPreviousPeriod: number;
+  avgGenerationTimeSeconds: number;
+}
+
+export async function getDerivationDashboardAnalytics(
+  workspaceId: string,
+  periodStart: Date,
+  previousPeriodStart: Date
+): Promise<DerivationDashboardAnalytics> {
+  const [row] = await db
+    .select({
+      totalDerivations: sql<number>`count(*)::int`.as("totalDerivations"),
+      derivationsThisPeriod: sql<number>`count(*) filter (
+        where ${derivations.createdAt} >= ${periodStart}
+      )::int`.as("derivationsThisPeriod"),
+      derivationsPreviousPeriod: sql<number>`count(*) filter (
+        where ${derivations.createdAt} >= ${previousPeriodStart}
+          and ${derivations.createdAt} < ${periodStart}
+      )::int`.as("derivationsPreviousPeriod"),
+      approvedDerivations: sql<number>`count(*) filter (
+        where ${derivations.status} = 'approved'
+      )::int`.as("approvedDerivations"),
+      approvedThisPeriod: sql<number>`count(*) filter (
+        where ${derivations.createdAt} >= ${periodStart}
+          and ${derivations.status} = 'approved'
+      )::int`.as("approvedThisPeriod"),
+      approvedPreviousPeriod: sql<number>`count(*) filter (
+        where ${derivations.createdAt} >= ${previousPeriodStart}
+          and ${derivations.createdAt} < ${periodStart}
+          and ${derivations.status} = 'approved'
+      )::int`.as("approvedPreviousPeriod"),
+      avgGenerationTimeSeconds: sql<number>`coalesce(
+        round(avg(
+          extract(epoch from (${derivations.updatedAt} - ${derivations.createdAt}))
+        ) filter (
+          where ${derivations.status} in ('completed', 'approved')
+        ))::int,
+        0
+      )`.as("avgGenerationTimeSeconds"),
+    })
+    .from(derivations)
+    .where(eq(derivations.workspaceId, workspaceId));
+
+  return {
+    totalDerivations: row?.totalDerivations ?? 0,
+    derivationsThisPeriod: row?.derivationsThisPeriod ?? 0,
+    derivationsPreviousPeriod: row?.derivationsPreviousPeriod ?? 0,
+    approvedDerivations: row?.approvedDerivations ?? 0,
+    approvedThisPeriod: row?.approvedThisPeriod ?? 0,
+    approvedPreviousPeriod: row?.approvedPreviousPeriod ?? 0,
+    avgGenerationTimeSeconds: row?.avgGenerationTimeSeconds ?? 0,
+  };
 }
