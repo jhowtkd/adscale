@@ -3,7 +3,7 @@
 import { useAppStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { CheckCircle, XCircle, AlertTriangle, Info, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useEffectEvent, useReducer } from "react";
 
 const icons = {
   success: CheckCircle,
@@ -39,6 +39,24 @@ const styles = {
   },
 };
 
+interface ToastUiState {
+  progress: number;
+  exiting: boolean;
+}
+
+type ToastUiAction =
+  | { type: "progressChanged"; progress: number }
+  | { type: "exitStarted" };
+
+function toastUiReducer(state: ToastUiState, action: ToastUiAction): ToastUiState {
+  switch (action.type) {
+    case "progressChanged":
+      return { ...state, progress: action.progress };
+    case "exitStarted":
+      return { ...state, exiting: true };
+  }
+}
+
 function ToastItem({
   id,
   type,
@@ -50,34 +68,41 @@ function ToastItem({
   message: string;
   onRemove: (id: string) => void;
 }) {
-  const [progress, setProgress] = useState(100);
-  const [exiting, setExiting] = useState(false);
+  const [{ progress, exiting }, dispatch] = useReducer(toastUiReducer, {
+    progress: 100,
+    exiting: false,
+  });
   const Icon = icons[type];
   const style = styles[type];
   const duration = 4000;
+  const removeToastAfterTimeout = useEffectEvent(() => onRemove(id));
 
   useEffect(() => {
     const start = Date.now();
     let rafId: number;
+    let removeTimerId: ReturnType<typeof setTimeout> | null = null;
 
     const tick = () => {
       const elapsed = Date.now() - start;
       const remaining = Math.max(0, 100 - (elapsed / duration) * 100);
-      setProgress(remaining);
+      dispatch({ type: "progressChanged", progress: remaining });
       if (remaining <= 0) {
-        setExiting(true);
-        setTimeout(() => onRemove(id), 300);
+        dispatch({ type: "exitStarted" });
+        removeTimerId = setTimeout(() => removeToastAfterTimeout(), 300);
       } else {
         rafId = requestAnimationFrame(tick);
       }
     };
 
     rafId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafId);
-  }, [id, onRemove]);
+    return () => {
+      cancelAnimationFrame(rafId);
+      if (removeTimerId) clearTimeout(removeTimerId);
+    };
+  }, []);
 
   const handleDismiss = () => {
-    setExiting(true);
+    dispatch({ type: "exitStarted" });
     setTimeout(() => onRemove(id), 300);
   };
 
@@ -99,6 +124,7 @@ function ToastItem({
         </p>
       </div>
       <button
+        type="button"
         onClick={handleDismiss}
         className="shrink-0 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
         aria-label="Dismiss"

@@ -28,14 +28,15 @@ const createCampaignSchema = z.object({
 })
 ;
 
+function parsePositiveInt(value: string | null, fallback: number) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 export async function GET(request: Request) {
   try {
     const { workspace } = await requireWorkspaceAccess(request);
     const url = new URL(request.url);
-    const parsePositiveInt = (value: string | null, fallback: number) => {
-      const parsed = Number(value);
-      return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
-    };
     const searchQuery = url.searchParams.get("q") ?? undefined;
     const statusFilter = (url.searchParams.get("status") ?? "all") as
       | "all"

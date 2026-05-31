@@ -22,8 +22,10 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { workspace } = await requireWorkspaceAccess(request);
-    const { id: creativeId } = await params;
+    const [{ workspace }, { id: creativeId }] = await Promise.all([
+      requireWorkspaceAccess(request),
+      params,
+    ]);
 
     const body = await request.json();
     const parsed = postBodySchema.safeParse(body);
@@ -149,8 +151,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { workspace } = await requireWorkspaceAccess(request);
-    const { id: creativeId } = await params;
+    const [{ workspace }, { id: creativeId }] = await Promise.all([
+      requireWorkspaceAccess(request),
+      params,
+    ]);
 
     const { searchParams } = new URL(request.url);
     const sourceType = searchParams.get("sourceType");

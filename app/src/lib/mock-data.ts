@@ -161,7 +161,7 @@ export interface Workspace {
 // Mock User
 // ============================================
 
-export const mockUser: User = {
+const mockUser: User = {
   id: "usr_1",
   firstName: "Alex",
   lastName: "Chen",
@@ -177,7 +177,7 @@ export const mockUser: User = {
 // Mock Workspace
 // ============================================
 
-export const mockWorkspace: Workspace = {
+const mockWorkspace: Workspace = {
   id: "ws_1",
   name: "Alex's Workspace",
   plan: "Pro",
@@ -188,7 +188,7 @@ export const mockWorkspace: Workspace = {
 // Mock Campaigns
 // ============================================
 
-export const mockCampaigns: Campaign[] = [
+const mockCampaigns: Campaign[] = [
   {
     id: "cmp_1",
     name: "Summer Sale Promo",
@@ -255,7 +255,7 @@ export const mockCampaigns: Campaign[] = [
 // Mock Derivations
 // ============================================
 
-export const mockDerivations: Derivation[] = [
+const mockDerivations: Derivation[] = [
   {
     id: "der_1",
     campaignId: "cmp_1",
@@ -336,7 +336,7 @@ export const mockDerivations: Derivation[] = [
 // Mock Creative Plans
 // ============================================
 
-export const mockCreativePlans: CreativePlan[] = [
+const mockCreativePlans: CreativePlan[] = [
   {
     id: "plan_1",
     campaignId: "cmp_1",
@@ -383,7 +383,7 @@ export const mockCreativePlans: CreativePlan[] = [
 // Mock Activity Feed
 // ============================================
 
-export const mockActivityFeed: ActivityItem[] = [
+const mockActivityFeed: ActivityItem[] = [
   {
     id: "act_1",
     type: "plan",
@@ -439,7 +439,7 @@ export interface CreditUsageDay {
   date: Date;
 }
 
-export const mockCreditUsage: CreditUsageDay[] = [
+const mockCreditUsage: CreditUsageDay[] = [
   { day: "Monday", shortDay: "Mon", credits: 45, date: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000) },
   { day: "Tuesday", shortDay: "Tue", credits: 82, date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000) },
   { day: "Wednesday", shortDay: "Wed", credits: 63, date: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000) },
@@ -464,7 +464,7 @@ export interface DashboardStats {
   creditsRemaining: number;
 }
 
-export const mockDashboardStats: DashboardStats = {
+const mockDashboardStats: DashboardStats = {
   totalCampaigns: 12,
   derivationsThisMonth: 156,
   creditsUsed: 847,
@@ -489,14 +489,14 @@ export const platformColors: Record<AdPlatform, { bg: string; text: string }> = 
 // Helper functions
 // ============================================
 
-export function getCampaignById(id: string): Campaign | undefined {
+function getCampaignById(id: string): Campaign | undefined {
   return mockCampaigns.find((c) => c.id === id);
 }
 
-export function getDerivationsByCampaign(campaignId: string): Derivation[] {
+function getDerivationsByCampaign(campaignId: string): Derivation[] {
   return mockDerivations.filter((d) => d.campaignId === campaignId);
 }
 
-export function getPlanByCampaign(campaignId: string): CreativePlan | undefined {
+function getPlanByCampaign(campaignId: string): CreativePlan | undefined {
   return mockCreativePlans.find((p) => p.campaignId === campaignId);
 }

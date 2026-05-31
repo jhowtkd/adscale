@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useReducer } from "react";
 import { Calculator, CreditCard, DollarSign, ShieldCheck, TrendingUp, Check, Zap, Crown } from "lucide-react";
 import {
   brlCurrency,
@@ -18,18 +18,30 @@ const planConfig = {
   scale: { name: "Scale", credits: 360, price: "R$ 199/mês", icon: Crown, color: "var(--accent-amber)" },
 };
 
+type ForecastInputs = typeof pricingAssumptions;
+
+function forecastReducer(
+  state: ForecastInputs,
+  payload: Partial<ForecastInputs>
+): ForecastInputs {
+  return { ...state, ...payload };
+}
+
 export default function BillingTab() {
   const router = useRouter();
   const { data: billingStatus } = useBillingStatus();
   const portal = useBillingPortal();
   const checkout = useStartCheckout();
-  const [campaignsPerMonth, setCampaignsPerMonth] = useState(pricingAssumptions.campaignsPerMonth);
-  const [imagesPerCampaign, setImagesPerCampaign] = useState(pricingAssumptions.imagesPerCampaign);
-  const [planInputTokens, setPlanInputTokens] = useState(pricingAssumptions.planInputTokens);
-  const [planOutputTokens, setPlanOutputTokens] = useState(pricingAssumptions.planOutputTokens);
-  const [imageTextTokens, setImageTextTokens] = useState(pricingAssumptions.imageTextTokens);
-  const [referenceImageTokens, setReferenceImageTokens] = useState(pricingAssumptions.referenceImageTokens);
-  const [generatedImageTokens, setGeneratedImageTokens] = useState(pricingAssumptions.generatedImageTokens);
+  const [forecastInputs, updateForecastInputs] = useReducer(forecastReducer, pricingAssumptions);
+  const {
+    campaignsPerMonth,
+    imagesPerCampaign,
+    planInputTokens,
+    planOutputTokens,
+    imageTextTokens,
+    referenceImageTokens,
+    generatedImageTokens,
+  } = forecastInputs;
 
   const forecast = useMemo(
     () =>
@@ -108,7 +120,7 @@ export default function BillingTab() {
                   key={key}
                   className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-5 transition-all hover:-translate-y-0.5 hover:shadow-md"
                 >
-                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-md" style={{ background: `${plan.color}20`, color: plan.color }}>
+                  <div className="mb-4 flex size-10 items-center justify-center rounded-md" style={{ background: `${plan.color}20`, color: plan.color }}>
                     <plan.icon size={20} />
                   </div>
                   <h4 className="text-base font-semibold text-[var(--text-primary)]">{plan.name}</h4>
@@ -161,13 +173,13 @@ export default function BillingTab() {
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <NumberField label="Campanhas por mês" value={campaignsPerMonth} onChange={setCampaignsPerMonth} />
-            <NumberField label="Imagens por campanha" value={imagesPerCampaign} onChange={setImagesPerCampaign} />
-            <NumberField label="Tokens input do plano" value={planInputTokens} onChange={setPlanInputTokens} />
-            <NumberField label="Tokens output do plano" value={planOutputTokens} onChange={setPlanOutputTokens} />
-            <NumberField label="Texto por imagem" value={imageTextTokens} onChange={setImageTextTokens} />
-            <NumberField label="Imagem de referência" value={referenceImageTokens} onChange={setReferenceImageTokens} />
-            <NumberField label="Imagem gerada" value={generatedImageTokens} onChange={setGeneratedImageTokens} />
+            <NumberField label="Campanhas por mês" value={campaignsPerMonth} onChange={(value) => updateForecastInputs({ campaignsPerMonth: value })} />
+            <NumberField label="Imagens por campanha" value={imagesPerCampaign} onChange={(value) => updateForecastInputs({ imagesPerCampaign: value })} />
+            <NumberField label="Tokens input do plano" value={planInputTokens} onChange={(value) => updateForecastInputs({ planInputTokens: value })} />
+            <NumberField label="Tokens output do plano" value={planOutputTokens} onChange={(value) => updateForecastInputs({ planOutputTokens: value })} />
+            <NumberField label="Texto por imagem" value={imageTextTokens} onChange={(value) => updateForecastInputs({ imageTextTokens: value })} />
+            <NumberField label="Imagem de referência" value={referenceImageTokens} onChange={(value) => updateForecastInputs({ referenceImageTokens: value })} />
+            <NumberField label="Imagem gerada" value={generatedImageTokens} onChange={(value) => updateForecastInputs({ generatedImageTokens: value })} />
           </div>
         </div>
 
@@ -268,7 +280,7 @@ function MetricCard({
 }) {
   return (
     <div className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-4">
-      <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-md bg-[var(--accent-green-dim)] text-[var(--accent-green)]">
+      <div className="mb-3 flex size-9 items-center justify-center rounded-md bg-[var(--accent-green-dim)] text-[var(--accent-green)]">
         <Icon size={18} />
       </div>
       <p className="text-xs font-medium text-[var(--text-muted)]">{label}</p>

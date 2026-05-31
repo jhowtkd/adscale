@@ -1,0 +1,37 @@
+{
+  "title": "ADScale end-to-end app audit with reference image",
+  "slug": "adscale-end-to-end-app-audit-with-reference-image",
+  "created_at": "2026-05-30T23:36:43+00:00",
+  "status": "completed",
+  "approval": {
+    "required": null,
+    "granted": null,
+    "notes": ""
+  },
+  "packets": [
+    {
+      "id": "packet-1",
+      "title": "Live discovery",
+      "status": "completed"
+    },
+    {
+      "id": "packet-2",
+      "title": "Reference-image smoke",
+      "status": "completed"
+    },
+    {
+      "id": "packet-3",
+      "title": "Findings synthesis",
+      "status": "completed"
+    }
+  ],
+  "verification": {
+    "status": "passed",
+    "checks": [
+      "Browser snapshots for /, /restyling, and /campaigns/new",
+      "npm run build",
+      "npm run test -- tests/integration/restyling.test.ts tests/integration/quick-tools-restyling.test.ts",
+      "verify_workflow.py passed"
+    ]
+  }
+}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,7 @@ export default function TemplateCard({
   const tTemplate = useTranslations("template");
   const tCampaign = useTranslations("campaign");
   const [isEditing, setIsEditing] = useState(false);
-  const [editName, setEditName] = useState(template.name);
+  const [editName, setEditName] = useState("");
 
   const modeLabels: Record<string, string> = {
     art_variation: tCampaign("modes.artVariation.label"),
@@ -48,7 +48,7 @@ export default function TemplateCard({
   };
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay: index * 0.05 }}
@@ -68,10 +68,10 @@ export default function TemplateCard({
                   if (e.key === "Escape") handleCancel();
                 }}
               />
-              <button onClick={handleSave} className="text-[var(--accent-green)] hover:text-[var(--accent-green-light)]">
+              <button type="button" onClick={handleSave} className="text-[var(--accent-green)] hover:text-[var(--accent-green-light)]">
                 <Check size={16} />
               </button>
-              <button onClick={handleCancel} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+              <button type="button" onClick={handleCancel} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]">
                 <X size={16} />
               </button>
             </div>
@@ -80,8 +80,11 @@ export default function TemplateCard({
               <h3 className="text-sm font-semibold text-[var(--text-primary)] truncate">
                 {template.name}
               </h3>
-              <button
-                onClick={() => setIsEditing(true)}
+              <button type="button"
+                onClick={() => {
+                  setEditName(template.name);
+                  setIsEditing(true);
+                }}
                 className="text-[var(--text-muted)] hover:text-[var(--accent-green)] transition-colors"
               >
                 <Pencil size={12} />
@@ -151,6 +154,6 @@ export default function TemplateCard({
           <Trash2 size={14} />
         </Button>
       </div>
-    </motion.div>
+    </m.div>
   );
 }

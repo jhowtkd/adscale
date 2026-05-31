@@ -27,8 +27,10 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { workspace } = await requireWorkspaceAccess(request);
-    const { id } = await params;
+    const [{ workspace }, { id }] = await Promise.all([
+      requireWorkspaceAccess(request),
+      params,
+    ]);
 
     const derivation = await getDerivationById(id, workspace.id);
     if (!derivation) {

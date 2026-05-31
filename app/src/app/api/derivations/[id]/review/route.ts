@@ -15,8 +15,10 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { workspace } = await requireWorkspaceAccess(request);
-    const { id } = await params;
+    const [{ workspace }, { id }] = await Promise.all([
+      requireWorkspaceAccess(request),
+      params,
+    ]);
 
     const body = await request.json();
     const parsed = bodySchema.safeParse(body);
@@ -33,9 +35,10 @@ export async function PATCH(
       return apiError("derivationNotFound", 404);
     }
 
-    await refreshCampaignStatus(updated.campaignId, workspace.id);
-
-    const campaign = await getCampaignById(updated.campaignId, workspace.id);
+    const [, campaign] = await Promise.all([
+      refreshCampaignStatus(updated.campaignId, workspace.id),
+      getCampaignById(updated.campaignId, workspace.id),
+    ]);
     await recordBrandMemoryEvent({
       type: parsed.data.status === "approved" ? "creative_approved" : "creative_rejected",
       workspaceId: workspace.id,

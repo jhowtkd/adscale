@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Lightbulb, Check } from "lucide-react";
 
@@ -43,6 +43,17 @@ const TONE_OPTIONS = [
   "Técnico",
 ];
 
+function getInitialBriefing(analysis: PilotBriefingFormProps["analysis"]): CampaignBriefing {
+  return {
+    objective: analysis.suggestedObjective ?? "",
+    audience: analysis.suggestedAudience ?? "",
+    tone: analysis.suggestedTone ?? "",
+    platforms: analysis.suggestedPlatforms ?? "",
+    ctaText: analysis.suggestedCta ?? "",
+    constraints: "",
+  };
+}
+
 // ============================================
 // Component
 // ============================================
@@ -52,25 +63,7 @@ export default function PilotBriefingForm({
   onSubmit,
   onSkip,
 }: PilotBriefingFormProps) {
-  const [form, setForm] = useState<CampaignBriefing>({
-    objective: "",
-    audience: "",
-    tone: "",
-    platforms: "",
-    ctaText: "",
-    constraints: "",
-  });
-
-  useEffect(() => {
-    setForm({
-      objective: analysis.suggestedObjective ?? "",
-      audience: analysis.suggestedAudience ?? "",
-      tone: analysis.suggestedTone ?? "",
-      platforms: analysis.suggestedPlatforms ?? "",
-      ctaText: analysis.suggestedCta ?? "",
-      constraints: "",
-    });
-  }, [analysis]);
+  const [form, setForm] = useState<CampaignBriefing>(() => getInitialBriefing(analysis));
 
   const handleChange = (
     field: keyof CampaignBriefing,
@@ -137,10 +130,11 @@ export default function PilotBriefingForm({
       <form onSubmit={handleSubmit} className="space-y-4 animate-fade-in">
         {/* Objetivo */}
         <div>
-          <label className="block font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ghost)] mb-1.5">
+          <label htmlFor="pilot-objective" className="block font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ghost)] mb-1.5">
             Objetivo
           </label>
           <input
+            id="pilot-objective"
             type="text"
             value={form.objective}
             onChange={(e) => handleChange("objective", e.target.value)}
@@ -157,10 +151,11 @@ export default function PilotBriefingForm({
 
         {/* Público-alvo */}
         <div>
-          <label className="block font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ghost)] mb-1.5">
+          <label htmlFor="pilot-audience" className="block font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ghost)] mb-1.5">
             Público-alvo
           </label>
           <input
+            id="pilot-audience"
             type="text"
             value={form.audience}
             onChange={(e) => handleChange("audience", e.target.value)}
@@ -177,10 +172,11 @@ export default function PilotBriefingForm({
 
         {/* Tom de voz */}
         <div>
-          <label className="block font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ghost)] mb-1.5">
+          <label htmlFor="pilot-tone" className="block font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ghost)] mb-1.5">
             Tom de voz
           </label>
           <select
+            id="pilot-tone"
             value={form.tone}
             onChange={(e) => handleChange("tone", e.target.value)}
             className="w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition-colors focus:border-[var(--accent-green)]"
@@ -202,10 +198,11 @@ export default function PilotBriefingForm({
 
         {/* Plataformas */}
         <div>
-          <label className="block font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ghost)] mb-1.5">
+          <label htmlFor="pilot-platforms" className="block font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ghost)] mb-1.5">
             Plataformas
           </label>
           <input
+            id="pilot-platforms"
             type="text"
             value={form.platforms}
             onChange={(e) => handleChange("platforms", e.target.value)}
@@ -222,10 +219,11 @@ export default function PilotBriefingForm({
 
         {/* CTA */}
         <div>
-          <label className="block font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ghost)] mb-1.5">
+          <label htmlFor="pilot-cta" className="block font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ghost)] mb-1.5">
             CTA
           </label>
           <input
+            id="pilot-cta"
             type="text"
             value={form.ctaText}
             onChange={(e) => handleChange("ctaText", e.target.value)}
@@ -242,10 +240,11 @@ export default function PilotBriefingForm({
 
         {/* Restrições */}
         <div>
-          <label className="block font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ghost)] mb-1.5">
+          <label htmlFor="pilot-constraints" className="block font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ghost)] mb-1.5">
             Restrições
           </label>
           <textarea
+            id="pilot-constraints"
             value={form.constraints}
             onChange={(e) => handleChange("constraints", e.target.value)}
             placeholder="Ex: Não usar vermelho, manter logo no canto superior"

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import Image from "next/image";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import {
   Dialog,
@@ -11,7 +12,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Upload, X, ImageIcon } from "lucide-react";
+import { Sparkles, Upload, X } from "lucide-react";
 
 // ============================================
 // Types
@@ -21,7 +22,7 @@ interface EstilizarModalProps {
   open: boolean;
   onClose: () => void;
   onSubmit: (data: {
-    styleReferences: string[];
+    styleReferenceFiles: File[];
     style: string;
     intensity: string;
   }) => void;
@@ -35,10 +36,16 @@ const STYLE_OPTIONS = [
 ];
 
 const INTENSITY_OPTIONS = [
-  { value: "suave", label: "Suave" },
-  { value: "media", label: "Média" },
-  { value: "forte", label: "Forte" },
+  { value: "soft", label: "Suave" },
+  { value: "medium", label: "Média" },
+  { value: "strong", label: "Forte" },
 ];
+
+interface StyleReferencePreview {
+  file: File;
+  id: string;
+  url: string;
+}
 
 // ============================================
 // Component
@@ -49,42 +56,59 @@ export default function EstilizarModal({
   onClose,
   onSubmit,
 }: EstilizarModalProps) {
-  const [styleReferences, setStyleReferences] = useState<string[]>([]);
+  const [styleReferencePreviews, setStyleReferencePreviews] = useState<StyleReferencePreview[]>([]);
   const [style, setStyle] = useState("");
   const [intensity, setIntensity] = useState("");
+  const styleReferencePreviewsRef = useRef<StyleReferencePreview[]>([]);
+
+  useEffect(() => {
+    styleReferencePreviewsRef.current = styleReferencePreviews;
+  }, [styleReferencePreviews]);
+
+  useEffect(() => {
+    const previewsStore = styleReferencePreviewsRef;
+    return () => {
+      previewsStore.current.forEach((preview) => URL.revokeObjectURL(preview.url));
+    };
+  }, []);
 
   const handleFileChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = e.target.files;
       if (!files) return;
 
-      const newRefs: string[] = [];
+      const newPreviews: StyleReferencePreview[] = [];
       Array.from(files).forEach((file) => {
         if (file.type.startsWith("image/")) {
-          newRefs.push(URL.createObjectURL(file));
+          newPreviews.push({
+            file,
+            id: `${file.name}-${file.size}-${file.lastModified}-${crypto.randomUUID()}`,
+            url: URL.createObjectURL(file),
+          });
         }
       });
 
-      setStyleReferences((prev) => [...prev, ...newRefs]);
+      setStyleReferencePreviews((prev) => [...prev, ...newPreviews]);
     },
     []
   );
 
-  const removeReference = useCallback((index: number) => {
-    setStyleReferences((prev) => {
-      const next = [...prev];
-      URL.revokeObjectURL(next[index]);
-      next.splice(index, 1);
-      return next;
+  const removeReference = useCallback((id: string) => {
+    setStyleReferencePreviews((prev) => {
+      const preview = prev.find((item) => item.id === id);
+      if (preview) URL.revokeObjectURL(preview.url);
+      return prev.filter((item) => item.id !== id);
     });
   }, []);
 
   const handleSubmit = useCallback(() => {
-    onSubmit({ styleReferences, style, intensity });
-    setStyleReferences([]);
+    const styleReferenceFiles = styleReferencePreviews.map((preview) => preview.file);
+    onSubmit({ styleReferenceFiles, style, intensity });
+    styleReferencePreviews.forEach((preview) => URL.revokeObjectURL(preview.url));
+    setStyleReferencePreviews([]);
     setStyle("");
     setIntensity("");
-  }, [onSubmit, styleReferences, style, intensity]);
+  }, [onSubmit, styleReferencePreviews, style, intensity]);
 
   const canSubmit = style && intensity;
 
@@ -104,27 +128,31 @@ export default function EstilizarModal({
         <div className="space-y-5 py-2">
           {/* Style References Upload */}
           <div>
-            <label className="block font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ghost)] mb-2">
+            <span className="block font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ghost)] mb-2">
               Referências de estilo
-            </label>
+            </span>
 
             {/* Uploaded refs */}
-            {styleReferences.length > 0 && (
+            {styleReferencePreviews.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-3">
-                {styleReferences.map((ref, i) => (
+                {styleReferencePreviews.map((preview, i) => (
                   <div
-                    key={i}
+                    key={preview.id}
                     className="relative size-16 rounded-md border border-[var(--border-dim)] overflow-hidden group"
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={ref}
+                    <Image
+                      src={preview.url}
                       alt={`Ref ${i + 1}`}
-                      className="size-full object-cover"
+                      fill
+                      sizes="64px"
+                      unoptimized
+                      className="object-cover"
                     />
                     <button
-                      onClick={() => removeReference(i)}
+                      type="button"
+                      onClick={() => removeReference(preview.id)}
                       className="absolute top-0.5 right-0.5 flex size-4 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                      aria-label={`Remover referência ${i + 1}`}
                     >
                       <X size={10} />
                     </button>
@@ -146,7 +174,7 @@ export default function EstilizarModal({
               </span>
               <input
                 type="file"
-                accept="image/*"
+                accept="image/png,image/jpeg,image/webp"
                 multiple
                 className="sr-only"
                 onChange={handleFileChange}
@@ -156,10 +184,11 @@ export default function EstilizarModal({
 
           {/* Style Select */}
           <div>
-            <label className="block font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ghost)] mb-1.5">
+            <label htmlFor="style-select" className="block font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ghost)] mb-1.5">
               Estilo desejado
             </label>
             <select
+              id="style-select"
               value={style}
               onChange={(e) => setStyle(e.target.value)}
               className="w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition-colors focus:border-[var(--accent-green)]"
@@ -175,10 +204,11 @@ export default function EstilizarModal({
 
           {/* Intensity Select */}
           <div>
-            <label className="block font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ghost)] mb-1.5">
+            <label htmlFor="style-intensity-select" className="block font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ghost)] mb-1.5">
               Intensidade
             </label>
             <select
+              id="style-intensity-select"
               value={intensity}
               onChange={(e) => setIntensity(e.target.value)}
               className="w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition-colors focus:border-[var(--accent-green)]"

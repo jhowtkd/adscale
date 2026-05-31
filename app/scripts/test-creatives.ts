@@ -5,7 +5,7 @@ import path from "path";
 import sharp from "sharp";
 
 import { analyzeImageContent, analyzeImageStyle, ContentBrief, StyleBrief } from "@/server/ai/image-analysis";
-import { extractContractFromAd, CreativeContract } from "@/server/ai/creative-contract";
+import { extractContractFromAd, CreativeContract } from "./creative-contract";
 import { analyzeSmartResize } from "@/server/ai/smart-resize";
 import { analyzePreflight } from "@/server/ai/preflight-analysis";
 import { analyzeDerivationCreative } from "@/server/ai/creative-score";
@@ -17,7 +17,7 @@ import { extractBrandKitFromImage } from "@/server/ai/brand-kit-extractor";
 import { env } from "@/server/validation/env";
 import OpenAI from "openai";
 import { buildDerivationPrompt } from "@/server/ai/prompt-builder";
-import { getCachedAnalysis } from "@/server/ai/analysis-cache";
+import { getCachedAnalysis } from "./analysis-cache";
 
 // ── Paths ───────────────────────────────────────────────────────────────
 

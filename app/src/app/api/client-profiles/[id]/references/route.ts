@@ -31,8 +31,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { workspace } = await requireWorkspaceAccess(request);
-    const { id } = await params;
+    const [{ workspace }, { id }] = await Promise.all([
+      requireWorkspaceAccess(request),
+      params,
+    ]);
     const references = await getClientReferences(workspace.id, id);
     return NextResponse.json({ references });
   } catch (error) {
@@ -45,8 +47,10 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { workspace } = await requireWorkspaceAccess(request);
-    const { id } = await params;
+    const [{ workspace }, { id }] = await Promise.all([
+      requireWorkspaceAccess(request),
+      params,
+    ]);
     const body = await request.json();
     const parsed = createReferenceSchema.safeParse(body);
 

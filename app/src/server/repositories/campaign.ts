@@ -303,15 +303,17 @@ export async function createCampaign(
 }
 
 export async function getCampaigns(workspaceId: string, limit = 50) {
-  const metricsByCampaignId = await getCampaignMetrics(workspaceId);
-  const rows = await db
-    .select({
-      ...campaignFields,
-    })
-    .from(campaigns)
-    .where(eq(campaigns.workspaceId, workspaceId))
-    .orderBy(desc(campaigns.updatedAt))
-    .limit(limit);
+  const [metricsByCampaignId, rows] = await Promise.all([
+    getCampaignMetrics(workspaceId),
+    db
+      .select({
+        ...campaignFields,
+      })
+      .from(campaigns)
+      .where(eq(campaigns.workspaceId, workspaceId))
+      .orderBy(desc(campaigns.updatedAt))
+      .limit(limit),
+  ]);
   return rows.map((row) => mergeCampaignMetrics(row, metricsByCampaignId.get(row.id)));
 }
 
@@ -392,14 +394,16 @@ export async function getCampaignsPage(
 }
 
 export async function getCampaignById(id: string, workspaceId: string) {
-  const metricsByCampaignId = await getCampaignMetrics(workspaceId, id);
-  const result = await db
-    .select({
-      ...campaignFields,
-    })
-    .from(campaigns)
-    .where(and(eq(campaigns.id, id), eq(campaigns.workspaceId, workspaceId)))
-    .limit(1);
+  const [metricsByCampaignId, result] = await Promise.all([
+    getCampaignMetrics(workspaceId, id),
+    db
+      .select({
+        ...campaignFields,
+      })
+      .from(campaigns)
+      .where(and(eq(campaigns.id, id), eq(campaigns.workspaceId, workspaceId)))
+      .limit(1),
+  ]);
   return result[0]
     ? mergeCampaignMetrics(result[0], metricsByCampaignId.get(result[0].id))
     : null;

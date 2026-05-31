@@ -19,7 +19,7 @@ export const STALE_TIME = {
 } as const;
 
 // Query key categories for standardization
-export const QUERY_KEYS = {
+const QUERY_KEYS = {
   dashboard: ["dashboard", "stats"],
   campaigns: {
     list: ["campaigns", "list"],

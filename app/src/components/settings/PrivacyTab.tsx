@@ -133,6 +133,7 @@ export default function PrivacyTab() {
               Para confirmar, digite <strong>DELETE</strong> no campo abaixo:
             </p>
             <input
+              aria-label="Confirm delete account"
               type="text"
               value={confirmText}
               onChange={(e) => setConfirmText(e.target.value)}

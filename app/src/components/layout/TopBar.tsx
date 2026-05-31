@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState, useRef, useEffect } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import Image from "next/image";
+import { useMemo, useState, useRef, useEffect, useEffectEvent } from "react";
+import { AnimatePresence, m } from "framer-motion";
 import { useAppStore } from "@/lib/store";
 import { authClient } from "@/lib/auth-client";
 import { useDashboard } from "@/lib/hooks/use-dashboard";
@@ -101,7 +102,11 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
       <div className="flex items-center gap-8">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 shrink-0">
-          <img src="/images/logo.svg" alt="ADScale" className="h-8 w-auto" />
+          <Image src="/images/logo.svg" alt="ADScale" className="h-8 w-auto" 
+        width={800}
+        height={800}
+        unoptimized
+      />
         </Link>
 
         {/* Navigation */}
@@ -120,7 +125,7 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
 
         {isDashboard && (
           <>
-            <button
+            <button type="button"
               onClick={() => router.push("/campaigns")}
               className={cn(
                 "hidden sm:flex items-center gap-2 px-5 py-2.5 text-sm text-[var(--text-secondary)]",
@@ -153,7 +158,7 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
               aria-haspopup="dialog"
               onClick={() => setNotificationsOpen((open) => !open)}
               className={cn(
-                "relative flex items-center justify-center h-9 w-9 rounded-full",
+                "relative flex items-center justify-center size-9 rounded-full",
                 "text-[var(--text-muted)] hover:text-[var(--text-primary)]",
                 "hover:bg-[var(--surface-raised)]",
                 "transition-all duration-200"
@@ -190,7 +195,7 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
         <DropdownMenu>
           <DropdownMenuTrigger
             className={cn(
-              "flex h-8 w-8 items-center justify-center rounded-full",
+              "flex size-8 items-center justify-center rounded-full",
               "bg-[var(--accent-green-dim)] text-[var(--accent-green)] text-xs font-semibold",
               "ring-2 ring-[var(--border-medium)] cursor-pointer",
               "hover:ring-[var(--border-medium)] hover:brightness-110",
@@ -201,7 +206,7 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
             {initials}
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" sideOffset={10} className="w-64 p-2">
-            <div className="px-2 py-2">
+            <div className="p-2">
               <span className="block truncate text-sm font-semibold text-[var(--text-primary)]">
                 {displayName}
               </span>
@@ -210,23 +215,23 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
               </span>
             </div>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => goToSettings("profile")} className="cursor-pointer px-2 py-2">
+            <DropdownMenuItem onClick={() => goToSettings("profile")} className="cursor-pointer p-2">
               <User size={16} />
               Perfil
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => goToSettings("workspace")} className="cursor-pointer px-2 py-2">
+            <DropdownMenuItem onClick={() => goToSettings("workspace")} className="cursor-pointer p-2">
               <Settings size={16} />
               Workspace
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => goToSettings("team")} className="cursor-pointer px-2 py-2">
+            <DropdownMenuItem onClick={() => goToSettings("team")} className="cursor-pointer p-2">
               <Users size={16} />
               Equipe e permissões
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => goToSettings("billing")} className="cursor-pointer px-2 py-2">
+            <DropdownMenuItem onClick={() => goToSettings("billing")} className="cursor-pointer p-2">
               <CreditCard size={16} />
               Faturamento e custos
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => goToSettings("integrations")} className="cursor-pointer px-2 py-2">
+            <DropdownMenuItem onClick={() => goToSettings("integrations")} className="cursor-pointer p-2">
               <Shield size={16} />
               Integrações
             </DropdownMenuItem>
@@ -240,7 +245,7 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
                   },
                 });
               }}
-              className="cursor-pointer px-2 py-2"
+              className="cursor-pointer p-2"
             >
               <LogOut size={16} />
               Sair
@@ -269,9 +274,11 @@ interface NotificationPanelProps {
 function NotificationPanel({ items, onClose, onClear, onMarkAsRead, onMarkAllAsRead, bellRef, tCommon }: NotificationPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  const closePanel = useEffectEvent(onClose);
 
-  useEffect(() => {
-    previousFocusRef.current = document.activeElement as HTMLElement;
+	  useEffect(() => {
+	    const bell = bellRef.current;
+	    previousFocusRef.current = document.activeElement as HTMLElement;
     const panel = panelRef.current;
     if (panel) {
       const focusable = getFocusableElements(panel);
@@ -285,7 +292,7 @@ function NotificationPanel({ items, onClose, onClear, onMarkAsRead, onMarkAllAsR
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.preventDefault();
-        onClose();
+        closePanel();
         return;
       }
 
@@ -307,11 +314,11 @@ function NotificationPanel({ items, onClose, onClear, onMarkAsRead, onMarkAllAsR
     };
 
     document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      bellRef.current?.focus();
-    };
-  }, [onClose, bellRef]);
+	    return () => {
+	      document.removeEventListener("keydown", handleKeyDown);
+	      bell?.focus();
+	    };
+	  }, [bellRef]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -320,16 +327,16 @@ function NotificationPanel({ items, onClose, onClear, onMarkAsRead, onMarkAllAsR
         !panelRef.current.contains(e.target as Node) &&
         !bellRef.current?.contains(e.target as Node)
       ) {
-        onClose();
+        closePanel();
       }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [onClose, bellRef]);
+  }, [bellRef]);
 
   return (
-    <motion.div
+    <m.div
       ref={panelRef}
       role="dialog"
       aria-modal="true"
@@ -406,7 +413,7 @@ function NotificationPanel({ items, onClose, onClear, onMarkAsRead, onMarkAllAsR
                 )}
               >
                 <div className={cn(
-                  "mt-0.5 flex h-8 w-8 items-center justify-center rounded-full shrink-0",
+                  "mt-0.5 flex size-8 items-center justify-center rounded-full shrink-0",
                   iconColor
                 )}>
                   <Icon size={14} />
@@ -419,7 +426,7 @@ function NotificationPanel({ items, onClose, onClear, onMarkAsRead, onMarkAllAsR
                   </p>
                 </div>
                 {!item.readAt && (
-                  <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-[var(--accent-green)]" />
+                  <span className="mt-2 size-2 shrink-0 rounded-full bg-[var(--accent-green)]" />
                 )}
               </Link>
             );
@@ -428,7 +435,7 @@ function NotificationPanel({ items, onClose, onClear, onMarkAsRead, onMarkAllAsR
           ))
         )}
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 

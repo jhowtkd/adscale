@@ -176,7 +176,8 @@
       "fillBrief": "Fill brief",
       "approveVariations": "Approve variations",
       "pageTitle": "Campaigns"
-    }
+    },
+    "pageTitle": "Campaigns"
   },
   "dashboard": {
     "period": {
@@ -492,7 +493,6 @@
     "brandKitTitle": "Brand Kit",
     "brandKitFonts": "Fonts",
     "brandKitTone": "Tone",
-
     "extractFromImage": "Extract from image",
     "extractFromImageDesc": "Upload an existing creative to auto-fill the briefing",
     "invalidFileType": "Invalid file type. Only PNG, JPEG and WebP are allowed.",

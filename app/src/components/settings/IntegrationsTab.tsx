@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import {
   Megaphone,
   Search,
@@ -164,7 +164,7 @@ export default function IntegrationsTab() {
   };
 
   return (
-    <motion.div
+    <m.div
       variants={containerVariants}
       initial="hidden"
       animate="show"
@@ -177,7 +177,7 @@ export default function IntegrationsTab() {
           const isConnected = status === "connected";
 
           return (
-            <motion.div
+            <m.div
               key={integration.id}
               variants={itemVariants}
               className={cn(
@@ -191,7 +191,7 @@ export default function IntegrationsTab() {
               <div className="flex items-start gap-3">
                 {/* Icon */}
                 <div
-                  className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                  className="size-10 rounded-lg flex items-center justify-center flex-shrink-0"
                   style={{
                     backgroundColor: integration.iconBg,
                     color: integration.iconColor,
@@ -222,7 +222,7 @@ export default function IntegrationsTab() {
               {/* Action Button */}
               <div className="pt-1">
                 {integration.id === "api" ? (
-                  <button
+                  <button type="button"
                     onClick={() => addToast("info", tc("apiKeyManagementComingSoon"))}
                     className={cn(
                       "h-8 px-3 rounded-md text-xs font-medium flex items-center gap-1.5",
@@ -237,7 +237,7 @@ export default function IntegrationsTab() {
                     {t("config")}
                   </button>
                 ) : (
-                  <button
+                  <button type="button"
                     onClick={() => handleConnect(integration.id)}
                     className={cn(
                       "h-8 px-3 rounded-md text-xs font-medium flex items-center gap-1.5",
@@ -263,10 +263,10 @@ export default function IntegrationsTab() {
                   </button>
                 )}
               </div>
-            </motion.div>
+            </m.div>
           );
         })}
       </div>
-    </motion.div>
+    </m.div>
   );
 }

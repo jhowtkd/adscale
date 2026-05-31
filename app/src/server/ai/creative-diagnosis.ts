@@ -87,17 +87,19 @@ export function normalizeCreativeDiagnosis(
     typeof obj.detectedConcept === "string" ? obj.detectedConcept.trim() : "";
 
   const elementsToPreserve = Array.isArray(obj.elementsToPreserve)
-    ? obj.elementsToPreserve
-        .filter((item): item is string => typeof item === "string")
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0)
+    ? obj.elementsToPreserve.flatMap((item) => {
+        if (typeof item !== "string") return [];
+        const trimmed = item.trim();
+        return trimmed.length > 0 ? [trimmed] : [];
+      })
     : [];
 
   const variationOpportunities = Array.isArray(obj.variationOpportunities)
-    ? obj.variationOpportunities
-        .filter((item): item is string => typeof item === "string")
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0)
+    ? obj.variationOpportunities.flatMap((item) => {
+        if (typeof item !== "string") return [];
+        const trimmed = item.trim();
+        return trimmed.length > 0 ? [trimmed] : [];
+      })
     : [];
 
   if (!detectedConcept && elementsToPreserve.length === 0 && variationOpportunities.length === 0) {

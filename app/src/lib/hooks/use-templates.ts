@@ -95,7 +95,7 @@ export function useTemplates() {
   });
 }
 
-export function useTemplate(id: string) {
+function useTemplate(id: string) {
   return useQuery({
     queryKey: ["templates", id],
     queryFn: () => fetchTemplate(id),

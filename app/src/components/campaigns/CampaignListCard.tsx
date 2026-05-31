@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
@@ -64,24 +65,9 @@ function CampaignListCard({
       .replace(/ months? ago/, "mo ago");
   })();
 
-  const handleCardClick = () => {
-    router.push(`/campaigns/${campaign.id}`);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      handleCardClick();
-    }
-  };
-
   return (
     <div
-      role="link"
-      tabIndex={0}
       aria-label={`${campaign.name}, status ${campaign.status}`}
-      onClick={handleCardClick}
-      onKeyDown={handleKeyDown}
       className={cn("animate-fade-in",
         "group relative rounded-xl border bg-[var(--surface-base)] p-4 transition-all duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-green)]",
         selected
@@ -90,8 +76,13 @@ function CampaignListCard({
       )}
       style={{ animationDelay: `${index * 50}ms` }}
     >
+      <Link
+        href={`/campaigns/${campaign.id}`}
+        aria-label={`${campaign.name}, status ${campaign.status}`}
+        className="absolute inset-0 z-0 rounded-xl"
+      />
       {/* Header: Checkbox + Name + Actions */}
-      <div className="flex items-start gap-3">
+      <div className="relative z-10 flex items-start gap-3">
         {/* Checkbox */}
         <div
           className="shrink-0 pt-0.5"
@@ -101,10 +92,11 @@ function CampaignListCard({
           <input
             id={`select-${campaign.id}`}
             type="checkbox"
+            aria-label={`Select ${campaign.name}`}
             checked={selected}
             onChange={(e) => onSelect(e.target.checked)}
             className={cn(
-              "h-[18px] w-[18px] rounded-sm border border-[var(--border-medium)] appearance-none cursor-pointer",
+              "size-[18px] rounded-sm border border-[var(--border-medium)] appearance-none cursor-pointer",
               "checked:bg-[var(--accent-green)] checked:border-[var(--accent-green)]",
               "checked:bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22white%22%3E%3Cpath%20d%3D%22M12.207%204.793a1%201%20%200%2001%200%201.414l-5%205a1%201%20%200%2001-1.414%200l-2-2a1%201%20%200%20011.414-1.414L6.5%209.086l4.293-4.293a1%201%20%200%20011.414%200z%22%2F%3E%3C%2Fsvg%3E')]",
               "transition-colors duration-150"
@@ -150,7 +142,7 @@ function CampaignListCard({
           <DropdownMenu>
             <DropdownMenuTrigger
               className={cn(
-                "flex items-center justify-center h-8 w-8 rounded-md",
+                "flex items-center justify-center size-8 rounded-md",
                 "text-[var(--text-muted)]",
                 "hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)]",
                 "transition-all duration-200"

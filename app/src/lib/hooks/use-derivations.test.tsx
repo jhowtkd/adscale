@@ -1,0 +1,98 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { renderHook, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useRestyleCampaign } from "./use-derivations";
+
+vi.mock("@/lib/api-client", () => ({
+  apiFetch: vi.fn(),
+}));
+
+import { apiFetch } from "@/lib/api-client";
+
+const mockApiFetch = vi.mocked(apiFetch);
+
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return function Wrapper({ children }: { children: React.ReactNode }) {
+    return (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+  };
+}
+
+describe("useRestyleCampaign", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          derivations: [
+            {
+              id: "derivation-1",
+              campaignId: "camp-1",
+              status: "queued",
+              generationMode: "restyling",
+            },
+          ],
+        }),
+    } as unknown as Response);
+  });
+
+  it("posts styleAssetIds and styleIntensity to restyle endpoint", async () => {
+    const { result } = renderHook(() => useRestyleCampaign("camp-1"), {
+      wrapper: createWrapper(),
+    });
+
+    await result.current.mutateAsync({
+      styleAssetIds: ["asset-1", "asset-2"],
+      styleIntensity: "strong",
+    });
+
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      "/api/campaigns/camp-1/restyle",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          styleAssetIds: ["asset-1", "asset-2"],
+          styleIntensity: "strong",
+        }),
+      }
+    );
+  });
+
+  it("returns derivations from successful response", async () => {
+    const { result } = renderHook(() => useRestyleCampaign("camp-1"), {
+      wrapper: createWrapper(),
+    });
+
+    const data = await result.current.mutateAsync({
+      styleAssetIds: ["asset-1"],
+    });
+
+    expect(data).toHaveLength(1);
+    expect(data[0].generationMode).toBe("restyling");
+  });
+
+  it("throws when the endpoint returns an error", async () => {
+    mockApiFetch.mockResolvedValue({
+      ok: false,
+      json: () => Promise.resolve({ error: "missingBaseAsset" }),
+    } as unknown as Response);
+
+    const { result } = renderHook(() => useRestyleCampaign("camp-1"), {
+      wrapper: createWrapper(),
+    });
+
+    await expect(
+      result.current.mutateAsync({ styleAssetIds: [] })
+    ).rejects.toThrow("missingBaseAsset");
+
+    await waitFor(() => {
+      expect(result.current.isError).toBe(true);
+    });
+  });
+});

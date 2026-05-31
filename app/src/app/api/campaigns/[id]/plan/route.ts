@@ -36,8 +36,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { workspace } = await requireWorkspaceAccess(request);
-    const { id: campaignId } = await params;
+    const [{ workspace }, { id: campaignId }] = await Promise.all([
+      requireWorkspaceAccess(request),
+      params,
+    ]);
 
     const plan = await getPlanByCampaign(campaignId, workspace.id);
     if (!plan) {
@@ -55,8 +57,10 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { user, workspace } = await requireWorkspaceAccess(request);
-    const { id: campaignId } = await params;
+    const [{ user, workspace }, { id: campaignId }] = await Promise.all([
+      requireWorkspaceAccess(request),
+      params,
+    ]);
 
     const campaign = await getCampaignById(campaignId, workspace.id);
     if (!campaign) {
@@ -136,8 +140,10 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { workspace } = await requireWorkspaceAccess(request);
-    const { id: campaignId } = await params;
+    const [{ workspace }, { id: campaignId }] = await Promise.all([
+      requireWorkspaceAccess(request),
+      params,
+    ]);
 
     const body = await request.json();
     const parsed = updatePlanSchema.safeParse(body);

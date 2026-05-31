@@ -57,9 +57,9 @@ export default function PrivacyPage() {
             Não vendemos dados. Compartilhamos apenas com:
           </p>
           <ul className="mt-2 list-disc space-y-1 pl-5">
-            <li><strong>Stripe</strong> — processamento de pagamentos.</li>
-            <li><strong>OpenAI</strong> — geração de planos e imagens (via API, sem retenção de dados de treinamento).</li>
-            <li><strong>Cloudflare R2</strong> — armazenamento de imagens.</li>
+            <li><strong>Stripe</strong>: processamento de pagamentos.</li>
+            <li><strong>OpenAI</strong>: geração de planos e imagens (via API, sem retenção de dados de treinamento).</li>
+            <li><strong>Cloudflare R2</strong>: armazenamento de imagens.</li>
           </ul>
         </div>
 

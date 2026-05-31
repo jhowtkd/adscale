@@ -25,10 +25,10 @@ function normalizePlatforms(
 ): string[] | undefined {
   if (platforms === undefined) return undefined;
   if (Array.isArray(platforms)) return platforms;
-  return platforms
-    .split(",")
-    .map((p) => p.trim())
-    .filter(Boolean);
+  return platforms.split(",").flatMap((p) => {
+    const trimmed = p.trim();
+    return trimmed ? [trimmed] : [];
+  });
 }
 
 export async function POST(
@@ -36,8 +36,10 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { workspace } = await requireWorkspaceAccess(request);
-    const { id } = await params;
+    const [{ workspace }, { id }] = await Promise.all([
+      requireWorkspaceAccess(request),
+      params,
+    ]);
 
     const body = await request.json();
     const parsed = pilotSchema.safeParse(body);

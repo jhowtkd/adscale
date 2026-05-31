@@ -49,10 +49,11 @@ export default function CampaignsListView({
                 <TableHead className="w-[44px] px-4 py-3">
                   <input
                     type="checkbox"
+                    aria-label="Select all campaigns"
                     checked={allSelected}
                     onChange={(e) => onToggleSelectAll(e.target.checked)}
                     className={cn(
-                      "h-[18px] w-[18px] rounded-sm border border-[var(--border-medium)] appearance-none cursor-pointer",
+                      "size-[18px] rounded-sm border border-[var(--border-medium)] appearance-none cursor-pointer",
                       "checked:bg-[var(--accent-green)] checked:border-[var(--accent-green)]",
                       "indeterminate:bg-[var(--accent-green)] indeterminate:border-[var(--accent-green)]",
                       "transition-colors duration-150"

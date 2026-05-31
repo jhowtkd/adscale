@@ -18,6 +18,10 @@ const uploadSchema = z.object({
     (v) => (v === null || v === "" || v === undefined ? undefined : v),
     z.coerce.number().int().positive().optional()
   ),
+  role: z.preprocess(
+    (v) => (v === null || v === "" || v === undefined ? undefined : v),
+    z.string().optional()
+  ),
 });
 
 export async function POST(
@@ -25,8 +29,10 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { workspace } = await requireWorkspaceAccess(request);
-    const { id: campaignId } = await params;
+    const [{ workspace }, { id: campaignId }] = await Promise.all([
+      requireWorkspaceAccess(request),
+      params,
+    ]);
 
     if (!z.string().uuid().safeParse(campaignId).success) {
       return apiError("campaignNotFound", 404);
@@ -67,6 +73,7 @@ export async function POST(
     const parsed = uploadSchema.safeParse({
       width: formData.get("width"),
       height: formData.get("height"),
+      role: formData.get("role"),
     });
 
     if (!parsed.success) {
@@ -85,6 +92,7 @@ export async function POST(
       size: file.size,
       width: parsed.data.width,
       height: parsed.data.height,
+      role: parsed.data.role,
     });
 
     return NextResponse.json({ asset }, { status: 201 });

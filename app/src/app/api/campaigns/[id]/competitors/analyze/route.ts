@@ -16,8 +16,10 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { workspace } = await requireWorkspaceAccess(request);
-    const { id: campaignId } = await params;
+    const [{ workspace }, { id: campaignId }] = await Promise.all([
+      requireWorkspaceAccess(request),
+      params,
+    ]);
 
     const rateLimitResult = await checkRateLimit(request, {
       category: "ai",
@@ -49,7 +51,7 @@ export async function POST(
       return apiError("invalidInput", 400, { detail: "Maximum 3 screenshots allowed" });
     }
 
-    const validFiles: File[] = [];
+    const validFiles: Array<{ file: File; type: "image/png" | "image/jpeg" | "image/webp" }> = [];
     for (const file of files) {
       if (!(file instanceof File)) {
         return apiError("invalidInput", 400);
@@ -57,13 +59,17 @@ export async function POST(
       if (!isAllowedImageType(file.type)) {
         return apiError("invalidFileType", 400);
       }
-      if (!(await validateImageMagicBytes(file, file.type))) {
-        return apiError("invalidFileType", 400);
-      }
       if (file.size <= 0 || file.size > MAX_SIZE) {
         return apiError("fileTooLarge", 400);
       }
-      validFiles.push(file);
+      validFiles.push({ file, type: file.type });
+    }
+
+    const magicChecks = await Promise.all(
+      validFiles.map(({ file, type }) => validateImageMagicBytes(file, type))
+    );
+    if (magicChecks.some((isValid) => !isValid)) {
+      return apiError("invalidFileType", 400);
     }
 
     const name = (formData.get("name") as string | null) ?? undefined;
@@ -73,14 +79,14 @@ export async function POST(
       workspaceId: workspace.id,
       action: "image_derivation",
       amount: 5,
-      idempotencyKey: `competitor-analyze:${campaignId}:${validFiles.map((f) => f.name).join("|")}`,
+      idempotencyKey: `competitor-analyze:${campaignId}:${validFiles.map(({ file }) => file.name).join("|")}`,
       metadata: { campaignId, fileCount: validFiles.length },
     });
     if (creditError) return creditError;
 
     // Analyze each screenshot in parallel and merge results
     const analyses = await Promise.all(
-      validFiles.map(async (file) => {
+      validFiles.map(async ({ file }) => {
         const buffer = Buffer.from(await file.arrayBuffer());
         return analyzeCompetitorCreative(buffer, file.type, name, platform);
       })

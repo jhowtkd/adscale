@@ -124,3 +124,34 @@ export function useCreateDerivations(campaignId: string) {
     },
   });
 }
+
+async function restyleCampaign(
+  campaignId: string,
+  input: { styleAssetIds?: string[]; styleIntensity?: string }
+): Promise<Derivation[]> {
+  const res = await apiFetch(`/api/campaigns/${campaignId}/restyle`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Erro ao criar restyling");
+  }
+  const data = await res.json();
+  return data.derivations as Derivation[];
+}
+
+export function useRestyleCampaign(campaignId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { styleAssetIds?: string[]; styleIntensity?: string }) =>
+      restyleCampaign(campaignId, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["derivations", campaignId] });
+      queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+      queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+  });
+}

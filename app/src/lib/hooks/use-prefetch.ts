@@ -15,7 +15,7 @@ async function fetchCampaign(id: string) {
   return res.json();
 }
 
-export function usePrefetchCampaigns() {
+function usePrefetchCampaigns() {
   const queryClient = useQueryClient();
 
   return {

@@ -67,7 +67,7 @@ export default function SocialAuthButtons({ mode }: SocialAuthButtonsProps) {
           onClick={() => handleSocialSignIn("google")}
           disabled={loading !== null}
         >
-          <GoogleIcon className="h-4 w-4" />
+          <GoogleIcon className="size-4" />
           <span className="text-sm">Google</span>
         </Button>
 
@@ -78,7 +78,7 @@ export default function SocialAuthButtons({ mode }: SocialAuthButtonsProps) {
           onClick={() => handleSocialSignIn("github")}
           disabled={loading !== null}
         >
-          <GitHubIcon className="h-4 w-4" />
+          <GitHubIcon className="size-4" />
           <span className="text-sm">GitHub</span>
         </Button>
       </div>

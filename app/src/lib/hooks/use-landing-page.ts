@@ -1,5 +1,5 @@
 import { apiFetch } from "@/lib/api-client";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { useAppStore } from "@/lib/store";
 
@@ -15,6 +15,7 @@ export interface LandingPageResponse {
 }
 
 export function useGenerateLandingPage() {
+  const queryClient = useQueryClient();
   const addToast = useAppStore((s) => s.addToast);
   const t = useTranslations("toast");
 
@@ -31,6 +32,7 @@ export function useGenerateLandingPage() {
       return res.json();
     },
     onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["derivations"] });
       window.open(data.downloadUrl, "_blank");
       addToast("success", t("landingPageReady"));
     },

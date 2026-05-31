@@ -25,7 +25,7 @@ export const durations = {
 }
 
 /** CSS custom properties for design system alignment */
-export const cssEasings = {
+const cssEasings = {
   easeOut: "cubic-bezier(0, 0, 0.2, 1)",
   easeInOut: "cubic-bezier(0.4, 0, 0.2, 1)",
   easeOutExpo: "cubic-bezier(0.16, 1, 0.3, 1)",

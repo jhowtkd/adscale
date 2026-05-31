@@ -83,13 +83,13 @@ export const staggerItem: Variants = {
 }
 
 /** Modal enter/exit */
-export const modalOverlay: Variants = {
+const modalOverlay: Variants = {
   hidden: { opacity: 0 },
   visible: { opacity: 1, transition: { duration: durations.fast } },
   exit: { opacity: 0, transition: { duration: durations.fast } },
 }
 
-export const modalContent: Variants = {
+const modalContent: Variants = {
   hidden: { opacity: 0, scale: 0.95, y: 8 },
   visible: {
     opacity: 1,
@@ -106,7 +106,7 @@ export const modalContent: Variants = {
 }
 
 /** Toast notification */
-export const toastSlideIn: Variants = {
+const toastSlideIn: Variants = {
   hidden: { opacity: 0, x: 100, scale: 0.95 },
   visible: {
     opacity: 1,
@@ -123,7 +123,7 @@ export const toastSlideIn: Variants = {
 }
 
 /** Error shake animation */
-export const shake: Variants = {
+const shake: Variants = {
   hidden: { x: 0 },
   visible: {
     x: [0, -8, 8, -8, 8, 0],

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { Sparkles, Check, X, Plus, ImageOff, ScanLine } from "lucide-react";
+import { useReducer } from "react";
+import { Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
@@ -15,15 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Campaign } from "@/lib/mock-data";
-import type { AdPlatform } from "@/lib/mock-data";
-import { platformColors } from "@/lib/mock-data";
 import { useBriefingAutoSave } from "@/lib/hooks/use-briefing-autosave";
-import {
-  useGenerateCreativeDiagnosis,
-  useUpdateCreativeDiagnosis,
-  useRegenerateCreativeDiagnosis,
-} from "@/lib/hooks/use-creative-diagnosis";
-import { useCampaignAssets } from "@/lib/hooks/use-assets";
 import dynamic from "next/dynamic";
 
 const AutoBriefingModal = dynamic(() => import("./AutoBriefingModal"), {
@@ -31,12 +23,7 @@ const AutoBriefingModal = dynamic(() => import("./AutoBriefingModal"), {
   ssr: false,
 });
 
-import PreflightSummary from "./PreflightSummary";
-import CreativeDiagnosisCard from "./CreativeDiagnosisCard";
 import BriefingRestoreBanner from "./BriefingRestoreBanner";
-import { CreativeUploadWithAnalysis } from "@/components/campaigns/CreativeUploadWithAnalysis";
-import { AIDeducedFieldsEditor } from "@/components/campaigns/AIDeducedFieldsEditor";
-import type { AiDeducedFields } from "@/server/validation/ai-deduction";
 // Types
 
 export interface BriefingFormData {
@@ -54,122 +41,65 @@ interface BriefingStepProps {
   onSaveDraft: (data: BriefingFormData) => void;
 }
 
+interface BriefingState {
+  formData: BriefingFormData;
+  showNotes: boolean;
+  errors: Partial<Record<keyof BriefingFormData, string>>;
+  autoBriefingOpen: boolean;
+  restoreBannerDismissed: boolean;
+}
+
+function briefingReducer(
+  state: BriefingState,
+  payload: Partial<BriefingState>
+): BriefingState {
+  return { ...state, ...payload };
+}
+
 // Component
 
 export default function BriefingStep({ campaign, onContinue, onSaveDraft }: BriefingStepProps) {
   const tCampaign = useTranslations("campaign");
   const tBriefing = useTranslations("briefing");
   const tErrors = useTranslations("errors");
-  const [formData, setFormData] = useState<BriefingFormData>({
-    name: campaign?.name || "",
-    client: campaign?.client || "",
-    objective: campaign?.objective || "",
-    audience: campaign?.audience || "",
-    constraints: campaign?.constraints || "",
-    notes: campaign?.notes || "",
+  const [state, updateState] = useReducer(briefingReducer, {
+    formData: {
+      name: campaign?.name || "",
+      client: campaign?.client || "",
+      objective: campaign?.objective || "",
+      audience: campaign?.audience || "",
+      constraints: campaign?.constraints || "",
+      notes: campaign?.notes || "",
+    },
+    showNotes: Boolean(campaign?.notes),
+    errors: {},
+    autoBriefingOpen: false,
+    restoreBannerDismissed: false,
   });
-
-  const [showNotes, setShowNotes] = useState(Boolean(campaign?.notes));
-  const [errors, setErrors] = useState<Partial<Record<keyof BriefingFormData, string>>>({});
-  const [autoBriefingOpen, setAutoBriefingOpen] = useState(false);
-
-  const [editingDiagnosis, setEditingDiagnosis] = useState(false);
-  const [localDiagnosis, setLocalDiagnosis] = useState(() => {
-    const d = campaign?.creativeDiagnosis;
-    return {
-      detectedConcept: d?.detectedConcept ?? "",
-      elementsToPreserve: d?.elementsToPreserve?.join("\n") ?? "",
-      variationOpportunities: d?.variationOpportunities?.join("\n") ?? "",
-    };
-  });
-
-  // AI-deduced fields from creative analysis
-  const [aiDeducedFields, setAiDeducedFields] = useState<AiDeducedFields | null>(null);
-
-  const generateDiagnosis = useGenerateCreativeDiagnosis(campaign?.id ?? "");
-  const updateDiagnosis = useUpdateCreativeDiagnosis(campaign?.id ?? "");
-  const regenerateDiagnosis = useRegenerateCreativeDiagnosis(campaign?.id ?? "");
-  const { data: diagnosisAssets = [] } = useCampaignAssets(campaign?.id ?? "new");
-  const hasDiagnosisAsset = diagnosisAssets.length > 0;
+  const { formData, showNotes, errors, autoBriefingOpen, restoreBannerDismissed } = state;
 
   const campaignId = campaign?.id ?? "new";
   const autoSave = useBriefingAutoSave(campaignId, formData);
   const { clearDraft, hasDraft, isSaving, lastSavedAt, restoreDraft } = autoSave;
-  const [showRestoreBanner, setShowRestoreBanner] = useState(false);
-
-  // Show restore banner if there's a draft and we're on a new/empty campaign
-  useEffect(() => {
-    if (hasDraft && !campaign?.name && !campaign?.client) {
-      const draft = restoreDraft();
-      if (draft && (draft.name.trim() || draft.client.trim())) {
-        requestAnimationFrame(() => setShowRestoreBanner(true));
-      }
-    }
-  }, [hasDraft, campaign?.name, campaign?.client, restoreDraft]);
+  const showRestoreBanner = hasDraft && !campaign?.name && !campaign?.client && !restoreBannerDismissed;
 
   const updateField = <K extends keyof BriefingFormData>(field: K, value: BriefingFormData[K]) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    const nextFormData = { ...formData, [field]: value };
     if (errors[field]) {
-      setErrors((prev) => {
-        const next = { ...prev };
-        delete next[field];
-        return next;
-      });
+      const nextErrors = { ...errors };
+      delete nextErrors[field];
+      updateState({ formData: nextFormData, errors: nextErrors });
+      return;
     }
+    updateState({ formData: nextFormData });
   };
 
   const validate = (): boolean => {
     const newErrors: Partial<Record<keyof BriefingFormData, string>> = {};
     if (!formData.name.trim()) newErrors.name = tErrors("nameRequired");
     if (!formData.client.trim()) newErrors.client = tErrors("clientRequired");
-    setErrors(newErrors);
+    updateState({ errors: newErrors });
     return Object.keys(newErrors).length === 0;
-  };
-
-  const handleGenerateDiagnosis = () => {
-    if (!campaign?.id || !hasDiagnosisAsset) return;
-    generateDiagnosis.mutate(undefined, {
-      onSuccess: (data) => {
-        setLocalDiagnosis({
-          detectedConcept: data.diagnosis.detectedConcept,
-          elementsToPreserve: data.diagnosis.elementsToPreserve.join("\n"),
-          variationOpportunities: data.diagnosis.variationOpportunities.join("\n"),
-        });
-        setEditingDiagnosis(false);
-      },
-    });
-  };
-
-  const handleRegenerateDiagnosis = () => {
-    if (!campaign?.id || !hasDiagnosisAsset) return;
-    regenerateDiagnosis.mutate(undefined, {
-      onSuccess: (data) => {
-        setLocalDiagnosis({
-          detectedConcept: data.diagnosis.detectedConcept,
-          elementsToPreserve: data.diagnosis.elementsToPreserve.join("\n"),
-          variationOpportunities: data.diagnosis.variationOpportunities.join("\n"),
-        });
-        setEditingDiagnosis(false);
-      },
-    });
-  };
-
-  const handleSaveDiagnosisEdit = () => {
-    if (!campaign?.id) return;
-    const diagnosis = {
-      detectedConcept: localDiagnosis.detectedConcept.trim(),
-      elementsToPreserve: localDiagnosis.elementsToPreserve
-        .split("\n")
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0),
-      variationOpportunities: localDiagnosis.variationOpportunities
-        .split("\n")
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0),
-    };
-    updateDiagnosis.mutate(diagnosis, {
-      onSuccess: () => setEditingDiagnosis(false),
-    });
   };
 
   const handleContinue = () => {
@@ -187,15 +117,14 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
   const handleRestoreDraft = () => {
     const draft = restoreDraft();
     if (draft) {
-      setFormData(draft);
-      setShowNotes(Boolean(draft.notes));
+      updateState({ formData: draft, showNotes: Boolean(draft.notes) });
     }
-    setShowRestoreBanner(false);
+    updateState({ restoreBannerDismissed: true });
   };
 
   const handleDiscardDraft = () => {
     clearDraft();
-    setShowRestoreBanner(false);
+    updateState({ restoreBannerDismissed: true });
   };
 
   return (
@@ -208,9 +137,8 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
         />
       )}
 
-      <form
+      <div
         className="max-w-[720px] mx-auto space-y-5"
-        onSubmit={(e) => e.preventDefault()}
       >
         {/* ---- Campaign Info ---- */}
         <div  className="animate-fade-in">
@@ -327,7 +255,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
           <div  className="animate-fade-in" style={{ animationDelay: "700ms" }}>
             <button
               type="button"
-              onClick={() => setShowNotes(true)}
+              onClick={() => updateState({ showNotes: true })}
               className="text-sm text-[var(--accent-green)] hover:text-[var(--accent-green-light)] transition-colors"
             >
               + {tBriefing("addNotes")}
@@ -347,17 +275,19 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
             />
           </div>
         )}
-      </form>
+      </div>
 
       {/* ---- Auto Briefing Modal ---- */}
       {campaign?.id && campaign.id !== "new" && (
-        <AutoBriefingModal
-          open={autoBriefingOpen}
-          onOpenChange={setAutoBriefingOpen}
+          <AutoBriefingModal
+            open={autoBriefingOpen}
+            onOpenChange={(open) => updateState({ autoBriefingOpen: open })}
           campaignId={campaign.id}
           onApply={(partial) => {
-            setFormData((prev) => ({ ...prev, ...partial }));
-            if (partial.constraints) setShowNotes(true);
+            updateState({
+              formData: { ...formData, ...partial },
+              showNotes: partial.constraints ? true : showNotes,
+            });
           }}
         />
       )}

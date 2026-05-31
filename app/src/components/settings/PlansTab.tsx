@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { Check, Crown, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { brlCurrency, calculateForecast, planTiers } from "./pricing-model";
@@ -18,7 +18,7 @@ export default function PlansTab() {
   }
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25 }}
@@ -135,7 +135,7 @@ export default function PlansTab() {
           </table>
         </div>
       </section>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -152,8 +152,8 @@ function CompareRow({ label, values }: { label: string; values: string[] }) {
   return (
     <tr>
       <td className="py-3 pr-4 font-medium text-[var(--text-primary)]">{label}</td>
-      {values.map((value, index) => (
-        <td key={`${label}-${index}`} className="px-4 py-3 text-[var(--text-secondary)]">
+      {values.map((value) => (
+        <td key={`${label}-${value}`} className="px-4 py-3 text-[var(--text-secondary)]">
           {value}
         </td>
       ))}

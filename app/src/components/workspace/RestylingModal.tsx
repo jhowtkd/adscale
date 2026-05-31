@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useReducer, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -32,35 +32,55 @@ interface FormErrors {
   styleImage?: string;
 }
 
-export default function RestylingModal({ open, onOpenChange }: RestylingModalProps) {
-  const t = useTranslations("restyling");
-  const tCommon = useTranslations("common");
-  const tErrors = useTranslations("errors");
-  const router = useRouter();
+interface RestylingModalState {
+  form: RestylingForm;
+  baseImage: File | null;
+  styleImage: File | null;
+  errors: FormErrors;
+  isSubmitting: boolean;
+}
 
-  const [form, setForm] = useState<RestylingForm>({
+const initialRestylingModalState: RestylingModalState = {
+  form: {
     name: "",
     client: "",
     offer: "",
     ctaText: "",
     notes: "",
     styleIntensity: "medium",
-  });
-  const [baseImage, setBaseImage] = useState<File | null>(null);
-  const [styleImage, setStyleImage] = useState<File | null>(null);
-  const [errors, setErrors] = useState<FormErrors>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  },
+  baseImage: null,
+  styleImage: null,
+  errors: {},
+  isSubmitting: false,
+};
+
+function restylingModalReducer(
+  state: RestylingModalState,
+  payload: Partial<RestylingModalState>
+): RestylingModalState {
+  return { ...state, ...payload };
+}
+
+export default function RestylingModal({ open, onOpenChange }: RestylingModalProps) {
+  const t = useTranslations("restyling");
+  const tCommon = useTranslations("common");
+  const tErrors = useTranslations("errors");
+  const router = useRouter();
+
+  const [state, updateState] = useReducer(restylingModalReducer, initialRestylingModalState);
+  const { form, baseImage, styleImage, errors, isSubmitting } = state;
 
   const updateField = useCallback(<K extends keyof RestylingForm>(field: K, value: RestylingForm[K]) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
+    const nextForm = { ...form, [field]: value };
     if (errors[field as keyof FormErrors]) {
-      setErrors((prev) => {
-        const next = { ...prev };
-        delete next[field as keyof FormErrors];
-        return next;
-      });
+      const nextErrors = { ...errors };
+      delete nextErrors[field as keyof FormErrors];
+      updateState({ form: nextForm, errors: nextErrors });
+      return;
     }
-  }, [errors]);
+    updateState({ form: nextForm });
+  }, [errors, form]);
 
   const validate = useCallback((): boolean => {
     const newErrors: FormErrors = {};
@@ -73,7 +93,7 @@ export default function RestylingModal({ open, onOpenChange }: RestylingModalPro
     if (!styleImage) {
       newErrors.styleImage = t("styleImageRequired");
     }
-    setErrors(newErrors);
+    updateState({ errors: newErrors });
     return Object.keys(newErrors).length === 0;
   }, [form.name, baseImage, styleImage, tErrors, t]);
 
@@ -82,7 +102,7 @@ export default function RestylingModal({ open, onOpenChange }: RestylingModalPro
       e.preventDefault();
       if (!validate()) return;
 
-      setIsSubmitting(true);
+      updateState({ isSubmitting: true });
       const controller = new AbortController();
 
       try {
@@ -116,11 +136,11 @@ export default function RestylingModal({ open, onOpenChange }: RestylingModalPro
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") return;
         logger.error("[RestylingModal] submit error", { error: err instanceof Error ? err.message : String(err) });
-        setErrors({
+        updateState({ errors: {
           name: err instanceof Error ? err.message : "Submission failed",
-        });
+        } });
       } finally {
-        setIsSubmitting(false);
+        updateState({ isSubmitting: false });
       }
 
       return () => controller.abort();
@@ -130,15 +150,17 @@ export default function RestylingModal({ open, onOpenChange }: RestylingModalPro
 
   const handleBaseImageChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
-    setBaseImage(file);
-    if (errors.baseImage) setErrors((prev) => { const n = { ...prev }; delete n.baseImage; return n; });
-  }, [errors.baseImage]);
+    const nextErrors = { ...errors };
+    delete nextErrors.baseImage;
+    updateState({ baseImage: file, errors: nextErrors });
+  }, [errors]);
 
   const handleStyleImageChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
-    setStyleImage(file);
-    if (errors.styleImage) setErrors((prev) => { const n = { ...prev }; delete n.styleImage; return n; });
-  }, [errors.styleImage]);
+    const nextErrors = { ...errors };
+    delete nextErrors.styleImage;
+    updateState({ styleImage: file, errors: nextErrors });
+  }, [errors]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -317,7 +339,7 @@ function FilePicker({
         )}
       >
         <span className="flex items-start gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[var(--accent-green-dim)] text-[var(--accent-green)]">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-[var(--accent-green-dim)] text-[var(--accent-green)]">
             {file ? <ImageIcon size={18} /> : <UploadCloud size={18} />}
           </span>
           <span className="min-w-0">

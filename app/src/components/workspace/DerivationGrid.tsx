@@ -68,7 +68,7 @@ function DerivationCard({
 
 function AddNewCard({ onClick }: { onClick: () => void }) {
   return (
-    <button
+    <button type="button"
       onClick={onClick}
       className={cn(
         "group flex flex-col items-center justify-center rounded-xl border-2 border-dashed transition-all duration-200",

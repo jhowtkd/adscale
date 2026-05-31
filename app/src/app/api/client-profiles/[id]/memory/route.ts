@@ -10,8 +10,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { workspace } = await requireWorkspaceAccess(request);
-    const { id } = await params;
+    const [{ workspace }, { id }] = await Promise.all([
+      requireWorkspaceAccess(request),
+      params,
+    ]);
 
     const profile = await getClientProfile(workspace.id, id);
     if (!profile) {

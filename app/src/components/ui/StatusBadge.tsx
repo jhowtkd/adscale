@@ -87,7 +87,7 @@ export default function StatusBadge({
       {showDot && (
         <span
           className={cn(
-            "inline-block h-1.5 w-1.5 rounded-full",
+            "inline-block size-1.5 rounded-full",
             (status === "generating" || status === "processing" || status === "queued") && "animate-pulse-dot"
           )}
           style={{ backgroundColor: config.dotColor }}

@@ -36,7 +36,7 @@ interface OptionCardProps {
 
 function OptionCard({ icon, title, description, onClick }: OptionCardProps) {
   return (
-    <button
+    <button type="button"
       onClick={onClick}
       className={cn(
         "group flex flex-col items-center rounded-xl border bg-[var(--surface-base)] p-5 text-center transition-all duration-200",

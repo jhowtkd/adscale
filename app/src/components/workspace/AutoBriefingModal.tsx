@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import Image from "next/image";
+import { useCallback, useReducer } from "react";
 import { useTranslations } from "next-intl";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -29,7 +30,36 @@ interface AutoBriefingModalProps {
   }>) => void;
 }
 
+interface AutoBriefingState {
+  file: File | null;
+  preview: string | null;
+  error: string | null;
+  result: AutoBriefingResult | null;
+  selectedFields: Set<string>;
+}
+
+const initialAutoBriefingState: AutoBriefingState = {
+  file: null,
+  preview: null,
+  error: null,
+  result: null,
+  selectedFields: new Set(),
+};
+
+function autoBriefingReducer(
+  state: AutoBriefingState,
+  payload: Partial<AutoBriefingState>
+): AutoBriefingState {
+  return { ...state, ...payload };
+}
+
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+
+function confidenceColor(score: number) {
+  if (score >= 0.8) return "text-[var(--accent-teal)]";
+  if (score >= 0.5) return "text-[var(--accent-amber)]";
+  return "text-[var(--accent-rose)]";
+}
 
 export default function AutoBriefingModal({
   open,
@@ -39,31 +69,25 @@ export default function AutoBriefingModal({
 }: AutoBriefingModalProps) {
   const t = useTranslations("briefing");
   const tc = useTranslations("common");
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<AutoBriefingResult | null>(null);
-  const [selectedFields, setSelectedFields] = useState<Set<string>>(new Set());
+  const [state, updateState] = useReducer(autoBriefingReducer, initialAutoBriefingState);
+  const { file, preview, error, result, selectedFields } = state;
 
   const uploadAsset = useUploadAsset(campaignId);
   const autoBriefing = useAutoBriefing(campaignId);
 
   const validateAndSetFile = useCallback((f: File) => {
-    setError(null);
-    setResult(null);
-    setSelectedFields(new Set());
+    updateState({ error: null, result: null, selectedFields: new Set() });
 
     if (!f.type.startsWith("image/")) {
-      setError(t("invalidFileType"));
+      updateState({ error: t("invalidFileType") });
       return;
     }
     if (f.size > MAX_FILE_SIZE) {
-      setError(t("fileTooLarge", { max: "10MB" }));
+      updateState({ error: t("fileTooLarge", { max: "10MB" }) });
       return;
     }
 
-    setFile(f);
-    setPreview(URL.createObjectURL(f));
+    updateState({ file: f, preview: URL.createObjectURL(f) });
   }, [t]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -79,32 +103,28 @@ export default function AutoBriefingModal({
 
   const handleAnalyze = async () => {
     if (!file) return;
-    setError(null);
+    updateState({ error: null });
 
     try {
       const asset = await uploadAsset.mutateAsync({ file });
       const analysis = await autoBriefing.mutateAsync(asset.key);
-      setResult(analysis);
-
       // Auto-select fields with confidence >= 0.7
       const autoSelected = new Set<string>();
       if (analysis.confidence.client >= 0.7) autoSelected.add("client");
       if (analysis.confidence.offer >= 0.7) autoSelected.add("offer");
       if (analysis.confidence.ctaText >= 0.7) autoSelected.add("ctaText");
       if (analysis.confidence.audience >= 0.7) autoSelected.add("audience");
-      setSelectedFields(autoSelected);
+      updateState({ result: analysis, selectedFields: autoSelected });
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("analysisFailed"));
+      updateState({ error: err instanceof Error ? err.message : t("analysisFailed") });
     }
   };
 
   const toggleField = (field: string) => {
-    setSelectedFields((prev) => {
-      const next = new Set(prev);
-      if (next.has(field)) next.delete(field);
-      else next.add(field);
-      return next;
-    });
+    const next = new Set(selectedFields);
+    if (next.has(field)) next.delete(field);
+    else next.add(field);
+    updateState({ selectedFields: next });
   };
 
   const handleApply = () => {
@@ -131,21 +151,11 @@ export default function AutoBriefingModal({
 
   const handleClose = () => {
     if (preview) URL.revokeObjectURL(preview);
-    setFile(null);
-    setPreview(null);
-    setError(null);
-    setResult(null);
-    setSelectedFields(new Set());
+    updateState(initialAutoBriefingState);
     onOpenChange(false);
   };
 
   const isAnalyzing = uploadAsset.isPending || autoBriefing.isPending;
-
-  const confidenceColor = (score: number) => {
-    if (score >= 0.8) return "text-[var(--accent-teal)]";
-    if (score >= 0.5) return "text-[var(--accent-amber)]";
-    return "text-[var(--accent-rose)]";
-  };
 
   const confidenceLabel = (score: number) => {
     if (score >= 0.8) return t("highConfidence");
@@ -177,17 +187,20 @@ export default function AutoBriefingModal({
             >
               {preview ? (
                 <div className="relative inline-block">
-                  <img
+                  <Image
                     src={preview}
                     alt="Preview"
                     className="max-h-48 rounded-lg object-contain"
-                  />
-                  <button
-                    onClick={() => {
-                      setFile(null);
-                      setPreview(null);
-                    }}
-                    className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-[var(--accent-rose)] text-white flex items-center justify-center"
+                  
+        width={800}
+        height={800}
+        unoptimized
+      />
+                  <button type="button"
+	                    onClick={() => {
+	                      updateState({ file: null, preview: null });
+	                    }}
+                    className="absolute -top-2 -right-2 size-6 rounded-full bg-[var(--accent-rose)] text-white flex items-center justify-center"
                   >
                     <X size={14} />
                   </button>
@@ -202,7 +215,7 @@ export default function AutoBriefingModal({
                     {t("dropzoneText")}
                   </p>
                   <p className="text-xs text-[var(--text-muted)]">
-                    PNG, JPEG, WebP — {t("maxSize", { size: "10MB" })}
+                    PNG, JPEG, WebP, {t("maxSize", { size: "10MB" })}
                   </p>
                 </>
               )}
@@ -256,11 +269,15 @@ export default function AutoBriefingModal({
         {result && (
           <div className="space-y-4">
             {preview && (
-              <img
+              <Image
                 src={preview}
                 alt="Analyzed"
                 className="max-h-32 rounded-lg object-contain mx-auto"
-              />
+              
+        width={800}
+        height={800}
+        unoptimized
+      />
             )}
 
             <p className="text-sm text-[var(--text-secondary)]">
@@ -274,7 +291,7 @@ export default function AutoBriefingModal({
                 const isSelected = selectedFields.has(key);
 
                 return (
-                  <button
+                  <button type="button"
                     key={key}
                     onClick={() => toggleField(key)}
                     className={cn(
@@ -287,7 +304,7 @@ export default function AutoBriefingModal({
                   >
                     <div
                       className={cn(
-                        "mt-0.5 w-5 h-5 rounded flex items-center justify-center flex-shrink-0 transition-colors",
+                        "mt-0.5 size-5 rounded flex items-center justify-center flex-shrink-0 transition-colors",
                         isSelected
                           ? "bg-[var(--accent-green)] text-white"
                           : "border-2 border-[var(--border-medium)]"

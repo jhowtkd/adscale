@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useState, useRef } from "react";
 import { Upload, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -110,7 +111,7 @@ export function RestylingUpload({
     [handleFile]
   );
 
-  const handleClick = useCallback(() => {
+  const openFilePicker = useCallback(() => {
     inputRef.current?.click();
   }, []);
 
@@ -140,12 +141,16 @@ export function RestylingUpload({
       {value ? (
         <div className="relative rounded-xl border border-[var(--border-dim)] bg-[var(--surface-raised)] overflow-hidden animate-fade-in transition-all duration-250">
           <div className="flex items-center gap-4 p-4">
-            <div className="w-16 h-16 rounded-lg overflow-hidden bg-[var(--neutral)] flex-shrink-0">
-              <img
+            <div className="size-16 rounded-lg overflow-hidden bg-[var(--neutral)] flex-shrink-0">
+              <Image
                 src={URL.createObjectURL(value)}
                 alt={value.name}
-                className="w-full h-full object-cover"
-              />
+                className="size-full object-cover"
+              
+        width={800}
+        height={800}
+        unoptimized
+      />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-[var(--text-primary)] truncate">
@@ -155,9 +160,9 @@ export function RestylingUpload({
                 {formatFileSize(value.size)}
               </p>
             </div>
-            <button
+            <button type="button"
               onClick={handleRemove}
-              className="inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-[var(--surface-base)] transition-colors duration-200"
+              className="inline-flex items-center justify-center size-8 rounded-lg hover:bg-[var(--surface-base)] transition-colors duration-200"
             >
               <X size={18} className="text-[var(--text-muted)]" />
             </button>
@@ -165,8 +170,17 @@ export function RestylingUpload({
         </div>
       ) : (
         <div className="animate-fade-in transition-all duration-250">
-          <div
-            onClick={handleClick}
+          <input
+            ref={inputRef}
+            type="file"
+            aria-label="Upload creative file"
+            accept={accept || ACCEPTED_TYPES.join(",")}
+            onChange={handleInputChange}
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={openFilePicker}
             onDragEnter={handleDragEnter}
             onDragLeave={handleDragLeave}
             onDragOver={handleDragOver}
@@ -180,14 +194,6 @@ export function RestylingUpload({
                 : "border-[var(--border-medium)] bg-[var(--surface-raised)] hover:border-[var(--accent-green)] hover:bg-[var(--accent-green-dim)]"
             )}
           >
-            <input
-              ref={inputRef}
-              type="file"
-              accept={accept || ACCEPTED_TYPES.join(",")}
-              onChange={handleInputChange}
-              className="hidden"
-            />
-
             <div className="mb-3">
               <Upload
                 size={32}
@@ -217,11 +223,10 @@ export function RestylingUpload({
                 </span>
               </div>
             )}
-          </div>
+          </button>
         </div>
       )}
     </div>
   );
 }
 
-export default RestylingUpload;

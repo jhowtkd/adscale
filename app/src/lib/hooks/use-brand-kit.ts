@@ -173,8 +173,12 @@ export function useUpdateBrandKit() {
 }
 
 export function useExtractBrandKit() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: extractBrandKit,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: getBrandKitQueryKey() });
+    },
   });
 }
 

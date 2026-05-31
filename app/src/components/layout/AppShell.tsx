@@ -31,7 +31,7 @@ export default function AppShell({ children }: AppShellProps) {
 
       {/* Bottom Navigation - Mobile */}
       <nav
-        className="fixed bottom-0 left-0 right-0 z-50 grid grid-cols-4 border-t border-[var(--border-dim)] bg-[var(--surface-base)]/95 px-2 py-2 backdrop-blur md:hidden"
+        className="fixed bottom-0 left-0 right-0 z-50 grid grid-cols-4 border-t border-[var(--border-dim)] bg-[var(--surface-base)]/95 p-2 backdrop-blur md:hidden"
         aria-label="Primary mobile navigation"
       >
         <MobileNavItem

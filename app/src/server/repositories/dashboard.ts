@@ -71,10 +71,12 @@ export async function getDashboardStats(
   workspaceId: string,
   period: AnalyticsPeriod = "month"
 ): Promise<DashboardStats> {
-  const campaigns = await getCampaignsByWorkspace(workspaceId);
-  const derivations = await getDerivationsByWorkspace(workspaceId);
-  const creditGrants = await getAvailableCreditGrants(workspaceId);
-  const subscription = await getActiveSubscriptionByWorkspace(workspaceId);
+  const [campaigns, derivations, creditGrants, subscription] = await Promise.all([
+    getCampaignsByWorkspace(workspaceId),
+    getDerivationsByWorkspace(workspaceId),
+    getAvailableCreditGrants(workspaceId),
+    getActiveSubscriptionByWorkspace(workspaceId),
+  ]);
 
   const creditBalance = creditGrants.reduce((sum, grant) => sum + grant.remaining, 0);
   const creditsTotal = creditGrants.reduce((sum, grant) => sum + grant.amount, 0);

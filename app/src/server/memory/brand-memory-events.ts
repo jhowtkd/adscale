@@ -51,9 +51,11 @@ export function sanitizeBrandMemoryPayload(value: unknown, depth = 0): unknown {
   if (!isPlainObject(value)) return String(value);
 
   return Object.fromEntries(
-    Object.entries(value)
-      .filter(([key]) => !SECRET_FIELD_PATTERN.test(key))
-      .map(([key, nestedValue]) => [key, sanitizeBrandMemoryPayload(nestedValue, depth + 1)])
+    Object.entries(value).flatMap(([key, nestedValue]) =>
+      SECRET_FIELD_PATTERN.test(key)
+        ? []
+        : [[key, sanitizeBrandMemoryPayload(nestedValue, depth + 1)]]
+    )
   );
 }
 
@@ -120,4 +122,3 @@ export function prepareBrandMemoryEvent(
     }),
   };
 }
-

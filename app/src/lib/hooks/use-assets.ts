@@ -21,6 +21,7 @@ interface UploadAssetInput {
   file: File;
   width?: number;
   height?: number;
+  role?: string;
   onProgress?: (progress: number) => void;
 }
 
@@ -29,12 +30,14 @@ async function uploadAssetToBackend(
   file: File,
   width?: number,
   height?: number,
+  role?: string,
   onProgress?: (progress: number) => void
 ): Promise<Asset> {
   const formData = new FormData();
   formData.append("file", file);
   if (width !== undefined) formData.append("width", String(width));
   if (height !== undefined) formData.append("height", String(height));
+  if (role !== undefined) formData.append("role", role);
 
   const res = await new Promise<Response>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
@@ -91,8 +94,8 @@ async function fetchCampaignAssets(campaignId: string): Promise<AssetWithUrl[]> 
 export function useUploadAsset(campaignId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ file, width, height, onProgress }: UploadAssetInput) => {
-      return uploadAssetToBackend(campaignId, file, width, height, onProgress);
+    mutationFn: async ({ file, width, height, role, onProgress }: UploadAssetInput) => {
+      return uploadAssetToBackend(campaignId, file, width, height, role, onProgress);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId] });

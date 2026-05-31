@@ -14,10 +14,14 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { user, workspace } = await requireWorkspaceAccess(request);
-    const locale = await getUserLocale(user.id);
-    const { id } = await params;
-    const derivation = await getDerivationById(id, workspace.id);
+    const [{ user, workspace }, { id }] = await Promise.all([
+      requireWorkspaceAccess(request),
+      params,
+    ]);
+    const [locale, derivation] = await Promise.all([
+      getUserLocale(user.id),
+      getDerivationById(id, workspace.id),
+    ]);
 
     if (!derivation) return apiError("derivationNotFound", 404);
     if (derivation.status !== "approved") return apiError("derivationNotApprovedForQa", 409);

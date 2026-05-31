@@ -1,4 +1,4 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 
 export interface AutoBriefingResult {
@@ -20,6 +20,7 @@ export interface AutoBriefingResult {
 }
 
 export function useAutoBriefing(campaignId: string) {
+  const queryClient = useQueryClient();
   return useMutation<AutoBriefingResult, Error, string>({
     mutationFn: async (imageKey: string) => {
       const res = await apiFetch(`/api/campaigns/${campaignId}/auto-briefing`, {
@@ -31,6 +32,9 @@ export function useAutoBriefing(campaignId: string) {
         throw new Error(err.error || "Auto-briefing analysis failed");
       }
       return res.json() as Promise<AutoBriefingResult>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["campaign", campaignId] });
     },
   });
 }

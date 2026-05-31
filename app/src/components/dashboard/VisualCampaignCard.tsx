@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import React, { useState, useMemo, memo } from "react";
 import { cn } from "@/lib/utils";
@@ -98,7 +99,7 @@ function ThumbnailPlaceholder({ name }: { name: string }) {
       }}
     >
       <div className="relative z-10">
-        <div className="w-20 h-20 rounded-xl bg-[var(--deep-bg)] border-[3px] border-[var(--accent-green)]/40 flex items-center justify-center shadow-[0_0_30px_var(--accent-green-dim)]">
+        <div className="size-20 rounded-xl bg-[var(--deep-bg)] border-[3px] border-[var(--accent-green)]/40 flex items-center justify-center shadow-[0_0_30px_var(--accent-green-dim)]">
           <span 
             className="text-3xl font-black text-[var(--accent-green)] tracking-wider" 
             style={{ fontFamily: '"Press Start 2P", cursive' }}
@@ -164,18 +165,22 @@ const VisualCampaignCard = memo(function VisualCampaignCard({
         <div className="relative aspect-[4/3] overflow-hidden bg-[var(--surface-raised)]">
           {thumbnailUrl && !imageError ? (
             <>
-              <img
+              <Image
                 src={thumbnailUrl}
                 alt={t("thumbnailAlt", { name })}
                 loading="lazy"
                 decoding="async"
                 className={cn(
-                  "w-full h-full object-cover transition-transform duration-500 group-hover:scale-110",
+                  "size-full object-cover transition-transform duration-500 group-hover:scale-110",
                   !imageLoaded && "opacity-0"
                 )}
                 onLoad={() => setImageLoaded(true)}
                 onError={() => setImageError(true)}
-              />
+              
+        width={800}
+        height={800}
+        unoptimized
+      />
               {!imageLoaded && (
                 <div className="absolute inset-0 animate-pulse bg-[var(--surface-raised)]" />
               )}
@@ -193,7 +198,7 @@ const VisualCampaignCard = memo(function VisualCampaignCard({
               statusInfo.text,
               statusInfo.border
             )}>
-              <span className={cn("w-2 h-2 rounded-full", statusInfo.dot)} />
+              <span className={cn("size-2 rounded-full", statusInfo.dot)} />
               {statusInfo.label}
             </div>
           </div>
@@ -206,23 +211,23 @@ const VisualCampaignCard = memo(function VisualCampaignCard({
             className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center gap-3"
             aria-hidden="true"
           >
-            <button
+            <button type="button"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
               }}
-              className="w-10 h-10 rounded-xl bg-[var(--accent-green)]/20 backdrop-blur-md border-2 border-[var(--accent-green)]/40 flex items-center justify-center text-[var(--accent-green)] hover:bg-[var(--accent-green)]/30 hover:border-[var(--accent-green)]/60 transition-all hover:scale-110"
+              className="size-10 rounded-xl bg-[var(--accent-green)]/20 backdrop-blur-md border-2 border-[var(--accent-green)]/40 flex items-center justify-center text-[var(--accent-green)] hover:bg-[var(--accent-green)]/30 hover:border-[var(--accent-green)]/60 transition-all hover:scale-110"
               aria-label={t("editCampaign")}
               tabIndex={-1}
             >
               <Edit2 size={16} aria-hidden="true" />
             </button>
-            <button
+            <button type="button"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
               }}
-              className="w-10 h-10 rounded-xl bg-[var(--accent-green)]/20 backdrop-blur-md border-2 border-[var(--accent-green)]/40 flex items-center justify-center text-[var(--accent-green)] hover:bg-[var(--accent-green)]/30 hover:border-[var(--accent-green)]/60 transition-all hover:scale-110"
+              className="size-10 rounded-xl bg-[var(--accent-green)]/20 backdrop-blur-md border-2 border-[var(--accent-green)]/40 flex items-center justify-center text-[var(--accent-green)] hover:bg-[var(--accent-green)]/30 hover:border-[var(--accent-green)]/60 transition-all hover:scale-110"
               aria-label={t("duplicateCampaign")}
               tabIndex={-1}
             >
@@ -281,9 +286,9 @@ const VisualCampaignCard = memo(function VisualCampaignCard({
       <div className="absolute bottom-5 right-5 opacity-0 group-hover:opacity-100 transition-all duration-300">
         <DropdownMenu>
           <DropdownMenuTrigger>
-            <button
+            <button type="button"
               onClick={(e) => e.stopPropagation()}
-              className="w-9 h-9 rounded-xl bg-[var(--surface-base)] border-2 border-[var(--border-dim)] flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--accent-green)] hover:border-[var(--accent-green)]/40 transition-all hover:scale-110"
+              className="size-9 rounded-xl bg-[var(--surface-base)] border-2 border-[var(--border-dim)] flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--accent-green)] hover:border-[var(--accent-green)]/40 transition-all hover:scale-110"
               aria-label={t("moreActions")}
             >
               <MoreHorizontal size={16} aria-hidden="true" />

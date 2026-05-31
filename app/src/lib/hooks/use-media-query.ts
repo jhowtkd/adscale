@@ -7,7 +7,7 @@ import { useState, useEffect } from "react"
  * @param query - CSS media query string (e.g. "(max-width: 768px)")
  * @returns boolean indicating if media query matches
  */
-export function useMediaQuery(query: string): boolean {
+function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState(false)
 
   useEffect(() => {
@@ -28,7 +28,7 @@ export function useMediaQuery(query: string): boolean {
 }
 
 /** Predefined breakpoints matching Tailwind defaults */
-export const breakpoints = {
+const breakpoints = {
   sm: "(min-width: 640px)",
   md: "(min-width: 768px)",
   lg: "(min-width: 1024px)",
@@ -42,11 +42,11 @@ export function useIsMobile(): boolean {
 }
 
 /** Hook for tablet breakpoint (768px - 1023px) */
-export function useIsTablet(): boolean {
+function useIsTablet(): boolean {
   return useMediaQuery("(min-width: 768px) and (max-width: 1023px)")
 }
 
 /** Hook for desktop breakpoint (>= 1024px) */
-export function useIsDesktop(): boolean {
+function useIsDesktop(): boolean {
   return useMediaQuery("(min-width: 1024px)")
 }

@@ -7,7 +7,7 @@ import type { Derivation, AdPlatform, CampaignStatus } from "@/lib/mock-data";
 import { useAppStore } from "@/lib/store";
 import { useCampaign, useUpdateCampaign, useCreateCampaign } from "@/lib/hooks/use-campaigns";
 import { useDeleteCampaign } from "@/lib/hooks/use-campaigns";
-import { useDerivations, useCreateDerivations } from "@/lib/hooks/use-derivations";
+import { useDerivations, useCreateDerivations, useRestyleCampaign } from "@/lib/hooks/use-derivations";
 import { useRegenerateDerivation } from "@/lib/hooks/use-regenerate";
 import { useExport } from "@/lib/hooks/use-export";
 import { useReviewDerivation } from "@/lib/hooks/use-review";
@@ -47,6 +47,7 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
     enablePolling: enableDerivationsPolling,
   });
   const createDerivations = useCreateDerivations(campaignId);
+  const restyleCampaign = useRestyleCampaign(campaignId);
 
   useEffect(() => {
     const hasActive = derivationsData?.some(
@@ -84,6 +85,7 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
         creativeLevel: realCampaign.creativeLevel,
         ctaVariants: realCampaign.ctaVariants,
         targetFormats: realCampaign.targetFormats,
+        styleIntensity: realCampaign.styleIntensity,
         creativeDiagnosisStatus: realCampaign.creativeDiagnosisStatus,
         creativeDiagnosis: realCampaign.creativeDiagnosis,
         creativeDiagnosisSource: realCampaign.creativeDiagnosisSource,
@@ -114,13 +116,14 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
 
   // Workspace state
   const [workspaceState, setWorkspaceState] = useState<WorkspaceState>("piloto");
-
-  useEffect(() => {
-    if (isLoading || isNew) return;
-    if (derivationsData && derivationsData.length > 0 && workspaceState === "piloto") {
-      setWorkspaceState("acoes");
-    }
-  }, [isLoading, isNew, derivationsData, workspaceState]);
+  const visibleWorkspaceState =
+    !isLoading &&
+    !isNew &&
+    derivationsData &&
+    derivationsData.length > 0 &&
+    workspaceState === "piloto"
+      ? "acoes"
+      : workspaceState;
 
   const goToActions = useCallback(() => setWorkspaceState("acoes"), []);
   const goToDerivation = useCallback(() => setWorkspaceState("derivando"), []);
@@ -214,6 +217,48 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
     [createDerivations, campaign, isNew, updateCampaign, addToast, tc]
   );
 
+  const configureAndGenerate = useCallback(
+    async (config: {
+      generationMode: "art_variation" | "format_adaptation";
+      ctaVariants?: string[];
+      targetFormats?: string[];
+      creativeLevel?: string;
+    }) => {
+      if (!campaign || isNew) return;
+
+      try {
+        await updateCampaign.mutateAsync({
+          generationMode: config.generationMode,
+          ...(config.ctaVariants && { ctaVariants: config.ctaVariants }),
+          ...(config.targetFormats && { targetFormats: config.targetFormats }),
+          ...(config.creativeLevel && { creativeLevel: config.creativeLevel as "conservative" | "balanced" | "bold" | "extreme" }),
+        });
+        handleGenerateDerivations();
+      } catch {
+        addToast("error", tc("failedQueueDerivations"));
+      }
+    },
+    [campaign, isNew, updateCampaign, handleGenerateDerivations, addToast, tc]
+  );
+
+  const handleRestyle = useCallback(
+    async (input: { styleAssetIds?: string[]; styleIntensity?: string }) => {
+      if (!campaign || isNew) return;
+      if (restyleCampaign.isPending) return;
+
+      restyleCampaign.mutate(input, {
+        onSuccess: () => {
+          addToast("success", tc("derivationsQueued"));
+          setWorkspaceState("gerando");
+        },
+        onError: () => {
+          addToast("error", tc("failedQueueDerivations"));
+        },
+      });
+    },
+    [restyleCampaign, campaign, isNew, addToast, tc]
+  );
+
   const handleGenerateLandingPage = useCallback(
     (id: string) => generateLandingPage.mutate({ derivationId: id }),
     [generateLandingPage]
@@ -226,9 +271,7 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
     [addToast]
   );
 
-  const hasActivePreview = useMemo(() => {
-    return false;
-  }, [allDerivations]);
+  const hasActivePreview = false;
 
   const handlePreview = useCallback(() => addToast("info", tc("openingComparison")), [addToast, tc]);
 
@@ -330,7 +373,7 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
     isError,
     allDerivations,
     approvedDerivation,
-    workspaceState,
+    workspaceState: visibleWorkspaceState,
     savingReferenceId,
     deliveryModalOpen,
     selectedDeliverySource,
@@ -341,6 +384,8 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
     goToGenerating,
     savePilot,
     handleGenerateDerivations,
+    configureAndGenerate,
+    handleRestyle,
     handleGenerateLandingPage,
     handleSaveAsReference,
     hasActivePreview,
@@ -368,6 +413,7 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
     landingPagePending: generateLandingPage.isPending,
     landingPageVariables: generateLandingPage.variables,
     createDerivationsPending: createDerivations.isPending,
+    restylePending: restyleCampaign.isPending,
     exportPending: exportMutation.isPending,
     deliveryPackagePending: createDeliveryPackage.isPending,
     planData,

@@ -24,8 +24,10 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { workspace } = await requireWorkspaceAccess(request);
-    const { id } = await params;
+    const [{ workspace }, { id }] = await Promise.all([
+      requireWorkspaceAccess(request),
+      params,
+    ]);
 
     const derivation = await getDerivationById(id, workspace.id);
     if (!derivation) {
@@ -98,15 +100,16 @@ export async function POST(
       const htmlKey = `landing-pages/${workspace.id}/${derivation.id}/${Date.now()}.html`;
       await uploadBuffer(htmlKey, Buffer.from(html, "utf-8"), "text/html");
 
-      const completed = await completeLandingPage({
-        id: landingPage.id,
-        workspaceId: workspace.id,
-        title: structure.title,
-        structure,
-        htmlKey,
-      });
-
-      const downloadUrl = await getPresignedDownloadUrl(htmlKey);
+      const [completed, downloadUrl] = await Promise.all([
+        completeLandingPage({
+          id: landingPage.id,
+          workspaceId: workspace.id,
+          title: structure.title,
+          structure,
+          htmlKey,
+        }),
+        getPresignedDownloadUrl(htmlKey),
+      ]);
       const expiresAt = new Date(Date.now() + 300 * 1000).toISOString();
 
       return NextResponse.json({

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { type LucideIcon, ChevronRight } from "lucide-react";
 import { FadeIn } from "@/components/animations/FadeIn";
@@ -36,7 +37,7 @@ export default function EmptyState({
         {action.label}
       </Link>
     ) : (
-      <button
+      <button type="button"
         onClick={action.onClick}
         className="inline-flex items-center justify-center rounded-lg px-4 py-2 text-[13px] font-medium transition-all duration-300 bg-[var(--accent-green)] text-[var(--ink)] hover:bg-[var(--accent-green-light)] active:scale-[0.98]"
       >
@@ -51,9 +52,13 @@ export default function EmptyState({
         {/* Icon or Image */}
         <div className="mb-5">
           {image ? (
-            <img src={image} alt={title} className="w-48 h-48 object-contain" />
+            <Image src={image} alt={title} className="size-48 object-contain" 
+        width={800}
+        height={800}
+        unoptimized
+      />
           ) : Icon ? (
-            <div className="w-16 h-16 rounded-2xl glass-card flex items-center justify-center">
+            <div className="size-16 rounded-2xl glass-card flex items-center justify-center">
               <Icon size={32} className="text-[var(--accent-green)]" strokeWidth={1.5} />
             </div>
           ) : null}
@@ -73,9 +78,9 @@ export default function EmptyState({
         {steps && steps.length > 0 && (
           <div className="flex items-center justify-center flex-wrap gap-2 mb-6">
             {steps.map((step, index) => (
-              <div key={index} className="flex items-center gap-2">
+              <div key={step} className="flex items-center gap-2">
                 <div className="flex items-center gap-1.5">
-                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[var(--accent-green-dim)] text-[var(--accent-green)] text-[10px] font-semibold">
+                  <span className="inline-flex items-center justify-center size-5 rounded-full bg-[var(--accent-green-dim)] text-[var(--accent-green)] text-[10px] font-semibold">
                     {index + 1}
                   </span>
                   <span className="text-xs text-[var(--text-secondary)]">

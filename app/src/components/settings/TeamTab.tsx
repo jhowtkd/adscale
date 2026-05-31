@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { UserPlus, Edit, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";
@@ -121,14 +121,14 @@ export default function TeamTab() {
   };
 
   return (
-    <motion.div
+    <m.div
       variants={containerVariants}
       initial="hidden"
       animate="show"
       className="max-w-[720px] space-y-8"
     >
       {/* Header */}
-      <motion.div variants={itemVariants} className="flex items-center justify-between">
+      <m.div variants={itemVariants} className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h3 className="text-[15px] font-semibold text-[var(--text-primary)]">
             {t("teamMembers")}
@@ -137,7 +137,7 @@ export default function TeamTab() {
             {t("membersCount", { count: members.length })}
           </span>
         </div>
-        <button
+        <button type="button"
           onClick={() => {
             const el = document.getElementById("invite-section");
             el?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -152,7 +152,7 @@ export default function TeamTab() {
           <UserPlus size={16} />
           <span>{t("invite")}</span>
         </button>
-      </motion.div>
+      </m.div>
 
       {/* Loading State */}
       {isLoading && (
@@ -162,7 +162,7 @@ export default function TeamTab() {
               key={i}
               className="flex items-center gap-4 py-3 px-4 rounded-lg bg-[var(--surface-base)] border border-[var(--border-dim)]"
             >
-              <Skeleton className="w-9 h-9 rounded-full flex-shrink-0" />
+              <Skeleton className="size-9 rounded-full flex-shrink-0" />
               <div className="flex-1 space-y-2">
                 <Skeleton className="h-4 w-1/3" />
                 <Skeleton className="h-3 w-1/2" />
@@ -176,19 +176,19 @@ export default function TeamTab() {
 
       {/* Error State */}
       {isError && !isLoading && (
-        <motion.div
+        <m.div
           variants={itemVariants}
           className="rounded-lg border border-[var(--accent-rose)]/30 bg-[var(--accent-rose)]/10 px-4 py-3 text-sm text-[var(--accent-rose)]"
         >
           {error?.message || tc("error")}
-        </motion.div>
+        </m.div>
       )}
 
       {/* Members List */}
       {!isLoading && !isError && (
         <div className="space-y-2">
           {members.map((member, index) => (
-            <motion.div
+            <m.div
               key={member.id}
               variants={itemVariants}
               initial={{ opacity: 0, x: -10 }}
@@ -203,7 +203,7 @@ export default function TeamTab() {
               {/* Avatar */}
               <div
                 className={cn(
-                  "w-9 h-9 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0",
+                  "size-9 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0",
                   member.status === "Pending"
                     ? "bg-[var(--border-dim)] text-[var(--text-muted)]"
                     : "bg-[var(--accent-blue-dim)] text-[var(--accent-blue-light)]"
@@ -248,13 +248,13 @@ export default function TeamTab() {
               {/* Actions */}
               {member.role !== "Owner" && (
                 <div className="flex items-center gap-1 flex-shrink-0">
-                  <button
+                  <button type="button"
                     onClick={() => addToast("info", tc("roleManagementComingSoon"))}
                     className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-all"
                   >
                     <Edit size={14} />
                   </button>
-                  <button
+                  <button type="button"
                     onClick={() => handleRemove(member)}
                     disabled={removeMember.isPending}
                     className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--accent-rose)] hover:bg-[var(--surface-raised)] transition-all disabled:opacity-50"
@@ -263,13 +263,13 @@ export default function TeamTab() {
                   </button>
                 </div>
               )}
-            </motion.div>
+            </m.div>
           ))}
         </div>
       )}
 
       {/* Invite Section */}
-      <motion.div
+      <m.div
         id="invite-section"
         variants={itemVariants}
         className={cn(
@@ -321,7 +321,7 @@ export default function TeamTab() {
               <option value="Viewer">{t("roleViewer")}</option>
             </select>
           </div>
-          <button
+          <button type="button"
             onClick={handleSendInvite}
             disabled={inviteMember.isPending}
             className={cn(
@@ -338,7 +338,7 @@ export default function TeamTab() {
         <p className="mt-2 text-xs text-[var(--text-muted)]">
           {t("inviteEmailNote")}
         </p>
-      </motion.div>
-    </motion.div>
+      </m.div>
+    </m.div>
   );
 }

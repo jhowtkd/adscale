@@ -7,7 +7,7 @@ import { env } from "@/server/validation/env";
 // Zod Schema
 // ============================================
 
-export const preflightDimensionSchema = z.object({
+const preflightDimensionSchema = z.object({
   score: z.number().min(0).max(100),
   suggestion: z.string(),
 });

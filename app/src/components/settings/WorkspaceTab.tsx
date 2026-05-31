@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { motion } from "framer-motion";
+import { useReducer, useEffect, useRef } from "react";
+import { m } from "framer-motion";
 import { Check, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";
@@ -20,6 +20,23 @@ const itemVariants = {
   show: { opacity: 1, y: 0, transition: { duration: 0.3 } },
 };
 
+interface WorkspaceFormState {
+  name: string;
+  slug: string;
+  description: string;
+  industry: string;
+  website: string;
+  timezone: string;
+  saveState: "idle" | "saving" | "saved";
+}
+
+function workspaceFormReducer(
+  state: WorkspaceFormState,
+  payload: Partial<WorkspaceFormState>
+): WorkspaceFormState {
+  return { ...state, ...payload };
+}
+
 // ============================================
 // Workspace Tab
 // ============================================
@@ -31,18 +48,22 @@ export default function WorkspaceTab() {
   const t = useTranslations("settings");
   const tc = useTranslations("common");
 
-  const [name, setName] = useState(workspaceSettings.name);
-  const [slug, setSlug] = useState(workspaceSettings.slug);
-  const [description, setDescription] = useState(workspaceSettings.description);
-  const [industry, setIndustry] = useState(workspaceSettings.industry);
-  const [website, setWebsite] = useState(workspaceSettings.website);
-  const [timezone, setTimezone] = useState(workspaceSettings.timezone);
-  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
+  const [form, updateForm] = useReducer(workspaceFormReducer, {
+    name: workspaceSettings.name,
+    slug: workspaceSettings.slug,
+    description: workspaceSettings.description,
+    industry: workspaceSettings.industry,
+    website: workspaceSettings.website,
+    timezone: workspaceSettings.timezone,
+    saveState: "idle" as const,
+  });
+  const { name, slug, description, industry, website, timezone, saveState } = form;
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    const saveTimeoutStore = saveTimeoutRef;
     return () => {
-      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      if (saveTimeoutStore.current) clearTimeout(saveTimeoutStore.current);
     };
   }, []);
 
@@ -55,17 +76,17 @@ export default function WorkspaceTab() {
     timezone !== workspaceSettings.timezone;
 
   const handleSave = async () => {
-    setSaveState("saving");
+    updateForm({ saveState: "saving" });
     await new Promise((r) => setTimeout(r, 800));
     updateWorkspaceSettings({ name, slug, description, industry, website, timezone });
-    setSaveState("saved");
+    updateForm({ saveState: "saved" });
     addToast("success", tc("workspaceUpdated"));
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    saveTimeoutRef.current = setTimeout(() => setSaveState("idle"), 2000);
+    saveTimeoutRef.current = setTimeout(() => updateForm({ saveState: "idle" }), 2000);
   };
 
   return (
-    <motion.div
+    <m.div
       variants={containerVariants}
       initial="hidden"
       animate="show"
@@ -73,21 +94,22 @@ export default function WorkspaceTab() {
     >
       {/* Workspace Info Section */}
       <div className="space-y-5">
-        <motion.h3
+        <m.h3
           variants={itemVariants}
           className="text-[15px] font-semibold text-[var(--text-primary)] pb-3 border-b border-[var(--border-dim)]"
         >
           {t("workspaceInformation")}
-        </motion.h3>
+        </m.h3>
 
-        <motion.div variants={itemVariants} className="space-y-2">
+        <m.div variants={itemVariants} className="space-y-2">
           <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
             {t("workspaceName")}
           </label>
           <input
             type="text"
+            aria-label={t("workspaceName")}
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => updateForm({ name: e.target.value })}
             placeholder={t("workspace.namePlaceholder")}
             className={cn(
               "w-full h-10 rounded-md border px-3 text-sm",
@@ -97,9 +119,9 @@ export default function WorkspaceTab() {
               "transition-all duration-200 border-[var(--border-dim)]"
             )}
           />
-        </motion.div>
+        </m.div>
 
-        <motion.div variants={itemVariants} className="space-y-2">
+        <m.div variants={itemVariants} className="space-y-2">
           <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
             {t("workspaceUrl")}
           </label>
@@ -109,9 +131,10 @@ export default function WorkspaceTab() {
             </span>
             <input
               type="text"
+              aria-label={t("workspaceUrl")}
               value={slug}
               onChange={(e) =>
-                setSlug(e.target.value.replace(/[^a-z0-9-]/g, ""))
+                updateForm({ slug: e.target.value.replace(/[^a-z0-9-]/g, "") })
               }
               className={cn(
                 "flex-1 bg-transparent text-[var(--text-primary)] outline-none",
@@ -119,15 +142,16 @@ export default function WorkspaceTab() {
               )}
             />
           </div>
-        </motion.div>
+        </m.div>
 
-        <motion.div variants={itemVariants} className="space-y-2">
+        <m.div variants={itemVariants} className="space-y-2">
           <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
             {t("description")}
           </label>
           <textarea
+            aria-label={t("description")}
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={(e) => updateForm({ description: e.target.value })}
             placeholder={t("workspace.descriptionPlaceholder")}
             rows={3}
             className={cn(
@@ -138,15 +162,16 @@ export default function WorkspaceTab() {
               "transition-all duration-200 border-[var(--border-dim)]"
             )}
           />
-        </motion.div>
+        </m.div>
 
-        <motion.div variants={itemVariants} className="space-y-2">
+        <m.div variants={itemVariants} className="space-y-2">
           <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
             {t("industry")}
           </label>
           <select
+            aria-label={t("industry")}
             value={industry}
-            onChange={(e) => setIndustry(e.target.value)}
+            onChange={(e) => updateForm({ industry: e.target.value })}
             className={cn(
               "w-full h-10 rounded-md border px-3 text-sm",
               "bg-[var(--surface-base)] text-[var(--text-primary)]",
@@ -166,16 +191,17 @@ export default function WorkspaceTab() {
             <option>Real Estate</option>
             <option>Other</option>
           </select>
-        </motion.div>
+        </m.div>
 
-        <motion.div variants={itemVariants} className="space-y-2">
+        <m.div variants={itemVariants} className="space-y-2">
           <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
             {t("website")}
           </label>
           <input
             type="url"
+            aria-label={t("website")}
             value={website}
-            onChange={(e) => setWebsite(e.target.value)}
+            onChange={(e) => updateForm({ website: e.target.value })}
             placeholder={t("workspace.urlPlaceholder")}
             className={cn(
               "w-full h-10 rounded-md border px-3 text-sm",
@@ -185,15 +211,15 @@ export default function WorkspaceTab() {
               "transition-all duration-200 border-[var(--border-dim)]"
             )}
           />
-        </motion.div>
+        </m.div>
 
-        <motion.div variants={itemVariants} className="space-y-2">
+        <m.div variants={itemVariants} className="space-y-2">
           <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
             {t("timeZone")}
           </label>
           <select
             value={timezone}
-            onChange={(e) => setTimezone(e.target.value)}
+            onChange={(e) => updateForm({ timezone: e.target.value })}
             className={cn(
               "w-full h-10 rounded-md border px-3 text-sm",
               "bg-[var(--surface-base)] text-[var(--text-primary)]",
@@ -212,12 +238,12 @@ export default function WorkspaceTab() {
             <option value="Asia/Singapore">Singapore (SGT)</option>
             <option value="Australia/Sydney">Sydney (AEDT)</option>
           </select>
-        </motion.div>
+        </m.div>
       </div>
 
       {/* Save Button */}
-      <motion.div variants={itemVariants} className="flex justify-end">
-        <button
+      <m.div variants={itemVariants} className="flex justify-end">
+        <button type="button"
           onClick={handleSave}
           disabled={!hasChanges || saveState !== "idle"}
           className={cn(
@@ -229,10 +255,10 @@ export default function WorkspaceTab() {
           )}
         >
           {saveState === "saving" && (
-            <motion.div
+            <m.div
               animate={{ rotate: 360 }}
               transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-              className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
+              className="size-4 border-2 border-white/30 border-t-white rounded-full"
             />
           )}
           {saveState === "saved" && <Check size={16} />}
@@ -244,10 +270,10 @@ export default function WorkspaceTab() {
                 : t("saveWorkspace")}
           </span>
         </button>
-      </motion.div>
+      </m.div>
 
       {/* Danger Zone */}
-      <motion.div
+      <m.div
         variants={itemVariants}
         className="rounded-xl border border-[rgba(244,63,94,0.3)] p-5 space-y-4"
         style={{
@@ -263,7 +289,7 @@ export default function WorkspaceTab() {
         <p className="text-sm text-[var(--text-secondary)]">
           {t("deleteWorkspaceWarning")}
         </p>
-        <button
+        <button type="button"
           onClick={() => addToast("error", tc("comingSoon"))}
           className={cn(
             "h-9 px-4 rounded-md text-sm font-medium text-white",
@@ -274,7 +300,7 @@ export default function WorkspaceTab() {
         >
           {t("deleteWorkspace")}
         </button>
-      </motion.div>
-    </motion.div>
+      </m.div>
+    </m.div>
   );
 }

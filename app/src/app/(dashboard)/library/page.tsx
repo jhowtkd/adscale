@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import Image from "next/image";
+import { useReducer, useRef, useCallback, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { Search, Upload, ImageIcon, Trash2, Tag, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -20,16 +21,34 @@ import {
 } from "@/lib/hooks/use-workspace-assets";
 import { useQueryClient } from "@tanstack/react-query";
 
+interface LibraryState {
+  search: string;
+  debouncedSearch: string;
+  isUploading: boolean;
+  uploadProgress: number;
+  dragOver: boolean;
+  deleteTarget: { id: string; name: string } | null;
+}
+
+const initialLibraryState: LibraryState = {
+  search: "",
+  debouncedSearch: "",
+  isUploading: false,
+  uploadProgress: 0,
+  dragOver: false,
+  deleteTarget: null,
+};
+
+function libraryReducer(state: LibraryState, payload: Partial<LibraryState>): LibraryState {
+  return { ...state, ...payload };
+}
+
 export default function LibraryPage() {
   const t = useTranslations("library");
   const tCommon = useTranslations("common");
   const queryClient = useQueryClient();
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [dragOver, setDragOver] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [state, updateState] = useReducer(libraryReducer, initialLibraryState);
+  const { search, debouncedSearch, isUploading, uploadProgress, dragOver, deleteTarget } = state;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const xhrRef = useRef<XMLHttpRequest | null>(null);
 
@@ -37,15 +56,15 @@ export default function LibraryPage() {
   const deleteAsset = useDeleteWorkspaceAsset();
 
   const handleSearch = (value: string) => {
-    setSearch(value);
-    setTimeout(() => setDebouncedSearch(value), 300);
+    updateState({ search: value });
+    setTimeout(() => updateState({ debouncedSearch: value }), 300);
   };
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
     try {
       await deleteAsset.mutateAsync(deleteTarget.id);
-      setDeleteTarget(null);
+      updateState({ deleteTarget: null });
     } catch {
       // Error handled by hook toast
     }
@@ -53,8 +72,7 @@ export default function LibraryPage() {
 
   const handleUpload = useCallback(async (file: File) => {
     if (!file.type.startsWith("image/")) return;
-    setIsUploading(true);
-    setUploadProgress(0);
+    updateState({ isUploading: true, uploadProgress: 0 });
 
     const formData = new FormData();
     formData.append("file", file);
@@ -64,13 +82,12 @@ export default function LibraryPage() {
 
     xhr.upload.addEventListener("progress", (e) => {
       if (e.lengthComputable) {
-        setUploadProgress(Math.round((e.loaded / e.total) * 100));
+        updateState({ uploadProgress: Math.round((e.loaded / e.total) * 100) });
       }
     });
 
     xhr.addEventListener("load", () => {
-      setIsUploading(false);
-      setUploadProgress(0);
+      updateState({ isUploading: false, uploadProgress: 0 });
       xhrRef.current = null;
       if (xhr.status === 201) {
         queryClient.invalidateQueries({ queryKey: ["workspace-assets"] });
@@ -78,14 +95,12 @@ export default function LibraryPage() {
     });
 
     xhr.addEventListener("error", () => {
-      setIsUploading(false);
-      setUploadProgress(0);
+      updateState({ isUploading: false, uploadProgress: 0 });
       xhrRef.current = null;
     });
 
     xhr.addEventListener("abort", () => {
-      setIsUploading(false);
-      setUploadProgress(0);
+      updateState({ isUploading: false, uploadProgress: 0 });
       xhrRef.current = null;
     });
 
@@ -94,16 +109,17 @@ export default function LibraryPage() {
   }, [queryClient]);
 
   useEffect(() => {
+    const xhrStore = xhrRef;
     return () => {
-      if (xhrRef.current) {
-        xhrRef.current.abort();
+      if (xhrStore.current) {
+        xhrStore.current.abort();
       }
     };
   }, []);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    setDragOver(false);
+    updateState({ dragOver: false });
     const file = e.dataTransfer.files[0];
     if (file) handleUpload(file);
   }, [handleUpload]);
@@ -130,6 +146,7 @@ export default function LibraryPage() {
           <input
             ref={fileInputRef}
             type="file"
+            aria-label="Upload library asset"
             accept="image/png,image/jpeg,image/webp"
             className="hidden"
             onChange={handleFileSelect}
@@ -147,8 +164,8 @@ export default function LibraryPage() {
 
       {/* Dropzone */}
       <div
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-        onDragLeave={() => setDragOver(false)}
+        onDragOver={(e) => { e.preventDefault(); updateState({ dragOver: true }); }}
+        onDragLeave={() => updateState({ dragOver: false })}
         onDrop={handleDrop}
         className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
           dragOver
@@ -189,7 +206,7 @@ export default function LibraryPage() {
       ) : data?.assets && data.assets.length > 0 ? (
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
           {data.assets.map((asset) => (
-            <AssetCard key={asset.id} asset={asset} onDelete={() => setDeleteTarget({ id: asset.id, name: asset.name })} />
+            <AssetCard key={asset.id} asset={asset} onDelete={() => updateState({ deleteTarget: { id: asset.id, name: asset.name } })} />
           ))}
         </div>
       ) : (
@@ -201,7 +218,7 @@ export default function LibraryPage() {
       )}
 
       {/* Delete Confirmation Modal */}
-      <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
+      <Dialog open={!!deleteTarget} onOpenChange={() => updateState({ deleteTarget: null })}>
         <DialogContent className="bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-[var(--text-primary)]">
@@ -217,7 +234,7 @@ export default function LibraryPage() {
           <DialogFooter className="border-t border-[var(--border-dim)] pt-4">
             <Button
               variant="outline"
-              onClick={() => setDeleteTarget(null)}
+              onClick={() => updateState({ deleteTarget: null })}
               className="border-[var(--border-dim)] text-[var(--text-secondary)]"
             >
               {tCommon("cancel")}
@@ -250,19 +267,23 @@ function AssetCard({
     <div className="group relative bg-[var(--surface-raised)] border border-[var(--border-dim)] rounded-lg overflow-hidden hover:border-[var(--border-medium)] transition-all">
       {/* Image */}
       <div className="aspect-square relative">
-        <img
+        <Image
           src={imageUrl}
           alt={asset.name}
-          className="w-full h-full object-cover"
+          className="size-full object-cover"
           loading="lazy"
-        />
+        
+        width={800}
+        height={800}
+        unoptimized
+      />
         {/* Overlay on hover */}
         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
           <Button
             size="sm"
             variant="destructive"
             onClick={onDelete}
-            className="h-8 w-8 p-0"
+            className="size-8 p-0"
           >
             <Trash2 size={14} />
           </Button>

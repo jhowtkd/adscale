@@ -37,7 +37,18 @@ export async function validateImageMagicBytes(
 
   const header = new Uint8Array(await file.slice(0, 8).arrayBuffer());
 
-  return signatures.some((sig) =>
-    sig.every((byte, i) => header[i] === byte)
-  );
+  for (const sig of signatures) {
+    if (header.length < sig.length) continue;
+
+    let matches = true;
+    for (let i = 0; i < sig.length; i += 1) {
+      if (header[i] !== sig[i]) {
+        matches = false;
+        break;
+      }
+    }
+    if (matches) return true;
+  }
+
+  return false;
 }

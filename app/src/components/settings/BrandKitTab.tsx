@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { motion } from "framer-motion";
+import Image from "next/image";
+import { useReducer, useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { m } from "framer-motion";
 import { Check, Upload, X, Wand2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";
@@ -28,6 +29,47 @@ const itemVariants = {
   hidden: { opacity: 0, y: 10 },
   show: { opacity: 1, y: 0, transition: { duration: 0.3 } },
 };
+
+interface BrandKitState {
+  name: string;
+  description: string;
+  visualNotes: string;
+  toneNotes: string;
+  constraints: string;
+  brandColors: string[];
+  brandFonts: string[];
+  logoAssetKey: string | null;
+  showClearDialog: boolean;
+  toneOfVoice: string;
+  prohibitedElements: string;
+  requiredElements: string;
+  saveState: "idle" | "saving" | "saved";
+  isDragging: boolean;
+}
+
+const initialBrandKitState: BrandKitState = {
+  name: "",
+  description: "",
+  visualNotes: "",
+  toneNotes: "",
+  constraints: "",
+  brandColors: [],
+  brandFonts: [],
+  logoAssetKey: null,
+  showClearDialog: false,
+  toneOfVoice: "",
+  prohibitedElements: "",
+  requiredElements: "",
+  saveState: "idle",
+  isDragging: false,
+};
+
+function brandKitReducer(
+  state: BrandKitState,
+  payload: Partial<BrandKitState>
+): BrandKitState {
+  return { ...state, ...payload };
+}
 
 function TagInput({
   tags,
@@ -88,6 +130,7 @@ function TagInput({
       ))}
       <input
         type="text"
+        aria-label={placeholder}
         value={input}
         onChange={(e) => setInput(e.target.value)}
         onKeyDown={handleKeyDown}
@@ -109,44 +152,50 @@ export default function BrandKitTab() {
   const uploadLogo = useUploadLogo();
   const clearBrandKit = useClearBrandKit();
 
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [visualNotes, setVisualNotes] = useState("");
-  const [toneNotes, setToneNotes] = useState("");
-  const [constraints, setConstraints] = useState("");
-  const [brandColors, setBrandColors] = useState<string[]>([]);
-  const [brandFonts, setBrandFonts] = useState<string[]>([]);
-  const [logoAssetKey, setLogoAssetKey] = useState<string | null>(null);
-  const [showClearDialog, setShowClearDialog] = useState(false);
-  const [toneOfVoice, setToneOfVoice] = useState("");
-  const [prohibitedElements, setProhibitedElements] = useState("");
-  const [requiredElements, setRequiredElements] = useState("");
-  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
-  const [isDragging, setIsDragging] = useState(false);
+  const [state, updateState] = useReducer(brandKitReducer, initialBrandKitState);
+  const {
+    name,
+    description,
+    visualNotes,
+    toneNotes,
+    constraints,
+    brandColors,
+    brandFonts,
+    logoAssetKey,
+    showClearDialog,
+    toneOfVoice,
+    prohibitedElements,
+    requiredElements,
+    saveState,
+    isDragging,
+  } = state;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const extractInputRef = useRef<HTMLInputElement>(null);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    const saveTimeoutStore = saveTimeoutRef;
     return () => {
-      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      if (saveTimeoutStore.current) clearTimeout(saveTimeoutStore.current);
     };
   }, []);
 
   useEffect(() => {
     if (brandKit) {
       requestAnimationFrame(() => {
-        setName(brandKit.name || "");
-        setDescription(brandKit.description || "");
-        setVisualNotes(brandKit.visualNotes || "");
-        setToneNotes(brandKit.toneNotes || "");
-        setConstraints(brandKit.constraints || "");
-        setBrandColors(brandKit.brandColors || []);
-        setBrandFonts(brandKit.brandFonts || []);
-        setLogoAssetKey(brandKit.logoAssetKey || null);
-        setToneOfVoice(brandKit.toneOfVoice || "");
-        setProhibitedElements(brandKit.prohibitedElements || "");
-        setRequiredElements(brandKit.requiredElements || "");
+        updateState({
+          name: brandKit.name || "",
+          description: brandKit.description || "",
+          visualNotes: brandKit.visualNotes || "",
+          toneNotes: brandKit.toneNotes || "",
+          constraints: brandKit.constraints || "",
+          brandColors: brandKit.brandColors || [],
+          brandFonts: brandKit.brandFonts || [],
+          logoAssetKey: brandKit.logoAssetKey || null,
+          toneOfVoice: brandKit.toneOfVoice || "",
+          prohibitedElements: brandKit.prohibitedElements || "",
+          requiredElements: brandKit.requiredElements || "",
+        });
       });
     }
   }, [brandKit]);
@@ -196,7 +245,7 @@ export default function BrandKitTab() {
   ]);
 
   const handleSave = async () => {
-    setSaveState("saving");
+    updateState({ saveState: "saving" });
     updateBrandKit.mutate(
       {
         name: name || undefined,
@@ -213,20 +262,20 @@ export default function BrandKitTab() {
       },
       {
         onSuccess: () => {
-          setSaveState("saved");
+          updateState({ saveState: "saved" });
           addToast("success", tc("save"));
           if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-          saveTimeoutRef.current = setTimeout(() => setSaveState("idle"), 2000);
+          saveTimeoutRef.current = setTimeout(() => updateState({ saveState: "idle" }), 2000);
         },
         onError: (err) => {
-          setSaveState("idle");
+          updateState({ saveState: "idle" });
           addToast("error", err.message || tc("error"));
         },
       }
     );
   };
 
-  const handleLogoUpload = (file: File) => {
+  const handleLogoUpload = useCallback((file: File) => {
     const allowed = ["image/png", "image/jpeg", "image/webp"];
     if (!allowed.includes(file.type)) {
       addToast("error", tc("error"));
@@ -240,7 +289,7 @@ export default function BrandKitTab() {
       { file },
       {
         onSuccess: (data) => {
-          setLogoAssetKey(data.logoAssetKey);
+          updateState({ logoAssetKey: data.logoAssetKey });
           addToast("success", tc("success"));
         },
         onError: (err) => {
@@ -248,17 +297,17 @@ export default function BrandKitTab() {
         },
       }
     );
-  };
+  }, [addToast, tc, uploadLogo]);
 
   const handleFileDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
-      setIsDragging(false);
+      updateState({ isDragging: false });
       const file = e.dataTransfer.files[0];
       if (!file) return;
       handleLogoUpload(file);
     },
-    []
+    [handleLogoUpload]
   );
 
   const handleExtract = () => {
@@ -270,14 +319,18 @@ export default function BrandKitTab() {
     if (!file) return;
     extractBrandKit.mutate(file, {
       onSuccess: (data) => {
-        if (data.colors.length > 0)
-          setBrandColors((prev) => Array.from(new Set([...prev, ...data.colors])));
-        if (data.fonts.length > 0)
-          setBrandFonts((prev) => Array.from(new Set([...prev, ...data.fonts])));
-        if (data.toneOfVoice) setToneOfVoice(data.toneOfVoice);
-        if (data.prohibitedElements) setProhibitedElements(data.prohibitedElements);
-        if (data.requiredElements) setRequiredElements(data.requiredElements);
-        if (data.logoDescription && !description) setDescription(data.logoDescription);
+        updateState({
+          brandColors: data.colors.length > 0
+            ? Array.from(new Set([...brandColors, ...data.colors]))
+            : brandColors,
+          brandFonts: data.fonts.length > 0
+            ? Array.from(new Set([...brandFonts, ...data.fonts]))
+            : brandFonts,
+          toneOfVoice: data.toneOfVoice || toneOfVoice,
+          prohibitedElements: data.prohibitedElements || prohibitedElements,
+          requiredElements: data.requiredElements || requiredElements,
+          description: data.logoDescription && !description ? data.logoDescription : description,
+        });
         addToast("success", tc("success"));
       },
       onError: (err) => {
@@ -288,14 +341,14 @@ export default function BrandKitTab() {
   };
 
   return (
-    <motion.div
+    <m.div
       variants={containerVariants}
       initial="hidden"
       animate="show"
       className="max-w-[720px] space-y-8"
     >
       {/* Header */}
-      <motion.div
+      <m.div
         variants={itemVariants}
         className="flex items-center justify-between"
       >
@@ -307,7 +360,7 @@ export default function BrandKitTab() {
             {t("brandKit.subtitle")}
           </p>
         </div>
-        <button
+        <button type="button"
           onClick={handleExtract}
           disabled={extractBrandKit.isPending}
           className={cn(
@@ -319,10 +372,10 @@ export default function BrandKitTab() {
           )}
         >
           {extractBrandKit.isPending ? (
-            <motion.div
+            <m.div
               animate={{ rotate: 360 }}
               transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-              className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
+              className="size-4 border-2 border-white/30 border-t-white rounded-full"
             />
           ) : (
             <Wand2 size={16} />
@@ -332,11 +385,12 @@ export default function BrandKitTab() {
         <input
           ref={extractInputRef}
           type="file"
+          aria-label={t("brandKit.extract")}
           accept="image/png,image/jpeg,image/webp"
           onChange={handleExtractFile}
           className="hidden"
         />
-      </motion.div>
+      </m.div>
 
       {/* Loading State */}
       {isLoading && (
@@ -352,26 +406,27 @@ export default function BrandKitTab() {
 
       {/* Error State */}
       {isError && !isLoading && (
-        <motion.div
+        <m.div
           variants={itemVariants}
           className="rounded-lg border border-[var(--accent-rose)]/30 bg-[var(--accent-rose)]/10 px-4 py-3 text-sm text-[var(--accent-rose)]"
         >
           {error?.message || tc("error")}
-        </motion.div>
+        </m.div>
       )}
 
       {/* Form */}
       {!isLoading && !isError && (
         <div className="space-y-6">
           {/* Name */}
-          <motion.div variants={itemVariants} className="space-y-2">
+          <m.div variants={itemVariants} className="space-y-2">
             <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
               {t("brandKit.name")}
             </label>
             <input
               type="text"
+              aria-label={t("brandKit.name")}
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => updateState({ name: e.target.value })}
               placeholder={t("brandKit.namePlaceholder")}
               className={cn(
                 "w-full h-10 rounded-md border px-3 text-sm",
@@ -381,16 +436,17 @@ export default function BrandKitTab() {
                 "transition-all duration-200 border-[var(--border-dim)]"
               )}
             />
-          </motion.div>
+          </m.div>
 
           {/* Description */}
-          <motion.div variants={itemVariants} className="space-y-2">
+          <m.div variants={itemVariants} className="space-y-2">
             <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
               {t("brandKit.description")}
             </label>
             <textarea
+              aria-label={t("brandKit.description")}
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={(e) => updateState({ description: e.target.value })}
               placeholder={t("brandKit.descriptionPlaceholder")}
               rows={2}
               className={cn(
@@ -401,20 +457,24 @@ export default function BrandKitTab() {
                 "transition-all duration-200 border-[var(--border-dim)]"
               )}
             />
-          </motion.div>
+          </m.div>
 
           {/* Logo Upload */}
-          <motion.div variants={itemVariants} className="space-y-2">
+          <m.div variants={itemVariants} className="space-y-2">
             <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
               {t("brandKit.logo")}
             </label>
             {brandKit?.logoUrl ? (
               <div className="flex items-center gap-4 rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-3">
-                <img
+                <Image
                   src={brandKit.logoUrl}
                   alt="Logo"
-                  className="h-16 w-16 object-contain rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)]"
-                />
+                  className="size-16 object-contain rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)]"
+                
+        width={800}
+        height={800}
+        unoptimized
+      />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-[var(--text-primary)] truncate">
                     {t("brandKit.logoUploaded")}
@@ -425,21 +485,23 @@ export default function BrandKitTab() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setLogoAssetKey(null)}
+                  onClick={() => updateState({ logoAssetKey: null })}
                   className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--accent-rose)] hover:bg-[var(--surface-raised)] transition-all"
                 >
                   <Trash2 size={14} />
                 </button>
               </div>
             ) : (
-              <div
+              <button
+                type="button"
                 onDragOver={(e) => {
                   e.preventDefault();
-                  setIsDragging(true);
+                  updateState({ isDragging: true });
                 }}
-                onDragLeave={() => setIsDragging(false)}
+                onDragLeave={() => updateState({ isDragging: false })}
                 onDrop={handleFileDrop}
                 onClick={() => !uploadLogo.isPending && fileInputRef.current?.click()}
+                disabled={uploadLogo.isPending}
                 className={cn(
                   "flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-6 py-8 cursor-pointer transition-all",
                   isDragging
@@ -448,7 +510,7 @@ export default function BrandKitTab() {
                 )}
               >
                 {uploadLogo.isPending ? (
-                  <div className="h-6 w-6 border-2 border-[var(--text-muted)] border-t-transparent rounded-full animate-spin" />
+                  <div className="size-6 border-2 border-[var(--text-muted)] border-t-transparent rounded-full animate-spin" />
                 ) : (
                   <Upload size={24} className="text-[var(--text-muted)]" />
                 )}
@@ -458,11 +520,12 @@ export default function BrandKitTab() {
                 <p className="text-xs text-[var(--text-muted)]">
                   PNG, JPEG, WebP
                 </p>
-              </div>
+              </button>
             )}
             <input
               ref={fileInputRef}
               type="file"
+              aria-label={t("brandKit.logoDropzone")}
               accept="image/png,image/jpeg,image/webp"
               onChange={(e) => {
                 const file = e.target.files?.[0];
@@ -471,16 +534,16 @@ export default function BrandKitTab() {
               }}
               className="hidden"
             />
-          </motion.div>
+          </m.div>
 
           {/* Brand Colors */}
-          <motion.div variants={itemVariants} className="space-y-2">
+          <m.div variants={itemVariants} className="space-y-2">
             <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
               {t("brandKit.colors")}
             </label>
             <TagInput
               tags={brandColors}
-              onChange={setBrandColors}
+              onChange={(colors) => updateState({ brandColors: colors })}
               placeholder={t("brandKit.colorsPlaceholder")}
               validator={(tag) => /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(tag)}
               normalizer={(tag) => {
@@ -494,28 +557,29 @@ export default function BrandKitTab() {
             <p className="text-[10px] text-[var(--text-muted)]">
               {t("brandKit.colorsHelp")}
             </p>
-          </motion.div>
+          </m.div>
 
           {/* Brand Fonts */}
-          <motion.div variants={itemVariants} className="space-y-2">
+          <m.div variants={itemVariants} className="space-y-2">
             <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
               {t("brandKit.fonts")}
             </label>
             <TagInput
               tags={brandFonts}
-              onChange={setBrandFonts}
+              onChange={(fonts) => updateState({ brandFonts: fonts })}
               placeholder={t("brandKit.fontsPlaceholder")}
             />
-          </motion.div>
+          </m.div>
 
           {/* Visual Notes */}
-          <motion.div variants={itemVariants} className="space-y-2">
+          <m.div variants={itemVariants} className="space-y-2">
             <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
               {t("brandKit.visualNotes")}
             </label>
             <textarea
+              aria-label={t("brandKit.visualNotes")}
               value={visualNotes}
-              onChange={(e) => setVisualNotes(e.target.value)}
+              onChange={(e) => updateState({ visualNotes: e.target.value })}
               placeholder={t("brandKit.visualNotesPlaceholder")}
               rows={2}
               className={cn(
@@ -526,16 +590,17 @@ export default function BrandKitTab() {
                 "transition-all duration-200 border-[var(--border-dim)]"
               )}
             />
-          </motion.div>
+          </m.div>
 
           {/* Tone Notes */}
-          <motion.div variants={itemVariants} className="space-y-2">
+          <m.div variants={itemVariants} className="space-y-2">
             <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
               {t("brandKit.toneNotes")}
             </label>
             <textarea
+              aria-label={t("brandKit.toneNotes")}
               value={toneNotes}
-              onChange={(e) => setToneNotes(e.target.value)}
+              onChange={(e) => updateState({ toneNotes: e.target.value })}
               placeholder={t("brandKit.toneNotesPlaceholder")}
               rows={2}
               className={cn(
@@ -546,16 +611,17 @@ export default function BrandKitTab() {
                 "transition-all duration-200 border-[var(--border-dim)]"
               )}
             />
-          </motion.div>
+          </m.div>
 
           {/* Tone of Voice */}
-          <motion.div variants={itemVariants} className="space-y-2">
+          <m.div variants={itemVariants} className="space-y-2">
             <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
               {t("brandKit.toneOfVoice")}
             </label>
             <textarea
+              aria-label={t("brandKit.toneOfVoice")}
               value={toneOfVoice}
-              onChange={(e) => setToneOfVoice(e.target.value)}
+              onChange={(e) => updateState({ toneOfVoice: e.target.value })}
               placeholder={t("brandKit.toneOfVoicePlaceholder")}
               rows={2}
               className={cn(
@@ -566,16 +632,17 @@ export default function BrandKitTab() {
                 "transition-all duration-200 border-[var(--border-dim)]"
               )}
             />
-          </motion.div>
+          </m.div>
 
           {/* Prohibited Elements */}
-          <motion.div variants={itemVariants} className="space-y-2">
+          <m.div variants={itemVariants} className="space-y-2">
             <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
               {t("brandKit.prohibitedElements")}
             </label>
             <textarea
+              aria-label={t("brandKit.prohibitedElements")}
               value={prohibitedElements}
-              onChange={(e) => setProhibitedElements(e.target.value)}
+              onChange={(e) => updateState({ prohibitedElements: e.target.value })}
               placeholder={t("brandKit.prohibitedElementsPlaceholder")}
               rows={2}
               className={cn(
@@ -586,16 +653,17 @@ export default function BrandKitTab() {
                 "transition-all duration-200 border-[var(--border-dim)]"
               )}
             />
-          </motion.div>
+          </m.div>
 
           {/* Required Elements */}
-          <motion.div variants={itemVariants} className="space-y-2">
+          <m.div variants={itemVariants} className="space-y-2">
             <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
               {t("brandKit.requiredElements")}
             </label>
             <textarea
+              aria-label={t("brandKit.requiredElements")}
               value={requiredElements}
-              onChange={(e) => setRequiredElements(e.target.value)}
+              onChange={(e) => updateState({ requiredElements: e.target.value })}
               placeholder={t("brandKit.requiredElementsPlaceholder")}
               rows={2}
               className={cn(
@@ -606,16 +674,17 @@ export default function BrandKitTab() {
                 "transition-all duration-200 border-[var(--border-dim)]"
               )}
             />
-          </motion.div>
+          </m.div>
 
           {/* Constraints */}
-          <motion.div variants={itemVariants} className="space-y-2">
+          <m.div variants={itemVariants} className="space-y-2">
             <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
               {t("brandKit.constraints")}
             </label>
             <textarea
+              aria-label={t("brandKit.constraints")}
               value={constraints}
-              onChange={(e) => setConstraints(e.target.value)}
+              onChange={(e) => updateState({ constraints: e.target.value })}
               placeholder={t("brandKit.constraintsPlaceholder")}
               rows={2}
               className={cn(
@@ -626,11 +695,11 @@ export default function BrandKitTab() {
                 "transition-all duration-200 border-[var(--border-dim)]"
               )}
             />
-          </motion.div>
+          </m.div>
 
           {/* Save Button */}
-          <motion.div variants={itemVariants} className="flex justify-end">
-            <button
+          <m.div variants={itemVariants} className="flex justify-end">
+            <button type="button"
               onClick={handleSave}
               disabled={
                 !hasChanges || saveState !== "idle" || updateBrandKit.isPending
@@ -644,10 +713,10 @@ export default function BrandKitTab() {
               )}
             >
               {saveState === "saving" && (
-                <motion.div
+                <m.div
                   animate={{ rotate: 360 }}
                   transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                  className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
+                  className="size-4 border-2 border-white/30 border-t-white rounded-full"
                 />
               )}
               {saveState === "saved" && <Check size={16} />}
@@ -659,10 +728,10 @@ export default function BrandKitTab() {
                     : t("saveChanges")}
               </span>
             </button>
-          </motion.div>
+          </m.div>
 
           {/* Danger Zone */}
-          <motion.div
+          <m.div
             variants={itemVariants}
             className="rounded-xl border border-[rgba(244,63,94,0.3)] p-5 space-y-4"
           >
@@ -675,8 +744,8 @@ export default function BrandKitTab() {
             <p className="text-sm text-[var(--text-secondary)]">
               {t("brandKit.clearWarning")}
             </p>
-            <button
-              onClick={() => setShowClearDialog(true)}
+            <button type="button"
+              onClick={() => updateState({ showClearDialog: true })}
               disabled={clearBrandKit.isPending || !brandKit}
               className={cn(
                 "h-9 px-4 rounded-md text-sm font-medium text-white",
@@ -688,12 +757,12 @@ export default function BrandKitTab() {
             >
               {clearBrandKit.isPending ? tc("loading") : t("brandKit.clearButton")}
             </button>
-          </motion.div>
+          </m.div>
         </div>
       )}
       <ConfirmDialog
         open={showClearDialog}
-        onOpenChange={setShowClearDialog}
+        onOpenChange={(open) => updateState({ showClearDialog: open })}
         title={t("brandKit.clearTitle") || "Limpar Brand Kit"}
         description={t("brandKit.confirmClear") || "Tem certeza que deseja limpar o Brand Kit? Esta ação não pode ser desfeita."}
         confirmLabel={t("brandKit.clearConfirm") || "Limpar"}
@@ -709,6 +778,6 @@ export default function BrandKitTab() {
           });
         }}
       />
-    </motion.div>
+    </m.div>
   );
 }

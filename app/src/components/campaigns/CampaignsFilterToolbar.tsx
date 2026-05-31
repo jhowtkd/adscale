@@ -69,7 +69,7 @@ export default function CampaignsFilterToolbar({
               className="h-8 w-full pl-9 pr-8 bg-[var(--surface-raised)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] text-sm"
             />
             {searchQuery && (
-              <button
+              <button type="button"
                 onClick={() => onSearchChange("")}
                 aria-label="Clear search"
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
@@ -135,12 +135,12 @@ export default function CampaignsFilterToolbar({
 
           {/* View Toggle */}
           <div className="ml-auto flex items-center rounded-lg bg-[var(--surface-raised)] p-0.5">
-            <button
+            <button type="button"
               onClick={() => onViewModeChange("list")}
               aria-label="List view"
               aria-pressed={viewMode === "list"}
               className={cn(
-                "flex items-center justify-center h-7 w-7 rounded-md transition-all duration-200",
+                "flex items-center justify-center size-7 rounded-md transition-all duration-200",
                 viewMode === "list"
                   ? "bg-[var(--surface-base)] text-[var(--accent-green)] shadow-sm"
                   : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
@@ -148,12 +148,12 @@ export default function CampaignsFilterToolbar({
             >
               <List size={16} />
             </button>
-            <button
+            <button type="button"
               onClick={() => onViewModeChange("grid")}
               aria-label="Grid view"
               aria-pressed={viewMode === "grid"}
               className={cn(
-                "flex items-center justify-center h-7 w-7 rounded-md transition-all duration-200",
+                "flex items-center justify-center size-7 rounded-md transition-all duration-200",
                 viewMode === "grid"
                   ? "bg-[var(--surface-base)] text-[var(--accent-blue)] shadow-sm"
                   : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
@@ -161,12 +161,12 @@ export default function CampaignsFilterToolbar({
             >
               <LayoutGrid size={16} />
             </button>
-            <button
+            <button type="button"
               onClick={() => onViewModeChange("board")}
               aria-label="Board view"
               aria-pressed={viewMode === "board"}
               className={cn(
-                "flex items-center justify-center h-7 w-7 rounded-md transition-all duration-200",
+                "flex items-center justify-center size-7 rounded-md transition-all duration-200",
                 viewMode === "board"
                   ? "bg-[var(--surface-base)] text-[var(--accent-green)] shadow-sm"
                   : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
@@ -183,13 +183,13 @@ export default function CampaignsFilterToolbar({
             <span className="text-xs text-[var(--text-muted)] uppercase tracking-wider">
               {tc("filters")}:
             </span>
-            {activeFilters.map((filter, i) => (
+            {activeFilters.map((filter) => (
               <span
-                key={i}
+                key={filter.label}
                 className="inline-flex items-center gap-1 rounded-full bg-[var(--surface-raised)] text-[var(--text-secondary)] text-xs px-2.5 py-1 border border-[var(--border-dim)]"
               >
                 {filter.label}
-                <button
+                <button type="button"
                   onClick={filter.onRemove}
                   aria-label={tc("clear")}
                   className="ml-0.5 text-[var(--text-muted)] hover:text-[var(--accent-rose)] transition-colors"
@@ -198,7 +198,7 @@ export default function CampaignsFilterToolbar({
                 </button>
               </span>
             ))}
-            <button
+            <button type="button"
               onClick={onClearFilters}
               className="text-xs text-[var(--accent-green)] hover:text-[var(--accent-green-light)] transition-colors ml-1"
             >

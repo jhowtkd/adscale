@@ -1,7 +1,31 @@
 "use client";
 import { useState } from "react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
+
+const ResponsiveContainer = dynamic(
+  () => import("recharts").then((mod) => mod.ResponsiveContainer),
+  { ssr: false }
+);
+const BarChart = dynamic(() => import("recharts").then((mod) => mod.BarChart), {
+  ssr: false,
+});
+const Bar = dynamic(() => import("recharts").then((mod) => mod.Bar), {
+  ssr: false,
+});
+const XAxis = dynamic(() => import("recharts").then((mod) => mod.XAxis), {
+  ssr: false,
+});
+const YAxis = dynamic(() => import("recharts").then((mod) => mod.YAxis), {
+  ssr: false,
+});
+const Tooltip = dynamic(() => import("recharts").then((mod) => mod.Tooltip), {
+  ssr: false,
+});
+const CartesianGrid = dynamic(
+  () => import("recharts").then((mod) => mod.CartesianGrid),
+  { ssr: false }
+);
 
 interface DataPoint {
   date: string;
@@ -26,7 +50,7 @@ export default function CreditChart({ data }: CreditChartProps) {
         <h3 className="text-base font-semibold text-[var(--text-primary)]">Créditos por Semana</h3>
         <div className="flex gap-1">
           {ranges.map((r) => (
-            <button key={r} onClick={() => setRange(r)}
+            <button type="button" key={r} onClick={() => setRange(r)}
               className={cn("px-3 py-1.5 text-sm rounded-md transition-colors duration-200",
                 range === r ? "bg-[var(--surface-raised)] text-[var(--text-primary)]" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]")}>
               {r}

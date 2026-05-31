@@ -1,9 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import { useDashboardStats } from "@/lib/hooks/use-dashboard-stats";
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
-import { useAppStore } from "@/lib/store";
+import { useState } from "react";
 import { useOnboarding } from "@/lib/hooks/use-onboarding";
 import Link from "next/link";
 import dynamic from "next/dynamic";
@@ -29,9 +29,7 @@ const OnboardingTour = dynamic(
 
 export default function DashboardPage() {
   const t = useTranslations("dashboard");
-  const tNav = useTranslations("navigation");
   const tOnboarding = useTranslations("onboarding");
-  const setCurrentPageTitle = useAppStore((s) => s.setCurrentPageTitle);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [searchQuery, setSearchQuery] = useState("");
   const [period, setPeriod] = useState<"week" | "month" | "quarter">("month");
@@ -73,10 +71,6 @@ export default function DashboardPage() {
   ];
 
   const showTour = !isOnboardingLoading && !onboardingCompleted;
-
-  useEffect(() => {
-    setCurrentPageTitle(tNav("dashboard"));
-  }, [setCurrentPageTitle, tNav]);
 
   const filteredCampaigns = stats?.recentCampaigns.filter((campaign) =>
     campaign.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -125,10 +119,9 @@ export default function DashboardPage() {
             <div className="flex items-center gap-3">
               <div className="relative">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-                <input
-                  type="text"
-                  role="searchbox"
-                  aria-label="Buscar campanhas"
+	                <input
+	                  type="text"
+	                  aria-label="Buscar campanhas"
                   placeholder="Buscar..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -136,8 +129,8 @@ export default function DashboardPage() {
                 />
               </div>
 
-              <div className="flex items-center bg-[var(--deep-bg)] border-2 border-[var(--border-dim)] rounded-xl p-1" role="group" aria-label="Visualização">
-                <button
+              <fieldset className="flex items-center bg-[var(--deep-bg)] border-2 border-[var(--border-dim)] rounded-xl p-1" aria-label="Visualização">
+                <button type="button"
                   onClick={() => setViewMode("grid")}
                   className={`p-2.5 rounded-lg transition-all ${
                     viewMode === "grid"
@@ -149,7 +142,7 @@ export default function DashboardPage() {
                 >
                   <LayoutGrid size={18} aria-hidden="true" />
                 </button>
-                <button
+                <button type="button"
                   onClick={() => setViewMode("list")}
                   className={`p-2.5 rounded-lg transition-all ${
                     viewMode === "list"
@@ -161,7 +154,7 @@ export default function DashboardPage() {
                 >
                   <List size={18} aria-hidden="true" />
                 </button>
-              </div>
+              </fieldset>
             </div>
           </div>
         </div>
@@ -242,7 +235,11 @@ function EmptyState({ searchQuery }: { searchQuery: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-24">
       <div className="mb-6">
-        <img src="/images/empty-state.svg" alt="Nenhuma campanha" className="w-48 h-48 object-contain" />
+        <Image src="/images/empty-state.svg" alt="Nenhuma campanha" className="size-48 object-contain" 
+        width={800}
+        height={800}
+        unoptimized
+      />
       </div>
       <h2 className="text-xl font-bold text-[var(--text-primary)] mb-2">
         {searchQuery ? "Nenhuma campanha encontrada" : "Nenhuma campanha ainda"}
@@ -294,14 +291,14 @@ function DashboardSkeleton() {
 function DashboardError() {
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh]">
-      <div className="w-24 h-24 rounded-2xl bg-[var(--surface-raised)] border-[3px] border-[var(--accent-rose)]/30 flex items-center justify-center mb-6 shadow-[0_0_40px_rgba(225,29,72,0.15)]">
+      <div className="size-24 rounded-2xl bg-[var(--surface-raised)] border-[3px] border-[var(--accent-rose)]/30 flex items-center justify-center mb-6 shadow-[0_0_40px_rgba(225,29,72,0.15)]">
         <span className="text-4xl text-[var(--accent-rose)] font-black">!</span>
       </div>
       <h2 className="text-lg font-bold text-[var(--text-primary)] mb-2">
         Erro ao carregar
       </h2>
       <p className="text-sm text-[var(--text-muted)] mb-6">Erro ao carregar dashboard</p>
-      <button
+      <button type="button"
         onClick={() => window.location.reload()}
         className="px-6 py-3 text-sm font-bold text-[var(--ink)] bg-[var(--accent-green)] rounded-xl hover:bg-[var(--accent-green-light)] transition-all hover:shadow-[0_0_30px_var(--accent-green-dim)]"
       >

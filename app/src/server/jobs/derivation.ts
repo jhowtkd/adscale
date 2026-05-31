@@ -237,33 +237,39 @@ export const derivationJob = inngest.createFunction(
       "fetch-context",
       async () => {
         logger.info(`[fetch-context] derivationId=${derivationId}`);
-        const derivation = await getDerivationById(derivationId, workspaceId);
+        const [derivation, campaign] = await Promise.all([
+          getDerivationById(derivationId, workspaceId),
+          getCampaignById(campaignId, workspaceId),
+        ]);
         if (!derivation) {
           throw new Error("Derivation not found");
         }
-
-        const campaign = await getCampaignById(campaignId, workspaceId);
         if (!campaign) {
           throw new Error("Campaign not found");
         }
 
-        const plan = await getPlanByCampaign(campaignId, workspaceId);
-        const assets = await getAssetsByCampaign(campaignId, workspaceId);
+        const [
+          plan,
+          assets,
+          parentDerivation,
+          clientProfile,
+          brandKit,
+          competitorAnalyses,
+        ] = await Promise.all([
+          getPlanByCampaign(campaignId, workspaceId),
+          getAssetsByCampaign(campaignId, workspaceId),
+          derivation.parentId ? getDerivationById(derivation.parentId, workspaceId) : Promise.resolve(null),
+          campaign.clientProfileId
+            ? getClientProfile(workspaceId, campaign.clientProfileId)
+            : Promise.resolve(null),
+          getBrandKitByWorkspace(workspaceId),
+          getCompetitorAnalysesByCampaign(campaignId, workspaceId),
+        ]);
         const asset = assets[0];
 
-        let parentDerivation = null;
-        if (derivation.parentId) {
-          parentDerivation = await getDerivationById(derivation.parentId, workspaceId);
-          if (parentDerivation && parentDerivation.campaignId !== campaignId) {
-            throw new Error("Parent derivation does not belong to this campaign");
-          }
+        if (parentDerivation && parentDerivation.campaignId !== campaignId) {
+          throw new Error("Parent derivation does not belong to this campaign");
         }
-
-        const clientProfile = campaign.clientProfileId
-          ? await getClientProfile(workspaceId, campaign.clientProfileId)
-          : null;
-        const brandKit = await getBrandKitByWorkspace(workspaceId);
-        const competitorAnalyses = await getCompetitorAnalysesByCampaign(campaignId, workspaceId);
 
         logger.info(`[fetch-context] plan=${plan?.id ?? "none"} asset=${asset?.key ?? "none"} parent=${parentDerivation?.id ?? "none"} brandKit=${brandKit ? "yes" : "no"} competitors=${competitorAnalyses.length}`);
         return { derivation, campaign, plan, asset, parentDerivation, brandKit, competitorAnalyses, clientProfile };
@@ -586,17 +592,19 @@ export const derivationJob = inngest.createFunction(
         if (active.length === 0) {
           const { send, email } = await shouldSendToUser(triggeredByUserId);
           if (send && email) {
-            const completedCount = await db
-              .select({ count: sql<number>`count(*)::int`.as("count") })
-              .from(derivations)
-              .where(
-                and(
-                  eq(derivations.campaignId, campaignId),
-                  eq(derivations.workspaceId, workspaceId),
-                  eq(derivations.status, "completed")
-                )
-              );
-            const userLocale = await getUserLocale(triggeredByUserId);
+            const [completedCount, userLocale] = await Promise.all([
+              db
+                .select({ count: sql<number>`count(*)::int`.as("count") })
+                .from(derivations)
+                .where(
+                  and(
+                    eq(derivations.campaignId, campaignId),
+                    eq(derivations.workspaceId, workspaceId),
+                    eq(derivations.status, "completed")
+                  )
+                ),
+              getUserLocale(triggeredByUserId),
+            ]);
             await sendDerivationCompleteEmail({
               to: email,
               campaignName: campaign.name,

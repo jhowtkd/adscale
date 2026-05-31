@@ -33,7 +33,7 @@ function useMounted() {
   );
 }
 
-export function useCookieConsent() {
+function useCookieConsent() {
   const [prefs, setPrefs] = useState<ConsentPreferences | null>(() => getStoredConsent());
   const mounted = useMounted();
 
@@ -64,7 +64,7 @@ export default function CookieBanner() {
   if (!mounted || prefs !== null) return null;
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-50 border-t border-[var(--border-dim)] bg-[var(--surface-base)] px-4 py-4 shadow-lg sm:px-6">
+    <div className="fixed inset-x-0 bottom-0 z-50 border-t border-[var(--border-dim)] bg-[var(--surface-base)] p-4 shadow-lg sm:px-6">
       <div className="mx-auto flex max-w-7xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="text-sm text-[var(--text-secondary)]">
           <p>
@@ -103,7 +103,7 @@ export default function CookieBanner() {
         ) : (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <label htmlFor="cookie-necessary" className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-              <input type="checkbox" id="cookie-necessary" checked disabled className="accent-[var(--accent-green)]" />
+              <input type="checkbox" id="cookie-necessary" checked readOnly disabled className="accent-[var(--accent-green)]" />
               Necessarios (obrigatorio)
             </label>
             <label htmlFor="cookie-analytics" className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
@@ -133,7 +133,7 @@ export default function CookieBanner() {
   );
 }
 
-export function CookieConsentProvider({ children }: { children: React.ReactNode }) {
+function CookieConsentProvider({ children }: { children: React.ReactNode }) {
   return (
     <>
       {children}

@@ -3,7 +3,7 @@ import { isAllowedImageType, validateImageMagicBytes } from "@/lib/upload-config
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
-import { createWorkspaceAsset, getWorkspaceAssets } from "@/server/repositories/workspace-asset";
+import { createWorkspaceAsset, deleteWorkspaceAsset, getWorkspaceAssets } from "@/server/repositories/workspace-asset";
 import { uploadBuffer, getPublicUrl } from "@/server/storage/r2";
 import { inngest } from "@/server/jobs/client";
 
@@ -64,16 +64,26 @@ export async function POST(request: Request) {
     const key = `workspaces/${workspace.id}/assets/${crypto.randomUUID()}-${safeName}`;
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    await uploadBuffer(key, buffer, file.type);
-
-    const asset = await createWorkspaceAsset({
-      workspaceId: workspace.id,
-      name: file.name,
-      key,
-      type: file.type,
-      size: file.size,
-      width: parsed.data.width,
-      height: parsed.data.height,
+    let createdAsset: Awaited<ReturnType<typeof createWorkspaceAsset>> | null = null;
+    const [asset] = await Promise.all([
+      createWorkspaceAsset({
+        workspaceId: workspace.id,
+        name: file.name,
+        key,
+        type: file.type,
+        size: file.size,
+        width: parsed.data.width,
+        height: parsed.data.height,
+      }).then((asset) => {
+        createdAsset = asset;
+        return asset;
+      }),
+      uploadBuffer(key, buffer, file.type),
+    ]).catch(async (error) => {
+      if (createdAsset) {
+        await deleteWorkspaceAsset(createdAsset.id, workspace.id).catch(() => null);
+      }
+      throw error;
     });
 
     // Trigger async AI analysis

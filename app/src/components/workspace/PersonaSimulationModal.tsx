@@ -33,6 +33,12 @@ interface PersonaSimulationModalProps {
 }
 
 type PersonaKey = "skeptical_buyer" | "warm_lead" | "financial_decision_maker" | "beginner";
+const PERSONA_KEYS: PersonaKey[] = [
+  "skeptical_buyer",
+  "warm_lead",
+  "financial_decision_maker",
+  "beginner",
+];
 
 // ============================================
 // Persona Card
@@ -117,14 +123,14 @@ function SkeletonCard() {
   return (
     <div className="bg-[var(--surface-base)] border border-[var(--border-dim)] rounded-xl p-4 space-y-3">
       <div className="flex items-center gap-2">
-        <Skeleton className="h-5 w-5 rounded-full" />
+        <Skeleton className="size-5 rounded-full" />
         <Skeleton className="h-4 w-32" />
       </div>
       <div className="space-y-2">
         <div className="bg-[var(--surface-raised)] rounded-lg p-3 space-y-1">
           <Skeleton className="h-3 w-16" />
           <Skeleton className="h-3 w-full" />
-          <Skeleton className="h-3 w-3/4" />
+          <Skeleton className="size-3/4" />
         </div>
         <div className="bg-[var(--surface-raised)] rounded-lg p-3 space-y-1">
           <Skeleton className="h-3 w-16" />
@@ -171,13 +177,6 @@ export default function PersonaSimulationModal({
   const results = data?.results;
   const isGenerating = createMutation.isPending;
 
-  const personaKeys: PersonaKey[] = [
-    "skeptical_buyer",
-    "warm_lead",
-    "financial_decision_maker",
-    "beginner",
-  ];
-
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-5xl bg-[var(--deep-bg)] border-[var(--border-dim)] text-[var(--text-primary)]">
@@ -199,7 +198,7 @@ export default function PersonaSimulationModal({
         <div className="py-4">
           {isLoading || isGenerating ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {personaKeys.map((key) => (
+              {PERSONA_KEYS.map((key) => (
                 <SkeletonCard key={key} />
               ))}
             </div>
@@ -217,7 +216,7 @@ export default function PersonaSimulationModal({
             </div>
           ) : results ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {personaKeys.map((key) => (
+              {PERSONA_KEYS.map((key) => (
                 <PersonaCard key={key} personaKey={key} result={results[key]} />
               ))}
             </div>
@@ -241,9 +240,9 @@ export default function PersonaSimulationModal({
             className="border-[var(--accent-green)] text-[var(--accent-green)] hover:bg-[var(--accent-green-dim)]"
           >
             {isGenerating ? (
-              <RefreshCw className="w-4 h-4 mr-1 animate-spin" />
+              <RefreshCw className="size-4 mr-1 animate-spin" />
             ) : (
-              <RefreshCw className="w-4 h-4 mr-1" />
+              <RefreshCw className="size-4 mr-1" />
             )}
             {t("reGenerate")}
           </Button>

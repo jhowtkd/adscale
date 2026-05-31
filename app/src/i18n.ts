@@ -2,6 +2,11 @@ import { getRequestConfig } from "next-intl/server";
 import { cookies, headers } from "next/headers";
 import { isValidLocale, defaultLocale } from "@/i18n/config";
 
+const messageLoaders = {
+  en: () => import("../messages/en.json"),
+  "pt-BR": () => import("../messages/pt-BR.json"),
+};
+
 export default getRequestConfig(async () => {
   // 1. Check cookie first
   const cookieStore = await cookies();
@@ -20,7 +25,7 @@ export default getRequestConfig(async () => {
       ? detectedLocale
       : defaultLocale;
 
-  const messages = (await import(`../messages/${locale}.json`)).default;
+  const messages = (await messageLoaders[locale as keyof typeof messageLoaders]()).default;
 
   return {
     locale,

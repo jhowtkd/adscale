@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useAppStore } from "@/lib/store";
+import { useState, useMemo, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import type { Campaign } from "@/lib/mock-data";
 import { toast } from "sonner";
 
@@ -18,10 +17,13 @@ import { useTranslations } from "next-intl";
 
 import type { ViewMode, SortOption, StatusFilter, PlatformFilter } from "./types";
 
-export function useCampaignsPage() {
+interface CampaignSearchParams {
+  get(name: string): string | null;
+  toString(): string;
+}
+
+export function useCampaignsPage(searchParams: CampaignSearchParams) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const setCurrentPageTitle = useAppStore((s) => s.setCurrentPageTitle);
   const t = useTranslations("campaign");
   const tc = useTranslations("common");
   const te = useTranslations("errors");
@@ -98,10 +100,6 @@ export function useCampaignsPage() {
     setPlatformFilter("all");
     setCurrentPage(1);
   }, [updateSearchQuery]);
-
-  useEffect(() => {
-    setCurrentPageTitle(tc("campaign"));
-  }, [setCurrentPageTitle, tc]);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / itemsPerPage));
   const visibleCurrentPage = Math.min(currentPage, totalPages);

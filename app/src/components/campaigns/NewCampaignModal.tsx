@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useCallback, useRef } from "react";
+import { AnimatePresence, m } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import {
@@ -59,7 +59,7 @@ export default function NewCampaignModal({
     clientName: "",
   });
   const [errors, setErrors] = useState<FormErrors>({});
-  const [touched, setTouched] = useState<Record<keyof NewCampaignForm, boolean>>({
+  const touchedRef = useRef<Record<keyof NewCampaignForm, boolean>>({
     name: false,
     clientName: false,
   });
@@ -67,7 +67,7 @@ export default function NewCampaignModal({
   const updateField = useCallback(
     <K extends keyof NewCampaignForm>(field: K, value: NewCampaignForm[K]) => {
       setForm((prev) => ({ ...prev, [field]: value }));
-      if (touched[field]) {
+      if (touchedRef.current[field]) {
         setErrors((prev) => {
           const next = { ...prev };
           delete next[field as keyof FormErrors];
@@ -75,7 +75,7 @@ export default function NewCampaignModal({
         });
       }
     },
-    [touched]
+    []
   );
 
   const validate = useCallback((): boolean => {
@@ -83,10 +83,10 @@ export default function NewCampaignModal({
     if (!form.name.trim()) newErrors.name = tErrors("nameRequired");
     if (!form.clientName.trim()) newErrors.clientName = tErrors("clientRequired");
     setErrors(newErrors);
-    setTouched({
+    touchedRef.current = {
       name: true,
       clientName: true,
-    });
+    };
     return Object.keys(newErrors).length === 0;
   }, [form, tErrors]);
 
@@ -104,7 +104,7 @@ export default function NewCampaignModal({
         clientName: "",
       });
       setErrors({});
-      setTouched({ name: false, clientName: false });
+      touchedRef.current = { name: false, clientName: false };
       onOpenChange(false);
     },
     [form, validate, onSubmit, onOpenChange]
@@ -114,7 +114,7 @@ export default function NewCampaignModal({
     onOpenChange(false);
     setForm({ name: "", clientName: "" });
     setErrors({});
-    setTouched({ name: false, clientName: false });
+    touchedRef.current = { name: false, clientName: false };
   }, [onOpenChange]);
 
   return (
@@ -144,7 +144,9 @@ export default function NewCampaignModal({
               id="campaign-name"
               value={form.name}
               onChange={(e) => updateField("name", e.target.value)}
-              onBlur={() => setTouched((p) => ({ ...p, name: true }))}
+              onBlur={() => {
+                touchedRef.current = { ...touchedRef.current, name: true };
+              }}
               placeholder={tBriefing("namePlaceholder")}
               aria-invalid={!!errors.name}
               aria-describedby={errors.name ? "name-error" : undefined}
@@ -155,7 +157,7 @@ export default function NewCampaignModal({
             />
             <AnimatePresence>
               {errors.name && (
-                <motion.p
+                <m.p
                   id="name-error"
                   initial={{ opacity: 0, y: -4 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -163,7 +165,7 @@ export default function NewCampaignModal({
                   className="text-xs text-[var(--accent-rose)]"
                 >
                   {errors.name}
-                </motion.p>
+                </m.p>
               )}
             </AnimatePresence>
           </div>
@@ -177,7 +179,9 @@ export default function NewCampaignModal({
               id="campaign-client"
               value={form.clientName}
               onChange={(e) => updateField("clientName", e.target.value)}
-              onBlur={() => setTouched((p) => ({ ...p, clientName: true }))}
+              onBlur={() => {
+                touchedRef.current = { ...touchedRef.current, clientName: true };
+              }}
               placeholder={tBriefing("clientPlaceholder")}
               aria-invalid={!!errors.clientName}
               aria-describedby={errors.clientName ? "client-error" : undefined}
@@ -188,7 +192,7 @@ export default function NewCampaignModal({
             />
             <AnimatePresence>
               {errors.clientName && (
-                <motion.p
+                <m.p
                   id="client-error"
                   initial={{ opacity: 0, y: -4 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -196,7 +200,7 @@ export default function NewCampaignModal({
                   className="text-xs text-[var(--accent-rose)]"
                 >
                   {errors.clientName}
-                </motion.p>
+                </m.p>
               )}
             </AnimatePresence>
           </div>

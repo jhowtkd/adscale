@@ -13,7 +13,7 @@ export default function CampaignSkeleton() {
         </div>
         <div className="flex gap-2">
           <Skeleton className="h-9 w-28" />
-          <Skeleton className="h-9 w-9" />
+          <Skeleton className="size-9" />
         </div>
       </div>
       <Skeleton className="h-12 w-full" />

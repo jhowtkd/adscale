@@ -47,17 +47,22 @@ export async function POST(request: Request) {
     const zip = new JSZip();
     let addedFiles = 0;
 
-    for (const d of items) {
-      if (!d.outputKey) continue;
-      try {
-        const buffer = await downloadBuffer(d.outputKey);
-        const ext = d.format?.toLowerCase() || "png";
-        const fileName = `derivation-${d.id}.${ext}`;
-        zip.file(fileName, buffer);
-        addedFiles++;
-      } catch {
-        // skip files that fail to download
-      }
+    const files = await Promise.all(
+      items.map(async (d) => {
+        if (!d.outputKey) return null;
+        try {
+          const buffer = await downloadBuffer(d.outputKey);
+          const ext = d.format?.toLowerCase() || "png";
+          return { fileName: `derivation-${d.id}.${ext}`, buffer };
+        } catch {
+          return null;
+        }
+      })
+    );
+    for (const file of files) {
+      if (!file) continue;
+      zip.file(file.fileName, file.buffer);
+      addedFiles++;
     }
 
     if (addedFiles === 0) {

@@ -8,8 +8,10 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { user } = await requireWorkspaceAccess(request);
-    const { id } = await params;
+    const [{ user }, { id }] = await Promise.all([
+      requireWorkspaceAccess(request),
+      params,
+    ]);
     const updated = await markNotificationAsRead(id, user.id);
     if (!updated) {
       return NextResponse.json({ error: "Notification not found" }, { status: 404 });

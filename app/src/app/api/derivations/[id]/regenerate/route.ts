@@ -24,11 +24,14 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { user, workspace } = await requireWorkspaceAccess(request);
-    const locale = await getUserLocale(user.id);
-    const { id } = await params;
-
-    const body = await request.json();
+    const [{ user, workspace }, { id }] = await Promise.all([
+      requireWorkspaceAccess(request),
+      params,
+    ]);
+    const [locale, body] = await Promise.all([
+      getUserLocale(user.id),
+      request.json(),
+    ]);
     const parsed = bodySchema.safeParse(body);
     if (!parsed.success) {
       return apiError("invalidRequestBody", 400, parsed.error.flatten());
@@ -85,10 +88,11 @@ export async function POST(
         `[regenerate POST] event send FAILED derivationId=${newDerivation.id}`,
         sendErr
       );
-      await updateDerivationStatus(newDerivation.id, workspace.id, "failed");
-      await refreshCampaignStatus(original.campaignId, workspace.id);
-
-      const t = await getTranslations({ locale, namespace: "errors" });
+      const [, , t] = await Promise.all([
+        updateDerivationStatus(newDerivation.id, workspace.id, "failed"),
+        refreshCampaignStatus(original.campaignId, workspace.id),
+        getTranslations({ locale, namespace: "errors" }),
+      ]);
       return NextResponse.json(
         {
           error: t("generationWorkerUnavailable"),

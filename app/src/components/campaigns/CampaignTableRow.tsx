@@ -99,10 +99,11 @@ function CampaignTableRow({
         <input
           id={`select-${campaign.id}`}
           type="checkbox"
+          aria-label={`Select ${campaign.name}`}
           checked={selected}
           onChange={(e) => onSelect(e.target.checked)}
           className={cn(
-            "h-[18px] w-[18px] rounded-sm border border-[var(--border-medium)] appearance-none cursor-pointer",
+            "size-[18px] rounded-sm border border-[var(--border-medium)] appearance-none cursor-pointer",
             "checked:bg-[var(--accent-green)] checked:border-[var(--accent-green)]",
             "checked:bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22white%22%3E%3Cpath%20d%3D%22M12.207%204.793a1%201%20%2001%200%201.414l-5%205a1%201%20%200%2001-1.414%200l-2-2a1%201%20%200%20011.414-1.414L6.5%209.086l4.293-4.293a1%201%20%200%20011.414%200z%22%2F%3E%3C%2Fsvg%3E')]",
             "indeterminate:bg-[var(--accent-green)] indeterminate:border-[var(--accent-green)]",
@@ -137,7 +138,7 @@ function CampaignTableRow({
             <DropdownMenu>
               <DropdownMenuTrigger
                 className={cn(
-                  "flex items-center justify-center h-8 w-8 rounded-md",
+                  "flex items-center justify-center size-8 rounded-md",
                   "text-[var(--text-muted)]",
                   "hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)]",
                   "transition-all duration-200"
@@ -284,7 +285,7 @@ function CampaignTableRow({
             <DropdownMenuTrigger
               onClick={(e: React.MouseEvent) => e.stopPropagation()}
               className={cn(
-                "flex items-center justify-center h-8 w-8 rounded-md",
+                "flex items-center justify-center size-8 rounded-md",
                 "text-[var(--text-muted)] opacity-0 group-hover:opacity-100",
                 "hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)]",
                 "transition-all duration-200",

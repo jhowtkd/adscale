@@ -30,8 +30,9 @@ export const trialNotificationJob = inngest.createFunction(
 
     logger.info(`[trialNotificationJob] found ${expiringTrials.length} trials expiring in ~3 days`);
 
-    for (const sub of expiringTrials) {
-      await step.run(`notify-trial-${sub.id}`, async () => {
+    await Promise.all(
+      expiringTrials.map((sub) =>
+        step.run(`notify-trial-${sub.id}`, async () => {
         const endDate = sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd) : null;
         const daysLeft = endDate
           ? Math.ceil((endDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000))
@@ -39,8 +40,9 @@ export const trialNotificationJob = inngest.createFunction(
 
         try {
           const recipients = await getWorkspaceNotificationRecipients(sub.workspaceId);
-          for (const recipient of recipients) {
-            if (!recipient.trialExpiringNotifiedAt || recipient.trialExpiringNotifiedAt < twoDaysFromNow) {
+          await Promise.all(
+            recipients.map(async (recipient) => {
+              if (!recipient.trialExpiringNotifiedAt || recipient.trialExpiringNotifiedAt < twoDaysFromNow) {
               await sendTrialExpiringEmail({
                 to: recipient.email,
                 daysLeft,
@@ -50,13 +52,15 @@ export const trialNotificationJob = inngest.createFunction(
                 .update(user)
                 .set({ trialExpiringNotifiedAt: new Date() })
                 .where(eq(user.id, recipient.userId));
-            }
-          }
+              }
+            })
+          );
         } catch (err) {
           logger.warn(`[trialNotificationJob] failed to notify for subscription=${sub.id}`, err);
         }
-      });
-    }
+        })
+      )
+    );
 
     return { processed: expiringTrials.length };
   }

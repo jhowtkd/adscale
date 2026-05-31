@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { useTranslations } from "next-intl";
 
 interface CampaignClientSubtitleProps {
@@ -11,13 +11,13 @@ export default function CampaignClientSubtitle({ platformsText }: CampaignClient
   const tc = useTranslations("common");
 
   return (
-    <motion.p
+    <m.p
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ delay: 0.1 }}
       className="text-sm text-[var(--text-muted)] md:ml-[120px] mb-4"
     >
       {platformsText || tc("noPlatformsSet")}
-    </motion.p>
+    </m.p>
   );
 }

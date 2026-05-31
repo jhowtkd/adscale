@@ -27,6 +27,16 @@ const Tooltip = dynamic(() => import("recharts").then(m => ({ default: m.Tooltip
 const ResponsiveContainer = dynamic(() => import("recharts").then(m => ({ default: m.ResponsiveContainer })));
 const Cell = dynamic(() => import("recharts").then(m => ({ default: m.Cell })));
 
+const TYPE_COLORS: Record<string, string> = {
+  usage: "var(--accent-rose)",
+  refund: "var(--accent-green)",
+  grant: "var(--accent-secondary)",
+  purchase: "var(--accent-green)",
+};
+
+const EMPTY_TRANSACTIONS: NonNullable<ReturnType<typeof useCreditHistory>["data"]>["transactions"] = [];
+const EMPTY_CAMPAIGNS: NonNullable<ReturnType<typeof useCreditHistory>["data"]>["campaigns"] = [];
+
 function getDateRange(range: string) {
   const now = new Date();
   const to = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
@@ -68,9 +78,9 @@ export default function CreditHistoryTab() {
 
   const { data, isLoading, isError } = useCreditHistory(queryParams);
 
-  const transactions = data?.transactions ?? [];
+  const transactions = data?.transactions ?? EMPTY_TRANSACTIONS;
   const summary = data?.summary;
-  const campaigns = data?.campaigns ?? [];
+  const campaigns = data?.campaigns ?? EMPTY_CAMPAIGNS;
 
   const chartData = useMemo(() => {
     const grouped = new Map<string, number>();
@@ -82,13 +92,6 @@ export default function CreditHistoryTab() {
     const sorted = Array.from(grouped.entries()).sort((a, b) => a[0].localeCompare(b[0]));
     return sorted.map(([date, amount]) => ({ date, amount }));
   }, [transactions]);
-
-  const typeColors: Record<string, string> = {
-    usage: "var(--accent-rose)",
-    refund: "var(--accent-green)",
-    grant: "var(--accent-secondary)",
-    purchase: "var(--accent-green)",
-  };
 
   return (
     <div className="space-y-6">
@@ -175,8 +178,8 @@ export default function CreditHistoryTab() {
                   formatter={(value: unknown) => [`${value} ${tc("credits")}`, t("usage")]}
                 />
                 <Bar dataKey="amount" radius={[4, 4, 0, 0]}>
-                  {chartData.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill="var(--accent-green)" />
+                  {chartData.map((entry) => (
+                    <Cell key={entry.date} fill="var(--accent-green)" />
                   ))}
                 </Bar>
               </BarChart>
@@ -235,8 +238,8 @@ export default function CreditHistoryTab() {
                     <span
                       className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
                       style={{
-                        background: typeColors[tx.type] ? `${typeColors[tx.type]}20` : 'rgba(141, 141, 152, 0.12)',
-                        color: typeColors[tx.type] ?? 'var(--text-secondary)',
+                        background: TYPE_COLORS[tx.type] ? `${TYPE_COLORS[tx.type]}20` : 'rgba(141, 141, 152, 0.12)',
+                        color: TYPE_COLORS[tx.type] ?? 'var(--text-secondary)',
                       }}
                     >
                       {t(`types.${tx.type}`)}

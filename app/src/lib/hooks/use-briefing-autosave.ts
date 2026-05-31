@@ -1,12 +1,19 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useReducer, useCallback } from "react";
 import type { BriefingFormData } from "@/components/workspace/BriefingStep";
 
 interface AutoSaveState {
   hasDraft: boolean;
   isSaving: boolean;
   lastSavedAt: Date | null;
+}
+
+function autoSaveReducer(
+  state: AutoSaveState,
+  payload: Partial<AutoSaveState>
+): AutoSaveState {
+  return { ...state, ...payload };
 }
 
 function getStorageKey(campaignId: string) {
@@ -50,7 +57,7 @@ export function useBriefingAutoSave(
 ) {
   const key = getStorageKey(campaignId);
 
-  const [state, setState] = useState<AutoSaveState>(() => {
+  const [state, dispatch] = useReducer(autoSaveReducer, undefined, () => {
     const draft = getDraft(key);
     return {
       hasDraft: !!draft,
@@ -78,13 +85,13 @@ export function useBriefingAutoSave(
         debounceRef.current = null;
       }
       requestAnimationFrame(() => {
-        setState((s) => ({ ...s, isSaving: false }));
+        dispatch({ isSaving: false });
       });
       return;
     }
 
     requestAnimationFrame(() => {
-      setState((s) => ({ ...s, isSaving: true }));
+      dispatch({ isSaving: true });
     });
 
     if (debounceRef.current) {
@@ -93,7 +100,7 @@ export function useBriefingAutoSave(
 
     debounceRef.current = setTimeout(() => {
       setDraft(key, formData);
-      setState({
+      dispatch({
         hasDraft: true,
         isSaving: false,
         lastSavedAt: new Date(),
@@ -113,7 +120,7 @@ export function useBriefingAutoSave(
 
   const clearDraft = useCallback(() => {
     removeDraft(key);
-    setState({
+    dispatch({
       hasDraft: false,
       isSaving: false,
       lastSavedAt: null,

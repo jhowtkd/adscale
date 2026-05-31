@@ -16,8 +16,10 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { workspace } = await requireWorkspaceAccess(request);
-    const { id: campaignId } = await params;
+    const [{ workspace }, { id: campaignId }] = await Promise.all([
+      requireWorkspaceAccess(request),
+      params,
+    ]);
 
     const rateLimitResult = await checkRateLimit(request, {
       category: "ai",
@@ -36,15 +38,15 @@ export async function POST(
     }
 
     const competitorResults: CompetitorAnalysisResult[] = competitors
-      .map((c) => {
+      .flatMap((c) => {
         const analysis = c.analysis as Record<string, unknown> | null;
-        if (!analysis) return null;
+        if (!analysis) return [];
 
         const visualPatterns = analysis["visualPatterns"] as Record<string, unknown> | undefined;
         const messaging = analysis["messaging"] as Record<string, unknown> | undefined;
 
         // Normalize from DB storage format to expected format
-        return {
+        return [{
           visualPatterns: {
             colors: Array.isArray(visualPatterns?.["colors"])
               ? visualPatterns["colors"]
@@ -72,9 +74,8 @@ export async function POST(
           differentiationOpportunities: Array.isArray(c.differentiators)
             ? c.differentiators.filter((s): s is string => typeof s === "string")
             : [],
-        };
-      })
-      .filter(Boolean) as CompetitorAnalysisResult[];
+        }];
+      }) as CompetitorAnalysisResult[];
 
     if (competitorResults.length === 0) {
       return apiError("invalidInput", 400, { detail: "No analyzed competitor data available" });

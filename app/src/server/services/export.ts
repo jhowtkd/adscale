@@ -51,8 +51,10 @@ export async function exportIndividual(
     | undefined;
 
   if (storedFormat === format) {
-    const url = await storage.signedDownloadUrl(derivation.outputKey);
-    await createExportRecord(workspaceId, derivationId, format, derivation.outputKey);
+    const [url] = await Promise.all([
+      storage.signedDownloadUrl(derivation.outputKey),
+      createExportRecord(workspaceId, derivationId, format, derivation.outputKey),
+    ]);
     return { url, key: derivation.outputKey };
   }
 
@@ -60,8 +62,10 @@ export async function exportIndividual(
   const converted = await convertImage(buffer, format);
   const newKey = `exports/${workspaceId}/${derivationId}/${Date.now()}.${format}`;
   await storage.put(newKey, converted, getContentType(format));
-  await createExportRecord(workspaceId, derivationId, format, newKey);
-  const url = await storage.signedDownloadUrl(newKey);
+  const [url] = await Promise.all([
+    storage.signedDownloadUrl(newKey),
+    createExportRecord(workspaceId, derivationId, format, newKey),
+  ]);
   return { url, key: newKey };
 }
 
@@ -71,12 +75,14 @@ export async function exportAllApproved(
   workspaceId: string,
   format: "png" | "jpeg" | "webp"
 ) {
-  const campaign = await getCampaignById(campaignId, workspaceId);
+  const [campaign, items] = await Promise.all([
+    getCampaignById(campaignId, workspaceId),
+    getApprovedDerivationsByCampaign(campaignId, workspaceId),
+  ]);
   if (!campaign) {
     throw new Error("Campaign not found");
   }
 
-  const items = await getApprovedDerivationsByCampaign(campaignId, workspaceId);
   if (items.length === 0) {
     throw new Error("No approved derivations");
   }
@@ -85,39 +91,36 @@ export async function exportAllApproved(
   const folder = zip.folder("derivations") || zip;
   let addedFiles = 0;
 
-  const BATCH_SIZE = 5;
-  for (let batchStart = 0; batchStart < items.length; batchStart += BATCH_SIZE) {
-    const batch = items.slice(batchStart, batchStart + BATCH_SIZE);
-    const results = await Promise.all(
-      batch.map(async (d) => {
-        if (!d.outputKey) {
-          logger.warn(`[exportAllApproved] skipping derivation without outputKey id=${d.id}`);
-          return null;
-        }
-        try {
-          const buffer = await storage.get(d.outputKey);
-          const storedFormat = d.format?.toLowerCase() as
-            | "png"
-            | "jpeg"
-            | "webp"
-            | undefined;
-          const finalBuffer =
-            storedFormat === format ? buffer : await convertImage(buffer, format);
-          return { d, finalBuffer };
-        } catch (error) {
-          logger.error(`[exportAllApproved] failed to add derivation id=${d.id} key=${d.outputKey}`, error);
-          return null;
-        }
-      })
-    );
-    for (const result of results) {
-      if (!result) continue;
-      const { finalBuffer } = result;
-      const safeName = campaign.name.replace(/[^a-z0-9]/gi, "-").toLowerCase();
-      const fileName = `${safeName}-${addedFiles + 1}.${format}`;
-      folder.file(fileName, finalBuffer);
-      addedFiles++;
-    }
+  const results = await Promise.all(
+    items.map(async (d) => {
+      if (!d.outputKey) {
+        logger.warn(`[exportAllApproved] skipping derivation without outputKey id=${d.id}`);
+        return null;
+      }
+      try {
+        const buffer = await storage.get(d.outputKey);
+        const storedFormat = d.format?.toLowerCase() as
+          | "png"
+          | "jpeg"
+          | "webp"
+          | undefined;
+        const finalBuffer =
+          storedFormat === format ? buffer : await convertImage(buffer, format);
+        return { d, finalBuffer };
+      } catch (error) {
+        logger.error(`[exportAllApproved] failed to add derivation id=${d.id} key=${d.outputKey}`, error);
+        return null;
+      }
+    })
+  );
+
+  for (const result of results) {
+    if (!result) continue;
+    const { finalBuffer } = result;
+    const safeName = campaign.name.replace(/[^a-z0-9]/gi, "-").toLowerCase();
+    const fileName = `${safeName}-${addedFiles + 1}.${format}`;
+    folder.file(fileName, finalBuffer);
+    addedFiles++;
   }
 
   if (addedFiles === 0) {
@@ -128,10 +131,9 @@ export async function exportAllApproved(
   const zipKey = `exports/${workspaceId}/${campaignId}/${Date.now()}-all.zip`;
   await storage.put(zipKey, zipBuffer, "application/zip");
 
-  for (const d of items) {
-    await createExportRecord(workspaceId, d.id, format, zipKey);
-  }
-
-  const url = await storage.signedDownloadUrl(zipKey);
+  const [url] = await Promise.all([
+    storage.signedDownloadUrl(zipKey),
+    Promise.all(items.map((d) => createExportRecord(workspaceId, d.id, format, zipKey))),
+  ]);
   return { url, key: zipKey };
 }

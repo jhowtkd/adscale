@@ -30,16 +30,18 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { user, workspace } = await requireWorkspaceAccess(request);
-    const locale = await getUserLocale(user.id);
-    const { id: campaignId } = await params;
-
-    const campaign = await getCampaignById(campaignId, workspace.id);
+    const [{ user, workspace }, { id: campaignId }] = await Promise.all([
+      requireWorkspaceAccess(request),
+      params,
+    ]);
+    const [locale, campaign, plan] = await Promise.all([
+      getUserLocale(user.id),
+      getCampaignById(campaignId, workspace.id),
+      getPlanByCampaign(campaignId, workspace.id),
+    ]);
     if (!campaign) {
       return apiError("campaignNotFound", 404);
     }
-
-    const plan = await getPlanByCampaign(campaignId, workspace.id);
 
     let isPreview = false;
     try {
@@ -74,9 +76,10 @@ export async function POST(
 
     if (generationMode === "art_variation") {
       const ctaVariants = campaign.ctaVariants ?? [];
-      const validCtas = ctaVariants
-        .map((text, index) => ({ text: text.trim(), index }))
-        .filter((item) => item.text.length > 0);
+      const validCtas = ctaVariants.flatMap((text, index) => {
+        const trimmed = text.trim();
+        return trimmed.length > 0 ? [{ text: trimmed, index }] : [];
+      });
 
       if (validCtas.length === 0) {
         return apiError("noCtasProvided", 400);
@@ -131,9 +134,11 @@ export async function POST(
             eq(derivations.isPreview, true)
           )
         );
-      for (const preview of existingPreviews) {
-        await db.delete(derivations).where(eq(derivations.id, preview.id));
-      }
+      await Promise.all(
+        existingPreviews.map((preview) =>
+          db.delete(derivations).where(eq(derivations.id, preview.id))
+        )
+      );
     }
 
     const jobsToCreate = isPreview ? jobs.slice(0, 1) : jobs;
@@ -149,50 +154,52 @@ export async function POST(
     });
     if (creditError) return creditError;
 
-    const created: Awaited<ReturnType<typeof createDerivation>>[] = [];
-    let queuedCount = 0;
-
-    for (const job of jobsToCreate) {
-      const derivation = await createDerivation({
-        campaignId,
-        workspaceId: workspace.id,
-        planId: plan?.id ?? undefined,
-        status: "queued",
-        generationMode,
-        variantIndex: job.variantIndex,
-        ctaText: job.ctaText ?? undefined,
-        format: job.format,
-        isPreview,
-      });
-      created.push(derivation);
-      logger.info(`[derivations POST] created derivationId=${derivation.id} mode=${generationMode} index=${job.variantIndex} format=${job.format} isPreview=${isPreview}`);
-
-      try {
-        await inngest.send({
-          name: "derivation.generate",
-          data: {
-            derivationId: derivation.id,
-            campaignId,
-            workspaceId: workspace.id,
-            triggeredByUserId: user.id,
-            locale,
-            generationMode,
-            variantIndex: job.variantIndex,
-            ctaText: job.ctaText,
-            format: job.format,
-            isPreview,
-            ...(generationMode === "art_variation" && {
-              creativeLevel: campaign.creativeLevel ?? "balanced",
-            }),
-          },
+    const results = await Promise.all(
+      jobsToCreate.map(async (job) => {
+        const derivation = await createDerivation({
+          campaignId,
+          workspaceId: workspace.id,
+          planId: plan?.id ?? undefined,
+          status: "queued",
+          generationMode,
+          variantIndex: job.variantIndex,
+          ctaText: job.ctaText ?? undefined,
+          format: job.format,
+          isPreview,
         });
-        logger.info(`[derivations POST] event sent derivationId=${derivation.id}`);
-        queuedCount++;
-      } catch (sendErr) {
-        logger.error(`[derivations POST] event send FAILED derivationId=${derivation.id}`, sendErr);
-        await updateDerivationStatus(derivation.id, workspace.id, "failed");
-      }
-    }
+        logger.info(`[derivations POST] created derivationId=${derivation.id} mode=${generationMode} index=${job.variantIndex} format=${job.format} isPreview=${isPreview}`);
+
+        try {
+          await inngest.send({
+            name: "derivation.generate",
+            data: {
+              derivationId: derivation.id,
+              campaignId,
+              workspaceId: workspace.id,
+              triggeredByUserId: user.id,
+              locale,
+              generationMode,
+              variantIndex: job.variantIndex,
+              ctaText: job.ctaText,
+              format: job.format,
+              isPreview,
+              ...(generationMode === "art_variation" && {
+                creativeLevel: campaign.creativeLevel ?? "balanced",
+              }),
+            },
+          });
+          logger.info(`[derivations POST] event sent derivationId=${derivation.id}`);
+          return { derivation, queued: true };
+        } catch (sendErr) {
+          logger.error(`[derivations POST] event send FAILED derivationId=${derivation.id}`, sendErr);
+          await updateDerivationStatus(derivation.id, workspace.id, "failed");
+          return { derivation, queued: false };
+        }
+      })
+    );
+
+    const created = results.map((result) => result.derivation);
+    const queuedCount = results.filter((result) => result.queued).length;
 
     await updateCampaign(campaignId, workspace.id, {
       status: queuedCount > 0 ? "generating" : "failed",
@@ -209,8 +216,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { workspace } = await requireWorkspaceAccess(request);
-    const { id: campaignId } = await params;
+    const [{ workspace }, { id: campaignId }] = await Promise.all([
+      requireWorkspaceAccess(request),
+      params,
+    ]);
 
     const staleBefore = new Date(Date.now() - STALE_ACTIVE_DERIVATION_MS);
     const stale = await failStaleActiveDerivations(

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 /* eslint-disable @next/next/no-img-element */
 
 import { Eye, Download, RefreshCw, Clock, AlertCircle, Check, X, Package, ShieldCheck, BookmarkPlus, FileText, Users, Scale, PenTool } from "lucide-react";
@@ -33,11 +34,13 @@ interface DerivationCardProps {
   onCompare?: () => void;
   onAnnotate?: () => void;
   isCompareMode?: boolean;
-  isSelectedForCompare?: boolean;
   qaAnalyzingId?: string | null;
-  isSavingReference?: boolean;
-  isApproving?: boolean;
-  isRejecting?: boolean;
+  interactionState?: {
+    selectedForCompare?: boolean;
+    savingReference?: boolean;
+    approving?: boolean;
+    rejecting?: boolean;
+  };
   regeneratingId?: string | null;
   landingPageGeneratingId?: string | null;
   simulatingPersonasId?: string | null;
@@ -132,7 +135,7 @@ function StatusOverlay({ status, progress, onRetry }: { status: DerivationDispla
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-[rgba(244,63,94,0.15)] rounded-t-[15px]">
           <AlertCircle size={24} className="text-[var(--accent-rose)] mb-2" />
           <span className="text-sm text-[var(--accent-rose)] font-medium">{t("failed")}</span>
-          <button
+          <button type="button"
             onClick={(e) => {
               e.stopPropagation();
               onRetry?.();
@@ -156,7 +159,7 @@ function StatusOverlay({ status, progress, onRetry }: { status: DerivationDispla
 function Spinner({ className }: { className?: string }) {
   return (
     <div
-      className={cn("w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin", className)}
+      className={cn("size-4 border-2 border-current border-t-transparent rounded-full animate-spin", className)}
     />
   );
 }
@@ -194,11 +197,8 @@ export default function DerivationCard({
   onSimulatePersonas,
   onCompare,
   onAnnotate,
-  isSelectedForCompare,
   qaAnalyzingId,
-  isSavingReference,
-  isApproving,
-  isRejecting,
+  interactionState,
   regeneratingId,
   landingPageGeneratingId,
   simulatingPersonasId,
@@ -217,6 +217,10 @@ export default function DerivationCard({
 
   const isRegenerating = regeneratingId === derivation.id;
   const isQaAnalyzing = qaAnalyzingId === derivation.id;
+  const isSelectedForCompare = interactionState?.selectedForCompare ?? false;
+  const isSavingReference = interactionState?.savingReference ?? false;
+  const isApproving = interactionState?.approving ?? false;
+  const isRejecting = interactionState?.rejecting ?? false;
   const isGeneratingLandingPage = landingPageGeneratingId === derivation.id;
   const isSimulatingPersonas = simulatingPersonasId === derivation.id;
   const exportMutation = useExport();
@@ -272,15 +276,19 @@ export default function DerivationCard({
       {/* ---- Image Area ---- */}
       <div className={cn("relative overflow-hidden rounded-lg bg-muted", aspectClass)}>
         {derivation.imageUrl ? (
-          <img
+          <Image
             src={derivation.imageUrl}
             alt={derivation.name}
             className={cn(
-              "w-full h-full object-contain transition-transform duration-300",
+              "size-full object-contain transition-transform duration-300",
               isCompleted && "group-hover:scale-[1.03]"
             )}
             loading="lazy"
-          />
+          
+        width={800}
+        height={800}
+        unoptimized
+      />
         ) : (
           <div
             className={cn(
@@ -386,7 +394,7 @@ export default function DerivationCard({
 
           <div className="flex items-center gap-1 opacity-50 group-hover:opacity-100 transition-opacity duration-200">
             {derivation.regenerationSuggestion && (
-              <button
+              <button type="button"
                 onClick={() => onRegenerate?.(derivation.id, derivation.regenerationSuggestion || "")}
                 disabled={isRegenerating}
                 aria-label={t("regenerateDerivationWithImprovements", { name: derivation.name })}
@@ -399,7 +407,7 @@ export default function DerivationCard({
                 <RefreshCw size={16} />
               </button>
             )}
-            <button
+            <button type="button"
               onClick={() => onPreview(derivation.id)}
               aria-label={t("previewDerivation", { name: derivation.name })}
               className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-all duration-150"
@@ -407,7 +415,7 @@ export default function DerivationCard({
             >
               <Eye size={16} />
             </button>
-            <button
+            <button type="button"
               onClick={handleDownload}
               disabled={exportMutation.isPending || derivation.isPreview}
               aria-label={t("downloadDerivation", { name: derivation.name })}
@@ -423,7 +431,7 @@ export default function DerivationCard({
                 <Download size={16} />
               )}
             </button>
-            <button
+            <button type="button"
               onClick={handleRegenerate}
               disabled={isRegenerating}
               aria-label={t("regenerateDerivation", { name: derivation.name })}
@@ -441,7 +449,7 @@ export default function DerivationCard({
             </button>
             {isCompleted && (
               <>
-                <button
+                <button type="button"
                   onClick={onAnnotate}
                   aria-label={t("annotate")}
                   className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-all duration-150"
@@ -449,7 +457,7 @@ export default function DerivationCard({
                 >
                   <PenTool size={16} />
                 </button>
-                <button
+                <button type="button"
                   onClick={onCompare}
                   aria-label={t("compare")}
                   className={cn(
@@ -471,11 +479,11 @@ export default function DerivationCard({
         {derivation.status === "completed" && onApprove && onReject && (
           <div className="flex gap-2 mt-2">
             <Button size="sm" variant="outline" onClick={onApprove} disabled={isApproving}>
-              <Check className="w-4 h-4 mr-1" />
+              <Check className="size-4 mr-1" />
               {commonT("approve")}
             </Button>
             <Button size="sm" variant="outline" onClick={onReject} disabled={isRejecting}>
-              <X className="w-4 h-4 mr-1" />
+              <X className="size-4 mr-1" />
               {commonT("reject")}
             </Button>
           </div>
@@ -490,7 +498,7 @@ export default function DerivationCard({
                 onClick={onCreateDeliveryPackage}
                 className="w-fit bg-[var(--accent-green)] text-white hover:bg-[var(--accent-green-light)]"
               >
-                <Package className="w-4 h-4 mr-1" />
+                <Package className="size-4 mr-1" />
                 {t("generatePackage")}
               </Button>
             )}
@@ -506,7 +514,7 @@ export default function DerivationCard({
                   {isQaAnalyzing ? (
                     <Spinner className="mr-1" />
                   ) : (
-                    <ShieldCheck className="w-4 h-4 mr-1" />
+                    <ShieldCheck className="size-4 mr-1" />
                   )}
                   {derivation.qaStatus && derivation.qaStatus !== "pending" ? t("rerunQa") : t("runQa")}
                 </Button>
@@ -533,7 +541,7 @@ export default function DerivationCard({
                 {isSavingReference ? (
                   <Spinner className="mr-1" />
                 ) : (
-                  <BookmarkPlus className="w-4 h-4 mr-1" />
+                  <BookmarkPlus className="size-4 mr-1" />
                 )}
                 {t("saveAsReference")}
               </Button>
@@ -549,7 +557,7 @@ export default function DerivationCard({
                 {isGeneratingLandingPage ? (
                   <Spinner className="mr-1" />
                 ) : (
-                  <FileText className="w-4 h-4 mr-1" />
+                  <FileText className="size-4 mr-1" />
                 )}
                 {t("generateLandingPage")}
               </Button>
@@ -565,7 +573,7 @@ export default function DerivationCard({
                 {isSimulatingPersonas ? (
                   <Spinner className="mr-1" />
                 ) : (
-                  <Users className="w-4 h-4 mr-1" />
+                  <Users className="size-4 mr-1" />
                 )}
                 {t("simulatePersonas")}
               </Button>

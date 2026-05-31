@@ -103,7 +103,7 @@ export default function DeliveryPackageModal({
                 >
                   <input
                     type="checkbox"
-                    className="h-4 w-4 rounded border-[var(--border-dim)] text-[var(--accent-green)] focus:ring-[var(--accent-green)]"
+                    className="size-4 rounded border-[var(--border-dim)] text-[var(--accent-green)] focus:ring-[var(--accent-green)]"
                     checked={selected[format]}
                     disabled={isSource}
                     onChange={() => toggleFormat(format)}

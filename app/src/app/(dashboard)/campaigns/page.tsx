@@ -1,10 +1,11 @@
 "use client";
 
+import { Suspense } from "react";
 import EmptyState from "@/components/ui/EmptyState";
 import { AlertCircle, ImageOff, Search } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 
 import dynamic from "next/dynamic";
-import { useSearchParams } from "next/navigation";
 
 import CampaignsHeader from "@/components/campaigns/CampaignsHeader";
 import CampaignsBulkActionsBar from "@/components/campaigns/CampaignsBulkActionsBar";
@@ -20,7 +21,7 @@ const CampaignsGridView = dynamic(() => import("@/components/campaigns/Campaigns
 const KanbanBoard = dynamic(() => import("@/components/campaigns/KanbanBoard"), {
   loading: () => (
     <div className="flex items-center justify-center h-64">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      <div className="animate-spin rounded-full size-8 border-b-2 border-primary" />
     </div>
   ),
 });
@@ -42,6 +43,14 @@ const SaveTemplateModal = dynamic(() => import("@/components/templates/SaveTempl
 });
 
 export default function CampaignsListPage() {
+  return (
+    <Suspense fallback={<TableSkeleton />}>
+      <CampaignsListContent />
+    </Suspense>
+  );
+}
+
+function CampaignsListContent() {
   const searchParams = useSearchParams();
   const {
     campaigns,
@@ -90,7 +99,7 @@ export default function CampaignsListPage() {
     t,
     tc,
     te,
-  } = useCampaignsPage();
+  } = useCampaignsPage(searchParams);
 
   return (
     <main className="max-w-7xl mx-auto">

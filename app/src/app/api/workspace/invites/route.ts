@@ -31,9 +31,10 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const { user, workspace } = await requireWorkspaceAccess(request);
-    await requireRole(workspace.id, user.id, ["owner", "admin"]);
-
-    const body = await request.json();
+    const [body] = await Promise.all([
+      request.json(),
+      requireRole(workspace.id, user.id, ["owner", "admin"]),
+    ]);
     const parsed = createInviteSchema.safeParse(body);
 
     if (!parsed.success) {

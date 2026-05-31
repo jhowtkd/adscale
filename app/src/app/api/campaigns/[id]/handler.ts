@@ -13,11 +13,15 @@ export function createDeleteHandler({ storage }: { storage: ObjectStorage }) {
     { params }: { params: Promise<{ id: string }> }
   ) {
     try {
-      const { workspace } = await requireWorkspaceAccess(request);
-      const { id } = await params;
+      const [{ workspace }, { id }] = await Promise.all([
+        requireWorkspaceAccess(request),
+        params,
+      ]);
 
-      const assets = await getAssetsByCampaign(id, workspace.id);
-      const derivations = await getDerivationsByCampaign(id, workspace.id);
+      const [assets, derivations] = await Promise.all([
+        getAssetsByCampaign(id, workspace.id),
+        getDerivationsByCampaign(id, workspace.id),
+      ]);
       const keysToDelete: string[] = [
         ...assets.map((a) => a.key),
         ...derivations.map((d) => d.outputKey).filter((k): k is string => !!k),

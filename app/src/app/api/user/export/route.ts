@@ -16,18 +16,14 @@ export async function GET(request: Request) {
   try {
     const { user, workspace } = await requireWorkspaceAccess(request);
 
-    const [userData, workspaceData, userCampaigns, userPlans, userAssets] = await Promise.all([
+    const [userData, workspaceData, userCampaigns, userPlans, userAssets, userDerivations] = await Promise.all([
       db.select().from(userTable).where(eq(userTable.id, user.id)).limit(1),
       db.select().from(workspaces).where(eq(workspaces.id, workspace.id)).limit(1),
       db.select().from(campaigns).where(eq(campaigns.workspaceId, workspace.id)),
       db.select().from(creativePlans).where(eq(creativePlans.workspaceId, workspace.id)),
       db.select().from(campaignAssets).where(eq(campaignAssets.workspaceId, workspace.id)),
+      db.select().from(derivations).where(eq(derivations.workspaceId, workspace.id)),
     ]);
-
-    const userDerivations = await db
-      .select()
-      .from(derivations)
-      .where(eq(derivations.workspaceId, workspace.id));
 
     const exportData = {
       exportedAt: new Date().toISOString(),

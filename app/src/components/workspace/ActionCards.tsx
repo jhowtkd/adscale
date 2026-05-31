@@ -26,7 +26,7 @@ interface ActionCardProps {
 
 function ActionCard({ icon, title, description, meta, onClick }: ActionCardProps) {
   return (
-    <button
+    <button type="button"
       onClick={onClick}
       className={cn(
         "group relative flex flex-col items-start rounded-xl border bg-[var(--surface-base)] p-5 text-left transition-all duration-200",

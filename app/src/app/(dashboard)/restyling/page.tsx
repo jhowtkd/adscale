@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useReducer } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { toast } from "sonner";
 
 import { apiFetch } from "@/lib/api-client";
@@ -17,21 +17,45 @@ interface FormErrors {
   styleImage?: string;
 }
 
+interface RestylingPageState {
+  name: string;
+  client: string;
+  offer: string;
+  ctaText: string;
+  styleIntensity: "soft" | "medium" | "strong";
+  baseImage: File | null;
+  styleImage: File | null;
+  errors: FormErrors;
+  isSubmitting: boolean;
+}
+
+const initialRestylingPageState: RestylingPageState = {
+  name: "",
+  client: "",
+  offer: "",
+  ctaText: "",
+  styleIntensity: "medium",
+  baseImage: null,
+  styleImage: null,
+  errors: {},
+  isSubmitting: false,
+};
+
+function restylingPageReducer(
+  state: RestylingPageState,
+  payload: Partial<RestylingPageState>
+): RestylingPageState {
+  return { ...state, ...payload };
+}
+
 export default function RestylingPage() {
   const t = useTranslations("restyling");
   const tCommon = useTranslations("common");
 
   const router = useRouter();
 
-  const [name, setName] = useState("");
-  const [client, setClient] = useState("");
-  const [offer, setOffer] = useState("");
-  const [ctaText, setCtaText] = useState("");
-  const [styleIntensity, setStyleIntensity] = useState<"soft" | "medium" | "strong">("medium");
-  const [baseImage, setBaseImage] = useState<File | null>(null);
-  const [styleImage, setStyleImage] = useState<File | null>(null);
-  const [errors, setErrors] = useState<FormErrors>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [state, updateState] = useReducer(restylingPageReducer, initialRestylingPageState);
+  const { name, client, offer, ctaText, styleIntensity, baseImage, styleImage, errors, isSubmitting } = state;
 
   const uploadTranslations = {
     dragDrop: t("dragDrop"),
@@ -50,7 +74,7 @@ export default function RestylingPage() {
     if (!styleImage) {
       newErrors.styleImage = t("styleImageRequired");
     }
-    setErrors(newErrors);
+    updateState({ errors: newErrors });
     return Object.keys(newErrors).length === 0;
   }, [name, baseImage, styleImage, t]);
 
@@ -59,7 +83,7 @@ export default function RestylingPage() {
       e.preventDefault();
       if (!validate()) return;
 
-      setIsSubmitting(true);
+      updateState({ isSubmitting: true });
 
       try {
         const formData = new FormData();
@@ -85,7 +109,7 @@ export default function RestylingPage() {
         router.push(data.redirectUrl || `/campaigns/${data.campaignId}`);
       } catch (err) {
         toast.error(err instanceof Error ? err.message : tCommon("error"));
-        setIsSubmitting(false);
+        updateState({ isSubmitting: false });
       }
     },
     [name, client, offer, ctaText, styleIntensity, baseImage, styleImage, validate, router, tCommon]
@@ -97,7 +121,7 @@ export default function RestylingPage() {
 
   return (
     <div className="max-w-3xl mx-auto">
-      <motion.div
+      <m.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, ease: [0.19, 1, 0.22, 1] as [number, number, number, number] }}
@@ -109,7 +133,7 @@ export default function RestylingPage() {
         <p className="mt-1 text-sm text-[var(--text-secondary)]">
           {t("description")}
         </p>
-      </motion.div>
+      </m.div>
 
       <form onSubmit={handleSubmit} className="space-y-8">
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
@@ -117,7 +141,7 @@ export default function RestylingPage() {
             label={t("baseImageLabel")}
             description={t("baseImageDescription")}
             value={baseImage}
-            onChange={setBaseImage}
+            onChange={(file) => updateState({ baseImage: file })}
             error={errors.baseImage}
             translations={uploadTranslations}
           />
@@ -125,7 +149,7 @@ export default function RestylingPage() {
             label={t("styleImageLabel")}
             description={t("styleImageDescription")}
             value={styleImage}
-            onChange={setStyleImage}
+            onChange={(file) => updateState({ styleImage: file })}
             error={errors.styleImage}
             translations={uploadTranslations}
           />
@@ -133,15 +157,15 @@ export default function RestylingPage() {
 
         <RestylingForm
           name={name}
-          onNameChange={setName}
+          onNameChange={(value) => updateState({ name: value })}
           client={client}
-          onClientChange={setClient}
+          onClientChange={(value) => updateState({ client: value })}
           offer={offer}
-          onOfferChange={setOffer}
+          onOfferChange={(value) => updateState({ offer: value })}
           ctaText={ctaText}
-          onCtaTextChange={setCtaText}
+          onCtaTextChange={(value) => updateState({ ctaText: value })}
           styleIntensity={styleIntensity}
-          onStyleIntensityChange={setStyleIntensity}
+          onStyleIntensityChange={(value) => updateState({ styleIntensity: value })}
           errors={errors}
         />
 

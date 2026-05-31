@@ -1,13 +1,13 @@
 import { z } from "zod";
 
-export const confidenceLevelSchema = z.enum(["high", "medium", "low"]);
+const confidenceLevelSchema = z.enum(["high", "medium", "low"]);
 
-export const aiDeducedFieldSchema = z.object({
+const aiDeducedFieldSchema = z.object({
   value: z.string().optional(),
   confidence: confidenceLevelSchema.default("medium"),
 });
 
-export const aiSuggestionSchema = z.object({
+const aiSuggestionSchema = z.object({
   suggestedCreativeLevel: z.object({
     value: z.enum(["conservative", "balanced", "bold"]),
     confidence: confidenceLevelSchema.default("medium"),

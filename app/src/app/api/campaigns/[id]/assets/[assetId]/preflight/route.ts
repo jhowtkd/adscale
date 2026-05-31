@@ -20,8 +20,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string; assetId: string }> }
 ) {
   try {
-    const { workspace } = await requireWorkspaceAccess(request);
-    const { id: campaignId, assetId } = await params;
+    const [{ workspace }, { id: campaignId, assetId }] = await Promise.all([
+      requireWorkspaceAccess(request),
+      params,
+    ]);
 
     const campaign = await getCampaignById(campaignId, workspace.id);
     if (!campaign) {
@@ -68,8 +70,10 @@ export async function POST(
   { params }: { params: Promise<{ id: string; assetId: string }> }
 ) {
   try {
-    const { workspace } = await requireWorkspaceAccess(request);
-    const { id: campaignId, assetId } = await params;
+    const [{ workspace }, { id: campaignId, assetId }] = await Promise.all([
+      requireWorkspaceAccess(request),
+      params,
+    ]);
 
     const rateLimitResult = await checkRateLimit(request, {
       category: "ai",

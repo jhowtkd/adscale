@@ -28,8 +28,10 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string; competitorId: string }> }
 ) {
   try {
-    const { workspace } = await requireWorkspaceAccess(request);
-    const { id: campaignId, competitorId } = await params;
+    const [{ workspace }, { id: campaignId, competitorId }] = await Promise.all([
+      requireWorkspaceAccess(request),
+      params,
+    ]);
 
     const campaign = await getCampaignById(campaignId, workspace.id);
     if (!campaign) {
@@ -101,8 +103,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string; competitorId: string }> }
 ) {
   try {
-    const { workspace } = await requireWorkspaceAccess(request);
-    const { id: campaignId, competitorId } = await params;
+    const [{ workspace }, { id: campaignId, competitorId }] = await Promise.all([
+      requireWorkspaceAccess(request),
+      params,
+    ]);
 
     const campaign = await getCampaignById(campaignId, workspace.id);
     if (!campaign) {

@@ -135,7 +135,7 @@ export default function RestylingForm({
                 type="button"
                 onClick={() => onStyleIntensityChange(option.value)}
                 className={cn(
-                  "flex flex-col items-center gap-1 rounded-lg border px-3 py-3 text-center transition-all duration-200",
+                  "flex flex-col items-center gap-1 rounded-lg border p-3 text-center transition-all duration-200",
                   isSelected
                     ? "border-[var(--accent-blue)] bg-[var(--accent-blue)]/10"
                     : "border-[var(--border-dim)] bg-[var(--surface-base)] hover:border-[var(--border-medium)] hover:bg-[var(--surface-raised)]"

@@ -1,6 +1,6 @@
 "use client"
 
-import { motion, type HTMLMotionProps } from "framer-motion"
+import { m, type HTMLMotionProps } from "framer-motion"
 import { ReactNode } from "react"
 import { useReducedMotion } from "@/lib/hooks/use-reduced-motion"
 import { fadeInUp, fadeIn, fadeInDown, scaleIn, slideInLeft, slideInRight } from "@/lib/animations/variants"
@@ -45,7 +45,7 @@ export function FadeIn({
   const selectedVariant = variants[animation]
 
   return (
-    <motion.div
+    <m.div
       initial="hidden"
       animate="visible"
       variants={selectedVariant}
@@ -54,6 +54,6 @@ export function FadeIn({
       {...props}
     >
       {children}
-    </motion.div>
+    </m.div>
   )
 }

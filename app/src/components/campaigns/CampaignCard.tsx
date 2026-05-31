@@ -45,7 +45,7 @@ function CampaignCard({ campaign, index }: CampaignCardProps) {
         <div className="relative h-[140px] bg-[var(--surface-raised)] overflow-hidden">
           <div className="absolute inset-0 flex items-center justify-center">
             {campaign.variations > 0 ? (
-              <div className="grid grid-cols-2 gap-1 p-3 w-full h-full">
+              <div className="grid grid-cols-2 gap-1 p-3 size-full">
                 {[...Array(4)].map((_, i) => (
                   <div
                     key={i}
@@ -61,7 +61,7 @@ function CampaignCard({ campaign, index }: CampaignCardProps) {
             ) : (
               <div className="flex flex-col items-center justify-center gap-2">
                 <div
-                  className="flex items-center justify-center w-12 h-12 rounded-lg"
+                  className="flex items-center justify-center size-12 rounded-lg"
                   style={{
                     background: "var(--accent-green-dim)",
                   }}

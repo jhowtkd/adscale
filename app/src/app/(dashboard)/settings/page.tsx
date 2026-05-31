@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
-import { motion } from "framer-motion";
+import { Suspense } from "react";
+import { m } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useAppStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
 import ProfileTab from "@/components/settings/ProfileTab";
@@ -78,16 +77,19 @@ const tabVariants = {
 };
 
 export default function SettingsPage() {
-  const setCurrentPageTitle = useAppStore((s) => s.setCurrentPageTitle);
+  return (
+    <Suspense fallback={<SettingsTabSkeleton />}>
+      <SettingsContent />
+    </Suspense>
+  );
+}
+
+function SettingsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const t = useTranslations("settings");
   const requestedTab = searchParams.get("tab");
   const activeTab = requestedTab && tabIds.includes(requestedTab) ? requestedTab : "profile";
-
-  useEffect(() => {
-    setCurrentPageTitle(t("title"));
-  }, [setCurrentPageTitle, t]);
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -105,7 +107,7 @@ export default function SettingsPage() {
       <div className="border-b border-[var(--border-dim)]">
         <nav className="flex gap-1 -mb-px">
           {tabs.map((tab) => (
-            <button
+            <button type="button"
               key={tab.id}
               onClick={() => router.replace(`/settings?tab=${tab.id}`, { scroll: false })}
               className={cn(
@@ -120,7 +122,7 @@ export default function SettingsPage() {
                 {tab.id === "integrations" && <Badge variant="secondary">Setup</Badge>}
               </span>
               {activeTab === tab.id && (
-                <motion.div
+                <m.div
                   layoutId="settings-tab-indicator"
                   className="absolute bottom-0 left-0 right-0 h-[2px] bg-[var(--accent-green)]"
                   transition={{ type: "spring", stiffness: 500, damping: 30 }}
@@ -132,7 +134,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Tab Content */}
-      <motion.div
+      <m.div
         key={activeTab}
         variants={tabVariants}
         initial="hidden"
@@ -147,7 +149,7 @@ export default function SettingsPage() {
         {activeTab === "plans" && <PlansTab />}
         {activeTab === "integrations" && <IntegrationsTab />}
         {activeTab === "privacy" && <PrivacyTab />}
-      </motion.div>
+      </m.div>
     </div>
   );
 }

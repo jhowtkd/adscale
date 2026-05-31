@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { rateLimit } from "@/lib/rate-limit";
 import { isValidLocale, defaultLocale } from "@/i18n/config";
 
 const PROTECTED_PREFIXES = ["/campaigns", "/settings"];
@@ -10,6 +11,11 @@ function isProtectedPath(pathname: string): boolean {
   return PROTECTED_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
   );
+}
+
+function isApiMutation(request: NextRequest): boolean {
+  if (!request.nextUrl.pathname.startsWith("/api/")) return false;
+  return ["POST", "PATCH", "PUT", "DELETE"].includes(request.method);
 }
 
 function getLocaleFromRequest(request: NextRequest): string {
@@ -25,10 +31,49 @@ function getLocaleFromRequest(request: NextRequest): string {
   return defaultLocale;
 }
 
-export function middleware(request: NextRequest) {
+function hasSessionCookie(request: NextRequest): boolean {
+  return (
+    request.cookies.has("better-auth.session_token") ||
+    request.cookies.has("__Secure-better-auth.session_token") ||
+    request.cookies.has("session")
+  );
+}
+
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Skip API and static files
+  // Rate limit API mutations
+  if (isApiMutation(request)) {
+    const category = pathname.startsWith("/api/auth")
+      ? "auth"
+      : pathname.startsWith("/api/campaigns") ||
+        pathname.startsWith("/api/derivations") ||
+        pathname.startsWith("/api/restyling") ||
+        pathname.startsWith("/api/quick-tools")
+      ? "ai"
+      : "general";
+
+    const result = await rateLimit(request, category);
+    if (!result.success) {
+      return NextResponse.json(
+        {
+          error: "rateLimitExceeded",
+          message: "Too many requests. Please try again later.",
+          retryAfter: Math.ceil((result.reset - Date.now()) / 1000),
+        },
+        {
+          status: 429,
+          headers: {
+            "X-RateLimit-Limit": String(result.limit),
+            "X-RateLimit-Remaining": String(result.remaining),
+            "X-RateLimit-Reset": String(Math.ceil(result.reset / 1000)),
+          },
+        }
+      );
+    }
+  }
+
+  // Skip API and static files for locale/auth handling
   if (
     pathname.startsWith("/api/") ||
     pathname.startsWith("/_next/") ||
@@ -55,11 +100,7 @@ export function middleware(request: NextRequest) {
     return response;
   }
 
-  const sessionCookie =
-    request.cookies.get("better-auth.session_token")?.value ??
-    request.cookies.get("__Secure-better-auth.session_token")?.value;
-
-  if (!sessionCookie) {
+  if (!hasSessionCookie(request)) {
     const loginUrl = new URL("/login", request.url);
     return NextResponse.redirect(loginUrl);
   }
@@ -68,5 +109,7 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)",
+  ],
 };

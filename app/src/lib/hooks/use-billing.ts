@@ -66,8 +66,12 @@ export function useStartCheckout() {
 }
 
 export function useBillingPortal() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: openBillingPortal,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["billing", "status"] });
+    },
   });
 }
 
@@ -126,4 +130,3 @@ export function useCreditHistory(params?: {
     staleTime: STALE_TIME.SEMI_STATIC,
   });
 }
-

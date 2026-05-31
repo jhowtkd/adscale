@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence, m } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import {
@@ -107,14 +107,14 @@ export default function SaveTemplateModal({
             />
             <AnimatePresence>
               {error && (
-                <motion.p
+                <m.p
                   initial={{ opacity: 0, y: -4 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -4 }}
                   className="text-xs text-[var(--accent-rose)]"
                 >
                   {error}
-                </motion.p>
+                </m.p>
               )}
             </AnimatePresence>
           </div>

@@ -1,41 +1,15 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence, m } from "framer-motion";
 import { Eye, EyeOff, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
-
-// ============================================
-// Password Validation Utilities
-// ============================================
-
-export interface PasswordRequirement {
-  label: string;
-  met: boolean;
-}
-
-export function validatePassword(password: string): PasswordRequirement[] {
-  return [
-    { label: "8+ characters", met: password.length >= 8 },
-    { label: "Uppercase letter", met: /[A-Z]/.test(password) },
-    { label: "Number", met: /[0-9]/.test(password) },
-    { label: "Special character", met: /[^A-Za-z0-9]/.test(password) },
-  ];
-}
-
-export type PasswordStrength = "weak" | "fair" | "good" | "strong" | "empty";
-
-export function getPasswordStrength(
-  requirements: PasswordRequirement[]
-): PasswordStrength {
-  const metCount = requirements.filter((r) => r.met).length;
-  if (metCount === 0) return "empty";
-  if (metCount <= 1) return "weak";
-  if (metCount === 2) return "fair";
-  if (metCount === 3) return "good";
-  return "strong";
-}
+import {
+  getPasswordStrength,
+  validatePassword,
+  type PasswordStrength,
+} from "./password-utils";
 
 const strengthConfig: Record<
   PasswordStrength,
@@ -141,7 +115,7 @@ export default function PasswordInput({
 
       {/* Strength Meter */}
       {showStrengthMeter && value.length > 0 && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: "auto" }}
           exit={{ opacity: 0, height: 0 }}
@@ -151,7 +125,7 @@ export default function PasswordInput({
           {/* Segmented bar */}
           <div className="flex gap-1">
             {[1, 2, 3, 4].map((segment) => (
-              <motion.div
+              <m.div
                 key={segment}
                 className="h-1 flex-1 rounded-full"
                 style={{
@@ -174,7 +148,7 @@ export default function PasswordInput({
           >
             {strength !== "empty" ? t(`passwordStrength.${strength}`) : ""}
           </p>
-        </motion.div>
+        </m.div>
       )}
 
       {/* Hint text */}
@@ -187,7 +161,7 @@ export default function PasswordInput({
       {/* Requirements Checklist */}
       {showRequirements && value.length > 0 && (
         <AnimatePresence>
-          <motion.ul
+          <m.ul
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
@@ -195,7 +169,7 @@ export default function PasswordInput({
             className="space-y-1 pt-1"
           >
             {requirements.map((req) => (
-              <motion.li
+              <m.li
                 key={req.label}
                 className="flex items-center gap-1.5 text-xs"
                 initial={{ opacity: 0, x: -8 }}
@@ -222,9 +196,9 @@ export default function PasswordInput({
                 >
                   {requirementLabelMap[req.label] ?? req.label}
                 </span>
-              </motion.li>
+              </m.li>
             ))}
-          </motion.ul>
+          </m.ul>
         </AnimatePresence>
       )}
     </div>

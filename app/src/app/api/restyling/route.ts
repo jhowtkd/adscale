@@ -17,9 +17,10 @@ const MAX_SIZE = 50 * 1024 * 1024;
 export async function POST(request: Request) {
   try {
     const { user, workspace } = await requireWorkspaceAccess(request);
-    const locale = await getUserLocale(user.id);
-
-    const formData = await request.formData();
+    const [locale, formData] = await Promise.all([
+      getUserLocale(user.id),
+      request.formData(),
+    ]);
 
     const name = formData.get("name");
     const client = formData.get("client");
@@ -93,37 +94,40 @@ export async function POST(request: Request) {
     });
 
     const baseKey = `campaigns/${campaign.id}/${crypto.randomUUID()}-base.${baseImage.type.split("/")[1] ?? "bin"}`;
-    const baseBuffer = Buffer.from(await baseImage.arrayBuffer());
-    await uploadBuffer(baseKey, baseBuffer, baseImage.type);
-
     const styleKey = `campaigns/${campaign.id}/${crypto.randomUUID()}-style.${styleImage.type.split("/")[1] ?? "bin"}`;
-    const styleBuffer = Buffer.from(await styleImage.arrayBuffer());
-    await uploadBuffer(styleKey, styleBuffer, styleImage.type);
+    const [baseBuffer, styleBuffer] = await Promise.all([
+      baseImage.arrayBuffer().then((buffer) => Buffer.from(buffer)),
+      styleImage.arrayBuffer().then((buffer) => Buffer.from(buffer)),
+    ]);
+    await Promise.all([
+      uploadBuffer(baseKey, baseBuffer, baseImage.type),
+      uploadBuffer(styleKey, styleBuffer, styleImage.type),
+    ]);
 
     try {
-      await createAsset(workspace.id, campaign.id, {
-        key: baseKey,
-        type: baseImage.type,
-        size: baseImage.size,
-        role: "base",
-      });
-
-      await createAsset(workspace.id, campaign.id, {
-        key: styleKey,
-        type: styleImage.type,
-        size: styleImage.size,
-        role: "style_reference",
-      });
-
-      const derivation = await createDerivation({
-        campaignId: campaign.id,
-        workspaceId: workspace.id,
-        status: "queued",
-        generationMode: "restyling",
-        format: "1:1",
-        variantIndex: 0,
-        ctaText: typeof ctaText === "string" ? ctaText.trim() : undefined,
-      });
+      const [, , derivation] = await Promise.all([
+        createAsset(workspace.id, campaign.id, {
+          key: baseKey,
+          type: baseImage.type,
+          size: baseImage.size,
+          role: "base",
+        }),
+        createAsset(workspace.id, campaign.id, {
+          key: styleKey,
+          type: styleImage.type,
+          size: styleImage.size,
+          role: "style_reference",
+        }),
+        createDerivation({
+          campaignId: campaign.id,
+          workspaceId: workspace.id,
+          status: "queued",
+          generationMode: "restyling",
+          format: "1:1",
+          variantIndex: 0,
+          ctaText: typeof ctaText === "string" ? ctaText.trim() : undefined,
+        }),
+      ]);
 
       await inngest.send({
         name: "derivation.generate",
@@ -146,9 +150,11 @@ export async function POST(request: Request) {
         redirectUrl: `/campaigns/${campaign.id}`,
       }, { status: 201 });
     } catch (err) {
-      await deleteObject(baseKey).catch((e) => logger.error("cleanup failed", e));
-      await deleteObject(styleKey).catch((e) => logger.error("cleanup failed", e));
-      await deleteCampaign(campaign.id, workspace.id).catch((e) => logger.error("cleanup failed", e));
+      await Promise.all([
+        deleteObject(baseKey).catch((e) => logger.error("cleanup failed", e)),
+        deleteObject(styleKey).catch((e) => logger.error("cleanup failed", e)),
+        deleteCampaign(campaign.id, workspace.id).catch((e) => logger.error("cleanup failed", e)),
+      ]);
       throw err;
     }
   } catch (error) {

@@ -1,13 +1,15 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";
 import dynamic from "next/dynamic";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import { useUploadAsset } from "@/lib/hooks/use-assets";
+import type { DeliveryFormat } from "@/components/workspace/DeliveryPackageModal";
 
 const DeliveryPackageModal = dynamic(() => import("@/components/workspace/DeliveryPackageModal"), {
   ssr: false,
@@ -35,15 +37,22 @@ import CampaignNotFoundState from "@/components/campaigns/CampaignNotFoundState"
 import { useCampaignWorkspace } from "@/lib/hooks/use-campaign-workspace";
 import { useTranslations } from "next-intl";
 
+type WorkspaceHookResult = ReturnType<typeof useCampaignWorkspace>;
+type Campaign = NonNullable<WorkspaceHookResult["campaign"]>;
+type WorkspaceState = WorkspaceHookResult["workspaceState"];
+
 export default function CampaignWorkspacePage() {
   const params = useParams();
   const campaignId = params.id as string;
   const isNew = campaignId === "new";
   const tc = useTranslations("common");
   const addToast = useAppStore((s) => s.addToast);
+  const uploadAsset = useUploadAsset(campaignId);
 
-  const [personaModalOpen, setPersonaModalOpen] = useState(false);
-  const [selectedSimulationId, setSelectedSimulationId] = useState<string | null>(null);
+  const [personaSimulation, setPersonaSimulation] = useState<{
+    isOpen: boolean;
+    selectedId: string | null;
+  }>({ isOpen: false, selectedId: null });
 
   const [analysis, setAnalysis] = useState({
     detectedConcept: "",
@@ -56,7 +65,7 @@ export default function CampaignWorkspacePage() {
     suggestedPlatforms: "",
     suggestedCta: "",
   });
-  const [pilotAssetId, setPilotAssetId] = useState<string | null>(null);
+  const pilotAssetIdRef = useRef<string | null>(null);
   const [showDerivarModal, setShowDerivarModal] = useState(false);
   const [showEstilizarModal, setShowEstilizarModal] = useState(false);
 
@@ -77,6 +86,8 @@ export default function CampaignWorkspacePage() {
     goToGenerating,
     savePilot,
     handleGenerateDerivations,
+    configureAndGenerate,
+    handleRestyle,
     handleGenerateLandingPage,
     handleSaveAsReference,
     hasActivePreview,
@@ -111,16 +122,16 @@ export default function CampaignWorkspacePage() {
   } = useCampaignWorkspace(campaignId, isNew);
 
   const handleSimulatePersonas = (derivationId: string) => {
-    setSelectedSimulationId(derivationId);
-    setPersonaModalOpen(true);
+    setPersonaSimulation({ isOpen: true, selectedId: derivationId });
   };
 
   const handleClosePersonaModal = () => {
-    setPersonaModalOpen(false);
-    setSelectedSimulationId(null);
+    setPersonaSimulation({ isOpen: false, selectedId: null });
   };
 
-  const handleAssetUploaded = (assetId: string) => setPilotAssetId(assetId);
+  const handleAssetUploaded = (assetId: string) => {
+    pilotAssetIdRef.current = assetId;
+  };
   const handleAnalysisComplete = (analysisData: {
     detectedConcept: string;
     tone: string;
@@ -151,17 +162,77 @@ export default function CampaignWorkspacePage() {
     ctaText: string;
     constraints: string;
   }) => {
-    if (pilotAssetId) {
-      savePilot(pilotAssetId, briefing);
+    if (pilotAssetIdRef.current) {
+      savePilot(pilotAssetIdRef.current, briefing);
     }
   };
 
   const handleSkipBriefing = () => {
-    if (pilotAssetId) {
-      savePilot(pilotAssetId, {});
+    if (pilotAssetIdRef.current) {
+      savePilot(pilotAssetIdRef.current, {});
     } else {
       goToActions();
     }
+  };
+
+  const handleDerivarSelect = (
+    mode: "art_variation" | "format_adaptation",
+    config: { batch?: boolean; auto?: boolean }
+  ) => {
+    setShowDerivarModal(false);
+
+    // Build config based on selection
+    if (mode === "art_variation") {
+      // Use briefing CTA or fallback defaults
+      const ctaText = analysis.suggestedCta || "Compre agora";
+      const ctaVariants = [ctaText, "Saiba mais", "Aproveite"].filter(Boolean);
+      void configureAndGenerate({
+        generationMode: "art_variation",
+        ctaVariants,
+        creativeLevel: config.auto ? "bold" : "balanced",
+      });
+    } else {
+      // format_adaptation
+      const targetFormats = config.batch
+        ? ["1:1", "4:5", "9:16"]
+        : ["1:1"];
+      void configureAndGenerate({
+        generationMode: "format_adaptation",
+        targetFormats,
+      });
+    }
+  };
+
+  const handleEstilizarSubmit = async (data: {
+    styleReferenceFiles: File[];
+    style: string;
+    intensity: string;
+  }) => {
+    setShowEstilizarModal(false);
+
+    // Upload style reference files as assets with role="style_reference"
+    const styleAssetIds: string[] = [];
+    if (data.styleReferenceFiles.length > 0) {
+      try {
+        const assets = await Promise.all(
+          data.styleReferenceFiles.map((file) =>
+            uploadAsset.mutateAsync({
+            file,
+            role: "style_reference",
+            })
+          )
+        );
+        styleAssetIds.push(...assets.map((asset) => asset.id));
+      } catch {
+        addToast("error", "Erro ao fazer upload das referências de estilo");
+        return;
+      }
+    }
+
+    void handleRestyle({
+      styleAssetIds: styleAssetIds.length > 0 ? styleAssetIds : undefined,
+      styleIntensity: data.intensity as "soft" | "medium" | "strong",
+    });
   };
 
   if (isLoading && !isNew) return <CampaignSkeleton />;
@@ -172,177 +243,359 @@ export default function CampaignWorkspacePage() {
 
   return (
     <div className="max-w-[1100px] min-w-0 mx-auto pb-20">
-      {/* Simplified Header */}
-      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
-        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
-          <Link
-            href="/campaigns"
-            className="inline-flex items-center gap-1.5 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
-          >
-            ← {tc("backToCampaigns")}
-          </Link>
-          <div className="flex min-w-0 items-center gap-3">
-            <h1 className="min-w-0 truncate text-lg font-semibold text-[var(--text-primary)]">
-              {campaign?.name || ""}
-            </h1>
-            <span
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-mono font-bold uppercase tracking-[0.2em] leading-tight"
-              style={{
-                backgroundColor: "rgba(0,179,74,0.15)",
-                color: "var(--accent-green)",
-              }}
-            >
-              <span
-                className="inline-block h-1.5 w-1.5 rounded-full"
-                style={{ backgroundColor: "var(--accent-green)" }}
-              />
-              Piloto
-            </span>
-          </div>
-        </div>
-        {isDraft && !isNew && (
-          <button
-            onClick={handleDeleteClick}
-            className="min-h-10 shrink-0 rounded-md p-2 text-[var(--accent-rose)] hover:bg-[rgba(244,63,94,0.08)] transition-colors"
-            title={tc("deleteDraft")}
-            aria-label={tc("deleteDraft")}
-          >
-            <Trash2 size={16} />
-          </button>
-        )}
-      </div>
+      <CampaignWorkspaceHeader
+        campaignName={campaign?.name ?? ""}
+        isDraft={isDraft}
+        isNew={isNew}
+        backLabel={tc("backToCampaigns")}
+        deleteLabel={tc("deleteDraft")}
+        onDelete={handleDeleteClick}
+      />
 
       {campaign && <CampaignClientSubtitle platformsText="" />}
 
-      <div
-        className={cn(
-          "glass-card rounded-xl min-h-[400px]",
-          workspaceState === "piloto" && "p-6 md:p-8"
-        )}
-      >
-        {workspaceState === "piloto" && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <PilotUploadPanel
-              onAssetUploaded={handleAssetUploaded}
-              onAnalysisComplete={handleAnalysisComplete}
-            />
-            <PilotBriefingForm
-              analysis={analysis}
-              onSubmit={handleBriefingSubmit}
-              onSkip={handleSkipBriefing}
-            />
-          </div>
-        )}
+      <CampaignWorkspaceCard
+        campaignId={campaignId}
+        campaign={campaign}
+        workspaceState={workspaceState}
+        analysis={analysis}
+        allDerivations={allDerivations}
+        onAssetUploaded={handleAssetUploaded}
+        onAnalysisComplete={handleAnalysisComplete}
+        onBriefingSubmit={handleBriefingSubmit}
+        onSkipBriefing={handleSkipBriefing}
+        onOpenDerivar={() => {
+          setShowDerivarModal(true);
+          goToDerivation();
+        }}
+        onOpenEstilizar={() => {
+          setShowEstilizarModal(true);
+          goToStyling();
+        }}
+      />
 
-        {(workspaceState === "acoes" || workspaceState === "derivando" || workspaceState === "estilizando") && (
-          <div className="flex gap-6">
-            <PilotSidebar
-              campaign={{ name: campaign?.name || "", client: campaign?.client }}
-              briefing={{
-                objective: analysis.suggestedObjective,
-                audience: analysis.suggestedAudience,
-                tone: analysis.suggestedTone,
-                platforms: analysis.suggestedPlatforms,
-                ctaText: analysis.suggestedCta,
-              }}
-            />
-            <div className="flex-1 min-w-0 space-y-6">
-              <div>
-                <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-1">
-                  Ações disponíveis
-                </h2>
-                <p className="text-xs text-[var(--text-secondary)]">
-                  Escolha uma ação para gerar novas variações do criativo.
-                </p>
-              </div>
-              <ActionCards
-                onDerivar={() => {
-                  setShowDerivarModal(true);
-                  goToDerivation();
-                }}
-                onEstilizar={() => {
-                  setShowEstilizarModal(true);
-                  goToStyling();
-                }}
-              />
-              <div>
-                <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-3">
-                  Derivações
-                </h2>
-                <DerivationGrid
-                  derivations={allDerivations}
-                  onAddNew={() => setShowDerivarModal(true)}
-                />
-              </div>
-            </div>
-          </div>
-        )}
+      <CampaignWorkspaceModals
+        campaign={campaign}
+        selectedDeliverySource={selectedDeliverySource}
+        deliveryModalOpen={deliveryModalOpen}
+        exportPending={exportPending}
+        deliveryPackagePending={deliveryPackagePending}
+        personaSimulation={personaSimulation}
+        showDerivarModal={showDerivarModal}
+        showEstilizarModal={showEstilizarModal}
+        showDeleteDialog={showDeleteDialog}
+        onDeliveryModalOpenChange={handleDeliveryModalOpenChange}
+        onDownloadDeliverySource={handleDownloadDeliverySource}
+        onConfirmDeliveryPackage={handleConfirmDeliveryPackage}
+        onClosePersonaModal={handleClosePersonaModal}
+        onCloseDerivar={() => {
+          setShowDerivarModal(false);
+          goToActions();
+        }}
+        onDerivarSelect={handleDerivarSelect}
+        onCloseEstilizar={() => {
+          setShowEstilizarModal(false);
+          goToActions();
+        }}
+        onEstilizarSubmit={handleEstilizarSubmit}
+        onDeleteDialogOpenChange={setShowDeleteDialog}
+        onConfirmDelete={handleDelete}
+      />
+    </div>
+  );
+}
 
-        {workspaceState === "gerando" && (
-          <div className="flex items-center justify-center h-[400px]">
-            <div className="flex flex-col items-center gap-3">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-              <p className="text-sm text-[var(--text-secondary)]">Gerando derivações...</p>
-            </div>
-          </div>
-        )}
+interface CampaignWorkspaceHeaderProps {
+  campaignName: string;
+  isDraft: boolean;
+  isNew: boolean;
+  backLabel: string;
+  deleteLabel: string;
+  onDelete: () => void;
+}
+
+function CampaignWorkspaceHeader({
+  campaignName,
+  isDraft,
+  isNew,
+  backLabel,
+  deleteLabel,
+  onDelete,
+}: CampaignWorkspaceHeaderProps) {
+  return (
+    <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
+      <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+        <Link
+          href="/campaigns"
+          className="inline-flex items-center gap-1.5 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+        >
+          ← {backLabel}
+        </Link>
+        <div className="flex min-w-0 items-center gap-3">
+          <h1 className="min-w-0 truncate text-lg font-semibold text-[var(--text-primary)]">
+            {campaignName}
+          </h1>
+          <span
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-mono font-bold uppercase tracking-[0.2em] leading-tight"
+            style={{
+              backgroundColor: "rgba(0,179,74,0.15)",
+              color: "var(--accent-green)",
+            }}
+          >
+            <span
+              className="inline-block size-1.5 rounded-full"
+              style={{ backgroundColor: "var(--accent-green)" }}
+            />
+            Piloto
+          </span>
+        </div>
       </div>
+      {isDraft && !isNew && (
+        <button
+          type="button"
+          onClick={onDelete}
+          className="min-h-10 shrink-0 rounded-md p-2 text-[var(--accent-rose)] hover:bg-[rgba(244,63,94,0.08)] transition-colors"
+          title={deleteLabel}
+          aria-label={deleteLabel}
+        >
+          <Trash2 size={16} />
+        </button>
+      )}
+    </div>
+  );
+}
 
+interface CampaignWorkspaceCardProps {
+  campaignId: string;
+  campaign: WorkspaceHookResult["campaign"];
+  workspaceState: WorkspaceState;
+  analysis: {
+    detectedConcept: string;
+    tone: string;
+    elements: string;
+    format: string;
+    suggestedObjective: string;
+    suggestedAudience: string;
+    suggestedTone: string;
+    suggestedPlatforms: string;
+    suggestedCta: string;
+  };
+  allDerivations: WorkspaceHookResult["allDerivations"];
+  onAssetUploaded: (assetId: string) => void;
+  onAnalysisComplete: (analysis: {
+    detectedConcept: string;
+    tone: string;
+    elements: string;
+    format: string;
+    suggestedObjective?: string;
+    suggestedAudience?: string;
+    suggestedTone?: string;
+    suggestedPlatforms?: string;
+    suggestedCta?: string;
+  }) => void;
+  onBriefingSubmit: (briefing: {
+    objective: string;
+    audience: string;
+    tone: string;
+    platforms: string;
+    ctaText: string;
+    constraints: string;
+  }) => void;
+  onSkipBriefing: () => void;
+  onOpenDerivar: () => void;
+  onOpenEstilizar: () => void;
+}
+
+function CampaignWorkspaceCard({
+  campaignId,
+  campaign,
+  workspaceState,
+  analysis,
+  allDerivations,
+  onAssetUploaded,
+  onAnalysisComplete,
+  onBriefingSubmit,
+  onSkipBriefing,
+  onOpenDerivar,
+  onOpenEstilizar,
+}: CampaignWorkspaceCardProps) {
+  return (
+    <div
+      className={cn(
+        "glass-card rounded-xl min-h-[400px]",
+        workspaceState === "piloto" && "p-6 md:p-8"
+      )}
+    >
+      {workspaceState === "piloto" && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <PilotUploadPanel
+            campaignId={campaignId}
+            onAssetUploaded={onAssetUploaded}
+            onAnalysisComplete={onAnalysisComplete}
+          />
+	          <PilotBriefingForm
+	            key={[
+	              analysis.detectedConcept,
+	              analysis.suggestedObjective,
+	              analysis.suggestedAudience,
+	              analysis.suggestedTone,
+	              analysis.suggestedPlatforms,
+	              analysis.suggestedCta,
+	            ].join("|")}
+	            analysis={analysis}
+	            onSubmit={onBriefingSubmit}
+            onSkip={onSkipBriefing}
+          />
+        </div>
+      )}
+
+      {(workspaceState === "acoes" ||
+        workspaceState === "derivando" ||
+        workspaceState === "estilizando") && (
+        <div className="flex gap-6">
+          <PilotSidebar
+            campaign={{ name: campaign?.name || "", client: campaign?.client }}
+            briefing={{
+              objective: analysis.suggestedObjective,
+              audience: analysis.suggestedAudience,
+              tone: analysis.suggestedTone,
+              platforms: analysis.suggestedPlatforms,
+              ctaText: analysis.suggestedCta,
+            }}
+          />
+          <div className="flex-1 min-w-0 space-y-6">
+            <div>
+              <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-1">
+                Ações disponíveis
+              </h2>
+              <p className="text-xs text-[var(--text-secondary)]">
+                Escolha uma ação para gerar novas variações do criativo.
+              </p>
+            </div>
+            <ActionCards
+              onDerivar={onOpenDerivar}
+              onEstilizar={onOpenEstilizar}
+            />
+            <div>
+              <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-3">
+                Derivações
+              </h2>
+              <DerivationGrid
+                derivations={allDerivations}
+                onAddNew={onOpenDerivar}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {workspaceState === "gerando" && (
+        <div className="flex items-center justify-center h-[400px]">
+          <div className="flex flex-col items-center gap-3">
+            <div className="animate-spin rounded-full size-8 border-b-2 border-primary" />
+            <p className="text-sm text-[var(--text-secondary)]">Gerando derivações…</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface CampaignWorkspaceModalsProps {
+  campaign: WorkspaceHookResult["campaign"];
+  selectedDeliverySource: WorkspaceHookResult["selectedDeliverySource"];
+  deliveryModalOpen: boolean;
+  exportPending: boolean;
+  deliveryPackagePending: boolean;
+  personaSimulation: { isOpen: boolean; selectedId: string | null };
+  showDerivarModal: boolean;
+  showEstilizarModal: boolean;
+  showDeleteDialog: boolean;
+  onDeliveryModalOpenChange: (open: boolean) => void;
+  onDownloadDeliverySource: () => void;
+  onConfirmDeliveryPackage: (formats: DeliveryFormat[]) => void;
+  onClosePersonaModal: () => void;
+  onCloseDerivar: () => void;
+  onDerivarSelect: (
+    mode: "art_variation" | "format_adaptation",
+    config: { batch?: boolean; auto?: boolean }
+  ) => void;
+  onCloseEstilizar: () => void;
+  onEstilizarSubmit: (data: {
+    styleReferenceFiles: File[];
+    style: string;
+    intensity: string;
+  }) => void;
+  onDeleteDialogOpenChange: (open: boolean) => void;
+  onConfirmDelete: () => void;
+}
+
+function CampaignWorkspaceModals({
+  campaign,
+  selectedDeliverySource,
+  deliveryModalOpen,
+  exportPending,
+  deliveryPackagePending,
+  personaSimulation,
+  showDerivarModal,
+  showEstilizarModal,
+  showDeleteDialog,
+  onDeliveryModalOpenChange,
+  onDownloadDeliverySource,
+  onConfirmDeliveryPackage,
+  onClosePersonaModal,
+  onCloseDerivar,
+  onDerivarSelect,
+  onCloseEstilizar,
+  onEstilizarSubmit,
+  onDeleteDialogOpenChange,
+  onConfirmDelete,
+}: CampaignWorkspaceModalsProps) {
+  return (
+    <>
       {selectedDeliverySource && (
         <DeliveryPackageModal
           open={deliveryModalOpen}
           sourceFormat={selectedDeliverySource.format ?? null}
           isDownloading={exportPending}
           isSubmitting={deliveryPackagePending}
-          onOpenChange={handleDeliveryModalOpenChange}
-          onDownloadCurrent={handleDownloadDeliverySource}
-          onConfirm={handleConfirmDeliveryPackage}
+          onOpenChange={onDeliveryModalOpenChange}
+          onDownloadCurrent={onDownloadDeliverySource}
+          onConfirm={onConfirmDeliveryPackage}
         />
       )}
 
-      {selectedSimulationId && (
+      {personaSimulation.selectedId && (
         <PersonaSimulationModal
-          isOpen={personaModalOpen}
-          onClose={handleClosePersonaModal}
+          isOpen={personaSimulation.isOpen}
+          onClose={onClosePersonaModal}
           sourceType="derivation"
-          sourceId={selectedSimulationId}
+          sourceId={personaSimulation.selectedId}
           campaignName={campaign?.name}
         />
       )}
 
       <DerivarModal
         open={showDerivarModal}
-        onClose={() => {
-          setShowDerivarModal(false);
-          goToActions();
-        }}
-        onSelect={(mode, config) => {
-          setShowDerivarModal(false);
-          handleGenerateDerivations();
-        }}
+        onClose={onCloseDerivar}
+        onSelect={onDerivarSelect}
       />
 
       <EstilizarModal
         open={showEstilizarModal}
-        onClose={() => {
-          setShowEstilizarModal(false);
-          goToActions();
-        }}
-        onSubmit={(data) => {
-          setShowEstilizarModal(false);
-          handleGenerateDerivations();
-        }}
+        onClose={onCloseEstilizar}
+        onSubmit={onEstilizarSubmit}
       />
 
       <ConfirmDialog
         open={showDeleteDialog}
-        onOpenChange={setShowDeleteDialog}
+        onOpenChange={onDeleteDialogOpenChange}
         title="Excluir campanha"
         description="Tem certeza que deseja excluir esta campanha? Esta ação não pode ser desfeita."
         confirmLabel="Excluir"
         variant="destructive"
-        onConfirm={handleDelete}
+        onConfirm={onConfirmDelete}
       />
-    </div>
+    </>
   );
 }

@@ -20,7 +20,7 @@ export async function createExportRecord(
   return result[0];
 }
 
-export async function getExportsByWorkspace(workspaceId: string) {
+async function getExportsByWorkspace(workspaceId: string) {
   return db
     .select()
     .from(exports)

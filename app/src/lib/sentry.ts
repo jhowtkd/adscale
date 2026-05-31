@@ -6,7 +6,7 @@ export function captureException(error: unknown, context?: Record<string, unknow
   }
 }
 
-export function captureMessage(message: string, level: Sentry.SeverityLevel = "info") {
+function captureMessage(message: string, level: Sentry.SeverityLevel = "info") {
   if (process.env.SENTRY_DSN) {
     Sentry.captureMessage(message, level);
   }

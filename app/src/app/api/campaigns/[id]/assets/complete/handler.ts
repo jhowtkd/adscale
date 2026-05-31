@@ -27,8 +27,10 @@ export function createPostHandler({ storage }: { storage: ObjectStorage }) {
     { params }: { params: Promise<{ id: string }> }
   ) {
     try {
-      const { workspace } = await requireWorkspaceAccess(request);
-      const { id: campaignId } = await params;
+      const [{ workspace }, { id: campaignId }] = await Promise.all([
+        requireWorkspaceAccess(request),
+        params,
+      ]);
 
       const campaign = await getCampaignById(campaignId, workspace.id);
       if (!campaign) {

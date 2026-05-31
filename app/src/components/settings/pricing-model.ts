@@ -1,6 +1,6 @@
 export const USD_BRL_PLANNING_RATE = 5.5;
 
-export const PRICE = {
+const PRICE = {
   planInputPerMillion: 0.75,
   planOutputPerMillion: 4.5,
   imageTextInputPerMillion: 5,
@@ -79,11 +79,11 @@ export const usdCurrency = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 2,
 });
 
-export function costPerMillion(tokens: number, price: number) {
+function costPerMillion(tokens: number, price: number) {
   return (tokens / 1_000_000) * price;
 }
 
-export function toBrl(usd: number) {
+function toBrl(usd: number) {
   return usd * USD_BRL_PLANNING_RATE;
 }
 

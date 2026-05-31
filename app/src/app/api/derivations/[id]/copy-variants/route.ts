@@ -24,8 +24,10 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { user, workspace } = await requireWorkspaceAccess(request);
-    const { id: derivationId } = await params;
+    const [{ user, workspace }, { id: derivationId }] = await Promise.all([
+      requireWorkspaceAccess(request),
+      params,
+    ]);
 
     const derivation = await getDerivationById(derivationId, workspace.id);
     if (!derivation) {
@@ -113,8 +115,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { workspace } = await requireWorkspaceAccess(request);
-    const { id: derivationId } = await params;
+    const [{ workspace }, { id: derivationId }] = await Promise.all([
+      requireWorkspaceAccess(request),
+      params,
+    ]);
 
     const variants = await getCopyVariantsByDerivation(derivationId, workspace.id);
     return NextResponse.json({ variants });

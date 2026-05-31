@@ -53,8 +53,10 @@ export async function canSpend(
   amount?: number
 ): Promise<SpendCheck> {
   const required = creditAmount(action, amount);
-  const subscription = await getActiveSubscriptionByWorkspace(workspaceId);
-  const grants = await getAvailableCreditGrants(workspaceId);
+  const [subscription, grants] = await Promise.all([
+    getActiveSubscriptionByWorkspace(workspaceId),
+    getAvailableCreditGrants(workspaceId),
+  ]);
   const balance = totalRemaining(grants);
 
   if (!subscription) {
@@ -108,16 +110,21 @@ export async function recordUsage(input: {
         throw new Error("insufficient_credits");
       }
 
+      const debits: Array<{ id: string; remaining: number }> = [];
       for (const grant of grants) {
         if (remainingToDebit <= 0) break;
         const debit = Math.min(grant.remaining, remainingToDebit);
-        await updateCreditGrantRemaining(grant.id, grant.remaining - debit, tx);
+        debits.push({ id: grant.id, remaining: grant.remaining - debit });
         remainingToDebit -= debit;
       }
 
       if (remainingToDebit > 0) {
         throw new Error("insufficient_credits");
       }
+
+      await Promise.all(
+        debits.map((debit) => updateCreditGrantRemaining(debit.id, debit.remaining, tx))
+      );
     });
   } catch (err) {
     if (err instanceof Error && err.message === "insufficient_credits") {
@@ -166,8 +173,9 @@ export async function recordUsage(input: {
     try {
       const recipients = await getWorkspaceNotificationRecipients(input.workspaceId);
       const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      for (const recipient of recipients) {
-        if (!recipient.lowCreditsNotifiedAt || recipient.lowCreditsNotifiedAt < oneDayAgo) {
+      await Promise.all(
+        recipients.map(async (recipient) => {
+          if (!recipient.lowCreditsNotifiedAt || recipient.lowCreditsNotifiedAt < oneDayAgo) {
           await sendLowCreditsEmail({
             to: recipient.email,
             creditBalance: newBalance,
@@ -177,8 +185,9 @@ export async function recordUsage(input: {
             .update(user)
             .set({ lowCreditsNotifiedAt: new Date() })
             .where(eq(user.id, recipient.userId));
-        }
-      }
+          }
+        })
+      );
     } catch (notifyErr) {
       logger.warn("[recordUsage] failed to send low credits email", notifyErr);
     }

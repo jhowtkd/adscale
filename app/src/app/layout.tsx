@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Space_Mono } from "next/font/google";
+import { Inter, Press_Start_2P, Space_Mono } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { Toaster } from "@/components/ui/sonner";
@@ -10,6 +10,7 @@ import CookieBanner from "@/components/cookie-consent/CookieBanner";
 import { SentryErrorBoundary } from "@/components/providers/SentryErrorBoundary";
 import ToastStack from "@/components/providers/ToastStack";
 import ThemeProvider from "@/components/providers/ThemeProvider";
+import MotionProvider from "@/components/providers/MotionProvider";
 import { Agentation } from "agentation";
 import "./globals.css";
 
@@ -38,6 +39,13 @@ const spaceMono = Space_Mono({
   display: "swap",
 });
 
+const pressStart = Press_Start_2P({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-press-start",
+  display: "swap",
+});
+
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
@@ -49,17 +57,13 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const locale = await getLocale();
-  const messages = await getMessages();
+  const [locale, messages] = await Promise.all([getLocale(), getMessages()]);
 
   return (
-    <html lang={locale} className={`${inter.variable} ${spaceMono.variable} light antialiased`} suppressHydrationWarning data-scroll-behavior="smooth">
+    <html lang={locale} className={`${inter.variable} ${spaceMono.variable} ${pressStart.variable} light antialiased`} suppressHydrationWarning data-scroll-behavior="smooth">
       <head>
         <link rel="preconnect" href="https://r2.adscale.com" />
         <link rel="dns-prefetch" href="https://r2.adscale.com" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
       </head>
       <body className="min-h-screen bg-background text-foreground font-sans">
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
@@ -74,20 +78,22 @@ export default async function RootLayout({
             <A11yProvider>
               <TooltipProvider>
                 <SentryErrorBoundary>
-                  <main id="main" className="contents">
-                    {children}
-                  </main>
-                  <Toaster
-                    position="bottom-right"
-                    toastOptions={{
-                      style: {
-                        background: "var(--surface-base)",
-                        border: "1px solid var(--border-dim)",
-                        color: "var(--text-primary)",
-                      },
-                    }}
-                  />
-                  <ToastStack />
+                  <MotionProvider>
+                    <main id="main" className="contents">
+                      {children}
+                    </main>
+                    <Toaster
+                      position="bottom-right"
+                      toastOptions={{
+                        style: {
+                          background: "var(--surface-base)",
+                          border: "1px solid var(--border-dim)",
+                          color: "var(--text-primary)",
+                        },
+                      }}
+                    />
+                    <ToastStack />
+                  </MotionProvider>
                 </SentryErrorBoundary>
               </TooltipProvider>
             </A11yProvider>

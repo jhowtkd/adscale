@@ -48,13 +48,13 @@ export default function ActivityFeed({ activities }: ActivityFeedProps) {
         {activities.slice(0, 5).map((activity) => (
           <div key={activity.id} className="flex gap-3 px-5 py-3 last:border-b-0 hover:bg-[var(--surface-raised)]/50 transition-colors duration-200">
             <div className={cn(
-              "w-7 h-7 rounded-lg bg-[var(--surface-raised)] flex items-center justify-center flex-shrink-0",
+              "size-7 rounded-lg bg-[var(--surface-raised)] flex items-center justify-center flex-shrink-0",
               activityColors[activity.type] ?? "text-[var(--text-secondary)]"
             )}>
               {activityIcons[activity.type] ?? <Check size={14} />}
             </div>
             <div className="min-w-0">
-              <div className="text-xs text-[var(--text-secondary)] leading-snug truncate" dangerouslySetInnerHTML={{ __html: activity.description }} />
+              <div className="text-xs text-[var(--text-secondary)] leading-snug truncate">{activity.description}</div>
               <div className="text-[10px] text-[var(--text-muted)] mt-0.5 font-mono">{formatTimeAgo(activity.createdAt)}</div>
             </div>
           </div>
@@ -63,4 +63,3 @@ export default function ActivityFeed({ activities }: ActivityFeedProps) {
     </div>
   );
 }
-

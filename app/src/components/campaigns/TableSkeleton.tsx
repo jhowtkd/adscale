@@ -8,7 +8,7 @@ export default function TableSkeleton() {
     <div className="rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)] overflow-hidden">
       <div className="px-4 py-3 border-b border-[var(--border-dim)] bg-[var(--surface-raised)]">
         <div className="flex gap-4">
-          <Skeleton className="h-4 w-4" />
+          <Skeleton className="size-4" />
           <Skeleton className="h-4 w-40" />
           <Skeleton className="h-4 w-24 ml-auto" />
           <Skeleton className="h-4 w-20" />
@@ -21,11 +21,11 @@ export default function TableSkeleton() {
         <div
           key={i}
           className={cn(
-            "px-4 py-4 border-b border-[var(--border-dim)] flex items-center gap-4",
+            "p-4 border-b border-[var(--border-dim)] flex items-center gap-4",
             i % 2 === 1 && "bg-[rgba(0,0,0,0.02)]"
           )}
         >
-          <Skeleton className="h-4 w-4 flex-shrink-0" />
+          <Skeleton className="size-4 flex-shrink-0" />
           <div className="flex-1 min-w-[200px] space-y-2">
             <Skeleton className="h-4 w-48" />
             <Skeleton className="h-3 w-24" />

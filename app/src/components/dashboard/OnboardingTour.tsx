@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useSyncExternalStore, useState, useCallback } from "react";
+import { useEffect, useSyncExternalStore, useState, useCallback, useEffectEvent } from "react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { X, ChevronRight, ChevronLeft, Sparkles } from "lucide-react";
@@ -29,7 +29,7 @@ export function OnboardingTour({ steps, onComplete, onSkip }: OnboardingTourProp
     () => false
   );
 
-  const calculatePositions = useCallback(() => {
+	  const calculatePositions = useCallback(() => {
     const step = steps[currentStep];
     if (!step) return;
 
@@ -73,31 +73,38 @@ export function OnboardingTour({ steps, onComplete, onSkip }: OnboardingTourProp
     top = Math.max(16, Math.min(top, window.innerHeight - tooltipHeight - 16));
 
     setTooltipPos({ top, left, placement });
-  }, [currentStep, steps]);
+	  }, [currentStep, steps]);
+  const runCalculatePositions = useEffectEvent(calculatePositions);
 
   useEffect(() => {
-    const rafId = requestAnimationFrame(() => calculatePositions());
-    window.addEventListener("resize", calculatePositions);
+    const handleResize = () => runCalculatePositions();
+    const rafId = requestAnimationFrame(handleResize);
+    window.addEventListener("resize", handleResize);
     
     // Throttled scroll handler using RAF
     let ticking = false;
     const throttledScroll = () => {
       if (!ticking) {
-        requestAnimationFrame(() => {
-          calculatePositions();
-          ticking = false;
-        });
+	        requestAnimationFrame(() => {
+	          runCalculatePositions();
+	          ticking = false;
+	        });
         ticking = true;
       }
     };
     window.addEventListener("scroll", throttledScroll, true);
     
     return () => {
-      cancelAnimationFrame(rafId);
-      window.removeEventListener("resize", calculatePositions);
-      window.removeEventListener("scroll", throttledScroll, true);
-    };
-  }, [calculatePositions]);
+	      cancelAnimationFrame(rafId);
+	      window.removeEventListener("resize", handleResize);
+	      window.removeEventListener("scroll", throttledScroll, true);
+	    };
+	  }, []);
+
+  useEffect(() => {
+    const rafId = requestAnimationFrame(() => runCalculatePositions());
+    return () => cancelAnimationFrame(rafId);
+  }, [currentStep, steps]);
 
   const handleNext = () => {
     if (currentStep < steps.length - 1) {
@@ -120,7 +127,7 @@ export function OnboardingTour({ steps, onComplete, onSkip }: OnboardingTourProp
   return (
     <div className="fixed inset-0 z-[100]" aria-label="Onboarding tour">
       {/* Dark overlay with cutout */}
-      <svg className="absolute inset-0 h-full w-full">
+      <svg className="absolute inset-0 size-full">
         <defs>
           <mask id="onboarding-mask">
             <rect x="0" y="0" width="100%" height="100%" fill="white" />
@@ -169,7 +176,7 @@ export function OnboardingTour({ steps, onComplete, onSkip }: OnboardingTourProp
         {/* Arrow */}
         <div
           className={cn(
-            "absolute h-3 w-3 rotate-45 border bg-[var(--surface-base)]",
+            "absolute size-3 rotate-45 border bg-[var(--surface-base)]",
             tooltipPos.placement === "bottom" && "-top-1.5 left-1/2 -translate-x-1/2 border-t border-l border-[var(--border-dim)]",
             tooltipPos.placement === "top" && "-bottom-1.5 left-1/2 -translate-x-1/2 border-b border-r border-[var(--border-dim)]",
             tooltipPos.placement === "left" && "-right-1.5 top-1/2 -translate-y-1/2 border-t border-r border-[var(--border-dim)]",
@@ -183,14 +190,14 @@ export function OnboardingTour({ steps, onComplete, onSkip }: OnboardingTourProp
 
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--accent-green-dim)]">
+            <div className="flex size-7 items-center justify-center rounded-md bg-[var(--accent-green-dim)]">
               <Sparkles size={14} className="text-[var(--accent-green)]" />
             </div>
             <h3 className="text-[15px] font-semibold text-[var(--text-primary)]">
               {steps[currentStep]?.title}
             </h3>
           </div>
-          <button
+          <button type="button"
             onClick={onSkip}
             className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
             aria-label={t("skip")}
@@ -206,9 +213,9 @@ export function OnboardingTour({ steps, onComplete, onSkip }: OnboardingTourProp
         <div className="flex items-center justify-between">
           {/* Step dots */}
           <div className="flex items-center gap-1.5">
-            {steps.map((_, i) => (
-              <button
-                key={i}
+            {steps.map((step, i) => (
+              <button type="button"
+                key={step.target}
                 onClick={() => setCurrentStep(i)}
                 className={cn(
                   "h-1.5 rounded-full transition-all duration-200",
@@ -221,7 +228,7 @@ export function OnboardingTour({ steps, onComplete, onSkip }: OnboardingTourProp
 
           <div className="flex items-center gap-2">
             {currentStep > 0 && (
-              <button
+              <button type="button"
                 onClick={handlePrev}
                 className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-[13px] font-medium text-[var(--text-secondary)] hover:bg-[var(--deep-bg)] transition-colors"
               >
@@ -229,7 +236,7 @@ export function OnboardingTour({ steps, onComplete, onSkip }: OnboardingTourProp
                 {t("back")}
               </button>
             )}
-            <button
+            <button type="button"
               onClick={handleNext}
               className="flex items-center gap-1 rounded-md bg-[var(--accent-green)] px-3.5 py-1.5 text-[13px] font-medium text-white hover:bg-[var(--accent-green-hover)] transition-colors"
             >

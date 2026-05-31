@@ -1,14 +1,19 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import Image from "next/image";
+import { useReducer, useCallback, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { Upload, Check, Loader2, ImageIcon } from "lucide-react";
+import { Upload, Check, Loader2, ImageIcon, AlertCircle } from "lucide-react";
+import { useUploadAsset } from "@/lib/hooks/use-assets";
+import { useCreativeAnalysis } from "@/components/campaigns/useCreativeAnalysis";
+import { useAnalyzePreflight } from "@/lib/hooks/use-preflight";
 
 // ============================================
 // Types
 // ============================================
 
 interface PilotUploadPanelProps {
+  campaignId: string;
   onAssetUploaded: (assetId: string) => void;
   onAnalysisComplete: (analysis: {
     detectedConcept: string;
@@ -23,7 +28,7 @@ interface PilotUploadPanelProps {
   }) => void;
 }
 
-type UploadState = "empty" | "uploading" | "analyzing" | "reviewing" | "locked";
+type UploadState = "empty" | "uploading" | "analyzing" | "reviewing" | "locked" | "error";
 
 interface AnalysisStep {
   key: string;
@@ -36,74 +41,243 @@ const ANALYSIS_STEPS: AnalysisStep[] = [
   { key: "suggestions", label: "Geração de sugestões" },
 ];
 
+interface UploadUiState {
+  state: UploadState;
+  uploadProgress: number;
+  completedSteps: string[];
+  previewUrl: string | null;
+  errorMessage: string | null;
+  warningMessage: string | null;
+}
+
+type UploadUiAction =
+  | { type: "uploadStarted"; previewUrl: string }
+  | { type: "analysisStarted" }
+  | { type: "stepCompleted"; step: string }
+  | { type: "analysisFailed"; message: string }
+  | { type: "analysisCompleted"; warningMessage: string | null }
+  | { type: "uploadProgressChanged"; progress: number }
+  | { type: "uploadFailed"; message: string }
+  | { type: "previewCleared" };
+
+const initialUploadUiState: UploadUiState = {
+  state: "empty",
+  uploadProgress: 0,
+  completedSteps: [],
+  previewUrl: null,
+  errorMessage: null,
+  warningMessage: null,
+};
+
+function uploadUiReducer(
+  current: UploadUiState,
+  action: UploadUiAction
+): UploadUiState {
+  switch (action.type) {
+    case "uploadStarted":
+      return {
+        ...current,
+        state: "uploading",
+        uploadProgress: 0,
+        completedSteps: [],
+        previewUrl: action.previewUrl,
+        errorMessage: null,
+        warningMessage: null,
+      };
+    case "analysisStarted":
+      return {
+        ...current,
+        state: "analyzing",
+        completedSteps: [],
+        errorMessage: null,
+      };
+    case "stepCompleted":
+      return current.completedSteps.includes(action.step)
+        ? current
+        : { ...current, completedSteps: [...current.completedSteps, action.step] };
+    case "analysisFailed":
+      return { ...current, state: "error", errorMessage: action.message };
+    case "analysisCompleted":
+      return {
+        ...current,
+        state: "reviewing",
+        warningMessage: action.warningMessage,
+      };
+    case "uploadProgressChanged":
+      return { ...current, uploadProgress: action.progress };
+    case "uploadFailed":
+      return {
+        ...current,
+        state: "error",
+        previewUrl: null,
+        errorMessage: action.message,
+      };
+    case "previewCleared":
+      return { ...current, previewUrl: null };
+  }
+}
+
 // ============================================
 // Component
 // ============================================
 
 export default function PilotUploadPanel({
+  campaignId,
   onAssetUploaded,
   onAnalysisComplete,
 }: PilotUploadPanelProps) {
-  const [state, setState] = useState<UploadState>("empty");
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [completedSteps, setCompletedSteps] = useState<string[]>([]);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [uiState, dispatch] = useReducer(uploadUiReducer, initialUploadUiState);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const previewUrlRef = useRef<string | null>(null);
 
-  const simulateUpload = useCallback(
-    async (file: File) => {
-      setState("uploading");
-      setUploadProgress(0);
+  const uploadAsset = useUploadAsset(campaignId);
+  const { analyze, isAnalyzing: isAnalyzingCreative } = useCreativeAnalysis(campaignId);
+  const analyzePreflight = useAnalyzePreflight();
+  const {
+    state,
+    uploadProgress,
+    completedSteps,
+    previewUrl,
+    errorMessage,
+    warningMessage,
+  } = uiState;
 
-      const objectUrl = URL.createObjectURL(file);
-      setPreviewUrl(objectUrl);
+  useEffect(() => {
+    const previewUrlStore = previewUrlRef;
+    return () => {
+      if (previewUrlStore.current) URL.revokeObjectURL(previewUrlStore.current);
+    };
+  }, []);
 
-      // Simulate upload progress
-      for (let i = 0; i <= 100; i += 10) {
-        await new Promise((r) => setTimeout(r, 150));
-        setUploadProgress(i);
+  const runAnalysis = useCallback(
+    async (assetId: string) => {
+      dispatch({ type: "analysisStarted" });
+
+      try {
+        // Run both analyses in parallel
+        const preflightPromise = analyzePreflight
+          .mutateAsync({ campaignId, assetId })
+          .then((result) => {
+            dispatch({ type: "stepCompleted", step: "technical" });
+            return result;
+          })
+          .catch(() => {
+            dispatch({ type: "stepCompleted", step: "technical" });
+            return null;
+          });
+
+        const creativePromise = analyze(assetId)
+          .then((result) => {
+            const hasData = result?.analysis && Object.keys(result.analysis).length > 0;
+            if (hasData) {
+              dispatch({ type: "stepCompleted", step: "visual" });
+              dispatch({ type: "stepCompleted", step: "suggestions" });
+            }
+            return result;
+          })
+          .catch(() => {
+            return null;
+          });
+
+        const [preflightResult, creativeResult] = await Promise.all([
+          preflightPromise,
+          creativePromise,
+        ]);
+
+        const preflight = preflightResult?.preflight;
+        const creative = creativeResult?.analysis;
+
+        const hasCreativeData = creative && Object.keys(creative).length > 0;
+        const hasPreflightData = preflight && (preflight.criticalIssues?.length || preflight.suggestions?.length || preflight.technical);
+
+        // If both analyses failed completely, show error
+        if (!hasCreativeData && !hasPreflightData) {
+          dispatch({
+            type: "analysisFailed",
+            message: "Não foi possível analisar o criativo. Verifique a imagem e tente novamente.",
+          });
+          return;
+        }
+
+        // Map analysis results to the expected shape
+        const suggestedPlatforms = creative?.platforms?.value?.join(", ") ?? "";
+        const suggestedCta = creative?.suggestedCtas?.[0]?.value ?? "";
+
+        const analysis = {
+          detectedConcept:
+            creative?.product?.value ??
+            preflight?.breakdown?.visualHierarchy?.suggestion ??
+            "Criativo publicitário",
+          tone: creative?.tone?.value ?? "",
+          elements:
+            preflight?.criticalIssues?.join("; ") ??
+            preflight?.suggestions?.join("; ") ??
+            "",
+          format: preflight?.technical
+            ? `${preflight.technical.actualWidth}x${preflight.technical.actualHeight}px`
+            : "",
+          suggestedObjective: creative?.objective?.value ?? "",
+          suggestedAudience: creative?.targetAudience?.value ?? "",
+          suggestedTone: creative?.tone?.value ?? "",
+          suggestedPlatforms,
+          suggestedCta,
+        };
+
+        onAnalysisComplete(analysis);
+        dispatch({
+          type: "analysisCompleted",
+          warningMessage: !hasCreativeData && hasPreflightData
+            ? "Não foi possível extrair sugestões automaticamente do criativo. Preencha os campos manualmente ou tente outra imagem."
+            : null,
+        });
+      } catch {
+        dispatch({
+          type: "analysisFailed",
+          message: "Não foi possível completar a análise. Você pode preencher os campos manualmente.",
+        });
       }
-
-      const assetId = `asset-${Date.now()}`;
-      onAssetUploaded(assetId);
-
-      // Start analysis
-      setState("analyzing");
-      setCompletedSteps([]);
-
-      for (const step of ANALYSIS_STEPS) {
-        await new Promise((r) => setTimeout(r, 800));
-        setCompletedSteps((prev) => [...prev, step.key]);
-      }
-
-      await new Promise((r) => setTimeout(r, 400));
-
-      const mockAnalysis = {
-        detectedConcept: "Promoção de produto",
-        tone: "Energético",
-        elements: "Produto central, fundo gradiente, texto promocional",
-        format: "1080x1080 (Feed)",
-        suggestedObjective: "Aumentar vendas do lançamento",
-        suggestedAudience: "Jovens adultos 18-35",
-        suggestedTone: "Direto e persuasivo",
-        suggestedPlatforms: "Instagram, Facebook",
-        suggestedCta: "Compre agora",
-      };
-
-      onAnalysisComplete(mockAnalysis);
-      setState("reviewing");
     },
-    [onAssetUploaded, onAnalysisComplete]
+    [campaignId, analyze, analyzePreflight, onAnalysisComplete]
+  );
+
+  const handleUpload = useCallback(
+    async (file: File) => {
+      const objectUrl = URL.createObjectURL(file);
+      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = objectUrl;
+      dispatch({ type: "uploadStarted", previewUrl: objectUrl });
+
+      try {
+        const asset = await uploadAsset.mutateAsync({
+          file,
+          onProgress: (progress) =>
+            dispatch({ type: "uploadProgressChanged", progress }),
+        });
+
+        onAssetUploaded(asset.id);
+        await runAnalysis(asset.id);
+      } catch (err) {
+        if (previewUrlRef.current) {
+          URL.revokeObjectURL(previewUrlRef.current);
+          previewUrlRef.current = null;
+        }
+        dispatch({
+          type: "uploadFailed",
+          message: err instanceof Error ? err.message : "Erro no upload",
+        });
+      }
+    },
+    [uploadAsset, onAssetUploaded, runAnalysis]
   );
 
   const handleFileChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (file && file.type.startsWith("image/")) {
-        void simulateUpload(file);
+        void handleUpload(file);
       }
     },
-    [simulateUpload]
+    [handleUpload]
   );
 
   const handleDrop = useCallback(
@@ -111,48 +285,97 @@ export default function PilotUploadPanel({
       e.preventDefault();
       const file = e.dataTransfer.files?.[0];
       if (file && file.type.startsWith("image/")) {
-        void simulateUpload(file);
+        void handleUpload(file);
       }
     },
-    [simulateUpload]
+    [handleUpload]
   );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
   }, []);
 
-  const handleClick = useCallback(() => {
-    if (state === "empty" || state === "reviewing") {
+  const openFilePicker = useCallback(() => {
+    if (state === "empty" || state === "reviewing" || state === "error") {
       fileInputRef.current?.click();
     }
   }, [state]);
 
-  const isInteractive = state === "empty" || state === "reviewing";
+  const isInteractive = state === "empty" || state === "reviewing" || state === "error";
+  const isProcessing = state === "uploading" || state === "analyzing";
 
+  return (
+    <PilotUploadDropzone
+      state={state}
+      uploadProgress={uploadProgress}
+      completedSteps={completedSteps}
+      previewUrl={previewUrl}
+      errorMessage={errorMessage}
+      warningMessage={warningMessage}
+      isInteractive={isInteractive}
+      isProcessing={isProcessing}
+      fileInputRef={fileInputRef}
+      onFileChange={handleFileChange}
+      onDrop={handleDrop}
+      onDragOver={handleDragOver}
+      onOpenFilePicker={openFilePicker}
+    />
+  );
+}
+
+interface PilotUploadDropzoneProps {
+  state: UploadState;
+  uploadProgress: number;
+  completedSteps: string[];
+  previewUrl: string | null;
+  errorMessage: string | null;
+  warningMessage: string | null;
+  isInteractive: boolean;
+  isProcessing: boolean;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
+  onFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onDrop: (event: React.DragEvent) => void;
+  onDragOver: (event: React.DragEvent) => void;
+  onOpenFilePicker: () => void;
+}
+
+function PilotUploadDropzone({
+  state,
+  uploadProgress,
+  completedSteps,
+  previewUrl,
+  errorMessage,
+  warningMessage,
+  isInteractive,
+  isProcessing,
+  fileInputRef,
+  onFileChange,
+  onDrop,
+  onDragOver,
+  onOpenFilePicker,
+}: PilotUploadDropzoneProps) {
   return (
     <div className="w-full">
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept="image/png,image/jpeg,image/webp"
         className="sr-only"
-        onChange={handleFileChange}
+        aria-label="Selecionar imagem piloto"
+        onChange={onFileChange}
       />
 
       {/* Dropzone */}
       <div
-        onClick={handleClick}
-        onDrop={handleDrop}
-        onDragOver={handleDragOver}
+        onDrop={onDrop}
+        onDragOver={onDragOver}
         className={cn(
           "relative flex flex-col items-center justify-center min-h-[360px] rounded-2xl border-2 border-dashed transition-all duration-200 overflow-hidden",
           "bg-[var(--accent-green-dim)]",
           isInteractive
             ? "cursor-pointer hover:border-[var(--accent-green)] hover:bg-[var(--accent-green-dim)]"
             : "cursor-default",
-          state === "uploading" || state === "analyzing"
-            ? "border-[var(--accent-green)]"
-            : "border-[var(--border-medium)]"
+          isProcessing ? "border-[var(--accent-green)]" : "border-[var(--border-medium)]"
         )}
         style={{
           backgroundImage:
@@ -164,10 +387,7 @@ export default function PilotUploadPanel({
         {state === "empty" && (
           <div className="flex flex-col items-center animate-fade-in">
             <div className="mb-4">
-              <ImageIcon
-                size={48}
-                className="text-[var(--text-muted)]"
-              />
+              <ImageIcon size={48} className="text-[var(--text-muted)]" />
             </div>
             <h3 className="text-[15px] font-semibold text-[var(--text-primary)] mb-1">
               Arraste uma imagem ou clique para upload
@@ -177,6 +397,7 @@ export default function PilotUploadPanel({
             </p>
             <button
               type="button"
+              onClick={onOpenFilePicker}
               className="inline-flex min-h-10 items-center justify-center rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition-all duration-200 hover:border-[var(--border-medium)] active:scale-[0.98]"
             >
               <Upload size={14} className="mr-2" />
@@ -185,14 +406,39 @@ export default function PilotUploadPanel({
           </div>
         )}
 
+        {/* Error State */}
+        {state === "error" && (
+          <div className="flex flex-col items-center animate-fade-in px-6">
+            <div className="mb-4">
+              <AlertCircle size={48} className="text-[var(--accent-rose)]" />
+            </div>
+            <h3 className="text-[15px] font-semibold text-[var(--text-primary)] mb-1">
+              Falha no processamento
+            </h3>
+            <p className="text-xs text-[var(--text-secondary)] mb-4 text-center max-w-xs">
+              {errorMessage}
+            </p>
+            <button
+              type="button"
+              onClick={onOpenFilePicker}
+              className="inline-flex min-h-10 items-center justify-center rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition-all duration-200 hover:border-[var(--border-medium)] active:scale-[0.98]"
+            >
+              <Upload size={14} className="mr-2" />
+              Tentar novamente
+            </button>
+          </div>
+        )}
+
         {/* Preview when available */}
-        {previewUrl && state !== "empty" && (
+        {previewUrl && state !== "empty" && state !== "error" && (
           <div className="absolute inset-0 flex items-center justify-center p-6">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src={previewUrl}
               alt="Preview"
-              className="max-h-full max-w-full object-contain rounded-xl opacity-30"
+              fill
+              sizes="(min-width: 1024px) 50vw, 100vw"
+              unoptimized
+              className="object-contain rounded-xl opacity-30"
             />
           </div>
         )}
@@ -211,7 +457,7 @@ export default function PilotUploadPanel({
               {uploadProgress}%
             </p>
             <p className="font-mono text-[10px] uppercase tracking-wide text-[var(--ghost)] mt-1">
-              Enviando arquivo...
+              Enviando arquivo…
             </p>
           </div>
         )}
@@ -224,8 +470,7 @@ export default function PilotUploadPanel({
                 const isDone = completedSteps.includes(step.key);
                 const isCurrent =
                   !isDone &&
-                  (completedSteps.length === 0 ||
-                    ANALYSIS_STEPS[completedSteps.length]?.key === step.key);
+                  ANALYSIS_STEPS[completedSteps.length]?.key === step.key;
 
                 return (
                   <div
@@ -276,21 +521,27 @@ export default function PilotUploadPanel({
 
         {/* Reviewing State */}
         {state === "reviewing" && (
-          <div className="relative z-10 flex flex-col items-center animate-fade-in">
+          <div className="relative z-10 flex flex-col items-center animate-fade-in max-w-sm px-4">
             <div className="flex size-12 items-center justify-center rounded-full bg-[var(--accent-green-dim)] mb-3">
               <Check size={24} className="text-[var(--accent-green)]" />
             </div>
             <h3 className="text-[15px] font-semibold text-[var(--text-primary)] mb-1">
               Análise concluída
             </h3>
-            <p className="text-xs text-[var(--text-muted)] mb-4">
-              Revise as sugestões no formulário abaixo
-            </p>
+            {warningMessage ? (
+              <p className="text-xs text-[var(--accent-amber)] mb-4 text-center">
+                {warningMessage}
+              </p>
+            ) : (
+              <p className="text-xs text-[var(--text-muted)] mb-4">
+                Revise as sugestões no formulário abaixo
+              </p>
+            )}
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                fileInputRef.current?.click();
+                onOpenFilePicker();
               }}
               className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition-all duration-200 hover:bg-[var(--surface-base)] hover:text-[var(--text-primary)]"
             >

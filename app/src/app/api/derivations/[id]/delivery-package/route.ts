@@ -24,9 +24,11 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { user, workspace } = await requireWorkspaceAccess(request);
+    const [{ user, workspace }, { id }] = await Promise.all([
+      requireWorkspaceAccess(request),
+      params,
+    ]);
     const locale = await getUserLocale(user.id);
-    const { id } = await params;
 
     const parsed = bodySchema.safeParse(await request.json());
     if (!parsed.success) {
@@ -58,7 +60,7 @@ export async function POST(
       formats: generatableFormats,
     });
     const activeFormats = new Set(
-      activeChildren.map((child) => child.format).filter(Boolean)
+      activeChildren.flatMap((child) => (child.format ? [child.format] : []))
     );
     const formatsToCreate = generatableFormats.filter(
       (format) => !activeFormats.has(format)
@@ -75,9 +77,7 @@ export async function POST(
       if (creditError) return creditError;
     }
 
-    const queued: { id: string; format: string }[] = [];
-    const failed: { id: string; format: string }[] = [];
-    for (const format of formatsToCreate) {
+    const queuedResults = await Promise.all(formatsToCreate.map(async (format) => {
       const child = await createDerivation({
         campaignId: source.campaignId,
         workspaceId: workspace.id,
@@ -105,16 +105,28 @@ export async function POST(
           },
         });
 
-        queued.push({ id: child.id, format });
+        return { status: "queued" as const, id: child.id, format };
       } catch (sendErr) {
         logger.error(
           `[delivery-package POST] event send FAILED derivationId=${child.id}`,
           sendErr
         );
         await updateDerivationStatus(child.id, workspace.id, "failed");
-        failed.push({ id: child.id, format });
+        return { status: "failed" as const, id: child.id, format };
       }
-    }
+    }));
+
+    const { queued, failed } = queuedResults.reduce<{
+      queued: { id: string; format: string }[];
+      failed: { id: string; format: string }[];
+    }>(
+      (acc, { status, id, format }) => {
+        const target = status === "queued" ? acc.queued : acc.failed;
+        target.push({ id, format });
+        return acc;
+      },
+      { queued: [], failed: [] }
+    );
 
     if (queued.length > 0) {
       await updateCampaign(source.campaignId, workspace.id, {

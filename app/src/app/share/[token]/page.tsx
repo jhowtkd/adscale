@@ -24,45 +24,51 @@ interface SharePageProps {
 
 export default async function SharePage({ params }: SharePageProps) {
   const { token } = await params;
-  const link = await validateShareToken(token);
+  const [link, locale] = await Promise.all([
+    validateShareToken(token),
+    getLocale(),
+  ]);
 
   if (!link) {
     notFound();
   }
 
-  const locale = await getLocale();
-  const t = await getTranslations({ locale, namespace: "share" });
+  const [t, [campaign], items] = await Promise.all([
+    getTranslations({ locale, namespace: "share" }),
+    db
+      .select({ name: campaigns.name, client: campaigns.client })
+      .from(campaigns)
+      .where(eq(campaigns.id, link.campaignId))
+      .limit(1),
+    db
+      .select({
+        id: derivations.id,
+        outputKey: derivations.outputKey,
+        format: derivations.format,
+        generationMode: derivations.generationMode,
+        variantIndex: derivations.variantIndex,
+        ctaText: derivations.ctaText,
+        createdAt: derivations.createdAt,
+      })
+      .from(derivations)
+      .where(inArray(derivations.id, link.derivationIds)),
+  ]);
 
-  const [campaign] = await db
-    .select({ name: campaigns.name, client: campaigns.client })
-    .from(campaigns)
-    .where(eq(campaigns.id, link.campaignId))
-    .limit(1);
-
-  const items = await db
-    .select({
-      id: derivations.id,
-      outputKey: derivations.outputKey,
-      format: derivations.format,
-      generationMode: derivations.generationMode,
-      variantIndex: derivations.variantIndex,
-      ctaText: derivations.ctaText,
-      createdAt: derivations.createdAt,
-    })
-    .from(derivations)
-    .where(inArray(derivations.id, link.derivationIds));
-
-  const galleryItems = items
-    .filter((d) => d.outputKey)
-    .map((d) => ({
-      id: d.id,
-      imageUrl: getPublicUrl(d.outputKey!),
-      format: d.format ?? undefined,
-      generationMode: d.generationMode ?? undefined,
-      variantIndex: d.variantIndex ?? undefined,
-      ctaText: d.ctaText ?? undefined,
-      createdAt: d.createdAt?.toISOString() ?? undefined,
-    }));
+  const galleryItems = items.flatMap((d) =>
+    d.outputKey
+      ? [
+          {
+            id: d.id,
+            imageUrl: getPublicUrl(d.outputKey),
+            format: d.format ?? undefined,
+            generationMode: d.generationMode ?? undefined,
+            variantIndex: d.variantIndex ?? undefined,
+            ctaText: d.ctaText ?? undefined,
+            createdAt: d.createdAt?.toISOString() ?? undefined,
+          },
+        ]
+      : []
+  );
 
   return (
     <main className="min-h-screen bg-[var(--deep-bg)]">

@@ -16,8 +16,10 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string; variantId: string }> }
 ) {
   try {
-    const { workspace } = await requireWorkspaceAccess(request);
-    const { id: derivationId, variantId } = await params;
+    const [{ workspace }, { id: derivationId, variantId }] = await Promise.all([
+      requireWorkspaceAccess(request),
+      params,
+    ]);
 
     const body = await request.json();
     const parsed = selectSchema.safeParse(body);

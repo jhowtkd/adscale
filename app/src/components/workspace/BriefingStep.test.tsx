@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import BriefingStep from "./BriefingStep";
 
+const TEST_CAMPAIGN_DATE = new Date("2026-01-01T00:00:00.000Z");
+
 vi.mock("next-intl", () => ({
   useTranslations: () => {
     const t = ((key: string) => key) as unknown as { raw: (key: string) => unknown };
@@ -105,8 +107,8 @@ describe("BriefingStep", () => {
           status: "draft",
           variations: 0,
           creditsUsed: 0,
-          lastModified: new Date(),
-          createdAt: new Date(),
+          lastModified: TEST_CAMPAIGN_DATE,
+          createdAt: TEST_CAMPAIGN_DATE,
           clientProfileId: "profile-1",
           selectedReferenceIds: ["ref-1"],
         }}
@@ -131,8 +133,8 @@ describe("BriefingStep", () => {
           status: "draft",
           variations: 0,
           creditsUsed: 0,
-          lastModified: new Date(),
-          createdAt: new Date(),
+          lastModified: TEST_CAMPAIGN_DATE,
+          createdAt: TEST_CAMPAIGN_DATE,
           clientProfileId: "profile-1",
         }}
         onContinue={vi.fn()}
@@ -166,8 +168,8 @@ describe("BriefingStep", () => {
           status: "draft",
           variations: 0,
           creditsUsed: 0,
-          lastModified: new Date(),
-          createdAt: new Date(),
+          lastModified: TEST_CAMPAIGN_DATE,
+          createdAt: TEST_CAMPAIGN_DATE,
           clientProfileId: "profile-1",
         }}
         onContinue={vi.fn()}
@@ -191,8 +193,8 @@ describe("BriefingStep", () => {
           status: "draft",
           variations: 0,
           creditsUsed: 0,
-          lastModified: new Date(),
-          createdAt: new Date(),
+          lastModified: TEST_CAMPAIGN_DATE,
+          createdAt: TEST_CAMPAIGN_DATE,
           clientProfileId: "profile-1",
         }}
         onContinue={vi.fn()}
@@ -226,8 +228,8 @@ describe("BriefingStep", () => {
           status: "draft",
           variations: 0,
           creditsUsed: 0,
-          lastModified: new Date(),
-          createdAt: new Date(),
+          lastModified: TEST_CAMPAIGN_DATE,
+          createdAt: TEST_CAMPAIGN_DATE,
         }}
         onContinue={vi.fn()}
         onSaveDraft={vi.fn()}
@@ -259,8 +261,8 @@ describe("BriefingStep", () => {
           status: "draft",
           variations: 0,
           creditsUsed: 0,
-          lastModified: new Date(),
-          createdAt: new Date(),
+          lastModified: TEST_CAMPAIGN_DATE,
+          createdAt: TEST_CAMPAIGN_DATE,
         }}
         onContinue={vi.fn()}
         onSaveDraft={vi.fn()}
