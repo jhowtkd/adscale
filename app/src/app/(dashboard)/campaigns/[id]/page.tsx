@@ -1,14 +1,14 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useRef, useState } from "react";
+import { useRef, useState, useMemo } from "react";
 import Link from "next/link";
 import { Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";
 import dynamic from "next/dynamic";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
-import { useUploadAsset } from "@/lib/hooks/use-assets";
+import { useUploadAsset, useCampaignAssets } from "@/lib/hooks/use-assets";
 import type { DeliveryFormat } from "@/components/workspace/DeliveryPackageModal";
 
 const DeliveryPackageModal = dynamic(() => import("@/components/workspace/DeliveryPackageModal"), {
@@ -30,6 +30,10 @@ import DerivarModal from "@/components/workspace/DerivarModal";
 import ArtVariationConfigModal from "@/components/workspace/ArtVariationConfigModal";
 import FormatAdaptationConfigModal from "@/components/workspace/FormatAdaptationConfigModal";
 import EstilizarModal from "@/components/workspace/EstilizarModal";
+import DerivationReviewModal from "@/components/workspace/DerivationReviewModal";
+import RegenerateFeedbackDialog, {
+  DerivationLoadErrorBanner,
+} from "@/components/workspace/RegenerateFeedbackDialog";
 
 import CampaignClientSubtitle from "@/components/campaigns/CampaignClientSubtitle";
 import CampaignSkeleton from "@/components/campaigns/CampaignSkeleton";
@@ -88,7 +92,18 @@ export default function CampaignWorkspacePage() {
     campaign,
     isLoading,
     isError,
+    loadErrorKind,
+    refetchCampaign,
+    isDerivationsError,
+    derivationsErrorKind,
+    refetchDerivations,
     allDerivations,
+    reviewDerivationId,
+    regenerateDialog,
+    handleCloseReview,
+    handleConfirmRegenerate,
+    handleCloseRegenerateDialog,
+    handleRequestRegenerate,
     approvedDerivation,
     workspaceState,
     savingReferenceId,
@@ -135,6 +150,20 @@ export default function CampaignWorkspacePage() {
     generatePlanPending,
     updatePlanStatusPending,
   } = useCampaignWorkspace(campaignId, isNew);
+
+  const { data: campaignAssets } = useCampaignAssets(campaignId);
+  const reviewDerivation = useMemo(
+    () => allDerivations.find((item) => item.id === reviewDerivationId) ?? null,
+    [allDerivations, reviewDerivationId]
+  );
+  const baseAsset = useMemo(
+    () => campaignAssets?.find((asset) => asset.role === "base") ?? campaignAssets?.[0] ?? null,
+    [campaignAssets]
+  );
+  const styleAsset = useMemo(() => {
+    if (!reviewDerivation?.styleAssetId || !campaignAssets) return null;
+    return campaignAssets.find((asset) => asset.id === reviewDerivation.styleAssetId) ?? null;
+  }, [reviewDerivation?.styleAssetId, campaignAssets]);
 
   const handleSimulatePersonas = (derivationId: string) => {
     setPersonaSimulation({ isOpen: true, selectedId: derivationId });
@@ -249,10 +278,21 @@ export default function CampaignWorkspacePage() {
   };
 
   if (isBootstrapping) return <CampaignSkeleton />;
-  if (bootstrapError) return <CampaignErrorState />;
+  if (bootstrapError) {
+    return <CampaignErrorState kind="unknown" />;
+  }
   if (isLoading && !isNew) return <CampaignSkeleton />;
-  if (isError && !isNew) return <CampaignErrorState />;
-  if (!campaign && !isNew) return <CampaignNotFoundState />;
+  if (isError && !isNew) {
+    return (
+      <CampaignErrorState
+        kind={loadErrorKind ?? "unknown"}
+        onRetry={() => void refetchCampaign()}
+      />
+    );
+  }
+  if (!campaign && !isNew) {
+    return loadErrorKind === "not_found" ? <CampaignNotFoundState /> : <CampaignErrorState kind="unknown" />;
+  }
 
   const isDraft = campaign?.status === "draft";
 
@@ -314,6 +354,45 @@ export default function CampaignWorkspacePage() {
           setShowEstilizarModal(true);
           goToStyling();
         }}
+        isDerivationsError={isDerivationsError}
+        derivationsErrorKind={derivationsErrorKind}
+        onRetryDerivations={() => void refetchDerivations()}
+      />
+
+      <DerivationReviewModal
+        open={Boolean(reviewDerivationId && reviewDerivation)}
+        derivation={reviewDerivation}
+        baseAsset={baseAsset}
+        styleAsset={styleAsset}
+        isRegenerating={regeneratePending}
+        isApproving={reviewPending && reviewVariables?.status === "approved"}
+        isRejecting={reviewPending && reviewVariables?.status === "rejected"}
+        onOpenChange={(open) => {
+          if (!open) handleCloseReview();
+        }}
+        onRegenerateWithFixes={() => {
+          if (reviewDerivationId) {
+            handleRequestRegenerate(reviewDerivationId);
+          }
+        }}
+        onApprove={
+          reviewDerivationId
+            ? () => handleApproveDerivation(reviewDerivationId)
+            : undefined
+        }
+        onReject={
+          reviewDerivationId
+            ? () => handleRejectDerivation(reviewDerivationId)
+            : undefined
+        }
+      />
+
+      <RegenerateFeedbackDialog
+        open={Boolean(regenerateDialog)}
+        initialFeedback={regenerateDialog?.feedback ?? ""}
+        isSubmitting={regeneratePending}
+        onOpenChange={handleCloseRegenerateDialog}
+        onConfirm={handleConfirmRegenerate}
       />
 
       <CampaignWorkspaceModals
@@ -472,6 +551,9 @@ interface CampaignWorkspaceCardProps {
   onSkipBriefing: () => void;
   onOpenDerivar: () => void;
   onOpenEstilizar: () => void;
+  isDerivationsError?: boolean;
+  derivationsErrorKind?: string | null;
+  onRetryDerivations?: () => void;
 }
 
 function CampaignWorkspaceCard({
@@ -503,6 +585,9 @@ function CampaignWorkspaceCard({
   onSkipBriefing,
   onOpenDerivar,
   onOpenEstilizar,
+  isDerivationsError,
+  derivationsErrorKind,
+  onRetryDerivations,
 }: CampaignWorkspaceCardProps) {
   return (
     <div
@@ -567,6 +652,14 @@ function CampaignWorkspaceCard({
               <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-3">
                 Derivações
               </h2>
+              {isDerivationsError && derivationsErrorKind ? (
+                <div className="mb-3">
+                  <DerivationLoadErrorBanner
+                    kind={derivationsErrorKind}
+                    onRetry={onRetryDerivations}
+                  />
+                </div>
+              ) : null}
               {workspaceState === "gerando" && (
                 <p className="text-xs text-[var(--text-secondary)] mb-3 flex items-center gap-2">
                   <span className="inline-block size-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />

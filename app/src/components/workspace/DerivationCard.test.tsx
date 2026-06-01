@@ -272,4 +272,45 @@ describe("DerivationCard", () => {
     const btn = screen.getByRole("button", { name: /simulatePersonas/i });
     expect(btn).toBeDisabled();
   });
+
+  it("shows invalid verdict badge and hard failures", () => {
+    render(
+      <DerivationCard
+        derivation={{
+          ...baseDerivation,
+          status: "completed",
+          qualityVerdict: "invalid",
+          hardFailures: [{ code: "cta_missing", message: "CTA not visible" }],
+          qualityScore: 72,
+        }}
+        index={0}
+        onPreview={vi.fn()}
+        onRegenerate={vi.fn()}
+        onApprove={vi.fn()}
+        onReject={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("invalidOutputBadge")).toBeInTheDocument();
+    expect(screen.getByText("CTA not visible")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /regenerateWithFixes/i })).toBeInTheDocument();
+  });
+
+  it("shows improvable verdict badge and polish suggestion", () => {
+    render(
+      <DerivationCard
+        derivation={{
+          ...baseDerivation,
+          status: "completed",
+          qualityVerdict: "improvable",
+          polishSuggestions: ["Increase CTA contrast"],
+        }}
+        index={0}
+        onPreview={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("improvableOutputBadge")).toBeInTheDocument();
+    expect(screen.getByText("Increase CTA contrast")).toBeInTheDocument();
+  });
 });

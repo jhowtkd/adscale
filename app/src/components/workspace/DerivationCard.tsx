@@ -14,6 +14,7 @@ import { useExport } from "@/lib/hooks/use-export";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAppStore } from "@/lib/store";
+import { scoreCappedForDisplay } from "@/lib/derivation-quality";
 
 // ============================================
 // Types
@@ -266,9 +267,20 @@ export default function DerivationCard({
     "9:16": "aspect-[9/16]",
   }[derivation.format ?? ""] ?? "aspect-square";
 
-  const handleRegenerate = () => {
+  const displayScore = scoreCappedForDisplay(
+    derivation.qualityScore,
+    derivation.qualityVerdict
+  );
+
+  const handleRegenerate = (feedback?: string) => {
     if (isRegenerating) return;
-    onRegenerate?.(derivation.id);
+    const preset =
+      feedback ??
+      derivation.regenerationSuggestion ??
+      (derivation.hardFailures?.length
+        ? derivation.hardFailures.map((f) => `${f.code}: ${f.message}`).join("; ")
+        : undefined);
+    onRegenerate?.(derivation.id, preset);
   };
 
   const handleDownload = () => {
@@ -386,13 +398,23 @@ export default function DerivationCard({
             {derivation.name}
           </h4>
           <div className="flex items-center gap-1.5 flex-shrink-0">
-            {derivation.qualityScore != null && (
+            {derivation.qualityVerdict === "invalid" ? (
+              <span className="inline-flex items-center rounded-md border border-rose-500/40 bg-rose-500/10 px-2 py-0.5 text-[10px] font-semibold text-rose-400">
+                {t("invalidOutputBadge")}
+              </span>
+            ) : null}
+            {derivation.qualityVerdict === "improvable" ? (
+              <span className="inline-flex items-center rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-500">
+                {t("improvableOutputBadge")}
+              </span>
+            ) : null}
+            {displayScore != null && (
               <div className="inline-flex items-center gap-1 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-2 py-1">
                 <span className="text-xs font-semibold text-[var(--text-primary)]">
-                  {derivation.qualityScore}
+                  {displayScore}
                 </span>
                 <span className="text-[10px] text-[var(--text-muted)]">
-                  {getScoreLabel(derivation.qualityScore, t)}
+                  {getScoreLabel(displayScore, t)}
                 </span>
               </div>
             )}
@@ -422,6 +444,26 @@ export default function DerivationCard({
             </span>
           )}
         </div>
+
+        {derivation.qualityVerdict === "invalid" &&
+        derivation.hardFailures &&
+        derivation.hardFailures.length > 0 ? (
+          <ul className="space-y-1 rounded-md border border-rose-500/20 bg-rose-500/5 p-2">
+            {derivation.hardFailures.slice(0, 3).map((failure) => (
+              <li key={failure.code} className="text-[11px] text-rose-300/90 leading-snug">
+                {failure.message}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
+        {derivation.qualityVerdict === "improvable" &&
+        derivation.polishSuggestions &&
+        derivation.polishSuggestions.length > 0 ? (
+          <p className="text-[11px] text-amber-500/90 line-clamp-2">
+            {derivation.polishSuggestions[0]}
+          </p>
+        ) : null}
 
         {/* Row 3: Prompt preview */}
         <p className="text-[13px] text-[var(--text-secondary)] line-clamp-2 leading-relaxed">
@@ -480,7 +522,7 @@ export default function DerivationCard({
             </DerivationActionTooltip>
             <DerivationActionTooltip
               label={commonT("regenerate")}
-              onClick={handleRegenerate}
+              onClick={() => handleRegenerate()}
               disabled={isRegenerating}
               aria-label={t("regenerateDerivation", { name: derivation.name })}
               className={cn(
@@ -524,15 +566,42 @@ export default function DerivationCard({
 
         {/* Row 5: Approve / Reject */}
         {derivation.status === "completed" && onApprove && onReject && (
-          <div className="flex gap-2 mt-2">
-            <Button size="sm" variant="outline" onClick={onApprove} disabled={isApproving}>
-              <Check className="size-4 mr-1" />
-              {commonT("approve")}
-            </Button>
-            <Button size="sm" variant="outline" onClick={onReject} disabled={isRejecting}>
-              <X className="size-4 mr-1" />
-              {commonT("reject")}
-            </Button>
+          <div className="flex flex-col gap-2 mt-2">
+            {derivation.qualityVerdict === "invalid" ? (
+              <Button
+                size="sm"
+                onClick={() => handleRegenerate()}
+                disabled={isRegenerating}
+                className="w-fit bg-rose-500/90 text-white hover:bg-rose-500"
+              >
+                <RefreshCw className="size-4 mr-1" />
+                {t("regenerateWithFixes")}
+              </Button>
+            ) : null}
+            <div className="flex gap-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={onApprove}
+                      disabled={isApproving || derivation.qualityVerdict === "invalid"}
+                    >
+                      <Check className="size-4 mr-1" />
+                      {commonT("approve")}
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {derivation.qualityVerdict === "invalid" ? (
+                  <TooltipContent side="top">{t("approveBlockedInvalid")}</TooltipContent>
+                ) : null}
+              </Tooltip>
+              <Button size="sm" variant="outline" onClick={onReject} disabled={isRejecting}>
+                <X className="size-4 mr-1" />
+                {commonT("reject")}
+              </Button>
+            </div>
           </div>
         )}
 

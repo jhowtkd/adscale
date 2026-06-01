@@ -114,6 +114,7 @@ export interface Derivation {
   hardFailures?: Array<{ code: string; message: string; criterion?: string }> | null;
   polishSuggestions?: string[] | null;
   qualityGatedAt?: Date | null;
+  styleAssetId?: string | null;
   isPreview?: boolean;
   annotations?: Annotation[];
   createdAt: Date;

@@ -230,6 +230,33 @@
       "rejected": "Rejected",
       "failed": "Failed"
     },
+    "errors": {
+      "retry": "Try again",
+      "session": {
+        "title": "Session expired",
+        "description": "Sign in again to open this campaign."
+      },
+      "workspace": {
+        "title": "Workspace access required",
+        "description": "You do not have access to this workspace. Switch workspace or return to the campaign list."
+      },
+      "not_found": {
+        "title": "Campaign not found",
+        "description": "This campaign may have been deleted or you may not have permission to view it."
+      },
+      "timeout": {
+        "title": "Connection timed out",
+        "description": "We could not load the campaign in time. Check your connection and try again."
+      },
+      "server": {
+        "title": "Server error",
+        "description": "Something went wrong on our side. Try again in a moment."
+      },
+      "unknown": {
+        "title": "Could not load campaign",
+        "description": "An unexpected error occurred. Try again or go back to the campaign list."
+      }
+    },
     "objectives": {
       "awareness": "Awareness",
       "consideration": "Consideration",
@@ -597,6 +624,16 @@
     "scoreAdjust": "Adjust",
     "scoreWeak": "Weak",
     "regenerateWithImprovements": "Regenerate with improvements",
+    "regenerateWithFixes": "Regenerate with fixes",
+    "approveBlockedInvalid": "Invalid output — regenerate with fixes before approving",
+    "noOutputYet": "No generated image yet",
+    "generationMode": {
+      "art_variation": "Art variation",
+      "format_adaptation": "Format adaptation",
+      "restyling": "Restyling"
+    },
+    "invalidOutputBadge": "Invalid output",
+    "improvableOutputBadge": "Needs polish",
     "generatePackage": "Prepare delivery",
     "generateLandingPage": "Generate landing page",
     "saveAsReference": "Save as reference",
@@ -1012,10 +1049,31 @@
   },
   "review": {
     "title": "Review",
+    "reviewTitle": "Review {name}",
     "feedbackPlaceholder": "What would you like to change?",
     "approve": "Approve",
     "reject": "Reject",
-    "compare": "Compare"
+    "compare": "Compare",
+    "cancel": "Cancel",
+    "contractPanelTitle": "Creative contract",
+    "qualityPanelTitle": "Quality",
+    "generationMode": "Generation mode",
+    "targetFormat": "Target format",
+    "ctaContract": "CTA",
+    "baseAsset": "Base creative",
+    "styleReference": "Style reference",
+    "ctaInheritedFromBase": "Inherited from base creative",
+    "notSpecified": "Not specified",
+    "assetNotAvailable": "Asset unavailable",
+    "styleNotProvided": "Not provided",
+    "unknownMode": "Mode not specified",
+    "qualityScore": "Score",
+    "hardFailuresTitle": "Issues blocking use",
+    "polishSuggestionsTitle": "Improvement suggestions",
+    "regenerateWithFixesTitle": "Regenerate with fixes",
+    "regenerateWithFixesDescription": "Review the feedback below. It will be sent to the regeneration job.",
+    "regenerateWithFixesConfirm": "Regenerate with fixes",
+    "approveBlockedInvalid": "Invalid output — regenerate with fixes before approving"
   },
   "steps": {
     "brief": "Brief",

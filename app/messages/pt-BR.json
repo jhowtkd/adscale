@@ -230,6 +230,33 @@
       "rejected": "Rejeitada",
       "failed": "Falhou"
     },
+    "errors": {
+      "retry": "Tentar novamente",
+      "session": {
+        "title": "Sessão expirada",
+        "description": "Faça login novamente para abrir esta campanha."
+      },
+      "workspace": {
+        "title": "Acesso ao workspace necessário",
+        "description": "Você não tem acesso a este workspace. Troque de workspace ou volte à lista de campanhas."
+      },
+      "not_found": {
+        "title": "Campanha não encontrada",
+        "description": "Esta campanha pode ter sido excluída ou você não tem permissão para visualizá-la."
+      },
+      "timeout": {
+        "title": "Tempo de conexão esgotado",
+        "description": "Não foi possível carregar a campanha a tempo. Verifique sua conexão e tente novamente."
+      },
+      "server": {
+        "title": "Erro no servidor",
+        "description": "Algo deu errado do nosso lado. Tente novamente em instantes."
+      },
+      "unknown": {
+        "title": "Não foi possível carregar a campanha",
+        "description": "Ocorreu um erro inesperado. Tente novamente ou volte à lista de campanhas."
+      }
+    },
     "objectives": {
       "awareness": "Consciência",
       "consideration": "Consideração",
@@ -597,6 +624,16 @@
     "scoreAdjust": "Ajustar",
     "scoreWeak": "Fraco",
     "regenerateWithImprovements": "Regenerar com melhorias",
+    "regenerateWithFixes": "Regenerar com correções",
+    "approveBlockedInvalid": "Saída inválida — corrija com regeneração antes de aprovar",
+    "noOutputYet": "Sem imagem gerada",
+    "generationMode": {
+      "art_variation": "Variação de arte",
+      "format_adaptation": "Adaptação de formato",
+      "restyling": "Restyling"
+    },
+    "invalidOutputBadge": "Saída inválida",
+    "improvableOutputBadge": "Melhoria sugerida",
     "generatePackage": "Preparar entrega",
     "generateLandingPage": "Gerar landing page",
     "saveAsReference": "Salvar como referência",
@@ -1013,10 +1050,31 @@
   },
   "review": {
     "title": "Revisão",
+    "reviewTitle": "Revisar {name}",
     "feedbackPlaceholder": "O que você gostaria de mudar?",
     "approve": "Aprovar",
     "reject": "Rejeitar",
-    "compare": "Comparar"
+    "compare": "Comparar",
+    "cancel": "Cancelar",
+    "contractPanelTitle": "Contrato criativo",
+    "qualityPanelTitle": "Qualidade",
+    "generationMode": "Modo de geração",
+    "targetFormat": "Formato alvo",
+    "ctaContract": "CTA",
+    "baseAsset": "Criativo base",
+    "styleReference": "Referência de estilo",
+    "ctaInheritedFromBase": "Herdado do criativo base",
+    "notSpecified": "Não informado",
+    "assetNotAvailable": "Asset indisponível",
+    "styleNotProvided": "Não informado",
+    "unknownMode": "Modo não informado",
+    "qualityScore": "Score",
+    "hardFailuresTitle": "Problemas que impedem uso",
+    "polishSuggestionsTitle": "Sugestões de melhoria",
+    "regenerateWithFixesTitle": "Regenerar com correções",
+    "regenerateWithFixesDescription": "Revise o feedback abaixo. Ele será enviado ao job de regeneração.",
+    "regenerateWithFixesConfirm": "Regenerar com correções",
+    "approveBlockedInvalid": "Saída inválida — corrija com regeneração antes de aprovar"
   },
   "steps": {
     "brief": "Brief",

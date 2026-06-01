@@ -14,7 +14,7 @@ v11.1 is a reliability milestone for the existing derivation modes. It fixes the
 |-------|------|------|--------------|------------------|
 | 44 | 1/2 | Complete    | 2026-06-01 | 2026-06-01 |
 | 45 | Creative Contract and Restyling | Complete    | 2026-06-01 | 2026-06-01 |
-| 46 | Hard Quality Gate | 5/5 | Complete   | 2026-06-01 |
+| 46 | Hard Quality Gate | Complete    | 2026-06-01 | 2026-06-01 |
 | 47 | Workspace Review and Error Feedback | Make campaign/output inspection diagnostic and actionable from the UI. | WUI-01..04 | 4 |
 | 48 | End-to-End UAT and Verification | Prove the milestone with repeatable fixtures, tests, build, and browser/manual review. | UAT-01..04 | 5 |
 
