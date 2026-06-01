@@ -20,6 +20,8 @@ import {
   type ArtCreativeLevel,
 } from "@/lib/hooks/use-art-variation-suggestions";
 
+const CTA_FIELD_KEYS = ["primary", "secondary", "tertiary"] as const;
+
 const SHELL_KEY: Record<
   Extract<DerivationIntent, "manual_art" | "auto_art">,
   "manualArt" | "autoArt"
@@ -149,17 +151,17 @@ export default function ArtVariationConfigModal({
               </p>
             )}
             <div className="mt-3 space-y-2">
-              {ctas.map((cta, index) => (
-                <div key={`art-cta-${index}`}>
+              {CTA_FIELD_KEYS.map((fieldKey, index) => (
+                <div key={fieldKey}>
                   <Label
-                    htmlFor={`art-cta-${index}`}
+                    htmlFor={`art-cta-${fieldKey}`}
                     className="sr-only"
                   >
                     {tBriefing("ctaPiece", { number: index + 1 })}
                   </Label>
                   <Input
-                    id={`art-cta-${index}`}
-                    value={cta}
+                    id={`art-cta-${fieldKey}`}
+                    value={ctas[index]}
                     onChange={(event) => updateCta(index, event.target.value)}
                     placeholder={tGeneration("ctaPlaceholder")}
                     disabled={isLoadingSuggestions}

@@ -75,7 +75,11 @@ export function useArtVariationSuggestions({
   const [loadedSessionId, setLoadedSessionId] = useState<string | null>(null);
 
   const campaignCtas = useMemo(
-    () => campaignCtaVariants?.map((cta) => cta.trim()).filter(Boolean) ?? [],
+    () =>
+      campaignCtaVariants?.flatMap((cta) => {
+        const trimmed = cta.trim();
+        return trimmed ? [trimmed] : [];
+      }) ?? [],
     [campaignCtaVariants]
   );
 
@@ -176,9 +180,14 @@ export function useArtVariationSuggestions({
     });
   };
 
-  const validCtaVariants = ctas
-    .map((cta) => cta.trim())
-    .flatMap((cta) => (cta ? [cta] : []));
+  const validCtaVariants = useMemo(
+    () =>
+      ctas.flatMap((cta) => {
+        const trimmed = cta.trim();
+        return trimmed ? [trimmed] : [];
+      }),
+    [ctas]
+  );
 
   return {
     creativeLevel,
