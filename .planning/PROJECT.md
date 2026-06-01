@@ -100,19 +100,20 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 - ✓ **PERF-10**: Remover dead code e dependências não utilizadas — v6.0
 - ✓ **PERF-11**: Implementar virtualização para listas grandes — v6.0
 - ✓ **PERF-12**: Melhorar First Contentful Paint para < 1.5s — v6.0
+- ✓ **DRV-01**: Manual art variation opens config step before generation — v11.0
+- ✓ **DRV-02**: User sets creativity level and CTAs in manual art flow — v11.0
+- ✓ **DRV-03**: Auto art variation pre-fills AI-suggested CTAs and creativity — v11.0
+- ✓ **DRV-04**: User can edit AI suggestions before confirming auto art flow — v11.0
+- ✓ **DRV-05**: Single format adaptation lets user pick one format — v11.0
+- ✓ **DRV-06**: Batch format adaptation lets user pick multiple formats — v11.0
+- ✓ **DRV-07**: Derivar options no longer skip to hardcoded generation — v11.0
+- ✓ **DRV-08**: Modal copy matches behavior in PT-BR and EN — v11.0
+- ✓ **DRV-09**: Tests cover all four Derivar entry paths — v11.0
+- ✓ **DRV-10**: Estilizar workflow unaffected — v11.0
 
 ### Active
 
-- [ ] **DRV-01**: Manual art variation opens config step before generation — v11.0
-- [ ] **DRV-02**: User sets creativity level and CTAs in manual art flow — v11.0
-- [ ] **DRV-03**: Auto art variation pre-fills AI-suggested CTAs and creativity — v11.0
-- [ ] **DRV-04**: User can edit AI suggestions before confirming auto art flow — v11.0
-- [ ] **DRV-05**: Single format adaptation lets user pick one format — v11.0
-- [ ] **DRV-06**: Batch format adaptation lets user pick multiple formats — v11.0
-- [ ] **DRV-07**: Derivar options no longer skip to hardcoded generation — v11.0
-- [ ] **DRV-08**: Modal copy matches behavior in PT-BR and EN — v11.0
-- [ ] **DRV-09**: Tests cover all four Derivar entry paths — v11.0
-- [ ] **DRV-10**: Estilizar workflow unaffected — v11.0
+(None — run `/gsd-new-milestone` to define next milestone requirements)
 
 ### Validated (v10.0)
 
@@ -155,17 +156,11 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Context
 
-Current state: v6.0 milestone complete (phases 22–25). ADScale has a simplified single-page campaign creation flow with AI visual analysis that deduces campaign information from the uploaded key creative. Advanced settings (creativity profile, per-piece CTA, output format, derivation mode) are now configured in a dedicated generation mode step. Briefing Doctor has been completely removed.
+Current state: v11.0 milestone complete (phases 40–43). Each "Derivar criativo" option opens the correct configuration flow before queueing generation — manual art variation, AI-assisted art variation, single-format adaptation, or batch format adaptation. The campaign workspace uses `useDerivationFlow` for routing and dedicated config modals with explicit Confirm actions.
 
-Performance optimizations shipped:
-- Bundle reduced by ~18% (2.9MB → 2.39MB total chunks) via code splitting and lazy loading
-- TanStack Query optimized with staleTime presets (STATIC/SEMI_STATIC/DYNAMIC) and prefetch on hover
-- AI visual analysis cached for 24h to avoid re-computing
-- Images >5MB automatically resized to 1024px before upload
-- VirtualList component for large lists (>20 items)
-- Resource hints (preconnect/dns-prefetch) for R2 CDN to improve FCP
+Prior milestones delivered simplified campaign creation with AI visual analysis, performance optimizations (bundle ~2.39MB, TanStack Query presets, 24h analysis cache), UI refinement (animations, responsive layout, accessibility), and review gallery enhancements.
 
-Build passes and 448 tests are green.
+Build passes and 506 tests are green.
 
 Key stack decisions:
 - Next.js App Router, React, TypeScript, Tailwind, shadcn/ui
@@ -278,15 +273,18 @@ This document evolves at phase transitions and milestone boundaries.
 - States & Accessibility: Enhanced empty states, shake animation, reduced motion support
 - Phases 35–39 archived
 
-## Current Milestone: v11.0 Fluxos de Derivação Coerentes
+### v11.0 Fluxos de Derivação Coerentes ✅
+- `useDerivationFlow` routing — no silent auto-generate from Derivar chooser
+- Art variation config modals with creativity profile + CTAs (manual and AI-assisted prefill)
+- Format adaptation single/batch pickers with API validation for 1–3 target formats
+- PT-BR/EN copy aligned to behavior; comprehensive test coverage for all four paths
+- Phases 40–43 archived
 
-**Goal:** Each "Derivar criativo" modal option opens the correct configuration flow and only queues generation after user confirmation — matching labels and user expectations.
+## Next Milestone Goals
 
-**Target features:**
-- Manual art variation config (creativity profile + CTAs)
-- AI-assisted art variation with editable suggestions
-- Single-format and multi-format adaptation pickers
-- Flow routing refactor; copy/i18n alignment; tests
+- Credit cost preview before queueing derivations (DRV-11)
+- Remember last-used derivation settings per workspace (DRV-12)
+- Smart format recommendations from campaign platforms (DRV-13)
 
 ---
-*Last updated: 2026-06-01 — v11.0 milestone planned (phases 40–43)*
+*Last updated: 2026-06-01 after v11.0 milestone*

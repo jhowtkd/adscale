@@ -1,5 +1,22 @@
 # Milestones: ADScale
 
+## v11.0 Fluxos de Derivação Coerentes (Shipped: 2026-06-01)
+
+**Phases completed:** 4 phases (40→43), 4 plans
+**Requirements:** 10/10 complete
+
+**Key accomplishments:**
+- `useDerivationFlow` state machine — Derivar chooser no longer auto-queues generation with hardcoded defaults
+- Art variation config modals (manual + AI-assisted) with creativity profile and up to 3 CTAs before confirm
+- `useArtVariationSuggestions` pre-fills CTAs from campaign context or analyze API on base asset
+- Format adaptation pickers: single-select and batch multi-select (1:1, 4:5, 9:16) with API PATCH allowing 1–3 formats
+- PT-BR/EN `workspace.derivar` copy aligned to behavior; fixed "Variir" → "Variar tamanhos"
+- 12+ new tests covering all four Derivar paths; Estilizar regression guard via ActionCards
+
+**Archive:** [v11.0-ROADMAP.md](milestones/v11.0-ROADMAP.md) · [v11.0-REQUIREMENTS.md](milestones/v11.0-REQUIREMENTS.md)
+
+---
+
 ## v6.0 Performance & Otimização (Shipped: 2026-05-27)
 
 **Phases completed:** 4 phases (22→25), 4 plans
@@ -69,86 +86,3 @@
 - Dashboard with real metrics
 - 57 unit and integration tests
 - Workspace isolation on all API routes
-
----
-
-## Completed Milestones
-
-### v7.0 — Experiência do Usuário ✅
-**Shipped:** 2026-05-27
-**Phases:** 3 (26→28)
-**Requirements:** 16/16 complete
-
-**Delivered:**
-- Onboarding tour de 5 passos com driver.js
-- Tooltips contextuais para features complexas
-- Progresso salvo no banco de dados, reiniciável via Settings
-- Templates de campanha: salvar, usar, renomear, deletar
-- Template selector no modal de nova campanha
-- 6 KPIs no dashboard: campanhas, derivações, total, taxa aprovação, tempo médio, créditos
-- Seletor de período: semana/mês/trimestre
-- Dados reais de créditos a partir de creditTransactions
-
-## Completed Milestones
-
-### v8.0 — Galeria de Revisão Aprimorada ✅
-**Shipped:** 2026-05-27
-**Phases:** 3 (29→31)
-**Requirements:** 13/13 complete
-
-**Delivered:**
-- Comparação lado a lado de 2 derivações com zoom sincronizado e pan
-- Botão Compare em cada card com modo de seleção visual
-- Filtros avançados: status, formato (1:1, 4:5, 9:16), CTA (busca parcial), quality score range
-- Persistência de filtros na URL para bookmarking
-- Batch approve/reject com master checkbox e contador de seleção
-- Bulk actions bar flutuante com approve/reject/export/download/share
-
----
-
-### v9.0 — Galeria de Revisão v2 ✅
-**Shipped:** 2026-05-28
-**Phases:** 3 (32→34)
-**Requirements:** 14/14 complete
-
-**Delivered:**
-- Anotações visuais: desenho livre, textos, formas (círculo, retângulo, seta) em canvas
-- Toolbar de anotações com seletor de cores, espessura e tamanho de fonte
-- Persistência de anotações no localStorage por derivação
-- Comparação de 3+ derivações em grid adaptativo (2→4 colunas)
-- Zoom/pan independente em cada célula do grid de comparação
-- Remoção individual de derivações do grid
-- Slider antes/depois com divisão arrastável (horizontal/vertical)
-- Toggle entre grid view e slider view quando comparando 2 derivações
-
----
-
-### v10.0 — Refinamento de Interface ✅
-**Shipped:** 2026-05-28
-**Phases:** 5 (35→39)
-**Requirements:** 19/19 complete
-
-**Delivered:**
-- Animation Foundation: variants, easings, transitions, custom hooks (useReducedMotion, useMediaQuery, useScrollDirection)
-- Reusable animation components: FadeIn, StaggerContainer
-- Core Component Polish: Card hover lift/shadow, Button active scale, Input focus glow, Badge transitions
-- Layout Responsive: Mobile sidebar drawer with hamburger menu, TopBar hide/show on scroll
-- Form stacking on mobile (grid-cols-1 sm:grid-cols-2)
-- Feature Components: Stagger animations in campaign grid/list, enhanced modal animations
-- States & Accessibility: Enhanced empty states with icon backgrounds, shake animation for errors
-- Reduced motion support throughout all animations
-
----
-
-## Active Milestone
-
-### v11.0 — Fluxos de Derivação Coerentes (Planning)
-**Status:** Requirements and roadmap defined
-**Goal:** Each Derivar modal option performs its promised function with config/confirm before generation
-**Phases:** 40–43 (4 phases, 10 requirements)
-
-**Next step:** `/gsd-plan-phase 40`
-
----
-
-*Last updated: 2026-06-01*
