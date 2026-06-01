@@ -14,7 +14,7 @@ v11.1 is a reliability milestone for the existing derivation modes. It fixes the
 |-------|------|------|--------------|------------------|
 | 44 | 1/2 | Complete    | 2026-06-01 | 2026-06-01 |
 | 45 | Creative Contract and Restyling | Complete    | 2026-06-01 | 2026-06-01 |
-| 46 | Hard Quality Gate | 4/5 | In Progress|  |
+| 46 | Hard Quality Gate | 5/5 | Complete   | 2026-06-01 |
 | 47 | Workspace Review and Error Feedback | Make campaign/output inspection diagnostic and actionable from the UI. | WUI-01..04 | 4 |
 | 48 | End-to-End UAT and Verification | Prove the milestone with repeatable fixtures, tests, build, and browser/manual review. | UAT-01..04 | 5 |
 
@@ -74,13 +74,13 @@ Plans:
 
 **Requirements:** QA-01, QA-02, QA-03, QA-04, QA-05
 
-**Plans:** 4/5 plans executed
+**Plans:** 5/5 plans complete
 
 Plans:
 - [x] 46-01-PLAN.md — TDD: creative-quality-gate classifier (hard vs polish, verdict derivation, fixtures per QA-02 code)
 - [x] 46-02-PLAN.md — DB columns + updateDerivationQualityGate + client types (QA-05 persistence)
 - [x] 46-03-PLAN.md — Inngest quality-gate step after scoring + score prompt alignment (QA-01, QA-03)
-- [ ] 46-04-PLAN.md — Hard-failure regeneration suggestion + regenerate default feedback (QA-04)
+- [x] 46-04-PLAN.md — Hard-failure regeneration suggestion + regenerate default feedback (QA-04)
 - [x] 46-05-PLAN.md — API 409 guards + manual QA classifier + test-creatives (QA-01, QA-05)
 
 **Scope:**
