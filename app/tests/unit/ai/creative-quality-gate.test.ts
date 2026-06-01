@@ -5,6 +5,7 @@ import type {
   CreativeQaCriterionResult,
 } from "@/server/ai/creative-qa";
 import {
+  assertDerivationApprovable,
   classifyCreativeQualityGate,
   deriveQualityVerdict,
   extractPolishSuggestions,
@@ -308,5 +309,35 @@ describe("deriveQualityVerdict", () => {
         checklist: checklist({}),
       })
     ).toBe("acceptable");
+  });
+});
+
+describe("assertDerivationApprovable", () => {
+  it("blocks when qualityVerdict is invalid", () => {
+    const result = assertDerivationApprovable({
+      qualityVerdict: "invalid",
+      hardFailures: [],
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.qualityVerdict).toBe("invalid");
+    }
+  });
+
+  it("blocks when hardFailures array is non-empty", () => {
+    const result = assertDerivationApprovable({
+      qualityVerdict: "improvable",
+      hardFailures: [{ code: "cta_drift", message: "CTA drift" }],
+    });
+    expect(result.ok).toBe(false);
+  });
+
+  it("allows improvable verdict with no hard failures", () => {
+    expect(
+      assertDerivationApprovable({
+        qualityVerdict: "improvable",
+        hardFailures: [],
+      }).ok
+    ).toBe(true);
   });
 });

@@ -957,6 +957,7 @@
     "planNotFound": "Plano não encontrado",
     "derivationNotFound": "Variação criativa não encontrada",
     "derivationNotApprovedForQa": "Variação criativa deve estar aprovada antes do QA",
+    "derivationHardFailures": "Esta criação tem falhas graves de qualidade e não pode ser aprovada nem usada para entrega até ser corrigida",
     "derivationMissingOutput": "Variação criativa está sem imagem de saída",
     "invalidInput": "Entrada inválida",
     "rateLimitExceeded": "Muitas requisições. Tente novamente mais tarde.",

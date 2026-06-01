@@ -7,12 +7,16 @@ import type { CreativeContract } from "./creative-contract";
 import {
   analyzeCreativeQa,
   type AnalyzeCreativeQaInput,
+  type CreativeQaChecklist,
+  type CreativeQaCriterion,
 } from "./creative-qa";
 import {
   getDerivationById,
   updateDerivationQualityGate,
   updateDerivationQa,
+  updateDerivationScore,
 } from "../repositories/derivation";
+import { buildHardFailureRegenerationSuggestion } from "./creative-score";
 
 export type CreativeHardFailureCode =
   | "cta_drift"
@@ -248,6 +252,57 @@ function checklistHasWarning(checklist: CreativeQaChecklistWithStyle): boolean {
   return criteria.some((criterion) => checklist[criterion]?.status === "warning");
 }
 
+export type DerivationApprovableResult =
+  | { ok: true }
+  | {
+      ok: false;
+      qualityVerdict: CreativeQualityVerdict | null;
+      hardFailures: CreativeHardFailure[];
+    };
+
+export function assertDerivationApprovable(derivation: {
+  qualityVerdict?: CreativeQualityVerdict | null;
+  hardFailures?: CreativeHardFailure[] | null;
+}): DerivationApprovableResult {
+  const hardFailures = derivation.hardFailures ?? [];
+  if (derivation.qualityVerdict === "invalid" || hardFailures.length > 0) {
+    return {
+      ok: false,
+      qualityVerdict: derivation.qualityVerdict ?? "invalid",
+      hardFailures,
+    };
+  }
+  return { ok: true };
+}
+
+export function computeQualityGateFromAnalysis(input: {
+  checklist: CreativeQaChecklistWithStyle;
+  contract: CreativeContract;
+  scoreIssues?: string[];
+  qualityScore?: number | null;
+}): {
+  qualityVerdict: CreativeQualityVerdict;
+  hardFailures: CreativeHardFailure[];
+  polishSuggestions: string[];
+} {
+  const scoreIssues = input.scoreIssues ?? [];
+  const { hardFailures, polishSuggestions } = classifyCreativeQualityGate({
+    checklist: input.checklist,
+    contract: input.contract,
+    scoreIssues,
+  });
+  const qualityScore =
+    typeof input.qualityScore === "number" && Number.isFinite(input.qualityScore)
+      ? input.qualityScore
+      : 0;
+  const qualityVerdict = deriveQualityVerdict({
+    hardFailures,
+    qualityScore,
+    checklist: input.checklist,
+  });
+  return { qualityVerdict, hardFailures, polishSuggestions };
+}
+
 export function deriveQualityVerdict(input: {
   hardFailures: CreativeHardFailure[];
   qualityScore: number;
@@ -343,6 +398,22 @@ export async function runCompletedDerivationQualityGate(
       polishSuggestions,
       qualityGatedAt: gatedAt,
     });
+
+    if (hardFailures.length > 0 && row) {
+      const regenerationSuggestion = buildHardFailureRegenerationSuggestion({
+        hardFailures,
+        contract: input.contract,
+        scoreIssues,
+      });
+      await updateDerivationScore(input.derivationId, input.workspaceId, {
+        qualityScore: row.qualityScore,
+        scoreStatus:
+          (row.scoreStatus as "heuristic" | "analyzed" | "failed" | "pending") ?? "analyzed",
+        scoreBreakdown: row.scoreBreakdown ?? null,
+        scoreIssues,
+        regenerationSuggestion,
+      });
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     logger.warn(

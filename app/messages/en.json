@@ -957,6 +957,7 @@
     "planNotFound": "Plan not found",
     "derivationNotFound": "Creative variant not found",
     "derivationNotApprovedForQa": "Creative variant must be approved before QA",
+    "derivationHardFailures": "This creative has blocking quality failures and cannot be approved or used for delivery until they are fixed",
     "derivationMissingOutput": "Creative variant is missing output image",
     "invalidInput": "Invalid input",
     "invalidRequestBody": "Invalid request body",

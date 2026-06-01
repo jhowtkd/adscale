@@ -93,6 +93,28 @@ describe("POST /api/derivations/[id]/save-reference", () => {
     expect(res.status).toBe(400);
   });
 
+  it("returns 409 when derivation has hard quality failures", async () => {
+    mockGetDerivationById.mockResolvedValue({
+      id: "derivation-id",
+      status: "approved",
+      outputKey: "derivations/derivation-id/123.png",
+      workspaceId: "workspace-1",
+      campaignId: "campaign-id",
+      qualityVerdict: "invalid",
+      hardFailures: [{ code: "wrong_brand", message: "Brand mismatch" }],
+    } as Awaited<ReturnType<typeof getDerivationById>>);
+
+    const res = await POST(
+      requestWith({ clientProfileId: "550e8400-e29b-41d4-a716-446655440001", label: "Winner", kind: "style" }),
+      { params: paramsWith("derivation-id") }
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(body.code).toBe("derivationHardFailures");
+    expect(mockCreateClientReference).not.toHaveBeenCalled();
+  });
+
   it("creates a client reference using the derivation outputKey", async () => {
     mockGetDerivationById.mockResolvedValue({
       id: "derivation-id",
@@ -100,6 +122,8 @@ describe("POST /api/derivations/[id]/save-reference", () => {
       outputKey: "derivations/derivation-id/123.png",
       workspaceId: "workspace-1",
       campaignId: "campaign-id",
+      qualityVerdict: "acceptable",
+      hardFailures: [],
     } as Awaited<ReturnType<typeof getDerivationById>>);
 
     const reference = {
