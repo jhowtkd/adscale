@@ -8,6 +8,17 @@ ADScale is a SaaS webapp for creative derivation: marketing teams upload a base 
 
 Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
+## Current Milestone: v11.1 Qualidade de Geração e Contratos Criativos
+
+**Goal:** Make generated outputs reliably usable by enforcing the creative contract across format adaptation, restyling, scoring, QA, and error visibility.
+
+**Target features:**
+- Native format adaptation that rebuilds 9:16/4:5 layouts without blurred bands, pasted posters, or crowded element clusters.
+- Restyling that applies only visual language from style references while preserving base creative facts, brand, offer, CTA, and product.
+- Consistent CTA, brand, offer, and briefing contracts across generation prompts, scoring, QA, regeneration, and UI feedback.
+- Automatic quality gates that separate hard-rule failures from polish suggestions and make bad outputs actionable.
+- Campaign workspace error visibility that helps the user understand access/session/loading failures before judging output quality.
+
 ## Requirements
 
 ### Validated
@@ -113,7 +124,11 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ### Active
 
-(None — run `/gsd-new-milestone` to define next milestone requirements)
+- [ ] Format adaptation outputs render as native layouts for each target format without blurred padding, letterboxing, or compressed center posters.
+- [ ] Restyling preserves base creative factual content and uses selected style references only for visual language.
+- [ ] CTA, brand, offer, product, and briefing contracts are consistent between generation, scoring, QA, and regeneration suggestions.
+- [ ] Generated outputs receive actionable QA/scoring that flags hard-rule failures before users approve or export.
+- [ ] Campaign workspace loading/access failures surface enough context to diagnose whether the issue is session/workspace/UI rather than output quality.
 
 ### Validated (v10.0)
 
@@ -157,6 +172,8 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 ## Context
 
 Current state: v11.0 milestone complete (phases 40–43). Each "Derivar criativo" option opens the correct configuration flow before queueing generation — manual art variation, AI-assisted art variation, single-format adaptation, or batch format adaptation. The campaign workspace uses `useDerivationFlow` for routing and dedicated config modals with explicit Confirm actions.
+
+Current UAT finding for v11.1: generated outputs can look visually competent but still fail the creative contract. In the reviewed campaign, format adaptation produced blurred bands and cramped elements; restyling copied factual claims from style references; CTA and client/brand assumptions diverged between prompts and scoring; and the campaign workspace error state made it hard to inspect outputs through the UI.
 
 Prior milestones delivered simplified campaign creation with AI visual analysis, performance optimizations (bundle ~2.39MB, TanStack Query presets, 24h analysis cache), UI refinement (animations, responsive layout, accessibility), and review gallery enhancements.
 
@@ -206,6 +223,9 @@ This document evolves at phase transitions and milestone boundaries.
 2. Core Value check — still the right priority?
 3. Audit Out of Scope — reasons still valid?
 4. Update Context with current state
+
+---
+*Last updated: 2026-06-01 after starting v11.1 quality milestone*
 
 ## Milestone History
 
