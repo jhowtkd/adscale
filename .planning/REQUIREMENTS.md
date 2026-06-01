@@ -15,11 +15,11 @@
 
 ### Creative Contract and Restyling
 
-- [ ] **CNTR-01**: The generation pipeline resolves one effective creative contract before prompt building, including generation mode, target format, effective CTA, base asset, style asset, client/brand, product, offer, and constraints.
+- [x] **CNTR-01**: The generation pipeline resolves one effective creative contract before prompt building, including generation mode, target format, effective CTA, base asset, style asset, client/brand, product, offer, and constraints.
 - [ ] **CNTR-02**: Prompt generation, creative scoring, QA, and regeneration suggestions all evaluate against the same effective creative contract.
-- [ ] **CNTR-03**: CTA semantics are mode-aware: explicit CTAs are preserved exactly, inherited CTAs are treated as required source content, and absent CTAs are represented without overloading `null`.
+- [x] **CNTR-03**: CTA semantics are mode-aware: explicit CTAs are preserved exactly, inherited CTAs are treated as required source content, and absent CTAs are represented without overloading `null`.
 - [ ] **CNTR-04**: Brand/product/offer facts come from the base creative, campaign brief, client profile, or approved brand memory, not from unrelated style references.
-- [ ] **REST-01**: User-selected style reference assets are persisted or passed into the restyling job so the job does not silently pick the first available style asset.
+- [x] **REST-01**: User-selected style reference assets are persisted or passed into the restyling job so the job does not silently pick the first available style asset.
 - [ ] **REST-02**: Restyling generation uses the base image as the factual source and style references only for visual language.
 - [ ] **REST-03**: Restyling QA flags copied style-reference factual claims such as unrelated discounts, brands, CTAs, prices, or course names.
 - [ ] **REST-04**: Restyling outputs preserve the base creative's essential factual content while applying the selected style language.
@@ -80,11 +80,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FMT-03 | Phase 44 | Complete |
 | FMT-04 | Phase 44 | Pending |
 | FMT-05 | Phase 44 | Pending |
-| CNTR-01 | Phase 45 | Pending |
+| CNTR-01 | Phase 45 | Complete |
 | CNTR-02 | Phase 45 | Pending |
-| CNTR-03 | Phase 45 | Pending |
+| CNTR-03 | Phase 45 | Complete |
 | CNTR-04 | Phase 45 | Pending |
-| REST-01 | Phase 45 | Pending |
+| REST-01 | Phase 45 | Complete |
 | REST-02 | Phase 45 | Pending |
 | REST-03 | Phase 45 | Pending |
 | REST-04 | Phase 45 | Pending |

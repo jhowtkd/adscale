@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v11.1
 milestone_name: milestone
 status: executing
-last_updated: "2026-06-01T16:42:33.561Z"
+last_updated: "2026-06-01T16:44:43.568Z"
 last_activity: 2026-06-01
 progress:
   total_phases: 5
   completed_phases: 1
   total_plans: 7
-  completed_plans: 2
-  percent: 29
+  completed_plans: 3
+  percent: 43
 ---
 
 # State: ADScale
@@ -19,7 +19,7 @@ progress:
 
 Milestone: v11.1 — Qualidade de Geração e Contratos Criativos
 Phase: 45 (creative-contract-and-restyling) — EXECUTING
-Plan: 2 of 5
+Plan: 3 of 5
 Status: Ready to execute
 Last activity: 2026-06-01
 
