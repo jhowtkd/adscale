@@ -7,7 +7,6 @@ import type { CreativeContract } from "./creative-contract";
 import {
   analyzeCreativeQa,
   type AnalyzeCreativeQaInput,
-  type CreativeQaChecklist,
   type CreativeQaCriterion,
 } from "./creative-qa";
 import {
@@ -373,17 +372,13 @@ export async function runCompletedDerivationQualityGate(
         : 0;
 
     const checklist = qa.checklist as CreativeQaChecklistWithStyle;
-    const { hardFailures, polishSuggestions } = classifyCreativeQualityGate({
-      checklist,
-      contract: input.contract,
-      scoreIssues,
-    });
-
-    const qualityVerdict = deriveQualityVerdict({
-      hardFailures,
-      qualityScore,
-      checklist,
-    });
+    const { qualityVerdict, hardFailures, polishSuggestions } =
+      computeQualityGateFromAnalysis({
+        checklist,
+        contract: input.contract,
+        scoreIssues,
+        qualityScore,
+      });
 
     await updateDerivationQa(input.derivationId, input.workspaceId, {
       qaStatus: qa.status,
