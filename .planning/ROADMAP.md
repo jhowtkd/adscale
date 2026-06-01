@@ -12,7 +12,7 @@ v11.1 is a reliability milestone for the existing derivation modes. It fixes the
 
 | Phase | Name | Goal | Requirements | Success Criteria |
 |-------|------|------|--------------|------------------|
-| 44 | 1/2 | 2/2 | Complete   | 2026-06-01 |
+| 44 | 1/2 | Complete    | 2026-06-01 | 2026-06-01 |
 | 45 | Creative Contract and Restyling | 5/5 | Complete   | 2026-06-01 |
 | 46 | Hard Quality Gate | Separate blocking creative failures from polish suggestions and drive regeneration from failures. | QA-01..05 | 5 |
 | 47 | Workspace Review and Error Feedback | Make campaign/output inspection diagnostic and actionable from the UI. | WUI-01..04 | 4 |
@@ -45,7 +45,7 @@ v11.1 is a reliability milestone for the existing derivation modes. It fixes the
 
 **Requirements:** CNTR-01, CNTR-02, CNTR-03, CNTR-04, REST-01, REST-02, REST-03, REST-04
 
-**Plans:** 5/5 plans complete
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 45-01-PLAN.md — Creative contract types (CreativeContract, CtaSemantics, resolveCtaSemantics) + styleAssetId DB schema + route event payload
@@ -73,6 +73,15 @@ Plans:
 **Goal:** Users can tell whether an output is invalid or merely needs polish.
 
 **Requirements:** QA-01, QA-02, QA-03, QA-04, QA-05
+
+**Plans:** 0/5 plans complete
+
+Plans:
+- [ ] 46-01-PLAN.md — TDD: creative-quality-gate classifier (hard vs polish, verdict derivation, fixtures per QA-02 code)
+- [ ] 46-02-PLAN.md — DB columns + updateDerivationQualityGate + client types (QA-05 persistence)
+- [ ] 46-03-PLAN.md — Inngest quality-gate step after scoring + score prompt alignment (QA-01, QA-03)
+- [ ] 46-04-PLAN.md — Hard-failure regeneration suggestion + regenerate default feedback (QA-04)
+- [ ] 46-05-PLAN.md — API 409 guards + manual QA classifier + test-creatives (QA-01, QA-05)
 
 **Scope:**
 - Add structured hard-failure classification for blocking creative-contract violations.
