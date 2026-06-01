@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v11.1
 milestone_name: milestone
 status: executing
-last_updated: "2026-06-01T17:13:45.000Z"
+last_updated: "2026-06-01T17:16:24.432Z"
 last_activity: 2026-06-01
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 12
-  completed_plans: 8
-  percent: 67
+  completed_plans: 9
+  percent: 75
 ---
 
 # State: ADScale
@@ -19,15 +19,15 @@ progress:
 
 Milestone: v11.1 — Qualidade de Geração e Contratos Criativos
 Phase: 46 (hard-quality-gate) — IN PROGRESS
-Plan: 1 of 5 complete (46-01)
-Status: Classifier shipped; 17 gate unit tests passing
+Plan: 2 of 5 complete (46-02)
+Status: DB persistence shipped; 580 tests passing
 Last activity: 2026-06-01
 
 ## Accumulated Context
 
 - Milestone v10.0 delivered: animation foundation, responsive layout, component polish, accessibility
 - Milestone v11.0 delivered: derivation flow routing, art variation config, format adaptation pickers, test coverage
-- 506 tests passing, build clean
+- 580 tests passing, build clean
 - Each Derivar modal option now opens config before generation; Estilizar unchanged
 - v11.1 starts from UAT findings: format adaptation created blurred bands and crowded elements; restyling copied style-reference facts; CTA/brand/briefing contracts diverged between prompts and scoring; campaign workspace errors obscured output inspection.
 
@@ -41,12 +41,12 @@ Last activity: 2026-06-01
 - Phase 45-04: Restyling asset selection fix — contract.styleAssetId used to find style asset; QA route also updated to reconstruct and pass contract
 - Phase 45-05: env+logger mocks added to prompt-builder.test.ts (pre-existing missing mocks)
 - Phase 46-01: creative-quality-gate.ts — checklist failed→typed hard codes; warnings never hard; deriveQualityVerdict invalid when hardFailures.length > 0
+- Phase 46-02: derivations qualityVerdict/hardFailures/polishSuggestions/qualityGatedAt; updateDerivationQualityGate; scoreCappedForDisplay helper
 
 ## Next Steps
 
-1. Execute 46-02: DB columns + repository quality gate persistence.
-2. Execute 46-03: Inngest quality-gate step after score-derivation.
-3. Phases 46-04–05 then Phase 47.
+1. Execute 46-03: Inngest quality-gate step after score-derivation.
+2. Phases 46-04–05 then Phase 47.
 
 ## Project Reference
 

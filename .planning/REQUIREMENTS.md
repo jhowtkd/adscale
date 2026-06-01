@@ -30,7 +30,7 @@
 - [x] **QA-02**: Hard-rule failures cover at least CTA drift, wrong brand, unsupported offer, copied style-reference facts, cropped critical content, unreadable required text, and invalid format adaptation layout.
 - [ ] **QA-03**: Quality score no longer hides blocking failures; an output with hard failures is visibly marked as needing review even if visual polish is high.
 - [ ] **QA-04**: Regeneration suggestions are structured from the detected hard failures and preserve the same target format, generation mode, and effective CTA contract.
-- [ ] **QA-05**: Users can distinguish "invalid output" from "usable but improvable output" before approving, exporting, or saving a reference.
+- [x] **QA-05**: Users can distinguish "invalid output" from "usable but improvable output" before approving, exporting, or saving a reference.
 
 ### Workspace Review and Error Visibility
 
@@ -92,7 +92,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | QA-02 | Phase 46 | Complete |
 | QA-03 | Phase 46 | Pending |
 | QA-04 | Phase 46 | Pending |
-| QA-05 | Phase 46 | Pending |
+| QA-05 | Phase 46 | Complete |
 | WUI-01 | Phase 47 | Pending |
 | WUI-02 | Phase 47 | Pending |
 | WUI-03 | Phase 47 | Pending |
