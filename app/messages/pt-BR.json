@@ -364,27 +364,28 @@
           "description": "Selecione os formatos desejados na próxima etapa antes de gerar em lote."
         }
       },
-      "shell": {
+      "config": {
         "manualArt": {
           "title": "Configurar variações manuais",
-          "description": "Na próxima versão você definirá perfil de criatividade e CTAs antes de gerar."
+          "description": "Escolha o perfil de criatividade e até 3 CTAs antes de gerar variações artísticas."
         },
         "autoArt": {
           "title": "Revisar sugestões da IA",
-          "description": "Na próxima versão você revisará CTAs e criatividade sugeridos antes de gerar."
+          "description": "Edite CTAs e criatividade sugeridos antes de gerar variações artísticas."
         },
         "singleFormat": {
           "title": "Escolher formato",
-          "description": "Na próxima versão você escolherá um formato (1:1, 4:5 ou 9:16) antes de gerar."
+          "description": "Selecione exatamente um formato de destino antes de adaptar o criativo."
         },
         "batchFormat": {
           "title": "Escolher formatos em lote",
-          "description": "Na próxima versão você selecionará múltiplos formatos antes de gerar."
+          "description": "Selecione um ou mais formatos de destino antes da geração em lote."
         }
       },
       "actions": {
         "back": "Voltar",
-        "cancel": "Cancelar"
+        "cancel": "Cancelar",
+        "confirm": "Gerar variações"
       }
     }
   },

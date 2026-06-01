@@ -364,27 +364,28 @@
           "description": "Select target formats on the next step before batch generation."
         }
       },
-      "shell": {
+      "config": {
         "manualArt": {
           "title": "Configure manual variations",
-          "description": "In the next release you will set creativity profile and CTAs before generating."
+          "description": "Choose creativity profile and up to 3 CTAs before generating art variations."
         },
         "autoArt": {
           "title": "Review AI suggestions",
-          "description": "In the next release you will review suggested CTAs and creativity before generating."
+          "description": "Edit suggested CTAs and creativity profile before generating art variations."
         },
         "singleFormat": {
           "title": "Choose format",
-          "description": "In the next release you will pick one format (1:1, 4:5, or 9:16) before generating."
+          "description": "Select exactly one target format before adapting the creative."
         },
         "batchFormat": {
           "title": "Choose batch formats",
-          "description": "In the next release you will select multiple formats before generating."
+          "description": "Select one or more target formats before batch generation."
         }
       },
       "actions": {
         "back": "Back",
-        "cancel": "Cancel"
+        "cancel": "Cancel",
+        "confirm": "Generate variations"
       }
     }
   },

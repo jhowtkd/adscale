@@ -101,6 +101,7 @@ export default function CampaignWorkspacePage() {
     goToGenerating,
     savePilot,
     handleGenerateDerivations,
+    configureAndGenerate,
     handleRestyle,
     handleGenerateLandingPage,
     handleSaveAsReference,
@@ -130,6 +131,7 @@ export default function CampaignWorkspacePage() {
     createDerivationsPending,
     exportPending,
     deliveryPackagePending,
+    createDerivationsPending,
     planData,
     generatePlanPending,
     updatePlanStatusPending,
@@ -192,6 +194,28 @@ export default function CampaignWorkspacePage() {
   const handleCloseDerivationFlow = () => {
     closeFlow();
     goToActions();
+  };
+
+  const handleArtVariationConfirm = async (config: {
+    creativeLevel: "conservative" | "balanced" | "bold" | "extreme";
+    ctaVariants: string[];
+  }) => {
+    closeFlow();
+    await configureAndGenerate({
+      generationMode: "art_variation",
+      creativeLevel: config.creativeLevel,
+      ctaVariants: config.ctaVariants,
+    });
+  };
+
+  const handleFormatAdaptationConfirm = async (config: {
+    targetFormats: string[];
+  }) => {
+    closeFlow();
+    await configureAndGenerate({
+      generationMode: "format_adaptation",
+      targetFormats: config.targetFormats,
+    });
   };
 
   const handleEstilizarSubmit = async (data: {
@@ -288,6 +312,13 @@ export default function CampaignWorkspacePage() {
         onCloseDerivationFlow={handleCloseDerivationFlow}
         onSelectDerivationIntent={selectIntent}
         onBackToDerivationChooser={backToChooser}
+        onArtVariationConfirm={handleArtVariationConfirm}
+        onFormatAdaptationConfirm={handleFormatAdaptationConfirm}
+        derivationSubmitting={createDerivationsPending}
+        campaignId={campaignId}
+        campaignCreativeLevel={campaign?.creativeLevel}
+        campaignCtaVariants={campaign?.ctaVariants}
+        suggestedCta={analysis.suggestedCta}
         onCloseEstilizar={() => {
           setShowEstilizarModal(false);
           goToActions();
@@ -517,6 +548,16 @@ interface CampaignWorkspaceModalsProps {
   onCloseDerivationFlow: () => void;
   onSelectDerivationIntent: (intent: DerivationIntent) => void;
   onBackToDerivationChooser: () => void;
+  onArtVariationConfirm: (config: {
+    creativeLevel: "conservative" | "balanced" | "bold" | "extreme";
+    ctaVariants: string[];
+  }) => void | Promise<void>;
+  onFormatAdaptationConfirm: (config: { targetFormats: string[] }) => void | Promise<void>;
+  derivationSubmitting: boolean;
+  campaignId: string;
+  campaignCreativeLevel?: string | null;
+  campaignCtaVariants?: string[] | null;
+  suggestedCta?: string;
   onCloseEstilizar: () => void;
   onEstilizarSubmit: (data: {
     styleReferenceFiles: File[];
@@ -548,6 +589,13 @@ function CampaignWorkspaceModals({
   onCloseDerivationFlow,
   onSelectDerivationIntent,
   onBackToDerivationChooser,
+  onArtVariationConfirm,
+  onFormatAdaptationConfirm,
+  derivationSubmitting,
+  campaignId,
+  campaignCreativeLevel,
+  campaignCtaVariants,
+  suggestedCta,
   onCloseEstilizar,
   onEstilizarSubmit,
   onDeleteDialogOpenChange,
@@ -587,8 +635,14 @@ function CampaignWorkspaceModals({
         <ArtVariationConfigModal
           open={isArtConfigOpen}
           intent={artConfigIntent}
+          campaignId={campaignId}
+          campaignCreativeLevel={campaignCreativeLevel}
+          campaignCtaVariants={campaignCtaVariants}
+          suggestedCta={suggestedCta}
+          isSubmitting={derivationSubmitting}
           onBack={onBackToDerivationChooser}
           onClose={onCloseDerivationFlow}
+          onConfirm={onArtVariationConfirm}
         />
       )}
 
@@ -596,8 +650,10 @@ function CampaignWorkspaceModals({
         <FormatAdaptationConfigModal
           open={isFormatConfigOpen}
           intent={formatConfigIntent}
+          isSubmitting={derivationSubmitting}
           onBack={onBackToDerivationChooser}
           onClose={onCloseDerivationFlow}
+          onConfirm={onFormatAdaptationConfirm}
         />
       )}
 
