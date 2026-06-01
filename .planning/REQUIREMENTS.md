@@ -28,7 +28,7 @@
 
 - [x] **QA-01**: Completed derivations receive automatic quality analysis that separates blocking hard-rule failures from advisory polish suggestions.
 - [x] **QA-02**: Hard-rule failures cover at least CTA drift, wrong brand, unsupported offer, copied style-reference facts, cropped critical content, unreadable required text, and invalid format adaptation layout.
-- [ ] **QA-03**: Quality score no longer hides blocking failures; an output with hard failures is visibly marked as needing review even if visual polish is high.
+- [x] **QA-03**: Quality score no longer hides blocking failures; an output with hard failures is visibly marked as needing review even if visual polish is high.
 - [ ] **QA-04**: Regeneration suggestions are structured from the detected hard failures and preserve the same target format, generation mode, and effective CTA contract.
 - [x] **QA-05**: Users can distinguish "invalid output" from "usable but improvable output" before approving, exporting, or saving a reference.
 
@@ -90,7 +90,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | REST-04 | Phase 45 | Complete |
 | QA-01 | Phase 46 | Complete |
 | QA-02 | Phase 46 | Complete |
-| QA-03 | Phase 46 | Pending |
+| QA-03 | Phase 46 | Complete |
 | QA-04 | Phase 46 | Pending |
 | QA-05 | Phase 46 | Complete |
 | WUI-01 | Phase 47 | Pending |
