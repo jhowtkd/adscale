@@ -124,6 +124,10 @@ Campaign context:
 Score each criterion from 0 to 100.
 Provide 1-3 specific issues.
 
+CONTRACT VIOLATIONS IN scoreIssues (required):
+- Any violation of CTA semantics, brand/client, offer, or format layout from the creative contract MUST appear explicitly in scoreIssues (e.g. wrong CTA, brand mismatch, unsupported offer, invalid format layout).
+- Do NOT let a high visualQuality or overall qualityScore hide contract violations — list them in scoreIssues even when the image looks polished.
+
 CRITICAL INFORMATION PRESERVATION:
 - Compare the output against the campaign context, exact CTA, offer, product/service, brand cues, and any creative diagnosis / preservation checklist.
 - Penalize heavily if important text, offer, CTA, logo, product, badge, legal/small-print, face, or other information-bearing element appears cropped, hidden, truncated, blurred, overlapped, deleted, or too small to read.

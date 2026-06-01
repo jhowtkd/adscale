@@ -19,6 +19,7 @@ import { createNotification } from "../repositories/notification";
 import { getAssetsByCampaign } from "../repositories/asset";
 import { getPlanByCampaign } from "../repositories/plan";
 import { getDerivationById, updateDerivationScore } from "../repositories/derivation";
+import { runCompletedDerivationQualityGate } from "../ai/creative-quality-gate";
 import { getClientProfile, getClientReferencesByIds } from "../repositories/client-reference";
 import { trackUsage } from "../repositories/usage";
 import { getBrandKitByWorkspace } from "../db/repositories/brand-kit";
@@ -679,6 +680,41 @@ export const derivationJob = inngest.createFunction(
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";
         logger.warn(`[score-derivation] failed derivationId=${derivationId}: ${message}`);
+      }
+    });
+
+    // 5b. Quality gate (non-blocking; runs after scoring)
+    await step.run("quality-gate", async () => {
+      logger.info(`[quality-gate] derivationId=${derivationId} outputKey=${generated.outputKey}`);
+      try {
+        const gateBuffer = await downloadBuffer(generated.outputKey);
+        await runCompletedDerivationQualityGate({
+          derivationId,
+          workspaceId,
+          imageBuffer: gateBuffer,
+          mimeType: "image/png",
+          locale: locale ?? "pt-BR",
+          campaign: {
+            name: campaign.name ?? "",
+            client: campaign.client ?? "",
+            product: campaign.product ?? "",
+            offer: campaign.offer ?? "",
+            objective: campaign.objective ?? "",
+            audience: campaign.audience ?? "",
+            tone: campaign.tone,
+            creativeDiagnosis: campaign.creativeDiagnosis,
+          },
+          derivation: {
+            ctaText: ctaText ?? derivation.ctaText ?? null,
+            format: generated.targetFormat,
+            generationMode: generated.effectiveGenerationMode,
+          },
+          contract,
+        });
+        logger.info(`[quality-gate] done derivationId=${derivationId}`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        logger.warn(`[quality-gate] step failed derivationId=${derivationId}: ${message}`);
       }
     });
 

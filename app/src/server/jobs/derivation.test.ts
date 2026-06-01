@@ -85,6 +85,10 @@ vi.mock("../repositories/derivation", () => ({
   updateDerivationScore: vi.fn(),
 }));
 
+vi.mock("../ai/creative-quality-gate", () => ({
+  runCompletedDerivationQualityGate: vi.fn(() => Promise.resolve()),
+}));
+
 vi.mock("../repositories/client-reference", () => ({
   getClientReferencesByIds: vi.fn(() => Promise.resolve([])),
   getClientProfile: vi.fn(() => Promise.resolve(null)),
@@ -174,6 +178,7 @@ vi.mock("../db", () => ({
   },
 }));
 
+import { runCompletedDerivationQualityGate } from "../ai/creative-quality-gate";
 import { derivationJob, normalizeGeneratedImage } from "./derivation";
 import { getDerivationById } from "../repositories/derivation";
 import { getCampaignById } from "../repositories/campaign";
@@ -193,11 +198,14 @@ const mockGetBrandKitByWorkspace = vi.mocked(getBrandKitByWorkspace);
 const mockGetCompetitorAnalysesByCampaign = vi.mocked(getCompetitorAnalysesByCampaign);
 const mockDownloadBuffer = vi.mocked(downloadBuffer);
 const mockGetBrandMemoryContext = vi.mocked(getBrandMemoryContext);
+const mockRunCompletedDerivationQualityGate = vi.mocked(runCompletedDerivationQualityGate);
 
 async function runDerivationJob(eventData: Record<string, unknown>) {
   const event = { data: eventData } as unknown;
+  const stepNames: string[] = [];
   const step = {
     run: vi.fn(async (name: string, fn: () => Promise<unknown>) => {
+      stepNames.push(name);
       if (name === "check-idempotency") {
         return { outputKey: null, status: "queued" };
       }
@@ -208,7 +216,8 @@ async function runDerivationJob(eventData: Record<string, unknown>) {
     },
   } as unknown;
 
-  return (derivationJob as unknown as { fn: (args: { event: unknown; step: unknown }) => Promise<unknown> }).fn({ event, step });
+  const result = await (derivationJob as unknown as { fn: (args: { event: unknown; step: unknown }) => Promise<unknown> }).fn({ event, step });
+  return { result, stepNames };
 }
 
 describe("derivationJob", () => {
@@ -356,7 +365,7 @@ describe("derivationJob", () => {
     mockGetAssetsByCampaign.mockResolvedValue([]);
     mockGetPlanByCampaign.mockResolvedValue(null as never);
 
-    await runDerivationJob({
+    const { stepNames } = await runDerivationJob({
       derivationId: "child-id",
       campaignId: "campaign-id",
       workspaceId: "workspace-1",
@@ -368,6 +377,14 @@ describe("derivationJob", () => {
     });
 
     expect(mockDownloadBuffer).toHaveBeenCalledWith("derivations/parent/output.png");
+    expect(stepNames).toContain("quality-gate");
+    expect(mockRunCompletedDerivationQualityGate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        derivationId: "child-id",
+        workspaceId: "workspace-1",
+        contract: expect.objectContaining({ generationMode: "format_adaptation" }),
+      })
+    );
   });
 
   it("throws when parent derivation has no outputKey for package format adaptation", async () => {
