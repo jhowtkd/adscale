@@ -7,22 +7,22 @@
 
 ### Variação artística (mesmo formato)
 
-- [ ] **DRV-01**: User selecting "Criar novas variações" opens a configuration step (creativity profile + CTA fields) before generation is queued — not immediate generation
-- [ ] **DRV-02**: User configuring manual art variation can set creativity level (conservative, balanced, bold) and up to 3 CTAs, then confirm to start generation
-- [ ] **DRV-03**: User selecting "Gerar novas variações" sees AI-suggested CTAs and creativity profile pre-filled from campaign/visual analysis
-- [ ] **DRV-04**: User in the auto art-variation flow can edit AI suggestions before confirming generation
+- [x] **DRV-01**: User selecting "Criar novas variações" opens a configuration step (creativity profile + CTA fields) before generation is queued — not immediate generation
+- [x] **DRV-02**: User configuring manual art variation can set creativity level (conservative, balanced, bold) and up to 3 CTAs, then confirm to start generation
+- [x] **DRV-03**: User selecting "Gerar novas variações" sees AI-suggested CTAs and creativity profile pre-filled from campaign/visual analysis
+- [x] **DRV-04**: User in the auto art-variation flow can edit AI suggestions before confirming generation
 
 ### Adaptação de formato (outros tamanhos)
 
-- [ ] **DRV-05**: User selecting "Variar tamanhos" chooses exactly one target format (1:1, 4:5, or 9:16) before generation starts
-- [ ] **DRV-06**: User selecting "Criar derivações de tamanhos" chooses multiple target formats (default: 1:1, 4:5, 9:16) before batch generation starts
+- [x] **DRV-05**: User selecting "Variar tamanhos" chooses exactly one target format (1:1, 4:5, or 9:16) before generation starts
+- [x] **DRV-06**: User selecting "Criar derivações de tamanhos" chooses multiple target formats (default: 1:1, 4:5, 9:16) before batch generation starts
 
 ### Coerência de fluxo e qualidade
 
-- [ ] **DRV-07**: No Derivar modal option skips configuration/confirmation and fires generation with hardcoded defaults
-- [ ] **DRV-08**: Derivar modal copy and descriptions match actual behavior in PT-BR and EN (including typo fixes)
-- [ ] **DRV-09**: Automated tests cover all four Derivar entry paths (payload sent to campaign update + derivations queue)
-- [ ] **DRV-10**: Estilizar workflow remains independent; Derivar changes do not alter restyling entry or behavior
+- [x] **DRV-07**: No Derivar modal option skips configuration/confirmation and fires generation with hardcoded defaults
+- [x] **DRV-08**: Derivar modal copy and descriptions match actual behavior in PT-BR and EN (including typo fixes)
+- [x] **DRV-09**: Automated tests cover all four Derivar entry paths (payload sent to campaign update + derivations queue)
+- [x] **DRV-10**: Estilizar workflow remains independent; Derivar changes do not alter restyling entry or behavior
 
 ## Future Requirements
 
@@ -47,14 +47,14 @@
 |-------------|-------|--------|
 | DRV-07 | Phase 40 | Complete |
 | DRV-08 | Phase 40 | Complete |
-| DRV-01 | Phase 41 | Pending |
-| DRV-02 | Phase 41 | Pending |
-| DRV-03 | Phase 41 | Pending |
-| DRV-04 | Phase 41 | Pending |
-| DRV-05 | Phase 42 | Pending |
-| DRV-06 | Phase 42 | Pending |
-| DRV-09 | Phase 43 | Pending |
-| DRV-10 | Phase 43 | Pending |
+| DRV-01 | Phase 41 | Complete |
+| DRV-02 | Phase 41 | Complete |
+| DRV-03 | Phase 41 | Complete |
+| DRV-04 | Phase 41 | Complete |
+| DRV-05 | Phase 42 | Complete |
+| DRV-06 | Phase 42 | Complete |
+| DRV-09 | Phase 43 | Complete |
+| DRV-10 | Phase 43 | Complete |
 
 **Coverage:**
 - v11.0 requirements: 10 total

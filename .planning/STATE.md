@@ -2,45 +2,46 @@
 gsd_state_version: 1.0
 milestone: v11.0
 milestone_name: Fluxos de Derivação Coerentes
-status: in_progress
-last_updated: "2026-06-01T12:00:00.000Z"
-last_activity: 2026-06-01 — Phase 40 executed (autonomous)
+status: complete
+last_updated: "2026-06-01T12:30:00.000Z"
+last_activity: 2026-06-01 — Phases 41–43 executed (autonomous)
 progress:
   total_phases: 4
-  completed_phases: 1
-  total_plans: 1
-  completed_plans: 1
-  percent: 25
+  completed_phases: 4
+  total_plans: 4
+  completed_plans: 4
+  percent: 100
 ---
 
 # State: ADScale
 
 ## Current Position
 
-Phase: 41 — Next
-Plan: —
-Status: Phase 40 complete — autonomous continuing
-Last activity: 2026-06-01 — Phase 40 routing + i18n shipped
+Phase: 43 — Complete
+Plan: 43-01
+Status: v11.0 milestone complete
+Last activity: 2026-06-01 — All derivation config flows + tests shipped
 
 ## Accumulated Context
 
-- Phase 40 delivered: `useDerivationFlow`, shell config modals, Derivar i18n, no auto-generate from chooser
-- Phases 41–42 will fill config modals and wire Confirm → `configureAndGenerate`
-- Estilizar remains independent
+- Phase 40: routing state machine, shell modals, Derivar i18n
+- Phase 41: art variation config (creativity + CTAs, auto prefill from analyze)
+- Phase 42: format single/batch pickers, PATCH allows 1–3 targetFormats
+- Phase 43: 12 new tests, Estilizar regression guard
 
 ## v11.0 Roadmap Summary
 
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
 | 40 | Roteamento e contratos | DRV-07, DRV-08 | **Complete** |
-| 41 | Variação artística | DRV-01..04 | Pending |
-| 42 | Adaptação de formato | DRV-05, DRV-06 | Pending |
-| 43 | Verificação | DRV-09, DRV-10 | Pending |
+| 41 | Variação artística | DRV-01..04 | **Complete** |
+| 42 | Adaptação de formato | DRV-05, DRV-06 | **Complete** |
+| 43 | Verificação | DRV-09, DRV-10 | **Complete** |
 
 ## Next Steps
 
-1. Continue `/gsd-autonomous` or `/gsd-discuss-phase 41` → plan → execute
-2. Phase 41: creativity + CTA config in art variation modals
+1. Manual UAT on campaign workspace with uploaded base creative
+2. Consider milestone summary / PR for v11.0
 
 ## Project Reference
 
@@ -48,4 +49,4 @@ See: `.planning/PROJECT.md`
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** v11.0 — Phase 41 art variation configuration
+**Current focus:** v11.0 complete — ready for ship/UAT
