@@ -17,10 +17,10 @@ progress:
 
 ## Current Position
 
-Phase: Not started (Phase 40 next)
-Plan: —
-Status: Phase 40 context gathered — ready for planning
-Last activity: 2026-06-01 — Phase 40 discuss-phase complete
+Phase: 40 — Ready to execute (1 plan)
+Plan: 40-01-PLAN.md
+Status: Phase 40 planned
+Last activity: 2026-06-01 — Phase 40 plan created (research + validation + 40-01)
 
 ## Accumulated Context
 
@@ -35,20 +35,14 @@ Last activity: 2026-06-01 — Phase 40 discuss-phase complete
 
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
-| 40 | Roteamento e contratos | DRV-07, DRV-08 | Pending |
+| 40 | Roteamento e contratos | DRV-07, DRV-08 | **Planned** |
 | 41 | Variação artística | DRV-01..04 | Pending |
 | 42 | Adaptação de formato | DRV-05, DRV-06 | Pending |
 | 43 | Verificação | DRV-09, DRV-10 | Pending |
 
-## Session
-
-**Stopped at:** Phase 40 context gathered  
-**Resume file:** `.planning/phases/40-roteamento-e-contratos/40-CONTEXT.md`
-
 ## Next Steps
 
-1. `/gsd-plan-phase 40` — create PLAN.md for Phase 40
-2. Execute Phase 40
+1. `/gsd-execute-phase 40` — implement 40-01-PLAN.md
 
 ## Project Reference
 
