@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v11.1
 milestone_name: milestone
 status: executing
-last_updated: "2026-06-01T16:44:43.568Z"
+last_updated: "2026-06-01T16:58:05.411Z"
 last_activity: 2026-06-01
 progress:
   total_phases: 5
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 7
-  completed_plans: 3
-  percent: 43
+  completed_plans: 7
+  percent: 100
 ---
 
 # State: ADScale
@@ -18,9 +18,9 @@ progress:
 ## Current Position
 
 Milestone: v11.1 — Qualidade de Geração e Contratos Criativos
-Phase: 45 (creative-contract-and-restyling) — EXECUTING
-Plan: 3 of 5
-Status: Ready to execute
+Phase: 45 (creative-contract-and-restyling) — COMPLETE
+Plan: 5 of 5
+Status: All plans executed; 561 tests passing
 Last activity: 2026-06-01
 
 ## Accumulated Context
@@ -35,11 +35,16 @@ Last activity: 2026-06-01
 
 - Phase 44-01: gpt-image-2 uses 1024x1280 (4:5) and 1152x2048 (9:16) at generation time; format_adaptation normalizes with cover resize (no blur)
 - Phase 44-02: UAT via direct Inngest /e/local endpoint — exercises real job path without browser auth; both 4:5 and 9:16 accepted as native layouts on original complaint campaign
+- Phase 45-01: CreativeContract types in app/src/server/ai/creative-contract.ts; absent kind NOT returned in v11.1 (reserved)
+- Phase 45-02: ctaSemantics dispatch — explicit→literal rule; inherited→mode-specific preservation; no contract→legacy ctaText fallback
+- Phase 45-03: styleFidelity QA criterion only appended to checklist when restyling+styleAssetId set; normalizeCreativeQaResult omits it when absent (no phantom fallback)
+- Phase 45-04: Restyling asset selection fix — contract.styleAssetId used to find style asset; QA route also updated to reconstruct and pass contract
+- Phase 45-05: env+logger mocks added to prompt-builder.test.ts (pre-existing missing mocks)
 
 ## Next Steps
 
-1. Phase 44 complete — UAT passed, both verdicts accepted. Mark phase done.
-2. Autonomous pipeline continues: Phase 45 creative-contract-and-restyling → discuss → plan → execute.
+1. Phase 45 complete — all 5 plans executed, 561 tests passing.
+2. Continue milestone v11.1: Phase 46 onwards.
 3. Phases 46–48 follow in sequence.
 
 ## Project Reference
@@ -48,4 +53,4 @@ See: `.planning/PROJECT.md`
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** Phase 45 — creative-contract-and-restyling
+**Current focus:** Phase 46 — next milestone phase
