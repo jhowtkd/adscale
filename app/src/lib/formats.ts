@@ -89,6 +89,55 @@ export function formatToOpenAISize(formatId: string, isPreview?: boolean): "1024
   return format?.openaiSize ?? "1024x1024";
 }
 
+// gpt-image-2 (and dated variants like gpt-image-2-2026-04-21) support non-square portrait sizes.
+const GPT_IMAGE_2_PATTERN = /^gpt-image-2/;
+
+// Target-aspect generation sizes supported by gpt-image-2.
+// These intentionally exceed the legacy SDK union type — the cast is isolated here.
+const GPT_IMAGE_2_GENERATION_SIZES: Record<string, string> = {
+  "1:1": "1024x1024",
+  "4:5": "1024x1280",
+  "9:16": "1152x2048",
+};
+
+export type OpenAIImageSize =
+  | "1024x1024"
+  | "1024x1536"
+  | "1536x1024"
+  | "1024x1280"
+  | "1152x2048";
+
+/**
+ * Returns the best OpenAI image generation size for `formatId`.
+ *
+ * For gpt-image-2 models the helper returns the true target-aspect size so the
+ * model can reconstruct the layout natively.  For other models it falls back to
+ * the three fixed SDK sizes, preserving the old `formatToOpenAISize` logic.
+ *
+ * Preview mode no longer collapses 4:5 or 9:16 to square when the model
+ * supports portrait sizes — square previews caused blurred-bar post-processing.
+ */
+export function formatToOpenAIImageSize(
+  formatId: string,
+  options?: { isPreview?: boolean; modelName?: string },
+): OpenAIImageSize {
+  const { modelName = "" } = options ?? {};
+
+  if (GPT_IMAGE_2_PATTERN.test(modelName)) {
+    // gpt-image-2 supports target-aspect sizes; use them even in preview mode
+    // so the model never produces a square that then gets blurred-bar padded.
+    return (GPT_IMAGE_2_GENERATION_SIZES[formatId] ?? "1024x1024") as OpenAIImageSize;
+  }
+
+  // Non-flexible model fallback: preview defaults to square (legacy behaviour),
+  // non-preview uses the per-format SDK size.
+  if (options?.isPreview) {
+    return "1024x1024";
+  }
+  const format = getFormatById(formatId);
+  return (format?.openaiSize ?? "1024x1024") as OpenAIImageSize;
+}
+
 function getFormatLabel(formatId: string): string {
   return getFormatById(formatId)?.label ?? formatId;
 }
