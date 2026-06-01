@@ -19,8 +19,8 @@ progress:
 
 Phase: Not started (Phase 40 next)
 Plan: —
-Status: Requirements and roadmap defined — ready for Phase 40 planning
-Last activity: 2026-06-01 — Milestone v11.0 started
+Status: Phase 40 context gathered — ready for planning
+Last activity: 2026-06-01 — Phase 40 discuss-phase complete
 
 ## Accumulated Context
 
@@ -40,11 +40,15 @@ Last activity: 2026-06-01 — Milestone v11.0 started
 | 42 | Adaptação de formato | DRV-05, DRV-06 | Pending |
 | 43 | Verificação | DRV-09, DRV-10 | Pending |
 
+## Session
+
+**Stopped at:** Phase 40 context gathered  
+**Resume file:** `.planning/phases/40-roteamento-e-contratos/40-CONTEXT.md`
+
 ## Next Steps
 
-1. `/gsd-discuss-phase 40` — clarify routing/state machine approach
-2. `/gsd-plan-phase 40` — create PLAN.md for Phase 40
-3. Execute Phase 40
+1. `/gsd-plan-phase 40` — create PLAN.md for Phase 40
+2. Execute Phase 40
 
 ## Project Reference
 
