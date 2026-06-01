@@ -1,9 +1,18 @@
+/**
+ * Hard quality gate: classifies QA checklist + score issues into blocking hard failures
+ * vs advisory polish, and derives qualityVerdict. Orchestration runs after derivation scoring.
+ */
+import { logger } from "@/lib/logger";
 import type { CreativeContract } from "./creative-contract";
-import type {
-  CreativeQaChecklist,
-  CreativeQaCriterion,
-  CreativeQaCriterionResult,
+import {
+  analyzeCreativeQa,
+  type AnalyzeCreativeQaInput,
 } from "./creative-qa";
+import {
+  getDerivationById,
+  updateDerivationQualityGate,
+  updateDerivationQa,
+} from "../repositories/derivation";
 
 export type CreativeHardFailureCode =
   | "cta_drift"
@@ -253,4 +262,92 @@ export function deriveQualityVerdict(input: {
   }
 
   return "acceptable";
+}
+
+export interface RunCompletedDerivationQualityGateInput {
+  derivationId: string;
+  workspaceId: string;
+  imageBuffer: Buffer;
+  mimeType: string;
+  locale: string;
+  campaign: AnalyzeCreativeQaInput["campaign"];
+  derivation: AnalyzeCreativeQaInput["derivation"];
+  contract: CreativeContract;
+}
+
+function asScoreIssues(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+}
+
+async function persistQualityGateFallback(
+  derivationId: string,
+  workspaceId: string,
+  gatedAt: Date
+): Promise<void> {
+  await updateDerivationQualityGate(derivationId, workspaceId, {
+    qualityVerdict: "improvable",
+    hardFailures: [],
+    polishSuggestions: [],
+    qualityGatedAt: gatedAt,
+  });
+}
+
+export async function runCompletedDerivationQualityGate(
+  input: RunCompletedDerivationQualityGateInput
+): Promise<void> {
+  const gatedAt = new Date();
+
+  try {
+    const qa = await analyzeCreativeQa({
+      imageBuffer: input.imageBuffer,
+      mimeType: input.mimeType,
+      locale: input.locale,
+      campaign: input.campaign,
+      derivation: input.derivation,
+      contract: input.contract,
+    });
+
+    const row = await getDerivationById(input.derivationId, input.workspaceId);
+    const scoreIssues = asScoreIssues(row?.scoreIssues);
+    const qualityScore =
+      typeof row?.qualityScore === "number" && Number.isFinite(row.qualityScore)
+        ? row.qualityScore
+        : 0;
+
+    const checklist = qa.checklist as CreativeQaChecklistWithStyle;
+    const { hardFailures, polishSuggestions } = classifyCreativeQualityGate({
+      checklist,
+      contract: input.contract,
+      scoreIssues,
+    });
+
+    const qualityVerdict = deriveQualityVerdict({
+      hardFailures,
+      qualityScore,
+      checklist,
+    });
+
+    await updateDerivationQa(input.derivationId, input.workspaceId, {
+      qaStatus: qa.status,
+      qaChecklist: qa.checklist,
+      qaIssues: qa.issues,
+      qaSuggestions: qa.suggestions,
+    });
+
+    await updateDerivationQualityGate(input.derivationId, input.workspaceId, {
+      qualityVerdict,
+      hardFailures,
+      polishSuggestions,
+      qualityGatedAt: gatedAt,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    logger.warn(
+      `[quality-gate] failed derivationId=${input.derivationId}: ${message}`
+    );
+    await persistQualityGateFallback(input.derivationId, input.workspaceId, gatedAt);
+  }
 }
