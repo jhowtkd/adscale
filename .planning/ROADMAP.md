@@ -139,32 +139,32 @@ Plans:
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FMT-01 | Phase 44 | Pending |
-| FMT-02 | Phase 44 | Pending |
-| FMT-03 | Phase 44 | Pending |
-| FMT-04 | Phase 44 | Pending |
-| FMT-05 | Phase 44 | Pending |
-| CNTR-01 | Phase 45 | Pending |
-| CNTR-02 | Phase 45 | Pending |
-| CNTR-03 | Phase 45 | Pending |
-| CNTR-04 | Phase 45 | Pending |
-| REST-01 | Phase 45 | Pending |
-| REST-02 | Phase 45 | Pending |
-| REST-03 | Phase 45 | Pending |
-| REST-04 | Phase 45 | Pending |
-| QA-01 | Phase 46 | Pending |
-| QA-02 | Phase 46 | Pending |
-| QA-03 | Phase 46 | Pending |
-| QA-04 | Phase 46 | Pending |
-| QA-05 | Phase 46 | Pending |
+| FMT-01 | Phase 44 | Complete |
+| FMT-02 | Phase 44 | Complete |
+| FMT-03 | Phase 44 | Complete |
+| FMT-04 | Phase 44 | Complete |
+| FMT-05 | Phase 44 | Complete |
+| CNTR-01 | Phase 45 | Complete |
+| CNTR-02 | Phase 45 | Complete |
+| CNTR-03 | Phase 45 | Complete |
+| CNTR-04 | Phase 45 | Complete |
+| REST-01 | Phase 45 | Complete |
+| REST-02 | Phase 45 | Complete |
+| REST-03 | Phase 45 | Complete |
+| REST-04 | Phase 45 | Complete |
+| QA-01 | Phase 46 | Complete |
+| QA-02 | Phase 46 | Complete |
+| QA-03 | Phase 46 | Complete |
+| QA-04 | Phase 46 | Complete |
+| QA-05 | Phase 46 | Complete |
 | WUI-01 | Phase 47 | Complete |
 | WUI-02 | Phase 47 | Complete |
 | WUI-03 | Phase 47 | Complete |
 | WUI-04 | Phase 47 | Complete |
-| UAT-01 | Phase 48 | Pending |
-| UAT-02 | Phase 48 | Pending |
-| UAT-03 | Phase 48 | Pending |
-| UAT-04 | Phase 48 | Pending |
+| UAT-01 | Phase 48 | Complete |
+| UAT-02 | Phase 48 | Complete |
+| UAT-03 | Phase 48 | Complete |
+| UAT-04 | Phase 48 | Complete |
 
 **Coverage:**
 - v11.1 requirements: 26 total
