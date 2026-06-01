@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Image from "next/image";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   Dialog,
@@ -23,6 +22,51 @@ interface RegenerateFeedbackDialogProps {
   onConfirm: (feedback: string) => void;
 }
 
+interface RegenerateFeedbackFormProps {
+  initialFeedback: string;
+  isSubmitting: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: (feedback: string) => void;
+}
+
+function RegenerateFeedbackForm({
+  initialFeedback,
+  isSubmitting,
+  onOpenChange,
+  onConfirm,
+}: RegenerateFeedbackFormProps) {
+  const t = useTranslations("review");
+  const [feedback, setFeedback] = useState(initialFeedback);
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle>{t("regenerateWithFixesTitle")}</DialogTitle>
+        <DialogDescription>{t("regenerateWithFixesDescription")}</DialogDescription>
+      </DialogHeader>
+      <Textarea
+        value={feedback}
+        onChange={(event) => setFeedback(event.target.value)}
+        placeholder={t("feedbackPlaceholder")}
+        rows={6}
+        className="resize-y min-h-[120px]"
+      />
+      <DialogFooter>
+        <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          {t("cancel")}
+        </Button>
+        <Button
+          type="button"
+          disabled={isSubmitting || !feedback.trim()}
+          onClick={() => onConfirm(feedback.trim())}
+        >
+          {t("regenerateWithFixesConfirm")}
+        </Button>
+      </DialogFooter>
+    </>
+  );
+}
+
 export default function RegenerateFeedbackDialog({
   open,
   initialFeedback = "",
@@ -30,41 +74,18 @@ export default function RegenerateFeedbackDialog({
   onOpenChange,
   onConfirm,
 }: RegenerateFeedbackDialogProps) {
-  const t = useTranslations("review");
-  const [feedback, setFeedback] = useState(initialFeedback);
-
-  useEffect(() => {
-    if (open) {
-      setFeedback(initialFeedback);
-    }
-  }, [open, initialFeedback]);
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{t("regenerateWithFixesTitle")}</DialogTitle>
-          <DialogDescription>{t("regenerateWithFixesDescription")}</DialogDescription>
-        </DialogHeader>
-        <Textarea
-          value={feedback}
-          onChange={(event) => setFeedback(event.target.value)}
-          placeholder={t("feedbackPlaceholder")}
-          rows={6}
-          className="resize-y min-h-[120px]"
-        />
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            {t("cancel")}
-          </Button>
-          <Button
-            type="button"
-            disabled={isSubmitting || !feedback.trim()}
-            onClick={() => onConfirm(feedback.trim())}
-          >
-            {t("regenerateWithFixesConfirm")}
-          </Button>
-        </DialogFooter>
+        {open ? (
+          <RegenerateFeedbackForm
+            key={initialFeedback}
+            initialFeedback={initialFeedback}
+            isSubmitting={isSubmitting}
+            onOpenChange={onOpenChange}
+            onConfirm={onConfirm}
+          />
+        ) : null}
       </DialogContent>
     </Dialog>
   );

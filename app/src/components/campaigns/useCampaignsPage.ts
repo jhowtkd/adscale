@@ -62,14 +62,9 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
     const params = new URLSearchParams(searchParams.toString());
     params.delete("new");
     const query = params.toString();
-    router.replace(`/campaigns${query ? `?${query}` : ""}`, { scroll: false });
-  }, [
-    shouldOpenNewModal,
-    consumedNewParam,
-    newParam,
-    router,
-    searchParams,
-  ]);
+    const nextUrl = `/campaigns${query ? `?${query}` : ""}`;
+    window.history.replaceState(window.history.state, "", nextUrl);
+  }, [shouldOpenNewModal, consumedNewParam, newParam, searchParams]);
 
   const campaignQuery = {
     searchQuery,

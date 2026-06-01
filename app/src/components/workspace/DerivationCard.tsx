@@ -311,27 +311,17 @@ export default function DerivationCard({
       style={{ animationDelay: `${index * 80}ms` }}
     >
       {/* ---- Image Area ---- */}
-      <div
+      <button
+        type="button"
+        disabled={!isCompleted || !derivation.imageUrl}
         className={cn(
-          "relative overflow-hidden rounded-lg bg-muted",
+          "relative block w-full overflow-hidden rounded-lg bg-muted border-0 p-0 text-left",
           aspectClass,
           isCompleted && derivation.imageUrl && "cursor-pointer"
         )}
-        role={isCompleted && derivation.imageUrl ? "button" : undefined}
-        tabIndex={isCompleted && derivation.imageUrl ? 0 : undefined}
         onClick={
           isCompleted && derivation.imageUrl
             ? () => onPreview(derivation.id)
-            : undefined
-        }
-        onKeyDown={
-          isCompleted && derivation.imageUrl
-            ? (e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  onPreview(derivation.id);
-                }
-              }
             : undefined
         }
       >
@@ -388,7 +378,7 @@ export default function DerivationCard({
           progress={derivation.status === "generating" ? simulatedProgress : undefined}
           onRetry={handleRegenerate}
         />
-      </div>
+      </button>
 
       {/* ---- Info Area ---- */}
       <div className="p-3.5 space-y-2">

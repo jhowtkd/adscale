@@ -81,14 +81,6 @@ export function getTargetDimensions(formatId: string, isPreview?: boolean): { wi
   return format.dimensions;
 }
 
-export function formatToOpenAISize(formatId: string, isPreview?: boolean): "1024x1024" | "1024x1536" | "1536x1024" {
-  if (isPreview) {
-    return "1024x1024";
-  }
-  const format = getFormatById(formatId);
-  return format?.openaiSize ?? "1024x1024";
-}
-
 // gpt-image-2 (and dated variants like gpt-image-2-2026-04-21) support non-square portrait sizes.
 const GPT_IMAGE_2_PATTERN = /^gpt-image-2/;
 

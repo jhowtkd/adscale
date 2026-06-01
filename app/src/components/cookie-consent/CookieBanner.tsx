@@ -64,10 +64,10 @@ export default function CookieBanner() {
   if (!mounted || prefs !== null) return null;
 
   return (
-    <div
-      role="dialog"
+    <dialog
+      open
       aria-label="Consentimento de cookies"
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-[var(--border-dim)] bg-[var(--surface-base)] p-4 shadow-lg sm:px-6"
+      className="fixed inset-x-0 bottom-0 z-50 m-0 w-full max-w-none border-t border-[var(--border-dim)] bg-[var(--surface-base)] p-4 shadow-lg sm:px-6"
     >
       <div className="mx-auto flex max-w-7xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="text-sm text-[var(--text-secondary)]">
@@ -133,7 +133,7 @@ export default function CookieBanner() {
           </div>
         )}
       </div>
-    </div>
+    </dialog>
   );
 }
 

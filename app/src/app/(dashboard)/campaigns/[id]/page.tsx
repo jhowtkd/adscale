@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useRef, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import Link from "next/link";
 import { Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -42,7 +42,6 @@ import CampaignNotFoundState from "@/components/campaigns/CampaignNotFoundState"
 
 import { useCampaignWorkspace } from "@/lib/hooks/use-campaign-workspace";
 import { useDerivationFlow, type DerivationIntent } from "@/lib/hooks/use-derivation-flow";
-import { useBootstrapNewCampaign } from "@/lib/hooks/use-bootstrap-new-campaign";
 import { useTranslations } from "next-intl";
 
 type WorkspaceHookResult = ReturnType<typeof useCampaignWorkspace>;
@@ -53,7 +52,13 @@ export default function CampaignWorkspacePage() {
   const params = useParams();
   const campaignId = params.id as string;
   const isNew = campaignId === "new";
-  const { isBootstrapping, bootstrapError } = useBootstrapNewCampaign(campaignId);
+
+  useEffect(() => {
+    if (isNew) {
+      window.location.replace("/campaigns/new");
+    }
+  }, [isNew]);
+
   const tc = useTranslations("common");
   const addToast = useAppStore((s) => s.addToast);
   const uploadAsset = useUploadAsset(campaignId);
@@ -277,12 +282,9 @@ export default function CampaignWorkspacePage() {
     });
   };
 
-  if (isBootstrapping) return <CampaignSkeleton />;
-  if (bootstrapError) {
-    return <CampaignErrorState kind="unknown" />;
-  }
-  if (isLoading && !isNew) return <CampaignSkeleton />;
-  if (isError && !isNew) {
+  if (isNew) return <CampaignSkeleton />;
+  if (isLoading) return <CampaignSkeleton />;
+  if (isError) {
     return (
       <CampaignErrorState
         kind={loadErrorKind ?? "unknown"}
@@ -290,7 +292,7 @@ export default function CampaignWorkspacePage() {
       />
     );
   }
-  if (!campaign && !isNew) {
+  if (!campaign) {
     return loadErrorKind === "not_found" ? <CampaignNotFoundState /> : <CampaignErrorState kind="unknown" />;
   }
 
@@ -398,17 +400,22 @@ export default function CampaignWorkspacePage() {
       <CampaignWorkspaceModals
         campaign={campaign}
         selectedDeliverySource={selectedDeliverySource}
-        deliveryModalOpen={deliveryModalOpen}
-        exportPending={exportPending}
-        deliveryPackagePending={deliveryPackagePending}
+        visibility={{
+          delivery: deliveryModalOpen,
+          derivationChooser: isChooserOpen,
+          artConfig: isArtConfigOpen,
+          formatConfig: isFormatConfigOpen,
+          estilizar: showEstilizarModal,
+          delete: showDeleteDialog,
+        }}
+        pending={{
+          export: exportPending,
+          deliveryPackage: deliveryPackagePending,
+          derivation: createDerivationsPending,
+        }}
         personaSimulation={personaSimulation}
-        isChooserOpen={isChooserOpen}
-        isArtConfigOpen={isArtConfigOpen}
-        isFormatConfigOpen={isFormatConfigOpen}
         artConfigIntent={artConfigIntent}
         formatConfigIntent={formatConfigIntent}
-        showEstilizarModal={showEstilizarModal}
-        showDeleteDialog={showDeleteDialog}
         onDeliveryModalOpenChange={handleDeliveryModalOpenChange}
         onDownloadDeliverySource={handleDownloadDeliverySource}
         onConfirmDeliveryPackage={handleConfirmDeliveryPackage}
@@ -418,7 +425,6 @@ export default function CampaignWorkspacePage() {
         onBackToDerivationChooser={backToChooser}
         onArtVariationConfirm={handleArtVariationConfirm}
         onFormatAdaptationConfirm={handleFormatAdaptationConfirm}
-        derivationSubmitting={createDerivationsPending}
         campaignId={campaignId}
         campaignCreativeLevel={campaign?.creativeLevel}
         campaignCtaVariants={campaign?.ctaVariants}
@@ -695,20 +701,29 @@ function CampaignWorkspaceCard({
   );
 }
 
+interface CampaignWorkspaceModalVisibility {
+  delivery: boolean;
+  derivationChooser: boolean;
+  artConfig: boolean;
+  formatConfig: boolean;
+  estilizar: boolean;
+  delete: boolean;
+}
+
+interface CampaignWorkspaceModalPending {
+  export: boolean;
+  deliveryPackage: boolean;
+  derivation: boolean;
+}
+
 interface CampaignWorkspaceModalsProps {
   campaign: WorkspaceHookResult["campaign"];
   selectedDeliverySource: WorkspaceHookResult["selectedDeliverySource"];
-  deliveryModalOpen: boolean;
-  exportPending: boolean;
-  deliveryPackagePending: boolean;
+  visibility: CampaignWorkspaceModalVisibility;
+  pending: CampaignWorkspaceModalPending;
   personaSimulation: { isOpen: boolean; selectedId: string | null };
-  isChooserOpen: boolean;
-  isArtConfigOpen: boolean;
-  isFormatConfigOpen: boolean;
   artConfigIntent: "manual_art" | "auto_art" | null;
   formatConfigIntent: "single_format" | "batch_format" | null;
-  showEstilizarModal: boolean;
-  showDeleteDialog: boolean;
   onDeliveryModalOpenChange: (open: boolean) => void;
   onDownloadDeliverySource: () => void;
   onConfirmDeliveryPackage: (formats: DeliveryFormat[]) => void;
@@ -721,7 +736,6 @@ interface CampaignWorkspaceModalsProps {
     ctaVariants: string[];
   }) => void | Promise<void>;
   onFormatAdaptationConfirm: (config: { targetFormats: string[] }) => void | Promise<void>;
-  derivationSubmitting: boolean;
   campaignId: string;
   campaignCreativeLevel?: string | null;
   campaignCtaVariants?: string[] | null;
@@ -738,17 +752,11 @@ interface CampaignWorkspaceModalsProps {
 function CampaignWorkspaceModals({
   campaign,
   selectedDeliverySource,
-  deliveryModalOpen,
-  exportPending,
-  deliveryPackagePending,
+  visibility,
+  pending,
   personaSimulation,
-  isChooserOpen,
-  isArtConfigOpen,
-  isFormatConfigOpen,
   artConfigIntent,
   formatConfigIntent,
-  showEstilizarModal,
-  showDeleteDialog,
   onDeliveryModalOpenChange,
   onDownloadDeliverySource,
   onConfirmDeliveryPackage,
@@ -758,7 +766,6 @@ function CampaignWorkspaceModals({
   onBackToDerivationChooser,
   onArtVariationConfirm,
   onFormatAdaptationConfirm,
-  derivationSubmitting,
   campaignId,
   campaignCreativeLevel,
   campaignCtaVariants,
@@ -772,10 +779,10 @@ function CampaignWorkspaceModals({
     <>
       {selectedDeliverySource && (
         <DeliveryPackageModal
-          open={deliveryModalOpen}
+          open={visibility.delivery}
           sourceFormat={selectedDeliverySource.format ?? null}
-          isDownloading={exportPending}
-          isSubmitting={deliveryPackagePending}
+          isDownloading={pending.export}
+          isSubmitting={pending.deliveryPackage}
           onOpenChange={onDeliveryModalOpenChange}
           onDownloadCurrent={onDownloadDeliverySource}
           onConfirm={onConfirmDeliveryPackage}
@@ -793,20 +800,20 @@ function CampaignWorkspaceModals({
       )}
 
       <DerivarModal
-        open={isChooserOpen}
+        open={visibility.derivationChooser}
         onClose={onCloseDerivationFlow}
         onSelect={onSelectDerivationIntent}
       />
 
       {artConfigIntent && (
         <ArtVariationConfigModal
-          open={isArtConfigOpen}
+          open={visibility.artConfig}
           intent={artConfigIntent}
           campaignId={campaignId}
           campaignCreativeLevel={campaignCreativeLevel}
           campaignCtaVariants={campaignCtaVariants}
           suggestedCta={suggestedCta}
-          isSubmitting={derivationSubmitting}
+          isSubmitting={pending.derivation}
           onBack={onBackToDerivationChooser}
           onClose={onCloseDerivationFlow}
           onConfirm={onArtVariationConfirm}
@@ -815,9 +822,9 @@ function CampaignWorkspaceModals({
 
       {formatConfigIntent && (
         <FormatAdaptationConfigModal
-          open={isFormatConfigOpen}
+          open={visibility.formatConfig}
           intent={formatConfigIntent}
-          isSubmitting={derivationSubmitting}
+          isSubmitting={pending.derivation}
           onBack={onBackToDerivationChooser}
           onClose={onCloseDerivationFlow}
           onConfirm={onFormatAdaptationConfirm}
@@ -825,13 +832,13 @@ function CampaignWorkspaceModals({
       )}
 
       <EstilizarModal
-        open={showEstilizarModal}
+        open={visibility.estilizar}
         onClose={onCloseEstilizar}
         onSubmit={onEstilizarSubmit}
       />
 
       <ConfirmDialog
-        open={showDeleteDialog}
+        open={visibility.delete}
         onOpenChange={onDeleteDialogOpenChange}
         title="Excluir campanha"
         description="Tem certeza que deseja excluir esta campanha? Esta ação não pode ser desfeita."

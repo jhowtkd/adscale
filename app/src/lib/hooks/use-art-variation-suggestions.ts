@@ -31,7 +31,10 @@ function buildManualDefaults(
   suggestedCta?: string
 ) {
   const campaignCtas =
-    campaignCtaVariants?.map((cta) => cta.trim()).filter(Boolean) ?? [];
+    campaignCtaVariants?.flatMap((cta) => {
+      const trimmed = cta.trim();
+      return trimmed ? [trimmed] : [];
+    }) ?? [];
   const manualCtas =
     campaignCtas.length > 0
       ? campaignCtas
@@ -127,9 +130,10 @@ export function useArtVariationSuggestions({
         const suggestedLevel =
           analysis?.suggestedCreativeLevel?.value ?? fallbackDefaults.creativeLevel;
         const suggestedCtas =
-          analysis?.suggestedCtas
-            ?.map((item) => item.value.trim())
-            .filter(Boolean) ?? campaignCtas;
+          analysis?.suggestedCtas?.flatMap((item) => {
+            const trimmed = item.value.trim();
+            return trimmed ? [trimmed] : [];
+          }) ?? campaignCtas;
 
         if (!cancelled) {
           setCreativeLevel(normalizeCreativeLevel(suggestedLevel));

@@ -15,8 +15,12 @@ import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import type { DerivationIntent } from "@/lib/hooks/use-derivation-flow";
 
-export const DERIVATION_FORMATS = ["1:1", "4:5", "9:16"] as const;
-export type DerivationFormat = (typeof DERIVATION_FORMATS)[number];
+import {
+  DERIVATION_FORMATS,
+  type DerivationFormat,
+} from "@/lib/derivation-formats";
+
+export type { DerivationFormat };
 
 const SHELL_KEY: Record<
   Extract<DerivationIntent, "single_format" | "batch_format">,
@@ -65,14 +69,6 @@ export default function FormatAdaptationConfigModal({
     "9:16": true,
   });
 
-  const resetKey = open ? intent : "closed";
-  const [prevResetKey, setPrevResetKey] = useState(resetKey);
-  if (open && resetKey !== prevResetKey) {
-    setPrevResetKey(resetKey);
-    setSelectedSingle("1:1");
-    setSelectedBatch({ "1:1": true, "4:5": true, "9:16": true });
-  }
-
   const batchFormats = DERIVATION_FORMATS.filter((format) => selectedBatch[format]);
   const canConfirm =
     intent === "single_format" ? Boolean(selectedSingle) : batchFormats.length > 0;
@@ -96,7 +92,7 @@ export default function FormatAdaptationConfigModal({
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent key={open ? intent : "closed"} className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Icon size={18} className="text-[var(--accent-green)]" />

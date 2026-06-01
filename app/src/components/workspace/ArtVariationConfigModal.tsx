@@ -150,7 +150,7 @@ export default function ArtVariationConfigModal({
             )}
             <div className="mt-3 space-y-2">
               {ctas.map((cta, index) => (
-                <div key={index}>
+                <div key={`art-cta-${index}`}>
                   <Label
                     htmlFor={`art-cta-${index}`}
                     className="sr-only"

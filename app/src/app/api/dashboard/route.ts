@@ -10,17 +10,16 @@ export async function GET(request: Request) {
   try {
     const { workspace } = await requireWorkspaceAccess(request);
 
-    const [campaignCount, campaignList] = await Promise.all([
+    const [campaignCount, campaignList, recentActivity] = await Promise.all([
       getWorkspaceCampaignCount(workspace.id),
       getCampaigns(workspace.id, 5),
+      db
+        .select()
+        .from(activityEvents)
+        .where(eq(activityEvents.workspaceId, workspace.id))
+        .orderBy(desc(activityEvents.createdAt))
+        .limit(5),
     ]);
-
-    const recentActivity = await db
-      .select()
-      .from(activityEvents)
-      .where(eq(activityEvents.workspaceId, workspace.id))
-      .orderBy(desc(activityEvents.createdAt))
-      .limit(5);
 
     // Fallback: if no activity events, use recent campaigns as activity
     const activity =

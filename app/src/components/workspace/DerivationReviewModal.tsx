@@ -45,7 +45,14 @@ function AssetThumb({
       </p>
       {asset?.url ? (
         <div className="relative aspect-square w-20 overflow-hidden rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)]">
-          <Image src={asset.url} alt={label} fill className="object-cover" unoptimized />
+          <Image
+            src={asset.url}
+            alt={label}
+            fill
+            sizes="80px"
+            className="object-cover"
+            unoptimized
+          />
         </div>
       ) : (
         <p className="text-xs text-[var(--text-secondary)]">{emptyLabel}</p>
@@ -102,6 +109,7 @@ export default function DerivationReviewModal({
                 src={derivation.imageUrl}
                 alt={derivation.name}
                 fill
+                sizes="(max-width: 768px) 100vw, 50vw"
                 className="object-contain"
                 unoptimized
               />

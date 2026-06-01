@@ -75,13 +75,6 @@ export default function PilotSidebar({
   const pilotImageUrl =
     pilotAsset?.url && !imageError ? pilotAsset.url : undefined;
 
-  const pilotImageKey = pilotAsset?.id ?? pilotAsset?.url;
-  const [prevPilotImageKey, setPrevPilotImageKey] = useState(pilotImageKey);
-  if (pilotImageKey !== prevPilotImageKey) {
-    setPrevPilotImageKey(pilotImageKey);
-    setImageError(false);
-  }
-
   const hasBriefing = Boolean(
     briefing.objective ||
       briefing.audience ||
@@ -108,6 +101,7 @@ export default function PilotSidebar({
           {!isLoading && pilotImageUrl && (
             <div className="relative h-full w-full">
               <Image
+                key={pilotAsset?.id ?? pilotAsset?.url ?? "pilot"}
                 src={pilotImageUrl}
                 alt={campaign.name || "Piloto"}
                 fill
