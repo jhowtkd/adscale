@@ -579,24 +579,20 @@ export default function DerivationCard({
               </Button>
             ) : null}
             <div className="flex gap-2">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="inline-flex">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={onApprove}
-                      disabled={isApproving || derivation.qualityVerdict === "invalid"}
-                    >
-                      <Check className="size-4 mr-1" />
-                      {commonT("approve")}
-                    </Button>
-                  </span>
-                </TooltipTrigger>
-                {derivation.qualityVerdict === "invalid" ? (
-                  <TooltipContent side="top">{t("approveBlockedInvalid")}</TooltipContent>
-                ) : null}
-              </Tooltip>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={onApprove}
+                disabled={isApproving || derivation.qualityVerdict === "invalid"}
+                title={
+                  derivation.qualityVerdict === "invalid"
+                    ? t("approveBlockedInvalid")
+                    : undefined
+                }
+              >
+                <Check className="size-4 mr-1" />
+                {commonT("approve")}
+              </Button>
               <Button size="sm" variant="outline" onClick={onReject} disabled={isRejecting}>
                 <X className="size-4 mr-1" />
                 {commonT("reject")}

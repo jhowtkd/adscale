@@ -34,10 +34,10 @@
 
 ### Workspace Review and Error Visibility
 
-- [ ] **WUI-01**: Campaign workspace loading errors distinguish at least unauthorized/session, workspace mismatch or forbidden, campaign not found, network timeout, and generic server failure where the API provides enough signal.
-- [ ] **WUI-02**: Derivation gallery cards surface hard quality failures and actionable next steps without requiring the user to inspect logs.
-- [ ] **WUI-03**: The output review surface shows enough source/target contract context to diagnose failures: generation mode, target format, CTA contract, base asset, and style reference when relevant.
-- [ ] **WUI-04**: Users can retry or regenerate from an invalid output with the failure reasons carried into the regeneration flow.
+- [x] **WUI-01**: Campaign workspace loading errors distinguish at least unauthorized/session, workspace mismatch or forbidden, campaign not found, network timeout, and generic server failure where the API provides enough signal.
+- [x] **WUI-02**: Derivation gallery cards surface hard quality failures and actionable next steps without requiring the user to inspect logs.
+- [x] **WUI-03**: The output review surface shows enough source/target contract context to diagnose failures: generation mode, target format, CTA contract, base asset, and style reference when relevant.
+- [x] **WUI-04**: Users can retry or regenerate from an invalid output with the failure reasons carried into the regeneration flow.
 
 ### Verification and UAT
 
@@ -93,10 +93,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | QA-03 | Phase 46 | Complete |
 | QA-04 | Phase 46 | Complete |
 | QA-05 | Phase 46 | Complete |
-| WUI-01 | Phase 47 | Pending |
-| WUI-02 | Phase 47 | Pending |
-| WUI-03 | Phase 47 | Pending |
-| WUI-04 | Phase 47 | Pending |
+| WUI-01 | Phase 47 | Complete |
+| WUI-02 | Phase 47 | Complete |
+| WUI-03 | Phase 47 | Complete |
+| WUI-04 | Phase 47 | Complete |
 | UAT-01 | Phase 48 | Pending |
 | UAT-02 | Phase 48 | Pending |
 | UAT-03 | Phase 48 | Pending |
