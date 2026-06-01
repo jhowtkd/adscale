@@ -14,6 +14,56 @@ import { refreshCampaignStatus, updateCampaign } from "@/server/repositories/cam
 import { getUserLocale } from "@/server/repositories/user";
 import { inngest } from "@/server/jobs/client";
 import { spendCreditsOrApiError } from "@/server/billing/gates";
+import { resolveCtaSemantics } from "@/server/ai/creative-contract";
+import type { CreativeContract } from "@/server/ai/creative-contract";
+import { buildHardFailureRegenerationSuggestion } from "@/server/ai/creative-score";
+import type { CreativeHardFailure } from "@/server/ai/creative-quality-gate";
+
+function resolveRegenerationFeedback(
+  original: {
+    regenerationSuggestion?: string | null;
+    hardFailures?: CreativeHardFailure[] | null;
+    ctaText?: string | null;
+    format?: string | null;
+    generationMode?: string | null;
+    styleAssetId?: string | null;
+  },
+  explicitFeedback?: string
+): string | undefined {
+  const trimmedExplicit = explicitFeedback?.trim();
+  if (trimmedExplicit) {
+    return trimmedExplicit;
+  }
+
+  const storedSuggestion = original.regenerationSuggestion?.trim();
+  if (storedSuggestion) {
+    return storedSuggestion;
+  }
+
+  const hardFailures = original.hardFailures ?? [];
+  if (hardFailures.length === 0) {
+    return undefined;
+  }
+
+  const generationMode = (original.generationMode ??
+    "art_variation") as CreativeContract["generationMode"];
+  const contract: CreativeContract = {
+    generationMode,
+    targetFormat: original.format ?? "1:1",
+    ctaSemantics: resolveCtaSemantics(original.ctaText, generationMode),
+    baseAssetId: null,
+    styleAssetId: original.styleAssetId ?? null,
+    client: null,
+    product: null,
+    offer: null,
+    constraints: null,
+  };
+
+  return buildHardFailureRegenerationSuggestion({
+    hardFailures: hardFailures.map(({ code, message }) => ({ code, message })),
+    contract,
+  });
+}
 
 const bodySchema = z.object({
   feedback: z.string().trim().max(2000).optional(),
@@ -36,12 +86,13 @@ export async function POST(
     if (!parsed.success) {
       return apiError("invalidRequestBody", 400, parsed.error.flatten());
     }
-    const feedback = parsed.data.feedback;
 
     const original = await getDerivationById(id, workspace.id);
     if (!original) {
       return apiError("derivationNotFound", 404);
     }
+
+    const feedback = resolveRegenerationFeedback(original, parsed.data.feedback);
 
     const activeChildren = await getActiveChildrenByParent(id, workspace.id);
     if (activeChildren.length > 0) {
@@ -61,7 +112,7 @@ export async function POST(
       workspaceId: workspace.id,
       planId: original.planId ?? undefined,
       parentId: id,
-      feedback: feedback ?? undefined,
+      feedback,
       status: "queued",
       generationMode: original.generationMode ?? undefined,
       variantIndex: original.variantIndex ?? undefined,

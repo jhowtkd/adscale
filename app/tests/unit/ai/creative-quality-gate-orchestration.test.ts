@@ -9,6 +9,7 @@ vi.mock("@/server/repositories/derivation", () => ({
   getDerivationById: vi.fn(),
   updateDerivationQualityGate: vi.fn(),
   updateDerivationQa: vi.fn(),
+  updateDerivationScore: vi.fn(),
 }));
 
 import { analyzeCreativeQa } from "@/server/ai/creative-qa";
@@ -16,6 +17,7 @@ import {
   getDerivationById,
   updateDerivationQualityGate,
   updateDerivationQa,
+  updateDerivationScore,
 } from "@/server/repositories/derivation";
 import { runCompletedDerivationQualityGate } from "@/server/ai/creative-quality-gate";
 
@@ -23,6 +25,7 @@ const mockAnalyzeCreativeQa = vi.mocked(analyzeCreativeQa);
 const mockGetDerivationById = vi.mocked(getDerivationById);
 const mockUpdateDerivationQualityGate = vi.mocked(updateDerivationQualityGate);
 const mockUpdateDerivationQa = vi.mocked(updateDerivationQa);
+const mockUpdateDerivationScore = vi.mocked(updateDerivationScore);
 
 const contract: CreativeContract = {
   generationMode: "art_variation",
@@ -76,6 +79,7 @@ describe("runCompletedDerivationQualityGate", () => {
     vi.clearAllMocks();
     mockUpdateDerivationQualityGate.mockResolvedValue({} as never);
     mockUpdateDerivationQa.mockResolvedValue({} as never);
+    mockUpdateDerivationScore.mockResolvedValue({} as never);
   });
 
   it("persists invalid verdict when ctaOffer checklist fails under explicit CTA contract", async () => {
@@ -94,10 +98,28 @@ describe("runCompletedDerivationQualityGate", () => {
     mockGetDerivationById.mockResolvedValue({
       qualityScore: 92,
       scoreIssues: [],
+      scoreStatus: "analyzed",
+      scoreBreakdown: {
+        ctaClarity: 90,
+        textLegibility: 88,
+        briefMatch: 90,
+        visualQuality: 92,
+        formatFit: 90,
+        variationLevelFit: 88,
+        informationPreservation: 85,
+      },
     } as never);
 
     await runCompletedDerivationQualityGate(baseInput);
 
+    expect(mockUpdateDerivationScore).toHaveBeenCalledWith(
+      "deriv-1",
+      "ws-1",
+      expect.objectContaining({
+        qualityScore: 92,
+        regenerationSuggestion: expect.stringMatching(/Hard failures: \[cta_drift\]/),
+      })
+    );
     expect(mockUpdateDerivationQa).toHaveBeenCalledWith(
       "deriv-1",
       "ws-1",

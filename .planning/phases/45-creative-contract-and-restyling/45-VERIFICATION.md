@@ -1,9 +1,10 @@
 ---
 phase: 45-creative-contract-and-restyling
 verified: 2026-06-01T19:05:00Z
-status: gaps_found
-score: 18/22 must-haves verified
+status: passed
+score: 22/22 must-haves verified
 overrides_applied: 0
+gaps_resolved: 2026-06-01
 gaps:
   - truth: "Restyling job uses the user-selected style reference instead of silently choosing the first available style asset"
     status: failed

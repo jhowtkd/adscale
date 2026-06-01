@@ -142,4 +142,64 @@ describe("POST /api/derivations/[id]/regenerate", () => {
       { status: "generating" }
     );
   });
+
+  it("uses parent regenerationSuggestion when feedback is omitted", async () => {
+    mockGetDerivationById.mockResolvedValue({
+      id: "source-id",
+      campaignId: "campaign-id",
+      workspaceId: "workspace-1",
+      status: "completed",
+      planId: "plan-id",
+      generationMode: "art_variation",
+      variantIndex: 0,
+      ctaText: "Shop now",
+      format: "1:1",
+      regenerationSuggestion:
+        "Hard failures: [cta_drift]. Fix cta_drift: CTA missing. Preserve the exact CTA \"Shop now\".",
+    } as Awaited<ReturnType<typeof getDerivationById>>);
+    mockCreateDerivation.mockResolvedValue({
+      id: "child-id",
+      campaignId: "campaign-id",
+      workspaceId: "workspace-1",
+      status: "queued",
+    } as Awaited<ReturnType<typeof createDerivation>>);
+    mockInngestSend.mockResolvedValue({ ids: ["event-id"] });
+
+    const res = await POST(requestWith({}), { params: paramsWith("source-id") });
+
+    expect(res.status).toBe(201);
+    expect(mockCreateDerivation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        feedback: expect.stringContaining("Hard failures: [cta_drift]"),
+      })
+    );
+  });
+
+  it("keeps explicit user feedback when provided", async () => {
+    mockGetDerivationById.mockResolvedValue({
+      id: "source-id",
+      campaignId: "campaign-id",
+      workspaceId: "workspace-1",
+      status: "completed",
+      regenerationSuggestion: "Hard failures: [cta_drift]. Fix cta_drift: CTA missing.",
+      generationMode: "art_variation",
+      variantIndex: 0,
+      ctaText: "Shop now",
+      format: "1:1",
+    } as Awaited<ReturnType<typeof getDerivationById>>);
+    mockCreateDerivation.mockResolvedValue({
+      id: "child-id",
+      status: "queued",
+    } as Awaited<ReturnType<typeof createDerivation>>);
+    mockInngestSend.mockResolvedValue({ ids: ["event-id"] });
+
+    const res = await POST(requestWith({ feedback: "warmer palette only" }), {
+      params: paramsWith("source-id"),
+    });
+
+    expect(res.status).toBe(201);
+    expect(mockCreateDerivation).toHaveBeenCalledWith(
+      expect.objectContaining({ feedback: "warmer palette only" })
+    );
+  });
 });

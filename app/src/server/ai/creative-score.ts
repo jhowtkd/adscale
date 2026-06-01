@@ -1,6 +1,14 @@
 import { env } from "@/server/validation/env";
 import { getOpenAI, extractOutputText } from "./utils";
 import type { CreativeContract } from "./creative-contract";
+import type { CreativeHardFailureCode } from "./creative-quality-gate";
+
+function ctaTextFromContract(contract: CreativeContract): string | null {
+  if (contract.ctaSemantics.kind === "explicit") {
+    return contract.ctaSemantics.text;
+  }
+  return null;
+}
 
 export interface ScoreResult {
   qualityScore: number;
@@ -252,5 +260,43 @@ export function buildRegenerationSuggestion(input: BuildSuggestionInput): string
     if (input.contract.styleAssetId) parts.push(`Style reference: ${input.contract.styleAssetId}.`);
   }
 
+  return parts.join(" ");
+}
+
+export function buildHardFailureRegenerationSuggestion(input: {
+  hardFailures: Array<{ code: CreativeHardFailureCode; message: string }>;
+  contract: CreativeContract;
+  scoreIssues?: string[];
+  modelSuggestion?: string;
+}): string {
+  if (input.hardFailures.length === 0) {
+    return buildRegenerationSuggestion({
+      ctaText: ctaTextFromContract(input.contract),
+      format: input.contract.targetFormat,
+      generationMode: input.contract.generationMode,
+      scoreIssues: input.scoreIssues ?? [],
+      modelSuggestion:
+        input.modelSuggestion ?? "Refine the creative while preserving contract constraints.",
+      contract: input.contract,
+    });
+  }
+
+  const parts: string[] = [];
+  parts.push(`Hard failures: [${input.hardFailures.map((f) => f.code).join(", ")}].`);
+  for (const failure of input.hardFailures) {
+    parts.push(`Fix ${failure.code}: ${failure.message}`);
+  }
+
+  const preservation = buildRegenerationSuggestion({
+    ctaText: ctaTextFromContract(input.contract),
+    format: input.contract.targetFormat,
+    generationMode: input.contract.generationMode,
+    scoreIssues: [],
+    modelSuggestion:
+      input.modelSuggestion ?? "Address the hard failures above while preserving the creative contract.",
+    contract: input.contract,
+  });
+
+  parts.push(preservation);
   return parts.join(" ");
 }
