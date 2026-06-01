@@ -1,4 +1,17 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+
+vi.mock("@/server/validation/env", () => ({
+  env: {
+    OPENAI_API_KEY: "sk-test",
+    OPENAI_TEXT_MODEL: "gpt-4o",
+    OPENAI_IMAGE_MODEL: "gpt-image-1",
+  },
+}));
+
+vi.mock("@/lib/logger", () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+}));
+
 import { buildDerivationPrompt } from "./prompt-builder";
 
 describe("buildDerivationPrompt", () => {
@@ -347,5 +360,111 @@ describe("buildDerivationPrompt", () => {
     expect(prompt).toContain("Headline may be hard to read on mobile");
     expect(prompt).toContain("Increase headline font size");
     expect(prompt).toContain("--- END PRE-FLIGHT ---");
+  });
+});
+
+describe("CTA semantics contract", () => {
+  it("art_variation with null ctaText uses inherited CTA instruction", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "art_variation",
+      targetFormat: "1:1",
+      ctaText: null,
+      contract: {
+        generationMode: "art_variation",
+        targetFormat: "1:1",
+        ctaSemantics: { kind: "inherited" },
+        baseAssetId: null,
+        styleAssetId: null,
+        client: null,
+        product: null,
+        offer: null,
+        constraints: null,
+      },
+    });
+    expect(prompt).toMatch(/use the original CTA|preserve.*CTA|original.*CTA/i);
+    expect(prompt).not.toContain("no CTA required");
+  });
+
+  it("art_variation with explicit ctaText uses literal CTA rule", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "art_variation",
+      targetFormat: "1:1",
+      ctaText: "Comprar agora",
+      contract: {
+        generationMode: "art_variation",
+        targetFormat: "1:1",
+        ctaSemantics: { kind: "explicit", text: "Comprar agora" },
+        baseAssetId: null,
+        styleAssetId: null,
+        client: null,
+        product: null,
+        offer: null,
+        constraints: null,
+      },
+    });
+    expect(prompt).toContain("Comprar agora");
+    expect(prompt.indexOf("HARD RULES")).toBeLessThan(prompt.indexOf("Comprar agora"));
+  });
+
+  it("format_adaptation with null ctaText uses CTA preservation instruction", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "format_adaptation",
+      targetFormat: "9:16",
+      ctaText: null,
+      contract: {
+        generationMode: "format_adaptation",
+        targetFormat: "9:16",
+        ctaSemantics: { kind: "inherited" },
+        baseAssetId: null,
+        styleAssetId: null,
+        client: null,
+        product: null,
+        offer: null,
+        constraints: null,
+      },
+    });
+    expect(prompt).toMatch(/preserve.*CTA|CTA.*source|original.*CTA/i);
+    expect(prompt).not.toContain("no CTA required");
+  });
+
+  it("restyling with null ctaText does not emit no-CTA instruction", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "restyling",
+      targetFormat: "1:1",
+      ctaText: null,
+      contract: {
+        generationMode: "restyling",
+        targetFormat: "1:1",
+        ctaSemantics: { kind: "inherited" },
+        baseAssetId: "asset-base-1",
+        styleAssetId: "asset-style-1",
+        client: null,
+        product: null,
+        offer: null,
+        constraints: null,
+      },
+    });
+    expect(prompt).not.toContain("no CTA required");
+    expect(prompt).not.toContain("CTA: none");
+  });
+
+  it("restyling with styleAssetId includes RESTYLING FACTUAL-SOURCE RULE", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "restyling",
+      targetFormat: "1:1",
+      contract: {
+        generationMode: "restyling",
+        targetFormat: "1:1",
+        ctaSemantics: { kind: "inherited" },
+        baseAssetId: "base-123",
+        styleAssetId: "style-456",
+        client: null,
+        product: null,
+        offer: null,
+        constraints: null,
+      },
+    });
+    expect(prompt).toContain("RESTYLING FACTUAL-SOURCE RULE");
+    expect(prompt.toLowerCase()).toContain("factual");
   });
 });

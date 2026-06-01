@@ -83,3 +83,100 @@ describe("buildCreativeQaPrompt", () => {
     expect(prompt).toContain("cropped, hidden, truncated, blurred, overlapped, deleted");
   });
 });
+
+describe("styleFidelity criterion", () => {
+  const baseCampaign = {
+    name: "Test Campaign",
+    client: "Acme",
+    product: "Widget",
+    offer: "10% off",
+    objective: "Conversions",
+    audience: "Adults 25-45",
+  };
+
+  it("buildCreativeQaPrompt includes styleFidelity checklist key for restyling mode", () => {
+    const prompt = buildCreativeQaPrompt({
+      locale: "pt-BR",
+      campaign: baseCampaign,
+      derivation: {
+        ctaText: null,
+        format: "1:1",
+        generationMode: "restyling",
+      },
+      contract: {
+        generationMode: "restyling",
+        targetFormat: "1:1",
+        ctaSemantics: { kind: "inherited" },
+        baseAssetId: "base-1",
+        styleAssetId: "style-1",
+        client: "Acme",
+        product: "Widget",
+        offer: "10% off",
+        constraints: null,
+      },
+    });
+    expect(prompt).toContain("styleFidelity");
+    expect(prompt.toLowerCase()).toContain("style reference");
+    expect(prompt.toLowerCase()).toContain("factual");
+  });
+
+  it("buildCreativeQaPrompt does NOT include styleFidelity for art_variation mode", () => {
+    const prompt = buildCreativeQaPrompt({
+      locale: "pt-BR",
+      campaign: baseCampaign,
+      derivation: {
+        ctaText: "Comprar",
+        format: "1:1",
+        generationMode: "art_variation",
+      },
+      contract: {
+        generationMode: "art_variation",
+        targetFormat: "1:1",
+        ctaSemantics: { kind: "explicit", text: "Comprar" },
+        baseAssetId: "base-1",
+        styleAssetId: null,
+        client: "Acme",
+        product: "Widget",
+        offer: "10% off",
+        constraints: null,
+      },
+    });
+    expect(prompt).not.toContain("styleFidelity");
+  });
+
+  it("normalizeCreativeQaResult includes styleFidelity when present in model response", () => {
+    const result = normalizeCreativeQaResult({
+      status: "warning",
+      checklist: {
+        legibility: { status: "passed", note: "OK" },
+        ctaOffer: { status: "passed", note: "OK" },
+        informationPreservation: { status: "passed", note: "OK" },
+        briefMatch: { status: "passed", note: "OK" },
+        formatFit: { status: "passed", note: "OK" },
+        creativeRisk: { status: "passed", note: "OK" },
+        styleFidelity: { status: "failed", note: "Brand name from style reference copied." },
+      },
+      issues: ["Brand name from style reference copied."],
+      suggestions: [],
+    });
+    expect(result.checklist.styleFidelity).toBeDefined();
+    expect(result.checklist.styleFidelity?.status).toBe("failed");
+  });
+
+  it("normalizeCreativeQaResult does not add styleFidelity fallback when absent", () => {
+    const result = normalizeCreativeQaResult({
+      status: "ready",
+      checklist: {
+        legibility: { status: "passed", note: "OK" },
+        ctaOffer: { status: "passed", note: "OK" },
+        informationPreservation: { status: "passed", note: "OK" },
+        briefMatch: { status: "passed", note: "OK" },
+        formatFit: { status: "passed", note: "OK" },
+        creativeRisk: { status: "passed", note: "OK" },
+      },
+      issues: [],
+      suggestions: [],
+    });
+    expect(result.checklist.styleFidelity).toBeUndefined();
+  });
+});
