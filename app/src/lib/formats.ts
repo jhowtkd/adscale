@@ -107,6 +107,13 @@ export type OpenAIImageSize =
   | "1024x1280"
   | "1152x2048";
 
+/** Legacy OpenAI SDK image size union — cast gpt-image-2 sizes only here. */
+export type OpenAISdkImageSize = "1024x1024" | "1024x1536" | "1536x1024";
+
+export function toOpenAISdkImageSize(size: OpenAIImageSize): OpenAISdkImageSize {
+  return size as OpenAISdkImageSize;
+}
+
 /**
  * Returns the best OpenAI image generation size for `formatId`.
  *
