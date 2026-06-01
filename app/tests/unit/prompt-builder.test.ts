@@ -139,6 +139,104 @@ describe("buildDerivationPrompt CTA contract", () => {
   });
 });
 
+describe("buildDerivationPrompt format_adaptation layout contract", () => {
+  it("names all source ad modules that must be preserved as separate entities", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "format_adaptation",
+      targetFormat: "9:16",
+    });
+
+    // The prompt must identify the source modules explicitly so the model
+    // treats each one as an independent element to reposition.
+    expect(prompt).toContain("headline");
+    expect(prompt).toContain("photo/subject");
+    expect(prompt).toContain("offer or proof");
+    expect(prompt).toContain("CTA");
+    expect(prompt).toContain("logo");
+    expect(prompt).toContain("badges");
+    expect(prompt).toContain("legal copy");
+    expect(prompt).toContain("decorative background");
+  });
+
+  it("explicitly forbids letterboxing and blank bands", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "format_adaptation",
+      targetFormat: "9:16",
+    });
+
+    expect(prompt).toContain("letterboxing");
+    expect(prompt).toContain("No blank bands");
+  });
+
+  it("explicitly forbids a pasted poster over a background", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "format_adaptation",
+      targetFormat: "9:16",
+    });
+
+    expect(prompt).toContain("no poster pasted over a background");
+  });
+
+  it("explicitly forbids stretched edge filler", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "format_adaptation",
+      targetFormat: "4:5",
+    });
+
+    expect(prompt).toContain("no stretched edge filler");
+  });
+
+  it("restricts decorative background to bleed at edges; all other modules stay inside safe area", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "format_adaptation",
+      targetFormat: "9:16",
+    });
+
+    expect(prompt).toContain("only decorative background may bleed to the edges");
+  });
+
+  it("requires explicit PRESERVE EXACTLY instruction for factual content", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "format_adaptation",
+      targetFormat: "4:5",
+    });
+
+    expect(prompt).toContain("PRESERVE EXACTLY");
+  });
+
+  it("includes 9:16 three-zone vertical layout guidance", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "format_adaptation",
+      targetFormat: "9:16",
+    });
+
+    expect(prompt).toContain("upper zone");
+    expect(prompt).toContain("middle zone");
+    expect(prompt).toContain("lower zone");
+  });
+
+  it("includes 4:5 portrait-feed separated-modules layout guidance", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "format_adaptation",
+      targetFormat: "4:5",
+    });
+
+    expect(prompt).toContain("portrait-feed layout");
+    expect(prompt).toContain("CTA/logo their own clean area");
+  });
+
+  it("does not apply format_adaptation layout guidance to 1:1 as a vertical-format rule", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "format_adaptation",
+      targetFormat: "1:1",
+    });
+
+    // Square format should not carry 9:16 or 4:5 specific zone instructions
+    expect(prompt).not.toContain("upper zone for headline");
+    expect(prompt).not.toContain("portrait-feed layout");
+  });
+});
+
 describe("buildDerivationPrompt restyling mode", () => {
   it("separates base image content from style reference design language", () => {
     const prompt = buildDerivationPrompt({
