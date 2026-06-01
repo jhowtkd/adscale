@@ -70,7 +70,11 @@ const sentryOptions = {
   widenClientFileUpload: true,
   tunnelRoute: "/monitoring",
   hideSourceMaps: true,
-  disableLogger: true,
+  webpack: {
+    treeshake: {
+      removeDebugLogging: true,
+    },
+  },
 };
 
 const bundleAnalyzer = withBundleAnalyzer({

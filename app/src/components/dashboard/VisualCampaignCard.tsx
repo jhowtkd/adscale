@@ -33,7 +33,7 @@ const statusConfig: Record<string, { dot: string; label: string; bg: string; tex
     dot: "bg-[var(--accent-green)] shadow-[0_0_8px_var(--accent-green-dim)0.8)]", 
     label: "ATIVA",
     bg: "bg-[var(--accent-green)]/15",
-    text: "text-[var(--accent-green)]",
+    text: "text-[var(--accent-green-text)]",
     border: "border-[var(--accent-green)]/30"
   },
   draft: { 
@@ -47,14 +47,14 @@ const statusConfig: Record<string, { dot: string; label: string; bg: string; tex
     dot: "bg-[var(--accent-green)] animate-pulse shadow-[0_0_8px_var(--accent-green-dim)0.6)]", 
     label: "GERANDO",
     bg: "bg-[var(--accent-green)]/15",
-    text: "text-[var(--accent-green)]",
+    text: "text-[var(--accent-green-text)]",
     border: "border-[var(--accent-green)]/30"
   },
   completed: { 
     dot: "bg-[var(--accent-green)]", 
     label: "CONCLUÍDA",
     bg: "bg-[var(--accent-green)]/10",
-    text: "text-[var(--accent-green)]",
+    text: "text-[var(--accent-green-text)]",
     border: "border-[var(--accent-green)]/20"
   },
   failed: { 
@@ -157,7 +157,8 @@ const VisualCampaignCard = memo(function VisualCampaignCard({
       }}
     >
       <Link 
-        href={`/campaigns/${id}`} 
+        href={`/campaigns/${id}`}
+        prefetch={false}
         className="block outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-green)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--deep-bg)] rounded-2xl"
         aria-label={`${t("openCampaign")}: ${name}`}
       >
@@ -206,34 +207,11 @@ const VisualCampaignCard = memo(function VisualCampaignCard({
           {/* Gradient Overlay - stronger */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent pointer-events-none" />
 
-          {/* Hover Actions - bolder */}
+          {/* Hover overlay — decorative only (no nested controls inside link) */}
           <div 
-            className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center gap-3"
+            className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none"
             aria-hidden="true"
-          >
-            <button type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-              }}
-              className="size-10 rounded-xl bg-[var(--accent-green)]/20 backdrop-blur-md border-2 border-[var(--accent-green)]/40 flex items-center justify-center text-[var(--accent-green)] hover:bg-[var(--accent-green)]/30 hover:border-[var(--accent-green)]/60 transition-all hover:scale-110"
-              aria-label={t("editCampaign")}
-              tabIndex={-1}
-            >
-              <Edit2 size={16} aria-hidden="true" />
-            </button>
-            <button type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-              }}
-              className="size-10 rounded-xl bg-[var(--accent-green)]/20 backdrop-blur-md border-2 border-[var(--accent-green)]/40 flex items-center justify-center text-[var(--accent-green)] hover:bg-[var(--accent-green)]/30 hover:border-[var(--accent-green)]/60 transition-all hover:scale-110"
-              aria-label={t("duplicateCampaign")}
-              tabIndex={-1}
-            >
-              <Copy size={16} aria-hidden="true" />
-            </button>
-          </div>
+          />
         </div>
 
         {/* Info Area - bolder typography */}
@@ -282,17 +260,15 @@ const VisualCampaignCard = memo(function VisualCampaignCard({
         </div>
       </Link>
 
-      {/* Dropdown Menu */}
+      {/* Dropdown Menu — outside link to avoid nested interactive controls */}
       <div className="absolute bottom-5 right-5 opacity-0 group-hover:opacity-100 transition-all duration-300">
         <DropdownMenu>
-          <DropdownMenuTrigger>
-            <button type="button"
-              onClick={(e) => e.stopPropagation()}
-              className="size-9 rounded-xl bg-[var(--surface-base)] border-2 border-[var(--border-dim)] flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--accent-green)] hover:border-[var(--accent-green)]/40 transition-all hover:scale-110"
-              aria-label={t("moreActions")}
-            >
-              <MoreHorizontal size={16} aria-hidden="true" />
-            </button>
+          <DropdownMenuTrigger
+            aria-label={t("moreActions")}
+            className="size-9 rounded-xl bg-[var(--surface-base)] border-2 border-[var(--border-dim)] flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--accent-green)] hover:border-[var(--accent-green)]/40 transition-all hover:scale-110"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <MoreHorizontal size={16} aria-hidden="true" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44 border-2 border-[var(--border-dim)]">
             <DropdownMenuItem className="cursor-pointer font-semibold">

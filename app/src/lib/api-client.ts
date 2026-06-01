@@ -1,8 +1,12 @@
-export async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+export async function apiFetch(
+  input: RequestInfo | URL,
+  init?: RequestInit & { timeoutMs?: number }
+): Promise<Response> {
+  const { timeoutMs = 15_000, ...fetchInit } = init ?? {};
   const res = await fetch(input, {
-    ...init,
+    ...fetchInit,
     credentials: "include",
-    signal: init?.signal ?? AbortSignal.timeout(15_000),
+    signal: fetchInit.signal ?? AbortSignal.timeout(timeoutMs),
   });
 
   if (res.status === 401) {

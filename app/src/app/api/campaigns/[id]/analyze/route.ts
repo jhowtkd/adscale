@@ -71,7 +71,7 @@ export async function POST(
       });
     } catch (aiError) {
       console.error("AI analysis failed:", aiError);
-      
+
       // Graceful degradation: mark as failed but don't error
       await updateAssetMetadata(assetId, workspace.id, {
         analysisResult: {},

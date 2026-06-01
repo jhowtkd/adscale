@@ -120,7 +120,7 @@ export default function LoginContent() {
                 </div>
               )}
               {magicLinkSent ? (
-                <div className="rounded-md bg-[var(--accent-green)]/10 px-3 py-2 text-sm text-[var(--accent-green)]">
+                <div className="rounded-md bg-[var(--accent-green)]/10 px-3 py-2 text-sm text-[var(--accent-green-text)]">
                   {t("magicLinkSent")}
                 </div>
               ) : (

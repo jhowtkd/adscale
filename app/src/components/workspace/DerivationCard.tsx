@@ -463,7 +463,7 @@ export default function DerivationCard({
                   className={cn(
                     "p-1.5 rounded-md transition-all duration-150",
                     isSelectedForCompare
-                      ? "text-[var(--accent-green)] bg-[var(--accent-green)]/10"
+                      ? "text-[var(--accent-green-text)] bg-[var(--accent-green)]/10"
                       : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)]"
                   )}
                   title={t("compare")}
@@ -496,7 +496,7 @@ export default function DerivationCard({
               <Button
                 size="sm"
                 onClick={onCreateDeliveryPackage}
-                className="w-fit bg-[var(--accent-green)] text-white hover:bg-[var(--accent-green-light)]"
+                className="w-fit bg-[var(--accent-green)] text-[var(--accent-green-on-fill)] hover:bg-[var(--accent-green-light)]"
               >
                 <Package className="size-4 mr-1" />
                 {t("generatePackage")}

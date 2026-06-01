@@ -15,8 +15,8 @@ export default function CreditPanel({ remaining, total, planKey, renewalDate }: 
   return (
     <div className="glass-card rounded-xl overflow-hidden">
       <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border-dim)]">
-        <h3 className="text-sm font-semibold text-[var(--text-primary)]">Créditos</h3>
-        <Link href="/settings?tab=billing" className="text-[10px] font-mono uppercase tracking-wider text-[var(--accent-green)] hover:text-[var(--accent-green-light)] transition-colors duration-200">Upgrade</Link>
+        <h2 className="text-sm font-semibold text-[var(--text-primary)]">Créditos</h2>
+        <Link href="/settings?tab=billing" className="text-[10px] font-mono uppercase tracking-wider text-[var(--accent-green-dark)] hover:text-[var(--accent-green)] transition-colors duration-200">Upgrade</Link>
       </div>
       <div className="p-5">
         <div className="flex items-baseline justify-between mb-3">

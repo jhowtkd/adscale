@@ -43,7 +43,7 @@ function DerivationCard({
           className={cn(
             "inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-wide",
             isApproved
-              ? "bg-[var(--status-approved-bg)] text-[var(--accent-green)]"
+              ? "bg-[var(--status-approved-bg)] text-[var(--accent-green-text)]"
               : "bg-[var(--surface-raised)] text-[var(--text-muted)]"
           )}
         >
@@ -76,7 +76,7 @@ function AddNewCard({ onClick }: { onClick: () => void }) {
         "aspect-[4/5]"
       )}
     >
-      <div className="flex size-10 items-center justify-center rounded-full bg-[var(--surface-raised)] text-[var(--text-muted)] transition-colors duration-200 group-hover:bg-[var(--accent-green)] group-hover:text-white">
+      <div className="flex size-10 items-center justify-center rounded-full bg-[var(--surface-raised)] text-[var(--text-muted)] transition-colors duration-200 group-hover:bg-[var(--accent-green)] group-hover:text-[var(--accent-green-on-fill)]">
         <Plus size={18} />
       </div>
       <span className="mt-2 font-mono text-[10px] uppercase tracking-wide text-[var(--ghost)] group-hover:text-[var(--accent-green)]">

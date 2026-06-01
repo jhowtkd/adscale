@@ -73,7 +73,7 @@ export default function PilotSidebar({ campaign, briefing }: PilotSidebarProps) 
 
         {/* Tags */}
         <div className="flex items-center gap-2 mb-2">
-          <span className="inline-flex items-center rounded-full bg-[var(--accent-green-dim)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-[var(--accent-green)]">
+          <span className="inline-flex items-center rounded-full bg-[var(--accent-green-dim)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-[var(--accent-green-text)]">
             Piloto
           </span>
           {campaign.client && (

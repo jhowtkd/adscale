@@ -250,7 +250,7 @@ export default function RestylingModal({ open, onOpenChange }: RestylingModalPro
                   className={cn(
                     "flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
                     form.styleIntensity === option
-                      ? "border-[var(--accent-green)] bg-[var(--accent-green-dim)] text-[var(--accent-green)]"
+                      ? "border-[var(--accent-green)] bg-[var(--accent-green-dim)] text-[var(--accent-green-text)]"
                       : "border-[var(--border-medium)] bg-[var(--surface-raised)] text-[var(--text-muted)] hover:border-[var(--accent-green)] hover:text-[var(--text-primary)]",
                     isSubmitting && "pointer-events-none opacity-60"
                   )}
@@ -339,7 +339,7 @@ function FilePicker({
         )}
       >
         <span className="flex items-start gap-3">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-[var(--accent-green-dim)] text-[var(--accent-green)]">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-[var(--accent-green-dim)] text-[var(--accent-green-text)]">
             {file ? <ImageIcon size={18} /> : <UploadCloud size={18} />}
           </span>
           <span className="min-w-0">

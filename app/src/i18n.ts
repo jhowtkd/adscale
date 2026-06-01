@@ -1,4 +1,5 @@
 import { getRequestConfig } from "next-intl/server";
+import { IntlErrorCode } from "next-intl";
 import { cookies, headers } from "next/headers";
 import { isValidLocale, defaultLocale } from "@/i18n/config";
 
@@ -32,5 +33,19 @@ export default getRequestConfig(async () => {
     messages,
     timeZone: "America/Sao_Paulo",
     now: new Date(),
+    onError(error) {
+      // A missing key shouldn't crash the render or flood the logs; surface it
+      // as a concise warning in dev and let the fallback below render the path.
+      if (error.code === IntlErrorCode.MISSING_MESSAGE) {
+        if (process.env.NODE_ENV !== "production") {
+          console.warn(`[i18n] ${error.message}`);
+        }
+        return;
+      }
+      console.error(error);
+    },
+    getMessageFallback({ key, namespace }) {
+      return namespace ? `${namespace}.${key}` : key;
+    },
   };
 });

@@ -306,7 +306,7 @@ export default function AutoBriefingModal({
                       className={cn(
                         "mt-0.5 size-5 rounded flex items-center justify-center flex-shrink-0 transition-colors",
                         isSelected
-                          ? "bg-[var(--accent-green)] text-white"
+                          ? "bg-[var(--accent-green)] text-[var(--accent-green-on-fill)]"
                           : "border-2 border-[var(--border-medium)]"
                       )}
                     >

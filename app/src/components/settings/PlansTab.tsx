@@ -52,7 +52,7 @@ export default function PlansTab() {
                   className={cn(
                     "rounded-full px-2.5 py-1 text-xs font-medium",
                     tier.recommended
-                      ? "bg-[var(--accent-green-dim)] text-[var(--accent-green)]"
+                      ? "bg-[var(--accent-green-dim)] text-[var(--accent-green-text)]"
                       : "bg-[var(--surface-raised)] text-[var(--text-secondary)]"
                   )}
                 >
@@ -98,7 +98,7 @@ export default function PlansTab() {
                 className={cn(
                   "mt-5 h-10 rounded-md text-sm font-medium transition-all disabled:cursor-not-allowed disabled:opacity-60",
                   tier.recommended
-                    ? "bg-[var(--accent-green)] text-white hover:bg-[var(--accent-green-light)]"
+                    ? "bg-[var(--accent-green)] text-[var(--accent-green-on-fill)] hover:bg-[var(--accent-green-light)]"
                     : "border border-[var(--border-dim)] bg-[var(--surface-raised)] text-[var(--text-primary)] hover:border-[var(--border-medium)]"
                 )}
               >

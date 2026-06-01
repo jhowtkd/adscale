@@ -80,7 +80,7 @@ function MobileNavItem({
       className={cn(
         "flex flex-col items-center justify-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium",
         active
-          ? "bg-[var(--accent-green-dim)] text-[var(--accent-green)]"
+          ? "bg-[var(--accent-green-dim)] text-[var(--accent-green-text)]"
           : "text-[var(--text-secondary)]"
       )}
     >

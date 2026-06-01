@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Derivation, AdPlatform, CampaignStatus } from "@/lib/mock-data";
 import { useAppStore } from "@/lib/store";
-import { useCampaign, useUpdateCampaign, useCreateCampaign } from "@/lib/hooks/use-campaigns";
+import { useCampaign, useUpdateCampaign } from "@/lib/hooks/use-campaigns";
 import { useDeleteCampaign } from "@/lib/hooks/use-campaigns";
 import { useDerivations, useCreateDerivations, useRestyleCampaign } from "@/lib/hooks/use-derivations";
 import { useRegenerateDerivation } from "@/lib/hooks/use-regenerate";
@@ -38,7 +38,6 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
 
   const { campaign: realCampaign, isLoading, isError } = useCampaign(campaignId);
   const updateCampaign = useUpdateCampaign(campaignId);
-  const createCampaign = useCreateCampaign();
   const deleteCampaign = useDeleteCampaign();
 
   // Disable derivations polling when real-time subscriptions are active

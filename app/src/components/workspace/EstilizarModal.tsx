@@ -230,7 +230,7 @@ export default function EstilizarModal({
           <Button
             onClick={handleSubmit}
             disabled={!canSubmit}
-            className="bg-[var(--accent-green)] text-white hover:bg-[var(--accent-green-light)]"
+            className="bg-[var(--accent-green)] text-[var(--accent-green-on-fill)] hover:bg-[var(--accent-green-light)]"
           >
             <Sparkles size={14} className="mr-1.5" />
             Gerar reinterpretações

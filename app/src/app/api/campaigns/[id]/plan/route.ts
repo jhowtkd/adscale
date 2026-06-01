@@ -43,7 +43,7 @@ export async function GET(
 
     const plan = await getPlanByCampaign(campaignId, workspace.id);
     if (!plan) {
-      return apiError("planNotFound", 404);
+      return NextResponse.json({ plan: null });
     }
 
     return NextResponse.json({ plan });

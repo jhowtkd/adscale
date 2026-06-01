@@ -142,7 +142,7 @@ export default function CampaignsFilterToolbar({
               className={cn(
                 "flex items-center justify-center size-7 rounded-md transition-all duration-200",
                 viewMode === "list"
-                  ? "bg-[var(--surface-base)] text-[var(--accent-green)] shadow-sm"
+                  ? "bg-[var(--surface-base)] text-[var(--accent-green-text)] shadow-sm"
                   : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
               )}
             >
@@ -168,7 +168,7 @@ export default function CampaignsFilterToolbar({
               className={cn(
                 "flex items-center justify-center size-7 rounded-md transition-all duration-200",
                 viewMode === "board"
-                  ? "bg-[var(--surface-base)] text-[var(--accent-green)] shadow-sm"
+                  ? "bg-[var(--surface-base)] text-[var(--accent-green-text)] shadow-sm"
                   : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
               )}
             >

@@ -98,7 +98,7 @@ function PersonaCard({ personaKey, result }: PersonaCardProps) {
           className={cn(
             "text-xs shrink-0",
             result.wouldClick
-              ? "bg-[var(--accent-green-dim)] text-[var(--accent-green)] border-[var(--accent-green)]/20"
+              ? "bg-[var(--accent-green-dim)] text-[var(--accent-green-text)] border-[var(--accent-green)]/20"
               : "bg-[var(--accent-rose)]/10 text-[var(--accent-rose)] border-[var(--accent-rose)]/20"
           )}
         >
@@ -237,7 +237,7 @@ export default function PersonaSimulationModal({
             size="sm"
             onClick={handleRegenerate}
             disabled={isGenerating}
-            className="border-[var(--accent-green)] text-[var(--accent-green)] hover:bg-[var(--accent-green-dim)]"
+            className="border-[var(--accent-green)] text-[var(--accent-green-text)] hover:bg-[var(--accent-green-dim)]"
           >
             {isGenerating ? (
               <RefreshCw className="size-4 mr-1 animate-spin" />

@@ -116,7 +116,7 @@ function TagInput({
       {tags.map((tag) => (
         <span
           key={tag}
-          className="inline-flex items-center gap-1 rounded-md bg-[var(--accent-green-dim)] px-2 py-0.5 text-xs font-medium text-[var(--accent-green)]"
+          className="inline-flex items-center gap-1 rounded-md bg-[var(--accent-green-dim)] px-2 py-0.5 text-xs font-medium text-[var(--accent-green-text)]"
         >
           {tag}
           <button

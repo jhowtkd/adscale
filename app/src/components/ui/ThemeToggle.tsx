@@ -39,7 +39,7 @@ export default function ThemeToggle({ className }: { className?: string }) {
       className={cn(
         "relative flex items-center justify-center size-9 rounded-full",
         "bg-[var(--surface-raised)] text-[var(--text-secondary)]",
-        "hover:text-[var(--accent-green)] hover:bg-[var(--accent-green)]/10",
+        "hover:text-[var(--accent-green-text)] hover:bg-[var(--accent-green)]/10",
         "transition-all duration-300 ease-out",
         "focus-visible:ring-2 focus-visible:ring-[var(--accent-green)] focus-visible:ring-offset-2",
         className
@@ -49,6 +49,7 @@ export default function ThemeToggle({ className }: { className?: string }) {
       <div className="relative size-4">
         <Sun
           size={16}
+          aria-hidden="true"
           className={cn(
             "absolute inset-0 transition-all duration-300",
             isDark ? "opacity-0 rotate-90 scale-0" : "opacity-100 rotate-0 scale-100"
@@ -56,6 +57,7 @@ export default function ThemeToggle({ className }: { className?: string }) {
         />
         <Moon
           size={16}
+          aria-hidden="true"
           className={cn(
             "absolute inset-0 transition-all duration-300",
             isDark ? "opacity-100 rotate-0 scale-100" : "opacity-0 -rotate-90 scale-0"

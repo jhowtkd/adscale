@@ -142,7 +142,7 @@ export default function DashboardPage() {
                   onClick={() => setViewMode("grid")}
                   className={`p-2.5 rounded-lg transition-all ${
                     viewMode === "grid"
-                      ? "bg-[var(--surface-raised)] text-[var(--accent-green)] shadow-[0_0_12px_var(--accent-green-dim)]"
+                      ? "bg-[var(--surface-raised)] text-[var(--accent-green-text)] shadow-[0_0_12px_var(--accent-green-dim)]"
                       : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
                   }`}
                   aria-label="Visualização em grade"
@@ -154,7 +154,7 @@ export default function DashboardPage() {
                   onClick={() => setViewMode("list")}
                   className={`p-2.5 rounded-lg transition-all ${
                     viewMode === "list"
-                      ? "bg-[var(--surface-raised)] text-[var(--accent-green)] shadow-[0_0_12px_var(--accent-green-dim)]"
+                      ? "bg-[var(--surface-raised)] text-[var(--accent-green-text)] shadow-[0_0_12px_var(--accent-green-dim)]"
                       : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
                   }`}
                   aria-label="Visualização em lista"
@@ -280,7 +280,7 @@ function EmptyState({ searchQuery }: { searchQuery: string }) {
       </p>
       {!searchQuery && (
         <Link
-          href="/campaigns/new"
+          href="/campaigns?new=1"
           className="mt-8 flex items-center gap-2 px-6 py-3 text-sm font-bold text-[var(--deep-bg)] bg-[var(--accent-green)] rounded-xl hover:bg-[var(--accent-green-light)] transition-all hover:shadow-[0_0_20px_var(--accent-green-dim)] hover:scale-105"
         >
           <Plus size={16} strokeWidth={3} aria-hidden="true" />

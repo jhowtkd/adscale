@@ -102,9 +102,13 @@ function CampaignsListContent() {
   } = useCampaignsPage(searchParams);
 
   return (
-    <main className="max-w-7xl mx-auto">
+    <div className="max-w-7xl mx-auto">
       <h1 className="sr-only">{tc("pageTitle") ?? "Campaigns"}</h1>
-      <CampaignsHeader count={totalCount} onNewCampaign={() => setModalOpen(true)} />
+      <CampaignsHeader
+        count={totalCount}
+        isLoading={isLoading}
+        onNewCampaign={() => setModalOpen(true)}
+      />
 
       <div className="mt-5 animate-fade-in" style={{ animationDelay: "80ms" }}>
         <CampaignsBulkActionsBar
@@ -217,6 +221,6 @@ function CampaignsListContent() {
         campaignName={campaigns.find((c) => c.id === deleteTarget)?.name ?? ""}
         onConfirm={() => deleteTarget && handleDelete(deleteTarget)}
       />
-    </main>
+    </div>
   );
 }

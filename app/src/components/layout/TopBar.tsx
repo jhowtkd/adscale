@@ -101,7 +101,7 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
       {/* Left: Logo + Navigation */}
       <div className="flex items-center gap-8">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 shrink-0" aria-label="ADScale — Dashboard">
+        <Link href="/" className="flex items-center gap-2 shrink-0 py-1 px-2 -ml-2 rounded-md" aria-label="ADScale — Dashboard">
           <Image src="/images/logo.svg" alt="" aria-hidden="true" className="h-8 w-auto" 
         width={800}
         height={800}
@@ -139,7 +139,7 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
               Buscar
             </button>
             <Link
-              href="/campaigns/new"
+              href="/campaigns?new=1"
               className={cn(
                 "flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-[var(--deep-bg)]",
                 "bg-[var(--accent-green)] rounded-md hover:bg-[var(--accent-green-light)] transition-colors duration-200"
@@ -199,7 +199,7 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
           <DropdownMenuTrigger
             className={cn(
               "flex size-8 items-center justify-center rounded-full",
-              "bg-[var(--accent-green-dim)] text-[var(--accent-green)] text-xs font-semibold",
+              "bg-[var(--accent-green-dim)] text-[var(--accent-green-text)] text-xs font-semibold",
               "ring-2 ring-[var(--border-medium)] cursor-pointer",
               "hover:ring-[var(--border-medium)] hover:brightness-110",
               "transition-all duration-200"
@@ -365,7 +365,7 @@ function NotificationPanel({ items, onClose, onClear, onMarkAsRead, onMarkAllAsR
             <button
               type="button"
               onClick={onMarkAllAsRead}
-              className="rounded-md px-2 py-1 text-xs font-medium text-[var(--accent-green)] hover:bg-[var(--accent-green-dim)]"
+              className="rounded-md px-2 py-1 text-xs font-medium text-[var(--accent-green-text)] hover:bg-[var(--accent-green-dim)]"
             >
               {tCommon("markAllAsRead") ?? "Marcar todas"}
             </button>
@@ -401,7 +401,7 @@ function NotificationPanel({ items, onClose, onClear, onMarkAsRead, onMarkAllAsR
               ? "text-[var(--accent-rose)] bg-[var(--accent-rose-dim)]"
               : item.readAt
                 ? "bg-[var(--surface-raised)] text-[var(--text-muted)]"
-                : "bg-[var(--accent-green-dim)] text-[var(--accent-green)]";
+                : "bg-[var(--accent-green-dim)] text-[var(--accent-green-text)]";
 
             return (
               <Link
@@ -486,7 +486,7 @@ function NavLink({
       className={cn(
         "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
         active
-          ? "bg-[var(--accent-green-dim)] text-[var(--accent-green)]"
+          ? "bg-[var(--accent-green-dim)] text-[var(--accent-green-text)]"
           : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)]"
       )}
     >

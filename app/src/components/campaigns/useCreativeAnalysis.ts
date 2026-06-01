@@ -17,13 +17,14 @@ export function useCreativeAnalysis(campaignId: string) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ assetId }),
+        timeoutMs: 120_000,
       });
-      
+
       if (!res.ok) {
         // Even on API error, we want to be non-blocking
         return { analysis: {}, status: "failed" };
       }
-      
+
       return res.json();
     },
     onSuccess: () => {
