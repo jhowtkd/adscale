@@ -11,7 +11,6 @@ import { SentryErrorBoundary } from "@/components/providers/SentryErrorBoundary"
 import ToastStack from "@/components/providers/ToastStack";
 import ThemeProvider from "@/components/providers/ThemeProvider";
 import MotionProvider from "@/components/providers/MotionProvider";
-import { Agentation } from "agentation";
 import "./globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -44,6 +43,7 @@ const pressStart = Press_Start_2P({
   weight: "400",
   variable: "--font-press-start",
   display: "swap",
+  preload: false,
 });
 
 export const viewport: Viewport = {
@@ -79,31 +79,28 @@ export default async function RootLayout({
               <TooltipProvider>
                 <SentryErrorBoundary>
                   <MotionProvider>
-                    <main id="main" className="contents">
+                    <main id="main" className="min-h-screen">
                       {children}
+                      <CookieBanner />
+                      <Toaster
+                        position="bottom-right"
+                        toastOptions={{
+                          style: {
+                            background: "var(--surface-base)",
+                            border: "1px solid var(--border-dim)",
+                            color: "var(--text-primary)",
+                          },
+                        }}
+                      />
+                      <ToastStack />
                     </main>
-                    <Toaster
-                      position="bottom-right"
-                      toastOptions={{
-                        style: {
-                          background: "var(--surface-base)",
-                          border: "1px solid var(--border-dim)",
-                          color: "var(--text-primary)",
-                        },
-                      }}
-                    />
-                    <ToastStack />
                   </MotionProvider>
                 </SentryErrorBoundary>
               </TooltipProvider>
             </A11yProvider>
           </QueryProvider>
         </NextIntlClientProvider>
-        <CookieBanner />
         </ThemeProvider>
-        {process.env.NODE_ENV === "development" && (
-          <Agentation endpoint="http://localhost:4747" />
-        )}
       </body>
     </html>
   );

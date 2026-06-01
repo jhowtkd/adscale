@@ -58,8 +58,8 @@ describe("campaign repository", () => {
     const mockMetricsFrom = vi.fn().mockReturnValue({ where: mockMetricsWhere });
 
     (db.select as ReturnType<typeof vi.fn>)
-      .mockReturnValueOnce({ from: mockMetricsFrom })
-      .mockReturnValueOnce({ from: mockCampaignFrom });
+      .mockReturnValueOnce({ from: mockCampaignFrom })
+      .mockReturnValueOnce({ from: mockMetricsFrom });
 
     const result = await getCampaigns(workspaceId);
 
