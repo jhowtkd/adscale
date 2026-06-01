@@ -398,7 +398,11 @@
         },
         "autoArt": {
           "title": "Review AI suggestions",
-          "description": "Edit suggested CTAs and creativity profile before generating art variations."
+          "description": "Edit suggested CTAs and creativity profile before generating art variations.",
+          "suggestionsApplied": "AI suggestions applied. Review before generating.",
+          "usingCampaignDefaults": "Using campaign defaults.",
+          "suggestionsFailed": "Could not load AI suggestions.",
+          "retrySuggestions": "Retry"
         },
         "singleFormat": {
           "title": "Choose format",
@@ -442,6 +446,8 @@
     "saveContinue": "Save & Continue",
     "ctaVariants": "CTAs per piece",
     "ctaHelpArt": "Fill at least one CTA. Empty fields will be skipped.",
+    "ctaRequired": "CTA 1 (required)",
+    "ctaOptional": "CTA {number} (optional)",
     "ctaHelpFormat": "CTAs are optional. Each format gets its matching CTA.",
     "ctaPiece": "CTA piece {number}",
     "ctaFormat": "CTA {format}",

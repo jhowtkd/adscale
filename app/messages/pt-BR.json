@@ -398,7 +398,11 @@
         },
         "autoArt": {
           "title": "Revisar sugestões da IA",
-          "description": "Edite CTAs e criatividade sugeridos antes de gerar variações artísticas."
+          "description": "Edite CTAs e criatividade sugeridos antes de gerar variações artísticas.",
+          "suggestionsApplied": "Sugestões da IA aplicadas. Revise antes de gerar.",
+          "usingCampaignDefaults": "Usando padrões da campanha.",
+          "suggestionsFailed": "Não foi possível carregar sugestões da IA.",
+          "retrySuggestions": "Tentar novamente"
         },
         "singleFormat": {
           "title": "Escolher formato",
@@ -460,6 +464,8 @@
     "saveContinue": "Salvar e continuar",
     "ctaVariants": "CTAs por peça",
     "ctaHelpArt": "Preencha ao menos um CTA. Campos vazios serão ignorados.",
+    "ctaRequired": "CTA 1 (obrigatório)",
+    "ctaOptional": "CTA {number} (opcional)",
     "ctaHelpFormat": "CTAs são opcionais. Cada formato recebe o CTA correspondente.",
     "ctaPiece": "CTA peça {number}",
     "ctaFormat": "CTA {format}",

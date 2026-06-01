@@ -150,23 +150,18 @@ export default function FormatAdaptationConfigModal({
           <Button variant="outline" onClick={onBack} disabled={isSubmitting}>
             {t("actions.back")}
           </Button>
-          <div className="flex flex-col-reverse gap-2 sm:flex-row">
-            <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
-              {t("actions.cancel")}
-            </Button>
-            <Button
-              onClick={handleConfirm}
-              disabled={!canConfirm || isSubmitting}
-              className="bg-[var(--accent-green)] text-[var(--accent-green-on-fill)] hover:bg-[var(--accent-green-light)]"
-            >
-              {isSubmitting ? (
-                <Loader2 size={14} className="mr-1.5 animate-spin" />
-              ) : (
-                <Sparkles size={14} className="mr-1.5" />
-              )}
-              {t("actions.confirm")}
-            </Button>
-          </div>
+          <Button
+            onClick={handleConfirm}
+            disabled={!canConfirm || isSubmitting}
+            className="bg-[var(--accent-green)] text-[var(--accent-green-on-fill)] hover:bg-[var(--accent-green-light)]"
+          >
+            {isSubmitting ? (
+              <Loader2 size={14} className="mr-1.5 animate-spin" />
+            ) : (
+              <Sparkles size={14} className="mr-1.5" />
+            )}
+            {t("actions.confirm")}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
