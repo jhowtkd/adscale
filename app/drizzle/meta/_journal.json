@@ -162,6 +162,13 @@
       "when": 1779662400000,
       "tag": "0022_derivations_workspace_created_at_idx",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1780332185670,
+      "tag": "0023_amusing_supreme_intelligence",
+      "breakpoints": true
     }
   ]
 }

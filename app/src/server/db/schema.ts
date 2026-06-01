@@ -551,6 +551,7 @@ export const derivations = adscaleSchema.table(
     generationMode: text("generation_mode"),
     variantIndex: integer("variant_index"),
     ctaText: text("cta_text"),
+    styleAssetId: text("style_asset_id"),
     cost: integer("cost"),
     feedback: text("feedback"),
     qualityScore: integer("quality_score"),

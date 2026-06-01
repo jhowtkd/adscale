@@ -44,9 +44,13 @@ export async function POST(
     }
 
     let isPreview = false;
+    let requestedStyleAssetId: string | null = null;
     try {
       const body = await request.json();
       isPreview = body.preview === true;
+      if (typeof body.styleAssetId === "string" && body.styleAssetId.length > 0) {
+        requestedStyleAssetId = body.styleAssetId;
+      }
     } catch {
       // No body or invalid JSON, treat as non-preview
     }
@@ -183,6 +187,7 @@ export async function POST(
               ctaText: job.ctaText,
               format: job.format,
               isPreview,
+              styleAssetId: generationMode === "restyling" ? (requestedStyleAssetId ?? null) : null,
               ...(generationMode === "art_variation" && {
                 creativeLevel: campaign.creativeLevel ?? "balanced",
               }),
