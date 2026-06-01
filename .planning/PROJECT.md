@@ -103,7 +103,16 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ### Active
 
-(None — all v10.0 requirements shipped; ready for v11.0 planning)
+- [ ] **DRV-01**: Manual art variation opens config step before generation — v11.0
+- [ ] **DRV-02**: User sets creativity level and CTAs in manual art flow — v11.0
+- [ ] **DRV-03**: Auto art variation pre-fills AI-suggested CTAs and creativity — v11.0
+- [ ] **DRV-04**: User can edit AI suggestions before confirming auto art flow — v11.0
+- [ ] **DRV-05**: Single format adaptation lets user pick one format — v11.0
+- [ ] **DRV-06**: Batch format adaptation lets user pick multiple formats — v11.0
+- [ ] **DRV-07**: Derivar options no longer skip to hardcoded generation — v11.0
+- [ ] **DRV-08**: Modal copy matches behavior in PT-BR and EN — v11.0
+- [ ] **DRV-09**: Tests cover all four Derivar entry paths — v11.0
+- [ ] **DRV-10**: Estilizar workflow unaffected — v11.0
 
 ### Validated (v10.0)
 
@@ -269,12 +278,15 @@ This document evolves at phase transitions and milestone boundaries.
 - States & Accessibility: Enhanced empty states, shake animation, reduced motion support
 - Phases 35–39 archived
 
-## Current Milestone: v11.0 (Planning)
+## Current Milestone: v11.0 Fluxos de Derivação Coerentes
 
-**Goal:** TBD
+**Goal:** Each "Derivar criativo" modal option opens the correct configuration flow and only queues generation after user confirmation — matching labels and user expectations.
 
 **Target features:**
-- TBD
+- Manual art variation config (creativity profile + CTAs)
+- AI-assisted art variation with editable suggestions
+- Single-format and multi-format adaptation pickers
+- Flow routing refactor; copy/i18n alignment; tests
 
 ---
-*Last updated: 2026-05-28 after completing v10.0 milestone*
+*Last updated: 2026-06-01 — v11.0 milestone planned (phases 40–43)*

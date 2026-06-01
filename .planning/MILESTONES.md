@@ -142,12 +142,13 @@
 
 ## Active Milestone
 
-### v11.0 — TBD (Planning)
-**Status:** Waiting for requirements
-**Goal:** TBD
+### v11.0 — Fluxos de Derivação Coerentes (Planning)
+**Status:** Requirements and roadmap defined
+**Goal:** Each Derivar modal option performs its promised function with config/confirm before generation
+**Phases:** 40–43 (4 phases, 10 requirements)
 
-**Next step:** Define v11.0 scope and requirements
+**Next step:** `/gsd-plan-phase 40`
 
 ---
 
-*Last updated: 2026-05-28*
+*Last updated: 2026-06-01*

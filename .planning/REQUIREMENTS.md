@@ -1,88 +1,66 @@
-# Requirements: ADScale v10.0
+# Requirements: ADScale v11.0
 
-**Defined:** 2026-05-28
+**Defined:** 2026-06-01
 **Core Value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-## v10.0 Requirements
+## v11.0 Requirements
 
-### Animações
+### Variação artística (mesmo formato)
 
-- [ ] **ANIM-01**: Todos elementos interativos possuem hover e focus states com transições suaves
-- [ ] **ANIM-02**: Modais e diálogos possuem animações de enter/exit com Framer Motion
-- [ ] **ANIM-03**: Listas e galerias exibem stagger animations (entrada sequencial) nos itens
-- [ ] **ANIM-04**: Skeleton loading exibe shimmer effect ao carregar dados assíncronos
-- [ ] **ANIM-05**: Toast notifications possuem animações de entrada/saída suaves
+- [ ] **DRV-01**: User selecting "Criar novas variações" opens a configuration step (creativity profile + CTA fields) before generation is queued — not immediate generation
+- [ ] **DRV-02**: User configuring manual art variation can set creativity level (conservative, balanced, bold) and up to 3 CTAs, then confirm to start generation
+- [ ] **DRV-03**: User selecting "Gerar novas variações" sees AI-suggested CTAs and creativity profile pre-filled from campaign/visual analysis
+- [ ] **DRV-04**: User in the auto art-variation flow can edit AI suggestions before confirming generation
 
-### Responsividade
+### Adaptação de formato (outros tamanhos)
 
-- [ ] **RESP-01**: Sidebar colapsa em drawer/sheet em telas mobile (< 768px)
-- [ ] **RESP-02**: Grids de campanhas e galeria adaptam colunas conforme breakpoint (1→2→3→4)
-- [ ] **RESP-03**: Formulários empilham campos em coluna única em mobile, múltiplas em desktop
-- [ ] **RESP-04**: TopBar esconde/mostra ao scrollar para maximizar espaço em mobile
-- [ ] **RESP-05**: Galeria de revisão suporta touch gestures otimizados (swipe, pan) em mobile
+- [ ] **DRV-05**: User selecting "Variar tamanhos" chooses exactly one target format (1:1, 4:5, or 9:16) before generation starts
+- [ ] **DRV-06**: User selecting "Criar derivações de tamanhos" chooses multiple target formats (default: 1:1, 4:5, 9:16) before batch generation starts
 
-### Componentes Polish
+### Coerência de fluxo e qualidade
 
-- [ ] **COMP-01**: Cards de campanha e derivação possuem hover lift, sombra e transição suave
-- [ ] **COMP-02**: Botões possuem estados refinados (active scale, loading spinner, focus ring)
-- [ ] **COMP-03**: Inputs possuem transições suaves de borda e sombra no focus
-- [ ] **COMP-04**: Badges e status indicators possuem cores consistentes e animação de mudança de estado
-
-### Estados e Acessibilidade
-
-- [ ] **A11Y-01**: Empty states exibem ilustração contextual e copy explicativo
-- [ ] **A11Y-02**: Error states exibem feedback visual (shake animation) e copy contextual
-- [ ] **A11Y-03**: Todos elementos interativos possuem focus states visíveis e consistentes
-- [ ] **A11Y-04**: Animações respeitam preferência `prefers-reduced-motion`
-- [ ] **A11Y-05**: Scroll entre seções da página de campanha é suave e animado
+- [ ] **DRV-07**: No Derivar modal option skips configuration/confirmation and fires generation with hardcoded defaults
+- [ ] **DRV-08**: Derivar modal copy and descriptions match actual behavior in PT-BR and EN (including typo fixes)
+- [ ] **DRV-09**: Automated tests cover all four Derivar entry paths (payload sent to campaign update + derivations queue)
+- [ ] **DRV-10**: Estilizar workflow remains independent; Derivar changes do not alter restyling entry or behavior
 
 ## Future Requirements
 
-### v11.0+ (Deferred)
+### v11.1+ (Deferred)
 
-- **ANIM-06**: Gesture support avançado (swipe to dismiss, drag-to-reorder) — P3 da pesquisa
-- **ANIM-07**: Scroll-triggered reveal animations em landing pages — pattern de marketing site
-- **COMP-05**: Interactive/animated empty states com Lottie ou similar — nice to have
+- **DRV-11**: Credit cost preview on confirmation step before queueing derivations
+- **DRV-12**: Remember last-used derivation settings per workspace
+- **DRV-13**: Smart format recommendations based on campaign platforms field
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Parallax scrolling | Causa problemas de performance e CLS; anti-feature para SaaS |
-| Custom scrollbars | Inconsistente entre browsers; pode quebrar acessibilidade |
-| Over-animation | Excesso de animações prejudica usabilidade e performance |
-| Auto-playing carousels | Anti-feature de UX; usuário deve controlar navegação |
-| Redesign completo da interface | Fora do escopo; milestone foca em refinamento, não redesign |
+| New generation modes beyond art_variation / format_adaptation | Already shipped in v3/v5; this milestone wires UI only |
+| Cross-combination CTA × format matrix | Explicitly out of scope since v3 |
+| Replacing Estilizar with Derivar options | Separate workflows by design |
+| Plan generation gate before derivations | Existing skip-plan flow unchanged |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ANIM-01 | 35 | Completed |
-| ANIM-02 | 38 | Completed |
-| ANIM-03 | 38 | Completed |
-| ANIM-04 | 35 | Completed |
-| ANIM-05 | 35 | Completed |
-| RESP-01 | 37 | Completed |
-| RESP-02 | 37 | Completed |
-| RESP-03 | 37 | Completed |
-| RESP-04 | 37 | Completed |
-| RESP-05 | 38 | Completed |
-| COMP-01 | 36 | Completed |
-| COMP-02 | 36 | Completed |
-| COMP-03 | 36 | Completed |
-| COMP-04 | 36 | Completed |
-| A11Y-01 | 39 | Completed |
-| A11Y-02 | 39 | Completed |
-| A11Y-03 | 35 | Completed |
-| A11Y-04 | 35 | Completed |
-| A11Y-05 | 37 | Completed |
+| DRV-07 | Phase 40 | Pending |
+| DRV-08 | Phase 40 | Pending |
+| DRV-01 | Phase 41 | Pending |
+| DRV-02 | Phase 41 | Pending |
+| DRV-03 | Phase 41 | Pending |
+| DRV-04 | Phase 41 | Pending |
+| DRV-05 | Phase 42 | Pending |
+| DRV-06 | Phase 42 | Pending |
+| DRV-09 | Phase 43 | Pending |
+| DRV-10 | Phase 43 | Pending |
 
 **Coverage:**
-- v10.0 requirements: 19 total
-- Mapped to phases: 19 (100%)
-- Completed: 19/19
+- v11.0 requirements: 10 total
+- Mapped to phases: 10
+- Unmapped: 0 ✓
 
 ---
-*Requirements defined: 2026-05-28*
-*Last updated: 2026-05-28 after milestone completion*
+*Requirements defined: 2026-06-01*
+*Last updated: 2026-06-01 after v11.0 milestone planning*
