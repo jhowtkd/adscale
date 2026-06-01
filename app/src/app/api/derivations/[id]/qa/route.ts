@@ -8,6 +8,8 @@ import { downloadBuffer } from "@/server/storage/r2";
 import { analyzeCreativeQa } from "@/server/ai/creative-qa";
 import { spendCreditsOrApiError } from "@/server/billing/gates";
 import { recordBrandMemoryEvent } from "@/server/memory/brand-memory-dispatch";
+import { resolveCtaSemantics } from "@/server/ai/creative-contract";
+import type { CreativeContract } from "@/server/ai/creative-contract";
 
 export async function POST(
   request: Request,
@@ -52,6 +54,20 @@ export async function POST(
     if (!campaign) return apiError("campaignNotFound", 404);
 
     const imageBuffer = await downloadBuffer(derivation.outputKey);
+
+    const derivationGenerationMode = (derivation.generationMode ?? "art_variation") as CreativeContract["generationMode"];
+    const qaContract: CreativeContract = {
+      generationMode: derivationGenerationMode,
+      targetFormat: derivation.format ?? "1:1",
+      ctaSemantics: resolveCtaSemantics(derivation.ctaText, derivationGenerationMode),
+      baseAssetId: null,
+      styleAssetId: (derivation as { styleAssetId?: string | null }).styleAssetId ?? null,
+      client: campaign.client ?? null,
+      product: campaign.product ?? null,
+      offer: campaign.offer ?? null,
+      constraints: null,
+    };
+
     const qa = await analyzeCreativeQa({
       imageBuffer,
       mimeType: "image/png",
@@ -71,6 +87,7 @@ export async function POST(
         format: derivation.format,
         generationMode: derivation.generationMode,
       },
+      contract: qaContract,
     });
 
     const updated = await updateDerivationQa(id, workspace.id, {

@@ -11,6 +11,8 @@ import {
 } from "@/server/services/notifications";
 import { uploadBuffer, downloadBuffer } from "../storage/r2";
 import { buildDerivationPrompt } from "../ai/prompt-builder";
+import { resolveCtaSemantics } from "../ai/creative-contract";
+import type { CreativeContract } from "../ai/creative-contract";
 
 import { getCampaignById, refreshCampaignStatus } from "../repositories/campaign";
 import { createNotification } from "../repositories/notification";
@@ -113,7 +115,8 @@ export async function scoreCompletedDerivation(
     parentId: string | null;
     creativeLevel?: string | null;
   },
-  locale?: string
+  locale?: string,
+  contract?: CreativeContract | null
 ) {
   const effectiveGenerationMode = derivation.generationMode ?? "art_variation";
   const targetFormat = derivation.format ?? "1:1";
@@ -149,6 +152,7 @@ export async function scoreCompletedDerivation(
           creativeDiagnosis: campaign.creativeDiagnosis ?? null,
         },
         locale: locale ?? "pt-BR",
+        contract: contract ?? null,
       });
       await updateDerivationScore(derivationId, workspaceId, visualScore);
     } catch (error) {
@@ -206,7 +210,7 @@ export const derivationJob = inngest.createFunction(
     triggers: [{ event: "derivation.generate" }],
   },
   async ({ event, step }) => {
-    const { derivationId, campaignId, workspaceId, triggeredByUserId, locale, generationMode, variantIndex, ctaText, format, isPreview } = event.data;
+    const { derivationId, campaignId, workspaceId, triggeredByUserId, locale, generationMode, variantIndex, ctaText, format, isPreview, styleAssetId } = event.data;
     logger.info(`[derivationJob] START derivationId=${derivationId} campaignId=${campaignId} locale=${locale ?? "default"}`);
 
     await inngest.realtime.publish(derivationChannel({ derivationId }).status, {
@@ -305,6 +309,18 @@ export const derivationJob = inngest.createFunction(
     const targetFormat = format ?? derivation.format ?? "1:1";
     const effectiveCtaText = ctaText ?? derivation.ctaText ?? undefined;
 
+    const contract: CreativeContract = {
+      generationMode: effectiveGenerationMode as CreativeContract["generationMode"],
+      targetFormat,
+      ctaSemantics: resolveCtaSemantics(effectiveCtaText ?? null, effectiveGenerationMode as CreativeContract["generationMode"]),
+      baseAssetId: null,
+      styleAssetId: (styleAssetId ?? (derivation as { styleAssetId?: string | null }).styleAssetId) ?? null,
+      client: campaign?.client ?? null,
+      product: campaign?.product ?? null,
+      offer: campaign?.offer ?? null,
+      constraints: null,
+    };
+
     const brandMemory = await step.run("fetch-brand-memory", async () =>
       getBrandMemoryContext({
         workspaceId,
@@ -360,6 +376,7 @@ export const derivationJob = inngest.createFunction(
         packageSource: usesParentOutput ? "approved_derivation" : "campaign_asset",
         clientReferences,
         brandMemory,
+        contract,
         brandKit: brandKit ? {
           name: brandKit.name,
           description: brandKit.description ?? undefined,
@@ -421,11 +438,16 @@ export const derivationJob = inngest.createFunction(
       if (effectiveGenerationMode === "restyling") {
         const assets = await getAssetsByCampaign(campaignId, workspaceId);
         const baseAsset = assets.find((a) => a.role === "base") ?? assets[0];
-        const styleAsset = assets.find((a) => a.role === "style_reference") ?? assets[1];
+        const styleAsset = contract.styleAssetId
+          ? (assets.find((a) => a.id === contract.styleAssetId) ??
+             assets.find((a) => a.role === "style_reference"))
+          : assets.find((a) => a.role === "style_reference");
 
         if (!baseAsset || !styleAsset) {
-          throw new Error("Restyling requires both base and style_reference assets");
+          throw new Error("Restyling requires both a base asset and a style reference asset");
         }
+
+        contract.baseAssetId = baseAsset.id;
 
         const baseBuffer = await downloadBuffer(baseAsset.key);
         const styleBuffer = await downloadBuffer(styleAsset.key);
@@ -650,7 +672,8 @@ export const derivationJob = inngest.createFunction(
             parentId: derivation.parentId ?? null,
             creativeLevel: campaign.creativeLevel ?? null,
           },
-          locale
+          locale,
+          contract
         );
         logger.info(`[score-derivation] done derivationId=${derivationId}`);
       } catch (error) {
