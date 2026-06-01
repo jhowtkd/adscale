@@ -12,7 +12,7 @@ v11.1 is a reliability milestone for the existing derivation modes. It fixes the
 
 | Phase | Name | Goal | Requirements | Success Criteria |
 |-------|------|------|--------------|------------------|
-| 44 | Native Format Adaptation | Make `Variar tamanho` produce native 4:5/9:16 layouts without bands or crowded center posters. | FMT-01..05 | 5 |
+| 44 | 1/2 | In Progress|  | 5 |
 | 45 | Creative Contract and Restyling | Resolve one effective contract for CTA, source facts, style refs, brand/product/offer, and use it everywhere. | CNTR-01..04, REST-01..04 | 5 |
 | 46 | Hard Quality Gate | Separate blocking creative failures from polish suggestions and drive regeneration from failures. | QA-01..05 | 5 |
 | 47 | Workspace Review and Error Feedback | Make campaign/output inspection diagnostic and actionable from the UI. | WUI-01..04 | 4 |
@@ -44,6 +44,15 @@ v11.1 is a reliability milestone for the existing derivation modes. It fixes the
 **Goal:** Generation, scoring, QA, regeneration, and UI all agree on the same creative contract.
 
 **Requirements:** CNTR-01, CNTR-02, CNTR-03, CNTR-04, REST-01, REST-02, REST-03, REST-04
+
+**Plans:** 5 plans
+
+Plans:
+- [ ] 45-01-PLAN.md — Creative contract types (CreativeContract, CtaSemantics, resolveCtaSemantics) + styleAssetId DB schema + route event payload
+- [ ] 45-02-PLAN.md — Thread contract into prompt-builder (mode-aware CTA + restyling factual-source) and creative-score (inherited CTA scoring + enriched regeneration)
+- [ ] 45-03-PLAN.md — Add styleFidelity QA criterion to creative-qa for restyling contamination detection
+- [ ] 45-04-PLAN.md — Derivation job orchestration: resolve contract once, fix restyling asset selection, pass to all pipeline functions
+- [ ] 45-05-PLAN.md — Tests: CTA semantics (5 cases) + styleFidelity criterion (4 cases)
 
 **Scope:**
 - Introduce or formalize an effective creative contract for each derivation.
