@@ -19,15 +19,15 @@ progress:
 
 Milestone: v11.1 — Qualidade de Geração e Contratos Criativos
 Phase: 46 (hard-quality-gate) — IN PROGRESS
-Plan: 4 of 5 complete (46-02)
-Status: Ready to execute
+Plan: 3 of 5 complete (46-03)
+Status: 583 tests passing; automatic quality gate wired in derivation job
 Last activity: 2026-06-01
 
 ## Accumulated Context
 
 - Milestone v10.0 delivered: animation foundation, responsive layout, component polish, accessibility
 - Milestone v11.0 delivered: derivation flow routing, art variation config, format adaptation pickers, test coverage
-- 580 tests passing, build clean
+- 583 tests passing, build clean
 - Each Derivar modal option now opens config before generation; Estilizar unchanged
 - v11.1 starts from UAT findings: format adaptation created blurred bands and crowded elements; restyling copied style-reference facts; CTA/brand/briefing contracts diverged between prompts and scoring; campaign workspace errors obscured output inspection.
 
@@ -42,11 +42,12 @@ Last activity: 2026-06-01
 - Phase 45-05: env+logger mocks added to prompt-builder.test.ts (pre-existing missing mocks)
 - Phase 46-01: creative-quality-gate.ts — checklist failed→typed hard codes; warnings never hard; deriveQualityVerdict invalid when hardFailures.length > 0
 - Phase 46-02: derivations qualityVerdict/hardFailures/polishSuggestions/qualityGatedAt; updateDerivationQualityGate; scoreCappedForDisplay helper
+- Phase 46-03: runCompletedDerivationQualityGate; quality-gate Inngest step after score-derivation; QA-03 scoreIssues contract violations in vision prompt
 
 ## Next Steps
 
-1. Execute 46-03: Inngest quality-gate step after score-derivation.
-2. Phases 46-04–05 then Phase 47.
+1. Execute 46-04: regeneration from hard failures.
+2. Execute 46-05 then Phase 47.
 
 ## Project Reference
 
