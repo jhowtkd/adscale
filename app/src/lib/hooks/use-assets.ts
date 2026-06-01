@@ -7,6 +7,7 @@ export interface Asset {
   workspaceId: string;
   key: string;
   type: string;
+  role?: string;
   size: number | null;
   width: number | null;
   height: number | null;

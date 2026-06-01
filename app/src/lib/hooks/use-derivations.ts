@@ -41,6 +41,7 @@ export interface Derivation {
   qaIssues?: string[] | null;
   qaSuggestions?: string[] | null;
   qaAnalyzedAt?: Date | null;
+  isPreview?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -52,7 +53,8 @@ async function fetchDerivations(campaignId: string): Promise<Derivation[]> {
     throw new Error(err.error || "Erro ao carregar derivações");
   }
   const data = await res.json();
-  return (data.derivations as Derivation[]).map((d) => ({
+  const raw = data.derivations as Derivation[];
+  return raw.map((d) => ({
     ...d,
     createdAt: new Date(d.createdAt),
     updatedAt: new Date(d.updatedAt),

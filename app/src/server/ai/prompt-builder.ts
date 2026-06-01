@@ -293,10 +293,13 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
   } else if (generationMode === "format_adaptation") {
     parts.push(
       "MODE: format_adaptation — You are EDITING an existing ad to fit a DIFFERENT aspect ratio.",
-      "You can see the original image. Your job is to PRESERVE every visual element exactly as it appears, and only REPOSITION them to fit the target format.",
+      "You can see the original image. Your job is to PRESERVE every visual element exactly as it appears, and rebuild the layout so it feels native to the target format.",
+      "This is a layout adaptation, not a resized poster. Treat the source ad as separate modules: headline, photo/subject, offer or proof, CTA, logo, badges, legal copy, and decorative background.",
       "PRESERVE EXACTLY: the original photo/subject, all text copy (headlines, subheads, bullets, CTA), the logo, brand colors, background color/texture, offer cards, discount badges, decorative shapes, icons, and graphic panels.",
       "DO NOT: create new photos, rewrite text, add new elements, remove elements, change colors, or invent new brand assets.",
       `Target format: ${targetFormat}. Rearrange the existing elements into a native composition for this format. Fill the entire canvas edge-to-edge. No blank bands, blurred padding, or letterboxing.`,
+      "HARD LAYOUT FAILURES TO AVOID: no blurred side/top/bottom bars, no poster pasted over a background, no stretched edge filler, no crowded cluster of text/photo/CTA/logo, no overlapping information modules.",
+      "Build clear zones with gutters and whitespace. Keep headline, supporting copy, CTA, logo, badges, legal copy, faces, and products inside a central safe area; only decorative background may bleed to the edges.",
       "The result must be immediately recognizable as the same ad — same content, same visual identity, just fitting a different frame."
     );
 
@@ -309,9 +312,9 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
     }
 
     if (targetFormat === "9:16") {
-      parts.push("For 9:16 (vertical story): stack elements vertically. Place headline and photo in the upper half, offer/CTA in the lower half. Extend background to fill top and bottom.");
+      parts.push("For 9:16 (vertical story): create a tall story layout with separate vertical zones. Use the upper zone for headline/brand hook, the middle zone for the photo or main visual, and the lower zone for offer/proof/CTA/logo. Do not squeeze the square layout into the center.");
     } else if (targetFormat === "4:5") {
-      parts.push("For 4:5 (portrait feed): balance subject and copy vertically. Keep photo prominence, stack text below or beside. Rebuild offer/CTA area to feel native to portrait.");
+      parts.push("For 4:5 (portrait feed): create a portrait-feed layout with more vertical breathing room than the original. Keep photo prominence, stack text and proof modules intentionally, and give the CTA/logo their own clean area.");
     } else if (targetFormat === "1:1") {
       parts.push("For 1:1 (square): compress layout into a compact square. Keep all key elements visible and readable. Avoid cropping faces, text, or logos.");
     }
@@ -455,4 +458,3 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
 
   return parts.join("\n");
 }
-

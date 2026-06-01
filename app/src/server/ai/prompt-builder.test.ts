@@ -41,6 +41,20 @@ describe("buildDerivationPrompt", () => {
     expect(prompt).not.toContain("No reference asset was found");
   });
 
+  it("treats format adaptation as a native layout rebuild without blurred bars or crowding", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "format_adaptation",
+      targetFormat: "9:16",
+      ctaText: "Comprar agora",
+    });
+
+    expect(prompt).toContain("This is a layout adaptation, not a resized poster");
+    expect(prompt).toContain("no blurred side/top/bottom bars");
+    expect(prompt).toContain("no crowded cluster");
+    expect(prompt).toContain("Build clear zones with gutters and whitespace");
+    expect(prompt).toContain("Do not squeeze the square layout into the center");
+  });
+
   it("does not include approved winner text for campaign asset source", () => {
     const prompt = buildDerivationPrompt({
       generationMode: "format_adaptation",

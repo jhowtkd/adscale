@@ -12,6 +12,7 @@ import { platformColors } from "@/lib/mock-data";
 
 import { useExport } from "@/lib/hooks/use-export";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAppStore } from "@/lib/store";
 
 // ============================================
@@ -164,6 +165,30 @@ function Spinner({ className }: { className?: string }) {
   );
 }
 
+function DerivationActionTooltip({
+  label,
+  children,
+  className,
+  ...buttonProps
+}: {
+  label: string;
+  children: React.ReactNode;
+} & React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        type="button"
+        {...buttonProps}
+        aria-label={buttonProps["aria-label"] ?? label}
+        className={className}
+      >
+        {children}
+      </TooltipTrigger>
+      <TooltipContent side="top">{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 // ============================================
 // Main Component
 // ============================================
@@ -274,7 +299,30 @@ export default function DerivationCard({
       style={{ animationDelay: `${index * 80}ms` }}
     >
       {/* ---- Image Area ---- */}
-      <div className={cn("relative overflow-hidden rounded-lg bg-muted", aspectClass)}>
+      <div
+        className={cn(
+          "relative overflow-hidden rounded-lg bg-muted",
+          aspectClass,
+          isCompleted && derivation.imageUrl && "cursor-pointer"
+        )}
+        role={isCompleted && derivation.imageUrl ? "button" : undefined}
+        tabIndex={isCompleted && derivation.imageUrl ? 0 : undefined}
+        onClick={
+          isCompleted && derivation.imageUrl
+            ? () => onPreview(derivation.id)
+            : undefined
+        }
+        onKeyDown={
+          isCompleted && derivation.imageUrl
+            ? (e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onPreview(derivation.id);
+                }
+              }
+            : undefined
+        }
+      >
         {derivation.imageUrl ? (
           <Image
             src={derivation.imageUrl}
@@ -284,11 +332,10 @@ export default function DerivationCard({
               isCompleted && "group-hover:scale-[1.03]"
             )}
             loading="lazy"
-          
-        width={800}
-        height={800}
-        unoptimized
-      />
+            width={800}
+            height={800}
+            unoptimized
+          />
         ) : (
           <div
             className={cn(
@@ -394,7 +441,8 @@ export default function DerivationCard({
 
           <div className="flex items-center gap-1 opacity-50 group-hover:opacity-100 transition-opacity duration-200">
             {derivation.regenerationSuggestion && (
-              <button type="button"
+              <DerivationActionTooltip
+                label={t("regenerateWithImprovements")}
                 onClick={() => onRegenerate?.(derivation.id, derivation.regenerationSuggestion || "")}
                 disabled={isRegenerating}
                 aria-label={t("regenerateDerivationWithImprovements", { name: derivation.name })}
@@ -402,20 +450,20 @@ export default function DerivationCard({
                   "p-1.5 rounded-md text-[var(--accent-blue)] hover:text-[var(--accent-blue-light)] hover:bg-[var(--accent-blue)]/10 transition-all duration-150",
                   isRegenerating && "opacity-50 cursor-wait"
                 )}
-                title={t("regenerateWithImprovements")}
               >
                 <RefreshCw size={16} />
-              </button>
+              </DerivationActionTooltip>
             )}
-            <button type="button"
+            <DerivationActionTooltip
+              label={commonT("preview")}
               onClick={() => onPreview(derivation.id)}
               aria-label={t("previewDerivation", { name: derivation.name })}
               className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-all duration-150"
-              title={commonT("preview")}
             >
               <Eye size={16} />
-            </button>
-            <button type="button"
+            </DerivationActionTooltip>
+            <DerivationActionTooltip
+              label={derivation.isPreview ? t("downloadFinalVersion") : commonT("download")}
               onClick={handleDownload}
               disabled={exportMutation.isPending || derivation.isPreview}
               aria-label={t("downloadDerivation", { name: derivation.name })}
@@ -423,15 +471,15 @@ export default function DerivationCard({
                 "p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-all duration-150",
                 (exportMutation.isPending || derivation.isPreview) && "opacity-50 cursor-not-allowed"
               )}
-              title={derivation.isPreview ? t("downloadFinalVersion") : commonT("download")}
             >
               {exportMutation.isPending ? (
                 <Spinner />
               ) : (
                 <Download size={16} />
               )}
-            </button>
-            <button type="button"
+            </DerivationActionTooltip>
+            <DerivationActionTooltip
+              label={commonT("regenerate")}
               onClick={handleRegenerate}
               disabled={isRegenerating}
               aria-label={t("regenerateDerivation", { name: derivation.name })}
@@ -439,25 +487,25 @@ export default function DerivationCard({
                 "p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-all duration-150",
                 isRegenerating && "opacity-50 cursor-wait"
               )}
-              title={commonT("regenerate")}
             >
               {isRegenerating ? (
                 <Spinner />
               ) : (
                 <RefreshCw size={16} />
               )}
-            </button>
+            </DerivationActionTooltip>
             {isCompleted && (
               <>
-                <button type="button"
+                <DerivationActionTooltip
+                  label={t("annotate")}
                   onClick={onAnnotate}
                   aria-label={t("annotate")}
                   className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-all duration-150"
-                  title={t("annotate")}
                 >
                   <PenTool size={16} />
-                </button>
-                <button type="button"
+                </DerivationActionTooltip>
+                <DerivationActionTooltip
+                  label={t("compare")}
                   onClick={onCompare}
                   aria-label={t("compare")}
                   className={cn(
@@ -466,10 +514,9 @@ export default function DerivationCard({
                       ? "text-[var(--accent-green-text)] bg-[var(--accent-green)]/10"
                       : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)]"
                   )}
-                  title={t("compare")}
                 >
                   <Scale size={16} />
-                </button>
+                </DerivationActionTooltip>
               </>
             )}
           </div>

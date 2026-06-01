@@ -40,25 +40,9 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
   const updateCampaign = useUpdateCampaign(campaignId);
   const deleteCampaign = useDeleteCampaign();
 
-  // Disable derivations polling when real-time subscriptions are active
-  const [enableDerivationsPolling, setEnableDerivationsPolling] = useState(true);
-  const { data: derivationsData } = useDerivations(campaignId, {
-    enablePolling: enableDerivationsPolling,
-  });
+  const { data: derivationsData } = useDerivations(campaignId);
   const createDerivations = useCreateDerivations(campaignId);
   const restyleCampaign = useRestyleCampaign(campaignId);
-
-  useEffect(() => {
-    const hasActive = derivationsData?.some(
-      (d) => d.status === "queued" || d.status === "processing"
-    );
-    const nextEnablePolling = !hasActive;
-    queueMicrotask(() => {
-      setEnableDerivationsPolling((current) =>
-        current === nextEnablePolling ? current : nextEnablePolling
-      );
-    });
-  }, [derivationsData]);
   const regenerateMutation = useRegenerateDerivation();
   const exportMutation = useExport();
   const reviewMutation = useReviewDerivation();
@@ -124,6 +108,16 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
       ? "acoes"
       : workspaceState;
 
+  useEffect(() => {
+    if (workspaceState !== "gerando" || !derivationsData?.length) return;
+    const hasActive = derivationsData.some(
+      (d) => d.status === "queued" || d.status === "processing"
+    );
+    if (!hasActive) {
+      setWorkspaceState("acoes");
+    }
+  }, [workspaceState, derivationsData]);
+
   const goToActions = useCallback(() => setWorkspaceState("acoes"), []);
   const goToDerivation = useCallback(() => setWorkspaceState("derivando"), []);
   const goToStyling = useCallback(() => setWorkspaceState("estilizando"), []);
@@ -153,7 +147,7 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
 
   const allDerivations = useMemo(() => {
     const items = derivationsData ?? [];
-    return items.map((d, i) => {
+    const mapped = items.map((d, i) => {
       const status: CampaignStatus =
         d.status === "queued" || d.status === "processing"
           ? "generating"
@@ -175,14 +169,23 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
         prompt: d.prompt ?? "",
         creditCost: d.cost ? d.cost / 100 : 2.4,
         imageUrl: d.imageUrl ?? undefined,
+        outputKey: d.outputKey ?? undefined,
         generationMode,
         variantIndex,
         format,
         ctaText,
+        qualityScore: d.qualityScore ?? undefined,
+        scoreStatus: d.scoreStatus ?? undefined,
+        scoreIssues: d.scoreIssues ?? undefined,
+        regenerationSuggestion: d.regenerationSuggestion ?? undefined,
+        qaStatus: d.qaStatus ?? undefined,
+        qaIssues: d.qaIssues ?? undefined,
+        isPreview: d.isPreview,
         createdAt: d.createdAt,
         updatedAt: d.updatedAt,
       };
     });
+    return mapped;
   }, [derivationsData, campaign, td]);
 
   const approvedDerivation = useMemo(
@@ -205,7 +208,7 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
       createDerivations.mutate(options, {
         onSuccess: () => {
           addToast("success", options?.preview ? tc("previewQueued") : tc("derivationsQueued"));
-          if (!options?.preview) setWorkspaceState("gerando");
+          setWorkspaceState("acoes");
           if (campaign && !isNew) updateCampaign.mutate({ status: "generating" });
         },
         onError: () => {
@@ -248,7 +251,7 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
       restyleCampaign.mutate(input, {
         onSuccess: () => {
           addToast("success", tc("derivationsQueued"));
-          setWorkspaceState("gerando");
+          setWorkspaceState("acoes");
         },
         onError: () => {
           addToast("error", tc("failedQueueDerivations"));

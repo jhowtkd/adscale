@@ -1,13 +1,17 @@
 "use client";
 
+import Image from "next/image";
+import { useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import { ImageIcon, Target, Users, MessageSquare, Monitor, MousePointer } from "lucide-react";
+import { ImageIcon, Target, Users, MessageSquare, Monitor, MousePointer, Loader2 } from "lucide-react";
+import { useCampaignAssets } from "@/lib/hooks/use-assets";
 
 // ============================================
 // Types
 // ============================================
 
 interface PilotSidebarProps {
+  campaignId: string;
   campaign: {
     name: string;
     client?: string;
@@ -25,6 +29,14 @@ interface BriefingRowProps {
   icon: React.ReactNode;
   label: string;
   value?: string;
+}
+
+function selectPilotAsset(
+  assets: { id: string; role?: string; url?: string }[]
+) {
+  return (
+    assets.find((a) => a.role === "base" || a.role === "linked") ?? assets[0]
+  );
 }
 
 function BriefingRow({ icon, label, value }: BriefingRowProps) {
@@ -47,7 +59,26 @@ function BriefingRow({ icon, label, value }: BriefingRowProps) {
 // Component
 // ============================================
 
-export default function PilotSidebar({ campaign, briefing }: PilotSidebarProps) {
+export default function PilotSidebar({
+  campaignId,
+  campaign,
+  briefing,
+}: PilotSidebarProps) {
+  const { data: assets, isLoading } = useCampaignAssets(campaignId);
+  const [imageError, setImageError] = useState(false);
+
+  const pilotAsset = useMemo(
+    () => (assets?.length ? selectPilotAsset(assets) : undefined),
+    [assets]
+  );
+
+  const pilotImageUrl =
+    pilotAsset?.url && !imageError ? pilotAsset.url : undefined;
+
+  useEffect(() => {
+    setImageError(false);
+  }, [pilotAsset?.id, pilotAsset?.url]);
+
   const hasBriefing = Boolean(
     briefing.objective ||
       briefing.audience ||
@@ -60,15 +91,34 @@ export default function PilotSidebar({ campaign, briefing }: PilotSidebarProps) 
     <aside className="w-[280px] flex-shrink-0 flex flex-col gap-4">
       {/* Campaign Card */}
       <div className="rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)] p-4">
-        {/* Placeholder Image Area */}
         <div
           className={cn(
-            "flex items-center justify-center rounded-lg mb-4",
-            "bg-[var(--surface-raised)]"
+            "relative overflow-hidden rounded-lg mb-4 p-[30px]",
+            "bg-[var(--surface-raised)] flex items-center justify-center"
           )}
-          style={{ height: 160 }}
+          style={{ height: 220 }}
         >
-          <ImageIcon size={32} className="text-[var(--border-medium)]" />
+          {isLoading && (
+            <Loader2 size={28} className="animate-spin text-[var(--text-muted)]" />
+          )}
+
+          {!isLoading && pilotImageUrl && (
+            <div className="relative h-full w-full">
+              <Image
+                src={pilotImageUrl}
+                alt={campaign.name || "Piloto"}
+                fill
+                sizes="280px"
+                unoptimized
+                className="object-contain"
+                onError={() => setImageError(true)}
+              />
+            </div>
+          )}
+
+          {!isLoading && !pilotImageUrl && (
+            <ImageIcon size={32} className="text-[var(--border-medium)]" />
+          )}
         </div>
 
         {/* Tags */}

@@ -250,6 +250,38 @@ describe("derivationJob", () => {
     });
   });
 
+  it("normalizes format adaptations without blurred padding or letterboxing", async () => {
+    sharpOperations.length = 0;
+
+    const output = await normalizeGeneratedImage(
+      Buffer.from("portrait-generated-image"),
+      { width: 1080, height: 1920 },
+      "format_adaptation"
+    );
+
+    expect(output).toEqual(Buffer.from("normalized"));
+    expect(sharpOperations).toContainEqual({
+      method: "resize",
+      args: [
+        1080,
+        1920,
+        expect.objectContaining({ fit: "cover", position: "attention" }),
+      ],
+    });
+    expect(sharpOperations.some((op) => op.method === "blur")).toBe(false);
+    expect(sharpOperations.some((op) => op.method === "composite")).toBe(false);
+    expect(
+      sharpOperations.some(
+        (op) =>
+          op.method === "resize" &&
+          typeof op.args[2] === "object" &&
+          op.args[2] !== null &&
+          "fit" in op.args[2] &&
+          op.args[2].fit === "contain"
+      )
+    ).toBe(false);
+  });
+
   it("uses parent outputKey as reference image for package format adaptation", async () => {
     mockGetDerivationById.mockImplementation(async (id: string) => {
       if (id === "parent-id") {

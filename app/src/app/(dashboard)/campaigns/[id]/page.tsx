@@ -131,7 +131,6 @@ export default function CampaignWorkspacePage() {
     createDerivationsPending,
     exportPending,
     deliveryPackagePending,
-    createDerivationsPending,
     planData,
     generatePlanPending,
     updatePlanStatusPending,
@@ -220,7 +219,6 @@ export default function CampaignWorkspacePage() {
 
   const handleEstilizarSubmit = async (data: {
     styleReferenceFiles: File[];
-    style: string;
     intensity: string;
   }) => {
     setShowEstilizarModal(false);
@@ -277,6 +275,33 @@ export default function CampaignWorkspacePage() {
         workspaceState={workspaceState}
         analysis={analysis}
         allDerivations={allDerivations}
+        onPreview={handlePreview}
+        onDownload={handleDownloadDerivation}
+        onRegenerate={handleRegenerateDerivation}
+        onApprove={handleApproveDerivation}
+        onReject={handleRejectDerivation}
+        onCreateDeliveryPackage={handleCreateDeliveryPackage}
+        onRunQa={handleRunQa}
+        onSaveAsReference={handleSaveAsReference}
+        onGenerateLandingPage={handleGenerateLandingPage}
+        onSimulatePersonas={handleSimulatePersonas}
+        qaAnalyzingId={
+          creativeQaPending && creativeQaVariables?.derivationId
+            ? creativeQaVariables.derivationId
+            : null
+        }
+        regeneratingId={
+          regeneratePending && regenerateVariables?.id ? regenerateVariables.id : null
+        }
+        landingPageGeneratingId={
+          landingPagePending && landingPageVariables?.derivationId
+            ? landingPageVariables.derivationId
+            : null
+        }
+        simulatingPersonasId={personaSimulation.selectedId}
+        savingReferenceId={savingReferenceId}
+        reviewPending={reviewPending}
+        reviewVariables={reviewVariables ?? null}
         onAssetUploaded={handleAssetUploaded}
         onAnalysisComplete={handleAnalysisComplete}
         onBriefingSubmit={handleBriefingSubmit}
@@ -407,6 +432,23 @@ interface CampaignWorkspaceCardProps {
     suggestedCta: string;
   };
   allDerivations: WorkspaceHookResult["allDerivations"];
+  onPreview: (id: string) => void;
+  onDownload: (id: string) => void;
+  onRegenerate: (id: string, feedback?: string) => void;
+  onApprove: (id: string) => void;
+  onReject: (id: string) => void;
+  onCreateDeliveryPackage: (id: string) => void;
+  onRunQa: (id: string) => void;
+  onSaveAsReference: (id: string) => void;
+  onGenerateLandingPage: (id: string) => void;
+  onSimulatePersonas: (id: string) => void;
+  qaAnalyzingId: string | null;
+  regeneratingId: string | null;
+  landingPageGeneratingId: string | null;
+  simulatingPersonasId: string | null;
+  savingReferenceId: string | null;
+  reviewPending: boolean;
+  reviewVariables: { id?: string; status: string } | null;
   onAssetUploaded: (assetId: string) => void;
   onAnalysisComplete: (analysis: {
     detectedConcept: string;
@@ -438,6 +480,23 @@ function CampaignWorkspaceCard({
   workspaceState,
   analysis,
   allDerivations,
+  onPreview,
+  onDownload,
+  onRegenerate,
+  onApprove,
+  onReject,
+  onCreateDeliveryPackage,
+  onRunQa,
+  onSaveAsReference,
+  onGenerateLandingPage,
+  onSimulatePersonas,
+  qaAnalyzingId,
+  regeneratingId,
+  landingPageGeneratingId,
+  simulatingPersonasId,
+  savingReferenceId,
+  reviewPending,
+  reviewVariables,
   onAssetUploaded,
   onAnalysisComplete,
   onBriefingSubmit,
@@ -477,9 +536,11 @@ function CampaignWorkspaceCard({
 
       {(workspaceState === "acoes" ||
         workspaceState === "derivando" ||
-        workspaceState === "estilizando") && (
+        workspaceState === "estilizando" ||
+        workspaceState === "gerando") && (
         <div className="flex gap-6">
           <PilotSidebar
+            campaignId={campaignId}
             campaign={{ name: campaign?.name || "", client: campaign?.client }}
             briefing={{
               objective: analysis.suggestedObjective,
@@ -506,20 +567,34 @@ function CampaignWorkspaceCard({
               <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-3">
                 Derivações
               </h2>
+              {workspaceState === "gerando" && (
+                <p className="text-xs text-[var(--text-secondary)] mb-3 flex items-center gap-2">
+                  <span className="inline-block size-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  Gerando derivações…
+                </p>
+              )}
               <DerivationGrid
                 derivations={allDerivations}
                 onAddNew={onOpenDerivar}
+                onPreview={onPreview}
+                onDownload={onDownload}
+                onRegenerate={onRegenerate}
+                onApprove={onApprove}
+                onReject={onReject}
+                onCreateDeliveryPackage={onCreateDeliveryPackage}
+                onRunQa={onRunQa}
+                onSaveAsReference={onSaveAsReference}
+                onGenerateLandingPage={onGenerateLandingPage}
+                onSimulatePersonas={onSimulatePersonas}
+                qaAnalyzingId={qaAnalyzingId}
+                regeneratingId={regeneratingId}
+                landingPageGeneratingId={landingPageGeneratingId}
+                simulatingPersonasId={simulatingPersonasId}
+                savingReferenceId={savingReferenceId}
+                reviewPending={reviewPending}
+                reviewVariables={reviewVariables}
               />
             </div>
-          </div>
-        </div>
-      )}
-
-      {workspaceState === "gerando" && (
-        <div className="flex items-center justify-center h-[400px]">
-          <div className="flex flex-col items-center gap-3">
-            <div className="animate-spin rounded-full size-8 border-b-2 border-primary" />
-            <p className="text-sm text-[var(--text-secondary)]">Gerando derivações…</p>
           </div>
         </div>
       )}
@@ -561,7 +636,6 @@ interface CampaignWorkspaceModalsProps {
   onCloseEstilizar: () => void;
   onEstilizarSubmit: (data: {
     styleReferenceFiles: File[];
-    style: string;
     intensity: string;
   }) => void;
   onDeleteDialogOpenChange: (open: boolean) => void;

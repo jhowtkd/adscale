@@ -40,7 +40,17 @@ export async function normalizeGeneratedImage(
   dimensions: { width: number; height: number },
   generationMode: "art_variation" | "format_adaptation" | "restyling",
 ) {
-  const backgroundPosition = generationMode === "format_adaptation" ? "attention" : "centre";
+  if (generationMode === "format_adaptation") {
+    return sharp(buffer)
+      .resize(dimensions.width, dimensions.height, {
+        fit: "cover",
+        position: "attention",
+      })
+      .png()
+      .toBuffer();
+  }
+
+  const backgroundPosition = "centre";
 
   const background = await sharp(buffer)
     .resize(dimensions.width, dimensions.height, {
@@ -387,7 +397,7 @@ export const derivationJob = inngest.createFunction(
       });
       logger.info(`[generate-and-store-output] model=${env.OPENAI_IMAGE_MODEL} hasAsset=${!!asset} locale=${locale ?? "default"}`);
 
-      await step.realtime.publish("status-generating", derivationChannel({ derivationId }).status, {
+      await inngest.realtime.publish(derivationChannel({ derivationId }).status, {
         derivationId,
         status: "generating",
         updatedAt: new Date().toISOString(),
