@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -65,11 +65,13 @@ export default function FormatAdaptationConfigModal({
     "9:16": true,
   });
 
-  useEffect(() => {
-    if (!open) return;
+  const resetKey = open ? intent : "closed";
+  const [prevResetKey, setPrevResetKey] = useState(resetKey);
+  if (open && resetKey !== prevResetKey) {
+    setPrevResetKey(resetKey);
     setSelectedSingle("1:1");
     setSelectedBatch({ "1:1": true, "4:5": true, "9:16": true });
-  }, [open, intent]);
+  }
 
   const batchFormats = DERIVATION_FORMATS.filter((format) => selectedBatch[format]);
   const canConfirm =

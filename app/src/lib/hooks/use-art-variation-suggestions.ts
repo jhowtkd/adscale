@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useCreativeAnalysis } from "@/components/campaigns/useCreativeAnalysis";
 import { useCampaignAssets } from "@/lib/hooks/use-assets";
 import type { DerivationIntent } from "@/lib/hooks/use-derivation-flow";
@@ -25,6 +25,26 @@ function padCtas(values: string[]): [string, string, string] {
   return [values[0] ?? "", values[1] ?? "", values[2] ?? ""];
 }
 
+function buildManualDefaults(
+  campaignCreativeLevel: string | null | undefined,
+  campaignCtaVariants: string[] | null | undefined,
+  suggestedCta?: string
+) {
+  const campaignCtas =
+    campaignCtaVariants?.map((cta) => cta.trim()).filter(Boolean) ?? [];
+  const manualCtas =
+    campaignCtas.length > 0
+      ? campaignCtas
+      : suggestedCta?.trim()
+        ? [suggestedCta.trim()]
+        : [];
+
+  return {
+    creativeLevel: normalizeCreativeLevel(campaignCreativeLevel),
+    ctas: padCtas(manualCtas),
+  };
+}
+
 interface UseArtVariationSuggestionsInput {
   campaignId: string;
   intent: Extract<DerivationIntent, "manual_art" | "auto_art">;
@@ -47,53 +67,56 @@ export function useArtVariationSuggestions({
   const [creativeLevel, setCreativeLevel] = useState<ArtCreativeLevel>("balanced");
   const [ctas, setCtas] = useState<[string, string, string]>(["", "", ""]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
-  const [initialized, setInitialized] = useState(false);
+
+  const sessionId = open ? `${campaignId}:${intent}` : "";
+  const [loadedSessionId, setLoadedSessionId] = useState<string | null>(null);
+
+  const campaignCtas = useMemo(
+    () => campaignCtaVariants?.map((cta) => cta.trim()).filter(Boolean) ?? [],
+    [campaignCtaVariants]
+  );
+
+  const fallbackDefaults = useMemo(
+    () =>
+      buildManualDefaults(campaignCreativeLevel, campaignCtaVariants, suggestedCta),
+    [campaignCreativeLevel, campaignCtaVariants, suggestedCta]
+  );
+
+  if (!open && loadedSessionId !== null) {
+    setLoadedSessionId(null);
+    setIsLoadingSuggestions(false);
+  }
+
+  if (open && intent === "manual_art" && loadedSessionId !== sessionId) {
+    setLoadedSessionId(sessionId);
+    setCreativeLevel(fallbackDefaults.creativeLevel);
+    setCtas(fallbackDefaults.ctas);
+    setIsLoadingSuggestions(false);
+  }
+
+  if (open && intent === "auto_art" && loadedSessionId !== sessionId) {
+    setLoadedSessionId(sessionId);
+    setCreativeLevel(fallbackDefaults.creativeLevel);
+    setCtas(fallbackDefaults.ctas);
+    setIsLoadingSuggestions(true);
+  }
 
   useEffect(() => {
-    if (!open) {
-      setInitialized(false);
-      setIsLoadingSuggestions(false);
+    if (!open || intent !== "auto_art" || loadedSessionId !== sessionId) {
       return;
     }
 
-    if (initialized) return;
+    if (!isLoadingSuggestions) {
+      return;
+    }
 
     const baseAsset = assets?.[0];
-    const campaignCtas =
-      campaignCtaVariants?.map((cta) => cta.trim()).filter(Boolean) ?? [];
-
-    if (intent === "manual_art") {
-      const manualCtas =
-        campaignCtas.length > 0
-          ? campaignCtas
-          : suggestedCta?.trim()
-            ? [suggestedCta.trim()]
-            : [];
-      setCreativeLevel(normalizeCreativeLevel(campaignCreativeLevel));
-      setCtas(padCtas(manualCtas));
-      setInitialized(true);
-      return;
-    }
-
     let cancelled = false;
 
     async function loadAutoSuggestions() {
-      setIsLoadingSuggestions(true);
-
-      const fallbackLevel = normalizeCreativeLevel(campaignCreativeLevel);
-      const fallbackCtas =
-        campaignCtas.length > 0
-          ? campaignCtas
-          : suggestedCta?.trim()
-            ? [suggestedCta.trim()]
-            : [];
-
       if (!baseAsset?.id) {
         if (!cancelled) {
-          setCreativeLevel(fallbackLevel);
-          setCtas(padCtas(fallbackCtas));
           setIsLoadingSuggestions(false);
-          setInitialized(true);
         }
         return;
       }
@@ -102,21 +125,20 @@ export function useArtVariationSuggestions({
         const result = await analyze(baseAsset.id);
         const analysis = result?.analysis;
         const suggestedLevel =
-          analysis?.suggestedCreativeLevel?.value ?? fallbackLevel;
+          analysis?.suggestedCreativeLevel?.value ?? fallbackDefaults.creativeLevel;
         const suggestedCtas =
-          analysis?.suggestedCtas?.map((item) => item.value.trim()).filter(Boolean) ??
-          fallbackCtas;
+          analysis?.suggestedCtas
+            ?.map((item) => item.value.trim())
+            .filter(Boolean) ?? campaignCtas;
 
         if (!cancelled) {
           setCreativeLevel(normalizeCreativeLevel(suggestedLevel));
-          setCtas(padCtas(suggestedCtas));
-          setInitialized(true);
+          setCtas(padCtas(suggestedCtas.length > 0 ? suggestedCtas : campaignCtas));
         }
       } catch {
         if (!cancelled) {
-          setCreativeLevel(fallbackLevel);
-          setCtas(padCtas(fallbackCtas));
-          setInitialized(true);
+          setCreativeLevel(fallbackDefaults.creativeLevel);
+          setCtas(fallbackDefaults.ctas);
         }
       } finally {
         if (!cancelled) {
@@ -132,13 +154,14 @@ export function useArtVariationSuggestions({
     };
   }, [
     open,
-    initialized,
     intent,
+    sessionId,
+    loadedSessionId,
+    isLoadingSuggestions,
     assets,
     analyze,
-    campaignCreativeLevel,
-    campaignCtaVariants,
-    suggestedCta,
+    campaignCtas,
+    fallbackDefaults,
   ]);
 
   const updateCta = (index: number, value: string) => {
@@ -149,7 +172,9 @@ export function useArtVariationSuggestions({
     });
   };
 
-  const validCtaVariants = ctas.map((cta) => cta.trim()).filter(Boolean);
+  const validCtaVariants = ctas
+    .map((cta) => cta.trim())
+    .flatMap((cta) => (cta ? [cta] : []));
 
   return {
     creativeLevel,

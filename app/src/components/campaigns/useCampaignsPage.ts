@@ -43,21 +43,33 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const searchQuery = searchParams.get("q") ?? "";
 
+  const newParam = searchParams.get("new");
+  const shouldOpenNewModal =
+    newParam !== null &&
+    (newParam === "1" || newParam === "true" || newParam === "");
+
+  const [consumedNewParam, setConsumedNewParam] = useState<string | null>(null);
+  if (shouldOpenNewModal && consumedNewParam !== newParam) {
+    setConsumedNewParam(newParam);
+    if (!modalOpen) {
+      setModalOpen(true);
+    }
+  }
+
   useEffect(() => {
-    const newParam = searchParams.get("new");
-    const shouldOpenNewModal =
-      newParam !== null &&
-      (newParam === "1" || newParam === "true" || newParam === "");
-
-    if (!shouldOpenNewModal) return;
-
-    setModalOpen(true);
+    if (!shouldOpenNewModal || consumedNewParam !== newParam) return;
 
     const params = new URLSearchParams(searchParams.toString());
     params.delete("new");
     const query = params.toString();
     router.replace(`/campaigns${query ? `?${query}` : ""}`, { scroll: false });
-  }, [router, searchParams]);
+  }, [
+    shouldOpenNewModal,
+    consumedNewParam,
+    newParam,
+    router,
+    searchParams,
+  ]);
 
   const campaignQuery = {
     searchQuery,

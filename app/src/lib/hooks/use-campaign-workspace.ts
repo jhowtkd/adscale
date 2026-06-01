@@ -111,24 +111,27 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
 
   // Workspace state
   const [workspaceState, setWorkspaceState] = useState<WorkspaceState>("piloto");
+  const hasActiveDerivations = Boolean(
+    derivationsData?.some(
+      (d) => d.status === "queued" || d.status === "processing"
+    )
+  );
+
+  const resolvedWorkspaceState =
+    workspaceState === "gerando" &&
+    derivationsData?.length &&
+    !hasActiveDerivations
+      ? "acoes"
+      : workspaceState;
+
   const visibleWorkspaceState =
     !isLoading &&
     !isNew &&
     derivationsData &&
     derivationsData.length > 0 &&
-    workspaceState === "piloto"
+    resolvedWorkspaceState === "piloto"
       ? "acoes"
-      : workspaceState;
-
-  useEffect(() => {
-    if (workspaceState !== "gerando" || !derivationsData?.length) return;
-    const hasActive = derivationsData.some(
-      (d) => d.status === "queued" || d.status === "processing"
-    );
-    if (!hasActive) {
-      setWorkspaceState("acoes");
-    }
-  }, [workspaceState, derivationsData]);
+      : resolvedWorkspaceState;
 
   const goToActions = useCallback(() => setWorkspaceState("acoes"), []);
   const goToDerivation = useCallback(() => setWorkspaceState("derivando"), []);

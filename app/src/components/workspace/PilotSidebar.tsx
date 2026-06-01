@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { ImageIcon, Target, Users, MessageSquare, Monitor, MousePointer, Loader2 } from "lucide-react";
 import { useCampaignAssets } from "@/lib/hooks/use-assets";
@@ -75,9 +75,12 @@ export default function PilotSidebar({
   const pilotImageUrl =
     pilotAsset?.url && !imageError ? pilotAsset.url : undefined;
 
-  useEffect(() => {
+  const pilotImageKey = pilotAsset?.id ?? pilotAsset?.url;
+  const [prevPilotImageKey, setPrevPilotImageKey] = useState(pilotImageKey);
+  if (pilotImageKey !== prevPilotImageKey) {
+    setPrevPilotImageKey(pilotImageKey);
     setImageError(false);
-  }, [pilotAsset?.id, pilotAsset?.url]);
+  }
 
   const hasBriefing = Boolean(
     briefing.objective ||
