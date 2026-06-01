@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
 milestone: v11.1
-milestone_name: Qualidade de Geração e Contratos Criativos
-status: planned
-last_updated: "2026-06-01T16:15:41.000Z"
-last_activity: 2026-06-01 — Phase 44 planned
+milestone_name: milestone
+status: executing
+last_updated: "2026-06-01T16:42:33.561Z"
+last_activity: 2026-06-01
 progress:
   total_phases: 5
-  completed_phases: 0
-  total_plans: 5
-  completed_plans: 0
-  percent: 0
+  completed_phases: 1
+  total_plans: 7
+  completed_plans: 2
+  percent: 29
 ---
 
 # State: ADScale
@@ -18,10 +18,10 @@ progress:
 ## Current Position
 
 Milestone: v11.1 — Qualidade de Geração e Contratos Criativos
-Phase: 44 — Native Format Adaptation
-Plan: 2 plans ready (`44-01`, `44-02`)
-Status: Planned
-Last activity: 2026-06-01 — Phase 44 planned
+Phase: 45 (creative-contract-and-restyling) — EXECUTING
+Plan: 2 of 5
+Status: Ready to execute
+Last activity: 2026-06-01
 
 ## Accumulated Context
 
@@ -31,11 +31,16 @@ Last activity: 2026-06-01 — Phase 44 planned
 - Each Derivar modal option now opens config before generation; Estilizar unchanged
 - v11.1 starts from UAT findings: format adaptation created blurred bands and crowded elements; restyling copied style-reference facts; CTA/brand/briefing contracts diverged between prompts and scoring; campaign workspace errors obscured output inspection.
 
+## Key Decisions
+
+- Phase 44-01: gpt-image-2 uses 1024x1280 (4:5) and 1152x2048 (9:16) at generation time; format_adaptation normalizes with cover resize (no blur)
+- Phase 44-02: UAT via direct Inngest /e/local endpoint — exercises real job path without browser auth; both 4:5 and 9:16 accepted as native layouts on original complaint campaign
+
 ## Next Steps
 
-1. Run `$gsd-execute-phase 44` to execute the two Phase 44 plans.
-2. Complete the visual UAT checkpoint for real 4:5 and 9:16 outputs before marking Phase 44 complete.
-3. Continue with Phase 45 after native format adaptation is implemented and verified.
+1. Phase 44 complete — UAT passed, both verdicts accepted. Mark phase done.
+2. Autonomous pipeline continues: Phase 45 creative-contract-and-restyling → discuss → plan → execute.
+3. Phases 46–48 follow in sequence.
 
 ## Project Reference
 
@@ -43,4 +48,4 @@ See: `.planning/PROJECT.md`
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** Phase 44 — Native Format Adaptation
+**Current focus:** Phase 45 — creative-contract-and-restyling

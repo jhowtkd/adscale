@@ -7,9 +7,9 @@
 
 ### Format Adaptation
 
-- [ ] **FMT-01**: User can generate a 9:16 format adaptation that fills the target canvas without blurred side/top/bottom bands, letterboxing, or a centered pasted poster.
-- [ ] **FMT-02**: User can generate a 4:5 format adaptation that rebuilds the layout with portrait-feed spacing instead of compressing all elements into a crowded cluster.
-- [ ] **FMT-03**: User-visible information from the source creative remains inside safe areas during format adaptation, including headline, CTA, logo, offer/proof, legal copy, faces, and product visuals.
+- [x] **FMT-01**: User can generate a 9:16 format adaptation that fills the target canvas without blurred side/top/bottom bands, letterboxing, or a centered pasted poster.
+- [x] **FMT-02**: User can generate a 4:5 format adaptation that rebuilds the layout with portrait-feed spacing instead of compressing all elements into a crowded cluster.
+- [x] **FMT-03**: User-visible information from the source creative remains inside safe areas during format adaptation, including headline, CTA, logo, offer/proof, legal copy, faces, and product visuals.
 - [ ] **FMT-04**: Format adaptation post-processing preserves final dimensions without adding decorative blur-fill, stretched edge filler, or letterbox backgrounds.
 - [ ] **FMT-05**: Format adaptation prompts explicitly instruct native layout reconstruction by zones for each target format.
 
@@ -75,9 +75,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FMT-01 | Phase 44 | Pending |
-| FMT-02 | Phase 44 | Pending |
-| FMT-03 | Phase 44 | Pending |
+| FMT-01 | Phase 44 | Complete |
+| FMT-02 | Phase 44 | Complete |
+| FMT-03 | Phase 44 | Complete |
 | FMT-04 | Phase 44 | Pending |
 | FMT-05 | Phase 44 | Pending |
 | CNTR-01 | Phase 45 | Pending |

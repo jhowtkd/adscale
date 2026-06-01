@@ -12,7 +12,7 @@ v11.1 is a reliability milestone for the existing derivation modes. It fixes the
 
 | Phase | Name | Goal | Requirements | Success Criteria |
 |-------|------|------|--------------|------------------|
-| 44 | 1/2 | In Progress|  | 5 |
+| 44 | 1/2 | 2/2 | Complete   | 2026-06-01 |
 | 45 | Creative Contract and Restyling | Resolve one effective contract for CTA, source facts, style refs, brand/product/offer, and use it everywhere. | CNTR-01..04, REST-01..04 | 5 |
 | 46 | Hard Quality Gate | Separate blocking creative failures from polish suggestions and drive regeneration from failures. | QA-01..05 | 5 |
 | 47 | Workspace Review and Error Feedback | Make campaign/output inspection diagnostic and actionable from the UI. | WUI-01..04 | 4 |
@@ -45,7 +45,7 @@ v11.1 is a reliability milestone for the existing derivation modes. It fixes the
 
 **Requirements:** CNTR-01, CNTR-02, CNTR-03, CNTR-04, REST-01, REST-02, REST-03, REST-04
 
-**Plans:** 5 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 45-01-PLAN.md — Creative contract types (CreativeContract, CtaSemantics, resolveCtaSemantics) + styleAssetId DB schema + route event payload
