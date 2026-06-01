@@ -1,3 +1,5 @@
 iteration	commit	metric	delta	status	description
 0	-	88	-	baseline	Initial react-doctor from app/ directory
 1	0be7305	89	+1	keep	Fixed 8 no-adjust-state-on-prop-change errors
+2	6eaf249	96	+7	keep	Batch 2: a11y, perf, dead code, modals, server bootstrap
+3	HEAD	100	+4	keep	CTA keys, Promise.all bootstrap, flatMap optimizations
