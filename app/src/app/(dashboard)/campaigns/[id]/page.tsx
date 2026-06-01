@@ -27,6 +27,8 @@ import PilotSidebar from "@/components/workspace/PilotSidebar";
 import ActionCards from "@/components/workspace/ActionCards";
 import DerivationGrid from "@/components/workspace/DerivationGrid";
 import DerivarModal from "@/components/workspace/DerivarModal";
+import ArtVariationConfigModal from "@/components/workspace/ArtVariationConfigModal";
+import FormatAdaptationConfigModal from "@/components/workspace/FormatAdaptationConfigModal";
 import EstilizarModal from "@/components/workspace/EstilizarModal";
 
 import CampaignClientSubtitle from "@/components/campaigns/CampaignClientSubtitle";
@@ -35,6 +37,8 @@ import CampaignErrorState from "@/components/campaigns/CampaignErrorState";
 import CampaignNotFoundState from "@/components/campaigns/CampaignNotFoundState";
 
 import { useCampaignWorkspace } from "@/lib/hooks/use-campaign-workspace";
+import { useDerivationFlow, type DerivationIntent } from "@/lib/hooks/use-derivation-flow";
+import { useBootstrapNewCampaign } from "@/lib/hooks/use-bootstrap-new-campaign";
 import { useTranslations } from "next-intl";
 
 type WorkspaceHookResult = ReturnType<typeof useCampaignWorkspace>;
@@ -45,6 +49,7 @@ export default function CampaignWorkspacePage() {
   const params = useParams();
   const campaignId = params.id as string;
   const isNew = campaignId === "new";
+  const { isBootstrapping, bootstrapError } = useBootstrapNewCampaign(campaignId);
   const tc = useTranslations("common");
   const addToast = useAppStore((s) => s.addToast);
   const uploadAsset = useUploadAsset(campaignId);
@@ -66,8 +71,18 @@ export default function CampaignWorkspacePage() {
     suggestedCta: "",
   });
   const pilotAssetIdRef = useRef<string | null>(null);
-  const [showDerivarModal, setShowDerivarModal] = useState(false);
   const [showEstilizarModal, setShowEstilizarModal] = useState(false);
+  const {
+    isChooserOpen,
+    isArtConfigOpen,
+    isFormatConfigOpen,
+    artConfigIntent,
+    formatConfigIntent,
+    openChooser,
+    selectIntent,
+    backToChooser,
+    closeFlow,
+  } = useDerivationFlow();
 
   const {
     campaign,
@@ -86,7 +101,6 @@ export default function CampaignWorkspacePage() {
     goToGenerating,
     savePilot,
     handleGenerateDerivations,
-    configureAndGenerate,
     handleRestyle,
     handleGenerateLandingPage,
     handleSaveAsReference,
@@ -175,32 +189,9 @@ export default function CampaignWorkspacePage() {
     }
   };
 
-  const handleDerivarSelect = (
-    mode: "art_variation" | "format_adaptation",
-    config: { batch?: boolean; auto?: boolean }
-  ) => {
-    setShowDerivarModal(false);
-
-    // Build config based on selection
-    if (mode === "art_variation") {
-      // Use briefing CTA or fallback defaults
-      const ctaText = analysis.suggestedCta || "Compre agora";
-      const ctaVariants = [ctaText, "Saiba mais", "Aproveite"].filter(Boolean);
-      void configureAndGenerate({
-        generationMode: "art_variation",
-        ctaVariants,
-        creativeLevel: config.auto ? "bold" : "balanced",
-      });
-    } else {
-      // format_adaptation
-      const targetFormats = config.batch
-        ? ["1:1", "4:5", "9:16"]
-        : ["1:1"];
-      void configureAndGenerate({
-        generationMode: "format_adaptation",
-        targetFormats,
-      });
-    }
+  const handleCloseDerivationFlow = () => {
+    closeFlow();
+    goToActions();
   };
 
   const handleEstilizarSubmit = async (data: {
@@ -235,6 +226,8 @@ export default function CampaignWorkspacePage() {
     });
   };
 
+  if (isBootstrapping) return <CampaignSkeleton />;
+  if (bootstrapError) return <CampaignErrorState />;
   if (isLoading && !isNew) return <CampaignSkeleton />;
   if (isError && !isNew) return <CampaignErrorState />;
   if (!campaign && !isNew) return <CampaignNotFoundState />;
@@ -265,7 +258,7 @@ export default function CampaignWorkspacePage() {
         onBriefingSubmit={handleBriefingSubmit}
         onSkipBriefing={handleSkipBriefing}
         onOpenDerivar={() => {
-          setShowDerivarModal(true);
+          openChooser();
           goToDerivation();
         }}
         onOpenEstilizar={() => {
@@ -281,18 +274,20 @@ export default function CampaignWorkspacePage() {
         exportPending={exportPending}
         deliveryPackagePending={deliveryPackagePending}
         personaSimulation={personaSimulation}
-        showDerivarModal={showDerivarModal}
+        isChooserOpen={isChooserOpen}
+        isArtConfigOpen={isArtConfigOpen}
+        isFormatConfigOpen={isFormatConfigOpen}
+        artConfigIntent={artConfigIntent}
+        formatConfigIntent={formatConfigIntent}
         showEstilizarModal={showEstilizarModal}
         showDeleteDialog={showDeleteDialog}
         onDeliveryModalOpenChange={handleDeliveryModalOpenChange}
         onDownloadDeliverySource={handleDownloadDeliverySource}
         onConfirmDeliveryPackage={handleConfirmDeliveryPackage}
         onClosePersonaModal={handleClosePersonaModal}
-        onCloseDerivar={() => {
-          setShowDerivarModal(false);
-          goToActions();
-        }}
-        onDerivarSelect={handleDerivarSelect}
+        onCloseDerivationFlow={handleCloseDerivationFlow}
+        onSelectDerivationIntent={selectIntent}
+        onBackToDerivationChooser={backToChooser}
         onCloseEstilizar={() => {
           setShowEstilizarModal(false);
           goToActions();
@@ -508,18 +503,20 @@ interface CampaignWorkspaceModalsProps {
   exportPending: boolean;
   deliveryPackagePending: boolean;
   personaSimulation: { isOpen: boolean; selectedId: string | null };
-  showDerivarModal: boolean;
+  isChooserOpen: boolean;
+  isArtConfigOpen: boolean;
+  isFormatConfigOpen: boolean;
+  artConfigIntent: "manual_art" | "auto_art" | null;
+  formatConfigIntent: "single_format" | "batch_format" | null;
   showEstilizarModal: boolean;
   showDeleteDialog: boolean;
   onDeliveryModalOpenChange: (open: boolean) => void;
   onDownloadDeliverySource: () => void;
   onConfirmDeliveryPackage: (formats: DeliveryFormat[]) => void;
   onClosePersonaModal: () => void;
-  onCloseDerivar: () => void;
-  onDerivarSelect: (
-    mode: "art_variation" | "format_adaptation",
-    config: { batch?: boolean; auto?: boolean }
-  ) => void;
+  onCloseDerivationFlow: () => void;
+  onSelectDerivationIntent: (intent: DerivationIntent) => void;
+  onBackToDerivationChooser: () => void;
   onCloseEstilizar: () => void;
   onEstilizarSubmit: (data: {
     styleReferenceFiles: File[];
@@ -537,15 +534,20 @@ function CampaignWorkspaceModals({
   exportPending,
   deliveryPackagePending,
   personaSimulation,
-  showDerivarModal,
+  isChooserOpen,
+  isArtConfigOpen,
+  isFormatConfigOpen,
+  artConfigIntent,
+  formatConfigIntent,
   showEstilizarModal,
   showDeleteDialog,
   onDeliveryModalOpenChange,
   onDownloadDeliverySource,
   onConfirmDeliveryPackage,
   onClosePersonaModal,
-  onCloseDerivar,
-  onDerivarSelect,
+  onCloseDerivationFlow,
+  onSelectDerivationIntent,
+  onBackToDerivationChooser,
   onCloseEstilizar,
   onEstilizarSubmit,
   onDeleteDialogOpenChange,
@@ -576,10 +578,28 @@ function CampaignWorkspaceModals({
       )}
 
       <DerivarModal
-        open={showDerivarModal}
-        onClose={onCloseDerivar}
-        onSelect={onDerivarSelect}
+        open={isChooserOpen}
+        onClose={onCloseDerivationFlow}
+        onSelect={onSelectDerivationIntent}
       />
+
+      {artConfigIntent && (
+        <ArtVariationConfigModal
+          open={isArtConfigOpen}
+          intent={artConfigIntent}
+          onBack={onBackToDerivationChooser}
+          onClose={onCloseDerivationFlow}
+        />
+      )}
+
+      {formatConfigIntent && (
+        <FormatAdaptationConfigModal
+          open={isFormatConfigOpen}
+          intent={formatConfigIntent}
+          onBack={onBackToDerivationChooser}
+          onClose={onCloseDerivationFlow}
+        />
+      )}
 
       <EstilizarModal
         open={showEstilizarModal}

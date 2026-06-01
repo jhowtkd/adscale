@@ -199,6 +199,9 @@
     }
   },
   "campaign": {
+    "openCampaign": "Open campaign",
+    "moreActions": "More actions",
+    "bootstrapDraftClient": "To be defined",
     "new": "New campaign",
     "name": "Campaign name",
     "client": "Client",
@@ -336,6 +339,52 @@
         "balanced": "Balances innovation and familiarity, ideal for A/B testing",
         "bold": "Significant visual changes while preserving the central message",
         "extreme": "Complete reinvention of the piece, maximum creativity and differentiation"
+      }
+    }
+  },
+  "workspace": {
+    "derivar": {
+      "title": "Derive creative",
+      "description": "Choose how to derive new creatives from the current one.",
+      "options": {
+        "manualArt": {
+          "title": "Create new variations",
+          "description": "Manually configure creativity and CTAs on the next step before generating."
+        },
+        "autoArt": {
+          "title": "Generate new variations",
+          "description": "Review AI suggestions on the next step before generating art variations."
+        },
+        "singleFormat": {
+          "title": "Vary sizes",
+          "description": "Pick one screen format on the next step before adapting the creative."
+        },
+        "batchFormat": {
+          "title": "Create size derivations",
+          "description": "Select target formats on the next step before batch generation."
+        }
+      },
+      "shell": {
+        "manualArt": {
+          "title": "Configure manual variations",
+          "description": "In the next release you will set creativity profile and CTAs before generating."
+        },
+        "autoArt": {
+          "title": "Review AI suggestions",
+          "description": "In the next release you will review suggested CTAs and creativity before generating."
+        },
+        "singleFormat": {
+          "title": "Choose format",
+          "description": "In the next release you will pick one format (1:1, 4:5, or 9:16) before generating."
+        },
+        "batchFormat": {
+          "title": "Choose batch formats",
+          "description": "In the next release you will select multiple formats before generating."
+        }
+      },
+      "actions": {
+        "back": "Back",
+        "cancel": "Cancel"
       }
     }
   },

@@ -45,8 +45,8 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DRV-07 | Phase 40 | Pending |
-| DRV-08 | Phase 40 | Pending |
+| DRV-07 | Phase 40 | Complete |
+| DRV-08 | Phase 40 | Complete |
 | DRV-01 | Phase 41 | Pending |
 | DRV-02 | Phase 41 | Pending |
 | DRV-03 | Phase 41 | Pending |

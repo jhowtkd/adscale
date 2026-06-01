@@ -199,6 +199,9 @@
     }
   },
   "campaign": {
+    "openCampaign": "Abrir campanha",
+    "moreActions": "Mais ações",
+    "bootstrapDraftClient": "A definir",
     "new": "Nova campanha",
     "name": "Nome da campanha",
     "client": "Cliente",
@@ -336,6 +339,52 @@
         "balanced": "Equilibra inovação e familiaridade, ideal para testes A/B",
         "bold": "Mudanças visuais significativas enquanto preserva a mensagem central",
         "extreme": "Reinvenção completa da peça, máxima criatividade e diferenciação"
+      }
+    }
+  },
+  "workspace": {
+    "derivar": {
+      "title": "Derivar criativo",
+      "description": "Escolha como deseja derivar novos criativos a partir do atual.",
+      "options": {
+        "manualArt": {
+          "title": "Criar novas variações",
+          "description": "Configure manualmente criatividade e CTAs na próxima etapa antes de gerar."
+        },
+        "autoArt": {
+          "title": "Gerar novas variações",
+          "description": "Revise sugestões da IA na próxima etapa antes de gerar variações artísticas."
+        },
+        "singleFormat": {
+          "title": "Variar tamanhos",
+          "description": "Escolha um formato de tela na próxima etapa antes de adaptar o criativo."
+        },
+        "batchFormat": {
+          "title": "Criar derivações de tamanhos",
+          "description": "Selecione os formatos desejados na próxima etapa antes de gerar em lote."
+        }
+      },
+      "shell": {
+        "manualArt": {
+          "title": "Configurar variações manuais",
+          "description": "Na próxima versão você definirá perfil de criatividade e CTAs antes de gerar."
+        },
+        "autoArt": {
+          "title": "Revisar sugestões da IA",
+          "description": "Na próxima versão você revisará CTAs e criatividade sugeridos antes de gerar."
+        },
+        "singleFormat": {
+          "title": "Escolher formato",
+          "description": "Na próxima versão você escolherá um formato (1:1, 4:5 ou 9:16) antes de gerar."
+        },
+        "batchFormat": {
+          "title": "Escolher formatos em lote",
+          "description": "Na próxima versão você selecionará múltiplos formatos antes de gerar."
+        }
+      },
+      "actions": {
+        "back": "Voltar",
+        "cancel": "Cancelar"
       }
     }
   },
