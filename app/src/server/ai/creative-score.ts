@@ -1,5 +1,6 @@
 import { env } from "@/server/validation/env";
 import { getOpenAI, extractOutputText } from "./utils";
+import type { CreativeContract } from "./creative-contract";
 
 export interface ScoreResult {
   qualityScore: number;
@@ -75,20 +76,37 @@ export interface AnalyzeInput {
     creativeDiagnosis?: unknown;
   };
   locale: string;
+  contract?: CreativeContract | null;
 }
 
 export async function analyzeDerivationCreative(input: AnalyzeInput): Promise<ScoreResult> {
   const base64 = input.imageBuffer.toString("base64");
   const dataUrl = `data:${input.mimeType};base64,${base64}`;
 
-  const ctaText = input.derivation.ctaText ?? "none";
   const format = input.derivation.format ?? "unknown";
   const generationMode = input.derivation.generationMode ?? "unknown";
-
   const creativeLevel = input.derivation.creativeLevel ?? "balanced";
 
+  // Build contract-aware CTA instruction
+  let ctaInstruction: string;
+  const ctaSemantics = input.contract?.ctaSemantics;
+  if (ctaSemantics?.kind === "explicit") {
+    ctaInstruction = `The exact CTA must remain: ${ctaSemantics.text}. Penalize if CTA is absent or replaced.`;
+  } else if (ctaSemantics?.kind === "inherited") {
+    ctaInstruction = `The output must preserve a CTA element from the base creative. The exact text is determined by the base image content. Do NOT penalize for missing explicit CTA text — instead check that a CTA is visually present and consistent with the base creative.`;
+  } else {
+    // Fallback: no contract — use legacy ctaText behavior
+    const ctaText = input.derivation.ctaText ?? "none";
+    ctaInstruction = `The exact CTA, if present, must remain: ${ctaText}.`;
+  }
+
+  // Build restyling-specific scoring instruction
+  const restylingScoringInstruction = input.contract?.generationMode === "restyling"
+    ? `\nRestyling evaluation: The base image is the factual source. The informationPreservation dimension must verify facts against BASE IMAGE content only. Penalize if the output contains factual claims (price, brand name, offer, CTA text, course name, product name) that match the style reference rather than the base image. Score the informationPreservation dimension down if style-reference facts contaminate the output.`
+    : "";
+
   const prompt = `Evaluate the generated ad as a reviewer. Do not invent a new CTA.
-The exact CTA, if present, must remain: ${ctaText}.
+${ctaInstruction}
 The target format must remain: ${format}.
 The generation mode must remain: ${generationMode}.
 The creativity/variation level is: ${creativeLevel}.
@@ -118,7 +136,7 @@ CRITICAL: scoreBreakdown MUST include variationLevelFit. Evaluate it as follows 
 - bold: did it change background and hierarchy while preserving core brand assets? High score if dramatically different but same campaign.
 - extreme: did it create a fresh reading while preserving product, offer, CTA, and brand constraints? High score if almost unrecognizable side-by-side yet clearly same campaign independently.
 
-The regenerationSuggestion must preserve the exact CTA text, format, and generation mode.`;
+The regenerationSuggestion must preserve the exact CTA text, format, and generation mode.${restylingScoringInstruction}`;
 
   const response = await getOpenAI().responses.create({
     model: env.OPENAI_TEXT_MODEL,
@@ -195,6 +213,7 @@ export interface BuildSuggestionInput {
   generationMode: string | null | undefined;
   scoreIssues: string[];
   modelSuggestion: string;
+  contract?: CreativeContract | null;
 }
 
 export function buildRegenerationSuggestion(input: BuildSuggestionInput): string {
@@ -211,6 +230,11 @@ export function buildRegenerationSuggestion(input: BuildSuggestionInput): string
   const mode = input.generationMode ?? "unknown";
 
   parts.push(`Preserve the exact CTA "${cta}", the ${fmt} format, and the ${mode} generation mode.`);
+
+  if (input.contract?.generationMode === "restyling") {
+    if (input.contract.baseAssetId) parts.push(`Base asset: ${input.contract.baseAssetId}.`);
+    if (input.contract.styleAssetId) parts.push(`Style reference: ${input.contract.styleAssetId}.`);
+  }
 
   return parts.join(" ");
 }

@@ -5,6 +5,7 @@ import { buildBrandKitPromptSection } from "./brand-kit-extractor";
 import { buildCompetitorContextPromptSection } from "./competitor-analyzer";
 import { buildPreflightPromptSection } from "./preflight-analysis";
 import type { BrandMemoryContext } from "@/server/memory/brand-memory-context";
+import type { CreativeContract, CtaSemantics } from "./creative-contract";
 
 
 
@@ -165,15 +166,18 @@ export interface DerivationPromptConfig {
   competitorAnalyses?: CompetitorAnalysisResult[] | null;
   preflightResult?: PreflightResult | null;
   brandMemory?: BrandMemoryContext | null;
+  contract?: CreativeContract | null;
 }
 
 function buildHardRulesSection(
   config: Pick<DerivationPromptConfig, "ctaText" | "locale" | "targetFormat"> & {
     isArtVariation: boolean;
     hasPlanCtas: boolean;
+    generationMode?: DerivationPromptConfig["generationMode"];
+    ctaSemantics?: CtaSemantics | null;
   }
 ): string[] {
-  const { ctaText, locale, targetFormat = "1:1", isArtVariation, hasPlanCtas } = config;
+  const { ctaText, locale, targetFormat = "1:1", isArtVariation, hasPlanCtas, generationMode, ctaSemantics } = config;
   const rules = [
     "",
     "HARD RULES / NON-NEGOTIABLE CONTRACT:",
@@ -181,7 +185,29 @@ function buildHardRulesSection(
     "- CRITICAL LOGO RULE: Do NOT invent a logo. Preserve the logo ONLY if it already exists in the reference asset. If no logo is visible in the reference, do not add one.",
   ];
 
-  if (ctaText) {
+  if (ctaSemantics?.kind === "explicit") {
+    rules.push(
+      `- Applied CTA text for this piece: ${ctaSemantics.text}`,
+      "- CRITICAL LITERAL CTA RULE: The CTA text above is MANDATORY and FINAL.",
+      "- Do not use synonyms, paraphrases, or alternative phrasing for this CTA.",
+      "- Do not translate the CTA into any language.",
+      "- Do not rewrite or rephrase the CTA text.",
+      "- Do not replace it with plan-recommended CTAs or any other text.",
+      "- The exact CTA text above must appear verbatim in the generated output."
+    );
+    if (hasPlanCtas) {
+      rules.push("- CTA Recommendations are secondary context only and must not override the literal CTA text.");
+    }
+  } else if (ctaSemantics?.kind === "inherited") {
+    if (generationMode === "format_adaptation") {
+      rules.push("- Preserve the CTA exactly as it appears in the source creative. Do not add a different CTA or remove the existing CTA.");
+    } else if (generationMode === "restyling") {
+      rules.push("- The base image contains the factual CTA that must be preserved. Apply style language from the style reference only; do not replace the CTA with text from the style reference.");
+    } else {
+      rules.push("- Use the original CTA from the reference creative. Do not add a different CTA or remove the existing CTA.");
+    }
+  } else if (ctaText) {
+    // Fallback: no contract provided, use legacy ctaText behavior
     rules.push(
       `- Applied CTA text for this piece: ${ctaText}`,
       "- CRITICAL LITERAL CTA RULE: The CTA text above is MANDATORY and FINAL.",
@@ -191,7 +217,6 @@ function buildHardRulesSection(
       "- Do not replace it with plan-recommended CTAs or any other text.",
       "- The exact CTA text above must appear verbatim in the generated output."
     );
-
     if (hasPlanCtas) {
       rules.push("- CTA Recommendations are secondary context only and must not override the literal CTA text.");
     }
@@ -253,6 +278,7 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
     visualTokenBrief,
     creativeLevel,
     creativeDiagnosis,
+    contract,
   } = config;
 
   let effectiveCreativeLevel = creativeLevel;
@@ -273,8 +299,18 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
       targetFormat,
       isArtVariation,
       hasPlanCtas: Boolean(plan?.ctas?.length),
+      generationMode,
+      ctaSemantics: contract?.ctaSemantics ?? null,
     })
   );
+
+  if (generationMode === "restyling" && contract?.styleAssetId) {
+    parts.push(
+      "",
+      "RESTYLING FACTUAL-SOURCE RULE:",
+      "The base image is the ONLY source of factual content (brand name, product name, offer, CTA, price, course name, logo). The style reference provides visual language (color, typography style, layout composition, mood) only. Do NOT copy factual claims, text, prices, offers, brand names, or CTAs from the style reference into the output."
+    );
+  }
 
   if (isArtVariation) {
     parts.push(
