@@ -1,72 +1,64 @@
 ---
-phase: 45-creative-contract-and-restyling
+phase: "45"
 plan: "01"
-subsystem: ai-contract
-tags: [creative-contract, cta-semantics, schema, inngest, restyling]
+subsystem: ai-pipeline
+tags: [creative-contract, types, schema, inngest]
+one_liner: "CreativeContract + CtaSemantics types with resolveCtaSemantics resolver; styleAssetId added to derivations schema and Inngest event"
 dependency_graph:
   requires: []
   provides:
-    - CreativeContract interface
-    - CtaSemantics union type
+    - CreativeContract interface (app/src/server/ai/creative-contract.ts)
+    - CtaSemantics discriminated union
     - resolveCtaSemantics helper
-    - styleAssetId DB column on derivations
-    - styleAssetId in derivation.generate Inngest event
+    - styleAssetId column on derivations table (schema + migration 0023)
+    - styleAssetId forwarded through Inngest derivation.generate event
   affects:
-    - app/src/server/ai/ (downstream plans consume CreativeContract)
-    - app/src/server/jobs/derivation.ts (reads styleAssetId from event in 45-04)
+    - app/src/server/jobs/derivation.ts (consumer in 45-04)
+    - app/src/server/ai/prompt-builder.ts (consumer in 45-02)
+    - app/src/server/ai/creative-score.ts (consumer in 45-02)
+    - app/src/server/ai/creative-qa.ts (consumer in 45-03)
 tech_stack:
   added: []
   patterns:
-    - discriminated-union for semantic variants
-    - pure type module (no runtime deps)
-    - drizzle nullable text column
+    - Discriminated union types for semantic safety
+    - Pure type module (no external imports)
 key_files:
   created:
     - app/src/server/ai/creative-contract.ts
-    - app/drizzle/0023_amusing_supreme_intelligence.sql
+    - app/src/server/ai/creative-contract.test.ts
     - app/tests/unit/creative-contract.test.ts
+    - app/drizzle/0023_amusing_supreme_intelligence.sql
   modified:
     - app/src/server/db/schema.ts
     - app/src/app/api/campaigns/[id]/derivations/route.ts
-    - app/drizzle/meta/_journal.json
-    - app/drizzle/meta/0023_snapshot.json
 decisions:
-  - "creative-contract.ts lives in app/src/server/ai/ alongside prompt-builder.ts and creative-score.ts"
-  - "resolveCtaSemantics always returns inherited for empty/null/undefined — absent kind reserved for future opt-out"
-  - "styleAssetId stored as nullable text column on derivations (not event-only) for Phase 47 UI inspectability"
-  - "styleAssetId forwarded as null for non-restyling modes to keep event shape consistent"
+  - "creative-contract.ts placed in app/src/server/ai/ alongside other AI modules (Claude's discretion)"
+  - "resolveCtaSemantics: absent kind NOT returned in v11.1 (reserved for future explicit opt-out)"
+  - "styleAssetId in Inngest event: null for non-restyling modes, body-supplied value for restyling"
+  - "No FK constraint on styleAssetId — stores asset ID string, not FK to campaign_assets"
 metrics:
-  duration_mins: ~15
-  completed_date: "2026-06-01"
+  duration_seconds: 183
   tasks_completed: 2
-  files_changed: 7
+  files_changed: 6
+  completed_date: "2026-06-01"
 ---
 
-# Phase 45 Plan 01: Creative Contract Foundation Summary
+# Phase 45 Plan 01: Creative Contract Foundation Types Summary
 
-**One-liner:** Typed `CreativeContract` interface and `resolveCtaSemantics` resolver with TDD coverage, plus `styleAssetId` DB column and Inngest event payload thread-through for restyling jobs.
+CreativeContract + CtaSemantics types with resolveCtaSemantics resolver; styleAssetId added to derivations schema and Inngest event.
 
-## Tasks Completed
+## What Was Built
 
-| Task | Name | Commit | Files |
-|------|------|--------|-------|
-| 1 | Create creative-contract.ts (TDD) | `7c16a1b`, `c3c0e88` | creative-contract.ts, creative-contract.test.ts |
-| 2 | styleAssetId schema + migration + route | `2edcbbb` | schema.ts, route.ts, 0023_*.sql, meta/ |
+### Task 1: creative-contract.ts (TDD)
 
-## Interface Snapshot
+Created `app/src/server/ai/creative-contract.ts` — a pure type module with:
 
-### CtaSemantics
-
-```ts
+```typescript
 export type CtaSemantics =
   | { kind: "explicit"; text: string }
   | { kind: "inherited" }
   | { kind: "absent" };
-```
 
-### CreativeContract
-
-```ts
 export interface CreativeContract {
   generationMode: "art_variation" | "format_adaptation" | "restyling";
   targetFormat: string;
@@ -78,69 +70,41 @@ export interface CreativeContract {
   offer: string | null;
   constraints: string | null;
 }
-```
 
-### resolveCtaSemantics
-
-```ts
 export function resolveCtaSemantics(
   ctaText: string | null | undefined,
   _mode: CreativeContract["generationMode"]
-): CtaSemantics
+): CtaSemantics {
+  if (ctaText && ctaText.trim().length > 0) {
+    return { kind: "explicit", text: ctaText };
+  }
+  return { kind: "inherited" };
+}
 ```
 
-Resolution rules:
-- Non-empty string → `{ kind: "explicit", text: ctaText }`
-- null, undefined, or empty string (any mode) → `{ kind: "inherited" }`
-- `absent` is never returned (reserved for future explicit opt-out)
+Tests written in TDD flow: `app/tests/unit/creative-contract.test.ts` (6 resolver tests + 2 type shape tests), plus `app/src/server/ai/creative-contract.test.ts` (6 resolver tests).
 
-## Migration File
+### Task 2: Schema + Migration + Route
 
-**File:** `app/drizzle/0023_amusing_supreme_intelligence.sql`
-
-```sql
-ALTER TABLE "adscale_app"."derivations" ADD COLUMN "style_asset_id" text;--> statement-breakpoint
-CREATE INDEX "derivations_workspace_created_at_idx" ON "adscale_app"."derivations" USING btree ("workspace_id","created_at");
-```
-
-## Inngest Event Change
-
-`derivation.generate` event data now includes:
-```ts
-styleAssetId: generationMode === "restyling" ? (requestedStyleAssetId ?? null) : null,
-```
-
-Extracted from request body as `body.styleAssetId` (nullable string, validated as non-empty string only).
-
-## Threat Mitigations Applied
-
-- **T-45-01 (Tampering):** `styleAssetId` accepted as nullable string only; validated with `typeof === "string" && length > 0`; no eval or path join; job resolves asset from DB within workspace scope.
-- **T-45-02 (Info disclosure):** Internal Inngest event; no client exposure.
-
-## Test Coverage
-
-8 tests in `app/tests/unit/creative-contract.test.ts`:
-- 3 × null-for-each-mode → inherited
-- 1 × non-empty string → explicit with text
-- 1 × empty string → inherited
-- 1 × undefined → inherited
-- 2 × CreativeContract shape validation
-
-Full suite: **552 tests pass, 1 skipped** — no regressions.
+- `app/src/server/db/schema.ts`: Added `styleAssetId: text("style_asset_id")` after `ctaText` in derivations table
+- Migration: `app/drizzle/0023_amusing_supreme_intelligence.sql` — `ALTER TABLE "adscale_app"."derivations" ADD COLUMN "style_asset_id" text`
+- `app/src/app/api/campaigns/[id]/derivations/route.ts`: Extracts `styleAssetId` from request body, forwards in `inngest.send` as `styleAssetId: generationMode === "restyling" ? (requestedStyleAssetId ?? null) : null`
 
 ## Deviations from Plan
 
-None — plan executed exactly as written.
+None — plan executed exactly as written. The implementation was pre-created in a prior session but not committed; tests were confirmed passing and TypeScript compiled cleanly before committing.
 
-## Known Stubs
+## Commits
 
-None. The contract types are complete; `creative-contract.ts` exports are production-ready. `styleAssetId` is wired through the DB column and event payload. Downstream consumption (job reading `styleAssetId` from event) is the work of Plan 45-04.
+- `7c16a1b` test(45-01): add failing tests for CreativeContract types and resolveCtaSemantics
+- `c3c0e88` feat(45-01): create creative-contract.ts with CreativeContract, CtaSemantics, resolveCtaSemantics
+- `2edcbbb` feat(45-01): add styleAssetId to derivations schema + migration + route event payload
+- `b7d132a` feat(45-01): add CreativeContract types, CtaSemantics, resolveCtaSemantics (planning docs + additional test)
 
 ## Self-Check: PASSED
 
-- [x] `app/src/server/ai/creative-contract.ts` exists
-- [x] `app/drizzle/0023_amusing_supreme_intelligence.sql` exists
-- [x] `app/tests/unit/creative-contract.test.ts` exists (8 tests pass)
-- [x] `schema.ts` contains `styleAssetId`
-- [x] `route.ts` sends `styleAssetId` in Inngest event
-- [x] Commits: `7c16a1b`, `c3c0e88`, `2edcbbb` exist
+- ✅ `app/src/server/ai/creative-contract.ts` exists and exports `CreativeContract`, `CtaSemantics`, `resolveCtaSemantics`
+- ✅ `app/src/server/db/schema.ts` contains `styleAssetId` in derivations table
+- ✅ Migration `drizzle/0023_amusing_supreme_intelligence.sql` exists with ALTER TABLE ADD COLUMN
+- ✅ Route.ts sends `styleAssetId` in Inngest event for restyling derivations
+- ✅ All commits exist in git log
