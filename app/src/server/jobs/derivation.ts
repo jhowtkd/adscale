@@ -30,7 +30,7 @@ import {
   analyzeDerivationCreative,
 } from "@/server/ai/creative-score";
 import { normalizeCreativeDiagnosis } from "@/server/ai/creative-diagnosis";
-import { getTargetDimensions, formatToOpenAISize } from "@/lib/formats";
+import { getTargetDimensions, formatToOpenAIImageSize } from "@/lib/formats";
 
 const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 120_000 });
 const IMAGE_GENERATION_TIMEOUT_MS = 5 * 60 * 1000;
@@ -411,7 +411,10 @@ export const derivationJob = inngest.createFunction(
 
       let result: OpenAI.Images.Image;
 
-      const openaiSize = formatToOpenAISize(targetFormat, isPreview);
+      const openaiSize = formatToOpenAIImageSize(targetFormat, {
+        isPreview,
+        modelName: env.OPENAI_IMAGE_MODEL,
+      });
 
       if (effectiveGenerationMode === "restyling") {
         const assets = await getAssetsByCampaign(campaignId, workspaceId);

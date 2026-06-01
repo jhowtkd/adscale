@@ -29,20 +29,23 @@ vi.mock("sharp", () => ({
   }),
 }));
 
+// Expose the OpenAI images mock so tests can assert request parameters (e.g. size).
+const mockOpenAIImages = vi.hoisted(() => ({
+  edit: vi.fn(() =>
+    Promise.resolve({
+      data: [{ b64_json: "bW9ja2ltYWdl", revised_prompt: "revised" }],
+    })
+  ),
+  generate: vi.fn(() =>
+    Promise.resolve({
+      data: [{ b64_json: "bW9ja2ltYWdl", revised_prompt: "revised" }],
+    })
+  ),
+}));
+
 vi.mock("openai", () => ({
   default: class MockOpenAI {
-    images = {
-      edit: vi.fn(() =>
-        Promise.resolve({
-          data: [{ b64_json: "bW9ja2ltYWdl", revised_prompt: "revised" }],
-        })
-      ),
-      generate: vi.fn(() =>
-        Promise.resolve({
-          data: [{ b64_json: "bW9ja2ltYWdl", revised_prompt: "revised" }],
-        })
-      ),
-    };
+    images = mockOpenAIImages;
   },
   toFile: vi.fn((buffer: Buffer, name: string, opts: { type: string }) => ({
     buffer,
@@ -180,6 +183,7 @@ import { getBrandKitByWorkspace } from "../db/repositories/brand-kit";
 import { getCompetitorAnalysesByCampaign } from "../repositories/competitor-analysis";
 import { downloadBuffer } from "../storage/r2";
 import { getBrandMemoryContext } from "@/server/memory/brand-memory-context";
+import { env } from "../validation/env";
 
 const mockGetDerivationById = vi.mocked(getDerivationById);
 const mockGetCampaignById = vi.mocked(getCampaignById);
@@ -211,6 +215,12 @@ describe("derivationJob", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     sharpOperations.length = 0;
+    mockOpenAIImages.edit.mockResolvedValue({
+      data: [{ b64_json: "bW9ja2ltYWdl", revised_prompt: "revised" }],
+    });
+    mockOpenAIImages.generate.mockResolvedValue({
+      data: [{ b64_json: "bW9ja2ltYWdl", revised_prompt: "revised" }],
+    });
     mockGetBrandKitByWorkspace.mockResolvedValue(null as never);
     mockGetCompetitorAnalysesByCampaign.mockResolvedValue([]);
     mockGetBrandMemoryContext.mockResolvedValue({ items: [], block: "" });
@@ -526,5 +536,243 @@ describe("derivationJob", () => {
     });
 
     expect(mockDownloadBuffer).toHaveBeenCalledWith("assets/campaign.png");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Target-aspect generation size assertions for format_adaptation (gpt-image-2)
+// ---------------------------------------------------------------------------
+
+function buildFormatAdaptationJob(format: string, isPreview?: boolean) {
+  return {
+    derivationId: "size-test-id",
+    campaignId: "campaign-id",
+    workspaceId: "workspace-1",
+    locale: "en",
+    generationMode: "format_adaptation",
+    variantIndex: 0,
+    ctaText: "Buy Now",
+    format,
+    isPreview,
+  };
+}
+
+describe("derivationJob — format adaptation generation sizes (gpt-image-2)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    sharpOperations.length = 0;
+
+    // Override model to gpt-image-2 for this suite
+    (env as unknown as Record<string, string>).OPENAI_IMAGE_MODEL = "gpt-image-2";
+
+    mockOpenAIImages.edit.mockResolvedValue({
+      data: [{ b64_json: "bW9ja2ltYWdl", revised_prompt: "revised" }],
+    });
+    mockOpenAIImages.generate.mockResolvedValue({
+      data: [{ b64_json: "bW9ja2ltYWdl", revised_prompt: "revised" }],
+    });
+    mockGetBrandKitByWorkspace.mockResolvedValue(null as never);
+    mockGetCompetitorAnalysesByCampaign.mockResolvedValue([]);
+    mockGetBrandMemoryContext.mockResolvedValue({ items: [], block: "" });
+
+    mockGetDerivationById.mockResolvedValue({
+      id: "size-test-id",
+      campaignId: "campaign-id",
+      workspaceId: "workspace-1",
+      parentId: null,
+      status: "queued",
+      generationMode: "format_adaptation",
+      format: "4:5",
+      ctaText: "Buy Now",
+      variantIndex: 0,
+      feedback: null,
+      prompt: null,
+      qualityScore: null,
+      scoreStatus: "pending",
+    } as Awaited<ReturnType<typeof getDerivationById>>);
+
+    mockGetCampaignById.mockResolvedValue({
+      id: "campaign-id",
+      workspaceId: "workspace-1",
+      name: "Test Campaign",
+      client: "Test",
+      product: null,
+      objective: null,
+      audience: null,
+      platforms: null,
+      tone: null,
+      offer: null,
+      constraints: null,
+      notes: null,
+      status: "generating",
+      generationMode: "format_adaptation",
+      creativeLevel: "balanced",
+      styleIntensity: "medium",
+      creativeDiagnosisStatus: "pending",
+      creativeDiagnosis: null,
+      creativeDiagnosisSource: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as Awaited<ReturnType<typeof getCampaignById>>);
+
+    mockGetAssetsByCampaign.mockResolvedValue([
+      {
+        id: "asset-1",
+        campaignId: "campaign-id",
+        workspaceId: "workspace-1",
+        key: "assets/campaign.png",
+        type: "image/png",
+        size: 1000,
+        width: 1080,
+        height: 1080,
+        role: "base",
+        metadata: null,
+        analysisStatus: null,
+        analyzedAt: null,
+        createdAt: new Date(),
+      },
+    ]);
+    mockGetPlanByCampaign.mockResolvedValue(null as never);
+  });
+
+  afterEach(() => {
+    (env as unknown as Record<string, string>).OPENAI_IMAGE_MODEL = "gpt-image-1";
+  });
+
+  it("4:5 format adaptation edit request receives target-aspect size 1024x1280", async () => {
+    mockGetDerivationById.mockResolvedValue({
+      id: "size-test-id",
+      campaignId: "campaign-id",
+      workspaceId: "workspace-1",
+      parentId: null,
+      status: "queued",
+      generationMode: "format_adaptation",
+      format: "4:5",
+      ctaText: "Buy Now",
+      variantIndex: 0,
+      feedback: null,
+      prompt: null,
+      qualityScore: null,
+      scoreStatus: "pending",
+    } as Awaited<ReturnType<typeof getDerivationById>>);
+
+    await runDerivationJob(buildFormatAdaptationJob("4:5"));
+
+    expect(mockOpenAIImages.edit).toHaveBeenCalledWith(
+      expect.objectContaining({ size: "1024x1280" })
+    );
+    expect(mockOpenAIImages.edit).not.toHaveBeenCalledWith(
+      expect.objectContaining({ size: "1024x1024" })
+    );
+  });
+
+  it("9:16 format adaptation edit request receives target-aspect size 1152x2048", async () => {
+    mockGetDerivationById.mockResolvedValue({
+      id: "size-test-id",
+      campaignId: "campaign-id",
+      workspaceId: "workspace-1",
+      parentId: null,
+      status: "queued",
+      generationMode: "format_adaptation",
+      format: "9:16",
+      ctaText: "Buy Now",
+      variantIndex: 0,
+      feedback: null,
+      prompt: null,
+      qualityScore: null,
+      scoreStatus: "pending",
+    } as Awaited<ReturnType<typeof getDerivationById>>);
+
+    await runDerivationJob(buildFormatAdaptationJob("9:16"));
+
+    expect(mockOpenAIImages.edit).toHaveBeenCalledWith(
+      expect.objectContaining({ size: "1152x2048" })
+    );
+    expect(mockOpenAIImages.edit).not.toHaveBeenCalledWith(
+      expect.objectContaining({ size: "1024x1024" })
+    );
+  });
+
+  it("4:5 preview format adaptation does NOT send square 1024x1024 to OpenAI", async () => {
+    mockGetDerivationById.mockResolvedValue({
+      id: "size-test-id",
+      campaignId: "campaign-id",
+      workspaceId: "workspace-1",
+      parentId: null,
+      status: "queued",
+      generationMode: "format_adaptation",
+      format: "4:5",
+      ctaText: "Buy Now",
+      variantIndex: 0,
+      feedback: null,
+      prompt: null,
+      qualityScore: null,
+      scoreStatus: "pending",
+    } as Awaited<ReturnType<typeof getDerivationById>>);
+
+    await runDerivationJob(buildFormatAdaptationJob("4:5", true));
+
+    expect(mockOpenAIImages.edit).not.toHaveBeenCalledWith(
+      expect.objectContaining({ size: "1024x1024" })
+    );
+    expect(mockOpenAIImages.edit).toHaveBeenCalledWith(
+      expect.objectContaining({ size: "1024x1280" })
+    );
+  });
+
+  it("9:16 preview format adaptation does NOT send square 1024x1024 to OpenAI", async () => {
+    mockGetDerivationById.mockResolvedValue({
+      id: "size-test-id",
+      campaignId: "campaign-id",
+      workspaceId: "workspace-1",
+      parentId: null,
+      status: "queued",
+      generationMode: "format_adaptation",
+      format: "9:16",
+      ctaText: "Buy Now",
+      variantIndex: 0,
+      feedback: null,
+      prompt: null,
+      qualityScore: null,
+      scoreStatus: "pending",
+    } as Awaited<ReturnType<typeof getDerivationById>>);
+
+    await runDerivationJob(buildFormatAdaptationJob("9:16", true));
+
+    expect(mockOpenAIImages.edit).not.toHaveBeenCalledWith(
+      expect.objectContaining({ size: "1024x1024" })
+    );
+    expect(mockOpenAIImages.edit).toHaveBeenCalledWith(
+      expect.objectContaining({ size: "1152x2048" })
+    );
+  });
+
+  it("normalizeGeneratedImage for format_adaptation never uses blur, composite, or fit:contain", async () => {
+    sharpOperations.length = 0;
+
+    await normalizeGeneratedImage(
+      Buffer.from("portrait-generated"),
+      { width: 1080, height: 1350 },
+      "format_adaptation"
+    );
+
+    expect(sharpOperations.some((op) => op.method === "blur")).toBe(false);
+    expect(sharpOperations.some((op) => op.method === "composite")).toBe(false);
+    expect(
+      sharpOperations.some(
+        (op) =>
+          op.method === "resize" &&
+          typeof op.args[2] === "object" &&
+          op.args[2] !== null &&
+          "fit" in op.args[2] &&
+          (op.args[2] as { fit: string }).fit === "contain"
+      )
+    ).toBe(false);
+    expect(sharpOperations).toContainEqual(
+      expect.objectContaining({
+        method: "resize",
+        args: [1080, 1350, expect.objectContaining({ fit: "cover" })],
+      })
+    );
   });
 });
