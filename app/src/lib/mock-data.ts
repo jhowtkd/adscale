@@ -110,6 +110,10 @@ export interface Derivation {
   qaIssues?: string[] | null;
   qaSuggestions?: string[] | null;
   qaAnalyzedAt?: Date | null;
+  qualityVerdict?: "invalid" | "improvable" | "acceptable" | null;
+  hardFailures?: Array<{ code: string; message: string; criterion?: string }> | null;
+  polishSuggestions?: string[] | null;
+  qualityGatedAt?: Date | null;
   isPreview?: boolean;
   annotations?: Annotation[];
   createdAt: Date;

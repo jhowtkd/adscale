@@ -1,4 +1,8 @@
 import { eq, and, desc, inArray, lt, sql } from "drizzle-orm";
+import type {
+  CreativeHardFailure,
+  CreativeQualityVerdict,
+} from "../ai/creative-quality-gate";
 import { db } from "../db";
 import { derivations } from "../db/schema";
 
@@ -20,6 +24,13 @@ export interface UpdateDerivationScoreInput {
   scoreBreakdown?: CreativeScoreBreakdown | null;
   scoreIssues?: string[] | null;
   regenerationSuggestion?: string | null;
+}
+
+export interface UpdateDerivationQualityGateInput {
+  qualityVerdict: CreativeQualityVerdict;
+  hardFailures: CreativeHardFailure[];
+  polishSuggestions: string[];
+  qualityGatedAt: Date;
 }
 
 export interface CreateDerivationInput {
@@ -223,6 +234,30 @@ export async function updateDerivationScore(
       scoreIssues: data.scoreIssues ?? null,
       regenerationSuggestion: data.regenerationSuggestion ?? null,
       scoredAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(derivations.id, id),
+        eq(derivations.workspaceId, workspaceId)
+      )
+    )
+    .returning();
+  return result[0] ?? null;
+}
+
+export async function updateDerivationQualityGate(
+  id: string,
+  workspaceId: string,
+  data: UpdateDerivationQualityGateInput
+) {
+  const result = await db
+    .update(derivations)
+    .set({
+      qualityVerdict: data.qualityVerdict,
+      hardFailures: data.hardFailures,
+      polishSuggestions: data.polishSuggestions,
+      qualityGatedAt: data.qualityGatedAt,
       updatedAt: new Date(),
     })
     .where(
