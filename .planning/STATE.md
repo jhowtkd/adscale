@@ -2,14 +2,15 @@
 gsd_state_version: 1.0
 milestone: v11.1
 milestone_name: milestone
-status: All plans executed; 561 tests passing
-last_updated: "2026-06-01T17:02:55.239Z"
+status: executing
+last_updated: "2026-06-01T17:13:45.000Z"
 last_activity: 2026-06-01
 progress:
   total_phases: 5
   completed_phases: 2
-  total_plans: 7
-  completed_plans: 7
+  total_plans: 12
+  completed_plans: 8
+  percent: 67
 ---
 
 # State: ADScale
@@ -17,9 +18,9 @@ progress:
 ## Current Position
 
 Milestone: v11.1 — Qualidade de Geração e Contratos Criativos
-Phase: 45 (creative-contract-and-restyling) — COMPLETE
-Plan: 5 of 5
-Status: All plans executed; 561 tests passing
+Phase: 46 (hard-quality-gate) — IN PROGRESS
+Plan: 1 of 5 complete (46-01)
+Status: Classifier shipped; 17 gate unit tests passing
 Last activity: 2026-06-01
 
 ## Accumulated Context
@@ -39,12 +40,13 @@ Last activity: 2026-06-01
 - Phase 45-03: styleFidelity QA criterion only appended to checklist when restyling+styleAssetId set; normalizeCreativeQaResult omits it when absent (no phantom fallback)
 - Phase 45-04: Restyling asset selection fix — contract.styleAssetId used to find style asset; QA route also updated to reconstruct and pass contract
 - Phase 45-05: env+logger mocks added to prompt-builder.test.ts (pre-existing missing mocks)
+- Phase 46-01: creative-quality-gate.ts — checklist failed→typed hard codes; warnings never hard; deriveQualityVerdict invalid when hardFailures.length > 0
 
 ## Next Steps
 
-1. Phase 45 complete — all 5 plans executed, 561 tests passing.
-2. Continue milestone v11.1: Phase 46 onwards.
-3. Phases 46–48 follow in sequence.
+1. Execute 46-02: DB columns + repository quality gate persistence.
+2. Execute 46-03: Inngest quality-gate step after score-derivation.
+3. Phases 46-04–05 then Phase 47.
 
 ## Project Reference
 
