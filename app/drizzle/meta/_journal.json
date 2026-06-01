@@ -169,6 +169,13 @@
       "when": 1780332185670,
       "tag": "0023_amusing_supreme_intelligence",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1780334064896,
+      "tag": "0024_wealthy_silver_sable",
+      "breakpoints": true
     }
   ]
 }
