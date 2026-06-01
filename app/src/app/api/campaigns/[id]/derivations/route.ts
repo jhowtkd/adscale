@@ -170,6 +170,8 @@ export async function POST(
           ctaText: job.ctaText ?? undefined,
           format: job.format,
           isPreview,
+          ...(generationMode === "restyling" &&
+            requestedStyleAssetId && { styleAssetId: requestedStyleAssetId }),
         });
         logger.info(`[derivations POST] created derivationId=${derivation.id} mode=${generationMode} index=${job.variantIndex} format=${job.format} isPreview=${isPreview}`);
 

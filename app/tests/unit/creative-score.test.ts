@@ -62,4 +62,29 @@ describe("buildRegenerationSuggestion", () => {
     expect(suggestion).toContain("CTA too small");
     expect(suggestion).toContain("Make CTA larger");
   });
+
+  it("uses inherited CTA semantics when contract is provided", () => {
+    const suggestion = buildRegenerationSuggestion({
+      ctaText: null,
+      format: "9:16",
+      generationMode: "restyling",
+      scoreIssues: [],
+      modelSuggestion: "Refine layout",
+      contract: {
+        generationMode: "restyling",
+        targetFormat: "9:16",
+        ctaSemantics: { kind: "inherited" },
+        baseAssetId: "base-1",
+        styleAssetId: "style-2",
+        client: null,
+        product: null,
+        offer: null,
+        constraints: null,
+      },
+    });
+    expect(suggestion).not.toContain('"none"');
+    expect(suggestion).toContain("base creative");
+    expect(suggestion).toContain("style-2");
+    expect(suggestion).toContain("base-1");
+  });
 });

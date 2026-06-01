@@ -203,6 +203,7 @@ The regenerationSuggestion must preserve the exact CTA text, format, and generat
       scoreIssues: parsed.scoreIssues ?? [],
       modelSuggestion:
         parsed.regenerationSuggestion ?? "Refine the creative while preserving the exact CTA text.",
+      contract: input.contract ?? null,
     }),
   };
 }
@@ -225,11 +226,22 @@ export function buildRegenerationSuggestion(input: BuildSuggestionInput): string
 
   parts.push(`Suggestion: ${input.modelSuggestion}`);
 
-  const cta = input.ctaText ?? "none";
-  const fmt = input.format ?? "unknown";
-  const mode = input.generationMode ?? "unknown";
+  const fmt = input.contract?.targetFormat ?? input.format ?? "unknown";
+  const mode = input.contract?.generationMode ?? input.generationMode ?? "unknown";
 
-  parts.push(`Preserve the exact CTA "${cta}", the ${fmt} format, and the ${mode} generation mode.`);
+  const ctaSemantics = input.contract?.ctaSemantics;
+  if (ctaSemantics?.kind === "explicit") {
+    parts.push(
+      `Preserve the exact CTA "${ctaSemantics.text}", the ${fmt} format, and the ${mode} generation mode.`
+    );
+  } else if (ctaSemantics?.kind === "inherited") {
+    parts.push(
+      `Preserve the CTA from the base creative (do not invent or drop the CTA), the ${fmt} format, and the ${mode} generation mode.`
+    );
+  } else {
+    const cta = input.ctaText ?? "none";
+    parts.push(`Preserve the exact CTA "${cta}", the ${fmt} format, and the ${mode} generation mode.`);
+  }
 
   if (input.contract?.generationMode === "restyling") {
     if (input.contract.baseAssetId) parts.push(`Base asset: ${input.contract.baseAssetId}.`);

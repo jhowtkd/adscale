@@ -33,6 +33,7 @@ export interface CreateDerivationInput {
   generationMode?: string;
   variantIndex?: number;
   ctaText?: string;
+  styleAssetId?: string;
   isPreview?: boolean;
 }
 
@@ -50,6 +51,7 @@ export async function createDerivation(data: CreateDerivationInput) {
       generationMode: data.generationMode ?? null,
       variantIndex: data.variantIndex ?? null,
       ctaText: data.ctaText ?? null,
+      styleAssetId: data.styleAssetId ?? null,
       isPreview: data.isPreview ?? false,
     })
     .returning();

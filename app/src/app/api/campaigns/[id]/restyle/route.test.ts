@@ -232,6 +232,7 @@ describe("POST /api/campaigns/[id]/restyle", () => {
         generationMode: "restyling",
         variantIndex: 0,
         format: "1024x1024",
+        styleAssetId: "550e8400-e29b-41d4-a716-446655440001",
       })
     );
 
@@ -243,6 +244,7 @@ describe("POST /api/campaigns/[id]/restyle", () => {
           campaignId: "camp-1",
           workspaceId: "workspace-1",
           generationMode: "restyling",
+          styleAssetId: "550e8400-e29b-41d4-a716-446655440001",
         }),
       })
     );
