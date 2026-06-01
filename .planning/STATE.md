@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v11.1
 milestone_name: Qualidade de Geração e Contratos Criativos
-status: context_ready
-last_updated: "2026-06-01T16:05:44.000Z"
-last_activity: 2026-06-01 — Phase 44 context gathered
+status: planned
+last_updated: "2026-06-01T16:15:41.000Z"
+last_activity: 2026-06-01 — Phase 44 planned
 progress:
   total_phases: 5
   completed_phases: 0
@@ -19,9 +19,9 @@ progress:
 
 Milestone: v11.1 — Qualidade de Geração e Contratos Criativos
 Phase: 44 — Native Format Adaptation
-Plan: Not started
-Status: Context ready
-Last activity: 2026-06-01 — Phase 44 context gathered
+Plan: 2 plans ready (`44-01`, `44-02`)
+Status: Planned
+Last activity: 2026-06-01 — Phase 44 planned
 
 ## Accumulated Context
 
@@ -33,9 +33,9 @@ Last activity: 2026-06-01 — Phase 44 context gathered
 
 ## Next Steps
 
-1. Run `$gsd-plan-phase 44` to start execution planning from `.planning/phases/44-native-format-adaptation/44-CONTEXT.md`.
-2. Keep visual UAT evidence for 4:5 and 9:16 outputs before marking Phase 44 complete.
-3. Continue with Phase 45 after native format adaptation is planned and verified.
+1. Run `$gsd-execute-phase 44` to execute the two Phase 44 plans.
+2. Complete the visual UAT checkpoint for real 4:5 and 9:16 outputs before marking Phase 44 complete.
+3. Continue with Phase 45 after native format adaptation is implemented and verified.
 
 ## Project Reference
 
