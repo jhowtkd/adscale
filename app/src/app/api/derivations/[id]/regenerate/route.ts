@@ -22,7 +22,7 @@ import type { CreativeHardFailure } from "@/server/ai/creative-quality-gate";
 function resolveRegenerationFeedback(
   original: {
     regenerationSuggestion?: string | null;
-    hardFailures?: CreativeHardFailure[] | null;
+    hardFailures?: unknown;
     ctaText?: string | null;
     format?: string | null;
     generationMode?: string | null;
@@ -40,7 +40,9 @@ function resolveRegenerationFeedback(
     return storedSuggestion;
   }
 
-  const hardFailures = original.hardFailures ?? [];
+  const hardFailures = Array.isArray(original.hardFailures)
+    ? (original.hardFailures as CreativeHardFailure[])
+    : [];
   if (hardFailures.length === 0) {
     return undefined;
   }

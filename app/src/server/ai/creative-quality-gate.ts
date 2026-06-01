@@ -7,13 +7,16 @@ import type { CreativeContract } from "./creative-contract";
 import {
   analyzeCreativeQa,
   type AnalyzeCreativeQaInput,
+  type CreativeQaChecklist,
   type CreativeQaCriterion,
+  type CreativeQaCriterionResult,
 } from "./creative-qa";
 import {
   getDerivationById,
   updateDerivationQualityGate,
   updateDerivationQa,
   updateDerivationScore,
+  type CreativeScoreBreakdown,
 } from "../repositories/derivation";
 import { buildHardFailureRegenerationSuggestion } from "./creative-score";
 
@@ -260,14 +263,17 @@ export type DerivationApprovableResult =
     };
 
 export function assertDerivationApprovable(derivation: {
-  qualityVerdict?: CreativeQualityVerdict | null;
-  hardFailures?: CreativeHardFailure[] | null;
+  qualityVerdict?: string | null;
+  hardFailures?: unknown;
 }): DerivationApprovableResult {
-  const hardFailures = derivation.hardFailures ?? [];
+  const hardFailures = Array.isArray(derivation.hardFailures)
+    ? (derivation.hardFailures as CreativeHardFailure[])
+    : [];
   if (derivation.qualityVerdict === "invalid" || hardFailures.length > 0) {
     return {
       ok: false,
-      qualityVerdict: derivation.qualityVerdict ?? "invalid",
+      qualityVerdict:
+        (derivation.qualityVerdict as CreativeQualityVerdict | null) ?? "invalid",
       hardFailures,
     };
   }
@@ -404,7 +410,7 @@ export async function runCompletedDerivationQualityGate(
         qualityScore: row.qualityScore,
         scoreStatus:
           (row.scoreStatus as "heuristic" | "analyzed" | "failed" | "pending") ?? "analyzed",
-        scoreBreakdown: row.scoreBreakdown ?? null,
+        scoreBreakdown: (row.scoreBreakdown as CreativeScoreBreakdown | null) ?? null,
         scoreIssues,
         regenerationSuggestion,
       });

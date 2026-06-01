@@ -5,7 +5,10 @@ import path from "path";
 import sharp from "sharp";
 
 import { analyzeImageContent, analyzeImageStyle, ContentBrief, StyleBrief } from "@/server/ai/image-analysis";
-import { extractContractFromAd, CreativeContract } from "./creative-contract";
+import {
+  extractContractFromAd,
+  type CreativeContract as AdFixtureContract,
+} from "./creative-contract";
 import { analyzeSmartResize } from "@/server/ai/smart-resize";
 import { analyzePreflight } from "@/server/ai/preflight-analysis";
 import { analyzeDerivationCreative } from "@/server/ai/creative-score";
@@ -291,7 +294,7 @@ interface ImageResult {
     brandElements: string[];
   };
   // Formal creative contract extracted from the ad
-  contract?: CreativeContract;
+  contract?: AdFixtureContract;
 }
 
 interface OutputResult {
@@ -433,7 +436,7 @@ async function main() {
       let extractedContext: ImageResult["extractedContext"] | undefined;
 
       // 1. analyzeImageContent — extract real context first
-      let contract: CreativeContract | undefined;
+      let contract: AdFixtureContract | undefined;
 
       const buffer = loadImageBuffer(meta.filePath);
 
