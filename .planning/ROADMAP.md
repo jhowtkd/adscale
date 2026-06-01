@@ -15,8 +15,8 @@ v11.1 is a reliability milestone for the existing derivation modes. It fixes the
 | 44 | 1/2 | Complete    | 2026-06-01 | 2026-06-01 |
 | 45 | Creative Contract and Restyling | Complete    | 2026-06-01 | 2026-06-01 |
 | 46 | Hard Quality Gate | Complete    | 2026-06-01 | 2026-06-01 |
-| 47 | Workspace Review and Error Feedback | Complete    | 2026-06-01 | 4 |
-| 48 | End-to-End UAT and Verification | Prove the milestone with repeatable fixtures, tests, build, and browser/manual review. | UAT-01..04 | 5 |
+| 47 | Workspace Review and Error Feedback | 4/4 | Complete   | 2026-06-01 |
+| 48 | End-to-End UAT and Verification | Complete    | 2026-06-01 | 5 |
 
 ## Phase Details
 
@@ -157,10 +157,10 @@ Plans:
 | QA-03 | Phase 46 | Pending |
 | QA-04 | Phase 46 | Pending |
 | QA-05 | Phase 46 | Pending |
-| WUI-01 | Phase 47 | Pending |
-| WUI-02 | Phase 47 | Pending |
-| WUI-03 | Phase 47 | Pending |
-| WUI-04 | Phase 47 | Pending |
+| WUI-01 | Phase 47 | Complete |
+| WUI-02 | Phase 47 | Complete |
+| WUI-03 | Phase 47 | Complete |
+| WUI-04 | Phase 47 | Complete |
 | UAT-01 | Phase 48 | Pending |
 | UAT-02 | Phase 48 | Pending |
 | UAT-03 | Phase 48 | Pending |
