@@ -10,6 +10,8 @@ import {
   sendMagicLinkEmail as sendMagicLinkMessage,
 } from "../services/email";
 import { buildTrustedOrigins } from "./config";
+import { isRateLimitDisabled } from "@/lib/rate-limit";
+import { rememberResetUrl } from "./e2e-reset-store";
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -18,6 +20,9 @@ export const auth = betterAuth({
   }),
   secret: env.BETTER_AUTH_SECRET,
   baseURL: env.BETTER_AUTH_URL,
+  // Built-in limiter is enabled in production by default (strict 3/10s on /sign-in/email).
+  // Disable only for local E2E (TestSprite/Playwright) via E2E_DISABLE_RATE_LIMIT.
+  ...(isRateLimitDisabled() ? { rateLimit: { enabled: false } } : {}),
   trustedOrigins: buildTrustedOrigins({
     betterAuthUrl: env.BETTER_AUTH_URL,
     appUrl: env.APP_URL,
@@ -29,6 +34,11 @@ export const auth = betterAuth({
     requireEmailVerification: process.env.NODE_ENV === "production",
     revokeSessionsOnPasswordReset: true,
     sendResetPassword: async ({ user, url }) => {
+      // E2E only: stash the reset URL so the dev endpoint can hand it to the
+      // test runner (no inbox to read in the cloud browser).
+      if (isRateLimitDisabled()) {
+        rememberResetUrl(user.email, url);
+      }
       await sendPasswordResetMessage({ to: user.email, url });
     },
   },

@@ -1,4 +1,4 @@
-import { eq, and, desc, inArray, lt, sql } from "drizzle-orm";
+import { eq, and, desc, inArray, sql } from "drizzle-orm";
 import type {
   CreativeHardFailure,
   CreativeQualityVerdict,
@@ -111,8 +111,13 @@ export async function updateDerivationStatus(
 export async function failStaleActiveDerivations(
   campaignId: string,
   workspaceId: string,
-  staleBefore: Date
+  staleMinutes: number
 ) {
+  // Compare against the database clock instead of a JS `Date`. The column
+  // default (`defaultNow()`) and the app's `new Date()` can disagree when the
+  // Postgres session timezone differs from the Node process, which previously
+  // made freshly-queued derivations look instantly stale. Using `now()` on both
+  // sides keeps the stale window timezone-agnostic.
   return db
     .update(derivations)
     .set({
@@ -125,7 +130,7 @@ export async function failStaleActiveDerivations(
         eq(derivations.campaignId, campaignId),
         eq(derivations.workspaceId, workspaceId),
         inArray(derivations.status, ["queued", "processing"]),
-        lt(derivations.updatedAt, staleBefore)
+        sql`${derivations.updatedAt} < now() - (${staleMinutes}::int * interval '1 minute')`
       )
     )
     .returning();

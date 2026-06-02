@@ -42,3 +42,6 @@ tmp/
 autoresearch-results-plan.tsv
 mockup-*.png
 mockup-*.html
+
+testsprite_tests/tmp/config.json
+app/test-results/

@@ -28,7 +28,7 @@ const restyleSchema = z.object({
   styleIntensity: z.enum(["soft", "medium", "strong"]).optional(),
 });
 
-const STALE_ACTIVE_DERIVATION_MS = 10 * 60 * 1000;
+const STALE_ACTIVE_DERIVATION_MINUTES = 10;
 
 export async function POST(
   request: Request,
@@ -164,11 +164,10 @@ export async function GET(
       params,
     ]);
 
-    const staleBefore = new Date(Date.now() - STALE_ACTIVE_DERIVATION_MS);
     const stale = await failStaleActiveDerivations(
       campaignId,
       workspace.id,
-      staleBefore
+      STALE_ACTIVE_DERIVATION_MINUTES
     );
     if (stale.length > 0) {
       await refreshCampaignStatus(campaignId, workspace.id);

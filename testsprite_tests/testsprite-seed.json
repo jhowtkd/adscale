@@ -1,0 +1,25 @@
+{
+  "email": "dev-admin@adscale.local",
+  "password": "DevAdmin123!",
+  "workspaceId": "cbbd442a-1f70-431b-b58f-76c2d8f34fe7",
+  "campaignId": "ec415589-e46b-4e40-8bdd-e0f4bf1357ae",
+  "campaignName": "TestSprite E2E Campaign",
+  "shareToken": "testsprite-e2e-share",
+  "shareUrl": "http://localhost:3000/share/testsprite-e2e-share",
+  "inviteToken": "testsprite-e2e-invite",
+  "inviteUrl": "http://localhost:3000/invite?token=testsprite-e2e-invite",
+  "fixtureBaseImage": "/Users/jhonatan/Repos/ADScale_2/app/tests/fixtures/base.png",
+  "fixtureStyleImage": "/Users/jhonatan/Repos/ADScale_2/app/tests/fixtures/style.png",
+  "publicBaseImageUrl": "http://localhost:3000/e2e/base.png",
+  "publicStyleImageUrl": "http://localhost:3000/e2e/style.png",
+  "emptyUser": {
+    "email": "empty@adscale.local",
+    "password": "DevAdmin123!"
+  },
+  "resetUser": {
+    "email": "reset-user@adscale.local",
+    "password": "DevAdmin123!"
+  },
+  "resetTokenEndpoint": "http://localhost:3000/api/dev/reset-token?email=<email>",
+  "e2eHint": "Start server with E2E_DISABLE_RATE_LIMIT=true. Use shareUrl and inviteUrl for token tests. Uploads: fetch publicBaseImageUrl/publicStyleImageUrl bytes and feed them to file inputs via a Playwright buffer payload. Empty-library test: log in with emptyUser. Password reset: use resetUser; submit /forgot-password for that email, then GET resetTokenEndpoint to obtain resetPageUrl."
+}
