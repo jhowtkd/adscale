@@ -1,1223 +1,421 @@
-# API Documentation
+<!-- generated-by: gsd-doc-writer -->
 
-## Overview
+# API Reference
 
-The ADScale API is a Next.js App Router API built on standard HTTP route handlers. It is consumed by the Next.js frontend and does not expose a public, versioned HTTP API for external callers.
+Internal HTTP API for the ADScale Next.js application (`app/src/app/api`). Consumed by the web UI via same-origin `fetch` with session cookies (`credentials: "include"` in `apiFetch`). There is no public versioned external API.
 
-| Property         | Value                           |
-|------------------|---------------------------------|
-| Base URL         | Same as the deployed app origin |
-| Versioning       | None (internal API)             |
-| Data format      | JSON                            |
-| Authentication   | Session cookie (Better Auth)    |
-| File upload max  | 50 MB per file                  |
-| Allowed image types | `image/png`, `image/jpeg`, `image/webp` |
+| Property | Value |
+|----------|--------|
+| Base URL | Same origin as the deployed app (`APP_URL` / `BETTER_AUTH_URL`) |
+| Format | JSON (except multipart uploads and Stripe webhook raw body) |
+| Auth (default) | Better Auth session cookie + workspace scoping |
+| Max upload | 50 MB per file; images: `image/png`, `image/jpeg`, `image/webp` |
+
+Route handlers live under `app/src/app/api/**/route.ts` (67 route files).
 
 ---
 
 ## Authentication
 
-All endpoints (except `GET /api/health`, `POST /api/billing/webhook`, and `GET|POST|PUT /api/inngest`) require an authenticated session.
+### Session (Better Auth)
 
-### Mechanism
+- **Library:** [Better Auth](https://www.better-auth.com/) (`app/src/server/auth/index.ts`).
+- **Routes:** `GET` and `POST` on `/api/auth/[...all]` — delegated via `toNextJsHandler(auth)` (`app/src/app/api/auth/[...all]/route.ts`).
+- **Mechanisms:** Email/password (verification required in production), Google/GitHub OAuth when env keys are set, magic link plugin, password reset.
+- **Client usage:** Browser sends cookies automatically. The frontend helper `apiFetch` (`app/src/lib/api-client.ts`) sets `credentials: "include"` and redirects to `/login` on `401`.
 
-- **Better Auth** handles registration, login, OAuth, and session management via `POST /api/auth/[...all]`.
-- Session state is stored in an HTTP-only secure cookie.
-- Most authenticated endpoints call `requireWorkspaceAccess(request)`, which:
-  1. Validates the session from request headers.
-  2. Resolves the user's workspace.
-  3. Returns `{ user, workspace }` or throws `Unauthorized` / `No workspace`.
+Session cookies recognized by middleware include `better-auth.session_token`, `__Secure-better-auth.session_token`, or legacy `session`.
 
-### Authenticated request pattern
+### Workspace-scoped endpoints
+
+Most business routes call `requireWorkspaceAccess(request)` (`app/src/server/auth/workspace.ts`), which:
+
+1. Resolves the session from `request.headers` via `auth.api.getSession`.
+2. Loads the user's workspace membership.
+3. Returns `{ user, workspace }` or throws `WorkspaceAuthError`.
+
+**Role-gated routes** additionally call `requireRole(workspaceId, userId, allowedRoles)` for `owner` / `admin` / `member` checks (workspace invites, members).
+
+### Session-only (no workspace)
+
+These require a valid session but do not use `requireWorkspaceAccess`:
+
+| Route | Notes |
+|-------|--------|
+| `POST /api/user/locale` | Updates user locale + `locale` cookie |
+| `GET`, `POST /api/user/onboarding` | Onboarding completion flag (returns `{ error: "Unauthorized" }` on 401, not `apiError` shape) |
+| `POST /api/user/onboarding/restart` | Clears onboarding |
+| `POST /api/workspace/invites/accept` | Accept invite by token |
+| `PATCH /api/workspace/invites` | Accept invite by token (duplicate entry point) |
+
+### Unauthenticated / alternate auth
+
+| Route | Auth |
+|-------|------|
+| `GET /api/health` | None |
+| `GET`, `POST`, `PUT /api/inngest` | Inngest request signing (platform SDK) |
+| `POST /api/billing/webhook` | `Stripe-Signature` header + `STRIPE_WEBHOOK_SECRET` |
+| `POST /api/notifications/webhook` | `x-webhook-secret` must equal `NOTIFICATION_WEBHOOK_SECRET` |
+| `GET`, `POST /api/auth/[...all]` | Better Auth flows |
+
+### Example authenticated request
 
 ```http
 GET /api/campaigns HTTP/1.1
 Host: <app-origin>
-Cookie: <session-cookie>
+Cookie: better-auth.session_token=<token>
+Accept: application/json
 ```
 
 ---
 
-## Error Handling
+## Request and response formats
 
-All errors are returned as JSON with a consistent shape.
+### Success responses
 
-### Error response schema
+- **JSON APIs:** Handlers return `NextResponse.json(payload)` or `apiSuccess(data, status)` — the body is the resource object directly (no global `{ data: ... }` envelope).
+- **Created:** Many `POST` handlers use status `201` with a resource key (e.g. `{ campaign }`, `{ invite }`).
+- **Downloads:** Export and presign routes return time-limited URLs, e.g. `{ downloadUrl, expiresAt }` or presign fields from R2 helpers.
 
-```json
-{
-  "error": "Human-readable translated message",
-  "code": "machineErrorCode",
-  "details": { ... }
-}
-```
+### Error responses
 
-### Common error codes
-
-| HTTP | Code | Meaning |
-|------|------|---------|
-| 400 | `invalidRequestBody` | JSON body malformed or failed Zod validation. |
-| 400 | `invalidInput` | Business validation failed (e.g. missing required field). |
-| 400 | `fileTooLarge` | Uploaded file exceeds 50 MB. |
-| 400 | `invalidFileType` | File is not PNG, JPEG, or WebP. |
-| 401 | `unauthorized` | No valid session. |
-| 403 | `noWorkspace` | Authenticated user has no workspace. |
-| 404 | `campaignNotFound` | Campaign does not exist or does not belong to the workspace. |
-| 404 | `derivationNotFound` | Derivation does not exist in the workspace. |
-| 404 | `planNotFound` | Plan does not exist for the campaign. |
-| 404 | `clientProfileNotFound` | Client profile not found in the workspace. |
-| 404 | `billingCustomerNotFound` | No Stripe customer for this workspace. |
-| 409 | `derivationNotApproved` | Action requires an approved derivation. |
-| 429 | `derivationsInProgress` | Campaign already has queued/processing derivations. |
-| 429 | `diagnosisInProgress` | Creative diagnosis is already running. |
-| 429 | `landingPageGenerationInProgress` | Landing page already queued. |
-| 503 | `generationWorkerUnavailable` | Inngest event could not be sent. |
-| 500 | `internalError` | Unexpected server error (includes `errorId` for support). |
-
-### Internal errors (500)
-
-In production, internal errors expose only:
+Standard shape from `apiError()` (`app/src/lib/api-response.ts`):
 
 ```json
 {
-  "error": "Internal server error",
-  "code": "internalError",
-  "details": { "errorId": "<uuid>" }
+  "error": "<localized human message>",
+  "code": "<machineCode>",
+  "details": { }
 }
 ```
 
-In development, `details.devError` includes the serialized stack trace.
+`details` is optional (Zod `flatten()`, `errorId`, domain-specific fields).
+
+**Exceptions:**
+
+- `GET|POST /api/user/onboarding` — `{ "error": "Unauthorized" }` with status `401` (plain message, no `code`).
+- Middleware rate limit — see [Rate limits](#rate-limits).
+- Some legacy paths may return ad hoc keys; prefer the shape above for new handlers.
+
+### Validation
+
+Request bodies are validated with **Zod** where noted below. Failures typically use `invalidInput` or `invalidRequestBody` with `details` from `safeParse().error.flatten()`.
+
+### Multipart
+
+- `POST /api/restyling`, `POST /api/quick-tools/restyling` — `multipart/form-data` (campaign + images).
+- `POST /api/workspace/assets` — file upload fields.
+- `POST /api/campaigns/:id/competitors/analyze` — screenshot files.
 
 ---
 
-## Endpoints
+## Error codes
 
-### Health
+| HTTP | Code | When |
+|------|------|------|
+| 400 | `invalidRequestBody` | Malformed JSON or failed body parse |
+| 400 | `invalidInput` | Zod / business validation |
+| 400 | `fileTooLarge` | File over 50 MB |
+| 400 | `invalidFileType` | Disallowed MIME / magic bytes |
+| 400 | `stripeSignatureMissing` / `stripeSignatureInvalid` | Billing webhook |
+| 401 | `unauthorized` | No session (`requireWorkspaceAccess` / webhooks) |
+| 403 | `noWorkspace` | Session without workspace |
+| 403 | `forbidden` | Insufficient workspace role |
+| 403 | `inviteEmailMismatch` | Invite accept email mismatch |
+| 404 | `campaignNotFound`, `derivationNotFound`, `assetNotFound`, `planNotFound`, `clientProfileNotFound`, `inviteNotFound`, … | Resource missing or wrong workspace |
+| 409 | `derivationsInProgress`, `derivationNotApproved`, `derivationHardFailures`, `sourceDerivationNotApproved`, … | Conflict / quality gate |
+| 410 | `inviteExpired` | Invite token expired |
+| 429 | `rateLimitExceeded` | Rate limit (handler or middleware) |
+| 429 | `derivationsInProgress`, `diagnosisInProgress`, … | Domain concurrency limits |
+| 500 | `internalError` | Unexpected error; `details.errorId` for support |
+| 500 | `checkoutSessionFailed`, `failedQueueDerivations`, … | Domain failures |
+| 502 | `aiEmptyResponse`, `aiInvalidJson`, `aiValidationFailed` | AI plan generation |
+| 503 | `internalError` | Database connection failures |
 
-#### `GET /api/health`
+In development, `500` responses may include `details.devError` with stack info.
 
-Public health check.
+---
 
-**Response**
+## Rate limits
+
+### Edge middleware (`app/middleware.ts`)
+
+Applies to **API mutations** (`POST`, `PUT`, `PATCH`, `DELETE`) under `/api/*`:
+
+| Category | Paths (prefix match) | Default window | Max requests |
+|----------|----------------------|----------------|--------------|
+| `auth` | `/api/auth` | 60s | 10 |
+| `ai` | `/api/campaigns`, `/api/derivations`, `/api/restyling`, `/api/quick-tools` | 60s | 5 |
+| `general` | All other API mutations | 60s | 30 |
+
+**429 response (middleware):**
+
+```json
+{
+  "error": "rateLimitExceeded",
+  "message": "Too many requests. Please try again later.",
+  "retryAfter": 42
+}
+```
+
+Headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`.
+
+Storage: Upstash Redis when `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` are set; otherwise in-memory per instance (`app/src/lib/rate-limit.ts`).
+
+### Per-route limits
+
+`checkRateLimit()` / `rateLimitWorkspace()` on selected AI-heavy routes (auto-briefing, competitors analyze/strategy, preflight, etc.) — same JSON shape as middleware when exceeded.
+
+`POST /api/share` applies an additional `rateLimit(request, "general")` before workspace auth.
+
+---
+
+## Endpoints overview
+
+Dynamic segments use `:id` notation. Auth column: **none**, **session**, **session+workspace**, **better-auth**, **stripe-signature**, **x-webhook-secret**, **inngest-signing**.
+
+| Method(s) | Path | Auth | Description |
+|-----------|------|------|-------------|
+| GET, POST | `/api/auth/[...all]` | better-auth | Sign-in, sign-up, OAuth, session, password reset |
+| GET | `/api/health` | none | Liveness probe |
+| GET, POST, PUT | `/api/inngest` | inngest-signing | Inngest job handler (derivation, trial, assets, brand memory) |
+| POST | `/api/billing/webhook` | stripe-signature | Stripe subscription events |
+| POST | `/api/notifications/webhook` | x-webhook-secret | Internal notification email dispatcher |
+| GET, POST | `/api/campaigns` | session+workspace | List / create campaigns |
+| GET, PATCH, DELETE | `/api/campaigns/:id` | session+workspace | Get / update / delete campaign |
+| GET, POST, PATCH | `/api/campaigns/:id/plan` | session+workspace | Creative plan (AI generate / read / update) |
+| POST, PATCH | `/api/campaigns/:id/diagnosis` | session+workspace | Creative diagnosis |
+| POST | `/api/campaigns/:id/diagnosis/regenerate` | session+workspace | Regenerate diagnosis |
+| POST | `/api/campaigns/:id/analyze` | session+workspace | Analyze campaign asset |
+| POST | `/api/campaigns/:id/auto-briefing` | session+workspace | Auto-brief from image |
+| POST | `/api/campaigns/:id/pilot` | session+workspace | Pilot briefing flow |
+| POST | `/api/campaigns/:id/suggest-ctas` | session+workspace | CTA suggestions (AI) |
+| GET | `/api/campaigns/:id/smart-resize-preview` | session+workspace | Smart resize preview |
+| GET, POST | `/api/campaigns/:id/restyle` | session+workspace | Campaign restyle job |
+| GET, POST | `/api/campaigns/:id/derivations` | session+workspace | List / queue derivations |
+| GET | `/api/campaigns/:id/assets` | session+workspace | List campaign assets |
+| POST | `/api/campaigns/:id/assets/presign` | session+workspace | R2 presigned upload URL |
+| POST | `/api/campaigns/:id/assets/upload` | session+workspace | Direct asset upload |
+| POST | `/api/campaigns/:id/assets/complete` | session+workspace | Finalize presigned upload |
+| POST | `/api/campaigns/:id/assets/link` | session+workspace | Link external asset URL |
+| GET, POST | `/api/campaigns/:id/assets/:assetId/preflight` | session+workspace | Asset preflight check |
+| GET, POST | `/api/campaigns/:id/competitors` | session+workspace | List / add competitors |
+| PATCH, DELETE | `/api/campaigns/:id/competitors/:competitorId` | session+workspace | Update / remove competitor |
+| POST | `/api/campaigns/:id/competitors/analyze` | session+workspace | Analyze competitor screenshots |
+| POST | `/api/campaigns/:id/competitors/strategy` | session+workspace | Competitor strategy (AI) |
+| GET, POST | `/api/derivations/:id/copy-variants` | session+workspace | Generate / list copy variants |
+| PATCH | `/api/derivations/:id/copy-variants/:variantId` | session+workspace | Select copy variant |
+| PATCH | `/api/derivations/:id/review` | session+workspace | Approve / reject derivation |
+| POST | `/api/derivations/:id/regenerate` | session+workspace | Regenerate derivation output |
+| POST | `/api/derivations/:id/qa` | session+workspace | Run creative QA |
+| POST | `/api/derivations/:id/delivery-package` | session+workspace | Build delivery package |
+| POST | `/api/derivations/:id/landing-page` | session+workspace | Landing page match generation |
+| POST | `/api/derivations/:id/save-reference` | session+workspace | Save derivation to client library |
+| GET, POST | `/api/creatives/:id/persona-simulation` | session+workspace | Persona simulation |
+| GET, POST | `/api/client-profiles` | session+workspace | List / create client profiles |
+| GET | `/api/client-profiles/:id/memory` | session+workspace | Brand memory for profile |
+| GET, POST | `/api/client-profiles/:id/references` | session+workspace | Reference library |
+| GET, POST | `/api/templates` | session+workspace | Campaign templates |
+| PATCH | `/api/templates/:id` | session+workspace | Update template |
+| GET | `/api/dashboard` | session+workspace | Dashboard summary |
+| GET | `/api/dashboard/stats` | session+workspace | Dashboard statistics |
+| GET, PATCH, DELETE | `/api/notifications` | session+workspace | List / mark all read / clear |
+| PATCH | `/api/notifications/:id/read` | session+workspace | Mark one notification read |
+| POST | `/api/exports` | session+workspace | Export derivation(s) download URL |
+| POST | `/api/export/zip` | session+workspace | ZIP export |
+| POST | `/api/share` | session+workspace | Create share link for derivations |
+| POST | `/api/restyling` | session+workspace | Standalone restyling (multipart) |
+| POST | `/api/quick-tools/restyling` | session+workspace | Quick restyling tool |
+| GET | `/api/billing/status` | session+workspace | Subscription / credits status |
+| GET | `/api/billing/history` | session+workspace | Billing history |
+| POST | `/api/billing/checkout` | session+workspace | Stripe Checkout session URL |
+| POST | `/api/billing/portal` | session+workspace | Stripe Customer Portal URL |
+| POST | `/api/user/locale` | session | Update locale |
+| GET | `/api/user/export` | session+workspace | Export user data |
+| DELETE | `/api/user/account` | session+workspace | Delete account (confirmation required) |
+| GET, POST | `/api/user/onboarding` | session | Onboarding status / complete |
+| POST | `/api/user/onboarding/restart` | session | Reset onboarding |
+| GET, POST, DELETE | `/api/workspace/brand-kit` | session+workspace | Brand kit CRUD |
+| POST | `/api/workspace/brand-kit/logo` | session+workspace | Upload logo |
+| POST | `/api/workspace/brand-kit/extract` | session+workspace | Extract brand from URL/assets |
+| GET, POST | `/api/workspace/assets` | session+workspace | List / upload workspace assets |
+| GET, PATCH, DELETE | `/api/workspace/assets/:id` | session+workspace | Workspace asset CRUD |
+| GET, POST, PATCH, DELETE | `/api/workspace/invites` | session+workspace / session | Manage invites; `PATCH` accepts invite (session) |
+| POST | `/api/workspace/invites/accept` | session | Accept invite by token |
+| GET, DELETE | `/api/workspace/members` | session+workspace | List / remove members (admin+) |
+
+---
+
+## Public and webhook endpoints
+
+### `GET /api/health`
 
 ```json
 {
   "ok": true,
   "service": "adscale-app",
-  "timestamp": "2026-05-22T14:13:06.215Z"
+  "timestamp": "2026-06-02T12:00:00.000Z"
 }
 ```
 
----
+### `POST /api/billing/webhook`
 
-### Auth
+- Header: `stripe-signature`
+- Body: raw Stripe event payload (not JSON-parsed before verify)
+- Success: `{ "received": true, "result": ... }`
 
-#### `GET|POST /api/auth/[...all]`
+### `POST /api/notifications/webhook`
 
-Proxied to Better Auth. Handles registration, login, OAuth callbacks, session refresh, password reset, etc.
+Header: `x-webhook-secret: <NOTIFICATION_WEBHOOK_SECRET>`
 
-See [Better Auth API routes](https://www.better-auth.com/docs/concepts/api-routes) for the full set of available paths.
-
----
-
-### User
-
-#### `POST /api/user/locale`
-
-Updates the authenticated user's locale preference and sets the `locale` cookie.
-
-**Request body**
+Discriminated union body:
 
 ```json
 {
-  "locale": "pt-BR"
-}
-```
-
-**Response**
-
-```json
-{
-  "success": true,
-  "locale": "pt-BR"
-}
-```
-
----
-
-### Dashboard
-
-#### `GET /api/dashboard`
-
-Returns workspace-level dashboard metrics.
-
-**Response**
-
-```json
-{
-  "campaignCount": 12,
-  "recentActivity": [
-    {
-      "id": "<uuid>",
-      "type": "campaign",
-      "message": "Campaign \"Summer Sale\" created",
-      "timestamp": "2026-05-22T14:00:00.000Z"
-    }
-  ]
-}
-```
-
----
-
-### Campaigns
-
-#### `GET /api/campaigns`
-
-List campaigns with filtering, sorting, and pagination.
-
-**Query parameters**
-
-| Param | Type | Default | Description |
-|-------|------|---------|-------------|
-| `q` | string | — | Search by name |
-| `status` | `all\|draft\|active\|generating\|completed\|failed` | `all` | Status filter |
-| `platform` | `all\|Meta\|TikTok\|Google` | `all` | Platform filter |
-| `sort` | `newest\|oldest\|name-asc\|name-desc\|variations` | `newest` | Sort order |
-| `page` | integer | `1` | Page number |
-| `limit` | integer | `10` | Items per page |
-
-**Response**
-
-Paginated campaign list (shape depends on repository implementation).
-
----
-
-#### `POST /api/campaigns`
-
-Create a new campaign.
-
-**Request body**
-
-```json
-{
-  "name": "Summer Sale",
-  "client": "Acme",
-  "product": "Sneakers",
-  "objective": "Increase conversions",
-  "audience": "18-34 urban",
-  "platforms": ["Meta"],
-  "tone": "Playful",
-  "offer": "20% off",
-  "constraints": "No neon colors",
-  "notes": "Hero image on beach",
-  "generationMode": "art_variation",
-  "creativeLevel": "balanced",
-  "ctaVariants": ["Shop Now", "Get 20% Off"],
-  "targetFormats": ["1:1"],
-  "styleIntensity": "medium",
-  "clientProfileId": null,
-  "selectedReferenceIds": []
-}
-```
-
-> **Validation rule:** `format_adaptation` mode requires exactly one `targetFormats` entry.
-
-**Response**
-
-```json
-{
-  "campaign": { "id": "<uuid>", ... }
-}
-```
-
-Status: `201 Created`
-
----
-
-#### `GET /api/campaigns/:id`
-
-Get a single campaign.
-
-**Response**
-
-```json
-{
-  "campaign": { "id": "<uuid>", ... }
-}
-```
-
----
-
-#### `PATCH /api/campaigns/:id`
-
-Update campaign fields. Same body schema as creation (all fields optional).
-
-**Response**
-
-```json
-{
-  "campaign": { "id": "<uuid>", ... }
-}
-```
-
----
-
-#### `DELETE /api/campaigns/:id`
-
-Delete a campaign and best-effort cleanup of associated R2 assets and derivation outputs.
-
-**Response**
-
-```json
-{
-  "success": true
-}
-```
-
----
-
-#### `GET /api/campaigns/:id/plan`
-
-Get the creative plan for a campaign.
-
-**Response**
-
-```json
-{
-  "plan": {
-    "id": "<uuid>",
-    "strategy": "...",
-    "angles": ["..."],
-    "hooks": ["..."],
-    "ctas": ["..."]
+  "type": "derivation_complete",
+  "userId": "<uuid>",
+  "payload": {
+    "campaignName": "string",
+    "derivationCount": 3
   }
 }
 ```
 
----
+Other `type` values: `plan_ready`, `low_credits`, `trial_expiring` (see `webhookSchema` in `app/src/app/api/notifications/webhook/route.ts`).
 
-#### `POST /api/campaigns/:id/plan`
-
-Generate a creative plan via OpenAI. If a plan already exists, returns the cached copy.
-
-**Response**
-
-```json
-{
-  "plan": { "id": "<uuid>", ... }
-}
-```
-
-Status: `201 Created` (or `200` with `cached: true` when cached).
+Response: `{ "sent": true, "type" }` or `{ "sent": false, "reason": "notificationsDisabled" }`.
 
 ---
 
-#### `PATCH /api/campaigns/:id/plan`
+## Domain reference (request bodies)
 
-Approve or reject the plan.
+### Campaigns
 
-**Request body**
-
-```json
-{
-  "status": "approved"
-}
-```
-
-Allowed values: `approved`, `rejected`.
-
----
-
-#### `GET /api/campaigns/:id/derivations`
-
-List derivations for a campaign. Automatically marks stale active derivations (older than 10 minutes) as failed and refreshes campaign status.
-
-**Response**
+**`POST /api/campaigns`** — `createCampaignSchema`:
 
 ```json
 {
-  "derivations": [
-    {
-      "id": "<uuid>",
-      "status": "completed",
-      "outputKey": "campaigns/...",
-      "imageUrl": "<presigned-url>",
-      ...
-    }
-  ]
+  "name": "string (1-255)",
+  "client": "string (required)",
+  "product": "string?",
+  "objective": "string?",
+  "audience": "string?",
+  "constraints": "string?",
+  "notes": "string?",
+  "generationMode": "art_variation | format_adaptation | restyling",
+  "ctaVariants": ["string"] (max 3),
+  "targetFormats": ["string"] (max 5),
+  "creativeLevel": "conservative | balanced | bold | extreme (default balanced)",
+  "styleIntensity": "soft | medium | strong?"
 }
 ```
 
----
+`format_adaptation` on **PATCH** requires `targetFormats` length 1–3.
 
-#### `POST /api/campaigns/:id/derivations`
+**`GET /api/campaigns`** query: `q`, `status`, `platform`, `sort`, `page`, `limit`.
 
-Queue derivations for generation.
-
-**Request body (optional)**
+**`POST /api/campaigns/:id/derivations`** — optional JSON:
 
 ```json
 {
-  "preview": true
+  "preview": false,
+  "styleAssetId": "<uuid>?"
 }
 ```
 
-When `preview: true`, only one derivation is created and existing preview derivations are replaced.
+Queues Inngest derivation jobs from campaign config; may return `derivationsInProgress`, `noCtasProvided`, `missingBaseAsset`, `invalidTargetFormats`.
 
-**Validation / Rate limiting**
-- Returns `429` if queued/processing derivations already exist for this campaign.
-- `art_variation` mode requires at least one non-empty CTA variant and a base asset.
-- `format_adaptation` mode requires exactly one `targetFormat`.
+### Derivations
 
-**Response**
+**`PATCH /api/derivations/:id/review`**
+
+```json
+{ "status": "approved" | "rejected" }
+```
+
+Approval runs `assertDerivationApprovable`; may return `derivationHardFailures` with `details.hardFailures`.
+
+**`POST /api/exports`**
 
 ```json
 {
-  "derivations": [
-    { "id": "<uuid>", "status": "queued", ... }
-  ]
+  "type": "individual" | "batch",
+  "derivationId": "<uuid>?",
+  "campaignId": "<uuid>?",
+  "format": "png" | "jpeg" | "webp"
 }
 ```
 
-Status: `201 Created`
+Response: `{ "downloadUrl": "...", "expiresAt": "<iso8601>" }` (5-minute TTL).
 
----
+### Billing
 
-#### `GET /api/campaigns/:id/assets`
+**`POST /api/billing/checkout`**
 
-List campaign assets with presigned download URLs.
+```json
+{ "planKey": "<billingPlanKeys enum>" }
+```
 
-**Response**
+Response: `{ "url": "<stripe checkout url>" }`.
+
+### Workspace
+
+**`POST /api/workspace/invites`**
 
 ```json
 {
-  "assets": [
-    {
-      "id": "<uuid>",
-      "key": "campaigns/<uuid>/...",
-      "type": "image/png",
-      "size": 123456,
-      "url": "<presigned-url>"
-    }
-  ]
+  "email": "user@example.com",
+  "role": "member" | "admin"
 }
 ```
 
----
+Admin invites require `owner` role.
 
-#### `POST /api/campaigns/:id/assets/presign`
+**`POST /api/workspace/invites/accept`** and **`PATCH /api/workspace/invites`**
 
-Request a presigned upload URL for direct-to-R2 upload.
+```json
+{ "token": "<invite token>" }
+```
 
-**Request body**
+### Share
+
+**`POST /api/share`**
+
+```json
+{
+  "campaignId": "<uuid>",
+  "derivationIds": ["<uuid>"] 
+}
+```
+
+`derivationIds`: 1–50 items. Response: `{ "shareUrl", "expiresAt" }`.
+
+### User
+
+**`POST /api/user/locale`**
+
+```json
+{ "locale": "en" | "pt-BR" }
+```
+
+### Assets (presign)
+
+**`POST /api/campaigns/:id/assets/presign`**
 
 ```json
 {
   "filename": "hero.png",
   "contentType": "image/png",
-  "contentLength": 123456
+  "contentLength": 1234567
 }
 ```
 
-**Response**
-
-```json
-{
-  "url": "<presigned-upload-url>",
-  "key": "campaigns/<uuid>/<uuid>-hero.png",
-  "expiresAt": "2026-05-22T14:18:00.000Z"
-}
-```
+Returns presigned upload URL and pending asset metadata (`PRESIGN_TTL_SECONDS` = 300).
 
 ---
 
-#### `POST /api/campaigns/:id/assets/upload`
+## Related configuration
 
-Server-side asset upload via multipart/form-data.
+Environment variables for auth, Stripe, webhooks, and Redis rate limiting are documented in [CONFIGURATION.md](./CONFIGURATION.md).
 
-**Form fields**
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `file` | File | Yes | Image file |
-| `width` | number | No | Image width in pixels |
-| `height` | number | No | Image height in pixels |
-
-**Response**
-
-```json
-{
-  "asset": { "id": "<uuid>", "key": "...", ... }
-}
-```
-
-Status: `201 Created`
-
----
-
-#### `POST /api/campaigns/:id/assets/complete`
-
-Complete a presigned upload by registering the asset in the database after verifying it exists in R2.
-
-**Request body**
-
-```json
-{
-  "key": "campaigns/<uuid>/<uuid>-hero.png",
-  "type": "image/png",
-  "size": 123456,
-  "width": 1024,
-  "height": 1024
-}
-```
-
-**Response**
-
-```json
-{
-  "asset": { "id": "<uuid>", ... }
-}
-```
-
-Status: `201 Created`
-
----
-
-#### `POST /api/campaigns/:id/diagnosis`
-
-Run or retrieve cached AI creative diagnosis for the campaign's base asset.
-
-- Only available for `art_variation` campaigns.
-- Returns cached result if `creativeDiagnosisStatus` is `ready`.
-- Returns `429` if diagnosis is already in progress.
-
-**Response**
-
-```json
-{
-  "diagnosis": {
-    "detectedConcept": "...",
-    "elementsToPreserve": ["..."],
-    "variationOpportunities": ["..."]
-  },
-  "source": "ai"
-}
-```
-
----
-
-#### `PATCH /api/campaigns/:id/diagnosis`
-
-Manually update the creative diagnosis.
-
-**Request body**
-
-```json
-{
-  "diagnosis": {
-    "detectedConcept": "...",
-    "elementsToPreserve": ["..."],
-    "variationOpportunities": ["..."]
-  }
-}
-```
-
----
-
-#### `POST /api/campaigns/:id/diagnosis/regenerate`
-
-Force regeneration of the creative diagnosis (bypasses cache).
-
-**Response**: same as `POST /api/campaigns/:id/diagnosis`.
-
----
-
-### Derivations
-
-#### `PATCH /api/derivations/:id/review`
-
-Approve or reject a derivation.
-
-**Request body**
-
-```json
-{
-  "status": "approved"
-}
-```
-
-**Response**
-
-```json
-{
-  "derivation": { "id": "<uuid>", "status": "approved", ... }
-}
-```
-
----
-
-#### `POST /api/derivations/:id/regenerate`
-
-Create a child derivation with optional feedback for regeneration.
-
-**Request body**
-
-```json
-{
-  "feedback": "Make the background darker"
-}
-```
-
-**Validation**
-- Returns `429` if the derivation already has active child regenerations.
-
-**Response**
-
-```json
-{
-  "derivation": { "id": "<uuid>", "status": "queued", ... }
-}
-```
-
-Status: `201 Created`
-
----
-
-#### `POST /api/derivations/:id/delivery-package`
-
-Generate format-adapted child derivations (delivery package) from an approved derivation.
-
-**Request body**
-
-```json
-{
-  "formats": ["1:1", "4:5", "9:16"]
-}
-```
-
-**Validation**
-- Source derivation must be approved and have an `outputKey`.
-- Already active children for the requested formats are skipped.
-
-**Response**
-
-```json
-{
-  "source": { "id": "<uuid>", "format": "1:1" },
-  "readyFormats": ["1:1"],
-  "queued": [{ "id": "<uuid>", "format": "4:5" }],
-  "failed": [],
-  "skipped": ["9:16"]
-}
-```
-
----
-
-#### `POST /api/derivations/:id/qa`
-
-Run creative QA analysis on an approved derivation. Returns cached result if already analyzed.
-
-**Response**
-
-```json
-{
-  "qa": {
-    "status": "pass",
-    "checklist": [...],
-    "issues": [],
-    "suggestions": []
-  },
-  "derivation": { ... }
-}
-```
-
----
-
-#### `POST /api/derivations/:id/landing-page`
-
-Generate a landing page HTML from an approved derivation.
-
-- Returns cached completed page if available.
-- Returns `429` if generation is already in progress.
-
-**Response**
-
-```json
-{
-  "landingPage": {
-    "id": "<uuid>",
-    "status": "completed",
-    "title": "...",
-    "htmlKey": "landing-pages/..."
-  },
-  "downloadUrl": "<presigned-url>",
-  "expiresAt": "2026-05-22T14:18:00.000Z"
-}
-```
-
----
-
-#### `POST /api/derivations/:id/save-reference`
-
-Save an approved derivation's output as a client profile reference asset.
-
-**Request body**
-
-```json
-{
-  "clientProfileId": "<uuid>",
-  "label": "Approved hero style",
-  "kind": "style",
-  "notes": "Used in summer campaign"
-}
-```
-
-Allowed `kind` values: `style`, `product`, `layout`, `logo`, `negative`, `other`.
-
-**Response**
-
-```json
-{
-  "reference": { "id": "<uuid>", ... }
-}
-```
-
-Status: `201 Created`
-
----
-
-### Client Profiles
-
-#### `GET /api/client-profiles`
-
-List client profiles for the workspace.
-
-**Response**
-
-```json
-{
-  "profiles": [
-    { "id": "<uuid>", "name": "Acme", ... }
-  ]
-}
-```
-
----
-
-#### `POST /api/client-profiles`
-
-Create a client profile.
-
-**Request body**
-
-```json
-{
-  "name": "Acme",
-  "description": "Enterprise SaaS client",
-  "visualNotes": "Clean, minimal",
-  "toneNotes": "Professional",
-  "constraints": "No stock photography"
-}
-```
-
-**Response**
-
-```json
-{
-  "profile": { "id": "<uuid>", ... }
-}
-```
-
-Status: `201 Created`
-
----
-
-#### `GET /api/client-profiles/:id/references`
-
-List reference assets for a client profile.
-
-**Response**
-
-```json
-{
-  "references": [
-    { "id": "<uuid>", "label": "Logo", "kind": "logo", ... }
-  ]
-}
-```
-
----
-
-#### `POST /api/client-profiles/:id/references`
-
-Add a reference asset to a client profile.
-
-**Request body**
-
-```json
-{
-  "assetKey": "campaigns/<uuid>/...",
-  "label": "Hero reference",
-  "kind": "style",
-  "notes": "Beach theme"
-}
-```
-
-**Validation**
-- The `assetKey` must belong to the current workspace.
-
-**Response**
-
-```json
-{
-  "reference": { "id": "<uuid>", ... }
-}
-```
-
-Status: `201 Created`
-
----
-
-### Templates
-
-#### `GET /api/templates`
-
-List templates for the workspace.
-
-**Response**
-
-```json
-{
-  "templates": [
-    { "id": "<uuid>", "name": "Summer Sale", ... }
-  ]
-}
-```
-
----
-
-#### `POST /api/templates`
-
-Create a template from a campaign.
-
-**Request body**
-
-```json
-{
-  "campaignId": "<uuid>",
-  "name": "Summer Sale Template",
-  "description": "Reusable summer layout"
-}
-```
-
-**Response**
-
-```json
-{
-  "template": { "id": "<uuid>", ... }
-}
-```
-
-Status: `201 Created`
-
----
-
-#### `GET /api/templates/:id`
-
-Get a single template.
-
-**Response**
-
-```json
-{
-  "template": { "id": "<uuid>", ... }
-}
-```
-
----
-
-#### `DELETE /api/templates/:id`
-
-Delete a template.
-
-**Response**
-
-```json
-{
-  "success": true
-}
-```
-
----
-
-### Restyling
-
-#### `POST /api/restyling`
-
-Standalone restyling endpoint. Creates a campaign, uploads base and style images, and queues a single restyling derivation.
-
-**Request body** (`multipart/form-data`)
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `name` | string | Yes | Campaign name |
-| `client` | string | No | Client name |
-| `offer` | string | No | Offer text |
-| `ctaText` | string | No | CTA text |
-| `styleIntensity` | string | Yes | `soft`, `medium`, or `strong` |
-| `baseImage` | File | Yes | Base image |
-| `styleImage` | File | Yes | Style reference image |
-
-**Response**
-
-```json
-{
-  "campaignId": "<uuid>",
-  "derivationId": "<uuid>",
-  "redirectUrl": "/campaigns/<uuid>"
-}
-```
-
-Status: `201 Created`
-
----
-
-### Quick Tools
-
-#### `POST /api/quick-tools/restyling`
-
-Identical to `POST /api/restyling`. Provides a restyling shortcut under the quick-tools namespace.
-
----
-
-### Exports
-
-#### `POST /api/exports`
-
-Export approved derivations as images.
-
-**Request body**
-
-```json
-{
-  "type": "individual",
-  "derivationId": "<uuid>",
-  "campaignId": "<uuid>",
-  "format": "png"
-}
-```
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `type` | `individual` \| `batch` | Yes | Export mode |
-| `derivationId` | string | If `individual` | Derivation to export |
-| `campaignId` | string | If `batch` | Campaign to export all approved derivations |
-| `format` | `png` \| `jpeg` \| `webp` | Yes | Output image format |
-
-**Response**
-
-```json
-{
-  "downloadUrl": "<presigned-url>",
-  "expiresAt": "2026-05-22T14:18:00.000Z"
-}
-```
-
-The download URL expires in **5 minutes**.
-
----
-
-### Billing
-
-#### `GET /api/billing/status`
-
-Get billing status for the workspace.
-
-**Response**
-
-```json
-{
-  "billing": {
-    "hasCustomer": true,
-    "subscription": {
-      "status": "active",
-      "planKey": "pro",
-      "currentPeriodEnd": "2026-06-22T00:00:00.000Z",
-      "cancelAtPeriodEnd": false
-    },
-    "creditBalance": 150
-  }
-}
-```
-
----
-
-#### `POST /api/billing/checkout`
-
-Create a Stripe Checkout session for a plan upgrade.
-
-**Request body**
-
-```json
-{
-  "planKey": "pro"
-}
-```
-
-**Response**
-
-```json
-{
-  "url": "https://checkout.stripe.com/..."
-}
-```
-
----
-
-#### `POST /api/billing/portal`
-
-Create a Stripe Customer Portal session.
-
-**Response**
-
-```json
-{
-  "url": "https://billing.stripe.com/..."
-}
-```
-
----
-
-#### `POST /api/billing/webhook`
-
-Stripe webhook receiver. Public endpoint.
-
-**Headers**
-
-| Header | Value |
-|--------|-------|
-| `Stripe-Signature` | Stripe event signature |
-
-**Body**: Raw Stripe event payload (do not parse as JSON before verification).
-
-**Response**
-
-```json
-{
-  "received": true,
-  "result": "..."
-}
-```
-
-**Security**
-- Signature is verified using `STRIPE_WEBHOOK_SECRET`.
-- Invalid or missing signatures return `400`.
-
----
-
-### Inngest
-
-#### `GET|POST|PUT /api/inngest`
-
-Inngest event receiver and sync endpoint. Public endpoint used by the Inngest platform.
-
-**Response**
-
-Inngest SDK-formatted handshake / event acknowledgment.
-
----
-
-## Rate Limiting
-
-The API implements domain-specific concurrency limits rather than global rate limits:
-
-| Endpoint | Limit | Behavior |
-|----------|-------|----------|
-| `POST /api/campaigns/:id/derivations` | 1 concurrent batch | Returns `429` if queued/processing derivations exist. |
-| `POST /api/campaigns/:id/diagnosis` | 1 concurrent analysis | Returns `429` if `creativeDiagnosisStatus === "analyzing"`. |
-| `POST /api/campaigns/:id/diagnosis/regenerate` | Same as above | Same behavior. |
-| `POST /api/derivations/:id/landing-page` | 1 concurrent generation | Returns `429` if a landing page is already queued. |
-| `POST /api/derivations/:id/regenerate` | 1 concurrent regeneration | Returns `429` if active child derivations exist. |
-
----
-
-## Webhooks
-
-### Stripe (`POST /api/billing/webhook`)
-
-Receives Stripe events (`checkout.session.completed`, `invoice.paid`, `customer.subscription.updated`, etc.). Events are verified, then passed to `processStripeEvent` for subscription and credit grant reconciliation.
-
-### Inngest (`GET|POST|PUT /api/inngest`)
-
-Receives event triggers from the Inngest platform and serves the function registration handshake. The `derivation.generate` event is handled by `derivationJob` to process image generation jobs asynchronously.
-
----
-
-## Request / Response Patterns
-
-### JSON POST/PATCH
-
-1. Parse and validate body with Zod.
-2. On validation failure, return `400` with `code: "invalidRequestBody"` and `details` containing field errors.
-3. On success, return the resource with `201` for creation or `200` for updates.
-
-### File Upload
-
-- Direct server upload: `multipart/form-data` to `POST .../assets/upload`.
-- Presigned upload: request a presigned URL via `POST .../assets/presign`, upload directly to R2, then confirm via `POST .../assets/complete`.
-- Max file size: **50 MB**.
-- Allowed types: **PNG, JPEG, WebP**.
-
-### Credit Spending
-
-Most generative endpoints (`plan`, `derivations`, `restyling`, `regeneration`, `delivery-package`, `landing-page`) call `spendCreditsOrApiError` before proceeding. If the workspace has insufficient credits, an error response is returned immediately.
-
-## Endpoints Overview
-
-The following tables summarize every HTTP endpoint. See the [Endpoints](#endpoints) section above for full request/response schemas and examples.
-
-### System & Auth
-
-| Method | Path | Description | Auth Required |
-|--------|------|-------------|---------------|
-| GET | `/api/health` | Public health check | No |
-| GET, POST | `/api/auth/[...all]` | Better Auth proxy (login, register, OAuth, etc.) | No |
-
-### User
-
-| Method | Path | Description | Auth Required |
-|--------|------|-------------|---------------|
-| DELETE | `/api/user/account` | Delete account and all workspace data | Yes |
-| GET | `/api/user/export` | Export all user data | Yes |
-| POST | `/api/user/locale` | Update locale preference | Yes |
-| GET, POST | `/api/user/onboarding` | Get or complete onboarding status | Yes |
-
-### Dashboard
-
-| Method | Path | Description | Auth Required |
-|--------|------|-------------|---------------|
-| GET | `/api/dashboard` | Workspace dashboard metrics | Yes |
-| GET | `/api/dashboard/stats` | Dashboard statistics | Yes |
-
-### Campaigns
-
-| Method | Path | Description | Auth Required |
-|--------|------|-------------|---------------|
-| GET, POST | `/api/campaigns` | List or create campaigns | Yes |
-| DELETE, GET, PATCH | `/api/campaigns/:id` | Get, update, or delete a campaign | Yes |
-
-### Campaign Assets
-
-| Method | Path | Description | Auth Required |
-|--------|------|-------------|---------------|
-| GET | `/api/campaigns/:id/assets` | List campaign assets | Yes |
-| GET, POST | `/api/campaigns/:id/assets/:assetId/preflight` | Get or run preflight analysis | Yes |
-| POST | `/api/campaigns/:id/assets/complete` | Complete a presigned upload | Yes |
-| POST | `/api/campaigns/:id/assets/link` | Link a workspace asset to the campaign | Yes |
-| POST | `/api/campaigns/:id/assets/presign` | Request a presigned upload URL | Yes |
-| POST | `/api/campaigns/:id/assets/upload` | Server-side asset upload | Yes |
-
-### Campaign Competitors
-
-| Method | Path | Description | Auth Required |
-|--------|------|-------------|---------------|
-| GET, POST | `/api/campaigns/:id/competitors` | List or add competitor analyses | Yes |
-| DELETE, PATCH | `/api/campaigns/:id/competitors/:competitorId` | Update or delete a competitor | Yes |
-| POST | `/api/campaigns/:id/competitors/analyze` | Analyze competitor creative | Yes |
-| POST | `/api/campaigns/:id/competitors/strategy` | Generate differentiation strategy | Yes |
-
-### Campaign Plan, Diagnosis & Briefing
-
-| Method | Path | Description | Auth Required |
-|--------|------|-------------|---------------|
-| GET, PATCH, POST | `/api/campaigns/:id/plan` | Get, generate, or approve creative plan | Yes |
-| PATCH, POST | `/api/campaigns/:id/diagnosis` | Get/run or manually update diagnosis | Yes |
-| POST | `/api/campaigns/:id/diagnosis/regenerate` | Force regenerate diagnosis | Yes |
-| POST | `/api/campaigns/:id/auto-briefing` | Auto-generate briefing from image | Yes |
-| GET | `/api/campaigns/:id/smart-resize-preview` | Smart resize analysis preview | Yes |
-
-### Derivations
-
-| Method | Path | Description | Auth Required |
-|--------|------|-------------|---------------|
-| GET, POST | `/api/campaigns/:id/derivations` | List or queue derivations | Yes |
-| PATCH | `/api/derivations/:id/review` | Approve or reject a derivation | Yes |
-| POST | `/api/derivations/:id/regenerate` | Create a child derivation with feedback | Yes |
-| POST | `/api/derivations/:id/delivery-package` | Generate format-adapted child derivations | Yes |
-| POST | `/api/derivations/:id/qa` | Run creative QA analysis | Yes |
-| POST | `/api/derivations/:id/landing-page` | Generate a landing page | Yes |
-| POST | `/api/derivations/:id/save-reference` | Save as client profile reference | Yes |
-| GET, POST | `/api/derivations/:id/copy-variants` | List or generate copy variants | Yes |
-| PATCH | `/api/derivations/:id/copy-variants/:variantId` | Select or deselect a copy variant | Yes |
-
-### Client Profiles
-
-| Method | Path | Description | Auth Required |
-|--------|------|-------------|---------------|
-| GET, POST | `/api/client-profiles` | List or create client profiles | Yes |
-| GET, POST | `/api/client-profiles/:id/references` | List or add reference assets | Yes |
-
-### Templates
-
-| Method | Path | Description | Auth Required |
-|--------|------|-------------|---------------|
-| GET, POST | `/api/templates` | List or create templates | Yes |
-| DELETE, GET | `/api/templates/:id` | Get or delete a template | Yes |
-
-### Restyling & Quick Tools
-
-| Method | Path | Description | Auth Required |
-|--------|------|-------------|---------------|
-| POST | `/api/restyling` | Standalone restyling workflow | Yes |
-| POST | `/api/quick-tools/restyling` | Restyling shortcut | Yes |
-
-### Exports
-
-| Method | Path | Description | Auth Required |
-|--------|------|-------------|---------------|
-| POST | `/api/exports` | Export derivations as images | Yes |
-| POST | `/api/export/zip` | Export derivations as a ZIP archive | Yes |
-
-### Billing
-
-| Method | Path | Description | Auth Required |
-|--------|------|-------------|---------------|
-| GET | `/api/billing/history` | Credit transaction history | Yes |
-| GET | `/api/billing/status` | Get billing status | Yes |
-| POST | `/api/billing/checkout` | Create Stripe Checkout session | Yes |
-| POST | `/api/billing/portal` | Create Stripe Customer Portal session | Yes |
-| POST | `/api/billing/webhook` | Stripe webhook receiver | No |
-
-### Workspace
-
-| Method | Path | Description | Auth Required |
-|--------|------|-------------|---------------|
-| GET, POST | `/api/workspace/assets` | List or upload workspace assets | Yes |
-| DELETE, GET, PATCH | `/api/workspace/assets/:id` | Get, update, or delete a workspace asset | Yes |
-| DELETE, GET, POST | `/api/workspace/brand-kit` | Get, create, or delete brand kit | Yes |
-| POST | `/api/workspace/brand-kit/extract` | Extract brand kit from image | Yes |
-| POST | `/api/workspace/brand-kit/logo` | Upload brand kit logo | Yes |
-| POST | `/api/workspace/invites/accept` | Accept a workspace invitation | Yes |
-| DELETE, GET, PATCH, POST | `/api/workspace/invites` | Manage workspace invitations | Yes |
-| DELETE, GET | `/api/workspace/members` | List or remove workspace members | Yes |
-
-### Notifications & Share
-
-| Method | Path | Description | Auth Required |
-|--------|------|-------------|---------------|
-| DELETE, GET, PATCH | `/api/notifications` | List, mark all read, or delete notifications | Yes |
-| PATCH | `/api/notifications/:id/read` | Mark a single notification as read | Yes |
-| POST | `/api/notifications/webhook` | Internal notification delivery webhook | No |
-| POST | `/api/share` | Create a shareable link for derivations | Yes |
-
-### Creatives
-
-| Method | Path | Description | Auth Required |
-|--------|------|-------------|---------------|
-| GET, POST | `/api/creatives/:id/persona-simulation` | Get or run persona simulation | Yes |
-
-### Platform
-
-| Method | Path | Description | Auth Required |
-|--------|------|-------------|---------------|
-| GET, POST, PUT | `/api/inngest` | Inngest event receiver and sync | No |
+Better Auth route catalog: <!-- VERIFY: confirm deployed Better Auth version and available /api/auth/* paths against https://www.better-auth.com/docs/concepts/api-routes -->

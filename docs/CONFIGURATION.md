@@ -1,463 +1,190 @@
-# Configuration Guide
-
-This document describes all configuration options, environment variables, and infrastructure setup for the ADScale application.
-
----
-
-## Table of Contents
-
-- [Environment Variables](#environment-variables)
-  - [Required](#required-variables)
-  - [Optional / With Defaults](#optional--with-defaults)
-- [Configuration Files](#configuration-files)
-- [Docker Configuration](#docker-configuration)
-- [Database Configuration](#database-configuration)
-- [Environment-Specific Setup](#environment-specific-setup)
-  - [Development](#development)
-  - [Testing](#testing)
-  - [Production](#production)
-- [Common Configuration Pitfalls](#common-configuration-pitfalls)
-
----
-
-## Environment Variables
-
-All runtime configuration is provided via environment variables. The app validates them at startup using `src/server/validation/env.ts` (Zod schema). **Missing or invalid variables will throw at runtime.**
-
-### Required Variables
-
-| Variable | Description | Validation |
-|----------|-------------|------------|
-| `DATABASE_URL` | PostgreSQL connection string | Must be a valid URL (`postgresql://...`) |
-| `BETTER_AUTH_SECRET` | Random secret for Better-Auth session signing | Min. 32 characters |
-| `BETTER_AUTH_URL` | Public URL where the auth API is hosted | Must be a valid URL |
-| `OPENAI_API_KEY` | OpenAI API key | Must start with `sk-` |
-| `R2_ACCOUNT_ID` | Cloudflare R2 account ID | Non-empty string |
-| `R2_ACCESS_KEY_ID` | Cloudflare R2 access key ID | Non-empty string |
-| `R2_SECRET_ACCESS_KEY` | Cloudflare R2 secret access key | Non-empty string |
-| `R2_BUCKET` | R2 bucket name | Non-empty string |
-| `R2_PUBLIC_BASE_URL` | Public base URL for R2 assets | Must be a valid URL |
-| `INNGEST_EVENT_KEY` | Inngest event key | Non-empty string |
-| `INNGEST_SIGNING_KEY` | Inngest signing key | Non-empty string |
-| `RESEND_API_KEY` | Resend email API key | Must start with `re_` |
-| `EMAIL_FROM` | Default sender address for transactional emails | Min. 3 characters |
-| `APP_URL` | Canonical public URL of the application | Must be a valid URL |
-| `STRIPE_SECRET_KEY` | Stripe secret key | Must start with `sk_` or `rk_` |
-| `STRIPE_WEBHOOK_SECRET` | Stripe webhook endpoint secret | Must start with `whsec_` |
-| `STRIPE_STARTER_PRICE_ID` | Stripe Price ID for the Starter plan | Must start with `price_` |
-| `STRIPE_GROWTH_PRICE_ID` | Stripe Price ID for the Growth plan | Must start with `price_` |
-| `STRIPE_SCALE_PRICE_ID` | Stripe Price ID for the Scale plan | Must start with `price_` |
-| `STRIPE_SUCCESS_URL` | Redirect URL after successful Stripe checkout | Must be a valid URL |
-| `STRIPE_CANCEL_URL` | Redirect URL after cancelled Stripe checkout | Must be a valid URL |
-
-### Optional / With Defaults
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `OPENAI_TEXT_MODEL` | `gpt-5-mini` | OpenAI text generation model |
-| `OPENAI_IMAGE_MODEL` | `gpt-image-2-2026-04-21` | OpenAI image generation model |
-| `NODE_ENV` | — | `development`, `test`, or `production` |
-| `NEXT_TELEMETRY_DISABLED` | — | Set to `1` to disable Next.js telemetry |
-| `INNGEST_DEV` | — | URL of the Inngest dev server (used in Docker) |
-
----
-
-## Configuration Files
-
-| File | Purpose |
-|------|---------|
-| `next.config.ts` | Next.js configuration. Sets `output: 'standalone'` for containerized deploys, disables image optimization (`unoptimized: true`), and wires `next-intl` via `withNextIntl`. |
-| `drizzle.config.ts` | Drizzle Kit configuration. Points to `src/server/db/schema.ts`, outputs migrations to `./drizzle`, targets PostgreSQL, filters the `adscale_app` schema, and applies migrations against the `public` schema. |
-| `tsconfig.json` | TypeScript compiler options. Uses `bundler` module resolution, strict mode, and path alias `@/*` → `./src/*`. |
-| `eslint.config.mjs` | ESLint flat config extending Next.js core-web-vitals and TypeScript presets. |
-| `postcss.config.mjs` | PostCSS config for Tailwind CSS v4 (`@tailwindcss/postcss` plugin). |
-| `config/vitest.config.ts` | Vitest test runner config. Uses `jsdom` environment, global APIs, and `@/...` alias resolution. Setup file: `tests/setup.ts`. |
-| `components.json` | shadcn/ui registry config. Style: `base-nova`, RSC enabled, Tailwind CSS variables, icon library: `lucide`. |
-| `src/i18n.ts` | next-intl request configuration. Loads messages from `messages/{locale}.json`, resolves locale priority: cookie → Accept-Language header → default (`pt-BR`). Hardcodes timezone to `America/Sao_Paulo`. |
-| `src/i18n/config.ts` | Locale constants: supported locales are `pt-BR` and `en`; default is `pt-BR`. |
-| `src/middleware.ts` | Next.js middleware. Handles locale cookie assignment and session-based route protection for `/`, `/campaigns/*`, and `/settings/*`. |
-| `middleware.ts` (root) | Simplified middleware variant used in some builds; performs auth check only (no i18n cookie handling). |
-| `render.yaml` | Render Blueprint. Defines the web service (`adscale-app`) and managed PostgreSQL database (`adscale-postgres`). |
-
----
-
-## Docker Configuration
-
-### `docker-compose.yml`
-
-Defines three services:
-
-1. **`postgres`** — PostgreSQL 16 (Alpine)
-   - User: `adscale` / Password: `adscale123` / DB: `adscale_db`
-   - Exposes port `5432`
-   - Persistent volume: `postgres_data`
-   - Initialization script mounted at `docker/postgres/init.sql`
-   - Healthcheck via `pg_isready`
-
-2. **`app`** — The Next.js application
-   - Built from `Dockerfile`
-   - Exposes port `3000`
-   - Loads env vars from `.env.docker`
-   - Sets `NODE_ENV=production` and `INNGEST_DEV=http://inngest:8288`
-   - Depends on `postgres` being healthy
-   - Healthcheck polls `http://localhost:3000/`
-
-3. **`inngest`** — Inngest dev server
-   - Image: `inngest/inngest:latest`
-   - Connects to the app's Inngest endpoint at `http://app:3000/api/inngest`
-   - Exposes port `8288`
-   - Only started with profile `dev` (`docker compose --profile dev up`)
-
-### `Dockerfile`
-
-Multi-stage build:
-
-- **Builder stage** (`node:20-alpine`)
-  - Installs dependencies with `npm ci`
-  - Builds the app with `next build`
-  - Disables Next.js telemetry (`NEXT_TELEMETRY_DISABLED=1`)
-
-- **Runner stage** (`node:20-alpine`)
-  - Runs as non-root user `nextjs` (UID 1001)
-  - Copies standalone output, static assets, public files, and drizzle artifacts
-  - Installs production dependencies plus `drizzle-kit` for migrations
-  - Entrypoint: `docker/entrypoint.sh`
-  - Listens on `0.0.0.0:3000`
-
-### `docker/entrypoint.sh`
-
-1. Waits for PostgreSQL on `postgres:5432` using `nc`.
-2. Runs `npx drizzle-kit migrate`.
-3. Starts the Next.js standalone server (`node server.js`).
-
-### `docker/postgres/init.sql`
-
-```sql
-CREATE SCHEMA IF NOT EXISTS adscale_app;
-GRANT ALL ON SCHEMA adscale_app TO adscale;
-```
-
----
-
-## Database Configuration
-
-- **ORM:** Drizzle ORM (`drizzle-orm`)
-- **Dialect:** PostgreSQL
-- **Driver:** `pg` (native) for Node; `@neondatabase/serverless` for serverless/edge
-- **Schema file:** `src/server/db/schema.ts`
-- **Migrations directory:** `./drizzle`
-- **Target schema:** `adscale_app`
-- **Migrations applied to:** `public` schema (per `drizzle.config.ts`)
-
-### CLI Scripts
-
-| Script | Command | Purpose |
-|--------|---------|---------|
-| `db:generate` | `drizzle-kit generate` | Generate migration files from schema changes |
-| `db:migrate` | `drizzle-kit migrate` | Apply pending migrations |
-| `db:push` | `drizzle-kit push` | Push schema changes directly (dev only) |
-| `db:studio` | `drizzle-kit studio` | Launch Drizzle Studio GUI |
-
----
-
-## Environment-Specific Setup
-
-### Development
-
-**Prerequisites:** Node.js 20+, local PostgreSQL or Docker.
-
-1. Copy environment variables:
-   ```bash
-   cp .env.example .env.local
-   ```
-   Edit `.env.local` and fill in real values for all keys marked `replace-me`.
-
-2. Start PostgreSQL (if not using Docker):
-   ```bash
-   # Or use docker compose for the full stack
-   docker compose up postgres -d
-   ```
-
-3. Run database migrations:
-   ```bash
-   npm run db:migrate
-   ```
-
-4. Start the dev server:
-   ```bash
-   npm run dev
-   ```
-   This runs `scripts/dev-with-inngest.mjs`, which launches both Next.js (`next dev`) and the Inngest dev server (`inngest-cli dev`) concurrently.
-
-**Dev-specific notes:**
-- `INNGEST_EVENT_KEY` and `INNGEST_SIGNING_KEY` can both be set to `local`.
-- Stripe keys can use test-mode values (`sk_test_...`).
-- The Inngest dev server UI is available at `http://localhost:8288`.
-
-### Testing
-
-Run the test suite:
-
-```bash
-npm test
-```
-
-- Uses Vitest with `jsdom` environment.
-- Config located at `config/vitest.config.ts`.
-- Global test utilities loaded from `tests/setup.ts` (includes `@testing-library/jest-dom`).
-
-### Production
-
-#### Render (Recommended)
-
-The project includes a `render.yaml` Blueprint for one-click deployment.
-
-<!-- VERIFY: Render dashboard plan, region, and auto-deploy settings are managed in the Render web UI and may differ from the Blueprint defaults. -->
-
-**Service:** `adscale-app`
-- **Runtime:** Node
-- **Plan:** free (upgrade as needed)
-- **Region:** oregon
-- **Build:** `npm ci && npm run build`
-- **Pre-deploy:** `npm run db:migrate`
-- **Start:** `npm start`
-- **Healthcheck:** `/api/health`
-
-**Database:** `adscale-postgres`
-- **Engine:** PostgreSQL 16
-- **Plan:** free
-- **Database name:** `adscale_db`
-- **User:** `adscale`
-
-**Environment variables on Render:**
-- `BETTER_AUTH_SECRET` is auto-generated by Render.
-- `DATABASE_URL` is auto-populated from the managed database connection string.
-- Sensitive values (`OPENAI_API_KEY`, `R2_*`, `INNGEST_*`, `RESEND_API_KEY`, `STRIPE_*`) are marked `sync: false` and must be set manually in the Render dashboard.
-
-<!-- VERIFY: Production domain `https://adscale-app.onrender.com` and associated redirect URLs in render.yaml assume the default Render service name. Changing the service name in the dashboard requires updating `BETTER_AUTH_URL`, `APP_URL`, and Stripe redirect URLs accordingly. -->
-
-#### Docker Production
-
-```bash
-docker compose up --build -d
-```
-
-- The `app` service runs in production mode (`NODE_ENV=production`).
-- Migrations run automatically on container start via `entrypoint.sh`.
-- Inngest dev server is **not** started by default (it requires `--profile dev`).
-
-<!-- VERIFY: For production Inngest, you must connect to Inngest Cloud (inngest.com) and update `INNGEST_EVENT_KEY` / `INNGEST_SIGNING_KEY` with cloud credentials. The local dev server is not suitable for production workloads. -->
-
----
-
-## Common Configuration Pitfalls
-
-### 1. `BETTER_AUTH_SECRET` too short
-The Zod schema enforces a minimum of 32 characters. Generate a strong random secret, e.g.:
-```bash
-openssl rand -base64 32
-```
-
-### 2. `DATABASE_URL` schema mismatch
-Drizzle applies migrations to the `public` schema but your tables live in `adscale_app`. Ensure `schemaFilter` in `drizzle.config.ts` and your schema definitions align. The init script creates `adscale_app` and grants privileges automatically for Docker setups; external databases may need manual setup.
-
-### 3. Missing `R2_PUBLIC_BASE_URL`
-Assets uploaded to R2 will not be served correctly if this URL is missing or invalid. It must be the public-facing endpoint for your bucket (e.g., `https://pub-xxx.r2.dev` or a custom domain).
-
-### 4. Stripe key prefixes
-- `STRIPE_SECRET_KEY` must start with `sk_` or `rk_`. Publishable keys (`pk_`) will fail validation.
-- `STRIPE_WEBHOOK_SECRET` must start with `whsec_`.
-- `STRIPE_*_PRICE_ID` values must start with `price_`.
-
-### 5. Auth redirect loops in middleware
-`src/middleware.ts` reads `better-auth.session_token` and `__Secure-better-auth.session_token`. If `BETTER_AUTH_URL` does not match the actual public URL, cookies may not be set correctly, causing infinite redirects on protected routes.
-
-### 6. Inngest dev server not running
-The `npm run dev` script starts the Inngest dev server automatically. If you run `npm run dev:next` directly, background jobs will not be processed locally unless you also run `npm run inngest:dev` in another terminal.
-
-### 7. `.env.local` vs `.env.docker`
-- `.env.local` is used by Next.js in local development.
-- `.env.docker` is loaded by the `app` service in `docker-compose.yml`.
-Keep both in sync when adding new variables.
-
-### 8. Render `sync: false` variables
-Variables marked `sync: false` in `render.yaml` are **not** auto-created. You must manually add them in the Render dashboard before the first deploy, or the application will crash on startup due to missing env validation.
-
-### 9. Image optimization disabled
-`next.config.ts` sets `images.unoptimized: true`. This is required for standalone output on some platforms, but means you lose Next.js built-in image optimization. Ensure your image sources (R2/CDN) handle resizing if needed.
-
-### 10. Timezone hardcoded
-`src/i18n.ts` hardcodes `timeZone: "America/Sao_Paulo"`. If your user base spans multiple timezones, you may need to make this dynamic.
-
----
-
-## Config File Format
-
-Key configuration files use JSON or ECMAScript module formats. Below are the top-level structures for the most frequently referenced files.
-
-### `components.json`
-
-```json
-{
-  "$schema": "https://ui.shadcn.com/schema.json",
-  "style": "base-nova",
-  "rsc": true,
-  "tsx": true,
-  "tailwind": {
-    "config": "",
-    "css": "src/app/globals.css",
-    "baseColor": "neutral",
-    "cssVariables": true,
-    "prefix": ""
-  },
-  "iconLibrary": "lucide",
-  "aliases": {
-    "components": "@/components",
-    "utils": "@/lib/utils",
-    "ui": "@/components/ui",
-    "lib": "@/lib",
-    "hooks": "@/hooks"
-  }
-}
-```
-
-### `tsconfig.json`
-
-```json
-{
-  "compilerOptions": {
-    "target": "ES2017",
-    "module": "esnext",
-    "moduleResolution": "bundler",
-    "strict": true,
-    "noEmit": true,
-    "jsx": "react-jsx",
-    "paths": {
-      "@/*": ["./src/*"]
-    }
-  },
-  "include": [
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    ".next/types/**/*.ts"
-  ],
-  "exclude": ["node_modules"]
-}
-```
-
-### `postcss.config.mjs`
-
-```js
-export default {
-  plugins: {
-    "@tailwindcss/postcss": {},
-  },
-};
-```
-
-### `drizzle.config.ts`
+<!-- generated-by: gsd-doc-writer -->
+
+# Configuration
+
+Environment variables, validation, and deployment-related settings for the ADScale Next.js app (`app/`). Copy `app/.env.example` to `app/.env.local` for local development. Production on Render is defined in the repository root `render.yaml`.
+
+## Environment variables
+
+Runtime secrets and service URLs are read from `process.env`. The canonical list for local setup is `app/.env.example`. At runtime, server code imports validated values from `app/src/server/validation/env.ts` (`envSchema`).
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `DATABASE_URL` | Yes | — | PostgreSQL connection string (validated as URL). Used by Drizzle, migrations, and scripts. |
+| `BETTER_AUTH_SECRET` | Yes | — | Session signing secret; minimum 32 characters. |
+| `BETTER_AUTH_URL` | Yes | — | Public base URL for Better Auth (must match how users reach the app). |
+| `APP_URL` | Yes | — | Canonical app URL (trusted origin, emails, redirects). |
+| `OPENAI_API_KEY` | Yes | — | OpenAI API key; must start with `sk-`. |
+| `OPENAI_TEXT_MODEL` | No | `gpt-5-mini` | Text model for AI features. |
+| `OPENAI_IMAGE_MODEL` | No | `gpt-image-2-2026-04-21` | Image model for AI features. |
+| `R2_ACCOUNT_ID` | Yes | — | Cloudflare R2 account ID. |
+| `R2_ACCESS_KEY_ID` | Yes | — | R2 access key ID. |
+| `R2_SECRET_ACCESS_KEY` | Yes | — | R2 secret access key. |
+| `R2_BUCKET` | Yes | — | R2 bucket name. |
+| `R2_PUBLIC_BASE_URL` | Yes | — | Public HTTPS base URL for R2 assets (also used for Next.js `images.remotePatterns`). |
+| `INNGEST_EVENT_KEY` | Yes | — | Inngest event key (`local` is fine for local dev). |
+| `INNGEST_SIGNING_KEY` | Yes | — | Inngest signing key (`local` is fine for local dev). |
+| `RESEND_API_KEY` | Yes | — | Resend API key; must start with `re_`. |
+| `EMAIL_FROM` | Yes | — | Default transactional email sender (min. 3 characters). |
+| `STRIPE_SECRET_KEY` | Yes | — | Stripe secret key; must start with `sk_` or `rk_`. |
+| `STRIPE_WEBHOOK_SECRET` | Yes | — | Stripe webhook secret; must start with `whsec_`. |
+| `STRIPE_STARTER_PRICE_ID` | Yes | — | Stripe Price ID for Starter; must start with `price_`. |
+| `STRIPE_GROWTH_PRICE_ID` | Yes | — | Stripe Price ID for Growth; must start with `price_`. |
+| `STRIPE_SCALE_PRICE_ID` | Yes | — | Stripe Price ID for Scale; must start with `price_`. |
+| `STRIPE_SUCCESS_URL` | Yes | — | Redirect after successful checkout (URL). |
+| `STRIPE_CANCEL_URL` | Yes | — | Redirect after cancelled checkout (URL). |
+| `GOOGLE_CLIENT_ID` | No | — | Google OAuth client ID; both ID and secret required to enable Google login. |
+| `GOOGLE_CLIENT_SECRET` | No | — | Google OAuth client secret. |
+| `GITHUB_CLIENT_ID` | No | — | GitHub OAuth client ID; both ID and secret required to enable GitHub login. |
+| `GITHUB_CLIENT_SECRET` | No | — | GitHub OAuth client secret. |
+| `ZEP_API_KEY` | No | — | Zep Cloud API key; required when brand memory is enabled. |
+| `ZEP_ENABLED` | No | — | Set to `true` with `ZEP_API_KEY` to enable Zep brand memory. |
+| `ZEP_GRAPH_PREFIX` | No | `adscale_workspace` (in code) | Prefix for Zep graph IDs per workspace. |
+| `TEST_DATABASE_URL` | No (tests) | `postgres://test:test@localhost:5433/adscale_test` | Integration DB URL; used by Vitest and `npm run test:db:setup`. |
+| `NODE_ENV` | No | Node default | `development`, `production`, or `test`; affects auth email verification, rate limiting, Sentry sampling, and console stripping. |
+| `NEXT_TELEMETRY_DISABLED` | No | — | Set to `1` in `render.yaml` to disable Next.js telemetry. |
+| `SENTRY_DSN` | No | — | Sentry DSN; when set, enables error reporting via `app/src/instrumentation.ts`. |
+| `SENTRY_ORG` | No | — | Sentry org slug for source map upload (`next.config.ts`). |
+| `SENTRY_PROJECT` | No | — | Sentry project slug for source map upload. |
+| `UPSTASH_REDIS_REST_URL` | No | — | Upstash Redis REST URL for distributed rate limiting. |
+| `UPSTASH_REDIS_REST_TOKEN` | No | — | Upstash Redis REST token (pair with URL). |
+| `NOTIFICATION_WEBHOOK_SECRET` | No | — | Shared secret for `POST /api/notifications/webhook` (not in Zod schema). |
+| `NEXT_PUBLIC_APP_URL` | No | — | Optional public URL for share links (`app/src/lib/share-token.ts`). |
+| `DEV_ADMIN_EMAIL` | No | — | Default email for `scripts/seed-dev-admin.ts` when CLI `--email` is omitted. |
+| `ANALYZE` | No | — | Set to `true` to enable bundle analyzer (`npm run analyze`). |
+
+Variables in `.env.example` but **not** in `envSchema` still matter for tooling (e.g. `TEST_DATABASE_URL`, `SENTRY_*`). Variables used in code but absent from `.env.example` should be added to `.env.local` when you need that feature.
+
+## Env validation (Zod)
+
+Validation lives in `app/src/server/validation/env.ts`:
+
+- `envSchema` — `z.object({ ... })` with the rules in the table above (formats, prefixes, and min lengths).
+- `env` — parsed once at module load via `envSchema.safeParse(process.env)`.
+- On failure, accessing `env.<KEY>` throws: `Env validation failed for <KEY>: <message>` (except in `NODE_ENV=test`, where missing keys return `undefined` from the proxy).
+
+Import `env` from `@/server/validation/env` in server modules (database, auth, billing, storage, AI, jobs, email). Do not read validated secrets directly from `process.env` in those paths.
+
+CLI scripts that import `env` before other modules should import `app/scripts/load-env.ts` first so `app/.env.local` is loaded:
 
 ```ts
-export default defineConfig({
-  schema: "./src/server/db/schema.ts",
-  out: "./drizzle",
-  dialect: "postgresql",
-  schemaFilter: ["adscale_app"],
-  dbCredentials: { url: process.env.DATABASE_URL! },
-  migrations: { schema: "public" },
-});
+import "./load-env";
+import { env } from "@/server/validation/env";
 ```
 
----
+Next.js loads `.env.local` automatically for `next dev` / `next start`; standalone scripts use `load-env.ts` or explicit `dotenv` (see `app/scripts/check-db.ts`, migration scripts).
 
-## Required vs Optional Settings
+Unit tests for validation patterns: `app/tests/unit/env-validation.test.ts`.
 
-At startup, `src/server/validation/env.ts` validates every environment variable with a Zod schema. **Missing required variables cause the process to throw immediately.** Optional variables are defined with `.optional()` or `.default()` in the schema.
+## Required vs optional settings
 
-### Required (startup fails if missing)
+**Startup will fail** (when server code touches `env`) if any Zod-required variable is missing or invalid. That includes database, auth, OpenAI, R2, Inngest, Resend, Stripe, and core URL variables.
 
-All variables listed in [Required Variables](#required-variables) are mandatory. The Zod schema does not provide fallbacks for these.
+**Optional behavior:**
 
-### Optional (startup succeeds if missing)
+- OAuth providers — omitted unless both client ID and secret are set (`app/src/server/auth/index.ts`).
+- Zep brand memory — off unless `ZEP_ENABLED === "true"` and `ZEP_API_KEY` is set.
+- Sentry — disabled when `SENTRY_DSN` is unset (`silent: !process.env.SENTRY_DSN` in `app/next.config.ts`).
+- Upstash rate limiting — if `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are unset, production uses an in-memory limiter with a warning (`app/src/lib/rate-limit.ts`).
+- Notification webhook — if `NOTIFICATION_WEBHOOK_SECRET` is unset, webhook auth checks may not match any caller-supplied secret.
 
-| Variable | Behavior when missing |
-|----------|----------------------|
-| `GOOGLE_CLIENT_ID` | OAuth login disabled |
-| `GOOGLE_CLIENT_SECRET` | OAuth login disabled |
-| `GITHUB_CLIENT_ID` | OAuth login disabled |
-| `GITHUB_CLIENT_SECRET` | OAuth login disabled |
-| `SENTRY_DSN` | Sentry error tracking disabled |
-| `SENTRY_ORG` | Sentry error tracking disabled |
-| `SENTRY_PROJECT` | Sentry error tracking disabled |
+**Development-only:**
 
-### Optional with built-in defaults
-
-| Variable | Default | Source |
-|----------|---------|--------|
-| `OPENAI_TEXT_MODEL` | `gpt-5-mini` | Zod schema default |
-| `OPENAI_IMAGE_MODEL` | `gpt-image-2-2026-04-21` | Zod schema default |
-
----
+- `requireEmailVerification` is `false` when `NODE_ENV !== "production"` (`app/src/server/auth/index.ts`).
+- Trusted auth origins include `http://localhost:3000` and `http://127.0.0.1:3000` in development.
 
 ## Defaults
 
-Beyond environment variable defaults, the application defines defaults in the database schema and API schemas.
+Defaults enforced by Zod (applied when the variable is unset or empty at parse time):
 
-### Environment variable defaults
+| Variable | Default |
+|----------|---------|
+| `OPENAI_TEXT_MODEL` | `gpt-5-mini` |
+| `OPENAI_IMAGE_MODEL` | `gpt-image-2-2026-04-21` |
 
-| Variable | Default | Defined in |
-|----------|---------|------------|
-| `OPENAI_TEXT_MODEL` | `gpt-5-mini` | `src/server/validation/env.ts` |
-| `OPENAI_IMAGE_MODEL` | `gpt-image-2-2026-04-21` | `src/server/validation/env.ts` |
+Code defaults not in Zod:
 
-### Database schema defaults
+| Variable | Default | Location |
+|----------|---------|----------|
+| `ZEP_GRAPH_PREFIX` | `adscale_workspace` | `app/src/server/memory/zep-client.ts` |
+| `TEST_DATABASE_URL` | `postgres://test:test@localhost:5433/adscale_test` | `app/scripts/setup-test-db.ts` |
+| Sentry `tracesSampleRate` | `0.1` production, `1.0` otherwise | `app/src/instrumentation.ts` |
 
-| Column | Default | Context |
-|--------|---------|---------|
-| `locale` | `pt-BR` | `users` table |
-| `email_notifications_enabled` | `true` | `users` table |
-| `role` | `member` | `members`, `invitations` tables |
-| `status` | `pending` | `invitations`, `campaigns`, `tasks` tables |
-| `generation_mode` | `art_variation` | `creatives`, `variations` tables |
-| `creative_level` | `balanced` | `creatives`, `variations` tables |
-| `style_intensity` | `medium` | `creatives`, `variations` tables |
-| `creative_diagnosis_status` | `pending` | `creatives` table |
-| `cancel_at_period_end` | `false` | `subscriptions` table |
-| `is_selected` | `false` | `briefing_references` table |
-| `is_preview` | `false` | `creatives` table |
-| `qa_status` | `pending` | `creatives` table |
-| `source` | `upload` | `briefing_references` table |
-| `score_status` | `pending` | `score_requests` table |
+Example local values from `app/.env.example`: `BETTER_AUTH_URL` and `APP_URL` default to `http://localhost:3000`; Inngest keys use `local`.
 
----
+## Config file format
 
-## Per-Environment Overrides
+### `app/.env.example` / `app/.env.local`
 
-The application supports environment-specific configuration through multiple mechanisms.
+Dotenv-style `KEY=value` pairs. Use `.env.local` for secrets (gitignored). Never commit real API keys.
 
-### Local development
+### `render.yaml` (repository root)
 
-- **`.env.local`** — Loaded automatically by Next.js during `next dev`. Copy from `.env.example` and fill in real values.
-- **`TEST_DATABASE_URL`** — Used by `config/vitest.config.ts` and `scripts/setup-test-db.ts` when running tests. Falls back to `postgres://test:test@localhost:5433/adscale_test` in the setup script if unset.
+Render Blueprint for production:
 
-### Docker
+| Resource | Name | Notes |
+|----------|------|--------|
+| Web service | `adscale-app` | `rootDir: app`, `buildCommand: npm ci && npm run build`, `preDeployCommand: npm run db:migrate`, `startCommand: npm start`, health check `/api/health` |
+| Database | `adscale-postgres` | PostgreSQL 16, database `adscale_db`, user `adscale` |
 
-- **`.env.docker`** — Explicitly loaded by the `app` service in `docker-compose.yml` via `env_file`. This file should mirror `.env.local` but with Docker-network-compatible hostnames (e.g., `postgres:5432` instead of `localhost:5432`).
+Injected or fixed env vars include `NODE_ENV=production`, `DATABASE_URL` from the managed DB, generated `BETTER_AUTH_SECRET`, and public URLs. Secrets marked `sync: false` must be set in the Render Dashboard. See also `docs/render-deployment.md`.
 
-### Production (Render)
+Production URL placeholders in the blueprint (update if your service URL differs):
 
-- **`render.yaml`** — Defines environment variables directly. Some are hardcoded (e.g., `NODE_ENV=production`), some are auto-generated (`BETTER_AUTH_SECRET`), some reference the managed database (`DATABASE_URL`), and sensitive values are marked `sync: false` and must be set manually in the Render dashboard.
+- `BETTER_AUTH_URL`, `APP_URL`: `https://adscale-app.onrender.com`
+- `STRIPE_SUCCESS_URL`, `STRIPE_CANCEL_URL`: paths under that host
 
-### `NODE_ENV` conditionals
+<!-- VERIFY: Confirm the live Render service URL and custom domain in the Render Dashboard; update BETTER_AUTH_URL, APP_URL, and Stripe redirect URLs if they differ from render.yaml -->
 
-Several behaviors change based on `NODE_ENV`:
+### `app/drizzle.config.ts`
 
-| Behavior | Development | Production | Test |
-|----------|-------------|------------|------|
-| Console removal | No | Yes (`next.config.ts`) | No |
-| Sentry traces sample rate | `1.0` | `0.1` (`instrumentation.ts`) | `1.0` |
-| Sentry debug mode | Yes | No (`instrumentation.ts`) | No |
-| Error stack traces in API responses | Yes | No (`lib/api-response.ts`) | No |
-| React Query devtools | Yes | No (`components/providers/QueryProvider.tsx`) | No |
-| Rate limit strictness | Relaxed | Strict (`lib/rate-limit.ts`) | Relaxed |
+Drizzle Kit config: schema `app/src/server/db/schema.ts`, migrations under `app/drizzle`, PostgreSQL dialect, `schemaFilter: ["adscale_app"]`, credentials from `process.env.DATABASE_URL` (not validated through `env` at CLI time—must be set in the shell).
+
+### `app/next.config.ts`
+
+Next.js 16 config: `output: 'standalone'`, `next-intl` plugin, Sentry wrapper, optional bundle analyzer when `ANALYZE=true`. Reads `R2_PUBLIC_BASE_URL`, `SENTRY_*`, and `NODE_ENV` from the environment at build time.
+
+### Docker (optional local stack)
+
+`app/docker-compose.yml`, `app/Dockerfile`, and `app/DOCKER.md` describe a containerized Postgres + app (+ optional Inngest dev profile). Env for Compose is separate from `.env.local`; see `app/DOCKER.md` for `.env.docker` and service-specific variables.
+
+## Per-environment overrides
+
+| Environment | How config is supplied |
+|-------------|-------------------------|
+| **Local dev** | `app/.env.local` (from `.env.example`). Run `npm run dev` in `app/` (starts Next.js and Inngest dev server). Auth URLs typically `http://localhost:3000`. |
+| **Tests** | `TEST_DATABASE_URL`; Vitest may pass it via `app/config/vitest.config.ts`. `NODE_ENV=test` relaxes `env` proxy throws. Setup: `npm run test:db:setup` / teardown: `npm run test:db:teardown`. |
+| **Production (Render)** | `render.yaml` + Dashboard secrets (`sync: false` keys). `DATABASE_URL` from managed Postgres. |
+
+External integrations must use the same public base URL as `APP_URL` / `BETTER_AUTH_URL`:
+
+- Inngest serve URL: `{APP_URL}/api/inngest` <!-- VERIFY: Register this URL in the Inngest Cloud dashboard for production -->
+- Stripe webhooks: `{APP_URL}/api/billing/webhook` <!-- VERIFY: Endpoint URL and signing secret in the Stripe Dashboard -->
+
+There are no committed `.env.development` or `.env.production` files; use `.env.local` locally and Render env groups in production.
+
+## Package scripts (configuration-related)
+
+Run from the `app/` directory:
+
+| Command | Purpose |
+|---------|---------|
+| `npm run dev` | Dev server + Inngest dev (`scripts/dev-with-inngest.mjs`) |
+| `npm run dev:next` | Next.js only on port 3000 |
+| `npm run inngest:dev` | Inngest CLI pointed at `http://localhost:3000/api/inngest` |
+| `npm run build` / `npm start` | Production build and server (Render `startCommand`) |
+| `npm run db:migrate` | Apply Drizzle migrations (Render `preDeployCommand`) |
+| `npm run db:generate` | Generate migration SQL |
+| `npm run db:push` | Push schema (dev convenience) |
+| `npm run db:studio` | Drizzle Studio |
+| `npm run test` | Vitest (`config/vitest.config.ts`) |
+| `npm run test:db:setup` / `test:db:teardown` | Docker test Postgres on port 5433 |
+| `npm run analyze` | Bundle analyzer (`ANALYZE=true`) |
+
+Root `package.json` only adds `cross-env` for monorepo tooling; application scripts live in `app/package.json`.
+
+## Related documentation
+
+- `docs/GETTING-STARTED.md` — first-time clone and run
+- `docs/DEPLOYMENT.md` — deployment targets and CI
+- `docs/render-deployment.md` — Render secrets checklist and URL updates

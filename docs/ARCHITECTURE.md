@@ -1,729 +1,378 @@
-# ADScale_2 Architecture
+<!-- generated-by: gsd-doc-writer -->
 
-> Comprehensive architecture documentation for the ADScale_2 SaaS application — an AI-powered advertising creative generation platform.
+# ADScale Architecture
 
----
-
-## Table of Contents
-
-1. [Overview](#overview)
-2. [High-Level Architecture](#high-level-architecture)
-3. [Technology Stack](#technology-stack)
-4. [Directory Structure](#directory-structure)
-5. [Frontend Architecture](#frontend-architecture)
-6. [Backend Architecture](#backend-architecture)
-7. [Data Layer](#data-layer)
-8. [Authentication & Authorization](#authentication--authorization)
-9. [Background Job Processing](#background-job-processing)
-10. [AI Layer](#ai-layer)
-11. [Billing & Subscriptions](#billing--subscriptions)
-12. [Storage](#storage)
-13. [API Design Patterns](#api-design-patterns)
-14. [State Management](#state-management)
-15. [Internationalization (i18n)](#internationalization-i18n)
-16. [Testing Strategy](#testing-strategy)
-17. [Deployment & Infrastructure](#deployment--infrastructure)
-18. [Data Flow](#data-flow)
-19. [Security Considerations](#security-considerations)
+ADScale is a multi-tenant SaaS for AI-assisted advertising creative production. Teams work inside **workspaces**, define **campaigns** with briefing and assets, and generate **derivations** (image variants) via OpenAI image models. Outputs land in **Cloudflare R2** (S3-compatible object storage); metadata and billing state live in **PostgreSQL** via **Drizzle**. Long-running work runs on **Inngest**; the UI is **Next.js 16** (App Router) with **React 19**, **TanStack Query**, and **Better Auth**.
 
 ---
 
-## Overview
+## System overview
 
-ADScale_2 is a SaaS platform that helps marketing teams and agencies generate advertising creative variations at scale using AI. Users create **campaigns**, upload reference assets, configure creative parameters, and the system generates image derivations through OpenAI's image models. The platform supports multiple generation modes (art variation, format adaptation, restyling), creative scoring, quality assurance, landing page generation, and subscription-based billing.
+The application follows a classic **browser → Next.js API routes → repositories → Postgres/R2** shape, with **async workers** for derivation generation and brand-memory ingestion.
+
+| Concern | Implementation |
+|--------|----------------|
+| Web UI & HTTP API | `app/src/app/` (App Router), `app/src/components/`, `app/src/lib/hooks/` |
+| Auth & tenancy | Better Auth + `requireWorkspaceAccess()` (`app/src/server/auth/workspace.ts`) |
+| Persistence | Drizzle ORM, schema `adscale_app` (`app/src/server/db/schema.ts`) |
+| Files | `objectStorage` abstraction → R2 (`app/src/server/storage/`) |
+| AI | OpenAI SDK modules under `app/src/server/ai/` |
+| Background jobs | Inngest functions registered in `app/src/app/api/inngest/route.ts` |
+| Billing | Stripe + credit gates (`app/src/server/billing/`) |
+
+**v11.1 cross-cutting concerns** (milestone focus):
+
+1. **Creative contract** — typed generation/scoring/QA inputs (`CreativeContract`, `CtaSemantics`) shared across prompt building, scoring, and quality gate.
+2. **Hard quality gate** — separates blocking **hard failures** from advisory **polish suggestions**, derives `qualityVerdict`, and blocks approval when invalid.
+3. **CampaignLoadError** — client-side taxonomy mapping API `code` + HTTP status to localized error UI.
+4. **Workspace-scoped API** — every mutating/read path resolves the caller’s workspace and scopes queries by `workspace.id`.
+5. **Derivation verdict UI** — cards and review modal surface `qualityVerdict`, `hardFailures`, and polish hints.
 
 ---
 
-## High-Level Architecture
+## Component diagram
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              CLIENT LAYER                                    │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
-│  │  Next.js    │  │  React 19   │  │ Tailwind CSS│  │  shadcn/ui          │ │
-│  │  App Router │  │  Components │  │  Styling    │  │  Primitives         │ │
-│  └──────┬──────┘  └─────────────┘  └─────────────┘  └─────────────────────┘ │
-│         │                                                                    │
-│  ┌──────┴──────────────────────────────────────────────────────────────────┐ │
-│  │  State Management: TanStack Query (server) + Zustand (UI)               │ │
-│  └─────────────────────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                      │
-                                      ▼ HTTP / API Routes
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              BACKEND LAYER                                   │
-│  ┌─────────────────────────────────────────────────────────────────────────┐ │
-│  │  Next.js API Routes (App Router)                                        │ │
-│  │  ├── /api/auth/*          → Better Auth (session management)            │ │
-│  │  ├── /api/campaigns/*     → Campaign CRUD & workflow                    │ │
-│  │  ├── /api/derivations/*   → Derivation generation & management          │ │
-│  │  ├── /api/billing/*       → Stripe checkout, portal, webhooks           │ │
-│  │  ├── /api/client-profiles/* → Client reference library                  │ │
-│  │  ├── /api/templates/*     → Campaign templates                          │ │
-│  │  ├── /api/exports/*       → Asset export                                │ │
-│  │  ├── /api/dashboard/*     → Analytics & metrics                         │ │
-│  │  ├── /api/inngest         → Background job handler                      │ │
-│  │  └── /api/health          → Health checks                               │ │
-│  └─────────────────────────────────────────────────────────────────────────┘ │
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────────┐ │
-│  │  Server Modules                                                         │ │
-│  │  ├── Auth (better-auth + workspace scoping)                             │ │
-│  │  ├── Repositories (Drizzle ORM data access)                             │ │
-│  │  ├── Services (email, export, landing page rendering)                   │ │
-│  │  ├── AI Layer (prompt builder, scoring, diagnosis, QA)                  │ │
-│  │  ├── Billing (Stripe integration, credit gates)                         │ │
-│  │  ├── Jobs (Inngest background workers)                                  │ │
-│  │  └── Storage (Cloudflare R2 / S3-compatible)                            │ │
-│  └─────────────────────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                      │
-                                      ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                            DATA & INFRASTRUCTURE                             │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
-│  │  PostgreSQL │  │  Cloudflare │  │   Stripe    │  │     OpenAI API      │ │
-│  │  (Drizzle)  │  │     R2      │  │  Payments   │  │   (GPT-Image-2)     │ │
-│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────────────┘ │
-│                                                                              │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                          │
-│  │   Inngest   │  │   Resend    │  │   Render    │                          │
-│  │  Job Queue  │  │   Email     │  │  Platform   │                          │
-│  └─────────────┘  └─────────────┘  └─────────────┘                          │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+  subgraph Client
+    UI[React components]
+    Hooks[TanStack Query hooks]
+    Err[CampaignLoadError]
+  end
+
+  subgraph NextApp["Next.js app/src/app"]
+    Pages[(dashboard) pages]
+    API[api/* Route Handlers]
+    InngestRoute[api/inngest]
+  end
+
+  subgraph Server["app/src/server"]
+    Auth[auth/workspace]
+    Repo[repositories/*]
+    AI[ai/*]
+    Jobs[jobs/*]
+    Store[storage/objectStorage]
+    Bill[billing/gates]
+  end
+
+  subgraph External
+    PG[(PostgreSQL)]
+    R2[(R2 / S3)]
+    OAI[OpenAI]
+    ING[Inngest Cloud]
+  end
+
+  UI --> Hooks
+  Hooks --> API
+  Hooks --> Err
+  Pages --> UI
+  API --> Auth
+  API --> Repo
+  API --> Bill
+  API --> ING
+  InngestRoute --> Jobs
+  Jobs --> Repo
+  Jobs --> AI
+  Jobs --> Store
+  Repo --> PG
+  Store --> R2
+  AI --> OAI
+  ING --> Jobs
 ```
 
 ---
 
-## Technology Stack
+## Directory structure rationale
 
-| Layer | Technology | Purpose |
-|-------|-----------|---------|
-| **Framework** | Next.js 15 (App Router) | Full-stack React framework |
-| **Language** | TypeScript 5 | Type safety |
-| **UI** | React 19 + Tailwind CSS 4 | Component library & styling |
-| **Components** | shadcn/ui + Radix UI | Accessible UI primitives |
-| **State (Server)** | TanStack Query v5 | Server state, caching, sync |
-| **State (Client)** | Zustand | Local UI state |
-| **ORM** | Drizzle ORM | Type-safe database queries |
-| **Database** | PostgreSQL 16 | Relational data store |
-| **Auth** | Better Auth | Session-based authentication |
-| **Jobs** | Inngest | Background job processing |
-| **AI** | OpenAI API (GPT-Image-2, GPT-5-mini) | Image generation & analysis |
-| **Storage** | Cloudflare R2 (S3 API) | Object storage for assets |
-| **Payments** | Stripe | Subscription billing |
-| **Email** | Resend | Transactional emails |
-| **i18n** | next-intl | Internationalization (pt-BR, en) |
-| **Testing** | Vitest + jsdom + Testing Library | Unit & integration tests |
-| **Validation** | Zod | Schema validation |
-| **Deployment** | Render | Cloud hosting |
+Application code lives under `app/` (npm package `adscale-app`). Source is rooted at `app/src/`:
 
----
+| Path | Role |
+|------|------|
+| `app/src/app/` | App Router: UI routes `(dashboard)/`, public pages, and `api/*` Route Handlers |
+| `app/src/components/` | Presentational and feature components (campaign workspace, settings, UI primitives) |
+| `app/src/lib/` | Client utilities: `api-client`, React Query hooks, `campaign-load-error`, formats, logger |
+| `app/src/server/ai/` | OpenAI-backed creative pipeline: prompts, scoring, QA, quality gate, contract |
+| `app/src/server/auth/` | Better Auth config, session helpers, workspace access |
+| `app/src/server/billing/` | Stripe, plans, credits, `spendCreditsOrApiError` gates |
+| `app/src/server/db/` | Drizzle client + `schema.ts` (all tables in `adscale_app` schema) |
+| `app/src/server/jobs/` | Inngest client, `derivationJob`, trial notifications, workspace asset analysis, brand memory |
+| `app/src/server/memory/` | Zep brand-memory ingest, context assembly for prompts |
+| `app/src/server/repositories/` | Data access layer; all campaign/derivation queries accept `workspaceId` |
+| `app/src/server/services/` | Email, notifications, export, landing-page render |
+| `app/src/server/storage/` | `objectStorage` interface; R2 and in-memory implementations |
+| `app/src/server/validation/` | `env` (Zod-validated environment) |
+| `app/src/i18n/` | `next-intl` message catalogs |
 
-## Directory Structure
-
-```
-app/
-├── src/
-│   ├── app/                          # Next.js App Router
-│   │   ├── (dashboard)/              # Dashboard route group (protected)
-│   │   │   ├── campaigns/[id]/       # Campaign workspace
-│   │   │   ├── templates/            # Campaign templates
-│   │   │   ├── restyling/            # Quick restyling tool
-│   │   │   ├── settings/             # User & workspace settings
-│   │   │   ├── layout.tsx            # Dashboard shell
-│   │   │   └── page.tsx              # Dashboard home
-│   │   ├── api/                      # API Routes
-│   │   │   ├── auth/[...all]/        # Better Auth handler
-│   │   │   ├── campaigns/            # Campaign API
-│   │   │   ├── derivations/          # Derivation API
-│   │   │   ├── billing/              # Billing & checkout
-│   │   │   ├── client-profiles/      # Client reference library
-│   │   │   ├── templates/            # Template API
-│   │   │   ├── exports/              # Export API
-│   │   │   ├── dashboard/            # Dashboard metrics
-│   │   │   ├── inngest/              # Inngest webhook handler
-│   │   │   ├── health/               # Health check
-│   │   │   └── ...
-│   │   ├── login/                    # Login page
-│   │   ├── signup/                   # Signup page
-│   │   ├── layout.tsx                # Root layout (i18n, providers)
-│   │   └── globals.css               # Global styles
-│   │
-│   ├── components/                   # React components
-│   │   ├── ui/                       # shadcn/ui primitives + custom UI
-│   │   ├── campaigns/                # Campaign list & creation
-│   │   ├── workspace/                # Campaign workspace (briefing, plan, derivations, review)
-│   │   ├── templates/                # Template cards & modals
-│   │   ├── restyling/                # Restyling upload & form
-│   │   ├── settings/                 # Settings tabs (profile, billing, workspace, team)
-│   │   ├── auth/                     # Auth UI components
-│   │   ├── layout/                   # AppShell, Sidebar, TopBar, Footer
-│   │   └── providers/                # React context providers
-│   │
-│   ├── server/                       # Server-only code
-│   │   ├── auth/                     # Auth config, session, workspace access
-│   │   ├── db/                       # Drizzle schema & database client
-│   │   ├── repositories/             # Data access layer (per domain)
-│   │   ├── services/                 # Business services (email, export, landing page render)
-│   │   ├── ai/                       # AI prompt builders & analyzers
-│   │   ├── billing/                  # Stripe integration, credit gates, plans
-│   │   ├── jobs/                     # Inngest job definitions
-│   │   ├── storage/                  # R2 / S3 storage operations
-│   │   └── validation/               # Environment variable validation (Zod)
-│   │
-│   ├── lib/                          # Shared client utilities
-│   │   ├── hooks/                    # TanStack Query custom hooks
-│   │   ├── api-client.ts             # Authenticated fetch wrapper
-│   │   ├── api-response.ts           # API response helpers
-│   │   ├── auth-client.ts            # Better Auth client
-│   │   ├── store.ts                  # Zustand app store
-│   │   ├── utils.ts                  # General utilities
-│   │   └── ...
-│   │
-│   └── i18n/                         # i18n configuration
-│       └── config.ts                 # Locale definitions
-│
-├── drizzle/                          # Database migrations
-│   ├── 0000_*.sql                    # Initial schema
-│   ├── 0001_*.sql                    # Schema evolutions
-│   └── meta/                         # Migration metadata
-│
-├── messages/                         # Translation files
-│   ├── pt-BR.json                    # Brazilian Portuguese
-│   └── en.json                       # English
-│
-├── config/                           # Tool configurations
-│   └── vitest.config.ts              # Vitest configuration
-│
-├── tests/                            # Test setup
-│   └── setup.ts                      # jest-dom imports
-│
-├── docker/                           # Docker resources
-│   ├── postgres/init.sql             # Local Postgres init
-│   └── entrypoint.sh                 # Container entrypoint
-│
-├── scripts/                          # Development scripts
-│   └── dev-with-inngest.mjs          # Dev server + Inngest CLI
-│
-└── package.json
-```
+Tests: `app/tests/` (integration) and co-located `*.test.ts` beside modules. SQL migrations: `app/drizzle/`.
 
 ---
 
-## Frontend Architecture
+## Data flow
 
-### Routing
+### 1. Campaign workspace (read path)
 
-The application uses **Next.js 15 App Router** with the following route groups:
+1. User opens a campaign page; hooks call `GET /api/campaigns/[id]` (and related list endpoints).
+2. Route handler calls `requireWorkspaceAccess(request)` → `{ user, workspace }`.
+3. Repository loads campaign with `getCampaignById(campaignId, workspace.id)`.
+4. On failure, `parseCampaignLoadError` / `parseFetchFailure` in hooks produce `CampaignLoadError` with a **kind** for `CampaignErrorState`.
 
-| Route Group | Purpose | Auth |
-|------------|---------|------|
-| `(dashboard)/` | Protected SaaS application | Required |
-| `login/`, `signup/` | Authentication pages | Public |
-| `api/` | Backend API endpoints | Varies |
+### 2. Derivation generation (write + async path)
 
-### Component Architecture
+1. `POST /api/campaigns/[id]/derivations` validates workspace, campaign, credits (`spendCreditsOrApiError`), and concurrency (no other `queued`/`processing` rows).
+2. Creates derivation row(s) and sends Inngest event `derivation.generate` with `derivationId`, `campaignId`, `workspaceId`, locale, format, CTA, `generationMode`, optional `styleAssetId`.
+3. **`derivationJob`** (`app/src/server/jobs/derivation.ts`) runs stepped workflow:
+   - Idempotency check → `processing` → load campaign, plan, assets, brand kit, references, brand memory
+   - Build **`CreativeContract`** + `buildDerivationPrompt({ contract, ... })`
+   - Generate image (mode-specific: `art_variation`, `format_adaptation`, `restyling`), normalize with **sharp**, upload to R2
+   - `mark-completed`, realtime status via Inngest channels, optional email notification
+   - **`score-derivation`** — heuristic + visual analysis (`creative-score.ts`), persists `qualityScore` / `scoreIssues`
+   - **`quality-gate`** — `runCompletedDerivationQualityGate` (see below)
+   - **`track-usage`** for billing metering
 
-- **Server Components** by default — used for layouts, pages, and data-fetching surfaces
-- **Client Components** (`"use client"`) — used for interactive UI, forms, modals, and hooks
-- **shadcn/ui primitives** — Base components (Button, Dialog, Input, Select, etc.) built on Radix UI
-- **Domain components** — Organized by feature (campaigns, workspace, settings, templates)
+### 3. Review, QA, and export
 
-### Key Frontend Modules
-
-| Module | Path | Responsibility |
-|--------|------|----------------|
-| AppShell | `components/layout/AppShell.tsx` | Dashboard layout with sidebar + top bar |
-| Campaign Workspace | `components/workspace/` | 5-step campaign workflow: Briefing → Upload → Plan → Derivations → Review |
-| Settings | `components/settings/` | Tabs for Profile, Workspace, Billing, Plans, Team, Integrations |
-| UI Primitives | `components/ui/` | Buttons, cards, badges, tables, forms, modals, toasts |
-
----
-
-## Backend Architecture
-
-### API Route Organization
-
-API routes follow a **domain-driven** structure under `src/app/api/`:
-
-```
-api/
-├── auth/[...all]              # Better Auth catch-all (login, logout, session, verification)
-├── campaigns/                 # Campaign CRUD + sub-resources
-│   ├── [id]/
-│   │   ├── derivations/       # List/create derivations for campaign
-│   │   ├── plan/              # Creative plan generation
-│   │   ├── assets/            # Asset upload (presign + complete)
-│   │   ├── diagnosis/         # Creative diagnosis
-│   │   └── ...
-├── derivations/[id]/          # Derivation operations
-│   ├── regenerate/            # Regenerate a derivation
-│   ├── review/                # Save review/feedback
-│   ├── qa/                    # Creative QA analysis
-│   ├── landing-page/          # Landing page generation
-│   ├── delivery-package/      # Export delivery package
-│   └── save-reference/        # Save to client reference library
-├── client-profiles/[id]/      # Client profiles & references
-├── templates/[id]/            # Campaign templates
-├── billing/                   # Stripe integration
-│   ├── checkout/              # Create checkout session
-│   ├── portal/                # Customer portal
-│   ├── status/                # Subscription status
-│   └── webhook/               # Stripe webhook handler
-├── exports/                   # Asset exports
-├── dashboard/                 # Dashboard metrics
-├── user/locale/               # User locale preference
-├── inngest/                   # Inngest event ingestion endpoint
-└── health/                    # Health check
-```
-
-### Server Module Organization
-
-| Module | Path | Responsibility |
-|--------|------|----------------|
-| **Repositories** | `server/repositories/` | Data access layer — one file per domain entity. Encapsulates all Drizzle queries. |
-| **Services** | `server/services/` | Business logic orchestration (email, export generation, landing page HTML rendering) |
-| **AI Layer** | `server/ai/` | Prompt engineering, creative scoring, diagnosis, QA, image analysis, landing page generation |
-| **Billing** | `server/billing/` | Stripe client, plan definitions, credit accounting, usage gates, webhook event processing |
-| **Jobs** | `server/jobs/` | Inngest job definitions (derivation generation pipeline) |
-| **Storage** | `server/storage/r2.ts` | Cloudflare R2 operations (upload, download, presigned URLs, public URLs) |
-| **Validation** | `server/validation/env.ts` | Runtime environment variable validation with Zod |
+- User reviews derivations in workspace UI (`DerivationCard`, `DerivationReviewModal`).
+- Approve actions call APIs that use `assertDerivationApprovable` — **invalid** verdict or non-empty `hardFailures` blocks approval.
+- Optional `POST /api/derivations/[id]/qa` on **approved** derivations re-runs QA + gate (credits charged); results cached on the row.
+- Export/delivery-package routes also consult the quality gate before packaging.
 
 ---
 
-## Data Layer
+## Creative contract (v11.1)
 
-### Database Schema
+**Module:** `app/src/server/ai/creative-contract.ts`
 
-The PostgreSQL schema uses a single schema namespace (`adscale_app`) and is organized into the following domains:
+The contract is the single structured description of what a derivation job promised to produce. It is built when a derivation starts (Inngest job) and rebuilt for on-demand QA.
 
-#### Authentication (Better Auth)
-- `user` — User accounts with locale preference
-- `session` — Active sessions with expiry
-- `account` — OAuth/account linking (reserved)
-- `verification` — Email verification tokens
+```typescript
+interface CreativeContract {
+  generationMode: "art_variation" | "format_adaptation" | "restyling";
+  targetFormat: string;
+  ctaSemantics: CtaSemantics;
+  baseAssetId: string | null;
+  styleAssetId: string | null;
+  client: string | null;
+  product: string | null;
+  offer: string | null;
+  constraints: string | null;
+}
 
-#### Workspace
-- `workspaces` — Tenant isolation boundary
-- `workspace_members` — User-workspace memberships with roles (`owner`, `member`)
+type CtaSemantics =
+  | { kind: "explicit"; text: string }
+  | { kind: "inherited" }
+  | { kind: "absent" };
+```
 
-#### Campaign Domain
-- `campaigns` — Campaign briefs with generation config (mode, level, style, diagnosis)
-- `campaign_templates` — Reusable campaign templates
-- `campaign_assets` — Uploaded reference images (stored in R2, metadata in DB)
-- `pending_uploads` — Track multipart upload lifecycle
-- `creative_plans` — AI-generated creative strategy (angles, hooks, CTAs)
-- `derivations` — Generated image outputs with scoring & QA metadata
+**`resolveCtaSemantics(ctaText, mode)`** maps briefing CTA text to semantics: non-empty string → `explicit`; otherwise → `inherited` (base CTA preserved per mode). The resolver is used in the derivation job and QA route.
 
-#### Client Reference Library
-- `client_profiles` — Client brand profiles
-- `client_references` — Visual reference assets per client (style, product, layout, logo, negative)
+**Consumers:**
 
-#### Billing
-- `billing_customers` — Stripe customer mapping per workspace
-- `subscriptions` — Stripe subscription status and plan mapping
-- `credit_grants` — Credit allocation tracking (granted, remaining, expiry)
-- `processed_stripe_events` — Idempotent webhook processing
+| Stage | How contract is used |
+|-------|-------------------------|
+| **Generation** | `buildDerivationPrompt` injects HARD RULES from `ctaSemantics` and `targetFormat` (`app/src/server/ai/prompt-builder.ts`) |
+| **Scoring** | `analyzeDerivationCreative` / `scoreCompletedDerivation` receive optional `contract` for brief-aligned visual scoring |
+| **QA** | `analyzeCreativeQa` receives `contract` so checklist evaluation matches generation promises |
+| **Quality gate** | `classifyCreativeQualityGate` / `computeQualityGateFromAnalysis` use contract for CTA-drift and offer/brand rules |
 
-#### Analytics & Export
-- `usage_events` — Metered usage with idempotency keys
-- `activity_events` — User activity audit log
-- `exports` — Exported asset records
-- `landing_pages` — Generated landing pages (structure + HTML)
-
-### ORM & Migrations
-
-- **Drizzle ORM** with `node-postgres` connection pool
-- Schema defined in `server/db/schema.ts` using `pgSchema("adscale_app")`
-- Migrations generated via `drizzle-kit generate` and applied via `drizzle-kit migrate`
-- All tables use `uuid` primary keys with `crypto.randomUUID()` defaults
-- Indexed foreign keys for query performance
+**Restyling:** `styleAssetId` on the contract selects the style reference asset; restyling generation requires base + style assets in the campaign.
 
 ---
 
-## Authentication & Authorization
+## Quality gate pipeline (v11.1)
 
-### Authentication
+**Module:** `app/src/server/ai/creative-quality-gate.ts`
 
-- **Better Auth** provides session-based authentication
-- Email/password with required email verification
-- Password reset via secure token links
-- Sessions stored in PostgreSQL (Drizzle adapter)
-- Cookie-based session tokens (`better-auth.session_token`)
+After an image is generated and scored, the gate classifies QA output into **hard failures** (blocking) vs **polish suggestions** (advisory), then derives a **verdict**.
 
-### Authorization
-
-- **Middleware** (`middleware.ts`) protects dashboard routes (`/`, `/campaigns/*`, `/settings/*`)
-- **Workspace scoping** — every API route calls `requireWorkspaceAccess()` to resolve the user's workspace
-- All data queries are filtered by `workspaceId` for multi-tenant isolation
-- **Database hook** auto-creates a personal workspace on user signup
-
-### Auth Flow
+### Pipeline stages
 
 ```
-1. User signs up → Better Auth creates user record
-2. Database hook triggers → Creates workspace + workspace_members (role: owner)
-3. User logs in → Session cookie set
-4. Middleware validates cookie on protected routes
-5. API routes call requireWorkspaceAccess() → Returns { user, workspace }
-6. All DB queries scoped to workspace.id
+analyzeCreativeQa (vision + contract)
+        ↓
+classifyCreativeQualityGate (checklist + scoreIssues + contract)
+        ↓
+deriveQualityVerdict (hardFailures, qualityScore, checklist warnings)
+        ↓
+persist: qualityVerdict, hardFailures, polishSuggestions, qualityGatedAt
 ```
+
+| Verdict | Meaning |
+|---------|---------|
+| `invalid` | One or more hard failures — approval blocked |
+| `improvable` | No hard failures, but score &lt; 70 and/or checklist warnings |
+| `acceptable` | No hard failures, score ≥ 70, no checklist warnings |
+
+**Hard failure codes** (non-exhaustive; see source for pattern matching on QA notes):
+
+- `cta_drift`, `wrong_brand`, `unsupported_offer`
+- `copied_style_reference_facts`, `cropped_critical_content`
+- `unreadable_required_text`, `invalid_format_layout`
+
+**Orchestration:**
+
+- **Automatic:** Inngest step `quality-gate` after `score-derivation` calls `runCompletedDerivationQualityGate`. On analyzer failure, fallback persists `improvable` with empty failures (non-blocking for the job).
+- **On-demand:** `POST /api/derivations/[id]/qa` runs the same analysis path for approved creatives (export-time QA).
+- **Approval guard:** `assertDerivationApprovable` used by delivery-package and approve flows.
+
+**Persistence** (`derivations` table, `app/src/server/db/schema.ts`):
+
+- `quality_verdict`, `hard_failures` (jsonb), `polish_suggestions` (jsonb), `quality_gated_at`
+- Related QA fields: `qa_status`, `qa_checklist`, `qa_issues`, `qa_suggestions`
+
+**UI:** `DerivationCard` and `DerivationReviewModal` show verdict badges, list hard failures (invalid), and polish hints (improvable). Approve buttons disable when `qualityVerdict === "invalid"`. Display score may be capped via `scoreCappedForDisplay` in `app/src/lib/derivation-quality.ts`.
 
 ---
 
-## Background Job Processing
+## CampaignLoadError taxonomy (v11.1)
 
-### Inngest Setup
+**Module:** `app/src/lib/campaign-load-error.ts`
 
-- **Inngest** handles durable background job execution
-- Dev mode runs `inngest-cli dev` alongside Next.js dev server
-- Production: Inngest calls `/api/inngest` webhook to invoke functions
+Typed error for campaign/derivation fetch failures in React Query hooks (`use-campaigns`, `use-derivations`).
 
-### Derivation Generation Pipeline
+| Kind | Typical trigger |
+|------|-----------------|
+| `session` | HTTP 401, `code: unauthorized`, or message `"Unauthorized"` |
+| `workspace` | HTTP 403, `noWorkspace`, `forbidden` |
+| `not_found` | HTTP 404, `campaignNotFound` |
+| `timeout` | `AbortError`, `TimeoutError`, timeout message on `cause` |
+| `server` | HTTP 500/503, `internalError`, `generationWorkerUnavailable` |
+| `unknown` | Everything else |
 
-The core background job is `derivationJob` (`server/jobs/derivation.ts`), which generates AI images:
+**API surface:** `classifyLoadError`, `createLoadError`, `parseCampaignLoadError(res, body)`, `parseFetchFailure(error)`, `getLoadErrorKind`.
 
-```
-Event: derivation.generate
-│
-├─ Step 1: check-idempotency          → Skip if already completed
-├─ Step 2: mark-processing            → Set status = "processing"
-├─ Step 3: fetch-context              → Load campaign, plan, assets, parent derivation
-├─ Step 4: fetch-client-references    → Load selected visual references
-├─ Step 5: generate-and-store-output  → Call OpenAI, normalize with Sharp, upload to R2
-├─ Step 6: mark-completed             → Set status = "completed", refresh campaign status
-├─ Step 7: score-derivation           → Heuristic + visual AI scoring
-└─ Step 8: track-usage                → Record credit consumption
-```
+**UI:** `CampaignErrorState` maps `kind` to localized copy.
 
-**Failure Handling:**
-- Retries: 2 attempts
-- `onFailure` hook: Marks derivation as `failed`, updates campaign status
-
-**Generation Modes:**
-- `art_variation` — Recompose reference into new creative variation
-- `format_adaptation` — Adapt approved creative to different aspect ratio
-- `restyling` — Apply style reference to base content image
+Hooks rethrow or attach `CampaignLoadError` so the workspace does not show a generic failure for known API codes.
 
 ---
 
-## AI Layer
+## Workspace-scoped API
 
-### Prompt Engineering
+**Pattern:** Route handlers import `requireWorkspaceAccess` from `@/server/auth/workspace`. It:
 
-- `server/ai/prompt-builder.ts` — Comprehensive prompt builder for image generation
-- Supports 4 creativity levels: `conservative`, `balanced`, `bold`, `extreme`
-- 3 style intensities for restyling: `soft`, `medium`, `strong`
-- Locale-aware prompts (pt-BR / en) with hard rules for CTA preservation
+1. Resolves the Better Auth session (from request headers or server context).
+2. Loads the user’s active workspace via `getWorkspaceForUser`.
+3. Throws `WorkspaceAuthError` with codes `unauthorized`, `noWorkspace`, or `forbidden` (for `requireRole`).
 
-### Creative Analysis
+Repositories take `workspaceId` as an explicit argument (e.g. `getCampaignById(id, workspace.id)`, `getDerivationById(id, workspace.id)`). Drizzle updates include `and(eq(table.workspaceId, workspaceId), …)` so cross-tenant access is rejected at the data layer.
 
-| Module | Purpose |
-|--------|---------|
-| `creative-diagnosis.ts` | Analyze campaign asset to detect concept, preserve elements, identify variation opportunities |
-| `creative-score.ts` | Heuristic + OpenAI vision-based scoring of generated derivations |
-| `creative-qa.ts` | Automated quality assurance checklist (logo presence, text legibility, format compliance, etc.) |
-| `image-analysis.ts` | Extract visual tokens (color palette, typography, composition, mood) from reference images |
-| `landing-page.ts` | Generate structured landing page copy from campaign brief |
+**Representative API groups** under `app/src/app/api/`:
 
-### Models
-
-- **Image Generation:** `gpt-image-2-2026-04-21` (configurable via `OPENAI_IMAGE_MODEL`)
-- **Text/Analysis:** `gpt-5-mini` (configurable via `OPENAI_TEXT_MODEL`)
+- `campaigns/`, `derivations/`, `workspace/` (assets, brand-kit, invites)
+- `billing/`, `dashboard/`, `export/`, `client-profiles/`
+- `inngest/` (worker webhook, no end-user session — Inngest signing)
+- `health/`, `share/` (token-based public read paths scope differently)
 
 ---
 
-## Billing & Subscriptions
+## Background jobs (Inngest)
 
-### Stripe Integration
+**Client:** `app/src/server/jobs/client.ts` (`Inngest` id `adscale`).
 
-- **Subscriptions:** 3 tiers — `starter` (30 credits), `growth` (120 credits), `scale` (360 credits)
-- **Checkout:** Stripe Checkout sessions for new subscriptions
-- **Customer Portal:** Self-service billing management
-- **Webhooks:** Idempotent processing of `checkout.session.completed`, `invoice.paid`, `subscription.updated`, etc.
+**Registration:** `app/src/app/api/inngest/route.ts` serves:
 
-### Credit System
+| Function | Purpose |
+|----------|---------|
+| `derivationJob` | AI image generation, scoring, quality gate, usage tracking |
+| `trialNotificationJob` | Trial lifecycle emails |
+| `workspaceAssetAnalyzeJob` | Asset analysis (preflight / metadata) |
+| `brandMemoryIngestJob` | Zep brand-memory ingestion |
 
-- Credits granted on subscription creation/renewal
-- `credit_grants` table tracks allocations with expiry
-- `usage_events` records consumption with idempotency keys
-- `spendCreditsOrApiError()` gate returns HTTP 402 when credits exhausted
+**Derivation job highlights:**
 
-### Plans
+- Event: `derivation.generate`
+- Retries: 2; `onFailure` marks derivation `failed`, refreshes campaign status, notifies user
+- Realtime: `derivationChannel` publishes status for live UI updates
+- Idempotent skip if `outputKey` already set
 
-| Plan | Credits | Stripe Price ID env var |
-|------|---------|------------------------|
-| Starter | 30/mo | `STRIPE_STARTER_PRICE_ID` |
-| Growth | 120/mo | `STRIPE_GROWTH_PRICE_ID` |
-| Scale | 360/mo | `STRIPE_SCALE_PRICE_ID` |
+Local dev: `npm run dev` runs Next + Inngest dev (`scripts/dev-with-inngest.mjs`); worker URL `http://localhost:3000/api/inngest`.
+
+---
+
+## AI layer
+
+Modules under `app/src/server/ai/`:
+
+| Module | Responsibility |
+|--------|----------------|
+| `prompt-builder.ts` | Composes derivation prompts; honors `CreativeContract` / CTA hard rules |
+| `creative-contract.ts` | Contract types + `resolveCtaSemantics` |
+| `creative-score.ts` | Heuristic + vision scoring, regeneration suggestions on hard failures |
+| `creative-qa.ts` | Vision QA checklist (legibility, CTA/offer, brief match, format, risk, style fidelity) |
+| `creative-quality-gate.ts` | Hard vs polish classification, verdict, post-completion orchestration |
+| `creative-diagnosis.ts` | Campaign creative diagnosis normalization |
+| `copy-generator.ts`, `landing-page.ts` | Copy and landing-page JSON generation |
+| `campaign-deduction.ts`, `preflight-analysis.ts` | Briefing assistance, upload preflight |
+| `competitor-analyzer.ts`, `persona-simulator.ts` | Competitor and persona flows |
+| `smart-resize.ts`, `image-analysis.ts` | Resize preview and image utilities |
+| `utils.ts` | Shared OpenAI client helpers |
+
+OpenAI calls use `env.OPENAI_API_KEY` and model names from validated env (`app/src/server/validation/env.ts`). Image generation timeout in the derivation job is 5 minutes per attempt.
+
+---
+
+## Key abstractions
+
+| Abstraction | Location | Role |
+|-------------|----------|------|
+| `CreativeContract` | `server/ai/creative-contract.ts` | Generation/scoring/QA contract |
+| `classifyCreativeQualityGate` | `server/ai/creative-quality-gate.ts` | Hard failures vs polish |
+| `deriveQualityVerdict` | same | `invalid` / `improvable` / `acceptable` |
+| `assertDerivationApprovable` | same | Blocks invalid approvals |
+| `CampaignLoadError` | `lib/campaign-load-error.ts` | Client load error taxonomy |
+| `requireWorkspaceAccess` | `server/auth/workspace.ts` | API tenancy guard |
+| `objectStorage` | `server/storage/object-storage.ts` | R2 put/get/presign |
+| `derivationJob` | `server/jobs/derivation.ts` | End-to-end async generation |
+| Repository functions | `server/repositories/*` | Workspace-scoped CRUD |
+| `spendCreditsOrApiError` | `server/billing/gates.ts` | Credit enforcement on API actions |
+
+---
+
+## Data layer
+
+- **ORM:** Drizzle with `pg` pool (`app/src/server/db/index.ts`).
+- **Schema:** PostgreSQL schema `adscale_app` — users/sessions (Better Auth), workspaces, campaigns, assets, derivations (including quality gate columns), plans, billing, notifications, landing pages, templates, etc.
+- **Migrations:** `app/drizzle/*.sql`, managed via `drizzle-kit` (`npm run db:migrate`).
+
+Derivation row carries generation state (`status`, `outputKey`), scoring (`qualityScore`, `scoreIssues`, `scoreBreakdown`), QA (`qaStatus`, `qaChecklist`, …), and gate fields (`qualityVerdict`, `hardFailures`, `polishSuggestions`).
+
+---
+
+## Authentication and authorization
+
+- **Better Auth** tables in Drizzle schema; config in `app/src/server/auth/config.ts`.
+- Session resolution: `getSession` / `getSessionFromHeaders` (`server/auth/session.ts`).
+- Workspace membership roles: `owner` | `admin` | `member` (`requireRole` for privileged actions).
 
 ---
 
 ## Storage
 
-### Cloudflare R2
-
-- S3-compatible object storage for all binary assets
-- **Upload:** Presigned PUT URLs for direct browser-to-R2 uploads
-- **Download:** Presigned GET URLs with 4-minute client-side caching
-- **Server-side:** Direct `uploadBuffer` / `downloadBuffer` via AWS SDK
-- **Public URLs:** Served via `R2_PUBLIC_BASE_URL` CDN
-
-### Asset Organization
-
-```
-derivations/{derivationId}/{timestamp}.png
-campaigns/{campaignId}/assets/{filename}
-exports/{exportId}/{filename}
-landing-pages/{landingPageId}/index.html
-```
+Binary assets (campaign uploads, derivation outputs, brand kit logos) are stored under workspace-scoped keys in R2. The `objectStorage` abstraction supports presigned upload/download URLs for browser-direct transfers. Legacy imports from `@/server/storage/r2` delegate to the same implementation.
 
 ---
 
-## API Design Patterns
+## Billing (summary)
 
-### Request Handling
-
-1. **Auth check** — `requireWorkspaceAccess(request)` validates session and resolves workspace
-2. **Validation** — Zod schemas validate request bodies (`createCampaignSchema`, etc.)
-3. **Business logic** — Repository functions perform database operations
-4. **Response** — `NextResponse.json()` with consistent shape
-
-### Error Handling
-
-- `apiError(code, status, details?)` — Returns localized error messages via `next-intl`
-- `handleApiError(error, context)` — Catches exceptions, logs with UUID, returns safe response
-- Standard codes: `unauthorized`, `noWorkspace`, `invalidInput`, `internalError`
-
-### Example API Route Structure
-
-```typescript
-export async function POST(request: Request) {
-  try {
-    const { workspace } = await requireWorkspaceAccess(request);
-    const body = await request.json();
-    const parsed = mySchema.safeParse(body);
-    if (!parsed.success) return apiError("invalidInput", 400, parsed.error.flatten());
-    
-    const result = await repositoryAction(workspace.id, parsed.data);
-    return NextResponse.json({ result }, { status: 201 });
-  } catch (error) {
-    return handleApiError(error, "domain.POST");
-  }
-}
-```
+Stripe webhooks and portal routes under `app/src/app/api/billing/`. Credit spending is enforced at API boundaries (`spendCreditsOrApiError`) for derivations, QA, and other metered actions. Usage rows recorded from the derivation job’s `track-usage` step.
 
 ---
 
-## State Management
+## Frontend architecture (summary)
 
-### Server State (TanStack Query)
-
-- All server data fetched via TanStack Query hooks in `lib/hooks/`
-- Each domain has a dedicated hook file: `use-campaigns.ts`, `use-derivations.ts`, `use-billing.ts`, etc.
-- Query keys follow pattern: `['domain', id?]` or `['domain', filters]`
-- Mutations invalidate related queries on success
-- Campaign detail page uses `refetchInterval` for live status updates during generation
-
-### Client State (Zustand)
-
-- `lib/store.ts` — Lightweight UI state only
-- Persisted to `localStorage`: `sidebarCollapsed`
-- Non-persisted: `toasts`, `currentPageTitle`, mock profile/billing data
-- **Note:** Billing and profile data in Zustand are UI mock placeholders; real data comes from API
+- **Routing:** App Router with `(dashboard)` layout for authenticated app shell.
+- **Server state:** TanStack Query hooks in `app/src/lib/hooks/` (campaigns, derivations, billing, export, etc.).
+- **UI state:** Zustand where needed (`app/src/lib/store.ts`).
+- **i18n:** `next-intl` (`app/src/i18n.ts`, message files under `app/src/i18n/`).
+- **Observability:** Sentry (`@sentry/nextjs`), structured logging via `app/src/lib/logger.ts`.
 
 ---
 
-## Internationalization (i18n)
+## Related documentation
 
-- **next-intl** with `next-intl/server` for RSC and API localization
-- **Locales:** `pt-BR` (default), `en`
-- **Resolution order:** Cookie (`locale`) → `Accept-Language` header → default (`pt-BR`)
-- **Files:** `messages/pt-BR.json`, `messages/en.json`
-- **API errors:** Localized via `getTranslations("errors")` in `api-response.ts`
-- **AI prompts:** Locale-aware language instructions injected into OpenAI prompts
-
----
-
-## Testing Strategy
-
-| Type | Tool | Coverage |
-|------|------|----------|
-| Unit | Vitest | Repositories, AI utilities, billing logic |
-| Component | Testing Library + jsdom | React components with hooks |
-| Integration | Vitest | API route handlers, service logic |
-
-### Configuration
-
-- Vitest config: `config/vitest.config.ts`
-- Test environment: `jsdom`
-- Setup file: `tests/setup.ts` (imports `@testing-library/jest-dom`)
-- Path alias: `@` → `src/`
-
-### Tested Modules
-
-- `server/repositories/` — Repository data access tests
-- `server/ai/` — Prompt builder, creative QA, landing page tests
-- `server/billing/` — Credit calculation, gates, event processing tests
-- `server/jobs/` — Derivation job logic tests
-- `lib/hooks/` — React hook tests with providers
-- `components/workspace/` — Component interaction tests
-
----
-
-## Deployment & Infrastructure
-
-### Render Configuration (`render.yaml`)
-
-```yaml
-Web Service:
-  - Runtime: Node
-  - Build: npm ci && npm run build
-  - Pre-deploy: npm run db:migrate
-  - Start: npm start
-  - Health check: /api/health
-
-Database:
-  - PostgreSQL 16 (Render managed)
-```
-
-### Environment Variables
-
-| Variable | Purpose |
-|----------|---------|
-| `DATABASE_URL` | PostgreSQL connection |
-| `BETTER_AUTH_SECRET` | Auth encryption |
-| `BETTER_AUTH_URL` / `APP_URL` | App origin URLs |
-| `OPENAI_API_KEY` | AI services |
-| `R2_*` | Cloudflare R2 credentials |
-| `INNGEST_EVENT_KEY` / `INNGEST_SIGNING_KEY` | Job queue |
-| `RESEND_API_KEY` / `EMAIL_FROM` | Email delivery |
-| `STRIPE_*` | Payment processing |
-
-### Docker
-
-- `docker/postgres/init.sql` — Local development database setup
-- `docker/entrypoint.sh` — Container initialization
-- `scripts/dev-with-inngest.mjs` — Local dev orchestration
-
----
-
-## Data Flow
-
-### Campaign Creation Flow
-
-```
-User fills campaign brief (UI)
-    │
-    ▼
-POST /api/campaigns
-    │
-    ▼
-Zod validation + workspace auth
-    │
-    ▼
-Repository: insert into campaigns
-    │
-    ▼
-Return 201 → TanStack Query invalidates cache
-    │
-    ▼
-User redirected to campaign workspace
-```
-
-### Derivation Generation Flow
-
-```
-User requests derivations (UI)
-    │
-    ▼
-POST /api/campaigns/{id}/derivations
-    │
-    ▼
-Credit gate check → 402 if insufficient
-    │
-    ▼
-Repository: insert derivations (status: queued)
-    │
-    ▼
-Inngest: send derivation.generate events
-    │
-    ▼
-Inngest worker picks up job
-    │
-    ▼
-Step pipeline: fetch context → generate image → upload R2 → score → track usage
-    │
-    ▼
-Derivation status updated: queued → processing → completed|failed
-    │
-    ▼
-UI polls/refetches campaign status every 2s while generating
-```
-
-### Asset Upload Flow
-
-```
-User selects file (UI)
-    │
-    ▼
-GET /api/campaigns/{id}/assets/presign
-    │
-    ▼
-Server creates pending_upload record + returns presigned R2 URL
-    │
-    ▼
-Browser uploads directly to R2
-    │
-    ▼
-POST /api/campaigns/{id}/assets/complete
-    │
-    ▼
-Server verifies upload, inserts campaign_assets record
-```
-
----
-
-## Security Considerations
-
-- **Session cookies** marked secure in production (`__Secure-better-auth.session_token`)
-- **Trusted origins** enforced by Better Auth (configurable per environment)
-- **Workspace isolation** — every query filtered by `workspaceId`
-- **Zod validation** on all API inputs
-- **Presigned URLs** expire in 5 minutes for direct uploads
-- **Stripe webhooks** verified with `STRIPE_WEBHOOK_SECRET`
-- **Idempotency** on usage events and Stripe webhook processing
-- **Environment validation** via Zod proxy — fails fast on missing/invalid config
-- **SQL injection prevention** via Drizzle ORM parameterized queries
-- **XSS mitigation** via React's built-in escaping + `escapeHtml` in landing page renderer
-
-## Key Abstractions
-
-The codebase is organized around a small set of load-bearing abstractions that shape how data, auth, AI, and UI interact.
-
-| Abstraction | Location | Purpose |
-|-------------|----------|---------|
-| `requireWorkspaceAccess` | `server/auth/workspace.ts` | Resolves the authenticated user and their active workspace on every protected API request. Throws `WorkspaceAuthError` if the session is missing or the user has no workspace. |
-| `WorkspaceAuthError` | `server/auth/workspace.ts` | Typed error class carrying an `AuthErrorCode` (`unauthorized`, `noWorkspace`, `forbidden`). API error middleware translates these into localized HTTP responses. |
-| `env` / `envSchema` | `server/validation/env.ts` | Zod schema that validates all `process.env` values at startup. Uses a fail-fast Proxy that throws on first access to any invalid/missing variable. |
-| `apiError` / `handleApiError` | `lib/api-response.ts` | Standardized API error envelope with localized messages via `next-intl`, plus a centralized exception handler that logs to Sentry and returns safe 500 responses. |
-| Repository functions | `server/repositories/*.ts` | Per-domain data access layer (Campaign, Derivation, Asset, Billing, etc.). Each file exports typed `Create*Input` / `Update*Input` interfaces and async query functions over Drizzle ORM. |
-| `useAppStore` | `lib/store.ts` | Zustand store for lightweight client UI state (`sidebarCollapsed`, `toasts`, `currentPageTitle`). Only `sidebarCollapsed` is persisted to `localStorage`. |
-| TanStack Query hooks | `lib/hooks/*.ts` | Server-state hooks per domain (`useDashboard`, `useCampaigns`, `useDerivations`, etc.). Handle caching, invalidation, and background refetching. |
-| `buildDerivationPrompt` | `server/ai/prompt-builder.ts` | Composable prompt builder that assembles OpenAI image-generation prompts from campaign briefs, creative plans, client references, brand kits, and competitor context. |
-| `CreativeContract` | `server/ai/creative-contract.ts` | Structured contract extracted from reference assets that defines required elements (CTA, offer, legal terms), optional elements, and format rules. Used to validate AI output compliance. |
-| `canSpend` / `spendCreditsOrApiError` | `server/billing/credits.ts` / `server/billing/gates.ts` | Credit gate abstractions that check active subscription + available credits before any chargeable operation. Returns HTTP 402 when credits are exhausted. |
-| `derivationJob` | `server/jobs/derivation.ts` | Inngest background function that runs the 8-step derivation pipeline (idempotency → processing → generate → normalize → upload → score → track usage). |
-| `AdFormat` / `AD_FORMATS` | `lib/formats.ts` | Canonical definitions for supported ad aspect ratios (1:1, 4:5, 9:16, 1.91:1, 16:9) including dimensions, platform mappings, and OpenAI size targets. |
-
-### Design Patterns
-
-- **Repository Pattern** — All database access lives in `server/repositories/` (and `server/db/repositories/`). Route handlers never import Drizzle directly; they call repository functions that accept `workspaceId` for tenant scoping.
-- **Fail-Fast Config** — The `env` Proxy throws immediately on first access to any missing or invalid environment variable, preventing the app from starting in a misconfigured state.
-- **Typed Error Boundaries** — `WorkspaceAuthError` carries a discriminating code, allowing middleware and API handlers to map errors to precise HTTP status codes and localized messages.
-- **Composable Prompt Builder** — The AI layer assembles prompts through dedicated builder functions (`buildDerivationPrompt`, `buildCreativeDiagnosisPrompt`, `buildLandingPagePrompt`) rather than string concatenation inline, keeping prompt engineering testable and versioned.
-
----
-
-*Document generated from codebase exploration. Last updated: 2026-05-22.*
+- [GETTING-STARTED.md](./GETTING-STARTED.md) — local setup and first run
+- [DEVELOPMENT.md](./DEVELOPMENT.md) — scripts and workflow
+- [CONFIGURATION.md](./CONFIGURATION.md) — environment variables
+- [API.md](./API.md) — HTTP API reference
+- [DEPLOYMENT.md](./DEPLOYMENT.md) — deploy targets and Inngest in production
+- [TESTING.md](./TESTING.md) — Vitest and CI
