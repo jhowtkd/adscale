@@ -67,7 +67,7 @@ npm run build       # OK → dist/
 
 ## Next actions
 
-1. Commit & push `site-adscale` changes
+1. Push `site-adscale` commit `f637d85`
 2. Set `VITE_APP_URL` on marketing host CI
 3. Deploy `dist/`
 4. Smoke test production URLs

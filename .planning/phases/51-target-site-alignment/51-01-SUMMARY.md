@@ -1,7 +1,7 @@
 # Phase 51 Summary
 
 **Completed:** 2026-06-03  
-**Target repo commit:** pending local commit on `site-adscale` `main`
+**Target repo commit:** `f637d85` on `site-adscale` `main` (local; push when ready)
 
 ## Changes (site-adscale)
 
