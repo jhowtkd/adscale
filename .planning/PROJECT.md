@@ -8,16 +8,15 @@ ADScale is a SaaS webapp for creative derivation: marketing teams upload a base 
 
 Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-## Current Milestone: v11.1 Qualidade de Geração e Contratos Criativos
+## Current Milestone: v11.3 Site de Apresentação Separado
 
-**Goal:** Make generated outputs reliably usable by enforcing the creative contract across format adaptation, restyling, scoring, QA, and error visibility.
+**Goal:** Move ADScale's public presentation surface into `jhowtkd/site-adscale.git` as the dedicated marketing site while keeping the SaaS app focused on product/auth/dashboard routes.
 
 **Target features:**
-- Native format adaptation that rebuilds 9:16/4:5 layouts without blurred bands, pasted posters, or crowded element clusters.
-- Restyling that applies only visual language from style references while preserving base creative facts, brand, offer, CTA, and product.
-- Consistent CTA, brand, offer, and briefing contracts across generation prompts, scoring, QA, regeneration, and UI feedback.
-- Automatic quality gates that separate hard-rule failures from polish suggestions and make bad outputs actionable.
-- Campaign workspace error visibility that helps the user understand access/session/loading failures before judging output quality.
+- Source and target audit that confirms what should migrate, what already exists in `site-adscale`, and what must stay inside the app repo.
+- Dedicated Vite/React/Tailwind presentation site with ADScale value proposition, proof, pricing/beta CTA, legal links, and app CTAs aligned to the product.
+- Clear boundary between marketing site and app: signup/login/onboarding routes live in ADScale_2, presentation/SEO/static marketing lives in `site-adscale`.
+- Production readiness for the target repo: build, lint/typecheck, responsive visual QA, asset paths, metadata, analytics/cookie needs, and deploy/domain handoff.
 
 ## Requirements
 
@@ -171,11 +170,11 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Context
 
-Current state: v11.0 milestone complete (phases 40–43). Each "Derivar criativo" option opens the correct configuration flow before queueing generation — manual art variation, AI-assisted art variation, single-format adaptation, or batch format adaptation. The campaign workspace uses `useDerivationFlow` for routing and dedicated config modals with explicit Confirm actions.
+Current state: v11.2 beta access and credit entitlements are delivered in the app. The next milestone moves the public presentation surface out of the SaaS repo and into `https://github.com/jhowtkd/site-adscale.git`.
 
-Current UAT finding for v11.1: generated outputs can look visually competent but still fail the creative contract. In the reviewed campaign, format adaptation produced blurred bands and cramped elements; restyling copied factual claims from style references; CTA and client/brand assumptions diverged between prompts and scoring; and the campaign workspace error state made it hard to inspect outputs through the UI.
+Repo inspection on 2026-06-03 found that ADScale_2 has public legal pages under `app/src/app/(public)` but no App Router root presentation page. The target repo already exists on `main` as a Vite + React + Tailwind landing site with sections for hero, problem, solution, features, process, results, pricing, FAQ, CTA, and footer.
 
-Prior milestones delivered simplified campaign creation with AI visual analysis, performance optimizations (bundle ~2.39MB, TanStack Query presets, 24h analysis cache), UI refinement (animations, responsive layout, accessibility), and review gallery enhancements.
+Prior milestones delivered generation quality gates, coherent derivation flows, simplified campaign creation with AI visual analysis, performance optimizations, UI refinement, review gallery enhancements, beta access, and bounded credit entitlements.
 
 Build passes and 506 tests are green.
 
@@ -225,7 +224,7 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-01 after starting v11.1 quality milestone*
+*Last updated: 2026-06-03 after starting v11.3 site migration milestone*
 
 ## Milestone History
 
@@ -300,11 +299,21 @@ This document evolves at phase transitions and milestone boundaries.
 - PT-BR/EN copy aligned to behavior; comprehensive test coverage for all four paths
 - Phases 40–43 archived
 
+### v11.1 Qualidade de Geração e Contratos Criativos ✅
+- Native format adaptation, creative contract, restyling source control, hard quality gates, and workspace error/review feedback
+- Phases 44–48 archived
+
+### v11.2 Beta Access and Credit Entitlements ✅
+- Beta access without fake Stripe subscriptions
+- 10-ad beta allowance through server spend gates
+- Billing/status UI distinguishes beta and paid access
+- Phase 49 archived
+
 ## Next Milestone Goals
 
-- Credit cost preview before queueing derivations (DRV-11)
-- Remember last-used derivation settings per workspace (DRV-12)
-- Smart format recommendations from campaign platforms (DRV-13)
+- Migrate/converge the public presentation site into `jhowtkd/site-adscale.git`
+- Connect marketing CTAs to the live ADScale app signup/login/beta flow
+- Validate responsive quality, metadata, build, and deploy/domain readiness
 
 ---
-*Last updated: 2026-06-01 after v11.0 milestone*
+*Last updated: 2026-06-03 after v11.3 milestone start*

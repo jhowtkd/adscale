@@ -1,81 +1,54 @@
-# Requirements: ADScale v11.1 Qualidade de Geração e Contratos Criativos
+# Requirements: ADScale v11.3 Site de Apresentação Separado
 
-**Defined:** 2026-06-01
+**Defined:** 2026-06-03
 **Core Value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-## v11.1 Requirements
+## v11.3 Requirements
 
-### Format Adaptation
+### Migration Boundary
 
-- [x] **FMT-01**: User can generate a 9:16 format adaptation that fills the target canvas without blurred side/top/bottom bands, letterboxing, or a centered pasted poster.
-- [x] **FMT-02**: User can generate a 4:5 format adaptation that rebuilds the layout with portrait-feed spacing instead of compressing all elements into a crowded cluster.
-- [x] **FMT-03**: User-visible information from the source creative remains inside safe areas during format adaptation, including headline, CTA, logo, offer/proof, legal copy, faces, and product visuals.
-- [x] **FMT-04**: Format adaptation post-processing preserves final dimensions without adding decorative blur-fill, stretched edge filler, or letterbox backgrounds.
-- [x] **FMT-05**: Format adaptation prompts explicitly instruct native layout reconstruction by zones for each target format.
+- [ ] **SITE-01**: The team can identify the exact source of truth for the ADScale presentation page before implementation starts, including whether the current `site-adscale` landing already replaces any missing/inactive page in ADScale_2.
+- [ ] **SITE-02**: The migration defines what lives in `jhowtkd/site-adscale.git` versus what remains in ADScale_2: marketing content, static assets, SEO metadata, CTAs, legal pages, auth routes, dashboard routes, analytics, and deploy config.
+- [ ] **SITE-03**: The ADScale_2 app does not gain or retain a competing root marketing surface after the migration; app routes stay focused on auth, invite, legal, share, and dashboard/product workflows.
 
-### Creative Contract and Restyling
+### Presentation Content
 
-- [x] **CNTR-01**: The generation pipeline resolves one effective creative contract before prompt building, including generation mode, target format, effective CTA, base asset, style asset, client/brand, product, offer, and constraints.
-- [x] **CNTR-02**: Prompt generation, creative scoring, QA, and regeneration suggestions all evaluate against the same effective creative contract.
-- [x] **CNTR-03**: CTA semantics are mode-aware: explicit CTAs are preserved exactly, inherited CTAs are treated as required source content, and absent CTAs are represented without overloading `null`.
-- [x] **CNTR-04**: Brand/product/offer facts come from the base creative, campaign brief, client profile, or approved brand memory, not from unrelated style references.
-- [x] **REST-01**: User-selected style reference assets are persisted or passed into the restyling job so the job does not silently pick the first available style asset.
-- [x] **REST-02**: Restyling generation uses the base image as the factual source and style references only for visual language.
-- [x] **REST-03**: Restyling QA flags copied style-reference factual claims such as unrelated discounts, brands, CTAs, prices, or course names.
-- [x] **REST-04**: Restyling outputs preserve the base creative's essential factual content while applying the selected style language.
+- [ ] **CONT-01**: The presentation site communicates the current ADScale product accurately: base creative upload, campaign brief, AI plan, derivations for Meta/TikTok/Google, QA/review, export, beta access, and credit limits.
+- [ ] **CONT-02**: Primary CTAs on the presentation site point to the correct app destination for signup, login, or beta access, using production-safe URLs configurable outside code when needed.
+- [ ] **CONT-03**: Legal/footer links on the presentation site point to the correct privacy and terms surfaces, either hosted in `site-adscale` or intentionally linked back to ADScale_2.
+- [ ] **CONT-04**: Copy does not promise unsupported capabilities such as direct ad-platform publishing, unlimited generation, raw provider-token entitlements, or guaranteed model-perfect output.
 
-### Quality Gate and Regeneration
+### Target Repo Implementation
 
-- [x] **QA-01**: Completed derivations receive automatic quality analysis that separates blocking hard-rule failures from advisory polish suggestions.
-- [x] **QA-02**: Hard-rule failures cover at least CTA drift, wrong brand, unsupported offer, copied style-reference facts, cropped critical content, unreadable required text, and invalid format adaptation layout.
-- [x] **QA-03**: Quality score no longer hides blocking failures; an output with hard failures is visibly marked as needing review even if visual polish is high.
-- [x] **QA-04**: Regeneration suggestions are structured from the detected hard failures and preserve the same target format, generation mode, and effective CTA contract.
-- [x] **QA-05**: Users can distinguish "invalid output" from "usable but improvable output" before approving, exporting, or saving a reference.
+- [ ] **TGT-01**: `jhowtkd/site-adscale.git` can build, typecheck, and lint cleanly after the migration.
+- [ ] **TGT-02**: The target site's React/Tailwind components preserve the intended ADScale visual identity while fixing obvious responsive, accessibility, and text-overflow issues.
+- [ ] **TGT-03**: Static assets, favicon/logo references, Open Graph metadata, page title, description, and canonical/domain assumptions are configured for the production presentation site.
+- [ ] **TGT-04**: Any analytics, cookie consent, or tracking added to the presentation site is explicit, minimal, and does not conflict with ADScale_2 app consent behavior.
 
-### Workspace Review and Error Visibility
+### Launch Verification
 
-- [x] **WUI-01**: Campaign workspace loading errors distinguish at least unauthorized/session, workspace mismatch or forbidden, campaign not found, network timeout, and generic server failure where the API provides enough signal.
-- [x] **WUI-02**: Derivation gallery cards surface hard quality failures and actionable next steps without requiring the user to inspect logs.
-- [x] **WUI-03**: The output review surface shows enough source/target contract context to diagnose failures: generation mode, target format, CTA contract, base asset, and style reference when relevant.
-- [x] **WUI-04**: Users can retry or regenerate from an invalid output with the failure reasons carried into the regeneration flow.
-
-### Verification and UAT
-
-- [ ] **UAT-01**: A repeatable fixture or documented local scenario verifies 1:1 to 9:16 and 1:1 to 4:5 adaptation on a real campaign asset.
-- [ ] **UAT-02**: A restyling fixture verifies that unrelated style-reference factual claims are not copied into the output.
-- [ ] **UAT-03**: Focused tests cover prompt contracts, post-processing behavior, creative contract resolution, scoring/QA classification, and workspace error mapping.
-- [ ] **UAT-04**: `npm run build` passes after the milestone, and at least one browser/manual visual check confirms generated outputs are inspectable through the campaign workspace.
-
-### Beta Access and Monetization Coherence
-
-- [ ] **BET-01**: Provider model tokens are treated as internal cost inputs only; user-facing limits use credits/ads and never expose raw OpenAI token counts as the entitlement unit.
-- [ ] **BET-02**: Beta testers can receive active app access without creating a Stripe customer or fake Stripe subscription.
-- [ ] **BET-03**: Each beta tester workspace is limited to 10 generated ad outputs, enforced by the same server-side spend gate used by normal generation routes.
-- [ ] **BET-04**: Billing/status UI distinguishes beta access from paid subscription status and shows remaining beta-generated ads in plain language.
-- [ ] **BET-05**: Tests cover beta access allowed, beta exhaustion blocked, no active access blocked, paid subscription still allowed, and idempotent usage not double-counted.
+- [ ] **QA-01**: Desktop and mobile browser smoke checks verify hero, navigation, CTAs, pricing/beta section, FAQ, footer, and legal links.
+- [ ] **QA-02**: Build artifact is deploy-ready for the chosen host, with environment variables and app URL documented.
+- [ ] **QA-03**: The final handoff includes the target repo branch/commit, verification results, deploy instructions, and known residual risks.
 
 ## Future Requirements
 
-### Review Experience
-
-- **REV-01**: User can compare source creative and generated output side-by-side with contract annotations.
-- **REV-02**: User can view platform-specific safe-area overlays for Meta/TikTok/Google placements.
-- **REV-03**: User can tune a workspace-level quality threshold for warnings versus blocking failures.
-
-### Image Repair
-
-- **REPAIR-01**: System can run a multi-turn image repair loop if single-shot edit generation repeatedly fails quality gates.
-- **REPAIR-02**: System can preserve accepted visual modules from a previous output while repairing only failed areas.
+| Requirement | Reason |
+|-------------|--------|
+| **SITE-FUT-01**: Multilingual marketing site | Current milestone should first establish ownership, correctness, and deploy-readiness. |
+| **SITE-FUT-02**: CMS-backed content editing | Static Vite site is enough until copy changes become frequent. |
+| **SITE-FUT-03**: Full analytics funnel instrumentation | Can follow after CTAs/domains stabilize. |
+| **SITE-FUT-04**: A/B testing for hero/pricing copy | Requires stable baseline site and traffic. |
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| New generation modes | v11.1 is a reliability milestone for existing art variation, format adaptation, and restyling. |
-| Direct ad-platform publishing | Quality must be trustworthy before export/publish automation. |
-| Full visual diff UI | Useful but larger than the immediate contract/quality fix; tracked as future REV-01. |
-| Per-platform safe-area overlays | Valuable but can follow after native format adaptation works reliably. |
-| Replacing the OpenAI image provider | Current stack supports the needed target sizes and edit flows; provider replacement is not the observed bottleneck. |
+| Rebuilding ADScale_2 as a marketing site | The goal is a separate presentation repo, not expanding the app repo. |
+| Changing app auth/onboarding behavior | CTAs may link to signup/beta flows, but app behavior changes are separate unless a broken link blocks migration. |
+| Migrating dashboard/product UI to `site-adscale` | Target repo is for public presentation only. |
+| Direct ad-platform integrations | Product capability remains future scope, not marketing migration scope. |
+| Replacing Vite with Next.js in `site-adscale` | Current target stack is already Vite/React/Tailwind and adequate for static presentation. |
 
 ## Traceability
 
@@ -83,43 +56,26 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FMT-01 | Phase 44 | Complete |
-| FMT-02 | Phase 44 | Complete |
-| FMT-03 | Phase 44 | Complete |
-| FMT-04 | Phase 44 | Complete |
-| FMT-05 | Phase 44 | Complete |
-| CNTR-01 | Phase 45 | Complete |
-| CNTR-02 | Phase 45 | Complete |
-| CNTR-03 | Phase 45 | Complete |
-| CNTR-04 | Phase 45 | Complete |
-| REST-01 | Phase 45 | Complete |
-| REST-02 | Phase 45 | Complete |
-| REST-03 | Phase 45 | Complete |
-| REST-04 | Phase 45 | Complete |
-| QA-01 | Phase 46 | Complete |
-| QA-02 | Phase 46 | Complete |
-| QA-03 | Phase 46 | Complete |
-| QA-04 | Phase 46 | Complete |
-| QA-05 | Phase 46 | Complete |
-| WUI-01 | Phase 47 | Complete |
-| WUI-02 | Phase 47 | Complete |
-| WUI-03 | Phase 47 | Complete |
-| WUI-04 | Phase 47 | Complete |
-| UAT-01 | Phase 48 | Pending |
-| UAT-02 | Phase 48 | Pending |
-| UAT-03 | Phase 48 | Pending |
-| UAT-04 | Phase 48 | Pending |
-| BET-01 | Phase 49 | Planned |
-| BET-02 | Phase 49 | Planned |
-| BET-03 | Phase 49 | Planned |
-| BET-04 | Phase 49 | Planned |
-| BET-05 | Phase 49 | Planned |
+| SITE-01 | Phase 50 | Planned |
+| SITE-02 | Phase 50 | Planned |
+| SITE-03 | Phase 50 | Planned |
+| CONT-01 | Phase 51 | Planned |
+| CONT-02 | Phase 51 | Planned |
+| CONT-03 | Phase 51 | Planned |
+| CONT-04 | Phase 51 | Planned |
+| TGT-01 | Phase 51 | Planned |
+| TGT-02 | Phase 51 | Planned |
+| TGT-03 | Phase 51 | Planned |
+| TGT-04 | Phase 51 | Planned |
+| QA-01 | Phase 52 | Planned |
+| QA-02 | Phase 52 | Planned |
+| QA-03 | Phase 52 | Planned |
 
 **Coverage:**
-- v11.1/v11.2 requirements: 31 total
-- Mapped to phases: 31
+- v11.3 requirements: 14 total
+- Mapped to phases: 14
 - Unmapped: 0
 
 ---
-*Requirements defined: 2026-06-01*
-*Last updated: 2026-06-01 after v11.1 roadmap creation*
+*Requirements defined: 2026-06-03*
+*Last updated: 2026-06-03 after v11.3 roadmap creation*

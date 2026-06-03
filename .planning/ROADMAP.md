@@ -1,215 +1,111 @@
-# Roadmap: ADScale v11.1 Qualidade de Geração e Contratos Criativos
+# Roadmap: ADScale v11.3 Site de Apresentação Separado
 
-**Created:** 2026-06-01
-**Milestone:** v11.1
-**Total phases:** 6
-**Requirements:** 31/31 mapped
-**Starting phase:** 44
+**Created:** 2026-06-03
+**Milestone:** v11.3
+**Total phases:** 3
+**Requirements:** 14/14 mapped
+**Starting phase:** 50
 
 ## Overview
 
-v11.1 is a reliability milestone for the existing derivation modes. It fixes the gap between "the model generated an image" and "the user can trust this as a usable ad output." The roadmap starts with the most visible user complaint, then centralizes the creative contract, adds quality gates, improves UI diagnosis, and ends with repeatable visual UAT.
+v11.3 moves the public ADScale presentation surface into `jhowtkd/site-adscale.git`. Inspection shows ADScale_2 has legal public routes but no root App Router presentation page, while the target repo already contains a Vite/React/Tailwind landing site. This roadmap therefore treats the work as migration/convergence: audit ownership, align content and app links, then verify deploy-readiness.
 
 | Phase | Name | Goal | Requirements | Success Criteria |
 |-------|------|------|--------------|------------------|
-| 44 | 1/2 | Complete    | 2026-06-01 | 2026-06-01 |
-| 45 | Creative Contract and Restyling | Complete    | 2026-06-01 | 2026-06-01 |
-| 46 | Hard Quality Gate | Complete    | 2026-06-01 | 2026-06-01 |
-| 47 | Workspace Review and Error Feedback | 4/4 | Complete   | 2026-06-01 |
-| 48 | End-to-End UAT and Verification | Complete    | 2026-06-01 | 5 |
-| 49 | Beta Access and Credit Entitlements | Complete | BET-01, BET-02, BET-03, BET-04, BET-05 | 5 |
+| 50 | Source and Boundary Audit | Prove what migrates, what already exists in `site-adscale`, and what stays in ADScale_2. | SITE-01, SITE-02, SITE-03 | 4 |
+| 51 | Target Site Alignment | Update `site-adscale` content, CTAs, assets, metadata, and implementation quality. | CONT-01, CONT-02, CONT-03, CONT-04, TGT-01, TGT-02, TGT-03, TGT-04 | 5 |
+| 52 | Launch Verification and Handoff | Validate browser behavior, build/deploy readiness, and final handoff. | QA-01, QA-02, QA-03 | 5 |
 
 ## Phase Details
 
-### Phase 44: Native Format Adaptation
+### Phase 50: Source and Boundary Audit
 
-**Goal:** `Variar tamanho` generates real target-format layouts, not resized square posters.
+**Goal:** Prove what migrates, what already exists in `site-adscale`, and what stays in ADScale_2.
 
-**Requirements:** FMT-01, FMT-02, FMT-03, FMT-04, FMT-05
-
-**Scope:**
-- Strengthen format-adaptation prompt instructions around native layout zones, gutters, safe areas, and module separation.
-- Ensure image generation/edit requests use the closest native target size for 4:5 and 9:16.
-- Remove or prevent post-processing that creates blurred padding, letterboxing, stretched edge filler, or pasted-poster layouts.
-- Add focused tests around prompt content and normalization behavior.
-
-**Success criteria:**
-1. 9:16 adaptation fills the canvas without blurred side/top/bottom bands or pasted square poster treatment.
-2. 4:5 adaptation has portrait-feed spacing and avoids clustered text/photo/CTA/logo elements.
-3. Critical source information remains readable and inside safe areas.
-4. Unit tests fail if format adaptation uses blur/contain/composite as the primary dimension solution.
-5. A local visual check records at least one accepted 9:16 and one accepted 4:5 output or documents model failure evidence.
-
-### Phase 45: Creative Contract and Restyling
-
-**Goal:** Generation, scoring, QA, regeneration, and UI all agree on the same creative contract.
-
-**Requirements:** CNTR-01, CNTR-02, CNTR-03, CNTR-04, REST-01, REST-02, REST-03, REST-04
-
-**Plans:** 5/5 plans complete
-
-Plans:
-- [x] 45-01-PLAN.md — Creative contract types (CreativeContract, CtaSemantics, resolveCtaSemantics) + styleAssetId DB schema + route event payload
-- [x] 45-02-PLAN.md — Thread contract into prompt-builder (mode-aware CTA + restyling factual-source) and creative-score (inherited CTA scoring + enriched regeneration)
-- [x] 45-03-PLAN.md — Add styleFidelity QA criterion to creative-qa for restyling contamination detection
-- [x] 45-04-PLAN.md — Derivation job orchestration: resolve contract once, fix restyling asset selection, pass to all pipeline functions
-- [x] 45-05-PLAN.md — Tests: CTA semantics (5 cases) + styleFidelity criterion (4 cases)
+**Requirements:** SITE-01, SITE-02, SITE-03
 
 **Scope:**
-- Introduce or formalize an effective creative contract for each derivation.
-- Define mode-aware CTA semantics: explicit, inherited, absent, and overridden.
-- Resolve base asset and selected style references explicitly instead of relying on asset ordering.
-- Ensure restyling treats base image as factual source and style references as visual-only.
-- Update prompt, scoring, QA, and regeneration to consume the same contract.
+- Inspect ADScale_2 public routes, layouts, metadata, legal pages, auth/signup/login/beta flows, and any old marketing assets.
+- Inspect `jhowtkd/site-adscale.git` current landing structure, dependencies, design system, assets, sections, CTAs, deploy assumptions, and build health.
+- Produce a migration contract documenting ownership: presentation/SEO/static marketing in `site-adscale`; auth/dashboard/product runtime/legal decisions in ADScale_2.
+- Decide whether legal pages are duplicated in `site-adscale` or linked back to app-hosted `/privacy` and `/terms`.
 
 **Success criteria:**
-1. Restyling job uses the user-selected style reference instead of silently choosing the first available style asset.
-2. Restyling prompts and QA prevent copied factual claims from style references.
-3. CTA contract tests cover art variation, format adaptation, and restyling semantics.
-4. Scoring no longer treats inherited base CTA as "none" unless the contract explicitly says no CTA.
-5. Regeneration suggestion preserves the same mode, target format, and effective CTA/source contract.
+1. Audit identifies no hidden ADScale_2 root presentation page that would conflict with `site-adscale`.
+2. Target repo sections and assets are mapped to ADScale product claims.
+3. App URLs for signup/login/beta/legal are listed with source of truth and env/config needs.
+4. Migration contract names exact files/repos touched in later phases.
 
-### Phase 46: Hard Quality Gate
+### Phase 51: Target Site Alignment
 
-**Goal:** Users can tell whether an output is invalid or merely needs polish.
+**Goal:** Update `site-adscale` content, CTAs, assets, metadata, and implementation quality.
 
-**Requirements:** QA-01, QA-02, QA-03, QA-04, QA-05
-
-**Plans:** 5/5 plans complete
-
-Plans:
-- [x] 46-01-PLAN.md — TDD: creative-quality-gate classifier (hard vs polish, verdict derivation, fixtures per QA-02 code)
-- [x] 46-02-PLAN.md — DB columns + updateDerivationQualityGate + client types (QA-05 persistence)
-- [x] 46-03-PLAN.md — Inngest quality-gate step after scoring + score prompt alignment (QA-01, QA-03)
-- [x] 46-04-PLAN.md — Hard-failure regeneration suggestion + regenerate default feedback (QA-04)
-- [x] 46-05-PLAN.md — API 409 guards + manual QA classifier + test-creatives (QA-01, QA-05)
+**Requirements:** CONT-01, CONT-02, CONT-03, CONT-04, TGT-01, TGT-02, TGT-03, TGT-04
 
 **Scope:**
-- Add structured hard-failure classification for blocking creative-contract violations.
-- Keep advisory polish suggestions separate from approval-blocking failures.
-- Run quality analysis after completion or ensure completed outputs surface quality status automatically.
-- Make regeneration suggestions structured around hard failures.
-- Add fixtures/tests for visually good but contract-invalid outputs.
+- Update `site-adscale` copy to match current ADScale capability and beta/credit language.
+- Wire CTA destinations to configurable app URLs for signup/login/beta access.
+- Add or correct footer/legal links, metadata, title, description, Open Graph basics, favicon/logo paths, and canonical/domain assumptions.
+- Fix target repo responsive/a11y/text-overflow issues discovered during audit.
+- Keep the target stack as Vite + React + Tailwind unless execution finds a hard blocker.
+- Run target repo `npm run build`, `npm run typecheck`, and `npm run lint`.
 
 **Success criteria:**
-1. Hard failures cover CTA drift, wrong brand, unsupported offer, copied style facts, cropped critical content, unreadable required text, and invalid format layout.
-2. A high visual score cannot hide a blocking hard failure.
-3. Output cards or review UI can display "invalid output" separately from "improvement suggested".
-4. Regeneration receives specific failure reasons and does not drop target format/mode/CTA contract.
-5. Tests verify hard-failure classification for at least one invalid fixture per major failure type.
+1. Hero, product sections, pricing/beta copy, FAQ, and final CTA all describe shipped ADScale behavior accurately.
+2. CTAs never dead-end and point to the intended app route or configured external URL.
+3. The site has production metadata/assets suitable for social previews and browser tabs.
+4. Target repo build/typecheck/lint pass or failures are documented with exact blockers.
+5. No visible mobile/desktop text overlap or broken layout remains in the main landing sections.
 
-### Phase 47: Workspace Review and Error Feedback
+### Phase 52: Launch Verification and Handoff
 
-**Goal:** The campaign workspace makes output inspection and failure diagnosis clear.
+**Goal:** Validate browser behavior, build/deploy readiness, and final handoff.
 
-**Requirements:** WUI-01, WUI-02, WUI-03, WUI-04
+**Requirements:** QA-01, QA-02, QA-03
 
 **Scope:**
-- Improve campaign and derivation loading errors so auth/session, workspace mismatch, not-found, timeout, and server failures are distinguishable when possible.
-- Surface quality status and hard-failure next steps in derivation cards/grid.
-- Show relevant source/target contract context for review.
-- Carry failure reasons into retry/regeneration actions.
+- Run local target site and inspect desktop and mobile breakpoints.
+- Click through navbar anchors, primary/secondary CTAs, pricing/beta CTA, legal/footer links, and app links.
+- Check built artifact/deploy settings for selected host.
+- Document environment variables, app URL assumptions, domain/canonical choice, and residual risks.
+- Create final handoff with target repo commit/branch, commands run, verification evidence, and next action.
 
 **Success criteria:**
-1. Campaign page no longer collapses all failures into one vague "Erro ao carregar campanha" state when the API provides enough signal.
-2. Output cards show hard failures and recommended next action without requiring logs.
-3. Review UI exposes generation mode, target format, effective CTA, base asset, and style reference when relevant.
-4. Regenerate/retry from invalid output preserves failure reasons.
-
-### Phase 48: End-to-End UAT and Verification
-
-**Goal:** Prove v11.1 with repeatable tests and real visual inspection.
-
-**Requirements:** UAT-01, UAT-02, UAT-03, UAT-04
-
-**Scope:**
-- Create or document repeatable local fixtures for format adaptation and restyling.
-- Run focused tests for prompt contracts, post-processing, creative contract resolution, scoring/QA, and UI error mapping.
-- Run `npm run build`.
-- Use browser/manual review to inspect at least one real campaign workspace and generated output set.
-- Record evidence and accepted residual risks.
-
-**Success criteria:**
-1. Fixture verifies 1:1 to 9:16 and 1:1 to 4:5 behavior on a real campaign asset.
-2. Fixture verifies restyling does not copy unrelated style-reference factual claims.
-3. Focused tests and `npm run build` pass.
-4. Browser/manual visual check confirms outputs are inspectable through the campaign workspace.
-5. Verification notes clearly separate fixed behavior, remaining model-risk, and follow-up scope.
-
-### Phase 49: Beta Access and Credit Entitlements
-
-**Goal:** Beta testers can access the app without Stripe and are limited to 10 generated ads.
-
-**Requirements:** BET-01, BET-02, BET-03, BET-04, BET-05
-
-**Plans:** 1/1 plan complete
-
-Plans:
-- [x] 49-01-PLAN.md — Beta entitlement model, 10-ad credit grant, usage gate revision, signup/onboarding redemption, and billing UI copy cleanup
-
-**Scope:**
-- Treat provider tokens as internal cost accounting only; user-facing monetization uses credits/ads.
-- Add a beta entitlement path that does not create fake Stripe subscriptions.
-- Grant beta testers exactly enough generation allowance for 10 generated ads.
-- Keep existing Stripe plans and renewal grants intact.
-- Surface beta status, remaining ads, and 402 failures clearly in the app.
-
-**Success criteria:**
-1. A workspace with active beta access can generate ads without a Stripe subscription.
-2. Beta access stops after 10 generated ad outputs and returns the same payment-required contract as paid credit exhaustion.
-3. Stripe subscription status and beta entitlement status remain separate in persistence and UI.
-4. Billing/settings copy no longer suggests model tokens are the user-facing limit.
-5. Tests cover active beta, exhausted beta, active Stripe, inactive access, duplicate idempotency keys, and mixed beta+paid workspaces.
+1. Desktop browser smoke covers hero, nav, major sections, CTAs, footer, and legal links.
+2. Mobile browser smoke covers navigation, hero CTA, pricing/beta, FAQ, and footer without overlap.
+3. Build artifact and deployment config are ready for the selected host.
+4. Handoff names the `site-adscale` commit/branch and exact deploy instructions.
+5. Remaining risks are explicit, especially legal hosting choice, domain mapping, analytics/cookie consent, and any app URL still pending.
 
 ## Requirement Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FMT-01 | Phase 44 | Complete |
-| FMT-02 | Phase 44 | Complete |
-| FMT-03 | Phase 44 | Complete |
-| FMT-04 | Phase 44 | Complete |
-| FMT-05 | Phase 44 | Complete |
-| CNTR-01 | Phase 45 | Complete |
-| CNTR-02 | Phase 45 | Complete |
-| CNTR-03 | Phase 45 | Complete |
-| CNTR-04 | Phase 45 | Complete |
-| REST-01 | Phase 45 | Complete |
-| REST-02 | Phase 45 | Complete |
-| REST-03 | Phase 45 | Complete |
-| REST-04 | Phase 45 | Complete |
-| QA-01 | Phase 46 | Complete |
-| QA-02 | Phase 46 | Complete |
-| QA-03 | Phase 46 | Complete |
-| QA-04 | Phase 46 | Complete |
-| QA-05 | Phase 46 | Complete |
-| WUI-01 | Phase 47 | Complete |
-| WUI-02 | Phase 47 | Complete |
-| WUI-03 | Phase 47 | Complete |
-| WUI-04 | Phase 47 | Complete |
-| UAT-01 | Phase 48 | Complete |
-| UAT-02 | Phase 48 | Complete |
-| UAT-03 | Phase 48 | Complete |
-| UAT-04 | Phase 48 | Complete |
-| BET-01 | Phase 49 | Complete |
-| BET-02 | Phase 49 | Complete |
-| BET-03 | Phase 49 | Complete |
-| BET-04 | Phase 49 | Complete |
-| BET-05 | Phase 49 | Complete |
+| SITE-01 | Phase 50 | Planned |
+| SITE-02 | Phase 50 | Planned |
+| SITE-03 | Phase 50 | Planned |
+| CONT-01 | Phase 51 | Planned |
+| CONT-02 | Phase 51 | Planned |
+| CONT-03 | Phase 51 | Planned |
+| CONT-04 | Phase 51 | Planned |
+| TGT-01 | Phase 51 | Planned |
+| TGT-02 | Phase 51 | Planned |
+| TGT-03 | Phase 51 | Planned |
+| TGT-04 | Phase 51 | Planned |
+| QA-01 | Phase 52 | Planned |
+| QA-02 | Phase 52 | Planned |
+| QA-03 | Phase 52 | Planned |
 
 **Coverage:**
-- v11.1/v11.2 requirements: 31 total
-- Mapped to phases: 31
+- v11.3 requirements: 14 total
+- Mapped to phases: 14
 - Unmapped: 0
 
 ## Build Order Rationale
 
-1. Fix native format adaptation first because it is the most visible user-facing failure and it has a clear implementation boundary.
-2. Resolve creative contract before QA, otherwise scoring and regeneration will continue evaluating against inconsistent assumptions.
-3. Add hard quality gates after contract semantics are stable.
-4. Improve UI feedback once hard-failure outputs exist to display.
-5. End with UAT because image model behavior requires visual verification beyond unit tests.
-6. Add beta monetization after generation quality is reliable, so testers consume a bounded allowance on the final user-facing workflow rather than on unstable internal experiments.
+1. Audit first because local inspection found the target repo already has a landing page, while ADScale_2 lacks a root presentation page. Copying before resolving ownership risks duplicating or regressing the marketing surface.
+2. Align target content and implementation second because CTAs, beta/credit language, legal links, and metadata must match current app behavior.
+3. Verify launch last because browser checks and deploy readiness depend on final target repo changes.
 
 ---
-*Roadmap created: 2026-06-01*
+*Roadmap created: 2026-06-03*

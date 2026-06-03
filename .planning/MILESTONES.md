@@ -1,5 +1,33 @@
 # Milestones: ADScale
 
+## v11.2 Beta Access and Credit Entitlements (Shipped: 2026-06-03)
+
+**Phases completed:** 1 phase (49), 1 plan
+**Requirements:** 5/5 complete
+
+**Key accomplishments:**
+- Workspace beta entitlements separate from Stripe subscriptions
+- Beta testers receive 10 generated ads through 50 internal credits
+- Spend gates allow active paid subscription or active beta entitlement with credits
+- Billing/settings UI distinguishes beta access from paid access
+- Beta codes configured through `BETA_ACCESS_CODES`
+
+---
+
+## v11.1 Qualidade de Geração e Contratos Criativos (Shipped: 2026-06-01)
+
+**Phases completed:** 5 phases (44→48), multiple plans
+**Requirements:** 26/26 complete
+
+**Key accomplishments:**
+- Native 4:5 and 9:16 format adaptation planning and verification
+- Shared creative contract for generation, scoring, QA, and regeneration
+- Restyling uses selected style references as visual language only
+- Hard quality gates separate blocking failures from polish suggestions
+- Workspace review/error feedback exposes contract and failure context
+
+---
+
 ## v11.0 Fluxos de Derivação Coerentes (Shipped: 2026-06-01)
 
 **Phases completed:** 4 phases (40→43), 4 plans
