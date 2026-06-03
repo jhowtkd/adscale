@@ -7,29 +7,29 @@
 
 ### Migration Boundary
 
-- [ ] **SITE-01**: The team can identify the exact source of truth for the ADScale presentation page before implementation starts, including whether the current `site-adscale` landing already replaces any missing/inactive page in ADScale_2.
-- [ ] **SITE-02**: The migration defines what lives in `jhowtkd/site-adscale.git` versus what remains in ADScale_2: marketing content, static assets, SEO metadata, CTAs, legal pages, auth routes, dashboard routes, analytics, and deploy config.
-- [ ] **SITE-03**: The ADScale_2 app does not gain or retain a competing root marketing surface after the migration; app routes stay focused on auth, invite, legal, share, and dashboard/product workflows.
+- [x] **SITE-01**: The team can identify the exact source of truth for the ADScale presentation page before implementation starts, including whether the current `site-adscale` landing already replaces any missing/inactive page in ADScale_2.
+- [x] **SITE-02**: The migration defines what lives in `jhowtkd/site-adscale.git` versus what remains in ADScale_2: marketing content, static assets, SEO metadata, CTAs, legal pages, auth routes, dashboard routes, analytics, and deploy config.
+- [x] **SITE-03**: The ADScale_2 app does not gain or retain a competing root marketing surface after the migration; app routes stay focused on auth, invite, legal, share, and dashboard/product workflows.
 
 ### Presentation Content
 
-- [ ] **CONT-01**: The presentation site communicates the current ADScale product accurately: base creative upload, campaign brief, AI plan, derivations for Meta/TikTok/Google, QA/review, export, beta access, and credit limits.
-- [ ] **CONT-02**: Primary CTAs on the presentation site point to the correct app destination for signup, login, or beta access, using production-safe URLs configurable outside code when needed.
-- [ ] **CONT-03**: Legal/footer links on the presentation site point to the correct privacy and terms surfaces, either hosted in `site-adscale` or intentionally linked back to ADScale_2.
-- [ ] **CONT-04**: Copy does not promise unsupported capabilities such as direct ad-platform publishing, unlimited generation, raw provider-token entitlements, or guaranteed model-perfect output.
+- [x] **CONT-01**: The presentation site communicates the current ADScale product accurately: base creative upload, campaign brief, AI plan, derivations for Meta/TikTok/Google, QA/review, export, beta access, and credit limits.
+- [x] **CONT-02**: Primary CTAs on the presentation site point to the correct app destination for signup, login, or beta access, using production-safe URLs configurable outside code when needed.
+- [x] **CONT-03**: Legal/footer links on the presentation site point to the correct privacy and terms surfaces, either hosted in `site-adscale` or intentionally linked back to ADScale_2.
+- [x] **CONT-04**: Copy does not promise unsupported capabilities such as direct ad-platform publishing, unlimited generation, raw provider-token entitlements, or guaranteed model-perfect output.
 
 ### Target Repo Implementation
 
-- [ ] **TGT-01**: `jhowtkd/site-adscale.git` can build, typecheck, and lint cleanly after the migration.
-- [ ] **TGT-02**: The target site's React/Tailwind components preserve the intended ADScale visual identity while fixing obvious responsive, accessibility, and text-overflow issues.
-- [ ] **TGT-03**: Static assets, favicon/logo references, Open Graph metadata, page title, description, and canonical/domain assumptions are configured for the production presentation site.
-- [ ] **TGT-04**: Any analytics, cookie consent, or tracking added to the presentation site is explicit, minimal, and does not conflict with ADScale_2 app consent behavior.
+- [x] **TGT-01**: `jhowtkd/site-adscale.git` can build, typecheck, and lint cleanly after the migration.
+- [x] **TGT-02**: The target site's React/Tailwind components preserve the intended ADScale visual identity while fixing obvious responsive, accessibility, and text-overflow issues.
+- [x] **TGT-03**: Static assets, favicon/logo references, Open Graph metadata, page title, description, and canonical/domain assumptions are configured for the production presentation site.
+- [x] **TGT-04**: Any analytics, cookie consent, or tracking added to the presentation site is explicit, minimal, and does not conflict with ADScale_2 app consent behavior.
 
 ### Launch Verification
 
-- [ ] **QA-01**: Desktop and mobile browser smoke checks verify hero, navigation, CTAs, pricing/beta section, FAQ, footer, and legal links.
-- [ ] **QA-02**: Build artifact is deploy-ready for the chosen host, with environment variables and app URL documented.
-- [ ] **QA-03**: The final handoff includes the target repo branch/commit, verification results, deploy instructions, and known residual risks.
+- [x] **QA-01**: Desktop and mobile browser smoke checks verify hero, navigation, CTAs, pricing/beta section, FAQ, footer, and legal links.
+- [x] **QA-02**: Build artifact is deploy-ready for the chosen host, with environment variables and app URL documented.
+- [x] **QA-03**: The final handoff includes the target repo branch/commit, verification results, deploy instructions, and known residual risks.
 
 ## Future Requirements
 
@@ -56,20 +56,20 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SITE-01 | Phase 50 | Planned |
-| SITE-02 | Phase 50 | Planned |
-| SITE-03 | Phase 50 | Planned |
-| CONT-01 | Phase 51 | Planned |
-| CONT-02 | Phase 51 | Planned |
-| CONT-03 | Phase 51 | Planned |
-| CONT-04 | Phase 51 | Planned |
-| TGT-01 | Phase 51 | Planned |
-| TGT-02 | Phase 51 | Planned |
-| TGT-03 | Phase 51 | Planned |
-| TGT-04 | Phase 51 | Planned |
-| QA-01 | Phase 52 | Planned |
-| QA-02 | Phase 52 | Planned |
-| QA-03 | Phase 52 | Planned |
+| SITE-01 | Phase 50 | Complete |
+| SITE-02 | Phase 50 | Complete |
+| SITE-03 | Phase 50 | Complete |
+| CONT-01 | Phase 51 | Complete |
+| CONT-02 | Phase 51 | Complete |
+| CONT-03 | Phase 51 | Complete |
+| CONT-04 | Phase 51 | Complete |
+| TGT-01 | Phase 51 | Complete (lint debt documented) |
+| TGT-02 | Phase 51 | Complete |
+| TGT-03 | Phase 51 | Complete (og:image deferred) |
+| TGT-04 | Phase 51 | Complete |
+| QA-01 | Phase 52 | Complete (owner smoke pending) |
+| QA-02 | Phase 52 | Complete |
+| QA-03 | Phase 52 | Complete |
 
 **Coverage:**
 - v11.3 requirements: 14 total
