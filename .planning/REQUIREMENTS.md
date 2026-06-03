@@ -46,6 +46,14 @@
 - [ ] **UAT-03**: Focused tests cover prompt contracts, post-processing behavior, creative contract resolution, scoring/QA classification, and workspace error mapping.
 - [ ] **UAT-04**: `npm run build` passes after the milestone, and at least one browser/manual visual check confirms generated outputs are inspectable through the campaign workspace.
 
+### Beta Access and Monetization Coherence
+
+- [ ] **BET-01**: Provider model tokens are treated as internal cost inputs only; user-facing limits use credits/ads and never expose raw OpenAI token counts as the entitlement unit.
+- [ ] **BET-02**: Beta testers can receive active app access without creating a Stripe customer or fake Stripe subscription.
+- [ ] **BET-03**: Each beta tester workspace is limited to 10 generated ad outputs, enforced by the same server-side spend gate used by normal generation routes.
+- [ ] **BET-04**: Billing/status UI distinguishes beta access from paid subscription status and shows remaining beta-generated ads in plain language.
+- [ ] **BET-05**: Tests cover beta access allowed, beta exhaustion blocked, no active access blocked, paid subscription still allowed, and idempotent usage not double-counted.
+
 ## Future Requirements
 
 ### Review Experience
@@ -101,10 +109,15 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UAT-02 | Phase 48 | Pending |
 | UAT-03 | Phase 48 | Pending |
 | UAT-04 | Phase 48 | Pending |
+| BET-01 | Phase 49 | Planned |
+| BET-02 | Phase 49 | Planned |
+| BET-03 | Phase 49 | Planned |
+| BET-04 | Phase 49 | Planned |
+| BET-05 | Phase 49 | Planned |
 
 **Coverage:**
-- v11.1 requirements: 26 total
-- Mapped to phases: 26
+- v11.1/v11.2 requirements: 31 total
+- Mapped to phases: 31
 - Unmapped: 0
 
 ---

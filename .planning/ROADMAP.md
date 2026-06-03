@@ -2,8 +2,8 @@
 
 **Created:** 2026-06-01
 **Milestone:** v11.1
-**Total phases:** 5
-**Requirements:** 26/26 mapped
+**Total phases:** 6
+**Requirements:** 31/31 mapped
 **Starting phase:** 44
 
 ## Overview
@@ -17,6 +17,7 @@ v11.1 is a reliability milestone for the existing derivation modes. It fixes the
 | 46 | Hard Quality Gate | Complete    | 2026-06-01 | 2026-06-01 |
 | 47 | Workspace Review and Error Feedback | 4/4 | Complete   | 2026-06-01 |
 | 48 | End-to-End UAT and Verification | Complete    | 2026-06-01 | 5 |
+| 49 | Beta Access and Credit Entitlements | Planned | BET-01, BET-02, BET-03, BET-04, BET-05 | 5 |
 
 ## Phase Details
 
@@ -135,6 +136,31 @@ Plans:
 4. Browser/manual visual check confirms outputs are inspectable through the campaign workspace.
 5. Verification notes clearly separate fixed behavior, remaining model-risk, and follow-up scope.
 
+### Phase 49: Beta Access and Credit Entitlements
+
+**Goal:** Beta testers can access the app without Stripe and are limited to 10 generated ads.
+
+**Requirements:** BET-01, BET-02, BET-03, BET-04, BET-05
+
+**Plans:** 1/1 plan ready
+
+Plans:
+- [ ] 49-01-PLAN.md — Beta entitlement model, 10-ad credit grant, usage gate revision, signup/onboarding redemption, and billing UI copy cleanup
+
+**Scope:**
+- Treat provider tokens as internal cost accounting only; user-facing monetization uses credits/ads.
+- Add a beta entitlement path that does not create fake Stripe subscriptions.
+- Grant beta testers exactly enough generation allowance for 10 generated ads.
+- Keep existing Stripe plans and renewal grants intact.
+- Surface beta status, remaining ads, and 402 failures clearly in the app.
+
+**Success criteria:**
+1. A workspace with active beta access can generate ads without a Stripe subscription.
+2. Beta access stops after 10 generated ad outputs and returns the same payment-required contract as paid credit exhaustion.
+3. Stripe subscription status and beta entitlement status remain separate in persistence and UI.
+4. Billing/settings copy no longer suggests model tokens are the user-facing limit.
+5. Tests cover active beta, exhausted beta, active Stripe, inactive access, duplicate idempotency keys, and mixed beta+paid workspaces.
+
 ## Requirement Traceability
 
 | Requirement | Phase | Status |
@@ -165,10 +191,15 @@ Plans:
 | UAT-02 | Phase 48 | Complete |
 | UAT-03 | Phase 48 | Complete |
 | UAT-04 | Phase 48 | Complete |
+| BET-01 | Phase 49 | Planned |
+| BET-02 | Phase 49 | Planned |
+| BET-03 | Phase 49 | Planned |
+| BET-04 | Phase 49 | Planned |
+| BET-05 | Phase 49 | Planned |
 
 **Coverage:**
-- v11.1 requirements: 26 total
-- Mapped to phases: 26
+- v11.1/v11.2 requirements: 31 total
+- Mapped to phases: 31
 - Unmapped: 0
 
 ## Build Order Rationale
@@ -178,6 +209,7 @@ Plans:
 3. Add hard quality gates after contract semantics are stable.
 4. Improve UI feedback once hard-failure outputs exist to display.
 5. End with UAT because image model behavior requires visual verification beyond unit tests.
+6. Add beta monetization after generation quality is reliable, so testers consume a bounded allowance on the final user-facing workflow rather than on unstable internal experiments.
 
 ---
 *Roadmap created: 2026-06-01*
