@@ -22,8 +22,8 @@ export default function AppShell({ children }: AppShellProps) {
       <TopBar />
 
       {/* Main Content Area - full width */}
-      <div className="min-h-screen pt-14 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-0 dot-grid">
-        <div className="min-h-[calc(100vh-3.5rem)] relative">
+      <div className="min-h-screen pt-12 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] sm:pt-14 md:pb-0 dot-grid">
+        <div className="relative min-h-[calc(100vh-3rem)] sm:min-h-[calc(100vh-3.5rem)]">
           {children}
         </div>
         <Footer />
