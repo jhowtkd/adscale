@@ -5,12 +5,17 @@ import { isValidLocale, defaultLocale } from "@/i18n/config";
 
 const PROTECTED_PREFIXES = ["/campaigns", "/settings"];
 const PROTECTED_EXACT = ["/"];
+const AUTH_ENTRY_PATHS = ["/login", "/signup"];
 
 function isProtectedPath(pathname: string): boolean {
   if (PROTECTED_EXACT.includes(pathname)) return true;
   return PROTECTED_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
   );
+}
+
+function isAuthEntryPath(pathname: string): boolean {
+  return AUTH_ENTRY_PATHS.includes(pathname);
 }
 
 function isApiMutation(request: NextRequest): boolean {
@@ -37,6 +42,31 @@ function hasSessionCookie(request: NextRequest): boolean {
     request.cookies.has("__Secure-better-auth.session_token") ||
     request.cookies.has("session")
   );
+}
+
+function getMarketingUrl(): string | null {
+  const raw = process.env.MARKETING_URL?.trim();
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    const path = url.pathname.replace(/\/$/, "");
+    return path ? `${url.origin}${path}` : url.origin;
+  } catch {
+    return null;
+  }
+}
+
+function redirectUnauthenticated(request: NextRequest, pathname: string) {
+  const marketingUrl = getMarketingUrl();
+  if (pathname === "/" && marketingUrl) {
+    return NextResponse.redirect(marketingUrl);
+  }
+
+  const loginUrl = new URL("/login", request.url);
+  if (pathname !== "/") {
+    loginUrl.searchParams.set("callbackUrl", `${pathname}${request.nextUrl.search}`);
+  }
+  return NextResponse.redirect(loginUrl);
 }
 
 export async function middleware(request: NextRequest) {
@@ -84,8 +114,14 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Ensure locale cookie is set
   const locale = getLocaleFromRequest(request);
+  const session = hasSessionCookie(request);
+
+  // Logged-in users skip auth entry screens
+  if (session && isAuthEntryPath(pathname)) {
+    return NextResponse.redirect(new URL("/", request.url));
+  }
+
   const response = NextResponse.next();
 
   if (!request.cookies.get("locale")?.value) {
@@ -95,14 +131,12 @@ export async function middleware(request: NextRequest) {
     });
   }
 
-  // Auth check for protected routes
   if (!isProtectedPath(pathname)) {
     return response;
   }
 
-  if (!hasSessionCookie(request)) {
-    const loginUrl = new URL("/login", request.url);
-    return NextResponse.redirect(loginUrl);
+  if (!session) {
+    return redirectUnauthenticated(request, pathname);
   }
 
   return response;
