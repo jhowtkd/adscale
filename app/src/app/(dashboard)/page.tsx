@@ -125,8 +125,8 @@ export default function DashboardPage() {
               </p>
             </div>
             
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto lg:shrink-0">
-              <div className="relative w-full min-w-0 sm:max-w-[220px] lg:w-[220px]">
+            <div className="flex w-full flex-row items-center gap-3 lg:w-auto lg:shrink-0">
+              <div className="relative min-w-0 flex-1 sm:max-w-[220px] lg:w-[220px] lg:flex-none">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
 	                <input
 	                  type="text"
@@ -138,7 +138,7 @@ export default function DashboardPage() {
                 />
               </div>
 
-              <fieldset className="flex shrink-0 items-center self-start sm:self-auto bg-[var(--deep-bg)] border-2 border-[var(--border-dim)] rounded-xl p-1" aria-label="Visualização">
+              <fieldset className="flex shrink-0 items-center bg-[var(--deep-bg)] border-2 border-[var(--border-dim)] rounded-xl p-1" aria-label="Visualização">
                 <button type="button"
                   onClick={() => setViewMode("grid")}
                   className={`min-h-11 min-w-11 flex items-center justify-center rounded-lg transition-all ${
