@@ -80,6 +80,8 @@ describe("ArtVariationConfigModal", () => {
 
     expect(screen.getByRole("button", { name: "workspace.derivar.actions.confirm" })).toBeDisabled();
     expect(screen.getByText("generation.generatingSuggestions")).toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
+    expect(screen.getByRole("status", { busy: true })).toBeInTheDocument();
   });
 
   it("shows error alert with retry when suggestions fail", () => {

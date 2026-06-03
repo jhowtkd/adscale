@@ -360,6 +360,19 @@
   }
 }
 
+/* One-shot emphasis when AI or system updates a field value */
+@keyframes suggest-emphasis {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-green) 0%, transparent);
+  }
+  30% {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-green) 40%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-green) 0%, transparent);
+  }
+}
+
 @keyframes spin-slow {
   from {
     transform: rotate(0deg);
@@ -425,6 +438,10 @@
 
   .animate-fade-in {
     animation: fade-in 250ms var(--ease-out-expo) forwards;
+  }
+
+  .animate-suggest-emphasis {
+    animation: suggest-emphasis 650ms var(--ease-out-expo) 1;
   }
 
   .animate-shake {

@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Loader2, Palette, Sparkles } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
@@ -37,6 +38,47 @@ const CREATIVE_LEVELS: ArtCreativeLevel[] = [
   "bold",
   "extreme",
 ];
+
+function ArtVariationConfigSkeleton({
+  loadingLabel,
+}: {
+  loadingLabel: string;
+}) {
+  return (
+    <div
+      className="space-y-5"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      aria-label={loadingLabel}
+    >
+      <p className="flex animate-fade-in items-center gap-2 text-xs text-[var(--text-secondary)]">
+        <Loader2 size={14} className="animate-spin shrink-0" aria-hidden />
+        {loadingLabel}
+      </p>
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-36" shimmer={false} />
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {CREATIVE_LEVELS.map((level) => (
+            <Skeleton key={level} className="h-[4.25rem] w-full rounded-lg" />
+          ))}
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-28" shimmer={false} />
+        <Skeleton className="h-3 w-full max-w-xs" shimmer={false} />
+        <div className="mt-3 space-y-3">
+          {CTA_FIELD_KEYS.map((fieldKey) => (
+            <div key={fieldKey} className="space-y-1.5">
+              <Skeleton className="h-3 w-32" shimmer={false} />
+              <Skeleton className="h-9 w-full rounded-md" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export interface ArtVariationConfig {
   creativeLevel: ArtCreativeLevel;
@@ -141,9 +183,11 @@ export default function ArtVariationConfigModal({
   const showAutoStatus =
     intent === "auto_art" && !isLoadingSuggestions && !suggestionsError;
 
+  const loadingLabel = tGeneration("generatingSuggestions");
+
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent key={open ? intent : "closed"} className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Palette size={18} className="text-[var(--accent-green)]" />
@@ -152,19 +196,14 @@ export default function ArtVariationConfigModal({
           <DialogDescription>{t(`config.${shellKey}.description`)}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-5 py-1">
-          {intent === "auto_art" && isLoadingSuggestions && (
-            <p className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-              <Loader2 size={14} className="animate-spin shrink-0" />
-              {tGeneration("generatingSuggestions")}
-            </p>
-          )}
-
+        <div className="max-h-[min(70vh,28rem)] space-y-5 overflow-y-auto py-1 sm:max-h-none sm:overflow-visible">
           {intent === "auto_art" && suggestionsError && (
             <div
               role="alert"
               className={cn(
-                "rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3",
+                "animate-fade-in rounded-lg border px-4 py-3",
+                "border-[color-mix(in_srgb,var(--status-processing-dot)_35%,transparent)]",
+                "bg-[var(--status-queued-bg)]",
                 "flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
               )}
             >
@@ -189,106 +228,124 @@ export default function ArtVariationConfigModal({
             </div>
           )}
 
-          {showAutoStatus && (
-            <p className="text-xs text-[var(--text-secondary)]">
-              {aiSuggestionsApplied
-                ? t("config.autoArt.suggestionsApplied")
-                : t("config.autoArt.usingCampaignDefaults")}
-            </p>
-          )}
+          {formDisabled ? (
+            <ArtVariationConfigSkeleton loadingLabel={loadingLabel} />
+          ) : (
+            <>
+              {showAutoStatus && (
+                <p className="animate-fade-in text-xs text-[var(--text-secondary)]">
+                  {aiSuggestionsApplied
+                    ? t("config.autoArt.suggestionsApplied")
+                    : t("config.autoArt.usingCampaignDefaults")}
+                </p>
+              )}
 
-          <fieldset
-            disabled={formDisabled || isSubmitting}
-            className={cn(
-              "space-y-5 border-0 p-0 m-0 min-w-0",
-              formDisabled && "pointer-events-none opacity-60"
-            )}
-          >
-          <div>
-            <span
-              id={creativeLevelGroupId}
-              className="text-xs font-medium text-[var(--text-secondary)]"
-            >
-              {tGeneration("creativityProfile")}
-            </span>
-            <div
-              role="radiogroup"
-              aria-labelledby={creativeLevelGroupId}
-              className="mt-2 grid grid-cols-2 gap-2"
-              onKeyDown={handleCreativeLevelKeyDown}
-            >
-              {CREATIVE_LEVELS.map((level) => {
-                const isSelected = creativeLevel === level;
-                return (
-                  <button
-                    key={level}
-                    type="button"
-                    role="radio"
-                    aria-checked={isSelected}
-                    tabIndex={isSelected ? 0 : -1}
-                    onClick={() => setCreativeLevel(level)}
-                    className={cn(
-                      "rounded-lg border px-3 py-2 text-left transition-colors",
-                      isSelected
-                        ? "border-[var(--accent-green)] bg-[var(--accent-green-dim)]"
-                        : "border-[var(--border-dim)] bg-[var(--surface-base)] hover:border-[var(--accent-green)]/50",
-                      highlightedFields.creativeLevel &&
-                        isSelected &&
-                        "ring-1 ring-[var(--accent-green)]/40"
-                    )}
+              <fieldset
+                disabled={isSubmitting}
+                className="m-0 min-w-0 space-y-5 border-0 p-0"
+              >
+                <div>
+                  <span
+                    id={creativeLevelGroupId}
+                    className="text-xs font-medium text-[var(--text-secondary)]"
                   >
-                    <span className="block text-sm font-medium text-[var(--text-primary)]">
-                      {tBriefing(`creativeLevel.${level}`)}
-                    </span>
-                    <span className="mt-0.5 block text-[11px] leading-snug text-[var(--text-secondary)]">
-                      {tBriefing(`creativeLevel.contract.${level}`)}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+                    {tGeneration("creativityProfile")}
+                  </span>
+                  <div
+                    role="radiogroup"
+                    aria-labelledby={creativeLevelGroupId}
+                    className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2"
+                    onKeyDown={handleCreativeLevelKeyDown}
+                  >
+                    {CREATIVE_LEVELS.map((level) => {
+                      const isSelected = creativeLevel === level;
+                      const levelLabel = tBriefing(`creativeLevel.${level}`);
+                      const contractLabel = tBriefing(`creativeLevel.contract.${level}`);
 
-          <div>
-            <Label className="text-xs font-medium text-[var(--text-secondary)]">
-              {tBriefing("ctaVariants")}
-            </Label>
-            <p className="mt-1 text-[11px] text-[var(--text-muted)]">
-              {tBriefing("ctaHelpArt")}
-            </p>
-            <div className="mt-3 space-y-2">
-              {CTA_FIELD_KEYS.map((fieldKey, index) => {
-                const isHighlighted = highlightedFields.ctaIndices.includes(index);
-                const label =
-                  index === 0
-                    ? tBriefing("ctaRequired")
-                    : tBriefing("ctaOptional", { number: index + 1 });
-
-                return (
-                  <div key={fieldKey}>
-                    <Label
-                      htmlFor={`art-cta-${fieldKey}`}
-                      className="text-xs text-[var(--text-secondary)]"
-                    >
-                      {label}
-                    </Label>
-                    <Input
-                      id={`art-cta-${fieldKey}`}
-                      value={ctas[index]}
-                      onChange={(event) => updateCta(index, event.target.value)}
-                      placeholder={tGeneration("ctaPlaceholder")}
-                      className={cn(
-                        "mt-1",
-                        isHighlighted &&
-                          "border-[var(--accent-green)] bg-[var(--accent-green-dim)]"
-                      )}
-                    />
+                      return (
+                        <button
+                          key={level}
+                          type="button"
+                          role="radio"
+                          aria-checked={isSelected}
+                          aria-label={`${levelLabel}. ${contractLabel}`}
+                          tabIndex={isSelected ? 0 : -1}
+                          onClick={() => setCreativeLevel(level)}
+                          className={cn(
+                            "min-h-11 rounded-lg border px-3 py-2.5 text-left",
+                            "transition-[border-color,background-color,box-shadow,transform] duration-200 ease-[var(--ease-out-expo)]",
+                            "hover:border-[var(--accent-green)]/50 active:scale-[0.98]",
+                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-green)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-base)]",
+                            isSelected
+                              ? "border-[var(--accent-green)] bg-[var(--accent-green-dim)]"
+                              : "border-[var(--border-dim)] bg-[var(--surface-base)]",
+                            highlightedFields.creativeLevel &&
+                              isSelected &&
+                              "animate-suggest-emphasis ring-1 ring-[var(--accent-green)]/40"
+                          )}
+                        >
+                          <span className="block text-sm font-medium text-[var(--text-primary)]">
+                            {levelLabel}
+                          </span>
+                          <span className="mt-0.5 block text-xs leading-snug text-[var(--text-secondary)]">
+                            {contractLabel}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
-                );
-              })}
-            </div>
-          </div>
-          </fieldset>
+                </div>
+
+                <div>
+                  <Label className="text-xs font-medium text-[var(--text-secondary)]">
+                    {tBriefing("ctaVariants")}
+                  </Label>
+                  <p className="mt-1 text-xs text-[var(--text-muted)]">{tBriefing("ctaHelpArt")}</p>
+                  <div className="mt-3 space-y-3">
+                    {CTA_FIELD_KEYS.map((fieldKey, index) => {
+                      const isHighlighted = highlightedFields.ctaIndices.includes(index);
+                      const isOptional = index > 0;
+                      const label =
+                        index === 0
+                          ? tBriefing("ctaRequired")
+                          : tBriefing("ctaOptional", { number: index + 1 });
+
+                      return (
+                        <div
+                          key={fieldKey}
+                          className={cn(isOptional && !ctas[index]?.trim() && "opacity-80")}
+                        >
+                          <Label
+                            htmlFor={`art-cta-${fieldKey}`}
+                            className={cn(
+                              "text-xs",
+                              isOptional
+                                ? "text-[var(--text-muted)]"
+                                : "font-medium text-[var(--text-secondary)]"
+                            )}
+                          >
+                            {label}
+                          </Label>
+                          <Input
+                            id={`art-cta-${fieldKey}`}
+                            value={ctas[index]}
+                            onChange={(event) => updateCta(index, event.target.value)}
+                            placeholder={tGeneration("ctaPlaceholder")}
+                            aria-required={index === 0}
+                            className={cn(
+                              "mt-1.5 transition-[border-color,background-color,box-shadow] duration-200 ease-[var(--ease-out-expo)]",
+                              isHighlighted &&
+                                "animate-suggest-emphasis border-[var(--accent-green)] bg-[var(--accent-green-dim)]"
+                            )}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </fieldset>
+            </>
+          )}
         </div>
 
         <DialogFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
@@ -298,7 +355,7 @@ export default function ArtVariationConfigModal({
           <Button
             onClick={handleConfirm}
             disabled={!canConfirm || isSubmitting}
-            className="bg-[var(--accent-green)] text-[var(--accent-green-on-fill)] hover:bg-[var(--accent-green-light)]"
+            className="bg-[var(--accent-green)] text-[var(--accent-green-on-fill)] transition-[background-color,transform] duration-150 ease-[var(--ease-out-expo)] hover:bg-[var(--accent-green-light)] active:scale-[0.98] disabled:active:scale-100"
           >
             {isSubmitting ? (
               <Loader2 size={14} className="mr-1.5 animate-spin" />
