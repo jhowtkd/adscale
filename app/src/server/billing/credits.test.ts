@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("@/server/billing/access", () => ({
+  getWorkspaceBillingAccess: vi.fn(),
+}));
+
 vi.mock("@/server/repositories/billing", () => ({
-  getActiveSubscriptionByWorkspace: vi.fn(),
   getAvailableCreditGrants: vi.fn(),
   updateCreditGrantRemaining: vi.fn(),
 }));
@@ -15,8 +18,8 @@ vi.spyOn(db, "transaction").mockImplementation(async (callback) => callback({} a
 
 import { db } from "@/server/db";
 
+import { getWorkspaceBillingAccess } from "@/server/billing/access";
 import {
-  getActiveSubscriptionByWorkspace,
   getAvailableCreditGrants,
   updateCreditGrantRemaining,
 } from "@/server/repositories/billing";
@@ -26,27 +29,47 @@ import {
 } from "@/server/repositories/usage";
 import { canSpend, recordUsage } from "./credits";
 
-const mockGetActiveSubscription = vi.mocked(getActiveSubscriptionByWorkspace);
+const mockGetWorkspaceBillingAccess = vi.mocked(getWorkspaceBillingAccess);
 const mockGetAvailableCreditGrants = vi.mocked(getAvailableCreditGrants);
 const mockUpdateCreditGrantRemaining = vi.mocked(updateCreditGrantRemaining);
 const mockGetUsageByIdempotencyKey = vi.mocked(getUsageByIdempotencyKey);
 const mockTrackUsage = vi.mocked(trackUsage);
 
-const activeSubscription = {
-  id: "subscription-id",
-  workspaceId: "workspace-1",
-  billingCustomerId: null,
-  stripeSubscriptionId: "sub_123",
-  stripeCustomerId: "cus_123",
-  status: "active",
-  planKey: "starter",
-  priceId: "price_starter",
-  currentPeriodStart: null,
-  currentPeriodEnd: null,
-  cancelAtPeriodEnd: false,
-  createdAt: new Date(),
-  updatedAt: new Date(),
-};
+function paidAccess() {
+  return {
+    kind: "paid" as const,
+    label: "Assinatura ativa",
+    creditBalance: 20,
+    remainingAds: 4,
+    hasSpendAccess: true,
+    subscription: null,
+    betaEntitlement: null,
+  };
+}
+
+function betaAccess() {
+  return {
+    kind: "beta" as const,
+    label: "Acesso beta",
+    creditBalance: 50,
+    remainingAds: 10,
+    hasSpendAccess: true,
+    subscription: null,
+    betaEntitlement: null,
+  };
+}
+
+function noAccess() {
+  return {
+    kind: "none" as const,
+    label: "Sem acesso ativo",
+    creditBalance: 20,
+    remainingAds: null,
+    hasSpendAccess: false,
+    subscription: null,
+    betaEntitlement: null,
+  };
+}
 
 function grant(id: string, remaining: number) {
   return {
@@ -68,7 +91,7 @@ describe("credit entitlement service", () => {
     mockGetUsageByIdempotencyKey.mockResolvedValue(
       null as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>
     );
-    mockGetActiveSubscription.mockResolvedValue(activeSubscription);
+    mockGetWorkspaceBillingAccess.mockResolvedValue(paidAccess());
     mockGetAvailableCreditGrants.mockResolvedValue([grant("grant-1", 20)]);
   });
 
@@ -78,10 +101,8 @@ describe("credit entitlement service", () => {
     expect(result).toEqual({ allowed: true, amount: 5, balance: 20 });
   });
 
-  it("blocks inactive subscriptions", async () => {
-    mockGetActiveSubscription.mockResolvedValue(
-      null as unknown as Awaited<ReturnType<typeof getActiveSubscriptionByWorkspace>>
-    );
+  it("blocks workspaces without paid or beta access", async () => {
+    mockGetWorkspaceBillingAccess.mockResolvedValue(noAccess());
 
     const result = await canSpend("workspace-1", "image_derivation");
 
@@ -90,6 +111,29 @@ describe("credit entitlement service", () => {
       amount: 5,
       balance: 20,
       reason: "inactive_subscription",
+    });
+  });
+
+  it("allows beta workspaces with enough credits", async () => {
+    mockGetWorkspaceBillingAccess.mockResolvedValue(betaAccess());
+    mockGetAvailableCreditGrants.mockResolvedValue([grant("grant-1", 50)]);
+
+    const result = await canSpend("workspace-1", "image_derivation");
+
+    expect(result).toEqual({ allowed: true, amount: 5, balance: 50 });
+  });
+
+  it("blocks beta workspaces without credits", async () => {
+    mockGetWorkspaceBillingAccess.mockResolvedValue(betaAccess());
+    mockGetAvailableCreditGrants.mockResolvedValue([grant("grant-1", 2)]);
+
+    const result = await canSpend("workspace-1", "image_derivation");
+
+    expect(result).toEqual({
+      allowed: false,
+      amount: 5,
+      balance: 2,
+      reason: "insufficient_credits",
     });
   });
 

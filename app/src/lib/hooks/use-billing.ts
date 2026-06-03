@@ -2,8 +2,20 @@ import { apiFetch } from "@/lib/api-client";
 import { STALE_TIME } from "@/lib/query-config";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+export type BillingAccessKind = "paid" | "beta" | "none";
+
 export interface BillingStatus {
   hasCustomer: boolean;
+  access: {
+    kind: BillingAccessKind;
+    label: string;
+    remainingAds: number | null;
+    beta: {
+      totalAds: number;
+      remainingAds: number;
+      exhausted: boolean;
+    } | null;
+  };
   subscription: {
     status: string;
     planKey: string;
@@ -69,6 +81,29 @@ export function useBillingPortal() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: openBillingPortal,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["billing", "status"] });
+    },
+  });
+}
+
+async function redeemBetaAccess(code: string) {
+  const res = await apiFetch("/api/billing/beta/redeem", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.error || data.code || "Erro ao resgatar código beta");
+  }
+  return data;
+}
+
+export function useRedeemBetaAccess() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: redeemBetaAccess,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["billing", "status"] });
     },

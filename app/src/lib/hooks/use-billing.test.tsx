@@ -39,7 +39,18 @@ describe("billing hooks", () => {
         Promise.resolve({
           billing: {
             hasCustomer: true,
-            subscription: { status: "active", planKey: "growth" },
+            access: {
+              kind: "paid",
+              label: "Assinatura ativa",
+              remainingAds: 24,
+              beta: null,
+            },
+            subscription: {
+              status: "active",
+              planKey: "growth",
+              currentPeriodEnd: null,
+              cancelAtPeriodEnd: false,
+            },
             creditBalance: 120,
           },
         }),

@@ -17,7 +17,7 @@ v11.1 is a reliability milestone for the existing derivation modes. It fixes the
 | 46 | Hard Quality Gate | Complete    | 2026-06-01 | 2026-06-01 |
 | 47 | Workspace Review and Error Feedback | 4/4 | Complete   | 2026-06-01 |
 | 48 | End-to-End UAT and Verification | Complete    | 2026-06-01 | 5 |
-| 49 | Beta Access and Credit Entitlements | Planned | BET-01, BET-02, BET-03, BET-04, BET-05 | 5 |
+| 49 | Beta Access and Credit Entitlements | Complete | BET-01, BET-02, BET-03, BET-04, BET-05 | 5 |
 
 ## Phase Details
 
@@ -142,10 +142,10 @@ Plans:
 
 **Requirements:** BET-01, BET-02, BET-03, BET-04, BET-05
 
-**Plans:** 1/1 plan ready
+**Plans:** 1/1 plan complete
 
 Plans:
-- [ ] 49-01-PLAN.md — Beta entitlement model, 10-ad credit grant, usage gate revision, signup/onboarding redemption, and billing UI copy cleanup
+- [x] 49-01-PLAN.md — Beta entitlement model, 10-ad credit grant, usage gate revision, signup/onboarding redemption, and billing UI copy cleanup
 
 **Scope:**
 - Treat provider tokens as internal cost accounting only; user-facing monetization uses credits/ads.
@@ -191,11 +191,11 @@ Plans:
 | UAT-02 | Phase 48 | Complete |
 | UAT-03 | Phase 48 | Complete |
 | UAT-04 | Phase 48 | Complete |
-| BET-01 | Phase 49 | Planned |
-| BET-02 | Phase 49 | Planned |
-| BET-03 | Phase 49 | Planned |
-| BET-04 | Phase 49 | Planned |
-| BET-05 | Phase 49 | Planned |
+| BET-01 | Phase 49 | Complete |
+| BET-02 | Phase 49 | Complete |
+| BET-03 | Phase 49 | Complete |
+| BET-04 | Phase 49 | Complete |
+| BET-05 | Phase 49 | Complete |
 
 **Coverage:**
 - v11.1/v11.2 requirements: 31 total

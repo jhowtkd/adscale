@@ -173,14 +173,18 @@ export async function updateCreditGrantRemaining(id: string, remaining: number, 
   return rows[0];
 }
 
-export async function createCreditGrant(data: {
-  workspaceId: string;
-  source: string;
-  sourceId?: string | null;
-  amount: number;
-  expiresAt?: Date | null;
-}) {
-  const rows = await db
+export async function createCreditGrant(
+  data: {
+    workspaceId: string;
+    source: string;
+    sourceId?: string | null;
+    amount: number;
+    expiresAt?: Date | null;
+  },
+  tx?: DbOrTx
+) {
+  const client = tx ?? db;
+  const rows = await client
     .insert(creditGrants)
     .values({
       workspaceId: data.workspaceId,

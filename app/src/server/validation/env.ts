@@ -35,6 +35,7 @@ export const envSchema = z.object({
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   GITHUB_CLIENT_ID: z.string().optional(),
   GITHUB_CLIENT_SECRET: z.string().optional(),
+  BETA_ACCESS_CODES: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

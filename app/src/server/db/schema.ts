@@ -223,6 +223,62 @@ export const creditGrants = adscaleSchema.table(
   ]
 );
 
+export const workspaceEntitlements = adscaleSchema.table(
+  "workspace_entitlements",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    status: text("status").notNull(),
+    sourceCode: text("source_code"),
+    redeemedByUserId: text("redeemed_by_user_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    metadata: jsonb("metadata"),
+    startsAt: timestamp("starts_at", { mode: "date" }).notNull().defaultNow(),
+    expiresAt: timestamp("expires_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("workspace_entitlements_workspace_id_idx").on(table.workspaceId),
+    index("workspace_entitlements_kind_status_idx").on(table.kind, table.status),
+    uniqueIndex("workspace_entitlements_workspace_kind_uidx").on(
+      table.workspaceId,
+      table.kind
+    ),
+  ]
+);
+
+export const betaAccessRedemptions = adscaleSchema.table(
+  "beta_access_redemptions",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .unique()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    code: text("code").notNull(),
+    entitlementId: uuid("entitlement_id")
+      .notNull()
+      .references(() => workspaceEntitlements.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("beta_access_redemptions_user_id_idx").on(table.userId),
+    index("beta_access_redemptions_entitlement_id_idx").on(table.entitlementId),
+  ]
+);
+
 export const processedStripeEvents = adscaleSchema.table(
   "processed_stripe_events",
   {
