@@ -8,6 +8,11 @@ vi.mock("./campaign", () => ({
 
 vi.mock("./derivation", () => ({
   getDerivationDashboardAnalytics: vi.fn(),
+  getLatestDerivationOutputKeysByCampaignIds: vi.fn(),
+}));
+
+vi.mock("@/server/storage/r2", () => ({
+  getPresignedDownloadUrl: vi.fn(),
 }));
 
 vi.mock("./billing", () => ({
@@ -24,15 +29,18 @@ import {
   getWorkspaceCampaignCount,
   getCampaignPeriodCounts,
 } from "./campaign";
-import { getDerivationDashboardAnalytics } from "./derivation";
+import { getDerivationDashboardAnalytics, getLatestDerivationOutputKeysByCampaignIds } from "./derivation";
 import { getAvailableCreditGrants, getActiveSubscriptionByWorkspace } from "./billing";
 import { getCreditTransactionsForWorkspace } from "./credit-transactions";
+import { getPresignedDownloadUrl } from "@/server/storage/r2";
 import { getDashboardStats } from "./dashboard";
 
 const mockGetCampaigns = vi.mocked(getCampaigns);
 const mockGetWorkspaceCampaignCount = vi.mocked(getWorkspaceCampaignCount);
 const mockGetCampaignPeriodCounts = vi.mocked(getCampaignPeriodCounts);
 const mockGetDerivationDashboardAnalytics = vi.mocked(getDerivationDashboardAnalytics);
+const mockGetLatestDerivationOutputKeysByCampaignIds = vi.mocked(getLatestDerivationOutputKeysByCampaignIds);
+const mockGetPresignedDownloadUrl = vi.mocked(getPresignedDownloadUrl);
 const mockGetAvailableCreditGrants = vi.mocked(getAvailableCreditGrants);
 const mockGetActiveSubscriptionByWorkspace = vi.mocked(getActiveSubscriptionByWorkspace);
 const mockGetCreditTransactionsForWorkspace = vi.mocked(getCreditTransactionsForWorkspace);
@@ -40,6 +48,8 @@ const mockGetCreditTransactionsForWorkspace = vi.mocked(getCreditTransactionsFor
 describe("getDashboardStats", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetLatestDerivationOutputKeysByCampaignIds.mockResolvedValue(new Map());
+    mockGetPresignedDownloadUrl.mockResolvedValue("https://cdn.example.com/thumb.png");
   });
 
   it("returns aggregated dashboard stats without loading all derivations", async () => {
@@ -90,12 +100,50 @@ describe("getDashboardStats", () => {
     expect(result.creditsRemaining).toBe(500);
     expect(result.subscription.planKey).toBe("starter");
     expect(result.recentCampaigns).toHaveLength(1);
+    expect(result.recentCampaigns[0]?.thumbnailUrl).toBeNull();
     expect(result.creditUsageSeries).toHaveLength(7);
     expect(mockGetDerivationDashboardAnalytics).toHaveBeenCalledWith(
       "ws-1",
       expect.any(Date),
       expect.any(Date)
     );
+  });
+
+  it("maps latest derivation output to campaign thumbnail URLs", async () => {
+    mockGetWorkspaceCampaignCount.mockResolvedValue(1);
+    mockGetCampaignPeriodCounts.mockResolvedValue({ thisPeriod: 1, previousPeriod: 0 });
+    mockGetDerivationDashboardAnalytics.mockResolvedValue({
+      totalDerivations: 1,
+      derivationsThisPeriod: 1,
+      derivationsPreviousPeriod: 0,
+      approvedDerivations: 0,
+      approvedThisPeriod: 0,
+      approvedPreviousPeriod: 0,
+      avgGenerationTimeSeconds: 10,
+    });
+    mockGetCampaigns.mockResolvedValue([
+      {
+        id: "camp-1",
+        name: "Summer",
+        status: "completed",
+        platforms: ["Meta"],
+        updatedAt: new Date(),
+        totalDerivations: 1,
+        completedDerivations: 1,
+      },
+    ] as unknown as Awaited<ReturnType<typeof getCampaigns>>);
+    mockGetLatestDerivationOutputKeysByCampaignIds.mockResolvedValue(
+      new Map([["camp-1", "derivations/camp-1/output.png"]])
+    );
+    mockGetAvailableCreditGrants.mockResolvedValue([]);
+    mockGetActiveSubscriptionByWorkspace.mockResolvedValue(null);
+    mockGetCreditTransactionsForWorkspace.mockResolvedValue([]);
+
+    const result = await getDashboardStats("ws-1");
+
+    expect(mockGetLatestDerivationOutputKeysByCampaignIds).toHaveBeenCalledWith("ws-1", ["camp-1"]);
+    expect(mockGetPresignedDownloadUrl).toHaveBeenCalledWith("derivations/camp-1/output.png");
+    expect(result.recentCampaigns[0]?.thumbnailUrl).toBe("https://cdn.example.com/thumb.png");
   });
 
   it("computes zero approval rate when no derivations exist", async () => {

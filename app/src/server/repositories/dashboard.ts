@@ -3,9 +3,13 @@ import {
   getWorkspaceCampaignCount,
   getCampaignPeriodCounts,
 } from "./campaign";
-import { getDerivationDashboardAnalytics } from "./derivation";
+import {
+  getDerivationDashboardAnalytics,
+  getLatestDerivationOutputKeysByCampaignIds,
+} from "./derivation";
 import { getAvailableCreditGrants, getActiveSubscriptionByWorkspace } from "./billing";
 import { getCreditTransactionsForWorkspace } from "./credit-transactions";
+import { getPresignedDownloadUrl } from "@/server/storage/r2";
 
 export type AnalyticsPeriod = "week" | "month" | "quarter";
 
@@ -171,6 +175,28 @@ export async function getDashboardStats(
     createdAt: t.createdAt,
   }));
 
+  const campaignIds = recentCampaignRows.map((c) => c.id);
+  const outputKeysByCampaign = await getLatestDerivationOutputKeysByCampaignIds(
+    workspaceId,
+    campaignIds
+  );
+
+  const thumbnailUrlByCampaign = new Map<string, string | null>();
+  await Promise.all(
+    campaignIds.map(async (campaignId) => {
+      const outputKey = outputKeysByCampaign.get(campaignId);
+      if (!outputKey) {
+        thumbnailUrlByCampaign.set(campaignId, null);
+        return;
+      }
+      try {
+        thumbnailUrlByCampaign.set(campaignId, await getPresignedDownloadUrl(outputKey));
+      } catch {
+        thumbnailUrlByCampaign.set(campaignId, null);
+      }
+    })
+  );
+
   return {
     totalCampaigns,
     campaignsChange,
@@ -188,7 +214,7 @@ export async function getDashboardStats(
     recentCampaigns: recentCampaignRows.map((c) => ({
       id: c.id,
       name: c.name,
-      thumbnailUrl: null,
+      thumbnailUrl: thumbnailUrlByCampaign.get(c.id) ?? null,
       pieceCount: c.totalDerivations ?? 0,
       approvedCount: c.completedDerivations ?? 0,
       status: c.status,

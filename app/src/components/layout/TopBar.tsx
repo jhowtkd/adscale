@@ -18,7 +18,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { useScrollDirection } from "@/lib/hooks/use-scroll-direction";
 import { useIsMobile } from "@/lib/hooks/use-media-query";
 import {
-  Search,
   Bell,
   CheckCircle2,
   AlertCircle,
@@ -32,6 +31,7 @@ import {
   LayoutDashboard,
   FolderOpen,
   LayoutTemplate,
+  Plus,
 } from "lucide-react";
 import Link from "next/link";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
@@ -91,24 +91,32 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
   return (
     <header
       className={cn(
-        "fixed top-0 right-0 left-0 z-40 flex items-center justify-between gap-4",
+        "fixed top-0 right-0 left-0 z-40 flex items-center justify-between gap-2 sm:gap-4",
         "border-b border-[var(--border-dim)] bg-[var(--surface-base)]",
         "transition-transform duration-300 ease-out",
-        isDashboard ? "h-14 px-6 lg:px-8" : "h-14 px-6",
+        isDashboard ? "h-14 px-3 sm:px-6 lg:px-8" : "h-14 px-3 sm:px-6",
         isTopBarHidden && "-translate-y-full"
       )}
     >
       {/* Left: Logo + Navigation */}
-      <div className="flex items-center gap-8">
-        {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 shrink-0 py-1 px-2 -ml-2 rounded-md" aria-label="ADScale — Dashboard">
-          <Image src="/images/logo.svg" alt="" aria-hidden="true" className="h-8 w-auto" 
-        width={800}
-        height={800}
-        priority
-        loading="eager"
-        unoptimized
-      />
+      <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden sm:gap-8">
+        {/* Logo — scales with viewport while preserving SVG aspect ratio (813×142) */}
+        <Link
+          href="/"
+          className="flex min-w-0 shrink items-center rounded-md px-1 py-1 -ml-1 sm:-ml-2 sm:shrink-0 sm:px-2"
+          aria-label="ADScale — Dashboard"
+        >
+          <Image
+            src="/images/logo.svg"
+            alt=""
+            aria-hidden="true"
+            className="block h-[clamp(1.125rem,3.5vw,2rem)] w-auto max-w-full object-contain object-left sm:h-7 md:h-8"
+            width={813}
+            height={142}
+            priority
+            loading="eager"
+            unoptimized
+          />
         </Link>
 
         {/* Navigation */}
@@ -121,33 +129,22 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
       </div>
 
       {/* Right: Actions */}
-      <div className="flex items-center gap-2">
-        <LanguageSwitcher />
-        <ThemeToggle />
+      <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+        <LanguageSwitcher className="[&_button]:min-h-11 [&_button]:min-w-11 [&_button]:justify-center" />
+        <ThemeToggle className="min-h-11 min-w-11" />
 
         {isDashboard && (
-          <>
-            <button type="button"
-              onClick={() => router.push("/campaigns")}
-              aria-label="Buscar campanhas"
-              className={cn(
-                "hidden sm:flex items-center gap-2 px-5 py-2.5 text-sm text-[var(--text-secondary)]",
-                "border border-transparent rounded-[4px] hover:bg-[var(--surface-raised)] transition-colors duration-200"
-              )}
-            >
-              <Search size={16} strokeWidth={1.5} aria-hidden="true" />
-              Buscar
-            </button>
-            <Link
-              href="/campaigns?new=1"
-              className={cn(
-                "flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-[var(--deep-bg)]",
-                "bg-[var(--accent-green)] rounded-md hover:bg-[var(--accent-green-light)] transition-colors duration-200"
-              )}
-            >
-              + Nova Campanha
-            </Link>
-          </>
+          <Link
+            href="/campaigns?new=1"
+            aria-label="Nova Campanha"
+            className={cn(
+              "flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-2 rounded-md px-3 sm:min-w-0 sm:px-5 py-2.5 text-sm font-medium text-[var(--deep-bg)]",
+              "bg-[var(--accent-green)] transition-colors duration-200 hover:bg-[var(--accent-green-light)]"
+            )}
+          >
+            <Plus size={18} className="sm:hidden" aria-hidden="true" />
+            <span className="hidden sm:inline">+ Nova Campanha</span>
+          </Link>
         )}
 
         {!isDashboard && (
@@ -161,7 +158,7 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
               aria-haspopup="dialog"
               onClick={() => setNotificationsOpen((open) => !open)}
               className={cn(
-                "relative flex items-center justify-center size-9 rounded-full",
+                "relative flex min-h-11 min-w-11 items-center justify-center rounded-full",
                 "text-[var(--text-muted)] hover:text-[var(--text-primary)]",
                 "hover:bg-[var(--surface-raised)]",
                 "transition-all duration-200"
@@ -198,8 +195,8 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
         <DropdownMenu>
           <DropdownMenuTrigger
             className={cn(
-              "flex size-8 items-center justify-center rounded-full",
-              "bg-[var(--accent-green-dim)] text-[var(--accent-green-text)] text-xs font-semibold",
+              "flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-full",
+              "bg-[var(--accent-green-dim)] text-xs font-semibold text-[var(--accent-green-text)]",
               "ring-2 ring-[var(--border-medium)] cursor-pointer",
               "hover:ring-[var(--border-medium)] hover:brightness-110",
               "transition-all duration-200"

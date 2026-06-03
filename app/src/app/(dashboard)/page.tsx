@@ -9,6 +9,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { Search, Plus, LayoutGrid, List, Zap } from "lucide-react";
 import VisualCampaignCard from "@/components/dashboard/VisualCampaignCard";
+import DashboardCampaignListView from "@/components/dashboard/DashboardCampaignListView";
 import CreditPanel from "@/components/dashboard/CreditPanel";
 
 const CreditChart = dynamic(() => import("@/components/dashboard/CreditChart"), {
@@ -95,8 +96,8 @@ export default function DashboardPage() {
           }}
         />
         
-        <div className="relative max-w-[1600px] mx-auto px-6 lg:px-8 py-8">
-          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6" data-tour-step="1">
+        <div className="relative max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 sm:gap-6" data-tour-step="1">
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-3">
                 <Zap size={24} className="text-[var(--accent-green)]" />
@@ -107,7 +108,7 @@ export default function DashboardPage() {
                   Campanhas
                 </h1>
               </div>
-              <p className="text-sm font-medium text-[var(--text-muted)] pl-10">
+              <p className="text-sm font-medium text-[var(--text-muted)] ml-9">
                 {statsPending ? (
                   <span className="inline-block h-4 w-56 bg-[var(--surface-raised)] rounded animate-pulse" />
                 ) : (
@@ -124,8 +125,8 @@ export default function DashboardPage() {
               </p>
             </div>
             
-            <div className="flex items-center gap-3">
-              <div className="relative">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto lg:shrink-0">
+              <div className="relative w-full min-w-0 sm:max-w-[220px] lg:w-[220px]">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
 	                <input
 	                  type="text"
@@ -133,14 +134,14 @@ export default function DashboardPage() {
                   placeholder="Buscar..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-11 pl-9 pr-4 bg-[var(--deep-bg)] border-2 border-[var(--border-dim)] rounded-xl text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--accent-green)]/50 focus:ring-2 focus:ring-[var(--accent-green)]/20 w-[220px] transition-all font-medium"
+                  className="h-11 w-full pl-9 pr-4 bg-[var(--deep-bg)] border-2 border-[var(--border-dim)] rounded-xl text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--accent-green)]/50 focus:ring-2 focus:ring-[var(--accent-green)]/20 transition-all font-medium"
                 />
               </div>
 
-              <fieldset className="flex items-center bg-[var(--deep-bg)] border-2 border-[var(--border-dim)] rounded-xl p-1" aria-label="Visualização">
+              <fieldset className="flex shrink-0 items-center self-start sm:self-auto bg-[var(--deep-bg)] border-2 border-[var(--border-dim)] rounded-xl p-1" aria-label="Visualização">
                 <button type="button"
                   onClick={() => setViewMode("grid")}
-                  className={`p-2.5 rounded-lg transition-all ${
+                  className={`min-h-11 min-w-11 flex items-center justify-center rounded-lg transition-all ${
                     viewMode === "grid"
                       ? "bg-[var(--surface-raised)] text-[var(--accent-green-text)] shadow-[0_0_12px_var(--accent-green-dim)]"
                       : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
@@ -152,7 +153,7 @@ export default function DashboardPage() {
                 </button>
                 <button type="button"
                   onClick={() => setViewMode("list")}
-                  className={`p-2.5 rounded-lg transition-all ${
+                  className={`min-h-11 min-w-11 flex items-center justify-center rounded-lg transition-all ${
                     viewMode === "list"
                       ? "bg-[var(--surface-raised)] text-[var(--accent-green-text)] shadow-[0_0_12px_var(--accent-green-dim)]"
                       : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
@@ -170,31 +171,39 @@ export default function DashboardPage() {
 
       {/* Campaigns Grid Section */}
       <section className="py-10" style={{ contentVisibility: "auto" }}>
-        <div className="max-w-[1600px] mx-auto px-6 lg:px-8" data-tour-step="2">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8" data-tour-step="2">
           {statsPending ? (
             <CampaignGridSkeleton />
           ) : filteredCampaigns.length > 0 ? (
-            <div 
-              className="grid gap-5"
-              style={{
-                gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-                containIntrinsicHeight: "350px"
-              }}
-            >
-              {filteredCampaigns.map((campaign, index) => (
-                <VisualCampaignCard
-                  key={campaign.id}
-                  id={campaign.id}
-                  name={campaign.name}
-                  thumbnailUrl={campaign.thumbnailUrl}
-                  pieceCount={campaign.pieceCount}
-                  approvedCount={campaign.approvedCount}
-                  status={campaign.status}
-                  updatedAt={campaign.updatedAt.toString()}
-                  index={index}
-                />
-              ))}
-            </div>
+            viewMode === "list" ? (
+              <DashboardCampaignListView
+                campaigns={filteredCampaigns.map((campaign) => ({
+                  id: campaign.id,
+                  name: campaign.name,
+                  thumbnailUrl: campaign.thumbnailUrl,
+                  pieceCount: campaign.pieceCount,
+                  approvedCount: campaign.approvedCount,
+                  status: campaign.status,
+                  updatedAt: campaign.updatedAt.toString(),
+                }))}
+              />
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+                {filteredCampaigns.map((campaign, index) => (
+                  <VisualCampaignCard
+                    key={campaign.id}
+                    id={campaign.id}
+                    name={campaign.name}
+                    thumbnailUrl={campaign.thumbnailUrl}
+                    pieceCount={campaign.pieceCount}
+                    approvedCount={campaign.approvedCount}
+                    status={campaign.status}
+                    updatedAt={campaign.updatedAt.toString()}
+                    index={index}
+                  />
+                ))}
+              </div>
+            )
           ) : (
             <EmptyState searchQuery={searchQuery} />
           )}
@@ -214,7 +223,7 @@ export default function DashboardPage() {
           }}
         />
         
-        <div className="relative max-w-[1600px] mx-auto px-6 lg:px-8 py-10">
+        <div className="relative max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-10">
           {statsPending ? (
             <StatsSectionSkeleton />
           ) : (
@@ -293,10 +302,7 @@ function EmptyState({ searchQuery }: { searchQuery: string }) {
 
 function CampaignGridSkeleton() {
   return (
-    <div
-      className="grid gap-5"
-      style={{ gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))" }}
-    >
+    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
       {Array.from({ length: 6 }).map((_, i) => (
         <div key={i} className="aspect-[4/3] glass-card rounded-2xl animate-pulse" />
       ))}

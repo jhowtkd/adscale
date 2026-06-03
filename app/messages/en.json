@@ -200,7 +200,11 @@
   },
   "campaign": {
     "openCampaign": "Open campaign",
+    "thumbnailAlt": "Campaign thumbnail for {name}",
     "moreActions": "More actions",
+    "variationSingular": "variation",
+    "variationPlural": "variations",
+    "approvedCount": "{count} approved",
     "bootstrapDraftClient": "To be defined",
     "new": "New campaign",
     "name": "Campaign name",

@@ -22,7 +22,7 @@ export default function AppShell({ children }: AppShellProps) {
       <TopBar />
 
       {/* Main Content Area - full width */}
-      <div className="min-h-screen pt-14 pb-20 md:pb-0 dot-grid">
+      <div className="min-h-screen pt-14 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-0 dot-grid">
         <div className="min-h-[calc(100vh-3.5rem)] relative">
           {children}
         </div>
@@ -31,7 +31,7 @@ export default function AppShell({ children }: AppShellProps) {
 
       {/* Bottom Navigation - Mobile */}
       <nav
-        className="fixed bottom-0 left-0 right-0 z-50 grid grid-cols-4 border-t border-[var(--border-dim)] bg-[var(--surface-base)]/95 p-2 backdrop-blur md:hidden"
+        className="fixed bottom-0 left-0 right-0 z-50 grid grid-cols-4 border-t border-[var(--border-dim)] bg-[var(--surface-base)] p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:hidden"
         aria-label="Primary mobile navigation"
       >
         <MobileNavItem
@@ -78,14 +78,14 @@ function MobileNavItem({
     <Link
       href={href}
       className={cn(
-        "flex flex-col items-center justify-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium",
+        "flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-md px-1 py-2 text-[11px] font-medium sm:text-xs",
         active
           ? "bg-[var(--accent-green-dim)] text-[var(--accent-green-text)]"
           : "text-[var(--text-secondary)]"
       )}
     >
       <Icon size={18} aria-hidden="true" />
-      <span>{label}</span>
+      <span className="max-w-full truncate">{label}</span>
     </Link>
   );
 }

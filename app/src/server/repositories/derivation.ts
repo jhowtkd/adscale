@@ -1,4 +1,4 @@
-import { eq, and, desc, inArray, sql } from "drizzle-orm";
+import { eq, and, desc, inArray, sql, isNotNull } from "drizzle-orm";
 import type {
   CreativeHardFailure,
   CreativeQualityVerdict,
@@ -367,4 +367,39 @@ export async function getDerivationDashboardAnalytics(
     approvedPreviousPeriod: row?.approvedPreviousPeriod ?? 0,
     avgGenerationTimeSeconds: row?.avgGenerationTimeSeconds ?? 0,
   };
+}
+
+/** Latest completed derivation output key per campaign (for dashboard thumbnails). */
+export async function getLatestDerivationOutputKeysByCampaignIds(
+  workspaceId: string,
+  campaignIds: string[]
+): Promise<Map<string, string>> {
+  if (campaignIds.length === 0) {
+    return new Map();
+  }
+
+  const rows = await db
+    .select({
+      campaignId: derivations.campaignId,
+      outputKey: derivations.outputKey,
+    })
+    .from(derivations)
+    .where(
+      and(
+        eq(derivations.workspaceId, workspaceId),
+        inArray(derivations.campaignId, campaignIds),
+        inArray(derivations.status, ["completed", "approved"]),
+        isNotNull(derivations.outputKey)
+      )
+    )
+    .orderBy(desc(derivations.updatedAt));
+
+  const outputKeysByCampaign = new Map<string, string>();
+  for (const row of rows) {
+    if (!outputKeysByCampaign.has(row.campaignId) && row.outputKey) {
+      outputKeysByCampaign.set(row.campaignId, row.outputKey);
+    }
+  }
+
+  return outputKeysByCampaign;
 }
