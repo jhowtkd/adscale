@@ -1,4 +1,4 @@
-CREATE TABLE "adscale_app"."notifications" (
+CREATE TABLE IF NOT EXISTS "adscale_app"."notifications" (
 	"id" uuid PRIMARY KEY NOT NULL,
 	"user_id" text NOT NULL,
 	"workspace_id" uuid NOT NULL,
@@ -12,7 +12,7 @@ CREATE TABLE "adscale_app"."notifications" (
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "adscale_app"."persona_simulations" (
+CREATE TABLE IF NOT EXISTS "adscale_app"."persona_simulations" (
 	"id" uuid PRIMARY KEY NOT NULL,
 	"workspace_id" uuid NOT NULL,
 	"campaign_id" uuid NOT NULL,
@@ -26,7 +26,7 @@ CREATE TABLE "adscale_app"."persona_simulations" (
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "adscale_app"."workspace_assets" (
+CREATE TABLE IF NOT EXISTS "adscale_app"."workspace_assets" (
 	"id" uuid PRIMARY KEY NOT NULL,
 	"workspace_id" uuid NOT NULL,
 	"name" text NOT NULL,
@@ -44,7 +44,7 @@ CREATE TABLE "adscale_app"."workspace_assets" (
 	CONSTRAINT "workspace_assets_key_unique" UNIQUE("key")
 );
 --> statement-breakpoint
-ALTER TABLE "adscale_app"."derivations" ADD COLUMN "input_prompt" text;--> statement-breakpoint
+ALTER TABLE "adscale_app"."derivations" ADD COLUMN IF NOT EXISTS "input_prompt" text;--> statement-breakpoint
 ALTER TABLE "adscale_app"."notifications" ADD CONSTRAINT "notifications_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "adscale_app"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "adscale_app"."notifications" ADD CONSTRAINT "notifications_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "adscale_app"."workspaces"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "adscale_app"."notifications" ADD CONSTRAINT "notifications_derivation_id_derivations_id_fk" FOREIGN KEY ("derivation_id") REFERENCES "adscale_app"."derivations"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
