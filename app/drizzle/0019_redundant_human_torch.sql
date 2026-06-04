@@ -45,19 +45,51 @@ CREATE TABLE IF NOT EXISTS "adscale_app"."workspace_assets" (
 );
 --> statement-breakpoint
 ALTER TABLE "adscale_app"."derivations" ADD COLUMN IF NOT EXISTS "input_prompt" text;--> statement-breakpoint
-ALTER TABLE "adscale_app"."notifications" ADD CONSTRAINT "notifications_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "adscale_app"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "adscale_app"."notifications" ADD CONSTRAINT "notifications_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "adscale_app"."workspaces"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "adscale_app"."notifications" ADD CONSTRAINT "notifications_derivation_id_derivations_id_fk" FOREIGN KEY ("derivation_id") REFERENCES "adscale_app"."derivations"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "adscale_app"."notifications" ADD CONSTRAINT "notifications_campaign_id_campaigns_id_fk" FOREIGN KEY ("campaign_id") REFERENCES "adscale_app"."campaigns"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "adscale_app"."persona_simulations" ADD CONSTRAINT "persona_simulations_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "adscale_app"."workspaces"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "adscale_app"."persona_simulations" ADD CONSTRAINT "persona_simulations_campaign_id_campaigns_id_fk" FOREIGN KEY ("campaign_id") REFERENCES "adscale_app"."campaigns"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "adscale_app"."workspace_assets" ADD CONSTRAINT "workspace_assets_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "adscale_app"."workspaces"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX "notifications_user_id_idx" ON "adscale_app"."notifications" USING btree ("user_id");--> statement-breakpoint
-CREATE INDEX "notifications_workspace_id_idx" ON "adscale_app"."notifications" USING btree ("workspace_id");--> statement-breakpoint
-CREATE INDEX "notifications_read_at_idx" ON "adscale_app"."notifications" USING btree ("read_at");--> statement-breakpoint
-CREATE INDEX "notifications_created_at_idx" ON "adscale_app"."notifications" USING btree ("created_at");--> statement-breakpoint
-CREATE UNIQUE INDEX "persona_simulations_source_idx" ON "adscale_app"."persona_simulations" USING btree ("workspace_id","source_type","source_id");--> statement-breakpoint
-CREATE INDEX "workspace_assets_workspace_id_idx" ON "adscale_app"."workspace_assets" USING btree ("workspace_id");--> statement-breakpoint
-CREATE INDEX "workspace_assets_source_idx" ON "adscale_app"."workspace_assets" USING btree ("source");--> statement-breakpoint
-CREATE INDEX "derivations_workspace_campaign_idx" ON "adscale_app"."derivations" USING btree ("workspace_id","campaign_id");--> statement-breakpoint
-ALTER TABLE "adscale_app"."client_profiles" ADD CONSTRAINT "client_profiles_workspace_id_unique" UNIQUE("workspace_id");
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'notifications_user_id_user_id_fk') THEN
+    ALTER TABLE "adscale_app"."notifications" ADD CONSTRAINT "notifications_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "adscale_app"."user"("id") ON DELETE cascade ON UPDATE no action;
+  END IF;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'notifications_workspace_id_workspaces_id_fk') THEN
+    ALTER TABLE "adscale_app"."notifications" ADD CONSTRAINT "notifications_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "adscale_app"."workspaces"("id") ON DELETE cascade ON UPDATE no action;
+  END IF;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'notifications_derivation_id_derivations_id_fk') THEN
+    ALTER TABLE "adscale_app"."notifications" ADD CONSTRAINT "notifications_derivation_id_derivations_id_fk" FOREIGN KEY ("derivation_id") REFERENCES "adscale_app"."derivations"("id") ON DELETE set null ON UPDATE no action;
+  END IF;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'notifications_campaign_id_campaigns_id_fk') THEN
+    ALTER TABLE "adscale_app"."notifications" ADD CONSTRAINT "notifications_campaign_id_campaigns_id_fk" FOREIGN KEY ("campaign_id") REFERENCES "adscale_app"."campaigns"("id") ON DELETE set null ON UPDATE no action;
+  END IF;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'persona_simulations_workspace_id_workspaces_id_fk') THEN
+    ALTER TABLE "adscale_app"."persona_simulations" ADD CONSTRAINT "persona_simulations_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "adscale_app"."workspaces"("id") ON DELETE cascade ON UPDATE no action;
+  END IF;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'persona_simulations_campaign_id_campaigns_id_fk') THEN
+    ALTER TABLE "adscale_app"."persona_simulations" ADD CONSTRAINT "persona_simulations_campaign_id_campaigns_id_fk" FOREIGN KEY ("campaign_id") REFERENCES "adscale_app"."campaigns"("id") ON DELETE cascade ON UPDATE no action;
+  END IF;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'workspace_assets_workspace_id_workspaces_id_fk') THEN
+    ALTER TABLE "adscale_app"."workspace_assets" ADD CONSTRAINT "workspace_assets_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "adscale_app"."workspaces"("id") ON DELETE cascade ON UPDATE no action;
+  END IF;
+END $$;--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "notifications_user_id_idx" ON "adscale_app"."notifications" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "notifications_workspace_id_idx" ON "adscale_app"."notifications" USING btree ("workspace_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "notifications_read_at_idx" ON "adscale_app"."notifications" USING btree ("read_at");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "notifications_created_at_idx" ON "adscale_app"."notifications" USING btree ("created_at");--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "persona_simulations_source_idx" ON "adscale_app"."persona_simulations" USING btree ("workspace_id","source_type","source_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "workspace_assets_workspace_id_idx" ON "adscale_app"."workspace_assets" USING btree ("workspace_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "workspace_assets_source_idx" ON "adscale_app"."workspace_assets" USING btree ("source");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "derivations_workspace_campaign_idx" ON "adscale_app"."derivations" USING btree ("workspace_id","campaign_id");--> statement-breakpoint
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'client_profiles_workspace_id_unique') THEN
+    ALTER TABLE "adscale_app"."client_profiles" ADD CONSTRAINT "client_profiles_workspace_id_unique" UNIQUE("workspace_id");
+  END IF;
+END $$;
