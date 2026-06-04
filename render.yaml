@@ -7,8 +7,7 @@ services:
     rootDir: app
     branch: main
     autoDeployTrigger: commit
-    buildCommand: npm ci && npm run build
-    preDeployCommand: npm run db:migrate
+    buildCommand: npm ci && npm run db:migrate && npm run build
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:
