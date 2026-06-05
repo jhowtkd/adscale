@@ -16,11 +16,11 @@ v11.6 turns existing ADScale capabilities into a guided creative decision flow:
 
 ### Creative Readiness
 
-- [ ] **READY-01**: User can run a pre-generation Creative Readiness Score on a campaign with a base creative.
-- [ ] **READY-02**: User can see readiness breakdown by offer clarity, text legibility, visual hierarchy, CTA prominence, brand fit, and platform fit.
-- [ ] **READY-03**: User can see blocking issues separately from improvement suggestions before generation.
-- [ ] **READY-04**: User can rerun readiness after changing briefing or base creative without losing prior derivation history.
-- [ ] **READY-05**: Readiness uses existing campaign, brand kit, creative contract, and preflight/QA concepts without adding a new AI provider.
+- [x] **READY-01**: User can run a pre-generation Creative Readiness Score on a campaign with a base creative.
+- [x] **READY-02**: User can see readiness breakdown by offer clarity, text legibility, visual hierarchy, CTA prominence, brand fit, and platform fit.
+- [x] **READY-03**: User can see blocking issues separately from improvement suggestions before generation.
+- [x] **READY-04**: User can rerun readiness after changing briefing or base creative without losing prior derivation history.
+- [x] **READY-05**: Readiness uses existing campaign, brand kit, creative contract, and preflight/QA concepts without adding a new AI provider.
 
 ### Guided Briefing
 
@@ -54,9 +54,9 @@ v11.6 turns existing ADScale capabilities into a guided creative decision flow:
 
 ### Verification and Handoff
 
-- [ ] **CQA-01**: Automated tests cover readiness normalization, guided briefing state, recipe mapping, and preview gating.
-- [ ] **CQA-02**: Browser smoke verifies the cockpit path from campaign draft to preview to delivery package.
-- [ ] **CQA-03**: Handoff documents cost, privacy, and known AI limitations for beta users.
+- [x] **CQA-01**: Automated tests cover readiness normalization, guided briefing state, recipe mapping, and preview gating.
+- [x] **CQA-02**: Browser smoke verifies the cockpit path from campaign draft to preview to delivery package.
+- [x] **CQA-03**: Handoff documents cost, privacy, and known AI limitations for beta users.
 
 ## Future Requirements
 

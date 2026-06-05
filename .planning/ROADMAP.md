@@ -34,7 +34,7 @@ Archive: [v11.5-ROADMAP.md](milestones/v11.5-ROADMAP.md) · [v11.5-REQUIREMENTS.
 | 62 | Guided Briefing Cockpit | Help weak briefs become generation-ready one question at a time | GUIDE-01..05 | 5 |
 | 63 | Strategy Recipes and Preview Gate | 2/2 | Complete   | 2026-06-05 |
 | 64 | Client Approval Package | 2/2 | Complete   | 2026-06-05 |
-| 65 | Verification, Analytics, and Handoff | Validate the cockpit path and document beta limitations | CQA-01..03 | 4 |
+| 65 | Verification, Analytics, and Handoff | 2/2 | Complete   | 2026-06-05 |
 
 **26 requirements** | **5 phases** | All covered ✓
 
@@ -121,7 +121,7 @@ Archive: [v11.5-ROADMAP.md](milestones/v11.5-ROADMAP.md) · [v11.5-REQUIREMENTS.
 | 62    | v11.6     | 2/2            | Complete | 2026-06-05 |
 | 63    | v11.6     | 2/2            | Complete | 2026-06-05 |
 | 64    | v11.6     | 2/2            | Complete | 2026-06-05 |
-| 65    | v11.6     | 0/?            | Planned  | —          |
+| 65    | v11.6     | 2/2            | Complete | 2026-06-05 |
 | 57    | v11.5     | 2/2            | Complete | 2026-06-05 |
 | 58    | v11.5     | 2/2            | Complete | 2026-06-05 |
 | 59    | v11.5     | 4/4            | Complete | 2026-06-05 |
