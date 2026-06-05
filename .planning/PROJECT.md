@@ -12,7 +12,7 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 Beta feedback capture is live in the authenticated app: users submit structured reports from the shell or campaign/derivation surfaces; diagnostics (route, locale, breadcrumbs, Sentry trace) attach automatically; platform owners triage at `/feedback` with signed asset links and internal notes.
 
-**Ops checklist:** set `PLATFORM_OWNER_EMAILS`, run `npm run db:migrate` for `0025_abandoned_rhino`, complete manual browser smoke (QA-02).
+**Ops checklist:** set `PLATFORM_OWNER_EMAILS`, run `npm run db:migrate` (`0025_beta_entitlements` + `0026_feedback_reports` as needed), complete manual browser smoke (QA-02).
 
 ## Requirements
 

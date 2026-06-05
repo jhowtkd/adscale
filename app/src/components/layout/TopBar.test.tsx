@@ -36,6 +36,10 @@ vi.mock("@/components/ui/LanguageSwitcher", () => ({
   default: () => null,
 }));
 
+vi.mock("@/components/feedback/FeedbackTriggerButton", () => ({
+  default: () => null,
+}));
+
 vi.mock("next-intl", () => ({
   useTranslations: vi.fn(() => (key: string) => key),
   useLocale: vi.fn(() => "pt-BR"),

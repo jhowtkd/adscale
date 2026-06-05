@@ -13,6 +13,10 @@ vi.mock("next/image", () => ({
   default: (props: { alt: string }) => <img alt={props.alt} />,
 }));
 
+vi.mock("@/components/feedback/ContextualFeedbackButton", () => ({
+  default: () => null,
+}));
+
 const derivation = {
   id: "derivation-1",
   campaignId: "campaign-1",

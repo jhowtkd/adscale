@@ -180,8 +180,15 @@
     {
       "idx": 25,
       "version": "7",
+      "when": 1780335000000,
+      "tag": "0025_beta_entitlements",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
       "when": 1780663261622,
-      "tag": "0025_abandoned_rhino",
+      "tag": "0026_feedback_reports",
       "breakpoints": true
     }
   ]

@@ -129,7 +129,7 @@ async function main() {
     console.log("Account created (or already exists — continuing).");
   }
 
-  let account = await resolveUserByEmail(email);
+  const account = await resolveUserByEmail(email);
   if (!account) {
     console.error(
       `No user found for ${email}. Sign up at /signup or rerun with --create.`

@@ -169,7 +169,7 @@ export default function CampaignWorkspacePage() {
   const styleAsset = useMemo(() => {
     if (!reviewDerivation?.styleAssetId || !campaignAssets) return null;
     return campaignAssets.find((asset) => asset.id === reviewDerivation.styleAssetId) ?? null;
-  }, [reviewDerivation?.styleAssetId, campaignAssets]);
+  }, [reviewDerivation, campaignAssets]);
 
   const handleSimulatePersonas = (derivationId: string) => {
     setPersonaSimulation({ isOpen: true, selectedId: derivationId });

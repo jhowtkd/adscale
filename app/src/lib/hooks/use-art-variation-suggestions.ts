@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, startTransition } from "react";
 import { useCreativeAnalysis } from "@/components/campaigns/useCreativeAnalysis";
 import { useCampaignAssets } from "@/lib/hooks/use-assets";
 import type { DerivationIntent } from "@/lib/hooks/use-derivation-flow";
@@ -113,31 +113,33 @@ export function useArtVariationSuggestions({
   );
 
   useEffect(() => {
-    if (!open) {
-      setLoadedSessionId(null);
-      setIsLoadingSuggestions(false);
+    startTransition(() => {
+      if (!open) {
+        setLoadedSessionId(null);
+        setIsLoadingSuggestions(false);
+        setSuggestionsError(null);
+        setAiSuggestionsApplied(false);
+        setHighlightedFields({ creativeLevel: false, ctaIndices: [] });
+        sessionBaselineRef.current = null;
+        return;
+      }
+
+      if (loadedSessionId === sessionId) {
+        return;
+      }
+
+      setLoadedSessionId(sessionId);
       setSuggestionsError(null);
       setAiSuggestionsApplied(false);
       setHighlightedFields({ creativeLevel: false, ctaIndices: [] });
-      sessionBaselineRef.current = null;
-      return;
-    }
-
-    if (loadedSessionId === sessionId) {
-      return;
-    }
-
-    setLoadedSessionId(sessionId);
-    setSuggestionsError(null);
-    setAiSuggestionsApplied(false);
-    setHighlightedFields({ creativeLevel: false, ctaIndices: [] });
-    sessionBaselineRef.current = {
-      creativeLevel: fallbackDefaults.creativeLevel,
-      ctas: fallbackDefaults.ctas,
-    };
-    setCreativeLevel(fallbackDefaults.creativeLevel);
-    setCtas(fallbackDefaults.ctas);
-    setIsLoadingSuggestions(intent === "auto_art");
+      sessionBaselineRef.current = {
+        creativeLevel: fallbackDefaults.creativeLevel,
+        ctas: fallbackDefaults.ctas,
+      };
+      setCreativeLevel(fallbackDefaults.creativeLevel);
+      setCtas(fallbackDefaults.ctas);
+      setIsLoadingSuggestions(intent === "auto_art");
+    });
   }, [open, sessionId, loadedSessionId, intent, fallbackDefaults]);
 
   const applyDefaults = useCallback(() => {

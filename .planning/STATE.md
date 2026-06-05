@@ -28,7 +28,7 @@ Last activity: 2026-06-05 — v11.4 milestone completed and tagged
 - Marketing lives in `jhowtkd/site-adscale.git`; app stays in ADScale_2.
 - Beta feedback: `/feedback` triage for platform owners (`PLATFORM_OWNER_EMAILS`).
 - Feedback handoff: `.planning/phases/56-verification-and-privacy-audit/56-HANDOFF.md`
-- Migration: `app/drizzle/0025_abandoned_rhino.sql` (beta entitlements + feedback_reports).
+- Migrations: `app/drizzle/0025_beta_entitlements.sql` then `app/drizzle/0026_feedback_reports.sql` (split to avoid idx-25 collision on DBs that already applied beta entitlements).
 
 ## Key Decisions
 
