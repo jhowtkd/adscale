@@ -12,7 +12,19 @@ vi.mock("@/lib/logger", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
-import { buildDerivationPrompt } from "./prompt-builder";
+import {
+  buildDerivationPrompt,
+  extractPromptHardRulesSection,
+  extractPromptModeSection,
+  extractPromptRestylingFactualSourceSection,
+} from "./prompt-builder";
+import {
+  artVariationContractFixture,
+  derivationConfigFromContract,
+  formatAdaptationApprovedDerivationContractFixture,
+  formatAdaptationCampaignAssetContractFixture,
+  restylingContractFixture,
+} from "./prompt-builder.test-fixtures";
 
 describe("buildDerivationPrompt", () => {
   it("places hard rules before flexible creative guidance", () => {
@@ -360,6 +372,183 @@ describe("buildDerivationPrompt", () => {
     expect(prompt).toContain("Headline may be hard to read on mobile");
     expect(prompt).toContain("Increase headline font size");
     expect(prompt).toContain("--- END PRE-FLIGHT ---");
+  });
+});
+
+describe("prompt contract regression helpers", () => {
+  it("extracts compact sections without the full prompt body", () => {
+    const prompt = buildDerivationPrompt(
+      derivationConfigFromContract(artVariationContractFixture())
+    );
+    const hardRules = extractPromptHardRulesSection(prompt);
+    const mode = extractPromptModeSection(prompt);
+
+    expect(hardRules.length).toBeLessThan(prompt.length * 0.35);
+    expect(mode.length).toBeLessThan(prompt.length * 0.5);
+    expect(hardRules).toContain("HARD RULES / NON-NEGOTIABLE CONTRACT");
+    expect(mode).toContain("MODE: art_variation");
+    expect(hardRules).not.toContain("Creative Strategy:");
+  });
+});
+
+describe("art variation contract (AIC-02)", () => {
+  it("preserves creative level, mandatory facts, and hard-rule precedence", () => {
+    const prompt = buildDerivationPrompt(
+      derivationConfigFromContract(artVariationContractFixture(), {
+        creativeLevel: "bold",
+      })
+    );
+
+    expect(prompt).toContain("CREATIVITY LEVEL: bold");
+    expect(prompt).toContain("OPERATIONAL RULES FOR BOLD");
+    expect(prompt).toContain("visible headline, offer, discount/price, CTA");
+    expect(prompt).toContain("product/service");
+    expect(prompt).toContain("logo if present");
+    expect(prompt).toContain("legal/small-print");
+    expect(prompt).toContain("Vary background, composition, CTA module placement");
+    expect(prompt).toContain("Do not invent a new brand");
+
+    expect(prompt.indexOf("CRITICAL LITERAL CTA RULE")).toBeLessThan(
+      prompt.indexOf("Creative Strategy:")
+    );
+    expect(prompt.indexOf("CRITICAL LITERAL CTA RULE")).toBeLessThan(
+      prompt.indexOf("BRAND MEMORY / LEARNED CONTEXT:")
+    );
+    expect(prompt.indexOf("CRITICAL LITERAL CTA RULE")).toBeLessThan(
+      prompt.indexOf("Revision Feedback:")
+    );
+    expect(prompt).toContain("CTA Recommendations are secondary context only");
+
+    expect(prompt).toContain("Client/Product: Acme Corp");
+    expect(prompt).toContain("Offer from brief: Auditoria gratuita");
+    expect(prompt).toContain("Constraints: Preserve LGPD badge");
+    expect(prompt).toContain("Target format: 1:1");
+  });
+
+  it("uses inherited CTA semantics without no-CTA language", () => {
+    const prompt = buildDerivationPrompt(
+      derivationConfigFromContract(
+        artVariationContractFixture({
+          ctaSemantics: { kind: "inherited" },
+        }),
+        { ctaText: null, plan: undefined }
+      )
+    );
+
+    expect(prompt).toMatch(/original CTA|preserve.*CTA/i);
+    expect(prompt).not.toContain("no CTA required");
+  });
+
+  it("snapshots the art variation hard-rule section", () => {
+    const prompt = buildDerivationPrompt(
+      derivationConfigFromContract(artVariationContractFixture())
+    );
+    expect(extractPromptHardRulesSection(prompt)).toMatchInlineSnapshot(`
+      "HARD RULES / NON-NEGOTIABLE CONTRACT:
+      - Target format: 1:1. This target format overrides any flexible layout suggestion.
+      - CRITICAL LOGO RULE: Do NOT invent a logo. Preserve the logo ONLY if it already exists in the reference asset. If no logo is visible in the reference, do not add one.
+      - Applied CTA text for this piece: Comprar agora
+      - CRITICAL LITERAL CTA RULE: The CTA text above is MANDATORY and FINAL.
+      - Do not use synonyms, paraphrases, or alternative phrasing for this CTA.
+      - Do not translate the CTA into any language.
+      - Do not rewrite or rephrase the CTA text.
+      - Do not replace it with plan-recommended CTAs or any other text.
+      - The exact CTA text above must appear verbatim in the generated output.
+      - CTA Recommendations are secondary context only and must not override the literal CTA text.
+      - Creative strategy, diagnosis, feedback, and client references are flexible guidance only; they must not override these hard rules."
+    `);
+  });
+});
+
+describe("format adaptation contract (AIC-03)", () => {
+  it("requires native layout rebuild and rejects poster padding patterns", () => {
+    const prompt = buildDerivationPrompt(
+      derivationConfigFromContract(formatAdaptationCampaignAssetContractFixture())
+    );
+
+    expect(prompt).toContain("headline, photo/subject, offer or proof, CTA, logo, badges, legal copy, and decorative background");
+    expect(prompt).toContain("layout adaptation, not a resized poster");
+    expect(prompt).toContain("No blank bands, blurred padding, or letterboxing");
+    expect(prompt).toContain("no blurred side/top/bottom bars");
+    expect(prompt).toContain("no poster pasted over a background");
+    expect(prompt).toContain("no stretched edge filler");
+    expect(prompt).toContain("no crowded cluster");
+    expect(prompt).toContain("PRESERVE EXACTLY");
+    expect(prompt).toContain("only decorative background may bleed to the edges");
+    expect(prompt).toContain("upper zone");
+    expect(prompt).toContain("middle zone");
+    expect(prompt).toContain("lower zone");
+  });
+
+  it("snapshots approved_derivation source-package mode section", () => {
+    const prompt = buildDerivationPrompt(
+      derivationConfigFromContract(formatAdaptationApprovedDerivationContractFixture(), {
+        packageSource: "approved_derivation",
+        asset: undefined,
+      })
+    );
+
+    expect(prompt).toContain("approved winning creative");
+    expect(prompt).toContain("Do not return to the original campaign asset");
+    expect(extractPromptModeSection(prompt)).toMatchInlineSnapshot(`
+      "MODE: format_adaptation — You are EDITING an existing ad to fit a DIFFERENT aspect ratio.
+      You can see the original image. Your job is to PRESERVE every visual element exactly as it appears, and rebuild the layout so it feels native to the target format.
+      This is a layout adaptation, not a resized poster. Treat the source ad as separate modules: headline, photo/subject, offer or proof, CTA, logo, badges, legal copy, and decorative background.
+      PRESERVE EXACTLY: the original photo/subject, all text copy (headlines, subheads, bullets, CTA), the logo, brand colors, background color/texture, offer cards, discount badges, decorative shapes, icons, and graphic panels.
+      DO NOT: create new photos, rewrite text, add new elements, remove elements, change colors, or invent new brand assets.
+      Target format: 9:16. Rearrange the existing elements into a native composition for this format. Fill the entire canvas edge-to-edge. No blank bands, blurred padding, or letterboxing.
+      HARD LAYOUT FAILURES TO AVOID: no blurred side/top/bottom bars, no poster pasted over a background, no stretched edge filler, no crowded cluster of text/photo/CTA/logo, no overlapping information modules.
+      Build clear zones with gutters and whitespace. Keep headline, supporting copy, CTA, logo, badges, legal copy, faces, and products inside a central safe area; only decorative background may bleed to the edges.
+      The result must be immediately recognizable as the same ad — same content, same visual identity, just fitting a different frame.
+      The uploaded reference image is the approved winning creative from this campaign.
+      Preserve this winner's visible copy, CTA, product, offer, brand cues, and design identity.
+      Only rearrange the approved winner into the target format. Do not return to the original campaign asset or invent a new concept.
+      For 9:16 (vertical story): create a tall story layout with separate vertical zones. Use the upper zone for headline/brand hook, the middle zone for the photo or main visual, and the lower zone for offer/proof/CTA/logo. Do not squeeze the square layout into the center."
+    `);
+  });
+
+  it("includes 4:5 portrait-feed guidance when target format is 4:5", () => {
+    const prompt = buildDerivationPrompt(
+      derivationConfigFromContract(
+        formatAdaptationCampaignAssetContractFixture({ targetFormat: "4:5" }),
+        { targetFormat: "4:5" }
+      )
+    );
+
+    expect(prompt).toContain("portrait-feed layout");
+    expect(prompt).toContain("CTA/logo their own clean area");
+  });
+});
+
+describe("restyling contract (AIC-04)", () => {
+  it("separates base factual content from style-reference visual language", () => {
+    const contract = restylingContractFixture();
+    const prompt = buildDerivationPrompt(derivationConfigFromContract(contract));
+
+    expect(contract.baseAssetId).toBe("asset-base-1");
+    expect(contract.styleAssetId).toBe("asset-style-1");
+
+    const factual = extractPromptRestylingFactualSourceSection(prompt);
+    expect(factual).toContain("base image is the ONLY source of factual content");
+    expect(factual).toMatch(/brand name|product name|offer|CTA|price|course name|logo/i);
+    expect(factual).toContain("style reference provides visual language");
+    expect(factual).toContain("color, typography style, layout composition, mood");
+    expect(factual).toContain("Do NOT copy factual claims");
+
+    expect(prompt).toContain("preserve the base image subject, product, offer, CTA, and factual content");
+    expect(prompt).toContain("do not copy factual content from the style reference");
+    expect(prompt).toMatch(/preserve.*CTA|base image contains the factual CTA/i);
+    expect(prompt).not.toContain("no CTA required");
+  });
+
+  it("snapshots the restyling factual-source section", () => {
+    const prompt = buildDerivationPrompt(
+      derivationConfigFromContract(restylingContractFixture())
+    );
+    expect(extractPromptRestylingFactualSourceSection(prompt)).toMatchInlineSnapshot(`
+      "RESTYLING FACTUAL-SOURCE RULE:
+      The base image is the ONLY source of factual content (brand name, product name, offer, CTA, price, course name, logo). The style reference provides visual language (color, typography style, layout composition, mood) only. Do NOT copy factual claims, text, prices, offers, brand names, or CTAs from the style reference into the output."
+    `);
   });
 });
 
