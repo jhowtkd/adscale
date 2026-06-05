@@ -523,6 +523,106 @@ describe("derivationJob", () => {
     );
   });
 
+  it("inherits parent creativeContract fields for regeneration children", async () => {
+    const inheritedContract = {
+      generationMode: "art_variation" as const,
+      targetFormat: "4:5",
+      ctaSemantics: { kind: "explicit" as const, text: "Shop Now" },
+      baseAssetId: "base-asset",
+      styleAssetId: null,
+      client: "Acme Corp",
+      product: "Premium Widget",
+      offer: "20% off",
+      constraints: "Keep logo visible",
+      sourcePackage: "campaign_asset" as const,
+    };
+
+    mockGetDerivationById.mockResolvedValue({
+      id: "child-regen-id",
+      campaignId: "campaign-id",
+      workspaceId: "workspace-1",
+      parentId: "parent-id",
+      status: "queued",
+      generationMode: "art_variation",
+      format: "4:5",
+      ctaText: "Shop Now",
+      variantIndex: 0,
+      feedback: "Hard failures:\n- cta_drift: fix CTA",
+      creativeContract: inheritedContract,
+      prompt: null,
+      qualityScore: null,
+      scoreStatus: "pending",
+    } as Awaited<ReturnType<typeof getDerivationById>>);
+
+    mockGetCampaignById.mockResolvedValue({
+      id: "campaign-id",
+      workspaceId: "workspace-1",
+      name: "Test Campaign",
+      client: "Campaign Client Only",
+      product: "Campaign Product",
+      objective: null,
+      audience: null,
+      platforms: null,
+      tone: null,
+      offer: "Campaign offer",
+      constraints: null,
+      notes: null,
+      status: "generating",
+      generationMode: "art_variation",
+      creativeLevel: "balanced",
+      styleIntensity: "medium",
+      creativeDiagnosisStatus: "pending",
+      creativeDiagnosis: null,
+      creativeDiagnosisSource: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as Awaited<ReturnType<typeof getCampaignById>>);
+
+    mockGetAssetsByCampaign.mockResolvedValue([
+      {
+        id: "asset-1",
+        campaignId: "campaign-id",
+        workspaceId: "workspace-1",
+        key: "assets/campaign.png",
+        type: "image/png",
+        size: 1000,
+        width: 1080,
+        height: 1350,
+        role: "base",
+        metadata: null,
+        analysisStatus: null,
+        analyzedAt: null,
+        createdAt: new Date(),
+      },
+    ]);
+    mockGetPlanByCampaign.mockResolvedValue(null as never);
+
+    await runDerivationJob({
+      derivationId: "child-regen-id",
+      campaignId: "campaign-id",
+      workspaceId: "workspace-1",
+      locale: "en",
+      generationMode: "art_variation",
+      variantIndex: 0,
+      ctaText: "Shop Now",
+      format: "4:5",
+    });
+
+    const finalProvenanceCall = mockUpdateDerivationPromptProvenance.mock.calls.at(-1);
+    expect(finalProvenanceCall?.[2]).toEqual(
+      expect.objectContaining({
+        creativeContract: expect.objectContaining({
+          client: "Acme Corp",
+          product: "Premium Widget",
+          offer: "20% off",
+          constraints: "Keep logo visible",
+          generationMode: "art_variation",
+          targetFormat: "4:5",
+        }),
+      })
+    );
+  });
+
   it("throws when parent derivation has no outputKey for package format adaptation", async () => {
     mockGetDerivationById.mockImplementation(async (id: string) => {
       if (id === "parent-id") {

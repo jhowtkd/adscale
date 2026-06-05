@@ -404,22 +404,42 @@ export const derivationJob = inngest.createFunction(
         resolvedBaseAssetId = asset.id;
       }
 
-      const resolvedContract: CreativeContract = {
-        generationMode: effectiveGenerationMode as CreativeContract["generationMode"],
-        targetFormat,
-        ctaSemantics: resolveCtaSemantics(
-          effectiveCtaText ?? null,
-          effectiveGenerationMode as CreativeContract["generationMode"]
-        ),
-        baseAssetId: resolvedBaseAssetId,
-        styleAssetId: resolvedStyleAssetId,
-        client: campaign?.client ?? null,
-        product: campaign?.product ?? null,
-        offer: campaign?.offer ?? null,
-        constraints: null,
-        sourcePackage,
-        factualSourceRules: FACTUAL_SOURCE_RULES,
-      };
+      const childStoredContract = derivation.creativeContract ?? null;
+
+      const resolvedContract: CreativeContract = childStoredContract
+        ? {
+            ...childStoredContract,
+            generationMode: effectiveGenerationMode as CreativeContract["generationMode"],
+            targetFormat,
+            ctaSemantics:
+              ctaText !== undefined
+                ? resolveCtaSemantics(
+                    effectiveCtaText ?? null,
+                    effectiveGenerationMode as CreativeContract["generationMode"]
+                  )
+                : childStoredContract.ctaSemantics,
+            baseAssetId: resolvedBaseAssetId ?? childStoredContract.baseAssetId,
+            styleAssetId: resolvedStyleAssetId ?? childStoredContract.styleAssetId,
+            sourcePackage: childStoredContract.sourcePackage ?? sourcePackage,
+            factualSourceRules:
+              childStoredContract.factualSourceRules ?? FACTUAL_SOURCE_RULES,
+          }
+        : {
+            generationMode: effectiveGenerationMode as CreativeContract["generationMode"],
+            targetFormat,
+            ctaSemantics: resolveCtaSemantics(
+              effectiveCtaText ?? null,
+              effectiveGenerationMode as CreativeContract["generationMode"]
+            ),
+            baseAssetId: resolvedBaseAssetId,
+            styleAssetId: resolvedStyleAssetId,
+            client: campaign?.client ?? null,
+            product: campaign?.product ?? null,
+            offer: campaign?.offer ?? null,
+            constraints: null,
+            sourcePackage,
+            factualSourceRules: FACTUAL_SOURCE_RULES,
+          };
 
       if (usesParentOutput && parentDerivation?.outputKey) {
         logger.info(`[generate-and-store-output] downloading parent output key=${parentDerivation.outputKey}`);
