@@ -17,7 +17,10 @@ import { usePlan, useGeneratePlan, useUpdatePlanStatus } from "./use-plan";
 import { useSaveDerivationAsReference } from "@/lib/hooks/use-client-profiles";
 import { useGenerateLandingPage } from "@/lib/hooks/use-landing-page";
 import type { DeliveryFormat } from "@/components/workspace/DeliveryPackageModal";
-import { buildRegenerationFeedback } from "@/lib/derivation-regeneration-feedback";
+import {
+  buildRegenerationFeedback,
+  derivationNeedsRegenerateDialog,
+} from "@/lib/derivation-regeneration-feedback";
 import { useTranslations } from "next-intl";
 
 export type WorkspaceState =
@@ -193,7 +196,10 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
         scoreStatus: d.scoreStatus ?? undefined,
         scoreIssues: d.scoreIssues ?? undefined,
         regenerationSuggestion: d.regenerationSuggestion ?? undefined,
+        regenerationPrimaryReason: d.regenerationPrimaryReason ?? undefined,
+        regenerationIssueBreakdown: d.regenerationIssueBreakdown ?? undefined,
         qaStatus: d.qaStatus ?? undefined,
+        qaChecklist: d.qaChecklist ?? undefined,
         qaIssues: d.qaIssues ?? undefined,
         qualityVerdict: d.qualityVerdict ?? undefined,
         hardFailures: d.hardFailures ?? undefined,
@@ -219,6 +225,8 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
   const [regenerateDialog, setRegenerateDialog] = useState<{
     id: string;
     feedback: string;
+    primaryReason?: string;
+    issueBreakdown?: import("@/lib/regeneration-preview-types").RegenerationIssueBreakdown;
   } | null>(null);
 
   const handleDeliveryModalOpenChange = useCallback((open: boolean) => {
@@ -310,17 +318,34 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
   const handleRequestRegenerate = useCallback(
     (id: string, feedback?: string) => {
       const derivation = allDerivations.find((item) => item.id === id);
-      const preset =
-        feedback ??
-        (derivation
-          ? buildRegenerationFeedback({
-              regenerationSuggestion: derivation.regenerationSuggestion,
-              hardFailures: derivation.hardFailures,
-            })
-          : "");
+      if (!derivation) {
+        regenerateMutation.mutate({ id, feedback });
+        return;
+      }
 
-      if (preset.trim()) {
-        setRegenerateDialog({ id, feedback: preset });
+      const built = buildRegenerationFeedback({
+        regenerationSuggestion: derivation.regenerationSuggestion,
+        hardFailures: derivation.hardFailures,
+        regenerationPrimaryReason: derivation.regenerationPrimaryReason,
+        regenerationIssueBreakdown: derivation.regenerationIssueBreakdown,
+      });
+
+      const preset = feedback ?? built.feedbackText;
+      const needsDialog = derivationNeedsRegenerateDialog({
+        hardFailures: derivation.hardFailures,
+        regenerationSuggestion: derivation.regenerationSuggestion,
+        regenerationPrimaryReason: derivation.regenerationPrimaryReason,
+        qualityVerdict: derivation.qualityVerdict,
+        qaChecklist: derivation.qaChecklist,
+      });
+
+      if (needsDialog || preset.trim()) {
+        setRegenerateDialog({
+          id,
+          feedback: preset,
+          primaryReason: built.primaryReason,
+          issueBreakdown: built.issueBreakdown,
+        });
         return;
       }
 

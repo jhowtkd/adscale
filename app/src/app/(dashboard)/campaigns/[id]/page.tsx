@@ -394,6 +394,8 @@ export default function CampaignWorkspacePage() {
       <RegenerateFeedbackDialog
         open={Boolean(regenerateDialog)}
         initialFeedback={regenerateDialog?.feedback ?? ""}
+        primaryReason={regenerateDialog?.primaryReason}
+        issueBreakdown={regenerateDialog?.issueBreakdown}
         isSubmitting={regeneratePending}
         onOpenChange={handleCloseRegenerateDialog}
         onConfirm={handleConfirmRegenerate}
