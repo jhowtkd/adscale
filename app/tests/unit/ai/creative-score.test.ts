@@ -36,8 +36,66 @@ vi.mock("@/server/validation/env", () => ({
 import {
   analyzeDerivationCreative,
   buildRegenerationSuggestion,
+  normalizeCreativeScoreResult,
   scoreDerivationHeuristic,
 } from "@/server/ai/creative-score";
+
+describe("normalizeCreativeScoreResult", () => {
+  it("returns failed status for empty object", () => {
+    const result = normalizeCreativeScoreResult({});
+    expect(result.scoreStatus).toBe("failed");
+    expect(result.qualityScore).toBe(0);
+    expect(result.scoreIssues).toEqual([]);
+    expect(result.scoreBreakdown.ctaClarity).toBe(0);
+  });
+
+  it("returns failed status for malformed qualityScore with no valid breakdown", () => {
+    const result = normalizeCreativeScoreResult({
+      qualityScore: "not-a-number",
+      scoreBreakdown: {},
+    });
+    expect(result.scoreStatus).toBe("failed");
+    expect(result.qualityScore).toBe(0);
+  });
+
+  it("uses 0 for missing breakdown dimensions, not 70", () => {
+    const result = normalizeCreativeScoreResult({
+      qualityScore: 80,
+      scoreBreakdown: {
+        ctaClarity: 90,
+      },
+    });
+    expect(result.scoreStatus).toBe("analyzed");
+    expect(result.qualityScore).toBe(80);
+    expect(result.scoreBreakdown.textLegibility).toBe(0);
+    expect(result.scoreBreakdown.ctaClarity).toBe(90);
+  });
+
+  it("averages valid dimensions when qualityScore is missing", () => {
+    const result = normalizeCreativeScoreResult({
+      scoreBreakdown: {
+        ctaClarity: 80,
+        textLegibility: 60,
+      },
+    });
+    expect(result.scoreStatus).toBe("analyzed");
+    expect(result.qualityScore).toBe(70);
+  });
+
+  it("caps scoreIssues at 3 strings", () => {
+    const result = normalizeCreativeScoreResult({
+      qualityScore: 50,
+      scoreIssues: ["a", "b", "c", "d"],
+    });
+    expect(result.scoreIssues).toHaveLength(3);
+  });
+
+  it("returns failed for non-object input", () => {
+    const result = normalizeCreativeScoreResult(null);
+    expect(result.scoreStatus).toBe("failed");
+    expect(result.qualityScore).toBe(0);
+  });
+});
 
 describe("creative scoring", () => {
   it("creates a heuristic score without visual analysis", () => {

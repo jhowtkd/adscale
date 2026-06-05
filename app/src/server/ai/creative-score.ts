@@ -1,7 +1,9 @@
+import { z } from "zod";
 import { env } from "@/server/validation/env";
 import { getOpenAI, extractOutputText } from "./utils";
 import type { CreativeContract } from "./creative-contract";
 import type { CreativeHardFailureCode } from "./creative-quality-gate";
+import { SCORE_BREAKDOWN_TO_CRITERION } from "./creative-quality-taxonomy";
 
 function ctaTextFromContract(contract: CreativeContract): string | null {
   if (contract.ctaSemantics.kind === "explicit") {
@@ -24,6 +26,115 @@ export interface ScoreResult {
   };
   scoreIssues: string[];
   regenerationSuggestion: string;
+}
+
+const SCORE_BREAKDOWN_KEYS = [
+  "ctaClarity",
+  "textLegibility",
+  "briefMatch",
+  "visualQuality",
+  "formatFit",
+  "variationLevelFit",
+  "informationPreservation",
+] as const;
+
+type ScoreBreakdownKey = (typeof SCORE_BREAKDOWN_KEYS)[number];
+
+const rawScoreJsonSchema = z.object({
+  qualityScore: z.unknown().optional(),
+  scoreBreakdown: z.record(z.unknown()).optional(),
+  scoreIssues: z.unknown().optional(),
+  regenerationSuggestion: z.unknown().optional(),
+});
+
+function emptyBreakdown(): ScoreResult["scoreBreakdown"] {
+  return {
+    ctaClarity: 0,
+    textLegibility: 0,
+    briefMatch: 0,
+    visualQuality: 0,
+    formatFit: 0,
+    variationLevelFit: 0,
+    informationPreservation: 0,
+  };
+}
+
+function clampScore(n: number): number {
+  return Math.min(100, Math.max(0, Math.round(n)));
+}
+
+function parseDimension(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return null;
+  }
+  return clampScore(value);
+}
+
+function asScoreIssues(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    .map((item) => item.trim())
+    .slice(0, 3);
+}
+
+export function normalizeCreativeScoreResult(value: unknown): ScoreResult {
+  const parsed = rawScoreJsonSchema.safeParse(value);
+  if (!parsed.success) {
+    return {
+      qualityScore: 0,
+      scoreStatus: "failed",
+      scoreBreakdown: emptyBreakdown(),
+      scoreIssues: [],
+      regenerationSuggestion: "",
+    };
+  }
+
+  const input = parsed.data;
+  const breakdown = emptyBreakdown();
+  let validDimensionCount = 0;
+
+  for (const key of SCORE_BREAKDOWN_KEYS) {
+    const raw = input.scoreBreakdown?.[key];
+    const dimension = parseDimension(raw);
+    breakdown[key] = dimension ?? 0;
+    if (dimension !== null) {
+      validDimensionCount += 1;
+    }
+  }
+
+  const qualityScoreDirect = parseDimension(input.qualityScore);
+  let qualityScore: number;
+  let scoreStatus: ScoreResult["scoreStatus"];
+
+  if (qualityScoreDirect !== null) {
+    qualityScore = qualityScoreDirect;
+    scoreStatus = "analyzed";
+  } else if (validDimensionCount > 0) {
+    const validValues = SCORE_BREAKDOWN_KEYS.map((key) => parseDimension(input.scoreBreakdown?.[key])).filter(
+      (v): v is number => v !== null
+    );
+    qualityScore = clampScore(
+      validValues.reduce((sum, v) => sum + v, 0) / validValues.length
+    );
+    scoreStatus = "analyzed";
+  } else {
+    qualityScore = 0;
+    scoreStatus = "failed";
+  }
+
+  const regenerationSuggestion =
+    typeof input.regenerationSuggestion === "string" ? input.regenerationSuggestion.trim() : "";
+
+  return {
+    qualityScore,
+    scoreStatus,
+    scoreBreakdown: breakdown,
+    scoreIssues: asScoreIssues(input.scoreIssues),
+    regenerationSuggestion,
+  };
 }
 
 export interface HeuristicInput {
@@ -87,6 +198,22 @@ export interface AnalyzeInput {
   contract?: CreativeContract | null;
 }
 
+function scoreDimensionPromptLines(): string {
+  return SCORE_BREAKDOWN_KEYS.map((key) => {
+    const criterion = SCORE_BREAKDOWN_TO_CRITERION[key];
+    const labels: Record<ScoreBreakdownKey, string> = {
+      ctaClarity: "ctaClarity (CTA/offer preservation)",
+      textLegibility: "textLegibility (legibility)",
+      briefMatch: "briefMatch (brief alignment)",
+      visualQuality: "visualQuality (creative risk / polish)",
+      formatFit: "formatFit (format layout fit)",
+      variationLevelFit: "variationLevelFit (variation level fit)",
+      informationPreservation: "informationPreservation (information preservation)",
+    };
+    return `- ${labels[key]} → canonical: ${criterion}`;
+  }).join("\n");
+}
+
 export async function analyzeDerivationCreative(input: AnalyzeInput): Promise<ScoreResult> {
   const base64 = input.imageBuffer.toString("base64");
   const dataUrl = `data:${input.mimeType};base64,${base64}`;
@@ -119,6 +246,9 @@ The target format must remain: ${format}.
 The generation mode must remain: ${generationMode}.
 The creativity/variation level is: ${creativeLevel}.
 Return only JSON with qualityScore, scoreBreakdown, scoreIssues, regenerationSuggestion.
+
+Score breakdown dimensions (score key → canonical concern):
+${scoreDimensionPromptLines()}
 
 Campaign context:
 - Name: ${input.campaign.name}
@@ -174,47 +304,18 @@ The regenerationSuggestion must preserve the exact CTA text, format, and generat
     throw new Error("Empty vision response for creative scoring");
   }
 
-  const parsed = JSON.parse(raw) as {
-    qualityScore?: number;
-    scoreBreakdown?: {
-      ctaClarity?: number;
-      textLegibility?: number;
-      briefMatch?: number;
-      visualQuality?: number;
-      formatFit?: number;
-      variationLevelFit?: number;
-      informationPreservation?: number;
-    };
-    scoreIssues?: string[];
-    regenerationSuggestion?: string;
-  };
-
-  const clamp = (n: number) => Math.min(100, Math.max(0, Math.round(n)));
-
-  const breakdown = {
-    ctaClarity: clamp(parsed.scoreBreakdown?.ctaClarity ?? 70),
-    textLegibility: clamp(parsed.scoreBreakdown?.textLegibility ?? 70),
-    briefMatch: clamp(parsed.scoreBreakdown?.briefMatch ?? 70),
-    visualQuality: clamp(parsed.scoreBreakdown?.visualQuality ?? 70),
-    formatFit: clamp(parsed.scoreBreakdown?.formatFit ?? 70),
-    variationLevelFit: clamp(parsed.scoreBreakdown?.variationLevelFit ?? 70),
-    informationPreservation: clamp(parsed.scoreBreakdown?.informationPreservation ?? 70),
-  };
-
-  const qualityScore = clamp(parsed.qualityScore ?? 70);
+  const normalized = normalizeCreativeScoreResult(JSON.parse(raw));
 
   return {
-    qualityScore,
-    scoreStatus: "analyzed",
-    scoreBreakdown: breakdown,
-    scoreIssues: parsed.scoreIssues ?? [],
+    ...normalized,
+    scoreStatus: normalized.scoreStatus === "failed" ? "failed" : "analyzed",
     regenerationSuggestion: buildRegenerationSuggestion({
       ctaText: input.derivation.ctaText,
       format: input.derivation.format,
       generationMode: input.derivation.generationMode,
-      scoreIssues: parsed.scoreIssues ?? [],
+      scoreIssues: normalized.scoreIssues,
       modelSuggestion:
-        parsed.regenerationSuggestion ?? "Refine the creative while preserving the exact CTA text.",
+        normalized.regenerationSuggestion || "Refine the creative while preserving the exact CTA text.",
       contract: input.contract ?? null,
     }),
   };
