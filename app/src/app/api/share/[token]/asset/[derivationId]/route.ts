@@ -1,0 +1,40 @@
+import { NextResponse } from "next/server";
+import { apiError, handleApiError } from "@/lib/api-response";
+import { validateShareToken } from "@/lib/share-token";
+import { getDerivationById } from "@/server/repositories/derivation";
+import { objectStorage } from "@/server/storage";
+
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ token: string; derivationId: string }> }
+) {
+  try {
+    const { token, derivationId } = await params;
+    const link = await validateShareToken(token);
+
+    if (!link) {
+      return apiError("shareLinkNotFound", 404);
+    }
+
+    if (!link.derivationIds.includes(derivationId)) {
+      return apiError("derivationNotInShareLink", 403);
+    }
+
+    const derivation = await getDerivationById(
+      derivationId,
+      link.workspaceId
+    );
+
+    if (!derivation?.outputKey) {
+      return apiError("derivationNotFound", 404);
+    }
+
+    const signedUrl = await objectStorage.signedDownloadUrl(
+      derivation.outputKey
+    );
+
+    return NextResponse.redirect(signedUrl, { status: 302 });
+  } catch (error) {
+    return handleApiError(error, "share.[token].asset.[derivationId].GET");
+  }
+}
