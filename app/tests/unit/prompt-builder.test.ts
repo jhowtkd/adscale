@@ -1,5 +1,16 @@
 import { describe, it, expect } from "vitest";
-import { buildDerivationPrompt, type DerivationPromptConfig } from "@/server/ai/prompt-builder";
+import {
+  buildDerivationPrompt,
+  extractPromptHardRulesSection,
+  extractPromptModeSection,
+  type DerivationPromptConfig,
+} from "@/server/ai/prompt-builder";
+import {
+  artVariationContractFixture,
+  derivationConfigFromContract,
+  formatAdaptationApprovedDerivationContractFixture,
+  restylingContractFixture,
+} from "@/server/ai/prompt-builder.test-fixtures";
 
 describe("buildDerivationPrompt creativity level", () => {
   it("art_variation + conservative contains CREATIVITY LEVEL: conservative", () => {
@@ -234,6 +245,42 @@ describe("buildDerivationPrompt format_adaptation layout contract", () => {
     // Square format should not carry 9:16 or 4:5 specific zone instructions
     expect(prompt).not.toContain("upper zone for headline");
     expect(prompt).not.toContain("portrait-feed layout");
+  });
+});
+
+describe("buildDerivationPrompt contract fixtures", () => {
+  it("builds comparable configs from persisted CreativeContract shapes", () => {
+    const art = derivationConfigFromContract(artVariationContractFixture());
+    const formatApproved = derivationConfigFromContract(
+      formatAdaptationApprovedDerivationContractFixture()
+    );
+    const restyle = derivationConfigFromContract(restylingContractFixture());
+
+    expect(art.contract?.sourcePackage).toBe("campaign_asset");
+    expect(formatApproved.contract?.baseAssetId).toBeNull();
+    expect(formatApproved.contract?.sourcePackage).toBe("approved_derivation");
+    expect(restyle.contract?.baseAssetId).toBe("asset-base-1");
+    expect(restyle.contract?.styleAssetId).toBe("asset-style-1");
+  });
+
+  it("snapshots art variation hard rules via shared extractor", () => {
+    const prompt = buildDerivationPrompt(
+      derivationConfigFromContract(artVariationContractFixture())
+    );
+    expect(extractPromptHardRulesSection(prompt)).toContain("Comprar agora");
+    expect(extractPromptHardRulesSection(prompt)).toContain("Target format: 1:1");
+  });
+
+  it("snapshots format adaptation mode for approved_derivation package", () => {
+    const prompt = buildDerivationPrompt(
+      derivationConfigFromContract(formatAdaptationApprovedDerivationContractFixture(), {
+        packageSource: "approved_derivation",
+        asset: undefined,
+      })
+    );
+    const mode = extractPromptModeSection(prompt);
+    expect(mode).toContain("approved winning creative");
+    expect(mode).not.toContain("Campaign:");
   });
 });
 
