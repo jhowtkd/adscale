@@ -8,11 +8,15 @@ ADScale is a SaaS webapp for creative derivation: marketing teams upload a base 
 
 Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-## Current State (v11.4 shipped)
+## Current Milestone: v11.5 Qualidade IA Orientada por Feedback
 
-Beta feedback capture is live in the authenticated app: users submit structured reports from the shell or campaign/derivation surfaces; diagnostics (route, locale, breadcrumbs, Sentry trace) attach automatically; platform owners triage at `/feedback` with signed asset links and internal notes.
+**Goal:** Improve AI creative quality by tightening generation contracts, making scoring/QA more trustworthy, and turning feedback/hard failures into better regeneration instructions.
 
-**Ops checklist:** set `PLATFORM_OWNER_EMAILS`, run `npm run db:migrate` (`0025_beta_entitlements` + `0026_feedback_reports` as needed), complete manual browser smoke (QA-02).
+**Target features:**
+- Contract/prompt improvements that explicitly preserve brand, CTA, offer, product, format, and required information across art variation, format adaptation, and restyling.
+- More reliable scoring and QA that separates hard failures from polish issues and explains quality problems in user-actionable language.
+- Regeneration flow that uses QA, score issues, hard failures, and beta feedback context to fix the specific problem instead of repeating generic revisions.
+- Verification set for known failure modes: wrong CTA, cropped text/logo, style-reference factual contamination, bad native format adaptation, weak preservation, and low legibility.
 
 ## Requirements
 
@@ -128,7 +132,10 @@ Beta feedback capture is live in the authenticated app: users submit structured 
 
 ### Active
 
-_(None — run `/gsd-new-milestone` to define next scope.)_
+- [ ] AI generation preserves campaign contract fields consistently across first generation and regeneration.
+- [ ] Quality scoring and QA identify hard failures reliably enough to guide user approval decisions.
+- [ ] Regeneration suggestions translate detected issues into precise correction instructions.
+- [ ] Known creative failure modes have repeatable fixtures/tests so quality regressions are visible.
 
 ### Validated (v10.0)
 
@@ -172,6 +179,8 @@ _(None — run `/gsd-new-milestone` to define next scope.)_
 ## Context
 
 Current state: v11.4 shipped beta feedback capture (phases 53–56). Marketing remains in `jhowtkd/site-adscale.git`; product feedback and owner triage live in ADScale_2 at `/feedback` for platform owners.
+
+v11.5 focuses on improving AI output quality by connecting three existing surfaces: derivation prompt contracts, visual scoring/QA, and regeneration suggestions. Repo inspection on 2026-06-05 found existing primitives in `prompt-builder.ts`, `creative-score.ts`, `creative-qa.ts`, `creative-quality-gate.ts`, derivation jobs, and feedback-linked derivation review.
 
 Prior milestones delivered presentation site separation (v11.3), beta entitlements (v11.2), generation quality gates (v11.1), coherent derivation flows (v11.0), and the full MVP through v10 UI polish.
 
@@ -223,7 +232,7 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-05 after v11.4 milestone completion*
+*Last updated: 2026-06-05 after starting v11.5 AI quality milestone*
 
 ## Milestone History
 
