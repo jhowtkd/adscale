@@ -7,7 +7,7 @@ function getDatabaseUrl(): string {
   }
   if (process.env.NODE_ENV === "production" && !url.includes("sslmode=")) {
     const separator = url.includes("?") ? "&" : "?";
-    return `${url}${separator}sslmode=require`;
+    return `${url}${separator}uselibpqcompat=true&sslmode=require`;
   }
   return url;
 }

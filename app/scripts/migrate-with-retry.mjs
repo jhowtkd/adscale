@@ -26,11 +26,25 @@ logDbTarget();
 for (let attempt = 1; attempt <= attempts; attempt += 1) {
   console.log(`[db:migrate] attempt ${attempt}/${attempts}`);
   try {
-    execSync("npx drizzle-kit migrate", { stdio: "inherit", env: process.env });
+    const result = execSync("npx drizzle-kit migrate", {
+      encoding: "utf8",
+      env: process.env,
+      stdio: ["inherit", "pipe", "pipe"],
+    });
+    if (result) {
+      console.log(result);
+    }
     console.log("[db:migrate] success");
     process.exit(0);
   } catch (error) {
-    console.error(`[db:migrate] attempt ${attempt} failed`, error instanceof Error ? error.message : error);
+    const execError = /** @type {NodeJS.ErrnoException & { stdout?: string; stderr?: string }} */ (error);
+    if (execError.stdout) {
+      console.log(execError.stdout);
+    }
+    if (execError.stderr) {
+      console.error(execError.stderr);
+    }
+    console.error(`[db:migrate] attempt ${attempt} failed`, execError.message ?? execError);
     if (attempt === attempts) {
       process.exit(1);
     }
