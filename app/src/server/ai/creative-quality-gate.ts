@@ -500,6 +500,7 @@ export async function runCompletedDerivationQualityGate(
         hardFailures,
         contract: input.contract,
         scoreIssues,
+        qaChecklist: checklist,
       });
       await updateDerivationScore(input.derivationId, input.workspaceId, {
         qualityScore: row.qualityScore,

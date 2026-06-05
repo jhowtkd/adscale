@@ -123,9 +123,9 @@ describe("buildHardFailureRegenerationSuggestion", () => {
       },
     });
 
-    expect(suggestion).toContain("Hard failures: [cta_drift, wrong_brand].");
-    expect(suggestion).toContain("CTA was replaced.");
-    expect(suggestion).toContain("Brand logo does not match Acme.");
+    expect(suggestion).toContain("Hard failures:");
+    expect(suggestion).toContain("cta_drift: CTA was replaced.");
+    expect(suggestion).toContain("wrong_brand: Brand logo does not match Acme.");
     expect(suggestion).toContain("Shop Now");
     expect(suggestion).toContain("4:5");
     expect(suggestion).toContain("art_variation");

@@ -5,12 +5,12 @@ import type { CreativeContract } from "./creative-contract";
 import type { CreativeHardFailureCode } from "./creative-quality-gate";
 import { SCORE_BREAKDOWN_TO_CRITERION } from "./creative-quality-taxonomy";
 
-function ctaTextFromContract(contract: CreativeContract): string | null {
-  if (contract.ctaSemantics.kind === "explicit") {
-    return contract.ctaSemantics.text;
-  }
-  return null;
-}
+import {
+  buildRegenerationSuggestion,
+  ctaTextFromContract,
+  type BuildSuggestionInput,
+} from "./regeneration-suggestion";
+import { buildRegenerationCorrectionBrief } from "./regeneration-correction-brief";
 
 export interface ScoreResult {
   qualityScore: number;
@@ -321,83 +321,22 @@ The regenerationSuggestion must preserve the exact CTA text, format, and generat
   };
 }
 
-export interface BuildSuggestionInput {
-  ctaText: string | null | undefined;
-  format: string | null | undefined;
-  generationMode: string | null | undefined;
-  scoreIssues: string[];
-  modelSuggestion: string;
-  contract?: CreativeContract | null;
-}
-
-export function buildRegenerationSuggestion(input: BuildSuggestionInput): string {
-  const parts: string[] = [];
-
-  if (input.scoreIssues.length > 0) {
-    parts.push(`Issues: ${input.scoreIssues.join("; ")}.`);
-  }
-
-  parts.push(`Suggestion: ${input.modelSuggestion}`);
-
-  const fmt = input.contract?.targetFormat ?? input.format ?? "unknown";
-  const mode = input.contract?.generationMode ?? input.generationMode ?? "unknown";
-
-  const ctaSemantics = input.contract?.ctaSemantics;
-  if (ctaSemantics?.kind === "explicit") {
-    parts.push(
-      `Preserve the exact CTA "${ctaSemantics.text}", the ${fmt} format, and the ${mode} generation mode.`
-    );
-  } else if (ctaSemantics?.kind === "inherited") {
-    parts.push(
-      `Preserve the CTA from the base creative (do not invent or drop the CTA), the ${fmt} format, and the ${mode} generation mode.`
-    );
-  } else {
-    const cta = input.ctaText ?? "none";
-    parts.push(`Preserve the exact CTA "${cta}", the ${fmt} format, and the ${mode} generation mode.`);
-  }
-
-  if (input.contract?.generationMode === "restyling") {
-    if (input.contract.baseAssetId) parts.push(`Base asset: ${input.contract.baseAssetId}.`);
-    if (input.contract.styleAssetId) parts.push(`Style reference: ${input.contract.styleAssetId}.`);
-  }
-
-  return parts.join(" ");
-}
+export type { BuildSuggestionInput } from "./regeneration-suggestion";
+export { buildRegenerationSuggestion } from "./regeneration-suggestion";
 
 export function buildHardFailureRegenerationSuggestion(input: {
   hardFailures: Array<{ code: CreativeHardFailureCode; message: string }>;
   contract: CreativeContract;
   scoreIssues?: string[];
   modelSuggestion?: string;
+  qaChecklist?: Record<string, { status?: string; note?: string }> | null;
 }): string {
-  if (input.hardFailures.length === 0) {
-    return buildRegenerationSuggestion({
-      ctaText: ctaTextFromContract(input.contract),
-      format: input.contract.targetFormat,
-      generationMode: input.contract.generationMode,
-      scoreIssues: input.scoreIssues ?? [],
-      modelSuggestion:
-        input.modelSuggestion ?? "Refine the creative while preserving contract constraints.",
-      contract: input.contract,
-    });
-  }
-
-  const parts: string[] = [];
-  parts.push(`Hard failures: [${input.hardFailures.map((f) => f.code).join(", ")}].`);
-  for (const failure of input.hardFailures) {
-    parts.push(`Fix ${failure.code}: ${failure.message}`);
-  }
-
-  const preservation = buildRegenerationSuggestion({
-    ctaText: ctaTextFromContract(input.contract),
-    format: input.contract.targetFormat,
-    generationMode: input.contract.generationMode,
-    scoreIssues: [],
-    modelSuggestion:
-      input.modelSuggestion ?? "Address the hard failures above while preserving the creative contract.",
+  const brief = buildRegenerationCorrectionBrief({
     contract: input.contract,
+    hardFailures: input.hardFailures,
+    scoreIssues: input.scoreIssues,
+    qaChecklist: input.qaChecklist,
+    modelSuggestion: input.modelSuggestion,
   });
-
-  parts.push(preservation);
-  return parts.join(" ");
+  return brief.promptFeedback;
 }
