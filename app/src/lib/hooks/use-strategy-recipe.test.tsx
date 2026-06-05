@@ -73,13 +73,13 @@ describe("useStrategyRecipe", () => {
 
   it("resets manual selection when modal reopens with same ranking", () => {
     const { result, rerender } = renderHook(
-      ({ resetSelection }: { resetSelection: boolean }) =>
+      ({ resetKey }: { resetKey: number }) =>
         useStrategyRecipe({
           readiness: blockedReadiness,
           campaign: { ctaVariants: ["Buy"] },
-          resetSelection,
+          resetKey,
         }),
-      { initialProps: { resetSelection: true } }
+      { initialProps: { resetKey: 1 } }
     );
 
     act(() => {
@@ -87,8 +87,7 @@ describe("useStrategyRecipe", () => {
     });
     expect(result.current.selectedRecipeId).toBe("performance_push");
 
-    rerender({ resetSelection: false });
-    rerender({ resetSelection: true });
+    rerender({ resetKey: 2 });
 
     expect(result.current.rankedRecipes[0].id).toBe("safe_iteration");
     expect(result.current.selectedRecipeId).toBe("safe_iteration");

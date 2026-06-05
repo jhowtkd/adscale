@@ -10,8 +10,8 @@
 | Date (UTC) | 2026-06-05 |
 | Operator | _(pending production run)_ |
 | App URL | `https://adscale.jhonatansoares.com` (or staging) |
-| Git ref at test | `a41de15` (update after deploy) |
-| Automated preflight | 55 cockpit tests pass locally |
+| Git ref at test | `ec2f1a4` + SHIP-03 refactor (push before smoke) |
+| Automated preflight | 69 cockpit + review-fix tests pass locally |
 
 ## Cockpit path checklist
 
@@ -35,12 +35,12 @@
 | SMK-C16 | Public share page loads signed assets | pending | |
 | SMK-C17 | Stale badge after rejection → refresh package | pending | |
 
-## Offline automated evidence (2026-06-05)
+## Offline automated evidence (2026-06-05, phase 66 refresh)
 
 ```
 cd app
-npm test -- [cockpit matrix — see 65-HANDOFF.md]
-→ 14 files, 55 tests passed
+npm test -- [cockpit matrix — see 66-RELEASE-EVIDENCE.md]
+→ 14 files, 69 tests passed
 
 npm run lint → 0 errors
 npm run build → PASS

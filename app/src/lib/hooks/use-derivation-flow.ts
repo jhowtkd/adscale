@@ -12,8 +12,10 @@ export type DerivationFlowStep = "strategy_recipe" | "chooser" | DerivationInten
 
 export function useDerivationFlow() {
   const [activeStep, setActiveStep] = useState<DerivationFlowStep | null>(null);
+  const [strategyRecipeSession, setStrategyRecipeSession] = useState(0);
 
   const openChooser = useCallback(() => {
+    setStrategyRecipeSession((session) => session + 1);
     setActiveStep("strategy_recipe");
   }, []);
 
@@ -80,6 +82,7 @@ export function useDerivationFlow() {
     isFormatConfigOpen,
     artConfigIntent,
     formatConfigIntent,
+    strategyRecipeSession,
     openChooser,
     openLegacyChooser,
     selectIntent,

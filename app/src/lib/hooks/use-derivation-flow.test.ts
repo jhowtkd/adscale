@@ -19,24 +19,29 @@ describe("useDerivationFlow", () => {
     expect(result.current.isFormatConfigOpen).toBe(false);
   });
 
-  it("openChooser sets chooser step", () => {
+  it("openChooser opens strategy recipe step and increments session", () => {
     const { result } = renderHook(() => useDerivationFlow());
 
     act(() => {
       result.current.openChooser();
     });
 
-    expect(result.current.activeStep).toBe("chooser");
-    expect(result.current.isChooserOpen).toBe(true);
-    expect(result.current.isArtConfigOpen).toBe(false);
-    expect(result.current.isFormatConfigOpen).toBe(false);
+    expect(result.current.activeStep).toBe("strategy_recipe");
+    expect(result.current.isStrategyRecipeOpen).toBe(true);
+    expect(result.current.isChooserOpen).toBe(false);
+    expect(result.current.strategyRecipeSession).toBe(1);
+
+    act(() => {
+      result.current.openChooser();
+    });
+    expect(result.current.strategyRecipeSession).toBe(2);
   });
 
   it.each(INTENTS)("selectIntent(%s) opens the correct config step", (intent) => {
     const { result } = renderHook(() => useDerivationFlow());
 
     act(() => {
-      result.current.openChooser();
+      result.current.openLegacyChooser();
       result.current.selectIntent(intent);
     });
 
@@ -86,10 +91,11 @@ describe("useDerivationFlow", () => {
     act(() => {
       result.current.openChooser();
     });
-    expect(result.current.isChooserOpen).toBe(true);
+    expect(result.current.isStrategyRecipeOpen).toBe(true);
     expect(result.current.isArtConfigOpen).toBe(false);
 
     act(() => {
+      result.current.closeFlow();
       result.current.selectIntent("auto_art");
     });
     expect(result.current.isChooserOpen).toBe(false);

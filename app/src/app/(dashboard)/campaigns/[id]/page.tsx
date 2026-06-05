@@ -101,6 +101,7 @@ export default function CampaignWorkspacePage() {
     isFormatConfigOpen,
     artConfigIntent,
     formatConfigIntent,
+    strategyRecipeSession,
     openChooser,
     openLegacyChooser,
     selectIntent,
@@ -506,6 +507,7 @@ export default function CampaignWorkspacePage() {
         }}
         onStrategyRecipePreview={handleStrategyRecipePreview}
         onOpenLegacyDerivationChooser={handleOpenLegacyDerivationChooser}
+        strategyRecipeSession={strategyRecipeSession}
         pending={{
           export: exportPending,
           deliveryPackage: deliveryPackagePending,
@@ -941,6 +943,7 @@ interface CampaignWorkspaceModalsProps {
     targetFormats?: string[];
   }) => void | Promise<void>;
   onOpenLegacyDerivationChooser: () => void;
+  strategyRecipeSession: number;
 }
 
 function CampaignWorkspaceModals({
@@ -973,6 +976,7 @@ function CampaignWorkspaceModals({
   campaignRecipeContext,
   onStrategyRecipePreview,
   onOpenLegacyDerivationChooser,
+  strategyRecipeSession,
 }: CampaignWorkspaceModalsProps) {
   return (
     <>
@@ -1000,6 +1004,7 @@ function CampaignWorkspaceModals({
 
       <StrategyRecipePanel
         open={visibility.strategyRecipe}
+        recipeSessionKey={strategyRecipeSession}
         readiness={readiness}
         brandKit={
           brandKit

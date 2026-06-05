@@ -2,7 +2,7 @@
 
 ## Milestones
 
-- 📋 **v11.6.1 Ship Readiness and Beta Activation** - Phases 66-67 (planned 2026-06-05)
+- 📋 **v11.6.1 Ship Readiness and Beta Activation** - Phases 66-67 (partial 2026-06-05 — operator smoke pending)
 - ✅ **v11.6 Creative Strategy Cockpit** - Phases 61-65 (implemented 2026-06-05; ship caveats carried into v11.6.1)
 - ✅ **v11.5 Qualidade IA Orientada por Feedback** - Phases 57-60 (shipped 2026-06-05)
 - ✅ **v11.4 Beta Feedback Capture** - Phases 53-56 (shipped 2026-06-05)
@@ -85,8 +85,8 @@ Archive: [v11.5-ROADMAP.md](milestones/v11.5-ROADMAP.md) · [v11.5-REQUIREMENTS.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 | ----- | --------- | -------------- | ------ | --------- |
-| 66 | v11.6.1 | 0/0 | Planned | - |
-| 67 | v11.6.1 | 0/0 | Planned | - |
+| 66 | v11.6.1 | 1/2 | Partial | 2026-06-05 |
+| 67 | v11.6.1 | 1/1 | Partial | 2026-06-05 |
 | 61 | v11.6 | 2/2 | Complete | 2026-06-05 |
 | 62 | v11.6 | 2/2 | Complete | 2026-06-05 |
 | 63 | v11.6 | 2/2 | Complete | 2026-06-05 |

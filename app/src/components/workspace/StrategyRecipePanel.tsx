@@ -34,6 +34,7 @@ const CREATIVE_LEVELS: RecipeCreativeLevel[] = [
 
 interface StrategyRecipePanelProps {
   open: boolean;
+  recipeSessionKey?: number;
   readiness?: CreativeReadinessResult | null;
   brandKit?: BrandKitSnapshot | null;
   campaign?: CampaignRecipeContext | null;
@@ -45,6 +46,7 @@ interface StrategyRecipePanelProps {
 
 export default function StrategyRecipePanel({
   open,
+  recipeSessionKey,
   readiness,
   brandKit,
   campaign,
@@ -54,7 +56,12 @@ export default function StrategyRecipePanel({
   onGeneratePreview,
 }: StrategyRecipePanelProps) {
   const t = useTranslations("strategyRecipes");
-  const recipe = useStrategyRecipe({ readiness, brandKit, campaign, resetSelection: open });
+  const recipe = useStrategyRecipe({
+    readiness,
+    brandKit,
+    campaign,
+    resetKey: open ? recipeSessionKey : undefined,
+  });
 
   const ctaValue = useMemo(
     () => recipe.resolvedConfig.ctaVariants.join(", "),
