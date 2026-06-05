@@ -230,6 +230,7 @@ export default function DerivationCard({
   simulatingPersonasId,
 }: DerivationCardProps) {
   const t = useTranslations("derivation");
+  const tr = useTranslations("review");
   const commonT = useTranslations("common");
   const toastT = useTranslations("toast");
   const isCompleted = derivation.status === "completed";
@@ -439,11 +440,23 @@ export default function DerivationCard({
         derivation.hardFailures &&
         derivation.hardFailures.length > 0 ? (
           <ul className="space-y-1 rounded-md border border-rose-500/20 bg-rose-500/5 p-2">
-            {derivation.hardFailures.slice(0, 3).map((failure) => (
-              <li key={failure.code} className="text-[11px] text-rose-300/90 leading-snug">
-                {failure.message}
-              </li>
-            ))}
+            {derivation.hardFailures.slice(0, 3).map((failure) => {
+              const title = tr(`hardFailureCodes.${failure.code}` as "hardFailureCodes.cta_drift");
+              const detail =
+                failure.message && failure.message !== title
+                  ? failure.message.length > 120
+                    ? `${failure.message.slice(0, 117)}...`
+                    : failure.message
+                  : null;
+              return (
+                <li key={failure.code} className="text-[11px] text-rose-300/90 leading-snug">
+                  <span className="font-medium">{title}</span>
+                  {detail ? (
+                    <span className="mt-0.5 block text-[10px] text-rose-300/70">{detail}</span>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
         ) : null}
 

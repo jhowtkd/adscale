@@ -181,12 +181,27 @@ export default function DerivationReviewModal({
                   <p className="text-[11px] font-medium text-[var(--text-muted)] mb-1">
                     {tr("hardFailuresTitle")}
                   </p>
-                  <ul className="space-y-1">
-                    {derivation.hardFailures.map((failure) => (
-                      <li key={failure.code} className="text-xs text-rose-300/90">
-                        {failure.message}
-                      </li>
-                    ))}
+                  <p className="text-[10px] text-[var(--text-muted)] mb-1.5">
+                    {tr("blockingFailureHint")}
+                  </p>
+                  <ul className="space-y-1.5">
+                    {derivation.hardFailures.map((failure) => {
+                      const title = tr(`hardFailureCodes.${failure.code}` as "hardFailureCodes.cta_drift");
+                      const detail =
+                        failure.message && failure.message !== title
+                          ? failure.message.length > 120
+                            ? `${failure.message.slice(0, 117)}...`
+                            : failure.message
+                          : null;
+                      return (
+                        <li key={failure.code} className="text-xs text-rose-300/90">
+                          <span className="font-medium">{title}</span>
+                          {detail ? (
+                            <span className="mt-0.5 block text-[11px] text-rose-300/70">{detail}</span>
+                          ) : null}
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               ) : null}
@@ -194,6 +209,9 @@ export default function DerivationReviewModal({
                 <div>
                   <p className="text-[11px] font-medium text-[var(--text-muted)] mb-1">
                     {tr("polishSuggestionsTitle")}
+                  </p>
+                  <p className="text-[10px] text-[var(--text-muted)] mb-1.5">
+                    {tr("polishSuggestionHint")}
                   </p>
                   <ul className="space-y-1">
                     {derivation.polishSuggestions.map((suggestion) => (

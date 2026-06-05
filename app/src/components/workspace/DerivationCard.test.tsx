@@ -280,7 +280,7 @@ describe("DerivationCard", () => {
           ...baseDerivation,
           status: "completed",
           qualityVerdict: "invalid",
-          hardFailures: [{ code: "cta_missing", message: "CTA not visible" }],
+          hardFailures: [{ code: "cta_drift", message: "CTA not visible" }],
           qualityScore: 72,
         }}
         index={0}
@@ -292,6 +292,7 @@ describe("DerivationCard", () => {
     );
 
     expect(screen.getByText("invalidOutputBadge")).toBeInTheDocument();
+    expect(screen.getByText("hardFailureCodes.cta_drift")).toBeInTheDocument();
     expect(screen.getByText("CTA not visible")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /regenerateWithFixes/i })).toBeInTheDocument();
   });
