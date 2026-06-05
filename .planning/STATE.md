@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v11.5
 milestone_name: milestone
-status: Ready for execution
-stopped_at: Completed Phase 58 scoring and QA alignment
-last_updated: "2026-06-05T17:11:22.420Z"
+status: Ready for planning
+stopped_at: Phase 59 context gathered (feedback-informed regeneration)
+last_updated: "2026-06-05T17:14:23.964Z"
 last_activity: 2026-06-05
 progress:
   total_phases: 4
@@ -21,11 +21,11 @@ progress:
 Milestone: v11.5 — Qualidade IA Orientada por Feedback
 Phase: 59
 Plan: Not started
-Status: Ready for execution
+Status: Ready for planning
 Last activity: 2026-06-05
 
-**Last session:** 2026-06-05T17:11:22.305Z
-**Stopped At:** Completed Phase 58 scoring and QA alignment
+**Last session:** 2026-06-05
+**Stopped At:** Phase 59 context gathered (feedback-informed regeneration)
 **Resume File:** None
 
 ## Accumulated Context
@@ -42,6 +42,7 @@ Last activity: 2026-06-05
 - Phase 58 context: `.planning/phases/58-scoring-and-qa-alignment/58-CONTEXT.md`
 - Phase 58 research: `.planning/phases/58-scoring-and-qa-alignment/58-RESEARCH.md`
 - Phase 58 plans: `58-01-PLAN.md` (taxonomy + normalization) and `58-02-PLAN.md` (gate + i18n/UI)
+- Phase 59 context: `.planning/phases/59-feedback-informed-regeneration/59-CONTEXT.md`
 - AI quality primitives already exist: prompt contracts, creative score, creative QA, hard quality gate, regeneration suggestions, and beta feedback reports.
 
 ## Key Decisions
@@ -53,10 +54,11 @@ Last activity: 2026-06-05
 - Persist creative contract and prompt provenance as JSONB on derivations via workspace-scoped repository helper.
 - Resolve source package and asset IDs before buildDerivationPrompt; approved_derivation uses source descriptor not baseAssetId.
 - Phase 58: shared quality taxonomy module; score/QA normalization (no default-70 on malformed output); inherited CTA hard failures; score-issue promotion to gate; PT-BR/EN blocking vs polish copy.
+- Phase 59: unified regeneration correction-brief builder; feedback as categorized context only; pre-confirm primary reason UI; persist brief on child derivations; inherit parent creative contract on regenerate.
 
 ## Next Steps
 
-1. Execute Phase 58: `/gsd-execute-phase 58` (start with 58-01-PLAN.md).
+1. Plan Phase 59: `/gsd-plan-phase 59` using `59-CONTEXT.md`.
 2. Keep v11.5 focused on contract, score/QA, regeneration and fixtures.
 3. Keep deploy ops from v11.4 separate unless it directly blocks quality work.
 
@@ -66,4 +68,4 @@ See: `.planning/PROJECT.md`
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** Execute Phase 58 scoring/QA alignment from `58-01-PLAN.md`.
+**Current focus:** Plan Phase 59 feedback-informed regeneration from `59-CONTEXT.md`.
