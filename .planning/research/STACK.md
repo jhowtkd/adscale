@@ -1,78 +1,49 @@
-# Stack Research
+# Stack Research: v11.4 Beta Feedback Capture
 
-**Domain:** AI ad creative generation quality and format adaptation
-**Researched:** 2026-06-01
-**Confidence:** HIGH for current stack fit; MEDIUM for model behavior because output quality still requires UAT.
+**Date:** 2026-06-05
+**Milestone:** v11.4 Beta Feedback Capture
 
-## Recommended Stack
+## Existing Stack To Reuse
 
-### Core Technologies
+- Next.js App Router, React, TypeScript, Tailwind and shadcn/ui for the feedback widget, modal and owner review surface.
+- Better Auth and workspace membership for authenticated, workspace-scoped submission and review.
+- Drizzle/Neon for durable feedback reports and diagnostic package metadata.
+- Cloudflare R2 for existing campaign/workspace assets; feedback reports should store asset references and signed-preview access rather than duplicate creative files.
+- Sentry is already initialized through `app/src/instrumentation.ts`, `app/src/lib/sentry.ts`, `SentryErrorBoundary`, and `captureRequestError`.
+- Existing logger can continue to emit server context; this milestone should add correlation IDs and report IDs around feedback submission.
 
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| Next.js App Router | 16.2.6 | Campaign workspace and API routes | Existing app framework; keep changes scoped to current route/job boundaries. |
-| React | 19.2.4 | Workspace UI, gallery, modals | Existing UI stack; enough for richer error states and output review affordances. |
-| Drizzle ORM + PostgreSQL | Existing repo stack | Persist campaigns, assets, derivations, scoring, QA | Existing schema already stores `inputPrompt`, `scoreIssues`, QA fields, and derivation metadata. |
-| Inngest | 4.4.0 | Durable generation jobs | Existing derivation pipeline uses jobs, retries, realtime status, and post-generation scoring. |
-| OpenAI Image API | `OPENAI_IMAGE_MODEL` env | Image edits/generation | Official docs support GPT Image edits with multiple input images and portrait/landscape/square output sizes. |
-| sharp | 0.33.0 | Output dimension normalization and image inspection | Existing dependency; useful for metadata checks and post-processing guardrails. |
+## Sentry Capabilities Relevant To This Milestone
 
-### Supporting Libraries
+- `captureFeedback` can submit a feedback message with URL, source, tags, associated event ID and extra capture context.
+- Sentry scope enrichment supports user, tags, contexts, extras and breadcrumbs, which are useful for workspace/campaign/derivation correlation.
+- Breadcrumbs can capture recent UI, navigation, fetch and console context before a report, but must be filtered for sensitive values.
+- Session Replay can provide visual history, but default privacy behavior masks text, images and inputs; ADScale should keep that conservative default unless an explicit, scoped exception is needed.
+- Sentry logs are useful for searching related text logs alongside errors, but the product still needs its own database record because owner triage status, campaign links and asset references are product data.
 
-| Library | Version | Purpose | When to Use |
-|---------|---------|---------|-------------|
-| zod | Existing | Input contracts | Validate generation-mode payloads, selected style refs, QA payloads, and any future quality-gate options. |
-| @tanstack/react-query | Existing | Fetching campaign/derivation state | Keep derivation polling and workspace error state consistent. |
-| OpenAI Responses/Image APIs | Current official API | Text/image review and generation | Use Image API for single edit jobs; consider Responses image tool only if multi-turn edits become necessary. |
+## Recommended Additions
 
-### Development Tools
+- Feedback report database tables:
+  - `beta_feedback_reports`: workspace, user, type, severity, category, message, route, locale, status, Sentry feedback ID/event ID/replay ID, created/resolved timestamps.
+  - `beta_feedback_context`: normalized diagnostic JSON for page state, campaign, derivation, client breadcrumbs, browser info, build/version and request correlation.
+  - `beta_feedback_assets`: references to campaign assets, workspace assets and derivation outputs needed to analyze the report.
+- Small client context collector:
+  - current pathname/search/hash
+  - locale
+  - workspace ID
+  - active campaign/derivation IDs if present
+  - visible step/tab/action
+  - recent bounded client breadcrumbs
+  - last Sentry event ID when available
+- Owner-only review route inside the authenticated app, not in the public marketing site.
 
-| Tool | Purpose | Notes |
-|------|---------|-------|
-| Vitest | Focused unit/integration tests | Cover prompt contracts, post-processing, route payloads, scoring normalization, and hooks. |
-| Playwright/browser checks | Visual UAT | Required for campaign workspace loading/error state and generated output review. |
-| `npm run build` | Route/type validation | Required because Next route exports and server/client boundaries can fail outside focused tests. |
+## What Not To Add
 
-## Stack Additions
-
-No new package is needed for v11.1. The milestone should improve contracts and orchestration with existing dependencies.
-
-Potential non-package additions:
-- A small internal quality-gate module around generation modes, expected CTA behavior, brand/offer preservation, and image-layout red flags.
-- A lightweight image metadata/check helper using `sharp` to detect output dimensions and possible blank/blurred border bands.
-- Stricter typed metadata for selected style reference IDs if restyling must preserve the exact user-selected style image.
-
-## Alternatives Considered
-
-| Recommended | Alternative | When to Use Alternative |
-|-------------|-------------|-------------------------|
-| Improve current Image API edit prompts and guards | Switch format adaptation to Responses API image tool | Only if single-shot edits remain unreliable after prompt/post-processing gates. |
-| Native layout generation at target OpenAI size | Generate square then adapt with CSS/sharp | Avoid for production creative; this caused pasted posters and blurred bars. |
-| Internal QA/scoring gate | Manual user inspection only | Manual review remains useful, but bad outputs should be flagged before approval/export. |
-
-## What NOT to Use
-
-| Avoid | Why | Use Instead |
-|-------|-----|-------------|
-| Blurred padding/letterbox post-processing for format adaptation | It creates the exact failure users rejected: bands plus center-pasted content. | Generate/edit at portrait/landscape target size and only use post-processing as a hard crop/metadata normalizer. |
-| Treating `ctaText=null` as "no CTA" for every mode | Restyling can inherit CTA from the base image; scoring then flags false violations. | Resolve an effective CTA contract per mode before prompt/scoring/QA. |
-| First `style_reference` wins | User-selected style files can be ignored if the job reselects from all assets. | Persist or pass selected style asset IDs into the job. |
-| One blended quality score | Hides hard-rule failures behind a visually decent score. | Separate hard failures from polish/legibility suggestions. |
-
-## Version Compatibility
-
-| Package/API | Compatible With | Notes |
-|-------------|-----------------|-------|
-| OpenAI GPT Image models | Sizes `1024x1024`, `1024x1536`, `1536x1024`, `auto` | Official docs list portrait/landscape/square sizes for GPT Image models. |
-| OpenAI Images Edits | Multiple images for GPT Image models | Official API reference allows arrays of input images for GPT Image edits; this supports base + style reference workflows. |
-| sharp normalization | Generated PNG outputs | Use for metadata and final dimensions, but avoid decorative band generation for format adaptation. |
+- Do not create a separate unauthenticated microservice for beta feedback.
+- Do not upload raw screenshots by default; store optional screenshot/session references only if privacy and storage boundaries are explicit.
+- Do not expose full logs or raw prompts to beta users or across workspaces.
 
 ## Sources
 
-- OpenAI Image generation guide: https://platform.openai.com/docs/guides/image-generation/ — verified Image API vs Responses API, output customization, size options.
-- OpenAI Images API reference: https://platform.openai.com/docs/api-reference/images/generate — verified edit endpoint inputs and GPT Image size constraints.
-- Local repo: `app/src/server/jobs/derivation.ts`, `app/src/server/ai/prompt-builder.ts`, `app/src/server/ai/creative-score.ts`.
-
----
-*Stack research for: v11.1 Qualidade de Geração e Contratos Criativos*
-*Researched: 2026-06-01*
+- Sentry Next.js docs via Context7: `captureFeedback`, breadcrumbs, user/tags/context, `captureRequestError`.
+- Sentry Session Replay docs: default masking for text, images and inputs.
+- ADScale repo inspection: existing Sentry, logger, campaign assets, workspace assets and derivation feedback primitives.
