@@ -17,6 +17,7 @@
     "inngest:dev": "inngest-cli dev -u http://localhost:3000/api/inngest",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:migrate:render": "node scripts/migrate-with-retry.mjs",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "seed:testsprite": "tsx scripts/seed-testsprite.ts",
