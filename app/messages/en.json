@@ -1091,6 +1091,9 @@
       "unreadable_required_text": "Required text unreadable",
       "invalid_format_layout": "Invalid format layout"
     },
+    "regenerationWhatWeFix": "What we'll try to fix",
+    "regenerationBlocking": "Blocking issues",
+    "regenerationAdvisory": "Advisory (optional context)",
     "regenerateWithFixesTitle": "Regenerate with fixes",
     "regenerateWithFixesDescription": "Review the feedback below. It will be sent to the regeneration job.",
     "regenerateWithFixesConfirm": "Regenerate with fixes",

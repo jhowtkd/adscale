@@ -1092,6 +1092,9 @@
       "unreadable_required_text": "Texto obrigatório ilegível",
       "invalid_format_layout": "Layout inválido para o formato"
     },
+    "regenerationWhatWeFix": "O que vamos tentar corrigir",
+    "regenerationBlocking": "Problemas bloqueantes",
+    "regenerationAdvisory": "Avisos (contexto opcional)",
     "regenerateWithFixesTitle": "Regenerar com correções",
     "regenerateWithFixesDescription": "Revise o feedback abaixo. Ele será enviado ao job de regeneração.",
     "regenerateWithFixesConfirm": "Regenerar com correções",

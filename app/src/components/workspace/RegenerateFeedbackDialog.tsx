@@ -13,10 +13,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import type { RegenerationIssueBreakdown } from "@/lib/regeneration-preview-types";
 
 interface RegenerateFeedbackDialogProps {
   open: boolean;
   initialFeedback?: string;
+  primaryReason?: string;
+  issueBreakdown?: RegenerationIssueBreakdown;
   isSubmitting?: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: (feedback: string) => void;
@@ -24,13 +27,97 @@ interface RegenerateFeedbackDialogProps {
 
 interface RegenerateFeedbackFormProps {
   initialFeedback: string;
+  primaryReason?: string;
+  issueBreakdown?: RegenerationIssueBreakdown;
   isSubmitting: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: (feedback: string) => void;
 }
 
+function IssueSummary({
+  primaryReason,
+  issueBreakdown,
+}: {
+  primaryReason?: string;
+  issueBreakdown?: RegenerationIssueBreakdown;
+}) {
+  const t = useTranslations("review");
+
+  if (!primaryReason && !issueBreakdown) {
+    return null;
+  }
+
+  const blockingHard = issueBreakdown?.hardFailures ?? [];
+  const blockingQa = issueBreakdown?.qaFailed ?? [];
+  const scoreIssues = issueBreakdown?.scoreIssues ?? [];
+  const advisory = issueBreakdown?.qaWarnings ?? [];
+  const hasBlocking =
+    blockingHard.length > 0 || blockingQa.length > 0 || scoreIssues.length > 0;
+  const hasAdvisory = advisory.length > 0;
+
+  if (!primaryReason && !hasBlocking && !hasAdvisory) {
+    return null;
+  }
+
+  return (
+    <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-secondary)] px-3 py-3 space-y-3 text-sm">
+      <p className="font-medium text-[var(--text-primary)]">{t("regenerationWhatWeFix")}</p>
+      {primaryReason ? (
+        <p className="text-[var(--text-secondary)]">{primaryReason}</p>
+      ) : null}
+      {hasBlocking ? (
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-[var(--text-tertiary)] mb-1">
+            {t("regenerationBlocking")}
+          </p>
+          <ul className="list-disc pl-5 space-y-1 text-[var(--text-secondary)]">
+            {blockingHard.map((failure) => (
+              <li key={`${failure.code}-${failure.message}`}>
+                <span className="font-medium text-[var(--text-primary)]">
+                  {t.has(`hardFailureCodes.${failure.code}`)
+                    ? t(`hardFailureCodes.${failure.code}`)
+                    : failure.code}
+                </span>
+                {failure.message ? (
+                  <span className="text-[var(--text-secondary)]"> — {failure.message}</span>
+                ) : null}
+              </li>
+            ))}
+            {blockingQa.map((item) => (
+              <li key={`qa-failed-${item.criterion}`}>
+                <span className="font-medium">{item.criterion}</span>
+                {item.note ? <span> — {item.note}</span> : null}
+              </li>
+            ))}
+            {scoreIssues.map((issue) => (
+              <li key={`score-${issue}`}>{issue}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {hasAdvisory ? (
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-[var(--text-tertiary)] mb-1">
+            {t("regenerationAdvisory")}
+          </p>
+          <ul className="list-disc pl-5 space-y-1 text-[var(--text-secondary)]">
+            {advisory.map((item) => (
+              <li key={`qa-warn-${item.criterion}`}>
+                <span className="font-medium">{item.criterion}</span>
+                {item.note ? <span> — {item.note}</span> : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function RegenerateFeedbackForm({
   initialFeedback,
+  primaryReason,
+  issueBreakdown,
   isSubmitting,
   onOpenChange,
   onConfirm,
@@ -44,13 +131,16 @@ function RegenerateFeedbackForm({
         <DialogTitle>{t("regenerateWithFixesTitle")}</DialogTitle>
         <DialogDescription>{t("regenerateWithFixesDescription")}</DialogDescription>
       </DialogHeader>
-      <Textarea
-        value={feedback}
-        onChange={(event) => setFeedback(event.target.value)}
-        placeholder={t("feedbackPlaceholder")}
-        rows={6}
-        className="resize-y min-h-[120px]"
-      />
+      <div className="space-y-4">
+        <IssueSummary primaryReason={primaryReason} issueBreakdown={issueBreakdown} />
+        <Textarea
+          value={feedback}
+          onChange={(event) => setFeedback(event.target.value)}
+          placeholder={t("feedbackPlaceholder")}
+          rows={6}
+          className="resize-y min-h-[120px]"
+        />
+      </div>
       <DialogFooter>
         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
           {t("cancel")}
@@ -70,6 +160,8 @@ function RegenerateFeedbackForm({
 export default function RegenerateFeedbackDialog({
   open,
   initialFeedback = "",
+  primaryReason,
+  issueBreakdown,
   isSubmitting = false,
   onOpenChange,
   onConfirm,
@@ -79,8 +171,10 @@ export default function RegenerateFeedbackDialog({
       <DialogContent className="sm:max-w-lg">
         {open ? (
           <RegenerateFeedbackForm
-            key={initialFeedback}
+            key={`${initialFeedback}-${primaryReason ?? ""}`}
             initialFeedback={initialFeedback}
+            primaryReason={primaryReason}
+            issueBreakdown={issueBreakdown}
             isSubmitting={isSubmitting}
             onOpenChange={onOpenChange}
             onConfirm={onConfirm}
