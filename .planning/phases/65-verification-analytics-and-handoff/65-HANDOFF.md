@@ -18,7 +18,8 @@ The campaign workspace now guides users through a single cockpit path:
 
 | Action | Credits | Notes |
 |--------|---------|-------|
-| Preflight / readiness analysis | 0 | Reuses existing preflight job; no new provider |
+| Preflight / readiness analysis (POST, new analysis) | 1× `creative_qa` | First analysis per asset uses idempotent key; forced rerun uses a fresh key and debits again |
+| Preflight / readiness (GET or cached POST) | 0 | Returns stored metadata without re-analysis |
 | Guided briefing suggestions | 0 | Rule-based suggestions; no LLM per question |
 | Preview derivation | 1× `image_derivation` per preview job | Same cost model as a single derivation |
 | Full batch | `estimateCreditCost(config)` | Based on CTA variants × target formats × mode; shown in recipe modal and preview gate before queue |
@@ -26,7 +27,7 @@ The campaign workspace now guides users through a single cockpit path:
 
 **Important:**
 
-- Credits are deducted when derivation jobs run, not when viewing readiness or recipes.
+- Credits are deducted for **new** preflight/readiness POST analysis (`creative_qa` × 1). Cached GET/POST responses and guided briefing suggestions do not spend credits.
 - Preview and batch use the same quality gate and creative contract — preview spend is not refunded if the user revises the recipe.
 - Beta entitlements still apply (`v11.2`); insufficient credits block queue with existing billing errors.
 

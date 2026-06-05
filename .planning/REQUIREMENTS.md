@@ -55,7 +55,7 @@ v11.6 turns existing ADScale capabilities into a guided creative decision flow:
 ### Verification and Handoff
 
 - [x] **CQA-01**: Automated tests cover readiness normalization, guided briefing state, recipe mapping, and preview gating.
-- [x] **CQA-02**: Browser smoke verifies the cockpit path from campaign draft to preview to delivery package.
+- [~] **CQA-02**: Browser smoke verifies the cockpit path from campaign draft to preview to delivery package. *(Checklist in `65-SMOKE-EVIDENCE.md`; operator sign-off pending.)*
 - [x] **CQA-03**: Handoff documents cost, privacy, and known AI limitations for beta users.
 
 ## Future Requirements

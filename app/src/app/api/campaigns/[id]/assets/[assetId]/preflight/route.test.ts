@@ -194,7 +194,12 @@ describe("POST /api/campaigns/[id]/assets/[assetId]/preflight", () => {
     expect(res.status).toBe(200);
     expect(body.cached).toBeUndefined();
     expect(body.readiness.status).toBe("ready");
-    expect(mockSpendCredits).toHaveBeenCalled();
+    expect(mockSpendCredits).toHaveBeenCalledWith(
+      expect.objectContaining({
+        idempotencyKey: expect.stringMatching(/^preflight:camp-1:asset-1:force:/),
+        metadata: expect.objectContaining({ forceRerun: true }),
+      })
+    );
     expect(mockAnalyzePreflight).toHaveBeenCalled();
     expect(mockUpdateAsset).toHaveBeenCalledWith("asset-1", "workspace-1", expect.any(Object), "completed");
   });

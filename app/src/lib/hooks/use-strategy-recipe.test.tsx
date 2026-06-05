@@ -33,6 +33,67 @@ describe("useStrategyRecipe", () => {
     expect(result.current.rankedRecipes[0].recommended).toBe(true);
   });
 
+  it("preserves manual recipe selection when readiness updates", () => {
+    const { result, rerender } = renderHook(
+      ({ readiness }: { readiness?: CreativeReadinessResult | null }) =>
+        useStrategyRecipe({
+          readiness,
+          campaign: { ctaVariants: ["Buy"] },
+        }),
+      { initialProps: { readiness: undefined as CreativeReadinessResult | undefined } }
+    );
+
+    act(() => {
+      result.current.selectRecipe("performance_push");
+    });
+
+    rerender({ readiness: blockedReadiness });
+
+    expect(result.current.rankedRecipes[0].id).toBe("safe_iteration");
+    expect(result.current.selectedRecipeId).toBe("performance_push");
+  });
+
+  it("syncs selected recipe when readiness arrives after initial render", () => {
+    const { result, rerender } = renderHook(
+      ({ readiness }: { readiness?: CreativeReadinessResult | null }) =>
+        useStrategyRecipe({
+          readiness,
+          campaign: { ctaVariants: ["Buy"] },
+        }),
+      { initialProps: { readiness: undefined as CreativeReadinessResult | undefined } }
+    );
+
+    expect(result.current.rankedRecipes[0].id).not.toBe("safe_iteration");
+
+    rerender({ readiness: blockedReadiness });
+
+    expect(result.current.rankedRecipes[0].id).toBe("safe_iteration");
+    expect(result.current.selectedRecipeId).toBe("safe_iteration");
+  });
+
+  it("resets manual selection when modal reopens with same ranking", () => {
+    const { result, rerender } = renderHook(
+      ({ resetSelection }: { resetSelection: boolean }) =>
+        useStrategyRecipe({
+          readiness: blockedReadiness,
+          campaign: { ctaVariants: ["Buy"] },
+          resetSelection,
+        }),
+      { initialProps: { resetSelection: true } }
+    );
+
+    act(() => {
+      result.current.selectRecipe("performance_push");
+    });
+    expect(result.current.selectedRecipeId).toBe("performance_push");
+
+    rerender({ resetSelection: false });
+    rerender({ resetSelection: true });
+
+    expect(result.current.rankedRecipes[0].id).toBe("safe_iteration");
+    expect(result.current.selectedRecipeId).toBe("safe_iteration");
+  });
+
   it("updates overrides and credit estimates", () => {
     const { result } = renderHook(() =>
       useStrategyRecipe({

@@ -54,7 +54,7 @@ export default function StrategyRecipePanel({
   onGeneratePreview,
 }: StrategyRecipePanelProps) {
   const t = useTranslations("strategyRecipes");
-  const recipe = useStrategyRecipe({ readiness, brandKit, campaign });
+  const recipe = useStrategyRecipe({ readiness, brandKit, campaign, resetSelection: open });
 
   const ctaValue = useMemo(
     () => recipe.resolvedConfig.ctaVariants.join(", "),

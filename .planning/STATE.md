@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v11.6
 milestone_name: milestone
-status: completed
-stopped_at: Completed Phase 64 client approval package
+status: ready_for_milestone_complete
+stopped_at: Milestone audit passed with caveats — operator smoke sign-off pending
 last_updated: "2026-06-05T21:47:20.528Z"
 last_activity: 2026-06-05
 progress:

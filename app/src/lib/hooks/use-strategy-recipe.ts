@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CreativeReadinessResult } from "@/server/ai/creative-readiness";
 import {
   STRATEGY_RECIPE_IDS,
@@ -20,6 +20,8 @@ export interface UseStrategyRecipeInput {
   readiness?: CreativeReadinessResult | null;
   brandKit?: BrandKitSnapshot | null;
   campaign?: CampaignRecipeContext | null;
+  /** When toggled (e.g. modal open), clears manual selection and re-syncs to ranked default. */
+  resetSelection?: boolean;
 }
 
 export function useStrategyRecipe(input: UseStrategyRecipeInput) {
@@ -38,6 +40,21 @@ export function useStrategyRecipe(input: UseStrategyRecipeInput) {
   const [selectedRecipeId, setSelectedRecipeId] =
     useState<StrategyRecipeId>(defaultRecipeId);
   const [overrides, setOverrides] = useState<Partial<RecipeGenerationConfig>>({});
+  const userPickedRef = useRef(false);
+
+  useEffect(() => {
+    if (input.resetSelection) {
+      userPickedRef.current = false;
+      setSelectedRecipeId(defaultRecipeId);
+      setOverrides({});
+    }
+  }, [input.resetSelection, defaultRecipeId]);
+
+  useEffect(() => {
+    if (!input.resetSelection && !userPickedRef.current) {
+      setSelectedRecipeId(defaultRecipeId);
+    }
+  }, [defaultRecipeId, input.resetSelection]);
 
   const resolvedConfig = useMemo(
     () => mapRecipeToGenerationConfig(selectedRecipeId, context, overrides),
@@ -55,6 +72,7 @@ export function useStrategyRecipe(input: UseStrategyRecipeInput) {
   );
 
   const selectRecipe = useCallback((id: StrategyRecipeId) => {
+    userPickedRef.current = true;
     setSelectedRecipeId(id);
     setOverrides({});
   }, []);

@@ -170,6 +170,10 @@ export async function POST(
 
     const forceRerun = await parseForceRerun(request);
 
+    const idempotencyKey = forceRerun
+      ? `preflight:${campaignId}:${assetId}:force:${Date.now()}`
+      : `preflight:${campaignId}:${assetId}`;
+
     if (!forceRerun && asset.metadata && asset.analysisStatus === "completed") {
       const parsed = preflightMetadataSchema.safeParse(asset.metadata);
       if (parsed.success) {
@@ -195,8 +199,8 @@ export async function POST(
       workspaceId: workspace.id,
       action: "creative_qa",
       amount: 1,
-      idempotencyKey: `preflight:${campaignId}:${assetId}`,
-      metadata: { campaignId, assetId },
+      idempotencyKey,
+      metadata: { campaignId, assetId, forceRerun },
     });
     if (creditError) return creditError;
 
