@@ -10,7 +10,7 @@
 | Date (UTC) | 2026-06-05 |
 | Operator | _(pending production run)_ |
 | App URL | `https://adscale.jhonatansoares.com` (or staging) |
-| Git ref at test | `ec2f1a4` + SHIP-03 refactor (push before smoke) |
+| Git ref at test | `c217bb2` |
 | Automated preflight | 69 cockpit + review-fix tests pass locally |
 
 ## Cockpit path checklist
