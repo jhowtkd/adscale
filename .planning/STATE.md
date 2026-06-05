@@ -47,7 +47,7 @@ Last activity: 2026-06-05
 ## Next Steps
 
 1. Run `/gsd-new-milestone` to define v11.6 (or next version).
-2. Apply migration `0027_fine_morlun` in deployed environments (`cd app && npm run db:migrate`).
+2. **Production deploy:** merge to `main` (Render `branch: main`, `preDeployCommand: db:migrate`) or deploy tag **`v11.5.1`** / commit `3f21d5a` — not tag `v11.5` (omits migration journal fix).
 3. Optional: manual quality loop spot-check per `milestones/v11.5-phases/60-quality-fixtures-and-verification/60-HANDOFF.md`.
 
 ## Project Reference
