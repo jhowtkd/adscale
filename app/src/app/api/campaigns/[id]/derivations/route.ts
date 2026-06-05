@@ -22,6 +22,11 @@ import { getUserLocale } from "@/server/repositories/user";
 import { getAssetsByCampaign } from "@/server/repositories/asset";
 import { getPresignedDownloadUrl } from "@/server/storage/r2";
 import { spendCreditsOrApiError } from "@/server/billing/gates";
+import {
+  deriveRegenerationPreview,
+  derivationHasRegenerationPreview,
+  resolveContractForDerivationRow,
+} from "@/server/ai/regeneration-correction-brief";
 
 const STALE_ACTIVE_DERIVATION_MINUTES = 10;
 
@@ -239,10 +244,22 @@ export async function GET(
 
     const items = await getDerivationsByCampaign(campaignId, workspace.id);
     const derivationsWithImageUrl = await Promise.all(
-      items.map(async (d) => ({
-        ...d,
-        imageUrl: d.outputKey ? await getPresignedDownloadUrl(d.outputKey) : null,
-      }))
+      items.map(async (d) => {
+        const base = {
+          ...d,
+          imageUrl: d.outputKey ? await getPresignedDownloadUrl(d.outputKey) : null,
+        };
+        if (!derivationHasRegenerationPreview(d)) {
+          return base;
+        }
+        const contract = resolveContractForDerivationRow(d);
+        const preview = deriveRegenerationPreview(d, contract);
+        return {
+          ...base,
+          regenerationPrimaryReason: preview.primaryReason,
+          regenerationIssueBreakdown: preview.issueBreakdown,
+        };
+      })
     );
     return NextResponse.json({ derivations: derivationsWithImageUrl });
   } catch (error) {

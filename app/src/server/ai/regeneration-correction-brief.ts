@@ -1,4 +1,4 @@
-import type { CreativeContract } from "./creative-contract";
+import { resolveCtaSemantics, type CreativeContract } from "./creative-contract";
 import { buildRegenerationSuggestion, ctaTextFromContract } from "./regeneration-suggestion";
 import type { CreativeHardFailureCode } from "./creative-quality-gate";
 import type { CreativeQaCheckStatus } from "./creative-qa";
@@ -29,12 +29,12 @@ export type RegenerationCorrectionBrief = {
   };
 };
 
-export type RegenerationIssueBreakdown = {
-  hardFailures: Array<{ code: string; message: string }>;
-  scoreIssues: string[];
-  qaFailed: Array<{ criterion: string; note: string }>;
-  qaWarnings: Array<{ criterion: string; note: string }>;
+export type RegenerationCorrectionBriefRecord = RegenerationCorrectionBrief["structured"] & {
+  promptFeedback: string;
 };
+
+export type { RegenerationIssueBreakdown } from "@/lib/regeneration-preview-types";
+import type { RegenerationIssueBreakdown } from "@/lib/regeneration-preview-types";
 
 type QaChecklistInput = Record<string, { status?: CreativeQaCheckStatus | string; note?: string }> | null | undefined;
 
@@ -254,6 +254,45 @@ export function buildRegenerationCorrectionBrief(input: {
       contractSnapshot: input.contract,
     },
   };
+}
+
+export function resolveContractForDerivationRow(row: {
+  creativeContract?: CreativeContract | null;
+  ctaText?: string | null;
+  format?: string | null;
+  generationMode?: string | null;
+  styleAssetId?: string | null;
+}): CreativeContract {
+  if (row.creativeContract) {
+    return row.creativeContract;
+  }
+  const generationMode = (row.generationMode ?? "art_variation") as CreativeContract["generationMode"];
+  return {
+    generationMode,
+    targetFormat: row.format ?? "1:1",
+    ctaSemantics: resolveCtaSemantics(row.ctaText, generationMode),
+    baseAssetId: null,
+    styleAssetId: row.styleAssetId ?? null,
+    client: null,
+    product: null,
+    offer: null,
+    constraints: null,
+  };
+}
+
+export function derivationHasRegenerationPreview(row: {
+  hardFailures?: unknown;
+  regenerationSuggestion?: string | null;
+  scoreIssues?: unknown;
+  qaChecklist?: unknown;
+}): boolean {
+  if (parseHardFailures(row.hardFailures).length > 0) return true;
+  if (parseScoreIssues(row.scoreIssues).length > 0) return true;
+  if (row.regenerationSuggestion?.trim()) return true;
+  const { qaFailed, qaWarnings } = extractQaFromChecklist(
+    row.qaChecklist as QaChecklistInput
+  );
+  return qaFailed.length > 0 || qaWarnings.length > 0;
 }
 
 export type DerivationBriefPreviewInput = {

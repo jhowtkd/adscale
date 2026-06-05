@@ -52,6 +52,8 @@ export interface Derivation {
   qaAnalyzedAt?: Date | null;
   qualityVerdict?: "invalid" | "improvable" | "acceptable" | null;
   hardFailures?: Array<{ code: string; message: string; criterion?: string }> | null;
+  regenerationPrimaryReason?: string | null;
+  regenerationIssueBreakdown?: import("@/lib/regeneration-preview-types").RegenerationIssueBreakdown | null;
   polishSuggestions?: string[] | null;
   qualityGatedAt?: Date | null;
   styleAssetId?: string | null;
