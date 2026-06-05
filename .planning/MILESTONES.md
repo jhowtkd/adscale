@@ -1,5 +1,18 @@
 # Milestones: ADScale
 
+## v11.3 Site de Apresentação Separado (Shipped: 2026-06-03)
+
+**Phases completed:** 3 phases (50→52), 3 plans
+**Requirements:** 14/14 complete
+
+**Key accomplishments:**
+- Public presentation surface moved into `jhowtkd/site-adscale.git`
+- Marketing/app boundary documented so ADScale_2 stays focused on auth, legal, dashboard and product routes
+- Presentation copy, CTAs, pricing/beta language and legal links aligned with current app behavior
+- Target site build and deploy handoff documented with responsive smoke checks and residual risks
+
+---
+
 ## v11.2 Beta Access and Credit Entitlements (Shipped: 2026-06-03)
 
 **Phases completed:** 1 phase (49), 1 plan

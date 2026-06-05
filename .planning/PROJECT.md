@@ -8,15 +8,15 @@ ADScale is a SaaS webapp for creative derivation: marketing teams upload a base 
 
 Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-## Current Milestone: v11.3 Site de Apresentação Separado
+## Current Milestone: v11.4 Beta Feedback Capture
 
-**Goal:** Move ADScale's public presentation surface into `jhowtkd/site-adscale.git` as the dedicated marketing site while keeping the SaaS app focused on product/auth/dashboard routes.
+**Goal:** Give beta users a lightweight in-app way to report feedback and suggestions while automatically collecting the exact page, logs, campaign context, derivations, and assets needed for analysis.
 
 **Target features:**
-- Source and target audit that confirms what should migrate, what already exists in `site-adscale`, and what must stay inside the app repo.
-- Dedicated Vite/React/Tailwind presentation site with ADScale value proposition, proof, pricing/beta CTA, legal links, and app CTAs aligned to the product.
-- Clear boundary between marketing site and app: signup/login/onboarding routes live in ADScale_2, presentation/SEO/static marketing lives in `site-adscale`.
-- Production readiness for the target repo: build, lint/typecheck, responsive visual QA, asset paths, metadata, analytics/cookie needs, and deploy/domain handoff.
+- Beta feedback entry point available from the authenticated app and relevant campaign/derivation views.
+- Structured feedback/suggestion form that captures severity, category, message, optional contact permission, and optional screenshot/session context.
+- Diagnostic package attached to each report with current route, locale, workspace, campaign, derivation, recent client breadcrumbs, server/Sentry correlation IDs, and relevant asset references.
+- Owner review surface to inspect reports, reproduce context, open linked assets, and mark status without exposing unrelated workspace data.
 
 ## Requirements
 
@@ -123,11 +123,10 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ### Active
 
-- [ ] Format adaptation outputs render as native layouts for each target format without blurred padding, letterboxing, or compressed center posters.
-- [ ] Restyling preserves base creative factual content and uses selected style references only for visual language.
-- [ ] CTA, brand, offer, product, and briefing contracts are consistent between generation, scoring, QA, and regeneration suggestions.
-- [ ] Generated outputs receive actionable QA/scoring that flags hard-rule failures before users approve or export.
-- [ ] Campaign workspace loading/access failures surface enough context to diagnose whether the issue is session/workspace/UI rather than output quality.
+- [ ] Beta users can send feedback or suggestions from the app without leaving their current workflow.
+- [ ] Each submitted report includes enough route, workspace, campaign, derivation, asset, and log context for the owner to reproduce or diagnose the issue.
+- [ ] Feedback capture respects workspace isolation and avoids collecting sensitive creative content beyond explicit asset references/signed preview access.
+- [ ] The owner can review, triage, and resolve beta reports from a focused internal surface.
 
 ### Validated (v10.0)
 
@@ -170,9 +169,11 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Context
 
-Current state: v11.2 beta access and credit entitlements are delivered in the app. The next milestone moves the public presentation surface out of the SaaS repo and into `https://github.com/jhowtkd/site-adscale.git`.
+Current state: v11.3 separated the public presentation site from the SaaS app. The next milestone adds a beta feedback capture flow inside ADScale_2 so testers can report problems and suggestions with the diagnostic context needed for owner analysis.
 
 Repo inspection on 2026-06-03 found that ADScale_2 has public legal pages under `app/src/app/(public)` but no App Router root presentation page. The target repo already exists on `main` as a Vite + React + Tailwind landing site with sections for hero, problem, solution, features, process, results, pricing, FAQ, CTA, and footer.
+
+Repo inspection on 2026-06-05 found existing building blocks for this milestone: Sentry initialization and request error capture, a local logger, Sentry error boundary, campaign/workspace assets, derivation feedback, and workspace-scoped repositories. The new feature should reuse these primitives instead of creating a separate unauthenticated feedback app.
 
 Prior milestones delivered generation quality gates, coherent derivation flows, simplified campaign creation with AI visual analysis, performance optimizations, UI refinement, review gallery enhancements, beta access, and bounded credit entitlements.
 
@@ -224,7 +225,7 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-03 after starting v11.3 site migration milestone*
+*Last updated: 2026-06-05 after starting v11.4 beta feedback capture milestone*
 
 ## Milestone History
 
