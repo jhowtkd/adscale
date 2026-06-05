@@ -163,6 +163,50 @@ describe("styleFidelity criterion", () => {
     expect(result.checklist.styleFidelity?.status).toBe("failed");
   });
 
+  it("ignores unknown checklist keys", () => {
+    const result = normalizeCreativeQaResult({
+      status: "ready",
+      checklist: {
+        legibility: { status: "passed", note: "OK" },
+        ctaOffer: { status: "passed", note: "OK" },
+        informationPreservation: { status: "passed", note: "OK" },
+        briefMatch: { status: "passed", note: "OK" },
+        formatFit: { status: "passed", note: "OK" },
+        creativeRisk: { status: "passed", note: "OK" },
+        randomKey: { status: "failed", note: "Should be ignored." },
+      },
+      issues: [],
+      suggestions: [],
+    });
+    expect((result.checklist as Record<string, unknown>)["randomKey"]).toBeUndefined();
+    expect(result.status).toBe("ready");
+  });
+
+  it("forces warning when model sent ready but all core criteria use fallback notes", () => {
+    const result = normalizeCreativeQaResult({
+      status: "ready",
+      checklist: {},
+    });
+    expect(result.status).toBe("warning");
+  });
+
+  it("respects model status when partial real notes exist", () => {
+    const result = normalizeCreativeQaResult({
+      status: "ready",
+      checklist: {
+        legibility: { status: "passed", note: "Readable." },
+        ctaOffer: { status: "passed", note: "CTA preserved." },
+        informationPreservation: { status: "passed", note: "OK" },
+        briefMatch: { status: "passed", note: "OK" },
+        formatFit: { status: "passed", note: "OK" },
+        creativeRisk: { status: "passed", note: "OK" },
+      },
+      issues: [],
+      suggestions: [],
+    });
+    expect(result.status).toBe("ready");
+  });
+
   it("normalizeCreativeQaResult does not add styleFidelity fallback when absent", () => {
     const result = normalizeCreativeQaResult({
       status: "ready",
