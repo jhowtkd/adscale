@@ -75,13 +75,17 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
         id: realCampaign.id,
         name: realCampaign.name,
         client: realCampaign.client,
+        product: realCampaign.product,
+        offer: realCampaign.offer,
         objective: realCampaign.objective,
         audience: realCampaign.audience,
+        platforms: realCampaign.platforms,
+        tone: realCampaign.tone,
         constraints: realCampaign.constraints,
         notes: realCampaign.notes,
+        ctaVariants: realCampaign.ctaVariants,
         generationMode: realCampaign.generationMode,
         creativeLevel: realCampaign.creativeLevel,
-        ctaVariants: realCampaign.ctaVariants,
         targetFormats: realCampaign.targetFormats,
         styleIntensity: realCampaign.styleIntensity,
         creativeDiagnosisStatus: realCampaign.creativeDiagnosisStatus,
@@ -143,6 +147,8 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
 
   const savePilot = useCallback(
     async (assetId: string, briefing: {
+      product?: string;
+      offer?: string;
       objective?: string;
       audience?: string;
       tone?: string;

@@ -70,6 +70,7 @@ export interface UiCampaign {
   id: string;
   name: string;
   client?: string;
+  product?: string;
   objective?: string;
   audience?: string;
   platforms: ("Meta" | "TikTok" | "Google")[];
@@ -107,6 +108,7 @@ function toUiCampaign(c: Campaign): UiCampaign {
     id: c.id,
     name: c.name,
     client: c.client ?? undefined,
+    product: c.product ?? undefined,
     objective: c.objective ?? undefined,
     audience: c.audience ?? undefined,
     platforms: (c.platforms ?? []) as ("Meta" | "TikTok" | "Google")[],

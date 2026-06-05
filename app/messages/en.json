@@ -816,6 +816,83 @@
     "dimBrandConsistency": "Brand Consistency",
     "dimPlatformReadiness": "Platform Readiness"
   },
+  "readiness": {
+    "title": "Creative Readiness",
+    "subtitle": "Pre-generation guidance based on your base creative and brief",
+    "missingCreative": "Upload a base creative to run readiness.",
+    "analyzing": "Analyzing readiness…",
+    "failed": "Readiness analysis failed. Try again.",
+    "rerun": "Rerun readiness",
+    "blockingIssues": "Blocking issues",
+    "suggestions": "Improvements",
+    "disclaimer": "Readiness reduces risk before generation but does not guarantee output quality.",
+    "status": {
+      "ready": "Ready",
+      "needs_attention": "Needs attention",
+      "blocked": "Blocked"
+    },
+    "dimensions": {
+      "offerClarity": "Offer clarity",
+      "textLegibility": "Text legibility",
+      "visualHierarchy": "Visual hierarchy",
+      "ctaProminence": "CTA prominence",
+      "brandFit": "Brand fit",
+      "platformFit": "Platform fit"
+    }
+  },
+  "guidedBriefing": {
+    "progress": "Step {current} of {total}",
+    "suggested": "Suggested answer",
+    "accept": "Accept",
+    "edit": "Edit",
+    "skip": "Skip",
+    "editAllFields": "Edit all fields",
+    "complete": "Briefing complete. You can continue or edit fields anytime.",
+    "continue": "Continue to actions",
+    "fields": {
+      "product": "Product or service",
+      "offer": "Offer or promotion",
+      "productPlaceholder": "e.g., Online course, SaaS tool",
+      "offerPlaceholder": "e.g., 50% off launch week"
+    },
+    "steps": {
+      "productOffer": {
+        "title": "What are you selling?",
+        "description": "Start with the product and the offer you want to promote.",
+        "placeholder": "Product and offer"
+      },
+      "audience": {
+        "title": "Who is this for?",
+        "description": "Describe the audience most likely to respond.",
+        "placeholder": "e.g., Small business owners, 25-34"
+      },
+      "promise": {
+        "title": "What is the main promise?",
+        "description": "The core benefit or outcome you want to communicate.",
+        "placeholder": "e.g., Grow leads without hiring an agency"
+      },
+      "objections": {
+        "title": "What objections should we address?",
+        "description": "Common doubts that might stop someone from acting.",
+        "placeholder": "e.g., Price, trust, timing"
+      },
+      "cta": {
+        "title": "What should people do next?",
+        "description": "The primary call to action for this campaign.",
+        "placeholder": "e.g., Shop now, Book a demo"
+      },
+      "platforms": {
+        "title": "Where will this run?",
+        "description": "List the ad platforms for this campaign.",
+        "placeholder": "e.g., Instagram, Facebook, Google"
+      },
+      "constraints": {
+        "title": "Any constraints?",
+        "description": "Rules the AI must follow when generating variations.",
+        "placeholder": "e.g., Keep logo visible, no unverified claims"
+      }
+    }
+  },
   "auth": {
     "email": "Email",
     "password": "Password",

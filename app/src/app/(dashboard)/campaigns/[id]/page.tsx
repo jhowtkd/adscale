@@ -23,7 +23,13 @@ const PersonaSimulationModal = dynamic(() => import("@/components/workspace/Pers
 
 import PilotUploadPanel from "@/components/workspace/PilotUploadPanel";
 import PilotBriefingForm from "@/components/workspace/PilotBriefingForm";
+import GuidedBriefingPanel from "@/components/workspace/GuidedBriefingPanel";
 import PilotSidebar from "@/components/workspace/PilotSidebar";
+import {
+  answersFromCampaign,
+  isBriefWeak,
+  type GuidedBriefingHints,
+} from "@/server/ai/guided-briefing";
 import ActionCards from "@/components/workspace/ActionCards";
 import DerivationGrid from "@/components/workspace/DerivationGrid";
 import DerivarModal from "@/components/workspace/DerivarModal";
@@ -81,6 +87,7 @@ export default function CampaignWorkspacePage() {
     suggestedCta: "",
   });
   const pilotAssetIdRef = useRef<string | null>(null);
+  const [briefingView, setBriefingView] = useState<"guided" | "full">("guided");
   const [showEstilizarModal, setShowEstilizarModal] = useState(false);
   const {
     isChooserOpen,
@@ -204,6 +211,16 @@ export default function CampaignWorkspacePage() {
       suggestedPlatforms: analysisData.suggestedPlatforms ?? "",
       suggestedCta: analysisData.suggestedCta ?? "",
     });
+  const guidedBriefingHints: GuidedBriefingHints = {
+    suggestedObjective: analysis.suggestedObjective,
+    suggestedAudience: analysis.suggestedAudience,
+    suggestedPlatforms: analysis.suggestedPlatforms,
+    suggestedCta: analysis.suggestedCta,
+    suggestedTone: analysis.suggestedTone,
+    detectedConcept: analysis.detectedConcept,
+    client: campaign?.client ?? undefined,
+  };
+
   const handleBriefingSubmit = (briefing: {
     objective: string;
     audience: string;
@@ -211,9 +228,29 @@ export default function CampaignWorkspacePage() {
     platforms: string;
     ctaText: string;
     constraints: string;
+    product?: string;
+    offer?: string;
   }) => {
     if (pilotAssetIdRef.current) {
       savePilot(pilotAssetIdRef.current, briefing);
+    }
+  };
+
+  const handleGuidedBriefingComplete = (briefing: {
+    objective?: string;
+    audience?: string;
+    tone?: string;
+    platforms?: string;
+    ctaText?: string;
+    constraints?: string;
+    product?: string;
+    offer?: string;
+  }) => {
+    if (pilotAssetIdRef.current) {
+      savePilot(pilotAssetIdRef.current, {
+        ...briefing,
+        tone: briefing.tone ?? analysis.suggestedTone,
+      });
     }
   };
 
@@ -349,6 +386,10 @@ export default function CampaignWorkspacePage() {
         onAssetUploaded={handleAssetUploaded}
         onAnalysisComplete={handleAnalysisComplete}
         onBriefingSubmit={handleBriefingSubmit}
+        onGuidedBriefingComplete={handleGuidedBriefingComplete}
+        briefingView={briefingView}
+        onBriefingViewChange={setBriefingView}
+        guidedBriefingHints={guidedBriefingHints}
         onSkipBriefing={handleSkipBriefing}
         onOpenDerivar={() => {
           openChooser();
@@ -567,7 +608,22 @@ interface CampaignWorkspaceCardProps {
     platforms: string;
     ctaText: string;
     constraints: string;
+    product?: string;
+    offer?: string;
   }) => void;
+  onGuidedBriefingComplete: (briefing: {
+    objective?: string;
+    audience?: string;
+    tone?: string;
+    platforms?: string;
+    ctaText?: string;
+    constraints?: string;
+    product?: string;
+    offer?: string;
+  }) => void;
+  briefingView: "guided" | "full";
+  onBriefingViewChange: (view: "guided" | "full") => void;
+  guidedBriefingHints: GuidedBriefingHints;
   onSkipBriefing: () => void;
   onOpenDerivar: () => void;
   onOpenEstilizar: () => void;
@@ -602,6 +658,10 @@ function CampaignWorkspaceCard({
   onAssetUploaded,
   onAnalysisComplete,
   onBriefingSubmit,
+  onGuidedBriefingComplete,
+  briefingView,
+  onBriefingViewChange,
+  guidedBriefingHints,
   onSkipBriefing,
   onOpenDerivar,
   onOpenEstilizar,
@@ -623,19 +683,44 @@ function CampaignWorkspaceCard({
             onAssetUploaded={onAssetUploaded}
             onAnalysisComplete={onAnalysisComplete}
           />
-	          <PilotBriefingForm
-	            key={[
-	              analysis.detectedConcept,
-	              analysis.suggestedObjective,
-	              analysis.suggestedAudience,
-	              analysis.suggestedTone,
-	              analysis.suggestedPlatforms,
-	              analysis.suggestedCta,
-	            ].join("|")}
-	            analysis={analysis}
-	            onSubmit={onBriefingSubmit}
-            onSkip={onSkipBriefing}
-          />
+          {campaign &&
+          isBriefWeak({
+            product: campaign.product,
+            offer: campaign.offer,
+            audience: campaign.audience,
+            objective: campaign.objective,
+          }) &&
+          briefingView === "guided" ? (
+            <GuidedBriefingPanel
+              campaignId={campaignId}
+              initialAnswers={answersFromCampaign({
+                product: campaign.product,
+                offer: campaign.offer,
+                audience: campaign.audience,
+                objective: campaign.objective,
+                constraints: campaign.constraints,
+                platforms: campaign.platforms ?? null,
+                ctaVariants: campaign.ctaVariants ?? null,
+              })}
+              hints={guidedBriefingHints}
+              onComplete={onGuidedBriefingComplete}
+              onOpenFullForm={() => onBriefingViewChange("full")}
+            />
+          ) : (
+            <PilotBriefingForm
+              key={[
+                analysis.detectedConcept,
+                analysis.suggestedObjective,
+                analysis.suggestedAudience,
+                analysis.suggestedTone,
+                analysis.suggestedPlatforms,
+                analysis.suggestedCta,
+              ].join("|")}
+              analysis={analysis}
+              onSubmit={onBriefingSubmit}
+              onSkip={onSkipBriefing}
+            />
+          )}
         </div>
       )}
 

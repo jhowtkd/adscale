@@ -816,6 +816,83 @@
     "dimBrandConsistency": "Consistência de Marca",
     "dimPlatformReadiness": "Prontidão para Plataformas"
   },
+  "readiness": {
+    "title": "Prontidão Criativa",
+    "subtitle": "Orientação pré-geração com base no criativo base e no briefing",
+    "missingCreative": "Envie um criativo base para calcular a prontidão.",
+    "analyzing": "Analisando prontidão…",
+    "failed": "A análise de prontidão falhou. Tente novamente.",
+    "rerun": "Recalcular prontidão",
+    "blockingIssues": "Problemas bloqueantes",
+    "suggestions": "Melhorias",
+    "disclaimer": "A prontidão reduz riscos antes da geração, mas não garante a qualidade do resultado.",
+    "status": {
+      "ready": "Pronto",
+      "needs_attention": "Precisa de atenção",
+      "blocked": "Bloqueado"
+    },
+    "dimensions": {
+      "offerClarity": "Clareza da oferta",
+      "textLegibility": "Legibilidade do texto",
+      "visualHierarchy": "Hierarquia visual",
+      "ctaProminence": "Destaque do CTA",
+      "brandFit": "Aderência à marca",
+      "platformFit": "Aderência à plataforma"
+    }
+  },
+  "guidedBriefing": {
+    "progress": "Etapa {current} de {total}",
+    "suggested": "Resposta sugerida",
+    "accept": "Aceitar",
+    "edit": "Editar",
+    "skip": "Pular",
+    "editAllFields": "Editar todos os campos",
+    "complete": "Briefing concluído. Você pode continuar ou editar os campos depois.",
+    "continue": "Continuar para ações",
+    "fields": {
+      "product": "Produto ou serviço",
+      "offer": "Oferta ou promoção",
+      "productPlaceholder": "ex.: Curso online, ferramenta SaaS",
+      "offerPlaceholder": "ex.: 50% off na semana de lançamento"
+    },
+    "steps": {
+      "productOffer": {
+        "title": "O que você está vendendo?",
+        "description": "Comece pelo produto e pela oferta que deseja promover.",
+        "placeholder": "Produto e oferta"
+      },
+      "audience": {
+        "title": "Para quem é isso?",
+        "description": "Descreva o público com maior chance de responder.",
+        "placeholder": "ex.: Donos de pequenos negócios, 25-34 anos"
+      },
+      "promise": {
+        "title": "Qual é a promessa principal?",
+        "description": "O benefício ou resultado central que você quer comunicar.",
+        "placeholder": "ex.: Gerar leads sem contratar agência"
+      },
+      "objections": {
+        "title": "Quais objeções devemos endereçar?",
+        "description": "Dúvidas comuns que podem impedir a ação.",
+        "placeholder": "ex.: Preço, confiança, timing"
+      },
+      "cta": {
+        "title": "O que a pessoa deve fazer agora?",
+        "description": "O call to action principal desta campanha.",
+        "placeholder": "ex.: Compre agora, Agende uma demo"
+      },
+      "platforms": {
+        "title": "Onde isso vai rodar?",
+        "description": "Liste as plataformas de anúncio desta campanha.",
+        "placeholder": "ex.: Instagram, Facebook, Google"
+      },
+      "constraints": {
+        "title": "Alguma restrição?",
+        "description": "Regras que a IA deve seguir ao gerar variações.",
+        "placeholder": "ex.: Manter logo visível, sem promessas não comprovadas"
+      }
+    }
+  },
   "auth": {
     "email": "E-mail",
     "password": "Senha",
