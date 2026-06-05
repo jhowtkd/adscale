@@ -8,15 +8,11 @@ ADScale is a SaaS webapp for creative derivation: marketing teams upload a base 
 
 Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-## Current Milestone: v11.5 Qualidade IA Orientada por Feedback
+## Current Milestone
 
-**Goal:** Improve AI creative quality by tightening generation contracts, making scoring/QA more trustworthy, and turning feedback/hard failures into better regeneration instructions.
+**Status:** v11.5 shipped — planning next milestone via `/gsd-new-milestone`.
 
-**Target features:**
-- Contract/prompt improvements that explicitly preserve brand, CTA, offer, product, format, and required information across art variation, format adaptation, and restyling.
-- More reliable scoring and QA that separates hard failures from polish issues and explains quality problems in user-actionable language.
-- Regeneration flow that uses QA, score issues, hard failures, and beta feedback context to fix the specific problem instead of repeating generic revisions.
-- Verification set for known failure modes: wrong CTA, cropped text/logo, style-reference factual contamination, bad native format adaptation, weak preservation, and low legibility.
+**Candidate themes:** owner notification on new feedback, richer diagnostic breadcrumbs, beta quality analytics.
 
 ## Requirements
 
@@ -130,12 +126,16 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 - ✓ **SEC-01–04**: Workspace isolation, entity validation, sanitization, no replay by default — v11.4
 - ✓ **QA-01–03**: Automated tests + privacy handoff doc — v11.4
 
+### Validated (v11.5)
+
+- ✓ **AIC-01–05**: Explicit creative contract per derivation, prompt preservation rules, and prompt provenance JSONB — v11.5
+- ✓ **AIQ-01–05**: Shared quality taxonomy, fail-safe score/QA normalization, hard-failure gate, localized blocking vs polish copy — v11.5
+- ✓ **AIR-01–05**: Bounded regeneration correction briefs, pre-confirm primary reason UI, child brief persistence, contract inheritance — v11.5
+- ✓ **FIX-01–05**: Synthetic quality fixtures, prompt/gate/brief regression tests, manual loop handoff, documented model limitations — v11.5
+
 ### Active
 
-- [ ] AI generation preserves campaign contract fields consistently across first generation and regeneration.
-- [ ] Quality scoring and QA identify hard failures reliably enough to guide user approval decisions.
-- [ ] Regeneration suggestions translate detected issues into precise correction instructions.
-- [ ] Known creative failure modes have repeatable fixtures/tests so quality regressions are visible.
+_None — define via `/gsd-new-milestone`._
 
 ### Validated (v10.0)
 
@@ -178,13 +178,15 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Context
 
-Current state: v11.4 shipped beta feedback capture (phases 53–56). Marketing remains in `jhowtkd/site-adscale.git`; product feedback and owner triage live in ADScale_2 at `/feedback` for platform owners.
+Current state: v11.5 shipped AI quality alignment (phases 57–60). The derivation pipeline now persists `creativeContract` and `promptProvenance` JSONB, runs shared taxonomy score/QA/gate, builds bounded regeneration correction briefs, and has 28 automated fixture regression tests covering the quality loop without OpenAI calls.
 
-v11.5 focuses on improving AI output quality by connecting three existing surfaces: derivation prompt contracts, visual scoring/QA, and regeneration suggestions. Repo inspection on 2026-06-05 found existing primitives in `prompt-builder.ts`, `creative-score.ts`, `creative-qa.ts`, `creative-quality-gate.ts`, derivation jobs, and feedback-linked derivation review.
+Marketing remains in `jhowtkd/site-adscale.git`; product feedback and owner triage live in ADScale_2 at `/feedback` for platform owners.
 
-Prior milestones delivered presentation site separation (v11.3), beta entitlements (v11.2), generation quality gates (v11.1), coherent derivation flows (v11.0), and the full MVP through v10 UI polish.
+Migrations through `app/drizzle/0028_regeneration_correction_brief.sql` must be applied in deployed environments before relying on persisted contract/brief columns in production.
 
-Build passes; feedback subsystem has dedicated unit/route tests.
+Prior milestones delivered beta feedback capture (v11.4), presentation site separation (v11.3), beta entitlements (v11.2), generation quality gates (v11.1), coherent derivation flows (v11.0), and the full MVP through v10 UI polish.
+
+Build, lint, and tests pass.
 
 Key stack decisions:
 - Next.js App Router, React, TypeScript, Tailwind, shadcn/ui
@@ -208,11 +210,15 @@ Key stack decisions:
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Better Auth + open signup | Fastest path to auth without OAuth complexity | — Pending |
-| Zustand → UI-only | Prevents stale business data in client stores | — Pending |
-| Inngest for derivation jobs | Durable, retryable, observable without managing workers | — Pending |
-| R2 for all file storage | S3-compatible, cost-effective, presigned URLs keep load off Vercel | — Pending |
-| OpenAI image model configurable | Future-proof if model name changes | — Pending |
+| Better Auth + open signup | Fastest path to auth without OAuth complexity | ✓ Good |
+| Zustand → UI-only | Prevents stale business data in client stores | ✓ Good |
+| Inngest for derivation jobs | Durable, retryable, observable without managing workers | ✓ Good |
+| R2 for all file storage | S3-compatible, cost-effective, presigned URLs keep load off Vercel | ✓ Good |
+| OpenAI image model configurable | Future-proof if model name changes | ✓ Good |
+| JSONB contract/provenance on derivations | Inspectable generation contract without public debug UI | ✓ Good — v11.5 |
+| Shared quality taxonomy module | Score, QA, and gate must agree on failure categories | ✓ Good — v11.5 |
+| Feedback as categorized context only | Raw beta text cannot override hard contract fields | ✓ Good — v11.5 |
+| Synthetic fixtures over customer assets | Privacy-safe repeatable regression for known failure modes | ✓ Good — v11.5 |
 
 ## Evolution
 
@@ -232,7 +238,7 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-05 after starting v11.5 AI quality milestone*
+*Last updated: 2026-06-05 after v11.5 milestone completion*
 
 ## Milestone History
 
@@ -328,9 +334,16 @@ This document evolves at phase transitions and milestone boundaries.
 - Owner triage at `/feedback` with signed asset links
 - Phases 53–56 archived
 
+### v11.5 Qualidade IA Orientada por Feedback ✅
+- Durable creative contract and prompt provenance on derivations
+- Shared taxonomy with fail-safe score/QA normalization and hard-failure gate
+- Feedback-informed regeneration with pre-confirm primary reason and child brief persistence
+- Six-fixture synthetic catalog with 28 automated pipeline regression tests
+- Phases 57–60 archived
+
 ## Next Milestone Goals
 
 - Define via `/gsd-new-milestone` (candidates: notification on new feedback, richer breadcrumbs, beta analytics)
 
 ---
-*Last updated: 2026-06-05 after v11.4 milestone completion*
+*Last updated: 2026-06-05 after v11.5 milestone completion*

@@ -73,7 +73,7 @@ Each task was committed atomically:
 4. **Task 4: Cover restyling factual-source invariants** - `150c4f5` (test) — marker commit; assertions in `ee74f17`
 5. **Task 5: Run Phase 57 focused validation and build** - `dcd6ccc` (chore)
 
-**Plan metadata:** pending (docs commit after state update)
+**Plan metadata:** `c141e89` (docs: complete plan)
 
 ## Files Created/Modified
 

@@ -1,11 +1,38 @@
 # Milestones: ADScale
 
+## v11.5 Qualidade IA Orientada por Feedback (Shipped: 2026-06-05)
+
+**Phases completed:** 4 phases (57→60), 12 plans, 34 tasks
+**Requirements:** 20/20 complete
+
+**Key accomplishments:**
+
+- Durable JSONB contract/provenance on derivations with workspace-scoped repository persistence and derivation-job wiring before prompt build
+- Compact prompt regression tests with shared CreativeContract fixtures and section snapshots for art variation, format adaptation, and restyling hard rules
+- Shared quality taxonomy with fail-safe score/QA normalization — no silent 70 defaults on malformed model JSON.
+- Inherited CTA and score-issue promotion close gate gaps; review UI shows localized blocking titles with model notes as detail.
+- Single server module merges gate, score, QA, and feedback-category inputs into bounded correction briefs with contract-safe preservation tails.
+- Regenerate API builds merged correction briefs, persists structured brief JSON on children, and keeps parent creative contracts through the derivation job.
+- Users see a read-only summary of blocking and advisory issues before editing regeneration feedback, with EN/PT-BR labels.
+- Route and unit tests cover explicit feedback merge, quality-field brief reconstruction, feedback category context, and child brief persistence.
+- Six-fixture synthetic catalog covering wrong CTA, crop, style contamination, format layout, preservation loss, and legibility failures
+- Fixture-linked prompt regression with mode invariants and compact section snapshots for art variation, format adaptation, and restyling
+- Parameterized fixture pipeline tests wiring QA normalization, hard-failure gate, verdict derivation, and regeneration brief assembly
+- Manual quality loop handoff, residual model limitations, and nyquist-compliant validation contract with green test/lint/build gate
+
+**Archive:** [v11.5-ROADMAP.md](milestones/v11.5-ROADMAP.md) · [v11.5-REQUIREMENTS.md](milestones/v11.5-REQUIREMENTS.md) · [v11.5-MILESTONE-AUDIT.md](milestones/v11.5-MILESTONE-AUDIT.md) · [v11.5-phases/](milestones/v11.5-phases/)
+
+**Known gaps (accepted tech debt):** Apply migrations `0027`/`0028` in production; optional manual quality loop spot-check per 60-HANDOFF; phases 58–59 lack formal Nyquist VALIDATION.md.
+
+---
+
 ## v11.4 Beta Feedback Capture (Shipped: 2026-06-05)
 
 **Phases completed:** 4 phases (53→56), 4 plans
 **Requirements:** 23/23 complete
 
 **Key accomplishments:**
+
 - Durable `feedback_reports` model with workspace-scoped create API and diagnostic sanitization
 - In-app feedback from shell, campaign header, and derivation review with auto context capture
 - Platform owner triage at `/feedback` with filters, completeness chips, signed assets, and private notes
@@ -23,6 +50,7 @@
 **Requirements:** 14/14 complete
 
 **Key accomplishments:**
+
 - Public presentation surface moved into `jhowtkd/site-adscale.git`
 - Marketing/app boundary documented so ADScale_2 stays focused on auth, legal, dashboard and product routes
 - Presentation copy, CTAs, pricing/beta language and legal links aligned with current app behavior
@@ -36,6 +64,7 @@
 **Requirements:** 5/5 complete
 
 **Key accomplishments:**
+
 - Workspace beta entitlements separate from Stripe subscriptions
 - Beta testers receive 10 generated ads through 50 internal credits
 - Spend gates allow active paid subscription or active beta entitlement with credits
@@ -50,6 +79,7 @@
 **Requirements:** 26/26 complete
 
 **Key accomplishments:**
+
 - Native 4:5 and 9:16 format adaptation planning and verification
 - Shared creative contract for generation, scoring, QA, and regeneration
 - Restyling uses selected style references as visual language only
@@ -64,6 +94,7 @@
 **Requirements:** 10/10 complete
 
 **Key accomplishments:**
+
 - `useDerivationFlow` state machine — Derivar chooser no longer auto-queues generation with hardcoded defaults
 - Art variation config modals (manual + AI-assisted) with creativity profile and up to 3 CTAs before confirm
 - `useArtVariationSuggestions` pre-fills CTAs from campaign context or analyze API on base asset
@@ -81,6 +112,7 @@
 **Requirements:** 12/12 complete
 
 **Key accomplishments:**
+
 - Code splitting e lazy loading com next/dynamic — bundle reduzido de ~2.9MB para 2.39MB
 - TanStack Query otimizado com staleTime presets (STATIC/SEMI_STATIC/DYNAMIC) e prefetch on hover
 - Cache de análise visual da IA por 24h (evita re-computação de análises)
@@ -98,6 +130,7 @@
 **Requirements:** 12/12 complete
 
 **Key accomplishments:**
+
 - Single-page campaign creation form (name, client, profile)
 - AI visual analysis of key creative with deduced fields
 - Editable auto-filled campaign information
@@ -109,11 +142,13 @@
 ## Completed Milestones
 
 ### v2.0 — Internacionalização PT-BR
+
 **Completed:** 2026-04-24
 **Phases:** 4 (6→9)
 **Requirements:** 21/21
 
 **Delivered:**
+
 - `next-intl` integration with PT-BR/EN language support
 - Language switcher in TopBar with cookie persistence
 - `user.locale` column in database with default `pt-BR`
@@ -126,11 +161,13 @@
 - Build and tests clean
 
 ### v1.0 — Sair Do Mock → MVP Real
+
 **Completed:** 2026-04-24
 **Phases:** 5
 **Requirements:** 32/32
 
 **Delivered:**
+
 - Full server layer with Drizzle ORM, Neon PostgreSQL
 - Better Auth with open signup and auto-workspace creation
 - Cloudflare R2 storage with presigned URLs
