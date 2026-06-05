@@ -18,16 +18,17 @@ progress:
 ## Current Position
 
 Milestone: v11.5 — Qualidade IA Orientada por Feedback
-Phase: 57 ready for planning
+Phase: 57 context gathered — ready for planning
 Plan: —
-Status: Roadmap created — ready to plan phase 57
-Last activity: 2026-06-05 — Milestone v11.5 roadmap created
+Status: Phase 57 context gathered — ready to plan phase 57
+Last activity: 2026-06-05 — Phase 57 context gathered
 
 ## Accumulated Context
 
 - Marketing lives in `jhowtkd/site-adscale.git`; app stays in ADScale_2.
 - Beta feedback: `/feedback` triage for platform owners (`PLATFORM_OWNER_EMAILS`).
 - Feedback handoff: `.planning/phases/56-verification-and-privacy-audit/56-HANDOFF.md`
+- Phase 57 context: `.planning/phases/57-creative-contract-and-prompt-provenance/57-CONTEXT.md`
 - Migrations: `app/drizzle/0025_beta_entitlements.sql` then `app/drizzle/0026_feedback_reports.sql` (split to avoid idx-25 collision on DBs that already applied beta entitlements).
 - AI quality primitives already exist: prompt contracts, creative score, creative QA, hard quality gate, regeneration suggestions, and beta feedback reports.
 
@@ -40,7 +41,7 @@ Last activity: 2026-06-05 — Milestone v11.5 roadmap created
 
 ## Next Steps
 
-1. Plan phase 57: Creative Contract and Prompt Provenance.
+1. Run `$gsd-plan-phase 57` using the gathered phase context.
 2. Keep v11.5 focused on contract, score/QA, regeneration and fixtures.
 3. Keep deploy ops from v11.4 separate unless it directly blocks quality work.
 
@@ -50,4 +51,4 @@ See: `.planning/PROJECT.md`
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** Plan phase 57: Creative Contract and Prompt Provenance.
+**Current focus:** Plan phase 57 from `.planning/phases/57-creative-contract-and-prompt-provenance/57-CONTEXT.md`.
