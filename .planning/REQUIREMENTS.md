@@ -23,11 +23,11 @@
 
 ### Feedback-Informed Regeneration
 
-- [ ] **AIR-01**: Regeneration suggestion builder combines hard failures, score issues, QA issues, and optional beta feedback category into one bounded correction brief.
-- [ ] **AIR-02**: Regeneration never lets user/beta feedback override hard contract fields such as exact CTA, target format, generation mode, base factual source, brand, product, or offer.
-- [ ] **AIR-03**: User can see the main reason for recommended regeneration before confirming, including the hard failures or QA issues it will try to fix.
-- [ ] **AIR-04**: Regenerated derivations preserve parent/source context and record the correction brief used for the regeneration attempt.
-- [ ] **AIR-05**: Regeneration route tests cover explicit feedback, stored regeneration suggestion, hard-failure suggestion, and feedback-informed correction context.
+- [x] **AIR-01**: Regeneration suggestion builder combines hard failures, score issues, QA issues, and optional beta feedback category into one bounded correction brief.
+- [x] **AIR-02**: Regeneration never lets user/beta feedback override hard contract fields such as exact CTA, target format, generation mode, base factual source, brand, product, or offer.
+- [x] **AIR-03**: User can see the main reason for recommended regeneration before confirming, including the hard failures or QA issues it will try to fix.
+- [x] **AIR-04**: Regenerated derivations preserve parent/source context and record the correction brief used for the regeneration attempt.
+- [x] **AIR-05**: Regeneration route tests cover explicit feedback, stored regeneration suggestion, hard-failure suggestion, and feedback-informed correction context.
 
 ### Quality Fixtures and Verification
 
@@ -74,11 +74,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AIQ-03 | Phase 58 | Complete |
 | AIQ-04 | Phase 58 | Complete |
 | AIQ-05 | Phase 58 | Complete |
-| AIR-01 | Phase 59 | Pending |
-| AIR-02 | Phase 59 | Pending |
-| AIR-03 | Phase 59 | Pending |
-| AIR-04 | Phase 59 | Pending |
-| AIR-05 | Phase 59 | Pending |
+| AIR-01 | Phase 59 | Complete |
+| AIR-02 | Phase 59 | Complete |
+| AIR-03 | Phase 59 | Complete |
+| AIR-04 | Phase 59 | Complete |
+| AIR-05 | Phase 59 | Complete |
 | FIX-01 | Phase 60 | Pending |
 | FIX-02 | Phase 60 | Pending |
 | FIX-03 | Phase 60 | Pending |

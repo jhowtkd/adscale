@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v11.5
 milestone_name: milestone
-status: Ready for execution
-stopped_at: Phase 59 planned (4 plans, 3 waves)
-last_updated: "2026-06-05T17:14:23.964Z"
+status: Phase 59 complete
+stopped_at: Completed Phase 59 feedback-informed regeneration
+last_updated: "2026-06-05T17:30:53.978Z"
 last_activity: 2026-06-05
 progress:
   total_phases: 4
-  completed_phases: 2
-  total_plans: 4
-  completed_plans: 4
+  completed_phases: 4
+  total_plans: 8
+  completed_plans: 8
   percent: 100
 ---
 
@@ -20,12 +20,12 @@ progress:
 
 Milestone: v11.5 — Qualidade IA Orientada por Feedback
 Phase: 59
-Plan: 59-01 (not started)
-Status: Ready for execution
+Plan: 59-04 complete
+Status: Phase 59 complete — verified
 Last activity: 2026-06-05
 
-**Last session:** 2026-06-05
-**Stopped At:** Phase 59 context gathered (feedback-informed regeneration)
+**Last session:** 2026-06-05T17:30:53.976Z
+**Stopped At:** Completed Phase 59 feedback-informed regeneration
 **Resume File:** None
 
 ## Accumulated Context
@@ -37,13 +37,13 @@ Last activity: 2026-06-05
 - Phase 57 research: `.planning/phases/57-creative-contract-and-prompt-provenance/57-RESEARCH.md`
 - Phase 57 validation: `.planning/phases/57-creative-contract-and-prompt-provenance/57-VALIDATION.md`
 - Phase 57 plans: `57-01-PLAN.md` (persist contract/provenance) and `57-02-PLAN.md` (prompt contract regression coverage).
-- Migrations: through `app/drizzle/0027_creative_contract_provenance.sql` (creative_contract + prompt_provenance JSONB on derivations).
+- Migrations: through `app/drizzle/0028_regeneration_correction_brief.sql` (regeneration_correction_brief jsonb on derivations).
 - Phase 57-01 summary: `.planning/phases/57-creative-contract-and-prompt-provenance/57-01-SUMMARY.md`
 - Phase 58 context: `.planning/phases/58-scoring-and-qa-alignment/58-CONTEXT.md`
 - Phase 58 research: `.planning/phases/58-scoring-and-qa-alignment/58-RESEARCH.md`
 - Phase 58 plans: `58-01-PLAN.md` (taxonomy + normalization) and `58-02-PLAN.md` (gate + i18n/UI)
 - Phase 59 context: `.planning/phases/59-feedback-informed-regeneration/59-CONTEXT.md`
-- Phase 59 plans: `59-01-PLAN.md` (brief builder), `59-02-PLAN.md` (route/persistence), `59-03-PLAN.md` (pre-confirm UI), `59-04-PLAN.md` (tests)
+- Phase 59 summaries: `59-01-SUMMARY.md` through `59-04-SUMMARY.md`; verification `59-VERIFICATION.md`
 - AI quality primitives already exist: prompt contracts, creative score, creative QA, hard quality gate, regeneration suggestions, and beta feedback reports.
 
 ## Key Decisions
@@ -59,8 +59,8 @@ Last activity: 2026-06-05
 
 ## Next Steps
 
-1. Execute Phase 59: `/gsd-execute-phase 59` starting with `59-01-PLAN.md`.
-2. Keep v11.5 focused on contract, score/QA, regeneration and fixtures.
+1. Plan or execute Phase 60 (synthetic quality fixtures / manual verification guide).
+2. Run migration `0028_regeneration_correction_brief.sql` in deployed environments.
 3. Keep deploy ops from v11.4 separate unless it directly blocks quality work.
 
 ## Project Reference
@@ -69,4 +69,4 @@ See: `.planning/PROJECT.md`
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** Execute Phase 59 feedback-informed regeneration (4 plans, 3 waves).
+**Current focus:** Phase 59 complete; next is Phase 60 fixtures/verification.

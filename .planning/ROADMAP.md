@@ -14,7 +14,7 @@ v11.5 improves AI creative quality by aligning the generation contract, visual s
 |-------|------|------|--------------|------------------|
 | 57 | Creative Contract and Prompt Provenance | Complete    | 2026-06-05 | 2026-06-05 |
 | 58 | Scoring and QA Alignment | 2/2 | Complete    | 2026-06-05 |
-| 59 | Feedback-Informed Regeneration | Turn hard failures, QA, score issues, and beta feedback categories into bounded correction briefs. | AIR-01, AIR-02, AIR-03, AIR-04, AIR-05 | 5 |
+| 59 | Feedback-Informed Regeneration | 4/4 | Complete   | 2026-06-05 |
 | 60 | Quality Fixtures and Verification | Add known-failure fixtures, regression tests, and handoff documentation. | FIX-01, FIX-02, FIX-03, FIX-04, FIX-05 | 5 |
 
 ## Phase Details
@@ -70,13 +70,13 @@ Plans:
 
 **Requirements:** AIR-01, AIR-02, AIR-03, AIR-04, AIR-05
 
-**Plans:** 0/4 plans complete
+**Plans:** 4/4 plans complete
 
 Plans:
-- [ ] 59-01-PLAN.md — Unified correction brief builder + gate/score delegation (AIR-01, AIR-02)
-- [ ] 59-02-PLAN.md — Regenerate route persistence + parent contract inheritance (AIR-02, AIR-04)
-- [ ] 59-03-PLAN.md — Pre-confirm primary reason UI + derivations API preview (AIR-03)
-- [ ] 59-04-PLAN.md — Route and brief test coverage for all input paths (AIR-05)
+- [x] 59-01-PLAN.md — Unified correction brief builder + gate/score delegation (AIR-01, AIR-02)
+- [x] 59-02-PLAN.md — Regenerate route persistence + parent contract inheritance (AIR-02, AIR-04)
+- [x] 59-03-PLAN.md — Pre-confirm primary reason UI + derivations API preview (AIR-03)
+- [x] 59-04-PLAN.md — Route and brief test coverage for all input paths (AIR-05)
 
 **Scope:**
 - Build a regeneration correction-brief builder that merges hard failures, score issues, QA issues, and optional feedback category.
