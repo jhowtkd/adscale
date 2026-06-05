@@ -24,11 +24,11 @@ v11.6 turns existing ADScale capabilities into a guided creative decision flow:
 
 ### Guided Briefing
 
-- [ ] **GUIDE-01**: User with a weak brief can answer guided questions one at a time instead of filling a full form up front.
-- [ ] **GUIDE-02**: Guided briefing starts from product/offer and derives audience, promise, objections, CTA, platforms, and constraints.
-- [ ] **GUIDE-03**: User can accept, edit, or skip each guided briefing suggestion.
-- [ ] **GUIDE-04**: Guided answers persist as campaign draft data and remain editable in the normal campaign form.
-- [ ] **GUIDE-05**: Guided briefing supports PT-BR and EN copy without changing generation language rules.
+- [x] **GUIDE-01**: User with a weak brief can answer guided questions one at a time instead of filling a full form up front.
+- [x] **GUIDE-02**: Guided briefing starts from product/offer and derives audience, promise, objections, CTA, platforms, and constraints.
+- [x] **GUIDE-03**: User can accept, edit, or skip each guided briefing suggestion.
+- [x] **GUIDE-04**: Guided answers persist as campaign draft data and remain editable in the normal campaign form.
+- [x] **GUIDE-05**: Guided briefing supports PT-BR and EN copy without changing generation language rules.
 
 ### Strategy Recipes
 

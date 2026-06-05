@@ -117,8 +117,8 @@ Archive: [v11.5-ROADMAP.md](milestones/v11.5-ROADMAP.md) · [v11.5-REQUIREMENTS.
 
 | Phase | Milestone | Plans Complete | Status   | Completed  |
 | ----- | --------- | -------------- | -------- | ---------- |
-| 61    | v11.6     | 0/?            | Planned  | —          |
-| 62    | v11.6     | 0/?            | Planned  | —          |
+| 61    | v11.6     | 2/2            | Complete | 2026-06-05 |
+| 62    | v11.6     | 2/2            | Complete | 2026-06-05 |
 | 63    | v11.6     | 0/?            | Planned  | —          |
 | 64    | v11.6     | 0/?            | Planned  | —          |
 | 65    | v11.6     | 0/?            | Planned  | —          |
