@@ -7,8 +7,57 @@ import { getCampaignById } from "@/server/repositories/campaign";
 import { getAssetWithMetadata, updateAssetMetadata } from "@/server/repositories/asset";
 import { downloadBuffer } from "@/server/storage/r2";
 import { analyzePreflight, preflightResultSchema } from "@/server/ai/preflight-analysis";
+import { buildCreativeReadiness } from "@/server/ai/creative-readiness";
 import { logger } from "@/lib/logger";
 import { spendCreditsOrApiError } from "@/server/billing/gates";
+
+function buildCampaignBrief(campaign: Awaited<ReturnType<typeof getCampaignById>>) {
+  if (!campaign) return undefined;
+  return {
+    name: campaign.name,
+    client: campaign.client,
+    product: campaign.product,
+    objective: campaign.objective,
+    audience: campaign.audience,
+    platforms: campaign.platforms,
+    tone: campaign.tone,
+    offer: campaign.offer,
+    constraints: campaign.constraints,
+    notes: campaign.notes,
+    ctaVariants: campaign.ctaVariants,
+  };
+}
+
+function readinessFromPreflight(
+  preflight: z.infer<typeof preflightResultSchema>,
+  campaign: Awaited<ReturnType<typeof getCampaignById>>,
+  campaignId: string,
+  assetId: string,
+  analyzedAt: string | undefined,
+  preflightStatus: "pending" | "analyzing" | "completed" | "failed"
+) {
+  return buildCreativeReadiness({
+    preflight,
+    campaignId,
+    assetId,
+    analyzedAt,
+    preflightStatus,
+    campaignBrief: buildCampaignBrief(campaign),
+  });
+}
+
+async function parseForceRerun(request: Request): Promise<boolean> {
+  const url = new URL(request.url);
+  if (url.searchParams.get("force") === "1") {
+    return true;
+  }
+  try {
+    const body = await request.clone().json();
+    return body?.force === true;
+  } catch {
+    return false;
+  }
+}
 
 const preflightMetadataSchema = z.object({
   preflightResult: preflightResultSchema,
@@ -43,21 +92,39 @@ export async function GET(
 
     if (isStaleAnalyzing) {
       await updateAssetMetadata(assetId, workspace.id, {}, "pending");
-      return NextResponse.json({ preflight: null, status: "pending" });
+      return NextResponse.json({ preflight: null, readiness: null, status: "pending" });
     }
 
     if (!asset.metadata || (asset.analysisStatus !== "completed" && asset.analysisStatus !== "analyzing")) {
-      return NextResponse.json({ preflight: null, status: asset.analysisStatus ?? "pending" });
+      return NextResponse.json({
+        preflight: null,
+        readiness: null,
+        status: asset.analysisStatus ?? "pending",
+      });
     }
 
     const parsed = preflightMetadataSchema.safeParse(asset.metadata);
     if (!parsed.success) {
-      return NextResponse.json({ preflight: null, status: "pending" });
+      return NextResponse.json({ preflight: null, readiness: null, status: "pending" });
     }
+
+    const status = asset.analysisStatus ?? "pending";
+    const readiness =
+      status === "completed"
+        ? readinessFromPreflight(
+            parsed.data.preflightResult,
+            campaign,
+            campaignId,
+            assetId,
+            parsed.data.analyzedAt,
+            status
+          )
+        : null;
 
     return NextResponse.json({
       preflight: parsed.data.preflightResult,
-      status: asset.analysisStatus,
+      readiness,
+      status,
       analyzedAt: parsed.data.analyzedAt,
     });
   } catch (error) {
@@ -101,11 +168,22 @@ export async function POST(
       return apiError("analysisInProgress", 429);
     }
 
-    if (asset.metadata && asset.analysisStatus === "completed") {
+    const forceRerun = await parseForceRerun(request);
+
+    if (!forceRerun && asset.metadata && asset.analysisStatus === "completed") {
       const parsed = preflightMetadataSchema.safeParse(asset.metadata);
       if (parsed.success) {
+        const readiness = readinessFromPreflight(
+          parsed.data.preflightResult,
+          campaign,
+          campaignId,
+          assetId,
+          parsed.data.analyzedAt,
+          asset.analysisStatus
+        );
         return NextResponse.json({
           preflight: parsed.data.preflightResult,
+          readiness,
           status: asset.analysisStatus,
           analyzedAt: parsed.data.analyzedAt,
           cached: true,
@@ -133,19 +211,7 @@ export async function POST(
         mimeType: asset.type || "image/png",
         claimedWidth: asset.width,
         claimedHeight: asset.height,
-        campaignBrief: {
-          name: campaign.name,
-          client: campaign.client,
-          product: campaign.product,
-          objective: campaign.objective,
-          audience: campaign.audience,
-          platforms: campaign.platforms,
-          tone: campaign.tone,
-          offer: campaign.offer,
-          constraints: campaign.constraints,
-          notes: campaign.notes,
-          ctaVariants: campaign.ctaVariants,
-        },
+        campaignBrief: buildCampaignBrief(campaign),
         locale,
       });
 
@@ -156,8 +222,18 @@ export async function POST(
 
       await updateAssetMetadata(assetId, workspace.id, metadata, "completed");
 
+      const readiness = readinessFromPreflight(
+        result,
+        campaign,
+        campaignId,
+        assetId,
+        metadata.analyzedAt,
+        "completed"
+      );
+
       return NextResponse.json({
         preflight: result,
+        readiness,
         status: "completed",
         analyzedAt: metadata.analyzedAt,
       });

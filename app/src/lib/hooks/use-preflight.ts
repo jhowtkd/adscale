@@ -1,9 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import type { PreflightResult } from "@/server/ai/preflight-analysis";
+import type { CreativeReadinessResult } from "@/server/ai/creative-readiness";
 
 export interface PreflightResponse {
   preflight: PreflightResult | null;
+  readiness: CreativeReadinessResult | null;
   status: "pending" | "analyzing" | "completed" | "failed";
   analyzedAt?: string;
   cached?: boolean;
@@ -18,9 +20,15 @@ async function fetchPreflight(campaignId: string, assetId: string): Promise<Pref
   return res.json() as Promise<PreflightResponse>;
 }
 
-async function analyzePreflight(campaignId: string, assetId: string): Promise<PreflightResponse> {
+async function analyzePreflight(
+  campaignId: string,
+  assetId: string,
+  options?: { force?: boolean }
+): Promise<PreflightResponse> {
   const res = await apiFetch(`/api/campaigns/${campaignId}/assets/${assetId}/preflight`, {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(options?.force ? { force: true } : {}),
     timeoutMs: 120_000,
   });
   if (!res.ok) {
@@ -47,8 +55,16 @@ export function usePreflightScore(assetId: string | null | undefined, campaignId
 export function useAnalyzePreflight() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ campaignId, assetId }: { campaignId: string; assetId: string }) => {
-      return analyzePreflight(campaignId, assetId);
+    mutationFn: async ({
+      campaignId,
+      assetId,
+      force,
+    }: {
+      campaignId: string;
+      assetId: string;
+      force?: boolean;
+    }) => {
+      return analyzePreflight(campaignId, assetId, { force });
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["preflight", variables.campaignId, variables.assetId] });
