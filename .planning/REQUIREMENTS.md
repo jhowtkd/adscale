@@ -31,11 +31,11 @@
 
 ### Quality Fixtures and Verification
 
-- [ ] **FIX-01**: Repository includes a synthetic or sanitized quality fixture set for known failure modes: wrong CTA, cropped text/logo, style-reference factual contamination, poor format adaptation, weak preservation, and low legibility.
-- [ ] **FIX-02**: Automated tests cover prompt contract snapshots for art variation, format adaptation, and restyling.
-- [ ] **FIX-03**: Automated tests cover score/QA normalization and hard failure classification for the known failure modes.
-- [ ] **FIX-04**: Manual verification guide defines how to evaluate one complete quality loop: generation prompt, output, score, QA, hard failure, regeneration suggestion, and regenerated result.
-- [ ] **FIX-05**: Final handoff documents residual limitations that remain model-dependent, especially text rendering, visual consistency, and precise composition.
+- [x] **FIX-01**: Repository includes a synthetic or sanitized quality fixture set for known failure modes: wrong CTA, cropped text/logo, style-reference factual contamination, poor format adaptation, weak preservation, and low legibility.
+- [x] **FIX-02**: Automated tests cover prompt contract snapshots for art variation, format adaptation, and restyling.
+- [x] **FIX-03**: Automated tests cover score/QA normalization and hard failure classification for the known failure modes.
+- [x] **FIX-04**: Manual verification guide defines how to evaluate one complete quality loop: generation prompt, output, score, QA, hard failure, regeneration suggestion, and regenerated result.
+- [x] **FIX-05**: Final handoff documents residual limitations that remain model-dependent, especially text rendering, visual consistency, and precise composition.
 
 ## Future Requirements
 
@@ -79,11 +79,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AIR-03 | Phase 59 | Complete |
 | AIR-04 | Phase 59 | Complete |
 | AIR-05 | Phase 59 | Complete |
-| FIX-01 | Phase 60 | Pending |
-| FIX-02 | Phase 60 | Pending |
-| FIX-03 | Phase 60 | Pending |
-| FIX-04 | Phase 60 | Pending |
-| FIX-05 | Phase 60 | Pending |
+| FIX-01 | Phase 60 | Complete |
+| FIX-02 | Phase 60 | Complete |
+| FIX-03 | Phase 60 | Complete |
+| FIX-04 | Phase 60 | Complete |
+| FIX-05 | Phase 60 | Complete |
 
 **Coverage:**
 - v11.5 requirements: 20 total

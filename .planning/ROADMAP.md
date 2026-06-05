@@ -15,7 +15,7 @@ v11.5 improves AI creative quality by aligning the generation contract, visual s
 | 57 | Creative Contract and Prompt Provenance | Complete    | 2026-06-05 | 2026-06-05 |
 | 58 | Scoring and QA Alignment | 2/2 | Complete    | 2026-06-05 |
 | 59 | Feedback-Informed Regeneration | 4/4 | Complete   | 2026-06-05 |
-| 60 | Quality Fixtures and Verification | Add known-failure fixtures, regression tests, and handoff documentation. | FIX-01, FIX-02, FIX-03, FIX-04, FIX-05 | 5 |
+| 60 | Quality Fixtures and Verification | 4/4 | Complete    | 2026-06-05 |
 
 ## Phase Details
 
@@ -112,13 +112,13 @@ Plans:
 4. Handoff explains how to manually evaluate generation -> score -> QA -> regeneration.
 5. Residual limitations around text rendering, consistency, and precise composition are explicit.
 
-**Plans:** 4 plans
+**Plans:** 4/4 plans complete
 
 Plans:
-- [ ] 60-01-PLAN.md — Synthetic quality fixture catalog (six failure modes)
-- [ ] 60-02-PLAN.md — Fixture-linked prompt contract regression snapshots
-- [ ] 60-03-PLAN.md — Score/QA/gate/regeneration pipeline regression matrix
-- [ ] 60-04-PLAN.md — Manual handoff, limitations doc, and full validation gate
+- [x] 60-01-PLAN.md — Synthetic quality fixture catalog (six failure modes)
+- [x] 60-02-PLAN.md — Fixture-linked prompt contract regression snapshots
+- [x] 60-03-PLAN.md — Score/QA/gate/regeneration pipeline regression matrix
+- [x] 60-04-PLAN.md — Manual handoff, limitations doc, and full validation gate
 
 ## Requirement Traceability
 
