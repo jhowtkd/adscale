@@ -26,6 +26,10 @@ vi.mock("@/server/repositories/campaign", () => ({
   refreshCampaignStatus: vi.fn(),
 }));
 
+vi.mock("@/server/repositories/feedback", () => ({
+  getLatestOpenFeedbackReportForDerivation: vi.fn(),
+}));
+
 vi.mock("@/server/jobs/client", () => ({
   inngest: { send: vi.fn() },
 }));
@@ -43,14 +47,33 @@ import {
   createDerivation,
   getActiveChildrenByParent,
 } from "@/server/repositories/derivation";
+import { getLatestOpenFeedbackReportForDerivation } from "@/server/repositories/feedback";
 import { updateCampaign } from "@/server/repositories/campaign";
 import { inngest } from "@/server/jobs/client";
+import { FACTUAL_SOURCE_RULES } from "@/server/ai/creative-contract";
 
 const mockGetDerivationById = vi.mocked(getDerivationById);
 const mockCreateDerivation = vi.mocked(createDerivation);
 const mockGetActiveChildrenByParent = vi.mocked(getActiveChildrenByParent);
+const mockGetLatestOpenFeedbackReportForDerivation = vi.mocked(
+  getLatestOpenFeedbackReportForDerivation
+);
 const mockUpdateCampaign = vi.mocked(updateCampaign);
 const mockInngestSend = vi.mocked(inngest.send);
+
+const parentContract = {
+  generationMode: "art_variation" as const,
+  targetFormat: "4:5",
+  ctaSemantics: { kind: "explicit" as const, text: "Shop Now" },
+  baseAssetId: "asset-base",
+  styleAssetId: null,
+  client: "Acme Corp",
+  product: "Premium Widget",
+  offer: "20% off",
+  constraints: null,
+  sourcePackage: "campaign_asset" as const,
+  factualSourceRules: FACTUAL_SOURCE_RULES,
+};
 
 function requestWith(body: unknown): Request {
   return new Request("http://localhost/api/derivations/source-id/regenerate", {
@@ -68,6 +91,14 @@ describe("POST /api/derivations/[id]/regenerate", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetActiveChildrenByParent.mockResolvedValue([]);
+    mockGetLatestOpenFeedbackReportForDerivation.mockResolvedValue(null);
+    mockCreateDerivation.mockResolvedValue({
+      id: "child-id",
+      campaignId: "campaign-id",
+      workspaceId: "workspace-1",
+      status: "queued",
+    } as Awaited<ReturnType<typeof createDerivation>>);
+    mockInngestSend.mockResolvedValue({ ids: ["event-id"] });
   });
 
   afterEach(() => {
@@ -114,36 +145,25 @@ describe("POST /api/derivations/[id]/regenerate", () => {
       variantIndex: 0,
       ctaText: "Shop now",
       format: "1:1",
+      hardFailures: [{ code: "cta_drift", message: "CTA missing" }],
+      creativeContract: parentContract,
     } as Awaited<ReturnType<typeof getDerivationById>>);
-    mockCreateDerivation.mockResolvedValue({
-      id: "child-id",
-      campaignId: "campaign-id",
-      workspaceId: "workspace-1",
-      status: "queued",
-    } as Awaited<ReturnType<typeof createDerivation>>);
-    mockInngestSend.mockResolvedValue({ ids: ["event-id"] });
 
     const res = await POST(requestWith({ feedback: "try a warmer style" }), {
       params: paramsWith("source-id"),
     });
 
     expect(res.status).toBe(201);
-    expect(mockGetActiveChildrenByParent).toHaveBeenCalledWith("source-id", "workspace-1");
     expect(mockCreateDerivation).toHaveBeenCalledWith(
       expect.objectContaining({
         parentId: "source-id",
-        feedback: "try a warmer style",
         status: "queued",
+        feedback: expect.stringContaining("Additional notes: try a warmer style"),
       })
-    );
-    expect(mockUpdateCampaign).toHaveBeenCalledWith(
-      "campaign-id",
-      "workspace-1",
-      { status: "generating" }
     );
   });
 
-  it("uses parent regenerationSuggestion when feedback is omitted", async () => {
+  it("uses unified brief from parent quality fields when feedback is omitted", async () => {
     mockGetDerivationById.mockResolvedValue({
       id: "source-id",
       campaignId: "campaign-id",
@@ -154,52 +174,150 @@ describe("POST /api/derivations/[id]/regenerate", () => {
       variantIndex: 0,
       ctaText: "Shop now",
       format: "1:1",
-      regenerationSuggestion:
-        "Hard failures: [cta_drift]. Fix cta_drift: CTA missing. Preserve the exact CTA \"Shop now\".",
+      hardFailures: [{ code: "cta_drift", message: "CTA missing" }],
+      scoreIssues: ["Low contrast on headline"],
+      qaChecklist: {
+        legibility: { status: "failed", note: "Text too small" },
+        ctaOffer: { status: "passed", note: "OK" },
+        informationPreservation: { status: "passed", note: "OK" },
+        briefMatch: { status: "passed", note: "OK" },
+        formatFit: { status: "passed", note: "OK" },
+        creativeRisk: { status: "passed", note: "OK" },
+      },
+      regenerationSuggestion: "Legacy suggestion text",
+      creativeContract: parentContract,
     } as Awaited<ReturnType<typeof getDerivationById>>);
-    mockCreateDerivation.mockResolvedValue({
-      id: "child-id",
-      campaignId: "campaign-id",
-      workspaceId: "workspace-1",
-      status: "queued",
-    } as Awaited<ReturnType<typeof createDerivation>>);
-    mockInngestSend.mockResolvedValue({ ids: ["event-id"] });
 
     const res = await POST(requestWith({}), { params: paramsWith("source-id") });
 
     expect(res.status).toBe(201);
     expect(mockCreateDerivation).toHaveBeenCalledWith(
       expect.objectContaining({
-        feedback: expect.stringContaining("Hard failures: [cta_drift]"),
+        feedback: expect.stringMatching(/Hard failures:|Score issues:|QA issues:/),
       })
     );
   });
 
-  it("keeps explicit user feedback when provided", async () => {
+  it("reconstructs brief from hardFailures when suggestion empty", async () => {
     mockGetDerivationById.mockResolvedValue({
       id: "source-id",
       campaignId: "campaign-id",
       workspaceId: "workspace-1",
       status: "completed",
-      regenerationSuggestion: "Hard failures: [cta_drift]. Fix cta_drift: CTA missing.",
       generationMode: "art_variation",
-      variantIndex: 0,
+      ctaText: "Shop Now",
+      format: "4:5",
+      hardFailures: [{ code: "wrong_brand", message: "Logo mismatch." }],
+      regenerationSuggestion: null,
+      creativeContract: parentContract,
+    } as Awaited<ReturnType<typeof getDerivationById>>);
+
+    const res = await POST(requestWith({}), { params: paramsWith("source-id") });
+
+    expect(res.status).toBe(201);
+    expect(mockCreateDerivation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        feedback: expect.stringMatching(/wrong_brand.*Preserve the exact CTA/s),
+      })
+    );
+  });
+
+  it("keeps explicit user feedback merged with machine brief", async () => {
+    mockGetDerivationById.mockResolvedValue({
+      id: "source-id",
+      campaignId: "campaign-id",
+      workspaceId: "workspace-1",
+      status: "completed",
+      hardFailures: [{ code: "cta_drift", message: "CTA missing" }],
+      generationMode: "art_variation",
       ctaText: "Shop now",
       format: "1:1",
+      creativeContract: parentContract,
     } as Awaited<ReturnType<typeof getDerivationById>>);
-    mockCreateDerivation.mockResolvedValue({
-      id: "child-id",
-      status: "queued",
-    } as Awaited<ReturnType<typeof createDerivation>>);
-    mockInngestSend.mockResolvedValue({ ids: ["event-id"] });
 
     const res = await POST(requestWith({ feedback: "warmer palette only" }), {
       params: paramsWith("source-id"),
     });
 
     expect(res.status).toBe(201);
+    const createArg = mockCreateDerivation.mock.calls[0]?.[0];
+    expect(createArg?.feedback).toContain("Hard failures:");
+    expect(createArg?.feedback).toContain("Additional notes: warmer palette only");
+  });
+
+  it("includes feedback category context when open report exists", async () => {
+    mockGetLatestOpenFeedbackReportForDerivation.mockResolvedValue({
+      category: "generation",
+    });
+    mockGetDerivationById.mockResolvedValue({
+      id: "source-id",
+      campaignId: "campaign-id",
+      workspaceId: "workspace-1",
+      status: "completed",
+      hardFailures: [{ code: "cta_drift", message: "CTA missing" }],
+      generationMode: "art_variation",
+      ctaText: "Shop now",
+      format: "1:1",
+      creativeContract: parentContract,
+    } as Awaited<ReturnType<typeof getDerivationById>>);
+
+    await POST(requestWith({}), { params: paramsWith("source-id") });
+
+    const createArg = mockCreateDerivation.mock.calls[0]?.[0];
+    expect(createArg?.feedback).toContain("Feedback context (generation)");
+    expect(createArg?.feedback).not.toContain("secret user message");
+  });
+
+  it("persists regenerationCorrectionBrief on child", async () => {
+    mockGetDerivationById.mockResolvedValue({
+      id: "source-id",
+      campaignId: "campaign-id",
+      workspaceId: "workspace-1",
+      status: "completed",
+      hardFailures: [{ code: "cta_drift", message: "CTA missing" }],
+      generationMode: "art_variation",
+      ctaText: "Shop now",
+      format: "1:1",
+      creativeContract: parentContract,
+    } as Awaited<ReturnType<typeof getDerivationById>>);
+
+    await POST(requestWith({}), { params: paramsWith("source-id") });
+
     expect(mockCreateDerivation).toHaveBeenCalledWith(
-      expect.objectContaining({ feedback: "warmer palette only" })
+      expect.objectContaining({
+        regenerationCorrectionBrief: expect.objectContaining({
+          sources: expect.arrayContaining(["hard_failures"]),
+          contractSnapshot: parentContract,
+          promptFeedback: expect.any(String),
+        }),
+      })
+    );
+  });
+
+  it("inherits parent creativeContract on child", async () => {
+    mockGetDerivationById.mockResolvedValue({
+      id: "source-id",
+      campaignId: "campaign-id",
+      workspaceId: "workspace-1",
+      status: "completed",
+      hardFailures: [{ code: "cta_drift", message: "CTA missing" }],
+      generationMode: "art_variation",
+      ctaText: "Shop now",
+      format: "1:1",
+      creativeContract: parentContract,
+    } as Awaited<ReturnType<typeof getDerivationById>>);
+
+    await POST(requestWith({}), { params: paramsWith("source-id") });
+
+    expect(mockCreateDerivation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        creativeContract: parentContract,
+      })
+    );
+    expect(mockUpdateCampaign).toHaveBeenCalledWith(
+      "campaign-id",
+      "workspace-1",
+      { status: "generating" }
     );
   });
 });
