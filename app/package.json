@@ -29,7 +29,6 @@
     "@base-ui/react": "^1.4.1",
     "@getzep/zep-cloud": "^3.22.0",
     "@neondatabase/serverless": "^1.1.0",
-    "@next/bundle-analyzer": "^16.2.7",
     "@sentry/nextjs": "^10.53.1",
     "@tailwindcss/postcss": "^4.3.0",
     "@tanstack/react-query": "^5.100.1",
@@ -68,9 +67,8 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
-    "@next/bundle-analyzer": "^16.2.6",
+    "@next/bundle-analyzer": "^16.2.7",
     "@playwright/test": "^1.60.0",
-    "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@vitejs/plugin-react": "^6.0.1",
