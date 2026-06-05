@@ -9,7 +9,7 @@ last_activity: 2026-06-05
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 2
+  total_plans: 4
   completed_plans: 2
 ---
 
@@ -18,14 +18,14 @@ progress:
 ## Current Position
 
 Milestone: v11.5 — Qualidade IA Orientada por Feedback
-Phase: 58 — Scoring and QA Alignment (context gathered)
-Plan: Not started — next: plan Phase 58
-Status: Ready for planning
+Phase: 58 — Scoring and QA Alignment (planned)
+Plan: 58-01-PLAN.md — next: execute Phase 58
+Status: Ready for execution
 Last activity: 2026-06-05
 
 **Last session:** 2026-06-05T17:01:24.411Z
-**Stopped At:** Phase 58 context gathered
-**Resume File:** .planning/phases/58-scoring-and-qa-alignment/58-CONTEXT.md
+**Stopped At:** Phase 58 plans created
+**Resume File:** .planning/phases/58-scoring-and-qa-alignment/58-01-PLAN.md
 
 ## Accumulated Context
 
@@ -39,6 +39,8 @@ Last activity: 2026-06-05
 - Migrations: through `app/drizzle/0027_creative_contract_provenance.sql` (creative_contract + prompt_provenance JSONB on derivations).
 - Phase 57-01 summary: `.planning/phases/57-creative-contract-and-prompt-provenance/57-01-SUMMARY.md`
 - Phase 58 context: `.planning/phases/58-scoring-and-qa-alignment/58-CONTEXT.md`
+- Phase 58 research: `.planning/phases/58-scoring-and-qa-alignment/58-RESEARCH.md`
+- Phase 58 plans: `58-01-PLAN.md` (taxonomy + normalization) and `58-02-PLAN.md` (gate + i18n/UI)
 - AI quality primitives already exist: prompt contracts, creative score, creative QA, hard quality gate, regeneration suggestions, and beta feedback reports.
 
 ## Key Decisions
@@ -53,7 +55,7 @@ Last activity: 2026-06-05
 
 ## Next Steps
 
-1. Plan Phase 58 from `.planning/phases/58-scoring-and-qa-alignment/58-CONTEXT.md`.
+1. Execute Phase 58: `/gsd-execute-phase 58` (start with 58-01-PLAN.md).
 2. Keep v11.5 focused on contract, score/QA, regeneration and fixtures.
 3. Keep deploy ops from v11.4 separate unless it directly blocks quality work.
 
@@ -63,4 +65,4 @@ See: `.planning/PROJECT.md`
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** Plan Phase 58 scoring/QA alignment from `.planning/phases/58-scoring-and-qa-alignment/58-CONTEXT.md`.
+**Current focus:** Execute Phase 58 scoring/QA alignment from `58-01-PLAN.md`.

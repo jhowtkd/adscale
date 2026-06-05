@@ -44,6 +44,12 @@ v11.5 improves AI creative quality by aligning the generation contract, visual s
 
 **Requirements:** AIQ-01, AIQ-02, AIQ-03, AIQ-04, AIQ-05
 
+**Plans:** 2 plans
+
+Plans:
+- [ ] 58-01-PLAN.md — Shared taxonomy + score/QA normalization (AIQ-01, AIQ-02)
+- [ ] 58-02-PLAN.md — Gate alignment, verdict rules, PT-BR/EN UI copy (AIQ-03, AIQ-04, AIQ-05)
+
 **Scope:**
 - Define shared quality taxonomy used by `creative-score`, `creative-qa`, and `creative-quality-gate`.
 - Validate and normalize score/QA outputs with explicit schema expectations.
