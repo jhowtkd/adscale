@@ -1,40 +1,40 @@
-# Pitfalls Research: v11.4 Beta Feedback Capture
+# Pitfalls Research: v11.5 Qualidade IA Orientada por Feedback
 
 **Date:** 2026-06-05
-**Milestone:** v11.4 Beta Feedback Capture
+**Milestone:** v11.5 Qualidade IA Orientada por Feedback
 
-## Pitfall: Too Much Data Collection
+## Pitfall: Prompt Changes Break Existing Modes
 
-**Risk:** Session, log or network capture accidentally stores customer data, prompts, auth details or private creative content.
+**Risk:** Fixing one mode degrades another, especially art variation vs format adaptation vs restyling.
 
-**Prevention:** Store structured IDs and asset references by default. Bound and sanitize breadcrumbs. Keep Sentry replay masking conservative. Make screenshots/session links optional and explicitly documented.
+**Prevention:** Add prompt snapshots and fixtures per mode before broad prompt changes.
 
-## Pitfall: Feedback Without Repro Context
+## Pitfall: Scoring Contradicts QA
 
-**Risk:** Users submit "it failed" and the owner still has to ask what page, campaign, image or output they meant.
+**Risk:** User sees high score and hard failure at the same time, or QA suggests export while review blocks approval.
 
-**Prevention:** Context collector must capture route, workspace, campaign, derivation, active flow step, asset references and Sentry IDs before submission.
+**Prevention:** Standardize criteria names, verdict thresholds and hard failure taxonomy across score, QA and quality gate.
 
-## Pitfall: Cross-Workspace Leakage
+## Pitfall: Feedback Becomes Prompt Injection
 
-**Risk:** A report references assets or derivations outside the submitting workspace, especially from stale client state.
+**Risk:** Beta feedback text is passed directly into regeneration and overrides hard rules.
 
-**Prevention:** Server validates every referenced entity through workspace-scoped repositories before storing it.
+**Prevention:** Convert feedback to categorized issue context; never let feedback override contract fields.
 
-## Pitfall: Sentry-Only Triage
+## Pitfall: Overblocking
 
-**Risk:** Sentry captures errors but lacks product-specific status, owner notes, asset review and suggestion tracking.
+**Risk:** QA blocks too many outputs for subjective polish issues and users lose trust.
 
-**Prevention:** Durable ADScale report remains source of truth; Sentry IDs are correlation fields, not the primary feedback database.
+**Prevention:** Keep hard failures limited to contract-breaking issues: wrong CTA, missing offer/product, severe illegibility, bad format, factual contamination, unsafe cropping.
 
-## Pitfall: Widget Noise
+## Pitfall: No Visual Evidence
 
-**Risk:** Beta users ignore the tool if it feels like support software or interrupts creative work.
+**Risk:** Tests only assert strings and miss real visual failures.
 
-**Prevention:** Keep one global entry plus contextual "report this output/problem" actions. Use short categories and fast submission.
+**Prevention:** Combine prompt/logic tests with a small manual or semi-automated fixture checklist for known visual failure categories.
 
-## Pitfall: Owner Surface Becomes Admin Sprawl
+## Pitfall: Costly Auto Loops
 
-**Risk:** The first review UI grows into a full support/admin system.
+**Risk:** Automatic regeneration loops burn credits and still fail.
 
-**Prevention:** Scope to list, filters, detail, asset previews, notes and status. Defer assignment, SLA, notifications and public replies.
+**Prevention:** Keep regeneration user-confirmed; improve suggestions and context before automating retries.

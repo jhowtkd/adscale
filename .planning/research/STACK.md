@@ -1,49 +1,51 @@
-# Stack Research: v11.4 Beta Feedback Capture
+# Stack Research: v11.5 Qualidade IA Orientada por Feedback
 
 **Date:** 2026-06-05
-**Milestone:** v11.4 Beta Feedback Capture
+**Milestone:** v11.5 Qualidade IA Orientada por Feedback
 
 ## Existing Stack To Reuse
 
-- Next.js App Router, React, TypeScript, Tailwind and shadcn/ui for the feedback widget, modal and owner review surface.
-- Better Auth and workspace membership for authenticated, workspace-scoped submission and review.
-- Drizzle/Neon for durable feedback reports and diagnostic package metadata.
-- Cloudflare R2 for existing campaign/workspace assets; feedback reports should store asset references and signed-preview access rather than duplicate creative files.
-- Sentry is already initialized through `app/src/instrumentation.ts`, `app/src/lib/sentry.ts`, `SentryErrorBoundary`, and `captureRequestError`.
-- Existing logger can continue to emit server context; this milestone should add correlation IDs and report IDs around feedback submission.
+- Next.js App Router, TypeScript, Drizzle and Inngest remain the execution backbone.
+- OpenAI text model is used for scoring, QA, diagnosis and plan generation through Responses/Chat APIs.
+- OpenAI image generation/editing runs through `openai.images.generate` and `openai.images.edit` in `app/src/server/jobs/derivation.ts`.
+- Existing quality primitives:
+  - `app/src/server/ai/prompt-builder.ts`
+  - `app/src/server/ai/creative-score.ts`
+  - `app/src/server/ai/creative-qa.ts`
+  - `app/src/server/ai/creative-quality-gate.ts`
+  - `app/src/lib/derivation-regeneration-feedback.ts`
+  - feedback reports in `feedback_reports`
 
-## Sentry Capabilities Relevant To This Milestone
+## Official API Notes Relevant To Quality
 
-- `captureFeedback` can submit a feedback message with URL, source, tags, associated event ID and extra capture context.
-- Sentry scope enrichment supports user, tags, contexts, extras and breadcrumbs, which are useful for workspace/campaign/derivation correlation.
-- Breadcrumbs can capture recent UI, navigation, fetch and console context before a report, but must be filtered for sensitive values.
-- Session Replay can provide visual history, but default privacy behavior masks text, images and inputs; ADScale should keep that conservative default unless an explicit, scoped exception is needed.
-- Sentry logs are useful for searching related text logs alongside errors, but the product still needs its own database record because owner triage status, campaign links and asset references are product data.
+- OpenAI image docs identify persistent limitations around text rendering, visual consistency across generations, and precise composition/layout control.
+- The image API exposes output size, quality, format, compression and background options; ADScale already maps target formats through `app/src/lib/formats.ts`.
+- The Responses image generation tool can expose a revised prompt, and the Image API can return `revised_prompt` in some flows. ADScale currently stores `inputPrompt` and `prompt`/revised prompt fields, but the quality loop should make prompt provenance easier to compare.
+- Structured Outputs support JSON schema subsets and are better suited than loose JSON mode when the application needs stable scoring/QA shapes.
 
-## Recommended Additions
+## Recommended Stack Additions
 
-- Feedback report database tables:
-  - `beta_feedback_reports`: workspace, user, type, severity, category, message, route, locale, status, Sentry feedback ID/event ID/replay ID, created/resolved timestamps.
-  - `beta_feedback_context`: normalized diagnostic JSON for page state, campaign, derivation, client breadcrumbs, browser info, build/version and request correlation.
-  - `beta_feedback_assets`: references to campaign assets, workspace assets and derivation outputs needed to analyze the report.
-- Small client context collector:
-  - current pathname/search/hash
-  - locale
-  - workspace ID
-  - active campaign/derivation IDs if present
-  - visible step/tab/action
-  - recent bounded client breadcrumbs
-  - last Sentry event ID when available
-- Owner-only review route inside the authenticated app, not in the public marketing site.
+- No new provider or model migration in this milestone.
+- Add internal quality fixture files for representative failure modes:
+  - wrong CTA
+  - cropped/hidden logo or text
+  - style-reference factual contamination
+  - format adaptation that looks like a padded/cropped poster
+  - weak preservation of product/offer
+  - low legibility
+- Add contract snapshot tests for prompt-builder outputs by generation mode.
+- Add stable schema validation for score/QA outputs with Zod or existing typed normalizers.
+- Add a lightweight quality-debug view or report section only if needed to inspect prompt, contract, score, QA, and regeneration suggestion together.
 
 ## What Not To Add
 
-- Do not create a separate unauthenticated microservice for beta feedback.
-- Do not upload raw screenshots by default; store optional screenshot/session references only if privacy and storage boundaries are explicit.
-- Do not expose full logs or raw prompts to beta users or across workspaces.
+- Do not switch image models as the primary fix.
+- Do not create an autonomous agent loop that spends credits repeatedly without user control.
+- Do not make QA block every export; keep blocking reserved for hard failures.
+- Do not store raw private creative assets in test fixtures unless sanitized/synthetic.
 
 ## Sources
 
-- Sentry Next.js docs via Context7: `captureFeedback`, breadcrumbs, user/tags/context, `captureRequestError`.
-- Sentry Session Replay docs: default masking for text, images and inputs.
-- ADScale repo inspection: existing Sentry, logger, campaign assets, workspace assets and derivation feedback primitives.
+- OpenAI Image generation docs: image model options, revised prompt, limitations around text rendering/consistency/composition.
+- OpenAI Structured Outputs docs: stable JSON/schema-driven model outputs.
+- ADScale repo inspection on 2026-06-05.
