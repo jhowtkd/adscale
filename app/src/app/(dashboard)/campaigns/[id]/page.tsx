@@ -33,6 +33,8 @@ import {
 import ActionCards from "@/components/workspace/ActionCards";
 import DerivationGrid from "@/components/workspace/DerivationGrid";
 import DerivarModal from "@/components/workspace/DerivarModal";
+import StrategyRecipePanel from "@/components/workspace/StrategyRecipePanel";
+import PreviewGatePanel from "@/components/workspace/PreviewGatePanel";
 import ArtVariationConfigModal from "@/components/workspace/ArtVariationConfigModal";
 import FormatAdaptationConfigModal from "@/components/workspace/FormatAdaptationConfigModal";
 import EstilizarModal from "@/components/workspace/EstilizarModal";
@@ -49,6 +51,8 @@ import CampaignNotFoundState from "@/components/campaigns/CampaignNotFoundState"
 
 import { useCampaignWorkspace } from "@/lib/hooks/use-campaign-workspace";
 import { useDerivationFlow, type DerivationIntent } from "@/lib/hooks/use-derivation-flow";
+import { usePreflightScore } from "@/lib/hooks/use-preflight";
+import { useBrandKit } from "@/lib/hooks/use-brand-kit";
 import { useTranslations } from "next-intl";
 
 type WorkspaceHookResult = ReturnType<typeof useCampaignWorkspace>;
@@ -90,12 +94,14 @@ export default function CampaignWorkspacePage() {
   const [briefingView, setBriefingView] = useState<"guided" | "full">("guided");
   const [showEstilizarModal, setShowEstilizarModal] = useState(false);
   const {
+    isStrategyRecipeOpen,
     isChooserOpen,
     isArtConfigOpen,
     isFormatConfigOpen,
     artConfigIntent,
     formatConfigIntent,
     openChooser,
+    openLegacyChooser,
     selectIntent,
     backToChooser,
     closeFlow,
@@ -134,6 +140,10 @@ export default function CampaignWorkspacePage() {
     handleGenerateLandingPage,
     handleSaveAsReference,
     hasActivePreview,
+    previewDerivation,
+    showPreviewGate,
+    batchCreditEstimate,
+    approvePreviewToBatch,
     handlePreview,
     handleDownloadDerivation,
     handleRegenerateDerivation,
@@ -165,6 +175,7 @@ export default function CampaignWorkspacePage() {
   } = useCampaignWorkspace(campaignId, isNew);
 
   const { data: campaignAssets } = useCampaignAssets(campaignId);
+  const { data: brandKit } = useBrandKit();
   const reviewDerivation = useMemo(
     () => allDerivations.find((item) => item.id === reviewDerivationId) ?? null,
     [allDerivations, reviewDerivationId]
@@ -177,6 +188,10 @@ export default function CampaignWorkspacePage() {
     if (!reviewDerivation?.styleAssetId || !campaignAssets) return null;
     return campaignAssets.find((asset) => asset.id === reviewDerivation.styleAssetId) ?? null;
   }, [reviewDerivation, campaignAssets]);
+  const { data: preflightData } = usePreflightScore(
+    campaignId,
+    baseAsset?.id ?? null
+  );
 
   const handleSimulatePersonas = (derivationId: string) => {
     setPersonaSimulation({ isOpen: true, selectedId: derivationId });
@@ -289,6 +304,21 @@ export default function CampaignWorkspacePage() {
     });
   };
 
+  const handleStrategyRecipePreview = async (patch: {
+    generationMode: "art_variation" | "format_adaptation";
+    creativeLevel: "conservative" | "balanced" | "bold" | "extreme";
+    ctaVariants: string[];
+    targetFormats?: string[];
+  }) => {
+    closeFlow();
+    goToGenerating();
+    await configureAndGenerate(patch, { preview: true });
+  };
+
+  const handleOpenLegacyDerivationChooser = () => {
+    openLegacyChooser();
+  };
+
   const handleEstilizarSubmit = async (data: {
     styleReferenceFiles: File[];
     intensity: string;
@@ -391,6 +421,15 @@ export default function CampaignWorkspacePage() {
         onBriefingViewChange={setBriefingView}
         guidedBriefingHints={guidedBriefingHints}
         onSkipBriefing={handleSkipBriefing}
+        showPreviewGate={showPreviewGate}
+        previewDerivation={previewDerivation}
+        batchCreditEstimate={batchCreditEstimate}
+        onApprovePreviewBatch={approvePreviewToBatch}
+        onReviseStrategyRecipe={() => {
+          openChooser();
+          goToDerivation();
+        }}
+        createDerivationsPending={createDerivationsPending}
         onOpenDerivar={() => {
           openChooser();
           goToDerivation();
@@ -447,12 +486,25 @@ export default function CampaignWorkspacePage() {
         selectedDeliverySource={selectedDeliverySource}
         visibility={{
           delivery: deliveryModalOpen,
+          strategyRecipe: isStrategyRecipeOpen,
           derivationChooser: isChooserOpen,
           artConfig: isArtConfigOpen,
           formatConfig: isFormatConfigOpen,
           estilizar: showEstilizarModal,
           delete: showDeleteDialog,
         }}
+        readiness={preflightData?.readiness}
+        brandKit={brandKit}
+        campaignRecipeContext={{
+          ctaVariants: campaign?.ctaVariants,
+          targetFormats: campaign?.targetFormats,
+          platforms: campaign?.platforms,
+          generationMode: campaign?.generationMode,
+          creativeLevel: campaign?.creativeLevel,
+          suggestedCta: analysis.suggestedCta,
+        }}
+        onStrategyRecipePreview={handleStrategyRecipePreview}
+        onOpenLegacyDerivationChooser={handleOpenLegacyDerivationChooser}
         pending={{
           export: exportPending,
           deliveryPackage: deliveryPackagePending,
@@ -627,6 +679,12 @@ interface CampaignWorkspaceCardProps {
   onSkipBriefing: () => void;
   onOpenDerivar: () => void;
   onOpenEstilizar: () => void;
+  showPreviewGate?: boolean;
+  previewDerivation?: WorkspaceHookResult["previewDerivation"];
+  batchCreditEstimate?: number;
+  onApprovePreviewBatch?: () => void;
+  onReviseStrategyRecipe?: () => void;
+  createDerivationsPending?: boolean;
   isDerivationsError?: boolean;
   derivationsErrorKind?: string | null;
   onRetryDerivations?: () => void;
@@ -665,6 +723,12 @@ function CampaignWorkspaceCard({
   onSkipBriefing,
   onOpenDerivar,
   onOpenEstilizar,
+  showPreviewGate,
+  previewDerivation,
+  batchCreditEstimate,
+  onApprovePreviewBatch,
+  onReviseStrategyRecipe,
+  createDerivationsPending,
   isDerivationsError,
   derivationsErrorKind,
   onRetryDerivations,
@@ -753,6 +817,24 @@ function CampaignWorkspaceCard({
               onDerivar={onOpenDerivar}
               onEstilizar={onOpenEstilizar}
             />
+            {showPreviewGate && previewDerivation && onApprovePreviewBatch && onReviseStrategyRecipe && (
+              <PreviewGatePanel
+                preview={{
+                  id: previewDerivation.id,
+                  name: previewDerivation.name,
+                  imageUrl: previewDerivation.imageUrl,
+                  status: previewDerivation.status,
+                  qualityScore: previewDerivation.qualityScore,
+                  qualityVerdict: previewDerivation.qualityVerdict,
+                  creditCost: previewDerivation.creditCost,
+                }}
+                previewCreditsSpent={5}
+                batchCredits={batchCreditEstimate ?? 0}
+                isApproving={createDerivationsPending}
+                onReviseRecipe={onReviseStrategyRecipe}
+                onApproveBatch={onApprovePreviewBatch}
+              />
+            )}
             <div>
               <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-3">
                 Derivações
@@ -802,6 +884,7 @@ function CampaignWorkspaceCard({
 
 interface CampaignWorkspaceModalVisibility {
   delivery: boolean;
+  strategyRecipe: boolean;
   derivationChooser: boolean;
   artConfig: boolean;
   formatConfig: boolean;
@@ -846,6 +929,16 @@ interface CampaignWorkspaceModalsProps {
   }) => void;
   onDeleteDialogOpenChange: (open: boolean) => void;
   onConfirmDelete: () => void;
+  readiness?: import("@/server/ai/creative-readiness").CreativeReadinessResult | null;
+  brandKit?: import("@/lib/hooks/use-brand-kit").BrandKitWithUrl | null;
+  campaignRecipeContext?: import("@/server/ai/strategy-recipes").CampaignRecipeContext;
+  onStrategyRecipePreview: (patch: {
+    generationMode: "art_variation" | "format_adaptation";
+    creativeLevel: "conservative" | "balanced" | "bold" | "extreme";
+    ctaVariants: string[];
+    targetFormats?: string[];
+  }) => void | Promise<void>;
+  onOpenLegacyDerivationChooser: () => void;
 }
 
 function CampaignWorkspaceModals({
@@ -873,6 +966,11 @@ function CampaignWorkspaceModals({
   onEstilizarSubmit,
   onDeleteDialogOpenChange,
   onConfirmDelete,
+  readiness,
+  brandKit,
+  campaignRecipeContext,
+  onStrategyRecipePreview,
+  onOpenLegacyDerivationChooser,
 }: CampaignWorkspaceModalsProps) {
   return (
     <>
@@ -897,6 +995,25 @@ function CampaignWorkspaceModals({
           campaignName={campaign?.name}
         />
       )}
+
+      <StrategyRecipePanel
+        open={visibility.strategyRecipe}
+        readiness={readiness}
+        brandKit={
+          brandKit
+            ? {
+                constraints: brandKit.constraints,
+                toneOfVoice: brandKit.toneOfVoice,
+                prohibitedElements: brandKit.prohibitedElements,
+              }
+            : null
+        }
+        campaign={campaignRecipeContext}
+        isSubmitting={pending.derivation}
+        onClose={onCloseDerivationFlow}
+        onOpenAdvanced={onOpenLegacyDerivationChooser}
+        onGeneratePreview={onStrategyRecipePreview}
+      />
 
       <DerivarModal
         open={visibility.derivationChooser}

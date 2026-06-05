@@ -22,6 +22,10 @@ import {
   derivationNeedsRegenerateDialog,
 } from "@/lib/derivation-regeneration-feedback";
 import { useTranslations } from "next-intl";
+import {
+  estimateCreditCost,
+  type RecipeGenerationConfig,
+} from "@/server/ai/strategy-recipes";
 
 export type WorkspaceState =
   | "piloto"           // upload + briefing
@@ -258,12 +262,15 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
   );
 
   const configureAndGenerate = useCallback(
-    async (config: {
-      generationMode: "art_variation" | "format_adaptation";
-      ctaVariants?: string[];
-      targetFormats?: string[];
-      creativeLevel?: string;
-    }) => {
+    async (
+      config: {
+        generationMode: "art_variation" | "format_adaptation";
+        ctaVariants?: string[];
+        targetFormats?: string[];
+        creativeLevel?: string;
+      },
+      options?: { preview?: boolean }
+    ) => {
       if (!campaign || isNew) return;
 
       try {
@@ -271,15 +278,26 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
           generationMode: config.generationMode,
           ...(config.ctaVariants && { ctaVariants: config.ctaVariants }),
           ...(config.targetFormats && { targetFormats: config.targetFormats }),
-          ...(config.creativeLevel && { creativeLevel: config.creativeLevel as "conservative" | "balanced" | "bold" | "extreme" }),
+          ...(config.creativeLevel && {
+            creativeLevel: config.creativeLevel as
+              | "conservative"
+              | "balanced"
+              | "bold"
+              | "extreme",
+          }),
         });
-        handleGenerateDerivations();
+        handleGenerateDerivations({ preview: options?.preview ?? false });
       } catch {
         addToast("error", tc("failedQueueDerivations"));
       }
     },
     [campaign, isNew, updateCampaign, handleGenerateDerivations, addToast, tc]
   );
+
+  const approvePreviewToBatch = useCallback(() => {
+    if (createDerivations.isPending) return;
+    handleGenerateDerivations();
+  }, [createDerivations.isPending, handleGenerateDerivations]);
 
   const handleRestyle = useCallback(
     async (input: { styleAssetIds?: string[]; styleIntensity?: string }) => {
@@ -311,7 +329,42 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
     [addToast]
   );
 
-  const hasActivePreview = false;
+  const previewDerivation = useMemo(
+    () => allDerivations.find((d) => d.isPreview) ?? null,
+    [allDerivations]
+  );
+
+  const hasBatchDerivations = useMemo(
+    () => allDerivations.some((d) => !d.isPreview),
+    [allDerivations]
+  );
+
+  const showPreviewGate = useMemo(() => {
+    if (!previewDerivation || hasBatchDerivations) return false;
+    if (previewDerivation.status === "generating") return false;
+    return Boolean(previewDerivation.imageUrl || previewDerivation.outputKey);
+  }, [previewDerivation, hasBatchDerivations]);
+
+  const batchCreditEstimate = useMemo(() => {
+    if (!campaign) return 0;
+    const config: RecipeGenerationConfig = {
+      generationMode:
+        campaign.generationMode === "format_adaptation"
+          ? "format_adaptation"
+          : "art_variation",
+      creativeLevel:
+        (campaign.creativeLevel as RecipeGenerationConfig["creativeLevel"]) ??
+        "balanced",
+      ctaVariants: (campaign.ctaVariants ?? [])
+        .map((cta) => cta.trim())
+        .filter(Boolean),
+      targetFormats: campaign.targetFormats ?? ["1:1", "4:5", "9:16"],
+      preservationEmphasis: "medium",
+    };
+    return estimateCreditCost(config);
+  }, [campaign]);
+
+  const hasActivePreview = Boolean(previewDerivation);
 
   const handlePreview = useCallback((id: string) => {
     setReviewDerivationId(id);
@@ -503,6 +556,10 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
     handleGenerateLandingPage,
     handleSaveAsReference,
     hasActivePreview,
+    previewDerivation,
+    showPreviewGate,
+    batchCreditEstimate,
+    approvePreviewToBatch,
     handlePreview,
     handleCloseReview,
     handleRequestRegenerate,

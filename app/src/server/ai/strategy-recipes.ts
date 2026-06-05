@@ -1,5 +1,7 @@
 import type { CreativeReadinessResult, ReadinessDimensionId } from "./creative-readiness";
-import { CREDIT_COSTS } from "@/server/billing/credits";
+
+/** Keep in sync with `CREDIT_COSTS.image_derivation` in server/billing/credits.ts */
+export const IMAGE_DERIVATION_CREDIT_COST = 5;
 
 export const STRATEGY_RECIPE_IDS = [
   "safe_iteration",
@@ -244,7 +246,7 @@ export function estimateCreditCost(
   options?: { preview?: boolean }
 ): number {
   const jobCount = options?.preview ? 1 : countDerivationJobs(config);
-  return jobCount * CREDIT_COSTS.image_derivation;
+  return jobCount * IMAGE_DERIVATION_CREDIT_COST;
 }
 
 export function toCampaignPatch(config: RecipeGenerationConfig): {

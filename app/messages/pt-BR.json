@@ -893,6 +893,51 @@
       }
     }
   },
+  "strategyRecipes": {
+    "title": "Escolha uma estratégia de geração",
+    "description": "Selecione uma receita alinhada ao seu objetivo. Você pode ajustar as configurações antes de gerar a prévia.",
+    "recommended": "Recomendada",
+    "overridesTitle": "Ajustar configurações",
+    "creativeLevel": "Intensidade criativa",
+    "ctaVariants": "Variações de CTA (separadas por vírgula)",
+    "ctaPlaceholder": "Compre agora, Saiba mais",
+    "modeArt": "Variações de arte",
+    "modeFormat": "Adaptação de formato",
+    "creditPreview": "A prévia usa {credits} créditos",
+    "creditBatchEstimate": "Estimativa do lote completo: {credits} créditos",
+    "generatePreview": "Gerar prévia",
+    "advancedOptions": "Opções avançadas de derivação",
+    "levels": {
+      "conservative": "Conservador",
+      "balanced": "Equilibrado",
+      "bold": "Ousado",
+      "extreme": "Extremo"
+    },
+    "recipes": {
+      "safe_iteration": {
+        "name": "Iteração Segura",
+        "tradeoff": "Mantém layout e mensagem principais. Ideal quando a prontidão está baixa ou as regras de marca são rígidas."
+      },
+      "performance_push": {
+        "name": "Impulso de Performance",
+        "tradeoff": "Testa CTAs mais fortes e ângulos de copy mais ousados. Ideal quando os elementos de conversão precisam melhorar."
+      },
+      "visual_differentiation": {
+        "name": "Diferenciação Visual",
+        "tradeoff": "Explora visuais mais frescos mantendo a oferta. Ideal quando o criativo parece repetido nos feeds."
+      }
+    },
+    "previewGate": {
+      "title": "Prévia pronta — aprove antes do lote completo",
+      "description": "Esta prévia usou o mesmo contrato criativo e quality gate do lote completo.",
+      "qualityVerdict": "Veredito de qualidade: {verdict}",
+      "qualityScore": "Score de qualidade: {score}",
+      "previewSpent": "Prévia gastou: {credits} créditos",
+      "batchCost": "O lote completo usará {credits} créditos",
+      "reviseRecipe": "Revisar receita",
+      "approveBatch": "Aprovar e enfileirar lote"
+    }
+  },
   "auth": {
     "email": "E-mail",
     "password": "Senha",

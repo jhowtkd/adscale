@@ -893,6 +893,51 @@
       }
     }
   },
+  "strategyRecipes": {
+    "title": "Choose a generation strategy",
+    "description": "Pick a recipe that matches your goal. You can override settings before generating a preview.",
+    "recommended": "Recommended",
+    "overridesTitle": "Adjust settings",
+    "creativeLevel": "Creative intensity",
+    "ctaVariants": "CTA variants (comma-separated)",
+    "ctaPlaceholder": "Shop Now, Learn More",
+    "modeArt": "Art variations",
+    "modeFormat": "Format adaptation",
+    "creditPreview": "Preview uses {credits} credits",
+    "creditBatchEstimate": "Full batch estimate: {credits} credits",
+    "generatePreview": "Generate preview",
+    "advancedOptions": "Advanced derivation options",
+    "levels": {
+      "conservative": "Conservative",
+      "balanced": "Balanced",
+      "bold": "Bold",
+      "extreme": "Extreme"
+    },
+    "recipes": {
+      "safe_iteration": {
+        "name": "Safe Iteration",
+        "tradeoff": "Keeps the core layout and message intact. Best when readiness is low or brand rules are strict."
+      },
+      "performance_push": {
+        "name": "Performance Push",
+        "tradeoff": "Tests stronger CTAs and bolder copy angles. Best when conversion elements need work."
+      },
+      "visual_differentiation": {
+        "name": "Visual Differentiation",
+        "tradeoff": "Explores fresher visuals while keeping the offer. Best when the creative feels stale on platform feeds."
+      }
+    },
+    "previewGate": {
+      "title": "Preview ready — approve before the full batch",
+      "description": "This preview used the same creative contract and quality gate as the full batch.",
+      "qualityVerdict": "Quality verdict: {verdict}",
+      "qualityScore": "Quality score: {score}",
+      "previewSpent": "Preview spent: {credits} credits",
+      "batchCost": "Full batch will use {credits} credits",
+      "reviseRecipe": "Revise recipe",
+      "approveBatch": "Approve and queue batch"
+    }
+  },
   "auth": {
     "email": "Email",
     "password": "Password",
