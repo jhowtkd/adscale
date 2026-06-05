@@ -1328,6 +1328,31 @@
     "onlyImages": "PNG, JPG, WebP only",
     "maxSize": "Max 50 MB"
   },
+  "clientApprovalPackage": {
+    "title": "Client approval package",
+    "description": "Select approved creatives, add notes, and share a secure link with your client.",
+    "loading": "Loading approval package…",
+    "selectCreatives": "Approved creatives",
+    "untitledCreative": "Approved creative",
+    "notesLabel": "Creative notes for client",
+    "notesPlaceholder": "Add context, feedback requests, or delivery instructions…",
+    "packageItems": "Package contents",
+    "createPackage": "Create share link",
+    "updatePackage": "Update package",
+    "refreshPackage": "Refresh package",
+    "copyShareLink": "Copy share link",
+    "downloadAll": "Download all approved",
+    "downloadItem": "Download creative",
+    "packageSaved": "Client approval package saved",
+    "selectAtLeastOne": "Select at least one approved creative",
+    "stale": "Package outdated",
+    "expiresAt": "Share link expires on {date}",
+    "status": {
+      "approved": "Approved",
+      "processing": "Processing",
+      "failed": "Failed"
+    }
+  },
   "deliveryPackage": {
     "title": "Prepare delivery",
     "description": "Download the approved creative or generate the final formats needed for delivery.",

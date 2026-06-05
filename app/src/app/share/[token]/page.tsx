@@ -3,7 +3,6 @@ import { validateShareToken } from "@/lib/share-token";
 import { db } from "@/server/db";
 import { campaigns, derivations } from "@/server/db/schema";
 import { eq, inArray } from "drizzle-orm";
-import { getPublicUrl } from "@/server/storage/r2";
 import GalleryGrid from "./GalleryGrid";
 import type { Metadata } from "next";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -36,7 +35,11 @@ export default async function SharePage({ params }: SharePageProps) {
   const [t, [campaign], items] = await Promise.all([
     getTranslations({ locale, namespace: "share" }),
     db
-      .select({ name: campaigns.name, client: campaigns.client })
+      .select({
+        name: campaigns.name,
+        client: campaigns.client,
+        notes: campaigns.notes,
+      })
       .from(campaigns)
       .where(eq(campaigns.id, link.campaignId))
       .limit(1),
@@ -59,7 +62,7 @@ export default async function SharePage({ params }: SharePageProps) {
       ? [
           {
             id: d.id,
-            imageUrl: getPublicUrl(d.outputKey),
+            imageUrl: `/api/share/${token}/asset/${d.id}`,
             format: d.format ?? undefined,
             generationMode: d.generationMode ?? undefined,
             variantIndex: d.variantIndex ?? undefined,
@@ -85,6 +88,11 @@ export default async function SharePage({ params }: SharePageProps) {
           <p className="mt-2 text-xs text-[var(--text-muted)]">
             {t("sharedVia")}
           </p>
+          {campaign?.notes && (
+            <p className="mx-auto mt-4 max-w-2xl rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] px-4 py-3 text-sm text-[var(--text-secondary)]">
+              {campaign.notes}
+            </p>
+          )}
         </div>
 
         {galleryItems.length === 0 ? (

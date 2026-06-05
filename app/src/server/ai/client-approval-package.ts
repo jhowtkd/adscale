@@ -82,7 +82,6 @@ export function expandPackageDerivationIds(
   selectedRootIds: string[],
   derivations: DerivationLike[]
 ): string[] {
-  const selected = new Set(selectedRootIds);
   const byParent = new Map<string, DerivationLike[]>();
 
   for (const derivation of derivations) {

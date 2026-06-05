@@ -1329,6 +1329,31 @@
     "onlyImages": "Apenas PNG, JPG, WebP",
     "maxSize": "Máx 50 MB"
   },
+  "clientApprovalPackage": {
+    "title": "Pacote de aprovação do cliente",
+    "description": "Selecione criativos aprovados, adicione notas e compartilhe um link seguro com o cliente.",
+    "loading": "Carregando pacote de aprovação…",
+    "selectCreatives": "Criativos aprovados",
+    "untitledCreative": "Criativo aprovado",
+    "notesLabel": "Notas criativas para o cliente",
+    "notesPlaceholder": "Adicione contexto, pedidos de feedback ou instruções de entrega…",
+    "packageItems": "Conteúdo do pacote",
+    "createPackage": "Criar link de compartilhamento",
+    "updatePackage": "Atualizar pacote",
+    "refreshPackage": "Atualizar pacote",
+    "copyShareLink": "Copiar link",
+    "downloadAll": "Baixar todos aprovados",
+    "downloadItem": "Baixar criativo",
+    "packageSaved": "Pacote de aprovação salvo",
+    "selectAtLeastOne": "Selecione pelo menos um criativo aprovado",
+    "stale": "Pacote desatualizado",
+    "expiresAt": "O link expira em {date}",
+    "status": {
+      "approved": "Aprovado",
+      "processing": "Processando",
+      "failed": "Falhou"
+    }
+  },
   "deliveryPackage": {
     "title": "Preparar entrega",
     "description": "Baixe o criativo aprovado ou gere os formatos finais necessários para entrega.",

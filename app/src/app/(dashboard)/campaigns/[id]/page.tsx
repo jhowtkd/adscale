@@ -35,6 +35,7 @@ import DerivationGrid from "@/components/workspace/DerivationGrid";
 import DerivarModal from "@/components/workspace/DerivarModal";
 import StrategyRecipePanel from "@/components/workspace/StrategyRecipePanel";
 import PreviewGatePanel from "@/components/workspace/PreviewGatePanel";
+import ClientApprovalPackagePanel from "@/components/workspace/ClientApprovalPackagePanel";
 import ArtVariationConfigModal from "@/components/workspace/ArtVariationConfigModal";
 import FormatAdaptationConfigModal from "@/components/workspace/FormatAdaptationConfigModal";
 import EstilizarModal from "@/components/workspace/EstilizarModal";
@@ -817,6 +818,7 @@ function CampaignWorkspaceCard({
               onDerivar={onOpenDerivar}
               onEstilizar={onOpenEstilizar}
             />
+            <ClientApprovalPackagePanel campaignId={campaignId} />
             {showPreviewGate && previewDerivation && onApprovePreviewBatch && onReviseStrategyRecipe && (
               <PreviewGatePanel
                 preview={{
