@@ -12,6 +12,14 @@ import {
   type CreativeQaCriterionResult,
 } from "./creative-qa";
 import {
+  CROPPED_CONTENT_PATTERN,
+  CTA_DRIFT_NOTE_PATTERN,
+  ILLEGIBILITY_PATTERN,
+  INVALID_FORMAT_LAYOUT_PATTERN,
+  UNSUPPORTED_OFFER_PATTERN,
+  WRONG_BRAND_PATTERN,
+} from "./creative-quality-taxonomy";
+import {
   getDerivationById,
   updateDerivationQualityGate,
   updateDerivationQa,
@@ -52,15 +60,14 @@ export interface ClassifyCreativeQualityGateResult {
   polishSuggestions: string[];
 }
 
-const WRONG_BRAND_PATTERN =
-  /brand mismatch|wrong brand|client mismatch|wrong client|contradicts.*(?:brand|client)|competitor logo|not\s+acme/i;
-const UNSUPPORTED_OFFER_PATTERN =
-  /unsupported claim|unsupported offer|not in contract|not in the contract|invented|fabricated|unsupported factual/i;
-
 const IMPROVABLE_SCORE_THRESHOLD = 70;
 
 function hasExplicitCta(contract: CreativeContract): boolean {
   return contract.ctaSemantics.kind === "explicit";
+}
+
+function hasInheritedCta(contract: CreativeContract): boolean {
+  return contract.ctaSemantics.kind === "inherited";
 }
 
 function noteMatches(pattern: RegExp, note: string): boolean {
@@ -123,6 +130,14 @@ function classifyCtaOfferFailed(
       message: note,
       criterion: "ctaOffer",
     });
+    return;
+  }
+  if (hasInheritedCta(contract) && noteMatches(CTA_DRIFT_NOTE_PATTERN, note)) {
+    pushHardFailure(hardFailures, {
+      code: "cta_drift",
+      message: note,
+      criterion: "ctaOffer",
+    });
   }
 }
 
@@ -140,6 +155,80 @@ function classifyCreativeRiskFailed(
     return;
   }
   pushUnique(polishSuggestions, note);
+}
+
+function classifyScoreIssue(
+  hardFailures: CreativeHardFailure[],
+  contract: CreativeContract,
+  issue: string
+): boolean {
+  if (noteMatches(WRONG_BRAND_PATTERN, issue)) {
+    pushHardFailure(hardFailures, {
+      code: "wrong_brand",
+      message: issue,
+      criterion: "briefMatch",
+    });
+    return true;
+  }
+  if (noteMatches(UNSUPPORTED_OFFER_PATTERN, issue)) {
+    pushHardFailure(hardFailures, {
+      code: "unsupported_offer",
+      message: issue,
+      criterion: "ctaOffer",
+    });
+    return true;
+  }
+  if (noteMatches(CTA_DRIFT_NOTE_PATTERN, issue)) {
+    pushHardFailure(hardFailures, {
+      code: "cta_drift",
+      message: issue,
+      criterion: "ctaOffer",
+    });
+    return true;
+  }
+  if (noteMatches(CROPPED_CONTENT_PATTERN, issue)) {
+    pushHardFailure(hardFailures, {
+      code: "cropped_critical_content",
+      message: issue,
+      criterion: "informationPreservation",
+    });
+    return true;
+  }
+  if (noteMatches(ILLEGIBILITY_PATTERN, issue)) {
+    pushHardFailure(hardFailures, {
+      code: "unreadable_required_text",
+      message: issue,
+      criterion: "legibility",
+    });
+    return true;
+  }
+  if (
+    contract.generationMode === "format_adaptation" &&
+    noteMatches(INVALID_FORMAT_LAYOUT_PATTERN, issue)
+  ) {
+    pushHardFailure(hardFailures, {
+      code: "invalid_format_layout",
+      message: issue,
+      criterion: "formatFit",
+    });
+    return true;
+  }
+  return false;
+}
+
+function promoteScoreIssuesToHardFailures(
+  scoreIssues: string[],
+  contract: CreativeContract,
+  hardFailures: CreativeHardFailure[]
+): string[] {
+  const remainingPolish: string[] = [];
+  for (const issue of scoreIssues) {
+    const promoted = classifyScoreIssue(hardFailures, contract, issue);
+    if (!promoted) {
+      remainingPolish.push(issue);
+    }
+  }
+  return remainingPolish;
 }
 
 function collectChecklistWarnings(
@@ -234,7 +323,13 @@ export function classifyCreativeQualityGate(
 
   collectChecklistWarnings(checklist, polishSuggestions);
 
-  for (const issue of scoreIssues) {
+  const remainingScoreIssues = promoteScoreIssuesToHardFailures(
+    scoreIssues,
+    contract,
+    hardFailures
+  );
+
+  for (const issue of remainingScoreIssues) {
     pushUnique(polishSuggestions, issue);
   }
 

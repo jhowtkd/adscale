@@ -238,6 +238,87 @@ describe("classifyCreativeQualityGate — warnings and score issues", () => {
       expect.arrayContaining(["Improve color harmony", "Sharpen product focus"])
     );
   });
+
+  it("promotes brand mismatch scoreIssue to wrong_brand hard failure", () => {
+    const result = classifyCreativeQualityGate({
+      contract: artVariationContract,
+      checklist: checklist({}),
+      scoreIssues: ["brand mismatch: wrong client logo"],
+    });
+    expectHardCode(result, "wrong_brand");
+    expect(result.polishSuggestions).not.toContain("brand mismatch: wrong client logo");
+  });
+
+  it("keeps subjective score issues as polish only", () => {
+    const result = classifyCreativeQualityGate({
+      contract: artVariationContract,
+      checklist: checklist({}),
+      scoreIssues: ["Improve color harmony"],
+    });
+    expect(result.hardFailures).toHaveLength(0);
+    expect(result.polishSuggestions).toContain("Improve color harmony");
+  });
+
+  it("promotes format layout score issue in format_adaptation to invalid_format_layout", () => {
+    const result = classifyCreativeQualityGate({
+      contract: formatAdaptationContract,
+      checklist: checklist({}),
+      scoreIssues: ["Invalid format layout with blur bands, not native 9:16"],
+    });
+    expectHardCode(result, "invalid_format_layout");
+  });
+
+  it("does not hard-fail variationLevelFit-only polish issues", () => {
+    const result = classifyCreativeQualityGate({
+      contract: artVariationContract,
+      checklist: checklist({}),
+      scoreIssues: ["Variation level could be bolder for extreme setting"],
+    });
+    expect(result.hardFailures).toHaveLength(0);
+  });
+});
+
+describe("classifyCreativeQualityGate — inherited CTA", () => {
+  const inheritedCtaContract: CreativeContract = {
+    ...artVariationContract,
+    ctaSemantics: { kind: "inherited" },
+  };
+
+  it("maps inherited CTA + ctaOffer failed + missing CTA note to cta_drift", () => {
+    const result = classifyCreativeQualityGate({
+      contract: inheritedCtaContract,
+      checklist: checklist({
+        ctaOffer: {
+          status: "failed",
+          note: "CTA missing from output",
+        },
+      }),
+    });
+    expectHardCode(result, "cta_drift");
+  });
+
+  it("does not hard-fail inherited ctaOffer with vague polish-only note", () => {
+    const result = classifyCreativeQualityGate({
+      contract: inheritedCtaContract,
+      checklist: checklist({
+        ctaOffer: {
+          status: "failed",
+          note: "CTA button could use more contrast.",
+        },
+      }),
+    });
+    expect(result.hardFailures).toHaveLength(0);
+  });
+
+  it("does not produce cta_drift when inherited CTA ctaOffer passed", () => {
+    const result = classifyCreativeQualityGate({
+      contract: inheritedCtaContract,
+      checklist: checklist({
+        ctaOffer: { status: "passed", note: "CTA preserved from base." },
+      }),
+    });
+    expect(result.hardFailures.some((f) => f.code === "cta_drift")).toBe(false);
+  });
 });
 
 describe("extractPolishSuggestions", () => {
@@ -279,6 +360,21 @@ describe("deriveQualityVerdict", () => {
             note: "CTA missing; does not match contract Shop Now.",
           },
         }),
+      })
+    ).toBe("invalid");
+  });
+
+  it("returns invalid for qualityScore 92 with hard failure from score issue promotion", () => {
+    const { hardFailures } = classifyCreativeQualityGate({
+      contract: artVariationContract,
+      checklist: checklist({}),
+      scoreIssues: ["brand mismatch: wrong client logo"],
+    });
+    expect(
+      deriveQualityVerdict({
+        hardFailures,
+        qualityScore: 92,
+        checklist: checklist({}),
       })
     ).toBe("invalid");
   });
