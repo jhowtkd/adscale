@@ -627,6 +627,12 @@ export const derivations = adscaleSchema.table(
     polishSuggestions: jsonb("polish_suggestions"),
     qualityGatedAt: timestamp("quality_gated_at", { mode: "date" }),
     inputPrompt: text("input_prompt"),
+    creativeContract: jsonb("creative_contract").$type<
+      import("../ai/creative-contract").CreativeContract
+    >(),
+    promptProvenance: jsonb("prompt_provenance").$type<
+      import("../ai/creative-contract").PromptProvenance
+    >(),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
   },
