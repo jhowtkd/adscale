@@ -73,35 +73,35 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FBK-01 | TBD | Pending |
-| FBK-02 | TBD | Pending |
-| FBK-03 | TBD | Pending |
-| FBK-04 | TBD | Pending |
-| CTX-01 | TBD | Pending |
-| CTX-02 | TBD | Pending |
-| CTX-03 | TBD | Pending |
-| CTX-04 | TBD | Pending |
-| CTX-05 | TBD | Pending |
-| OBS-01 | TBD | Pending |
-| OBS-02 | TBD | Pending |
-| OBS-03 | TBD | Pending |
-| TRI-01 | TBD | Pending |
-| TRI-02 | TBD | Pending |
-| TRI-03 | TBD | Pending |
-| TRI-04 | TBD | Pending |
-| SEC-01 | TBD | Pending |
-| SEC-02 | TBD | Pending |
-| SEC-03 | TBD | Pending |
-| SEC-04 | TBD | Pending |
-| QA-01 | TBD | Pending |
-| QA-02 | TBD | Pending |
-| QA-03 | TBD | Pending |
+| FBK-01 | Phase 54 | Pending |
+| FBK-02 | Phase 53 | Pending |
+| FBK-03 | Phase 54 | Pending |
+| FBK-04 | Phase 54 | Pending |
+| CTX-01 | Phase 54 | Pending |
+| CTX-02 | Phase 54 | Pending |
+| CTX-03 | Phase 54 | Pending |
+| CTX-04 | Phase 54 | Pending |
+| CTX-05 | Phase 55 | Pending |
+| OBS-01 | Phase 54 | Pending |
+| OBS-02 | Phase 54 | Pending |
+| OBS-03 | Phase 53 | Pending |
+| TRI-01 | Phase 55 | Pending |
+| TRI-02 | Phase 55 | Pending |
+| TRI-03 | Phase 55 | Pending |
+| TRI-04 | Phase 55 | Pending |
+| SEC-01 | Phase 53 | Pending |
+| SEC-02 | Phase 53 | Pending |
+| SEC-03 | Phase 53 | Pending |
+| SEC-04 | Phase 54 | Pending |
+| QA-01 | Phase 56 | Pending |
+| QA-02 | Phase 56 | Pending |
+| QA-03 | Phase 56 | Pending |
 
 **Coverage:**
 - v11.4 requirements: 23 total
-- Mapped to phases: 0
-- Unmapped: 23
+- Mapped to phases: 23
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-06-05*
-*Last updated: 2026-06-05 after v11.4 requirements definition*
+*Last updated: 2026-06-05 after v11.4 roadmap creation*

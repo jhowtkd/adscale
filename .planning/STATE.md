@@ -6,9 +6,9 @@ status: defining_requirements
 last_updated: "2026-06-05T00:00:00.000Z"
 last_activity: 2026-06-05
 progress:
-  total_phases: 0
+  total_phases: 4
   completed_phases: 0
-  total_plans: 0
+  total_plans: 4
   completed_plans: 0
   percent: 0
 ---
@@ -20,8 +20,8 @@ progress:
 Milestone: v11.4 — Beta Feedback Capture
 Phase: Not started (defining requirements)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-06-05 — Milestone v11.4 started
+Status: Roadmap created — ready to plan phase 53
+Last activity: 2026-06-05 — Milestone v11.4 roadmap created
 
 ## Accumulated Context
 
@@ -41,9 +41,9 @@ Last activity: 2026-06-05 — Milestone v11.4 started
 
 ## Next Steps
 
-1. Define v11.4 feedback capture requirements.
-2. Create roadmap starting at phase 53.
-3. Plan phase 53 when requirements are approved.
+1. Plan phase 53: Feedback Data Model and Secure API.
+2. Keep workspace isolation and diagnostic sanitization as acceptance gates.
+3. Defer support-ticketing features until real beta report volume exists.
 
 ## Project Reference
 
@@ -51,4 +51,4 @@ See: `.planning/PROJECT.md`
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** Define beta feedback capture requirements.
+**Current focus:** Plan phase 53: Feedback Data Model and Secure API.
