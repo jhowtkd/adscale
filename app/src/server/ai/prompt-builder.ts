@@ -494,3 +494,51 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
 
   return parts.join("\n");
 }
+
+function indexOfEarliest(prompt: string, fromIndex: number, markers: string[]): number {
+  let end = prompt.length;
+  for (const marker of markers) {
+    const idx = prompt.indexOf(marker, fromIndex);
+    if (idx !== -1 && idx < end) {
+      end = idx;
+    }
+  }
+  return end;
+}
+
+/** Compact HARD RULES block for prompt regression snapshots. */
+export function extractPromptHardRulesSection(prompt: string): string {
+  const header = "HARD RULES / NON-NEGOTIABLE CONTRACT";
+  const start = prompt.indexOf(header);
+  if (start === -1) return "";
+
+  const end = indexOfEarliest(prompt, start + header.length, [
+    "\nRESTYLING FACTUAL-SOURCE RULE:",
+    "\nMODE:",
+  ]);
+  return prompt.slice(start, end).trimEnd();
+}
+
+/** MODE instructions plus format source-package lines (stops before campaign fields). */
+export function extractPromptModeSection(prompt: string): string {
+  const start = prompt.indexOf("MODE:");
+  if (start === -1) return "";
+
+  const end = indexOfEarliest(prompt, start, [
+    "\n\nCampaign:",
+    "\nCREATIVITY LEVEL:",
+    "\nAPPROVED CREATIVE DIAGNOSIS:",
+    "\nBRIEF-BASED PRESERVATION FALLBACK:",
+  ]);
+  return prompt.slice(start, end).trimEnd();
+}
+
+/** Restyling factual-source rule block when present. */
+export function extractPromptRestylingFactualSourceSection(prompt: string): string {
+  const header = "RESTYLING FACTUAL-SOURCE RULE:";
+  const start = prompt.indexOf(header);
+  if (start === -1) return "";
+
+  const end = indexOfEarliest(prompt, start + header.length, ["\nMODE:", "\n\nCampaign:"]);
+  return prompt.slice(start, end).trimEnd();
+}
