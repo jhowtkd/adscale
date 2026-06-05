@@ -8,15 +8,11 @@ ADScale is a SaaS webapp for creative derivation: marketing teams upload a base 
 
 Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-## Current Milestone: v11.4 Beta Feedback Capture
+## Current State (v11.4 shipped)
 
-**Goal:** Give beta users a lightweight in-app way to report feedback and suggestions while automatically collecting the exact page, logs, campaign context, derivations, and assets needed for analysis.
+Beta feedback capture is live in the authenticated app: users submit structured reports from the shell or campaign/derivation surfaces; diagnostics (route, locale, breadcrumbs, Sentry trace) attach automatically; platform owners triage at `/feedback` with signed asset links and internal notes.
 
-**Target features:**
-- Beta feedback entry point available from the authenticated app and relevant campaign/derivation views.
-- Structured feedback/suggestion form that captures severity, category, message, optional contact permission, and optional screenshot/session context.
-- Diagnostic package attached to each report with current route, locale, workspace, campaign, derivation, recent client breadcrumbs, server/Sentry correlation IDs, and relevant asset references.
-- Owner review surface to inspect reports, reproduce context, open linked assets, and mark status without exposing unrelated workspace data.
+**Ops checklist:** set `PLATFORM_OWNER_EMAILS`, run `npm run db:migrate` for `0025_abandoned_rhino`, complete manual browser smoke (QA-02).
 
 ## Requirements
 
@@ -121,12 +117,18 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 - ✓ **DRV-09**: Tests cover all four Derivar entry paths — v11.0
 - ✓ **DRV-10**: Estilizar workflow unaffected — v11.0
 
+### Validated (v11.4)
+
+- ✓ **FBK-01–04**: In-app feedback submission (global + contextual) with success/error toasts — v11.4
+- ✓ **CTX-01–05**: Diagnostic context, breadcrumbs, completeness indicator — v11.4
+- ✓ **OBS-01–03**: Sentry trace correlation and ID-only server logs — v11.4
+- ✓ **TRI-01–04**: Owner triage list, detail, status, private notes — v11.4
+- ✓ **SEC-01–04**: Workspace isolation, entity validation, sanitization, no replay by default — v11.4
+- ✓ **QA-01–03**: Automated tests + privacy handoff doc — v11.4
+
 ### Active
 
-- [ ] Beta users can send feedback or suggestions from the app without leaving their current workflow.
-- [ ] Each submitted report includes enough route, workspace, campaign, derivation, asset, and log context for the owner to reproduce or diagnose the issue.
-- [ ] Feedback capture respects workspace isolation and avoids collecting sensitive creative content beyond explicit asset references/signed preview access.
-- [ ] The owner can review, triage, and resolve beta reports from a focused internal surface.
+_(None — run `/gsd-new-milestone` to define next scope.)_
 
 ### Validated (v10.0)
 
@@ -169,15 +171,11 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Context
 
-Current state: v11.3 separated the public presentation site from the SaaS app. The next milestone adds a beta feedback capture flow inside ADScale_2 so testers can report problems and suggestions with the diagnostic context needed for owner analysis.
+Current state: v11.4 shipped beta feedback capture (phases 53–56). Marketing remains in `jhowtkd/site-adscale.git`; product feedback and owner triage live in ADScale_2 at `/feedback` for platform owners.
 
-Repo inspection on 2026-06-03 found that ADScale_2 has public legal pages under `app/src/app/(public)` but no App Router root presentation page. The target repo already exists on `main` as a Vite + React + Tailwind landing site with sections for hero, problem, solution, features, process, results, pricing, FAQ, CTA, and footer.
+Prior milestones delivered presentation site separation (v11.3), beta entitlements (v11.2), generation quality gates (v11.1), coherent derivation flows (v11.0), and the full MVP through v10 UI polish.
 
-Repo inspection on 2026-06-05 found existing building blocks for this milestone: Sentry initialization and request error capture, a local logger, Sentry error boundary, campaign/workspace assets, derivation feedback, and workspace-scoped repositories. The new feature should reuse these primitives instead of creating a separate unauthenticated feedback app.
-
-Prior milestones delivered generation quality gates, coherent derivation flows, simplified campaign creation with AI visual analysis, performance optimizations, UI refinement, review gallery enhancements, beta access, and bounded credit entitlements.
-
-Build passes and 506 tests are green.
+Build passes; feedback subsystem has dedicated unit/route tests.
 
 Key stack decisions:
 - Next.js App Router, React, TypeScript, Tailwind, shadcn/ui
@@ -225,7 +223,7 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-05 after starting v11.4 beta feedback capture milestone*
+*Last updated: 2026-06-05 after v11.4 milestone completion*
 
 ## Milestone History
 
@@ -310,11 +308,20 @@ This document evolves at phase transitions and milestone boundaries.
 - Billing/status UI distinguishes beta and paid access
 - Phase 49 archived
 
+### v11.3 Site de Apresentação Separado ✅
+- Public presentation site in `jhowtkd/site-adscale.git`
+- Marketing/app boundary documented; legal pages remain in app
+- Phases 50–52 archived
+
+### v11.4 Beta Feedback Capture ✅
+- `feedback_reports` model with sanitized diagnostics and workspace-safe APIs
+- In-app feedback modal with global and contextual triggers
+- Owner triage at `/feedback` with signed asset links
+- Phases 53–56 archived
+
 ## Next Milestone Goals
 
-- Migrate/converge the public presentation site into `jhowtkd/site-adscale.git`
-- Connect marketing CTAs to the live ADScale app signup/login/beta flow
-- Validate responsive quality, metadata, build, and deploy/domain readiness
+- Define via `/gsd-new-milestone` (candidates: notification on new feedback, richer breadcrumbs, beta analytics)
 
 ---
-*Last updated: 2026-06-03 after v11.3 milestone start*
+*Last updated: 2026-06-05 after v11.4 milestone completion*

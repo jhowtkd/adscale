@@ -849,5 +849,55 @@ export const notifications = adscaleSchema.table(
 export type Notification = typeof notifications.$inferSelect;
 export type NewNotification = typeof notifications.$inferInsert;
 
+export const feedbackReports = adscaleSchema.table(
+  "feedback_reports",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    status: text("status").notNull().default("new"),
+    type: text("type").notNull(),
+    severity: text("severity").notNull(),
+    category: text("category").notNull(),
+    message: text("message").notNull(),
+    followUpAllowed: boolean("follow_up_allowed").notNull().default(false),
+    route: text("route"),
+    contextKind: text("context_kind").notNull().default("global"),
+    campaignId: uuid("campaign_id").references(() => campaigns.id, {
+      onDelete: "set null",
+    }),
+    derivationId: uuid("derivation_id").references(() => derivations.id, {
+      onDelete: "set null",
+    }),
+    assetRefs: jsonb("asset_refs").$type<
+      Array<{ kind: string; id: string; key?: string }>
+    >(),
+    diagnosticContext: jsonb("diagnostic_context"),
+    sentryCorrelation: jsonb("sentry_correlation"),
+    contextCompleteness: jsonb("context_completeness"),
+    internalNotes: text("internal_notes"),
+    resolutionSummary: text("resolution_summary"),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("feedback_reports_workspace_id_idx").on(table.workspaceId),
+    index("feedback_reports_user_id_idx").on(table.userId),
+    index("feedback_reports_status_idx").on(table.status),
+    index("feedback_reports_created_at_idx").on(table.createdAt),
+    index("feedback_reports_campaign_id_idx").on(table.campaignId),
+    index("feedback_reports_derivation_id_idx").on(table.derivationId),
+  ]
+);
+
+export type FeedbackReport = typeof feedbackReports.$inferSelect;
+export type NewFeedbackReport = typeof feedbackReports.$inferInsert;
+
 export type PersonaSimulation = typeof personaSimulations.$inferSelect;
 export type NewPersonaSimulation = typeof personaSimulations.$inferInsert;

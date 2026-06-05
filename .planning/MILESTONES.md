@@ -1,5 +1,22 @@
 # Milestones: ADScale
 
+## v11.4 Beta Feedback Capture (Shipped: 2026-06-05)
+
+**Phases completed:** 4 phases (53→56), 4 plans
+**Requirements:** 23/23 complete
+
+**Key accomplishments:**
+- Durable `feedback_reports` model with workspace-scoped create API and diagnostic sanitization
+- In-app feedback from shell, campaign header, and derivation review with auto context capture
+- Platform owner triage at `/feedback` with filters, completeness chips, signed assets, and private notes
+- Privacy handoff documenting captured vs excluded fields and end-to-end analysis workflow
+
+**Archive:** [v11.4-ROADMAP.md](milestones/v11.4-ROADMAP.md) · [v11.4-REQUIREMENTS.md](milestones/v11.4-REQUIREMENTS.md)
+
+**Known gaps:** No formal milestone audit; QA-02 browser/mobile smoke left as manual ops follow-up.
+
+---
+
 ## v11.3 Site de Apresentação Separado (Shipped: 2026-06-03)
 
 **Phases completed:** 3 phases (50→52), 3 plans

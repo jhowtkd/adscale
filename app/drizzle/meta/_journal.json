@@ -176,6 +176,13 @@
       "when": 1780334064896,
       "tag": "0024_wealthy_silver_sable",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1780663261622,
+      "tag": "0025_abandoned_rhino",
+      "breakpoints": true
     }
   ]
 }

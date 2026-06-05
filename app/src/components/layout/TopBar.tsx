@@ -36,6 +36,7 @@ import {
 import Link from "next/link";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import ThemeToggle from "@/components/ui/ThemeToggle";
+import FeedbackTriggerButton from "@/components/feedback/FeedbackTriggerButton";
 import { formatDistanceToNow, isToday, isYesterday, isThisWeek } from "date-fns";
 import {
   DropdownMenu,
@@ -131,6 +132,7 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
       {/* Right: Actions */}
       <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
         <LanguageSwitcher className="[&_button]:size-9 [&_button]:justify-center [&_button]:gap-0 [&_button]:px-0 sm:[&_button]:h-9 sm:[&_button]:w-auto sm:[&_button]:gap-1 sm:[&_button]:px-2 [&_button_svg]:hidden sm:[&_button_svg]:block" />
+        <FeedbackTriggerButton />
         <ThemeToggle className="size-9 sm:size-10" />
 
         {isDashboard && (

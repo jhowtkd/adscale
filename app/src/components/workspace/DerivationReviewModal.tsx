@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { scoreCappedForDisplay } from "@/lib/derivation-quality";
 import type { Derivation } from "@/lib/mock-data";
 import type { AssetWithUrl } from "@/lib/hooks/use-assets";
+import ContextualFeedbackButton from "@/components/feedback/ContextualFeedbackButton";
 
 interface DerivationReviewModalProps {
   open: boolean;
@@ -208,9 +209,29 @@ export default function DerivationReviewModal({
         </div>
 
         <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            {tc("close")}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              {tc("close")}
+            </Button>
+            {derivation ? (
+              <ContextualFeedbackButton
+                contextKind="derivation"
+                campaignId={derivation.campaignId}
+                derivationId={derivation.id}
+                assetRefs={
+                  derivation.outputKey
+                    ? [
+                        {
+                          kind: "derivation_output",
+                          id: derivation.id,
+                          key: derivation.outputKey,
+                        },
+                      ]
+                    : undefined
+                }
+              />
+            ) : null}
+          </div>
           <div className="flex flex-wrap gap-2">
             {isInvalid ? (
               <Button type="button" onClick={onRegenerateWithFixes} disabled={isRegenerating}>

@@ -1,11 +1,14 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import TopBar from "./TopBar";
 import Footer from "./Footer";
+import { FeedbackProvider } from "@/components/feedback/FeedbackProvider";
+import FeedbackBreadcrumbTracker from "@/components/feedback/FeedbackBreadcrumbTracker";
 import { FolderOpen, LayoutDashboard, LayoutTemplate, Settings } from "lucide-react";
 
 interface AppShellProps {
@@ -17,7 +20,11 @@ export default function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
 
   return (
+    <FeedbackProvider>
     <div className="min-h-screen bg-[var(--deep-bg)]">
+      <Suspense fallback={null}>
+        <FeedbackBreadcrumbTracker />
+      </Suspense>
       {/* Top Bar */}
       <TopBar />
 
@@ -60,6 +67,7 @@ export default function AppShell({ children }: AppShellProps) {
         />
       </nav>
     </div>
+    </FeedbackProvider>
   );
 }
 

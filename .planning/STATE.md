@@ -1,49 +1,46 @@
 ---
 gsd_state_version: 1.0
-milestone: v11.4
-milestone_name: Beta Feedback Capture
-status: milestone_complete
-last_updated: "2026-06-05T12:00:00.000Z"
+milestone: none
+milestone_name: —
+status: between_milestones
+last_updated: "2026-06-05T15:00:00.000Z"
 last_activity: 2026-06-05
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 4
-  completed_plans: 4
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # State: ADScale
 
 ## Current Position
 
-Milestone: v11.4 — Beta Feedback Capture
-Phase: 56 complete
-Plan: 56-01 complete
-Status: Milestone v11.4 complete (autonomous run)
-Last activity: 2026-06-05 — Phases 53–56 executed autonomously
+Milestone: v11.4 archived (shipped)
+Phase: —
+Plan: —
+Status: Between milestones — ready for `/gsd-new-milestone`
+Last activity: 2026-06-05 — v11.4 milestone completed and tagged
 
 ## Accumulated Context
 
 - Marketing lives in `jhowtkd/site-adscale.git`; app stays in ADScale_2.
-- `VITE_APP_URL` wires signup/login/legal from landing to app.
-- Migration contract: `.planning/phases/50-source-and-boundary-audit/50-MIGRATION-CONTRACT.md`
-- Launch handoff: `.planning/phases/52-launch-verification-and-handoff/52-HANDOFF.md`
-- Beta access and credit entitlements already exist; feedback capture should use authenticated workspace context rather than public anonymous submission.
-- Existing Sentry setup can provide error, request, breadcrumb and event correlation; feedback should add product context and asset references that Sentry alone does not know.
+- Beta feedback: `/feedback` triage for platform owners (`PLATFORM_OWNER_EMAILS`).
+- Feedback handoff: `.planning/phases/56-verification-and-privacy-audit/56-HANDOFF.md`
+- Migration: `app/drizzle/0025_abandoned_rhino.sql` (beta entitlements + feedback_reports).
 
 ## Key Decisions
 
-- Legal content source of truth: ADScale_2 `/privacy`, `/terms` (linked from marketing).
-- Pricing copy on landing matches app tiers (R$47 / R$147 / R$397).
-- Beta messaging: 10 ads via code in Settings.
-- Feedback capture belongs in ADScale_2 authenticated app, not in the external marketing site.
+- Feedback capture is authenticated-only inside ADScale_2.
+- Diagnostics sanitized server-side; screenshots/replay disabled by default.
+- Owner notes and resolution summaries are private to platform owners.
 
 ## Next Steps
 
-1. Set `PLATFORM_OWNER_EMAILS` in production for `/feedback` triage access.
-2. Run manual browser smoke: global feedback, campaign contextual report, derivation review report, owner triage.
-3. Start next milestone or archive v11.4 via `$gsd-complete-milestone`.
+1. Run `/gsd-new-milestone` to define v11.5+ scope.
+2. Deploy: migrate DB, set `PLATFORM_OWNER_EMAILS`, manual browser smoke.
+3. Optional: `/gsd-audit-milestone` retroactively for v11.4.
 
 ## Project Reference
 
@@ -51,4 +48,4 @@ See: `.planning/PROJECT.md`
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** v11.4 shipped — beta feedback capture end-to-end.
+**Current focus:** Between milestones.

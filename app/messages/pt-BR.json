@@ -1325,5 +1325,42 @@
     "lowCreditsBody": "Seu workspace tem {creditBalance} créditos restantes. Adicione créditos para continuar gerando peças.",
     "trialExpiringSubject": "Teste expirando em breve",
     "trialExpiringBody": "Seu teste do ADScale expira em {daysLeft} dia(s). Faça upgrade para um plano pago para continuar usando todos os recursos."
+  },
+  "feedback": {
+    "trigger": "Enviar feedback",
+    "reportThis": "Reportar problema",
+    "title": "Feedback beta",
+    "description": "Conte o que deu errado ou o que devemos melhorar. O contexto de diagnóstico é anexado automaticamente.",
+    "type": "Tipo",
+    "severity": "Severidade",
+    "category": "Categoria",
+    "message": "Mensagem",
+    "messagePlaceholder": "O que aconteceu? O que você esperava?",
+    "followUp": "Podem me contatar para acompanhar este reporte",
+    "privacyNote": "Capturamos rota, workspace e diagnósticos sanitizados. Capturas de tela e replay de sessão não são coletados.",
+    "cancel": "Cancelar",
+    "submit": "Enviar feedback",
+    "submitting": "Enviando…",
+    "submitSuccess": "Feedback enviado. Obrigado!",
+    "submitError": "Não foi possível enviar o feedback. Tente novamente.",
+    "types": {
+      "bug": "Bug",
+      "suggestion": "Sugestão",
+      "question": "Dúvida",
+      "other": "Outro"
+    },
+    "severities": {
+      "low": "Baixa",
+      "medium": "Média",
+      "high": "Alta",
+      "critical": "Crítica"
+    },
+    "categories": {
+      "ui": "UI / UX",
+      "generation": "Geração",
+      "billing": "Cobrança",
+      "performance": "Performance",
+      "other": "Outro"
+    }
   }
 }

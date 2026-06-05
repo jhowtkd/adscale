@@ -1324,5 +1324,42 @@
     "lowCreditsBody": "Your workspace has {creditBalance} credits remaining. Add credits to keep generating creatives.",
     "trialExpiringSubject": "Trial expiring soon",
     "trialExpiringBody": "Your ADScale trial expires in {daysLeft} day(s). Upgrade to a paid plan to continue using all features."
+  },
+  "feedback": {
+    "trigger": "Send feedback",
+    "reportThis": "Report issue",
+    "title": "Beta feedback",
+    "description": "Tell us what went wrong or what we should improve. Diagnostic context is attached automatically.",
+    "type": "Type",
+    "severity": "Severity",
+    "category": "Category",
+    "message": "Message",
+    "messagePlaceholder": "What happened? What did you expect?",
+    "followUp": "You may contact me for follow-up about this report",
+    "privacyNote": "We capture route, workspace, and sanitized diagnostics. Screenshots and session replay are not collected.",
+    "cancel": "Cancel",
+    "submit": "Send feedback",
+    "submitting": "Sending…",
+    "submitSuccess": "Feedback sent. Thank you!",
+    "submitError": "Could not send feedback. Try again.",
+    "types": {
+      "bug": "Bug",
+      "suggestion": "Suggestion",
+      "question": "Question",
+      "other": "Other"
+    },
+    "severities": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "critical": "Critical"
+    },
+    "categories": {
+      "ui": "UI / UX",
+      "generation": "Generation",
+      "billing": "Billing",
+      "performance": "Performance",
+      "other": "Other"
+    }
   }
 }

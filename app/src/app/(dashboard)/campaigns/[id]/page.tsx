@@ -36,6 +36,7 @@ import RegenerateFeedbackDialog, {
 } from "@/components/workspace/RegenerateFeedbackDialog";
 
 import CampaignClientSubtitle from "@/components/campaigns/CampaignClientSubtitle";
+import ContextualFeedbackButton from "@/components/feedback/ContextualFeedbackButton";
 import CampaignSkeleton from "@/components/campaigns/CampaignSkeleton";
 import CampaignErrorState from "@/components/campaigns/CampaignErrorState";
 import CampaignNotFoundState from "@/components/campaigns/CampaignNotFoundState";
@@ -301,6 +302,7 @@ export default function CampaignWorkspacePage() {
   return (
     <div className="max-w-[1100px] min-w-0 mx-auto pb-20">
       <CampaignWorkspaceHeader
+        campaignId={campaignId}
         campaignName={campaign?.name ?? ""}
         isDraft={isDraft}
         isNew={isNew}
@@ -442,6 +444,7 @@ export default function CampaignWorkspacePage() {
 }
 
 interface CampaignWorkspaceHeaderProps {
+  campaignId: string;
   campaignName: string;
   isDraft: boolean;
   isNew: boolean;
@@ -451,6 +454,7 @@ interface CampaignWorkspaceHeaderProps {
 }
 
 function CampaignWorkspaceHeader({
+  campaignId,
   campaignName,
   isDraft,
   isNew,
@@ -486,17 +490,25 @@ function CampaignWorkspaceHeader({
           </span>
         </div>
       </div>
-      {isDraft && !isNew && (
-        <button
-          type="button"
-          onClick={onDelete}
-          className="min-h-10 shrink-0 rounded-md p-2 text-[var(--accent-rose)] hover:bg-[rgba(244,63,94,0.08)] transition-colors"
-          title={deleteLabel}
-          aria-label={deleteLabel}
-        >
-          <Trash2 size={16} />
-        </button>
-      )}
+      <div className="flex shrink-0 items-center gap-2">
+        {!isNew && (
+          <ContextualFeedbackButton
+            contextKind="campaign"
+            campaignId={campaignId}
+          />
+        )}
+        {isDraft && !isNew && (
+          <button
+            type="button"
+            onClick={onDelete}
+            className="min-h-10 shrink-0 rounded-md p-2 text-[var(--accent-rose)] hover:bg-[rgba(244,63,94,0.08)] transition-colors"
+            title={deleteLabel}
+            aria-label={deleteLabel}
+          >
+            <Trash2 size={16} />
+          </button>
+        )}
+      </div>
     </div>
   );
 }
