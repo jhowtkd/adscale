@@ -70,6 +70,14 @@ Plans:
 
 **Requirements:** AIR-01, AIR-02, AIR-03, AIR-04, AIR-05
 
+**Plans:** 0/4 plans complete
+
+Plans:
+- [ ] 59-01-PLAN.md — Unified correction brief builder + gate/score delegation (AIR-01, AIR-02)
+- [ ] 59-02-PLAN.md — Regenerate route persistence + parent contract inheritance (AIR-02, AIR-04)
+- [ ] 59-03-PLAN.md — Pre-confirm primary reason UI + derivations API preview (AIR-03)
+- [ ] 59-04-PLAN.md — Route and brief test coverage for all input paths (AIR-05)
+
 **Scope:**
 - Build a regeneration correction-brief builder that merges hard failures, score issues, QA issues, and optional feedback category.
 - Treat feedback as issue context only; never as hard instruction.
