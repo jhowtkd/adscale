@@ -21,6 +21,7 @@ export const envSchema = z.object({
   RESEND_API_KEY: z.string().startsWith("re_"),
   EMAIL_FROM: z.string().min(3),
   APP_URL: z.string().url(),
+  MARKETING_URL: z.string().url().optional(),
   STRIPE_SECRET_KEY: stripeServerKeySchema,
   STRIPE_WEBHOOK_SECRET: z.string().startsWith("whsec_"),
   STRIPE_STARTER_PRICE_ID: z.string().startsWith("price_"),
@@ -35,6 +36,7 @@ export const envSchema = z.object({
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   GITHUB_CLIENT_ID: z.string().optional(),
   GITHUB_CLIENT_SECRET: z.string().optional(),
+  BETA_ACCESS_CODES: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

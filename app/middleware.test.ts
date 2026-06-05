@@ -1,0 +1,61 @@
+import { NextRequest } from "next/server";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { middleware } from "./middleware";
+
+function requestFor(path: string, cookies: Record<string, string> = {}) {
+  const url = `http://localhost:3000${path}`;
+  const req = new NextRequest(url);
+  for (const [name, value] of Object.entries(cookies)) {
+    req.cookies.set(name, value);
+  }
+  return req;
+}
+
+describe("middleware auth routing", () => {
+  const originalMarketingUrl = process.env.MARKETING_URL;
+
+  beforeEach(() => {
+    process.env.MARKETING_URL = "https://www.example.com";
+  });
+
+  afterEach(() => {
+    if (originalMarketingUrl === undefined) {
+      delete process.env.MARKETING_URL;
+    } else {
+      process.env.MARKETING_URL = originalMarketingUrl;
+    }
+  });
+
+  it("redirects unauthenticated / to MARKETING_URL when configured", async () => {
+    const res = await middleware(requestFor("/"));
+    expect(res.status).toBe(307);
+    expect(new URL(res.headers.get("location")!).origin).toBe("https://www.example.com");
+  });
+
+  it("redirects unauthenticated /campaigns to login with callbackUrl", async () => {
+    const res = await middleware(requestFor("/campaigns"));
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toBe("http://localhost:3000/login?callbackUrl=%2Fcampaigns");
+  });
+
+  it("allows authenticated / through", async () => {
+    const res = await middleware(
+      requestFor("/", { "better-auth.session_token": "test" })
+    );
+    expect(res.status).toBe(200);
+  });
+
+  it("redirects authenticated /login to dashboard", async () => {
+    const res = await middleware(
+      requestFor("/login", { "better-auth.session_token": "test" })
+    );
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toBe("http://localhost:3000/");
+  });
+
+  it("falls back to /login for / when MARKETING_URL is unset", async () => {
+    delete process.env.MARKETING_URL;
+    const res = await middleware(requestFor("/"));
+    expect(res.headers.get("location")).toBe("http://localhost:3000/login");
+  });
+});

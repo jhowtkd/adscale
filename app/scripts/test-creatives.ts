@@ -5,12 +5,21 @@ import path from "path";
 import sharp from "sharp";
 
 import { analyzeImageContent, analyzeImageStyle, ContentBrief, StyleBrief } from "@/server/ai/image-analysis";
-import { extractContractFromAd, CreativeContract } from "./creative-contract";
+import {
+  extractContractFromAd,
+  type CreativeContract as AdFixtureContract,
+} from "./creative-contract";
 import { analyzeSmartResize } from "@/server/ai/smart-resize";
 import { analyzePreflight } from "@/server/ai/preflight-analysis";
 import { analyzeDerivationCreative } from "@/server/ai/creative-score";
 import { analyzeCreativeDiagnosis } from "@/server/ai/creative-diagnosis";
-import { analyzeCreativeQa } from "@/server/ai/creative-qa";
+import { analyzeCreativeQa, type CreativeQaChecklist } from "@/server/ai/creative-qa";
+import { resolveCtaSemantics, type CreativeContract } from "@/server/ai/creative-contract";
+import {
+  classifyCreativeQualityGate,
+  deriveQualityVerdict,
+  type CreativeQaChecklistWithStyle,
+} from "@/server/ai/creative-quality-gate";
 import { simulatePersonas } from "@/server/ai/persona-simulator";
 import { analyzeCompetitorCreative } from "@/server/ai/competitor-analyzer";
 import { extractBrandKitFromImage } from "@/server/ai/brand-kit-extractor";
@@ -116,10 +125,64 @@ function evaluateQuality(test: TestResult): QualityEvaluation {
     return [];
   };
 
-  // 1. analyzeCreativeQa -> status can be "ready" | "warning" | "review" | "failed"
+  // 1. analyzeCreativeQa — use shared quality gate classifier when checklist is present
   if (test.function === "analyzeCreativeQa" || test.function.startsWith("output_qa_")) {
-    const qaStatus = (result as { status?: string }).status;
-    const issues = toStringList(result.issues);
+    const qa = result as {
+      status?: string;
+      checklist?: CreativeQaChecklist;
+      issues?: string[];
+      gateContext?: QaGateContext;
+    };
+    if (qa.checklist && qa.gateContext) {
+      const contract: CreativeContract = {
+        generationMode: qa.gateContext.generationMode,
+        targetFormat: qa.gateContext.targetFormat,
+        ctaSemantics: resolveCtaSemantics(
+          qa.gateContext.ctaText,
+          qa.gateContext.generationMode
+        ),
+        baseAssetId: null,
+        styleAssetId: null,
+        client: qa.gateContext.client,
+        product: qa.gateContext.product,
+        offer: qa.gateContext.offer,
+        constraints: null,
+      };
+      const { hardFailures, polishSuggestions } = classifyCreativeQualityGate({
+        checklist: qa.checklist as CreativeQaChecklistWithStyle,
+        contract,
+        scoreIssues: qa.gateContext.scoreIssues ?? [],
+      });
+      const qualityScore = qa.gateContext.qualityScore ?? 0;
+      const qualityVerdict = deriveQualityVerdict({
+        hardFailures,
+        qualityScore,
+        checklist: qa.checklist as CreativeQaChecklistWithStyle,
+      });
+
+      if (hardFailures.length > 0) {
+        for (const failure of hardFailures) {
+          blockingIssues.push(`${failure.code}: ${failure.message}`);
+        }
+        return { executionStatus, qualityStatus: "fail", blockingIssues };
+      }
+
+      if (qualityVerdict === "improvable") {
+        const advisory = [
+          ...polishSuggestions,
+          ...toStringList(qa.issues),
+        ].filter(Boolean);
+        if (advisory.length > 0) {
+          blockingIssues.push(`QA improvable: ${advisory.join("; ")}`);
+        }
+        return { executionStatus, qualityStatus: "review", blockingIssues };
+      }
+
+      return { executionStatus, qualityStatus: "pass", blockingIssues };
+    }
+
+    const qaStatus = qa.status;
+    const issues = toStringList(qa.issues);
     if (qaStatus === "failed") {
       blockingIssues.push(`QA failed: ${issues.join("; ") || "unknown issues"}`);
       return { executionStatus, qualityStatus: "fail", blockingIssues };
@@ -198,6 +261,17 @@ function evaluateQuality(test: TestResult): QualityEvaluation {
 
 // ── Test Runner ─────────────────────────────────────────────────────────
 
+interface QaGateContext {
+  generationMode: CreativeContract["generationMode"];
+  targetFormat: string;
+  ctaText: string | null;
+  client: string | null;
+  product: string | null;
+  offer: string | null;
+  scoreIssues?: string[];
+  qualityScore?: number | null;
+}
+
 interface TestResult {
   function: string;
   status: "success" | "error" | "skipped";
@@ -220,7 +294,7 @@ interface ImageResult {
     brandElements: string[];
   };
   // Formal creative contract extracted from the ad
-  contract?: CreativeContract;
+  contract?: AdFixtureContract;
 }
 
 interface OutputResult {
@@ -362,7 +436,7 @@ async function main() {
       let extractedContext: ImageResult["extractedContext"] | undefined;
 
       // 1. analyzeImageContent — extract real context first
-      let contract: CreativeContract | undefined;
+      let contract: AdFixtureContract | undefined;
 
       const buffer = loadImageBuffer(meta.filePath);
 
@@ -467,8 +541,10 @@ async function main() {
               locale: "pt-BR",
             })
           ),
-          runCachedTest("analyzeCreativeQa", buffer, async () =>
-            analyzeCreativeQa({
+          runCachedTest("analyzeCreativeQa", buffer, async () => {
+            const ctaText = contract?.ctaVariants[0] ?? ctx.cta;
+            const targetFormat = contract?.targetFormats[0] ?? "1:1";
+            const qa = await analyzeCreativeQa({
               imageBuffer: buffer,
               mimeType: meta.mimeType,
               locale: "pt-BR",
@@ -482,12 +558,23 @@ async function main() {
                 tone: "Professional",
               },
               derivation: {
-                ctaText: contract?.ctaVariants[0] ?? ctx.cta,
-                format: contract?.targetFormats[0] ?? "1:1",
+                ctaText,
+                format: targetFormat,
                 generationMode: "art_variation",
               },
-            })
-          ),
+            });
+            return {
+              ...qa,
+              gateContext: {
+                generationMode: "art_variation",
+                targetFormat,
+                ctaText,
+                client: contract?.clientName ?? ctx.brandElements[0] ?? "Test Client",
+                product: contract?.productName ?? ctx.product,
+                offer: contract?.offer ?? ctx.offer,
+              },
+            };
+          }),
         ]);
         tests.push(diagnosisTest, derivationTest, qaTest);
         for (const t of [diagnosisTest, derivationTest, qaTest]) {
@@ -637,15 +724,31 @@ async function main() {
               locale: "pt-BR",
             })
           ),
-          runTest(`output_qa_${outputType}`, () =>
-            analyzeCreativeQa({
+          runTest(`output_qa_${outputType}`, async () => {
+            const qa = await analyzeCreativeQa({
               imageBuffer: outBuffer,
               mimeType: outMeta.mimeType,
               locale: "pt-BR",
               campaign: { name: `Output Test ${fileName}`, client, product, offer, objective: "Lead Generation", audience: "Young professionals", tone: "Professional" },
               derivation: { ctaText, format, generationMode },
-            })
-          ),
+            });
+            const gateGenerationMode = (
+              generationMode === "format_variation"
+                ? "format_adaptation"
+                : generationMode
+            ) as CreativeContract["generationMode"];
+            return {
+              ...qa,
+              gateContext: {
+                generationMode: gateGenerationMode,
+                targetFormat: format,
+                ctaText,
+                client,
+                product,
+                offer,
+              },
+            };
+          }),
           parentContract
             ? runTest(`output_validateContract_${outputType}`, async () => {
                 const outputContent = await analyzeImageContent(outBuffer, outMeta.mimeType);

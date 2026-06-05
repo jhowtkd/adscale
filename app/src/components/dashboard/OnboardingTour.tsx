@@ -191,7 +191,7 @@ export function OnboardingTour({ steps, onComplete, onSkip }: OnboardingTourProp
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex items-center gap-2">
             <div className="flex size-7 items-center justify-center rounded-md bg-[var(--accent-green-dim)]">
-              <Sparkles size={14} className="text-[var(--accent-green)]" />
+              <Sparkles size={14} className="text-[var(--accent-green-text)]" />
             </div>
             <h3 className="text-[15px] font-semibold text-[var(--text-primary)]">
               {steps[currentStep]?.title}
@@ -238,7 +238,7 @@ export function OnboardingTour({ steps, onComplete, onSkip }: OnboardingTourProp
             )}
             <button type="button"
               onClick={handleNext}
-              className="flex items-center gap-1 rounded-md bg-[var(--accent-green)] px-3.5 py-1.5 text-[13px] font-medium text-white hover:bg-[var(--accent-green-hover)] transition-colors"
+              className="flex items-center gap-1 rounded-md bg-[var(--accent-green)] px-3.5 py-1.5 text-[13px] font-medium text-[var(--ink)] hover:bg-[var(--accent-green-hover)] transition-colors"
             >
               {isLast ? t("finish") : t("next")}
               {!isLast && <ChevronRight size={14} />}

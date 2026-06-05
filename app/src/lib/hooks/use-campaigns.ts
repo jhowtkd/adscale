@@ -1,4 +1,9 @@
 import { apiFetch } from "@/lib/api-client";
+import {
+  CampaignLoadError,
+  parseCampaignLoadError,
+  parseFetchFailure,
+} from "@/lib/campaign-load-error";
 import { STALE_TIME } from "@/lib/query-config";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -140,7 +145,9 @@ async function fetchCampaigns(query?: CampaignListQuery): Promise<CampaignListRe
   if (query?.page && query.page > 1) params.set("page", String(query.page));
   if (query?.limit) params.set("limit", String(query.limit));
 
-  const res = await apiFetch(`/api/campaigns${params.toString() ? `?${params.toString()}` : ""}`);
+  const res = await apiFetch(`/api/campaigns${params.toString() ? `?${params.toString()}` : ""}`, {
+    timeoutMs: 60_000,
+  });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || "Erro ao carregar campanhas");
@@ -158,18 +165,22 @@ async function fetchCampaigns(query?: CampaignListQuery): Promise<CampaignListRe
 }
 
 async function fetchCampaign(id: string): Promise<Campaign> {
-  const res = await apiFetch(`/api/campaigns/${id}`);
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Erro ao carregar campanha");
+  try {
+    const res = await apiFetch(`/api/campaigns/${id}`);
+    if (!res.ok) {
+      const err = (await res.json().catch(() => ({}))) as { error?: string; code?: string };
+      throw parseCampaignLoadError(res, err);
+    }
+    const data = await res.json();
+    const c = data.campaign as Campaign;
+    return {
+      ...c,
+      createdAt: new Date(c.createdAt),
+      updatedAt: new Date(c.updatedAt),
+    };
+  } catch (error) {
+    throw parseFetchFailure(error);
   }
-  const data = await res.json();
-  const c = data.campaign as Campaign;
-  return {
-    ...c,
-    createdAt: new Date(c.createdAt),
-    updatedAt: new Date(c.updatedAt),
-  };
 }
 
 async function createCampaign(payload: {
@@ -195,6 +206,7 @@ async function createCampaign(payload: {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
+    timeoutMs: 60_000,
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -246,6 +258,7 @@ export function useCampaigns(filters?: CampaignListQuery) {
     queryKey: ["campaigns", filters ?? {}],
     queryFn: () => fetchCampaigns(filters),
     staleTime: STALE_TIME.SEMI_STATIC,
+    refetchOnWindowFocus: true,
   });
 
   return {
@@ -266,9 +279,13 @@ export function useCampaign(id: string) {
     },
   });
 
+  const loadError = query.error instanceof CampaignLoadError ? query.error : null;
+
   return {
     ...query,
     campaign: query.data ? toUiCampaign(query.data) : null,
+    loadError,
+    loadErrorKind: loadError?.kind ?? null,
   };
 }
 

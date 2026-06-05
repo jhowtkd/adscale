@@ -47,10 +47,12 @@ export default function CreditChart({ data }: CreditChartProps) {
   return (
     <div className="bg-[var(--surface-base)] border border-[var(--border-dim)] rounded-md overflow-hidden">
       <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-dim)]">
-        <h3 className="text-base font-semibold text-[var(--text-primary)]">Créditos por Semana</h3>
+        <h2 className="text-base font-semibold text-[var(--text-primary)]">Créditos por Semana</h2>
         <div className="flex gap-1">
           {ranges.map((r) => (
             <button type="button" key={r} onClick={() => setRange(r)}
+              aria-pressed={range === r}
+              aria-label={`Período de ${r}`}
               className={cn("px-3 py-1.5 text-sm rounded-md transition-colors duration-200",
                 range === r ? "bg-[var(--surface-raised)] text-[var(--text-primary)]" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]")}>
               {r}
@@ -58,13 +60,13 @@ export default function CreditChart({ data }: CreditChartProps) {
           ))}
         </div>
       </div>
-      <div className="p-6 h-[240px]">
+      <div className="p-6 h-[240px] min-h-[240px] w-full min-w-0">
         {filteredData.length === 0 || maxValue === 0 ? (
           <div className="h-full flex items-center justify-center text-sm text-[var(--text-secondary)]">
             Sem dados de uso de créditos
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+          <ResponsiveContainer width="100%" height={240} minWidth={0}>
             <BarChart data={filteredData} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border-dim)" vertical={false} />
               <XAxis dataKey="date" tickFormatter={(date) => new Date(date).toLocaleDateString("pt-BR", { weekday: "short" })}

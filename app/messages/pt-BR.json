@@ -199,6 +199,13 @@
     }
   },
   "campaign": {
+    "openCampaign": "Abrir campanha",
+    "thumbnailAlt": "Miniatura da campanha {name}",
+    "moreActions": "Mais ações",
+    "variationSingular": "variação",
+    "variationPlural": "variações",
+    "approvedCount": "{count} aprovadas",
+    "bootstrapDraftClient": "A definir",
     "new": "Nova campanha",
     "name": "Nome da campanha",
     "client": "Cliente",
@@ -226,6 +233,33 @@
       "approved": "Aprovada",
       "rejected": "Rejeitada",
       "failed": "Falhou"
+    },
+    "errors": {
+      "retry": "Tentar novamente",
+      "session": {
+        "title": "Sessão expirada",
+        "description": "Faça login novamente para abrir esta campanha."
+      },
+      "workspace": {
+        "title": "Acesso ao workspace necessário",
+        "description": "Você não tem acesso a este workspace. Troque de workspace ou volte à lista de campanhas."
+      },
+      "not_found": {
+        "title": "Campanha não encontrada",
+        "description": "Esta campanha pode ter sido excluída ou você não tem permissão para visualizá-la."
+      },
+      "timeout": {
+        "title": "Tempo de conexão esgotado",
+        "description": "Não foi possível carregar a campanha a tempo. Verifique sua conexão e tente novamente."
+      },
+      "server": {
+        "title": "Erro no servidor",
+        "description": "Algo deu errado do nosso lado. Tente novamente em instantes."
+      },
+      "unknown": {
+        "title": "Não foi possível carregar a campanha",
+        "description": "Ocorreu um erro inesperado. Tente novamente ou volte à lista de campanhas."
+      }
     },
     "objectives": {
       "awareness": "Consciência",
@@ -339,6 +373,57 @@
       }
     }
   },
+  "workspace": {
+    "derivar": {
+      "title": "Derivar criativo",
+      "description": "Escolha como deseja derivar novos criativos a partir do atual.",
+      "options": {
+        "manualArt": {
+          "title": "Criar novas variações",
+          "description": "Configure manualmente criatividade e CTAs na próxima etapa antes de gerar."
+        },
+        "autoArt": {
+          "title": "Gerar novas variações",
+          "description": "Revise sugestões da IA na próxima etapa antes de gerar variações artísticas."
+        },
+        "singleFormat": {
+          "title": "Variar tamanhos",
+          "description": "Escolha um formato de tela na próxima etapa antes de adaptar o criativo."
+        },
+        "batchFormat": {
+          "title": "Criar derivações de tamanhos",
+          "description": "Selecione os formatos desejados na próxima etapa antes de gerar em lote."
+        }
+      },
+      "config": {
+        "manualArt": {
+          "title": "Configurar variações manuais",
+          "description": "Escolha o perfil de criatividade e até 3 CTAs antes de gerar variações artísticas."
+        },
+        "autoArt": {
+          "title": "Revisar sugestões da IA",
+          "description": "Edite CTAs e criatividade sugeridos antes de gerar variações artísticas.",
+          "suggestionsApplied": "Sugestões da IA aplicadas. Revise antes de gerar.",
+          "usingCampaignDefaults": "Usando padrões da campanha.",
+          "suggestionsFailed": "Não foi possível carregar sugestões da IA.",
+          "retrySuggestions": "Tentar novamente"
+        },
+        "singleFormat": {
+          "title": "Escolher formato",
+          "description": "Selecione exatamente um formato de destino antes de adaptar o criativo."
+        },
+        "batchFormat": {
+          "title": "Escolher formatos em lote",
+          "description": "Selecione um ou mais formatos de destino antes da geração em lote."
+        }
+      },
+      "actions": {
+        "back": "Voltar",
+        "cancel": "Cancelar",
+        "confirm": "Gerar variações"
+      }
+    }
+  },
   "briefing": {
     "title": "Briefing da Campanha",
     "namePlaceholder": "ex: Promoção de Verão 2025",
@@ -383,6 +468,8 @@
     "saveContinue": "Salvar e continuar",
     "ctaVariants": "CTAs por peça",
     "ctaHelpArt": "Preencha ao menos um CTA. Campos vazios serão ignorados.",
+    "ctaRequired": "CTA 1 (obrigatório)",
+    "ctaOptional": "CTA {number} (opcional)",
     "ctaHelpFormat": "CTAs são opcionais. Cada formato recebe o CTA correspondente.",
     "ctaPiece": "CTA peça {number}",
     "ctaFormat": "CTA {format}",
@@ -547,6 +634,16 @@
     "scoreAdjust": "Ajustar",
     "scoreWeak": "Fraco",
     "regenerateWithImprovements": "Regenerar com melhorias",
+    "regenerateWithFixes": "Regenerar com correções",
+    "approveBlockedInvalid": "Saída inválida — corrija com regeneração antes de aprovar",
+    "noOutputYet": "Sem imagem gerada",
+    "generationMode": {
+      "art_variation": "Variação de arte",
+      "format_adaptation": "Adaptação de formato",
+      "restyling": "Restyling"
+    },
+    "invalidOutputBadge": "Saída inválida",
+    "improvableOutputBadge": "Melhoria sugerida",
     "generatePackage": "Preparar entrega",
     "generateLandingPage": "Gerar landing page",
     "saveAsReference": "Salvar como referência",
@@ -907,6 +1004,7 @@
     "planNotFound": "Plano não encontrado",
     "derivationNotFound": "Variação criativa não encontrada",
     "derivationNotApprovedForQa": "Variação criativa deve estar aprovada antes do QA",
+    "derivationHardFailures": "Esta criação tem falhas graves de qualidade e não pode ser aprovada nem usada para entrega até ser corrigida",
     "derivationMissingOutput": "Variação criativa está sem imagem de saída",
     "invalidInput": "Entrada inválida",
     "rateLimitExceeded": "Muitas requisições. Tente novamente mais tarde.",
@@ -962,10 +1060,45 @@
   },
   "review": {
     "title": "Revisão",
+    "reviewTitle": "Revisar {name}",
     "feedbackPlaceholder": "O que você gostaria de mudar?",
     "approve": "Aprovar",
     "reject": "Rejeitar",
-    "compare": "Comparar"
+    "compare": "Comparar",
+    "cancel": "Cancelar",
+    "contractPanelTitle": "Contrato criativo",
+    "qualityPanelTitle": "Qualidade",
+    "generationMode": "Modo de geração",
+    "targetFormat": "Formato alvo",
+    "ctaContract": "CTA",
+    "baseAsset": "Criativo base",
+    "styleReference": "Referência de estilo",
+    "ctaInheritedFromBase": "Herdado do criativo base",
+    "notSpecified": "Não informado",
+    "assetNotAvailable": "Asset indisponível",
+    "styleNotProvided": "Não informado",
+    "unknownMode": "Modo não informado",
+    "qualityScore": "Score",
+    "hardFailuresTitle": "Problemas que impedem uso",
+    "polishSuggestionsTitle": "Sugestões de melhoria",
+    "blockingFailureHint": "Corrija antes de aprovar ou exportar",
+    "polishSuggestionHint": "Melhoria opcional — regenere se quiser",
+    "hardFailureCodes": {
+      "cta_drift": "CTA alterado ou ausente",
+      "wrong_brand": "Marca ou cliente incorreto",
+      "unsupported_offer": "Oferta ou promessa não suportada",
+      "copied_style_reference_facts": "Dados copiados da referência de estilo",
+      "cropped_critical_content": "Conteúdo importante cortado ou oculto",
+      "unreadable_required_text": "Texto obrigatório ilegível",
+      "invalid_format_layout": "Layout inválido para o formato"
+    },
+    "regenerationWhatWeFix": "O que vamos tentar corrigir",
+    "regenerationBlocking": "Problemas bloqueantes",
+    "regenerationAdvisory": "Avisos (contexto opcional)",
+    "regenerateWithFixesTitle": "Regenerar com correções",
+    "regenerateWithFixesDescription": "Revise o feedback abaixo. Ele será enviado ao job de regeneração.",
+    "regenerateWithFixesConfirm": "Regenerar com correções",
+    "approveBlockedInvalid": "Saída inválida — corrija com regeneração antes de aprovar"
   },
   "steps": {
     "brief": "Brief",
@@ -1206,5 +1339,42 @@
     "lowCreditsBody": "Seu workspace tem {creditBalance} créditos restantes. Adicione créditos para continuar gerando peças.",
     "trialExpiringSubject": "Teste expirando em breve",
     "trialExpiringBody": "Seu teste do ADScale expira em {daysLeft} dia(s). Faça upgrade para um plano pago para continuar usando todos os recursos."
+  },
+  "feedback": {
+    "trigger": "Enviar feedback",
+    "reportThis": "Reportar problema",
+    "title": "Feedback beta",
+    "description": "Conte o que deu errado ou o que devemos melhorar. O contexto de diagnóstico é anexado automaticamente.",
+    "type": "Tipo",
+    "severity": "Severidade",
+    "category": "Categoria",
+    "message": "Mensagem",
+    "messagePlaceholder": "O que aconteceu? O que você esperava?",
+    "followUp": "Podem me contatar para acompanhar este reporte",
+    "privacyNote": "Capturamos rota, workspace e diagnósticos sanitizados. Capturas de tela e replay de sessão não são coletados.",
+    "cancel": "Cancelar",
+    "submit": "Enviar feedback",
+    "submitting": "Enviando…",
+    "submitSuccess": "Feedback enviado. Obrigado!",
+    "submitError": "Não foi possível enviar o feedback. Tente novamente.",
+    "types": {
+      "bug": "Bug",
+      "suggestion": "Sugestão",
+      "question": "Dúvida",
+      "other": "Outro"
+    },
+    "severities": {
+      "low": "Baixa",
+      "medium": "Média",
+      "high": "Alta",
+      "critical": "Crítica"
+    },
+    "categories": {
+      "ui": "UI / UX",
+      "generation": "Geração",
+      "billing": "Cobrança",
+      "performance": "Performance",
+      "other": "Outro"
+    }
   }
 }

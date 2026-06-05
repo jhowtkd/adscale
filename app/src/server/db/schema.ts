@@ -223,6 +223,62 @@ export const creditGrants = adscaleSchema.table(
   ]
 );
 
+export const workspaceEntitlements = adscaleSchema.table(
+  "workspace_entitlements",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    status: text("status").notNull(),
+    sourceCode: text("source_code"),
+    redeemedByUserId: text("redeemed_by_user_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    metadata: jsonb("metadata"),
+    startsAt: timestamp("starts_at", { mode: "date" }).notNull().defaultNow(),
+    expiresAt: timestamp("expires_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("workspace_entitlements_workspace_id_idx").on(table.workspaceId),
+    index("workspace_entitlements_kind_status_idx").on(table.kind, table.status),
+    uniqueIndex("workspace_entitlements_workspace_kind_uidx").on(
+      table.workspaceId,
+      table.kind
+    ),
+  ]
+);
+
+export const betaAccessRedemptions = adscaleSchema.table(
+  "beta_access_redemptions",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .unique()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    code: text("code").notNull(),
+    entitlementId: uuid("entitlement_id")
+      .notNull()
+      .references(() => workspaceEntitlements.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("beta_access_redemptions_user_id_idx").on(table.userId),
+    index("beta_access_redemptions_entitlement_id_idx").on(table.entitlementId),
+  ]
+);
+
 export const processedStripeEvents = adscaleSchema.table(
   "processed_stripe_events",
   {
@@ -551,6 +607,7 @@ export const derivations = adscaleSchema.table(
     generationMode: text("generation_mode"),
     variantIndex: integer("variant_index"),
     ctaText: text("cta_text"),
+    styleAssetId: text("style_asset_id"),
     cost: integer("cost"),
     feedback: text("feedback"),
     qualityScore: integer("quality_score"),
@@ -565,7 +622,20 @@ export const derivations = adscaleSchema.table(
     qaIssues: jsonb("qa_issues"),
     qaSuggestions: jsonb("qa_suggestions"),
     qaAnalyzedAt: timestamp("qa_analyzed_at", { mode: "date" }),
+    qualityVerdict: text("quality_verdict"),
+    hardFailures: jsonb("hard_failures"),
+    polishSuggestions: jsonb("polish_suggestions"),
+    qualityGatedAt: timestamp("quality_gated_at", { mode: "date" }),
     inputPrompt: text("input_prompt"),
+    creativeContract: jsonb("creative_contract").$type<
+      import("../ai/creative-contract").CreativeContract
+    >(),
+    regenerationCorrectionBrief: jsonb("regeneration_correction_brief").$type<
+      import("../ai/regeneration-correction-brief").RegenerationCorrectionBriefRecord
+    >(),
+    promptProvenance: jsonb("prompt_provenance").$type<
+      import("../ai/creative-contract").PromptProvenance
+    >(),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
   },
@@ -575,6 +645,7 @@ export const derivations = adscaleSchema.table(
     index("derivations_plan_id_idx").on(table.planId),
     index("derivations_parent_id_idx").on(table.parentId),
     index("derivations_workspace_campaign_idx").on(table.workspaceId, table.campaignId),
+    index("derivations_workspace_created_at_idx").on(table.workspaceId, table.createdAt),
     foreignKey({
       columns: [table.parentId],
       foreignColumns: [table.id],
@@ -786,6 +857,56 @@ export const notifications = adscaleSchema.table(
 
 export type Notification = typeof notifications.$inferSelect;
 export type NewNotification = typeof notifications.$inferInsert;
+
+export const feedbackReports = adscaleSchema.table(
+  "feedback_reports",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    status: text("status").notNull().default("new"),
+    type: text("type").notNull(),
+    severity: text("severity").notNull(),
+    category: text("category").notNull(),
+    message: text("message").notNull(),
+    followUpAllowed: boolean("follow_up_allowed").notNull().default(false),
+    route: text("route"),
+    contextKind: text("context_kind").notNull().default("global"),
+    campaignId: uuid("campaign_id").references(() => campaigns.id, {
+      onDelete: "set null",
+    }),
+    derivationId: uuid("derivation_id").references(() => derivations.id, {
+      onDelete: "set null",
+    }),
+    assetRefs: jsonb("asset_refs").$type<
+      Array<{ kind: string; id: string; key?: string }>
+    >(),
+    diagnosticContext: jsonb("diagnostic_context"),
+    sentryCorrelation: jsonb("sentry_correlation"),
+    contextCompleteness: jsonb("context_completeness"),
+    internalNotes: text("internal_notes"),
+    resolutionSummary: text("resolution_summary"),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("feedback_reports_workspace_id_idx").on(table.workspaceId),
+    index("feedback_reports_user_id_idx").on(table.userId),
+    index("feedback_reports_status_idx").on(table.status),
+    index("feedback_reports_created_at_idx").on(table.createdAt),
+    index("feedback_reports_campaign_id_idx").on(table.campaignId),
+    index("feedback_reports_derivation_id_idx").on(table.derivationId),
+  ]
+);
+
+export type FeedbackReport = typeof feedbackReports.$inferSelect;
+export type NewFeedbackReport = typeof feedbackReports.$inferInsert;
 
 export type PersonaSimulation = typeof personaSimulations.$inferSelect;
 export type NewPersonaSimulation = typeof personaSimulations.$inferInsert;

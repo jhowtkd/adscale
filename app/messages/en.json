@@ -199,6 +199,13 @@
     }
   },
   "campaign": {
+    "openCampaign": "Open campaign",
+    "thumbnailAlt": "Campaign thumbnail for {name}",
+    "moreActions": "More actions",
+    "variationSingular": "variation",
+    "variationPlural": "variations",
+    "approvedCount": "{count} approved",
+    "bootstrapDraftClient": "To be defined",
     "new": "New campaign",
     "name": "Campaign name",
     "client": "Client",
@@ -226,6 +233,33 @@
       "approved": "Approved",
       "rejected": "Rejected",
       "failed": "Failed"
+    },
+    "errors": {
+      "retry": "Try again",
+      "session": {
+        "title": "Session expired",
+        "description": "Sign in again to open this campaign."
+      },
+      "workspace": {
+        "title": "Workspace access required",
+        "description": "You do not have access to this workspace. Switch workspace or return to the campaign list."
+      },
+      "not_found": {
+        "title": "Campaign not found",
+        "description": "This campaign may have been deleted or you may not have permission to view it."
+      },
+      "timeout": {
+        "title": "Connection timed out",
+        "description": "We could not load the campaign in time. Check your connection and try again."
+      },
+      "server": {
+        "title": "Server error",
+        "description": "Something went wrong on our side. Try again in a moment."
+      },
+      "unknown": {
+        "title": "Could not load campaign",
+        "description": "An unexpected error occurred. Try again or go back to the campaign list."
+      }
     },
     "objectives": {
       "awareness": "Awareness",
@@ -339,6 +373,57 @@
       }
     }
   },
+  "workspace": {
+    "derivar": {
+      "title": "Derive creative",
+      "description": "Choose how to derive new creatives from the current one.",
+      "options": {
+        "manualArt": {
+          "title": "Create new variations",
+          "description": "Manually configure creativity and CTAs on the next step before generating."
+        },
+        "autoArt": {
+          "title": "Generate new variations",
+          "description": "Review AI suggestions on the next step before generating art variations."
+        },
+        "singleFormat": {
+          "title": "Vary sizes",
+          "description": "Pick one screen format on the next step before adapting the creative."
+        },
+        "batchFormat": {
+          "title": "Create size derivations",
+          "description": "Select target formats on the next step before batch generation."
+        }
+      },
+      "config": {
+        "manualArt": {
+          "title": "Configure manual variations",
+          "description": "Choose creativity profile and up to 3 CTAs before generating art variations."
+        },
+        "autoArt": {
+          "title": "Review AI suggestions",
+          "description": "Edit suggested CTAs and creativity profile before generating art variations.",
+          "suggestionsApplied": "AI suggestions applied. Review before generating.",
+          "usingCampaignDefaults": "Using campaign defaults.",
+          "suggestionsFailed": "Could not load AI suggestions.",
+          "retrySuggestions": "Retry"
+        },
+        "singleFormat": {
+          "title": "Choose format",
+          "description": "Select exactly one target format before adapting the creative."
+        },
+        "batchFormat": {
+          "title": "Choose batch formats",
+          "description": "Select one or more target formats before batch generation."
+        }
+      },
+      "actions": {
+        "back": "Back",
+        "cancel": "Cancel",
+        "confirm": "Generate variations"
+      }
+    }
+  },
   "briefing": {
     "title": "Campaign Brief",
     "namePlaceholder": "e.g., Summer Sale Promo 2025",
@@ -365,6 +450,8 @@
     "saveContinue": "Save & Continue",
     "ctaVariants": "CTAs per piece",
     "ctaHelpArt": "Fill at least one CTA. Empty fields will be skipped.",
+    "ctaRequired": "CTA 1 (required)",
+    "ctaOptional": "CTA {number} (optional)",
     "ctaHelpFormat": "CTAs are optional. Each format gets its matching CTA.",
     "ctaPiece": "CTA piece {number}",
     "ctaFormat": "CTA {format}",
@@ -547,6 +634,16 @@
     "scoreAdjust": "Adjust",
     "scoreWeak": "Weak",
     "regenerateWithImprovements": "Regenerate with improvements",
+    "regenerateWithFixes": "Regenerate with fixes",
+    "approveBlockedInvalid": "Invalid output — regenerate with fixes before approving",
+    "noOutputYet": "No generated image yet",
+    "generationMode": {
+      "art_variation": "Art variation",
+      "format_adaptation": "Format adaptation",
+      "restyling": "Restyling"
+    },
+    "invalidOutputBadge": "Invalid output",
+    "improvableOutputBadge": "Needs polish",
     "generatePackage": "Prepare delivery",
     "generateLandingPage": "Generate landing page",
     "saveAsReference": "Save as reference",
@@ -907,6 +1004,7 @@
     "planNotFound": "Plan not found",
     "derivationNotFound": "Creative variant not found",
     "derivationNotApprovedForQa": "Creative variant must be approved before QA",
+    "derivationHardFailures": "This creative has blocking quality failures and cannot be approved or used for delivery until they are fixed",
     "derivationMissingOutput": "Creative variant is missing output image",
     "invalidInput": "Invalid input",
     "invalidRequestBody": "Invalid request body",
@@ -961,10 +1059,45 @@
   },
   "review": {
     "title": "Review",
+    "reviewTitle": "Review {name}",
     "feedbackPlaceholder": "What would you like to change?",
     "approve": "Approve",
     "reject": "Reject",
-    "compare": "Compare"
+    "compare": "Compare",
+    "cancel": "Cancel",
+    "contractPanelTitle": "Creative contract",
+    "qualityPanelTitle": "Quality",
+    "generationMode": "Generation mode",
+    "targetFormat": "Target format",
+    "ctaContract": "CTA",
+    "baseAsset": "Base creative",
+    "styleReference": "Style reference",
+    "ctaInheritedFromBase": "Inherited from base creative",
+    "notSpecified": "Not specified",
+    "assetNotAvailable": "Asset unavailable",
+    "styleNotProvided": "Not provided",
+    "unknownMode": "Mode not specified",
+    "qualityScore": "Score",
+    "hardFailuresTitle": "Issues blocking use",
+    "polishSuggestionsTitle": "Improvement suggestions",
+    "blockingFailureHint": "Must fix before approve or export",
+    "polishSuggestionHint": "Optional improvement — regenerate if you want",
+    "hardFailureCodes": {
+      "cta_drift": "CTA changed or missing",
+      "wrong_brand": "Wrong brand or client",
+      "unsupported_offer": "Unsupported offer or claim",
+      "copied_style_reference_facts": "Facts copied from style reference",
+      "cropped_critical_content": "Important content cropped or hidden",
+      "unreadable_required_text": "Required text unreadable",
+      "invalid_format_layout": "Invalid format layout"
+    },
+    "regenerationWhatWeFix": "What we'll try to fix",
+    "regenerationBlocking": "Blocking issues",
+    "regenerationAdvisory": "Advisory (optional context)",
+    "regenerateWithFixesTitle": "Regenerate with fixes",
+    "regenerateWithFixesDescription": "Review the feedback below. It will be sent to the regeneration job.",
+    "regenerateWithFixesConfirm": "Regenerate with fixes",
+    "approveBlockedInvalid": "Invalid output — regenerate with fixes before approving"
   },
   "steps": {
     "brief": "Brief",
@@ -1205,5 +1338,42 @@
     "lowCreditsBody": "Your workspace has {creditBalance} credits remaining. Add credits to keep generating creatives.",
     "trialExpiringSubject": "Trial expiring soon",
     "trialExpiringBody": "Your ADScale trial expires in {daysLeft} day(s). Upgrade to a paid plan to continue using all features."
+  },
+  "feedback": {
+    "trigger": "Send feedback",
+    "reportThis": "Report issue",
+    "title": "Beta feedback",
+    "description": "Tell us what went wrong or what we should improve. Diagnostic context is attached automatically.",
+    "type": "Type",
+    "severity": "Severity",
+    "category": "Category",
+    "message": "Message",
+    "messagePlaceholder": "What happened? What did you expect?",
+    "followUp": "You may contact me for follow-up about this report",
+    "privacyNote": "We capture route, workspace, and sanitized diagnostics. Screenshots and session replay are not collected.",
+    "cancel": "Cancel",
+    "submit": "Send feedback",
+    "submitting": "Sending…",
+    "submitSuccess": "Feedback sent. Thank you!",
+    "submitError": "Could not send feedback. Try again.",
+    "types": {
+      "bug": "Bug",
+      "suggestion": "Suggestion",
+      "question": "Question",
+      "other": "Other"
+    },
+    "severities": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "critical": "Critical"
+    },
+    "categories": {
+      "ui": "UI / UX",
+      "generation": "Generation",
+      "billing": "Billing",
+      "performance": "Performance",
+      "other": "Other"
+    }
   }
 }

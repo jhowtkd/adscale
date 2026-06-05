@@ -11,12 +11,28 @@ import {
 } from "@/server/services/notifications";
 import { uploadBuffer, downloadBuffer } from "../storage/r2";
 import { buildDerivationPrompt } from "../ai/prompt-builder";
+import {
+  FACTUAL_SOURCE_RULES,
+  resolveCtaSemantics,
+} from "../ai/creative-contract";
+import type {
+  CreativeContract,
+  ImageOperation,
+  PromptProvenance,
+  SourceDescriptor,
+  SourcePackage,
+} from "../ai/creative-contract";
 
 import { getCampaignById, refreshCampaignStatus } from "../repositories/campaign";
 import { createNotification } from "../repositories/notification";
 import { getAssetsByCampaign } from "../repositories/asset";
 import { getPlanByCampaign } from "../repositories/plan";
-import { getDerivationById, updateDerivationScore } from "../repositories/derivation";
+import {
+  getDerivationById,
+  updateDerivationPromptProvenance,
+  updateDerivationScore,
+} from "../repositories/derivation";
+import { runCompletedDerivationQualityGate } from "../ai/creative-quality-gate";
 import { getClientProfile, getClientReferencesByIds } from "../repositories/client-reference";
 import { trackUsage } from "../repositories/usage";
 import { getBrandKitByWorkspace } from "../db/repositories/brand-kit";
@@ -30,7 +46,7 @@ import {
   analyzeDerivationCreative,
 } from "@/server/ai/creative-score";
 import { normalizeCreativeDiagnosis } from "@/server/ai/creative-diagnosis";
-import { getTargetDimensions, formatToOpenAISize } from "@/lib/formats";
+import { getTargetDimensions, formatToOpenAIImageSize, toOpenAISdkImageSize } from "@/lib/formats";
 
 const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 120_000 });
 const IMAGE_GENERATION_TIMEOUT_MS = 5 * 60 * 1000;
@@ -40,7 +56,17 @@ export async function normalizeGeneratedImage(
   dimensions: { width: number; height: number },
   generationMode: "art_variation" | "format_adaptation" | "restyling",
 ) {
-  const backgroundPosition = generationMode === "format_adaptation" ? "attention" : "centre";
+  if (generationMode === "format_adaptation") {
+    return sharp(buffer)
+      .resize(dimensions.width, dimensions.height, {
+        fit: "cover",
+        position: "attention",
+      })
+      .png()
+      .toBuffer();
+  }
+
+  const backgroundPosition = "centre";
 
   const background = await sharp(buffer)
     .resize(dimensions.width, dimensions.height, {
@@ -103,7 +129,8 @@ export async function scoreCompletedDerivation(
     parentId: string | null;
     creativeLevel?: string | null;
   },
-  locale?: string
+  locale?: string,
+  contract?: CreativeContract | null
 ) {
   const effectiveGenerationMode = derivation.generationMode ?? "art_variation";
   const targetFormat = derivation.format ?? "1:1";
@@ -139,6 +166,7 @@ export async function scoreCompletedDerivation(
           creativeDiagnosis: campaign.creativeDiagnosis ?? null,
         },
         locale: locale ?? "pt-BR",
+        contract: contract ?? null,
       });
       await updateDerivationScore(derivationId, workspaceId, visualScore);
     } catch (error) {
@@ -196,7 +224,7 @@ export const derivationJob = inngest.createFunction(
     triggers: [{ event: "derivation.generate" }],
   },
   async ({ event, step }) => {
-    const { derivationId, campaignId, workspaceId, triggeredByUserId, locale, generationMode, variantIndex, ctaText, format, isPreview } = event.data;
+    const { derivationId, campaignId, workspaceId, triggeredByUserId, locale, generationMode, variantIndex, ctaText, format, isPreview, styleAssetId } = event.data;
     logger.info(`[derivationJob] START derivationId=${derivationId} campaignId=${campaignId} locale=${locale ?? "default"}`);
 
     await inngest.realtime.publish(derivationChannel({ derivationId }).status, {
@@ -295,6 +323,18 @@ export const derivationJob = inngest.createFunction(
     const targetFormat = format ?? derivation.format ?? "1:1";
     const effectiveCtaText = ctaText ?? derivation.ctaText ?? undefined;
 
+    const contract: CreativeContract = {
+      generationMode: effectiveGenerationMode as CreativeContract["generationMode"],
+      targetFormat,
+      ctaSemantics: resolveCtaSemantics(effectiveCtaText ?? null, effectiveGenerationMode as CreativeContract["generationMode"]),
+      baseAssetId: null,
+      styleAssetId: (styleAssetId ?? (derivation as { styleAssetId?: string | null }).styleAssetId) ?? null,
+      client: campaign?.client ?? null,
+      product: campaign?.product ?? null,
+      offer: campaign?.offer ?? null,
+      constraints: null,
+    };
+
     const brandMemory = await step.run("fetch-brand-memory", async () =>
       getBrandMemoryContext({
         workspaceId,
@@ -319,6 +359,88 @@ export const derivationJob = inngest.createFunction(
         derivation.parentId &&
         parentDerivation?.outputKey;
 
+      const sourcePackage: SourcePackage = usesParentOutput
+        ? "approved_derivation"
+        : "campaign_asset";
+
+      let sourceDescriptor: SourceDescriptor | null = null;
+      if (usesParentOutput && parentDerivation?.outputKey) {
+        sourceDescriptor = {
+          kind: "approved_derivation",
+          derivationId: parentDerivation.id,
+          outputKey: parentDerivation.outputKey,
+        };
+      } else if (asset) {
+        sourceDescriptor = {
+          kind: "campaign_asset",
+          assetId: asset.id,
+          assetKey: asset.key,
+          assetType: asset.type,
+        };
+      }
+
+      let resolvedBaseAssetId: string | null = null;
+      let resolvedStyleAssetId =
+        (styleAssetId ?? (derivation as { styleAssetId?: string | null }).styleAssetId) ?? null;
+      let restylingBaseAsset: Awaited<ReturnType<typeof getAssetsByCampaign>>[number] | null = null;
+      let restylingStyleAsset: Awaited<ReturnType<typeof getAssetsByCampaign>>[number] | null = null;
+
+      if (effectiveGenerationMode === "restyling") {
+        const assets = await getAssetsByCampaign(campaignId, workspaceId);
+        restylingBaseAsset = assets.find((a) => a.role === "base") ?? assets[0] ?? null;
+        restylingStyleAsset = resolvedStyleAssetId
+          ? (assets.find((a) => a.id === resolvedStyleAssetId) ??
+             assets.find((a) => a.role === "style_reference") ??
+             null)
+          : assets.find((a) => a.role === "style_reference") ?? null;
+
+        if (!restylingBaseAsset || !restylingStyleAsset) {
+          throw new Error("Restyling requires both a base asset and a style reference asset");
+        }
+
+        resolvedBaseAssetId = restylingBaseAsset.id;
+        resolvedStyleAssetId = restylingStyleAsset.id;
+      } else if (!usesParentOutput && asset) {
+        resolvedBaseAssetId = asset.id;
+      }
+
+      const childStoredContract = derivation.creativeContract ?? null;
+
+      const resolvedContract: CreativeContract = childStoredContract
+        ? {
+            ...childStoredContract,
+            generationMode: effectiveGenerationMode as CreativeContract["generationMode"],
+            targetFormat,
+            ctaSemantics:
+              ctaText !== undefined
+                ? resolveCtaSemantics(
+                    effectiveCtaText ?? null,
+                    effectiveGenerationMode as CreativeContract["generationMode"]
+                  )
+                : childStoredContract.ctaSemantics,
+            baseAssetId: resolvedBaseAssetId ?? childStoredContract.baseAssetId,
+            styleAssetId: resolvedStyleAssetId ?? childStoredContract.styleAssetId,
+            sourcePackage: childStoredContract.sourcePackage ?? sourcePackage,
+            factualSourceRules:
+              childStoredContract.factualSourceRules ?? FACTUAL_SOURCE_RULES,
+          }
+        : {
+            generationMode: effectiveGenerationMode as CreativeContract["generationMode"],
+            targetFormat,
+            ctaSemantics: resolveCtaSemantics(
+              effectiveCtaText ?? null,
+              effectiveGenerationMode as CreativeContract["generationMode"]
+            ),
+            baseAssetId: resolvedBaseAssetId,
+            styleAssetId: resolvedStyleAssetId,
+            client: campaign?.client ?? null,
+            product: campaign?.product ?? null,
+            offer: campaign?.offer ?? null,
+            constraints: null,
+            sourcePackage,
+            factualSourceRules: FACTUAL_SOURCE_RULES,
+          };
+
       if (usesParentOutput && parentDerivation?.outputKey) {
         logger.info(`[generate-and-store-output] downloading parent output key=${parentDerivation.outputKey}`);
         referenceBuffer = await downloadBuffer(parentDerivation.outputKey);
@@ -335,6 +457,13 @@ export const derivationJob = inngest.createFunction(
         throw new Error("Parent derivation output is missing. Cannot perform package format adaptation without the approved winner image.");
       }
 
+      const openaiSize = toOpenAISdkImageSize(
+        formatToOpenAIImageSize(targetFormat, {
+          isPreview,
+          modelName: env.OPENAI_IMAGE_MODEL,
+        })
+      );
+
       const prompt = buildDerivationPrompt({
         campaign,
         plan,
@@ -347,9 +476,10 @@ export const derivationJob = inngest.createFunction(
         targetFormat,
         creativeLevel: campaign.creativeLevel ?? "balanced",
         creativeDiagnosis: normalizeCreativeDiagnosis(campaign.creativeDiagnosis) ?? null,
-        packageSource: usesParentOutput ? "approved_derivation" : "campaign_asset",
+        packageSource: sourcePackage,
         clientReferences,
         brandMemory,
+        contract: resolvedContract,
         brandKit: brandKit ? {
           name: brandKit.name,
           description: brandKit.description ?? undefined,
@@ -387,30 +517,35 @@ export const derivationJob = inngest.createFunction(
       });
       logger.info(`[generate-and-store-output] model=${env.OPENAI_IMAGE_MODEL} hasAsset=${!!asset} locale=${locale ?? "default"}`);
 
-      await step.realtime.publish("status-generating", derivationChannel({ derivationId }).status, {
+      await inngest.realtime.publish(derivationChannel({ derivationId }).status, {
         derivationId,
         status: "generating",
         updatedAt: new Date().toISOString(),
       });
 
-      // Persist the built prompt before generation
-      await db
-        .update(derivations)
-        .set({ inputPrompt: prompt, updatedAt: new Date() })
-        .where(eq(derivations.id, derivationId));
+      let promptProvenance: PromptProvenance = {
+        schemaVersion: 1,
+        inputPrompt: prompt,
+        model: env.OPENAI_IMAGE_MODEL,
+        requestedSize: openaiSize,
+        sourcePackage,
+        source: sourceDescriptor,
+        generationMode: effectiveGenerationMode as PromptProvenance["generationMode"],
+        targetFormat,
+      };
+
+      await updateDerivationPromptProvenance(derivationId, workspaceId, {
+        creativeContract: resolvedContract,
+        promptProvenance,
+        inputPrompt: prompt,
+      });
 
       let result: OpenAI.Images.Image;
-
-      const openaiSize = formatToOpenAISize(targetFormat, isPreview);
+      let imageOperation: ImageOperation;
 
       if (effectiveGenerationMode === "restyling") {
-        const assets = await getAssetsByCampaign(campaignId, workspaceId);
-        const baseAsset = assets.find((a) => a.role === "base") ?? assets[0];
-        const styleAsset = assets.find((a) => a.role === "style_reference") ?? assets[1];
-
-        if (!baseAsset || !styleAsset) {
-          throw new Error("Restyling requires both base and style_reference assets");
-        }
+        const baseAsset = restylingBaseAsset!;
+        const styleAsset = restylingStyleAsset!;
 
         const baseBuffer = await downloadBuffer(baseAsset.key);
         const styleBuffer = await downloadBuffer(styleAsset.key);
@@ -436,6 +571,7 @@ export const derivationJob = inngest.createFunction(
         }
         logger.info(`[generate-and-store-output] restyling edit success`);
         result = first;
+        imageOperation = "edit";
       } else if (referenceBuffer && referenceMimeType) {
         // Try edit mode first (works for art_variation and format_adaptation)
         const referenceImage = await toFile(referenceBuffer, "reference-image", {
@@ -460,6 +596,7 @@ export const derivationJob = inngest.createFunction(
           }
           logger.info(`[generate-and-store-output] edit success mode=${effectiveGenerationMode} url=${first.url ? "yes" : "no"} b64=${first.b64_json ? "yes" : "no"}`);
           result = first;
+          imageOperation = "edit";
         } catch (editErr) {
           // Fallback to generate for format_adaptation if edit fails
           if (effectiveGenerationMode === "format_adaptation") {
@@ -480,6 +617,7 @@ export const derivationJob = inngest.createFunction(
             }
             logger.info(`[generate-and-store-output] fallback generate success`);
             result = first;
+            imageOperation = "generation_fallback";
           } else {
             throw editErr;
           }
@@ -502,6 +640,7 @@ export const derivationJob = inngest.createFunction(
         }
         logger.info(`[generate-and-store-output] generate success (no asset)`);
         result = first;
+        imageOperation = "generate";
       }
 
       let buffer: Buffer;
@@ -530,11 +669,29 @@ export const derivationJob = inngest.createFunction(
       await uploadBuffer(key, buffer, "image/png");
       logger.info(`[generate-and-store-output] upload success key=${key}`);
 
+      const revisedPrompt = result.revised_prompt || derivation.prompt || "";
+
+      promptProvenance = {
+        ...promptProvenance,
+        revisedPrompt,
+        imageOperation,
+        outputKey: key,
+      };
+
+      await updateDerivationPromptProvenance(derivationId, workspaceId, {
+        creativeContract: resolvedContract,
+        promptProvenance,
+        inputPrompt: prompt,
+        prompt: revisedPrompt,
+      });
+
       return {
         outputKey: key,
-        revisedPrompt: result.revised_prompt || derivation.prompt || "",
+        revisedPrompt,
         targetFormat,
         effectiveGenerationMode,
+        resolvedContract,
+        promptProvenance,
       };
     });
 
@@ -635,12 +792,48 @@ export const derivationJob = inngest.createFunction(
             parentId: derivation.parentId ?? null,
             creativeLevel: campaign.creativeLevel ?? null,
           },
-          locale
+          locale,
+          generated.resolvedContract
         );
         logger.info(`[score-derivation] done derivationId=${derivationId}`);
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";
         logger.warn(`[score-derivation] failed derivationId=${derivationId}: ${message}`);
+      }
+    });
+
+    // 5b. Quality gate (non-blocking; runs after scoring)
+    await step.run("quality-gate", async () => {
+      logger.info(`[quality-gate] derivationId=${derivationId} outputKey=${generated.outputKey}`);
+      try {
+        const gateBuffer = await downloadBuffer(generated.outputKey);
+        await runCompletedDerivationQualityGate({
+          derivationId,
+          workspaceId,
+          imageBuffer: gateBuffer,
+          mimeType: "image/png",
+          locale: locale ?? "pt-BR",
+          campaign: {
+            name: campaign.name ?? "",
+            client: campaign.client ?? "",
+            product: campaign.product ?? "",
+            offer: campaign.offer ?? "",
+            objective: campaign.objective ?? "",
+            audience: campaign.audience ?? "",
+            tone: campaign.tone,
+            creativeDiagnosis: campaign.creativeDiagnosis,
+          },
+          derivation: {
+            ctaText: ctaText ?? derivation.ctaText ?? null,
+            format: generated.targetFormat,
+            generationMode: generated.effectiveGenerationMode,
+          },
+          contract: generated.resolvedContract,
+        });
+        logger.info(`[quality-gate] done derivationId=${derivationId}`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        logger.warn(`[quality-gate] step failed derivationId=${derivationId}: ${message}`);
       }
     });
 

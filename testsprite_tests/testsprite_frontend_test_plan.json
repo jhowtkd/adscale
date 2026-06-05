@@ -1,0 +1,905 @@
+[
+  {
+    "id": "TC001",
+    "title": "Sign in with email and password",
+    "description": "Verifies that an authenticated user can sign in with valid credentials and reach the dashboard.",
+    "category": "User Authentication",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign-in form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the dashboard is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC002",
+    "title": "Create a new campaign from the campaign wizard",
+    "description": "Verifies that a user can enter required campaign brief details, submit the creation form, and reach the newly created campaign flow.",
+    "category": "Campaign Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /campaigns/new"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the campaign creation form with valid campaign brief details"
+      },
+      {
+        "type": "action",
+        "description": "Submit the campaign creation form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the newly created campaign flow is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC003",
+    "title": "Create a new account",
+    "description": "Verifies that a new user can submit the registration form and see the expected account creation result or next-step message.",
+    "category": "User Authentication",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /signup"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the registration form with valid details"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign-up form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify an account creation confirmation or next-step message is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC004",
+    "title": "Accept a workspace invitation",
+    "description": "Verifies that an invited user can enter invitation details, accept the invite, and see the workspace access result.",
+    "category": "User Authentication",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /invite"
+      },
+      {
+        "type": "action",
+        "description": "Enter valid invitation details"
+      },
+      {
+        "type": "action",
+        "description": "Accept the workspace invitation"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify workspace access is granted"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC005",
+    "title": "View campaign list and open an existing campaign",
+    "description": "Verifies that a user can browse campaigns and open a campaign detail page to continue work on it.",
+    "category": "Campaign Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /campaigns"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the campaign list is displayed"
+      },
+      {
+        "type": "action",
+        "description": "Open an existing campaign"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the campaign detail page is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC006",
+    "title": "Continue from campaign detail into creative work",
+    "description": "Verifies that a user can review a campaign detail page and continue into assets, derivations, or AI-assisted creative tools.",
+    "category": "Campaign Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /campaigns"
+      },
+      {
+        "type": "action",
+        "description": "Open an existing campaign"
+      },
+      {
+        "type": "action",
+        "description": "Continue to the assets, derivations, or creative tools area"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify creative work content is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC007",
+    "title": "Request a magic sign-in link",
+    "description": "Verifies that a user can switch to the magic link flow and request a sign-in link successfully.",
+    "category": "User Authentication",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Switch to the magic link flow"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Request a sign-in link"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a confirmation message is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC008",
+    "title": "Access workspace settings",
+    "description": "An authenticated user can open the settings area and review account, workspace, billing, and plans sections.",
+    "category": "Workspace Settings and Billing",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /settings"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify settings sections are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the current configuration is visible"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC009",
+    "title": "View dashboard overview and continue to campaigns",
+    "description": "Verifies that an authenticated user can review dashboard summary information and navigate into campaign management from the home view.",
+    "category": "Dashboard Overview",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify dashboard summary cards are displayed"
+      },
+      {
+        "type": "action",
+        "description": "Open the campaigns section from the workspace navigation"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the campaigns area is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC010",
+    "title": "Update workspace settings",
+    "description": "An authenticated user can review and save workspace configuration changes from settings.",
+    "category": "Workspace Settings and Billing",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /settings"
+      },
+      {
+        "type": "action",
+        "description": "Switch to the workspace settings section"
+      },
+      {
+        "type": "action",
+        "description": "Update a workspace setting"
+      },
+      {
+        "type": "action",
+        "description": "Save the settings changes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the updated workspace configuration is visible"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC011",
+    "title": "Start the billing checkout flow",
+    "description": "An authenticated user can review subscription options and begin the billing checkout experience.",
+    "category": "Workspace Settings and Billing",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /settings"
+      },
+      {
+        "type": "action",
+        "description": "Open the billing or plans section"
+      },
+      {
+        "type": "action",
+        "description": "Start the checkout flow"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the checkout experience is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC012",
+    "title": "Update account or workspace settings and start billing flow",
+    "description": "Verifies that an admin can open settings, update settings, and start a billing checkout or portal flow.",
+    "category": "Workspace Settings and Billing",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /settings"
+      },
+      {
+        "type": "action",
+        "description": "Update account or workspace settings"
+      },
+      {
+        "type": "action",
+        "description": "Start the billing checkout or customer portal flow"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the settings update result or billing flow entry point is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC013",
+    "title": "Open the customer portal from billing",
+    "description": "An authenticated user can launch the customer portal from billing management.",
+    "category": "Workspace Settings and Billing",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /settings"
+      },
+      {
+        "type": "action",
+        "description": "Open the billing section"
+      },
+      {
+        "type": "action",
+        "description": "Launch the customer portal flow"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the external billing management experience is displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC014",
+    "title": "Restyle creative input into a new variation",
+    "description": "A user can provide the required creative inputs in the restyling tool and generate a restyled result.",
+    "category": "Creative Restyling",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /restyling"
+      },
+      {
+        "type": "action",
+        "description": "Provide the required creative inputs"
+      },
+      {
+        "type": "action",
+        "description": "Start the restyling workflow"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a restyled creative result is displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC015",
+    "title": "Set a new password from a reset token",
+    "description": "Verifies that a user can complete the password reset form with valid token details and receive a success confirmation.",
+    "category": "User Authentication",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /reset-password"
+      },
+      {
+        "type": "action",
+        "description": "Enter valid reset token details"
+      },
+      {
+        "type": "action",
+        "description": "Set a new password"
+      },
+      {
+        "type": "action",
+        "description": "Submit the reset password form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a password updated confirmation is displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC016",
+    "title": "Request a password reset",
+    "description": "Verifies that a user can request a password reset email and see the confirmation state.",
+    "category": "User Authentication",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /forgot-password"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Request a password reset email"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a reset email confirmation is displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC017",
+    "title": "Review a restyled creative output",
+    "description": "A user can complete the restyling workflow and inspect the transformed creative output.",
+    "category": "Creative Restyling",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /restyling"
+      },
+      {
+        "type": "action",
+        "description": "Provide the required creative inputs"
+      },
+      {
+        "type": "action",
+        "description": "Start the restyling workflow"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the transformed creative output is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the output is available for review"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC018",
+    "title": "Switch between settings sections",
+    "description": "An authenticated user can move across settings tabs and see each area load correctly.",
+    "category": "Workspace Settings and Billing",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /settings"
+      },
+      {
+        "type": "action",
+        "description": "Switch to the account section"
+      },
+      {
+        "type": "action",
+        "description": "Switch to the workspace section"
+      },
+      {
+        "type": "action",
+        "description": "Switch to the billing section"
+      },
+      {
+        "type": "action",
+        "description": "Switch to the plans section"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify each settings section is available"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC019",
+    "title": "Restyle creative content and review the result",
+    "description": "Verifies that a user can use the restyling workflow to generate and review a resulting derivation.",
+    "category": "Creative Restyling Workflow",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /restyling"
+      },
+      {
+        "type": "action",
+        "description": "Provide valid source creative details"
+      },
+      {
+        "type": "action",
+        "description": "Run the restyling workflow"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the resulting derivation is displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC020",
+    "title": "Browse the asset library",
+    "description": "A user can open the workspace library and review available stored assets for reuse.",
+    "category": "Workspace Library and Templates",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /library"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify workspace assets are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the library is not empty or an empty state is shown"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC021",
+    "title": "Open a public share page for a derivation",
+    "description": "Verifies that a public viewer can open a shared derivation link and view the shared creative output.",
+    "category": "Public Share View",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /share/{{SHARE_TOKEN}}"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the shared derivation is displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC022",
+    "title": "Use a template as a starting point",
+    "description": "A user can select a template and move into a creative workflow that uses it as a starting point.",
+    "category": "Workspace Library and Templates",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /templates"
+      },
+      {
+        "type": "action",
+        "description": "Select a template to start creative work"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the template is selected for reuse"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the next creative step is available"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC023",
+    "title": "Browse the template gallery",
+    "description": "Verifies that a user can open the template gallery and view reusable creative templates.",
+    "category": "Workspace Library and Template Gallery",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /templates"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify template gallery items are displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC024",
+    "title": "Open an asset from the library",
+    "description": "A user can open a stored asset from the library and view its details for campaign reuse.",
+    "category": "Workspace Library and Templates",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /library"
+      },
+      {
+        "type": "action",
+        "description": "Open a stored asset for reuse"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the asset detail view is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify reuse actions are available"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC025",
+    "title": "View a shared derivation from a public link",
+    "description": "A public viewer can open a valid shared derivation link and see the published creative content.",
+    "category": "Public Share View",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /share/[token]"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the shared derivation content is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the public share view is accessible"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC026",
+    "title": "Browse the workspace library",
+    "description": "Verifies that a user can open the workspace library and view available assets for reuse.",
+    "category": "Workspace Library and Template Gallery",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /library"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify library assets are displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC027",
+    "title": "Browse available templates",
+    "description": "A user can open the template gallery and review templates available to guide creative work.",
+    "category": "Workspace Library and Templates",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /templates"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify templates are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the gallery can be browsed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC028",
+    "title": "See a shared derivation title and creative preview",
+    "description": "A public viewer can inspect the shared derivation details and review the creative preview on the public share page.",
+    "category": "Public Share View",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /share/[token]"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the shared derivation title is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the creative preview is displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC029",
+    "title": "Open a shared derivation with its associated metadata",
+    "description": "A public viewer can open a shared derivation link and see the published result together with its supporting metadata.",
+    "category": "Public Share View",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /share/[token]"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the derivation metadata is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the shared creative content is displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC030",
+    "title": "See an empty library state",
+    "description": "A user can open the library and understand when no stored assets are available.",
+    "category": "Workspace Library and Templates",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /library"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify an empty state message is visible when no assets are available"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC031",
+    "title": "Read the terms of service",
+    "description": "A user can open the public terms page and read the product's terms of service.",
+    "category": "Legal and Policy Pages",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /terms"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the terms of service content is displayed"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC032",
+    "title": "Read the privacy policy",
+    "description": "A user can open the public privacy page and read the product's privacy policy.",
+    "category": "Legal and Policy Pages",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /privacy"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the privacy policy content is displayed"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC033",
+    "title": "View legal pages",
+    "description": "Verifies that a user can open the terms and privacy pages and see their content rendered correctly.",
+    "category": "Legal Pages",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /terms"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the terms content is displayed"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /privacy"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the privacy content is displayed"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC034",
+    "title": "Open the terms page from the public site",
+    "description": "A user can navigate to the terms page and see the full legal content render correctly.",
+    "category": "Legal and Policy Pages",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /terms"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the terms page content is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the page is readable"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC035",
+    "title": "Open the privacy page from the public site",
+    "description": "A user can navigate to the privacy page and see the full policy content render correctly.",
+    "category": "Legal and Policy Pages",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /privacy"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the privacy page content is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the page is readable"
+      }
+    ],
+    "priority": "Low"
+  }
+]

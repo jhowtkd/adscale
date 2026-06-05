@@ -223,7 +223,7 @@ function ProfileAvatarSection({
         <div
           className={cn(
             "size-24 rounded-full flex items-center justify-center text-2xl font-semibold",
-            "bg-[var(--accent-green-dim)] text-[var(--accent-green)]",
+            "bg-[var(--accent-green-dim)] text-[var(--accent-green-text)]",
             "ring-2 ring-[var(--border-medium)]",
             avatarPreview ? "overflow-hidden" : ""
           )}

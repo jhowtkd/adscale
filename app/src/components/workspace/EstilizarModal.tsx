@@ -23,17 +23,9 @@ interface EstilizarModalProps {
   onClose: () => void;
   onSubmit: (data: {
     styleReferenceFiles: File[];
-    style: string;
     intensity: string;
   }) => void;
 }
-
-const STYLE_OPTIONS = [
-  { value: "minimalista", label: "Minimalista" },
-  { value: "organico", label: "Orgânico" },
-  { value: "neon", label: "Neon" },
-  { value: "retro", label: "Retrô" },
-];
 
 const INTENSITY_OPTIONS = [
   { value: "soft", label: "Suave" },
@@ -57,7 +49,6 @@ export default function EstilizarModal({
   onSubmit,
 }: EstilizarModalProps) {
   const [styleReferencePreviews, setStyleReferencePreviews] = useState<StyleReferencePreview[]>([]);
-  const [style, setStyle] = useState("");
   const [intensity, setIntensity] = useState("");
   const styleReferencePreviewsRef = useRef<StyleReferencePreview[]>([]);
 
@@ -103,14 +94,13 @@ export default function EstilizarModal({
 
   const handleSubmit = useCallback(() => {
     const styleReferenceFiles = styleReferencePreviews.map((preview) => preview.file);
-    onSubmit({ styleReferenceFiles, style, intensity });
+    onSubmit({ styleReferenceFiles, intensity });
     styleReferencePreviews.forEach((preview) => URL.revokeObjectURL(preview.url));
     setStyleReferencePreviews([]);
-    setStyle("");
     setIntensity("");
-  }, [onSubmit, styleReferencePreviews, style, intensity]);
+  }, [onSubmit, styleReferencePreviews, intensity]);
 
-  const canSubmit = style && intensity;
+  const canSubmit = styleReferencePreviews.length > 0 && intensity;
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
@@ -121,7 +111,7 @@ export default function EstilizarModal({
             Workflow de estilização
           </DialogTitle>
           <DialogDescription>
-            Escolha referências visuais e o estilo desejado para reinterpretar o criativo.
+            Adicione referências visuais e escolha a intensidade para reinterpretar o criativo.
           </DialogDescription>
         </DialogHeader>
 
@@ -182,26 +172,6 @@ export default function EstilizarModal({
             </label>
           </div>
 
-          {/* Style Select */}
-          <div>
-            <label htmlFor="style-select" className="block font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ghost)] mb-1.5">
-              Estilo desejado
-            </label>
-            <select
-              id="style-select"
-              value={style}
-              onChange={(e) => setStyle(e.target.value)}
-              className="w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition-colors focus:border-[var(--accent-green)]"
-            >
-              <option value="">Selecione um estilo</option>
-              {STYLE_OPTIONS.map((s) => (
-                <option key={s.value} value={s.value}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
           {/* Intensity Select */}
           <div>
             <label htmlFor="style-intensity-select" className="block font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ghost)] mb-1.5">
@@ -230,7 +200,7 @@ export default function EstilizarModal({
           <Button
             onClick={handleSubmit}
             disabled={!canSubmit}
-            className="bg-[var(--accent-green)] text-white hover:bg-[var(--accent-green-light)]"
+            className="bg-[var(--accent-green)] text-[var(--accent-green-on-fill)] hover:bg-[var(--accent-green-light)]"
           >
             <Sparkles size={14} className="mr-1.5" />
             Gerar reinterpretações

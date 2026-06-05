@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getTranslations } from "next-intl/server";
 import { captureException } from "@/lib/sentry";
 import { logger } from "@/lib/logger";
+import { AUTH_ERROR_CODES, isWorkspaceAuthError } from "@/server/auth/errors";
 
 export async function apiError(
   code: string,
@@ -40,21 +41,41 @@ function serializeError(error: unknown) {
   return { message: String(error) };
 }
 
+function isDatabaseConnectionError(error: unknown): error is Error {
+  if (!(error instanceof Error)) return false;
+  const code = (error as NodeJS.ErrnoException).code;
+  const connectionCodes = new Set([
+    "ECONNREFUSED",
+    "ETIMEDOUT",
+    "ENOTFOUND",
+    "ECONNRESET",
+    "57P01",
+    "53300",
+  ]);
+  if (code && connectionCodes.has(code)) return true;
+  return /connect ECONNREFUSED|Connection terminated|timeout expired/i.test(
+    error.message
+  );
+}
+
 export async function handleApiError(error: unknown, context: string) {
-  if (error instanceof Error && error.message === "Unauthorized") {
-    return apiError("unauthorized", 401);
-  }
-
-  if (error instanceof Error && error.message === "No workspace") {
-    return apiError("noWorkspace", 403);
-  }
-
-  if (error instanceof Error && error.message === "Forbidden") {
-    return apiError("forbidden", 403);
+  if (isWorkspaceAuthError(error)) {
+    switch (error.code) {
+      case AUTH_ERROR_CODES.unauthorized:
+        return apiError("unauthorized", 401);
+      case AUTH_ERROR_CODES.noWorkspace:
+        return apiError("noWorkspace", 403);
+      case AUTH_ERROR_CODES.forbidden:
+        return apiError("forbidden", 403);
+    }
   }
 
   if (error instanceof SyntaxError) {
     return apiError("invalidRequestBody", 400);
+  }
+
+  if (isDatabaseConnectionError(error)) {
+    return apiError("internalError", 503);
   }
 
   const errorId = crypto.randomUUID();

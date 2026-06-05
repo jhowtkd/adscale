@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { logger } from "@/lib/logger";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
+import { assertDerivationApprovable } from "@/server/ai/creative-quality-gate";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import {
   getDerivationById,
@@ -44,6 +45,14 @@ export async function POST(
     }
     if (!source.outputKey) {
       return apiError("sourceDerivationMissingOutput", 400);
+    }
+
+    const approvable = assertDerivationApprovable(source);
+    if (!approvable.ok) {
+      return apiError("derivationHardFailures", 409, {
+        qualityVerdict: approvable.qualityVerdict,
+        hardFailures: approvable.hardFailures,
+      });
     }
 
     const requestedFormats = [...new Set(parsed.data.formats)];

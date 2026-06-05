@@ -1,4 +1,5 @@
 iteration	commit	metric	delta	status	description
-0	6017e07	17	0.0	baseline	initial state after audit-fix (17 errors, 31 warnings)
-1	3d1b943	8	-9	keep	fix any types in test files
-2	95bec86	0	-8	keep	fix setState in effects and any types in source files
+0	-	88	-	baseline	Initial react-doctor from app/ directory
+1	0be7305	89	+1	keep	Fixed 8 no-adjust-state-on-prop-change errors
+2	6eaf249	96	+7	keep	Batch 2: a11y, perf, dead code, modals, server bootstrap
+3	HEAD	100	+4	keep	CTA keys, Promise.all bootstrap, flatMap optimizations

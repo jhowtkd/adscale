@@ -1,26 +1,36 @@
 import { NextResponse } from "next/server";
 
 import { handleApiError } from "@/lib/api-response";
-import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import {
-  getActiveSubscriptionByWorkspace,
-  getAvailableCreditGrants,
-  getBillingCustomerByWorkspace,
-} from "@/server/repositories/billing";
+  getBetaAllowanceSummary,
+  getWorkspaceBillingAccess,
+} from "@/server/billing/access";
+import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { getBillingCustomerByWorkspace } from "@/server/repositories/billing";
 
 export async function GET(request: Request) {
   try {
     const { workspace } = await requireWorkspaceAccess(request);
-    const [customer, subscription, grants] = await Promise.all([
+    const [customer, access] = await Promise.all([
       getBillingCustomerByWorkspace(workspace.id),
-      getActiveSubscriptionByWorkspace(workspace.id),
-      getAvailableCreditGrants(workspace.id),
+      getWorkspaceBillingAccess(workspace.id),
     ]);
-    const creditBalance = grants.reduce((total, grant) => total + grant.remaining, 0);
+
+    const subscription = access.subscription;
+    const betaSummary =
+      access.kind === "beta" && access.remainingAds !== null
+        ? getBetaAllowanceSummary(access.remainingAds)
+        : null;
 
     return NextResponse.json({
       billing: {
         hasCustomer: Boolean(customer),
+        access: {
+          kind: access.kind,
+          label: access.label,
+          remainingAds: access.remainingAds,
+          beta: betaSummary,
+        },
         subscription: subscription
           ? {
               status: subscription.status,
@@ -29,11 +39,10 @@ export async function GET(request: Request) {
               cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
             }
           : null,
-        creditBalance,
+        creditBalance: access.creditBalance,
       },
     });
   } catch (error) {
     return handleApiError(error, "billing.status.GET");
   }
 }
-

@@ -1,6 +1,7 @@
 {
   "workflow": {
     "auto_advance": true,
-    "research": true
+    "research": true,
+    "_auto_chain_active": false
   }
 }

@@ -8,6 +8,7 @@ import { useState } from "react";
 
 interface SocialAuthButtonsProps {
   mode: "login" | "signup";
+  callbackURL?: string;
 }
 
 function GoogleIcon({ className }: { className?: string }) {
@@ -29,7 +30,7 @@ function GitHubIcon({ className }: { className?: string }) {
   );
 }
 
-export default function SocialAuthButtons({ mode }: SocialAuthButtonsProps) {
+export default function SocialAuthButtons({ mode, callbackURL = "/" }: SocialAuthButtonsProps) {
   const t = useTranslations("auth");
   const [loading, setLoading] = useState<string | null>(null);
 
@@ -38,7 +39,7 @@ export default function SocialAuthButtons({ mode }: SocialAuthButtonsProps) {
     try {
       await authClient.signIn.social({
         provider,
-        callbackURL: "/",
+        callbackURL,
       });
     } catch {
       // OAuth redirect happens before this usually, but handle edge cases

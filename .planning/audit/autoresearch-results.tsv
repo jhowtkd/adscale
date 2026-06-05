@@ -1,21 +1,5 @@
-iteration	commit	metric	delta	status	description
-0	8348993	9	0.0	baseline	initial state - 9 critical/high issues detectable
-1	e065a0f	8	-1	keep	add security headers (CSP, HSTS, X-Frame, etc.)
-2	6b5f460	7	-1	keep	lazy-load ReactQueryDevtools in dev only + gcTime
-3	702cbb0	7	0	keep	replace unbounded Map with LRU cache for presigned URLs
-4	9a5db37	7	0	keep	add progressive backoff to derivation polling
-5	7df1c68	6	-1	keep	fail-closed rate limiting + add read category
-6	427630d	5	-1	keep	deduplicate getOpenAI() into singleton factory
-7	68e6fc4	5	0	keep	paginate getCampaigns() with default limit of 50
-8	ac63e8e	4	-1	keep	replace unsafe 'as unknown as' with Zod extractOutputText
-9	a809761	3	-1	keep	protect notifications webhook with API key
-10	e5bb62a	3	0	keep	remove non-null assertions from derivation job
-11	22607fc	2	-1	keep	centralize ALLOWED_TYPES into upload-config.ts
-12	6710170	1	-1	keep	extract CreativeDiagnosisCard from BriefingStep
-13	f38610d	0	-1	keep	extract PreflightSummary and RestoreBanner, BriefingStep now 1000 lines
-14	c626784	4	0	keep	replace require(react) with ESM dynamic import in A11yProvider
-15	810cc94	4	0	keep	replace console.error with structured logger in RestylingModal
-16	112be5c	4	0	keep	replace require with dynamic import in QueryProvider + fix terms quotes
-17	07eb179	2	-2	keep	fix all ESLint errors — any, set-state-in-effect, require imports
-18	94f910a	0	0	keep	add magic bytes validation to 6 upload handlers — centralize upload config
-19	94f910a	0	0	keep	final verification — 0 critical/high/medium, 0 ESLint errors, 318 tests passing
+iteration	commit	metric_ms	delta	status	description
+0	baseline	-	0	baseline	autoresearch dashboard perf — tests as verify proxy
+1	pending	tests-pass	-	keep	SQL aggregation for dashboard stats; scoped campaign metrics; non-blocking home UI
+2	pending	tests-pass	-	keep	Remove dead TopBar /api/dashboard fetch; lazy notifications; 15s apiFetch timeout
+3	pending	tests-pass	-	keep	Index derivations(workspace_id, created_at); fix stats route 401 test

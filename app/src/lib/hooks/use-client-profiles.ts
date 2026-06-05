@@ -190,17 +190,6 @@ export function useClientProfileMemory(clientProfileId?: string | null) {
   });
 }
 
-export function useCreateClientReference(clientProfileId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (payload: Parameters<typeof createClientReference>[1]) =>
-      createClientReference(clientProfileId, payload),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["client-references", clientProfileId] });
-    },
-  });
-}
-
 export function useSaveDerivationAsReference() {
   const queryClient = useQueryClient();
   return useMutation({

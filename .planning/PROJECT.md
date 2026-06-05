@@ -8,6 +8,12 @@ ADScale is a SaaS webapp for creative derivation: marketing teams upload a base 
 
 Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
+## Current Milestone
+
+**Status:** v11.5 shipped — planning next milestone via `/gsd-new-milestone`.
+
+**Candidate themes:** owner notification on new feedback, richer diagnostic breadcrumbs, beta quality analytics.
+
 ## Requirements
 
 ### Validated
@@ -100,10 +106,36 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 - ✓ **PERF-10**: Remover dead code e dependências não utilizadas — v6.0
 - ✓ **PERF-11**: Implementar virtualização para listas grandes — v6.0
 - ✓ **PERF-12**: Melhorar First Contentful Paint para < 1.5s — v6.0
+- ✓ **DRV-01**: Manual art variation opens config step before generation — v11.0
+- ✓ **DRV-02**: User sets creativity level and CTAs in manual art flow — v11.0
+- ✓ **DRV-03**: Auto art variation pre-fills AI-suggested CTAs and creativity — v11.0
+- ✓ **DRV-04**: User can edit AI suggestions before confirming auto art flow — v11.0
+- ✓ **DRV-05**: Single format adaptation lets user pick one format — v11.0
+- ✓ **DRV-06**: Batch format adaptation lets user pick multiple formats — v11.0
+- ✓ **DRV-07**: Derivar options no longer skip to hardcoded generation — v11.0
+- ✓ **DRV-08**: Modal copy matches behavior in PT-BR and EN — v11.0
+- ✓ **DRV-09**: Tests cover all four Derivar entry paths — v11.0
+- ✓ **DRV-10**: Estilizar workflow unaffected — v11.0
+
+### Validated (v11.4)
+
+- ✓ **FBK-01–04**: In-app feedback submission (global + contextual) with success/error toasts — v11.4
+- ✓ **CTX-01–05**: Diagnostic context, breadcrumbs, completeness indicator — v11.4
+- ✓ **OBS-01–03**: Sentry trace correlation and ID-only server logs — v11.4
+- ✓ **TRI-01–04**: Owner triage list, detail, status, private notes — v11.4
+- ✓ **SEC-01–04**: Workspace isolation, entity validation, sanitization, no replay by default — v11.4
+- ✓ **QA-01–03**: Automated tests + privacy handoff doc — v11.4
+
+### Validated (v11.5)
+
+- ✓ **AIC-01–05**: Explicit creative contract per derivation, prompt preservation rules, and prompt provenance JSONB — v11.5
+- ✓ **AIQ-01–05**: Shared quality taxonomy, fail-safe score/QA normalization, hard-failure gate, localized blocking vs polish copy — v11.5
+- ✓ **AIR-01–05**: Bounded regeneration correction briefs, pre-confirm primary reason UI, child brief persistence, contract inheritance — v11.5
+- ✓ **FIX-01–05**: Synthetic quality fixtures, prompt/gate/brief regression tests, manual loop handoff, documented model limitations — v11.5
 
 ### Active
 
-(None — all v10.0 requirements shipped; ready for v11.0 planning)
+_None — define via `/gsd-new-milestone`._
 
 ### Validated (v10.0)
 
@@ -146,17 +178,15 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Context
 
-Current state: v6.0 milestone complete (phases 22–25). ADScale has a simplified single-page campaign creation flow with AI visual analysis that deduces campaign information from the uploaded key creative. Advanced settings (creativity profile, per-piece CTA, output format, derivation mode) are now configured in a dedicated generation mode step. Briefing Doctor has been completely removed.
+Current state: v11.5 shipped AI quality alignment (phases 57–60). The derivation pipeline now persists `creativeContract` and `promptProvenance` JSONB, runs shared taxonomy score/QA/gate, builds bounded regeneration correction briefs, and has 28 automated fixture regression tests covering the quality loop without OpenAI calls.
 
-Performance optimizations shipped:
-- Bundle reduced by ~18% (2.9MB → 2.39MB total chunks) via code splitting and lazy loading
-- TanStack Query optimized with staleTime presets (STATIC/SEMI_STATIC/DYNAMIC) and prefetch on hover
-- AI visual analysis cached for 24h to avoid re-computing
-- Images >5MB automatically resized to 1024px before upload
-- VirtualList component for large lists (>20 items)
-- Resource hints (preconnect/dns-prefetch) for R2 CDN to improve FCP
+Marketing remains in `jhowtkd/site-adscale.git`; product feedback and owner triage live in ADScale_2 at `/feedback` for platform owners.
 
-Build passes and 448 tests are green.
+Migration `app/drizzle/0027_fine_morlun.sql` (Drizzle journal idx 27) must be applied in deployed environments via `npm run db:migrate` before relying on `creative_contract`, `prompt_provenance`, and `regeneration_correction_brief` columns in production.
+
+Prior milestones delivered beta feedback capture (v11.4), presentation site separation (v11.3), beta entitlements (v11.2), generation quality gates (v11.1), coherent derivation flows (v11.0), and the full MVP through v10 UI polish.
+
+Build, lint, and tests pass.
 
 Key stack decisions:
 - Next.js App Router, React, TypeScript, Tailwind, shadcn/ui
@@ -180,11 +210,15 @@ Key stack decisions:
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Better Auth + open signup | Fastest path to auth without OAuth complexity | — Pending |
-| Zustand → UI-only | Prevents stale business data in client stores | — Pending |
-| Inngest for derivation jobs | Durable, retryable, observable without managing workers | — Pending |
-| R2 for all file storage | S3-compatible, cost-effective, presigned URLs keep load off Vercel | — Pending |
-| OpenAI image model configurable | Future-proof if model name changes | — Pending |
+| Better Auth + open signup | Fastest path to auth without OAuth complexity | ✓ Good |
+| Zustand → UI-only | Prevents stale business data in client stores | ✓ Good |
+| Inngest for derivation jobs | Durable, retryable, observable without managing workers | ✓ Good |
+| R2 for all file storage | S3-compatible, cost-effective, presigned URLs keep load off Vercel | ✓ Good |
+| OpenAI image model configurable | Future-proof if model name changes | ✓ Good |
+| JSONB contract/provenance on derivations | Inspectable generation contract without public debug UI | ✓ Good — v11.5 |
+| Shared quality taxonomy module | Score, QA, and gate must agree on failure categories | ✓ Good — v11.5 |
+| Feedback as categorized context only | Raw beta text cannot override hard contract fields | ✓ Good — v11.5 |
+| Synthetic fixtures over customer assets | Privacy-safe repeatable regression for known failure modes | ✓ Good — v11.5 |
 
 ## Evolution
 
@@ -202,6 +236,9 @@ This document evolves at phase transitions and milestone boundaries.
 2. Core Value check — still the right priority?
 3. Audit Out of Scope — reasons still valid?
 4. Update Context with current state
+
+---
+*Last updated: 2026-06-05 after v11.5 milestone completion*
 
 ## Milestone History
 
@@ -269,12 +306,44 @@ This document evolves at phase transitions and milestone boundaries.
 - States & Accessibility: Enhanced empty states, shake animation, reduced motion support
 - Phases 35–39 archived
 
-## Current Milestone: v11.0 (Planning)
+### v11.0 Fluxos de Derivação Coerentes ✅
+- `useDerivationFlow` routing — no silent auto-generate from Derivar chooser
+- Art variation config modals with creativity profile + CTAs (manual and AI-assisted prefill)
+- Format adaptation single/batch pickers with API validation for 1–3 target formats
+- PT-BR/EN copy aligned to behavior; comprehensive test coverage for all four paths
+- Phases 40–43 archived
 
-**Goal:** TBD
+### v11.1 Qualidade de Geração e Contratos Criativos ✅
+- Native format adaptation, creative contract, restyling source control, hard quality gates, and workspace error/review feedback
+- Phases 44–48 archived
 
-**Target features:**
-- TBD
+### v11.2 Beta Access and Credit Entitlements ✅
+- Beta access without fake Stripe subscriptions
+- 10-ad beta allowance through server spend gates
+- Billing/status UI distinguishes beta and paid access
+- Phase 49 archived
+
+### v11.3 Site de Apresentação Separado ✅
+- Public presentation site in `jhowtkd/site-adscale.git`
+- Marketing/app boundary documented; legal pages remain in app
+- Phases 50–52 archived
+
+### v11.4 Beta Feedback Capture ✅
+- `feedback_reports` model with sanitized diagnostics and workspace-safe APIs
+- In-app feedback modal with global and contextual triggers
+- Owner triage at `/feedback` with signed asset links
+- Phases 53–56 archived
+
+### v11.5 Qualidade IA Orientada por Feedback ✅
+- Durable creative contract and prompt provenance on derivations
+- Shared taxonomy with fail-safe score/QA normalization and hard-failure gate
+- Feedback-informed regeneration with pre-confirm primary reason and child brief persistence
+- Six-fixture synthetic catalog with 28 automated pipeline regression tests
+- Phases 57–60 archived
+
+## Next Milestone Goals
+
+- Define via `/gsd-new-milestone` (candidates: notification on new feedback, richer breadcrumbs, beta analytics)
 
 ---
-*Last updated: 2026-05-28 after completing v10.0 milestone*
+*Last updated: 2026-06-05 after v11.5 milestone completion*

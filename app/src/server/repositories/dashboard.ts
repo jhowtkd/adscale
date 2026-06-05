@@ -1,7 +1,15 @@
-import { getCampaigns as getCampaignsByWorkspace } from "./campaign";
-import { getDerivationsByWorkspace } from "./derivation";
+import {
+  getCampaigns as getCampaignsByWorkspace,
+  getWorkspaceCampaignCount,
+  getCampaignPeriodCounts,
+} from "./campaign";
+import {
+  getDerivationDashboardAnalytics,
+  getLatestDerivationOutputKeysByCampaignIds,
+} from "./derivation";
 import { getAvailableCreditGrants, getActiveSubscriptionByWorkspace } from "./billing";
 import { getCreditTransactionsForWorkspace } from "./credit-transactions";
+import { getPresignedDownloadUrl } from "@/server/storage/r2";
 
 export type AnalyticsPeriod = "week" | "month" | "quarter";
 
@@ -67,13 +75,30 @@ function getPreviousPeriodStart(period: AnalyticsPeriod): Date {
   }
 }
 
+function percentChange(current: number, previous: number): number {
+  if (previous <= 0) return 0;
+  return Math.round(((current - previous) / previous) * 100);
+}
+
 export async function getDashboardStats(
   workspaceId: string,
   period: AnalyticsPeriod = "month"
 ): Promise<DashboardStats> {
-  const [campaigns, derivations, creditGrants, subscription] = await Promise.all([
-    getCampaignsByWorkspace(workspaceId),
-    getDerivationsByWorkspace(workspaceId),
+  const periodStart = getPeriodStart(period);
+  const previousPeriodStart = getPreviousPeriodStart(period);
+
+  const [
+    totalCampaigns,
+    campaignPeriods,
+    derivationAnalytics,
+    recentCampaignRows,
+    creditGrants,
+    subscription,
+  ] = await Promise.all([
+    getWorkspaceCampaignCount(workspaceId),
+    getCampaignPeriodCounts(workspaceId, periodStart, previousPeriodStart),
+    getDerivationDashboardAnalytics(workspaceId, periodStart, previousPeriodStart),
+    getCampaignsByWorkspace(workspaceId, 5),
     getAvailableCreditGrants(workspaceId),
     getActiveSubscriptionByWorkspace(workspaceId),
   ]);
@@ -81,55 +106,37 @@ export async function getDashboardStats(
   const creditBalance = creditGrants.reduce((sum, grant) => sum + grant.remaining, 0);
   const creditsTotal = creditGrants.reduce((sum, grant) => sum + grant.amount, 0);
 
+  const campaignsChange = percentChange(
+    campaignPeriods.thisPeriod,
+    campaignPeriods.previousPeriod
+  );
+
+  const derivationsChange = percentChange(
+    derivationAnalytics.derivationsThisPeriod,
+    derivationAnalytics.derivationsPreviousPeriod
+  );
+
+  const approvalRate =
+    derivationAnalytics.totalDerivations > 0
+      ? Math.round(
+          (derivationAnalytics.approvedDerivations / derivationAnalytics.totalDerivations) * 100
+        )
+      : 0;
+
+  const approvalRateThisPeriod =
+    derivationAnalytics.derivationsThisPeriod > 0
+      ? derivationAnalytics.approvedThisPeriod / derivationAnalytics.derivationsThisPeriod
+      : 0;
+  const approvalRatePreviousPeriod =
+    derivationAnalytics.derivationsPreviousPeriod > 0
+      ? derivationAnalytics.approvedPreviousPeriod / derivationAnalytics.derivationsPreviousPeriod
+      : 0;
+  const approvalChange =
+    derivationAnalytics.derivationsPreviousPeriod > 0
+      ? Math.round((approvalRateThisPeriod - approvalRatePreviousPeriod) * 100)
+      : 0;
+
   const now = new Date();
-  const periodStart = getPeriodStart(period);
-  const previousPeriodStart = getPreviousPeriodStart(period);
-
-  // Derivations analytics
-  const totalDerivations = derivations.length;
-  const derivationsThisPeriod = derivations.filter((d) => d.createdAt >= periodStart);
-  const derivationsThisMonth = derivationsThisPeriod.length;
-  
-  const derivationsPreviousPeriod = derivations.filter(
-    (d) => d.createdAt >= previousPeriodStart && d.createdAt < periodStart
-  );
-  const derivationsChange = derivationsPreviousPeriod.length > 0
-    ? Math.round(((derivationsThisPeriod.length - derivationsPreviousPeriod.length) / derivationsPreviousPeriod.length) * 100)
-    : 0;
-
-  // Approval analytics
-  const approvedDerivations = derivations.filter((d) => d.status === "approved").length;
-  const approvalRate = totalDerivations > 0 ? Math.round((approvedDerivations / totalDerivations) * 100) : 0;
-  
-  const approvedThisPeriod = derivationsThisPeriod.filter((d) => d.status === "approved").length;
-  const approvedPreviousPeriod = derivationsPreviousPeriod.filter((d) => d.status === "approved").length;
-  const approvalChange = derivationsPreviousPeriod.length > 0
-    ? Math.round(((approvedThisPeriod / Math.max(derivationsThisPeriod.length, 1)) - (approvedPreviousPeriod / Math.max(derivationsPreviousPeriod.length, 1))) * 100)
-    : 0;
-
-  // Average generation time (for completed derivations)
-  const completedDerivations = derivations.filter(
-    (d) => d.status === "completed" || d.status === "approved"
-  );
-  const avgGenerationTimeSeconds = completedDerivations.length > 0
-    ? Math.round(
-        completedDerivations.reduce((sum, d) => {
-          const duration = d.updatedAt.getTime() - d.createdAt.getTime();
-          return sum + Math.max(0, duration);
-        }, 0) / completedDerivations.length / 1000
-      )
-    : 0;
-
-  // Campaign change
-  const campaignsThisPeriod = campaigns.filter((c) => c.createdAt >= periodStart).length;
-  const campaignsPreviousPeriod = campaigns.filter(
-    (c) => c.createdAt >= previousPeriodStart && c.createdAt < periodStart
-  ).length;
-  const campaignsChange = campaignsPreviousPeriod > 0
-    ? Math.round(((campaignsThisPeriod - campaignsPreviousPeriod) / campaignsPreviousPeriod) * 100)
-    : 0;
-
-  // Real credit usage data
   const creditTransactions = await getCreditTransactionsForWorkspace(workspaceId, {
     from: new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000),
     to: now,
@@ -141,19 +148,18 @@ export async function getDashboardStats(
       .reduce((sum, t) => sum + t.amount, 0)
   );
 
-  // Build daily credit usage series for last 7 days
   const creditUsageSeries = Array.from({ length: 7 }, (_, i) => {
     const date = new Date(now.getTime() - (6 - i) * 24 * 60 * 60 * 1000);
     const dateStr = date.toISOString().split("T")[0];
     const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
     const dayEnd = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
-    
+
     const used = Math.abs(
       creditTransactions
         .filter((t) => t.createdAt >= dayStart && t.createdAt < dayEnd && t.amount < 0)
         .reduce((sum, t) => sum + t.amount, 0)
     );
-    
+
     return {
       date: dateStr,
       used,
@@ -161,35 +167,54 @@ export async function getDashboardStats(
     };
   });
 
-  // Build recent activity from real data
-  const recentActivity = creditTransactions
-    .slice(0, 10)
-    .map((t, index) => ({
-      id: t.id ?? String(index),
-      type: t.amount < 0 ? "credit_used" : "credit_added",
-      description: t.description ?? (t.amount < 0 ? "Créditos utilizados" : "Créditos adicionados"),
-      metadata: { amount: Math.abs(t.amount), campaignName: t.campaignName },
-      createdAt: t.createdAt,
-    }));
+  const recentActivity = creditTransactions.slice(0, 10).map((t, index) => ({
+    id: t.id ?? String(index),
+    type: t.amount < 0 ? "credit_used" : "credit_added",
+    description: t.description ?? (t.amount < 0 ? "Créditos utilizados" : "Créditos adicionados"),
+    metadata: { amount: Math.abs(t.amount), campaignName: t.campaignName },
+    createdAt: t.createdAt,
+  }));
+
+  const campaignIds = recentCampaignRows.map((c) => c.id);
+  const outputKeysByCampaign = await getLatestDerivationOutputKeysByCampaignIds(
+    workspaceId,
+    campaignIds
+  );
+
+  const thumbnailUrlByCampaign = new Map<string, string | null>();
+  await Promise.all(
+    campaignIds.map(async (campaignId) => {
+      const outputKey = outputKeysByCampaign.get(campaignId);
+      if (!outputKey) {
+        thumbnailUrlByCampaign.set(campaignId, null);
+        return;
+      }
+      try {
+        thumbnailUrlByCampaign.set(campaignId, await getPresignedDownloadUrl(outputKey));
+      } catch {
+        thumbnailUrlByCampaign.set(campaignId, null);
+      }
+    })
+  );
 
   return {
-    totalCampaigns: campaigns.length,
+    totalCampaigns,
     campaignsChange,
-    totalDerivations,
-    derivationsThisMonth,
+    totalDerivations: derivationAnalytics.totalDerivations,
+    derivationsThisMonth: derivationAnalytics.derivationsThisPeriod,
     derivationsChange,
-    approvedDerivations,
+    approvedDerivations: derivationAnalytics.approvedDerivations,
     approvalRate,
     approvalChange,
-    avgGenerationTimeSeconds,
+    avgGenerationTimeSeconds: derivationAnalytics.avgGenerationTimeSeconds,
     creditsRemaining: creditBalance,
     creditsUsedThisMonth,
     creditsTotal,
     creditUsageSeries,
-    recentCampaigns: campaigns.slice(0, 5).map((c) => ({
+    recentCampaigns: recentCampaignRows.map((c) => ({
       id: c.id,
       name: c.name,
-      thumbnailUrl: null,
+      thumbnailUrl: thumbnailUrlByCampaign.get(c.id) ?? null,
       pieceCount: c.totalDerivations ?? 0,
       approvedCount: c.completedDerivations ?? 0,
       status: c.status,

@@ -6,9 +6,11 @@ import { STALE_TIME } from "@/lib/query-config";
 import type { DashboardStats, AnalyticsPeriod } from "@/server/repositories/dashboard";
 
 async function fetchDashboardStats(period: AnalyticsPeriod): Promise<DashboardStats> {
-  const res = await apiFetch(`/api/dashboard/stats?period=${period}`);
+  const res = await apiFetch(`/api/dashboard/stats?period=${period}`, {
+    timeoutMs: 60_000,
+  });
   if (!res.ok) throw new Error("Failed to fetch dashboard stats");
-  return res.json();
+  return (await res.json()) as DashboardStats;
 }
 
 export function useDashboardStats(period: AnalyticsPeriod = "month") {
@@ -16,5 +18,7 @@ export function useDashboardStats(period: AnalyticsPeriod = "month") {
     queryKey: ["dashboard", "stats", period],
     queryFn: () => fetchDashboardStats(period),
     staleTime: STALE_TIME.DYNAMIC,
+    refetchOnWindowFocus: true,
+    placeholderData: (previous) => previous,
   });
 }

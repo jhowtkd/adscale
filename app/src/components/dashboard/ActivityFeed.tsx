@@ -41,8 +41,8 @@ export default function ActivityFeed({ activities }: ActivityFeedProps) {
   return (
     <div className="glass-card rounded-xl overflow-hidden">
       <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border-dim)]">
-        <h3 className="text-sm font-semibold text-[var(--text-primary)]">Atividade</h3>
-        <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-secondary)] hover:text-[var(--accent-green)] cursor-pointer transition-colors duration-200">Ver Mais →</span>
+        <h2 className="text-sm font-semibold text-[var(--text-primary)]">Atividade</h2>
+        <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-secondary)] cursor-pointer transition-colors duration-200">Ver Mais →</span>
       </div>
       <div className="divide-y divide-[var(--border-dim)] max-h-[300px] overflow-y-auto">
         {activities.slice(0, 5).map((activity) => (

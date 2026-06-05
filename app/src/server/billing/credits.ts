@@ -1,5 +1,5 @@
+import { getWorkspaceBillingAccess } from "@/server/billing/access";
 import {
-  getActiveSubscriptionByWorkspace,
   getAvailableCreditGrants,
   updateCreditGrantRemaining,
 } from "@/server/repositories/billing";
@@ -53,13 +53,13 @@ export async function canSpend(
   amount?: number
 ): Promise<SpendCheck> {
   const required = creditAmount(action, amount);
-  const [subscription, grants] = await Promise.all([
-    getActiveSubscriptionByWorkspace(workspaceId),
+  const [access, grants] = await Promise.all([
+    getWorkspaceBillingAccess(workspaceId),
     getAvailableCreditGrants(workspaceId),
   ]);
   const balance = totalRemaining(grants);
 
-  if (!subscription) {
+  if (!access.hasSpendAccess) {
     return {
       allowed: false,
       amount: required,

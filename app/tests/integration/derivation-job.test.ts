@@ -59,6 +59,10 @@ vi.mock("@/server/validation/env", () => ({
   },
 }));
 
+vi.mock("@/server/ai/creative-quality-gate", () => ({
+  runCompletedDerivationQualityGate: vi.fn(() => Promise.resolve()),
+}));
+
 vi.mock("@/server/ai/creative-score", () => ({
   scoreDerivationHeuristic: vi.fn().mockReturnValue({
     qualityScore: 72,

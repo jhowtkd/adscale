@@ -17,6 +17,7 @@ vi.mock("@/server/repositories/user", () => ({
 vi.mock("@/server/repositories/derivation", () => ({
   getDerivationById: vi.fn(),
   updateDerivationQa: vi.fn(),
+  updateDerivationQualityGate: vi.fn(),
 }));
 
 vi.mock("@/server/repositories/campaign", () => ({
@@ -42,6 +43,7 @@ vi.mock("next-intl/server", () => ({
 import {
   getDerivationById,
   updateDerivationQa,
+  updateDerivationQualityGate,
 } from "@/server/repositories/derivation";
 import { getCampaignById } from "@/server/repositories/campaign";
 import { downloadBuffer } from "@/server/storage/r2";
@@ -49,6 +51,7 @@ import { analyzeCreativeQa } from "@/server/ai/creative-qa";
 
 const mockGetDerivationById = vi.mocked(getDerivationById);
 const mockUpdateDerivationQa = vi.mocked(updateDerivationQa);
+const mockUpdateDerivationQualityGate = vi.mocked(updateDerivationQualityGate);
 const mockGetCampaignById = vi.mocked(getCampaignById);
 const mockDownloadBuffer = vi.mocked(downloadBuffer);
 const mockAnalyzeCreativeQa = vi.mocked(analyzeCreativeQa);
@@ -142,6 +145,8 @@ describe("POST /api/derivations/[id]/qa", () => {
       ctaText: "Comprar",
       format: "4:5",
       generationMode: "art_variation",
+      qualityScore: 85,
+      scoreIssues: [],
     } as Awaited<ReturnType<typeof getDerivationById>>);
 
     mockGetCampaignById.mockResolvedValue({
@@ -177,6 +182,13 @@ describe("POST /api/derivations/[id]/qa", () => {
       qaStatus: "warning",
     } as Awaited<ReturnType<typeof updateDerivationQa>>);
 
+    mockUpdateDerivationQualityGate.mockResolvedValue({
+      id: "derivation-id",
+      qualityVerdict: "improvable",
+      hardFailures: [],
+      polishSuggestions: ["Could be clearer", "Generic"],
+    } as Awaited<ReturnType<typeof updateDerivationQualityGate>>);
+
     const res = await POST(requestFor("derivation-id"), {
       params: paramsWith("derivation-id"),
     });
@@ -184,6 +196,9 @@ describe("POST /api/derivations/[id]/qa", () => {
 
     expect(res.status).toBe(200);
     expect(body.qa.status).toBe("warning");
+    expect(body.qualityVerdict).toBe("improvable");
+    expect(body.hardFailures).toEqual([]);
+    expect(body.polishSuggestions.length).toBeGreaterThan(0);
     expect(mockUpdateDerivationQa).toHaveBeenCalledWith(
       "derivation-id",
       "workspace-1",
@@ -191,6 +206,95 @@ describe("POST /api/derivations/[id]/qa", () => {
         qaStatus: "warning",
         qaIssues: ["Could be clearer"],
         qaSuggestions: ["Add cues"],
+      })
+    );
+    expect(mockUpdateDerivationQualityGate).toHaveBeenCalledWith(
+      "derivation-id",
+      "workspace-1",
+      expect.objectContaining({
+        qualityVerdict: "improvable",
+        hardFailures: [],
+      })
+    );
+  });
+
+  it("persists invalid qualityVerdict when checklist has hard failures", async () => {
+    mockGetDerivationById.mockResolvedValue({
+      id: "derivation-id",
+      status: "approved",
+      outputKey: "derivations/test.png",
+      campaignId: "campaign-id",
+      workspaceId: "workspace-1",
+      ctaText: "Shop Now",
+      format: "4:5",
+      generationMode: "art_variation",
+      qualityScore: 90,
+      scoreIssues: [],
+    } as Awaited<ReturnType<typeof getDerivationById>>);
+
+    mockGetCampaignById.mockResolvedValue({
+      id: "campaign-id",
+      name: "Campaign",
+      client: "Acme Corp",
+      product: "Widget",
+      offer: "20% off",
+      objective: "Conversion",
+      audience: "Buyers",
+      tone: "Bold",
+      creativeDiagnosis: null,
+    } as Awaited<ReturnType<typeof getCampaignById>>);
+
+    mockDownloadBuffer.mockResolvedValue(Buffer.from("png"));
+
+    mockAnalyzeCreativeQa.mockResolvedValue({
+      status: "failed",
+      checklist: {
+        legibility: { status: "passed", note: "Readable" },
+        ctaOffer: {
+          status: "failed",
+          note: "CTA was replaced with a different call to action.",
+        },
+        informationPreservation: { status: "passed", note: "Preserved" },
+        briefMatch: { status: "passed", note: "OK" },
+        formatFit: { status: "passed", note: "Fits" },
+        creativeRisk: { status: "passed", note: "OK" },
+      },
+      issues: ["CTA drift"],
+      suggestions: [],
+    });
+
+    mockUpdateDerivationQa.mockResolvedValue({
+      id: "derivation-id",
+      qaStatus: "failed",
+    } as Awaited<ReturnType<typeof updateDerivationQa>>);
+
+    mockUpdateDerivationQualityGate.mockResolvedValue({
+      id: "derivation-id",
+      qualityVerdict: "invalid",
+      hardFailures: [{ code: "cta_drift", message: "CTA was replaced with a different call to action." }],
+      polishSuggestions: [],
+    } as Awaited<ReturnType<typeof updateDerivationQualityGate>>);
+
+    const res = await POST(requestFor("derivation-id"), {
+      params: paramsWith("derivation-id"),
+    });
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.qualityVerdict).toBe("invalid");
+    expect(body.hardFailures).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "cta_drift" }),
+      ])
+    );
+    expect(mockUpdateDerivationQualityGate).toHaveBeenCalledWith(
+      "derivation-id",
+      "workspace-1",
+      expect.objectContaining({
+        qualityVerdict: "invalid",
+        hardFailures: expect.arrayContaining([
+          expect.objectContaining({ code: "cta_drift" }),
+        ]),
       })
     );
   });

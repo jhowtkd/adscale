@@ -27,7 +27,7 @@ import { POST } from "@/app/api/campaigns/[id]/assets/upload/route";
 
 describe("POST /api/campaigns/[id]/assets/upload", () => {
   const workspaceId = "ws-123";
-  const campaignId = "camp-456";
+  const campaignId = "11111111-1111-4111-8111-111111111111";
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -44,13 +44,16 @@ describe("POST /api/campaigns/[id]/assets/upload", () => {
     const formData = new FormData();
     formData.append("file", new Blob([""], { type: "image/png" }), "test.png");
 
-    const request = new Request("http://localhost/api/campaigns/camp-456/assets/upload", {
+    const request = new Request(
+      `http://localhost/api/campaigns/${campaignId}/assets/upload`,
+      {
       method: "POST",
       headers: {
         "Content-Length": String(60 * 1024 * 1024), // 60MB
       },
       body: formData,
-    });
+      }
+    );
 
     const response = await POST(request, { params: Promise.resolve({ id: campaignId }) });
     const body = await response.json();

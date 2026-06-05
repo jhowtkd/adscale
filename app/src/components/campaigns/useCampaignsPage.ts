@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { Campaign } from "@/lib/mock-data";
 import { toast } from "sonner";
@@ -42,6 +42,29 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const searchQuery = searchParams.get("q") ?? "";
+
+  const newParam = searchParams.get("new");
+  const shouldOpenNewModal =
+    newParam !== null &&
+    (newParam === "1" || newParam === "true" || newParam === "");
+
+  const [consumedNewParam, setConsumedNewParam] = useState<string | null>(null);
+  if (shouldOpenNewModal && consumedNewParam !== newParam) {
+    setConsumedNewParam(newParam);
+    if (!modalOpen) {
+      setModalOpen(true);
+    }
+  }
+
+  useEffect(() => {
+    if (!shouldOpenNewModal || consumedNewParam !== newParam) return;
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("new");
+    const query = params.toString();
+    const nextUrl = `/campaigns${query ? `?${query}` : ""}`;
+    window.history.replaceState(window.history.state, "", nextUrl);
+  }, [shouldOpenNewModal, consumedNewParam, newParam, searchParams]);
 
   const campaignQuery = {
     searchQuery,

@@ -1,5 +1,16 @@
+import { z } from "zod";
 import { env } from "@/server/validation/env";
 import { getOpenAI, extractOutputText } from "./utils";
+import type { CreativeContract } from "./creative-contract";
+import type { CreativeHardFailureCode } from "./creative-quality-gate";
+import { SCORE_BREAKDOWN_TO_CRITERION } from "./creative-quality-taxonomy";
+
+import {
+  buildRegenerationSuggestion,
+  ctaTextFromContract,
+  type BuildSuggestionInput,
+} from "./regeneration-suggestion";
+import { buildRegenerationCorrectionBrief } from "./regeneration-correction-brief";
 
 export interface ScoreResult {
   qualityScore: number;
@@ -15,6 +26,115 @@ export interface ScoreResult {
   };
   scoreIssues: string[];
   regenerationSuggestion: string;
+}
+
+const SCORE_BREAKDOWN_KEYS = [
+  "ctaClarity",
+  "textLegibility",
+  "briefMatch",
+  "visualQuality",
+  "formatFit",
+  "variationLevelFit",
+  "informationPreservation",
+] as const;
+
+type ScoreBreakdownKey = (typeof SCORE_BREAKDOWN_KEYS)[number];
+
+const rawScoreJsonSchema = z.object({
+  qualityScore: z.unknown().optional(),
+  scoreBreakdown: z.record(z.unknown()).optional(),
+  scoreIssues: z.unknown().optional(),
+  regenerationSuggestion: z.unknown().optional(),
+});
+
+function emptyBreakdown(): ScoreResult["scoreBreakdown"] {
+  return {
+    ctaClarity: 0,
+    textLegibility: 0,
+    briefMatch: 0,
+    visualQuality: 0,
+    formatFit: 0,
+    variationLevelFit: 0,
+    informationPreservation: 0,
+  };
+}
+
+function clampScore(n: number): number {
+  return Math.min(100, Math.max(0, Math.round(n)));
+}
+
+function parseDimension(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return null;
+  }
+  return clampScore(value);
+}
+
+function asScoreIssues(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    .map((item) => item.trim())
+    .slice(0, 3);
+}
+
+export function normalizeCreativeScoreResult(value: unknown): ScoreResult {
+  const parsed = rawScoreJsonSchema.safeParse(value);
+  if (!parsed.success) {
+    return {
+      qualityScore: 0,
+      scoreStatus: "failed",
+      scoreBreakdown: emptyBreakdown(),
+      scoreIssues: [],
+      regenerationSuggestion: "",
+    };
+  }
+
+  const input = parsed.data;
+  const breakdown = emptyBreakdown();
+  let validDimensionCount = 0;
+
+  for (const key of SCORE_BREAKDOWN_KEYS) {
+    const raw = input.scoreBreakdown?.[key];
+    const dimension = parseDimension(raw);
+    breakdown[key] = dimension ?? 0;
+    if (dimension !== null) {
+      validDimensionCount += 1;
+    }
+  }
+
+  const qualityScoreDirect = parseDimension(input.qualityScore);
+  let qualityScore: number;
+  let scoreStatus: ScoreResult["scoreStatus"];
+
+  if (qualityScoreDirect !== null) {
+    qualityScore = qualityScoreDirect;
+    scoreStatus = "analyzed";
+  } else if (validDimensionCount > 0) {
+    const validValues = SCORE_BREAKDOWN_KEYS.map((key) => parseDimension(input.scoreBreakdown?.[key])).filter(
+      (v): v is number => v !== null
+    );
+    qualityScore = clampScore(
+      validValues.reduce((sum, v) => sum + v, 0) / validValues.length
+    );
+    scoreStatus = "analyzed";
+  } else {
+    qualityScore = 0;
+    scoreStatus = "failed";
+  }
+
+  const regenerationSuggestion =
+    typeof input.regenerationSuggestion === "string" ? input.regenerationSuggestion.trim() : "";
+
+  return {
+    qualityScore,
+    scoreStatus,
+    scoreBreakdown: breakdown,
+    scoreIssues: asScoreIssues(input.scoreIssues),
+    regenerationSuggestion,
+  };
 }
 
 export interface HeuristicInput {
@@ -75,24 +195,60 @@ export interface AnalyzeInput {
     creativeDiagnosis?: unknown;
   };
   locale: string;
+  contract?: CreativeContract | null;
+}
+
+function scoreDimensionPromptLines(): string {
+  return SCORE_BREAKDOWN_KEYS.map((key) => {
+    const criterion = SCORE_BREAKDOWN_TO_CRITERION[key];
+    const labels: Record<ScoreBreakdownKey, string> = {
+      ctaClarity: "ctaClarity (CTA/offer preservation)",
+      textLegibility: "textLegibility (legibility)",
+      briefMatch: "briefMatch (brief alignment)",
+      visualQuality: "visualQuality (creative risk / polish)",
+      formatFit: "formatFit (format layout fit)",
+      variationLevelFit: "variationLevelFit (variation level fit)",
+      informationPreservation: "informationPreservation (information preservation)",
+    };
+    return `- ${labels[key]} → canonical: ${criterion}`;
+  }).join("\n");
 }
 
 export async function analyzeDerivationCreative(input: AnalyzeInput): Promise<ScoreResult> {
   const base64 = input.imageBuffer.toString("base64");
   const dataUrl = `data:${input.mimeType};base64,${base64}`;
 
-  const ctaText = input.derivation.ctaText ?? "none";
   const format = input.derivation.format ?? "unknown";
   const generationMode = input.derivation.generationMode ?? "unknown";
-
   const creativeLevel = input.derivation.creativeLevel ?? "balanced";
 
+  // Build contract-aware CTA instruction
+  let ctaInstruction: string;
+  const ctaSemantics = input.contract?.ctaSemantics;
+  if (ctaSemantics?.kind === "explicit") {
+    ctaInstruction = `The exact CTA must remain: ${ctaSemantics.text}. Penalize if CTA is absent or replaced.`;
+  } else if (ctaSemantics?.kind === "inherited") {
+    ctaInstruction = `The output must preserve a CTA element from the base creative. The exact text is determined by the base image content. Do NOT penalize for missing explicit CTA text — instead check that a CTA is visually present and consistent with the base creative.`;
+  } else {
+    // Fallback: no contract — use legacy ctaText behavior
+    const ctaText = input.derivation.ctaText ?? "none";
+    ctaInstruction = `The exact CTA, if present, must remain: ${ctaText}.`;
+  }
+
+  // Build restyling-specific scoring instruction
+  const restylingScoringInstruction = input.contract?.generationMode === "restyling"
+    ? `\nRestyling evaluation: The base image is the factual source. The informationPreservation dimension must verify facts against BASE IMAGE content only. Penalize if the output contains factual claims (price, brand name, offer, CTA text, course name, product name) that match the style reference rather than the base image. Score the informationPreservation dimension down if style-reference facts contaminate the output.`
+    : "";
+
   const prompt = `Evaluate the generated ad as a reviewer. Do not invent a new CTA.
-The exact CTA, if present, must remain: ${ctaText}.
+${ctaInstruction}
 The target format must remain: ${format}.
 The generation mode must remain: ${generationMode}.
 The creativity/variation level is: ${creativeLevel}.
 Return only JSON with qualityScore, scoreBreakdown, scoreIssues, regenerationSuggestion.
+
+Score breakdown dimensions (score key → canonical concern):
+${scoreDimensionPromptLines()}
 
 Campaign context:
 - Name: ${input.campaign.name}
@@ -106,6 +262,10 @@ Campaign context:
 Score each criterion from 0 to 100.
 Provide 1-3 specific issues.
 
+CONTRACT VIOLATIONS IN scoreIssues (required):
+- Any violation of CTA semantics, brand/client, offer, or format layout from the creative contract MUST appear explicitly in scoreIssues (e.g. wrong CTA, brand mismatch, unsupported offer, invalid format layout).
+- Do NOT let a high visualQuality or overall qualityScore hide contract violations — list them in scoreIssues even when the image looks polished.
+
 CRITICAL INFORMATION PRESERVATION:
 - Compare the output against the campaign context, exact CTA, offer, product/service, brand cues, and any creative diagnosis / preservation checklist.
 - Penalize heavily if important text, offer, CTA, logo, product, badge, legal/small-print, face, or other information-bearing element appears cropped, hidden, truncated, blurred, overlapped, deleted, or too small to read.
@@ -118,7 +278,7 @@ CRITICAL: scoreBreakdown MUST include variationLevelFit. Evaluate it as follows 
 - bold: did it change background and hierarchy while preserving core brand assets? High score if dramatically different but same campaign.
 - extreme: did it create a fresh reading while preserving product, offer, CTA, and brand constraints? High score if almost unrecognizable side-by-side yet clearly same campaign independently.
 
-The regenerationSuggestion must preserve the exact CTA text, format, and generation mode.`;
+The regenerationSuggestion must preserve the exact CTA text, format, and generation mode.${restylingScoringInstruction}`;
 
   const response = await getOpenAI().responses.create({
     model: env.OPENAI_TEXT_MODEL,
@@ -144,73 +304,39 @@ The regenerationSuggestion must preserve the exact CTA text, format, and generat
     throw new Error("Empty vision response for creative scoring");
   }
 
-  const parsed = JSON.parse(raw) as {
-    qualityScore?: number;
-    scoreBreakdown?: {
-      ctaClarity?: number;
-      textLegibility?: number;
-      briefMatch?: number;
-      visualQuality?: number;
-      formatFit?: number;
-      variationLevelFit?: number;
-      informationPreservation?: number;
-    };
-    scoreIssues?: string[];
-    regenerationSuggestion?: string;
-  };
-
-  const clamp = (n: number) => Math.min(100, Math.max(0, Math.round(n)));
-
-  const breakdown = {
-    ctaClarity: clamp(parsed.scoreBreakdown?.ctaClarity ?? 70),
-    textLegibility: clamp(parsed.scoreBreakdown?.textLegibility ?? 70),
-    briefMatch: clamp(parsed.scoreBreakdown?.briefMatch ?? 70),
-    visualQuality: clamp(parsed.scoreBreakdown?.visualQuality ?? 70),
-    formatFit: clamp(parsed.scoreBreakdown?.formatFit ?? 70),
-    variationLevelFit: clamp(parsed.scoreBreakdown?.variationLevelFit ?? 70),
-    informationPreservation: clamp(parsed.scoreBreakdown?.informationPreservation ?? 70),
-  };
-
-  const qualityScore = clamp(parsed.qualityScore ?? 70);
+  const normalized = normalizeCreativeScoreResult(JSON.parse(raw));
 
   return {
-    qualityScore,
-    scoreStatus: "analyzed",
-    scoreBreakdown: breakdown,
-    scoreIssues: parsed.scoreIssues ?? [],
+    ...normalized,
+    scoreStatus: normalized.scoreStatus === "failed" ? "failed" : "analyzed",
     regenerationSuggestion: buildRegenerationSuggestion({
       ctaText: input.derivation.ctaText,
       format: input.derivation.format,
       generationMode: input.derivation.generationMode,
-      scoreIssues: parsed.scoreIssues ?? [],
+      scoreIssues: normalized.scoreIssues,
       modelSuggestion:
-        parsed.regenerationSuggestion ?? "Refine the creative while preserving the exact CTA text.",
+        normalized.regenerationSuggestion || "Refine the creative while preserving the exact CTA text.",
+      contract: input.contract ?? null,
     }),
   };
 }
 
-export interface BuildSuggestionInput {
-  ctaText: string | null | undefined;
-  format: string | null | undefined;
-  generationMode: string | null | undefined;
-  scoreIssues: string[];
-  modelSuggestion: string;
-}
+export type { BuildSuggestionInput } from "./regeneration-suggestion";
+export { buildRegenerationSuggestion } from "./regeneration-suggestion";
 
-export function buildRegenerationSuggestion(input: BuildSuggestionInput): string {
-  const parts: string[] = [];
-
-  if (input.scoreIssues.length > 0) {
-    parts.push(`Issues: ${input.scoreIssues.join("; ")}.`);
-  }
-
-  parts.push(`Suggestion: ${input.modelSuggestion}`);
-
-  const cta = input.ctaText ?? "none";
-  const fmt = input.format ?? "unknown";
-  const mode = input.generationMode ?? "unknown";
-
-  parts.push(`Preserve the exact CTA "${cta}", the ${fmt} format, and the ${mode} generation mode.`);
-
-  return parts.join(" ");
+export function buildHardFailureRegenerationSuggestion(input: {
+  hardFailures: Array<{ code: CreativeHardFailureCode; message: string }>;
+  contract: CreativeContract;
+  scoreIssues?: string[];
+  modelSuggestion?: string;
+  qaChecklist?: Record<string, { status?: string; note?: string }> | null;
+}): string {
+  const brief = buildRegenerationCorrectionBrief({
+    contract: input.contract,
+    hardFailures: input.hardFailures,
+    scoreIssues: input.scoreIssues,
+    qaChecklist: input.qaChecklist,
+    modelSuggestion: input.modelSuggestion,
+  });
+  return brief.promptFeedback;
 }

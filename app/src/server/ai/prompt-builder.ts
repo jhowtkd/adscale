@@ -5,6 +5,7 @@ import { buildBrandKitPromptSection } from "./brand-kit-extractor";
 import { buildCompetitorContextPromptSection } from "./competitor-analyzer";
 import { buildPreflightPromptSection } from "./preflight-analysis";
 import type { BrandMemoryContext } from "@/server/memory/brand-memory-context";
+import type { CreativeContract, CtaSemantics } from "./creative-contract";
 
 
 
@@ -165,15 +166,18 @@ export interface DerivationPromptConfig {
   competitorAnalyses?: CompetitorAnalysisResult[] | null;
   preflightResult?: PreflightResult | null;
   brandMemory?: BrandMemoryContext | null;
+  contract?: CreativeContract | null;
 }
 
 function buildHardRulesSection(
   config: Pick<DerivationPromptConfig, "ctaText" | "locale" | "targetFormat"> & {
     isArtVariation: boolean;
     hasPlanCtas: boolean;
+    generationMode?: DerivationPromptConfig["generationMode"];
+    ctaSemantics?: CtaSemantics | null;
   }
 ): string[] {
-  const { ctaText, locale, targetFormat = "1:1", isArtVariation, hasPlanCtas } = config;
+  const { ctaText, locale, targetFormat = "1:1", isArtVariation, hasPlanCtas, generationMode, ctaSemantics } = config;
   const rules = [
     "",
     "HARD RULES / NON-NEGOTIABLE CONTRACT:",
@@ -181,7 +185,29 @@ function buildHardRulesSection(
     "- CRITICAL LOGO RULE: Do NOT invent a logo. Preserve the logo ONLY if it already exists in the reference asset. If no logo is visible in the reference, do not add one.",
   ];
 
-  if (ctaText) {
+  if (ctaSemantics?.kind === "explicit") {
+    rules.push(
+      `- Applied CTA text for this piece: ${ctaSemantics.text}`,
+      "- CRITICAL LITERAL CTA RULE: The CTA text above is MANDATORY and FINAL.",
+      "- Do not use synonyms, paraphrases, or alternative phrasing for this CTA.",
+      "- Do not translate the CTA into any language.",
+      "- Do not rewrite or rephrase the CTA text.",
+      "- Do not replace it with plan-recommended CTAs or any other text.",
+      "- The exact CTA text above must appear verbatim in the generated output."
+    );
+    if (hasPlanCtas) {
+      rules.push("- CTA Recommendations are secondary context only and must not override the literal CTA text.");
+    }
+  } else if (ctaSemantics?.kind === "inherited") {
+    if (generationMode === "format_adaptation") {
+      rules.push("- Preserve the CTA exactly as it appears in the source creative. Do not add a different CTA or remove the existing CTA.");
+    } else if (generationMode === "restyling") {
+      rules.push("- The base image contains the factual CTA that must be preserved. Apply style language from the style reference only; do not replace the CTA with text from the style reference.");
+    } else {
+      rules.push("- Use the original CTA from the reference creative. Do not add a different CTA or remove the existing CTA.");
+    }
+  } else if (ctaText) {
+    // Fallback: no contract provided, use legacy ctaText behavior
     rules.push(
       `- Applied CTA text for this piece: ${ctaText}`,
       "- CRITICAL LITERAL CTA RULE: The CTA text above is MANDATORY and FINAL.",
@@ -191,7 +217,6 @@ function buildHardRulesSection(
       "- Do not replace it with plan-recommended CTAs or any other text.",
       "- The exact CTA text above must appear verbatim in the generated output."
     );
-
     if (hasPlanCtas) {
       rules.push("- CTA Recommendations are secondary context only and must not override the literal CTA text.");
     }
@@ -253,6 +278,7 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
     visualTokenBrief,
     creativeLevel,
     creativeDiagnosis,
+    contract,
   } = config;
 
   let effectiveCreativeLevel = creativeLevel;
@@ -273,8 +299,18 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
       targetFormat,
       isArtVariation,
       hasPlanCtas: Boolean(plan?.ctas?.length),
+      generationMode,
+      ctaSemantics: contract?.ctaSemantics ?? null,
     })
   );
+
+  if (generationMode === "restyling" && contract?.styleAssetId) {
+    parts.push(
+      "",
+      "RESTYLING FACTUAL-SOURCE RULE:",
+      "The base image is the ONLY source of factual content (brand name, product name, offer, CTA, price, course name, logo). The style reference provides visual language (color, typography style, layout composition, mood) only. Do NOT copy factual claims, text, prices, offers, brand names, or CTAs from the style reference into the output."
+    );
+  }
 
   if (isArtVariation) {
     parts.push(
@@ -293,10 +329,13 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
   } else if (generationMode === "format_adaptation") {
     parts.push(
       "MODE: format_adaptation — You are EDITING an existing ad to fit a DIFFERENT aspect ratio.",
-      "You can see the original image. Your job is to PRESERVE every visual element exactly as it appears, and only REPOSITION them to fit the target format.",
+      "You can see the original image. Your job is to PRESERVE every visual element exactly as it appears, and rebuild the layout so it feels native to the target format.",
+      "This is a layout adaptation, not a resized poster. Treat the source ad as separate modules: headline, photo/subject, offer or proof, CTA, logo, badges, legal copy, and decorative background.",
       "PRESERVE EXACTLY: the original photo/subject, all text copy (headlines, subheads, bullets, CTA), the logo, brand colors, background color/texture, offer cards, discount badges, decorative shapes, icons, and graphic panels.",
       "DO NOT: create new photos, rewrite text, add new elements, remove elements, change colors, or invent new brand assets.",
       `Target format: ${targetFormat}. Rearrange the existing elements into a native composition for this format. Fill the entire canvas edge-to-edge. No blank bands, blurred padding, or letterboxing.`,
+      "HARD LAYOUT FAILURES TO AVOID: no blurred side/top/bottom bars, no poster pasted over a background, no stretched edge filler, no crowded cluster of text/photo/CTA/logo, no overlapping information modules.",
+      "Build clear zones with gutters and whitespace. Keep headline, supporting copy, CTA, logo, badges, legal copy, faces, and products inside a central safe area; only decorative background may bleed to the edges.",
       "The result must be immediately recognizable as the same ad — same content, same visual identity, just fitting a different frame."
     );
 
@@ -309,9 +348,9 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
     }
 
     if (targetFormat === "9:16") {
-      parts.push("For 9:16 (vertical story): stack elements vertically. Place headline and photo in the upper half, offer/CTA in the lower half. Extend background to fill top and bottom.");
+      parts.push("For 9:16 (vertical story): create a tall story layout with separate vertical zones. Use the upper zone for headline/brand hook, the middle zone for the photo or main visual, and the lower zone for offer/proof/CTA/logo. Do not squeeze the square layout into the center.");
     } else if (targetFormat === "4:5") {
-      parts.push("For 4:5 (portrait feed): balance subject and copy vertically. Keep photo prominence, stack text below or beside. Rebuild offer/CTA area to feel native to portrait.");
+      parts.push("For 4:5 (portrait feed): create a portrait-feed layout with more vertical breathing room than the original. Keep photo prominence, stack text and proof modules intentionally, and give the CTA/logo their own clean area.");
     } else if (targetFormat === "1:1") {
       parts.push("For 1:1 (square): compress layout into a compact square. Keep all key elements visible and readable. Avoid cropping faces, text, or logos.");
     }
@@ -456,3 +495,50 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
   return parts.join("\n");
 }
 
+function indexOfEarliest(prompt: string, fromIndex: number, markers: string[]): number {
+  let end = prompt.length;
+  for (const marker of markers) {
+    const idx = prompt.indexOf(marker, fromIndex);
+    if (idx !== -1 && idx < end) {
+      end = idx;
+    }
+  }
+  return end;
+}
+
+/** Compact HARD RULES block for prompt regression snapshots. */
+export function extractPromptHardRulesSection(prompt: string): string {
+  const header = "HARD RULES / NON-NEGOTIABLE CONTRACT";
+  const start = prompt.indexOf(header);
+  if (start === -1) return "";
+
+  const end = indexOfEarliest(prompt, start + header.length, [
+    "\nRESTYLING FACTUAL-SOURCE RULE:",
+    "\nMODE:",
+  ]);
+  return prompt.slice(start, end).trimEnd();
+}
+
+/** MODE instructions plus format source-package lines (stops before campaign fields). */
+export function extractPromptModeSection(prompt: string): string {
+  const start = prompt.indexOf("MODE:");
+  if (start === -1) return "";
+
+  const end = indexOfEarliest(prompt, start, [
+    "\n\nCampaign:",
+    "\nCREATIVITY LEVEL:",
+    "\nAPPROVED CREATIVE DIAGNOSIS:",
+    "\nBRIEF-BASED PRESERVATION FALLBACK:",
+  ]);
+  return prompt.slice(start, end).trimEnd();
+}
+
+/** Restyling factual-source rule block when present. */
+export function extractPromptRestylingFactualSourceSection(prompt: string): string {
+  const header = "RESTYLING FACTUAL-SOURCE RULE:";
+  const start = prompt.indexOf(header);
+  if (start === -1) return "";
+
+  const end = indexOfEarliest(prompt, start + header.length, ["\nMODE:", "\n\nCampaign:"]);
+  return prompt.slice(start, end).trimEnd();
+}

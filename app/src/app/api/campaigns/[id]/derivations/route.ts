@@ -22,8 +22,13 @@ import { getUserLocale } from "@/server/repositories/user";
 import { getAssetsByCampaign } from "@/server/repositories/asset";
 import { getPresignedDownloadUrl } from "@/server/storage/r2";
 import { spendCreditsOrApiError } from "@/server/billing/gates";
+import {
+  deriveRegenerationPreview,
+  derivationHasRegenerationPreview,
+  resolveContractForDerivationRow,
+} from "@/server/ai/regeneration-correction-brief";
 
-const STALE_ACTIVE_DERIVATION_MS = 10 * 60 * 1000;
+const STALE_ACTIVE_DERIVATION_MINUTES = 10;
 
 export async function POST(
   request: Request,
@@ -44,9 +49,13 @@ export async function POST(
     }
 
     let isPreview = false;
+    let requestedStyleAssetId: string | null = null;
     try {
       const body = await request.json();
       isPreview = body.preview === true;
+      if (typeof body.styleAssetId === "string" && body.styleAssetId.length > 0) {
+        requestedStyleAssetId = body.styleAssetId;
+      }
     } catch {
       // No body or invalid JSON, treat as non-preview
     }
@@ -166,6 +175,8 @@ export async function POST(
           ctaText: job.ctaText ?? undefined,
           format: job.format,
           isPreview,
+          ...(generationMode === "restyling" &&
+            requestedStyleAssetId && { styleAssetId: requestedStyleAssetId }),
         });
         logger.info(`[derivations POST] created derivationId=${derivation.id} mode=${generationMode} index=${job.variantIndex} format=${job.format} isPreview=${isPreview}`);
 
@@ -183,6 +194,7 @@ export async function POST(
               ctaText: job.ctaText,
               format: job.format,
               isPreview,
+              styleAssetId: generationMode === "restyling" ? (requestedStyleAssetId ?? null) : null,
               ...(generationMode === "art_variation" && {
                 creativeLevel: campaign.creativeLevel ?? "balanced",
               }),
@@ -221,11 +233,10 @@ export async function GET(
       params,
     ]);
 
-    const staleBefore = new Date(Date.now() - STALE_ACTIVE_DERIVATION_MS);
     const stale = await failStaleActiveDerivations(
       campaignId,
       workspace.id,
-      staleBefore
+      STALE_ACTIVE_DERIVATION_MINUTES
     );
     if (stale.length > 0) {
       await refreshCampaignStatus(campaignId, workspace.id);
@@ -233,10 +244,22 @@ export async function GET(
 
     const items = await getDerivationsByCampaign(campaignId, workspace.id);
     const derivationsWithImageUrl = await Promise.all(
-      items.map(async (d) => ({
-        ...d,
-        imageUrl: d.outputKey ? await getPresignedDownloadUrl(d.outputKey) : null,
-      }))
+      items.map(async (d) => {
+        const base = {
+          ...d,
+          imageUrl: d.outputKey ? await getPresignedDownloadUrl(d.outputKey) : null,
+        };
+        if (!derivationHasRegenerationPreview(d)) {
+          return base;
+        }
+        const contract = resolveContractForDerivationRow(d);
+        const preview = deriveRegenerationPreview(d, contract);
+        return {
+          ...base,
+          regenerationPrimaryReason: preview.primaryReason,
+          regenerationIssueBreakdown: preview.issueBreakdown,
+        };
+      })
     );
     return NextResponse.json({ derivations: derivationsWithImageUrl });
   } catch (error) {

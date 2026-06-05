@@ -110,6 +110,11 @@ export interface Derivation {
   qaIssues?: string[] | null;
   qaSuggestions?: string[] | null;
   qaAnalyzedAt?: Date | null;
+  qualityVerdict?: "invalid" | "improvable" | "acceptable" | null;
+  hardFailures?: Array<{ code: string; message: string; criterion?: string }> | null;
+  polishSuggestions?: string[] | null;
+  qualityGatedAt?: Date | null;
+  styleAssetId?: string | null;
   isPreview?: boolean;
   annotations?: Annotation[];
   createdAt: Date;
@@ -480,9 +485,9 @@ const mockDashboardStats: DashboardStats = {
 // ============================================
 
 export const platformColors: Record<AdPlatform, { bg: string; text: string }> = {
-  Meta: { bg: "var(--accent-green-dim)", text: "var(--accent-green)" },
+  Meta: { bg: "var(--accent-green-dim)", text: "var(--accent-green-text)" },
   TikTok: { bg: "rgba(225,29,72,0.12)", text: "var(--accent-rose)" },
-  Google: { bg: "var(--accent-green-dim)", text: "var(--accent-green)" },
+  Google: { bg: "var(--accent-green-dim)", text: "var(--accent-green-text)" },
 };
 
 // ============================================

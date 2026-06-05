@@ -12,7 +12,9 @@ import { platformColors } from "@/lib/mock-data";
 
 import { useExport } from "@/lib/hooks/use-export";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAppStore } from "@/lib/store";
+import { scoreCappedForDisplay } from "@/lib/derivation-quality";
 
 // ============================================
 // Types
@@ -164,6 +166,30 @@ function Spinner({ className }: { className?: string }) {
   );
 }
 
+function DerivationActionTooltip({
+  label,
+  children,
+  className,
+  ...buttonProps
+}: {
+  label: string;
+  children: React.ReactNode;
+} & React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        type="button"
+        {...buttonProps}
+        aria-label={buttonProps["aria-label"] ?? label}
+        className={className}
+      >
+        {children}
+      </TooltipTrigger>
+      <TooltipContent side="top">{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 // ============================================
 // Main Component
 // ============================================
@@ -204,6 +230,7 @@ export default function DerivationCard({
   simulatingPersonasId,
 }: DerivationCardProps) {
   const t = useTranslations("derivation");
+  const tr = useTranslations("review");
   const commonT = useTranslations("common");
   const toastT = useTranslations("toast");
   const isCompleted = derivation.status === "completed";
@@ -241,9 +268,20 @@ export default function DerivationCard({
     "9:16": "aspect-[9/16]",
   }[derivation.format ?? ""] ?? "aspect-square";
 
-  const handleRegenerate = () => {
+  const displayScore = scoreCappedForDisplay(
+    derivation.qualityScore,
+    derivation.qualityVerdict
+  );
+
+  const handleRegenerate = (feedback?: string) => {
     if (isRegenerating) return;
-    onRegenerate?.(derivation.id);
+    const preset =
+      feedback ??
+      derivation.regenerationSuggestion ??
+      (derivation.hardFailures?.length
+        ? derivation.hardFailures.map((f) => `${f.code}: ${f.message}`).join("; ")
+        : undefined);
+    onRegenerate?.(derivation.id, preset);
   };
 
   const handleDownload = () => {
@@ -274,7 +312,20 @@ export default function DerivationCard({
       style={{ animationDelay: `${index * 80}ms` }}
     >
       {/* ---- Image Area ---- */}
-      <div className={cn("relative overflow-hidden rounded-lg bg-muted", aspectClass)}>
+      <button
+        type="button"
+        disabled={!isCompleted || !derivation.imageUrl}
+        className={cn(
+          "relative block w-full overflow-hidden rounded-lg bg-muted border-0 p-0 text-left",
+          aspectClass,
+          isCompleted && derivation.imageUrl && "cursor-pointer"
+        )}
+        onClick={
+          isCompleted && derivation.imageUrl
+            ? () => onPreview(derivation.id)
+            : undefined
+        }
+      >
         {derivation.imageUrl ? (
           <Image
             src={derivation.imageUrl}
@@ -284,11 +335,10 @@ export default function DerivationCard({
               isCompleted && "group-hover:scale-[1.03]"
             )}
             loading="lazy"
-          
-        width={800}
-        height={800}
-        unoptimized
-      />
+            width={800}
+            height={800}
+            unoptimized
+          />
         ) : (
           <div
             className={cn(
@@ -329,7 +379,7 @@ export default function DerivationCard({
           progress={derivation.status === "generating" ? simulatedProgress : undefined}
           onRetry={handleRegenerate}
         />
-      </div>
+      </button>
 
       {/* ---- Info Area ---- */}
       <div className="p-3.5 space-y-2">
@@ -339,13 +389,23 @@ export default function DerivationCard({
             {derivation.name}
           </h4>
           <div className="flex items-center gap-1.5 flex-shrink-0">
-            {derivation.qualityScore != null && (
+            {derivation.qualityVerdict === "invalid" ? (
+              <span className="inline-flex items-center rounded-md border border-rose-500/40 bg-rose-500/10 px-2 py-0.5 text-[10px] font-semibold text-rose-400">
+                {t("invalidOutputBadge")}
+              </span>
+            ) : null}
+            {derivation.qualityVerdict === "improvable" ? (
+              <span className="inline-flex items-center rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-500">
+                {t("improvableOutputBadge")}
+              </span>
+            ) : null}
+            {displayScore != null && (
               <div className="inline-flex items-center gap-1 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-2 py-1">
                 <span className="text-xs font-semibold text-[var(--text-primary)]">
-                  {derivation.qualityScore}
+                  {displayScore}
                 </span>
                 <span className="text-[10px] text-[var(--text-muted)]">
-                  {getScoreLabel(derivation.qualityScore, t)}
+                  {getScoreLabel(displayScore, t)}
                 </span>
               </div>
             )}
@@ -376,6 +436,38 @@ export default function DerivationCard({
           )}
         </div>
 
+        {derivation.qualityVerdict === "invalid" &&
+        derivation.hardFailures &&
+        derivation.hardFailures.length > 0 ? (
+          <ul className="space-y-1 rounded-md border border-rose-500/20 bg-rose-500/5 p-2">
+            {derivation.hardFailures.slice(0, 3).map((failure) => {
+              const title = tr(`hardFailureCodes.${failure.code}` as "hardFailureCodes.cta_drift");
+              const detail =
+                failure.message && failure.message !== title
+                  ? failure.message.length > 120
+                    ? `${failure.message.slice(0, 117)}...`
+                    : failure.message
+                  : null;
+              return (
+                <li key={failure.code} className="text-[11px] text-rose-300/90 leading-snug">
+                  <span className="font-medium">{title}</span>
+                  {detail ? (
+                    <span className="mt-0.5 block text-[10px] text-rose-300/70">{detail}</span>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
+
+        {derivation.qualityVerdict === "improvable" &&
+        derivation.polishSuggestions &&
+        derivation.polishSuggestions.length > 0 ? (
+          <p className="text-[11px] text-amber-500/90 line-clamp-2">
+            {derivation.polishSuggestions[0]}
+          </p>
+        ) : null}
+
         {/* Row 3: Prompt preview */}
         <p className="text-[13px] text-[var(--text-secondary)] line-clamp-2 leading-relaxed">
           {derivation.prompt}
@@ -394,7 +486,8 @@ export default function DerivationCard({
 
           <div className="flex items-center gap-1 opacity-50 group-hover:opacity-100 transition-opacity duration-200">
             {derivation.regenerationSuggestion && (
-              <button type="button"
+              <DerivationActionTooltip
+                label={t("regenerateWithImprovements")}
                 onClick={() => onRegenerate?.(derivation.id, derivation.regenerationSuggestion || "")}
                 disabled={isRegenerating}
                 aria-label={t("regenerateDerivationWithImprovements", { name: derivation.name })}
@@ -402,20 +495,20 @@ export default function DerivationCard({
                   "p-1.5 rounded-md text-[var(--accent-blue)] hover:text-[var(--accent-blue-light)] hover:bg-[var(--accent-blue)]/10 transition-all duration-150",
                   isRegenerating && "opacity-50 cursor-wait"
                 )}
-                title={t("regenerateWithImprovements")}
               >
                 <RefreshCw size={16} />
-              </button>
+              </DerivationActionTooltip>
             )}
-            <button type="button"
+            <DerivationActionTooltip
+              label={commonT("preview")}
               onClick={() => onPreview(derivation.id)}
               aria-label={t("previewDerivation", { name: derivation.name })}
               className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-all duration-150"
-              title={commonT("preview")}
             >
               <Eye size={16} />
-            </button>
-            <button type="button"
+            </DerivationActionTooltip>
+            <DerivationActionTooltip
+              label={derivation.isPreview ? t("downloadFinalVersion") : commonT("download")}
               onClick={handleDownload}
               disabled={exportMutation.isPending || derivation.isPreview}
               aria-label={t("downloadDerivation", { name: derivation.name })}
@@ -423,53 +516,52 @@ export default function DerivationCard({
                 "p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-all duration-150",
                 (exportMutation.isPending || derivation.isPreview) && "opacity-50 cursor-not-allowed"
               )}
-              title={derivation.isPreview ? t("downloadFinalVersion") : commonT("download")}
             >
               {exportMutation.isPending ? (
                 <Spinner />
               ) : (
                 <Download size={16} />
               )}
-            </button>
-            <button type="button"
-              onClick={handleRegenerate}
+            </DerivationActionTooltip>
+            <DerivationActionTooltip
+              label={commonT("regenerate")}
+              onClick={() => handleRegenerate()}
               disabled={isRegenerating}
               aria-label={t("regenerateDerivation", { name: derivation.name })}
               className={cn(
                 "p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-all duration-150",
                 isRegenerating && "opacity-50 cursor-wait"
               )}
-              title={commonT("regenerate")}
             >
               {isRegenerating ? (
                 <Spinner />
               ) : (
                 <RefreshCw size={16} />
               )}
-            </button>
+            </DerivationActionTooltip>
             {isCompleted && (
               <>
-                <button type="button"
+                <DerivationActionTooltip
+                  label={t("annotate")}
                   onClick={onAnnotate}
                   aria-label={t("annotate")}
                   className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-all duration-150"
-                  title={t("annotate")}
                 >
                   <PenTool size={16} />
-                </button>
-                <button type="button"
+                </DerivationActionTooltip>
+                <DerivationActionTooltip
+                  label={t("compare")}
                   onClick={onCompare}
                   aria-label={t("compare")}
                   className={cn(
                     "p-1.5 rounded-md transition-all duration-150",
                     isSelectedForCompare
-                      ? "text-[var(--accent-green)] bg-[var(--accent-green)]/10"
+                      ? "text-[var(--accent-green-text)] bg-[var(--accent-green)]/10"
                       : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)]"
                   )}
-                  title={t("compare")}
                 >
                   <Scale size={16} />
-                </button>
+                </DerivationActionTooltip>
               </>
             )}
           </div>
@@ -477,15 +569,38 @@ export default function DerivationCard({
 
         {/* Row 5: Approve / Reject */}
         {derivation.status === "completed" && onApprove && onReject && (
-          <div className="flex gap-2 mt-2">
-            <Button size="sm" variant="outline" onClick={onApprove} disabled={isApproving}>
-              <Check className="size-4 mr-1" />
-              {commonT("approve")}
-            </Button>
-            <Button size="sm" variant="outline" onClick={onReject} disabled={isRejecting}>
-              <X className="size-4 mr-1" />
-              {commonT("reject")}
-            </Button>
+          <div className="flex flex-col gap-2 mt-2">
+            {derivation.qualityVerdict === "invalid" ? (
+              <Button
+                size="sm"
+                onClick={() => handleRegenerate()}
+                disabled={isRegenerating}
+                className="w-fit bg-rose-500/90 text-white hover:bg-rose-500"
+              >
+                <RefreshCw className="size-4 mr-1" />
+                {t("regenerateWithFixes")}
+              </Button>
+            ) : null}
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={onApprove}
+                disabled={isApproving || derivation.qualityVerdict === "invalid"}
+                title={
+                  derivation.qualityVerdict === "invalid"
+                    ? t("approveBlockedInvalid")
+                    : undefined
+                }
+              >
+                <Check className="size-4 mr-1" />
+                {commonT("approve")}
+              </Button>
+              <Button size="sm" variant="outline" onClick={onReject} disabled={isRejecting}>
+                <X className="size-4 mr-1" />
+                {commonT("reject")}
+              </Button>
+            </div>
           </div>
         )}
 
@@ -496,7 +611,7 @@ export default function DerivationCard({
               <Button
                 size="sm"
                 onClick={onCreateDeliveryPackage}
-                className="w-fit bg-[var(--accent-green)] text-white hover:bg-[var(--accent-green-light)]"
+                className="w-fit bg-[var(--accent-green)] text-[var(--accent-green-on-fill)] hover:bg-[var(--accent-green-light)]"
               >
                 <Package className="size-4 mr-1" />
                 {t("generatePackage")}

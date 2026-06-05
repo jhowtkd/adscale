@@ -217,7 +217,7 @@ export default function NewCampaignModal({
             </Button>
             <Button
               type="submit"
-              className="bg-[var(--accent-green)] text-white hover:opacity-90"
+              className="bg-[var(--accent-green)] text-[var(--accent-green-on-fill)] hover:opacity-90"
             >
               {tCommon("create")}
             </Button>

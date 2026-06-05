@@ -1,6 +1,15 @@
 import { apiFetch } from "@/lib/api-client";
+import {
+  createLoadError,
+  getLoadErrorKind,
+  CampaignLoadError,
+  type DerivationLoadErrorKind,
+} from "@/lib/campaign-load-error";
 import { STALE_TIME } from "@/lib/query-config";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+
+export type { DerivationLoadErrorKind };
+export type DerivationLoadError = CampaignLoadError;
 
 export type ScoreStatus = "pending" | "heuristic" | "analyzed" | "failed";
 
@@ -41,24 +50,50 @@ export interface Derivation {
   qaIssues?: string[] | null;
   qaSuggestions?: string[] | null;
   qaAnalyzedAt?: Date | null;
+  qualityVerdict?: "invalid" | "improvable" | "acceptable" | null;
+  hardFailures?: Array<{ code: string; message: string; criterion?: string }> | null;
+  regenerationPrimaryReason?: string | null;
+  regenerationIssueBreakdown?: import("@/lib/regeneration-preview-types").RegenerationIssueBreakdown | null;
+  polishSuggestions?: string[] | null;
+  qualityGatedAt?: Date | null;
+  styleAssetId?: string | null;
+  isPreview?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
 
 async function fetchDerivations(campaignId: string): Promise<Derivation[]> {
-  const res = await apiFetch(`/api/campaigns/${campaignId}/derivations`);
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Erro ao carregar derivações");
+  try {
+    const res = await apiFetch(`/api/campaigns/${campaignId}/derivations`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw createLoadError(
+        (err.error as string | undefined) || "Failed to load derivations",
+        {
+          status: res.status,
+          code: err.code as string | undefined,
+        }
+      );
+    }
+    const data = await res.json();
+    const raw = data.derivations as Derivation[];
+    return raw.map((d) => ({
+      ...d,
+      createdAt: new Date(d.createdAt),
+      updatedAt: new Date(d.updatedAt),
+      scoredAt: d.scoredAt ? new Date(d.scoredAt) : null,
+      qaAnalyzedAt: d.qaAnalyzedAt ? new Date(d.qaAnalyzedAt) : null,
+      qualityGatedAt: d.qualityGatedAt ? new Date(d.qualityGatedAt) : null,
+    }));
+  } catch (error) {
+    if (error instanceof CampaignLoadError) {
+      throw error;
+    }
+    throw createLoadError(
+      error instanceof Error ? error.message : "Failed to load derivations",
+      { cause: error }
+    );
   }
-  const data = await res.json();
-  return (data.derivations as Derivation[]).map((d) => ({
-    ...d,
-    createdAt: new Date(d.createdAt),
-    updatedAt: new Date(d.updatedAt),
-    scoredAt: d.scoredAt ? new Date(d.scoredAt) : null,
-    qaAnalyzedAt: d.qaAnalyzedAt ? new Date(d.qaAnalyzedAt) : null,
-  }));
 }
 
 async function createDerivations(
@@ -83,7 +118,7 @@ export function useDerivations(
   options?: { enablePolling?: boolean }
 ) {
   const enablePolling = options?.enablePolling ?? true;
-  return useQuery({
+  const query = useQuery({
     queryKey: ["derivations", campaignId],
     queryFn: () => fetchDerivations(campaignId),
     enabled: !!campaignId && campaignId !== "new",
@@ -108,6 +143,12 @@ export function useDerivations(
       return 10000;                           // After 2min: every 10s
     },
   });
+
+  return {
+    ...query,
+    errorKind: query.error ? getLoadErrorKind(query.error) : null,
+    loadError: query.error,
+  };
 }
 
 export function useCreateDerivations(campaignId: string) {

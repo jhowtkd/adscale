@@ -2,10 +2,17 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("./campaign", () => ({
   getCampaigns: vi.fn(),
+  getWorkspaceCampaignCount: vi.fn(),
+  getCampaignPeriodCounts: vi.fn(),
 }));
 
 vi.mock("./derivation", () => ({
-  getDerivationsByWorkspace: vi.fn(),
+  getDerivationDashboardAnalytics: vi.fn(),
+  getLatestDerivationOutputKeysByCampaignIds: vi.fn(),
+}));
+
+vi.mock("@/server/storage/r2", () => ({
+  getPresignedDownloadUrl: vi.fn(),
 }));
 
 vi.mock("./billing", () => ({
@@ -17,14 +24,23 @@ vi.mock("./credit-transactions", () => ({
   getCreditTransactionsForWorkspace: vi.fn(),
 }));
 
-import { getCampaigns } from "./campaign";
-import { getDerivationsByWorkspace } from "./derivation";
+import {
+  getCampaigns,
+  getWorkspaceCampaignCount,
+  getCampaignPeriodCounts,
+} from "./campaign";
+import { getDerivationDashboardAnalytics, getLatestDerivationOutputKeysByCampaignIds } from "./derivation";
 import { getAvailableCreditGrants, getActiveSubscriptionByWorkspace } from "./billing";
 import { getCreditTransactionsForWorkspace } from "./credit-transactions";
+import { getPresignedDownloadUrl } from "@/server/storage/r2";
 import { getDashboardStats } from "./dashboard";
 
 const mockGetCampaigns = vi.mocked(getCampaigns);
-const mockGetDerivationsByWorkspace = vi.mocked(getDerivationsByWorkspace);
+const mockGetWorkspaceCampaignCount = vi.mocked(getWorkspaceCampaignCount);
+const mockGetCampaignPeriodCounts = vi.mocked(getCampaignPeriodCounts);
+const mockGetDerivationDashboardAnalytics = vi.mocked(getDerivationDashboardAnalytics);
+const mockGetLatestDerivationOutputKeysByCampaignIds = vi.mocked(getLatestDerivationOutputKeysByCampaignIds);
+const mockGetPresignedDownloadUrl = vi.mocked(getPresignedDownloadUrl);
 const mockGetAvailableCreditGrants = vi.mocked(getAvailableCreditGrants);
 const mockGetActiveSubscriptionByWorkspace = vi.mocked(getActiveSubscriptionByWorkspace);
 const mockGetCreditTransactionsForWorkspace = vi.mocked(getCreditTransactionsForWorkspace);
@@ -32,9 +48,24 @@ const mockGetCreditTransactionsForWorkspace = vi.mocked(getCreditTransactionsFor
 describe("getDashboardStats", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetLatestDerivationOutputKeysByCampaignIds.mockResolvedValue(new Map());
+    mockGetPresignedDownloadUrl.mockResolvedValue("https://cdn.example.com/thumb.png");
   });
 
-  it("returns aggregated dashboard stats", async () => {
+  it("returns aggregated dashboard stats without loading all derivations", async () => {
+    mockGetWorkspaceCampaignCount.mockResolvedValue(12);
+    mockGetCampaignPeriodCounts.mockResolvedValue({ thisPeriod: 2, previousPeriod: 1 });
+
+    mockGetDerivationDashboardAnalytics.mockResolvedValue({
+      totalDerivations: 100,
+      derivationsThisPeriod: 10,
+      derivationsPreviousPeriod: 5,
+      approvedDerivations: 40,
+      approvedThisPeriod: 8,
+      approvedPreviousPeriod: 3,
+      avgGenerationTimeSeconds: 42,
+    });
+
     mockGetCampaigns.mockResolvedValue([
       {
         id: "camp-1",
@@ -42,17 +73,10 @@ describe("getDashboardStats", () => {
         status: "active",
         platforms: ["Meta"],
         updatedAt: new Date(),
+        totalDerivations: 5,
+        completedDerivations: 3,
       },
     ] as unknown as Awaited<ReturnType<typeof getCampaigns>>);
-
-    mockGetDerivationsByWorkspace.mockResolvedValue([
-      {
-        id: "deriv-1",
-        status: "approved",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    ] as unknown as Awaited<ReturnType<typeof getDerivationsByWorkspace>>);
 
     mockGetAvailableCreditGrants.mockResolvedValue([
       {
@@ -71,17 +95,70 @@ describe("getDashboardStats", () => {
 
     const result = await getDashboardStats("ws-1");
 
-    expect(result.totalCampaigns).toBe(1);
-    expect(result.approvalRate).toBe(100);
+    expect(result.totalCampaigns).toBe(12);
+    expect(result.approvalRate).toBe(40);
     expect(result.creditsRemaining).toBe(500);
     expect(result.subscription.planKey).toBe("starter");
     expect(result.recentCampaigns).toHaveLength(1);
+    expect(result.recentCampaigns[0]?.thumbnailUrl).toBeNull();
     expect(result.creditUsageSeries).toHaveLength(7);
+    expect(mockGetDerivationDashboardAnalytics).toHaveBeenCalledWith(
+      "ws-1",
+      expect.any(Date),
+      expect.any(Date)
+    );
+  });
+
+  it("maps latest derivation output to campaign thumbnail URLs", async () => {
+    mockGetWorkspaceCampaignCount.mockResolvedValue(1);
+    mockGetCampaignPeriodCounts.mockResolvedValue({ thisPeriod: 1, previousPeriod: 0 });
+    mockGetDerivationDashboardAnalytics.mockResolvedValue({
+      totalDerivations: 1,
+      derivationsThisPeriod: 1,
+      derivationsPreviousPeriod: 0,
+      approvedDerivations: 0,
+      approvedThisPeriod: 0,
+      approvedPreviousPeriod: 0,
+      avgGenerationTimeSeconds: 10,
+    });
+    mockGetCampaigns.mockResolvedValue([
+      {
+        id: "camp-1",
+        name: "Summer",
+        status: "completed",
+        platforms: ["Meta"],
+        updatedAt: new Date(),
+        totalDerivations: 1,
+        completedDerivations: 1,
+      },
+    ] as unknown as Awaited<ReturnType<typeof getCampaigns>>);
+    mockGetLatestDerivationOutputKeysByCampaignIds.mockResolvedValue(
+      new Map([["camp-1", "derivations/camp-1/output.png"]])
+    );
+    mockGetAvailableCreditGrants.mockResolvedValue([]);
+    mockGetActiveSubscriptionByWorkspace.mockResolvedValue(null);
+    mockGetCreditTransactionsForWorkspace.mockResolvedValue([]);
+
+    const result = await getDashboardStats("ws-1");
+
+    expect(mockGetLatestDerivationOutputKeysByCampaignIds).toHaveBeenCalledWith("ws-1", ["camp-1"]);
+    expect(mockGetPresignedDownloadUrl).toHaveBeenCalledWith("derivations/camp-1/output.png");
+    expect(result.recentCampaigns[0]?.thumbnailUrl).toBe("https://cdn.example.com/thumb.png");
   });
 
   it("computes zero approval rate when no derivations exist", async () => {
+    mockGetWorkspaceCampaignCount.mockResolvedValue(0);
+    mockGetCampaignPeriodCounts.mockResolvedValue({ thisPeriod: 0, previousPeriod: 0 });
+    mockGetDerivationDashboardAnalytics.mockResolvedValue({
+      totalDerivations: 0,
+      derivationsThisPeriod: 0,
+      derivationsPreviousPeriod: 0,
+      approvedDerivations: 0,
+      approvedThisPeriod: 0,
+      approvedPreviousPeriod: 0,
+      avgGenerationTimeSeconds: 0,
+    });
     mockGetCampaigns.mockResolvedValue([] as unknown as Awaited<ReturnType<typeof getCampaigns>>);
-    mockGetDerivationsByWorkspace.mockResolvedValue([] as unknown as Awaited<ReturnType<typeof getDerivationsByWorkspace>>);
     mockGetAvailableCreditGrants.mockResolvedValue([] as unknown as Awaited<ReturnType<typeof getAvailableCreditGrants>>);
     mockGetActiveSubscriptionByWorkspace.mockResolvedValue(null);
     mockGetCreditTransactionsForWorkspace.mockResolvedValue([]);

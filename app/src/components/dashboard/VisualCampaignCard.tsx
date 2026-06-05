@@ -14,96 +14,46 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";
+import {
+  type DashboardCampaignItem,
+  statusConfig,
+} from "@/components/dashboard/campaign-status-config";
 
-interface VisualCampaignCardProps {
-  id: string;
-  name: string;
-  thumbnailUrl: string | null;
-  pieceCount: number;
-  approvedCount: number;
-  status: string;
+interface VisualCampaignCardProps extends DashboardCampaignItem {
   platforms?: string[];
-  updatedAt: string;
   index?: number;
 }
 
-// Bold, high-contrast status config with neon accents
-const statusConfig: Record<string, { dot: string; label: string; bg: string; text: string; border: string }> = {
-  active: { 
-    dot: "bg-[var(--accent-green)] shadow-[0_0_8px_var(--accent-green-dim)0.8)]", 
-    label: "ATIVA",
-    bg: "bg-[var(--accent-green)]/15",
-    text: "text-[var(--accent-green)]",
-    border: "border-[var(--accent-green)]/30"
-  },
-  draft: { 
-    dot: "bg-[var(--accent-amber)]", 
-    label: "RASCUNHO",
-    bg: "bg-[var(--accent-amber)]/15",
-    text: "text-[var(--accent-amber)]",
-    border: "border-[var(--accent-amber)]/30"
-  },
-  generating: { 
-    dot: "bg-[var(--accent-green)] animate-pulse shadow-[0_0_8px_var(--accent-green-dim)0.6)]", 
-    label: "GERANDO",
-    bg: "bg-[var(--accent-green)]/15",
-    text: "text-[var(--accent-green)]",
-    border: "border-[var(--accent-green)]/30"
-  },
-  completed: { 
-    dot: "bg-[var(--accent-green)]", 
-    label: "CONCLUÍDA",
-    bg: "bg-[var(--accent-green)]/10",
-    text: "text-[var(--accent-green)]",
-    border: "border-[var(--accent-green)]/20"
-  },
-  failed: { 
-    dot: "bg-[var(--accent-rose)] shadow-[0_0_8px_rgba(225,29,72,0.6)]", 
-    label: "FALHOU",
-    bg: "bg-[var(--accent-rose)]/15",
-    text: "text-[var(--accent-rose)]",
-    border: "border-[var(--accent-rose)]/30"
-  },
-  archived: { 
-    dot: "bg-[var(--text-muted)]", 
-    label: "ARQUIVADA",
-    bg: "bg-[var(--surface-raised)]",
-    text: "text-[var(--text-secondary)]",
-    border: "border-[var(--border-medium)]"
-  },
-};
-
 function ThumbnailPlaceholder({ name }: { name: string }) {
-  const initials = useMemo(() => 
-    name
-      .split(" ")
-      .map((w) => w[0])
-      .join("")
-      .slice(0, 2)
-      .toUpperCase(),
-    [name]
+  const initials = useMemo(
+    () =>
+      name
+        .split(" ")
+        .map((w) => w[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase(),
+    [name],
   );
 
-  const hash = useMemo(() => 
-    name.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0),
-    [name]
+  const hash = useMemo(
+    () => name.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0),
+    [name],
   );
-  
+
   const angle = hash % 360;
 
   return (
-    <div 
+    <div
       className="absolute inset-0 flex items-center justify-center"
       style={{
-        background: `linear-gradient(${angle}deg, var(--deep-bg) 0%, var(--surface-raised) 50%, var(--deep-bg) 100%)`
+        background: `linear-gradient(${angle}deg, var(--deep-bg) 0%, var(--surface-raised) 50%, var(--deep-bg) 100%)`,
       }}
     >
       <div className="relative z-10">
-        <div className="size-20 rounded-xl bg-[var(--deep-bg)] border-[3px] border-[var(--accent-green)]/40 flex items-center justify-center shadow-[0_0_30px_var(--accent-green-dim)]">
-          <span 
-            className="text-3xl font-black text-[var(--accent-green)] tracking-wider" 
-            style={{ fontFamily: '"Press Start 2P", cursive' }}
-          >
+        <div className="size-20 rounded-xl bg-[var(--deep-bg)] border-[3px] border-[var(--accent-green)]/40 flex items-center justify-center">
+          <span className="font-mono text-2xl font-bold text-[var(--accent-green)] tracking-wider">
             {initials}
           </span>
         </div>
@@ -124,40 +74,42 @@ const VisualCampaignCard = memo(function VisualCampaignCard({
   index = 0,
 }: VisualCampaignCardProps) {
   const t = useTranslations("campaign");
+  const reducedMotion = useReducedMotion();
   const statusInfo = statusConfig[status] ?? statusConfig.draft;
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
 
-  const formattedDate = useMemo(() => 
-    formatDistanceToNow(new Date(updatedAt), {
-      addSuffix: true,
-      locale: ptBR,
-    }),
-    [updatedAt]
+  const formattedDate = useMemo(
+    () =>
+      formatDistanceToNow(new Date(updatedAt), {
+        addSuffix: true,
+        locale: ptBR,
+      }),
+    [updatedAt],
   );
 
-  const displayName = useMemo(() => 
-    name.length > 35 ? name.substring(0, 32) + "..." : name,
-    [name]
+  const displayName = useMemo(
+    () => (name.length > 35 ? name.substring(0, 32) + "..." : name),
+    [name],
   );
 
   return (
     <article
-        className={cn(
-          "group relative rounded-2xl glass-card overflow-hidden",
-          "transition-all duration-300 ease-out will-change-transform",
-          "hover:border-[var(--accent-green)]/50 hover:shadow-[0_0_40px_var(--accent-green-dim),0_8px_32px_rgba(0,0,0,0.4)] hover:-translate-y-2 hover:scale-[1.02]",
-          "focus-within:border-[var(--accent-green)]/60 focus-within:shadow-[0_0_40px_var(--accent-green-dim)]",
-        "active:scale-[0.98] active:duration-100"
+      className={cn(
+        "group relative rounded-2xl glass-card overflow-hidden animate-fade-in",
+        "transition-all duration-300 ease-out",
+        !reducedMotion && "will-change-transform hover:-translate-y-1 hover:scale-[1.01]",
+        "hover:border-[var(--accent-green)]/40 hover:shadow-[0_0_24px_var(--accent-green-dim),0_4px_16px_rgba(0,0,0,0.3)]",
+        "focus-within:border-[var(--accent-green)]/50 focus-within:shadow-[0_0_24px_var(--accent-green-dim)]",
+        !reducedMotion && "active:scale-[0.98] active:duration-100",
       )}
-      style={{ 
+      style={{
         animationDelay: `${index * 80}ms`,
-        animation: "fade-in-up 500ms ease-out forwards",
-        opacity: 0
       }}
     >
-      <Link 
-        href={`/campaigns/${id}`} 
+      <Link
+        href={`/campaigns/${id}`}
+        prefetch={false}
         className="block outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-green)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--deep-bg)] rounded-2xl"
         aria-label={`${t("openCampaign")}: ${name}`}
       >
@@ -171,16 +123,16 @@ const VisualCampaignCard = memo(function VisualCampaignCard({
                 loading="lazy"
                 decoding="async"
                 className={cn(
-                  "size-full object-cover transition-transform duration-500 group-hover:scale-110",
-                  !imageLoaded && "opacity-0"
+                  "size-full object-cover transition-transform duration-500 group-hover:scale-105",
+                  !imageLoaded && "opacity-0",
+                  reducedMotion && "group-hover:scale-100",
                 )}
                 onLoad={() => setImageLoaded(true)}
                 onError={() => setImageError(true)}
-              
-        width={800}
-        height={800}
-        unoptimized
-      />
+                width={800}
+                height={800}
+                unoptimized
+              />
               {!imageLoaded && (
                 <div className="absolute inset-0 animate-pulse bg-[var(--surface-raised)]" />
               )}
@@ -189,91 +141,77 @@ const VisualCampaignCard = memo(function VisualCampaignCard({
             <ThumbnailPlaceholder name={name} />
           )}
 
-          {/* Status Badge - Top Right with glow */}
+          {/* Status Badge - solid overlay for contrast on creatives */}
           <div className="absolute top-4 right-4 z-10">
-            <div className={cn(
-              "flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-black tracking-wider uppercase",
-              "backdrop-blur-md border",
-              statusInfo.bg,
-              statusInfo.text,
-              statusInfo.border
-            )}>
+            <div
+              className={cn(
+                "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide",
+                "bg-black/60 border border-white/10 text-white",
+                status === "active" || status === "generating" || status === "completed"
+                  ? "text-[var(--accent-green-light)]"
+                  : status === "failed"
+                    ? "text-[var(--accent-rose)]"
+                    : status === "draft"
+                      ? "text-[var(--accent-amber)]"
+                      : "text-white/80",
+              )}
+            >
               <span className={cn("size-2 rounded-full", statusInfo.dot)} />
               {statusInfo.label}
             </div>
           </div>
 
-          {/* Gradient Overlay - stronger */}
+          {/* Gradient Overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent pointer-events-none" />
 
-          {/* Hover Actions - bolder */}
-          <div 
-            className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center gap-3"
+          {/* Hover overlay — decorative only */}
+          <div
+            className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none [@media(hover:none)]:opacity-0"
             aria-hidden="true"
-          >
-            <button type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-              }}
-              className="size-10 rounded-xl bg-[var(--accent-green)]/20 backdrop-blur-md border-2 border-[var(--accent-green)]/40 flex items-center justify-center text-[var(--accent-green)] hover:bg-[var(--accent-green)]/30 hover:border-[var(--accent-green)]/60 transition-all hover:scale-110"
-              aria-label={t("editCampaign")}
-              tabIndex={-1}
-            >
-              <Edit2 size={16} aria-hidden="true" />
-            </button>
-            <button type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-              }}
-              className="size-10 rounded-xl bg-[var(--accent-green)]/20 backdrop-blur-md border-2 border-[var(--accent-green)]/40 flex items-center justify-center text-[var(--accent-green)] hover:bg-[var(--accent-green)]/30 hover:border-[var(--accent-green)]/60 transition-all hover:scale-110"
-              aria-label={t("duplicateCampaign")}
-              tabIndex={-1}
-            >
-              <Copy size={16} aria-hidden="true" />
-            </button>
-          </div>
+          />
         </div>
 
-        {/* Info Area - bolder typography */}
+        {/* Info Area */}
         <div className="p-5">
-          {/* Campaign Name */}
           <h3 className="text-base font-bold text-[var(--text-primary)] truncate leading-tight group-hover:text-[var(--accent-green)] transition-colors">
             {displayName}
           </h3>
 
-          {/* Meta Info */}
-          <div className="flex items-center justify-between mt-3">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between mt-3 gap-2">
+            <div className="flex items-center gap-2 min-w-0 flex-wrap">
               <span className="flex items-center gap-1.5 text-xs font-semibold text-[var(--text-secondary)]">
                 <Layers size={13} className="text-[var(--accent-green)]/60" aria-hidden="true" />
                 <span className="text-[var(--accent-green)]">{pieceCount}</span>
-                <span>{pieceCount === 1 ? "variação" : "variações"}</span>
+                <span>
+                  {pieceCount === 1 ? t("variationSingular") : t("variationPlural")}
+                </span>
               </span>
+              {approvedCount > 0 && (
+                <span className="text-xs text-[var(--text-muted)]">
+                  · {t("approvedCount", { count: approvedCount })}
+                </span>
+              )}
             </div>
-            <time 
-              className="text-[11px] font-medium text-[var(--text-muted)] uppercase tracking-wider"
+            <time
+              className="shrink-0 text-xs font-medium text-[var(--text-muted)] uppercase tracking-wide"
               dateTime={updatedAt}
             >
               {formattedDate}
             </time>
           </div>
 
-          {/* Platforms - pill style */}
           {platforms.length > 0 && (
             <div className="flex items-center gap-2 mt-4 flex-wrap">
               {platforms.slice(0, 3).map((platform) => (
                 <span
                   key={platform}
-                  className="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-[var(--deep-bg)] text-[var(--text-secondary)] border border-[var(--border-dim)]"
+                  className="px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider bg-[var(--deep-bg)] text-[var(--text-secondary)] border border-[var(--border-dim)]"
                 >
                   {platform}
                 </span>
               ))}
               {platforms.length > 3 && (
-                <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold text-[var(--accent-green)]"
-                >
+                <span className="px-2.5 py-1 rounded-lg text-xs font-bold text-[var(--accent-green)]">
                   +{platforms.length - 3}
                 </span>
               )}
@@ -282,17 +220,15 @@ const VisualCampaignCard = memo(function VisualCampaignCard({
         </div>
       </Link>
 
-      {/* Dropdown Menu */}
-      <div className="absolute bottom-5 right-5 opacity-0 group-hover:opacity-100 transition-all duration-300">
+      {/* Dropdown Menu — visible on touch, hover-reveal on pointer devices */}
+      <div className="absolute bottom-5 right-5 opacity-100 transition-opacity duration-300 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-within:opacity-100">
         <DropdownMenu>
-          <DropdownMenuTrigger>
-            <button type="button"
-              onClick={(e) => e.stopPropagation()}
-              className="size-9 rounded-xl bg-[var(--surface-base)] border-2 border-[var(--border-dim)] flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--accent-green)] hover:border-[var(--accent-green)]/40 transition-all hover:scale-110"
-              aria-label={t("moreActions")}
-            >
-              <MoreHorizontal size={16} aria-hidden="true" />
-            </button>
+          <DropdownMenuTrigger
+            aria-label={t("moreActions")}
+            className="min-h-11 min-w-11 rounded-xl bg-[var(--surface-base)] border-2 border-[var(--border-dim)] flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--accent-green)] hover:border-[var(--accent-green)]/40 transition-colors"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <MoreHorizontal size={16} aria-hidden="true" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44 border-2 border-[var(--border-dim)]">
             <DropdownMenuItem className="cursor-pointer font-semibold">

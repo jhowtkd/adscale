@@ -80,7 +80,7 @@ export default function EmptyState({
             {steps.map((step, index) => (
               <div key={step} className="flex items-center gap-2">
                 <div className="flex items-center gap-1.5">
-                  <span className="inline-flex items-center justify-center size-5 rounded-full bg-[var(--accent-green-dim)] text-[var(--accent-green)] text-[10px] font-semibold">
+                  <span className="inline-flex items-center justify-center size-5 rounded-full bg-[var(--accent-green-dim)] text-[var(--accent-green-text)] text-[10px] font-semibold">
                     {index + 1}
                   </span>
                   <span className="text-xs text-[var(--text-secondary)]">

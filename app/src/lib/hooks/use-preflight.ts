@@ -21,6 +21,7 @@ async function fetchPreflight(campaignId: string, assetId: string): Promise<Pref
 async function analyzePreflight(campaignId: string, assetId: string): Promise<PreflightResponse> {
   const res = await apiFetch(`/api/campaigns/${campaignId}/assets/${assetId}/preflight`, {
     method: "POST",
+    timeoutMs: 120_000,
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

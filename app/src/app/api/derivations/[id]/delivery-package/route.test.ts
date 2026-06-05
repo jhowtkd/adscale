@@ -93,6 +93,27 @@ describe("POST /api/derivations/[id]/delivery-package", () => {
     expect(res.status).toBe(400);
   });
 
+  it("returns 409 when approved source has invalid qualityVerdict", async () => {
+    mockGetDerivationById.mockResolvedValue({
+      id: "source-id",
+      status: "approved",
+      outputKey: "derivations/source.png",
+      campaignId: "campaign-id",
+      workspaceId: "workspace-1",
+      qualityVerdict: "invalid",
+      hardFailures: [{ code: "cta_drift", message: "CTA missing" }],
+    } as Awaited<ReturnType<typeof getDerivationById>>);
+
+    const res = await POST(requestWith({ formats: ["4:5"] }), {
+      params: paramsWith("source-id"),
+    });
+    const body = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(body.code).toBe("derivationHardFailures");
+    expect(mockCreateDerivation).not.toHaveBeenCalled();
+  });
+
   it("rejects unapproved source", async () => {
     mockGetDerivationById.mockResolvedValue({
       id: "source-id",

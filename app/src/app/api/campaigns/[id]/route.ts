@@ -32,9 +32,14 @@ const updateCampaignSchema = z.object({
 .refine(
   (data) => {
     const mode = data.generationMode ?? "art_variation";
-    return mode !== "format_adaptation" || (data.targetFormats?.length === 1);
+    if (mode !== "format_adaptation") return true;
+    const count = data.targetFormats?.length ?? 0;
+    return count >= 1 && count <= 3;
   },
-  { message: "format_adaptation requires exactly 1 targetFormat", path: ["targetFormats"] }
+  {
+    message: "format_adaptation requires 1 to 3 targetFormats",
+    path: ["targetFormats"],
+  }
 );
 
 export async function GET(

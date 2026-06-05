@@ -1,11 +1,120 @@
 # Milestones: ADScale
 
+## v11.5 Qualidade IA Orientada por Feedback (Shipped: 2026-06-05)
+
+**Phases completed:** 4 phases (57→60), 12 plans, 34 tasks
+**Requirements:** 20/20 complete
+
+**Key accomplishments:**
+
+- Durable JSONB contract/provenance on derivations with workspace-scoped repository persistence and derivation-job wiring before prompt build
+- Compact prompt regression tests with shared CreativeContract fixtures and section snapshots for art variation, format adaptation, and restyling hard rules
+- Shared quality taxonomy with fail-safe score/QA normalization — no silent 70 defaults on malformed model JSON.
+- Inherited CTA and score-issue promotion close gate gaps; review UI shows localized blocking titles with model notes as detail.
+- Single server module merges gate, score, QA, and feedback-category inputs into bounded correction briefs with contract-safe preservation tails.
+- Regenerate API builds merged correction briefs, persists structured brief JSON on children, and keeps parent creative contracts through the derivation job.
+- Users see a read-only summary of blocking and advisory issues before editing regeneration feedback, with EN/PT-BR labels.
+- Route and unit tests cover explicit feedback merge, quality-field brief reconstruction, feedback category context, and child brief persistence.
+- Six-fixture synthetic catalog covering wrong CTA, crop, style contamination, format layout, preservation loss, and legibility failures
+- Fixture-linked prompt regression with mode invariants and compact section snapshots for art variation, format adaptation, and restyling
+- Parameterized fixture pipeline tests wiring QA normalization, hard-failure gate, verdict derivation, and regeneration brief assembly
+- Manual quality loop handoff, residual model limitations, and nyquist-compliant validation contract with green test/lint/build gate
+
+**Archive:** [v11.5-ROADMAP.md](milestones/v11.5-ROADMAP.md) · [v11.5-REQUIREMENTS.md](milestones/v11.5-REQUIREMENTS.md) · [v11.5-MILESTONE-AUDIT.md](milestones/v11.5-MILESTONE-AUDIT.md) · [v11.5-phases/](milestones/v11.5-phases/)
+
+**Release refs:** tag `v11.5.1` (includes migration journal fix `0027_fine_morlun`); tag `v11.5` is milestone-only and omits that fix.
+
+**Known gaps (accepted tech debt):** Render/production must deploy `main` @ `v11.5.1` or later (`preDeployCommand` runs `db:migrate`); optional manual quality loop spot-check per 60-HANDOFF; phases 58–59 lack formal Nyquist VALIDATION.md. Audit status `tech_debt` (not `passed`) — cleared completion with accepted debt.
+
+---
+
+## v11.4 Beta Feedback Capture (Shipped: 2026-06-05)
+
+**Phases completed:** 4 phases (53→56), 4 plans
+**Requirements:** 23/23 complete
+
+**Key accomplishments:**
+
+- Durable `feedback_reports` model with workspace-scoped create API and diagnostic sanitization
+- In-app feedback from shell, campaign header, and derivation review with auto context capture
+- Platform owner triage at `/feedback` with filters, completeness chips, signed assets, and private notes
+- Privacy handoff documenting captured vs excluded fields and end-to-end analysis workflow
+
+**Archive:** [v11.4-ROADMAP.md](milestones/v11.4-ROADMAP.md) · [v11.4-REQUIREMENTS.md](milestones/v11.4-REQUIREMENTS.md)
+
+**Known gaps:** No formal milestone audit; QA-02 browser/mobile smoke left as manual ops follow-up.
+
+---
+
+## v11.3 Site de Apresentação Separado (Shipped: 2026-06-03)
+
+**Phases completed:** 3 phases (50→52), 3 plans
+**Requirements:** 14/14 complete
+
+**Key accomplishments:**
+
+- Public presentation surface moved into `jhowtkd/site-adscale.git`
+- Marketing/app boundary documented so ADScale_2 stays focused on auth, legal, dashboard and product routes
+- Presentation copy, CTAs, pricing/beta language and legal links aligned with current app behavior
+- Target site build and deploy handoff documented with responsive smoke checks and residual risks
+
+---
+
+## v11.2 Beta Access and Credit Entitlements (Shipped: 2026-06-03)
+
+**Phases completed:** 1 phase (49), 1 plan
+**Requirements:** 5/5 complete
+
+**Key accomplishments:**
+
+- Workspace beta entitlements separate from Stripe subscriptions
+- Beta testers receive 10 generated ads through 50 internal credits
+- Spend gates allow active paid subscription or active beta entitlement with credits
+- Billing/settings UI distinguishes beta access from paid access
+- Beta codes configured through `BETA_ACCESS_CODES`
+
+---
+
+## v11.1 Qualidade de Geração e Contratos Criativos (Shipped: 2026-06-01)
+
+**Phases completed:** 5 phases (44→48), multiple plans
+**Requirements:** 26/26 complete
+
+**Key accomplishments:**
+
+- Native 4:5 and 9:16 format adaptation planning and verification
+- Shared creative contract for generation, scoring, QA, and regeneration
+- Restyling uses selected style references as visual language only
+- Hard quality gates separate blocking failures from polish suggestions
+- Workspace review/error feedback exposes contract and failure context
+
+---
+
+## v11.0 Fluxos de Derivação Coerentes (Shipped: 2026-06-01)
+
+**Phases completed:** 4 phases (40→43), 4 plans
+**Requirements:** 10/10 complete
+
+**Key accomplishments:**
+
+- `useDerivationFlow` state machine — Derivar chooser no longer auto-queues generation with hardcoded defaults
+- Art variation config modals (manual + AI-assisted) with creativity profile and up to 3 CTAs before confirm
+- `useArtVariationSuggestions` pre-fills CTAs from campaign context or analyze API on base asset
+- Format adaptation pickers: single-select and batch multi-select (1:1, 4:5, 9:16) with API PATCH allowing 1–3 formats
+- PT-BR/EN `workspace.derivar` copy aligned to behavior; fixed "Variir" → "Variar tamanhos"
+- 12+ new tests covering all four Derivar paths; Estilizar regression guard via ActionCards
+
+**Archive:** [v11.0-ROADMAP.md](milestones/v11.0-ROADMAP.md) · [v11.0-REQUIREMENTS.md](milestones/v11.0-REQUIREMENTS.md)
+
+---
+
 ## v6.0 Performance & Otimização (Shipped: 2026-05-27)
 
 **Phases completed:** 4 phases (22→25), 4 plans
 **Requirements:** 12/12 complete
 
 **Key accomplishments:**
+
 - Code splitting e lazy loading com next/dynamic — bundle reduzido de ~2.9MB para 2.39MB
 - TanStack Query otimizado com staleTime presets (STATIC/SEMI_STATIC/DYNAMIC) e prefetch on hover
 - Cache de análise visual da IA por 24h (evita re-computação de análises)
@@ -23,6 +132,7 @@
 **Requirements:** 12/12 complete
 
 **Key accomplishments:**
+
 - Single-page campaign creation form (name, client, profile)
 - AI visual analysis of key creative with deduced fields
 - Editable auto-filled campaign information
@@ -34,11 +144,13 @@
 ## Completed Milestones
 
 ### v2.0 — Internacionalização PT-BR
+
 **Completed:** 2026-04-24
 **Phases:** 4 (6→9)
 **Requirements:** 21/21
 
 **Delivered:**
+
 - `next-intl` integration with PT-BR/EN language support
 - Language switcher in TopBar with cookie persistence
 - `user.locale` column in database with default `pt-BR`
@@ -51,11 +163,13 @@
 - Build and tests clean
 
 ### v1.0 — Sair Do Mock → MVP Real
+
 **Completed:** 2026-04-24
 **Phases:** 5
 **Requirements:** 32/32
 
 **Delivered:**
+
 - Full server layer with Drizzle ORM, Neon PostgreSQL
 - Better Auth with open signup and auto-workspace creation
 - Cloudflare R2 storage with presigned URLs
@@ -69,85 +183,3 @@
 - Dashboard with real metrics
 - 57 unit and integration tests
 - Workspace isolation on all API routes
-
----
-
-## Completed Milestones
-
-### v7.0 — Experiência do Usuário ✅
-**Shipped:** 2026-05-27
-**Phases:** 3 (26→28)
-**Requirements:** 16/16 complete
-
-**Delivered:**
-- Onboarding tour de 5 passos com driver.js
-- Tooltips contextuais para features complexas
-- Progresso salvo no banco de dados, reiniciável via Settings
-- Templates de campanha: salvar, usar, renomear, deletar
-- Template selector no modal de nova campanha
-- 6 KPIs no dashboard: campanhas, derivações, total, taxa aprovação, tempo médio, créditos
-- Seletor de período: semana/mês/trimestre
-- Dados reais de créditos a partir de creditTransactions
-
-## Completed Milestones
-
-### v8.0 — Galeria de Revisão Aprimorada ✅
-**Shipped:** 2026-05-27
-**Phases:** 3 (29→31)
-**Requirements:** 13/13 complete
-
-**Delivered:**
-- Comparação lado a lado de 2 derivações com zoom sincronizado e pan
-- Botão Compare em cada card com modo de seleção visual
-- Filtros avançados: status, formato (1:1, 4:5, 9:16), CTA (busca parcial), quality score range
-- Persistência de filtros na URL para bookmarking
-- Batch approve/reject com master checkbox e contador de seleção
-- Bulk actions bar flutuante com approve/reject/export/download/share
-
----
-
-### v9.0 — Galeria de Revisão v2 ✅
-**Shipped:** 2026-05-28
-**Phases:** 3 (32→34)
-**Requirements:** 14/14 complete
-
-**Delivered:**
-- Anotações visuais: desenho livre, textos, formas (círculo, retângulo, seta) em canvas
-- Toolbar de anotações com seletor de cores, espessura e tamanho de fonte
-- Persistência de anotações no localStorage por derivação
-- Comparação de 3+ derivações em grid adaptativo (2→4 colunas)
-- Zoom/pan independente em cada célula do grid de comparação
-- Remoção individual de derivações do grid
-- Slider antes/depois com divisão arrastável (horizontal/vertical)
-- Toggle entre grid view e slider view quando comparando 2 derivações
-
----
-
-### v10.0 — Refinamento de Interface ✅
-**Shipped:** 2026-05-28
-**Phases:** 5 (35→39)
-**Requirements:** 19/19 complete
-
-**Delivered:**
-- Animation Foundation: variants, easings, transitions, custom hooks (useReducedMotion, useMediaQuery, useScrollDirection)
-- Reusable animation components: FadeIn, StaggerContainer
-- Core Component Polish: Card hover lift/shadow, Button active scale, Input focus glow, Badge transitions
-- Layout Responsive: Mobile sidebar drawer with hamburger menu, TopBar hide/show on scroll
-- Form stacking on mobile (grid-cols-1 sm:grid-cols-2)
-- Feature Components: Stagger animations in campaign grid/list, enhanced modal animations
-- States & Accessibility: Enhanced empty states with icon backgrounds, shake animation for errors
-- Reduced motion support throughout all animations
-
----
-
-## Active Milestone
-
-### v11.0 — TBD (Planning)
-**Status:** Waiting for requirements
-**Goal:** TBD
-
-**Next step:** Define v11.0 scope and requirements
-
----
-
-*Last updated: 2026-05-28*

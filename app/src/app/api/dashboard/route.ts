@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { eq, desc } from "drizzle-orm";
 import { handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
-import { getCampaigns } from "@/server/repositories/campaign";
+import { getCampaigns, getWorkspaceCampaignCount } from "@/server/repositories/campaign";
 import { db } from "@/server/db";
 import { activityEvents } from "@/server/db/schema";
 
@@ -10,15 +10,16 @@ export async function GET(request: Request) {
   try {
     const { workspace } = await requireWorkspaceAccess(request);
 
-    const campaignList = await getCampaigns(workspace.id);
-    const campaignCount = campaignList.length;
-
-    const recentActivity = await db
-      .select()
-      .from(activityEvents)
-      .where(eq(activityEvents.workspaceId, workspace.id))
-      .orderBy(desc(activityEvents.createdAt))
-      .limit(5);
+    const [campaignCount, campaignList, recentActivity] = await Promise.all([
+      getWorkspaceCampaignCount(workspace.id),
+      getCampaigns(workspace.id, 5),
+      db
+        .select()
+        .from(activityEvents)
+        .where(eq(activityEvents.workspaceId, workspace.id))
+        .orderBy(desc(activityEvents.createdAt))
+        .limit(5),
+    ]);
 
     // Fallback: if no activity events, use recent campaigns as activity
     const activity =

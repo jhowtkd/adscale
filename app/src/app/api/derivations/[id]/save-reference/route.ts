@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
+import { assertDerivationApprovable } from "@/server/ai/creative-quality-gate";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getDerivationById } from "@/server/repositories/derivation";
 import { createClientReference, getClientProfile } from "@/server/repositories/client-reference";
@@ -41,6 +42,14 @@ export async function POST(
     }
     if (!derivation.outputKey) {
       return apiError("derivationMissingOutput", 400);
+    }
+
+    const approvable = assertDerivationApprovable(derivation);
+    if (!approvable.ok) {
+      return apiError("derivationHardFailures", 409, {
+        qualityVerdict: approvable.qualityVerdict,
+        hardFailures: approvable.hardFailures,
+      });
     }
 
     const body = await request.json();

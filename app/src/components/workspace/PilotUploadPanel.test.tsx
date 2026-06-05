@@ -29,6 +29,12 @@ vi.mock("@/lib/hooks/use-preflight", () => ({
   })),
 }));
 
+vi.mock("next/image", () => ({
+  default: function MockImage(props: { alt?: string }) {
+    return <img alt={props.alt ?? ""} />;
+  },
+}));
+
 function createFile(name = "test.png", type = "image/png"): File {
   return new File(["x"], name, { type });
 }
@@ -43,14 +49,12 @@ describe("PilotUploadPanel", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.stubGlobal("URL", {
-      createObjectURL: vi.fn(() => "blob:test"),
-      revokeObjectURL: vi.fn(),
-    });
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:test");
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
   });
 
   afterEach(() => {
-    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it("calls onAnalysisComplete with mapped data when both analyses succeed", async () => {

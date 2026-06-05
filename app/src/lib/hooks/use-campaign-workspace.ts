@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Derivation, AdPlatform, CampaignStatus } from "@/lib/mock-data";
 import { useAppStore } from "@/lib/store";
-import { useCampaign, useUpdateCampaign, useCreateCampaign } from "@/lib/hooks/use-campaigns";
+import { useCampaign, useUpdateCampaign } from "@/lib/hooks/use-campaigns";
 import { useDeleteCampaign } from "@/lib/hooks/use-campaigns";
 import { useDerivations, useCreateDerivations, useRestyleCampaign } from "@/lib/hooks/use-derivations";
 import { useRegenerateDerivation } from "@/lib/hooks/use-regenerate";
@@ -17,6 +17,10 @@ import { usePlan, useGeneratePlan, useUpdatePlanStatus } from "./use-plan";
 import { useSaveDerivationAsReference } from "@/lib/hooks/use-client-profiles";
 import { useGenerateLandingPage } from "@/lib/hooks/use-landing-page";
 import type { DeliveryFormat } from "@/components/workspace/DeliveryPackageModal";
+import {
+  buildRegenerationFeedback,
+  derivationNeedsRegenerateDialog,
+} from "@/lib/derivation-regeneration-feedback";
 import { useTranslations } from "next-intl";
 
 export type WorkspaceState =
@@ -36,30 +40,24 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
   const setCurrentPageTitle = useAppStore((s) => s.setCurrentPageTitle);
   const addToast = useAppStore((s) => s.addToast);
 
-  const { campaign: realCampaign, isLoading, isError } = useCampaign(campaignId);
+  const {
+    campaign: realCampaign,
+    isLoading,
+    isError,
+    loadErrorKind,
+    refetch: refetchCampaign,
+  } = useCampaign(campaignId);
   const updateCampaign = useUpdateCampaign(campaignId);
-  const createCampaign = useCreateCampaign();
   const deleteCampaign = useDeleteCampaign();
 
-  // Disable derivations polling when real-time subscriptions are active
-  const [enableDerivationsPolling, setEnableDerivationsPolling] = useState(true);
-  const { data: derivationsData } = useDerivations(campaignId, {
-    enablePolling: enableDerivationsPolling,
-  });
+  const {
+    data: derivationsData,
+    isError: isDerivationsError,
+    errorKind: derivationsErrorKind,
+    refetch: refetchDerivations,
+  } = useDerivations(campaignId);
   const createDerivations = useCreateDerivations(campaignId);
   const restyleCampaign = useRestyleCampaign(campaignId);
-
-  useEffect(() => {
-    const hasActive = derivationsData?.some(
-      (d) => d.status === "queued" || d.status === "processing"
-    );
-    const nextEnablePolling = !hasActive;
-    queueMicrotask(() => {
-      setEnableDerivationsPolling((current) =>
-        current === nextEnablePolling ? current : nextEnablePolling
-      );
-    });
-  }, [derivationsData]);
   const regenerateMutation = useRegenerateDerivation();
   const exportMutation = useExport();
   const reviewMutation = useReviewDerivation();
@@ -116,14 +114,27 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
 
   // Workspace state
   const [workspaceState, setWorkspaceState] = useState<WorkspaceState>("piloto");
+  const hasActiveDerivations = Boolean(
+    derivationsData?.some(
+      (d) => d.status === "queued" || d.status === "processing"
+    )
+  );
+
+  const resolvedWorkspaceState =
+    workspaceState === "gerando" &&
+    derivationsData?.length &&
+    !hasActiveDerivations
+      ? "acoes"
+      : workspaceState;
+
   const visibleWorkspaceState =
     !isLoading &&
     !isNew &&
     derivationsData &&
     derivationsData.length > 0 &&
-    workspaceState === "piloto"
+    resolvedWorkspaceState === "piloto"
       ? "acoes"
-      : workspaceState;
+      : resolvedWorkspaceState;
 
   const goToActions = useCallback(() => setWorkspaceState("acoes"), []);
   const goToDerivation = useCallback(() => setWorkspaceState("derivando"), []);
@@ -154,7 +165,7 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
 
   const allDerivations = useMemo(() => {
     const items = derivationsData ?? [];
-    return items.map((d, i) => {
+    const mapped = items.map((d, i) => {
       const status: CampaignStatus =
         d.status === "queued" || d.status === "processing"
           ? "generating"
@@ -176,14 +187,30 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
         prompt: d.prompt ?? "",
         creditCost: d.cost ? d.cost / 100 : 2.4,
         imageUrl: d.imageUrl ?? undefined,
+        outputKey: d.outputKey ?? undefined,
         generationMode,
         variantIndex,
         format,
         ctaText,
+        qualityScore: d.qualityScore ?? undefined,
+        scoreStatus: d.scoreStatus ?? undefined,
+        scoreIssues: d.scoreIssues ?? undefined,
+        regenerationSuggestion: d.regenerationSuggestion ?? undefined,
+        regenerationPrimaryReason: d.regenerationPrimaryReason ?? undefined,
+        regenerationIssueBreakdown: d.regenerationIssueBreakdown ?? undefined,
+        qaStatus: d.qaStatus ?? undefined,
+        qaChecklist: d.qaChecklist ?? undefined,
+        qaIssues: d.qaIssues ?? undefined,
+        qualityVerdict: d.qualityVerdict ?? undefined,
+        hardFailures: d.hardFailures ?? undefined,
+        polishSuggestions: d.polishSuggestions ?? undefined,
+        styleAssetId: d.styleAssetId ?? undefined,
+        isPreview: d.isPreview,
         createdAt: d.createdAt,
         updatedAt: d.updatedAt,
       };
     });
+    return mapped;
   }, [derivationsData, campaign, td]);
 
   const approvedDerivation = useMemo(
@@ -194,6 +221,13 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
   const [savingReferenceId, setSavingReferenceId] = useState<string | null>(null);
   const [deliveryModalOpen, setDeliveryModalOpen] = useState(false);
   const [selectedDeliverySource, setSelectedDeliverySource] = useState<Derivation | null>(null);
+  const [reviewDerivationId, setReviewDerivationId] = useState<string | null>(null);
+  const [regenerateDialog, setRegenerateDialog] = useState<{
+    id: string;
+    feedback: string;
+    primaryReason?: string;
+    issueBreakdown?: import("@/lib/regeneration-preview-types").RegenerationIssueBreakdown;
+  } | null>(null);
 
   const handleDeliveryModalOpenChange = useCallback((open: boolean) => {
     setDeliveryModalOpen(open);
@@ -206,7 +240,7 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
       createDerivations.mutate(options, {
         onSuccess: () => {
           addToast("success", options?.preview ? tc("previewQueued") : tc("derivationsQueued"));
-          if (!options?.preview) setWorkspaceState("gerando");
+          setWorkspaceState("acoes");
           if (campaign && !isNew) updateCampaign.mutate({ status: "generating" });
         },
         onError: () => {
@@ -249,7 +283,7 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
       restyleCampaign.mutate(input, {
         onSuccess: () => {
           addToast("success", tc("derivationsQueued"));
-          setWorkspaceState("gerando");
+          setWorkspaceState("acoes");
         },
         onError: () => {
           addToast("error", tc("failedQueueDerivations"));
@@ -273,7 +307,74 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
 
   const hasActivePreview = false;
 
-  const handlePreview = useCallback(() => addToast("info", tc("openingComparison")), [addToast, tc]);
+  const handlePreview = useCallback((id: string) => {
+    setReviewDerivationId(id);
+  }, []);
+
+  const handleCloseReview = useCallback(() => {
+    setReviewDerivationId(null);
+  }, []);
+
+  const handleRequestRegenerate = useCallback(
+    (id: string, feedback?: string) => {
+      const derivation = allDerivations.find((item) => item.id === id);
+      if (!derivation) {
+        regenerateMutation.mutate({ id, feedback });
+        return;
+      }
+
+      const built = buildRegenerationFeedback({
+        regenerationSuggestion: derivation.regenerationSuggestion,
+        hardFailures: derivation.hardFailures,
+        regenerationPrimaryReason: derivation.regenerationPrimaryReason,
+        regenerationIssueBreakdown: derivation.regenerationIssueBreakdown,
+      });
+
+      const preset = feedback ?? built.feedbackText;
+      const needsDialog = derivationNeedsRegenerateDialog({
+        hardFailures: derivation.hardFailures,
+        regenerationSuggestion: derivation.regenerationSuggestion,
+        regenerationPrimaryReason: derivation.regenerationPrimaryReason,
+        qualityVerdict: derivation.qualityVerdict,
+        qaChecklist: derivation.qaChecklist,
+      });
+
+      if (needsDialog || preset.trim()) {
+        setRegenerateDialog({
+          id,
+          feedback: preset,
+          primaryReason: built.primaryReason,
+          issueBreakdown: built.issueBreakdown,
+        });
+        return;
+      }
+
+      regenerateMutation.mutate({ id, feedback: undefined });
+    },
+    [allDerivations, regenerateMutation]
+  );
+
+  const handleConfirmRegenerate = useCallback(
+    (feedback: string) => {
+      if (!regenerateDialog) return;
+      regenerateMutation.mutate(
+        { id: regenerateDialog.id, feedback },
+        {
+          onSuccess: () => {
+            setRegenerateDialog(null);
+            setReviewDerivationId(null);
+          },
+        }
+      );
+    },
+    [regenerateDialog, regenerateMutation]
+  );
+
+  const handleCloseRegenerateDialog = useCallback((open: boolean) => {
+    if (!open) {
+      setRegenerateDialog(null);
+    }
+  }, []);
 
   const handleDownloadDerivation = useCallback(
     (id: string) => exportMutation.mutate({ type: "individual", derivationId: id, format: "png" }),
@@ -281,8 +382,8 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
   );
 
   const handleRegenerateDerivation = useCallback(
-    (id: string, feedback?: string) => regenerateMutation.mutate({ id, feedback }),
-    [regenerateMutation]
+    (id: string, feedback?: string) => handleRequestRegenerate(id, feedback),
+    [handleRequestRegenerate]
   );
 
   const handleApproveDerivation = useCallback(
@@ -371,8 +472,15 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
     campaign,
     isLoading,
     isError,
+    loadErrorKind,
+    refetchCampaign,
+    isDerivationsError,
+    derivationsErrorKind,
+    refetchDerivations,
     allDerivations,
     approvedDerivation,
+    reviewDerivationId,
+    regenerateDialog,
     workspaceState: visibleWorkspaceState,
     savingReferenceId,
     deliveryModalOpen,
@@ -390,6 +498,10 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
     handleSaveAsReference,
     hasActivePreview,
     handlePreview,
+    handleCloseReview,
+    handleRequestRegenerate,
+    handleConfirmRegenerate,
+    handleCloseRegenerateDialog,
     handleDownloadDerivation,
     handleRegenerateDerivation,
     handleApproveDerivation,

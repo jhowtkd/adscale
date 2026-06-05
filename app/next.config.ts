@@ -45,7 +45,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "img-src 'self' blob: data: https:",
               "font-src 'self' https://fonts.gstatic.com",
-              `connect-src 'self' https://*.sentry.io https://api.stripe.com https://fonts.googleapis.com${process.env.NODE_ENV === "development" ? " http://localhost:4747" : ""}`,
+              "connect-src 'self' https://*.sentry.io https://api.stripe.com https://fonts.googleapis.com",
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'",
@@ -70,7 +70,11 @@ const sentryOptions = {
   widenClientFileUpload: true,
   tunnelRoute: "/monitoring",
   hideSourceMaps: true,
-  disableLogger: true,
+  webpack: {
+    treeshake: {
+      removeDebugLogging: true,
+    },
+  },
 };
 
 const bundleAnalyzer = withBundleAnalyzer({

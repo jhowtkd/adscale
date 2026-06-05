@@ -28,7 +28,7 @@ const restyleSchema = z.object({
   styleIntensity: z.enum(["soft", "medium", "strong"]).optional(),
 });
 
-const STALE_ACTIVE_DERIVATION_MS = 10 * 60 * 1000;
+const STALE_ACTIVE_DERIVATION_MINUTES = 10;
 
 export async function POST(
   request: Request,
@@ -104,6 +104,9 @@ export async function POST(
     });
     if (creditError) return creditError;
 
+    const selectedStyleAssetId =
+      styleAssetIds && styleAssetIds.length > 0 ? styleAssetIds[0] : undefined;
+
     // Create a single restyling derivation
     const derivation = await createDerivation({
       campaignId,
@@ -114,6 +117,7 @@ export async function POST(
       format: baseAsset.width && baseAsset.height
         ? `${baseAsset.width}x${baseAsset.height}`
         : "1:1",
+      styleAssetId: selectedStyleAssetId,
     });
 
     logger.info(`[restyle POST] created derivationId=${derivation.id} mode=restyling`);
@@ -130,6 +134,7 @@ export async function POST(
           generationMode: "restyling",
           variantIndex: 0,
           format: derivation.format,
+          styleAssetId: selectedStyleAssetId ?? null,
         },
       });
       logger.info(`[restyle POST] event sent derivationId=${derivation.id}`);
@@ -159,11 +164,10 @@ export async function GET(
       params,
     ]);
 
-    const staleBefore = new Date(Date.now() - STALE_ACTIVE_DERIVATION_MS);
     const stale = await failStaleActiveDerivations(
       campaignId,
       workspace.id,
-      staleBefore
+      STALE_ACTIVE_DERIVATION_MINUTES
     );
     if (stale.length > 0) {
       await refreshCampaignStatus(campaignId, workspace.id);

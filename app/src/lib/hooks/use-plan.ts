@@ -25,6 +25,9 @@ async function fetchPlan(campaignId: string): Promise<Plan | null> {
     throw new Error(err.error || "Erro ao carregar plano");
   }
   const data = await res.json();
+  if (data.plan == null) {
+    return null;
+  }
   const p = data.plan as Plan;
   return {
     ...p,

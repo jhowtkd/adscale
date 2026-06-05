@@ -20,10 +20,6 @@ vi.mock("@/lib/auth-client", () => ({
   },
 }));
 
-vi.mock("@/lib/hooks/use-dashboard", () => ({
-  useDashboard: vi.fn(() => ({ data: null })),
-}));
-
 vi.mock("@/lib/hooks/use-notifications", () => ({
   useNotifications: vi.fn(),
   useMarkNotificationAsRead: vi.fn(() => ({ mutate: vi.fn() })),
@@ -37,6 +33,10 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("@/components/ui/LanguageSwitcher", () => ({
+  default: () => null,
+}));
+
+vi.mock("@/components/feedback/FeedbackTriggerButton", () => ({
   default: () => null,
 }));
 
@@ -134,7 +134,7 @@ describe("TopBar notifications", () => {
 
     render(<TopBar />, { wrapper: createWrapper() });
 
-    const bell = screen.getByLabelText("notifications");
+    const bell = screen.getByRole("button", { name: /notifications/i });
     fireEvent.click(bell);
 
     await waitFor(() => {

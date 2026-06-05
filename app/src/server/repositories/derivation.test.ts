@@ -18,7 +18,12 @@ vi.mock("../db", () => ({
   },
 }));
 
-import { getActivePackageChildren, updateDerivationQa } from "./derivation";
+import {
+  getActivePackageChildren,
+  updateDerivationPromptProvenance,
+  updateDerivationQa,
+} from "./derivation";
+import { FACTUAL_SOURCE_RULES } from "../ai/creative-contract";
 
 describe("derivation repository", () => {
   beforeEach(() => {
@@ -54,6 +59,90 @@ describe("derivation repository", () => {
 
       expect(result).toEqual([]);
       expect(selectMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("updateDerivationPromptProvenance", () => {
+    const creativeContract = {
+      generationMode: "art_variation" as const,
+      targetFormat: "1:1",
+      ctaSemantics: { kind: "inherited" as const },
+      baseAssetId: "asset-1",
+      styleAssetId: null,
+      client: "Acme",
+      product: "Widget",
+      offer: null,
+      constraints: null,
+      sourcePackage: "campaign_asset" as const,
+      factualSourceRules: FACTUAL_SOURCE_RULES,
+    };
+
+    const promptProvenance = {
+      schemaVersion: 1 as const,
+      inputPrompt: "built prompt",
+      model: "gpt-image-1",
+      requestedSize: "1024x1024",
+      sourcePackage: "campaign_asset" as const,
+      source: {
+        kind: "campaign_asset" as const,
+        assetId: "asset-1",
+        assetKey: "assets/base.png",
+      },
+      generationMode: "art_variation" as const,
+      targetFormat: "1:1",
+    };
+
+    it("sets creativeContract, promptProvenance, and updatedAt", async () => {
+      const row = {
+        id: "derivation-id",
+        creativeContract,
+        promptProvenance,
+        inputPrompt: "built prompt",
+      };
+      returningMock.mockResolvedValue([row]);
+
+      const result = await updateDerivationPromptProvenance(
+        "derivation-id",
+        "workspace-id",
+        {
+          creativeContract,
+          promptProvenance,
+          inputPrompt: "built prompt",
+        }
+      );
+
+      expect(updateMock).toHaveBeenCalledTimes(1);
+      expect(setMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          creativeContract,
+          promptProvenance,
+          inputPrompt: "built prompt",
+          updatedAt: expect.any(Date),
+        })
+      );
+      expect(result).toBe(row);
+    });
+
+    it("scopes update by id and workspaceId", async () => {
+      returningMock.mockResolvedValue([{ id: "derivation-id" }]);
+
+      await updateDerivationPromptProvenance("derivation-id", "workspace-id", {
+        creativeContract,
+        promptProvenance,
+      });
+
+      expect(updateWhereMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("returns null when no row matches", async () => {
+      returningMock.mockResolvedValue([]);
+
+      const result = await updateDerivationPromptProvenance("missing-id", "workspace-id", {
+        creativeContract,
+        promptProvenance,
+      });
+
+      expect(result).toBeNull();
     });
   });
 

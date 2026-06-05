@@ -1,4 +1,10 @@
-import { eq, and, desc, inArray, lt } from "drizzle-orm";
+import { eq, and, desc, inArray, sql, isNotNull } from "drizzle-orm";
+import type {
+  CreativeHardFailure,
+  CreativeQualityVerdict,
+} from "../ai/creative-quality-gate";
+import type { CreativeContract, PromptProvenance } from "../ai/creative-contract";
+import type { RegenerationCorrectionBriefRecord } from "../ai/regeneration-correction-brief";
 import { db } from "../db";
 import { derivations } from "../db/schema";
 
@@ -22,6 +28,13 @@ export interface UpdateDerivationScoreInput {
   regenerationSuggestion?: string | null;
 }
 
+export interface UpdateDerivationQualityGateInput {
+  qualityVerdict: CreativeQualityVerdict;
+  hardFailures: CreativeHardFailure[];
+  polishSuggestions: string[];
+  qualityGatedAt: Date;
+}
+
 export interface CreateDerivationInput {
   campaignId: string;
   workspaceId: string;
@@ -33,7 +46,10 @@ export interface CreateDerivationInput {
   generationMode?: string;
   variantIndex?: number;
   ctaText?: string;
+  styleAssetId?: string;
   isPreview?: boolean;
+  creativeContract?: CreativeContract;
+  regenerationCorrectionBrief?: RegenerationCorrectionBriefRecord;
 }
 
 export async function createDerivation(data: CreateDerivationInput) {
@@ -50,7 +66,10 @@ export async function createDerivation(data: CreateDerivationInput) {
       generationMode: data.generationMode ?? null,
       variantIndex: data.variantIndex ?? null,
       ctaText: data.ctaText ?? null,
+      styleAssetId: data.styleAssetId ?? null,
       isPreview: data.isPreview ?? false,
+      creativeContract: data.creativeContract ?? null,
+      regenerationCorrectionBrief: data.regenerationCorrectionBrief ?? null,
     })
     .returning();
   return result[0];
@@ -98,8 +117,13 @@ export async function updateDerivationStatus(
 export async function failStaleActiveDerivations(
   campaignId: string,
   workspaceId: string,
-  staleBefore: Date
+  staleMinutes: number
 ) {
+  // Compare against the database clock instead of a JS `Date`. The column
+  // default (`defaultNow()`) and the app's `new Date()` can disagree when the
+  // Postgres session timezone differs from the Node process, which previously
+  // made freshly-queued derivations look instantly stale. Using `now()` on both
+  // sides keeps the stale window timezone-agnostic.
   return db
     .update(derivations)
     .set({
@@ -112,7 +136,7 @@ export async function failStaleActiveDerivations(
         eq(derivations.campaignId, campaignId),
         eq(derivations.workspaceId, workspaceId),
         inArray(derivations.status, ["queued", "processing"]),
-        lt(derivations.updatedAt, staleBefore)
+        sql`${derivations.updatedAt} < now() - (${staleMinutes}::int * interval '1 minute')`
       )
     )
     .returning();
@@ -233,6 +257,62 @@ export async function updateDerivationScore(
   return result[0] ?? null;
 }
 
+export async function updateDerivationQualityGate(
+  id: string,
+  workspaceId: string,
+  data: UpdateDerivationQualityGateInput
+) {
+  const result = await db
+    .update(derivations)
+    .set({
+      qualityVerdict: data.qualityVerdict,
+      hardFailures: data.hardFailures,
+      polishSuggestions: data.polishSuggestions,
+      qualityGatedAt: data.qualityGatedAt,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(derivations.id, id),
+        eq(derivations.workspaceId, workspaceId)
+      )
+    )
+    .returning();
+  return result[0] ?? null;
+}
+
+export interface UpdateDerivationPromptProvenanceInput {
+  creativeContract: CreativeContract;
+  promptProvenance: PromptProvenance;
+  inputPrompt?: string;
+  prompt?: string;
+}
+
+export async function updateDerivationPromptProvenance(
+  id: string,
+  workspaceId: string,
+  data: UpdateDerivationPromptProvenanceInput
+) {
+  const now = new Date();
+  const result = await db
+    .update(derivations)
+    .set({
+      creativeContract: data.creativeContract,
+      promptProvenance: data.promptProvenance,
+      ...(data.inputPrompt !== undefined && { inputPrompt: data.inputPrompt }),
+      ...(data.prompt !== undefined && { prompt: data.prompt }),
+      updatedAt: now,
+    })
+    .where(
+      and(
+        eq(derivations.id, id),
+        eq(derivations.workspaceId, workspaceId)
+      )
+    )
+    .returning();
+  return result[0] ?? null;
+}
+
 export async function updateDerivationQa(
   id: string,
   workspaceId: string,
@@ -265,4 +345,99 @@ export async function getDerivationsByWorkspace(workspaceId: string) {
     .from(derivations)
     .where(eq(derivations.workspaceId, workspaceId))
     .orderBy(desc(derivations.createdAt));
+}
+
+export interface DerivationDashboardAnalytics {
+  totalDerivations: number;
+  derivationsThisPeriod: number;
+  derivationsPreviousPeriod: number;
+  approvedDerivations: number;
+  approvedThisPeriod: number;
+  approvedPreviousPeriod: number;
+  avgGenerationTimeSeconds: number;
+}
+
+export async function getDerivationDashboardAnalytics(
+  workspaceId: string,
+  periodStart: Date,
+  previousPeriodStart: Date
+): Promise<DerivationDashboardAnalytics> {
+  const [row] = await db
+    .select({
+      totalDerivations: sql<number>`count(*)::int`.as("totalDerivations"),
+      derivationsThisPeriod: sql<number>`count(*) filter (
+        where ${derivations.createdAt} >= ${periodStart}
+      )::int`.as("derivationsThisPeriod"),
+      derivationsPreviousPeriod: sql<number>`count(*) filter (
+        where ${derivations.createdAt} >= ${previousPeriodStart}
+          and ${derivations.createdAt} < ${periodStart}
+      )::int`.as("derivationsPreviousPeriod"),
+      approvedDerivations: sql<number>`count(*) filter (
+        where ${derivations.status} = 'approved'
+      )::int`.as("approvedDerivations"),
+      approvedThisPeriod: sql<number>`count(*) filter (
+        where ${derivations.createdAt} >= ${periodStart}
+          and ${derivations.status} = 'approved'
+      )::int`.as("approvedThisPeriod"),
+      approvedPreviousPeriod: sql<number>`count(*) filter (
+        where ${derivations.createdAt} >= ${previousPeriodStart}
+          and ${derivations.createdAt} < ${periodStart}
+          and ${derivations.status} = 'approved'
+      )::int`.as("approvedPreviousPeriod"),
+      avgGenerationTimeSeconds: sql<number>`coalesce(
+        round(avg(
+          extract(epoch from (${derivations.updatedAt} - ${derivations.createdAt}))
+        ) filter (
+          where ${derivations.status} in ('completed', 'approved')
+        ))::int,
+        0
+      )`.as("avgGenerationTimeSeconds"),
+    })
+    .from(derivations)
+    .where(eq(derivations.workspaceId, workspaceId));
+
+  return {
+    totalDerivations: row?.totalDerivations ?? 0,
+    derivationsThisPeriod: row?.derivationsThisPeriod ?? 0,
+    derivationsPreviousPeriod: row?.derivationsPreviousPeriod ?? 0,
+    approvedDerivations: row?.approvedDerivations ?? 0,
+    approvedThisPeriod: row?.approvedThisPeriod ?? 0,
+    approvedPreviousPeriod: row?.approvedPreviousPeriod ?? 0,
+    avgGenerationTimeSeconds: row?.avgGenerationTimeSeconds ?? 0,
+  };
+}
+
+/** Latest completed derivation output key per campaign (for dashboard thumbnails). */
+export async function getLatestDerivationOutputKeysByCampaignIds(
+  workspaceId: string,
+  campaignIds: string[]
+): Promise<Map<string, string>> {
+  if (campaignIds.length === 0) {
+    return new Map();
+  }
+
+  const rows = await db
+    .select({
+      campaignId: derivations.campaignId,
+      outputKey: derivations.outputKey,
+    })
+    .from(derivations)
+    .where(
+      and(
+        eq(derivations.workspaceId, workspaceId),
+        inArray(derivations.campaignId, campaignIds),
+        inArray(derivations.status, ["completed", "approved"]),
+        isNotNull(derivations.outputKey)
+      )
+    )
+    .orderBy(desc(derivations.updatedAt));
+
+  const outputKeysByCampaign = new Map<string, string>();
+  for (const row of rows) {
+    if (!outputKeysByCampaign.has(row.campaignId) && row.outputKey) {
+      outputKeysByCampaign.set(row.campaignId, row.outputKey);
+    }
+  }
+
+  return outputKeysByCampaign;
 }

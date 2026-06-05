@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
+import { assertDerivationApprovable } from "@/server/ai/creative-quality-gate";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
-import { updateDerivationStatus } from "@/server/repositories/derivation";
+import {
+  getDerivationById,
+  updateDerivationStatus,
+} from "@/server/repositories/derivation";
 import { getCampaignById, refreshCampaignStatus } from "@/server/repositories/campaign";
 import { recordBrandMemoryEvent } from "@/server/memory/brand-memory-dispatch";
 
@@ -24,6 +28,20 @@ export async function PATCH(
     const parsed = bodySchema.safeParse(body);
     if (!parsed.success) {
       return apiError("invalidRequestBody", 400);
+    }
+
+    if (parsed.data.status === "approved") {
+      const derivation = await getDerivationById(id, workspace.id);
+      if (!derivation) {
+        return apiError("derivationNotFound", 404);
+      }
+      const approvable = assertDerivationApprovable(derivation);
+      if (!approvable.ok) {
+        return apiError("derivationHardFailures", 409, {
+          qualityVerdict: approvable.qualityVerdict,
+          hardFailures: approvable.hardFailures,
+        });
+      }
     }
 
     const updated = await updateDerivationStatus(

@@ -1,5 +1,16 @@
 import { describe, it, expect } from "vitest";
-import { buildDerivationPrompt, type DerivationPromptConfig } from "@/server/ai/prompt-builder";
+import {
+  buildDerivationPrompt,
+  extractPromptHardRulesSection,
+  extractPromptModeSection,
+  type DerivationPromptConfig,
+} from "@/server/ai/prompt-builder";
+import {
+  artVariationContractFixture,
+  derivationConfigFromContract,
+  formatAdaptationApprovedDerivationContractFixture,
+  restylingContractFixture,
+} from "@/server/ai/prompt-builder.test-fixtures";
 
 describe("buildDerivationPrompt creativity level", () => {
   it("art_variation + conservative contains CREATIVITY LEVEL: conservative", () => {
@@ -136,6 +147,140 @@ describe("buildDerivationPrompt CTA contract", () => {
     expect(prompt).toContain("Applied CTA text for this piece: Comprar agora");
     expect(prompt).toContain("CTA Recommendations are secondary context only");
     expect(prompt).toContain("must not override the literal CTA text");
+  });
+});
+
+describe("buildDerivationPrompt format_adaptation layout contract", () => {
+  it("names all source ad modules that must be preserved as separate entities", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "format_adaptation",
+      targetFormat: "9:16",
+    });
+
+    // The prompt must identify the source modules explicitly so the model
+    // treats each one as an independent element to reposition.
+    expect(prompt).toContain("headline");
+    expect(prompt).toContain("photo/subject");
+    expect(prompt).toContain("offer or proof");
+    expect(prompt).toContain("CTA");
+    expect(prompt).toContain("logo");
+    expect(prompt).toContain("badges");
+    expect(prompt).toContain("legal copy");
+    expect(prompt).toContain("decorative background");
+  });
+
+  it("explicitly forbids letterboxing and blank bands", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "format_adaptation",
+      targetFormat: "9:16",
+    });
+
+    expect(prompt).toContain("letterboxing");
+    expect(prompt).toContain("No blank bands");
+  });
+
+  it("explicitly forbids a pasted poster over a background", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "format_adaptation",
+      targetFormat: "9:16",
+    });
+
+    expect(prompt).toContain("no poster pasted over a background");
+  });
+
+  it("explicitly forbids stretched edge filler", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "format_adaptation",
+      targetFormat: "4:5",
+    });
+
+    expect(prompt).toContain("no stretched edge filler");
+  });
+
+  it("restricts decorative background to bleed at edges; all other modules stay inside safe area", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "format_adaptation",
+      targetFormat: "9:16",
+    });
+
+    expect(prompt).toContain("only decorative background may bleed to the edges");
+  });
+
+  it("requires explicit PRESERVE EXACTLY instruction for factual content", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "format_adaptation",
+      targetFormat: "4:5",
+    });
+
+    expect(prompt).toContain("PRESERVE EXACTLY");
+  });
+
+  it("includes 9:16 three-zone vertical layout guidance", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "format_adaptation",
+      targetFormat: "9:16",
+    });
+
+    expect(prompt).toContain("upper zone");
+    expect(prompt).toContain("middle zone");
+    expect(prompt).toContain("lower zone");
+  });
+
+  it("includes 4:5 portrait-feed separated-modules layout guidance", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "format_adaptation",
+      targetFormat: "4:5",
+    });
+
+    expect(prompt).toContain("portrait-feed layout");
+    expect(prompt).toContain("CTA/logo their own clean area");
+  });
+
+  it("does not apply format_adaptation layout guidance to 1:1 as a vertical-format rule", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "format_adaptation",
+      targetFormat: "1:1",
+    });
+
+    // Square format should not carry 9:16 or 4:5 specific zone instructions
+    expect(prompt).not.toContain("upper zone for headline");
+    expect(prompt).not.toContain("portrait-feed layout");
+  });
+});
+
+describe("buildDerivationPrompt contract fixtures", () => {
+  it("builds comparable configs from persisted CreativeContract shapes", () => {
+    const art = derivationConfigFromContract(artVariationContractFixture());
+    const formatApproved = derivationConfigFromContract(
+      formatAdaptationApprovedDerivationContractFixture()
+    );
+    const restyle = derivationConfigFromContract(restylingContractFixture());
+
+    expect(art.contract?.sourcePackage).toBe("campaign_asset");
+    expect(formatApproved.contract?.baseAssetId).toBeNull();
+    expect(formatApproved.contract?.sourcePackage).toBe("approved_derivation");
+    expect(restyle.contract?.baseAssetId).toBe("asset-base-1");
+    expect(restyle.contract?.styleAssetId).toBe("asset-style-1");
+  });
+
+  it("snapshots art variation hard rules via shared extractor", () => {
+    const prompt = buildDerivationPrompt(
+      derivationConfigFromContract(artVariationContractFixture())
+    );
+    expect(extractPromptHardRulesSection(prompt)).toContain("Comprar agora");
+    expect(extractPromptHardRulesSection(prompt)).toContain("Target format: 1:1");
+  });
+
+  it("snapshots format adaptation mode for approved_derivation package", () => {
+    const prompt = buildDerivationPrompt(
+      derivationConfigFromContract(formatAdaptationApprovedDerivationContractFixture(), {
+        packageSource: "approved_derivation",
+        asset: undefined,
+      })
+    );
+    const mode = extractPromptModeSection(prompt);
+    expect(mode).toContain("approved winning creative");
+    expect(mode).not.toContain("Campaign:");
   });
 });
 

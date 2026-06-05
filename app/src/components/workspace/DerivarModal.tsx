@@ -9,18 +9,13 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Palette, Wand2, Crop, Layers } from "lucide-react";
-
-// ============================================
-// Types
-// ============================================
+import { useTranslations } from "next-intl";
+import type { DerivationIntent } from "@/lib/hooks/use-derivation-flow";
 
 interface DerivarModalProps {
   open: boolean;
   onClose: () => void;
-  onSelect: (
-    mode: "art_variation" | "format_adaptation",
-    config: { batch?: boolean; auto?: boolean }
-  ) => void;
+  onSelect: (intent: DerivationIntent) => void;
 }
 
 interface OptionCardProps {
@@ -30,13 +25,10 @@ interface OptionCardProps {
   onClick: () => void;
 }
 
-// ============================================
-// Sub-components
-// ============================================
-
 function OptionCard({ icon, title, description, onClick }: OptionCardProps) {
   return (
-    <button type="button"
+    <button
+      type="button"
       onClick={onClick}
       className={cn(
         "group flex flex-col items-center rounded-xl border bg-[var(--surface-base)] p-5 text-center transition-all duration-200",
@@ -44,7 +36,7 @@ function OptionCard({ icon, title, description, onClick }: OptionCardProps) {
         "hover:shadow-[0_0_20px_rgba(0,179,74,0.12)]"
       )}
     >
-      <div className="mb-3 flex size-12 items-center justify-center rounded-full bg-[var(--surface-raised)] text-[var(--text-primary)] transition-colors duration-200 group-hover:bg-[var(--accent-green-dim)] group-hover:text-[var(--accent-green)]">
+      <div className="mb-3 flex size-12 items-center justify-center rounded-full bg-[var(--surface-raised)] text-[var(--text-primary)] transition-colors duration-200 group-hover:bg-[var(--accent-green-dim)] group-hover:text-[var(--accent-green-text)]">
         {icon}
       </div>
       <h4 className="text-sm font-semibold text-[var(--text-primary)] mb-1">
@@ -57,52 +49,48 @@ function OptionCard({ icon, title, description, onClick }: OptionCardProps) {
   );
 }
 
-// ============================================
-// Component
-// ============================================
-
 export default function DerivarModal({
   open,
   onClose,
   onSelect,
 }: DerivarModalProps) {
+  const t = useTranslations("workspace.derivar");
+
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Palette size={18} className="text-[var(--accent-green)]" />
-            Derivar criativo
+            {t("title")}
           </DialogTitle>
-          <DialogDescription>
-            Escolha como deseja derivar novos criativos a partir do atual.
-          </DialogDescription>
+          <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
 
         <div className="grid grid-cols-2 gap-3 pt-2">
           <OptionCard
             icon={<Palette size={22} />}
-            title="Criar novas variações"
-            description="Configure manualmente os parâmetros para gerar variações artísticas."
-            onClick={() => onSelect("art_variation", { auto: false })}
+            title={t("options.manualArt.title")}
+            description={t("options.manualArt.description")}
+            onClick={() => onSelect("manual_art")}
           />
           <OptionCard
             icon={<Wand2 size={22} />}
-            title="Gerar novas variações"
-            description="Deixe a IA sugerir automaticamente variações baseadas no criativo."
-            onClick={() => onSelect("art_variation", { auto: true })}
+            title={t("options.autoArt.title")}
+            description={t("options.autoArt.description")}
+            onClick={() => onSelect("auto_art")}
           />
           <OptionCard
             icon={<Crop size={22} />}
-            title="Variir tamanhos"
-            description="Adapte o criativo para um único formato de tela diferente."
-            onClick={() => onSelect("format_adaptation", { batch: false })}
+            title={t("options.singleFormat.title")}
+            description={t("options.singleFormat.description")}
+            onClick={() => onSelect("single_format")}
           />
           <OptionCard
             icon={<Layers size={22} />}
-            title="Criar derivações de tamanhos"
-            description="Gere em lote adaptações para múltiplos formatos de uma vez."
-            onClick={() => onSelect("format_adaptation", { batch: true })}
+            title={t("options.batchFormat.title")}
+            description={t("options.batchFormat.description")}
+            onClick={() => onSelect("batch_format")}
           />
         </div>
       </DialogContent>

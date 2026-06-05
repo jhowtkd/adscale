@@ -488,7 +488,7 @@ function PilotUploadDropzone({
                       className={cn(
                         "flex size-5 items-center justify-center rounded-full border transition-all duration-300",
                         isDone
-                          ? "border-[var(--accent-green)] bg-[var(--accent-green)] text-white"
+                          ? "border-[var(--accent-green)] bg-[var(--accent-green)] text-[var(--accent-green-on-fill)]"
                           : isCurrent
                           ? "border-[var(--accent-green)]"
                           : "border-[var(--border-dim)]"

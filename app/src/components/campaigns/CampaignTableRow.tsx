@@ -2,6 +2,7 @@
 
 import React, { useRef } from "react";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
@@ -66,24 +67,32 @@ function CampaignTableRow({
       .replace(/ months? ago/, "mo ago");
   })();
 
-  const handleRowClick = () => {
+  const handleRowClick = (event: React.MouseEvent<HTMLTableRowElement>) => {
+    const target = event.target as HTMLElement;
+    if (target.closest("a, button, input, label, [data-slot='dropdown-menu-trigger']")) {
+      return;
+    }
     router.push(`/campaigns/${campaign.id}`);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTableRowElement>) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
-      handleRowClick();
+      router.push(`/campaigns/${campaign.id}`);
     }
   };
 
   return (
     <tr
       ref={rowRef}
-      tabIndex={-1}
+      role="link"
+      tabIndex={0}
+      aria-label={`${campaign.name}, ${campaign.status}`}
+      onClick={handleRowClick}
+      onKeyDown={handleKeyDown}
       onMouseEnter={() => prefetch(campaign.id)}
       className={cn("animate-fade-in",
-        "group border-b border-[var(--border-dim)] transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-green)] focus-visible:ring-inset",
+        "group border-b border-[var(--border-dim)] transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-green)] focus-visible:ring-inset cursor-pointer",
         "md:table-row flex flex-col rounded-xl md:rounded-none mb-3 md:mb-0 bg-[var(--surface-base)] md:bg-transparent shadow-sm md:shadow-none p-4 md:p-0",
         index % 2 === 1 && "md:bg-[rgba(0,0,0,0.02)]",
         selected && "bg-[var(--accent-green-dim)] border-l-2 border-l-[var(--accent-green)] md:border-l-0 md:border-l-transparent",
@@ -126,9 +135,12 @@ function CampaignTableRow({
       <td className="md:table-cell px-0 md:px-4 py-0 md:py-3 min-w-[200px]">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-[var(--text-primary)] group-hover:text-[var(--accent-green)] transition-colors duration-150 truncate">
+            <Link
+              href={`/campaigns/${campaign.id}`}
+              className="text-sm font-semibold text-[var(--text-primary)] group-hover:text-[var(--accent-green)] transition-colors duration-150 truncate block hover:underline"
+            >
               {campaign.name}
-            </p>
+            </Link>
             <p className="text-[13px] text-[var(--text-secondary)] truncate mt-0.5 md:hidden">
               {campaign.platforms?.join(", ")}
             </p>

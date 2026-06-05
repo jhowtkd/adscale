@@ -1,6 +1,26 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useSyncExternalStore } from "react"
+
+function subscribeToMediaQuery(query: string, onChange: () => void) {
+  if (typeof window === "undefined" || !window.matchMedia) {
+    return () => undefined
+  }
+  const mediaQuery = window.matchMedia(query)
+  mediaQuery.addEventListener("change", onChange)
+  return () => mediaQuery.removeEventListener("change", onChange)
+}
+
+function getMediaQuerySnapshot(query: string) {
+  if (typeof window === "undefined" || !window.matchMedia) {
+    return false
+  }
+  return window.matchMedia(query).matches
+}
+
+function getMediaQueryServerSnapshot() {
+  return false
+}
 
 /**
  * Hook to listen to CSS media queries
@@ -8,23 +28,11 @@ import { useState, useEffect } from "react"
  * @returns boolean indicating if media query matches
  */
 function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = useState(false)
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !window.matchMedia) return
-
-    const mediaQuery = window.matchMedia(query)
-    setMatches(mediaQuery.matches)
-
-    const handler = (event: MediaQueryListEvent) => {
-      setMatches(event.matches)
-    }
-
-    mediaQuery.addEventListener("change", handler)
-    return () => mediaQuery.removeEventListener("change", handler)
-  }, [query])
-
-  return matches
+  return useSyncExternalStore(
+    (onChange) => subscribeToMediaQuery(query, onChange),
+    () => getMediaQuerySnapshot(query),
+    getMediaQueryServerSnapshot
+  )
 }
 
 /** Predefined breakpoints matching Tailwind defaults */

@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function CampaignSkeleton() {
   return (
     <div className="max-w-[1100px] mx-auto pb-20 space-y-6">
+      <h1 className="sr-only">Campanha</h1>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Skeleton className="h-4 w-20" />

@@ -12,8 +12,119 @@ import {
 } from "@/server/repositories/derivation";
 import { refreshCampaignStatus, updateCampaign } from "@/server/repositories/campaign";
 import { getUserLocale } from "@/server/repositories/user";
+import { getLatestOpenFeedbackReportForDerivation } from "@/server/repositories/feedback";
 import { inngest } from "@/server/jobs/client";
 import { spendCreditsOrApiError } from "@/server/billing/gates";
+import { resolveCtaSemantics } from "@/server/ai/creative-contract";
+import type { CreativeContract } from "@/server/ai/creative-contract";
+import {
+  buildRegenerationCorrectionBrief,
+  mergeUserRegenerationNotes,
+} from "@/server/ai/regeneration-correction-brief";
+import type { CreativeHardFailure } from "@/server/ai/creative-quality-gate";
+
+function parseHardFailures(value: unknown): CreativeHardFailure[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(
+    (item): item is CreativeHardFailure =>
+      typeof item === "object" &&
+      item !== null &&
+      typeof (item as { code?: unknown }).code === "string" &&
+      typeof (item as { message?: unknown }).message === "string"
+  );
+}
+
+function parseScoreIssues(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+}
+
+function resolveContractFromDerivation(original: {
+  creativeContract?: CreativeContract | null;
+  ctaText?: string | null;
+  format?: string | null;
+  generationMode?: string | null;
+  styleAssetId?: string | null;
+}): CreativeContract {
+  if (original.creativeContract) {
+    return original.creativeContract;
+  }
+
+  const generationMode = (original.generationMode ??
+    "art_variation") as CreativeContract["generationMode"];
+
+  return {
+    generationMode,
+    targetFormat: original.format ?? "1:1",
+    ctaSemantics: resolveCtaSemantics(original.ctaText, generationMode),
+    baseAssetId: null,
+    styleAssetId: original.styleAssetId ?? null,
+    client: null,
+    product: null,
+    offer: null,
+    constraints: null,
+  };
+}
+
+async function resolveRegenerationBrief(
+  original: {
+    id: string;
+    regenerationSuggestion?: string | null;
+    hardFailures?: unknown;
+    scoreIssues?: unknown;
+    qaChecklist?: unknown;
+    ctaText?: string | null;
+    format?: string | null;
+    generationMode?: string | null;
+    styleAssetId?: string | null;
+    creativeContract?: CreativeContract | null;
+  },
+  workspaceId: string,
+  explicitFeedback?: string
+): Promise<{
+  promptFeedback: string | undefined;
+  structured: ReturnType<typeof buildRegenerationCorrectionBrief>["structured"];
+  primaryReason: string;
+}> {
+  const hardFailures = parseHardFailures(original.hardFailures);
+  const scoreIssues = parseScoreIssues(original.scoreIssues);
+  const contract = resolveContractFromDerivation(original);
+
+  const feedbackReport = await getLatestOpenFeedbackReportForDerivation(
+    workspaceId,
+    original.id
+  );
+
+  const brief = buildRegenerationCorrectionBrief({
+    contract,
+    hardFailures,
+    scoreIssues,
+    qaChecklist: original.qaChecklist as Record<string, { status?: string; note?: string }> | null,
+    feedbackCategory: feedbackReport?.category,
+    modelSuggestion: original.regenerationSuggestion?.trim() || undefined,
+    parentDerivationId: original.id,
+  });
+
+  const mergedFeedback = mergeUserRegenerationNotes(brief.promptFeedback, explicitFeedback);
+
+  if (
+    !mergedFeedback.trim() &&
+    hardFailures.length === 0 &&
+    scoreIssues.length === 0
+  ) {
+    return {
+      promptFeedback: undefined,
+      structured: brief.structured,
+      primaryReason: brief.primaryReason,
+    };
+  }
+
+  return {
+    promptFeedback: mergedFeedback,
+    structured: brief.structured,
+    primaryReason: brief.primaryReason,
+  };
+}
 
 const bodySchema = z.object({
   feedback: z.string().trim().max(2000).optional(),
@@ -36,12 +147,18 @@ export async function POST(
     if (!parsed.success) {
       return apiError("invalidRequestBody", 400, parsed.error.flatten());
     }
-    const feedback = parsed.data.feedback;
 
     const original = await getDerivationById(id, workspace.id);
     if (!original) {
       return apiError("derivationNotFound", 404);
     }
+
+    const resolved = await resolveRegenerationBrief(
+      original,
+      workspace.id,
+      parsed.data.feedback
+    );
+    const feedback = resolved.promptFeedback;
 
     const activeChildren = await getActiveChildrenByParent(id, workspace.id);
     if (activeChildren.length > 0) {
@@ -56,17 +173,27 @@ export async function POST(
     });
     if (creditError) return creditError;
 
+    const parentContract = original.creativeContract ?? null;
+    const regenerationCorrectionBrief = feedback
+      ? {
+          ...resolved.structured,
+          promptFeedback: feedback,
+        }
+      : undefined;
+
     const newDerivation = await createDerivation({
       campaignId: original.campaignId,
       workspaceId: workspace.id,
       planId: original.planId ?? undefined,
       parentId: id,
-      feedback: feedback ?? undefined,
+      feedback,
       status: "queued",
       generationMode: original.generationMode ?? undefined,
       variantIndex: original.variantIndex ?? undefined,
       ctaText: original.ctaText ?? undefined,
       format: original.format ?? undefined,
+      creativeContract: parentContract ?? undefined,
+      regenerationCorrectionBrief,
     });
 
     try {

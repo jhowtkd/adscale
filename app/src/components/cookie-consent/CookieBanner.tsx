@@ -64,7 +64,11 @@ export default function CookieBanner() {
   if (!mounted || prefs !== null) return null;
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-50 border-t border-[var(--border-dim)] bg-[var(--surface-base)] p-4 shadow-lg sm:px-6">
+    <dialog
+      open
+      aria-label="Consentimento de cookies"
+      className="fixed inset-x-0 bottom-0 z-50 m-0 w-full max-w-none border-t border-[var(--border-dim)] bg-[var(--surface-base)] p-4 shadow-lg sm:px-6"
+    >
       <div className="mx-auto flex max-w-7xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="text-sm text-[var(--text-secondary)]">
           <p>
@@ -88,7 +92,7 @@ export default function CookieBanner() {
             <button
               type="button"
               onClick={acceptAll}
-              className="h-9 rounded-md bg-[var(--accent-green)] px-4 text-xs font-medium text-white transition-all hover:bg-[var(--accent-green-light)]"
+              className="h-9 rounded-md bg-[var(--accent-green)] px-4 text-xs font-medium text-[var(--ink)] transition-all hover:bg-[var(--accent-green-light)]"
             >
               Aceitar todos
             </button>
@@ -122,14 +126,14 @@ export default function CookieBanner() {
                 saveConsent({ necessary: true, analytics, marketing });
                 window.location.reload();
               }}
-              className="h-9 rounded-md bg-[var(--accent-green)] px-4 text-xs font-medium text-white transition-all hover:bg-[var(--accent-green-light)]"
+              className="h-9 rounded-md bg-[var(--accent-green)] px-4 text-xs font-medium text-[var(--ink)] transition-all hover:bg-[var(--accent-green-light)]"
             >
               Salvar preferencias
             </button>
           </div>
         )}
       </div>
-    </div>
+    </dialog>
   );
 }
 

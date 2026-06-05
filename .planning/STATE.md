@@ -1,81 +1,59 @@
 ---
 gsd_state_version: 1.0
-milestone: v10.0
-milestone_name: Refinamento de Interface
-status: completed
-last_updated: "2026-05-28T10:45:00.000Z"
-last_activity: 2026-05-28 — Milestone v10.0 completed, all 5 phases executed
+milestone: v11.5
+milestone_name: Qualidade IA Orientada por Feedback
+status: complete
+stopped_at: Milestone v11.5 complete — planning next milestone
+last_updated: "2026-06-05T18:00:00.000Z"
+last_activity: 2026-06-05
 progress:
-  total_phases: 5
-  completed_phases: 5
-  total_plans: 5
-  completed_plans: 5
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # State: ADScale
 
 ## Current Position
 
-Phase: All phases complete (35-39)
-Plan: All 5 plans completed
-Status: Milestone v10.0 complete
-Last activity: 2026-05-28 — Milestone v10.0 completed, all 19 requirements delivered
+Milestone: v11.5 — Qualidade IA Orientada por Feedback (shipped 2026-06-05)
+Phase: —
+Plan: —
+Status: Planning next milestone
+Last activity: 2026-06-05
+
+**Last session:** 2026-06-05
+**Stopped At:** Milestone v11.5 complete — planning next milestone
+**Resume File:** None
 
 ## Accumulated Context
 
-- Milestone v1.0 delivered: full server layer, auth, campaigns, upload, AI plan, derivations, review, export, dashboard, tests
-- Milestone v2.0 delivered: full i18n PT-BR infrastructure, UI translation, AI prompt localization
-- Milestone v3.0 delivered: art variation, format adaptation, restyling modes, creativity templates, literal CTA enforcement
-- Milestone v4.0 delivered: Stripe subscriptions with trial, LGPD compliance (privacy, terms, cookie banner, data export, account deletion)
-- Milestone v5.0 delivered: simplified single-page campaign creation, AI visual analysis, generation mode with suggestions, Briefing Doctor removed
-- Milestone v6.0 delivered: code splitting, TanStack Query optimization, AI analysis caching, image optimization, bundle cleanup, list virtualization
-- Milestone v7.0 delivered: onboarding tour, contextual tooltips, campaign templates, dashboard analytics with period selector
-- Milestone v8.0 delivered: side-by-side comparison, advanced filters, batch approve/reject
-- Milestone v9.0 delivered: visual annotations (freehand, text, shapes), multi-derivation comparison (3+), before/after slider
-- 448 tests passing, build clean
-- Bundle: ~2.4MB total chunks
-- Tech debt: minimal (24 pre-existing ESLint warnings)
+- Marketing lives in `jhowtkd/site-adscale.git`; app stays in ADScale_2.
+- Beta feedback: `/feedback` triage for platform owners (`PLATFORM_OWNER_EMAILS`).
+- v11.5 archives: `.planning/milestones/v11.5-ROADMAP.md`, `v11.5-REQUIREMENTS.md`, `v11.5-MILESTONE-AUDIT.md`, `v11.5-phases/`.
+- Migration `app/drizzle/0027_fine_morlun.sql` (journal idx 27) adds `creative_contract`, `prompt_provenance`, and `regeneration_correction_brief` — apply via `npm run db:migrate` in deployed environments.
+- Quality loop: contract → prompt → score → gate → brief → regenerate → child; 28 fixture regression tests pass without OpenAI.
 
-## v10.0 Roadmap Summary
+## Key Decisions
 
-| Phase | Name | Requirements | Status |
-|-------|------|--------------|--------|
-| 35 | Animation Foundation | ANIM-01, ANIM-04, ANIM-05, A11Y-03, A11Y-04 | **Completed** |
-| 36 | Core Component Polish | COMP-01, COMP-02, COMP-03, COMP-04 | **Completed** |
-| 37 | Layout Responsive | RESP-01, RESP-02, RESP-03, RESP-04, A11Y-05 | **Completed** |
-| 38 | Feature Components | RESP-05, ANIM-02, ANIM-03 | **Completed** |
-| 39 | States & Accessibility | A11Y-01, A11Y-02 | **Completed** |
-
-**Constraints:**
-- Bundle size must not inflate beyond current ~2.4MB
-- All 448 tests must continue passing
-- Canvas annotation responsive scaling needs spike in Phase 37
-- Mobile touch interaction for comparison view may need spike in Phase 38
-
-## Completed Milestones
-
-| Milestone | Name | Phases | Requirements | Status |
-|-----------|------|--------|--------------|--------|
-| v1.0 | Foundation | 1-10 | 30+ | Archived |
-| v2.0 | Internationalization | 11-15 | 20+ | Archived |
-| v3.0 | Generation Modes | 16-19 | 15+ | Archived |
-| v4.0 | Subscriptions & Compliance | 20-22 | 15+ | Archived |
-| v5.0 | Simplified Creation | 23-24 | 15+ | Archived |
-| v6.0 | Performance | 25 | 10 | Archived |
-| v7.0 | UX Polish | 26-28 | 16 | Archived |
-| v8.0 | Review Gallery v1 | 29-31 | 13 | Archived |
-| v9.0 | Review Gallery v2 | 32-34 | 14 | Archived |
+- v11.5 improves generation quality through contract, QA/scoring, and regeneration loops rather than changing provider/model first.
+- Persist creative contract and prompt provenance as JSONB on derivations.
+- Shared quality taxonomy; score/QA normalization without silent defaults on malformed output.
+- Regeneration correction briefs merge gate/score/QA/feedback-category inputs; feedback cannot override hard contract fields.
+- Synthetic fixtures for known failure modes; no real customer assets in committed tests.
 
 ## Next Steps
 
-1. Begin Phase 35: Animation Foundation
-2. Create PLAN.md for Phase 35
-3. Execute Phase 35
+1. Run `/gsd-new-milestone` to define v11.6 (or next version).
+2. **Production deploy:** merge to `main` (Render `branch: main`, `preDeployCommand: db:migrate`) or deploy tag **`v11.5.1`** / commit `3f21d5a` — not tag `v11.5` (omits migration journal fix).
+3. Optional: manual quality loop spot-check per `milestones/v11.5-phases/60-quality-fixtures-and-verification/60-HANDOFF.md`.
 
 ## Project Reference
 
-See: .planning/PROJECT.md
+See: `.planning/PROJECT.md` (updated 2026-06-05)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
-**Current focus:** v10.0 UI refinement — animations, responsive design, component polish, accessibility
+
+**Current focus:** Planning next milestone.

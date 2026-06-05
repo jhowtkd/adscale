@@ -6,7 +6,7 @@ import PasswordInput from "@/components/auth/PasswordInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import SocialAuthButtons from "@/components/auth/SocialAuthButtons";
@@ -43,8 +43,17 @@ function loginReducer(state: LoginState, action: LoginAction): LoginState {
   return { ...state, ...action.payload };
 }
 
+function safeCallbackPath(value: string | null): string {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) {
+    return "/";
+  }
+  return value;
+}
+
 export default function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = safeCallbackPath(searchParams.get("callbackUrl"));
   const t = useTranslations("auth");
   const [state, dispatch] = useReducer(loginReducer, initialLoginState);
   const { email, password, error, loading, showMagicLink, magicLinkSent, magicLinkLoading } = state;
@@ -66,7 +75,7 @@ export default function LoginContent() {
         throw new Error(data.message || "Invalid credentials");
       }
 
-      router.push("/");
+      router.push(callbackUrl);
       router.refresh();
     } catch (err) {
       dispatch({ type: "patch", payload: { error: err instanceof Error ? err.message : "Login failed" } });
@@ -120,7 +129,7 @@ export default function LoginContent() {
                 </div>
               )}
               {magicLinkSent ? (
-                <div className="rounded-md bg-[var(--accent-green)]/10 px-3 py-2 text-sm text-[var(--accent-green)]">
+                <div className="rounded-md bg-[var(--accent-green)]/10 px-3 py-2 text-sm text-[var(--accent-green-text)]">
                   {t("magicLinkSent")}
                 </div>
               ) : (
@@ -197,7 +206,7 @@ export default function LoginContent() {
                 </Button>
               </form>
 
-              <SocialAuthButtons mode="login" />
+              <SocialAuthButtons mode="login" callbackURL={callbackUrl} />
 
               <div className="space-y-3 text-center">
                 <button

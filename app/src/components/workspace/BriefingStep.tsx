@@ -295,7 +295,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
       {/* ---- AI Assist Badge + Form Actions ---- */}
       <div className="max-w-[720px] mx-auto mt-8 space-y-4 animate-fade-in" style={{ animationDelay: "400ms" }}>
         <div className="flex justify-end animate-fade-in" style={{ animationDelay: "500ms" }}>
-          <div className="inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-xs font-medium bg-[var(--accent-green-dim)] text-[var(--accent-green)] border border-[var(--accent-green)]/15">
+          <div className="inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-xs font-medium bg-[var(--accent-green-dim)] text-[var(--accent-green-text)] border border-[var(--accent-green)]/15">
             <Sparkles size={14} />
             {tBriefing("aiAssist")}
           </div>
@@ -323,7 +323,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
           <button
             type="button"
             onClick={handleContinue}
-            className="inline-flex items-center justify-center rounded-md px-6 py-2.5 text-sm font-medium text-white transition-all duration-200 bg-[var(--accent-green)] hover:bg-[var(--accent-green-light)] hover:-translate-y-px active:scale-[0.98]"
+            className="inline-flex items-center justify-center rounded-md px-6 py-2.5 text-sm font-medium text-[var(--accent-green-on-fill)] transition-all duration-200 bg-[var(--accent-green)] hover:bg-[var(--accent-green-light)] hover:-translate-y-px active:scale-[0.98]"
           >
             {tBriefing("saveContinue")}
           </button>

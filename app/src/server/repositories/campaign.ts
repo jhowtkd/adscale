@@ -1,4 +1,4 @@
-import { eq, and, desc, asc, sql, or, ilike, arrayContains } from "drizzle-orm";
+import { eq, and, desc, asc, sql, or, ilike, arrayContains, inArray } from "drizzle-orm";
 import { db } from "../db";
 import { campaigns, derivations } from "../db/schema";
 
@@ -186,9 +186,13 @@ function buildCampaignMetricsRow(row: Partial<CampaignMetricsRow> | undefined): 
   };
 }
 
-async function getCampaignMetrics(workspaceId: string, campaignId?: string) {
-  const whereClause = campaignId
-    ? and(eq(derivations.workspaceId, workspaceId), eq(derivations.campaignId, campaignId))
+async function getCampaignMetrics(workspaceId: string, campaignIds?: string[]) {
+  if (campaignIds?.length === 0) {
+    return new Map<string, CampaignMetricsRow>();
+  }
+
+  const whereClause = campaignIds?.length
+    ? and(eq(derivations.workspaceId, workspaceId), inArray(derivations.campaignId, campaignIds))
     : eq(derivations.workspaceId, workspaceId);
 
   const rows = await db
@@ -302,18 +306,52 @@ export async function createCampaign(
   return result[0];
 }
 
+export async function getWorkspaceCampaignCount(workspaceId: string): Promise<number> {
+  const [row] = await db
+    .select({ count: sql<number>`count(*)::int`.as("count") })
+    .from(campaigns)
+    .where(eq(campaigns.workspaceId, workspaceId));
+  return row?.count ?? 0;
+}
+
+export async function getCampaignPeriodCounts(
+  workspaceId: string,
+  periodStart: Date,
+  previousPeriodStart: Date
+) {
+  const [row] = await db
+    .select({
+      thisPeriod: sql<number>`count(*) filter (where ${campaigns.createdAt} >= ${periodStart})::int`.as(
+        "thisPeriod"
+      ),
+      previousPeriod: sql<number>`count(*) filter (
+        where ${campaigns.createdAt} >= ${previousPeriodStart}
+          and ${campaigns.createdAt} < ${periodStart}
+      )::int`.as("previousPeriod"),
+    })
+    .from(campaigns)
+    .where(eq(campaigns.workspaceId, workspaceId));
+
+  return {
+    thisPeriod: row?.thisPeriod ?? 0,
+    previousPeriod: row?.previousPeriod ?? 0,
+  };
+}
+
 export async function getCampaigns(workspaceId: string, limit = 50) {
-  const [metricsByCampaignId, rows] = await Promise.all([
-    getCampaignMetrics(workspaceId),
-    db
-      .select({
-        ...campaignFields,
-      })
-      .from(campaigns)
-      .where(eq(campaigns.workspaceId, workspaceId))
-      .orderBy(desc(campaigns.updatedAt))
-      .limit(limit),
-  ]);
+  const rows = await db
+    .select({
+      ...campaignFields,
+    })
+    .from(campaigns)
+    .where(eq(campaigns.workspaceId, workspaceId))
+    .orderBy(desc(campaigns.updatedAt))
+    .limit(limit);
+
+  const metricsByCampaignId = await getCampaignMetrics(
+    workspaceId,
+    rows.map((row) => row.id)
+  );
   return rows.map((row) => mergeCampaignMetrics(row, metricsByCampaignId.get(row.id)));
 }
 
@@ -395,7 +433,7 @@ export async function getCampaignsPage(
 
 export async function getCampaignById(id: string, workspaceId: string) {
   const [metricsByCampaignId, result] = await Promise.all([
-    getCampaignMetrics(workspaceId, id),
+    getCampaignMetrics(workspaceId, [id]),
     db
       .select({
         ...campaignFields,

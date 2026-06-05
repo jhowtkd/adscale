@@ -1,5 +1,50 @@
 @import "tailwindcss";
 
+.global-error-page {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #0a0a0a;
+  color: #fafafa;
+  font-family:
+    ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  padding: 24px;
+}
+
+.global-error-main {
+  max-width: 28rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+}
+
+.global-error-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.global-error-message {
+  margin: 0;
+  color: #a1a1a1;
+  line-height: 1.5;
+}
+
+.global-error-button {
+  margin-top: 8px;
+  padding: 10px 20px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  background-color: #00b34a;
+  color: #0a0a0a;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 /* ============================================
@@ -74,8 +119,8 @@
   --border-dim: rgba(0, 0, 0, 0.06);
   --border-medium: rgba(0, 0, 0, 0.12);
   --text-primary: #0a0a0a;
-  --text-secondary: #555555;
-  --text-muted: #595959;
+  --text-secondary: #444444;
+  --text-muted: #525252;
   --ghost: #666666;
   --pale: #e8e8e8;
   --cream: #f8f8f8;
@@ -85,6 +130,10 @@
   --accent-green: #00b34a;
   --accent-green-light: #00e85e;
   --accent-green-dark: #007a33;
+  /* Readable green for text on tinted surfaces (badges, chips); meets WCAG 4.5:1 on --accent-green-dim */
+  --accent-green-text: var(--accent-green-dark);
+  /* Text on solid green buttons and fills */
+  --accent-green-on-fill: var(--ink);
   --accent-green-dim: rgba(0, 179, 74, 0.12);
   --accent-secondary: #6b6b7b;
   --accent-amber: #c7920a;
@@ -112,7 +161,7 @@
   --status-draft-text: var(--text-primary);
   --status-draft-dot: #595959;
   --status-active-bg: rgba(0, 122, 51, 0.12);
-  --status-active-text: var(--text-primary);
+  --status-active-text: var(--accent-green-text);
   --status-active-dot: #007a33;
   --status-queued-bg: rgba(122, 92, 0, 0.16);
   --status-queued-text: var(--text-primary);
@@ -124,10 +173,10 @@
   --status-generating-text: var(--text-primary);
   --status-generating-dot: #7a5c00;
   --status-completed-bg: rgba(0, 122, 51, 0.12);
-  --status-completed-text: var(--text-primary);
+  --status-completed-text: var(--accent-green-text);
   --status-completed-dot: #007a33;
   --status-approved-bg: rgba(0, 122, 51, 0.12);
-  --status-approved-text: var(--text-primary);
+  --status-approved-text: var(--accent-green-text);
   --status-approved-dot: #007a33;
   --status-rejected-bg: rgba(158, 27, 54, 0.12);
   --status-rejected-text: var(--text-primary);
@@ -158,8 +207,8 @@
   --border-dim: rgba(255, 255, 255, 0.04);
   --border-medium: rgba(255, 255, 255, 0.08);
   --text-primary: #ffffff;
-  --text-secondary: #888888;
-  --text-muted: #8a8a8a;
+  --text-secondary: #a3a3a3;
+  --text-muted: #9ca3af;
   --ghost: #bbbbbb;
   --pale: #e8e8e8;
   --cream: #f8f8f8;
@@ -169,6 +218,8 @@
   --accent-green: #00e85e;
   --accent-green-light: #3fff80;
   --accent-green-dark: #00a844;
+  --accent-green-text: var(--accent-green-dark);
+  --accent-green-on-fill: var(--ink);
   --accent-green-dim: rgba(0, 232, 94, 0.12);
   --accent-secondary: #8d8d98;
   --accent-amber: #D4A017;
@@ -195,6 +246,7 @@
   --status-draft-bg: rgba(180, 180, 190, 0.12);
   --status-draft-dot: #8d8d98;
   --status-active-bg: var(--accent-green-dim);
+  --status-active-text: var(--accent-green-text);
   --status-active-dot: var(--accent-green);
   --status-queued-bg: rgba(245, 158, 11, 0.16);
   --status-queued-dot: #F59E0B;
@@ -203,8 +255,10 @@
   --status-generating-bg: rgba(245, 158, 11, 0.16);
   --status-generating-dot: #F59E0B;
   --status-completed-bg: var(--accent-green-dim);
+  --status-completed-text: var(--accent-green-text);
   --status-completed-dot: var(--accent-green);
   --status-approved-bg: var(--accent-green-dim);
+  --status-approved-text: var(--accent-green-text);
   --status-approved-dot: var(--accent-green);
   --status-rejected-bg: rgba(244, 63, 94, 0.16);
   --status-rejected-dot: #F43F5E;
@@ -306,6 +360,19 @@
   }
 }
 
+/* One-shot emphasis when AI or system updates a field value */
+@keyframes suggest-emphasis {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-green) 0%, transparent);
+  }
+  30% {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-green) 40%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-green) 0%, transparent);
+  }
+}
+
 @keyframes spin-slow {
   from {
     transform: rotate(0deg);
@@ -371,6 +438,10 @@
 
   .animate-fade-in {
     animation: fade-in 250ms var(--ease-out-expo) forwards;
+  }
+
+  .animate-suggest-emphasis {
+    animation: suggest-emphasis 650ms var(--ease-out-expo) 1;
   }
 
   .animate-shake {

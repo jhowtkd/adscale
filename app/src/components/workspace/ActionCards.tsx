@@ -35,7 +35,7 @@ function ActionCard({ icon, title, description, meta, onClick }: ActionCardProps
       )}
     >
       {/* Icon */}
-      <div className="mb-3 flex size-10 items-center justify-center rounded-lg bg-[var(--surface-raised)] text-[var(--text-primary)] transition-colors duration-200 group-hover:bg-[var(--accent-green-dim)] group-hover:text-[var(--accent-green)]">
+      <div className="mb-3 flex size-10 items-center justify-center rounded-lg bg-[var(--surface-raised)] text-[var(--text-primary)] transition-colors duration-200 group-hover:bg-[var(--accent-green-dim)] group-hover:text-[var(--accent-green-text)]">
         {icon}
       </div>
 

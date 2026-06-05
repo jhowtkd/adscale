@@ -180,7 +180,17 @@ function getClientIdentifier(request: Request): string {
   if (forwarded) {
     return forwarded.split(",")[0]?.trim() ?? "unknown";
   }
+  const realIp = request.headers.get("x-real-ip");
+  if (realIp) {
+    return realIp.trim();
+  }
   return "unknown";
+}
+
+/** Skip rate limits for local E2E (TestSprite, Playwright). Set E2E_DISABLE_RATE_LIMIT=true on the server. */
+export function isRateLimitDisabled(): boolean {
+  const flag = process.env.E2E_DISABLE_RATE_LIMIT;
+  return flag === "1" || flag === "true" || flag === "yes";
 }
 
 export async function rateLimit(
@@ -188,6 +198,17 @@ export async function rateLimit(
   category: RateLimitCategory,
   identifier?: string
 ): Promise<RateLimitResult> {
+  if (isRateLimitDisabled()) {
+    const options = DEFAULTS[category];
+    const now = Date.now();
+    return {
+      success: true,
+      limit: options.maxRequests,
+      remaining: options.maxRequests,
+      reset: now + options.windowMs,
+    };
+  }
+
   const options = DEFAULTS[category];
   const key = `${category}:${identifier ?? getClientIdentifier(request)}`;
   return store.hit(key, options.windowMs, options.maxRequests);

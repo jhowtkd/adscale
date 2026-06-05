@@ -7,6 +7,7 @@ export interface Asset {
   workspaceId: string;
   key: string;
   type: string;
+  role?: string;
   size: number | null;
   width: number | null;
   height: number | null;
@@ -33,6 +34,10 @@ async function uploadAssetToBackend(
   role?: string,
   onProgress?: (progress: number) => void
 ): Promise<Asset> {
+  if (!campaignId || campaignId === "new") {
+    throw new Error("Aguarde a campanha ser criada antes de fazer upload.");
+  }
+
   const formData = new FormData();
   formData.append("file", file);
   if (width !== undefined) formData.append("width", String(width));

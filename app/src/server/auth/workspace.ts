@@ -4,29 +4,12 @@ import { getWorkspaceForUser } from "../repositories/workspace";
 import { db } from "../db";
 import { workspaceMembers } from "../db/schema";
 
-export const AUTH_ERROR_CODES = {
-  unauthorized: "unauthorized",
-  noWorkspace: "no_workspace",
-  forbidden: "forbidden",
-} as const;
+export { AUTH_ERROR_CODES, WorkspaceAuthError, isWorkspaceAuthError } from "./errors";
+export type { AuthErrorCode } from "./errors";
 
-export type AuthErrorCode = (typeof AUTH_ERROR_CODES)[keyof typeof AUTH_ERROR_CODES];
+import { AUTH_ERROR_CODES, WorkspaceAuthError } from "./errors";
 
 export type WorkspaceMemberRole = "owner" | "admin" | "member";
-
-export class WorkspaceAuthError extends Error {
-  constructor(
-    public readonly code: AuthErrorCode,
-    message: string
-  ) {
-    super(message);
-    this.name = "WorkspaceAuthError";
-  }
-}
-
-export function isWorkspaceAuthError(error: unknown): error is WorkspaceAuthError {
-  return error instanceof WorkspaceAuthError;
-}
 
 export async function requireWorkspaceAccess(request?: Request) {
   const session = request
