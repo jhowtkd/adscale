@@ -1,9 +1,18 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 import { withSentryConfig } from "@sentry/nextjs";
-import withBundleAnalyzer from "@next/bundle-analyzer";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n.ts");
+
+function withOptionalBundleAnalyzer(config: NextConfig): NextConfig {
+  if (process.env.ANALYZE !== "true") {
+    return config;
+  }
+  // Lazy require so production builds on Render do not need the analyzer package.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const withBundleAnalyzer = require("@next/bundle-analyzer")({ enabled: true });
+  return withBundleAnalyzer(config);
+}
 
 function getR2Hostname(): string | undefined {
   try {
@@ -77,8 +86,7 @@ const sentryOptions = {
   },
 };
 
-const bundleAnalyzer = withBundleAnalyzer({
-  enabled: process.env.ANALYZE === "true",
-});
-
-export default withSentryConfig(bundleAnalyzer(withNextIntl(nextConfig)), sentryOptions);
+export default withSentryConfig(
+  withOptionalBundleAnalyzer(withNextIntl(nextConfig)),
+  sentryOptions,
+);
