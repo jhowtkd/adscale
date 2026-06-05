@@ -77,6 +77,26 @@ describe("buildRegenerationCorrectionBrief", () => {
     expect(brief.promptFeedback).not.toContain("user typed this secret");
   });
 
+  it("lists QA failed in QA issues section and surfaces warnings in structured output", () => {
+    const brief = buildRegenerationCorrectionBrief({
+      contract: baseContract,
+      qaChecklist: {
+        legibility: { status: "failed", note: "Unreadable CTA" },
+        briefMatch: { status: "warning", note: "Slight drift" },
+        ctaOffer: { status: "passed", note: "OK" },
+        informationPreservation: { status: "passed", note: "OK" },
+        formatFit: { status: "passed", note: "OK" },
+        creativeRisk: { status: "passed", note: "OK" },
+      },
+    });
+
+    expect(brief.promptFeedback).toContain("QA issues:");
+    expect(brief.promptFeedback).toContain("legibility");
+    expect(brief.structured.qaFailed).toHaveLength(1);
+    expect(brief.structured.qaWarnings.length).toBeGreaterThanOrEqual(1);
+    expect(brief.primaryReason).toContain("legibility failed");
+  });
+
   it("enforces char cap while preserving contract tail", () => {
     const longIssues = Array.from({ length: 40 }, (_, i) => `Issue ${i}: ${"x".repeat(80)}`);
     const brief = buildRegenerationCorrectionBrief({
