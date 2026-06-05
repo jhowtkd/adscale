@@ -10,16 +10,15 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Current Milestone
 
-### v11.6 Creative Strategy Cockpit
+### v11.6.1 Ship Readiness and Beta Activation
 
-**Goal:** Turn ADScale from a variation generator into a guided creative decision cockpit that helps users improve the brief, choose a strategy, validate the base creative, generate a low-cost preview, and package approved outputs for client review.
+**Goal:** Close the remaining v11.6 ship caveats by proving the Creative Strategy Cockpit in a deployed environment, recording release evidence, and preparing the first beta sessions.
 
 **Target features:**
-- Creative Readiness Score before generation, using the existing brief, base creative, brand kit, and quality taxonomy.
-- One-question-at-a-time guided briefing for weak or empty briefs.
-- Strategy recipes that convert diagnosis into recommended generation configurations.
-- Preview-first generation gate before spending credits on a full batch.
-- Client approval package that turns approved derivations into a shareable delivery workflow.
+- Operator browser smoke for the full cockpit path on staging or production.
+- Deployment, health, environment, and migration readiness evidence.
+- Release/archive closure for v11.6 artifacts and audit caveats.
+- Beta operator runbook with credits, privacy, feedback mapping, and fallback steps.
 
 ## Requirements
 
@@ -140,34 +139,26 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 - ✓ **AIR-01–05**: Bounded regeneration correction briefs, pre-confirm primary reason UI, child brief persistence, contract inheritance — v11.5
 - ✓ **FIX-01–05**: Synthetic quality fixtures, prompt/gate/brief regression tests, manual loop handoff, documented model limitations — v11.5
 
+### Validated (v11.6)
+
+- ✓ **READY-01–05**: Creative Readiness Score, dimensions, blocking issues, rerun, and existing preflight/QA integration — v11.6
+- ✓ **GUIDE-01–05**: Guided briefing questions, accept/edit/skip suggestions, draft persistence, and PT-BR/EN copy — v11.6
+- ✓ **RECIPE-01–05**: Strategy recipes, concrete generation settings, tradeoff copy, readiness-aware ranking, and overrides — v11.6
+- ✓ **PREVIEW-01–04**: Preview-first derivation, quality gate reuse, approve/revise path, and visible batch credit impact — v11.6
+- ✓ **DELIVER-01–04**: Client approval package, selected formats, creative notes, share links, signed assets, and refresh flow — v11.6
+- ✓ **CQA-01/CQA-03**: Automated cockpit coverage and beta handoff documentation — v11.6
+- ~ **CQA-02**: Browser smoke checklist exists but operator sign-off remains active in v11.6.1.
+
 ### Active
 
-- [ ] **READY-01**: User can run a pre-generation Creative Readiness Score on a campaign with a base creative.
-- [ ] **READY-02**: User can see readiness breakdown by offer clarity, text legibility, visual hierarchy, CTA prominence, brand fit, and platform fit.
-- [ ] **READY-03**: User can see blocking issues separately from improvement suggestions before generation.
-- [ ] **READY-04**: User can rerun readiness after changing briefing or base creative without losing prior derivation history.
-- [ ] **READY-05**: Readiness uses existing campaign, brand kit, creative contract, and preflight/QA concepts without adding a new AI provider.
-- [ ] **GUIDE-01**: User with a weak brief can answer guided questions one at a time instead of filling a full form up front.
-- [ ] **GUIDE-02**: Guided briefing starts from product/offer and derives audience, promise, objections, CTA, platforms, and constraints.
-- [ ] **GUIDE-03**: User can accept, edit, or skip each guided briefing suggestion.
-- [ ] **GUIDE-04**: Guided answers persist as campaign draft data and remain editable in the normal campaign form.
-- [ ] **GUIDE-05**: Guided briefing supports PT-BR and EN copy without changing generation language rules.
-- [ ] **RECIPE-01**: User can choose from strategy recipes such as Safe Iteration, Performance Push, and Visual Differentiation.
-- [ ] **RECIPE-02**: Each recipe maps to concrete generation settings: mode, creative level, CTA set, formats, preservation emphasis, and style intensity where relevant.
-- [ ] **RECIPE-03**: Recipes explain the tradeoff in user terms before generation.
-- [ ] **RECIPE-04**: Recipe suggestions use readiness findings, brand kit data, and campaign context.
-- [ ] **RECIPE-05**: User can override recipe settings before queueing generation.
-- [ ] **PREVIEW-01**: User can generate one preview derivation before creating a full batch.
-- [ ] **PREVIEW-02**: Preview derivation uses the same creative contract and quality gate as full generation.
-- [ ] **PREVIEW-03**: User can approve preview settings into a full batch or revise the recipe/brief first.
-- [ ] **PREVIEW-04**: Preview-first flow makes credit spend visible before the batch is queued.
-- [ ] **DELIVER-01**: User can create a client approval package from approved derivations.
-- [ ] **DELIVER-02**: Package includes selected formats, creative notes, status, and download actions.
-- [ ] **DELIVER-03**: Package uses workspace-safe share links and signed asset access.
-- [ ] **DELIVER-04**: User can regenerate or update the package after approval changes.
-- [ ] **CQA-01**: Automated tests cover readiness normalization, guided briefing state, recipe mapping, and preview gating.
-- [ ] **CQA-02**: Browser smoke verifies the cockpit path from campaign draft to preview to delivery package.
-- [ ] **CQA-03**: Handoff documents cost, privacy, and known AI limitations for beta users.
+- [ ] **SHIP-01**: Operator can run the full v11.6 cockpit browser smoke on staging or production and record pass/fail evidence for every checklist step.
+- [ ] **SHIP-02**: Operator can verify deployed git ref, health, required environment variables, and migration/schema readiness before beta ship.
+- [ ] **SHIP-03**: Post-review fixes for recipe selection, preflight rerun billing, and handoff accuracy are included in the release and covered by focused tests.
+- [ ] **SHIP-04**: v11.6 audit caveats are either resolved or explicitly carried forward with owner, evidence, and next action.
+- [ ] **SHIP-05**: v11.6 artifacts are archived through the GSD milestone completion flow without losing release evidence.
+- [ ] **BETA-01**: Beta operator has a concise runbook for the first cockpit beta sessions, including setup, credit expectations, privacy notes, and fallback steps.
+- [ ] **BETA-02**: Owner can collect cockpit-specific beta feedback and map it back to readiness, briefing, recipe, preview, or approval-package stages.
+- [ ] **BETA-03**: Release handoff identifies the next product learning questions before any larger v11.7 feature build begins.
 
 ### Validated (v10.0)
 
@@ -210,15 +201,15 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Context
 
-Current state: v11.6 planning has started after v11.5 shipped AI quality alignment (phases 57–60). The derivation pipeline already persists `creativeContract` and `promptProvenance` JSONB, runs shared taxonomy score/QA/gate, builds bounded regeneration correction briefs, and has 28 automated fixture regression tests covering the quality loop without OpenAI calls.
+Current state: v11.6 Creative Strategy Cockpit is implemented on `origin/main` through `ec2f1a4`. The derivation pipeline persists `creativeContract` and `promptProvenance` JSONB, runs shared taxonomy score/QA/gate, builds bounded regeneration correction briefs, and has automated fixture regression tests covering the quality loop without OpenAI calls.
 
-The v11.6 product direction is to move quality checks earlier in the workflow and make generation feel like a guided decision path: diagnose readiness, repair the brief, choose a strategy recipe, generate one preview, then package approved outputs for client review.
+The active v11.6.1 direction is release readiness: prove the cockpit path in a deployed environment, verify deploy/migration/health evidence, preserve audit artifacts, and prepare beta operation before starting larger v11.7 product work.
 
 Marketing remains in `jhowtkd/site-adscale.git`; product feedback and owner triage live in ADScale_2 at `/feedback` for platform owners.
 
 Migration `app/drizzle/0027_fine_morlun.sql` (Drizzle journal idx 27) must be applied in deployed environments via `npm run db:migrate` before relying on `creative_contract`, `prompt_provenance`, and `regeneration_correction_brief` columns in production.
 
-Prior milestones delivered beta feedback capture (v11.4), presentation site separation (v11.3), beta entitlements (v11.2), generation quality gates (v11.1), coherent derivation flows (v11.0), and the full MVP through v10 UI polish.
+Prior milestones delivered the strategy cockpit (v11.6), beta feedback capture (v11.4), presentation site separation (v11.3), beta entitlements (v11.2), generation quality gates (v11.1), coherent derivation flows (v11.0), and the full MVP through v10 UI polish.
 
 Build, lint, and tests pass.
 
@@ -253,8 +244,9 @@ Key stack decisions:
 | Shared quality taxonomy module | Score, QA, and gate must agree on failure categories | ✓ Good — v11.5 |
 | Feedback as categorized context only | Raw beta text cannot override hard contract fields | ✓ Good — v11.5 |
 | Synthetic fixtures over customer assets | Privacy-safe repeatable regression for known failure modes | ✓ Good — v11.5 |
-| Preview before batch | Users should validate strategy cheaply before spending credits on a full batch | Planned — v11.6 |
-| Strategy cockpit over isolated tools | Existing AI modules should be orchestrated into one decision path before adding new surface area | Planned — v11.6 |
+| Preview before batch | Users should validate strategy cheaply before spending credits on a full batch | ✓ Good — v11.6 |
+| Strategy cockpit over isolated tools | Existing AI modules should be orchestrated into one decision path before adding new surface area | ✓ Good — v11.6 |
+| Operator smoke before beta ship | Automated tests passed, but deployed browser evidence is still the release gate | Active — v11.6.1 |
 
 ## Evolution
 
@@ -379,7 +371,7 @@ This document evolves at phase transitions and milestone boundaries.
 
 ## Next Milestone Goals
 
-- v11.6 Creative Strategy Cockpit: readiness score, guided briefing, strategy recipes, preview-first generation, and client approval package.
+- v11.6.1 Ship Readiness and Beta Activation: production/staging cockpit smoke, deploy and migration evidence, milestone archive, beta runbook, and learning questions.
 
 ---
-*Last updated: 2026-06-05 after v11.6 milestone initialization*
+*Last updated: 2026-06-05 after v11.6.1 milestone initialization*

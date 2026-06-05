@@ -1,62 +1,26 @@
-# Requirements: ADScale v11.6 Creative Strategy Cockpit
+# Requirements: ADScale v11.6.1 Ship Readiness and Beta Activation
 
 **Core Value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
 ## Scope
 
-v11.6 turns existing ADScale capabilities into a guided creative decision flow:
-
-1. Diagnose whether the base creative and brief are ready.
-2. Help the user strengthen weak briefing inputs one question at a time.
-3. Suggest concrete generation recipes.
-4. Generate one low-cost preview before full batch spend.
-5. Package approved outputs for client review and delivery.
+v11.6.1 is a release-readiness milestone. It does not add new product surfaces. It closes the remaining v11.6 ship caveats by proving the Creative Strategy Cockpit in a deployed environment, recording production evidence, and archiving the milestone cleanly.
 
 ## Requirements
 
-### Creative Readiness
+### Ship Readiness
 
-- [x] **READY-01**: User can run a pre-generation Creative Readiness Score on a campaign with a base creative.
-- [x] **READY-02**: User can see readiness breakdown by offer clarity, text legibility, visual hierarchy, CTA prominence, brand fit, and platform fit.
-- [x] **READY-03**: User can see blocking issues separately from improvement suggestions before generation.
-- [x] **READY-04**: User can rerun readiness after changing briefing or base creative without losing prior derivation history.
-- [x] **READY-05**: Readiness uses existing campaign, brand kit, creative contract, and preflight/QA concepts without adding a new AI provider.
+- [ ] **SHIP-01**: Operator can run the full v11.6 cockpit browser smoke on staging or production and record pass/fail evidence for every checklist step.
+- [ ] **SHIP-02**: Operator can verify deployed git ref, health, required environment variables, and migration/schema readiness before beta ship.
+- [ ] **SHIP-03**: Post-review fixes for recipe selection, preflight rerun billing, and handoff accuracy are included in the release and covered by focused tests.
+- [ ] **SHIP-04**: v11.6 audit caveats are either resolved or explicitly carried forward with owner, evidence, and next action.
+- [ ] **SHIP-05**: v11.6 artifacts are archived through the GSD milestone completion flow without losing release evidence.
 
-### Guided Briefing
+### Beta Activation
 
-- [x] **GUIDE-01**: User with a weak brief can answer guided questions one at a time instead of filling a full form up front.
-- [x] **GUIDE-02**: Guided briefing starts from product/offer and derives audience, promise, objections, CTA, platforms, and constraints.
-- [x] **GUIDE-03**: User can accept, edit, or skip each guided briefing suggestion.
-- [x] **GUIDE-04**: Guided answers persist as campaign draft data and remain editable in the normal campaign form.
-- [x] **GUIDE-05**: Guided briefing supports PT-BR and EN copy without changing generation language rules.
-
-### Strategy Recipes
-
-- [x] **RECIPE-01**: User can choose from strategy recipes such as Safe Iteration, Performance Push, and Visual Differentiation.
-- [x] **RECIPE-02**: Each recipe maps to concrete generation settings: mode, creative level, CTA set, formats, preservation emphasis, and style intensity where relevant.
-- [x] **RECIPE-03**: Recipes explain the tradeoff in user terms before generation.
-- [x] **RECIPE-04**: Recipe suggestions use readiness findings, brand kit data, and campaign context.
-- [x] **RECIPE-05**: User can override recipe settings before queueing generation.
-
-### Preview Gate
-
-- [x] **PREVIEW-01**: User can generate one preview derivation before creating a full batch.
-- [x] **PREVIEW-02**: Preview derivation uses the same creative contract and quality gate as full generation.
-- [x] **PREVIEW-03**: User can approve preview settings into a full batch or revise the recipe/brief first.
-- [x] **PREVIEW-04**: Preview-first flow makes credit spend visible before the batch is queued.
-
-### Client Delivery
-
-- [x] **DELIVER-01**: User can create a client approval package from approved derivations.
-- [x] **DELIVER-02**: Package includes selected formats, creative notes, status, and download actions.
-- [x] **DELIVER-03**: Package uses workspace-safe share links and signed asset access.
-- [x] **DELIVER-04**: User can regenerate or update the package after approval changes.
-
-### Verification and Handoff
-
-- [x] **CQA-01**: Automated tests cover readiness normalization, guided briefing state, recipe mapping, and preview gating.
-- [~] **CQA-02**: Browser smoke verifies the cockpit path from campaign draft to preview to delivery package. *(Checklist in `65-SMOKE-EVIDENCE.md`; operator sign-off pending.)*
-- [x] **CQA-03**: Handoff documents cost, privacy, and known AI limitations for beta users.
+- [ ] **BETA-01**: Beta operator has a concise runbook for the first cockpit beta sessions, including setup, credit expectations, privacy notes, and fallback steps.
+- [ ] **BETA-02**: Owner can collect cockpit-specific beta feedback and map it back to readiness, briefing, recipe, preview, or approval-package stages.
+- [ ] **BETA-03**: Release handoff identifies the next product learning questions before any larger v11.7 feature build begins.
 
 ## Future Requirements
 
@@ -64,42 +28,26 @@ v11.6 turns existing ADScale capabilities into a guided creative decision flow:
 - Multi-stakeholder comment threads on public share pages.
 - Automatic budget optimizer across recipes and target formats.
 - Competitor upload workflow as a first-class campaign setup path.
+- Full Playwright E2E automation for the cockpit path.
 
 ## Out of Scope
 
 - New AI model or provider migration.
-- Real-time collaborative editing.
+- New strategy recipes beyond the v11.6 catalog.
 - Paid media platform integrations.
 - Replacing the existing campaign form entirely.
 - Public marketing site changes.
+- Multi-client comment/approval workflow on share links.
 
 ## Traceability
 
 | Requirement | Phase |
 |-------------|-------|
-| READY-01 | 61 |
-| READY-02 | 61 |
-| READY-03 | 61 |
-| READY-04 | 61 |
-| READY-05 | 61 |
-| GUIDE-01 | 62 |
-| GUIDE-02 | 62 |
-| GUIDE-03 | 62 |
-| GUIDE-04 | 62 |
-| GUIDE-05 | 62 |
-| RECIPE-01 | 63 |
-| RECIPE-02 | 63 |
-| RECIPE-03 | 63 |
-| RECIPE-04 | 63 |
-| RECIPE-05 | 63 |
-| PREVIEW-01 | 63 |
-| PREVIEW-02 | 63 |
-| PREVIEW-03 | 63 |
-| PREVIEW-04 | 63 |
-| DELIVER-01 | 64 |
-| DELIVER-02 | 64 |
-| DELIVER-03 | 64 |
-| DELIVER-04 | 64 |
-| CQA-01 | 65 |
-| CQA-02 | 65 |
-| CQA-03 | 65 |
+| SHIP-01 | 66 |
+| SHIP-02 | 66 |
+| SHIP-03 | 66 |
+| SHIP-04 | 67 |
+| SHIP-05 | 67 |
+| BETA-01 | 67 |
+| BETA-02 | 67 |
+| BETA-03 | 67 |
