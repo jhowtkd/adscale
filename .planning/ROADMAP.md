@@ -103,29 +103,29 @@ v11.4 creates a small authenticated feedback capture and owner triage surface fo
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FBK-01 | Phase 54 | Planned |
-| FBK-02 | Phase 53 | Planned |
-| FBK-03 | Phase 54 | Planned |
-| FBK-04 | Phase 54 | Planned |
-| CTX-01 | Phase 54 | Planned |
-| CTX-02 | Phase 54 | Planned |
-| CTX-03 | Phase 54 | Planned |
-| CTX-04 | Phase 54 | Planned |
-| CTX-05 | Phase 55 | Planned |
-| OBS-01 | Phase 54 | Planned |
-| OBS-02 | Phase 54 | Planned |
-| OBS-03 | Phase 53 | Planned |
-| TRI-01 | Phase 55 | Planned |
-| TRI-02 | Phase 55 | Planned |
-| TRI-03 | Phase 55 | Planned |
-| TRI-04 | Phase 55 | Planned |
-| SEC-01 | Phase 53 | Planned |
-| SEC-02 | Phase 53 | Planned |
-| SEC-03 | Phase 53 | Planned |
-| SEC-04 | Phase 54 | Planned |
-| QA-01 | Phase 56 | Planned |
-| QA-02 | Phase 56 | Planned |
-| QA-03 | Phase 56 | Planned |
+| FBK-01 | Phase 54 | Complete |
+| FBK-02 | Phase 53 | Complete |
+| FBK-03 | Phase 54 | Complete |
+| FBK-04 | Phase 54 | Complete |
+| CTX-01 | Phase 54 | Complete |
+| CTX-02 | Phase 54 | Complete |
+| CTX-03 | Phase 54 | Complete |
+| CTX-04 | Phase 54 | Complete |
+| CTX-05 | Phase 55 | Complete |
+| OBS-01 | Phase 54 | Complete |
+| OBS-02 | Phase 54 | Complete |
+| OBS-03 | Phase 53 | Complete |
+| TRI-01 | Phase 55 | Complete |
+| TRI-02 | Phase 55 | Complete |
+| TRI-03 | Phase 55 | Complete |
+| TRI-04 | Phase 55 | Complete |
+| SEC-01 | Phase 53 | Complete |
+| SEC-02 | Phase 53 | Complete |
+| SEC-03 | Phase 53 | Complete |
+| SEC-04 | Phase 54 | Complete |
+| QA-01 | Phase 56 | Complete |
+| QA-02 | Phase 56 | Complete |
+| QA-03 | Phase 56 | Complete |
 
 **Coverage:**
 - v11.4 requirements: 23 total

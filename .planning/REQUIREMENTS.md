@@ -7,44 +7,44 @@
 
 ### Feedback Submission
 
-- [ ] **FBK-01**: Beta user can open a feedback form from the authenticated app shell without leaving the current page.
-- [ ] **FBK-02**: Beta user can submit structured feedback with type, severity, category, message, and optional follow-up permission.
-- [ ] **FBK-03**: Beta user can report a specific campaign or derivation from contextual surfaces so the report is linked to the exact object under review.
-- [ ] **FBK-04**: User receives a clear success or failure state after submission without losing their current workflow.
+- [x] **FBK-01**: Beta user can open a feedback form from the authenticated app shell without leaving the current page.
+- [x] **FBK-02**: Beta user can submit structured feedback with type, severity, category, message, and optional follow-up permission.
+- [x] **FBK-03**: Beta user can report a specific campaign or derivation from contextual surfaces so the report is linked to the exact object under review.
+- [x] **FBK-04**: User receives a clear success or failure state after submission without losing their current workflow.
 
 ### Diagnostic Context
 
-- [ ] **CTX-01**: Each feedback report stores the current route, query context, locale, browser basics, app build/version when available, user ID, and workspace ID.
-- [ ] **CTX-02**: Campaign feedback stores validated campaign context, active workflow step, campaign status, and attached base/style asset references when available.
-- [ ] **CTX-03**: Derivation feedback stores validated derivation context, generation mode, target format, output key, quality verdict, hard failures, and related asset references when available.
-- [ ] **CTX-04**: Client-side diagnostic capture includes a bounded and sanitized list of recent navigation, UI, fetch, and error breadcrumbs.
-- [ ] **CTX-05**: Feedback reports expose a context completeness indicator so the owner can see whether page, logs, campaign, derivation, and assets were captured.
+- [x] **CTX-01**: Each feedback report stores the current route, query context, locale, browser basics, app build/version when available, user ID, and workspace ID.
+- [x] **CTX-02**: Campaign feedback stores validated campaign context, active workflow step, campaign status, and attached base/style asset references when available.
+- [x] **CTX-03**: Derivation feedback stores validated derivation context, generation mode, target format, output key, quality verdict, hard failures, and related asset references when available.
+- [x] **CTX-04**: Client-side diagnostic capture includes a bounded and sanitized list of recent navigation, UI, fetch, and error breadcrumbs.
+- [x] **CTX-05**: Feedback reports expose a context completeness indicator so the owner can see whether page, logs, campaign, derivation, and assets were captured.
 
 ### Observability Correlation
 
-- [ ] **OBS-01**: Feedback submission can attach Sentry feedback ID, last event ID, request correlation ID, and replay/session reference when available.
-- [ ] **OBS-02**: Sentry events related to feedback are enriched with report ID, workspace ID, route, campaign ID, derivation ID, and feedback type tags.
-- [ ] **OBS-03**: Server-side feedback handling logs report creation and validation failures with non-sensitive IDs that can be matched to the report.
+- [x] **OBS-01**: Feedback submission can attach Sentry feedback ID, last event ID, request correlation ID, and replay/session reference when available.
+- [x] **OBS-02**: Sentry events related to feedback are enriched with report ID, workspace ID, route, campaign ID, derivation ID, and feedback type tags.
+- [x] **OBS-03**: Server-side feedback handling logs report creation and validation failures with non-sensitive IDs that can be matched to the report.
 
 ### Owner Triage
 
-- [ ] **TRI-01**: Owner can view a workspace-safe internal list of beta feedback reports filtered by status, type, severity, route, campaign, and date.
-- [ ] **TRI-02**: Owner can open a feedback report detail view with message, diagnostic context, linked campaign/derivation, asset previews or signed links, and Sentry correlation IDs.
-- [ ] **TRI-03**: Owner can update report status through new, reviewing, resolved, and archived states.
-- [ ] **TRI-04**: Owner can add internal notes and resolution summary without exposing those notes back to beta users.
+- [x] **TRI-01**: Owner can view a workspace-safe internal list of beta feedback reports filtered by status, type, severity, route, campaign, and date.
+- [x] **TRI-02**: Owner can open a feedback report detail view with message, diagnostic context, linked campaign/derivation, asset previews or signed links, and Sentry correlation IDs.
+- [x] **TRI-03**: Owner can update report status through new, reviewing, resolved, and archived states.
+- [x] **TRI-04**: Owner can add internal notes and resolution summary without exposing those notes back to beta users.
 
 ### Privacy and Access Control
 
-- [ ] **SEC-01**: Feedback create and review APIs enforce authenticated workspace membership before accepting or returning any report data.
-- [ ] **SEC-02**: Server validates every submitted campaign, derivation, campaign asset, workspace asset, and output reference against the active workspace before storing it.
-- [ ] **SEC-03**: Feedback diagnostic context excludes secrets, auth tokens, raw request bodies, full prompts, and unrelated workspace data.
-- [ ] **SEC-04**: Optional screenshot or session replay capture is disabled or privacy-masked by default unless explicitly enabled through configuration and visible UX copy.
+- [x] **SEC-01**: Feedback create and review APIs enforce authenticated workspace membership before accepting or returning any report data.
+- [x] **SEC-02**: Server validates every submitted campaign, derivation, campaign asset, workspace asset, and output reference against the active workspace before storing it.
+- [x] **SEC-03**: Feedback diagnostic context excludes secrets, auth tokens, raw request bodies, full prompts, and unrelated workspace data.
+- [x] **SEC-04**: Optional screenshot or session replay capture is disabled or privacy-masked by default unless explicitly enabled through configuration and visible UX copy.
 
 ### Verification
 
-- [ ] **QA-01**: Tests cover feedback creation, validation limits, workspace isolation, entity ownership checks, status updates, and diagnostic sanitization.
-- [ ] **QA-02**: Browser smoke verifies global feedback, contextual derivation feedback, owner triage detail, asset links, and mobile layout.
-- [ ] **QA-03**: Final verification documents what context is captured, what is intentionally excluded, and how to analyze a submitted beta report.
+- [x] **QA-01**: Tests cover feedback creation, validation limits, workspace isolation, entity ownership checks, status updates, and diagnostic sanitization.
+- [x] **QA-02**: Browser smoke verifies global feedback, contextual derivation feedback, owner triage detail, asset links, and mobile layout.
+- [x] **QA-03**: Final verification documents what context is captured, what is intentionally excluded, and how to analyze a submitted beta report.
 
 ## Future Requirements
 
@@ -73,29 +73,29 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FBK-01 | Phase 54 | Pending |
-| FBK-02 | Phase 53 | Pending |
-| FBK-03 | Phase 54 | Pending |
-| FBK-04 | Phase 54 | Pending |
-| CTX-01 | Phase 54 | Pending |
-| CTX-02 | Phase 54 | Pending |
-| CTX-03 | Phase 54 | Pending |
-| CTX-04 | Phase 54 | Pending |
-| CTX-05 | Phase 55 | Pending |
-| OBS-01 | Phase 54 | Pending |
-| OBS-02 | Phase 54 | Pending |
-| OBS-03 | Phase 53 | Pending |
-| TRI-01 | Phase 55 | Pending |
-| TRI-02 | Phase 55 | Pending |
-| TRI-03 | Phase 55 | Pending |
-| TRI-04 | Phase 55 | Pending |
-| SEC-01 | Phase 53 | Pending |
-| SEC-02 | Phase 53 | Pending |
-| SEC-03 | Phase 53 | Pending |
-| SEC-04 | Phase 54 | Pending |
-| QA-01 | Phase 56 | Pending |
-| QA-02 | Phase 56 | Pending |
-| QA-03 | Phase 56 | Pending |
+| FBK-01 | Phase 54 | Complete |
+| FBK-02 | Phase 53 | Complete |
+| FBK-03 | Phase 54 | Complete |
+| FBK-04 | Phase 54 | Complete |
+| CTX-01 | Phase 54 | Complete |
+| CTX-02 | Phase 54 | Complete |
+| CTX-03 | Phase 54 | Complete |
+| CTX-04 | Phase 54 | Complete |
+| CTX-05 | Phase 55 | Complete |
+| OBS-01 | Phase 54 | Complete |
+| OBS-02 | Phase 54 | Complete |
+| OBS-03 | Phase 53 | Complete |
+| TRI-01 | Phase 55 | Complete |
+| TRI-02 | Phase 55 | Complete |
+| TRI-03 | Phase 55 | Complete |
+| TRI-04 | Phase 55 | Complete |
+| SEC-01 | Phase 53 | Complete |
+| SEC-02 | Phase 53 | Complete |
+| SEC-03 | Phase 53 | Complete |
+| SEC-04 | Phase 54 | Complete |
+| QA-01 | Phase 56 | Complete |
+| QA-02 | Phase 56 | Complete |
+| QA-03 | Phase 56 | Complete |
 
 **Coverage:**
 - v11.4 requirements: 23 total
