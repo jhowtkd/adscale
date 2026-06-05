@@ -26,6 +26,7 @@ import {
   estimateCreditCost,
   type RecipeGenerationConfig,
 } from "@/server/ai/strategy-recipes";
+import { shouldShowPreviewGate } from "@/server/ai/preview-gate";
 
 export type WorkspaceState =
   | "piloto"           // upload + briefing
@@ -334,16 +335,10 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
     [allDerivations]
   );
 
-  const hasBatchDerivations = useMemo(
-    () => allDerivations.some((d) => !d.isPreview),
+  const showPreviewGate = useMemo(
+    () => shouldShowPreviewGate(allDerivations),
     [allDerivations]
   );
-
-  const showPreviewGate = useMemo(() => {
-    if (!previewDerivation || hasBatchDerivations) return false;
-    if (previewDerivation.status === "generating") return false;
-    return Boolean(previewDerivation.imageUrl || previewDerivation.outputKey);
-  }, [previewDerivation, hasBatchDerivations]);
 
   const batchCreditEstimate = useMemo(() => {
     if (!campaign) return 0;
