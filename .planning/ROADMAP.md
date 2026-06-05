@@ -33,7 +33,7 @@ Archive: [v11.5-ROADMAP.md](milestones/v11.5-ROADMAP.md) · [v11.5-REQUIREMENTS.
 | 61 | Creative Readiness Foundation | Score base creative and brief quality before generation | READY-01..05 | 5 |
 | 62 | Guided Briefing Cockpit | Help weak briefs become generation-ready one question at a time | GUIDE-01..05 | 5 |
 | 63 | Strategy Recipes and Preview Gate | 2/2 | Complete   | 2026-06-05 |
-| 64 | Client Approval Package | Package approved outputs for client review and download | DELIVER-01..04 | 4 |
+| 64 | Client Approval Package | 2/2 | Complete   | 2026-06-05 |
 | 65 | Verification, Analytics, and Handoff | Validate the cockpit path and document beta limitations | CQA-01..03 | 4 |
 
 **26 requirements** | **5 phases** | All covered ✓
@@ -120,7 +120,7 @@ Archive: [v11.5-ROADMAP.md](milestones/v11.5-ROADMAP.md) · [v11.5-REQUIREMENTS.
 | 61    | v11.6     | 2/2            | Complete | 2026-06-05 |
 | 62    | v11.6     | 2/2            | Complete | 2026-06-05 |
 | 63    | v11.6     | 2/2            | Complete | 2026-06-05 |
-| 64    | v11.6     | 0/?            | Planned  | —          |
+| 64    | v11.6     | 2/2            | Complete | 2026-06-05 |
 | 65    | v11.6     | 0/?            | Planned  | —          |
 | 57    | v11.5     | 2/2            | Complete | 2026-06-05 |
 | 58    | v11.5     | 2/2            | Complete | 2026-06-05 |

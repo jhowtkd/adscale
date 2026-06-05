@@ -47,10 +47,10 @@ v11.6 turns existing ADScale capabilities into a guided creative decision flow:
 
 ### Client Delivery
 
-- [ ] **DELIVER-01**: User can create a client approval package from approved derivations.
-- [ ] **DELIVER-02**: Package includes selected formats, creative notes, status, and download actions.
-- [ ] **DELIVER-03**: Package uses workspace-safe share links and signed asset access.
-- [ ] **DELIVER-04**: User can regenerate or update the package after approval changes.
+- [x] **DELIVER-01**: User can create a client approval package from approved derivations.
+- [x] **DELIVER-02**: Package includes selected formats, creative notes, status, and download actions.
+- [x] **DELIVER-03**: Package uses workspace-safe share links and signed asset access.
+- [x] **DELIVER-04**: User can regenerate or update the package after approval changes.
 
 ### Verification and Handoff
 
