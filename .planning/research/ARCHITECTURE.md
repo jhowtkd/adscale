@@ -1,56 +1,36 @@
-# Architecture Research: v11.5 Qualidade IA Orientada por Feedback
+# Architecture Research: v11.6 Creative Strategy Cockpit
 
-**Date:** 2026-06-05
-**Milestone:** v11.5 Qualidade IA Orientada por Feedback
+## Shape
 
-## Current Architecture
+Build v11.6 as a campaign-workspace orchestration layer, not as a new standalone product area.
 
-Generation flow:
+The user path should be:
 
-1. User queues derivation.
-2. `app/src/server/jobs/derivation.ts` fetches campaign, plan, asset, parent derivation, brand kit, competitors, client references and brand memory.
-3. `buildDerivationPrompt` creates the image prompt.
-4. OpenAI image generation/editing runs.
-5. Output is normalized and uploaded to R2.
-6. Heuristic score is saved, then visual scoring runs.
-7. Quality gate runs QA and classifies hard failures/polish suggestions.
-8. Regeneration uses stored suggestion/hard failures when available.
+1. Campaign draft or existing campaign.
+2. Base creative present.
+3. Creative Readiness Score.
+4. Guided briefing only when context is weak or the user requests it.
+5. Strategy recipe selection.
+6. One preview derivation.
+7. Full batch generation.
+8. Client approval package.
 
-## Integration Points
+## Data Model Bias
 
-- `prompt-builder.ts`: contract/prompt source of truth.
-- `creative-contract.ts`: CTA and mode contract semantics.
-- `creative-score.ts`: score dimensions and regeneration suggestion builder.
-- `creative-qa.ts`: visual QA checklist and normalized issues/suggestions.
-- `creative-quality-gate.ts`: hard failure classification and export/approval blocking.
-- `derivation.ts`: stores input prompt/revised prompt/output and orchestrates scoring/gate.
-- `feedback_reports`: can provide real beta context, but must be sanitized and categorized before influencing regeneration.
+Prefer small JSONB metadata on existing campaign/derivation/package concepts before adding broad new relational surfaces.
+
+Likely persisted data:
+
+- Last readiness result.
+- Guided briefing answer state.
+- Selected recipe and recipe overrides.
+- Preview derivation relationship and promoted batch settings.
+- Client package metadata.
 
 ## Build Order
 
-1. Align contract vocabulary and prompt snapshots before touching scoring.
-2. Align score/QA schemas and hard failure taxonomy.
-3. Feed score/QA/hard failure/feedback context into regeneration in a controlled way.
-4. Add fixtures and verification to prevent regressions.
-
-## New Versus Modified
-
-### New
-
-- Quality fixture directory with sanitized/synthetic cases.
-- Prompt contract snapshot tests for each generation mode.
-- Quality regression tests for scoring/QA normalization and hard failure mapping.
-- Optional owner-facing quality debug document or internal view.
-
-### Modified
-
-- `prompt-builder.ts` for clearer mode-specific contract sections.
-- `creative-score.ts` and `creative-qa.ts` to produce consistent, schema-validated quality outputs.
-- `creative-quality-gate.ts` to ensure hard failures map to actionable regeneration suggestions.
-- `regenerate` route and regeneration feedback builder to include QA and feedback context without accepting unsafe prompt injection.
-
-## Security and Cost Shape
-
-- Feedback context must be treated as user input, never as trusted system instruction.
-- Regeneration remains user-triggered and spend-gated.
-- Fixtures must avoid real customer assets unless explicitly sanitized and approved.
+1. Readiness service and UI card.
+2. Guided briefing state and campaign draft persistence.
+3. Recipe mapping and preview gate.
+4. Delivery package improvements.
+5. End-to-end verification and handoff.

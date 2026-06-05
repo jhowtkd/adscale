@@ -10,9 +10,16 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Current Milestone
 
-**Status:** v11.5 shipped — planning next milestone via `/gsd-new-milestone`.
+### v11.6 Creative Strategy Cockpit
 
-**Candidate themes:** owner notification on new feedback, richer diagnostic breadcrumbs, beta quality analytics.
+**Goal:** Turn ADScale from a variation generator into a guided creative decision cockpit that helps users improve the brief, choose a strategy, validate the base creative, generate a low-cost preview, and package approved outputs for client review.
+
+**Target features:**
+- Creative Readiness Score before generation, using the existing brief, base creative, brand kit, and quality taxonomy.
+- One-question-at-a-time guided briefing for weak or empty briefs.
+- Strategy recipes that convert diagnosis into recommended generation configurations.
+- Preview-first generation gate before spending credits on a full batch.
+- Client approval package that turns approved derivations into a shareable delivery workflow.
 
 ## Requirements
 
@@ -135,7 +142,32 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ### Active
 
-_None — define via `/gsd-new-milestone`._
+- [ ] **READY-01**: User can run a pre-generation Creative Readiness Score on a campaign with a base creative.
+- [ ] **READY-02**: User can see readiness breakdown by offer clarity, text legibility, visual hierarchy, CTA prominence, brand fit, and platform fit.
+- [ ] **READY-03**: User can see blocking issues separately from improvement suggestions before generation.
+- [ ] **READY-04**: User can rerun readiness after changing briefing or base creative without losing prior derivation history.
+- [ ] **READY-05**: Readiness uses existing campaign, brand kit, creative contract, and preflight/QA concepts without adding a new AI provider.
+- [ ] **GUIDE-01**: User with a weak brief can answer guided questions one at a time instead of filling a full form up front.
+- [ ] **GUIDE-02**: Guided briefing starts from product/offer and derives audience, promise, objections, CTA, platforms, and constraints.
+- [ ] **GUIDE-03**: User can accept, edit, or skip each guided briefing suggestion.
+- [ ] **GUIDE-04**: Guided answers persist as campaign draft data and remain editable in the normal campaign form.
+- [ ] **GUIDE-05**: Guided briefing supports PT-BR and EN copy without changing generation language rules.
+- [ ] **RECIPE-01**: User can choose from strategy recipes such as Safe Iteration, Performance Push, and Visual Differentiation.
+- [ ] **RECIPE-02**: Each recipe maps to concrete generation settings: mode, creative level, CTA set, formats, preservation emphasis, and style intensity where relevant.
+- [ ] **RECIPE-03**: Recipes explain the tradeoff in user terms before generation.
+- [ ] **RECIPE-04**: Recipe suggestions use readiness findings, brand kit data, and campaign context.
+- [ ] **RECIPE-05**: User can override recipe settings before queueing generation.
+- [ ] **PREVIEW-01**: User can generate one preview derivation before creating a full batch.
+- [ ] **PREVIEW-02**: Preview derivation uses the same creative contract and quality gate as full generation.
+- [ ] **PREVIEW-03**: User can approve preview settings into a full batch or revise the recipe/brief first.
+- [ ] **PREVIEW-04**: Preview-first flow makes credit spend visible before the batch is queued.
+- [ ] **DELIVER-01**: User can create a client approval package from approved derivations.
+- [ ] **DELIVER-02**: Package includes selected formats, creative notes, status, and download actions.
+- [ ] **DELIVER-03**: Package uses workspace-safe share links and signed asset access.
+- [ ] **DELIVER-04**: User can regenerate or update the package after approval changes.
+- [ ] **CQA-01**: Automated tests cover readiness normalization, guided briefing state, recipe mapping, and preview gating.
+- [ ] **CQA-02**: Browser smoke verifies the cockpit path from campaign draft to preview to delivery package.
+- [ ] **CQA-03**: Handoff documents cost, privacy, and known AI limitations for beta users.
 
 ### Validated (v10.0)
 
@@ -178,7 +210,9 @@ _None — define via `/gsd-new-milestone`._
 
 ## Context
 
-Current state: v11.5 shipped AI quality alignment (phases 57–60). The derivation pipeline now persists `creativeContract` and `promptProvenance` JSONB, runs shared taxonomy score/QA/gate, builds bounded regeneration correction briefs, and has 28 automated fixture regression tests covering the quality loop without OpenAI calls.
+Current state: v11.6 planning has started after v11.5 shipped AI quality alignment (phases 57–60). The derivation pipeline already persists `creativeContract` and `promptProvenance` JSONB, runs shared taxonomy score/QA/gate, builds bounded regeneration correction briefs, and has 28 automated fixture regression tests covering the quality loop without OpenAI calls.
+
+The v11.6 product direction is to move quality checks earlier in the workflow and make generation feel like a guided decision path: diagnose readiness, repair the brief, choose a strategy recipe, generate one preview, then package approved outputs for client review.
 
 Marketing remains in `jhowtkd/site-adscale.git`; product feedback and owner triage live in ADScale_2 at `/feedback` for platform owners.
 
@@ -219,6 +253,8 @@ Key stack decisions:
 | Shared quality taxonomy module | Score, QA, and gate must agree on failure categories | ✓ Good — v11.5 |
 | Feedback as categorized context only | Raw beta text cannot override hard contract fields | ✓ Good — v11.5 |
 | Synthetic fixtures over customer assets | Privacy-safe repeatable regression for known failure modes | ✓ Good — v11.5 |
+| Preview before batch | Users should validate strategy cheaply before spending credits on a full batch | Planned — v11.6 |
+| Strategy cockpit over isolated tools | Existing AI modules should be orchestrated into one decision path before adding new surface area | Planned — v11.6 |
 
 ## Evolution
 
@@ -238,7 +274,7 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-05 after v11.5 milestone completion*
+*Last updated: 2026-06-05 after v11.6 milestone initialization*
 
 ## Milestone History
 
@@ -343,7 +379,7 @@ This document evolves at phase transitions and milestone boundaries.
 
 ## Next Milestone Goals
 
-- Define via `/gsd-new-milestone` (candidates: notification on new feedback, richer breadcrumbs, beta analytics)
+- v11.6 Creative Strategy Cockpit: readiness score, guided briefing, strategy recipes, preview-first generation, and client approval package.
 
 ---
-*Last updated: 2026-06-05 after v11.5 milestone completion*
+*Last updated: 2026-06-05 after v11.6 milestone initialization*

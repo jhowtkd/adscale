@@ -1,39 +1,30 @@
-# Research Summary: v11.5 Qualidade IA Orientada por Feedback
-
-**Date:** 2026-06-05
-**Milestone:** v11.5 Qualidade IA Orientada por Feedback
-
-## Key Findings
-
-ADScale already has most of the architecture needed for AI quality: prompt contracts, image generation jobs, visual scoring, QA, hard quality gates, regeneration suggestions, and beta feedback reports. v11.5 should not start with a provider/model migration. The highest leverage is to make those pieces agree with each other and verify known failure modes.
-
-Official OpenAI image docs confirm that even current GPT Image models can struggle with exact text, cross-generation consistency, and precise composition. That maps directly to ADScale's main quality risks: CTA drift, cropped/hidden information, poor native format adaptation, and style-reference factual contamination.
-
-Structured Outputs are a better fit than loose JSON mode for stable quality results. The current code normalizes output, but v11.5 should tighten schemas and tests for score/QA payloads.
+# Research Summary: v11.6 Creative Strategy Cockpit
 
 ## Stack Additions
 
-- Prompt contract snapshot tests by generation mode.
-- Synthetic/sanitized quality fixture set.
-- Consistent score/QA/hard failure taxonomy.
-- Regeneration context builder that merges QA, scoring, hard failures, and feedback categories safely.
+None. v11.6 should reuse existing Next.js, TanStack Query, Drizzle/Postgres, OpenAI utilities, R2, share links, delivery package, brand kit, preflight analysis, creative diagnosis, creative contract, and quality taxonomy.
 
-## Table Stakes
+## Feature Table Stakes
 
-- Prompt contracts make non-negotiable preservation rules obvious and testable.
-- Score and QA agree on criteria and hard failures.
-- Regeneration fixes a specific detected issue while preserving CTA, format, mode, brand, offer and factual source.
-- Quality regressions are visible through tests/fixtures before beta users find them.
+- Creative readiness before generation.
+- Guided briefing for weak briefs.
+- Strategy recipes with concrete generation settings.
+- Preview-first flow before full batch spend.
+- Shareable client approval package.
 
-## Watch Outs
+## Watch Out For
 
-- Do not pass raw feedback text as authoritative prompt instructions.
-- Do not let visual polish scores hide contract violations.
-- Do not overblock exports for subjective polish.
-- Do not use model switching as the primary quality strategy.
+- Do not build another detached modal set.
+- Do not hide credit impact.
+- Do not expose workspace-private context on public package links.
+- Do not allow recipes or beta feedback to override hard preservation constraints.
 
-## Source Notes
+## Recommendation
 
-- OpenAI Image generation docs: latest image model/API capabilities and limitations.
-- OpenAI Structured Outputs docs: stable schema subset for model outputs.
-- ADScale repo inspection: `prompt-builder.ts`, `creative-score.ts`, `creative-qa.ts`, `creative-quality-gate.ts`, `derivation.ts`, regeneration route and feedback report model.
+Proceed with a five-phase milestone:
+
+1. Creative Readiness Foundation.
+2. Guided Briefing Cockpit.
+3. Strategy Recipes and Preview Gate.
+4. Client Approval Package.
+5. Verification, Analytics, and Handoff.

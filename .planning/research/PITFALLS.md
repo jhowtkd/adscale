@@ -1,40 +1,19 @@
-# Pitfalls Research: v11.5 Qualidade IA Orientada por Feedback
+# Pitfalls Research: v11.6 Creative Strategy Cockpit
 
-**Date:** 2026-06-05
-**Milestone:** v11.5 Qualidade IA Orientada por Feedback
+## Risks
 
-## Pitfall: Prompt Changes Break Existing Modes
+- Making readiness feel like a vague score instead of an actionable checklist.
+- Recreating Briefing Doctor under a new name.
+- Letting recipe suggestions override contract preservation rules.
+- Charging users for accidental full batches when they intended a preview.
+- Exposing private workspace context in client packages.
+- Creating parallel campaign state that drifts from the normal campaign form.
 
-**Risk:** Fixing one mode degrades another, especially art variation vs format adaptation vs restyling.
+## Prevention
 
-**Prevention:** Add prompt snapshots and fixtures per mode before broad prompt changes.
-
-## Pitfall: Scoring Contradicts QA
-
-**Risk:** User sees high score and hard failure at the same time, or QA suggests export while review blocks approval.
-
-**Prevention:** Standardize criteria names, verdict thresholds and hard failure taxonomy across score, QA and quality gate.
-
-## Pitfall: Feedback Becomes Prompt Injection
-
-**Risk:** Beta feedback text is passed directly into regeneration and overrides hard rules.
-
-**Prevention:** Convert feedback to categorized issue context; never let feedback override contract fields.
-
-## Pitfall: Overblocking
-
-**Risk:** QA blocks too many outputs for subjective polish issues and users lose trust.
-
-**Prevention:** Keep hard failures limited to contract-breaking issues: wrong CTA, missing offer/product, severe illegibility, bad format, factual contamination, unsafe cropping.
-
-## Pitfall: No Visual Evidence
-
-**Risk:** Tests only assert strings and miss real visual failures.
-
-**Prevention:** Combine prompt/logic tests with a small manual or semi-automated fixture checklist for known visual failure categories.
-
-## Pitfall: Costly Auto Loops
-
-**Risk:** Automatic regeneration loops burn credits and still fail.
-
-**Prevention:** Keep regeneration user-confirmed; improve suggestions and context before automating retries.
+- Every readiness issue needs an action or a clear "safe to ignore" label.
+- Guided briefing must write back into normal campaign fields.
+- Recipe mapping must pass through existing creative contract and quality gate paths.
+- Preview and batch actions need distinct labels and credit copy.
+- Client packages should use existing share/signed URL patterns.
+- Browser smoke must cover the full path, not only individual APIs.
