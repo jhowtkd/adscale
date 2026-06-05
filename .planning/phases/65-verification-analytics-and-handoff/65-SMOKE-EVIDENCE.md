@@ -8,9 +8,9 @@
 |-------|-------|
 | Milestone | v11.6 Creative Strategy Cockpit |
 | Date (UTC) | 2026-06-05 |
-| Operator | _(pending production run)_ |
-| App URL | `https://adscale.jhonatansoares.com` (or staging) |
-| Git ref at test | `c217bb2` |
+| Operator | agent gate (DNS blocked) — **operator browser run required** |
+| App URL | `https://adscale.jhonatansoares.com` |
+| Git ref at test | `03a9dde` (live Render; includes `c217bb2` SHIP-03) |
 | Automated preflight | 69 cockpit + review-fix tests pass locally |
 
 ## Cockpit path checklist

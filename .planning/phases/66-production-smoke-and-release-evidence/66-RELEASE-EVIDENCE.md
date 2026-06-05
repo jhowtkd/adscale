@@ -8,9 +8,9 @@
 
 | Field | Value |
 |-------|-------|
-| `origin/main` (last push) | `c217bb2` — SHIP-03 cockpit ship-readiness refactor |
-| Local HEAD | `c217bb2` |
-| Target deploy ref | `c217bb2` or later deployment containing this commit |
+| Smoke target (includes SHIP-03) | `c217bb2` (minimum) |
+| Docs refresh | `41de146` |
+| **Live Render deploy** | `03a9dde` (2026-06-05T23:55 UTC) — superset of above + Render build/migration fixes |
 
 ## SHIP-03 — Post-review fixes and tests
 
@@ -57,16 +57,17 @@ Full `npm test` reports **1 pre-existing failure** unrelated to cockpit path:
 
 - `tests/unit/ai/creative-quality-gate-orchestration.test.ts` — mock assertion drift on `updateDerivationScore` (795/797 pass). Track separately; not a v11.6.1 ship blocker for cockpit beta.
 
-## SHIP-02 — Deploy verification checklist
+## SHIP-02 — Deploy verification checklist (2026-06-05 operator gate)
 
-| Check | Agent | Operator | Notes |
-|-------|-------|----------|-------|
-| App URL reachable | ☐ blocked | ☐ pending | DNS failed from agent: `adscale.jhonatansoares.com` |
-| `/api/health` 200 | ☐ blocked | ☐ pending | Run after deploy |
-| Deployed git SHA matches release | — | ☐ pending | Render dashboard / `git rev-parse` on service |
-| Migration `0027_fine_morlun.sql` applied | — | ☐ pending | Run `npm run db:migrate` in Render shell if not auto-applied |
-| Required env vars present | — | ☐ pending | OpenAI, storage, DB, Stripe/billing as per existing deploy |
-| Post-deploy smoke ref updated | ☑ prep | ☐ pending | `65-SMOKE-EVIDENCE.md` now targets `c217bb2`; confirm deployed SHA after deploy |
+| Check | Status | Evidence |
+|-------|--------|----------|
+| Render deploy live | **PASS** | `render deploys list` → `live` at `03a9dde` |
+| Deploy includes SHIP-03 | **PASS** | `03a9dde` ancestry includes `c217bb2` + `41de146` |
+| App URL reachable (agent) | **BLOCKED** | DNS NXDOMAIN from agent sandbox; Render reports `https://adscale.jhonatansoares.com` live |
+| `/api/health` 200 (agent) | **BLOCKED** | Same DNS; operator verify locally |
+| Migration `0027` applied | **PENDING** | Live deploy used `npm start` only — run `npm run db:migrate` in [Render Shell](https://dashboard.render.com/web/srv-d8goos77f7vs73f1k5eg) before cockpit smoke |
+| Required env vars | **ASSUMED** | Prior live deploy; no missing-env errors in startup logs |
+| onrender.com subdomain | **N/A** | `x-render-routing: blocked-render-subdomain` — use custom domain only |
 
 ## SHIP-01 — Browser smoke
 
@@ -79,5 +80,5 @@ Operator completes 17 steps in `.planning/phases/65-verification-analytics-and-h
 | Requirement | Automated status |
 |-------------|------------------|
 | SHIP-03 | **PASS** (committed and pushed as `c217bb2`) |
-| SHIP-02 | **PARTIAL** — checklist ready; live verification blocked from agent |
+| SHIP-02 | **PARTIAL** — deploy live; health/migration need operator confirmation |
 | SHIP-01 | **PENDING** — operator browser smoke |
