@@ -80,9 +80,12 @@ vi.mock("../repositories/competitor-analysis", () => ({
   getCompetitorAnalysesByCampaign: vi.fn(),
 }));
 
+const mockUpdateDerivationPromptProvenance = vi.hoisted(() => vi.fn(() => Promise.resolve({})));
+
 vi.mock("../repositories/derivation", () => ({
   getDerivationById: vi.fn(),
   updateDerivationScore: vi.fn(),
+  updateDerivationPromptProvenance: mockUpdateDerivationPromptProvenance,
 }));
 
 vi.mock("../ai/creative-quality-gate", () => ({
@@ -223,6 +226,7 @@ async function runDerivationJob(eventData: Record<string, unknown>) {
 describe("derivationJob", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUpdateDerivationPromptProvenance.mockResolvedValue({});
     sharpOperations.length = 0;
     mockOpenAIImages.edit.mockResolvedValue({
       data: [{ b64_json: "bW9ja2ltYWdl", revised_prompt: "revised" }],
@@ -299,6 +303,113 @@ describe("derivationJob", () => {
           op.args[2].fit === "contain"
       )
     ).toBe(false);
+  });
+
+  it("persists contract and provenance for campaign-asset art variation", async () => {
+    mockGetDerivationById.mockResolvedValue({
+      id: "derivation-id",
+      campaignId: "campaign-id",
+      workspaceId: "workspace-1",
+      parentId: null,
+      status: "queued",
+      generationMode: "art_variation",
+      format: "1:1",
+      ctaText: "Shop Now",
+      variantIndex: 0,
+      feedback: null,
+      prompt: null,
+      qualityScore: null,
+      scoreStatus: "pending",
+    } as Awaited<ReturnType<typeof getDerivationById>>);
+
+    mockGetCampaignById.mockResolvedValue({
+      id: "campaign-id",
+      workspaceId: "workspace-1",
+      name: "Test Campaign",
+      client: "Acme",
+      product: "Widget",
+      objective: null,
+      audience: null,
+      platforms: null,
+      tone: null,
+      offer: "20% off",
+      constraints: null,
+      notes: null,
+      status: "generating",
+      generationMode: "art_variation",
+      creativeLevel: "balanced",
+      styleIntensity: "medium",
+      creativeDiagnosisStatus: "pending",
+      creativeDiagnosis: null,
+      creativeDiagnosisSource: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as Awaited<ReturnType<typeof getCampaignById>>);
+
+    mockGetAssetsByCampaign.mockResolvedValue([
+      {
+        id: "asset-1",
+        campaignId: "campaign-id",
+        workspaceId: "workspace-1",
+        key: "assets/campaign.png",
+        type: "image/png",
+        size: 1000,
+        width: 1080,
+        height: 1080,
+        role: "base",
+        metadata: null,
+        analysisStatus: null,
+        analyzedAt: null,
+        createdAt: new Date(),
+      },
+    ]);
+    mockGetPlanByCampaign.mockResolvedValue(null as never);
+
+    await runDerivationJob({
+      derivationId: "derivation-id",
+      campaignId: "campaign-id",
+      workspaceId: "workspace-1",
+      locale: "en",
+      generationMode: "art_variation",
+      variantIndex: 0,
+      ctaText: "Shop Now",
+      format: "1:1",
+    });
+
+    expect(mockUpdateDerivationPromptProvenance).toHaveBeenCalled();
+    const finalCall = mockUpdateDerivationPromptProvenance.mock.calls.at(-1);
+    expect(finalCall?.[0]).toBe("derivation-id");
+    expect(finalCall?.[1]).toBe("workspace-1");
+    expect(finalCall?.[2]).toEqual(
+      expect.objectContaining({
+        creativeContract: expect.objectContaining({
+          generationMode: "art_variation",
+          targetFormat: "1:1",
+          ctaSemantics: { kind: "explicit", text: "Shop Now" },
+          baseAssetId: "asset-1",
+          sourcePackage: "campaign_asset",
+          client: "Acme",
+          product: "Widget",
+          offer: "20% off",
+        }),
+        promptProvenance: expect.objectContaining({
+          schemaVersion: 1,
+          sourcePackage: "campaign_asset",
+          source: expect.objectContaining({
+            kind: "campaign_asset",
+            assetId: "asset-1",
+            assetKey: "assets/campaign.png",
+          }),
+          generationMode: "art_variation",
+          targetFormat: "1:1",
+          model: "gpt-image-1",
+          imageOperation: "edit",
+          revisedPrompt: "revised",
+          outputKey: expect.stringContaining("derivations/derivation-id/"),
+        }),
+        prompt: "revised",
+      })
+    );
   });
 
   it("uses parent outputKey as reference image for package format adaptation", async () => {
@@ -383,6 +494,31 @@ describe("derivationJob", () => {
         derivationId: "child-id",
         workspaceId: "workspace-1",
         contract: expect.objectContaining({ generationMode: "format_adaptation" }),
+      })
+    );
+
+    const finalProvenanceCall = mockUpdateDerivationPromptProvenance.mock.calls.at(-1);
+    expect(finalProvenanceCall?.[2]).toEqual(
+      expect.objectContaining({
+        creativeContract: expect.objectContaining({
+          generationMode: "format_adaptation",
+          targetFormat: "9:16",
+          ctaSemantics: { kind: "explicit", text: "Comprar agora" },
+          baseAssetId: null,
+          sourcePackage: "approved_derivation",
+        }),
+        promptProvenance: expect.objectContaining({
+          sourcePackage: "approved_derivation",
+          source: expect.objectContaining({
+            kind: "approved_derivation",
+            derivationId: "parent-id",
+            outputKey: "derivations/parent/output.png",
+          }),
+          generationMode: "format_adaptation",
+          targetFormat: "9:16",
+          imageOperation: "edit",
+          revisedPrompt: "revised",
+        }),
       })
     );
   });
