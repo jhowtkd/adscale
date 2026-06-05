@@ -1,4 +1,4 @@
-import { eq, and, desc, gte, lte, sql } from "drizzle-orm";
+import { eq, and, desc, gte, lte, sql, inArray } from "drizzle-orm";
 import { db } from "../db";
 import { feedbackReports } from "../db/schema";
 import type { FeedbackAssetRef } from "../feedback/validate-refs";
@@ -56,6 +56,27 @@ export async function createFeedbackReport(input: CreateFeedbackReportInput) {
     .returning();
 
   return report;
+}
+
+export async function getLatestOpenFeedbackReportForDerivation(
+  workspaceId: string,
+  derivationId: string
+): Promise<{ category: FeedbackCategory } | null> {
+  const [report] = await db
+    .select({ category: feedbackReports.category })
+    .from(feedbackReports)
+    .where(
+      and(
+        eq(feedbackReports.workspaceId, workspaceId),
+        eq(feedbackReports.derivationId, derivationId),
+        inArray(feedbackReports.status, ["new", "reviewing"])
+      )
+    )
+    .orderBy(desc(feedbackReports.createdAt))
+    .limit(1);
+
+  if (!report) return null;
+  return { category: report.category as FeedbackCategory };
 }
 
 export async function getFeedbackReportById(

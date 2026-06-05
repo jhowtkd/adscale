@@ -47,6 +47,48 @@ describe("derivation repository", () => {
     expect(result).toEqual({ id: "deriv-1" });
   });
 
+  it("createDerivation persists creativeContract and regenerationCorrectionBrief", async () => {
+    const creativeContract = {
+      generationMode: "art_variation" as const,
+      targetFormat: "1:1",
+      ctaSemantics: { kind: "explicit" as const, text: "Shop" },
+      baseAssetId: null,
+      styleAssetId: null,
+      client: "Acme",
+      product: "Widget",
+      offer: null,
+      constraints: null,
+    };
+    const regenerationCorrectionBrief = {
+      promptFeedback: "Hard failures:\n- cta_drift: missing",
+      sources: ["hard_failures" as const],
+      hardFailures: [{ code: "cta_drift", message: "missing" }],
+      scoreIssues: [],
+      qaFailed: [],
+      qaWarnings: [],
+      contractSnapshot: creativeContract,
+    };
+    const mockReturning = vi.fn().mockResolvedValue([{ id: "deriv-3" }]);
+    const mockValues = vi.fn().mockReturnValue({ returning: mockReturning });
+    (db.insert as ReturnType<typeof vi.fn>).mockReturnValue({ values: mockValues });
+
+    await createDerivation({
+      campaignId,
+      workspaceId,
+      parentId: "parent-id",
+      creativeContract,
+      regenerationCorrectionBrief,
+    });
+
+    expect(mockValues).toHaveBeenCalledWith(
+      expect.objectContaining({
+        creativeContract,
+        regenerationCorrectionBrief,
+        parentId: "parent-id",
+      })
+    );
+  });
+
   it("createDerivation defaults nullable fields to null", async () => {
     const mockReturning = vi.fn().mockResolvedValue([{ id: "deriv-2" }]);
     const mockValues = vi.fn().mockReturnValue({ returning: mockReturning });

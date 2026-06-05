@@ -4,6 +4,7 @@ import type {
   CreativeQualityVerdict,
 } from "../ai/creative-quality-gate";
 import type { CreativeContract, PromptProvenance } from "../ai/creative-contract";
+import type { RegenerationCorrectionBriefRecord } from "../ai/regeneration-correction-brief";
 import { db } from "../db";
 import { derivations } from "../db/schema";
 
@@ -47,6 +48,8 @@ export interface CreateDerivationInput {
   ctaText?: string;
   styleAssetId?: string;
   isPreview?: boolean;
+  creativeContract?: CreativeContract;
+  regenerationCorrectionBrief?: RegenerationCorrectionBriefRecord;
 }
 
 export async function createDerivation(data: CreateDerivationInput) {
@@ -65,6 +68,8 @@ export async function createDerivation(data: CreateDerivationInput) {
       ctaText: data.ctaText ?? null,
       styleAssetId: data.styleAssetId ?? null,
       isPreview: data.isPreview ?? false,
+      creativeContract: data.creativeContract ?? null,
+      regenerationCorrectionBrief: data.regenerationCorrectionBrief ?? null,
     })
     .returning();
   return result[0];

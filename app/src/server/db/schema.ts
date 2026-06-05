@@ -630,6 +630,9 @@ export const derivations = adscaleSchema.table(
     creativeContract: jsonb("creative_contract").$type<
       import("../ai/creative-contract").CreativeContract
     >(),
+    regenerationCorrectionBrief: jsonb("regeneration_correction_brief").$type<
+      import("../ai/regeneration-correction-brief").RegenerationCorrectionBriefRecord
+    >(),
     promptProvenance: jsonb("prompt_provenance").$type<
       import("../ai/creative-contract").PromptProvenance
     >(),
