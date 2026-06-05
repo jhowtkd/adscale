@@ -29,6 +29,12 @@ vi.mock("@/lib/hooks/use-preflight", () => ({
   })),
 }));
 
+vi.mock("@/components/workspace/CreativeReadinessPanel", () => ({
+  default: function MockCreativeReadinessPanel() {
+    return <div data-testid="creative-readiness-panel" />;
+  },
+}));
+
 vi.mock("next/image", () => ({
   default: function MockImage(props: { alt?: string }) {
     return <img alt={props.alt ?? ""} />;

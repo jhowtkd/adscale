@@ -7,6 +7,7 @@ import { Upload, Check, Loader2, ImageIcon, AlertCircle } from "lucide-react";
 import { useUploadAsset } from "@/lib/hooks/use-assets";
 import { useCreativeAnalysis } from "@/components/campaigns/useCreativeAnalysis";
 import { useAnalyzePreflight } from "@/lib/hooks/use-preflight";
+import CreativeReadinessPanel from "@/components/workspace/CreativeReadinessPanel";
 
 // ============================================
 // Types
@@ -48,6 +49,7 @@ interface UploadUiState {
   previewUrl: string | null;
   errorMessage: string | null;
   warningMessage: string | null;
+  uploadedAssetId: string | null;
 }
 
 type UploadUiAction =
@@ -58,7 +60,8 @@ type UploadUiAction =
   | { type: "analysisCompleted"; warningMessage: string | null }
   | { type: "uploadProgressChanged"; progress: number }
   | { type: "uploadFailed"; message: string }
-  | { type: "previewCleared" };
+  | { type: "previewCleared" }
+  | { type: "assetUploaded"; assetId: string };
 
 const initialUploadUiState: UploadUiState = {
   state: "empty",
@@ -67,6 +70,7 @@ const initialUploadUiState: UploadUiState = {
   previewUrl: null,
   errorMessage: null,
   warningMessage: null,
+  uploadedAssetId: null,
 };
 
 function uploadUiReducer(
@@ -114,6 +118,8 @@ function uploadUiReducer(
       };
     case "previewCleared":
       return { ...current, previewUrl: null };
+    case "assetUploaded":
+      return { ...current, uploadedAssetId: action.assetId };
   }
 }
 
@@ -140,6 +146,7 @@ export default function PilotUploadPanel({
     previewUrl,
     errorMessage,
     warningMessage,
+    uploadedAssetId,
   } = uiState;
 
   useEffect(() => {
@@ -255,6 +262,7 @@ export default function PilotUploadPanel({
         });
 
         onAssetUploaded(asset.id);
+        dispatch({ type: "assetUploaded", assetId: asset.id });
         await runAnalysis(asset.id);
       } catch (err) {
         if (previewUrlRef.current) {
@@ -305,21 +313,26 @@ export default function PilotUploadPanel({
   const isProcessing = state === "uploading" || state === "analyzing";
 
   return (
-    <PilotUploadDropzone
-      state={state}
-      uploadProgress={uploadProgress}
-      completedSteps={completedSteps}
-      previewUrl={previewUrl}
-      errorMessage={errorMessage}
-      warningMessage={warningMessage}
-      isInteractive={isInteractive}
-      isProcessing={isProcessing}
-      fileInputRef={fileInputRef}
-      onFileChange={handleFileChange}
-      onDrop={handleDrop}
-      onDragOver={handleDragOver}
-      onOpenFilePicker={openFilePicker}
-    />
+    <div className="w-full space-y-4">
+      <PilotUploadDropzone
+        state={state}
+        uploadProgress={uploadProgress}
+        completedSteps={completedSteps}
+        previewUrl={previewUrl}
+        errorMessage={errorMessage}
+        warningMessage={warningMessage}
+        isInteractive={isInteractive}
+        isProcessing={isProcessing}
+        fileInputRef={fileInputRef}
+        onFileChange={handleFileChange}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onOpenFilePicker={openFilePicker}
+      />
+      {uploadedAssetId && (state === "reviewing" || state === "analyzing") && (
+        <CreativeReadinessPanel campaignId={campaignId} assetId={uploadedAssetId} />
+      )}
+    </div>
   );
 }
 

@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { ImageIcon, Target, Users, MessageSquare, Monitor, MousePointer, Loader2 } from "lucide-react";
 import { useCampaignAssets } from "@/lib/hooks/use-assets";
+import CreativeReadinessPanel from "@/components/workspace/CreativeReadinessPanel";
 
 // ============================================
 // Types
@@ -174,6 +175,8 @@ export default function PilotSidebar({
           </div>
         </div>
       )}
+
+      <CreativeReadinessPanel campaignId={campaignId} assetId={pilotAsset?.id} />
     </aside>
   );
 }
