@@ -32,18 +32,18 @@ v11.6 turns existing ADScale capabilities into a guided creative decision flow:
 
 ### Strategy Recipes
 
-- [ ] **RECIPE-01**: User can choose from strategy recipes such as Safe Iteration, Performance Push, and Visual Differentiation.
-- [ ] **RECIPE-02**: Each recipe maps to concrete generation settings: mode, creative level, CTA set, formats, preservation emphasis, and style intensity where relevant.
-- [ ] **RECIPE-03**: Recipes explain the tradeoff in user terms before generation.
-- [ ] **RECIPE-04**: Recipe suggestions use readiness findings, brand kit data, and campaign context.
-- [ ] **RECIPE-05**: User can override recipe settings before queueing generation.
+- [x] **RECIPE-01**: User can choose from strategy recipes such as Safe Iteration, Performance Push, and Visual Differentiation.
+- [x] **RECIPE-02**: Each recipe maps to concrete generation settings: mode, creative level, CTA set, formats, preservation emphasis, and style intensity where relevant.
+- [x] **RECIPE-03**: Recipes explain the tradeoff in user terms before generation.
+- [x] **RECIPE-04**: Recipe suggestions use readiness findings, brand kit data, and campaign context.
+- [x] **RECIPE-05**: User can override recipe settings before queueing generation.
 
 ### Preview Gate
 
-- [ ] **PREVIEW-01**: User can generate one preview derivation before creating a full batch.
-- [ ] **PREVIEW-02**: Preview derivation uses the same creative contract and quality gate as full generation.
-- [ ] **PREVIEW-03**: User can approve preview settings into a full batch or revise the recipe/brief first.
-- [ ] **PREVIEW-04**: Preview-first flow makes credit spend visible before the batch is queued.
+- [x] **PREVIEW-01**: User can generate one preview derivation before creating a full batch.
+- [x] **PREVIEW-02**: Preview derivation uses the same creative contract and quality gate as full generation.
+- [x] **PREVIEW-03**: User can approve preview settings into a full batch or revise the recipe/brief first.
+- [x] **PREVIEW-04**: Preview-first flow makes credit spend visible before the batch is queued.
 
 ### Client Delivery
 
