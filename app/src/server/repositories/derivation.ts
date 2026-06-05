@@ -3,6 +3,7 @@ import type {
   CreativeHardFailure,
   CreativeQualityVerdict,
 } from "../ai/creative-quality-gate";
+import type { CreativeContract, PromptProvenance } from "../ai/creative-contract";
 import { db } from "../db";
 import { derivations } from "../db/schema";
 
@@ -264,6 +265,38 @@ export async function updateDerivationQualityGate(
       polishSuggestions: data.polishSuggestions,
       qualityGatedAt: data.qualityGatedAt,
       updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(derivations.id, id),
+        eq(derivations.workspaceId, workspaceId)
+      )
+    )
+    .returning();
+  return result[0] ?? null;
+}
+
+export interface UpdateDerivationPromptProvenanceInput {
+  creativeContract: CreativeContract;
+  promptProvenance: PromptProvenance;
+  inputPrompt?: string;
+  prompt?: string;
+}
+
+export async function updateDerivationPromptProvenance(
+  id: string,
+  workspaceId: string,
+  data: UpdateDerivationPromptProvenanceInput
+) {
+  const now = new Date();
+  const result = await db
+    .update(derivations)
+    .set({
+      creativeContract: data.creativeContract,
+      promptProvenance: data.promptProvenance,
+      ...(data.inputPrompt !== undefined && { inputPrompt: data.inputPrompt }),
+      ...(data.prompt !== undefined && { prompt: data.prompt }),
+      updatedAt: now,
     })
     .where(
       and(
