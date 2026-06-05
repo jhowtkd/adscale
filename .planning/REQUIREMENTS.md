@@ -7,11 +7,11 @@
 
 ### Creative Contracts and Prompts
 
-- [ ] **AIC-01**: Developer can inspect one explicit creative contract per derivation that includes generation mode, target format, CTA semantics, brand/client, product, offer, source assets, and factual-source rules.
+- [x] **AIC-01**: Developer can inspect one explicit creative contract per derivation that includes generation mode, target format, CTA semantics, brand/client, product, offer, source assets, and factual-source rules.
 - [ ] **AIC-02**: Prompt builder tests prove art variation prompts preserve required information while allowing the selected creative level to change composition.
 - [ ] **AIC-03**: Prompt builder tests prove format adaptation prompts rearrange source creative modules into native target layouts instead of allowing blurred padding, cropped posters, or letterboxing.
 - [ ] **AIC-04**: Prompt builder tests prove restyling prompts treat the base image as factual source and the style reference as visual language only.
-- [ ] **AIC-05**: Generated derivations retain enough prompt provenance for debugging: input prompt, revised/generated prompt when available, creative contract, generation mode, target format, and source package.
+- [x] **AIC-05**: Generated derivations retain enough prompt provenance for debugging: input prompt, revised/generated prompt when available, creative contract, generation mode, target format, and source package.
 
 ### Scoring and QA Reliability
 
@@ -64,11 +64,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AIC-01 | Phase 57 | Pending |
+| AIC-01 | Phase 57 | Complete |
 | AIC-02 | Phase 57 | Pending |
 | AIC-03 | Phase 57 | Pending |
 | AIC-04 | Phase 57 | Pending |
-| AIC-05 | Phase 57 | Pending |
+| AIC-05 | Phase 57 | Complete |
 | AIQ-01 | Phase 58 | Pending |
 | AIQ-02 | Phase 58 | Pending |
 | AIQ-03 | Phase 58 | Pending |
