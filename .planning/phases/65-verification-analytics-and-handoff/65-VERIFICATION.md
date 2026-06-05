@@ -61,3 +61,11 @@
 ## Blockers
 
 None for automated verification. Browser smoke sign-off is recommended before marking milestone shipped.
+
+## Self-Check: PASSED
+
+- `65-HANDOFF.md` — FOUND
+- `65-VERIFICATION.md` — FOUND
+- `preview-gate.ts` — FOUND
+- `cockpit-path.test.ts` — FOUND
+- Commits `7ec1aac`, `d7b11aa`, `a41de15`, `66f7ba7`, `79438c2` — FOUND
