@@ -1080,6 +1080,17 @@
     "qualityScore": "Score",
     "hardFailuresTitle": "Issues blocking use",
     "polishSuggestionsTitle": "Improvement suggestions",
+    "blockingFailureHint": "Must fix before approve or export",
+    "polishSuggestionHint": "Optional improvement — regenerate if you want",
+    "hardFailureCodes": {
+      "cta_drift": "CTA changed or missing",
+      "wrong_brand": "Wrong brand or client",
+      "unsupported_offer": "Unsupported offer or claim",
+      "copied_style_reference_facts": "Facts copied from style reference",
+      "cropped_critical_content": "Important content cropped or hidden",
+      "unreadable_required_text": "Required text unreadable",
+      "invalid_format_layout": "Invalid format layout"
+    },
     "regenerateWithFixesTitle": "Regenerate with fixes",
     "regenerateWithFixesDescription": "Review the feedback below. It will be sent to the regeneration job.",
     "regenerateWithFixesConfirm": "Regenerate with fixes",

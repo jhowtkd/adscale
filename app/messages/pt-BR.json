@@ -1081,6 +1081,17 @@
     "qualityScore": "Score",
     "hardFailuresTitle": "Problemas que impedem uso",
     "polishSuggestionsTitle": "Sugestões de melhoria",
+    "blockingFailureHint": "Corrija antes de aprovar ou exportar",
+    "polishSuggestionHint": "Melhoria opcional — regenere se quiser",
+    "hardFailureCodes": {
+      "cta_drift": "CTA alterado ou ausente",
+      "wrong_brand": "Marca ou cliente incorreto",
+      "unsupported_offer": "Oferta ou promessa não suportada",
+      "copied_style_reference_facts": "Dados copiados da referência de estilo",
+      "cropped_critical_content": "Conteúdo importante cortado ou oculto",
+      "unreadable_required_text": "Texto obrigatório ilegível",
+      "invalid_format_layout": "Layout inválido para o formato"
+    },
     "regenerateWithFixesTitle": "Regenerar com correções",
     "regenerateWithFixesDescription": "Revise o feedback abaixo. Ele será enviado ao job de regeneração.",
     "regenerateWithFixesConfirm": "Regenerar com correções",
