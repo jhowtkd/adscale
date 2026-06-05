@@ -15,11 +15,11 @@
 
 ### Scoring and QA Reliability
 
-- [ ] **AIQ-01**: Scoring and QA use a shared quality taxonomy for legibility, CTA/offer preservation, information preservation, brief match, format fit, creative risk, style fidelity, and variation level fit.
-- [ ] **AIQ-02**: Score/QA model outputs are schema-validated and normalized so missing or malformed fields cannot silently become misleading high-confidence results.
-- [ ] **AIQ-03**: Hard failures are limited to contract-breaking issues: wrong/missing CTA, missing offer/product/brand, severe illegibility, invalid format layout, unsafe crop, and style-reference factual contamination.
-- [ ] **AIQ-04**: Visual polish cannot hide contract failures; any hard failure forces an invalid quality verdict regardless of overall visual score.
-- [ ] **AIQ-05**: User-facing QA explanations distinguish blocking failures from advisory polish suggestions in PT-BR and EN.
+- [x] **AIQ-01**: Scoring and QA use a shared quality taxonomy for legibility, CTA/offer preservation, information preservation, brief match, format fit, creative risk, style fidelity, and variation level fit.
+- [x] **AIQ-02**: Score/QA model outputs are schema-validated and normalized so missing or malformed fields cannot silently become misleading high-confidence results.
+- [x] **AIQ-03**: Hard failures are limited to contract-breaking issues: wrong/missing CTA, missing offer/product/brand, severe illegibility, invalid format layout, unsafe crop, and style-reference factual contamination.
+- [x] **AIQ-04**: Visual polish cannot hide contract failures; any hard failure forces an invalid quality verdict regardless of overall visual score.
+- [x] **AIQ-05**: User-facing QA explanations distinguish blocking failures from advisory polish suggestions in PT-BR and EN.
 
 ### Feedback-Informed Regeneration
 
@@ -69,11 +69,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AIC-03 | Phase 57 | Complete |
 | AIC-04 | Phase 57 | Complete |
 | AIC-05 | Phase 57 | Complete |
-| AIQ-01 | Phase 58 | Pending |
-| AIQ-02 | Phase 58 | Pending |
-| AIQ-03 | Phase 58 | Pending |
-| AIQ-04 | Phase 58 | Pending |
-| AIQ-05 | Phase 58 | Pending |
+| AIQ-01 | Phase 58 | Complete |
+| AIQ-02 | Phase 58 | Complete |
+| AIQ-03 | Phase 58 | Complete |
+| AIQ-04 | Phase 58 | Complete |
+| AIQ-05 | Phase 58 | Complete |
 | AIR-01 | Phase 59 | Pending |
 | AIR-02 | Phase 59 | Pending |
 | AIR-03 | Phase 59 | Pending |
