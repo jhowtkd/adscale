@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v11.5
 milestone_name: Qualidade IA Orientada por Feedback
-status: defining_requirements
+status: roadmap_created
 last_updated: "2026-06-05T00:00:00.000Z"
 last_activity: 2026-06-05
 progress:
-  total_phases: 0
+  total_phases: 4
   completed_phases: 0
-  total_plans: 0
+  total_plans: 4
   completed_plans: 0
   percent: 0
 ---
@@ -18,10 +18,10 @@ progress:
 ## Current Position
 
 Milestone: v11.5 — Qualidade IA Orientada por Feedback
-Phase: Not started (defining requirements)
+Phase: 57 ready for planning
 Plan: —
-Status: Defining requirements
-Last activity: 2026-06-05 — Milestone v11.5 started
+Status: Roadmap created — ready to plan phase 57
+Last activity: 2026-06-05 — Milestone v11.5 roadmap created
 
 ## Accumulated Context
 
@@ -40,8 +40,8 @@ Last activity: 2026-06-05 — Milestone v11.5 started
 
 ## Next Steps
 
-1. Define v11.5 requirements.
-2. Create roadmap starting at phase 57.
+1. Plan phase 57: Creative Contract and Prompt Provenance.
+2. Keep v11.5 focused on contract, score/QA, regeneration and fixtures.
 3. Keep deploy ops from v11.4 separate unless it directly blocks quality work.
 
 ## Project Reference
@@ -50,4 +50,4 @@ See: `.planning/PROJECT.md`
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** Define v11.5 AI quality requirements.
+**Current focus:** Plan phase 57: Creative Contract and Prompt Provenance.

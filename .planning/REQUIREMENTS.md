@@ -64,32 +64,32 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AIC-01 | TBD | Pending |
-| AIC-02 | TBD | Pending |
-| AIC-03 | TBD | Pending |
-| AIC-04 | TBD | Pending |
-| AIC-05 | TBD | Pending |
-| AIQ-01 | TBD | Pending |
-| AIQ-02 | TBD | Pending |
-| AIQ-03 | TBD | Pending |
-| AIQ-04 | TBD | Pending |
-| AIQ-05 | TBD | Pending |
-| AIR-01 | TBD | Pending |
-| AIR-02 | TBD | Pending |
-| AIR-03 | TBD | Pending |
-| AIR-04 | TBD | Pending |
-| AIR-05 | TBD | Pending |
-| FIX-01 | TBD | Pending |
-| FIX-02 | TBD | Pending |
-| FIX-03 | TBD | Pending |
-| FIX-04 | TBD | Pending |
-| FIX-05 | TBD | Pending |
+| AIC-01 | Phase 57 | Pending |
+| AIC-02 | Phase 57 | Pending |
+| AIC-03 | Phase 57 | Pending |
+| AIC-04 | Phase 57 | Pending |
+| AIC-05 | Phase 57 | Pending |
+| AIQ-01 | Phase 58 | Pending |
+| AIQ-02 | Phase 58 | Pending |
+| AIQ-03 | Phase 58 | Pending |
+| AIQ-04 | Phase 58 | Pending |
+| AIQ-05 | Phase 58 | Pending |
+| AIR-01 | Phase 59 | Pending |
+| AIR-02 | Phase 59 | Pending |
+| AIR-03 | Phase 59 | Pending |
+| AIR-04 | Phase 59 | Pending |
+| AIR-05 | Phase 59 | Pending |
+| FIX-01 | Phase 60 | Pending |
+| FIX-02 | Phase 60 | Pending |
+| FIX-03 | Phase 60 | Pending |
+| FIX-04 | Phase 60 | Pending |
+| FIX-05 | Phase 60 | Pending |
 
 **Coverage:**
 - v11.5 requirements: 20 total
-- Mapped to phases: 0
-- Unmapped: 20
+- Mapped to phases: 20
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-06-05*
-*Last updated: 2026-06-05 after v11.5 requirements definition*
+*Last updated: 2026-06-05 after v11.5 roadmap creation*
