@@ -12,44 +12,48 @@ import {
 } from "@/server/repositories/derivation";
 import { refreshCampaignStatus, updateCampaign } from "@/server/repositories/campaign";
 import { getUserLocale } from "@/server/repositories/user";
+import { getLatestOpenFeedbackReportForDerivation } from "@/server/repositories/feedback";
 import { inngest } from "@/server/jobs/client";
 import { spendCreditsOrApiError } from "@/server/billing/gates";
 import { resolveCtaSemantics } from "@/server/ai/creative-contract";
 import type { CreativeContract } from "@/server/ai/creative-contract";
-import { buildHardFailureRegenerationSuggestion } from "@/server/ai/creative-score";
+import {
+  buildRegenerationCorrectionBrief,
+  mergeUserRegenerationNotes,
+} from "@/server/ai/regeneration-correction-brief";
 import type { CreativeHardFailure } from "@/server/ai/creative-quality-gate";
 
-function resolveRegenerationFeedback(
-  original: {
-    regenerationSuggestion?: string | null;
-    hardFailures?: unknown;
-    ctaText?: string | null;
-    format?: string | null;
-    generationMode?: string | null;
-    styleAssetId?: string | null;
-  },
-  explicitFeedback?: string
-): string | undefined {
-  const trimmedExplicit = explicitFeedback?.trim();
-  if (trimmedExplicit) {
-    return trimmedExplicit;
-  }
+function parseHardFailures(value: unknown): CreativeHardFailure[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(
+    (item): item is CreativeHardFailure =>
+      typeof item === "object" &&
+      item !== null &&
+      typeof (item as { code?: unknown }).code === "string" &&
+      typeof (item as { message?: unknown }).message === "string"
+  );
+}
 
-  const storedSuggestion = original.regenerationSuggestion?.trim();
-  if (storedSuggestion) {
-    return storedSuggestion;
-  }
+function parseScoreIssues(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+}
 
-  const hardFailures = Array.isArray(original.hardFailures)
-    ? (original.hardFailures as CreativeHardFailure[])
-    : [];
-  if (hardFailures.length === 0) {
-    return undefined;
+function resolveContractFromDerivation(original: {
+  creativeContract?: CreativeContract | null;
+  ctaText?: string | null;
+  format?: string | null;
+  generationMode?: string | null;
+  styleAssetId?: string | null;
+}): CreativeContract {
+  if (original.creativeContract) {
+    return original.creativeContract;
   }
 
   const generationMode = (original.generationMode ??
     "art_variation") as CreativeContract["generationMode"];
-  const contract: CreativeContract = {
+
+  return {
     generationMode,
     targetFormat: original.format ?? "1:1",
     ctaSemantics: resolveCtaSemantics(original.ctaText, generationMode),
@@ -60,11 +64,66 @@ function resolveRegenerationFeedback(
     offer: null,
     constraints: null,
   };
+}
 
-  return buildHardFailureRegenerationSuggestion({
-    hardFailures: hardFailures.map(({ code, message }) => ({ code, message })),
+async function resolveRegenerationBrief(
+  original: {
+    id: string;
+    regenerationSuggestion?: string | null;
+    hardFailures?: unknown;
+    scoreIssues?: unknown;
+    qaChecklist?: unknown;
+    ctaText?: string | null;
+    format?: string | null;
+    generationMode?: string | null;
+    styleAssetId?: string | null;
+    creativeContract?: CreativeContract | null;
+  },
+  workspaceId: string,
+  explicitFeedback?: string
+): Promise<{
+  promptFeedback: string | undefined;
+  structured: ReturnType<typeof buildRegenerationCorrectionBrief>["structured"];
+  primaryReason: string;
+}> {
+  const hardFailures = parseHardFailures(original.hardFailures);
+  const scoreIssues = parseScoreIssues(original.scoreIssues);
+  const contract = resolveContractFromDerivation(original);
+
+  const feedbackReport = await getLatestOpenFeedbackReportForDerivation(
+    workspaceId,
+    original.id
+  );
+
+  const brief = buildRegenerationCorrectionBrief({
     contract,
+    hardFailures,
+    scoreIssues,
+    qaChecklist: original.qaChecklist as Record<string, { status?: string; note?: string }> | null,
+    feedbackCategory: feedbackReport?.category,
+    modelSuggestion: original.regenerationSuggestion?.trim() || undefined,
+    parentDerivationId: original.id,
   });
+
+  const mergedFeedback = mergeUserRegenerationNotes(brief.promptFeedback, explicitFeedback);
+
+  if (
+    !mergedFeedback.trim() &&
+    hardFailures.length === 0 &&
+    scoreIssues.length === 0
+  ) {
+    return {
+      promptFeedback: undefined,
+      structured: brief.structured,
+      primaryReason: brief.primaryReason,
+    };
+  }
+
+  return {
+    promptFeedback: mergedFeedback,
+    structured: brief.structured,
+    primaryReason: brief.primaryReason,
+  };
 }
 
 const bodySchema = z.object({
@@ -94,7 +153,12 @@ export async function POST(
       return apiError("derivationNotFound", 404);
     }
 
-    const feedback = resolveRegenerationFeedback(original, parsed.data.feedback);
+    const resolved = await resolveRegenerationBrief(
+      original,
+      workspace.id,
+      parsed.data.feedback
+    );
+    const feedback = resolved.promptFeedback;
 
     const activeChildren = await getActiveChildrenByParent(id, workspace.id);
     if (activeChildren.length > 0) {
@@ -109,6 +173,14 @@ export async function POST(
     });
     if (creditError) return creditError;
 
+    const parentContract = original.creativeContract ?? null;
+    const regenerationCorrectionBrief = feedback
+      ? {
+          ...resolved.structured,
+          promptFeedback: feedback,
+        }
+      : undefined;
+
     const newDerivation = await createDerivation({
       campaignId: original.campaignId,
       workspaceId: workspace.id,
@@ -120,6 +192,8 @@ export async function POST(
       variantIndex: original.variantIndex ?? undefined,
       ctaText: original.ctaText ?? undefined,
       format: original.format ?? undefined,
+      creativeContract: parentContract ?? undefined,
+      regenerationCorrectionBrief,
     });
 
     try {
