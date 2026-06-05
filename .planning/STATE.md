@@ -3,14 +3,13 @@ gsd_state_version: 1.0
 milestone: v11.5
 milestone_name: milestone
 status: executing
-last_updated: "2026-06-05T16:31:49.788Z"
+last_updated: "2026-06-05T16:33:42.521Z"
 last_activity: 2026-06-05
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 2
   completed_plans: 2
-  percent: 100
 ---
 
 # State: ADScale

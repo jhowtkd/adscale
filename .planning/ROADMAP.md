@@ -12,7 +12,7 @@ v11.5 improves AI creative quality by aligning the generation contract, visual s
 
 | Phase | Name | Goal | Requirements | Success Criteria |
 |-------|------|------|--------------|------------------|
-| 57 | Creative Contract and Prompt Provenance | 2/2 | Complete   | 2026-06-05 |
+| 57 | Creative Contract and Prompt Provenance | Complete    | 2026-06-05 | 2026-06-05 |
 | 58 | Scoring and QA Alignment | Make score, QA, hard failures, and user-facing explanations agree. | AIQ-01, AIQ-02, AIQ-03, AIQ-04, AIQ-05 | 5 |
 | 59 | Feedback-Informed Regeneration | Turn hard failures, QA, score issues, and beta feedback categories into bounded correction briefs. | AIR-01, AIR-02, AIR-03, AIR-04, AIR-05 | 5 |
 | 60 | Quality Fixtures and Verification | Add known-failure fixtures, regression tests, and handoff documentation. | FIX-01, FIX-02, FIX-03, FIX-04, FIX-05 | 5 |
