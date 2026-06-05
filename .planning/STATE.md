@@ -33,7 +33,7 @@ Last activity: 2026-06-05
 - Marketing lives in `jhowtkd/site-adscale.git`; app stays in ADScale_2.
 - Beta feedback: `/feedback` triage for platform owners (`PLATFORM_OWNER_EMAILS`).
 - v11.5 archives: `.planning/milestones/v11.5-ROADMAP.md`, `v11.5-REQUIREMENTS.md`, `v11.5-MILESTONE-AUDIT.md`, `v11.5-phases/`.
-- Migrations through `app/drizzle/0028_regeneration_correction_brief.sql` — apply in deployed environments.
+- Migration `app/drizzle/0027_fine_morlun.sql` (journal idx 27) adds `creative_contract`, `prompt_provenance`, and `regeneration_correction_brief` — apply via `npm run db:migrate` in deployed environments.
 - Quality loop: contract → prompt → score → gate → brief → regenerate → child; 28 fixture regression tests pass without OpenAI.
 
 ## Key Decisions
@@ -47,7 +47,7 @@ Last activity: 2026-06-05
 ## Next Steps
 
 1. Run `/gsd-new-milestone` to define v11.6 (or next version).
-2. Apply migrations `0027`/`0028` in deployed environments.
+2. Apply migration `0027_fine_morlun` in deployed environments (`cd app && npm run db:migrate`).
 3. Optional: manual quality loop spot-check per `milestones/v11.5-phases/60-quality-fixtures-and-verification/60-HANDOFF.md`.
 
 ## Project Reference

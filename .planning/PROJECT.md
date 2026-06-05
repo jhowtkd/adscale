@@ -182,7 +182,7 @@ Current state: v11.5 shipped AI quality alignment (phases 57–60). The derivati
 
 Marketing remains in `jhowtkd/site-adscale.git`; product feedback and owner triage live in ADScale_2 at `/feedback` for platform owners.
 
-Migrations through `app/drizzle/0028_regeneration_correction_brief.sql` must be applied in deployed environments before relying on persisted contract/brief columns in production.
+Migration `app/drizzle/0027_fine_morlun.sql` (Drizzle journal idx 27) must be applied in deployed environments via `npm run db:migrate` before relying on `creative_contract`, `prompt_provenance`, and `regeneration_correction_brief` columns in production.
 
 Prior milestones delivered beta feedback capture (v11.4), presentation site separation (v11.3), beta entitlements (v11.2), generation quality gates (v11.1), coherent derivation flows (v11.0), and the full MVP through v10 UI polish.
 

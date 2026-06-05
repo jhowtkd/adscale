@@ -22,7 +22,7 @@
 
 **Archive:** [v11.5-ROADMAP.md](milestones/v11.5-ROADMAP.md) · [v11.5-REQUIREMENTS.md](milestones/v11.5-REQUIREMENTS.md) · [v11.5-MILESTONE-AUDIT.md](milestones/v11.5-MILESTONE-AUDIT.md) · [v11.5-phases/](milestones/v11.5-phases/)
 
-**Known gaps (accepted tech debt):** Apply migrations `0027`/`0028` in production; optional manual quality loop spot-check per 60-HANDOFF; phases 58–59 lack formal Nyquist VALIDATION.md.
+**Known gaps (accepted tech debt):** Apply migration `app/drizzle/0027_fine_morlun.sql` in production (`db:migrate`); optional manual quality loop spot-check per 60-HANDOFF; phases 58–59 lack formal Nyquist VALIDATION.md. Audit status `tech_debt` (not `passed`) — cleared completion with accepted debt.
 
 ---
 
