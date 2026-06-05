@@ -10,6 +10,8 @@ import {
 const pilotSchema = z.object({
   assetId: z.string().min(1),
   briefing: z.object({
+    product: z.string().optional(),
+    offer: z.string().optional(),
     objective: z.string().optional(),
     audience: z.string().optional(),
     tone: z.string().optional(),
@@ -56,6 +58,8 @@ export async function POST(
     }
 
     const updatedCampaign = await updateCampaign(id, workspace.id, {
+      product: briefing.product,
+      offer: briefing.offer,
       objective: briefing.objective,
       audience: briefing.audience,
       tone: briefing.tone,
