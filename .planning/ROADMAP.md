@@ -112,6 +112,14 @@ Plans:
 4. Handoff explains how to manually evaluate generation -> score -> QA -> regeneration.
 5. Residual limitations around text rendering, consistency, and precise composition are explicit.
 
+**Plans:** 4 plans
+
+Plans:
+- [ ] 60-01-PLAN.md — Synthetic quality fixture catalog (six failure modes)
+- [ ] 60-02-PLAN.md — Fixture-linked prompt contract regression snapshots
+- [ ] 60-03-PLAN.md — Score/QA/gate/regeneration pipeline regression matrix
+- [ ] 60-04-PLAN.md — Manual handoff, limitations doc, and full validation gate
+
 ## Requirement Traceability
 
 | Requirement | Phase | Status |

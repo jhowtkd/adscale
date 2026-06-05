@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v11.5
 milestone_name: milestone
-status: Phase 59 complete
-stopped_at: Completed Phase 59 feedback-informed regeneration
-last_updated: "2026-06-05T17:30:53.978Z"
+status: Phase 60 planned
+stopped_at: Planned Phase 60 quality fixtures and verification
+last_updated: "2026-06-05T18:00:00.000Z"
 last_activity: 2026-06-05
 progress:
   total_phases: 4
@@ -19,9 +19,9 @@ progress:
 ## Current Position
 
 Milestone: v11.5 — Qualidade IA Orientada por Feedback
-Phase: 59
-Plan: 59-04 complete
-Status: Phase 59 complete — verified
+Phase: 60
+Plan: 60-04 planned (4 plans)
+Status: Phase 60 planned — ready to execute
 Last activity: 2026-06-05
 
 **Last session:** 2026-06-05T17:30:53.976Z
@@ -44,6 +44,8 @@ Last activity: 2026-06-05
 - Phase 58 plans: `58-01-PLAN.md` (taxonomy + normalization) and `58-02-PLAN.md` (gate + i18n/UI)
 - Phase 59 context: `.planning/phases/59-feedback-informed-regeneration/59-CONTEXT.md`
 - Phase 59 summaries: `59-01-SUMMARY.md` through `59-04-SUMMARY.md`; verification `59-VERIFICATION.md`
+- Phase 60 context: `.planning/phases/60-quality-fixtures-and-verification/60-CONTEXT.md`
+- Phase 60 plans: `60-01-PLAN.md` (fixtures), `60-02-PLAN.md` (prompt regression), `60-03-PLAN.md` (pipeline regression), `60-04-PLAN.md` (handoff + limitations + validation)
 - AI quality primitives already exist: prompt contracts, creative score, creative QA, hard quality gate, regeneration suggestions, and beta feedback reports.
 
 ## Key Decisions
@@ -59,7 +61,7 @@ Last activity: 2026-06-05
 
 ## Next Steps
 
-1. Plan or execute Phase 60 (synthetic quality fixtures / manual verification guide).
+1. Execute Phase 60 (`/gsd-execute-phase 60-quality-fixtures-and-verification`).
 2. Run migration `0028_regeneration_correction_brief.sql` in deployed environments.
 3. Keep deploy ops from v11.4 separate unless it directly blocks quality work.
 
@@ -69,4 +71,4 @@ See: `.planning/PROJECT.md`
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** Phase 59 complete; next is Phase 60 fixtures/verification.
+**Current focus:** Phase 60 planned — execute fixture catalog, regression tests, and handoff docs.
