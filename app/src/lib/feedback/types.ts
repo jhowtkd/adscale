@@ -5,6 +5,7 @@ export type FeedbackCategory =
   | "generation"
   | "billing"
   | "performance"
+  | "mission"
   | "other";
 export type FeedbackContextKind = "global" | "campaign" | "derivation";
 

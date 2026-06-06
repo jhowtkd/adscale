@@ -11,6 +11,7 @@ export type FeedbackCategory =
   | "generation"
   | "billing"
   | "performance"
+  | "mission"
   | "other";
 export type FeedbackContextKind = "global" | "campaign" | "derivation";
 
@@ -102,6 +103,7 @@ export interface FeedbackListFilters {
   status?: FeedbackStatus;
   type?: FeedbackType;
   severity?: FeedbackSeverity;
+  category?: FeedbackCategory;
   route?: string;
   campaignId?: string;
   from?: Date;
@@ -124,6 +126,9 @@ export async function listFeedbackReports(filters: FeedbackListFilters = {}) {
   }
   if (filters.severity) {
     conditions.push(eq(feedbackReports.severity, filters.severity));
+  }
+  if (filters.category) {
+    conditions.push(eq(feedbackReports.category, filters.category));
   }
   if (filters.route) {
     conditions.push(sql`${feedbackReports.route} ILIKE ${`%${filters.route}%`}`);

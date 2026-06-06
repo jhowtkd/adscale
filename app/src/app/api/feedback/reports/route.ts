@@ -20,6 +20,7 @@ import {
   type FeedbackSeverity,
   type FeedbackStatus,
   type FeedbackType,
+  type FeedbackCategory,
 } from "@/server/repositories/feedback";
 
 const feedbackLogger = logger.child("feedback");
@@ -33,7 +34,7 @@ const assetRefSchema = z.object({
 const createFeedbackSchema = z.object({
   type: z.enum(["bug", "suggestion", "question", "other"]),
   severity: z.enum(["low", "medium", "high", "critical"]),
-  category: z.enum(["ui", "generation", "billing", "performance", "other"]),
+  category: z.enum(["ui", "generation", "billing", "performance", "mission", "other"]),
   message: z.string().trim().min(1).max(FEEDBACK_MESSAGE_MAX_LENGTH),
   followUpAllowed: z.boolean().optional().default(false),
   route: z.string().max(500).optional(),
@@ -65,6 +66,7 @@ export async function GET(request: Request) {
       type: (searchParams.get("type") as FeedbackType | null) ?? undefined,
       severity:
         (searchParams.get("severity") as FeedbackSeverity | null) ?? undefined,
+      category: (searchParams.get("category") as FeedbackCategory | null) ?? undefined,
       route: searchParams.get("route") ?? undefined,
       campaignId: searchParams.get("campaignId") ?? undefined,
       from: searchParams.get("from")
