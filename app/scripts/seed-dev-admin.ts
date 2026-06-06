@@ -181,7 +181,10 @@ async function main() {
   console.log(`  role:       owner`);
   console.log(`  plan:       ${sub?.planKey ?? planKey} (${sub?.status ?? "active"})`);
   console.log(`  credits:    ${balance} remaining (added ${credits})`);
-  console.log("\nLog in at http://localhost:3000/login and retry preflight / plan generation.");
+  console.log(
+    "\nWhen DEV_ADMIN_EMAIL matches this account, production skips email verification and credit debits."
+  );
+  console.log("\nLog in at /login and retry preflight / plan generation.");
 }
 
 main().catch((err) => {

@@ -1,17 +1,18 @@
 import { getSessionFromHeaders } from "./session";
 import { WorkspaceAuthError, AUTH_ERROR_CODES } from "./errors";
+import { isDevAdminEmail, parseDevAdminEmails } from "./dev-admin";
 
 function parseOwnerEmails(): Set<string> {
-  const raw = process.env.PLATFORM_OWNER_EMAILS ?? process.env.DEV_ADMIN_EMAIL ?? "";
-  return new Set(
-    raw
-      .split(",")
-      .map((email) => email.trim().toLowerCase())
-      .filter(Boolean)
-  );
+  const raw = process.env.PLATFORM_OWNER_EMAILS ?? "";
+  const platformOwners = raw
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+  return new Set([...platformOwners, ...parseDevAdminEmails()]);
 }
 
 export function isPlatformOwnerEmail(email: string): boolean {
+  if (isDevAdminEmail(email)) return true;
   const owners = parseOwnerEmails();
   if (owners.size === 0) return false;
   return owners.has(email.trim().toLowerCase());

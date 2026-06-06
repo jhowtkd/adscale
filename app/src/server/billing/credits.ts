@@ -16,6 +16,10 @@ import { user } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { logger } from "@/lib/logger";
 import { createCreditTransaction } from "@/server/repositories/credit-transactions";
+import {
+  DEV_ADMIN_CREDIT_BALANCE,
+  workspaceHasDevAdminOwner,
+} from "@/server/auth/dev-admin";
 
 export const CREDIT_COSTS = {
   creative_plan: 1,
@@ -53,6 +57,15 @@ export async function canSpend(
   amount?: number
 ): Promise<SpendCheck> {
   const required = creditAmount(action, amount);
+
+  if (await workspaceHasDevAdminOwner(workspaceId)) {
+    return {
+      allowed: true,
+      amount: required,
+      balance: DEV_ADMIN_CREDIT_BALANCE,
+    };
+  }
+
   const [access, grants] = await Promise.all([
     getWorkspaceBillingAccess(workspaceId),
     getAvailableCreditGrants(workspaceId),
@@ -101,53 +114,58 @@ export async function recordUsage(input: {
     return { status: "blocked" as const, check };
   }
 
-  let remainingToDebit = check.amount;
-  try {
-    await db.transaction(async (tx) => {
-      const grants = await getAvailableCreditGrants(input.workspaceId, tx, true);
-      const balance = totalRemaining(grants);
-      if (balance < check.amount) {
-        throw new Error("insufficient_credits");
-      }
+  const devAdminWorkspace = await workspaceHasDevAdminOwner(input.workspaceId);
 
-      const debits: Array<{ id: string; remaining: number }> = [];
-      for (const grant of grants) {
-        if (remainingToDebit <= 0) break;
-        const debit = Math.min(grant.remaining, remainingToDebit);
-        debits.push({ id: grant.id, remaining: grant.remaining - debit });
-        remainingToDebit -= debit;
-      }
+  if (!devAdminWorkspace) {
+    let remainingToDebit = check.amount;
+    try {
+      await db.transaction(async (tx) => {
+        const grants = await getAvailableCreditGrants(input.workspaceId, tx, true);
+        const balance = totalRemaining(grants);
+        if (balance < check.amount) {
+          throw new Error("insufficient_credits");
+        }
 
-      if (remainingToDebit > 0) {
-        throw new Error("insufficient_credits");
-      }
+        const debits: Array<{ id: string; remaining: number }> = [];
+        for (const grant of grants) {
+          if (remainingToDebit <= 0) break;
+          const debit = Math.min(grant.remaining, remainingToDebit);
+          debits.push({ id: grant.id, remaining: grant.remaining - debit });
+          remainingToDebit -= debit;
+        }
 
-      await Promise.all(
-        debits.map((debit) => updateCreditGrantRemaining(debit.id, debit.remaining, tx))
-      );
-    });
-  } catch (err) {
-    if (err instanceof Error && err.message === "insufficient_credits") {
-      return {
-        status: "blocked" as const,
-        check: { ...check, allowed: false, reason: "insufficient_credits" as const },
-      };
+        if (remainingToDebit > 0) {
+          throw new Error("insufficient_credits");
+        }
+
+        await Promise.all(
+          debits.map((debit) => updateCreditGrantRemaining(debit.id, debit.remaining, tx))
+        );
+      });
+    } catch (err) {
+      if (err instanceof Error && err.message === "insufficient_credits") {
+        return {
+          status: "blocked" as const,
+          check: { ...check, allowed: false, reason: "insufficient_credits" as const },
+        };
+      }
+      throw err;
     }
-    throw err;
   }
 
   const usage = await trackUsage(
     input.workspaceId,
     input.action,
-    check.amount,
+    devAdminWorkspace ? 0 : check.amount,
     {
       ...(input.metadata ?? {}),
       creditAmount: check.amount,
+      devAdminBypass: devAdminWorkspace || undefined,
     },
     input.idempotencyKey
   );
 
-  if (input.userId) {
+  if (input.userId && !devAdminWorkspace) {
     try {
       const meta = input.metadata ?? {};
       await createCreditTransaction({
@@ -168,8 +186,10 @@ export async function recordUsage(input: {
     }
   }
 
-  const newBalance = check.balance - check.amount;
-  if (newBalance < 10) {
+  const newBalance = devAdminWorkspace
+    ? DEV_ADMIN_CREDIT_BALANCE
+    : check.balance - check.amount;
+  if (!devAdminWorkspace && newBalance < 10) {
     try {
       const recipients = await getWorkspaceNotificationRecipients(input.workspaceId);
       const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);

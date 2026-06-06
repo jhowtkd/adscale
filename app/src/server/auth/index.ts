@@ -12,6 +12,10 @@ import {
 import { buildTrustedOrigins } from "./config";
 import { isRateLimitDisabled } from "@/lib/rate-limit";
 import { rememberResetUrl } from "./e2e-reset-store";
+import {
+  ensureDevAdminEmailVerified,
+  isDevAdminEmail,
+} from "./dev-admin";
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -61,6 +65,10 @@ export const auth = betterAuth({
     sendOnSignIn: true,
     autoSignInAfterVerification: true,
     sendVerificationEmail: async ({ user, url }) => {
+      if (isDevAdminEmail(user.email)) {
+        await ensureDevAdminEmailVerified(user.email);
+        return;
+      }
       await sendVerificationMessage({ to: user.email, url });
     },
   },
@@ -74,6 +82,18 @@ export const auth = betterAuth({
   databaseHooks: {
     user: {
       create: {
+        before: async (userData) => {
+          if (!isDevAdminEmail(userData.email)) {
+            return { data: userData };
+          }
+          return {
+            data: {
+              ...userData,
+              emailVerified: true,
+              onboardingCompletedAt: new Date(),
+            },
+          };
+        },
         after: async (user) => {
           const workspace = await db
             .insert(schema.workspaces)

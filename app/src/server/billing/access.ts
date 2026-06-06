@@ -8,6 +8,10 @@ import {
   BETA_AD_ALLOWANCE,
   creditsToRemainingAds,
 } from "./entitlements";
+import {
+  DEV_ADMIN_CREDIT_BALANCE,
+  workspaceHasDevAdminOwner,
+} from "@/server/auth/dev-admin";
 
 export type WorkspaceAccessKind = "paid" | "beta" | "none";
 
@@ -34,6 +38,18 @@ export async function getWorkspaceBillingAccess(
     getActiveBetaEntitlementByWorkspace(workspaceId),
   ]);
   const creditBalance = totalRemaining(grants);
+
+  if (await workspaceHasDevAdminOwner(workspaceId)) {
+    return {
+      kind: "paid",
+      label: "Dev admin",
+      creditBalance: DEV_ADMIN_CREDIT_BALANCE,
+      remainingAds: creditsToRemainingAds(DEV_ADMIN_CREDIT_BALANCE),
+      hasSpendAccess: true,
+      subscription: null,
+      betaEntitlement: null,
+    };
+  }
 
   if (subscription) {
     return {

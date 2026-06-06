@@ -20,7 +20,8 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "seed:testsprite": "tsx scripts/seed-testsprite.ts",
-    "seed:stripe": "tsx scripts/seed-stripe-real.ts"
+    "seed:stripe": "tsx scripts/seed-stripe-real.ts",
+    "seed:dev-admin": "tsx scripts/seed-dev-admin.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.0.0",

@@ -63,6 +63,8 @@ services:
         value: https://adscale.jhonatansoares.com/settings?tab=billing&checkout=success
       - key: STRIPE_CANCEL_URL
         value: https://adscale.jhonatansoares.com/settings?tab=plans&checkout=cancel
+      - key: DEV_ADMIN_EMAIL
+        value: jhonatan.marcela@gmail.com
 
 databases:
   - name: adscale-postgres
