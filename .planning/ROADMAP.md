@@ -2,8 +2,8 @@
 
 ## Milestones
 
-- 📋 **v11.6.1 Ship Readiness and Beta Activation** - Phases 66-67 (partial 2026-06-05 — operator smoke pending)
-- ✅ **v11.6 Creative Strategy Cockpit** - Phases 61-65 (implemented 2026-06-05; ship caveats carried into v11.6.1)
+- 📋 **v11.6.1 Ship Readiness and Beta Activation** - Phases 66-67 (partial — v11.6 archived 2026-06-06)
+- ✅ **v11.6 Creative Strategy Cockpit** - Phases 61-65 (shipped 2026-06-06)
 - ✅ **v11.5 Qualidade IA Orientada por Feedback** - Phases 57-60 (shipped 2026-06-05)
 - ✅ **v11.4 Beta Feedback Capture** - Phases 53-56 (shipped 2026-06-05)
 - ✅ **v11.3 Site de Apresentação Separado** - Phases 50-52 (shipped 2026-06-03)
@@ -14,7 +14,7 @@
 ## Phases
 
 <details>
-<summary>✅ v11.6 Creative Strategy Cockpit (Phases 61-65) - IMPLEMENTED 2026-06-05</summary>
+<summary>✅ v11.6 Creative Strategy Cockpit (Phases 61-65) - SHIPPED 2026-06-06</summary>
 
 - [x] Phase 61: Creative Readiness Foundation (2/2 plans)
 - [x] Phase 62: Guided Briefing Cockpit (2/2 plans)
@@ -22,7 +22,9 @@
 - [x] Phase 64: Client Approval Package (2/2 plans)
 - [x] Phase 65: Verification, Analytics, and Handoff (2/2 plans)
 
-Audit: `.planning/v11.6-MILESTONE-AUDIT.md` passed with caveats. Operator browser smoke sign-off and archive closure continue in v11.6.1.
+Archive: [v11.6-ROADMAP.md](milestones/v11.6-ROADMAP.md) · [v11.6-REQUIREMENTS.md](milestones/v11.6-REQUIREMENTS.md) · [v11.6-MILESTONE-AUDIT.md](milestones/v11.6-MILESTONE-AUDIT.md) · [v11.6-phases/](milestones/v11.6-phases/)
+
+Production ref: `ba535de`. Smoke evidence: `milestones/v11.6-phases/65-verification-analytics-and-handoff/65-SMOKE-EVIDENCE.md`.
 
 </details>
 
@@ -85,8 +87,8 @@ Archive: [v11.5-ROADMAP.md](milestones/v11.5-ROADMAP.md) · [v11.5-REQUIREMENTS.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 | ----- | --------- | -------------- | ------ | --------- |
-| 66 | v11.6.1 | 1/2 | Partial | 2026-06-05 |
-| 67 | v11.6.1 | 1/1 | Partial | 2026-06-05 |
+| 66 | v11.6.1 | 2/2 | Complete | 2026-06-06 |
+| 67 | v11.6.1 | 1/1 | Complete | 2026-06-06 |
 | 61 | v11.6 | 2/2 | Complete | 2026-06-05 |
 | 62 | v11.6 | 2/2 | Complete | 2026-06-05 |
 | 63 | v11.6 | 2/2 | Complete | 2026-06-05 |
@@ -98,4 +100,4 @@ Archive: [v11.5-ROADMAP.md](milestones/v11.5-ROADMAP.md) · [v11.5-REQUIREMENTS.
 | 60 | v11.5 | 4/4 | Complete | 2026-06-05 |
 
 ---
-*Roadmap updated: 2026-06-05 for v11.6.1 Ship Readiness and Beta Activation*
+*Roadmap updated: 2026-06-06 after v11.6 milestone archive*

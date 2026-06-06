@@ -146,19 +146,16 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 - ✓ **RECIPE-01–05**: Strategy recipes, concrete generation settings, tradeoff copy, readiness-aware ranking, and overrides — v11.6
 - ✓ **PREVIEW-01–04**: Preview-first derivation, quality gate reuse, approve/revise path, and visible batch credit impact — v11.6
 - ✓ **DELIVER-01–04**: Client approval package, selected formats, creative notes, share links, signed assets, and refresh flow — v11.6
-- ✓ **CQA-01/CQA-03**: Automated cockpit coverage and beta handoff documentation — v11.6
-- ~ **CQA-02**: Browser smoke checklist exists but operator sign-off remains active in v11.6.1.
+- ✓ **CQA-01/CQA-02/CQA-03**: Automated cockpit coverage, production browser smoke, and beta handoff documentation — v11.6
 
 ### Active
 
-- [ ] **SHIP-01**: Operator can run the full v11.6 cockpit browser smoke on staging or production and record pass/fail evidence for every checklist step.
-- [ ] **SHIP-02**: Operator can verify deployed git ref, health, required environment variables, and migration/schema readiness before beta ship.
-- [ ] **SHIP-03**: Post-review fixes for recipe selection, preflight rerun billing, and handoff accuracy are included in the release and covered by focused tests.
-- [ ] **SHIP-04**: v11.6 audit caveats are either resolved or explicitly carried forward with owner, evidence, and next action.
-- [ ] **SHIP-05**: v11.6 artifacts are archived through the GSD milestone completion flow without losing release evidence.
-- [ ] **BETA-01**: Beta operator has a concise runbook for the first cockpit beta sessions, including setup, credit expectations, privacy notes, and fallback steps.
-- [ ] **BETA-02**: Owner can collect cockpit-specific beta feedback and map it back to readiness, briefing, recipe, preview, or approval-package stages.
-- [ ] **BETA-03**: Release handoff identifies the next product learning questions before any larger v11.7 feature build begins.
+- [ ] **v11.7 planning**: Define next product milestone after beta learning (use `/gsd-new-milestone`).
+
+### Validated (v11.6.1)
+
+- ✓ **SHIP-01–05**: Production cockpit smoke, deploy/migration evidence, post-review fixes, audit caveats register, and v11.6 GSD archive — v11.6.1
+- ✓ **BETA-01–03**: Beta runbook, feedback stage mapping, and learning questions — v11.6.1
 
 ### Validated (v10.0)
 
@@ -201,9 +198,9 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Context
 
-Current state: v11.6 Creative Strategy Cockpit is implemented on `origin/main` through `ec2f1a4`. The derivation pipeline persists `creativeContract` and `promptProvenance` JSONB, runs shared taxonomy score/QA/gate, builds bounded regeneration correction briefs, and has automated fixture regression tests covering the quality loop without OpenAI calls.
+Current state: v11.6 Creative Strategy Cockpit **shipped** 2026-06-06 (`ba535de` on Render). Production smoke CQA-02 passed; milestone archived to `.planning/milestones/v11.6-*`. v11.6.1 ship-readiness requirements complete — ready for first beta sessions per `67-BETA-RUNBOOK.md`.
 
-The active v11.6.1 direction is release readiness: prove the cockpit path in a deployed environment, verify deploy/migration/health evidence, preserve audit artifacts, and prepare beta operation before starting larger v11.7 product work.
+The active direction is beta operation and learning collection before v11.7 product planning.
 
 Marketing remains in `jhowtkd/site-adscale.git`; product feedback and owner triage live in ADScale_2 at `/feedback` for platform owners.
 
@@ -266,7 +263,7 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-05 after v11.6 milestone initialization*
+*Last updated: 2026-06-06 after v11.6 milestone archive*
 
 ## Milestone History
 

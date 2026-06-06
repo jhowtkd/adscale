@@ -10,11 +10,11 @@ v11.6.1 is a release-readiness milestone. It does not add new product surfaces. 
 
 ### Ship Readiness
 
-- [ ] **SHIP-01**: Operator can run the full v11.6 cockpit browser smoke on staging or production and record pass/fail evidence for every checklist step.
-- [ ] **SHIP-02**: Operator can verify deployed git ref, health, required environment variables, and migration/schema readiness before beta ship.
+- [x] **SHIP-01**: Operator can run the full v11.6 cockpit browser smoke on staging or production and record pass/fail evidence for every checklist step.
+- [x] **SHIP-02**: Operator can verify deployed git ref, health, required environment variables, and migration/schema readiness before beta ship.
 - [x] **SHIP-03**: Post-review fixes for recipe selection, preflight rerun billing, and handoff accuracy are included in the release and covered by focused tests.
 - [x] **SHIP-04**: v11.6 audit caveats are either resolved or explicitly carried forward with owner, evidence, and next action.
-- [ ] **SHIP-05**: v11.6 artifacts are archived through the GSD milestone completion flow without losing release evidence.
+- [x] **SHIP-05**: v11.6 artifacts are archived through the GSD milestone completion flow without losing release evidence.
 
 ### Beta Activation
 

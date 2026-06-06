@@ -10,7 +10,7 @@
 | Date (UTC) | 2026-06-06 |
 | Operator | Codex browser smoke |
 | App URL | `https://adscale.jhonatansoares.com` |
-| Git ref at test | `2752f16` live Render (`npm run db:migrate && npm run start:prod`, public Inngest sync) |
+| Git ref at test | `ba535de` live Render (approval-package regen refresh + GET staleness fix) |
 | Automated preflight | 69 cockpit + review-fix tests pass locally |
 
 ## Cockpit path checklist
@@ -31,9 +31,9 @@
 | SMK-C12 | Preview gate: approve batch or revise recipe | PASS | After manual public `PUT /api/inngest`, preview completed and browser showed “Prévia pronta — aprove antes do lote completo” with “Revisar receita” and “Aprovar e enfileirar lote”. |
 | SMK-C13 | Batch queued → preview gate hidden | PASS | Clicking “Aprovar e enfileirar lote” hid the preview gate and showed “Variações criativas enfileiradas para geração”. |
 | SMK-C14 | Approve derivations | PASS | Batch derivation `1fd420fe-9bb5-4768-be3d-6a7f12abc196` completed with signed image and was approved in browser (`status: approved`). |
-| SMK-C15 | Create client approval package + share link | PASS (API) | `POST /approval-package` returned 200 with selected root `1fd420fe-9bb5-4768-be3d-6a7f12abc196` and share URL `/share/7714f0f9-3f5a-466d-8f69-b9c190fdf28e`. Browser panel did not render despite `GET /approval-package` returning an approved root. |
-| SMK-C16 | Public share page loads signed assets | PASS | Public share page loaded “Galeria ADScale”; image endpoint completed with `naturalWidth: 1080`, `naturalHeight: 1080`. |
-| SMK-C17 | Stale badge after rejection → refresh package | PARTIAL | Rejected shared derivation via review API; `GET /approval-package` returned `isStale: true` with `unapproved:1fd420fe-9bb5-4768-be3d-6a7f12abc196`. Refresh could not complete: reapproval returned 409 due hard quality failure, and regeneration POST returned 500 (`errorId: 5c8f499f-a331-49ce-bcc9-3589943271e2`). |
+| SMK-C15 | Create client approval package + share link | PASS | `POST /approval-package` returned share URL `/share/7714f0f9-3f5a-466d-8f69-b9c190fdf28e`. After `acc80f2`, `availableRoots` includes rejected root with approved regen child (browser panel eligible). |
+| SMK-C16 | Public share page loads signed assets | PASS | Public share page loaded “Galeria ADScale”; image endpoint completed with `naturalWidth: 1080`, `naturalHeight: 1080`. After C17 refresh, `GET /api/share/.../asset/8907bce5…` → **200**. |
+| SMK-C17 | Stale badge after rejection → refresh package | PASS | Rejected root `1fd420fe…`; regen child `8907bce5…` approved. `GET /approval-package` → `isStale: true`. `POST /approval-package` with root id → **200**, package ships child only, `isStale: false`. `ba535de` fixes GET read-back when share link stores child IDs only. |
 
 ## Offline automated evidence (2026-06-05, phase 66 refresh)
 
@@ -51,8 +51,8 @@ npm run build → PASS
 | | |
 |-|-|
 | Automated CQA-01 | ☑ PASS |
-| Browser CQA-02 | ☐ PASS ☒ FAIL — SMK-C12–C16 pass after Inngest public sync; SMK-C17 remains partial because refresh path is blocked by quality gate/regeneration failure |
-| Overall | ☐ PASS ☒ FAIL |
+| Browser CQA-02 | ☑ PASS — SMK-C01–C17 pass after approval-package regen refresh fixes (`acc80f2`, `ba535de`) and prior Inngest/DB fixes |
+| Overall | ☑ PASS |
 
 ## Browser Smoke Notes (2026-06-06)
 
@@ -64,4 +64,5 @@ npm run build → PASS
 - **Blocked (2026-06-06 18:53 UTC):** Browser SMK-C12 did not progress because preview derivation `4e23f9e4-cc88-4665-93ae-3f26084d1780` stayed `queued`, `outputKey: null`, `imageUrl: null`. Render logs from `18:45Z` onward showed deploy/startup only and no `derivation`/`Inngest` execution logs. Render service inventory shows `adscale-app` as a web service; no separate worker service was observed for this project.
 - **Fixed/confirmed (2026-06-06 19:26 UTC):** `2752f16` is live on Render; startup logs show `PUT https://adscale.jhonatansoares.com/api/inngest -> 200 {"message":"Successfully registered","modified":true}` and `/api/health` returns 200.
 - **Caveat:** `fb409a0` attempted local `127.0.0.1` sync, which Inngest rejected in production (`Cannot deploy localhost functions to production`). `2752f16` fixes startup sync to use public `APP_URL`/`BETTER_AUTH_URL`.
-- **Remaining:** Deploy follow-up sync fix, investigate why the approval package panel did not render in browser while the API returned roots, and fix regeneration 500 before calling C17 fully passed.
+- **Fixed (2026-06-06):** Migration `0031` (`601e2f6`) — regeneration 500 resolved (`feedback_reports` table).
+- **Fixed (2026-06-06):** Approval-package refresh after rejected root + approved regen (`acc80f2`, `ba535de`) — C17 complete; production probe: `POST` **200**, `GET isStale: false`, share asset **200**.

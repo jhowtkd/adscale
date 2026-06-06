@@ -1,5 +1,25 @@
 # Milestones: ADScale
 
+## v11.6 Creative Strategy Cockpit (Shipped: 2026-06-06)
+
+**Phases completed:** 5 phases (61→65), 10 plans
+**Requirements:** 26/26 complete
+
+**Key accomplishments:**
+
+- Creative Readiness Score with six dimensions, blocking issues above suggestions, and rerun after brief/asset changes
+- Guided briefing one question at a time with accept/edit/skip and draft persistence into the campaign form
+- Strategy recipes (Safe Iteration, Performance Push, Visual Differentiation) with readiness-aware ranking and tradeoff copy
+- Preview gate before batch generation with visible credit impact and shared quality gate
+- Client approval package with share links, signed assets, stale detection, and refresh after rejection/regeneration
+- 69-test cockpit matrix, milestone audit, beta handoff, and production browser smoke (CQA-02)
+
+**Archive:** [v11.6-ROADMAP.md](milestones/v11.6-ROADMAP.md) · [v11.6-REQUIREMENTS.md](milestones/v11.6-REQUIREMENTS.md) · [v11.6-MILESTONE-AUDIT.md](milestones/v11.6-MILESTONE-AUDIT.md) · [v11.6-phases/](milestones/v11.6-phases/)
+
+**Release ref:** `ba535de` on Render (includes approval-package regen refresh fixes)
+
+---
+
 ## v11.5 Qualidade IA Orientada por Feedback (Shipped: 2026-06-05)
 
 **Phases completed:** 4 phases (57→60), 12 plans, 34 tasks
