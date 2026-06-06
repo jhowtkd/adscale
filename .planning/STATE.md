@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v11.7
 milestone_name: Ads Scientist Progression
-status: planned
-last_updated: "2026-06-06T21:32:36.688Z"
-last_activity: 2026-06-06 - Milestone v11.7 started
+status: in_progress
+last_updated: "2026-06-06T23:00:00.000Z"
+last_activity: 2026-06-06 - Phase 69 complete; ready for Phase 70
 progress:
   total_phases: 4
-  completed_phases: 0
-  total_plans: 2
-  completed_plans: 0
+  completed_phases: 2
+  total_plans: 4
+  completed_plans: 4
 ---
 
 # State: ADScale
@@ -17,14 +17,14 @@ progress:
 ## Current Position
 
 Milestone: v11.7 - Ads Scientist Progression
-Phase: 68 - Progression Foundation
+Phase: 70 - Mission-Linked Insight Capture
 Plan: -
-Status: Planned; ready for execution
-Last activity: 2026-06-06 - Milestone v11.7 started
+Status: Ready to plan
+Last activity: 2026-06-06 - Phase 69 complete
 
-**Last session:** 2026-06-06T21:32:36.686Z
+**Last session:** 2026-06-06T23:00:00.000Z
 **Direction chosen:** Balanced progression loop that teaches app usage, captures product insight, and encourages healthy credit consumption.  
-**Resume File:** .planning/phases/68-progression-foundation/68-01-PLAN.md
+**Resume File:** .planning/phases/70-mission-linked-insight-capture/70-CONTEXT.md (pending)
 
 ## Accumulated Context
 
@@ -37,8 +37,8 @@ Last activity: 2026-06-06 - Milestone v11.7 started
 
 ## Next Steps
 
-1. Run `$gsd-execute-phase 68` to implement the two Phase 68 plans.
-2. Start with `.planning/phases/68-progression-foundation/68-01-PLAN.md`, then continue to `68-02-PLAN.md`.
+1. Run `$gsd-discuss-phase 70 --auto` then `$gsd-plan-phase 70` and `$gsd-execute-phase 70`.
+2. Continue phase 71 for credit activation and verification.
 
 ## Project Reference
 

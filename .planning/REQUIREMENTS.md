@@ -13,20 +13,20 @@ The milestone balances activation and monetization: missions should naturally le
 
 ### Progression Status
 
-- [ ] **PROG-01**: User can see their current Ads Scientist status in the dashboard or workspace shell.
-- [ ] **PROG-02**: User can progress through at least four named levels: Jovem Aprendiz, Analista Criativo, Estrategista de Ads, and Cientista de Ads.
-- [ ] **PROG-03**: Status progression is based on completed product actions, not only page visits or time spent.
-- [ ] **PROG-04**: User can see what actions unlock the next status and which actions are already complete.
-- [ ] **PROG-05**: Progress state persists per workspace and does not reset across sessions.
+- [x] **PROG-01**: User can see their current Ads Scientist status in the dashboard or workspace shell.
+- [x] **PROG-02**: User can progress through at least four named levels: Jovem Aprendiz, Analista Criativo, Estrategista de Ads, and Cientista de Ads.
+- [x] **PROG-03**: Status progression is based on completed product actions, not only page visits or time spent.
+- [x] **PROG-04**: User can see what actions unlock the next status and which actions are already complete.
+- [x] **PROG-05**: Progress state persists per workspace and does not reset across sessions.
 
 ### Guided Missions
 
-- [ ] **MISS-01**: User can view a mission list that teaches the core ADScale workflow in a recommended order.
-- [ ] **MISS-02**: User can complete missions for campaign setup, base creative upload, readiness analysis, guided briefing, strategy recipe selection, preview generation, batch generation, review, regeneration, export, and share.
-- [ ] **MISS-03**: Mission completion can be inferred from existing product events where possible instead of requiring manual checkboxes.
-- [ ] **MISS-04**: User can resume an incomplete mission from a clear call to action that deep-links to the relevant app surface.
-- [ ] **MISS-05**: Missions include concise learning copy that explains why the action matters for better ads.
-- [ ] **MISS-06**: Mission UI handles empty, loading, completed, and blocked states without disrupting the existing cockpit workflow.
+- [x] **MISS-01**: User can view a mission list that teaches the core ADScale workflow in a recommended order.
+- [x] **MISS-02**: User can complete missions for campaign setup, base creative upload, readiness analysis, guided briefing, strategy recipe selection, preview generation, batch generation, review, regeneration, export, and share.
+- [x] **MISS-03**: Mission completion can be inferred from existing product events where possible instead of requiring manual checkboxes.
+- [x] **MISS-04**: User can resume an incomplete mission from a clear call to action that deep-links to the relevant app surface.
+- [x] **MISS-05**: Missions include concise learning copy that explains why the action matters for better ads.
+- [x] **MISS-06**: Mission UI handles empty, loading, completed, and blocked states without disrupting the existing cockpit workflow.
 
 ### Insight Capture
 
@@ -74,17 +74,17 @@ The milestone balances activation and monetization: missions should naturally le
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PROG-01 | Phase 68 | Pending |
-| PROG-02 | Phase 68 | Pending |
-| PROG-03 | Phase 68 | Pending |
-| PROG-04 | Phase 68 | Pending |
-| PROG-05 | Phase 68 | Pending |
-| MISS-01 | Phase 69 | Pending |
-| MISS-02 | Phase 69 | Pending |
-| MISS-03 | Phase 69 | Pending |
-| MISS-04 | Phase 69 | Pending |
-| MISS-05 | Phase 69 | Pending |
-| MISS-06 | Phase 69 | Pending |
+| PROG-01 | Phase 68 | Complete |
+| PROG-02 | Phase 68 | Complete |
+| PROG-03 | Phase 68 | Complete |
+| PROG-04 | Phase 68 | Complete |
+| PROG-05 | Phase 68 | Complete |
+| MISS-01 | Phase 69 | Complete |
+| MISS-02 | Phase 69 | Complete |
+| MISS-03 | Phase 69 | Complete |
+| MISS-04 | Phase 69 | Complete |
+| MISS-05 | Phase 69 | Complete |
+| MISS-06 | Phase 69 | Complete |
 | INS-01 | Phase 70 | Pending |
 | INS-02 | Phase 70 | Pending |
 | INS-03 | Phase 70 | Pending |

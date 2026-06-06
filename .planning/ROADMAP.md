@@ -45,8 +45,8 @@ Production ref: `ba535de`. Smoke evidence: `milestones/v11.6-phases/65-verificat
 
 | # | Phase | Goal | Requirements | Success Criteria |
 |---|-------|------|--------------|------------------|
-| 68 | Progression Foundation | Persist and calculate Ads Scientist levels from real workspace actions | PROG-01..05 | 5 |
-| 69 | Guided Mission Experience | Teach the core workflow through resumable missions and contextual learning copy | MISS-01..06 | 5 |
+| 68 | Progression Foundation | Persist and calculate Ads Scientist levels from real workspace actions | PROG-01..05 | 5 ✅ |
+| 69 | Guided Mission Experience | Teach the core workflow through resumable missions and contextual learning copy | MISS-01..06 | 5 ✅ |
 | 70 | Mission-Linked Insight Capture | Capture structured beta learning from mission moments, skips, rejections, and friction | INS-01..05 | 5 |
 | 71 | Credit Activation and Verification | Connect mission value to credit usage, upgrade moments, tests, and beta UAT evidence | CRED-01..04, QA-01..04 | 5 |
 
@@ -118,7 +118,7 @@ Production ref: `ba535de`. Smoke evidence: `milestones/v11.6-phases/65-verificat
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 | ----- | --------- | -------------- | ------ | --------- |
-| 68 | v11.7 | 0/0 | Not Started | - |
+| 68 | v11.7 | 2/2 | Complete | 2026-06-06 |
 | 69 | v11.7 | 0/0 | Not Started | - |
 | 70 | v11.7 | 0/0 | Not Started | - |
 | 71 | v11.7 | 0/0 | Not Started | - |
