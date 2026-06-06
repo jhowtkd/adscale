@@ -13,6 +13,13 @@ export type MissionKey =
 
 export type MissionStatus = "completed" | "active" | "blocked" | "upcoming";
 
+export interface MissionCreditInfo {
+  creditCost: number;
+  adCost: number;
+  costLabel: "single" | "from";
+  insufficientCredits: boolean;
+}
+
 export interface MissionItem {
   key: MissionKey;
   status: MissionStatus;
@@ -21,6 +28,14 @@ export interface MissionItem {
   evidenceId?: string;
   evidenceType?: string;
   blockedReason?: string;
+  credit?: MissionCreditInfo;
+}
+
+export interface MissionCreditContext {
+  remainingCredits: number;
+  remainingAds: number | null;
+  accessKind: "paid" | "beta" | "none";
+  showUpgradePrompt: boolean;
 }
 
 export interface WorkspaceMissionsResponse {
@@ -30,4 +45,5 @@ export interface WorkspaceMissionsResponse {
   totalCount: number;
   progressPercent: number;
   lastCalculatedAt: string;
+  creditContext?: MissionCreditContext;
 }
