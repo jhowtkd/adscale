@@ -151,6 +151,7 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
       ? "acoes"
       : resolvedWorkspaceState;
 
+  const goToPilot = useCallback(() => setWorkspaceState("piloto"), []);
   const goToActions = useCallback(() => setWorkspaceState("acoes"), []);
   const goToDerivation = useCallback(() => setWorkspaceState("derivando"), []);
   const goToStyling = useCallback(() => setWorkspaceState("estilizando"), []);
@@ -598,6 +599,7 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
     deliveryModalOpen,
     selectedDeliverySource,
     handleDeliveryModalOpenChange,
+    goToPilot,
     goToActions,
     goToDerivation,
     goToStyling,

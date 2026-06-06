@@ -176,7 +176,9 @@ export default function PilotSidebar({
         </div>
       )}
 
-      <CreativeReadinessPanel campaignId={campaignId} assetId={pilotAsset?.id} />
+      <div id="mission-readiness">
+        <CreativeReadinessPanel campaignId={campaignId} assetId={pilotAsset?.id} />
+      </div>
     </aside>
   );
 }

@@ -1,4 +1,5 @@
 import { sanitizeDiagnosticContext } from "@/server/feedback/sanitize";
+import { MISSION_DEFINITIONS } from "@/server/progression/missions/definitions";
 import type {
   MissionInsightAction,
   MissionInsightMoment,
@@ -51,6 +52,8 @@ const REASONS = new Set<MissionInsightReason>([
 
 const OPTIONAL_TEXT_MAX = 500;
 
+const VALID_MISSION_KEYS = new Set<string>(Object.keys(MISSION_DEFINITIONS));
+
 function pickAllowedDiagnostic(
   input: Record<string, unknown> | undefined
 ): Record<string, unknown> {
@@ -96,6 +99,11 @@ export function sanitizeMissionInsightInput(input: {
 
   const moment = input.moment as MissionInsightMoment;
   const action = input.action as MissionInsightAction;
+
+  if (!VALID_MISSION_KEYS.has(input.missionKey)) {
+    return null;
+  }
+
   const missionKey = input.missionKey as MissionKey;
 
   let sentiment: MissionInsightSentiment | undefined;

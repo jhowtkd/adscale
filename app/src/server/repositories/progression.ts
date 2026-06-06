@@ -22,26 +22,7 @@ export async function upsertWorkspaceProgressionSnapshot(input: {
   progressPercent: number;
   lastCalculatedAt: Date;
 }): Promise<WorkspaceProgression> {
-  const existing = await getWorkspaceProgressionSnapshot(input.workspaceId);
-
-  if (existing) {
-    const [updated] = await db
-      .update(workspaceProgression)
-      .set({
-        levelKey: input.levelKey,
-        completed: input.completed,
-        nextAction: input.nextAction,
-        progressPercent: input.progressPercent,
-        lastCalculatedAt: input.lastCalculatedAt,
-        updatedAt: new Date(),
-      })
-      .where(eq(workspaceProgression.workspaceId, input.workspaceId))
-      .returning();
-
-    return updated;
-  }
-
-  const [created] = await db
+  const [row] = await db
     .insert(workspaceProgression)
     .values({
       workspaceId: input.workspaceId,
@@ -51,7 +32,18 @@ export async function upsertWorkspaceProgressionSnapshot(input: {
       progressPercent: input.progressPercent,
       lastCalculatedAt: input.lastCalculatedAt,
     })
+    .onConflictDoUpdate({
+      target: workspaceProgression.workspaceId,
+      set: {
+        levelKey: input.levelKey,
+        completed: input.completed,
+        nextAction: input.nextAction,
+        progressPercent: input.progressPercent,
+        lastCalculatedAt: input.lastCalculatedAt,
+        updatedAt: new Date(),
+      },
+    })
     .returning();
 
-  return created;
+  return row;
 }

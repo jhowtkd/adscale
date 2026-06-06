@@ -76,6 +76,7 @@ function feedbackCategoryLine(category: FeedbackCategory): string {
     generation: "user reported a generation-quality issue",
     billing: "user reported a billing issue",
     performance: "user reported a performance issue",
+    mission: "user reported mission-progression feedback",
     other: "user reported feedback",
   };
   return `Feedback context (${category}): ${labels[category]}`;

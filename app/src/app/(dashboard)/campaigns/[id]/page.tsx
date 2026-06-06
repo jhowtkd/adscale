@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, useMemo } from "react";
 import Link from "next/link";
 import { Trash2 } from "lucide-react";
@@ -55,6 +55,10 @@ import { useDerivationFlow, type DerivationIntent } from "@/lib/hooks/use-deriva
 import { usePreflightScore } from "@/lib/hooks/use-preflight";
 import { useBrandKit } from "@/lib/hooks/use-brand-kit";
 import { useTranslations } from "next-intl";
+import {
+  applyCampaignDeepLink,
+  parseCampaignTabParam,
+} from "@/lib/campaign/deep-link-tab";
 
 type WorkspaceHookResult = ReturnType<typeof useCampaignWorkspace>;
 type Campaign = NonNullable<WorkspaceHookResult["campaign"]>;
@@ -62,8 +66,10 @@ type WorkspaceState = WorkspaceHookResult["workspaceState"];
 
 export default function CampaignWorkspacePage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const campaignId = params.id as string;
   const isNew = campaignId === "new";
+  const appliedDeepLinkRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (isNew) {
@@ -131,6 +137,7 @@ export default function CampaignWorkspacePage() {
     deliveryModalOpen,
     selectedDeliverySource,
     handleDeliveryModalOpenChange,
+    goToPilot,
     goToActions,
     goToDerivation,
     goToStyling,
@@ -194,6 +201,40 @@ export default function CampaignWorkspacePage() {
     campaignId,
     assetId: baseAsset?.id ?? null,
   });
+
+  useEffect(() => {
+    if (isLoading || isNew || !campaign) return;
+
+    const parsed = parseCampaignTabParam(
+      searchParams.get("tab"),
+      searchParams.get("mode")
+    );
+    if (!parsed) return;
+
+    const deepLinkKey = `${parsed.tab}:${parsed.mode ?? ""}`;
+    if (appliedDeepLinkRef.current === deepLinkKey) return;
+    appliedDeepLinkRef.current = deepLinkKey;
+
+    applyCampaignDeepLink(parsed.tab, parsed.mode, {
+      goToPilot,
+      goToActions,
+      hasDerivations: allDerivations.length > 0,
+      setBriefingView,
+      openStrategyRecipe: openChooser,
+      openDerivationChooser: openLegacyChooser,
+    });
+  }, [
+    allDerivations.length,
+    campaign,
+    campaignId,
+    goToActions,
+    goToPilot,
+    isLoading,
+    isNew,
+    openChooser,
+    openLegacyChooser,
+    searchParams,
+  ]);
 
   const handleSimulatePersonas = (derivationId: string) => {
     setPersonaSimulation({ isOpen: true, selectedId: derivationId });
@@ -745,11 +786,14 @@ function CampaignWorkspaceCard({
     >
       {workspaceState === "piloto" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <PilotUploadPanel
-            campaignId={campaignId}
-            onAssetUploaded={onAssetUploaded}
-            onAnalysisComplete={onAnalysisComplete}
-          />
+          <div id="mission-assets">
+            <PilotUploadPanel
+              campaignId={campaignId}
+              onAssetUploaded={onAssetUploaded}
+              onAnalysisComplete={onAnalysisComplete}
+            />
+          </div>
+          <div id="mission-briefing">
           {campaign &&
           isBriefWeak({
             product: campaign.product,
@@ -788,6 +832,7 @@ function CampaignWorkspaceCard({
               onSkip={onSkipBriefing}
             />
           )}
+          </div>
         </div>
       )}
 
@@ -808,7 +853,7 @@ function CampaignWorkspaceCard({
             }}
           />
           <div className="flex-1 min-w-0 space-y-6">
-            <div>
+            <div id="mission-recipe">
               <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-1">
                 Ações disponíveis
               </h2>
@@ -816,11 +861,15 @@ function CampaignWorkspaceCard({
                 Escolha uma ação para gerar novas variações do criativo.
               </p>
             </div>
+            <div id="mission-generate">
             <ActionCards
               onDerivar={onOpenDerivar}
               onEstilizar={onOpenEstilizar}
             />
+            </div>
+            <div id="mission-share">
             <ClientApprovalPackagePanel campaignId={campaignId} />
+            </div>
             {showPreviewGate && previewDerivation && onApprovePreviewBatch && onReviseStrategyRecipe && (
               <PreviewGatePanel
                 preview={{
@@ -839,7 +888,8 @@ function CampaignWorkspaceCard({
                 onApproveBatch={onApprovePreviewBatch}
               />
             )}
-            <div>
+            <div id="mission-review">
+            <div id="mission-export">
               <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-3">
                 Derivações
               </h2>
@@ -878,6 +928,7 @@ function CampaignWorkspaceCard({
                 reviewPending={reviewPending}
                 reviewVariables={reviewVariables}
               />
+            </div>
             </div>
           </div>
         </div>

@@ -54,6 +54,16 @@ describe("sanitizeMissionInsightInput", () => {
     expect(result).toBeNull();
   });
 
+  it("rejects unknown mission keys", () => {
+    const result = sanitizeMissionInsightInput({
+      moment: "preview_first",
+      missionKey: "not_a_real_mission",
+      action: "dismissed",
+    });
+
+    expect(result).toBeNull();
+  });
+
   it("truncates long optional text", () => {
     const long = "x".repeat(600);
     expect(sanitizeOptionalText(long)?.length).toBe(501);

@@ -330,7 +330,9 @@ export default function PilotUploadPanel({
         onOpenFilePicker={openFilePicker}
       />
       {uploadedAssetId && (state === "reviewing" || state === "analyzing") && (
-        <CreativeReadinessPanel campaignId={campaignId} assetId={uploadedAssetId} />
+        <div id="mission-readiness">
+          <CreativeReadinessPanel campaignId={campaignId} assetId={uploadedAssetId} />
+        </div>
       )}
     </div>
   );
