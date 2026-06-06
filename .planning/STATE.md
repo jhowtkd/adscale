@@ -1,8 +1,8 @@
 ---
 gsd_state_version: 1.0
 milestone: v11.7
-milestone_name: milestone
-status: Defining requirements
+milestone_name: Ads Scientist Progression
+status: context_ready
 last_updated: "2026-06-06T21:19:20.481Z"
 last_activity: 2026-06-06 - Milestone v11.7 started
 progress:
@@ -17,9 +17,9 @@ progress:
 ## Current Position
 
 Milestone: v11.7 - Ads Scientist Progression
-Phase: Not started (defining requirements)
+Phase: 68 - Progression Foundation
 Plan: -
-Status: Defining requirements
+Status: Context gathered; ready for planning
 Last activity: 2026-06-06 - Milestone v11.7 started
 
 **Last session:** 2026-06-06T21:19:20.477Z
@@ -37,8 +37,8 @@ Last activity: 2026-06-06 - Milestone v11.7 started
 
 ## Next Steps
 
-1. Finalize v11.7 requirements and roadmap.
-2. Start Phase 68 with `$gsd-discuss-phase 68` or `$gsd-plan-phase 68`.
+1. Run `$gsd-plan-phase 68` to create implementation plans.
+2. Use `.planning/phases/68-progression-foundation/68-CONTEXT.md` as the source of truth for Phase 68 decisions.
 
 ## Project Reference
 
