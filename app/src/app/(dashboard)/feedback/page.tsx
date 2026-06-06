@@ -41,6 +41,30 @@ async function fetchReports(filters: Record<string, string>) {
   return (await res.json()) as { reports: FeedbackReport[] };
 }
 
+type MissionCreditSignals = {
+  healthyCount: number;
+  frustrationCount: number;
+  creditFrictionCount: number;
+  skippedCreditMissionCount: number;
+  positiveAfterSpendCount: number;
+  recentExamples: Array<{
+    id: string;
+    signal: "healthy" | "frustration";
+    moment: string;
+    missionKey: string | null;
+    sentiment: string | null;
+    reason: string | null;
+    createdAt: string;
+  }>;
+};
+
+async function fetchMissionCreditSignals() {
+  const res = await apiFetch("/api/feedback/mission-credit-signals");
+  if (res.status === 403) return null;
+  if (!res.ok) throw new Error("failed");
+  return (await res.json()) as MissionCreditSignals;
+}
+
 async function fetchReportDetail(workspaceId: string, id: string) {
   const res = await apiFetch(
     `/api/feedback/reports/${id}?workspaceId=${encodeURIComponent(workspaceId)}`
@@ -70,6 +94,13 @@ export default function FeedbackTriagePage() {
     queryKey: ["feedback-reports", filters],
     queryFn: () => fetchReports(filters),
     retry: false,
+  });
+
+  const creditSignalsQuery = useQuery({
+    queryKey: ["feedback-mission-credit-signals"],
+    queryFn: fetchMissionCreditSignals,
+    retry: false,
+    enabled: category === "mission" || category === "",
   });
 
   const detailQuery = useQuery({
@@ -171,6 +202,40 @@ export default function FeedbackTriagePage() {
             <option value="other">Other</option>
           </select>
         </div>
+
+        {creditSignalsQuery.data ? (
+          <div className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] p-4 space-y-3">
+            <div>
+              <h2 className="text-sm font-semibold text-[var(--text-primary)]">
+                Credit activation signals
+              </h2>
+              <p className="text-xs text-[var(--text-secondary)] mt-1">
+                Separate healthy spend from frustration using mission insights.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="rounded-md border border-[var(--accent-green)]/30 bg-[var(--accent-green)]/5 px-3 py-2">
+                <p className="font-medium text-[var(--accent-green)]">Healthy</p>
+                <p className="text-lg font-bold text-[var(--text-primary)]">
+                  {creditSignalsQuery.data.healthyCount}
+                </p>
+                <p className="text-[var(--text-muted)]">
+                  +{creditSignalsQuery.data.positiveAfterSpendCount} after spend
+                </p>
+              </div>
+              <div className="rounded-md border border-[var(--accent-rose)]/30 bg-[var(--accent-rose)]/5 px-3 py-2">
+                <p className="font-medium text-[var(--accent-rose)]">Frustration</p>
+                <p className="text-lg font-bold text-[var(--text-primary)]">
+                  {creditSignalsQuery.data.frustrationCount}
+                </p>
+                <p className="text-[var(--text-muted)]">
+                  {creditSignalsQuery.data.creditFrictionCount} credit friction ·{" "}
+                  {creditSignalsQuery.data.skippedCreditMissionCount} skipped spend steps
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         <div className="space-y-2">
           {isLoading ? (
