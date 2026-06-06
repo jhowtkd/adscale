@@ -4,12 +4,13 @@
  * Usage:
  *   npx tsx scripts/seed-dev-admin.ts --email=you@example.com
  *   npx tsx scripts/seed-dev-admin.ts --create --email=dev@adscale.local --password='DevAdmin123!'
+ *   npx tsx scripts/seed-dev-admin.ts --repair --create --email=you@example.com
  *
  * Sign-up (--create) calls Better Auth on BETTER_AUTH_URL; the app must be reachable.
  */
 import "./load-env";
 
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "../src/server/db";
 import { user, workspaceMembers } from "../src/server/db/schema";
 import { env } from "../src/server/validation/env";
@@ -59,12 +60,30 @@ async function signUpDevAccount(email: string, password: string, name: string) {
 }
 
 async function resolveUserByEmail(email: string) {
+  const normalized = email.toLowerCase().trim();
   const rows = await db
     .select()
     .from(user)
-    .where(eq(user.email, email.toLowerCase().trim()))
+    .where(eq(user.email, normalized))
     .limit(1);
   return rows[0] ?? null;
+}
+
+async function repairDevAdminAccount(email: string) {
+  const normalized = email.toLowerCase().trim();
+  const rows = await db
+    .select({ id: user.id, email: user.email })
+    .from(user)
+    .where(sql`lower(trim(${user.email})) = ${normalized}`);
+
+  if (rows.length === 0) return 0;
+
+  for (const row of rows) {
+    await db.delete(user).where(eq(user.id, row.id));
+  }
+
+  console.log(`Removed ${rows.length} existing user row(s) for ${normalized}.`);
+  return rows.length;
 }
 
 async function grantDevBilling(
@@ -118,9 +137,14 @@ async function main() {
     console.error(
       "Usage:\n" +
         "  npx tsx scripts/seed-dev-admin.ts --email=you@example.com\n" +
-        "  npx tsx scripts/seed-dev-admin.ts --create --email=dev@adscale.local --password='DevAdmin123!'"
+        "  npx tsx scripts/seed-dev-admin.ts --create --email=dev@adscale.local --password='DevAdmin123!'\n" +
+        "  npx tsx scripts/seed-dev-admin.ts --repair --create --email=you@example.com"
     );
     process.exit(1);
+  }
+
+  if (flags.has("repair")) {
+    await repairDevAdminAccount(email);
   }
 
   if (flags.has("create")) {
@@ -176,7 +200,7 @@ async function main() {
 
   console.log("\nDev billing enabled:");
   console.log(`  email:      ${email}`);
-  console.log(`  password:   ${flags.has("create") ? password : "(your existing password)"}`);
+  console.log(`  password:   ${flags.has("create") || flags.has("repair") ? password : "(your existing password)"}`);
   console.log(`  workspace:  ${workspaceId}`);
   console.log(`  role:       owner`);
   console.log(`  plan:       ${sub?.planKey ?? planKey} (${sub?.status ?? "active"})`);

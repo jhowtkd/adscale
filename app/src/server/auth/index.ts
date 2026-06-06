@@ -83,12 +83,19 @@ export const auth = betterAuth({
     user: {
       create: {
         before: async (userData) => {
-          if (!isDevAdminEmail(userData.email)) {
-            return { data: userData };
+          const normalizedEmail = userData.email.trim().toLowerCase();
+          const base = {
+            ...userData,
+            email: normalizedEmail,
+          };
+
+          if (!isDevAdminEmail(normalizedEmail)) {
+            return { data: base };
           }
+
           return {
             data: {
-              ...userData,
+              ...base,
               emailVerified: true,
               onboardingCompletedAt: new Date(),
             },
