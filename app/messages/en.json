@@ -198,6 +198,83 @@
       "vsLastMonth": "vs previous period",
       "usedThisMonth": "used this period",
       "seconds": "seconds"
+    },
+    "progression": {
+      "title": "Ads Scientist",
+      "currentLevel": "Current level",
+      "progressLabel": "Lab progress",
+      "progressAria": "Lab progress {percent}%",
+      "nextExperiment": "Next experiment",
+      "cta": "Continue experiment",
+      "blockedCta": "Complete the previous step",
+      "error": "We couldn't load your progression right now.",
+      "retry": "Try again",
+      "updating": "Updating progression"
+    },
+    "missions": {
+      "title": "Mission Path",
+      "pathLabel": "Lab mission path",
+      "progressAria": "Mission path {percent}%",
+      "progressCount": "{completed}/{total} missions",
+      "activeMission": "Active mission",
+      "cta": "Continue mission",
+      "blockedCta": "Complete the previous step",
+      "expand": "View path",
+      "collapse": "Hide path",
+      "resume": "Resume",
+      "done": "Done",
+      "error": "We couldn't load your missions right now.",
+      "retry": "Try again",
+      "updating": "Updating missions",
+      "empty": "No active mission yet.",
+      "allCompleteTitle": "Path complete!",
+      "allCompleteDescription": "You've mastered the full ADScale creative workflow. Keep refining campaigns and testing new angles.",
+      "items": {
+        "setup": {
+          "label": "Set up your lab",
+          "description": "Create your first campaign to organize client, product, and platform context in one place."
+        },
+        "upload": {
+          "label": "Upload base creative",
+          "description": "Add the reference ad your variations will build from — the stronger the base, the better the experiments."
+        },
+        "readiness": {
+          "label": "Run readiness analysis",
+          "description": "Scan the creative for strengths and gaps before spending credits on generation."
+        },
+        "guided_briefing": {
+          "label": "Complete guided briefing",
+          "description": "Turn diagnosis into a clear brief so AI knows your objective, audience, and tone."
+        },
+        "strategy_recipe": {
+          "label": "Pick a strategy recipe",
+          "description": "Choose how bold or conservative your variations should be — this shapes every output."
+        },
+        "preview": {
+          "label": "Generate a preview",
+          "description": "Test one variation cheaply before committing to a full batch."
+        },
+        "batch": {
+          "label": "Run batch generation",
+          "description": "Scale to multiple formats and angles once the preview direction feels right."
+        },
+        "review": {
+          "label": "Review creatives",
+          "description": "Approve or reject each variation — your feedback trains the next round."
+        },
+        "regeneration": {
+          "label": "Regenerate with feedback",
+          "description": "Send a rejected creative back with corrections instead of starting from scratch."
+        },
+        "export": {
+          "label": "Export for platforms",
+          "description": "Download platform-ready files to launch or hand off to media buyers."
+        },
+        "share": {
+          "label": "Share with client or team",
+          "description": "Send an approval link so stakeholders can review without a login."
+        }
+      }
     }
   },
   "campaign": {

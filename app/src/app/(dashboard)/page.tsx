@@ -11,6 +11,8 @@ import { Search, Plus, LayoutGrid, List, Zap } from "lucide-react";
 import VisualCampaignCard from "@/components/dashboard/VisualCampaignCard";
 import DashboardCampaignListView from "@/components/dashboard/DashboardCampaignListView";
 import CreditPanel from "@/components/dashboard/CreditPanel";
+import AdsScientistProgressCard from "@/components/dashboard/AdsScientistProgressCard";
+import MissionPathCard from "@/components/dashboard/MissionPathCard";
 
 const CreditChart = dynamic(() => import("@/components/dashboard/CreditChart"), {
   loading: () => <div className="h-[300px] w-full bg-[var(--surface-raised)] rounded-xl animate-pulse border-2 border-[var(--border-dim)]" />,
@@ -166,6 +168,13 @@ export default function DashboardPage() {
               </fieldset>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section className="border-b-2 border-[var(--border-dim)] bg-[var(--surface-base)]">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <AdsScientistProgressCard />
+          <MissionPathCard />
         </div>
       </section>
 

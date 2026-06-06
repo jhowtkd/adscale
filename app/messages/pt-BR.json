@@ -198,6 +198,83 @@
       "vsLastMonth": "vs período anterior",
       "usedThisMonth": "usados no período",
       "seconds": "segundos"
+    },
+    "progression": {
+      "title": "Cientista de Ads",
+      "currentLevel": "Nível atual",
+      "progressLabel": "Progresso do laboratório",
+      "progressAria": "Progresso do laboratório {percent}%",
+      "nextExperiment": "Próximo experimento",
+      "cta": "Continuar experimento",
+      "blockedCta": "Complete o passo anterior",
+      "error": "Não foi possível carregar seu progresso agora.",
+      "retry": "Tentar novamente",
+      "updating": "Atualizando progresso"
+    },
+    "missions": {
+      "title": "Trilha de Missões",
+      "pathLabel": "Trilha do laboratório",
+      "progressAria": "Trilha de missões {percent}%",
+      "progressCount": "{completed}/{total} missões",
+      "activeMission": "Missão ativa",
+      "cta": "Continuar missão",
+      "blockedCta": "Complete o passo anterior",
+      "expand": "Ver trilha",
+      "collapse": "Ocultar trilha",
+      "resume": "Retomar",
+      "done": "Feito",
+      "error": "Não foi possível carregar suas missões agora.",
+      "retry": "Tentar novamente",
+      "updating": "Atualizando missões",
+      "empty": "Nenhuma missão ativa ainda.",
+      "allCompleteTitle": "Trilha completa!",
+      "allCompleteDescription": "Você dominou o fluxo criativo completo do ADScale. Continue refinando campanhas e testando novos ângulos.",
+      "items": {
+        "setup": {
+          "label": "Monte seu laboratório",
+          "description": "Crie sua primeira campanha para organizar cliente, produto e plataformas em um só lugar."
+        },
+        "upload": {
+          "label": "Envie o criativo base",
+          "description": "Adicione o anúncio de referência — quanto melhor a base, melhores os experimentos."
+        },
+        "readiness": {
+          "label": "Rode a análise de prontidão",
+          "description": "Escaneie o criativo antes de gastar créditos em geração."
+        },
+        "guided_briefing": {
+          "label": "Complete o briefing guiado",
+          "description": "Transforme o diagnóstico em um brief claro com objetivo, público e tom."
+        },
+        "strategy_recipe": {
+          "label": "Escolha a receita estratégica",
+          "description": "Defina o quão ousadas serão as variações — isso molda cada output."
+        },
+        "preview": {
+          "label": "Gere um preview",
+          "description": "Teste uma variação com pouco crédito antes do lote completo."
+        },
+        "batch": {
+          "label": "Rode a geração em lote",
+          "description": "Escale para vários formatos e ângulos quando a direção do preview estiver certa."
+        },
+        "review": {
+          "label": "Revise os criativos",
+          "description": "Aprove ou rejeite cada variação — seu feedback treina a próxima rodada."
+        },
+        "regeneration": {
+          "label": "Regenere com feedback",
+          "description": "Mande um criativo rejeitado de volta com correções em vez de recomeçar do zero."
+        },
+        "export": {
+          "label": "Exporte para plataformas",
+          "description": "Baixe arquivos prontos para veicular ou entregar ao time de mídia."
+        },
+        "share": {
+          "label": "Compartilhe com cliente ou time",
+          "description": "Envie um link de aprovação para revisão sem login."
+        }
+      }
     }
   },
   "campaign": {
