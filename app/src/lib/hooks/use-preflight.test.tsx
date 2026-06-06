@@ -40,7 +40,7 @@ describe("usePreflightScore", () => {
       json: () => Promise.resolve(sampleResponse),
     } as unknown as Response);
 
-    const { result } = renderHook(() => usePreflightScore("asset-1", "camp-1"), {
+    const { result } = renderHook(() => usePreflightScore({ assetId: "asset-1", campaignId: "camp-1" }), {
       wrapper: createWrapper(),
     });
 

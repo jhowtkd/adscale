@@ -190,10 +190,10 @@ export default function CampaignWorkspacePage() {
     if (!reviewDerivation?.styleAssetId || !campaignAssets) return null;
     return campaignAssets.find((asset) => asset.id === reviewDerivation.styleAssetId) ?? null;
   }, [reviewDerivation, campaignAssets]);
-  const { data: preflightData } = usePreflightScore(
+  const { data: preflightData } = usePreflightScore({
     campaignId,
-    baseAsset?.id ?? null
-  );
+    assetId: baseAsset?.id ?? null,
+  });
 
   const handleSimulatePersonas = (derivationId: string) => {
     setPersonaSimulation({ isOpen: true, selectedId: derivationId });

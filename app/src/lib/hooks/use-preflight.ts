@@ -38,7 +38,13 @@ async function analyzePreflight(
   return res.json() as Promise<PreflightResponse>;
 }
 
-export function usePreflightScore(assetId: string | null | undefined, campaignId: string | null | undefined) {
+export function usePreflightScore({
+  campaignId,
+  assetId,
+}: {
+  campaignId: string | null | undefined;
+  assetId: string | null | undefined;
+}) {
   return useQuery({
     queryKey: ["preflight", campaignId, assetId],
     queryFn: () => {

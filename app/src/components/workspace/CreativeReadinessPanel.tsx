@@ -45,7 +45,7 @@ export default function CreativeReadinessPanel({
   className,
 }: CreativeReadinessPanelProps) {
   const t = useTranslations("readiness");
-  const { data, isLoading, isError } = usePreflightScore(assetId, campaignId);
+  const { data, isLoading, isError } = usePreflightScore({ campaignId, assetId });
   const analyzePreflight = useAnalyzePreflight();
 
   if (!assetId) {
