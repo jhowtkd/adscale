@@ -8,6 +8,7 @@ import {
   expandPackageDerivationIds,
   getApprovedRootDerivations,
   getPackageEligibleRoots,
+  inferSelectedRootIdsFromPackage,
   type DerivationLike,
 } from "@/server/ai/client-approval-package";
 import { getCampaignById, updateCampaign } from "@/server/repositories/campaign";
@@ -113,13 +114,10 @@ export async function GET(
 
     const approvedRoots = getPackageEligibleRoots(derivations);
     const selectedRootIds = shareLink
-      ? derivations
-          .filter(
-            (d) =>
-              shareLink.derivationIds.includes(d.id) &&
-              !d.parentId
-          )
-          .map((d) => d.id)
+      ? inferSelectedRootIdsFromPackage(
+          shareLink.derivationIds,
+          derivations
+        )
       : approvedRoots.map((d) => d.id);
 
     const snapshot = buildApprovalPackageSnapshot({

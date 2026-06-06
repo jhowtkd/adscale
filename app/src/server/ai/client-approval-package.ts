@@ -99,6 +99,37 @@ export function getPackageEligibleRoots(
   });
 }
 
+/** Map stored package derivation IDs back to eligible root selections. */
+export function inferSelectedRootIdsFromPackage(
+  packageDerivationIds: string[],
+  derivations: DerivationLike[]
+): string[] {
+  const byId = new Map(derivations.map((d) => [d.id, d]));
+  const eligibleRootIds = new Set(
+    getPackageEligibleRoots(derivations).map((d) => d.id)
+  );
+  const selectedRoots = new Set<string>();
+
+  for (const id of packageDerivationIds) {
+    const derivation = byId.get(id);
+    if (!derivation) continue;
+
+    if (!derivation.parentId && eligibleRootIds.has(derivation.id)) {
+      selectedRoots.add(derivation.id);
+      continue;
+    }
+
+    if (
+      derivation.parentId &&
+      eligibleRootIds.has(derivation.parentId)
+    ) {
+      selectedRoots.add(derivation.parentId);
+    }
+  }
+
+  return [...selectedRoots];
+}
+
 export function expandPackageDerivationIds(
   selectedRootIds: string[],
   derivations: DerivationLike[]

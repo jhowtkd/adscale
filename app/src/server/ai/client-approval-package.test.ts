@@ -6,6 +6,7 @@ import {
   expandPackageDerivationIds,
   getApprovedRootDerivations,
   getPackageEligibleRoots,
+  inferSelectedRootIdsFromPackage,
 } from "./client-approval-package";
 
 const baseDerivations = [
@@ -98,6 +99,41 @@ describe("client-approval-package", () => {
 
     expect(snapshot.derivationIds).toEqual(["regen-child"]);
     expect(snapshot.isStale).toBe(false);
+  });
+
+  it("infers selected roots from stored child-only package IDs", () => {
+    const derivations = [
+      {
+        id: "root-rejected",
+        parentId: null,
+        status: "rejected",
+        outputKey: "out/root-rejected.png",
+        format: "1:1",
+        isPreview: false,
+      },
+      {
+        id: "regen-child",
+        parentId: "root-rejected",
+        status: "approved",
+        outputKey: "out/regen-child.png",
+        format: "1:1",
+        isPreview: false,
+      },
+    ];
+
+    expect(
+      inferSelectedRootIdsFromPackage(["regen-child"], derivations)
+    ).toEqual(["root-rejected"]);
+
+    const snapshot = buildApprovalPackageSnapshot({
+      selectedRootIds: ["root-rejected"],
+      derivations,
+      campaign: { notes: "Refreshed after rejection" },
+      packageDerivationIds: ["regen-child"],
+    });
+
+    expect(snapshot.isStale).toBe(false);
+    expect(snapshot.staleReasons).toEqual([]);
   });
 
   it("builds creative notes from derivation and campaign context", () => {
