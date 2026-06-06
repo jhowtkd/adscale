@@ -908,5 +908,52 @@ export const feedbackReports = adscaleSchema.table(
 export type FeedbackReport = typeof feedbackReports.$inferSelect;
 export type NewFeedbackReport = typeof feedbackReports.$inferInsert;
 
+export const workspaceProgression = adscaleSchema.table(
+  "workspace_progression",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .unique()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    levelKey: text("level_key").notNull().default("aprendiz"),
+    completed: jsonb("completed")
+      .$type<
+        Array<{
+          key: string;
+          label: string;
+          completedAt: string;
+          evidenceId?: string;
+          evidenceType?: string;
+        }>
+      >()
+      .notNull()
+      .default([]),
+    nextAction: jsonb("next_action")
+      .$type<{
+        key: string;
+        label: string;
+        description: string;
+        href: string;
+        blocked: boolean;
+        blockedReason?: string;
+      }>()
+      .notNull(),
+    progressPercent: integer("progress_percent").notNull().default(0),
+    lastCalculatedAt: timestamp("last_calculated_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("workspace_progression_workspace_id_idx").on(table.workspaceId),
+    index("workspace_progression_level_key_idx").on(table.levelKey),
+  ]
+);
+
+export type WorkspaceProgression = typeof workspaceProgression.$inferSelect;
+export type NewWorkspaceProgression = typeof workspaceProgression.$inferInsert;
+
 export type PersonaSimulation = typeof personaSimulations.$inferSelect;
 export type NewPersonaSimulation = typeof personaSimulations.$inferInsert;
