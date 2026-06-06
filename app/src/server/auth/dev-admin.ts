@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 import { db } from "@/server/db";
 import { user, workspaceMembers } from "@/server/db/schema";
@@ -19,6 +19,22 @@ export function isDevAdminEmail(email: string): boolean {
   const admins = parseDevAdminEmails();
   if (admins.size === 0) return false;
   return admins.has(email.trim().toLowerCase());
+}
+
+export async function repairDevAdminAccount(email: string): Promise<number> {
+  if (!isDevAdminEmail(email)) return 0;
+
+  const normalized = email.trim().toLowerCase();
+  const rows = await db
+    .select({ id: user.id })
+    .from(user)
+    .where(sql`lower(trim(${user.email})) = ${normalized}`);
+
+  for (const row of rows) {
+    await db.delete(user).where(eq(user.id, row.id));
+  }
+
+  return rows.length;
 }
 
 export async function ensureDevAdminEmailVerified(email: string): Promise<void> {

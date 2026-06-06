@@ -10,9 +10,10 @@
  */
 import "./load-env";
 
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "../src/server/db";
 import { user, workspaceMembers } from "../src/server/db/schema";
+import { repairDevAdminAccount } from "../src/server/auth/dev-admin";
 import { env } from "../src/server/validation/env";
 import {
   createCreditGrant,
@@ -67,23 +68,6 @@ async function resolveUserByEmail(email: string) {
     .where(eq(user.email, normalized))
     .limit(1);
   return rows[0] ?? null;
-}
-
-async function repairDevAdminAccount(email: string) {
-  const normalized = email.toLowerCase().trim();
-  const rows = await db
-    .select({ id: user.id, email: user.email })
-    .from(user)
-    .where(sql`lower(trim(${user.email})) = ${normalized}`);
-
-  if (rows.length === 0) return 0;
-
-  for (const row of rows) {
-    await db.delete(user).where(eq(user.id, row.id));
-  }
-
-  console.log(`Removed ${rows.length} existing user row(s) for ${normalized}.`);
-  return rows.length;
 }
 
 async function grantDevBilling(
@@ -144,7 +128,8 @@ async function main() {
   }
 
   if (flags.has("repair")) {
-    await repairDevAdminAccount(email);
+    const removed = await repairDevAdminAccount(email);
+    console.log(`Removed ${removed} existing user row(s) for ${email}.`);
   }
 
   if (flags.has("create")) {
