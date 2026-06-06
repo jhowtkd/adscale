@@ -49,11 +49,10 @@ None — plan executed exactly as written.
 
 ## Commits
 
-- feat(71-01): mission credit estimates and API enrichment
-- feat(71-01): MissionCreditBanner and MissionPathCard credit UI
-- feat(71-02): owner mission credit signals API and feedback panel
-- test(71-02): credit activation and signal classification tests
-- docs(71): verification, UAT evidence, and milestone completion
+- `0bbff265` feat(71-01): add mission credit estimates to workspace missions API
+- `e41f792c` feat(71-01): show credit cost and balance on active mission card
+- `da729f8c` feat(71-02): owner mission credit signals on feedback triage
+- `81f99e85` docs(71): complete credit activation phase and ship v11.7
 
 ## Self-Check: PASSED
 

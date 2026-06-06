@@ -2,7 +2,7 @@
 
 ## Milestones
 
-- 📋 **v11.7 Ads Scientist Progression** - Phases 68-71
+- ✅ **v11.7 Ads Scientist Progression** - Phases 68-71 (shipped 2026-06-06)
 - ✅ **v11.6.1 Ship Readiness and Beta Activation** - Phases 66-67 (shipped 2026-06-06)
 - ✅ **v11.6 Creative Strategy Cockpit** - Phases 61-65 (shipped 2026-06-06)
 - ✅ **v11.5 Qualidade IA Orientada por Feedback** - Phases 57-60 (shipped 2026-06-05)
