@@ -124,7 +124,7 @@ Render Blueprint for production:
 
 | Resource | Name | Notes |
 |----------|------|--------|
-| Web service | `adscale-app` | `rootDir: app`, `buildCommand: npm ci && npm run build`, `preDeployCommand: npm run db:migrate`, `startCommand: npm start`, health check `/api/health` |
+| Web service | `adscale-app` | `rootDir: app`, `buildCommand: npm ci && npm run build`, `startCommand: npm run db:migrate && npm run start:prod`, health check `/api/health` |
 | Database | `adscale-postgres` | PostgreSQL 16, database `adscale_db`, user `adscale` |
 
 Injected or fixed env vars include `NODE_ENV=production`, `DATABASE_URL` from the managed DB, generated `BETTER_AUTH_SECRET`, and public URLs. Secrets marked `sync: false` must be set in the Render Dashboard. See also `docs/render-deployment.md`.
@@ -172,7 +172,7 @@ Run from the `app/` directory:
 | `npm run dev` | Dev server + Inngest dev (`scripts/dev-with-inngest.mjs`) |
 | `npm run dev:next` | Next.js only on port 3000 |
 | `npm run inngest:dev` | Inngest CLI pointed at `http://localhost:3000/api/inngest` |
-| `npm run build` / `npm start` | Production build and server (Render `startCommand`) |
+| `npm run build` / `npm run start:prod` | Production build and server with Inngest function sync (Render `startCommand`) |
 | `npm run db:migrate` | Apply Drizzle migrations (Render `preDeployCommand`) |
 | `npm run db:generate` | Generate migration SQL |
 | `npm run db:push` | Push schema (dev convenience) |

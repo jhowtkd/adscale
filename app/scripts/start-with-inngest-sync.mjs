@@ -5,6 +5,12 @@ import { dirname, join } from "node:path";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const port = process.env.PORT ?? "3000";
 const baseUrl = `http://127.0.0.1:${port}`;
+const publicBaseUrl =
+  process.env.INNGEST_SERVE_URL ??
+  process.env.APP_URL ??
+  process.env.BETTER_AUTH_URL ??
+  baseUrl;
+const inngestSyncUrl = new URL("/api/inngest", publicBaseUrl).toString();
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -26,28 +32,9 @@ async function waitForHealth(maxAttempts = 90, delayMs = 1000) {
 }
 
 async function syncInngestFunctions() {
-  const response = await fetch(`${baseUrl}/api/inngest`, { method: "PUT" });
+  const response = await fetch(inngestSyncUrl, { method: "PUT" });
   const body = await response.text();
-  console.log(`[inngest-sync] PUT /api/inngest -> ${response.status} ${body}`);
-
-  // #region agent log
-  fetch("http://127.0.0.1:7899/ingest/cfdc6907-57c9-49e8-855d-2427aa77ea62", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Debug-Session-Id": "021503",
-    },
-    body: JSON.stringify({
-      sessionId: "021503",
-      runId: "inngest-sync",
-      hypothesisId: "H1",
-      location: "scripts/start-with-inngest-sync.mjs",
-      message: "inngest sync result",
-      data: { status: response.status, body: body.slice(0, 200) },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
+  console.log(`[inngest-sync] PUT ${inngestSyncUrl} -> ${response.status} ${body}`);
 
   if (!response.ok) {
     throw new Error(`Inngest sync failed with status ${response.status}`);

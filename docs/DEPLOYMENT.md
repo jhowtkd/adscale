@@ -24,8 +24,8 @@ How ADScale is built, deployed, and operated in production. The primary path is 
 | `region` | `oregon` |
 | `autoDeployTrigger` | `commit` |
 | `buildCommand` | `npm ci && npm run build` |
-| `preDeployCommand` | `npm run db:migrate` |
-| `startCommand` | `npm start` |
+| `preDeployCommand` | none |
+| `startCommand` | `npm run db:migrate && npm run start:prod` |
 | `healthCheckPath` | `/api/health` |
 
 **Managed database `adscale-postgres`**
@@ -78,8 +78,7 @@ There is **no deploy or release job** in CI. Render deploys when commits land on
 On each deploy to `adscale-app`:
 
 1. **Build** (in `app/`): `npm ci && npm run build` → Next.js production build (`next build --webpack`, `output: 'standalone'` in `app/next.config.ts`).
-2. **Pre-deploy:** `npm run db:migrate` → Drizzle Kit applies migrations from `app/drizzle/`.
-3. **Start:** `npm start` → `next start` (listens on port 3000; Render sets `PORT`).
+2. **Start:** `npm run db:migrate && npm run start:prod` → run migrations, start Next.js, then sync Inngest functions through `/api/inngest` (Render sets `PORT`).
 
 ### Local production-like build
 
@@ -88,7 +87,7 @@ cd app
 npm ci
 npm run build
 npm run db:migrate   # requires DATABASE_URL
-npm start
+npm run start:prod
 ```
 
 ## Environment setup

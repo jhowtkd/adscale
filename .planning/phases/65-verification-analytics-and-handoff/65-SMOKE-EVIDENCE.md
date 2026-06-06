@@ -10,7 +10,7 @@
 | Date (UTC) | 2026-06-06 |
 | Operator | Codex browser smoke |
 | App URL | `https://adscale.jhonatansoares.com` |
-| Git ref at test | `23097b8` live Render (`0030` schema + preview retry fix) |
+| Git ref at test | `fb409a0` live Render + manual Render startCommand update (`npm run db:migrate && npm run start:prod`) |
 | Automated preflight | 69 cockpit + review-fix tests pass locally |
 
 ## Cockpit path checklist
@@ -28,12 +28,12 @@
 | SMK-C09 | Recipe tradeoff copy visible | PASS | Tradeoff/descriptive copy visible for each recipe. |
 | SMK-C10 | Override recipe settings | PASS | Selected recipe/config option before preview. |
 | SMK-C11 | Generate preview → credit line visible | PASS | Post-`23097b8`: preview POST **201**; retry while queued preview exists also **201** (no 429). |
-| SMK-C12 | Preview gate: approve batch or revise recipe | BLOCKED | Preview derivation `4e23f9e4-cc88-4665-93ae-3f26084d1780` remained `queued` with `outputKey: null` and no image ~6 minutes after creation (`2026-06-06T18:47:29Z` → `18:53:18Z`). Browser showed `GERANDO` / `Carregando...`. |
-| SMK-C13 | Batch queued → preview gate hidden | NOT RUN | Blocked by SMK-C12: preview never completed, so the approval/revise gate did not become actionable. |
-| SMK-C14 | Approve derivations | NOT RUN | Blocked by SMK-C12. |
-| SMK-C15 | Create client approval package + share link | PASS (API) | Post-`fa0eef1` probe: `GET /approval-package` HTTP 200; `shareUrl` null until package created with derivation IDs. |
-| SMK-C16 | Public share page loads signed assets | NOT RUN | Requires SMK-C15 browser flow with share link; browser flow blocked by SMK-C12. |
-| SMK-C17 | Stale badge after rejection → refresh package | NOT RUN | Requires SMK-C15–C16 browser flow; browser flow blocked by SMK-C12. |
+| SMK-C12 | Preview gate: approve batch or revise recipe | PASS | After manual public `PUT /api/inngest`, preview completed and browser showed “Prévia pronta — aprove antes do lote completo” with “Revisar receita” and “Aprovar e enfileirar lote”. |
+| SMK-C13 | Batch queued → preview gate hidden | PASS | Clicking “Aprovar e enfileirar lote” hid the preview gate and showed “Variações criativas enfileiradas para geração”. |
+| SMK-C14 | Approve derivations | PASS | Batch derivation `1fd420fe-9bb5-4768-be3d-6a7f12abc196` completed with signed image and was approved in browser (`status: approved`). |
+| SMK-C15 | Create client approval package + share link | PASS (API) | `POST /approval-package` returned 200 with selected root `1fd420fe-9bb5-4768-be3d-6a7f12abc196` and share URL `/share/7714f0f9-3f5a-466d-8f69-b9c190fdf28e`. Browser panel did not render despite `GET /approval-package` returning an approved root. |
+| SMK-C16 | Public share page loads signed assets | PASS | Public share page loaded “Galeria ADScale”; image endpoint completed with `naturalWidth: 1080`, `naturalHeight: 1080`. |
+| SMK-C17 | Stale badge after rejection → refresh package | PARTIAL | Rejected shared derivation via review API; `GET /approval-package` returned `isStale: true` with `unapproved:1fd420fe-9bb5-4768-be3d-6a7f12abc196`. Refresh could not complete: reapproval returned 409 due hard quality failure, and regeneration POST returned 500 (`errorId: 5c8f499f-a331-49ce-bcc9-3589943271e2`). |
 
 ## Offline automated evidence (2026-06-05, phase 66 refresh)
 
@@ -51,7 +51,7 @@ npm run build → PASS
 | | |
 |-|-|
 | Automated CQA-01 | ☑ PASS |
-| Browser CQA-02 | ☐ PASS ☒ FAIL — API unblocked through `23097b8`; SMK-C12 browser gate blocked by queued preview with no generated image |
+| Browser CQA-02 | ☐ PASS ☒ FAIL — SMK-C12–C16 pass after Inngest public sync; SMK-C17 remains partial because refresh path is blocked by quality gate/regeneration failure |
 | Overall | ☐ PASS ☒ FAIL |
 
 ## Browser Smoke Notes (2026-06-06)
@@ -62,4 +62,6 @@ npm run build → PASS
 - **Fixed (2026-06-06):** Migration `0030` (`fa0eef1`) — derivations/approval-package 500s resolved.
 - **Fixed (2026-06-06):** Preview retry 429 (`23097b8`) — stale cleanup + delete existing preview before rate limit. Production probe: consecutive preview POSTs both **201**.
 - **Blocked (2026-06-06 18:53 UTC):** Browser SMK-C12 did not progress because preview derivation `4e23f9e4-cc88-4665-93ae-3f26084d1780` stayed `queued`, `outputKey: null`, `imageUrl: null`. Render logs from `18:45Z` onward showed deploy/startup only and no `derivation`/`Inngest` execution logs. Render service inventory shows `adscale-app` as a web service; no separate worker service was observed for this project.
-- **Remaining:** Diagnose production Inngest/job processing, then rerun browser smoke SMK-C12–C17 (preview gate through share/stale badge).
+- **Fixed/confirmed (2026-06-06 19:13 UTC):** Render service start command was updated to `npm run db:migrate && npm run start:prod`; a public `PUT https://adscale.jhonatansoares.com/api/inngest` returned 200 `Successfully registered`, and queued generation completed.
+- **Caveat:** `start-with-inngest-sync.mjs` in `fb409a0` attempted local `127.0.0.1` sync, which Inngest rejected in production (`Cannot deploy localhost functions to production`). Follow-up code changes switch startup sync to the public `APP_URL`/`BETTER_AUTH_URL`.
+- **Remaining:** Deploy follow-up sync fix, investigate why the approval package panel did not render in browser while the API returned roots, and fix regeneration 500 before calling C17 fully passed.

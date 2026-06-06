@@ -42,31 +42,6 @@ function logRouteError(context: string, error: unknown) {
   logger.error(`[${context}]`, details);
 }
 
-function debugDerivationsPostLog(
-  message: string,
-  data: Record<string, unknown>,
-  hypothesisId: string
-) {
-  // #region agent log
-  fetch("http://127.0.0.1:7899/ingest/cfdc6907-57c9-49e8-855d-2427aa77ea62", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Debug-Session-Id": "021503",
-    },
-    body: JSON.stringify({
-      sessionId: "021503",
-      runId: "preview-429",
-      hypothesisId,
-      location: "derivations/route.ts:POST",
-      message,
-      data,
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
-}
-
 async function deleteExistingPreviewDerivations(
   campaignId: string,
   workspaceId: string
@@ -130,11 +105,6 @@ export async function POST(
     if (stale.length > 0) {
       await refreshCampaignStatus(campaignId, workspace.id);
     }
-    debugDerivationsPostLog(
-      "stale cleanup",
-      { staleCount: stale.length, isPreview },
-      "H3"
-    );
 
     let deletedPreviews = 0;
     if (isPreview) {
@@ -142,12 +112,10 @@ export async function POST(
         campaignId,
         workspace.id
       );
-      debugDerivationsPostLog(
-        "preview cleanup",
-        { deletedPreviews },
-        "H4"
-      );
     }
+    logger.info(
+      `[derivations POST] stale cleanup=${stale.length} deletedPreviews=${deletedPreviews} isPreview=${isPreview}`
+    );
 
     // Rate limit: block if there are already queued/processing derivations
     const existingQueued = await db
@@ -161,15 +129,8 @@ export async function POST(
         )
       )
       .limit(1);
-    debugDerivationsPostLog(
-      "rate limit check",
-      {
-        isPreview,
-        blocked: existingQueued.length > 0,
-        queuedId: existingQueued[0]?.id ?? null,
-        queuedIsPreview: existingQueued[0]?.isPreview ?? null,
-      },
-      "H1"
+    logger.info(
+      `[derivations POST] rate limit check blocked=${existingQueued.length > 0} queuedId=${existingQueued[0]?.id ?? "none"} queuedIsPreview=${existingQueued[0]?.isPreview ?? "none"}`
     );
     if (existingQueued.length > 0) {
       return apiError("derivationsInProgress", 429);
