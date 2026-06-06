@@ -10,7 +10,7 @@
 | Date (UTC) | 2026-06-06 |
 | Operator | Codex browser smoke |
 | App URL | `https://adscale.jhonatansoares.com` |
-| Git ref at test | `fb409a0` live Render + manual Render startCommand update (`npm run db:migrate && npm run start:prod`) |
+| Git ref at test | `2752f16` live Render (`npm run db:migrate && npm run start:prod`, public Inngest sync) |
 | Automated preflight | 69 cockpit + review-fix tests pass locally |
 
 ## Cockpit path checklist
@@ -62,6 +62,6 @@ npm run build → PASS
 - **Fixed (2026-06-06):** Migration `0030` (`fa0eef1`) — derivations/approval-package 500s resolved.
 - **Fixed (2026-06-06):** Preview retry 429 (`23097b8`) — stale cleanup + delete existing preview before rate limit. Production probe: consecutive preview POSTs both **201**.
 - **Blocked (2026-06-06 18:53 UTC):** Browser SMK-C12 did not progress because preview derivation `4e23f9e4-cc88-4665-93ae-3f26084d1780` stayed `queued`, `outputKey: null`, `imageUrl: null`. Render logs from `18:45Z` onward showed deploy/startup only and no `derivation`/`Inngest` execution logs. Render service inventory shows `adscale-app` as a web service; no separate worker service was observed for this project.
-- **Fixed/confirmed (2026-06-06 19:13 UTC):** Render service start command was updated to `npm run db:migrate && npm run start:prod`; a public `PUT https://adscale.jhonatansoares.com/api/inngest` returned 200 `Successfully registered`, and queued generation completed.
-- **Caveat:** `start-with-inngest-sync.mjs` in `fb409a0` attempted local `127.0.0.1` sync, which Inngest rejected in production (`Cannot deploy localhost functions to production`). Follow-up code changes switch startup sync to the public `APP_URL`/`BETTER_AUTH_URL`.
+- **Fixed/confirmed (2026-06-06 19:26 UTC):** `2752f16` is live on Render; startup logs show `PUT https://adscale.jhonatansoares.com/api/inngest -> 200 {"message":"Successfully registered","modified":true}` and `/api/health` returns 200.
+- **Caveat:** `fb409a0` attempted local `127.0.0.1` sync, which Inngest rejected in production (`Cannot deploy localhost functions to production`). `2752f16` fixes startup sync to use public `APP_URL`/`BETTER_AUTH_URL`.
 - **Remaining:** Deploy follow-up sync fix, investigate why the approval package panel did not render in browser while the API returned roots, and fix regeneration 500 before calling C17 fully passed.
