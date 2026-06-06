@@ -9,32 +9,6 @@ import type { NextRequest } from "next/server";
 
 const handler = toNextJsHandler(auth);
 
-function debugAuthLog(
-  location: string,
-  message: string,
-  data: Record<string, unknown>,
-  hypothesisId: string
-) {
-  // #region agent log
-  fetch("http://127.0.0.1:7899/ingest/cfdc6907-57c9-49e8-855d-2427aa77ea62", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Debug-Session-Id": "021503",
-    },
-    body: JSON.stringify({
-      sessionId: "021503",
-      runId: "post-fix",
-      hypothesisId,
-      location,
-      message,
-      data,
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
-}
-
 type EmailAuthBody = {
   email?: string;
   password?: string;
@@ -49,27 +23,10 @@ async function readEmailAuthBody(req: NextRequest): Promise<EmailAuthBody | null
   }
 }
 
-async function prepareDevAdminAuth(req: NextRequest, body: EmailAuthBody | null) {
-  const path = req.nextUrl.pathname;
-  const isSignIn = path.includes("/sign-in/email");
-  const isSignUp = path.includes("/sign-up/email");
-  if (!isSignIn && !isSignUp) return { path, email: null as string | null };
-
+async function prepareDevAdminAuth(body: EmailAuthBody | null) {
   const email = body?.email?.trim().toLowerCase() ?? null;
-  if (!email) return { path, email: null };
-
-  debugAuthLog(
-    "auth/route.ts:prepareDevAdminAuth",
-    "auth request",
-    { path, email, devAdmin: isDevAdminEmail(email) },
-    isSignIn ? "H3" : "H2"
-  );
-
-  if (isDevAdminEmail(email)) {
-    await ensureDevAdminEmailVerified(email);
-  }
-
-  return { path, email };
+  if (!email || !isDevAdminEmail(email)) return;
+  await ensureDevAdminEmailVerified(email);
 }
 
 async function recreateDevAdminAccount(body: EmailAuthBody) {
@@ -77,14 +34,7 @@ async function recreateDevAdminAccount(body: EmailAuthBody) {
   const password = body.password;
   if (!email || !password || !isDevAdminEmail(email)) return false;
 
-  const removed = await repairDevAdminAccount(email);
-  debugAuthLog(
-    "auth/route.ts:recreateDevAdminAccount",
-    "repair dev admin account",
-    { email, removed },
-    "H2"
-  );
-
+  await repairDevAdminAccount(email);
   await auth.api.signUpEmail({
     body: {
       email,
@@ -121,14 +71,7 @@ async function maybeRepairDevAdminSignIn(
   const recreated = await recreateDevAdminAccount(body);
   if (!recreated) return response;
 
-  const retry = await handler.POST(req);
-  debugAuthLog(
-    "auth/route.ts:maybeRepairDevAdminSignIn",
-    "dev admin sign-in retry",
-    { email, status: retry.status },
-    "H2"
-  );
-  return retry;
+  return handler.POST(req);
 }
 
 export async function GET(req: NextRequest) {
@@ -137,23 +80,10 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await readEmailAuthBody(req);
-  await prepareDevAdminAuth(req, body);
+  await prepareDevAdminAuth(body);
 
   let response = await handler.POST(req);
   response = await maybeRepairDevAdminSignIn(req, response, body);
-
-  if (
-    req.nextUrl.pathname.includes("/sign-in/email") &&
-    body?.email &&
-    isDevAdminEmail(body.email)
-  ) {
-    debugAuthLog(
-      "auth/route.ts:POST",
-      "dev admin sign-in response",
-      { email: body.email, status: response.status },
-      "H3"
-    );
-  }
 
   return response;
 }
