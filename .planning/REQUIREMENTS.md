@@ -1,53 +1,109 @@
-# Requirements: ADScale v11.6.1 Ship Readiness and Beta Activation
+# Requirements: ADScale v11.7 Ads Scientist Progression
 
+**Defined:** 2026-06-06  
 **Core Value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
 ## Scope
 
-v11.6.1 is a release-readiness milestone. It does not add new product surfaces. It closes the remaining v11.6 ship caveats by proving the Creative Strategy Cockpit in a deployed environment, recording production evidence, and archiving the milestone cleanly.
+v11.7 adds a progression system that helps beta users learn the product by doing real work. The system should make the app feel more playful and directed while capturing actionable insight and connecting credit usage to visible creative value.
+
+The milestone balances activation and monetization: missions should naturally lead users through credit-consuming actions, but the product must explain why a credit spend matters and avoid manipulative dark patterns.
 
 ## Requirements
 
-### Ship Readiness
+### Progression Status
 
-- [x] **SHIP-01**: Operator can run the full v11.6 cockpit browser smoke on staging or production and record pass/fail evidence for every checklist step.
-- [x] **SHIP-02**: Operator can verify deployed git ref, health, required environment variables, and migration/schema readiness before beta ship.
-- [x] **SHIP-03**: Post-review fixes for recipe selection, preflight rerun billing, and handoff accuracy are included in the release and covered by focused tests.
-- [x] **SHIP-04**: v11.6 audit caveats are either resolved or explicitly carried forward with owner, evidence, and next action.
-- [x] **SHIP-05**: v11.6 artifacts are archived through the GSD milestone completion flow without losing release evidence.
+- [ ] **PROG-01**: User can see their current Ads Scientist status in the dashboard or workspace shell.
+- [ ] **PROG-02**: User can progress through at least four named levels: Jovem Aprendiz, Analista Criativo, Estrategista de Ads, and Cientista de Ads.
+- [ ] **PROG-03**: Status progression is based on completed product actions, not only page visits or time spent.
+- [ ] **PROG-04**: User can see what actions unlock the next status and which actions are already complete.
+- [ ] **PROG-05**: Progress state persists per workspace and does not reset across sessions.
 
-### Beta Activation
+### Guided Missions
 
-- [x] **BETA-01**: Beta operator has a concise runbook for the first cockpit beta sessions, including setup, credit expectations, privacy notes, and fallback steps.
-- [x] **BETA-02**: Owner can collect cockpit-specific beta feedback and map it back to readiness, briefing, recipe, preview, or approval-package stages.
-- [x] **BETA-03**: Release handoff identifies the next product learning questions before any larger v11.7 feature build begins.
+- [ ] **MISS-01**: User can view a mission list that teaches the core ADScale workflow in a recommended order.
+- [ ] **MISS-02**: User can complete missions for campaign setup, base creative upload, readiness analysis, guided briefing, strategy recipe selection, preview generation, batch generation, review, regeneration, export, and share.
+- [ ] **MISS-03**: Mission completion can be inferred from existing product events where possible instead of requiring manual checkboxes.
+- [ ] **MISS-04**: User can resume an incomplete mission from a clear call to action that deep-links to the relevant app surface.
+- [ ] **MISS-05**: Missions include concise learning copy that explains why the action matters for better ads.
+- [ ] **MISS-06**: Mission UI handles empty, loading, completed, and blocked states without disrupting the existing cockpit workflow.
+
+### Insight Capture
+
+- [ ] **INS-01**: User can answer lightweight contextual prompts after key mission moments, including first readiness run, first preview, first rejection, first regeneration, and first share/export.
+- [ ] **INS-02**: Insight prompts capture structured stage, sentiment, reason, and optional free-text without exposing raw prompts or model internals.
+- [ ] **INS-03**: Product owner can view mission-linked insight in the existing feedback/triage surface or a clearly connected owner view.
+- [ ] **INS-04**: Skipped missions and abandoned credit-spend moments are recorded as product signals when privacy-safe.
+- [ ] **INS-05**: Insight capture respects workspace boundaries and avoids collecting secrets, API keys, full prompts, or unrelated user content.
+
+### Credit-Aware Activation
+
+- [ ] **CRED-01**: Credit-consuming missions show expected credit cost before the user starts the action.
+- [ ] **CRED-02**: User can see remaining beta allowance or credit balance in the progression context when a mission involves generation.
+- [ ] **CRED-03**: Upgrade or top-up prompts appear only after meaningful value moments or clear insufficiency, not before the user understands the workflow.
+- [ ] **CRED-04**: Owner can distinguish healthy credit consumption from frustration signals using mission completion and insight data.
+
+### Verification
+
+- [ ] **QA-01**: Automated tests cover progression state calculation, mission completion rules, and workspace isolation.
+- [ ] **QA-02**: Automated tests cover insight creation, sanitization, and owner visibility.
+- [ ] **QA-03**: Automated tests cover credit estimate display and insufficient-credit progression states.
+- [ ] **QA-04**: Beta UAT checklist verifies that a new user can progress from Jovem Aprendiz to at least Analista Criativo using real app actions.
 
 ## Future Requirements
 
-- Direct Meta/TikTok/Google Ads publishing from approved packages.
-- Multi-stakeholder comment threads on public share pages.
-- Automatic budget optimizer across recipes and target formats.
-- Competitor upload workflow as a first-class campaign setup path.
-- Full Playwright E2E automation for the cockpit path.
+- Seasonal or campaign-specific challenge packs.
+- Team leaderboard or multi-user workspace competition.
+- Reward credits or discounts based on progression completion.
+- Adaptive mission ordering based on observed user behavior.
+- Public certificate or shareable "Cientista de Ads" achievement.
+- In-app academy with longer lessons, examples, and quizzes.
 
 ## Out of Scope
 
-- New AI model or provider migration.
-- New strategy recipes beyond the v11.6 catalog.
-- Paid media platform integrations.
-- Replacing the existing campaign form entirely.
-- Public marketing site changes.
-- Multi-client comment/approval workflow on share links.
+| Feature | Reason |
+|---------|--------|
+| Direct Meta/TikTok/Google publishing | Too large for the activation milestone and not needed to teach current workflow |
+| Client approval comments on public share links | Useful later, but v11.7 focuses on beta user activation inside the app |
+| Full admin CRM for beta cohorts | Owner only needs mission-linked insight and signals for now |
+| Manipulative streaks or forced credit burn | Progression must feel useful and transparent, not like a dark pattern |
+| Monetary rewards or coupons | Requires billing/product policy decisions beyond this milestone |
+| New AI model/provider behavior | Existing cockpit/generation capabilities are enough for progression |
 
 ## Traceability
 
-| Requirement | Phase |
-|-------------|-------|
-| SHIP-01 | 66 |
-| SHIP-02 | 66 |
-| SHIP-03 | 66 |
-| SHIP-04 | 67 |
-| SHIP-05 | 67 |
-| BETA-01 | 67 |
-| BETA-02 | 67 |
-| BETA-03 | 67 |
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| PROG-01 | Phase 68 | Pending |
+| PROG-02 | Phase 68 | Pending |
+| PROG-03 | Phase 68 | Pending |
+| PROG-04 | Phase 68 | Pending |
+| PROG-05 | Phase 68 | Pending |
+| MISS-01 | Phase 69 | Pending |
+| MISS-02 | Phase 69 | Pending |
+| MISS-03 | Phase 69 | Pending |
+| MISS-04 | Phase 69 | Pending |
+| MISS-05 | Phase 69 | Pending |
+| MISS-06 | Phase 69 | Pending |
+| INS-01 | Phase 70 | Pending |
+| INS-02 | Phase 70 | Pending |
+| INS-03 | Phase 70 | Pending |
+| INS-04 | Phase 70 | Pending |
+| INS-05 | Phase 70 | Pending |
+| CRED-01 | Phase 71 | Pending |
+| CRED-02 | Phase 71 | Pending |
+| CRED-03 | Phase 71 | Pending |
+| CRED-04 | Phase 71 | Pending |
+| QA-01 | Phase 71 | Pending |
+| QA-02 | Phase 71 | Pending |
+| QA-03 | Phase 71 | Pending |
+| QA-04 | Phase 71 | Pending |
+
+**Coverage:**
+- v11.7 requirements: 24 total
+- Mapped to phases: 24
+- Unmapped: 0
+
+---
+*Requirements defined: 2026-06-06*
+*Last updated: 2026-06-06 after v11.7 milestone initialization*
