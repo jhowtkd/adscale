@@ -38,17 +38,17 @@ The milestone balances activation and monetization: missions should naturally le
 
 ### Credit-Aware Activation
 
-- [ ] **CRED-01**: Credit-consuming missions show expected credit cost before the user starts the action.
-- [ ] **CRED-02**: User can see remaining beta allowance or credit balance in the progression context when a mission involves generation.
-- [ ] **CRED-03**: Upgrade or top-up prompts appear only after meaningful value moments or clear insufficiency, not before the user understands the workflow.
-- [ ] **CRED-04**: Owner can distinguish healthy credit consumption from frustration signals using mission completion and insight data.
+- [x] **CRED-01**: Credit-consuming missions show expected credit cost before the user starts the action.
+- [x] **CRED-02**: User can see remaining beta allowance or credit balance in the progression context when a mission involves generation.
+- [x] **CRED-03**: Upgrade or top-up prompts appear only after meaningful value moments or clear insufficiency, not before the user understands the workflow.
+- [x] **CRED-04**: Owner can distinguish healthy credit consumption from frustration signals using mission completion and insight data.
 
 ### Verification
 
-- [ ] **QA-01**: Automated tests cover progression state calculation, mission completion rules, and workspace isolation.
-- [ ] **QA-02**: Automated tests cover insight creation, sanitization, and owner visibility.
-- [ ] **QA-03**: Automated tests cover credit estimate display and insufficient-credit progression states.
-- [ ] **QA-04**: Beta UAT checklist verifies that a new user can progress from Jovem Aprendiz to at least Analista Criativo using real app actions.
+- [x] **QA-01**: Automated tests cover progression state calculation, mission completion rules, and workspace isolation.
+- [x] **QA-02**: Automated tests cover insight creation, sanitization, and owner visibility.
+- [x] **QA-03**: Automated tests cover credit estimate display and insufficient-credit progression states.
+- [x] **QA-04**: Beta UAT checklist verifies that a new user can progress from Jovem Aprendiz to at least Analista Criativo using real app actions.
 
 ## Future Requirements
 
@@ -90,14 +90,14 @@ The milestone balances activation and monetization: missions should naturally le
 | INS-03 | Phase 70 | Complete |
 | INS-04 | Phase 70 | Complete |
 | INS-05 | Phase 70 | Complete |
-| CRED-01 | Phase 71 | Pending |
-| CRED-02 | Phase 71 | Pending |
-| CRED-03 | Phase 71 | Pending |
-| CRED-04 | Phase 71 | Pending |
-| QA-01 | Phase 71 | Pending |
-| QA-02 | Phase 71 | Pending |
-| QA-03 | Phase 71 | Pending |
-| QA-04 | Phase 71 | Pending |
+| CRED-01 | Phase 71 | Complete |
+| CRED-02 | Phase 71 | Complete |
+| CRED-03 | Phase 71 | Complete |
+| CRED-04 | Phase 71 | Complete |
+| QA-01 | Phase 71 | Complete |
+| QA-02 | Phase 71 | Complete |
+| QA-03 | Phase 71 | Complete |
+| QA-04 | Phase 71 | Complete |
 
 **Coverage:**
 - v11.7 requirements: 24 total

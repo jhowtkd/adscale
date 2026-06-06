@@ -155,11 +155,11 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ### Active
 
-- [ ] **PROG-01–05**: User can see and progress through an Ads Scientist status ladder tied to meaningful product actions — v11.7
-- [ ] **MISS-01–06**: User can complete guided missions that teach and exercise the app's core creative workflow — v11.7
-- [ ] **INS-01–05**: Product owner can capture structured insight from mission moments, rejections, skips, and credit friction — v11.7
-- [ ] **CRED-01–04**: Credit usage is connected to mission value, remaining allowance, and upgrade moments without dark patterns — v11.7
-- [ ] **QA-01–04**: Progression, insight capture, and credit prompts are verified with tests and a beta UAT checklist — v11.7
+- [x] **PROG-01–05**: User can see and progress through an Ads Scientist status ladder tied to meaningful product actions — v11.7
+- [x] **MISS-01–06**: User can complete guided missions that teach and exercise the app's core creative workflow — v11.7
+- [x] **INS-01–05**: Product owner can capture structured insight from mission moments, rejections, skips, and credit friction — v11.7
+- [x] **CRED-01–04**: Credit usage is connected to mission value, remaining allowance, and upgrade moments without dark patterns — v11.7
+- [x] **QA-01–04**: Progression, insight capture, and credit prompts are verified with tests and a beta UAT checklist — v11.7
 
 ### Validated (v10.0)
 

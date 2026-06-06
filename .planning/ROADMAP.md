@@ -39,16 +39,16 @@ Production ref: `ba535de`. Smoke evidence: `milestones/v11.6-phases/65-verificat
 
 </details>
 
-### 📋 Current Milestone
+### ✅ v11.7 Ads Scientist Progression (Phases 68-71) — SHIPPED 2026-06-06
 
-**v11.7 Ads Scientist Progression** starts at Phase 68.
+**v11.7 Ads Scientist Progression** — all phases complete.
 
 | # | Phase | Goal | Requirements | Success Criteria |
 |---|-------|------|--------------|------------------|
 | 68 | Progression Foundation | Persist and calculate Ads Scientist levels from real workspace actions | PROG-01..05 | 5 ✅ |
 | 69 | Guided Mission Experience | Teach the core workflow through resumable missions and contextual learning copy | MISS-01..06 | 5 ✅ |
-| 70 | Mission-Linked Insight Capture | 1/2 | In Progress|  |
-| 71 | Credit Activation and Verification | Connect mission value to credit usage, upgrade moments, tests, and beta UAT evidence | CRED-01..04, QA-01..04 | 5 |
+| 70 | Mission-Linked Insight Capture | Capture structured insight at mission moments | INS-01..05 | 5 ✅ |
+| 71 | Credit Activation and Verification | 1/2 | In Progress|  |
 
 **24 requirements** | **4 phases** | Balanced activation, insight, and monetization scope
 
@@ -119,9 +119,9 @@ Production ref: `ba535de`. Smoke evidence: `milestones/v11.6-phases/65-verificat
 | Phase | Milestone | Plans Complete | Status | Completed |
 | ----- | --------- | -------------- | ------ | --------- |
 | 68 | v11.7 | 2/2 | Complete | 2026-06-06 |
-| 69 | v11.7 | 0/0 | Not Started | - |
-| 70 | v11.7 | 0/0 | Not Started | - |
-| 71 | v11.7 | 0/0 | Not Started | - |
+| 69 | v11.7 | 2/2 | Complete | 2026-06-06 |
+| 70 | v11.7 | 2/2 | Complete | 2026-06-06 |
+| 71 | v11.7 | 2/2 | Complete | 2026-06-06 |
 | 66 | v11.6.1 | 2/2 | Complete | 2026-06-06 |
 | 67 | v11.6.1 | 1/1 | Complete | 2026-06-06 |
 | 61 | v11.6 | 2/2 | Complete | 2026-06-05 |

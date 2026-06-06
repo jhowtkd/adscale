@@ -1,5 +1,23 @@
 # Milestones: ADScale
 
+## v11.7 Ads Scientist Progression (Shipped: 2026-06-06)
+
+**Phases completed:** 4 phases (68→71), 8 plans  
+**Requirements:** 24/24 complete
+
+**Key accomplishments:**
+
+- Ads Scientist status ladder (Jovem Aprendiz → Cientista de Ads) from real workspace actions
+- 11-step guided mission path with deep-link CTAs and learning copy
+- Mission-linked insight capture with owner triage and sanitization
+- Credit cost and balance on generation missions; gated upgrade prompts after value moments
+- Owner healthy-vs-frustration credit signals on feedback triage
+- 32-test QA matrix + UAT evidence for progression to Analista Criativo
+
+**Archive:** Phases 68-71 in `.planning/phases/` · Verification: `71-VERIFICATION.md` · UAT: `71-UAT-EVIDENCE.md`
+
+---
+
 ## v11.6.1 Ship Readiness and Beta Activation (Shipped: 2026-06-06)
 
 **Phases completed:** 2 phases (66→67), 3 plans
