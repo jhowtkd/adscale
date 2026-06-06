@@ -9,6 +9,7 @@
     "analyze": "cross-env ANALYZE=true next build --webpack",
     "analyze:ci": "node scripts/analyze-bundle.mjs",
     "start": "next start",
+    "start:prod": "node scripts/start-with-inngest-sync.mjs",
     "lint": "eslint",
     "test": "vitest run --config config/vitest.config.ts --passWithNoTests",
     "test:e2e": "playwright test",

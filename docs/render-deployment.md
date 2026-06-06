@@ -50,7 +50,7 @@ If Render assigns a different URL or you add a custom domain, update these env v
 
 Also update external integrations to point back to the Render URL:
 
-- Inngest endpoint: `https://<your-render-url>/api/inngest`
+- Inngest endpoint: `https://<your-render-url>/api/inngest` (functions auto-sync on app startup via `npm run start:prod`)
 - Stripe webhook endpoint: `https://<your-render-url>/api/billing/webhook`
 
 ## Deploy Flow
