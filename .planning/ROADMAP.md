@@ -2,7 +2,8 @@
 
 ## Milestones
 
-- 📋 **v11.6.1 Ship Readiness and Beta Activation** - Phases 66-67 (partial — v11.6 archived 2026-06-06)
+- 📋 **v11.7 Ads Scientist Progression** - Phases 68-71
+- ✅ **v11.6.1 Ship Readiness and Beta Activation** - Phases 66-67 (shipped 2026-06-06)
 - ✅ **v11.6 Creative Strategy Cockpit** - Phases 61-65 (shipped 2026-06-06)
 - ✅ **v11.5 Qualidade IA Orientada por Feedback** - Phases 57-60 (shipped 2026-06-05)
 - ✅ **v11.4 Beta Feedback Capture** - Phases 53-56 (shipped 2026-06-05)
@@ -12,6 +13,16 @@
 - ✅ **v11.0 Fluxos de Derivação Coerentes** - Phases 40-43 (shipped 2026-06-01)
 
 ## Phases
+
+<details>
+<summary>✅ v11.6.1 Ship Readiness and Beta Activation (Phases 66-67) - SHIPPED 2026-06-06</summary>
+
+- [x] Phase 66: Production Smoke and Release Evidence (2/2 plans)
+- [x] Phase 67: Milestone Archive and Beta Runbook (1/1 plans)
+
+Archive context: `.planning/phases/67-milestone-archive-and-beta-runbook/67-BETA-RUNBOOK.md` and `.planning/phases/67-milestone-archive-and-beta-runbook/67-LEARNING-QUESTIONS.md`.
+
+</details>
 
 <details>
 <summary>✅ v11.6 Creative Strategy Cockpit (Phases 61-65) - SHIPPED 2026-06-06</summary>
@@ -28,65 +39,89 @@ Production ref: `ba535de`. Smoke evidence: `milestones/v11.6-phases/65-verificat
 
 </details>
 
-<details>
-<summary>✅ v11.5 Qualidade IA Orientada por Feedback (Phases 57-60) - SHIPPED 2026-06-05</summary>
-
-- [x] Phase 57: Creative Contract and Prompt Provenance (2/2 plans)
-- [x] Phase 58: Scoring and QA Alignment (2/2 plans)
-- [x] Phase 59: Feedback-Informed Regeneration (4/4 plans)
-- [x] Phase 60: Quality Fixtures and Verification (4/4 plans)
-
-Archive: [v11.5-ROADMAP.md](milestones/v11.5-ROADMAP.md) · [v11.5-REQUIREMENTS.md](milestones/v11.5-REQUIREMENTS.md) · [v11.5-MILESTONE-AUDIT.md](milestones/v11.5-MILESTONE-AUDIT.md) · [v11.5-phases/](milestones/v11.5-phases/)
-
-</details>
-
 ### 📋 Current Milestone
 
-**v11.6.1 Ship Readiness and Beta Activation** starts at Phase 66.
+**v11.7 Ads Scientist Progression** starts at Phase 68.
 
 | # | Phase | Goal | Requirements | Success Criteria |
 |---|-------|------|--------------|------------------|
-| 66 | Production Smoke and Release Evidence | Prove the deployed cockpit path and release prerequisites | SHIP-01..03 | 5 |
-| 67 | Milestone Archive and Beta Runbook | Resolve audit caveats, archive v11.6, and prepare beta operation | SHIP-04..05, BETA-01..03 | 5 |
+| 68 | Progression Foundation | Persist and calculate Ads Scientist levels from real workspace actions | PROG-01..05 | 5 |
+| 69 | Guided Mission Experience | Teach the core workflow through resumable missions and contextual learning copy | MISS-01..06 | 5 |
+| 70 | Mission-Linked Insight Capture | Capture structured beta learning from mission moments, skips, rejections, and friction | INS-01..05 | 5 |
+| 71 | Credit Activation and Verification | Connect mission value to credit usage, upgrade moments, tests, and beta UAT evidence | CRED-01..04, QA-01..04 | 5 |
 
-**8 requirements** | **2 phases** | Release-readiness scope only
+**24 requirements** | **4 phases** | Balanced activation, insight, and monetization scope
 
 ## Phase Details
 
-### Phase 66: Production Smoke and Release Evidence
+### Phase 68: Progression Foundation
 
-**Goal:** Verify the implemented v11.6 cockpit in a deployed environment and capture enough evidence to decide whether it is beta-shippable.
+**Goal:** Establish the durable status ladder and completion model that the rest of the milestone can build on.
 
-**Requirements:** SHIP-01, SHIP-02, SHIP-03
-
-**Success Criteria:**
-1. Operator runs the full cockpit smoke checklist on staging or production.
-2. Evidence records deployed git ref, app URL, operator, date, pass/fail result, and notes for every smoke step.
-3. Health, environment inventory, and migration/schema readiness are verified or blocked with exact evidence.
-4. Post-review fixes for recipe selection, preflight rerun billing, and handoff accuracy are included in the tested release.
-5. Focused tests plus lint/build evidence are attached or refreshed.
-
-**Depends on:** v11.6 implementation through `ec2f1a4` on `origin/main`.
-
-### Phase 67: Milestone Archive and Beta Runbook
-
-**Goal:** Close v11.6 audit caveats, archive the milestone cleanly, and leave the operator ready for first beta sessions.
-
-**Requirements:** SHIP-04, SHIP-05, BETA-01, BETA-02, BETA-03
+**Requirements:** PROG-01, PROG-02, PROG-03, PROG-04, PROG-05
 
 **Success Criteria:**
-1. v11.6 audit caveats are resolved or carried forward with owner and next action.
-2. GSD milestone completion/archive flow preserves roadmap, requirements, audit, phase plans, summaries, and smoke evidence.
-3. Beta runbook explains setup, credits, privacy boundaries, expected cockpit path, and fallback behavior.
-4. Feedback collection maps beta notes to readiness, briefing, recipe, preview, or approval-package stages.
-5. Next product learning questions are documented before starting a larger v11.7 build.
+1. Workspace has persisted progression state that survives refresh and login/logout.
+2. The system can derive progress from real product actions rather than page visits.
+3. The user sees a current level and next-level requirements in a visible but non-disruptive place.
+4. Level names and thresholds match the v11.7 product language: Jovem Aprendiz, Analista Criativo, Estrategista de Ads, Cientista de Ads.
+5. Repository/service tests prove level calculation and workspace isolation.
 
-**Depends on:** Phase 66 smoke evidence.
+**Depends on:** Existing user/workspace model and beta access foundation.
+
+### Phase 69: Guided Mission Experience
+
+**Goal:** Turn the existing cockpit and creative workflow into a guided mission path that teaches by doing.
+
+**Requirements:** MISS-01, MISS-02, MISS-03, MISS-04, MISS-05, MISS-06
+
+**Success Criteria:**
+1. User can open a mission list and understand the recommended path through ADScale.
+2. Mission completion covers setup, upload, readiness, guided briefing, strategy recipe, preview, batch, review, regeneration, export, and share.
+3. Mission CTAs resume the user directly into the relevant app surface.
+4. Learning copy explains the purpose of each action in practical ad-creation language.
+5. Mission UI has polished empty/loading/completed/blocked states and does not break the cockpit flow.
+
+**Depends on:** Phase 68 progression state.
+
+### Phase 70: Mission-Linked Insight Capture
+
+**Goal:** Capture product learning at the moments where beta behavior is most informative.
+
+**Requirements:** INS-01, INS-02, INS-03, INS-04, INS-05
+
+**Success Criteria:**
+1. Lightweight prompts appear after key mission moments without blocking the primary workflow.
+2. Insight records include stage, mission, sentiment, structured reason, optional text, and safe diagnostic context.
+3. Rejection, skip, abandonment, and credit-friction events become owner-visible signals.
+4. Owner can review mission-linked insight from the existing feedback/triage path or an adjacent owner view.
+5. Sanitization tests prove secrets, raw prompts, and unrelated user content are not captured.
+
+**Depends on:** Phase 69 mission events and existing feedback infrastructure.
+
+### Phase 71: Credit Activation and Verification
+
+**Goal:** Make credit consumption understandable and commercially useful while verifying the full progression loop.
+
+**Requirements:** CRED-01, CRED-02, CRED-03, CRED-04, QA-01, QA-02, QA-03, QA-04
+
+**Success Criteria:**
+1. Credit-consuming missions show expected cost and remaining allowance before generation starts.
+2. Upgrade/top-up prompts appear only after clear value moments or true insufficiency.
+3. Owner can separate healthy credit consumption from frustration using mission and insight data.
+4. Automated tests cover progression rules, insight capture, credit display, and insufficient-credit states.
+5. Beta UAT evidence proves a new user can reach at least Analista Criativo through real app actions.
+
+**Depends on:** Phases 68-70.
 
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 | ----- | --------- | -------------- | ------ | --------- |
+| 68 | v11.7 | 0/0 | Not Started | - |
+| 69 | v11.7 | 0/0 | Not Started | - |
+| 70 | v11.7 | 0/0 | Not Started | - |
+| 71 | v11.7 | 0/0 | Not Started | - |
 | 66 | v11.6.1 | 2/2 | Complete | 2026-06-06 |
 | 67 | v11.6.1 | 1/1 | Complete | 2026-06-06 |
 | 61 | v11.6 | 2/2 | Complete | 2026-06-05 |
@@ -100,4 +135,4 @@ Archive: [v11.5-ROADMAP.md](milestones/v11.5-ROADMAP.md) · [v11.5-REQUIREMENTS.
 | 60 | v11.5 | 4/4 | Complete | 2026-06-05 |
 
 ---
-*Roadmap updated: 2026-06-06 after v11.6 milestone archive*
+*Roadmap updated: 2026-06-06 after v11.7 milestone initialization*

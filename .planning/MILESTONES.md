@@ -1,5 +1,22 @@
 # Milestones: ADScale
 
+## v11.6.1 Ship Readiness and Beta Activation (Shipped: 2026-06-06)
+
+**Phases completed:** 2 phases (66→67), 3 plans
+**Requirements:** 8/8 complete
+
+**Key accomplishments:**
+
+- Production/staging cockpit smoke evidence and release readiness checks
+- Deploy, health, environment, and migration readiness evidence
+- Post-review fixes for recipe selection, preflight rerun billing, and approval-package refresh
+- v11.6 milestone archive with audit caveats resolved or carried forward
+- Beta operator runbook, feedback-stage mapping, and v11.7 learning questions
+
+**Runbook:** [67-BETA-RUNBOOK.md](phases/67-milestone-archive-and-beta-runbook/67-BETA-RUNBOOK.md) · [67-LEARNING-QUESTIONS.md](phases/67-milestone-archive-and-beta-runbook/67-LEARNING-QUESTIONS.md)
+
+---
+
 ## v11.6 Creative Strategy Cockpit (Shipped: 2026-06-06)
 
 **Phases completed:** 5 phases (61→65), 10 plans
