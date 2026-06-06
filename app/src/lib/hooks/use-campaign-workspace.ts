@@ -256,6 +256,7 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
         },
         onError: () => {
           addToast("error", options?.preview ? tc("failedQueuePreview") : tc("failedQueueDerivations"));
+          setWorkspaceState("acoes");
         },
       });
     },

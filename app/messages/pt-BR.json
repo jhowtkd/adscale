@@ -134,6 +134,8 @@
     "failedApprovePlan": "Falha ao aprovar plano",
     "derivationsQueued": "Variações criativas enfileiradas para geração",
     "failedQueueDerivations": "Falha ao enfileirar variações criativas",
+    "previewQueued": "Prévia enfileirada para geração",
+    "failedQueuePreview": "Falha ao enfileirar prévia",
     "openingComparison": "Abrindo visualização de comparação...",
     "draftDeleted": "Rascunho excluído",
     "failedDeleteDraft": "Falha ao excluir rascunho",

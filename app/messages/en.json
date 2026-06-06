@@ -134,6 +134,8 @@
     "failedApprovePlan": "Failed to approve plan",
     "derivationsQueued": "Creative variants queued for generation",
     "failedQueueDerivations": "Failed to queue creative variants",
+    "previewQueued": "Preview queued for generation",
+    "failedQueuePreview": "Failed to queue preview",
     "openingComparison": "Opening comparison view...",
     "draftDeleted": "Draft deleted",
     "failedDeleteDraft": "Failed to delete draft",
