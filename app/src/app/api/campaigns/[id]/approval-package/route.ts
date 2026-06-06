@@ -7,6 +7,7 @@ import {
   buildApprovalPackageSnapshot,
   expandPackageDerivationIds,
   getApprovedRootDerivations,
+  getPackageEligibleRoots,
   type DerivationLike,
 } from "@/server/ai/client-approval-package";
 import { getCampaignById, updateCampaign } from "@/server/repositories/campaign";
@@ -77,7 +78,7 @@ function validateSelectedRoots(
   derivations: DerivationLike[]
 ) {
   const approvedRoots = new Set(
-    getApprovedRootDerivations(derivations).map((d) => d.id)
+    getPackageEligibleRoots(derivations).map((d) => d.id)
   );
 
   for (const id of selectedRootIds) {
@@ -110,7 +111,7 @@ export async function GET(
       workspace.id
     );
 
-    const approvedRoots = getApprovedRootDerivations(derivations);
+    const approvedRoots = getPackageEligibleRoots(derivations);
     const selectedRootIds = shareLink
       ? derivations
           .filter(

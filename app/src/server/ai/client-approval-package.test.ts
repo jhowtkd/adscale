@@ -5,6 +5,7 @@ import {
   detectPackageStaleness,
   expandPackageDerivationIds,
   getApprovedRootDerivations,
+  getPackageEligibleRoots,
 } from "./client-approval-package";
 
 const baseDerivations = [
@@ -60,6 +61,43 @@ describe("client-approval-package", () => {
   it("expands selected roots to include approved children", () => {
     const expanded = expandPackageDerivationIds(["root-1"], baseDerivations);
     expect(expanded).toEqual(["root-1", "child-4x5"]);
+  });
+
+  it("omits rejected roots but keeps approved regeneration children", () => {
+    const derivations = [
+      {
+        id: "root-rejected",
+        parentId: null,
+        status: "rejected",
+        outputKey: "out/root-rejected.png",
+        format: "1:1",
+        isPreview: false,
+      },
+      {
+        id: "regen-child",
+        parentId: "root-rejected",
+        status: "approved",
+        outputKey: "out/regen-child.png",
+        format: "1:1",
+        isPreview: false,
+      },
+    ];
+
+    expect(getPackageEligibleRoots(derivations).map((d) => d.id)).toEqual([
+      "root-rejected",
+    ]);
+    expect(expandPackageDerivationIds(["root-rejected"], derivations)).toEqual([
+      "regen-child",
+    ]);
+
+    const snapshot = buildApprovalPackageSnapshot({
+      selectedRootIds: ["root-rejected"],
+      derivations,
+      campaign: { notes: "Refreshed after rejection" },
+    });
+
+    expect(snapshot.derivationIds).toEqual(["regen-child"]);
+    expect(snapshot.isStale).toBe(false);
   });
 
   it("builds creative notes from derivation and campaign context", () => {

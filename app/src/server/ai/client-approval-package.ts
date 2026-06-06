@@ -78,6 +78,27 @@ export function getApprovedRootDerivations(
   );
 }
 
+/** Roots eligible for client packages — approved roots or rejected roots with an approved regen child. */
+export function getPackageEligibleRoots(
+  derivations: DerivationLike[]
+): DerivationLike[] {
+  const approvedChildrenByParent = new Map<string, DerivationLike[]>();
+
+  for (const derivation of derivations) {
+    if (!derivation.parentId) continue;
+    if (derivation.status !== "approved" || !derivation.outputKey) continue;
+    const siblings = approvedChildrenByParent.get(derivation.parentId) ?? [];
+    siblings.push(derivation);
+    approvedChildrenByParent.set(derivation.parentId, siblings);
+  }
+
+  return derivations.filter((derivation) => {
+    if (derivation.parentId || derivation.isPreview) return false;
+    if (derivation.status === "approved" && derivation.outputKey) return true;
+    return (approvedChildrenByParent.get(derivation.id) ?? []).length > 0;
+  });
+}
+
 export function expandPackageDerivationIds(
   selectedRootIds: string[],
   derivations: DerivationLike[]
@@ -92,14 +113,21 @@ export function expandPackageDerivationIds(
   }
 
   const expanded: string[] = [];
+  const byId = new Map(derivations.map((d) => [d.id, d]));
 
   for (const rootId of selectedRootIds) {
-    expanded.push(rootId);
+    const root = byId.get(rootId);
     const children = byParent.get(rootId) ?? [];
-    for (const child of children) {
-      if (child.status === "approved" && child.outputKey) {
-        expanded.push(child.id);
-      }
+    const approvedChildren = children.filter(
+      (child) => child.status === "approved" && child.outputKey
+    );
+
+    if (root?.status === "approved" && root.outputKey) {
+      expanded.push(rootId);
+    }
+
+    for (const child of approvedChildren) {
+      expanded.push(child.id);
     }
   }
 
