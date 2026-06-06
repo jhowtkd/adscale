@@ -1,8 +1,8 @@
 ---
 gsd_state_version: 1.0
 milestone: v11.7
-milestone_name: milestone
-status: planning
+milestone_name: Ads Scientist Progression
+status: planned
 last_updated: "2026-06-06T21:32:36.688Z"
 last_activity: 2026-06-06 - Milestone v11.7 started
 progress:
@@ -19,7 +19,7 @@ progress:
 Milestone: v11.7 - Ads Scientist Progression
 Phase: 68 - Progression Foundation
 Plan: -
-Status: Context gathered; ready for planning
+Status: Planned; ready for execution
 Last activity: 2026-06-06 - Milestone v11.7 started
 
 **Last session:** 2026-06-06T21:32:36.686Z
@@ -37,8 +37,8 @@ Last activity: 2026-06-06 - Milestone v11.7 started
 
 ## Next Steps
 
-1. Run `$gsd-plan-phase 68` to create implementation plans.
-2. Use `.planning/phases/68-progression-foundation/68-CONTEXT.md` as the source of truth for Phase 68 decisions.
+1. Run `$gsd-execute-phase 68` to implement the two Phase 68 plans.
+2. Start with `.planning/phases/68-progression-foundation/68-01-PLAN.md`, then continue to `68-02-PLAN.md`.
 
 ## Project Reference
 
