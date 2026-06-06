@@ -10,15 +10,15 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Current Milestone
 
-### v11.6.1 Ship Readiness and Beta Activation
+### v11.7 Ads Scientist Progression
 
-**Goal:** Close the remaining v11.6 ship caveats by proving the Creative Strategy Cockpit in a deployed environment, recording release evidence, and preparing the first beta sessions.
+**Goal:** Turn beta usage into a guided progression loop that teaches the app, captures product insight, and encourages healthy credit consumption.
 
 **Target features:**
-- Operator browser smoke for the full cockpit path on staging or production.
-- Deployment, health, environment, and migration readiness evidence.
-- Release/archive closure for v11.6 artifacts and audit caveats.
-- Beta operator runbook with credits, privacy, feedback mapping, and fallback steps.
+- Workspace/user status ladder from Jovem Aprendiz to Cientista de Ads.
+- Mission system that guides users through the core cockpit, generation, review, regeneration, export, and sharing flows.
+- Contextual insight capture at key mission moments without interrupting creation.
+- Credit-aware progression that explains value, creates natural usage, and surfaces upgrade prompts when limits matter.
 
 ## Requirements
 
@@ -148,14 +148,18 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 - ✓ **DELIVER-01–04**: Client approval package, selected formats, creative notes, share links, signed assets, and refresh flow — v11.6
 - ✓ **CQA-01/CQA-02/CQA-03**: Automated cockpit coverage, production browser smoke, and beta handoff documentation — v11.6
 
-### Active
-
-- [ ] **v11.7 planning**: Define next product milestone after beta learning (use `/gsd-new-milestone`).
-
 ### Validated (v11.6.1)
 
 - ✓ **SHIP-01–05**: Production cockpit smoke, deploy/migration evidence, post-review fixes, audit caveats register, and v11.6 GSD archive — v11.6.1
 - ✓ **BETA-01–03**: Beta runbook, feedback stage mapping, and learning questions — v11.6.1
+
+### Active
+
+- [ ] **PROG-01–05**: User can see and progress through an Ads Scientist status ladder tied to meaningful product actions — v11.7
+- [ ] **MISS-01–06**: User can complete guided missions that teach and exercise the app's core creative workflow — v11.7
+- [ ] **INS-01–05**: Product owner can capture structured insight from mission moments, rejections, skips, and credit friction — v11.7
+- [ ] **CRED-01–04**: Credit usage is connected to mission value, remaining allowance, and upgrade moments without dark patterns — v11.7
+- [ ] **QA-01–04**: Progression, insight capture, and credit prompts are verified with tests and a beta UAT checklist — v11.7
 
 ### Validated (v10.0)
 
@@ -198,9 +202,9 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Context
 
-Current state: v11.6 Creative Strategy Cockpit **shipped** 2026-06-06 (`ba535de` on Render). Production smoke CQA-02 passed; milestone archived to `.planning/milestones/v11.6-*`. v11.6.1 ship-readiness requirements complete — ready for first beta sessions per `67-BETA-RUNBOOK.md`.
+Current state: v11.6 Creative Strategy Cockpit **shipped** 2026-06-06 (`ba535de` on Render). Production smoke CQA-02 passed; milestone archived to `.planning/milestones/v11.6-*`. v11.6.1 ship-readiness requirements complete.
 
-The active direction is beta operation and learning collection before v11.7 product planning.
+The active direction for v11.7 is a balanced activation loop: teach beta users to use all high-value app functions, collect actionable insight while they work, and make credit consumption feel tied to learning and creative output rather than arbitrary depletion.
 
 Marketing remains in `jhowtkd/site-adscale.git`; product feedback and owner triage live in ADScale_2 at `/feedback` for platform owners.
 
@@ -243,7 +247,8 @@ Key stack decisions:
 | Synthetic fixtures over customer assets | Privacy-safe repeatable regression for known failure modes | ✓ Good — v11.5 |
 | Preview before batch | Users should validate strategy cheaply before spending credits on a full batch | ✓ Good — v11.6 |
 | Strategy cockpit over isolated tools | Existing AI modules should be orchestrated into one decision path before adding new surface area | ✓ Good — v11.6 |
-| Operator smoke before beta ship | Automated tests passed, but deployed browser evidence is still the release gate | Active — v11.6.1 |
+| Operator smoke before beta ship | Automated tests passed, but deployed browser evidence is still the release gate | ✓ Good — v11.6.1 |
+| Progression as activation, not decoration | Beta users should learn by completing real creative tasks that generate insight and consume credits transparently | Active — v11.7 |
 
 ## Evolution
 
@@ -368,7 +373,7 @@ This document evolves at phase transitions and milestone boundaries.
 
 ## Next Milestone Goals
 
-- v11.6.1 Ship Readiness and Beta Activation: production/staging cockpit smoke, deploy and migration evidence, milestone archive, beta runbook, and learning questions.
+- v11.7 Ads Scientist Progression: status ladder, guided missions, contextual insight capture, credit-aware activation, and beta UAT evidence.
 
 ---
-*Last updated: 2026-06-05 after v11.6.1 milestone initialization*
+*Last updated: 2026-06-06 after v11.7 milestone initialization*
