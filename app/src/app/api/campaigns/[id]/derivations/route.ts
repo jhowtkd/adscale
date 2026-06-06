@@ -30,6 +30,45 @@ import {
 
 const STALE_ACTIVE_DERIVATION_MINUTES = 10;
 
+function debugDerivationsLog(
+  location: string,
+  message: string,
+  data: Record<string, unknown>,
+  hypothesisId: string
+) {
+  // #region agent log
+  fetch("http://127.0.0.1:7899/ingest/cfdc6907-57c9-49e8-855d-2427aa77ea62", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Debug-Session-Id": "021503",
+    },
+    body: JSON.stringify({
+      sessionId: "021503",
+      runId: "derivations-500",
+      hypothesisId,
+      location,
+      message,
+      data,
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
+}
+
+function logRouteError(context: string, error: unknown) {
+  const details =
+    error instanceof Error
+      ? {
+          name: error.name,
+          message: error.message,
+          code: (error as NodeJS.ErrnoException).code,
+        }
+      : { message: String(error) };
+  logger.error(`[${context}]`, details);
+  debugDerivationsLog(context, "route error", details, "H1");
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -219,6 +258,7 @@ export async function POST(
 
     return NextResponse.json({ derivations: created }, { status: 201 });
   } catch (error) {
+    logRouteError("campaigns.[id].derivations.POST", error);
     return handleApiError(error, "campaigns.[id].derivations.POST");
   }
 }
@@ -263,6 +303,7 @@ export async function GET(
     );
     return NextResponse.json({ derivations: derivationsWithImageUrl });
   } catch (error) {
+    logRouteError("campaigns.[id].derivations.GET", error);
     return handleApiError(error, "campaigns.[id].derivations.GET");
   }
 }

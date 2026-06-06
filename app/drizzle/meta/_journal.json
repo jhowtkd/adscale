@@ -211,6 +211,13 @@
       "when": 1780779600000,
       "tag": "0029_dedupe_user_emails",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1780783200000,
+      "tag": "0030_share_links_and_derivation_columns",
+      "breakpoints": true
     }
   ]
 }
