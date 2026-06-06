@@ -230,6 +230,14 @@
       "allCompleteTitle": "Path complete!",
       "allCompleteDescription": "You've mastered the full ADScale creative workflow. Keep refining campaigns and testing new angles.",
       "skipMission": "Skip for now",
+      "credits": {
+        "costSingle": "This step uses about {ads} ad ({credits} credits) — you see value before scaling spend.",
+        "costFrom": "This step starts at about {ads} ads (from {credits} credits) depending on your recipe.",
+        "balance": "Balance: {ads} ads · {credits} credits",
+        "insufficient": "Not enough credits for this step",
+        "upgradeHint": "Need more runway after you've seen results?",
+        "upgradeLink": "View billing"
+      },
       "items": {
         "setup": {
           "label": "Set up your lab",

@@ -230,6 +230,14 @@
       "allCompleteTitle": "Trilha completa!",
       "allCompleteDescription": "Você dominou o fluxo criativo completo do ADScale. Continue refinando campanhas e testando novos ângulos.",
       "skipMission": "Pular por agora",
+      "credits": {
+        "costSingle": "Esta etapa usa cerca de {ads} anúncio ({credits} créditos) — você vê valor antes de escalar o gasto.",
+        "costFrom": "Esta etapa começa em cerca de {ads} anúncios (a partir de {credits} créditos), conforme sua receita.",
+        "balance": "Saldo: {ads} anúncios · {credits} créditos",
+        "insufficient": "Créditos insuficientes para esta etapa",
+        "upgradeHint": "Precisa de mais margem depois de ver resultados?",
+        "upgradeLink": "Ver cobrança"
+      },
       "items": {
         "setup": {
           "label": "Monte seu laboratório",

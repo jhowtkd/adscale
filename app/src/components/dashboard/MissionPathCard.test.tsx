@@ -15,6 +15,12 @@ vi.mock("next-intl", () => ({
       if (field === "label") return `Label ${missionKey}`;
       if (field === "description") return `Desc ${missionKey}`;
     }
+    if (key === "costSingle") return `Custa ${values?.ads} anuncio`;
+    if (key === "costFrom") return `A partir de ${values?.ads} anuncios`;
+    if (key === "balance") return `Saldo ${values?.ads} anuncios`;
+    if (key === "insufficient") return "Creditos insuficientes";
+    if (key === "upgradeHint") return "Precisa de mais?";
+    if (key === "upgradeLink") return "Ver cobranca";
     const labels: Record<string, string> = {
       title: "Trilha de Missoes",
       pathLabel: "Trilha do laboratorio",
@@ -31,6 +37,7 @@ vi.mock("next-intl", () => ({
       empty: "Nenhuma missao ativa.",
       allCompleteTitle: "Trilha completa",
       allCompleteDescription: "Voce dominou o fluxo.",
+      skipMission: "Pular por agora",
     };
     return labels[key] ?? key;
   },
@@ -38,6 +45,10 @@ vi.mock("next-intl", () => ({
 
 vi.mock("@/lib/hooks/use-missions", () => ({
   useMissions: vi.fn(),
+}));
+
+vi.mock("@/components/mission-insights/MissionInsightProvider", () => ({
+  useMissionInsightOptional: () => null,
 }));
 
 import { useMissions } from "@/lib/hooks/use-missions";
@@ -85,6 +96,87 @@ describe("MissionPathCard", () => {
     expect(screen.getByRole("link", { name: /Continuar missao/i })).toHaveAttribute(
       "href",
       "/campaigns/1?tab=assets"
+    );
+  });
+
+  it("shows credit cost and balance for credit-consuming active mission", () => {
+    mockUseMissions.mockReturnValue({
+      data: {
+        missions: [
+          {
+            key: "preview" as const,
+            status: "active" as const,
+            href: "/campaigns/1?tab=recipes",
+            credit: {
+              creditCost: 5,
+              adCost: 1,
+              costLabel: "single" as const,
+              insufficientCredits: false,
+            },
+          },
+        ],
+        activeMissionKey: "preview",
+        completedCount: 5,
+        totalCount: 11,
+        progressPercent: 45,
+        lastCalculatedAt: "2026-06-06T00:00:00.000Z",
+        creditContext: {
+          remainingCredits: 25,
+          remainingAds: 5,
+          accessKind: "beta" as const,
+          showUpgradePrompt: false,
+        },
+      },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+      isFetching: false,
+    } as ReturnType<typeof useMissions>);
+
+    render(<MissionPathCard />);
+    expect(screen.getByText(/Custa 1 anuncio/i)).toBeInTheDocument();
+    expect(screen.getByText(/Saldo 5 anuncios/i)).toBeInTheDocument();
+  });
+
+  it("shows upgrade prompt only when gated on", () => {
+    mockUseMissions.mockReturnValue({
+      data: {
+        missions: [
+          {
+            key: "preview" as const,
+            status: "active" as const,
+            href: "/campaigns/1?tab=recipes",
+            credit: {
+              creditCost: 5,
+              adCost: 1,
+              costLabel: "single" as const,
+              insufficientCredits: true,
+            },
+          },
+        ],
+        activeMissionKey: "preview",
+        completedCount: 3,
+        totalCount: 11,
+        progressPercent: 27,
+        lastCalculatedAt: "2026-06-06T00:00:00.000Z",
+        creditContext: {
+          remainingCredits: 2,
+          remainingAds: 0,
+          accessKind: "beta" as const,
+          showUpgradePrompt: true,
+        },
+      },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+      isFetching: false,
+    } as ReturnType<typeof useMissions>);
+
+    render(<MissionPathCard />);
+    expect(screen.getByText(/Creditos insuficientes/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Ver cobranca/i })).toHaveAttribute(
+      "href",
+      "/settings?tab=billing"
     );
   });
 

@@ -17,7 +17,8 @@ import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { useMissions } from "@/lib/hooks/use-missions";
 import { useMissionInsightOptional } from "@/components/mission-insights/MissionInsightProvider";
-import type { MissionItem, MissionKey } from "@/lib/progression/missions/types";
+import { MissionCreditBanner } from "@/components/dashboard/MissionCreditBanner";
+import type { MissionCreditContext, MissionItem, MissionKey } from "@/lib/progression/missions/types";
 
 function MissionStatusIcon({ status }: { status: MissionItem["status"] }) {
   switch (status) {
@@ -87,7 +88,14 @@ export default function MissionPathCard() {
 
   if (!data) return null;
 
-  const { missions, activeMissionKey, completedCount, totalCount, progressPercent } = data;
+  const {
+    missions,
+    activeMissionKey,
+    completedCount,
+    totalCount,
+    progressPercent,
+    creditContext,
+  } = data;
   const activeMission = missions.find((mission) => mission.key === activeMissionKey);
   const allComplete = completedCount === totalCount;
 
@@ -147,7 +155,12 @@ export default function MissionPathCard() {
             <p className="text-xs text-[var(--text-secondary)] mt-1">{t("allCompleteDescription")}</p>
           </div>
         ) : activeMission ? (
-          <ActiveMissionPanel mission={activeMission} t={t} onSkip={handleSkipMission} />
+          <ActiveMissionPanel
+            mission={activeMission}
+            creditContext={creditContext}
+            t={t}
+            onSkip={handleSkipMission}
+          />
         ) : (
           <p className="text-sm text-[var(--text-secondary)]">{t("empty")}</p>
         )}
@@ -166,10 +179,12 @@ export default function MissionPathCard() {
 
 function ActiveMissionPanel({
   mission,
+  creditContext,
   t,
   onSkip,
 }: {
   mission: MissionItem;
+  creditContext?: MissionCreditContext;
   t: ReturnType<typeof useTranslations<"dashboard.missions">>;
   onSkip: (missionKey: MissionKey) => void;
 }) {
@@ -190,6 +205,8 @@ function ActiveMissionPanel({
           {mission.blockedReason}
         </p>
       ) : null}
+
+      <MissionCreditBanner credit={mission.credit} creditContext={creditContext} />
 
       {ctaDisabled ? (
         <span
