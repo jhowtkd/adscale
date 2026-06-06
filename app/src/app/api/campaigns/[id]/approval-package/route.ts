@@ -18,32 +18,6 @@ import {
 
 const SHARE_LINK_TTL_DAYS = 7;
 
-function debugApprovalPackageLog(
-  location: string,
-  message: string,
-  data: Record<string, unknown>,
-  hypothesisId: string
-) {
-  // #region agent log
-  fetch("http://127.0.0.1:7899/ingest/cfdc6907-57c9-49e8-855d-2427aa77ea62", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Debug-Session-Id": "021503",
-    },
-    body: JSON.stringify({
-      sessionId: "021503",
-      runId: "derivations-500",
-      hypothesisId,
-      location,
-      message,
-      data,
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
-}
-
 function logRouteError(context: string, error: unknown) {
   const details =
     error instanceof Error
@@ -54,7 +28,6 @@ function logRouteError(context: string, error: unknown) {
         }
       : { message: String(error) };
   logger.error(`[${context}]`, details);
-  debugApprovalPackageLog(context, "route error", details, "H1");
 }
 
 const postBodySchema = z.object({

@@ -30,8 +30,19 @@ import {
 
 const STALE_ACTIVE_DERIVATION_MINUTES = 10;
 
-function debugDerivationsLog(
-  location: string,
+function logRouteError(context: string, error: unknown) {
+  const details =
+    error instanceof Error
+      ? {
+          name: error.name,
+          message: error.message,
+          code: (error as NodeJS.ErrnoException).code,
+        }
+      : { message: String(error) };
+  logger.error(`[${context}]`, details);
+}
+
+function debugDerivationsPostLog(
   message: string,
   data: Record<string, unknown>,
   hypothesisId: string
@@ -45,9 +56,9 @@ function debugDerivationsLog(
     },
     body: JSON.stringify({
       sessionId: "021503",
-      runId: "derivations-500",
+      runId: "preview-429",
       hypothesisId,
-      location,
+      location: "derivations/route.ts:POST",
       message,
       data,
       timestamp: Date.now(),
@@ -56,17 +67,29 @@ function debugDerivationsLog(
   // #endregion
 }
 
-function logRouteError(context: string, error: unknown) {
-  const details =
-    error instanceof Error
-      ? {
-          name: error.name,
-          message: error.message,
-          code: (error as NodeJS.ErrnoException).code,
-        }
-      : { message: String(error) };
-  logger.error(`[${context}]`, details);
-  debugDerivationsLog(context, "route error", details, "H1");
+async function deleteExistingPreviewDerivations(
+  campaignId: string,
+  workspaceId: string
+) {
+  const existingPreviews = await db
+    .select({ id: derivations.id })
+    .from(derivations)
+    .where(
+      and(
+        eq(derivations.campaignId, campaignId),
+        eq(derivations.workspaceId, workspaceId),
+        eq(derivations.isPreview, true)
+      )
+    );
+  if (existingPreviews.length === 0) {
+    return 0;
+  }
+  await Promise.all(
+    existingPreviews.map((preview) =>
+      db.delete(derivations).where(eq(derivations.id, preview.id))
+    )
+  );
+  return existingPreviews.length;
 }
 
 export async function POST(
@@ -99,8 +122,36 @@ export async function POST(
       // No body or invalid JSON, treat as non-preview
     }
 
+    const stale = await failStaleActiveDerivations(
+      campaignId,
+      workspace.id,
+      STALE_ACTIVE_DERIVATION_MINUTES
+    );
+    if (stale.length > 0) {
+      await refreshCampaignStatus(campaignId, workspace.id);
+    }
+    debugDerivationsPostLog(
+      "stale cleanup",
+      { staleCount: stale.length, isPreview },
+      "H3"
+    );
+
+    let deletedPreviews = 0;
+    if (isPreview) {
+      deletedPreviews = await deleteExistingPreviewDerivations(
+        campaignId,
+        workspace.id
+      );
+      debugDerivationsPostLog(
+        "preview cleanup",
+        { deletedPreviews },
+        "H4"
+      );
+    }
+
     // Rate limit: block if there are already queued/processing derivations
-    const existingQueued = await db.select({ id: derivations.id })
+    const existingQueued = await db
+      .select({ id: derivations.id, isPreview: derivations.isPreview })
       .from(derivations)
       .where(
         and(
@@ -110,6 +161,16 @@ export async function POST(
         )
       )
       .limit(1);
+    debugDerivationsPostLog(
+      "rate limit check",
+      {
+        isPreview,
+        blocked: existingQueued.length > 0,
+        queuedId: existingQueued[0]?.id ?? null,
+        queuedIsPreview: existingQueued[0]?.isPreview ?? null,
+      },
+      "H1"
+    );
     if (existingQueued.length > 0) {
       return apiError("derivationsInProgress", 429);
     }
@@ -169,24 +230,6 @@ export async function POST(
           format,
         });
       }
-    }
-
-    // If preview mode, delete existing preview derivations and only create one
-    if (isPreview) {
-      const existingPreviews = await db.select({ id: derivations.id })
-        .from(derivations)
-        .where(
-          and(
-            eq(derivations.campaignId, campaignId),
-            eq(derivations.workspaceId, workspace.id),
-            eq(derivations.isPreview, true)
-          )
-        );
-      await Promise.all(
-        existingPreviews.map((preview) =>
-          db.delete(derivations).where(eq(derivations.id, preview.id))
-        )
-      );
     }
 
     const jobsToCreate = isPreview ? jobs.slice(0, 1) : jobs;
