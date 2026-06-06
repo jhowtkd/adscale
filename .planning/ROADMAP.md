@@ -47,7 +47,7 @@ Production ref: `ba535de`. Smoke evidence: `milestones/v11.6-phases/65-verificat
 |---|-------|------|--------------|------------------|
 | 68 | Progression Foundation | Persist and calculate Ads Scientist levels from real workspace actions | PROG-01..05 | 5 ✅ |
 | 69 | Guided Mission Experience | Teach the core workflow through resumable missions and contextual learning copy | MISS-01..06 | 5 ✅ |
-| 70 | Mission-Linked Insight Capture | Capture structured beta learning from mission moments, skips, rejections, and friction | INS-01..05 | 5 |
+| 70 | Mission-Linked Insight Capture | 1/2 | In Progress|  |
 | 71 | Credit Activation and Verification | Connect mission value to credit usage, upgrade moments, tests, and beta UAT evidence | CRED-01..04, QA-01..04 | 5 |
 
 **24 requirements** | **4 phases** | Balanced activation, insight, and monetization scope

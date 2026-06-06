@@ -30,11 +30,11 @@ The milestone balances activation and monetization: missions should naturally le
 
 ### Insight Capture
 
-- [ ] **INS-01**: User can answer lightweight contextual prompts after key mission moments, including first readiness run, first preview, first rejection, first regeneration, and first share/export.
-- [ ] **INS-02**: Insight prompts capture structured stage, sentiment, reason, and optional free-text without exposing raw prompts or model internals.
-- [ ] **INS-03**: Product owner can view mission-linked insight in the existing feedback/triage surface or a clearly connected owner view.
-- [ ] **INS-04**: Skipped missions and abandoned credit-spend moments are recorded as product signals when privacy-safe.
-- [ ] **INS-05**: Insight capture respects workspace boundaries and avoids collecting secrets, API keys, full prompts, or unrelated user content.
+- [x] **INS-01**: User can answer lightweight contextual prompts after key mission moments, including first readiness run, first preview, first rejection, first regeneration, and first share/export.
+- [x] **INS-02**: Insight prompts capture structured stage, sentiment, reason, and optional free-text without exposing raw prompts or model internals.
+- [x] **INS-03**: Product owner can view mission-linked insight in the existing feedback/triage surface or a clearly connected owner view.
+- [x] **INS-04**: Skipped missions and abandoned credit-spend moments are recorded as product signals when privacy-safe.
+- [x] **INS-05**: Insight capture respects workspace boundaries and avoids collecting secrets, API keys, full prompts, or unrelated user content.
 
 ### Credit-Aware Activation
 
@@ -85,11 +85,11 @@ The milestone balances activation and monetization: missions should naturally le
 | MISS-04 | Phase 69 | Complete |
 | MISS-05 | Phase 69 | Complete |
 | MISS-06 | Phase 69 | Complete |
-| INS-01 | Phase 70 | Pending |
-| INS-02 | Phase 70 | Pending |
-| INS-03 | Phase 70 | Pending |
-| INS-04 | Phase 70 | Pending |
-| INS-05 | Phase 70 | Pending |
+| INS-01 | Phase 70 | Complete |
+| INS-02 | Phase 70 | Complete |
+| INS-03 | Phase 70 | Complete |
+| INS-04 | Phase 70 | Complete |
+| INS-05 | Phase 70 | Complete |
 | CRED-01 | Phase 71 | Pending |
 | CRED-02 | Phase 71 | Pending |
 | CRED-03 | Phase 71 | Pending |
