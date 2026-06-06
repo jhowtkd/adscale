@@ -16,6 +16,7 @@ import {
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { useMissions } from "@/lib/hooks/use-missions";
+import { useMissionInsightOptional } from "@/components/mission-insights/MissionInsightProvider";
 import type { MissionItem, MissionKey } from "@/lib/progression/missions/types";
 
 function MissionStatusIcon({ status }: { status: MissionItem["status"] }) {
@@ -33,8 +34,17 @@ function MissionStatusIcon({ status }: { status: MissionItem["status"] }) {
 
 export default function MissionPathCard() {
   const t = useTranslations("dashboard.missions");
+  const missionInsight = useMissionInsightOptional();
   const { data, isLoading, isError, refetch, isFetching } = useMissions();
   const [expanded, setExpanded] = useState(false);
+
+  const handleSkipMission = (missionKey: MissionKey) => {
+    missionInsight?.maybePromptMissionInsight({
+      moment: "mission_skipped",
+      missionKey,
+      diagnosticContext: { skippedMissionKey: missionKey, operation: "mission_skip" },
+    });
+  };
 
   if (isLoading && !data) {
     return (
@@ -137,7 +147,7 @@ export default function MissionPathCard() {
             <p className="text-xs text-[var(--text-secondary)] mt-1">{t("allCompleteDescription")}</p>
           </div>
         ) : activeMission ? (
-          <ActiveMissionPanel mission={activeMission} t={t} />
+          <ActiveMissionPanel mission={activeMission} t={t} onSkip={handleSkipMission} />
         ) : (
           <p className="text-sm text-[var(--text-secondary)]">{t("empty")}</p>
         )}
@@ -157,9 +167,11 @@ export default function MissionPathCard() {
 function ActiveMissionPanel({
   mission,
   t,
+  onSkip,
 }: {
   mission: MissionItem;
   t: ReturnType<typeof useTranslations<"dashboard.missions">>;
+  onSkip: (missionKey: MissionKey) => void;
 }) {
   const label = t(`items.${mission.key}.label`);
   const description = t(`items.${mission.key}.description`);
@@ -188,12 +200,21 @@ function ActiveMissionPanel({
           {t("blockedCta")}
         </span>
       ) : (
-        <Link
-          href={mission.href}
-          className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg border-2 border-[var(--accent-green)]/40 bg-[var(--accent-green)]/10 px-4 py-2.5 text-xs font-mono uppercase tracking-wider text-[var(--accent-green-text)] hover:bg-[var(--accent-green)]/20 transition-colors"
-        >
-          {t("cta")}
-        </Link>
+        <div className="mt-4 flex flex-col gap-2">
+          <Link
+            href={mission.href}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg border-2 border-[var(--accent-green)]/40 bg-[var(--accent-green)]/10 px-4 py-2.5 text-xs font-mono uppercase tracking-wider text-[var(--accent-green-text)] hover:bg-[var(--accent-green)]/20 transition-colors"
+          >
+            {t("cta")}
+          </Link>
+          <button
+            type="button"
+            onClick={() => onSkip(mission.key)}
+            className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+          >
+            {t("skipMission")}
+          </button>
+        </div>
       )}
     </div>
   );

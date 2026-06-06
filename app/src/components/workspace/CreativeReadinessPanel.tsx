@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { AlertCircle, Loader2, RefreshCw, ShieldCheck, ShieldAlert, ShieldX } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { usePreflightScore, useAnalyzePreflight } from "@/lib/hooks/use-preflight";
+import { useMissionInsightOptional } from "@/components/mission-insights/MissionInsightProvider";
 import type { ReadinessDimensionId, ReadinessStatus } from "@/server/ai/creative-readiness";
 
 interface CreativeReadinessPanelProps {
@@ -45,6 +46,7 @@ export default function CreativeReadinessPanel({
   className,
 }: CreativeReadinessPanelProps) {
   const t = useTranslations("readiness");
+  const missionInsight = useMissionInsightOptional();
   const { data, isLoading, isError } = usePreflightScore({ campaignId, assetId });
   const analyzePreflight = useAnalyzePreflight();
 
@@ -73,7 +75,19 @@ export default function CreativeReadinessPanel({
         : readiness?.status ?? "pending";
 
   const handleRerun = () => {
-    void analyzePreflight.mutateAsync({ campaignId, assetId, force: true });
+    void analyzePreflight.mutateAsync({ campaignId, assetId, force: true }).then((result) => {
+      if (result.readiness?.status && missionInsight) {
+        missionInsight.maybePromptMissionInsight({
+          moment: "readiness_first",
+          missionKey: "readiness",
+          campaignId,
+          diagnosticContext: {
+            readinessStatus: result.readiness.status,
+            operation: "readiness_run",
+          },
+        });
+      }
+    });
   };
 
   return (

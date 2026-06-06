@@ -229,6 +229,7 @@
       "empty": "Nenhuma missão ativa ainda.",
       "allCompleteTitle": "Trilha completa!",
       "allCompleteDescription": "Você dominou o fluxo criativo completo do ADScale. Continue refinando campanhas e testando novos ângulos.",
+      "skipMission": "Pular por agora",
       "items": {
         "setup": {
           "label": "Monte seu laboratório",
@@ -1600,7 +1601,62 @@
       "generation": "Geração",
       "billing": "Cobrança",
       "performance": "Performance",
+      "mission": "Insight de missão",
       "other": "Outro"
+    }
+  },
+  "missionInsights": {
+    "title": "Nota rápida do lab",
+    "dismiss": "Agora não",
+    "skip": "Pular",
+    "submit": "Enviar nota",
+    "submitting": "Enviando…",
+    "sentimentLabel": "Como foi?",
+    "reasonLabel": "Motivo principal",
+    "optionalNote": "Mais alguma coisa? (opcional)",
+    "optionalNotePlaceholder": "Uma frase basta…",
+    "privacyNote": "Salvamos a etapa da missão e sua escolha — nunca prompts brutos ou segredos.",
+    "sentiments": {
+      "positive": "Bom",
+      "neutral": "OK",
+      "negative": "Ruim"
+    },
+    "reasons": {
+      "clear_value": "Valor claro",
+      "expected_more": "Esperava mais",
+      "confusing": "Confuso",
+      "too_slow": "Muito lento",
+      "quality_issue": "Problema de qualidade",
+      "cost_concern": "Preocupação com custo",
+      "not_ready": "Ainda não estou pronto",
+      "wrong_timing": "Momento ruim",
+      "other": "Outro"
+    },
+    "moments": {
+      "readiness_first": {
+        "prompt": "Você rodou a análise de prontidão — o scan do lab foi útil?"
+      },
+      "preview_first": {
+        "prompt": "Preview na fila! A primeira olhada valeu os créditos?"
+      },
+      "rejection_first": {
+        "prompt": "Você rejeitou um criativo — o que faltou?"
+      },
+      "regeneration_first": {
+        "prompt": "Regeneração enviada — o loop de feedback fez sentido?"
+      },
+      "export_first": {
+        "prompt": "Primeira exportação feita — pronto para as plataformas?"
+      },
+      "share_first": {
+        "prompt": "Link copiado — você mandaria isso para um cliente?"
+      },
+      "mission_skipped": {
+        "prompt": "Pulando esta missão — o que está no caminho?"
+      },
+      "credit_friction": {
+        "prompt": "Créditos acabaram no meio do fluxo — o que ajudaria a continuar?"
+      }
     }
   }
 }

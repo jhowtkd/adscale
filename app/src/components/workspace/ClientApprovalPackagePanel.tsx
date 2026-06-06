@@ -19,6 +19,7 @@ import {
 } from "@/lib/hooks/use-approval-package";
 import { useExport } from "@/lib/hooks/use-export";
 import { useAppStore } from "@/lib/store";
+import { useMissionInsightOptional } from "@/components/mission-insights/MissionInsightProvider";
 
 interface ClientApprovalPackagePanelProps {
   campaignId: string;
@@ -39,6 +40,7 @@ export default function ClientApprovalPackagePanel({
   const t = useTranslations("clientApprovalPackage");
   const tc = useTranslations("common");
   const addToast = useAppStore((s) => s.addToast);
+  const missionInsight = useMissionInsightOptional();
   const { data, isLoading, isError } = useApprovalPackage(campaignId);
   const savePackage = useSaveApprovalPackage(campaignId);
   const exportMutation = useExport();
@@ -90,6 +92,12 @@ export default function ClientApprovalPackagePanel({
     try {
       await navigator.clipboard.writeText(data.shareUrl);
       addToast("success", tc("shareLinkCopied"));
+      missionInsight?.maybePromptMissionInsight({
+        moment: "share_first",
+        missionKey: "share",
+        campaignId,
+        diagnosticContext: { operation: "share_link_copy" },
+      });
     } catch {
       addToast("error", tc("shareLinkFailed"));
     }

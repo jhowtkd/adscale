@@ -27,6 +27,11 @@ import {
   type RecipeGenerationConfig,
 } from "@/server/ai/strategy-recipes";
 import { shouldShowPreviewGate } from "@/server/ai/preview-gate";
+import { useMissionInsightOptional } from "@/components/mission-insights/MissionInsightProvider";
+import {
+  creditFrictionDiagnostic,
+  isInsufficientCreditsError,
+} from "@/lib/mission-insights/helpers";
 
 export type WorkspaceState =
   | "piloto"           // upload + briefing
@@ -44,6 +49,7 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
 
   const setCurrentPageTitle = useAppStore((s) => s.setCurrentPageTitle);
   const addToast = useAppStore((s) => s.addToast);
+  const missionInsight = useMissionInsightOptional();
 
   const {
     campaign: realCampaign,
@@ -253,14 +259,30 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
           addToast("success", options?.preview ? tc("previewQueued") : tc("derivationsQueued"));
           setWorkspaceState("acoes");
           if (campaign && !isNew) updateCampaign.mutate({ status: "generating" });
+          if (options?.preview && missionInsight) {
+            missionInsight.maybePromptMissionInsight({
+              moment: "preview_first",
+              missionKey: "preview",
+              campaignId: campaignId !== "new" ? campaignId : undefined,
+              diagnosticContext: { isPreview: true, operation: "preview_generate" },
+            });
+          }
         },
-        onError: () => {
+        onError: (error) => {
           addToast("error", options?.preview ? tc("failedQueuePreview") : tc("failedQueueDerivations"));
           setWorkspaceState("acoes");
+          if (isInsufficientCreditsError(error) && missionInsight) {
+            missionInsight.maybePromptMissionInsight({
+              moment: "credit_friction",
+              missionKey: options?.preview ? "preview" : "batch",
+              campaignId: campaignId !== "new" ? campaignId : undefined,
+              diagnosticContext: creditFrictionDiagnostic(error),
+            });
+          }
         },
       });
     },
-    [createDerivations, campaign, isNew, updateCampaign, addToast, tc]
+    [createDerivations, campaign, isNew, updateCampaign, addToast, tc, campaignId, missionInsight]
   );
 
   const configureAndGenerate = useCallback(
@@ -418,11 +440,18 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
           onSuccess: () => {
             setRegenerateDialog(null);
             setReviewDerivationId(null);
+            missionInsight?.maybePromptMissionInsight({
+              moment: "regeneration_first",
+              missionKey: "regeneration",
+              campaignId,
+              derivationId: regenerateDialog.id,
+              diagnosticContext: { operation: "regenerate" },
+            });
           },
         }
       );
     },
-    [regenerateDialog, regenerateMutation]
+    [regenerateDialog, regenerateMutation, missionInsight, campaignId]
   );
 
   const handleCloseRegenerateDialog = useCallback((open: boolean) => {
@@ -432,8 +461,22 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
   }, []);
 
   const handleDownloadDerivation = useCallback(
-    (id: string) => exportMutation.mutate({ type: "individual", derivationId: id, format: "png" }),
-    [exportMutation]
+    (id: string) =>
+      exportMutation.mutate(
+        { type: "individual", derivationId: id, format: "png" },
+        {
+          onSuccess: () => {
+            missionInsight?.maybePromptMissionInsight({
+              moment: "export_first",
+              missionKey: "export",
+              campaignId,
+              derivationId: id,
+              diagnosticContext: { operation: "export", format: "png" },
+            });
+          },
+        }
+      ),
+    [exportMutation, missionInsight, campaignId]
   );
 
   const handleRegenerateDerivation = useCallback(
@@ -447,8 +490,22 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
   );
 
   const handleRejectDerivation = useCallback(
-    (id: string) => reviewMutation.mutate({ id, status: "rejected" }),
-    [reviewMutation]
+    (id: string) =>
+      reviewMutation.mutate(
+        { id, status: "rejected" },
+        {
+          onSuccess: () => {
+            missionInsight?.maybePromptMissionInsight({
+              moment: "rejection_first",
+              missionKey: "review",
+              campaignId,
+              derivationId: id,
+              diagnosticContext: { derivationStatus: "rejected" },
+            });
+          },
+        }
+      ),
+    [reviewMutation, missionInsight, campaignId]
   );
 
   const handleRunQa = useCallback(

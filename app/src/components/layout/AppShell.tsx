@@ -8,6 +8,7 @@ import { useTranslations } from "next-intl";
 import TopBar from "./TopBar";
 import Footer from "./Footer";
 import { FeedbackProvider } from "@/components/feedback/FeedbackProvider";
+import { MissionInsightProvider } from "@/components/mission-insights/MissionInsightProvider";
 import FeedbackBreadcrumbTracker from "@/components/feedback/FeedbackBreadcrumbTracker";
 import { FolderOpen, LayoutDashboard, LayoutTemplate, Settings } from "lucide-react";
 
@@ -21,6 +22,7 @@ export default function AppShell({ children }: AppShellProps) {
 
   return (
     <FeedbackProvider>
+    <MissionInsightProvider>
     <div className="min-h-screen bg-[var(--deep-bg)]">
       <Suspense fallback={null}>
         <FeedbackBreadcrumbTracker />
@@ -67,6 +69,7 @@ export default function AppShell({ children }: AppShellProps) {
         />
       </nav>
     </div>
+    </MissionInsightProvider>
     </FeedbackProvider>
   );
 }

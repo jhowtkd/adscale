@@ -229,6 +229,7 @@
       "empty": "No active mission yet.",
       "allCompleteTitle": "Path complete!",
       "allCompleteDescription": "You've mastered the full ADScale creative workflow. Keep refining campaigns and testing new angles.",
+      "skipMission": "Skip for now",
       "items": {
         "setup": {
           "label": "Set up your lab",
@@ -1599,7 +1600,62 @@
       "generation": "Generation",
       "billing": "Billing",
       "performance": "Performance",
+      "mission": "Mission insight",
       "other": "Other"
+    }
+  },
+  "missionInsights": {
+    "title": "Quick lab note",
+    "dismiss": "Not now",
+    "skip": "Skip",
+    "submit": "Send note",
+    "submitting": "Sending…",
+    "sentimentLabel": "How did that feel?",
+    "reasonLabel": "Main reason",
+    "optionalNote": "Anything else? (optional)",
+    "optionalNotePlaceholder": "One sentence is plenty…",
+    "privacyNote": "We save mission stage and your choice — never raw prompts or secrets.",
+    "sentiments": {
+      "positive": "Good",
+      "neutral": "OK",
+      "negative": "Rough"
+    },
+    "reasons": {
+      "clear_value": "Clear value",
+      "expected_more": "Expected more",
+      "confusing": "Confusing",
+      "too_slow": "Too slow",
+      "quality_issue": "Quality issue",
+      "cost_concern": "Cost concern",
+      "not_ready": "Not ready yet",
+      "wrong_timing": "Bad timing",
+      "other": "Other"
+    },
+    "moments": {
+      "readiness_first": {
+        "prompt": "You just ran readiness analysis — did the lab scan feel useful?"
+      },
+      "preview_first": {
+        "prompt": "Preview queued! Was the first peek worth the credits?"
+      },
+      "rejection_first": {
+        "prompt": "You rejected a creative — what fell short?"
+      },
+      "regeneration_first": {
+        "prompt": "Regeneration sent — did the feedback loop make sense?"
+      },
+      "export_first": {
+        "prompt": "First export done — ready for the platforms?"
+      },
+      "share_first": {
+        "prompt": "Share link copied — would you send this to a client?"
+      },
+      "mission_skipped": {
+        "prompt": "Skipping this mission — what's in the way?"
+      },
+      "credit_friction": {
+        "prompt": "Credits ran out mid-flow — what would help you continue?"
+      }
     }
   }
 }

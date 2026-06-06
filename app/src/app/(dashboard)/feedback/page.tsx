@@ -53,6 +53,7 @@ export default function FeedbackTriagePage() {
   const queryClient = useQueryClient();
   const [status, setStatus] = useState("");
   const [severity, setSeverity] = useState("");
+  const [category, setCategory] = useState("");
   const [selected, setSelected] = useState<FeedbackReport | null>(null);
   const [notes, setNotes] = useState("");
   const [resolution, setResolution] = useState("");
@@ -61,8 +62,9 @@ export default function FeedbackTriagePage() {
     const value: Record<string, string> = {};
     if (status) value.status = status;
     if (severity) value.severity = severity;
+    if (category) value.category = category;
     return value;
-  }, [status, severity]);
+  }, [status, severity, category]);
 
   const { data, error, isLoading } = useQuery({
     queryKey: ["feedback-reports", filters],
@@ -132,7 +134,7 @@ export default function FeedbackTriagePage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value)}
@@ -154,6 +156,19 @@ export default function FeedbackTriagePage() {
             <option value="medium">Medium</option>
             <option value="high">High</option>
             <option value="critical">Critical</option>
+          </select>
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="h-10 rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2 text-sm sm:col-span-1 col-span-2"
+          >
+            <option value="">All categories</option>
+            <option value="mission">Mission insights</option>
+            <option value="generation">Generation</option>
+            <option value="ui">UI</option>
+            <option value="billing">Billing</option>
+            <option value="performance">Performance</option>
+            <option value="other">Other</option>
           </select>
         </div>
 
@@ -181,7 +196,7 @@ export default function FeedbackTriagePage() {
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-sm font-medium text-[var(--text-primary)]">
-                    {report.type} · {report.severity}
+                    {report.category === "mission" ? "mission insight" : `${report.type} · ${report.severity}`}
                   </span>
                   <span className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
                     {report.status}
@@ -219,6 +234,23 @@ export default function FeedbackTriagePage() {
               <p>Campaign: {detail.report.campaignId ?? "—"}</p>
               <p>Derivation: {detail.report.derivationId ?? "—"}</p>
             </div>
+
+            {detail.report.diagnosticContext &&
+            (detail.report.diagnosticContext as Record<string, unknown>).source ===
+              "mission_insight" ? (
+              <div className="rounded-lg border border-[var(--accent-green)]/20 bg-[var(--accent-green)]/5 p-4 space-y-2">
+                <h3 className="text-sm font-medium text-[var(--text-primary)]">
+                  Mission insight
+                </h3>
+                <div className="grid gap-1 text-xs text-[var(--text-secondary)] sm:grid-cols-2">
+                  <p>Moment: {String(detail.report.diagnosticContext.moment ?? "—")}</p>
+                  <p>Mission: {String(detail.report.diagnosticContext.missionKey ?? "—")}</p>
+                  <p>Sentiment: {String(detail.report.diagnosticContext.sentiment ?? "—")}</p>
+                  <p>Reason: {String(detail.report.diagnosticContext.reason ?? "—")}</p>
+                  <p>Action: {String(detail.report.diagnosticContext.action ?? "—")}</p>
+                </div>
+              </div>
+            ) : null}
 
             {detail.report.contextCompleteness ? (
               <div className="flex flex-wrap gap-2">
