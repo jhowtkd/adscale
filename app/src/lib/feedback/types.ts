@@ -7,7 +7,11 @@ export type FeedbackCategory =
   | "performance"
   | "mission"
   | "other";
-export type FeedbackContextKind = "global" | "campaign" | "derivation";
+export type FeedbackContextKind =
+  | "global"
+  | "campaign"
+  | "derivation"
+  | "mission_friction";
 
 export type FeedbackAssetRef = {
   kind: "campaign_asset" | "workspace_asset" | "derivation_output";
@@ -21,6 +25,11 @@ export type FeedbackContextPayload = {
   derivationId?: string;
   assetRefs?: FeedbackAssetRef[];
   route?: string;
+  /** Pre-fill from cockpit frustration / mission insight moments */
+  prefillType?: FeedbackType;
+  prefillCategory?: FeedbackCategory;
+  prefillMessage?: string;
+  frustrationMoment?: string;
 };
 
 export type SubmitFeedbackInput = {

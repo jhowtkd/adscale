@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Derivation, AdPlatform, CampaignStatus } from "@/lib/mock-data";
 import { useAppStore } from "@/lib/store";
@@ -42,6 +42,12 @@ export type WorkspaceState =
 
 export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentRoute = useMemo(() => {
+    const query = searchParams?.toString();
+    return query ? `${pathname}?${query}` : pathname;
+  }, [pathname, searchParams]);
   const queryClient = useQueryClient();
   const t = useTranslations("campaign");
   const td = useTranslations("derivation");
@@ -265,6 +271,7 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
               moment: "preview_first",
               missionKey: "preview",
               campaignId: campaignId !== "new" ? campaignId : undefined,
+              route: currentRoute,
               diagnosticContext: { isPreview: true, operation: "preview_generate" },
             });
           }
@@ -277,13 +284,14 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
               moment: "credit_friction",
               missionKey: options?.preview ? "preview" : "batch",
               campaignId: campaignId !== "new" ? campaignId : undefined,
+              route: currentRoute,
               diagnosticContext: creditFrictionDiagnostic(error),
             });
           }
         },
       });
     },
-    [createDerivations, campaign, isNew, updateCampaign, addToast, tc, campaignId, missionInsight]
+    [createDerivations, campaign, isNew, updateCampaign, addToast, tc, campaignId, missionInsight, currentRoute]
   );
 
   const configureAndGenerate = useCallback(

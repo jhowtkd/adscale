@@ -33,17 +33,34 @@ type FeedbackModalProps = {
   }) => Promise<void>;
 };
 
-function getContextDefaults(contextKind?: string): {
+function getContextDefaults(context: FeedbackContextPayload): {
   type: FeedbackType;
   category: FeedbackCategory;
+  message: string;
 } {
-  if (contextKind === "derivation") {
-    return { type: "bug", category: "generation" };
+  if (
+    context.prefillType ||
+    context.prefillCategory ||
+    context.prefillMessage ||
+    context.contextKind === "mission_friction"
+  ) {
+    const frictionMessage = context.frustrationMoment
+      ? `Friction during ${context.frustrationMoment.replace(/_/g, " ")}`
+      : "";
+    return {
+      type: context.prefillType ?? "suggestion",
+      category:
+        context.prefillCategory ??
+        (context.contextKind === "mission_friction" ? "billing" : "ui"),
+      message: context.prefillMessage ?? frictionMessage,
+    };
   }
-  if (contextKind === "campaign") {
-    return { type: "bug", category: "generation" };
+
+  if (context.contextKind === "derivation" || context.contextKind === "campaign") {
+    return { type: "bug", category: "generation", message: "" };
   }
-  return { type: "bug", category: "ui" };
+
+  return { type: "bug", category: "ui", message: "" };
 }
 
 type FeedbackFormProps = {
@@ -55,11 +72,11 @@ type FeedbackFormProps = {
 
 function FeedbackForm({ context, submitting, onSubmit, onOpenChange }: FeedbackFormProps) {
   const t = useTranslations("feedback");
-  const defaults = getContextDefaults(context.contextKind);
+  const defaults = getContextDefaults(context);
   const [type, setType] = useState<FeedbackType>(defaults.type);
   const [severity, setSeverity] = useState<FeedbackSeverity>("medium");
   const [category, setCategory] = useState<FeedbackCategory>(defaults.category);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(defaults.message);
   const [followUpAllowed, setFollowUpAllowed] = useState(false);
 
   const handleSubmit = async () => {
@@ -148,6 +165,12 @@ function FeedbackForm({ context, submitting, onSubmit, onOpenChange }: FeedbackF
           {t("followUp")}
         </label>
 
+        {context.route ? (
+          <p className="text-xs text-[var(--text-muted)]">
+            {t("routeContext", { route: context.route })}
+          </p>
+        ) : null}
+
         <p className="text-xs text-[var(--text-muted)]">{t("privacyNote")}</p>
       </div>
 
@@ -175,7 +198,11 @@ export default function FeedbackModal({
   onSubmit,
 }: FeedbackModalProps) {
   const t = useTranslations("feedback");
-  const formKey = context.contextKind ?? "global";
+  const formKey = [
+    context.contextKind ?? "global",
+    context.route ?? "",
+    context.frustrationMoment ?? "",
+  ].join(":");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

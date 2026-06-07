@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { useFeedback } from "@/components/feedback/FeedbackProvider";
 import { MISSION_INSIGHT_REASONS } from "@/lib/mission-insights/reasons";
 import type {
   MissionInsightPromptContext,
@@ -45,6 +46,7 @@ export default function MissionInsightPrompt({
   onSubmit,
 }: MissionInsightPromptProps) {
   const t = useTranslations("missionInsights");
+  const { openFeedback } = useFeedback();
   const [sentiment, setSentiment] = useState<MissionInsightSentiment>("neutral");
   const [reason, setReason] = useState<MissionInsightReason>("other");
   const [optionalText, setOptionalText] = useState("");
@@ -141,6 +143,31 @@ export default function MissionInsightPrompt({
           </div>
 
           <p className="text-[11px] text-[var(--text-muted)]">{t("privacyNote")}</p>
+
+          <button
+            type="button"
+            onClick={() => {
+              const route =
+                context.route ??
+                (typeof window !== "undefined"
+                  ? `${window.location.pathname}${window.location.search}`
+                  : undefined);
+              openFeedback({
+                contextKind: "mission_friction",
+                campaignId: context.campaignId,
+                derivationId: context.derivationId,
+                route,
+                frustrationMoment: context.moment,
+                prefillCategory:
+                  context.moment === "credit_friction" ? "billing" : "ui",
+                prefillType: "suggestion",
+              });
+              onDismiss();
+            }}
+            className="text-xs text-[var(--accent-green-dark)] hover:text-[var(--accent-green)] underline-offset-2 hover:underline"
+          >
+            {t("openDetailedFeedback")}
+          </button>
         </div>
 
         <DialogFooter className="border-t border-[var(--border-dim)] px-5 py-4 sm:justify-between">
