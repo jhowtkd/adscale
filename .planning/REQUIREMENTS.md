@@ -27,16 +27,16 @@ v11.8 validates the cockpit + Ads Scientist progression with operator-run beta s
 
 ### Owner Dashboard
 
-- [ ] **DASH-01**: Owner can view mission conversion funnel (started vs completed per mission key).
-- [ ] **DASH-02**: Owner can view cockpit stage funnel (readiness → briefing → recipe → preview → batch → approval).
-- [ ] **DASH-03**: Owner can see credit surprise signals when estimated cost diverges from actual spend.
-- [ ] **DASH-04**: Owner can record readiness false-positive overrides tied to session evidence.
-- [ ] **DASH-05**: Owner can export funnel and event data as CSV from the `/feedback` analytics surface.
+- [x] **DASH-01**: Owner can view mission conversion funnel (started vs completed per mission key).
+- [x] **DASH-02**: Owner can view cockpit stage funnel (readiness → briefing → recipe → preview → batch → approval).
+- [x] **DASH-03**: Owner can see credit surprise signals when estimated cost diverges from actual spend.
+- [x] **DASH-04**: Owner can record readiness false-positive overrides tied to session evidence.
+- [x] **DASH-05**: Owner can export funnel and event data as CSV from the `/feedback` analytics surface.
 
 ### Learning Evidence
 
-- [ ] **LEARN-01**: Milestone produces a learning-answers document addressing all 10 v11.6 learning questions.
-- [ ] **LEARN-02**: Each answer cites event counts, session notes, or feedback report IDs — not anecdote alone.
+- [x] **LEARN-01**: Milestone produces a learning-answers document addressing all 10 v11.6 learning questions.
+- [x] **LEARN-02**: Each answer cites event counts, session notes, or feedback report IDs — not anecdote alone.
 - [ ] **LEARN-03**: Document recommends v11.9 direction (readiness/briefing vs recipe/preview vs delivery/credits) per decision gate.
 
 ### Friction Fixes
@@ -50,7 +50,7 @@ v11.8 validates the cockpit + Ads Scientist progression with operator-run beta s
 ### Verification
 
 - [x] **QA-01**: Integration tests prove events are recorded on readiness block and mission completion paths.
-- [ ] **QA-02**: Owner analytics and export routes return 403 for non-platform-owner users.
+- [x] **QA-02**: Owner analytics and export routes return 403 for non-platform-owner users.
 - [ ] **QA-03**: `npm test`, `npm run lint`, and `npm run build` pass after milestone changes.
 
 ## Future Requirements
@@ -87,14 +87,14 @@ v11.8 validates the cockpit + Ads Scientist progression with operator-run beta s
 | SESS-02 | Phase 77 | Pending |
 | SESS-03 | Phase 77 | Pending |
 | SESS-04 | Phase 77 | Pending |
-| DASH-01 | Phase 78 | Pending |
-| DASH-02 | Phase 78 | Pending |
-| DASH-03 | Phase 78 | Pending |
-| DASH-04 | Phase 78 | Pending |
-| DASH-05 | Phase 78 | Pending |
-| LEARN-01 | Phase 78 | Pending |
-| LEARN-02 | Phase 78 | Pending |
-| QA-02 | Phase 78 | Pending |
+| DASH-01 | Phase 78 | Complete |
+| DASH-02 | Phase 78 | Complete |
+| DASH-03 | Phase 78 | Complete |
+| DASH-04 | Phase 78 | Complete |
+| DASH-05 | Phase 78 | Complete |
+| LEARN-01 | Phase 78 | Complete |
+| LEARN-02 | Phase 78 | Complete |
+| QA-02 | Phase 78 | Complete |
 | FIX-01 | Phase 79 | Pending |
 | FIX-02 | Phase 79 | Pending |
 | FIX-03 | Phase 79 | Pending |

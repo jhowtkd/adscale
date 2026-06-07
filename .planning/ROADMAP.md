@@ -25,7 +25,7 @@
 | 75 | Event Schema and Ingest Foundation | 3/3 | Complete   | 2026-06-07 |
 | 76 | Cockpit and Mission Instrumentation | 4/4 | Complete   | 2026-06-07 |
 | 77 | Operator Beta Sessions | Runbook-guided sessions with structured operator notes | SESS-01, SESS-02, SESS-03, SESS-04 | 5 |
-| 78 | Owner Analytics Dashboard and CSV | Funnel views, credit/readiness signals, export | DASH-01, DASH-02, DASH-03, DASH-04, DASH-05, LEARN-01, LEARN-02, QA-02 | 6 |
+| 78 | Owner Analytics Dashboard and CSV | 4/4 | Complete   | 2026-06-07 |
 | 79 | Evidence-Driven Friction Fixes | Ship ≤5 proven fixes and finalize learning gate | FIX-01, FIX-02, FIX-03, FIX-04, FIX-05, LEARN-03, QA-03 | 5 |
 
 **26 requirements** | **5 phases** | Learn before build — no speculative features
@@ -93,6 +93,14 @@ Plans:
 **Goal:** Execute 3–5 operator-guided beta sessions with structured evidence per runbook stage.
 
 **Requirements:** SESS-01, SESS-02, SESS-03, SESS-04
+
+**Plans:** 4 plans
+
+Plans:
+- [x] 77-01-PLAN.md — Types and beta-sessions repository
+- [x] 77-02-PLAN.md — Owner session CRUD APIs (SESS-01)
+- [x] 77-03-PLAN.md — Stage notes and summary export (SESS-02, SESS-04)
+- [x] 77-04-PLAN.md — Operator UI, artifacts template, fixture (SESS-03)
 
 **Success Criteria:**
 1. Operator can start/end sessions and attach per-stage notes tied to `67-BETA-RUNBOOK.md`.
