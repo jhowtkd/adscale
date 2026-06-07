@@ -22,7 +22,7 @@
 
 | # | Phase | Goal | Requirements | Success Criteria |
 |---|-------|------|--------------|------------------|
-| 75 | Event Schema and Ingest Foundation | Durable first-party product events with PII-safe ingest | INST-01, INST-05, INST-06 | 4 |
+| 75 | Event Schema and Ingest Foundation | 2/3 | In Progress|  |
 | 76 | Cockpit and Mission Instrumentation | Authoritative server + client stage events for funnel | INST-02, INST-03, INST-04, QA-01 | 5 |
 | 77 | Operator Beta Sessions | Runbook-guided sessions with structured operator notes | SESS-01, SESS-02, SESS-03, SESS-04 | 5 |
 | 78 | Owner Analytics Dashboard and CSV | Funnel views, credit/readiness signals, export | DASH-01, DASH-02, DASH-03, DASH-04, DASH-05, LEARN-01, LEARN-02, QA-02 | 6 |
@@ -50,8 +50,15 @@
 
 **Requirements:** INST-01, INST-05, INST-06
 
+**Plans:** 3 plans
+
+Plans:
+- [x] 75-01-PLAN.md — Schema, migration, and beta-analytics repository
+- [x] 75-02-PLAN.md — Allowlist-only property sanitization (PII-safe)
+- [ ] 75-03-PLAN.md — recordBetaAnalyticsEvent + POST /api/analytics/events
+
 **Success Criteria:**
-1. `product_events` and `beta_sessions` tables exist with Drizzle migration applied.
+1. `beta_analytics_events` and `beta_sessions` tables exist with Drizzle migration applied.
 2. `POST /api/analytics/events` validates workspace membership and sanitizes property allowlist.
 3. Disallowed properties (prompts, emails, free-text) are rejected with tests.
 4. Events are queryable by `workspace_id`, `session_id`, `event_key`, and timestamp.
