@@ -1,24 +1,56 @@
-# Research Summary: v11.7.1 Stabilization
+# Research Summary: v11.8 Beta Learning Loop
 
-## Stack Additions
+**Synthesized:** 2026-06-07  
+**Milestone:** v11.8 Loop de Aprendizado Beta  
+**Confidence:** HIGH
 
-None. Use the existing Next.js, TypeScript, Drizzle, PostgreSQL, Vitest, and app test/build scripts.
+## Executive Summary
 
-## Key Findings
+v11.8 should **not** add third-party analytics or new AI behavior. Extend the existing Drizzle + owner `/feedback` stack with first-party `product_events` and `beta_sessions` tables, instrument cockpit/mission/credit boundaries, run 3–5 operator sessions, then ship up to 5 evidence-driven friction fixes and a learning-questions answer doc.
 
-- Next.js treats TypeScript errors as production build failures by default; v11.7.1 should fix the missing feedback category label instead of bypassing type checks.
-- Drizzle and PostgreSQL both support atomic conflict-safe upserts, which is the right fit for progression snapshots recalculated on read.
-- Runtime mission insight validation should use the same known mission key set as the mission definitions, not a TypeScript cast.
-- CTA resume behavior is part of the progression product promise; `?tab=` links need destination handling or a different route contract.
+## Stack additions
 
-## Watch Outs
+- **No new npm dependencies required** for operator-scale scope
+- **PostgreSQL tables:** `product_events` (append-only), `beta_sessions` (operator notes)
+- **APIs:** event ingest, funnel aggregation, CSV export — all `requirePlatformOwner` for reads
+- **Avoid:** Mixpanel/PostHog, session replay, real-time dashboards
 
-- Do not expand v11.7.1 into new gamification or monetization features.
-- Do not call beta ready until build, migration, focused tests, and UAT evidence are all green.
-- Keep accepted caveats explicit in release notes.
+## Feature table stakes
 
-## Sources
+1. Event taxonomy covering cockpit stages, missions, credits, readiness blocks
+2. Operator session log tied to `67-BETA-RUNBOOK.md`
+3. Owner funnel on `/feedback` + CSV export
+4. Evidence rubric before friction fixes (≤5)
+5. Written answers to v11.6 learning questions from ≥3 sessions
 
-- Next.js TypeScript docs: https://nextjs.org/docs/app/api-reference/config/typescript
-- Drizzle insert/upsert docs: https://orm.drizzle.team/docs/insert
-- PostgreSQL INSERT docs: https://www.postgresql.org/docs/current/static/sql-insert.html
+## Architecture build order
+
+1. Schema + sanitize + ingest (Phase 75)
+2. Server + client instrumentation hooks (Phase 76)
+3. Operator sessions + notes (Phase 77)
+4. Owner dashboard + CSV + learning template (Phase 78)
+5. Evidence-ranked friction fixes + verification (Phase 79)
+
+## Watch out for
+
+- Starting beta sessions before events exist in production DB
+- PII in event properties (prompts, brief text, emails)
+- Friction fixes that are secretly new features or AI changes
+- Cross-workspace analytics without owner gate
+- Answering learning questions from operator memory instead of funnel data
+
+## Recommended phase count
+
+**5 phases (75–79)** — instrumentation → sessions → dashboard → fixes → verification
+
+## Key integration points
+
+| Existing | v11.8 touch |
+|----------|-------------|
+| `/feedback` owner triage | Add analytics/funnel tab |
+| Mission service | `mission_completed` events |
+| Readiness/preview/credit APIs | Authoritative spend/block events |
+| `67-LEARNING-QUESTIONS.md` | Output: `78-LEARNING-ANSWERS.md` |
+
+---
+*Synthesized from: STACK.md, FEATURES.md, ARCHITECTURE.md, PITFALLS.md*

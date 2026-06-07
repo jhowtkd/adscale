@@ -1,79 +1,113 @@
-# Requirements: ADScale v11.7.1 Stabilization
+# Requirements: ADScale v11.8 Loop de Aprendizado Beta
 
-**Defined:** 2026-06-06  
-**Completed:** 2026-06-07  
+**Defined:** 2026-06-07  
 **Core Value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
 ## Scope
 
-v11.7.1 stabilizes the Ads Scientist Progression milestone before beta. It is intentionally narrow: fix the production build blocker, harden runtime data integrity, make mission CTAs resume into the intended surfaces, apply the required migration, and complete UAT evidence.
-
-This milestone should not add new progression mechanics, gamification layers, pricing experiments, or unrelated cockpit features.
+v11.8 validates the cockpit + Ads Scientist progression with operator-run beta sessions, full first-party instrumentation, owner funnel analytics, and up to 5 evidence-driven friction fixes. No speculative new features, AI model changes, or third-party analytics.
 
 ## Requirements
 
-### Build and Verification
+### Instrumentation
 
-- [x] **STAB-01**: Developer can run `npm run build` successfully without disabling Next.js TypeScript checks.
-- [x] **STAB-02**: Developer can run lint and the focused progression/missions/insights/feedback test suite successfully after fixes.
-- [x] **STAB-03**: Developer can apply migration `0032_workspace_progression.sql` in the target environment and verify the `workspace_progression` table is available. *(In-repo verified; live apply operator-gated)*
-- [x] **STAB-04**: Release notes identify any remaining accepted caveats before beta.
+- [ ] **INST-01**: Developer can persist sanitized product events in a workspace-scoped `product_events` table via API.
+- [ ] **INST-02**: Server emits authoritative events on readiness block, credit spend, and mission completion boundaries.
+- [ ] **INST-03**: Client emits stage events for guided briefing, strategy recipe, and preview gate complete/abandon transitions.
+- [ ] **INST-04**: Operator can group events under a `beta_session` linked to a workspace.
+- [ ] **INST-05**: Event property allowlist excludes PII (prompts, emails, free-text user content, asset URLs).
+- [ ] **INST-06**: Tests cover event sanitization, workspace-scoped insert, and rejected disallowed properties.
 
-### Data Integrity
+### Beta Sessions (Operador)
 
-- [x] **DATA-01**: Mission insight API rejects invalid `missionKey` values at runtime before recording feedback.
-- [x] **DATA-02**: Progression snapshot persistence uses an atomic upsert or equivalent conflict-safe path for concurrent first access.
-- [x] **DATA-03**: Tests cover invalid mission insight keys and concurrent progression snapshot creation.
+- [ ] **SESS-01**: Operator can start and end a beta session linked to a target workspace.
+- [ ] **SESS-02**: Operator can record structured notes per runbook stage (`67-BETA-RUNBOOK.md`) during a session.
+- [ ] **SESS-03**: Operator completes at least 3 guided sessions following the existing beta runbook happy path.
+- [ ] **SESS-04**: Session artifacts document date, workspace, stages completed, blockers, and linked event/session IDs.
 
-### Mission Resume UX
+### Owner Dashboard
 
-- [x] **UX-01**: User who clicks a progression or mission CTA lands on the intended campaign workflow surface, not only the campaign detail page.
-- [x] **UX-02**: Existing campaign workspace behavior remains unchanged when no mission/progression resume target is present.
+- [ ] **DASH-01**: Owner can view mission conversion funnel (started vs completed per mission key).
+- [ ] **DASH-02**: Owner can view cockpit stage funnel (readiness → briefing → recipe → preview → batch → approval).
+- [ ] **DASH-03**: Owner can see credit surprise signals when estimated cost diverges from actual spend.
+- [ ] **DASH-04**: Owner can record readiness false-positive overrides tied to session evidence.
+- [ ] **DASH-05**: Owner can export funnel and event data as CSV from the `/feedback` analytics surface.
 
-### Beta UAT Readiness
+### Learning Evidence
 
-- [x] **UAT-01**: Beta operator can complete the `71-UAT-EVIDENCE.md` path from a fresh workspace through at least Analista Criativo.
-- [x] **UAT-02**: UAT evidence captures build, migration, mission completion, insight capture, credit display, and owner triage checks.
-- [x] **UAT-03**: Milestone archive/handoff clearly states whether v11.7.1 is beta-ready.
+- [ ] **LEARN-01**: Milestone produces a learning-answers document addressing all 10 v11.6 learning questions.
+- [ ] **LEARN-02**: Each answer cites event counts, session notes, or feedback report IDs — not anecdote alone.
+- [ ] **LEARN-03**: Document recommends v11.9 direction (readiness/briefing vs recipe/preview vs delivery/credits) per decision gate.
+
+### Friction Fixes
+
+- [ ] **FIX-01**: Team maintains a ranked friction backlog scored by frequency and runbook impact from session evidence.
+- [ ] **FIX-02**: Up to 5 friction fixes ship, each linked to session/event evidence.
+- [ ] **FIX-03**: Friction fixes are surgical (copy, CTA, validation, credit display) — no new AI models or cockpit modules.
+- [ ] **FIX-04**: Each fix includes a regression test or focused verification artifact.
+- [ ] **FIX-05**: Issues beyond the cap defer to a v11.9 backlog document with evidence preserved.
+
+### Verification
+
+- [ ] **QA-01**: Integration tests prove events are recorded on readiness block and mission completion paths.
+- [ ] **QA-02**: Owner analytics and export routes return 403 for non-platform-owner users.
+- [ ] **QA-03**: `npm test`, `npm run lint`, and `npm run build` pass after milestone changes.
 
 ## Future Requirements
 
-- Owner analytics for mission conversion by beta cohort.
-- Automated E2E for the full Ads Scientist path.
-- Direct top-up or plan purchase flow tied to mission value moments.
-- More granular mission resume anchors once the campaign workspace has formal routeable subviews.
+- External beta cohort invites and multi-workspace cohort comparison.
+- Third-party analytics (PostHog/Mixpanel) if cohort exceeds ~20 workspaces.
+- Automated E2E for the full instrumented Ads Scientist path.
+- Direct Stripe top-up tied to funnel drop-off moments.
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| New Ads Scientist levels or rewards | v11.7.1 is stabilization, not expansion |
-| New pricing or Stripe purchase flow | Requires product and billing decisions beyond beta readiness |
-| New AI generation behavior | Current blockers are build, persistence, resume UX, and UAT |
-| Public beta onboarding campaign | Should wait until stabilization gates pass |
-| Full redesign of campaign workspace navigation | Only the mission/progression resume path is in scope |
+| New AI models or generation behavior changes | Confounds learning loop; fixes must be UX/rules/copy |
+| Third-party product analytics SDK | Operator-only 3–5 sessions; first-party events sufficient |
+| Session replay (RRWeb) | Privacy and cost; stage events + operator notes enough |
+| New progression levels or mission types | v11.7 loop just shipped; measure before expanding |
+| External beta cohort automation | Milestone scoped to operator-only sessions |
+| Unlimited friction fixes | Cap at 5 with evidence rubric to prevent scope creep |
+| Real-time funnel WebSocket dashboard | Refresh-on-load sufficient for solo operator |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| STAB-01 | Phase 72 | Complete |
-| STAB-02 | Phase 72 | Complete |
-| DATA-01 | Phase 72 | Complete |
-| DATA-02 | Phase 72 | Complete |
-| DATA-03 | Phase 72 | Complete |
-| UX-01 | Phase 73 | Complete |
-| UX-02 | Phase 73 | Complete |
-| STAB-03 | Phase 74 | Complete (operator apply documented) |
-| STAB-04 | Phase 74 | Complete |
-| UAT-01 | Phase 74 | Complete |
-| UAT-02 | Phase 74 | Complete |
-| UAT-03 | Phase 74 | Complete |
+| INST-01 | Phase 75 | Pending |
+| INST-05 | Phase 75 | Pending |
+| INST-06 | Phase 75 | Pending |
+| INST-02 | Phase 76 | Pending |
+| INST-03 | Phase 76 | Pending |
+| INST-04 | Phase 76 | Pending |
+| QA-01 | Phase 76 | Pending |
+| SESS-01 | Phase 77 | Pending |
+| SESS-02 | Phase 77 | Pending |
+| SESS-03 | Phase 77 | Pending |
+| SESS-04 | Phase 77 | Pending |
+| DASH-01 | Phase 78 | Pending |
+| DASH-02 | Phase 78 | Pending |
+| DASH-03 | Phase 78 | Pending |
+| DASH-04 | Phase 78 | Pending |
+| DASH-05 | Phase 78 | Pending |
+| LEARN-01 | Phase 78 | Pending |
+| LEARN-02 | Phase 78 | Pending |
+| QA-02 | Phase 78 | Pending |
+| FIX-01 | Phase 79 | Pending |
+| FIX-02 | Phase 79 | Pending |
+| FIX-03 | Phase 79 | Pending |
+| FIX-04 | Phase 79 | Pending |
+| FIX-05 | Phase 79 | Pending |
+| LEARN-03 | Phase 79 | Pending |
+| QA-03 | Phase 79 | Pending |
 
 **Coverage:**
-- v11.7.1 requirements: 12 total
-- Mapped to phases: 12
-- Unmapped: 0
+- v11.8 requirements: 26 total
+- Mapped to phases: 26
+- Unmapped: 0 ✓
 
 ---
-*Requirements defined: 2026-06-06 · Completed: 2026-06-07*
+*Requirements defined: 2026-06-07*
+*Last updated: 2026-06-07 after roadmap draft*
