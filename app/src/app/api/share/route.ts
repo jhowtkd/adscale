@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
+import { logger } from "@/lib/logger";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
+import { getBetaSessionIdFromRequest } from "@/server/beta-analytics/session";
 import { createShareToken } from "@/lib/share-token";
 import { rateLimit } from "@/lib/rate-limit";
 
@@ -17,7 +20,8 @@ export async function POST(request: Request) {
       return apiError("rateLimitExceeded", 429);
     }
 
-    const { workspace } = await requireWorkspaceAccess(request);
+    const { user, workspace } = await requireWorkspaceAccess(request);
+    const sessionId = getBetaSessionIdFromRequest(request);
     const body = await request.json();
     const parsed = bodySchema.safeParse(body);
     if (!parsed.success) {
@@ -31,6 +35,21 @@ export async function POST(request: Request) {
       workspace.id,
       derivationIds
     );
+
+    void recordBetaAnalyticsEvent({
+      workspaceId: workspace.id,
+      userId: user.id,
+      eventKey: "mission_completed",
+      source: "server",
+      campaignId,
+      sessionId,
+      properties: {
+        missionKey: "share",
+        stage: "share",
+      },
+    }).catch((err) => {
+      logger.warn("[share.POST] mission_completed analytics failed", err);
+    });
 
     return NextResponse.json({ shareUrl, expiresAt: expiresAt.toISOString() });
   } catch (error) {

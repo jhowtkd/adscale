@@ -30,6 +30,10 @@ vi.mock("@/server/memory/brand-memory-dispatch", () => ({
   recordBrandMemoryEvent: vi.fn(() => Promise.resolve()),
 }));
 
+vi.mock("@/server/beta-analytics/record", () => ({
+  recordBetaAnalyticsEvent: vi.fn(() => Promise.resolve({ id: "event-1" })),
+}));
+
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
 }));
@@ -38,14 +42,22 @@ import {
   getDerivationById,
   updateDerivationStatus,
 } from "@/server/repositories/derivation";
+import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
 
 const mockGetDerivationById = vi.mocked(getDerivationById);
 const mockUpdateDerivationStatus = vi.mocked(updateDerivationStatus);
+const mockRecordBetaAnalyticsEvent = vi.mocked(recordBetaAnalyticsEvent);
 
-function requestWith(body: unknown): Request {
+const VALID_SESSION_ID = "550e8400-e29b-41d4-a716-446655440000";
+
+async function flushAnalytics() {
+  await new Promise((resolve) => setImmediate(resolve));
+}
+
+function requestWith(body: unknown, headers: Record<string, string> = {}): Request {
   return new Request("http://localhost/api/derivations/derivation-id/review", {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...headers },
     body: JSON.stringify(body),
   });
 }
@@ -120,12 +132,69 @@ describe("PATCH /api/derivations/[id]/review", () => {
     const res = await PATCH(requestWith({ status: "approved" }), {
       params: paramsWith("derivation-id"),
     });
+    await flushAnalytics();
 
     expect(res.status).toBe(200);
     expect(mockUpdateDerivationStatus).toHaveBeenCalledWith(
       "derivation-id",
       "workspace-1",
       "approved"
+    );
+    expect(mockRecordBetaAnalyticsEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventKey: "mission_completed",
+        source: "server",
+        userId: "user-1",
+        workspaceId: "workspace-1",
+        campaignId: "campaign-id",
+        derivationId: "derivation-id",
+        properties: expect.objectContaining({
+          missionKey: "review",
+          stage: "review",
+        }),
+      })
+    );
+  });
+
+  it("forwards sessionId from x-beta-session-id on approve", async () => {
+    mockGetDerivationById.mockResolvedValue({
+      id: "derivation-id",
+      status: "completed",
+      qualityVerdict: "improvable",
+      hardFailures: [],
+      campaignId: "campaign-id",
+      workspaceId: "workspace-1",
+    } as Awaited<ReturnType<typeof getDerivationById>>);
+
+    mockUpdateDerivationStatus.mockResolvedValue({
+      id: "derivation-id",
+      status: "approved",
+      campaignId: "campaign-id",
+      workspaceId: "workspace-1",
+      format: "4:5",
+      generationMode: "art_variation",
+      ctaText: "Buy",
+      qualityScore: 75,
+      scoreStatus: "analyzed",
+      scoreIssues: null,
+      regenerationSuggestion: null,
+      qaStatus: "passed",
+      qaIssues: null,
+      feedback: null,
+      updatedAt: new Date(),
+    } as Awaited<ReturnType<typeof updateDerivationStatus>>);
+
+    const res = await PATCH(
+      requestWith({ status: "approved" }, { "x-beta-session-id": VALID_SESSION_ID }),
+      { params: paramsWith("derivation-id") }
+    );
+    await flushAnalytics();
+
+    expect(res.status).toBe(200);
+    expect(mockRecordBetaAnalyticsEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: VALID_SESSION_ID,
+      })
     );
   });
 
@@ -151,8 +220,10 @@ describe("PATCH /api/derivations/[id]/review", () => {
     const res = await PATCH(requestWith({ status: "rejected" }), {
       params: paramsWith("derivation-id"),
     });
+    await flushAnalytics();
 
     expect(res.status).toBe(200);
     expect(mockGetDerivationById).not.toHaveBeenCalled();
+    expect(mockRecordBetaAnalyticsEvent).not.toHaveBeenCalled();
   });
 });

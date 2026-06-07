@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
+import { logger } from "@/lib/logger";
 import { assertDerivationApprovable } from "@/server/ai/creative-quality-gate";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
+import { getBetaSessionIdFromRequest } from "@/server/beta-analytics/session";
 import {
   getDerivationById,
   updateDerivationStatus,
@@ -19,10 +22,11 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const [{ workspace }, { id }] = await Promise.all([
+    const [{ user, workspace }, { id }] = await Promise.all([
       requireWorkspaceAccess(request),
       params,
     ]);
+    const sessionId = getBetaSessionIdFromRequest(request);
 
     const body = await request.json();
     const parsed = bodySchema.safeParse(body);
@@ -57,6 +61,24 @@ export async function PATCH(
       refreshCampaignStatus(updated.campaignId, workspace.id),
       getCampaignById(updated.campaignId, workspace.id),
     ]);
+    if (parsed.data.status === "approved") {
+      void recordBetaAnalyticsEvent({
+        workspaceId: workspace.id,
+        userId: user.id,
+        eventKey: "mission_completed",
+        source: "server",
+        campaignId: updated.campaignId,
+        derivationId: id,
+        sessionId,
+        properties: {
+          missionKey: "review",
+          stage: "review",
+        },
+      }).catch((err) => {
+        logger.warn("[derivations.review.PATCH] mission_completed analytics failed", err);
+      });
+    }
+
     await recordBrandMemoryEvent({
       type: parsed.data.status === "approved" ? "creative_approved" : "creative_rejected",
       workspaceId: workspace.id,
