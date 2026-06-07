@@ -23,7 +23,7 @@
 | # | Phase | Goal | Requirements | Success Criteria |
 |---|-------|------|--------------|------------------|
 | 75 | Event Schema and Ingest Foundation | 3/3 | Complete   | 2026-06-07 |
-| 76 | Cockpit and Mission Instrumentation | 3/4 | In Progress|  |
+| 76 | Cockpit and Mission Instrumentation | 4/4 | Complete   | 2026-06-07 |
 | 77 | Operator Beta Sessions | Runbook-guided sessions with structured operator notes | SESS-01, SESS-02, SESS-03, SESS-04 | 5 |
 | 78 | Owner Analytics Dashboard and CSV | Funnel views, credit/readiness signals, export | DASH-01, DASH-02, DASH-03, DASH-04, DASH-05, LEARN-01, LEARN-02, QA-02 | 6 |
 | 79 | Evidence-Driven Friction Fixes | Ship ≤5 proven fixes and finalize learning gate | FIX-01, FIX-02, FIX-03, FIX-04, FIX-05, LEARN-03, QA-03 | 5 |
@@ -77,7 +77,7 @@ Plans:
 - [x] 76-01-PLAN.md — Event taxonomy, enum validation, and session ID plumbing
 - [x] 76-02-PLAN.md — Server instrumentation (readiness, credits, mission_completed)
 - [x] 76-03-PLAN.md — Client cockpit panel stage events via useRecordBetaEvent
-- [ ] 76-04-PLAN.md — Integration tests and beta_session session_id smoke (QA-01)
+- [x] 76-04-PLAN.md — Integration tests and beta_session session_id smoke (QA-01)
 
 **Success Criteria:**
 1. Server records events on readiness block, credit spend, and mission completion.

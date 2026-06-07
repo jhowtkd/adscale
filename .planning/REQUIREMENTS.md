@@ -49,7 +49,7 @@ v11.8 validates the cockpit + Ads Scientist progression with operator-run beta s
 
 ### Verification
 
-- [ ] **QA-01**: Integration tests prove events are recorded on readiness block and mission completion paths.
+- [x] **QA-01**: Integration tests prove events are recorded on readiness block and mission completion paths.
 - [ ] **QA-02**: Owner analytics and export routes return 403 for non-platform-owner users.
 - [ ] **QA-03**: `npm test`, `npm run lint`, and `npm run build` pass after milestone changes.
 
@@ -82,7 +82,7 @@ v11.8 validates the cockpit + Ads Scientist progression with operator-run beta s
 | INST-02 | Phase 76 | Complete |
 | INST-03 | Phase 76 | Complete |
 | INST-04 | Phase 76 | Complete |
-| QA-01 | Phase 76 | Pending |
+| QA-01 | Phase 76 | Complete |
 | SESS-01 | Phase 77 | Pending |
 | SESS-02 | Phase 77 | Pending |
 | SESS-03 | Phase 77 | Pending |
