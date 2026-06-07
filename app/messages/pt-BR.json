@@ -1457,6 +1457,11 @@
     "packageSaved": "Pacote de aprovação salvo",
     "selectAtLeastOne": "Selecione pelo menos um criativo aprovado",
     "stale": "Pacote desatualizado",
+    "staleTitle": "Este pacote está desatualizado",
+    "staleHint": "Os criativos aprovados mudaram desde que o link foi criado — o cliente pode ver seleções antigas.",
+    "staleAction": "Clique em Atualizar pacote para alinhar o link à seleção atual.",
+    "staleTooltip": "Criativos foram adicionados, removidos ou tiveram status de aprovação alterado após salvar o pacote.",
+    "packageRefreshed": "Pacote atualizado — o link agora reflete sua seleção atual",
     "expiresAt": "O link expira em {date}",
     "status": {
       "approved": "Aprovado",
@@ -1570,6 +1575,11 @@
     "description": "Galeria pública de criativos aprovados.",
     "fallbackTitle": "Galeria",
     "sharedVia": "Galeria compartilhada via ADScale",
+    "recipientGuideTitle": "Como revisar este pacote",
+    "recipientGuideBody": "Sem login — use esta página para revisar os criativos que sua equipe compartilhou para aprovação.",
+    "recipientGuideStepReview": "Navegue por cada criativo e confira formato, CTA e qualidade visual.",
+    "recipientGuideStepFeedback": "Responda ao seu contato com aprovar / revisar para cada variação.",
+    "recipientGuideStepDownload": "Clique com o botão direito ou segure a imagem para salvar, ou peça os arquivos exportados.",
     "noImages": "Nenhuma imagem disponível nesta galeria.",
     "publicGallery": "Galeria pública"
   },

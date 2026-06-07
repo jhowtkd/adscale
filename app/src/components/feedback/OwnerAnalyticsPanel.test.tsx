@@ -35,6 +35,8 @@ describe("OwnerAnalyticsPanel", () => {
               { stage: "preview", entered: 1, completed: 0, abandoned: 1 },
             ],
             creditSurprises: [],
+            creditSurprisesByOperation: [],
+            sessionStageTimeline: [],
             readinessOverrides: [],
             totals: { events: 1, sessions: 1 },
           }),
@@ -60,6 +62,7 @@ describe("OwnerAnalyticsPanel", () => {
     renderPanel();
 
     expect(await screen.findByText("Mission conversion")).toBeInTheDocument();
+    expect(screen.getByText("Credit surprises by operation")).toBeInTheDocument();
     expect(screen.getByText("export")).toBeInTheDocument();
     expect(screen.getByText("Export CSV")).toBeInTheDocument();
   });

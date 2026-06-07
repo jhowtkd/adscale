@@ -254,8 +254,47 @@ describe("credit entitlement service", () => {
         sessionId: VALID_SESSION_ID,
         properties: expect.objectContaining({
           operation: "image_derivation",
+          operation_key: "image_derivation",
           actualCredits: 5,
           estimateCredits: 5,
+        }),
+      })
+    );
+  });
+
+  it("emits creditDelta when estimate differs from actual spend", async () => {
+    mockTrackUsage.mockResolvedValue({
+      id: "usage-1",
+      workspaceId: "workspace-1",
+      type: "image_derivation",
+      amount: 8,
+      idempotencyKey: "derivation:delta",
+      metadata: { creditAmount: 8 },
+      createdAt: new Date(),
+    });
+
+    await recordUsage({
+      workspaceId: "workspace-1",
+      action: "image_derivation",
+      amount: 8,
+      idempotencyKey: "derivation:delta",
+      userId: "user-1",
+      metadata: {
+        preview: true,
+        operation_key: "preview",
+        estimateCredits: 5,
+      },
+    });
+    await flushAnalytics();
+
+    expect(mockRecordBetaAnalyticsEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventKey: "credit_spend",
+        properties: expect.objectContaining({
+          operation_key: "preview",
+          estimateCredits: 5,
+          actualCredits: 8,
+          creditDelta: 3,
         }),
       })
     );
@@ -280,6 +319,7 @@ describe("credit entitlement service", () => {
         userId: "user-1",
         properties: expect.objectContaining({
           operation: "image_derivation",
+          operation_key: "image_derivation",
           reasonCode: "insufficient_credits",
           estimateCredits: 5,
         }),

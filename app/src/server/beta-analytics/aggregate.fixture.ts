@@ -74,9 +74,11 @@ export const ANALYTICS_FIXTURE_EVENTS: BetaAnalyticsEvent[] = [
     eventKey: "credit_spend",
     source: "server",
     properties: {
-      operation: "preview",
+      operation: "image_derivation",
+      operation_key: "preview",
       estimateCredits: 5,
       actualCredits: 8,
+      creditDelta: 3,
     },
     createdAt: new Date("2026-06-07T14:43:00.000Z"),
   }),

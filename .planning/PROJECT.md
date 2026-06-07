@@ -10,16 +10,11 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Current Milestone
 
-### v11.9 UX de Entrega e Créditos
+### v11.9 UX de Entrega e Créditos — SHIPPED 2026-06-07
 
-**Goal:** Reduzir surpresas de crédito e fricção na entrega (pacote de aprovação, share, batch gate) com base no learning gate do v11.8 — sem novos modelos de IA nem instrumentação recipe/preview.
+Delivered: credit estimate transparency, enriched credit events, delivery/stale package UX, owner surprise ranking + session timeline, full regression green.
 
-**Target features:**
-- Estimativas de crédito mais claras no preview e no batch gate, com bloqueio explicável quando saldo insuficiente.
-- Eventos e analytics de surpresa de crédito ranqueados por operação no dashboard do owner.
-- UX de entrega: pacote stale visível, refresh compreensível, share link com orientação self-serve.
-- Timeline de sessão com gaps entre estágios para diagnosticar stalls pós-preview (F-07).
-- Regressão testada; build/lint/test verdes.
+**Next:** `/gsd-new-milestone` to plan v11.10+ (deferred v11.8 backlog items: F-06, F-11, F-12, recipe/tradeoff analytics).
 
 ## Requirements
 

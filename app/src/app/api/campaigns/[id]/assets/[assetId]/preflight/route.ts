@@ -118,6 +118,7 @@ async function emitCreditBlockedAnalytics(
       sessionId: context.sessionId,
       properties: {
         operation: "creative_qa",
+        operation_key: "creative_qa",
         reasonCode: body.code ?? "insufficient_credits",
         estimateCredits: 1,
         stage: "readiness",

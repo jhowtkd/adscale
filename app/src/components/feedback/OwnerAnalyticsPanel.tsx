@@ -30,6 +30,20 @@ type CreditSurpriseRow = {
   createdAt: string;
 };
 
+type CreditSurpriseByOperationRow = {
+  operation: string;
+  surpriseCount: number;
+  totalDelta: number;
+  maxAbsDelta: number;
+};
+
+type SessionStageTimelineRow = {
+  sessionId: string;
+  stage: string;
+  completedAt: string;
+  gapFromPreviousMs: number | null;
+};
+
 type ReadinessOverrideSignal = {
   kind: "event" | "operator_note";
   sessionId: string;
@@ -46,9 +60,17 @@ type FunnelResponse = {
   missionFunnel: MissionFunnelRow[];
   cockpitStageFunnel: CockpitStageFunnelRow[];
   creditSurprises: CreditSurpriseRow[];
+  creditSurprisesByOperation: CreditSurpriseByOperationRow[];
+  sessionStageTimeline: SessionStageTimelineRow[];
   readinessOverrides: ReadinessOverrideSignal[];
   totals: { events: number; sessions: number };
 };
+
+function formatGapMs(gapMs: number | null): string {
+  if (gapMs === null) return "—";
+  if (gapMs < 60_000) return `${Math.round(gapMs / 1000)}s`;
+  return `${Math.round(gapMs / 60_000)}m`;
+}
 
 type CreditSignalsResponse = {
   healthyCount: number;
@@ -276,7 +298,17 @@ export function OwnerAnalyticsPanel({
 
           <div className="grid gap-4 lg:grid-cols-2">
             <FunnelTable
-              title="Credit surprises"
+              title="Credit surprises by operation"
+              headers={["Operation", "Count", "Total Δ", "Max |Δ|"]}
+              rows={(funnel.creditSurprisesByOperation ?? []).map((row) => [
+                row.operation,
+                String(row.surpriseCount),
+                String(row.totalDelta),
+                String(row.maxAbsDelta),
+              ])}
+            />
+            <FunnelTable
+              title="Credit surprises (recent)"
               headers={["Operation", "Estimate", "Actual", "Delta"]}
               rows={funnel.creditSurprises.map((row) => [
                 row.operation,
@@ -285,6 +317,27 @@ export function OwnerAnalyticsPanel({
                 String(row.delta),
               ])}
             />
+          </div>
+
+          <FunnelTable
+            title={
+              sessionId
+                ? "Session stage timeline"
+                : "Session stage timeline (all sessions)"
+            }
+            headers={["Session", "Stage", "Completed", "Gap"]}
+            rows={(funnel.sessionStageTimeline ?? [])
+              .filter((row) => !sessionId || row.sessionId === sessionId)
+              .slice(0, 24)
+              .map((row) => [
+                row.sessionId.slice(0, 8) + "…",
+                row.stage,
+                new Date(row.completedAt).toLocaleString(),
+                formatGapMs(row.gapFromPreviousMs),
+              ])}
+          />
+
+          <div className="grid gap-4 lg:grid-cols-2">
             <div className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] p-4 space-y-3">
               <h3 className="text-sm font-semibold text-[var(--text-primary)]">
                 Readiness override signals

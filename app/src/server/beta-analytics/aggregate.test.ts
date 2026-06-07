@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   aggregateCockpitStageFunnel,
   aggregateCreditSurprises,
+  aggregateCreditSurprisesByOperation,
   aggregateMissionFunnel,
   aggregateReadinessOverrides,
+  aggregateSessionStageTimeline,
   buildAnalyticsFunnelSummary,
   eventsToCsvRows,
 } from "./aggregate";
@@ -48,10 +50,32 @@ describe("beta analytics aggregate", () => {
 
     expect(surprises).toHaveLength(1);
     expect(surprises[0]).toMatchObject({
-      operation: "preview",
+      operation: "preview", // from operation_key
       estimateCredits: 5,
       actualCredits: 8,
       delta: 3,
+    });
+  });
+
+  it("ranks credit surprises by operation", () => {
+    const ranked = aggregateCreditSurprisesByOperation(ANALYTICS_FIXTURE_EVENTS);
+
+    expect(ranked).toEqual([
+      {
+        operation: "preview",
+        surpriseCount: 1,
+        totalDelta: 3,
+        maxAbsDelta: 3,
+      },
+    ]);
+  });
+
+  it("builds session stage timeline with gaps from cockpit_stage_completed", () => {
+    const timeline = aggregateSessionStageTimeline(ANALYTICS_FIXTURE_EVENTS);
+
+    expect(timeline.length).toBeGreaterThan(0);
+    expect(timeline[0]).toMatchObject({
+      gapFromPreviousMs: null,
     });
   });
 

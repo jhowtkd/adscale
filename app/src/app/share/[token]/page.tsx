@@ -88,6 +88,17 @@ export default async function SharePage({ params }: SharePageProps) {
           <p className="mt-2 text-xs text-[var(--text-muted)]">
             {t("sharedVia")}
           </p>
+          <div className="mx-auto mt-6 max-w-2xl rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] px-4 py-3 text-left text-sm text-[var(--text-secondary)]">
+            <p className="font-medium text-[var(--text-primary)]">
+              {t("recipientGuideTitle")}
+            </p>
+            <p className="mt-1">{t("recipientGuideBody")}</p>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-xs">
+              <li>{t("recipientGuideStepReview")}</li>
+              <li>{t("recipientGuideStepFeedback")}</li>
+              <li>{t("recipientGuideStepDownload")}</li>
+            </ul>
+          </div>
           {campaign?.notes && (
             <p className="mx-auto mt-4 max-w-2xl rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] px-4 py-3 text-sm text-[var(--text-secondary)]">
               {campaign.notes}

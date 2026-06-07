@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   AlertTriangle,
@@ -49,6 +49,7 @@ export default function ClientApprovalPackagePanel({
     selectedRootIds: string[];
     notes: string;
   } | null>(null);
+  const wasStaleOnSaveRef = useRef(false);
 
   const selectedRootIds =
     draft?.selectedRootIds ?? data?.selectedRootIds ?? [];
@@ -75,12 +76,18 @@ export default function ClientApprovalPackagePanel({
       return;
     }
 
+    wasStaleOnSaveRef.current = data?.package.isStale ?? false;
+
     savePackage.mutate(
       { derivationIds: selectedRootIds, notes },
       {
         onSuccess: () => {
           setDraft(null);
-          addToast("success", t("packageSaved"));
+          addToast(
+            "success",
+            wasStaleOnSaveRef.current ? t("packageRefreshed") : t("packageSaved")
+          );
+          wasStaleOnSaveRef.current = false;
         },
         onError: () => addToast("error", tc("shareLinkFailed")),
       }
@@ -156,12 +163,26 @@ export default function ClientApprovalPackagePanel({
           </p>
         </div>
         {data?.package.isStale && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-1 text-[10px] font-medium text-amber-400">
+          <span
+            className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-1 text-[10px] font-medium text-amber-400"
+            title={t("staleTooltip")}
+          >
             <AlertTriangle className="size-3" />
             {t("stale")}
           </span>
         )}
       </div>
+
+      {data?.package.isStale && (
+        <div
+          className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs"
+          role="status"
+        >
+          <p className="font-medium text-amber-400">{t("staleTitle")}</p>
+          <p className="mt-1 text-[var(--text-secondary)]">{t("staleHint")}</p>
+          <p className="mt-1 text-[var(--text-muted)]">{t("staleAction")}</p>
+        </div>
+      )}
 
       <div className="space-y-2">
         <p className="text-xs font-medium text-[var(--text-primary)]">

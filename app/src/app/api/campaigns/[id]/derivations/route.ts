@@ -201,7 +201,13 @@ export async function POST(
       idempotencyKey: `derivations:${campaignId}:${isPreview ? "preview" : "batch"}:${jobsToCreate
         .map((job) => `${job.variantIndex}:${job.ctaText ?? ""}:${job.format}`)
         .join("|")}`,
-      metadata: { campaignId, count: jobsToCreate.length, preview: isPreview },
+      metadata: {
+        campaignId,
+        count: jobsToCreate.length,
+        preview: isPreview,
+        operation_key: isPreview ? "preview" : "batch",
+        estimateCredits: jobsToCreate.length * 5,
+      },
       userId: user.id,
     });
     if (creditError) return creditError;

@@ -1456,6 +1456,11 @@
     "packageSaved": "Client approval package saved",
     "selectAtLeastOne": "Select at least one approved creative",
     "stale": "Package outdated",
+    "staleTitle": "This package is out of date",
+    "staleHint": "Approved creatives changed since the link was created — recipients may see old selections.",
+    "staleAction": "Click Refresh package to update the share link with your current selection.",
+    "staleTooltip": "Creatives were added, removed, or changed approval status after this package was saved.",
+    "packageRefreshed": "Package refreshed — share link now matches your current selection",
     "expiresAt": "Share link expires on {date}",
     "status": {
       "approved": "Approved",
@@ -1569,6 +1574,11 @@
     "description": "Public gallery of approved creatives.",
     "fallbackTitle": "Gallery",
     "sharedVia": "Shared gallery via ADScale",
+    "recipientGuideTitle": "How to review this package",
+    "recipientGuideBody": "No login required — use this page to review creatives your team shared for approval.",
+    "recipientGuideStepReview": "Browse each creative below and check format, CTA, and visual quality.",
+    "recipientGuideStepFeedback": "Reply to your contact with approve / revise notes for each variation.",
+    "recipientGuideStepDownload": "Right-click or long-press an image to save, or ask your contact for export files.",
     "noImages": "No images available in this gallery.",
     "publicGallery": "Public gallery"
   },

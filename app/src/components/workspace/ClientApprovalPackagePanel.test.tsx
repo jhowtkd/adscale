@@ -87,6 +87,35 @@ describe("ClientApprovalPackagePanel", () => {
     expect(screen.getByText("clientApprovalPackage.copyShareLink")).toBeInTheDocument();
   });
 
+  it("shows stale guidance when package is outdated", () => {
+    mockUseApprovalPackage.mockReturnValue({
+      data: {
+        campaignId: "campaign-1",
+        availableRoots: [
+          { id: "root-1", format: "1:1", ctaText: "Shop now" },
+        ],
+        selectedRootIds: ["root-1"],
+        package: {
+          derivationIds: ["root-1"],
+          items: [],
+          notes: "",
+          isStale: true,
+          staleReasons: ["unapproved:root-1"],
+        },
+        shareUrl: "https://app.example.com/share/token",
+        expiresAt: null,
+      },
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof useApprovalPackage>);
+
+    render(<ClientApprovalPackagePanel campaignId="campaign-1" />);
+
+    expect(screen.getByText("clientApprovalPackage.staleTitle")).toBeInTheDocument();
+    expect(screen.getByText("clientApprovalPackage.staleAction")).toBeInTheDocument();
+    expect(screen.getByText("clientApprovalPackage.refreshPackage")).toBeInTheDocument();
+  });
+
   it("calls save mutation when create package is clicked", () => {
     const mutate = vi.fn();
     mockUseSaveApprovalPackage.mockReturnValue({

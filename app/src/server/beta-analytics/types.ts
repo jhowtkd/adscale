@@ -9,6 +9,8 @@ export const ALLOWED_PROPERTY_KEYS = [
   "actualCredits",
   "action",
   "operation",
+  "operation_key",
+  "creditDelta",
   "format",
   "isPreview",
   "readinessStatus",

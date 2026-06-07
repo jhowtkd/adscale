@@ -57,7 +57,10 @@ export function summarizeEventCreditSignals(
         recentSurprises.push({
           eventId: event.id,
           sessionId: event.sessionId,
-          operation: propString(event, "operation") ?? "unknown",
+          operation:
+            propString(event, "operation_key") ??
+            propString(event, "operation") ??
+            "unknown",
           estimateCredits: estimate,
           actualCredits: actual,
           delta: actual - estimate,

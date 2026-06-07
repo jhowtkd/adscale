@@ -1,5 +1,22 @@
 # Milestones: ADScale
 
+## v11.9 UX de Entrega e Créditos (Shipped: 2026-06-07)
+
+**Phases completed:** 5 phases (80→84)  
+**Requirements:** 13/13 complete
+
+**Key accomplishments:**
+
+- Preview gate credit formula (`N × 5 = total`), balance display, and insufficient-credit block before batch
+- `operation_key` + `creditDelta` on `credit_spend` / `credit_blocked` analytics events
+- Approval package stale callout, refresh toast, and share-page recipient self-serve guide
+- Owner dashboard: credit surprise ranking by operation, session stage timeline with gaps, CSV sections
+- Full regression suite green (1000 tests)
+
+**Archive:** [v11.9-ROADMAP.md](milestones/v11.9-ROADMAP.md) · [v11.9-REQUIREMENTS.md](milestones/v11.9-REQUIREMENTS.md) · [v11.9-MILESTONE-AUDIT.md](milestones/v11.9-MILESTONE-AUDIT.md) · [v11.9-phases/](milestones/v11.9-phases/)
+
+---
+
 ## v11.8 Loop de Aprendizado Beta (Shipped: 2026-06-07)
 
 **Phases completed:** 5 phases (75→79), 16 plans  

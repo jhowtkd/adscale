@@ -15,6 +15,7 @@ import { db } from "@/server/db";
 import { user } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { logger } from "@/lib/logger";
+import { resolveCreditOperationKey } from "./credit-operation-key";
 import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
 import { createCreditTransaction } from "@/server/repositories/credit-transactions";
 import { z } from "zod";
@@ -86,6 +87,7 @@ function emitCreditBlockedAnalytics(
   check: Extract<SpendCheck, { allowed: false }>
 ) {
   const meta = input.metadata ?? {};
+  const operationKey = resolveCreditOperationKey(input.action, meta);
   void recordBetaAnalyticsEvent({
     workspaceId: input.workspaceId,
     userId: input.userId,
@@ -96,6 +98,7 @@ function emitCreditBlockedAnalytics(
     sessionId: betaSessionIdFromMetadata(meta),
     properties: {
       operation: input.action,
+      operation_key: operationKey,
       reasonCode: check.reason,
       estimateCredits: check.amount,
     },
@@ -114,6 +117,15 @@ function emitCreditSpendAnalytics(
   check: Extract<SpendCheck, { allowed: true }>
 ) {
   const meta = input.metadata ?? {};
+  const operationKey = resolveCreditOperationKey(input.action, meta);
+  const estimateCredits =
+    typeof meta.estimateCredits === "number"
+      ? meta.estimateCredits
+      : check.amount;
+  const actualCredits = check.amount;
+  const creditDelta =
+    estimateCredits !== actualCredits ? actualCredits - estimateCredits : undefined;
+
   void recordBetaAnalyticsEvent({
     workspaceId: input.workspaceId,
     userId: input.userId,
@@ -124,11 +136,10 @@ function emitCreditSpendAnalytics(
     sessionId: betaSessionIdFromMetadata(meta),
     properties: {
       operation: input.action,
-      actualCredits: check.amount,
-      estimateCredits:
-        typeof meta.estimateCredits === "number"
-          ? meta.estimateCredits
-          : check.amount,
+      operation_key: operationKey,
+      actualCredits,
+      estimateCredits,
+      ...(creditDelta !== undefined ? { creditDelta } : {}),
     },
   }).catch((err) => {
     logger.warn("[recordUsage] credit_spend analytics failed", err);

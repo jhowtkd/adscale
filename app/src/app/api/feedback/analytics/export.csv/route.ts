@@ -52,6 +52,20 @@ export async function GET(request: Request) {
           `${row.stage},${row.entered},${row.completed},${row.abandoned}`
       ),
       "",
+      "# credit_surprises_by_operation",
+      "operation,surprise_count,total_delta,max_abs_delta",
+      ...summary.creditSurprisesByOperation.map(
+        (row) =>
+          `${row.operation},${row.surpriseCount},${row.totalDelta},${row.maxAbsDelta}`
+      ),
+      "",
+      "# session_stage_timeline",
+      "session_id,stage,completed_at,gap_from_previous_ms",
+      ...summary.sessionStageTimeline.map(
+        (row) =>
+          `${row.sessionId},${row.stage},${row.completedAt},${row.gapFromPreviousMs ?? ""}`
+      ),
+      "",
       "# events",
     ];
 

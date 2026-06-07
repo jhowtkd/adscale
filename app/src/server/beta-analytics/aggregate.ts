@@ -29,6 +29,20 @@ export interface CreditSurpriseRow {
   createdAt: string;
 }
 
+export interface CreditSurpriseByOperationRow {
+  operation: string;
+  surpriseCount: number;
+  totalDelta: number;
+  maxAbsDelta: number;
+}
+
+export interface SessionStageTimelineRow {
+  sessionId: string;
+  stage: string;
+  completedAt: string;
+  gapFromPreviousMs: number | null;
+}
+
 export interface ReadinessOverrideSignal {
   kind: "event" | "operator_note";
   sessionId: string;
@@ -45,6 +59,8 @@ export interface AnalyticsFunnelSummary {
   missionFunnel: MissionFunnelRow[];
   cockpitStageFunnel: CockpitStageFunnelRow[];
   creditSurprises: CreditSurpriseRow[];
+  creditSurprisesByOperation: CreditSurpriseByOperationRow[];
+  sessionStageTimeline: SessionStageTimelineRow[];
   readinessOverrides: ReadinessOverrideSignal[];
   totals: {
     events: number;
@@ -165,21 +181,95 @@ export function aggregateCreditSurprises(
     const estimate = propNumber(event, "estimateCredits");
     const actual = propNumber(event, "actualCredits");
     if (estimate === null || actual === null) continue;
-    if (estimate === actual) continue;
+    const persistedDelta = propNumber(event, "creditDelta");
+    const delta = persistedDelta ?? actual - estimate;
+    if (delta === 0) continue;
 
     rows.push({
       eventId: event.id,
       sessionId: event.sessionId,
-      operation: propString(event, "operation") ?? "unknown",
+      operation:
+        propString(event, "operation_key") ??
+        propString(event, "operation") ??
+        "unknown",
       estimateCredits: estimate,
       actualCredits: actual,
-      delta: actual - estimate,
+      delta,
       createdAt: event.createdAt.toISOString(),
     });
   }
 
   return rows.sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+}
+
+export function aggregateCreditSurprisesByOperation(
+  events: BetaAnalyticsEvent[]
+): CreditSurpriseByOperationRow[] {
+  const stats = new Map<
+    string,
+    { surpriseCount: number; totalDelta: number; maxAbsDelta: number }
+  >();
+
+  for (const row of aggregateCreditSurprises(events)) {
+    const current = stats.get(row.operation) ?? {
+      surpriseCount: 0,
+      totalDelta: 0,
+      maxAbsDelta: 0,
+    };
+    current.surpriseCount += 1;
+    current.totalDelta += row.delta;
+    current.maxAbsDelta = Math.max(current.maxAbsDelta, Math.abs(row.delta));
+    stats.set(row.operation, current);
+  }
+
+  return [...stats.entries()]
+    .map(([operation, value]) => ({
+      operation,
+      ...value,
+    }))
+    .sort(
+      (a, b) =>
+        b.surpriseCount - a.surpriseCount ||
+        Math.abs(b.totalDelta) - Math.abs(a.totalDelta)
+    );
+}
+
+export function aggregateSessionStageTimeline(
+  events: BetaAnalyticsEvent[]
+): SessionStageTimelineRow[] {
+  const bySession = new Map<string, Array<{ stage: string; at: Date }>>();
+
+  for (const event of events) {
+    if (event.eventKey !== "cockpit_stage_completed") continue;
+    if (!event.sessionId) continue;
+    const stage = stageFromEvent(event);
+    const list = bySession.get(event.sessionId) ?? [];
+    list.push({ stage, at: event.createdAt });
+    bySession.set(event.sessionId, list);
+  }
+
+  const rows: SessionStageTimelineRow[] = [];
+  for (const [sessionId, stages] of bySession) {
+    stages.sort((a, b) => a.at.getTime() - b.at.getTime());
+    for (let index = 0; index < stages.length; index += 1) {
+      const current = stages[index]!;
+      const previous = index > 0 ? stages[index - 1]! : null;
+      rows.push({
+        sessionId,
+        stage: current.stage,
+        completedAt: current.at.toISOString(),
+        gapFromPreviousMs: previous
+          ? current.at.getTime() - previous.at.getTime()
+          : null,
+      });
+    }
+  }
+
+  return rows.sort(
+    (a, b) =>
+      new Date(a.completedAt).getTime() - new Date(b.completedAt).getTime()
   );
 }
 
@@ -252,6 +342,8 @@ export function buildAnalyticsFunnelSummary(
     missionFunnel: aggregateMissionFunnel(events),
     cockpitStageFunnel: aggregateCockpitStageFunnel(events),
     creditSurprises: aggregateCreditSurprises(events),
+    creditSurprisesByOperation: aggregateCreditSurprisesByOperation(events),
+    sessionStageTimeline: aggregateSessionStageTimeline(events),
     readinessOverrides: aggregateReadinessOverrides(events, sessions),
     totals: {
       events: events.length,
