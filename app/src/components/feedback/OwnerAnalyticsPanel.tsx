@@ -182,11 +182,13 @@ export function OwnerAnalyticsPanel({
             Mission and cockpit funnels, credit surprises, readiness overrides.
           </p>
         </div>
-        <Button type="button" variant="outline" asChild>
-          <a href={exportUrl} download="beta-analytics-export.csv">
-            Export CSV
-          </a>
-        </Button>
+        <a
+          href={exportUrl}
+          download="beta-analytics-export.csv"
+          className="inline-flex h-9 items-center justify-center rounded-md border border-[var(--border-dim)] bg-transparent px-3 text-sm font-medium hover:bg-[var(--surface-raised)]"
+        >
+          Export CSV
+        </a>
       </div>
 
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">

@@ -196,7 +196,7 @@ export async function recordUsage(input: {
   const check = await canSpend(input.workspaceId, input.action, input.amount);
   if (!check.allowed) {
     if (input.userId) {
-      emitCreditBlockedAnalytics(input, check);
+      emitCreditBlockedAnalytics({ ...input, userId: input.userId }, check);
     }
     return { status: "blocked" as const, check };
   }
@@ -233,11 +233,11 @@ export async function recordUsage(input: {
       if (err instanceof Error && err.message === "insufficient_credits") {
         const blockedCheck = {
           ...check,
-          allowed: false,
+          allowed: false as const,
           reason: "insufficient_credits" as const,
         };
         if (input.userId) {
-          emitCreditBlockedAnalytics(input, blockedCheck);
+          emitCreditBlockedAnalytics({ ...input, userId: input.userId }, blockedCheck);
         }
         return {
           status: "blocked" as const,
@@ -309,7 +309,7 @@ export async function recordUsage(input: {
   }
 
   if (input.userId) {
-    emitCreditSpendAnalytics(input, check);
+    emitCreditSpendAnalytics({ ...input, userId: input.userId }, check);
   }
 
   return { status: "recorded" as const, usage, check };
