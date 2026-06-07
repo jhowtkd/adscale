@@ -81,7 +81,11 @@ Archive: [v11.8-ROADMAP.md](milestones/v11.8-ROADMAP.md) · [v11.8-REQUIREMENTS.
   3. When balance is insufficient for the batch estimate, the gate blocks with explicit estimate vs available balance.
   4. Blocked-state copy explains why the batch cannot proceed without operator intervention.
 
-**Plans:** TBD
+**Plans:** 2 plans (2 waves)
+
+Plans:
+- [ ] 80-01-PLAN.md — Batch credit breakdown helper + billing balance wiring
+- [ ] 80-02-PLAN.md — PreviewGatePanel formula, balance, insufficient block + tests
 
 **UI hint:** yes
 

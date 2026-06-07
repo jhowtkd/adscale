@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v11.9
 milestone_name: UX de Entrega e Créditos
-status: planning
-stopped_at: Phase 80 context gathered
-last_updated: "2026-06-07T17:46:45.099Z"
-last_activity: 2026-06-07 — ROADMAP.md and REQUIREMENTS.md created for v11.9
+status: ready_to_execute
+stopped_at: Phase 80 planned
+last_updated: "2026-06-07T20:00:00Z"
+last_activity: 2026-06-07 — Phase 80 planned (2 plans)
 progress:
-  total_phases: 8
-  completed_phases: 3
-  total_plans: 4
-  completed_plans: 6
+  total_phases: 5
+  completed_phases: 0
+  total_plans: 2
+  completed_plans: 0
   percent: 0
 ---
 
@@ -27,45 +27,19 @@ See: `.planning/PROJECT.md` (updated 2026-06-07)
 ## Current Position
 
 Phase: 80 of 84 (Credit Estimate Transparency)
-Plan: —
-Status: Ready to plan
-Last activity: 2026-06-07 — ROADMAP.md and REQUIREMENTS.md created for v11.9
+Plan: 80-01, 80-02 planned (0/2 complete)
+Status: Ready to execute
+Last activity: 2026-06-07 — Phase 80 planned
 
-Progress: [░░░░░░░░░░] 0%
-
-**Resume file:** .planning/phases/80-credit-estimate-transparency/80-CONTEXT.md
-
-## Performance Metrics
-
-**Velocity:**
-- v11.9 plans completed: 0
-- Milestone phases: 5 (80–84)
+**Resume file:** `.planning/phases/80-credit-estimate-transparency/80-01-PLAN.md`
 
 ## Accumulated Context
 
-### Decisions
-
-- **LEARN-03 (v11.8):** v11.9 primary = delivery/credits UX (Q7–Q9); recipe/preview instrumentation deferred.
-- **Scope lock:** No `recipe_selected`, tradeoff events, readiness tuning, or new AI models.
-
-### Pending Todos
-
-None yet.
-
-### Blockers/Concerns
-
-- v11.8 post-ship: SESS-03 operator UAT, migration `0033`, live DB smoke — do not block v11.9 planning.
-
-## Deferred Items
-
-| Category | Item | Status | Deferred At |
-|----------|------|--------|-------------|
-| Instrumentation | F-08/F-09 recipe/tradeoff events | Out of v11.9 scope | v11.8 Phase 79 |
-| Readiness | F-11 false-positive workflow | v11.9+ backlog | v11.8 Phase 79 |
-| Build | F-14 test drift | v11.9+ backlog | v11.8 Phase 79 |
+- **LEARN-03 (v11.8):** v11.9 primary = delivery/credits UX (Q7–Q9).
+- **Phase 80 locked:** compact formula, balance always visible, disable approve when insufficient, subtle disclaimer.
+- v11.8 post-ship: SESS-03, migration `0033`, live DB smoke — não bloqueia execução.
 
 ## Session Continuity
 
-Last session: 2026-06-07T17:46:45.094Z
-Stopped at: Phase 80 context gathered
-Resume file: None
+Last session: 2026-06-07
+Stopped at: Phase 80 planned
