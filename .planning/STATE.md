@@ -18,9 +18,9 @@ progress:
 ## Current Position
 
 Phase: 76 - Cockpit and Mission Instrumentation
-Plan: 76-03 (complete)
-Status: Phase 76 in progress — 2/4 plans done (76-01, 76-03 complete)
-Last activity: 2026-06-07 — Completed 76-03-PLAN.md
+Plan: 76-02 (complete)
+Status: Phase 76 in progress — 3/4 plans done (76-01, 76-02, 76-03 complete)
+Last activity: 2026-06-07 — Completed 76-02-PLAN.md
 
 **Resume file:** None
 
@@ -31,6 +31,7 @@ Last activity: 2026-06-07 — Completed 76-03-PLAN.md
 - Research: first-party `beta_analytics_events` + `beta_sessions`; extend `/feedback`; no third-party analytics.
 - Phase 75 complete: schema, sanitization, POST /api/analytics/events, recordBetaAnalyticsEvent.
 - Phase 76-01: PHASE_76_BETA_EVENT_KEYS enum, session header plumbing, INST-04 partial (session grouping contract).
+- Phase 76-02: server instrumentation — readiness/credit/mission_completed at authoritative API boundaries (INST-02).
 - Phase 76-03: useRecordBetaEvent hook; cockpit stage events on four panels (INST-03, INST-04 client).
 - Learning gate: answer `67-LEARNING-QUESTIONS.md` with data before v11.9 features.
 
