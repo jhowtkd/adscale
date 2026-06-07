@@ -1,298 +1,282 @@
 # Domain Pitfalls
 
-**Domain:** Adding beta learning loops, product analytics, and evidence-driven friction fixes to an existing creative SaaS (ADScale v11.8)  
+**Domain:** Adding cockpit instrumentation (F-06/F-08/F-09/F-12), readiness operator override (F-11), owner dashboard polish, and UAT closure to an existing instrumented beta app (ADScale v11.10)  
 **Researched:** 2026-06-07  
-**Overall confidence:** HIGH (grounded in shipped v11.4–v11.7 code + operator runbook; MEDIUM for industry patterns from WebSearch)
+**Milestone context:** v11.10 Fechamento Entrega e Analytics — subsequent milestone, v11.8 foundation already shipped  
+**Overall confidence:** HIGH (grounded in shipped v11.8 code, deferred backlog evidence, and instrumentation structure)
+
+---
 
 ## Critical Pitfalls
 
-Mistakes that cause rewrites, invalid learning conclusions, or privacy incidents.
+Mistakes that cause invalid learning conclusions, broken aggregation, or failed UAT gate.
 
-### Pitfall 1: Instrumenting After Sessions Start
+### Pitfall 1: Adding New Event Keys Without Extending the Closed Enum
 
-**What goes wrong:** Operator runs 1–2 beta sessions before `product_events` / `beta_sessions` exist. Cockpit abandonment, credit surprises, and readiness overrides are lost forever; learning questions (Q1–Q10) cannot be answered from data.
+**What goes wrong:** New events for recipe/tradeoff/briefing abandon (`recipe_selected`, `recipe_tradeoff_viewed`, `cockpit_stage_abandoned` on briefing) are fired at call sites but rejected server-side with `BetaEventPropertiesValidationError: unknown event_key` because `PHASE_76_BETA_EVENT_KEYS` in `types.ts` only lists Phase 76 keys. Events are silently dropped at the client fire-and-forget layer; instrumentation appears to work (no thrown errors in UI) but produces zero data.
 
-**Why it happens:** Pressure to "just run beta" while dashboard work is deferred; assumption that `feedback_reports` + mission insights are "enough."
+**Why it happens:** `record.ts` validates `eventKey` against `PHASE_76_BETA_EVENT_KEYS` before insert. Adding a call site without adding the key to the enum is a valid TypeScript build — no compile-time failure.
 
-**Consequences:** Anecdotal fixes, no funnel baseline, milestone fails its "learn before build" gate.
+**Consequences:** Q4 (recipe selection) and Q6 (tradeoff readership) remain unanswerable after v11.10; owner dashboard shows empty recipe funnel rows; SESS-03 real sessions generate no recipe evidence.
 
 **Prevention:**
-- Ship server-side event ingest at API boundaries (readiness POST, preview queue, batch queue, share create) **before** session 1.
-- Gate operator runbook step 1 on a smoke event appearing in owner export.
-- Treat `67-BETA-RUNBOOK.md` session setup as blocked until instrumentation checklist passes.
+- Extend the enum in `types.ts` first, before adding any call site. Enum PR must be atomic with the first emit call.
+- Add a unit test for each new key asserting `recordBetaAnalyticsEvent` resolves (mirror `instrumentation.integration.test.ts` pattern).
+- PR checklist: "new event key listed in `PHASE_76_BETA_EVENT_KEYS`?" before merge.
 
-**Detection:** Empty `product_events` rows for a workspace that completed a cockpit path; operator notes with stage tags but no matching events.
+**Detection:** `npm test` passes (no enum test), but owner dashboard recipe funnel row shows `entered: 0` after a live operator session that clearly triggered the recipe panel.
 
-**Roadmap phase:** Instrumentation & event schema (P1 — must precede operator sessions).
+**Phase:** Cockpit instrumentation — add to enum before adding call sites.
 
 ---
 
-### Pitfall 2: Conflating Qualitative Feedback With Funnel Analytics
+### Pitfall 2: New Property Keys Rejected by Allowlist
 
-**What goes wrong:** Mission insights (`category: mission` in `feedback_reports`), free-text feedback, and funnel counts are merged into one "health score" without schema separation. Owner dashboard shows high "healthy" mission credit signals while users still abandon preview.
+**What goes wrong:** `recipe_selected` needs a `recipeKey` property; `recipe_tradeoff_viewed` needs a `tradeoffKey`; override event needs `overrideReason`. These are not in `ALLOWED_PROPERTY_KEYS` in `types.ts`. `sanitizeBetaEventProperties` uses `z.strictObject` — any unrecognised key causes `BetaEventPropertiesValidationError: properties failed validation`. Again, fire-and-forget client hook swallows the error; server-side calls surface it only in logs.
 
-**Why it happens:** v11.7 reused `feedback_reports` for mission insights (correct for triage); v11.8 adds quantitative funnels without a distinct `product_events` layer.
+**Why it happens:** Allowlist is intentionally strict (privacy/PII boundary). Adding new semantics requires deliberate allowlist extension.
 
-**Consequences:** Over-weighting prompt dismissals as success; under-counting silent drop-off (users who never submit insight prompts).
+**Consequences:** Properties arrive as empty object `{}`; recipe funnel has no `recipeKey` dimension; override analytics has no `overrideReason` dimension.
 
 **Prevention:**
-- Keep **events** (stage entered/completed/abandoned, credit delta) in `product_events`.
-- Keep **opinions** (sentiment, optional text) in `feedback_reports` / mission insights.
-- Dashboard shows both side-by-side; never derive funnel conversion from insight sentiment alone.
-- Correlate via optional `feedback_report_id` on frustration events, not merged tables.
+- For every new event, enumerate its properties and add each key to `ALLOWED_PROPERTY_KEYS` before the emit call site.
+- Add a `sanitize.test.ts` case per new key to confirm it survives `sanitizeBetaEventProperties`.
+- Review `DENIED_KEY_NAMES` for conflicts (e.g. `reasonCode` already allowed — use that for override reason if semantically appropriate to avoid adding a near-duplicate).
 
-**Detection:** Funnel shows 0% preview completion but mission credit signals show `healthyCount > 0`; operator reports "they loved it" with no `preview_approved` event.
+**Detection:** Integration test `sanitize.test.ts` fails for new properties, or event stored in DB has `properties: {}` while call site passed `{ recipeKey: "performance_push" }`.
 
-**Roadmap phase:** Owner dashboard & aggregation (P1).
+**Phase:** Cockpit instrumentation / readiness override — extend allowlist atomically with enum extension.
 
 ---
 
-### Pitfall 3: Operator-Assisted Sessions Inflate Success Metrics
+### Pitfall 3: Readiness Override Event Creates Ambiguity in `aggregateReadinessOverrides`
 
-**What goes wrong:** Operator guides users through readiness blocks, picks recipes, and explains credits. Funnel shows 100% mission completion; unassisted users would stall at the same steps.
+**What goes wrong:** `aggregateReadinessOverrides` already combines `readiness_blocked` events and operator notes tagged `"blocking false positive"`. Adding a new `readiness_overridden` event (F-11) without updating the aggregation produces **duplicate signals**: the same override appears as both an operator note row (kind: `operator_note`) and an event row (kind: `event`), inflating the override count on the owner dashboard.
 
-**Why it happens:** v11.8 is explicitly operator-led; no `session_mode` or `operator_present` dimension on events.
+**Why it happens:** `aggregate.ts` joins the two sources by `sessionId` but does not deduplicate by time window. If the operator notes the override **and** the system fires `readiness_overridden`, both appear.
 
-**Consequences:** False confidence in cockpit UX; fixes target wrong friction (polish vs self-serve clarity).
+**Consequences:** Override count is 2× reality; owner concludes readiness false positives are rampant when they may be single incidents.
 
 **Prevention:**
-- Add `beta_sessions` with `operator_id`, `cohort_label`, `assistance_level` (hands-on / observe-only).
-- Tag events with `session_id`; analysis defaults to operator sessions but flags steps where operator clicked on behalf of user.
-- Runbook requires operator to note "user vs operator action" for blocking steps.
-- Learning doc answers must state: "under operator assistance."
+- Decide the authoritative source before shipping: either the event is the record OR the operator note tag is — not both.
+- Recommended: event is authoritative; remove `isFalsePositiveTag` from `extractOperatorFalsePositiveNotes` for stages where override event now fires, or mark event-backed rows with `supersededByEvent: true`.
+- If keeping both, dedup in `aggregateReadinessOverrides` by `sessionId + stage + createdAt window (±5 min)`.
+- Add an `aggregate.test.ts` case with both sources for the same session to assert dedup.
 
-**Detection:** Median time draft → share is 2× runbook estimate only when operator is absent; all sessions have identical paths.
+**Detection:** Owner dashboard override count ≥ 2× number of live beta sessions; `aggregate.test.ts` passes only one source at a time.
 
-**Roadmap phase:** Operator session entity & runbook execution (P1).
+**Phase:** Readiness override — aggregation dedup must be added in the same phase as the new event.
 
 ---
 
-### Pitfall 4: Privacy Leakage via CSV Export and Small Cohorts
+### Pitfall 4: Preview Funnel Mismatch Not Fixed Before SESS-03
 
-**What goes wrong:** Owner exports events + feedback to CSV for 3–5 beta users. Columns include `userId`, `optionalText`, route breadcrumbs, or workspace names — re-identification is trivial at n=3.
+**What goes wrong:** F-06 (preview stage abandoned=1 in events while operator note says "Preview approved") was deferred from v11.8 with the note "needs stage-completion instrumentation." If SESS-03 runs before `cockpit_stage_completed` is emitted on manual runbook complete for the preview stage, the funnel mismatch carries into the final learning answers: Q5 still unanswerable. v11.10 closes the learning loop — shipping SESS-03 with broken preview instrumentation means Q5 is permanently marked TBD.
 
-**Why it happens:** Export built for debugging convenience; k-anonymity not considered for operator-scale cohort.
+**Why it happens:** Preview completion in the cockpit is partially operator-driven (manual step confirm in runbook). Client hook fires `cockpit_stage_abandoned` on unmount without a gate that distinguishes "user closed panel after approving" from "user closed panel from frustration."
 
-**Consequences:** Violates v11.4 privacy handoff intent; beta users' creative workflow details exposed in spreadsheets.
+**Consequences:** Q5 answer stays fixture-backed; final LEARN-03 decision gate cannot distinguish preview funnel drop-off from operational pattern.
 
 **Prevention:**
-- CSV export uses **pseudonymous session labels** (`session_01`, `workspace_hash`); no email, no full diagnostic JSON.
-- Strip `optionalText` from bulk export; link to `/feedback` detail for qualitative review.
-- Enforce minimum cohort size (n≥3) before showing cross-workspace aggregates; show "insufficient data" otherwise.
-- Reuse existing sanitize rules: no prompts, tokens, signed URLs in events.
+- Wire `cockpit_stage_completed` to explicit user action in preview panel (approve button, confirm CTA) **before** SESS-03 begins.
+- Add `durationMs` to the completed event so post-preview stall (Q10 38-min gap) can be confirmed with real data.
+- Runbook step for operator: "confirm preview_completed event appears in export before proceeding."
 
-**Detection:** Export file contains `@` in user columns or prompt substrings in properties.
+**Detection:** After SESS-03, `cockpit_stage_completed` on `stage: preview` count = 0; operator notes say "preview approved" for same session.
 
-**Roadmap phase:** Owner dashboard & CSV export (P1); Privacy review before first export.
+**Phase:** Cockpit instrumentation (F-06 fix) — must ship before SESS-03 gate.
 
 ---
 
-### Pitfall 5: Fixing Friction Before Evidence Threshold
+### Pitfall 5: Session Filter on Dashboard Breaks Without `sessionId` Index
 
-**What goes wrong:** Team ships 5 UX fixes after one loud session or one feedback report, without frequency/impact rubric. Changes confound the learning loop (variable changes mid-experiment).
+**What goes wrong:** Adding a session filter dropdown to the owner dashboard calls `parseOwnerAnalyticsQuery` with `sessionId` set, which filters `beta_analytics_events WHERE session_id = $1`. With 3+ real sessions generating hundreds of events, a full table scan per filter interaction degrades the `/feedback` page noticeably on Neon serverless (cold connection + no index).
 
-**Why it happens:** SaaS instinct to "ship fast"; operator empathy overrides milestone cap.
+**Why it happens:** `query.ts` parses `sessionId` as a filter but the DB repository passes it as a `WHERE` clause. No index on `session_id` was required at v11.8 with fixture-only data volume.
 
-**Consequences:** Cannot attribute improvement; remaining sessions measure different product; scope creep into speculative features.
+**Consequences:** Owner dashboard becomes slow during real beta sessions exactly when it is most needed; operator waits 3–5 s per filter change.
 
 **Prevention:**
-- Rubric: fix only if **≥2 sessions** show same stage drop-off OR **blocking runbook step** OR **high-severity feedback** with matching events.
-- Cap at 5 fixes; defer rest to v11.9 backlog with evidence links.
-- No AI model / generation behavior changes — copy, validation, CTA, credit display only (per FEATURES anti-features).
-- Each fix references `session_id` + event IDs in PR description.
+- Add `CREATE INDEX CONCURRENTLY idx_beta_analytics_events_session_id ON beta_analytics_events (session_id) WHERE session_id IS NOT NULL;` in the migration for this milestone.
+- Keep existing `workspace_id` + `created_at` compound index; query should filter workspace first.
+- Test with 500 synthetic events before SESS-03.
 
-**Detection:** Friction-fix PRs merge before 3 sessions complete; fixes touch unrelated modules.
+**Detection:** `EXPLAIN ANALYZE` on `SELECT * FROM beta_analytics_events WHERE session_id = $1` shows `Seq Scan`.
 
-**Roadmap phase:** Evidence-driven friction fixes (P1 — **after** dashboard + ≥3 sessions).
+**Phase:** Owner dashboard polish — migration must include index.
 
 ---
 
-### Pitfall 6: Trusting Inferred Mission Completion as Ground Truth
+### Pitfall 6: Timeline "Without Cap" Causes N+1 or Unbounded Query
 
-**What goes wrong:** `inferMissionCompletions` marks `guided_briefing` complete when any campaign has objective + audience, `strategy_recipe` when formats exist on campaign — without user actually using cockpit modals. Funnel shows missions "done" while users skipped guided briefing.
+**What goes wrong:** Removing the timeline cap (F-07 / owner dashboard polish) without batching or pagination causes `aggregateSessionStageTimeline` to load **all events** for all sessions into memory on each page load, then sort and gap-compute in JS. At v11.10 scale this is still manageable, but the pattern will regress in v12.x when cohort grows.
 
-**Why it happens:** Progression v11.7 optimized for activation signals, not strict cockpit path fidelity.
+**Why it happens:** `buildAnalyticsFunnelSummary` passes all events to every aggregator in one pass. Removing the cap without limiting the query scope means the full event table is fetched per dashboard render.
 
-**Consequences:** Mission conversion funnel lies; wrong prioritization vs stage events.
+**Consequences:** Dashboard payload bloat; Neon serverless connection timeout on cold start with large event sets; pattern debt before v12 beta expansion.
 
 **Prevention:**
-- Funnel **primary source** = `product_events` with explicit `mission_*` / `cockpit_*` stage keys.
-- Use inferred completion only as secondary "workspace maturity" indicator, labeled "inferred."
-- Add events at modal open/confirm/skip for guided briefing, recipe, preview gate.
+- Add a `from` / `to` date filter (already in `parseOwnerAnalyticsQuery`) with a sensible default (last 30 days or active session window).
+- `aggregateSessionStageTimeline` should receive only events for explicitly requested sessions, not the full workspace history.
+- Keep the uncapped timeline as opt-in via "show all sessions" toggle — not the default.
 
-**Detection:** `guided_briefing` mission complete in progression API but zero `briefing_*` events in session.
+**Detection:** `/api/feedback/analytics/funnel` response time > 1 s with 3 real sessions × 50 events each; memory profile shows full event array allocated per request.
 
-**Roadmap phase:** Instrumentation hooks in campaign workspace (P1).
+**Phase:** Owner dashboard polish — add default date window when removing cap.
+
+---
+
+### Pitfall 7: SESS-03 Runs on Old App Version (New Instrumentation Not Deployed)
+
+**What goes wrong:** v11.10 cockpit instrumentation phases complete in code but the operator runs SESS-03 before the Vercel deployment is live. New events (`recipe_selected`, `recipe_tradeoff_viewed`, `readiness_overridden`) are never emitted during the final learning session. Learning answers for Q4, Q6, F-11 remain fixture-backed for the entire milestone.
+
+**Why it happens:** SESS-03 is both a UAT gate **and** a data collection moment. If treated primarily as UAT, the operator may run it on any available build.
+
+**Consequences:** Milestone closes without real evidence on the three questions v11.10 was specifically designed to answer.
+
+**Prevention:**
+- Runbook step before SESS-03: "Verify deployed commit SHA matches merge SHA of cockpit instrumentation phase."
+- Add a `/api/analytics/events` smoke check to the operator pre-session checklist: fire a test `recipe_tradeoff_viewed` event and confirm it appears in owner CSV export.
+- SESS-03 is a gate on **both** deployment and instrumentation smoke passing.
+
+**Detection:** SESS-03 session artifacts exported; recipe funnel row count = 0 despite operator note "recipe selected."
+
+**Phase:** UAT closure — pre-session deployment checklist.
+
+---
+
+### Pitfall 8: F-14 Test Drift Silently Invalidates Regression Gate
+
+**What goes wrong:** The pre-existing `creative-quality-gate-orchestration` test failure (F-14 in backlog) causes `npm test` to include a skipped or expected-to-fail assertion. Developers treat "test suite green" as "no regressions" — but the test was already failing before v11.10 changes. Friction-fix PRs may introduce real regressions in quality gate behavior that go undetected because the signal is masked.
+
+**Why it happens:** `vitest` by default shows a passing run even if tests are `test.skip`-ed. F-14 was deferred from v11.8 with a note about "regeneration suggestion assertion drift" but no `todo` or explicit failure tracking.
+
+**Consequences:** Quality gate regression ships to production; preview or batch derivation behavior changes without test coverage detecting it.
+
+**Prevention:**
+- F-14 must be addressed in v11.10 regression phase: either fix the assertion or add a `test.todo("F-14: awaiting orchestration alignment")` that explicitly tracks the gap rather than a silent skip.
+- Run `npm test -- --reporter=verbose` in regression phase; scan for `skipped` tests in the summary.
+- Pre-merge check: compare test count between base branch and PR branch; unexplained drops flag a review.
+
+**Detection:** `npm test` shows `X passed, Y skipped` where Y > 0; git blame on skipped test shows it was skipped in a previous milestone.
+
+**Phase:** Regression phase — F-14 must be resolved before declaring suite green.
 
 ---
 
 ## Moderate Pitfalls
 
-### Pitfall 7: localStorage Insight Gating Skews Sample
+### Pitfall 9: `briefing_abandon` Stage Key Not in Runbook Vocabulary
 
-**What goes wrong:** `hasMissionInsightBeenPrompted` gates per **browser**, not per workspace/session. Operator testing on same machine never sees prompts again; second beta user on shared demo laptop gets no prompts.
-
-**Why it happens:** Phase 70 chose localStorage to avoid prompt fatigue (INS-04).
+**What goes wrong:** F-12 emits `cockpit_stage_abandoned` with `stage: "guided_briefing"` on panel close. The owner dashboard's `aggregateCockpitStageFunnel` sorts stages using `BETA_RUNBOOK_STAGES` order. If `"guided_briefing"` is not in that array, it sorts to the bottom (`bi === -1` branch) and appears as an orphan row — operators miss it.
 
 **Prevention:**
-- Analytics must not treat "no mission insight row" as satisfaction.
-- For v11.8, prefer server-side `product_events` for `insight_prompt_shown` / `insight_dismissed`.
-- Document localStorage limitation in learning answers; optionally scope storage key by `workspaceId` if changing gating.
+- Confirm `"guided_briefing"` is in `BETA_RUNBOOK_STAGES` before emitting. If not, add it or map to the canonical key used by the runbook.
+- Add a `aggregate.test.ts` case: fixture with `guided_briefing` abandon event → appears in `cockpitStageFunnel` in correct order position.
 
-**Roadmap phase:** Instrumentation (P1); optional insight gating fix if data gap proven.
+**Phase:** Cockpit instrumentation (F-12) — check stage key mapping before emit.
 
 ---
 
-### Pitfall 8: Silent Insight Capture Failures
+### Pitfall 10: Revenue Funnel Added Without Revenue Events in Schema
 
-**What goes wrong:** `MissionInsightProvider` swallows API errors (`catch { // Non-blocking }`). Owner sees low insight volume; assumes users are happy.
+**What goes wrong:** Owner dashboard polish scope mentions "funil de receita." No `revenue_event` or `credit_purchase` schema exists in v11.8; the app uses beta entitlements without real billing. Adding a revenue funnel widget that reads `usage_events` or `beta_analytics_events` produces a meaningless row count dressed as revenue data.
 
 **Prevention:**
-- Log `mission_insight.client_failed` with requestId (no body).
-- Monitor error rate during beta; cross-check with stage events.
-- Do not use insight volume as sole frustration signal.
+- Revenue funnel in v11.10 context should be **credit consumption funnel** (preview credits → batch credits → delivery) using existing `credit_spend` events — not billing revenue.
+- Rename the widget "Créditos por Etapa" or "Funil de Créditos" to avoid semantic confusion.
+- Do not add billing/Stripe event schema in v11.10; that is out-of-scope per PROJECT.md.
 
-**Roadmap phase:** Instrumentation observability (P2).
+**Phase:** Owner dashboard polish — scope to credit funnel, not revenue funnel.
 
 ---
 
-### Pitfall 9: Breadcrumb Diagnostics Lost on Reload
+### Pitfall 11: Readiness Override Bypasses Existing Quality Gate
 
-**What goes wrong:** v11.4 breadcrumbs are in-memory (20 entries, reset on full page reload). Abandonment analysis from feedback diagnostics misses steps before reload.
+**What goes wrong:** Operator override for readiness false positives (F-11) is implemented as a UI flag that skips the blocking check. If the skip logic is added at the component level but not enforced at the `preflight` API route level, a future client-side change re-exposes the gate. If it is added at the API level without an audit trail event, the override is invisible to the owner dashboard.
 
 **Prevention:**
-- Persist cockpit stage transitions in `product_events` server-side.
-- Do not rely on feedback `diagnosticContext.breadcrumbs` for funnel drop-off.
+- Override must be recorded server-side: `readiness_overridden` event fired from `preflight` route when override flag is set, **not** from the component.
+- `readiness_overridden` event must include `blockingCount` and `overrideReason` in properties (add to allowlist per Pitfall 2).
+- The creative quality gate should remain intact; override only allows proceeding despite a readiness block, not disabling the gate.
+- Add integration test: preflight with `override: true` + blockingCount > 0 → records `readiness_overridden`, not `readiness_completed`.
 
-**Roadmap phase:** Instrumentation (P1).
+**Phase:** Readiness override — server-side event is the audit trail.
 
 ---
 
-### Pitfall 10: Credit Surprise Attribution Errors
+### Pitfall 12: SESS-03 Learning Answers Copied From Fixture Without Session Citation
 
-**What goes wrong:** Single "credit_friction" moment conflates readiness rerun, preview, and batch estimate mismatch. Learning Q8 ("where do credit surprises happen") stays unanswered.
+**What goes wrong:** Phase author fills in `79-LEARNING-ANSWERS.md` update using the existing fixture data + SESS-03 runbook artifacts but doesn't update Q1/Q4/Q6 with real event counts and session IDs from the live session. The learning document looks complete but remains fixture-backed.
 
 **Prevention:**
-- Emit separate events: `credit_estimate_shown`, `credit_spent`, with `surface: readiness | preview | batch`.
-- Include `estimated_credits` and `actual_credits` on spend events where API authoritative.
-- Map to runbook credit table in `67-BETA-RUNBOOK.md`.
+- For each learning question answered with real data: cite `session_id`, event count, and date range in the answer body.
+- Questions still TBD after SESS-03 must be explicitly marked "STILL TBD — requires ≥N additional sessions" rather than removed.
+- Learning gate (LEARN-03): reviewer must verify at least Q1, Q4, Q5, and Q6 cite real session IDs, not fixture UUIDs (`550e8400-…`).
 
-**Roadmap phase:** Instrumentation at preflight/spend gates (P1).
+**Detection:** Learning answers cite session `550e8400-e29b-41d4-a716-446655440001` (the fixture ID) rather than real session IDs from live beta.
+
+**Phase:** SESS-03 / UAT closure.
 
 ---
 
-### Pitfall 11: Workspace Isolation Breaks in Owner Global View
+### Pitfall 13: Client `useRecordBetaEvent` Hook Fires on Unmount During Navigation
 
-**What goes wrong:** Platform owner sees all workspaces on `/feedback` without filtering; cohort funnel accidentally mixes beta workspace A with internal dogfood B.
+**What goes wrong:** `cockpit_stage_abandoned` is emitted on panel unmount. React 18 strict mode + Next.js App Router can trigger double-mount/unmount in development, producing ghost abandon events. In production, fast navigation away from a panel before the stage completes correctly fires `abandoned` — but if the route change happens because the user naturally navigated forward (completed the step by leaving), the abandon fires incorrectly.
 
 **Prevention:**
-- `beta_sessions.cohort_label` + `workspace_id` filter on all aggregations.
-- Default dashboard to active beta cohort only.
-- CSV export requires explicit cohort selection.
+- Use a completion-flag pattern: set a `ref` on explicit success actions (approve, select, confirm); on unmount, emit `abandoned` only if the flag is not set.
+- Test in production build (`next build && next start`); do not rely on dev-mode behavior for fire-and-forget hooks.
+- Add a brief debounce (100ms) before firing the abandon event to let navigation transitions settle.
 
-**Roadmap phase:** Owner dashboard (P1).
+**Detection:** Q5 shows `abandoned: 2` for a session where operator notes confirm "preview approved once"; session timeline shows back-to-back `entered` and `abandoned` on the same stage.
+
+**Phase:** Cockpit instrumentation — abandon detection logic.
 
 ---
 
-### Pitfall 12: Migration Lag Produces Empty Progression Funnel
+### Pitfall 14: `parseOwnerAnalyticsQuery` Accepts Invalid `sessionId` Silently
 
-**What goes wrong:** Operator runs sessions before `0032_workspace_progression.sql` applied in target env. Mission path empty; false "0% mission start."
-
-**Prevention:**
-- Runbook prerequisite checklist (already in v11.7.1 handoff).
-- Dashboard shows migration status warning if `workspace_progression` row missing for beta workspace.
-
-**Roadmap phase:** Operator session prep (P1).
-
----
-
-### Pitfall 13: Whack-a-Mole Friction Fixes Without Regression Tests
-
-**What goes wrong:** Fix readiness false positive by loosening gate; preview quality regressions. Or copy change breaks PT-BR parity.
+**What goes wrong:** `parseOwnerAnalyticsQuery` accepts any non-empty `sessionId` string. If the owner dashboard URL is shared with a typo or expired session ID, the filter silently returns 0 events — no error, no empty-state message. Owner thinks sessions have no data.
 
 **Prevention:**
-- Each friction fix adds focused test (mirror v11.5 fixture pattern where applicable).
-- Run `npm test` + build before session N+1.
-- No prompt/model changes in friction-fix phase.
+- Validate `sessionId` as UUID format before querying; return 400 if invalid.
+- Dashboard: show "session not found" empty state when filter returns 0 events for a non-null `sessionId`.
+- Alternatively, validate against `beta_sessions` table and 404 if session does not belong to an active workspace.
 
-**Roadmap phase:** Friction fixes (P1).
-
----
-
-### Pitfall 14: Answering Learning Questions With Navigation Metrics Only
-
-**What goes wrong:** Team answers Q4–Q6 ("does preview predict batch satisfaction?") using click funnels, not **output acceptance** (approve vs regenerate vs reject rates).
-
-**Why it happens:** Traditional SaaS analytics bias (per AI beta playbook — MEDIUM confidence).
-
-**Prevention:**
-- Track `derivation_approved`, `derivation_rejected`, `regeneration_requested` per session after preview.
-- Operator notes batch satisfaction explicitly in session log.
-- Q5 requires paired preview + batch outcomes in same `session_id`.
-
-**Roadmap phase:** Learning questions synthesis (P1).
+**Phase:** Owner dashboard polish — filter UX.
 
 ---
 
 ## Minor Pitfalls
 
-### Pitfall 15: Third-Party Analytics Sprawl
+### Pitfall 15: `recipe_tradeoff_viewed` Fires Too Eagerly
 
-**What goes wrong:** Someone adds PostHog/GA4 mid-milestone for "better charts." Conflicts with cookie banner (`analytics: false` default), duplicates first-party events, triggers privacy review delay.
+**What goes wrong:** Tradeoff copy is rendered inside the recipe panel. If the event fires on panel **enter** (same as `cockpit_stage_entered`) rather than on scroll-to or explicit expand of the tradeoff section, Q6 ("are tradeoff blocks read?") is answered incorrectly as "yes" for every recipe panel open.
 
-**Prevention:** Stick to first-party `product_events` per STACK.md; defer vendor until cohort > ~20 workspaces.
+**Prevention:** Fire `recipe_tradeoff_viewed` on user interaction with the tradeoff section (expand/scroll-reveal), not on panel mount. Use IntersectionObserver or explicit expand callback.
 
-**Roadmap phase:** Instrumentation (scope guard).
-
----
-
-### Pitfall 16: Sentry Sample Rate Hides Correlated Failures
-
-**What goes wrong:** `tracesSampleRate: 0.1` — operator cannot find trace for reported issue.
-
-**Prevention:** Use Sentry for errors only; product funnel in Postgres. Bump sample rate temporarily during beta week if needed.
-
-**Roadmap phase:** Operator session support (P2).
+**Phase:** Cockpit instrumentation (F-08).
 
 ---
 
-### Pitfall 17: Over-Instrumenting Before Metrics Contract
+### Pitfall 16: Duplicate `recipe_selected` Events on Re-Render
 
-**What goes wrong:** 50 event types, no one knows which answer Q1–Q10. Dashboard noise.
+**What goes wrong:** If recipe selection fires on component render triggered by the selected recipe state, a TanStack Query refetch or React re-render doubles the event count for the same selection.
 
-**Prevention:** Start with event list in FEATURES.md "Mapping to v11.6 Learning Questions" (~15 core events). Add events only when a learning question lacks signal.
+**Prevention:** Fire `recipe_selected` on explicit user action (click/confirm), not on state change. Use `useEffect` only if the dependency is a user-initiated transition, not an auto-refresh.
 
-**Roadmap phase:** Instrumentation schema design (P1).
-
----
-
-### Pitfall 18: Operator Notes Unstructured
-
-**What goes wrong:** Free-form session notes don't map to runbook stages; can't join to events.
-
-**Prevention:** Structured fields per `67-BETA-RUNBOOK.md` stage table; store in `beta_sessions.stage_notes` jsonb keyed by stage.
-
-**Roadmap phase:** Operator session entity (P1).
+**Phase:** Cockpit instrumentation (F-09).
 
 ---
 
-### Pitfall 19: Gamification Confound on Skip Signals
+### Pitfall 17: Owner Dashboard PT-BR String Drift
 
-**What goes wrong:** Users skip missions to explore UI; `mission_skipped` counted as frustration via `classifyMissionInsightSignal`.
+**What goes wrong:** New owner dashboard widgets (session filter, revenue/credit funnel, timeline) are added in English only. The `/feedback` page is owner-internal (not user-facing), but PT-BR/EN parity is a project-wide convention validated by lint.
 
-**Prevention:** Interpret skips with `missionKey` + subsequent stage events; distinguish "skip to proceed" vs "skip from confusion."
+**Prevention:** Add translation keys for new dashboard widget labels; run `npm run lint` (which includes i18n key checks if configured) before shipping.
 
-**Roadmap phase:** Dashboard interpretation guide (P2).
-
----
-
-### Pitfall 20: Double-Counting Prompt Actions
-
-**What goes wrong:** `markMissionInsightPrompted` runs before API success; dismiss records signal but localStorage blocks retry; event + insight both fire for same moment.
-
-**Prevention:** Idempotency key on insight ingest; event log `insight_prompt_shown` once per session+moment server-side.
-
-**Roadmap phase:** Instrumentation (P2).
+**Phase:** Owner dashboard polish.
 
 ---
 
@@ -300,68 +284,54 @@ Mistakes that cause rewrites, invalid learning conclusions, or privacy incidents
 
 | Phase topic | Likely pitfall | Mitigation |
 |-------------|----------------|------------|
-| **Event schema & server ingest** | Logging prompts/PII in `properties` jsonb | Allowlist keys; mirror `mission-insights/sanitize.ts` patterns |
-| **Event schema & server ingest** | Client-only capture for credit/readiness | Hook at API route + Inngest handler — server authoritative |
-| **Campaign workspace hooks** | Modal open without complete/abort events | Emit `stage_entered` + `stage_completed` \| `stage_abandoned` |
-| **beta_sessions table** | Sessions not linked to events | Require `session_id` on all events during operator window |
-| **Operator runbook execution** | Sessions before instrumentation | Hard gate in runbook + checklist artifact |
-| **Operator runbook execution** | Operator does steps for user | `assistance_level` + structured notes |
-| **Owner funnel on `/feedback`** | Mixing feedback volume with conversion | Separate panels: Events funnel vs Feedback triage |
-| **CSV export** | Raw user content in export | Pseudonymous columns; qualitative drill-down in app only |
-| **Cohort aggregation** | n=3 statistical overconfidence | Show counts + qualitative weight; label "directional only" |
-| **Friction fixes (≤5)** | Fix before ≥2 session evidence | Enforce rubric in phase plan acceptance criteria |
-| **Friction fixes (≤5)** | Generation/model changes | UX/copy/validation/credit display only |
-| **Learning questions doc** | Answering from inference not events | Each answer cites event counts + session IDs |
-| **Privacy audit** | CSV + small cohort re-ID | Minimum cohort threshold; no optionalText in export |
+| **Cockpit instrumentation (F-06/F-08/F-09/F-12)** | New event keys silently rejected | Add to `PHASE_76_BETA_EVENT_KEYS` and `ALLOWED_PROPERTY_KEYS` atomically |
+| **Cockpit instrumentation (F-06/F-08/F-09/F-12)** | Abandon fires on unmount from navigation | Completion-flag ref pattern; debounce |
+| **Cockpit instrumentation (F-06)** | Preview funnel mismatch persists into SESS-03 | Fix `cockpit_stage_completed` before live session |
+| **Readiness override (F-11)** | Override bypasses gate at component, not server | Server-side `readiness_overridden` event is the audit record |
+| **Readiness override (F-11)** | Duplicate signals in `aggregateReadinessOverrides` | Dedup by `sessionId + stage + time window` |
+| **Owner dashboard polish** | Session filter without index = slow query | Add `idx_beta_analytics_events_session_id` in migration |
+| **Owner dashboard polish** | Timeline cap removal causes unbounded fetch | Default date window; cap opt-in toggle |
+| **Owner dashboard polish** | Revenue funnel misleading without billing events | Scope to credit consumption funnel only |
+| **SESS-03 / UAT closure** | Real sessions run on pre-instrumentation build | Deployment smoke check in runbook before session |
+| **SESS-03 / UAT closure** | Learning answers fixture-backed after real session | Citation format requires real `session_id` and event count |
+| **Regression (F-14)** | Drifted test masked as green | `test.todo` or fix; verbose reporter to surface skips |
 
 ## Integration Pitfalls (ADScale-Specific)
 
 | Integration point | Risk | Prevention |
 |-------------------|------|------------|
-| `feedback_reports` ← mission insights | Category drift if API bypassed | Keep Zod + sanitize boundary; no raw SQL inserts |
-| `workspace_progression` snapshots | Stale snapshot vs live events | Events are source of truth for v11.8 funnel |
-| `mission-credit-signals` API | Becomes pseudo-dashboard without events | Extend, don't replace, new funnel API |
-| `use-campaign-workspace.ts` hooks | Missing instrumentation on skip paths | Audit all `maybePromptMissionInsight` call sites for matching events |
-| Credit preflight / `CREDIT_COSTS` | Estimate ≠ actual not visible | Log both on spend |
-| Creative readiness panel | False positive blocks not recorded | `readiness_blocked` + operator override event |
-| Share link / approval package | Q7 hand-holding invisible | `share_link_opened_external` vs `share_created` |
-| Better Auth workspace scope | Cross-tenant leak in owner aggregate | Always filter `workspace_id` |
-| Render migration timing | Events table missing in prod | `npm run db:migrate` in preDeploy before sessions |
+| `PHASE_76_BETA_EVENT_KEYS` closed enum | New keys silently rejected at `recordBetaAnalyticsEvent` | Extend enum before emit call sites; add integration test per key |
+| `ALLOWED_PROPERTY_KEYS` allowlist | New property keys silently stripped; events stored with `{}` | Extend allowlist atomically; test with `sanitizeBetaEventProperties` |
+| `aggregateReadinessOverrides` dual-source join | Duplicate signals when override event + operator note coexist | Dedup logic in aggregation function |
+| `aggregateCockpitStageFunnel` stage sort order | `guided_briefing` / new stages sort to orphan row | Verify key is in `BETA_RUNBOOK_STAGES` |
+| `parseOwnerAnalyticsQuery` session filter | No validation → silent empty results on typo | UUID format check + session existence check |
+| `buildAnalyticsFunnelSummary` uncapped timeline | Full event table loaded per render when cap removed | Default date window filter; DB index on `session_id` |
+| `preflight` route readiness check | Override flag in component only → bypassable on client | Move override gate to server route; emit event there |
+| SESS-03 learning document | Fixture session IDs cited as real evidence | Reviewer gate: reject fixture UUID `550e8400-…` citations |
+| `creative-quality-gate-orchestration` test drift | F-14 skipped test masks real regressions | Fix or explicit `test.todo` before declaring suite green |
+| Vercel deployment timing | New instrumentation not live when SESS-03 runs | Deployment SHA check in operator pre-session checklist |
 
-## Prevention Strategy (Milestone-Level)
+## Prevention Strategy (v11.10-Specific)
 
-1. **Metrics contract first** — Map ≤15 events to `67-LEARNING-QUESTIONS.md` before writing migrations.
-2. **Instrumentation → sessions → dashboard → fixes → answers** — Strict ordering; no parallel "quick fixes" during sessions 1–3.
-3. **Two lanes of truth** — `product_events` for behavior, `feedback_reports` for voice; correlate, don't merge.
-4. **Session envelope** — Every beta run tied to `beta_sessions.id` with operator metadata.
-5. **Evidence rubric for fixes** — ≥2 sessions or blocking severity; max 5; no AI model changes.
-6. **Privacy by export design** — Pseudonymous CSV; qualitative detail stays in owner triage UI.
-7. **Label inference** — Progression/mission inference secondary to explicit stage events.
-8. **Write learning answers last** — Populate template only after ≥3 sessions with event citations.
-
-## Warning Signs During Beta
-
-| Signal | Likely problem |
-|--------|----------------|
-| Dashboard funnel empty but users completed cockpit | Instrumentation not deployed or wrong `workspace_id` |
-| 100% mission completion, operators report confusion | Inference heuristics or operator-assist inflation |
-| High feedback, flat funnel | Qualitative lane overweighted |
-| Flat feedback, bad funnel | Insight gating / silent API failures |
-| Fixes merged before session 3 | Evidence threshold violated |
-| CSV has emails or long text fields | Export privacy failure |
-| Learning doc cites "feel" not counts | Questions unanswered by data |
+1. **Enum + allowlist first** — No new event key reaches a call site without being added to `PHASE_76_BETA_EVENT_KEYS` and `ALLOWED_PROPERTY_KEYS` in the same commit.
+2. **Preview funnel fix before SESS-03** — F-06 cockpit stage completion instrumentation is a hard pre-requisite for the UAT session, not a parallel task.
+3. **Server-side override is the record** — Readiness override analytics fires from `preflight` route, never from the component.
+4. **Fix duplicate aggregation before dashboard ships** — If both operator notes and events can represent the same override, the dedup lives in `aggregateReadinessOverrides` before the new override event is emitted.
+5. **Migration includes DB index** — Session filter index added in the same migration that enables the filter UI.
+6. **F-14 resolved before regression gate** — No milestone sign-off with skipped tests; either fix the assertion or add explicit `test.todo` with a tracking note.
+7. **SESS-03 deployment checkpoint** — Operator pre-session checklist includes: (a) deployed SHA check, (b) smoke event in owner CSV, (c) `npm test` green on production build.
+8. **Learning answers citation format** — Real session IDs only; fixture UUID `550e8400-e29b-41d4-a716-446655440001` in a learning answer = reviewer rejection.
 
 ## Sources
 
-- ADScale shipped code: `MissionInsightProvider.tsx`, `mission-insights/storage.ts`, `progression/missions/evidence.ts`, `feedback/mission-credit-signals.ts`, `/feedback` triage page
-- `.planning/phases/56-verification-and-privacy-audit/56-HANDOFF.md` — privacy boundaries
-- `.planning/phases/67-milestone-archive-and-beta-runbook/67-BETA-RUNBOOK.md` — operator path
-- `.planning/phases/67-milestone-archive-and-beta-runbook/67-LEARNING-QUESTIONS.md` — decision gate
-- `.planning/research/FEATURES.md`, `.planning/research/STACK.md` — v11.8 instrumentation plan
-- [AI Product Beta Playbook](https://udit.co/blog/raw/ai-product-beta-launch-strategy) — output-layer instrumentation, acceptance rate (MEDIUM confidence)
-- [Google Cloud — Continuous Evaluation](https://cloud.google.com/blog/topics/developers-practitioners/from-vibe-checks-to-continuous-evaluation-engineering-reliable-ai-agents) — whack-a-mole fixes, confirmation bias (MEDIUM confidence)
-- [Privacy-First Analytics for Hosted Apps](https://solitary.cloud/designing-privacy-first-analytics-for-hosted-applications-a-) — aggregate early, small cohort thresholds (MEDIUM confidence)
+- ADScale shipped code: `app/src/server/beta-analytics/types.ts`, `sanitize.ts`, `record.ts`, `aggregate.ts`, `query.ts`, `instrumentation.integration.test.ts`
+- `.planning/milestones/v11.8-phases/79-evidence-driven-friction-fixes/79-FRICTION-BACKLOG.md` — ranked deferred items F-06–F-15
+- `.planning/milestones/v11.8-phases/79-evidence-driven-friction-fixes/79-V11.9-BACKLOG.md` — items carried into v11.10
+- `.planning/milestones/v11.8-phases/79-evidence-driven-friction-fixes/79-LEARNING-ANSWERS.md` — Q4/Q5/Q6 TBD evidence gaps
+- `.planning/milestones/v11.8-phases/76-cockpit-and-mission-instrumentation/76-CONTEXT.md` — Phase 76 decision log
+- `.planning/milestones/v11.8-phases/78-owner-analytics-dashboard-and-csv/78-CONTEXT.md` — Phase 78 decision log
+- `.planning/PROJECT.md` — v11.10 milestone scope and context
 
 ---
-*Pitfalls research for: v11.8 Beta Learning Loop*  
+*Pitfalls research for: v11.10 Fechamento Entrega e Analytics*  
 *Researched: 2026-06-07*

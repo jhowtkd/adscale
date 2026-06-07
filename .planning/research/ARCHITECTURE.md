@@ -1,347 +1,449 @@
-# Architecture Patterns
+# Architecture: v11.10 Fechamento Entrega e Analytics
 
-**Domain:** Beta learning loop — instrumentation, owner analytics, friction-fix workflow  
-**Project:** ADScale v11.8 Loop de Aprendizado Beta  
+**Milestone:** v11.10  
 **Researched:** 2026-06-07  
-**Overall confidence:** HIGH (grounded in shipped v11.4–v11.7 code; event-store shape is a recommendation, not yet implemented)
+**Focus:** Integration points, new vs modified components, data flow changes, build order
 
-## Executive Summary
+---
 
-v11.8 should **instrument existing flows**, not rewrite the cockpit or progression stack. The codebase already has three durable learning surfaces: `feedback_reports` (user/operator qualitative signals), `workspace_progression` (level snapshot), and domain-table inference for mission completion (`inferMissionCompletions`, `inferWorkspaceEvidence`). Mission insights already write into `feedback_reports` with `category: "mission"` and `diagnosticContext.source = "mission_insight"`. Owner triage at `/feedback` plus `GET /api/feedback/mission-credit-signals` proves the owner-dashboard pattern.
+## Existing Architecture Baseline
 
-What's missing for v11.8 is a **quantitative event layer** (stage enters/completes/abandons, credit blocks, readiness blocks) and **operator session notes** tied to cockpit stages. Aggregation and CSV export should read from events + existing inference, surfaced on owner-only routes extending `/feedback`.
-
-## Recommended Architecture
+### End-to-End Analytics Pipeline (v11.8/v11.9 as-shipped)
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         Beta user (workspace-scoped)                     │
-├─────────────────────────────────────────────────────────────────────────┤
-│  Campaign workspace (cockpit stages)                                     │
-│    CreativeReadiness → GuidedBriefing → StrategyRecipe → PreviewGate    │
-│    → Batch → Review → ClientApprovalPackage                              │
-│         │              │                    │                            │
-│         ▼              ▼                    ▼                            │
-│  MissionInsightProvider (qualitative prompts)                            │
-│  useCampaignWorkspace / panels (stage UI state)                          │
-└────────────┬───────────────────────────────┬────────────────────────────┘
-             │ client events (abandon, dismiss) │ server events (authoritative)
-             ▼                                  ▼
-┌────────────────────────────┐    ┌──────────────────────────────────────┐
-│ POST /api/workspace/       │    │ API route boundaries                  │
-│   beta-events              │    │  preflight POST, derivations POST,    │
-│ (thin, validated, async)   │    │  billing gates, plan approval         │
-└────────────┬───────────────┘    └──────────────────┬───────────────────┘
-             │                                        │
-             ▼                                        ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│  beta_analytics_events (NEW)          feedback_reports (EXISTING)        │
-│  — high-volume funnel telemetry       — mission insights, user feedback │
-│  — workspace_id, user_id, stage,    — owner triage, Sentry correlation │
-│    event_type, payload JSONB          — mission-credit-signals aggregate  │
-├─────────────────────────────────────────────────────────────────────────┤
-│  beta_sessions + beta_session_notes (NEW, operator-only)                 │
-└─────────────────────────────────────────────────────────────────────────┘
-             │
-             ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│  Owner layer (requirePlatformOwner)                                      │
-│  GET /api/feedback/analytics/funnel                                      │
-│  GET /api/feedback/analytics/cohort                                      │
-│  GET /api/feedback/analytics/export.csv                                    │
-│  POST /api/feedback/beta-sessions (+ notes)                              │
-│  /feedback dashboard (extend existing triage UI)                           │
-└─────────────────────────────────────────────────────────────────────────┘
-             │
-             ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│  Friction-fix workflow (phases 5+)                                       │
-│  Rank by frequency × impact → patch cockpit/progression → regression   │
-└─────────────────────────────────────────────────────────────────────────┘
+Cockpit Panel (client)
+  └─ useRecordBetaEvent(campaignId)
+       └─ fetch POST /api/analytics/events
+            └─ requireWorkspaceAccess
+            └─ createBetaEventBodySchema.safeParse
+            └─ recordBetaAnalyticsEvent (server)
+                 ├─ validates eventKey ∈ PHASE_76_BETA_EVENT_KEYS
+                 ├─ sanitizeBetaEventProperties (allowlist + strictObject)
+                 ├─ validateCampaignOwnership / validateDerivationOwnership
+                 └─ insertBetaAnalyticsEvent → DB (beta_analytics_events)
+
+Owner Dashboard (client)
+  └─ OwnerAnalyticsPanel
+       ├─ GET /api/feedback/analytics/funnel?filters
+       │    └─ requirePlatformOwner
+       │    └─ listBetaAnalyticsEventsForOwner + listBetaSessions
+       │    └─ buildAnalyticsFunnelSummary(events, sessions)
+       │         ├─ aggregateMissionFunnel
+       │         ├─ aggregateCockpitStageFunnel
+       │         ├─ aggregateCreditSurprises + ByOperation
+       │         ├─ aggregateSessionStageTimeline
+       │         └─ aggregateReadinessOverrides (events + operator notes)
+       └─ GET /api/feedback/analytics/credit-signals?filters
 ```
 
-### Component Boundaries
+### Event Key Allowlist (types.ts — PHASE_76_BETA_EVENT_KEYS)
 
-| Component | Responsibility | Communicates With |
-|-----------|---------------|-------------------|
-| **Cockpit panels** (`CreativeReadinessPanel`, `GuidedBriefingPanel`, `StrategyRecipePanel`, `PreviewGatePanel`, `ClientApprovalPackagePanel`) | Render stage UX; emit client-side abandon/dismiss events | `MissionInsightProvider`, `POST /api/workspace/beta-events` |
-| **`useCampaignWorkspace`** | Orchestrates derivation/preview/batch/credit errors | Mission insights on success/error; beta-events on credit friction |
-| **`MissionInsightProvider`** | Non-blocking qualitative capture (prompt once per moment) | `POST /api/workspace/mission-insights` → `feedback_reports` |
-| **`recordMissionInsight`** | Sanitize + persist insight as feedback row | `createFeedbackReport`, `sanitizeMissionInsightInput` |
-| **`inferWorkspaceEvidence` / `inferMissionCompletions`** | Derive progression + mission completion from domain tables | campaigns, assets, plans, derivations, exports, share_links |
-| **`getWorkspaceMissions` / `getWorkspaceProgression`** | Serve activation ladder to dashboard | Evidence inference, billing grants |
-| **`beta_analytics_events` repository (NEW)** | Append-only funnel telemetry | Drizzle, workspace-scoped inserts |
-| **`beta-analytics/service` (NEW)** | Validate event taxonomy, dedupe idempotency keys | Zod schemas aligned to `MISSION_ORDER` / cockpit stages |
-| **`beta-analytics/aggregate` (NEW)** | Funnel, cohort, readiness-false-positive, credit-surprise queries | events table + cross-check with inference |
-| **`/feedback` page (MODIFIED)** | Owner triage + funnel cards + session notes + CSV export | Owner analytics APIs, existing reports list |
-| **`summarizeMissionCreditSignals` (EXISTING)** | Credit/mission frustration rollup | `feedback_reports` where `category = mission` |
+```
+readiness_blocked       readiness_completed
+credit_spend            credit_blocked
+mission_completed
+cockpit_stage_entered   cockpit_stage_completed   cockpit_stage_abandoned
+```
 
-### Cockpit Stage ↔ Mission Key Mapping
+### Property Key Allowlist (ALLOWED_PROPERTY_KEYS)
 
-Single source of truth for funnel dimensions — reuse `MISSION_ORDER` from `app/src/server/progression/missions/definitions.ts`:
+```
+stage, missionKey, source, blockingCount, estimateCredits, actualCredits,
+action, operation, operation_key, creditDelta, format, isPreview,
+readinessStatus, durationMs, reasonCode
+```
 
-| Cockpit stage (runbook) | `MissionKey` | Primary instrumentation hook |
-|-------------------------|--------------|------------------------------|
-| Creative Readiness | `readiness` | `preflight` POST success/block; panel open/close |
-| Guided Briefing | `guided_briefing` | Campaign PATCH with guided answers; panel skip |
-| Strategy Recipe | `strategy_recipe` | Plan create/approve; `StrategyRecipePanel` selection |
-| Preview Gate | `preview` | `createDerivations({ preview: true })`; credit estimate shown |
-| Batch | `batch` | `createDerivations()` full batch; billing gate failure |
-| Review | `review` | Approve/reject derivation |
-| Regeneration | `regeneration` | Regenerate with feedback |
-| Export | `export` | Export flow completion |
-| Client Approval / Share | `share` | Delivery package + share link |
+### Cockpit Panels — Current Instrumentation
 
-### Data Flow
+| Component | stage value | entered | completed | abandoned |
+|-----------|-------------|---------|-----------|-----------|
+| `CreativeReadinessPanel` | `"readiness"` | ✅ on assetId present | ✅ auto on `ready`/`needs_attention` | ✅ on unmount if not completed |
+| `GuidedBriefingPanel` | `"guided_briefing"` | ✅ on mount | ✅ on `finishBriefing` | ✅ on unmount or full-form escape |
+| `StrategyRecipePanel` | `"strategy_recipe"` | ✅ on `open=true` | ✅ on `handleGeneratePreview` | ✅ on close or unmount |
+| `PreviewGatePanel` | `"preview"` | ✅ on mount | ✅ on `handleApproveBatch` | ✅ on `handleReviseRecipe` (F-06 bug) |
 
-**Qualitative path (already shipped):**
+### Readiness Override — Current State
 
-1. User hits milestone moment → `maybePromptMissionInsight` or explicit `recordMissionSignal`.
-2. `POST /api/workspace/mission-insights` validates workspace, sanitizes payload.
-3. `recordMissionInsight` → `createFeedbackReport` with `category: "mission"`, structured `diagnosticContext`.
-4. Owner views in `/feedback`; `summarizeMissionCreditSignals` classifies healthy vs frustration.
+`aggregate.ts::extractOperatorFalsePositiveNotes` reads `beta_sessions.operatorNotes[stage].tags` for any tag containing "false positive". Surfaces in `readinessOverrides` panel on `OwnerAnalyticsPanel`. **No UI affordance** in `CreativeReadinessPanel` for the operator to trigger the override at the time of the block — must be added retroactively via session notes.
 
-**Quantitative path (v11.8 addition):**
+### Owner Dashboard — Current Gaps
 
-1. **Server-authoritative events** at API boundaries (readiness debit, derivation queue, credit gate rejection) — cannot be spoofed, captures credit/readiness truth.
-2. **Client events** for abandonment (modal closed without complete, tab navigated away mid-stage) — best-effort, tagged `source: "client"`.
-3. Events land in `beta_analytics_events` with: `workspaceId`, `userId`, `campaignId?`, `stage` (mission key), `eventType`, `payload` (JSONB, sanitized), `sessionId?` (operator beta session), `createdAt`.
-4. Owner aggregation joins events by `workspaceId` cohort (beta flag or date range), computes stage conversion and drop-off.
-5. Cross-check: mission completion from `inferMissionCompletions` should correlate with `stage_completed` events; divergence flags instrumentation gaps.
+- `OwnerAnalyticsPanel` accepts `sessionOptions` prop but `feedback/page.tsx` calls `<OwnerAnalyticsPanel />` **without passing it** → session filter dropdown shows "All sessions" only, no individual sessions
+- `sessionStageTimeline` is sliced to `slice(0, 24)` in the component (client-side cap)
+- No revenue funnel section (credit spend progression across sessions)
 
-**Operator session notes path:**
+---
 
-1. Operator starts `beta_session` (workspace, operator user, runbook version).
-2. Per-stage structured notes (tags from runbook BETA-02 mapping) via `beta_session_notes`.
-3. Notes link to `feedback_reports` IDs and event IDs when relevant.
-4. Feeds friction prioritization alongside automated aggregates.
+## v11.10 Integration Points
 
-## New vs Modified
+### 1. `app/src/server/beta-analytics/types.ts` — **MODIFIED**
 
-### New Components
+**What changes:**  
+- Add `recipe_selected` and `recipe_tradeoff_viewed` to `PHASE_76_BETA_EVENT_KEYS`  
+- Add `recipeId` to `ALLOWED_PROPERTY_KEYS`
 
-| Item | Location (suggested) | Purpose |
-|------|---------------------|---------|
-| `beta_analytics_events` table | `app/drizzle/0033_beta_analytics.sql` | Append-only telemetry |
-| `beta_sessions`, `beta_session_notes` tables | same migration | Operator session workflow |
-| `recordBetaEvent` service | `app/src/server/beta-analytics/service.ts` | Validated event writes |
-| Event taxonomy + Zod schemas | `app/src/lib/beta-analytics/types.ts` | `stage_entered`, `stage_completed`, `stage_abandoned`, `credit_blocked`, `readiness_blocked`, `readiness_overridden` |
-| Repository | `app/src/server/repositories/beta-analytics.ts` | Insert + aggregate queries |
-| `POST /api/workspace/beta-events` | workspace-scoped | Client + shared write path |
-| Owner analytics routes | `app/src/app/api/feedback/analytics/*` | Funnel, cohort, CSV (platform owner) |
-| `POST/GET /api/feedback/beta-sessions` | operator-only | Session + notes CRUD |
-| Aggregation module | `app/src/server/beta-analytics/aggregate.ts` | Funnel math, learning-question helpers |
-| `useRecordBetaEvent` hook | `app/src/lib/hooks/use-beta-event.ts` | Fire-and-forget client calls |
-
-### Modified Components (minimal touch)
-
-| Item | Change |
-|------|--------|
-| `preflight/route.ts` POST | Emit `stage_completed` / `readiness_blocked` with blocking issue count |
-| `campaigns/[id]/derivations/route.ts` | Emit preview vs batch events + credit cost in payload |
-| `spendCreditsOrApiError` / billing gates | Emit `credit_blocked` with operation + estimate |
-| `CreativeReadinessPanel`, `GuidedBriefingPanel`, `StrategyRecipePanel`, `PreviewGatePanel` | `stage_entered` on mount/open; `stage_abandoned` on close without complete |
-| `useCampaignWorkspace` | Reuse existing credit-friction insight; add parallel `recordBetaEvent` |
-| `MissionPathCard` | Emit `mission_skipped` event alongside existing insight prompt |
-| `/feedback/page.tsx` | Add funnel summary, cohort filter, session notes panel, CSV button |
-| `mission-credit-signals.ts` | Keep; optionally join with event-based credit_blocked counts |
-
-### Explicitly NOT Modified
-
-- Cockpit business logic (`buildCreativeReadiness`, `rankRecipesForContext`, `shouldShowPreviewGate`, etc.)
-- Progression level calculation (`calculateLevel`, `buildNextAction`)
-- Mission definition order or prerequisite graph
-- Inngest derivation job internals (instrument at API entry, not job handler, unless batch correlation needed)
-- User-facing dashboard analytics (`/api/dashboard/stats`) — workspace-scoped product metrics, separate from owner beta funnel
-
-## Patterns to Follow
-
-### Pattern 1: Server-Authoritative Instrumentation
-
-**What:** Record beta events inside API routes after validation and before response.  
-**When:** Credit debits, readiness results, derivation queue, plan approval.  
-**Why:** Client events miss failures and can be blocked; server captures ground truth for learning questions Q1–Q9.
+**Ripple:** `sanitize.ts` uses `strictObject(ALLOWED_PROPERTY_KEYS)` — adding `recipeId` here automatically permits it in the property schema without touching `sanitize.ts` directly.
 
 ```typescript
-// After successful readiness POST in preflight/route.ts
-await recordBetaEvent({
-  workspaceId: workspace.id,
-  userId: user.id,
-  campaignId,
-  stage: "readiness",
-  eventType: readiness.blockingIssues.length > 0 ? "readiness_blocked" : "stage_completed",
-  payload: {
-    blockingCount: readiness.blockingIssues.length,
-    overallScore: readiness.overallScore,
-    forceRerun,
-  },
+// Add to PHASE_76_BETA_EVENT_KEYS:
+"recipe_selected",
+"recipe_tradeoff_viewed",
+
+// Add to ALLOWED_PROPERTY_KEYS:
+"recipeId",
+```
+
+**Why these additions:**  
+- `recipe_selected` (F-09): Tracks which recipe was chosen → enables per-recipe funnel in `aggregate.ts`  
+- `recipe_tradeoff_viewed` (F-08): Fires when the recipe panel is first opened → confirms readership of tradeoff copy  
+- `recipeId`: Required property to distinguish recipes in analytics
+
+---
+
+### 2. `app/src/components/workspace/StrategyRecipePanel.tsx` — **MODIFIED**
+
+**What changes (F-08, F-09):**
+
+```
+useEffect([open=true]) → recordEvent("recipe_tradeoff_viewed", { stage: "strategy_recipe" })
+recipe.selectRecipe(id) → recordEvent("recipe_selected", { stage: "strategy_recipe", recipeId: id })
+```
+
+Note: `recipe_tradeoff_viewed` should fire once per panel open (same ref guard as `completedRef`). `recipe_selected` fires each time a recipe button is clicked. No state leak — fire-and-forget like all beta events.
+
+---
+
+### 3. `app/src/components/workspace/GuidedBriefingPanel.tsx` — **MODIFIED**
+
+**What changes (F-12):**  
+Enrich `cockpit_stage_abandoned` with current step info so owner can see where in the briefing flow abandonment occurs.
+
+```typescript
+// Before (existing):
+recordEvent("cockpit_stage_abandoned", STAGE_PROPS);
+
+// After (enriched):
+recordEvent("cockpit_stage_abandoned", {
+  ...STAGE_PROPS,
+  stage: guided.currentStep ?? "complete",  // use existing 'stage' property key
 });
 ```
 
-### Pattern 2: Non-Blocking Client Telemetry
+`guided.currentStep` is already available in scope. The `stage` property key is already in `ALLOWED_PROPERTY_KEYS`. No new keys needed — repurpose `stage` to hold the step ID at abandonment time, which naturally composes with the existing `aggregateCockpitStageFunnel` grouping (step IDs like `"productOffer"`, `"objections"`, etc. will show as new stage rows).
 
-**What:** Mirror `MissionInsightProvider` — never block UX on analytics failure.  
-**When:** Modal abandon, navigation away, dismiss without submit.  
-**Example:** `useRecordBetaEvent` swallows errors; uses `navigator.sendBeacon` or `mutate` with no await in UI handlers.
+---
 
-### Pattern 3: Reuse Feedback Row for Qualitative, Events for Quantitative
+### 4. `app/src/components/workspace/PreviewGatePanel.tsx` — **MODIFIED**
 
-**What:** Keep mission insights in `feedback_reports`; do not overload with high-volume stage_entered events.  
-**When:** User sentiment, operator triage, Sentry-linked bugs stay on feedback path.  
-**Why:** Existing owner UI, filters, and `mission-credit-signals` already work; event table keeps aggregates fast.
+**What changes (F-06):**  
+The bug: `handleReviseRecipe` fires `cockpit_stage_abandoned` even when the operator will return and ultimately approve. The fix is to **not** fire `cockpit_stage_abandoned` on recipe revision — it's an iterative step, not a true abandonment. True abandonment should only happen when the user navigates away from the cockpit entirely.
 
-### Pattern 4: Owner-Only Aggregation Behind Existing Auth
+```typescript
+// Remove from handleReviseRecipe:
+// recordEvent("cockpit_stage_abandoned", STAGE_PROPS);  // ← remove this
 
-**What:** All analytics/export routes use `requirePlatformOwner` (same as `GET /api/feedback/reports`).  
-**When:** Any cross-workspace cohort view.  
-**Why:** Matches v11.4 security model; beta funnel is platform-owner concern, not workspace member.
+// Keep in handleApproveBatch:
+recordEvent("cockpit_stage_completed", STAGE_PROPS);  // ← unchanged
 
-### Pattern 5: Cohort via Workspace + Time Window
+// Abandoned fires only if they leave cockpit without approving
+// (currently handled by no cleanup return — add if needed per cockpit orchestrator)
+```
 
-**What:** Filter beta cohort by `workspace.createdAt` range or explicit `beta_session` membership — not a new billing flag unless needed.  
-**When:** Funnel denominators for "first 3–5 sessions".  
-**Why:** Avoids scope creep into beta entitlements admin (explicitly out of scope in v11.2).
+**Server-side complement (F-06 full fix):** When operator marks a session runbook stage as completed via `PATCH /api/feedback/sessions/:id/stages`, emit a server-side `cockpit_stage_completed` event. This requires touching the beta session notes merge handler. Assess whether adding server-side emission to the existing `mergeStageNotes` route is in scope or deferred.
 
-## Anti-Patterns to Avoid
+---
 
-### Anti-Pattern 1: Rewriting Cockpit State Machine
+### 5. `app/src/components/workspace/CreativeReadinessPanel.tsx` — **MODIFIED**
 
-**What:** Replacing `useCampaignWorkspace` workspace states with a new progression-driven router.  
-**Why bad:** v11.7.1 just stabilized resume CTAs; rewrite risks regression and delays learning.  
-**Instead:** Append events at existing hooks; keep `WorkspaceState` as-is.
+**What changes (F-11 — readiness override):**  
+Add an "Override — continue anyway" affordance when `readiness.status === "blocked"`. This:
+1. Emits a new analytics event (use existing `readiness_blocked` with `action: "overridden"`, or add `readiness_override` to types.ts)
+2. Calls a new callback prop `onOverride?: () => void` that the cockpit orchestrator uses to unlock downstream stages
 
-### Anti-Pattern 2: Storing Funnel Only in `feedback_reports`
+```typescript
+// Recommended: emit readiness_blocked with action property
+recordEvent("readiness_blocked", {
+  stage: "readiness",
+  blockingCount: readiness.blockingIssues.length,
+  action: "overridden",        // 'action' already in ALLOWED_PROPERTY_KEYS
+  readinessStatus: readiness.status,
+});
+onOverride?.();
+```
 
-**What:** Creating a feedback row per stage_entered.  
-**Why bad:** Pollutes triage queue, breaks `mission-credit-signals` semantics, poor query performance.  
-**Instead:** Dedicated `beta_analytics_events` table with indexes on `(stage, event_type, created_at)`.
+This avoids adding a new event key — `action: "overridden"` differentiates overrides from blocks in `extractReadinessBlockedEvents`. The `ReadinessOverrideSignal` interface in `aggregate.ts` and `OwnerAnalyticsPanel` already renders override signals; no schema migration needed.
 
-### Anti-Pattern 3: Third-Party Analytics SDK for Beta
+**Prop addition:**
+```typescript
+interface CreativeReadinessPanelProps {
+  // existing...
+  onOverride?: () => void;  // NEW — cockpit unlocks on operator override
+}
+```
 
-**What:** Adding Mixpanel/Amplitude for v11.8.  
-**Why bad:** Cookie consent, PII boundaries, and workspace isolation already solved in-app; adds compliance surface.  
-**Instead:** First-party Postgres aggregates; CSV export for offline analysis.
+---
 
-### Anti-Pattern 4: Friction Fixes Before Instrumentation
+### 6. `app/src/server/beta-analytics/aggregate.ts` — **MODIFIED**
 
-**What:** Patching UX based on operator memory from 1–2 sessions.  
-**Why bad:** Violates "learn before build" decision; cannot answer `67-LEARNING-QUESTIONS.md` with data.  
-**Instead:** Instrument → run 3–5 sessions → rank frictions by automated frequency + operator notes → fix top 5.
+**What changes:**
 
-### Anti-Pattern 5: Public Analytics Routes
+**A. New function — `aggregateRecipeFunnel`**
+```typescript
+export interface RecipeFunnelRow {
+  recipeId: string;
+  viewedCount: number;     // recipe_tradeoff_viewed events
+  selectedCount: number;   // recipe_selected events
+}
 
-**What:** Workspace members viewing funnel data.  
-**Why bad:** Cross-user leakage risk in cohort views; not a product requirement.  
-**Instead:** Owner-only `/feedback` extensions.
+export function aggregateRecipeFunnel(events: BetaAnalyticsEvent[]): RecipeFunnelRow[]
+```
+Groups `recipe_tradeoff_viewed` (total panel opens) and `recipe_selected` by `recipeId` property.
+
+**B. New function — `aggregateCreditRevenueFunnel`**
+```typescript
+export interface CreditRevenueFunnelRow {
+  sessionId: string;
+  totalSpent: number;
+  operationCount: number;
+  firstSpendAt: string;
+}
+
+export function aggregateCreditRevenueFunnel(events: BetaAnalyticsEvent[]): CreditRevenueFunnelRow[]
+```
+Groups `credit_spend` events by `sessionId`, summing `actualCredits`.
+
+**C. Update `AnalyticsFunnelSummary` interface and `buildAnalyticsFunnelSummary`**
+```typescript
+export interface AnalyticsFunnelSummary {
+  // existing fields...
+  recipeFunnel: RecipeFunnelRow[];
+  creditRevenueFunnel: CreditRevenueFunnelRow[];
+}
+```
+
+**No changes needed to `aggregateCockpitStageFunnel`** — it already handles new event keys/stages via dynamic grouping. The briefing step IDs will appear as rows naturally.
+
+---
+
+### 7. `app/src/app/api/feedback/analytics/funnel/route.ts` — **MODIFIED (minor)**
+
+Returns `buildAnalyticsFunnelSummary` result already — once `aggregate.ts` adds new fields to `AnalyticsFunnelSummary`, they flow through automatically. No route-level changes needed unless the two new aggregation functions are computationally expensive enough to warrant separate endpoints (unlikely at operator-scale data volumes).
+
+---
+
+### 8. `app/src/components/feedback/OwnerAnalyticsPanel.tsx` — **MODIFIED**
+
+**What changes:**
+
+**A. Remove timeline cap (filtro de sessão polish)**
+```typescript
+// Remove .slice(0, 24) from:
+.filter((row) => !sessionId || row.sessionId === sessionId)
+// .slice(0, 24)  ← REMOVE
+.map((row) => [...])
+```
+
+**B. Add recipe funnel section**
+- Add `recipeFunnel: RecipeFunnelRow[]` to `FunnelResponse` type
+- Render a new `FunnelTable` with headers `["Recipe", "Viewed", "Selected", "Rate"]`
+
+**C. Add credit revenue funnel section**  
+- Add `creditRevenueFunnel: CreditRevenueFunnelRow[]` to `FunnelResponse` type
+- Render a new `FunnelTable` with headers `["Session", "Total Credits", "Operations", "First Spend"]`
+
+**D. Session filter options population** (see item 9)
+
+---
+
+### 9. `app/src/app/(dashboard)/feedback/page.tsx` — **MODIFIED**
+
+**What changes (session filter polish):**  
+The `OwnerAnalyticsPanel` `sessionOptions` prop is never populated today. Fetch sessions from the existing `/api/feedback/sessions` endpoint and pass them.
+
+```typescript
+// Add query in FeedbackTriagePage:
+const sessionsQuery = useQuery({
+  queryKey: ["beta-sessions-list"],
+  queryFn: async () => {
+    const res = await apiFetch("/api/feedback/sessions");
+    if (!res.ok || res.status === 403) return [];
+    const data = await res.json();
+    return (data.sessions ?? []) as Array<{ id: string; cohortLabel: string | null; startedAt: string }>;
+  },
+  retry: false,
+});
+
+const sessionOptions = useMemo(
+  () =>
+    (sessionsQuery.data ?? []).map((s) => ({
+      id: s.id,
+      label: s.cohortLabel ?? `Session ${s.id.slice(0, 8)}`,
+    })),
+  [sessionsQuery.data]
+);
+
+// Pass to panel:
+<OwnerAnalyticsPanel sessionOptions={sessionOptions} />
+```
+
+---
+
+## Data Flow Changes
+
+### Before v11.10
+
+```
+StrategyRecipePanel → cockpit_stage_entered/completed/abandoned (stage: "strategy_recipe")
+GuidedBriefingPanel → cockpit_stage_entered/completed/abandoned (stage: "guided_briefing")
+PreviewGatePanel    → cockpit_stage_entered/completed/abandoned* (stage: "preview")
+                      *abandoned fires on revise → F-06 false positive
+
+aggregate.ts        → 6 aggregations, no recipe or revenue funnel
+OwnerAnalyticsPanel → no recipe funnel, no revenue funnel, timeline capped at 24, no session options
+feedback/page.tsx   → sessionOptions=[] always
+```
+
+### After v11.10
+
+```
+StrategyRecipePanel → +recipe_tradeoff_viewed (on open)
+                      +recipe_selected { recipeId } (on each selection)
+                      cockpit_stage_* unchanged
+
+GuidedBriefingPanel → cockpit_stage_abandoned enriched with { stage: currentStepId }
+
+PreviewGatePanel    → cockpit_stage_abandoned NOT fired on revise recipe
+                      cockpit_stage_completed on batch approve (unchanged)
+
+CreativeReadinessPanel → readiness_blocked { action: "overridden" } on override click
+                         +onOverride prop → cockpit orchestrator unlocks
+
+aggregate.ts        → +aggregateRecipeFunnel, +aggregateCreditRevenueFunnel
+                      AnalyticsFunnelSummary +recipeFunnel +creditRevenueFunnel
+
+OwnerAnalyticsPanel → renders recipe funnel + credit revenue funnel
+                      timeline cap removed
+                      sessionOptions populated from sessions API
+
+feedback/page.tsx   → fetches /api/feedback/sessions, passes sessionOptions
+```
+
+---
+
+## New vs Modified Components
+
+### New
+None — all v11.10 work is additive changes to existing components and modules.
+
+### Modified
+
+| File | Change Type | v11.10 Feature |
+|------|-------------|----------------|
+| `server/beta-analytics/types.ts` | Extend constants | F-08, F-09 |
+| `components/workspace/StrategyRecipePanel.tsx` | Add event calls | F-08, F-09 |
+| `components/workspace/GuidedBriefingPanel.tsx` | Enrich abandoned event | F-12 |
+| `components/workspace/PreviewGatePanel.tsx` | Remove false abandoned | F-06 |
+| `components/workspace/CreativeReadinessPanel.tsx` | Add override button + prop | F-11 |
+| `server/beta-analytics/aggregate.ts` | Add 2 new aggregators + interface | Dashboard polish |
+| `components/feedback/OwnerAnalyticsPanel.tsx` | Add sections, remove cap | Dashboard polish |
+| `app/(dashboard)/feedback/page.tsx` | Populate sessionOptions | Dashboard polish |
+| `server/beta-sessions/types.ts` | No change | — |
+| `server/beta-analytics/record.ts` | No change | — |
+| `app/api/analytics/events/route.ts` | No change | — |
+| `app/api/feedback/analytics/funnel/route.ts` | No change (auto) | — |
+
+---
 
 ## Suggested Build Order
 
-Dependencies flow: **schema → server events → client events → session notes → aggregates → dashboard → sessions → fixes**.
+Dependencies flow left-to-right; each phase can be committed independently.
 
-| Order | Phase focus | Delivers | Depends on |
-|-------|-------------|----------|------------|
-| **1** | Event schema + service | Migration, `recordBetaEvent`, types, unit tests | — |
-| **2** | Server instrumentation | preflight, derivations, billing gate events | 1 |
-| **3** | Client instrumentation | Panel enter/abandon; mission skip events | 1 |
-| **4** | Operator session notes | `beta_sessions` API + minimal operator UI | 1 |
-| **5** | Aggregation queries | Funnel, cohort, readiness-false-positive, credit-surprise rollups | 1–3 |
-| **6** | Owner dashboard | Extend `/feedback` with funnel cards, filters, CSV export | 5 |
-| **7** | Beta sessions (operator) | Run 3–5 sessions per `67-BETA-RUNBOOK.md` | 4, 6 |
-| **8** | Friction-fix workflow | Triage ranked issues → up to 5 targeted patches + regression tests | 5–7 |
+### Wave 1 — Schema Foundation (no UI deps)
+1. **`types.ts`** — add `recipe_selected`, `recipe_tradeoff_viewed` to event key const; add `recipeId` to property allowlist
+2. **`aggregate.ts`** — add `aggregateRecipeFunnel`, `aggregateCreditRevenueFunnel`; update `AnalyticsFunnelSummary`
 
-**Rationale:**
+_Tests: update `aggregate.test.ts` with fixture events for new aggregators. Update `sanitize.test.ts` to verify `recipeId` is now accepted._
 
-- **Instrument before dashboard:** Aggregates without events produce empty or misleading funnels; server events (phase 2) alone already answer credit/readiness questions.
-- **Dashboard before friction fixes:** Owner needs cohort funnel + CSV to prioritize fixes by frequency/impact, not intuition.
-- **Session notes parallel to client events (4 ∥ 3):** Operator notes don't block telemetry; can ship after schema.
-- **Qualitative path needs no rebuild:** Mission insights and `/feedback` triage already work; extend UI, don't replace.
+### Wave 2 — Cockpit Instrumentation (depends on Wave 1 types)
+3. **`StrategyRecipePanel.tsx`** — emit `recipe_tradeoff_viewed` on open, `recipe_selected` on selection
+4. **`GuidedBriefingPanel.tsx`** — enrich abandoned with `stage: currentStep`
+5. **`PreviewGatePanel.tsx`** — remove `cockpit_stage_abandoned` from revise handler
 
-### Learning Questions → Data Sources
+_Tests: update `StrategyRecipePanel.test.tsx` (if it exists) to assert new event calls. Check `PreviewGatePanel.test.tsx` — ensure abandoned assertion is removed/updated._
 
-| Question area | Primary source | Secondary |
-|---------------|----------------|-----------|
-| Q1–Q3 Readiness/briefing | `readiness_blocked` events, blocking payload; insight `moment: readiness_first` | `inferMissionCompletions` rerun patterns |
-| Q4–Q6 Recipes/preview | `stage_completed` on `strategy_recipe`/`preview`; recipe id in payload | Mission insights `preview_first`, `cost_concern` |
-| Q7–Q9 Delivery/credits | `credit_blocked`, `summarizeMissionCreditSignals` | Billing gate payloads, export/share completion |
-| Q10 Time to share | Event timestamps: first `setup` → `share` `stage_completed` | `workspace_progression.completed` timestamps |
+### Wave 3 — Readiness Override (depends on cockpit arch, independent of Wave 2)
+6. **`CreativeReadinessPanel.tsx`** — add override button, emit enriched `readiness_blocked`, call `onOverride()`
+7. **Cockpit orchestrator** (workspace page that renders `CreativeReadinessPanel`) — handle `onOverride` prop to allow progression past blocked state
 
-## Scalability Considerations
+_Tests: `CreativeReadinessPanel.test.tsx` — assert override button appears on blocked status, assert event emission._
 
-| Concern | At 5 beta workspaces | At 50 workspaces | At 1K+ workspaces |
-|---------|-------------------|------------------|-------------------|
-| Event volume | Single table, no partition | Index `(workspace_id, created_at)` | Archive events >90d; materialized funnel view |
-| Aggregation | Inline SQL in API route | Cached 5-min owner query (TanStack `staleTime`) | Background Inngest rollup job |
-| CSV export | Stream response | Paginate by date range | Async export to R2 signed URL |
-| Session notes | JSONB per session | Full-text search on notes | Keep operator-only, low volume |
+### Wave 4 — Owner Dashboard (depends on Wave 1 aggregate, independent of Waves 2/3)
+8. **`OwnerAnalyticsPanel.tsx`** — add recipe funnel table, add credit revenue funnel table, remove timeline slice cap; update `FunnelResponse` type
+9. **`feedback/page.tsx`** — add sessions query, pass `sessionOptions` to `OwnerAnalyticsPanel`
 
-Beta scale (3–5 sessions) is tiny; optimize for **correctness and query clarity**, not throughput.
+_Tests: `OwnerAnalyticsPanel.test.tsx` — assert recipe funnel renders, assert timeline is uncapped, assert sessions pass through._
 
-## Integration with Existing Modules
+### Wave 5 — Regression + F-14 Fix
+10. **F-14 test drift** — align `creative-quality-gate-orchestration` test assertion to current regeneration suggestion behavior
+11. **`npm test`, `npm run lint`, `npm run build`** green gate
 
-### Feedback (`feedback_reports`)
+---
 
-- **Keep** as qualitative + triage store.
-- Mission insights continue via `recordMissionInsight` — no migration.
-- Owner dashboard links event drill-down to related `feedback_reports` by `workspaceId` + time proximity + `campaignId`.
-- Friction-fix workflow promotes high-frequency event patterns to `feedback_reports.status = reviewing` with `resolutionSummary`.
+## Pitfalls to Watch
 
-### Progression (`workspace_progression`)
+### `sanitize.ts` uses `z.strictObject` — unknown keys throw
+Any new event property that isn't in `ALLOWED_PROPERTY_KEYS` will cause a `400 validation_error` from the ingest API. **Always update `types.ts` first** before wiring new properties in components.
 
-- **Read-only** for analytics: `completed[]` timestamps provide cross-check for funnel completion.
-- Do not write progression from analytics events — progression stays evidence-driven from domain tables.
-- Dashboard can show "progression level at time of event" via snapshot `levelKey` in event payload (optional denormalization).
+### `aggregate.ts` `stageFromEvent` fallback to "unknown"
+When `stage` is overloaded with step IDs (GuidedBriefingPanel F-12 fix), the cockpit stage funnel will show briefing step IDs as new rows. This is intentional but should be documented in the `OwnerAnalyticsPanel` UI as "Guided briefing steps" vs "Cockpit stages."
 
-### Missions (`getWorkspaceMissions`)
+### PreviewGatePanel F-06 — operator session server-side emit
+The full F-06 fix (emit `cockpit_stage_completed` when operator marks runbook stage done) requires touching `app/src/app/api/feedback/sessions/[id]/stages/route.ts`. Assess in planning whether this is in scope or deferred — the client-side half (removing false abandoned) delivers value independently.
 
-- Mission `status: completed | active | blocked` informs cohort denominators.
-- `creditContext.insufficientCredits` on active mission explains drop-off without new instrumentation.
-- Mission skip already flows through `MissionPathCard` → insight; add `stage_abandoned` event with `skippedMissionKey`.
+### `OwnerAnalyticsPanel` FunnelResponse type is local (not shared with aggregate.ts)
+`FunnelResponse` type is defined inline in `OwnerAnalyticsPanel.tsx`. When `AnalyticsFunnelSummary` gains new fields in `aggregate.ts`, the client-side `FunnelResponse` type must be updated in parallel to avoid runtime `undefined` rendering.
 
-### Cockpit stages
+### Session filter — `/api/feedback/sessions` auth
+The sessions API is protected by `requirePlatformOwner`. `feedback/page.tsx` already handles 403 for reports — the sessions query should follow the same null/empty pattern to avoid crashing the page for non-owners.
 
-- Instrument at **panel boundaries**, not inside pure AI functions (`cockpit-path.test.ts` stays unit-test only).
-- `WorkspaceState` (`piloto`, `acoes`, `derivando`, `gerando`) maps loosely to stages — prefer explicit `stage` = mission key for analytics consistency.
+---
 
-### Inngest / Sentry
-
-- **Inngest:** No change required for v11.8 MVP; derivation success/failure already reflected in derivation status (inference picks up completion).
-- **Sentry:** Keep on feedback submission; optionally add `sentryCorrelation` to `credit_blocked` events when error object present.
-
-## Friction-Fix Workflow Architecture
+## Component Boundaries Summary
 
 ```
-Events + session notes + feedback triage
-        │
-        ▼
-  aggregate.rankFrictions()
-  (frequency × severity × learning-q weight)
-        │
-        ▼
-  Owner selects ≤5 items
-        │
-        ▼
-  Patch existing component/API (no new features)
-        │
-        ▼
-  Regression: cockpit-path tests + targeted unit + operator re-run
+types.ts (event key + property allowlist)
+  ↓
+sanitize.ts (strictObject from allowlist)
+  ↓
+record.ts (validates key, sanitizes, inserts)
+  ↓
+/api/analytics/events/route.ts (ingest endpoint)
+  ↑
+useRecordBetaEvent (client hook, fire-and-forget)
+  ↑
+Cockpit Panels: CreativeReadinessPanel, GuidedBriefingPanel,
+                StrategyRecipePanel, PreviewGatePanel
+
+aggregate.ts (pure functions over BetaAnalyticsEvent[])
+  ↓
+/api/feedback/analytics/funnel/route.ts (owner-gated, calls aggregate)
+  ↓
+OwnerAnalyticsPanel (TanStack Query, renders FunnelTable)
+  ↑
+feedback/page.tsx (platform owner triage surface)
 ```
 
-Each fix should cite evidence IDs (event count, example report IDs) in PR/commit message — not new tooling.
+---
 
 ## Sources
 
-- `.planning/PROJECT.md` — v11.8 milestone scope
-- `.planning/phases/67-milestone-archive-and-beta-runbook/67-BETA-RUNBOOK.md` — stage mapping (BETA-02)
-- `.planning/phases/67-milestone-archive-and-beta-runbook/67-LEARNING-QUESTIONS.md` — decision gate
-- `app/src/server/db/schema.ts` — `feedback_reports`, `workspace_progression`
-- `app/src/server/mission-insights/service.ts` — insight → feedback pipeline
-- `app/src/server/feedback/mission-credit-signals.ts` — owner aggregate pattern
-- `app/src/server/progression/missions/definitions.ts` — `MISSION_ORDER`
-- `app/src/app/(dashboard)/feedback/page.tsx` — owner triage UI
-- `app/src/server/auth/platform-owner.ts` — owner gate
-
-**Confidence notes:**
-
-- Existing integration points: **HIGH** (verified in codebase).
-- `beta_analytics_events` table shape: **MEDIUM** (recommended; not yet in repo — validate in phase plan).
-- Cohort filter mechanism (session-based vs date-based): **MEDIUM** (operator workflow preference).
+- `/app/src/server/beta-analytics/types.ts` — event key and property allowlist (read directly)
+- `/app/src/server/beta-analytics/aggregate.ts` — aggregation logic (read directly)
+- `/app/src/server/beta-analytics/sanitize.ts` — property validation strictObject (read directly)
+- `/app/src/server/beta-analytics/record.ts` — server-side record function (read directly)
+- `/app/src/server/beta-sessions/types.ts` — BETA_RUNBOOK_STAGES (read directly)
+- `/app/src/components/workspace/{Strategy,GuidedBriefing,PreviewGate,CreativeReadiness}Panel.tsx` — current instrumentation (read directly)
+- `/app/src/components/feedback/OwnerAnalyticsPanel.tsx` — dashboard component (read directly)
+- `/app/src/app/(dashboard)/feedback/page.tsx` — page composition (read directly)
+- `.planning/milestones/v11.8-phases/79-evidence-driven-friction-fixes/79-V11.9-BACKLOG.md` — F-06..F-14 backlog items
+- `.planning/PROJECT.md` — v11.10 milestone goal

@@ -1,197 +1,227 @@
-# Technology Stack
+# Technology Stack: v11.10 Fechamento Entrega e Analytics
 
-**Project:** ADScale v11.8 — Loop de Aprendizado Beta  
+**Project:** ADScale v11.10  
 **Researched:** 2026-06-07  
-**Scope:** Stack **additions/changes only** for beta instrumentation, owner analytics dashboard, cohort funnel, CSV export, and operator session notes. Existing Next.js / Drizzle / TanStack Query / recharts / feedback stack is locked.
-
-## Executive Recommendation
-
-**Add two Postgres tables + server-side event helper. Add zero (or at most one optional) npm packages.**
-
-For 3–5 operator-guided beta sessions, first-party Postgres instrumentation beats third-party product analytics. The app already has the right primitives (`feedback_reports`, `usage_events`, `workspace_progression`, `recharts`, Drizzle aggregations). v11.8 should extend that pattern—not bolt on PostHog, a warehouse, or a CSV framework.
+**Scope:** Stack additions and changes needed for NEW v11.10 features only.  
+**Baseline:** Next.js 16.2.6 App Router, React 19, TypeScript 5, TanStack Query 5.100, Neon/Drizzle 0.45, Zod 3, first-party beta analytics layer (v11.8).
 
 ---
 
-## Recommended Stack
+## Verdict: Zero new npm dependencies
 
-### Core (new capabilities — mostly schema, not libraries)
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| **PostgreSQL (Neon)** | existing | Durable event store + session notes + funnel source of truth | Already deployed; workspace-scoped; operator-scale volume (~hundreds of rows) needs no OLAP |
-| **`product_events` table** (new migration) | — | Append-only instrumentation: mission conversion, cockpit stage enter/exit/abandon, credit estimate vs debit, readiness block/override | Explicit events unblock funnel math; inferring only from `workspace_progression` misses abandonment and timing |
-| **`beta_sessions` table** (new migration) | — | Operator session record: cohort label, workspace link, per-stage structured notes, start/end timestamps | Runbook requires structured notes per cockpit stage; separates operator evidence from user-submitted feedback |
-| **Drizzle ORM** | `^0.45.2` (installed) | Inserts, `count()`, `groupBy()`, `sql` templates for funnel aggregates | Verified Context7: `count()`, `groupBy()`, `sql`…`having` support matches funnel needs; no new query layer |
-| **Zod** | `^3.0.0` (installed) | `productEventSchema`, `betaSessionNoteSchema` at API boundaries | Same boundary-validation pattern as mission insights and feedback |
-| **`trackProductEvent()` server helper** (new module) | — | Single insert path with idempotency key + workspace guard | Mirrors `trackUsage()` in `repositories/usage.ts`; keeps instrumentation server-side at API routes |
-
-### Supporting (already installed — reuse, do not replace)
-
-| Library | Version | Purpose | When to Use |
-|---------|---------|---------|-------------|
-| **TanStack Query** | `^5.100.1` | Owner dashboard data fetching on `/feedback` | New query keys: `beta-funnel`, `beta-signals`, `beta-sessions` |
-| **recharts** | `^3.8.1` | Cohort funnel bar chart, signal counts over time | Reuse `CreditChart.tsx` dynamic-import pattern (`next/dynamic`, `ssr: false`) |
-| **date-fns** | `^4.1.0` | Bucket events by day/session for dashboard axes | Already used across app; no `dayjs`/`luxon` addition |
-| **feedback_reports** (table) | v11.4+ | Qualitative mission insights, triage, `mission-credit-signals` | Keep `category: "mission"` pipeline; do **not** add `mission_insights` table (explicitly rejected Phase 70/72) |
-| **usage_events** (table) | v1.0+ | Credit debit ground truth | Join/compare with `credit_estimate_shown` product events for “surprise” detection |
-| **workspace_progression** + mission evidence | v11.7+ | Mission **completion** ground truth | Complement with `mission_abandoned` / `cockpit_stage_abandoned` events for drop-off |
-| **@sentry/nextjs** | `^10.53.1` | Trace correlation on feedback only | Debug incidents—not the analytics store |
-
-### CSV Export (no new dependency)
-
-| Approach | Version | Purpose | Why |
-|----------|---------|---------|-----|
-| **Next.js Route Handler** + native string builder | Next `16.2.6` | `GET /api/feedback/analytics/export.csv` | 3–5 sessions × ~11 mission stages × few events = tiny payload; `Content-Type: text/csv` + `Content-Disposition: attachment` is sufficient |
-| **Optional: `escapeCsvCell()` util** (~15 LOC) | in-repo | RFC 4180 escaping for notes/messages | Avoids `papaparse` / `csv-stringify` for write-only, operator-scale export |
+All v11.10 capabilities are in-repo TypeScript additions to the existing analytics layer.  
+No new libraries. No schema migrations. No new API routes beyond what the existing event ingest and funnel endpoints already provide.
 
 ---
 
-## Schema Shape (integration contract)
+## Core Technologies (unchanged)
 
-These are **not** npm packages—they define how new code plugs into Drizzle.
+| Technology | Version (locked) | Role |
+|------------|-----------------|------|
+| Next.js App Router | 16.2.6 | Framework — no change |
+| React | 19.2.4 | UI runtime — no change |
+| TypeScript | ^5 | Type system — no change |
+| Drizzle ORM + Neon PostgreSQL | ^0.45.2 | Persistence — no change |
+| TanStack Query | ^5.100.1 | Server state / panel queries — no change |
+| Zod | ^3.0.0 | Schema validation at ingest boundary — no change |
+| shadcn/ui + Tailwind | (existing) | Dashboard component shell — no change |
 
-### `product_events`
+---
+
+## In-Repo Changes Required
+
+### 1. `app/src/server/beta-analytics/types.ts` — Event key allowlist expansion
+
+**Why:** `recordBetaAnalyticsEvent()` hard-validates against `PHASE_76_BETA_EVENT_KEYS`.  
+Any new event key not in this const is rejected at the server boundary before DB insert.  
+`sanitizeBetaEventProperties()` uses `z.strictObject(ALLOWED_PROPERTY_KEYS)` — any new  
+property field (e.g. `recipeKey`, `stepIndex`) must be added to `ALLOWED_PROPERTY_KEYS` or  
+the ingest route returns a validation error and the event is silently dropped client-side  
+(fire-and-forget in `useRecordBetaEvent`).
+
+**Changes:**
 
 ```typescript
-// Illustrative — implement in schema.ts + migration
-{
-  id: uuid,
-  workspaceId: uuid,          // FK workspaces
-  userId: text,               // FK user
-  betaSessionId: uuid | null, // FK beta_sessions
-  eventName: text,            // e.g. "cockpit_stage_entered"
-  stage: text | null,         // cockpit/mission stage enum
-  properties: jsonb,          // { estimateCredits, actualCredits, missionKey, readinessStatus, ... }
-  idempotencyKey: text | null,// unique — debounce readiness rerun, preview confirm
-  createdAt: timestamp,
-}
-// Indexes: (workspace_id, created_at), (event_name, created_at), (beta_session_id), (idempotency_key) unique
+// PHASE_76_BETA_EVENT_KEYS — add these four keys:
+"recipe_selected",        // F-09: user confirms a strategy recipe
+"recipe_tradeoff_viewed", // F-08: user opens/scrolls tradeoff copy within a recipe card
+"briefing_abandoned",     // F-12: user dismisses/closes guided briefing mid-flow
+"readiness_override",     // F-11: operator explicitly overrides a false-positive readiness block
+
+// ALLOWED_PROPERTY_KEYS — add these two keys:
+"recipeKey",   // string — identifies which recipe was selected/viewed (e.g. "bold_single")
+"stepIndex",   // number — briefing step index at time of abandon (0-based)
 ```
 
-**Event names (minimum set for v11.8 learning questions):**
+No migration needed. `beta_analytics_events.properties` is JSONB; the column already  
+accepts any keys. The allowlist is enforced in application code only.
 
-| Signal | `eventName` values | `stage` / `properties` |
-|--------|-------------------|--------------------------|
-| Mission conversion | `mission_completed`, `mission_abandoned` | `missionKey`; completion may still mirror progression evidence |
-| Cockpit abandonment | `cockpit_stage_entered`, `cockpit_stage_completed`, `cockpit_stage_abandoned` | Align with `MISSION_ORDER` + runbook stages: `readiness`, `guided_briefing`, `strategy_recipe`, `preview`, `batch`, `review`, `approval_package`, `share` |
-| Credit surprises | `credit_estimate_shown`, `credit_debited` | `properties.estimateCredits`, `properties.actualCredits`, `properties.action` — correlate with `usage_events` |
-| Readiness false positives | `readiness_result`, `readiness_blocked_proceeded` | `properties.status`, `properties.blockingIssues`, `properties.userProceededDespiteBlock` |
+---
 
-Instrument at **server API boundaries** (preflight POST, derivation queue, billing debit, mission insight routes)—not client-only beacons.
+### 2. `app/src/server/beta-analytics/aggregate.ts` — New aggregation functions
 
-### `beta_sessions`
+**Why:** `OwnerAnalyticsPanel` calls `buildAnalyticsFunnelSummary()` which drives all  
+table rows. New funnel rows for recipe and briefing require new aggregators.  
+`AnalyticsFunnelSummary` interface in `aggregate.ts` must be extended with the new rows.
+
+**New functions to add:**
+
+| Function | Returns | Consumes | Purpose |
+|----------|---------|----------|---------|
+| `aggregateRecipeFunnel` | `RecipeFunnelRow[]` | `recipe_selected` events | F-09 — recipe pick rate by key |
+| `aggregateBriefingAbandonByStep` | `BriefingAbandonRow[]` | `briefing_abandoned` events | F-12 — drop-off by guided briefing step |
+| `aggregatePreviewFunnelAlignment` | `PreviewAlignmentRow[]` | `cockpit_stage_completed` + `cockpit_stage_abandoned` on stage=`preview` | F-06 — completed vs abandoned split at preview stage |
+
+All three are pure functions: `(events: BetaAnalyticsEvent[]) => SomeRow[]`.  
+No DB call, no async, consistent with existing aggregator contract.
+
+**Interface extensions to `AnalyticsFunnelSummary`:**
 
 ```typescript
-{
-  id: uuid,
-  workspaceId: uuid,
-  cohortLabel: text,          // e.g. "beta-wave-1", "session-2026-06-10"
-  operatorUserId: text,       // platform owner running the session
-  startedAt: timestamp,
-  endedAt: timestamp | null,
-  stageNotes: jsonb,          // { readiness: { notes, tags, completedAt }, preview: {...}, ... }
-  createdAt: timestamp,
+recipeFunnel: RecipeFunnelRow[];
+briefingAbandonByStep: BriefingAbandonRow[];
+previewFunnelAlignment: PreviewAlignmentRow;
+```
+
+**New row types:**
+
+```typescript
+interface RecipeFunnelRow {
+  recipeKey: string;
+  selectedCount: number;
+}
+
+interface BriefingAbandonRow {
+  stepIndex: number;
+  abandonCount: number;
+}
+
+interface PreviewAlignmentRow {
+  completed: number;
+  abandoned: number;
+  approvalRate: number | null; // completed / (completed + abandoned)
 }
 ```
 
-Optional: `workspaces.betaCohort` text column if cohort is stable per workspace—otherwise `cohortLabel` on session is enough for 3–5 runs.
+---
+
+### 3. Component instrumentation — three cockpit panels
+
+**Why:** These event calls are missing. `useRecordBetaEvent` already exists and is  
+fire-and-forget with no UI blocking. Adding calls is a one-liner per site.
+
+| File | New `recordEvent` calls | Properties |
+|------|------------------------|------------|
+| `StrategyRecipePanel.tsx` | `recipe_selected` on recipe confirm | `{ recipeKey, stage: "strategy_recipe" }` |
+| `StrategyRecipePanel.tsx` | `recipe_tradeoff_viewed` on tradeoff expand/scroll | `{ recipeKey, stage: "strategy_recipe" }` |
+| `GuidedBriefingPanel.tsx` | `briefing_abandoned` on modal close | `{ stepIndex, stage: "guided_briefing" }` |
+| `CreativeReadinessPanel.tsx` | `readiness_override` on operator override confirm | `{ readinessStatus, stage: "readiness" }` |
+
+`StrategyRecipePanel` and `GuidedBriefingPanel` already import `useRecordBetaEvent` and  
+call `recordEvent` for stage enter/complete/abandon — the new calls follow the same pattern.
+
+**F-06 preview funnel alignment:** `PreviewGatePanel.tsx` already emits  
+`cockpit_stage_completed` and `cockpit_stage_abandoned` with `stage: "preview"`.  
+No new call needed — `aggregatePreviewFunnelAlignment` reads the existing events.  
+The mismatch was a gap in the aggregate layer, not in instrumentation.
 
 ---
 
-## Funnel Aggregation (Drizzle — no new lib)
+### 4. `app/src/components/feedback/OwnerAnalyticsPanel.tsx` — Dashboard polish
 
-Owner dashboard queries live in a new `server/analytics/` module:
+**Why:** Three display issues exist that are purely in-component fixes.
 
-| Query | Drizzle pattern | Output |
-|-------|-----------------|--------|
-| Cohort funnel | `count(distinct workspace_id)` grouped by `stage` where `event_name = 'cockpit_stage_completed'`, filtered by `beta_session_id` or `cohortLabel` | Stage → count bar chart (recharts) |
-| Mission conversion | Join progression snapshot or `mission_completed` events / total workspaces in cohort | % completing each `missionKey` |
-| Credit surprises | Compare `credit_estimate_shown` vs next `credit_debited` or `usage_events` within session window | List of `{ workspace, stage, delta }` |
-| Readiness false positives | `readiness_result` where `status=blocked` followed by `readiness_blocked_proceeded` or generation without rerun | Count + link to feedback report |
+| Issue | Location | Fix |
+|-------|----------|-----|
+| Session timeline capped at 24 rows | Line 331: `.slice(0, 24)` | Remove slice; add scroll container with `max-h-96 overflow-y-auto` |
+| Readiness overrides capped at 8 rows | Line 351: `.slice(0, 8)` | Remove slice; same scroll container pattern |
+| Recipe funnel row missing | — | Add `<FunnelTable>` consuming `funnel.recipeFunnel` |
+| Briefing abandon row missing | — | Add `<FunnelTable>` consuming `funnel.briefingAbandonByStep` |
+| Revenue funnel (preview → batch → export) | — | Add `<FunnelTable>` derived from existing `cockpitStageFunnel` rows for stages `preview`, `batch`, `export` — no new API data |
 
-Use `count()`, `groupBy()`, and `sql` template for thresholds (Context7 `/websites/orm_drizzle_team`, HIGH confidence). No materialized views at this scale.
-
----
-
-## Owner Dashboard Integration Points
-
-| Surface | Change | Stack touchpoint |
-|---------|--------|------------------|
-| `/feedback` page | Add cohort funnel chart, signal summary cards, session list, “Export CSV” button | TanStack Query + recharts (existing) |
-| `/api/feedback/mission-credit-signals` | Extend or sibling route for readiness/cockpit aggregates | Drizzle queries on `product_events` + existing `feedback_reports` |
-| New routes | `POST/GET /api/owner/beta-sessions`, `GET /api/owner/analytics/funnel`, `GET /api/owner/analytics/export` | Owner-only guard (same pattern as feedback 403) |
-| Mission insights | Keep writing to `feedback_reports`; optionally emit matching `product_events` for quant funnel | No schema fork |
+`sessionOptions` prop and session filter input already exist in the component.  
+Verifying the `<select>` is rendered (not just state) is the polish check.  
+All data is already fetched via `/api/feedback/analytics/funnel` — only the display layer changes.
 
 ---
 
-## Alternatives Considered
+### 5. Readiness operator override persistence — F-11
 
-| Category | Recommended | Alternative | Why Not |
-|----------|-------------|-------------|---------|
-| Event storage | `product_events` (Postgres) | PostHog / Mixpanel / Amplitude | Vendor cost, GDPR/workspace isolation, overkill for 3–5 sessions; duplicates data already in Postgres |
-| Event storage | `product_events` | Reuse `activity_events` only | Table exists but is **read-only in practice** (no writers found); lacks `eventName`/session indexes and idempotency |
-| Mission insights | `feedback_reports` + events | New `mission_insights` table | Explicitly rejected Phase 70/72 — keep one triage pipeline |
-| Funnel compute | Drizzle SQL at request time | ClickHouse / Timescale / Materialize | No time-series volume; adds infra |
-| Funnel compute | Drizzle SQL | Inngest scheduled rollups | Extra complexity; 3–5 sessions don't need async aggregation |
-| Charts | recharts (installed) | Tremor / Chart.js / Nivo | New bundle + pattern; `CreditChart` already establishes convention |
-| CSV export | Native Route Handler | `papaparse`, `csv-stringify`, `fast-csv` | Write-only, tiny datasets; escaping is ~15 lines |
-| Session notes | `beta_sessions.stageNotes` JSONB | Notion/Airtable external | Breaks owner dashboard + CSV in one place; operator already works in `/feedback` |
-| Client analytics | Server-side `trackProductEvent` | Browser SDK (Segment snippet) | Workspace auth + reliability; matches existing API-first architecture |
-| Caching | None | Upstash Redis (`@upstash/redis` installed) | Premature for operator dashboard; query directly |
+**Why:** Override needs to be both persisted (for audit) and emitted as an event  
+(for `aggregateReadinessOverrides` to surface in the dashboard).
+
+**Approach:**  
+The existing `beta_sessions.operator_notes` JSONB already stores `false positive` tags  
+per stage (used in `extractOperatorFalsePositiveNotes`). No schema change is needed.
+
+Two actions on override:
+1. PATCH `/api/beta-sessions/:id/notes` with `tags: ["false positive"]` on the `readiness` stage — uses the existing endpoint and schema.
+2. Emit `readiness_override` event via `POST /api/analytics/events` — uses the existing ingest endpoint.
+
+`aggregateReadinessOverrides` in `aggregate.ts` already merges both sources  
+(`extractReadinessBlockedEvents` + `extractOperatorFalsePositiveNotes`).  
+No new API endpoint or Drizzle query is needed.
+
+---
+
+### 6. SESS-03 UAT artifacts
+
+Pure documentation. No code changes. Target: markdown runbook artifact confirming  
+≥3 real operator sessions with updated learning answers. Lives in  
+`.planning/milestones/v11.10-phases/`.
 
 ---
 
 ## What NOT to Add
 
-| Anti-pattern | Reason |
-|--------------|--------|
-| PostHog, Mixpanel, Plausible, GA4 | Third-party analytics stack for 3–5 sessions |
-| `@tanstack/react-table` | Feedback page already hand-rolls tables; not required for CSV |
-| Warehouse / stream (Kafka, Tinybird, MotherDuck) | Operator-scale Postgres is the warehouse |
-| Inngest cron for analytics | Synchronous Drizzle queries are fast enough |
-| Separate `mission_insights` table | Conflicts with v11.7 decision |
-| Client-side event queue + batch flush | Failure modes; server routes already know workspace context |
-| Materialized views / pg_cron | Migration + refresh ops not justified |
-| New chart library | recharts sufficient |
-| CSV npm package (default) | Only add `csv-stringify` if export bugs appear in UAT |
+| Candidate | Why Not |
+|-----------|---------|
+| PostHog, Mixpanel, Segment, or any third-party analytics SDK | Explicitly out of scope per PROJECT.md decision "First-party beta analytics — operator-scale learning without third-party SDK; PII allowlist at ingest" |
+| New Drizzle migration / schema change | `beta_analytics_events.properties` is JSONB and accepts any keys already. Allowlist is app-layer only. |
+| New API routes for v11.10 analytics | Existing `/api/analytics/events` (ingest) and `/api/feedback/analytics/funnel` (query) cover all new event types. |
+| `react-chartjs-2`, `recharts`, or chart library | Existing `FunnelTable` component with plain HTML tables is sufficient for beta-operator audience. |
+| Cursor pagination on analytics queries | Beta cohort is small; fetching all events per filter is acceptable. Add if sessions > 50. |
+| Server-Sent Events or WebSocket for live updates | TanStack Query polling (or manual refetch) is sufficient for operator dashboard cadence. |
+| Additional Zod schemas for new event shapes | The JSONB properties allowlist in `sanitize.ts` handles new keys once added to `ALLOWED_PROPERTY_KEYS`; no separate Zod event-shape schemas needed. |
 
 ---
 
-## Installation
+## Integration Points with Existing Beta Analytics Layer
 
-**Expected: no new production dependencies.**
-
-```bash
-# Schema only — after PLAN approves event taxonomy
-cd app && npm run db:generate && npm run db:migrate
+```
+useRecordBetaEvent(campaignId)          ← client hook (fire-and-forget)
+        │
+        ▼
+POST /api/analytics/events              ← ingest route (existing)
+        │
+        ▼
+recordBetaAnalyticsEvent()              ← validates eventKey against PHASE_76_BETA_EVENT_KEYS
+        │                                  validates properties against ALLOWED_PROPERTY_KEYS
+        ▼
+insertBetaAnalyticsEvent()              ← Drizzle insert into beta_analytics_events
+        │
+        ▼
+GET /api/feedback/analytics/funnel      ← owner query route (existing)
+        │
+        ▼
+buildAnalyticsFunnelSummary()           ← aggregate.ts (extend with new functions)
+        │
+        ▼
+OwnerAnalyticsPanel                     ← display (add new FunnelTable rows)
 ```
 
-If CSV edge cases appear in UAT (embedded quotes in Portuguese notes):
-
-```bash
-cd app && npm install csv-stringify@^6.5.2
-# Use only in export route — still optional
-```
-
----
-
-## Version Verification
-
-| Package | Installed | Verified | Confidence |
-|---------|-----------|----------|------------|
-| drizzle-orm | `^0.45.2` | Context7 `/websites/orm_drizzle_team` — `count`, `groupBy`, `sql` aggregation | HIGH |
-| recharts | `^3.8.1` | In-repo `CreditChart.tsx` + package.json | HIGH |
-| @tanstack/react-query | `^5.100.1` | In-repo `/feedback` page patterns | HIGH |
-| date-fns | `^4.1.0` | package.json | HIGH |
-| Next.js | `16.2.6` | Route Handler CSV response pattern (framework docs) | MEDIUM |
-| csv-stringify | not installed | Optional fallback only | LOW — defer |
+**The two allowlist arrays in `types.ts` are the single gate.** Extend them first;  
+everything downstream (ingest, aggregate, dashboard) follows the existing pattern exactly.
 
 ---
 
 ## Sources
 
-- ADScale codebase: `app/package.json`, `app/src/server/db/schema.ts`, `app/src/server/repositories/usage.ts`, `app/src/server/feedback/mission-credit-signals.ts`, `app/src/server/mission-insights/service.ts`, `app/src/app/(dashboard)/feedback/page.tsx`, `app/src/components/dashboard/CreditChart.tsx`, `app/src/server/progression/missions/definitions.ts`
-- Phase decisions: `.planning/phases/70-mission-linked-insight-capture/70-CONTEXT.md`, `.planning/phases/72-build-and-data-integrity-hardening/72-CONTEXT.md`, `.planning/phases/67-milestone-archive-and-beta-runbook/67-BETA-RUNBOOK.md`, `.planning/phases/67-milestone-archive-and-beta-runbook/67-LEARNING-QUESTIONS.md`
-- Drizzle ORM aggregation: https://orm.drizzle.team/docs/select (count, groupBy) — via Context7 `/websites/orm_drizzle_team`
-- Drizzle SQL templates: https://orm.drizzle.team/docs/sql — via Context7
-- Next.js Route Handlers (CSV download): https://nextjs.org/docs/app/building-your-application/routing/route-handlers
+- `app/src/server/beta-analytics/types.ts` — current allowlists (inspected)
+- `app/src/server/beta-analytics/record.ts` — eventKey gate logic (inspected)
+- `app/src/server/beta-analytics/sanitize.ts` — `z.strictObject` properties gate (inspected)
+- `app/src/server/beta-analytics/aggregate.ts` — existing aggregator contract (inspected)
+- `app/src/components/feedback/OwnerAnalyticsPanel.tsx` — display caps at lines 331, 351 (inspected)
+- `.planning/milestones/v11.8-phases/79-evidence-driven-friction-fixes/79-V11.9-BACKLOG.md` — F-06–F-14 evidence and suggested slices (inspected)
+- `.planning/PROJECT.md` — locked stack decisions and v11.10 milestone scope (inspected)
+- `app/drizzle/0033_beta_analytics.sql` — schema confirming JSONB properties column (inspected)

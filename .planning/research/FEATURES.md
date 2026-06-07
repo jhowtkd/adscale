@@ -1,207 +1,213 @@
-# Feature Landscape
+# Feature Landscape: v11.10 Fechamento Entrega e Analytics
 
-**Domain:** Operator-guided beta learning loop for creative SaaS (cockpit + Ads Scientist progression)  
-**Researched:** 2026-06-07  
-**Milestone:** v11.8 Loop de Aprendizado Beta  
-**Confidence:** HIGH for gaps vs existing build; MEDIUM for industry patterns (verified via multiple SaaS analytics sources, applied to ADScale's 3–5 session scale)
+**Domain:** Beta analytics instrumentation closure + operator UAT
+**Researched:** 2026-06-07
+**Milestone context:** Closing deferred v11.8 backlog (F-06, F-08, F-09, F-11, F-12, F-14) plus owner dashboard polish and SESS-03 operator UAT.
 
-## Context: What Already Exists
+---
 
-v11.8 is a **measurement-and-fix** milestone, not a greenfield product. The following are shipped and should be **extended**, not replaced:
+## What Already Exists (do NOT rebuild)
 
-| Module | Shipped in | What it provides today |
-|--------|-----------|------------------------|
-| Beta runbook + stage tags | v11.6.1 (`67-BETA-RUNBOOK.md`) | Operator session script; feedback mapped to cockpit stages |
-| Learning questions | v11.6.1 (`67-LEARNING-QUESTIONS.md`) | 10 decision-gate questions (readiness, recipe/preview, delivery/credit, process) |
-| Feedback capture + triage | v11.4 | `feedback_reports`, `/feedback` owner list/detail, status, private notes |
-| Mission insights | v11.7 | Structured prompts at 8 moments; stored as `category=mission` in `feedback_reports` |
-| Mission credit signals | v11.7 | `summarizeMissionCreditSignals()` — healthy vs frustration counts on `/feedback` |
-| Mission completion inference | v11.7 | 11 missions inferred from DB records (campaigns, derivations, exports, shares) |
-| Cockpit workflow | v11.6 | Readiness → guided briefing → recipe → preview → batch → approval package |
-| Progression ladder | v11.7 | Ads Scientist status from evidence keys |
+Confirmed in codebase before writing this document:
 
-**Gap:** Mission completion is **binary per workspace** (inferred from durable records). There is **no first-class funnel event stream**, **no per-stage abandonment timestamps**, **no cohort comparison**, and **no CSV export** for owner synthesis. Learning questions Q1–Q10 cannot be answered reliably from today's data alone.
+| Capability | Location | Status |
+|------------|----------|--------|
+| `cockpit_stage_completed` on GuidedBriefingPanel | `GuidedBriefingPanel.tsx:65` | ✓ Built |
+| `cockpit_stage_completed` on CreativeReadinessPanel | `CreativeReadinessPanel.tsx:79` | ✓ Built |
+| `cockpit_stage_completed` / entered / abandoned on StrategyRecipePanel | `StrategyRecipePanel.tsx:70-91` | ✓ Built |
+| `cockpit_stage_completed` on PreviewGatePanel | `PreviewGatePanel.tsx:71` | ✓ Built |
+| `readiness_blocked` / `readiness_completed` events (server) | `preflight/route.ts` | ✓ Built |
+| `ReadinessOverrideSignal` aggregate from `readiness_blocked` events | `aggregate.ts:277` | ✓ Built |
+| Owner dashboard: session filter select, date range, workspace filter | `OwnerAnalyticsPanel.tsx:161-259` | ✓ Built |
+| Session stage timeline table (with `.slice(0, 24)` cap) | `OwnerAnalyticsPanel.tsx:329` | ✓ Built (capped) |
+| Credit surprise by operation table | `OwnerAnalyticsPanel.tsx:299` | ✓ Built |
+| Readiness override signals display panel | `OwnerAnalyticsPanel.tsx:340` | ✓ Built |
+| `stepIndex()` + `guided.currentStep` in GuidedBriefingPanel | `GuidedBriefingPanel.tsx:29-77` | ✓ Built (unused in abandon) |
+| `ALLOWED_PROPERTY_KEYS` PII allowlist in types | `beta-analytics/types.ts:3` | ✓ Built |
+| `PHASE_76_BETA_EVENT_KEYS` enum | `beta-analytics/types.ts:25` | ✓ Built |
 
 ---
 
 ## Table Stakes
 
-Features users (operators and product owner) expect for a credible operator-run beta. Missing these = sessions produce anecdotes, not decisions.
+Features users/operators expect. Missing = product feels incomplete.
 
-| Feature | Why Expected | Complexity | Notes | Learning Qs |
-|---------|--------------|------------|-------|-------------|
-| **Operator session ledger** | Runbook exists but notes are ad-hoc; 3–5 sessions need comparable structure | Low | Extend runbook with per-session template: workspace ID, cohort tag, operator, start/end, pass/fail per stage, 2–3 quotes. Can start as markdown + later DB row. | Q10 |
-| **Stage-tagged structured notes** | BETA-02 already maps stages; operator needs one place to file stage + severity without hunting `/feedback` | Low | Reuse `feedback_reports` with `category` + `diagnosticContext.cockpitStage` OR operator-only session note API. Links to existing triage. | All |
-| **Cockpit funnel by workspace** | Owner must see where beta users stall (readiness → briefing → recipe → preview → batch → share) | Medium | Derive from existing tables + new lightweight `product_events` or stage-transition log. Align stages with `MISSION_ORDER` / runbook. | Q1–Q6, Q10 |
-| **Mission conversion rate** | Milestone explicitly requires mission funnel instrumentation | Medium | % workspaces reaching each of 11 missions; time-to-complete between missions. Builds on `inferMissionCompletions()` — add **first-seen timestamps** and **abandonment** (active mission unchanged >N days). | Q10 |
-| **Credit friction by stage** | Q8 asks where surprises happen; `credit_friction` moment exists but isn't stage-scoped | Low–Med | Extend mission insight / event payload with `cockpitStage` + `creditAction` (readiness_rerun, preview, batch_estimate). Extends `mission-credit-signals.ts`. | Q7–Q9 |
-| **Readiness signal capture** | Q1–Q3 need override/rerun/false-positive data | Medium | Log: blocking issues shown, user proceeded anyway, rerun count, cached vs fresh analysis. Source: readiness API + campaign `creativeDiagnosis*` fields. | Q1–Q3 |
-| **Recipe & preview outcomes** | Q4–Q6 need default vs chosen recipe and preview→batch path | Medium | Log: default recipe, selected recipe, override flags, preview approved/revised/abandoned, preview quality gate pass/fail. Source: derivation flow + `creative_plans`. | Q4–Q6 |
-| **Share & approval package signals** | Q7, Q9 need delivery-path evidence | Low–Med | Log: share link created, public page opened (optional), package refresh triggered, stale badge seen. Source: `share_links`, approval package APIs. | Q7, Q9 |
-| **Owner dashboard at `/feedback`** | PROJECT.md requires owner dashboard with actionable signals | Medium | Extend existing page: cohort filter, funnel summary cards, mission conversion strip, link to friction backlog. **Not** a new nav surface. | All |
-| **CSV export** | Owner needs offline synthesis and stakeholder sharing | Low | Export filtered `feedback_reports` + aggregated funnel/mission metrics. Privacy: no prompts, no raw assets. | All |
-| **Friction backlog (≤5 fixes)** | Milestone caps scope at evidence-driven fixes | Low (process) / Med (fixes) | Triage view: cluster by stage + frequency + severity; top 5 become fix tickets. Uses existing report status + internal notes. | Decision gate |
-| **Learning-question answer sheet** | BETA-03 questions are the decision gate; answers must be explicit | Low | Template mapping each Q1–Q10 to metrics + qual quotes + verdict (pass/fail/inconclusive). Filled after 3–5 sessions. | All |
+### TS-1: F-06 — Preview funnel completeness via manual runbook path
+
+**Why expected:** The cockpit stage funnel in the owner dashboard should accurately show whether operators reached and completed the preview stage. Currently, when an operator marks a beta session as complete via the manual runbook (not through PreviewGatePanel.onApproveBatch), no `cockpit_stage_completed(stage: "preview")` event fires. This produces a false "preview: abandoned=1" reading in the funnel, misrepresenting operator behavior.
+
+**What to build:** Emit `cockpit_stage_completed({stage: "preview", missionKey: "preview"})` from the beta-session runbook completion path (server route `beta-sessions/[id]/summary` or the operator UI that marks session done), so the funnel row reflects actual operator progression rather than just panel interactions.
+
+**Complexity:** Low — one `recordBetaAnalyticsEvent` call at the runbook-complete boundary. Test: verify `cockpit_stage_completed` fires on session summary submission.
+
+**Dependencies:** `cockpit_stage_completed` event key already in PHASE_76_BETA_EVENT_KEYS ✓; `recordBetaAnalyticsEvent` available server-side ✓.
+
+---
+
+### TS-2: F-08 — `recipe_tradeoff_viewed` event
+
+**Why expected:** Without this event, the owner has no signal for whether operators are reading the tradeoff copy before selecting a recipe — which was Q6's open question. The tradeoff copy is already rendered in StrategyRecipePanel for each recipe card (line 135-137). The event is just missing.
+
+**What to build:** Fire `recipe_tradeoff_viewed` once per panel open session from StrategyRecipePanel (similar to `cockpit_stage_entered`) using a `useRef` guard to prevent duplicate fires per open.
+
+**What changes:** 
+- Add `"recipe_tradeoff_viewed"` to `PHASE_76_BETA_EVENT_KEYS` (or extend with a v11.10 constant).
+- Emit in `StrategyRecipePanel` `useEffect` alongside `cockpit_stage_entered`.
+- Test: assert event fires on mount when `open=true`.
+
+**Complexity:** Low — single `useEffect` side-effect, one new event key.
+
+**Dependencies:** `useRecordBetaEvent` already imported in StrategyRecipePanel ✓.
+
+---
+
+### TS-3: F-09 — `recipe_selected` event + funnel row
+
+**Why expected:** Q4 in v11.8 had only operator notes with no event data. Owner needs to know which recipes operators pick most, which correlates to which creative strategies get validated in beta.
+
+**What to build:**
+1. Fire `recipe_selected({ stage: "strategy_recipe", recipeId: id })` in `StrategyRecipePanel` inside `recipe.selectRecipe(id)` handler (or wrap the selectRecipe call).
+2. Add `"recipe_selected"` to the event key allowlist.
+3. Add `"recipeId"` to `ALLOWED_PROPERTY_KEYS` in `types.ts`.
+4. In `aggregate.ts`, add a `recipeFunnel` aggregation: group `recipe_selected` events by `properties.recipeId`, count distinct sessions.
+5. Surface a "Recipe selection" table in `OwnerAnalyticsPanel` alongside the cockpit stage funnel.
+
+**Complexity:** Medium — touches types, aggregate, StrategyRecipePanel, dashboard table. Four files, but each change is small.
+
+**Dependencies:** `recipeId` must be added to `ALLOWED_PROPERTY_KEYS` (PII allowlist) before the property passes ingest validation.
+
+---
+
+### TS-4: F-14 — `creative-quality-gate-orchestration` test drift fix
+
+**Why expected:** A failing test is a broken build signal. The `creative-quality-gate-orchestration.test.ts` has a drifted assertion on `regenerationSuggestion` format (line 121: `stringMatching(/Hard failures:[\s\S]*cta_drift: CTA was replaced/)`) that no longer matches the actual string produced by `runCompletedDerivationQualityGate`. This must be green before regression can be validated.
+
+**What to build:** Align the assertion to match the current `regenerationSuggestion` output format from `creative-quality-gate.ts`. This is a test fix, not a production code change.
+
+**Complexity:** Low — read the current output format from `creative-quality-gate.ts`, update the regex or use `toContain`. No production risk.
+
+**Dependencies:** None beyond the existing test/implementation pair.
+
+---
+
+### TS-5: SESS-03 — ≥3 real operator sessions + updated learning answers
+
+**Why expected:** `SESS-03` is the defined UAT gate blocking v11.9 scope lock. Learning answers in `LEARNING-ANSWERS.md` are currently fixture-backed (from v11.8). They must reflect evidence from real operator sessions before v11.10 can close.
+
+**What to build (operational, not code):**
+1. Operator applies migrations (already documented in v11.7.1 handoff).
+2. Operator runs ≥3 sessions using the beta session runbook.
+3. Owner reviews the `/feedback` dashboard analytics after sessions.
+4. Update `LEARNING-ANSWERS.md` with real session findings.
+5. Document session IDs and key observations in a session evidence file.
+
+**Complexity:** Low (code) / Medium (operational) — no new code needed if existing runbook is complete. May surface bugs that require code fixes.
+
+**Dependencies:** All cockpit instrumentation (TS-1 through TS-3) should be in place before sessions so analytics are useful.
 
 ---
 
 ## Differentiators
 
-Features that make this beta loop **actionable** rather than a generic analytics dump. Valuable at 3–5 sessions; not table stakes for all SaaS betas.
+Features that go beyond baseline expectations; valued when present.
 
-| Feature | Value Proposition | Complexity | Notes | Learning Qs |
-|---------|-------------------|------------|-------|-------------|
-| **Cohort comparison** | Compare operator-guided vs self-serve (or cohort A/B) funnels side-by-side | Medium | Tag workspaces at session start (`beta_cohort` on workspace or session ledger). Owner sees conversion delta per stage. | Q4–Q6, Q10 |
-| **False-positive readiness index** | Surfaces Q1 directly: blocking rules vs operator judgment | Medium | Ratio: `(proceeded_despite_block + operator_override_note) / total_readiness_runs`. Highlights rules to relax. | Q1 |
-| **Briefing skip heatmap** | Answers Q2: which guided questions get skipped | Medium | Per-question skip/accept/edit counts from guided briefing UI events. | Q2 |
-| **Preview confidence score** | Answers Q5: preview approved but batch dissatisfied | Medium–High | Correlate `preview_first` sentiment (mission insight) with post-batch review/rejection/regeneration within same campaign. | Q5 |
-| **Time-to-share SLA panel** | Answers Q10 with median and p90 | Medium | Timestamps: campaign draft created → first share link. Stall detector: longest gap between consecutive stages. | Q10 |
-| **Actionable signal cards** | Owner sees "3 credit surprises at preview" not raw tables | Low–Med | Preset aggregations on `/feedback` (extends credit signals pattern). Each card links to underlying reports. | Q7–Q9 |
-| **Evidence-linked fix proposals** | Each of ≤5 fixes cites session IDs + metrics | Low (process) | Fix template: friction, frequency, impact, learning Q affected, minimal diff scope. Enforces "learn before build." | Decision gate |
-| **Operator replay checklist** | After instrumentation ships, operator re-runs one session to validate signals | Low | UAT path proving dashboard numbers match session reality. Prevents shipping broken instrumentation. | — |
+### D-1: F-11 — Readiness false-positive override workflow
 
-**Opinion:** For 3–5 operator sessions, **first-party DB-derived funnel + structured qual notes** beats third-party product analytics (PostHog, Mixpanel). Session count is too small for statistical funnels in external tools; owner needs **workspace-level traceability** tied to cockpit stages, which external autocapture cannot map without heavy custom events anyway.
+**Why valuable:** The `readiness_blocked` event fires and is displayed in the owner dashboard, but operators have no way to explicitly say "this readiness block was a false positive — I proceeded anyway." Without an override path, operators either get stuck on `needs_attention` readiness or silently bypass it. An explicit override both unblocks the UX and provides a falsifiable signal for tuning the readiness threshold.
+
+**What to build:**
+1. **Override action in CreativeReadinessPanel:** When readiness status is `needs_attention`, show a secondary CTA: "Override (false positive)" that lets the operator continue despite blocking issues. This calls `onReadinessOverride()`.
+2. **`readiness_override` event:** Emit `recordBetaAnalyticsEvent({eventKey: "readiness_override", properties: {blockingCount, readinessStatus}})` on override click. Add to event key allowlist.
+3. **Aggregate signal:** In `aggregate.ts`, modify `aggregateReadinessOverrideSignals` to also include `readiness_override` events (not just `readiness_blocked`). Tag them as `kind: "override"` vs current `kind: "event"`.
+4. **Owner dashboard:** Show override events distinctly (e.g., badge "Override" in green) in the readiness override signals panel.
+
+**Complexity:** Medium — touches CreativeReadinessPanel props contract, one new event key, aggregate change, and dashboard display.
+
+**Dependencies:** Requires `onReadinessOverride` prop threaded from parent cockpit orchestrator. The `ReadinessOverrideSignal` type already has a `kind` discriminator that supports extension ✓.
+
+---
+
+### D-2: F-12 — Guided briefing abandon breakdown by step
+
+**Why valuable:** Currently `cockpit_stage_abandoned({stage: "guided_briefing"})` fires but contains no information about which step the operator abandoned at. Knowing the specific step (e.g., `productOffer`, `objections`, `constraints`) surfaces which question causes the most friction — far more actionable than an aggregate abandon count.
+
+**What to build:**
+1. In `GuidedBriefingPanel.tsx`, pass `currentStep: guided.currentStep` as a property in the `STAGE_PROPS` used for `cockpit_stage_abandoned`.
+2. Add `"stepId"` to `ALLOWED_PROPERTY_KEYS` in `types.ts`.
+3. In the aggregate, group abandoned events by `properties.stepId` for the cockpit stage funnel detail.
+4. Owner dashboard: show a "Briefing abandon by step" breakdown (e.g., a column inside the cockpit stage funnel table, or a separate small table).
+
+**Complexity:** Low-Medium — the `guided.currentStep` value is already available at abandon time (confirmed in source). The `stepIndex()` function exists. Just need to include it in the fired event and display it.
+
+**Dependencies:** `stepId` property must be added to `ALLOWED_PROPERTY_KEYS` before it passes ingest ✓ (pattern is identical to existing `stage` key).
+
+---
+
+### D-3: Owner dashboard — timeline without cap and revenue funnel
+
+**Why valuable:** The session stage timeline currently hard-caps at 24 rows (`.slice(0, 24)` in OwnerAnalyticsPanel.tsx line 331). With ≥3 real sessions per SESS-03 and multiple stages per session, 24 rows will be exceeded. Beyond the cap, the "revenue funnel" (credit spend → derivation completed → derivation approved → export) gives the owner a conversion view of where value actually flows.
+
+**What to build:**
+1. **Timeline cap removal:** Remove `.slice(0, 24)` from the timeline filter/map. If pagination is needed for large datasets, add a "Show more" toggle or paginate on the server via a `limit` query param.
+2. **Revenue/delivery funnel:** Add a new aggregate in `aggregate.ts` that counts: `credit_spend` events → `cockpit_stage_completed(stage: "preview")` events → total derivations approved (join with derivation table, or proxy via mission_completed) → export events if instrumented. Surface as a new FunnelTable row in `OwnerAnalyticsPanel`.
+
+**Complexity:** Low (timeline cap) / Medium (revenue funnel) — the aggregate needs a new function; the dashboard needs a new table.
+
+**Dependencies:** Revenue funnel accuracy depends on F-06 (preview stage completion) being correctly instrumented first.
 
 ---
 
 ## Anti-Features
 
-Features to explicitly **NOT** build in v11.8.
+Features to explicitly NOT build in v11.10.
 
 | Anti-Feature | Why Avoid | What to Do Instead |
 |--------------|-----------|-------------------|
-| **Full PostHog/Mixpanel/Amplitude rollout** | Overkill for 3–5 sessions; duplicates workspace-scoped data; privacy review for creative assets | First-party events table or derived queries from existing schema |
-| **Session replay / heatmaps (Hotjar, FullStory)** | High PII risk with ad creatives; LGPD not in scope | Operator notes + mission insights at moments |
-| **Real-time streaming dashboard** | No ops team watching live; adds infra | Daily owner review of `/feedback` + CSV |
-| **New cockpit or progression mechanics** | Milestone forbids speculative features | Instrument and fix only |
-| **Public self-serve beta invite flow** | Operator-only scope; dilutes signal | Operator schedules 3–5 sessions per runbook |
-| **ML clustering / NLP on feedback** | n too small; engineering distraction | Manual clustering in friction backlog |
-| **Automated fix prioritization** | False confidence from tiny sample | Owner ranks by frequency × impact × learning-Q weight |
-| **New gamification / mission rewards** | v11.7 shipped; v11.8 is learn-not-expand | Use existing mission completion as funnel proxy |
-| **Billing / Stripe changes** | Out of scope; confounds credit learning | Log credit friction; don't change pricing |
-| **Broad event taxonomy (50+ events)** | Noise; violates "1–2 key metrics" early-stage discipline | ~15–20 stage-aligned events covering runbook path |
-| **User-facing analytics** | Beta users don't need funnel dashboards | Owner-only `/feedback` |
-| **Fixes without evidence threshold** | Scope creep | Require ≥2 sessions or ≥2 workspaces showing same friction |
+| New AI models or generation behavior | Confounds analytics learning from real sessions | Defer to post-beta milestone |
+| Third-party analytics SDK (Mixpanel, Amplitude, PostHog) | First-party events are sufficient for operator beta; adds complexity and potential PII risk | Continue with existing `beta_analytics_events` table |
+| Readiness threshold tuning (changing the readiness score algorithm) | Cannot tune without override data; needs D-1 signals first | Build D-1, collect data, tune in v11.11+ |
+| New cockpit stages or workflow surfaces | Adds instrumentation complexity mid-beta; distorts session comparisons | Freeze cockpit shape until after SESS-03 |
+| LGPD compliance work | Separate milestone; out of scope since v1.0 | Dedicated compliance milestone post-beta |
+| Share link social/public analytics | No user demand signal yet; share link flow fixed in v11.9 | Revisit if Q-share returns as a gap |
+| Export pipeline changes (Meta/TikTok integration) | Stubbed intentionally; requires separate product milestone | Future milestone |
 
 ---
 
 ## Feature Dependencies
 
 ```
-Existing: feedback_reports (v11.4)
-    → mission insights (v11.7) → credit signals summary
-    → operator session ledger (NEW)
-    → stage-tagged notes (NEW, may reuse feedback_reports)
-
-Existing: mission evidence inference (v11.7)
-    → mission conversion metrics (NEW timestamps/abandonment)
-    → cockpit funnel (NEW stage transitions)
-
-Existing: cockpit APIs (v11.6)
-    → readiness/recipe/preview instrumentation (NEW events or DB fields)
-    → share/approval package signals (NEW)
-
-Cohort tag (NEW)
-    → cohort funnel comparison (DIFFERENTIATOR)
-    → CSV export filters
-
-Instrumentation (table stakes)
-    → owner dashboard widgets
-    → learning-question answer sheet
-    → friction backlog
-    → ≤5 evidence-driven fixes (LAST)
+F-14 (test fix) → SESS-03 (green suite before UAT)
+TS-2 (recipe_tradeoff_viewed) → TS-3 (recipe_selected) → D-3 (revenue funnel)
+TS-1 (preview funnel) → D-3 (revenue funnel accuracy)
+D-1 (readiness override) → after SESS-03 has override data → threshold tuning (future)
+D-2 (briefing step abandon) → SESS-03 (richer session data)
 ```
 
-**Critical path:** Instrumentation → dashboard/export → 3–5 sessions → answer sheet → ≤5 fixes.
-
-**Module touchpoints (implementation hint, not scope commitment):**
-
-| Dependency | Extend |
-|------------|--------|
-| `app/src/server/progression/missions/evidence.ts` | Mission timestamps, abandonment |
-| `app/src/server/feedback/mission-credit-signals.ts` | Stage-scoped credit signals |
-| `app/src/app/(dashboard)/feedback/page.tsx` | Funnel cards, cohort filter, CSV |
-| `app/src/components/mission-insights/` | Optional `cockpitStage` on payloads |
-| `app/src/components/workspace/*` | Readiness/recipe/preview event emission |
-| `67-BETA-RUNBOOK.md` | Session ledger template |
+All table stakes (TS-1 through TS-4) must land before SESS-03 so sessions generate useful analytics. SESS-03 is the gate for closing v11.10.
 
 ---
 
-## Mapping: Features → v11.6 Learning Questions
+## MVP Recommendation
 
-| # | Question | Primary features | Signal type |
-|---|----------|------------------|-------------|
-| Q1 | Readiness blocking vs operator judgment | Readiness signal capture, false-positive index, stage notes | Quant + qual |
-| Q2 | Guided briefing skips | Briefing skip heatmap, funnel drop at `guided_briefing` | Quant |
-| Q3 | Readiness rerun / credit sensitivity | Readiness rerun count, credit friction at readiness | Quant |
-| Q4 | Default vs chosen recipe | Recipe outcome logging, cohort funnel | Quant |
-| Q5 | Preview predicts batch satisfaction | Preview confidence score, preview→batch funnel | Quant + qual |
-| Q6 | Tradeoff copy read vs override | Override-without-dwell proxy, operator notes | Qual-heavy |
-| Q7 | Share links without hand-holding | Share signals, time-to-share | Quant |
-| Q8 | Credit surprise location | Credit friction by stage, credit signal cards | Quant |
-| Q9 | Stale approval package understood | Package refresh events, operator notes | Quant + qual |
-| Q10 | Median draft → share; stall points | Time-to-share SLA, cockpit funnel, mission conversion | Quant |
+Prioritize (in order):
 
-**Decision gate (from `67-LEARNING-QUESTIONS.md`):**
+1. **F-14 test fix (TS-4)** — unblocks green suite; 30 min effort; no risk
+2. **F-08 recipe_tradeoff_viewed (TS-2)** — simplest new event; confirms instrumentation pattern before F-09
+3. **F-09 recipe_selected + funnel (TS-3)** — slightly more surface area; dashboard row
+4. **F-06 preview funnel completeness (TS-1)** — requires tracing runbook-complete call path
+5. **F-12 briefing abandon by step (D-2)** — small change, high analytical value
+6. **D-3 timeline cap + revenue funnel (Polish)** — polish; remove cap first, funnel second
+7. **F-11 readiness override (D-1)** — most complex; needed for SESS-03 to generate override evidence
+8. **SESS-03 operator UAT (TS-5)** — operational; runs after all instrumentation is live
 
-- Q4–Q6 dominate → next milestone prioritizes recipe/preview iteration  
-- Q7–Q9 dominate → delivery/billing UX before new AI  
-- Q1–Q3 dominate → readiness/briefing accuracy before new surfaces  
-
-v11.8 must produce the **evidence pack** that triggers this gate — not pre-choose the winner.
-
----
-
-## MVP Recommendation (v11.8)
-
-**Prioritize (ship before first beta session):**
-
-1. Cockpit funnel + mission conversion (workspace-scoped, stage-aligned)  
-2. Readiness + recipe/preview + credit-by-stage instrumentation  
-3. Owner dashboard extensions on `/feedback` + CSV export  
-4. Operator session ledger + learning-question answer template  
-
-**Run in parallel with sessions 1–3:**
-
-5. Cohort tags and actionable signal cards  
-6. Briefing skip + false-positive readiness (if Q1–Q3 hypothesized hot)  
-
-**After session 3 (decision checkpoint):**
-
-7. Friction backlog → ≤5 fixes ranked by evidence  
-8. Fill learning-question answer sheet  
-9. Operator replay UAT on instrumentation accuracy  
-
-**Defer:**
-
-- Third-party analytics integration  
-- Preview confidence ML/correlation (manual cross-tab OK for n≤5)  
-- Automated E2E of full Ads Scientist path (listed in REQUIREMENTS future)  
-- Public beta onboarding campaign  
-
----
-
-## Industry Patterns (Applied to ADScale)
-
-Early-stage SaaS beta loops that work at small n share these traits (MEDIUM confidence — multiple 2025 SaaS analytics sources; adapted to 3–5 session scale):
-
-1. **One primary funnel, not fifty metrics** — ADScale's funnel is the runbook path (11 missions / 7 cockpit stages).  
-2. **Quant finds where; qual finds why** — DB funnel + mission insights + operator notes; avoid session replay.  
-3. **Structured session scripts** — Runbook already exists; add ledger for comparability.  
-4. **Synthesis → capped actions** — Cluster friction, max 5 fixes, explicit learning-Q verdict.  
-5. **Instrument before debating roadmap** — Aligns with "learn before build" decision in PROJECT.md.
+Defer: Real revenue conversion tracking, threshold tuning — need override signal data first.
 
 ---
 
 ## Sources
 
-- `.planning/PROJECT.md` — v11.8 milestone scope and constraints  
-- `.planning/phases/67-milestone-archive-and-beta-runbook/67-LEARNING-QUESTIONS.md` — decision gate Q1–Q10  
-- `.planning/phases/67-milestone-archive-and-beta-runbook/67-BETA-RUNBOOK.md` — stage taxonomy, credit expectations  
-- `.planning/phases/70-mission-linked-insight-capture/70-CONTEXT.md` — mission insight moments and storage  
-- `app/src/server/feedback/mission-credit-signals.ts` — existing credit signal classification  
-- `app/src/server/progression/missions/definitions.ts` — mission order and prerequisites  
-- [Attribution App — SaaS Analytics Tools 2025](https://www.attributionapp.com/blog/saas-analytics-tools/) — funnel + qual combo (MEDIUM)  
-- [Statsig — SaaS Funnel Analysis 2025](https://www.statsig.com/comparison/saas-funnel-tools) — drop-off → action pattern (MEDIUM)  
-- [Jamy AI — User Research Scripts](https://www.jamy.ai/blog/user-research-scripts/) — structured operator sessions (MEDIUM)  
-- [Accoil Product Tracking Skills](https://developer.accoil.com/docs/product-tracking-skills) — anti-patterns: noise events, PII, premature broad taxonomy (HIGH for principles, LOW for ADScale-specific application)
+- Codebase direct inspection: `app/src/components/workspace/`, `app/src/server/beta-analytics/`, `app/src/components/feedback/`
+- `.planning/milestones/v11.8-phases/79-evidence-driven-friction-fixes/79-V11.9-BACKLOG.md`
+- `.planning/milestones/v11.9-REQUIREMENTS.md`
+- `.planning/PROJECT.md`
+- Confidence: HIGH (all assertions verified against live source files)
