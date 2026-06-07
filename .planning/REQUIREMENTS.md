@@ -37,21 +37,21 @@ v11.8 validates the cockpit + Ads Scientist progression with operator-run beta s
 
 - [x] **LEARN-01**: Milestone produces a learning-answers document addressing all 10 v11.6 learning questions.
 - [x] **LEARN-02**: Each answer cites event counts, session notes, or feedback report IDs — not anecdote alone.
-- [ ] **LEARN-03**: Document recommends v11.9 direction (readiness/briefing vs recipe/preview vs delivery/credits) per decision gate.
+- [x] **LEARN-03**: Document recommends v11.9 direction (readiness/briefing vs recipe/preview vs delivery/credits) per decision gate.
 
 ### Friction Fixes
 
-- [ ] **FIX-01**: Team maintains a ranked friction backlog scored by frequency and runbook impact from session evidence.
-- [ ] **FIX-02**: Up to 5 friction fixes ship, each linked to session/event evidence.
-- [ ] **FIX-03**: Friction fixes are surgical (copy, CTA, validation, credit display) — no new AI models or cockpit modules.
-- [ ] **FIX-04**: Each fix includes a regression test or focused verification artifact.
-- [ ] **FIX-05**: Issues beyond the cap defer to a v11.9 backlog document with evidence preserved.
+- [x] **FIX-01**: Team maintains a ranked friction backlog scored by frequency and runbook impact from session evidence.
+- [x] **FIX-02**: Up to 5 friction fixes ship, each linked to session/event evidence.
+- [x] **FIX-03**: Friction fixes are surgical (copy, CTA, validation, credit display) — no new AI models or cockpit modules.
+- [x] **FIX-04**: Each fix includes a regression test or focused verification artifact.
+- [x] **FIX-05**: Issues beyond the cap defer to a v11.9 backlog document with evidence preserved.
 
 ### Verification
 
 - [x] **QA-01**: Integration tests prove events are recorded on readiness block and mission completion paths.
 - [x] **QA-02**: Owner analytics and export routes return 403 for non-platform-owner users.
-- [ ] **QA-03**: `npm test`, `npm run lint`, and `npm run build` pass after milestone changes.
+- [x] **QA-03**: `npm test`, `npm run lint`, and `npm run build` pass after milestone changes.
 
 ## Future Requirements
 
@@ -95,13 +95,13 @@ v11.8 validates the cockpit + Ads Scientist progression with operator-run beta s
 | LEARN-01 | Phase 78 | Complete |
 | LEARN-02 | Phase 78 | Complete |
 | QA-02 | Phase 78 | Complete |
-| FIX-01 | Phase 79 | Pending |
-| FIX-02 | Phase 79 | Pending |
-| FIX-03 | Phase 79 | Pending |
-| FIX-04 | Phase 79 | Pending |
-| FIX-05 | Phase 79 | Pending |
-| LEARN-03 | Phase 79 | Pending |
-| QA-03 | Phase 79 | Pending |
+| FIX-01 | Phase 79 | Complete |
+| FIX-02 | Phase 79 | Complete |
+| FIX-03 | Phase 79 | Complete |
+| FIX-04 | Phase 79 | Complete |
+| FIX-05 | Phase 79 | Complete |
+| LEARN-03 | Phase 79 | Complete |
+| QA-03 | Phase 79 | Complete |
 
 **Coverage:**
 - v11.8 requirements: 26 total

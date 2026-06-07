@@ -26,7 +26,7 @@
 | 76 | Cockpit and Mission Instrumentation | 4/4 | Complete   | 2026-06-07 |
 | 77 | Operator Beta Sessions | Runbook-guided sessions with structured operator notes | SESS-01, SESS-02, SESS-03, SESS-04 | 5 |
 | 78 | Owner Analytics Dashboard and CSV | 4/4 | Complete   | 2026-06-07 |
-| 79 | Evidence-Driven Friction Fixes | Ship ≤5 proven fixes and finalize learning gate | FIX-01, FIX-02, FIX-03, FIX-04, FIX-05, LEARN-03, QA-03 | 5 |
+| 79 | Evidence-Driven Friction Fixes | 1/1 | Complete   | 2026-06-07 |
 
 **26 requirements** | **5 phases** | Learn before build — no speculative features
 
