@@ -271,3 +271,58 @@ describe("QA-01 instrumentation integration", () => {
     });
   });
 });
+
+describe("INST-04 smoke — events attach session_id when beta_sessions fixture exists", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockValidateCampaign.mockResolvedValue(undefined);
+    mockValidateDerivation.mockResolvedValue(undefined);
+  });
+
+  it("attaches sessionId on client path when beta_sessions fixture exists", async () => {
+    mockGetSession.mockResolvedValue({
+      id: SESSION_ID,
+      workspaceId: WORKSPACE_ID,
+      assistanceLevel: "guided",
+      startedAt: new Date(),
+      endedAt: null,
+      cohortLabel: null,
+      operatorNotes: {},
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    mockInsert.mockResolvedValue(
+      mockInsertedEvent({
+        sessionId: SESSION_ID,
+        eventKey: "cockpit_stage_entered",
+      }) as never
+    );
+
+    await recordBetaAnalyticsEvent({
+      workspaceId: WORKSPACE_ID,
+      userId: USER_ID,
+      eventKey: "cockpit_stage_entered",
+      sessionId: SESSION_ID,
+    });
+
+    expect(mockGetSession).toHaveBeenCalledWith(WORKSPACE_ID, SESSION_ID);
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: SESSION_ID })
+    );
+  });
+
+  it("rejects cross-workspace sessionId before insert", async () => {
+    mockGetSession.mockResolvedValue(null);
+
+    await expect(
+      recordBetaAnalyticsEvent({
+        workspaceId: WORKSPACE_ID,
+        userId: USER_ID,
+        eventKey: "cockpit_stage_entered",
+        sessionId: SESSION_ID,
+      })
+    ).rejects.toThrow(BetaEventPropertiesValidationError);
+
+    expect(mockInsert).not.toHaveBeenCalled();
+  });
+});

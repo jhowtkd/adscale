@@ -19,6 +19,40 @@ describe("beta-analytics repository", () => {
     vi.clearAllMocks();
   });
 
+  it("insertBetaAnalyticsEvent persists sessionId when provided", async () => {
+    const sessionId = "550e8400-e29b-41d4-a716-446655440000";
+    const createdAt = new Date();
+    const returning = vi.fn().mockResolvedValue([
+      {
+        id: "event-1",
+        workspaceId: "ws-1",
+        userId: "user-1",
+        sessionId,
+        eventKey: "cockpit_stage_entered",
+        properties: { stage: "briefing" },
+        source: "client",
+        campaignId: null,
+        derivationId: null,
+        createdAt,
+      },
+    ]);
+    const values = vi.fn(() => ({ returning }));
+    vi.mocked(db.insert).mockReturnValue({ values } as never);
+
+    const event = await insertBetaAnalyticsEvent({
+      workspaceId: "ws-1",
+      userId: "user-1",
+      eventKey: "cockpit_stage_entered",
+      sessionId,
+      properties: { stage: "briefing" },
+    });
+
+    expect(event.sessionId).toBe(sessionId);
+    expect(values).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId })
+    );
+  });
+
   it("insertBetaAnalyticsEvent persists row with workspace_id from caller", async () => {
     const createdAt = new Date();
     const returning = vi.fn().mockResolvedValue([
@@ -67,6 +101,35 @@ describe("beta-analytics repository", () => {
 
     expect(where).toHaveBeenCalled();
     expect(limit).toHaveBeenCalledWith(100);
+  });
+
+  it("listBetaAnalyticsEvents returns events matching sessionId filter", async () => {
+    const sessionId = "550e8400-e29b-41d4-a716-446655440000";
+    const event = {
+      id: "event-1",
+      workspaceId: "ws-1",
+      userId: "user-1",
+      sessionId,
+      eventKey: "cockpit_stage_entered",
+      properties: { stage: "briefing" },
+      source: "client",
+      campaignId: null,
+      derivationId: null,
+      createdAt: new Date(),
+    };
+    const limit = vi.fn().mockResolvedValue([event]);
+    const orderBy = vi.fn(() => ({ limit }));
+    const where = vi.fn(() => ({ orderBy }));
+    const from = vi.fn(() => ({ where }));
+    vi.mocked(db.select).mockReturnValue({ from } as never);
+
+    const results = await listBetaAnalyticsEvents({
+      workspaceId: "ws-1",
+      sessionId,
+    });
+
+    expect(results).toEqual([event]);
+    expect(where).toHaveBeenCalled();
   });
 
   it("listBetaAnalyticsEvents applies sessionId, eventKey, and date range filters", async () => {
