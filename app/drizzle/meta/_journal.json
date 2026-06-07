@@ -232,6 +232,13 @@
       "when": 1780790400000,
       "tag": "0032_workspace_progression",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1780794000000,
+      "tag": "0033_beta_analytics",
+      "breakpoints": true
     }
   ]
 }

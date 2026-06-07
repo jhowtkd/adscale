@@ -908,6 +908,80 @@ export const feedbackReports = adscaleSchema.table(
 export type FeedbackReport = typeof feedbackReports.$inferSelect;
 export type NewFeedbackReport = typeof feedbackReports.$inferInsert;
 
+export const betaSessions = adscaleSchema.table(
+  "beta_sessions",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    cohortLabel: text("cohort_label"),
+    assistanceLevel: text("assistance_level").notNull(),
+    startedAt: timestamp("started_at", { mode: "date" }).notNull().defaultNow(),
+    endedAt: timestamp("ended_at", { mode: "date" }),
+    operatorNotes: jsonb("operator_notes")
+      .$type<
+        Record<string, { notes?: string; tags?: string[]; completedAt?: string }>
+      >()
+      .notNull()
+      .default({}),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [index("beta_sessions_workspace_id_idx").on(table.workspaceId)]
+);
+
+export type BetaSession = typeof betaSessions.$inferSelect;
+export type NewBetaSession = typeof betaSessions.$inferInsert;
+
+export const betaAnalyticsEvents = adscaleSchema.table(
+  "beta_analytics_events",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    sessionId: uuid("session_id").references(() => betaSessions.id, {
+      onDelete: "set null",
+    }),
+    eventKey: text("event_key").notNull(),
+    properties: jsonb("properties")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+    source: text("source").notNull().default("client"),
+    campaignId: uuid("campaign_id").references(() => campaigns.id, {
+      onDelete: "set null",
+    }),
+    derivationId: uuid("derivation_id").references(() => derivations.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("beta_analytics_events_workspace_created_idx").on(
+      table.workspaceId,
+      table.createdAt
+    ),
+    index("beta_analytics_events_session_id_idx").on(table.sessionId),
+    index("beta_analytics_events_event_key_idx").on(
+      table.workspaceId,
+      table.eventKey,
+      table.createdAt
+    ),
+  ]
+);
+
+export type BetaAnalyticsEvent = typeof betaAnalyticsEvents.$inferSelect;
+export type NewBetaAnalyticsEvent = typeof betaAnalyticsEvents.$inferInsert;
+
 export const workspaceProgression = adscaleSchema.table(
   "workspace_progression",
   {
