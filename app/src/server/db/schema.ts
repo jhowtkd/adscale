@@ -923,7 +923,16 @@ export const betaSessions = adscaleSchema.table(
     endedAt: timestamp("ended_at", { mode: "date" }),
     operatorNotes: jsonb("operator_notes")
       .$type<
-        Record<string, { notes?: string; tags?: string[]; completedAt?: string }>
+        Record<
+          string,
+          {
+            notes?: string;
+            tags?: string[];
+            completedAt?: string;
+            blockerIds?: string[];
+            feedbackReportId?: string;
+          }
+        >
       >()
       .notNull()
       .default({}),

@@ -117,7 +117,9 @@ describe("runCompletedDerivationQualityGate", () => {
       "ws-1",
       expect.objectContaining({
         qualityScore: 92,
-        regenerationSuggestion: expect.stringMatching(/Hard failures: \[cta_drift\]/),
+        regenerationSuggestion: expect.stringMatching(
+          /Hard failures:[\s\S]*cta_drift: CTA was replaced/
+        ),
       })
     );
     expect(mockUpdateDerivationQa).toHaveBeenCalledWith(
