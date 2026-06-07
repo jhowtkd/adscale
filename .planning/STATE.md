@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v11.8
 milestone_name: Loop de Aprendizado Beta
-status: Ready to plan Phase 75
+status: Phase 75 context gathered
 last_updated: "2026-06-07"
-last_activity: 2026-06-07 — v11.8 roadmap approved
+last_activity: 2026-06-07 — Phase 75 discuss complete
 progress:
   total_phases: 5
   completed_phases: 0
@@ -18,8 +18,10 @@ progress:
 
 Phase: 75 - Event Schema and Ingest Foundation
 Plan: Not started
-Status: Ready to plan
-Last activity: 2026-06-07 — v11.8 roadmap created
+Status: Context gathered — ready to plan
+Last activity: 2026-06-07 — Phase 75 discuss complete
+
+**Resume file:** `.planning/phases/75-event-schema-and-ingest-foundation/75-CONTEXT.md`
 
 ## Accumulated Context
 
