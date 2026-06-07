@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { Check, Lightbulb, Loader2, SkipForward, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useGuidedBriefing } from "@/lib/hooks/use-guided-briefing";
+import { useRecordBetaEvent } from "@/lib/hooks/use-record-beta-event";
 import {
   GUIDED_BRIEFING_STEP_ORDER,
   type GuidedBriefingAnswers,
@@ -43,6 +44,32 @@ export default function GuidedBriefingPanel({
   const t = useTranslations("guidedBriefing");
   const tc = useTranslations("common");
   const guided = useGuidedBriefing({ campaignId, initialAnswers, hints });
+  const { recordEvent } = useRecordBetaEvent(campaignId);
+  const completedRef = useRef(false);
+
+  const STAGE_PROPS = { stage: "guided_briefing", missionKey: "guided_briefing" } as const;
+
+  useEffect(() => {
+    recordEvent("cockpit_stage_entered", STAGE_PROPS);
+    return () => {
+      if (!completedRef.current) {
+        recordEvent("cockpit_stage_abandoned", STAGE_PROPS);
+      }
+    };
+  }, [recordEvent]);
+
+  const finishBriefing = (
+    briefing: ReturnType<typeof mapGuidedAnswersToPilotBriefing>
+  ) => {
+    completedRef.current = true;
+    recordEvent("cockpit_stage_completed", STAGE_PROPS);
+    onComplete(briefing);
+  };
+
+  const handleOpenFullForm = () => {
+    recordEvent("cockpit_stage_abandoned", STAGE_PROPS);
+    onOpenFullForm();
+  };
 
   const progress = useMemo(() => {
     const current = stepIndex(guided.currentStep);
@@ -52,21 +79,21 @@ export default function GuidedBriefingPanel({
   const handleAccept = async () => {
     const nextAnswers = await guided.acceptSuggestion();
     if (getNextStep(nextAnswers) === null) {
-      onComplete(mapGuidedAnswersToPilotBriefing(nextAnswers));
+      finishBriefing(mapGuidedAnswersToPilotBriefing(nextAnswers));
     }
   };
 
   const handleSaveEdit = async () => {
     const nextAnswers = await guided.acceptEditedValue();
     if (getNextStep(nextAnswers) === null) {
-      onComplete(mapGuidedAnswersToPilotBriefing(nextAnswers));
+      finishBriefing(mapGuidedAnswersToPilotBriefing(nextAnswers));
     }
   };
 
   const handleSkip = async () => {
     const nextAnswers = await guided.skipStep();
     if (getNextStep(nextAnswers) === null) {
-      onComplete(mapGuidedAnswersToPilotBriefing(nextAnswers));
+      finishBriefing(mapGuidedAnswersToPilotBriefing(nextAnswers));
     }
   };
 
@@ -77,7 +104,7 @@ export default function GuidedBriefingPanel({
         <Button
           className="w-full"
           onClick={() =>
-            onComplete(mapGuidedAnswersToPilotBriefing(guided.answers))
+            finishBriefing(mapGuidedAnswersToPilotBriefing(guided.answers))
           }
         >
           {t("continue")}
@@ -108,7 +135,7 @@ export default function GuidedBriefingPanel({
         </div>
         <button
           type="button"
-          onClick={onOpenFullForm}
+          onClick={handleOpenFullForm}
           className="text-xs text-[var(--accent-blue)] hover:underline whitespace-nowrap"
         >
           {t("editAllFields")}

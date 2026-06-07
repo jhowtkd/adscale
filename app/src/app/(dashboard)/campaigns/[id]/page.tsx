@@ -1054,6 +1054,7 @@ function CampaignWorkspaceModals({
       )}
 
       <StrategyRecipePanel
+        campaignId={campaignId}
         open={visibility.strategyRecipe}
         recipeSessionKey={strategyRecipeSession}
         readiness={readiness}

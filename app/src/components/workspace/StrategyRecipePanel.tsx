@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { Loader2, Sparkles, ChevronRight } from "lucide-react";
 import {
@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useStrategyRecipe } from "@/lib/hooks/use-strategy-recipe";
+import { useRecordBetaEvent } from "@/lib/hooks/use-record-beta-event";
 import type { CreativeReadinessResult } from "@/server/ai/creative-readiness";
 import {
   STRATEGY_RECIPE_IDS,
@@ -33,6 +34,7 @@ const CREATIVE_LEVELS: RecipeCreativeLevel[] = [
 ];
 
 interface StrategyRecipePanelProps {
+  campaignId: string;
   open: boolean;
   recipeSessionKey?: number;
   readiness?: CreativeReadinessResult | null;
@@ -45,6 +47,7 @@ interface StrategyRecipePanelProps {
 }
 
 export default function StrategyRecipePanel({
+  campaignId,
   open,
   recipeSessionKey,
   readiness,
@@ -56,6 +59,37 @@ export default function StrategyRecipePanel({
   onGeneratePreview,
 }: StrategyRecipePanelProps) {
   const t = useTranslations("strategyRecipes");
+  const { recordEvent } = useRecordBetaEvent(campaignId);
+  const completedRef = useRef(false);
+
+  const STAGE_PROPS = { stage: "strategy_recipe", missionKey: "strategy_recipe" } as const;
+
+  useEffect(() => {
+    if (!open) return;
+    completedRef.current = false;
+    recordEvent("cockpit_stage_entered", STAGE_PROPS);
+    return () => {
+      if (!completedRef.current) {
+        recordEvent("cockpit_stage_abandoned", STAGE_PROPS);
+      }
+    };
+  }, [open, recordEvent]);
+
+  const handleClose = () => {
+    if (!completedRef.current) {
+      recordEvent("cockpit_stage_abandoned", STAGE_PROPS);
+    }
+    onClose();
+  };
+
+  const handleGeneratePreview = (
+    patch: ReturnType<typeof useStrategyRecipe>["campaignPatch"]
+  ) => {
+    completedRef.current = true;
+    recordEvent("cockpit_stage_completed", STAGE_PROPS);
+    onGeneratePreview(patch);
+  };
+
   const recipe = useStrategyRecipe({
     readiness,
     brandKit,
@@ -69,7 +103,7 @@ export default function StrategyRecipePanel({
   );
 
   return (
-    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+    <Dialog open={open} onOpenChange={(next) => !next && handleClose()}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{t("title")}</DialogTitle>
@@ -200,7 +234,7 @@ export default function StrategyRecipePanel({
           <Button
             className="w-full"
             disabled={isSubmitting || recipe.resolvedConfig.ctaVariants.length === 0}
-            onClick={() => onGeneratePreview(recipe.campaignPatch)}
+            onClick={() => handleGeneratePreview(recipe.campaignPatch)}
           >
             {isSubmitting ? (
               <Loader2 className="mr-2 size-4 animate-spin" />

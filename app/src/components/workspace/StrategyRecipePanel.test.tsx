@@ -1,6 +1,8 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import StrategyRecipePanel from "./StrategyRecipePanel";
+
+const recordEvent = vi.fn();
 
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string, values?: Record<string, unknown>) => {
@@ -11,11 +13,22 @@ vi.mock("next-intl", () => ({
   },
 }));
 
+vi.mock("@/lib/hooks/use-record-beta-event", () => ({
+  useRecordBetaEvent: () => ({ recordEvent }),
+}));
+
+const STAGE_PROPS = { stage: "strategy_recipe", missionKey: "strategy_recipe" };
+
 describe("StrategyRecipePanel", () => {
+  beforeEach(() => {
+    recordEvent.mockClear();
+  });
+
   it("renders three recipe options and credit estimates", () => {
     const onGeneratePreview = vi.fn();
     render(
       <StrategyRecipePanel
+        campaignId="camp-1"
         open
         campaign={{ ctaVariants: ["Shop Now"] }}
         onClose={vi.fn()}
@@ -31,10 +44,26 @@ describe("StrategyRecipePanel", () => {
     expect(screen.getByText(/creditBatchEstimate/)).toBeInTheDocument();
   });
 
-  it("calls onGeneratePreview with campaign patch", () => {
+  it("emits cockpit_stage_entered when open", () => {
+    render(
+      <StrategyRecipePanel
+        campaignId="camp-1"
+        open
+        campaign={{ ctaVariants: ["Buy"] }}
+        onClose={vi.fn()}
+        onOpenAdvanced={vi.fn()}
+        onGeneratePreview={vi.fn()}
+      />
+    );
+
+    expect(recordEvent).toHaveBeenCalledWith("cockpit_stage_entered", STAGE_PROPS);
+  });
+
+  it("emits cockpit_stage_completed and calls onGeneratePreview on success", () => {
     const onGeneratePreview = vi.fn();
     render(
       <StrategyRecipePanel
+        campaignId="camp-1"
         open
         campaign={{ ctaVariants: ["Buy"] }}
         onClose={vi.fn()}
@@ -43,12 +72,35 @@ describe("StrategyRecipePanel", () => {
       />
     );
 
+    recordEvent.mockClear();
     fireEvent.click(screen.getByText("generatePreview"));
+
+    expect(recordEvent).toHaveBeenCalledWith("cockpit_stage_completed", STAGE_PROPS);
     expect(onGeneratePreview).toHaveBeenCalledWith(
       expect.objectContaining({
         generationMode: "art_variation",
         ctaVariants: expect.arrayContaining(["Buy"]),
       })
     );
+  });
+
+  it("emits cockpit_stage_abandoned on close without selection", () => {
+    const onClose = vi.fn();
+    render(
+      <StrategyRecipePanel
+        campaignId="camp-1"
+        open
+        campaign={{ ctaVariants: ["Buy"] }}
+        onClose={onClose}
+        onOpenAdvanced={vi.fn()}
+        onGeneratePreview={vi.fn()}
+      />
+    );
+
+    recordEvent.mockClear();
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(recordEvent).toHaveBeenCalledWith("cockpit_stage_abandoned", STAGE_PROPS);
+    expect(onClose).toHaveBeenCalled();
   });
 });
