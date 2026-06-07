@@ -1,6 +1,7 @@
 import { z } from "zod";
+import { BETA_SESSION_STORAGE_KEY } from "@/lib/beta-analytics/constants";
 
-export const BETA_SESSION_STORAGE_KEY = "adscale_beta_session_id";
+export { BETA_SESSION_STORAGE_KEY };
 
 const sessionIdSchema = z.string().uuid();
 
