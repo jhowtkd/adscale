@@ -13,16 +13,16 @@ This milestone should not add new progression mechanics, gamification layers, pr
 
 ### Build and Verification
 
-- [ ] **STAB-01**: Developer can run `npm run build` successfully without disabling Next.js TypeScript checks.
-- [ ] **STAB-02**: Developer can run lint and the focused progression/missions/insights/feedback test suite successfully after fixes.
+- [x] **STAB-01**: Developer can run `npm run build` successfully without disabling Next.js TypeScript checks.
+- [x] **STAB-02**: Developer can run lint and the focused progression/missions/insights/feedback test suite successfully after fixes.
 - [ ] **STAB-03**: Developer can apply migration `0032_workspace_progression.sql` in the target environment and verify the `workspace_progression` table is available.
 - [ ] **STAB-04**: Release notes identify any remaining accepted caveats before beta.
 
 ### Data Integrity
 
-- [ ] **DATA-01**: Mission insight API rejects invalid `missionKey` values at runtime before recording feedback.
-- [ ] **DATA-02**: Progression snapshot persistence uses an atomic upsert or equivalent conflict-safe path for concurrent first access.
-- [ ] **DATA-03**: Tests cover invalid mission insight keys and concurrent progression snapshot creation.
+- [x] **DATA-01**: Mission insight API rejects invalid `missionKey` values at runtime before recording feedback.
+- [x] **DATA-02**: Progression snapshot persistence uses an atomic upsert or equivalent conflict-safe path for concurrent first access.
+- [x] **DATA-03**: Tests cover invalid mission insight keys and concurrent progression snapshot creation.
 
 ### Mission Resume UX
 
