@@ -22,7 +22,7 @@
 
 | # | Phase | Goal | Requirements | Success Criteria |
 |---|-------|------|--------------|------------------|
-| 75 | Event Schema and Ingest Foundation | 2/3 | In Progress|  |
+| 75 | Event Schema and Ingest Foundation | 3/3 | Complete   | 2026-06-07 |
 | 76 | Cockpit and Mission Instrumentation | Authoritative server + client stage events for funnel | INST-02, INST-03, INST-04, QA-01 | 5 |
 | 77 | Operator Beta Sessions | Runbook-guided sessions with structured operator notes | SESS-01, SESS-02, SESS-03, SESS-04 | 5 |
 | 78 | Owner Analytics Dashboard and CSV | Funnel views, credit/readiness signals, export | DASH-01, DASH-02, DASH-03, DASH-04, DASH-05, LEARN-01, LEARN-02, QA-02 | 6 |
@@ -55,7 +55,7 @@
 Plans:
 - [x] 75-01-PLAN.md — Schema, migration, and beta-analytics repository
 - [x] 75-02-PLAN.md — Allowlist-only property sanitization (PII-safe)
-- [ ] 75-03-PLAN.md — recordBetaAnalyticsEvent + POST /api/analytics/events
+- [x] 75-03-PLAN.md — recordBetaAnalyticsEvent + POST /api/analytics/events
 
 **Success Criteria:**
 1. `beta_analytics_events` and `beta_sessions` tables exist with Drizzle migration applied.
