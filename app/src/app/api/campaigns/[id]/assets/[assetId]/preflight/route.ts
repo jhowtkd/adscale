@@ -7,9 +7,14 @@ import { getCampaignById } from "@/server/repositories/campaign";
 import { getAssetWithMetadata, updateAssetMetadata } from "@/server/repositories/asset";
 import { downloadBuffer } from "@/server/storage/r2";
 import { analyzePreflight, preflightResultSchema } from "@/server/ai/preflight-analysis";
-import { buildCreativeReadiness } from "@/server/ai/creative-readiness";
+import {
+  buildCreativeReadiness,
+  type CreativeReadinessResult,
+} from "@/server/ai/creative-readiness";
 import { logger } from "@/lib/logger";
 import { spendCreditsOrApiError } from "@/server/billing/gates";
+import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
+import { getBetaSessionIdFromRequest } from "@/server/beta-analytics/session";
 
 function buildCampaignBrief(campaign: Awaited<ReturnType<typeof getCampaignById>>) {
   if (!campaign) return undefined;
@@ -63,6 +68,66 @@ const preflightMetadataSchema = z.object({
   preflightResult: preflightResultSchema,
   analyzedAt: z.string().datetime(),
 });
+
+type ReadinessAnalyticsContext = {
+  userId: string;
+  workspaceId: string;
+  campaignId: string;
+  sessionId?: string;
+};
+
+function emitReadinessAnalytics(
+  readiness: CreativeReadinessResult,
+  context: ReadinessAnalyticsContext
+) {
+  const eventKey =
+    readiness.blockingIssues.length > 0 || readiness.status === "blocked"
+      ? "readiness_blocked"
+      : "readiness_completed";
+
+  void recordBetaAnalyticsEvent({
+    workspaceId: context.workspaceId,
+    userId: context.userId,
+    eventKey,
+    source: "server",
+    campaignId: context.campaignId,
+    sessionId: context.sessionId,
+    properties: {
+      stage: "readiness",
+      missionKey: "readiness",
+      blockingCount: readiness.blockingIssues.length,
+      readinessStatus: readiness.status,
+    },
+  }).catch((err) => {
+    logger.warn("[preflight.POST] readiness analytics failed", err);
+  });
+}
+
+async function emitCreditBlockedAnalytics(
+  creditError: Response,
+  context: ReadinessAnalyticsContext
+) {
+  try {
+    const body = (await creditError.clone().json()) as { code?: string };
+    await recordBetaAnalyticsEvent({
+      workspaceId: context.workspaceId,
+      userId: context.userId,
+      eventKey: "credit_blocked",
+      source: "server",
+      campaignId: context.campaignId,
+      sessionId: context.sessionId,
+      properties: {
+        operation: "creative_qa",
+        reasonCode: body.code ?? "insufficient_credits",
+        estimateCredits: 1,
+        stage: "readiness",
+        missionKey: "readiness",
+      },
+    });
+  } catch (err) {
+    logger.warn("[preflight.POST] credit_blocked analytics failed", err);
+  }
+}
 
 export async function GET(
   request: Request,
@@ -137,10 +202,17 @@ export async function POST(
   { params }: { params: Promise<{ id: string; assetId: string }> }
 ) {
   try {
-    const [{ workspace }, { id: campaignId, assetId }] = await Promise.all([
+    const [{ user, workspace }, { id: campaignId, assetId }] = await Promise.all([
       requireWorkspaceAccess(request),
       params,
     ]);
+    const sessionId = getBetaSessionIdFromRequest(request);
+    const analyticsContext: ReadinessAnalyticsContext = {
+      userId: user.id,
+      workspaceId: workspace.id,
+      campaignId,
+      sessionId,
+    };
 
     const rateLimitResult = await checkRateLimit(request, {
       category: "ai",
@@ -185,6 +257,7 @@ export async function POST(
           parsed.data.analyzedAt,
           asset.analysisStatus
         );
+        emitReadinessAnalytics(readiness, analyticsContext);
         return NextResponse.json({
           preflight: parsed.data.preflightResult,
           readiness,
@@ -202,7 +275,10 @@ export async function POST(
       idempotencyKey,
       metadata: { campaignId, assetId, forceRerun },
     });
-    if (creditError) return creditError;
+    if (creditError) {
+      void emitCreditBlockedAnalytics(creditError, analyticsContext);
+      return creditError;
+    }
 
     await updateAssetMetadata(assetId, workspace.id, {}, "analyzing");
 
@@ -234,6 +310,7 @@ export async function POST(
         metadata.analyzedAt,
         "completed"
       );
+      emitReadinessAnalytics(readiness, analyticsContext);
 
       return NextResponse.json({
         preflight: result,

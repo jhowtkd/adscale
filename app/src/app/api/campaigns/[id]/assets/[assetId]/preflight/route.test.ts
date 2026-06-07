@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { NextResponse } from "next/server";
 import { GET, POST } from "./route";
+
+const VALID_SESSION_ID = "550e8400-e29b-41d4-a716-446655440000";
 
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
@@ -43,16 +46,22 @@ vi.mock("@/server/billing/gates", () => ({
   spendCreditsOrApiError: vi.fn(() => Promise.resolve(null)),
 }));
 
+vi.mock("@/server/beta-analytics/record", () => ({
+  recordBetaAnalyticsEvent: vi.fn(() => Promise.resolve({ id: "event-1" })),
+}));
+
 import { getCampaignById } from "@/server/repositories/campaign";
 import { getAssetWithMetadata, updateAssetMetadata } from "@/server/repositories/asset";
 import { analyzePreflight } from "@/server/ai/preflight-analysis";
 import { spendCreditsOrApiError } from "@/server/billing/gates";
+import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
 
 const mockGetCampaign = vi.mocked(getCampaignById);
 const mockGetAsset = vi.mocked(getAssetWithMetadata);
 const mockUpdateAsset = vi.mocked(updateAssetMetadata);
 const mockAnalyzePreflight = vi.mocked(analyzePreflight);
 const mockSpendCredits = vi.mocked(spendCreditsOrApiError);
+const mockRecordBetaAnalyticsEvent = vi.mocked(recordBetaAnalyticsEvent);
 
 const samplePreflight = {
   overallScore: 82,
@@ -159,12 +168,17 @@ describe("GET /api/campaigns/[id]/assets/[assetId]/preflight", () => {
   });
 });
 
+async function flushAnalytics() {
+  await new Promise((resolve) => setImmediate(resolve));
+}
+
 describe("POST /api/campaigns/[id]/assets/[assetId]/preflight", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetCampaign.mockResolvedValue(campaign as Awaited<ReturnType<typeof getCampaignById>>);
     mockGetAsset.mockResolvedValue(completedAsset as Awaited<ReturnType<typeof getAssetWithMetadata>>);
     mockAnalyzePreflight.mockResolvedValue(samplePreflight);
+    mockSpendCredits.mockResolvedValue(null);
   });
 
   it("returns cached readiness without spending credits", async () => {
@@ -235,6 +249,139 @@ describe("POST /api/campaigns/[id]/assets/[assetId]/preflight", () => {
       "workspace-1",
       { preflightResult: null },
       "failed"
+    );
+  });
+
+  it("emits credit_blocked when spendCreditsOrApiError returns 402", async () => {
+    mockGetAsset.mockResolvedValue({
+      ...completedAsset,
+      analysisStatus: "pending",
+      metadata: null,
+    } as Awaited<ReturnType<typeof getAssetWithMetadata>>);
+    mockSpendCredits.mockResolvedValue(
+      NextResponse.json(
+        { error: "insufficient_credits", code: "insufficient_credits" },
+        { status: 402 }
+      )
+    );
+
+    const res = await POST(new Request("http://localhost/preflight", { method: "POST" }), {
+      params: Promise.resolve({ id: "camp-1", assetId: "asset-1" }),
+    });
+    await flushAnalytics();
+
+    expect(res.status).toBe(402);
+    expect(mockRecordBetaAnalyticsEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventKey: "credit_blocked",
+        source: "server",
+        userId: "user-1",
+        workspaceId: "workspace-1",
+        campaignId: "camp-1",
+        properties: expect.objectContaining({
+          operation: "creative_qa",
+          reasonCode: "insufficient_credits",
+          estimateCredits: 1,
+          stage: "readiness",
+          missionKey: "readiness",
+        }),
+      })
+    );
+  });
+
+  it("emits readiness_completed for cached response without blocks", async () => {
+    const res = await POST(new Request("http://localhost/preflight", { method: "POST" }), {
+      params: Promise.resolve({ id: "camp-1", assetId: "asset-1" }),
+    });
+    await flushAnalytics();
+
+    expect(res.status).toBe(200);
+    expect(mockRecordBetaAnalyticsEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventKey: "readiness_completed",
+        source: "server",
+        campaignId: "camp-1",
+        properties: expect.objectContaining({
+          blockingCount: 0,
+          readinessStatus: "ready",
+          stage: "readiness",
+          missionKey: "readiness",
+        }),
+      })
+    );
+  });
+
+  it("emits readiness_blocked after fresh analysis with blocking issues", async () => {
+    const blockedPreflight = {
+      ...samplePreflight,
+      criticalIssues: ["CTA is not visible"],
+    };
+    mockGetAsset.mockResolvedValue({
+      ...completedAsset,
+      analysisStatus: "pending",
+      metadata: null,
+    } as Awaited<ReturnType<typeof getAssetWithMetadata>>);
+    mockAnalyzePreflight.mockResolvedValue(blockedPreflight);
+
+    const res = await POST(new Request("http://localhost/preflight", { method: "POST" }), {
+      params: Promise.resolve({ id: "camp-1", assetId: "asset-1" }),
+    });
+    await flushAnalytics();
+
+    expect(res.status).toBe(200);
+    expect(mockRecordBetaAnalyticsEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventKey: "readiness_blocked",
+        source: "server",
+        properties: expect.objectContaining({
+          blockingCount: expect.any(Number),
+          readinessStatus: "blocked",
+        }),
+      })
+    );
+  });
+
+  it("emits readiness_completed after fresh analysis without blocks", async () => {
+    mockGetAsset.mockResolvedValue({
+      ...completedAsset,
+      analysisStatus: "pending",
+      metadata: null,
+    } as Awaited<ReturnType<typeof getAssetWithMetadata>>);
+
+    const res = await POST(new Request("http://localhost/preflight", { method: "POST" }), {
+      params: Promise.resolve({ id: "camp-1", assetId: "asset-1" }),
+    });
+    await flushAnalytics();
+
+    expect(res.status).toBe(200);
+    expect(mockRecordBetaAnalyticsEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventKey: "readiness_completed",
+        source: "server",
+        properties: expect.objectContaining({
+          blockingCount: 0,
+          readinessStatus: "ready",
+        }),
+      })
+    );
+  });
+
+  it("passes sessionId from x-beta-session-id header", async () => {
+    const res = await POST(
+      new Request("http://localhost/preflight", {
+        method: "POST",
+        headers: { "x-beta-session-id": VALID_SESSION_ID },
+      }),
+      { params: Promise.resolve({ id: "camp-1", assetId: "asset-1" }) }
+    );
+
+    await flushAnalytics();
+
+    expect(res.status).toBe(200);
+    expect(mockRecordBetaAnalyticsEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: VALID_SESSION_ID,
+      })
     );
   });
 });
