@@ -10,16 +10,7 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Current Milestone
 
-### v11.8 Loop de Aprendizado Beta
-
-**Goal:** Validar o cockpit + progressão Ads Scientist com sessões beta guiadas pelo operador, instrumentar funis e sinais acionáveis, e corrigir até 5 fricções comprovadas por evidência — sem features novas especulativas.
-
-**Target features:**
-- Rodar 3–5 sessões beta guiadas pelo operador com o runbook existente e notas estruturadas por etapa.
-- Instrumentação completa: conversão de missões, abandono por etapa do cockpit, surpresas de crédito, falsos positivos de readiness.
-- Dashboard do owner em `/feedback` + progressão com sinais acionáveis, funil por coorte e export CSV.
-- Corrigir até 5 fricções priorizadas por frequência/impacto nas sessões (não expansão de escopo).
-- Responder as learning questions do v11.6 com dados reais das sessões beta.
+_(Planning next milestone — run `$gsd-new-milestone` to define v11.9 direction from v11.8 learning gate.)_
 
 ## Requirements
 
@@ -169,9 +160,19 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 - ✓ **UX-01–02**: Progression and mission CTAs resume users into the intended workflow surface — v11.7.1
 - ✓ **UAT-01–03**: Beta operator can apply the migration, execute the v11.7 UAT path, and ship with documented evidence — v11.7.1
 
+### Validated (v11.8)
+
+- ✓ **INST-01–06**: First-party beta analytics ingest with PII-safe allowlist and workspace-scoped events — v11.8
+- ✓ **INST-02–04**: Server and client instrumentation with beta session grouping — v11.8
+- ✓ **SESS-01, SESS-02, SESS-04**: Operator session APIs, runbook-stage notes, and artifact export — v11.8 (SESS-03 UAT pending)
+- ✓ **DASH-01–05**: Owner funnel analytics, credit/readiness signals, and CSV export on `/feedback` — v11.8
+- ✓ **LEARN-01–03**: Learning answers and v11.9 direction gate (fixture-backed until real sessions) — v11.8
+- ✓ **FIX-01–05**: Ranked friction backlog, five surgical fixes, and v11.9 deferral doc — v11.8
+- ✓ **QA-01–03**: Instrumentation integration tests, owner 403 guards, test/lint/build green — v11.8
+
 ### Active
 
-_(Definindo em REQUIREMENTS.md — milestone v11.8)_
+_(Next milestone not yet defined — see `79-V11.9-BACKLOG.md` and `79-LEARNING-ANSWERS.md` for direction.)_
 
 ### Validated (v10.0)
 
@@ -214,9 +215,9 @@ _(Definindo em REQUIREMENTS.md — milestone v11.8)_
 
 ## Context
 
-Current state: v11.7 Ads Scientist Progression and v11.7.1 Stabilization are shipped. Beta-ready after operator applies migration `0032_workspace_progression.sql`. The active direction for v11.8 is learn-before-build: operator-run beta sessions, full instrumentation of mission/cockpit/credit/readiness signals, owner dashboard with cohort funnel and CSV export, and up to 5 evidence-driven friction fixes.
+Current state: v11.8 Loop de Aprendizado Beta is shipped (phases 75–79). First-party beta analytics, cockpit instrumentation, operator session tooling, owner funnel dashboard, and five friction fixes are in production code. Operator applies migrations `0032` (progression) and `0033` (beta analytics) before live sessions.
 
-v11.6 learning questions (`67-LEARNING-QUESTIONS.md`) remain unanswered — v11.8 should produce session evidence that answers readiness, recipe/preview, delivery/credit, and progression questions before prioritizing speculative features.
+v11.6 learning questions have draft answers in `78-LEARNING-ANSWERS-DRAFT.md` / `79-LEARNING-ANSWERS.md` (fixture-backed). SESS-03 (≥3 real operator sessions) remains the post-ship UAT gate before locking v11.9 scope.
 
 Marketing remains in `jhowtkd/site-adscale.git`; product feedback and owner triage live in ADScale_2 at `/feedback` for platform owners.
 
@@ -262,7 +263,9 @@ Key stack decisions:
 | Operator smoke before beta ship | Automated tests passed, but deployed browser evidence is still the release gate | ✓ Good — v11.6.1 |
 | Progression as activation, not decoration | Beta users should learn by completing real creative tasks that generate insight and consume credits transparently | ✓ Good — v11.7 |
 | Stabilization before beta expansion | Activation mechanics should not enter beta while build, persistence, and UAT gates are still uncertain | ✓ Good — v11.7.1 |
-| Learn before build | Instrument and run operator beta sessions before adding speculative cockpit or progression features | Active — v11.8 |
+| Learn before build | Instrument and run operator beta sessions before adding speculative cockpit or progression features | ✓ Good — v11.8 |
+| First-party beta analytics | Operator-scale learning without third-party SDK; PII allowlist at ingest | ✓ Good — v11.8 |
+| Evidence-capped friction fixes | Max 5 surgical UX fixes per milestone with session citations | ✓ Good — v11.8 |
 
 ## Evolution
 
@@ -282,7 +285,7 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-06 after v11.6 milestone archive*
+*Last updated: 2026-06-07 after v11.8 milestone shipped*
 
 ## Milestone History
 

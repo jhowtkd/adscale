@@ -1,5 +1,29 @@
 # Milestones: ADScale
 
+## v11.8 Loop de Aprendizado Beta (Shipped: 2026-06-07)
+
+**Phases completed:** 5 phases (75→79), 16 plans  
+**Requirements:** 25/26 complete (SESS-03 operator UAT pending)
+
+**Key accomplishments:**
+
+- First-party beta analytics layer (`beta_analytics_events`, `beta_sessions`) with PII-safe ingest API
+- Cockpit and mission instrumentation (server + client) with session grouping via `useRecordBetaEvent`
+- Operator beta session APIs and `BetaSessionsPanel` on `/feedback` with runbook-stage notes
+- Owner funnel analytics, credit surprise signals, readiness overrides, and CSV export
+- Five evidence-driven friction fixes (F-01..F-05) with regression tests and v11.9 backlog
+
+### Known Gaps
+
+- **SESS-03:** ≥3 real operator sessions not yet logged in `77-SESSION-ARTIFACTS.md`
+- **Migration:** Apply `0033_beta_analytics.sql` on staging/prod (`cd app && npm run db:migrate`)
+- **Live DB smoke:** Confirm events land in `beta_analytics_events` with real `session_id` (Phase 76 human gate)
+- **Learning docs:** Fixture-backed sections in `78-LEARNING-ANSWERS-DRAFT.md` / `79-LEARNING-ANSWERS.md` await real session data
+
+**Archive:** [v11.8-ROADMAP.md](milestones/v11.8-ROADMAP.md) · [v11.8-REQUIREMENTS.md](milestones/v11.8-REQUIREMENTS.md) · [v11.8-MILESTONE-AUDIT.md](milestones/v11.8-MILESTONE-AUDIT.md) · [v11.8-phases/](milestones/v11.8-phases/)
+
+---
+
 ## v11.7 Ads Scientist Progression (Shipped: 2026-06-06)
 
 **Phases completed:** 4 phases (68→71), 8 plans  

@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v11.8
 milestone_name: Loop de Aprendizado Beta
 status: completed
-last_updated: "2026-06-07T13:39:18.897Z"
-last_activity: 2026-06-07 — Completed 78-04-PLAN.md
+last_updated: "2026-06-07T17:25:00Z"
+last_activity: 2026-06-07 — v11.8 milestone shipped
 progress:
-  total_phases: 51
-  completed_phases: 22
-  total_plans: 61
-  completed_plans: 61
+  total_phases: 5
+  completed_phases: 5
+  total_plans: 16
+  completed_plans: 16
   percent: 100
 ---
 
@@ -17,30 +17,23 @@ progress:
 
 ## Current Position
 
-Phase: 78 - Owner Analytics Dashboard and CSV
-Plan: 78-04 (complete)
-Status: Phase 78 complete — 4/4 plans done
-Last activity: 2026-06-07 — Completed 78-04-PLAN.md
+Milestone: v11.8 Loop de Aprendizado Beta — **shipped**  
+Status: Planning next milestone  
+Last activity: 2026-06-07 — Milestone complete + phase archive
 
 **Resume file:** None
 
 ## Accumulated Context
 
-- v11.7.1 complete; operator applies migration `0032` before external beta.
-- v11.8: operator-only sessions (3–5), full instrumentation, owner dashboard + CSV, ≤5 friction fixes.
-- Research: first-party `beta_analytics_events` + `beta_sessions`; extend `/feedback`; no third-party analytics.
-- Phase 75 complete: schema, sanitization, POST /api/analytics/events, recordBetaAnalyticsEvent.
-- Phase 76-01: PHASE_76_BETA_EVENT_KEYS enum, session header plumbing, INST-04 partial (session grouping contract).
-- Phase 76-02: server instrumentation — readiness/credit/mission_completed at authoritative API boundaries (INST-02).
-- Phase 76-03: useRecordBetaEvent hook; cockpit stage events on four panels (INST-03, INST-04 client).
-- Phase 76-04: QA-01 integration tests (readiness + mission paths); INST-04 session_id smoke tests.
-- Phase 77 complete: operator beta sessions API + BetaSessionsPanel on /feedback.
-- Phase 78 complete: owner analytics funnel/credit/readiness dashboard, CSV export, learning answers draft.
-- Learning gate: answer `67-LEARNING-QUESTIONS.md` with data before v11.9 features.
+- v11.8 shipped: beta analytics ingest, instrumentation, operator sessions, owner dashboard, friction fixes F-01..F-05.
+- Post-ship operator gates: apply `0033_beta_analytics.sql`, live DB smoke (Phase 76), SESS-03 (≥3 sessions in `77-SESSION-ARTIFACTS.md`).
+- v11.9 direction draft: `79-LEARNING-ANSWERS.md`, backlog: `79-V11.9-BACKLOG.md`.
+- Runbook: `.planning/milestones/v11.8-phases/67-milestone-archive-and-beta-runbook/67-BETA-RUNBOOK.md` (after cleanup) or phases/67 if not moved.
 
 ## Project Reference
 
-See: `.planning/PROJECT.md`
+See: `.planning/PROJECT.md` (updated 2026-06-07)
 
-**Core value:** Users go from base creative + brief to platform-ready ad variations in minutes with full creative control.
-**Current focus:** Phase 79 — evidence-driven friction fixes.
+**Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
+
+**Current focus:** Define v11.9 from learning gate (`$gsd-new-milestone`)
