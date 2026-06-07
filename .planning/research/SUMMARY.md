@@ -1,30 +1,24 @@
-# Research Summary: v11.6 Creative Strategy Cockpit
+# Research Summary: v11.7.1 Stabilization
 
 ## Stack Additions
 
-None. v11.6 should reuse existing Next.js, TanStack Query, Drizzle/Postgres, OpenAI utilities, R2, share links, delivery package, brand kit, preflight analysis, creative diagnosis, creative contract, and quality taxonomy.
+None. Use the existing Next.js, TypeScript, Drizzle, PostgreSQL, Vitest, and app test/build scripts.
 
-## Feature Table Stakes
+## Key Findings
 
-- Creative readiness before generation.
-- Guided briefing for weak briefs.
-- Strategy recipes with concrete generation settings.
-- Preview-first flow before full batch spend.
-- Shareable client approval package.
+- Next.js treats TypeScript errors as production build failures by default; v11.7.1 should fix the missing feedback category label instead of bypassing type checks.
+- Drizzle and PostgreSQL both support atomic conflict-safe upserts, which is the right fit for progression snapshots recalculated on read.
+- Runtime mission insight validation should use the same known mission key set as the mission definitions, not a TypeScript cast.
+- CTA resume behavior is part of the progression product promise; `?tab=` links need destination handling or a different route contract.
 
-## Watch Out For
+## Watch Outs
 
-- Do not build another detached modal set.
-- Do not hide credit impact.
-- Do not expose workspace-private context on public package links.
-- Do not allow recipes or beta feedback to override hard preservation constraints.
+- Do not expand v11.7.1 into new gamification or monetization features.
+- Do not call beta ready until build, migration, focused tests, and UAT evidence are all green.
+- Keep accepted caveats explicit in release notes.
 
-## Recommendation
+## Sources
 
-Proceed with a five-phase milestone:
-
-1. Creative Readiness Foundation.
-2. Guided Briefing Cockpit.
-3. Strategy Recipes and Preview Gate.
-4. Client Approval Package.
-5. Verification, Analytics, and Handoff.
+- Next.js TypeScript docs: https://nextjs.org/docs/app/api-reference/config/typescript
+- Drizzle insert/upsert docs: https://orm.drizzle.team/docs/insert
+- PostgreSQL INSERT docs: https://www.postgresql.org/docs/current/static/sql-insert.html

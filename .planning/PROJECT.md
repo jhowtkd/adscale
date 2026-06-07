@@ -10,15 +10,15 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Current Milestone
 
-### v11.7 Ads Scientist Progression
+### v11.7.1 Stabilization
 
-**Goal:** Turn beta usage into a guided progression loop that teaches the app, captures product insight, and encourages healthy credit consumption.
+**Goal:** Make the v11.7 progression loop beta-ready by restoring a clean production build, hardening data integrity, validating migrations, and completing the UAT handoff.
 
 **Target features:**
-- Workspace/user status ladder from Jovem Aprendiz to Cientista de Ads.
-- Mission system that guides users through the core cockpit, generation, review, regeneration, export, and sharing flows.
-- Contextual insight capture at key mission moments without interrupting creation.
-- Credit-aware progression that explains value, creates natural usage, and surfaces upgrade prompts when limits matter.
+- Fix the v11.7 build/typecheck regression introduced by mission feedback categorization.
+- Harden progression and mission insight persistence against invalid runtime data and concurrent first-load races.
+- Make mission/progression CTAs land users on the intended app surfaces.
+- Apply and verify the v11.7 progression migration, then complete the beta UAT evidence path.
 
 ## Requirements
 
@@ -153,13 +153,20 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 - ✓ **SHIP-01–05**: Production cockpit smoke, deploy/migration evidence, post-review fixes, audit caveats register, and v11.6 GSD archive — v11.6.1
 - ✓ **BETA-01–03**: Beta runbook, feedback stage mapping, and learning questions — v11.6.1
 
+### Validated (v11.7)
+
+- ✓ **PROG-01–05**: User can see and progress through an Ads Scientist status ladder tied to meaningful product actions — v11.7
+- ✓ **MISS-01–06**: User can complete guided missions that teach and exercise the app's core creative workflow — v11.7
+- ✓ **INS-01–05**: Product owner can capture structured insight from mission moments, rejections, skips, and credit friction — v11.7
+- ✓ **CRED-01–04**: Credit usage is connected to mission value, remaining allowance, and upgrade moments without dark patterns — v11.7
+- ✓ **QA-01–04**: Progression, insight capture, and credit prompts are verified with tests and a beta UAT checklist — v11.7
+
 ### Active
 
-- [x] **PROG-01–05**: User can see and progress through an Ads Scientist status ladder tied to meaningful product actions — v11.7
-- [x] **MISS-01–06**: User can complete guided missions that teach and exercise the app's core creative workflow — v11.7
-- [x] **INS-01–05**: Product owner can capture structured insight from mission moments, rejections, skips, and credit friction — v11.7
-- [x] **CRED-01–04**: Credit usage is connected to mission value, remaining allowance, and upgrade moments without dark patterns — v11.7
-- [x] **QA-01–04**: Progression, insight capture, and credit prompts are verified with tests and a beta UAT checklist — v11.7
+- [ ] **STAB-01–04**: Production build, lint, focused tests, and migration checks are green for the v11.7 progression stack — v11.7.1
+- [ ] **DATA-01–03**: Mission insight and progression persistence reject invalid data and survive concurrent access — v11.7.1
+- [ ] **UX-01–02**: Progression and mission CTAs resume users into the intended workflow surface — v11.7.1
+- [ ] **UAT-01–03**: Beta operator can apply the migration, execute the v11.7 UAT path, and ship with documented evidence — v11.7.1
 
 ### Validated (v10.0)
 
@@ -202,9 +209,9 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Context
 
-Current state: v11.6 Creative Strategy Cockpit **shipped** 2026-06-06 (`ba535de` on Render). Production smoke CQA-02 passed; milestone archived to `.planning/milestones/v11.6-*`. v11.6.1 ship-readiness requirements complete.
+Current state: v11.7 Ads Scientist Progression is functionally shipped but needs stabilization before beta. Review found a production build/typecheck blocker, a mission insight runtime validation gap, a non-atomic progression snapshot upsert, and mission/progression CTAs that pass `?tab=` values the campaign page does not currently consume.
 
-The active direction for v11.7 is a balanced activation loop: teach beta users to use all high-value app functions, collect actionable insight while they work, and make credit consumption feel tied to learning and creative output rather than arbitrary depletion.
+The active direction for v11.7.1 is beta readiness: fix the blockers, preserve the v11.7 product loop, apply migration `0032_workspace_progression.sql`, and complete the UAT evidence path before inviting testers.
 
 Marketing remains in `jhowtkd/site-adscale.git`; product feedback and owner triage live in ADScale_2 at `/feedback` for platform owners.
 
@@ -212,7 +219,7 @@ Migration `app/drizzle/0027_fine_morlun.sql` (Drizzle journal idx 27) must be ap
 
 Prior milestones delivered the strategy cockpit (v11.6), beta feedback capture (v11.4), presentation site separation (v11.3), beta entitlements (v11.2), generation quality gates (v11.1), coherent derivation flows (v11.0), and the full MVP through v10 UI polish.
 
-Build, lint, and tests pass.
+Current verification status before v11.7.1: lint passes with warnings and the focused progression/missions/insights tests pass, but `npm run build` fails on a TypeScript exhaustiveness error introduced by the new `mission` feedback category.
 
 Key stack decisions:
 - Next.js App Router, React, TypeScript, Tailwind, shadcn/ui
@@ -248,7 +255,8 @@ Key stack decisions:
 | Preview before batch | Users should validate strategy cheaply before spending credits on a full batch | ✓ Good — v11.6 |
 | Strategy cockpit over isolated tools | Existing AI modules should be orchestrated into one decision path before adding new surface area | ✓ Good — v11.6 |
 | Operator smoke before beta ship | Automated tests passed, but deployed browser evidence is still the release gate | ✓ Good — v11.6.1 |
-| Progression as activation, not decoration | Beta users should learn by completing real creative tasks that generate insight and consume credits transparently | Active — v11.7 |
+| Progression as activation, not decoration | Beta users should learn by completing real creative tasks that generate insight and consume credits transparently | ✓ Good — v11.7 |
+| Stabilization before beta expansion | Activation mechanics should not enter beta while build, persistence, and UAT gates are still uncertain | Active — v11.7.1 |
 
 ## Evolution
 
@@ -376,4 +384,4 @@ This document evolves at phase transitions and milestone boundaries.
 - v11.7 Ads Scientist Progression: status ladder, guided missions, contextual insight capture, credit-aware activation, and beta UAT evidence.
 
 ---
-*Last updated: 2026-06-06 after v11.7 milestone initialization*
+*Last updated: 2026-06-06 after v11.7.1 milestone initialization*

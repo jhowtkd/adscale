@@ -2,6 +2,7 @@
 
 ## Milestones
 
+- 🔄 **v11.7.1 Stabilization** - Phases 72-74 (active)
 - ✅ **v11.7 Ads Scientist Progression** - Phases 68-71 (shipped 2026-06-06)
 - ✅ **v11.6.1 Ship Readiness and Beta Activation** - Phases 66-67 (shipped 2026-06-06)
 - ✅ **v11.6 Creative Strategy Cockpit** - Phases 61-65 (shipped 2026-06-06)
@@ -13,6 +14,78 @@
 - ✅ **v11.0 Fluxos de Derivação Coerentes** - Phases 40-43 (shipped 2026-06-01)
 
 ## Phases
+
+### 🔄 v11.7.1 Stabilization (Phases 72-74) — ACTIVE
+
+**v11.7.1 Stabilization** — beta-readiness hardening for the v11.7 progression loop.
+
+| # | Phase | Goal | Requirements | Success Criteria |
+|---|-------|------|--------------|------------------|
+| 72 | Build and Data Integrity Hardening | Restore production build and make progression/insight persistence conflict-safe | STAB-01, STAB-02, DATA-01, DATA-02, DATA-03 | 5 |
+| 73 | Mission Resume UX | Make mission/progression CTAs resume into the intended campaign workflow surface | UX-01, UX-02 | 4 |
+| 74 | Migration, UAT, and Beta Handoff | Apply/verify progression migration and complete beta UAT evidence | STAB-03, STAB-04, UAT-01, UAT-02, UAT-03 | 5 |
+
+**12 requirements** | **3 phases** | Stabilization-only scope before beta
+
+## Phase Details
+
+### Phase 72: Build and Data Integrity Hardening
+
+**Goal:** Restore a clean production build and harden the v11.7 data boundaries found in review.
+
+**Requirements:** STAB-01, STAB-02, DATA-01, DATA-02, DATA-03
+
+**Success Criteria:**
+1. `npm run build` passes without disabling Next.js TypeScript checks.
+2. The missing `mission` feedback category handling is fixed where exhaustive category maps are used.
+3. Mission insight sanitization rejects invalid `missionKey` values before recording feedback.
+4. Progression snapshot persistence uses an atomic upsert or conflict-safe equivalent.
+5. Focused tests cover invalid mission keys, progression persistence conflict behavior, and existing progression/missions/insights behavior.
+
+**Depends on:** v11.7 review findings and current feedback/progression infrastructure.
+
+### Phase 73: Mission Resume UX
+
+**Goal:** Make activation CTAs keep their promise by landing users on the right workflow context.
+
+**Requirements:** UX-01, UX-02
+
+**Success Criteria:**
+1. Campaign workspace consumes mission/progression resume targets or uses a route contract it already supports.
+2. CTAs for assets, readiness, review, export, and share open the intended surface or state.
+3. Default campaign workspace behavior is unchanged when no resume target is present.
+4. Focused tests or browser smoke evidence prove the resume path for at least two representative mission CTAs.
+
+**Depends on:** Phase 72 build health.
+
+### Phase 74: Migration, UAT, and Beta Handoff
+
+**Goal:** Prove the stabilized v11.7 loop is beta-ready in the target environment.
+
+**Requirements:** STAB-03, STAB-04, UAT-01, UAT-02, UAT-03
+
+**Success Criteria:**
+1. Migration `0032_workspace_progression.sql` is applied and verified in the target environment.
+2. UAT follows `.planning/phases/71-credit-activation-and-verification/71-UAT-EVIDENCE.md` from a fresh workspace.
+3. Evidence covers build, migration, mission progress, insight capture, credit display, and owner triage.
+4. Remaining caveats are documented explicitly as fixed, accepted, or deferred.
+5. Handoff states whether v11.7.1 is beta-ready and what the next operator action is.
+
+**Depends on:** Phases 72-73.
+
+## Completed Milestone Context
+
+<details>
+<summary>✅ v11.7 Ads Scientist Progression (Phases 68-71) - SHIPPED 2026-06-06</summary>
+
+- [x] Phase 68: Progression Foundation (2/2 plans)
+- [x] Phase 69: Guided Mission Experience (2/2 plans)
+- [x] Phase 70: Mission-Linked Insight Capture (2/2 plans)
+- [x] Phase 71: Credit Activation and Verification (2/2 plans)
+
+Archive context: phases 68-71 in `.planning/phases/`. Verification: `71-VERIFICATION.md`; UAT: `71-UAT-EVIDENCE.md`.
+
+</details>
 
 <details>
 <summary>✅ v11.6.1 Ship Readiness and Beta Activation (Phases 66-67) - SHIPPED 2026-06-06</summary>
@@ -35,89 +108,15 @@ Archive context: `.planning/phases/67-milestone-archive-and-beta-runbook/67-BETA
 
 Archive: [v11.6-ROADMAP.md](milestones/v11.6-ROADMAP.md) · [v11.6-REQUIREMENTS.md](milestones/v11.6-REQUIREMENTS.md) · [v11.6-MILESTONE-AUDIT.md](milestones/v11.6-MILESTONE-AUDIT.md) · [v11.6-phases/](milestones/v11.6-phases/)
 
-Production ref: `ba535de`. Smoke evidence: `milestones/v11.6-phases/65-verification-analytics-and-handoff/65-SMOKE-EVIDENCE.md`.
-
 </details>
-
-### ✅ v11.7 Ads Scientist Progression (Phases 68-71) — SHIPPED 2026-06-06
-
-**v11.7 Ads Scientist Progression** — all phases complete.
-
-| # | Phase | Goal | Requirements | Success Criteria |
-|---|-------|------|--------------|------------------|
-| 68 | Progression Foundation | Persist and calculate Ads Scientist levels from real workspace actions | PROG-01..05 | 5 ✅ |
-| 69 | Guided Mission Experience | Teach the core workflow through resumable missions and contextual learning copy | MISS-01..06 | 5 ✅ |
-| 70 | Mission-Linked Insight Capture | Capture structured insight at mission moments | INS-01..05 | 5 ✅ |
-| 71 | Credit Activation and Verification | 1/2 | In Progress|  |
-
-**24 requirements** | **4 phases** | Balanced activation, insight, and monetization scope
-
-## Phase Details
-
-### Phase 68: Progression Foundation
-
-**Goal:** Establish the durable status ladder and completion model that the rest of the milestone can build on.
-
-**Requirements:** PROG-01, PROG-02, PROG-03, PROG-04, PROG-05
-
-**Success Criteria:**
-1. Workspace has persisted progression state that survives refresh and login/logout.
-2. The system can derive progress from real product actions rather than page visits.
-3. The user sees a current level and next-level requirements in a visible but non-disruptive place.
-4. Level names and thresholds match the v11.7 product language: Jovem Aprendiz, Analista Criativo, Estrategista de Ads, Cientista de Ads.
-5. Repository/service tests prove level calculation and workspace isolation.
-
-**Depends on:** Existing user/workspace model and beta access foundation.
-
-### Phase 69: Guided Mission Experience
-
-**Goal:** Turn the existing cockpit and creative workflow into a guided mission path that teaches by doing.
-
-**Requirements:** MISS-01, MISS-02, MISS-03, MISS-04, MISS-05, MISS-06
-
-**Success Criteria:**
-1. User can open a mission list and understand the recommended path through ADScale.
-2. Mission completion covers setup, upload, readiness, guided briefing, strategy recipe, preview, batch, review, regeneration, export, and share.
-3. Mission CTAs resume the user directly into the relevant app surface.
-4. Learning copy explains the purpose of each action in practical ad-creation language.
-5. Mission UI has polished empty/loading/completed/blocked states and does not break the cockpit flow.
-
-**Depends on:** Phase 68 progression state.
-
-### Phase 70: Mission-Linked Insight Capture
-
-**Goal:** Capture product learning at the moments where beta behavior is most informative.
-
-**Requirements:** INS-01, INS-02, INS-03, INS-04, INS-05
-
-**Success Criteria:**
-1. Lightweight prompts appear after key mission moments without blocking the primary workflow.
-2. Insight records include stage, mission, sentiment, structured reason, optional text, and safe diagnostic context.
-3. Rejection, skip, abandonment, and credit-friction events become owner-visible signals.
-4. Owner can review mission-linked insight from the existing feedback/triage path or an adjacent owner view.
-5. Sanitization tests prove secrets, raw prompts, and unrelated user content are not captured.
-
-**Depends on:** Phase 69 mission events and existing feedback infrastructure.
-
-### Phase 71: Credit Activation and Verification
-
-**Goal:** Make credit consumption understandable and commercially useful while verifying the full progression loop.
-
-**Requirements:** CRED-01, CRED-02, CRED-03, CRED-04, QA-01, QA-02, QA-03, QA-04
-
-**Success Criteria:**
-1. Credit-consuming missions show expected cost and remaining allowance before generation starts.
-2. Upgrade/top-up prompts appear only after clear value moments or true insufficiency.
-3. Owner can separate healthy credit consumption from frustration using mission and insight data.
-4. Automated tests cover progression rules, insight capture, credit display, and insufficient-credit states.
-5. Beta UAT evidence proves a new user can reach at least Analista Criativo through real app actions.
-
-**Depends on:** Phases 68-70.
 
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 | ----- | --------- | -------------- | ------ | --------- |
+| 72 | v11.7.1 | 0/0 | Planned | - |
+| 73 | v11.7.1 | 0/0 | Planned | - |
+| 74 | v11.7.1 | 0/0 | Planned | - |
 | 68 | v11.7 | 2/2 | Complete | 2026-06-06 |
 | 69 | v11.7 | 2/2 | Complete | 2026-06-06 |
 | 70 | v11.7 | 2/2 | Complete | 2026-06-06 |
@@ -135,4 +134,4 @@ Production ref: `ba535de`. Smoke evidence: `milestones/v11.6-phases/65-verificat
 | 60 | v11.5 | 4/4 | Complete | 2026-06-05 |
 
 ---
-*Roadmap updated: 2026-06-06 after v11.7 milestone initialization*
+*Roadmap updated: 2026-06-06 after v11.7.1 milestone initialization*

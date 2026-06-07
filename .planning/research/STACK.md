@@ -1,32 +1,21 @@
-# Stack Research: v11.6 Creative Strategy Cockpit
+# Research: Stack for v11.7.1 Stabilization
 
-## Decision
+## Scope
 
-No new stack is needed for v11.6.
+v11.7.1 does not need new libraries. The relevant stack decision is to use existing Next.js, TypeScript, PostgreSQL, Drizzle ORM, and the current test/build scripts correctly.
 
-The milestone should compose existing ADScale primitives:
+## Findings
 
-- Next.js App Router for campaign workspace surfaces.
-- TanStack Query for readiness, recipe, preview, and package server state.
-- Drizzle/Postgres for persisted campaign, derivation, package, and readiness metadata.
-- Existing OpenAI text/image integration through current server AI utilities.
-- Existing quality taxonomy, preflight analysis, creative diagnosis, creative contract, QA, and regeneration modules.
-- Existing R2 object storage, signed URLs, share links, and delivery package paths.
+- Next.js production builds fail when TypeScript errors are present. The build blocker should be fixed in code, not bypassed through `typescript.ignoreBuildErrors`.
+- Drizzle supports PostgreSQL upsert through `.onConflictDoUpdate()`.
+- PostgreSQL `INSERT ... ON CONFLICT DO UPDATE` provides an atomic insert/update outcome under high concurrency, which matches the progression snapshot first-load race found in review.
 
-## Integration Points
+## Stack Additions
 
-- `app/src/server/ai/preflight-analysis.ts`
-- `app/src/server/ai/creative-diagnosis.ts`
-- `app/src/server/ai/creative-quality-taxonomy.ts`
-- `app/src/server/ai/creative-contract.ts`
-- `app/src/lib/hooks/use-campaign-workspace.ts`
-- `app/src/components/workspace/*`
-- `app/src/app/api/share/route.ts`
-- `app/src/app/api/derivations/[id]/delivery-package/route.ts`
+None.
 
-## Non-Goals
+## Sources
 
-- Do not add a new AI provider.
-- Do not migrate persistence.
-- Do not introduce a separate workflow engine.
-- Do not rebuild the campaign form from scratch.
+- Next.js TypeScript configuration docs: https://nextjs.org/docs/app/api-reference/config/typescript
+- Drizzle insert/upsert docs: https://orm.drizzle.team/docs/insert
+- PostgreSQL `INSERT` docs: https://www.postgresql.org/docs/current/static/sql-insert.html

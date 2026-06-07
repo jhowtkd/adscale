@@ -1,109 +1,78 @@
-# Requirements: ADScale v11.7 Ads Scientist Progression
+# Requirements: ADScale v11.7.1 Stabilization
 
 **Defined:** 2026-06-06  
 **Core Value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
 ## Scope
 
-v11.7 adds a progression system that helps beta users learn the product by doing real work. The system should make the app feel more playful and directed while capturing actionable insight and connecting credit usage to visible creative value.
+v11.7.1 stabilizes the Ads Scientist Progression milestone before beta. It is intentionally narrow: fix the production build blocker, harden runtime data integrity, make mission CTAs resume into the intended surfaces, apply the required migration, and complete UAT evidence.
 
-The milestone balances activation and monetization: missions should naturally lead users through credit-consuming actions, but the product must explain why a credit spend matters and avoid manipulative dark patterns.
+This milestone should not add new progression mechanics, gamification layers, pricing experiments, or unrelated cockpit features.
 
 ## Requirements
 
-### Progression Status
+### Build and Verification
 
-- [x] **PROG-01**: User can see their current Ads Scientist status in the dashboard or workspace shell.
-- [x] **PROG-02**: User can progress through at least four named levels: Jovem Aprendiz, Analista Criativo, Estrategista de Ads, and Cientista de Ads.
-- [x] **PROG-03**: Status progression is based on completed product actions, not only page visits or time spent.
-- [x] **PROG-04**: User can see what actions unlock the next status and which actions are already complete.
-- [x] **PROG-05**: Progress state persists per workspace and does not reset across sessions.
+- [ ] **STAB-01**: Developer can run `npm run build` successfully without disabling Next.js TypeScript checks.
+- [ ] **STAB-02**: Developer can run lint and the focused progression/missions/insights/feedback test suite successfully after fixes.
+- [ ] **STAB-03**: Developer can apply migration `0032_workspace_progression.sql` in the target environment and verify the `workspace_progression` table is available.
+- [ ] **STAB-04**: Release notes identify any remaining accepted caveats before beta.
 
-### Guided Missions
+### Data Integrity
 
-- [x] **MISS-01**: User can view a mission list that teaches the core ADScale workflow in a recommended order.
-- [x] **MISS-02**: User can complete missions for campaign setup, base creative upload, readiness analysis, guided briefing, strategy recipe selection, preview generation, batch generation, review, regeneration, export, and share.
-- [x] **MISS-03**: Mission completion can be inferred from existing product events where possible instead of requiring manual checkboxes.
-- [x] **MISS-04**: User can resume an incomplete mission from a clear call to action that deep-links to the relevant app surface.
-- [x] **MISS-05**: Missions include concise learning copy that explains why the action matters for better ads.
-- [x] **MISS-06**: Mission UI handles empty, loading, completed, and blocked states without disrupting the existing cockpit workflow.
+- [ ] **DATA-01**: Mission insight API rejects invalid `missionKey` values at runtime before recording feedback.
+- [ ] **DATA-02**: Progression snapshot persistence uses an atomic upsert or equivalent conflict-safe path for concurrent first access.
+- [ ] **DATA-03**: Tests cover invalid mission insight keys and concurrent progression snapshot creation.
 
-### Insight Capture
+### Mission Resume UX
 
-- [x] **INS-01**: User can answer lightweight contextual prompts after key mission moments, including first readiness run, first preview, first rejection, first regeneration, and first share/export.
-- [x] **INS-02**: Insight prompts capture structured stage, sentiment, reason, and optional free-text without exposing raw prompts or model internals.
-- [x] **INS-03**: Product owner can view mission-linked insight in the existing feedback/triage surface or a clearly connected owner view.
-- [x] **INS-04**: Skipped missions and abandoned credit-spend moments are recorded as product signals when privacy-safe.
-- [x] **INS-05**: Insight capture respects workspace boundaries and avoids collecting secrets, API keys, full prompts, or unrelated user content.
+- [ ] **UX-01**: User who clicks a progression or mission CTA lands on the intended campaign workflow surface, not only the campaign detail page.
+- [ ] **UX-02**: Existing campaign workspace behavior remains unchanged when no mission/progression resume target is present.
 
-### Credit-Aware Activation
+### Beta UAT Readiness
 
-- [x] **CRED-01**: Credit-consuming missions show expected credit cost before the user starts the action.
-- [x] **CRED-02**: User can see remaining beta allowance or credit balance in the progression context when a mission involves generation.
-- [x] **CRED-03**: Upgrade or top-up prompts appear only after meaningful value moments or clear insufficiency, not before the user understands the workflow.
-- [x] **CRED-04**: Owner can distinguish healthy credit consumption from frustration signals using mission completion and insight data.
-
-### Verification
-
-- [x] **QA-01**: Automated tests cover progression state calculation, mission completion rules, and workspace isolation.
-- [x] **QA-02**: Automated tests cover insight creation, sanitization, and owner visibility.
-- [x] **QA-03**: Automated tests cover credit estimate display and insufficient-credit progression states.
-- [x] **QA-04**: Beta UAT checklist verifies that a new user can progress from Jovem Aprendiz to at least Analista Criativo using real app actions.
+- [ ] **UAT-01**: Beta operator can complete the `71-UAT-EVIDENCE.md` path from a fresh workspace through at least Analista Criativo.
+- [ ] **UAT-02**: UAT evidence captures build, migration, mission completion, insight capture, credit display, and owner triage checks.
+- [ ] **UAT-03**: Milestone archive/handoff clearly states whether v11.7.1 is beta-ready.
 
 ## Future Requirements
 
-- Seasonal or campaign-specific challenge packs.
-- Team leaderboard or multi-user workspace competition.
-- Reward credits or discounts based on progression completion.
-- Adaptive mission ordering based on observed user behavior.
-- Public certificate or shareable "Cientista de Ads" achievement.
-- In-app academy with longer lessons, examples, and quizzes.
+- Owner analytics for mission conversion by beta cohort.
+- Automated E2E for the full Ads Scientist path.
+- Direct top-up or plan purchase flow tied to mission value moments.
+- More granular mission resume anchors once the campaign workspace has formal routeable subviews.
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Direct Meta/TikTok/Google publishing | Too large for the activation milestone and not needed to teach current workflow |
-| Client approval comments on public share links | Useful later, but v11.7 focuses on beta user activation inside the app |
-| Full admin CRM for beta cohorts | Owner only needs mission-linked insight and signals for now |
-| Manipulative streaks or forced credit burn | Progression must feel useful and transparent, not like a dark pattern |
-| Monetary rewards or coupons | Requires billing/product policy decisions beyond this milestone |
-| New AI model/provider behavior | Existing cockpit/generation capabilities are enough for progression |
+| New Ads Scientist levels or rewards | v11.7.1 is stabilization, not expansion |
+| New pricing or Stripe purchase flow | Requires product and billing decisions beyond beta readiness |
+| New AI generation behavior | Current blockers are build, persistence, resume UX, and UAT |
+| Public beta onboarding campaign | Should wait until stabilization gates pass |
+| Full redesign of campaign workspace navigation | Only the mission/progression resume path is in scope |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PROG-01 | Phase 68 | Complete |
-| PROG-02 | Phase 68 | Complete |
-| PROG-03 | Phase 68 | Complete |
-| PROG-04 | Phase 68 | Complete |
-| PROG-05 | Phase 68 | Complete |
-| MISS-01 | Phase 69 | Complete |
-| MISS-02 | Phase 69 | Complete |
-| MISS-03 | Phase 69 | Complete |
-| MISS-04 | Phase 69 | Complete |
-| MISS-05 | Phase 69 | Complete |
-| MISS-06 | Phase 69 | Complete |
-| INS-01 | Phase 70 | Complete |
-| INS-02 | Phase 70 | Complete |
-| INS-03 | Phase 70 | Complete |
-| INS-04 | Phase 70 | Complete |
-| INS-05 | Phase 70 | Complete |
-| CRED-01 | Phase 71 | Complete |
-| CRED-02 | Phase 71 | Complete |
-| CRED-03 | Phase 71 | Complete |
-| CRED-04 | Phase 71 | Complete |
-| QA-01 | Phase 71 | Complete |
-| QA-02 | Phase 71 | Complete |
-| QA-03 | Phase 71 | Complete |
-| QA-04 | Phase 71 | Complete |
+| STAB-01 | Phase 72 | Planned |
+| STAB-02 | Phase 72 | Planned |
+| DATA-01 | Phase 72 | Planned |
+| DATA-02 | Phase 72 | Planned |
+| DATA-03 | Phase 72 | Planned |
+| UX-01 | Phase 73 | Planned |
+| UX-02 | Phase 73 | Planned |
+| STAB-03 | Phase 74 | Planned |
+| STAB-04 | Phase 74 | Planned |
+| UAT-01 | Phase 74 | Planned |
+| UAT-02 | Phase 74 | Planned |
+| UAT-03 | Phase 74 | Planned |
 
 **Coverage:**
-- v11.7 requirements: 24 total
-- Mapped to phases: 24
+- v11.7.1 requirements: 12 total
+- Mapped to phases: 12
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-06-06*
-*Last updated: 2026-06-06 after v11.7 milestone initialization*

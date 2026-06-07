@@ -1,24 +1,21 @@
-# Feature Research: v11.6 Creative Strategy Cockpit
+# Research: Feature Behavior for v11.7.1 Stabilization
 
 ## Table Stakes
 
-- Readiness score before generation.
-- Clear separation between blocking issues and polish suggestions.
-- Guided briefing when campaign context is weak.
-- Strategy presets that map to concrete generation settings.
-- One preview derivation before full batch generation.
-- Shareable client package for approved outputs.
+- Production build must remain a release gate.
+- Runtime API validation must not rely on TypeScript casts for user-submitted data.
+- Persistence for cached/projection tables should be conflict-safe when recalculated on read.
+- Mission/progression CTAs should resume the user into the promised workflow context.
+- UAT evidence should prove the path beta users will actually follow.
 
 ## Differentiators
 
-- Recipes are not generic templates; they use readiness findings, brand kit, campaign context, and existing quality taxonomy.
-- Preview-first generation makes credit spend visible and defensible.
-- The cockpit connects pre-generation diagnosis to post-generation package delivery in one workflow.
+- Keep stabilization narrow enough to ship before beta rather than expanding gamification.
+- Treat CTA resume behavior as part of the activation experience, not polish.
+- Include owner triage and credit-signal checks in UAT because the milestone goal includes insight capture and healthy credit consumption.
 
 ## Anti-Features
 
-- A long questionnaire up front.
-- More isolated modals without a clear decision path.
-- Hidden credit spend.
-- A public share page that exposes workspace-only details.
-- AI suggestions that silently override hard creative contract fields.
+- Do not disable type checks to ship.
+- Do not add another navigation surface if campaign workspace can consume a simple resume target.
+- Do not add monetization mechanics before the existing credit-aware mission path is verified.

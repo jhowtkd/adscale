@@ -1,19 +1,17 @@
-# Pitfalls Research: v11.6 Creative Strategy Cockpit
+# Research: Pitfalls for v11.7.1 Stabilization
 
-## Risks
+## Common Pitfalls
 
-- Making readiness feel like a vague score instead of an actionable checklist.
-- Recreating Briefing Doctor under a new name.
-- Letting recipe suggestions override contract preservation rules.
-- Charging users for accidental full batches when they intended a preview.
-- Exposing private workspace context in client packages.
-- Creating parallel campaign state that drifts from the normal campaign form.
+- Treating TypeScript casts as runtime validation for API payloads.
+- Fixing `next build` by suppressing type errors instead of updating exhaustive maps.
+- Leaving first-load projection upserts as select-then-insert when the route can be requested concurrently.
+- Adding query parameters to CTAs without wiring the destination page to consume them.
+- Declaring beta readiness before migration and UAT evidence are complete.
 
-## Prevention
+## Prevention Strategy
 
-- Every readiness issue needs an action or a clear "safe to ignore" label.
-- Guided briefing must write back into normal campaign fields.
-- Recipe mapping must pass through existing creative contract and quality gate paths.
-- Preview and batch actions need distinct labels and credit copy.
-- Client packages should use existing share/signed URL patterns.
-- Browser smoke must cover the full path, not only individual APIs.
+- Keep `npm run build` as a hard acceptance gate.
+- Add negative tests for invalid mission insight payloads.
+- Add concurrency or conflict-path coverage for progression snapshot persistence.
+- Validate mission resume behavior manually or with focused component/hook tests.
+- Record migration and UAT evidence in the phase 74 artifacts before completing the milestone.
