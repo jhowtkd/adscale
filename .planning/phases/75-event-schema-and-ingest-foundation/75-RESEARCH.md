@@ -418,20 +418,13 @@ export const betaSessions = adscaleSchema.table(
 | A4 | `event_key` accepts any `snake_case` string up to 64 chars in Phase 75 | Pattern 2 | Phase 76 may want closed enum — migration not needed, validation tightens |
 | A5 | `npm run db:migrate` applied on Render before operator sessions | Environment | Events lost if migration skipped (see PITFALLS.md) |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Per-`event_key` property schemas vs single global allowlist**
-   - What we know: CONTEXT leaves to discretion; mission-insights uses moment-specific rules.
-   - What's unclear: Whether Phase 75 ships one union allowlist or stub families for `cockpit_*` / `mission_*`.
-   - Recommendation: Ship **global strict allowlist** in Phase 75; Phase 76 extends `types.ts` with per-family schemas before instrumentation lands.
+1. **Per-`event_key` property schemas vs single global allowlist** — **RESOLVED:** Plan 75-02 ships a **global strict allowlist** via `z.strictObject()` in Phase 75. Per-`event_key` families deferred to Phase 76 `types.ts` extensions before instrumentation lands.
 
-2. **`source` column (`client` | `server`) on events**
-   - What we know: ARCHITECTURE distinguishes client vs server events.
-   - What's unclear: Column vs property.
-   - Recommendation: Add optional `source` text column default `'client'` for POST route, `'server'` for `recordBetaAnalyticsEvent` — aids Phase 78 debugging without jsonb query.
+2. **`source` column (`client` | `server`) on events** — **RESOLVED:** Plan 75-01 adds optional `source` text column on `beta_analytics_events` — default `'client'` for POST route, `'server'` for `recordBetaAnalyticsEvent()` in Plan 75-03.
 
-3. **REQUIREMENTS.md INST-01 still says `product_events`**
-   - Recommendation: Implement `beta_analytics_events`; update REQUIREMENTS wording in planning commit or Phase 75 SUMMARY.
+3. **REQUIREMENTS.md INST-01 still says `product_events`** — **RESOLVED:** All plans implement `beta_analytics_events` per CONTEXT lock. ROADMAP success criteria updated to `beta_analytics_events`. REQUIREMENTS.md label update deferred to Phase 75 SUMMARY or docs-only follow-up.
 
 ## Environment Availability
 
