@@ -241,12 +241,34 @@ export function countDerivationJobs(config: RecipeGenerationConfig): number {
   return ctas.length;
 }
 
+export interface BatchCreditBreakdown {
+  jobCount: number;
+  unitCost: number;
+  totalCredits: number;
+  generationMode: RecipeGenerationConfig["generationMode"];
+}
+
+export function getBatchCreditBreakdown(
+  config: RecipeGenerationConfig
+): BatchCreditBreakdown {
+  const jobCount = countDerivationJobs(config);
+  const unitCost = IMAGE_DERIVATION_CREDIT_COST;
+  return {
+    jobCount,
+    unitCost,
+    totalCredits: jobCount * unitCost,
+    generationMode: config.generationMode,
+  };
+}
+
 export function estimateCreditCost(
   config: RecipeGenerationConfig,
   options?: { preview?: boolean }
 ): number {
-  const jobCount = options?.preview ? 1 : countDerivationJobs(config);
-  return jobCount * IMAGE_DERIVATION_CREDIT_COST;
+  if (options?.preview) {
+    return IMAGE_DERIVATION_CREDIT_COST;
+  }
+  return getBatchCreditBreakdown(config).totalCredits;
 }
 
 export function toCampaignPatch(config: RecipeGenerationConfig): {

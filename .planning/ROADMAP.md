@@ -21,7 +21,7 @@
 
 **Milestone Goal:** Users and owners understand credit cost before batch spend; delivery surfaces (approval package, share) are self-serve; owner analytics rank credit surprises and expose session stage gaps.
 
-- [ ] **Phase 80: Credit Estimate Transparency** - Preview disclaimer and batch estimate breakdown with insufficient-balance gate
+- [x] **Phase 80: Credit Estimate Transparency** - Preview disclaimer and batch estimate breakdown with insufficient-balance gate
 - [ ] **Phase 81: Credit Event Instrumentation** - Enriched credit_spend/credit_blocked events with operation_key and estimate delta
 - [ ] **Phase 82: Delivery and Approval Package UX** - Stale package states, refresh messaging, and self-serve share guidance
 - [ ] **Phase 83: Owner Credit and Session Analytics** - Surprise ranking by operation, session timeline gaps, CSV columns
@@ -29,7 +29,7 @@
 
 | # | Phase | Requirements | Status |
 |---|-------|--------------|--------|
-| 80 | Credit Estimate Transparency | CRED-01, CRED-02, CRED-04 | Not started |
+| 80 | Credit Estimate Transparency | CRED-01, CRED-02, CRED-04 | Complete |
 | 81 | Credit Event Instrumentation | CRED-03 | Not started |
 | 82 | Delivery and Approval Package UX | DELIV-01, DELIV-02, DELIV-03 | Not started |
 | 83 | Owner Credit and Session Analytics | DASH-01, DASH-02, DASH-03 | Not started |
@@ -84,8 +84,8 @@ Archive: [v11.8-ROADMAP.md](milestones/v11.8-ROADMAP.md) · [v11.8-REQUIREMENTS.
 **Plans:** 2 plans (2 waves)
 
 Plans:
-- [ ] 80-01-PLAN.md — Batch credit breakdown helper + billing balance wiring
-- [ ] 80-02-PLAN.md — PreviewGatePanel formula, balance, insufficient block + tests
+- [x] 80-01-PLAN.md — Batch credit breakdown helper + billing balance wiring
+- [x] 80-02-PLAN.md — PreviewGatePanel formula, balance, insufficient block + tests
 
 **UI hint:** yes
 

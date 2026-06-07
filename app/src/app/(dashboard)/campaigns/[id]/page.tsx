@@ -51,6 +51,7 @@ import CampaignErrorState from "@/components/campaigns/CampaignErrorState";
 import CampaignNotFoundState from "@/components/campaigns/CampaignNotFoundState";
 
 import { useCampaignWorkspace } from "@/lib/hooks/use-campaign-workspace";
+import { useBillingStatus } from "@/lib/hooks/use-billing";
 import { useDerivationFlow, type DerivationIntent } from "@/lib/hooks/use-derivation-flow";
 import { usePreflightScore } from "@/lib/hooks/use-preflight";
 import { useBrandKit } from "@/lib/hooks/use-brand-kit";
@@ -152,6 +153,7 @@ export default function CampaignWorkspacePage() {
     previewDerivation,
     showPreviewGate,
     batchCreditEstimate,
+    batchCreditBreakdown,
     approvePreviewToBatch,
     handlePreview,
     handleDownloadDerivation,
@@ -182,6 +184,8 @@ export default function CampaignWorkspacePage() {
     generatePlanPending,
     updatePlanStatusPending,
   } = useCampaignWorkspace(campaignId, isNew);
+
+  const { data: billingStatus } = useBillingStatus();
 
   const { data: campaignAssets } = useCampaignAssets(campaignId);
   const { data: brandKit } = useBrandKit();
@@ -475,6 +479,8 @@ export default function CampaignWorkspacePage() {
         showPreviewGate={showPreviewGate}
         previewDerivation={previewDerivation}
         batchCreditEstimate={batchCreditEstimate}
+        batchCreditBreakdown={batchCreditBreakdown}
+        creditBalance={billingStatus?.creditBalance}
         onApprovePreviewBatch={approvePreviewToBatch}
         onReviseStrategyRecipe={() => {
           openChooser();
@@ -735,6 +741,8 @@ interface CampaignWorkspaceCardProps {
   showPreviewGate?: boolean;
   previewDerivation?: WorkspaceHookResult["previewDerivation"];
   batchCreditEstimate?: number;
+  batchCreditBreakdown?: WorkspaceHookResult["batchCreditBreakdown"];
+  creditBalance?: number;
   onApprovePreviewBatch?: () => void;
   onReviseStrategyRecipe?: () => void;
   createDerivationsPending?: boolean;
@@ -780,6 +788,8 @@ function CampaignWorkspaceCard({
   showPreviewGate,
   previewDerivation,
   batchCreditEstimate,
+  batchCreditBreakdown,
+  creditBalance,
   onApprovePreviewBatch,
   onReviseStrategyRecipe,
   createDerivationsPending,
@@ -895,7 +905,15 @@ function CampaignWorkspaceCard({
                   creditCost: previewDerivation.creditCost,
                 }}
                 previewCreditsSpent={previewDerivation.creditCost ?? 5}
-                batchCredits={batchCreditEstimate ?? 0}
+                batchBreakdown={
+                  batchCreditBreakdown ?? {
+                    jobCount: 0,
+                    unitCost: 5,
+                    totalCredits: batchCreditEstimate ?? 0,
+                    generationMode: "art_variation",
+                  }
+                }
+                creditBalance={creditBalance}
                 isApproving={createDerivationsPending}
                 onReviseRecipe={onReviseStrategyRecipe}
                 onApproveBatch={onApprovePreviewBatch}

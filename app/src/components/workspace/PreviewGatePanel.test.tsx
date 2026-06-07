@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import PreviewGatePanel from "./PreviewGatePanel";
+import type { BatchCreditBreakdown } from "@/server/ai/strategy-recipes";
 
 const recordEvent = vi.fn();
 
@@ -28,6 +29,13 @@ const previewFixture = {
   qualityVerdict: "pass",
 };
 
+const ctaBreakdown: BatchCreditBreakdown = {
+  jobCount: 3,
+  unitCost: 5,
+  totalCredits: 15,
+  generationMode: "art_variation",
+};
+
 describe("PreviewGatePanel", () => {
   beforeEach(() => {
     recordEvent.mockClear();
@@ -39,7 +47,8 @@ describe("PreviewGatePanel", () => {
         campaignId="camp-1"
         preview={{ ...previewFixture, creditCost: 8 }}
         previewCreditsSpent={5}
-        batchCredits={15}
+        batchBreakdown={ctaBreakdown}
+        creditBalance={100}
         onApproveBatch={vi.fn()}
         onReviseRecipe={vi.fn()}
       />
@@ -49,7 +58,7 @@ describe("PreviewGatePanel", () => {
     expect(screen.getByText("creditEstimateNote")).toBeInTheDocument();
   });
 
-  it("shows batch credit cost and actions", () => {
+  it("shows batch formula, balance, and actions", () => {
     const onApprove = vi.fn();
     const onRevise = vi.fn();
 
@@ -58,13 +67,15 @@ describe("PreviewGatePanel", () => {
         campaignId="camp-1"
         preview={previewFixture}
         previewCreditsSpent={5}
-        batchCredits={15}
+        batchBreakdown={ctaBreakdown}
+        creditBalance={100}
         onApproveBatch={onApprove}
         onReviseRecipe={onRevise}
       />
     );
 
-    expect(screen.getByText(/batchCost/)).toBeInTheDocument();
+    expect(screen.getByText(/batchFormulaCta/)).toBeInTheDocument();
+    expect(screen.getByText(/balanceRemaining/)).toBeInTheDocument();
     expect(screen.getByText(/previewSpent/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("approveBatch"));
@@ -74,13 +85,90 @@ describe("PreviewGatePanel", () => {
     expect(onRevise).toHaveBeenCalled();
   });
 
+  it("shows format formula for format_adaptation mode", () => {
+    render(
+      <PreviewGatePanel
+        campaignId="camp-1"
+        preview={previewFixture}
+        previewCreditsSpent={5}
+        batchBreakdown={{
+          jobCount: 2,
+          unitCost: 5,
+          totalCredits: 10,
+          generationMode: "format_adaptation",
+        }}
+        creditBalance={50}
+        onApproveBatch={vi.fn()}
+        onReviseRecipe={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText(/batchFormulaFormat/)).toBeInTheDocument();
+  });
+
+  it("disables approve when balance is insufficient", () => {
+    render(
+      <PreviewGatePanel
+        campaignId="camp-1"
+        preview={previewFixture}
+        previewCreditsSpent={5}
+        batchBreakdown={ctaBreakdown}
+        creditBalance={10}
+        onApproveBatch={vi.fn()}
+        onReviseRecipe={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText(/insufficientCredits/)).toBeInTheDocument();
+    expect(screen.getByText("approveBatch")).toBeDisabled();
+  });
+
+  it("disables approve while balance is loading", () => {
+    render(
+      <PreviewGatePanel
+        campaignId="camp-1"
+        preview={previewFixture}
+        previewCreditsSpent={5}
+        batchBreakdown={ctaBreakdown}
+        onApproveBatch={vi.fn()}
+        onReviseRecipe={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("balanceLoading")).toBeInTheDocument();
+    expect(screen.getByText("approveBatch")).toBeDisabled();
+  });
+
+  it("disables approve when jobCount is zero", () => {
+    render(
+      <PreviewGatePanel
+        campaignId="camp-1"
+        preview={previewFixture}
+        previewCreditsSpent={5}
+        batchBreakdown={{
+          jobCount: 0,
+          unitCost: 5,
+          totalCredits: 0,
+          generationMode: "format_adaptation",
+        }}
+        creditBalance={100}
+        onApproveBatch={vi.fn()}
+        onReviseRecipe={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("batchCostPending")).toBeInTheDocument();
+    expect(screen.getByText("approveBatch")).toBeDisabled();
+  });
+
   it("emits cockpit_stage_entered on mount", () => {
     render(
       <PreviewGatePanel
         campaignId="camp-1"
         preview={previewFixture}
         previewCreditsSpent={5}
-        batchCredits={15}
+        batchBreakdown={ctaBreakdown}
+        creditBalance={100}
         onApproveBatch={vi.fn()}
         onReviseRecipe={vi.fn()}
       />
@@ -96,7 +184,8 @@ describe("PreviewGatePanel", () => {
         campaignId="camp-1"
         preview={previewFixture}
         previewCreditsSpent={5}
-        batchCredits={15}
+        batchBreakdown={ctaBreakdown}
+        creditBalance={100}
         onApproveBatch={onApprove}
         onReviseRecipe={vi.fn()}
       />
@@ -119,7 +208,8 @@ describe("PreviewGatePanel", () => {
         campaignId="camp-1"
         preview={previewFixture}
         previewCreditsSpent={5}
-        batchCredits={15}
+        batchBreakdown={ctaBreakdown}
+        creditBalance={100}
         onApproveBatch={vi.fn()}
         onReviseRecipe={onRevise}
       />

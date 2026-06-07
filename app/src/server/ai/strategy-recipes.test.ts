@@ -6,7 +6,9 @@ import {
   rankRecipesForContext,
   countDerivationJobs,
   estimateCreditCost,
+  getBatchCreditBreakdown,
   toCampaignPatch,
+  type RecipeGenerationConfig,
   type RecipeSuggestionContext,
 } from "./strategy-recipes";
 import type { CreativeReadinessResult } from "./creative-readiness";
@@ -126,6 +128,51 @@ describe("strategy-recipes", () => {
     });
     expect(estimateCreditCost(config, { preview: true })).toBe(5);
     expect(estimateCreditCost(config)).toBe(15);
+  });
+
+  it("getBatchCreditBreakdown returns mode-aware job counts", () => {
+    const ctaConfig = mapRecipeToGenerationConfig("performance_push", {
+      campaign: { ctaVariants: ["A", "B", "C"] },
+    });
+    expect(getBatchCreditBreakdown(ctaConfig)).toEqual({
+      jobCount: 3,
+      unitCost: 5,
+      totalCredits: 15,
+      generationMode: "art_variation",
+    });
+
+    const formatConfig: RecipeGenerationConfig = {
+      generationMode: "format_adaptation",
+      creativeLevel: "balanced",
+      ctaVariants: [],
+      targetFormats: ["1:1", "9:16"],
+      preservationEmphasis: "medium",
+    };
+    expect(getBatchCreditBreakdown(formatConfig)).toEqual({
+      jobCount: 2,
+      unitCost: 5,
+      totalCredits: 10,
+      generationMode: "format_adaptation",
+    });
+  });
+
+  it("getBatchCreditBreakdown returns zero jobs for empty CTAs or formats", () => {
+    const emptyCtas: RecipeGenerationConfig = {
+      generationMode: "art_variation",
+      creativeLevel: "balanced",
+      ctaVariants: [],
+      preservationEmphasis: "medium",
+    };
+    expect(getBatchCreditBreakdown(emptyCtas).totalCredits).toBe(0);
+
+    const emptyFormats: RecipeGenerationConfig = {
+      generationMode: "format_adaptation",
+      creativeLevel: "balanced",
+      ctaVariants: [],
+      targetFormats: [],
+      preservationEmphasis: "medium",
+    };
+    expect(getBatchCreditBreakdown(emptyFormats).jobCount).toBe(0);
   });
 
   it("produces campaign patch shape", () => {

@@ -7,6 +7,7 @@ import { CheckCircle2, Coins, Pencil, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useRecordBetaEvent } from "@/lib/hooks/use-record-beta-event";
+import type { BatchCreditBreakdown } from "@/server/ai/strategy-recipes";
 
 interface PreviewDerivation {
   id: string;
@@ -22,7 +23,8 @@ interface PreviewGatePanelProps {
   campaignId: string;
   preview: PreviewDerivation;
   previewCreditsSpent: number;
-  batchCredits: number;
+  batchBreakdown: BatchCreditBreakdown;
+  creditBalance?: number;
   isApproving?: boolean;
   className?: string;
   onReviseRecipe: () => void;
@@ -33,7 +35,8 @@ export default function PreviewGatePanel({
   campaignId,
   preview,
   previewCreditsSpent,
-  batchCredits,
+  batchBreakdown,
+  creditBalance,
   isApproving,
   className,
   onReviseRecipe,
@@ -45,6 +48,20 @@ export default function PreviewGatePanel({
   const spentCredits = preview.creditCost ?? previewCreditsSpent;
 
   const STAGE_PROPS = { stage: "preview", missionKey: "preview" } as const;
+
+  const { jobCount, unitCost, totalCredits, generationMode } = batchBreakdown;
+
+  const insufficient =
+    typeof creditBalance === "number" &&
+    totalCredits > 0 &&
+    creditBalance < totalCredits;
+
+  const approveDisabled =
+    isApproving ||
+    isGenerating ||
+    jobCount === 0 ||
+    creditBalance === undefined ||
+    insufficient;
 
   useEffect(() => {
     recordEvent("cockpit_stage_entered", STAGE_PROPS);
@@ -59,6 +76,11 @@ export default function PreviewGatePanel({
     recordEvent("cockpit_stage_abandoned", STAGE_PROPS);
     onReviseRecipe();
   };
+
+  const batchFormulaKey =
+    generationMode === "format_adaptation"
+      ? "batchFormulaFormat"
+      : "batchFormulaCta";
 
   return (
     <div
@@ -111,11 +133,32 @@ export default function PreviewGatePanel({
         <Coins className="size-4 text-[var(--accent-green-text)]" />
         <div className="flex-1 space-y-1">
           <p>{t("previewSpent", { credits: spentCredits })}</p>
-          <p className="font-medium text-[var(--text-primary)]">
-            {batchCredits > 0
-              ? t("batchCost", { credits: batchCredits })
-              : t("batchCostPending")}
+          <p className="text-[var(--text-secondary)]">
+            {typeof creditBalance === "number"
+              ? t("balanceRemaining", { balance: creditBalance })
+              : t("balanceLoading")}
           </p>
+          {jobCount > 0 ? (
+            <p className="font-medium text-[var(--text-primary)]">
+              {t(batchFormulaKey, {
+                count: jobCount,
+                unit: unitCost,
+                total: totalCredits,
+              })}
+            </p>
+          ) : (
+            <p className="font-medium text-[var(--text-primary)]">
+              {t("batchCostPending")}
+            </p>
+          )}
+          {insufficient && (
+            <p className="text-[var(--destructive)]">
+              {t("insufficientCredits", {
+                estimate: totalCredits,
+                balance: creditBalance,
+              })}
+            </p>
+          )}
           <p className="text-[var(--text-muted)]">{t("creditEstimateNote")}</p>
         </div>
       </div>
@@ -133,7 +176,7 @@ export default function PreviewGatePanel({
         <Button
           className="flex-1"
           onClick={handleApproveBatch}
-          disabled={isApproving || isGenerating}
+          disabled={approveDisabled}
         >
           {isApproving ? (
             <Sparkles className="mr-2 size-4 animate-spin" />

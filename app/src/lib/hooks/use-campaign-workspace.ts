@@ -23,7 +23,8 @@ import {
 } from "@/lib/derivation-regeneration-feedback";
 import { useTranslations } from "next-intl";
 import {
-  estimateCreditCost,
+  getBatchCreditBreakdown,
+  type BatchCreditBreakdown,
   type RecipeGenerationConfig,
 } from "@/server/ai/strategy-recipes";
 import { shouldShowPreviewGate } from "@/server/ai/preview-gate";
@@ -372,24 +373,34 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
     [allDerivations]
   );
 
-  const batchCreditEstimate = useMemo(() => {
-    if (!campaign) return 0;
-    const config: RecipeGenerationConfig = {
-      generationMode:
-        campaign.generationMode === "format_adaptation"
-          ? "format_adaptation"
-          : "art_variation",
+  const batchRecipeConfig = useMemo((): RecipeGenerationConfig | null => {
+    if (!campaign) return null;
+    const generationMode =
+      campaign.generationMode === "format_adaptation"
+        ? "format_adaptation"
+        : "art_variation";
+    return {
+      generationMode,
       creativeLevel:
         (campaign.creativeLevel as RecipeGenerationConfig["creativeLevel"]) ??
         "balanced",
       ctaVariants: (campaign.ctaVariants ?? [])
         .map((cta) => cta.trim())
         .filter(Boolean),
-      targetFormats: campaign.targetFormats ?? ["1:1", "4:5", "9:16"],
+      targetFormats:
+        generationMode === "format_adaptation"
+          ? (campaign.targetFormats ?? [])
+          : undefined,
       preservationEmphasis: "medium",
     };
-    return estimateCreditCost(config);
   }, [campaign]);
+
+  const batchCreditBreakdown = useMemo((): BatchCreditBreakdown | null => {
+    if (!batchRecipeConfig) return null;
+    return getBatchCreditBreakdown(batchRecipeConfig);
+  }, [batchRecipeConfig]);
+
+  const batchCreditEstimate = batchCreditBreakdown?.totalCredits ?? 0;
 
   const hasActivePreview = Boolean(previewDerivation);
 
@@ -622,6 +633,7 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
     previewDerivation,
     showPreviewGate,
     batchCreditEstimate,
+    batchCreditBreakdown,
     approvePreviewToBatch,
     handlePreview,
     handleCloseReview,

@@ -16,10 +16,10 @@ v11.9 reduces credit surprises and delivery friction (approval package, share li
 
 ### Créditos (CRED)
 
-- [ ] **CRED-01**: User sees credit estimate breakdown before confirming batch derivation.
-- [ ] **CRED-02**: Batch gate blocks with clear reason when balance is insufficient (estimate vs balance).
+- [x] **CRED-01**: User sees credit estimate breakdown before confirming batch derivation.
+- [x] **CRED-02**: Batch gate blocks with clear reason when balance is insufficient (estimate vs balance).
 - [ ] **CRED-03**: `credit_spend` / `credit_blocked` events include `operation_key` and estimate vs actual delta when applicable.
-- [ ] **CRED-04**: Preview gate shows credits already spent plus estimate disclaimer (extends v11.8 F-01).
+- [x] **CRED-04**: Preview gate shows credits already spent plus estimate disclaimer (extends v11.8 F-01).
 
 ### Entrega (DELIV)
 
@@ -42,9 +42,9 @@ v11.9 reduces credit surprises and delivery friction (approval package, share li
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CRED-01 | Phase 80 | Pending |
-| CRED-02 | Phase 80 | Pending |
-| CRED-04 | Phase 80 | Pending |
+| CRED-01 | Phase 80 | Complete |
+| CRED-02 | Phase 80 | Complete |
+| CRED-04 | Phase 80 | Complete |
 | CRED-03 | Phase 81 | Pending |
 | DELIV-01 | Phase 82 | Pending |
 | DELIV-02 | Phase 82 | Pending |

@@ -1036,8 +1036,13 @@
       "qualityVerdict": "Veredito de qualidade: {verdict}",
       "qualityScore": "Score de qualidade: {score}",
       "previewSpent": "Prévia gastou: {credits} créditos",
+      "balanceRemaining": "Saldo: {balance} créditos",
+      "balanceLoading": "Saldo: —",
       "batchCost": "O lote completo usará {credits} créditos",
+      "batchFormulaCta": "{count} CTAs × {unit} créditos = {total}",
+      "batchFormulaFormat": "{count} formatos × {unit} créditos = {total}",
       "batchCostPending": "Estimativa do lote carrega da sua receita…",
+      "insufficientCredits": "Estimativa {estimate} · saldo {balance}",
       "creditEstimateNote": "Estimativas podem diferir do gasto real — confira créditos após a prévia antes de aprovar o lote.",
       "reviseRecipe": "Revisar receita",
       "approveBatch": "Aprovar e enfileirar lote"

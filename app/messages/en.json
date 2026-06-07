@@ -1036,8 +1036,13 @@
       "qualityVerdict": "Quality verdict: {verdict}",
       "qualityScore": "Quality score: {score}",
       "previewSpent": "Preview spent: {credits} credits",
+      "balanceRemaining": "Balance: {balance} credits",
+      "balanceLoading": "Balance: —",
       "batchCost": "Full batch will use {credits} credits",
+      "batchFormulaCta": "{count} CTAs × {unit} credits = {total}",
+      "batchFormulaFormat": "{count} formats × {unit} credits = {total}",
       "batchCostPending": "Batch estimate loads from your recipe…",
+      "insufficientCredits": "Estimate {estimate} · balance {balance}",
       "creditEstimateNote": "Estimates may differ from actual spend — check credits after preview before approving batch.",
       "reviseRecipe": "Revise recipe",
       "approveBatch": "Approve and queue batch"
