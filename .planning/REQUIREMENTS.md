@@ -12,7 +12,7 @@ v11.8 validates the cockpit + Ads Scientist progression with operator-run beta s
 ### Instrumentation
 
 - [x] **INST-01**: Developer can persist sanitized product events in a workspace-scoped `product_events` table via API.
-- [ ] **INST-02**: Server emits authoritative events on readiness block, credit spend, and mission completion boundaries.
+- [x] **INST-02**: Server emits authoritative events on readiness block, credit spend, and mission completion boundaries.
 - [x] **INST-03**: Client emits stage events for guided briefing, strategy recipe, and preview gate complete/abandon transitions.
 - [x] **INST-04**: Operator can group events under a `beta_session` linked to a workspace.
 - [x] **INST-05**: Event property allowlist excludes PII (prompts, emails, free-text user content, asset URLs).
@@ -79,7 +79,7 @@ v11.8 validates the cockpit + Ads Scientist progression with operator-run beta s
 | INST-01 | Phase 75 | Complete |
 | INST-05 | Phase 75 | Complete |
 | INST-06 | Phase 75 | Complete |
-| INST-02 | Phase 76 | Pending |
+| INST-02 | Phase 76 | Complete |
 | INST-03 | Phase 76 | Complete |
 | INST-04 | Phase 76 | Complete |
 | QA-01 | Phase 76 | Pending |
