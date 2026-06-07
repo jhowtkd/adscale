@@ -14,6 +14,10 @@ vi.mock("@/server/repositories/usage", () => ({
   trackUsage: vi.fn(),
 }));
 
+vi.mock("@/server/beta-analytics/record", () => ({
+  recordBetaAnalyticsEvent: vi.fn(() => Promise.resolve({ id: "event-1" })),
+}));
+
 vi.spyOn(db, "transaction").mockImplementation(async (callback) => callback({} as never));
 
 import { db } from "@/server/db";
@@ -27,6 +31,7 @@ import {
   getUsageByIdempotencyKey,
   trackUsage,
 } from "@/server/repositories/usage";
+import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
 import { canSpend, recordUsage } from "./credits";
 
 const mockGetWorkspaceBillingAccess = vi.mocked(getWorkspaceBillingAccess);
@@ -34,6 +39,13 @@ const mockGetAvailableCreditGrants = vi.mocked(getAvailableCreditGrants);
 const mockUpdateCreditGrantRemaining = vi.mocked(updateCreditGrantRemaining);
 const mockGetUsageByIdempotencyKey = vi.mocked(getUsageByIdempotencyKey);
 const mockTrackUsage = vi.mocked(trackUsage);
+const mockRecordBetaAnalyticsEvent = vi.mocked(recordBetaAnalyticsEvent);
+
+const VALID_SESSION_ID = "550e8400-e29b-41d4-a716-446655440000";
+
+async function flushAnalytics() {
+  await new Promise((resolve) => setImmediate(resolve));
+}
 
 function paidAccess() {
   return {
@@ -204,6 +216,97 @@ describe("credit entitlement service", () => {
       { derivationId: "123", creditAmount: 5 },
       "derivation:123"
     );
+    expect(result.status).toBe("recorded");
+  });
+
+  it("emits credit_spend on successful recordUsage when userId is provided", async () => {
+    mockTrackUsage.mockResolvedValue({
+      id: "usage-1",
+      workspaceId: "workspace-1",
+      type: "image_derivation",
+      amount: 5,
+      idempotencyKey: "derivation:123",
+      metadata: { derivationId: "123", creditAmount: 5 },
+      createdAt: new Date(),
+    });
+
+    const result = await recordUsage({
+      workspaceId: "workspace-1",
+      action: "image_derivation",
+      idempotencyKey: "derivation:123",
+      userId: "user-1",
+      metadata: {
+        campaignId: "550e8400-e29b-41d4-a716-446655440001",
+        derivationId: "550e8400-e29b-41d4-a716-446655440002",
+        estimateCredits: 5,
+        betaSessionId: VALID_SESSION_ID,
+      },
+    });
+    await flushAnalytics();
+
+    expect(result.status).toBe("recorded");
+    expect(mockRecordBetaAnalyticsEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventKey: "credit_spend",
+        source: "server",
+        userId: "user-1",
+        workspaceId: "workspace-1",
+        sessionId: VALID_SESSION_ID,
+        properties: expect.objectContaining({
+          operation: "image_derivation",
+          actualCredits: 5,
+          estimateCredits: 5,
+        }),
+      })
+    );
+  });
+
+  it("emits credit_blocked when recordUsage is blocked and userId is provided", async () => {
+    mockGetAvailableCreditGrants.mockResolvedValue([grant("grant-1", 3)]);
+
+    const result = await recordUsage({
+      workspaceId: "workspace-1",
+      action: "image_derivation",
+      idempotencyKey: "derivation:blocked",
+      userId: "user-1",
+    });
+    await flushAnalytics();
+
+    expect(result.status).toBe("blocked");
+    expect(mockRecordBetaAnalyticsEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventKey: "credit_blocked",
+        source: "server",
+        userId: "user-1",
+        properties: expect.objectContaining({
+          operation: "image_derivation",
+          reasonCode: "insufficient_credits",
+          estimateCredits: 5,
+        }),
+      })
+    );
+  });
+
+  it("does not change recordUsage result when analytics emit fails", async () => {
+    mockTrackUsage.mockResolvedValue({
+      id: "usage-1",
+      workspaceId: "workspace-1",
+      type: "image_derivation",
+      amount: 5,
+      idempotencyKey: "derivation:123",
+      metadata: { creditAmount: 5 },
+      createdAt: new Date(),
+    });
+    mockRecordBetaAnalyticsEvent.mockRejectedValue(new Error("analytics down"));
+
+    const result = await recordUsage({
+      workspaceId: "workspace-1",
+      action: "image_derivation",
+      idempotencyKey: "derivation:analytics-fail",
+      userId: "user-1",
+    });
+    await flushAnalytics();
+
     expect(result.status).toBe("recorded");
   });
 });

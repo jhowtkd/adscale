@@ -55,5 +55,30 @@ describe("spendCreditsOrApiError", () => {
     expect(response?.status).toBe(402);
     expect(body.code).toBe("insufficient_credits");
   });
+
+  it("forwards userId to recordUsage for analytics emission", async () => {
+    mockRecordUsage.mockResolvedValue({
+      status: "blocked",
+      check: {
+        allowed: false,
+        amount: 5,
+        balance: 0,
+        reason: "insufficient_credits",
+      },
+    });
+
+    await spendCreditsOrApiError({
+      workspaceId: "workspace-1",
+      action: "image_derivation",
+      idempotencyKey: "test-key",
+      userId: "user-1",
+    });
+
+    expect(mockRecordUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-1",
+      })
+    );
+  });
 });
 

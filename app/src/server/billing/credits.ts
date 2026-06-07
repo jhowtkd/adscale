@@ -15,7 +15,9 @@ import { db } from "@/server/db";
 import { user } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { logger } from "@/lib/logger";
+import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
 import { createCreditTransaction } from "@/server/repositories/credit-transactions";
+import { z } from "zod";
 import {
   DEV_ADMIN_CREDIT_BALANCE,
   workspaceHasDevAdminOwner,
@@ -49,6 +51,88 @@ function creditAmount(action: CreditAction, amount?: number) {
 
 function totalRemaining(grants: Array<{ remaining: number }>) {
   return grants.reduce((total, grant) => total + grant.remaining, 0);
+}
+
+const betaSessionIdSchema = z.string().uuid();
+
+function betaSessionIdFromMetadata(
+  metadata: Record<string, unknown>
+): string | undefined {
+  const value = metadata.betaSessionId;
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const parsed = betaSessionIdSchema.safeParse(value);
+  return parsed.success ? parsed.data : undefined;
+}
+
+function derivationIdFromMetadata(metadata: Record<string, unknown>) {
+  if (typeof metadata.sourceDerivationId === "string") {
+    return metadata.sourceDerivationId;
+  }
+  if (typeof metadata.derivationId === "string") {
+    return metadata.derivationId;
+  }
+  return undefined;
+}
+
+function emitCreditBlockedAnalytics(
+  input: {
+    workspaceId: string;
+    action: CreditAction;
+    userId: string;
+    metadata?: Record<string, unknown>;
+  },
+  check: Extract<SpendCheck, { allowed: false }>
+) {
+  const meta = input.metadata ?? {};
+  void recordBetaAnalyticsEvent({
+    workspaceId: input.workspaceId,
+    userId: input.userId,
+    eventKey: "credit_blocked",
+    source: "server",
+    campaignId: typeof meta.campaignId === "string" ? meta.campaignId : undefined,
+    derivationId: derivationIdFromMetadata(meta),
+    sessionId: betaSessionIdFromMetadata(meta),
+    properties: {
+      operation: input.action,
+      reasonCode: check.reason,
+      estimateCredits: check.amount,
+    },
+  }).catch((err) => {
+    logger.warn("[recordUsage] credit_blocked analytics failed", err);
+  });
+}
+
+function emitCreditSpendAnalytics(
+  input: {
+    workspaceId: string;
+    action: CreditAction;
+    userId: string;
+    metadata?: Record<string, unknown>;
+  },
+  check: Extract<SpendCheck, { allowed: true }>
+) {
+  const meta = input.metadata ?? {};
+  void recordBetaAnalyticsEvent({
+    workspaceId: input.workspaceId,
+    userId: input.userId,
+    eventKey: "credit_spend",
+    source: "server",
+    campaignId: typeof meta.campaignId === "string" ? meta.campaignId : undefined,
+    derivationId: derivationIdFromMetadata(meta),
+    sessionId: betaSessionIdFromMetadata(meta),
+    properties: {
+      operation: input.action,
+      actualCredits: check.amount,
+      estimateCredits:
+        typeof meta.estimateCredits === "number"
+          ? meta.estimateCredits
+          : check.amount,
+    },
+  }).catch((err) => {
+    logger.warn("[recordUsage] credit_spend analytics failed", err);
+  });
 }
 
 export async function canSpend(
@@ -111,6 +195,9 @@ export async function recordUsage(input: {
 
   const check = await canSpend(input.workspaceId, input.action, input.amount);
   if (!check.allowed) {
+    if (input.userId) {
+      emitCreditBlockedAnalytics(input, check);
+    }
     return { status: "blocked" as const, check };
   }
 
@@ -144,9 +231,17 @@ export async function recordUsage(input: {
       });
     } catch (err) {
       if (err instanceof Error && err.message === "insufficient_credits") {
+        const blockedCheck = {
+          ...check,
+          allowed: false,
+          reason: "insufficient_credits" as const,
+        };
+        if (input.userId) {
+          emitCreditBlockedAnalytics(input, blockedCheck);
+        }
         return {
           status: "blocked" as const,
-          check: { ...check, allowed: false, reason: "insufficient_credits" as const },
+          check: blockedCheck,
         };
       }
       throw err;
@@ -211,6 +306,10 @@ export async function recordUsage(input: {
     } catch (notifyErr) {
       logger.warn("[recordUsage] failed to send low credits email", notifyErr);
     }
+  }
+
+  if (input.userId) {
+    emitCreditSpendAnalytics(input, check);
   }
 
   return { status: "recorded" as const, usage, check };
