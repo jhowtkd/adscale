@@ -10,15 +10,16 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Current Milestone
 
-### v11.7.1 Stabilization
+### v11.8 Loop de Aprendizado Beta
 
-**Goal:** Make the v11.7 progression loop beta-ready by restoring a clean production build, hardening data integrity, validating migrations, and completing the UAT handoff.
+**Goal:** Validar o cockpit + progressão Ads Scientist com sessões beta guiadas pelo operador, instrumentar funis e sinais acionáveis, e corrigir até 5 fricções comprovadas por evidência — sem features novas especulativas.
 
 **Target features:**
-- Fix the v11.7 build/typecheck regression introduced by mission feedback categorization.
-- Harden progression and mission insight persistence against invalid runtime data and concurrent first-load races.
-- Make mission/progression CTAs land users on the intended app surfaces.
-- Apply and verify the v11.7 progression migration, then complete the beta UAT evidence path.
+- Rodar 3–5 sessões beta guiadas pelo operador com o runbook existente e notas estruturadas por etapa.
+- Instrumentação completa: conversão de missões, abandono por etapa do cockpit, surpresas de crédito, falsos positivos de readiness.
+- Dashboard do owner em `/feedback` + progressão com sinais acionáveis, funil por coorte e export CSV.
+- Corrigir até 5 fricções priorizadas por frequência/impacto nas sessões (não expansão de escopo).
+- Responder as learning questions do v11.6 com dados reais das sessões beta.
 
 ## Requirements
 
@@ -161,12 +162,16 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 - ✓ **CRED-01–04**: Credit usage is connected to mission value, remaining allowance, and upgrade moments without dark patterns — v11.7
 - ✓ **QA-01–04**: Progression, insight capture, and credit prompts are verified with tests and a beta UAT checklist — v11.7
 
+### Validated (v11.7.1)
+
+- ✓ **STAB-01–04**: Production build, lint, focused tests, and migration checks are green for the v11.7 progression stack — v11.7.1
+- ✓ **DATA-01–03**: Mission insight and progression persistence reject invalid data and survive concurrent access — v11.7.1
+- ✓ **UX-01–02**: Progression and mission CTAs resume users into the intended workflow surface — v11.7.1
+- ✓ **UAT-01–03**: Beta operator can apply the migration, execute the v11.7 UAT path, and ship with documented evidence — v11.7.1
+
 ### Active
 
-- [ ] **STAB-01–04**: Production build, lint, focused tests, and migration checks are green for the v11.7 progression stack — v11.7.1
-- [ ] **DATA-01–03**: Mission insight and progression persistence reject invalid data and survive concurrent access — v11.7.1
-- [ ] **UX-01–02**: Progression and mission CTAs resume users into the intended workflow surface — v11.7.1
-- [ ] **UAT-01–03**: Beta operator can apply the migration, execute the v11.7 UAT path, and ship with documented evidence — v11.7.1
+_(Definindo em REQUIREMENTS.md — milestone v11.8)_
 
 ### Validated (v10.0)
 
@@ -209,9 +214,9 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Context
 
-Current state: v11.7 Ads Scientist Progression is functionally shipped but needs stabilization before beta. Review found a production build/typecheck blocker, a mission insight runtime validation gap, a non-atomic progression snapshot upsert, and mission/progression CTAs that pass `?tab=` values the campaign page does not currently consume.
+Current state: v11.7 Ads Scientist Progression and v11.7.1 Stabilization are shipped. Beta-ready after operator applies migration `0032_workspace_progression.sql`. The active direction for v11.8 is learn-before-build: operator-run beta sessions, full instrumentation of mission/cockpit/credit/readiness signals, owner dashboard with cohort funnel and CSV export, and up to 5 evidence-driven friction fixes.
 
-The active direction for v11.7.1 is beta readiness: fix the blockers, preserve the v11.7 product loop, apply migration `0032_workspace_progression.sql`, and complete the UAT evidence path before inviting testers.
+v11.6 learning questions (`67-LEARNING-QUESTIONS.md`) remain unanswered — v11.8 should produce session evidence that answers readiness, recipe/preview, delivery/credit, and progression questions before prioritizing speculative features.
 
 Marketing remains in `jhowtkd/site-adscale.git`; product feedback and owner triage live in ADScale_2 at `/feedback` for platform owners.
 
@@ -219,7 +224,7 @@ Migration `app/drizzle/0027_fine_morlun.sql` (Drizzle journal idx 27) must be ap
 
 Prior milestones delivered the strategy cockpit (v11.6), beta feedback capture (v11.4), presentation site separation (v11.3), beta entitlements (v11.2), generation quality gates (v11.1), coherent derivation flows (v11.0), and the full MVP through v10 UI polish.
 
-Current verification status before v11.7.1: lint passes with warnings and the focused progression/missions/insights tests pass, but `npm run build` fails on a TypeScript exhaustiveness error introduced by the new `mission` feedback category.
+Current verification status: build, lint (64 warnings accepted), and focused progression/missions/insights tests pass. Live migration apply and external beta cohort invite remain operator steps documented in v11.7.1 handoff.
 
 Key stack decisions:
 - Next.js App Router, React, TypeScript, Tailwind, shadcn/ui
@@ -256,7 +261,8 @@ Key stack decisions:
 | Strategy cockpit over isolated tools | Existing AI modules should be orchestrated into one decision path before adding new surface area | ✓ Good — v11.6 |
 | Operator smoke before beta ship | Automated tests passed, but deployed browser evidence is still the release gate | ✓ Good — v11.6.1 |
 | Progression as activation, not decoration | Beta users should learn by completing real creative tasks that generate insight and consume credits transparently | ✓ Good — v11.7 |
-| Stabilization before beta expansion | Activation mechanics should not enter beta while build, persistence, and UAT gates are still uncertain | Active — v11.7.1 |
+| Stabilization before beta expansion | Activation mechanics should not enter beta while build, persistence, and UAT gates are still uncertain | ✓ Good — v11.7.1 |
+| Learn before build | Instrument and run operator beta sessions before adding speculative cockpit or progression features | Active — v11.8 |
 
 ## Evolution
 
@@ -381,7 +387,7 @@ This document evolves at phase transitions and milestone boundaries.
 
 ## Next Milestone Goals
 
-- v11.7 Ads Scientist Progression: status ladder, guided missions, contextual insight capture, credit-aware activation, and beta UAT evidence.
+- v11.8 Loop de Aprendizado Beta: operator sessions, full instrumentation, owner dashboard, evidence-driven friction fixes.
 
 ---
-*Last updated: 2026-06-06 after v11.7.1 milestone initialization*
+*Last updated: 2026-06-07 after v11.8 milestone initialization*
