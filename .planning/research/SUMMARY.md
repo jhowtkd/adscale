@@ -31,6 +31,20 @@ v11.8 should **not** add third-party analytics or new AI behavior. Extend the ex
 4. Owner dashboard + CSV + learning template (Phase 78)
 5. Evidence-ranked friction fixes + verification (Phase 79)
 
+## Cross-research consensus (4 agents)
+
+- **Measurement gap, not product gap** — v11.7 ships missions, insights, and triage; v11.8 adds stage-level funnel data the learning questions require.
+- **Two lanes of truth** — quantitative events (`product_events`) separate from qualitative `feedback_reports` / mission insights; never merge into one “health” score.
+- **Reuse before adding** — `usage_events` for credit debits, `workspace_progression` for completion ground truth, `recharts` + TanStack Query on `/feedback`; inference alone cannot measure abandonment.
+- **Operator bias** — capture `session_id` and `assistance_level` (hands-on vs observe) so guided sessions don't inflate conversion.
+- **Critical path** — instrument → dashboard/export → ≥3 sessions → learning answers → ≤5 evidence fixes.
+
+## Open questions (discuss in Phase 75)
+
+- Table name: `product_events` vs `beta_analytics_events` (same shape; pick one in schema phase).
+- Cohort tagging: workspace metadata vs `beta_sessions.cohortLabel` only.
+- `readiness_overridden` as distinct event for Q1 false-positive analysis.
+
 ## Watch out for
 
 - Starting beta sessions before events exist in production DB

@@ -2,6 +2,7 @@
 
 ## Milestones
 
+- 🎯 **v11.8 Loop de Aprendizado Beta** - Phases 75-79 (planning)
 - ✅ **v11.7.1 Stabilization** - Phases 72-74 (shipped 2026-06-07)
 - ✅ **v11.7 Ads Scientist Progression** - Phases 68-71 (shipped 2026-06-06)
 - ✅ **v11.6.1 Ship Readiness and Beta Activation** - Phases 66-67 (shipped 2026-06-06)
@@ -14,6 +15,20 @@
 - ✅ **v11.0 Fluxos de Derivação Coerentes** - Phases 40-43 (shipped 2026-06-01)
 
 ## Phases
+
+### 🎯 v11.8 Loop de Aprendizado Beta (Phases 75-79)
+
+**v11.8 Beta Learning Loop** — operator-run sessions, full instrumentation, owner funnel analytics, and evidence-driven friction fixes.
+
+| # | Phase | Goal | Requirements | Success Criteria |
+|---|-------|------|--------------|------------------|
+| 75 | Event Schema and Ingest Foundation | Durable first-party product events with PII-safe ingest | INST-01, INST-05, INST-06 | 4 |
+| 76 | Cockpit and Mission Instrumentation | Authoritative server + client stage events for funnel | INST-02, INST-03, INST-04, QA-01 | 5 |
+| 77 | Operator Beta Sessions | Runbook-guided sessions with structured operator notes | SESS-01, SESS-02, SESS-03, SESS-04 | 5 |
+| 78 | Owner Analytics Dashboard and CSV | Funnel views, credit/readiness signals, export | DASH-01, DASH-02, DASH-03, DASH-04, DASH-05, LEARN-01, LEARN-02, QA-02 | 6 |
+| 79 | Evidence-Driven Friction Fixes | Ship ≤5 proven fixes and finalize learning gate | FIX-01, FIX-02, FIX-03, FIX-04, FIX-05, LEARN-03, QA-03 | 5 |
+
+**26 requirements** | **5 phases** | Learn before build — no speculative features
 
 ### ✅ v11.7.1 Stabilization (Phases 72-74) — SHIPPED 2026-06-07
 
@@ -28,6 +43,81 @@
 **12 requirements** | **3 phases** | Stabilization-only scope before beta
 
 ## Phase Details
+
+### Phase 75: Event Schema and Ingest Foundation
+
+**Goal:** Create the durable event layer for beta learning without third-party analytics.
+
+**Requirements:** INST-01, INST-05, INST-06
+
+**Success Criteria:**
+1. `product_events` and `beta_sessions` tables exist with Drizzle migration applied.
+2. `POST /api/analytics/events` validates workspace membership and sanitizes property allowlist.
+3. Disallowed properties (prompts, emails, free-text) are rejected with tests.
+4. Events are queryable by `workspace_id`, `session_id`, `event_key`, and timestamp.
+
+**Depends on:** v11.7.1 stabilization shipped; existing feedback sanitization patterns.
+
+### Phase 76: Cockpit and Mission Instrumentation
+
+**Goal:** Emit authoritative funnel signals across cockpit stages, missions, and credit boundaries.
+
+**Requirements:** INST-02, INST-03, INST-04, QA-01
+
+**Success Criteria:**
+1. Server records events on readiness block, credit spend, and mission completion.
+2. Client records briefing, recipe, and preview gate complete/abandon transitions.
+3. Events can be grouped under an active `beta_session` for the target workspace.
+4. Integration tests prove events on readiness block and mission completion paths.
+5. Instrumentation smoke shows events in DB before operator session 1.
+
+**Depends on:** Phase 75.
+
+### Phase 77: Operator Beta Sessions
+
+**Goal:** Execute 3–5 operator-guided beta sessions with structured evidence per runbook stage.
+
+**Requirements:** SESS-01, SESS-02, SESS-03, SESS-04
+
+**Success Criteria:**
+1. Operator can start/end sessions and attach per-stage notes tied to `67-BETA-RUNBOOK.md`.
+2. At least 3 complete happy-path sessions are documented with workspace and session IDs.
+3. Session artifacts capture blockers, stage completion, and links to feedback reports where filed.
+4. Sessions run only after Phase 76 instrumentation smoke passes.
+5. Session summary artifact exists for dashboard and learning phases.
+
+**Depends on:** Phase 76.
+
+### Phase 78: Owner Analytics Dashboard and CSV
+
+**Goal:** Give the platform owner actionable funnel views and export without a BI stack.
+
+**Requirements:** DASH-01, DASH-02, DASH-03, DASH-04, DASH-05, LEARN-01, LEARN-02, QA-02
+
+**Success Criteria:**
+1. Owner sees mission conversion funnel and cockpit stage funnel on `/feedback` analytics surface.
+2. Credit surprise and readiness override signals are visible with session context.
+3. CSV export matches on-screen funnel totals for the selected date/session filter.
+4. Non-platform-owner users receive 403 on analytics and export routes.
+5. Draft learning-answers document addresses all 10 questions with data citations from sessions.
+6. Owner can correlate frustration signals with existing feedback triage list.
+
+**Depends on:** Phases 75–77 (events and sessions must exist).
+
+### Phase 79: Evidence-Driven Friction Fixes
+
+**Goal:** Ship up to 5 surgical fixes ranked by session evidence and close the v11.8 learning gate.
+
+**Requirements:** FIX-01, FIX-02, FIX-03, FIX-04, FIX-05, LEARN-03, QA-03
+
+**Success Criteria:**
+1. Ranked friction backlog exists with frequency/impact scores from session data.
+2. Up to 5 fixes ship, each citing session/event evidence — no new AI models or cockpit modules.
+3. Each fix has regression test or verification artifact.
+4. Deferred issues are captured in v11.9 backlog document.
+5. Learning-answers doc finalizes v11.9 direction per `67-LEARNING-QUESTIONS.md` decision gate.
+
+**Depends on:** Phases 77–78.
 
 ### Phase 72: Build and Data Integrity Hardening
 
@@ -114,6 +204,11 @@ Archive: [v11.6-ROADMAP.md](milestones/v11.6-ROADMAP.md) · [v11.6-REQUIREMENTS.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 | ----- | --------- | -------------- | ------ | --------- |
+| 75 | v11.8 | 0/0 | Not started | — |
+| 76 | v11.8 | 0/0 | Not started | — |
+| 77 | v11.8 | 0/0 | Not started | — |
+| 78 | v11.8 | 0/0 | Not started | — |
+| 79 | v11.8 | 0/0 | Not started | — |
 | 72 | v11.7.1 | 2/2 | Complete | 2026-06-07 |
 | 73 | v11.7.1 | 1/1 | Complete | 2026-06-07 |
 | 74 | v11.7.1 | 1/1 | Complete | 2026-06-07 |
@@ -134,4 +229,4 @@ Archive: [v11.6-ROADMAP.md](milestones/v11.6-ROADMAP.md) · [v11.6-REQUIREMENTS.
 | 60 | v11.5 | 4/4 | Complete | 2026-06-05 |
 
 ---
-*Roadmap updated: 2026-06-06 after v11.7.1 milestone initialization*
+*Roadmap updated: 2026-06-07 after v11.8 milestone initialization*
