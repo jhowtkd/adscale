@@ -1,52 +1,53 @@
 ---
 gsd_state_version: 1.0
-milestone: v11.7.1
-milestone_name: Stabilization
-status: ready_for_phase_planning
-last_updated: "2026-06-07T00:20:31.713Z"
-last_activity: 2026-06-07 - Phase 72 complete, ready for Phase 73
+milestone: v11.7
+milestone_name: milestone
+status: Milestone shipped (operator migration gate before external beta)
+last_updated: "2026-06-07T02:15:30.360Z"
+last_activity: 2026-06-07 - Autonomous execution completed phases 73-74
 progress:
   total_phases: 3
-  completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
+  completed_phases: 3
+  total_plans: 4
+  completed_plans: 6
 ---
 
 # State: ADScale
 
 ## Current Position
 
-Milestone: v11.7.1 - Stabilization
-Phase: 73 - Mission Resume UX
-Plan: -
-Status: Ready for phase planning
-Last activity: 2026-06-07 - Phase 72 complete
+Milestone: v11.7.1 - Stabilization — **COMPLETE**
+Phase: 74 - Migration, UAT, and Beta Handoff
+Status: Milestone shipped (operator migration gate before external beta)
+Last activity: 2026-06-07 - Autonomous execution completed phases 73-74
 
-**Last session:** 2026-06-07T00:15:45.085Z
-**Resume File:** .planning/phases/72-build-and-data-integrity-hardening/72-VERIFICATION.md
+**Last session:** 2026-06-07T02:15:30.356Z
+**Resume File:** .planning/phases/72-build-and-data-integrity-hardening/72-CONTEXT.md
+
+## Milestone Outcome
+
+v11.7.1 Stabilization passed with caveats. All 12 requirements met in code and automated tests. Beta-ready after operator applies migration `0032_workspace_progression.sql`.
 
 ## Accumulated Context
 
-- v11.6 cockpit shipped and archived to `.planning/milestones/v11.6-*`.
-- v11.6.1 completed production smoke, deploy evidence, archive, beta runbook, and learning questions.
-- Beta runbook: `.planning/phases/67-milestone-archive-and-beta-runbook/67-BETA-RUNBOOK.md`.
-- Learning questions: `.planning/phases/67-milestone-archive-and-beta-runbook/67-LEARNING-QUESTIONS.md`.
-- Product direction from user: create a milestone/status system where users start as "Jovem Aprendiz" and progress toward "Cientista de Ads" by learning and using the app's core functions.
-- v11.7 Ads Scientist Progression completed phases 68-71, including progression state, guided missions, mission insight capture, and credit-aware missions.
-- Review before beta found stabilization blockers: `npm run build` fails on missing `"mission"` feedback category label, mission insight `missionKey` lacks runtime validation, progression snapshot upsert is non-atomic under concurrent first access, and mission/progression `?tab=` CTAs are not consumed by the campaign workspace page.
-- Required migration before beta: `app/drizzle/0032_workspace_progression.sql`.
-- Required UAT before beta: `.planning/phases/71-credit-activation-and-verification/71-UAT-EVIDENCE.md`.
-- Pre-existing test drift: `creative-quality-gate-orchestration.test.ts` (795/797 pass) — non-blocking unless touched by this milestone.
+- v11.7.1 phases 72-74 complete: build/data integrity, mission resume UX, migration/UAT handoff.
+- Mission resume: `?tab=` deep links on `/campaigns/[id]` with scroll anchors and workspace routing.
+- Migration: `app/drizzle/0032_workspace_progression.sql` verified in-repo; live apply is operator step.
+- UAT evidence: `.planning/phases/74-migration-uat-and-beta-handoff/74-UAT-EVIDENCE.md`.
+- Milestone audit: `.planning/v11.7.1-MILESTONE-AUDIT.md`.
+- Accepted caveats: 64 lint warnings, 2 pre-existing test drift in `creative-quality-gate-orchestration.test.ts`.
 
 ## Next Steps
 
-1. Start phase 73 with `$gsd-discuss-phase 73` or `$gsd-plan-phase 73`.
-2. Make mission/progression CTAs resume into the intended campaign workflow surface.
-3. Complete phase 74 migration/UAT evidence before inviting testers.
+1. Deploy current branch to staging/production.
+2. Run `npm run db:migrate` on Render to apply migration 0032.
+3. Optional browser smoke: mission CTAs (upload, export) resume to correct surfaces.
+4. Invite beta cohort per `.planning/phases/67-milestone-archive-and-beta-runbook/67-BETA-RUNBOOK.md`.
+5. Start next milestone planning when ready (`/gsd-new-milestone`).
 
 ## Project Reference
 
 See: `.planning/PROJECT.md`
 
 **Core value:** Users go from base creative + brief to platform-ready ad variations in minutes with full creative control.
-**Current focus:** Stabilize v11.7 progression before beta activation.
+**Current focus:** Beta activation after operator migration apply.
