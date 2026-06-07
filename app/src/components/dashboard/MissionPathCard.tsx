@@ -209,13 +209,18 @@ function ActiveMissionPanel({
       <MissionCreditBanner credit={mission.credit} creditContext={creditContext} />
 
       {ctaDisabled ? (
-        <span
-          className={cn(
-            "mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg border-2 border-[var(--border-dim)] px-4 py-2.5 text-xs font-mono uppercase tracking-wider text-[var(--text-muted)]"
-          )}
-        >
-          {t("blockedCta")}
-        </span>
+        <div className="mt-4 space-y-2">
+          <span
+            className={cn(
+              "inline-flex w-full items-center justify-center gap-2 rounded-lg border-2 border-[var(--border-dim)] px-4 py-2.5 text-xs font-mono uppercase tracking-wider text-[var(--text-muted)]"
+            )}
+          >
+            {mission.blockedReason ?? t("blockedCta")}
+          </span>
+          {mission.blockedReason ? (
+            <p className="text-[10px] text-center text-[var(--text-muted)]">{t("blockedCtaHint")}</p>
+          ) : null}
+        </div>
       ) : (
         <div className="mt-4 flex flex-col gap-2">
           <Link
@@ -265,6 +270,14 @@ function MissionListItem({
           <p className="text-xs text-[var(--accent-rose)] mt-1">{mission.blockedReason}</p>
         ) : null}
       </div>
+      {mission.status === "blocked" ? (
+        <Link
+          href={mission.href}
+          className="shrink-0 text-[10px] font-mono uppercase tracking-wider text-[var(--accent-green-dark)] hover:text-[var(--accent-green)]"
+        >
+          {t(`blockedResume.${mission.key}`, { defaultValue: t("blockedResume.default") })}
+        </Link>
+      ) : null}
       {mission.status === "active" || mission.status === "upcoming" ? (
         <Link
           href={mission.href}

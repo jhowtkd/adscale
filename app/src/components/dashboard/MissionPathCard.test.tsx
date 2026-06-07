@@ -38,7 +38,13 @@ vi.mock("next-intl", () => ({
       allCompleteTitle: "Trilha completa",
       allCompleteDescription: "Voce dominou o fluxo.",
       skipMission: "Pular por agora",
+      blockedCtaHint: "Conclua o passo na campanha",
+      "blockedResume.default": "Desbloquear",
+      "blockedResume.readiness": "Ir para prontidao",
     };
+    if (key.startsWith("blockedResume.")) {
+      return labels[key] ?? labels["blockedResume.default"];
+    }
     return labels[key] ?? key;
   },
 }));
@@ -177,6 +183,31 @@ describe("MissionPathCard", () => {
     expect(screen.getByRole("link", { name: /Ver cobranca/i })).toHaveAttribute(
       "href",
       "/settings?tab=billing"
+    );
+  });
+
+  it("shows blocked resume link for blocked readiness mission", () => {
+    mockUseMissions.mockReturnValue({
+      data: {
+        missions: baseMissions,
+        activeMissionKey: "upload",
+        completedCount: 1,
+        totalCount: 11,
+        progressPercent: 9,
+        lastCalculatedAt: "2026-06-06T00:00:00.000Z",
+      },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+      isFetching: false,
+    } as ReturnType<typeof useMissions>);
+
+    render(<MissionPathCard />);
+    fireEvent.click(screen.getByRole("button", { name: /Ver trilha/i }));
+
+    expect(screen.getByRole("link", { name: /Ir para prontidao/i })).toHaveAttribute(
+      "href",
+      "/campaigns/1"
     );
   });
 
