@@ -31,3 +31,5 @@ created: 2026-06-07
 |---------|------|------|-------------|-----------|-------------------|--------|
 | T1 | 80-01 | 1 | CRED-01 | unit | `npm test -- strategy-recipes.test.ts` | pending |
 | T2 | 80-02 | 2 | CRED-01,02,04 | component | `npm test -- PreviewGatePanel.test.tsx` | pending |
+| T1b | 80-01 | 1 | CRED-01 drift | unit | format_adaptation empty formats → jobCount 0 | pending |
+| T2b | 80-02 | 2 | CRED-02 edge | component | jobCount 0 + loading balance disable approve | pending |
