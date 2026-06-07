@@ -2,7 +2,7 @@
 
 ## Milestones
 
-- 🔄 **v11.7.1 Stabilization** - Phases 72-74 (active)
+- ✅ **v11.7.1 Stabilization** - Phases 72-74 (shipped 2026-06-07)
 - ✅ **v11.7 Ads Scientist Progression** - Phases 68-71 (shipped 2026-06-06)
 - ✅ **v11.6.1 Ship Readiness and Beta Activation** - Phases 66-67 (shipped 2026-06-06)
 - ✅ **v11.6 Creative Strategy Cockpit** - Phases 61-65 (shipped 2026-06-06)
@@ -15,15 +15,15 @@
 
 ## Phases
 
-### 🔄 v11.7.1 Stabilization (Phases 72-74) — ACTIVE
+### ✅ v11.7.1 Stabilization (Phases 72-74) — SHIPPED 2026-06-07
 
 **v11.7.1 Stabilization** — beta-readiness hardening for the v11.7 progression loop.
 
 | # | Phase | Goal | Requirements | Success Criteria |
 |---|-------|------|--------------|------------------|
 | 72 | Build and Data Integrity Hardening | Restore production build and make progression/insight persistence conflict-safe | STAB-01, STAB-02, DATA-01, DATA-02, DATA-03 | 5 ✅ |
-| 73 | Mission Resume UX | Make mission/progression CTAs resume into the intended campaign workflow surface | UX-01, UX-02 | 4 |
-| 74 | Migration, UAT, and Beta Handoff | Apply/verify progression migration and complete beta UAT evidence | STAB-03, STAB-04, UAT-01, UAT-02, UAT-03 | 5 |
+| 73 | Mission Resume UX | Make mission/progression CTAs resume into the intended campaign workflow surface | UX-01, UX-02 | 4 ✅ |
+| 74 | Migration, UAT, and Beta Handoff | Apply/verify progression migration and complete beta UAT evidence | STAB-03, STAB-04, UAT-01, UAT-02, UAT-03 | 5 ✅ |
 
 **12 requirements** | **3 phases** | Stabilization-only scope before beta
 
@@ -115,8 +115,8 @@ Archive: [v11.6-ROADMAP.md](milestones/v11.6-ROADMAP.md) · [v11.6-REQUIREMENTS.
 | Phase | Milestone | Plans Complete | Status | Completed |
 | ----- | --------- | -------------- | ------ | --------- |
 | 72 | v11.7.1 | 2/2 | Complete | 2026-06-07 |
-| 73 | v11.7.1 | 0/0 | Planned | - |
-| 74 | v11.7.1 | 0/0 | Planned | - |
+| 73 | v11.7.1 | 1/1 | Complete | 2026-06-07 |
+| 74 | v11.7.1 | 1/1 | Complete | 2026-06-07 |
 | 68 | v11.7 | 2/2 | Complete | 2026-06-06 |
 | 69 | v11.7 | 2/2 | Complete | 2026-06-06 |
 | 70 | v11.7 | 2/2 | Complete | 2026-06-06 |

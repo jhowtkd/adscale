@@ -36,4 +36,17 @@ describe("applyCampaignDeepLink", () => {
     expect(goToActions).toHaveBeenCalled();
     expect(openStrategyRecipe).toHaveBeenCalled();
   });
+
+  it("routes review, export, and share to actions surface", () => {
+    const goToPilot = vi.fn();
+    const goToActions = vi.fn();
+
+    for (const tab of ["review", "export", "share"] as const) {
+      goToPilot.mockClear();
+      goToActions.mockClear();
+      applyCampaignDeepLink(tab, undefined, { goToPilot, goToActions });
+      expect(goToActions).toHaveBeenCalled();
+      expect(goToPilot).not.toHaveBeenCalled();
+    }
+  });
 });
