@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
+import { BetaSessionsPanel } from "@/components/feedback/BetaSessionsPanel";
+import { OwnerAnalyticsPanel } from "@/components/feedback/OwnerAnalyticsPanel";
 import { cn } from "@/lib/utils";
 
 type FeedbackReport = {
@@ -154,7 +156,10 @@ export default function FeedbackTriagePage() {
   const detail = detailQuery.data;
 
   return (
-    <div className="mx-auto grid max-w-6xl gap-6 px-4 py-8 lg:grid-cols-[320px_1fr]">
+    <div className="mx-auto max-w-6xl space-y-6 px-4 py-8">
+      <OwnerAnalyticsPanel />
+      <BetaSessionsPanel />
+    <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
       <section className="space-y-4">
         <div>
           <h1 className="text-xl font-semibold text-[var(--text-primary)]">
@@ -406,6 +411,7 @@ export default function FeedbackTriagePage() {
           <p className="text-sm text-[var(--text-muted)]">Loading detail…</p>
         )}
       </section>
+    </div>
     </div>
   );
 }
