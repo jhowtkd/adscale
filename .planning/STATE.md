@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v11.10
 milestone_name: Fechamento Entrega e Analytics
-status: ready_to_plan
-stopped_at: Phase 85 ready to plan
-last_updated: "2026-06-07T22:55:00Z"
-last_activity: 2026-06-07 — Roadmap created, Phase 85 ready for planning
+status: blocked
+stopped_at: Phase 89 SESS-03 — human operator sessions required
+last_updated: "2026-06-07T23:05:00Z"
+last_activity: 2026-06-07 — Phases 85–88 implemented; Phase 89 blocked on operator UAT
 progress:
   total_phases: 5
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  completed_phases: 4
+  total_plans: 4
+  completed_plans: 4
+  percent: 80
 ---
 
 # State: ADScale
@@ -22,16 +22,16 @@ See: `.planning/PROJECT.md` (updated 2026-06-07)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** Milestone v11.10 — fechamento do cluster entrega/créditos/analytics. Phase 85 ready for planning.
+**Current focus:** Milestone v11.10 — phases 85–88 shipped in code; Phase 89 SESS-03 awaiting operator sessions.
 
 ## Current Position
 
-Phase: 85 — Cockpit Instrumentation
+Phase: 89 — SESS-03 Operator UAT
 Plan: —
-Status: Ready to plan
-Last activity: 2026-06-07 — Roadmap created (phases 85–89), 14/14 requirements mapped
+Status: Blocked — human operator sessions required
+Last activity: 2026-06-07 — Code phases 85–88 complete; awaiting ≥3 real beta sessions
 
-Progress: ░░░░░░░░░░░░░░░░░░░░ 0% (0/5 phases)
+Progress: ████████████████░░░░ 80% (4/5 phases)
 
 ## Accumulated Context
 
@@ -45,4 +45,8 @@ Progress: ░░░░░░░░░░░░░░░░░░░░ 0% (0/5 p
 ## Session Continuity
 
 Last session: 2026-06-07
-Stopped at: Roadmap created — next action: `/gsd-plan-phase 85`
+Stopped at: Phase 89 SESS-03 — complete ≥3 operator sessions per `.planning/phases/89-sess-03-operator-uat/89-SESS-03-EVIDENCE.md`
+
+## Blockers
+
+- **Phase 89 SESS-03:** Requires ≥3 real beta operator sessions with documented session IDs and learning-answer updates. Cannot be automated.

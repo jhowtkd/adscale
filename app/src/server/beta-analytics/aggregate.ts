@@ -52,12 +52,33 @@ export interface ReadinessOverrideSignal {
   note?: string;
   tags?: string[];
   eventId?: string;
+  action?: string;
   createdAt: string;
+}
+
+export interface RecipeFunnelRow {
+  recipeId: string;
+  viewedCount: number;
+  selectedCount: number;
+}
+
+export interface GuidedBriefingAbandonRow {
+  stepId: string;
+  abandonCount: number;
+}
+
+export interface CreditSpendByStageRow {
+  stage: string;
+  totalCredits: number;
+  spendCount: number;
 }
 
 export interface AnalyticsFunnelSummary {
   missionFunnel: MissionFunnelRow[];
   cockpitStageFunnel: CockpitStageFunnelRow[];
+  recipeFunnel: RecipeFunnelRow[];
+  guidedBriefingAbandonByStep: GuidedBriefingAbandonRow[];
+  creditSpendByStage: CreditSpendByStageRow[];
   creditSurprises: CreditSurpriseRow[];
   creditSurprisesByOperation: CreditSurpriseByOperationRow[];
   sessionStageTimeline: SessionStageTimelineRow[];
@@ -273,6 +294,88 @@ export function aggregateSessionStageTimeline(
   );
 }
 
+const OVERRIDE_DEDUP_WINDOW_MS = 5 * 60 * 1000;
+
+export function aggregateRecipeFunnel(
+  events: BetaAnalyticsEvent[]
+): RecipeFunnelRow[] {
+  const viewed = new Map<string, number>();
+  const selected = new Map<string, number>();
+
+  for (const event of events) {
+    const recipeId = propString(event, "recipeId");
+    if (!recipeId) continue;
+    if (event.eventKey === "recipe_tradeoff_viewed") {
+      viewed.set(recipeId, (viewed.get(recipeId) ?? 0) + 1);
+    }
+    if (event.eventKey === "recipe_selected") {
+      selected.set(recipeId, (selected.get(recipeId) ?? 0) + 1);
+    }
+  }
+
+  const keys = new Set([...viewed.keys(), ...selected.keys()]);
+  return [...keys]
+    .sort()
+    .map((recipeId) => ({
+      recipeId,
+      viewedCount: viewed.get(recipeId) ?? 0,
+      selectedCount: selected.get(recipeId) ?? 0,
+    }));
+}
+
+export function aggregateGuidedBriefingAbandonByStep(
+  events: BetaAnalyticsEvent[]
+): GuidedBriefingAbandonRow[] {
+  const counts = new Map<string, number>();
+
+  for (const event of events) {
+    if (event.eventKey !== "cockpit_stage_abandoned") continue;
+    if (propString(event, "missionKey") !== "guided_briefing") continue;
+    const stepId = propString(event, "stepId") ?? "unknown";
+    counts.set(stepId, (counts.get(stepId) ?? 0) + 1);
+  }
+
+  return [...counts.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([stepId, abandonCount]) => ({ stepId, abandonCount }));
+}
+
+export function aggregateCreditSpendByStage(
+  events: BetaAnalyticsEvent[]
+): CreditSpendByStageRow[] {
+  const totals = new Map<string, { totalCredits: number; spendCount: number }>();
+
+  for (const event of events) {
+    if (event.eventKey !== "credit_spend") continue;
+    const stage =
+      propString(event, "stage") ??
+      propString(event, "operation_key") ??
+      propString(event, "operation") ??
+      "unknown";
+    const credits = propNumber(event, "actualCredits") ?? 0;
+    const current = totals.get(stage) ?? { totalCredits: 0, spendCount: 0 };
+    current.totalCredits += credits;
+    current.spendCount += 1;
+    totals.set(stage, current);
+  }
+
+  const stageOrder = BETA_RUNBOOK_STAGES as readonly string[];
+  return [...totals.entries()]
+    .sort(([a], [b]) => {
+      const ai = stageOrder.indexOf(a as BetaRunbookStage);
+      const bi = stageOrder.indexOf(b as BetaRunbookStage);
+      if (ai === -1 && bi === -1) return a.localeCompare(b);
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    })
+    .map(([stage, value]) => ({
+      stage,
+      totalCredits: value.totalCredits,
+      spendCount: value.spendCount,
+    }));
+}
+
 export function extractReadinessBlockedEvents(
   events: BetaAnalyticsEvent[]
 ): ReadinessOverrideSignal[] {
@@ -284,9 +387,47 @@ export function extractReadinessBlockedEvents(
       workspaceId: event.workspaceId,
       stage: stageFromEvent(event),
       blockingCount: propNumber(event, "blockingCount") ?? undefined,
+      action: propString(event, "action") ?? undefined,
       eventId: event.id,
       createdAt: event.createdAt.toISOString(),
     }));
+}
+
+function dedupeReadinessOverrideSignals(
+  signals: ReadinessOverrideSignal[]
+): ReadinessOverrideSignal[] {
+  const kept: ReadinessOverrideSignal[] = [];
+  const eventOverrideKeys = new Set<string>();
+
+  for (const signal of signals) {
+    if (signal.kind === "event" && signal.action === "overridden") {
+      const bucket = Math.floor(
+        new Date(signal.createdAt).getTime() / OVERRIDE_DEDUP_WINDOW_MS
+      );
+      const key = `${signal.sessionId}:${signal.stage}:${bucket}`;
+      if (eventOverrideKeys.has(key)) continue;
+      eventOverrideKeys.add(key);
+    }
+    kept.push(signal);
+  }
+
+  const withoutDuplicateNotes = kept.filter((signal) => {
+    if (signal.kind !== "operator_note") return true;
+    const noteTime = new Date(signal.createdAt).getTime();
+    const hasMatchingOverride = kept.some((other) => {
+      if (other.kind !== "event" || other.action !== "overridden") return false;
+      if (other.sessionId !== signal.sessionId || other.stage !== signal.stage) {
+        return false;
+      }
+      const delta = Math.abs(new Date(other.createdAt).getTime() - noteTime);
+      return delta <= OVERRIDE_DEDUP_WINDOW_MS;
+    });
+    return !hasMatchingOverride;
+  });
+
+  return withoutDuplicateNotes.sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
 }
 
 export function extractOperatorFalsePositiveNotes(
@@ -325,9 +466,7 @@ export function aggregateReadinessOverrides(
 ): ReadinessOverrideSignal[] {
   const fromEvents = extractReadinessBlockedEvents(events);
   const fromNotes = extractOperatorFalsePositiveNotes(sessions);
-  return [...fromNotes, ...fromEvents].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
+  return dedupeReadinessOverrideSignals([...fromNotes, ...fromEvents]);
 }
 
 export function buildAnalyticsFunnelSummary(
@@ -341,6 +480,9 @@ export function buildAnalyticsFunnelSummary(
   return {
     missionFunnel: aggregateMissionFunnel(events),
     cockpitStageFunnel: aggregateCockpitStageFunnel(events),
+    recipeFunnel: aggregateRecipeFunnel(events),
+    guidedBriefingAbandonByStep: aggregateGuidedBriefingAbandonByStep(events),
+    creditSpendByStage: aggregateCreditSpendByStage(events),
     creditSurprises: aggregateCreditSurprises(events),
     creditSurprisesByOperation: aggregateCreditSurprisesByOperation(events),
     sessionStageTimeline: aggregateSessionStageTimeline(events),

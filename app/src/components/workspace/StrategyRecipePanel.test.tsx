@@ -57,6 +57,28 @@ describe("StrategyRecipePanel", () => {
     );
 
     expect(recordEvent).toHaveBeenCalledWith("cockpit_stage_entered", STAGE_PROPS);
+    expect(recordEvent).toHaveBeenCalledWith("recipe_tradeoff_viewed", STAGE_PROPS);
+  });
+
+  it("emits recipe_selected when a recipe is chosen", () => {
+    render(
+      <StrategyRecipePanel
+        campaignId="camp-1"
+        open
+        campaign={{ ctaVariants: ["Buy"] }}
+        onClose={vi.fn()}
+        onOpenAdvanced={vi.fn()}
+        onGeneratePreview={vi.fn()}
+      />
+    );
+
+    recordEvent.mockClear();
+    fireEvent.click(screen.getByText("recipes.safe_iteration.name"));
+
+    expect(recordEvent).toHaveBeenCalledWith("recipe_selected", {
+      ...STAGE_PROPS,
+      recipeId: "safe_iteration",
+    });
   });
 
   it("emits cockpit_stage_completed and calls onGeneratePreview on success", () => {

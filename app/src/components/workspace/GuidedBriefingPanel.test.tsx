@@ -123,7 +123,10 @@ describe("GuidedBriefingPanel", () => {
     recordEvent.mockClear();
     fireEvent.click(screen.getByText("guidedBriefing.editAllFields"));
 
-    expect(recordEvent).toHaveBeenCalledWith("cockpit_stage_abandoned", STAGE_PROPS);
+    expect(recordEvent).toHaveBeenCalledWith("cockpit_stage_abandoned", {
+      ...STAGE_PROPS,
+      stepId: "productOffer",
+    });
     expect(onOpenFullForm).toHaveBeenCalled();
   });
 
@@ -165,6 +168,9 @@ describe("GuidedBriefingPanel", () => {
     recordEvent.mockClear();
     unmount();
 
-    expect(recordEvent).toHaveBeenCalledWith("cockpit_stage_abandoned", STAGE_PROPS);
+    expect(recordEvent).toHaveBeenCalledWith("cockpit_stage_abandoned", {
+      ...STAGE_PROPS,
+      stepId: "productOffer",
+    });
   });
 });

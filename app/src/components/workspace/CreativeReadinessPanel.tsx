@@ -4,7 +4,11 @@ import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { AlertCircle, Loader2, RefreshCw, ShieldCheck, ShieldAlert, ShieldX } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { usePreflightScore, useAnalyzePreflight } from "@/lib/hooks/use-preflight";
+import {
+  usePreflightScore,
+  useAnalyzePreflight,
+  useReadinessOverride,
+} from "@/lib/hooks/use-preflight";
 import { useRecordBetaEvent } from "@/lib/hooks/use-record-beta-event";
 import { useMissionInsightOptional } from "@/components/mission-insights/MissionInsightProvider";
 import type { ReadinessDimensionId, ReadinessStatus } from "@/server/ai/creative-readiness";
@@ -13,6 +17,7 @@ interface CreativeReadinessPanelProps {
   campaignId: string;
   assetId: string | null | undefined;
   className?: string;
+  onOverride?: () => void;
 }
 
 const DIMENSION_ORDER: ReadinessDimensionId[] = [
@@ -46,11 +51,13 @@ export default function CreativeReadinessPanel({
   campaignId,
   assetId,
   className,
+  onOverride,
 }: CreativeReadinessPanelProps) {
   const t = useTranslations("readiness");
   const missionInsight = useMissionInsightOptional();
   const { data, isLoading, isError } = usePreflightScore({ campaignId, assetId });
   const analyzePreflight = useAnalyzePreflight();
+  const readinessOverride = useReadinessOverride();
   const { recordEvent } = useRecordBetaEvent(campaignId);
   const completedRef = useRef(false);
 
@@ -104,8 +111,20 @@ export default function CreativeReadinessPanel({
         ? "failed"
         : readiness?.status ?? "pending";
 
+  const handleOverride = () => {
+    if (!assetId) return;
+    void readinessOverride
+      .mutateAsync({ campaignId, assetId })
+      .then(() => {
+        completedRef.current = true;
+        recordEvent("cockpit_stage_completed", STAGE_PROPS);
+        onOverride?.();
+      })
+      .catch(() => undefined);
+  };
+
   const handleRerun = () => {
-    void analyzePreflight.mutateAsync({ campaignId, assetId, force: true }).then((result) => {
+    void analyzePreflight.mutateAsync({ campaignId, assetId: assetId!, force: true }).then((result) => {
       if (result.readiness?.status && missionInsight) {
         missionInsight.maybePromptMissionInsight({
           moment: "readiness_first",
@@ -209,6 +228,16 @@ export default function CreativeReadinessPanel({
                   </li>
                 ))}
               </ul>
+              {(readiness.status === "blocked" || readiness.blockingIssues.length > 0) && (
+                <button
+                  type="button"
+                  onClick={handleOverride}
+                  disabled={readinessOverride.isPending}
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-[var(--accent-amber)]/40 bg-[var(--accent-amber)]/10 px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] hover:border-[var(--accent-amber)]"
+                >
+                  {t("overrideFalsePositive")}
+                </button>
+              )}
             </div>
           )}
 

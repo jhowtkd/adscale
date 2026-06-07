@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   aggregateCockpitStageFunnel,
+  aggregateCreditSpendByStage,
   aggregateCreditSurprises,
   aggregateCreditSurprisesByOperation,
+  aggregateGuidedBriefingAbandonByStep,
   aggregateMissionFunnel,
+  aggregateRecipeFunnel,
   aggregateReadinessOverrides,
   aggregateSessionStageTimeline,
   buildAnalyticsFunnelSummary,
@@ -101,12 +104,58 @@ describe("beta analytics aggregate", () => {
     ).toContain("blocking false positive");
   });
 
+  it("aggregates recipe funnel by recipeId", () => {
+    const events = [
+      {
+        ...ANALYTICS_FIXTURE_EVENTS[0]!,
+        eventKey: "recipe_tradeoff_viewed",
+        properties: { stage: "strategy_recipe", recipeId: "safe_iteration" },
+      },
+      {
+        ...ANALYTICS_FIXTURE_EVENTS[0]!,
+        id: "evt-recipe-selected",
+        eventKey: "recipe_selected",
+        properties: { stage: "strategy_recipe", recipeId: "safe_iteration" },
+      },
+    ];
+
+    expect(aggregateRecipeFunnel(events)).toEqual([
+      { recipeId: "safe_iteration", viewedCount: 1, selectedCount: 1 },
+    ]);
+  });
+
+  it("aggregates guided briefing abandon rows by stepId", () => {
+    const events = [
+      {
+        ...ANALYTICS_FIXTURE_EVENTS[0]!,
+        eventKey: "cockpit_stage_abandoned",
+        properties: {
+          stage: "guided_briefing",
+          missionKey: "guided_briefing",
+          stepId: "productOffer",
+        },
+      },
+    ];
+
+    expect(aggregateGuidedBriefingAbandonByStep(events)).toEqual([
+      { stepId: "productOffer", abandonCount: 1 },
+    ]);
+  });
+
+  it("aggregates credit spend by cockpit stage", () => {
+    const rows = aggregateCreditSpendByStage(ANALYTICS_FIXTURE_EVENTS);
+    expect(rows.some((row) => row.stage === "preview" && row.totalCredits > 0)).toBe(true);
+  });
+
   it("builds full funnel summary with totals", () => {
     const summary = buildAnalyticsFunnelSummary(ANALYTICS_FIXTURE_EVENTS);
 
     expect(summary.totals.events).toBe(ANALYTICS_FIXTURE_EVENTS.length);
     expect(summary.missionFunnel.length).toBeGreaterThan(0);
     expect(summary.cockpitStageFunnel.length).toBeGreaterThan(0);
+    expect(summary.recipeFunnel).toEqual([]);
+    expect(summary.guidedBriefingAbandonByStep).toEqual([]);
+    expect(summary.creditSpendByStage.length).toBeGreaterThan(0);
   });
 
   it("exports events as CSV rows", () => {

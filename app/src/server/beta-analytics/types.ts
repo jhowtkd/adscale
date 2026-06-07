@@ -16,6 +16,8 @@ export const ALLOWED_PROPERTY_KEYS = [
   "readinessStatus",
   "durationMs",
   "reasonCode",
+  "recipeId",
+  "stepId",
 ] as const;
 
 export type AllowedPropertyKey = (typeof ALLOWED_PROPERTY_KEYS)[number];
@@ -31,6 +33,8 @@ export const PHASE_76_BETA_EVENT_KEYS = [
   "cockpit_stage_entered",
   "cockpit_stage_completed",
   "cockpit_stage_abandoned",
+  "recipe_selected",
+  "recipe_tradeoff_viewed",
 ] as const;
 
 export type Phase76BetaEventKey = (typeof PHASE_76_BETA_EVENT_KEYS)[number];

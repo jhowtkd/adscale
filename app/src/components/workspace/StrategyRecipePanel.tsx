@@ -61,13 +61,19 @@ export default function StrategyRecipePanel({
   const t = useTranslations("strategyRecipes");
   const { recordEvent } = useRecordBetaEvent(campaignId);
   const completedRef = useRef(false);
+  const tradeoffViewedRef = useRef(false);
 
   const STAGE_PROPS = { stage: "strategy_recipe", missionKey: "strategy_recipe" } as const;
 
   useEffect(() => {
     if (!open) return;
     completedRef.current = false;
+    tradeoffViewedRef.current = false;
     recordEvent("cockpit_stage_entered", STAGE_PROPS);
+    if (!tradeoffViewedRef.current) {
+      tradeoffViewedRef.current = true;
+      recordEvent("recipe_tradeoff_viewed", STAGE_PROPS);
+    }
     return () => {
       if (!completedRef.current) {
         recordEvent("cockpit_stage_abandoned", STAGE_PROPS);
@@ -119,7 +125,13 @@ export default function StrategyRecipePanel({
                 <button
                   key={id}
                   type="button"
-                  onClick={() => recipe.selectRecipe(id)}
+                  onClick={() => {
+                    recipe.selectRecipe(id);
+                    recordEvent("recipe_selected", {
+                      ...STAGE_PROPS,
+                      recipeId: id,
+                    });
+                  }}
                   className={cn(
                     "w-full rounded-lg border p-3 text-left transition-colors",
                     selected

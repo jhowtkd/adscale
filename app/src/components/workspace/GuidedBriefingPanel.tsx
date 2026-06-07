@@ -49,14 +49,19 @@ export default function GuidedBriefingPanel({
 
   const STAGE_PROPS = { stage: "guided_briefing", missionKey: "guided_briefing" } as const;
 
+  const abandonProps = () => ({
+    ...STAGE_PROPS,
+    stepId: guided.currentStep ?? "unknown",
+  });
+
   useEffect(() => {
     recordEvent("cockpit_stage_entered", STAGE_PROPS);
     return () => {
       if (!completedRef.current) {
-        recordEvent("cockpit_stage_abandoned", STAGE_PROPS);
+        recordEvent("cockpit_stage_abandoned", abandonProps());
       }
     };
-  }, [recordEvent]);
+  }, [recordEvent, guided.currentStep]);
 
   const finishBriefing = (
     briefing: ReturnType<typeof mapGuidedAnswersToPilotBriefing>
@@ -67,7 +72,7 @@ export default function GuidedBriefingPanel({
   };
 
   const handleOpenFullForm = () => {
-    recordEvent("cockpit_stage_abandoned", STAGE_PROPS);
+    recordEvent("cockpit_stage_abandoned", abandonProps());
     onOpenFullForm();
   };
 

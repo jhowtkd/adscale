@@ -73,7 +73,6 @@ export default function PreviewGatePanel({
   };
 
   const handleReviseRecipe = () => {
-    recordEvent("cockpit_stage_abandoned", STAGE_PROPS);
     onReviseRecipe();
   };
 

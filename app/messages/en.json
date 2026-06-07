@@ -927,6 +927,7 @@
     "rerun": "Rerun readiness",
     "blockingIssues": "Blocking issues",
     "blockingBeforeDerivar": "{count, plural, one {# blocking issue — resolve before deriving} other {# blocking issues — resolve before deriving}}",
+    "overrideFalsePositive": "Override — continue anyway",
     "suggestions": "Improvements",
     "disclaimer": "Readiness reduces risk before generation but does not guarantee output quality.",
     "status": {

@@ -111,6 +111,29 @@ export default function FeedbackTriagePage() {
     enabled: Boolean(selected),
   });
 
+  const sessionsQuery = useQuery({
+    queryKey: ["beta-sessions-list"],
+    queryFn: async () => {
+      const res = await apiFetch("/api/feedback/sessions");
+      if (res.status === 403) return [];
+      if (!res.ok) throw new Error("failed");
+      const payload = (await res.json()) as {
+        sessions?: Array<{ id: string; cohortLabel: string | null; startedAt: string }>;
+      };
+      return payload.sessions ?? [];
+    },
+    retry: false,
+  });
+
+  const sessionOptions = useMemo(
+    () =>
+      (sessionsQuery.data ?? []).map((session) => ({
+        id: session.id,
+        label: session.cohortLabel ?? `Session ${session.id.slice(0, 8)}`,
+      })),
+    [sessionsQuery.data]
+  );
+
   const updateMutation = useMutation({
     mutationFn: async (payload: {
       id: string;
@@ -157,7 +180,7 @@ export default function FeedbackTriagePage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-4 py-8">
-      <OwnerAnalyticsPanel />
+      <OwnerAnalyticsPanel sessionOptions={sessionOptions} />
       <BetaSessionsPanel />
     <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
       <section className="space-y-4">

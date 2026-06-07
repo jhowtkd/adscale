@@ -58,6 +58,40 @@ export function usePreflightScore({
   });
 }
 
+async function overrideReadinessBlock(
+  campaignId: string,
+  assetId: string
+): Promise<PreflightResponse> {
+  const res = await apiFetch(`/api/campaigns/${campaignId}/assets/${assetId}/preflight`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Readiness override failed");
+  }
+  return res.json() as Promise<PreflightResponse>;
+}
+
+export function useReadinessOverride() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      campaignId,
+      assetId,
+    }: {
+      campaignId: string;
+      assetId: string;
+    }) => overrideReadinessBlock(campaignId, assetId),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["preflight", variables.campaignId, variables.assetId],
+      });
+    },
+  });
+}
+
 export function useAnalyzePreflight() {
   const queryClient = useQueryClient();
   return useMutation({

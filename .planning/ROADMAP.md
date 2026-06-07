@@ -22,19 +22,19 @@
 
 **Milestone Goal:** Fechar o cluster entrega/créditos/analytics com instrumentação cockpit restante, readiness false-positive override, owner dashboard polish, regressão verde e ≥3 sessões reais de operador com learning answers atualizados.
 
-- [ ] **Phase 85: Cockpit Instrumentation** — Recipe + briefing + preview funnel events
-- [ ] **Phase 86: Readiness Override** — False-positive override workflow + analytics
-- [ ] **Phase 87: Owner Dashboard Polish** — Timeline cap removal, credit funnel, session filter
-- [ ] **Phase 88: Regression Verification** — F-14 test fix + CI green gate
-- [ ] **Phase 89: SESS-03 Operator UAT** — ≥3 real sessions + learning answers updated
+- [x] **Phase 85: Cockpit Instrumentation** — Recipe + briefing + preview funnel events
+- [x] **Phase 86: Readiness Override** — False-positive override workflow + analytics
+- [x] **Phase 87: Owner Dashboard Polish** — Timeline cap removal, credit funnel, session filter
+- [x] **Phase 88: Regression Verification** — F-14 test fix + CI green gate
+- [ ] **Phase 89: SESS-03 Operator UAT** — ≥3 real sessions + learning answers updated (blocked — human gate)
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
-| 85 | Cockpit Instrumentation | COCK-01, COCK-02, COCK-03, COCK-04, COCK-05 | Not started | - |
-| 86 | Readiness Override | READY-06, READY-07 | Not started | - |
-| 87 | Owner Dashboard Polish | DASH-04, DASH-05, DASH-06 | Not started | - |
-| 88 | Regression Verification | QA-03, QA-04 | Not started | - |
-| 89 | SESS-03 Operator UAT | SESS-03, SESS-05 | Not started | - |
+| 85 | Cockpit Instrumentation | COCK-01, COCK-02, COCK-03, COCK-04, COCK-05 | Complete | 2026-06-07 |
+| 86 | Readiness Override | READY-06, READY-07 | Complete | 2026-06-07 |
+| 87 | Owner Dashboard Polish | DASH-04, DASH-05, DASH-06 | Complete | 2026-06-07 |
+| 88 | Regression Verification | QA-03, QA-04 | Complete | 2026-06-07 |
+| 89 | SESS-03 Operator UAT | SESS-03, SESS-05 | Blocked | - |
 
 ### ✅ v11.9 UX de Entrega e Créditos (Phases 80-84) — SHIPPED 2026-06-07
 
@@ -360,11 +360,11 @@ Archive: [v11.6-ROADMAP.md](milestones/v11.6-ROADMAP.md) · [v11.6-REQUIREMENTS.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 | ----- | --------- | -------------- | ------ | --------- |
-| 85 | v11.10 | 0/TBD | Not started | - |
-| 86 | v11.10 | 0/TBD | Not started | - |
-| 87 | v11.10 | 0/TBD | Not started | - |
-| 88 | v11.10 | 0/TBD | Not started | - |
-| 89 | v11.10 | 0/TBD | Not started | - |
+| 85 | v11.10 | 1/1 | Complete | 2026-06-07 |
+| 86 | v11.10 | 1/1 | Complete | 2026-06-07 |
+| 87 | v11.10 | 1/1 | Complete | 2026-06-07 |
+| 88 | v11.10 | 1/1 | Complete | 2026-06-07 |
+| 89 | v11.10 | 0/1 | Blocked | - |
 | 80 | v11.9 | 0/TBD | Not started | - |
 | 81 | v11.9 | 0/TBD | Not started | - |
 | 82 | v11.9 | 0/TBD | Not started | - |

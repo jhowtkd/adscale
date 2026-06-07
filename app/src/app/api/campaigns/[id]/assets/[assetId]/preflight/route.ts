@@ -78,10 +78,13 @@ type ReadinessAnalyticsContext = {
 
 function emitReadinessAnalytics(
   readiness: CreativeReadinessResult,
-  context: ReadinessAnalyticsContext
+  context: ReadinessAnalyticsContext,
+  options?: { action?: string }
 ) {
   const eventKey =
-    readiness.blockingIssues.length > 0 || readiness.status === "blocked"
+    readiness.blockingIssues.length > 0 ||
+    readiness.status === "blocked" ||
+    options?.action === "overridden"
       ? "readiness_blocked"
       : "readiness_completed";
 
@@ -97,9 +100,10 @@ function emitReadinessAnalytics(
       missionKey: "readiness",
       blockingCount: readiness.blockingIssues.length,
       readinessStatus: readiness.status,
+      ...(options?.action ? { action: options.action } : {}),
     },
   }).catch((err) => {
-    logger.warn("[preflight.POST] readiness analytics failed", err);
+    logger.warn("[preflight] readiness analytics failed", err);
   });
 }
 
@@ -195,6 +199,59 @@ export async function GET(
     });
   } catch (error) {
     return handleApiError(error, "campaigns.[id].assets.[assetId].preflight.GET");
+  }
+}
+
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string; assetId: string }> }
+) {
+  try {
+    const [{ user, workspace }, { id: campaignId, assetId }] = await Promise.all([
+      requireWorkspaceAccess(request),
+      params,
+    ]);
+    const sessionId = getBetaSessionIdFromRequest(request);
+    const analyticsContext: ReadinessAnalyticsContext = {
+      userId: user.id,
+      workspaceId: workspace.id,
+      campaignId,
+      sessionId,
+    };
+
+    const campaign = await getCampaignById(campaignId, workspace.id);
+    if (!campaign) {
+      return apiError("campaignNotFound", 404);
+    }
+
+    const asset = await getAssetWithMetadata(assetId, workspace.id);
+    if (!asset || asset.campaignId !== campaignId) {
+      return apiError("notFound", 404);
+    }
+
+    const parsed = preflightMetadataSchema.safeParse(asset.metadata);
+    if (!parsed.success || asset.analysisStatus !== "completed") {
+      return apiError("preflightNotReady", 400);
+    }
+
+    const readiness = readinessFromPreflight(
+      parsed.data.preflightResult,
+      campaign,
+      campaignId,
+      assetId,
+      parsed.data.analyzedAt,
+      "completed"
+    );
+
+    if (readiness.blockingIssues.length === 0 && readiness.status !== "blocked") {
+      return apiError("readinessNotBlocked", 400);
+    }
+
+    emitReadinessAnalytics(readiness, analyticsContext, { action: "overridden" });
+
+    return NextResponse.json({ ok: true, readiness });
+  } catch (error) {
+    return handleApiError(error, "campaigns.[id].assets.[assetId].preflight.PATCH");
   }
 }
 

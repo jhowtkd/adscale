@@ -53,12 +53,33 @@ type ReadinessOverrideSignal = {
   note?: string;
   tags?: string[];
   eventId?: string;
+  action?: string;
   createdAt: string;
+};
+
+type RecipeFunnelRow = {
+  recipeId: string;
+  viewedCount: number;
+  selectedCount: number;
+};
+
+type GuidedBriefingAbandonRow = {
+  stepId: string;
+  abandonCount: number;
+};
+
+type CreditSpendByStageRow = {
+  stage: string;
+  totalCredits: number;
+  spendCount: number;
 };
 
 type FunnelResponse = {
   missionFunnel: MissionFunnelRow[];
   cockpitStageFunnel: CockpitStageFunnelRow[];
+  recipeFunnel?: RecipeFunnelRow[];
+  guidedBriefingAbandonByStep?: GuidedBriefingAbandonRow[];
+  creditSpendByStage?: CreditSpendByStageRow[];
   creditSurprises: CreditSurpriseRow[];
   creditSurprisesByOperation: CreditSurpriseByOperationRow[];
   sessionStageTimeline: SessionStageTimelineRow[];
@@ -298,6 +319,39 @@ export function OwnerAnalyticsPanel({
 
           <div className="grid gap-4 lg:grid-cols-2">
             <FunnelTable
+              title="Recipe selection funnel"
+              headers={["Recipe", "Tradeoff viewed", "Selected", "Rate"]}
+              rows={(funnel.recipeFunnel ?? []).map((row) => [
+                row.recipeId,
+                String(row.viewedCount),
+                String(row.selectedCount),
+                row.viewedCount > 0
+                  ? `${Math.round((row.selectedCount / row.viewedCount) * 100)}%`
+                  : "—",
+              ])}
+            />
+            <FunnelTable
+              title="Guided briefing abandon by step"
+              headers={["Step", "Abandons"]}
+              rows={(funnel.guidedBriefingAbandonByStep ?? []).map((row) => [
+                row.stepId,
+                String(row.abandonCount),
+              ])}
+            />
+          </div>
+
+          <FunnelTable
+            title="Créditos por etapa"
+            headers={["Stage", "Credits spent", "Spend events"]}
+            rows={(funnel.creditSpendByStage ?? []).map((row) => [
+              row.stage,
+              String(row.totalCredits),
+              String(row.spendCount),
+            ])}
+          />
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <FunnelTable
               title="Credit surprises by operation"
               headers={["Operation", "Count", "Total Δ", "Max |Δ|"]}
               rows={(funnel.creditSurprisesByOperation ?? []).map((row) => [
@@ -328,7 +382,6 @@ export function OwnerAnalyticsPanel({
             headers={["Session", "Stage", "Completed", "Gap"]}
             rows={(funnel.sessionStageTimeline ?? [])
               .filter((row) => !sessionId || row.sessionId === sessionId)
-              .slice(0, 24)
               .map((row) => [
                 row.sessionId.slice(0, 8) + "…",
                 row.stage,
@@ -348,7 +401,7 @@ export function OwnerAnalyticsPanel({
                 </p>
               ) : (
                 <ul className="space-y-2 text-xs">
-                  {funnel.readinessOverrides.slice(0, 8).map((signal) => (
+                  {funnel.readinessOverrides.map((signal) => (
                     <li
                       key={`${signal.kind}-${signal.sessionId}-${signal.stage}-${signal.createdAt}`}
                       className={cn(
@@ -359,8 +412,12 @@ export function OwnerAnalyticsPanel({
                       )}
                     >
                       <p className="font-medium text-[var(--text-primary)]">
-                        {signal.kind === "operator_note" ? "Operator note" : "Blocked event"} ·{" "}
-                        {signal.stage}
+                        {signal.kind === "operator_note"
+                          ? "Operator note"
+                          : signal.action === "overridden"
+                            ? "Override event"
+                            : "Blocked event"}{" "}
+                        · {signal.stage}
                       </p>
                       <p className="text-[var(--text-secondary)]">
                         Session {signal.sessionId.slice(0, 8)}…

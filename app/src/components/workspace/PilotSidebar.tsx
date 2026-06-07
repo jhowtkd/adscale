@@ -24,6 +24,7 @@ interface PilotSidebarProps {
     platforms?: string;
     ctaText?: string;
   };
+  onReadinessOverride?: () => void;
 }
 
 interface BriefingRowProps {
@@ -64,6 +65,7 @@ export default function PilotSidebar({
   campaignId,
   campaign,
   briefing,
+  onReadinessOverride,
 }: PilotSidebarProps) {
   const { data: assets, isLoading } = useCampaignAssets(campaignId);
   const [imageError, setImageError] = useState(false);
@@ -177,7 +179,11 @@ export default function PilotSidebar({
       )}
 
       <div id="mission-readiness">
-        <CreativeReadinessPanel campaignId={campaignId} assetId={pilotAsset?.id} />
+        <CreativeReadinessPanel
+          campaignId={campaignId}
+          assetId={pilotAsset?.id}
+          onOverride={onReadinessOverride}
+        />
       </div>
     </aside>
   );

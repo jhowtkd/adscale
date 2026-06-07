@@ -15,6 +15,7 @@ import CreativeReadinessPanel from "@/components/workspace/CreativeReadinessPane
 
 interface PilotUploadPanelProps {
   campaignId: string;
+  onReadinessOverride?: () => void;
   onAssetUploaded: (assetId: string) => void;
   onAnalysisComplete: (analysis: {
     detectedConcept: string;
@@ -129,6 +130,7 @@ function uploadUiReducer(
 
 export default function PilotUploadPanel({
   campaignId,
+  onReadinessOverride,
   onAssetUploaded,
   onAnalysisComplete,
 }: PilotUploadPanelProps) {
@@ -331,7 +333,11 @@ export default function PilotUploadPanel({
       />
       {uploadedAssetId && (state === "reviewing" || state === "analyzing") && (
         <div id="mission-readiness">
-          <CreativeReadinessPanel campaignId={campaignId} assetId={uploadedAssetId} />
+          <CreativeReadinessPanel
+            campaignId={campaignId}
+            assetId={uploadedAssetId}
+            onOverride={onReadinessOverride}
+          />
         </div>
       )}
     </div>

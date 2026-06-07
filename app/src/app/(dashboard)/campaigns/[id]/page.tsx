@@ -205,14 +205,16 @@ export default function CampaignWorkspacePage() {
     campaignId,
     assetId: baseAsset?.id ?? null,
   });
+  const [readinessOverrideActive, setReadinessOverrideActive] = useState(false);
   const readinessBlocking = useMemo(() => {
+    if (readinessOverrideActive) return null;
     const issues = preflightData?.readiness?.blockingIssues ?? [];
     if (issues.length === 0) return null;
     return {
       blockingCount: issues.length,
       topIssue: issues[0],
     };
-  }, [preflightData?.readiness?.blockingIssues]);
+  }, [preflightData?.readiness?.blockingIssues, readinessOverrideActive]);
 
   useEffect(() => {
     if (isLoading || isNew || !campaign) return;
@@ -499,6 +501,7 @@ export default function CampaignWorkspacePage() {
         derivationsErrorKind={derivationsErrorKind}
         onRetryDerivations={() => void refetchDerivations()}
         readinessBlocking={readinessBlocking}
+        onReadinessOverride={() => setReadinessOverrideActive(true)}
       />
 
       <DerivationReviewModal
@@ -750,6 +753,7 @@ interface CampaignWorkspaceCardProps {
   derivationsErrorKind?: string | null;
   onRetryDerivations?: () => void;
   readinessBlocking?: { blockingCount: number; topIssue?: string } | null;
+  onReadinessOverride?: () => void;
 }
 
 function CampaignWorkspaceCard({
@@ -797,6 +801,7 @@ function CampaignWorkspaceCard({
   derivationsErrorKind,
   onRetryDerivations,
   readinessBlocking,
+  onReadinessOverride,
 }: CampaignWorkspaceCardProps) {
   return (
     <div
@@ -812,6 +817,7 @@ function CampaignWorkspaceCard({
               campaignId={campaignId}
               onAssetUploaded={onAssetUploaded}
               onAnalysisComplete={onAnalysisComplete}
+              onReadinessOverride={onReadinessOverride}
             />
           </div>
           <div id="mission-briefing">
@@ -872,6 +878,7 @@ function CampaignWorkspaceCard({
               platforms: analysis.suggestedPlatforms,
               ctaText: analysis.suggestedCta,
             }}
+            onReadinessOverride={onReadinessOverride}
           />
           <div className="flex-1 min-w-0 space-y-6">
             <div id="mission-recipe">

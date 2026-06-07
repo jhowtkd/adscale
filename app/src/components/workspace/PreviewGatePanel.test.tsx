@@ -201,7 +201,7 @@ describe("PreviewGatePanel", () => {
     );
   });
 
-  it("emits cockpit_stage_abandoned on revise without approve", () => {
+  it("does not emit cockpit_stage_abandoned on recipe revise", () => {
     const onRevise = vi.fn();
     render(
       <PreviewGatePanel
@@ -218,7 +218,7 @@ describe("PreviewGatePanel", () => {
     recordEvent.mockClear();
     fireEvent.click(screen.getByText("reviseRecipe"));
 
-    expect(recordEvent).toHaveBeenCalledWith("cockpit_stage_abandoned", STAGE_PROPS);
+    expect(recordEvent).not.toHaveBeenCalled();
     expect(onRevise).toHaveBeenCalled();
   });
 });

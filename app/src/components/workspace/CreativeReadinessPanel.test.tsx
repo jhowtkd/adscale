@@ -10,10 +10,16 @@ vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
 }));
 
+const mockOverrideMutateAsync = vi.fn().mockResolvedValue({ ok: true });
+
 vi.mock("@/lib/hooks/use-preflight", () => ({
   usePreflightScore: (...args: unknown[]) => mockUsePreflightScore(...args),
   useAnalyzePreflight: vi.fn(() => ({
     mutateAsync: mockMutateAsync,
+    isPending: false,
+  })),
+  useReadinessOverride: vi.fn(() => ({
+    mutateAsync: mockOverrideMutateAsync,
     isPending: false,
   })),
 }));
