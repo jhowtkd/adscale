@@ -1,15 +1,22 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { Palette, Sparkles, ArrowRight } from "lucide-react";
+import { AlertCircle, Palette, Sparkles, ArrowRight } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 // ============================================
 // Types
 // ============================================
 
+export interface ReadinessBlockingSummary {
+  blockingCount: number;
+  topIssue?: string;
+}
+
 interface ActionCardsProps {
   onDerivar: () => void;
   onEstilizar: () => void;
+  readinessBlocking?: ReadinessBlockingSummary | null;
 }
 
 interface ActionCardProps {
@@ -74,9 +81,30 @@ function ActionCard({ icon, title, description, meta, onClick }: ActionCardProps
 // Component
 // ============================================
 
-export default function ActionCards({ onDerivar, onEstilizar }: ActionCardsProps) {
+export default function ActionCards({
+  onDerivar,
+  onEstilizar,
+  readinessBlocking,
+}: ActionCardsProps) {
+  const t = useTranslations("readiness");
+
   return (
-    <div className="grid grid-cols-2 gap-3 animate-fade-in">
+    <div className="space-y-3 animate-fade-in">
+      {readinessBlocking && readinessBlocking.blockingCount > 0 ? (
+        <div
+          role="status"
+          className="rounded-lg border border-[var(--accent-rose)]/30 bg-[var(--accent-rose)]/5 px-3 py-2 text-xs text-[var(--text-secondary)]"
+        >
+          <p className="flex items-start gap-2 font-medium text-[var(--accent-rose)]">
+            <AlertCircle size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
+            {t("blockingBeforeDerivar", { count: readinessBlocking.blockingCount })}
+          </p>
+          {readinessBlocking.topIssue ? (
+            <p className="mt-1 pl-5 text-[var(--text-primary)]">{readinessBlocking.topIssue}</p>
+          ) : null}
+        </div>
+      ) : null}
+      <div className="grid grid-cols-2 gap-3">
       <ActionCard
         icon={<Palette size={20} />}
         title="Derivar criativo"
@@ -91,6 +119,7 @@ export default function ActionCards({ onDerivar, onEstilizar }: ActionCardsProps
         meta={["Estilos", "Referências", "IA"]}
         onClick={onEstilizar}
       />
+      </div>
     </div>
   );
 }
