@@ -2,6 +2,7 @@
 
 ## Milestones
 
+- 🔄 **v11.10 Fechamento Entrega e Analytics** - Phases 85-89 (in progress)
 - ✅ **v11.9 UX de Entrega e Créditos** - Phases 80-84 (shipped 2026-06-07)
 - ✅ **v11.8 Loop de Aprendizado Beta** - Phases 75-79 (shipped 2026-06-07)
 - ✅ **v11.7.1 Stabilization** - Phases 72-74 (shipped 2026-06-07)
@@ -16,6 +17,24 @@
 - ✅ **v11.0 Fluxos de Derivação Coerentes** - Phases 40-43 (shipped 2026-06-01)
 
 ## Phases
+
+### 🔄 v11.10 Fechamento Entrega e Analytics (Phases 85-89) — IN PROGRESS
+
+**Milestone Goal:** Fechar o cluster entrega/créditos/analytics com instrumentação cockpit restante, readiness false-positive override, owner dashboard polish, regressão verde e ≥3 sessões reais de operador com learning answers atualizados.
+
+- [ ] **Phase 85: Cockpit Instrumentation** — Recipe + briefing + preview funnel events
+- [ ] **Phase 86: Readiness Override** — False-positive override workflow + analytics
+- [ ] **Phase 87: Owner Dashboard Polish** — Timeline cap removal, credit funnel, session filter
+- [ ] **Phase 88: Regression Verification** — F-14 test fix + CI green gate
+- [ ] **Phase 89: SESS-03 Operator UAT** — ≥3 real sessions + learning answers updated
+
+| # | Phase | Requirements | Status | Completed |
+|---|-------|--------------|--------|-----------|
+| 85 | Cockpit Instrumentation | COCK-01, COCK-02, COCK-03, COCK-04, COCK-05 | Not started | - |
+| 86 | Readiness Override | READY-06, READY-07 | Not started | - |
+| 87 | Owner Dashboard Polish | DASH-04, DASH-05, DASH-06 | Not started | - |
+| 88 | Regression Verification | QA-03, QA-04 | Not started | - |
+| 89 | SESS-03 Operator UAT | SESS-03, SESS-05 | Not started | - |
 
 ### ✅ v11.9 UX de Entrega e Créditos (Phases 80-84) — SHIPPED 2026-06-07
 
@@ -60,6 +79,99 @@ Archive: [v11.8-ROADMAP.md](milestones/v11.8-ROADMAP.md) · [v11.8-REQUIREMENTS.
 **12 requirements** | **3 phases** | Stabilization-only scope before beta
 
 ## Phase Details
+
+### Phase 85: Cockpit Instrumentation
+
+**Goal:** Owner can observe recipe selection, tradeoff engagement, and briefing step abandonment with accurate preview funnel data — no more false abandonment signals on recipe revise.
+
+**Depends on:** Phase 84 (v11.9 regression baseline); v11.8 beta analytics foundation (types.ts allowlist pattern)
+
+**Requirements:** COCK-01, COCK-02, COCK-03, COCK-04, COCK-05
+
+**Success Criteria** (what must be TRUE):
+  1. Owner sees `recipe_tradeoff_viewed` event in the analytics dashboard when an operator opens the tradeoff section of a recipe (F-08).
+  2. Owner sees `recipe_selected` event carrying `recipeId` when an operator confirms a recipe selection (F-09).
+  3. Owner sees a recipe selection funnel aggregated by `recipeId` showing how operators choose between recipes (COCK-03).
+  4. Preview funnel no longer records a `cockpit_stage_abandoned` when the operator revises a recipe; `cockpit_stage_completed` only fires on genuine approval (F-06).
+  5. Owner sees guided briefing abandonment broken down by `stepId` so per-step drop-off is visible (F-12).
+
+**Plans:** TBD
+
+**UI hint:** yes
+
+---
+
+### Phase 86: Readiness Override
+
+**Goal:** Operators can declare a false-positive readiness block and continue the cockpit flow, with the override action generating an auditable event that owners see without inflated counts.
+
+**Depends on:** Phase 85 (event allowlist extended)
+
+**Requirements:** READY-06, READY-07
+
+**Success Criteria** (what must be TRUE):
+  1. Operator sees an override button on a blocked readiness screen and can continue the cockpit flow without resolving the flagged issue (F-11).
+  2. The override action emits a `readiness_blocked { action: "overridden" }` event from the server-side preflight route, creating an auditable record.
+  3. Owner sees readiness override signals in the analytics dashboard with accurate counts (no double-counting from both operator note and event).
+  4. A single false-positive override is counted once; deduplication by `sessionId + stage + time window` prevents inflated metrics.
+
+**Plans:** TBD
+
+---
+
+### Phase 87: Owner Dashboard Polish
+
+**Goal:** Owner dashboard displays an uncapped session stage timeline, a credit consumption funnel by cockpit stage, and a session filter populated from real API data.
+
+**Depends on:** Phase 85 (aggregateRecipeFunnel, aggregateCreditRevenueFunnel functions); Phase 82/83 v11.9 session timeline foundation
+
+**Requirements:** DASH-04, DASH-05, DASH-06
+
+**Success Criteria** (what must be TRUE):
+  1. Session stage timeline renders all stages within the default date window with no 24-line hard cap truncation.
+  2. Owner sees a "Créditos por Etapa" funnel showing credit spend mapped to cockpit stages (credit → preview → approval) without implying billing events.
+  3. Session filter dropdown on the dashboard is populated with real session IDs fetched from `/api/feedback/sessions` — not empty or fixture data.
+
+**Plans:** TBD
+
+**UI hint:** yes
+
+---
+
+### Phase 88: Regression Verification
+
+**Goal:** Test suite assertions match the current code contract and the full CI gate (test + lint + build) passes before SESS-03 operator sessions begin.
+
+**Depends on:** Phases 85–87
+
+**Requirements:** QA-03, QA-04
+
+**Success Criteria** (what must be TRUE):
+  1. `creative-quality-gate-orchestration` test assertions are aligned with the current output format — test passes without skips or `test.todo` workarounds (F-14).
+  2. `npm test` passes with no failing or unexpectedly skipped tests.
+  3. `npm run lint` and `npm run build` pass in `app/` with zero new errors introduced by the milestone.
+
+**Plans:** TBD
+
+---
+
+### Phase 89: SESS-03 Operator UAT
+
+**Goal:** Milestone closes with real operator session evidence — ≥3 documented sessions confirming instrumentation is live in production — and learning answers updated with real session IDs, not fixture UUIDs.
+
+**Depends on:** Phases 85–88 deployed to production; Phase 88 CI green
+
+**Requirements:** SESS-03, SESS-05
+
+**Success Criteria** (what must be TRUE):
+  1. Operator completes ≥3 real beta sessions with documented session IDs and runbook-stage artifacts stored in the session evidence file.
+  2. Each session smoke-checks that cockpit events (recipe_tradeoff_viewed, recipe_selected, override) appear in the owner dashboard with real data.
+  3. Learning answers for Q4 (recipe selection patterns), Q5 (preview funnel accuracy), Q6 (tradeoff readership), and the readiness override signal are updated with citations to real session IDs — no fixture UUIDs (`550e8400-…`) remain in the answers.
+  4. Session evidence file records session IDs, event counts observed, and key behavioral findings from each session.
+
+**Plans:** TBD
+
+---
 
 ### Phase 80: Credit Estimate Transparency
 
@@ -248,6 +360,11 @@ Archive: [v11.6-ROADMAP.md](milestones/v11.6-ROADMAP.md) · [v11.6-REQUIREMENTS.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 | ----- | --------- | -------------- | ------ | --------- |
+| 85 | v11.10 | 0/TBD | Not started | - |
+| 86 | v11.10 | 0/TBD | Not started | - |
+| 87 | v11.10 | 0/TBD | Not started | - |
+| 88 | v11.10 | 0/TBD | Not started | - |
+| 89 | v11.10 | 0/TBD | Not started | - |
 | 80 | v11.9 | 0/TBD | Not started | - |
 | 81 | v11.9 | 0/TBD | Not started | - |
 | 82 | v11.9 | 0/TBD | Not started | - |
@@ -278,4 +395,4 @@ Archive: [v11.6-ROADMAP.md](milestones/v11.6-ROADMAP.md) · [v11.6-REQUIREMENTS.
 | 60 | v11.5 | 4/4 | Complete | 2026-06-05 |
 
 ---
-*Roadmap updated: 2026-06-07 — v11.9 phases 80-84 added*
+*Roadmap updated: 2026-06-07 — v11.10 phases 85-89 added*

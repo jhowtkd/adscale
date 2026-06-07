@@ -1,5 +1,19 @@
 # Milestones: ADScale
 
+## v11.10 Fechamento Entrega e Analytics (In Progress)
+
+**Phases planned:** 5 phases (85→89)  
+**Requirements:** 14 requirements
+
+**Scope:**
+- Cockpit instrumentation: recipe_tradeoff_viewed, recipe_selected, briefing step abandon, preview funnel false-abandon fix
+- Readiness false-positive override workflow with auditable server-side event
+- Owner dashboard polish: uncapped session timeline, credit consumption funnel, real session filter
+- F-14 regression test fix and full CI green gate
+- SESS-03 — ≥3 real operator sessions with learning answers updated from real data
+
+---
+
 ## v11.9 UX de Entrega e Créditos (Shipped: 2026-06-07)
 
 **Phases completed:** 5 phases (80→84)  
