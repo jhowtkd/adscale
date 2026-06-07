@@ -3,6 +3,7 @@ import { apiError, handleApiError } from "@/lib/api-response";
 import { logger } from "@/lib/logger";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
+import { getBetaSessionIdFromRequest } from "@/server/beta-analytics/session";
 import { BetaEventPropertiesValidationError } from "@/server/beta-analytics/sanitize";
 import { createBetaEventBodySchema } from "@/server/beta-analytics/types";
 import { FeedbackValidationError } from "@/server/feedback/validate-refs";
@@ -28,11 +29,15 @@ export async function POST(request: Request) {
       return apiError("validation_error", 400, parsed.error.flatten());
     }
 
+    const sessionId =
+      parsed.data.sessionId ?? getBetaSessionIdFromRequest(request);
+
     const event = await recordBetaAnalyticsEvent({
       workspaceId: workspace.id,
       userId: user.id,
       source: "client",
       ...parsed.data,
+      sessionId,
     });
 
     betaAnalyticsLogger.info("beta_event.created", {

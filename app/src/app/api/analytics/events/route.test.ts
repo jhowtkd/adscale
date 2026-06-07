@@ -54,7 +54,7 @@ describe("POST /api/analytics/events", () => {
       workspaceId: "workspace-1",
       userId: "user-1",
       sessionId: null,
-      eventKey: "mission_started",
+      eventKey: "cockpit_stage_entered",
       properties: { stage: "briefing" },
       source: "client",
       campaignId: null,
@@ -65,7 +65,7 @@ describe("POST /api/analytics/events", () => {
     const res = await POST(
       createRequest(
         {
-          eventKey: "mission_started",
+          eventKey: "cockpit_stage_entered",
           properties: { stage: "briefing" },
         },
         { "x-request-id": "req-1" }
@@ -79,7 +79,7 @@ describe("POST /api/analytics/events", () => {
       workspaceId: "workspace-1",
       userId: "user-1",
       source: "client",
-      eventKey: "mission_started",
+      eventKey: "cockpit_stage_entered",
       properties: { stage: "briefing" },
       sessionId: undefined,
       campaignId: undefined,
@@ -93,7 +93,7 @@ describe("POST /api/analytics/events", () => {
       workspaceId: "workspace-1",
       userId: "user-1",
       sessionId: null,
-      eventKey: "mission_started",
+      eventKey: "cockpit_stage_entered",
       properties: {},
       source: "client",
       campaignId: null,
@@ -103,7 +103,7 @@ describe("POST /api/analytics/events", () => {
 
     await POST(
       createRequest({
-        eventKey: "mission_started",
+        eventKey: "cockpit_stage_entered",
         workspace_id: "attacker-workspace",
         workspaceId: "attacker-workspace",
       })
@@ -138,7 +138,7 @@ describe("POST /api/analytics/events", () => {
 
     const res = await POST(
       createRequest({
-        eventKey: "mission_started",
+        eventKey: "cockpit_stage_entered",
         properties: { prompt: "secret" },
       })
     );
@@ -163,12 +163,69 @@ describe("POST /api/analytics/events", () => {
 
     const res = await POST(
       createRequest({
-        eventKey: "mission_started",
+        eventKey: "cockpit_stage_entered",
         campaignId: VALID_CAMPAIGN_ID,
       })
     );
 
     expect(res.status).toBe(401);
     expect(mockRecordBetaAnalyticsEvent).not.toHaveBeenCalled();
+  });
+
+  it("uses body sessionId when present, ignoring header", async () => {
+    const bodySessionId = "550e8400-e29b-41d4-a716-446655440010";
+    const headerSessionId = "550e8400-e29b-41d4-a716-446655440011";
+
+    mockRecordBetaAnalyticsEvent.mockResolvedValue({
+      id: "event-3",
+      workspaceId: "workspace-1",
+      userId: "user-1",
+      sessionId: bodySessionId,
+      eventKey: "cockpit_stage_entered",
+      properties: {},
+      source: "client",
+      campaignId: null,
+      derivationId: null,
+      createdAt: new Date(),
+    } as never);
+
+    await POST(
+      createRequest(
+        { eventKey: "cockpit_stage_entered", sessionId: bodySessionId },
+        { "x-beta-session-id": headerSessionId }
+      )
+    );
+
+    expect(mockRecordBetaAnalyticsEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: bodySessionId })
+    );
+  });
+
+  it("falls back to x-beta-session-id header when body omits sessionId", async () => {
+    const headerSessionId = "550e8400-e29b-41d4-a716-446655440012";
+
+    mockRecordBetaAnalyticsEvent.mockResolvedValue({
+      id: "event-4",
+      workspaceId: "workspace-1",
+      userId: "user-1",
+      sessionId: headerSessionId,
+      eventKey: "cockpit_stage_entered",
+      properties: {},
+      source: "client",
+      campaignId: null,
+      derivationId: null,
+      createdAt: new Date(),
+    } as never);
+
+    await POST(
+      createRequest(
+        { eventKey: "cockpit_stage_entered" },
+        { "x-beta-session-id": headerSessionId }
+      )
+    );
+
+    expect(mockRecordBetaAnalyticsEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: headerSessionId })
+    );
   });
 });
