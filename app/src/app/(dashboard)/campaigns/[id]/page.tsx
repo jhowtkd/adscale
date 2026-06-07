@@ -872,6 +872,7 @@ function CampaignWorkspaceCard({
             </div>
             {showPreviewGate && previewDerivation && onApprovePreviewBatch && onReviseStrategyRecipe && (
               <PreviewGatePanel
+                campaignId={campaignId}
                 preview={{
                   id: previewDerivation.id,
                   name: previewDerivation.name,

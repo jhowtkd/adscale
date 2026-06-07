@@ -1,10 +1,12 @@
 "use client";
 
+import { useEffect } from "react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { CheckCircle2, Coins, Pencil, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useRecordBetaEvent } from "@/lib/hooks/use-record-beta-event";
 
 interface PreviewDerivation {
   id: string;
@@ -17,6 +19,7 @@ interface PreviewDerivation {
 }
 
 interface PreviewGatePanelProps {
+  campaignId: string;
   preview: PreviewDerivation;
   previewCreditsSpent: number;
   batchCredits: number;
@@ -27,6 +30,7 @@ interface PreviewGatePanelProps {
 }
 
 export default function PreviewGatePanel({
+  campaignId,
   preview,
   previewCreditsSpent,
   batchCredits,
@@ -36,7 +40,24 @@ export default function PreviewGatePanel({
   onApproveBatch,
 }: PreviewGatePanelProps) {
   const t = useTranslations("strategyRecipes.previewGate");
+  const { recordEvent } = useRecordBetaEvent(campaignId);
   const isGenerating = preview.status === "generating";
+
+  const STAGE_PROPS = { stage: "preview", missionKey: "preview" } as const;
+
+  useEffect(() => {
+    recordEvent("cockpit_stage_entered", STAGE_PROPS);
+  }, [recordEvent]);
+
+  const handleApproveBatch = () => {
+    recordEvent("cockpit_stage_completed", STAGE_PROPS);
+    onApproveBatch();
+  };
+
+  const handleReviseRecipe = () => {
+    recordEvent("cockpit_stage_abandoned", STAGE_PROPS);
+    onReviseRecipe();
+  };
 
   return (
     <div
@@ -99,7 +120,7 @@ export default function PreviewGatePanel({
         <Button
           variant="outline"
           className="flex-1"
-          onClick={onReviseRecipe}
+          onClick={handleReviseRecipe}
           disabled={isApproving}
         >
           <Pencil className="mr-2 size-4" />
@@ -107,7 +128,7 @@ export default function PreviewGatePanel({
         </Button>
         <Button
           className="flex-1"
-          onClick={onApproveBatch}
+          onClick={handleApproveBatch}
           disabled={isApproving || isGenerating}
         >
           {isApproving ? (

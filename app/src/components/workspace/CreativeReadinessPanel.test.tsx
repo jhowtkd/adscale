@@ -2,8 +2,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import CreativeReadinessPanel from "./CreativeReadinessPanel";
 
-const mockMutateAsync = vi.fn();
+const mockMutateAsync = vi.fn().mockResolvedValue({ readiness: { status: "ready" } });
 const mockUsePreflightScore = vi.fn();
+const recordEvent = vi.fn();
 
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
@@ -16,6 +17,12 @@ vi.mock("@/lib/hooks/use-preflight", () => ({
     isPending: false,
   })),
 }));
+
+vi.mock("@/lib/hooks/use-record-beta-event", () => ({
+  useRecordBetaEvent: () => ({ recordEvent }),
+}));
+
+const STAGE_PROPS = { stage: "readiness", missionKey: "readiness" };
 
 describe("CreativeReadinessPanel", () => {
   beforeEach(() => {
@@ -30,6 +37,12 @@ describe("CreativeReadinessPanel", () => {
   it("shows missing creative state when assetId is absent", () => {
     render(<CreativeReadinessPanel campaignId="camp-1" assetId={null} />);
     expect(screen.getByText("missingCreative")).toBeInTheDocument();
+    expect(recordEvent).not.toHaveBeenCalled();
+  });
+
+  it("emits cockpit_stage_entered on mount with assetId", () => {
+    render(<CreativeReadinessPanel campaignId="camp-1" assetId="asset-1" />);
+    expect(recordEvent).toHaveBeenCalledWith("cockpit_stage_entered", STAGE_PROPS);
   });
 
   it("shows analyzing state while loading", () => {
@@ -41,6 +54,53 @@ describe("CreativeReadinessPanel", () => {
 
     render(<CreativeReadinessPanel campaignId="camp-1" assetId="asset-1" />);
     expect(screen.getByText("analyzing")).toBeInTheDocument();
+  });
+
+  it("emits cockpit_stage_completed once when readiness is ready", () => {
+    mockUsePreflightScore.mockReturnValue({
+      data: {
+        readiness: {
+          overallScore: 82,
+          status: "ready",
+          canGenerate: true,
+          dimensions: [],
+          blockingIssues: [],
+          suggestions: [],
+        },
+        status: "completed",
+      },
+      isLoading: false,
+      isError: false,
+    });
+
+    render(<CreativeReadinessPanel campaignId="camp-1" assetId="asset-1" />);
+
+    const completedCalls = recordEvent.mock.calls.filter(
+      ([key]) => key === "cockpit_stage_completed"
+    );
+    expect(completedCalls).toHaveLength(1);
+    expect(completedCalls[0]).toEqual(["cockpit_stage_completed", STAGE_PROPS]);
+  });
+
+  it("emits cockpit_stage_completed once when readiness is needs_attention", () => {
+    mockUsePreflightScore.mockReturnValue({
+      data: {
+        readiness: {
+          overallScore: 62,
+          status: "needs_attention",
+          canGenerate: true,
+          dimensions: [],
+          blockingIssues: [],
+          suggestions: [],
+        },
+        status: "completed",
+      },
+      isLoading: false,
+      isError: false,
+    });
+
+    render(<CreativeReadinessPanel campaignId="camp-1" assetId="asset-1" />);
+    expect(recordEvent).toHaveBeenCalledWith("cockpit_stage_completed", STAGE_PROPS);
   });
 
   it("renders blocking issues before suggestions", () => {
@@ -106,5 +166,22 @@ describe("CreativeReadinessPanel", () => {
       assetId: "asset-1",
       force: true,
     });
+  });
+
+  it("emits cockpit_stage_abandoned on unmount before completion", () => {
+    mockUsePreflightScore.mockReturnValue({
+      data: null,
+      isLoading: true,
+      isError: false,
+    });
+
+    const { unmount } = render(
+      <CreativeReadinessPanel campaignId="camp-1" assetId="asset-1" />
+    );
+
+    recordEvent.mockClear();
+    unmount();
+
+    expect(recordEvent).toHaveBeenCalledWith("cockpit_stage_abandoned", STAGE_PROPS);
   });
 });

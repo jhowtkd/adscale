@@ -1,9 +1,11 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { AlertCircle, Loader2, RefreshCw, ShieldCheck, ShieldAlert, ShieldX } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { usePreflightScore, useAnalyzePreflight } from "@/lib/hooks/use-preflight";
+import { useRecordBetaEvent } from "@/lib/hooks/use-record-beta-event";
 import { useMissionInsightOptional } from "@/components/mission-insights/MissionInsightProvider";
 import type { ReadinessDimensionId, ReadinessStatus } from "@/server/ai/creative-readiness";
 
@@ -49,6 +51,34 @@ export default function CreativeReadinessPanel({
   const missionInsight = useMissionInsightOptional();
   const { data, isLoading, isError } = usePreflightScore({ campaignId, assetId });
   const analyzePreflight = useAnalyzePreflight();
+  const { recordEvent } = useRecordBetaEvent(campaignId);
+  const completedRef = useRef(false);
+
+  const STAGE_PROPS = { stage: "readiness", missionKey: "readiness" } as const;
+
+  useEffect(() => {
+    if (!assetId) return;
+    completedRef.current = false;
+    recordEvent("cockpit_stage_entered", STAGE_PROPS);
+    return () => {
+      if (!completedRef.current) {
+        recordEvent("cockpit_stage_abandoned", STAGE_PROPS);
+      }
+    };
+  }, [assetId, recordEvent]);
+
+  useEffect(() => {
+    if (!assetId || !data?.readiness) return;
+    const status = data.readiness.status;
+    if (
+      data.status === "completed" &&
+      (status === "ready" || status === "needs_attention") &&
+      !completedRef.current
+    ) {
+      completedRef.current = true;
+      recordEvent("cockpit_stage_completed", STAGE_PROPS);
+    }
+  }, [assetId, data, recordEvent]);
 
   if (!assetId) {
     return (
