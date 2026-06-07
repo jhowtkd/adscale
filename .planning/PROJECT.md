@@ -10,7 +10,16 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Current Milestone
 
-_(Planning next milestone — run `$gsd-new-milestone` to define v11.9 direction from v11.8 learning gate.)_
+### v11.9 UX de Entrega e Créditos
+
+**Goal:** Reduzir surpresas de crédito e fricção na entrega (pacote de aprovação, share, batch gate) com base no learning gate do v11.8 — sem novos modelos de IA nem instrumentação recipe/preview.
+
+**Target features:**
+- Estimativas de crédito mais claras no preview e no batch gate, com bloqueio explicável quando saldo insuficiente.
+- Eventos e analytics de surpresa de crédito ranqueados por operação no dashboard do owner.
+- UX de entrega: pacote stale visível, refresh compreensível, share link com orientação self-serve.
+- Timeline de sessão com gaps entre estágios para diagnosticar stalls pós-preview (F-07).
+- Regressão testada; build/lint/test verdes.
 
 ## Requirements
 
@@ -172,7 +181,7 @@ _(Planning next milestone — run `$gsd-new-milestone` to define v11.9 direction
 
 ### Active
 
-_(Next milestone not yet defined — see `79-V11.9-BACKLOG.md` and `79-LEARNING-ANSWERS.md` for direction.)_
+_(Definindo em REQUIREMENTS.md — milestone v11.9)_
 
 ### Validated (v10.0)
 
@@ -285,7 +294,7 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-07 after v11.8 milestone shipped*
+*Last updated: 2026-06-07 — milestone v11.9 iniciado*
 
 ## Milestone History
 
