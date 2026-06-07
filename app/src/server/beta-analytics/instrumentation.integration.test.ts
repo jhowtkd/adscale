@@ -156,4 +156,118 @@ describe("QA-01 instrumentation integration", () => {
 
     expect(mockInsert).not.toHaveBeenCalled();
   });
+
+  describe("mission completion — export path", () => {
+    it("records mission_completed export scenario with server source", async () => {
+      mockInsert.mockResolvedValue(
+        mockInsertedEvent({
+          eventKey: "mission_completed",
+          source: "server",
+          campaignId: CAMPAIGN_ID,
+          properties: {
+            missionKey: "export",
+            stage: "export",
+            operation: "individual",
+          },
+        }) as never
+      );
+
+      await recordBetaAnalyticsEvent({
+        workspaceId: WORKSPACE_ID,
+        userId: USER_ID,
+        eventKey: "mission_completed",
+        source: "server",
+        campaignId: CAMPAIGN_ID,
+        properties: {
+          missionKey: "export",
+          stage: "export",
+          operation: "individual",
+        },
+      });
+
+      expect(mockInsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventKey: "mission_completed",
+          source: "server",
+          campaignId: CAMPAIGN_ID,
+          properties: {
+            missionKey: "export",
+            stage: "export",
+            operation: "individual",
+          },
+        })
+      );
+    });
+  });
+
+  describe("mission completion — share path", () => {
+    it("records mission_completed share scenario", async () => {
+      mockInsert.mockResolvedValue(
+        mockInsertedEvent({
+          eventKey: "mission_completed",
+          source: "server",
+          campaignId: CAMPAIGN_ID,
+          properties: {
+            missionKey: "share",
+            stage: "share",
+          },
+        }) as never
+      );
+
+      await recordBetaAnalyticsEvent({
+        workspaceId: WORKSPACE_ID,
+        userId: USER_ID,
+        eventKey: "mission_completed",
+        source: "server",
+        campaignId: CAMPAIGN_ID,
+        properties: {
+          missionKey: "share",
+          stage: "share",
+        },
+      });
+
+      expect(mockInsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventKey: "mission_completed",
+          properties: expect.objectContaining({ missionKey: "share" }),
+        })
+      );
+    });
+  });
+
+  describe("client cockpit stage complete path", () => {
+    it("records cockpit_stage_completed preview with default client source", async () => {
+      mockInsert.mockResolvedValue(
+        mockInsertedEvent({
+          eventKey: "cockpit_stage_completed",
+          source: "client",
+          properties: {
+            stage: "preview",
+            missionKey: "preview",
+          },
+        }) as never
+      );
+
+      await recordBetaAnalyticsEvent({
+        workspaceId: WORKSPACE_ID,
+        userId: USER_ID,
+        eventKey: "cockpit_stage_completed",
+        properties: {
+          stage: "preview",
+          missionKey: "preview",
+        },
+      });
+
+      expect(mockInsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventKey: "cockpit_stage_completed",
+          source: "client",
+          properties: {
+            stage: "preview",
+            missionKey: "preview",
+          },
+        })
+      );
+    });
+  });
 });
