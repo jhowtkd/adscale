@@ -8,13 +8,20 @@ ADScale is a SaaS webapp for creative derivation: marketing teams upload a base 
 
 Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-## Current Milestone
+## Current Milestone: v11.10 Fechamento Entrega e Analytics
+
+**Goal:** Fechar o cluster entrega/créditos/analytics com instrumentação cockpit restante, accuracy de readiness, polish do dashboard owner, UAT de operador e regressão.
+
+**Target features:**
+- Instrumentação cockpit — preview funnel (F-06), recipe/tradeoff (F-08/F-09), briefing abandon (F-12)
+- Readiness false-positive workflow — override do operador + analytics (F-11)
+- Owner dashboard polish — filtro de sessão, timeline sem cap, funil de receita
+- SESS-03 — ≥3 sessões reais de operador com learning answers atualizados
+- Regressão — drift de teste F-14 e suite verde
 
 ### v11.9 UX de Entrega e Créditos — SHIPPED 2026-06-07
 
 Delivered: credit estimate transparency, enriched credit events, delivery/stale package UX, owner surprise ranking + session timeline, full regression green.
-
-**Next:** `/gsd-new-milestone` to plan v11.10+ (deferred v11.8 backlog items: F-06, F-11, F-12, recipe/tradeoff analytics).
 
 ## Requirements
 
@@ -176,7 +183,7 @@ Delivered: credit estimate transparency, enriched credit events, delivery/stale 
 
 ### Active
 
-_(Definindo em REQUIREMENTS.md — milestone v11.9)_
+_(Definindo em REQUIREMENTS.md — milestone v11.10)_
 
 ### Validated (v10.0)
 
@@ -289,7 +296,7 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-07 — milestone v11.9 iniciado*
+*Last updated: 2026-06-07 — milestone v11.10 iniciado*
 
 ## Milestone History
 
