@@ -17,6 +17,7 @@ vi.mock("../feedback/validate-refs", async (importOriginal) => {
   };
 });
 
+import { PHASE_76_BETA_EVENT_KEYS } from "./types";
 import { recordBetaAnalyticsEvent } from "./record";
 import {
   insertBetaAnalyticsEvent,
@@ -41,7 +42,7 @@ function mockInsertedEvent(overrides: Record<string, unknown> = {}) {
     workspaceId: "ws-1",
     userId: "user-1",
     sessionId: null,
-    eventKey: "mission_started",
+    eventKey: "cockpit_stage_entered",
     properties: { stage: "briefing" },
     source: "client",
     campaignId: null,
@@ -62,7 +63,7 @@ describe("recordBetaAnalyticsEvent", () => {
     const event = await recordBetaAnalyticsEvent({
       workspaceId: "ws-1",
       userId: "user-1",
-      eventKey: "mission_started",
+      eventKey: "cockpit_stage_entered",
       properties: { stage: "briefing" },
     });
 
@@ -71,7 +72,7 @@ describe("recordBetaAnalyticsEvent", () => {
       expect.objectContaining({
         workspaceId: "ws-1",
         userId: "user-1",
-        eventKey: "mission_started",
+        eventKey: "cockpit_stage_entered",
         properties: { stage: "briefing" },
         source: "client",
       })
@@ -85,7 +86,7 @@ describe("recordBetaAnalyticsEvent", () => {
     await recordBetaAnalyticsEvent({
       workspaceId: "ws-1",
       userId: "user-1",
-      eventKey: "mission_started",
+      eventKey: "cockpit_stage_entered",
     });
 
     expect(mockInsert).toHaveBeenCalledWith(
@@ -101,7 +102,7 @@ describe("recordBetaAnalyticsEvent", () => {
     await recordBetaAnalyticsEvent({
       workspaceId: "ws-1",
       userId: "user-1",
-      eventKey: "mission_started",
+      eventKey: "cockpit_stage_entered",
       source: "server",
     });
 
@@ -129,7 +130,7 @@ describe("recordBetaAnalyticsEvent", () => {
     await recordBetaAnalyticsEvent({
       workspaceId: "ws-1",
       userId: "user-1",
-      eventKey: "mission_started",
+      eventKey: "cockpit_stage_entered",
       sessionId: SESSION_ID,
     });
 
@@ -144,7 +145,7 @@ describe("recordBetaAnalyticsEvent", () => {
       recordBetaAnalyticsEvent({
         workspaceId: "ws-1",
         userId: "user-1",
-        eventKey: "mission_started",
+        eventKey: "cockpit_stage_entered",
         sessionId: SESSION_ID,
       })
     ).rejects.toThrow(BetaEventPropertiesValidationError);
@@ -157,7 +158,7 @@ describe("recordBetaAnalyticsEvent", () => {
       recordBetaAnalyticsEvent({
         workspaceId: "ws-1",
         userId: "user-1",
-        eventKey: "mission_started",
+        eventKey: "cockpit_stage_entered",
         properties: { prompt: "secret" },
       })
     ).rejects.toThrow(BetaEventPropertiesValidationError);
@@ -177,7 +178,7 @@ describe("recordBetaAnalyticsEvent", () => {
       recordBetaAnalyticsEvent({
         workspaceId: "ws-1",
         userId: "user-1",
-        eventKey: "mission_started",
+        eventKey: "cockpit_stage_entered",
         campaignId: CAMPAIGN_ID,
       })
     ).rejects.toThrow(FeedbackValidationError);
@@ -197,7 +198,7 @@ describe("recordBetaAnalyticsEvent", () => {
     await recordBetaAnalyticsEvent({
       workspaceId: "ws-1",
       userId: "user-1",
-      eventKey: "derivation_completed",
+      eventKey: "mission_completed",
       campaignId: CAMPAIGN_ID,
       derivationId,
     });
@@ -208,5 +209,35 @@ describe("recordBetaAnalyticsEvent", () => {
       CAMPAIGN_ID
     );
     expect(mockInsert).toHaveBeenCalled();
+  });
+
+  it.each(PHASE_76_BETA_EVENT_KEYS)(
+    "accepts allowed Phase 76 event_key %s",
+    async (eventKey) => {
+      mockInsert.mockResolvedValue(mockInsertedEvent({ eventKey }) as never);
+
+      await recordBetaAnalyticsEvent({
+        workspaceId: "ws-1",
+        userId: "user-1",
+        eventKey,
+      });
+
+      expect(mockInsert).toHaveBeenCalledWith(
+        expect.objectContaining({ eventKey })
+      );
+    }
+  );
+
+  it("rejects unknown event_key before insert", async () => {
+    await expect(
+      recordBetaAnalyticsEvent({
+        workspaceId: "ws-1",
+        userId: "user-1",
+        eventKey: "stage_entered",
+        properties: { stage: "briefing" },
+      })
+    ).rejects.toThrow(BetaEventPropertiesValidationError);
+
+    expect(mockInsert).not.toHaveBeenCalled();
   });
 });

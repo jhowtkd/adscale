@@ -11,7 +11,7 @@ import {
   BetaEventPropertiesValidationError,
   sanitizeBetaEventProperties,
 } from "./sanitize";
-import type { BetaEventSource } from "./types";
+import { PHASE_76_BETA_EVENT_KEYS, type BetaEventSource } from "./types";
 
 export async function recordBetaAnalyticsEvent(input: {
   workspaceId: string;
@@ -25,6 +25,16 @@ export async function recordBetaAnalyticsEvent(input: {
 }): Promise<BetaAnalyticsEvent> {
   const properties = sanitizeBetaEventProperties(input.properties ?? {});
   const source = input.source ?? "client";
+
+  if (
+    !PHASE_76_BETA_EVENT_KEYS.includes(
+      input.eventKey as (typeof PHASE_76_BETA_EVENT_KEYS)[number]
+    )
+  ) {
+    throw new BetaEventPropertiesValidationError("unknown event_key", {
+      eventKey: input.eventKey,
+    });
+  }
 
   if (input.sessionId) {
     const session = await getBetaSessionById(

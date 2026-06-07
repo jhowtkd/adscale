@@ -20,6 +20,19 @@ export type AllowedPropertyKey = (typeof ALLOWED_PROPERTY_KEYS)[number];
 
 export type BetaEventSource = "client" | "server";
 
+export const PHASE_76_BETA_EVENT_KEYS = [
+  "readiness_blocked",
+  "readiness_completed",
+  "credit_spend",
+  "credit_blocked",
+  "mission_completed",
+  "cockpit_stage_entered",
+  "cockpit_stage_completed",
+  "cockpit_stage_abandoned",
+] as const;
+
+export type Phase76BetaEventKey = (typeof PHASE_76_BETA_EVENT_KEYS)[number];
+
 const EVENT_KEY_PATTERN = /^[a-z][a-z0-9_]*$/;
 
 export const createBetaEventBodySchema = z.object({
