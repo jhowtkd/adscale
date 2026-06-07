@@ -219,6 +219,20 @@
       "activeMission": "Active mission",
       "cta": "Continue mission",
       "blockedCta": "Complete the previous step",
+      "blockedCtaHint": "Finish the step above in your campaign, then return here.",
+      "blockedResume": {
+        "default": "Unblock step",
+        "readiness": "Go to readiness",
+        "upload": "Upload creative",
+        "guided_briefing": "Complete briefing",
+        "strategy_recipe": "Pick recipe",
+        "preview": "Generate preview",
+        "batch": "Run batch",
+        "review": "Review creatives",
+        "regeneration": "Regenerate",
+        "export": "Export",
+        "share": "Share package"
+      },
       "expand": "View path",
       "collapse": "Hide path",
       "resume": "Resume",
@@ -912,6 +926,7 @@
     "failed": "Readiness analysis failed. Try again.",
     "rerun": "Rerun readiness",
     "blockingIssues": "Blocking issues",
+    "blockingBeforeDerivar": "{count, plural, one {# blocking issue — resolve before deriving} other {# blocking issues — resolve before deriving}}",
     "suggestions": "Improvements",
     "disclaimer": "Readiness reduces risk before generation but does not guarantee output quality.",
     "status": {
@@ -1022,6 +1037,8 @@
       "qualityScore": "Quality score: {score}",
       "previewSpent": "Preview spent: {credits} credits",
       "batchCost": "Full batch will use {credits} credits",
+      "batchCostPending": "Batch estimate loads from your recipe…",
+      "creditEstimateNote": "Estimates may differ from actual spend — check credits after preview before approving batch.",
       "reviseRecipe": "Revise recipe",
       "approveBatch": "Approve and queue batch"
     }
@@ -1586,6 +1603,7 @@
     "messagePlaceholder": "What happened? What did you expect?",
     "followUp": "You may contact me for follow-up about this report",
     "privacyNote": "We capture route, workspace, and sanitized diagnostics. Screenshots and session replay are not collected.",
+    "routeContext": "Captured from: {route}",
     "cancel": "Cancel",
     "submit": "Send feedback",
     "submitting": "Sending…",
@@ -1623,6 +1641,7 @@
     "optionalNote": "Anything else? (optional)",
     "optionalNotePlaceholder": "One sentence is plenty…",
     "privacyNote": "We save mission stage and your choice — never raw prompts or secrets.",
+    "openDetailedFeedback": "Send detailed feedback with this page attached",
     "sentiments": {
       "positive": "Good",
       "neutral": "OK",

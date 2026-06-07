@@ -201,6 +201,14 @@ export default function CampaignWorkspacePage() {
     campaignId,
     assetId: baseAsset?.id ?? null,
   });
+  const readinessBlocking = useMemo(() => {
+    const issues = preflightData?.readiness?.blockingIssues ?? [];
+    if (issues.length === 0) return null;
+    return {
+      blockingCount: issues.length,
+      topIssue: issues[0],
+    };
+  }, [preflightData?.readiness?.blockingIssues]);
 
   useEffect(() => {
     if (isLoading || isNew || !campaign) return;
@@ -484,6 +492,7 @@ export default function CampaignWorkspacePage() {
         isDerivationsError={isDerivationsError}
         derivationsErrorKind={derivationsErrorKind}
         onRetryDerivations={() => void refetchDerivations()}
+        readinessBlocking={readinessBlocking}
       />
 
       <DerivationReviewModal
@@ -732,6 +741,7 @@ interface CampaignWorkspaceCardProps {
   isDerivationsError?: boolean;
   derivationsErrorKind?: string | null;
   onRetryDerivations?: () => void;
+  readinessBlocking?: { blockingCount: number; topIssue?: string } | null;
 }
 
 function CampaignWorkspaceCard({
@@ -776,6 +786,7 @@ function CampaignWorkspaceCard({
   isDerivationsError,
   derivationsErrorKind,
   onRetryDerivations,
+  readinessBlocking,
 }: CampaignWorkspaceCardProps) {
   return (
     <div
@@ -865,6 +876,7 @@ function CampaignWorkspaceCard({
             <ActionCards
               onDerivar={onOpenDerivar}
               onEstilizar={onOpenEstilizar}
+              readinessBlocking={readinessBlocking}
             />
             </div>
             <div id="mission-share">
@@ -882,7 +894,7 @@ function CampaignWorkspaceCard({
                   qualityVerdict: previewDerivation.qualityVerdict,
                   creditCost: previewDerivation.creditCost,
                 }}
-                previewCreditsSpent={5}
+                previewCreditsSpent={previewDerivation.creditCost ?? 5}
                 batchCredits={batchCreditEstimate ?? 0}
                 isApproving={createDerivationsPending}
                 onReviseRecipe={onReviseStrategyRecipe}

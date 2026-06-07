@@ -33,6 +33,22 @@ describe("PreviewGatePanel", () => {
     recordEvent.mockClear();
   });
 
+  it("uses preview.creditCost when present and shows estimate note", () => {
+    render(
+      <PreviewGatePanel
+        campaignId="camp-1"
+        preview={{ ...previewFixture, creditCost: 8 }}
+        previewCreditsSpent={5}
+        batchCredits={15}
+        onApproveBatch={vi.fn()}
+        onReviseRecipe={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText(/previewSpent.*"credits":8/)).toBeInTheDocument();
+    expect(screen.getByText("creditEstimateNote")).toBeInTheDocument();
+  });
+
   it("shows batch credit cost and actions", () => {
     const onApprove = vi.fn();
     const onRevise = vi.fn();

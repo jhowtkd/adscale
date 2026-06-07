@@ -42,6 +42,7 @@ export default function PreviewGatePanel({
   const t = useTranslations("strategyRecipes.previewGate");
   const { recordEvent } = useRecordBetaEvent(campaignId);
   const isGenerating = preview.status === "generating";
+  const spentCredits = preview.creditCost ?? previewCreditsSpent;
 
   const STAGE_PROPS = { stage: "preview", missionKey: "preview" } as const;
 
@@ -108,11 +109,14 @@ export default function PreviewGatePanel({
 
       <div className="flex items-center gap-2 rounded-lg bg-[var(--surface-base)] px-3 py-2 text-xs">
         <Coins className="size-4 text-[var(--accent-green-text)]" />
-        <div className="flex-1">
-          <p>{t("previewSpent", { credits: previewCreditsSpent })}</p>
+        <div className="flex-1 space-y-1">
+          <p>{t("previewSpent", { credits: spentCredits })}</p>
           <p className="font-medium text-[var(--text-primary)]">
-            {t("batchCost", { credits: batchCredits })}
+            {batchCredits > 0
+              ? t("batchCost", { credits: batchCredits })
+              : t("batchCostPending")}
           </p>
+          <p className="text-[var(--text-muted)]">{t("creditEstimateNote")}</p>
         </div>
       </div>
 

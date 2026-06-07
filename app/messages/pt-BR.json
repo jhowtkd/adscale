@@ -219,6 +219,20 @@
       "activeMission": "Missão ativa",
       "cta": "Continuar missão",
       "blockedCta": "Complete o passo anterior",
+      "blockedCtaHint": "Conclua o passo acima na campanha e volte aqui.",
+      "blockedResume": {
+        "default": "Desbloquear passo",
+        "readiness": "Ir para prontidão",
+        "upload": "Enviar criativo",
+        "guided_briefing": "Completar briefing",
+        "strategy_recipe": "Escolher receita",
+        "preview": "Gerar prévia",
+        "batch": "Rodar lote",
+        "review": "Revisar criativos",
+        "regeneration": "Regenerar",
+        "export": "Exportar",
+        "share": "Compartilhar pacote"
+      },
       "expand": "Ver trilha",
       "collapse": "Ocultar trilha",
       "resume": "Retomar",
@@ -912,6 +926,7 @@
     "failed": "A análise de prontidão falhou. Tente novamente.",
     "rerun": "Recalcular prontidão",
     "blockingIssues": "Problemas bloqueantes",
+    "blockingBeforeDerivar": "{count, plural, one {# problema bloqueante — resolva antes de derivar} other {# problemas bloqueantes — resolva antes de derivar}}",
     "suggestions": "Melhorias",
     "disclaimer": "A prontidão reduz riscos antes da geração, mas não garante a qualidade do resultado.",
     "status": {
@@ -1022,6 +1037,8 @@
       "qualityScore": "Score de qualidade: {score}",
       "previewSpent": "Prévia gastou: {credits} créditos",
       "batchCost": "O lote completo usará {credits} créditos",
+      "batchCostPending": "Estimativa do lote carrega da sua receita…",
+      "creditEstimateNote": "Estimativas podem diferir do gasto real — confira créditos após a prévia antes de aprovar o lote.",
       "reviseRecipe": "Revisar receita",
       "approveBatch": "Aprovar e enfileirar lote"
     }
@@ -1587,6 +1604,7 @@
     "messagePlaceholder": "O que aconteceu? O que você esperava?",
     "followUp": "Podem me contatar para acompanhar este reporte",
     "privacyNote": "Capturamos rota, workspace e diagnósticos sanitizados. Capturas de tela e replay de sessão não são coletados.",
+    "routeContext": "Capturado em: {route}",
     "cancel": "Cancelar",
     "submit": "Enviar feedback",
     "submitting": "Enviando…",
@@ -1624,6 +1642,7 @@
     "optionalNote": "Mais alguma coisa? (opcional)",
     "optionalNotePlaceholder": "Uma frase basta…",
     "privacyNote": "Salvamos a etapa da missão e sua escolha — nunca prompts brutos ou segredos.",
+    "openDetailedFeedback": "Enviar feedback detalhado com esta página anexada",
     "sentiments": {
       "positive": "Bom",
       "neutral": "OK",
