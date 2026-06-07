@@ -21,7 +21,7 @@
 
 | # | Phase | Goal | Requirements | Success Criteria |
 |---|-------|------|--------------|------------------|
-| 72 | Build and Data Integrity Hardening | Complete    | 2026-06-07 | 5 |
+| 72 | Build and Data Integrity Hardening | Restore production build and make progression/insight persistence conflict-safe | STAB-01, STAB-02, DATA-01, DATA-02, DATA-03 | 5 ✅ |
 | 73 | Mission Resume UX | Make mission/progression CTAs resume into the intended campaign workflow surface | UX-01, UX-02 | 4 |
 | 74 | Migration, UAT, and Beta Handoff | Apply/verify progression migration and complete beta UAT evidence | STAB-03, STAB-04, UAT-01, UAT-02, UAT-03 | 5 |
 
@@ -114,7 +114,7 @@ Archive: [v11.6-ROADMAP.md](milestones/v11.6-ROADMAP.md) · [v11.6-REQUIREMENTS.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 | ----- | --------- | -------------- | ------ | --------- |
-| 72 | v11.7.1 | 0/0 | Planned | - |
+| 72 | v11.7.1 | 2/2 | Complete | 2026-06-07 |
 | 73 | v11.7.1 | 0/0 | Planned | - |
 | 74 | v11.7.1 | 0/0 | Planned | - |
 | 68 | v11.7 | 2/2 | Complete | 2026-06-06 |

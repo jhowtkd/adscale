@@ -56,11 +56,11 @@ This milestone should not add new progression mechanics, gamification layers, pr
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| STAB-01 | Phase 72 | Planned |
-| STAB-02 | Phase 72 | Planned |
-| DATA-01 | Phase 72 | Planned |
-| DATA-02 | Phase 72 | Planned |
-| DATA-03 | Phase 72 | Planned |
+| STAB-01 | Phase 72 | Complete |
+| STAB-02 | Phase 72 | Complete |
+| DATA-01 | Phase 72 | Complete |
+| DATA-02 | Phase 72 | Complete |
+| DATA-03 | Phase 72 | Complete |
 | UX-01 | Phase 73 | Planned |
 | UX-02 | Phase 73 | Planned |
 | STAB-03 | Phase 74 | Planned |

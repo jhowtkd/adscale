@@ -1,10 +1,10 @@
 ---
 gsd_state_version: 1.0
-milestone: v11.7
-milestone_name: milestone
-status: planning
+milestone: v11.7.1
+milestone_name: Stabilization
+status: ready_for_phase_planning
 last_updated: "2026-06-07T00:20:31.713Z"
-last_activity: 2026-06-06 - Milestone v11.7.1 roadmap created
+last_activity: 2026-06-07 - Phase 72 complete, ready for Phase 73
 progress:
   total_phases: 3
   completed_phases: 1
@@ -17,13 +17,13 @@ progress:
 ## Current Position
 
 Milestone: v11.7.1 - Stabilization
-Phase: 72 - Build and Data Integrity Hardening
+Phase: 73 - Mission Resume UX
 Plan: -
 Status: Ready for phase planning
-Last activity: 2026-06-06 - Milestone v11.7.1 roadmap created
+Last activity: 2026-06-07 - Phase 72 complete
 
 **Last session:** 2026-06-07T00:15:45.085Z
-**Resume File:** .planning/phases/72-build-and-data-integrity-hardening/72-CONTEXT.md
+**Resume File:** .planning/phases/72-build-and-data-integrity-hardening/72-VERIFICATION.md
 
 ## Accumulated Context
 
@@ -40,8 +40,8 @@ Last activity: 2026-06-06 - Milestone v11.7.1 roadmap created
 
 ## Next Steps
 
-1. Start phase 72 with `$gsd-discuss-phase 72` or `$gsd-plan-phase 72`.
-2. Fix the build/typecheck blocker and data integrity findings before beta UAT.
+1. Start phase 73 with `$gsd-discuss-phase 73` or `$gsd-plan-phase 73`.
+2. Make mission/progression CTAs resume into the intended campaign workflow surface.
 3. Complete phase 74 migration/UAT evidence before inviting testers.
 
 ## Project Reference
