@@ -1,93 +1,80 @@
-# Requirements: ADScale v11.11 Aprendizado → Ação
+# Requirements: ADScale v12.0 Monetização Real
 
 **Defined:** 2026-06-08  
-**Milestone:** v11.11 Aprendizado → Ação  
+**Milestone:** v12.0 Monetização Real  
 **Core Value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
 ## Scope
 
-v11.11 converte dados reais do beta (SESS-03) em melhorias acionáveis: tuning de readiness, redução de stall pós-preview e analytics/melhorias de share link self-serve.
+Levar billing Stripe existente a produção: trial, renovação mensal de créditos, dunning, conversão beta→pago e UX de upgrade nos bloqueios 402 — mantendo beta codes para cohorts convidados.
 
-**Prerequisite:** v11.10 Phase 89 (SESS-03) — pode ser concluída dentro deste milestone se ainda pendente.
+**Parallel track:** v11.11 Phases 93–94 (SESS-03) não bloqueiam execução de v12.0.
 
-**In scope:** Instrumentação share/readiness, painéis owner (stall, timing, dimensões), nudge pós-preview, tuning de threshold com evidência, fechamento Q2/Q3/Q9.
+**In scope:** Go-live, lifecycle de assinatura, past_due UX, CTAs in-product, billing UI, regressão.
 
-**Out of scope:** Novos modelos de IA, novos estágios de cockpit, billing real, export Meta/TikTok, LGPD, email/push de stall.
+**Out of scope:** Planos anuais, top-up avulso, Stripe Tax, emails de dunning (Resend), admin dashboard de cohort, OAuth, export Meta/TikTok.
 
 ## Requirements
 
-### Share Link Analytics (SHARE)
+### Go-Live (LIVE)
 
-- [ ] **SHARE-01**: Owner vê evento `share_link_opened` quando destinatário abre link público válido (server-side, sem auth).
-- [ ] **SHARE-02**: Owner vê contagem de aberturas de share link por campanha no dashboard.
-- [ ] **SHARE-03**: Owner vê taxa de abertura de share link correlacionada com `assistance_level` da sessão operador (F-13, Q7).
+- [ ] **LIVE-01**: Operador pode seguir checklist de go-live Stripe (prod keys, price IDs, success/cancel URLs, webhook URL) documentado no repositório.
+- [ ] **LIVE-02**: Webhook de produção valida assinatura Stripe e processa eventos sem erros em smoke test pós-deploy.
 
-### Post-Preview Stall (STALL)
+### Subscription Lifecycle (SUBS)
 
-- [ ] **STALL-01**: Owner vê mediana de tempo entre preview completo e início de batch por sessão (F-07, Q10).
-- [ ] **STALL-02**: Owner vê taxa de stall pós-preview (>15 min sem batch) e classificação stall→proceed vs stall→abandon.
-- [ ] **STALL-03**: Operador vê indicador "Continue → batch" no card da campanha quando preview aprovado e batch pendente (D-2).
+- [ ] **SUBS-01**: API `/api/billing/status` expõe status de assinatura legível (`trialing`, `active`, `past_due`, `canceled`, `none`) além de `access.kind`.
+- [ ] **SUBS-02**: Créditos mensais são concedidos apenas em `invoice.paid`, idempotentes por `invoice.id` como `sourceId`.
+- [ ] **SUBS-03**: `checkout.session.completed` vincula customer/subscription sem conceder créditos duplicados.
 
-### Readiness Tuning (READY)
+### Dunning & Access (DUEN)
 
-- [ ] **READY-08**: Evento de override inclui `blockingDimensions[]` com ids das dimensões abaixo do threshold.
-- [ ] **READY-09**: Owner vê breakdown de overrides por dimensão de readiness no dashboard.
-- [ ] **READY-10**: Thresholds de blocking/ready ajustados com evidência documentada de ≥3 sessões reais e override rate por dimensão (D-1).
+- [ ] **DUEN-01**: Usuário com assinatura `past_due` vê status e mensagem clara na UI de billing (não "sem acesso" genérico).
+- [ ] **DUEN-02**: Usuário `past_due` pode abrir Customer Portal para atualizar pagamento com um clique.
+- [ ] **DUEN-03**: Política de spend em `past_due` está implementada e documentada (bloquear novas gerações; créditos restantes consumíveis ou não — decisão explícita).
 
-### Learning Closure (LEARN)
+### Beta→Paid Conversion (CONV)
 
-- [ ] **LEARN-04**: Learning answers Q2 (briefing skip), Q3 (readiness rerun), Q9 (stale badge) atualizados com citações de sessões reais — sem fixture UUIDs.
-- [ ] **LEARN-05**: Operador completa ≥3 sessões beta reais documentadas (SESS-03 carryover se pendente).
-- [ ] **LEARN-06**: Evento `approval_package_refreshed` emitido ao atualizar pacote stale (se ainda ausente — fecha Q9).
+- [ ] **CONV-01**: Respostas 402 de spend incluem payload estruturado para UI iniciar checkout (`reason`, `suggestedPlanKey` ou equivalente).
+- [ ] **CONV-02**: Bloqueio de créditos no preview gate e batch gate mostra CTA "Começar trial" / upgrade.
+- [ ] **CONV-03**: Beta esgotado (0 ads restantes) mostra CTA de assinatura preservando workspace e campanhas.
+- [ ] **CONV-04**: Momentos de upgrade v11.7 (missões, insuficiência de crédito) redirecionam para checkout ou settings billing.
 
-### Owner Dashboard (DASH)
+### Billing UI (BILL)
 
-- [ ] **DASH-07**: Owner vê mediana draft→share time geral e por `assistance_level` (D-4).
-- [ ] **DASH-08**: Owner vê painel dedicado de post-preview stall com campanhas ativas em stall.
+- [ ] **BILL-01**: BillingTab mostra data de fim de trial ou próxima renovação quando subscription ativa/trialing.
+- [ ] **BILL-02**: Banners para `past_due` e `canceled` com link para portal.
+- [ ] **BILL-03**: Usuário vê histórico de credit grants (fonte, quantidade, data) na aba billing.
+- [ ] **BILL-04**: Superfícies billing distinguem beta vs pago vs sem acesso em PT-BR e EN.
 
 ### Verification (QA)
 
-- [ ] **QA-05**: Testes cobrem novos event keys, aggregators e nudge de campanha.
-- [ ] **QA-06**: `npm test`, `npm run lint` e `npm run build` passam em `app/` após todas as mudanças.
+- [ ] **QA-07**: Testes cobrem idempotência de `invoice.paid`, `payment_failed` → `past_due`, e ausência de double-grant.
+- [ ] **QA-08**: Testes de `getWorkspaceBillingAccess` para trialing, active, past_due, beta, none.
+- [ ] **QA-09**: `npm test`, `npm run lint` e `npm run build` passam em `app/` após milestone.
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| READY-08 | Phase 90 — Analytics Foundation | Pending |
-| LEARN-06 | Phase 90 — Analytics Foundation | Pending |
-| SHARE-01 | Phase 91 — Share + Readiness Instrumentation | Pending |
-| SHARE-02 | Phase 91 — Share + Readiness Instrumentation | Pending |
-| READY-09 | Phase 91 — Share + Readiness Instrumentation | Pending |
-| STALL-01 | Phase 92 — Owner Dashboard: Stall + Timing | Pending |
-| STALL-02 | Phase 92 — Owner Dashboard: Stall + Timing | Pending |
-| DASH-07 | Phase 92 — Owner Dashboard: Stall + Timing | Pending |
-| DASH-08 | Phase 92 — Owner Dashboard: Stall + Timing | Pending |
-| LEARN-05 | Phase 93 — SESS-03 Operator UAT | Pending |
-| LEARN-04 | Phase 94 — Learning Closure + Threshold Tune | Pending |
-| READY-10 | Phase 94 — Learning Closure + Threshold Tune | Pending |
-| STALL-03 | Phase 95 — Stall UX + Share Correlation | Pending |
-| SHARE-03 | Phase 95 — Stall UX + Share Correlation | Pending |
-| QA-05 | Phase 96 — Regression Verification | Pending |
-| QA-06 | Phase 96 — Regression Verification | Pending |
+| _(filled by roadmapper)_ | | |
 
 ## Future Requirements
 
-- Email/push nudge para stall pós-preview (infra Resend product flows)
-- Tuning automatizado de readiness (ML) quando N > 50 sessões
-- Client approval/rejection na share page
-- Indexação avançada de analytics para escala além do beta
+- Planos anuais e top-up de créditos avulsos
+- Stripe Tax / nota fiscal
+- Emails de dunning e low-credits via Resend product flows
+- Admin owner: gestão de cohort beta e códigos
+- Upgrade/downgrade de tier mid-cycle com proration
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Novos modelos de IA | Confunde aprendizado de analytics |
-| Novos estágios de cockpit | Congela comparação de sessões |
-| Billing/subscription real | Milestone separado |
-| Export Meta/TikTok | Stubbed intencionalmente |
-| LGPD compliance | Milestone dedicado |
-| Auth em share page | Mata self-serve do cliente |
+| Novo modelo de preços por token na UI | Phase 49 — credits/ads only |
+| Substituir beta por cupom Stripe | Beta table path locked |
+| Billing real + LGPD no mesmo milestone | LGPD milestone dedicado |
+| Export Meta/TikTok | Stubbed — milestone separado |
 
 ---
-*Requirements defined: 2026-06-08 — milestone v11.11*
+*Requirements defined: 2026-06-08 — milestone v12.0*
