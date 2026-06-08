@@ -52,6 +52,31 @@ All commands below are run from the `app/` directory unless noted otherwise.
 
 For Stripe webhooks, billing smoke tests, and the full Docker stack, see [`app/README.md`](../app/README.md) and [GETTING-STARTED.md](./GETTING-STARTED.md).
 
+## Build commands
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Next.js dev server + Inngest dev CLI (see [Inngest development](#inngest-development)) |
+| `npm run dev:next` | Next.js dev only (`localhost:3000`) |
+| `npm run build` | Production build (`next build --webpack`) |
+| `npm run start` | Serve production build |
+| `npm run start:prod` | Production start with Inngest sync (`scripts/start-with-inngest-sync.mjs`) |
+| `npm run analyze` | Production build with bundle analyzer (`ANALYZE=true`) |
+| `npm run analyze:ci` | CI-oriented bundle analysis (`scripts/analyze-bundle.mjs`) |
+| `npm run lint` | ESLint |
+| `npm test` | Vitest single run |
+| `npm run test:e2e` | Playwright E2E tests (`tests/e2e/*.spec.ts`; requires running app + Inngest) |
+| `npm run test:db:setup` | Start Docker Postgres for tests (port 5433) |
+| `npm run test:db:teardown` | Stop/remove test Postgres container |
+| `npm run inngest:dev` | Inngest dev server only (app must be running) |
+| `npm run db:generate` | Generate Drizzle migration from schema |
+| `npm run db:migrate` | Apply Drizzle migrations |
+| `npm run db:push` | Push schema to database (no migration file) |
+| `npm run db:studio` | Drizzle Studio |
+| `npm run seed:dev-admin` | Seed a dev admin user (`scripts/seed-dev-admin.ts`) |
+| `npm run seed:stripe` | Seed Stripe products/prices for local billing (`scripts/seed-stripe-real.ts`) |
+| `npm run seed:testsprite` | Seed data for TestSprite workflows (`scripts/seed-testsprite.ts`) |
+
 ## Database migrations
 
 Schema is managed with **Drizzle ORM** and **drizzle-kit**. Configuration lives in `app/drizzle.config.ts` (schema: `src/server/db/schema.ts`, migrations output: `app/drizzle/`, PostgreSQL schema `adscale_app`).
@@ -116,31 +141,34 @@ For local dev, `.env.example` uses:
 
 ### Docker full stack
 
-With `docker compose --profile dev`, the Inngest container targets `http://app:3000/api/inngest` and exposes the dev UI on port **8288**. Docker uses `.env.docker`, not `.env.local` — see [`app/DOCKER.md`](../app/DOCKER.md) if present.
+With `docker compose --profile dev`, the Inngest container targets `http://app:3000/api/inngest` and exposes the dev UI on port **8288**. Docker uses `.env.docker`, not `.env.local` — see [`app/DOCKER.md`](../app/DOCKER.md).
+
+## Code style
+
+| Tool | Location | How to run |
+|------|----------|------------|
+| **ESLint** | `app/eslint.config.mjs` | `npm run lint` |
+| **TypeScript** | `app/tsconfig.json` (strict) | `npx tsc --noEmit` |
+
+ESLint 9 uses `eslint-config-next` (core-web-vitals + TypeScript). No Prettier, Biome, or root `.editorconfig` is configured in this repository. Follow existing patterns in neighboring files (imports, `@/` path alias, server vs client component boundaries).
+
+CI (`.github/workflows/ci.yml`) enforces **lint**, **typecheck**, **tests**, and **build** on pushes and pull requests to `main`. The workflow runs `npm run typecheck`, but `app/package.json` does not define that script yet — use `npx tsc --noEmit` locally until a `typecheck` script is added (for example `"typecheck": "tsc --noEmit"`).
 
 ## Lint and tests
 
 ### Lint
 
-ESLint 9 with `eslint-config-next` (core-web-vitals + TypeScript):
-
 ```bash
 npm run lint
 ```
 
-Config: `app/eslint.config.mjs`.
-
 ### TypeScript
-
-There is no `typecheck` npm script in `app/package.json` today. Run the compiler directly:
 
 ```bash
 npx tsc --noEmit
 ```
 
-CI (`.github/workflows/ci.yml`) runs `npm run typecheck` — align local checks with whatever script exists on your branch, or use `npx tsc --noEmit` until a `typecheck` script is added.
-
-### Tests
+### Unit and integration tests
 
 **Vitest** with jsdom and Testing Library (`config/vitest.config.ts`, setup: `tests/setup.ts`):
 
@@ -157,7 +185,7 @@ npx vitest run --config config/vitest.config.ts --passWithNoTests
 **Integration / DB tests** — optional Docker Postgres on port **5433**:
 
 ```bash
-npm run test:db:setup    # starts adscale-test-postgres container
+npm run test:db:setup
 npm test
 npm run test:db:teardown
 ```
@@ -170,7 +198,17 @@ Set `TEST_DATABASE_URL` in `.env.local` (see `.env.example`) when using the test
 npx vitest --config config/vitest.config.ts
 ```
 
-Focused billing/auth examples are listed in [`app/README.md`](../app/README.md#verification).
+### E2E tests (Playwright)
+
+Playwright config: `app/playwright.config.ts`. Tests live in `app/tests/e2e/` (`*.spec.ts`).
+
+```bash
+npm run test:e2e
+```
+
+E2E cases expect a running server (typically `npm run start` or production build) with Inngest dev up and `E2E_DISABLE_RATE_LIMIT=true`. See `playwright.config.ts` for `E2E_BASE_URL` and timeout settings.
+
+Focused billing/auth examples are listed in [`app/README.md`](../app/README.md#verification). Full test layout and CI steps: [TESTING.md](./TESTING.md).
 
 ### Pre-push checklist
 
@@ -182,42 +220,11 @@ npm test
 npm run build
 ```
 
-## Build commands
-
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Next.js dev server + Inngest dev CLI (see above) |
-| `npm run dev:next` | Next.js dev only (`localhost:3000`) |
-| `npm run build` | Production build (`next build --webpack`) |
-| `npm run start` | Serve production build |
-| `npm run analyze` | Production build with bundle analyzer (`ANALYZE=true`) |
-| `npm run analyze:ci` | CI-oriented bundle analysis (`scripts/analyze-bundle.mjs`) |
-| `npm run lint` | ESLint |
-| `npm test` | Vitest single run |
-| `npm run test:db:setup` | Start Docker Postgres for tests (port 5433) |
-| `npm run test:db:teardown` | Stop/remove test Postgres container |
-| `npm run inngest:dev` | Inngest dev server only (app must be running) |
-| `npm run db:generate` | Generate Drizzle migration from schema |
-| `npm run db:migrate` | Apply Drizzle migrations |
-| `npm run db:push` | Push schema to database (no migration file) |
-| `npm run db:studio` | Drizzle Studio |
-
-## Code style
-
-| Tool | Location | How to run |
-|------|----------|------------|
-| **ESLint** | `app/eslint.config.mjs` | `npm run lint` |
-| **TypeScript** | `app/tsconfig.json` (strict) | `npx tsc --noEmit` |
-
-No Prettier, Biome, or root `.editorconfig` is configured in this repository. Follow existing patterns in neighboring files (imports, `@/` path alias, server vs client component boundaries).
-
-CI enforces **lint**, **typecheck** (workflow step), **tests**, and **build** on pushes and pull requests to `main` (`.github/workflows/ci.yml`).
-
 ## Branch conventions
 
 Default branch: **`main`**.
 
-No branch naming convention is documented in `CONTRIBUTING.md` or pull request templates. Recent branches use prefixes such as `feat/`, `codex/`, and `feature/`. Prefer short, descriptive names tied to the change (for example `feat/art-variation-extreme`).
+No branch naming convention is documented in `CONTRIBUTING.md` or pull request templates. Recent branches use prefixes such as `feat/`, `codex/`, `cursor/`, and `feature/`. Prefer short, descriptive names tied to the change (for example `feat/art-variation-extreme`).
 
 ## Pull request process
 
@@ -228,7 +235,7 @@ There is no `.github/PULL_REQUEST_TEMPLATE.md` in this repository. Before openin
 - Include migration files when schema changes (`drizzle/` + `npm run db:migrate` verified locally).
 - Describe user-visible behavior, API changes, and any new or required env vars (update `app/.env.example` when adding configuration).
 
-Reviewers typically expect green CI (install → lint → typecheck → migrate against CI Postgres → test → build). Open issues via GitHub Issues; no issue templates are checked in under `.github/ISSUE_TEMPLATE/`.
+Reviewers typically expect green CI: install → lint → typecheck → migrate against CI Postgres → test → build (`.github/workflows/ci.yml`). Open issues via GitHub Issues; no issue templates are checked in under `.github/ISSUE_TEMPLATE/`.
 
 ## Related docs
 

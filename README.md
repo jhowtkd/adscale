@@ -16,6 +16,12 @@ AI-powered creative derivation platform for marketing teams. Upload a base creat
 - **Export & delivery** — Download approved sets as ZIP archives; assets stored on Cloudflare R2.
 - **Credit-gated AI** — Usage limits integrated with Stripe subscriptions (Starter, Growth, Scale).
 - **Workspaces & i18n** — Multi-tenant workspace isolation; English and Brazilian Portuguese (`next-intl`).
+- **Cockpit instrumentation** — Beta analytics events across the creative cockpit: preview funnel, strategy recipe/tradeoff selection, guided briefing abandon, and stage enter/complete/abandon signals.
+- **Readiness override** — Operators can override false-positive readiness blocks and continue to derivation when preflight is overly strict.
+- **Credit estimate transparency** — Batch and preview credit estimates with upfront breakdown before approving generation.
+- **Mission resume UX** — Dashboard mission path with deep links back into blocked or in-progress cockpit stages.
+- **Owner analytics** — Feedback dashboard with cockpit funnel, credit surprise signals, briefing abandon by step, and CSV export.
+- **Beta operator sessions** — Session-scoped grouping for operator runbooks and analytics correlation.
 
 ## Tech stack
 
@@ -30,8 +36,9 @@ AI-powered creative derivation platform for marketing teams. Upload a base creat
 | AI | [OpenAI](https://openai.com/) (text + image models) |
 | Storage | Cloudflare R2 (S3-compatible) |
 | Payments | [Stripe](https://stripe.com/) |
+| Email | [Resend](https://resend.com/) |
 | State | [TanStack Query](https://tanstack.com/query), [Zustand](https://github.com/pmndrs/zustand) |
-| Testing | [Vitest](https://vitest.dev/) (614+ tests), Testing Library |
+| Testing | [Vitest](https://vitest.dev/) (1000+ tests), Testing Library |
 
 The runnable application lives in **`app/`** (not the repository root). API routes are under `app/src/app/api/`.
 
@@ -39,7 +46,7 @@ The runnable application lives in **`app/`** (not the repository root). API rout
 
 - **Node.js** 20+ and npm
 - **PostgreSQL** 16+ (local, Docker, or Neon)
-- Credentials for **OpenAI**, **Cloudflare R2**, **Stripe**, and **Inngest** (or local Inngest dev server)
+- Credentials for **OpenAI**, **Cloudflare R2**, **Stripe**, **Resend**, and **Inngest** (or local Inngest dev server)
 
 See `app/.env.example` for the full variable list.
 
@@ -69,9 +76,11 @@ For Stripe webhooks, Docker, and billing smoke tests, see [`app/README.md`](app/
 
 1. **Create a campaign** — Set client, product, objective, audience, platforms, and tone in the dashboard.
 2. **Upload a base creative** — Attach the source image asset to the campaign.
-3. **Generate a creative plan** — AI proposes strategy, angles, hooks, and CTAs from the brief.
-4. **Run derivations** — Choose a mode (`art_variation`, `format_adaptation`, or `restyling`), enqueue jobs via Inngest, then review verdicts and approve or regenerate with fixes.
-5. **Export** — Download approved derivations individually or as a ZIP.
+3. **Run readiness preflight** — Review readiness score; override if a false positive blocks progress.
+4. **Generate a creative plan** — AI proposes strategy, angles, hooks, and CTAs from the brief.
+5. **Choose a strategy recipe** — Pick a recipe, review credit estimates, and generate a preview batch.
+6. **Run derivations** — Choose a mode (`art_variation`, `format_adaptation`, or `restyling`), enqueue jobs via Inngest, then review verdicts and approve or regenerate with fixes.
+7. **Export** — Download approved derivations individually or as a ZIP.
 
 ### Run tests
 
@@ -111,10 +120,9 @@ Production deploys target **Render** using [`render.yaml`](render.yaml):
 
 - **Root directory:** `app`
 - **Build:** `npm ci && npm run build`
-- **Pre-deploy:** `npm run db:migrate`
+- **Start:** `npm run db:migrate && npm run start:prod`
 - **Health check:** `/api/health`
-
-<!-- VERIFY: Production URL matches your Render service name if not adscale-app.onrender.com -->
+- **Production URL:** https://adscale.jhonatansoares.com
 
 ## License
 

@@ -26,6 +26,7 @@ Set up the ADScale Next.js application (`app/`) on your machine: install depende
 - **Google / GitHub OAuth** — leave `GOOGLE_*` and `GITHUB_*` empty to use email/password only
 - **Stripe CLI** — forward webhooks to `localhost:3000` for billing flows
 - **Docker** — `app/docker-compose.yml` provides PostgreSQL 16 (and optional full stack); see [Common setup issues](#common-setup-issues)
+- **Marketing site** — `MARKETING_URL` in `.env.example` points at a separate Vite landing (`site-adscale`); omit or leave unset to send unauthenticated `/` visitors to `/login` instead
 
 ## Installation steps
 
@@ -110,7 +111,10 @@ Copy `app/.env.example` to `app/.env.local` and set at least the variables valid
 
 **Optional in `.env.example`**
 
+- `MARKETING_URL` — public marketing site URL; unauthenticated `/` redirects here when set (`app/middleware.ts`). Leave unset for local-only work (redirect falls back to `/login`).
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` — OAuth
+- `BETA_ACCESS_CODES` — comma-separated beta invite codes (10 ads per workspace, no Stripe checkout)
+- `DEV_ADMIN_EMAIL` — comma-separated dev admin emails; skips email verification and credit debits for owner workspaces
 - `SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT` — error reporting
 - `TEST_DATABASE_URL` — integration tests (default `postgres://test:test@localhost:5433/adscale_test`)
 
@@ -131,13 +135,24 @@ This runs `scripts/dev-with-inngest.mjs`, which starts:
 
 Open **http://localhost:3000**, sign up, and create a workspace and campaign.
 
+**Local billing shortcut (optional)**
+
+To exercise AI generation without completing Stripe Checkout, seed a dev admin workspace after migrations:
+
+```bash
+npm run seed:dev-admin -- --create --email=you@example.com --password='YourSecurePassword123!'
+```
+
+Set `DEV_ADMIN_EMAIL=you@example.com` in `.env.local` so the account skips credit debits. The app must be reachable at `BETTER_AUTH_URL` when using `--create` (start `npm run dev` first, or sign up manually and run with `--email` only).
+
 **Alternatives**
 
 | Command | What it does |
 |---------|----------------|
 | `npm run dev:next` | Next.js only (no Inngest dev server; background jobs will not run locally) |
 | `npm run inngest:dev` | Inngest dev server only (if Next.js is already running) |
-| `npm run start` | Production server after `npm run build` |
+| `npm run build` then `npm run start` | Production Next.js server (no Inngest sync) |
+| `npm run start:prod` | Production server with Inngest sync (`scripts/start-with-inngest-sync.mjs`) |
 
 ## Common setup issues
 
@@ -165,7 +180,7 @@ Another process is bound to port 3000. Stop it or change the Next.js port in `pa
 
 ### Inngest jobs not running
 
-Use `npm run dev` (not `dev:next` alone). Ensure `INNGEST_EVENT_KEY` and `INNGEST_SIGNING_KEY` are set ( `local` is fine). The dev UI is served by `inngest-cli` alongside Next.js.
+Use `npm run dev` (not `dev:next` alone). Ensure `INNGEST_EVENT_KEY` and `INNGEST_SIGNING_KEY` are set (`local` is fine). The dev UI is served by `inngest-cli` alongside Next.js.
 
 ### Stripe webhooks not updating billing state locally
 
@@ -176,6 +191,10 @@ stripe listen --forward-to localhost:3000/api/billing/webhook
 ```
 
 Set `STRIPE_WEBHOOK_SECRET` to the `whsec_...` value from the CLI. See `app/README.md` for the event list and a manual billing smoke checklist.
+
+### Unauthenticated `/` redirects to a dead marketing URL
+
+If `MARKETING_URL` is set (for example `http://localhost:5173`) but the marketing site is not running, visitors hitting `/` while logged out get redirected to an unreachable host. For local app-only work, remove `MARKETING_URL` from `.env.local` or run the separate `site-adscale` landing on that port.
 
 ### Migration errors on an existing database
 
