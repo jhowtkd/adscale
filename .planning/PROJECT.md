@@ -8,18 +8,23 @@ ADScale is a SaaS webapp for creative derivation: marketing teams upload a base 
 
 Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-## Current Milestone: v11.11 Aprendizado → Ação
+## Current Milestone: v12.0 Monetização Real
 
-**Goal:** Converter dados reais do beta (SESS-03) em melhorias acionáveis — tuning de readiness, redução de stall pós-preview e analytics/melhorias de share link self-serve.
+**Goal:** Levar o billing Stripe existente a produção — checkout, trial, renovação de créditos, dunning e conversão beta→pago — sem quebrar o caminho beta para cohorts convidados.
 
 **Target features:**
-- Readiness threshold tuning baseado em sinais de override (Q1, pós-F-11)
-- Intervenções UX para stall pós-preview (~38 min gap, F-07, Q10)
-- Analytics e melhorias de share link self-serve (F-13, Q7)
-- Fechar learning answers Q2/Q3/Q9 com evidência de sessões reais
-- Dashboard owner: median time draft→share e correlação assistance-level
+- Go-live Stripe (prod keys, webhook, checklist, smoke de checkout real)
+- Ciclo de assinatura completo: trial 14d, `invoice.paid` → credit grant, `past_due` → bloqueio de spend com UX de portal
+- Conversão in-product: paywalls nos bloqueios 402 (preview, batch, créditos zerados) com CTA para checkout
+- Billing UI: status claro (trial/active/past_due/beta), portal, histórico de grants/faturas
+- Beta codes mantidos em paralelo para testers/parceiros
+- Regressão: webhooks, access gates, fluxos TestSprite billing
 
-**Depends on:** v11.10 Phase 89 (SESS-03) — ≥3 sessões reais com learning answers atualizados
+**Parallel track:** v11.11 Phases 93–94 permanecem bloqueadas em SESS-03 (gate humano) até operador rodar ≥3 sessões reais.
+
+### v11.11 Aprendizado → Ação — IN PROGRESS (71%, human gate)
+
+Phases 90–92 e 95–96 shipped; 93–94 blocked on SESS-03 operator sessions.
 
 ### v11.10 Fechamento Entrega e Analytics — CODE COMPLETE (SESS-03 pending)
 
@@ -302,7 +307,7 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-08 — milestone v11.11 iniciado*
+*Last updated: 2026-06-08 — milestone v12.0 Monetização Real iniciado (v11.11 SESS-03 em paralelo)*
 
 ## Milestone History
 
