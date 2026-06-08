@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v11.10
-milestone_name: Fechamento Entrega e Analytics
-status: Blocked — human operator sessions required
-stopped_at: Phase 85 context gathered
-last_updated: "2026-06-07T20:37:24.876Z"
-last_activity: 2026-06-07 — Code phases 85–88 complete; awaiting ≥3 real beta sessions
+milestone: v11.11
+milestone_name: Aprendizado → Ação
+status: Defining requirements
+stopped_at: Milestone initialization
+last_updated: "2026-06-08T00:00:00.000Z"
+last_activity: 2026-06-08 — Milestone v11.11 started; research in progress
 progress:
-  total_phases: 13
-  completed_phases: 3
-  total_plans: 4
-  completed_plans: 10
-  percent: 80
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # State: ADScale
@@ -22,16 +22,18 @@ See: `.planning/PROJECT.md` (updated 2026-06-07)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** Milestone v11.10 — phases 85–88 shipped in code; Phase 89 SESS-03 awaiting operator sessions.
+**Current focus:** Milestone v11.11 Aprendizado → Ação — converting SESS-03 beta data into readiness tuning, post-preview stall fixes, and share-link improvements.
+
+**Prerequisite:** v11.10 Phase 89 (SESS-03) must complete before execution phases begin.
 
 ## Current Position
 
-Phase: 89 — SESS-03 Operator UAT
+Phase: Not started (defining requirements)
 Plan: —
-Status: Blocked — human operator sessions required
-Last activity: 2026-06-07 — Code phases 85–88 complete; awaiting ≥3 real beta sessions
+Status: Defining requirements
+Last activity: 2026-06-08 — Milestone v11.11 started
 
-Progress: ████████████████░░░░ 80% (4/5 phases)
+Progress: ░░░░░░░░░░░░░░░░░░░░ 0%
 
 ## Accumulated Context
 

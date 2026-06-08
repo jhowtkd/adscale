@@ -8,16 +8,22 @@ ADScale is a SaaS webapp for creative derivation: marketing teams upload a base 
 
 Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-## Current Milestone: v11.10 Fechamento Entrega e Analytics
+## Current Milestone: v11.11 Aprendizado → Ação
 
-**Goal:** Fechar o cluster entrega/créditos/analytics com instrumentação cockpit restante, accuracy de readiness, polish do dashboard owner, UAT de operador e regressão.
+**Goal:** Converter dados reais do beta (SESS-03) em melhorias acionáveis — tuning de readiness, redução de stall pós-preview e analytics/melhorias de share link self-serve.
 
 **Target features:**
-- Instrumentação cockpit — preview funnel (F-06), recipe/tradeoff (F-08/F-09), briefing abandon (F-12)
-- Readiness false-positive workflow — override do operador + analytics (F-11)
-- Owner dashboard polish — filtro de sessão, timeline sem cap, funil de receita
-- SESS-03 — ≥3 sessões reais de operador com learning answers atualizados
-- Regressão — drift de teste F-14 e suite verde
+- Readiness threshold tuning baseado em sinais de override (Q1, pós-F-11)
+- Intervenções UX para stall pós-preview (~38 min gap, F-07, Q10)
+- Analytics e melhorias de share link self-serve (F-13, Q7)
+- Fechar learning answers Q2/Q3/Q9 com evidência de sessões reais
+- Dashboard owner: median time draft→share e correlação assistance-level
+
+**Depends on:** v11.10 Phase 89 (SESS-03) — ≥3 sessões reais com learning answers atualizados
+
+### v11.10 Fechamento Entrega e Analytics — CODE COMPLETE (SESS-03 pending)
+
+Phases 85–88 shipped; Phase 89 blocked on human operator sessions.
 
 ### v11.9 UX de Entrega e Créditos — SHIPPED 2026-06-07
 
@@ -296,7 +302,7 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-07 — milestone v11.10 iniciado*
+*Last updated: 2026-06-08 — milestone v11.11 iniciado*
 
 ## Milestone History
 
