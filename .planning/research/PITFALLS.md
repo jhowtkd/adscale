@@ -1,81 +1,59 @@
-# Domain Pitfalls: v11.11 Aprendizado → Ação
+# Pitfalls Research
 
-**Domain:** Readiness tuning, post-preview stall UX, share-link analytics on instrumented beta app  
-**Researched:** 2026-06-08  
-**Overall confidence:** HIGH (extends v11.10 pitfall patterns)
-
----
+**Domain:** Adding production Stripe billing to existing beta-first product
+**Researched:** 2026-06-08
+**Confidence:** HIGH
 
 ## Critical Pitfalls
 
-### Pitfall 1: Tuning Thresholds Before SESS-03 Data
+### Pitfall 1: Double credit grants
 
-**What goes wrong:** `BLOCKING_SCORE_THRESHOLD` lowered/raised without override dimension breakdown → false confidence, reintroduces false positives or over-permissive generation.
+**What goes wrong:** User receives 2× monthly credits on first payment (checkout + invoice).
 
-**Prevention:** D-1 gated on TS-3 data with ≥2 override events across ≥3 sessions. Document before/after in LEARNING-ANSWERS.
+**How to avoid:** Grant only on `invoice.paid`; checkout handler only links customer/subscription.
 
-**Phase:** Threshold tuning phase (after SESS-03)
+**Phase:** 97 — Subscription Lifecycle Hardening
 
----
+### Pitfall 2: Webhook replay without idempotency
 
-### Pitfall 2: Share Open Event Without Allowlist Extension
+**What goes wrong:** Duplicate grants or subscription rows on Stripe retries.
 
-**What goes wrong:** `share_link_opened` fired from public page but rejected server-side — Q7/F-13 permanently unanswerable.
+**How to avoid:** `hasProcessedStripeEvent` + unique `sourceId` on grants — verify in tests.
 
-**Prevention:** Extend `PHASE_76_BETA_EVENT_KEYS` and `ALLOWED_PROPERTY_KEYS` before call site. Add sanitize test.
+**Phase:** 97
 
-**Phase:** Wave 1 (schema foundation)
+### Pitfall 3: Test mode keys in production
 
----
+**What goes wrong:** Real charges fail or test data in prod DB.
 
-### Pitfall 3: Stall Analysis on Broken Preview Funnel
+**How to avoid:** Go-live checklist; separate Vercel env groups; smoke with real R$0.50 price in test mode first.
 
-**What goes wrong:** If F-06 not deployed, `cockpit_stage_completed(preview)` missing → stall metrics nonsense.
+**Phase:** 97 — Go-Live
 
-**Prevention:** Verify Phase 85 deployed before TS-2. Smoke-check preview completion event in SESS-03 checklist.
+### Pitfall 4: past_due silent lockout
 
-**Phase:** Pre-requisite — v11.10 Phase 85
+**What goes wrong:** User with credits left but `past_due` sub sees "sem acesso" — support tickets.
 
----
+**How to avoid:** Explicit `past_due` access kind; banner + portal; document grace policy (spend existing credits vs hard block).
 
-### Pitfall 4: Building D-2 Nudge Without TS-2 Evidence
+**Phase:** 98 — Dunning & Access Policy
 
-**What goes wrong:** Campaign card nudge ships for a stall that only existed in one fixture session — UI noise without validated problem.
+### Pitfall 5: Beta users hit paywall without explanation
 
-**Prevention:** TS-2 stall panel must show median > 15min across ≥2 real sessions before D-2.
+**What goes wrong:** 10 ads exhausted → opaque 402.
 
-**Phase:** D-2 after SESS-03
+**How to avoid:** Beta-specific copy + "Assinar com trial" CTA preserving workspace data.
 
----
+**Phase:** 99 — Beta→Paid Conversion
 
-### Pitfall 5: Confounding Analytics with AI/Workflow Changes
+## "Looks Done But Isn't" Checklist
 
-**What goes wrong:** New cockpit stages or generation modes ship alongside analytics → cannot attribute stall or override changes.
-
-**Prevention:** Anti-feature: freeze cockpit shape in v11.11. No new AI models.
-
-**Phase:** All phases
-
----
-
-## Moderate Pitfalls
-
-| # | Risk | Prevention |
-|---|------|------------|
-| 6 | Share opens have no `sessionId` — wrong assistance correlation | Join via `campaignId` + session that created share link |
-| 7 | `blockingDimensions` array exceeds allowlist size | Cap at 6 dimension ids; validate enum |
-| 8 | Unauthenticated share analytics missing `workspaceId` | Always pass from `validateShareToken` result |
-| 9 | Threshold change without i18n update to blocking copy | Run lint; update readiness messages if dimension labels change |
-| 10 | LEARNING-ANSWERS still cite fixture UUIDs | Reviewer rejects `550e8400-…` citations |
+- [ ] **Checkout:** Stripe Dashboard prices match `STRIPE_*_PRICE_ID` env vars
+- [ ] **Webhook:** Production endpoint registered; `stripe listen` only for local
+- [ ] **Trial:** First `invoice.paid` after trial still grants credits
+- [ ] **Portal:** Returns null when no customer — UI handles empty state
+- [ ] **402:** All generation routes use `spendCreditsOrApiError`
 
 ---
-
-## Minor Pitfalls
-
-- **Double-counting share opens:** Debounce by `tokenId + 1h window` if operators refresh page
-- **Stall threshold too aggressive:** Start at 15min; make configurable constant not magic number in aggregate
-- **Campaign nudge on wrong derivation mode:** Filter `generationMode === 'preview'` only
-
----
-
-*Researched: 2026-06-08 — v11.11 milestone*
+*Pitfalls research for: v12.0 Monetização Real*
+*Researched: 2026-06-08*

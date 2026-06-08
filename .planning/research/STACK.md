@@ -1,65 +1,50 @@
-# Technology Stack: v11.11 Aprendizado → Ação
+# Stack Research
 
-**Project:** ADScale v11.11  
-**Researched:** 2026-06-08  
-**Scope:** Stack additions for readiness tuning, post-preview stall analytics, share-link tracking.  
-**Baseline:** Next.js 16 App Router, React 19, Drizzle+Neon, first-party beta analytics (v11.8–v11.10).
+**Domain:** SaaS subscription billing (B2B creative tooling)
+**Researched:** 2026-06-08
+**Confidence:** HIGH
 
----
+## Recommended Stack
 
-## Verdict: Zero new npm dependencies
+### Core Technologies
 
-All v11.11 capabilities extend the existing analytics + cockpit layer. No new libraries, no third-party SDKs.
+| Technology | Version | Purpose | Why Recommended |
+|------------|---------|---------|-----------------|
+| Stripe Node SDK | latest (API 2026-04-22.dahlia) | Subscriptions, Checkout, webhooks | Already integrated; Checkout Sessions + Billing APIs are Stripe's recommended path for recurring SaaS |
+| Stripe Checkout Sessions | — | Hosted checkout + trial | Avoids PCI scope; supports `trial_period_days`, promotion codes, BRL prices |
+| Stripe Customer Portal | — | Self-serve plan/payment management | Already wired via `createPortalSession` |
+| Existing ADScale credit ledger | Drizzle + Postgres | Spend gates independent of Stripe | Decouples generation metering from billing events — correct for usage-based credits on subscription |
 
-**Possible optional migration:** None required for JSONB event properties. If share-open volume grows, consider index on `(event_key, campaign_id)` — not needed at beta scale.
+### Supporting Libraries
 
----
+| Library | Version | Purpose | When to Use |
+|---------|---------|---------|-------------|
+| `stripe` npm package | ^18+ | Server SDK | All server routes (`checkout`, `webhook`, `portal`) |
+| Webhook signature verify | built-in | `constructEvent` | Every production webhook — non-negotiable |
+| Restricted API keys (RAK) | Dashboard | Prod deploy | Prefer `rk_` over full `sk_` with least privilege |
 
-## Core Technologies (unchanged)
+### What NOT to Add
 
-| Technology | Version | Role in v11.11 |
-|------------|---------|----------------|
-| Next.js App Router | 16.x | Share page server component fires `share_link_opened` |
-| React 19 | 19.x | Campaign card nudge (D-2) |
-| Drizzle + Neon | 0.45 | `beta_analytics_events` JSONB — new keys via allowlist only |
-| TanStack Query | 5.x | Owner dashboard new panels |
-| Zod | 3.x | Ingest boundary (unchanged strict allowlist) |
-| next-intl | existing | PT-BR/EN for new dashboard labels |
+| Avoid | Why | Use Instead |
+|-------|-----|-------------|
+| Payment Element for v12 | Duplicates Checkout; more PCI/UX work | Keep Checkout Sessions |
+| Fake Stripe subs for beta | v11.2 decision locked | Beta entitlements table |
+| `payment_method_types` on Checkout | Blocks dynamic payment methods | Dashboard payment method config |
+| Second credit system | Phase 49 locked semantics | Existing `credit_grants` + `recordUsage` |
 
----
+## Version Compatibility
 
-## In-Repo Changes Required
+| Package | Notes |
+|---------|-------|
+| `stripe@` in `app/package.json` | Pin and test against Stripe API version in Dashboard |
+| Invoice object shape | `events.ts` already handles legacy + 2026 invoice subscription ID paths |
 
-| Area | Change | Feature |
-|------|--------|---------|
-| `beta-analytics/types.ts` | +`share_link_opened`, +`approval_package_refreshed` (if Q9); +`blockingDimensions`, `tokenId` property keys | TS-1, TS-3, TS-4 |
-| `beta-analytics/aggregate.ts` | +`PostPreviewStallSignal`, extend `ReadinessOverrideSignal`, +share engagement by assistance level | TS-2, TS-3, D-3, D-4 |
-| `share/[token]/page.tsx` | Server-side `recordBetaAnalyticsEvent` on valid token | TS-1 |
-| `preflight/route.ts` | Include `blockingDimensions[]` on override event | TS-3 |
-| `creative-readiness.ts` | Constant threshold adjustment (evidence-gated) | D-1 |
-| `OwnerAnalyticsPanel.tsx` | Stall panel, dimension breakdown, draft→share median | TS-2, D-4 |
-| Campaign list/card | `preview_done_pending_batch` chip | D-2 |
+## Sources
 
----
-
-## What NOT to Add
-
-| Avoid | Reason |
-|-------|--------|
-| Mixpanel/PostHog/Amplitude | PII risk; first-party sufficient |
-| Email/push for stall nudges | Resend not wired to product flows |
-| ML auto-tuning | N < 50 sessions |
-| New chart library | `FunnelTable` pattern exists |
+- ADScale `app/src/server/billing/*` — existing integration
+- Stripe best practices skill — Checkout for subscriptions, RAK for prod
+- Phase 49 CONTEXT — beta vs paid semantics locked
 
 ---
-
-## Integration Points
-
-- **Unauthenticated analytics:** `share/[token]/page.tsx` — `workspaceId` from token validation; `userId`/`sessionId` null
-- **Override dimensions:** `preflight/route.ts` already has `CreativeReadinessResult` at override time
-- **Stall timing:** Join `cockpit_stage_completed(preview)` with `credit_spend(batch)` or derivation status per session
-- **Assistance level:** Beta session metadata from Phase 76/77 — join via `campaignId`
-
----
-
-*Researched: 2026-06-08 — v11.11 milestone*
+*Stack research for: v12.0 Monetização Real*
+*Researched: 2026-06-08*
