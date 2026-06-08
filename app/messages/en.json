@@ -1663,6 +1663,9 @@
       "text": "You're on the ADScale waitlist. We'll email you when access opens."
     }
   },
+  "waitlist": {
+    "duplicateEmail": "This email is already on our waitlist."
+  },
   "notifications": {
     "derivationCompleteSubject": "Your creative variants are ready",
     "derivationCompleteBody": "Your campaign \"{campaignName}\" has {derivationCount} new creative variant(s) ready for review.",

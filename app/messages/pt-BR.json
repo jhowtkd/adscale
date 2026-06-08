@@ -1664,6 +1664,9 @@
       "text": "Você está na lista de espera do ADScale. Avisaremos por email quando abrirmos o acesso."
     }
   },
+  "waitlist": {
+    "duplicateEmail": "Este email já está na nossa lista de espera."
+  },
   "notifications": {
     "derivationCompleteSubject": "Suas variações criativas estão prontas",
     "derivationCompleteBody": "Sua campanha \"{campaignName}\" tem {derivationCount} nova(s) variação(ões) pronta(s) para revisão.",
