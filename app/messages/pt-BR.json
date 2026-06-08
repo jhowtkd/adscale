@@ -1655,6 +1655,13 @@
       "bodySuffix": "no ADScale. Aceite o convite para ver campanhas, aprovar peças e gerar variações junto com o time.",
       "cta": "Aceitar convite",
       "text": "Você foi convidado para {workspaceName} no ADScale. Aceite em: {url}"
+    },
+    "waitlist": {
+      "subject": "Você está na lista de espera do ADScale",
+      "preview": "Obrigado pelo interesse — avisaremos quando abrirmos.",
+      "title": "Você entrou na lista de espera",
+      "body": "Recebemos seu cadastro. Quando o ADScale abrir para novos usuários, você será um dos primeiros a saber.",
+      "text": "Você está na lista de espera do ADScale. Avisaremos por email quando abrirmos o acesso."
     }
   },
   "notifications": {

@@ -1654,6 +1654,13 @@
       "bodySuffix": "on ADScale. Accept to review campaigns, approve creatives, and generate variants with the team.",
       "cta": "Accept invite",
       "text": "You've been invited to {workspaceName} on ADScale. Accept at: {url}"
+    },
+    "waitlist": {
+      "subject": "You're on the ADScale waitlist",
+      "preview": "Thanks for your interest — we'll let you know when we open.",
+      "title": "You're on the waitlist",
+      "body": "We received your signup. When ADScale opens for new users, you'll be among the first to know.",
+      "text": "You're on the ADScale waitlist. We'll email you when access opens."
     }
   },
   "notifications": {

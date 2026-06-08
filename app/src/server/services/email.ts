@@ -133,6 +133,27 @@ export async function sendMagicLinkEmail(input: {
   });
 }
 
+export async function sendWaitlistConfirmationEmail(input: {
+  to: string;
+  locale?: string | null;
+}) {
+  const { t } = await getTransactionalEmailTranslations(input.locale);
+
+  await sendEmail({
+    to: input.to,
+    subject: t("waitlist.subject"),
+    text: t("waitlist.text"),
+    html: renderTransactionalEmail({
+      preview: t("waitlist.preview"),
+      title: t("waitlist.title"),
+      bodyHtml: escapeHtml(t("waitlist.body")),
+      footerFallback: t("footerFallback"),
+      footerIgnore: t("footerIgnore"),
+      footerSignature: t("footerSignature"),
+    }),
+  });
+}
+
 export async function sendInviteEmail(input: {
   to: string;
   workspaceName: string;

@@ -33,6 +33,13 @@ vi.mock("next-intl/server", () => ({
                 cta: "Nova senha",
                 text: "reset {url}",
               },
+              waitlist: {
+                subject: "Você está na lista de espera do ADScale",
+                preview: "preview-waitlist-pt",
+                title: "Você entrou na lista de espera",
+                body: "body-waitlist-pt",
+                text: "texto waitlist pt",
+              },
             },
           }
         : {
@@ -55,6 +62,13 @@ vi.mock("next-intl/server", () => ({
                 body: "body-reset-en",
                 cta: "Reset",
                 text: "reset {url}",
+              },
+              waitlist: {
+                subject: "You're on the ADScale waitlist",
+                preview: "preview-waitlist-en",
+                title: "You're on the waitlist",
+                body: "body-waitlist-en",
+                text: "waitlist text en",
               },
             },
           };
@@ -119,6 +133,37 @@ describe("email service", () => {
     expect(body.html).toContain("https://app.example.com/api/auth/verify-email?token=abc");
     expect(body.html).toContain("#00b34a");
     expect(body.html).not.toContain("re_test");
+  });
+
+  it("sends localized waitlist confirmation email without a CTA button", async () => {
+    const { sendWaitlistConfirmationEmail } = await import("./email");
+
+    await sendWaitlistConfirmationEmail({
+      to: "waitlist@example.com",
+      locale: "pt-BR",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.resend.com/emails",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          Authorization: "Bearer re_live_valid_key",
+          "Content-Type": "application/json",
+        }),
+      })
+    );
+
+    const [, request] = fetchMock.mock.calls[0];
+    const body = JSON.parse(request.body);
+    expect(body).toMatchObject({
+      from: "ADScale <onboarding@example.com>",
+      to: ["waitlist@example.com"],
+      subject: "Você está na lista de espera do ADScale",
+      text: "texto waitlist pt",
+    });
+    expect(body.html).toContain("body-waitlist-pt");
+    expect(body.html).not.toContain("background:#00b34a");
   });
 
   it("raises a useful error when Resend rejects the email", async () => {
