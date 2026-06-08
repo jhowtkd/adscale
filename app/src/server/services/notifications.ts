@@ -2,7 +2,10 @@ import { eq } from "drizzle-orm";
 import { db } from "@/server/db";
 import { user, workspaceMembers } from "@/server/db/schema";
 import { sendEmail } from "@/server/services/email";
+import { getTransactionalEmailTranslations } from "@/server/services/email-i18n";
+import { escapeHtml, renderTransactionalEmail } from "@/server/services/email-template";
 import { getTranslations } from "next-intl/server";
+import { env } from "@/server/validation/env";
 
 export async function shouldSendToUser(userId: string) {
   const result = await db
@@ -53,6 +56,31 @@ async function getNotificationTranslations(locale: string) {
   return getTranslations({ locale, namespace: "notifications" });
 }
 
+async function sendNotificationEmail(input: {
+  to: string;
+  subject: string;
+  title: string;
+  body: string;
+  locale?: string;
+}) {
+  const { t } = await getTransactionalEmailTranslations(input.locale);
+
+  await sendEmail({
+    to: input.to,
+    subject: input.subject,
+    text: input.body,
+    html: renderTransactionalEmail({
+      preview: input.subject,
+      title: input.title,
+      bodyHtml: escapeHtml(input.body),
+      cta: { label: t("openApp"), url: env.APP_URL },
+      footerFallback: t("footerFallback"),
+      footerIgnore: t("footerIgnore"),
+      footerSignature: t("footerSignature"),
+    }),
+  });
+}
+
 export async function sendDerivationCompleteEmail({
   to,
   campaignName,
@@ -66,14 +94,9 @@ export async function sendDerivationCompleteEmail({
 }) {
   const t = await getNotificationTranslations(locale);
   const subject = t("derivationCompleteSubject");
-  const text = t("derivationCompleteBody", { campaignName, derivationCount });
+  const body = t("derivationCompleteBody", { campaignName, derivationCount });
 
-  await sendEmail({
-    to,
-    subject,
-    text,
-    html: `<p>${text.replace(/\n/g, "<br>")}</p>`,
-  });
+  await sendNotificationEmail({ to, subject, title: subject, body, locale });
 }
 
 export async function sendPlanReadyEmail({
@@ -87,14 +110,9 @@ export async function sendPlanReadyEmail({
 }) {
   const t = await getNotificationTranslations(locale);
   const subject = t("planReadySubject");
-  const text = t("planReadyBody", { campaignName });
+  const body = t("planReadyBody", { campaignName });
 
-  await sendEmail({
-    to,
-    subject,
-    text,
-    html: `<p>${text.replace(/\n/g, "<br>")}</p>`,
-  });
+  await sendNotificationEmail({ to, subject, title: subject, body, locale });
 }
 
 export async function sendLowCreditsEmail({
@@ -108,14 +126,9 @@ export async function sendLowCreditsEmail({
 }) {
   const t = await getNotificationTranslations(locale);
   const subject = t("lowCreditsSubject");
-  const text = t("lowCreditsBody", { creditBalance });
+  const body = t("lowCreditsBody", { creditBalance });
 
-  await sendEmail({
-    to,
-    subject,
-    text,
-    html: `<p>${text.replace(/\n/g, "<br>")}</p>`,
-  });
+  await sendNotificationEmail({ to, subject, title: subject, body, locale });
 }
 
 export async function sendTrialExpiringEmail({
@@ -129,12 +142,7 @@ export async function sendTrialExpiringEmail({
 }) {
   const t = await getNotificationTranslations(locale);
   const subject = t("trialExpiringSubject");
-  const text = t("trialExpiringBody", { daysLeft });
+  const body = t("trialExpiringBody", { daysLeft });
 
-  await sendEmail({
-    to,
-    subject,
-    text,
-    html: `<p>${text.replace(/\n/g, "<br>")}</p>`,
-  });
+  await sendNotificationEmail({ to, subject, title: subject, body, locale });
 }

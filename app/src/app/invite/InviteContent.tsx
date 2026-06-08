@@ -4,6 +4,7 @@ import { Suspense, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import AuthCard from "@/components/auth/AuthCard";
+import AuthPageShell from "@/components/auth/AuthPageShell";
 import { Button } from "@/components/ui/button";
 import { useTranslations } from "next-intl";
 import { authClient } from "@/lib/auth-client";
@@ -34,14 +35,16 @@ export default function InviteContent() {
 }
 
 function InviteLoading() {
+  const t = useTranslations("auth");
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[var(--deep-bg)] px-4">
+    <AuthPageShell>
       <AuthCard>
         <div className="space-y-2 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">Loading…</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{t("loading")}</h1>
         </div>
       </AuthCard>
-    </div>
+    </AuthPageShell>
   );
 }
 
@@ -103,7 +106,7 @@ function InviteContentInner() {
       : t("genericError");
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[var(--deep-bg)] px-4">
+    <AuthPageShell>
       <AuthCard>
         <div className="space-y-6">
           <div className="space-y-2 text-center">
@@ -139,7 +142,7 @@ function InviteContentInner() {
               </div>
               <div className="flex justify-center gap-3">
                 <Button variant="outline" onClick={() => router.push("/login")}>
-                  {t("backToLogin")}
+                  {t("backToSignIn")}
                 </Button>
                 {token && (
 	                  <Button
@@ -157,6 +160,6 @@ function InviteContentInner() {
           )}
         </div>
       </AuthCard>
-    </div>
+    </AuthPageShell>
   );
 }

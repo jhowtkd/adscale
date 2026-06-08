@@ -9,6 +9,7 @@ import {
   sendVerificationEmail as sendVerificationMessage,
   sendMagicLinkEmail as sendMagicLinkMessage,
 } from "../services/email";
+import { getLocaleByEmail, getUserLocale } from "../repositories/user";
 import { buildTrustedOrigins } from "./config";
 import { isRateLimitDisabled } from "@/lib/rate-limit";
 import { rememberResetUrl } from "./e2e-reset-store";
@@ -43,7 +44,8 @@ export const auth = betterAuth({
       if (isRateLimitDisabled()) {
         rememberResetUrl(user.email, url);
       }
-      await sendPasswordResetMessage({ to: user.email, url });
+      const locale = await getUserLocale(user.id);
+      await sendPasswordResetMessage({ to: user.email, url, locale });
     },
   },
   socialProviders: {
@@ -69,13 +71,15 @@ export const auth = betterAuth({
         await ensureDevAdminEmailVerified(user.email);
         return;
       }
-      await sendVerificationMessage({ to: user.email, url });
+      const locale = await getUserLocale(user.id);
+      await sendVerificationMessage({ to: user.email, url, locale });
     },
   },
   plugins: [
     magicLink({
       sendMagicLink: async ({ email, url }) => {
-        await sendMagicLinkMessage({ to: email, url });
+        const locale = await getLocaleByEmail(email);
+        await sendMagicLinkMessage({ to: email, url, locale });
       },
     }),
   ],
@@ -87,6 +91,7 @@ export const auth = betterAuth({
           const base = {
             ...userData,
             email: normalizedEmail,
+            locale: userData.locale ?? "pt-BR",
           };
 
           if (!isDevAdminEmail(normalizedEmail)) {

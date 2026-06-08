@@ -3,6 +3,7 @@
 import { Suspense, useReducer } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import AuthCard from "@/components/auth/AuthCard";
+import AuthPageShell from "@/components/auth/AuthPageShell";
 import PasswordInput from "@/components/auth/PasswordInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,14 +36,16 @@ export default function ResetPasswordContent() {
 }
 
 function ResetPasswordLoading() {
+  const t = useTranslations("auth");
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[var(--deep-bg)] px-4">
+    <AuthPageShell>
       <AuthCard>
         <div className="space-y-2 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">Carregando…</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{t("loading")}</h1>
         </div>
       </AuthCard>
-    </div>
+    </AuthPageShell>
   );
 }
 
@@ -55,7 +58,7 @@ function ResetPasswordContentInner() {
   const [state, dispatch] = useReducer(resetPasswordReducer, {
     newPassword: "",
     confirmPassword: "",
-    error: !token ? t("invalidToken") : "",
+    error: !token ? t("invalidResetToken") : "",
     success: false,
     loading: false,
   });
@@ -71,7 +74,7 @@ function ResetPasswordContentInner() {
     }
 
     if (!token) {
-      dispatch({ error: t("invalidToken") });
+      dispatch({ error: t("invalidResetToken") });
       return;
     }
 
@@ -99,7 +102,7 @@ function ResetPasswordContentInner() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[var(--deep-bg)] px-4">
+    <AuthPageShell>
       <AuthCard>
         <div className="space-y-6">
           <div className="space-y-2 text-center">
@@ -118,7 +121,7 @@ function ResetPasswordContentInner() {
               </div>
               <p className="text-center text-sm text-muted-foreground">
                 <Link href="/login" className="underline hover:text-primary">
-                  {t("backToLogin")}
+                  {t("backToSignIn")}
                 </Link>
               </p>
             </div>
@@ -163,13 +166,13 @@ function ResetPasswordContentInner() {
               </Button>
               <p className="text-center text-sm text-muted-foreground">
                 <Link href="/login" className="underline hover:text-primary">
-                  {t("backToLogin")}
+                  {t("backToSignIn")}
                 </Link>
               </p>
             </form>
           )}
         </div>
       </AuthCard>
-    </div>
+    </AuthPageShell>
   );
 }

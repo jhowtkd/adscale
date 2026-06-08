@@ -1,4 +1,6 @@
 import { env } from "@/server/validation/env";
+import { getTransactionalEmailTranslations } from "./email-i18n";
+import { escapeHtml, renderTransactionalEmail } from "./email-template";
 
 type SendEmailInput = {
   to: string;
@@ -34,91 +36,125 @@ export async function sendEmail(input: SendEmailInput) {
   }
 }
 
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
+async function sendActionEmail(input: {
+  to: string;
+  url: string;
+  locale?: string | null;
+  copy: {
+    subject: string;
+    preview: string;
+    title: string;
+    body: string;
+    cta: string;
+    text: string;
+  };
+}) {
+  const { t } = await getTransactionalEmailTranslations(input.locale);
 
-function authEmailHtml(values: { title: string; body: string; cta: string; url: string }) {
-  const safeTitle = escapeHtml(values.title);
-  const safeBody = escapeHtml(values.body);
-  const safeCta = escapeHtml(values.cta);
-  const safeUrl = escapeHtml(values.url);
-
-  return `
-    <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827">
-      <h1 style="font-size:20px;margin:0 0 16px">${safeTitle}</h1>
-      <p style="margin:0 0 20px">${safeBody}</p>
-      <p style="margin:0 0 24px">
-        <a href="${safeUrl}" style="background:#111827;color:#ffffff;padding:10px 16px;text-decoration:none;border-radius:6px">${safeCta}</a>
-      </p>
-      <p style="font-size:12px;color:#6b7280;margin:0">If the button does not work, copy and paste this URL into your browser:</p>
-      <p style="font-size:12px;color:#6b7280;word-break:break-all;margin:4px 0 0">${safeUrl}</p>
-    </div>
-  `;
-}
-
-export function sendVerificationEmail(input: { to: string; url: string }) {
-  return sendEmail({
+  await sendEmail({
     to: input.to,
-    subject: "Verify your ADScale email",
-    text: `Verify your ADScale email by opening this link: ${input.url}`,
-    html: authEmailHtml({
-      title: "Verify your ADScale email",
-      body: "Confirm this email address to finish securing your ADScale account.",
-      cta: "Verify email",
-      url: input.url,
+    subject: input.copy.subject,
+    text: input.copy.text,
+    html: renderTransactionalEmail({
+      preview: input.copy.preview,
+      title: input.copy.title,
+      bodyHtml: escapeHtml(input.copy.body),
+      cta: { label: input.copy.cta, url: input.url },
+      footerFallback: t("footerFallback"),
+      footerIgnore: t("footerIgnore"),
+      footerSignature: t("footerSignature"),
     }),
   });
 }
 
-export function sendPasswordResetEmail(input: { to: string; url: string }) {
-  return sendEmail({
+export async function sendVerificationEmail(input: {
+  to: string;
+  url: string;
+  locale?: string | null;
+}) {
+  const { t } = await getTransactionalEmailTranslations(input.locale);
+
+  return sendActionEmail({
     to: input.to,
-    subject: "Reset your ADScale password",
-    text: `Reset your ADScale password by opening this link: ${input.url}`,
-    html: authEmailHtml({
-      title: "Reset your ADScale password",
-      body: "Use this secure link to choose a new password for your ADScale account.",
-      cta: "Reset password",
-      url: input.url,
-    }),
+    url: input.url,
+    locale: input.locale,
+    copy: {
+      subject: t("verification.subject"),
+      preview: t("verification.preview"),
+      title: t("verification.title"),
+      body: t("verification.body"),
+      cta: t("verification.cta"),
+      text: t("verification.text", { url: input.url }),
+    },
   });
 }
 
-export function sendMagicLinkEmail(input: { to: string; url: string }) {
-  return sendEmail({
+export async function sendPasswordResetEmail(input: {
+  to: string;
+  url: string;
+  locale?: string | null;
+}) {
+  const { t } = await getTransactionalEmailTranslations(input.locale);
+
+  return sendActionEmail({
     to: input.to,
-    subject: "Sign in to ADScale",
-    text: `Sign in to ADScale by opening this link: ${input.url}`,
-    html: authEmailHtml({
-      title: "Sign in to ADScale",
-      body: "Click the button below to sign in to your ADScale account. This link will expire in 5 minutes.",
-      cta: "Sign in",
-      url: input.url,
-    }),
+    url: input.url,
+    locale: input.locale,
+    copy: {
+      subject: t("reset.subject"),
+      preview: t("reset.preview"),
+      title: t("reset.title"),
+      body: t("reset.body"),
+      cta: t("reset.cta"),
+      text: t("reset.text", { url: input.url }),
+    },
   });
 }
 
-export function sendInviteEmail(input: {
+export async function sendMagicLinkEmail(input: {
+  to: string;
+  url: string;
+  locale?: string | null;
+}) {
+  const { t } = await getTransactionalEmailTranslations(input.locale);
+
+  return sendActionEmail({
+    to: input.to,
+    url: input.url,
+    locale: input.locale,
+    copy: {
+      subject: t("magicLink.subject"),
+      preview: t("magicLink.preview"),
+      title: t("magicLink.title"),
+      body: t("magicLink.body"),
+      cta: t("magicLink.cta"),
+      text: t("magicLink.text", { url: input.url }),
+    },
+  });
+}
+
+export async function sendInviteEmail(input: {
   to: string;
   workspaceName: string;
   token: string;
+  locale?: string | null;
 }) {
   const url = `${env.APP_URL}/invite?token=${input.token}`;
-  return sendEmail({
+  const { t } = await getTransactionalEmailTranslations(input.locale);
+  const safeWorkspace = escapeHtml(input.workspaceName);
+
+  await sendEmail({
     to: input.to,
-    subject: `You've been invited to join ${input.workspaceName} on ADScale`,
-    text: `You've been invited to join ${input.workspaceName} on ADScale. Accept the invite by opening this link: ${url}`,
-    html: authEmailHtml({
-      title: "Workspace Invite",
-      body: `You've been invited to join <strong>${escapeHtml(input.workspaceName)}</strong> on ADScale.`,
-      cta: "Accept Invite",
-      url,
+    subject: t("invite.subject", { workspaceName: input.workspaceName }),
+    text: t("invite.text", { workspaceName: input.workspaceName, url }),
+    html: renderTransactionalEmail({
+      preview: t("invite.preview", { workspaceName: input.workspaceName }),
+      title: t("invite.title"),
+      bodyHtml: `${escapeHtml(t("invite.bodyPrefix"))} <strong style="color:#0a0a0a">${safeWorkspace}</strong> ${escapeHtml(t("invite.bodySuffix"))}`,
+      cta: { label: t("invite.cta"), url },
+      footerFallback: t("footerFallback"),
+      footerIgnore: t("footerIgnore"),
+      footerSignature: t("footerSignature"),
     }),
   });
 }

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import AuthCard from "@/components/auth/AuthCard";
+import AuthPageShell from "@/components/auth/AuthPageShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,7 +41,7 @@ export default function ForgotPasswordContent() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[var(--deep-bg)] px-4">
+    <AuthPageShell>
       <AuthCard>
         <div className="space-y-6">
           <div className="space-y-2 text-center">
@@ -59,7 +60,7 @@ export default function ForgotPasswordContent() {
               </div>
               <p className="text-center text-sm text-muted-foreground">
                 <Link href="/login" className="underline hover:text-primary">
-                  {t("backToLogin")}
+                  {t("backToSignIn")}
                 </Link>
               </p>
             </div>
@@ -87,13 +88,13 @@ export default function ForgotPasswordContent() {
               </Button>
               <p className="text-center text-sm text-muted-foreground">
                 <Link href="/login" className="underline hover:text-primary">
-                  {t("backToLogin")}
+                  {t("backToSignIn")}
                 </Link>
               </p>
             </form>
           )}
         </div>
       </AuthCard>
-    </div>
+    </AuthPageShell>
   );
 }

@@ -1086,6 +1086,23 @@
     "sendingMagicLink": "Sending link...",
     "magicLinkSent": "We sent a magic link to your email.",
     "backToLogin": "Back to password",
+    "backToSignIn": "Back to sign in",
+    "loading": "Loading…",
+    "forgotPasswordTitle": "Forgot your password?",
+    "forgotPasswordSubtitle": "Enter your email and we'll send you a secure link to set a new password.",
+    "sendResetLink": "Send reset link",
+    "sendingResetLink": "Sending link…",
+    "resetLinkSent": "Done! If an account exists for that email, you'll receive a link shortly.",
+    "resetPasswordTitle": "New password",
+    "resetPasswordSubtitle": "Choose a strong password to secure your ADScale account.",
+    "newPassword": "New password",
+    "confirmNewPassword": "Confirm new password",
+    "resetPassword": "Reset password",
+    "resettingPassword": "Resetting…",
+    "passwordResetSuccess": "Password updated! Redirecting to sign in…",
+    "passwordMismatch": "Passwords don't match.",
+    "invalidResetToken": "Invalid or expired link. Request a new password reset.",
+    "retry": "Try again",
     "showPassword": "Show password",
     "hidePassword": "Hide password",
     "requirements": {
@@ -1599,6 +1616,45 @@
     "statusFailed": "Failed",
     "approved": "approved",
     "noData": "No data available"
+  },
+  "transactionalEmails": {
+    "footerFallback": "If the button doesn't open, copy and paste this link into your browser:",
+    "footerIgnore": "If you didn't request this email, you can safely ignore it — your account stays unchanged.",
+    "footerSignature": "Built for teams scaling creative with AI · ADScale",
+    "openApp": "Open ADScale",
+    "verification": {
+      "subject": "Confirm your ADScale email",
+      "preview": "One click to unlock your account.",
+      "title": "Almost there — confirm your email",
+      "body": "You're one step away from the cockpit. Confirm this address to secure your account and start generating creative variants.",
+      "cta": "Confirm email",
+      "text": "Confirm your ADScale email by opening this link: {url}"
+    },
+    "reset": {
+      "subject": "Reset your ADScale password",
+      "preview": "Your secure link to set a new password.",
+      "title": "Let's reset your password",
+      "body": "We received a request to change your account password. The link below is time-limited — use it now and get back to the cockpit.",
+      "cta": "Set new password",
+      "text": "Reset your ADScale password by opening this link: {url}"
+    },
+    "magicLink": {
+      "subject": "Your quick ADScale sign-in",
+      "preview": "Sign in without a password — link valid for 5 minutes.",
+      "title": "Your sign-in link is here",
+      "body": "Click below to access your account. For security, this link expires in 5 minutes.",
+      "cta": "Sign in to ADScale",
+      "text": "Sign in to ADScale by opening this link (valid for 5 minutes): {url}"
+    },
+    "invite": {
+      "subject": "Invitation to {workspaceName} on ADScale",
+      "preview": "You've been invited to an ADScale workspace.",
+      "title": "You've been invited to a team",
+      "bodyPrefix": "Someone invited you to collaborate on",
+      "bodySuffix": "on ADScale. Accept to review campaigns, approve creatives, and generate variants with the team.",
+      "cta": "Accept invite",
+      "text": "You've been invited to {workspaceName} on ADScale. Accept at: {url}"
+    }
   },
   "notifications": {
     "derivationCompleteSubject": "Your creative variants are ready",

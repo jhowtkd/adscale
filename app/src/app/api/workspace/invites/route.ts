@@ -6,6 +6,7 @@ import { getSessionFromHeaders } from "@/server/auth/session";
 import { acceptInvite } from "@/server/auth/team";
 import { createInvitation, getPendingInvitations, cancelInvitation } from "@/server/repositories/invitation";
 import { sendInviteEmail } from "@/server/services/email";
+import { getUserLocale } from "@/server/repositories/user";
 
 const createInviteSchema = z.object({
   email: z.string().email(),
@@ -52,10 +53,12 @@ export async function POST(request: Request) {
       createdBy: user.id,
     });
 
+    const locale = await getUserLocale(user.id);
     await sendInviteEmail({
       to: parsed.data.email,
       workspaceName: workspace.name,
       token: invite.token,
+      locale,
     });
 
     return NextResponse.json({ invite }, { status: 201 });

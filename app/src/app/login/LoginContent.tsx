@@ -2,6 +2,7 @@
 
 import { useReducer } from "react";
 import AuthCard from "@/components/auth/AuthCard";
+import AuthPageShell from "@/components/auth/AuthPageShell";
 import PasswordInput from "@/components/auth/PasswordInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -107,11 +108,7 @@ export default function LoginContent() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[var(--deep-bg)] px-4 relative overflow-hidden">
-      {/* Background effects */}
-      <div className="absolute inset-0 dot-grid opacity-50" />
-      <div className="absolute top-1/4 left-1/4 size-[500px] bg-[var(--accent-green)]/[0.02] rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 size-[400px] bg-[var(--accent-green)]/[0.01] rounded-full blur-[100px] pointer-events-none" />
+    <AuthPageShell>
       <AuthCard>
         <div className="space-y-6">
           <div className="space-y-2 text-center">
@@ -230,6 +227,6 @@ export default function LoginContent() {
           )}
         </div>
       </AuthCard>
-    </main>
+    </AuthPageShell>
   );
 }

@@ -1086,6 +1086,23 @@
     "sendingMagicLink": "Enviando link...",
     "magicLinkSent": "Enviamos um link mágico para o seu e-mail.",
     "backToLogin": "Voltar para senha",
+    "backToSignIn": "Voltar para entrar",
+    "loading": "Carregando…",
+    "forgotPasswordTitle": "Esqueceu sua senha?",
+    "forgotPasswordSubtitle": "Informe seu e-mail e enviaremos um link seguro para criar uma nova senha.",
+    "sendResetLink": "Enviar link de redefinição",
+    "sendingResetLink": "Enviando link…",
+    "resetLinkSent": "Pronto! Se existir uma conta com esse e-mail, você receberá o link em instantes.",
+    "resetPasswordTitle": "Nova senha",
+    "resetPasswordSubtitle": "Escolha uma senha forte para proteger sua conta ADScale.",
+    "newPassword": "Nova senha",
+    "confirmNewPassword": "Confirmar nova senha",
+    "resetPassword": "Redefinir senha",
+    "resettingPassword": "Redefinindo…",
+    "passwordResetSuccess": "Senha atualizada! Redirecionando para o login…",
+    "passwordMismatch": "As senhas não coincidem.",
+    "invalidResetToken": "Link inválido ou expirado. Solicite um novo link de redefinição.",
+    "retry": "Tentar novamente",
     "showPassword": "Mostrar senha",
     "hidePassword": "Ocultar senha",
     "requirements": {
@@ -1600,6 +1617,45 @@
     "statusFailed": "Falhas",
     "approved": "aprovadas",
     "noData": "Sem dados disponíveis"
+  },
+  "transactionalEmails": {
+    "footerFallback": "Se o botão não abrir, copie e cole este link no navegador:",
+    "footerIgnore": "Se você não pediu este e-mail, pode ignorá-lo — nada muda na sua conta.",
+    "footerSignature": "Feito para quem escala criativo com IA · ADScale",
+    "openApp": "Abrir ADScale",
+    "verification": {
+      "subject": "Confirme seu e-mail no ADScale",
+      "preview": "Falta só um clique para liberar sua conta.",
+      "title": "Quase lá — confirme seu e-mail",
+      "body": "Você está a um passo de entrar no cockpit. Confirme este endereço para proteger sua conta e começar a gerar variações criativas.",
+      "cta": "Confirmar e-mail",
+      "text": "Confirme seu e-mail no ADScale abrindo este link: {url}"
+    },
+    "reset": {
+      "subject": "Redefinir senha do ADScale",
+      "preview": "Seu link seguro para criar uma nova senha.",
+      "title": "Vamos redefinir sua senha",
+      "body": "Recebemos um pedido para trocar a senha da sua conta. O link abaixo é válido por tempo limitado — use-o agora e volte pro cockpit.",
+      "cta": "Criar nova senha",
+      "text": "Redefina sua senha do ADScale abrindo este link: {url}"
+    },
+    "magicLink": {
+      "subject": "Seu acesso rápido ao ADScale",
+      "preview": "Entre sem senha — link válido por 5 minutos.",
+      "title": "Seu link de acesso chegou",
+      "body": "Clique abaixo para entrar na sua conta. Por segurança, este link expira em 5 minutos.",
+      "cta": "Entrar no ADScale",
+      "text": "Entre no ADScale abrindo este link (válido por 5 minutos): {url}"
+    },
+    "invite": {
+      "subject": "Convite para {workspaceName} no ADScale",
+      "preview": "Você foi convidado para um workspace no ADScale.",
+      "title": "Você foi convidado para um time",
+      "bodyPrefix": "Alguém te chamou para colaborar em",
+      "bodySuffix": "no ADScale. Aceite o convite para ver campanhas, aprovar peças e gerar variações junto com o time.",
+      "cta": "Aceitar convite",
+      "text": "Você foi convidado para {workspaceName} no ADScale. Aceite em: {url}"
+    }
   },
   "notifications": {
     "derivationCompleteSubject": "Suas variações criativas estão prontas",
