@@ -1038,5 +1038,27 @@ export const workspaceProgression = adscaleSchema.table(
 export type WorkspaceProgression = typeof workspaceProgression.$inferSelect;
 export type NewWorkspaceProgression = typeof workspaceProgression.$inferInsert;
 
+export const waitlistSignups = adscaleSchema.table(
+  "waitlist_signups",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    email: text("email").notNull(),
+    sector: text("sector").notNull(),
+    sectorOther: text("sector_other"),
+    whatsapp: text("whatsapp").notNull(),
+    consentAt: timestamp("consent_at", { mode: "date" }).notNull(),
+    consentVersion: text("consent_version").notNull(),
+    locale: text("locale").notNull().default("pt-BR"),
+    source: text("source").notNull().default("marketing-site"),
+    resendContactId: text("resend_contact_id"),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("waitlist_signups_email_uidx").on(table.email)]
+);
+
+export type WaitlistSignup = typeof waitlistSignups.$inferSelect;
+export type NewWaitlistSignup = typeof waitlistSignups.$inferInsert;
+
 export type PersonaSimulation = typeof personaSimulations.$inferSelect;
 export type NewPersonaSimulation = typeof personaSimulations.$inferInsert;
