@@ -51,6 +51,7 @@ function CampaignListCard({
   onSaveAsTemplate,
 }: CampaignListCardProps) {
   const tCommon = useTranslations("common");
+  const tCampaigns = useTranslations("campaigns");
   const router = useRouter();
 
   const formattedDate = (() => {
@@ -81,6 +82,15 @@ function CampaignListCard({
         aria-label={`${campaign.name}, status ${campaign.status}`}
         className="absolute inset-0 z-0 rounded-xl"
       />
+      {campaign.previewPendingBatch ? (
+        <div className="relative z-10 mb-2">
+          <span className="inline-flex items-center gap-1 rounded-md border border-[var(--accent-amber)]/40 bg-[var(--accent-amber)]/10 px-2 py-0.5 text-[10px] font-medium text-[var(--text-primary)]">
+            <Zap className="size-3 text-[var(--accent-amber)]" />
+            {tCampaigns("previewPendingBatchCta")}
+          </span>
+        </div>
+      ) : null}
+
       {/* Header: Checkbox + Name + Actions */}
       <div className="relative z-10 flex items-start gap-3">
         {/* Checkbox */}

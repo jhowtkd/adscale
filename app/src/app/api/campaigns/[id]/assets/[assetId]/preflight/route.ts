@@ -9,6 +9,7 @@ import { downloadBuffer } from "@/server/storage/r2";
 import { analyzePreflight, preflightResultSchema } from "@/server/ai/preflight-analysis";
 import {
   buildCreativeReadiness,
+  formatBlockingDimensionIds,
   type CreativeReadinessResult,
 } from "@/server/ai/creative-readiness";
 import { logger } from "@/lib/logger";
@@ -100,6 +101,9 @@ function emitReadinessAnalytics(
       missionKey: "readiness",
       blockingCount: readiness.blockingIssues.length,
       readinessStatus: readiness.status,
+      ...(options?.action === "overridden"
+        ? { blockingDimensions: formatBlockingDimensionIds(readiness) }
+        : {}),
       ...(options?.action ? { action: options.action } : {}),
     },
   }).catch((err) => {

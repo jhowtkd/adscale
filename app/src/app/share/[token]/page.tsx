@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
 import { validateShareToken } from "@/lib/share-token";
+import { recordShareLinkOpened } from "@/server/beta-analytics/share-analytics";
+import { logger } from "@/lib/logger";
 import { db } from "@/server/db";
 import { campaigns, derivations } from "@/server/db/schema";
 import { eq, inArray } from "drizzle-orm";
@@ -31,6 +33,14 @@ export default async function SharePage({ params }: SharePageProps) {
   if (!link) {
     notFound();
   }
+
+  void recordShareLinkOpened({
+    workspaceId: link.workspaceId,
+    campaignId: link.campaignId,
+    token,
+  }).catch((err) => {
+    logger.warn("[share page] share_link_opened analytics failed", err);
+  });
 
   const [t, [campaign], items] = await Promise.all([
     getTranslations({ locale, namespace: "share" }),

@@ -44,6 +44,20 @@ export async function addMember(
   return member[0];
 }
 
+/** First workspace member — used as analytics actor for unauthenticated server events (e.g. share opens). */
+export async function getWorkspaceActorUserId(
+  workspaceId: string
+): Promise<string | null> {
+  const member = await db
+    .select({ userId: workspaceMembers.userId })
+    .from(workspaceMembers)
+    .where(eq(workspaceMembers.workspaceId, workspaceId))
+    .orderBy(desc(workspaceMembers.createdAt))
+    .limit(1);
+
+  return member[0]?.userId ?? null;
+}
+
 export async function verifyMembership(workspaceId: string, userId: string) {
   const member = await db
     .select()

@@ -1,4 +1,4 @@
-import { eq, and, desc, asc, sql, or, ilike, arrayContains, inArray } from "drizzle-orm";
+import { eq, and, desc, asc, sql, ilike, inArray } from "drizzle-orm";
 import { db } from "../db";
 import { campaigns, derivations } from "../db/schema";
 
@@ -96,6 +96,7 @@ export interface CampaignMetrics {
   activeDerivations: number;
   failedDerivations: number;
   completedDerivations: number;
+  previewPendingBatch: boolean;
 }
 
 type CampaignRow = typeof campaigns.$inferSelect;
@@ -143,7 +144,19 @@ const emptyCampaignMetrics: CampaignMetrics = {
   activeDerivations: 0,
   failedDerivations: 0,
   completedDerivations: 0,
+  previewPendingBatch: false,
 };
+
+const previewPendingBatchSql = sql<boolean>`(
+  count(*) filter (
+    where ${derivations.isPreview} = true
+      and ${derivations.status} = 'approved'
+  ) > 0
+  and count(*) filter (
+    where ${derivations.isPreview} = false
+      and ${derivations.status} in ('queued', 'processing', 'completed', 'approved')
+  ) = 0
+)`.as("previewPendingBatch");
 
 function withDerivedStatus<T extends Partial<CampaignWithMetrics>>(row: T): T {
   if (!("totalDerivations" in row)) {
@@ -183,6 +196,7 @@ function buildCampaignMetricsRow(row: Partial<CampaignMetricsRow> | undefined): 
     activeDerivations: toNumber(row?.activeDerivations),
     failedDerivations: toNumber(row?.failedDerivations),
     completedDerivations: toNumber(row?.completedDerivations),
+    previewPendingBatch: Boolean(row?.previewPendingBatch),
   };
 }
 
@@ -220,6 +234,7 @@ async function getCampaignMetrics(workspaceId: string, campaignIds?: string[]) {
         where ${derivations.status} in ('completed', 'approved', 'rejected')
           and ${derivations.outputKey} is not null
       )::int`.as("completedDerivations"),
+      previewPendingBatch: previewPendingBatchSql,
     })
     .from(derivations)
     .where(whereClause)
@@ -391,6 +406,7 @@ export async function getCampaignsPage(
         where ${derivations.status} in ('completed', 'approved', 'rejected')
           and ${derivations.outputKey} is not null
       )::int`.as("completedDerivations"),
+      previewPendingBatch: previewPendingBatchSql,
     })
     .from(derivations)
     .where(eq(derivations.workspaceId, workspaceId))
@@ -411,6 +427,9 @@ export async function getCampaignsPage(
       activeDerivations: sql<number>`coalesce(${metrics.activeDerivations}, 0)::int`.as("activeDerivations"),
       failedDerivations: sql<number>`coalesce(${metrics.failedDerivations}, 0)::int`.as("failedDerivations"),
       completedDerivations: sql<number>`coalesce(${metrics.completedDerivations}, 0)::int`.as("completedDerivations"),
+      previewPendingBatch: sql<boolean>`coalesce(${metrics.previewPendingBatch}, false)`.as(
+        "previewPendingBatch"
+      ),
     })
     .from(campaigns)
     .leftJoin(metrics, eq(metrics.campaignId, campaigns.id))

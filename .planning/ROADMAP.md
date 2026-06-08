@@ -23,23 +23,23 @@
 
 **Milestone Goal:** Converter dados reais do beta (SESS-03) em melhorias acionáveis — tuning de readiness, redução de stall pós-preview e analytics/melhorias de share link self-serve.
 
-- [ ] **Phase 90: Analytics Foundation** — Allowlist extensions + aggregate functions for share, stall, and readiness override
-- [ ] **Phase 91: Share + Readiness Instrumentation** — `share_link_opened` server event, share open count, and override dimension dashboard
-- [ ] **Phase 92: Owner Dashboard: Stall + Timing** — Post-preview stall panel, median draft→share time, stall classification
-- [ ] **Phase 93: SESS-03 Operator UAT** — ≥3 real beta sessions documented (v11.10 carryover)
-- [ ] **Phase 94: Learning Closure + Threshold Tune** — Q2/Q3/Q9 answered with real session citations; readiness thresholds adjusted with evidence
-- [ ] **Phase 95: Stall UX + Share Correlation** — "Continue → batch" nudge; share open rate by assistance level
-- [ ] **Phase 96: Regression Verification** — Tests for new events/aggregators/nudge; npm test + lint + build pass
+- [x] **Phase 90: Analytics Foundation** — Allowlist extensions + aggregate functions for share, stall, and readiness override
+- [x] **Phase 91: Share + Readiness Instrumentation** — `share_link_opened` server event, share open count, and override dimension dashboard
+- [x] **Phase 92: Owner Dashboard: Stall + Timing** — Post-preview stall panel, median draft→share time, stall classification
+- [ ] **Phase 93: SESS-03 Operator UAT** — ≥3 real beta sessions documented (blocked — human gate)
+- [ ] **Phase 94: Learning Closure + Threshold Tune** — Q2/Q3/Q9 answered with real session citations; readiness thresholds adjusted with evidence (blocked — requires Phase 93)
+- [x] **Phase 95: Stall UX + Share Correlation** — "Continue → batch" nudge; share open rate by assistance level
+- [x] **Phase 96: Regression Verification** — Tests for new events/aggregators/nudge; npm test + lint + build pass
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
-| 90 | Analytics Foundation | READY-08, LEARN-06 | Not started | - |
-| 91 | Share + Readiness Instrumentation | SHARE-01, SHARE-02, READY-09 | Not started | - |
-| 92 | Owner Dashboard: Stall + Timing | STALL-01, STALL-02, DASH-07, DASH-08 | Not started | - |
-| 93 | SESS-03 Operator UAT | LEARN-05 | Not started | - |
-| 94 | Learning Closure + Threshold Tune | LEARN-04, READY-10 | Not started | - |
-| 95 | Stall UX + Share Correlation | STALL-03, SHARE-03 | Not started | - |
-| 96 | Regression Verification | QA-05, QA-06 | Not started | - |
+| 90 | Analytics Foundation | READY-08, LEARN-06 | Complete | 2026-06-08 |
+| 91 | Share + Readiness Instrumentation | SHARE-01, SHARE-02, READY-09 | Complete | 2026-06-08 |
+| 92 | Owner Dashboard: Stall + Timing | STALL-01, STALL-02, DASH-07, DASH-08 | Complete | 2026-06-08 |
+| 93 | SESS-03 Operator UAT | LEARN-05 | Blocked | - |
+| 94 | Learning Closure + Threshold Tune | LEARN-04, READY-10 | Blocked | - |
+| 95 | Stall UX + Share Correlation | STALL-03, SHARE-03 | Complete | 2026-06-08 |
+| 96 | Regression Verification | QA-05, QA-06 | Complete | 2026-06-08 |
 
 ### 🔄 v11.10 Fechamento Entrega e Analytics (Phases 85-89) — IN PROGRESS
 

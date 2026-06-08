@@ -73,6 +73,42 @@ export interface CreditSpendByStageRow {
   spendCount: number;
 }
 
+export interface ShareLinkOpenRow {
+  campaignId: string;
+  openCount: number;
+}
+
+export interface ReadinessOverrideDimensionRow {
+  dimensionId: string;
+  overrideCount: number;
+}
+
+export interface PostPreviewStallRow {
+  sessionId: string;
+  campaignId: string | null;
+  stallMs: number;
+  outcome: "proceed" | "abandon";
+}
+
+export interface PostPreviewStallSummary {
+  medianStallMs: number | null;
+  stallRate: number | null;
+  stallThenProceedRate: number | null;
+  rows: PostPreviewStallRow[];
+}
+
+export interface DraftToShareTimingSummary {
+  overallMedianMs: number | null;
+  byAssistanceLevel: { assistanceLevel: string; medianMs: number; sessionCount: number }[];
+}
+
+export interface ShareEngagementByAssistanceRow {
+  assistanceLevel: string;
+  sessionsWithShareCreated: number;
+  sessionsWithShareOpened: number;
+  openRate: number | null;
+}
+
 export interface AnalyticsFunnelSummary {
   missionFunnel: MissionFunnelRow[];
   cockpitStageFunnel: CockpitStageFunnelRow[];
@@ -83,10 +119,40 @@ export interface AnalyticsFunnelSummary {
   creditSurprisesByOperation: CreditSurpriseByOperationRow[];
   sessionStageTimeline: SessionStageTimelineRow[];
   readinessOverrides: ReadinessOverrideSignal[];
+  shareLinkOpens: ShareLinkOpenRow[];
+  readinessOverrideByDimension: ReadinessOverrideDimensionRow[];
+  postPreviewStall: PostPreviewStallSummary;
+  draftToShareTiming: DraftToShareTimingSummary;
+  shareEngagementByAssistance: ShareEngagementByAssistanceRow[];
   totals: {
     events: number;
     sessions: number;
   };
+}
+
+const POST_PREVIEW_STALL_THRESHOLD_MS = 15 * 60 * 1000;
+
+function median(values: number[]): number | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  if (sorted.length % 2 === 1) return sorted[mid];
+  return (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+function isPreviewStageComplete(event: BetaAnalyticsEvent): boolean {
+  if (event.eventKey !== "cockpit_stage_completed") return false;
+  const stage = propString(event, "stage") ?? propString(event, "missionKey");
+  return stage === "preview";
+}
+
+function isBatchCreditSpend(event: BetaAnalyticsEvent): boolean {
+  if (event.eventKey !== "credit_spend") return false;
+  const op =
+    propString(event, "operation_key") ??
+    propString(event, "operation") ??
+    propString(event, "stage");
+  return op === "batch" || (op?.includes("batch") ?? false);
 }
 
 function propString(event: BetaAnalyticsEvent, key: string): string | null {
@@ -469,6 +535,225 @@ export function aggregateReadinessOverrides(
   return dedupeReadinessOverrideSignals([...fromNotes, ...fromEvents]);
 }
 
+export function aggregateShareLinkOpens(
+  events: BetaAnalyticsEvent[]
+): ShareLinkOpenRow[] {
+  const counts = new Map<string, number>();
+
+  for (const event of events) {
+    if (event.eventKey !== "share_link_opened") continue;
+    const campaignId = event.campaignId ?? propString(event, "campaignId");
+    if (!campaignId) continue;
+    counts.set(campaignId, (counts.get(campaignId) ?? 0) + 1);
+  }
+
+  return [...counts.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([campaignId, openCount]) => ({ campaignId, openCount }));
+}
+
+export function aggregateReadinessOverrideByDimension(
+  events: BetaAnalyticsEvent[]
+): ReadinessOverrideDimensionRow[] {
+  const counts = new Map<string, number>();
+
+  for (const event of events) {
+    if (event.eventKey !== "readiness_blocked") continue;
+    if (propString(event, "action") !== "overridden") continue;
+    const raw = propString(event, "blockingDimensions");
+    if (!raw) continue;
+    for (const dimensionId of raw.split(",").map((s) => s.trim()).filter(Boolean)) {
+      counts.set(dimensionId, (counts.get(dimensionId) ?? 0) + 1);
+    }
+  }
+
+  return [...counts.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([dimensionId, overrideCount]) => ({ dimensionId, overrideCount }));
+}
+
+export function aggregatePostPreviewStalls(
+  events: BetaAnalyticsEvent[]
+): PostPreviewStallSummary {
+  const bySession = new Map<string, BetaAnalyticsEvent[]>();
+  for (const event of events) {
+    if (!event.sessionId) continue;
+    const list = bySession.get(event.sessionId) ?? [];
+    list.push(event);
+    bySession.set(event.sessionId, list);
+  }
+
+  const rows: PostPreviewStallRow[] = [];
+
+  for (const [sessionId, sessionEvents] of bySession) {
+    const previewComplete = sessionEvents
+      .filter(isPreviewStageComplete)
+      .map((e) => e.createdAt.getTime());
+    if (previewComplete.length === 0) continue;
+
+    const previewAt = Math.max(...previewComplete);
+    const batchTimes = sessionEvents
+      .filter(isBatchCreditSpend)
+      .map((e) => e.createdAt.getTime());
+    const batchAt = batchTimes.length > 0 ? Math.min(...batchTimes) : null;
+    const lastEventAt = Math.max(
+      ...sessionEvents.map((e) => e.createdAt.getTime())
+    );
+
+    const campaignId =
+      sessionEvents.find((e) => e.campaignId)?.campaignId ?? null;
+
+    if (batchAt !== null && batchAt > previewAt) {
+      const stallMs = batchAt - previewAt;
+      if (stallMs >= POST_PREVIEW_STALL_THRESHOLD_MS) {
+        rows.push({
+          sessionId,
+          campaignId,
+          stallMs,
+          outcome: "proceed",
+        });
+      }
+      continue;
+    }
+
+    const stallMs = lastEventAt - previewAt;
+    if (stallMs >= POST_PREVIEW_STALL_THRESHOLD_MS) {
+      rows.push({
+        sessionId,
+        campaignId,
+        stallMs,
+        outcome: "abandon",
+      });
+    }
+  }
+
+  const sessionsWithPreview = [...bySession.values()].filter((sessionEvents) =>
+    sessionEvents.some(isPreviewStageComplete)
+  ).length;
+
+  const stallSessions = new Set(rows.map((r) => r.sessionId));
+  const proceedStalls = rows.filter((r) => r.outcome === "proceed").length;
+
+  return {
+    medianStallMs: median(rows.map((r) => r.stallMs)),
+    stallRate:
+      sessionsWithPreview > 0
+        ? stallSessions.size / sessionsWithPreview
+        : null,
+    stallThenProceedRate:
+      rows.length > 0 ? proceedStalls / rows.length : null,
+    rows: rows.sort((a, b) => b.stallMs - a.stallMs),
+  };
+}
+
+export function aggregateDraftToShareTiming(
+  events: BetaAnalyticsEvent[],
+  sessions: BetaSession[] = []
+): DraftToShareTimingSummary {
+  const assistanceBySession = new Map(
+    sessions.map((s) => [s.id, s.assistanceLevel ?? "hands_on"])
+  );
+  const bySession = new Map<string, BetaAnalyticsEvent[]>();
+  for (const event of events) {
+    if (!event.sessionId) continue;
+    const list = bySession.get(event.sessionId) ?? [];
+    list.push(event);
+    bySession.set(event.sessionId, list);
+  }
+
+  const overall: number[] = [];
+  const byLevel = new Map<string, number[]>();
+
+  for (const [sessionId, sessionEvents] of bySession) {
+    const draftStarts = sessionEvents
+      .filter(
+        (e) =>
+          e.eventKey === "cockpit_stage_entered" &&
+          (propString(e, "stage") === "guided_briefing" ||
+            propString(e, "missionKey") === "guided_briefing")
+      )
+      .map((e) => e.createdAt.getTime());
+    const shareCompletes = sessionEvents
+      .filter(
+        (e) =>
+          e.eventKey === "mission_completed" &&
+          propString(e, "missionKey") === "share"
+      )
+      .map((e) => e.createdAt.getTime());
+
+    if (draftStarts.length === 0 || shareCompletes.length === 0) continue;
+
+    const ms = Math.min(...shareCompletes) - Math.min(...draftStarts);
+    if (ms < 0) continue;
+
+    overall.push(ms);
+    const level = assistanceBySession.get(sessionId) ?? "unknown";
+    const bucket = byLevel.get(level) ?? [];
+    bucket.push(ms);
+    byLevel.set(level, bucket);
+  }
+
+  return {
+    overallMedianMs: median(overall),
+    byAssistanceLevel: [...byLevel.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([assistanceLevel, values]) => ({
+        assistanceLevel,
+        medianMs: median(values) ?? 0,
+        sessionCount: values.length,
+      })),
+  };
+}
+
+export function aggregateShareEngagementByAssistance(
+  events: BetaAnalyticsEvent[],
+  sessions: BetaSession[] = []
+): ShareEngagementByAssistanceRow[] {
+  const shareCreatedBySession = new Map<string, Set<string>>();
+  const shareOpenedCampaigns = new Set<string>();
+
+  for (const event of events) {
+    if (event.eventKey === "mission_completed" && event.sessionId) {
+      if (propString(event, "missionKey") === "share") {
+        const set = shareCreatedBySession.get(event.sessionId) ?? new Set();
+        if (event.campaignId) set.add(event.campaignId);
+        shareCreatedBySession.set(event.sessionId, set);
+      }
+    }
+    if (event.eventKey === "share_link_opened" && event.campaignId) {
+      shareOpenedCampaigns.add(event.campaignId);
+    }
+  }
+
+  const byLevel = new Map<
+    string,
+    { created: number; opened: number }
+  >();
+
+  for (const session of sessions) {
+    const created = shareCreatedBySession.get(session.id);
+    if (!created || created.size === 0) continue;
+    const level = session.assistanceLevel ?? "hands_on";
+    const bucket = byLevel.get(level) ?? { created: 0, opened: 0 };
+    bucket.created += 1;
+    const opened = [...created].some((campaignId) =>
+      shareOpenedCampaigns.has(campaignId)
+    );
+    if (opened) bucket.opened += 1;
+    byLevel.set(level, bucket);
+  }
+
+  return [...byLevel.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([assistanceLevel, stats]) => ({
+      assistanceLevel,
+      sessionsWithShareCreated: stats.created,
+      sessionsWithShareOpened: stats.opened,
+      openRate:
+        stats.created > 0 ? stats.opened / stats.created : null,
+    }));
+}
+
 export function buildAnalyticsFunnelSummary(
   events: BetaAnalyticsEvent[],
   sessions: BetaSession[] = []
@@ -487,6 +772,14 @@ export function buildAnalyticsFunnelSummary(
     creditSurprisesByOperation: aggregateCreditSurprisesByOperation(events),
     sessionStageTimeline: aggregateSessionStageTimeline(events),
     readinessOverrides: aggregateReadinessOverrides(events, sessions),
+    shareLinkOpens: aggregateShareLinkOpens(events),
+    readinessOverrideByDimension: aggregateReadinessOverrideByDimension(events),
+    postPreviewStall: aggregatePostPreviewStalls(events),
+    draftToShareTiming: aggregateDraftToShareTiming(events, sessions),
+    shareEngagementByAssistance: aggregateShareEngagementByAssistance(
+      events,
+      sessions
+    ),
     totals: {
       events: events.length,
       sessions: sessionIds.size,

@@ -181,6 +181,9 @@
     },
     "pageTitle": "Campaigns"
   },
+  "campaigns": {
+    "previewPendingBatchCta": "Continue → batch"
+  },
   "dashboard": {
     "period": {
       "label": "Period",

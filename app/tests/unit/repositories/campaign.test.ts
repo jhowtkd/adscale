@@ -75,6 +75,7 @@ describe("campaign repository", () => {
         activeDerivations: 0,
         failedDerivations: 1,
         completedDerivations: 2,
+        previewPendingBatch: false,
       },
     ]);
   });
@@ -117,6 +118,7 @@ describe("campaign repository", () => {
       activeDerivations: 1,
       failedDerivations: 0,
       completedDerivations: 0,
+      previewPendingBatch: false,
     });
   });
 

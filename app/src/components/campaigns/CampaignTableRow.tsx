@@ -18,6 +18,7 @@ import {
   Archive,
   Trash2,
   ExternalLink,
+  Zap,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -51,6 +52,7 @@ function CampaignTableRow({
   onSaveAsTemplate,
 }: CampaignTableRowProps) {
   const tCommon = useTranslations("common");
+  const tCampaigns = useTranslations("campaigns");
   const router = useRouter();
   const rowRef = useRef<HTMLTableRowElement>(null);
   const { prefetch } = usePrefetchCampaign();
@@ -232,8 +234,14 @@ function CampaignTableRow({
 
       {/* Status */}
       <td className="md:table-cell px-0 md:px-4 py-2 md:py-3 w-[120px]">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <StatusBadge status={campaign.status} />
+          {campaign.previewPendingBatch ? (
+            <span className="inline-flex items-center gap-1 rounded-md border border-[var(--accent-amber)]/40 bg-[var(--accent-amber)]/10 px-2 py-0.5 text-[10px] font-medium text-[var(--text-primary)]">
+              <Zap className="size-3 text-[var(--accent-amber)]" />
+              {tCampaigns("previewPendingBatchCta")}
+            </span>
+          ) : null}
           {/* Mobile: inline platform tags */}
           <div className="flex items-center gap-1.5 flex-wrap md:hidden">
             {campaign.platforms?.map((platform) => {

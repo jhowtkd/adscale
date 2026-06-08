@@ -42,8 +42,11 @@ export interface BuildCreativeReadinessInput {
   campaignBrief?: CampaignBrief;
 }
 
-const BLOCKING_SCORE_THRESHOLD = 50;
-const READY_SCORE_THRESHOLD = 70;
+export const READINESS_BLOCKING_SCORE_THRESHOLD = 50;
+export const READINESS_READY_SCORE_THRESHOLD = 70;
+
+const BLOCKING_SCORE_THRESHOLD = READINESS_BLOCKING_SCORE_THRESHOLD;
+const READY_SCORE_THRESHOLD = READINESS_READY_SCORE_THRESHOLD;
 
 function deriveOfferClarityScore(
   preflight: PreflightResult,
@@ -83,6 +86,16 @@ function resolveStatus(
 
 function dimensionIsBlocking(score: number): boolean {
   return score < BLOCKING_SCORE_THRESHOLD;
+}
+
+/** Comma-separated dimension ids below blocking threshold — for beta analytics override events. */
+export function formatBlockingDimensionIds(
+  readiness: CreativeReadinessResult
+): string {
+  return readiness.dimensions
+    .filter((dimension) => dimensionIsBlocking(dimension.score))
+    .map((dimension) => dimension.id)
+    .join(",");
 }
 
 /**

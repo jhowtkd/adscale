@@ -41,6 +41,7 @@ export interface Campaign {
   activeDerivations?: number;
   failedDerivations?: number;
   completedDerivations?: number;
+  previewPendingBatch?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -99,6 +100,7 @@ export interface UiCampaign {
   activeDerivations: number;
   failedDerivations: number;
   completedDerivations: number;
+  previewPendingBatch?: boolean;
   lastModified: Date;
   createdAt: Date;
 }
@@ -133,6 +135,7 @@ function toUiCampaign(c: Campaign): UiCampaign {
     activeDerivations: c.activeDerivations ?? 0,
     failedDerivations: c.failedDerivations ?? 0,
     completedDerivations: c.completedDerivations ?? 0,
+    previewPendingBatch: c.previewPendingBatch ?? false,
     lastModified: c.updatedAt,
     createdAt: c.createdAt,
   };

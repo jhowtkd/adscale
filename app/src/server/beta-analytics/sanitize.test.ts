@@ -35,6 +35,18 @@ describe("sanitizeBetaEventProperties", () => {
     expect(sanitizeBetaEventProperties({})).toEqual({});
   });
 
+  it("accepts v11.11 tokenId and blockingDimensions properties", () => {
+    expect(
+      sanitizeBetaEventProperties({
+        tokenId: "abcd1234",
+        blockingDimensions: "offerClarity,ctaProminence",
+      })
+    ).toEqual({
+      tokenId: "abcd1234",
+      blockingDimensions: "offerClarity,ctaProminence",
+    });
+  });
+
   it("rejects unknown property keys with validation_error", () => {
     expect(() =>
       sanitizeBetaEventProperties({ stage: "briefing", foo: "bar" })

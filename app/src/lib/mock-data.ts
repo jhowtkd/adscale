@@ -43,6 +43,7 @@ export interface Campaign {
   status: CampaignStatus;
   variations: number;
   creditsUsed: number;
+  previewPendingBatch?: boolean;
   lastModified: Date;
   createdAt: Date;
 }

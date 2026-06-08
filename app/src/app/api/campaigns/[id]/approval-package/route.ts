@@ -17,6 +17,8 @@ import {
   getLatestShareLinkForCampaign,
   upsertShareLinkForCampaign,
 } from "@/server/repositories/share-link";
+import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
+import { getBetaSessionIdFromRequest } from "@/server/beta-analytics/session";
 
 const SHARE_LINK_TTL_DAYS = 7;
 
@@ -155,10 +157,11 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const [{ workspace }, { id: campaignId }] = await Promise.all([
+    const [{ user, workspace }, { id: campaignId }] = await Promise.all([
       requireWorkspaceAccess(request),
       params,
     ]);
+    const sessionId = getBetaSessionIdFromRequest(request);
 
     const parsed = postBodySchema.safeParse(await request.json());
     if (!parsed.success) {
@@ -187,6 +190,27 @@ export async function POST(
       selectedRootIds,
       derivations
     );
+
+    const existingShareLink = await getLatestShareLinkForCampaign(
+      campaignId,
+      workspace.id
+    );
+    const wasStale = existingShareLink
+      ? buildApprovalPackageSnapshot({
+          selectedRootIds: inferSelectedRootIdsFromPackage(
+            existingShareLink.derivationIds,
+            derivations
+          ),
+          derivations,
+          campaign: {
+            notes: campaign.notes,
+            product: campaign.product,
+            offer: campaign.offer,
+          },
+          packageDerivationIds: existingShareLink.derivationIds,
+        }).isStale
+      : false;
+
     const expiresAt = new Date(
       Date.now() + SHARE_LINK_TTL_DAYS * 24 * 60 * 60 * 1000
     );
@@ -208,6 +232,23 @@ export async function POST(
       },
       packageDerivationIds: expandedIds,
     });
+
+    if (wasStale) {
+      void recordBetaAnalyticsEvent({
+        workspaceId: workspace.id,
+        userId: user.id,
+        eventKey: "approval_package_refreshed",
+        source: "server",
+        campaignId,
+        sessionId,
+        properties: {
+          stage: "share",
+          missionKey: "share",
+        },
+      }).catch((err) => {
+        logger.warn("[approval-package.POST] refresh analytics failed", err);
+      });
+    }
 
     return NextResponse.json({
       campaignId,

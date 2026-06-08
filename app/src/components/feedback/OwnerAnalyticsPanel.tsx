@@ -74,6 +74,46 @@ type CreditSpendByStageRow = {
   spendCount: number;
 };
 
+type ShareLinkOpenRow = {
+  campaignId: string;
+  openCount: number;
+};
+
+type ReadinessOverrideDimensionRow = {
+  dimensionId: string;
+  overrideCount: number;
+};
+
+type PostPreviewStallRow = {
+  sessionId: string;
+  campaignId: string | null;
+  stallMs: number;
+  outcome: "proceed" | "abandon";
+};
+
+type PostPreviewStallSummary = {
+  medianStallMs: number | null;
+  stallRate: number | null;
+  stallThenProceedRate: number | null;
+  rows: PostPreviewStallRow[];
+};
+
+type DraftToShareTimingSummary = {
+  overallMedianMs: number | null;
+  byAssistanceLevel: {
+    assistanceLevel: string;
+    medianMs: number;
+    sessionCount: number;
+  }[];
+};
+
+type ShareEngagementByAssistanceRow = {
+  assistanceLevel: string;
+  sessionsWithShareCreated: number;
+  sessionsWithShareOpened: number;
+  openRate: number | null;
+};
+
 type FunnelResponse = {
   missionFunnel: MissionFunnelRow[];
   cockpitStageFunnel: CockpitStageFunnelRow[];
@@ -84,6 +124,11 @@ type FunnelResponse = {
   creditSurprisesByOperation: CreditSurpriseByOperationRow[];
   sessionStageTimeline: SessionStageTimelineRow[];
   readinessOverrides: ReadinessOverrideSignal[];
+  shareLinkOpens?: ShareLinkOpenRow[];
+  readinessOverrideByDimension?: ReadinessOverrideDimensionRow[];
+  postPreviewStall?: PostPreviewStallSummary;
+  draftToShareTiming?: DraftToShareTimingSummary;
+  shareEngagementByAssistance?: ShareEngagementByAssistanceRow[];
   totals: { events: number; sessions: number };
 };
 
@@ -389,6 +434,96 @@ export function OwnerAnalyticsPanel({
                 formatGapMs(row.gapFromPreviousMs),
               ])}
           />
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <FunnelTable
+              title="Share link opens by campaign"
+              headers={["Campaign", "Opens"]}
+              rows={(funnel.shareLinkOpens ?? []).map((row) => [
+                row.campaignId.slice(0, 8) + "…",
+                String(row.openCount),
+              ])}
+            />
+            <FunnelTable
+              title="Readiness overrides by dimension"
+              headers={["Dimension", "Overrides"]}
+              rows={(funnel.readinessOverrideByDimension ?? []).map((row) => [
+                row.dimensionId,
+                String(row.overrideCount),
+              ])}
+            />
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-3">
+            <div className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] p-4">
+              <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+                Post-preview stall
+              </h3>
+              <dl className="mt-3 space-y-1 text-xs text-[var(--text-secondary)]">
+                <div className="flex justify-between gap-2">
+                  <dt>Median stall</dt>
+                  <dd>{formatGapMs(funnel.postPreviewStall?.medianStallMs ?? null)}</dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt>Stall rate</dt>
+                  <dd>
+                    {funnel.postPreviewStall?.stallRate != null
+                      ? `${Math.round(funnel.postPreviewStall.stallRate * 100)}%`
+                      : "—"}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt>Stall → proceed</dt>
+                  <dd>
+                    {funnel.postPreviewStall?.stallThenProceedRate != null
+                      ? `${Math.round(funnel.postPreviewStall.stallThenProceedRate * 100)}%`
+                      : "—"}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+            <div className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] p-4">
+              <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+                Median draft → share
+              </h3>
+              <p className="mt-3 text-lg font-semibold text-[var(--text-primary)]">
+                {formatGapMs(funnel.draftToShareTiming?.overallMedianMs ?? null)}
+              </p>
+              <ul className="mt-2 space-y-1 text-xs text-[var(--text-secondary)]">
+                {(funnel.draftToShareTiming?.byAssistanceLevel ?? []).map((row) => (
+                  <li key={row.assistanceLevel} className="flex justify-between gap-2">
+                    <span>{row.assistanceLevel}</span>
+                    <span>
+                      {formatGapMs(row.medianMs)} ({row.sessionCount})
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <FunnelTable
+              title="Share open rate by assistance"
+              headers={["Assistance", "Created", "Opened", "Rate"]}
+              rows={(funnel.shareEngagementByAssistance ?? []).map((row) => [
+                row.assistanceLevel,
+                String(row.sessionsWithShareCreated),
+                String(row.sessionsWithShareOpened),
+                row.openRate != null ? `${Math.round(row.openRate * 100)}%` : "—",
+              ])}
+            />
+          </div>
+
+          {(funnel.postPreviewStall?.rows.length ?? 0) > 0 ? (
+            <FunnelTable
+              title="Active post-preview stalls"
+              headers={["Session", "Campaign", "Stall", "Outcome"]}
+              rows={(funnel.postPreviewStall?.rows ?? []).slice(0, 12).map((row) => [
+                row.sessionId.slice(0, 8) + "…",
+                row.campaignId ? row.campaignId.slice(0, 8) + "…" : "—",
+                formatGapMs(row.stallMs),
+                row.outcome,
+              ])}
+            />
+          ) : null}
 
           <div className="grid gap-4 lg:grid-cols-2">
             <div className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] p-4 space-y-3">
