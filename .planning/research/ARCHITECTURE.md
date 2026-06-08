@@ -1,331 +1,441 @@
-# Architecture: v11.10 Fechamento Entrega e Analytics
+# Architecture: v11.11 Aprendizado → Ação
 
-**Milestone:** v11.10  
-**Researched:** 2026-06-07  
-**Focus:** Integration points, new vs modified components, data flow changes, build order
+**Milestone:** v11.11  
+**Researched:** 2026-06-08  
+**Focus:** Integration points, new vs modified components, data flow changes, build order  
+**Predecessor:** v11.10 (Fechamento Entrega e Analytics) — all v11.10 changes are shipped and are the baseline here
 
 ---
 
 ## Existing Architecture Baseline
 
-### End-to-End Analytics Pipeline (v11.8/v11.9 as-shipped)
+### Analytics Pipeline (v11.10 as-shipped)
 
 ```
-Cockpit Panel (client)
+Cockpit Panels (client)
   └─ useRecordBetaEvent(campaignId)
-       └─ fetch POST /api/analytics/events
+       └─ POST /api/analytics/events
             └─ requireWorkspaceAccess
             └─ createBetaEventBodySchema.safeParse
-            └─ recordBetaAnalyticsEvent (server)
+            └─ recordBetaAnalyticsEvent
                  ├─ validates eventKey ∈ PHASE_76_BETA_EVENT_KEYS
-                 ├─ sanitizeBetaEventProperties (allowlist + strictObject)
-                 ├─ validateCampaignOwnership / validateDerivationOwnership
+                 ├─ sanitizeBetaEventProperties (ALLOWED_PROPERTY_KEYS strictObject)
                  └─ insertBetaAnalyticsEvent → DB (beta_analytics_events)
 
-Owner Dashboard (client)
+/api/campaigns/[id]/assets/[assetId]/preflight (PATCH/POST)
+  └─ emitReadinessAnalytics → readiness_blocked/readiness_completed
+       └─ properties: { stage, missionKey, blockingCount, readinessStatus, action? }
+       ← NOTE: overallScore NOT included yet
+
+/api/share (POST)
+  └─ createShareToken → shareLinks (DB)
+  └─ recordBetaAnalyticsEvent → mission_completed { missionKey: "share" }
+
+share/[token]/page.tsx (Server Component, public)
+  └─ validateShareToken → queries DB directly
+  └─ renders GalleryGrid
+  ← NOTE: no view tracking; no analytics
+
+Owner Dashboard
   └─ OwnerAnalyticsPanel
-       ├─ GET /api/feedback/analytics/funnel?filters
-       │    └─ requirePlatformOwner
-       │    └─ listBetaAnalyticsEventsForOwner + listBetaSessions
+       ├─ GET /api/feedback/analytics/funnel
        │    └─ buildAnalyticsFunnelSummary(events, sessions)
-       │         ├─ aggregateMissionFunnel
-       │         ├─ aggregateCockpitStageFunnel
-       │         ├─ aggregateCreditSurprises + ByOperation
-       │         ├─ aggregateSessionStageTimeline
-       │         └─ aggregateReadinessOverrides (events + operator notes)
-       └─ GET /api/feedback/analytics/credit-signals?filters
+       │         → missionFunnel, cockpitStageFunnel, recipeFunnel,
+       │            guidedBriefingAbandonByStep, creditSpendByStage,
+       │            creditSurprises, creditSurprisesByOperation,
+       │            sessionStageTimeline, readinessOverrides, totals
+       └─ GET /api/feedback/analytics/credit-signals
 ```
 
-### Event Key Allowlist (types.ts — PHASE_76_BETA_EVENT_KEYS)
+### Current Event Key Allowlist
 
 ```
-readiness_blocked       readiness_completed
-credit_spend            credit_blocked
+readiness_blocked, readiness_completed
+credit_spend, credit_blocked
 mission_completed
-cockpit_stage_entered   cockpit_stage_completed   cockpit_stage_abandoned
+cockpit_stage_entered, cockpit_stage_completed, cockpit_stage_abandoned
+recipe_selected, recipe_tradeoff_viewed
 ```
 
-### Property Key Allowlist (ALLOWED_PROPERTY_KEYS)
+### Current Property Key Allowlist
 
 ```
 stage, missionKey, source, blockingCount, estimateCredits, actualCredits,
 action, operation, operation_key, creditDelta, format, isPreview,
-readinessStatus, durationMs, reasonCode
+readinessStatus, durationMs, reasonCode, recipeId, stepId
 ```
 
-### Cockpit Panels — Current Instrumentation
+### Readiness Thresholds (creative-readiness.ts — hardcoded)
 
-| Component | stage value | entered | completed | abandoned |
-|-----------|-------------|---------|-----------|-----------|
-| `CreativeReadinessPanel` | `"readiness"` | ✅ on assetId present | ✅ auto on `ready`/`needs_attention` | ✅ on unmount if not completed |
-| `GuidedBriefingPanel` | `"guided_briefing"` | ✅ on mount | ✅ on `finishBriefing` | ✅ on unmount or full-form escape |
-| `StrategyRecipePanel` | `"strategy_recipe"` | ✅ on `open=true` | ✅ on `handleGeneratePreview` | ✅ on close or unmount |
-| `PreviewGatePanel` | `"preview"` | ✅ on mount | ✅ on `handleApproveBatch` | ✅ on `handleReviseRecipe` (F-06 bug) |
+```typescript
+const BLOCKING_SCORE_THRESHOLD = 50;   // score < 50 → "blocked"
+const READY_SCORE_THRESHOLD = 70;      // score < 70 → "needs_attention"
+```
 
-### Readiness Override — Current State
+`buildCreativeReadiness` produces `overallScore` from `preflight.overallScore` but the value is **not included** in the emitted analytics event — owner cannot currently see where overrides cluster on the score distribution.
 
-`aggregate.ts::extractOperatorFalsePositiveNotes` reads `beta_sessions.operatorNotes[stage].tags` for any tag containing "false positive". Surfaces in `readinessOverrides` panel on `OwnerAnalyticsPanel`. **No UI affordance** in `CreativeReadinessPanel` for the operator to trigger the override at the time of the block — must be added retroactively via session notes.
+### Share Link Table (shareLinks)
 
-### Owner Dashboard — Current Gaps
+```
+id, token, campaignId, workspaceId, derivationIds[], expiresAt, createdAt
+```
 
-- `OwnerAnalyticsPanel` accepts `sessionOptions` prop but `feedback/page.tsx` calls `<OwnerAnalyticsPanel />` **without passing it** → session filter dropdown shows "All sessions" only, no individual sessions
-- `sessionStageTimeline` is sliced to `slice(0, 24)` in the component (client-side cap)
-- No revenue funnel section (credit spend progression across sessions)
+No `viewCount`. No server-side view tracking. The public `share/[token]` page serves images via `/api/share/[token]/asset/[derivationId]` but neither route emits analytics.
+
+### Post-Preview Gap (F-07 baseline)
+
+`aggregateSessionStageTimeline` computes `gapFromPreviousMs` between completed stages. Fixture data shows ~38-min gap between `cockpit_stage_completed("preview")` and `cockpit_stage_completed("approval_package")`. No UX intervention exists to close this gap.
 
 ---
 
-## v11.10 Integration Points
+## v11.11 Integration Points
+
+### Three Capability Clusters
+
+| Cluster | Goal | Key Insight |
+|---------|------|-------------|
+| **Readiness Tuning** | Surface score-at-override data so thresholds can be adjusted with evidence | Thresholds are correct mechanism; missing signal is `overallScore` in events |
+| **Post-Preview Stall UX** | Reduce ~38-min gap between preview approval and approval-package creation | Gap is visibility+momentum problem; a post-batch nudge component bridges it |
+| **Share Link Analytics** | Track self-serve rate, view counts, time-to-share, assistance correlation | Share page is public; tracking requires a schema column + Server Component update |
+
+---
 
 ### 1. `app/src/server/beta-analytics/types.ts` — **MODIFIED**
 
-**What changes:**  
-- Add `recipe_selected` and `recipe_tradeoff_viewed` to `PHASE_76_BETA_EVENT_KEYS`  
-- Add `recipeId` to `ALLOWED_PROPERTY_KEYS`
-
-**Ripple:** `sanitize.ts` uses `strictObject(ALLOWED_PROPERTY_KEYS)` — adding `recipeId` here automatically permits it in the property schema without touching `sanitize.ts` directly.
-
+**What changes:**
 ```typescript
-// Add to PHASE_76_BETA_EVENT_KEYS:
-"recipe_selected",
-"recipe_tradeoff_viewed",
-
 // Add to ALLOWED_PROPERTY_KEYS:
-"recipeId",
+"overallScore",    // readiness score at time of blocked/override event
+"viewCount",       // share link page view count (owner-facing event property)
 ```
 
-**Why these additions:**  
-- `recipe_selected` (F-09): Tracks which recipe was chosen → enables per-recipe funnel in `aggregate.ts`  
-- `recipe_tradeoff_viewed` (F-08): Fires when the recipe panel is first opened → confirms readership of tradeoff copy  
-- `recipeId`: Required property to distinguish recipes in analytics
+`"overallScore"` is the key unlock for readiness tuning — it lets `aggregateReadinessScoreDistribution` cluster overrides by score bucket. `"viewCount"` is needed if the owner dashboard emits a synthetic share-link-viewed event; alternatively, viewCount lives only in the DB column and doesn't need to be an event property.
+
+**Decision point:** If share view tracking uses a DB column increment only (recommended — public page, no auth), `viewCount` does NOT need to go into ALLOWED_PROPERTY_KEYS. Add `"overallScore"` only.
 
 ---
 
-### 2. `app/src/components/workspace/StrategyRecipePanel.tsx` — **MODIFIED**
+### 2. `app/src/app/api/campaigns/[id]/assets/[assetId]/preflight/route.ts` — **MODIFIED**
 
-**What changes (F-08, F-09):**
+**What changes (readiness tuning foundation):**
 
-```
-useEffect([open=true]) → recordEvent("recipe_tradeoff_viewed", { stage: "strategy_recipe" })
-recipe.selectRecipe(id) → recordEvent("recipe_selected", { stage: "strategy_recipe", recipeId: id })
-```
-
-Note: `recipe_tradeoff_viewed` should fire once per panel open (same ref guard as `completedRef`). `recipe_selected` fires each time a recipe button is clicked. No state leak — fire-and-forget like all beta events.
-
----
-
-### 3. `app/src/components/workspace/GuidedBriefingPanel.tsx` — **MODIFIED**
-
-**What changes (F-12):**  
-Enrich `cockpit_stage_abandoned` with current step info so owner can see where in the briefing flow abandonment occurs.
+In `emitReadinessAnalytics`, add `overallScore` to the emitted properties:
 
 ```typescript
-// Before (existing):
-recordEvent("cockpit_stage_abandoned", STAGE_PROPS);
-
-// After (enriched):
-recordEvent("cockpit_stage_abandoned", {
-  ...STAGE_PROPS,
-  stage: guided.currentStep ?? "complete",  // use existing 'stage' property key
-});
-```
-
-`guided.currentStep` is already available in scope. The `stage` property key is already in `ALLOWED_PROPERTY_KEYS`. No new keys needed — repurpose `stage` to hold the step ID at abandonment time, which naturally composes with the existing `aggregateCockpitStageFunnel` grouping (step IDs like `"productOffer"`, `"objections"`, etc. will show as new stage rows).
-
----
-
-### 4. `app/src/components/workspace/PreviewGatePanel.tsx` — **MODIFIED**
-
-**What changes (F-06):**  
-The bug: `handleReviseRecipe` fires `cockpit_stage_abandoned` even when the operator will return and ultimately approve. The fix is to **not** fire `cockpit_stage_abandoned` on recipe revision — it's an iterative step, not a true abandonment. True abandonment should only happen when the user navigates away from the cockpit entirely.
-
-```typescript
-// Remove from handleReviseRecipe:
-// recordEvent("cockpit_stage_abandoned", STAGE_PROPS);  // ← remove this
-
-// Keep in handleApproveBatch:
-recordEvent("cockpit_stage_completed", STAGE_PROPS);  // ← unchanged
-
-// Abandoned fires only if they leave cockpit without approving
-// (currently handled by no cleanup return — add if needed per cockpit orchestrator)
-```
-
-**Server-side complement (F-06 full fix):** When operator marks a session runbook stage as completed via `PATCH /api/feedback/sessions/:id/stages`, emit a server-side `cockpit_stage_completed` event. This requires touching the beta session notes merge handler. Assess whether adding server-side emission to the existing `mergeStageNotes` route is in scope or deferred.
-
----
-
-### 5. `app/src/components/workspace/CreativeReadinessPanel.tsx` — **MODIFIED**
-
-**What changes (F-11 — readiness override):**  
-Add an "Override — continue anyway" affordance when `readiness.status === "blocked"`. This:
-1. Emits a new analytics event (use existing `readiness_blocked` with `action: "overridden"`, or add `readiness_override` to types.ts)
-2. Calls a new callback prop `onOverride?: () => void` that the cockpit orchestrator uses to unlock downstream stages
-
-```typescript
-// Recommended: emit readiness_blocked with action property
-recordEvent("readiness_blocked", {
+properties: {
   stage: "readiness",
+  missionKey: "readiness",
   blockingCount: readiness.blockingIssues.length,
-  action: "overridden",        // 'action' already in ALLOWED_PROPERTY_KEYS
   readinessStatus: readiness.status,
-});
-onOverride?.();
+  overallScore: readiness.overallScore,   // ← NEW
+  ...(options?.action ? { action: options.action } : {}),
+},
 ```
 
-This avoids adding a new event key — `action: "overridden"` differentiates overrides from blocks in `extractReadinessBlockedEvents`. The `ReadinessOverrideSignal` interface in `aggregate.ts` and `OwnerAnalyticsPanel` already renders override signals; no schema migration needed.
-
-**Prop addition:**
-```typescript
-interface CreativeReadinessPanelProps {
-  // existing...
-  onOverride?: () => void;  // NEW — cockpit unlocks on operator override
-}
-```
+`readiness.overallScore` is already computed inside `buildCreativeReadiness` (via `preflight.overallScore`). This is a one-line addition to an existing event. No schema change; just add `"overallScore"` to ALLOWED_PROPERTY_KEYS first.
 
 ---
 
-### 6. `app/src/server/beta-analytics/aggregate.ts` — **MODIFIED**
+### 3. `app/src/server/beta-analytics/aggregate.ts` — **MODIFIED**
 
 **What changes:**
 
-**A. New function — `aggregateRecipeFunnel`**
+**A. New interface + function — `aggregateReadinessScoreDistribution`**
+
 ```typescript
-export interface RecipeFunnelRow {
-  recipeId: string;
-  viewedCount: number;     // recipe_tradeoff_viewed events
-  selectedCount: number;   // recipe_selected events
+export interface ReadinessScoreBucket {
+  bucket: string;           // e.g. "40-49", "50-59"
+  totalBlocked: number;
+  overridden: number;
+  overrideRate: number | null;
 }
 
-export function aggregateRecipeFunnel(events: BetaAnalyticsEvent[]): RecipeFunnelRow[]
+export function aggregateReadinessScoreDistribution(
+  events: BetaAnalyticsEvent[]
+): ReadinessScoreBucket[]
 ```
-Groups `recipe_tradeoff_viewed` (total panel opens) and `recipe_selected` by `recipeId` property.
 
-**B. New function — `aggregateCreditRevenueFunnel`**
-```typescript
-export interface CreditRevenueFunnelRow {
-  sessionId: string;
-  totalSpent: number;
-  operationCount: number;
-  firstSpendAt: string;
-}
+Logic: filter `readiness_blocked` events; read `overallScore` property; bucket by 10-point range; count total vs those with `action === "overridden"`. Sort by bucket ascending. Owner can visually identify "score 40-49 has 80% override rate → threshold may be too aggressive."
 
-export function aggregateCreditRevenueFunnel(events: BetaAnalyticsEvent[]): CreditRevenueFunnelRow[]
-```
-Groups `credit_spend` events by `sessionId`, summing `actualCredits`.
+**B. Update `AnalyticsFunnelSummary` interface**
 
-**C. Update `AnalyticsFunnelSummary` interface and `buildAnalyticsFunnelSummary`**
 ```typescript
 export interface AnalyticsFunnelSummary {
-  // existing fields...
-  recipeFunnel: RecipeFunnelRow[];
-  creditRevenueFunnel: CreditRevenueFunnelRow[];
+  // existing...
+  readinessScoreDistribution: ReadinessScoreBucket[];
 }
 ```
 
-**No changes needed to `aggregateCockpitStageFunnel`** — it already handles new event keys/stages via dynamic grouping. The briefing step IDs will appear as rows naturally.
+**C. Update `buildAnalyticsFunnelSummary`**
+
+```typescript
+readinessScoreDistribution: aggregateReadinessScoreDistribution(events),
+```
 
 ---
 
-### 7. `app/src/app/api/feedback/analytics/funnel/route.ts` — **MODIFIED (minor)**
+### 4. `app/src/server/db/schema.ts` — **MODIFIED (minor)**
 
-Returns `buildAnalyticsFunnelSummary` result already — once `aggregate.ts` adds new fields to `AnalyticsFunnelSummary`, they flow through automatically. No route-level changes needed unless the two new aggregation functions are computationally expensive enough to warrant separate endpoints (unlikely at operator-scale data volumes).
+**What changes (share link view tracking):**
+
+Add `viewCount` column to `shareLinks`:
+
+```typescript
+export const shareLinks = adscaleSchema.table(
+  "share_links",
+  {
+    // existing columns...
+    viewCount: integer("view_count").notNull().default(0),  // ← NEW
+  },
+  // ...
+);
+```
+
+**DB Migration required:** New migration file `app/drizzle/XXXX_add_share_link_view_count.sql`:
+```sql
+ALTER TABLE adscale.share_links ADD COLUMN view_count integer NOT NULL DEFAULT 0;
+```
 
 ---
 
-### 8. `app/src/components/feedback/OwnerAnalyticsPanel.tsx` — **MODIFIED**
+### 5. `app/src/app/share/[token]/page.tsx` — **MODIFIED**
+
+**What changes (share link view tracking):**
+
+After `validateShareToken` succeeds, fire a non-blocking `viewCount` increment:
+
+```typescript
+// After: if (!link) { notFound(); }
+
+// Non-blocking view count increment — fire and forget
+db.update(shareLinks)
+  .set({ viewCount: sql`${shareLinks.viewCount} + 1` })
+  .where(eq(shareLinks.token, token))
+  .catch(() => undefined);  // swallow — don't fail page render
+```
+
+This runs in the Server Component during RSC render. The increment is intentionally non-blocking (using `.catch()` or `void`) — a failed counter must never break the public gallery.
+
+**Important:** The `sql`` `` `` ` tagged template from Drizzle performs an atomic `viewCount + 1` to avoid read-modify-write races on concurrent page loads.
+
+---
+
+### 6. New function in `app/src/server/beta-analytics/query.ts` — **MODIFIED**
+
+**What changes (share analytics query):**
+
+Add a query that joins `shareLinks` with `beta_analytics_events` for the owner funnel:
+
+```typescript
+export async function listShareLinksForOwner(
+  filters: { workspaceId?: string; from?: Date; to?: Date }
+): Promise<Array<{
+  id: string;
+  campaignId: string;
+  workspaceId: string;
+  viewCount: number;
+  createdAt: Date;
+  expiresAt: Date;
+}>>
+```
+
+Fetches `shareLinks` rows scoped to optional `workspaceId` and date range. Returns raw rows; aggregation is handled in `aggregate.ts`. Called by the funnel route alongside `listBetaAnalyticsEventsForOwner`.
+
+---
+
+### 7. New function in `app/src/server/beta-analytics/aggregate.ts` — **MODIFIED**
 
 **What changes:**
 
-**A. Remove timeline cap (filtro de sessão polish)**
+**New interface + function — `aggregateShareFunnel`**
+
 ```typescript
-// Remove .slice(0, 24) from:
-.filter((row) => !sessionId || row.sessionId === sessionId)
-// .slice(0, 24)  ← REMOVE
-.map((row) => [...])
+export interface ShareFunnelRow {
+  workspaceId: string;
+  campaignCount: number;
+  totalShareLinks: number;
+  totalViews: number;
+  medianTimeToShareMs: number | null;
+  hadReadinessOverride: boolean;   // "used assistance" flag
+}
+
+export interface ShareSummary {
+  rows: ShareFunnelRow[];
+  selfServeRate: number | null;   // % workspaces with 0 overrides that created ≥1 share link
+  overrideAssistedRate: number | null;  // % workspaces with ≥1 override that created ≥1 share link
+}
+
+export function aggregateShareFunnel(
+  shareLinks: Array<{ workspaceId: string; campaignId: string; viewCount: number; createdAt: Date }>,
+  events: BetaAnalyticsEvent[],
+  campaigns: Array<{ id: string; workspaceId: string; createdAt: Date }>
+): ShareSummary
 ```
 
-**B. Add recipe funnel section**
-- Add `recipeFunnel: RecipeFunnelRow[]` to `FunnelResponse` type
-- Render a new `FunnelTable` with headers `["Recipe", "Viewed", "Selected", "Rate"]`
+Logic:
+- Group `shareLinks` by `workspaceId`
+- Compute `timeToShareMs` = `shareLink.createdAt - campaign.createdAt` for each link's campaign
+- Determine `hadReadinessOverride` = workspaceId appears in `readiness_blocked { action: "overridden" }` events
+- Compute `selfServeRate` = (workspaces with ≥1 share link AND 0 override events) / (total workspaces with ≥1 share link)
+- Compute `medianTimeToShareMs` using sorted array median
 
-**C. Add credit revenue funnel section**  
-- Add `creditRevenueFunnel: CreditRevenueFunnelRow[]` to `FunnelResponse` type
-- Render a new `FunnelTable` with headers `["Session", "Total Credits", "Operations", "First Spend"]`
-
-**D. Session filter options population** (see item 9)
+**Update `AnalyticsFunnelSummary`:**
+```typescript
+shareFunnel: ShareSummary;
+```
 
 ---
 
-### 9. `app/src/app/(dashboard)/feedback/page.tsx` — **MODIFIED**
+### 8. `app/src/app/api/feedback/analytics/funnel/route.ts` — **MODIFIED**
 
-**What changes (session filter polish):**  
-The `OwnerAnalyticsPanel` `sessionOptions` prop is never populated today. Fetch sessions from the existing `/api/feedback/sessions` endpoint and pass them.
+**What changes:**
+
+Add `listShareLinksForOwner` and campaign creation dates query to build the share funnel:
 
 ```typescript
-// Add query in FeedbackTriagePage:
-const sessionsQuery = useQuery({
-  queryKey: ["beta-sessions-list"],
-  queryFn: async () => {
-    const res = await apiFetch("/api/feedback/sessions");
-    if (!res.ok || res.status === 403) return [];
-    const data = await res.json();
-    return (data.sessions ?? []) as Array<{ id: string; cohortLabel: string | null; startedAt: string }>;
-  },
-  retry: false,
-});
+const [events, sessions, shareLinksData, campaignDates] = await Promise.all([
+  listBetaAnalyticsEventsForOwner(filters),
+  listBetaSessions(filters),
+  listShareLinksForOwner(filters),      // ← NEW
+  listCampaignCreationDates(filters),   // ← NEW (simple query: id, workspaceId, createdAt)
+]);
 
-const sessionOptions = useMemo(
-  () =>
-    (sessionsQuery.data ?? []).map((s) => ({
-      id: s.id,
-      label: s.cohortLabel ?? `Session ${s.id.slice(0, 8)}`,
-    })),
-  [sessionsQuery.data]
-);
+const summary = buildAnalyticsFunnelSummary(events, sessions, shareLinksData, campaignDates);
+```
 
-// Pass to panel:
-<OwnerAnalyticsPanel sessionOptions={sessionOptions} />
+`buildAnalyticsFunnelSummary` signature needs a minor update to accept the extra params and call `aggregateShareFunnel`.
+
+---
+
+### 9. NEW — `app/src/components/workspace/PostPreviewNudge.tsx` — **NEW**
+
+**Purpose (F-07 stall intervention):**
+
+A lightweight contextual CTA that appears in the workspace cockpit after the user approves a batch in `PreviewGatePanel` and the batch derivations are all completed (status no longer `"generating"`). Nudges the user toward creating an approval package, reducing the ~38-min drift.
+
+```typescript
+interface PostPreviewNudgeProps {
+  campaignId: string;
+  batchStatus: "generating" | "completed" | "partial" | "idle";
+  hasApprovalPackage: boolean;
+  className?: string;
+}
+```
+
+**Render condition:** `batchStatus === "completed" && !hasApprovalPackage`
+
+**Content:** "Your creatives are ready. Create an approval package to share with your client →" (localized). Single CTA that scrolls/navigates to `ClientApprovalPackagePanel`.
+
+**Analytics:** On render (visible), emit `cockpit_stage_entered { stage: "approval_package", source: "nudge" }` via `useRecordBetaEvent`. This event closes the stall detection loop — the owner dashboard will show time between `cockpit_stage_completed("preview")` and this new entered event.
+
+**Why new component vs modifying PreviewGatePanel:** `PreviewGatePanel` doesn't know batch completion status (it fires `onApproveBatch` and exits). The orchestrator (cockpit page) knows both batch status and whether a package exists. The nudge is a separate concern from the gate decision.
+
+---
+
+### 10. Cockpit orchestrator page — **MODIFIED (minor)**
+
+**What changes:**
+
+The workspace cockpit page that renders `PreviewGatePanel` and `ClientApprovalPackagePanel` needs to:
+1. Track whether the batch has completed post-approval (available from TanStack Query derivations polling — all derivations in batch have non-`generating` status)
+2. Track whether an approval package exists (available from `useApprovalPackage` hook — `data?.shareUrl` truthy or `data?.package.items.length > 0`)
+3. Conditionally render `<PostPreviewNudge />` between the gallery and the approval panel
+
+No new API calls needed — both signals are already polled.
+
+---
+
+### 11. `app/src/components/feedback/OwnerAnalyticsPanel.tsx` — **MODIFIED**
+
+**What changes:**
+
+**A. New section — Readiness score distribution**
+
+```typescript
+<FunnelTable
+  title="Readiness score distribution (blocked events)"
+  headers={["Score range", "Total blocked", "Overridden", "Override rate"]}
+  rows={(funnel.readinessScoreDistribution ?? []).map((row) => [
+    row.bucket,
+    String(row.totalBlocked),
+    String(row.overridden),
+    row.overrideRate !== null ? `${Math.round(row.overrideRate * 100)}%` : "—",
+  ])}
+/>
+```
+
+Owner sees: "score 40-49 had 4 blocks, 3 overridden (75%) → BLOCKING_SCORE_THRESHOLD=50 may be 5 points too high."
+
+**B. New section — Share funnel**
+
+```typescript
+<FunnelTable
+  title="Share link funnel"
+  headers={["Workspace", "Campaigns", "Links created", "Total views", "Median time-to-share", "Assistance"]}
+  rows={(funnel.shareFunnel?.rows ?? []).map((row) => [
+    row.workspaceId.slice(0, 8) + "…",
+    String(row.campaignCount),
+    String(row.totalShareLinks),
+    String(row.totalViews),
+    row.medianTimeToShareMs !== null ? formatGapMs(row.medianTimeToShareMs) : "—",
+    row.hadReadinessOverride ? "Assisted" : "Self-serve",
+  ])}
+/>
+```
+
+Plus summary stats: self-serve rate and override-assisted rate at the top.
+
+**C. Update `FunnelResponse` type**
+
+```typescript
+type FunnelResponse = {
+  // existing...
+  readinessScoreDistribution?: ReadinessScoreBucket[];
+  shareFunnel?: ShareSummary;
+};
 ```
 
 ---
 
 ## Data Flow Changes
 
-### Before v11.10
+### Before v11.11
 
 ```
-StrategyRecipePanel → cockpit_stage_entered/completed/abandoned (stage: "strategy_recipe")
-GuidedBriefingPanel → cockpit_stage_entered/completed/abandoned (stage: "guided_briefing")
-PreviewGatePanel    → cockpit_stage_entered/completed/abandoned* (stage: "preview")
-                      *abandoned fires on revise → F-06 false positive
-
-aggregate.ts        → 6 aggregations, no recipe or revenue funnel
-OwnerAnalyticsPanel → no recipe funnel, no revenue funnel, timeline capped at 24, no session options
-feedback/page.tsx   → sessionOptions=[] always
+preflight PATCH/POST → readiness_blocked { blockingCount, readinessStatus, action? }
+                       ← NO overallScore
+share/[token] page  → no tracking; viewCount does not exist
+shareLinks table    → token, campaignId, workspaceId, derivationIds, expiresAt, createdAt
+                       ← NO viewCount
+OwnerAnalyticsPanel → no readiness score distribution
+                    → no share funnel
+                    → no time-to-share
+cockpit page        → PreviewGatePanel onApproveBatch → nothing after batch completes
+                       ← no nudge toward approval package
 ```
 
-### After v11.10
+### After v11.11
 
 ```
-StrategyRecipePanel → +recipe_tradeoff_viewed (on open)
-                      +recipe_selected { recipeId } (on each selection)
-                      cockpit_stage_* unchanged
+preflight PATCH/POST → readiness_blocked { blockingCount, readinessStatus, overallScore, action? }
+                       ← overallScore now captured
 
-GuidedBriefingPanel → cockpit_stage_abandoned enriched with { stage: currentStepId }
+share/[token] page  → Server Component increments shareLinks.viewCount atomically (fire-and-forget)
 
-PreviewGatePanel    → cockpit_stage_abandoned NOT fired on revise recipe
-                      cockpit_stage_completed on batch approve (unchanged)
+shareLinks table    → + viewCount integer NOT NULL DEFAULT 0
 
-CreativeReadinessPanel → readiness_blocked { action: "overridden" } on override click
-                         +onOverride prop → cockpit orchestrator unlocks
+aggregate.ts        → + aggregateReadinessScoreDistribution(events) → ReadinessScoreBucket[]
+                    → + aggregateShareFunnel(shareLinks, events, campaigns) → ShareSummary
 
-aggregate.ts        → +aggregateRecipeFunnel, +aggregateCreditRevenueFunnel
-                      AnalyticsFunnelSummary +recipeFunnel +creditRevenueFunnel
+/api/feedback/analytics/funnel → also queries shareLinks + campaign dates
+                                → AnalyticsFunnelSummary + readinessScoreDistribution + shareFunnel
 
-OwnerAnalyticsPanel → renders recipe funnel + credit revenue funnel
-                      timeline cap removed
-                      sessionOptions populated from sessions API
+OwnerAnalyticsPanel → readiness score distribution section
+                    → share funnel section with self-serve vs assisted rates
+                    → median time-to-share per workspace
 
-feedback/page.tsx   → fetches /api/feedback/sessions, passes sessionOptions
+cockpit page        → PostPreviewNudge renders when batchStatus=completed && no package yet
+                    → emits cockpit_stage_entered { stage: "approval_package", source: "nudge" }
 ```
 
 ---
@@ -333,117 +443,170 @@ feedback/page.tsx   → fetches /api/feedback/sessions, passes sessionOptions
 ## New vs Modified Components
 
 ### New
-None — all v11.10 work is additive changes to existing components and modules.
+
+| File | Purpose |
+|------|---------|
+| `components/workspace/PostPreviewNudge.tsx` | Post-batch CTA to close preview→approval-package gap |
+| `drizzle/XXXX_add_share_link_view_count.sql` | Migration: add viewCount to share_links |
 
 ### Modified
 
-| File | Change Type | v11.10 Feature |
+| File | Change Type | v11.11 Cluster |
 |------|-------------|----------------|
-| `server/beta-analytics/types.ts` | Extend constants | F-08, F-09 |
-| `components/workspace/StrategyRecipePanel.tsx` | Add event calls | F-08, F-09 |
-| `components/workspace/GuidedBriefingPanel.tsx` | Enrich abandoned event | F-12 |
-| `components/workspace/PreviewGatePanel.tsx` | Remove false abandoned | F-06 |
-| `components/workspace/CreativeReadinessPanel.tsx` | Add override button + prop | F-11 |
-| `server/beta-analytics/aggregate.ts` | Add 2 new aggregators + interface | Dashboard polish |
-| `components/feedback/OwnerAnalyticsPanel.tsx` | Add sections, remove cap | Dashboard polish |
-| `app/(dashboard)/feedback/page.tsx` | Populate sessionOptions | Dashboard polish |
-| `server/beta-sessions/types.ts` | No change | — |
-| `server/beta-analytics/record.ts` | No change | — |
-| `app/api/analytics/events/route.ts` | No change | — |
-| `app/api/feedback/analytics/funnel/route.ts` | No change (auto) | — |
+| `server/beta-analytics/types.ts` | Add `"overallScore"` to ALLOWED_PROPERTY_KEYS | Readiness tuning |
+| `app/api/campaigns/[id]/assets/[assetId]/preflight/route.ts` | Emit `overallScore` in readiness analytics | Readiness tuning |
+| `server/beta-analytics/aggregate.ts` | `aggregateReadinessScoreDistribution`, `aggregateShareFunnel`, update `AnalyticsFunnelSummary` | Readiness tuning + share analytics |
+| `server/beta-analytics/query.ts` | Add `listShareLinksForOwner`, `listCampaignCreationDates` | Share analytics |
+| `server/db/schema.ts` | Add `viewCount` to `shareLinks` table | Share analytics |
+| `app/share/[token]/page.tsx` | Non-blocking `viewCount` increment on render | Share analytics |
+| `app/api/feedback/analytics/funnel/route.ts` | Add shareLinks + campaign queries; pass to summary | Share analytics |
+| `components/feedback/OwnerAnalyticsPanel.tsx` | Readiness score distribution + share funnel sections | Both |
+| `app/(dashboard)/feedback/page.tsx` | `FunnelResponse` type update (if locally typed) | Both |
+| Cockpit orchestrator page (workspace pilot/campaign page) | Render `PostPreviewNudge` conditionally | Post-preview stall UX |
+
+### Unchanged (explicitly)
+
+| File | Why unchanged |
+|------|--------------|
+| `server/beta-analytics/sanitize.ts` | `strictObject(ALLOWED_PROPERTY_KEYS)` — automatically picks up `overallScore` via types.ts |
+| `server/beta-analytics/record.ts` | No change to ingest path |
+| `components/workspace/CreativeReadinessPanel.tsx` | Override button and `onOverride` prop already shipped in v11.10 |
+| `components/workspace/PreviewGatePanel.tsx` | F-06 fix already shipped in v11.10 |
+| `server/ai/creative-readiness.ts` | Thresholds stay hardcoded until score distribution data exists; tuning is a post-data decision, not a v11.11 code change |
+| `lib/share-token.ts` | No changes to token validation |
+| `app/api/share/[token]/asset/[derivationId]/route.ts` | Asset serving unchanged |
+
+---
+
+## Component Boundaries
+
+```
+types.ts (ALLOWED_PROPERTY_KEYS + PHASE_76_BETA_EVENT_KEYS)
+  ↓ used by
+sanitize.ts (strictObject — auto-accepts overallScore)
+  ↓ used by
+record.ts → /api/analytics/events (ingest endpoint)
+  ↑ called by
+preflight/route.ts ← MODIFIED: adds overallScore to readiness_blocked event
+useRecordBetaEvent ← called by
+PostPreviewNudge.tsx ← NEW: fires cockpit_stage_entered on render
+
+aggregate.ts (pure functions over BetaAnalyticsEvent[] + optional extra inputs)
+  ├─ aggregateReadinessScoreDistribution(events) ← NEW
+  └─ aggregateShareFunnel(shareLinks, events, campaigns) ← NEW
+       ↓ used by
+/api/feedback/analytics/funnel/route.ts ← MODIFIED: adds shareLinks + campaign queries
+  ↓ consumed by
+OwnerAnalyticsPanel ← MODIFIED: new readiness + share sections
+  ↑ rendered by
+feedback/page.tsx (sessionOptions already wired from v11.10)
+
+shareLinks (DB table) ← MODIFIED: + viewCount column
+  ← incremented by
+share/[token]/page.tsx ← MODIFIED: non-blocking viewCount++
+  ← queried by
+listShareLinksForOwner (query.ts) ← NEW function
+  ← called by
+/api/feedback/analytics/funnel/route.ts
+```
 
 ---
 
 ## Suggested Build Order
 
-Dependencies flow left-to-right; each phase can be committed independently.
+Dependencies flow left-to-right; each wave can be committed atomically.
 
-### Wave 1 — Schema Foundation (no UI deps)
-1. **`types.ts`** — add `recipe_selected`, `recipe_tradeoff_viewed` to event key const; add `recipeId` to property allowlist
-2. **`aggregate.ts`** — add `aggregateRecipeFunnel`, `aggregateCreditRevenueFunnel`; update `AnalyticsFunnelSummary`
+### Wave 1 — Analytics Event Enrichment (no UI, no migration)
 
-_Tests: update `aggregate.test.ts` with fixture events for new aggregators. Update `sanitize.test.ts` to verify `recipeId` is now accepted._
+1. **`types.ts`** — add `"overallScore"` to `ALLOWED_PROPERTY_KEYS`
+2. **`preflight/route.ts`** — emit `overallScore` in `emitReadinessAnalytics` properties
+3. **`aggregate.ts`** — add `aggregateReadinessScoreDistribution` and interface `ReadinessScoreBucket`; update `AnalyticsFunnelSummary`
 
-### Wave 2 — Cockpit Instrumentation (depends on Wave 1 types)
-3. **`StrategyRecipePanel.tsx`** — emit `recipe_tradeoff_viewed` on open, `recipe_selected` on selection
-4. **`GuidedBriefingPanel.tsx`** — enrich abandoned with `stage: currentStep`
-5. **`PreviewGatePanel.tsx`** — remove `cockpit_stage_abandoned` from revise handler
+_Tests: `aggregate.test.ts` — add fixture with `overallScore` property on `readiness_blocked` events; assert distribution output. `sanitize.test.ts` — assert `overallScore` now accepted._
 
-_Tests: update `StrategyRecipePanel.test.tsx` (if it exists) to assert new event calls. Check `PreviewGatePanel.test.tsx` — ensure abandoned assertion is removed/updated._
+### Wave 2 — Share Link View Tracking (requires DB migration)
 
-### Wave 3 — Readiness Override (depends on cockpit arch, independent of Wave 2)
-6. **`CreativeReadinessPanel.tsx`** — add override button, emit enriched `readiness_blocked`, call `onOverride()`
-7. **Cockpit orchestrator** (workspace page that renders `CreativeReadinessPanel`) — handle `onOverride` prop to allow progression past blocked state
+4. **`schema.ts`** — add `viewCount integer NOT NULL DEFAULT 0` to `shareLinks`
+5. **Migration file** — `ALTER TABLE adscale.share_links ADD COLUMN view_count integer NOT NULL DEFAULT 0`
+6. **`share/[token]/page.tsx`** — non-blocking `viewCount` increment after token validation
 
-_Tests: `CreativeReadinessPanel.test.tsx` — assert override button appears on blocked status, assert event emission._
+_Tests: `api/share/route.test.ts` — verify share creation still works. Manual: open share URL and verify increment in DB. No unit test for the public page increment needed (RSC, fire-and-forget pattern)._
 
-### Wave 4 — Owner Dashboard (depends on Wave 1 aggregate, independent of Waves 2/3)
-8. **`OwnerAnalyticsPanel.tsx`** — add recipe funnel table, add credit revenue funnel table, remove timeline slice cap; update `FunnelResponse` type
-9. **`feedback/page.tsx`** — add sessions query, pass `sessionOptions` to `OwnerAnalyticsPanel`
+### Wave 3 — Share Analytics Aggregation (depends on Wave 1 types, Wave 2 schema)
 
-_Tests: `OwnerAnalyticsPanel.test.tsx` — assert recipe funnel renders, assert timeline is uncapped, assert sessions pass through._
+7. **`query.ts`** — add `listShareLinksForOwner`, `listCampaignCreationDates`
+8. **`aggregate.ts`** — add `aggregateShareFunnel` function and `ShareFunnelRow`/`ShareSummary` interfaces; update `buildAnalyticsFunnelSummary` signature to accept extra params
+9. **`funnel/route.ts`** — call new queries; pass results to `buildAnalyticsFunnelSummary`
 
-### Wave 5 — Regression + F-14 Fix
-10. **F-14 test drift** — align `creative-quality-gate-orchestration` test assertion to current regeneration suggestion behavior
-11. **`npm test`, `npm run lint`, `npm run build`** green gate
+_Tests: `aggregate.test.ts` — add fixture share links data; assert `shareFunnel.selfServeRate` and `medianTimeToShareMs`. `funnel/route.test.ts` — assert new shape passes through._
+
+### Wave 4 — Post-Preview Stall UX Intervention (independent of Waves 1-3)
+
+10. **`PostPreviewNudge.tsx`** — new component; renders on `batchStatus === "completed" && !hasApprovalPackage`; emits `cockpit_stage_entered { stage: "approval_package", source: "nudge" }`
+11. **Cockpit orchestrator page** — wire `PostPreviewNudge` between gallery and `ClientApprovalPackagePanel`; derive `batchStatus` from derivations query, `hasApprovalPackage` from `useApprovalPackage`
+
+_Tests: `PostPreviewNudge.test.tsx` — assert renders on condition; assert does NOT render when package exists; assert event emission. Cockpit page: assert nudge visible after batch completes._
+
+### Wave 5 — Owner Dashboard New Sections (depends on Waves 1 + 3)
+
+12. **`OwnerAnalyticsPanel.tsx`** — add readiness score distribution `FunnelTable`; add share funnel `FunnelTable` with self-serve/assisted rates; update local `FunnelResponse` type
+
+_Tests: `OwnerAnalyticsPanel.test.tsx` — assert new sections render when data present; assert empty state when no data._
+
+### Wave 6 — Regression + Green Gate
+
+13. **`npm test`, `npm run lint`, `npm run build`** green in `app/`
 
 ---
 
 ## Pitfalls to Watch
 
-### `sanitize.ts` uses `z.strictObject` — unknown keys throw
-Any new event property that isn't in `ALLOWED_PROPERTY_KEYS` will cause a `400 validation_error` from the ingest API. **Always update `types.ts` first** before wiring new properties in components.
+### `sanitize.ts` strictObject — always update types.ts first
 
-### `aggregate.ts` `stageFromEvent` fallback to "unknown"
-When `stage` is overloaded with step IDs (GuidedBriefingPanel F-12 fix), the cockpit stage funnel will show briefing step IDs as new rows. This is intentional but should be documented in the `OwnerAnalyticsPanel` UI as "Guided briefing steps" vs "Cockpit stages."
+Any property not in `ALLOWED_PROPERTY_KEYS` returns `400 validation_error` from the ingest endpoint. **`overallScore` must be added to `types.ts` in Wave 1 before the preflight route change** — otherwise the enriched event silently fails (the route uses `.catch(() => warn)` swallow).
 
-### PreviewGatePanel F-06 — operator session server-side emit
-The full F-06 fix (emit `cockpit_stage_completed` when operator marks runbook stage done) requires touching `app/src/app/api/feedback/sessions/[id]/stages/route.ts`. Assess in planning whether this is in scope or deferred — the client-side half (removing false abandoned) delivers value independently.
+### Share page viewCount — non-blocking is mandatory
 
-### `OwnerAnalyticsPanel` FunnelResponse type is local (not shared with aggregate.ts)
-`FunnelResponse` type is defined inline in `OwnerAnalyticsPanel.tsx`. When `AnalyticsFunnelSummary` gains new fields in `aggregate.ts`, the client-side `FunnelResponse` type must be updated in parallel to avoid runtime `undefined` rendering.
+The `share/[token]/page.tsx` is a public page. Any DB error in the increment must NOT throw — the `.catch(() => undefined)` swallow pattern is correct. Drizzle's `sql`` `` `` `` atomic increment avoids read-modify-write races under concurrent page loads.
 
-### Session filter — `/api/feedback/sessions` auth
-The sessions API is protected by `requirePlatformOwner`. `feedback/page.tsx` already handles 403 for reports — the sessions query should follow the same null/empty pattern to avoid crashing the page for non-owners.
+### `buildAnalyticsFunnelSummary` signature change — callers must update
 
----
+`buildAnalyticsFunnelSummary(events, sessions)` gains two new optional params `shareLinks[]` and `campaigns[]`. Make them optional with empty array defaults to avoid breaking existing callers (tests, etc.).
 
-## Component Boundaries Summary
+### `FunnelResponse` type in OwnerAnalyticsPanel is locally duplicated
 
-```
-types.ts (event key + property allowlist)
-  ↓
-sanitize.ts (strictObject from allowlist)
-  ↓
-record.ts (validates key, sanitizes, inserts)
-  ↓
-/api/analytics/events/route.ts (ingest endpoint)
-  ↑
-useRecordBetaEvent (client hook, fire-and-forget)
-  ↑
-Cockpit Panels: CreativeReadinessPanel, GuidedBriefingPanel,
-                StrategyRecipePanel, PreviewGatePanel
+The `FunnelResponse` type is inline in `OwnerAnalyticsPanel.tsx` (not imported from `aggregate.ts`). When `aggregate.ts` gains `readinessScoreDistribution` and `shareFunnel` fields, the local type must be updated in parallel. Mark new fields as `?` optional to be safe against old API responses in dev.
 
-aggregate.ts (pure functions over BetaAnalyticsEvent[])
-  ↓
-/api/feedback/analytics/funnel/route.ts (owner-gated, calls aggregate)
-  ↓
-OwnerAnalyticsPanel (TanStack Query, renders FunnelTable)
-  ↑
-feedback/page.tsx (platform owner triage surface)
-```
+### Readiness threshold change is NOT in v11.11 scope
+
+The thresholds in `creative-readiness.ts` (`BLOCKING_SCORE_THRESHOLD = 50`, `READY_SCORE_THRESHOLD = 70`) should NOT be changed in v11.11 — this milestone's goal is to surface the data that enables a future evidence-based threshold decision. The score distribution table in `OwnerAnalyticsPanel` is the output; the threshold change is a post-data milestone action.
+
+### `listShareLinksForOwner` — no workspace isolation bypass
+
+The owner analytics funnel is behind `requirePlatformOwner`. `listShareLinksForOwner` should accept an optional `workspaceId` filter (same as existing query functions) to match the existing funnel filter behavior. Without it, the share funnel shows all workspaces, which is the intended owner view.
+
+### Post-preview nudge — do not re-emit on every render
+
+`PostPreviewNudge.tsx` should emit `cockpit_stage_entered` via a `useEffect` with a `once` ref guard (same pattern as `CreativeReadinessPanel`). Without the guard, TanStack Query re-renders will spam the event. Use `const emittedRef = useRef(false)` and set to `true` after first emit.
 
 ---
 
 ## Sources
 
-- `/app/src/server/beta-analytics/types.ts` — event key and property allowlist (read directly)
-- `/app/src/server/beta-analytics/aggregate.ts` — aggregation logic (read directly)
-- `/app/src/server/beta-analytics/sanitize.ts` — property validation strictObject (read directly)
-- `/app/src/server/beta-analytics/record.ts` — server-side record function (read directly)
-- `/app/src/server/beta-sessions/types.ts` — BETA_RUNBOOK_STAGES (read directly)
-- `/app/src/components/workspace/{Strategy,GuidedBriefing,PreviewGate,CreativeReadiness}Panel.tsx` — current instrumentation (read directly)
-- `/app/src/components/feedback/OwnerAnalyticsPanel.tsx` — dashboard component (read directly)
-- `/app/src/app/(dashboard)/feedback/page.tsx` — page composition (read directly)
-- `.planning/milestones/v11.8-phases/79-evidence-driven-friction-fixes/79-V11.9-BACKLOG.md` — F-06..F-14 backlog items
-- `.planning/PROJECT.md` — v11.10 milestone goal
+- `app/src/server/beta-analytics/types.ts` — ALLOWED_PROPERTY_KEYS and event key allowlist (read directly)
+- `app/src/server/beta-analytics/aggregate.ts` — aggregation logic, AnalyticsFunnelSummary interface (read directly)
+- `app/src/server/ai/creative-readiness.ts` — BLOCKING/READY thresholds, buildCreativeReadiness output (read directly)
+- `app/src/app/api/campaigns/[id]/assets/[assetId]/preflight/route.ts` — emitReadinessAnalytics, overallScore gap (read directly)
+- `app/src/app/api/share/route.ts` — mission_completed event emission, no view tracking (read directly)
+- `app/src/app/share/[token]/page.tsx` — public Server Component, no analytics (read directly)
+- `app/src/app/share/[token]/GalleryGrid.tsx` — client component, pure render (read directly)
+- `app/src/server/db/schema.ts` — shareLinks table definition, no viewCount (read directly)
+- `app/src/components/workspace/CreativeReadinessPanel.tsx` — override button exists (v11.10), onOverride prop (read directly)
+- `app/src/components/workspace/PreviewGatePanel.tsx` — F-06 fix already applied, no post-batch nudge (read directly)
+- `app/src/components/workspace/ClientApprovalPackagePanel.tsx` — approval package panel, target for nudge (read directly)
+- `app/src/components/feedback/OwnerAnalyticsPanel.tsx` — current dashboard sections, FunnelResponse local type (read directly)
+- `app/src/lib/hooks/use-preflight.ts` — useReadinessOverride, usePreflightScore (read directly)
+- `.planning/milestones/v11.8-phases/79-evidence-driven-friction-fixes/79-FRICTION-BACKLOG.md` — F-07 stall, F-13 share rate backlog items
+- `.planning/milestones/v11.8-phases/79-evidence-driven-friction-fixes/79-V11.9-BACKLOG.md` — deferred items including F-07, F-13
+- `.planning/REQUIREMENTS.md` — v11.10 requirements, Future Requirements (tuning after SESS-03)
+- `.planning/PROJECT.md` — v11.11 milestone goal: readiness tuning, stall interventions, share analytics

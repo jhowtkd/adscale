@@ -1,189 +1,198 @@
-# Feature Landscape: v11.10 Fechamento Entrega e Analytics
+# Feature Landscape: v11.11 Aprendizado → Ação
 
-**Domain:** Beta analytics instrumentation closure + operator UAT
-**Researched:** 2026-06-07
-**Milestone context:** Closing deferred v11.8 backlog (F-06, F-08, F-09, F-11, F-12, F-14) plus owner dashboard polish and SESS-03 operator UAT.
+**Domain:** Beta learning data → actionable product improvements (readiness tuning, stall reduction, share-link self-serve)
+**Researched:** 2026-06-08
+**Milestone context:** Converting SESS-03 real-session data into three targeted improvements — readiness threshold tuning (post-F-11 override signals), UX interventions for the ~38 min post-preview stall (F-07), and share link self-serve analytics + improvements (F-13). Also closes learning Q2/Q3/Q9 and adds dashboard metrics for median draft→share time and assistance-level correlation.
 
 ---
 
 ## What Already Exists (do NOT rebuild)
 
-Confirmed in codebase before writing this document:
+Confirmed in codebase and phase summaries before writing this document:
 
 | Capability | Location | Status |
 |------------|----------|--------|
-| `cockpit_stage_completed` on GuidedBriefingPanel | `GuidedBriefingPanel.tsx:65` | ✓ Built |
-| `cockpit_stage_completed` on CreativeReadinessPanel | `CreativeReadinessPanel.tsx:79` | ✓ Built |
-| `cockpit_stage_completed` / entered / abandoned on StrategyRecipePanel | `StrategyRecipePanel.tsx:70-91` | ✓ Built |
-| `cockpit_stage_completed` on PreviewGatePanel | `PreviewGatePanel.tsx:71` | ✓ Built |
-| `readiness_blocked` / `readiness_completed` events (server) | `preflight/route.ts` | ✓ Built |
-| `ReadinessOverrideSignal` aggregate from `readiness_blocked` events | `aggregate.ts:277` | ✓ Built |
-| Owner dashboard: session filter select, date range, workspace filter | `OwnerAnalyticsPanel.tsx:161-259` | ✓ Built |
-| Session stage timeline table (with `.slice(0, 24)` cap) | `OwnerAnalyticsPanel.tsx:329` | ✓ Built (capped) |
-| Credit surprise by operation table | `OwnerAnalyticsPanel.tsx:299` | ✓ Built |
-| Readiness override signals display panel | `OwnerAnalyticsPanel.tsx:340` | ✓ Built |
-| `stepIndex()` + `guided.currentStep` in GuidedBriefingPanel | `GuidedBriefingPanel.tsx:29-77` | ✓ Built (unused in abandon) |
-| `ALLOWED_PROPERTY_KEYS` PII allowlist in types | `beta-analytics/types.ts:3` | ✓ Built |
-| `PHASE_76_BETA_EVENT_KEYS` enum | `beta-analytics/types.ts:25` | ✓ Built |
+| Readiness score: 6 dimensions, BLOCKING=50, READY=70 | `creative-readiness.ts:45-46` | ✓ Built |
+| Readiness override via PATCH preflight (`action: overridden`) | Phase 86 — `preflight/route.ts` | ✓ Built |
+| `ReadinessOverrideSignal` aggregate in owner dashboard | `aggregate.ts:277`, `OwnerAnalyticsPanel.tsx:340` | ✓ Built |
+| Override event: `readiness_blocked { action: overridden }` | Phase 86 | ✓ Built |
+| Uncapped session timeline, credit-by-stage funnel | Phase 87 — `OwnerAnalyticsPanel.tsx` | ✓ Built |
+| `recipe_selected` event + funnel row in dashboard | Phase 85 | ✓ Built |
+| Share link creation (POST `/api/share`) + gallery page (`/share/[token]`) | `share/route.ts`, `share/[token]/page.tsx` | ✓ Built |
+| Share page recipient guide, notes, gallery grid | `share/[token]/page.tsx:91-106` | ✓ Built |
+| `mission_completed { missionKey: "share" }` event on share creation | `share/route.ts:39` | ✓ Built |
+| `guided_briefing` abandon event (no step breakdown) | Phase 85 | ✓ Built |
+| Readiness rerun (preflight re-trigger) | `CreativeReadinessPanel.tsx` | ✓ Built |
+| `buildBetaSessionSummary` timing data | `aggregate.ts` | ✓ Built |
 
 ---
 
 ## Table Stakes
 
-Features users/operators expect. Missing = product feels incomplete.
+Features users/operators expect. Missing = v11.11 cannot close its learning questions.
 
-### TS-1: F-06 — Preview funnel completeness via manual runbook path
+### TS-1: Share link open tracking (`share_link_opened` event)
 
-**Why expected:** The cockpit stage funnel in the owner dashboard should accurately show whether operators reached and completed the preview stage. Currently, when an operator marks a beta session as complete via the manual runbook (not through PreviewGatePanel.onApproveBatch), no `cockpit_stage_completed(stage: "preview")` event fires. This produces a false "preview: abandoned=1" reading in the funnel, misrepresenting operator behavior.
-
-**What to build:** Emit `cockpit_stage_completed({stage: "preview", missionKey: "preview"})` from the beta-session runbook completion path (server route `beta-sessions/[id]/summary` or the operator UI that marks session done), so the funnel row reflects actual operator progression rather than just panel interactions.
-
-**Complexity:** Low — one `recordBetaAnalyticsEvent` call at the runbook-complete boundary. Test: verify `cockpit_stage_completed` fires on session summary submission.
-
-**Dependencies:** `cockpit_stage_completed` event key already in PHASE_76_BETA_EVENT_KEYS ✓; `recordBetaAnalyticsEvent` available server-side ✓.
-
----
-
-### TS-2: F-08 — `recipe_tradeoff_viewed` event
-
-**Why expected:** Without this event, the owner has no signal for whether operators are reading the tradeoff copy before selecting a recipe — which was Q6's open question. The tradeoff copy is already rendered in StrategyRecipePanel for each recipe card (line 135-137). The event is just missing.
-
-**What to build:** Fire `recipe_tradeoff_viewed` once per panel open session from StrategyRecipePanel (similar to `cockpit_stage_entered`) using a `useRef` guard to prevent duplicate fires per open.
-
-**What changes:** 
-- Add `"recipe_tradeoff_viewed"` to `PHASE_76_BETA_EVENT_KEYS` (or extend with a v11.10 constant).
-- Emit in `StrategyRecipePanel` `useEffect` alongside `cockpit_stage_entered`.
-- Test: assert event fires on mount when `open=true`.
-
-**Complexity:** Low — single `useEffect` side-effect, one new event key.
-
-**Dependencies:** `useRecordBetaEvent` already imported in StrategyRecipePanel ✓.
-
----
-
-### TS-3: F-09 — `recipe_selected` event + funnel row
-
-**Why expected:** Q4 in v11.8 had only operator notes with no event data. Owner needs to know which recipes operators pick most, which correlates to which creative strategies get validated in beta.
+**Why expected:** F-13 asks "do clients use share links without hand-holding?" Without a server-side open event, Q7 (assistance-level correlation) has no denominator — we can't tell if the link was ever opened, let alone opened autonomously. The share page route already exists; one analytics call is all that's missing.
 
 **What to build:**
-1. Fire `recipe_selected({ stage: "strategy_recipe", recipeId: id })` in `StrategyRecipePanel` inside `recipe.selectRecipe(id)` handler (or wrap the selectRecipe call).
-2. Add `"recipe_selected"` to the event key allowlist.
-3. Add `"recipeId"` to `ALLOWED_PROPERTY_KEYS` in `types.ts`.
-4. In `aggregate.ts`, add a `recipeFunnel` aggregation: group `recipe_selected` events by `properties.recipeId`, count distinct sessions.
-5. Surface a "Recipe selection" table in `OwnerAnalyticsPanel` alongside the cockpit stage funnel.
+1. In `app/src/app/share/[token]/page.tsx` (server component), call `recordBetaAnalyticsEvent` after `validateShareToken` succeeds. Event key: `"share_link_opened"`. Properties: `{ campaignId, tokenId: token.substring(0, 8) }` (no PII). Source: `"server"`. `workspaceId` from link data; `sessionId` is null (unauthenticated).
+2. Add `"share_link_opened"` to `PHASE_76_BETA_EVENT_KEYS` (or a v11.11 extension constant).
+3. Add `"tokenId"` to `ALLOWED_PROPERTY_KEYS` (truncated token, non-PII).
+4. In `aggregate.ts`, add `ShareLinkSignal`: group `share_link_opened` events by `campaignId`, count unique opens per campaign.
+5. Owner dashboard: "Share link opens" column in the cockpit funnel table or a dedicated small panel (open count, campaigns with ≥1 open).
 
-**Complexity:** Medium — touches types, aggregate, StrategyRecipePanel, dashboard table. Four files, but each change is small.
+**Complexity:** Low-Medium — unauthenticated server component can call server-side analytics (no user/session context available; fire-and-forget pattern matches existing `void recordBetaAnalyticsEvent(…).catch(…)`). Four files: event key, allowed properties, aggregate, dashboard panel.
 
-**Dependencies:** `recipeId` must be added to `ALLOWED_PROPERTY_KEYS` (PII allowlist) before the property passes ingest validation.
-
----
-
-### TS-4: F-14 — `creative-quality-gate-orchestration` test drift fix
-
-**Why expected:** A failing test is a broken build signal. The `creative-quality-gate-orchestration.test.ts` has a drifted assertion on `regenerationSuggestion` format (line 121: `stringMatching(/Hard failures:[\s\S]*cta_drift: CTA was replaced/)`) that no longer matches the actual string produced by `runCompletedDerivationQualityGate`. This must be green before regression can be validated.
-
-**What to build:** Align the assertion to match the current `regenerationSuggestion` output format from `creative-quality-gate.ts`. This is a test fix, not a production code change.
-
-**Complexity:** Low — read the current output format from `creative-quality-gate.ts`, update the regex or use `toContain`. No production risk.
-
-**Dependencies:** None beyond the existing test/implementation pair.
+**Dependencies:** `recordBetaAnalyticsEvent` accepts nullable `userId` and `sessionId` (verify signature). Link's `workspaceId` is available from `validateShareToken` return ✓.
 
 ---
 
-### TS-5: SESS-03 — ≥3 real operator sessions + updated learning answers
+### TS-2: Post-preview stall analysis in owner dashboard
 
-**Why expected:** `SESS-03` is the defined UAT gate blocking v11.9 scope lock. Learning answers in `LEARNING-ANSWERS.md` are currently fixture-backed (from v11.8). They must reflect evidence from real operator sessions before v11.10 can close.
+**Why expected:** Q10 identified a ~38 min stall after preview but only from a single fixture session. SESS-03 generates real session data; the owner needs a view that surfaces campaigns stuck in the post-preview state across sessions. Without this, the stall remains anecdotal and v11.11 has no evidence base for UX interventions.
 
-**What to build (operational, not code):**
-1. Operator applies migrations (already documented in v11.7.1 handoff).
-2. Operator runs ≥3 sessions using the beta session runbook.
-3. Owner reviews the `/feedback` dashboard analytics after sessions.
-4. Update `LEARNING-ANSWERS.md` with real session findings.
-5. Document session IDs and key observations in a session evidence file.
+**What to build:**
+1. In `aggregate.ts`, add `PostPreviewStallSignal`: for each session, compute `stall_ms = timestamp(batch_generation_started OR session_ended) − timestamp(cockpit_stage_completed: "preview")`. If gap > 15 min and batch was started, classify as "stall-then-proceed". If gap > 15 min and session ended without batch, classify as "stall-then-abandoned".
+2. Aggregate: median stall, stall rate (sessions with stall / sessions with preview completed), stall→proceed rate.
+3. Owner dashboard: "Post-preview stall" panel — median stall time, stall rate, and a list of campaigns with active post-preview stalls (preview done, batch not started, last activity > 15 min ago).
 
-**Complexity:** Low (code) / Medium (operational) — no new code needed if existing runbook is complete. May surface bugs that require code fixes.
+**Complexity:** Medium — requires event timestamp comparison across two event types within a session. The session grouping and timeline are already available; this is a derived aggregate on top of existing data.
 
-**Dependencies:** All cockpit instrumentation (TS-1 through TS-3) should be in place before sessions so analytics are useful.
+**Dependencies:** `cockpit_stage_completed` for preview stage must be accurately instrumented (F-06 from Phase 85 ✓). Batch generation start event must exist or be inferred from `credit_spend { stage: "batch" }`.
+
+---
+
+### TS-3: Readiness override breakdown by dimension in dashboard
+
+**Why expected:** Phase 86 built the override workflow and the `ReadinessOverrideSignal` aggregate, but the aggregate groups overrides by workspace/campaign — not by *which dimension* triggered the block. To tune thresholds, the owner needs to know whether overrides cluster around `offerClarity`, `textLegibility`, `ctaProminence`, etc. Without per-dimension breakdown, threshold tuning is guesswork.
+
+**What to build:**
+1. In `preflight/route.ts`, when emitting the override event, include `blockingDimensions: string[]` — the list of dimension IDs with score < BLOCKING_SCORE_THRESHOLD at override time.
+2. Add `"blockingDimensions"` to `ALLOWED_PROPERTY_KEYS`.
+3. In `aggregate.ts`, extend `ReadinessOverrideSignal` with a `dimensionBreakdown: Record<ReadinessDimensionId, number>` field — count overrides per dimension.
+4. Owner dashboard: in the readiness override signals panel, add a dimension bar or table showing which dimensions are overridden most.
+
+**Complexity:** Medium — requires passing dimension scores through the override PATCH handler. The dimension data is already computed in `buildCreativeReadiness`; it needs to be preserved at the override call site.
+
+**Dependencies:** Override PATCH handler must have access to the preflight result at override time (may require refetching preflight from DB or passing in request body). Verify `preflight/route.ts` Phase 86 implementation.
+
+---
+
+### TS-4: Learning answers Q2/Q3/Q9 — closure with real session data
+
+**Why expected:** Q2 (guided briefing skip patterns), Q3 (readiness rerun rate), and Q9 (stale approval package badge understanding) are currently "TBD" in `79-LEARNING-ANSWERS.md`. These cannot be answered with fixture data; they require real SESS-03 sessions. Closing them is the epistemic goal of v11.11.
+
+**What to build (operational + minimal code):**
+- Q2: `cockpit_stage_abandoned { stage: "guided_briefing", stepId }` was instrumented in Phase 85. Update LEARNING-ANSWERS with real session citations.
+- Q3: Count `readiness_blocked` events per campaign in real sessions (multiple rerun = high credit sensitivity). Owner dashboard: "readiness rerun rate" metric (already in aggregate; needs citation in answers).
+- Q9: Observe `stale_badge_viewed` or operator notes. If no event exists, add `"approval_package_refreshed"` event on the "Refresh" action in the delivery panel and document findings.
+
+**Complexity:** Low (code for Q9 event if missing) / Operational (update answer doc with session citations).
+
+**Dependencies:** SESS-03 sessions must complete first. Q9 code is conditional on whether a refresh event exists in the delivery panel.
 
 ---
 
 ## Differentiators
 
-Features that go beyond baseline expectations; valued when present.
+Features that go beyond the baseline; high-value when combined with SESS-03 evidence.
 
-### D-1: F-11 — Readiness false-positive override workflow
+### D-1: Readiness threshold algorithm tuning
 
-**Why valuable:** The `readiness_blocked` event fires and is displayed in the owner dashboard, but operators have no way to explicitly say "this readiness block was a false positive — I proceeded anyway." Without an override path, operators either get stuck on `needs_attention` readiness or silently bypass it. An explicit override both unblocks the UX and provides a falsifiable signal for tuning the readiness threshold.
+**Why valuable:** The current `BLOCKING_SCORE_THRESHOLD = 50` and `READY_SCORE_THRESHOLD = 70` are arbitrary starting values (v11.6). Post-F-11 override data reveals which threshold is calibrated wrong. Adjusting one constant can eliminate false positives for an entire dimension class without touching UI — the highest-leverage tuning action in the milestone.
 
 **What to build:**
-1. **Override action in CreativeReadinessPanel:** When readiness status is `needs_attention`, show a secondary CTA: "Override (false positive)" that lets the operator continue despite blocking issues. This calls `onReadinessOverride()`.
-2. **`readiness_override` event:** Emit `recordBetaAnalyticsEvent({eventKey: "readiness_override", properties: {blockingCount, readinessStatus}})` on override click. Add to event key allowlist.
-3. **Aggregate signal:** In `aggregate.ts`, modify `aggregateReadinessOverrideSignals` to also include `readiness_override` events (not just `readiness_blocked`). Tag them as `kind: "override"` vs current `kind: "event"`.
-4. **Owner dashboard:** Show override events distinctly (e.g., badge "Override" in green) in the readiness override signals panel.
+1. After TS-3 data is available: identify dimensions with override rate > 50%. For those dimensions, raise the blocking threshold 5–10 points (e.g., `ctaProminence` from 50 → 40 if rarely truly blocking).
+2. Change is a code constant update in `creative-readiness.ts:45-46`, plus a migration note in LEARNING-ANSWERS.
+3. Before/after comparison: record pre-tuning override rate from SESS-03, run 1–2 post-tuning sessions, confirm override rate drops.
 
-**Complexity:** Medium — touches CreativeReadinessPanel props contract, one new event key, aggregate change, and dashboard display.
+**Complexity:** Low (code change) / Medium (requires evidence gate: TS-3 data must exist and show clear dimension clustering). Do not tune without data.
 
-**Dependencies:** Requires `onReadinessOverride` prop threaded from parent cockpit orchestrator. The `ReadinessOverrideSignal` type already has a `kind` discriminator that supports extension ✓.
+**Dependencies:** TS-3 (dimension breakdown in dashboard). Minimum 3 SESS-03 sessions with at least 2 override events across sessions for statistical grounding.
 
 ---
 
-### D-2: F-12 — Guided briefing abandon breakdown by step
+### D-2: Post-preview "continue batch" nudge on campaign card
 
-**Why valuable:** Currently `cockpit_stage_abandoned({stage: "guided_briefing"})` fires but contains no information about which step the operator abandoned at. Knowing the specific step (e.g., `productOffer`, `objections`, `constraints`) surfaces which question causes the most friction — far more actionable than an aggregate abandon count.
+**Why valuable:** The ~38 min stall likely reflects the operator losing context after preview — returning to the campaign list and not knowing which campaign is awaiting batch approval. A small "Preview done — start batch?" badge on the campaign card surfaces the pending decision without requiring the operator to open the cockpit.
 
 **What to build:**
-1. In `GuidedBriefingPanel.tsx`, pass `currentStep: guided.currentStep` as a property in the `STAGE_PROPS` used for `cockpit_stage_abandoned`.
-2. Add `"stepId"` to `ALLOWED_PROPERTY_KEYS` in `types.ts`.
-3. In the aggregate, group abandoned events by `properties.stepId` for the cockpit stage funnel detail.
-4. Owner dashboard: show a "Briefing abandon by step" breakdown (e.g., a column inside the cockpit stage funnel table, or a separate small table).
+1. Campaign list query: add a derived status `"preview_done_pending_batch"` — campaign has a completed preview derivation but no `credit_spend { stage: "batch" }` event in the last 24h.
+2. Campaign card UI: add a subtle amber indicator or chip "Continue → batch" that links directly to the cockpit at the post-preview step.
+3. No new backend infrastructure — derive status client-side from campaign + derivation metadata already loaded.
 
-**Complexity:** Low-Medium — the `guided.currentStep` value is already available at abandon time (confirmed in source). The `stepIndex()` function exists. Just need to include it in the fired event and display it.
+**Complexity:** Low-Medium — requires checking derivation status (at least one preview-mode derivation in `approved` state) plus absence of batch generation. Status derivation can be done from existing campaign+derivations query.
 
-**Dependencies:** `stepId` property must be added to `ALLOWED_PROPERTY_KEYS` before it passes ingest ✓ (pattern is identical to existing `stage` key).
+**Dependencies:** TS-2 (stall analysis confirms the nudge is warranted; don't build a nudge without evidence the stall is real across sessions). Derivation `generationMode` field distinguishes preview vs batch ✓.
 
 ---
 
-### D-3: Owner dashboard — timeline without cap and revenue funnel
+### D-3: Share link assistance-level correlation in owner analytics
 
-**Why valuable:** The session stage timeline currently hard-caps at 24 rows (`.slice(0, 24)` in OwnerAnalyticsPanel.tsx line 331). With ≥3 real sessions per SESS-03 and multiple stages per session, 24 rows will be exceeded. Beyond the cap, the "revenue funnel" (credit spend → derivation completed → derivation approved → export) gives the owner a conversion view of where value actually flows.
+**Why valuable:** F-13 asks whether share links are self-serve or require hand-holding. The `assistance_level` property is already recorded on beta sessions. Correlating `share_link_opened` events (TS-1) with the session's `assistance_level` answers: "do sessions marked `autonomous` or `minimal_guidance` still result in link opens, or do only `hands_on` sessions drive client engagement?"
 
 **What to build:**
-1. **Timeline cap removal:** Remove `.slice(0, 24)` from the timeline filter/map. If pagination is needed for large datasets, add a "Show more" toggle or paginate on the server via a `limit` query param.
-2. **Revenue/delivery funnel:** Add a new aggregate in `aggregate.ts` that counts: `credit_spend` events → `cockpit_stage_completed(stage: "preview")` events → total derivations approved (join with derivation table, or proxy via mission_completed) → export events if instrumented. Surface as a new FunnelTable row in `OwnerAnalyticsPanel`.
+1. In `aggregate.ts`, join `share_link_opened` events with the session's `assistance_level` tag (from session-level beta events or session metadata).
+2. Compute: share-link open rate by assistance level (hands_on vs guided vs autonomous).
+3. Owner dashboard: add a "Share link engagement" breakdown row to the existing session analytics section.
 
-**Complexity:** Low (timeline cap) / Medium (revenue funnel) — the aggregate needs a new function; the dashboard needs a new table.
+**Complexity:** Medium — requires joining two event streams (share open on share link route, session metadata on operator session). Sessions from share opens have no `sessionId`; join must be via `campaignId` + time window or via explicit session correlation in the share creation event.
 
-**Dependencies:** Revenue funnel accuracy depends on F-06 (preview stage completion) being correctly instrumented first.
+**Dependencies:** TS-1 (share_link_opened event must exist). `assistance_level` must be stored on beta sessions from Phase 76/77 ✓.
+
+---
+
+### D-4: Dashboard — median draft→share time by assistance level
+
+**Why valuable:** Q10 found median session time ~90 min from a single fixture. Real SESS-03 data should compute: median time from campaign creation to share link creation, broken down by assistance level. This surfaces whether assisted sessions are faster (operator does the work) or slower (client needs more hand-holding), and gives the owner a target for self-serve improvements.
+
+**What to build:**
+1. In `buildBetaSessionSummary`, compute `draftToShareMs` from first `cockpit_stage_entered { stage: "guided_briefing" }` to `mission_completed { missionKey: "share" }`.
+2. Aggregate: median `draftToShareMs` overall and by `assistance_level`.
+3. Owner dashboard: add "Median draft → share" stat card alongside the existing credit/readiness summary cards.
+
+**Complexity:** Low — `buildBetaSessionSummary` already computes timing fields. This is a new derived metric + one stat card.
+
+**Dependencies:** SESS-03 sessions must be present. `mission_completed { missionKey: "share" }` event fires at share creation ✓.
 
 ---
 
 ## Anti-Features
 
-Features to explicitly NOT build in v11.10.
+Features to explicitly NOT build in v11.11.
 
 | Anti-Feature | Why Avoid | What to Do Instead |
 |--------------|-----------|-------------------|
-| New AI models or generation behavior | Confounds analytics learning from real sessions | Defer to post-beta milestone |
-| Third-party analytics SDK (Mixpanel, Amplitude, PostHog) | First-party events are sufficient for operator beta; adds complexity and potential PII risk | Continue with existing `beta_analytics_events` table |
-| Readiness threshold tuning (changing the readiness score algorithm) | Cannot tune without override data; needs D-1 signals first | Build D-1, collect data, tune in v11.11+ |
-| New cockpit stages or workflow surfaces | Adds instrumentation complexity mid-beta; distorts session comparisons | Freeze cockpit shape until after SESS-03 |
-| LGPD compliance work | Separate milestone; out of scope since v1.0 | Dedicated compliance milestone post-beta |
-| Share link social/public analytics | No user demand signal yet; share link flow fixed in v11.9 | Revisit if Q-share returns as a gap |
-| Export pipeline changes (Meta/TikTok integration) | Stubbed intentionally; requires separate product milestone | Future milestone |
+| Client authentication on share page | Clients should review without creating accounts — friction kills self-serve | Keep share page fully public; track opens server-side (TS-1) |
+| Email/push notifications for post-preview stall | Email infrastructure (Resend) not yet wired into transactional product flows | Use in-app nudge on campaign card (D-2); revisit email in a future milestone |
+| Automated readiness threshold tuning (ML/heuristic loop) | Only 3–5 sessions of data — not enough signal for automation | Manual constant adjustment with evidence gate (D-1); automate when N > 50 sessions |
+| Client approval/rejection from share page | Changes delivery contract (share is read-only by design; approval is operator's responsibility) | Revisit in a future "client collaboration" milestone if demand is validated |
+| New cockpit stages or workflow surfaces | Confounds stall analysis — can't separate stall from confusion with a changed UI | Freeze cockpit shape; only add nudge on campaign card (D-2) |
+| Share link expiry extension UI | Expiry is already generous; no evidence of expiry complaints from SESS-03 | If a session shows expiry friction, extend the constant; no UI needed |
+| Credit model changes or new generation modes | Generation pipeline is stable; v11.11 targets data-driven UX, not AI changes | Defer to post-beta milestone |
+| Third-party analytics SDK | Adds PII risk and complexity; beta scale doesn't require it | Continue with `beta_analytics_events` table |
+| LGPD compliance work | Separate milestone, explicitly out of scope | Dedicated post-beta compliance milestone |
 
 ---
 
 ## Feature Dependencies
 
 ```
-F-14 (test fix) → SESS-03 (green suite before UAT)
-TS-2 (recipe_tradeoff_viewed) → TS-3 (recipe_selected) → D-3 (revenue funnel)
-TS-1 (preview funnel) → D-3 (revenue funnel accuracy)
-D-1 (readiness override) → after SESS-03 has override data → threshold tuning (future)
-D-2 (briefing step abandon) → SESS-03 (richer session data)
+TS-1 (share_link_opened) → D-3 (assistance-level correlation)
+TS-2 (post-preview stall analysis) → D-2 (campaign card nudge — confirm stall is real before building UX)
+TS-3 (dimension breakdown) → D-1 (threshold tuning — need dimension data to tune)
+SESS-03 real sessions → TS-4 (Q2/Q3/Q9 closure) → D-1 (threshold tuning evidence gate)
+Phase 85 F-06 (preview funnel instrumentation) → TS-2 (stall start timestamp)
+D-4 (draft→share median) → SESS-03 sessions (no synthetic data)
+D-3 depends on D-4 for context (both use assistance_level correlation)
 ```
 
-All table stakes (TS-1 through TS-4) must land before SESS-03 so sessions generate useful analytics. SESS-03 is the gate for closing v11.10.
+Order of operations:
+1. TS-1 through TS-3 ship (analytics instrumentation) — no SESS-03 data needed
+2. SESS-03 real sessions run (human gate)
+3. TS-4 closes with citations, D-1 tunes thresholds, D-2 nudge confirmed by stall data
+4. D-3 and D-4 aggregate in dashboard from real session events
 
 ---
 
@@ -191,23 +200,27 @@ All table stakes (TS-1 through TS-4) must land before SESS-03 so sessions genera
 
 Prioritize (in order):
 
-1. **F-14 test fix (TS-4)** — unblocks green suite; 30 min effort; no risk
-2. **F-08 recipe_tradeoff_viewed (TS-2)** — simplest new event; confirms instrumentation pattern before F-09
-3. **F-09 recipe_selected + funnel (TS-3)** — slightly more surface area; dashboard row
-4. **F-06 preview funnel completeness (TS-1)** — requires tracing runbook-complete call path
-5. **F-12 briefing abandon by step (D-2)** — small change, high analytical value
-6. **D-3 timeline cap + revenue funnel (Polish)** — polish; remove cap first, funnel second
-7. **F-11 readiness override (D-1)** — most complex; needed for SESS-03 to generate override evidence
-8. **SESS-03 operator UAT (TS-5)** — operational; runs after all instrumentation is live
+1. **TS-1 share_link_opened event + dashboard panel** — closes F-13/Q7; low complexity; ships before sessions
+2. **TS-3 override breakdown by dimension** — enables D-1; data needed from first real session; medium complexity
+3. **TS-2 post-preview stall analysis panel** — surfaces F-07 evidence; confirms D-2 is warranted
+4. **TS-4 Q9 approval refresh event** (if missing) — small code addition; rest of Q2/Q3/Q9 is operational
+5. **D-4 median draft→share stat card** — low complexity; high signal value post-SESS-03
+6. **D-1 threshold tuning** — wait for TS-3 dimension data; change is a 2-line constant update with evidence
+7. **D-2 campaign card post-preview nudge** — wait for TS-2 stall confirmation; medium complexity; high operator UX value
+8. **D-3 share link assistance-level correlation** — depends on TS-1 + session data; adds context to F-13 closure
 
-Defer: Real revenue conversion tracking, threshold tuning — need override signal data first.
+Defer: Client approval on share page, email stall notifications — no evidence of demand and infrastructure not ready.
 
 ---
 
 ## Sources
 
-- Codebase direct inspection: `app/src/components/workspace/`, `app/src/server/beta-analytics/`, `app/src/components/feedback/`
+- Codebase direct inspection: `app/src/server/ai/creative-readiness.ts`, `app/src/app/api/share/route.ts`, `app/src/app/share/[token]/page.tsx`
 - `.planning/milestones/v11.8-phases/79-evidence-driven-friction-fixes/79-V11.9-BACKLOG.md`
-- `.planning/milestones/v11.9-REQUIREMENTS.md`
+- `.planning/milestones/v11.8-phases/79-evidence-driven-friction-fixes/79-LEARNING-ANSWERS.md`
+- `.planning/phases/86-readiness-override/86-01-SUMMARY.md`
+- `.planning/phases/87-owner-dashboard-polish/87-01-SUMMARY.md`
+- `.planning/phases/89-sess-03-operator-uat/89-SESS-03-EVIDENCE.md`
+- `.planning/phases/67-milestone-archive-and-beta-runbook/67-LEARNING-QUESTIONS.md`
 - `.planning/PROJECT.md`
-- Confidence: HIGH (all assertions verified against live source files)
+- Confidence: HIGH for table stakes (all assertions verified against live source files and phase summaries); MEDIUM for differentiators (dependent on SESS-03 evidence that does not yet exist)
