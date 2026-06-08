@@ -2,6 +2,7 @@
 
 ## Milestones
 
+- 🔄 **v11.11 Aprendizado → Ação** - Phases 90-96 (in progress)
 - 🔄 **v11.10 Fechamento Entrega e Analytics** - Phases 85-89 (in progress)
 - ✅ **v11.9 UX de Entrega e Créditos** - Phases 80-84 (shipped 2026-06-07)
 - ✅ **v11.8 Loop de Aprendizado Beta** - Phases 75-79 (shipped 2026-06-07)
@@ -17,6 +18,28 @@
 - ✅ **v11.0 Fluxos de Derivação Coerentes** - Phases 40-43 (shipped 2026-06-01)
 
 ## Phases
+
+### 🔄 v11.11 Aprendizado → Ação (Phases 90-96) — IN PROGRESS
+
+**Milestone Goal:** Converter dados reais do beta (SESS-03) em melhorias acionáveis — tuning de readiness, redução de stall pós-preview e analytics/melhorias de share link self-serve.
+
+- [ ] **Phase 90: Analytics Foundation** — Allowlist extensions + aggregate functions for share, stall, and readiness override
+- [ ] **Phase 91: Share + Readiness Instrumentation** — `share_link_opened` server event, share open count, and override dimension dashboard
+- [ ] **Phase 92: Owner Dashboard: Stall + Timing** — Post-preview stall panel, median draft→share time, stall classification
+- [ ] **Phase 93: SESS-03 Operator UAT** — ≥3 real beta sessions documented (v11.10 carryover)
+- [ ] **Phase 94: Learning Closure + Threshold Tune** — Q2/Q3/Q9 answered with real session citations; readiness thresholds adjusted with evidence
+- [ ] **Phase 95: Stall UX + Share Correlation** — "Continue → batch" nudge; share open rate by assistance level
+- [ ] **Phase 96: Regression Verification** — Tests for new events/aggregators/nudge; npm test + lint + build pass
+
+| # | Phase | Requirements | Status | Completed |
+|---|-------|--------------|--------|-----------|
+| 90 | Analytics Foundation | READY-08, LEARN-06 | Not started | - |
+| 91 | Share + Readiness Instrumentation | SHARE-01, SHARE-02, READY-09 | Not started | - |
+| 92 | Owner Dashboard: Stall + Timing | STALL-01, STALL-02, DASH-07, DASH-08 | Not started | - |
+| 93 | SESS-03 Operator UAT | LEARN-05 | Not started | - |
+| 94 | Learning Closure + Threshold Tune | LEARN-04, READY-10 | Not started | - |
+| 95 | Stall UX + Share Correlation | STALL-03, SHARE-03 | Not started | - |
+| 96 | Regression Verification | QA-05, QA-06 | Not started | - |
 
 ### 🔄 v11.10 Fechamento Entrega e Analytics (Phases 85-89) — IN PROGRESS
 
@@ -79,6 +102,134 @@ Archive: [v11.8-ROADMAP.md](milestones/v11.8-ROADMAP.md) · [v11.8-REQUIREMENTS.
 **12 requirements** | **3 phases** | Stabilization-only scope before beta
 
 ## Phase Details
+
+### Phase 90: Analytics Foundation
+
+**Goal:** New event keys, property keys, and aggregate functions land atomically before any v11.11 instrumentation call site is written — schema contracts are the first delivery.
+
+**Depends on:** Phase 89 (v11.10 allowlist pattern established; SESS-03 may run in parallel)
+
+**Requirements:** READY-08, LEARN-06
+
+**Success Criteria** (what must be TRUE):
+  1. `share_link_opened` and `approval_package_refreshed` event keys are added to the beta analytics type allowlist (`types.ts`).
+  2. Override event payload type includes `blockingDimensions: string[]` as an allowed property key — no call site can pass undeclared fields.
+  3. Three new aggregate functions exist in `aggregate.ts`: share-link open aggregator, post-preview stall timing aggregator, and readiness override breakdown-by-dimension aggregator.
+  4. No existing tests regress; type-checker confirms no undeclared event keys reach `recordBetaAnalyticsEvent`.
+
+**Plans:** TBD
+
+---
+
+### Phase 91: Share + Readiness Instrumentation
+
+**Goal:** Share link opens are captured server-side and owner can see per-campaign open counts and readiness override breakdown in the analytics dashboard.
+
+**Depends on:** Phase 90 (allowlist extended; aggregators available)
+
+**Requirements:** SHARE-01, SHARE-02, READY-09
+
+**Success Criteria** (what must be TRUE):
+  1. When a recipient opens a valid public share link (no auth), the server emits a `share_link_opened` event carrying `tokenId` and workspace context.
+  2. Owner sees share link open counts per campaign in the analytics dashboard (`OwnerAnalyticsPanel` or equivalent).
+  3. Owner sees a readiness override breakdown panel showing override count grouped by each `blockingDimension` ID.
+  4. Focused tests prove the share-link open event fires on route hit and the override dimension aggregator returns correct grouped output.
+
+**Plans:** TBD
+
+**UI hint:** yes
+
+---
+
+### Phase 92: Owner Dashboard: Stall + Timing
+
+**Goal:** Owner can observe post-preview stall patterns and draft-to-share timing from the analytics dashboard without manual data extraction.
+
+**Depends on:** Phase 91 (stall timing aggregator from Phase 90 in place)
+
+**Requirements:** STALL-01, STALL-02, DASH-07, DASH-08
+
+**Success Criteria** (what must be TRUE):
+  1. Owner sees median time between preview completion and batch start per session (F-07).
+  2. Owner sees stall rate (sessions with >15 min gap) and classification of stall outcomes as stall→proceed vs stall→abandon (Q10).
+  3. Owner sees a median draft→share time stat card, broken down by `assistance_level`, on the dashboard (D-4).
+  4. Owner sees a dedicated post-preview stall panel listing campaigns currently in stall state (DASH-08).
+
+**Plans:** TBD
+
+**UI hint:** yes
+
+---
+
+### Phase 93: SESS-03 Operator UAT
+
+**Goal:** Milestone proceeds to evidence-gated phases with ≥3 real beta sessions documented — this is the human gate that unlocks learning closure and threshold tuning.
+
+**Depends on:** Phases 90–92 deployed to production and smoke-tested
+
+**Requirements:** LEARN-05
+
+**Success Criteria** (what must be TRUE):
+  1. Operator completes ≥3 real beta sessions with documented session IDs stored in the session evidence file.
+  2. Each session confirms that v11.11 instrumentation events (share_link_opened, stall timing, override dimensions) appear in the owner dashboard with real data.
+  3. Session evidence records session IDs, event counts observed per session, and key behavioral findings.
+
+**Plans:** TBD
+
+---
+
+### Phase 94: Learning Closure + Threshold Tune
+
+**Goal:** Beta learning questions Q2/Q3/Q9 are answered with real session citations and readiness thresholds are adjusted with documented evidence — no fixture UUIDs remain.
+
+**Depends on:** Phase 93 (≥3 real sessions completed)
+
+**Requirements:** LEARN-04, READY-10
+
+**Success Criteria** (what must be TRUE):
+  1. Learning answers for Q2 (briefing skip), Q3 (readiness rerun), and Q9 (stale badge) are updated with citations to real session IDs — no `550e8400-…` fixture UUIDs remain.
+  2. Readiness blocking/ready threshold constants are adjusted with a documented rationale citing override rate per dimension from ≥3 real sessions (D-1).
+  3. Threshold change (or no-change decision) is committed with an evidence file noting the session IDs and override rates that drove the decision.
+
+**Plans:** TBD
+
+---
+
+### Phase 95: Stall UX + Share Correlation
+
+**Goal:** Stall-confirmed campaigns show an actionable nudge for operators, and owners can see share link engagement correlated with session assistance level.
+
+**Depends on:** Phase 92 (stall confirmed across real sessions); Phase 91 (share opens flowing)
+
+**Requirements:** STALL-03, SHARE-03
+
+**Success Criteria** (what must be TRUE):
+  1. When a campaign has an approved preview and batch is pending, the campaign card shows a "Continue → batch" indicator visible to the operator (D-2).
+  2. Owner sees share link open rate correlated with `assistance_level` of the originating operator session (F-13, Q7, D-3).
+  3. The nudge does not appear on campaigns where batch is already started or where preview is not yet approved.
+
+**Plans:** TBD
+
+**UI hint:** yes
+
+---
+
+### Phase 96: Regression Verification
+
+**Goal:** All v11.11 changes ship with automated test coverage and a green CI gate before the milestone is declared complete.
+
+**Depends on:** Phases 90–95
+
+**Requirements:** QA-05, QA-06
+
+**Success Criteria** (what must be TRUE):
+  1. Tests cover the new event keys (`share_link_opened`, `approval_package_refreshed`), all three new aggregators, and the campaign stall nudge visibility logic.
+  2. `npm test` passes with no failing or unexpectedly skipped tests.
+  3. `npm run lint` and `npm run build` pass in `app/` with zero new errors introduced by the milestone.
+
+**Plans:** TBD
+
+---
 
 ### Phase 85: Cockpit Instrumentation
 
@@ -360,6 +511,13 @@ Archive: [v11.6-ROADMAP.md](milestones/v11.6-ROADMAP.md) · [v11.6-REQUIREMENTS.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 | ----- | --------- | -------------- | ------ | --------- |
+| 90 | v11.11 | 0/TBD | Not started | - |
+| 91 | v11.11 | 0/TBD | Not started | - |
+| 92 | v11.11 | 0/TBD | Not started | - |
+| 93 | v11.11 | 0/TBD | Not started | - |
+| 94 | v11.11 | 0/TBD | Not started | - |
+| 95 | v11.11 | 0/TBD | Not started | - |
+| 96 | v11.11 | 0/TBD | Not started | - |
 | 85 | v11.10 | 1/1 | Complete | 2026-06-07 |
 | 86 | v11.10 | 1/1 | Complete | 2026-06-07 |
 | 87 | v11.10 | 1/1 | Complete | 2026-06-07 |
@@ -395,4 +553,4 @@ Archive: [v11.6-ROADMAP.md](milestones/v11.6-ROADMAP.md) · [v11.6-REQUIREMENTS.
 | 60 | v11.5 | 4/4 | Complete | 2026-06-05 |
 
 ---
-*Roadmap updated: 2026-06-07 — v11.10 phases 85-89 added*
+*Roadmap updated: 2026-06-08 — v11.11 phases 90-96 added*

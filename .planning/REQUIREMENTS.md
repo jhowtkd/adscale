@@ -54,7 +54,22 @@ v11.11 converte dados reais do beta (SESS-03) em melhorias acionáveis: tuning d
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| _(filled by roadmapper)_ | | |
+| READY-08 | Phase 90 — Analytics Foundation | Pending |
+| LEARN-06 | Phase 90 — Analytics Foundation | Pending |
+| SHARE-01 | Phase 91 — Share + Readiness Instrumentation | Pending |
+| SHARE-02 | Phase 91 — Share + Readiness Instrumentation | Pending |
+| READY-09 | Phase 91 — Share + Readiness Instrumentation | Pending |
+| STALL-01 | Phase 92 — Owner Dashboard: Stall + Timing | Pending |
+| STALL-02 | Phase 92 — Owner Dashboard: Stall + Timing | Pending |
+| DASH-07 | Phase 92 — Owner Dashboard: Stall + Timing | Pending |
+| DASH-08 | Phase 92 — Owner Dashboard: Stall + Timing | Pending |
+| LEARN-05 | Phase 93 — SESS-03 Operator UAT | Pending |
+| LEARN-04 | Phase 94 — Learning Closure + Threshold Tune | Pending |
+| READY-10 | Phase 94 — Learning Closure + Threshold Tune | Pending |
+| STALL-03 | Phase 95 — Stall UX + Share Correlation | Pending |
+| SHARE-03 | Phase 95 — Stall UX + Share Correlation | Pending |
+| QA-05 | Phase 96 — Regression Verification | Pending |
+| QA-06 | Phase 96 — Regression Verification | Pending |
 
 ## Future Requirements
 
