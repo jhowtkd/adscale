@@ -30,8 +30,10 @@ Runtime secrets and service URLs are read from `process.env`. The canonical list
 | `INNGEST_SIGNING_KEY` | Yes | — | Inngest signing key (`local` is fine for local dev). |
 | `RESEND_API_KEY` | Yes | — | Resend API key; must start with `re_`. |
 | `EMAIL_FROM` | Yes | — | Default transactional email sender (min. 3 characters). |
+| `RESEND_WAITLIST_SEGMENT_ID` | No (prod: Yes) | — | Resend Audiences segment ID for waitlist contact sync (`app/src/server/services/resend-contacts.ts`). Example: `seg_abc123`. Optional in development (sync skipped when unset); required in production. Not in `envSchema`. |
 | `APP_URL` | Yes | — | Canonical app URL (trusted origin, emails, redirects, Inngest serve URL). |
 | `MARKETING_URL` | No | — | Public marketing site URL. Unauthenticated visits to `/` redirect here when set (`app/middleware.ts`). Must be a valid URL if provided. |
+| `MARKETING_ALLOWED_ORIGINS` | No (prod: Yes) | — | Comma-separated CORS origins for `POST /api/waitlist` from the marketing site (`app/src/lib/cors-marketing.ts`). Example: `http://localhost:5173,https://www.adscale.com.br`. Not in `envSchema`. |
 | `E2E_DISABLE_RATE_LIMIT` | No | — | Set to `true`, `1`, or `yes` to skip API rate limits during E2E/TestSprite runs. Not in `envSchema`. |
 | `STRIPE_SECRET_KEY` | Yes | — | Stripe secret key; must start with `sk_` or `rk_`. |
 | `STRIPE_WEBHOOK_SECRET` | Yes | — | Stripe webhook secret; must start with `whsec_`. |
