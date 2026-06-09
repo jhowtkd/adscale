@@ -28,9 +28,20 @@ function getR2Hostname(): string | undefined {
 
 const r2Hostname = getR2Hostname();
 
+const marketingUpstream =
+  process.env.MARKETING_UPSTREAM_URL?.replace(/\/$/, "") ??
+  "https://adscale-marketing.onrender.com";
+
 const nextConfig: NextConfig = {
   output: 'standalone',
   outputFileTracingRoot: process.cwd(),
+  async rewrites() {
+    return [
+      { source: "/hi", destination: `${marketingUpstream}/hi/` },
+      { source: "/hi/", destination: `${marketingUpstream}/hi/` },
+      { source: "/hi/:path*", destination: `${marketingUpstream}/hi/:path*` },
+    ];
+  },
   images: {
     remotePatterns: [
       ...(r2Hostname ? [{ protocol: "https" as const, hostname: r2Hostname }] : []),
