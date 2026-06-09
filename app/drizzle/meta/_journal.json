@@ -239,6 +239,13 @@
       "when": 1780794000000,
       "tag": "0033_beta_analytics",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1781014200000,
+      "tag": "0034_waitlist_signups",
+      "breakpoints": true
     }
   ]
 }
