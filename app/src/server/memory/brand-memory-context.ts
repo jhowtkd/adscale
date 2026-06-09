@@ -1,7 +1,6 @@
-import type { Zep } from "@getzep/zep-cloud";
 import { logger } from "@/lib/logger";
 import { buildBrandMemorySearchQuery } from "./brand-memory-events";
-import { ensureBrandMemoryGraph, getBrandMemoryGraphId, getZepClient } from "./zep-client";
+import { ensureBrandMemoryScope, getBrandMemoryUserId, getMem0Client } from "./mem0-client";
 
 export interface BrandMemoryItem {
   text: string;
@@ -28,47 +27,44 @@ export interface BrandMemoryContextInput {
   limit?: number;
 }
 
+interface Mem0SearchResult {
+  id?: string;
+  memory?: string;
+  text?: string;
+  score?: number;
+  metadata?: Record<string, unknown>;
+  categories?: string[];
+  created_at?: string;
+  createdAt?: string;
+}
+
 function trimText(value: string, max = 320) {
   const normalized = value.replace(/\s+/g, " ").trim();
   return normalized.length > max ? `${normalized.slice(0, max)}...` : normalized;
 }
 
-function itemFromContext(context: string | undefined): BrandMemoryItem[] {
-  if (!context?.trim()) return [];
-  return [
-    {
-      text: trimText(context, 900),
-      source: "context",
-    },
-  ];
+function sourceFromMetadata(metadata?: Record<string, unknown>): BrandMemoryItem["source"] {
+  const eventType = metadata?.eventType;
+  if (typeof eventType === "string" && eventType.length > 0) return "episode";
+  return "fact";
 }
 
-function itemsFromResults(results: Zep.GraphSearchResults): BrandMemoryItem[] {
-  const edges =
-    results.edges?.map((edge) => ({
-      text: trimText(edge.fact),
-      source: "fact" as const,
-      createdAt: edge.validAt ?? edge.createdAt,
-      relevance: edge.relevance ?? edge.score,
-    })) ?? [];
+function itemsFromResults(results: Mem0SearchResult[] | { results?: Mem0SearchResult[] }): BrandMemoryItem[] {
+  const rows = Array.isArray(results) ? results : (results.results ?? []);
 
-  const episodes =
-    results.episodes?.map((episode) => ({
-      text: trimText(episode.content),
-      source: "episode" as const,
-      createdAt: episode.createdAt,
-      relevance: episode.relevance ?? episode.score,
-    })) ?? [];
+  return rows.flatMap((item) => {
+    const text = item.memory ?? item.text;
+    if (!text?.trim()) return [];
 
-  const nodes =
-    results.nodes?.map((node) => ({
-      text: trimText(`${node.name}: ${node.summary}`),
-      source: "entity" as const,
-      createdAt: node.createdAt,
-      relevance: node.relevance ?? node.score,
-    })) ?? [];
-
-  return [...edges, ...episodes, ...nodes, ...itemFromContext(results.context)];
+    return [
+      {
+        text: trimText(text),
+        source: sourceFromMetadata(item.metadata),
+        createdAt: item.created_at ?? item.createdAt,
+        relevance: item.score,
+      },
+    ];
+  });
 }
 
 export function buildBrandMemoryPromptBlock(items: BrandMemoryItem[]) {
@@ -92,25 +88,19 @@ export function buildBrandMemoryPromptBlock(items: BrandMemoryItem[]) {
 export async function getBrandMemoryContext(
   input: BrandMemoryContextInput
 ): Promise<BrandMemoryContext> {
-  const client = getZepClient();
+  const client = getMem0Client();
   if (!client) return { items: [], block: "" };
 
   try {
-    const graphId = (await ensureBrandMemoryGraph(input.workspaceId)) ?? getBrandMemoryGraphId(input.workspaceId);
+    const userId =
+      (await ensureBrandMemoryScope(input.workspaceId)) ?? getBrandMemoryUserId(input.workspaceId);
     const query = buildBrandMemorySearchQuery(input);
-    const results = await client.graph.search(
-      {
-        graphId,
-        query,
-        scope: "auto",
-        returnRawResults: true,
-        limit: input.limit ?? 8,
-        maxCharacters: 2500,
-      },
-      { timeoutInSeconds: 10, maxRetries: 1 }
-    );
+    const results = await client.search(query, {
+      user_id: userId,
+      limit: input.limit ?? 8,
+    });
 
-    const items = itemsFromResults(results);
+    const items = itemsFromResults(results as Mem0SearchResult[] | { results?: Mem0SearchResult[] });
     return {
       items,
       block: buildBrandMemoryPromptBlock(items),
@@ -120,4 +110,3 @@ export async function getBrandMemoryContext(
     return { items: [], block: "" };
   }
 }
-

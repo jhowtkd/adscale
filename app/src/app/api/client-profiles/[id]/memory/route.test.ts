@@ -18,7 +18,7 @@ vi.mock("@/server/memory/brand-memory-context", () => ({
   getBrandMemoryContext: vi.fn(),
 }));
 
-vi.mock("@/server/memory/zep-client", () => ({
+vi.mock("@/server/memory/mem0-client", () => ({
   isBrandMemoryEnabled: vi.fn(),
 }));
 
@@ -28,7 +28,7 @@ vi.mock("next-intl/server", () => ({
 
 import { getClientProfile } from "@/server/repositories/client-reference";
 import { getBrandMemoryContext } from "@/server/memory/brand-memory-context";
-import { isBrandMemoryEnabled } from "@/server/memory/zep-client";
+import { isBrandMemoryEnabled } from "@/server/memory/mem0-client";
 
 const mockGetClientProfile = vi.mocked(getClientProfile);
 const mockGetBrandMemoryContext = vi.mocked(getBrandMemoryContext);
@@ -71,7 +71,7 @@ describe("GET /api/client-profiles/[id]/memory", () => {
     );
   });
 
-  it("returns an empty disabled payload when Zep is off", async () => {
+  it("returns an empty disabled payload when Mem0 is off", async () => {
     mockIsBrandMemoryEnabled.mockReturnValue(false);
 
     const res = await GET(

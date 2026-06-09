@@ -3,7 +3,7 @@ import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getClientProfile } from "@/server/repositories/client-reference";
 import { getBrandMemoryContext } from "@/server/memory/brand-memory-context";
-import { isBrandMemoryEnabled } from "@/server/memory/zep-client";
+import { isBrandMemoryEnabled } from "@/server/memory/mem0-client";
 
 export async function GET(
   request: Request,

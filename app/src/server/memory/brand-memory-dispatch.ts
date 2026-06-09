@@ -1,6 +1,6 @@
 import { logger } from "@/lib/logger";
 import type { BrandMemoryEvent } from "./brand-memory-events";
-import { isBrandMemoryEnabled } from "./zep-client";
+import { isBrandMemoryEnabled } from "./mem0-client";
 
 export async function recordBrandMemoryEvent(event: BrandMemoryEvent) {
   if (!isBrandMemoryEnabled()) {

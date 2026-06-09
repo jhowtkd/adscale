@@ -1,5 +1,3 @@
-import type { Zep } from "@getzep/zep-cloud";
-
 export type BrandMemoryEventType =
   | "brand_profile_created_or_updated"
   | "campaign_created_or_updated"
@@ -22,12 +20,11 @@ export interface BrandMemoryEvent {
 }
 
 export interface PreparedBrandMemoryEvent {
-  graphId: string;
-  data: string;
+  userId: string;
+  content: string;
   createdAt?: string;
   sourceDescription: string;
   metadata: Record<string, string | number | boolean>;
-  type: Zep.GraphDataType;
 }
 
 const SECRET_FIELD_PATTERN =
@@ -90,7 +87,7 @@ export function buildBrandMemorySearchQuery(input: {
 
 export function prepareBrandMemoryEvent(
   event: BrandMemoryEvent,
-  graphId: string
+  userId: string
 ): PreparedBrandMemoryEvent {
   const sanitizedPayload = sanitizeBrandMemoryPayload(event.payload) as Record<string, unknown>;
   const createdAt =
@@ -99,18 +96,18 @@ export function prepareBrandMemoryEvent(
       : event.occurredAt || undefined;
 
   return {
-    graphId,
-    type: "json",
+    userId,
     createdAt,
     sourceDescription: `ADScale ${event.type}`,
     metadata: {
       eventType: event.type,
       workspaceId: event.workspaceId,
+      source: `ADScale ${event.type}`,
       ...(metadataValue(event.clientProfileId) && { clientProfileId: event.clientProfileId! }),
       ...(metadataValue(event.campaignId) && { campaignId: event.campaignId! }),
       ...(metadataValue(event.derivationId) && { derivationId: event.derivationId! }),
     },
-    data: JSON.stringify({
+    content: JSON.stringify({
       eventType: event.type,
       summary: event.summary,
       workspaceId: event.workspaceId,

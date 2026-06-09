@@ -117,7 +117,7 @@ Production configuration is defined in `render.yaml` and completed in the **Rend
 
 For Resend: create an API key in the Resend dashboard and set `RESEND_API_KEY`. Revoke and replace any key that was exposed in chat or logs. `EMAIL_FROM` can start as `ADScale <onboarding@resend.dev>` for smoke tests; for production, verify your sending domain in Resend and use an address on that domain.
 
-Optional production vars not in `render.yaml` (set in Dashboard if used): `SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, OAuth (`GOOGLE_*`, `GITHUB_*`), `ZEP_*`. See [CONFIGURATION.md](./CONFIGURATION.md).
+Optional production vars not in `render.yaml` (set in Dashboard if used): `SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, OAuth (`GOOGLE_*`, `GITHUB_*`), `MEM0_*`. See [CONFIGURATION.md](./CONFIGURATION.md).
 
 ### External integrations (same public URL as `APP_URL`)
 

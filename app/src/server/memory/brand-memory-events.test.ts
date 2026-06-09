@@ -20,7 +20,7 @@ describe("brand memory events", () => {
     });
   });
 
-  it("prepares a bounded JSON graph episode", () => {
+  it("prepares a bounded JSON memory payload", () => {
     const prepared = prepareBrandMemoryEvent(
       {
         type: "creative_approved",
@@ -36,8 +36,7 @@ describe("brand memory events", () => {
     );
 
     expect(prepared).toMatchObject({
-      graphId: "adscale_workspace_workspace-1",
-      type: "json",
+      userId: "adscale_workspace_workspace-1",
       createdAt: "2026-05-26T10:00:00.000Z",
       sourceDescription: "ADScale creative_approved",
       metadata: {
@@ -48,8 +47,8 @@ describe("brand memory events", () => {
         derivationId: "derivation-1",
       },
     });
-    expect(prepared.data).toContain("Approved a high-contrast offer creative.");
-    expect(prepared.data).not.toContain("secret");
+    expect(prepared.content).toContain("Approved a high-contrast offer creative.");
+    expect(prepared.content).not.toContain("secret");
   });
 
   it("builds a campaign-aware search query", () => {

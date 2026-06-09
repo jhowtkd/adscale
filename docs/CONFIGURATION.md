@@ -45,9 +45,11 @@ Runtime secrets and service URLs are read from `process.env`. The canonical list
 | `BETA_ACCESS_CODES` | No | — | Comma-separated beta invite codes; each workspace redeems once (10 ads, no Stripe). Parsed in `app/src/server/billing/beta.ts`. |
 | `DEV_ADMIN_EMAIL` | No | — | Comma-separated dev admin emails; skips email verification and credit debits for owner workspaces (`app/src/server/auth/dev-admin.ts`). Also grants platform-owner access. |
 | `PLATFORM_OWNER_EMAILS` | No | — | Comma-separated platform owner emails for admin-only routes (`app/src/server/auth/platform-owner.ts`). Not in `.env.example` or `envSchema`. |
-| `ZEP_API_KEY` | No | — | Zep Cloud API key; required when brand memory is enabled. Not in `.env.example` but supported in `envSchema`. |
-| `ZEP_ENABLED` | No | — | Set to `true` with `ZEP_API_KEY` to enable Zep brand memory. |
-| `ZEP_GRAPH_PREFIX` | No | `adscale_workspace` (in code) | Prefix for Zep graph IDs per workspace. |
+| `MEM0_API_KEY` | No | — | Mem0 Platform API key; required when brand memory is enabled. Not in `.env.example` but supported in `envSchema`. |
+| `MEM0_ENABLED` | No | — | Set to `true` with `MEM0_API_KEY` to enable Mem0 brand memory. |
+| `MEM0_USER_PREFIX` | No | `adscale_workspace` (in code) | Prefix for Mem0 `user_id` scope per workspace. |
+| `MEM0_ORGANIZATION_ID` | No | — | Optional Mem0 organization scope. |
+| `MEM0_PROJECT_ID` | No | — | Optional Mem0 project scope. |
 | `NODE_ENV` | No | Node default | `development`, `production`, or `test`; affects auth email verification, rate limiting, Sentry sampling, and console stripping. |
 | `NEXT_TELEMETRY_DISABLED` | No | — | Set to `1` in `render.yaml` to disable Next.js telemetry. |
 | `SENTRY_DSN` | No | — | Sentry DSN; when set, enables error reporting via `app/src/instrumentation.ts`. |
@@ -102,7 +104,7 @@ Unit tests for validation patterns: `app/tests/unit/env-validation.test.ts`, `ap
 - Beta access — off unless `BETA_ACCESS_CODES` lists at least one code.
 - Dev admins — no special treatment unless `DEV_ADMIN_EMAIL` lists one or more addresses.
 - Platform owners — `PLATFORM_OWNER_EMAILS` plus any `DEV_ADMIN_EMAIL` entries can access owner-only admin routes.
-- Zep brand memory — off unless `ZEP_ENABLED === "true"` and `ZEP_API_KEY` is set.
+- Mem0 brand memory — off unless `MEM0_ENABLED === "true"` and `MEM0_API_KEY` is set.
 - Sentry — disabled when `SENTRY_DSN` is unset (`silent: !process.env.SENTRY_DSN` in `app/next.config.ts`).
 - Upstash rate limiting — if `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are unset, production uses an in-memory limiter with a warning (`app/src/lib/rate-limit.ts`).
 - E2E rate limits — set `E2E_DISABLE_RATE_LIMIT=true` on the server during parallel browser tests.
@@ -126,7 +128,7 @@ Code defaults not in Zod:
 
 | Variable | Default | Location |
 |----------|---------|----------|
-| `ZEP_GRAPH_PREFIX` | `adscale_workspace` | `app/src/server/memory/zep-client.ts` |
+| `MEM0_USER_PREFIX` | `adscale_workspace` | `app/src/server/memory/mem0-client.ts` |
 | `TEST_DATABASE_URL` | `postgres://test:test@localhost:5433/adscale_test` | `app/scripts/setup-test-db.ts` |
 | `NEXT_PUBLIC_APP_VERSION` | `unknown` | `app/src/lib/feedback/diagnostic-collector.ts` |
 | `DB_MIGRATE_ATTEMPTS` | `5` | `app/scripts/migrate-with-retry.mjs` |

@@ -119,7 +119,7 @@ Application code lives under `app/` (npm package `adscale-app`). Source is roote
 | `app/src/server/db/` | Drizzle client + `schema.ts` (all tables in `adscale_app` schema) |
 | `app/src/server/feedback/` | Feedback validation, mission-credit-signal classification |
 | `app/src/server/jobs/` | Inngest client, `derivationJob`, trial notifications, workspace asset analysis, brand memory |
-| `app/src/server/memory/` | Zep brand-memory ingest, context assembly for prompts |
+| `app/src/server/memory/` | Mem0 brand-memory ingest, context assembly for prompts |
 | `app/src/server/mission-insights/` | Sanitize and persist mission insight moments as `feedback_reports` |
 | `app/src/server/progression/` | Workspace levels and ordered **missions** (definitions, evidence, status, credits) |
 | `app/src/server/repositories/` | Data access layer; workspace-scoped CRUD including `beta-analytics` and `beta-sessions` |
@@ -384,7 +384,7 @@ Repositories take `workspaceId` as an explicit argument (e.g. `getCampaignById(i
 | `derivationJob` | AI image generation, scoring, quality gate, usage tracking |
 | `trialNotificationJob` | Trial lifecycle emails |
 | `workspaceAssetAnalyzeJob` | Asset analysis (preflight / metadata) |
-| `brandMemoryIngestJob` | Zep brand-memory ingestion |
+| `brandMemoryIngestJob` | Mem0 brand-memory ingestion |
 
 **Derivation job highlights:**
 

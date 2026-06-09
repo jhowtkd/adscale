@@ -1,31 +1,25 @@
 import { logger } from "@/lib/logger";
 import type { BrandMemoryEvent } from "./brand-memory-events";
 import { prepareBrandMemoryEvent } from "./brand-memory-events";
-import { ensureBrandMemoryGraph, getBrandMemoryGraphId, getZepClient } from "./zep-client";
+import { getBrandMemoryUserId, getMem0Client } from "./mem0-client";
 
 export async function ingestBrandMemoryEvent(event: BrandMemoryEvent) {
-  const client = getZepClient();
+  const client = getMem0Client();
   if (!client) {
     return { status: "disabled" as const };
   }
 
   try {
-    const graphId = (await ensureBrandMemoryGraph(event.workspaceId)) ?? getBrandMemoryGraphId(event.workspaceId);
-    const prepared = prepareBrandMemoryEvent(event, graphId);
+    const userId = getBrandMemoryUserId(event.workspaceId);
+    const prepared = prepareBrandMemoryEvent(event, userId);
 
-    await client.graph.add(
-      {
-        graphId: prepared.graphId,
-        type: prepared.type,
-        data: prepared.data,
-        createdAt: prepared.createdAt,
-        sourceDescription: prepared.sourceDescription,
-        metadata: prepared.metadata,
-      },
-      { timeoutInSeconds: 15, maxRetries: 1 }
-    );
+    await client.add([{ role: "user", content: prepared.content }], {
+      user_id: prepared.userId,
+      metadata: prepared.metadata,
+      infer: false,
+    });
 
-    return { status: "ingested" as const, graphId };
+    return { status: "ingested" as const, userId };
   } catch (error) {
     logger.warn(
       { error, eventType: event.type, workspaceId: event.workspaceId },
@@ -34,4 +28,3 @@ export async function ingestBrandMemoryEvent(event: BrandMemoryEvent) {
     return { status: "failed" as const, error };
   }
 }
-
