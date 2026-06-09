@@ -2,7 +2,7 @@ services:
   - type: web
     name: adscale-app
     runtime: node
-    plan: free
+    plan: starter
     region: oregon
     rootDir: app
     branch: main
