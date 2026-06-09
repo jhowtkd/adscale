@@ -37,9 +37,10 @@ const nextConfig: NextConfig = {
   outputFileTracingRoot: process.cwd(),
   async rewrites() {
     return [
-      { source: "/hi", destination: `${marketingUpstream}/hi/` },
-      { source: "/hi/", destination: `${marketingUpstream}/hi/` },
-      { source: "/hi/:path*", destination: `${marketingUpstream}/hi/:path*` },
+      { source: "/hi", destination: `${marketingUpstream}/` },
+      { source: "/hi/", destination: `${marketingUpstream}/` },
+      { source: "/hi/assets/:path*", destination: `${marketingUpstream}/assets/:path*` },
+      { source: "/hi/Adscale.svg", destination: `${marketingUpstream}/Adscale.svg` },
     ];
   },
   images: {
