@@ -69,7 +69,7 @@ function redirectUnauthenticated(request: NextRequest, pathname: string) {
   return NextResponse.redirect(loginUrl);
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Rate limit API mutations
