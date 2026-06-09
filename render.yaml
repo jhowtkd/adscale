@@ -26,9 +26,9 @@ services:
       - key: APP_URL
         value: https://adscale.jhonatansoares.com
       - key: MARKETING_URL
-        sync: false
+        value: https://adscale-marketing.onrender.com
       - key: MARKETING_ALLOWED_ORIGINS
-        sync: false
+        value: https://adscale-marketing.onrender.com
       - key: OPENAI_API_KEY
         sync: false
       - key: OPENAI_TEXT_MODEL
