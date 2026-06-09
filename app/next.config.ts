@@ -41,6 +41,7 @@ const nextConfig: NextConfig = {
       { source: "/hi/", destination: `${marketingUpstream}/` },
       { source: "/hi/assets/:path*", destination: `${marketingUpstream}/assets/:path*` },
       { source: "/hi/Adscale.svg", destination: `${marketingUpstream}/Adscale.svg` },
+      { source: "/Adscale.svg", destination: `${marketingUpstream}/Adscale.svg` },
     ];
   },
   images: {
