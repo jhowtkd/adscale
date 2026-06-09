@@ -25,6 +25,10 @@ services:
         value: https://adscale.jhonatansoares.com
       - key: APP_URL
         value: https://adscale.jhonatansoares.com
+      - key: MARKETING_URL
+        sync: false
+      - key: MARKETING_ALLOWED_ORIGINS
+        sync: false
       - key: OPENAI_API_KEY
         sync: false
       - key: OPENAI_TEXT_MODEL
