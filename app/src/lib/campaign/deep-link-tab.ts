@@ -2,7 +2,7 @@ export const CAMPAIGN_DEEP_LINK_IDS = {
   assets: "mission-assets",
   readiness: "mission-readiness",
   briefing: "mission-briefing",
-  recipe: "mission-recipe",
+  recipe: "mission-generate",
   generate: "mission-generate",
   review: "mission-review",
   export: "mission-export",

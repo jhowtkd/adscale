@@ -527,6 +527,11 @@
         "cancel": "Cancelar",
         "confirm": "Gerar variações"
       }
+    },
+    "actionBar": {
+      "derivar": "Derivar",
+      "estilizar": "Estilizar",
+      "blocked": "Resolva {count} bloqueio(s) antes de derivar"
     }
   },
   "briefing": {

@@ -30,7 +30,7 @@ import {
   isBriefWeak,
   type GuidedBriefingHints,
 } from "@/server/ai/guided-briefing";
-import ActionCards from "@/components/workspace/ActionCards";
+import WorkspaceActionBar from "@/components/workspace/WorkspaceActionBar";
 import DerivationGrid from "@/components/workspace/DerivationGrid";
 import StrategyRecipePanel from "@/components/workspace/StrategyRecipePanel";
 import PreviewGatePanel from "@/components/workspace/PreviewGatePanel";
@@ -854,35 +854,47 @@ function CampaignWorkspaceCard({
         workspaceState === "derivando" ||
         workspaceState === "estilizando" ||
         workspaceState === "gerando") && (
-        <div className="flex gap-6">
-          <PilotSidebar
-            campaignId={campaignId}
-            campaign={{ name: campaign?.name || "", client: campaign?.client }}
-            briefing={{
-              objective: analysis.suggestedObjective,
-              audience: analysis.suggestedAudience,
-              tone: analysis.suggestedTone,
-              platforms: analysis.suggestedPlatforms,
-              ctaText: analysis.suggestedCta,
-            }}
-            onReadinessOverride={onReadinessOverride}
-          />
-          <div className="flex-1 min-w-0 space-y-6">
-            <div id="mission-recipe">
-              <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-1">
-                Ações disponíveis
-              </h2>
-              <p className="text-xs text-[var(--text-secondary)]">
-                Escolha uma ação para gerar novas variações do criativo.
-              </p>
+        <div className="flex flex-col gap-6 p-4 sm:p-6 lg:flex-row">
+          <details className="group lg:hidden rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)]">
+            <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-[var(--text-primary)] [&::-webkit-details-marker]:hidden">
+              Briefing e readiness
+            </summary>
+            <div className="border-t border-[var(--border-dim)] p-4">
+              <PilotSidebar
+                campaignId={campaignId}
+                campaign={{ name: campaign?.name || "", client: campaign?.client }}
+                briefing={{
+                  objective: analysis.suggestedObjective,
+                  audience: analysis.suggestedAudience,
+                  tone: analysis.suggestedTone,
+                  platforms: analysis.suggestedPlatforms,
+                  ctaText: analysis.suggestedCta,
+                }}
+                onReadinessOverride={onReadinessOverride}
+              />
             </div>
-            <div id="mission-generate">
-            <ActionCards
+          </details>
+          <div className="hidden shrink-0 lg:block lg:w-64">
+            <PilotSidebar
+              campaignId={campaignId}
+              campaign={{ name: campaign?.name || "", client: campaign?.client }}
+              briefing={{
+                objective: analysis.suggestedObjective,
+                audience: analysis.suggestedAudience,
+                tone: analysis.suggestedTone,
+                platforms: analysis.suggestedPlatforms,
+                ctaText: analysis.suggestedCta,
+              }}
+              onReadinessOverride={onReadinessOverride}
+            />
+          </div>
+          <div className="flex-1 min-w-0 space-y-6">
+            <WorkspaceActionBar
               onDerivar={onOpenDerivar}
               onEstilizar={onOpenEstilizar}
               readinessBlocking={readinessBlocking}
+              disabled={workspaceState === "gerando"}
             />
-            </div>
             <div id="mission-share">
             <ClientApprovalPackagePanel campaignId={campaignId} />
             </div>
@@ -915,9 +927,9 @@ function CampaignWorkspaceCard({
             )}
             <div id="mission-review">
             <div id="mission-export">
-              <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-3">
-                Derivações
-              </h2>
+              <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--accent-green-text)]">
+                (02) Derivações
+              </p>
               {isDerivationsError && derivationsErrorKind ? (
                 <div className="mb-3">
                   <DerivationLoadErrorBanner

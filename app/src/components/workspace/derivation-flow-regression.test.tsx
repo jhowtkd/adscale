@@ -1,17 +1,22 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import ActionCards from "./ActionCards";
+import WorkspaceActionBar from "./WorkspaceActionBar";
 
 vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string) => key,
+  useTranslations: (namespace: string) => (key: string, values?: Record<string, unknown>) => {
+    if (values) {
+      return `${namespace}.${key}:${JSON.stringify(values)}`;
+    }
+    return `${namespace}.${key}`;
+  },
 }));
 
 describe("Estilizar regression", () => {
-  it("ActionCards still exposes independent Estilizar entry", () => {
+  it("WorkspaceActionBar still exposes independent Estilizar entry", () => {
     const onEstilizar = vi.fn();
-    render(<ActionCards onDerivar={vi.fn()} onEstilizar={onEstilizar} />);
+    render(<WorkspaceActionBar onDerivar={vi.fn()} onEstilizar={onEstilizar} />);
 
-    const estilizarButton = screen.getByRole("button", { name: /Workflow de estilização/i });
+    const estilizarButton = screen.getByRole("button", { name: /workspace\.actionBar\.estilizar/i });
     fireEvent.click(estilizarButton);
 
     expect(onEstilizar).toHaveBeenCalledTimes(1);
