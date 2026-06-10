@@ -958,14 +958,22 @@
     "accept": "Accept",
     "edit": "Edit",
     "skip": "Skip",
-    "editAllFields": "Edit all fields",
+    "editAllFields": "Show all fields",
+    "saveAllFields": "Save all",
     "complete": "Briefing complete. You can continue or edit fields anytime.",
     "continue": "Continue to actions",
     "fields": {
       "product": "Product or service",
       "offer": "Offer or promotion",
+      "objective": "Objective",
+      "audience": "Audience",
+      "tone": "Tone of voice",
+      "platforms": "Platforms",
+      "cta": "CTA",
+      "constraints": "Constraints",
       "productPlaceholder": "e.g., Online course, SaaS tool",
-      "offerPlaceholder": "e.g., 50% off launch week"
+      "offerPlaceholder": "e.g., 50% off launch week",
+      "tonePlaceholder": "e.g., Direct and persuasive"
     },
     "steps": {
       "productOffer": {

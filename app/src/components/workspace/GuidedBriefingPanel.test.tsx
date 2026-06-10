@@ -70,7 +70,6 @@ describe("GuidedBriefingPanel", () => {
       <GuidedBriefingPanel
         campaignId="camp-1"
         onComplete={vi.fn()}
-        onOpenFullForm={vi.fn()}
       />
     );
 
@@ -81,12 +80,25 @@ describe("GuidedBriefingPanel", () => {
     expect(screen.getByText("guidedBriefing.skip")).toBeInTheDocument();
   });
 
+  it("expands inline full fields disclosure without navigating away", () => {
+    render(
+      <GuidedBriefingPanel
+        campaignId="camp-1"
+        onComplete={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByText("guidedBriefing.editAllFields"));
+
+    expect(screen.getByText("guidedBriefing.saveAllFields")).toBeInTheDocument();
+    expect(screen.getByText("guidedBriefing.steps.productOffer.title")).toBeInTheDocument();
+  });
+
   it("emits cockpit_stage_entered on mount", () => {
     render(
       <GuidedBriefingPanel
         campaignId="camp-1"
         onComplete={vi.fn()}
-        onOpenFullForm={vi.fn()}
       />
     );
 
@@ -99,7 +111,6 @@ describe("GuidedBriefingPanel", () => {
       <GuidedBriefingPanel
         campaignId="camp-1"
         onComplete={onComplete}
-        onOpenFullForm={vi.fn()}
       />
     );
 
@@ -110,24 +121,20 @@ describe("GuidedBriefingPanel", () => {
     });
   });
 
-  it("emits cockpit_stage_abandoned when opening full form", () => {
-    const onOpenFullForm = vi.fn();
+  it("calls onComplete when save all fields is clicked", () => {
+    const onComplete = vi.fn();
     render(
       <GuidedBriefingPanel
         campaignId="camp-1"
-        onComplete={vi.fn()}
-        onOpenFullForm={onOpenFullForm}
+        onComplete={onComplete}
       />
     );
 
-    recordEvent.mockClear();
     fireEvent.click(screen.getByText("guidedBriefing.editAllFields"));
+    fireEvent.click(screen.getByText("guidedBriefing.saveAllFields"));
 
-    expect(recordEvent).toHaveBeenCalledWith("cockpit_stage_abandoned", {
-      ...STAGE_PROPS,
-      stepId: "productOffer",
-    });
-    expect(onOpenFullForm).toHaveBeenCalled();
+    expect(onComplete).toHaveBeenCalled();
+    expect(recordEvent).toHaveBeenCalledWith("cockpit_stage_completed", STAGE_PROPS);
   });
 
   it("emits cockpit_stage_completed before onComplete on finish", () => {
@@ -142,7 +149,6 @@ describe("GuidedBriefingPanel", () => {
       <GuidedBriefingPanel
         campaignId="camp-1"
         onComplete={onComplete}
-        onOpenFullForm={vi.fn()}
       />
     );
 
@@ -161,7 +167,6 @@ describe("GuidedBriefingPanel", () => {
       <GuidedBriefingPanel
         campaignId="camp-1"
         onComplete={vi.fn()}
-        onOpenFullForm={vi.fn()}
       />
     );
 

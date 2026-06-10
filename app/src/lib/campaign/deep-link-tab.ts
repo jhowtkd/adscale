@@ -37,7 +37,6 @@ export interface CampaignDeepLinkActions {
   goToPilot: () => void;
   goToActions: () => void;
   hasDerivations?: boolean;
-  setBriefingView?: (view: "guided" | "full") => void;
   openStrategyRecipe?: () => void;
 }
 
@@ -59,7 +58,6 @@ export function applyCampaignDeepLink(
       break;
     case "briefing":
       actions.goToPilot();
-      actions.setBriefingView?.("guided");
       break;
     case "recipe":
       actions.goToActions();

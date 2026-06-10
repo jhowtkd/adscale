@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Check, Lightbulb, Loader2, SkipForward, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,12 +17,22 @@ import {
   mapGuidedAnswersToPilotBriefing,
 } from "@/server/ai/guided-briefing";
 
+interface FullBriefingForm {
+  product: string;
+  offer: string;
+  objective: string;
+  audience: string;
+  tone: string;
+  platforms: string;
+  ctaText: string;
+  constraints: string;
+}
+
 interface GuidedBriefingPanelProps {
   campaignId: string;
   initialAnswers?: GuidedBriefingAnswers;
   hints?: GuidedBriefingHints;
-  onComplete: (briefing: ReturnType<typeof mapGuidedAnswersToPilotBriefing>) => void;
-  onOpenFullForm: () => void;
+  onComplete: (briefing: ReturnType<typeof mapGuidedAnswersToPilotBriefing> & { tone?: string }) => void;
   className?: string;
 }
 
@@ -33,12 +43,151 @@ function stepIndex(stepId: string | null): number {
   );
 }
 
+function fullFormFromAnswers(
+  answers: GuidedBriefingAnswers,
+  hints?: GuidedBriefingHints
+): FullBriefingForm {
+  const mapped = mapGuidedAnswersToPilotBriefing(answers);
+  return {
+    product: mapped.product ?? "",
+    offer: mapped.offer ?? "",
+    objective: mapped.objective ?? "",
+    audience: mapped.audience ?? "",
+    tone: hints?.suggestedTone ?? "",
+    platforms: mapped.platforms ?? "",
+    ctaText: mapped.ctaText ?? "",
+    constraints: mapped.constraints ?? "",
+  };
+}
+
+function answersFromFullForm(form: FullBriefingForm): GuidedBriefingAnswers {
+  return {
+    product: form.product || undefined,
+    offer: form.offer || undefined,
+    audience: form.audience || undefined,
+    promise: form.objective || undefined,
+    cta: form.ctaText || undefined,
+    platforms: form.platforms || undefined,
+    constraints: form.constraints || undefined,
+  };
+}
+
+function FullFieldsDisclosure({
+  form,
+  onChange,
+  onSaveAll,
+  isSaving,
+}: {
+  form: FullBriefingForm;
+  onChange: (field: keyof FullBriefingForm, value: string) => void;
+  onSaveAll: () => void;
+  isSaving?: boolean;
+}) {
+  const t = useTranslations("guidedBriefing");
+  const tc = useTranslations("common");
+
+  return (
+    <details className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)]">
+      <summary className="cursor-pointer list-none px-4 py-3 text-xs text-[var(--accent-blue)] hover:underline [&::-webkit-details-marker]:hidden">
+        {t("editAllFields")}
+      </summary>
+      <div className="space-y-3 border-t border-[var(--border-dim)] p-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-[var(--text-secondary)]">
+              {t("fields.product")}
+            </label>
+            <Input
+              value={form.product}
+              onChange={(e) => onChange("product", e.target.value)}
+              placeholder={t("fields.productPlaceholder")}
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-[var(--text-secondary)]">
+              {t("fields.offer")}
+            </label>
+            <Input
+              value={form.offer}
+              onChange={(e) => onChange("offer", e.target.value)}
+              placeholder={t("fields.offerPlaceholder")}
+            />
+          </div>
+        </div>
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-[var(--text-secondary)]">
+            {t("fields.objective")}
+          </label>
+          <Input
+            value={form.objective}
+            onChange={(e) => onChange("objective", e.target.value)}
+            placeholder={t("steps.promise.placeholder")}
+          />
+        </div>
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-[var(--text-secondary)]">
+            {t("fields.audience")}
+          </label>
+          <Input
+            value={form.audience}
+            onChange={(e) => onChange("audience", e.target.value)}
+            placeholder={t("steps.audience.placeholder")}
+          />
+        </div>
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-[var(--text-secondary)]">
+            {t("fields.tone")}
+          </label>
+          <Input
+            value={form.tone}
+            onChange={(e) => onChange("tone", e.target.value)}
+            placeholder={t("fields.tonePlaceholder")}
+          />
+        </div>
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-[var(--text-secondary)]">
+            {t("fields.platforms")}
+          </label>
+          <Input
+            value={form.platforms}
+            onChange={(e) => onChange("platforms", e.target.value)}
+            placeholder={t("steps.platforms.placeholder")}
+          />
+        </div>
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-[var(--text-secondary)]">
+            {t("fields.cta")}
+          </label>
+          <Input
+            value={form.ctaText}
+            onChange={(e) => onChange("ctaText", e.target.value)}
+            placeholder={t("steps.cta.placeholder")}
+          />
+        </div>
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-[var(--text-secondary)]">
+            {t("fields.constraints")}
+          </label>
+          <Textarea
+            value={form.constraints}
+            onChange={(e) => onChange("constraints", e.target.value)}
+            rows={3}
+            placeholder={t("steps.constraints.placeholder")}
+          />
+        </div>
+        <Button size="sm" disabled={isSaving} onClick={onSaveAll}>
+          {t("saveAllFields")}
+        </Button>
+      </div>
+    </details>
+  );
+}
+
 export default function GuidedBriefingPanel({
   campaignId,
   initialAnswers,
   hints,
   onComplete,
-  onOpenFullForm,
   className,
 }: GuidedBriefingPanelProps) {
   const t = useTranslations("guidedBriefing");
@@ -46,6 +195,9 @@ export default function GuidedBriefingPanel({
   const guided = useGuidedBriefing({ campaignId, initialAnswers, hints });
   const { recordEvent } = useRecordBetaEvent(campaignId);
   const completedRef = useRef(false);
+  const [fullForm, setFullForm] = useState<FullBriefingForm>(() =>
+    fullFormFromAnswers(initialAnswers ?? {}, hints)
+  );
 
   const STAGE_PROPS = { stage: "guided_briefing", missionKey: "guided_briefing" } as const;
 
@@ -63,17 +215,16 @@ export default function GuidedBriefingPanel({
     };
   }, [recordEvent, guided.currentStep]);
 
+  useEffect(() => {
+    setFullForm(fullFormFromAnswers(guided.answers, hints));
+  }, [guided.answers, hints]);
+
   const finishBriefing = (
-    briefing: ReturnType<typeof mapGuidedAnswersToPilotBriefing>
+    briefing: ReturnType<typeof mapGuidedAnswersToPilotBriefing> & { tone?: string }
   ) => {
     completedRef.current = true;
     recordEvent("cockpit_stage_completed", STAGE_PROPS);
     onComplete(briefing);
-  };
-
-  const handleOpenFullForm = () => {
-    recordEvent("cockpit_stage_abandoned", abandonProps());
-    onOpenFullForm();
   };
 
   const progress = useMemo(() => {
@@ -84,32 +235,64 @@ export default function GuidedBriefingPanel({
   const handleAccept = async () => {
     const nextAnswers = await guided.acceptSuggestion();
     if (getNextStep(nextAnswers) === null) {
-      finishBriefing(mapGuidedAnswersToPilotBriefing(nextAnswers));
+      finishBriefing({
+        ...mapGuidedAnswersToPilotBriefing(nextAnswers),
+        tone: hints?.suggestedTone,
+      });
     }
   };
 
   const handleSaveEdit = async () => {
     const nextAnswers = await guided.acceptEditedValue();
     if (getNextStep(nextAnswers) === null) {
-      finishBriefing(mapGuidedAnswersToPilotBriefing(nextAnswers));
+      finishBriefing({
+        ...mapGuidedAnswersToPilotBriefing(nextAnswers),
+        tone: hints?.suggestedTone,
+      });
     }
   };
 
   const handleSkip = async () => {
     const nextAnswers = await guided.skipStep();
     if (getNextStep(nextAnswers) === null) {
-      finishBriefing(mapGuidedAnswersToPilotBriefing(nextAnswers));
+      finishBriefing({
+        ...mapGuidedAnswersToPilotBriefing(nextAnswers),
+        tone: hints?.suggestedTone,
+      });
     }
   };
+
+  const handleSaveAllFields = () => {
+    const answers = answersFromFullForm(fullForm);
+    finishBriefing({
+      ...mapGuidedAnswersToPilotBriefing(answers),
+      tone: fullForm.tone || hints?.suggestedTone,
+    });
+  };
+
+  const fullFieldsBlock = (
+    <FullFieldsDisclosure
+      form={fullForm}
+      onChange={(field, value) =>
+        setFullForm((prev) => ({ ...prev, [field]: value }))
+      }
+      onSaveAll={handleSaveAllFields}
+      isSaving={guided.isPersisting}
+    />
+  );
 
   if (guided.isComplete) {
     return (
       <div className={cn("space-y-4", className)}>
         <p className="text-sm text-[var(--text-secondary)]">{t("complete")}</p>
+        {fullFieldsBlock}
         <Button
           className="w-full"
           onClick={() =>
-            finishBriefing(mapGuidedAnswersToPilotBriefing(guided.answers))
+            finishBriefing({
+              ...mapGuidedAnswersToPilotBriefing(guided.answers),
+              tone: fullForm.tone || hints?.suggestedTone,
+            })
           }
         >
           {t("continue")}
@@ -126,34 +309,25 @@ export default function GuidedBriefingPanel({
 
   return (
     <div className={cn("w-full max-w-[640px] space-y-5", className)}>
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ghost)]">
-            {t("progress", { current: progress.current, total: progress.total })}
-          </p>
-          <h2 className="text-base font-semibold text-[var(--text-primary)] mt-1">
-            {t(`steps.${stepId}.title`)}
-          </h2>
-          <p className="text-sm text-[var(--text-secondary)] mt-1">
-            {t(`steps.${stepId}.description`)}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={handleOpenFullForm}
-          className="text-xs text-[var(--accent-blue)] hover:underline whitespace-nowrap"
-        >
-          {t("editAllFields")}
-        </button>
+      <div>
+        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ghost)]">
+          {t("progress", { current: progress.current, total: progress.total })}
+        </p>
+        <h2 className="mt-1 text-base font-semibold text-[var(--text-primary)]">
+          {t(`steps.${stepId}.title`)}
+        </h2>
+        <p className="mt-1 text-sm text-[var(--text-secondary)]">
+          {t(`steps.${stepId}.description`)}
+        </p>
       </div>
 
       {!guided.isEditing ? (
-        <div className="rounded-xl border border-[var(--border-dim)] bg-[var(--surface-raised)] p-4 space-y-3">
+        <div className="space-y-3 rounded-xl border border-[var(--border-dim)] bg-[var(--surface-raised)] p-4">
           <div className="flex items-center gap-2 text-xs text-[var(--accent-amber)]">
             <Lightbulb size={14} />
             <span>{t("suggested")}</span>
           </div>
-          <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">
+          <p className="whitespace-pre-wrap text-sm text-[var(--text-primary)]">
             {guided.suggestion}
           </p>
           <div className="flex flex-wrap gap-2 pt-1">
@@ -195,7 +369,7 @@ export default function GuidedBriefingPanel({
           {stepId === "productOffer" ? (
             <>
               <div>
-                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">
+                <label className="mb-1.5 block text-xs font-medium text-[var(--text-secondary)]">
                   {t("fields.product")}
                 </label>
                 <Input
@@ -205,7 +379,7 @@ export default function GuidedBriefingPanel({
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">
+                <label className="mb-1.5 block text-xs font-medium text-[var(--text-secondary)]">
                   {t("fields.offer")}
                 </label>
                 <Input
@@ -247,6 +421,8 @@ export default function GuidedBriefingPanel({
           </div>
         </div>
       )}
+
+      {fullFieldsBlock}
     </div>
   );
 }

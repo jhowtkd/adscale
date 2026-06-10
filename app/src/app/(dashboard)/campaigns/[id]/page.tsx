@@ -22,12 +22,10 @@ const PersonaSimulationModal = dynamic(() => import("@/components/workspace/Pers
 });
 
 import PilotUploadPanel from "@/components/workspace/PilotUploadPanel";
-import PilotBriefingForm from "@/components/workspace/PilotBriefingForm";
 import GuidedBriefingPanel from "@/components/workspace/GuidedBriefingPanel";
 import PilotSidebar from "@/components/workspace/PilotSidebar";
 import {
   answersFromCampaign,
-  isBriefWeak,
   type GuidedBriefingHints,
 } from "@/server/ai/guided-briefing";
 import WorkspaceActionBar from "@/components/workspace/WorkspaceActionBar";
@@ -98,7 +96,6 @@ export default function CampaignWorkspacePage() {
     suggestedCta: "",
   });
   const pilotAssetIdRef = useRef<string | null>(null);
-  const [briefingView, setBriefingView] = useState<"guided" | "full">("guided");
   const [showEstilizarModal, setShowEstilizarModal] = useState(false);
   const {
     isStrategyRecipeOpen,
@@ -229,7 +226,6 @@ export default function CampaignWorkspacePage() {
       goToPilot,
       goToActions,
       hasDerivations: allDerivations.length > 0,
-      setBriefingView,
       openStrategyRecipe: openChooser,
     });
   }, [
@@ -287,21 +283,6 @@ export default function CampaignWorkspacePage() {
     client: campaign?.client ?? undefined,
   };
 
-  const handleBriefingSubmit = (briefing: {
-    objective: string;
-    audience: string;
-    tone: string;
-    platforms: string;
-    ctaText: string;
-    constraints: string;
-    product?: string;
-    offer?: string;
-  }) => {
-    if (pilotAssetIdRef.current) {
-      savePilot(pilotAssetIdRef.current, briefing);
-    }
-  };
-
   const handleGuidedBriefingComplete = (briefing: {
     objective?: string;
     audience?: string;
@@ -317,14 +298,6 @@ export default function CampaignWorkspacePage() {
         ...briefing,
         tone: briefing.tone ?? analysis.suggestedTone,
       });
-    }
-  };
-
-  const handleSkipBriefing = () => {
-    if (pilotAssetIdRef.current) {
-      savePilot(pilotAssetIdRef.current, {});
-    } else {
-      goToActions();
     }
   };
 
@@ -462,12 +435,8 @@ export default function CampaignWorkspacePage() {
         reviewVariables={reviewVariables ?? null}
         onAssetUploaded={handleAssetUploaded}
         onAnalysisComplete={handleAnalysisComplete}
-        onBriefingSubmit={handleBriefingSubmit}
         onGuidedBriefingComplete={handleGuidedBriefingComplete}
-        briefingView={briefingView}
-        onBriefingViewChange={setBriefingView}
         guidedBriefingHints={guidedBriefingHints}
-        onSkipBriefing={handleSkipBriefing}
         showPreviewGate={showPreviewGate}
         previewDerivation={previewDerivation}
         batchCreditEstimate={batchCreditEstimate}
@@ -702,16 +671,6 @@ interface CampaignWorkspaceCardProps {
     suggestedPlatforms?: string;
     suggestedCta?: string;
   }) => void;
-  onBriefingSubmit: (briefing: {
-    objective: string;
-    audience: string;
-    tone: string;
-    platforms: string;
-    ctaText: string;
-    constraints: string;
-    product?: string;
-    offer?: string;
-  }) => void;
   onGuidedBriefingComplete: (briefing: {
     objective?: string;
     audience?: string;
@@ -722,10 +681,7 @@ interface CampaignWorkspaceCardProps {
     product?: string;
     offer?: string;
   }) => void;
-  briefingView: "guided" | "full";
-  onBriefingViewChange: (view: "guided" | "full") => void;
   guidedBriefingHints: GuidedBriefingHints;
-  onSkipBriefing: () => void;
   onOpenDerivar: () => void;
   onOpenEstilizar: () => void;
   showPreviewGate?: boolean;
@@ -768,12 +724,8 @@ function CampaignWorkspaceCard({
   reviewVariables,
   onAssetUploaded,
   onAnalysisComplete,
-  onBriefingSubmit,
   onGuidedBriefingComplete,
-  briefingView,
-  onBriefingViewChange,
   guidedBriefingHints,
-  onSkipBriefing,
   onOpenDerivar,
   onOpenEstilizar,
   showPreviewGate,
@@ -808,44 +760,22 @@ function CampaignWorkspaceCard({
             />
           </div>
           <div id="mission-briefing">
-          {campaign &&
-          isBriefWeak({
-            product: campaign.product,
-            offer: campaign.offer,
-            audience: campaign.audience,
-            objective: campaign.objective,
-          }) &&
-          briefingView === "guided" ? (
-            <GuidedBriefingPanel
-              campaignId={campaignId}
-              initialAnswers={answersFromCampaign({
-                product: campaign.product,
-                offer: campaign.offer,
-                audience: campaign.audience,
-                objective: campaign.objective,
-                constraints: campaign.constraints,
-                platforms: campaign.platforms ?? null,
-                ctaVariants: campaign.ctaVariants ?? null,
-              })}
-              hints={guidedBriefingHints}
-              onComplete={onGuidedBriefingComplete}
-              onOpenFullForm={() => onBriefingViewChange("full")}
-            />
-          ) : (
-            <PilotBriefingForm
-              key={[
-                analysis.detectedConcept,
-                analysis.suggestedObjective,
-                analysis.suggestedAudience,
-                analysis.suggestedTone,
-                analysis.suggestedPlatforms,
-                analysis.suggestedCta,
-              ].join("|")}
-              analysis={analysis}
-              onSubmit={onBriefingSubmit}
-              onSkip={onSkipBriefing}
-            />
-          )}
+            {campaign ? (
+              <GuidedBriefingPanel
+                campaignId={campaignId}
+                initialAnswers={answersFromCampaign({
+                  product: campaign.product,
+                  offer: campaign.offer,
+                  audience: campaign.audience,
+                  objective: campaign.objective,
+                  constraints: campaign.constraints,
+                  platforms: campaign.platforms ?? null,
+                  ctaVariants: campaign.ctaVariants ?? null,
+                })}
+                hints={guidedBriefingHints}
+                onComplete={onGuidedBriefingComplete}
+              />
+            ) : null}
           </div>
         </div>
       )}
