@@ -300,8 +300,8 @@ export default function CampaignWorkspacePage() {
 
   const handleDerivePreview = async (patch: {
     generationMode: "art_variation" | "format_adaptation";
-    creativeLevel: "conservative" | "balanced" | "bold" | "extreme";
-    ctaVariants: string[];
+    creativeLevel?: "conservative" | "balanced" | "bold" | "extreme";
+    ctaVariants?: string[];
     targetFormats?: string[];
   }) => {
     closeFlow();
