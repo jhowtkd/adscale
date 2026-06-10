@@ -4,6 +4,8 @@ import { cn } from "@/lib/utils";
 import { Plus } from "lucide-react";
 import type { Derivation } from "@/lib/mock-data";
 import DerivationCard from "./DerivationCard";
+import DerivationPreviewGateFooter from "./DerivationPreviewGateFooter";
+import type { BatchCreditBreakdown } from "@/server/ai/strategy-recipes";
 
 // ============================================
 // Types
@@ -29,6 +31,16 @@ export interface DerivationGridProps {
   savingReferenceId?: string | null;
   reviewPending?: boolean;
   reviewVariables?: { id?: string; status: string } | null;
+  previewGate?: {
+    campaignId: string;
+    previewId: string;
+    previewCreditsSpent: number;
+    batchBreakdown: BatchCreditBreakdown;
+    creditBalance?: number;
+    isApproving?: boolean;
+    onReviseRecipe: () => void;
+    onApproveBatch: () => void;
+  };
 }
 
 function AddNewCard({ onClick }: { onClick: () => void }) {
@@ -75,58 +87,87 @@ export default function DerivationGrid({
   savingReferenceId,
   reviewPending,
   reviewVariables,
+  previewGate,
 }: DerivationGridProps) {
   return (
     <div
       className="grid gap-4 animate-fade-in"
       style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}
     >
-      {derivations.map((derivation, index) => (
-        <DerivationCard
-          key={derivation.id}
-          derivation={derivation}
-          index={index}
-          onPreview={onPreview}
-          onDownload={onDownload}
-          onRegenerate={onRegenerate}
-          onApprove={
-            onApprove ? () => onApprove(derivation.id) : undefined
-          }
-          onReject={onReject ? () => onReject(derivation.id) : undefined}
-          onCreateDeliveryPackage={
-            onCreateDeliveryPackage
-              ? () => onCreateDeliveryPackage(derivation.id)
-              : undefined
-          }
-          onRunQa={onRunQa ? () => onRunQa(derivation.id) : undefined}
-          onSaveAsReference={
-            onSaveAsReference
-              ? () => onSaveAsReference(derivation.id)
-              : undefined
-          }
-          onGenerateLandingPage={
-            onGenerateLandingPage
-              ? () => onGenerateLandingPage(derivation.id)
-              : undefined
-          }
-          onSimulatePersonas={
-            onSimulatePersonas
-              ? () => onSimulatePersonas(derivation.id)
-              : undefined
-          }
-          qaAnalyzingId={qaAnalyzingId}
-          regeneratingId={regeneratingId}
-          landingPageGeneratingId={landingPageGeneratingId}
-          simulatingPersonasId={simulatingPersonasId}
-          interactionState={{
-            savingReference: savingReferenceId === derivation.id,
-            approving:
-              reviewPending && reviewVariables?.id === derivation.id && reviewVariables?.status === "approved",
-            rejecting:
-              reviewPending && reviewVariables?.id === derivation.id && reviewVariables?.status === "rejected",
-          }}
-        />
-      ))}
+      {derivations.map((derivation, index) => {
+        const isPreviewGateCard =
+          previewGate != null && previewGate.previewId === derivation.id;
+
+        return (
+          <div
+            key={derivation.id}
+            className={cn(
+              isPreviewGateCard &&
+                "rounded-xl ring-2 ring-[var(--accent-green)]/40 ring-offset-2 ring-offset-[var(--surface-base)]"
+            )}
+          >
+            <DerivationCard
+              derivation={derivation}
+              index={index}
+              onPreview={onPreview}
+              onDownload={onDownload}
+              onRegenerate={onRegenerate}
+              onApprove={
+                onApprove ? () => onApprove(derivation.id) : undefined
+              }
+              onReject={onReject ? () => onReject(derivation.id) : undefined}
+              onCreateDeliveryPackage={
+                onCreateDeliveryPackage
+                  ? () => onCreateDeliveryPackage(derivation.id)
+                  : undefined
+              }
+              onRunQa={onRunQa ? () => onRunQa(derivation.id) : undefined}
+              onSaveAsReference={
+                onSaveAsReference
+                  ? () => onSaveAsReference(derivation.id)
+                  : undefined
+              }
+              onGenerateLandingPage={
+                onGenerateLandingPage
+                  ? () => onGenerateLandingPage(derivation.id)
+                  : undefined
+              }
+              onSimulatePersonas={
+                onSimulatePersonas
+                  ? () => onSimulatePersonas(derivation.id)
+                  : undefined
+              }
+              qaAnalyzingId={qaAnalyzingId}
+              regeneratingId={regeneratingId}
+              landingPageGeneratingId={landingPageGeneratingId}
+              simulatingPersonasId={simulatingPersonasId}
+              interactionState={{
+                savingReference: savingReferenceId === derivation.id,
+                approving:
+                  reviewPending &&
+                  reviewVariables?.id === derivation.id &&
+                  reviewVariables?.status === "approved",
+                rejecting:
+                  reviewPending &&
+                  reviewVariables?.id === derivation.id &&
+                  reviewVariables?.status === "rejected",
+              }}
+            />
+            {isPreviewGateCard ? (
+              <DerivationPreviewGateFooter
+                campaignId={previewGate.campaignId}
+                previewCreditsSpent={previewGate.previewCreditsSpent}
+                batchBreakdown={previewGate.batchBreakdown}
+                creditBalance={previewGate.creditBalance}
+                isApproving={previewGate.isApproving}
+                isGenerating={derivation.status === "generating"}
+                onReviseRecipe={previewGate.onReviseRecipe}
+                onApproveBatch={previewGate.onApproveBatch}
+              />
+            ) : null}
+          </div>
+        );
+      })}
       <AddNewCard onClick={onAddNew} />
     </div>
   );
