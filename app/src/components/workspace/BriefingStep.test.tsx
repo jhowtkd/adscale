@@ -26,7 +26,7 @@ vi.mock("@/lib/hooks/use-briefing-autosave", () => ({
   }),
 }));
 
-vi.mock("./AutoBriefingModal", () => ({
+vi.mock("./AutoBriefingSheet", () => ({
   default: () => null,
 }));
 

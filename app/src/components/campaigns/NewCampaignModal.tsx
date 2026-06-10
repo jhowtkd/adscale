@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -15,10 +16,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-// ============================================
-// Types
-// ============================================
 
 interface NewCampaignForm {
   name: string;
@@ -39,10 +36,6 @@ interface NewCampaignModalProps {
     clientProfileId: string | null;
   }) => void;
 }
-
-// ============================================
-// Component
-// ============================================
 
 export default function NewCampaignModal({
   open,
@@ -119,9 +112,11 @@ export default function NewCampaignModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[calc(100vh-2rem)] overflow-hidden bg-[var(--surface-raised)] border border-[var(--border-dim)] p-0 gap-0">
-        {/* Header */}
-        <DialogHeader className="px-6 pt-6 pb-4">
+      <DialogContent
+        size="sm"
+        className="bg-[var(--surface-raised)] border border-[var(--border-dim)] p-0 gap-0"
+      >
+        <DialogHeader>
           <DialogTitle className="text-[18px] font-semibold text-[var(--text-primary)]">
             {tCampaign("createNew")}
           </DialogTitle>
@@ -130,83 +125,78 @@ export default function NewCampaignModal({
           </DialogDescription>
         </DialogHeader>
 
-        {/* Form */}
-        <form
-          onSubmit={handleSubmit}
-          className="max-h-[calc(100vh-10rem)] overflow-y-auto px-6 pb-4 space-y-5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-        >
-          {/* Campaign Name */}
-          <div className="space-y-1.5">
-            <Label htmlFor="campaign-name" className="text-[13px] text-[var(--text-secondary)]">
-              {tCampaign("name")} <span className="text-[var(--accent-rose)]">*</span>
-            </Label>
-            <Input
-              id="campaign-name"
-              value={form.name}
-              onChange={(e) => updateField("name", e.target.value)}
-              onBlur={() => {
-                touchedRef.current = { ...touchedRef.current, name: true };
-              }}
-              placeholder={tBriefing("namePlaceholder")}
-              aria-invalid={!!errors.name}
-              aria-describedby={errors.name ? "name-error" : undefined}
-              className={cn(
-                "bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]",
-                errors.name && "border-[var(--accent-rose)]"
-              )}
-            />
-            <AnimatePresence>
-              {errors.name && (
-                <m.p
-                  id="name-error"
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  className="text-xs text-[var(--accent-rose)]"
-                >
-                  {errors.name}
-                </m.p>
-              )}
-            </AnimatePresence>
-          </div>
+        <form onSubmit={handleSubmit}>
+          <DialogBody className="space-y-5">
+            <div className="space-y-1.5">
+              <Label htmlFor="campaign-name" className="text-[13px] text-[var(--text-secondary)]">
+                {tCampaign("name")} <span className="text-[var(--accent-rose)]">*</span>
+              </Label>
+              <Input
+                id="campaign-name"
+                value={form.name}
+                onChange={(e) => updateField("name", e.target.value)}
+                onBlur={() => {
+                  touchedRef.current = { ...touchedRef.current, name: true };
+                }}
+                placeholder={tBriefing("namePlaceholder")}
+                aria-invalid={!!errors.name}
+                aria-describedby={errors.name ? "name-error" : undefined}
+                className={cn(
+                  "bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]",
+                  errors.name && "border-[var(--accent-rose)]"
+                )}
+              />
+              <AnimatePresence>
+                {errors.name && (
+                  <m.p
+                    id="name-error"
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    className="text-xs text-[var(--accent-rose)]"
+                  >
+                    {errors.name}
+                  </m.p>
+                )}
+              </AnimatePresence>
+            </div>
 
-          {/* Client/Brand Name */}
-          <div className="space-y-1.5">
-            <Label htmlFor="campaign-client" className="text-[13px] text-[var(--text-secondary)]">
-              {tCampaign("client")} <span className="text-[var(--accent-rose)]">*</span>
-            </Label>
-            <Input
-              id="campaign-client"
-              value={form.clientName}
-              onChange={(e) => updateField("clientName", e.target.value)}
-              onBlur={() => {
-                touchedRef.current = { ...touchedRef.current, clientName: true };
-              }}
-              placeholder={tBriefing("clientPlaceholder")}
-              aria-invalid={!!errors.clientName}
-              aria-describedby={errors.clientName ? "client-error" : undefined}
-              className={cn(
-                "bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]",
-                errors.clientName && "border-[var(--accent-rose)]"
-              )}
-            />
-            <AnimatePresence>
-              {errors.clientName && (
-                <m.p
-                  id="client-error"
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  className="text-xs text-[var(--accent-rose)]"
-                >
-                  {errors.clientName}
-                </m.p>
-              )}
-            </AnimatePresence>
-          </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="campaign-client" className="text-[13px] text-[var(--text-secondary)]">
+                {tCampaign("client")} <span className="text-[var(--accent-rose)]">*</span>
+              </Label>
+              <Input
+                id="campaign-client"
+                value={form.clientName}
+                onChange={(e) => updateField("clientName", e.target.value)}
+                onBlur={() => {
+                  touchedRef.current = { ...touchedRef.current, clientName: true };
+                }}
+                placeholder={tBriefing("clientPlaceholder")}
+                aria-invalid={!!errors.clientName}
+                aria-describedby={errors.clientName ? "client-error" : undefined}
+                className={cn(
+                  "bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]",
+                  errors.clientName && "border-[var(--accent-rose)]"
+                )}
+              />
+              <AnimatePresence>
+                {errors.clientName && (
+                  <m.p
+                    id="client-error"
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    className="text-xs text-[var(--accent-rose)]"
+                  >
+                    {errors.clientName}
+                  </m.p>
+                )}
+              </AnimatePresence>
+            </div>
+          </DialogBody>
 
-          {/* Footer */}
-          <DialogFooter className="px-6 py-4 border-t border-[var(--border-dim)] flex-row justify-end gap-2 -mx-6 -mb-4 mt-2">
+          <DialogFooter>
             <Button
               type="button"
               variant="outline"

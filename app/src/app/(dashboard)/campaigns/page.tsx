@@ -26,7 +26,7 @@ const KanbanBoard = dynamic(() => import("@/components/campaigns/KanbanBoard"), 
   ),
 });
 import CampaignsPagination from "@/components/campaigns/CampaignsPagination";
-import DeleteCampaignDialog from "@/components/campaigns/DeleteCampaignDialog";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import TableSkeleton from "@/components/campaigns/TableSkeleton";
 import GridSkeleton from "@/components/campaigns/GridSkeleton";
 
@@ -215,11 +215,16 @@ function CampaignsListContent() {
         campaignName={saveTemplateCampaign?.name ?? ""}
       />
 
-      <DeleteCampaignDialog
+      <ConfirmDialog
         open={!!deleteTarget}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
-        campaignName={campaigns.find((c) => c.id === deleteTarget)?.name ?? ""}
-        onConfirm={() => deleteTarget && handleDelete(deleteTarget)}
+        title="Excluir campanha"
+        description={`Tem certeza que deseja excluir "${campaigns.find((c) => c.id === deleteTarget)?.name ?? ""}"? Esta ação não pode ser desfeita.`}
+        confirmLabel="Excluir"
+        variant="destructive"
+        onConfirm={() => {
+          if (deleteTarget) void handleDelete(deleteTarget);
+        }}
       />
     </div>
   );

@@ -4,10 +4,12 @@ import { useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -59,13 +61,13 @@ export default function DeliveryPackageModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>{t("title")}</DialogTitle>
           <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
+        <DialogBody className="space-y-4">
           <div className="flex flex-col gap-3 rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <p className="text-sm font-medium text-[var(--text-primary)]">
@@ -121,9 +123,9 @@ export default function DeliveryPackageModal({
               );
             })}
           </div>
-        </div>
+        </DialogBody>
 
-        <div className="flex justify-end gap-2 pt-2">
+        <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {t("cancel")}
           </Button>
@@ -134,7 +136,7 @@ export default function DeliveryPackageModal({
           >
             {isSubmitting ? t("generating") : t("confirm")}
           </Button>
-        </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

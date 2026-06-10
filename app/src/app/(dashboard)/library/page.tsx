@@ -3,17 +3,10 @@
 import Image from "next/image";
 import { useReducer, useRef, useCallback, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { Search, Upload, ImageIcon, Trash2, Tag, AlertTriangle } from "lucide-react";
+import { Search, Upload, ImageIcon, Trash2, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import {
   useWorkspaceAssets,
   useDeleteWorkspaceAsset,
@@ -217,39 +210,22 @@ export default function LibraryPage() {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
-      <Dialog open={!!deleteTarget} onOpenChange={() => updateState({ deleteTarget: null })}>
-        <DialogContent className="bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-[var(--text-primary)]">
-              <AlertTriangle size={20} className="text-[var(--accent-rose)]" />
-              {t("deleteConfirmTitle") || "Confirmar exclusão"}
-            </DialogTitle>
-            <DialogDescription className="text-[var(--text-secondary)]">
-              {deleteTarget?.name 
-                ? (t("deleteConfirmDescription", { name: deleteTarget.name }) || `Tem certeza que deseja excluir "${deleteTarget.name}"? Esta ação não pode ser desfeita.`)
-                : "Tem certeza que deseja excluir este item? Esta ação não pode ser desfeita."}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="border-t border-[var(--border-dim)] pt-4">
-            <Button
-              variant="outline"
-              onClick={() => updateState({ deleteTarget: null })}
-              className="border-[var(--border-dim)] text-[var(--text-secondary)]"
-            >
-              {tCommon("cancel")}
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={deleteAsset.isPending}
-              className="bg-[var(--accent-rose)] text-white hover:bg-[var(--accent-rose)]/80"
-            >
-              {deleteAsset.isPending ? tCommon("loading") : t("deleteConfirm")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && updateState({ deleteTarget: null })}
+        title={t("deleteConfirmTitle") || "Confirmar exclusão"}
+        description={
+          deleteTarget?.name
+            ? (t("deleteConfirmDescription", { name: deleteTarget.name }) ||
+              `Tem certeza que deseja excluir "${deleteTarget.name}"? Esta ação não pode ser desfeita.`)
+            : "Tem certeza que deseja excluir este item? Esta ação não pode ser desfeita."
+        }
+        confirmLabel={t("deleteConfirm")}
+        cancelLabel={tCommon("cancel")}
+        variant="destructive"
+        isLoading={deleteAsset.isPending}
+        onConfirm={handleDelete}
+      />
     </div>
   );
 }

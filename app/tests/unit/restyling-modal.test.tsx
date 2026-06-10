@@ -9,30 +9,38 @@ vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
 }));
 
-vi.mock("@/lib/api-client", () => ({
-  apiFetch: vi.fn(),
+vi.mock("framer-motion", () => ({
+  m: {
+    div: ({ children, ...props }: React.ComponentProps<"div">) => <div {...props}>{children}</div>,
+  },
 }));
 
-import RestylingModal from "@/components/workspace/RestylingModal";
+vi.mock("sonner", () => ({
+  toast: { error: vi.fn() },
+}));
 
-describe("RestylingModal", () => {
+import QuickToolsRestylingPage from "@/app/(dashboard)/quick-tools/restyling/page";
+
+describe("QuickToolsRestylingPage", () => {
   it("renders style intensity control with medium selected by default", () => {
-    render(<RestylingModal open onOpenChange={vi.fn()} />);
+    render(<QuickToolsRestylingPage />);
     expect(screen.getByText("styleIntensityLabel")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "styleIntensity.medium" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "styleIntensity.medium" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
   });
 
-  it("allows selecting different style intensity", async () => {
-    render(<RestylingModal open onOpenChange={vi.fn()} />);
-    
-    // Select strong intensity
+  it("allows selecting different style intensity", () => {
+    render(<QuickToolsRestylingPage />);
+
     const strongButton = screen.getByRole("button", { name: "styleIntensity.strong" });
     fireEvent.click(strongButton);
-    
-    // Verify the button is now pressed
+
     expect(strongButton).toHaveAttribute("aria-pressed", "true");
-    
-    // Verify medium is no longer pressed
-    expect(screen.getByRole("button", { name: "styleIntensity.medium" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "styleIntensity.medium" })).toHaveAttribute(
+      "aria-pressed",
+      "false"
+    );
   });
 });

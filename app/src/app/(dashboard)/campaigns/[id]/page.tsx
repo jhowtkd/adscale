@@ -16,7 +16,7 @@ const DeliveryPackageModal = dynamic(() => import("@/components/workspace/Delive
   loading: () => null,
 });
 
-const PersonaSimulationModal = dynamic(() => import("@/components/workspace/PersonaSimulationModal"), {
+const PersonaSimulationSheet = dynamic(() => import("@/components/workspace/PersonaSimulationSheet"), {
   ssr: false,
   loading: () => null,
 });
@@ -33,7 +33,7 @@ import DerivationGrid from "@/components/workspace/DerivationGrid";
 import StrategyRecipePanel from "@/components/workspace/StrategyRecipePanel";
 import ClientApprovalPackagePanel from "@/components/workspace/ClientApprovalPackagePanel";
 import EstilizarModal from "@/components/workspace/EstilizarModal";
-import DerivationReviewModal from "@/components/workspace/DerivationReviewModal";
+import DerivationReviewSheet from "@/components/workspace/DerivationReviewSheet";
 import RegenerateFeedbackDialog, {
   DerivationLoadErrorBanner,
 } from "@/components/workspace/RegenerateFeedbackDialog";
@@ -433,7 +433,7 @@ export default function CampaignWorkspacePage() {
         onReadinessOverride={() => setReadinessOverrideActive(true)}
       />
 
-      <DerivationReviewModal
+      <DerivationReviewSheet
         open={Boolean(reviewDerivationId && reviewDerivation)}
         derivation={reviewDerivation}
         baseAsset={baseAsset}
@@ -947,7 +947,7 @@ function CampaignWorkspaceModals({
       )}
 
       {personaSimulation.selectedId && (
-        <PersonaSimulationModal
+        <PersonaSimulationSheet
           isOpen={personaSimulation.isOpen}
           onClose={onClosePersonaModal}
           sourceType="derivation"

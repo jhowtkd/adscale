@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import DerivationReviewModal from "./DerivationReviewModal";
+import DerivationReviewSheet from "./DerivationReviewSheet";
 
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string, values?: Record<string, string>) => {
@@ -33,10 +33,10 @@ const derivation = {
   createdAt: new Date(),
 };
 
-describe("DerivationReviewModal", () => {
+describe("DerivationReviewSheet", () => {
   it("renders contract and quality panels for a derivation", () => {
     render(
-      <DerivationReviewModal
+      <DerivationReviewSheet
         open
         derivation={derivation}
         onOpenChange={vi.fn()}

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -131,7 +132,7 @@ function RegenerateFeedbackForm({
         <DialogTitle>{t("regenerateWithFixesTitle")}</DialogTitle>
         <DialogDescription>{t("regenerateWithFixesDescription")}</DialogDescription>
       </DialogHeader>
-      <div className="space-y-4">
+      <DialogBody className="space-y-4">
         <IssueSummary primaryReason={primaryReason} issueBreakdown={issueBreakdown} />
         <Textarea
           value={feedback}
@@ -140,7 +141,7 @@ function RegenerateFeedbackForm({
           rows={6}
           className="resize-y min-h-[120px]"
         />
-      </div>
+      </DialogBody>
       <DialogFooter>
         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
           {t("cancel")}
@@ -168,7 +169,7 @@ export default function RegenerateFeedbackDialog({
 }: RegenerateFeedbackDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent size="md">
         {open ? (
           <RegenerateFeedbackForm
             key={`${initialFeedback}-${primaryReason ?? ""}`}

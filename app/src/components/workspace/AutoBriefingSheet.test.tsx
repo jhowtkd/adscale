@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import AutoBriefingModal from "./AutoBriefingModal";
+import AutoBriefingSheet from "./AutoBriefingSheet";
 
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
@@ -74,7 +74,7 @@ function setupMocks(overrides?: {
   return { uploadMutateAsync, briefingMutateAsync };
 }
 
-describe("AutoBriefingModal", () => {
+describe("AutoBriefingSheet", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -82,7 +82,7 @@ describe("AutoBriefingModal", () => {
   it("renders upload dropzone when open", () => {
     setupMocks();
     render(
-      <AutoBriefingModal
+      <AutoBriefingSheet
         open={true}
         onOpenChange={vi.fn()}
         campaignId="camp-1"
@@ -98,7 +98,7 @@ describe("AutoBriefingModal", () => {
   it("shows file input and triggers upload on analyze", async () => {
     const { uploadMutateAsync, briefingMutateAsync } = setupMocks();
     render(
-      <AutoBriefingModal
+      <AutoBriefingSheet
         open={true}
         onOpenChange={vi.fn()}
         campaignId="camp-1"
@@ -126,7 +126,7 @@ describe("AutoBriefingModal", () => {
   it("shows extracted fields in preview state after analysis", async () => {
     setupMocks();
     render(
-      <AutoBriefingModal
+      <AutoBriefingSheet
         open={true}
         onOpenChange={vi.fn()}
         campaignId="camp-1"
@@ -154,7 +154,7 @@ describe("AutoBriefingModal", () => {
   it("auto-selects fields with confidence >= 0.7", async () => {
     setupMocks();
     render(
-      <AutoBriefingModal
+      <AutoBriefingSheet
         open={true}
         onOpenChange={vi.fn()}
         campaignId="camp-1"
@@ -184,7 +184,7 @@ describe("AutoBriefingModal", () => {
     const onApply = vi.fn();
     setupMocks();
     render(
-      <AutoBriefingModal
+      <AutoBriefingSheet
         open={true}
         onOpenChange={vi.fn()}
         campaignId="camp-1"
@@ -227,7 +227,7 @@ describe("AutoBriefingModal", () => {
       ),
     });
     render(
-      <AutoBriefingModal
+      <AutoBriefingSheet
         open={true}
         onOpenChange={vi.fn()}
         campaignId="camp-1"
@@ -274,7 +274,7 @@ describe("AutoBriefingModal", () => {
       ),
     });
     render(
-      <AutoBriefingModal
+      <AutoBriefingSheet
         open={true}
         onOpenChange={vi.fn()}
         campaignId="camp-1"
@@ -302,7 +302,7 @@ describe("AutoBriefingModal", () => {
   it("does not render when open is false", () => {
     setupMocks();
     render(
-      <AutoBriefingModal
+      <AutoBriefingSheet
         open={false}
         onOpenChange={vi.fn()}
         campaignId="camp-1"

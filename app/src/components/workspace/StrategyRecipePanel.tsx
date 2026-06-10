@@ -190,7 +190,7 @@ export default function StrategyRecipePanel({
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && handleClose()}>
-      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>{t("title")}</DialogTitle>
           <DialogDescription>{t("description")}</DialogDescription>

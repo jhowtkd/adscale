@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import PersonaSimulationModal from "./PersonaSimulationModal";
+import PersonaSimulationSheet from "./PersonaSimulationSheet";
 
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => {
@@ -87,7 +87,7 @@ function setupMutationMock(overrides: Partial<ReturnType<typeof mockUseCreatePer
   });
 }
 
-describe("PersonaSimulationModal", () => {
+describe("PersonaSimulationSheet", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     setupQueryMock();
@@ -98,7 +98,7 @@ describe("PersonaSimulationModal", () => {
     setupQueryMock({ isLoading: true });
 
     render(
-      <PersonaSimulationModal
+      <PersonaSimulationSheet
         isOpen
         onClose={vi.fn()}
         sourceType="derivation"
@@ -114,7 +114,7 @@ describe("PersonaSimulationModal", () => {
     setupQueryMock({ isError: true });
 
     render(
-      <PersonaSimulationModal
+      <PersonaSimulationSheet
         isOpen
         onClose={vi.fn()}
         sourceType="derivation"
@@ -130,7 +130,7 @@ describe("PersonaSimulationModal", () => {
     setupQueryMock({ isError: true, refetch });
 
     render(
-      <PersonaSimulationModal
+      <PersonaSimulationSheet
         isOpen
         onClose={vi.fn()}
         sourceType="derivation"
@@ -152,7 +152,7 @@ describe("PersonaSimulationModal", () => {
     });
 
     render(
-      <PersonaSimulationModal
+      <PersonaSimulationSheet
         isOpen
         onClose={vi.fn()}
         sourceType="derivation"
@@ -181,7 +181,7 @@ describe("PersonaSimulationModal", () => {
     });
 
     render(
-      <PersonaSimulationModal
+      <PersonaSimulationSheet
         isOpen
         onClose={vi.fn()}
         sourceType="derivation"
@@ -202,7 +202,7 @@ describe("PersonaSimulationModal", () => {
 
     const onClose = vi.fn();
     render(
-      <PersonaSimulationModal
+      <PersonaSimulationSheet
         isOpen
         onClose={onClose}
         sourceType="derivation"
@@ -226,7 +226,7 @@ describe("PersonaSimulationModal", () => {
     });
 
     render(
-      <PersonaSimulationModal
+      <PersonaSimulationSheet
         isOpen
         onClose={vi.fn()}
         sourceType="derivation"
@@ -242,7 +242,7 @@ describe("PersonaSimulationModal", () => {
     setupMutationMock({ isPending: true });
 
     render(
-      <PersonaSimulationModal
+      <PersonaSimulationSheet
         isOpen
         onClose={vi.fn()}
         sourceType="derivation"

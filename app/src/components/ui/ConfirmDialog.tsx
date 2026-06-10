@@ -49,7 +49,10 @@ export default function ConfirmDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)]">
+      <DialogContent
+        size="sm"
+        className="bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)]"
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-[var(--text-primary)]">
             <AlertTriangle size={20} className="text-[var(--accent-rose)]" />
@@ -59,7 +62,7 @@ export default function ConfirmDialog({
             {description}
           </DialogDescription>
         </DialogHeader>
-        <DialogFooter className="border-t border-[var(--border-dim)] pt-4">
+        <DialogFooter>
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}

@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
+import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -31,7 +32,9 @@ function DialogOverlay({
     <DialogPrimitive.Backdrop
       data-slot="dialog-overlay"
       className={cn(
-        "fixed inset-0 isolate z-50 bg-black/10 duration-100 supports-backdrop-filter:backdrop-blur-xs data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+        "fixed inset-0 isolate z-50 bg-black/40 duration-200 supports-backdrop-filter:backdrop-blur-xs",
+        "data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+        "motion-reduce:duration-0 motion-reduce:data-open:animate-none motion-reduce:data-closed:animate-none",
         className
       )}
       {...props}
@@ -39,23 +42,53 @@ function DialogOverlay({
   )
 }
 
+const dialogContentVariants = cva(
+  [
+    "fixed z-50 flex w-full flex-col overflow-hidden bg-popover text-sm text-popover-foreground ring-1 ring-border outline-none",
+    "max-h-[min(calc(100dvh-2rem),720px)]",
+    "duration-200 ease-[cubic-bezier(0.19,1,0.22,1)]",
+    "data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+    "motion-reduce:duration-0 motion-reduce:data-open:animate-none motion-reduce:data-closed:animate-none",
+    // Desktop: centered modal
+    "sm:top-1/2 sm:left-1/2 sm:max-w-[calc(100%-2rem)] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl",
+    "sm:data-open:zoom-in-95 sm:data-closed:zoom-out-95",
+    "motion-reduce:sm:data-open:zoom-in-100 motion-reduce:sm:data-closed:zoom-out-100",
+    // Mobile: bottom sheet
+    "max-sm:bottom-0 max-sm:left-0 max-sm:right-0 max-sm:max-h-[90dvh] max-sm:rounded-t-xl max-sm:rounded-b-none",
+    "max-sm:data-open:slide-in-from-bottom-4 max-sm:data-closed:slide-out-to-bottom-4",
+    "motion-reduce:max-sm:data-open:slide-in-from-bottom-0 motion-reduce:max-sm:data-closed:slide-out-to-bottom-0",
+  ],
+  {
+    variants: {
+      size: {
+        sm: "sm:max-w-sm",
+        md: "sm:max-w-lg",
+        lg: "sm:max-w-2xl",
+        xl: "sm:max-w-4xl",
+      },
+    },
+    defaultVariants: {
+      size: "sm",
+    },
+  }
+)
+
 function DialogContent({
   className,
   children,
   showCloseButton = true,
+  size = "sm",
   ...props
-}: DialogPrimitive.Popup.Props & {
-  showCloseButton?: boolean
-}) {
+}: DialogPrimitive.Popup.Props &
+  VariantProps<typeof dialogContentVariants> & {
+    showCloseButton?: boolean
+  }) {
   return (
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Popup
         data-slot="dialog-content"
-        className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-border duration-200 ease-out outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-open:slide-in-from-bottom-2 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 data-closed:slide-out-to-bottom-2",
-          className
-        )}
+        className={cn(dialogContentVariants({ size }), className)}
         {...props}
       >
         {children}
@@ -65,13 +98,12 @@ function DialogContent({
             render={
               <Button
                 variant="ghost"
-                className="absolute top-2 right-2"
+                className="absolute top-2 right-2 z-10"
                 size="icon-sm"
               />
             }
           >
-            <XIcon
-            />
+            <XIcon />
             <span className="sr-only">Close</span>
           </DialogPrimitive.Close>
         )}
@@ -84,7 +116,20 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-header"
-      className={cn("flex flex-col gap-2", className)}
+      className={cn(
+        "shrink-0 border-b border-[var(--border-dim)] px-4 py-4 pr-12",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
+function DialogBody({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="dialog-body"
+      className={cn("flex-1 overflow-y-auto px-4 py-4", className)}
       {...props}
     />
   )
@@ -102,7 +147,7 @@ function DialogFooter({
     <div
       data-slot="dialog-footer"
       className={cn(
-        "-mx-4 -mb-4 flex flex-col-reverse gap-2 rounded-b-xl border-t bg-muted/50 p-4 sm:flex-row sm:justify-end",
+        "shrink-0 flex flex-col-reverse gap-2 border-t border-[var(--border-dim)] bg-muted/50 p-4 sm:flex-row sm:justify-end",
         className
       )}
       {...props}
@@ -148,6 +193,7 @@ function DialogDescription({
 
 export {
   Dialog,
+  DialogBody,
   DialogClose,
   DialogContent,
   DialogDescription,

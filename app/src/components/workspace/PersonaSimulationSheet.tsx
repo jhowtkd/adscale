@@ -3,13 +3,14 @@
 import { ShieldAlert, Flame, TrendingUp, HelpCircle, RefreshCw } from "lucide-react";
 import { useTranslations } from "next-intl";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetBody,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -20,11 +21,7 @@ import {
   type PersonaResult,
 } from "@/lib/hooks/use-persona-simulation";
 
-// ============================================
-// Types
-// ============================================
-
-interface PersonaSimulationModalProps {
+interface PersonaSimulationSheetProps {
   isOpen: boolean;
   onClose: () => void;
   sourceType: "derivation" | "landing_page";
@@ -39,10 +36,6 @@ const PERSONA_KEYS: PersonaKey[] = [
   "financial_decision_maker",
   "beginner",
 ];
-
-// ============================================
-// Persona Card
-// ============================================
 
 const personaIcons: Record<PersonaKey, React.ComponentType<{ size?: number; className?: string }>> = {
   skeptical_buyer: ShieldAlert,
@@ -62,13 +55,11 @@ function PersonaCard({ personaKey, result }: PersonaCardProps) {
 
   return (
     <div className="bg-[var(--surface-base)] border border-[var(--border-dim)] rounded-xl p-4 space-y-3">
-      {/* Header */}
       <div className="flex items-center gap-2">
         <Icon size={18} className="text-[var(--text-secondary)]" />
         <h3 className="text-sm font-semibold text-[var(--text-primary)]">{t(personaKey)}</h3>
       </div>
 
-      {/* Sections */}
       <div className="space-y-2">
         <div className="bg-[var(--accent-green-dim)] rounded-lg p-3">
           <span className="text-[10px] uppercase font-medium text-[var(--accent-green)]">
@@ -92,7 +83,6 @@ function PersonaCard({ personaKey, result }: PersonaCardProps) {
         </div>
       </div>
 
-      {/* Would click */}
       <div className="flex items-start gap-2 pt-1">
         <Badge
           className={cn(
@@ -114,10 +104,6 @@ function PersonaCard({ personaKey, result }: PersonaCardProps) {
     </div>
   );
 }
-
-// ============================================
-// Skeleton Card
-// ============================================
 
 function SkeletonCard() {
   return (
@@ -153,17 +139,13 @@ function SkeletonCard() {
   );
 }
 
-// ============================================
-// Main Modal
-// ============================================
-
-export default function PersonaSimulationModal({
+export default function PersonaSimulationSheet({
   isOpen,
   onClose,
   sourceType,
   sourceId,
   campaignName,
-}: PersonaSimulationModalProps) {
+}: PersonaSimulationSheetProps) {
   const t = useTranslations("personaSimulation");
   const commonT = useTranslations("common");
 
@@ -178,26 +160,26 @@ export default function PersonaSimulationModal({
   const isGenerating = createMutation.isPending;
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-5xl bg-[var(--deep-bg)] border-[var(--border-dim)] text-[var(--text-primary)]">
-        <DialogHeader>
-          <DialogTitle className="text-lg font-semibold text-[var(--text-primary)]">
+    <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <SheetContent side="right" size="lg" className="bg-[var(--deep-bg)] text-[var(--text-primary)]">
+        <SheetHeader>
+          <SheetTitle className="text-lg font-semibold text-[var(--text-primary)]">
             {t("personaAnalysis")}
-          </DialogTitle>
+          </SheetTitle>
           {campaignName ? (
-            <DialogDescription className="text-sm text-[var(--text-secondary)]">
+            <SheetDescription className="text-sm text-[var(--text-secondary)]">
               {campaignName}
-            </DialogDescription>
+            </SheetDescription>
           ) : (
-            <DialogDescription className="text-sm text-[var(--text-secondary)]">
+            <SheetDescription className="text-sm text-[var(--text-secondary)]">
               {t("personaAnalysisSubtitle")}
-            </DialogDescription>
+            </SheetDescription>
           )}
-        </DialogHeader>
+        </SheetHeader>
 
-        <div className="py-4">
+        <SheetBody>
           {isLoading || isGenerating ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-4">
               {PERSONA_KEYS.map((key) => (
                 <SkeletonCard key={key} />
               ))}
@@ -215,7 +197,7 @@ export default function PersonaSimulationModal({
               </Button>
             </div>
           ) : results ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-4">
               {PERSONA_KEYS.map((key) => (
                 <PersonaCard key={key} personaKey={key} result={results[key]} />
               ))}
@@ -229,9 +211,9 @@ export default function PersonaSimulationModal({
               </span>
             </div>
           )}
-        </div>
+        </SheetBody>
 
-        <DialogFooter className="border-t border-[var(--border-dim)] bg-transparent">
+        <SheetFooter>
           <Button
             variant="outline"
             size="sm"
@@ -254,8 +236,8 @@ export default function PersonaSimulationModal({
           >
             {commonT("close")}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }

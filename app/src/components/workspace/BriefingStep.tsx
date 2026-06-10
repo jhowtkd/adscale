@@ -18,7 +18,7 @@ import type { Campaign } from "@/lib/mock-data";
 import { useBriefingAutoSave } from "@/lib/hooks/use-briefing-autosave";
 import dynamic from "next/dynamic";
 
-const AutoBriefingModal = dynamic(() => import("./AutoBriefingModal"), {
+const AutoBriefingSheet = dynamic(() => import("./AutoBriefingSheet"), {
   loading: () => null,
   ssr: false,
 });
@@ -277,11 +277,10 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
         )}
       </div>
 
-      {/* ---- Auto Briefing Modal ---- */}
       {campaign?.id && campaign.id !== "new" && (
-          <AutoBriefingModal
-            open={autoBriefingOpen}
-            onOpenChange={(open) => updateState({ autoBriefingOpen: open })}
+        <AutoBriefingSheet
+          open={autoBriefingOpen}
+          onOpenChange={(open) => updateState({ autoBriefingOpen: open })}
           campaignId={campaign.id}
           onApply={(partial) => {
             updateState({

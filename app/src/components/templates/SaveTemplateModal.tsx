@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -77,8 +78,11 @@ export default function SaveTemplateModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg bg-[var(--surface-raised)] border border-[var(--border-dim)] p-0 gap-0">
-        <DialogHeader className="px-6 pt-6 pb-4">
+      <DialogContent
+        size="sm"
+        className="bg-[var(--surface-raised)] border border-[var(--border-dim)] p-0 gap-0"
+      >
+        <DialogHeader>
           <DialogTitle className="text-[18px] font-semibold text-[var(--text-primary)]">
             {tTemplate("saveAsTemplate")}
           </DialogTitle>
@@ -87,71 +91,67 @@ export default function SaveTemplateModal({
           </DialogDescription>
         </DialogHeader>
 
-        <form
-          onSubmit={handleSubmit}
-          className="px-6 pb-4 space-y-5"
-        >
-          <div className="space-y-1.5">
-            <Label className="text-[13px] text-[var(--text-secondary)]">
-              {tTemplate("templateName")}{" "}
-              <span className="text-[var(--accent-rose)]">*</span>
-            </Label>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={tTemplate("namePlaceholder")}
-              className={cn(
-                "bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]",
-                error && "border-[var(--accent-rose)]"
-              )}
-            />
-            <AnimatePresence>
-              {error && (
-                <m.p
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  className="text-xs text-[var(--accent-rose)]"
-                >
-                  {error}
-                </m.p>
-              )}
-            </AnimatePresence>
-          </div>
+        <form onSubmit={handleSubmit}>
+          <DialogBody className="space-y-5">
+            <div className="space-y-1.5">
+              <Label className="text-[13px] text-[var(--text-secondary)]">
+                {tTemplate("templateName")}{" "}
+                <span className="text-[var(--accent-rose)]">*</span>
+              </Label>
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={tTemplate("namePlaceholder")}
+                className={cn(
+                  "bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]",
+                  error && "border-[var(--accent-rose)]"
+                )}
+              />
+              <AnimatePresence>
+                {error && (
+                  <m.p
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    className="text-xs text-[var(--accent-rose)]"
+                  >
+                    {error}
+                  </m.p>
+                )}
+              </AnimatePresence>
+            </div>
 
-          <div className="space-y-1.5">
-            <Label className="text-[13px] text-[var(--text-secondary)]">
-              {tTemplate("description")}
-            </Label>
-            <Textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder={tTemplate("descriptionPlaceholder")}
-              className="bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] min-h-[80px]"
-            />
-          </div>
+            <div className="space-y-1.5">
+              <Label className="text-[13px] text-[var(--text-secondary)]">
+                {tTemplate("description")}
+              </Label>
+              <Textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder={tTemplate("descriptionPlaceholder")}
+                className="bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] min-h-[80px]"
+              />
+            </div>
+          </DialogBody>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCancel}
+              className="border-[var(--border-dim)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-base)]"
+            >
+              {tCommon("cancel")}
+            </Button>
+            <Button
+              type="submit"
+              disabled={createTemplate.isPending}
+              className="bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-light)]"
+            >
+              {createTemplate.isPending ? tCommon("saving") : tCommon("save")}
+            </Button>
+          </DialogFooter>
         </form>
-
-        <DialogFooter className="px-6 py-4 border-t border-[var(--border-dim)] flex-row justify-end gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleCancel}
-            className="border-[var(--border-dim)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-base)]"
-          >
-            {tCommon("cancel")}
-          </Button>
-          <Button
-            type="submit"
-            onClick={handleSubmit}
-            disabled={createTemplate.isPending}
-            className="bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-light)]"
-          >
-            {createTemplate.isPending
-              ? tCommon("saving")
-              : tCommon("save")}
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

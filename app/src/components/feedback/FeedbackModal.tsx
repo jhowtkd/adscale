@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -94,7 +95,7 @@ function FeedbackForm({ context, submitting, onSubmit, onOpenChange }: FeedbackF
 
   return (
     <>
-      <div className="grid gap-4 py-2">
+      <DialogBody className="grid gap-4">
         <div className="grid gap-2">
           <Label htmlFor="feedback-type">{t("type")}</Label>
           <select
@@ -172,7 +173,7 @@ function FeedbackForm({ context, submitting, onSubmit, onOpenChange }: FeedbackF
         ) : null}
 
         <p className="text-xs text-[var(--text-muted)]">{t("privacyNote")}</p>
-      </div>
+      </DialogBody>
 
       <DialogFooter>
         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
@@ -206,7 +207,7 @@ export default function FeedbackModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>{t("title")}</DialogTitle>
           <DialogDescription>{t("description")}</DialogDescription>

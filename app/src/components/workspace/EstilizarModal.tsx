@@ -5,6 +5,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -13,10 +14,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Upload, X } from "lucide-react";
-
-// ============================================
-// Types
-// ============================================
 
 interface EstilizarModalProps {
   open: boolean;
@@ -38,10 +35,6 @@ interface StyleReferencePreview {
   id: string;
   url: string;
 }
-
-// ============================================
-// Component
-// ============================================
 
 export default function EstilizarModal({
   open,
@@ -104,7 +97,7 @@ export default function EstilizarModal({
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles size={18} className="text-[var(--accent-green)]" />
@@ -115,14 +108,12 @@ export default function EstilizarModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-5 py-2">
-          {/* Style References Upload */}
+        <DialogBody className="space-y-5">
           <div>
             <span className="block font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ghost)] mb-2">
               Referências de estilo
             </span>
 
-            {/* Uploaded refs */}
             {styleReferencePreviews.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-3">
                 {styleReferencePreviews.map((preview, i) => (
@@ -151,7 +142,6 @@ export default function EstilizarModal({
               </div>
             )}
 
-            {/* Upload zone */}
             <label
               className={cn(
                 "flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-4 cursor-pointer transition-all duration-200",
@@ -172,7 +162,6 @@ export default function EstilizarModal({
             </label>
           </div>
 
-          {/* Intensity Select */}
           <div>
             <label htmlFor="style-intensity-select" className="block font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ghost)] mb-1.5">
               Intensidade
@@ -191,9 +180,9 @@ export default function EstilizarModal({
               ))}
             </select>
           </div>
-        </div>
+        </DialogBody>
 
-        <DialogFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <DialogFooter>
           <Button variant="outline" onClick={onClose}>
             Cancelar
           </Button>
