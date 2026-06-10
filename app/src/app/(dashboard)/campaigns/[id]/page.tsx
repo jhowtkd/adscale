@@ -31,10 +31,7 @@ import {
 import WorkspaceActionBar from "@/components/workspace/WorkspaceActionBar";
 import DerivationGrid from "@/components/workspace/DerivationGrid";
 import StrategyRecipePanel from "@/components/workspace/StrategyRecipePanel";
-import PreviewGatePanel from "@/components/workspace/PreviewGatePanel";
 import ClientApprovalPackagePanel from "@/components/workspace/ClientApprovalPackagePanel";
-import ArtVariationConfigModal from "@/components/workspace/ArtVariationConfigModal";
-import FormatAdaptationConfigModal from "@/components/workspace/FormatAdaptationConfigModal";
 import EstilizarModal from "@/components/workspace/EstilizarModal";
 import DerivationReviewModal from "@/components/workspace/DerivationReviewModal";
 import RegenerateFeedbackDialog, {
@@ -49,7 +46,7 @@ import CampaignNotFoundState from "@/components/campaigns/CampaignNotFoundState"
 
 import { useCampaignWorkspace } from "@/lib/hooks/use-campaign-workspace";
 import { useBillingStatus } from "@/lib/hooks/use-billing";
-import { useDerivationFlow, type DerivationIntent } from "@/lib/hooks/use-derivation-flow";
+import { useDerivationFlow } from "@/lib/hooks/use-derivation-flow";
 import { usePreflightScore } from "@/lib/hooks/use-preflight";
 import { useBrandKit } from "@/lib/hooks/use-brand-kit";
 import { useTranslations } from "next-intl";
@@ -98,14 +95,9 @@ export default function CampaignWorkspacePage() {
   const pilotAssetIdRef = useRef<string | null>(null);
   const [showEstilizarModal, setShowEstilizarModal] = useState(false);
   const {
-    isStrategyRecipeOpen,
-    isArtConfigOpen,
-    isFormatConfigOpen,
-    artConfigIntent,
-    formatConfigIntent,
-    strategyRecipeSession,
-    openChooser,
-    selectIntent,
+    isDerivePanelOpen,
+    derivePanelSession,
+    openDerivePanel,
     closeFlow,
   } = useDerivationFlow();
 
@@ -226,7 +218,7 @@ export default function CampaignWorkspacePage() {
       goToPilot,
       goToActions,
       hasDerivations: allDerivations.length > 0,
-      openStrategyRecipe: openChooser,
+      openStrategyRecipe: openDerivePanel,
     });
   }, [
     allDerivations.length,
@@ -236,7 +228,7 @@ export default function CampaignWorkspacePage() {
     goToPilot,
     isLoading,
     isNew,
-    openChooser,
+    openDerivePanel,
     searchParams,
   ]);
 
@@ -306,29 +298,7 @@ export default function CampaignWorkspacePage() {
     goToActions();
   };
 
-  const handleArtVariationConfirm = async (config: {
-    creativeLevel: "conservative" | "balanced" | "bold" | "extreme";
-    ctaVariants: string[];
-  }) => {
-    closeFlow();
-    await configureAndGenerate({
-      generationMode: "art_variation",
-      creativeLevel: config.creativeLevel,
-      ctaVariants: config.ctaVariants,
-    });
-  };
-
-  const handleFormatAdaptationConfirm = async (config: {
-    targetFormats: string[];
-  }) => {
-    closeFlow();
-    await configureAndGenerate({
-      generationMode: "format_adaptation",
-      targetFormats: config.targetFormats,
-    });
-  };
-
-  const handleStrategyRecipePreview = async (patch: {
+  const handleDerivePreview = async (patch: {
     generationMode: "art_variation" | "format_adaptation";
     creativeLevel: "conservative" | "balanced" | "bold" | "extreme";
     ctaVariants: string[];
@@ -444,12 +414,12 @@ export default function CampaignWorkspacePage() {
         creditBalance={billingStatus?.creditBalance}
         onApprovePreviewBatch={approvePreviewToBatch}
         onReviseStrategyRecipe={() => {
-          openChooser();
+          openDerivePanel();
           goToDerivation();
         }}
         createDerivationsPending={createDerivationsPending}
         onOpenDerivar={() => {
-          openChooser();
+          openDerivePanel();
           goToDerivation();
         }}
         onOpenEstilizar={() => {
@@ -506,9 +476,7 @@ export default function CampaignWorkspacePage() {
         selectedDeliverySource={selectedDeliverySource}
         visibility={{
           delivery: deliveryModalOpen,
-          strategyRecipe: isStrategyRecipeOpen,
-          artConfig: isArtConfigOpen,
-          formatConfig: isFormatConfigOpen,
+          derivePanel: isDerivePanelOpen,
           estilizar: showEstilizarModal,
           delete: showDeleteDialog,
         }}
@@ -522,27 +490,21 @@ export default function CampaignWorkspacePage() {
           creativeLevel: campaign?.creativeLevel,
           suggestedCta: analysis.suggestedCta,
         }}
-        onStrategyRecipePreview={handleStrategyRecipePreview}
-        strategyRecipeSession={strategyRecipeSession}
+        onDerivePreview={handleDerivePreview}
+        derivePanelSession={derivePanelSession}
         pending={{
           export: exportPending,
           deliveryPackage: deliveryPackagePending,
           derivation: createDerivationsPending,
         }}
         personaSimulation={personaSimulation}
-        artConfigIntent={artConfigIntent}
-        formatConfigIntent={formatConfigIntent}
         onDeliveryModalOpenChange={handleDeliveryModalOpenChange}
         onDownloadDeliverySource={handleDownloadDeliverySource}
         onConfirmDeliveryPackage={handleConfirmDeliveryPackage}
         onClosePersonaModal={handleClosePersonaModal}
         onCloseDerivationFlow={handleCloseDerivationFlow}
-        onSelectDerivationIntent={selectIntent}
-        onArtVariationConfirm={handleArtVariationConfirm}
-        onFormatAdaptationConfirm={handleFormatAdaptationConfirm}
         campaignId={campaignId}
         campaignCreativeLevel={campaign?.creativeLevel}
-        campaignCtaVariants={campaign?.ctaVariants}
         suggestedCta={analysis.suggestedCta}
         onCloseEstilizar={() => {
           setShowEstilizarModal(false);
@@ -828,33 +790,6 @@ function CampaignWorkspaceCard({
             <div id="mission-share">
             <ClientApprovalPackagePanel campaignId={campaignId} />
             </div>
-            {showPreviewGate && previewDerivation && onApprovePreviewBatch && onReviseStrategyRecipe && (
-              <PreviewGatePanel
-                campaignId={campaignId}
-                preview={{
-                  id: previewDerivation.id,
-                  name: previewDerivation.name,
-                  imageUrl: previewDerivation.imageUrl,
-                  status: previewDerivation.status,
-                  qualityScore: previewDerivation.qualityScore,
-                  qualityVerdict: previewDerivation.qualityVerdict,
-                  creditCost: previewDerivation.creditCost,
-                }}
-                previewCreditsSpent={previewDerivation.creditCost ?? 5}
-                batchBreakdown={
-                  batchCreditBreakdown ?? {
-                    jobCount: 0,
-                    unitCost: 5,
-                    totalCredits: batchCreditEstimate ?? 0,
-                    generationMode: "art_variation",
-                  }
-                }
-                creditBalance={creditBalance}
-                isApproving={createDerivationsPending}
-                onReviseRecipe={onReviseStrategyRecipe}
-                onApproveBatch={onApprovePreviewBatch}
-              />
-            )}
             <div id="mission-review">
             <div id="mission-export">
               <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--accent-green-text)]">
@@ -894,6 +829,29 @@ function CampaignWorkspaceCard({
                 savingReferenceId={savingReferenceId}
                 reviewPending={reviewPending}
                 reviewVariables={reviewVariables}
+                previewGate={
+                  showPreviewGate &&
+                  previewDerivation &&
+                  onApprovePreviewBatch &&
+                  onReviseStrategyRecipe
+                    ? {
+                        campaignId,
+                        previewId: previewDerivation.id,
+                        previewCreditsSpent: previewDerivation.creditCost ?? 5,
+                        batchBreakdown:
+                          batchCreditBreakdown ?? {
+                            jobCount: 0,
+                            unitCost: 5,
+                            totalCredits: batchCreditEstimate ?? 0,
+                            generationMode: "art_variation",
+                          },
+                        creditBalance,
+                        isApproving: createDerivationsPending,
+                        onReviseRecipe: onReviseStrategyRecipe,
+                        onApproveBatch: onApprovePreviewBatch,
+                      }
+                    : undefined
+                }
               />
             </div>
             </div>
@@ -906,9 +864,7 @@ function CampaignWorkspaceCard({
 
 interface CampaignWorkspaceModalVisibility {
   delivery: boolean;
-  strategyRecipe: boolean;
-  artConfig: boolean;
-  formatConfig: boolean;
+  derivePanel: boolean;
   estilizar: boolean;
   delete: boolean;
 }
@@ -925,22 +881,13 @@ interface CampaignWorkspaceModalsProps {
   visibility: CampaignWorkspaceModalVisibility;
   pending: CampaignWorkspaceModalPending;
   personaSimulation: { isOpen: boolean; selectedId: string | null };
-  artConfigIntent: "manual_art" | "auto_art" | null;
-  formatConfigIntent: "single_format" | "batch_format" | null;
   onDeliveryModalOpenChange: (open: boolean) => void;
   onDownloadDeliverySource: () => void;
   onConfirmDeliveryPackage: (formats: DeliveryFormat[]) => void;
   onClosePersonaModal: () => void;
   onCloseDerivationFlow: () => void;
-  onSelectDerivationIntent: (intent: DerivationIntent) => void;
-  onArtVariationConfirm: (config: {
-    creativeLevel: "conservative" | "balanced" | "bold" | "extreme";
-    ctaVariants: string[];
-  }) => void | Promise<void>;
-  onFormatAdaptationConfirm: (config: { targetFormats: string[] }) => void | Promise<void>;
   campaignId: string;
   campaignCreativeLevel?: string | null;
-  campaignCtaVariants?: string[] | null;
   suggestedCta?: string;
   onCloseEstilizar: () => void;
   onEstilizarSubmit: (data: {
@@ -952,13 +899,13 @@ interface CampaignWorkspaceModalsProps {
   readiness?: import("@/server/ai/creative-readiness").CreativeReadinessResult | null;
   brandKit?: import("@/lib/hooks/use-brand-kit").BrandKitWithUrl | null;
   campaignRecipeContext?: import("@/server/ai/strategy-recipes").CampaignRecipeContext;
-  onStrategyRecipePreview: (patch: {
+  onDerivePreview: (patch: {
     generationMode: "art_variation" | "format_adaptation";
-    creativeLevel: "conservative" | "balanced" | "bold" | "extreme";
-    ctaVariants: string[];
+    creativeLevel?: "conservative" | "balanced" | "bold" | "extreme";
+    ctaVariants?: string[];
     targetFormats?: string[];
   }) => void | Promise<void>;
-  strategyRecipeSession: number;
+  derivePanelSession: number;
 }
 
 function CampaignWorkspaceModals({
@@ -967,19 +914,13 @@ function CampaignWorkspaceModals({
   visibility,
   pending,
   personaSimulation,
-  artConfigIntent,
-  formatConfigIntent,
   onDeliveryModalOpenChange,
   onDownloadDeliverySource,
   onConfirmDeliveryPackage,
   onClosePersonaModal,
   onCloseDerivationFlow,
-  onSelectDerivationIntent,
-  onArtVariationConfirm,
-  onFormatAdaptationConfirm,
   campaignId,
   campaignCreativeLevel,
-  campaignCtaVariants,
   suggestedCta,
   onCloseEstilizar,
   onEstilizarSubmit,
@@ -988,8 +929,8 @@ function CampaignWorkspaceModals({
   readiness,
   brandKit,
   campaignRecipeContext,
-  onStrategyRecipePreview,
-  strategyRecipeSession,
+  onDerivePreview,
+  derivePanelSession,
 }: CampaignWorkspaceModalsProps) {
   return (
     <>
@@ -1017,8 +958,8 @@ function CampaignWorkspaceModals({
 
       <StrategyRecipePanel
         campaignId={campaignId}
-        open={visibility.strategyRecipe}
-        recipeSessionKey={strategyRecipeSession}
+        open={visibility.derivePanel}
+        recipeSessionKey={derivePanelSession}
         readiness={readiness}
         brandKit={
           brandKit
@@ -1030,36 +971,12 @@ function CampaignWorkspaceModals({
             : null
         }
         campaign={campaignRecipeContext}
+        campaignCreativeLevel={campaignCreativeLevel}
+        suggestedCta={suggestedCta}
         isSubmitting={pending.derivation}
         onClose={onCloseDerivationFlow}
-        onGeneratePreview={onStrategyRecipePreview}
+        onGeneratePreview={onDerivePreview}
       />
-
-      {artConfigIntent && (
-        <ArtVariationConfigModal
-          open={visibility.artConfig}
-          intent={artConfigIntent}
-          campaignId={campaignId}
-          campaignCreativeLevel={campaignCreativeLevel}
-          campaignCtaVariants={campaignCtaVariants}
-          suggestedCta={suggestedCta}
-          isSubmitting={pending.derivation}
-          onBack={onCloseDerivationFlow}
-          onClose={onCloseDerivationFlow}
-          onConfirm={onArtVariationConfirm}
-        />
-      )}
-
-      {formatConfigIntent && (
-        <FormatAdaptationConfigModal
-          open={visibility.formatConfig}
-          intent={formatConfigIntent}
-          isSubmitting={pending.derivation}
-          onBack={onCloseDerivationFlow}
-          onClose={onCloseDerivationFlow}
-          onConfirm={onFormatAdaptationConfirm}
-        />
-      )}
 
       <EstilizarModal
         open={visibility.estilizar}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { useTranslations } from "next-intl";
 import { Loader2, Sparkles } from "lucide-react";
 import {
@@ -17,13 +17,20 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useStrategyRecipe } from "@/lib/hooks/use-strategy-recipe";
 import { useRecordBetaEvent } from "@/lib/hooks/use-record-beta-event";
+import {
+  useArtVariationSuggestions,
+  type ArtCreativeLevel,
+} from "@/lib/hooks/use-art-variation-suggestions";
+import {
+  DERIVATION_FORMATS,
+  type DerivationFormat,
+} from "@/lib/derivation-formats";
 import type { CreativeReadinessResult } from "@/server/ai/creative-readiness";
 import {
   STRATEGY_RECIPE_IDS,
   type BrandKitSnapshot,
   type CampaignRecipeContext,
   type RecipeCreativeLevel,
-  type StrategyRecipeId,
 } from "@/server/ai/strategy-recipes";
 
 const CREATIVE_LEVELS: RecipeCreativeLevel[] = [
@@ -33,6 +40,14 @@ const CREATIVE_LEVELS: RecipeCreativeLevel[] = [
   "extreme",
 ];
 
+const CTA_FIELD_KEYS = ["primary", "secondary", "tertiary"] as const;
+
+const FORMAT_I18N_KEY: Record<DerivationFormat, "square" | "portrait" | "stories"> = {
+  "1:1": "square",
+  "4:5": "portrait",
+  "9:16": "stories",
+};
+
 interface StrategyRecipePanelProps {
   campaignId: string;
   open: boolean;
@@ -40,6 +55,8 @@ interface StrategyRecipePanelProps {
   readiness?: CreativeReadinessResult | null;
   brandKit?: BrandKitSnapshot | null;
   campaign?: CampaignRecipeContext | null;
+  campaignCreativeLevel?: string | null;
+  suggestedCta?: string;
   isSubmitting?: boolean;
   onClose: () => void;
   onGeneratePreview: (patch: ReturnType<typeof useStrategyRecipe>["campaignPatch"]) => void;
@@ -52,16 +69,52 @@ export default function StrategyRecipePanel({
   readiness,
   brandKit,
   campaign,
+  campaignCreativeLevel,
+  suggestedCta,
   isSubmitting,
   onClose,
   onGeneratePreview,
 }: StrategyRecipePanelProps) {
   const t = useTranslations("strategyRecipes");
+  const tBriefing = useTranslations("briefing");
+  const tGeneration = useTranslations("generation");
+  const tWorkspace = useTranslations("workspace.derivar");
   const { recordEvent } = useRecordBetaEvent(campaignId);
   const completedRef = useRef(false);
   const tradeoffViewedRef = useRef(false);
+  const creativeLevelGroupId = useId();
 
   const STAGE_PROPS = { stage: "strategy_recipe", missionKey: "strategy_recipe" } as const;
+
+  const recipe = useStrategyRecipe({
+    readiness,
+    brandKit,
+    campaign,
+    resetKey: open ? recipeSessionKey : undefined,
+  });
+
+  const isArtMode = recipe.resolvedConfig.generationMode === "art_variation";
+
+  const {
+    creativeLevel,
+    setCreativeLevel,
+    ctas,
+    updateCta,
+    validCtaVariants,
+    isLoadingSuggestions,
+    suggestionsError,
+    retrySuggestions,
+    aiSuggestionsApplied,
+    highlightedFields,
+    canConfirm,
+  } = useArtVariationSuggestions({
+    campaignId,
+    intent: "auto_art",
+    open: open && isArtMode,
+    campaignCreativeLevel: campaignCreativeLevel ?? campaign?.creativeLevel,
+    campaignCtaVariants: campaign?.ctaVariants,
+    suggestedCta,
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -86,29 +139,58 @@ export default function StrategyRecipePanel({
     onClose();
   };
 
-  const handleGeneratePreview = (
-    patch: ReturnType<typeof useStrategyRecipe>["campaignPatch"]
-  ) => {
-    completedRef.current = true;
-    recordEvent("cockpit_stage_completed", STAGE_PROPS);
-    onGeneratePreview(patch);
-  };
+  const buildPreviewPatch = useCallback(
+    (selectedFormats: DerivationFormat[]) => {
+      if (isArtMode) {
+        return {
+          generationMode: "art_variation" as const,
+          creativeLevel: creativeLevel as RecipeCreativeLevel,
+          ctaVariants: validCtaVariants.slice(0, 3),
+        };
+      }
+      return {
+        ...recipe.campaignPatch,
+        generationMode: "format_adaptation" as const,
+        targetFormats: selectedFormats,
+      };
+    },
+    [isArtMode, creativeLevel, validCtaVariants, recipe.campaignPatch]
+  );
 
-  const recipe = useStrategyRecipe({
-    readiness,
-    brandKit,
-    campaign,
-    resetKey: open ? recipeSessionKey : undefined,
-  });
+  const handleCreativeLevelKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLDivElement>) => {
+      const currentIndex = CREATIVE_LEVELS.indexOf(creativeLevel as RecipeCreativeLevel);
+      if (currentIndex < 0) return;
 
-  const ctaValue = useMemo(
-    () => recipe.resolvedConfig.ctaVariants.join(", "),
-    [recipe.resolvedConfig.ctaVariants]
+      let nextIndex: number | null = null;
+      switch (event.key) {
+        case "ArrowRight":
+        case "ArrowDown":
+          nextIndex = (currentIndex + 1) % CREATIVE_LEVELS.length;
+          break;
+        case "ArrowLeft":
+        case "ArrowUp":
+          nextIndex = (currentIndex - 1 + CREATIVE_LEVELS.length) % CREATIVE_LEVELS.length;
+          break;
+        case "Home":
+          nextIndex = 0;
+          break;
+        case "End":
+          nextIndex = CREATIVE_LEVELS.length - 1;
+          break;
+        default:
+          return;
+      }
+
+      event.preventDefault();
+      setCreativeLevel(CREATIVE_LEVELS[nextIndex] as ArtCreativeLevel);
+    },
+    [creativeLevel, setCreativeLevel]
   );
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && handleClose()}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{t("title")}</DialogTitle>
           <DialogDescription>{t("description")}</DialogDescription>
@@ -157,52 +239,10 @@ export default function StrategyRecipePanel({
             })}
           </div>
 
-          <div className="rounded-lg border border-[var(--border-dim)] p-3 space-y-3">
+          <div className="space-y-3 rounded-lg border border-[var(--border-dim)] p-3">
             <p className="text-xs font-medium text-[var(--text-primary)]">
               {t("overridesTitle")}
             </p>
-
-            <div className="space-y-2">
-              <Label className="text-xs text-[var(--text-secondary)]">
-                {t("creativeLevel")}
-              </Label>
-              <div className="grid grid-cols-2 gap-2">
-                {CREATIVE_LEVELS.map((level) => (
-                  <button
-                    key={level}
-                    type="button"
-                    onClick={() => recipe.setCreativeLevel(level)}
-                    className={cn(
-                      "rounded-md border px-2 py-1.5 text-xs capitalize",
-                      recipe.resolvedConfig.creativeLevel === level
-                        ? "border-[var(--accent-green)] text-[var(--accent-green-text)]"
-                        : "border-[var(--border-dim)] text-[var(--text-secondary)]"
-                    )}
-                  >
-                    {t(`levels.${level}`)}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="recipe-ctas" className="text-xs text-[var(--text-secondary)]">
-                {t("ctaVariants")}
-              </Label>
-              <Input
-                id="recipe-ctas"
-                value={ctaValue}
-                onChange={(e) =>
-                  recipe.setCtaVariants(
-                    e.target.value
-                      .split(",")
-                      .map((v) => v.trim())
-                      .filter(Boolean)
-                  )
-                }
-                placeholder={t("ctaPlaceholder")}
-              />
-            </div>
 
             <div className="flex gap-2">
               <button
@@ -210,7 +250,7 @@ export default function StrategyRecipePanel({
                 onClick={() => recipe.setGenerationMode("art_variation")}
                 className={cn(
                   "flex-1 rounded-md border px-2 py-1.5 text-xs",
-                  recipe.resolvedConfig.generationMode === "art_variation"
+                  isArtMode
                     ? "border-[var(--accent-green)]"
                     : "border-[var(--border-dim)]"
                 )}
@@ -222,7 +262,7 @@ export default function StrategyRecipePanel({
                 onClick={() => recipe.setGenerationMode("format_adaptation")}
                 className={cn(
                   "flex-1 rounded-md border px-2 py-1.5 text-xs",
-                  recipe.resolvedConfig.generationMode === "format_adaptation"
+                  !isArtMode
                     ? "border-[var(--accent-green)]"
                     : "border-[var(--border-dim)]"
                 )}
@@ -230,31 +270,275 @@ export default function StrategyRecipePanel({
                 {t("modeFormat")}
               </button>
             </div>
-          </div>
 
-          <div className="rounded-lg bg-[var(--surface-raised)] p-3 text-xs text-[var(--text-secondary)]">
-            <p>{t("creditPreview", { credits: recipe.previewCredits })}</p>
-            <p className="mt-1">
-              {t("creditBatchEstimate", { credits: recipe.batchCredits })}
-            </p>
-          </div>
-        </div>
+            {isArtMode ? (
+              <div className="space-y-4">
+                {suggestionsError ? (
+                  <div
+                    role="alert"
+                    className="flex flex-col gap-2 rounded-lg border border-[color-mix(in_srgb,var(--status-processing-dot)_35%,transparent)] bg-[var(--status-queued-bg)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-[var(--text-primary)]">
+                        {tWorkspace("config.autoArt.suggestionsFailed")}
+                      </p>
+                      <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
+                        {tWorkspace("config.autoArt.usingCampaignDefaults")}
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={retrySuggestions}
+                      disabled={isSubmitting || isLoadingSuggestions}
+                      className="shrink-0"
+                    >
+                      {tWorkspace("config.autoArt.retrySuggestions")}
+                    </Button>
+                  </div>
+                ) : null}
 
-        <DialogFooter className="flex-col gap-2 sm:flex-col">
-          <Button
-            className="w-full"
-            disabled={isSubmitting || recipe.resolvedConfig.ctaVariants.length === 0}
-            onClick={() => handleGeneratePreview(recipe.campaignPatch)}
-          >
-            {isSubmitting ? (
-              <Loader2 className="mr-2 size-4 animate-spin" />
+                {isLoadingSuggestions ? (
+                  <p className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+                    <Loader2 size={14} className="animate-spin shrink-0" />
+                    {tGeneration("generatingSuggestions")}
+                  </p>
+                ) : aiSuggestionsApplied ? (
+                  <p className="text-xs text-[var(--text-secondary)]">
+                    {tWorkspace("config.autoArt.suggestionsApplied")}
+                  </p>
+                ) : null}
+
+                <div>
+                  <span
+                    id={creativeLevelGroupId}
+                    className="text-xs font-medium text-[var(--text-secondary)]"
+                  >
+                    {tGeneration("creativityProfile")}
+                  </span>
+                  <div
+                    role="radiogroup"
+                    aria-labelledby={creativeLevelGroupId}
+                    className="mt-2 grid grid-cols-2 gap-2"
+                    onKeyDown={handleCreativeLevelKeyDown}
+                  >
+                    {CREATIVE_LEVELS.map((level) => {
+                      const isSelected = creativeLevel === level;
+                      const levelLabel = tBriefing(`creativeLevel.${level}`);
+                      const contractLabel = tBriefing(`creativeLevel.contract.${level}`);
+
+                      return (
+                        <button
+                          key={level}
+                          type="button"
+                          role="radio"
+                          aria-checked={isSelected}
+                          tabIndex={isSelected ? 0 : -1}
+                          onClick={() => setCreativeLevel(level as ArtCreativeLevel)}
+                          className={cn(
+                            "min-h-11 rounded-lg border px-3 py-2.5 text-left text-xs",
+                            isSelected
+                              ? "border-[var(--accent-green)] bg-[var(--accent-green-dim)]"
+                              : "border-[var(--border-dim)]",
+                            highlightedFields.creativeLevel &&
+                              isSelected &&
+                              "ring-1 ring-[var(--accent-green)]/40"
+                          )}
+                        >
+                          <span className="block font-medium text-[var(--text-primary)]">
+                            {levelLabel}
+                          </span>
+                          <span className="mt-0.5 block text-[var(--text-secondary)]">
+                            {contractLabel}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-xs font-medium text-[var(--text-secondary)]">
+                    {tBriefing("ctaVariants")}
+                  </Label>
+                  <p className="mt-1 text-xs text-[var(--text-muted)]">
+                    {tBriefing("ctaHelpArt")}
+                  </p>
+                  <div className="mt-3 space-y-3">
+                    {CTA_FIELD_KEYS.map((fieldKey, index) => {
+                      const label =
+                        index === 0
+                          ? tBriefing("ctaRequired")
+                          : tBriefing("ctaOptional", { number: index + 1 });
+
+                      return (
+                        <div key={fieldKey}>
+                          <Label
+                            htmlFor={`recipe-cta-${fieldKey}`}
+                            className="text-xs text-[var(--text-secondary)]"
+                          >
+                            {label}
+                          </Label>
+                          <Input
+                            id={`recipe-cta-${fieldKey}`}
+                            value={ctas[index]}
+                            onChange={(event) => updateCta(index, event.target.value)}
+                            placeholder={tGeneration("ctaPlaceholder")}
+                            aria-required={index === 0}
+                            className={cn(
+                              "mt-1.5",
+                              highlightedFields.ctaIndices.includes(index) &&
+                                "border-[var(--accent-green)] bg-[var(--accent-green-dim)]"
+                            )}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
             ) : (
-              <Sparkles className="mr-2 size-4" />
+              <>
+              <FormatSelectionFields
+                key={recipeSessionKey ?? "default"}
+                labels={{ title: t("targetFormatsLabel"), help: t("targetFormatsHelp") }}
+                isSubmitting={isSubmitting}
+                onGenerate={(selectedFormats) => {
+                  completedRef.current = true;
+                  recordEvent("cockpit_stage_completed", STAGE_PROPS);
+                  onGeneratePreview(buildPreviewPatch(selectedFormats));
+                }}
+              />
+              <div className="rounded-lg bg-[var(--surface-raised)] p-3 text-xs text-[var(--text-secondary)]">
+                <p>{t("creditPreview", { credits: recipe.previewCredits })}</p>
+                <p className="mt-1">
+                  {t("creditBatchEstimate", { credits: recipe.batchCredits })}
+                </p>
+              </div>
+              </>
             )}
-            {t("generatePreview")}
-          </Button>
-        </DialogFooter>
+          </div>
+
+          {isArtMode ? (
+            <>
+              <div className="rounded-lg bg-[var(--surface-raised)] p-3 text-xs text-[var(--text-secondary)]">
+                <p>{t("creditPreview", { credits: recipe.previewCredits })}</p>
+                <p className="mt-1">
+                  {t("creditBatchEstimate", { credits: recipe.batchCredits })}
+                </p>
+              </div>
+
+              <DialogFooter className="flex-col gap-2 sm:flex-col">
+                <Button
+                  className="w-full"
+                  disabled={
+                    isSubmitting || !canConfirm || isLoadingSuggestions
+                  }
+                  onClick={() => {
+                    completedRef.current = true;
+                    recordEvent("cockpit_stage_completed", STAGE_PROPS);
+                    onGeneratePreview(buildPreviewPatch([]));
+                  }}
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="mr-2 size-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="mr-2 size-4" />
+                  )}
+                  {t("generatePreview")}
+                </Button>
+              </DialogFooter>
+            </>
+          ) : null}
+        </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function FormatSelectionFields({
+  labels,
+  isSubmitting,
+  onGenerate,
+}: {
+  labels: { title: string; help: string };
+  isSubmitting?: boolean;
+  onGenerate: (formats: DerivationFormat[]) => void;
+}) {
+  const t = useTranslations("strategyRecipes");
+  const tBriefing = useTranslations("briefing");
+  const [formatSelection, setFormatSelection] = useState<
+    Record<DerivationFormat, boolean>
+  >({
+    "1:1": true,
+    "4:5": true,
+    "9:16": true,
+  });
+
+  const selectedFormats = DERIVATION_FORMATS.filter((format) => formatSelection[format]);
+
+  const toggleFormat = (format: DerivationFormat) => {
+    setFormatSelection((prev) => {
+      const next = { ...prev, [format]: !prev[format] };
+      const count = DERIVATION_FORMATS.filter((item) => next[item]).length;
+      if (count === 0) return prev;
+      return next;
+    });
+  };
+
+  return (
+    <>
+      <div className="space-y-2">
+        <Label className="text-xs text-[var(--text-secondary)]">{labels.title}</Label>
+        <p className="text-xs text-[var(--text-muted)]">{labels.help}</p>
+        {DERIVATION_FORMATS.map((format) => {
+          const labelKey = FORMAT_I18N_KEY[format];
+          const isSelected = formatSelection[format];
+          return (
+            <label
+              key={format}
+              className={cn(
+                "flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors",
+                isSelected
+                  ? "border-[var(--accent-green)] bg-[var(--accent-green-dim)]"
+                  : "border-[var(--border-dim)] bg-[var(--surface-base)]"
+              )}
+            >
+              <input
+                type="checkbox"
+                className="mt-0.5 size-4 shrink-0 accent-[var(--accent-green)]"
+                checked={isSelected}
+                onChange={() => toggleFormat(format)}
+                aria-label={tBriefing(`targetFormats.${labelKey}.label`)}
+              />
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-medium text-[var(--text-primary)]">
+                  {tBriefing(`targetFormats.${labelKey}.label`)}
+                </span>
+                <span className="mt-0.5 block text-xs text-[var(--text-secondary)]">
+                  {tBriefing(`targetFormats.${labelKey}.description`)}
+                </span>
+              </span>
+            </label>
+          );
+        })}
+      </div>
+
+      <DialogFooter className="flex-col gap-2 sm:flex-col">
+        <Button
+          className="w-full"
+          disabled={isSubmitting || selectedFormats.length === 0}
+          onClick={() => onGenerate(selectedFormats)}
+        >
+          {isSubmitting ? (
+            <Loader2 className="mr-2 size-4 animate-spin" />
+          ) : (
+            <Sparkles className="mr-2 size-4" />
+          )}
+          {t("generatePreview")}
+        </Button>
+      </DialogFooter>
+    </>
   );
 }

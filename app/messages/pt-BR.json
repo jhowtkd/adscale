@@ -1023,6 +1023,8 @@
     "ctaPlaceholder": "Compre agora, Saiba mais",
     "modeArt": "Variações de arte",
     "modeFormat": "Adaptação de formato",
+    "targetFormatsLabel": "Formatos de destino",
+    "targetFormatsHelp": "Selecione um ou mais formatos para adaptar o criativo.",
     "creditPreview": "A prévia usa {credits} créditos",
     "creditBatchEstimate": "Estimativa do lote completo: {credits} créditos",
     "generatePreview": "Gerar prévia",

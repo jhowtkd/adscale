@@ -73,18 +73,16 @@ function answersFromFullForm(form: FullBriefingForm): GuidedBriefingAnswers {
 }
 
 function FullFieldsDisclosure({
-  form,
-  onChange,
+  initialForm,
   onSaveAll,
   isSaving,
 }: {
-  form: FullBriefingForm;
-  onChange: (field: keyof FullBriefingForm, value: string) => void;
-  onSaveAll: () => void;
+  initialForm: FullBriefingForm;
+  onSaveAll: (form: FullBriefingForm) => void;
   isSaving?: boolean;
 }) {
   const t = useTranslations("guidedBriefing");
-  const tc = useTranslations("common");
+  const [form, setForm] = useState(initialForm);
 
   return (
     <details className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)]">
@@ -99,7 +97,9 @@ function FullFieldsDisclosure({
             </label>
             <Input
               value={form.product}
-              onChange={(e) => onChange("product", e.target.value)}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, product: e.target.value }))
+              }
               placeholder={t("fields.productPlaceholder")}
             />
           </div>
@@ -109,7 +109,9 @@ function FullFieldsDisclosure({
             </label>
             <Input
               value={form.offer}
-              onChange={(e) => onChange("offer", e.target.value)}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, offer: e.target.value }))
+              }
               placeholder={t("fields.offerPlaceholder")}
             />
           </div>
@@ -120,7 +122,9 @@ function FullFieldsDisclosure({
           </label>
           <Input
             value={form.objective}
-            onChange={(e) => onChange("objective", e.target.value)}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, objective: e.target.value }))
+            }
             placeholder={t("steps.promise.placeholder")}
           />
         </div>
@@ -130,7 +134,9 @@ function FullFieldsDisclosure({
           </label>
           <Input
             value={form.audience}
-            onChange={(e) => onChange("audience", e.target.value)}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, audience: e.target.value }))
+            }
             placeholder={t("steps.audience.placeholder")}
           />
         </div>
@@ -140,7 +146,9 @@ function FullFieldsDisclosure({
           </label>
           <Input
             value={form.tone}
-            onChange={(e) => onChange("tone", e.target.value)}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, tone: e.target.value }))
+            }
             placeholder={t("fields.tonePlaceholder")}
           />
         </div>
@@ -150,7 +158,9 @@ function FullFieldsDisclosure({
           </label>
           <Input
             value={form.platforms}
-            onChange={(e) => onChange("platforms", e.target.value)}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, platforms: e.target.value }))
+            }
             placeholder={t("steps.platforms.placeholder")}
           />
         </div>
@@ -160,7 +170,9 @@ function FullFieldsDisclosure({
           </label>
           <Input
             value={form.ctaText}
-            onChange={(e) => onChange("ctaText", e.target.value)}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, ctaText: e.target.value }))
+            }
             placeholder={t("steps.cta.placeholder")}
           />
         </div>
@@ -170,12 +182,14 @@ function FullFieldsDisclosure({
           </label>
           <Textarea
             value={form.constraints}
-            onChange={(e) => onChange("constraints", e.target.value)}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, constraints: e.target.value }))
+            }
             rows={3}
             placeholder={t("steps.constraints.placeholder")}
           />
         </div>
-        <Button size="sm" disabled={isSaving} onClick={onSaveAll}>
+        <Button size="sm" disabled={isSaving} onClick={() => onSaveAll(form)}>
           {t("saveAllFields")}
         </Button>
       </div>
@@ -195,10 +209,6 @@ export default function GuidedBriefingPanel({
   const guided = useGuidedBriefing({ campaignId, initialAnswers, hints });
   const { recordEvent } = useRecordBetaEvent(campaignId);
   const completedRef = useRef(false);
-  const [fullForm, setFullForm] = useState<FullBriefingForm>(() =>
-    fullFormFromAnswers(initialAnswers ?? {}, hints)
-  );
-
   const STAGE_PROPS = { stage: "guided_briefing", missionKey: "guided_briefing" } as const;
 
   const abandonProps = () => ({
@@ -214,10 +224,6 @@ export default function GuidedBriefingPanel({
       }
     };
   }, [recordEvent, guided.currentStep]);
-
-  useEffect(() => {
-    setFullForm(fullFormFromAnswers(guided.answers, hints));
-  }, [guided.answers, hints]);
 
   const finishBriefing = (
     briefing: ReturnType<typeof mapGuidedAnswersToPilotBriefing> & { tone?: string }
@@ -262,21 +268,17 @@ export default function GuidedBriefingPanel({
     }
   };
 
-  const handleSaveAllFields = () => {
-    const answers = answersFromFullForm(fullForm);
-    finishBriefing({
-      ...mapGuidedAnswersToPilotBriefing(answers),
-      tone: fullForm.tone || hints?.suggestedTone,
-    });
-  };
-
   const fullFieldsBlock = (
     <FullFieldsDisclosure
-      form={fullForm}
-      onChange={(field, value) =>
-        setFullForm((prev) => ({ ...prev, [field]: value }))
-      }
-      onSaveAll={handleSaveAllFields}
+      key={JSON.stringify(guided.answers)}
+      initialForm={fullFormFromAnswers(guided.answers, hints)}
+      onSaveAll={(form) => {
+        const answers = answersFromFullForm(form);
+        finishBriefing({
+          ...mapGuidedAnswersToPilotBriefing(answers),
+          tone: form.tone || hints?.suggestedTone,
+        });
+      }}
       isSaving={guided.isPersisting}
     />
   );
@@ -291,7 +293,7 @@ export default function GuidedBriefingPanel({
           onClick={() =>
             finishBriefing({
               ...mapGuidedAnswersToPilotBriefing(guided.answers),
-              tone: fullForm.tone || hints?.suggestedTone,
+              tone: hints?.suggestedTone,
             })
           }
         >

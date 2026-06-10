@@ -1023,6 +1023,8 @@
     "ctaPlaceholder": "Shop Now, Learn More",
     "modeArt": "Art variations",
     "modeFormat": "Format adaptation",
+    "targetFormatsLabel": "Target formats",
+    "targetFormatsHelp": "Select one or more formats to adapt the creative.",
     "creditPreview": "Preview uses {credits} credits",
     "creditBatchEstimate": "Full batch estimate: {credits} credits",
     "generatePreview": "Generate preview",

@@ -17,6 +17,22 @@ vi.mock("@/lib/hooks/use-record-beta-event", () => ({
   useRecordBetaEvent: () => ({ recordEvent }),
 }));
 
+vi.mock("@/lib/hooks/use-art-variation-suggestions", () => ({
+  useArtVariationSuggestions: () => ({
+    creativeLevel: "balanced",
+    setCreativeLevel: vi.fn(),
+    ctas: ["Buy", "", ""],
+    updateCta: vi.fn(),
+    validCtaVariants: ["Buy"],
+    isLoadingSuggestions: false,
+    suggestionsError: null,
+    retrySuggestions: vi.fn(),
+    aiSuggestionsApplied: false,
+    highlightedFields: { creativeLevel: false, ctaIndices: [] },
+    canConfirm: true,
+  }),
+}));
+
 const STAGE_PROPS = { stage: "strategy_recipe", missionKey: "strategy_recipe" };
 
 describe("StrategyRecipePanel", () => {
