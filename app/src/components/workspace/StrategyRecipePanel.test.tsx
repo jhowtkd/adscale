@@ -32,7 +32,6 @@ describe("StrategyRecipePanel", () => {
         open
         campaign={{ ctaVariants: ["Shop Now"] }}
         onClose={vi.fn()}
-        onOpenAdvanced={vi.fn()}
         onGeneratePreview={onGeneratePreview}
       />
     );
@@ -51,7 +50,6 @@ describe("StrategyRecipePanel", () => {
         open
         campaign={{ ctaVariants: ["Buy"] }}
         onClose={vi.fn()}
-        onOpenAdvanced={vi.fn()}
         onGeneratePreview={vi.fn()}
       />
     );
@@ -67,7 +65,6 @@ describe("StrategyRecipePanel", () => {
         open
         campaign={{ ctaVariants: ["Buy"] }}
         onClose={vi.fn()}
-        onOpenAdvanced={vi.fn()}
         onGeneratePreview={vi.fn()}
       />
     );
@@ -89,7 +86,6 @@ describe("StrategyRecipePanel", () => {
         open
         campaign={{ ctaVariants: ["Buy"] }}
         onClose={vi.fn()}
-        onOpenAdvanced={vi.fn()}
         onGeneratePreview={onGeneratePreview}
       />
     );
@@ -114,7 +110,6 @@ describe("StrategyRecipePanel", () => {
         open
         campaign={{ ctaVariants: ["Buy"] }}
         onClose={onClose}
-        onOpenAdvanced={vi.fn()}
         onGeneratePreview={vi.fn()}
       />
     );

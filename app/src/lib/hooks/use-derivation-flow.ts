@@ -8,7 +8,7 @@ export type DerivationIntent =
   | "single_format"
   | "batch_format";
 
-export type DerivationFlowStep = "strategy_recipe" | "chooser" | DerivationIntent;
+export type DerivationFlowStep = "strategy_recipe" | DerivationIntent;
 
 export function useDerivationFlow() {
   const [activeStep, setActiveStep] = useState<DerivationFlowStep | null>(null);
@@ -19,16 +19,8 @@ export function useDerivationFlow() {
     setActiveStep("strategy_recipe");
   }, []);
 
-  const openLegacyChooser = useCallback(() => {
-    setActiveStep("chooser");
-  }, []);
-
   const selectIntent = useCallback((intent: DerivationIntent) => {
     setActiveStep(intent);
-  }, []);
-
-  const backToChooser = useCallback(() => {
-    setActiveStep("chooser");
   }, []);
 
   const closeFlow = useCallback(() => {
@@ -36,18 +28,13 @@ export function useDerivationFlow() {
   }, []);
 
   const isStrategyRecipeOpen = activeStep === "strategy_recipe";
-  const isChooserOpen = activeStep === "chooser";
   const isArtConfigOpen =
     activeStep === "manual_art" || activeStep === "auto_art";
   const isFormatConfigOpen =
     activeStep === "single_format" || activeStep === "batch_format";
 
   const selectedIntent = useMemo((): DerivationIntent | null => {
-    if (
-      activeStep === null ||
-      activeStep === "chooser" ||
-      activeStep === "strategy_recipe"
-    ) {
+    if (activeStep === null || activeStep === "strategy_recipe") {
       return null;
     }
     return activeStep;
@@ -77,16 +64,13 @@ export function useDerivationFlow() {
     activeStep,
     selectedIntent,
     isStrategyRecipeOpen,
-    isChooserOpen,
     isArtConfigOpen,
     isFormatConfigOpen,
     artConfigIntent,
     formatConfigIntent,
     strategyRecipeSession,
     openChooser,
-    openLegacyChooser,
     selectIntent,
-    backToChooser,
     closeFlow,
   };
 }

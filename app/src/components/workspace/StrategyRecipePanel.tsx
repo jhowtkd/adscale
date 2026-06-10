@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import { useTranslations } from "next-intl";
-import { Loader2, Sparkles, ChevronRight } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -42,7 +42,6 @@ interface StrategyRecipePanelProps {
   campaign?: CampaignRecipeContext | null;
   isSubmitting?: boolean;
   onClose: () => void;
-  onOpenAdvanced: () => void;
   onGeneratePreview: (patch: ReturnType<typeof useStrategyRecipe>["campaignPatch"]) => void;
 }
 
@@ -55,7 +54,6 @@ export default function StrategyRecipePanel({
   campaign,
   isSubmitting,
   onClose,
-  onOpenAdvanced,
   onGeneratePreview,
 }: StrategyRecipePanelProps) {
   const t = useTranslations("strategyRecipes");
@@ -254,15 +252,6 @@ export default function StrategyRecipePanel({
               <Sparkles className="mr-2 size-4" />
             )}
             {t("generatePreview")}
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            className="w-full text-xs"
-            onClick={onOpenAdvanced}
-          >
-            {t("advancedOptions")}
-            <ChevronRight className="ml-1 size-3" />
           </Button>
         </DialogFooter>
       </DialogContent>

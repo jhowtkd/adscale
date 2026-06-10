@@ -1013,7 +1013,6 @@
     "creditPreview": "A prévia usa {credits} créditos",
     "creditBatchEstimate": "Estimativa do lote completo: {credits} créditos",
     "generatePreview": "Gerar prévia",
-    "advancedOptions": "Opções avançadas de derivação",
     "levels": {
       "conservative": "Conservador",
       "balanced": "Equilibrado",

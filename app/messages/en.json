@@ -1013,7 +1013,6 @@
     "creditPreview": "Preview uses {credits} credits",
     "creditBatchEstimate": "Full batch estimate: {credits} credits",
     "generatePreview": "Generate preview",
-    "advancedOptions": "Advanced derivation options",
     "levels": {
       "conservative": "Conservative",
       "balanced": "Balanced",

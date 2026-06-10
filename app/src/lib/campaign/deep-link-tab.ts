@@ -39,7 +39,6 @@ export interface CampaignDeepLinkActions {
   hasDerivations?: boolean;
   setBriefingView?: (view: "guided" | "full") => void;
   openStrategyRecipe?: () => void;
-  openDerivationChooser?: () => void;
 }
 
 export function applyCampaignDeepLink(
@@ -68,11 +67,7 @@ export function applyCampaignDeepLink(
       break;
     case "generate":
       actions.goToActions();
-      if (mode === "preview") {
-        actions.openStrategyRecipe?.();
-      } else {
-        actions.openDerivationChooser?.();
-      }
+      actions.openStrategyRecipe?.();
       break;
     case "review":
     case "export":

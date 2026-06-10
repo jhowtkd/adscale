@@ -32,7 +32,6 @@ import {
 } from "@/server/ai/guided-briefing";
 import ActionCards from "@/components/workspace/ActionCards";
 import DerivationGrid from "@/components/workspace/DerivationGrid";
-import DerivarModal from "@/components/workspace/DerivarModal";
 import StrategyRecipePanel from "@/components/workspace/StrategyRecipePanel";
 import PreviewGatePanel from "@/components/workspace/PreviewGatePanel";
 import ClientApprovalPackagePanel from "@/components/workspace/ClientApprovalPackagePanel";
@@ -103,16 +102,13 @@ export default function CampaignWorkspacePage() {
   const [showEstilizarModal, setShowEstilizarModal] = useState(false);
   const {
     isStrategyRecipeOpen,
-    isChooserOpen,
     isArtConfigOpen,
     isFormatConfigOpen,
     artConfigIntent,
     formatConfigIntent,
     strategyRecipeSession,
     openChooser,
-    openLegacyChooser,
     selectIntent,
-    backToChooser,
     closeFlow,
   } = useDerivationFlow();
 
@@ -235,7 +231,6 @@ export default function CampaignWorkspacePage() {
       hasDerivations: allDerivations.length > 0,
       setBriefingView,
       openStrategyRecipe: openChooser,
-      openDerivationChooser: openLegacyChooser,
     });
   }, [
     allDerivations.length,
@@ -246,7 +241,6 @@ export default function CampaignWorkspacePage() {
     isLoading,
     isNew,
     openChooser,
-    openLegacyChooser,
     searchParams,
   ]);
 
@@ -370,10 +364,6 @@ export default function CampaignWorkspacePage() {
     closeFlow();
     goToGenerating();
     await configureAndGenerate(patch, { preview: true });
-  };
-
-  const handleOpenLegacyDerivationChooser = () => {
-    openLegacyChooser();
   };
 
   const handleEstilizarSubmit = async (data: {
@@ -548,7 +538,6 @@ export default function CampaignWorkspacePage() {
         visibility={{
           delivery: deliveryModalOpen,
           strategyRecipe: isStrategyRecipeOpen,
-          derivationChooser: isChooserOpen,
           artConfig: isArtConfigOpen,
           formatConfig: isFormatConfigOpen,
           estilizar: showEstilizarModal,
@@ -565,7 +554,6 @@ export default function CampaignWorkspacePage() {
           suggestedCta: analysis.suggestedCta,
         }}
         onStrategyRecipePreview={handleStrategyRecipePreview}
-        onOpenLegacyDerivationChooser={handleOpenLegacyDerivationChooser}
         strategyRecipeSession={strategyRecipeSession}
         pending={{
           export: exportPending,
@@ -581,7 +569,6 @@ export default function CampaignWorkspacePage() {
         onClosePersonaModal={handleClosePersonaModal}
         onCloseDerivationFlow={handleCloseDerivationFlow}
         onSelectDerivationIntent={selectIntent}
-        onBackToDerivationChooser={backToChooser}
         onArtVariationConfirm={handleArtVariationConfirm}
         onFormatAdaptationConfirm={handleFormatAdaptationConfirm}
         campaignId={campaignId}
@@ -978,7 +965,6 @@ function CampaignWorkspaceCard({
 interface CampaignWorkspaceModalVisibility {
   delivery: boolean;
   strategyRecipe: boolean;
-  derivationChooser: boolean;
   artConfig: boolean;
   formatConfig: boolean;
   estilizar: boolean;
@@ -1005,7 +991,6 @@ interface CampaignWorkspaceModalsProps {
   onClosePersonaModal: () => void;
   onCloseDerivationFlow: () => void;
   onSelectDerivationIntent: (intent: DerivationIntent) => void;
-  onBackToDerivationChooser: () => void;
   onArtVariationConfirm: (config: {
     creativeLevel: "conservative" | "balanced" | "bold" | "extreme";
     ctaVariants: string[];
@@ -1031,7 +1016,6 @@ interface CampaignWorkspaceModalsProps {
     ctaVariants: string[];
     targetFormats?: string[];
   }) => void | Promise<void>;
-  onOpenLegacyDerivationChooser: () => void;
   strategyRecipeSession: number;
 }
 
@@ -1049,7 +1033,6 @@ function CampaignWorkspaceModals({
   onClosePersonaModal,
   onCloseDerivationFlow,
   onSelectDerivationIntent,
-  onBackToDerivationChooser,
   onArtVariationConfirm,
   onFormatAdaptationConfirm,
   campaignId,
@@ -1064,7 +1047,6 @@ function CampaignWorkspaceModals({
   brandKit,
   campaignRecipeContext,
   onStrategyRecipePreview,
-  onOpenLegacyDerivationChooser,
   strategyRecipeSession,
 }: CampaignWorkspaceModalsProps) {
   return (
@@ -1108,14 +1090,7 @@ function CampaignWorkspaceModals({
         campaign={campaignRecipeContext}
         isSubmitting={pending.derivation}
         onClose={onCloseDerivationFlow}
-        onOpenAdvanced={onOpenLegacyDerivationChooser}
         onGeneratePreview={onStrategyRecipePreview}
-      />
-
-      <DerivarModal
-        open={visibility.derivationChooser}
-        onClose={onCloseDerivationFlow}
-        onSelect={onSelectDerivationIntent}
       />
 
       {artConfigIntent && (
@@ -1127,7 +1102,7 @@ function CampaignWorkspaceModals({
           campaignCtaVariants={campaignCtaVariants}
           suggestedCta={suggestedCta}
           isSubmitting={pending.derivation}
-          onBack={onBackToDerivationChooser}
+          onBack={onCloseDerivationFlow}
           onClose={onCloseDerivationFlow}
           onConfirm={onArtVariationConfirm}
         />
@@ -1138,7 +1113,7 @@ function CampaignWorkspaceModals({
           open={visibility.formatConfig}
           intent={formatConfigIntent}
           isSubmitting={pending.derivation}
-          onBack={onBackToDerivationChooser}
+          onBack={onCloseDerivationFlow}
           onClose={onCloseDerivationFlow}
           onConfirm={onFormatAdaptationConfirm}
         />
