@@ -11,6 +11,9 @@ export type BillingSubscriptionStatus =
   | "canceled"
   | "none";
 
+export type PastDueRecoveryAction = "portal";
+export type PastDueSpendPolicy = "existing_credits_spendable";
+
 export interface BillingStatus {
   hasCustomer: boolean;
   subscriptionStatus: BillingSubscriptionStatus;
@@ -18,12 +21,17 @@ export interface BillingStatus {
     kind: BillingAccessKind;
     label: string;
     remainingAds: number | null;
+    hasSpendAccess: boolean;
     beta: {
       totalAds: number;
       remainingAds: number;
       exhausted: boolean;
     } | null;
   };
+  pastDue: {
+    recoveryAction: PastDueRecoveryAction;
+    spendPolicy: PastDueSpendPolicy;
+  } | null;
   subscription: {
     status: BillingSubscriptionStatus;
     rawStatus: string;

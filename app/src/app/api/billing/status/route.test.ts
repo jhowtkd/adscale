@@ -15,6 +15,7 @@ vi.mock("@/server/billing/access", () => ({
     remainingAds,
     exhausted: remainingAds <= 0,
   })),
+  PAST_DUE_SPEND_POLICY: "existing_credits_spendable",
 }));
 
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
@@ -97,6 +98,55 @@ describe("billing status route", () => {
       planKey: "starter",
       currentPeriodEnd: "2026-06-01T00:00:00.000Z",
       cancelAtPeriodEnd: false,
+    });
+    expect(body.billing.pastDue).toEqual({
+      recoveryAction: "portal",
+      spendPolicy: "existing_credits_spendable",
+    });
+  });
+
+  it("returns past_due recovery metadata for paid workspaces with failed payment", async () => {
+    mockGetWorkspaceBillingAccess.mockResolvedValue({
+      kind: "paid",
+      label: "Pagamento pendente",
+      creditBalance: 25,
+      remainingAds: 5,
+      hasSpendAccess: true,
+      subscriptionStatus: "past_due",
+      subscription: null,
+      latestSubscription: {
+        id: "sub-local",
+        workspaceId: "workspace-1",
+        billingCustomerId: null,
+        stripeSubscriptionId: "sub_123",
+        stripeCustomerId: "cus_123",
+        status: "past_due",
+        planKey: "growth",
+        priceId: "price_growth",
+        currentPeriodStart: new Date("2026-05-01T00:00:00.000Z"),
+        currentPeriodEnd: new Date("2026-06-01T00:00:00.000Z"),
+        cancelAtPeriodEnd: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      betaEntitlement: null,
+    } as Awaited<ReturnType<typeof getWorkspaceBillingAccess>>);
+    mockGetBillingCustomer.mockResolvedValue({
+      id: "customer-1",
+      workspaceId: "workspace-1",
+      stripeCustomerId: "cus_123",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const response = await GET(new Request("http://localhost/api/billing/status"));
+    const body = await response.json();
+
+    expect(body.billing.subscriptionStatus).toBe("past_due");
+    expect(body.billing.access.hasSpendAccess).toBe(true);
+    expect(body.billing.pastDue).toEqual({
+      recoveryAction: "portal",
+      spendPolicy: "existing_credits_spendable",
     });
   });
 });

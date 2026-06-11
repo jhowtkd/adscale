@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useReducer, useState } from "react";
-import { Calculator, CreditCard, DollarSign, ShieldCheck, TrendingUp, Check, Zap, Crown, Sparkles } from "lucide-react";
+import { AlertTriangle, Calculator, CreditCard, DollarSign, ShieldCheck, TrendingUp, Check, Zap, Crown, Sparkles } from "lucide-react";
 import {
   brlCurrency,
   calculateForecast,
@@ -77,9 +77,10 @@ export default function BillingTab() {
   const access = billingStatus?.access;
   const isTrialing = subscription?.status === "trialing";
   const isActive = subscription?.status === "active";
+  const isPastDue = billingStatus?.subscriptionStatus === "past_due";
   const hasPaidPlan = isActive || isTrialing;
   const isBeta = access?.kind === "beta";
-  const hasSpendAccess = hasPaidPlan || isBeta;
+  const hasSpendAccess = access?.hasSpendAccess ?? (hasPaidPlan || isBeta);
 
   async function handleRedeemBeta() {
     setBetaError("");
@@ -94,6 +95,28 @@ export default function BillingTab() {
   return (
     <div className="animate-fade-in space-y-6">
       {/* Credit balance alert */}
+      {isPastDue && !isBeta && (
+        <div className="rounded-lg border border-[var(--status-amber-bg)] bg-[var(--status-amber-bg)]/30 p-4 text-sm text-[var(--status-amber-text)]">
+          <div className="flex items-center gap-2 font-medium">
+            <AlertTriangle size={16} />
+            Pagamento pendente
+          </div>
+          <p className="mt-2 text-[var(--text-secondary)]">
+            Não conseguimos processar sua última cobrança. Você ainda pode usar os{" "}
+            <strong>{billingStatus?.creditBalance ?? 0}</strong> créditos restantes, mas novos
+            créditos mensais ficam suspensos até atualizar o pagamento.
+          </p>
+          <button
+            type="button"
+            onClick={() => portal.mutate()}
+            disabled={portal.isPending || !billingStatus?.hasCustomer}
+            className="mt-4 h-10 rounded-md bg-[var(--accent-green)] px-4 text-sm font-medium text-[var(--accent-green-on-fill)] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {portal.isPending ? "Abrindo portal..." : "Atualizar pagamento no portal"}
+          </button>
+        </div>
+      )}
+
       {isBeta && (
         <div className="rounded-lg border border-[var(--accent-green)]/30 bg-[var(--accent-green-dim)]/40 p-4 text-sm text-[var(--accent-green-text)]">
           <div className="flex items-center gap-2 font-medium">
@@ -277,9 +300,11 @@ export default function BillingTab() {
                 value={
                   isBeta
                     ? access?.label ?? "Beta"
-                    : isTrialing
-                      ? "Trial (14 dias)"
-                      : subscription?.status ?? "Inativo"
+                    : isPastDue
+                      ? "Pagamento pendente"
+                      : isTrialing
+                        ? "Trial (14 dias)"
+                        : subscription?.status ?? "Inativo"
                 }
               />
               <Line
@@ -292,7 +317,7 @@ export default function BillingTab() {
               />
               <Line label="Renovação" value={subscription?.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString("pt-BR") : "-"} />
             </div>
-            {hasPaidPlan ? (
+            {hasPaidPlan || isPastDue ? (
               <>
                 <div className="mt-5 flex gap-3">
                   <button
@@ -303,14 +328,16 @@ export default function BillingTab() {
                   >
                     {portal.isPending ? "Abrindo..." : "Gerenciar cobrança"}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => checkout.mutate("growth")}
-                    disabled={checkout.isPending}
-                    className="h-10 flex-1 rounded-md bg-[var(--accent-green)] text-sm font-medium text-[var(--accent-green-on-fill)] transition-all hover:bg-[var(--accent-green-light)] disabled:opacity-60"
-                  >
-                    {checkout.isPending ? "Redirecionando..." : "Fazer upgrade"}
-                  </button>
+                  {!isPastDue ? (
+                    <button
+                      type="button"
+                      onClick={() => checkout.mutate("growth")}
+                      disabled={checkout.isPending}
+                      className="h-10 flex-1 rounded-md bg-[var(--accent-green)] text-sm font-medium text-[var(--accent-green-on-fill)] transition-all hover:bg-[var(--accent-green-light)] disabled:opacity-60"
+                    >
+                      {checkout.isPending ? "Redirecionando..." : "Fazer upgrade"}
+                    </button>
+                  ) : null}
                 </div>
                 <button
                   type="button"

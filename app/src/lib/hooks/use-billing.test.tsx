@@ -66,6 +66,51 @@ describe("billing hooks", () => {
     expect(result.current.data?.creditBalance).toBe(120);
   });
 
+  it("parses past_due recovery metadata from billing status", async () => {
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          billing: {
+            hasCustomer: true,
+            subscriptionStatus: "past_due",
+            access: {
+              kind: "paid",
+              label: "Pagamento pendente",
+              remainingAds: 5,
+              hasSpendAccess: true,
+              beta: null,
+            },
+            pastDue: {
+              recoveryAction: "portal",
+              spendPolicy: "existing_credits_spendable",
+            },
+            subscription: {
+              status: "past_due",
+              rawStatus: "past_due",
+              planKey: "growth",
+              currentPeriodEnd: null,
+              cancelAtPeriodEnd: false,
+            },
+            creditBalance: 25,
+          },
+        }),
+    } as unknown as Response);
+
+    const { result } = renderHook(() => useBillingStatus(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(result.current.data?.subscriptionStatus).toBe("past_due");
+    expect(result.current.data?.pastDue).toEqual({
+      recoveryAction: "portal",
+      spendPolicy: "existing_credits_spendable",
+    });
+    expect(result.current.data?.access.hasSpendAccess).toBe(true);
+  });
+
   it("starts checkout for a selected plan", async () => {
     mockApiFetch.mockResolvedValue({
       ok: true,

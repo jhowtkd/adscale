@@ -4,6 +4,7 @@ import { handleApiError } from "@/lib/api-response";
 import {
   getBetaAllowanceSummary,
   getWorkspaceBillingAccess,
+  PAST_DUE_SPEND_POLICY,
 } from "@/server/billing/access";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getBillingCustomerByWorkspace } from "@/server/repositories/billing";
@@ -22,6 +23,8 @@ export async function GET(request: Request) {
         ? getBetaAllowanceSummary(access.remainingAds)
         : null;
 
+    const isPastDue = access.subscriptionStatus === "past_due";
+
     return NextResponse.json({
       billing: {
         hasCustomer: Boolean(customer),
@@ -30,8 +33,15 @@ export async function GET(request: Request) {
           kind: access.kind,
           label: access.label,
           remainingAds: access.remainingAds,
+          hasSpendAccess: access.hasSpendAccess,
           beta: betaSummary,
         },
+        pastDue: isPastDue
+          ? {
+              recoveryAction: "portal" as const,
+              spendPolicy: PAST_DUE_SPEND_POLICY,
+            }
+          : null,
         subscription: subscriptionRecord
           ? {
               status: access.subscriptionStatus,
