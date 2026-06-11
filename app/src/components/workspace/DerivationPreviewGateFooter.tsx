@@ -7,12 +7,15 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useRecordBetaEvent } from "@/lib/hooks/use-record-beta-event";
 import type { BatchCreditBreakdown } from "@/server/ai/strategy-recipes";
+import type { ConversionErrorPayload } from "@/lib/billing/conversion-contract";
+import { ConversionCta } from "@/components/billing/ConversionCta";
 
 interface DerivationPreviewGateFooterProps {
   campaignId: string;
   previewCreditsSpent: number;
   batchBreakdown: BatchCreditBreakdown;
   creditBalance?: number;
+  conversionPayload?: ConversionErrorPayload | null;
   isApproving?: boolean;
   isGenerating?: boolean;
   className?: string;
@@ -25,6 +28,7 @@ export default function DerivationPreviewGateFooter({
   previewCreditsSpent,
   batchBreakdown,
   creditBalance,
+  conversionPayload,
   isApproving,
   isGenerating,
   className,
@@ -32,15 +36,17 @@ export default function DerivationPreviewGateFooter({
   onApproveBatch,
 }: DerivationPreviewGateFooterProps) {
   const t = useTranslations("strategyRecipes.previewGate");
+  const tConversion = useTranslations("billing.conversion");
   const { recordEvent } = useRecordBetaEvent(campaignId);
 
   const STAGE_PROPS = { stage: "preview", missionKey: "preview" } as const;
   const { jobCount, unitCost, totalCredits, generationMode } = batchBreakdown;
 
   const insufficient =
-    typeof creditBalance === "number" &&
-    totalCredits > 0 &&
-    creditBalance < totalCredits;
+    conversionPayload != null ||
+    (typeof creditBalance === "number" &&
+      totalCredits > 0 &&
+      creditBalance < totalCredits);
 
   const approveDisabled =
     isApproving ||
@@ -100,15 +106,21 @@ export default function DerivationPreviewGateFooter({
           )}
           {insufficient ? (
             <p className="text-[var(--destructive)]">
-              {t("insufficientCredits", {
-                estimate: totalCredits,
-                balance: creditBalance,
-              })}
+              {conversionPayload
+                ? tConversion(`reasons.${conversionPayload.reason}`)
+                : t("insufficientCredits", {
+                    estimate: totalCredits,
+                    balance: creditBalance ?? 0,
+                  })}
             </p>
           ) : null}
           <p className="text-[var(--text-muted)]">{t("creditEstimateNote")}</p>
         </div>
       </div>
+
+      {conversionPayload ? (
+        <ConversionCta payload={conversionPayload} className="w-full" />
+      ) : null}
 
       <div className="flex flex-col gap-2 sm:flex-row">
         <Button

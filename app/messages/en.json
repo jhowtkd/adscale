@@ -1786,5 +1786,21 @@
         "prompt": "Credits ran out mid-flow — what would help you continue?"
       }
     }
+  },
+  "billing": {
+    "conversion": {
+      "loading": "Redirecting...",
+      "actions": {
+        "checkout": "Start free trial",
+        "billing": "View billing",
+        "portal": "Update payment method"
+      },
+      "reasons": {
+        "insufficient_credits": "Not enough credits for this step",
+        "beta_exhausted": "Beta allowance used — upgrade to keep generating",
+        "subscription_required": "Subscribe to continue creating ads",
+        "past_due_recovery": "Payment pending — update billing to restore access"
+      }
+    }
   }
 }

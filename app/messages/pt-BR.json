@@ -1787,5 +1787,21 @@
         "prompt": "Créditos acabaram no meio do fluxo — o que ajudaria a continuar?"
       }
     }
+  },
+  "billing": {
+    "conversion": {
+      "loading": "Redirecionando...",
+      "actions": {
+        "checkout": "Começar trial grátis",
+        "billing": "Ver cobrança",
+        "portal": "Atualizar pagamento"
+      },
+      "reasons": {
+        "insufficient_credits": "Créditos insuficientes para esta etapa",
+        "beta_exhausted": "Beta esgotado — faça upgrade para continuar gerando",
+        "subscription_required": "Assine para continuar criando anúncios",
+        "past_due_recovery": "Pagamento pendente — atualize a cobrança para restaurar o acesso"
+      }
+    }
   }
 }

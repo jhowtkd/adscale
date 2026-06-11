@@ -6,6 +6,7 @@ import type { Derivation } from "@/lib/mock-data";
 import DerivationCard from "./DerivationCard";
 import DerivationPreviewGateFooter from "./DerivationPreviewGateFooter";
 import type { BatchCreditBreakdown } from "@/server/ai/strategy-recipes";
+import type { ConversionErrorPayload } from "@/lib/billing/conversion-contract";
 
 // ============================================
 // Types
@@ -37,6 +38,7 @@ export interface DerivationGridProps {
     previewCreditsSpent: number;
     batchBreakdown: BatchCreditBreakdown;
     creditBalance?: number;
+    conversionPayload?: ConversionErrorPayload | null;
     isApproving?: boolean;
     onReviseRecipe: () => void;
     onApproveBatch: () => void;
@@ -159,6 +161,7 @@ export default function DerivationGrid({
                 previewCreditsSpent={previewGate.previewCreditsSpent}
                 batchBreakdown={previewGate.batchBreakdown}
                 creditBalance={previewGate.creditBalance}
+                conversionPayload={previewGate.conversionPayload}
                 isApproving={previewGate.isApproving}
                 isGenerating={derivation.status === "generating"}
                 onReviseRecipe={previewGate.onReviseRecipe}
