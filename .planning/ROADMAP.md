@@ -24,7 +24,7 @@
 
 **Milestone Goal:** Levar o billing Stripe existente a produção com lifecycle idempotente, dunning explícito, conversão beta→pago e superfícies de billing verificadas de ponta a ponta.
 
-- [ ] **Phase 97: Billing Contracts and Subscription Lifecycle** — status explícito, vínculo de subscription e grants idempotentes
+- [x] **Phase 97: Billing Contracts and Subscription Lifecycle** — status explícito, vínculo de subscription e grants idempotentes
 - [ ] **Phase 98: Past-Due Policy and Recovery** — política de spend, mensagens e portal para recuperação de pagamento
 - [ ] **Phase 99: In-Product Conversion Surfaces** — payload 402 estruturado e CTAs de trial/upgrade nos value moments
 - [ ] **Phase 100: Billing Account Experience** — datas, estados, histórico de grants e distinção beta/pago
@@ -33,7 +33,7 @@
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
-| 97 | Billing Contracts and Subscription Lifecycle | SUBS-01, SUBS-02, SUBS-03 | Planned | - |
+| 97 | Billing Contracts and Subscription Lifecycle | 1/1 | Complete   | 2026-06-11 |
 | 98 | Past-Due Policy and Recovery | DUEN-01, DUEN-02, DUEN-03 | Planned | - |
 | 99 | In-Product Conversion Surfaces | CONV-01, CONV-02, CONV-03, CONV-04 | Planned | - |
 | 100 | Billing Account Experience | BILL-01, BILL-02, BILL-03, BILL-04 | Planned | - |

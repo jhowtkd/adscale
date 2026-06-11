@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v12.0
 milestone_name: Monetização Real
-status: Planned
-stopped_at: Ready to execute Phase 97
-last_updated: "2026-06-11T14:10:00.000Z"
-last_activity: 2026-06-11 — Phase 94 complete; v11.11 milestone closed
+status: In Progress
+stopped_at: Completed 97-01-PLAN.md
+last_updated: "2026-06-11T17:40:35.808Z"
+last_activity: 2026-06-11 — Phase 97 plan 01 complete (billing contracts + idempotent grants)
 progress:
   total_phases: 6
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 6
-  completed_plans: 0
-  percent: 0
+  completed_plans: 1
+  percent: 17
 ---
 
 # State: ADScale
@@ -28,26 +28,27 @@ See: `.planning/PROJECT.md` (updated 2026-06-08)
 
 ## Current Position
 
-Phase: 97 of 102 — Billing Contracts and Subscription Lifecycle
-Plan: 97-01 ready
-Status: Planned
-Last activity: 2026-06-11 — v12.0 roadmap and execution plans created
+Phase: 98 of 102 — Past-Due Policy and Recovery
+Plan: Ready for 98-01
+Status: Phase 97 complete
+Last activity: 2026-06-11 — Phase 97 plan 01 complete (billing contracts + idempotent grants)
 
-Progress: ░░░░░░░░░░░░░░░░░░░░ 0%
+Progress: [██░░░░░░░░] 17%
 
 ## Accumulated Context
 
 - Stripe stack exists: checkout (14d trial), portal, webhook (`checkout.session.completed`, subscription sync, `invoice.paid`, `invoice.payment_failed`).
 - Plans: starter/growth/scale with monthly credit grants (30/120/360).
 - Beta path: code redemption → 10 ads (50 credits), parallel to paid; no fake Stripe subs.
-- `getActiveSubscriptionByWorkspace` only treats `active`/`trialing` as paid; `past_due` falls through to beta/none.
+- `getActiveSubscriptionByWorkspace` still gates paid spend on `active`/`trialing`; `getLatestSubscriptionByWorkspace` exposes `past_due`/`canceled` via normalized `subscriptionStatus`.
+- `invoice.paid` grants are idempotent on `stripe_invoice` + `invoice.id` sourceId.
 - v11.7 upgrade CTAs exist at value moments; need wiring to checkout from 402 surfaces.
 - BillingTab has forecast calculator (internal COGS) — keep separate from user-facing credits.
 
 ## Session Continuity
 
-Last session: 2026-06-08T18:00:00.000Z
-Stopped at: Ready to execute Phase 97
+Last session: 2026-06-11T17:40:35.805Z
+Stopped at: Completed 97-01-PLAN.md
 
 ## Blockers
 

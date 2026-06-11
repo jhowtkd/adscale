@@ -23,9 +23,9 @@ Levar billing Stripe existente a produção: trial, renovação mensal de crédi
 
 ### Subscription Lifecycle (SUBS)
 
-- [ ] **SUBS-01**: API `/api/billing/status` expõe status de assinatura legível (`trialing`, `active`, `past_due`, `canceled`, `none`) além de `access.kind`.
-- [ ] **SUBS-02**: Créditos mensais são concedidos apenas em `invoice.paid`, idempotentes por `invoice.id` como `sourceId`.
-- [ ] **SUBS-03**: `checkout.session.completed` vincula customer/subscription sem conceder créditos duplicados.
+- [x] **SUBS-01**: API `/api/billing/status` expõe status de assinatura legível (`trialing`, `active`, `past_due`, `canceled`, `none`) além de `access.kind`.
+- [x] **SUBS-02**: Créditos mensais são concedidos apenas em `invoice.paid`, idempotentes por `invoice.id` como `sourceId`.
+- [x] **SUBS-03**: `checkout.session.completed` vincula customer/subscription sem conceder créditos duplicados.
 
 ### Dunning & Access (DUEN)
 
@@ -57,9 +57,9 @@ Levar billing Stripe existente a produção: trial, renovação mensal de crédi
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SUBS-01 | 97 | Pending |
-| SUBS-02 | 97 | Pending |
-| SUBS-03 | 97 | Pending |
+| SUBS-01 | 97 | Complete |
+| SUBS-02 | 97 | Complete |
+| SUBS-03 | 97 | Complete |
 | DUEN-01 | 98 | Pending |
 | DUEN-02 | 98 | Pending |
 | DUEN-03 | 98 | Pending |
