@@ -3,10 +3,13 @@
  * customer so the billing checkout (TC011) and customer portal (TC013) work
  * against real test-mode keys.
  *
- * Requires real STRIPE_* test values in .env.local (sk_test_..., price_...).
+ * Requires real STRIPE_* **test** values in .env.local (sk_test_..., price_...).
+ * Refuses sk_live_ unless --allow-live is passed (production go-live uses the
+ * runbook checkout smoke instead — do not attach tok_visa in live mode).
  *
  * Usage:
  *   npx tsx scripts/seed-stripe-real.ts [--email=dev-admin@adscale.local]
+ *   npx tsx scripts/seed-stripe-real.ts --dry-run
  */
 import "./load-env";
 import { eq } from "drizzle-orm";
@@ -24,6 +27,22 @@ import {
 function arg(name: string, fallback: string) {
   const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
   return hit ? hit.split("=").slice(1).join("=") : fallback;
+}
+
+function hasFlag(name: string) {
+  return process.argv.includes(`--${name}`);
+}
+
+function assertTestModeKey() {
+  const key = env.STRIPE_SECRET_KEY;
+  const isLive = key.startsWith("sk_live_") || key.startsWith("rk_live_");
+  if (isLive && !hasFlag("allow-live")) {
+    throw new Error(
+      "STRIPE_SECRET_KEY is a live key. seed:stripe is for test mode only. " +
+        "For production go-live, follow .planning/phases/101-stripe-production-go-live/101-PRODUCTION-RUNBOOK.md. " +
+        "Pass --allow-live only if you explicitly intend to mutate live Stripe data."
+    );
+  }
 }
 
 async function resolveWorkspace(email: string) {
@@ -71,8 +90,20 @@ async function main() {
   if (env.STRIPE_SECRET_KEY.includes("replace")) {
     throw new Error("STRIPE_SECRET_KEY is still a placeholder. Add real test keys first.");
   }
+  assertTestModeKey();
 
+  const dryRun = hasFlag("dry-run");
   const ws = await resolveWorkspace(arg("email", "dev-admin@adscale.local"));
+
+  if (dryRun) {
+    console.log("\n[dry-run] Would seed Stripe test billing for:");
+    console.log("  workspace:", ws.workspaceId);
+    console.log("  email:    ", ws.email);
+    console.log("  plan:      scale");
+    console.log("  mode:     ", env.STRIPE_SECRET_KEY.startsWith("sk_test_") ? "test" : "other");
+    console.log("\nNo Stripe API calls made. Remove --dry-run to execute.");
+    return;
+  }
   const existing = await getBillingCustomerByWorkspace(ws.workspaceId);
 
   // If a real customer already exists in Stripe, reuse it; otherwise create one.
