@@ -24,7 +24,7 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ### v11.11 Aprendizado → Ação — COMPLETE (2026-06-11)
 
-Phases 90–96 complete; Q2/Q3/Q9 answered with real sessions; `ctaProminence` warning-only per READY-10.
+Phases 90–96 complete; all 10 learning questions answered with SESS-03 sessions; `ctaProminence` warning-only per READY-10.
 
 ### v11.10 Fechamento Entrega e Analytics — COMPLETE (2026-06-11)
 

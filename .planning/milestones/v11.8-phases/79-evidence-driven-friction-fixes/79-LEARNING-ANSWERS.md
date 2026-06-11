@@ -2,8 +2,8 @@
 
 **Phase:** 79 — Evidence-Driven Friction Fixes  
 **Source questions:** `67-LEARNING-QUESTIONS.md`  
-**Data basis:** `78-LEARNING-ANSWERS-DRAFT.md`, `ANALYTICS_FIXTURE_EVENTS`, Phase 79 friction backlog  
-**Status:** Final — fixture-backed with UAT TBD where noted
+**Data basis:** SESS-03 export + `94-LEARNING-ANSWERS.md` (canonical); original fixture analysis in Phase 79 friction backlog  
+**Status:** Superseded for per-question answers — see `94-LEARNING-ANSWERS.md` (all 10 questions, SESS-03). Decision gate below updated with real-session evidence (2026-06-11).
 
 ---
 
@@ -85,15 +85,16 @@
 
 ---
 
-## Decision gate (LEARN-03 → v11.9 direction)
+## Decision gate (LEARN-03 → v11.9 direction) — updated SESS-03
 
-| Dominant signal | Evidence strength | **v11.9 recommendation** |
-|-----------------|-------------------|--------------------------|
-| Q8 credit surprises at preview | Fixture + mission-credit-signals | **Primary: delivery/billing UX** — credit estimate accuracy, surprise surfacing, batch gate copy |
-| Q1 readiness false positives | Fixture operator tag | **Secondary: readiness/briefing accuracy** — blocking threshold review, pre-derive visibility (shipped F-02) |
-| Q5 preview funnel mismatch | Fixture events vs notes | **Tertiary: recipe/preview iteration** — completion instrumentation, post-preview stall tooling |
+| Dominant signal (real) | Evidence strength | **v11.9+ recommendation** |
+|------------------------|-------------------|---------------------------|
+| Q7 share self-serve / discoverability | 1/3 sessions; API-only share creation; client opened in 7s | **Primary: delivery/discoverability UX** — share UI on campaign page (F-13) |
+| Q1 readiness false positives (`ctaProminence`) | 1/3 override; preview OK after override | **Mitigated** — READY-10 shipped; monitor override rate |
+| Q8 credit surprises at preview | **0** in SESS-03 export (fixture +3 not reproduced) | **Not dominant** — F-01 shipped; do not over-index on fixture |
+| Q5 preview funnel | 2/2/0 accurate post-instrumentation | Instrumentation validated; batch satisfaction correlation TBD |
 
-**Locked recommendation:** Prioritize **delivery/credits UX** (Q7–Q9 cluster) for v11.9 milestone scope. Invest in readiness accuracy in parallel only if UAT confirms Q1 dominance over Q8.
+**Locked recommendation (SESS-03):** Prioritize **share/delivery discoverability** (Q7/Q9 cluster) over credit-surprise UX. Readiness accuracy partially addressed via READY-10. Full per-question answers: `94-LEARNING-ANSWERS.md`.
 
 ---
 

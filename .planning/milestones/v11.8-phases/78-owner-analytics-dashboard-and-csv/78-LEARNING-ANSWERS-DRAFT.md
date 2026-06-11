@@ -2,8 +2,8 @@
 
 **Phase:** 78 — Owner Analytics Dashboard and CSV  
 **Source questions:** `67-LEARNING-QUESTIONS.md`  
-**Data basis:** `ANALYTICS_FIXTURE_EVENTS`, `EXAMPLE_BETA_SESSION_FIXTURE`, aggregate unit tests  
-**Status:** Draft — sections marked TBD need real operator UAT session data
+**Data basis:** SESS-03 export `beta-analytics-export-sess03.csv` (216 events, 3 sessions, 2026-06-11)  
+**Status:** Complete — all 10 answered (SESS-03); canonical answers in Phase 94 `94-LEARNING-ANSWERS.md`
 
 ---
 
@@ -11,10 +11,10 @@
 
 ### Q1. Do readiness blocking rules match operator judgment, or do users override/ignore them?
 
-**Answer (fixture):** One `readiness_blocked` event (blockingCount: 2) in session `550e8400-e29b-41d4-a716-446655440001`. Operator tagged readiness stage note with **"blocking false positive"** — suggests at least one false-positive block in the happy-path fixture.
+**Answer (SESS-03):** Session `466ef707` hit `readiness_blocked` on `ctaProminence` (score 20) and overrode; preview score 73 and batch succeeded — blocking did not match operator judgment. Override rate 1/3 sessions. Mitigated by READY-10 (warning-only `ctaProminence`).
 
-**Citation:** `aggregate.fixture.ts` evt-readiness-block; `beta-sessions.fixture.ts` readiness.tags  
-**TBD:** Real session count of blocks vs overrides across 3–5 operator sessions.
+**Citation:** `readiness_blocked` rows in `beta-analytics-export-sess03.csv`; `94-THRESHOLD-EVIDENCE.md`  
+**Follow-up:** Monitor override rate in future UAT.
 
 ### Q2. Which guided briefing questions get skipped most?
 
@@ -35,23 +35,22 @@
 
 ### Q4. Which recipe wins by default vs which operators actually choose?
 
-**Answer (fixture):** Operator note records **"Selected Performance Push"** at strategy_recipe stage.
+**Answer (SESS-03):** Session `89669961` accepted default `safe_iteration` when readiness clean. Session `466ef707` toggled `safe_iteration` → `performance_push` (final pick) when iterating a blocked creative.
 
-**Citation:** `EXAMPLE_BETA_SESSION_FIXTURE.operatorNotes.strategy_recipe.notes`  
-**TBD:** Aggregate recipe selection events when instrumented (not in Phase 76 event keys).
+**Citation:** `recipe_selected` rows in `beta-analytics-export-sess03.csv`; `89-SESS-03-EVIDENCE.md`
 
 ### Q5. Does preview quality predict batch satisfaction?
 
-**Answer (fixture):** Preview stage entered=1, abandoned=1, completed=0 — operator did not complete preview gate in event stream despite runbook note "Preview approved".
+**Answer (SESS-03):** Preview funnel accurate post-instrumentation: entered 2 / completed 2 / abandoned 0. Session `466ef707` preview 73 → batch 30 cr without friction. Batch-satisfaction correlation not measurable — zero `feedbackReportId` linked.
 
-**Citation:** cockpit stage funnel preview row; operator note at preview stage  
-**TBD:** Correlate preview abandonment with batch feedback reports (feedbackReportIds).
+**Citation:** `# cockpit_stage_funnel` preview row; Phase 94 `94-LEARNING-ANSWERS.md`  
+**Follow-up:** Link feedback reports to preview scores in future UAT.
 
 ### Q6. Are tradeoff copy blocks read, or do users jump straight to overrides?
 
-**Answer:** No tradeoff-read events instrumented in Phase 76.
+**Answer (SESS-03):** 3 `recipe_tradeoff_viewed` vs 5 `recipe_selected` — tradeoffs opened before first selection in both recipe sessions; repeat toggles skip re-reading.
 
-**TBD:** Requires future event or session notes tagging override-without-read.
+**Citation:** `recipe_tradeoff_viewed` / `recipe_selected` in `beta-analytics-export-sess03.csv`; `89-SESS-03-EVIDENCE.md`
 
 ---
 
@@ -59,17 +58,16 @@
 
 ### Q7. Do clients use share links without operator hand-holding?
 
-**Answer (fixture):** `mission_completed` with missionKey `share`; operator note "Share link opened in incognito"; feedbackReportId linked.
+**Answer (SESS-03):** Session `f32d2ba1`: share link opened in incognito ~7s after creation. Share created via `POST /api/share` — operator hand-holding required for creation; client opened without further operator action.
 
-**Citation:** evt-mission-share; fixture share stage note  
-**TBD:** Count share missions without hands_on assistance_level.
+**Citation:** `share_link_opened` row; session `f32d2ba1` in `93-SESS-03-EVIDENCE.md`  
+**Follow-up:** Expose share UI on campaign page for true self-serve measurement.
 
 ### Q8. Where do credit surprises happen?
 
-**Answer (fixture):** One credit surprise at **preview** operation — estimate 5, actual 8 (delta +3). One `credit_blocked` at batch (estimate 50).
+**Answer (SESS-03):** **Zero credit surprises** in production export. All six `credit_spend` events match estimates (preview 5/5, batch 15/15). Fixture preview delta +3 not reproduced.
 
-**Citation:** `aggregateCreditSurprises` test; evt-credit-spend, evt-credit-block  
-**TBD:** Rank surprise frequency by operation across all sessions.
+**Citation:** `# credit_surprises_by_operation` (empty); `credit_spend` rows in `beta-analytics-export-sess03.csv`
 
 ### Q9. Is approval package refresh understood or treated as a bug?
 
@@ -84,22 +82,25 @@
 
 ### Q10. What is median time draft → share link, and where does it stall?
 
-**Answer (fixture):** Example session duration **90 minutes** (14:00 → 15:30 UTC). Longest gap implied between preview abandon (14:42) and export mission (15:20) — **~38 min stall post-preview**.
+**Answer (SESS-03):** Sessions `466ef707` and `89669961`: preview → batch continuous (no meaningful stall). Session `f32d2ba1`: ~28 min approved→share, dominated by missing share UI (not hesitation). Median draft→share: **n=1** — insufficient for robust median.
 
-**Citation:** `EXAMPLE_BETA_SESSION_FIXTURE.startedAt/endedAt`; event timestamps in fixture  
-**TBD:** Median across 3–5 real sessions via `buildBetaSessionSummary`.
-
----
-
-## Decision gate preview (draft)
-
-| Signal | Fixture hint | Gate |
-|--------|--------------|------|
-| Q1–Q3 | False-positive readiness tag | Investigate readiness accuracy if dominant in UAT |
-| Q4–Q6 | Preview abandoned in events | Recipe/preview iteration if UAT confirms |
-| Q7–Q9 | Credit surprise at preview | Delivery/billing UX if UAT confirms |
-| Q10 | Post-preview stall | Process/tooling before new surfaces |
+**Citation:** `session_stage_timeline`; `93-SESS-03-EVIDENCE.md`  
+**Follow-up:** Re-measure after share UI ships.
 
 ---
 
-*Generated Phase 78 — cite fixture IDs until operator UAT replaces TBD sections.*
+## Decision gate (SESS-03 — real data)
+
+| Signal | SESS-03 evidence | Gate |
+|--------|------------------|------|
+| Q1 readiness false positive | 1/3 override on `ctaProminence`; preview OK | Mitigated (READY-10) — monitor |
+| Q4–Q6 recipe/preview | Funnel 2/2/0; tradeoffs read before first pick | Instrumentation validated |
+| Q7–Q9 delivery/share | Share UI missing; 0 stale-badge events | Prioritize share discoverability |
+| Q8 credit surprises | 0 in real export | Not dominant — fixture was outlier |
+| Q10 post-preview stall | Continuous preview→batch; share UI gap | Fix discoverability + preview polling |
+
+**Locked recommendation:** See `94-LEARNING-ANSWERS.md` decision gate — share/delivery discoverability over credit-surprise UX.
+
+---
+
+*All sections cite SESS-03 session IDs — see Phase 94 `94-LEARNING-ANSWERS.md` for canonical answers.*
