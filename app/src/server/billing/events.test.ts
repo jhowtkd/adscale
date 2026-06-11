@@ -11,6 +11,7 @@ vi.mock("@/server/validation/env", () => ({
 
 vi.mock("@/server/repositories/billing", () => ({
   createCreditGrant: vi.fn(),
+  getCreditGrantBySourceId: vi.fn(),
   getSubscriptionByStripeSubscriptionId: vi.fn(),
   hasProcessedStripeEvent: vi.fn(),
   recordProcessedStripeEvent: vi.fn(),
@@ -28,6 +29,7 @@ vi.mock("./stripe", () => ({
 
 import {
   createCreditGrant,
+  getCreditGrantBySourceId,
   getSubscriptionByStripeSubscriptionId,
   hasProcessedStripeEvent,
   recordProcessedStripeEvent,
@@ -38,6 +40,7 @@ import { processStripeEvent } from "./events";
 import { stripe } from "./stripe";
 
 const mockCreateCreditGrant = vi.mocked(createCreditGrant);
+const mockGetCreditGrantBySourceId = vi.mocked(getCreditGrantBySourceId);
 const mockGetSubscription = vi.mocked(getSubscriptionByStripeSubscriptionId);
 const mockHasProcessedStripeEvent = vi.mocked(hasProcessedStripeEvent);
 const mockRecordProcessedStripeEvent = vi.mocked(recordProcessedStripeEvent);
@@ -57,6 +60,7 @@ describe("processStripeEvent", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockHasProcessedStripeEvent.mockResolvedValue(false);
+    mockGetCreditGrantBySourceId.mockResolvedValue(null);
     mockGetSubscription.mockResolvedValue(
       null as unknown as Awaited<ReturnType<typeof getSubscriptionByStripeSubscriptionId>>
     );
@@ -99,6 +103,7 @@ describe("processStripeEvent", () => {
         priceId: "price_growth",
       })
     );
+    expect(mockCreateCreditGrant).not.toHaveBeenCalled();
     expect(mockRecordProcessedStripeEvent).toHaveBeenCalledWith({
       stripeEventId: event.id,
       type: "checkout.session.completed",
@@ -169,6 +174,30 @@ describe("processStripeEvent", () => {
         planKey: "scale",
       })
     );
+  });
+
+  it("skips duplicate invoice grants when sourceId already exists", async () => {
+    mockGetCreditGrantBySourceId.mockResolvedValue({
+      id: "grant-existing",
+      workspaceId: "workspace-1",
+      source: "stripe_invoice",
+      sourceId: "in_123",
+      amount: 120,
+      remaining: 120,
+      expiresAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const event = stripeEvent("invoice.paid", {
+      id: "in_123",
+      subscription: "sub_123",
+    });
+
+    const result = await processStripeEvent(event);
+
+    expect(mockGetCreditGrantBySourceId).toHaveBeenCalledWith("stripe_invoice", "in_123");
+    expect(mockCreateCreditGrant).not.toHaveBeenCalled();
+    expect(result).toEqual({ status: "processed", type: "invoice.paid" });
   });
 
   it("grants plan credits from paid invoices", async () => {

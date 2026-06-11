@@ -2,6 +2,7 @@ import type Stripe from "stripe";
 
 import {
   createCreditGrant,
+  getCreditGrantBySourceId,
   getSubscriptionByStripeSubscriptionId,
   hasProcessedStripeEvent,
   recordProcessedStripeEvent,
@@ -126,6 +127,15 @@ async function syncSubscription(subscription: Stripe.Subscription) {
 
 async function processInvoicePaid(event: Stripe.Event) {
   const invoice = event.data.object as Stripe.Invoice;
+  if (!invoice.id) {
+    throw new Error("Missing invoice id");
+  }
+
+  const existingGrant = await getCreditGrantBySourceId("stripe_invoice", invoice.id);
+  if (existingGrant) {
+    return;
+  }
+
   const stripeSubscriptionId = invoiceSubscriptionId(invoice);
   if (!stripeSubscriptionId) {
     throw new Error("Missing invoice subscription");
