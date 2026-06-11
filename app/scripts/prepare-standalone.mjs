@@ -49,26 +49,6 @@ async function main() {
       console.warn(`[prepare-standalone] skipped ${result.label}: ${result.reason}`);
     }
   }
-
-  // #region agent log
-  fetch("http://127.0.0.1:7899/ingest/cfdc6907-57c9-49e8-855d-2427aa77ea62", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "b15b40" },
-    body: JSON.stringify({
-      sessionId: "b15b40",
-      runId: "pre-fix",
-      hypothesisId: "H1",
-      location: "prepare-standalone.mjs:main",
-      message: "standalone asset copy complete",
-      data: {
-        results,
-        staticDstExists: await exists(staticDst),
-        publicDstExists: await exists(publicDst),
-      },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
 }
 
 main().catch((error) => {
