@@ -28,12 +28,12 @@ See: `.planning/PROJECT.md` (updated 2026-06-08)
 
 ## Current Position
 
-Phase: 100 of 102 — Billing Account Experience
-Plan: Ready for 100-01
-Status: Phase 99 complete
-Last activity: 2026-06-11 — Phase 99 plan 01 complete (in-product conversion surfaces)
+Phase: 101 of 102 — Checkout & Portal Flows
+Plan: Ready for 101-01
+Status: Phase 100 complete
+Last activity: 2026-06-11 — Phase 100 plan 01 complete (billing account experience)
 
-Progress: [█████░░░░░] 50%
+Progress: [███████░░░] 67%
 
 ## Accumulated Context
 
@@ -44,7 +44,9 @@ Progress: [█████░░░░░] 50%
 - `/api/billing/status` exposes `pastDue.recoveryAction: portal` and `access.hasSpendAccess` for BillingTab recovery CTA.
 - `invoice.paid` grants are idempotent on `stripe_invoice` + `invoice.id` sourceId.
 - Structured 402 conversion contract drives preview gate, mission upgrade, and spend routes (`reason`, `recommendedAction`, `returnPath`).
-- BillingTab has forecast calculator (internal COGS) — keep separate from user-facing credits.
+- BillingTab surfaces localized account states (trial/active/past-due/canceled/beta/none) with grant ledger history; internal COGS forecast stays separate.
+- `/api/billing/status` exposes `canceled.recoveryAction: checkout` alongside `pastDue.recoveryAction: portal`.
+- `/api/billing/history` returns `grants` ledger entries (source, amount, date).
 
 ## Session Continuity
 
