@@ -1,9 +1,12 @@
 "use client";
 
-import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Coins, AlertCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { MissionCreditContext, MissionCreditInfo } from "@/lib/progression/missions/types";
+import { useBillingStatus } from "@/lib/hooks/use-billing";
+import { resolveConversionGateFromBilling } from "@/lib/billing/conversion-client";
+import { ConversionCta } from "@/components/billing/ConversionCta";
 
 interface MissionCreditBannerProps {
   credit?: MissionCreditInfo;
@@ -15,11 +18,23 @@ export function MissionCreditBanner({
   creditContext,
 }: MissionCreditBannerProps) {
   const t = useTranslations("dashboard.missions.credits");
+  const tConversion = useTranslations("billing.conversion");
+  const pathname = usePathname();
+  const { data: billingStatus } = useBillingStatus();
 
   if (!credit || !creditContext) return null;
 
   const { remainingCredits, remainingAds, showUpgradePrompt } = creditContext;
   const costKey = credit.costLabel === "from" ? "costFrom" : "costSingle";
+
+  const conversionPayload = showUpgradePrompt
+    ? resolveConversionGateFromBilling({
+        billing: billingStatus,
+        requiredCredits: credit.creditCost,
+        returnPath: pathname,
+        operation: "mission_upgrade",
+      })
+    : null;
 
   return (
     <div className="mt-3 space-y-2 rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)]/50 p-3">
@@ -41,16 +56,15 @@ export function MissionCreditBanner({
           </span>
         ) : null}
       </div>
-      {showUpgradePrompt ? (
-        <p className="text-xs text-[var(--text-secondary)]">
-          {t("upgradeHint")}{" "}
-          <Link
-            href="/settings?tab=billing"
-            className="font-mono uppercase tracking-wider text-[var(--accent-green-dark)] hover:text-[var(--accent-green)]"
-          >
-            {t("upgradeLink")}
-          </Link>
-        </p>
+      {conversionPayload ? (
+        <div className="space-y-2">
+          <p className="text-xs text-[var(--text-secondary)]">
+            {tConversion(`reasons.${conversionPayload.reason}`)}
+          </p>
+          <ConversionCta payload={conversionPayload} className="w-full" />
+        </div>
+      ) : showUpgradePrompt ? (
+        <p className="text-xs text-[var(--text-secondary)]">{t("upgradeHint")}</p>
       ) : null}
     </div>
   );
