@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import { apiError, handleApiError } from "@/lib/api-response";
+import { logger } from "@/lib/logger";
+import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
+import { getBetaSessionIdFromRequest } from "@/server/beta-analytics/session";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import {
   getDerivationById,
@@ -16,6 +19,32 @@ import { recordBrandMemoryEvent } from "@/server/memory/brand-memory-dispatch";
 import { resolveCtaSemantics } from "@/server/ai/creative-contract";
 import type { CreativeContract } from "@/server/ai/creative-contract";
 
+function emitReviewMissionCompleted(input: {
+  workspaceId: string;
+  userId: string;
+  campaignId: string;
+  derivationId: string;
+  sessionId?: string;
+  operation: "qa" | "qa_cached";
+}) {
+  void recordBetaAnalyticsEvent({
+    workspaceId: input.workspaceId,
+    userId: input.userId,
+    eventKey: "mission_completed",
+    source: "server",
+    campaignId: input.campaignId,
+    derivationId: input.derivationId,
+    sessionId: input.sessionId,
+    properties: {
+      missionKey: "review",
+      stage: "review",
+      operation: input.operation,
+    },
+  }).catch((err) => {
+    logger.warn("[derivations.qa.POST] mission_completed analytics failed", err);
+  });
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -29,11 +58,21 @@ export async function POST(
       getUserLocale(user.id),
       getDerivationById(id, workspace.id),
     ]);
+    const sessionId = getBetaSessionIdFromRequest(request);
 
     if (!derivation) return apiError("derivationNotFound", 404);
     if (derivation.status !== "approved") return apiError("derivationNotApprovedForQa", 409);
     if (!derivation.outputKey) return apiError("derivationMissingOutput", 400);
     if (derivation.qaStatus && derivation.qaStatus !== "pending") {
+      emitReviewMissionCompleted({
+        workspaceId: workspace.id,
+        userId: user.id,
+        campaignId: derivation.campaignId,
+        derivationId: id,
+        sessionId,
+        operation: "qa_cached",
+      });
+
       return NextResponse.json({
         qa: {
           status: derivation.qaStatus,
@@ -118,6 +157,15 @@ export async function POST(
       hardFailures: gate.hardFailures,
       polishSuggestions: gate.polishSuggestions,
       qualityGatedAt: gatedAt,
+    });
+
+    emitReviewMissionCompleted({
+      workspaceId: workspace.id,
+      userId: user.id,
+      campaignId: derivation.campaignId,
+      derivationId: id,
+      sessionId,
+      operation: "qa",
     });
 
     await recordBrandMemoryEvent({

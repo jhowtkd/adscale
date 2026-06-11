@@ -36,6 +36,14 @@ vi.mock("@/server/billing/gates", () => ({
   spendCreditsOrApiError: vi.fn(() => Promise.resolve(null)),
 }));
 
+vi.mock("@/server/beta-analytics/record", () => ({
+  recordBetaAnalyticsEvent: vi.fn(() => Promise.resolve({ id: "event-1" })),
+}));
+
+vi.mock("@/server/memory/brand-memory-dispatch", () => ({
+  recordBrandMemoryEvent: vi.fn(() => Promise.resolve()),
+}));
+
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
 }));
@@ -48,6 +56,9 @@ import {
 import { getCampaignById } from "@/server/repositories/campaign";
 import { downloadBuffer } from "@/server/storage/r2";
 import { analyzeCreativeQa } from "@/server/ai/creative-qa";
+import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
+
+const VALID_SESSION_ID = "550e8400-e29b-41d4-a716-446655440000";
 
 const mockGetDerivationById = vi.mocked(getDerivationById);
 const mockUpdateDerivationQa = vi.mocked(updateDerivationQa);
@@ -55,11 +66,16 @@ const mockUpdateDerivationQualityGate = vi.mocked(updateDerivationQualityGate);
 const mockGetCampaignById = vi.mocked(getCampaignById);
 const mockDownloadBuffer = vi.mocked(downloadBuffer);
 const mockAnalyzeCreativeQa = vi.mocked(analyzeCreativeQa);
+const mockRecordBetaAnalyticsEvent = vi.mocked(recordBetaAnalyticsEvent);
 
-function requestFor(id: string): Request {
+async function flushAnalytics() {
+  await new Promise((resolve) => setImmediate(resolve));
+}
+
+function requestFor(id: string, headers: Record<string, string> = {}): Request {
   return new Request(`http://localhost/api/derivations/${id}/qa`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...headers },
   });
 }
 
@@ -299,6 +315,73 @@ describe("POST /api/derivations/[id]/qa", () => {
     );
   });
 
+  it("emits mission_completed when QA analysis completes", async () => {
+    mockGetDerivationById.mockResolvedValue({
+      id: "derivation-id",
+      status: "approved",
+      outputKey: "derivations/test.png",
+      campaignId: "campaign-id",
+      workspaceId: "workspace-1",
+      qaStatus: "pending",
+      scoreIssues: [],
+      qualityScore: 80,
+      format: "1:1",
+      generationMode: "art_variation",
+      ctaText: "Buy now",
+    } as Awaited<ReturnType<typeof getDerivationById>>);
+
+    mockGetCampaignById.mockResolvedValue({
+      id: "campaign-id",
+      name: "Campaign",
+      clientProfileId: "profile-id",
+    } as Awaited<ReturnType<typeof getCampaignById>>);
+
+    mockDownloadBuffer.mockResolvedValue(Buffer.from("png"));
+    mockAnalyzeCreativeQa.mockResolvedValue({
+      status: "passed",
+      checklist: {
+        legibility: { status: "passed", note: "Readable" },
+        ctaOffer: { status: "passed", note: "Preserved" },
+        informationPreservation: { status: "passed", note: "Preserved" },
+        briefMatch: { status: "passed", note: "OK" },
+        formatFit: { status: "passed", note: "Fits" },
+        creativeRisk: { status: "passed", note: "OK" },
+      },
+      issues: [],
+      suggestions: [],
+    });
+    mockUpdateDerivationQa.mockResolvedValue({
+      id: "derivation-id",
+      qaStatus: "passed",
+    } as Awaited<ReturnType<typeof updateDerivationQa>>);
+    mockUpdateDerivationQualityGate.mockResolvedValue({
+      id: "derivation-id",
+      qualityVerdict: "acceptable",
+    } as Awaited<ReturnType<typeof updateDerivationQualityGate>>);
+
+    const res = await POST(
+      requestFor("derivation-id", { "x-beta-session-id": VALID_SESSION_ID }),
+      { params: paramsWith("derivation-id") }
+    );
+    await flushAnalytics();
+
+    expect(res.status).toBe(200);
+    expect(mockRecordBetaAnalyticsEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventKey: "mission_completed",
+        source: "server",
+        sessionId: VALID_SESSION_ID,
+        campaignId: "campaign-id",
+        derivationId: "derivation-id",
+        properties: expect.objectContaining({
+          missionKey: "review",
+          stage: "review",
+          operation: "qa",
+        }),
+      })
+    );
+  });
+
   it("returns cached QA without re-running analyzer", async () => {
     mockGetDerivationById.mockResolvedValue({
       id: "derivation-id",
@@ -312,10 +395,12 @@ describe("POST /api/derivations/[id]/qa", () => {
       qaSuggestions: ["Keep it"],
     } as Awaited<ReturnType<typeof getDerivationById>>);
 
-    const res = await POST(requestFor("derivation-id"), {
-      params: paramsWith("derivation-id"),
-    });
+    const res = await POST(
+      requestFor("derivation-id", { "x-beta-session-id": VALID_SESSION_ID }),
+      { params: paramsWith("derivation-id") }
+    );
     const body = await res.json();
+    await flushAnalytics();
 
     expect(res.status).toBe(200);
     expect(body.cached).toBe(true);
@@ -323,6 +408,17 @@ describe("POST /api/derivations/[id]/qa", () => {
     expect(mockGetCampaignById).not.toHaveBeenCalled();
     expect(mockDownloadBuffer).not.toHaveBeenCalled();
     expect(mockAnalyzeCreativeQa).not.toHaveBeenCalled();
+    expect(mockRecordBetaAnalyticsEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventKey: "mission_completed",
+        sessionId: VALID_SESSION_ID,
+        properties: expect.objectContaining({
+          missionKey: "review",
+          stage: "review",
+          operation: "qa_cached",
+        }),
+      })
+    );
   });
 
   it("returns 500 when analyzer throws", async () => {

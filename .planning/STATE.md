@@ -57,6 +57,6 @@ Stopped at: Requirements scoping for v12.0
 
 - Share/approval-package UI fix local (empty state + section header) — deploy pending; SESS-03 used `POST /api/share` when panel returned null for preview-only approved.
 - Preview progress 52% fix shipped (`84884ef2`, Render `dep-d8lc64urnols73dsm8k0`) — post-deploy Playwright: 18%→43%→70% (animated, not stuck at 52%).
-- "End session" fix local — sticky header + restore active session from sessionStorage/API (`activeOnly` list); deploy pending.
-- "Revisar novamente" runs QA but does not emit `mission_completed` for review.
+- "End session" shipped (`c5e5be7a`) — sticky header + session restore; post-deploy Playwright: `endSessionVisible: true` on `/feedback`.
+- "Revisar novamente" `mission_completed` fix local — QA POST emits `mission_completed` (fresh + cached); deploy pending.
 - `ctaProminence` blocking tuned in Phase 94 (warning-only dimension).
