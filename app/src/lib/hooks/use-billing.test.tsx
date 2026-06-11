@@ -121,12 +121,15 @@ describe("billing hooks", () => {
       wrapper: createWrapper(),
     });
 
-    await result.current.mutateAsync("growth");
+    await result.current.mutateAsync({
+      planKey: "growth",
+      returnPath: "/campaigns/c1",
+    });
 
     expect(mockApiFetch).toHaveBeenCalledWith("/api/billing/checkout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ planKey: "growth" }),
+      body: JSON.stringify({ planKey: "growth", returnPath: "/campaigns/c1" }),
     });
   });
 

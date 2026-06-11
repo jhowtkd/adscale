@@ -62,6 +62,25 @@ describe("POST /api/billing/checkout", () => {
       user: { id: "user-1", email: "user@example.com" },
       workspace: { id: "workspace-1", name: "Workspace" },
       planKey: "growth",
+      returnPath: undefined,
+    });
+  });
+
+  it("forwards returnPath to checkout session creation", async () => {
+    mockCreateCheckoutSession.mockResolvedValue({
+      url: "https://checkout.stripe.com/session",
+    } as Awaited<ReturnType<typeof createCheckoutSession>>);
+
+    const res = await POST(
+      requestWith({ planKey: "starter", returnPath: "/campaigns/c1?tab=generate" })
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockCreateCheckoutSession).toHaveBeenCalledWith({
+      user: { id: "user-1", email: "user@example.com" },
+      workspace: { id: "workspace-1", name: "Workspace" },
+      planKey: "starter",
+      returnPath: "/campaigns/c1?tab=generate",
     });
   });
 

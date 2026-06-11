@@ -18,6 +18,10 @@ vi.mock("@/lib/hooks/use-record-beta-event", () => ({
   useRecordBetaEvent: () => ({ recordEvent }),
 }));
 
+vi.mock("@/components/billing/ConversionCta", () => ({
+  ConversionCta: () => <button type="button">conversion-cta</button>,
+}));
+
 const STAGE_PROPS = { stage: "preview", missionKey: "preview" };
 
 const ctaBreakdown: BatchCreditBreakdown = {
@@ -57,6 +61,31 @@ describe("DerivationPreviewGateFooter", () => {
 
     expect(onApprove).toHaveBeenCalled();
     expect(onRevise).toHaveBeenCalled();
+  });
+
+  it("renders conversion CTA from server contract when provided", () => {
+    render(
+      <DerivationPreviewGateFooter
+        campaignId="camp-1"
+        previewCreditsSpent={5}
+        batchBreakdown={ctaBreakdown}
+        creditBalance={10}
+        conversionPayload={{
+          reason: "beta_exhausted",
+          recommendedAction: "checkout",
+          suggestedPlan: "starter",
+          amount: 15,
+          balance: 10,
+          returnPath: "/campaigns/camp-1",
+          analytics: { reasonCode: "beta_exhausted", estimateCredits: 15 },
+        }}
+        onApproveBatch={vi.fn()}
+        onReviseRecipe={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("conversion-cta")).toBeInTheDocument();
+    expect(screen.getByText("approveBatch")).toBeDisabled();
   });
 
   it("disables approve when balance is insufficient", () => {

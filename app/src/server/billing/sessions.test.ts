@@ -87,6 +87,33 @@ describe("billing sessions", () => {
     expect(session.url).toBe("https://checkout.stripe.com/session");
   });
 
+  it("appends returnPath to checkout success and cancel URLs", async () => {
+    mockGetBillingCustomerByWorkspace.mockResolvedValue({
+      id: "billing-customer-id",
+      workspaceId: "workspace-1",
+      stripeCustomerId: "cus_existing",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    stripeMocks.checkoutSessionCreate.mockResolvedValue({ url: "https://checkout" });
+
+    await createCheckoutSession({
+      workspace: { id: "workspace-1" },
+      user: { id: "user-1" },
+      planKey: "starter",
+      returnPath: "/campaigns/c1?tab=generate",
+    });
+
+    expect(stripeMocks.checkoutSessionCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success_url:
+          "https://app.example.com/billing/success?returnPath=%2Fcampaigns%2Fc1%3Ftab%3Dgenerate",
+        cancel_url:
+          "https://app.example.com/billing/cancel?returnPath=%2Fcampaigns%2Fc1%3Ftab%3Dgenerate",
+      })
+    );
+  });
+
   it("reuses an existing customer for checkout", async () => {
     mockGetBillingCustomerByWorkspace.mockResolvedValue({
       id: "billing-customer-id",

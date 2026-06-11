@@ -57,6 +57,37 @@ vi.mock("@/components/mission-insights/MissionInsightProvider", () => ({
   useMissionInsightOptional: () => null,
 }));
 
+const mockUseBillingStatus = vi.fn(() => ({
+  data: {
+    creditBalance: 50,
+    subscriptionStatus: "none" as const,
+    access: {
+      kind: "beta" as const,
+      label: "Beta",
+      remainingAds: 10,
+      hasSpendAccess: true,
+      beta: { totalAds: 10, remainingAds: 10, exhausted: false },
+    },
+    pastDue: null,
+    subscription: null,
+    hasCustomer: false,
+  },
+}));
+
+vi.mock("@/lib/hooks/use-billing", () => ({
+  useBillingStatus: () => mockUseBillingStatus(),
+  useStartCheckout: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
+  useBillingPortal: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
+}));
+
+vi.mock("@/components/billing/ConversionCta", () => ({
+  ConversionCta: () => <button type="button">conversion-cta</button>,
+}));
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/campaigns/1",
+}));
+
 import { useMissions } from "@/lib/hooks/use-missions";
 
 const mockUseMissions = vi.mocked(useMissions);
@@ -145,6 +176,23 @@ describe("MissionPathCard", () => {
   });
 
   it("shows upgrade prompt only when gated on", () => {
+    mockUseBillingStatus.mockReturnValueOnce({
+      data: {
+        creditBalance: 2,
+        subscriptionStatus: "none",
+        access: {
+          kind: "beta",
+          label: "Beta",
+          remainingAds: 0,
+          hasSpendAccess: true,
+          beta: { totalAds: 10, remainingAds: 0, exhausted: true },
+        },
+        pastDue: null,
+        subscription: null,
+        hasCustomer: false,
+      },
+    });
+
     mockUseMissions.mockReturnValue({
       data: {
         missions: [
@@ -180,10 +228,7 @@ describe("MissionPathCard", () => {
 
     render(<MissionPathCard />);
     expect(screen.getByText(/Creditos insuficientes/i)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Ver cobranca/i })).toHaveAttribute(
-      "href",
-      "/settings?tab=billing"
-    );
+    expect(screen.getByRole("button", { name: "conversion-cta" })).toBeInTheDocument();
   });
 
   it("shows blocked resume link for blocked readiness mission", () => {
