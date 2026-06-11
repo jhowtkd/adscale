@@ -33,7 +33,7 @@
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
-| 97 | Billing Contracts and Subscription Lifecycle | 1/1 | Complete   | 2026-06-11 |
+| 97 | Billing Contracts and Subscription Lifecycle | Complete    | 2026-06-11 | 2026-06-11 |
 | 98 | Past-Due Policy and Recovery | DUEN-01, DUEN-02, DUEN-03 | Planned | - |
 | 99 | In-Product Conversion Surfaces | CONV-01, CONV-02, CONV-03, CONV-04 | Planned | - |
 | 100 | Billing Account Experience | BILL-01, BILL-02, BILL-03, BILL-04 | Planned | - |
@@ -54,7 +54,7 @@
   3. `checkout.session.completed` only links customer/subscription state and cannot double-grant credits.
   4. Focused route, event, repository, and access tests pass.
 
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 ---
 
