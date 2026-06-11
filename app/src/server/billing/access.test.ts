@@ -90,6 +90,22 @@ describe("getWorkspaceBillingAccess", () => {
     expect(access.remainingAds).toBe(4);
   });
 
+  it("returns paid access with trialing status during trial period", async () => {
+    const trialingSubscription = {
+      ...activeSubscription,
+      status: "trialing",
+    };
+    mockGetActiveSubscription.mockResolvedValue(trialingSubscription);
+    mockGetLatestSubscription.mockResolvedValue(trialingSubscription);
+
+    const access = await getWorkspaceBillingAccess("workspace-1");
+
+    expect(access.kind).toBe("paid");
+    expect(access.subscriptionStatus).toBe("trialing");
+    expect(access.hasSpendAccess).toBe(true);
+    expect(access.remainingAds).toBe(4);
+  });
+
   it("returns beta access without subscription", async () => {
     mockGetActiveSubscription.mockResolvedValue(null);
     mockGetActiveBetaEntitlement.mockResolvedValue({
