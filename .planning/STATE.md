@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v12.0
 milestone_name: Monetização Real
 status: completed
-stopped_at: Completed 101-01-PLAN.md
-last_updated: "2026-06-11T17:59:56.087Z"
-last_activity: 2026-06-11 — Phase 101 plan 01 complete (Stripe go-live runbook)
+stopped_at: Completed 102-01-PLAN.md
+last_updated: "2026-06-11T18:04:27.164Z"
+last_activity: 2026-06-11 — Phase 102 plan 01 complete (billing regression release gate)
 progress:
-  total_phases: 26
-  completed_phases: 9
-  total_plans: 13
-  completed_plans: 23
+  total_phases: 6
+  completed_phases: 6
+  total_plans: 6
+  completed_plans: 6
   percent: 100
 ---
 
@@ -28,12 +28,12 @@ See: `.planning/PROJECT.md` (updated 2026-06-08)
 
 ## Current Position
 
-Phase: 102 of 102 — Checkout & Portal Flows
-Plan: Ready for 102-01
-Status: Phase 101 complete (automatable); LIVE-02 human_needed
-Last activity: 2026-06-11 — Phase 101 plan 01 complete (Stripe go-live runbook)
+Phase: 102 of 102 — Billing Regression and Release Gate
+Plan: 102-01 complete
+Status: Phase 102 complete (automatable); LIVE-02 human_needed
+Last activity: 2026-06-11 — Phase 102 plan 01 complete (billing regression release gate)
 
-Progress: [██████████] 100% (v12.0 plans); LIVE-02 pending operator smoke
+Progress: [██████████] 100% (v12.0); LIVE-02 pending operator smoke
 
 ## Accumulated Context
 
@@ -48,11 +48,12 @@ Progress: [██████████] 100% (v12.0 plans); LIVE-02 pending o
 - `/api/billing/status` exposes `canceled.recoveryAction: checkout` alongside `pastDue.recoveryAction: portal`.
 - `/api/billing/history` returns `grants` ledger entries (source, amount, date).
 - Phase 101: `101-PRODUCTION-RUNBOOK.md` + `npm run preflight:stripe`; live webhook evidence template at `101-WEBHOOK-EVIDENCE.md`.
+- Phase 102: `102-VERIFICATION.md` maps all v12.0 requirements; release gate green (1061 tests, lint 0 errors, build OK); QA-07/08/09 complete.
 
 ## Session Continuity
 
-Last session: 2026-06-11T17:59:37.516Z
-Stopped at: Completed 101-01-PLAN.md
+Last session: 2026-06-11T18:04:27.160Z
+Stopped at: Completed 102-01-PLAN.md
 
 ## Blockers
 

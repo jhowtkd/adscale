@@ -49,9 +49,9 @@ Levar billing Stripe existente a produção: trial, renovação mensal de crédi
 
 ### Verification (QA)
 
-- [ ] **QA-07**: Testes cobrem idempotência de `invoice.paid`, `payment_failed` → `past_due`, e ausência de double-grant.
-- [ ] **QA-08**: Testes de `getWorkspaceBillingAccess` para trialing, active, past_due, beta, none.
-- [ ] **QA-09**: `npm test`, `npm run lint` e `npm run build` passam em `app/` após milestone.
+- [x] **QA-07**: Testes cobrem idempotência de `invoice.paid`, `payment_failed` → `past_due`, e ausência de double-grant.
+- [x] **QA-08**: Testes de `getWorkspaceBillingAccess` para trialing, active, past_due, beta, none.
+- [x] **QA-09**: `npm test`, `npm run lint` e `npm run build` passam em `app/` após milestone.
 
 ## Traceability
 
@@ -73,9 +73,9 @@ Levar billing Stripe existente a produção: trial, renovação mensal de crédi
 | BILL-04 | 100 | Complete |
 | LIVE-01 | 101 | Complete |
 | LIVE-02 | 101 | Pending |
-| QA-07 | 102 | Pending |
-| QA-08 | 102 | Pending |
-| QA-09 | 102 | Pending |
+| QA-07 | 102 | Complete |
+| QA-08 | 102 | Complete |
+| QA-09 | 102 | Complete |
 
 ## Future Requirements
 
