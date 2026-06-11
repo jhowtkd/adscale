@@ -27,7 +27,7 @@
 - [x] **Phase 97: Billing Contracts and Subscription Lifecycle** — status explícito, vínculo de subscription e grants idempotentes
 - [x] **Phase 98: Past-Due Policy and Recovery** — política de spend, mensagens e portal para recuperação de pagamento (completed 2026-06-11)
 - [x] **Phase 99: In-Product Conversion Surfaces** — payload 402 estruturado e CTAs de trial/upgrade nos value moments (completed 2026-06-11)
-- [ ] **Phase 100: Billing Account Experience** — datas, estados, histórico de grants e distinção beta/pago
+- [x] **Phase 100: Billing Account Experience** — datas, estados, histórico de grants e distinção beta/pago (completed 2026-06-11)
 - [ ] **Phase 101: Stripe Production Go-Live** — checklist, configuração real, deploy e smoke do webhook
 - [ ] **Phase 102: Billing Regression and Release Gate** — testes de lifecycle/access e gate completo de qualidade
 
@@ -36,7 +36,7 @@
 | 97 | Billing Contracts and Subscription Lifecycle | Complete    | 2026-06-11 | 2026-06-11 |
 | 98 | Past-Due Policy and Recovery | Complete    | 2026-06-11 | 2026-06-11 |
 | 99 | In-Product Conversion Surfaces | Complete    | 2026-06-11 | 2026-06-11 |
-| 100 | Billing Account Experience | 1/1 | Complete   | 2026-06-11 |
+| 100 | Billing Account Experience | Complete    | 2026-06-11 | 2026-06-11 |
 | 101 | Stripe Production Go-Live | 1/1 | Complete   | 2026-06-11 |
 | 102 | Billing Regression and Release Gate | QA-07, QA-08, QA-09 | Planned | - |
 
@@ -110,7 +110,7 @@
   3. Credit grant history shows source, quantity, and date from the ledger.
   4. PT-BR and EN copy distinguish beta, paid, and no-access states.
 
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 **UI hint:** yes
 
