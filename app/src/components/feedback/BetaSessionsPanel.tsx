@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, startTransition } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { BETA_SESSION_STORAGE_KEY } from "@/lib/beta-analytics/constants";
@@ -108,12 +108,10 @@ export function BetaSessionsPanel() {
     Partial<Record<BetaRunbookStage, BetaStageNote>>
   >({});
   const [copiedField, setCopiedField] = useState<"workspace" | "session" | null>(null);
-  const [storedSessionId, setStoredSessionId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    setStoredSessionId(sessionStorage.getItem(BETA_SESSION_STORAGE_KEY));
-  }, []);
+  const [storedSessionId, setStoredSessionId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return sessionStorage.getItem(BETA_SESSION_STORAGE_KEY);
+  });
 
   const activeSessionsQuery = useQuery({
     queryKey: ["beta-sessions", "active"],
@@ -209,9 +207,11 @@ export function BetaSessionsPanel() {
 
   useEffect(() => {
     if (!resolvedSession) return;
-    setWorkspaceId(resolvedSession.workspaceId);
-    setStageDrafts(resolvedSession.operatorNotes ?? {});
-    setActiveSessionStorage(resolvedSession.id);
+    startTransition(() => {
+      setWorkspaceId(resolvedSession.workspaceId);
+      setStageDrafts(resolvedSession.operatorNotes ?? {});
+      setActiveSessionStorage(resolvedSession.id);
+    });
   }, [resolvedSession?.id]);
 
   const panelError = activeSessionsQuery.error ?? storedSessionQuery.error;

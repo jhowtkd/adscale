@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useId, useRef, useState, startTransition, type KeyboardEvent } from "react";
 import { useTranslations } from "next-intl";
 import { Loader2, Sparkles } from "lucide-react";
 import {
@@ -163,9 +163,10 @@ export default function StrategyRecipePanel({
   ]);
 
   useEffect(() => {
-    if (open) {
+    if (!open) return;
+    startTransition(() => {
       setSelectedFormats([...DERIVATION_FORMATS]);
-    }
+    });
   }, [open, recipeSessionKey]);
 
   const handleCreativeLevelKeyDown = useCallback(

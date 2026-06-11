@@ -3,7 +3,7 @@
 import Image from "next/image";
 /* eslint-disable @next/next/no-img-element */
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, startTransition } from "react";
 import { Eye, Download, RefreshCw, Clock, AlertCircle, Check, X, Package, ShieldCheck, BookmarkPlus, FileText, Users, Scale, PenTool } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
@@ -61,12 +61,9 @@ function useDerivationGenerationProgress(
   const [progress, setProgress] = useState(8);
 
   useEffect(() => {
-    if (!isGenerating) {
-      setProgress(0);
-      return;
-    }
+    if (!isGenerating) return;
 
-    setProgress(8);
+    startTransition(() => setProgress(8));
     const startedAt = Date.now();
     const tick = () => {
       const elapsed = Date.now() - startedAt;
@@ -79,7 +76,7 @@ function useDerivationGenerationProgress(
     return () => window.clearInterval(intervalId);
   }, [derivationId, isGenerating]);
 
-  return progress;
+  return isGenerating ? progress : 0;
 }
 
 function ProgressRing({ progress }: { progress: number }) {
