@@ -29,9 +29,9 @@ Levar billing Stripe existente a produção: trial, renovação mensal de crédi
 
 ### Dunning & Access (DUEN)
 
-- [ ] **DUEN-01**: Usuário com assinatura `past_due` vê status e mensagem clara na UI de billing (não "sem acesso" genérico).
-- [ ] **DUEN-02**: Usuário `past_due` pode abrir Customer Portal para atualizar pagamento com um clique.
-- [ ] **DUEN-03**: Política de spend em `past_due` está implementada e documentada (bloquear novas gerações; créditos restantes consumíveis ou não — decisão explícita).
+- [x] **DUEN-01**: Usuário com assinatura `past_due` vê status e mensagem clara na UI de billing (não "sem acesso" genérico).
+- [x] **DUEN-02**: Usuário `past_due` pode abrir Customer Portal para atualizar pagamento com um clique.
+- [x] **DUEN-03**: Política de spend em `past_due` está implementada e documentada (bloquear novas gerações; créditos restantes consumíveis ou não — decisão explícita).
 
 ### Beta→Paid Conversion (CONV)
 
@@ -60,9 +60,9 @@ Levar billing Stripe existente a produção: trial, renovação mensal de crédi
 | SUBS-01 | 97 | Complete |
 | SUBS-02 | 97 | Complete |
 | SUBS-03 | 97 | Complete |
-| DUEN-01 | 98 | Pending |
-| DUEN-02 | 98 | Pending |
-| DUEN-03 | 98 | Pending |
+| DUEN-01 | 98 | Complete |
+| DUEN-02 | 98 | Complete |
+| DUEN-03 | 98 | Complete |
 | CONV-01 | 99 | Pending |
 | CONV-02 | 99 | Pending |
 | CONV-03 | 99 | Pending |

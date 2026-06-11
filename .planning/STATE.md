@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v12.0
 milestone_name: Monetização Real
 status: completed
-stopped_at: Completed 97-01-PLAN.md
-last_updated: "2026-06-11T17:43:11.109Z"
-last_activity: 2026-06-11 — Phase 97 plan 01 complete (billing contracts + idempotent grants)
+stopped_at: Completed 98-01-PLAN.md
+last_updated: "2026-06-11T17:47:41.555Z"
+last_activity: 2026-06-11 — Phase 98 plan 01 complete (past-due policy + portal recovery)
 progress:
-  total_phases: 26
-  completed_phases: 5
-  total_plans: 13
-  completed_plans: 19
-  percent: 17
+  total_phases: 6
+  completed_phases: 2
+  total_plans: 6
+  completed_plans: 2
+  percent: 33
 ---
 
 # State: ADScale
@@ -28,27 +28,28 @@ See: `.planning/PROJECT.md` (updated 2026-06-08)
 
 ## Current Position
 
-Phase: 98 of 102 — Past-Due Policy and Recovery
-Plan: Ready for 98-01
-Status: Phase 97 complete
-Last activity: 2026-06-11 — Phase 97 plan 01 complete (billing contracts + idempotent grants)
+Phase: 99 of 102 — Conversion Surfaces
+Plan: Ready for 99-01
+Status: Phase 98 complete
+Last activity: 2026-06-11 — Phase 98 plan 01 complete (past-due policy + portal recovery)
 
-Progress: [██░░░░░░░░] 17%
+Progress: [███░░░░░░░] 33%
 
 ## Accumulated Context
 
 - Stripe stack exists: checkout (14d trial), portal, webhook (`checkout.session.completed`, subscription sync, `invoice.paid`, `invoice.payment_failed`).
 - Plans: starter/growth/scale with monthly credit grants (30/120/360).
 - Beta path: code redemption → 10 ads (50 credits), parallel to paid; no fake Stripe subs.
-- `getActiveSubscriptionByWorkspace` still gates paid spend on `active`/`trialing`; `getLatestSubscriptionByWorkspace` exposes `past_due`/`canceled` via normalized `subscriptionStatus`.
+- `past_due` policy: existing credits spendable; label "Pagamento pendente"; `invoice.paid` grants suspended until `active`/`trialing`.
+- `/api/billing/status` exposes `pastDue.recoveryAction: portal` and `access.hasSpendAccess` for BillingTab recovery CTA.
 - `invoice.paid` grants are idempotent on `stripe_invoice` + `invoice.id` sourceId.
 - v11.7 upgrade CTAs exist at value moments; need wiring to checkout from 402 surfaces.
 - BillingTab has forecast calculator (internal COGS) — keep separate from user-facing credits.
 
 ## Session Continuity
 
-Last session: 2026-06-11T17:40:35.805Z
-Stopped at: Completed 97-01-PLAN.md
+Last session: 2026-06-11T17:47:41.551Z
+Stopped at: Completed 98-01-PLAN.md
 
 ## Blockers
 
