@@ -287,6 +287,52 @@ describe("processStripeEvent", () => {
     expect(result).toEqual({ status: "processed", type: "invoice.paid" });
   });
 
+  it("rejects checkout completion when billing metadata is missing", async () => {
+    const event = stripeEvent("checkout.session.completed", {
+      customer: "cus_123",
+      subscription: "sub_123",
+      metadata: {},
+    });
+
+    await expect(processStripeEvent(event)).rejects.toThrow(
+      "Missing checkout session billing metadata"
+    );
+    expect(mockRecordProcessedStripeEvent).not.toHaveBeenCalled();
+  });
+
+  it("marks active subscriptions as past_due on payment failure", async () => {
+    mockGetSubscription.mockResolvedValue({
+      id: "local-sub-id",
+      workspaceId: "workspace-1",
+      billingCustomerId: null,
+      stripeSubscriptionId: "sub_123",
+      stripeCustomerId: "cus_123",
+      status: "active",
+      planKey: "starter",
+      priceId: "price_starter",
+      currentPeriodStart: new Date("2026-05-01T00:00:00.000Z"),
+      currentPeriodEnd: new Date("2026-06-01T00:00:00.000Z"),
+      cancelAtPeriodEnd: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const event = stripeEvent("invoice.payment_failed", {
+      id: "in_failed",
+      subscription: "sub_123",
+    });
+
+    const result = await processStripeEvent(event);
+
+    expect(mockUpsertSubscription).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: "workspace-1",
+        status: "past_due",
+      })
+    );
+    expect(mockCreateCreditGrant).not.toHaveBeenCalled();
+    expect(result).toEqual({ status: "processed", type: "invoice.payment_failed" });
+  });
+
   it("reads subscription ids from current Stripe invoice parent details", async () => {
     const periodEnd = new Date("2026-06-19T00:00:00.000Z");
     mockGetSubscription.mockResolvedValue({

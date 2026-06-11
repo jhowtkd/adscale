@@ -43,7 +43,9 @@ describe("billing status route", () => {
       creditBalance: 50,
       remainingAds: 10,
       hasSpendAccess: true,
+      subscriptionStatus: "none",
       subscription: null,
+      latestSubscription: null,
       betaEntitlement: { id: "ent-1" },
     } as Awaited<ReturnType<typeof getWorkspaceBillingAccess>>);
 
@@ -52,7 +54,49 @@ describe("billing status route", () => {
 
     expect(response.status).toBe(200);
     expect(body.billing.access.kind).toBe("beta");
+    expect(body.billing.subscriptionStatus).toBe("none");
     expect(body.billing.subscription).toBeNull();
     expect(body.billing.access.beta.remainingAds).toBe(10);
+  });
+
+  it("returns past_due subscription status while beta access remains active", async () => {
+    mockGetWorkspaceBillingAccess.mockResolvedValue({
+      kind: "beta",
+      label: "Acesso beta",
+      creditBalance: 30,
+      remainingAds: 6,
+      hasSpendAccess: true,
+      subscriptionStatus: "past_due",
+      subscription: null,
+      latestSubscription: {
+        id: "sub-local",
+        workspaceId: "workspace-1",
+        billingCustomerId: null,
+        stripeSubscriptionId: "sub_123",
+        stripeCustomerId: "cus_123",
+        status: "past_due",
+        planKey: "starter",
+        priceId: "price_starter",
+        currentPeriodStart: new Date("2026-05-01T00:00:00.000Z"),
+        currentPeriodEnd: new Date("2026-06-01T00:00:00.000Z"),
+        cancelAtPeriodEnd: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      betaEntitlement: { id: "ent-1" },
+    } as Awaited<ReturnType<typeof getWorkspaceBillingAccess>>);
+
+    const response = await GET(new Request("http://localhost/api/billing/status"));
+    const body = await response.json();
+
+    expect(body.billing.subscriptionStatus).toBe("past_due");
+    expect(body.billing.access.kind).toBe("beta");
+    expect(body.billing.subscription).toEqual({
+      status: "past_due",
+      rawStatus: "past_due",
+      planKey: "starter",
+      currentPeriodEnd: "2026-06-01T00:00:00.000Z",
+      cancelAtPeriodEnd: false,
+    });
   });
 });
