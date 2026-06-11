@@ -30,20 +30,21 @@ Runtime secrets and service URLs are read from `process.env`. The canonical list
 | `INNGEST_SIGNING_KEY` | Yes | — | Inngest signing key (`local` is fine for local dev). |
 | `RESEND_API_KEY` | Yes | — | Resend API key; must start with `re_`. |
 | `EMAIL_FROM` | Yes | — | Default transactional email sender (min. 3 characters). |
-| `RESEND_WAITLIST_SEGMENT_ID` | No (prod: Yes) | — | Resend Audiences segment ID for waitlist contact sync (`app/src/server/services/resend-contacts.ts`). Example: `seg_abc123`. Optional in development (sync skipped when unset); required in production. Not in `envSchema`. |
+| `RESEND_WAITLIST_SEGMENT_ID` | No (prod: Yes) | — | Resend Audiences segment ID for waitlist contact sync (`app/src/server/services/resend-contacts.ts`). Example: `seg_abc123`. Optional in development (sync skipped when unset); required in production for marketing waitlist sync. Not in `envSchema`. |
 | `APP_URL` | Yes | — | Canonical app URL (trusted origin, emails, redirects, Inngest serve URL). |
-| `MARKETING_URL` | No | — | Public marketing site URL. Unauthenticated visits to `/` redirect here when set (`app/middleware.ts`). Must be a valid URL if provided. |
-| `MARKETING_ALLOWED_ORIGINS` | No (prod: Yes) | — | Comma-separated CORS origins for `POST /api/waitlist` from the marketing site (`app/src/lib/cors-marketing.ts`). Example: `http://localhost:5173,https://www.adscale.com.br`. Not in `envSchema`. |
+| `MARKETING_URL` | No | — | Public marketing landing URL. Unauthenticated visits to `/` redirect here when set (`app/src/proxy.ts`). Locally typically `http://localhost:3000/hi` (proxied marketing). Must be a valid URL if provided. |
+| `MARKETING_UPSTREAM_URL` | No | `https://adscale-marketing.onrender.com` | Upstream static marketing site proxied at `/hi` via Next.js rewrites (`app/next.config.ts`). Locally typically `http://localhost:5173`. Not in `envSchema`. |
+| `MARKETING_ALLOWED_ORIGINS` | No (prod: Yes) | — | Comma-separated CORS origins for `POST /api/waitlist` from the marketing site (`app/src/lib/cors-marketing.ts`). Example: `http://localhost:5173,https://adscale.jhonatansoares.com`. Not in `envSchema`. |
 | `E2E_DISABLE_RATE_LIMIT` | No | — | Set to `true`, `1`, or `yes` to skip API rate limits during E2E/TestSprite runs. Not in `envSchema`. |
-| `STRIPE_SECRET_KEY` | Yes | — | Stripe secret key; must start with `sk_` or `rk_`. |
-| `STRIPE_WEBHOOK_SECRET` | Yes | — | Stripe webhook secret; must start with `whsec_`. |
-| `STRIPE_STARTER_PRICE_ID` | Yes | — | Stripe Price ID for Starter; must start with `price_`. |
-| `STRIPE_GROWTH_PRICE_ID` | Yes | — | Stripe Price ID for Growth; must start with `price_`. |
-| `STRIPE_SCALE_PRICE_ID` | Yes | — | Stripe Price ID for Scale; must start with `price_`. |
-| `STRIPE_SUCCESS_URL` | Yes | — | Redirect after successful checkout (URL). |
-| `STRIPE_CANCEL_URL` | Yes | — | Redirect after cancelled checkout (URL). |
-| `BETA_ACCESS_CODES` | No | — | Comma-separated beta invite codes; each workspace redeems once (10 ads, no Stripe). Parsed in `app/src/server/billing/beta.ts`. |
-| `DEV_ADMIN_EMAIL` | No | — | Comma-separated dev admin emails; skips email verification and credit debits for owner workspaces (`app/src/server/auth/dev-admin.ts`). Also grants platform-owner access. |
+| `STRIPE_SECRET_KEY` | Yes | — | Stripe secret key; must start with `sk_` or `rk_`. Use `sk_live_` / `rk_live_` in production. |
+| `STRIPE_WEBHOOK_SECRET` | Yes | — | Stripe webhook signing secret; must start with `whsec_`. Must match the endpoint registered in the Stripe Dashboard. |
+| `STRIPE_STARTER_PRICE_ID` | Yes | — | Stripe Price ID for Starter; must start with `price_`. Maps to 30 credits/month (`app/src/server/billing/plans.ts`). |
+| `STRIPE_GROWTH_PRICE_ID` | Yes | — | Stripe Price ID for Growth; must start with `price_`. Maps to 120 credits/month. |
+| `STRIPE_SCALE_PRICE_ID` | Yes | — | Stripe Price ID for Scale; must start with `price_`. Maps to 360 credits/month. |
+| `STRIPE_SUCCESS_URL` | Yes | — | Redirect after successful checkout (URL). Should share origin with `APP_URL`. |
+| `STRIPE_CANCEL_URL` | Yes | — | Redirect after cancelled checkout (URL). Should share origin with `APP_URL`. |
+| `BETA_ACCESS_CODES` | No | — | Comma-separated beta invite codes; each workspace redeems once (10 ads, no Stripe). Optional in `envSchema`; parsed in `app/src/server/billing/beta.ts`. |
+| `DEV_ADMIN_EMAIL` | No | — | Comma-separated dev admin emails; skips email verification and credit debits for owner workspaces (`app/src/server/auth/dev-admin.ts`). Also grants platform-owner access. Not in `envSchema`. |
 | `PLATFORM_OWNER_EMAILS` | No | — | Comma-separated platform owner emails for admin-only routes (`app/src/server/auth/platform-owner.ts`). Not in `.env.example` or `envSchema`. |
 | `MEM0_API_KEY` | No | — | Mem0 Platform API key; required when brand memory is enabled. Not in `.env.example` but supported in `envSchema`. |
 | `MEM0_ENABLED` | No | — | Set to `true` with `MEM0_API_KEY` to enable Mem0 brand memory. |
@@ -62,13 +63,16 @@ Runtime secrets and service URLs are read from `process.env`. The canonical list
 | `NEXT_PUBLIC_APP_URL` | No | — | Optional public URL for share links and approval packages (`app/src/lib/share-token.ts`). |
 | `NEXT_PUBLIC_APP_VERSION` | No | `unknown` | App version string for feedback diagnostics. |
 | `ANALYZE` | No | — | Set to `true` to enable bundle analyzer (`npm run analyze`). |
+| `LOG_LEVEL` | No | `info` | Minimum log level: `debug`, `info`, `warn`, or `error` (`app/src/lib/logger.ts`). |
 | `INNGEST_SERVE_URL` | No | `APP_URL` / `BETTER_AUTH_URL` | Override Inngest function sync URL in `app/scripts/start-with-inngest-sync.mjs`. |
 | `DB_MIGRATE_ATTEMPTS` | No | `5` | Retry count for `npm run db:migrate` (`app/scripts/migrate-with-retry.mjs`). |
 | `DB_MIGRATE_DELAY_MS` | No | `8000` | Delay between migration retries (ms). |
 | `E2E_BASE_URL` | No | `http://localhost:3000` | Playwright base URL (`app/playwright.config.ts`). |
+| `E2E_EMAIL` / `E2E_PASSWORD` | No | — | Credentials for verification scripts (e.g. `app/scripts/verify-preview-fix.mjs`). Not in `envSchema`. |
 | `PORT` | No | `3000` | HTTP port for production start script. |
+| `RENDER_GIT_COMMIT` | No | — | Injected by Render at deploy time; exposed via `GET /api/build-id`. |
 
-Variables in `.env.example` but **not** in `envSchema` still matter for tooling and middleware (e.g. `TEST_DATABASE_URL`, `SENTRY_*`, `E2E_DISABLE_RATE_LIMIT`, `DEV_ADMIN_EMAIL`). Variables used in code but absent from `.env.example` should be added to `.env.local` when you need that feature.
+Variables in `.env.example` but **not** in `envSchema` still matter for tooling and middleware (e.g. `TEST_DATABASE_URL`, `MARKETING_UPSTREAM_URL`, `SENTRY_*`, `E2E_DISABLE_RATE_LIMIT`, `DEV_ADMIN_EMAIL`). Variables used in code but absent from `.env.example` should be added to `.env.local` when you need that feature.
 
 ## Env validation (Zod)
 
@@ -80,7 +84,7 @@ Validation lives in `app/src/server/validation/env.ts`:
 
 Import `env` from `@/server/validation/env` in server modules (database, auth, billing, storage, AI, jobs, email). Do not read validated secrets directly from `process.env` in those paths.
 
-Some features read `process.env` directly instead of `env` (e.g. `BETA_ACCESS_CODES`, `DEV_ADMIN_EMAIL`, `MARKETING_URL` in middleware, rate-limit flags). Those variables are either optional, test-only, or evaluated before the validated `env` object is needed.
+Some features read `process.env` directly instead of `env` (e.g. `BETA_ACCESS_CODES` in `beta.ts`, `DEV_ADMIN_EMAIL`, `MARKETING_URL` in proxy, `MARKETING_UPSTREAM_URL` in `next.config.ts`, rate-limit flags). Those variables are either optional, test-only, or evaluated before the validated `env` object is needed.
 
 CLI scripts that import `env` before other modules should import `app/scripts/load-env.ts` first so `app/.env.local` is loaded:
 
@@ -93,6 +97,65 @@ Next.js loads `.env.local` automatically for `next dev` / `next start`; standalo
 
 Unit tests for validation patterns: `app/tests/unit/env-validation.test.ts`, `app/src/server/validation/env.test.ts`.
 
+## Stripe billing and subscriptions
+
+Stripe configuration is entirely environment-driven except for trial length and credit grants, which are hardcoded in application code.
+
+### Plan mapping
+
+| Plan key | Env var | Monthly credits | Source |
+|----------|---------|-----------------|--------|
+| `starter` | `STRIPE_STARTER_PRICE_ID` | 30 | `app/src/server/billing/plans.ts` |
+| `growth` | `STRIPE_GROWTH_PRICE_ID` | 120 | `app/src/server/billing/plans.ts` |
+| `scale` | `STRIPE_SCALE_PRICE_ID` | 360 | `app/src/server/billing/plans.ts` |
+
+Price IDs must exist in Stripe as **recurring monthly** prices. The preflight script verifies this when run against the live API.
+
+### Trial period
+
+New subscriptions created via Checkout include a **14-day trial** (`trial_period_days: 14` in `app/src/server/billing/sessions.ts`). This is not configurable via environment variables. Trial status is tracked as `trialing` in Stripe and normalized in `app/src/server/billing/access.ts`.
+
+### Checkout and portal URLs
+
+- Success redirect: `STRIPE_SUCCESS_URL` (local example: `http://localhost:3000/settings?tab=billing&checkout=success`)
+- Cancel redirect: `STRIPE_CANCEL_URL` (local example: `http://localhost:3000/settings?tab=plans&checkout=cancel`)
+- Billing portal return URL uses `STRIPE_SUCCESS_URL`
+
+Origins of success/cancel URLs must match `APP_URL` in production. Run `npm run preflight:stripe` to validate alignment.
+
+### Webhooks
+
+Register in the Stripe Dashboard:
+
+- **Endpoint:** `POST {APP_URL}/api/billing/webhook` <!-- VERIFY: Confirm endpoint URL and signing secret in the Stripe Dashboard match production `APP_URL` -->
+- **Signing secret:** copy to `STRIPE_WEBHOOK_SECRET`
+
+Required webhook events (see `app/scripts/preflight-stripe-billing.ts`):
+
+- `checkout.session.completed`
+- `customer.subscription.created`
+- `customer.subscription.updated`
+- `customer.subscription.deleted`
+- `invoice.paid`
+- `invoice.payment_failed`
+
+The handler verifies the `stripe-signature` header with `env.STRIPE_WEBHOOK_SECRET` (`app/src/app/api/billing/webhook/route.ts`).
+
+### Production Stripe keys
+
+Use live-mode keys in production (`sk_live_` or `rk_live_` prefix). Test keys (`sk_test_`) are for local development only. All six `STRIPE_*` variables are marked `sync: false` in `render.yaml` and must be set manually in the Render Dashboard.
+
+### Preflight checklist
+
+Before go-live, run from `app/`:
+
+```bash
+npm run preflight:stripe          # live API checks
+npm run preflight:stripe -- --offline   # env/schema/URL checks only
+```
+
+The script validates env presence, Zod schema, plan-to-price alignment, URL origins, and (when not offline) Stripe price and billing-portal configuration.
+
 ## Required vs optional settings
 
 **Startup will fail** (when server code touches `env`) if any Zod-required variable is missing or invalid. That includes database, auth, OpenAI, R2, Inngest, Resend, Stripe, and core URL variables.
@@ -101,6 +164,7 @@ Unit tests for validation patterns: `app/tests/unit/env-validation.test.ts`, `ap
 
 - OAuth providers — omitted unless both client ID and secret are set (`app/src/server/auth/index.ts`).
 - Marketing redirect — when `MARKETING_URL` is unset, unauthenticated `/` visitors go to `/login` instead of the marketing site.
+- Marketing proxy — `/hi` rewrites to `MARKETING_UPSTREAM_URL` (defaults to `https://adscale-marketing.onrender.com` when unset).
 - Beta access — off unless `BETA_ACCESS_CODES` lists at least one code.
 - Dev admins — no special treatment unless `DEV_ADMIN_EMAIL` lists one or more addresses.
 - Platform owners — `PLATFORM_OWNER_EMAILS` plus any `DEV_ADMIN_EMAIL` entries can access owner-only admin routes.
@@ -109,6 +173,7 @@ Unit tests for validation patterns: `app/tests/unit/env-validation.test.ts`, `ap
 - Upstash rate limiting — if `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are unset, production uses an in-memory limiter with a warning (`app/src/lib/rate-limit.ts`).
 - E2E rate limits — set `E2E_DISABLE_RATE_LIMIT=true` on the server during parallel browser tests.
 - Notification webhook — if `NOTIFICATION_WEBHOOK_SECRET` is unset, webhook auth checks may not match any caller-supplied secret.
+- Waitlist sync — skipped when `RESEND_WAITLIST_SEGMENT_ID` is unset or `RESEND_API_KEY` is a test key.
 
 **Development-only:**
 
@@ -129,15 +194,18 @@ Code defaults not in Zod:
 | Variable | Default | Location |
 |----------|---------|----------|
 | `MEM0_USER_PREFIX` | `adscale_workspace` | `app/src/server/memory/mem0-client.ts` |
+| `MARKETING_UPSTREAM_URL` | `https://adscale-marketing.onrender.com` | `app/next.config.ts` |
+| `LOG_LEVEL` | `info` | `app/src/lib/logger.ts` |
 | `TEST_DATABASE_URL` | `postgres://test:test@localhost:5433/adscale_test` | `app/scripts/setup-test-db.ts` |
 | `NEXT_PUBLIC_APP_VERSION` | `unknown` | `app/src/lib/feedback/diagnostic-collector.ts` |
 | `DB_MIGRATE_ATTEMPTS` | `5` | `app/scripts/migrate-with-retry.mjs` |
 | `DB_MIGRATE_DELAY_MS` | `8000` | `app/scripts/migrate-with-retry.mjs` |
 | `E2E_BASE_URL` | `http://localhost:3000` | `app/playwright.config.ts` |
 | `PORT` | `3000` | `app/scripts/start-with-inngest-sync.mjs` |
+| Checkout trial | `14` days | `app/src/server/billing/sessions.ts` |
 | Sentry `tracesSampleRate` | `0.1` production, `1.0` otherwise | `app/src/instrumentation.ts` |
 
-Example local values from `app/.env.example`: `BETTER_AUTH_URL` and `APP_URL` default to `http://localhost:3000`; `MARKETING_URL` defaults to `http://localhost:5173`; Inngest keys use `local`.
+Example local values from `app/.env.example`: `BETTER_AUTH_URL` and `APP_URL` default to `http://localhost:3000`; `MARKETING_URL` defaults to `http://localhost:3000/hi`; `MARKETING_UPSTREAM_URL` defaults to `http://localhost:5173`; Inngest keys use `local`.
 
 ## Config file format
 
@@ -158,12 +226,22 @@ Injected or fixed env vars include `NODE_ENV=production`, `DATABASE_URL` from th
 
 Production URLs in the committed blueprint:
 
-- `BETTER_AUTH_URL`, `APP_URL`: `https://adscale.jhonatansoares.com`
-- `STRIPE_SUCCESS_URL`, `STRIPE_CANCEL_URL`: paths under that host
+| Variable | Value |
+|----------|-------|
+| `BETTER_AUTH_URL`, `APP_URL` | `https://adscale.jhonatansoares.com` |
+| `MARKETING_URL` | `https://adscale.jhonatansoares.com/hi` |
+| `MARKETING_UPSTREAM_URL` | `https://adscale-marketing.onrender.com` |
+| `MARKETING_ALLOWED_ORIGINS` | `https://adscale.jhonatansoares.com` |
+| `STRIPE_SUCCESS_URL` | `https://adscale.jhonatansoares.com/settings?tab=billing&checkout=success` |
+| `STRIPE_CANCEL_URL` | `https://adscale.jhonatansoares.com/settings?tab=plans&checkout=cancel` |
+| `DEV_ADMIN_EMAIL` | `jhonatan.marcela@gmail.com` |
 
-<!-- VERIFY: Confirm the live Render service URL and custom domain in the Render Dashboard; update BETTER_AUTH_URL, APP_URL, and Stripe redirect URLs in render.yaml if they differ -->
+<!-- VERIFY: Confirm the live Render service URL and custom domain in the Render Dashboard; update BETTER_AUTH_URL, APP_URL, MARKETING_*, and Stripe redirect URLs in render.yaml if they differ -->
 
-`MARKETING_URL` is not set in `render.yaml`; add it in the Dashboard if unauthenticated `/` should redirect to a separate marketing site in production.
+`sync: false` secrets to set in the Dashboard before first deploy:
+
+- `OPENAI_API_KEY`, R2 (`R2_*`), Inngest (`INNGEST_*`), Resend (`RESEND_API_KEY`, `RESEND_WAITLIST_SEGMENT_ID`, `EMAIL_FROM`)
+- All Stripe vars: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_STARTER_PRICE_ID`, `STRIPE_GROWTH_PRICE_ID`, `STRIPE_SCALE_PRICE_ID`
 
 ### `app/drizzle.config.ts`
 
@@ -171,7 +249,7 @@ Drizzle Kit config: schema `app/src/server/db/schema.ts`, migrations under `app/
 
 ### `app/next.config.ts`
 
-Next.js 16 config: `output: 'standalone'`, `next-intl` plugin, Sentry wrapper, optional bundle analyzer when `ANALYZE=true`. Reads `R2_PUBLIC_BASE_URL`, `SENTRY_*`, and `NODE_ENV` from the environment at build time.
+Next.js 16 config: `output: 'standalone'`, `next-intl` plugin, Sentry wrapper, optional bundle analyzer when `ANALYZE=true`. Reads `R2_PUBLIC_BASE_URL`, `MARKETING_UPSTREAM_URL`, `SENTRY_*`, and `NODE_ENV` from the environment at build time. Proxies `/hi` paths to the marketing upstream.
 
 ### Docker (optional local stack)
 
@@ -181,7 +259,7 @@ Next.js 16 config: `output: 'standalone'`, `next-intl` plugin, Sentry wrapper, o
 
 | Environment | How config is supplied |
 |-------------|-------------------------|
-| **Local dev** | `app/.env.local` (from `.env.example`). Run `npm run dev` in `app/` (starts Next.js and Inngest dev server). Auth URLs typically `http://localhost:3000`; marketing site typically `http://localhost:5173`. |
+| **Local dev** | `app/.env.local` (from `.env.example`). Run `npm run dev` in `app/` (starts Next.js and Inngest dev server). Auth URLs typically `http://localhost:3000`; marketing upstream typically `http://localhost:5173` proxied at `/hi`. |
 | **Tests** | `TEST_DATABASE_URL`; Vitest may pass it via `app/config/vitest.config.ts`. `NODE_ENV=test` relaxes `env` proxy throws. Setup: `npm run test:db:setup` / teardown: `npm run test:db:teardown`. |
 | **Production (Render)** | `render.yaml` + Dashboard secrets (`sync: false` keys). `DATABASE_URL` from managed Postgres. |
 
@@ -210,6 +288,8 @@ Run from the `app/` directory:
 | `npm run test:e2e` | Playwright (`E2E_BASE_URL` optional) |
 | `npm run test:db:setup` / `test:db:teardown` | Docker test Postgres on port 5433 |
 | `npm run analyze` | Bundle analyzer (`ANALYZE=true`) |
+| `npm run preflight:stripe` | Validate Stripe billing env, URLs, and (optionally) live API |
+| `npm run seed:stripe` | Seed Stripe test products/prices (test mode only) |
 | `npm run seed:dev-admin` | Seed dev admin user (`DEV_ADMIN_EMAIL` or `--email`) |
 | `npm run seed:testsprite` | Seed TestSprite fixtures (`TESTSPRITE_*` env overrides in script) |
 

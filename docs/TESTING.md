@@ -67,7 +67,7 @@ Equivalent to:
 npx vitest run --config config/vitest.config.ts --passWithNoTests
 ```
 
-The project currently has **187** Vitest test files (`*.test.ts` / `*.test.tsx`) under `app/src/` (co-located with source) and `app/tests/` (shared unit/integration suites), with **1000+** individual test cases (for example, 1006 passing and 1 skipped in a full local run).
+The project currently has **195** Vitest test files (`*.test.ts` / `*.test.tsx`) under `app/src/` (co-located with source) and `app/tests/` (shared unit/integration suites). A full local run reports **1061** passing tests and **1** skipped (v12.0 billing regression gate baseline).
 
 ### Watch mode (development)
 
@@ -163,11 +163,62 @@ Use the `.test.ts` or `.test.tsx` suffix for Vitest (not `.spec.*`). Reserve `.s
 
 There is no shared `tests/helpers` module; copy mocking patterns from tests in the same layer (unit vs integration vs e2e).
 
+### Billing test patterns
+
+Billing is covered across server logic, API routes, client hooks, and schema contracts. Use these patterns when adding or changing Stripe/credit-gated behavior.
+
+**Where billing tests live**
+
+| Layer | Files |
+|-------|-------|
+| Server billing | `src/server/billing/credits.test.ts`, `gates.test.ts`, `events.test.ts`, `sessions.test.ts`, `access.test.ts`, `beta.test.ts`, `credit-operation-key.test.ts` |
+| Billing API routes | `src/app/api/billing/checkout/route.test.ts`, `portal/route.test.ts`, `webhook/route.test.ts`, `status/route.test.ts`, `history/route.test.ts` |
+| Client hooks / UI | `src/lib/hooks/use-billing.test.tsx`, `src/components/settings/BillingTab.test.tsx` |
+| Conversion contracts | `src/lib/billing/conversion-contract.test.ts`, `src/lib/billing/conversion-gate.test.ts` |
+| Schema | `tests/unit/billing-schema.test.ts` |
+| Credit-gated routes | Co-located route tests that `vi.mock("@/server/billing/gates")` (for example `src/app/api/derivations/[id]/regenerate/route.test.ts`) |
+
+**Credit and gate logic** (`credits.test.ts`, `gates.test.ts`):
+
+- Mock `@/server/billing/access`, `@/server/repositories/billing`, and `@/server/repositories/usage` before importing the module under test.
+- Spy on `db.transaction` when exercising transactional credit deduction.
+- For `spendCreditsOrApiError`, mock `recordUsage` to return `status: "recorded"` (allowed) or `status: "blocked"` (402 with conversion payload).
+- Assert blocked responses use HTTP **402** and include structured `code` / `details` (for example `beta_exhausted`, `recommendedAction: "checkout"`).
+
+**Stripe webhook** (`webhook/route.test.ts`):
+
+- Use `vi.hoisted()` for Stripe client mocks so they are available inside `vi.mock` factories.
+- Mock `@/server/validation/env` for `STRIPE_WEBHOOK_SECRET`.
+- Mock `@/server/billing/events` `processStripeEvent` separately from signature verification.
+- Build `Request` objects with optional `stripe-signature` header; assert `400` for missing/invalid signatures and `200` when `constructEvent` + `processStripeEvent` succeed.
+
+**React Query hooks** (`use-billing.test.tsx`):
+
+- Mock `@/lib/api-client` `apiFetch`.
+- Wrap hooks with a fresh `QueryClient` (`retry: false`) via `renderHook` + `QueryClientProvider`.
+- Reset `window.location.href` in `beforeEach` when testing checkout redirects.
+
+**Schema contracts** (`billing-schema.test.ts`):
+
+- Import Drizzle table objects from `@/server/db/schema` and assert expected column keys exist (`billingCustomers`, `subscriptions`, `creditGrants`, `processedStripeEvents`).
+
+**Credit-gated API routes**:
+
+- Mock `spendCreditsOrApiError` from `@/server/billing/gates` to return `null` (allowed) or a `Response` (blocked) without hitting Stripe or the database.
+- Keep idempotency keys and `workspaceId` in test fixtures aligned with production call sites.
+
 ---
 
 ## Coverage requirements
 
 No minimum coverage thresholds are defined in `app/config/vitest.config.ts` or enforced in CI. Generated coverage output is ignored via `app/.gitignore` (`/coverage`).
+
+| Type | Threshold |
+|------|-----------|
+| Lines | Not configured |
+| Branches | Not configured |
+| Functions | Not configured |
+| Statements | Not configured |
 
 ---
 
@@ -198,4 +249,4 @@ CI does **not** run Playwright E2E tests; those are manual/local verification ag
 - [GETTING-STARTED.md](./GETTING-STARTED.md) — prerequisites, env, and first run  
 - [DEVELOPMENT.md](./DEVELOPMENT.md) — scripts, lint, and workflow  
 - [CONFIGURATION.md](./CONFIGURATION.md) — environment variables used at runtime and in tests  
-- `app/README.md` — focused test command for billing/auth changes  
+- `app/README.md` — focused test command for billing/auth changes and Stripe manual smoke steps

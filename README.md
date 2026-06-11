@@ -2,9 +2,11 @@
 
 # ADScale
 
-AI-powered creative derivation platform for marketing teams. Upload a base creative, define a campaign brief, receive a structured creative plan, and generate platform-ready ad variations—with quality gates, review workflows, and credit-gated billing.
+AI-powered creative derivation platform for marketing teams. Upload a base creative, define a campaign brief, receive a structured creative plan, and generate platform-ready ad variations—with quality gates, review workflows, and production Stripe billing (v12.0).
 
 ## Features
+
+### Creative workflow
 
 - **Campaign management** — Organize campaigns with structured briefs (audience, platforms, tone, constraints).
 - **AI creative planning** — Generate strategy, angles, hooks, and CTAs from briefs via OpenAI text models.
@@ -14,8 +16,19 @@ AI-powered creative derivation platform for marketing teams. Upload a base creat
 - **Review UI** — Verdict badges on derivation cards, review modal, and **regenerate with fixes** flow for improvable outputs.
 - **Campaign load errors** — Typed error taxonomy (`session`, `workspace`, `not_found`, `timeout`, `server`) with dedicated UI states.
 - **Export & delivery** — Download approved sets as ZIP archives; assets stored on Cloudflare R2.
-- **Credit-gated AI** — Usage limits integrated with Stripe subscriptions (Starter, Growth, Scale).
 - **Workspaces & i18n** — Multi-tenant workspace isolation; English and Brazilian Portuguese (`next-intl`).
+
+### Monetization & billing (v12.0)
+
+- **Stripe subscriptions** — Starter (30 credits/mo), Growth (120), and Scale (360) plans with a **14-day free trial** via Stripe Checkout.
+- **Subscription lifecycle** — Webhook-driven state sync (`checkout.session.completed`, subscription updates, `invoice.paid`, `invoice.payment_failed`). Monthly credit grants on `invoice.paid`; grants suspended while `past_due` until payment recovers.
+- **Credit-gated AI** — Spend enforcement on derivations, creative plans, diagnosis, and copy variants; existing balance remains spendable during `past_due`.
+- **In-product conversion gates** — Blocked paid actions return HTTP **402** with contextual CTAs (checkout, Stripe Customer Portal, or billing settings) via `ConversionCta`.
+- **Billing account UI** — Settings tabs for plans, subscription status, credit balance, grant history, and usage forecast (EN + PT-BR).
+- **Production preflight** — `npm run preflight:stripe` validates Stripe env vars, price IDs, and webhook events before go-live.
+
+### Cockpit & analytics
+
 - **Cockpit instrumentation** — Beta analytics events across the creative cockpit: preview funnel, strategy recipe/tradeoff selection, guided briefing abandon, and stage enter/complete/abandon signals.
 - **Readiness override** — Operators can override false-positive readiness blocks and continue to derivation when preflight is overly strict.
 - **Credit estimate transparency** — Batch and preview credit estimates with upfront breakdown before approving generation.
@@ -35,10 +48,10 @@ AI-powered creative derivation platform for marketing teams. Upload a base creat
 | Jobs | [Inngest](https://www.inngest.com/) |
 | AI | [OpenAI](https://openai.com/) (text + image models) |
 | Storage | Cloudflare R2 (S3-compatible) |
-| Payments | [Stripe](https://stripe.com/) |
+| Payments | [Stripe](https://stripe.com/) (Checkout, Customer Portal, webhooks) |
 | Email | [Resend](https://resend.com/) |
 | State | [TanStack Query](https://tanstack.com/query), [Zustand](https://github.com/pmndrs/zustand) |
-| Testing | [Vitest](https://vitest.dev/) (1000+ tests), Testing Library |
+| Testing | [Vitest](https://vitest.dev/) (1061 tests), Testing Library |
 
 The runnable application lives in **`app/`** (not the repository root). API routes are under `app/src/app/api/`.
 
@@ -68,7 +81,7 @@ npm run db:migrate
 3. Start dev (Next.js + Inngest wiring): `npm run dev`.
 4. Open **http://localhost:3000**, sign up, create a workspace and campaign.
 
-For Stripe webhooks, Docker, and billing smoke tests, see [`app/README.md`](app/README.md).
+For Stripe webhooks, Docker, billing smoke tests, and production preflight, see [`app/README.md`](app/README.md).
 
 ## Usage examples
 
@@ -82,6 +95,13 @@ For Stripe webhooks, Docker, and billing smoke tests, see [`app/README.md`](app/
 6. **Run derivations** — Choose a mode (`art_variation`, `format_adaptation`, or `restyling`), enqueue jobs via Inngest, then review verdicts and approve or regenerate with fixes.
 7. **Export** — Download approved derivations individually or as a ZIP.
 
+### Subscribe and manage billing
+
+1. **Choose a plan** — Settings → Plans; select Starter, Growth, or Scale (14-day trial on first checkout).
+2. **Complete checkout** — Stripe Checkout redirects back to Settings → Billing on success.
+3. **Monitor usage** — Billing tab shows credit balance, subscription status, grant history, and spend forecast.
+4. **Recover from past due** — In-product 402 gates route to Stripe Customer Portal to update payment method.
+
 ### Run tests
 
 From `app/`:
@@ -90,16 +110,24 @@ From `app/`:
 npm test
 ```
 
-CI runs lint, migrations, tests, and production build on push/PR to `main` (see `.github/workflows/ci.yml`).
+The billing regression gate runs **1061 tests** across billing lifecycle, access policy, conversion surfaces, and account UI. CI runs lint, migrations, tests, and production build on push/PR to `main` (see `.github/workflows/ci.yml`).
 
 ## Documentation
 
 | Resource | Description |
 |----------|-------------|
-| [`app/README.md`](app/README.md) | Local env, Stripe test mode, verification commands |
+| [`app/README.md`](app/README.md) | Local env, Stripe test mode, webhook setup, verification commands |
 | [`app/.env.example`](app/.env.example) | Environment variable reference |
 | [`app/DOCKER.md`](app/DOCKER.md) | Docker Compose for Postgres + optional Inngest |
 | [`render.yaml`](render.yaml) | Render deployment blueprint (`rootDir: app`) |
+
+### Billing scripts (from `app/`)
+
+| Command | Description |
+|---------|-------------|
+| `npm run preflight:stripe` | Validate Stripe env, prices, and webhook config before production go-live |
+| `npm run preflight:stripe -- --offline` | Env-only checks without live Stripe API calls |
+| `npm run seed:stripe` | Seed test-mode Stripe products/prices (test keys only) |
 
 ## Project structure
 
@@ -123,6 +151,8 @@ Production deploys target **Render** using [`render.yaml`](render.yaml):
 - **Start:** `npm run db:migrate && npm run start:prod`
 - **Health check:** `/api/health`
 - **Production URL:** https://adscale.jhonatansoares.com
+
+Stripe production secrets (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, price IDs) are configured as Render env vars with `sync: false`. Run `npm run preflight:stripe` from a Render shell or locally with production `.env` before enabling live billing.
 
 ## License
 

@@ -11,7 +11,7 @@ Internal HTTP API for the ADScale Next.js application (`app/src/app/api`). Consu
 | Auth (default) | Better Auth session cookie + workspace scoping |
 | Max upload | 50 MB per file; images: `image/png`, `image/jpeg`, `image/webp` |
 
-Route handlers live under `app/src/app/api/**/route.ts` (85 route files).
+Route handlers live under `app/src/app/api/**/route.ts` (87 route files).
 
 ---
 
@@ -68,6 +68,8 @@ These require a valid session but do not use `requireWorkspaceAccess`:
 | `POST /api/billing/webhook` | `Stripe-Signature` header + `STRIPE_WEBHOOK_SECRET` |
 | `POST /api/notifications/webhook` | `x-webhook-secret` must equal `NOTIFICATION_WEBHOOK_SECRET` |
 | `GET`, `POST /api/auth/[...all]` | Better Auth flows |
+| `OPTIONS`, `POST /api/waitlist` | CORS marketing origins (`MARKETING_ALLOWED_ORIGINS`); rate-limited as `auth` |
+| `GET /api/build-id` | None — deployment build identifier |
 
 ### Example authenticated request
 
@@ -140,13 +142,13 @@ Request bodies are validated with **Zod** where noted below. Failures typically 
 | 403 | `forbidden` | Insufficient workspace role or not platform owner |
 | 403 | `derivationNotInShareLink` | Derivation not in share token scope |
 | 403 | `inviteEmailMismatch` | Invite accept email mismatch |
-| 404 | `campaignNotFound`, `derivationNotFound`, `assetNotFound`, `planNotFound`, `clientProfileNotFound`, `inviteNotFound`, `not_found`, `workspace_not_found`, `shareLinkNotFound`, … | Resource missing or wrong workspace |
+| 404 | `campaignNotFound`, `derivationNotFound`, `assetNotFound`, `planNotFound`, `clientProfileNotFound`, `inviteNotFound`, `not_found`, `workspace_not_found`, `shareLinkNotFound`, `billingCustomerNotFound`, … | Resource missing or wrong workspace |
 | 409 | `derivationsInProgress`, `derivationNotApproved`, `derivationHardFailures`, `sourceDerivationNotApproved`, `invalidApprovalPackageSelection`, … | Conflict / quality gate |
 | 410 | `inviteExpired` | Invite token expired |
 | 429 | `rateLimitExceeded` | Rate limit (handler or middleware) |
 | 429 | `derivationsInProgress`, `diagnosisInProgress`, … | Domain concurrency limits |
 | 500 | `internalError` | Unexpected error; `details.errorId` for support |
-| 500 | `checkoutSessionFailed`, `failedQueueDerivations`, … | Domain failures |
+| 500 | `checkoutSessionFailed`, `portalSessionFailed`, `failedQueueDerivations`, … | Domain failures |
 | 502 | `aiEmptyResponse`, `aiInvalidJson`, `aiValidationFailed` | AI plan generation |
 | 503 | `internalError` | Database connection failures |
 
@@ -156,7 +158,7 @@ In development, `500` responses may include `details.devError` with stack info.
 
 ## Rate limits
 
-### Edge middleware (`app/middleware.ts`)
+### Edge proxy (`app/src/proxy.ts`)
 
 Applies to **API mutations** (`POST`, `PUT`, `PATCH`, `DELETE`) under `/api/*`:
 
@@ -195,7 +197,9 @@ Dynamic segments use `:id` notation. Auth column: **none**, **session**, **sessi
 | Method(s) | Path | Auth | Description |
 |-----------|------|------|-------------|
 | GET, POST | `/api/auth/[...all]` | better-auth | Sign-in, sign-up, OAuth, session, password reset |
-| GET | `/api/health` | none | Liveness probe |
+| GET | `/api/health` | none | Liveness probe + static asset diagnostics |
+| GET | `/api/build-id` | none | Git commit / build identifier |
+| OPTIONS, POST | `/api/waitlist` | none (CORS) | Marketing-site waitlist signup |
 | GET, POST, PUT | `/api/inngest` | inngest-signing | Inngest job handler (derivation, trial, assets, brand memory) |
 | POST | `/api/billing/webhook` | stripe-signature | Stripe subscription events |
 | POST | `/api/notifications/webhook` | x-webhook-secret | Internal notification email dispatcher |
@@ -290,9 +294,53 @@ Dynamic segments use `:id` notation. Auth column: **none**, **session**, **sessi
 {
   "ok": true,
   "service": "adscale-app",
-  "timestamp": "2026-06-02T12:00:00.000Z"
+  "timestamp": "2026-06-02T12:00:00.000Z",
+  "brandMemory": { "enabled": false },
+  "staticAssets": {
+    "cwd": "/app",
+    "staticExists": true,
+    "publicExists": true,
+    "chunkCount": 42,
+    "logoExists": true
+  }
 }
 ```
+
+### `GET /api/build-id`
+
+Returns the deployment build identifier (first non-empty of `RENDER_GIT_COMMIT`, `VERCEL_GIT_COMMIT_SHA`, `BUILD_ID`, or `"development"`).
+
+```json
+{ "buildId": "abc123def456" }
+```
+
+### `OPTIONS`, `POST /api/waitlist`
+
+Public marketing waitlist endpoint with CORS for origins listed in `MARKETING_ALLOWED_ORIGINS`. Uses the `auth` rate-limit bucket (10 requests / 60s).
+
+**`POST` body** — `waitlistSignupSchema`:
+
+```json
+{
+  "name": "string (2–100)",
+  "email": "user@example.com",
+  "sector": "agency | ecommerce | saas | infoproduct | retail | other",
+  "sectorOther": "string (required when sector is other)",
+  "whatsapp": "string (8–30)",
+  "consent": true,
+  "locale": "pt-BR | en (default pt-BR)",
+  "website": ""
+}
+```
+
+`website` is a honeypot — non-empty values return `{ "status": "created" }` with `201` without persisting.
+
+| Status | Body |
+|--------|------|
+| 201 | `{ "status": "created" }` |
+| 409 | `{ "status": "already_registered", "message": "..." }` |
+| 400 | `{ "error": "invalidInput", "details": ... }` or `{ "error": "invalidInput", "code": "invalidWhatsapp" }` |
+| 429 | `{ "error": "rateLimitExceeded" }` |
 
 ### `GET /api/share/:token/asset/:derivationId`
 
@@ -548,15 +596,73 @@ Source derivation must be `approved` with output. Queues `format_adaptation` chi
 
 Response: `{ "downloadUrl": "...", "expiresAt": "<iso8601>" }` (5-minute TTL).
 
-### Billing
+### Billing (v12.0)
+
+All billing routes except the webhook require **session+workspace**.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/billing/status` | Subscription, access kind, credits, past-due / canceled recovery hints |
+| GET | `/api/billing/history` | Credit grants, transactions, spend summary |
+| POST | `/api/billing/checkout` | Create Stripe Checkout session |
+| POST | `/api/billing/portal` | Create Stripe Customer Portal session |
+| POST | `/api/billing/beta/redeem` | Redeem beta access code (`BETA_ACCESS_CODES`) |
+| POST | `/api/billing/webhook` | Stripe subscription events (`stripe-signature`) |
+
+**`planKey` values:** `starter`, `growth`, `scale` (monthly credit grants: 30 / 120 / 360).
 
 **`POST /api/billing/checkout`**
 
 ```json
-{ "planKey": "<billingPlanKeys enum>" }
+{
+  "planKey": "starter | growth | scale",
+  "returnPath": "/settings/billing?"
+}
 ```
 
-Response: `{ "url": "<stripe checkout url>" }`.
+`returnPath` is optional; must start with `/`. Response: `{ "url": "<stripe checkout url>" }`. Errors: `invalidRequestBody` (400), `checkoutSessionFailed` (500).
+
+**`POST /api/billing/portal`**
+
+No body. Response: `{ "url": "<stripe portal url>" }`. Errors: `billingCustomerNotFound` (404), `portalSessionFailed` (500).
+
+**`GET /api/billing/status`**
+
+Response envelope:
+
+```json
+{
+  "billing": {
+    "hasCustomer": true,
+    "subscriptionStatus": "active | past_due | canceled | ...",
+    "access": {
+      "kind": "subscription | beta | trial | ...",
+      "label": "string",
+      "remainingAds": 0,
+      "hasSpendAccess": true,
+      "beta": { "totalAds": 10, "remainingAds": 5, "exhausted": false }
+    },
+    "pastDue": { "recoveryAction": "portal", "spendPolicy": "..." },
+    "canceled": { "recoveryAction": "checkout" },
+    "subscription": {
+      "status": "active",
+      "rawStatus": "active",
+      "planKey": "growth",
+      "currentPeriodEnd": "2026-07-01T00:00:00.000Z",
+      "cancelAtPeriodEnd": false
+    },
+    "creditBalance": 42
+  }
+}
+```
+
+`pastDue`, `canceled`, `subscription`, and `access.beta` are `null` when not applicable.
+
+**`GET /api/billing/history`**
+
+Query: `from`, `to` (ISO datetimes), `campaignId` (UUID).
+
+Response: `{ grants, transactions, summary, campaigns }` where `summary` includes `totalSpent`, `remainingCredits`, `averagePerCampaign`, `transactionCount`.
 
 **`POST /api/billing/beta/redeem`**
 
@@ -564,7 +670,7 @@ Response: `{ "url": "<stripe checkout url>" }`.
 { "code": "string" }
 ```
 
-Response on success:
+Success (`200`):
 
 ```json
 {
@@ -577,6 +683,8 @@ Response on success:
   }
 }
 ```
+
+Beta redeem error codes (`400`): `invalid_code`, `already_redeemed`, `beta_unavailable` — body `{ "error": "<message>", "code": "<code>" }`.
 
 ### Workspace
 

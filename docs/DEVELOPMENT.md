@@ -58,7 +58,7 @@ For Stripe webhooks, billing smoke tests, and the full Docker stack, see [`app/R
 |---------|-------------|
 | `npm run dev` | Next.js dev server + Inngest dev CLI (see [Inngest development](#inngest-development)) |
 | `npm run dev:next` | Next.js dev only (`localhost:3000`) |
-| `npm run build` | Production build (`next build --webpack`) |
+| `npm run build` | Production build (`next build --webpack`); runs `postbuild` (`scripts/prepare-standalone.mjs`) |
 | `npm run start` | Serve production build |
 | `npm run start:prod` | Production start with Inngest sync (`scripts/start-with-inngest-sync.mjs`) |
 | `npm run analyze` | Production build with bundle analyzer (`ANALYZE=true`) |
@@ -70,12 +70,51 @@ For Stripe webhooks, billing smoke tests, and the full Docker stack, see [`app/R
 | `npm run test:db:teardown` | Stop/remove test Postgres container |
 | `npm run inngest:dev` | Inngest dev server only (app must be running) |
 | `npm run db:generate` | Generate Drizzle migration from schema |
-| `npm run db:migrate` | Apply Drizzle migrations |
+| `npm run db:migrate` | Apply Drizzle migrations (`scripts/migrate-with-retry.mjs`) |
 | `npm run db:push` | Push schema to database (no migration file) |
 | `npm run db:studio` | Drizzle Studio |
 | `npm run seed:dev-admin` | Seed a dev admin user (`scripts/seed-dev-admin.ts`) |
 | `npm run seed:stripe` | Seed Stripe products/prices for local billing (`scripts/seed-stripe-real.ts`) |
+| `npm run preflight:stripe` | Offline/live Stripe billing preflight (`scripts/preflight-stripe-billing.ts`) |
 | `npm run seed:testsprite` | Seed data for TestSprite workflows (`scripts/seed-testsprite.ts`) |
+
+## Billing development
+
+Production Stripe billing (v12.0) lives under:
+
+| Area | Path | Role |
+|------|------|------|
+| Server domain | `src/server/billing/` | Plans, credits, gates, webhooks, Stripe client, entitlements |
+| API routes | `src/app/api/billing/` | Checkout, portal, webhook, status, history, beta redeem |
+| Client helpers | `src/lib/billing/` | Conversion gate and client contracts |
+| UI | `src/components/billing/`, `src/components/settings/BillingTab.tsx` | Conversion CTAs and account billing UI |
+
+**Local Stripe setup**
+
+1. Copy test-mode keys and Price IDs into `.env.local` (see [CONFIGURATION.md](./CONFIGURATION.md)).
+2. Optionally seed catalog data: `npm run seed:stripe`.
+3. Forward webhooks while the app is running:
+
+   ```bash
+   stripe listen --forward-to localhost:3000/api/billing/webhook
+   ```
+
+   Use the emitted `whsec_...` value as `STRIPE_WEBHOOK_SECRET`.
+
+**Preflight before go-live**
+
+```bash
+npm run preflight:stripe -- --offline          # env + plan config only
+npm run preflight:stripe -- --app-url=https://...  # optional live Stripe checks
+```
+
+**Focused billing regression subset** (after broader changes, run the full suite):
+
+```bash
+npm run test -- src/lib/hooks/use-billing.test.tsx src/server/billing/events.test.ts src/app/api/billing/webhook/route.test.ts src/server/billing/credits.test.ts src/server/billing/gates.test.ts src/server/billing/sessions.test.ts src/app/api/billing/checkout/route.test.ts src/app/api/billing/portal/route.test.ts tests/integration/auth-workspace-access.test.ts
+```
+
+The v12.0 billing regression gate is the full Vitest suite (`npm test` — 1061+ tests). Manual Stripe smoke steps are in [`app/README.md`](../app/README.md#manual-stripe-smoke).
 
 ## Database migrations
 
@@ -152,7 +191,7 @@ With `docker compose --profile dev`, the Inngest container targets `http://app:3
 
 ESLint 9 uses `eslint-config-next` (core-web-vitals + TypeScript). No Prettier, Biome, or root `.editorconfig` is configured in this repository. Follow existing patterns in neighboring files (imports, `@/` path alias, server vs client component boundaries).
 
-CI (`.github/workflows/ci.yml`) enforces **lint**, **typecheck**, **tests**, and **build** on pushes and pull requests to `main`. The workflow runs `npm run typecheck`, but `app/package.json` does not define that script yet — use `npx tsc --noEmit` locally until a `typecheck` script is added (for example `"typecheck": "tsc --noEmit"`).
+CI (`.github/workflows/ci.yml`) enforces **lint**, **typecheck**, **migrations**, **tests**, and **build** on pushes and pull requests to `main`. The workflow runs `npm run typecheck`, but `app/package.json` does not define that script yet — use `npx tsc --noEmit` locally until a `typecheck` script is added (for example `"typecheck": "tsc --noEmit"`).
 
 ## Lint and tests
 
@@ -208,7 +247,7 @@ npm run test:e2e
 
 E2E cases expect a running server (typically `npm run start` or production build) with Inngest dev up and `E2E_DISABLE_RATE_LIMIT=true`. See `playwright.config.ts` for `E2E_BASE_URL` and timeout settings.
 
-Focused billing/auth examples are listed in [`app/README.md`](../app/README.md#verification). Full test layout and CI steps: [TESTING.md](./TESTING.md).
+Focused billing/auth examples are listed in [Billing development](#billing-development) and [`app/README.md`](../app/README.md#verification). Full test layout and CI steps: [TESTING.md](./TESTING.md).
 
 ### Pre-push checklist
 
@@ -220,11 +259,13 @@ npm test
 npm run build
 ```
 
+When touching billing or Stripe config, also run `npm run preflight:stripe -- --offline` and the focused billing test subset above.
+
 ## Branch conventions
 
 Default branch: **`main`**.
 
-No branch naming convention is documented in `CONTRIBUTING.md` or pull request templates. Recent branches use prefixes such as `feat/`, `codex/`, `cursor/`, and `feature/`. Prefer short, descriptive names tied to the change (for example `feat/art-variation-extreme`).
+No branch naming convention is documented in `CONTRIBUTING.md` or pull request templates. Recent branches use prefixes such as `feat/`, `feature/`, `codex/`, and `cursor/`. Prefer short, descriptive names tied to the change (for example `feat/waitlist`).
 
 ## Pull request process
 
@@ -234,6 +275,7 @@ There is no `.github/PULL_REQUEST_TEMPLATE.md` in this repository. Before openin
 - Run lint, TypeScript check, tests, and build from `app/` (see [Lint and tests](#lint-and-tests)).
 - Include migration files when schema changes (`drizzle/` + `npm run db:migrate` verified locally).
 - Describe user-visible behavior, API changes, and any new or required env vars (update `app/.env.example` when adding configuration).
+- For billing changes, note Stripe webhook/event impact and whether `seed:stripe` or `preflight:stripe` was run.
 
 Reviewers typically expect green CI: install → lint → typecheck → migrate against CI Postgres → test → build (`.github/workflows/ci.yml`). Open issues via GitHub Issues; no issue templates are checked in under `.github/ISSUE_TEMPLATE/`.
 

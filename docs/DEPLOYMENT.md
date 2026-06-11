@@ -20,7 +20,7 @@ How ADScale is built, deployed, and operated in production. The primary path is 
 |---------|-------|
 | `rootDir` | `app` |
 | `branch` | `main` |
-| `plan` | `free` |
+| `plan` | `starter` |
 | `region` | `oregon` |
 | `autoDeployTrigger` | `commit` |
 | `buildCommand` | `npm ci && npm run build` |
@@ -105,6 +105,9 @@ Production configuration is defined in `render.yaml` and completed in the **Rend
 | `DATABASE_URL` | From `adscale-postgres` (`fromDatabase`) |
 | `BETTER_AUTH_SECRET` | Render `generateValue: true` |
 | `BETTER_AUTH_URL`, `APP_URL` | `https://adscale.jhonatansoares.com` |
+| `MARKETING_URL` | `https://adscale.jhonatansoares.com/hi` |
+| `MARKETING_UPSTREAM_URL` | `https://adscale-marketing.onrender.com` |
+| `MARKETING_ALLOWED_ORIGINS` | `https://adscale.jhonatansoares.com` |
 | `OPENAI_TEXT_MODEL` | `gpt-5-mini` |
 | `OPENAI_IMAGE_MODEL` | `gpt-image-2-2026-04-21` |
 | `STRIPE_SUCCESS_URL` | `https://adscale.jhonatansoares.com/settings?tab=billing&checkout=success` |
@@ -113,9 +116,9 @@ Production configuration is defined in `render.yaml` and completed in the **Rend
 
 ### Must set manually (`sync: false`)
 
-`OPENAI_API_KEY`, all `R2_*`, `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`, `RESEND_API_KEY`, `EMAIL_FROM`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and the three `STRIPE_*_PRICE_ID` values.
+`OPENAI_API_KEY`, all `R2_*`, `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`, `RESEND_API_KEY`, `RESEND_WAITLIST_SEGMENT_ID`, `EMAIL_FROM`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and the three `STRIPE_*_PRICE_ID` values.
 
-For Resend: create an API key in the Resend dashboard and set `RESEND_API_KEY`. Revoke and replace any key that was exposed in chat or logs. `EMAIL_FROM` can start as `ADScale <onboarding@resend.dev>` for smoke tests; for production, verify your sending domain in Resend and use an address on that domain.
+For Resend: create an API key in the Resend dashboard and set `RESEND_API_KEY`. Revoke and replace any key that was exposed in chat or logs. `EMAIL_FROM` can start as `ADScale <onboarding@resend.dev>` for smoke tests; for production, verify your sending domain in Resend and use an address on that domain. Set `RESEND_WAITLIST_SEGMENT_ID` to the Resend Audiences segment ID used by waitlist contact sync (`app/src/server/services/resend-contacts.ts`).
 
 Optional production vars not in `render.yaml` (set in Dashboard if used): `SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, OAuth (`GOOGLE_*`, `GITHUB_*`), `MEM0_*`. See [CONFIGURATION.md](./CONFIGURATION.md).
 
@@ -126,7 +129,33 @@ Optional production vars not in `render.yaml` (set in Dashboard if used): `SENTR
 | Inngest | `https://adscale.jhonatansoares.com/api/inngest` |
 | Stripe webhooks | `https://adscale.jhonatansoares.com/api/billing/webhook` |
 
-If the public URL changes (different custom domain or Render subdomain), update `BETTER_AUTH_URL`, `APP_URL`, `STRIPE_SUCCESS_URL`, `STRIPE_CANCEL_URL` in `render.yaml` and re-register endpoints in the Inngest and Stripe dashboards.
+If the public URL changes (different custom domain or Render subdomain), update `BETTER_AUTH_URL`, `APP_URL`, `STRIPE_SUCCESS_URL`, `STRIPE_CANCEL_URL`, `MARKETING_URL`, and `MARKETING_ALLOWED_ORIGINS` in `render.yaml` and re-register endpoints in the Inngest and Stripe dashboards.
+
+### Stripe production go-live
+
+Before accepting live payments on Render:
+
+1. **Live API keys:** set `STRIPE_SECRET_KEY` to a `sk_live_` or `rk_live_` restricted key in the Render Dashboard.
+2. **Live Price IDs:** set `STRIPE_STARTER_PRICE_ID`, `STRIPE_GROWTH_PRICE_ID`, and `STRIPE_SCALE_PRICE_ID` to recurring monthly `price_` IDs from the Stripe Dashboard (live mode).
+3. **Webhook endpoint:** in the Stripe Dashboard (live mode), create a webhook pointing at `POST https://adscale.jhonatansoares.com/api/billing/webhook` and copy the signing secret into `STRIPE_WEBHOOK_SECRET` (`whsec_…`). The handler is `app/src/app/api/billing/webhook/route.ts`.
+4. **Required webhook events** (enforced by `app/scripts/preflight-stripe-billing.ts`):
+   - `checkout.session.completed`
+   - `customer.subscription.created`
+   - `customer.subscription.updated`
+   - `customer.subscription.deleted`
+   - `invoice.paid`
+   - `invoice.payment_failed`
+5. **Billing portal:** ensure at least one Customer Portal configuration exists in the Stripe Dashboard (required for `POST /api/billing/portal`).
+6. **Preflight check:** from Render Shell or locally with production env loaded:
+
+```bash
+cd app
+npm run preflight:stripe
+# offline schema-only check:
+npm run preflight:stripe -- --offline
+```
+
+The preflight script validates env vars, URL origins, price IDs (live API mode), and portal configuration without printing full secrets.
 
 ### First-time Blueprint deploy
 
@@ -148,7 +177,10 @@ Do not copy values from `.env.docker` or `.env.local` into tracked files.
 - All `sync: false` secrets set in Render.
 - Migration SQL committed under `app/drizzle/`.
 - `BETTER_AUTH_URL` and `APP_URL` match how users reach the app.
-- Stripe and Inngest dashboards point at the production URLs.
+- `MARKETING_URL`, `MARKETING_UPSTREAM_URL`, and `MARKETING_ALLOWED_ORIGINS` match the marketing site setup.
+- Stripe live keys, live Price IDs, and webhook endpoint registered in the Stripe Dashboard (live mode).
+- `npm run preflight:stripe` passes against production env.
+- Inngest dashboard points at the production `/api/inngest` URL.
 - CI green on `main` (lint, typecheck, tests, build).
 
 ## Rollback procedure
