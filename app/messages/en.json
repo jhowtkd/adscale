@@ -1788,6 +1788,118 @@
     }
   },
   "billing": {
+    "account": {
+      "loading": "Loading billing...",
+      "error": "Could not load billing information. Try again in a moment.",
+      "pastDue": {
+        "title": "Payment pending",
+        "body": "We couldn't process your last charge. You can still use your remaining {credits} credits, but new monthly credits are paused until payment is updated.",
+        "action": "Update payment in portal",
+        "opening": "Opening portal..."
+      },
+      "canceled": {
+        "title": "Subscription canceled",
+        "body": "Your subscription is no longer active. Reactivate to continue generating ads.",
+        "action": "Reactivate subscription",
+        "redirecting": "Redirecting..."
+      },
+      "beta": {
+        "title": "Beta access active",
+        "body": "You have {remaining} of {total} ad generations remaining in this beta program."
+      },
+      "lowCredits": {
+        "trial": "Low balance for new generations ({credits} credits left). Your trial ends soon.",
+        "paid": "Low balance for new generations ({credits} credits left). Consider upgrading your plan."
+      },
+      "noAccess": {
+        "title": "Beta access",
+        "description": "Have a tester code? Redeem it here to generate up to 10 ads without subscribing.",
+        "placeholder": "Beta code",
+        "action": "Redeem code",
+        "redeeming": "Redeeming...",
+        "error": "Could not redeem the code."
+      },
+      "plans": {
+        "title": "Choose a plan",
+        "subtitle": "All plans include a 14-day free trial. Cancel anytime.",
+        "startTrial": "Start trial",
+        "redirecting": "Redirecting...",
+        "features": {
+          "plans": "Creative plan generation",
+          "derivations": "Image derivations",
+          "export": "ZIP export"
+        }
+      },
+      "forecast": {
+        "title": "Cost simulator",
+        "subtitle": "Internal provider cost simulator — not the end-user limit.",
+        "campaignCost": "Cost per campaign",
+        "monthlyCost": "Projected monthly cost",
+        "cushion": "Budget with cushion",
+        "imageCost": "Cost per image",
+        "cushionCaption": "25% operational reserve",
+        "campaignsPerMonth": "Campaigns per month",
+        "imagesPerCampaign": "Images per campaign",
+        "planInput": "Plan input (internal cost)",
+        "planOutput": "Plan output (internal cost)",
+        "imageText": "Text per image (internal cost)",
+        "reference": "Reference (internal cost)",
+        "generatedImage": "Generated image (internal cost)"
+      },
+      "financial": {
+        "title": "Account",
+        "access": "Access",
+        "status": "Status",
+        "generationBalance": "Generation balance",
+        "adsRemaining": "Ads remaining",
+        "trialEnds": "Trial ends",
+        "nextRenewal": "Next renewal",
+        "renewal": "Renewal",
+        "none": "—",
+        "trialBadge": "Trial",
+        "manageBilling": "Manage billing",
+        "opening": "Opening...",
+        "upgrade": "Upgrade",
+        "startTrial": "Start free trial",
+        "viewUsageHistory": "View usage history →"
+      },
+      "grants": {
+        "title": "Credit grants",
+        "subtitle": "Credits received from subscriptions, invoices, and beta redemption.",
+        "empty": "No credit grants yet.",
+        "source": "Source",
+        "amount": "Amount",
+        "date": "Date",
+        "sources": {
+          "stripe_invoice": "Monthly subscription",
+          "beta_tester": "Beta program"
+        }
+      },
+      "blockingRules": {
+        "title": "Blocking rules",
+        "eighty": "Show preventive alert for the workspace.",
+        "hundred": "Block new generations or prompt upgrade.",
+        "overrun": "Review pricing if actual cost exceeds estimate."
+      },
+      "accessLabels": {
+        "beta": "Beta ({remaining} ads remaining)",
+        "noPlan": "No active plan",
+        "plan": "{plan}"
+      },
+      "statusLabels": {
+        "beta": "Beta access",
+        "pastDue": "Payment pending",
+        "trial": "Trial (14 days)",
+        "active": "Active",
+        "canceled": "Canceled",
+        "inactive": "Inactive"
+      },
+      "accessKinds": {
+        "paid": "Paid subscription",
+        "beta": "Beta program — not a paid plan",
+        "none": "No active access — subscribe or redeem beta"
+      }
+    },
     "conversion": {
       "loading": "Redirecting...",
       "actions": {

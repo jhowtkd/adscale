@@ -1789,6 +1789,118 @@
     }
   },
   "billing": {
+    "account": {
+      "loading": "Carregando cobrança...",
+      "error": "Não foi possível carregar as informações de cobrança. Tente novamente em instantes.",
+      "pastDue": {
+        "title": "Pagamento pendente",
+        "body": "Não conseguimos processar sua última cobrança. Você ainda pode usar os {credits} créditos restantes, mas novos créditos mensais ficam suspensos até atualizar o pagamento.",
+        "action": "Atualizar pagamento no portal",
+        "opening": "Abrindo portal..."
+      },
+      "canceled": {
+        "title": "Assinatura cancelada",
+        "body": "Sua assinatura não está mais ativa. Reative para continuar gerando anúncios.",
+        "action": "Reativar assinatura",
+        "redirecting": "Redirecionando..."
+      },
+      "beta": {
+        "title": "Acesso beta ativo",
+        "body": "Você tem {remaining} de {total} anúncios gerados restantes neste programa beta."
+      },
+      "lowCredits": {
+        "trial": "Saldo baixo para novas gerações ({credits} créditos restantes). Seu trial termina em breve.",
+        "paid": "Saldo baixo para novas gerações ({credits} créditos restantes). Considere fazer um upgrade de plano."
+      },
+      "noAccess": {
+        "title": "Acesso beta",
+        "description": "Tem um código de testador? Resgate aqui para gerar até 10 anúncios sem assinar um plano.",
+        "placeholder": "Código beta",
+        "action": "Resgatar código",
+        "redeeming": "Resgatando...",
+        "error": "Não foi possível resgatar o código."
+      },
+      "plans": {
+        "title": "Escolha um plano",
+        "subtitle": "Todos os planos incluem 14 dias de trial gratuito. Cancele a qualquer momento.",
+        "startTrial": "Começar trial",
+        "redirecting": "Redirecionando...",
+        "features": {
+          "plans": "Geração de planos criativos",
+          "derivations": "Derivações de imagem",
+          "export": "Exportação em ZIP"
+        }
+      },
+      "forecast": {
+        "title": "Simulador de custo",
+        "subtitle": "Simulador interno de custo do provedor — não é o limite mostrado ao usuário final.",
+        "campaignCost": "Custo por campanha",
+        "monthlyCost": "Custo mensal previsto",
+        "cushion": "Orçamento com folga",
+        "imageCost": "Custo por imagem",
+        "cushionCaption": "25% de reserva operacional",
+        "campaignsPerMonth": "Campanhas por mês",
+        "imagesPerCampaign": "Imagens por campanha",
+        "planInput": "Input do plano (custo interno)",
+        "planOutput": "Output do plano (custo interno)",
+        "imageText": "Texto por imagem (custo interno)",
+        "reference": "Referência (custo interno)",
+        "generatedImage": "Imagem gerada (custo interno)"
+      },
+      "financial": {
+        "title": "Conta",
+        "access": "Acesso",
+        "status": "Status",
+        "generationBalance": "Saldo de geração",
+        "adsRemaining": "Anúncios restantes",
+        "trialEnds": "Fim do trial",
+        "nextRenewal": "Próxima renovação",
+        "renewal": "Renovação",
+        "none": "—",
+        "trialBadge": "Trial",
+        "manageBilling": "Gerenciar cobrança",
+        "opening": "Abrindo...",
+        "upgrade": "Fazer upgrade",
+        "startTrial": "Começar trial grátis",
+        "viewUsageHistory": "Ver histórico de uso →"
+      },
+      "grants": {
+        "title": "Concessões de crédito",
+        "subtitle": "Créditos recebidos de assinaturas, faturas e resgate beta.",
+        "empty": "Nenhuma concessão de crédito ainda.",
+        "source": "Fonte",
+        "amount": "Quantidade",
+        "date": "Data",
+        "sources": {
+          "stripe_invoice": "Assinatura mensal",
+          "beta_tester": "Programa beta"
+        }
+      },
+      "blockingRules": {
+        "title": "Regras de bloqueio",
+        "eighty": "Mostrar alerta preventivo para o workspace.",
+        "hundred": "Bloquear novas gerações ou pedir upgrade.",
+        "overrun": "Revisar preço se custo real passar do estimado."
+      },
+      "accessLabels": {
+        "beta": "Beta ({remaining} anúncios restantes)",
+        "noPlan": "Sem plano ativo",
+        "plan": "{plan}"
+      },
+      "statusLabels": {
+        "beta": "Acesso beta",
+        "pastDue": "Pagamento pendente",
+        "trial": "Trial (14 dias)",
+        "active": "Ativo",
+        "canceled": "Cancelado",
+        "inactive": "Inativo"
+      },
+      "accessKinds": {
+        "paid": "Assinatura paga",
+        "beta": "Programa beta — não é plano pago",
+        "none": "Sem acesso ativo — assine ou resgate o beta"
+      }
+    },
     "conversion": {
       "loading": "Redirecionando...",
       "actions": {
