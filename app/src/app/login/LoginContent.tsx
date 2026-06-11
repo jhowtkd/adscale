@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { useTranslations } from "next-intl";
 import SocialAuthButtons from "@/components/auth/SocialAuthButtons";
 import { authClient } from "@/lib/auth-client";
@@ -108,10 +109,21 @@ export default function LoginContent() {
   }
 
   return (
-    <AuthPageShell>
+    <AuthPageShell videoSrc="/videos/auth-login-background.mp4">
       <AuthCard>
         <div className="space-y-6">
           <div className="space-y-2 text-center">
+            <div className="flex justify-center pb-1">
+              <Image
+                src="/images/logo.svg"
+                alt="ADScale"
+                className="h-8 w-auto object-contain"
+                width={813}
+                height={142}
+                priority
+                unoptimized
+              />
+            </div>
             <h1 className="text-2xl font-semibold tracking-tight">{t("welcomeBack")}</h1>
             <p className="text-sm text-muted-foreground">
               {t("signInSubtitle")}
