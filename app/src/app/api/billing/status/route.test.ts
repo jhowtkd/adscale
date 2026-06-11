@@ -105,6 +105,91 @@ describe("billing status route", () => {
     });
   });
 
+  it("returns trialing subscription with renewal date", async () => {
+    mockGetWorkspaceBillingAccess.mockResolvedValue({
+      kind: "paid",
+      label: "Assinatura ativa",
+      creditBalance: 30,
+      remainingAds: 6,
+      hasSpendAccess: true,
+      subscriptionStatus: "trialing",
+      subscription: {
+        id: "sub-local",
+        workspaceId: "workspace-1",
+        billingCustomerId: null,
+        stripeSubscriptionId: "sub_123",
+        stripeCustomerId: "cus_123",
+        status: "trialing",
+        planKey: "starter",
+        priceId: "price_starter",
+        currentPeriodStart: new Date("2026-05-28T00:00:00.000Z"),
+        currentPeriodEnd: new Date("2026-06-11T00:00:00.000Z"),
+        cancelAtPeriodEnd: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      latestSubscription: {
+        id: "sub-local",
+        workspaceId: "workspace-1",
+        billingCustomerId: null,
+        stripeSubscriptionId: "sub_123",
+        stripeCustomerId: "cus_123",
+        status: "trialing",
+        planKey: "starter",
+        priceId: "price_starter",
+        currentPeriodStart: new Date("2026-05-28T00:00:00.000Z"),
+        currentPeriodEnd: new Date("2026-06-11T00:00:00.000Z"),
+        cancelAtPeriodEnd: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      betaEntitlement: null,
+    } as Awaited<ReturnType<typeof getWorkspaceBillingAccess>>);
+
+    const response = await GET(new Request("http://localhost/api/billing/status"));
+    const body = await response.json();
+
+    expect(body.billing.subscriptionStatus).toBe("trialing");
+    expect(body.billing.subscription?.currentPeriodEnd).toBe("2026-06-11T00:00:00.000Z");
+    expect(body.billing.pastDue).toBeNull();
+    expect(body.billing.canceled).toBeNull();
+  });
+
+  it("returns canceled recovery metadata with checkout action", async () => {
+    mockGetWorkspaceBillingAccess.mockResolvedValue({
+      kind: "none",
+      label: "Sem acesso ativo",
+      creditBalance: 0,
+      remainingAds: null,
+      hasSpendAccess: false,
+      subscriptionStatus: "canceled",
+      subscription: null,
+      latestSubscription: {
+        id: "sub-local",
+        workspaceId: "workspace-1",
+        billingCustomerId: null,
+        stripeSubscriptionId: "sub_123",
+        stripeCustomerId: "cus_123",
+        status: "canceled",
+        planKey: "growth",
+        priceId: "price_growth",
+        currentPeriodStart: new Date("2026-04-01T00:00:00.000Z"),
+        currentPeriodEnd: new Date("2026-05-01T00:00:00.000Z"),
+        cancelAtPeriodEnd: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      betaEntitlement: null,
+    } as Awaited<ReturnType<typeof getWorkspaceBillingAccess>>);
+
+    const response = await GET(new Request("http://localhost/api/billing/status"));
+    const body = await response.json();
+
+    expect(body.billing.subscriptionStatus).toBe("canceled");
+    expect(body.billing.canceled).toEqual({ recoveryAction: "checkout" });
+    expect(body.billing.access.hasSpendAccess).toBe(false);
+  });
+
   it("returns past_due recovery metadata for paid workspaces with failed payment", async () => {
     mockGetWorkspaceBillingAccess.mockResolvedValue({
       kind: "paid",

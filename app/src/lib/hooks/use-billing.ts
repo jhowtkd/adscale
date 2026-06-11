@@ -13,6 +13,7 @@ export type BillingSubscriptionStatus =
 
 export type PastDueRecoveryAction = "portal";
 export type PastDueSpendPolicy = "existing_credits_spendable";
+export type CanceledRecoveryAction = "checkout";
 
 export interface BillingStatus {
   hasCustomer: boolean;
@@ -31,6 +32,9 @@ export interface BillingStatus {
   pastDue: {
     recoveryAction: PastDueRecoveryAction;
     spendPolicy: PastDueSpendPolicy;
+  } | null;
+  canceled: {
+    recoveryAction: CanceledRecoveryAction;
   } | null;
   subscription: {
     status: BillingSubscriptionStatus;
@@ -152,7 +156,16 @@ export interface CreditHistorySummary {
   transactionCount: number;
 }
 
+export interface CreditGrantRecord {
+  id: string;
+  source: string;
+  amount: number;
+  remaining: number;
+  createdAt: string | null;
+}
+
 export interface CreditHistoryResponse {
+  grants: CreditGrantRecord[];
   transactions: CreditTransaction[];
   summary: CreditHistorySummary;
   campaigns: Array<{ id: string; name: string }>;

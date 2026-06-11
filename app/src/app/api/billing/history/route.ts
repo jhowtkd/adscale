@@ -6,7 +6,10 @@ import {
   getCreditTransactionsForWorkspace,
   getCreditTransactionSummary,
 } from "@/server/repositories/credit-transactions";
-import { getAvailableCreditGrants } from "@/server/repositories/billing";
+import {
+  getAvailableCreditGrants,
+  getCreditGrantHistoryForWorkspace,
+} from "@/server/repositories/billing";
 
 export async function GET(request: Request) {
   try {
@@ -23,10 +26,11 @@ export async function GET(request: Request) {
       campaignId,
     };
 
-    const [transactions, summary, grants, campaigns] = await Promise.all([
+    const [transactions, summary, grants, grantHistory, campaigns] = await Promise.all([
       getCreditTransactionsForWorkspace(workspace.id, filters),
       getCreditTransactionSummary(workspace.id),
       getAvailableCreditGrants(workspace.id),
+      getCreditGrantHistoryForWorkspace(workspace.id),
       getCampaignsWithTransactions(workspace.id),
     ]);
 
@@ -43,6 +47,13 @@ export async function GET(request: Request) {
         : 0;
 
     return NextResponse.json({
+      grants: grantHistory.map((grant) => ({
+        id: grant.id,
+        source: grant.source,
+        amount: grant.amount,
+        remaining: grant.remaining,
+        createdAt: grant.createdAt?.toISOString() ?? null,
+      })),
       transactions: transactions.map((t) => ({
         id: t.id,
         userId: t.userId,

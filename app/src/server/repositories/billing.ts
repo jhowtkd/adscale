@@ -168,6 +168,14 @@ export async function getCreditGrantBySourceId(
   return rows[0] ?? null;
 }
 
+export async function getCreditGrantHistoryForWorkspace(workspaceId: string) {
+  return db
+    .select()
+    .from(creditGrants)
+    .where(eq(creditGrants.workspaceId, workspaceId))
+    .orderBy(desc(creditGrants.createdAt));
+}
+
 export async function getAvailableCreditGrants(workspaceId: string, tx?: DbOrTx, lock = false) {
   const client = tx ?? db;
   const query = client

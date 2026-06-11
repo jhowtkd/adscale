@@ -24,6 +24,7 @@ export async function GET(request: Request) {
         : null;
 
     const isPastDue = access.subscriptionStatus === "past_due";
+    const isCanceled = access.subscriptionStatus === "canceled";
 
     return NextResponse.json({
       billing: {
@@ -40,6 +41,11 @@ export async function GET(request: Request) {
           ? {
               recoveryAction: "portal" as const,
               spendPolicy: PAST_DUE_SPEND_POLICY,
+            }
+          : null,
+        canceled: isCanceled
+          ? {
+              recoveryAction: "checkout" as const,
             }
           : null,
         subscription: subscriptionRecord

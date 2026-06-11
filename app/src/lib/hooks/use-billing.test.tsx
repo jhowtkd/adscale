@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   useBillingPortal,
   useBillingStatus,
+  useCreditHistory,
   useStartCheckout,
 } from "./use-billing";
 
@@ -130,6 +131,84 @@ describe("billing hooks", () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ planKey: "growth", returnPath: "/campaigns/c1" }),
+    });
+  });
+
+  it("parses canceled recovery metadata from billing status", async () => {
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          billing: {
+            hasCustomer: true,
+            subscriptionStatus: "canceled",
+            access: {
+              kind: "none",
+              label: "Sem acesso ativo",
+              remainingAds: null,
+              hasSpendAccess: false,
+              beta: null,
+            },
+            pastDue: null,
+            canceled: { recoveryAction: "checkout" },
+            subscription: {
+              status: "canceled",
+              rawStatus: "canceled",
+              planKey: "growth",
+              currentPeriodEnd: "2026-05-01T00:00:00.000Z",
+              cancelAtPeriodEnd: false,
+            },
+            creditBalance: 0,
+          },
+        }),
+    } as unknown as Response);
+
+    const { result } = renderHook(() => useBillingStatus(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(result.current.data?.canceled).toEqual({ recoveryAction: "checkout" });
+  });
+
+  it("fetches grant history from billing history endpoint", async () => {
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          grants: [
+            {
+              id: "grant-1",
+              source: "stripe_invoice",
+              amount: 120,
+              remaining: 80,
+              createdAt: "2026-05-01T12:00:00.000Z",
+            },
+          ],
+          transactions: [],
+          summary: {
+            totalSpent: 0,
+            remainingCredits: 80,
+            averagePerCampaign: 0,
+            transactionCount: 0,
+          },
+          campaigns: [],
+        }),
+    } as unknown as Response);
+
+    const { result } = renderHook(() => useCreditHistory(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(result.current.data?.grants[0]).toEqual({
+      id: "grant-1",
+      source: "stripe_invoice",
+      amount: 120,
+      remaining: 80,
+      createdAt: "2026-05-01T12:00:00.000Z",
     });
   });
 
