@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import {
   getActiveSubscriptionByWorkspace,
   getAvailableCreditGrants,
@@ -35,7 +36,10 @@ export async function getWorkspaceBillingAccess(
   const [subscription, grants, betaEntitlement] = await Promise.all([
     getActiveSubscriptionByWorkspace(workspaceId),
     getAvailableCreditGrants(workspaceId),
-    getActiveBetaEntitlementByWorkspace(workspaceId),
+    getActiveBetaEntitlementByWorkspace(workspaceId).catch((error) => {
+      logger.error("[billing] beta entitlement lookup failed", error);
+      return null;
+    }),
   ]);
   const creditBalance = totalRemaining(grants);
 

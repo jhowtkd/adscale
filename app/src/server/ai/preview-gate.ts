@@ -13,6 +13,7 @@ export type PreviewGateDerivation = {
 export function shouldShowPreviewGate(
   derivations: PreviewGateDerivation[]
 ): boolean {
+  // Newest preview first (API returns createdAt desc); gate only the latest preview.
   const preview = derivations.find((d) => d.isPreview);
   if (!preview) return false;
 

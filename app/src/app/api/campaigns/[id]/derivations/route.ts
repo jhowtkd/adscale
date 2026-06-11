@@ -42,31 +42,6 @@ function logRouteError(context: string, error: unknown) {
   logger.error(`[${context}]`, details);
 }
 
-async function deleteExistingPreviewDerivations(
-  campaignId: string,
-  workspaceId: string
-) {
-  const existingPreviews = await db
-    .select({ id: derivations.id })
-    .from(derivations)
-    .where(
-      and(
-        eq(derivations.campaignId, campaignId),
-        eq(derivations.workspaceId, workspaceId),
-        eq(derivations.isPreview, true)
-      )
-    );
-  if (existingPreviews.length === 0) {
-    return 0;
-  }
-  await Promise.all(
-    existingPreviews.map((preview) =>
-      db.delete(derivations).where(eq(derivations.id, preview.id))
-    )
-  );
-  return existingPreviews.length;
-}
-
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -106,15 +81,8 @@ export async function POST(
       await refreshCampaignStatus(campaignId, workspace.id);
     }
 
-    let deletedPreviews = 0;
-    if (isPreview) {
-      deletedPreviews = await deleteExistingPreviewDerivations(
-        campaignId,
-        workspace.id
-      );
-    }
     logger.info(
-      `[derivations POST] stale cleanup=${stale.length} deletedPreviews=${deletedPreviews} isPreview=${isPreview}`
+      `[derivations POST] stale cleanup=${stale.length} isPreview=${isPreview}`
     );
 
     // Rate limit: block if there are already queued/processing derivations

@@ -99,4 +99,15 @@ describe("getWorkspaceBillingAccess", () => {
     expect(access.kind).toBe("none");
     expect(access.hasSpendAccess).toBe(false);
   });
+
+  it("falls back when beta entitlement lookup fails", async () => {
+    mockGetActiveSubscription.mockResolvedValue(null);
+    mockGetActiveBetaEntitlement.mockRejectedValue(new Error("relation missing"));
+
+    const access = await getWorkspaceBillingAccess("workspace-1");
+
+    expect(access.kind).toBe("none");
+    expect(access.hasSpendAccess).toBe(false);
+    expect(access.creditBalance).toBe(20);
+  });
 });

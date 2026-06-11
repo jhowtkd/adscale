@@ -338,6 +338,7 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
       if (!campaign || isNew) return;
       if (restyleCampaign.isPending) return;
 
+      setWorkspaceState("gerando");
       restyleCampaign.mutate(input, {
         onSuccess: () => {
           addToast("success", tc("derivationsQueued"));
@@ -345,6 +346,7 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
         },
         onError: () => {
           addToast("error", tc("failedQueueDerivations"));
+          setWorkspaceState("acoes");
         },
       });
     },

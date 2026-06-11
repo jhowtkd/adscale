@@ -96,6 +96,33 @@ async function fetchDerivations(campaignId: string): Promise<Derivation[]> {
   }
 }
 
+function normalizeDerivationDates(d: Derivation): Derivation {
+  return {
+    ...d,
+    createdAt: new Date(d.createdAt),
+    updatedAt: new Date(d.updatedAt),
+    scoredAt: d.scoredAt ? new Date(d.scoredAt) : null,
+    qaAnalyzedAt: d.qaAnalyzedAt ? new Date(d.qaAnalyzedAt) : null,
+    qualityGatedAt: d.qualityGatedAt ? new Date(d.qualityGatedAt) : null,
+  };
+}
+
+function mergeDerivations(
+  existing: Derivation[] | undefined,
+  incoming: Derivation[]
+): Derivation[] {
+  const byId = new Map<string, Derivation>();
+  for (const item of existing ?? []) {
+    byId.set(item.id, item);
+  }
+  for (const item of incoming) {
+    byId.set(item.id, normalizeDerivationDates(item));
+  }
+  return Array.from(byId.values()).sort(
+    (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+  );
+}
+
 async function createDerivations(
   campaignId: string,
   options?: { preview?: boolean }
@@ -155,7 +182,10 @@ export function useCreateDerivations(campaignId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (options?: { preview?: boolean }) => createDerivations(campaignId, options),
-    onSuccess: () => {
+    onSuccess: (created) => {
+      queryClient.setQueryData<Derivation[]>(["derivations", campaignId], (old) =>
+        mergeDerivations(old, created)
+      );
       queryClient.invalidateQueries({
         queryKey: ["derivations", campaignId],
       });
@@ -188,7 +218,10 @@ export function useRestyleCampaign(campaignId: string) {
   return useMutation({
     mutationFn: (input: { styleAssetIds?: string[]; styleIntensity?: string }) =>
       restyleCampaign(campaignId, input),
-    onSuccess: () => {
+    onSuccess: (created) => {
+      queryClient.setQueryData<Derivation[]>(["derivations", campaignId], (old) =>
+        mergeDerivations(old, created)
+      );
       queryClient.invalidateQueries({ queryKey: ["derivations", campaignId] });
       queryClient.invalidateQueries({ queryKey: ["campaigns"] });
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId] });

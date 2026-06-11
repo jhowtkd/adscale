@@ -753,6 +753,13 @@ export const derivationJob = inngest.createFunction(
 
     if (triggeredByUserId) {
       await step.run("notify-completion-inapp", async () => {
+        const stillExists = await getDerivationById(derivationId, workspaceId);
+        if (!stillExists) {
+          logger.warn(
+            `[notify-completion-inapp] skipping deleted derivationId=${derivationId}`
+          );
+          return;
+        }
         const campaign = await getCampaignById(campaignId, workspaceId);
         await createNotification({
           userId: triggeredByUserId,
@@ -881,7 +888,10 @@ export const derivationJob = inngest.createFunction(
         ? (row.hardFailures as CreativeHardFailure[])
         : [];
       const log = (row.generationLog as DerivationGenerationLog | null) ?? generationLog;
-      if (!shouldAutoRetryDerivation(hardFailures, log.autoRetryAttempted)) {
+      if (
+        generated.effectiveGenerationMode === "restyling" ||
+        !shouldAutoRetryDerivation(hardFailures, log.autoRetryAttempted)
+      ) {
         return null;
       }
 

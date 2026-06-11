@@ -76,6 +76,8 @@ export async function proxy(request: NextRequest) {
   if (isApiMutation(request)) {
     const category = pathname.startsWith("/api/auth")
       ? "auth"
+      : pathname.includes("/assets/upload")
+      ? "general"
       : pathname.startsWith("/api/campaigns") ||
         pathname.startsWith("/api/derivations") ||
         pathname.startsWith("/api/restyling") ||

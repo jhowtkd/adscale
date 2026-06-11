@@ -313,27 +313,23 @@ export default function CampaignWorkspacePage() {
     styleReferenceFiles: File[];
     intensity: string;
   }) => {
-    setShowEstilizarModal(false);
-
-    // Upload style reference files as assets with role="style_reference"
     const styleAssetIds: string[] = [];
     if (data.styleReferenceFiles.length > 0) {
       try {
-        const assets = await Promise.all(
-          data.styleReferenceFiles.map((file) =>
-            uploadAsset.mutateAsync({
+        for (const file of data.styleReferenceFiles) {
+          const asset = await uploadAsset.mutateAsync({
             file,
             role: "style_reference",
-            })
-          )
-        );
-        styleAssetIds.push(...assets.map((asset) => asset.id));
+          });
+          styleAssetIds.push(asset.id);
+        }
       } catch {
         addToast("error", "Erro ao fazer upload das referências de estilo");
         return;
       }
     }
 
+    setShowEstilizarModal(false);
     void handleRestyle({
       styleAssetIds: styleAssetIds.length > 0 ? styleAssetIds : undefined,
       styleIntensity: data.intensity as "soft" | "medium" | "strong",
