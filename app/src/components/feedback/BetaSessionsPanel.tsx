@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { BETA_SESSION_STORAGE_KEY } from "@/lib/beta-analytics/constants";
@@ -35,12 +35,35 @@ const STAGE_LABELS: Record<BetaRunbookStage, string> = {
   share: "Client approval package",
 };
 
-async function fetchSessions(workspaceId: string, activeOnly: boolean) {
-  const params = new URLSearchParams({ workspaceId, activeOnly: String(activeOnly) });
+async function fetchSessions(options: {
+  workspaceId?: string;
+  activeOnly: boolean;
+}) {
+  const params = new URLSearchParams({
+    activeOnly: String(options.activeOnly),
+  });
+  if (options.workspaceId) {
+    params.set("workspaceId", options.workspaceId);
+  }
   const res = await apiFetch(`/api/feedback/beta-sessions?${params}`);
   if (res.status === 403) throw new Error("forbidden");
   if (!res.ok) throw new Error("failed");
   return (await res.json()) as { sessions: BetaSession[] };
+}
+
+async function fetchSessionById(sessionId: string): Promise<BetaSession | null> {
+  const res = await apiFetch(`/api/feedback/beta-sessions/${sessionId}`);
+  if (res.status === 404) {
+    setActiveSessionStorage(null);
+    return null;
+  }
+  if (!res.ok) throw new Error("failed");
+  const { session } = (await res.json()) as { session: BetaSession };
+  if (session.endedAt) {
+    setActiveSessionStorage(null);
+    return null;
+  }
+  return session;
 }
 
 function setActiveSessionStorage(sessionId: string | null) {
@@ -85,11 +108,23 @@ export function BetaSessionsPanel() {
     Partial<Record<BetaRunbookStage, BetaStageNote>>
   >({});
   const [copiedField, setCopiedField] = useState<"workspace" | "session" | null>(null);
+  const [storedSessionId, setStoredSessionId] = useState<string | null>(null);
 
-  const listQuery = useQuery({
-    queryKey: ["beta-sessions", workspaceId],
-    queryFn: () => fetchSessions(workspaceId, true),
-    enabled: Boolean(workspaceId),
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setStoredSessionId(sessionStorage.getItem(BETA_SESSION_STORAGE_KEY));
+  }, []);
+
+  const activeSessionsQuery = useQuery({
+    queryKey: ["beta-sessions", "active"],
+    queryFn: () => fetchSessions({ activeOnly: true }),
+    retry: false,
+  });
+
+  const storedSessionQuery = useQuery({
+    queryKey: ["beta-session", storedSessionId],
+    queryFn: () => fetchSessionById(storedSessionId!),
+    enabled: Boolean(storedSessionId) && !activeSession,
     retry: false,
   });
 
@@ -125,9 +160,18 @@ export function BetaSessionsPanel() {
       if (!res.ok) throw new Error("end failed");
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_data, sessionId) => {
       setActiveSession(null);
+      setStoredSessionId(null);
       setActiveSessionStorage(null);
+      setStageDrafts({});
+      queryClient.setQueryData<{ sessions: BetaSession[] }>(
+        ["beta-sessions", "active"],
+        (old) => ({
+          sessions: (old?.sessions ?? []).filter((session) => session.id !== sessionId),
+        })
+      );
+      queryClient.removeQueries({ queryKey: ["beta-session", sessionId] });
       queryClient.invalidateQueries({ queryKey: ["beta-sessions"] });
     },
   });
@@ -158,11 +202,20 @@ export function BetaSessionsPanel() {
 
   const resolvedSession = useMemo(() => {
     if (activeSession) return activeSession;
-    const sessions = listQuery.data?.sessions ?? [];
-    return sessions[0] ?? null;
-  }, [activeSession, listQuery.data?.sessions]);
+    if (storedSessionQuery.data) return storedSessionQuery.data;
+    const sessions = activeSessionsQuery.data?.sessions ?? [];
+    return sessions.find((session) => !session.endedAt) ?? null;
+  }, [activeSession, storedSessionQuery.data, activeSessionsQuery.data?.sessions]);
 
-  if (listQuery.error instanceof Error && listQuery.error.message === "forbidden") {
+  useEffect(() => {
+    if (!resolvedSession) return;
+    setWorkspaceId(resolvedSession.workspaceId);
+    setStageDrafts(resolvedSession.operatorNotes ?? {});
+    setActiveSessionStorage(resolvedSession.id);
+  }, [resolvedSession?.id]);
+
+  const panelError = activeSessionsQuery.error ?? storedSessionQuery.error;
+  if (panelError instanceof Error && panelError.message === "forbidden") {
     return null;
   }
 
@@ -228,32 +281,48 @@ export function BetaSessionsPanel() {
         </div>
       ) : (
         <div className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
-            <span>Workspace: {resolvedSession.workspaceId}</span>
-            <CopyIdButton
-              label="Copy workspace ID"
-              copied={copiedField === "workspace"}
-              onCopy={() => {
-                void copyToClipboard(resolvedSession.workspaceId).then(() => {
-                  setCopiedField("workspace");
-                  window.setTimeout(() => setCopiedField(null), 2000);
-                });
-              }}
-            />
-            <span>Session: {resolvedSession.id}</span>
-            <CopyIdButton
-              label="Copy session ID"
-              copied={copiedField === "session"}
-              onCopy={() => {
-                void copyToClipboard(resolvedSession.id).then(() => {
-                  setCopiedField("session");
-                  window.setTimeout(() => setCopiedField(null), 2000);
-                });
-              }}
-            />
-            <span>
-              Started {new Date(resolvedSession.startedAt).toLocaleString()}
-            </span>
+          <div className="sticky top-0 z-10 -mx-5 border-b border-[var(--border-dim)] bg-[var(--surface-base)] px-5 py-3 space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm font-medium text-[var(--text-primary)]">
+                Active session
+              </p>
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                disabled={endMutation.isPending}
+                onClick={() => endMutation.mutate(resolvedSession.id)}
+              >
+                End session
+              </Button>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
+              <span>Workspace: {resolvedSession.workspaceId}</span>
+              <CopyIdButton
+                label="Copy workspace ID"
+                copied={copiedField === "workspace"}
+                onCopy={() => {
+                  void copyToClipboard(resolvedSession.workspaceId).then(() => {
+                    setCopiedField("workspace");
+                    window.setTimeout(() => setCopiedField(null), 2000);
+                  });
+                }}
+              />
+              <span>Session: {resolvedSession.id}</span>
+              <CopyIdButton
+                label="Copy session ID"
+                copied={copiedField === "session"}
+                onCopy={() => {
+                  void copyToClipboard(resolvedSession.id).then(() => {
+                    setCopiedField("session");
+                    window.setTimeout(() => setCopiedField(null), 2000);
+                  });
+                }}
+              />
+              <span>
+                Started {new Date(resolvedSession.startedAt).toLocaleString()}
+              </span>
+            </div>
           </div>
 
           <div className="space-y-3">
@@ -338,14 +407,6 @@ export function BetaSessionsPanel() {
             })}
           </div>
 
-          <Button
-            type="button"
-            variant="destructive"
-            disabled={endMutation.isPending}
-            onClick={() => endMutation.mutate(resolvedSession.id)}
-          >
-            End session
-          </Button>
         </div>
       )}
     </section>

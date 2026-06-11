@@ -56,7 +56,7 @@ Stopped at: Requirements scoping for v12.0
 ## SESS-03 follow-ups (UX friction found during real sessions, 2026-06-11)
 
 - Share/approval-package UI fix local (empty state + section header) — deploy pending; SESS-03 used `POST /api/share` when panel returned null for preview-only approved.
-- Preview progress 52% fix local (`DerivationCard` animated progress + hide overlay when `imageUrl` exists) — Playwright on prod confirmed static 52% (H1); deploy pending.
-- "End session" button missing from Beta Sessions panel after start.
+- Preview progress 52% fix shipped (`84884ef2`, Render `dep-d8lc64urnols73dsm8k0`) — post-deploy Playwright: 18%→43%→70% (animated, not stuck at 52%).
+- "End session" fix local — sticky header + restore active session from sessionStorage/API (`activeOnly` list); deploy pending.
 - "Revisar novamente" runs QA but does not emit `mission_completed` for review.
 - `ctaProminence` blocking tuned in Phase 94 (warning-only dimension).

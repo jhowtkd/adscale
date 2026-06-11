@@ -130,6 +130,126 @@ describe("BetaSessionsPanel", () => {
     expect(writeText).toHaveBeenCalledWith(SESSION_ID);
   });
 
+  it("shows End session at the top when an active session is listed", async () => {
+    const sessionPayload = {
+      id: SESSION_ID,
+      workspaceId: WORKSPACE_ID,
+      cohortLabel: null,
+      assistanceLevel: "hands_on",
+      startedAt: new Date().toISOString(),
+      endedAt: null,
+      operatorNotes: {},
+    };
+
+    mockApiFetch.mockImplementation(async (url) => {
+      const href = String(url);
+      if (href.includes("activeOnly=true")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ sessions: [sessionPayload] }),
+        } as Response;
+      }
+      throw new Error(`unexpected fetch ${href}`);
+    });
+
+    renderPanel();
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "End session" })).toBeInTheDocument();
+    });
+    expect(screen.getByText("Active session")).toBeInTheDocument();
+  });
+
+  it("restores active session from sessionStorage on mount", async () => {
+    sessionStorage.setItem(BETA_SESSION_STORAGE_KEY, SESSION_ID);
+
+    const sessionPayload = {
+      id: SESSION_ID,
+      workspaceId: WORKSPACE_ID,
+      cohortLabel: null,
+      assistanceLevel: "hands_on",
+      startedAt: new Date().toISOString(),
+      endedAt: null,
+      operatorNotes: {},
+    };
+
+    mockApiFetch.mockImplementation(async (url) => {
+      const href = String(url);
+      if (href.includes(`/beta-sessions/${SESSION_ID}`)) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ session: sessionPayload }),
+        } as Response;
+      }
+      if (href.includes("activeOnly=true")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ sessions: [] }),
+        } as Response;
+      }
+      throw new Error(`unexpected fetch ${href}`);
+    });
+
+    renderPanel();
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "End session" })).toBeInTheDocument();
+    });
+    expect(screen.getByText(`Session: ${SESSION_ID}`)).toBeInTheDocument();
+  });
+
+  it("ends session via PATCH and clears sessionStorage", async () => {
+    const sessionPayload = {
+      id: SESSION_ID,
+      workspaceId: WORKSPACE_ID,
+      cohortLabel: null,
+      assistanceLevel: "hands_on",
+      startedAt: new Date().toISOString(),
+      endedAt: null,
+      operatorNotes: {},
+    };
+
+    let activeSessions = [sessionPayload];
+
+    mockApiFetch.mockImplementation(async (url, init) => {
+      const href = String(url);
+      if (href.includes("activeOnly=true") && init?.method !== "PATCH") {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ sessions: activeSessions }),
+        } as Response;
+      }
+      if (init?.method === "PATCH" && href.includes(SESSION_ID)) {
+        activeSessions = [];
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            session: { ...sessionPayload, endedAt: new Date().toISOString() },
+          }),
+        } as Response;
+      }
+      throw new Error(`unexpected fetch ${href} ${init?.method ?? "GET"}`);
+    });
+
+    renderPanel();
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "End session" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "End session" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Start session" })).toBeInTheDocument();
+    });
+    expect(sessionStorage.getItem(BETA_SESSION_STORAGE_KEY)).toBeNull();
+  });
+
   it("renders all nine runbook stage labels", async () => {
     const sessionPayload = {
       id: SESSION_ID,
