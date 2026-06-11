@@ -52,7 +52,11 @@ const nextConfig: NextConfig = {
     ],
   },
   compiler: {
-    removeConsole: process.env.NODE_ENV === "production",
+    // Keep structured logger output in production (derivation jobs, QA, memory).
+    removeConsole:
+      process.env.NODE_ENV === "production"
+        ? { exclude: ["error", "warn", "info"] }
+        : false,
   },
   async headers() {
     return [

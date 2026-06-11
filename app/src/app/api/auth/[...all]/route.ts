@@ -5,7 +5,7 @@ import {
   repairDevAdminAccount,
 } from "@/server/auth/dev-admin";
 import { toNextJsHandler } from "better-auth/next-js";
-import type { NextRequest } from "next/server";
+import { NextRequest } from "next/server";
 
 const handler = toNextJsHandler(auth);
 
@@ -46,6 +46,16 @@ async function recreateDevAdminAccount(body: EmailAuthBody) {
   return true;
 }
 
+function buildAuthRequest(req: NextRequest, body: EmailAuthBody | null): NextRequest {
+  if (!body) return req;
+
+  return new NextRequest(req.url, {
+    method: req.method,
+    headers: req.headers,
+    body: JSON.stringify(body),
+  });
+}
+
 async function maybeRepairDevAdminSignIn(
   req: NextRequest,
   response: Response,
@@ -71,7 +81,7 @@ async function maybeRepairDevAdminSignIn(
   const recreated = await recreateDevAdminAccount(body);
   if (!recreated) return response;
 
-  return handler.POST(req);
+  return handler.POST(buildAuthRequest(req, body));
 }
 
 export async function GET(req: NextRequest) {
@@ -82,7 +92,8 @@ export async function POST(req: NextRequest) {
   const body = await readEmailAuthBody(req);
   await prepareDevAdminAuth(body);
 
-  let response = await handler.POST(req);
+  const authRequest = buildAuthRequest(req, body);
+  let response = await handler.POST(authRequest);
   response = await maybeRepairDevAdminSignIn(req, response, body);
 
   return response;

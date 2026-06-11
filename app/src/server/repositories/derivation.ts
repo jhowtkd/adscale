@@ -3,6 +3,7 @@ import type {
   CreativeHardFailure,
   CreativeQualityVerdict,
 } from "../ai/creative-quality-gate";
+import type { DerivationGenerationLog } from "../ai/generation-log";
 import type { CreativeContract, PromptProvenance } from "../ai/creative-contract";
 import type { RegenerationCorrectionBriefRecord } from "../ai/regeneration-correction-brief";
 import { db } from "../db";
@@ -286,6 +287,19 @@ export interface UpdateDerivationPromptProvenanceInput {
   promptProvenance: PromptProvenance;
   inputPrompt?: string;
   prompt?: string;
+}
+
+export async function updateDerivationGenerationLog(
+  id: string,
+  workspaceId: string,
+  generationLog: DerivationGenerationLog
+) {
+  const result = await db
+    .update(derivations)
+    .set({ generationLog, updatedAt: new Date() })
+    .where(and(eq(derivations.id, id), eq(derivations.workspaceId, workspaceId)))
+    .returning();
+  return result[0] ?? null;
 }
 
 export async function updateDerivationPromptProvenance(

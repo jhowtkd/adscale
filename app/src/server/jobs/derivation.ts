@@ -29,9 +29,20 @@ import { getAssetsByCampaign } from "../repositories/asset";
 import { getPlanByCampaign } from "../repositories/plan";
 import {
   getDerivationById,
+  updateDerivationGenerationLog,
   updateDerivationPromptProvenance,
   updateDerivationScore,
 } from "../repositories/derivation";
+import {
+  appendGenerationLogStep,
+  createGenerationLog,
+  finalizeGenerationLog,
+  type DerivationGenerationLog,
+} from "../ai/generation-log";
+import { runDerivationAutoRetry, shouldAutoRetryDerivation } from "../ai/derivation-auto-retry";
+import { buildHardFailureRegenerationSuggestion } from "../ai/creative-score";
+import type { CreativeHardFailure } from "../ai/creative-quality-gate";
+import { getCampaignMemoryPromptBlock } from "../memory/campaign-memory-context";
 import { runCompletedDerivationQualityGate } from "../ai/creative-quality-gate";
 import { getClientProfile, getClientReferencesByIds } from "../repositories/client-reference";
 import { trackUsage } from "../repositories/usage";
@@ -227,6 +238,11 @@ export const derivationJob = inngest.createFunction(
     const { derivationId, campaignId, workspaceId, triggeredByUserId, locale, generationMode, variantIndex, ctaText, format, isPreview, styleAssetId } = event.data;
     logger.info(`[derivationJob] START derivationId=${derivationId} campaignId=${campaignId} locale=${locale ?? "default"}`);
 
+    let generationLog: DerivationGenerationLog = createGenerationLog(campaignId, derivationId);
+    await step.run("init-generation-log", async () => {
+      await updateDerivationGenerationLog(derivationId, workspaceId, generationLog);
+    });
+
     await inngest.realtime.publish(derivationChannel({ derivationId }).status, {
       derivationId,
       status: "queued",
@@ -322,6 +338,12 @@ export const derivationJob = inngest.createFunction(
     const effectiveGenerationMode = generationMode ?? derivation.generationMode ?? "art_variation";
     const targetFormat = format ?? derivation.format ?? "1:1";
     const effectiveCtaText = ctaText ?? derivation.ctaText ?? undefined;
+    const usesParentOutputForPackage =
+      effectiveGenerationMode === "format_adaptation" &&
+      Boolean(derivation.parentId && parentDerivation?.outputKey);
+    const packageSource: SourcePackage = usesParentOutputForPackage
+      ? "approved_derivation"
+      : "campaign_asset";
 
     const contract: CreativeContract = {
       generationMode: effectiveGenerationMode as CreativeContract["generationMode"],
@@ -335,19 +357,24 @@ export const derivationJob = inngest.createFunction(
       constraints: null,
     };
 
-    const brandMemory = await step.run("fetch-brand-memory", async () =>
-      getBrandMemoryContext({
-        workspaceId,
-        clientProfileName: clientProfile?.name ?? null,
-        client: campaign.client,
-        product: campaign.product,
-        offer: campaign.offer,
-        audience: campaign.audience,
-        generationMode: effectiveGenerationMode,
-        targetFormat,
-        ctaText: effectiveCtaText ?? null,
-      })
-    );
+    const [brandMemory, campaignMemoryBlock] = await Promise.all([
+      step.run("fetch-brand-memory", async () =>
+        getBrandMemoryContext({
+          workspaceId,
+          clientProfileName: clientProfile?.name ?? null,
+          client: campaign.client,
+          product: campaign.product,
+          offer: campaign.offer,
+          audience: campaign.audience,
+          generationMode: effectiveGenerationMode,
+          targetFormat,
+          ctaText: effectiveCtaText ?? null,
+        })
+      ),
+      step.run("fetch-campaign-memory", async () =>
+        getCampaignMemoryPromptBlock(campaignId, workspaceId)
+      ),
+    ]);
 
     // 4. Download, generate, and store inside one step to avoid persisting large blobs
     const generated = await step.run("generate-and-store-output", async () => {
@@ -479,6 +506,7 @@ export const derivationJob = inngest.createFunction(
         packageSource: sourcePackage,
         clientReferences,
         brandMemory,
+        campaignMemoryBlock,
         contract: resolvedContract,
         brandKit: brandKit ? {
           name: brandKit.name,
@@ -717,7 +745,7 @@ export const derivationJob = inngest.createFunction(
     });
 
     if (triggeredByUserId) {
-      await step.run("notify-completion", async () => {
+      await step.run("notify-completion-inapp", async () => {
         const campaign = await getCampaignById(campaignId, workspaceId);
         await createNotification({
           userId: triggeredByUserId,
@@ -733,7 +761,7 @@ export const derivationJob = inngest.createFunction(
 
     // 4b. Send completion email if all derivations are done
     if (triggeredByUserId) {
-      await step.run("notify-completion", async () => {
+      await step.run("notify-completion-email", async () => {
         const active = await db
           .select({ id: derivations.id })
           .from(derivations)
@@ -837,6 +865,189 @@ export const derivationJob = inngest.createFunction(
       }
     });
 
+    // 5c. Auto-retry once when text/CTA hard failures are detected
+    const retried = await step.run("auto-retry-on-text-failure", async () => {
+      const row = await getDerivationById(derivationId, workspaceId);
+      if (!row) return null;
+
+      const hardFailures = Array.isArray(row.hardFailures)
+        ? (row.hardFailures as CreativeHardFailure[])
+        : [];
+      const log = (row.generationLog as DerivationGenerationLog | null) ?? generationLog;
+      if (!shouldAutoRetryDerivation(hardFailures, log.autoRetryAttempted)) {
+        return null;
+      }
+
+      const correctionFeedback =
+        row.regenerationSuggestion ??
+        buildHardFailureRegenerationSuggestion({
+          hardFailures,
+          contract: generated.resolvedContract,
+          scoreIssues: Array.isArray(row.scoreIssues) ? (row.scoreIssues as string[]) : [],
+          qaChecklist: (row.qaChecklist as Record<string, { note?: string }> | null) ?? {},
+        });
+
+      const referenceKey =
+        asset?.key ??
+        (parentDerivation?.outputKey && effectiveGenerationMode === "format_adaptation"
+          ? parentDerivation.outputKey
+          : generated.outputKey);
+
+      const result = await runDerivationAutoRetry({
+        derivationId,
+        workspaceId,
+        campaignId,
+        referenceKey,
+        referenceMimeType: asset?.type ?? "image/png",
+        correctionFeedback,
+        contract: generated.resolvedContract,
+        targetFormat: generated.targetFormat,
+        generationMode: generated.effectiveGenerationMode as "art_variation" | "format_adaptation" | "restyling",
+        isPreview: isPreview ?? derivation.isPreview ?? false,
+        promptContext: {
+          campaign,
+          plan,
+          asset,
+          feedback: correctionFeedback,
+          locale,
+          generationMode: effectiveGenerationMode,
+          variantIndex: variantIndex ?? derivation.variantIndex ?? 0,
+          ctaText: effectiveCtaText,
+          targetFormat,
+          creativeLevel: campaign.creativeLevel ?? "balanced",
+          creativeDiagnosis: normalizeCreativeDiagnosis(campaign.creativeDiagnosis) ?? null,
+          packageSource,
+          clientReferences,
+          brandMemory,
+          campaignMemoryBlock,
+          contract: generated.resolvedContract,
+          brandKit: brandKit
+            ? {
+                name: brandKit.name,
+                description: brandKit.description ?? undefined,
+                visualNotes: brandKit.visualNotes ?? undefined,
+                toneNotes: brandKit.toneNotes ?? undefined,
+                constraints: brandKit.constraints ?? undefined,
+                colors: Array.isArray(brandKit.brandColors) ? (brandKit.brandColors as string[]) : undefined,
+                fonts: Array.isArray(brandKit.brandFonts) ? (brandKit.brandFonts as string[]) : undefined,
+                logoAssetKey: brandKit.logoAssetKey ?? undefined,
+                toneOfVoice: brandKit.toneOfVoice ?? undefined,
+                prohibitedElements: brandKit.prohibitedElements ?? undefined,
+                requiredElements: brandKit.requiredElements ?? undefined,
+              }
+            : null,
+          competitorAnalyses: competitorAnalyses.map((a) => {
+            const analysis = (a.analysis ?? {}) as Record<string, unknown>;
+            const vp = analysis.visualPatterns as Record<string, unknown> | undefined;
+            const msg = analysis.messaging as Record<string, unknown> | undefined;
+            return {
+              visualPatterns: {
+                colors: Array.isArray(vp?.colors) ? (vp.colors as string[]) : undefined,
+                composition: typeof vp?.composition === "string" ? vp.composition : undefined,
+                typography: typeof vp?.typography === "string" ? vp.typography : undefined,
+              },
+              messaging: {
+                headlineStyle: typeof msg?.headlineStyle === "string" ? msg.headlineStyle : undefined,
+                ctaStyle: typeof msg?.ctaStyle === "string" ? msg.ctaStyle : undefined,
+                offerType: typeof msg?.offerType === "string" ? msg.offerType : undefined,
+              },
+              strengths: Array.isArray(a.strengths) ? (a.strengths as string[]) : [],
+              weaknesses: Array.isArray(a.weaknesses) ? (a.weaknesses as string[]) : [],
+              differentiationOpportunities: Array.isArray(a.differentiators) ? (a.differentiators as string[]) : [],
+            };
+          }),
+          preflightResult: asset?.metadata
+            ? ((asset.metadata as Record<string, unknown>).preflightResult as import("@/server/ai/preflight-analysis").PreflightResult | undefined)
+            : null,
+        },
+      });
+
+      if (!result) return null;
+
+      await db
+        .update(derivations)
+        .set({
+          status: "completed",
+          outputKey: result.outputKey,
+          prompt: result.revisedPrompt,
+          updatedAt: new Date(),
+        })
+        .where(eq(derivations.id, derivationId));
+
+      generationLog = finalizeGenerationLog(
+        appendGenerationLogStep(generationLog, {
+          name: "auto-retry-on-text-failure",
+          status: "completed",
+          detail: correctionFeedback.slice(0, 240),
+        }),
+        { autoRetryAttempted: true, autoRetryReason: hardFailures.map((f) => f.code).join(",") }
+      );
+      await updateDerivationGenerationLog(derivationId, workspaceId, generationLog);
+
+      return result;
+    });
+
+    let finalOutputKey = generated.outputKey;
+
+    if (retried) {
+      finalOutputKey = retried.outputKey;
+
+      await step.run("score-derivation-after-retry", async () => {
+        try {
+          const scoreBuffer = await downloadBuffer(retried.outputKey);
+          await scoreCompletedDerivation(
+            derivationId,
+            workspaceId,
+            scoreBuffer,
+            campaign,
+            {
+              ctaText: ctaText ?? derivation.ctaText ?? null,
+              format: generated.targetFormat,
+              generationMode: generated.effectiveGenerationMode,
+              feedback: derivation.feedback ?? null,
+              parentId: derivation.parentId ?? null,
+              creativeLevel: campaign.creativeLevel ?? null,
+            },
+            locale,
+            generated.resolvedContract
+          );
+        } catch (error) {
+          logger.warn(`[score-derivation-after-retry] failed derivationId=${derivationId}`, error);
+        }
+      });
+
+      await step.run("quality-gate-after-retry", async () => {
+        try {
+          const gateBuffer = await downloadBuffer(retried.outputKey);
+          await runCompletedDerivationQualityGate({
+            derivationId,
+            workspaceId,
+            imageBuffer: gateBuffer,
+            mimeType: "image/png",
+            locale: locale ?? "pt-BR",
+            campaign: {
+              name: campaign.name ?? "",
+              client: campaign.client ?? "",
+              product: campaign.product ?? "",
+              offer: campaign.offer ?? "",
+              objective: campaign.objective ?? "",
+              audience: campaign.audience ?? "",
+              tone: campaign.tone,
+              creativeDiagnosis: campaign.creativeDiagnosis,
+            },
+            derivation: {
+              ctaText: ctaText ?? derivation.ctaText ?? null,
+              format: generated.targetFormat,
+              generationMode: generated.effectiveGenerationMode,
+            },
+            contract: generated.resolvedContract,
+          });
+        } catch (error) {
+          logger.warn(`[quality-gate-after-retry] failed derivationId=${derivationId}`, error);
+        }
+      });
+    }
+
     // 6. Track usage
     await step.run("track-usage", async () => {
       await trackUsage(workspaceId, "derivation", 1, {
@@ -846,7 +1057,22 @@ export const derivationJob = inngest.createFunction(
       });
     });
 
-    logger.info(`[derivationJob] DONE derivationId=${derivationId} outputKey=${generated.outputKey}`);
-    return { success: true, derivationId, outputKey: generated.outputKey };
+    await step.run("finalize-generation-log", async () => {
+      generationLog = finalizeGenerationLog(
+        appendGenerationLogStep(generationLog, {
+          name: "derivationJob",
+          status: "completed",
+          detail: finalOutputKey,
+        }),
+        {
+          model: env.OPENAI_IMAGE_MODEL,
+          imageOperation: generated.promptProvenance?.imageOperation ?? undefined,
+        }
+      );
+      await updateDerivationGenerationLog(derivationId, workspaceId, generationLog);
+    });
+
+    logger.info(`[derivationJob] DONE derivationId=${derivationId} outputKey=${finalOutputKey}`);
+    return { success: true, derivationId, outputKey: finalOutputKey };
   }
 );

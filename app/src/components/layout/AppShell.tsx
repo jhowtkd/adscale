@@ -10,6 +10,7 @@ import Footer from "./Footer";
 import { FeedbackProvider } from "@/components/feedback/FeedbackProvider";
 import { MissionInsightProvider } from "@/components/mission-insights/MissionInsightProvider";
 import FeedbackBreadcrumbTracker from "@/components/feedback/FeedbackBreadcrumbTracker";
+import DeploymentVersionGuard from "./DeploymentVersionGuard";
 import { FolderOpen, LayoutDashboard, LayoutTemplate, Settings } from "lucide-react";
 
 interface AppShellProps {
@@ -26,6 +27,7 @@ export default function AppShell({ children }: AppShellProps) {
     <div className="min-h-screen bg-[var(--deep-bg)]">
       <Suspense fallback={null}>
         <FeedbackBreadcrumbTracker />
+        <DeploymentVersionGuard />
       </Suspense>
       {/* Top Bar */}
       <TopBar />

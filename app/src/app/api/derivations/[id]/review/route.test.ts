@@ -30,6 +30,10 @@ vi.mock("@/server/memory/brand-memory-dispatch", () => ({
   recordBrandMemoryEvent: vi.fn(() => Promise.resolve()),
 }));
 
+vi.mock("@/server/memory/campaign-memory-context", () => ({
+  recordCampaignMemoryEntry: vi.fn(() => Promise.resolve({ schemaVersion: 1, entries: [] })),
+}));
+
 vi.mock("@/server/beta-analytics/record", () => ({
   recordBetaAnalyticsEvent: vi.fn(() => Promise.resolve({ id: "event-1" })),
 }));

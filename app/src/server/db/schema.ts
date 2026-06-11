@@ -411,6 +411,9 @@ export const campaigns = adscaleSchema.table(
     creativeDiagnosisUpdatedAt: timestamp("creative_diagnosis_updated_at", { mode: "date" }),
     clientProfileId: uuid("client_profile_id").references(() => clientProfiles.id, { onDelete: "set null" }),
     selectedReferenceIds: text("selected_reference_ids").array(),
+    campaignMemory: jsonb("campaign_memory").$type<
+      import("../memory/campaign-memory").CampaignMemoryRecord
+    >(),
     status: text("status").notNull().default("draft"),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
@@ -635,6 +638,9 @@ export const derivations = adscaleSchema.table(
     >(),
     promptProvenance: jsonb("prompt_provenance").$type<
       import("../ai/creative-contract").PromptProvenance
+    >(),
+    generationLog: jsonb("generation_log").$type<
+      import("../ai/generation-log").DerivationGenerationLog
     >(),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),

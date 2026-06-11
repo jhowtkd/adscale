@@ -129,6 +129,7 @@ const campaignFields = {
   creativeDiagnosis: campaigns.creativeDiagnosis,
   creativeDiagnosisSource: campaigns.creativeDiagnosisSource,
   creativeDiagnosisUpdatedAt: campaigns.creativeDiagnosisUpdatedAt,
+  campaignMemory: campaigns.campaignMemory,
   createdAt: campaigns.createdAt,
   updatedAt: campaigns.updatedAt,
 };

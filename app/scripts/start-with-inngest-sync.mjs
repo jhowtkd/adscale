@@ -58,11 +58,17 @@ async function syncInngestWithRetry() {
   );
 }
 
+const standaloneServer = join(__dirname, "..", ".next", "standalone", "server.js");
 const nextBin = join(__dirname, "..", "node_modules", ".bin", "next");
-const child = spawn(nextBin, ["start"], {
+const useStandalone = await import("node:fs/promises")
+  .then((fs) => fs.access(standaloneServer).then(() => true))
+  .catch(() => false);
+
+const child = spawn(useStandalone ? process.execPath : nextBin, useStandalone ? [standaloneServer] : ["start"], {
   env: process.env,
   shell: false,
   stdio: "inherit",
+  cwd: useStandalone ? join(__dirname, "..", ".next", "standalone") : join(__dirname, ".."),
 });
 
 void syncInngestWithRetry();

@@ -146,6 +146,8 @@ Derivation:
 - Generation mode: ${input.derivation.generationMode ?? "unknown"}
 
 Evaluate legibility, exact CTA and offer preservation, information preservation, briefing fit, format fit, and simple creative risk.
+TEXT FIDELITY (critical): if an exact CTA was provided, the rendered CTA must match character-for-character (case and accents). Flag ctaOffer as failed on any substitution, paraphrase, or capitalization drift.
+TEXT FIDELITY (critical): scan all visible Portuguese copy for typos, missing letters, or garbled words (e.g. "ESPECIALITAS" instead of "ESPECIALISTAS"). Flag legibility as failed when any headline or key claim contains a spelling error.
 For informationPreservation, check whether important text, offer, CTA, logo, product/service, badges, small print, faces, and other information-bearing elements from the brief or creative diagnosis were cropped, hidden, truncated, blurred, overlapped, deleted, or made too small to read.
 For art_variation, also check whether the result rearranged elements intentionally instead of solving the variation by cropping the key ad.${styleFidelityInstruction}
 Do not invent new facts, claims, offers, products, logos, or CTAs.

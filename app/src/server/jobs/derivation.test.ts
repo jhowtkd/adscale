@@ -86,6 +86,7 @@ vi.mock("../repositories/derivation", () => ({
   getDerivationById: vi.fn(),
   updateDerivationScore: vi.fn(),
   updateDerivationPromptProvenance: mockUpdateDerivationPromptProvenance,
+  updateDerivationGenerationLog: vi.fn(() => Promise.resolve({})),
 }));
 
 vi.mock("../ai/creative-quality-gate", () => ({
@@ -99,6 +100,12 @@ vi.mock("../repositories/client-reference", () => ({
 
 vi.mock("@/server/memory/brand-memory-context", () => ({
   getBrandMemoryContext: vi.fn(() => Promise.resolve({ items: [], block: "" })),
+  getCampaignMemoryPromptBlock: vi.fn(() => Promise.resolve("")),
+}));
+
+vi.mock("../ai/derivation-auto-retry", () => ({
+  runDerivationAutoRetry: vi.fn(() => Promise.resolve(null)),
+  shouldAutoRetryDerivation: vi.fn(() => false),
 }));
 
 vi.mock("../repositories/usage", () => ({

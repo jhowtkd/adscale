@@ -12,6 +12,7 @@ import {
 } from "@/server/repositories/derivation";
 import { getCampaignById, refreshCampaignStatus } from "@/server/repositories/campaign";
 import { recordBrandMemoryEvent } from "@/server/memory/brand-memory-dispatch";
+import { recordCampaignMemoryEntry } from "@/server/memory/campaign-memory-context";
 
 const bodySchema = z.object({
   status: z.enum(["approved", "rejected"]),
@@ -76,6 +77,28 @@ export async function PATCH(
         },
       }).catch((err) => {
         logger.warn("[derivations.review.PATCH] mission_completed analytics failed", err);
+      });
+    }
+
+    if (parsed.data.status === "approved" && updated.ctaText?.trim()) {
+      await recordCampaignMemoryEntry(updated.campaignId, workspace.id, {
+        type: "approved_cta",
+        text: `Approved CTA: "${updated.ctaText.trim()}"`,
+        derivationId: updated.id,
+      });
+    } else if (parsed.data.status === "rejected") {
+      const rejectionNote =
+        updated.regenerationSuggestion ??
+        (Array.isArray(updated.hardFailures) && updated.hardFailures.length > 0
+          ? `Rejected due to: ${(updated.hardFailures as Array<{ message?: string }>)
+              .map((f) => f.message)
+              .filter(Boolean)
+              .join("; ")}`
+          : "Creative rejected by reviewer.");
+      await recordCampaignMemoryEntry(updated.campaignId, workspace.id, {
+        type: "rejected_output",
+        text: rejectionNote,
+        derivationId: updated.id,
       });
     }
 

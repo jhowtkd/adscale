@@ -90,6 +90,8 @@ OPERATIONAL RULES FOR BOLD:
 - Reorganize visual hierarchy: resize, reposition, and regroup key elements.
 - Apply new lighting treatment, shadows, and color grading while staying within the brand palette.
 - Preserve core brand assets (logo, product), campaign message, offer, and CTA.
+- INVIOLABLE TEXT: every headline, subhead, name, credential, offer line, and CTA from the reference must appear with EXACT spelling and punctuation — no typos, abbreviations, or substitutions.
+- INVIOLABLE CONTENT BLOCKS: preserve benefit bullets, professor/person labels, badges, legal copy, and proof modules — rearrange them but do not delete or paraphrase.
 - Do not invent a new brand or unrelated visual universe.
 - The result must be clearly a different creative from the same campaign.`;
 
@@ -100,6 +102,8 @@ OPERATIONAL RULES FOR EXTREME:
 - Rebuild composition from scratch: new hierarchy, new spacing language, new rhythm.
 - Apply bold lighting shifts, contrast changes, and atmospheric treatment.
 - Preserve only: brand identity (logo behavior, palette family), campaign message, offer, and CTA.
+- INVIOLABLE TEXT: all visible copy from the reference (headlines, names, credentials, offer, CTA) must be reproduced with EXACT spelling — typos like missing letters are hard failures.
+- INVIOLABLE CONTENT BLOCKS: do not drop professor names, benefit pillars, offer badges, or legal copy while reorganizing the layout.
 - The result should be almost unrecognizable side-by-side with the reference, yet clearly belong to the same campaign when viewed independently.`;
 
 const CREATIVITY_TEMPLATES: Record<string, string> = {
@@ -166,6 +170,7 @@ export interface DerivationPromptConfig {
   competitorAnalyses?: CompetitorAnalysisResult[] | null;
   preflightResult?: PreflightResult | null;
   brandMemory?: BrandMemoryContext | null;
+  campaignMemoryBlock?: string | null;
   contract?: CreativeContract | null;
 }
 
@@ -423,6 +428,10 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
     if (competitorSection.trim()) {
       parts.push(competitorSection);
     }
+  }
+
+  if (config.campaignMemoryBlock?.trim()) {
+    parts.push("", config.campaignMemoryBlock.trim());
   }
 
   if (config.brandMemory?.block?.trim()) {
