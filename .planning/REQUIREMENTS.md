@@ -18,7 +18,7 @@ Levar billing Stripe existente a produção: trial, renovação mensal de crédi
 
 ### Go-Live (LIVE)
 
-- [ ] **LIVE-01**: Operador pode seguir checklist de go-live Stripe (prod keys, price IDs, success/cancel URLs, webhook URL) documentado no repositório.
+- [x] **LIVE-01**: Operador pode seguir checklist de go-live Stripe (prod keys, price IDs, success/cancel URLs, webhook URL) documentado no repositório.
 - [ ] **LIVE-02**: Webhook de produção valida assinatura Stripe e processa eventos sem erros em smoke test pós-deploy.
 
 ### Subscription Lifecycle (SUBS)
@@ -71,7 +71,7 @@ Levar billing Stripe existente a produção: trial, renovação mensal de crédi
 | BILL-02 | 100 | Complete |
 | BILL-03 | 100 | Complete |
 | BILL-04 | 100 | Complete |
-| LIVE-01 | 101 | Pending |
+| LIVE-01 | 101 | Complete |
 | LIVE-02 | 101 | Pending |
 | QA-07 | 102 | Pending |
 | QA-08 | 102 | Pending |

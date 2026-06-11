@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v12.0
 milestone_name: Monetização Real
 status: completed
-stopped_at: Completed 100-01-PLAN.md
-last_updated: "2026-06-11T17:57:18.365Z"
-last_activity: 2026-06-11 — Phase 100 plan 01 complete (billing account experience)
+stopped_at: Completed 101-01-PLAN.md
+last_updated: "2026-06-11T18:01:30.000Z"
+last_activity: 2026-06-11 — Phase 101 plan 01 complete (Stripe go-live runbook; live smoke human_needed)
 progress:
-  total_phases: 26
-  completed_phases: 8
-  total_plans: 13
-  completed_plans: 22
-  percent: 67
+  total_phases: 6
+  completed_phases: 5
+  total_plans: 6
+  completed_plans: 6
+  percent: 100
 ---
 
 # State: ADScale
@@ -28,12 +28,12 @@ See: `.planning/PROJECT.md` (updated 2026-06-08)
 
 ## Current Position
 
-Phase: 101 of 102 — Checkout & Portal Flows
-Plan: Ready for 101-01
-Status: Phase 100 complete
-Last activity: 2026-06-11 — Phase 100 plan 01 complete (billing account experience)
+Phase: 102 of 102 — Checkout & Portal Flows
+Plan: Ready for 102-01
+Status: Phase 101 complete (automatable); LIVE-02 human_needed
+Last activity: 2026-06-11 — Phase 101 plan 01 complete (Stripe go-live runbook)
 
-Progress: [███████░░░] 67%
+Progress: [██████████] 100% (v12.0 plans); LIVE-02 pending operator smoke
 
 ## Accumulated Context
 
@@ -47,11 +47,12 @@ Progress: [███████░░░] 67%
 - BillingTab surfaces localized account states (trial/active/past-due/canceled/beta/none) with grant ledger history; internal COGS forecast stays separate.
 - `/api/billing/status` exposes `canceled.recoveryAction: checkout` alongside `pastDue.recoveryAction: portal`.
 - `/api/billing/history` returns `grants` ledger entries (source, amount, date).
+- Phase 101: `101-PRODUCTION-RUNBOOK.md` + `npm run preflight:stripe`; live webhook evidence template at `101-WEBHOOK-EVIDENCE.md`.
 
 ## Session Continuity
 
-Last session: 2026-06-11T17:57:03.831Z
-Stopped at: Completed 100-01-PLAN.md
+Last session: 2026-06-11T17:59:37.516Z
+Stopped at: Completed 101-01-PLAN.md
 
 ## Blockers
 
