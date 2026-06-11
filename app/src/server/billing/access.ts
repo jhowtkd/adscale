@@ -15,6 +15,15 @@ import {
   workspaceHasDevAdminOwner,
 } from "@/server/auth/dev-admin";
 
+/**
+ * Past-due spend policy (DUEN-01 / DUEN-03):
+ * - Existing credit balance remains spendable while subscription is `past_due`.
+ * - New monthly grants from `invoice.paid` stay suspended until payment recovers (see events.ts).
+ * - Beta entitlements are unchanged and still gate spend when no active paid subscription exists.
+ */
+export const PAST_DUE_SPEND_POLICY = "existing_credits_spendable" as const;
+export const PAST_DUE_LABEL = "Pagamento pendente";
+
 export type WorkspaceAccessKind = "paid" | "beta" | "none";
 
 export type SubscriptionStatus =
@@ -112,6 +121,21 @@ export async function getWorkspaceBillingAccess(
       subscription: null,
       latestSubscription,
       betaEntitlement,
+    };
+  }
+
+  if (subscriptionStatus === "past_due" && latestSubscription) {
+    const hasCredits = creditBalance > 0;
+    return {
+      kind: hasCredits ? "paid" : "none",
+      label: PAST_DUE_LABEL,
+      creditBalance,
+      remainingAds: hasCredits ? creditsToRemainingAds(creditBalance) : null,
+      hasSpendAccess: hasCredits,
+      subscriptionStatus,
+      subscription: null,
+      latestSubscription,
+      betaEntitlement: null,
     };
   }
 

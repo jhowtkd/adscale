@@ -153,6 +153,42 @@ describe("getWorkspaceBillingAccess", () => {
     expect(access.hasSpendAccess).toBe(true);
   });
 
+  it("allows spend on existing credits during past_due without beta access", async () => {
+    const pastDueSubscription = {
+      ...activeSubscription,
+      status: "past_due",
+    };
+    mockGetActiveSubscription.mockResolvedValue(null);
+    mockGetLatestSubscription.mockResolvedValue(pastDueSubscription);
+    mockGetAvailableCreditGrants.mockResolvedValue([grant(30)]);
+
+    const access = await getWorkspaceBillingAccess("workspace-1");
+
+    expect(access.kind).toBe("paid");
+    expect(access.label).toBe("Pagamento pendente");
+    expect(access.subscriptionStatus).toBe("past_due");
+    expect(access.hasSpendAccess).toBe(true);
+    expect(access.remainingAds).toBe(6);
+  });
+
+  it("blocks spend during past_due when credit balance is exhausted", async () => {
+    const pastDueSubscription = {
+      ...activeSubscription,
+      status: "past_due",
+    };
+    mockGetActiveSubscription.mockResolvedValue(null);
+    mockGetLatestSubscription.mockResolvedValue(pastDueSubscription);
+    mockGetAvailableCreditGrants.mockResolvedValue([]);
+
+    const access = await getWorkspaceBillingAccess("workspace-1");
+
+    expect(access.kind).toBe("none");
+    expect(access.label).toBe("Pagamento pendente");
+    expect(access.subscriptionStatus).toBe("past_due");
+    expect(access.hasSpendAccess).toBe(false);
+    expect(access.remainingAds).toBeNull();
+  });
+
   it("exposes canceled subscription status without paid spend access", async () => {
     const canceledSubscription = {
       ...activeSubscription,

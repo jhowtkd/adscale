@@ -150,6 +150,11 @@ async function processInvoicePaid(event: Stripe.Event) {
     throw new Error("Missing local subscription for paid invoice");
   }
 
+  // Suspend new monthly grants while subscription is not in good standing (DUEN-01).
+  if (subscription.status !== "active" && subscription.status !== "trialing") {
+    return;
+  }
+
   const amount = planCreditGrants[subscription.planKey as keyof typeof planCreditGrants];
   if (!amount) {
     throw new Error("Missing credit grant amount for plan");
