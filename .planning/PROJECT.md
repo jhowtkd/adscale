@@ -20,15 +20,15 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 - Beta codes mantidos em paralelo para testers/parceiros
 - Regressão: webhooks, access gates, fluxos TestSprite billing
 
-**Parallel track:** v11.11 Phases 93–94 permanecem bloqueadas em SESS-03 (gate humano) até operador rodar ≥3 sessões reais.
+**Parallel track:** SESS-03 fechado em 2026-06-11 com 3 sessões reais (466ef707, 89669961, f32d2ba1). Falta apenas Phase 94 (learning closure + threshold tune) no v11.11.
 
-### v11.11 Aprendizado → Ação — IN PROGRESS (71%, human gate)
+### v11.11 Aprendizado → Ação — IN PROGRESS (86%)
 
-Phases 90–92 e 95–96 shipped; 93–94 blocked on SESS-03 operator sessions.
+Phases 90–93 e 95–96 complete; Phase 94 unblocked (real session data available).
 
-### v11.10 Fechamento Entrega e Analytics — CODE COMPLETE (SESS-03 pending)
+### v11.10 Fechamento Entrega e Analytics — COMPLETE (2026-06-11)
 
-Phases 85–88 shipped; Phase 89 blocked on human operator sessions.
+Phases 85–89 complete; SESS-03 evidence in `89-SESS-03-EVIDENCE.md`.
 
 ### v11.9 UX de Entrega e Créditos — SHIPPED 2026-06-07
 

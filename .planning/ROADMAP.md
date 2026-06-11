@@ -26,8 +26,8 @@
 - [x] **Phase 90: Analytics Foundation** — Allowlist extensions + aggregate functions for share, stall, and readiness override
 - [x] **Phase 91: Share + Readiness Instrumentation** — `share_link_opened` server event, share open count, and override dimension dashboard
 - [x] **Phase 92: Owner Dashboard: Stall + Timing** — Post-preview stall panel, median draft→share time, stall classification
-- [ ] **Phase 93: SESS-03 Operator UAT** — ≥3 real beta sessions documented (blocked — human gate)
-- [ ] **Phase 94: Learning Closure + Threshold Tune** — Q2/Q3/Q9 answered with real session citations; readiness thresholds adjusted with evidence (blocked — requires Phase 93)
+- [x] **Phase 93: SESS-03 Operator UAT** — ≥3 real beta sessions documented (completed 2026-06-11)
+- [ ] **Phase 94: Learning Closure + Threshold Tune** — Q2/Q3/Q9 answered with real session citations; readiness thresholds adjusted with evidence (unblocked — Phase 93 complete)
 - [x] **Phase 95: Stall UX + Share Correlation** — "Continue → batch" nudge; share open rate by assistance level
 - [x] **Phase 96: Regression Verification** — Tests for new events/aggregators/nudge; npm test + lint + build pass
 
@@ -36,8 +36,8 @@
 | 90 | Analytics Foundation | READY-08, LEARN-06 | Complete | 2026-06-08 |
 | 91 | Share + Readiness Instrumentation | SHARE-01, SHARE-02, READY-09 | Complete | 2026-06-08 |
 | 92 | Owner Dashboard: Stall + Timing | STALL-01, STALL-02, DASH-07, DASH-08 | Complete | 2026-06-08 |
-| 93 | SESS-03 Operator UAT | LEARN-05 | Blocked | - |
-| 94 | Learning Closure + Threshold Tune | LEARN-04, READY-10 | Blocked | - |
+| 93 | SESS-03 Operator UAT | LEARN-05 | Complete | 2026-06-11 |
+| 94 | Learning Closure + Threshold Tune | LEARN-04, READY-10 | Ready | - |
 | 95 | Stall UX + Share Correlation | STALL-03, SHARE-03 | Complete | 2026-06-08 |
 | 96 | Regression Verification | QA-05, QA-06 | Complete | 2026-06-08 |
 
@@ -49,7 +49,7 @@
 - [x] **Phase 86: Readiness Override** — False-positive override workflow + analytics
 - [x] **Phase 87: Owner Dashboard Polish** — Timeline cap removal, credit funnel, session filter
 - [x] **Phase 88: Regression Verification** — F-14 test fix + CI green gate
-- [ ] **Phase 89: SESS-03 Operator UAT** — ≥3 real sessions + learning answers updated (blocked — human gate)
+- [x] **Phase 89: SESS-03 Operator UAT** — ≥3 real sessions + learning answers updated (completed 2026-06-11)
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
@@ -57,7 +57,7 @@
 | 86 | Readiness Override | READY-06, READY-07 | Complete | 2026-06-07 |
 | 87 | Owner Dashboard Polish | DASH-04, DASH-05, DASH-06 | Complete | 2026-06-07 |
 | 88 | Regression Verification | QA-03, QA-04 | Complete | 2026-06-07 |
-| 89 | SESS-03 Operator UAT | SESS-03, SESS-05 | Blocked | - |
+| 89 | SESS-03 Operator UAT | SESS-03, SESS-05 | Complete | 2026-06-11 |
 
 ### ✅ v11.9 UX de Entrega e Créditos (Phases 80-84) — SHIPPED 2026-06-07
 

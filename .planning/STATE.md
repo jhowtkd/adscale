@@ -4,8 +4,8 @@ milestone: v12.0
 milestone_name: Monetização Real
 status: Defining requirements
 stopped_at: —
-last_updated: "2026-06-08T18:00:00.000Z"
-last_activity: 2026-06-08 — Milestone v12.0 started (parallel to v11.11 SESS-03)
+last_updated: "2026-06-11T13:00:00.000Z"
+last_activity: 2026-06-11 — SESS-03 closed (phases 89 + 93); Phase 94 unblocked
 progress:
   total_phases: 0
   completed_phases: 0
@@ -24,7 +24,7 @@ See: `.planning/PROJECT.md` (updated 2026-06-08)
 
 **Current focus:** Milestone v12.0 Monetização Real — production Stripe billing, beta→paid conversion, subscription lifecycle.
 
-**Parallel track:** v11.11 Phases 93–94 blocked on SESS-03 (≥3 real operator sessions).
+**Parallel track:** SESS-03 closed 2026-06-11 (sessions 466ef707, 89669961, f32d2ba1). Phase 94 (learning closure + threshold tune) ready to plan/execute.
 
 ## Current Position
 
@@ -51,4 +51,12 @@ Stopped at: Requirements scoping for v12.0
 
 ## Blockers
 
-- None for planning. Execution of v12.0 does not require SESS-03, but beta conversion UX should not conflict with v11.11 learning closure.
+- None. SESS-03 closed; Phase 94 unblocked.
+
+## SESS-03 follow-ups (UX friction found during real sessions, 2026-06-11)
+
+- Share/approval-package has no UI entry point on campaign page (share created via direct `POST /api/share`) — blocks self-serve share (SHARE reqs).
+- Preview generation progress stuck at 52% in UI while backend completes (polling bug).
+- "End session" button missing from Beta Sessions panel after start.
+- "Revisar novamente" runs QA but does not emit `mission_completed` for review.
+- `ctaProminence` blocking appears to be false-positive prone (override → preview scored 73) — input for READY-10 tune in Phase 94.
