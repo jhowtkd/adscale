@@ -141,6 +141,26 @@ describe("buildCreativeReadiness", () => {
     expect(result.dimensions.find((d) => d.id === "offerClarity")?.score).toBeLessThanOrEqual(40);
   });
 
+  it("does not block when only ctaProminence is below threshold (READY-10)", () => {
+    const preflight = makePreflight({
+      overallScore: 57,
+      breakdown: {
+        ...makePreflight().breakdown,
+        ctaProminence: { score: 20, suggestion: "Improve CTA contrast." },
+      },
+    });
+
+    const result = buildCreativeReadiness({
+      preflight,
+      ...baseInput,
+    });
+
+    expect(result.status).toBe("needs_attention");
+    expect(result.canGenerate).toBe(true);
+    expect(result.blockingIssues).not.toContain("Improve CTA contrast.");
+    expect(result.suggestions).toContain("Improve CTA contrast.");
+  });
+
   it("includes source metadata for reruns", () => {
     const result = buildCreativeReadiness({
       preflight: makePreflight(),

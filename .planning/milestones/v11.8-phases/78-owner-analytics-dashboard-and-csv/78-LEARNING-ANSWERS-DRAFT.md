@@ -18,17 +18,16 @@
 
 ### Q2. Which guided briefing questions get skipped most?
 
-**Answer (fixture):** `guided_briefing` stage shows entered=1, completed=1, abandoned=0 — no skip signal in fixture.
+**Answer (SESS-03):** Linked-session abandons (sessions `466ef707`, `89669961`, `f32d2ba1`) all use `stepId: unknown`. Historical workspace abandons point to **constraints** and **platforms** as highest-friction steps.
 
-**Citation:** cockpit stage funnel from `aggregate.test.ts`  
-**TBD:** Need `cockpit_stage_abandoned` events on guided_briefing across live sessions.
+**Citation:** `beta-analytics-export-sess03.csv`; Phase 94 `94-LEARNING-ANSWERS.md`  
+**Follow-up:** Fix session-linked `stepId` capture before template reorder.
 
 ### Q3. Is one readiness analysis enough per asset, or do users rerun often?
 
-**Answer (fixture):** Single readiness enter/complete pair; no rerun events.
+**Answer (SESS-03):** Sessions `466ef707` and `89669961` each logged multiple readiness completions (7 and 8); session `f32d2ba1` had none. Reruns driven by override/UI lag, not deliberate re-analysis.
 
-**Citation:** mission funnel readiness row (entered: 1, completed: 0 for mission_completed; stage completed via cockpit)  
-**TBD:** Count repeated `readiness_blocked` / readiness API calls per campaign in production.
+**Citation:** `session_stage_timeline` in `beta-analytics-export-sess03.csv`; Phase 94 `94-LEARNING-ANSWERS.md`
 
 ---
 
@@ -74,9 +73,10 @@
 
 ### Q9. Is approval package refresh understood or treated as a bug?
 
-**Answer:** No stale-badge events in fixture.
+**Answer (SESS-03):** Not tested — no `approval_package_refreshed` events. Session `f32d2ba1` could not find share UI; share created via API; link opened in incognito in ~7s.
 
-**TBD:** Operator session notes + feedback reports tagged billing/UI.
+**Citation:** Session `f32d2ba1`; Phase 94 `94-LEARNING-ANSWERS.md`  
+**Follow-up:** Expose approval-package/share entry point on campaign page before stale-badge UX.
 
 ---
 

@@ -45,6 +45,10 @@ export interface BuildCreativeReadinessInput {
 export const READINESS_BLOCKING_SCORE_THRESHOLD = 50;
 export const READINESS_READY_SCORE_THRESHOLD = 70;
 
+/** Dimensions that warn but do not hard-block derivation (Phase 94 / READY-10). */
+export const READINESS_WARNING_ONLY_DIMENSIONS: ReadonlySet<ReadinessDimensionId> =
+  new Set(["ctaProminence"]);
+
 const BLOCKING_SCORE_THRESHOLD = READINESS_BLOCKING_SCORE_THRESHOLD;
 const READY_SCORE_THRESHOLD = READINESS_READY_SCORE_THRESHOLD;
 
@@ -84,7 +88,13 @@ function resolveStatus(
   return "ready";
 }
 
-function dimensionIsBlocking(score: number): boolean {
+function dimensionIsBlocking(
+  dimensionId: ReadinessDimensionId,
+  score: number
+): boolean {
+  if (READINESS_WARNING_ONLY_DIMENSIONS.has(dimensionId)) {
+    return false;
+  }
   return score < BLOCKING_SCORE_THRESHOLD;
 }
 
@@ -93,7 +103,7 @@ export function formatBlockingDimensionIds(
   readiness: CreativeReadinessResult
 ): string {
   return readiness.dimensions
-    .filter((dimension) => dimensionIsBlocking(dimension.score))
+    .filter((dimension) => dimensionIsBlocking(dimension.id, dimension.score))
     .map((dimension) => dimension.id)
     .join(",");
 }
@@ -158,7 +168,7 @@ export function buildCreativeReadiness(
   }
 
   for (const dimension of dimensions) {
-    if (dimensionIsBlocking(dimension.score) && dimension.suggestion) {
+    if (dimensionIsBlocking(dimension.id, dimension.score) && dimension.suggestion) {
       blockingIssues.push(dimension.suggestion);
     }
   }
@@ -170,8 +180,10 @@ export function buildCreativeReadiness(
   );
 
   for (const dimension of dimensions) {
+    const isWarningOnly = READINESS_WARNING_ONLY_DIMENSIONS.has(dimension.id);
     if (
-      !dimensionIsBlocking(dimension.score) &&
+      (!dimensionIsBlocking(dimension.id, dimension.score) ||
+        isWarningOnly) &&
       dimension.score < READY_SCORE_THRESHOLD &&
       dimension.suggestion &&
       !suggestions.includes(dimension.suggestion) &&

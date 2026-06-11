@@ -20,11 +20,11 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 - Beta codes mantidos em paralelo para testers/parceiros
 - Regressão: webhooks, access gates, fluxos TestSprite billing
 
-**Parallel track:** SESS-03 fechado em 2026-06-11 com 3 sessões reais (466ef707, 89669961, f32d2ba1). Falta apenas Phase 94 (learning closure + threshold tune) no v11.11.
+**Parallel track:** v11.11 fechado em 2026-06-11 — Phase 94 (learning closure + threshold tune) complete.
 
-### v11.11 Aprendizado → Ação — IN PROGRESS (86%)
+### v11.11 Aprendizado → Ação — COMPLETE (2026-06-11)
 
-Phases 90–93 e 95–96 complete; Phase 94 unblocked (real session data available).
+Phases 90–96 complete; Q2/Q3/Q9 answered with real sessions; `ctaProminence` warning-only per READY-10.
 
 ### v11.10 Fechamento Entrega e Analytics — COMPLETE (2026-06-11)
 

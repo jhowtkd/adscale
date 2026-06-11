@@ -2,8 +2,8 @@
 
 ## Milestones
 
-- 🔄 **v11.11 Aprendizado → Ação** - Phases 90-96 (in progress)
-- 🔄 **v11.10 Fechamento Entrega e Analytics** - Phases 85-89 (in progress)
+- ✅ **v11.11 Aprendizado → Ação** - Phases 90-96 (shipped 2026-06-11)
+- ✅ **v11.10 Fechamento Entrega e Analytics** - Phases 85-89 (shipped 2026-06-11)
 - ✅ **v11.9 UX de Entrega e Créditos** - Phases 80-84 (shipped 2026-06-07)
 - ✅ **v11.8 Loop de Aprendizado Beta** - Phases 75-79 (shipped 2026-06-07)
 - ✅ **v11.7.1 Stabilization** - Phases 72-74 (shipped 2026-06-07)
@@ -19,7 +19,7 @@
 
 ## Phases
 
-### 🔄 v11.11 Aprendizado → Ação (Phases 90-96) — IN PROGRESS
+### ✅ v11.11 Aprendizado → Ação (Phases 90-96) — SHIPPED 2026-06-11
 
 **Milestone Goal:** Converter dados reais do beta (SESS-03) em melhorias acionáveis — tuning de readiness, redução de stall pós-preview e analytics/melhorias de share link self-serve.
 
@@ -27,7 +27,7 @@
 - [x] **Phase 91: Share + Readiness Instrumentation** — `share_link_opened` server event, share open count, and override dimension dashboard
 - [x] **Phase 92: Owner Dashboard: Stall + Timing** — Post-preview stall panel, median draft→share time, stall classification
 - [x] **Phase 93: SESS-03 Operator UAT** — ≥3 real beta sessions documented (completed 2026-06-11)
-- [ ] **Phase 94: Learning Closure + Threshold Tune** — Q2/Q3/Q9 answered with real session citations; readiness thresholds adjusted with evidence (unblocked — Phase 93 complete)
+- [x] **Phase 94: Learning Closure + Threshold Tune** — Q2/Q3/Q9 answered with real session citations; readiness thresholds adjusted with evidence (unblocked — Phase 93 complete) (completed 2026-06-11)
 - [x] **Phase 95: Stall UX + Share Correlation** — "Continue → batch" nudge; share open rate by assistance level
 - [x] **Phase 96: Regression Verification** — Tests for new events/aggregators/nudge; npm test + lint + build pass
 
@@ -37,11 +37,11 @@
 | 91 | Share + Readiness Instrumentation | SHARE-01, SHARE-02, READY-09 | Complete | 2026-06-08 |
 | 92 | Owner Dashboard: Stall + Timing | STALL-01, STALL-02, DASH-07, DASH-08 | Complete | 2026-06-08 |
 | 93 | SESS-03 Operator UAT | LEARN-05 | Complete | 2026-06-11 |
-| 94 | Learning Closure + Threshold Tune | LEARN-04, READY-10 | Ready | - |
+| 94 | Learning Closure + Threshold Tune | LEARN-04, READY-10 | Complete | 2026-06-11 |
 | 95 | Stall UX + Share Correlation | STALL-03, SHARE-03 | Complete | 2026-06-08 |
 | 96 | Regression Verification | QA-05, QA-06 | Complete | 2026-06-08 |
 
-### 🔄 v11.10 Fechamento Entrega e Analytics (Phases 85-89) — IN PROGRESS
+### ✅ v11.10 Fechamento Entrega e Analytics (Phases 85-89) — SHIPPED 2026-06-11
 
 **Milestone Goal:** Fechar o cluster entrega/créditos/analytics com instrumentação cockpit restante, readiness false-positive override, owner dashboard polish, regressão verde e ≥3 sessões reais de operador com learning answers atualizados.
 
@@ -191,7 +191,7 @@ Archive: [v11.8-ROADMAP.md](milestones/v11.8-ROADMAP.md) · [v11.8-REQUIREMENTS.
   2. Readiness blocking/ready threshold constants are adjusted with a documented rationale citing override rate per dimension from ≥3 real sessions (D-1).
   3. Threshold change (or no-change decision) is committed with an evidence file noting the session IDs and override rates that drove the decision.
 
-**Plans:** TBD
+**Plans:** 2/2 plans complete
 
 ---
 

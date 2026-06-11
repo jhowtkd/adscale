@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v12.0
-milestone_name: Monetização Real
+milestone: v11.11
+milestone_name: Aprendizado → Ação
 status: Defining requirements
-stopped_at: —
-last_updated: "2026-06-11T13:00:00.000Z"
-last_activity: 2026-06-11 — SESS-03 closed (phases 89 + 93); Phase 94 unblocked
+stopped_at: Requirements scoping for v12.0
+last_updated: "2026-06-11T14:10:00.000Z"
+last_activity: 2026-06-11 — Phase 94 complete; v11.11 milestone closed
 progress:
-  total_phases: 0
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_phases: 20
+  completed_phases: 4
+  total_plans: 6
+  completed_plans: 17
   percent: 0
 ---
 
@@ -24,14 +24,14 @@ See: `.planning/PROJECT.md` (updated 2026-06-08)
 
 **Current focus:** Milestone v12.0 Monetização Real — production Stripe billing, beta→paid conversion, subscription lifecycle.
 
-**Parallel track:** SESS-03 closed 2026-06-11 (sessions 466ef707, 89669961, f32d2ba1). Phase 94 (learning closure + threshold tune) ready to plan/execute.
+**Parallel track:** v11.11 complete (2026-06-11). All phases 90–96 shipped including Phase 94 learning closure + READY-10 threshold tune.
 
 ## Current Position
 
 Phase: Not started (defining requirements)
 Plan: —
 Status: Defining requirements
-Last activity: 2026-06-08 — Milestone v12.0 started
+Last activity: 2026-06-11 — Phase 94 complete (learning closure + READY-10)
 
 Progress: ░░░░░░░░░░░░░░░░░░░░ 0%
 
@@ -51,7 +51,7 @@ Stopped at: Requirements scoping for v12.0
 
 ## Blockers
 
-- None. SESS-03 closed; Phase 94 unblocked.
+- None. v11.11 closed; focus on v12.0 Monetização Real.
 
 ## SESS-03 follow-ups (UX friction found during real sessions, 2026-06-11)
 
@@ -59,4 +59,4 @@ Stopped at: Requirements scoping for v12.0
 - Preview generation progress stuck at 52% in UI while backend completes (polling bug).
 - "End session" button missing from Beta Sessions panel after start.
 - "Revisar novamente" runs QA but does not emit `mission_completed` for review.
-- `ctaProminence` blocking appears to be false-positive prone (override → preview scored 73) — input for READY-10 tune in Phase 94.
+- `ctaProminence` blocking tuned in Phase 94 (warning-only dimension).
