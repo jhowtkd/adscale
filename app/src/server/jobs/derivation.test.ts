@@ -100,7 +100,11 @@ vi.mock("../repositories/client-reference", () => ({
 
 vi.mock("@/server/memory/brand-memory-context", () => ({
   getBrandMemoryContext: vi.fn(() => Promise.resolve({ items: [], block: "" })),
+}));
+
+vi.mock("@/server/memory/campaign-memory-context", () => ({
   getCampaignMemoryPromptBlock: vi.fn(() => Promise.resolve("")),
+  recordCampaignMemoryEntry: vi.fn(() => Promise.resolve({ schemaVersion: 1, entries: [] })),
 }));
 
 vi.mock("../ai/derivation-auto-retry", () => ({

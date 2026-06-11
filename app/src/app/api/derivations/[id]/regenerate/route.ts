@@ -22,6 +22,7 @@ import {
   mergeUserRegenerationNotes,
 } from "@/server/ai/regeneration-correction-brief";
 import type { CreativeHardFailure } from "@/server/ai/creative-quality-gate";
+import { recordCampaignMemoryEntry } from "@/server/memory/campaign-memory-context";
 
 function parseHardFailures(value: unknown): CreativeHardFailure[] {
   if (!Array.isArray(value)) return [];
@@ -230,6 +231,20 @@ export async function POST(
     }
 
     await updateCampaign(original.campaignId, workspace.id, { status: "generating" });
+
+    if (feedback?.trim()) {
+      await recordCampaignMemoryEntry(original.campaignId, workspace.id, {
+        type: "regeneration_feedback",
+        text: feedback.trim().slice(0, 500),
+        derivationId: original.id,
+      });
+    } else if (resolved.primaryReason.trim()) {
+      await recordCampaignMemoryEntry(original.campaignId, workspace.id, {
+        type: "regeneration_feedback",
+        text: resolved.primaryReason.trim().slice(0, 500),
+        derivationId: original.id,
+      });
+    }
 
     return NextResponse.json({ derivation: newDerivation }, { status: 201 });
   } catch (error) {

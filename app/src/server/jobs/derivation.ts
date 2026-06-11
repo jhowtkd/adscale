@@ -42,7 +42,10 @@ import {
 import { runDerivationAutoRetry, shouldAutoRetryDerivation } from "../ai/derivation-auto-retry";
 import { buildHardFailureRegenerationSuggestion } from "../ai/creative-score";
 import type { CreativeHardFailure } from "../ai/creative-quality-gate";
-import { getCampaignMemoryPromptBlock } from "../memory/campaign-memory-context";
+import {
+  getCampaignMemoryPromptBlock,
+  recordCampaignMemoryEntry,
+} from "../memory/campaign-memory-context";
 import { runCompletedDerivationQualityGate } from "../ai/creative-quality-gate";
 import { getClientProfile, getClientReferencesByIds } from "../repositories/client-reference";
 import { trackUsage } from "../repositories/usage";
@@ -358,8 +361,8 @@ export const derivationJob = inngest.createFunction(
     };
 
     const [brandMemory, campaignMemoryBlock] = await Promise.all([
-      step.run("fetch-brand-memory", async () =>
-        getBrandMemoryContext({
+      step.run("fetch-brand-memory", async () => {
+        const context = await getBrandMemoryContext({
           workspaceId,
           clientProfileName: clientProfile?.name ?? null,
           client: campaign.client,
@@ -369,8 +372,12 @@ export const derivationJob = inngest.createFunction(
           generationMode: effectiveGenerationMode,
           targetFormat,
           ctaText: effectiveCtaText ?? null,
-        })
-      ),
+        });
+        logger.info(
+          `[fetch-brand-memory] derivationId=${derivationId} items=${context.items.length} enabled=${context.items.length > 0 || process.env.MEM0_ENABLED === "true"}`
+        );
+        return context;
+      }),
       step.run("fetch-campaign-memory", async () =>
         getCampaignMemoryPromptBlock(campaignId, workspaceId)
       ),
@@ -983,6 +990,12 @@ export const derivationJob = inngest.createFunction(
         { autoRetryAttempted: true, autoRetryReason: hardFailures.map((f) => f.code).join(",") }
       );
       await updateDerivationGenerationLog(derivationId, workspaceId, generationLog);
+
+      await recordCampaignMemoryEntry(campaignId, workspaceId, {
+        type: "text_rule",
+        text: `Auto-retry applied for: ${hardFailures.map((f) => f.code).join(", ")}`,
+        derivationId,
+      });
 
       return result;
     });

@@ -38,6 +38,10 @@ vi.mock("@/server/billing/gates", () => ({
   spendCreditsOrApiError: vi.fn(() => Promise.resolve(null)),
 }));
 
+vi.mock("@/server/memory/campaign-memory-context", () => ({
+  recordCampaignMemoryEntry: vi.fn(() => Promise.resolve({ schemaVersion: 1, entries: [] })),
+}));
+
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
 }));
