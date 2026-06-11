@@ -42,10 +42,10 @@ Levar billing Stripe existente a produção: trial, renovação mensal de crédi
 
 ### Billing UI (BILL)
 
-- [ ] **BILL-01**: BillingTab mostra data de fim de trial ou próxima renovação quando subscription ativa/trialing.
-- [ ] **BILL-02**: Banners para `past_due` e `canceled` com link para portal.
-- [ ] **BILL-03**: Usuário vê histórico de credit grants (fonte, quantidade, data) na aba billing.
-- [ ] **BILL-04**: Superfícies billing distinguem beta vs pago vs sem acesso em PT-BR e EN.
+- [x] **BILL-01**: BillingTab mostra data de fim de trial ou próxima renovação quando subscription ativa/trialing.
+- [x] **BILL-02**: Banners para `past_due` e `canceled` com link para portal.
+- [x] **BILL-03**: Usuário vê histórico de credit grants (fonte, quantidade, data) na aba billing.
+- [x] **BILL-04**: Superfícies billing distinguem beta vs pago vs sem acesso em PT-BR e EN.
 
 ### Verification (QA)
 
@@ -67,10 +67,10 @@ Levar billing Stripe existente a produção: trial, renovação mensal de crédi
 | CONV-02 | 99 | Complete |
 | CONV-03 | 99 | Complete |
 | CONV-04 | 99 | Complete |
-| BILL-01 | 100 | Pending |
-| BILL-02 | 100 | Pending |
-| BILL-03 | 100 | Pending |
-| BILL-04 | 100 | Pending |
+| BILL-01 | 100 | Complete |
+| BILL-02 | 100 | Complete |
+| BILL-03 | 100 | Complete |
+| BILL-04 | 100 | Complete |
 | LIVE-01 | 101 | Pending |
 | LIVE-02 | 101 | Pending |
 | QA-07 | 102 | Pending |

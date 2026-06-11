@@ -36,7 +36,7 @@
 | 97 | Billing Contracts and Subscription Lifecycle | Complete    | 2026-06-11 | 2026-06-11 |
 | 98 | Past-Due Policy and Recovery | Complete    | 2026-06-11 | 2026-06-11 |
 | 99 | In-Product Conversion Surfaces | 1/1 | Complete   | 2026-06-11 |
-| 100 | Billing Account Experience | BILL-01, BILL-02, BILL-03, BILL-04 | Planned | - |
+| 100 | Billing Account Experience | 1/1 | Complete   | 2026-06-11 |
 | 101 | Stripe Production Go-Live | LIVE-01, LIVE-02 | Planned | - |
 | 102 | Billing Regression and Release Gate | QA-07, QA-08, QA-09 | Planned | - |
 
