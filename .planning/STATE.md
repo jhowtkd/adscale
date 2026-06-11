@@ -4,13 +4,13 @@ milestone: v12.0
 milestone_name: Monetização Real
 status: completed
 stopped_at: Completed 98-01-PLAN.md
-last_updated: "2026-06-11T17:47:41.555Z"
+last_updated: "2026-06-11T17:51:33.888Z"
 last_activity: 2026-06-11 — Phase 98 plan 01 complete (past-due policy + portal recovery)
 progress:
-  total_phases: 6
-  completed_phases: 2
-  total_plans: 6
-  completed_plans: 2
+  total_phases: 26
+  completed_phases: 6
+  total_plans: 13
+  completed_plans: 20
   percent: 33
 ---
 

@@ -25,7 +25,7 @@
 **Milestone Goal:** Levar o billing Stripe existente a produção com lifecycle idempotente, dunning explícito, conversão beta→pago e superfícies de billing verificadas de ponta a ponta.
 
 - [x] **Phase 97: Billing Contracts and Subscription Lifecycle** — status explícito, vínculo de subscription e grants idempotentes
-- [ ] **Phase 98: Past-Due Policy and Recovery** — política de spend, mensagens e portal para recuperação de pagamento
+- [x] **Phase 98: Past-Due Policy and Recovery** — política de spend, mensagens e portal para recuperação de pagamento (completed 2026-06-11)
 - [ ] **Phase 99: In-Product Conversion Surfaces** — payload 402 estruturado e CTAs de trial/upgrade nos value moments
 - [ ] **Phase 100: Billing Account Experience** — datas, estados, histórico de grants e distinção beta/pago
 - [ ] **Phase 101: Stripe Production Go-Live** — checklist, configuração real, deploy e smoke do webhook
@@ -34,7 +34,7 @@
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
 | 97 | Billing Contracts and Subscription Lifecycle | Complete    | 2026-06-11 | 2026-06-11 |
-| 98 | Past-Due Policy and Recovery | 1/1 | Complete   | 2026-06-11 |
+| 98 | Past-Due Policy and Recovery | Complete    | 2026-06-11 | 2026-06-11 |
 | 99 | In-Product Conversion Surfaces | CONV-01, CONV-02, CONV-03, CONV-04 | Planned | - |
 | 100 | Billing Account Experience | BILL-01, BILL-02, BILL-03, BILL-04 | Planned | - |
 | 101 | Stripe Production Go-Live | LIVE-01, LIVE-02 | Planned | - |
@@ -72,7 +72,7 @@
   3. Billing UI shows a specific `past_due` state and a working Customer Portal action.
   4. Tests cover `invoice.payment_failed`, access resolution, gates, and portal recovery.
 
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 ---
 
