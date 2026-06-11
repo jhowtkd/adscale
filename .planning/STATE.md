@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v12.0
 milestone_name: Monetização Real
 status: completed
-stopped_at: Completed 98-01-PLAN.md
-last_updated: "2026-06-11T17:51:33.888Z"
-last_activity: 2026-06-11 — Phase 98 plan 01 complete (past-due policy + portal recovery)
+stopped_at: Completed 99-01-PLAN.md
+last_updated: "2026-06-11T17:52:56.771Z"
+last_activity: 2026-06-11 — Phase 99 plan 01 complete (in-product conversion surfaces)
 progress:
-  total_phases: 26
-  completed_phases: 6
-  total_plans: 13
-  completed_plans: 20
-  percent: 33
+  total_phases: 6
+  completed_phases: 3
+  total_plans: 6
+  completed_plans: 3
+  percent: 50
 ---
 
 # State: ADScale
@@ -28,12 +28,12 @@ See: `.planning/PROJECT.md` (updated 2026-06-08)
 
 ## Current Position
 
-Phase: 99 of 102 — Conversion Surfaces
-Plan: Ready for 99-01
-Status: Phase 98 complete
-Last activity: 2026-06-11 — Phase 98 plan 01 complete (past-due policy + portal recovery)
+Phase: 100 of 102 — Billing Account Experience
+Plan: Ready for 100-01
+Status: Phase 99 complete
+Last activity: 2026-06-11 — Phase 99 plan 01 complete (in-product conversion surfaces)
 
-Progress: [███░░░░░░░] 33%
+Progress: [█████░░░░░] 50%
 
 ## Accumulated Context
 
@@ -43,13 +43,13 @@ Progress: [███░░░░░░░] 33%
 - `past_due` policy: existing credits spendable; label "Pagamento pendente"; `invoice.paid` grants suspended until `active`/`trialing`.
 - `/api/billing/status` exposes `pastDue.recoveryAction: portal` and `access.hasSpendAccess` for BillingTab recovery CTA.
 - `invoice.paid` grants are idempotent on `stripe_invoice` + `invoice.id` sourceId.
-- v11.7 upgrade CTAs exist at value moments; need wiring to checkout from 402 surfaces.
+- Structured 402 conversion contract drives preview gate, mission upgrade, and spend routes (`reason`, `recommendedAction`, `returnPath`).
 - BillingTab has forecast calculator (internal COGS) — keep separate from user-facing credits.
 
 ## Session Continuity
 
-Last session: 2026-06-11T17:47:41.551Z
-Stopped at: Completed 98-01-PLAN.md
+Last session: 2026-06-11T17:52:56.765Z
+Stopped at: Completed 99-01-PLAN.md
 
 ## Blockers
 

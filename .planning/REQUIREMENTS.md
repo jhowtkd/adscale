@@ -35,10 +35,10 @@ Levar billing Stripe existente a produção: trial, renovação mensal de crédi
 
 ### Beta→Paid Conversion (CONV)
 
-- [ ] **CONV-01**: Respostas 402 de spend incluem payload estruturado para UI iniciar checkout (`reason`, `suggestedPlanKey` ou equivalente).
-- [ ] **CONV-02**: Bloqueio de créditos no preview gate e batch gate mostra CTA "Começar trial" / upgrade.
-- [ ] **CONV-03**: Beta esgotado (0 ads restantes) mostra CTA de assinatura preservando workspace e campanhas.
-- [ ] **CONV-04**: Momentos de upgrade v11.7 (missões, insuficiência de crédito) redirecionam para checkout ou settings billing.
+- [x] **CONV-01**: Respostas 402 de spend incluem payload estruturado para UI iniciar checkout (`reason`, `suggestedPlanKey` ou equivalente).
+- [x] **CONV-02**: Bloqueio de créditos no preview gate e batch gate mostra CTA "Começar trial" / upgrade.
+- [x] **CONV-03**: Beta esgotado (0 ads restantes) mostra CTA de assinatura preservando workspace e campanhas.
+- [x] **CONV-04**: Momentos de upgrade v11.7 (missões, insuficiência de crédito) redirecionam para checkout ou settings billing.
 
 ### Billing UI (BILL)
 
@@ -63,10 +63,10 @@ Levar billing Stripe existente a produção: trial, renovação mensal de crédi
 | DUEN-01 | 98 | Complete |
 | DUEN-02 | 98 | Complete |
 | DUEN-03 | 98 | Complete |
-| CONV-01 | 99 | Pending |
-| CONV-02 | 99 | Pending |
-| CONV-03 | 99 | Pending |
-| CONV-04 | 99 | Pending |
+| CONV-01 | 99 | Complete |
+| CONV-02 | 99 | Complete |
+| CONV-03 | 99 | Complete |
+| CONV-04 | 99 | Complete |
 | BILL-01 | 100 | Pending |
 | BILL-02 | 100 | Pending |
 | BILL-03 | 100 | Pending |
