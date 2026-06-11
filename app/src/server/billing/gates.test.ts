@@ -56,6 +56,28 @@ describe("spendCreditsOrApiError", () => {
     expect(body.code).toBe("insufficient_credits");
   });
 
+  it("returns inactive_subscription when past_due workspace has no spend access", async () => {
+    mockRecordUsage.mockResolvedValue({
+      status: "blocked",
+      check: {
+        allowed: false,
+        amount: 5,
+        balance: 0,
+        reason: "inactive_subscription",
+      },
+    });
+
+    const response = await spendCreditsOrApiError({
+      workspaceId: "workspace-1",
+      action: "image_derivation",
+      idempotencyKey: "past-due-blocked",
+    });
+    const body = await response?.json();
+
+    expect(response?.status).toBe(402);
+    expect(body.code).toBe("inactive_subscription");
+  });
+
   it("forwards userId to recordUsage for analytics emission", async () => {
     mockRecordUsage.mockResolvedValue({
       status: "blocked",

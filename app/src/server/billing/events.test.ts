@@ -300,6 +300,33 @@ describe("processStripeEvent", () => {
     expect(mockRecordProcessedStripeEvent).not.toHaveBeenCalled();
   });
 
+  it("skips invoice.paid credit grants while subscription is past_due", async () => {
+    mockGetSubscription.mockResolvedValue({
+      id: "local-sub-id",
+      workspaceId: "workspace-1",
+      billingCustomerId: null,
+      stripeSubscriptionId: "sub_123",
+      stripeCustomerId: "cus_123",
+      status: "past_due",
+      planKey: "starter",
+      priceId: "price_starter",
+      currentPeriodStart: new Date("2026-05-01T00:00:00.000Z"),
+      currentPeriodEnd: new Date("2026-06-01T00:00:00.000Z"),
+      cancelAtPeriodEnd: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const event = stripeEvent("invoice.paid", {
+      id: "in_past_due",
+      subscription: "sub_123",
+    });
+
+    const result = await processStripeEvent(event);
+
+    expect(mockCreateCreditGrant).not.toHaveBeenCalled();
+    expect(result).toEqual({ status: "processed", type: "invoice.paid" });
+  });
+
   it("marks active subscriptions as past_due on payment failure", async () => {
     mockGetSubscription.mockResolvedValue({
       id: "local-sub-id",

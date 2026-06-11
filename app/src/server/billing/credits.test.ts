@@ -78,7 +78,23 @@ function noAccess() {
     creditBalance: 20,
     remainingAds: null,
     hasSpendAccess: false,
+    subscriptionStatus: "none" as const,
     subscription: null,
+    latestSubscription: null,
+    betaEntitlement: null,
+  };
+}
+
+function pastDueAccess() {
+  return {
+    kind: "paid" as const,
+    label: "Pagamento pendente",
+    creditBalance: 30,
+    remainingAds: 6,
+    hasSpendAccess: true,
+    subscriptionStatus: "past_due" as const,
+    subscription: null,
+    latestSubscription: { status: "past_due" },
     betaEntitlement: null,
   };
 }
@@ -124,6 +140,15 @@ describe("credit entitlement service", () => {
       balance: 20,
       reason: "inactive_subscription",
     });
+  });
+
+  it("allows past_due workspaces to spend existing credits", async () => {
+    mockGetWorkspaceBillingAccess.mockResolvedValue(pastDueAccess());
+    mockGetAvailableCreditGrants.mockResolvedValue([grant("grant-1", 30)]);
+
+    const result = await canSpend("workspace-1", "image_derivation");
+
+    expect(result).toEqual({ allowed: true, amount: 5, balance: 30 });
   });
 
   it("allows beta workspaces with enough credits", async () => {
