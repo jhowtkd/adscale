@@ -707,6 +707,8 @@ function CampaignWorkspaceCard({
   readinessBlocking,
   onReadinessOverride,
 }: CampaignWorkspaceCardProps) {
+  const tApproval = useTranslations("clientApprovalPackage");
+
   return (
     <div
       className={cn(
@@ -791,7 +793,10 @@ function CampaignWorkspaceCard({
               disabled={workspaceState === "gerando"}
             />
             <div id="mission-share">
-            <ClientApprovalPackagePanel campaignId={campaignId} />
+              <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--accent-green-text)]">
+                (01) {tApproval("title")}
+              </p>
+              <ClientApprovalPackagePanel campaignId={campaignId} />
             </div>
             <div id="mission-review">
             <div id="mission-export">

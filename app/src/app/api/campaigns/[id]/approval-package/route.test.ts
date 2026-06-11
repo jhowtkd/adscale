@@ -102,6 +102,29 @@ describe("GET /api/campaigns/[id]/approval-package", () => {
     expect(body.package.items.length).toBeGreaterThanOrEqual(1);
   });
 
+  it("returns zero eligible roots when only preview is approved (SESS-03 scenario)", async () => {
+    mockGetDerivationsByCampaign.mockResolvedValue([
+      {
+        id: ROOT_ID,
+        parentId: null,
+        status: "approved",
+        outputKey: "out/preview.png",
+        format: "1:1",
+        generationMode: "art_variation",
+        variantIndex: 0,
+        ctaText: "Shop now",
+        isPreview: true,
+      },
+    ] as Awaited<ReturnType<typeof getDerivationsByCampaign>>);
+
+    const res = await GET(new Request("http://localhost"), {
+      params: paramsWith(CAMPAIGN_ID),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.availableRoots).toHaveLength(0);
+  });
+
   it("returns 404 when campaign is missing", async () => {
     mockGetCampaignById.mockResolvedValue(null);
     const res = await GET(new Request("http://localhost"), {

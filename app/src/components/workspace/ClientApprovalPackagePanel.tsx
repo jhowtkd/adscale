@@ -142,8 +142,36 @@ export default function ClientApprovalPackagePanel({
     );
   }
 
-  if (isError || !hasApprovedRoots) {
-    return null;
+  if (isError) {
+    return (
+      <div
+        className={cn(
+          "rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)] p-4",
+          className
+        )}
+      >
+        <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+          {t("title")}
+        </h3>
+        <p className="mt-2 text-xs text-[var(--text-secondary)]">{t("loadError")}</p>
+      </div>
+    );
+  }
+
+  if (!hasApprovedRoots) {
+    return (
+      <div
+        className={cn(
+          "rounded-xl border border-dashed border-[var(--border-dim)] bg-[var(--surface-base)] p-4",
+          className
+        )}
+      >
+        <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+          {t("emptyTitle")}
+        </h3>
+        <p className="mt-1 text-xs text-[var(--text-secondary)]">{t("emptyHint")}</p>
+      </div>
+    );
   }
 
   return (

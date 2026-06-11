@@ -3,6 +3,7 @@
 import Image from "next/image";
 /* eslint-disable @next/next/no-img-element */
 
+import { useEffect, useState } from "react";
 import { Eye, Download, RefreshCw, Clock, AlertCircle, Check, X, Package, ShieldCheck, BookmarkPlus, FileText, Users, Scale, PenTool } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
@@ -52,6 +53,34 @@ interface DerivationCardProps {
 // ============================================
 // Progress Ring Component
 // ============================================
+
+function useDerivationGenerationProgress(
+  derivationId: string,
+  isGenerating: boolean
+): number {
+  const [progress, setProgress] = useState(8);
+
+  useEffect(() => {
+    if (!isGenerating) {
+      setProgress(0);
+      return;
+    }
+
+    setProgress(8);
+    const startedAt = Date.now();
+    const tick = () => {
+      const elapsed = Date.now() - startedAt;
+      const next = Math.min(90, 8 + (1 - Math.exp(-elapsed / 12000)) * 82);
+      setProgress(next);
+    };
+
+    tick();
+    const intervalId = window.setInterval(tick, 400);
+    return () => window.clearInterval(intervalId);
+  }, [derivationId, isGenerating]);
+
+  return progress;
+}
 
 function ProgressRing({ progress }: { progress: number }) {
   const radius = 30;
@@ -239,8 +268,12 @@ export default function DerivationCard({
     text: "#818cf8",
   };
 
-  // Simulated progress per derivation
-  const simulatedProgress = Math.min(10 + ((index * 37 + 42) % 90), 98);
+  const isGeneratingOverlay =
+    derivation.status === "generating" && !derivation.imageUrl;
+  const generationProgress = useDerivationGenerationProgress(
+    derivation.id,
+    isGeneratingOverlay
+  );
 
   const isRegenerating = regeneratingId === derivation.id;
   const isQaAnalyzing = qaAnalyzingId === derivation.id;
@@ -374,11 +407,13 @@ export default function DerivationCard({
         )}
 
         {/* Status overlay */}
-        <StatusOverlay
-          status={derivation.status}
-          progress={derivation.status === "generating" ? simulatedProgress : undefined}
-          onRetry={handleRegenerate}
-        />
+        {(derivation.status === "failed" || isGeneratingOverlay) && (
+          <StatusOverlay
+            status={derivation.status === "failed" ? "failed" : "generating"}
+            progress={isGeneratingOverlay ? generationProgress : undefined}
+            onRetry={handleRegenerate}
+          />
+        )}
       </button>
 
       {/* ---- Info Area ---- */}

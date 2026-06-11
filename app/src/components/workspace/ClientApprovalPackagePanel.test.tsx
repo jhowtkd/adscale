@@ -116,6 +116,33 @@ describe("ClientApprovalPackagePanel", () => {
     expect(screen.getByText("clientApprovalPackage.refreshPackage")).toBeInTheDocument();
   });
 
+  it("shows empty guidance when no approved roots exist", () => {
+    mockUseApprovalPackage.mockReturnValue({
+      data: {
+        campaignId: "campaign-1",
+        availableRoots: [],
+        selectedRootIds: [],
+        package: {
+          derivationIds: [],
+          items: [],
+          notes: "",
+          isStale: false,
+          staleReasons: [],
+        },
+        shareUrl: null,
+        expiresAt: null,
+      },
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof useApprovalPackage>);
+
+    render(<ClientApprovalPackagePanel campaignId="campaign-1" />);
+
+    expect(screen.getByText("clientApprovalPackage.emptyTitle")).toBeInTheDocument();
+    expect(screen.getByText("clientApprovalPackage.emptyHint")).toBeInTheDocument();
+    expect(screen.queryByText("clientApprovalPackage.createPackage")).not.toBeInTheDocument();
+  });
+
   it("calls save mutation when create package is clicked", () => {
     const mutate = vi.fn();
     mockUseSaveApprovalPackage.mockReturnValue({

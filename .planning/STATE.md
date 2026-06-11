@@ -55,8 +55,8 @@ Stopped at: Requirements scoping for v12.0
 
 ## SESS-03 follow-ups (UX friction found during real sessions, 2026-06-11)
 
-- Share/approval-package has no UI entry point on campaign page (share created via direct `POST /api/share`) — blocks self-serve share (SHARE reqs).
-- Preview generation progress stuck at 52% in UI while backend completes (polling bug).
+- Share/approval-package UI fix local (empty state + section header) — deploy pending; SESS-03 used `POST /api/share` when panel returned null for preview-only approved.
+- Preview progress 52% fix local (`DerivationCard` animated progress + hide overlay when `imageUrl` exists) — Playwright on prod confirmed static 52% (H1); deploy pending.
 - "End session" button missing from Beta Sessions panel after start.
 - "Revisar novamente" runs QA but does not emit `mission_completed` for review.
 - `ctaProminence` blocking tuned in Phase 94 (warning-only dimension).
