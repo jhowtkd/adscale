@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v12.0
 milestone_name: Monetização Real
 status: pending_milestone_close
-stopped_at: Awaiting LIVE-02 production webhook smoke (101-WEBHOOK-EVIDENCE.md)
-last_updated: "2026-06-11T19:00:00.000Z"
-last_activity: 2026-06-11 — v12.0 phases 97–102 code-complete; 18/19 requirements evidenced
+stopped_at: LIVE-02 partial — prod checkout needed for grant idempotency proof
+last_updated: "2026-06-11T18:25:00.000Z"
+last_activity: 2026-06-11 — pushed v12.0 billing to prod (dep-d8lfm4jbc2fs73d2qni0); webhook signature smoke PASS
 progress:
   milestone_phases: 6
   milestone_phases_complete: 6
@@ -58,7 +58,7 @@ Stopped at: Completed 102-01-PLAN.md
 
 ## Blockers
 
-- **LIVE-02 (milestone close):** Production Stripe webhook smoke not yet executed. Operator must follow `101-PRODUCTION-RUNBOOK.md` and fill `101-WEBHOOK-EVIDENCE.md` before `/gsd-complete-milestone v12.0`.
+- **LIVE-02 (milestone close):** Webhook signature verified on production (`we_1ThD7e…`, deploy `dep-d8lfm4jbc2fs73d2qni0`). **Remaining:** operator Starter checkout on prod app → confirm `invoice.paid` grant + idempotency → fill sign-off in `101-WEBHOOK-EVIDENCE.md`.
 
 ## Human verification deferred (non-blocking for code)
 
