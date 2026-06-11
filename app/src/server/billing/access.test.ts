@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/server/repositories/billing", () => ({
   getActiveSubscriptionByWorkspace: vi.fn(),
+  getLatestSubscriptionByWorkspace: vi.fn(),
   getAvailableCreditGrants: vi.fn(),
 }));
 
@@ -12,11 +13,16 @@ vi.mock("@/server/repositories/entitlements", () => ({
 import {
   getActiveSubscriptionByWorkspace,
   getAvailableCreditGrants,
+  getLatestSubscriptionByWorkspace,
 } from "@/server/repositories/billing";
 import { getActiveBetaEntitlementByWorkspace } from "@/server/repositories/entitlements";
-import { getWorkspaceBillingAccess } from "./access";
+import {
+  getWorkspaceBillingAccess,
+  normalizeSubscriptionStatus,
+} from "./access";
 
 const mockGetActiveSubscription = vi.mocked(getActiveSubscriptionByWorkspace);
+const mockGetLatestSubscription = vi.mocked(getLatestSubscriptionByWorkspace);
 const mockGetAvailableCreditGrants = vi.mocked(getAvailableCreditGrants);
 const mockGetActiveBetaEntitlement = vi.mocked(getActiveBetaEntitlementByWorkspace);
 
@@ -50,19 +56,36 @@ function grant(remaining: number) {
   };
 }
 
+describe("normalizeSubscriptionStatus", () => {
+  it.each([
+    ["active", "active"],
+    ["trialing", "trialing"],
+    ["checkout_completed", "trialing"],
+    ["past_due", "past_due"],
+    ["canceled", "canceled"],
+    [null, "none"],
+    ["unknown", "none"],
+  ] as const)("maps %s to %s", (raw, expected) => {
+    expect(normalizeSubscriptionStatus(raw)).toBe(expected);
+  });
+});
+
 describe("getWorkspaceBillingAccess", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetAvailableCreditGrants.mockResolvedValue([grant(20)]);
     mockGetActiveBetaEntitlement.mockResolvedValue(null);
+    mockGetLatestSubscription.mockResolvedValue(null);
   });
 
   it("returns paid access when subscription is active", async () => {
     mockGetActiveSubscription.mockResolvedValue(activeSubscription);
+    mockGetLatestSubscription.mockResolvedValue(activeSubscription);
 
     const access = await getWorkspaceBillingAccess("workspace-1");
 
     expect(access.kind).toBe("paid");
+    expect(access.subscriptionStatus).toBe("active");
     expect(access.hasSpendAccess).toBe(true);
     expect(access.remainingAds).toBe(4);
   });
@@ -97,6 +120,51 @@ describe("getWorkspaceBillingAccess", () => {
     const access = await getWorkspaceBillingAccess("workspace-1");
 
     expect(access.kind).toBe("none");
+    expect(access.subscriptionStatus).toBe("none");
+    expect(access.hasSpendAccess).toBe(false);
+  });
+
+  it("exposes past_due subscription status while falling back to beta access", async () => {
+    const pastDueSubscription = {
+      ...activeSubscription,
+      status: "past_due",
+    };
+    mockGetActiveSubscription.mockResolvedValue(null);
+    mockGetLatestSubscription.mockResolvedValue(pastDueSubscription);
+    mockGetActiveBetaEntitlement.mockResolvedValue({
+      id: "ent-1",
+      workspaceId: "workspace-1",
+      kind: "beta_tester",
+      status: "active",
+      sourceCode: "BETA2026",
+      redeemedByUserId: "user-1",
+      metadata: null,
+      startsAt: new Date(),
+      expiresAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const access = await getWorkspaceBillingAccess("workspace-1");
+
+    expect(access.kind).toBe("beta");
+    expect(access.subscriptionStatus).toBe("past_due");
+    expect(access.latestSubscription?.status).toBe("past_due");
+    expect(access.hasSpendAccess).toBe(true);
+  });
+
+  it("exposes canceled subscription status without paid spend access", async () => {
+    const canceledSubscription = {
+      ...activeSubscription,
+      status: "canceled",
+    };
+    mockGetActiveSubscription.mockResolvedValue(null);
+    mockGetLatestSubscription.mockResolvedValue(canceledSubscription);
+
+    const access = await getWorkspaceBillingAccess("workspace-1");
+
+    expect(access.kind).toBe("none");
+    expect(access.subscriptionStatus).toBe("canceled");
     expect(access.hasSpendAccess).toBe(false);
   });
 

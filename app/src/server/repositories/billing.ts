@@ -142,6 +142,32 @@ export async function getActiveSubscriptionByWorkspace(workspaceId: string) {
   return rows[0] ?? null;
 }
 
+export async function getLatestSubscriptionByWorkspace(workspaceId: string) {
+  const rows = await db
+    .select()
+    .from(subscriptions)
+    .where(eq(subscriptions.workspaceId, workspaceId))
+    .orderBy(desc(subscriptions.updatedAt))
+    .limit(1);
+
+  return rows[0] ?? null;
+}
+
+export async function getCreditGrantBySourceId(
+  source: string,
+  sourceId: string,
+  tx?: DbOrTx
+) {
+  const client = tx ?? db;
+  const rows = await client
+    .select()
+    .from(creditGrants)
+    .where(and(eq(creditGrants.source, source), eq(creditGrants.sourceId, sourceId)))
+    .limit(1);
+
+  return rows[0] ?? null;
+}
+
 export async function getAvailableCreditGrants(workspaceId: string, tx?: DbOrTx, lock = false) {
   const client = tx ?? db;
   const query = client

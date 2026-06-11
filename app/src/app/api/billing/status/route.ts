@@ -16,7 +16,7 @@ export async function GET(request: Request) {
       getWorkspaceBillingAccess(workspace.id),
     ]);
 
-    const subscription = access.subscription;
+    const subscriptionRecord = access.latestSubscription;
     const betaSummary =
       access.kind === "beta" && access.remainingAds !== null
         ? getBetaAllowanceSummary(access.remainingAds)
@@ -25,18 +25,20 @@ export async function GET(request: Request) {
     return NextResponse.json({
       billing: {
         hasCustomer: Boolean(customer),
+        subscriptionStatus: access.subscriptionStatus,
         access: {
           kind: access.kind,
           label: access.label,
           remainingAds: access.remainingAds,
           beta: betaSummary,
         },
-        subscription: subscription
+        subscription: subscriptionRecord
           ? {
-              status: subscription.status,
-              planKey: subscription.planKey,
-              currentPeriodEnd: subscription.currentPeriodEnd?.toISOString() ?? null,
-              cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+              status: access.subscriptionStatus,
+              rawStatus: subscriptionRecord.status,
+              planKey: subscriptionRecord.planKey,
+              currentPeriodEnd: subscriptionRecord.currentPeriodEnd?.toISOString() ?? null,
+              cancelAtPeriodEnd: subscriptionRecord.cancelAtPeriodEnd,
             }
           : null,
         creditBalance: access.creditBalance,

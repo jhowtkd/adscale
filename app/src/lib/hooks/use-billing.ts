@@ -4,8 +4,16 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export type BillingAccessKind = "paid" | "beta" | "none";
 
+export type BillingSubscriptionStatus =
+  | "trialing"
+  | "active"
+  | "past_due"
+  | "canceled"
+  | "none";
+
 export interface BillingStatus {
   hasCustomer: boolean;
+  subscriptionStatus: BillingSubscriptionStatus;
   access: {
     kind: BillingAccessKind;
     label: string;
@@ -17,7 +25,8 @@ export interface BillingStatus {
     } | null;
   };
   subscription: {
-    status: string;
+    status: BillingSubscriptionStatus;
+    rawStatus: string;
     planKey: string;
     currentPeriodEnd: string | null;
     cancelAtPeriodEnd: boolean;
