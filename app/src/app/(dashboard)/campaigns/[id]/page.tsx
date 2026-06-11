@@ -275,7 +275,7 @@ export default function CampaignWorkspacePage() {
     client: campaign?.client ?? undefined,
   };
 
-  const handleGuidedBriefingComplete = (briefing: {
+  const handleGuidedBriefingComplete = async (briefing: {
     objective?: string;
     audience?: string;
     tone?: string;
@@ -285,11 +285,18 @@ export default function CampaignWorkspacePage() {
     product?: string;
     offer?: string;
   }) => {
-    if (pilotAssetIdRef.current) {
-      savePilot(pilotAssetIdRef.current, {
+    if (!pilotAssetIdRef.current) return;
+    try {
+      await savePilot(pilotAssetIdRef.current, {
         ...briefing,
         tone: briefing.tone ?? analysis.suggestedTone,
       });
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message === "rateLimitExceeded"
+          ? "Muitas requisições em sequência. Aguarde alguns segundos e tente novamente."
+          : "Não foi possível salvar o briefing. Tente novamente.";
+      addToast("error", message);
     }
   };
 

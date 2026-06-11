@@ -1,13 +1,16 @@
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, asc, desc, sql } from "drizzle-orm";
 import { db } from "../db";
 import { workspaces, workspaceMembers } from "../db/schema";
+
+/** Prefer the user's own (owner) workspace; fall back to admin/member memberships. */
+const workspaceMembershipPriority = sql`CASE ${workspaceMembers.role} WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END`;
 
 export async function getWorkspaceForUser(userId: string) {
   const member = await db
     .select()
     .from(workspaceMembers)
     .where(eq(workspaceMembers.userId, userId))
-    .orderBy(desc(workspaceMembers.createdAt))
+    .orderBy(workspaceMembershipPriority, asc(workspaceMembers.createdAt))
     .limit(1);
 
   if (member.length === 0) return null;

@@ -181,7 +181,13 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ assetId, briefing }),
       });
-      if (!res.ok) throw new Error("Failed to save pilot");
+      if (!res.ok) {
+        const err = (await res.json().catch(() => ({}))) as { error?: string };
+        if (res.status === 429 || err.error === "rateLimitExceeded") {
+          throw new Error("rateLimitExceeded");
+        }
+        throw new Error("Failed to save pilot");
+      }
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId] });
       setWorkspaceState("acoes");
     },

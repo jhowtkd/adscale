@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { getMutationRateLimitCategory } from "@/lib/api-rate-limit-category";
 import { rateLimit } from "@/lib/rate-limit";
 import { isValidLocale, defaultLocale } from "@/i18n/config";
 
@@ -74,16 +75,7 @@ export async function proxy(request: NextRequest) {
 
   // Rate limit API mutations
   if (isApiMutation(request)) {
-    const category = pathname.startsWith("/api/auth")
-      ? "auth"
-      : pathname.includes("/assets/upload")
-      ? "general"
-      : pathname.startsWith("/api/campaigns") ||
-        pathname.startsWith("/api/derivations") ||
-        pathname.startsWith("/api/restyling") ||
-        pathname.startsWith("/api/quick-tools")
-      ? "ai"
-      : "general";
+    const category = getMutationRateLimitCategory(pathname);
 
     const result = await rateLimit(request, category);
     if (!result.success) {
