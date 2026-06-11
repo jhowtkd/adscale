@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { Loader2, Sparkles } from "lucide-react";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -157,6 +158,16 @@ export default function StrategyRecipePanel({
     [isArtMode, creativeLevel, validCtaVariants, recipe.campaignPatch]
   );
 
+  const [selectedFormats, setSelectedFormats] = useState<DerivationFormat[]>([
+    ...DERIVATION_FORMATS,
+  ]);
+
+  useEffect(() => {
+    if (open) {
+      setSelectedFormats([...DERIVATION_FORMATS]);
+    }
+  }, [open, recipeSessionKey]);
+
   const handleCreativeLevelKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
       const currentIndex = CREATIVE_LEVELS.indexOf(creativeLevel as RecipeCreativeLevel);
@@ -196,7 +207,7 @@ export default function StrategyRecipePanel({
           <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <DialogBody className="space-y-4">
           <div className="space-y-2">
             {STRATEGY_RECIPE_IDS.map((id) => {
               const ranked = recipe.rankedRecipes.find((r) => r.id === id);
@@ -399,59 +410,48 @@ export default function StrategyRecipePanel({
                 </div>
               </div>
             ) : (
-              <>
               <FormatSelectionFields
                 key={recipeSessionKey ?? "default"}
                 labels={{ title: t("targetFormatsLabel"), help: t("targetFormatsHelp") }}
-                isSubmitting={isSubmitting}
-                onGenerate={(selectedFormats) => {
-                  completedRef.current = true;
-                  recordEvent("cockpit_stage_completed", STAGE_PROPS);
-                  onGeneratePreview(buildPreviewPatch(selectedFormats));
-                }}
+                selectedFormats={selectedFormats}
+                onSelectedFormatsChange={setSelectedFormats}
               />
-              <div className="rounded-lg bg-[var(--surface-raised)] p-3 text-xs text-[var(--text-secondary)]">
-                <p>{t("creditPreview", { credits: recipe.previewCredits })}</p>
-                <p className="mt-1">
-                  {t("creditBatchEstimate", { credits: recipe.batchCredits })}
-                </p>
-              </div>
-              </>
             )}
           </div>
 
-          {isArtMode ? (
-            <>
-              <div className="rounded-lg bg-[var(--surface-raised)] p-3 text-xs text-[var(--text-secondary)]">
-                <p>{t("creditPreview", { credits: recipe.previewCredits })}</p>
-                <p className="mt-1">
-                  {t("creditBatchEstimate", { credits: recipe.batchCredits })}
-                </p>
-              </div>
+          <div className="rounded-lg bg-[var(--surface-raised)] p-3 text-xs text-[var(--text-secondary)]">
+            <p>{t("creditPreview", { credits: recipe.previewCredits })}</p>
+            <p className="mt-1">
+              {t("creditBatchEstimate", { credits: recipe.batchCredits })}
+            </p>
+          </div>
+        </DialogBody>
 
-              <DialogFooter className="flex-col gap-2 sm:flex-col">
-                <Button
-                  className="w-full"
-                  disabled={
-                    isSubmitting || !canConfirm || isLoadingSuggestions
-                  }
-                  onClick={() => {
-                    completedRef.current = true;
-                    recordEvent("cockpit_stage_completed", STAGE_PROPS);
-                    onGeneratePreview(buildPreviewPatch([]));
-                  }}
-                >
-                  {isSubmitting ? (
-                    <Loader2 className="mr-2 size-4 animate-spin" />
-                  ) : (
-                    <Sparkles className="mr-2 size-4" />
-                  )}
-                  {t("generatePreview")}
-                </Button>
-              </DialogFooter>
-            </>
-          ) : null}
-        </div>
+        <DialogFooter className="flex-col gap-2 sm:flex-col">
+          <Button
+            className="w-full"
+            disabled={
+              isSubmitting ||
+              (isArtMode
+                ? !canConfirm || isLoadingSuggestions
+                : selectedFormats.length === 0)
+            }
+            onClick={() => {
+              completedRef.current = true;
+              recordEvent("cockpit_stage_completed", STAGE_PROPS);
+              onGeneratePreview(
+                buildPreviewPatch(isArtMode ? [] : selectedFormats)
+              );
+            }}
+          >
+            {isSubmitting ? (
+              <Loader2 className="mr-2 size-4 animate-spin" />
+            ) : (
+              <Sparkles className="mr-2 size-4" />
+            )}
+            {t("generatePreview")}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
@@ -459,86 +459,60 @@ export default function StrategyRecipePanel({
 
 function FormatSelectionFields({
   labels,
-  isSubmitting,
-  onGenerate,
+  selectedFormats,
+  onSelectedFormatsChange,
 }: {
   labels: { title: string; help: string };
-  isSubmitting?: boolean;
-  onGenerate: (formats: DerivationFormat[]) => void;
+  selectedFormats: DerivationFormat[];
+  onSelectedFormatsChange: (formats: DerivationFormat[]) => void;
 }) {
-  const t = useTranslations("strategyRecipes");
   const tBriefing = useTranslations("briefing");
-  const [formatSelection, setFormatSelection] = useState<
-    Record<DerivationFormat, boolean>
-  >({
-    "1:1": true,
-    "4:5": true,
-    "9:16": true,
-  });
-
-  const selectedFormats = DERIVATION_FORMATS.filter((format) => formatSelection[format]);
 
   const toggleFormat = (format: DerivationFormat) => {
-    setFormatSelection((prev) => {
-      const next = { ...prev, [format]: !prev[format] };
-      const count = DERIVATION_FORMATS.filter((item) => next[item]).length;
-      if (count === 0) return prev;
-      return next;
-    });
+    const isSelected = selectedFormats.includes(format);
+    if (isSelected) {
+      if (selectedFormats.length === 1) return;
+      onSelectedFormatsChange(selectedFormats.filter((item) => item !== format));
+      return;
+    }
+    onSelectedFormatsChange([...selectedFormats, format]);
   };
 
   return (
-    <>
-      <div className="space-y-2">
-        <Label className="text-xs text-[var(--text-secondary)]">{labels.title}</Label>
-        <p className="text-xs text-[var(--text-muted)]">{labels.help}</p>
-        {DERIVATION_FORMATS.map((format) => {
-          const labelKey = FORMAT_I18N_KEY[format];
-          const isSelected = formatSelection[format];
-          return (
-            <label
-              key={format}
-              className={cn(
-                "flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors",
-                isSelected
-                  ? "border-[var(--accent-green)] bg-[var(--accent-green-dim)]"
-                  : "border-[var(--border-dim)] bg-[var(--surface-base)]"
-              )}
-            >
-              <input
-                type="checkbox"
-                className="mt-0.5 size-4 shrink-0 accent-[var(--accent-green)]"
-                checked={isSelected}
-                onChange={() => toggleFormat(format)}
-                aria-label={tBriefing(`targetFormats.${labelKey}.label`)}
-              />
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-medium text-[var(--text-primary)]">
-                  {tBriefing(`targetFormats.${labelKey}.label`)}
-                </span>
-                <span className="mt-0.5 block text-xs text-[var(--text-secondary)]">
-                  {tBriefing(`targetFormats.${labelKey}.description`)}
-                </span>
+    <div className="space-y-2">
+      <Label className="text-xs text-[var(--text-secondary)]">{labels.title}</Label>
+      <p className="text-xs text-[var(--text-muted)]">{labels.help}</p>
+      {DERIVATION_FORMATS.map((format) => {
+        const labelKey = FORMAT_I18N_KEY[format];
+        const isSelected = selectedFormats.includes(format);
+        return (
+          <label
+            key={format}
+            className={cn(
+              "flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors",
+              isSelected
+                ? "border-[var(--accent-green)] bg-[var(--accent-green-dim)]"
+                : "border-[var(--border-dim)] bg-[var(--surface-base)]"
+            )}
+          >
+            <input
+              type="checkbox"
+              className="mt-0.5 size-4 shrink-0 accent-[var(--accent-green)]"
+              checked={isSelected}
+              onChange={() => toggleFormat(format)}
+              aria-label={tBriefing(`targetFormats.${labelKey}.label`)}
+            />
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-medium text-[var(--text-primary)]">
+                {tBriefing(`targetFormats.${labelKey}.label`)}
               </span>
-            </label>
-          );
-        })}
-      </div>
-
-      <DialogFooter className="flex-col gap-2 sm:flex-col">
-        <Button
-          className="w-full"
-          disabled={isSubmitting || selectedFormats.length === 0}
-          onClick={() => onGenerate(selectedFormats)}
-        >
-          {isSubmitting ? (
-            <Loader2 className="mr-2 size-4 animate-spin" />
-          ) : (
-            <Sparkles className="mr-2 size-4" />
-          )}
-          {t("generatePreview")}
-        </Button>
-      </DialogFooter>
-    </>
+              <span className="mt-0.5 block text-xs text-[var(--text-secondary)]">
+                {tBriefing(`targetFormats.${labelKey}.description`)}
+              </span>
+            </span>
+          </label>
+        );
+      })}
+    </div>
   );
 }
