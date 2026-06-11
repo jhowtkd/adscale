@@ -2,17 +2,17 @@
 gsd_state_version: 1.0
 milestone: v12.0
 milestone_name: Monetização Real
-status: pending_milestone_close
-stopped_at: LIVE-02 partial — prod checkout needed for grant idempotency proof
-last_updated: "2026-06-11T18:25:00.000Z"
-last_activity: 2026-06-11 — pushed v12.0 billing to prod (dep-d8lfm4jbc2fs73d2qni0); webhook signature smoke PASS
+status: ready_to_close
+stopped_at: LIVE-02 verified end-to-end — checkout + grant + idempotency all PASS
+last_updated: "2026-06-11T19:28:00.000Z"
+last_activity: 2026-06-11 — operator checkout completed (R$47 Starter), invoice.paid grant credited (30), redelivery confirmed idempotent; LIVE-02 sign-off written
 progress:
   milestone_phases: 6
   milestone_phases_complete: 6
   requirements_total: 19
-  requirements_complete: 18
+  requirements_complete: 19
   percent_phases: 100
-  percent_requirements: 95
+  percent_requirements: 100
 ---
 
 # State: ADScale
@@ -31,10 +31,10 @@ See: `.planning/PROJECT.md` (updated 2026-06-08)
 
 Phase: 102 of 102 — Billing Regression and Release Gate
 Plan: 102-01 complete
-Status: v12.0 code-complete — milestone **not** closed until LIVE-02
-Last activity: 2026-06-11 — Release gate green; operator smoke pending
+Status: v12.0 code-complete + LIVE-02 sign-off captured — milestone ready to close
+Last activity: 2026-06-11 — Operator checkout completed (R$47 Starter), invoice.paid grant credited (30), redelivery confirmed idempotent, LIVE-02 marked complete in REQUIREMENTS.md
 
-Progress: [█████████░] 18/19 requirements · phases 97–102 complete
+Progress: [██████████] 19/19 requirements · phases 97–102 complete
 
 ## Accumulated Context
 
