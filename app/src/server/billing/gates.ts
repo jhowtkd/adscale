@@ -2,6 +2,7 @@ import type { NextResponse } from "next/server";
 
 import { apiError } from "@/lib/api-response";
 import { type CreditAction, recordUsage } from "./credits";
+import { buildConversionErrorPayloadForWorkspace } from "./conversion";
 
 export async function spendCreditsOrApiError(input: {
   workspaceId: string;
@@ -10,6 +11,7 @@ export async function spendCreditsOrApiError(input: {
   amount?: number;
   metadata?: Record<string, unknown>;
   userId?: string;
+  returnPath?: string;
 }): Promise<NextResponse | null> {
   const result = await recordUsage(input);
 
@@ -17,6 +19,12 @@ export async function spendCreditsOrApiError(input: {
     return null;
   }
 
-  return apiError(result.check.reason, 402, result.check);
-}
+  const payload = await buildConversionErrorPayloadForWorkspace({
+    workspaceId: input.workspaceId,
+    check: result.check,
+    returnPath: input.returnPath,
+    operation: input.action,
+  });
 
+  return apiError(payload.reason, 402, payload);
+}

@@ -116,7 +116,10 @@ async function emitCreditBlockedAnalytics(
   context: ReadinessAnalyticsContext
 ) {
   try {
-    const body = (await creditError.clone().json()) as { code?: string };
+    const body = (await creditError.clone().json()) as {
+      code?: string;
+      details?: { analytics?: { reasonCode?: string } };
+    };
     await recordBetaAnalyticsEvent({
       workspaceId: context.workspaceId,
       userId: context.userId,
@@ -127,7 +130,8 @@ async function emitCreditBlockedAnalytics(
       properties: {
         operation: "creative_qa",
         operation_key: "creative_qa",
-        reasonCode: body.code ?? "insufficient_credits",
+        reasonCode:
+          body.details?.analytics?.reasonCode ?? body.code ?? "insufficient_credits",
         estimateCredits: 1,
         stage: "readiness",
         missionKey: "readiness",

@@ -41,21 +41,33 @@ async function getOrCreateStripeCustomer(workspace: BillingWorkspace, user: Bill
   return customer.id;
 }
 
+function urlWithReturnPath(baseUrl: string, returnPath?: string) {
+  if (!returnPath || !returnPath.startsWith("/")) {
+    return baseUrl;
+  }
+  const url = new URL(baseUrl);
+  url.searchParams.set("returnPath", returnPath);
+  return url.toString();
+}
+
 export async function createCheckoutSession(input: {
   workspace: BillingWorkspace;
   user: BillingUser;
   planKey: BillingPlanKey;
+  returnPath?: string;
 }) {
   const customerId = await getOrCreateStripeCustomer(input.workspace, input.user);
   const priceId = getStripePriceId(input.planKey);
+  const successUrl = urlWithReturnPath(env.STRIPE_SUCCESS_URL, input.returnPath);
+  const cancelUrl = urlWithReturnPath(env.STRIPE_CANCEL_URL, input.returnPath);
 
   return stripe.checkout.sessions.create({
     mode: "subscription",
     customer: customerId,
     client_reference_id: input.workspace.id,
     line_items: [{ price: priceId, quantity: 1 }],
-    success_url: env.STRIPE_SUCCESS_URL,
-    cancel_url: env.STRIPE_CANCEL_URL,
+    success_url: successUrl,
+    cancel_url: cancelUrl,
     allow_promotion_codes: true,
     metadata: {
       workspaceId: input.workspace.id,

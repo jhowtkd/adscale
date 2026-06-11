@@ -52,11 +52,16 @@ async function fetchBillingStatus(): Promise<BillingStatus> {
   return data.billing;
 }
 
-async function startCheckout(planKey: "starter" | "growth" | "scale") {
+export interface StartCheckoutInput {
+  planKey: "starter" | "growth" | "scale";
+  returnPath?: string;
+}
+
+async function startCheckout(input: StartCheckoutInput) {
   const res = await apiFetch("/api/billing/checkout", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ planKey }),
+    body: JSON.stringify(input),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || !data.url) {

@@ -8,6 +8,7 @@ import { createCheckoutSession } from "@/server/billing/sessions";
 
 const checkoutSchema = z.object({
   planKey: z.enum(billingPlanKeys),
+  returnPath: z.string().startsWith("/").optional(),
 });
 
 export async function POST(request: Request) {
@@ -23,6 +24,7 @@ export async function POST(request: Request) {
       workspace,
       user,
       planKey: parsed.data.planKey,
+      returnPath: parsed.data.returnPath,
     });
 
     if (!session.url) {

@@ -229,7 +229,7 @@ export default function BillingTab() {
                   </ul>
                   <button
                     type="button"
-                    onClick={() => checkout.mutate(key)}
+                    onClick={() => checkout.mutate({ planKey: key })}
                     disabled={checkout.isPending}
                     className="mt-5 h-10 w-full rounded-md text-sm font-medium text-white transition-all hover:opacity-90 disabled:opacity-60"
                     style={{ background: plan.color }}
@@ -331,7 +331,7 @@ export default function BillingTab() {
                   {!isPastDue ? (
                     <button
                       type="button"
-                      onClick={() => checkout.mutate("growth")}
+                      onClick={() => checkout.mutate({ planKey: "growth" })}
                       disabled={checkout.isPending}
                       className="h-10 flex-1 rounded-md bg-[var(--accent-green)] text-sm font-medium text-[var(--accent-green-on-fill)] transition-all hover:bg-[var(--accent-green-light)] disabled:opacity-60"
                     >
@@ -351,7 +351,7 @@ export default function BillingTab() {
               <>
                 <button
                   type="button"
-                  onClick={() => checkout.mutate("starter")}
+                  onClick={() => checkout.mutate({ planKey: "starter" })}
                   disabled={checkout.isPending}
                   className="mt-5 h-10 w-full rounded-md bg-[var(--accent-green)] text-sm font-medium text-[var(--accent-green-on-fill)] transition-all hover:bg-[var(--accent-green-light)] disabled:opacity-60"
                 >

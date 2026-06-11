@@ -11,10 +11,10 @@ const forecast = calculateForecast();
 export default function PlansTab() {
   const checkout = useStartCheckout();
 
-  async function startCheckout(planName: string) {
+  async function startPlanCheckout(planName: string) {
     const planKey = planName.toLowerCase();
     if (!["starter", "growth", "scale"].includes(planKey)) return;
-    await checkout.mutateAsync(planKey as "starter" | "growth" | "scale");
+    await checkout.mutateAsync({ planKey: planKey as "starter" | "growth" | "scale" });
   }
 
   return (
@@ -93,7 +93,7 @@ export default function PlansTab() {
 
               <button
                 type="button"
-                onClick={() => startCheckout(tier.name)}
+                onClick={() => startPlanCheckout(tier.name)}
                 disabled={tier.trial || checkout.isPending}
                 className={cn(
                   "mt-5 h-10 rounded-md text-sm font-medium transition-all disabled:cursor-not-allowed disabled:opacity-60",
