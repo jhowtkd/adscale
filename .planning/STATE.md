@@ -2,16 +2,17 @@
 gsd_state_version: 1.0
 milestone: v12.0
 milestone_name: Monetização Real
-status: completed
-stopped_at: Completed 102-01-PLAN.md
-last_updated: "2026-06-11T18:05:15.706Z"
-last_activity: 2026-06-11 — Phase 102 plan 01 complete (billing regression release gate)
+status: pending_milestone_close
+stopped_at: Awaiting LIVE-02 production webhook smoke (101-WEBHOOK-EVIDENCE.md)
+last_updated: "2026-06-11T19:00:00.000Z"
+last_activity: 2026-06-11 — v12.0 phases 97–102 code-complete; 18/19 requirements evidenced
 progress:
-  total_phases: 26
-  completed_phases: 10
-  total_plans: 13
-  completed_plans: 24
-  percent: 100
+  milestone_phases: 6
+  milestone_phases_complete: 6
+  requirements_total: 19
+  requirements_complete: 18
+  percent_phases: 100
+  percent_requirements: 95
 ---
 
 # State: ADScale
@@ -30,10 +31,10 @@ See: `.planning/PROJECT.md` (updated 2026-06-08)
 
 Phase: 102 of 102 — Billing Regression and Release Gate
 Plan: 102-01 complete
-Status: Phase 102 complete (automatable); LIVE-02 human_needed
-Last activity: 2026-06-11 — Phase 102 plan 01 complete (billing regression release gate)
+Status: v12.0 code-complete — milestone **not** closed until LIVE-02
+Last activity: 2026-06-11 — Release gate green; operator smoke pending
 
-Progress: [██████████] 100% (v12.0); LIVE-02 pending operator smoke
+Progress: [█████████░] 18/19 requirements · phases 97–102 complete
 
 ## Accumulated Context
 
@@ -57,7 +58,14 @@ Stopped at: Completed 102-01-PLAN.md
 
 ## Blockers
 
-- None. v11.11 closed; focus on v12.0 Monetização Real.
+- **LIVE-02 (milestone close):** Production Stripe webhook smoke not yet executed. Operator must follow `101-PRODUCTION-RUNBOOK.md` and fill `101-WEBHOOK-EVIDENCE.md` before `/gsd-complete-milestone v12.0`.
+
+## Human verification deferred (non-blocking for code)
+
+- **Phase 98:** Past-due BillingTab banner + portal CTA in browser; staging `invoice.payment_failed` webhook.
+- **Phase 99:** Preview gate checkout return path; beta-exhausted and paid-insufficient CTA routing UAT.
+- **Phase 100:** BillingTab visual states (trial/active/beta/past_due/canceled) in PT-BR and EN.
+- **Phase 101:** Live deploy, checkout, portal, and signed webhook on production Stripe.
 
 ## SESS-03 follow-ups (UX friction found during real sessions, 2026-06-11)
 

@@ -76,7 +76,7 @@ completed: 2026-06-11
 2. **Task 2: Deploy production billing configuration** - `877a0528` (docs — operator steps documented)
 3. **Task 3: Execute signed webhook smoke** - `1a0a60cd` (docs — evidence template)
 
-**Plan metadata:** pending final docs commit
+**Plan metadata:** `c5971186` (docs: complete plan)
 
 ## Files Created/Modified
 
