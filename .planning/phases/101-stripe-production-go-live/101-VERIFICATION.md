@@ -1,13 +1,25 @@
 ---
 phase: 101-stripe-production-go-live
-verified: 2026-06-11T18:30:00Z
+verified: 2026-06-11T20:01:00Z
 status: human_needed
-score: 2/4
+score: 2/5
 overrides_applied: 0
+re_verification:
+  previous_status: human_needed
+  previous_score: 2/4
+  gaps_closed: []
+  gaps_remaining:
+    - "Production deploy health and billing route smoke (roadmap SC2)"
+    - "Live signed webhook processing proof (LIVE-02 / roadmap SC3)"
+    - "Production checkout and portal verification (roadmap SC4)"
+  regressions: []
 human_verification:
   - test: "Set live STRIPE_* env vars in Render, deploy, and confirm GET {APP_URL}/api/health returns 200."
     expected: "Service live after migrate; health endpoint OK."
     why_human: "Requires Render Dashboard credentials and production deploy."
+  - test: "Authenticated operator: Settings → Billing loads; GET /api/billing/status returns expected access.kind."
+    expected: "Billing routes respond without error on production."
+    why_human: "Requires authenticated production session."
   - test: "Complete operator checkout on live Stripe (Starter plan) and confirm Billing tab shows trialing/active."
     expected: "Stripe Customer + Subscription in live mode; app subscription status matches."
     why_human: "Live payment method and Stripe Dashboard access required."
@@ -21,11 +33,11 @@ human_verification:
 
 # Phase 101: Stripe Production Go-Live Verification Report
 
-**Phase Goal:** Configure and prove production Stripe billing through an operator-repeatable checklist and captured live evidence.
+**Phase Goal:** Configure and prove the production Stripe integration with an operator-repeatable checklist and live webhook smoke.
 
-**Verified:** 2026-06-11T18:30:00Z  
+**Verified:** 2026-06-11T20:01:00Z  
 **Status:** human_needed  
-**Re-verification:** No — initial verification (automatable artifacts only)
+**Re-verification:** Yes — confirmed automatable deliverables; live operator steps still pending
 
 ## Goal Achievement
 
@@ -33,64 +45,106 @@ human_verification:
 
 | # | Truth | Status | Evidence |
 |---|-------|--------|----------|
-| 1 | Repository checklist covers prod keys, price IDs, URLs, webhook, deploy order, rollback | ✓ VERIFIED | `101-PRODUCTION-RUNBOOK.md` — env NAMES only, full operator steps |
-| 2 | Secrets referenced by env var name only in committed docs | ✓ VERIFIED | Runbook + evidence template; preflight masks values |
-| 3 | Production webhook signature verification proven with real signed event | ☐ HUMAN_NEEDED | Runbook §3.4 + `101-WEBHOOK-EVIDENCE.md` template; requires operator |
-| 4 | Checkout and portal sessions against production config | ☐ HUMAN_NEEDED | Runbook §3.2–3.3; requires live Stripe + operator account |
+| 1 | Repository checklist covers prod keys, price IDs, URLs, webhook, portal, deploy order, rollback, evidence (LIVE-01) | ✓ VERIFIED | `101-PRODUCTION-RUNBOOK.md` §1–6: Stripe live setup, Render env vars, preflight, smoke, rollback, sign-off |
+| 2 | Committed docs reference secrets by env var name only | ✓ VERIFIED | Runbook + `101-WEBHOOK-EVIDENCE.md` use `STRIPE_*` names; grep shows only format examples (`sk_live_...`), no real secrets |
+| 3 | Production deploy passes health and billing route smoke (roadmap SC2) | ☐ HUMAN_NEEDED | Runbook §2.3–3.1 documents steps; no deploy SHA or health curl evidence captured |
+| 4 | Signed Stripe event reaches production webhook and processes once without errors (LIVE-02) | ☐ HUMAN_NEEDED | `webhook/route.ts` uses `constructEvent` + `processStripeEvent`; `101-WEBHOOK-EVIDENCE.md` still template (empty `evt_...` rows) |
+| 5 | Checkout and portal verified against production config (roadmap SC4) | ☐ HUMAN_NEEDED | Runbook §3.2–3.3; evidence template checkboxes unchecked |
 
-**Score:** 2/4 truths verified (automated); 2/4 require operator
+**Score:** 2/5 truths verified (automated); 3/5 require operator on production
 
 ### Required Artifacts
 
 | Artifact | Expected | Status | Details |
 |----------|----------|--------|---------|
-| `101-PRODUCTION-RUNBOOK.md` | Go-live checklist | ✓ VERIFIED | Stripe + Render + smoke + rollback |
-| `app/scripts/preflight-stripe-billing.ts` | Env/plan preflight | ✓ VERIFIED | Offline + API modes; masked secrets |
-| `101-WEBHOOK-EVIDENCE.md` | Live evidence template | ✓ VERIFIED | Event IDs, deploy ID, redacted outcomes |
-| `app/scripts/seed-stripe-real.ts` | Safe test-only seed | ✓ VERIFIED | `--dry-run`, blocks `sk_live_` without `--allow-live` |
+| `101-PRODUCTION-RUNBOOK.md` | Go-live checklist | ✓ VERIFIED | 213 lines; covers LIVE-01 + LIVE-02 operator path |
+| `app/scripts/preflight-stripe-billing.ts` | Env/plan preflight | ✓ VERIFIED | 212 lines; offline + live API modes; `maskSecret()` on output |
+| `101-WEBHOOK-EVIDENCE.md` | Live evidence capture | ✓ VERIFIED (template) | Scaffold present; operator fields unfilled — intentional per `autonomous: false` |
+| `app/scripts/seed-stripe-real.ts` | Safe test-only seed | ✓ VERIFIED | Blocks `sk_live_` without `--allow-live`; supports `--dry-run` |
+| `app/package.json` | `preflight:stripe` script | ✓ VERIFIED | `"preflight:stripe": "tsx scripts/preflight-stripe-billing.ts"` |
 
-### Automated Spot-Checks
+### Key Link Verification
+
+| From | To | Via | Status | Details |
+|------|-----|-----|--------|---------|
+| `preflight-stripe-billing.ts` | `server/billing/plans.ts` | `billingPlanKeys`, `planCreditGrants` | ✓ WIRED | Step 3 aligns price IDs to credit grants |
+| `preflight-stripe-billing.ts` | `server/validation/env.ts` | `envSchema.safeParse` | ✓ WIRED | Step 2 validates STRIPE_* + APP_URL |
+| `webhook/route.ts` | `server/billing/events.ts` | `processStripeEvent(event)` | ✓ WIRED | Returns `{ received: true, result }` |
+| `webhook/route.ts` | Stripe SDK | `constructEvent(body, sig, STRIPE_WEBHOOK_SECRET)` | ✓ WIRED | 400 on missing/invalid signature |
+| Runbook §3.4 | `101-WEBHOOK-EVIDENCE.md` | Operator fills after smoke | ✓ WIRED | Cross-linked; awaiting execution |
+
+### Data-Flow Trace (Level 4)
+
+| Artifact | Data Variable | Source | Produces Real Data | Status |
+|----------|---------------|--------|-------------------|--------|
+| `webhook/route.ts` | `event` | `constructEvent` on request body | Yes (when signed POST) | ✓ FLOWING (code path) |
+| `webhook/route.ts` | `result` | `processStripeEvent` → DB/repos | Yes (unit-tested) | ✓ FLOWING (tests) |
+| `101-WEBHOOK-EVIDENCE.md` | delivery table | Operator / Stripe Dashboard | No (template) | ⚠️ STATIC — expected until LIVE-02 smoke |
+
+### Behavioral Spot-Checks
 
 | Behavior | Command | Result | Status |
 |----------|---------|--------|--------|
-| Preflight script runs offline | `cd app && npm run preflight:stripe -- --offline` | Executes format checks | ✓ PASS (expected FAIL on placeholder env locally) |
-| Billing unit tests still pass | `npm test -- src/server/billing/events.test.ts src/app/api/billing/webhook/route.test.ts` | 12+ tests | ✓ PASS |
-| Webhook route verifies signature | `webhook/route.ts` | `constructEvent` + `STRIPE_WEBHOOK_SECRET` | ✓ VERIFIED (code) |
+| Preflight offline runs | `cd app && npm run preflight:stripe -- --offline` | 16/16 passed | ✓ PASS |
+| Webhook signature unit tests | `npm test -- src/app/api/billing/webhook/route.test.ts` | 14 tests passed (2 files) | ✓ PASS |
+| Billing event processing tests | `npm test -- src/server/billing/events.test.ts` | included above | ✓ PASS |
+| Documented commits exist | `gsd-tools verify commits 7b9f175b 877a0528 1a0a60cd c5971186` | 4/4 valid | ✓ PASS |
 
 ### Requirements Coverage
 
-| Requirement | Description | Status | Evidence |
-|-------------|-------------|--------|----------|
-| LIVE-01 | Operator checklist in repository | ✓ SATISFIED | `101-PRODUCTION-RUNBOOK.md` |
-| LIVE-02 | Production webhook smoke | ☐ HUMAN_NEEDED | Template + runbook steps; operator must execute |
+| Requirement | Source Plan | Description | Status | Evidence |
+|-------------|-------------|-------------|--------|----------|
+| LIVE-01 | 101-01 | Operator checklist in repository | ✓ SATISFIED | `101-PRODUCTION-RUNBOOK.md` + preflight script |
+| LIVE-02 | 101-01 | Production webhook validates signature and processes events in post-deploy smoke | ☐ HUMAN_NEEDED | Code + runbook ready; `101-WEBHOOK-EVIDENCE.md` unfilled; REQUIREMENTS.md still Pending |
+
+### Anti-Patterns Found
+
+| File | Line | Pattern | Severity | Impact |
+|------|------|---------|----------|--------|
+| `101-WEBHOOK-EVIDENCE.md` | 12–19 | Template placeholders `_(...)_` | ℹ️ Info | Intentional — operator fills after live smoke |
+| `101-PRODUCTION-RUNBOOK.md` | 203–211 | Sign-off checkboxes unchecked | ℹ️ Info | Expected until operator completes go-live |
+
+No blocker stubs in application code. `preflight-stripe-billing.ts` and `seed-stripe-real.ts` contain no TODO/FIXME placeholders.
 
 ### Human Verification Required
 
 #### 1. Render deploy with live Stripe env
 
-**Steps:** Runbook §2 — set `STRIPE_*` in Render → deploy → `GET /api/health` 200.  
-**Why human:** Render + live key access.
+**Test:** Runbook §2 — set `STRIPE_*` in Render → deploy → `GET {APP_URL}/api/health` 200.  
+**Expected:** Service healthy after `db:migrate`.  
+**Why human:** Render Dashboard + live key access.
 
-#### 2. Live checkout smoke
+#### 2. Billing route smoke
 
-**Steps:** Runbook §3.2 — operator completes Starter checkout in live mode.  
-**Why human:** Real payment + Stripe live dashboard.
+**Test:** Authenticated session → Settings → Billing; `GET /api/billing/status`.  
+**Expected:** Page loads; status matches operator workspace.  
+**Why human:** Production auth session required.
 
-#### 3. Live portal smoke
+#### 3. Live checkout smoke
 
-**Steps:** Runbook §3.3 — open portal from Billing settings.  
+**Test:** Runbook §3.2 — operator completes Starter checkout in live mode.  
+**Expected:** Redirect to `STRIPE_SUCCESS_URL`; Stripe Dashboard shows live Customer + Subscription.  
+**Why human:** Real payment method + live Stripe.
+
+#### 4. Live portal smoke
+
+**Test:** Runbook §3.3 — open portal from Billing settings.  
+**Expected:** Portal opens and returns to success URL.  
 **Why human:** Authenticated production session.
 
-#### 4. Signed webhook evidence
+#### 5. Signed webhook evidence (LIVE-02)
 
-**Steps:** Runbook §3.4 — fill `101-WEBHOOK-EVIDENCE.md` with `evt_...` IDs and grant idempotency proof.  
-**Why human:** Live webhook delivery + production DB.
+**Test:** Runbook §3.4 — record `evt_...` IDs, HTTP 200s, single `invoice.paid` grant, idempotent redelivery.  
+**Expected:** `101-WEBHOOK-EVIDENCE.md` sign-off PASS; update REQUIREMENTS.md LIVE-02 to Complete.  
+**Why human:** Live webhook delivery + production DB inspection.
 
 ### Gaps Summary
 
-Automatable deliverables complete. LIVE-02 and production checkout/portal proof remain **operator-owned** per `autonomous: false`. Phase 102 may consume captured evidence for regression gate.
+Automatable phase deliverables are **complete and verified in code**. The phase goal also requires **proving** production behavior — that proof is operator-owned per plan `autonomous: false` and CONTEXT.md. No code gaps warrant `/gsd-plan-phase --gaps`; remaining work is human execution of the runbook.
+
+Phase 102 (Billing Regression and Release Gate) consumes captured evidence but does **not** replace LIVE-02 webhook smoke for this phase.
 
 ---
 
-_Verified: 2026-06-11T18:30:00Z_  
-_Verifier: gsd-executor (automated portion)_
+_Verified: 2026-06-11T20:01:00Z_  
+_Verifier: Claude (gsd-verifier)_

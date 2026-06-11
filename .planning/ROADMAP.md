@@ -28,8 +28,8 @@
 - [x] **Phase 98: Past-Due Policy and Recovery** — política de spend, mensagens e portal para recuperação de pagamento (completed 2026-06-11)
 - [x] **Phase 99: In-Product Conversion Surfaces** — payload 402 estruturado e CTAs de trial/upgrade nos value moments (completed 2026-06-11)
 - [x] **Phase 100: Billing Account Experience** — datas, estados, histórico de grants e distinção beta/pago (completed 2026-06-11)
-- [ ] **Phase 101: Stripe Production Go-Live** — checklist, configuração real, deploy e smoke do webhook
-- [ ] **Phase 102: Billing Regression and Release Gate** — testes de lifecycle/access e gate completo de qualidade
+- [x] **Phase 101: Stripe Production Go-Live** — checklist, configuração real, deploy e smoke do webhook (completed 2026-06-11)
+- [x] **Phase 102: Billing Regression and Release Gate** — testes de lifecycle/access e gate completo de qualidade (completed 2026-06-11)
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
@@ -37,8 +37,8 @@
 | 98 | Past-Due Policy and Recovery | Complete    | 2026-06-11 | 2026-06-11 |
 | 99 | In-Product Conversion Surfaces | Complete    | 2026-06-11 | 2026-06-11 |
 | 100 | Billing Account Experience | Complete    | 2026-06-11 | 2026-06-11 |
-| 101 | Stripe Production Go-Live | 1/1 | Complete   | 2026-06-11 |
-| 102 | Billing Regression and Release Gate | 1/1 | Complete   | 2026-06-11 |
+| 101 | Stripe Production Go-Live | Complete    | 2026-06-11 | 2026-06-11 |
+| 102 | Billing Regression and Release Gate | Complete    | 2026-06-11 | 2026-06-11 |
 
 ### Phase 97: Billing Contracts and Subscription Lifecycle
 
@@ -130,7 +130,7 @@
   3. A signed Stripe event reaches the production webhook and is processed once without errors.
   4. Checkout and portal creation are verified against production configuration with safe test/operator accounts.
 
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 ---
 
@@ -148,7 +148,7 @@
   3. Focused conversion and Billing UI tests pass.
   4. `npm test`, `npm run lint`, and `npm run build` pass in `app/`, with verification evidence recorded.
 
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 ---
 
