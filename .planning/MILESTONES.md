@@ -1,6 +1,27 @@
 # Milestones: ADScale
 
-## v11.10 Fechamento Entrega e Analytics (In Progress)
+## v12.0 Monetização Real (In Progress)
+
+**Phases planned:** 6 phases (97→102)
+**Requirements:** 19 requirements
+
+**Scope:**
+- Subscription status contract and idempotent invoice-paid credit grants
+- Explicit past-due spend policy and Customer Portal recovery
+- Structured 402 conversion payloads and trial/upgrade CTAs
+- Billing account UI for paid, trial, beta, past-due, canceled, and no-access states
+- Production Stripe go-live checklist, deploy, and webhook smoke
+- Full billing regression and release gate
+
+---
+
+## v11.11 Aprendizado → Ação (Shipped: 2026-06-11)
+
+**Phases completed:** 7 phases (90→96)
+
+---
+
+## v11.10 Fechamento Entrega e Analytics (Shipped: 2026-06-11)
 
 **Phases planned:** 5 phases (85→89)  
 **Requirements:** 14 requirements
@@ -34,7 +55,7 @@
 ## v11.8 Loop de Aprendizado Beta (Shipped: 2026-06-07)
 
 **Phases completed:** 5 phases (75→79), 16 plans  
-**Requirements:** 25/26 complete (SESS-03 operator UAT pending)
+**Requirements:** 26/26 complete after SESS-03 closure on 2026-06-11
 
 **Key accomplishments:**
 
@@ -44,12 +65,12 @@
 - Owner funnel analytics, credit surprise signals, readiness overrides, and CSV export
 - Five evidence-driven friction fixes (F-01..F-05) with regression tests and v11.9 backlog
 
-### Known Gaps
+### Closed Follow-Ups
 
-- **SESS-03:** ≥3 real operator sessions not yet logged in `77-SESSION-ARTIFACTS.md`
+- **SESS-03:** ≥3 real operator sessions completed and cited in Phases 89, 93, and 94 on 2026-06-11
 - **Migration:** Apply `0033_beta_analytics.sql` on staging/prod (`cd app && npm run db:migrate`)
 - **Live DB smoke:** Confirm events land in `beta_analytics_events` with real `session_id` (Phase 76 human gate)
-- **Learning docs:** Fixture-backed sections in `78-LEARNING-ANSWERS-DRAFT.md` / `79-LEARNING-ANSWERS.md` await real session data
+- **Learning docs:** Real-session answers completed in Phase 94; fixture UUIDs removed from canonical answers
 
 **Archive:** [v11.8-ROADMAP.md](milestones/v11.8-ROADMAP.md) · [v11.8-REQUIREMENTS.md](milestones/v11.8-REQUIREMENTS.md) · [v11.8-MILESTONE-AUDIT.md](milestones/v11.8-MILESTONE-AUDIT.md) · [v11.8-phases/](milestones/v11.8-phases/)
 

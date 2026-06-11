@@ -8,7 +8,7 @@
 
 Levar billing Stripe existente a produção: trial, renovação mensal de créditos, dunning, conversão beta→pago e UX de upgrade nos bloqueios 402 — mantendo beta codes para cohorts convidados.
 
-**Parallel track:** v11.11 Phases 93–94 (SESS-03) não bloqueiam execução de v12.0.
+**Previous track:** v11.11 foi concluído em 2026-06-11; v12.0 não possui gate externo pendente.
 
 **In scope:** Go-live, lifecycle de assinatura, past_due UX, CTAs in-product, billing UI, regressão.
 
@@ -57,7 +57,25 @@ Levar billing Stripe existente a produção: trial, renovação mensal de crédi
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| _(filled by roadmapper)_ | | |
+| SUBS-01 | 97 | Pending |
+| SUBS-02 | 97 | Pending |
+| SUBS-03 | 97 | Pending |
+| DUEN-01 | 98 | Pending |
+| DUEN-02 | 98 | Pending |
+| DUEN-03 | 98 | Pending |
+| CONV-01 | 99 | Pending |
+| CONV-02 | 99 | Pending |
+| CONV-03 | 99 | Pending |
+| CONV-04 | 99 | Pending |
+| BILL-01 | 100 | Pending |
+| BILL-02 | 100 | Pending |
+| BILL-03 | 100 | Pending |
+| BILL-04 | 100 | Pending |
+| LIVE-01 | 101 | Pending |
+| LIVE-02 | 101 | Pending |
+| QA-07 | 102 | Pending |
+| QA-08 | 102 | Pending |
+| QA-09 | 102 | Pending |
 
 ## Future Requirements
 

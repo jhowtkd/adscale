@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v11.11
-milestone_name: Aprendizado → Ação
-status: Defining requirements
-stopped_at: Requirements scoping for v12.0
+milestone: v12.0
+milestone_name: Monetização Real
+status: Planned
+stopped_at: Ready to execute Phase 97
 last_updated: "2026-06-11T14:10:00.000Z"
 last_activity: 2026-06-11 — Phase 94 complete; v11.11 milestone closed
 progress:
-  total_phases: 20
-  completed_phases: 4
+  total_phases: 6
+  completed_phases: 0
   total_plans: 6
-  completed_plans: 17
+  completed_plans: 0
   percent: 0
 ---
 
@@ -28,10 +28,10 @@ See: `.planning/PROJECT.md` (updated 2026-06-08)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-06-11 — Phase 94 complete (learning closure + READY-10)
+Phase: 97 of 102 — Billing Contracts and Subscription Lifecycle
+Plan: 97-01 ready
+Status: Planned
+Last activity: 2026-06-11 — v12.0 roadmap and execution plans created
 
 Progress: ░░░░░░░░░░░░░░░░░░░░ 0%
 
@@ -47,7 +47,7 @@ Progress: ░░░░░░░░░░░░░░░░░░░░ 0%
 ## Session Continuity
 
 Last session: 2026-06-08T18:00:00.000Z
-Stopped at: Requirements scoping for v12.0
+Stopped at: Ready to execute Phase 97
 
 ## Blockers
 
@@ -58,5 +58,5 @@ Stopped at: Requirements scoping for v12.0
 - Share/approval-package UI fix local (empty state + section header) — deploy pending; SESS-03 used `POST /api/share` when panel returned null for preview-only approved.
 - Preview progress 52% fix shipped (`84884ef2`, Render `dep-d8lc64urnols73dsm8k0`) — post-deploy Playwright: 18%→43%→70% (animated, not stuck at 52%).
 - "End session" shipped (`c5e5be7a`) — sticky header + session restore; post-deploy Playwright: `endSessionVisible: true` on `/feedback`.
-- "Revisar novamente" `mission_completed` fix local — QA POST emits `mission_completed` (fresh + cached); deploy pending.
+- "Revisar novamente" `mission_completed` shipped (`c32c924e`) — redeploy `dep-d8ldijj7uimc73dnjnq0` after stuck build cancelled.
 - `ctaProminence` blocking tuned in Phase 94 (warning-only dimension).

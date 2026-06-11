@@ -186,7 +186,7 @@ Delivered: credit estimate transparency, enriched credit events, delivery/stale 
 
 - ✓ **INST-01–06**: First-party beta analytics ingest with PII-safe allowlist and workspace-scoped events — v11.8
 - ✓ **INST-02–04**: Server and client instrumentation with beta session grouping — v11.8
-- ✓ **SESS-01, SESS-02, SESS-04**: Operator session APIs, runbook-stage notes, and artifact export — v11.8 (SESS-03 UAT pending)
+- ✓ **SESS-01–05**: Operator session APIs, runbook-stage notes, artifact export, and real-session UAT evidence — v11.8/v11.10/v11.11 (closed 2026-06-11)
 - ✓ **DASH-01–05**: Owner funnel analytics, credit/readiness signals, and CSV export on `/feedback` — v11.8
 - ✓ **LEARN-01–03**: Learning answers and v11.9 direction gate (fixture-backed until real sessions) — v11.8
 - ✓ **FIX-01–05**: Ranked friction backlog, five surgical fixes, and v11.9 deferral doc — v11.8
