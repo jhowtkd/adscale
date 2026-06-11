@@ -2,7 +2,7 @@
 
 ## Milestones
 
-- 🔄 **v12.0 Monetização Real** - Phases 97-102 (in progress)
+- ✅ **v12.0 Monetização Real** - Phases 97-102 (shipped 2026-06-11)
 - ✅ **v11.11 Aprendizado → Ação** - Phases 90-96 (shipped 2026-06-11)
 - ✅ **v11.10 Fechamento Entrega e Analytics** - Phases 85-89 (shipped 2026-06-11)
 - ✅ **v11.9 UX de Entrega e Créditos** - Phases 80-84 (shipped 2026-06-07)
@@ -20,135 +20,27 @@
 
 ## Phases
 
-### 🔄 v12.0 Monetização Real (Phases 97-102) — IN PROGRESS
+### ✅ v12.0 Monetização Real (Phases 97-102) — SHIPPED 2026-06-11
 
 **Milestone Goal:** Levar o billing Stripe existente a produção com lifecycle idempotente, dunning explícito, conversão beta→pago e superfícies de billing verificadas de ponta a ponta.
 
 - [x] **Phase 97: Billing Contracts and Subscription Lifecycle** — status explícito, vínculo de subscription e grants idempotentes
-- [x] **Phase 98: Past-Due Policy and Recovery** — política de spend, mensagens e portal para recuperação de pagamento (completed 2026-06-11)
-- [x] **Phase 99: In-Product Conversion Surfaces** — payload 402 estruturado e CTAs de trial/upgrade nos value moments (completed 2026-06-11)
-- [x] **Phase 100: Billing Account Experience** — datas, estados, histórico de grants e distinção beta/pago (completed 2026-06-11)
-- [x] **Phase 101: Stripe Production Go-Live** — checklist, configuração real, deploy e smoke do webhook (completed 2026-06-11)
-- [x] **Phase 102: Billing Regression and Release Gate** — testes de lifecycle/access e gate completo de qualidade (completed 2026-06-11)
+- [x] **Phase 98: Past-Due Policy and Recovery** — política de spend, mensagens e portal para recuperação de pagamento
+- [x] **Phase 99: In-Product Conversion Surfaces** — payload 402 estruturado e CTAs de trial/upgrade nos value moments
+- [x] **Phase 100: Billing Account Experience** — datas, estados, histórico de grants e distinção beta/pago
+- [x] **Phase 101: Stripe Production Go-Live** — checklist, deploy e smoke do webhook (LIVE-02 sign-off)
+- [x] **Phase 102: Billing Regression and Release Gate** — testes de lifecycle/access e gate completo de qualidade
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
-| 97 | Billing Contracts and Subscription Lifecycle | Complete    | 2026-06-11 | 2026-06-11 |
-| 98 | Past-Due Policy and Recovery | Complete    | 2026-06-11 | 2026-06-11 |
-| 99 | In-Product Conversion Surfaces | Complete    | 2026-06-11 | 2026-06-11 |
-| 100 | Billing Account Experience | Complete    | 2026-06-11 | 2026-06-11 |
-| 101 | Stripe Production Go-Live | Complete    | 2026-06-11 | 2026-06-11 |
-| 102 | Billing Regression and Release Gate | Complete    | 2026-06-11 | 2026-06-11 |
+| 97 | Billing Contracts and Subscription Lifecycle | SUBS-01–03 | Complete | 2026-06-11 |
+| 98 | Past-Due Policy and Recovery | DUEN-01–03 | Complete | 2026-06-11 |
+| 99 | In-Product Conversion Surfaces | CONV-01–04 | Complete | 2026-06-11 |
+| 100 | Billing Account Experience | BILL-01–04 | Complete | 2026-06-11 |
+| 101 | Stripe Production Go-Live | LIVE-01–02 | Complete | 2026-06-11 |
+| 102 | Billing Regression and Release Gate | QA-07–09 | Complete | 2026-06-11 |
 
-### Phase 97: Billing Contracts and Subscription Lifecycle
-
-**Goal:** Make subscription state and credit grants authoritative, observable, and idempotent before any conversion UI depends on them.
-
-**Depends on:** Existing Stripe webhook, billing repositories, credit ledger, and checkout route.
-
-**Requirements:** SUBS-01, SUBS-02, SUBS-03
-
-**Success Criteria:**
-  1. `/api/billing/status` exposes normalized subscription status independently from `access.kind`.
-  2. `invoice.paid` grants monthly credits exactly once using the Stripe invoice ID as the durable source ID.
-  3. `checkout.session.completed` only links customer/subscription state and cannot double-grant credits.
-  4. Focused route, event, repository, and access tests pass.
-
-**Plans:** 1/1 plans complete
-
----
-
-### Phase 98: Past-Due Policy and Recovery
-
-**Goal:** Define and enforce one explicit `past_due` spend policy while giving users a direct path to recover payment.
-
-**Depends on:** Phase 97 normalized subscription status.
-
-**Requirements:** DUEN-01, DUEN-02, DUEN-03
-
-**Success Criteria:**
-  1. A documented policy states whether existing credits remain spendable while new paid grants are suspended.
-  2. Billing access and spend gates enforce that policy consistently.
-  3. Billing UI shows a specific `past_due` state and a working Customer Portal action.
-  4. Tests cover `invoice.payment_failed`, access resolution, gates, and portal recovery.
-
-**Plans:** 1/1 plans complete
-
----
-
-### Phase 99: In-Product Conversion Surfaces
-
-**Goal:** Turn credit and entitlement blocks into clear trial or upgrade actions without losing campaign context.
-
-**Depends on:** Phases 97-98 billing and access contracts.
-
-**Requirements:** CONV-01, CONV-02, CONV-03, CONV-04
-
-**Success Criteria:**
-  1. Spend-related 402 responses use a shared structured payload with reason and recommended destination/plan.
-  2. Preview and batch gates render localized trial/upgrade actions from that payload.
-  3. Exhausted beta users can start checkout while preserving workspace and campaign context.
-  4. Existing progression and credit activation CTAs route to checkout or Billing settings.
-
-**Plans:** 1/1 plans complete
-
-**UI hint:** yes
-
----
-
-### Phase 100: Billing Account Experience
-
-**Goal:** Make Billing settings an accurate account surface for paid, trial, past-due, canceled, beta, and no-access states.
-
-**Depends on:** Phases 97-99 contracts and recovery actions.
-
-**Requirements:** BILL-01, BILL-02, BILL-03, BILL-04
-
-**Success Criteria:**
-  1. Trial end or next renewal is visible for active subscriptions.
-  2. Past-due and canceled banners provide the correct recovery action.
-  3. Credit grant history shows source, quantity, and date from the ledger.
-  4. PT-BR and EN copy distinguish beta, paid, and no-access states.
-
-**Plans:** 1/1 plans complete
-
-**UI hint:** yes
-
----
-
-### Phase 101: Stripe Production Go-Live
-
-**Goal:** Configure and prove the production Stripe integration with an operator-repeatable checklist and live webhook smoke.
-
-**Depends on:** Phases 97-100 complete and deployable.
-
-**Requirements:** LIVE-01, LIVE-02
-
-**Success Criteria:**
-  1. Repository documentation covers production keys, price IDs, URLs, webhook registration, rollback, and evidence capture without storing secrets.
-  2. Production deploy passes health and billing route smoke checks.
-  3. A signed Stripe event reaches the production webhook and is processed once without errors.
-  4. Checkout and portal creation are verified against production configuration with safe test/operator accounts.
-
-**Plans:** 1/1 plans complete
-
----
-
-### Phase 102: Billing Regression and Release Gate
-
-**Goal:** Close v12.0 only after lifecycle, access, conversion, and production behavior are covered by regression evidence.
-
-**Depends on:** Phases 97-101.
-
-**Requirements:** QA-07, QA-08, QA-09
-
-**Success Criteria:**
-  1. Tests prove invoice idempotency, payment failure transition, and absence of double grants.
-  2. Access tests cover trialing, active, past_due, canceled/none, beta, and no-access cases.
-  3. Focused conversion and Billing UI tests pass.
-  4. `npm test`, `npm run lint`, and `npm run build` pass in `app/`, with verification evidence recorded.
-
-**Plans:** 1/1 plans complete
+Archive: [v12.0-ROADMAP.md](milestones/v12.0-ROADMAP.md) · [v12.0-REQUIREMENTS.md](milestones/v12.0-REQUIREMENTS.md) · [v12.0-MILESTONE-AUDIT.md](milestones/v12.0-MILESTONE-AUDIT.md)
 
 ---
 
@@ -644,12 +536,12 @@ Archive: [v11.6-ROADMAP.md](milestones/v11.6-ROADMAP.md) · [v11.6-REQUIREMENTS.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 | ----- | --------- | -------------- | ------ | --------- |
-| 97 | v12.0 | 0/1 | Planned | - |
-| 98 | v12.0 | 0/1 | Planned | - |
-| 99 | v12.0 | 0/1 | Planned | - |
-| 100 | v12.0 | 0/1 | Planned | - |
-| 101 | v12.0 | 0/1 | Planned | - |
-| 102 | v12.0 | 0/1 | Planned | - |
+| 97 | v12.0 | 1/1 | Complete | 2026-06-11 |
+| 98 | v12.0 | 1/1 | Complete | 2026-06-11 |
+| 99 | v12.0 | 1/1 | Complete | 2026-06-11 |
+| 100 | v12.0 | 1/1 | Complete | 2026-06-11 |
+| 101 | v12.0 | 1/1 | Complete | 2026-06-11 |
+| 102 | v12.0 | 1/1 | Complete | 2026-06-11 |
 | 90 | v11.11 | 1/1 | Complete | 2026-06-08 |
 | 91 | v11.11 | 1/1 | Complete | 2026-06-08 |
 | 92 | v11.11 | 1/1 | Complete | 2026-06-08 |

@@ -8,19 +8,20 @@ ADScale is a SaaS webapp for creative derivation: marketing teams upload a base 
 
 Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-## Current Milestone: v12.0 Monetização Real
+## Current Milestone
 
-**Goal:** Levar o billing Stripe existente a produção — checkout, trial, renovação de créditos, dunning e conversão beta→pago — sem quebrar o caminho beta para cohorts convidados.
+_v12.0 Monetização Real shipped 2026-06-11. Run `/gsd-new-milestone` for the next cycle._
 
-**Target features:**
-- Go-live Stripe (prod keys, webhook, checklist, smoke de checkout real)
-- Ciclo de assinatura completo: trial 14d, `invoice.paid` → credit grant, `past_due` → bloqueio de spend com UX de portal
-- Conversão in-product: paywalls nos bloqueios 402 (preview, batch, créditos zerados) com CTA para checkout
-- Billing UI: status claro (trial/active/past_due/beta), portal, histórico de grants/faturas
-- Beta codes mantidos em paralelo para testers/parceiros
-- Regressão: webhooks, access gates, fluxos TestSprite billing
+### v12.0 Monetização Real — SHIPPED (2026-06-11)
 
-**Parallel track:** v11.11 fechado em 2026-06-11 — Phase 94 (learning closure + threshold tune) complete.
+Phases 97–102 complete; 19/19 requirements; LIVE-02 evidenced in `101-WEBHOOK-EVIDENCE.md`. Archive: `.planning/milestones/v12.0-*`.
+
+**Delivered:**
+- Go-live Stripe (prod deploy, webhook, operator checkout smoke)
+- Subscription lifecycle: trial 14d, idempotent `invoice.paid` grants, past_due policy + portal recovery
+- In-product conversion (402 payloads, preview/batch gates)
+- Billing UI (status, history, PT-BR/EN)
+- Full billing regression gate (1061 tests)
 
 ### v11.11 Aprendizado → Ação — COMPLETE (2026-06-11)
 

@@ -1,8 +1,8 @@
 # Milestones: ADScale
 
-## v12.0 Monetização Real (In Progress)
+## v12.0 Monetização Real (Shipped: 2026-06-11)
 
-**Phases planned:** 6 phases (97→102)
+**Phases completed:** 6 phases (97→102)
 **Requirements:** 19 requirements
 
 **Scope:**
@@ -10,8 +10,10 @@
 - Explicit past-due spend policy and Customer Portal recovery
 - Structured 402 conversion payloads and trial/upgrade CTAs
 - Billing account UI for paid, trial, beta, past-due, canceled, and no-access states
-- Production Stripe go-live checklist, deploy, and webhook smoke
+- Production Stripe go-live checklist, deploy, and LIVE-02 webhook smoke (operator checkout + idempotent redelivery)
 - Full billing regression and release gate
+
+Archive: [v12.0-ROADMAP.md](milestones/v12.0-ROADMAP.md) · [v12.0-REQUIREMENTS.md](milestones/v12.0-REQUIREMENTS.md) · [v12.0-MILESTONE-AUDIT.md](milestones/v12.0-MILESTONE-AUDIT.md)
 
 ---
 
