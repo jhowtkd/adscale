@@ -6,6 +6,7 @@
     "dev": "node scripts/dev-with-inngest.mjs",
     "dev:next": "next dev --webpack --hostname 0.0.0.0 --port 3000",
     "build": "next build --webpack",
+    "postbuild": "node scripts/prepare-standalone.mjs",
     "analyze": "cross-env ANALYZE=true next build --webpack",
     "analyze:ci": "node scripts/analyze-bundle.mjs",
     "start": "next start",

@@ -64,6 +64,18 @@ const useStandalone = await import("node:fs/promises")
   .then((fs) => fs.access(standaloneServer).then(() => true))
   .catch(() => false);
 
+if (useStandalone) {
+  const { spawnSync } = await import("node:child_process");
+  const prepare = spawnSync(process.execPath, [join(__dirname, "prepare-standalone.mjs")], {
+    stdio: "inherit",
+    cwd: join(__dirname, ".."),
+  });
+  if (prepare.status !== 0) {
+    console.error("[start-with-inngest-sync] prepare-standalone failed");
+    process.exit(prepare.status ?? 1);
+  }
+}
+
 const child = spawn(useStandalone ? process.execPath : nextBin, useStandalone ? [standaloneServer] : ["start"], {
   env: process.env,
   shell: false,
