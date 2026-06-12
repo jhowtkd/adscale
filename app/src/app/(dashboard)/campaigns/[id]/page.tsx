@@ -32,6 +32,8 @@ import WorkspaceActionBar from "@/components/workspace/WorkspaceActionBar";
 import DerivationGrid from "@/components/workspace/DerivationGrid";
 import StrategyRecipePanel from "@/components/workspace/StrategyRecipePanel";
 import ClientApprovalPackagePanel from "@/components/workspace/ClientApprovalPackagePanel";
+import PerformanceImportPanel from "@/components/campaigns/PerformanceImportPanel";
+import HypothesesPanel from "@/components/campaigns/HypothesesPanel";
 import EstilizarModal from "@/components/workspace/EstilizarModal";
 import DerivationReviewSheet from "@/components/workspace/DerivationReviewSheet";
 import RegenerateFeedbackDialog, {
@@ -814,16 +816,50 @@ function CampaignWorkspaceCard({
               readinessBlocking={readinessBlocking}
               disabled={workspaceState === "gerando"}
             />
+            {allDerivations.length > 0 ? (
+              <div id="mission-performance">
+                <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--accent-green-text)]">
+                  (01) Resultados de mídia
+                </p>
+                <PerformanceImportPanel
+                  campaignId={campaignId}
+                  derivations={allDerivations.map((d, index) => ({
+                    id: d.id,
+                    label:
+                      d.format && d.variantIndex != null
+                        ? `${d.format} #${d.variantIndex + 1}`
+                        : `Derivação ${index + 1}`,
+                  }))}
+                />
+              </div>
+            ) : null}
+            {allDerivations.length > 0 ? (
+              <div id="mission-hypotheses">
+                <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--accent-green-text)]">
+                  (01b) Hipóteses e comparação
+                </p>
+                <HypothesesPanel
+                  campaignId={campaignId}
+                  derivations={allDerivations.map((d, index) => ({
+                    id: d.id,
+                    label:
+                      d.format && d.variantIndex != null
+                        ? `${d.format} #${d.variantIndex + 1}`
+                        : `Derivação ${index + 1}`,
+                  }))}
+                />
+              </div>
+            ) : null}
             <div id="mission-share">
               <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--accent-green-text)]">
-                (01) {tApproval("title")}
+                (02) {tApproval("title")}
               </p>
               <ClientApprovalPackagePanel campaignId={campaignId} />
             </div>
             <div id="mission-review">
             <div id="mission-export">
               <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--accent-green-text)]">
-                (02) Derivações
+                (03) Derivações
               </p>
               {isDerivationsError && derivationsErrorKind ? (
                 <div className="mb-3">
