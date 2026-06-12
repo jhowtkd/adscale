@@ -2,32 +2,33 @@
 gsd_state_version: 1.0
 milestone: v12.1
 milestone_name: Memória Criativa e Aprendizado de Performance
-status: in_progress
-last_updated: "2026-06-12T17:45:00.000Z"
-last_activity: 2026-06-12 — Phase 107 completed; Phase 108 release gate is next
+status: Ready for milestone audit (human UAT + migration apply pending)
+last_updated: "2026-06-12T13:06:02.244Z"
+last_activity: 2026-06-12 — Phase 108 verified; `v12.1-MILESTONE-AUDIT.md` created
 progress:
-  total_phases: 6
-  completed_phases: 5
-  total_plans: 13
-  completed_plans: 13
+  total_phases: 70
+  completed_phases: 30
+  total_plans: 68
+  completed_plans: 79
+  percent: 100
 ---
 
 # Project State
 
 **Last updated:** 2026-06-12
 **Current milestone:** v12.1 Memória Criativa e Aprendizado de Performance
-**Status:** In progress
+**Status:** Ready for milestone audit (human UAT + migration apply pending)
 
 ## Summary
 
-v12.1 possui 31 requisitos aprovados e mapeados às fases 103–108. Phases 103–107 concluídas; Phase 108 (release gate) é a próxima etapa.
+v12.1 phases 103–108 complete. QA-10–12 satisfied; QA-13 automated gate green. Browser UAT and migrations 0037–0040 apply remain human gates before `complete-milestone`.
 
 ## Current Position
 
 Phase: 108 — Performance Learning Release Gate
-Plan: —
-Status: Ready for planning
-Last activity: 2026-06-12 — Phase 107 completed and verified
+Plan: 01 (complete)
+Status: Automated gate passed; human UAT pending
+Last activity: 2026-06-12 — Phase 108 verified; `v12.1-MILESTONE-AUDIT.md` created
 
 ## Last completed milestone
 
@@ -37,15 +38,20 @@ Last activity: 2026-06-12 — Phase 107 completed and verified
 
 ## Release gate (last verified)
 
-- `npm test` — 1174 passed (1 skipped)
-- `npm run lint` — not re-run this session
+- `npm test` — **1182 passed** (1 skipped)
+- `npm run lint` — **0 errors** (69 warnings pre-existing)
 - `npm run build` — OK
+
+## Human gates before ship
+
+1. Apply migrations `0037`–`0040` on target Postgres (`cd app && npm run db:migrate`).
+2. Browser UAT: import → compare → learnings → recommendation → editable recipe prefill.
+3. Run `gsd-audit-milestone` / `complete-milestone` after UAT sign-off.
 
 ## Known follow-ups (non-blocking)
 
-1. Apply migrations `0037`–`0040` in target environment.
-2. BillingTab may show stale "Inativo" after checkout redirect while API returns `active`.
-3. Production Render still on Stripe **test** keys until live cutover.
+1. BillingTab may show stale "Inativo" after checkout redirect while API returns `active`.
+2. Production Render still on Stripe **test** keys until live cutover.
 
 ## Milestone Goal
 
@@ -59,7 +65,8 @@ Associar hipóteses e derivações a resultados importados manualmente/CSV, iden
 - Phase 106: Learning algorithm version `1.0.0`; auto-recompute after comparison and import confirm.
 - Phase 107: Recommendations are deterministic from approved learnings; accept/edit only opens Strategy Recipe with prefill.
 - Phase 107: `next_experiment_*` analytics events track view, accept, edit, dismiss.
+- Phase 108: QA-13 migration apply and browser UAT are explicit human gates, not silent pass.
 
 ## Next action
 
-Run `$gsd-plan-phase 108` or execute Phase 108 release gate (QA-10–13).
+Complete human UAT + migration apply, then run `gsd-audit-milestone` or `complete-milestone` for v12.1.

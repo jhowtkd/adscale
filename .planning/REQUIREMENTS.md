@@ -61,10 +61,10 @@ Transformar resultados reais de mídia em aprendizado reutilizável por cliente 
 
 ### Verification (QA)
 
-- [ ] **QA-10**: Testes cobrem entrada manual, CSV, locale/moeda, deduplicação, atualizações de atribuição, auditoria e isolamento por workspace.
-- [ ] **QA-11**: Testes cobrem comparabilidade, denominadores zero, evidência insuficiente, contradições e ausência de vencedor claro.
-- [ ] **QA-12**: Testes cobrem criação, recuperação, atualização e remoção da projeção Postgres-Mem0, incluindo falha não bloqueante do Mem0.
-- [ ] **QA-13**: `npm test`, `npm run lint`, `npm run build`, migração e UAT de importação/comparação passam com dados representativos.
+- [x] **QA-10**: Testes cobrem entrada manual, CSV, locale/moeda, deduplicação, atualizações de atribuição, auditoria e isolamento por workspace.
+- [x] **QA-11**: Testes cobrem comparabilidade, denominadores zero, evidência insuficiente, contradições e ausência de vencedor claro.
+- [x] **QA-12**: Testes cobrem criação, recuperação, atualização e remoção da projeção Postgres-Mem0, incluindo falha não bloqueante do Mem0.
+- [ ] **QA-13**: `npm test`, `npm run lint`, `npm run build`, migração e UAT de importação/comparação passam com dados representativos. *(automated gate green; migration apply + browser UAT pending — see 108-VERIFICATION.md)*
 
 ## Future Requirements
 
@@ -122,10 +122,10 @@ Transformar resultados reais de mídia em aprendizado reutilizável por cliente 
 | NEXT-02 | 107 | Complete |
 | NEXT-03 | 107 | Complete |
 | NEXT-04 | 107 | Complete |
-| QA-10 | 108 | Pending |
-| QA-11 | 108 | Pending |
-| QA-12 | 108 | Pending |
-| QA-13 | 108 | Pending |
+| QA-10 | 108 | Complete |
+| QA-11 | 108 | Complete |
+| QA-12 | 108 | Complete |
+| QA-13 | 108 | Partial (automated ✅; UAT ☐) |
 
 **Coverage:**
 - v12.1 requirements: 31 total

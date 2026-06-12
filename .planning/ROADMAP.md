@@ -30,7 +30,7 @@
 - [x] **Phase 105: Creative Hypotheses and Variant Comparison** — hipóteses, comparabilidade e estados honestos de evidência
 - [x] **Phase 106: Client Performance Memory and Mem0** — aprendizados canônicos, contradições e projeção semântica sincronizada (completed 2026-06-12)
 - [x] **Phase 107: Learning to Next Experiment** — recomendação explicável e prefill editável no cockpit existente (completed 2026-06-12)
-- [ ] **Phase 108: Performance Learning Release Gate** — regressão, migração, build e UAT com dados representativos
+- [x] **Phase 108: Performance Learning Release Gate** — regressão, migração, build e UAT com dados representativos (automated gate 2026-06-12; UAT pending)
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
@@ -38,8 +38,8 @@
 | 104 | Manual and CSV Result Import | IMPT-01–06 | Complete | 2026-06-12 |
 | 105 | Creative Hypotheses and Variant Comparison | HYPO-01–03, COMP-05–08 | Complete | 2026-06-12 |
 | 106 | Client Performance Memory and Mem0 | MEM-01–06 | Complete | 2026-06-12 |
-| 107 | Learning to Next Experiment | NEXT-01–04 | Complete | 2026-06-12 |
-| 108 | Performance Learning Release Gate | QA-10–13 | Not started | - |
+| 107 | Learning to Next Experiment | 1/1 | Complete   | 2026-06-12 |
+| 108 | Performance Learning Release Gate | 1/1 | Complete   | 2026-06-12 |
 
 ## v12.1 Phase Details
 
@@ -654,7 +654,7 @@ Archive: [v11.6-ROADMAP.md](milestones/v11.6-ROADMAP.md) · [v11.6-REQUIREMENTS.
 | 105 | v12.1 | 0/TBD | Not started | - |
 | 106 | v12.1 | 0/TBD | Not started | - |
 | 107 | v12.1 | 1/1 | Complete | 2026-06-12 |
-| 108 | v12.1 | 0/TBD | Not started | - |
+| 108 | v12.1 | 1/1 | Complete (UAT pending) | 2026-06-12 |
 | 97 | v12.0 | 1/1 | Complete | 2026-06-11 |
 | 98 | v12.0 | 1/1 | Complete | 2026-06-11 |
 | 99 | v12.0 | 1/1 | Complete | 2026-06-11 |
