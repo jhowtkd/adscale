@@ -64,7 +64,7 @@ Transformar resultados reais de mídia em aprendizado reutilizável por cliente 
 - [x] **QA-10**: Testes cobrem entrada manual, CSV, locale/moeda, deduplicação, atualizações de atribuição, auditoria e isolamento por workspace.
 - [x] **QA-11**: Testes cobrem comparabilidade, denominadores zero, evidência insuficiente, contradições e ausência de vencedor claro.
 - [x] **QA-12**: Testes cobrem criação, recuperação, atualização e remoção da projeção Postgres-Mem0, incluindo falha não bloqueante do Mem0.
-- [ ] **QA-13**: `npm test`, `npm run lint`, `npm run build`, migração e UAT de importação/comparação passam com dados representativos. *(automated gate green; migration apply + browser UAT pending — see 108-VERIFICATION.md)*
+- [x] **QA-13**: `npm test`, `npm run lint`, `npm run build`, migração e UAT de importação/comparação passam com dados representativos.
 
 ## Future Requirements
 
@@ -125,7 +125,7 @@ Transformar resultados reais de mídia em aprendizado reutilizável por cliente 
 | QA-10 | 108 | Complete |
 | QA-11 | 108 | Complete |
 | QA-12 | 108 | Complete |
-| QA-13 | 108 | Partial (automated ✅; UAT ☐) |
+| QA-13 | 108 | Complete |
 
 **Coverage:**
 - v12.1 requirements: 31 total

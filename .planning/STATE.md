@@ -1,34 +1,10 @@
 ---
 gsd_state_version: 1.0
 milestone: v12.1
-milestone_name: Memória Criativa e Aprendizado de Performance
-status: Ready for milestone audit (human UAT + migration apply pending)
-last_updated: "2026-06-12T13:06:02.244Z"
-last_activity: 2026-06-12 — Phase 108 verified; `v12.1-MILESTONE-AUDIT.md` created
-progress:
-  total_phases: 70
-  completed_phases: 30
-  total_plans: 68
-  completed_plans: 79
-  percent: 100
----
-
-# Project State
-
-**Last updated:** 2026-06-12
+last_activity: 2026-06-12 — Migrations 0037-0040 applied; browser UAT complete; QA-13 signed off; v12.1-MILESTONE-AUDIT.md updated to `passed`
 **Current milestone:** v12.1 Memória Criativa e Aprendizado de Performance
-**Status:** Ready for milestone audit (human UAT + migration apply pending)
-
-## Summary
-
-v12.1 phases 103–108 complete. QA-10–12 satisfied; QA-13 automated gate green. Browser UAT and migrations 0037–0040 apply remain human gates before `complete-milestone`.
-
-## Current Position
-
-Phase: 108 — Performance Learning Release Gate
-Plan: 01 (complete)
-Status: Automated gate passed; human UAT pending
-Last activity: 2026-06-12 — Phase 108 verified; `v12.1-MILESTONE-AUDIT.md` created
+v12.1 phases 103–108 complete. All 31 requirements evidenced (30 automated + 1 human UAT). Migrations applied to local Postgres; staging/prod apply remains a deploy gate. Ready for `gsd-complete-milestone`.
+Last activity: 2026-06-12 — Migrations applied; UAT E2E pass; QA-13 + audit flipped to passed
 
 ## Last completed milestone
 
