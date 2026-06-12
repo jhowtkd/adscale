@@ -2,18 +2,18 @@
 
 **Last updated:** 2026-06-12
 **Current milestone:** v12.1 Memória Criativa e Aprendizado de Performance
-**Status:** `ready_for_planning`
+**Status:** `planned`
 
 ## Summary
 
-v12.1 possui 31 requisitos aprovados e mapeados às fases 103–108. O roadmap está aprovado; nenhuma fase foi iniciada.
+v12.1 possui 31 requisitos aprovados e mapeados às fases 103–108. Phase 103 tem 3 planos verificados e está pronta para execução.
 
 ## Current Position
 
 Phase: 103 — Performance Data Foundation
 Plan: —
-Status: Ready for phase planning
-Last activity: 2026-06-12 — Roadmap approved and milestone initialized
+Status: Planned — ready for execution
+Last activity: 2026-06-12 — Phase 103 context, research, validation and 3 plans completed
 
 ## Last completed milestone
 
@@ -38,4 +38,4 @@ Associar hipóteses e derivações a resultados importados manualmente/CSV, iden
 
 ## Next action
 
-Run `$gsd-discuss-phase 103` or `$gsd-plan-phase 103`.
+Run `$gsd-execute-phase 103`.

@@ -649,7 +649,7 @@ Archive: [v11.6-ROADMAP.md](milestones/v11.6-ROADMAP.md) · [v11.6-REQUIREMENTS.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 | ----- | --------- | -------------- | ------ | --------- |
-| 103 | v12.1 | 0/TBD | Not started | - |
+| 103 | v12.1 | 0/3 | Planned | - |
 | 104 | v12.1 | 0/TBD | Not started | - |
 | 105 | v12.1 | 0/TBD | Not started | - |
 | 106 | v12.1 | 0/TBD | Not started | - |
