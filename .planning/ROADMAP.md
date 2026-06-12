@@ -26,8 +26,8 @@
 **Milestone Goal:** Associar hipóteses e derivações a resultados reais de mídia, consolidar aprendizados auditáveis por cliente no Postgres e recuperá-los via Mem0 para recomendar o próximo experimento com evidência e confiança explícitas.
 
 - [x] **Phase 103: Performance Data Foundation** — contratos canônicos, migrações, métricas derivadas, lineage e isolamento (completed 2026-06-12)
-- [ ] **Phase 104: Manual and CSV Result Import** — entrada manual, mapeamento, preview, normalização, deduplicação e histórico
-- [ ] **Phase 105: Creative Hypotheses and Variant Comparison** — hipóteses, comparabilidade e estados honestos de evidência
+- [x] **Phase 104: Manual and CSV Result Import** — entrada manual, mapeamento, preview, normalização, deduplicação e histórico (completed 2026-06-12)
+- [x] **Phase 105: Creative Hypotheses and Variant Comparison** — hipóteses, comparabilidade e estados honestos de evidência
 - [ ] **Phase 106: Client Performance Memory and Mem0** — aprendizados canônicos, contradições e projeção semântica sincronizada
 - [ ] **Phase 107: Learning to Next Experiment** — recomendação explicável e prefill editável no cockpit existente
 - [ ] **Phase 108: Performance Learning Release Gate** — regressão, migração, build e UAT com dados representativos
@@ -35,8 +35,8 @@
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
 | 103 | Performance Data Foundation | PERF-13–16 | Complete | 2026-06-12 |
-| 104 | Manual and CSV Result Import | IMPT-01–06 | Not started | - |
-| 105 | Creative Hypotheses and Variant Comparison | HYPO-01–03, COMP-05–08 | Not started | - |
+| 104 | Manual and CSV Result Import | IMPT-01–06 | Complete | 2026-06-12 |
+| 105 | Creative Hypotheses and Variant Comparison | HYPO-01–03, COMP-05–08 | Complete | 2026-06-12 |
 | 106 | Client Performance Memory and Mem0 | MEM-01–06 | Not started | - |
 | 107 | Learning to Next Experiment | NEXT-01–04 | Not started | - |
 | 108 | Performance Learning Release Gate | QA-10–13 | Not started | - |

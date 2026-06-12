@@ -23,25 +23,25 @@ Transformar resultados reais de mídia em aprendizado reutilizável por cliente 
 
 ### Import (IMPT)
 
-- [ ] **IMPT-01**: Usuário pode inserir resultados manualmente no contexto de uma campanha e associá-los a uma derivação.
-- [ ] **IMPT-02**: Usuário pode enviar CSV e mapear colunas de origem para os campos canônicos antes de persistir dados.
-- [ ] **IMPT-03**: Usuário vê preview com linhas válidas, inválidas e motivo de cada rejeição antes de confirmar a importação.
-- [ ] **IMPT-04**: Usuário pode informar moeda, locale, separador decimal e formato percentual para normalizar os valores importados.
-- [ ] **IMPT-05**: Repetir ou atualizar uma importação não duplica métricas; o sistema informa quais registros serão criados, atualizados ou ignorados.
-- [ ] **IMPT-06**: Usuário pode consultar histórico de lotes com arquivo, mapeamento, ator, contagens, horário e origem das linhas.
+- [x] **IMPT-01**: Usuário pode inserir resultados manualmente no contexto de uma campanha e associá-los a uma derivação.
+- [x] **IMPT-02**: Usuário pode enviar CSV e mapear colunas de origem para os campos canônicos antes de persistir dados.
+- [x] **IMPT-03**: Usuário vê preview com linhas válidas, inválidas e motivo de cada rejeição antes de confirmar a importação.
+- [x] **IMPT-04**: Usuário pode informar moeda, locale, separador decimal e formato percentual para normalizar os valores importados.
+- [x] **IMPT-05**: Repetir ou atualizar uma importação não duplica métricas; o sistema informa quais registros serão criados, atualizados ou ignorados.
+- [x] **IMPT-06**: Usuário pode consultar histórico de lotes com arquivo, mapeamento, ator, contagens, horário e origem das linhas.
 
 ### Hypotheses (HYPO)
 
-- [ ] **HYPO-01**: Usuário pode registrar uma hipótese criativa com variável principal, métrica primária, direção esperada e justificativa.
-- [ ] **HYPO-02**: Usuário pode associar à hipótese as derivações de controle e variação participantes.
-- [ ] **HYPO-03**: Usuário pode comparar a direção esperada com o resultado observado e registrar se a hipótese foi suportada, contrariada ou permaneceu inconclusiva.
+- [x] **HYPO-01**: Usuário pode registrar uma hipótese criativa com variável principal, métrica primária, direção esperada e justificativa.
+- [x] **HYPO-02**: Usuário pode associar à hipótese as derivações de controle e variação participantes.
+- [x] **HYPO-03**: Usuário pode comparar a direção esperada com o resultado observado e registrar se a hipótese foi suportada, contrariada ou permaneceu inconclusiva.
 
 ### Comparison (COMP)
 
-- [ ] **COMP-05**: Sistema compara variantes somente quando plataforma, período, objetivo e contexto mínimo são compatíveis, explicando qualquer exclusão.
-- [ ] **COMP-06**: Usuário vê métricas brutas, derivadas, tamanho da amostra, período e diferença entre variantes no mesmo relatório.
-- [ ] **COMP-07**: Sistema classifica o resultado como vencedor, sem vencedor claro, evidência insuficiente ou não comparável sem fabricar certeza.
-- [ ] **COMP-08**: Usuário vê se a conclusão é observacional ou baseada em hipótese controlada com uma variável principal.
+- [x] **COMP-05**: Sistema compara variantes somente quando plataforma, período, objetivo e contexto mínimo são compatíveis, explicando qualquer exclusão.
+- [x] **COMP-06**: Usuário vê métricas brutas, derivadas, tamanho da amostra, período e diferença entre variantes no mesmo relatório.
+- [x] **COMP-07**: Sistema classifica o resultado como vencedor, sem vencedor claro, evidência insuficiente ou não comparável sem fabricar certeza.
+- [x] **COMP-08**: Usuário vê se a conclusão é observacional ou baseada em hipótese controlada com uma variável principal.
 
 ### Client Memory and Mem0 (MEM)
 
@@ -99,19 +99,19 @@ Transformar resultados reais de mídia em aprendizado reutilizável por cliente 
 | PERF-14 | 103 | Complete |
 | PERF-15 | 103 | Complete |
 | PERF-16 | 103 | Complete |
-| IMPT-01 | 104 | Pending |
-| IMPT-02 | 104 | Pending |
-| IMPT-03 | 104 | Pending |
-| IMPT-04 | 104 | Pending |
-| IMPT-05 | 104 | Pending |
-| IMPT-06 | 104 | Pending |
-| HYPO-01 | 105 | Pending |
-| HYPO-02 | 105 | Pending |
-| HYPO-03 | 105 | Pending |
-| COMP-05 | 105 | Pending |
-| COMP-06 | 105 | Pending |
-| COMP-07 | 105 | Pending |
-| COMP-08 | 105 | Pending |
+| IMPT-01 | 104 | Complete |
+| IMPT-02 | 104 | Complete |
+| IMPT-03 | 104 | Complete |
+| IMPT-04 | 104 | Complete |
+| IMPT-05 | 104 | Complete |
+| IMPT-06 | 104 | Complete |
+| HYPO-01 | 105 | Complete |
+| HYPO-02 | 105 | Complete |
+| HYPO-03 | 105 | Complete |
+| COMP-05 | 105 | Complete |
+| COMP-06 | 105 | Complete |
+| COMP-07 | 105 | Complete |
+| COMP-08 | 105 | Complete |
 | MEM-01 | 106 | Pending |
 | MEM-02 | 106 | Pending |
 | MEM-03 | 106 | Pending |
