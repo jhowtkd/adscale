@@ -769,6 +769,229 @@ export type CreativePerformanceSnapshot =
 export type NewCreativePerformanceSnapshot =
   typeof creativePerformanceSnapshots.$inferInsert;
 
+export const performanceImportBatches = adscaleSchema.table(
+  "performance_import_batches",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    campaignId: uuid("campaign_id")
+      .notNull()
+      .references(() => campaigns.id, { onDelete: "cascade" }),
+    sourceType: text("source_type").notNull(),
+    fileName: text("file_name"),
+    fileHash: text("file_hash"),
+    columnMapping: jsonb("column_mapping").$type<Record<string, string>>(),
+    parseOptions: jsonb("parse_options").$type<import("../performance/import/types").ParseOptions>(),
+    createdCount: integer("created_count").notNull().default(0),
+    updatedCount: integer("updated_count").notNull().default(0),
+    ignoredCount: integer("ignored_count").notNull().default(0),
+    invalidCount: integer("invalid_count").notNull().default(0),
+    createdByUserId: text("created_by_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("performance_import_batches_workspace_campaign_idx").on(
+      table.workspaceId,
+      table.campaignId
+    ),
+    check(
+      "performance_import_batches_source_type_check",
+      sql`${table.sourceType} in ('manual', 'csv')`
+    ),
+  ]
+);
+
+export const performanceImportRows = adscaleSchema.table(
+  "performance_import_rows",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    batchId: uuid("batch_id")
+      .notNull()
+      .references(() => performanceImportBatches.id, { onDelete: "cascade" }),
+    rowIndex: integer("row_index").notNull(),
+    status: text("status").notNull(),
+    errors: jsonb("errors").$type<
+      Array<{ field: string; message: string; rawValue?: string }>
+    >(),
+    snapshotId: uuid("snapshot_id").references(
+      () => creativePerformanceSnapshots.id,
+      { onDelete: "set null" }
+    ),
+    sourceKey: varchar("source_key", { length: 64 }),
+  },
+  (table) => [
+    index("performance_import_rows_batch_idx").on(table.batchId),
+    check(
+      "performance_import_rows_status_check",
+      sql`${table.status} in ('created', 'updated', 'ignored', 'invalid')`
+    ),
+  ]
+);
+
+export type PerformanceImportBatch =
+  typeof performanceImportBatches.$inferSelect;
+export type NewPerformanceImportBatch =
+  typeof performanceImportBatches.$inferInsert;
+export type PerformanceImportRow = typeof performanceImportRows.$inferSelect;
+export type NewPerformanceImportRow = typeof performanceImportRows.$inferInsert;
+
+export const creativeHypotheses = adscaleSchema.table(
+  "creative_hypotheses",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    campaignId: uuid("campaign_id")
+      .notNull()
+      .references(() => campaigns.id, { onDelete: "cascade" }),
+    title: text("title"),
+    variableKey: text("variable_key").notNull(),
+    primaryMetric: text("primary_metric").notNull(),
+    expectedDirection: text("expected_direction").notNull(),
+    rationale: text("rationale").notNull(),
+    kind: text("kind").notNull().default("controlled_hypothesis"),
+    platform: text("platform"),
+    periodStart: date("period_start", { mode: "string" }),
+    periodEnd: date("period_end", { mode: "string" }),
+    outcome: text("outcome"),
+    status: text("status").notNull().default("active"),
+    lastComparisonAt: timestamp("last_comparison_at", { mode: "date" }),
+    createdByUserId: text("created_by_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("creative_hypotheses_workspace_campaign_idx").on(
+      table.workspaceId,
+      table.campaignId
+    ),
+    check(
+      "creative_hypotheses_expected_direction_check",
+      sql`${table.expectedDirection} in ('increase', 'decrease')`
+    ),
+    check(
+      "creative_hypotheses_kind_check",
+      sql`${table.kind} in ('controlled_hypothesis', 'observational')`
+    ),
+    check(
+      "creative_hypotheses_outcome_check",
+      sql`${table.outcome} is null or ${table.outcome} in ('supported', 'contradicted', 'inconclusive')`
+    ),
+    check(
+      "creative_hypotheses_status_check",
+      sql`${table.status} in ('draft', 'active', 'concluded')`
+    ),
+  ]
+);
+
+export const hypothesisVariants = adscaleSchema.table(
+  "hypothesis_variants",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    hypothesisId: uuid("hypothesis_id")
+      .notNull()
+      .references(() => creativeHypotheses.id, { onDelete: "cascade" }),
+    derivationId: uuid("derivation_id")
+      .notNull()
+      .references(() => derivations.id, { onDelete: "cascade" }),
+    role: text("role").notNull(),
+    label: text("label"),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("hypothesis_variants_hypothesis_derivation_uq").on(
+      table.hypothesisId,
+      table.derivationId
+    ),
+    index("hypothesis_variants_derivation_idx").on(table.derivationId),
+    check(
+      "hypothesis_variants_role_check",
+      sql`${table.role} in ('control', 'variant')`
+    ),
+  ]
+);
+
+export const variantComparisons = adscaleSchema.table(
+  "variant_comparisons",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    campaignId: uuid("campaign_id")
+      .notNull()
+      .references(() => campaigns.id, { onDelete: "cascade" }),
+    hypothesisId: uuid("hypothesis_id").references(() => creativeHypotheses.id, {
+      onDelete: "set null",
+    }),
+    kind: text("kind").notNull(),
+    verdict: text("verdict").notNull(),
+    primaryMetric: text("primary_metric").notNull(),
+    expectedDirection: text("expected_direction"),
+    winnerDerivationId: uuid("winner_derivation_id").references(
+      () => derivations.id,
+      { onDelete: "set null" }
+    ),
+    outcome: text("outcome"),
+    platform: text("platform"),
+    periodStart: date("period_start", { mode: "string" }),
+    periodEnd: date("period_end", { mode: "string" }),
+    exclusionReasons: jsonb("exclusion_reasons").$type<
+      import("../performance/hypothesis/types").ComparisonExclusion[]
+    >(),
+    variantResults: jsonb("variant_results").$type<
+      import("../performance/hypothesis/types").VariantComparisonReport
+    >(),
+    createdByUserId: text("created_by_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("variant_comparisons_workspace_campaign_idx").on(
+      table.workspaceId,
+      table.campaignId
+    ),
+    index("variant_comparisons_hypothesis_idx").on(table.hypothesisId),
+    check(
+      "variant_comparisons_kind_check",
+      sql`${table.kind} in ('controlled_hypothesis', 'observational')`
+    ),
+    check(
+      "variant_comparisons_verdict_check",
+      sql`${table.verdict} in ('winner', 'no_clear_winner', 'insufficient_evidence', 'not_comparable')`
+    ),
+    check(
+      "variant_comparisons_outcome_check",
+      sql`${table.outcome} is null or ${table.outcome} in ('supported', 'contradicted', 'inconclusive')`
+    ),
+  ]
+);
+
+export type CreativeHypothesis = typeof creativeHypotheses.$inferSelect;
+export type NewCreativeHypothesis = typeof creativeHypotheses.$inferInsert;
+export type HypothesisVariant = typeof hypothesisVariants.$inferSelect;
+export type NewHypothesisVariant = typeof hypothesisVariants.$inferInsert;
+export type VariantComparison = typeof variantComparisons.$inferSelect;
+export type NewVariantComparison = typeof variantComparisons.$inferInsert;
+
 export const usageEvents = adscaleSchema.table(
   "usage_events",
   {

@@ -267,6 +267,20 @@
       "when": 1781265507090,
       "tag": "0037_purple_susan_delgado",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1781352000000,
+      "tag": "0038_performance_import_batches",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1781438400000,
+      "tag": "0039_creative_hypotheses",
+      "breakpoints": true
     }
   ]
 }
