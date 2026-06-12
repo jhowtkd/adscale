@@ -10,16 +10,16 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Current Milestone
 
-### v12.1 Memória Criativa e Aprendizado de Performance
+### v12.1 Memória Criativa e Aprendizado de Performance — SHIPPED (2026-06-12)
 
-**Goal:** Transformar resultados reais das campanhas em aprendizado reutilizável e recomendações concretas para a próxima criação.
+Phases 103–108 complete; 31/31 requirements; prod migrate 0036–0040 applied on Render (`journal after=41`). Archive: `.planning/milestones/v12.1-*`.
 
-**Target features:**
-- Captura manual e importação CSV de métricas de mídia associadas a campanhas e derivações
-- Hipóteses criativas registradas antes da publicação e avaliadas após os resultados
-- Comparação de variantes com vencedores, perdedores e contexto da amostra
-- Memória por cliente com padrões de CTA, formato, receita e estilo
-- Recomendação do próximo experimento com evidência e nível de confiança
+**Delivered:**
+- Manual + CSV performance import with locale/currency normalization and dedup
+- Creative hypotheses, variant comparison, and honest evidence states
+- Client performance learnings (Postgres canonical + Mem0 projection)
+- Next-experiment recommendation with editable Strategy Recipe prefill
+- Product-pure UAT (`re-uat-v12.1-product.mjs`) + PATCH `clientProfileId` fix
 
 ### v12.0 Monetização Real — SHIPPED (2026-06-11)
 
