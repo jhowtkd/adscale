@@ -260,6 +260,13 @@
       "when": 1781251200000,
       "tag": "0036_repair_beta_entitlements",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1781265507090,
+      "tag": "0037_purple_susan_delgado",
+      "breakpoints": true
     }
   ]
 }

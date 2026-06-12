@@ -26,7 +26,7 @@ export function parseNonNegativeDecimal(value: string): ParsedDecimal {
 }
 
 function powerOfTen(exponent: number) {
-  return 10n ** BigInt(exponent);
+  return BigInt(10) ** BigInt(exponent);
 }
 
 function formatScaled(value: bigint, scale: number) {
@@ -46,7 +46,7 @@ export function divideDecimalStrings(
   const numerator = parseNonNegativeDecimal(numeratorValue);
   const denominator = parseNonNegativeDecimal(denominatorValue);
 
-  if (denominator.coefficient === 0n) return null;
+  if (denominator.coefficient === BigInt(0)) return null;
 
   const scaledNumerator =
     numerator.coefficient * powerOfTen(denominator.scale + outputScale);
@@ -55,7 +55,8 @@ export function divideDecimalStrings(
 
   const quotient = scaledNumerator / scaledDenominator;
   const remainder = scaledNumerator % scaledDenominator;
-  const rounded = remainder * 2n >= scaledDenominator ? quotient + 1n : quotient;
+  const rounded =
+    remainder * BigInt(2) >= scaledDenominator ? quotient + BigInt(1) : quotient;
 
   return formatScaled(rounded, outputScale);
 }

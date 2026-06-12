@@ -40,6 +40,8 @@ describe("canonical performance snapshot validation", () => {
     [{ endDate: "2026-05-31" }, "endDate"],
     [{ currency: "brl" }, "currency"],
     [{ metrics: { ...validInput.metrics, spend: "-1" } }, "metrics"],
+    [{ metrics: { ...validInput.metrics, impressions: "1000.5" } }, "impressions"],
+    [{ metrics: { ...validInput.metrics, clicks: "25.5" } }, "clicks"],
     [{ metrics: { ...validInput.metrics, clicks: "1001" } }, "clicks"],
     [{ scope: { kind: "segment", dimensions: {} } }, "scope"],
   ])("rejects invalid input %o", (change, expectedPath) => {

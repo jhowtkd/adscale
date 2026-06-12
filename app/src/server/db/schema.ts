@@ -4,13 +4,17 @@ import {
   boolean,
   uuid,
   integer,
+  numeric,
+  date,
   jsonb,
   index,
   uniqueIndex,
+  check,
   varchar,
   foreignKey,
   pgSchema,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export const adscaleSchema = pgSchema("adscale_app");
 
@@ -658,6 +662,112 @@ export const derivations = adscaleSchema.table(
     }).onDelete("set null"),
   ]
 );
+
+export const creativePerformanceSnapshots = adscaleSchema.table(
+  "creative_performance_snapshots",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    clientProfileId: uuid("client_profile_id")
+      .notNull()
+      .references(() => clientProfiles.id, { onDelete: "cascade" }),
+    campaignId: uuid("campaign_id")
+      .notNull()
+      .references(() => campaigns.id, { onDelete: "cascade" }),
+    derivationId: uuid("derivation_id")
+      .notNull()
+      .references(() => derivations.id, { onDelete: "cascade" }),
+    platform: text("platform").notNull(),
+    placement: text("placement").notNull(),
+    placementRaw: text("placement_raw").notNull(),
+    adAccountId: text("ad_account_id"),
+    startDate: date("start_date", { mode: "string" }).notNull(),
+    endDate: date("end_date", { mode: "string" }).notNull(),
+    sourceTimezone: text("source_timezone").notNull(),
+    currency: varchar("currency", { length: 3 }).notNull(),
+    impressions: numeric("impressions", { precision: 30, scale: 0 }).notNull(),
+    clicks: numeric("clicks", { precision: 30, scale: 0 }).notNull(),
+    spend: numeric("spend", { precision: 20, scale: 6 }).notNull(),
+    conversions: numeric("conversions", { precision: 20, scale: 6 }).notNull(),
+    conversionValue: numeric("conversion_value", { precision: 20, scale: 6 }).notNull(),
+    sourceType: text("source_type").notNull(),
+    externalCampaignId: text("external_campaign_id"),
+    externalAdGroupId: text("external_ad_group_id"),
+    externalAdId: text("external_ad_id"),
+    sourceKey: varchar("source_key", { length: 64 }).notNull(),
+    scopeKind: text("scope_kind").notNull(),
+    scopeDimensions: jsonb("scope_dimensions").$type<Record<string, string>>(),
+    sourceMetadata: jsonb("source_metadata").$type<Record<string, unknown>>(),
+    createdByUserId: text("created_by_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("creative_performance_workspace_source_key_uq").on(
+      table.workspaceId,
+      table.sourceKey
+    ),
+    index("creative_performance_workspace_campaign_idx").on(
+      table.workspaceId,
+      table.campaignId
+    ),
+    index("creative_performance_workspace_derivation_idx").on(
+      table.workspaceId,
+      table.derivationId
+    ),
+    index("creative_performance_workspace_client_period_idx").on(
+      table.workspaceId,
+      table.clientProfileId,
+      table.startDate,
+      table.endDate
+    ),
+    index("creative_performance_workspace_placement_idx").on(
+      table.workspaceId,
+      table.platform,
+      table.placement
+    ),
+    check(
+      "creative_performance_period_check",
+      sql`${table.endDate} >= ${table.startDate}`
+    ),
+    check(
+      "creative_performance_impressions_nonnegative_check",
+      sql`${table.impressions} >= 0`
+    ),
+    check(
+      "creative_performance_clicks_nonnegative_check",
+      sql`${table.clicks} >= 0`
+    ),
+    check(
+      "creative_performance_clicks_lte_impressions_check",
+      sql`${table.clicks} <= ${table.impressions}`
+    ),
+    check("creative_performance_spend_nonnegative_check", sql`${table.spend} >= 0`),
+    check(
+      "creative_performance_conversions_nonnegative_check",
+      sql`${table.conversions} >= 0`
+    ),
+    check(
+      "creative_performance_value_nonnegative_check",
+      sql`${table.conversionValue} >= 0`
+    ),
+    check(
+      "creative_performance_scope_kind_check",
+      sql`${table.scopeKind} in ('total', 'segment')`
+    ),
+  ]
+);
+
+export type CreativePerformanceSnapshot =
+  typeof creativePerformanceSnapshots.$inferSelect;
+export type NewCreativePerformanceSnapshot =
+  typeof creativePerformanceSnapshots.$inferInsert;
 
 export const usageEvents = adscaleSchema.table(
   "usage_events",

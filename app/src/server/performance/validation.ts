@@ -9,6 +9,11 @@ const decimalSchema = z
   .trim()
   .regex(/^(?:0|[1-9]\d*)(?:\.\d+)?$/, "Must be a non-negative decimal");
 
+const integerSchema = z
+  .string()
+  .trim()
+  .regex(/^(?:0|[1-9]\d*)$/, "Must be a non-negative integer");
+
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Must be YYYY-MM-DD");
 const optionalIdSchema = z.string().trim().min(1).max(255).nullish();
 const boundedMetadataSchema = z.record(z.unknown()).refine(
@@ -46,8 +51,8 @@ export const canonicalPerformanceSnapshotInputSchema = z
     sourceMetadata: boundedMetadataSchema.optional(),
     metrics: z
       .object({
-        impressions: decimalSchema,
-        clicks: decimalSchema,
+        impressions: integerSchema,
+        clicks: integerSchema,
         spend: decimalSchema,
         conversions: decimalSchema,
         conversionValue: decimalSchema,
@@ -64,7 +69,14 @@ export const canonicalPerformanceSnapshotInputSchema = z
       });
     }
 
-    if (BigInt(value.metrics.clicks.split(".")[0]) > BigInt(value.metrics.impressions.split(".")[0])) {
+    const hasIntegerCounts =
+      /^(?:0|[1-9]\d*)$/.test(value.metrics.clicks) &&
+      /^(?:0|[1-9]\d*)$/.test(value.metrics.impressions);
+
+    if (
+      hasIntegerCounts &&
+      BigInt(value.metrics.clicks) > BigInt(value.metrics.impressions)
+    ) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["metrics", "clicks"],
