@@ -28,8 +28,8 @@
 - [x] **Phase 103: Performance Data Foundation** — contratos canônicos, migrações, métricas derivadas, lineage e isolamento (completed 2026-06-12)
 - [x] **Phase 104: Manual and CSV Result Import** — entrada manual, mapeamento, preview, normalização, deduplicação e histórico (completed 2026-06-12)
 - [x] **Phase 105: Creative Hypotheses and Variant Comparison** — hipóteses, comparabilidade e estados honestos de evidência
-- [ ] **Phase 106: Client Performance Memory and Mem0** — aprendizados canônicos, contradições e projeção semântica sincronizada
-- [ ] **Phase 107: Learning to Next Experiment** — recomendação explicável e prefill editável no cockpit existente
+- [x] **Phase 106: Client Performance Memory and Mem0** — aprendizados canônicos, contradições e projeção semântica sincronizada (completed 2026-06-12)
+- [x] **Phase 107: Learning to Next Experiment** — recomendação explicável e prefill editável no cockpit existente (completed 2026-06-12)
 - [ ] **Phase 108: Performance Learning Release Gate** — regressão, migração, build e UAT com dados representativos
 
 | # | Phase | Requirements | Status | Completed |
@@ -37,8 +37,8 @@
 | 103 | Performance Data Foundation | PERF-13–16 | Complete | 2026-06-12 |
 | 104 | Manual and CSV Result Import | IMPT-01–06 | Complete | 2026-06-12 |
 | 105 | Creative Hypotheses and Variant Comparison | HYPO-01–03, COMP-05–08 | Complete | 2026-06-12 |
-| 106 | Client Performance Memory and Mem0 | MEM-01–06 | Not started | - |
-| 107 | Learning to Next Experiment | NEXT-01–04 | Not started | - |
+| 106 | Client Performance Memory and Mem0 | MEM-01–06 | Complete | 2026-06-12 |
+| 107 | Learning to Next Experiment | NEXT-01–04 | Complete | 2026-06-12 |
 | 108 | Performance Learning Release Gate | QA-10–13 | Not started | - |
 
 ## v12.1 Phase Details
@@ -653,7 +653,7 @@ Archive: [v11.6-ROADMAP.md](milestones/v11.6-ROADMAP.md) · [v11.6-REQUIREMENTS.
 | 104 | v12.1 | 0/TBD | Not started | - |
 | 105 | v12.1 | 0/TBD | Not started | - |
 | 106 | v12.1 | 0/TBD | Not started | - |
-| 107 | v12.1 | 0/TBD | Not started | - |
+| 107 | v12.1 | 1/1 | Complete | 2026-06-12 |
 | 108 | v12.1 | 0/TBD | Not started | - |
 | 97 | v12.0 | 1/1 | Complete | 2026-06-11 |
 | 98 | v12.0 | 1/1 | Complete | 2026-06-11 |

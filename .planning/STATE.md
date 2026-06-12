@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v12.1
 milestone_name: Memória Criativa e Aprendizado de Performance
 status: in_progress
-last_updated: "2026-06-12T16:00:00.000Z"
-last_activity: 2026-06-12 — Phase 105 completed and verified; Phase 106 is next
+last_updated: "2026-06-12T17:45:00.000Z"
+last_activity: 2026-06-12 — Phase 107 completed; Phase 108 release gate is next
 progress:
   total_phases: 6
-  completed_phases: 3
-  total_plans: 9
-  completed_plans: 9
+  completed_phases: 5
+  total_plans: 13
+  completed_plans: 13
 ---
 
 # Project State
@@ -20,14 +20,14 @@ progress:
 
 ## Summary
 
-v12.1 possui 31 requisitos aprovados e mapeados às fases 103–108. Phases 103–105 concluídas e verificadas; Phase 106 é a próxima etapa.
+v12.1 possui 31 requisitos aprovados e mapeados às fases 103–108. Phases 103–107 concluídas; Phase 108 (release gate) é a próxima etapa.
 
 ## Current Position
 
-Phase: 106 — Client Performance Memory and Mem0
+Phase: 108 — Performance Learning Release Gate
 Plan: —
-Status: Not planned — ready for discussion
-Last activity: 2026-06-12 — Phase 105 completed and verified
+Status: Ready for planning
+Last activity: 2026-06-12 — Phase 107 completed and verified
 
 ## Last completed milestone
 
@@ -37,13 +37,13 @@ Last activity: 2026-06-12 — Phase 105 completed and verified
 
 ## Release gate (last verified)
 
-- `npm test` — 1149 passed (1 skipped)
+- `npm test` — 1174 passed (1 skipped)
 - `npm run lint` — not re-run this session
 - `npm run build` — OK
 
 ## Known follow-ups (non-blocking)
 
-1. Apply migrations `0037`, `0038`, and `0039` in target environment.
+1. Apply migrations `0037`–`0040` in target environment.
 2. BillingTab may show stale "Inativo" after checkout redirect while API returns `active`.
 3. Production Render still on Stripe **test** keys until live cutover.
 
@@ -55,7 +55,11 @@ Associar hipóteses e derivações a resultados importados manualmente/CSV, iden
 
 - Phase 105: Verdicts deterministic with 1000-impression floor and 5% relative gap for winner declaration.
 - Phase 105: Campaign objective required as minimum comparability context.
+- Phase 106: Postgres owns canonical learnings; Mem0 stores `performance_learning` projections with `learningId` metadata.
+- Phase 106: Learning algorithm version `1.0.0`; auto-recompute after comparison and import confirm.
+- Phase 107: Recommendations are deterministic from approved learnings; accept/edit only opens Strategy Recipe with prefill.
+- Phase 107: `next_experiment_*` analytics events track view, accept, edit, dismiss.
 
 ## Next action
 
-Run `$gsd-discuss-phase 106 --auto` or execute Phase 106 planning.
+Run `$gsd-plan-phase 108` or execute Phase 108 release gate (QA-10–13).

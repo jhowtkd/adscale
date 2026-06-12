@@ -45,19 +45,19 @@ Transformar resultados reais de mídia em aprendizado reutilizável por cliente 
 
 ### Client Memory and Mem0 (MEM)
 
-- [ ] **MEM-01**: Sistema gera aprendizados canônicos por cliente a partir de evidências de CTA, formato, receita, estilo ou outra variável suportada.
-- [ ] **MEM-02**: Cada aprendizado mantém referências às campanhas e derivações que o suportam e às evidências que o contradizem.
-- [ ] **MEM-03**: Usuário vê amostra, recência, contexto e nível de confiança de cada aprendizado.
-- [ ] **MEM-04**: Aprendizados aprovados são projetados no Mem0 com escopo de workspace/cliente, ID canônico, versão e metadados de contexto.
-- [ ] **MEM-05**: Sistema recupera do Mem0 os aprendizados mais relevantes para o cliente e contexto da campanha e resolve seus dados canônicos antes de exibi-los ou usá-los.
-- [ ] **MEM-06**: Corrigir ou remover evidências recalcula o aprendizado e atualiza ou remove sua projeção no Mem0 sem deixar memória obsoleta ativa.
+- [x] **MEM-01**: Sistema gera aprendizados canônicos por cliente a partir de evidências de CTA, formato, receita, estilo ou outra variável suportada.
+- [x] **MEM-02**: Cada aprendizado mantém referências às campanhas e derivações que o suportam e às evidências que o contradizem.
+- [x] **MEM-03**: Usuário vê amostra, recência, contexto e nível de confiança de cada aprendizado.
+- [x] **MEM-04**: Aprendizados aprovados são projetados no Mem0 com escopo de workspace/cliente, ID canônico, versão e metadados de contexto.
+- [x] **MEM-05**: Sistema recupera do Mem0 os aprendizados mais relevantes para o cliente e contexto da campanha e resolve seus dados canônicos antes de exibi-los ou usá-los.
+- [x] **MEM-06**: Corrigir ou remover evidências recalcula o aprendizado e atualiza ou remove sua projeção no Mem0 sem deixar memória obsoleta ativa.
 
 ### Next Action (NEXT)
 
-- [ ] **NEXT-01**: Usuário recebe uma recomendação de próximo experimento baseada nos aprendizados relevantes e no contexto atual da campanha.
-- [ ] **NEXT-02**: Recomendação mostra justificativa, evidências utilizadas, contradições, amostra e confiança.
-- [ ] **NEXT-03**: Usuário pode aceitar, editar ou ignorar a recomendação sem alteração automática de campanha ou gasto de mídia.
-- [ ] **NEXT-04**: Ao aceitar, usuário pode abrir o fluxo existente com CTA, formato, receita ou estilo recomendado pré-preenchido e ainda editável.
+- [x] **NEXT-01**: Usuário recebe uma recomendação de próximo experimento baseada nos aprendizados relevantes e no contexto atual da campanha.
+- [x] **NEXT-02**: Recomendação mostra justificativa, evidências utilizadas, contradições, amostra e confiança.
+- [x] **NEXT-03**: Usuário pode aceitar, editar ou ignorar a recomendação sem alteração automática de campanha ou gasto de mídia.
+- [x] **NEXT-04**: Ao aceitar, usuário pode abrir o fluxo existente com CTA, formato, receita ou estilo recomendado pré-preenchido e ainda editável.
 
 ### Verification (QA)
 
@@ -112,16 +112,16 @@ Transformar resultados reais de mídia em aprendizado reutilizável por cliente 
 | COMP-06 | 105 | Complete |
 | COMP-07 | 105 | Complete |
 | COMP-08 | 105 | Complete |
-| MEM-01 | 106 | Pending |
-| MEM-02 | 106 | Pending |
-| MEM-03 | 106 | Pending |
-| MEM-04 | 106 | Pending |
-| MEM-05 | 106 | Pending |
-| MEM-06 | 106 | Pending |
-| NEXT-01 | 107 | Pending |
-| NEXT-02 | 107 | Pending |
-| NEXT-03 | 107 | Pending |
-| NEXT-04 | 107 | Pending |
+| MEM-01 | 106 | Complete |
+| MEM-02 | 106 | Complete |
+| MEM-03 | 106 | Complete |
+| MEM-04 | 106 | Complete |
+| MEM-05 | 106 | Complete |
+| MEM-06 | 106 | Complete |
+| NEXT-01 | 107 | Complete |
+| NEXT-02 | 107 | Complete |
+| NEXT-03 | 107 | Complete |
+| NEXT-04 | 107 | Complete |
 | QA-10 | 108 | Pending |
 | QA-11 | 108 | Pending |
 | QA-12 | 108 | Pending |
