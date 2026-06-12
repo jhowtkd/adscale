@@ -16,7 +16,10 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { useStrategyRecipe } from "@/lib/hooks/use-strategy-recipe";
+import {
+  useStrategyRecipe,
+  type StrategyRecipePrefill,
+} from "@/lib/hooks/use-strategy-recipe";
 import { useRecordBetaEvent } from "@/lib/hooks/use-record-beta-event";
 import {
   useArtVariationSuggestions,
@@ -58,6 +61,7 @@ interface StrategyRecipePanelProps {
   campaign?: CampaignRecipeContext | null;
   campaignCreativeLevel?: string | null;
   suggestedCta?: string;
+  initialPrefill?: StrategyRecipePrefill | null;
   isSubmitting?: boolean;
   onClose: () => void;
   onGeneratePreview: (patch: ReturnType<typeof useStrategyRecipe>["campaignPatch"]) => void;
@@ -72,6 +76,7 @@ export default function StrategyRecipePanel({
   campaign,
   campaignCreativeLevel,
   suggestedCta,
+  initialPrefill,
   isSubmitting,
   onClose,
   onGeneratePreview,
@@ -92,6 +97,7 @@ export default function StrategyRecipePanel({
     brandKit,
     campaign,
     resetKey: open ? recipeSessionKey : undefined,
+    initialPrefill: open ? initialPrefill : null,
   });
 
   const isArtMode = recipe.resolvedConfig.generationMode === "art_variation";

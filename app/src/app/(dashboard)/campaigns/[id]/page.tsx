@@ -34,6 +34,10 @@ import StrategyRecipePanel from "@/components/workspace/StrategyRecipePanel";
 import ClientApprovalPackagePanel from "@/components/workspace/ClientApprovalPackagePanel";
 import PerformanceImportPanel from "@/components/campaigns/PerformanceImportPanel";
 import HypothesesPanel from "@/components/campaigns/HypothesesPanel";
+import LearningsPanel from "@/components/campaigns/LearningsPanel";
+import NextExperimentRecommendationCard, {
+  type RecipePrefillPayload,
+} from "@/components/campaigns/NextExperimentRecommendationCard";
 import EstilizarModal from "@/components/workspace/EstilizarModal";
 import DerivationReviewSheet from "@/components/workspace/DerivationReviewSheet";
 import RegenerateFeedbackDialog, {
@@ -100,6 +104,7 @@ export default function CampaignWorkspacePage() {
   const {
     isDerivePanelOpen,
     derivePanelSession,
+    recipePrefill,
     openDerivePanel,
     closeFlow,
   } = useDerivationFlow();
@@ -172,6 +177,14 @@ export default function CampaignWorkspacePage() {
     generatePlanPending,
     updatePlanStatusPending,
   } = useCampaignWorkspace(campaignId, isNew);
+
+  const openRecommendationFlow = (prefill: RecipePrefillPayload) => {
+    openDerivePanel({
+      recipeId: prefill.recipeId,
+      config: prefill.config,
+    });
+    goToDerivation();
+  };
 
   const { data: billingStatus } = useBillingStatus();
 
@@ -456,6 +469,8 @@ export default function CampaignWorkspacePage() {
         onRetryDerivations={() => void refetchDerivations()}
         readinessBlocking={readinessBlocking}
         onReadinessOverride={() => setReadinessOverrideActive(true)}
+        onRecommendationAccept={openRecommendationFlow}
+        onRecommendationEdit={openRecommendationFlow}
       />
 
       <DerivationReviewSheet
@@ -517,6 +532,7 @@ export default function CampaignWorkspacePage() {
         }}
         onDerivePreview={handleDerivePreview}
         derivePanelSession={derivePanelSession}
+        recipePrefill={recipePrefill}
         pending={{
           export: exportPending,
           deliveryPackage: deliveryPackagePending,
@@ -685,6 +701,8 @@ interface CampaignWorkspaceCardProps {
   onRetryDerivations?: () => void;
   readinessBlocking?: { blockingCount: number; topIssue?: string } | null;
   onReadinessOverride?: () => void;
+  onRecommendationAccept?: (prefill: RecipePrefillPayload) => void;
+  onRecommendationEdit?: (prefill: RecipePrefillPayload) => void;
 }
 
 function CampaignWorkspaceCard({
@@ -730,6 +748,8 @@ function CampaignWorkspaceCard({
   onRetryDerivations,
   readinessBlocking,
   onReadinessOverride,
+  onRecommendationAccept,
+  onRecommendationEdit,
 }: CampaignWorkspaceCardProps) {
   const tApproval = useTranslations("clientApprovalPackage");
 
@@ -848,6 +868,21 @@ function CampaignWorkspaceCard({
                         : `Derivação ${index + 1}`,
                   }))}
                 />
+              </div>
+            ) : null}
+            {allDerivations.length > 0 ? (
+              <div id="mission-learnings" className="space-y-4">
+                <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--accent-green-text)]">
+                  (01c) Memória de performance
+                </p>
+                {onRecommendationAccept && onRecommendationEdit ? (
+                  <NextExperimentRecommendationCard
+                    campaignId={campaignId}
+                    onAccept={onRecommendationAccept}
+                    onEdit={onRecommendationEdit}
+                  />
+                ) : null}
+                <LearningsPanel campaignId={campaignId} />
               </div>
             ) : null}
             <div id="mission-share">
@@ -973,6 +1008,7 @@ interface CampaignWorkspaceModalsProps {
     targetFormats?: string[];
   }) => void | Promise<void>;
   derivePanelSession: number;
+  recipePrefill?: import("@/lib/hooks/use-strategy-recipe").StrategyRecipePrefill | null;
 }
 
 function CampaignWorkspaceModals({
@@ -998,6 +1034,7 @@ function CampaignWorkspaceModals({
   campaignRecipeContext,
   onDerivePreview,
   derivePanelSession,
+  recipePrefill,
 }: CampaignWorkspaceModalsProps) {
   return (
     <>
@@ -1040,6 +1077,7 @@ function CampaignWorkspaceModals({
         campaign={campaignRecipeContext}
         campaignCreativeLevel={campaignCreativeLevel}
         suggestedCta={suggestedCta}
+        initialPrefill={recipePrefill}
         isSubmitting={pending.derivation}
         onClose={onCloseDerivationFlow}
         onGeneratePreview={onDerivePreview}

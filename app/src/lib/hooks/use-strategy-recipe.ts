@@ -16,12 +16,19 @@ import {
   type StrategyRecipeId,
 } from "@/server/ai/strategy-recipes";
 
+export interface StrategyRecipePrefill {
+  recipeId?: StrategyRecipeId;
+  config?: Partial<RecipeGenerationConfig>;
+}
+
 export interface UseStrategyRecipeInput {
   readiness?: CreativeReadinessResult | null;
   brandKit?: BrandKitSnapshot | null;
   campaign?: CampaignRecipeContext | null;
   /** Increment when the recipe modal reopens to clear manual selection. */
   resetKey?: number;
+  /** Optional prefill from performance recommendation accept/edit. */
+  initialPrefill?: StrategyRecipePrefill | null;
 }
 
 export function useStrategyRecipe(input: UseStrategyRecipeInput) {
@@ -43,8 +50,8 @@ export function useStrategyRecipe(input: UseStrategyRecipeInput) {
 
   if (input.resetKey !== undefined && input.resetKey !== appliedResetKey) {
     setAppliedResetKey(input.resetKey);
-    setManualRecipeId(null);
-    setOverrides({});
+    setManualRecipeId(input.initialPrefill?.recipeId ?? null);
+    setOverrides(input.initialPrefill?.config ?? {});
   }
 
   const selectedRecipeId = manualRecipeId ?? defaultRecipeId;
