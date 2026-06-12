@@ -25,7 +25,7 @@
 
 **Milestone Goal:** Associar hipóteses e derivações a resultados reais de mídia, consolidar aprendizados auditáveis por cliente no Postgres e recuperá-los via Mem0 para recomendar o próximo experimento com evidência e confiança explícitas.
 
-- [ ] **Phase 103: Performance Data Foundation** — contratos canônicos, migrações, métricas derivadas, lineage e isolamento
+- [x] **Phase 103: Performance Data Foundation** — contratos canônicos, migrações, métricas derivadas, lineage e isolamento (completed 2026-06-12)
 - [ ] **Phase 104: Manual and CSV Result Import** — entrada manual, mapeamento, preview, normalização, deduplicação e histórico
 - [ ] **Phase 105: Creative Hypotheses and Variant Comparison** — hipóteses, comparabilidade e estados honestos de evidência
 - [ ] **Phase 106: Client Performance Memory and Mem0** — aprendizados canônicos, contradições e projeção semântica sincronizada
@@ -34,7 +34,7 @@
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
-| 103 | Performance Data Foundation | PERF-13–16 | Not started | - |
+| 103 | Performance Data Foundation | PERF-13–16 | Complete | 2026-06-12 |
 | 104 | Manual and CSV Result Import | IMPT-01–06 | Not started | - |
 | 105 | Creative Hypotheses and Variant Comparison | HYPO-01–03, COMP-05–08 | Not started | - |
 | 106 | Client Performance Memory and Mem0 | MEM-01–06 | Not started | - |
@@ -255,7 +255,7 @@ Archive: [v11.8-ROADMAP.md](milestones/v11.8-ROADMAP.md) · [v11.8-REQUIREMENTS.
   3. Three new aggregate functions exist in `aggregate.ts`: share-link open aggregator, post-preview stall timing aggregator, and readiness override breakdown-by-dimension aggregator.
   4. No existing tests regress; type-checker confirms no undeclared event keys reach `recordBetaAnalyticsEvent`.
 
-**Plans:** TBD
+**Plans:** 3/3 plans complete
 
 ---
 
@@ -649,7 +649,7 @@ Archive: [v11.6-ROADMAP.md](milestones/v11.6-ROADMAP.md) · [v11.6-REQUIREMENTS.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 | ----- | --------- | -------------- | ------ | --------- |
-| 103 | v12.1 | 0/3 | Planned | - |
+| 103 | v12.1 | 3/3 | Complete | 2026-06-12 |
 | 104 | v12.1 | 0/TBD | Not started | - |
 | 105 | v12.1 | 0/TBD | Not started | - |
 | 106 | v12.1 | 0/TBD | Not started | - |

@@ -1,19 +1,33 @@
+---
+gsd_state_version: 1.0
+milestone: v12.1
+milestone_name: Memória Criativa e Aprendizado de Performance
+status: in_progress
+last_updated: "2026-06-12T12:06:57.374Z"
+last_activity: 2026-06-12 — Phase 103 completed and verified; Phase 104 is next
+progress:
+  total_phases: 6
+  completed_phases: 1
+  total_plans: 3
+  completed_plans: 3
+---
+
 # Project State
 
 **Last updated:** 2026-06-12
 **Current milestone:** v12.1 Memória Criativa e Aprendizado de Performance
-**Status:** `planned`
+**Status:** In progress
 
 ## Summary
 
-v12.1 possui 31 requisitos aprovados e mapeados às fases 103–108. Phase 103 tem 3 planos verificados e está pronta para execução.
+v12.1 possui 31 requisitos aprovados e mapeados às fases 103–108. Phase 103 foi concluída e verificada; Phase 104 é a próxima etapa.
 
 ## Current Position
 
-Phase: 103 — Performance Data Foundation
+Phase: 104 — Manual and CSV Result Import
 Plan: —
-Status: Planned — ready for execution
-Last activity: 2026-06-12 — Phase 103 context, research, validation and 3 plans completed
+Status: Not planned — ready for discussion
+Last activity: 2026-06-12 — Phase 103 completed and verified
 
 ## Last completed milestone
 
@@ -23,8 +37,8 @@ Last activity: 2026-06-12 — Phase 103 context, research, validation and 3 plan
 
 ## Release gate (last verified)
 
-- `npm test` — 1061 passed (1 skipped)
-- `npm run lint` — 0 errors
+- `npm test` — 1106 passed (1 skipped)
+- `npm run lint` — 0 errors (67 existing warnings outside Phase 103)
 - `npm run build` — OK
 
 ## Known follow-ups (non-blocking)
@@ -38,4 +52,4 @@ Associar hipóteses e derivações a resultados importados manualmente/CSV, iden
 
 ## Next action
 
-Run `$gsd-execute-phase 103`.
+Run `$gsd-discuss-phase 104`.

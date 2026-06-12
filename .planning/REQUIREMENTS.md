@@ -16,10 +16,10 @@ Transformar resultados reais de mídia em aprendizado reutilizável por cliente 
 
 ### Performance Data (PERF)
 
-- [ ] **PERF-13**: Usuário pode registrar impressões, cliques, investimento, conversões e valor de conversão para uma derivação em uma plataforma e período definidos.
-- [ ] **PERF-14**: Usuário vê CTR, CPC, CPA e ROAS calculados de forma consistente a partir das métricas canônicas, incluindo estados seguros para denominadores zero.
-- [ ] **PERF-15**: Cada registro preserva moeda, plataforma, origem, janela de dados e identificadores externos necessários para auditoria e comparação.
-- [ ] **PERF-16**: Usuário só pode consultar ou alterar métricas vinculadas ao seu workspace, cliente, campanha e derivação válidos.
+- [x] **PERF-13**: Usuário pode registrar impressões, cliques, investimento, conversões e valor de conversão para uma derivação em uma plataforma e período definidos.
+- [x] **PERF-14**: Usuário vê CTR, CPC, CPA e ROAS calculados de forma consistente a partir das métricas canônicas, incluindo estados seguros para denominadores zero.
+- [x] **PERF-15**: Cada registro preserva moeda, plataforma, origem, janela de dados e identificadores externos necessários para auditoria e comparação.
+- [x] **PERF-16**: Usuário só pode consultar ou alterar métricas vinculadas ao seu workspace, cliente, campanha e derivação válidos.
 
 ### Import (IMPT)
 
@@ -95,10 +95,10 @@ Transformar resultados reais de mídia em aprendizado reutilizável por cliente 
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PERF-13 | 103 | Pending |
-| PERF-14 | 103 | Pending |
-| PERF-15 | 103 | Pending |
-| PERF-16 | 103 | Pending |
+| PERF-13 | 103 | Complete |
+| PERF-14 | 103 | Complete |
+| PERF-15 | 103 | Complete |
+| PERF-16 | 103 | Complete |
 | IMPT-01 | 104 | Pending |
 | IMPT-02 | 104 | Pending |
 | IMPT-03 | 104 | Pending |
