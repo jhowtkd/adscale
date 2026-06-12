@@ -36,21 +36,20 @@ export default function NextExperimentRecommendationCard({
   const { data, isLoading, isError } = useNextExperimentRecommendation(campaignId);
   const { recordEvent } = useRecordBetaEvent(campaignId);
   const viewedRef = useRef(false);
-  const [dismissed, setDismissed] = useState(false);
+  const [dismissedLocally, setDismissedLocally] = useState(false);
 
   const recommendation = data?.recommendation ?? null;
+  const dismissKey = recommendation
+    ? recommendationDismissStorageKey(campaignId, recommendation.id)
+    : null;
+  const dismissedFromStorage =
+    typeof window !== "undefined" &&
+    dismissKey !== null &&
+    sessionStorage.getItem(dismissKey) === "1";
+  const dismissed = dismissedFromStorage || dismissedLocally;
 
   useEffect(() => {
-    if (!recommendation || viewedRef.current) return;
-
-    const dismissKey = recommendationDismissStorageKey(
-      campaignId,
-      recommendation.id
-    );
-    if (sessionStorage.getItem(dismissKey) === "1") {
-      setDismissed(true);
-      return;
-    }
+    if (!recommendation || viewedRef.current || dismissed) return;
 
     viewedRef.current = true;
     recordEvent("next_experiment_viewed", {
@@ -60,7 +59,7 @@ export default function NextExperimentRecommendationCard({
       learningCount: recommendation.evidence.length,
       source: recommendation.learningsSource,
     });
-  }, [campaignId, recommendation, recordEvent]);
+  }, [campaignId, dismissed, recommendation, recordEvent]);
 
   if (isLoading) {
     return (
@@ -85,7 +84,7 @@ export default function NextExperimentRecommendationCard({
       confidence: recommendation.confidence,
       reasonCode: "user_dismissed",
     });
-    setDismissed(true);
+    setDismissedLocally(true);
   };
 
   const handleAccept = () => {

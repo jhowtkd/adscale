@@ -123,4 +123,31 @@ describe("getNextExperimentRecommendation", () => {
     expect(result.recommendation?.justification).toContain("Comprar agora");
     expect(result.recommendation?.learningsSource).toBe("mem0");
   });
+
+  it("surfaces contradicting evidence in the recommendation packet", async () => {
+    vi.mocked(getCampaignById).mockResolvedValue({
+      id: "campaign-1",
+      clientProfileId: "client-1",
+      ctaVariants: [],
+    } as never);
+    vi.mocked(listCampaignLearnings).mockResolvedValue({
+      source: "postgres",
+      clientProfileId: "client-1",
+      learnings: [
+        {
+          ...baseLearning,
+          contradictingEvidence: [{ comparisonId: "c-contra" }],
+        },
+      ],
+    });
+
+    const result = await getNextExperimentRecommendation({
+      workspaceId: "ws-1",
+      campaignId: "campaign-1",
+    });
+
+    expect(result.status).toBe("ready");
+    expect(result.recommendation?.contradictions).toHaveLength(1);
+    expect(result.recommendation?.evidence[0]?.contradictingCount).toBe(1);
+  });
 });
