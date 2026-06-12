@@ -83,4 +83,5 @@ completed: 2026-06-12
 
 - 108-VERIFICATION.md: FOUND
 - v12.1-MILESTONE-AUDIT.md: FOUND
+- Commits: b2e556bf (tests), 635dc993 (docs)
 - Release gate: 1182 tests / lint 0 errors / build OK

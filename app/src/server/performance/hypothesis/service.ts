@@ -13,6 +13,7 @@ import {
 } from "../../repositories/hypothesis";
 import { listPerformanceSnapshotsByDerivation } from "../../repositories/performance";
 import type { CreativePerformanceSnapshot } from "../../db/schema";
+import { dispatchLearningRecomputeForCampaign } from "../learning/dispatch";
 import { compareVariants } from "./compare";
 import type { VariantComparisonReport } from "./types";
 import type {
@@ -243,6 +244,11 @@ export async function runHypothesisComparison(input: {
     status: "concluded",
   });
 
+  void dispatchLearningRecomputeForCampaign({
+    workspaceId: input.workspaceId,
+    campaignId: input.campaignId,
+  });
+
   return { report, comparisonId: saved.id };
 }
 
@@ -302,6 +308,11 @@ export async function runObservationalComparison(input: {
     exclusionReasons: report.exclusions,
     variantResults: report,
     createdByUserId: input.userId,
+  });
+
+  void dispatchLearningRecomputeForCampaign({
+    workspaceId: input.workspaceId,
+    campaignId: input.campaignId,
   });
 
   return { report, comparisonId: saved.id };

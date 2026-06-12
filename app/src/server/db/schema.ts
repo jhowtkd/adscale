@@ -992,6 +992,84 @@ export type NewHypothesisVariant = typeof hypothesisVariants.$inferInsert;
 export type VariantComparison = typeof variantComparisons.$inferSelect;
 export type NewVariantComparison = typeof variantComparisons.$inferInsert;
 
+export const clientPerformanceLearnings = adscaleSchema.table(
+  "client_performance_learnings",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    clientProfileId: uuid("client_profile_id")
+      .notNull()
+      .references(() => clientProfiles.id, { onDelete: "cascade" }),
+    variableKey: text("variable_key").notNull(),
+    variableValue: text("variable_value").notNull(),
+    primaryMetric: text("primary_metric").notNull(),
+    expectedDirection: text("expected_direction"),
+    statement: text("statement").notNull(),
+    confidence: text("confidence").notNull().default("low"),
+    confidenceScore: numeric("confidence_score", { precision: 5, scale: 4 })
+      .notNull()
+      .default("0"),
+    sampleImpressions: integer("sample_impressions").notNull().default(0),
+    sampleCampaignCount: integer("sample_campaign_count").notNull().default(0),
+    contextPlatforms: text("context_platforms").array(),
+    contextObjectives: text("context_objectives").array(),
+    supportingEvidence: jsonb("supporting_evidence")
+      .$type<import("../performance/learning/types").LearningEvidenceRef[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    contradictingEvidence: jsonb("contradicting_evidence")
+      .$type<import("../performance/learning/types").LearningEvidenceRef[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    algorithmVersion: text("algorithm_version").notNull(),
+    status: text("status").notNull().default("approved"),
+    mem0MemoryId: text("mem0_memory_id"),
+    lastEvidenceAt: timestamp("last_evidence_at", { mode: "date" }),
+    approvedAt: timestamp("approved_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("client_performance_learnings_identity_uq").on(
+      table.workspaceId,
+      table.clientProfileId,
+      table.variableKey,
+      table.variableValue,
+      table.primaryMetric
+    ),
+    index("client_performance_learnings_client_idx").on(
+      table.workspaceId,
+      table.clientProfileId
+    ),
+    index("client_performance_learnings_status_idx").on(
+      table.workspaceId,
+      table.clientProfileId,
+      table.status
+    ),
+    check(
+      "client_performance_learnings_confidence_check",
+      sql`${table.confidence} in ('low', 'medium', 'high')`
+    ),
+    check(
+      "client_performance_learnings_direction_check",
+      sql`${table.expectedDirection} is null or ${table.expectedDirection} in ('increase', 'decrease')`
+    ),
+    check(
+      "client_performance_learnings_status_check",
+      sql`${table.status} in ('draft', 'approved', 'superseded', 'removed')`
+    ),
+  ]
+);
+
+export type ClientPerformanceLearning =
+  typeof clientPerformanceLearnings.$inferSelect;
+export type NewClientPerformanceLearning =
+  typeof clientPerformanceLearnings.$inferInsert;
+
 export const usageEvents = adscaleSchema.table(
   "usage_events",
   {

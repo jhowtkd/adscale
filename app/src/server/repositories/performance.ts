@@ -54,6 +54,24 @@ export async function upsertPerformanceSnapshot(
   return row;
 }
 
+export async function getPerformanceSnapshotBySourceKey(
+  sourceKey: string,
+  workspaceId: string
+): Promise<CreativePerformanceSnapshot | null> {
+  const [row] = await db
+    .select()
+    .from(creativePerformanceSnapshots)
+    .where(
+      and(
+        eq(creativePerformanceSnapshots.sourceKey, sourceKey),
+        eq(creativePerformanceSnapshots.workspaceId, workspaceId)
+      )
+    )
+    .limit(1);
+
+  return row ?? null;
+}
+
 export async function getPerformanceSnapshotById(
   id: string,
   workspaceId: string

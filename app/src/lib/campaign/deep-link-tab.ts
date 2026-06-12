@@ -9,6 +9,7 @@ export const CAMPAIGN_DEEP_LINK_IDS = {
   share: "mission-share",
   performance: "mission-performance",
   hypotheses: "mission-hypotheses",
+  learnings: "mission-learnings",
 } as const;
 
 export type CampaignTabDeepLink = keyof typeof CAMPAIGN_DEEP_LINK_IDS;
@@ -74,6 +75,7 @@ export function applyCampaignDeepLink(
     case "share":
     case "performance":
     case "hypotheses":
+    case "learnings":
       actions.goToActions();
       break;
     default:

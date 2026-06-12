@@ -281,6 +281,13 @@
       "when": 1781438400000,
       "tag": "0039_creative_hypotheses",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1781524800000,
+      "tag": "0040_client_performance_learnings",
+      "breakpoints": true
     }
   ]
 }
