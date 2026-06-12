@@ -58,8 +58,10 @@ describe("performance repository", () => {
     const values = vi.fn().mockReturnValue({ onConflictDoUpdate });
     vi.mocked(db.insert).mockReturnValue({ values } as never);
 
-    const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...input } =
-      snapshot;
+    const input = { ...snapshot };
+    delete (input as Partial<typeof snapshot>).id;
+    delete (input as Partial<typeof snapshot>).createdAt;
+    delete (input as Partial<typeof snapshot>).updatedAt;
     const result = await upsertPerformanceSnapshot(input);
 
     expect(result.id).toBe("snapshot-1");
