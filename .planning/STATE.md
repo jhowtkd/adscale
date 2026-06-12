@@ -6,14 +6,14 @@
 
 ## Summary
 
-v12.1 possui 31 requisitos mapeados às fases 103–108. A proposta de roadmap está pronta para aprovação; nenhuma fase foi iniciada.
+v12.1 possui 31 requisitos aprovados e mapeados às fases 103–108. O roadmap está aprovado; nenhuma fase foi iniciada.
 
 ## Current Position
 
 Phase: 103 — Performance Data Foundation
 Plan: —
-Status: Roadmap proposed; awaiting approval
-Last activity: 2026-06-12 — Requirements approved and roadmap mapped
+Status: Ready for phase planning
+Last activity: 2026-06-12 — Roadmap approved and milestone initialized
 
 ## Last completed milestone
 
@@ -38,4 +38,4 @@ Associar hipóteses e derivações a resultados importados manualmente/CSV, iden
 
 ## Next action
 
-Approve the roadmap, then run `$gsd-discuss-phase 103` or `$gsd-plan-phase 103`.
+Run `$gsd-discuss-phase 103` or `$gsd-plan-phase 103`.
