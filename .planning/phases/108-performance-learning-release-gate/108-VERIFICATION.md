@@ -51,9 +51,9 @@ human_verification:
 | **QA-10** | Manual, CSV, locale/currency, dedup, attribution update, audit, workspace isolation | ✓ SATISFIED | Test inventory § QA-10 |
 | **QA-11** | Comparability, zero denominators, contradictions, insufficient evidence, no winner | ✓ SATISFIED | Test inventory § QA-11 |
 | **QA-12** | Mem0 projection CRUD + non-blocking failure | ✓ SATISFIED | Test inventory § QA-12 |
-| **QA-13** | test/lint/build + migration + UAT | ⚠ PARTIAL | Automated gate green; migration + UAT human |
+| **QA-13** | test/lint/build + migration + UAT | ✓ SATISFIED | Automated gate green; local migration apply + browser/API UAT (2026-06-12) |
 
-**Traceability score:** 30/31 requirements evidenced across v12.1 (QA-13 UAT portion pending)
+**Traceability score:** 31/31 requirements evidenced across v12.1
 
 ## QA-10 Test Inventory (Import & Foundation)
 

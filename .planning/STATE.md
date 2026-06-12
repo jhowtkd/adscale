@@ -1,10 +1,33 @@
 ---
 gsd_state_version: 1.0
 milestone: v12.1
-last_activity: 2026-06-12 — Migrations 0037-0040 applied; browser UAT complete; QA-13 signed off; v12.1-MILESTONE-AUDIT.md updated to `passed`
+milestone_name: Memória Criativa e Aprendizado de Performance
+status: ready_to_close
+last_updated: "2026-06-12T14:10:00Z"
+last_activity: 2026-06-12 — Migrations 0037–0040 applied (local); browser/API UAT complete; QA-13 signed off; audit `passed`
+progress:
+  total_phases: 6
+  completed_phases: 6
+  total_plans: 13
+  completed_plans: 13
+---
+
+# Project State
+
+**Last updated:** 2026-06-12
 **Current milestone:** v12.1 Memória Criativa e Aprendizado de Performance
-v12.1 phases 103–108 complete. All 31 requirements evidenced (30 automated + 1 human UAT). Migrations applied to local Postgres; staging/prod apply remains a deploy gate. Ready for `gsd-complete-milestone`.
-Last activity: 2026-06-12 — Migrations applied; UAT E2E pass; QA-13 + audit flipped to passed
+**Status:** Ready to close (`gsd-complete-milestone`)
+
+## Summary
+
+Phases 103–108 complete. All 31 requirements evidenced (automated + human UAT on local Postgres). Staging/prod migration apply remains a deploy gate. Two non-blocking defects logged in audit (drizzle migrate silent failure; PATCH clientProfileId).
+
+## Current Position
+
+Phase: 108 — Performance Learning Release Gate
+Plan: 01 (complete)
+Status: Passed (local migrations + UAT)
+Last activity: 2026-06-12 — QA-13 closed; `v12.1-MILESTONE-AUDIT.md` → `passed`
 
 ## Last completed milestone
 
@@ -20,14 +43,16 @@ Last activity: 2026-06-12 — Migrations applied; UAT E2E pass; QA-13 + audit fl
 
 ## Human gates before ship
 
-1. Apply migrations `0037`–`0040` on target Postgres (`cd app && npm run db:migrate`).
-2. Browser UAT: import → compare → learnings → recommendation → editable recipe prefill.
-3. Run `gsd-audit-milestone` / `complete-milestone` after UAT sign-off.
+1. ✅ Local: migrations 0037–0040 applied; UAT E2E (import → compare → learnings → recommendation).
+2. ☐ Staging/prod: apply migrations after fixing drizzle-kit silent-failure on existing schema.
+3. Run `gsd-complete-milestone` to archive v12.1.
 
 ## Known follow-ups (non-blocking)
 
-1. BillingTab may show stale "Inativo" after checkout redirect while API returns `active`.
-2. Production Render still on Stripe **test** keys until live cutover.
+1. `drizzle-kit migrate` fails silently when `adscale_app` schema already exists — use migrator workaround or preflight.
+2. `PATCH /api/campaigns/[id]` may not persist `clientProfileId` — investigate route DTO/update set.
+3. BillingTab may show stale "Inativo" after checkout redirect while API returns `active`.
+4. Production Render still on Stripe **test** keys until live cutover.
 
 ## Milestone Goal
 
@@ -45,4 +70,4 @@ Associar hipóteses e derivações a resultados importados manualmente/CSV, iden
 
 ## Next action
 
-Complete human UAT + migration apply, then run `gsd-audit-milestone` or `complete-milestone` for v12.1.
+Run `gsd-complete-milestone` for v12.1, then apply migrations on staging/prod before deploy.
