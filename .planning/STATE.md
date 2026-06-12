@@ -1,12 +1,19 @@
 # Project State
 
-**Last updated:** 2026-06-11
-**Current milestone:** _none (v12.0 shipped)_
-**Status:** `idle`
+**Last updated:** 2026-06-12
+**Current milestone:** v12.1 Memória Criativa e Aprendizado de Performance
+**Status:** `defining_requirements`
 
 ## Summary
 
-v12.0 **Monetização Real** shipped 2026-06-11. All 19 requirements complete; LIVE-02 production checkout + webhook idempotency evidenced in `101-WEBHOOK-EVIDENCE.md`.
+v12.1 transforma métricas reais de mídia em memória por cliente e recomendações explicáveis para o próximo experimento criativo. Escopo inicial confirmado; requisitos e roadmap ainda serão definidos.
+
+## Current Position
+
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-06-12 — Milestone v12.1 started
 
 ## Last completed milestone
 
@@ -25,6 +32,10 @@ v12.0 **Monetização Real** shipped 2026-06-11. All 19 requirements complete; L
 1. BillingTab may show stale "Inativo" after checkout redirect while API returns `active` — see audit item 4.
 2. Production Render still on Stripe **test** keys until live cutover.
 
+## Milestone Goal
+
+Associar hipóteses e derivações a resultados importados manualmente/CSV, identificar padrões por cliente e recomendar a próxima ação com evidência, amostra e confiança explícitas.
+
 ## Next action
 
-Run `/gsd-new-milestone` to plan v12.1 or the next product cycle.
+Define and confirm v12.1 requirements, then create the roadmap starting at Phase 103.

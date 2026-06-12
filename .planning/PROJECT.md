@@ -10,7 +10,16 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Current Milestone
 
-_v12.0 Monetização Real shipped 2026-06-11. Run `/gsd-new-milestone` for the next cycle._
+### v12.1 Memória Criativa e Aprendizado de Performance
+
+**Goal:** Transformar resultados reais das campanhas em aprendizado reutilizável e recomendações concretas para a próxima criação.
+
+**Target features:**
+- Captura manual e importação CSV de métricas de mídia associadas a campanhas e derivações
+- Hipóteses criativas registradas antes da publicação e avaliadas após os resultados
+- Comparação de variantes com vencedores, perdedores e contexto da amostra
+- Memória por cliente com padrões de CTA, formato, receita e estilo
+- Recomendação do próximo experimento com evidência e nível de confiança
 
 ### v12.0 Monetização Real — SHIPPED (2026-06-11)
 
@@ -195,7 +204,11 @@ Delivered: credit estimate transparency, enriched credit events, delivery/stale 
 
 ### Active
 
-_(Definindo em REQUIREMENTS.md — milestone v11.10)_
+- [ ] Usuário pode registrar ou importar resultados de mídia por derivação sem depender de integração direta com plataformas
+- [ ] Usuário pode comparar hipótese, execução e resultado das variantes de uma campanha
+- [ ] Usuário pode consultar aprendizados acumulados por cliente sem misturar dados entre workspaces
+- [ ] Usuário recebe uma recomendação explicável para o próximo experimento criativo
+- [ ] Usuário pode navegar do resultado observado para uma próxima ação de criação
 
 ### Validated (v10.0)
 
@@ -221,8 +234,9 @@ _(Definindo em REQUIREMENTS.md — milestone v11.10)_
 
 ### Out of Scope
 
-- Real billing/subscription processing — MVP uses simple usage/credits tracking only
-- Direct Meta/TikTok/Google Ads export/integration — stubbed for future milestone
+- Direct Meta/TikTok/Google Ads API integration — manual/CSV ingestion validates the learning model before OAuth and API maintenance costs
+- Automatic budget optimization and campaign publishing — ADScale recommends creative experiments but does not operate media spend
+- Multi-touch attribution — this milestone uses user-provided campaign and creative metrics, not cross-channel attribution
 - Slack integration — out of MVP
 - API key management UI — out of MVP
 - OAuth login (Google/GitHub) — email/password sufficient for v1
@@ -238,9 +252,9 @@ _(Definindo em REQUIREMENTS.md — milestone v11.10)_
 
 ## Context
 
-Current state: v11.8 Loop de Aprendizado Beta is shipped (phases 75–79). First-party beta analytics, cockpit instrumentation, operator session tooling, owner funnel dashboard, and five friction fixes are in production code. Operator applies migrations `0032` (progression) and `0033` (beta analytics) before live sessions.
+Current state: v12.0 Monetização Real shipped with 19/19 requirements, production checkout/webhook evidence, subscription lifecycle, credit conversion surfaces, and a green 1061-test release gate. Earlier milestones already provide creative contracts, quality/readiness scoring, guided briefing, strategy recipes, preview-before-batch, delivery/share, progression, feedback, and first-party product analytics.
 
-v11.6 learning questions have draft answers in `78-LEARNING-ANSWERS-DRAFT.md` / `79-LEARNING-ANSWERS.md` (fixture-backed). SESS-03 (≥3 real operator sessions) remains the post-ship UAT gate before locking v11.9 scope.
+The remaining learning gap is external performance: ADScale records how users create and deliver ads, but does not yet associate media outcomes such as spend, CTR, CPC, conversions, CPA, and ROAS with the derivations that produced them. v12.1 closes this loop using manual/CSV ingestion before committing to direct ad-platform integrations.
 
 Marketing remains in `jhowtkd/site-adscale.git`; product feedback and owner triage live in ADScale_2 at `/feedback` for platform owners.
 
@@ -248,7 +262,7 @@ Migration `app/drizzle/0027_fine_morlun.sql` (Drizzle journal idx 27) must be ap
 
 Prior milestones delivered the strategy cockpit (v11.6), beta feedback capture (v11.4), presentation site separation (v11.3), beta entitlements (v11.2), generation quality gates (v11.1), coherent derivation flows (v11.0), and the full MVP through v10 UI polish.
 
-Current verification status: build, lint (64 warnings accepted), and focused progression/missions/insights tests pass. Live migration apply and external beta cohort invite remain operator steps documented in v11.7.1 handoff.
+Current verification status at the v12.0 gate: 1061 tests passed (1 skipped), lint has 0 errors, and production build passed. Non-blocking billing follow-ups remain tracked in STATE.md while v12.1 requirements are defined.
 
 Key stack decisions:
 - Next.js App Router, React, TypeScript, Tailwind, shadcn/ui
@@ -258,14 +272,15 @@ Key stack decisions:
 - Cloudflare R2 for assets and generated images
 - Inngest for durable generation jobs
 - OpenAI for plan generation (`gpt-5-mini`) and image derivation (`gpt-image-2-2026-04-21`)
-- Deploy on Vercel
+- Deploy on Render
 
 ## Constraints
 
 - **Tech stack**: Stack chosen in `plan.md` is locked. No migration debates.
 - **Image model**: `OPENAI_IMAGE_MODEL=gpt-image-2-2026-04-21`. No silent fallback. If API rejects, show clear config error.
 - **Security**: Do not hardcode API keys. Do not commit `.env`. Validate input, file type, size and workspace access at boundaries.
-- **Timeline**: v2.0 i18n complete in 4 phases. Ready for v3 planning.
+- **Learning integrity**: Recommendations must expose evidence, sample size, and confidence; sparse or incomparable data cannot be presented as certainty.
+- **Import-first scope**: Validate the performance-learning model with manual entry and CSV before direct media-platform APIs.
 - **Language model behavior**: Plan and derivation prompts include the target language instruction. No silent fallback to English.
 
 ## Key Decisions
@@ -289,6 +304,8 @@ Key stack decisions:
 | Learn before build | Instrument and run operator beta sessions before adding speculative cockpit or progression features | ✓ Good — v11.8 |
 | First-party beta analytics | Operator-scale learning without third-party SDK; PII allowlist at ingest | ✓ Good — v11.8 |
 | Evidence-capped friction fixes | Max 5 surgical UX fixes per milestone with session citations | ✓ Good — v11.8 |
+| Manual/CSV performance ingestion before platform APIs | Validate data model and recommendation value before OAuth, rate-limit, and provider-maintenance complexity | — Pending — v12.1 |
+| Explainable recommendations over opaque ranking | Users need evidence, sample size, and confidence to trust the next creative experiment | — Pending — v12.1 |
 
 ## Evolution
 
@@ -308,7 +325,7 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-08 — milestone v12.0 Monetização Real iniciado (v11.11 SESS-03 em paralelo)*
+*Last updated: 2026-06-12 — milestone v12.1 Memória Criativa e Aprendizado de Performance started*
 
 ## Milestone History
 
@@ -410,10 +427,3 @@ This document evolves at phase transitions and milestone boundaries.
 - Feedback-informed regeneration with pre-confirm primary reason and child brief persistence
 - Six-fixture synthetic catalog with 28 automated pipeline regression tests
 - Phases 57–60 archived
-
-## Next Milestone Goals
-
-- v11.8 Loop de Aprendizado Beta: operator sessions, full instrumentation, owner dashboard, evidence-driven friction fixes.
-
----
-*Last updated: 2026-06-07 after v11.8 milestone initialization*
