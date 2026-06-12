@@ -20,6 +20,10 @@ export const ALLOWED_PROPERTY_KEYS = [
   "stepId",
   "tokenId",
   "blockingDimensions",
+  "recommendationId",
+  "variableKey",
+  "confidence",
+  "learningCount",
 ] as const;
 
 export type AllowedPropertyKey = (typeof ALLOWED_PROPERTY_KEYS)[number];
@@ -41,7 +45,21 @@ export const PHASE_76_BETA_EVENT_KEYS = [
   "approval_package_refreshed",
 ] as const;
 
+export const PHASE_107_BETA_EVENT_KEYS = [
+  "next_experiment_viewed",
+  "next_experiment_accepted",
+  "next_experiment_edited",
+  "next_experiment_dismissed",
+] as const;
+
+export const BETA_EVENT_KEYS = [
+  ...PHASE_76_BETA_EVENT_KEYS,
+  ...PHASE_107_BETA_EVENT_KEYS,
+] as const;
+
 export type Phase76BetaEventKey = (typeof PHASE_76_BETA_EVENT_KEYS)[number];
+export type Phase107BetaEventKey = (typeof PHASE_107_BETA_EVENT_KEYS)[number];
+export type BetaEventKey = (typeof BETA_EVENT_KEYS)[number];
 
 const EVENT_KEY_PATTERN = /^[a-z][a-z0-9_]*$/;
 
