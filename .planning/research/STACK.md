@@ -15,6 +15,7 @@
 | Zod | 3.x installed | Validate mapped CSV rows and manual input | Already used at API boundaries; produces field-level errors before persistence |
 | Papa Parse | 5.5.3 | Browser-side CSV parsing and preview | Handles headers, delimiters, local files, workers and row-level parse errors |
 | Existing Recharts | 3.8.1 | Variant comparisons and learning trends | Already installed; no new visualization layer needed |
+| Existing Mem0 integration | `mem0ai` 2.4.6 | Semantic retrieval of approved performance learnings | Already workspace-scoped and integrated into generation prompts; ideal as a projection over canonical evidence |
 
 ### Supporting Patterns
 
@@ -25,6 +26,7 @@
 | Unique source key + upsert | Make repeated file imports safe | Rows with platform/ad/date identity |
 | PostgreSQL `numeric` | Store currency and ratios without floating-point drift | Spend, revenue, CPA, CPC, ROAS |
 | Deterministic scoring service | Rank evidence before optional AI explanation | Winner/confidence and next-experiment suggestions |
+| Postgres-to-Mem0 projection | Publish bounded, cited learnings after deterministic recomputation | Client memory retrieval and generation context |
 
 ## Installation
 
@@ -34,7 +36,7 @@ npm install papaparse@5.5.3
 npm install -D @types/papaparse
 ```
 
-No additional analytics warehouse, queue, vector database, statistics framework, or chart library is required for v12.1.
+No additional analytics warehouse, queue, vector database, statistics framework, or chart library is required for v12.1. Reuse the existing Mem0 integration instead of introducing another semantic-memory system.
 
 ## Alternatives Considered
 
@@ -52,7 +54,7 @@ No additional analytics warehouse, queue, vector database, statistics framework,
 | Direct Meta/Google/TikTok APIs in v12.1 | OAuth, versioning and attribution complexity before learning value is proven | Manual entry plus canonical CSV mapping |
 | JavaScript `number` as canonical money storage | Binary floating-point drift | PostgreSQL `numeric`, serialized as decimal strings |
 | PostgreSQL server-side `COPY FROM` on user files | Render/Neon app cannot safely expose server filesystem paths; row errors are poor UX | Parse and validate in app, then transactional batch insert |
-| Mem0 as performance source of truth | Retrieval memory is not an auditable metric ledger | Postgres evidence tables; optionally publish summarized learnings to memory later |
+| Mem0 as the only performance source of truth | Semantic retrieval does not provide relational totals, deterministic joins, constraints or transactionally recalculable metrics | Postgres evidence ledger plus Mem0 learning projection |
 
 ## Version Compatibility
 
@@ -70,6 +72,8 @@ No additional analytics warehouse, queue, vector database, statistics framework,
 - https://orm.drizzle.team/docs/guides/upsert — PostgreSQL upsert pattern
 - https://zod.dev/basics — typed validation of untrusted input
 - https://www.postgresql.org/docs/current/datatype-numeric.html — exact numeric storage
+- https://docs.mem0.ai/core-concepts/memory-operations/search — semantic retrieval, filters and ranking
+- https://docs.mem0.ai/platform/features/v2-memory-filters — metadata/time/entity filtering and audit use cases
 - ADScale `app/package.json` and `app/src/server/db/schema.ts` — installed stack and integration anchors
 
 ---

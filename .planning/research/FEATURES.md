@@ -23,7 +23,7 @@
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| Evidence-backed client memory | Turns campaigns into reusable strategy, not isolated reports | HIGH | Pattern cards cite supporting campaigns/derivations and sample size |
+| Evidence-backed client memory | Turns campaigns into reusable strategy, not isolated reports | HIGH | Canonical learning stays in Postgres and is projected to Mem0 for contextual retrieval |
 | Confidence-aware recommendations | Prevents confident advice from sparse data | HIGH | `insufficient`, `directional`, `strong`; always explain why |
 | Next experiment launcher | Converts learning into action inside the existing cockpit | MEDIUM | Prefill campaign/recipe/CTA/format while preserving user control |
 | Prediction vs outcome | Measures whether creative hypotheses and readiness scores are useful | MEDIUM | Compare expected metric/direction with observed result |
@@ -51,6 +51,7 @@ Canonical metric model
 
 Creative hypothesis -> comparison interpretation
 Import audit/idempotency -> trustworthy memory
+Canonical learning -> Mem0 projection -> relevant next-campaign context
 ```
 
 ## MVP Definition
@@ -62,6 +63,7 @@ Import audit/idempotency -> trustworthy memory
 - [ ] Hypothesis capture with one primary variable and metric
 - [ ] Comparable variant table with `no clear winner` support
 - [ ] Client learning cards with evidence links and confidence level
+- [ ] Mem0 retrieval of approved learning summaries scoped by workspace/client and linked back to canonical evidence
 - [ ] Next experiment recommendation that can prefill an existing creation flow
 - [ ] Regression, workspace isolation, auditability and operator UAT
 

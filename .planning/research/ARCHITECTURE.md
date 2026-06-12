@@ -27,6 +27,12 @@ PostgreSQL / Drizzle
   |-- creative_performance_snapshots
   `-- client_performance_learnings
                  |
+                 | deterministic projection
+                 v
+Existing Mem0 brand memory
+  |-- semantic retrieval by workspace/client/context
+  `-- bounded learning summaries with canonical evidence IDs
+                 |
                  v
 Existing campaign + derivation + client profile + recipe flows
 ```
@@ -40,6 +46,7 @@ Existing campaign + derivation + client profile + recipe flows
 | Performance repository | Persist immutable/replaceable snapshots with source lineage | New repository beside campaign/derivation repositories |
 | Comparison service | Determine comparability, derived metrics, winner state and confidence band | Pure server module with fixture tests |
 | Learning service | Aggregate repeated evidence by client/CTA/format/recipe/style | Client profile and existing campaign memory |
+| Mem0 projection | Publish approved learning summaries and retrieve contextually relevant patterns | Existing brand-memory dispatch, ingest and search modules |
 | Recommendation service | Produce evidence packet and next experiment config | Existing strategy recipes and campaign creation flow |
 
 ## Recommended Data Model
@@ -93,6 +100,12 @@ The recommendation engine consumes a typed packet containing comparable observat
 
 Learning rows include an algorithm version and can be regenerated from snapshots. Do not mutate raw evidence when recommendation rules change.
 
+### Postgres Source, Mem0 Projection
+
+Postgres owns metric facts, import lineage, comparison results, confidence and evidence IDs. After a learning is deterministically created or updated, an Inngest event publishes a bounded summary to Mem0 with workspace/client metadata and the canonical learning ID. Search retrieves relevant summaries for generation context, but the UI and recommendation engine resolve the canonical Postgres row before presenting evidence or taking action.
+
+This matches the current ADScale implementation: Mem0 ingestion is non-blocking, workspace-scoped, uses metadata, and already treats retrieved memories as auxiliary prompt context that cannot override hard creative contracts.
+
 ## Key Data Flows
 
 ### Result Import
@@ -115,7 +128,8 @@ client history + current campaign context -> comparable cohort -> evidence packe
 | `campaigns.clientProfileId` | Primary client-memory partition |
 | `derivations` contract/CTA/format/mode | Creative features attached to outcomes |
 | `campaigns.campaignMemory` | Keep brief-level memory separate; link performance summary only |
-| `/api/client-profiles/[id]/memory` | Extend UI to include auditable performance learnings; do not store canonical metrics in Mem0 |
+| `/api/client-profiles/[id]/memory` | Retrieve Mem0 performance summaries and resolve canonical learning evidence for display |
+| `server/memory/brand-memory-*` | Add performance-learning event type, metadata filters and deterministic replacement/deletion policy |
 | Strategy recipes | Target for next-experiment prefill |
 | Campaign workspace | Primary surface for hypothesis, results and next action |
 | First-party analytics | Instrument import completion, learning viewed and recommendation accepted |
@@ -125,7 +139,7 @@ client history + current campaign context -> comparable cohort -> evidence packe
 1. Data contracts, migrations, repositories and workspace isolation.
 2. Manual entry plus CSV mapping/preview and idempotent persistence.
 3. Hypothesis and comparable variant results.
-4. Client learning aggregation with evidence/confidence.
+4. Client learning aggregation with evidence/confidence and Mem0 projection/retrieval.
 5. Next experiment action integrated with existing cockpit.
 6. Regression, migration verification and real operator UAT.
 
@@ -145,6 +159,9 @@ client history + current campaign context -> comparable cohort -> evidence packe
 - https://orm.drizzle.team/docs/guides/upsert — idempotent source updates
 - https://www.postgresql.org/docs/current/datatype-numeric.html — exact metric types
 - https://support.google.com/google-ads/answer/16259414 — contextual limits of asset metrics
+- https://docs.mem0.ai/core-concepts/memory-operations/search — relevance retrieval and filters
+- https://docs.mem0.ai/api-reference/memory/history-memory — memory change history
+- ADScale `app/src/server/memory/brand-memory-*` — current non-blocking Mem0 integration
 
 ---
 *Architecture research for: v12.1 Memória Criativa e Aprendizado de Performance*

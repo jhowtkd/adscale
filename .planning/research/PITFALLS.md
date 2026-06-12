@@ -86,6 +86,16 @@
 
 **Phase:** Recommendation engine.
 
+### 9. Mem0 drifts from canonical evidence
+
+**What goes wrong:** A corrected import leaves an outdated semantic memory that still influences generation.
+
+**Avoid:** Store canonical learning ID/version in Mem0 metadata; update or delete the prior memory when Postgres recomputes it; resolve evidence from Postgres before display.
+
+**Warning signs:** Retrieved memory has no canonical ID, algorithm version or supporting snapshot references.
+
+**Phase:** Client learning and Mem0 projection.
+
 ## Technical Debt Patterns
 
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
@@ -94,7 +104,7 @@
 | Trust imported CTR/CPA/ROAS | Less math | Contradictions and locale errors | Display source comparison only |
 | Append-only without source identity | Simple insert | Duplicate totals | Never |
 | Hardcode Meta column names | Quick demo | Breaks other exports/locales | Only as optional mapping preset |
-| Publish learnings directly to Mem0 | Easy retrieval | No audit/recompute path | Only after Postgres canonical learning exists |
+| Publish raw imports directly to Mem0 | Easy retrieval | No reliable totals, joins, correction or recompute path | Never; publish bounded derived learnings only |
 
 ## UX Pitfalls
 
@@ -113,6 +123,7 @@
 - [ ] Currency, decimal comma, percentages, blank conversions and zero denominators are tested.
 - [ ] `no clear winner`, `not comparable` and `insufficient evidence` are first-class UI states.
 - [ ] Every learning cites supporting and contradicting campaigns/derivations.
+- [ ] Correcting/deleting evidence updates or removes the corresponding Mem0 projection.
 - [ ] Workspace isolation tests cover all new APIs and repositories.
 - [ ] Spreadsheet exports neutralize formula-leading cells.
 
@@ -124,6 +135,7 @@
 | Non-comparable and directional claims | Hypothesis and Comparison | Controlled/observational scenario tests |
 | Sparse data and contradictions | Client Learning | Threshold and contradictory-evidence fixtures |
 | LLM as evidence engine | Recommendation to Action | Deterministic packet snapshot tests |
+| Mem0 projection drift | Client Learning | Recompute/update/delete synchronization tests |
 | Looks done but isn't | Release Gate | Full tests, build, migration check and operator UAT |
 
 ## Sources
@@ -134,6 +146,9 @@
 - https://owasp.org/www-community/attacks/CSV_Injection — spreadsheet formula injection
 - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/21-Testing_for_CSV_Injection — CSV injection testing
 - https://www.postgresql.org/docs/current/sql-copy.html — import error and transaction characteristics
+- https://docs.mem0.ai/api-reference/memory/history-memory — change history
+- https://docs.mem0.ai/api-reference/memory/update-memory — explicit memory updates
+- https://docs.mem0.ai/api-reference/memory/delete-memory — stale memory deletion
 
 ---
 *Pitfalls research for: v12.1 Memória Criativa e Aprendizado de Performance*

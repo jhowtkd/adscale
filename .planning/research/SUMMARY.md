@@ -9,7 +9,7 @@
 
 ADScale already owns the creative context required to make performance data useful: client profile, brief, recipe, CTA, format, creative contract, quality/readiness scores and derivation lineage. The missing capability is a trustworthy evidence ledger connecting those artifacts to media outcomes. v12.1 should add this ledger without committing to provider APIs.
 
-The recommended approach is import-first: manual entry and CSV mapping produce canonical raw metrics, comparisons distinguish observational signals from controlled hypotheses, and client learnings always cite evidence, sample size, contradictions and confidence. Recommendations then launch an editable next experiment through existing campaign/recipe flows.
+The recommended approach is import-first and hybrid: manual entry and CSV mapping produce canonical raw metrics in Postgres; comparisons distinguish observational signals from controlled hypotheses; approved client learnings are projected to the existing Mem0 integration for contextual retrieval. Recommendations resolve Mem0 results back to canonical evidence before launching an editable next experiment through existing campaign/recipe flows.
 
 The primary risk is false certainty. Official ad-platform guidance explicitly treats asset-level ratio metrics as directional and supports no-clear-winner states when evidence is insufficient. ADScale should differentiate itself through transparent evidence, not an opaque AI score.
 
@@ -19,6 +19,7 @@ The primary risk is false certainty. Official ad-platform guidance explicitly tr
 
 - Keep Next.js, Postgres, Drizzle, Zod and Recharts.
 - Add only `papaparse@5.5.3` plus typings for browser parsing and mapping preview.
+- Reuse `mem0ai@2.4.6` as the semantic learning/retrieval layer, not the metric ledger.
 - Store exact currency/ratios as PostgreSQL numeric values, not floating-point canonical values.
 - Use deterministic comparison/confidence rules; AI may later explain bounded evidence.
 
@@ -42,7 +43,7 @@ The primary risk is false certainty. Official ad-platform guidance explicitly tr
 
 ### Architecture
 
-Use four explicit concepts: hypotheses, import batches, performance snapshots and derived client learnings. Raw snapshots remain auditable; learning records are versioned and rebuildable. The campaign workspace is the primary surface, while client memory summarizes patterns across campaigns.
+Use four canonical concepts: hypotheses, import batches, performance snapshots and derived client learnings. Raw snapshots remain auditable; learning records are versioned and rebuildable in Postgres. Mem0 stores a synchronized projection of those learnings for context-sensitive retrieval across campaigns.
 
 ### Critical Pitfalls
 
@@ -70,7 +71,7 @@ Use four explicit concepts: hypotheses, import batches, performance snapshots an
 
 ### Phase 106: Client Performance Memory
 
-**Delivers:** evidence-backed patterns by CTA/format/recipe/style with confidence, contradictions and recency.
+**Delivers:** evidence-backed patterns by CTA/format/recipe/style with confidence, contradictions and recency, plus synchronized Mem0 retrieval.
 
 ### Phase 107: Learning to Next Experiment
 
@@ -113,6 +114,9 @@ Use four explicit concepts: hypotheses, import batches, performance snapshots an
 - https://developers.google.com/google-ads/api/docs/api-policy/rmf
 - https://www.facebook.com/business/help/1738164643098669
 - https://www.papaparse.com/docs
+- https://docs.mem0.ai/core-concepts/memory-operations/search
+- https://docs.mem0.ai/platform/features/v2-memory-filters
+- https://docs.mem0.ai/api-reference/memory/history-memory
 - https://orm.drizzle.team/docs/transactions
 - https://orm.drizzle.team/docs/guides/upsert
 - https://www.postgresql.org/docs/current/datatype-numeric.html
