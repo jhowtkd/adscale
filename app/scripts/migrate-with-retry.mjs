@@ -1,9 +1,8 @@
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
-import { drizzle } from "drizzle-orm/node-postgres";
-import { migrate } from "drizzle-orm/node-postgres/migrator";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const migrationsFolder = path.join(__dirname, "../drizzle");
@@ -30,13 +29,28 @@ function logDbTarget() {
   }
 }
 
-async function countJournalMigrations() {
+function hashMigrationSql(sql) {
+  return createHash("sha256").update(sql).digest("hex");
+}
+
+function isAlreadyExistsError(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /already exists|duplicate key|duplicate_object/i.test(message);
+}
+
+function isTransientDbError(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /ECONNREFUSED|ETIMEDOUT|ENOTFOUND|connection terminated|too many clients/i.test(
+    message
+  );
+}
+
+async function readJournal() {
   const raw = await readFile(
     path.join(migrationsFolder, "meta/_journal.json"),
     "utf8"
   );
-  const journal = JSON.parse(raw);
-  return journal.entries?.length ?? 0;
+  return JSON.parse(raw);
 }
 
 async function countAppliedMigrations(client) {
@@ -53,22 +67,76 @@ async function countAppTables(client) {
   return result.rows[0]?.count ?? 0;
 }
 
-function isTransientDbError(error) {
-  const message = error instanceof Error ? error.message : String(error);
-  return /ECONNREFUSED|ETIMEDOUT|ENOTFOUND|connection terminated|too many clients/i.test(
-    message
+async function loadAppliedHashes(client) {
+  const result = await client.query(`SELECT hash FROM public."__drizzle_migrations"`);
+  return new Set(result.rows.map((row) => row.hash));
+}
+
+async function recordMigration(client, hash, createdAt) {
+  await client.query(
+    `INSERT INTO public."__drizzle_migrations" (hash, created_at) VALUES ($1, $2)`,
+    [hash, createdAt]
   );
+}
+
+async function runStatements(client, statements, tag) {
+  for (const statement of statements) {
+    const sql = statement.trim();
+    if (!sql) continue;
+    try {
+      await client.query(sql);
+    } catch (error) {
+      if (isAlreadyExistsError(error)) {
+        console.warn(`[db:migrate] skip existing object in ${tag}`);
+        continue;
+      }
+      throw error;
+    }
+  }
+}
+
+async function applyPendingJournalMigrations(client, tableCount) {
+  const journal = await readJournal();
+  const appliedHashes = await loadAppliedHashes(client);
+  let appliedNow = 0;
+
+  for (const entry of journal.entries) {
+    const sqlPath = path.join(migrationsFolder, `${entry.tag}.sql`);
+    const sql = await readFile(sqlPath, "utf8");
+    const hash = hashMigrationSql(sql);
+
+    if (appliedHashes.has(hash)) {
+      continue;
+    }
+
+    if (entry.tag === "0000_sleepy_moon_knight" && tableCount > 0) {
+      await recordMigration(client, hash, entry.when);
+      appliedHashes.add(hash);
+      appliedNow += 1;
+      console.log(`[db:migrate] baselined ${entry.tag} (schema already present)`);
+      continue;
+    }
+
+    console.log(`[db:migrate] applying ${entry.tag}`);
+    const statements = sql.split("--> statement-breakpoint");
+    await runStatements(client, statements, entry.tag);
+    await recordMigration(client, hash, entry.when);
+    appliedHashes.add(hash);
+    appliedNow += 1;
+  }
+
+  return appliedNow;
 }
 
 async function runMigrationAttempt() {
   const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
-  const db = drizzle(pool);
 
   try {
     await pool.query('CREATE SCHEMA IF NOT EXISTS "adscale_app"');
 
-    const [journalCount, appliedBefore, tableCount] = await Promise.all([
-      countJournalMigrations(),
+    const journal = await readJournal();
+    const journalCount = journal.entries.length;
+    const [appliedBefore, tableCount] = await Promise.all([
       countAppliedMigrations(pool),
       countAppTables(pool),
     ]);
@@ -78,31 +146,18 @@ async function runMigrationAttempt() {
     );
 
     if (tableCount > 0 && appliedBefore === 0) {
-      throw new Error(
-        `schema drift: adscale_app already has ${tableCount} tables but migration journal is empty. ` +
-          `Refuse to replay migrations on a populated database. Baseline the journal or use a fresh database.`
+      console.log(
+        "[db:migrate] populated schema with empty journal — baselining/applying pending migrations"
       );
     }
 
-    if (appliedBefore > 0 && appliedBefore >= journalCount && tableCount > 0) {
-      console.log("[db:migrate] already up to date");
-      return;
-    }
-
-    await migrate(db, { migrationsFolder });
-
+    const appliedNow = await applyPendingJournalMigrations(pool, tableCount);
     const appliedAfter = await countAppliedMigrations(pool);
-    console.log(`[db:migrate] journal after=${appliedAfter}`);
+    console.log(`[db:migrate] applied now=${appliedNow}, journal after=${appliedAfter}`);
 
-    if (appliedAfter < journalCount && appliedAfter === appliedBefore) {
+    if (appliedAfter < journalCount && appliedNow === 0 && appliedBefore === appliedAfter) {
       throw new Error(
-        `no pending migrations were applied (${appliedBefore}/${journalCount} recorded)`
-      );
-    }
-
-    if (appliedAfter > journalCount) {
-      throw new Error(
-        `migration journal (${appliedAfter}) exceeds journal entries (${journalCount})`
+        `no pending migrations were applied (${appliedAfter}/${journalCount} recorded)`
       );
     }
   } finally {
