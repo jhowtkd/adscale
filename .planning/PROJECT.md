@@ -204,11 +204,13 @@ Delivered: credit estimate transparency, enriched credit events, delivery/stale 
 
 ### Active
 
-- [ ] Usuário pode registrar ou importar resultados de mídia por derivação sem depender de integração direta com plataformas
-- [ ] Usuário pode comparar hipótese, execução e resultado das variantes de uma campanha
-- [ ] Usuário pode consultar aprendizados acumulados por cliente sem misturar dados entre workspaces
-- [ ] Usuário recebe uma recomendação explicável para o próximo experimento criativo
-- [ ] Usuário pode navegar do resultado observado para uma próxima ação de criação
+- [ ] **PERF-13–16**: Métricas canônicas, derivadas, auditáveis e isoladas por workspace
+- [ ] **IMPT-01–06**: Entrada manual e CSV com preview, normalização, deduplicação e histórico
+- [ ] **HYPO-01–03**: Hipóteses criativas com variável, métrica e resultado observado
+- [ ] **COMP-05–08**: Comparação contextual com estados honestos de evidência
+- [ ] **MEM-01–06**: Aprendizado canônico por cliente projetado e recuperado via Mem0
+- [ ] **NEXT-01–04**: Recomendação explicável e editável para o próximo experimento
+- [ ] **QA-10–13**: Regressão, isolamento, sincronização Mem0, migração, build e UAT
 
 ### Validated (v10.0)
 
