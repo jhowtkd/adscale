@@ -95,43 +95,43 @@ Transformar resultados reais de mídia em aprendizado reutilizável por cliente 
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PERF-13 | TBD | Pending |
-| PERF-14 | TBD | Pending |
-| PERF-15 | TBD | Pending |
-| PERF-16 | TBD | Pending |
-| IMPT-01 | TBD | Pending |
-| IMPT-02 | TBD | Pending |
-| IMPT-03 | TBD | Pending |
-| IMPT-04 | TBD | Pending |
-| IMPT-05 | TBD | Pending |
-| IMPT-06 | TBD | Pending |
-| HYPO-01 | TBD | Pending |
-| HYPO-02 | TBD | Pending |
-| HYPO-03 | TBD | Pending |
-| COMP-05 | TBD | Pending |
-| COMP-06 | TBD | Pending |
-| COMP-07 | TBD | Pending |
-| COMP-08 | TBD | Pending |
-| MEM-01 | TBD | Pending |
-| MEM-02 | TBD | Pending |
-| MEM-03 | TBD | Pending |
-| MEM-04 | TBD | Pending |
-| MEM-05 | TBD | Pending |
-| MEM-06 | TBD | Pending |
-| NEXT-01 | TBD | Pending |
-| NEXT-02 | TBD | Pending |
-| NEXT-03 | TBD | Pending |
-| NEXT-04 | TBD | Pending |
-| QA-10 | TBD | Pending |
-| QA-11 | TBD | Pending |
-| QA-12 | TBD | Pending |
-| QA-13 | TBD | Pending |
+| PERF-13 | 103 | Pending |
+| PERF-14 | 103 | Pending |
+| PERF-15 | 103 | Pending |
+| PERF-16 | 103 | Pending |
+| IMPT-01 | 104 | Pending |
+| IMPT-02 | 104 | Pending |
+| IMPT-03 | 104 | Pending |
+| IMPT-04 | 104 | Pending |
+| IMPT-05 | 104 | Pending |
+| IMPT-06 | 104 | Pending |
+| HYPO-01 | 105 | Pending |
+| HYPO-02 | 105 | Pending |
+| HYPO-03 | 105 | Pending |
+| COMP-05 | 105 | Pending |
+| COMP-06 | 105 | Pending |
+| COMP-07 | 105 | Pending |
+| COMP-08 | 105 | Pending |
+| MEM-01 | 106 | Pending |
+| MEM-02 | 106 | Pending |
+| MEM-03 | 106 | Pending |
+| MEM-04 | 106 | Pending |
+| MEM-05 | 106 | Pending |
+| MEM-06 | 106 | Pending |
+| NEXT-01 | 107 | Pending |
+| NEXT-02 | 107 | Pending |
+| NEXT-03 | 107 | Pending |
+| NEXT-04 | 107 | Pending |
+| QA-10 | 108 | Pending |
+| QA-11 | 108 | Pending |
+| QA-12 | 108 | Pending |
+| QA-13 | 108 | Pending |
 
 **Coverage:**
 - v12.1 requirements: 31 total
-- Mapped to phases: 0
-- Unmapped: 31
+- Mapped to phases: 31
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-06-12*
-*Last updated: 2026-06-12 after scope approval*
+*Last updated: 2026-06-12 after roadmap mapping*

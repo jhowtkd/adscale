@@ -2,18 +2,18 @@
 
 **Last updated:** 2026-06-12
 **Current milestone:** v12.1 Memória Criativa e Aprendizado de Performance
-**Status:** `defining_requirements`
+**Status:** `ready_for_planning`
 
 ## Summary
 
-v12.1 transforma métricas reais de mídia em memória por cliente e recomendações explicáveis para o próximo experimento criativo. Escopo inicial confirmado; requisitos e roadmap ainda serão definidos.
+v12.1 possui 31 requisitos mapeados às fases 103–108. A proposta de roadmap está pronta para aprovação; nenhuma fase foi iniciada.
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 103 — Performance Data Foundation
 Plan: —
-Status: Defining requirements
-Last activity: 2026-06-12 — Milestone v12.1 started
+Status: Roadmap proposed; awaiting approval
+Last activity: 2026-06-12 — Requirements approved and roadmap mapped
 
 ## Last completed milestone
 
@@ -38,4 +38,4 @@ Associar hipóteses e derivações a resultados importados manualmente/CSV, iden
 
 ## Next action
 
-Define and confirm v12.1 requirements, then create the roadmap starting at Phase 103.
+Approve the roadmap, then run `$gsd-discuss-phase 103` or `$gsd-plan-phase 103`.

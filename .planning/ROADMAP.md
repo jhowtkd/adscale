@@ -2,6 +2,7 @@
 
 ## Milestones
 
+- 🚧 **v12.1 Memória Criativa e Aprendizado de Performance** - Phases 103-108 (planned 2026-06-12)
 - ✅ **v12.0 Monetização Real** - Phases 97-102 (shipped 2026-06-11)
 - ✅ **v11.11 Aprendizado → Ação** - Phases 90-96 (shipped 2026-06-11)
 - ✅ **v11.10 Fechamento Entrega e Analytics** - Phases 85-89 (shipped 2026-06-11)
@@ -19,6 +20,118 @@
 - ✅ **v11.0 Fluxos de Derivação Coerentes** - Phases 40-43 (shipped 2026-06-01)
 
 ## Phases
+
+### 🚧 v12.1 Memória Criativa e Aprendizado de Performance (Phases 103-108) — PLANNED 2026-06-12
+
+**Milestone Goal:** Associar hipóteses e derivações a resultados reais de mídia, consolidar aprendizados auditáveis por cliente no Postgres e recuperá-los via Mem0 para recomendar o próximo experimento com evidência e confiança explícitas.
+
+- [ ] **Phase 103: Performance Data Foundation** — contratos canônicos, migrações, métricas derivadas, lineage e isolamento
+- [ ] **Phase 104: Manual and CSV Result Import** — entrada manual, mapeamento, preview, normalização, deduplicação e histórico
+- [ ] **Phase 105: Creative Hypotheses and Variant Comparison** — hipóteses, comparabilidade e estados honestos de evidência
+- [ ] **Phase 106: Client Performance Memory and Mem0** — aprendizados canônicos, contradições e projeção semântica sincronizada
+- [ ] **Phase 107: Learning to Next Experiment** — recomendação explicável e prefill editável no cockpit existente
+- [ ] **Phase 108: Performance Learning Release Gate** — regressão, migração, build e UAT com dados representativos
+
+| # | Phase | Requirements | Status | Completed |
+|---|-------|--------------|--------|-----------|
+| 103 | Performance Data Foundation | PERF-13–16 | Not started | - |
+| 104 | Manual and CSV Result Import | IMPT-01–06 | Not started | - |
+| 105 | Creative Hypotheses and Variant Comparison | HYPO-01–03, COMP-05–08 | Not started | - |
+| 106 | Client Performance Memory and Mem0 | MEM-01–06 | Not started | - |
+| 107 | Learning to Next Experiment | NEXT-01–04 | Not started | - |
+| 108 | Performance Learning Release Gate | QA-10–13 | Not started | - |
+
+## v12.1 Phase Details
+
+### Phase 103: Performance Data Foundation
+
+**Goal:** Criar a fonte canônica e auditável de resultados de mídia antes de qualquer importação, comparação ou memória.
+
+**Requirements:** PERF-13, PERF-14, PERF-15, PERF-16
+
+**Success Criteria:**
+1. Registros persistem métricas brutas, moeda, plataforma, período, origem e vínculos válidos com cliente, campanha e derivação.
+2. CTR, CPC, CPA e ROAS são derivados de forma determinística e segura para valores ausentes ou denominadores zero.
+3. Identidade de origem e constraints suportam atualização de janela de atribuição sem duplicação silenciosa.
+4. Repositórios e APIs rejeitam qualquer associação fora do workspace autenticado.
+5. Migração e fixtures cobrem moedas, plataformas, períodos e derivações representativas.
+
+### Phase 104: Manual and CSV Result Import
+
+**Goal:** Permitir que o usuário registre resultados confiáveis sem depender de APIs das plataformas de mídia.
+
+**Depends on:** Phase 103
+
+**Requirements:** IMPT-01, IMPT-02, IMPT-03, IMPT-04, IMPT-05, IMPT-06
+
+**Success Criteria:**
+1. Entrada manual e CSV produzem o mesmo contrato canônico de performance.
+2. Usuário mapeia colunas, locale, moeda, percentuais e separador decimal antes de persistir.
+3. Preview diferencia linhas válidas e inválidas com erros reparáveis por campo.
+4. Confirmação informa registros criados, atualizados e ignorados; repetir o lote não duplica totais.
+5. Histórico mostra arquivo, hash, mapeamento, ator, contagens, horário e lineage de cada linha.
+
+### Phase 105: Creative Hypotheses and Variant Comparison
+
+**Goal:** Transformar números importados em experimentos interpretáveis sem fabricar causalidade ou vencedores.
+
+**Depends on:** Phase 104
+
+**Requirements:** HYPO-01, HYPO-02, HYPO-03, COMP-05, COMP-06, COMP-07, COMP-08
+
+**Success Criteria:**
+1. Usuário registra hipótese com uma variável principal, métrica, direção esperada e variantes participantes.
+2. Comparações exibem métricas brutas/derivadas, amostra, período, contexto e diferença entre variantes.
+3. Sistema exclui contextos incompatíveis e explica plataforma, período, objetivo ou vínculo que impediu a comparação.
+4. Resultado usa explicitamente vencedor, sem vencedor claro, evidência insuficiente ou não comparável.
+5. Interface distingue observação de mídia de hipótese controlada e registra se a hipótese foi suportada, contrariada ou inconclusiva.
+
+### Phase 106: Client Performance Memory and Mem0
+
+**Goal:** Consolidar padrões reutilizáveis por cliente e recuperar somente aprendizados relevantes, citados e sincronizados.
+
+**Depends on:** Phase 105
+
+**Requirements:** MEM-01, MEM-02, MEM-03, MEM-04, MEM-05, MEM-06
+
+**Success Criteria:**
+1. Sistema deriva aprendizados canônicos por CTA, formato, receita, estilo ou variável suportada com versão de algoritmo.
+2. Cada aprendizado mostra evidências favoráveis e contraditórias, amostra, recência, contexto e confiança.
+3. Aprendizado aprovado é projetado no Mem0 com workspace, cliente, ID canônico, versão e metadados pesquisáveis.
+4. Recuperação contextual via Mem0 resolve a linha canônica no Postgres antes de exibir ou usar o aprendizado.
+5. Correção ou remoção de evidência recalcula o aprendizado e atualiza/remove a projeção obsoleta sem bloquear o fluxo quando Mem0 estiver indisponível.
+
+### Phase 107: Learning to Next Experiment
+
+**Goal:** Converter memória de performance em uma próxima ação criativa explicável e controlada pelo usuário.
+
+**Depends on:** Phase 106
+
+**Requirements:** NEXT-01, NEXT-02, NEXT-03, NEXT-04
+
+**Success Criteria:**
+1. Campanha recebe recomendação contextual de próximo experimento baseada em aprendizados canônicos relevantes.
+2. Recomendação mostra justificativa, evidências, contradições, amostra e confiança antes de qualquer ação.
+3. Usuário pode aceitar, editar ou ignorar sem modificar automaticamente campanha, mídia ou orçamento.
+4. Aceitar abre o fluxo existente com CTA, formato, receita ou estilo pré-preenchido e editável.
+5. Eventos first-party registram visualização, aceite, edição e descarte para orientar a próxima iteração do produto.
+
+### Phase 108: Performance Learning Release Gate
+
+**Goal:** Provar que o ciclo importação → comparação → memória → próxima ação é seguro, reproduzível e utilizável em produção.
+
+**Depends on:** Phase 107
+
+**Requirements:** QA-10, QA-11, QA-12, QA-13
+
+**Success Criteria:**
+1. Testes cobrem entrada manual/CSV, locale, moeda, deduplicação, atualização de atribuição, auditoria e isolamento.
+2. Testes cobrem comparabilidade, denominadores zero, contradições, evidência insuficiente e ausência de vencedor.
+3. Testes cobrem criação, busca, atualização, remoção e falha não bloqueante da projeção Mem0.
+4. Migração, `npm test`, `npm run lint` e `npm run build` passam no app.
+5. UAT importa dados representativos, produz comparação explicável e abre um próximo experimento editável com evidência registrada.
+
+---
 
 ### ✅ v12.0 Monetização Real (Phases 97-102) — SHIPPED 2026-06-11
 
@@ -536,6 +649,12 @@ Archive: [v11.6-ROADMAP.md](milestones/v11.6-ROADMAP.md) · [v11.6-REQUIREMENTS.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 | ----- | --------- | -------------- | ------ | --------- |
+| 103 | v12.1 | 0/TBD | Not started | - |
+| 104 | v12.1 | 0/TBD | Not started | - |
+| 105 | v12.1 | 0/TBD | Not started | - |
+| 106 | v12.1 | 0/TBD | Not started | - |
+| 107 | v12.1 | 0/TBD | Not started | - |
+| 108 | v12.1 | 0/TBD | Not started | - |
 | 97 | v12.0 | 1/1 | Complete | 2026-06-11 |
 | 98 | v12.0 | 1/1 | Complete | 2026-06-11 |
 | 99 | v12.0 | 1/1 | Complete | 2026-06-11 |
@@ -584,4 +703,4 @@ Archive: [v11.6-ROADMAP.md](milestones/v11.6-ROADMAP.md) · [v11.6-REQUIREMENTS.
 | 60 | v11.5 | 4/4 | Complete | 2026-06-05 |
 
 ---
-*Roadmap updated: 2026-06-08 — v11.11 phases 90-96 added*
+*Roadmap updated: 2026-06-12 — v12.1 phases 103-108 proposed with 31/31 requirements mapped*
