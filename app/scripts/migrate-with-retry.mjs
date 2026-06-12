@@ -1,4 +1,4 @@
-import { readdir } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
@@ -30,9 +30,13 @@ function logDbTarget() {
   }
 }
 
-async function countSqlMigrations() {
-  const files = await readdir(migrationsFolder);
-  return files.filter((file) => file.endsWith(".sql")).length;
+async function countJournalMigrations() {
+  const raw = await readFile(
+    path.join(migrationsFolder, "meta/_journal.json"),
+    "utf8"
+  );
+  const journal = JSON.parse(raw);
+  return journal.entries?.length ?? 0;
 }
 
 async function countAppliedMigrations(client) {
@@ -63,14 +67,14 @@ async function runMigrationAttempt() {
   try {
     await pool.query('CREATE SCHEMA IF NOT EXISTS "adscale_app"');
 
-    const [sqlCount, appliedBefore, tableCount] = await Promise.all([
-      countSqlMigrations(),
+    const [journalCount, appliedBefore, tableCount] = await Promise.all([
+      countJournalMigrations(),
       countAppliedMigrations(pool),
       countAppTables(pool),
     ]);
 
     console.log(
-      `[db:migrate] sql files=${sqlCount}, journal=${appliedBefore}, adscale_app tables=${tableCount}`
+      `[db:migrate] journal entries=${journalCount}, applied=${appliedBefore}, adscale_app tables=${tableCount}`
     );
 
     if (tableCount > 0 && appliedBefore === 0) {
@@ -80,7 +84,7 @@ async function runMigrationAttempt() {
       );
     }
 
-    if (appliedBefore > 0 && appliedBefore >= sqlCount && tableCount > 0) {
+    if (appliedBefore > 0 && appliedBefore >= journalCount && tableCount > 0) {
       console.log("[db:migrate] already up to date");
       return;
     }
@@ -90,15 +94,15 @@ async function runMigrationAttempt() {
     const appliedAfter = await countAppliedMigrations(pool);
     console.log(`[db:migrate] journal after=${appliedAfter}`);
 
-    if (appliedAfter < sqlCount && appliedAfter === appliedBefore) {
+    if (appliedAfter < journalCount && appliedAfter === appliedBefore) {
       throw new Error(
-        `no pending migrations were applied (${appliedBefore}/${sqlCount} recorded)`
+        `no pending migrations were applied (${appliedBefore}/${journalCount} recorded)`
       );
     }
 
-    if (appliedAfter > sqlCount) {
+    if (appliedAfter > journalCount) {
       throw new Error(
-        `migration journal (${appliedAfter}) exceeds SQL files (${sqlCount})`
+        `migration journal (${appliedAfter}) exceeds journal entries (${journalCount})`
       );
     }
   } finally {

@@ -1,4 +1,4 @@
-CREATE SCHEMA IF NOT EXISTS "adscale_app";
+CREATE SCHEMA "adscale_app";
 --> statement-breakpoint
 CREATE TABLE "adscale_app"."account" (
 	"id" text PRIMARY KEY NOT NULL,
