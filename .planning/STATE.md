@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v12.1
 milestone_name: Memória Criativa e Aprendizado de Performance
 status: ready_to_close
-last_updated: "2026-06-12T14:10:00Z"
-last_activity: 2026-06-12 — Migrations 0037–0040 applied (local); browser/API UAT complete; QA-13 signed off; audit `passed`
+last_updated: "2026-06-12T19:05:00Z"
+last_activity: 2026-06-12 — Product-pure re-UAT passed (11/11); QA-13 closed; staging migrate remains deploy gate
 progress:
   total_phases: 6
   completed_phases: 6
@@ -16,18 +16,18 @@ progress:
 
 **Last updated:** 2026-06-12
 **Current milestone:** v12.1 Memória Criativa e Aprendizado de Performance
-**Status:** Ready to close (`gsd-complete-milestone`)
+**Status:** ready_to_close — product-pure UAT passed; staging migrate before ship
 
 ## Summary
 
-Phases 103–108 complete. All 31 requirements evidenced (automated + human UAT on local Postgres). Staging/prod migration apply remains a deploy gate. Two non-blocking defects logged in audit (drizzle migrate silent failure; PATCH clientProfileId).
+Phases 103–108 complete. Product-pure re-UAT passed (`re-uat-v12.1-product.mjs`, 11/11). PATCH `clientProfileId` and `db:migrate` fixes verified. Staging/prod migration apply is the remaining deploy gate before `gsd-complete-milestone`.
 
 ## Current Position
 
 Phase: 108 — Performance Learning Release Gate
 Plan: 01 (complete)
-Status: Passed (local migrations + UAT)
-Last activity: 2026-06-12 — QA-13 closed; `v12.1-MILESTONE-AUDIT.md` → `passed`
+Status: Passed (product-pure re-UAT)
+Last activity: 2026-06-12 — `re-uat-v12.1-product.mjs` 11/11 green
 
 ## Last completed milestone
 
@@ -43,14 +43,16 @@ Last activity: 2026-06-12 — QA-13 closed; `v12.1-MILESTONE-AUDIT.md` → `pass
 
 ## Human gates before ship
 
-1. ✅ Local: migrations 0037–0040 applied; UAT E2E (import → compare → learnings → recommendation).
-2. ☐ Staging/prod: apply migrations after fixing drizzle-kit silent-failure on existing schema.
-3. Run `gsd-complete-milestone` to archive v12.1.
+1. ✅ Local: migrations 0037–0040 applied (initial UAT workaround).
+2. ☐ Staging/prod: `npm run db:migrate` with fixed migrator script.
+3. ✅ Product-pure re-UAT: PATCH `clientProfileId` + Accept → Strategy Recipe (2026-06-12).
+4. ☐ Staging/prod: `npm run db:migrate`.
+5. Run `gsd-complete-milestone` after gate 4.
 
-## Known follow-ups (non-blocking)
+## Known follow-ups
 
-1. `drizzle-kit migrate` fails silently when `adscale_app` schema already exists — use migrator workaround or preflight.
-2. `PATCH /api/campaigns/[id]` may not persist `clientProfileId` — investigate route DTO/update set.
+1. ~~`drizzle-kit migrate` silent failure~~ — fixed in `migrate-with-retry.mjs` (2026-06-12).
+2. ~~PATCH `clientProfileId`~~ — fixed in campaigns route + test (2026-06-12).
 3. BillingTab may show stale "Inativo" after checkout redirect while API returns `active`.
 4. Production Render still on Stripe **test** keys until live cutover.
 

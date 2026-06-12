@@ -25,6 +25,8 @@ const createCampaignSchema = z.object({
   targetFormats: z.array(z.string()).max(5).optional(),
   creativeLevel: z.enum(["conservative", "balanced", "bold", "extreme"]).optional().default("balanced"),
   styleIntensity: z.enum(["soft", "medium", "strong"]).optional(),
+  clientProfileId: z.string().uuid().nullable().optional(),
+  selectedReferenceIds: z.array(z.string().uuid()).max(20).optional(),
 })
 ;
 
@@ -83,6 +85,33 @@ export async function POST(request: Request) {
 
     if (!parsed.success) {
       return apiError("invalidInput", 400, parsed.error.flatten());
+    }
+
+    const { clientProfileId, selectedReferenceIds } = parsed.data;
+
+    if (clientProfileId) {
+      const profile = await getClientProfile(workspace.id, clientProfileId);
+      if (!profile) {
+        return apiError("clientProfileNotFound", 404);
+      }
+    }
+
+    if (selectedReferenceIds?.length) {
+      const references = await getClientReferencesByIds(
+        workspace.id,
+        selectedReferenceIds
+      );
+      if (references.length !== selectedReferenceIds.length) {
+        return apiError("clientReferenceNotFound", 404);
+      }
+      if (clientProfileId) {
+        const mismatched = references.some(
+          (reference) => reference.clientProfileId !== clientProfileId
+        );
+        if (mismatched) {
+          return apiError("invalidInput", 400);
+        }
+      }
     }
 
     const campaign = await createCampaign(workspace.id, {

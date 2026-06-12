@@ -65,6 +65,7 @@ describe("POST /api/campaigns", () => {
     expect(mockCreateCampaign).toHaveBeenCalledWith("workspace-1", {
       name: "Test Campaign",
       client: "Test Client",
+      clientProfileId: null,
       creativeLevel: "balanced",
       status: "draft",
     });

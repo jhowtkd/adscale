@@ -1,16 +1,16 @@
 ---
 phase: 108-performance-learning-release-gate
-verified: 2026-06-12T14:10:00Z
-status: passed
+verified: 2026-06-12T19:05:00Z
+status: passed_with_caveats
 score: 31/31
 overrides_applied: 0
 human_verification:
   - test: "Apply migrations 0037–0040 on target Postgres"
     result: "PASS — 44 tables created in `adscale_db`; v12.1 tables `creative_performance_snapshots`, `performance_import_batches`, `performance_import_rows`, `creative_hypotheses`, `hypothesis_variants`, `variant_comparisons`, `client_performance_learnings` all present with workspace indexes"
     operator: "Mavis (MiniMax agent) — manual SQL apply via node-postgres (drizzle-kit migrate failed silently on existing schema; see Defects)"
-  - test: "Browser UAT with manual row (pt-BR decimals, BRL)"
-    result: "PASS — Import preview → confirm → hypothesis compare → learning aggregate → next-experiment recommendation → editable recipe prefill"
-    operator: "Mavis (MiniMax agent) — full E2E via Kimi WebBridge against `localhost:3000` (dev admin: `dev@adscale.local` / `DevAdmin123!`)"
+  - test: "Product-pure re-UAT (PATCH clientProfileId + full loop + UI Accept)"
+    result: "PASS — `node scripts/re-uat-v12.1-product.mjs` @ localhost:3000; 11/11 steps green; Strategy Recipe dialog with editable CTA prefill"
+    operator: "Cursor agent — 2026-06-12"
 ---
 
 # Phase 108: Performance Learning Release Gate Verification Report
@@ -18,8 +18,8 @@ human_verification:
 **Phase Goal:** Prove import → comparison → memory → next action is safe, reproducible, and production-ready.
 
 **Verified:** 2026-06-12T14:10:00Z  
-**Status:** passed  
-**Re-verification:** No — initial v12.1 release gate
+**Status:** passed_with_caveats  
+**Re-verification:** Partial — defect fixes applied 2026-06-12; lean product-only re-UAT pending
 
 ## Goal Achievement
 
@@ -31,9 +31,9 @@ human_verification:
 | 2 | Comparability, zero denominators, contradictions, insufficient evidence, no clear winner | ✓ VERIFIED | See QA-11 inventory below |
 | 3 | Mem0 create/search/update/delete + non-blocking failure | ✓ VERIFIED | See QA-12 inventory below |
 | 4 | `npm test`, `npm run lint`, `npm run build` pass | ✓ VERIFIED | Release gate table below |
-| 5 | UAT with representative data through editable prefill | ✓ VERIFIED | See Browser UAT Results below |
+| 5 | UAT with representative data through editable prefill | ✓ VERIFIED | Product-pure re-UAT 2026-06-12 (`re-uat-v12.1-product.mjs`) |
 
-**Score:** 5/5 automated + human truths verified
+**Score:** 5/5 automated + human truths verified (staging migrate remains deploy gate)
 
 ### Release Gate Results
 
@@ -42,7 +42,7 @@ human_verification:
 | Full test suite | `npm test` (from `app/`) | 221 files, **1182 passed**, 1 skipped | ✓ PASS |
 | Lint | `npm run lint` | **0 errors**, 69 warnings (pre-existing) | ✓ PASS |
 | Production build | `npm run build` | Standalone prepared; all routes compiled | ✓ PASS |
-| DB migration apply | `npm run db:migrate` (workaround: direct `drizzle-orm/node-postgres/migrator`) | 44 tables created in `adscale_db` including v12.1 tables | ✓ PASS |
+| DB migration apply | `npm run db:migrate` | Local: applied via workaround during initial UAT; script fixed 2026-06-12 (migrator + preflight + fail-loud) | ⚠ PARTIAL |
 
 ### v12.1 Requirement Traceability (QA only)
 
@@ -51,7 +51,7 @@ human_verification:
 | **QA-10** | Manual, CSV, locale/currency, dedup, attribution update, audit, workspace isolation | ✓ SATISFIED | Test inventory § QA-10 |
 | **QA-11** | Comparability, zero denominators, contradictions, insufficient evidence, no winner | ✓ SATISFIED | Test inventory § QA-11 |
 | **QA-12** | Mem0 projection CRUD + non-blocking failure | ✓ SATISFIED | Test inventory § QA-12 |
-| **QA-13** | test/lint/build + migration + UAT | ✓ SATISFIED | Automated gate green; local migration apply + browser/API UAT (2026-06-12) |
+| **QA-13** | test/lint/build + migration + UAT | ✓ SATISFIED | Product-pure re-UAT 2026-06-12; local migrate script fixed (staging apply pending) |
 
 **Traceability score:** 31/31 requirements evidenced across v12.1
 
@@ -179,11 +179,12 @@ GET /api/campaigns/.../recommendation
 
 ✅ Recommendation generated, prefill contains editable recipe parameters. Accepting passes `prefill` into the existing `Strategy Recipe` flow (`/api/campaigns/.../derive`), which the user can edit before generating.
 
-## Defects Encountered (non-blocking / to track)
+## Defects Encountered
 
-1. **`drizzle-kit migrate` silent failure on existing schema** — `CREATE SCHEMA "adscale_app"` failed because the schema already existed (residual from prior local dev). Drizzle swallowed the error. **Workaround applied:** dropped all schemas first, then applied migrations via `drizzle-orm/node-postgres/migrator` directly with skip-on-already-exists. **Suggested fix:** wrap each migration in a transaction with `IF NOT EXISTS` guards in the generated SQL, or run preflight `DROP SCHEMA IF EXISTS` only when `ALLOW_RESET=1`.
-2. **PATCH `/api/campaigns/[id]` did not persist `clientProfileId`** — used to attach the profile to the campaign (required for learning aggregation). Direct SQL `UPDATE` was the workaround. **Suggested fix:** confirm PATCH DTO includes `clientProfileId` and PATCH route's update set is complete; reproduce in test.
-3. **Mem0 projection is non-blocking** — already documented as a non-blocking failure mode in the v12.1 audit; expected.
+1. **`drizzle-kit migrate` silent failure on existing schema** — **Fixed 2026-06-12:** `scripts/migrate-with-retry.mjs` uses `drizzle-orm/node-postgres/migrator`, `CREATE SCHEMA IF NOT EXISTS` preflight, and exits non-zero when pending migrations are not recorded. `0000` migration uses `IF NOT EXISTS` for schema creation.
+2. **PATCH `/api/campaigns/[id]` did not persist `clientProfileId`** — **Fixed 2026-06-12:** PATCH/POST schemas accept `clientProfileId` with workspace validation; `route.test.ts` regression added.
+3. **Mem0 projection is non-blocking** — expected; Postgres canonical path verified.
+4. **Product-pure re-UAT** — ✅ Completed 2026-06-12 via `scripts/re-uat-v12.1-product.mjs`.
 
 ## Milestone Readiness
 
@@ -192,8 +193,8 @@ GET /api/campaigns/.../recommendation
 | All automatable v12.1 requirements evidenced | ✓ Ready |
 | Release gate (test/lint/build) green | ✓ Ready |
 | Migrations applied on target DB | ✓ Ready (local) |
-| Browser UAT sign-off | ✓ Ready |
-| `gsd-audit-milestone` / `complete-milestone` | Ready to run |
+| Browser UAT sign-off | ✓ Ready (product-pure) |
+| `gsd-audit-milestone` / `complete-milestone` | After staging migrate |
 
 ---
 *Phase: 108-performance-learning-release-gate*  

@@ -31,6 +31,8 @@ const updateCampaignSchema = z.object({
   creativeLevel: z.enum(["conservative", "balanced", "bold", "extreme"]).optional(),
   styleIntensity: z.enum(["soft", "medium", "strong"]).optional(),
   status: z.enum(["draft", "active", "generating", "completed", "failed"]).optional(),
+  clientProfileId: z.string().uuid().nullable().optional(),
+  selectedReferenceIds: z.array(z.string().uuid()).max(20).optional(),
 })
 .refine(
   (data) => {
@@ -80,6 +82,33 @@ export async function PATCH(
 
     if (!parsed.success) {
       return apiError("invalidInput", 400, parsed.error.flatten());
+    }
+
+    const { clientProfileId, selectedReferenceIds } = parsed.data;
+
+    if (clientProfileId) {
+      const profile = await getClientProfile(workspace.id, clientProfileId);
+      if (!profile) {
+        return apiError("clientProfileNotFound", 404);
+      }
+    }
+
+    if (selectedReferenceIds?.length) {
+      const references = await getClientReferencesByIds(
+        workspace.id,
+        selectedReferenceIds
+      );
+      if (references.length !== selectedReferenceIds.length) {
+        return apiError("clientReferenceNotFound", 404);
+      }
+      if (clientProfileId) {
+        const mismatched = references.some(
+          (reference) => reference.clientProfileId !== clientProfileId
+        );
+        if (mismatched) {
+          return apiError("invalidInput", 400);
+        }
+      }
     }
 
     const campaign = await updateCampaign(id, workspace.id, parsed.data);
