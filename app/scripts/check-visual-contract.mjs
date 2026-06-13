@@ -240,6 +240,10 @@ export function validateContract({ css, sources = [], section = "all", requireCo
     for (const token of LAYER_TOKENS) {
       if (!declared.has(`--${token}`)) diagnostics.push(diagnostic("MISSING_CANONICAL_TOKEN", `--${token} is missing`));
     }
+    const layerValues = LAYER_TOKENS.map((token) => Number.parseInt(parsed.declarations.get(`--${token}`)?.[0] ?? "", 10));
+    if (layerValues.some(Number.isNaN) || layerValues.some((value, index) => index > 0 && value <= layerValues[index - 1])) {
+      diagnostics.push(diagnostic("INVALID_LAYER_ORDER", "global layer values must be numeric and strictly increasing"));
+    }
   }
 
   for (const source of sources) {

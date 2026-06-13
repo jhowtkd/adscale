@@ -23,8 +23,11 @@ describe("visual foundation contract", () => {
   });
 
   it("layers use one ordered global contract", () => {
-    for (const token of ["--layer-base", "--layer-shell", "--layer-popover", "--layer-overlay", "--layer-skip-link"]) {
+    const tokens = ["--layer-base", "--layer-raised", "--layer-sticky", "--layer-shell", "--layer-shell-floating", "--layer-popover", "--layer-backdrop", "--layer-overlay", "--layer-toast", "--layer-tour", "--layer-skip-link"];
+    for (const token of tokens) {
       expect(stylesheet).toContain(`${token}:`);
     }
+    const values = tokens.map((token) => Number(stylesheet.match(new RegExp(`${token}:\\s*(\\d+)`))?.[1]));
+    expect(values.every((value, index) => index === 0 || value > values[index - 1])).toBe(true);
   });
 });

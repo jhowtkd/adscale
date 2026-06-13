@@ -1,13 +1,18 @@
 @import "tailwindcss";
 
 .global-error-page {
+  --canvas: oklch(0.15 0.008 145);
+  --text-primary: oklch(0.96 0.006 145);
+  --text-muted: oklch(0.7 0.008 145);
+  --text-on-accent: oklch(0.16 0.02 145);
+  --accent-primary: oklch(0.66 0.2 145);
   margin: 0;
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #0a0a0a;
-  color: #fafafa;
+  background-color: var(--canvas);
+  color: var(--text-primary);
   font-family:
     ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
   padding: 24px;
@@ -30,7 +35,7 @@
 
 .global-error-message {
   margin: 0;
-  color: #a1a1a1;
+  color: var(--text-muted);
   line-height: 1.5;
 }
 
@@ -41,8 +46,8 @@
   border: none;
   cursor: pointer;
   font-weight: 600;
-  background-color: #00b34a;
-  color: #0a0a0a;
+  background-color: var(--accent-primary);
+  color: var(--text-on-accent);
 }
 
 @custom-variant dark (&:is(.dark *));
@@ -158,6 +163,24 @@
   --content-operational: 80rem;
   --content-workspace: 87.5rem;
   --content-wide: 100rem;
+
+  /*
+   * Global layers: feature content may use base/raised/sticky; shell uses
+   * shell/shell-floating; menus, selects and tooltips use popover; dialogs and
+   * sheets use backdrop/overlay; toast sits above overlays; tour and skip-link
+   * are highest. Local component internals should prefer isolation: isolate.
+   */
+  --layer-base: 0;
+  --layer-raised: 10;
+  --layer-sticky: 20;
+  --layer-shell: 30;
+  --layer-shell-floating: 40;
+  --layer-popover: 50;
+  --layer-backdrop: 60;
+  --layer-overlay: 70;
+  --layer-toast: 80;
+  --layer-tour: 90;
+  --layer-skip-link: 100;
 
   /* Canonical light theme */
   --canvas: oklch(0.985 0.003 145);
@@ -509,6 +532,22 @@
 
   .product-control-text {
     font-size: var(--text-body-lg);
+  }
+
+  .layer-base { z-index: var(--layer-base); }
+  .layer-raised { z-index: var(--layer-raised); }
+  .layer-sticky { z-index: var(--layer-sticky); }
+  .layer-shell { z-index: var(--layer-shell); }
+  .layer-shell-floating { z-index: var(--layer-shell-floating); }
+  .layer-popover { z-index: var(--layer-popover); }
+  .layer-backdrop { z-index: var(--layer-backdrop); }
+  .layer-overlay { z-index: var(--layer-overlay); }
+  .layer-toast { z-index: var(--layer-toast); }
+  .layer-tour { z-index: var(--layer-tour); }
+  .layer-skip-link { z-index: var(--layer-skip-link); }
+
+  .isolate-component {
+    isolation: isolate;
   }
 
   .animate-pulse-dot {
