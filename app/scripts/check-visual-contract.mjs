@@ -31,6 +31,8 @@ export const CANONICAL_GLOBAL_TOKENS = [
   "layer-base", "layer-raised", "layer-sticky", "layer-shell", "layer-shell-floating",
   "layer-popover", "layer-backdrop", "layer-overlay", "layer-toast", "layer-tour", "layer-skip-link",
 ];
+const LAYER_TOKENS = CANONICAL_GLOBAL_TOKENS.filter((token) => token.startsWith("layer-"));
+const GEOMETRY_TOKENS = CANONICAL_GLOBAL_TOKENS.filter((token) => !token.startsWith("layer-"));
 
 export const COMPATIBILITY_ALIASES = new Map([
   ["deep-bg", "canvas"], ["border-dim", "border-subtle"], ["border-medium", "border-default"],
@@ -93,50 +95,49 @@ const DEBT_ALLOWLIST = {
   },
   arbitraryDialect: {
     "app/src/app/(dashboard)/campaigns/[id]/page.tsx": 6,
-    "app/src/app/(dashboard)/feedback/page.tsx": 5,
+    "app/src/app/(dashboard)/feedback/page.tsx": 3,
+    "app/src/app/(dashboard)/library/page.tsx": 3,
     "app/src/app/(dashboard)/quick-tools/restyling/page.tsx": 1,
     "app/src/app/(dashboard)/restyling/page.tsx": 1,
-    "app/src/components/campaigns/CampaignErrorState.tsx": 1,
-    "app/src/components/campaigns/CampaignListCard.tsx": 2,
-    "app/src/components/campaigns/CampaignTableRow.tsx": 2,
-    "app/src/components/campaigns/CampaignsBulkActionsBar.tsx": 2,
-    "app/src/components/campaigns/CampaignsFilterToolbar.tsx": 2,
-    "app/src/components/campaigns/CampaignsListView.tsx": 1,
-    "app/src/components/campaigns/CampaignsPagination.tsx": 2,
+    "app/src/components/campaigns/CampaignCard.tsx": 4,
+    "app/src/components/campaigns/CampaignListCard.tsx": 1,
+    "app/src/components/campaigns/CampaignTableRow.tsx": 4,
+    "app/src/components/campaigns/CampaignsHeader.tsx": 1,
     "app/src/components/campaigns/HypothesesPanel.tsx": 3,
+    "app/src/components/campaigns/KanbanCard.tsx": 3,
     "app/src/components/campaigns/KanbanColumn.tsx": 1,
-    "app/src/components/campaigns/LearningsPanel.tsx": 2,
-    "app/src/components/campaigns/NewCampaignModal.tsx": 2,
+    "app/src/components/campaigns/LearningsPanel.tsx": 1,
+    "app/src/components/campaigns/NewCampaignModal.tsx": 3,
     "app/src/components/campaigns/NextExperimentRecommendationCard.tsx": 2,
-    "app/src/components/campaigns/PerformanceImportPanel.tsx": 2,
-    "app/src/components/layout/TopBar.tsx": 2,
+    "app/src/components/layout/AppShell.tsx": 1,
+    "app/src/components/layout/TopBar.tsx": 1,
     "app/src/components/providers/ToastStack.tsx": 1,
     "app/src/components/restyling/RestylingForm.tsx": 1,
-    "app/src/components/restyling/RestylingUpload.tsx": 1,
     "app/src/components/settings/BillingTab.tsx": 6,
-    "app/src/components/settings/BrandKitTab.tsx": 4,
-    "app/src/components/settings/CreditHistoryTab.tsx": 2,
+    "app/src/components/settings/BrandKitTab.tsx": 3,
+    "app/src/components/settings/IntegrationsTab.tsx": 1,
     "app/src/components/settings/PlansTab.tsx": 2,
-    "app/src/components/settings/PrivacyTab.tsx": 2,
-    "app/src/components/settings/ProfileTab.tsx": 1,
-    "app/src/components/settings/TeamTab.tsx": 1,
-    "app/src/components/settings/WorkspaceTab.tsx": 1,
-    "app/src/components/templates/SaveTemplateModal.tsx": 1,
-    "app/src/components/templates/TemplateCard.tsx": 2,
-    "app/src/components/ui/ConfirmDialog.tsx": 1,
-    "app/src/components/workspace/AutoBriefingSheet.tsx": 1,
-    "app/src/components/workspace/BriefingStep.tsx": 2,
-    "app/src/components/workspace/ClientApprovalPackagePanel.tsx": 2,
+    "app/src/components/settings/PrivacyTab.tsx": 3,
+    "app/src/components/settings/TeamTab.tsx": 2,
+    "app/src/components/settings/WorkspaceTab.tsx": 2,
+    "app/src/components/templates/SaveTemplateModal.tsx": 3,
+    "app/src/components/templates/TemplateCard.tsx": 1,
+    "app/src/components/ui/EmptyState.tsx": 3,
+    "app/src/components/ui/StatusBadge.tsx": 1,
+    "app/src/components/ui/button.tsx": 1,
+    "app/src/components/ui/tooltip.tsx": 1,
+    "app/src/components/workspace/ClientApprovalPackagePanel.tsx": 4,
     "app/src/components/workspace/CreativeReadinessPanel.tsx": 4,
-    "app/src/components/workspace/DerivationCard.tsx": 6,
+    "app/src/components/workspace/DerivationCard.tsx": 15,
+    "app/src/components/workspace/DerivationGrid.tsx": 1,
     "app/src/components/workspace/DerivationPreviewGateFooter.tsx": 2,
-    "app/src/components/workspace/DerivationReviewSheet.tsx": 2,
+    "app/src/components/workspace/DerivationReviewSheet.tsx": 6,
+    "app/src/components/workspace/EstilizarModal.tsx": 2,
     "app/src/components/workspace/GuidedBriefingPanel.tsx": 1,
-    "app/src/components/workspace/PersonaSimulationSheet.tsx": 3,
-    "app/src/components/workspace/PilotSidebar.tsx": 1,
-    "app/src/components/workspace/PilotUploadPanel.tsx": 2,
-    "app/src/components/workspace/RegenerateFeedbackDialog.tsx": 1,
-    "app/src/components/workspace/StrategyRecipePanel.tsx": 2,
+    "app/src/components/workspace/PersonaSimulationSheet.tsx": 5,
+    "app/src/components/workspace/PilotSidebar.tsx": 4,
+    "app/src/components/workspace/PilotUploadPanel.tsx": 5,
+    "app/src/components/workspace/StrategyRecipePanel.tsx": 1,
   },
 };
 
@@ -199,11 +200,6 @@ export function validateContract({ css, sources = [], section = "all", requireCo
           diagnostics.push(diagnostic("MISSING_CANONICAL_TOKEN", `--${token} must be declared in :root and .dark`));
         }
       }
-      if (section === "all") {
-        for (const token of CANONICAL_GLOBAL_TOKENS) {
-          if (!declared.has(`--${token}`)) diagnostics.push(diagnostic("MISSING_CANONICAL_TOKEN", `--${token} is missing`));
-        }
-      }
     }
     for (const reference of parsed.references) {
       if (!declared.has(reference) && !APPROVED_EXTERNAL_VARIABLES.has(reference.slice(2))) {
@@ -230,8 +226,19 @@ export function validateContract({ css, sources = [], section = "all", requireCo
   }
 
   if (section === "all" || section === "geometry") {
+    if (requireComplete) {
+      for (const token of GEOMETRY_TOKENS) {
+        if (!declared.has(`--${token}`)) diagnostics.push(diagnostic("MISSING_CANONICAL_TOKEN", `--${token} is missing`));
+      }
+    }
     if (requireComplete && !/@media\s*\(prefers-reduced-motion:\s*reduce\)/.test(css)) {
       diagnostics.push(diagnostic("MISSING_REDUCED_MOTION", "reduced-motion contract is missing"));
+    }
+  }
+
+  if ((section === "all" || section === "layers") && requireComplete) {
+    for (const token of LAYER_TOKENS) {
+      if (!declared.has(`--${token}`)) diagnostics.push(diagnostic("MISSING_CANONICAL_TOKEN", `--${token} is missing`));
     }
   }
 

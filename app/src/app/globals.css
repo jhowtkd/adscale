@@ -112,6 +112,53 @@
   --font-space-mono: "Space Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --font-press-start: "Press Start 2P", cursive;
 
+  /* Global foundation scales */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --control-sm: 1.75rem;
+  --control-md: 2rem;
+  --control-lg: 2.25rem;
+  --control-touch: 2.75rem;
+  --text-caption: 0.75rem;
+  --text-label: 0.8125rem;
+  --text-body: 0.875rem;
+  --text-body-lg: 1rem;
+  --text-section: 1rem;
+  --text-page: 1.25rem;
+  --text-display: 1.5rem;
+  --radius-control: 0.375rem;
+  --radius-panel: 0.5rem;
+  --radius-object: 0.75rem;
+  --radius-overlay: 0.75rem;
+  --radius-pill: 9999px;
+  --duration-fast: 120ms;
+  --duration-default: 180ms;
+  --duration-slow: 280ms;
+  --ease-product: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
+  --shell-topbar-mobile: 3rem;
+  --shell-topbar-desktop: 3.5rem;
+  --shell-sidebar-expanded: 15rem;
+  --shell-sidebar-rail: 4rem;
+  --shell-bottom-nav: 4rem;
+  --shell-sticky-gap: 0.5rem;
+  --shell-safe-bottom: calc(var(--shell-bottom-nav) + env(safe-area-inset-bottom, 0px));
+  --page-gutter-mobile: 1rem;
+  --page-gutter-tablet: 1.5rem;
+  --page-gutter-desktop: 2rem;
+  --page-gutter-wide: 2.5rem;
+  --page-gutter: var(--page-gutter-mobile);
+  --content-reading: 45rem;
+  --content-form: 40rem;
+  --content-operational: 80rem;
+  --content-workspace: 87.5rem;
+  --content-wide: 100rem;
+
   /* Canonical light theme */
   --canvas: oklch(0.985 0.003 145);
   --surface-base: oklch(0.998 0.002 145);
@@ -218,6 +265,8 @@
   --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-out-expo: cubic-bezier(0.19, 1, 0.22, 1);
   --ease-in-out: cubic-bezier(0.4, 0, 0.6, 1);
+  --shadow-floating: 0 12px 32px color-mix(in oklch, var(--text-primary) 12%, transparent);
+  --shadow-overlay: 0 24px 80px color-mix(in oklch, var(--text-primary) 16%, transparent);
 }
 
 /* ============================================
@@ -421,6 +470,47 @@
    ============================================ */
 
 @layer utilities {
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .page-gutters {
+    padding-inline: var(--page-gutter);
+  }
+
+  .content-reading,
+  .content-form,
+  .content-operational,
+  .content-workspace,
+  .content-wide,
+  .content-fluid {
+    width: min(100%, var(--content-max, 100%));
+    margin-inline: auto;
+  }
+
+  .content-reading { --content-max: var(--content-reading); }
+  .content-form { --content-max: var(--content-form); }
+  .content-operational { --content-max: var(--content-operational); }
+  .content-workspace { --content-max: var(--content-workspace); }
+  .content-wide { --content-max: var(--content-wide); }
+  .content-fluid { --content-max: 100%; }
+
+  .product-page-title {
+    font-size: var(--text-page);
+    line-height: 1.25;
+    font-weight: 600;
+  }
+
+  .product-section-title {
+    font-size: var(--text-section);
+    line-height: 1.35;
+    font-weight: 600;
+  }
+
+  .product-control-text {
+    font-size: var(--text-body-lg);
+  }
+
   .animate-pulse-dot {
     animation: pulse-dot 2s ease-in-out infinite;
   }
@@ -541,6 +631,30 @@
   .py-section {
     padding-top: clamp(6rem, 15vh, 12rem);
     padding-bottom: clamp(6rem, 15vh, 12rem);
+  }
+}
+
+@media (min-width: 48rem) {
+  :root {
+    --page-gutter: var(--page-gutter-tablet);
+  }
+}
+
+@media (min-width: 64rem) {
+  :root {
+    --page-gutter: var(--page-gutter-desktop);
+  }
+}
+
+@media (min-width: 100rem) {
+  :root {
+    --page-gutter: var(--page-gutter-wide);
+  }
+}
+
+@media (pointer: fine) and (min-width: 48rem) {
+  .product-control-text {
+    font-size: var(--text-body);
   }
 }
 
