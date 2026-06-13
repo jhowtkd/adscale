@@ -32,17 +32,20 @@ export default function AppShell({ children }: AppShellProps) {
       {/* Top Bar */}
       <TopBar />
 
-      {/* Main Content Area - full width */}
-      <div className="min-h-screen pt-12 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] sm:pt-14 md:pb-0 dot-grid">
-        <div className="relative min-h-[calc(100vh-3rem)] sm:min-h-[calc(100vh-3.5rem)]">
+      {/* Main Content Area */}
+      <main
+        id="main"
+        className="dot-grid shell-offset-top shell-offset-bottom-mobile min-h-screen"
+      >
+        <div className="relative shell-min-height-below-topbar">
           {children}
         </div>
         <Footer />
-      </div>
+      </main>
 
       {/* Bottom Navigation - Mobile */}
       <nav
-        className="fixed bottom-0 left-0 right-0 z-50 grid grid-cols-4 border-t border-[var(--border-dim)] bg-[var(--surface-base)] p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:hidden"
+        className="layer-shell-floating fixed bottom-0 left-0 right-0 grid grid-cols-4 border-t border-[var(--border-dim)] bg-[var(--surface-base)] p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:hidden"
         aria-label="Primary mobile navigation"
       >
         <MobileNavItem

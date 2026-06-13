@@ -48,6 +48,9 @@ import {
 
 export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
   const tCommon = useTranslations("common");
+  const tNav = useTranslations("navigation");
+  const tCampaign = useTranslations("campaign");
+  const tSettings = useTranslations("settings");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const bellRef = useRef<HTMLButtonElement | null>(null);
   const { data: session } = authClient.useSession();
@@ -92,10 +95,10 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
   return (
     <header
       className={cn(
-        "fixed top-0 right-0 left-0 z-40 flex items-center justify-between gap-3 sm:gap-4",
-        "border-b border-[var(--border-dim)] bg-[var(--surface-base)]",
+        "layer-shell-floating fixed top-0 right-0 left-0 flex items-center justify-between gap-3 sm:gap-4",
+        "shell-topbar-height border-b border-[var(--border-dim)] bg-[var(--surface-base)]",
         "transition-transform duration-300 ease-out",
-        isDashboard ? "h-12 px-4 sm:h-14 sm:px-6 lg:px-8" : "h-12 px-4 sm:h-14 sm:px-6",
+        isDashboard ? "px-4 sm:px-6 lg:px-8" : "px-4 sm:px-6",
         isTopBarHidden && "-translate-y-full"
       )}
     >
@@ -122,11 +125,17 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
 
         {/* Navigation */}
         <nav className="hidden md:flex items-center gap-1">
-          <NavLink href="/" icon={LayoutDashboard} label="Dashboard" active={pathname === "/"} />
-          <NavLink href="/campaigns" icon={FolderOpen} label="Campanhas" active={pathname.startsWith("/campaigns")} />
-          <NavLink href="/templates" icon={LayoutTemplate} label="Templates" active={pathname.startsWith("/templates")} />
-          <NavLink href="/settings" icon={Settings} label="Configurações" active={pathname.startsWith("/settings")} />
+          <NavLink href="/" icon={LayoutDashboard} label={tNav("dashboard")} active={pathname === "/"} />
+          <NavLink href="/campaigns" icon={FolderOpen} label={tNav("campaigns")} active={pathname.startsWith("/campaigns")} />
+          <NavLink href="/templates" icon={LayoutTemplate} label={tNav("templates")} active={pathname.startsWith("/templates")} />
+          <NavLink href="/settings" icon={Settings} label={tNav("settings")} active={pathname.startsWith("/settings")} />
         </nav>
+
+        {!isDashboard && currentPageTitle ? (
+          <p className="hidden min-w-0 truncate text-sm font-semibold text-[var(--text-primary)] lg:block lg:max-w-[10rem] xl:max-w-xs">
+            {currentPageTitle}
+          </p>
+        ) : null}
       </div>
 
       {/* Right: Actions */}
@@ -138,14 +147,14 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
         {isDashboard && (
           <Link
             href="/campaigns?new=1"
-            aria-label="Nova Campanha"
+            aria-label={tCampaign("new")}
             className={cn(
               "flex size-9 shrink-0 items-center justify-center rounded-lg whitespace-nowrap sm:size-auto sm:h-10 sm:min-h-11 sm:rounded-md sm:px-5 sm:py-2.5 text-sm font-medium text-[var(--deep-bg)]",
               "bg-[var(--accent-green)] transition-colors duration-200 hover:bg-[var(--accent-green-light)]"
             )}
           >
             <Plus size={16} className="sm:hidden" aria-hidden="true" />
-            <span className="hidden sm:inline">+ Nova Campanha</span>
+            <span className="hidden sm:inline">+ {tCampaign("new")}</span>
           </Link>
         )}
 
@@ -219,23 +228,23 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => goToSettings("profile")} className="cursor-pointer p-2">
               <User size={16} />
-              Perfil
+              {tSettings("profile.title")}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => goToSettings("workspace")} className="cursor-pointer p-2">
               <Settings size={16} />
-              Workspace
+              {tSettings("workspace.title")}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => goToSettings("team")} className="cursor-pointer p-2">
               <Users size={16} />
-              Equipe e permissões
+              {tSettings("team.title")}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => goToSettings("billing")} className="cursor-pointer p-2">
               <CreditCard size={16} />
-              Faturamento e custos
+              {tSettings("billingTab")}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => goToSettings("integrations")} className="cursor-pointer p-2">
               <Shield size={16} />
-              Integrações
+              {tSettings("integrationsTab")}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -250,7 +259,7 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
               className="cursor-pointer p-2"
             >
               <LogOut size={16} />
-              Sair
+              {tNav("logout")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -348,7 +357,7 @@ function NotificationPanel({ items, onClose, onClear, onMarkAsRead, onMarkAllAsR
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -8, scale: 0.98 }}
       transition={{ duration: 0.15 }}
-      className="absolute right-16 top-11 z-50 w-[360px] max-w-[calc(100vw-2rem)] rounded-xl border border-[var(--border-dim)] bg-[var(--surface-raised)] shadow-[0_24px_80px_rgba(0,0,0,0.1)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-green)]"
+      className="layer-popover absolute right-16 top-11 w-[360px] max-w-[calc(100vw-2rem)] rounded-xl border border-[var(--border-dim)] bg-[var(--surface-raised)] shadow-[0_24px_80px_rgba(0,0,0,0.1)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-green)]"
     >
       <div className="flex items-center justify-between border-b border-[var(--border-dim)] px-4 py-3">
         <div>

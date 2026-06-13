@@ -501,6 +501,42 @@
     padding-inline: var(--page-gutter);
   }
 
+  .shell-topbar-height {
+    height: var(--shell-topbar-mobile);
+  }
+
+  .shell-offset-top {
+    padding-top: var(--shell-topbar-mobile);
+  }
+
+  .shell-offset-bottom-mobile {
+    padding-bottom: var(--shell-safe-bottom);
+  }
+
+  .shell-min-height-below-topbar {
+    min-height: calc(100vh - var(--shell-topbar-mobile));
+  }
+
+  @media (min-width: 40rem) {
+    .shell-topbar-height {
+      height: var(--shell-topbar-desktop);
+    }
+
+    .shell-offset-top {
+      padding-top: var(--shell-topbar-desktop);
+    }
+
+    .shell-min-height-below-topbar {
+      min-height: calc(100vh - var(--shell-topbar-desktop));
+    }
+  }
+
+  @media (min-width: 48rem) {
+    .shell-offset-bottom-mobile {
+      padding-bottom: 0;
+    }
+  }
+
   .content-reading,
   .content-form,
   .content-operational,

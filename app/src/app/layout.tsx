@@ -79,7 +79,7 @@ export default async function RootLayout({
               <TooltipProvider>
                 <SentryErrorBoundary>
                   <MotionProvider>
-                    <main id="main" className="min-h-screen">
+                    <div className="min-h-screen">
                       {children}
                       <CookieBanner />
                       <Toaster
@@ -93,7 +93,7 @@ export default async function RootLayout({
                         }}
                       />
                       <ToastStack />
-                    </main>
+                    </div>
                   </MotionProvider>
                 </SentryErrorBoundary>
               </TooltipProvider>
