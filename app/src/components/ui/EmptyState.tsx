@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { type LucideIcon, ChevronRight } from "lucide-react";
 import { FadeIn } from "@/components/animations/FadeIn";
+import { Button } from "@/components/ui/button";
 
 interface EmptyStateAction {
   label: string;
@@ -30,72 +31,72 @@ export default function EmptyState({
 }: EmptyStateProps) {
   const actionContent = action ? (
     action.href ? (
-      <Link
-        href={action.href}
-        className="inline-flex items-center justify-center rounded-lg px-4 py-2 text-[13px] font-medium transition-all duration-300 bg-[var(--accent-green)] text-[var(--ink)] hover:bg-[var(--accent-green-light)] active:scale-[0.98]"
-      >
+      <Button render={<Link href={action.href} />} nativeButton={false}>
         {action.label}
-      </Link>
+      </Button>
     ) : (
-      <button type="button"
-        onClick={action.onClick}
-        className="inline-flex items-center justify-center rounded-lg px-4 py-2 text-[13px] font-medium transition-all duration-300 bg-[var(--accent-green)] text-[var(--ink)] hover:bg-[var(--accent-green-light)] active:scale-[0.98]"
-      >
+      <Button type="button" onClick={action.onClick}>
         {action.label}
-      </button>
+      </Button>
     )
   ) : null;
 
   return (
-    <FadeIn animation="fadeInUp" className="flex flex-col items-center justify-center py-14 px-6">
-      <div className="flex flex-col items-center text-center max-w-md">
-        {/* Icon or Image */}
-        <div className="mb-5">
+    <FadeIn animation="fadeInUp" className="flex flex-col items-center justify-center py-[var(--space-7)] px-[var(--space-6)]">
+      <div className="flex max-w-md flex-col items-center text-center">
+        <div className="mb-[var(--space-5)]">
           {image ? (
-            <Image src={image} alt={title} className="size-48 object-contain" 
-        width={800}
-        height={800}
-        unoptimized
-      />
+            <Image
+              src={image}
+              alt={title}
+              className="size-48 object-contain"
+              width={800}
+              height={800}
+              unoptimized
+            />
           ) : Icon ? (
-            <div className="size-16 rounded-2xl glass-card flex items-center justify-center">
-              <Icon size={32} className="text-[var(--accent-green)]" strokeWidth={1.5} />
+            <div className="flex size-16 items-center justify-center rounded-[var(--radius-object)] bg-[var(--surface-raised)] border border-[var(--border-subtle)]">
+              <Icon
+                size={32}
+                className="text-[var(--accent-primary)]"
+                strokeWidth={1.5}
+              />
             </div>
           ) : null}
         </div>
 
-        {/* Title */}
-        <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">
+        <h3 className="product-section-title mb-[var(--space-2)] text-[var(--text-primary)]">
           {title}
         </h3>
 
-        {/* Description */}
-        <p className="text-sm text-[var(--text-secondary)] mb-6 leading-relaxed">
+        <p className="mb-[var(--space-5)] text-[length:var(--text-body)] leading-relaxed text-[var(--text-secondary)]">
           {description}
         </p>
 
-        {/* Steps */}
         {steps && steps.length > 0 && (
-          <div className="flex items-center justify-center flex-wrap gap-2 mb-6">
+          <div className="mb-[var(--space-5)] flex flex-wrap items-center justify-center gap-[var(--space-2)]">
             {steps.map((step, index) => (
-              <div key={step} className="flex items-center gap-2">
+              <div key={step} className="flex items-center gap-[var(--space-2)]">
                 <div className="flex items-center gap-1.5">
-                  <span className="inline-flex items-center justify-center size-5 rounded-full bg-[var(--accent-green-dim)] text-[var(--accent-green-text)] text-[10px] font-semibold">
+                  <span className="inline-flex size-5 items-center justify-center rounded-full bg-[var(--accent-primary-subtle)] text-[length:var(--text-caption)] font-semibold text-[var(--accent-primary-text)]">
                     {index + 1}
                   </span>
-                  <span className="text-xs text-[var(--text-secondary)]">
+                  <span className="text-[length:var(--text-caption)] text-[var(--text-secondary)]">
                     {step}
                   </span>
                 </div>
                 {index < steps.length - 1 && (
-                  <ChevronRight size={14} className="text-[var(--border-medium)]" />
+                  <ChevronRight
+                    size={14}
+                    className="text-[var(--border-default)]"
+                    aria-hidden="true"
+                  />
                 )}
               </div>
             ))}
           </div>
         )}
 
-        {/* Action */}
         {actionContent}
       </div>
     </FadeIn>

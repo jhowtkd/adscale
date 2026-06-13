@@ -13,13 +13,13 @@ function Skeleton({ className, shimmer = true, ...props }: SkeletonProps) {
       <div
         data-slot="skeleton"
         className={cn(
-          "relative overflow-hidden rounded-md bg-muted",
+          "relative overflow-hidden rounded-[var(--radius-panel)] bg-[var(--surface-inset)]",
           className
         )}
         {...props}
       >
         <div
-          className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-muted-foreground/10 to-transparent"
+          className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-[var(--text-muted)]/10 to-transparent"
           aria-hidden="true"
         />
       </div>
@@ -29,7 +29,10 @@ function Skeleton({ className, shimmer = true, ...props }: SkeletonProps) {
   return (
     <div
       data-slot="skeleton"
-      className={cn("animate-pulse rounded-md bg-muted", className)}
+      className={cn(
+        "animate-pulse rounded-[var(--radius-panel)] bg-[var(--surface-inset)] motion-reduce:animate-none",
+        className
+      )}
       {...props}
     />
   )
