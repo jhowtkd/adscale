@@ -4,11 +4,13 @@ import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, useMemo } from "react";
 import Link from "next/link";
 import { Trash2 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";
 import dynamic from "next/dynamic";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import PageFrame from "@/components/layout/PageFrame";
+import PageHeader from "@/components/layout/PageHeader";
+import PageSection from "@/components/layout/PageSection";
+import Panel from "@/components/layout/Panel";
 import { useUploadAsset, useCampaignAssets } from "@/lib/hooks/use-assets";
 import type { DeliveryFormat } from "@/components/workspace/DeliveryPackageModal";
 
@@ -30,6 +32,7 @@ import {
   type GuidedBriefingHints,
 } from "@/server/ai/guided-briefing";
 import WorkspaceActionBar from "@/components/workspace/WorkspaceActionBar";
+import WorkspaceStageStrip from "@/components/workspace/WorkspaceStageStrip";
 import DerivationGrid from "@/components/workspace/DerivationGrid";
 import StrategyRecipePanel from "@/components/workspace/StrategyRecipePanel";
 import ClientApprovalPackagePanel from "@/components/workspace/ClientApprovalPackagePanel";
@@ -395,7 +398,10 @@ export default function CampaignWorkspacePage() {
   const isDraft = campaign?.status === "draft";
 
   return (
-    <PageFrame width="workspace" className="min-w-0 pb-20 [--content-max:68.75rem]">
+    <PageFrame
+      width="workspace"
+      className="min-w-0 workspace-scroll-padding shell-offset-bottom-mobile"
+    >
       <CampaignWorkspaceHeader
         campaignId={campaignId}
         campaignName={campaign?.name ?? ""}
@@ -405,6 +411,8 @@ export default function CampaignWorkspacePage() {
         deleteLabel={tc("deleteDraft")}
         onDelete={handleDeleteClick}
       />
+
+      <WorkspaceStageStrip workspaceState={workspaceState} className="mb-4 border-b border-[var(--border-dim)] pb-4" />
 
       {campaign && <CampaignClientSubtitle platformsText="" />}
 
@@ -580,53 +588,54 @@ function CampaignWorkspaceHeader({
   onDelete,
 }: CampaignWorkspaceHeaderProps) {
   return (
-    <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
-      <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+    <PageHeader
+      className="mb-2"
+      description={
         <Link
           href="/campaigns"
-          className="inline-flex items-center gap-1.5 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
         >
           ← {backLabel}
         </Link>
-        <div className="flex min-w-0 items-center gap-3">
-          <h1 className="min-w-0 truncate text-lg font-semibold text-[var(--text-primary)]">
-            {campaignName}
-          </h1>
+      }
+      title={campaignName}
+      meta={
+        <span
+          className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.2em] leading-tight"
+          style={{
+            backgroundColor: "rgba(0,179,74,0.15)",
+            color: "var(--accent-green)",
+          }}
+        >
           <span
-            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-mono font-bold uppercase tracking-[0.2em] leading-tight"
-            style={{
-              backgroundColor: "rgba(0,179,74,0.15)",
-              color: "var(--accent-green)",
-            }}
-          >
-            <span
-              className="inline-block size-1.5 rounded-full"
-              style={{ backgroundColor: "var(--accent-green)" }}
-            />
-            Piloto
-          </span>
-        </div>
-      </div>
-      <div className="flex shrink-0 items-center gap-2">
-        {!isNew && (
-          <ContextualFeedbackButton
-            contextKind="campaign"
-            campaignId={campaignId}
+            className="inline-block size-1.5 rounded-full"
+            style={{ backgroundColor: "var(--accent-green)" }}
           />
-        )}
-        {isDraft && !isNew && (
-          <button
-            type="button"
-            onClick={onDelete}
-            className="min-h-10 shrink-0 rounded-md p-2 text-[var(--accent-rose)] hover:bg-[rgba(244,63,94,0.08)] transition-colors"
-            title={deleteLabel}
-            aria-label={deleteLabel}
-          >
-            <Trash2 size={16} />
-          </button>
-        )}
-      </div>
-    </div>
+          Piloto
+        </span>
+      }
+      actions={
+        <>
+          {!isNew ? (
+            <ContextualFeedbackButton
+              contextKind="campaign"
+              campaignId={campaignId}
+            />
+          ) : null}
+          {isDraft && !isNew ? (
+            <button
+              type="button"
+              onClick={onDelete}
+              className="min-h-10 shrink-0 rounded-md p-2 text-[var(--accent-rose)] transition-colors hover:bg-[rgba(244,63,94,0.08)]"
+              title={deleteLabel}
+              aria-label={deleteLabel}
+            >
+              <Trash2 size={16} />
+            </button>
+          ) : null}
+        </>
+      }
+    />
   );
 }
 
@@ -755,11 +764,9 @@ function CampaignWorkspaceCard({
   const tApproval = useTranslations("clientApprovalPackage");
 
   return (
-    <div
-      className={cn(
-        "glass-card rounded-xl min-h-[400px]",
-        workspaceState === "piloto" && "p-6 md:p-8"
-      )}
+    <Panel
+      className="min-h-[400px]"
+      padding={workspaceState === "piloto" ? "md" : "none"}
     >
       {workspaceState === "piloto" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -816,7 +823,7 @@ function CampaignWorkspaceCard({
               />
             </div>
           </details>
-          <div className="hidden shrink-0 lg:block lg:w-64">
+          <div className="hidden shrink-0 lg:block lg:w-[280px]">
             <PilotSidebar
               campaignId={campaignId}
               campaign={{ name: campaign?.name || "", client: campaign?.client }}
@@ -838,10 +845,7 @@ function CampaignWorkspaceCard({
               disabled={workspaceState === "gerando"}
             />
             {allDerivations.length > 0 ? (
-              <div id="mission-performance">
-                <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--accent-green-text)]">
-                  (01) Resultados de mídia
-                </p>
+              <PageSection id="mission-performance" title="Resultados de mídia">
                 <PerformanceImportPanel
                   campaignId={campaignId}
                   derivations={allDerivations.map((d, index) => ({
@@ -852,13 +856,10 @@ function CampaignWorkspaceCard({
                         : `Derivação ${index + 1}`,
                   }))}
                 />
-              </div>
+              </PageSection>
             ) : null}
             {allDerivations.length > 0 ? (
-              <div id="mission-hypotheses">
-                <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--accent-green-text)]">
-                  (01b) Hipóteses e comparação
-                </p>
+              <PageSection id="mission-hypotheses" title="Hipóteses e comparação">
                 <HypothesesPanel
                   campaignId={campaignId}
                   derivations={allDerivations.map((d, index) => ({
@@ -869,13 +870,10 @@ function CampaignWorkspaceCard({
                         : `Derivação ${index + 1}`,
                   }))}
                 />
-              </div>
+              </PageSection>
             ) : null}
             {allDerivations.length > 0 ? (
-              <div id="mission-learnings" className="space-y-4">
-                <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--accent-green-text)]">
-                  (01c) Memória de performance
-                </p>
+              <PageSection id="mission-learnings" title="Memória de performance" className="space-y-4">
                 {onRecommendationAccept && onRecommendationEdit ? (
                   <NextExperimentRecommendationCard
                     campaignId={campaignId}
@@ -884,19 +882,13 @@ function CampaignWorkspaceCard({
                   />
                 ) : null}
                 <LearningsPanel campaignId={campaignId} />
-              </div>
+              </PageSection>
             ) : null}
-            <div id="mission-share">
-              <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--accent-green-text)]">
-                (02) {tApproval("title")}
-              </p>
+            <PageSection id="mission-share" title={tApproval("title")}>
               <ClientApprovalPackagePanel campaignId={campaignId} />
-            </div>
+            </PageSection>
             <div id="mission-review">
-            <div id="mission-export">
-              <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--accent-green-text)]">
-                (03) Derivações
-              </p>
+            <PageSection id="mission-export" title="Derivações">
               {isDerivationsError && derivationsErrorKind ? (
                 <div className="mb-3">
                   <DerivationLoadErrorBanner
@@ -956,12 +948,12 @@ function CampaignWorkspaceCard({
                     : undefined
                 }
               />
-            </div>
+            </PageSection>
             </div>
           </div>
         </div>
       )}
-    </div>
+    </Panel>
   );
 }
 

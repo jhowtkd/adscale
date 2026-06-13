@@ -517,6 +517,14 @@
     min-height: calc(100vh - var(--shell-topbar-mobile));
   }
 
+  .workspace-sticky-top {
+    top: calc(var(--shell-topbar-mobile) + var(--shell-sticky-gap));
+  }
+
+  .workspace-scroll-padding {
+    scroll-padding-top: calc(var(--shell-topbar-mobile) + var(--shell-sticky-gap) + 3rem);
+  }
+
   @media (min-width: 40rem) {
     .shell-topbar-height {
       height: var(--shell-topbar-desktop);
@@ -528,6 +536,14 @@
 
     .shell-min-height-below-topbar {
       min-height: calc(100vh - var(--shell-topbar-desktop));
+    }
+
+    .workspace-sticky-top {
+      top: calc(var(--shell-topbar-desktop) + var(--shell-sticky-gap));
+    }
+
+    .workspace-scroll-padding {
+      scroll-padding-top: calc(var(--shell-topbar-desktop) + var(--shell-sticky-gap) + 3rem);
     }
   }
 

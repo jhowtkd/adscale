@@ -532,6 +532,11 @@
       "derivar": "Derivar",
       "estilizar": "Estilizar",
       "blocked": "Resolva {count} bloqueio(s) antes de derivar"
+    },
+    "stages": {
+      "label": "Progresso da campanha",
+      "pilot": "Piloto",
+      "workspace": "Derivações"
     }
   },
   "briefing": {

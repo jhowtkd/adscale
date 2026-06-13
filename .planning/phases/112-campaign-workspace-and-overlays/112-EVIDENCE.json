@@ -1,0 +1,48 @@
+{
+  "phase": 112,
+  "verifiedAt": "2026-06-13T19:15:00.000Z",
+  "requirements": {
+    "WORK-01": {
+      "status": "pass",
+      "evidence": [
+        "WorkspaceStageStrip shows Pilot vs Derivations active step",
+        "PageHeader with back link, title, Piloto badge"
+      ],
+      "automated": "derivation-flow-regression.test.tsx"
+    },
+    "WORK-02": {
+      "status": "pass",
+      "evidence": [
+        "WorkspaceActionBar uses workspace-sticky-top and layer-sticky",
+        "PageFrame uses shell-offset-bottom-mobile and workspace-scroll-padding"
+      ],
+      "automated": "derivation-flow-regression.test.tsx + globals.css utilities"
+    },
+    "WORK-03": {
+      "status": "pass",
+      "evidence": [
+        "Overlay components unchanged; Panel removes extra glass-card stacking contexts"
+      ],
+      "automated": "existing workspace overlay tests"
+    },
+    "WORK-04": {
+      "status": "pass",
+      "evidence": [
+        "PageSection for performance, hypotheses, learnings, approval, derivations",
+        "Mobile details sidebar preserved; desktop sidebar 280px aligned"
+      ],
+      "automated": "npm test"
+    },
+    "WORK-05": {
+      "status": "pass",
+      "evidence": [
+        "No changes to useCampaignWorkspace, API routes, or mutation handlers"
+      ],
+      "automated": "1221 tests passed"
+    }
+  },
+  "automated": {
+    "unit": "1221 passed, 1 skipped",
+    "build": "pass"
+  }
+}

@@ -38,7 +38,7 @@ export default function WorkspaceActionBar({
     <div
       id="mission-generate"
       className={cn(
-        "sticky top-14 z-10 -mx-4 flex flex-wrap items-center gap-2 border-b border-[var(--border-dim)] bg-[var(--surface-base)]/95 px-4 py-3 backdrop-blur-sm sm:-mx-6 sm:px-6",
+        "workspace-sticky-top layer-sticky flex flex-wrap items-center gap-2 border-b border-[var(--border-dim)] bg-[var(--surface-base)]/95 px-4 py-3 backdrop-blur-sm sm:px-6",
         className
       )}
     >

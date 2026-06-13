@@ -42,11 +42,11 @@ Refinar todas as superfícies autenticadas do ADScale para uma linguagem compact
 
 ### Campaign Workspace (WORK)
 
-- [ ] **WORK-01**: Usuário mantém orientação clara entre briefing, upload, geração, revisão, entrega e performance mesmo após simplificação da hierarquia.
-- [ ] **WORK-02**: Barras sticky, painéis, galerias, sidebars e rodapés do workspace não ocultam conteúdo nem ações em qualquer viewport suportado.
-- [ ] **WORK-03**: Dialogs, sheets e popovers preservam foco, scroll, fechamento, retorno de foco e contexto do fluxo principal.
-- [ ] **WORK-04**: Dados densos, status e metadados operacionais continuam acessíveis por hierarquia ou progressive disclosure, sem serem removidos apenas para limpar a tela.
-- [ ] **WORK-05**: Nenhuma mudança visual altera regras de negócio, estados, permissões ou contratos existentes do fluxo de campanha.
+- [x] **WORK-01**: Usuário mantém orientação clara entre briefing, upload, geração, revisão, entrega e performance mesmo após simplificação da hierarquia.
+- [x] **WORK-02**: Barras sticky, painéis, galerias, sidebars e rodapés do workspace não ocultam conteúdo nem ações em qualquer viewport suportado.
+- [x] **WORK-03**: Dialogs, sheets e popovers preservam foco, scroll, fechamento, retorno de foco e contexto do fluxo principal.
+- [x] **WORK-04**: Dados densos, status e metadados operacionais continuam acessíveis por hierarquia ou progressive disclosure, sem serem removidos apenas para limpar a tela.
+- [x] **WORK-05**: Nenhuma mudança visual altera regras de negócio, estados, permissões ou contratos existentes do fluxo de campanha.
 
 ### Responsive Behavior (RESP)
 
@@ -114,11 +114,11 @@ Refinar todas as superfícies autenticadas do ADScale para uma linguagem compact
 | SURF-04 | Phase 111 | Complete |
 | SURF-05 | Phase 111 | Complete |
 | SURF-06 | Phase 113 | Not started |
-| WORK-01 | Phase 112 | Not started |
-| WORK-02 | Phase 112 | Not started |
-| WORK-03 | Phase 112 | Not started |
-| WORK-04 | Phase 112 | Not started |
-| WORK-05 | Phase 112 | Not started |
+| WORK-01 | Phase 112 | Complete |
+| WORK-02 | Phase 112 | Complete |
+| WORK-03 | Phase 112 | Complete |
+| WORK-04 | Phase 112 | Complete |
+| WORK-05 | Phase 112 | Complete |
 | RESP-06 | Phase 113 | Not started |
 | RESP-07 | Phase 114 | Not started |
 | RESP-08 | Phase 113 | Not started |

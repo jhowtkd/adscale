@@ -7,15 +7,17 @@ export default function PageSection({
   actions,
   children,
   className,
+  id,
 }: {
   title?: ReactNode;
   description?: ReactNode;
   actions?: ReactNode;
   children: ReactNode;
   className?: string;
+  id?: string;
 }) {
   return (
-    <section className={cn("space-y-4", className)}>
+    <section id={id} className={cn("space-y-4", className)}>
       {(title || description || actions) && (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 space-y-1">

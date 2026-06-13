@@ -5,11 +5,8 @@ import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { ImageIcon, Target, Users, MessageSquare, Monitor, MousePointer, Loader2 } from "lucide-react";
 import { useCampaignAssets } from "@/lib/hooks/use-assets";
+import Panel from "@/components/layout/Panel";
 import CreativeReadinessPanel from "@/components/workspace/CreativeReadinessPanel";
-
-// ============================================
-// Types
-// ============================================
 
 interface PilotSidebarProps {
   campaignId: string;
@@ -51,15 +48,11 @@ function BriefingRow({ icon, label, value }: BriefingRowProps) {
         <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ghost)]">
           {label}
         </p>
-        <p className="mt-0.5 text-sm text-[var(--text-primary)] truncate">{value}</p>
+        <p className="mt-0.5 truncate text-sm text-[var(--text-primary)]">{value}</p>
       </div>
     </div>
   );
 }
-
-// ============================================
-// Component
-// ============================================
 
 export default function PilotSidebar({
   campaignId,
@@ -87,13 +80,11 @@ export default function PilotSidebar({
   );
 
   return (
-    <aside className="w-[280px] flex-shrink-0 flex flex-col gap-4">
-      {/* Campaign Card */}
-      <div className="rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)] p-4">
+    <aside className="flex w-full max-w-[280px] shrink-0 flex-col gap-4">
+      <Panel padding="sm" className="space-y-4">
         <div
           className={cn(
-            "relative overflow-hidden rounded-lg mb-4 p-[30px]",
-            "bg-[var(--surface-raised)] flex items-center justify-center"
+            "relative flex items-center justify-center overflow-hidden rounded-lg bg-[var(--surface-raised)] p-[30px]",
           )}
           style={{ height: 220 }}
         >
@@ -121,62 +112,57 @@ export default function PilotSidebar({
           )}
         </div>
 
-        {/* Tags */}
-        <div className="flex items-center gap-2 mb-2">
-          <span className="inline-flex items-center rounded-full bg-[var(--accent-green-dim)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-[var(--accent-green-text)]">
-            Piloto
-          </span>
-          {campaign.client && (
-            <span className="inline-flex items-center rounded-full bg-[var(--surface-raised)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
-              {campaign.client}
+        <div>
+          <div className="mb-2 flex items-center gap-2">
+            <span className="inline-flex items-center rounded-full bg-[var(--accent-green-dim)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-[var(--accent-green-text)]">
+              Piloto
             </span>
-          )}
+            {campaign.client ? (
+              <span className="inline-flex items-center rounded-full bg-[var(--surface-raised)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
+                {campaign.client}
+              </span>
+            ) : null}
+          </div>
+          <h3 className="text-sm font-semibold leading-tight text-[var(--text-primary)]">
+            {campaign.name}
+          </h3>
         </div>
 
-        {/* Campaign Name */}
-        <h3 className="text-sm font-semibold text-[var(--text-primary)] leading-tight">
-          {campaign.name}
-        </h3>
-      </div>
-
-      {/* Briefing Summary Card */}
-      {hasBriefing && (
-        <div className="rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)] p-4 animate-fade-in">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ghost)]">
+        {hasBriefing ? (
+          <div className="border-t border-[var(--border-dim)] pt-4 animate-fade-in">
+            <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ghost)]">
               Resumo do briefing
-            </span>
+            </p>
+            <div className="divide-y divide-[var(--border-dim)]">
+              <BriefingRow
+                icon={<Target size={14} />}
+                label="Objetivo"
+                value={briefing.objective}
+              />
+              <BriefingRow
+                icon={<Users size={14} />}
+                label="Público"
+                value={briefing.audience}
+              />
+              <BriefingRow
+                icon={<MessageSquare size={14} />}
+                label="Tom"
+                value={briefing.tone}
+              />
+              <BriefingRow
+                icon={<Monitor size={14} />}
+                label="Plataformas"
+                value={briefing.platforms}
+              />
+              <BriefingRow
+                icon={<MousePointer size={14} />}
+                label="CTA"
+                value={briefing.ctaText}
+              />
+            </div>
           </div>
-
-          <div className="divide-y divide-[var(--border-dim)]">
-            <BriefingRow
-              icon={<Target size={14} />}
-              label="Objetivo"
-              value={briefing.objective}
-            />
-            <BriefingRow
-              icon={<Users size={14} />}
-              label="Público"
-              value={briefing.audience}
-            />
-            <BriefingRow
-              icon={<MessageSquare size={14} />}
-              label="Tom"
-              value={briefing.tone}
-            />
-            <BriefingRow
-              icon={<Monitor size={14} />}
-              label="Plataformas"
-              value={briefing.platforms}
-            />
-            <BriefingRow
-              icon={<MousePointer size={14} />}
-              label="CTA"
-              value={briefing.ctaText}
-            />
-          </div>
-        </div>
-      )}
+        ) : null}
+      </Panel>
 
       <div id="mission-readiness">
         <CreativeReadinessPanel
