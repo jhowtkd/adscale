@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v12.2
 milestone_name: Refinamento Visual e Consistência da Interface
 status: executing
-stopped_at: Completed 109-04-PLAN.md
-last_updated: "2026-06-13T15:10:30.000Z"
-last_activity: 2026-06-13 — Plan 109-04 basic controls and data states completed
+stopped_at: Completed 109-05-PLAN.md
+last_updated: "2026-06-13T15:26:30.000Z"
+last_activity: 2026-06-13 — Plan 109-05 overlay primitives completed
 progress:
   total_phases: 26
   completed_phases: 4
   total_plans: 6
-  completed_plans: 4
-  percent: 67
+  completed_plans: 5
+  percent: 83
 ---
 
 # Project State
@@ -30,11 +30,11 @@ See: .planning/PROJECT.md (updated 2026-06-12)
 ## Current Position
 
 Phase: 109 of 114 (Visual Foundations and Baseline)
-Plan: 4 of 6
+Plan: 5 of 6
 Status: In progress
-Last activity: 2026-06-13 — Plan 109-04 basic controls and data states completed
+Last activity: 2026-06-13 — Plan 109-05 overlay primitives completed
 
-Progress: [███████░░░] 67%
+Progress: [████████░░] 83%
 
 ## Summary
 
@@ -43,9 +43,9 @@ v12.2 will refine the complete authenticated app into a compact, professional an
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4
-- Average duration: 25 min
-- Total execution time: 1h 44m
+- Total plans completed: 5
+- Average duration: 23 min
+- Total execution time: 1h 58m
 
 **By Phase:**
 
@@ -69,7 +69,7 @@ v12.2 will refine the complete authenticated app into a compact, professional an
 - [Phase 109]: Screenshot binaries remain local while versioned JSON stores their paths and SHA-256 hashes.
 - [Phase 109]: Canonical semantic roles own all theme values; live legacy names are one-way aliases only.
 - [Phase 109]: Existing visual debt is frozen by exact file and rule counts while later owner phases migrate consumers.
-- [Phase 109]: Basic controls consume canonical density, radius, motion, and semantic roles without caller migration.
+- [Phase 109]: Dialog/sheet backdrops use layer-backdrop; content uses layer-overlay; popovers use layer-popover.
 
 ### Pending Todos
 
@@ -95,10 +95,10 @@ None.
 
 ## Next action
 
-Execute Plan 109-05: Overlay primitives and layer behavior.
+Execute Plan 109-06: Browser proof and validation closure.
 
 ## Session Continuity
 
-Last session: 2026-06-13T15:10:30.000Z
-Stopped at: Completed 109-04-PLAN.md
-Resume file: .planning/phases/109-visual-foundations-and-baseline/109-05-PLAN.md
+Last session: 2026-06-13T15:26:30.000Z
+Stopped at: Completed 109-05-PLAN.md
+Resume file: .planning/phases/109-visual-foundations-and-baseline/109-06-PLAN.md
