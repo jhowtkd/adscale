@@ -16,10 +16,10 @@ Refinar todas as superfícies autenticadas do ADScale para uma linguagem compact
 
 ### Foundations (FOUND)
 
-- [ ] **FOUND-01**: Usuário encontra cores, superfícies, bordas, textos e estados semânticos consistentes em todas as superfícies autenticadas.
-- [ ] **FOUND-02**: Usuário percebe uma escala consistente de tipografia, espaçamento e densidade adequada a uma ferramenta profissional compacta.
-- [ ] **FOUND-03**: Todas as rotas usam contratos compartilhados de gutters, larguras de conteúdo, top bar, sidebar, navegação mobile e offsets sticky.
-- [ ] **FOUND-04**: Conteúdo, navegação, sticky regions, popovers, backdrops, modais, sheets e toasts seguem uma escala única de camadas sem competição de z-index.
+- [x] **FOUND-01**: Usuário encontra cores, superfícies, bordas, textos e estados semânticos consistentes em todas as superfícies autenticadas.
+- [x] **FOUND-02**: Usuário percebe uma escala consistente de tipografia, espaçamento e densidade adequada a uma ferramenta profissional compacta.
+- [x] **FOUND-03**: Todas as rotas usam contratos compartilhados de gutters, larguras de conteúdo, top bar, sidebar, navegação mobile e offsets sticky.
+- [x] **FOUND-04**: Conteúdo, navegação, sticky regions, popovers, backdrops, modais, sheets e toasts seguem uma escala única de camadas sem competição de z-index.
 - [ ] **FOUND-05**: Componentes equivalentes convergem para uma linguagem única de botões, controles, badges, painéis, estados e feedback interativo.
 
 ### Shell and Navigation (SHELL)
@@ -97,10 +97,10 @@ Refinar todas as superfícies autenticadas do ADScale para uma linguagem compact
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FOUND-01 | Phase 109 | Pending |
-| FOUND-02 | Phase 109 | Pending |
-| FOUND-03 | Phase 109 | Pending |
-| FOUND-04 | Phase 109 | Pending |
+| FOUND-01 | Phase 109 | Complete |
+| FOUND-02 | Phase 109 | Complete |
+| FOUND-03 | Phase 109 | Complete |
+| FOUND-04 | Phase 109 | Complete |
 | FOUND-05 | Phase 109 | Pending |
 | SHELL-01 | Phase 110 | Pending |
 | SHELL-02 | Phase 110 | Pending |
