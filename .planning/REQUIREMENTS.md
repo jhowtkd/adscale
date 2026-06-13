@@ -63,7 +63,7 @@ Refinar todas as superfícies autenticadas do ADScale para uma linguagem compact
 
 ### Verification (QA)
 
-- [ ] **QA-14**: Cada rota autenticada e família de componentes pertence a exatamente uma phase de implementação e a pelo menos um cenário de browser no release gate.
+- [x] **QA-14**: Cada rota autenticada e família de componentes pertence a exatamente uma phase de implementação e a pelo menos um cenário de browser no release gate.
 - [ ] **QA-15**: A matriz de validação cobre dados densos, vazio, loading, erro, conteúdo longo e combinações críticas de overlays.
 - [ ] **QA-16**: Regressões visuais ou responsivas com lógica reproduzível recebem cobertura automatizada focada.
 - [ ] **QA-17**: `npm test`, `npm run lint`, `npm run build`, auditoria de acessibilidade e UAT visual passam antes do release.
@@ -126,7 +126,7 @@ Refinar todas as superfícies autenticadas do ADScale para uma linguagem compact
 | A11Y-07 | Phase 113 | Pending |
 | A11Y-08 | Phase 113 | Pending |
 | A11Y-09 | Phase 113 | Pending |
-| QA-14 | Phase 109 | Pending |
+| QA-14 | Phase 109 | Complete |
 | QA-15 | Phase 114 | Pending |
 | QA-16 | Phase 114 | Pending |
 | QA-17 | Phase 114 | Pending |
