@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v12.2
 milestone_name: Refinamento Visual e Consistência da Interface
 status: executing
-stopped_at: Completed 109-01-PLAN.md
-last_updated: "2026-06-13T12:18:59.937Z"
-last_activity: 2026-06-13 — Plan 109-01 execution guardrails completed
+stopped_at: Completed 109-02-PLAN.md
+last_updated: "2026-06-13T13:35:45.000Z"
+last_activity: 2026-06-13 — Plan 109-02 ownership and before-change baseline completed
 progress:
   total_phases: 26
   completed_phases: 4
   total_plans: 6
-  completed_plans: 1
-  percent: 17
+  completed_plans: 2
+  percent: 33
 ---
 
 # Project State
@@ -30,11 +30,11 @@ See: .planning/PROJECT.md (updated 2026-06-12)
 ## Current Position
 
 Phase: 109 of 114 (Visual Foundations and Baseline)
-Plan: 1 of 6
+Plan: 2 of 6
 Status: In progress
-Last activity: 2026-06-13 — Plan 109-01 execution guardrails completed
+Last activity: 2026-06-13 — Plan 109-02 ownership and before-change baseline completed
 
-Progress: [██░░░░░░░░] 17%
+Progress: [███░░░░░░░] 33%
 
 ## Summary
 
@@ -43,16 +43,17 @@ v12.2 will refine the complete authenticated app into a compact, professional an
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1
-- Average duration: 3 min
-- Total execution time: 3 min
+- Total plans completed: 2
+- Average duration: 39 min
+- Total execution time: 1h 18m
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 109-114 | 1 | 6 planned | 3 min |
+| 109-114 | 2 | 6 planned | 39 min |
 | Phase 109 P01 | 3min | 2 tasks | 5 files |
+| Phase 109 P02 | 1h 15m | 3 tasks | 9 versioned files |
 
 ## Accumulated Context
 
@@ -62,6 +63,8 @@ v12.2 will refine the complete authenticated app into a compact, professional an
 - Every v12.2 requirement maps to exactly one phase; Phase 114 remains an independent evidence gate.
 - [Phase 109]: Protected verification compares per-path HEAD blobs, index entries, worktree hashes, and porcelain-v2 records so unrelated commits remain valid.
 - [Phase 109]: Immutable plan scope baselines live outside the worktree under .git/gsd-guards.
+- [Phase 109]: Visual evidence uses only visual-foundations@example.test and validates an exact 49-capture matrix with artifact hashes.
+- [Phase 109]: Screenshot binaries remain local while versioned JSON stores their paths and SHA-256 hashes.
 
 ### Pending Todos
 
@@ -88,10 +91,10 @@ None yet.
 
 ## Next action
 
-Execute Plan 109-02: Ownership inventory and deterministic pre-change baseline.
+Execute Plan 109-03: Canonical visual foundation contract.
 
 ## Session Continuity
 
-Last session: 2026-06-13T12:18:59.935Z
-Stopped at: Completed 109-01-PLAN.md
-Resume file: .planning/phases/109-visual-foundations-and-baseline/109-02-PLAN.md
+Last session: 2026-06-13T13:35:45.000Z
+Stopped at: Completed 109-02-PLAN.md
+Resume file: .planning/phases/109-visual-foundations-and-baseline/109-03-PLAN.md
