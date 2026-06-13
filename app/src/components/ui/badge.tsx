@@ -5,7 +5,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const badgeVariants = cva(
-  "group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all duration-200 ease-out focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3!",
+  "group/badge inline-flex h-[var(--control-sm)] w-fit shrink-0 items-center justify-center gap-[var(--space-1)] overflow-hidden rounded-[var(--radius-pill)] border border-transparent px-[var(--space-2)] py-0 text-[length:var(--text-caption)] font-medium whitespace-nowrap transition-all duration-[var(--duration-default)] ease-[var(--ease-product)] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3!",
   {
     variants: {
       variant: {
@@ -19,6 +19,16 @@ const badgeVariants = cva(
         ghost:
           "hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50",
         link: "text-primary underline-offset-4 hover:underline",
+        neutral:
+          "border border-[var(--neutral-border)] bg-[var(--neutral-bg)] text-[var(--neutral-text)]",
+        success:
+          "border border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success-text)]",
+        warning:
+          "border border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning-text)]",
+        danger:
+          "border border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger-text)]",
+        info:
+          "border border-[var(--info-border)] bg-[var(--info-bg)] text-[var(--info-text)]",
       },
     },
     defaultVariants: {
