@@ -7,6 +7,7 @@ import { mountVisualLayerHarness } from "./support/visual-layer-harness";
 
 const EMAIL = "visual-foundations@example.test";
 const PASSWORD = process.env.VISUAL_FOUNDATIONS_PASSWORD ?? "VisualFoundations123!";
+const CAPTURE_SUFFIX = process.env.VISUAL_CAPTURE_STAGE === "after" ? "after" : "before";
 const MANIFEST_PATH = path.resolve(process.cwd(), "test-results/visual-foundations/manifest.json");
 const SCREENSHOT_DIR = path.resolve(process.cwd(), "../.planning/phases/109-visual-foundations-and-baseline/evidence");
 const EVIDENCE_PATH = path.resolve(process.cwd(), "../.planning/phases/109-visual-foundations-and-baseline/109-EVIDENCE.json");
@@ -55,16 +56,33 @@ function recordCapture(capture: Capture) {
         schemaVersion: 1,
         capturedAt: new Date().toISOString(),
         identity: EMAIL,
-        before: { cssHash: execFileSync("git", ["hash-object", "app/src/app/globals.css"], { cwd: path.resolve(process.cwd(), ".."), encoding: "utf8" }).trim() },
+        before: {
+          cssHash: execFileSync("git", ["hash-object", "app/src/app/globals.css"], {
+            cwd: path.resolve(process.cwd(), ".."),
+            encoding: "utf8",
+          }).trim(),
+        },
         captures: [],
+        afterCaptures: [],
         defects: [
           { id: "DEFECT-LANDMARKS", observation: "Nested or duplicate main landmarks in authenticated shell", owner: "110" },
           { id: "DEFECT-CONTRAST", observation: "Existing electric-green text/action contrast below WCAG target", owner: "113" },
           { id: "DEFECT-BRAND-KIT-DIALOG", observation: "Brand Kit confirmation crashes because settings.brandKit.clearConfirm is missing", owner: "113" },
         ],
       };
-  current.captures = [...current.captures.filter((item: Capture) => item.key !== capture.key), capture]
-    .sort((a: Capture, b: Capture) => a.key.localeCompare(b.key));
+  const field = CAPTURE_SUFFIX === "after" ? "afterCaptures" : "captures";
+  const list = current[field] ?? [];
+  current[field] = [...list.filter((item: Capture) => item.key !== capture.key), capture].sort(
+    (a: Capture, b: Capture) => a.key.localeCompare(b.key),
+  );
+  if (CAPTURE_SUFFIX === "after") {
+    current.after = {
+      cssHash: execFileSync("git", ["hash-object", "app/src/app/globals.css"], {
+        cwd: path.resolve(process.cwd(), ".."),
+        encoding: "utf8",
+      }).trim(),
+    };
+  }
   writeFileSync(EVIDENCE_PATH, `${JSON.stringify(current, null, 2)}\n`);
 }
 
@@ -128,7 +146,7 @@ function variant(width: number) {
 async function capture(page: Page, manifest: Manifest, scenario: string, state: string, width: number) {
   mkdirSync(SCREENSHOT_DIR, { recursive: true });
   const { locale, theme } = variant(width);
-  const name = `${scenario}-${state}-${width}-${theme}-${locale}-before.png`.toLowerCase();
+  const name = `${scenario}-${state}-${width}-${theme}-${locale}-${CAPTURE_SUFFIX}.png`.toLowerCase();
   const absolute = path.join(SCREENSHOT_DIR, name);
   await page.screenshot({ path: absolute, fullPage: true, mask: maskLocators(page, manifest), animations: "disabled" });
   recordCapture({
@@ -206,6 +224,7 @@ test.describe("visual foundations", () => {
   });
 
   test("before baseline empty state loading state error state", async ({ page }, testInfo) => {
+    test.skip(CAPTURE_SUFFIX === "after");
     const width = testInfo.project.use.viewport?.width;
     if (!width) throw new Error("Visual project has no viewport width");
     if (width === 390 && process.env.VISUAL_FOUNDATIONS_RESET === "true") {
@@ -264,7 +283,62 @@ test.describe("visual foundations", () => {
 
   });
 
+  test("after foundation matrix empty state loading state error state", async ({ page }, testInfo) => {
+    test.skip(CAPTURE_SUFFIX !== "after");
+    const width = testInfo.project.use.viewport?.width;
+    if (!width) throw new Error("Visual project has no viewport width");
+    const { locale, theme } = variant(width);
+    await login(page, locale, theme);
+
+    const dashboardPopulated = [390, 1024, 1440, 1920].includes(width);
+    if (dashboardPopulated) {
+      await page.goto(manifest.routes.dashboard);
+      await expect(page.locator("main")).toBeVisible();
+      await capture(page, manifest, "dashboard", "populated", width);
+    }
+    if ([390, 768, 1280].includes(width)) {
+      for (const state of ["empty", "loading", "error"] as const) {
+        await captureApiState(page, manifest, { scenario: "dashboard", state, width, route: "/", api: /\/api\/dashboard\/stats/, emptyBody: emptyDashboard });
+      }
+    }
+
+    if ([390, 768, 1280, 1920].includes(width)) {
+      await page.goto(manifest.routes.campaignList);
+      await expect(page.locator("main")).toBeVisible();
+      await capture(page, manifest, "campaign-list", "dense", width);
+    }
+    if ([390, 768, 1280].includes(width)) {
+      for (const state of ["empty", "loading", "error"] as const) {
+        await captureApiState(page, manifest, { scenario: "campaign-list", state, width, route: "/campaigns", api: /\/api\/campaigns(?:\?|$)/, emptyBody: { campaigns: [], totalCount: 0 } });
+      }
+    }
+
+    if ([390, 1024, 1440].includes(width)) {
+      await page.goto(manifest.routes.workspace);
+      await expect(page.locator("main")).toBeVisible();
+      await capture(page, manifest, "workspace", "populated", width);
+    }
+    if ([390, 1024].includes(width)) {
+      for (const state of ["loading", "error"] as const) {
+        await captureApiState(page, manifest, {
+          scenario: "workspace", state, width, route: manifest.routes.workspace,
+          api: new RegExp(`/api/campaigns/${manifest.fixtureIds.campaignIds[0]}(?:\\?|$)`), emptyBody: {},
+        });
+      }
+    }
+
+    if ([390, 768, 1280].includes(width)) {
+      await page.goto(manifest.routes.settingsProfile);
+      await expect(page.locator("main")).toBeVisible();
+      await capture(page, manifest, "settings", "normal", width);
+      const email = page.locator('input[type="email"]').first();
+      if (await email.isVisible()) await email.fill("invalid-example.test");
+      await capture(page, manifest, "settings", "validation-error", width);
+    }
+  });
+
   test("before baseline settings confirmation dialog", async ({ page }, testInfo) => {
+    test.skip(CAPTURE_SUFFIX === "after");
     const width = testInfo.project.use.viewport?.width;
     test.skip(!width || ![390, 1440].includes(width));
     if (!width) return;
@@ -282,7 +356,50 @@ test.describe("visual foundations", () => {
     await capture(page, manifest, "overlay", "settings-confirmation-dialog", width);
   });
 
+  test("after account dropdown settings confirmation dialog derivation review sheet layer harness", async ({ page }, testInfo) => {
+    test.skip(CAPTURE_SUFFIX !== "after");
+    const width = testInfo.project.use.viewport?.width;
+    test.skip(!width || ![390, 1440].includes(width));
+    if (!width) return;
+    const { locale, theme } = variant(width);
+    await login(page, locale, theme);
+
+    await page.goto(manifest.routes.dashboard);
+    const accountMenu = page.getByRole("button", { name: /menu da conta|account menu/i });
+    await expect(accountMenu).toBeVisible();
+    await accountMenu.click();
+    await expect(page.getByRole("menuitem").first()).toBeVisible();
+    await capture(page, manifest, "overlay", "account-dropdown", width);
+    await page.keyboard.press("Escape");
+
+    await page.goto("/settings?tab=privacy");
+    const deleteAccount = page.getByRole("button", { name: /quero excluir minha conta|delete account/i });
+    await expect(deleteAccount).toBeEnabled();
+    const confirmation = page.getByLabel(/confirm delete account/i);
+    for (let attempt = 0; attempt < 3 && !(await confirmation.isVisible()); attempt += 1) {
+      await deleteAccount.click();
+      await page.waitForTimeout(500);
+    }
+    await expect(confirmation).toBeVisible();
+    await capture(page, manifest, "overlay", "settings-confirmation-dialog", width);
+    await page.keyboard.press("Escape");
+
+    await page.goto(manifest.routes.workspace);
+    const preview = page.getByRole("button", { name: /^(visualizar|preview)\s/i }).first();
+    await expect(preview).toBeVisible();
+    await preview.click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await capture(page, manifest, "overlay", "derivation-review-sheet", width);
+    await page.keyboard.press("Escape");
+
+    await mountVisualLayerHarness(page, "sticky-popover-toast");
+    await capture(page, manifest, "layer-harness", "sticky-popover-toast", width);
+    await mountVisualLayerHarness(page, "shell-backdrop-overlay-toast");
+    await capture(page, manifest, "layer-harness", "shell-backdrop-overlay-toast", width);
+  });
+
   test("before baseline derivation review sheet", async ({ page }, testInfo) => {
+    test.skip(CAPTURE_SUFFIX === "after");
     const width = testInfo.project.use.viewport?.width;
     test.skip(!width || ![390, 1440].includes(width));
     if (!width) return;
@@ -297,6 +414,7 @@ test.describe("visual foundations", () => {
   });
 
   test("before baseline layer harness", async ({ page }, testInfo) => {
+    test.skip(CAPTURE_SUFFIX === "after");
     const width = testInfo.project.use.viewport?.width;
     test.skip(!width || ![390, 1440].includes(width));
     if (!width) return;

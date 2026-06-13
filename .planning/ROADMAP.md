@@ -35,7 +35,8 @@
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
-| 109 | 5/6 | In Progress|  | - |
+| 109 | 6/6 | Complete |  | 2026-06-13 |
+| 110 | 0/TBD | Not started |  | - |
 | 110 | App Shell and Navigation | SHELL-01–05 | Not started | - |
 | 111 | Page Primitives and Operational Surfaces | SURF-01–05 | Not started | - |
 | 112 | Campaign Workspace and Overlays | WORK-01–05 | Not started | - |
@@ -190,7 +191,7 @@ Archive: [v11.8-ROADMAP.md](milestones/v11.8-ROADMAP.md) · [v11.8-REQUIREMENTS.
   3. Conteúdo, regiões sticky, navegação e overlays obedecem uma ordem de camadas única, sem elementos locais competindo por sobreposição.
   4. Cada rota autenticada e família compartilhada possui exatamente uma phase de implementação e ao menos um cenário definido para o browser release gate.
 
-**Plans:** 5/6 plans executed
+**Plans:** 6/6 plans executed
 
 Plans:
 - [x] 109-01-PLAN.md — Execution guardrails and immutable dirty-state snapshot
@@ -198,7 +199,7 @@ Plans:
 - [x] 109-03-PLAN.md — Canonical visual foundation contract
 - [x] 109-04-PLAN.md — Basic controls and data-state primitives
 - [x] 109-05-PLAN.md — Overlay primitives and layer behavior
-- [ ] 109-06-PLAN.md — Browser proof and validation closure
+- [x] 109-06-PLAN.md — Browser proof and validation closure
 
 ---
 

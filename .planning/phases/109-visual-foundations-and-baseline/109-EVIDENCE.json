@@ -14,7 +14,7 @@
       "theme": "light",
       "locale": "en",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/campaign-list-dense-1280-light-en-before.png",
-      "sha256": "b12263819e6d616da4df5c6bcc0ec1522442c392edc73f5aae895812a1229067",
+      "sha256": "63e333d08c52a8aa1190133945b4f70216c9e0690123779afe634ab50deecb1b",
       "masks": [
         "email",
         "user",
@@ -34,7 +34,7 @@
       "theme": "dark",
       "locale": "en",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/campaign-list-dense-1920-dark-en-before.png",
-      "sha256": "7980f61e1dd932d108d271be0a35b8987f47256427250d34690fe3c3bc949463",
+      "sha256": "2ebf5c239e71042f9bf62f507616a1fb40234aeaafd63495f5b8d50f6155276e",
       "masks": [
         "email",
         "user",
@@ -54,7 +54,7 @@
       "theme": "light",
       "locale": "pt-BR",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/campaign-list-dense-390-light-pt-br-before.png",
-      "sha256": "3658cc87f98862ddaaf005ecf93c74948c696ab4cc1866faafc9e76fc329c18c",
+      "sha256": "415eb01965c34b79a19b0a535ffa81a507e25b2a6524aa04d35f8922bdef4d7e",
       "masks": [
         "email",
         "user",
@@ -74,7 +74,7 @@
       "theme": "dark",
       "locale": "en",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/campaign-list-dense-768-dark-en-before.png",
-      "sha256": "8cd5cb0c59e9a7cd0f2612bfe9b35233a709f46bb93e32d7d457a66c85c262ee",
+      "sha256": "d77049b90a717fc0122bb0967794881b5aae0e985cefda543376652f68de7909",
       "masks": [
         "email",
         "user",
@@ -94,7 +94,7 @@
       "theme": "light",
       "locale": "en",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/campaign-list-empty-1280-light-en-before.png",
-      "sha256": "f1cc390578db0f53c987e69d9c3a73194689683d7939ab8c33b3e3f7735fcd4d",
+      "sha256": "35626ce12a28d452eea6aed49f039730df2226255101fb5248e550cfbf1e7542",
       "masks": [
         "email",
         "user",
@@ -114,7 +114,7 @@
       "theme": "light",
       "locale": "pt-BR",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/campaign-list-empty-390-light-pt-br-before.png",
-      "sha256": "3658cc87f98862ddaaf005ecf93c74948c696ab4cc1866faafc9e76fc329c18c",
+      "sha256": "e1333bf25ccf1dc804cc3ec803887a70c01afb736fdada9a88b9e1d6ba4d3bd7",
       "masks": [
         "email",
         "user",
@@ -134,7 +134,7 @@
       "theme": "dark",
       "locale": "en",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/campaign-list-empty-768-dark-en-before.png",
-      "sha256": "14f3dd4c5051ddd21b9a43e6c8a8508a653c979596e50b3ec74b75ccaee32cda",
+      "sha256": "a5d00931f9b9fc19ff0a14075927ee880b69b8824727834b1a367e8309ae77fa",
       "masks": [
         "email",
         "user",
@@ -154,7 +154,7 @@
       "theme": "light",
       "locale": "en",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/campaign-list-error-1280-light-en-before.png",
-      "sha256": "74fe8c1177b0c1652643d75844fcff39deceb59305052013a751fdc4a4ab0829",
+      "sha256": "1dede65e7d9e0350baf8149a8219ede228704935cfc85748d773224362f3cd61",
       "masks": [
         "email",
         "user",
@@ -174,7 +174,7 @@
       "theme": "light",
       "locale": "pt-BR",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/campaign-list-error-390-light-pt-br-before.png",
-      "sha256": "b1eccf900a69b6a15da3bd5f91cb0c79cfed5311857da7dd98c3abdd8eb2c296",
+      "sha256": "6b8d67a90bcb003235b94a6a0ce53df25be1675c957b087b9a5b90d6c4db86e2",
       "masks": [
         "email",
         "user",
@@ -194,7 +194,7 @@
       "theme": "dark",
       "locale": "en",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/campaign-list-error-768-dark-en-before.png",
-      "sha256": "ae9d42f8853b7d2e4a7bf582e8bed26d463d1fd2bd1e10e0ffc13947db9863b3",
+      "sha256": "32a2892d8c908233db96e71ce120f820f38ebc3ceeb50e5a210eae00bb25a983",
       "masks": [
         "email",
         "user",
@@ -214,7 +214,7 @@
       "theme": "light",
       "locale": "en",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/campaign-list-loading-1280-light-en-before.png",
-      "sha256": "aeba6ef8ccce62eee7cdc9a9601cbb5d4d4f0c780a5bae4287090a342ed850ea",
+      "sha256": "0368f301443f624136070a8074e462f98961ca198fb1c107c2034e590ed29e96",
       "masks": [
         "email",
         "user",
@@ -234,7 +234,7 @@
       "theme": "light",
       "locale": "pt-BR",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/campaign-list-loading-390-light-pt-br-before.png",
-      "sha256": "3658cc87f98862ddaaf005ecf93c74948c696ab4cc1866faafc9e76fc329c18c",
+      "sha256": "415eb01965c34b79a19b0a535ffa81a507e25b2a6524aa04d35f8922bdef4d7e",
       "masks": [
         "email",
         "user",
@@ -254,7 +254,7 @@
       "theme": "dark",
       "locale": "en",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/campaign-list-loading-768-dark-en-before.png",
-      "sha256": "71d65eb7eeedc0d7bcca266d1a76083075fbd50f3929fc4340581578e1b7b50f",
+      "sha256": "32a2892d8c908233db96e71ce120f820f38ebc3ceeb50e5a210eae00bb25a983",
       "masks": [
         "email",
         "user",
@@ -274,7 +274,7 @@
       "theme": "light",
       "locale": "en",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/dashboard-empty-1280-light-en-before.png",
-      "sha256": "4b8e57955219ab880d24d8c7a60a7e410973f7204ad9f78978932dd0f242c6cf",
+      "sha256": "90484aa0414ffe60ff5a3500e4b83136258c592054bf38451b5966e4972f6557",
       "masks": [
         "email",
         "user",
@@ -294,7 +294,7 @@
       "theme": "light",
       "locale": "pt-BR",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/dashboard-empty-390-light-pt-br-before.png",
-      "sha256": "02601a388c5c59d542b9ef895ae831b7e31922743e22a798e96122485fcfaaf6",
+      "sha256": "031f75f9eea8a04f2a115d158d5e3beeb61748fdfb5de2cecda7ff3cfdfa46e3",
       "masks": [
         "email",
         "user",
@@ -314,7 +314,7 @@
       "theme": "dark",
       "locale": "en",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/dashboard-empty-768-dark-en-before.png",
-      "sha256": "3d3c739c19e38e002de57f4a48afb123ae7963f6397bcb9dcff6088d91cbdaba",
+      "sha256": "c42b031eda06319831836e39f53735f3209b99f3f87af7347e73e0c1fa0d7cb3",
       "masks": [
         "email",
         "user",
@@ -334,7 +334,7 @@
       "theme": "light",
       "locale": "en",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/dashboard-error-1280-light-en-before.png",
-      "sha256": "27e01d7ccb430e6c830abd86e0680189c519c08474b5e3944af56d9843031bbd",
+      "sha256": "969689cbf0c6838a9591ad2d283c8fd3b475e950323be61fdfce4fb853706b06",
       "masks": [
         "email",
         "user",
@@ -354,7 +354,7 @@
       "theme": "light",
       "locale": "pt-BR",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/dashboard-error-390-light-pt-br-before.png",
-      "sha256": "c9075ac6100d8ce393bfb9b774fdf5e6d92323a3c4cfb4c802e28d4bbb8af066",
+      "sha256": "e390792952522cedd7bd1dc24f7f65314e58fb94ad0eed011b9b20de8d3b8400",
       "masks": [
         "email",
         "user",
@@ -374,7 +374,7 @@
       "theme": "dark",
       "locale": "en",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/dashboard-error-768-dark-en-before.png",
-      "sha256": "67ec89174760208f090f3e740b7da757cd894648dcc2c830fb9af2ce450d78f0",
+      "sha256": "1cd8250fd0c7155ad506450d0aafec15cc4ec5fe92ecf365432194338266ccdc",
       "masks": [
         "email",
         "user",
@@ -394,7 +394,7 @@
       "theme": "light",
       "locale": "en",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/dashboard-loading-1280-light-en-before.png",
-      "sha256": "8c0e4ab5332ac3e26da6935edcedf826ba739f16f5ad07789da69aa7e465c571",
+      "sha256": "fa78baae7bd5525f3a11c96c552daee83a29093d32c6a50580fb9509d762da53",
       "masks": [
         "email",
         "user",
@@ -414,7 +414,7 @@
       "theme": "light",
       "locale": "pt-BR",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/dashboard-loading-390-light-pt-br-before.png",
-      "sha256": "c6487375bd428534939f0e7b1b07d8d3297db01a6db9b2a9dcc487a09bd46800",
+      "sha256": "d24aa1abba9d2039e1a15431fb4e3c0392f1f7e17a19f462079b5721aeacea8c",
       "masks": [
         "email",
         "user",
@@ -434,7 +434,7 @@
       "theme": "dark",
       "locale": "en",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/dashboard-loading-768-dark-en-before.png",
-      "sha256": "d957bc7dac5f0b132a4c3effc0e35e0f612b369f07fa61677316fb353ba05edd",
+      "sha256": "1cd8250fd0c7155ad506450d0aafec15cc4ec5fe92ecf365432194338266ccdc",
       "masks": [
         "email",
         "user",
@@ -454,7 +454,7 @@
       "theme": "dark",
       "locale": "pt-BR",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/dashboard-populated-1024-dark-pt-br-before.png",
-      "sha256": "d6d68afcc62efcef5a205254fc82134c70fd6efc3744f8d41892fbe0b910d07e",
+      "sha256": "796d31a625d94376eb4a95b400fcca666bf49d7601bb4c5f0c8ea9105878193f",
       "masks": [
         "email",
         "user",
@@ -474,7 +474,7 @@
       "theme": "light",
       "locale": "pt-BR",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/dashboard-populated-1440-light-pt-br-before.png",
-      "sha256": "62a07c7beffd1316b9ac84978b41abd2e7b2c4c1f86c3691269acbd5f2eccb18",
+      "sha256": "4d97cf921ee95f8209e1549211da08e13d8b6482f6c4784da73a67481798587e",
       "masks": [
         "email",
         "user",
@@ -494,7 +494,7 @@
       "theme": "dark",
       "locale": "en",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/dashboard-populated-1920-dark-en-before.png",
-      "sha256": "0eda9d066b4588b53866653a03399c308f68cb158cb0e898084d2d18c6f82a9b",
+      "sha256": "2590accf1b7d09855f1d9bf3afd08459d1b833536e770aa45322b40799940af9",
       "masks": [
         "email",
         "user",
@@ -514,7 +514,7 @@
       "theme": "light",
       "locale": "pt-BR",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/dashboard-populated-390-light-pt-br-before.png",
-      "sha256": "9461342b791bd2e772dceb1a94ec1321f8ac34b10e366386ae721e7f77a59eb1",
+      "sha256": "d694b370b9512adb65e22509423b68074567647ce015330f3991ca2eca262c49",
       "masks": [
         "email",
         "user",
@@ -654,7 +654,7 @@
       "theme": "light",
       "locale": "pt-BR",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/overlay-derivation-review-sheet-1440-light-pt-br-before.png",
-      "sha256": "3898c0b555c49c7d4990ffd8e4b0565636351e61a944181e9d6859e7cc17bf09",
+      "sha256": "d2ddfacc47925bf7483769c4399e7c940de7d02d656790cadbdba4c994ec84b6",
       "masks": [
         "email",
         "user",
@@ -674,7 +674,7 @@
       "theme": "light",
       "locale": "pt-BR",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/overlay-derivation-review-sheet-390-light-pt-br-before.png",
-      "sha256": "28efbb009ec5e6af8b3006efde56e7f00481a037274cdf653e9b1989020b452f",
+      "sha256": "45bd59b86c5a3095c9597686ae9c2666089d13da9ea80f5c031cb0558fc46782",
       "masks": [
         "email",
         "user",
@@ -694,7 +694,7 @@
       "theme": "light",
       "locale": "pt-BR",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/overlay-settings-confirmation-dialog-1440-light-pt-br-before.png",
-      "sha256": "788de08ef00df7421fbd7f9a71f538508ca47c8d42b03f136b0e88514861b13a",
+      "sha256": "419172aca8f8f63ad96eaca49c4415da5f6b67a56390caeabe43711cf780a4fe",
       "masks": [
         "email",
         "user",
@@ -714,7 +714,7 @@
       "theme": "light",
       "locale": "pt-BR",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/overlay-settings-confirmation-dialog-390-light-pt-br-before.png",
-      "sha256": "80e6c6c3dbdefe808c816260d67b805ad83034f211e007edf8e99e46987adcf9",
+      "sha256": "d41d9fafde28d84cce200c2798f66dd0e00a01b591c9a10b49b7963b6a36fa32",
       "masks": [
         "email",
         "user",
@@ -734,7 +734,7 @@
       "theme": "light",
       "locale": "en",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/settings-normal-1280-light-en-before.png",
-      "sha256": "60680b95e9f15ed41084679e2191a562916f906d028f6e97712a9d421f8e3b18",
+      "sha256": "25685b55d7c414d2e67a09609664b8774e70362a5f8fcf749e3921044a13923e",
       "masks": [
         "email",
         "user",
@@ -754,7 +754,7 @@
       "theme": "light",
       "locale": "pt-BR",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/settings-normal-390-light-pt-br-before.png",
-      "sha256": "bca8ca8b7b94eca39d47f9e75d61766fd835a22d99b32153ad6d07e1b492fa98",
+      "sha256": "d99ec58aa989272d8ba091e20aba40bc0af6c1ccbc40ad0d4e528f918213ed18",
       "masks": [
         "email",
         "user",
@@ -774,7 +774,7 @@
       "theme": "dark",
       "locale": "en",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/settings-normal-768-dark-en-before.png",
-      "sha256": "989570e4e48e90a307f3091f85dbda71e84b374041d004290894612536a7ee2c",
+      "sha256": "6dcbaf53a3db4fdbc2bc263a17cd06ead265524b43517c12064679be01ffa090",
       "masks": [
         "email",
         "user",
@@ -794,7 +794,7 @@
       "theme": "light",
       "locale": "en",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/settings-validation-error-1280-light-en-before.png",
-      "sha256": "8f241ea9451d480c2533821cc389680eb8801bfe0ad2910f9984bbcbc8bcb70b",
+      "sha256": "236c1cce52cc81a0350e26354c76efdb556ee9f908b72250bc20f89f73574944",
       "masks": [
         "email",
         "user",
@@ -814,7 +814,7 @@
       "theme": "light",
       "locale": "pt-BR",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/settings-validation-error-390-light-pt-br-before.png",
-      "sha256": "9c3785ee03cd13fa69fb520241aadea8b61238b31457fd226154a055281b6d81",
+      "sha256": "c3bbc0b54c7ee6ea9315453d303ee7e3025219fb2151104ae97eb7859777c9a1",
       "masks": [
         "email",
         "user",
@@ -834,7 +834,7 @@
       "theme": "dark",
       "locale": "en",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/settings-validation-error-768-dark-en-before.png",
-      "sha256": "6d4e5c335a18c01acbe123852ade91661ce300050e413efba69459eec0abb010",
+      "sha256": "2616188b8bbea6bc29593da247ed67dd4f54c912ae201f7654272c9caa4228f1",
       "masks": [
         "email",
         "user",
@@ -854,7 +854,7 @@
       "theme": "dark",
       "locale": "pt-BR",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/workspace-error-1024-dark-pt-br-before.png",
-      "sha256": "0f0b8758a6769037902b5445a93fa9fbeddbe15b04c9e28c82357b6014fdaeb6",
+      "sha256": "7c3e77106b55a1c56101805c8be16834535a98a73e2d7210aea95f597b047e1e",
       "masks": [
         "email",
         "user",
@@ -874,7 +874,7 @@
       "theme": "light",
       "locale": "pt-BR",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/workspace-error-390-light-pt-br-before.png",
-      "sha256": "b7afce38c106a53d114d8d3dc2b4bccecabd26f23326cbfe8623cb0c1337a3f8",
+      "sha256": "22ebbdaa425b6cbc3ff48d2abb1ae6866d475ac74d16567d63d163025bc1bfe7",
       "masks": [
         "email",
         "user",
@@ -894,7 +894,7 @@
       "theme": "dark",
       "locale": "pt-BR",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/workspace-loading-1024-dark-pt-br-before.png",
-      "sha256": "0ba6e83ef99547dbd0b22a112229ee615ef89c381ece5a2307b24ae53b479972",
+      "sha256": "befd5604230ba1094087ef9993199f97cf1e06eef931753417aaee156f89f32f",
       "masks": [
         "email",
         "user",
@@ -914,7 +914,7 @@
       "theme": "light",
       "locale": "pt-BR",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/workspace-loading-390-light-pt-br-before.png",
-      "sha256": "72ea0cfe04cadc4960c55c2cfd4aeea7ed1e69f4bd53547a63bf45ba0bc98988",
+      "sha256": "22ebbdaa425b6cbc3ff48d2abb1ae6866d475ac74d16567d63d163025bc1bfe7",
       "masks": [
         "email",
         "user",
@@ -934,7 +934,7 @@
       "theme": "dark",
       "locale": "pt-BR",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/workspace-populated-1024-dark-pt-br-before.png",
-      "sha256": "cb0d8e86291ed821cf2c2fb6cc2a0fb4bd5cff44d39334ff94cf4a6970242b88",
+      "sha256": "6747c703c634615192027b7511ae4d744d10999d1ebe22c41e8ac5623797aa03",
       "masks": [
         "email",
         "user",
@@ -954,7 +954,7 @@
       "theme": "light",
       "locale": "pt-BR",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/workspace-populated-1440-light-pt-br-before.png",
-      "sha256": "2805667198d46c8fb0bb429cb0aad1059f8774556e871688caf8cc06df15edd2",
+      "sha256": "ab3779e46ccd069197345f6cb06067b6d349687971f5106ad72c7b8d9d8034af",
       "masks": [
         "email",
         "user",
@@ -974,7 +974,7 @@
       "theme": "light",
       "locale": "pt-BR",
       "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/workspace-populated-390-light-pt-br-before.png",
-      "sha256": "c741d798d9e596ea76f04835a2f6eb0b432f6a6be1d60d8f458662a318a39fd4",
+      "sha256": "03b14402c12a168dacde2e1ce4ebd3721680abb20eae6d416b1d85cfc9d8bd1d",
       "masks": [
         "email",
         "user",
@@ -1002,6 +1002,1035 @@
       "id": "DEFECT-BRAND-KIT-DIALOG",
       "observation": "Brand Kit confirmation crashes because settings.brandKit.clearConfirm is missing",
       "owner": "113"
+    }
+  ],
+  "afterCaptures": [
+    {
+      "key": "campaign-list:dense:1280",
+      "scenario": "campaign-list",
+      "state": "dense",
+      "viewport": 1280,
+      "theme": "light",
+      "locale": "en",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/campaign-list-dense-1280-light-en-after.png",
+      "sha256": "f7dd27f0e888e78d631cf4c8be2c695ad9c2c84676bd1ac7682e4ab73797ab90",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "campaign-list:dense:1920",
+      "scenario": "campaign-list",
+      "state": "dense",
+      "viewport": 1920,
+      "theme": "dark",
+      "locale": "en",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/campaign-list-dense-1920-dark-en-after.png",
+      "sha256": "2ebf5c239e71042f9bf62f507616a1fb40234aeaafd63495f5b8d50f6155276e",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "campaign-list:dense:390",
+      "scenario": "campaign-list",
+      "state": "dense",
+      "viewport": 390,
+      "theme": "light",
+      "locale": "pt-BR",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/campaign-list-dense-390-light-pt-br-after.png",
+      "sha256": "a32f951a14f28e4f608244e3f1b592aeb87a54697d1f7bea607a389efbddb29f",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "campaign-list:dense:768",
+      "scenario": "campaign-list",
+      "state": "dense",
+      "viewport": 768,
+      "theme": "dark",
+      "locale": "en",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/campaign-list-dense-768-dark-en-after.png",
+      "sha256": "7ee2818a625a3e68852a02eacc1c90a24492ce9cb4cdb03b9b1add6f3cccaac6",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "campaign-list:empty:1280",
+      "scenario": "campaign-list",
+      "state": "empty",
+      "viewport": 1280,
+      "theme": "light",
+      "locale": "en",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/campaign-list-empty-1280-light-en-after.png",
+      "sha256": "b5032d8b2a6ed18d7f012a3c310dcaf9a050629c863e6bb7802c2ba9a469468d",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "campaign-list:empty:390",
+      "scenario": "campaign-list",
+      "state": "empty",
+      "viewport": 390,
+      "theme": "light",
+      "locale": "pt-BR",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/campaign-list-empty-390-light-pt-br-after.png",
+      "sha256": "450b3a95a07285d111e757a5797b8e4363a9966def3c106e3da143704e4c93bb",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "campaign-list:empty:768",
+      "scenario": "campaign-list",
+      "state": "empty",
+      "viewport": 768,
+      "theme": "dark",
+      "locale": "en",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/campaign-list-empty-768-dark-en-after.png",
+      "sha256": "32a2892d8c908233db96e71ce120f820f38ebc3ceeb50e5a210eae00bb25a983",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "campaign-list:error:1280",
+      "scenario": "campaign-list",
+      "state": "error",
+      "viewport": 1280,
+      "theme": "light",
+      "locale": "en",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/campaign-list-error-1280-light-en-after.png",
+      "sha256": "b5032d8b2a6ed18d7f012a3c310dcaf9a050629c863e6bb7802c2ba9a469468d",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "campaign-list:error:390",
+      "scenario": "campaign-list",
+      "state": "error",
+      "viewport": 390,
+      "theme": "light",
+      "locale": "pt-BR",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/campaign-list-error-390-light-pt-br-after.png",
+      "sha256": "2833c40d6488f7813661d76b8b976e8c5ace296ceee454594b95d322b924bf0c",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "campaign-list:error:768",
+      "scenario": "campaign-list",
+      "state": "error",
+      "viewport": 768,
+      "theme": "dark",
+      "locale": "en",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/campaign-list-error-768-dark-en-after.png",
+      "sha256": "32a2892d8c908233db96e71ce120f820f38ebc3ceeb50e5a210eae00bb25a983",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "campaign-list:loading:1280",
+      "scenario": "campaign-list",
+      "state": "loading",
+      "viewport": 1280,
+      "theme": "light",
+      "locale": "en",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/campaign-list-loading-1280-light-en-after.png",
+      "sha256": "217e4a233626cc3279cc9bace4e92bc2eaba01736d881ce42701da4d8869567e",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "campaign-list:loading:390",
+      "scenario": "campaign-list",
+      "state": "loading",
+      "viewport": 390,
+      "theme": "light",
+      "locale": "pt-BR",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/campaign-list-loading-390-light-pt-br-after.png",
+      "sha256": "6b8d67a90bcb003235b94a6a0ce53df25be1675c957b087b9a5b90d6c4db86e2",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "campaign-list:loading:768",
+      "scenario": "campaign-list",
+      "state": "loading",
+      "viewport": 768,
+      "theme": "dark",
+      "locale": "en",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/campaign-list-loading-768-dark-en-after.png",
+      "sha256": "d77049b90a717fc0122bb0967794881b5aae0e985cefda543376652f68de7909",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "dashboard:empty:1280",
+      "scenario": "dashboard",
+      "state": "empty",
+      "viewport": 1280,
+      "theme": "light",
+      "locale": "en",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/dashboard-empty-1280-light-en-after.png",
+      "sha256": "4ce1064949e8ed1fba798595b2f58f03fe409f22afeacfee2b4d67505f0eb4d4",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "dashboard:empty:390",
+      "scenario": "dashboard",
+      "state": "empty",
+      "viewport": 390,
+      "theme": "light",
+      "locale": "pt-BR",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/dashboard-empty-390-light-pt-br-after.png",
+      "sha256": "031f75f9eea8a04f2a115d158d5e3beeb61748fdfb5de2cecda7ff3cfdfa46e3",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "dashboard:empty:768",
+      "scenario": "dashboard",
+      "state": "empty",
+      "viewport": 768,
+      "theme": "dark",
+      "locale": "en",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/dashboard-empty-768-dark-en-after.png",
+      "sha256": "3bb6d8f8006d745bc7945ef0e4e35d9fac82d4db31817b3b3f50f408380827cf",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "dashboard:error:1280",
+      "scenario": "dashboard",
+      "state": "error",
+      "viewport": 1280,
+      "theme": "light",
+      "locale": "en",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/dashboard-error-1280-light-en-after.png",
+      "sha256": "c8c95686b135f6cdf0c21343475c02d9b2e56e15d1ee7ba265b7aebe3ea9e0d3",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "dashboard:error:390",
+      "scenario": "dashboard",
+      "state": "error",
+      "viewport": 390,
+      "theme": "light",
+      "locale": "pt-BR",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/dashboard-error-390-light-pt-br-after.png",
+      "sha256": "e390792952522cedd7bd1dc24f7f65314e58fb94ad0eed011b9b20de8d3b8400",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "dashboard:error:768",
+      "scenario": "dashboard",
+      "state": "error",
+      "viewport": 768,
+      "theme": "dark",
+      "locale": "en",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/dashboard-error-768-dark-en-after.png",
+      "sha256": "9e8718b1f9dcbd7ed6798447007b0015ea6d5246f0ce4882fb3edd11996d54eb",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "dashboard:loading:1280",
+      "scenario": "dashboard",
+      "state": "loading",
+      "viewport": 1280,
+      "theme": "light",
+      "locale": "en",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/dashboard-loading-1280-light-en-after.png",
+      "sha256": "29cead7a9371253858d02f7b40f7ccc328b9b870356b4a3d009d7095c445760b",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "dashboard:loading:390",
+      "scenario": "dashboard",
+      "state": "loading",
+      "viewport": 390,
+      "theme": "light",
+      "locale": "pt-BR",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/dashboard-loading-390-light-pt-br-after.png",
+      "sha256": "9b1f000fda0cb6a63817d1c26414f38f61c9fb81063470b30e826678a9e134f1",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "dashboard:loading:768",
+      "scenario": "dashboard",
+      "state": "loading",
+      "viewport": 768,
+      "theme": "dark",
+      "locale": "en",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/dashboard-loading-768-dark-en-after.png",
+      "sha256": "6ec15d315c2a3bd32b997abd328ff4ae507970831759ddb0980dd781d11d76e3",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "dashboard:populated:1024",
+      "scenario": "dashboard",
+      "state": "populated",
+      "viewport": 1024,
+      "theme": "dark",
+      "locale": "pt-BR",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/dashboard-populated-1024-dark-pt-br-after.png",
+      "sha256": "a2d0dfb61c9744b8db1af269b0934f411fc11c77888c9509dfb98418fa1ecfae",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "dashboard:populated:1440",
+      "scenario": "dashboard",
+      "state": "populated",
+      "viewport": 1440,
+      "theme": "light",
+      "locale": "pt-BR",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/dashboard-populated-1440-light-pt-br-after.png",
+      "sha256": "15e8a0fc0c3956644d21d5beb615dbe1f4e1b894ccdfc07c73ee3da6e35061b9",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "dashboard:populated:1920",
+      "scenario": "dashboard",
+      "state": "populated",
+      "viewport": 1920,
+      "theme": "dark",
+      "locale": "en",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/dashboard-populated-1920-dark-en-after.png",
+      "sha256": "11384ba0087857ed7935303338b8a1f6ea55bf1219f2e594375cd45cacd0dacc",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "dashboard:populated:390",
+      "scenario": "dashboard",
+      "state": "populated",
+      "viewport": 390,
+      "theme": "light",
+      "locale": "pt-BR",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/dashboard-populated-390-light-pt-br-after.png",
+      "sha256": "400a5453e6769d9bf76ee688d4ff5ce46614692c0d25443422fa422434cdfd42",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "layer-harness:shell-backdrop-overlay-toast:1440",
+      "scenario": "layer-harness",
+      "state": "shell-backdrop-overlay-toast",
+      "viewport": 1440,
+      "theme": "light",
+      "locale": "pt-BR",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/layer-harness-shell-backdrop-overlay-toast-1440-light-pt-br-after.png",
+      "sha256": "c1a7f9f63621467087cda5f80cc9e1613efd7347fe700d9400df27561f546ffd",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "layer-harness:shell-backdrop-overlay-toast:390",
+      "scenario": "layer-harness",
+      "state": "shell-backdrop-overlay-toast",
+      "viewport": 390,
+      "theme": "light",
+      "locale": "pt-BR",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/layer-harness-shell-backdrop-overlay-toast-390-light-pt-br-after.png",
+      "sha256": "b7f4c8e753ba39c511adcca0c75dbf0815ccb79e42289520cf75299e18dacbfd",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "layer-harness:sticky-popover-toast:1440",
+      "scenario": "layer-harness",
+      "state": "sticky-popover-toast",
+      "viewport": 1440,
+      "theme": "light",
+      "locale": "pt-BR",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/layer-harness-sticky-popover-toast-1440-light-pt-br-after.png",
+      "sha256": "8b30ef3d7a1484748aa481ae3e78e63892f338115830f8d7b4fc3476674cfb79",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "layer-harness:sticky-popover-toast:390",
+      "scenario": "layer-harness",
+      "state": "sticky-popover-toast",
+      "viewport": 390,
+      "theme": "light",
+      "locale": "pt-BR",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/layer-harness-sticky-popover-toast-390-light-pt-br-after.png",
+      "sha256": "e1faa77e11bf94e235615e39611cb032c32be5b6f1c5c68aff8d0ca34bbc84e3",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "overlay:account-dropdown:1440",
+      "scenario": "overlay",
+      "state": "account-dropdown",
+      "viewport": 1440,
+      "theme": "light",
+      "locale": "pt-BR",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/overlay-account-dropdown-1440-light-pt-br-after.png",
+      "sha256": "68c8e22aa08dd1e82b5c48361915aa19a7c2f955c08c9dfc30781709fa78780a",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "overlay:account-dropdown:390",
+      "scenario": "overlay",
+      "state": "account-dropdown",
+      "viewport": 390,
+      "theme": "light",
+      "locale": "pt-BR",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/overlay-account-dropdown-390-light-pt-br-after.png",
+      "sha256": "51b41f18c66a3d75b04cce422907207d084f758387efba74d9c114c124cc4c3d",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "overlay:derivation-review-sheet:1440",
+      "scenario": "overlay",
+      "state": "derivation-review-sheet",
+      "viewport": 1440,
+      "theme": "light",
+      "locale": "pt-BR",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/overlay-derivation-review-sheet-1440-light-pt-br-after.png",
+      "sha256": "d2ddfacc47925bf7483769c4399e7c940de7d02d656790cadbdba4c994ec84b6",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "overlay:derivation-review-sheet:390",
+      "scenario": "overlay",
+      "state": "derivation-review-sheet",
+      "viewport": 390,
+      "theme": "light",
+      "locale": "pt-BR",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/overlay-derivation-review-sheet-390-light-pt-br-after.png",
+      "sha256": "bdb5c6f2bd6ce9e48343430d2d65f358f13f583394d64f34b1533df7d9099acb",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "overlay:settings-confirmation-dialog:1440",
+      "scenario": "overlay",
+      "state": "settings-confirmation-dialog",
+      "viewport": 1440,
+      "theme": "light",
+      "locale": "pt-BR",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/overlay-settings-confirmation-dialog-1440-light-pt-br-after.png",
+      "sha256": "419172aca8f8f63ad96eaca49c4415da5f6b67a56390caeabe43711cf780a4fe",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "overlay:settings-confirmation-dialog:390",
+      "scenario": "overlay",
+      "state": "settings-confirmation-dialog",
+      "viewport": 390,
+      "theme": "light",
+      "locale": "pt-BR",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/overlay-settings-confirmation-dialog-390-light-pt-br-after.png",
+      "sha256": "b5fc779a4a8d5e777d938368f7ea343e9a453c744bb834efebf06db4f7f8fe66",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "settings:normal:1280",
+      "scenario": "settings",
+      "state": "normal",
+      "viewport": 1280,
+      "theme": "light",
+      "locale": "en",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/settings-normal-1280-light-en-after.png",
+      "sha256": "a28bf34e58e19c54b93c1022fd554aafd4fa294f0b26905c55e41a6459937a03",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "settings:normal:390",
+      "scenario": "settings",
+      "state": "normal",
+      "viewport": 390,
+      "theme": "light",
+      "locale": "pt-BR",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/settings-normal-390-light-pt-br-after.png",
+      "sha256": "61fdf7d6cc2e4713fc9fd52f65e5908f8284ed113be6942cc4278634bfe7e50c",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "settings:normal:768",
+      "scenario": "settings",
+      "state": "normal",
+      "viewport": 768,
+      "theme": "dark",
+      "locale": "en",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/settings-normal-768-dark-en-after.png",
+      "sha256": "b18b9b4984dd5d48b07ab2d9de35a701b86fbb1d8c49d1f41f0b9fb9fc48e4a0",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "settings:validation-error:1280",
+      "scenario": "settings",
+      "state": "validation-error",
+      "viewport": 1280,
+      "theme": "light",
+      "locale": "en",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/settings-validation-error-1280-light-en-after.png",
+      "sha256": "496f95a49555ce3a7728bc43d1018da5b872677e883c1da4d6693570416496dc",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "settings:validation-error:390",
+      "scenario": "settings",
+      "state": "validation-error",
+      "viewport": 390,
+      "theme": "light",
+      "locale": "pt-BR",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/settings-validation-error-390-light-pt-br-after.png",
+      "sha256": "e468aa64f2976f3b6b5531660b6c089bb7b0bd345d29a932959375b4fece3c4e",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "settings:validation-error:768",
+      "scenario": "settings",
+      "state": "validation-error",
+      "viewport": 768,
+      "theme": "dark",
+      "locale": "en",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/settings-validation-error-768-dark-en-after.png",
+      "sha256": "e810d502c873e1eff8694b528c0852bcec5d0cf058c22e3dd0b48eab854cc939",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "workspace:error:1024",
+      "scenario": "workspace",
+      "state": "error",
+      "viewport": 1024,
+      "theme": "dark",
+      "locale": "pt-BR",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/workspace-error-1024-dark-pt-br-after.png",
+      "sha256": "51fa647c655a9e128fe3e6ba24bf1034adfc79c2e6d7502d218c3143175a7955",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "workspace:error:390",
+      "scenario": "workspace",
+      "state": "error",
+      "viewport": 390,
+      "theme": "light",
+      "locale": "pt-BR",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/workspace-error-390-light-pt-br-after.png",
+      "sha256": "22ebbdaa425b6cbc3ff48d2abb1ae6866d475ac74d16567d63d163025bc1bfe7",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "workspace:loading:1024",
+      "scenario": "workspace",
+      "state": "loading",
+      "viewport": 1024,
+      "theme": "dark",
+      "locale": "pt-BR",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/workspace-loading-1024-dark-pt-br-after.png",
+      "sha256": "befd5604230ba1094087ef9993199f97cf1e06eef931753417aaee156f89f32f",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "workspace:loading:390",
+      "scenario": "workspace",
+      "state": "loading",
+      "viewport": 390,
+      "theme": "light",
+      "locale": "pt-BR",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/workspace-loading-390-light-pt-br-after.png",
+      "sha256": "03b14402c12a168dacde2e1ce4ebd3721680abb20eae6d416b1d85cfc9d8bd1d",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "workspace:populated:1024",
+      "scenario": "workspace",
+      "state": "populated",
+      "viewport": 1024,
+      "theme": "dark",
+      "locale": "pt-BR",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/workspace-populated-1024-dark-pt-br-after.png",
+      "sha256": "6747c703c634615192027b7511ae4d744d10999d1ebe22c41e8ac5623797aa03",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "workspace:populated:1440",
+      "scenario": "workspace",
+      "state": "populated",
+      "viewport": 1440,
+      "theme": "light",
+      "locale": "pt-BR",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/workspace-populated-1440-light-pt-br-after.png",
+      "sha256": "ab3779e46ccd069197345f6cb06067b6d349687971f5106ad72c7b8d9d8034af",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    },
+    {
+      "key": "workspace:populated:390",
+      "scenario": "workspace",
+      "state": "populated",
+      "viewport": 390,
+      "theme": "light",
+      "locale": "pt-BR",
+      "path": ".planning/phases/109-visual-foundations-and-baseline/evidence/workspace-populated-390-light-pt-br-after.png",
+      "sha256": "208a746dad797bc4e767b1b3b9af98c7e21bc32195d890ad3ed2ffe6b9a8c83e",
+      "masks": [
+        "email",
+        "user",
+        "workspace",
+        "client",
+        "campaign-id",
+        "timestamp",
+        "generated-image"
+      ],
+      "result": "pass"
+    }
+  ],
+  "after": {
+    "cssHash": "cca9fd3a0ee21fac3bbc0c6bd6de18b3f049878a"
+  },
+  "requirements": [
+    {
+      "id": "FOUND-01",
+      "result": "pass",
+      "automated": "check-visual-contract + visual-foundations/overlays tests",
+      "browser": "paired matrix 49/49",
+      "manual": "compact professional tonal review"
+    },
+    {
+      "id": "FOUND-02",
+      "result": "pass",
+      "automated": "check-visual-contract + visual-foundations/overlays tests",
+      "browser": "paired matrix 49/49",
+      "manual": "compact professional tonal review"
+    },
+    {
+      "id": "FOUND-03",
+      "result": "pass",
+      "automated": "check-visual-contract + visual-foundations/overlays tests",
+      "browser": "paired matrix 49/49",
+      "manual": "compact professional tonal review"
+    },
+    {
+      "id": "FOUND-04",
+      "result": "pass",
+      "automated": "check-visual-contract + visual-foundations/overlays tests",
+      "browser": "paired matrix 49/49",
+      "manual": "compact professional tonal review"
+    },
+    {
+      "id": "FOUND-05",
+      "result": "pass",
+      "automated": "check-visual-contract + visual-foundations/overlays tests",
+      "browser": "paired matrix 49/49",
+      "manual": "compact professional tonal review"
+    },
+    {
+      "id": "QA-14",
+      "result": "pass",
+      "automated": "check-visual-contract + visual-foundations/overlays tests",
+      "browser": "paired matrix 49/49",
+      "manual": "compact professional tonal review"
     }
   ]
 }

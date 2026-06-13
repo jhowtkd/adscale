@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v12.2
 milestone_name: Refinamento Visual e Consistência da Interface
 status: executing
-stopped_at: Completed 109-05-PLAN.md
-last_updated: "2026-06-13T15:26:30.000Z"
-last_activity: 2026-06-13 — Plan 109-05 overlay primitives completed
+stopped_at: Completed 109-06-PLAN.md
+last_updated: "2026-06-13T16:20:00.000Z"
+last_activity: 2026-06-13 — Phase 109 complete; browser proof and validation closure
 progress:
-  total_phases: 26
-  completed_phases: 4
+  total_phases: 6
+  completed_phases: 1
   total_plans: 6
-  completed_plans: 5
-  percent: 83
+  completed_plans: 6
+  percent: 100
 ---
 
 # Project State
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-12)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
-**Current focus:** Phase 109 — Visual Foundations and Baseline
+**Current focus:** Phase 110 — App Shell and Navigation
 
 **Last updated:** 2026-06-13
 **Current milestone:** v12.2 Refinamento Visual e Consistência da Interface
@@ -29,12 +29,12 @@ See: .planning/PROJECT.md (updated 2026-06-12)
 
 ## Current Position
 
-Phase: 109 of 114 (Visual Foundations and Baseline)
-Plan: 5 of 6
-Status: In progress
-Last activity: 2026-06-13 — Plan 109-05 overlay primitives completed
+Phase: 110 of 114 (App Shell and Navigation)
+Plan: 0 of TBD
+Status: Ready to discuss
+Last activity: 2026-06-13 — Phase 109 complete (6/6 plans)
 
-Progress: [████████░░] 83%
+Progress: [█░░░░░░░░░] 17% (milestone)
 
 ## Summary
 
@@ -43,19 +43,21 @@ v12.2 will refine the complete authenticated app into a compact, professional an
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5
-- Average duration: 23 min
-- Total execution time: 1h 58m
+- Total plans completed: 6
+- Average duration: 27 min
+- Total execution time: 2h 43m
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 109-114 | 4 | 6 planned | 25 min |
+| 109 | 6 | 6 | 27 min |
 | Phase 109 P01 | 3min | 2 tasks | 5 files |
 | Phase 109 P02 | 1h 15m | 3 tasks | 9 versioned files |
 | Phase 109 P03 | 8 min | 4 tasks | 4 files |
 | Phase 109 P04 | 18 min | 4 tasks | 9 files |
+| Phase 109 P05 | 14 min | 4 tasks | 6 files |
+| Phase 109 P06 | 45 min | 4 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -69,7 +71,10 @@ v12.2 will refine the complete authenticated app into a compact, professional an
 - [Phase 109]: Screenshot binaries remain local while versioned JSON stores their paths and SHA-256 hashes.
 - [Phase 109]: Canonical semantic roles own all theme values; live legacy names are one-way aliases only.
 - [Phase 109]: Existing visual debt is frozen by exact file and rule counts while later owner phases migrate consumers.
+- [Phase 109]: Basic controls consume canonical density, radius, motion, and semantic roles without caller migration.
 - [Phase 109]: Dialog/sheet backdrops use layer-backdrop; content uses layer-overlay; popovers use layer-popover.
+- [Phase 109]: 49-capture before/after matrix validated; FOUND-01–05 and QA-14 pass structured final evidence.
+- [Phase 109]: DEFECT-LANDMARKS → 110, DEFECT-CONTRAST and DEFECT-BRAND-KIT-DIALOG → 113.
 
 ### Pending Todos
 
@@ -88,17 +93,17 @@ None.
 
 ## Release gate (last verified)
 
-- `npm test` — **1185 passed** (1 skipped)
+- `npm test` — **1211 passed** (1 skipped)
 - `npm run lint` — **0 errors**
 - `npm run build` — OK
 - Prod migrate — **41/41 journal entries** (Render deploy `9a3417d6`)
 
 ## Next action
 
-Execute Plan 109-06: Browser proof and validation closure.
+Discuss Phase 110: App Shell and Navigation (SHELL-01–05).
 
 ## Session Continuity
 
-Last session: 2026-06-13T15:26:30.000Z
-Stopped at: Completed 109-05-PLAN.md
-Resume file: .planning/phases/109-visual-foundations-and-baseline/109-06-PLAN.md
+Last session: 2026-06-13T16:20:00.000Z
+Stopped at: Completed 109-06-PLAN.md — Phase 109 complete
+Resume file: .planning/phases/110-app-shell-and-navigation/
