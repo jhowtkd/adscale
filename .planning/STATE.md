@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v12.2
 milestone_name: Refinamento Visual e Consistência da Interface
 status: executing
-stopped_at: Completed 109-03-PLAN.md
-last_updated: "2026-06-13T13:47:08.139Z"
-last_activity: 2026-06-13 — Plan 109-03 canonical visual foundation contract completed
+stopped_at: Completed 109-04-PLAN.md
+last_updated: "2026-06-13T15:10:30.000Z"
+last_activity: 2026-06-13 — Plan 109-04 basic controls and data states completed
 progress:
   total_phases: 26
   completed_phases: 4
   total_plans: 6
-  completed_plans: 3
-  percent: 50
+  completed_plans: 4
+  percent: 67
 ---
 
 # Project State
@@ -30,11 +30,11 @@ See: .planning/PROJECT.md (updated 2026-06-12)
 ## Current Position
 
 Phase: 109 of 114 (Visual Foundations and Baseline)
-Plan: 3 of 6
+Plan: 4 of 6
 Status: In progress
-Last activity: 2026-06-13 — Plan 109-03 canonical visual foundation contract completed
+Last activity: 2026-06-13 — Plan 109-04 basic controls and data states completed
 
-Progress: [█████░░░░░] 50%
+Progress: [███████░░░] 67%
 
 ## Summary
 
@@ -43,18 +43,19 @@ v12.2 will refine the complete authenticated app into a compact, professional an
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
-- Average duration: 29 min
-- Total execution time: 1h 26m
+- Total plans completed: 4
+- Average duration: 25 min
+- Total execution time: 1h 44m
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 109-114 | 3 | 6 planned | 29 min |
+| 109-114 | 4 | 6 planned | 25 min |
 | Phase 109 P01 | 3min | 2 tasks | 5 files |
 | Phase 109 P02 | 1h 15m | 3 tasks | 9 versioned files |
 | Phase 109 P03 | 8 min | 4 tasks | 4 files |
+| Phase 109 P04 | 18 min | 4 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -68,6 +69,7 @@ v12.2 will refine the complete authenticated app into a compact, professional an
 - [Phase 109]: Screenshot binaries remain local while versioned JSON stores their paths and SHA-256 hashes.
 - [Phase 109]: Canonical semantic roles own all theme values; live legacy names are one-way aliases only.
 - [Phase 109]: Existing visual debt is frozen by exact file and rule counts while later owner phases migrate consumers.
+- [Phase 109]: Basic controls consume canonical density, radius, motion, and semantic roles without caller migration.
 
 ### Pending Todos
 
@@ -93,10 +95,10 @@ None.
 
 ## Next action
 
-Execute Plan 109-04: Shared primitive foundation consumers.
+Execute Plan 109-05: Overlay primitives and layer behavior.
 
 ## Session Continuity
 
-Last session: 2026-06-13T13:47:08.137Z
-Stopped at: Completed 109-03-PLAN.md
-Resume file: .planning/phases/109-visual-foundations-and-baseline/109-04-PLAN.md
+Last session: 2026-06-13T15:10:30.000Z
+Stopped at: Completed 109-04-PLAN.md
+Resume file: .planning/phases/109-visual-foundations-and-baseline/109-05-PLAN.md
