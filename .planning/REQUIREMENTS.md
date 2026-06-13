@@ -97,44 +97,45 @@ Refinar todas as superfícies autenticadas do ADScale para uma linguagem compact
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FOUND-01 | TBD | Pending |
-| FOUND-02 | TBD | Pending |
-| FOUND-03 | TBD | Pending |
-| FOUND-04 | TBD | Pending |
-| FOUND-05 | TBD | Pending |
-| SHELL-01 | TBD | Pending |
-| SHELL-02 | TBD | Pending |
-| SHELL-03 | TBD | Pending |
-| SHELL-04 | TBD | Pending |
-| SHELL-05 | TBD | Pending |
-| SURF-01 | TBD | Pending |
-| SURF-02 | TBD | Pending |
-| SURF-03 | TBD | Pending |
-| SURF-04 | TBD | Pending |
-| SURF-05 | TBD | Pending |
-| SURF-06 | TBD | Pending |
-| WORK-01 | TBD | Pending |
-| WORK-02 | TBD | Pending |
-| WORK-03 | TBD | Pending |
-| WORK-04 | TBD | Pending |
-| WORK-05 | TBD | Pending |
-| RESP-06 | TBD | Pending |
-| RESP-07 | TBD | Pending |
-| RESP-08 | TBD | Pending |
-| RESP-09 | TBD | Pending |
-| A11Y-06 | TBD | Pending |
-| A11Y-07 | TBD | Pending |
-| A11Y-08 | TBD | Pending |
-| A11Y-09 | TBD | Pending |
-| QA-14 | TBD | Pending |
-| QA-15 | TBD | Pending |
-| QA-16 | TBD | Pending |
-| QA-17 | TBD | Pending |
+| FOUND-01 | Phase 109 | Pending |
+| FOUND-02 | Phase 109 | Pending |
+| FOUND-03 | Phase 109 | Pending |
+| FOUND-04 | Phase 109 | Pending |
+| FOUND-05 | Phase 109 | Pending |
+| SHELL-01 | Phase 110 | Pending |
+| SHELL-02 | Phase 110 | Pending |
+| SHELL-03 | Phase 110 | Pending |
+| SHELL-04 | Phase 110 | Pending |
+| SHELL-05 | Phase 110 | Pending |
+| SURF-01 | Phase 111 | Pending |
+| SURF-02 | Phase 111 | Pending |
+| SURF-03 | Phase 111 | Pending |
+| SURF-04 | Phase 111 | Pending |
+| SURF-05 | Phase 111 | Pending |
+| SURF-06 | Phase 113 | Pending |
+| WORK-01 | Phase 112 | Pending |
+| WORK-02 | Phase 112 | Pending |
+| WORK-03 | Phase 112 | Pending |
+| WORK-04 | Phase 112 | Pending |
+| WORK-05 | Phase 112 | Pending |
+| RESP-06 | Phase 113 | Pending |
+| RESP-07 | Phase 114 | Pending |
+| RESP-08 | Phase 113 | Pending |
+| RESP-09 | Phase 113 | Pending |
+| A11Y-06 | Phase 113 | Pending |
+| A11Y-07 | Phase 113 | Pending |
+| A11Y-08 | Phase 113 | Pending |
+| A11Y-09 | Phase 113 | Pending |
+| QA-14 | Phase 109 | Pending |
+| QA-15 | Phase 114 | Pending |
+| QA-16 | Phase 114 | Pending |
+| QA-17 | Phase 114 | Pending |
 
 **Coverage:**
 - v12.2 requirements: 33 total
-- Mapped to phases: 0
-- Unmapped: 33
+- Mapped to phases: 33
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-06-12*
+*Last updated: 2026-06-13 after roadmap creation*

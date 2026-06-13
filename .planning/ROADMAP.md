@@ -2,6 +2,7 @@
 
 ## Milestones
 
+- 📋 **v12.2 Refinamento Visual e Consistência da Interface** - Phases 109-114 (planned)
 - ✅ **v12.1 Memória Criativa e Aprendizado de Performance** - Phases 103-108 (shipped 2026-06-12)
 - ✅ **v12.0 Monetização Real** - Phases 97-102 (shipped 2026-06-11)
 - ✅ **v11.11 Aprendizado → Ação** - Phases 90-96 (shipped 2026-06-11)
@@ -20,6 +21,28 @@
 - ✅ **v11.0 Fluxos de Derivação Coerentes** - Phases 40-43 (shipped 2026-06-01)
 
 ## Phases
+
+### 📋 v12.2 Refinamento Visual e Consistência da Interface (Phases 109-114) — PLANNED
+
+**Milestone Goal:** Tornar toda a interface autenticada do ADScale compacta, profissional, previsível e estruturalmente responsiva, eliminando sobreposições e divergências sem alterar capacidades, regras ou contratos dos fluxos existentes.
+
+- [ ] **Phase 109: Visual Foundations and Baseline** — inventário verificável, contratos visuais, geometria, densidade, camadas e ownership de rotas
+- [ ] **Phase 110: App Shell and Navigation** — shell responsivo, navegação e chrome global sem cortes, colisões ou ações inacessíveis
+- [ ] **Phase 111: Page Primitives and Operational Surfaces** — hierarquia, ações, toolbars, tabelas, formulários e estados compartilhados nas superfícies operacionais
+- [ ] **Phase 112: Campaign Workspace and Overlays** — workspace orientado por etapa, dados densos e overlays previsíveis em qualquer viewport
+- [ ] **Phase 113: Dashboard and Secondary Surface Consistency** — dashboard, biblioteca, templates/restyling, feedback e configurações alinhados em responsividade, acessibilidade e localização
+- [ ] **Phase 114: Visual Regression and Release Gate** — matriz de navegador, regressão focada, acessibilidade e gate completo de release
+
+| # | Phase | Requirements | Status | Completed |
+|---|-------|--------------|--------|-----------|
+| 109 | Visual Foundations and Baseline | FOUND-01–05, QA-14 | Not started | - |
+| 110 | App Shell and Navigation | SHELL-01–05 | Not started | - |
+| 111 | Page Primitives and Operational Surfaces | SURF-01–05 | Not started | - |
+| 112 | Campaign Workspace and Overlays | WORK-01–05 | Not started | - |
+| 113 | Dashboard and Secondary Surface Consistency | SURF-06, RESP-06, RESP-08–09, A11Y-06–09 | Not started | - |
+| 114 | Visual Regression and Release Gate | RESP-07, QA-15–17 | Not started | - |
+
+---
 
 ### ✅ v12.1 Memória Criativa e Aprendizado de Performance (Phases 103-108) — SHIPPED 2026-06-12
 
@@ -152,6 +175,117 @@ Archive: [v11.8-ROADMAP.md](milestones/v11.8-ROADMAP.md) · [v11.8-REQUIREMENTS.
 **12 requirements** | **3 phases** | Stabilization-only scope before beta
 
 ## Phase Details
+
+### Phase 109: Visual Foundations and Baseline
+
+**Goal:** Usuários encontram uma linguagem visual única e previsível, sustentada por contratos verificáveis de rota, geometria, densidade, camadas e estados antes da migração ampla das superfícies.
+
+**Depends on:** Phase 108 (v12.1 shipped baseline)
+
+**Requirements:** FOUND-01, FOUND-02, FOUND-03, FOUND-04, FOUND-05, QA-14
+
+**Success Criteria** (what must be TRUE):
+  1. Usuário encontra cores, superfícies, bordas, tipografia, espaçamento e estados semânticos coerentes em componentes equivalentes nos modos light e dark.
+  2. Usuário percebe gutters, larguras, densidade e hierarquia tipográfica previsíveis ao alternar entre rotas autenticadas, sem mudanças arbitrárias de alinhamento.
+  3. Conteúdo, regiões sticky, navegação e overlays obedecem uma ordem de camadas única, sem elementos locais competindo por sobreposição.
+  4. Cada rota autenticada e família compartilhada possui exatamente uma phase de implementação e ao menos um cenário definido para o browser release gate.
+
+**Plans:** TBD
+
+---
+
+### Phase 110: App Shell and Navigation
+
+**Goal:** Usuários navegam por um frame autenticado estável que reorganiza identidade, contexto e ações sem ocultar conteúdo do mobile ao ultrawide.
+
+**Depends on:** Phase 109
+
+**Requirements:** SHELL-01, SHELL-02, SHELL-03, SHELL-04, SHELL-05
+
+**Success Criteria** (what must be TRUE):
+  1. Sidebar, top bar e navegação mobile nunca cobrem conteúdo ou ações e respeitam safe areas, zoom e teclado.
+  2. Identidade, localização atual, busca, notificações, conta e ações globais se reorganizam em larguras intermediárias sem corte ou colisão.
+  3. Todas as rotas autenticadas iniciam no mesmo frame de página, com largura, gutters e offsets previsíveis.
+  4. Navegação ativa, foco, menus e controles globais permanecem compreensíveis e operáveis com mouse, toque e teclado em PT-BR e EN.
+
+**Plans:** TBD
+
+---
+
+### Phase 111: Page Primitives and Operational Surfaces
+
+**Goal:** Usuários reconhecem a mesma hierarquia de página, prioridade de ações e comportamento de dados e estados nas superfícies operacionais do produto.
+
+**Depends on:** Phase 110
+
+**Requirements:** SURF-01, SURF-02, SURF-03, SURF-04, SURF-05
+
+**Success Criteria** (what must be TRUE):
+  1. Títulos, descrições, ações primárias, ações secundárias e seções seguem uma hierarquia reconhecível em campanhas, configurações e demais rotas operacionais.
+  2. Usuário vê menos containers redundantes, mantendo contexto, agrupamento e escaneabilidade dos dados existentes.
+  3. A ação principal de cada região é inequívoca; ações secundárias e destrutivas permanecem acessíveis, subordinadas e confirmadas quando necessário.
+  4. Toolbars, tabelas, filtros, formulários e abas adotam alternativas estruturais utilizáveis em telas estreitas sem remover capacidades.
+  5. Loading, vazio, busca sem resultado, erro e sucesso preservam a geometria da tarefa e oferecem orientação ou recuperação consistente.
+
+**Plans:** TBD
+
+---
+
+### Phase 112: Campaign Workspace and Overlays
+
+**Goal:** Usuários percorrem briefing, upload, geração, revisão, entrega e performance com orientação contínua, dados operacionais preservados e overlays que não interrompem o contexto.
+
+**Depends on:** Phase 111
+
+**Requirements:** WORK-01, WORK-02, WORK-03, WORK-04, WORK-05
+
+**Success Criteria** (what must be TRUE):
+  1. A etapa atual, o status e a próxima ação do workspace permanecem claros em todos os estados do fluxo de campanha.
+  2. Barras sticky, painéis, galerias, sidebars e rodapés não ocultam conteúdo nem ações em qualquer viewport suportado.
+  3. Dialogs, sheets e popovers mantêm foco, scroll, fechamento por teclado e retorno ao acionador correto, inclusive em combinações suportadas.
+  4. Status, metadados e dados densos continuam disponíveis por hierarquia ou progressive disclosure, sem perda de informação operacional.
+  5. Upload, briefing, geração, revisão, aprovação, entrega e performance preservam as mesmas regras, permissões e resultados de produto após o refinamento visual.
+
+**Plans:** TBD
+
+---
+
+### Phase 113: Dashboard and Secondary Surface Consistency
+
+**Goal:** Usuários encontram dashboard, biblioteca, templates/restyling, feedback e configurações como partes do mesmo produto, com estruturas responsivas, acessíveis e resilientes a tema e idioma.
+
+**Depends on:** Phase 112
+
+**Requirements:** SURF-06, RESP-06, RESP-08, RESP-09, A11Y-06, A11Y-07, A11Y-08, A11Y-09
+
+**Success Criteria** (what must be TRUE):
+  1. Dashboard, biblioteca, templates/restyling, feedback e configurações compartilham linguagem visual, densidade, estados e prioridade de ações sem perder suas funções específicas.
+  2. Nenhuma rota autenticada apresenta scroll horizontal acidental, corte, colisão ou sobreposição; galerias e dados usam o ultrawide sem alongar leitura e formulários indefinidamente.
+  3. Controles e ações permanecem operáveis por toque, mouse e teclado, com foco visível, ordem coerente e retorno de foco correto.
+  4. Seleção, erro, alerta e sucesso mantêm contraste e significado sem depender apenas de cor nos modos light e dark.
+  5. PT-BR e EN suportam textos longos, números, datas e labels sem quebrar a estrutura ou ocultar informação crítica.
+
+**Plans:** TBD
+
+---
+
+### Phase 114: Visual Regression and Release Gate
+
+**Goal:** O milestone fecha somente com evidência reproduzível de consistência visual, responsividade, acessibilidade e preservação dos fluxos críticos.
+
+**Depends on:** Phases 109-113
+
+**Requirements:** RESP-07, QA-15, QA-16, QA-17
+
+**Success Criteria** (what must be TRUE):
+  1. Rotas e estados representativos passam em 390, 768, 1024, 1280, 1440 e 1920 pixels, com evidência de ausência de corte, colisão e sobreposição.
+  2. A matriz de navegador cobre dados densos, vazio, loading, erro, conteúdo longo e combinações críticas de overlays em temas e idiomas representativos.
+  3. Regressões visuais ou responsivas com lógica reproduzível possuem testes focados que falham quando o defeito retorna.
+  4. Auditoria de acessibilidade, UAT visual, `npm test`, `npm run lint` e `npm run build` passam antes do release, com exceções explicitamente documentadas.
+
+**Plans:** TBD
+
+---
 
 ### Phase 90: Analytics Foundation
 
@@ -561,6 +695,12 @@ Archive: [v11.6-ROADMAP.md](milestones/v11.6-ROADMAP.md) · [v11.6-REQUIREMENTS.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 | ----- | --------- | -------------- | ------ | --------- |
+| 109 | v12.2 | 0/TBD | Not started | - |
+| 110 | v12.2 | 0/TBD | Not started | - |
+| 111 | v12.2 | 0/TBD | Not started | - |
+| 112 | v12.2 | 0/TBD | Not started | - |
+| 113 | v12.2 | 0/TBD | Not started | - |
+| 114 | v12.2 | 0/TBD | Not started | - |
 | 103 | v12.1 | 3/3 | Complete | 2026-06-12 |
 | 104 | v12.1 | 0/TBD | Not started | - |
 | 105 | v12.1 | 0/TBD | Not started | - |
@@ -615,4 +755,4 @@ Archive: [v11.6-ROADMAP.md](milestones/v11.6-ROADMAP.md) · [v11.6-REQUIREMENTS.
 | 60 | v11.5 | 4/4 | Complete | 2026-06-05 |
 
 ---
-*Roadmap updated: 2026-06-12 — v12.1 phases 103-108 proposed with 31/31 requirements mapped*
+*Roadmap updated: 2026-06-13 — v12.2 phases 109-114 created with 33/33 requirements mapped*
