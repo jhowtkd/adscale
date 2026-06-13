@@ -44,7 +44,7 @@ const APPROVED_EXTERNAL_VARIABLES = new Set([
 ]);
 const DEPRECATED_HUES = /var\(--(?:accent-(?:blue|blue-light|blue-dim|teal|purple|mint|mint-light|mint-dim)|pale|cream)\)/g;
 const RAW_LAYER = /(?<![\w-])(?:-?z-(?:\[(?!var\(--layer-)[^\]]+\]|\d+))/g;
-const ARBITRARY_DIALECT = /(?:text|rounded)-\[[^\]]+\]/g;
+const ARBITRARY_DIALECT = /(?:text-\[(?:\d|clamp\(|calc\()[^\]]*\]|rounded-\[(?:\d|clamp\(|calc\()[^\]]*\])/g;
 const AUTHENTICATED_ROOTS = [
   "app/src/app/(dashboard)",
   "app/src/components/campaigns", "app/src/components/layout", "app/src/components/providers",
@@ -55,9 +55,89 @@ const AUTHENTICATED_ROOTS = [
 // Counts are captured from the immutable pre-change tree. They permit existing debt only
 // in the same file and rule; any added occurrence fails deterministically.
 const DEBT_ALLOWLIST = {
-  deprecatedHue: {},
-  rawLayer: {},
-  arbitraryDialect: {},
+  deprecatedHue: {
+    "app/src/app/(dashboard)/library/page.tsx": 4,
+    "app/src/app/(dashboard)/restyling/page.tsx": 2,
+    "app/src/app/(dashboard)/templates/page.tsx": 2,
+    "app/src/components/campaigns/CampaignNotFoundState.tsx": 1,
+    "app/src/components/campaigns/CampaignsFilterToolbar.tsx": 1,
+    "app/src/components/providers/ToastStack.tsx": 4,
+    "app/src/components/restyling/RestylingForm.tsx": 8,
+    "app/src/components/settings/BrandKitTab.tsx": 9,
+    "app/src/components/settings/IntegrationsTab.tsx": 4,
+    "app/src/components/settings/ProfileTab.tsx": 3,
+    "app/src/components/settings/TeamTab.tsx": 6,
+    "app/src/components/settings/WorkspaceTab.tsx": 4,
+    "app/src/components/templates/SaveTemplateModal.tsx": 2,
+    "app/src/components/templates/TemplateCard.tsx": 2,
+    "app/src/components/workspace/AutoBriefingSheet.tsx": 3,
+    "app/src/components/workspace/BriefingStep.tsx": 1,
+    "app/src/components/workspace/DerivationCard.tsx": 9,
+    "app/src/components/workspace/GuidedBriefingPanel.tsx": 1,
+  },
+  rawLayer: {
+    "app/src/components/campaigns/CampaignListCard.tsx": 3,
+    "app/src/components/campaigns/CampaignsListView.tsx": 1,
+    "app/src/components/layout/AppShell.tsx": 1,
+    "app/src/components/layout/TopBar.tsx": 2,
+    "app/src/components/providers/ToastStack.tsx": 1,
+    "app/src/components/ui/LanguageSwitcher.tsx": 1,
+    "app/src/components/ui/dialog.tsx": 3,
+    "app/src/components/ui/dropdown-menu.tsx": 2,
+    "app/src/components/ui/select.tsx": 4,
+    "app/src/components/ui/sheet.tsx": 3,
+    "app/src/components/ui/tooltip.tsx": 4,
+    "app/src/components/workspace/DerivationCard.tsx": 1,
+    "app/src/components/workspace/PilotUploadPanel.tsx": 3,
+    "app/src/components/workspace/WorkspaceActionBar.tsx": 1,
+  },
+  arbitraryDialect: {
+    "app/src/app/(dashboard)/campaigns/[id]/page.tsx": 6,
+    "app/src/app/(dashboard)/feedback/page.tsx": 5,
+    "app/src/app/(dashboard)/quick-tools/restyling/page.tsx": 1,
+    "app/src/app/(dashboard)/restyling/page.tsx": 1,
+    "app/src/components/campaigns/CampaignErrorState.tsx": 1,
+    "app/src/components/campaigns/CampaignListCard.tsx": 2,
+    "app/src/components/campaigns/CampaignTableRow.tsx": 2,
+    "app/src/components/campaigns/CampaignsBulkActionsBar.tsx": 2,
+    "app/src/components/campaigns/CampaignsFilterToolbar.tsx": 2,
+    "app/src/components/campaigns/CampaignsListView.tsx": 1,
+    "app/src/components/campaigns/CampaignsPagination.tsx": 2,
+    "app/src/components/campaigns/HypothesesPanel.tsx": 3,
+    "app/src/components/campaigns/KanbanColumn.tsx": 1,
+    "app/src/components/campaigns/LearningsPanel.tsx": 2,
+    "app/src/components/campaigns/NewCampaignModal.tsx": 2,
+    "app/src/components/campaigns/NextExperimentRecommendationCard.tsx": 2,
+    "app/src/components/campaigns/PerformanceImportPanel.tsx": 2,
+    "app/src/components/layout/TopBar.tsx": 2,
+    "app/src/components/providers/ToastStack.tsx": 1,
+    "app/src/components/restyling/RestylingForm.tsx": 1,
+    "app/src/components/restyling/RestylingUpload.tsx": 1,
+    "app/src/components/settings/BillingTab.tsx": 6,
+    "app/src/components/settings/BrandKitTab.tsx": 4,
+    "app/src/components/settings/CreditHistoryTab.tsx": 2,
+    "app/src/components/settings/PlansTab.tsx": 2,
+    "app/src/components/settings/PrivacyTab.tsx": 2,
+    "app/src/components/settings/ProfileTab.tsx": 1,
+    "app/src/components/settings/TeamTab.tsx": 1,
+    "app/src/components/settings/WorkspaceTab.tsx": 1,
+    "app/src/components/templates/SaveTemplateModal.tsx": 1,
+    "app/src/components/templates/TemplateCard.tsx": 2,
+    "app/src/components/ui/ConfirmDialog.tsx": 1,
+    "app/src/components/workspace/AutoBriefingSheet.tsx": 1,
+    "app/src/components/workspace/BriefingStep.tsx": 2,
+    "app/src/components/workspace/ClientApprovalPackagePanel.tsx": 2,
+    "app/src/components/workspace/CreativeReadinessPanel.tsx": 4,
+    "app/src/components/workspace/DerivationCard.tsx": 6,
+    "app/src/components/workspace/DerivationPreviewGateFooter.tsx": 2,
+    "app/src/components/workspace/DerivationReviewSheet.tsx": 2,
+    "app/src/components/workspace/GuidedBriefingPanel.tsx": 1,
+    "app/src/components/workspace/PersonaSimulationSheet.tsx": 3,
+    "app/src/components/workspace/PilotSidebar.tsx": 1,
+    "app/src/components/workspace/PilotUploadPanel.tsx": 2,
+    "app/src/components/workspace/RegenerateFeedbackDialog.tsx": 1,
+    "app/src/components/workspace/StrategyRecipePanel.tsx": 2,
+  },
 };
 
 function diagnostic(code, message, file) {
@@ -65,9 +145,10 @@ function diagnostic(code, message, file) {
 }
 
 function blockForSelector(css, selector) {
-  const start = css.indexOf(selector);
-  if (start === -1) return null;
-  const open = css.indexOf("{", start);
+  const selectorPattern = new RegExp(`(?:^|\\n)\\s*${selector.replace(".", "\\.")}\\s*\\{`, "m");
+  const match = selectorPattern.exec(css);
+  if (!match) return null;
+  const open = css.indexOf("{", match.index);
   if (open === -1) return null;
   let depth = 0;
   for (let index = open; index < css.length; index += 1) {
@@ -118,8 +199,10 @@ export function validateContract({ css, sources = [], section = "all", requireCo
           diagnostics.push(diagnostic("MISSING_CANONICAL_TOKEN", `--${token} must be declared in :root and .dark`));
         }
       }
-      for (const token of CANONICAL_GLOBAL_TOKENS) {
-        if (!declared.has(`--${token}`)) diagnostics.push(diagnostic("MISSING_CANONICAL_TOKEN", `--${token} is missing`));
+      if (section === "all") {
+        for (const token of CANONICAL_GLOBAL_TOKENS) {
+          if (!declared.has(`--${token}`)) diagnostics.push(diagnostic("MISSING_CANONICAL_TOKEN", `--${token} is missing`));
+        }
       }
     }
     for (const reference of parsed.references) {

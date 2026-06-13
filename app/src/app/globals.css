@@ -52,7 +52,7 @@
    ============================================ */
 
 @theme inline {
-  --color-background: var(--deep-bg);
+  --color-background: var(--canvas);
   --color-foreground: var(--text-primary);
   --font-sans: var(--font-inter);
   --font-mono: var(--font-space-mono);
@@ -62,23 +62,23 @@
   /* Core colors mapped to shadcn */
   --color-card: var(--surface-base);
   --color-card-foreground: var(--text-primary);
-  --color-popover: var(--surface-raised);
+  --color-popover: var(--surface-overlay);
   --color-popover-foreground: var(--text-primary);
-  --color-primary: var(--accent-green);
-  --color-primary-foreground: var(--ink);
+  --color-primary: var(--accent-primary);
+  --color-primary-foreground: var(--text-on-accent);
   --color-secondary: var(--surface-raised);
   --color-secondary-foreground: var(--text-primary);
   --color-muted: var(--surface-base);
   --color-muted-foreground: var(--text-muted);
   --color-accent: var(--surface-raised);
   --color-accent-foreground: var(--text-primary);
-  --color-destructive: var(--accent-rose);
-  --color-border: var(--border-dim);
-  --color-input: var(--border-medium);
-  --color-ring: var(--accent-green);
+  --color-destructive: var(--danger-text);
+  --color-border: var(--border-subtle);
+  --color-input: var(--border-default);
+  --color-ring: var(--focus-ring);
 
   /* Chart colors */
-  --color-chart-1: var(--accent-green);
+  --color-chart-1: var(--accent-primary);
   --color-chart-2: var(--accent-secondary);
   --color-chart-3: var(--accent-amber);
   --color-chart-4: var(--accent-rose);
@@ -87,12 +87,12 @@
   /* Sidebar */
   --color-sidebar: var(--surface-base);
   --color-sidebar-foreground: var(--text-primary);
-  --color-sidebar-primary: var(--accent-green);
-  --color-sidebar-primary-foreground: var(--ink);
+  --color-sidebar-primary: var(--accent-primary);
+  --color-sidebar-primary-foreground: var(--text-on-accent);
   --color-sidebar-accent: var(--surface-raised);
   --color-sidebar-accent-foreground: var(--text-primary);
-  --color-sidebar-border: var(--border-dim);
-  --color-sidebar-ring: var(--accent-green);
+  --color-sidebar-border: var(--border-subtle);
+  --color-sidebar-ring: var(--focus-ring);
 
   /* Radius */
   --radius-sm: 2px;
@@ -112,81 +112,106 @@
   --font-space-mono: "Space Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --font-press-start: "Press Start 2P", cursive;
 
-  /* Light Mode Tokens */
-  --deep-bg: #fafafa;
-  --surface-base: #ffffff;
-  --surface-raised: #f5f5f5;
-  --border-dim: rgba(0, 0, 0, 0.06);
-  --border-medium: rgba(0, 0, 0, 0.12);
-  --text-primary: #0a0a0a;
-  --text-secondary: #444444;
-  --text-muted: #525252;
-  --ghost: #666666;
-  --pale: #e8e8e8;
-  --cream: #f8f8f8;
-  --ink: #0a0a0a;
+  /* Canonical light theme */
+  --canvas: oklch(0.985 0.003 145);
+  --surface-base: oklch(0.998 0.002 145);
+  --surface-raised: oklch(0.968 0.005 145);
+  --surface-inset: oklch(0.945 0.007 145);
+  --surface-overlay: oklch(0.995 0.003 145);
+  --text-primary: oklch(0.18 0.012 145);
+  --text-secondary: oklch(0.38 0.012 145);
+  --text-muted: oklch(0.46 0.01 145);
+  --text-disabled: oklch(0.63 0.008 145);
+  --text-on-accent: oklch(0.16 0.02 145);
+  --border-subtle: oklch(0.18 0.012 145 / 0.06);
+  --border-default: oklch(0.18 0.012 145 / 0.12);
+  --border-strong: oklch(0.18 0.012 145 / 0.22);
+  --focus-ring: oklch(0.66 0.2 145);
+  --accent-primary: oklch(0.66 0.2 145);
+  --accent-primary-hover: oklch(0.72 0.22 145);
+  --accent-primary-subtle: oklch(0.66 0.2 145 / 0.12);
+  --accent-primary-text: oklch(0.43 0.15 145);
+  --neutral-bg: oklch(0.58 0.01 145 / 0.12);
+  --neutral-border: oklch(0.52 0.01 145 / 0.24);
+  --neutral-text: oklch(0.34 0.01 145);
+  --neutral-dot: oklch(0.48 0.01 145);
+  --success-bg: oklch(0.66 0.18 145 / 0.12);
+  --success-border: oklch(0.52 0.16 145 / 0.28);
+  --success-text: oklch(0.4 0.14 145);
+  --success-dot: oklch(0.5 0.17 145);
+  --warning-bg: oklch(0.68 0.14 82 / 0.16);
+  --warning-border: oklch(0.58 0.13 82 / 0.3);
+  --warning-text: oklch(0.39 0.1 82);
+  --warning-dot: oklch(0.56 0.13 82);
+  --danger-bg: oklch(0.58 0.2 18 / 0.12);
+  --danger-border: oklch(0.52 0.18 18 / 0.28);
+  --danger-text: oklch(0.43 0.17 18);
+  --danger-dot: oklch(0.52 0.19 18);
+  --info-bg: oklch(0.62 0.13 245 / 0.12);
+  --info-border: oklch(0.54 0.12 245 / 0.28);
+  --info-text: oklch(0.4 0.12 245);
+  --info-dot: oklch(0.54 0.14 245);
 
-  /* Accent Colors — vibrant green driver */
-  --accent-green: #00b34a;
-  --accent-green-light: #00e85e;
-  --accent-green-dark: #007a33;
-  /* Readable green for text on tinted surfaces (badges, chips); meets WCAG 4.5:1 on --accent-green-dim */
-  --accent-green-text: var(--accent-green-dark);
-  /* Text on solid green buttons and fills */
-  --accent-green-on-fill: var(--ink);
-  --accent-green-dim: rgba(0, 179, 74, 0.12);
-  --accent-secondary: #6b6b7b;
-  --accent-amber: #c7920a;
-  --accent-rose: #d43d5c;
+  /* Live compatibility aliases. Deprecated hue names remain callers-only. */
+  --deep-bg: var(--canvas);
+  --border-dim: var(--border-subtle);
+  --border-medium: var(--border-default);
+  --accent-green: var(--accent-primary);
+  --accent-green-light: var(--accent-primary-hover);
+  --accent-green-dark: var(--accent-primary-text);
+  --accent-green-text: var(--accent-primary-text);
+  --accent-green-on-fill: var(--text-on-accent);
+  --accent-green-dim: var(--accent-primary-subtle);
+  --ghost: var(--text-muted);
+  --pale: var(--surface-inset);
+  --cream: var(--surface-raised);
+  --ink: var(--text-on-accent);
+  --accent-secondary: var(--neutral-text);
+  --accent-amber: var(--warning-text);
+  --accent-rose: var(--danger-text);
+  --accent-mint: var(--accent-primary);
+  --accent-mint-light: var(--accent-primary-hover);
+  --accent-mint-dim: var(--accent-primary-subtle);
+  --accent-blue: var(--accent-primary);
+  --accent-blue-light: var(--accent-primary-hover);
+  --accent-blue-dim: var(--accent-primary-subtle);
+  --accent-teal: var(--accent-primary);
+  --accent-purple: var(--accent-primary);
 
-  /* Legacy aliases for gradual migration */
-  --accent-mint: #00b34a;
-  --accent-mint-light: #00e85e;
-  --accent-mint-dim: rgba(0, 179, 74, 0.12);
-  --accent-blue: #00b34a;
-  --accent-blue-light: #00e85e;
-  --accent-blue-dim: rgba(0, 179, 74, 0.12);
-  --accent-teal: #00b34a;
-  --accent-purple: #00b34a;
-
-  /* Status Colors */
-  --status-draft: #595959;
-  --status-active: #007a33;
-  --status-processing: #7a5c00;
-  --status-completed: #007a33;
-  --status-failed: #9e1b36;
-
-  /* Status Badge Tokens */
-  --status-draft-bg: rgba(89, 89, 89, 0.12);
-  --status-draft-text: var(--text-primary);
-  --status-draft-dot: #595959;
-  --status-active-bg: rgba(0, 122, 51, 0.12);
-  --status-active-text: var(--accent-green-text);
-  --status-active-dot: #007a33;
-  --status-queued-bg: rgba(122, 92, 0, 0.16);
-  --status-queued-text: var(--text-primary);
-  --status-queued-dot: #7a5c00;
-  --status-processing-bg: rgba(122, 92, 0, 0.16);
-  --status-processing-text: var(--text-primary);
-  --status-processing-dot: #7a5c00;
-  --status-generating-bg: rgba(122, 92, 0, 0.16);
-  --status-generating-text: var(--text-primary);
-  --status-generating-dot: #7a5c00;
-  --status-completed-bg: rgba(0, 122, 51, 0.12);
-  --status-completed-text: var(--accent-green-text);
-  --status-completed-dot: #007a33;
-  --status-approved-bg: rgba(0, 122, 51, 0.12);
-  --status-approved-text: var(--accent-green-text);
-  --status-approved-dot: #007a33;
-  --status-rejected-bg: rgba(158, 27, 54, 0.12);
-  --status-rejected-text: var(--text-primary);
-  --status-rejected-dot: #9e1b36;
-  --status-failed-bg: rgba(158, 27, 54, 0.12);
-  --status-failed-text: var(--text-primary);
-  --status-failed-dot: #9e1b36;
-
-  /* Gradients */
-  --gradient-progress: #00b34a;
+  /* Product statuses alias semantic state families. */
+  --status-draft: var(--neutral-dot);
+  --status-active: var(--success-dot);
+  --status-processing: var(--warning-dot);
+  --status-completed: var(--success-dot);
+  --status-failed: var(--danger-dot);
+  --status-draft-bg: var(--neutral-bg);
+  --status-draft-text: var(--neutral-text);
+  --status-draft-dot: var(--neutral-dot);
+  --status-active-bg: var(--success-bg);
+  --status-active-text: var(--success-text);
+  --status-active-dot: var(--success-dot);
+  --status-queued-bg: var(--warning-bg);
+  --status-queued-text: var(--warning-text);
+  --status-queued-dot: var(--warning-dot);
+  --status-processing-bg: var(--warning-bg);
+  --status-processing-text: var(--warning-text);
+  --status-processing-dot: var(--warning-dot);
+  --status-generating-bg: var(--warning-bg);
+  --status-generating-text: var(--warning-text);
+  --status-generating-dot: var(--warning-dot);
+  --status-completed-bg: var(--success-bg);
+  --status-completed-text: var(--success-text);
+  --status-completed-dot: var(--success-dot);
+  --status-approved-bg: var(--success-bg);
+  --status-approved-text: var(--success-text);
+  --status-approved-dot: var(--success-dot);
+  --status-rejected-bg: var(--danger-bg);
+  --status-rejected-text: var(--danger-text);
+  --status-rejected-dot: var(--danger-dot);
+  --status-failed-bg: var(--danger-bg);
+  --status-failed-text: var(--danger-text);
+  --status-failed-dot: var(--danger-dot);
+  --gradient-progress: var(--accent-primary);
 
   /* Easing */
   --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
@@ -200,73 +225,45 @@
    ============================================ */
 
 .dark {
-  /* Dark Mode Tokens */
-  --deep-bg: #0a0a0a;
-  --surface-base: #111111;
-  --surface-raised: #1a1a1a;
-  --border-dim: rgba(255, 255, 255, 0.04);
-  --border-medium: rgba(255, 255, 255, 0.08);
-  --text-primary: #ffffff;
-  --text-secondary: #a3a3a3;
-  --text-muted: #9ca3af;
-  --ghost: #bbbbbb;
-  --pale: #e8e8e8;
-  --cream: #f8f8f8;
-  --ink: #0a0a0a;
-
-  /* Accent Colors — vibrant green driver */
-  --accent-green: #00e85e;
-  --accent-green-light: #3fff80;
-  --accent-green-dark: #00a844;
-  --accent-green-text: var(--accent-green-dark);
-  --accent-green-on-fill: var(--ink);
-  --accent-green-dim: rgba(0, 232, 94, 0.12);
-  --accent-secondary: #8d8d98;
-  --accent-amber: #D4A017;
-  --accent-rose: #E11D48;
-
-  /* Legacy aliases */
-  --accent-mint: #00e85e;
-  --accent-mint-light: #3fff80;
-  --accent-mint-dim: rgba(0, 232, 94, 0.12);
-  --accent-blue: #00e85e;
-  --accent-blue-light: #3fff80;
-  --accent-blue-dim: rgba(0, 232, 94, 0.12);
-  --accent-teal: #00e85e;
-  --accent-purple: #00e85e;
-
-  /* Status Colors */
-  --status-draft: #555555;
-  --status-active: #00e85e;
-  --status-processing: #D4A017;
-  --status-completed: #00e85e;
-  --status-failed: #E11D48;
-
-  /* Status Badge Tokens */
-  --status-draft-bg: rgba(180, 180, 190, 0.12);
-  --status-draft-dot: #8d8d98;
-  --status-active-bg: var(--accent-green-dim);
-  --status-active-text: var(--accent-green-text);
-  --status-active-dot: var(--accent-green);
-  --status-queued-bg: rgba(245, 158, 11, 0.16);
-  --status-queued-dot: #F59E0B;
-  --status-processing-bg: rgba(245, 158, 11, 0.16);
-  --status-processing-dot: #F59E0B;
-  --status-generating-bg: rgba(245, 158, 11, 0.16);
-  --status-generating-dot: #F59E0B;
-  --status-completed-bg: var(--accent-green-dim);
-  --status-completed-text: var(--accent-green-text);
-  --status-completed-dot: var(--accent-green);
-  --status-approved-bg: var(--accent-green-dim);
-  --status-approved-text: var(--accent-green-text);
-  --status-approved-dot: var(--accent-green);
-  --status-rejected-bg: rgba(244, 63, 94, 0.16);
-  --status-rejected-dot: #F43F5E;
-  --status-failed-bg: rgba(244, 63, 94, 0.16);
-  --status-failed-dot: #F43F5E;
-
-  /* Gradients */
-  --gradient-progress: #00e85e;
+  /* Canonical dark theme */
+  --canvas: oklch(0.15 0.008 145);
+  --surface-base: oklch(0.18 0.009 145);
+  --surface-raised: oklch(0.22 0.01 145);
+  --surface-inset: oklch(0.13 0.007 145);
+  --surface-overlay: oklch(0.2 0.01 145);
+  --text-primary: oklch(0.96 0.006 145);
+  --text-secondary: oklch(0.72 0.008 145);
+  --text-muted: oklch(0.66 0.01 145);
+  --text-disabled: oklch(0.48 0.009 145);
+  --text-on-accent: oklch(0.16 0.02 145);
+  --border-subtle: oklch(0.96 0.006 145 / 0.06);
+  --border-default: oklch(0.96 0.006 145 / 0.1);
+  --border-strong: oklch(0.96 0.006 145 / 0.2);
+  --focus-ring: oklch(0.78 0.22 145);
+  --accent-primary: oklch(0.78 0.22 145);
+  --accent-primary-hover: oklch(0.84 0.2 145);
+  --accent-primary-subtle: oklch(0.78 0.22 145 / 0.12);
+  --accent-primary-text: oklch(0.7 0.2 145);
+  --neutral-bg: oklch(0.72 0.01 145 / 0.12);
+  --neutral-border: oklch(0.72 0.01 145 / 0.24);
+  --neutral-text: oklch(0.78 0.01 145);
+  --neutral-dot: oklch(0.64 0.01 145);
+  --success-bg: oklch(0.76 0.2 145 / 0.12);
+  --success-border: oklch(0.76 0.2 145 / 0.28);
+  --success-text: oklch(0.76 0.2 145);
+  --success-dot: oklch(0.78 0.22 145);
+  --warning-bg: oklch(0.76 0.15 82 / 0.16);
+  --warning-border: oklch(0.76 0.15 82 / 0.3);
+  --warning-text: oklch(0.8 0.14 82);
+  --warning-dot: oklch(0.76 0.15 82);
+  --danger-bg: oklch(0.67 0.2 18 / 0.16);
+  --danger-border: oklch(0.67 0.2 18 / 0.3);
+  --danger-text: oklch(0.72 0.19 18);
+  --danger-dot: oklch(0.67 0.2 18);
+  --info-bg: oklch(0.7 0.14 245 / 0.14);
+  --info-border: oklch(0.7 0.14 245 / 0.3);
+  --info-text: oklch(0.76 0.13 245);
+  --info-dot: oklch(0.7 0.14 245);
 }
 
 /* ============================================
