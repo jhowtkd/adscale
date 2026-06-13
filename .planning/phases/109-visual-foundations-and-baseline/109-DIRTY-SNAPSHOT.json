@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "capturedHead": "6c0343a37a77647217a127359fde5503e91d9aa8",
+  "protectedPaths": [
+    {
+      "path": "app/src/components/settings/BillingTab.test.tsx",
+      "headBlob": "8e14d944c223fff4515872866cb5764a0d393304",
+      "index": [
+        {
+          "mode": "100644",
+          "blob": "8e14d944c223fff4515872866cb5764a0d393304",
+          "stage": 0
+        }
+      ],
+      "worktreeSha256": "10f12c5a3dddc9ae6b1539663f33365718c310010362d49a7918d9630c1dce1d",
+      "porcelainV2Base64": "MSAuTSBOLi4uIDEwMDY0NCAxMDA2NDQgMTAwNjQ0IDhlMTRkOTQ0YzIyM2ZmZjQ1MTU4NzI4NjZjYjU3NjRhMGQzOTMzMDQgOGUxNGQ5NDRjMjIzZmZmNDUxNTg3Mjg2NmNiNTc2NGEwZDM5MzMwNCBhcHAvc3JjL2NvbXBvbmVudHMvc2V0dGluZ3MvQmlsbGluZ1RhYi50ZXN0LnRzeAA="
+    },
+    {
+      "path": "app/src/components/settings/BillingTab.tsx",
+      "headBlob": "8cf98b33259f68eded46dfce8144938d78f02e22",
+      "index": [
+        {
+          "mode": "100644",
+          "blob": "8cf98b33259f68eded46dfce8144938d78f02e22",
+          "stage": 0
+        }
+      ],
+      "worktreeSha256": "7c1e90201645b65e3026ec0ddf0d27d283abcc005586839bba1ddd312886e711",
+      "porcelainV2Base64": "MSAuTSBOLi4uIDEwMDY0NCAxMDA2NDQgMTAwNjQ0IDhjZjk4YjMzMjU5ZjY4ZWRlZDQ2ZGZjZTgxNDQ5MzhkNzhmMDJlMjIgOGNmOThiMzMyNTlmNjhlZGVkNDZkZmNlODE0NDkzOGQ3OGYwMmUyMiBhcHAvc3JjL2NvbXBvbmVudHMvc2V0dGluZ3MvQmlsbGluZ1RhYi50c3gA"
+    },
+    {
+      "path": "app/src/server/repositories/billing.ts",
+      "headBlob": "9a38cc293d7fefb1f58bc939641b947f35e8ebd0",
+      "index": [
+        {
+          "mode": "100644",
+          "blob": "9a38cc293d7fefb1f58bc939641b947f35e8ebd0",
+          "stage": 0
+        }
+      ],
+      "worktreeSha256": "ee8435a1b96b94114513088ed80ff5b52396d7493e053ef2863b0bf8ccc47b6a",
+      "porcelainV2Base64": "MSAuTSBOLi4uIDEwMDY0NCAxMDA2NDQgMTAwNjQ0IDlhMzhjYzI5M2Q3ZmVmYjFmNThiYzkzOTY0MWI5NDdmMzVlOGViZDAgOWEzOGNjMjkzZDdmZWZiMWY1OGJjOTM5NjQxYjk0N2YzNWU4ZWJkMCBhcHAvc3JjL3NlcnZlci9yZXBvc2l0b3JpZXMvYmlsbGluZy50cwA="
+    },
+    {
+      "path": "app/scripts/verify-preview-fix.mjs",
+      "headBlob": null,
+      "index": null,
+      "worktreeSha256": "8b429afa653ba7a3a0f73b7ac3ea01c616c15275be1a41bdb2e7c1b9c06f9178",
+      "porcelainV2Base64": "PyBhcHAvc2NyaXB0cy92ZXJpZnktcHJldmlldy1maXgubWpzAA=="
+    }
+  ]
+}
