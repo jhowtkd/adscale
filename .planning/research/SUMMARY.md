@@ -1,133 +1,184 @@
 # Project Research Summary
 
-**Project:** ADScale v12.1 Memória Criativa e Aprendizado de Performance
-**Domain:** Closed-loop creative performance learning
+**Project:** ADScale v12.2 Refinamento Visual e Consistência da Interface
+**Domain:** Product UI consolidation and responsive hardening
 **Researched:** 2026-06-12
-**Confidence:** HIGH for product/architecture direction; MEDIUM for thresholds until real imports exist
+**Confidence:** HIGH
 
 ## Executive Summary
 
-ADScale already owns the creative context required to make performance data useful: client profile, brief, recipe, CTA, format, creative contract, quality/readiness scores and derivation lineage. The missing capability is a trustworthy evidence ledger connecting those artifacts to media outcomes. v12.1 should add this ledger without committing to provider APIs.
+ADScale has a documented product identity and a capable frontend stack, but the authenticated interface accumulated divergent layout recipes, tokens and component vocabularies across many milestones. The audit found 11 authenticated routes, 139 feature component files and more than 250 uses of width, overflow, sticky, fixed or absolute positioning that can interact badly across viewports. The problem is not lack of visual direction; it is inconsistent application of the existing direction.
 
-The recommended approach is import-first and hybrid: manual entry and CSV mapping produce canonical raw metrics in Postgres; comparisons distinguish observational signals from controlled hypotheses; approved client learnings are projected to the existing Mem0 integration for contextual retrieval. Recommendations resolve Mem0 results back to canonical evidence before launching an editable next experiment through existing campaign/recipe flows.
+The recommended approach is consolidation before page polish. Establish one geometry, token, layering and responsive contract; migrate the app shell and shared primitives; then refine route families in dependency order. Compactness must come from clearer hierarchy, predictable density and progressive disclosure, not smaller touch targets or hidden operational context.
 
-The primary risk is false certainty. Official ad-platform guidance explicitly treats asset-level ratio metrics as directional and supports no-clear-winner states when evidence is insufficient. ADScale should differentiate itself through transparent evidence, not an opaque AI score.
+The main risks are behavioral regressions disguised as visual cleanup, desktop layouts merely compressed on mobile, z-index escalation, ideal-data-only polishing and an unbounded whole-app scope. Each authenticated route must have one implementation owner and one browser scenario, with validation from mobile through ultrawide in both supported languages and themes where relevant.
 
 ## Key Findings
 
 ### Recommended Stack
 
-- Keep Next.js, Postgres, Drizzle, Zod and Recharts.
-- Add only `papaparse@5.5.3` plus typings for browser parsing and mapping preview.
-- Reuse `mem0ai@2.4.6` as the semantic learning/retrieval layer, not the metric ledger.
-- Store exact currency/ratios as PostgreSQL numeric values, not floating-point canonical values.
-- Use deterministic comparison/confidence rules; AI may later explain bounded evidence.
+Keep the existing Next.js, React, Tailwind CSS, shadcn/Base UI, Lucide, Framer Motion and CSS custom-property stack. Do not add another UI kit, styling engine, icon family or animation library.
 
-### Must-Have Features
+The required stack work is internal consolidation:
 
-- Canonical raw metrics and derived CTR/CPC/CPA/ROAS.
-- Manual entry and CSV mapping preview with row-level repair.
-- Import audit, dedupe and attribution-window updates.
-- Hypothesis with one primary variable and primary metric.
-- Comparable variant results with `winner`, `no clear winner` and `not comparable`.
-- Client learning cards citing support, contradiction, sample and recency.
-- Editable next-experiment action integrated with the existing cockpit.
+- Canonical semantic tokens for canvas, surfaces, text, borders, status, focus and elevation
+- Shared geometry tokens for top bar, sidebar, bottom navigation, gutters, content widths and sticky offsets
+- Shared responsive primitives for page frames, headers, action groups, dense sections, tables and scroll regions
+- One component vocabulary for buttons, controls, badges, panels, overlays and loading/empty/error states
+- Bounded motion tokens used only for state transitions and feedback
 
-### Defer
+Detailed evidence: [STACK.md](STACK.md).
 
-- Direct Meta/Google/TikTok APIs.
-- Cross-client benchmarks.
-- Multi-touch attribution.
-- Automated publishing, bidding or budget changes.
-- LLM-generated ranking without deterministic evidence.
+### Expected Features
 
-### Architecture
+**Must ship:**
 
-Use four canonical concepts: hypotheses, import batches, performance snapshots and derived client learnings. Raw snapshots remain auditable; learning records are versioned and rebuildable in Postgres. Mem0 stores a synchronized projection of those learnings for context-sensitive retrieval across campaigns.
+- No overlap, clipping, unreachable action or accidental horizontal page scroll on authenticated routes
+- Structural layouts for compact mobile, tablet/notebook, desktop and ultrawide ranges
+- Consistent page title, subtitle, primary action, secondary action and section hierarchy
+- Professional compact density with accessible control sizes and readable content
+- Stable shell, navigation and overlay behavior with explicit stacking and sticky contracts
+- Unified interaction states: default, hover, focus, active, disabled, loading and error
+- Consistent empty, loading and error patterns across route families
+- Browser-verified accessibility, localization and responsive regression matrix
+
+**High-value refinements:**
+
+- Reduce nested cards and competing actions
+- Use progressive disclosure for secondary metadata and actions
+- Consolidate duplicate campaign/dashboard representations
+- Improve long-content behavior in tables, galleries, forms and settings tabs
+- Preserve expert information density while making the primary task unmistakable
+
+**Explicit exclusions:**
+
+- New product capabilities or backend workflows
+- New visual identity, rebrand or marketing-site redesign
+- New UI framework, styling engine or icon set
+- Decorative animation, broad component rewrites without route evidence or pixel-perfect parity between unrelated surfaces
+
+Detailed evidence: [FEATURES.md](FEATURES.md).
+
+### Architecture Approach
+
+Introduce shared layout contracts before touching route-specific composition. The shell owns viewport geometry and navigation layers. Page primitives own content width, gutters, headers and action wrapping. Feature surfaces own only their internal workflow layout. Overlays use a fixed layer scale and shared dialog/sheet behavior. Responsive changes should be semantic, not a collection of local breakpoint patches.
+
+**Major boundaries:**
+
+1. **Design foundations:** canonical tokens, type/density recipes, layer scale and responsive matrix
+2. **App shell:** sidebar, top bar, bottom navigation, viewport offsets and global content frame
+3. **Page primitives:** page header, action group, section, dense toolbar, table/scroll container and state surfaces
+4. **Core workflow surfaces:** campaigns and campaign workspace, including galleries, panels, action bars and overlays
+5. **Secondary surfaces:** dashboard, library, templates/restyling, feedback and settings
+6. **Verification harness:** route/state/viewport/language/theme matrix and release evidence
+
+Detailed evidence: [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ### Critical Pitfalls
 
-1. Comparing different delivery contexts as if they were controlled tests.
-2. Turning directional asset metrics into causal claims.
-3. Duplicating spend/conversions on re-import.
-4. Misreading locale, percentages or currency.
-5. Creating permanent rules from sparse data.
-6. CSV formula injection and cross-workspace leakage.
-7. Letting an LLM invent winner/confidence logic.
+1. **Visual cleanup changes product behavior:** preserve route contracts and run focused tests after each family migration.
+2. **Compact becomes cramped:** reduce redundancy and improve hierarchy before reducing spacing or control size.
+3. **Mobile becomes hidden desktop:** define structural alternatives for tables, toolbars, navigation and multi-column workflows.
+4. **Ultrawide becomes stretched:** set content-width and reading-width contracts while allowing galleries and dense data to use space deliberately.
+5. **Z-index becomes an escalation:** define a layer scale for base, sticky content, shell, popover, backdrop, modal/sheet and toast.
+6. **Ideal fixtures hide failures:** test long translations, dense data, empty/error/loading states and multiple overlay combinations.
+7. **Whole-app scope never closes:** freeze the route inventory, assign every route to one phase and reserve the final phase for milestone-blocking defects only.
+
+Detailed evidence: [PITFALLS.md](PITFALLS.md).
 
 ## Implications for Roadmap
 
-### Phase 103: Performance Data Foundation
+### Phase 109: Visual Foundations and Baseline
 
-**Delivers:** schemas, migrations, repositories, canonical metrics, source identity, workspace isolation and fixtures.
+**Rationale:** Every later route migration depends on shared contracts.
 
-### Phase 104: Manual and CSV Import
+**Delivers:** authenticated route inventory, representative state matrix, canonical tokens, geometry and layer contracts, typography/density recipes, browser baselines and explicit exclusions.
 
-**Delivers:** manual form, mapping preview, row errors, transactional import, dedupe/upsert and import history.
+### Phase 110: App Shell and Navigation
 
-### Phase 105: Hypotheses and Variant Comparison
+**Rationale:** Fixed and sticky global chrome controls the usable geometry of every route.
 
-**Delivers:** primary-variable hypotheses, comparable cohorts, derived metrics and honest winner states.
+**Delivers:** responsive sidebar, top bar and mobile navigation; unified viewport offsets; stable global content frame; compact navigation and action behavior.
 
-### Phase 106: Client Performance Memory
+### Phase 111: Page Primitives and Operational Surfaces
 
-**Delivers:** evidence-backed patterns by CTA/format/recipe/style with confidence, contradictions and recency, plus synchronized Mem0 retrieval.
+**Rationale:** Shared primitives must exist before high-volume route migration.
 
-### Phase 107: Learning to Next Experiment
+**Delivers:** page headers, action groups, sections, toolbars, tables, forms and state surfaces; migration of campaigns list, settings and other dense operational routes.
 
-**Delivers:** explainable recommendation and editable prefill into existing campaign/recipe flow.
+### Phase 112: Campaign Workspace and Overlays
 
-### Phase 108: Verification and Operator Learning Gate
+**Rationale:** The campaign workspace has the highest interaction density and overlay risk.
 
-**Delivers:** migration verification, focused/full regression, browser import UAT and real sample evidence that recommendations remain explainable.
+**Delivers:** responsive workflow hierarchy, galleries, sticky action bars, side panels, dialogs and sheets without overlap or hidden actions.
 
-### Ordering Rationale
+### Phase 113: Dashboard and Secondary Surface Consistency
 
-- Trustworthy imports must precede all comparisons.
-- Hypotheses and comparability must precede memory aggregation.
-- Memory evidence must precede recommendations.
-- Real operator data is required before locking future API integrations or statistical thresholds.
+**Rationale:** Secondary routes can now reuse proven foundations instead of inventing local patterns.
 
-## Research Flags
+**Delivers:** dashboard, library, templates/restyling and feedback migration; accessibility, localization, long-content and interaction-state remediation across the app.
 
-- **Phase 105:** Define conservative confidence tiers from available aggregate data; do not claim platform-equivalent statistical significance.
-- **Phase 106:** Validate minimum evidence and contradiction rules with fixture and operator data.
-- **Phase 108:** Use real exports from at least two provider/locales if available.
+### Phase 114: Visual Regression and Release Gate
+
+**Rationale:** Independent verification prevents implementation phases from marking their own visual assumptions as complete.
+
+**Delivers:** browser matrix from mobile through ultrawide, supported-language checks, keyboard/focus and overlay stress tests, automated regression coverage, full test/lint/build gate and UAT evidence.
+
+### Phase Ordering Rationale
+
+- Geometry and tokens precede shell changes because local offsets otherwise continue drifting.
+- Shell precedes route migration because every route inherits its usable viewport.
+- Shared primitives precede complex workflows to avoid another generation of one-off components.
+- Campaign workspace is isolated because it contains the highest density of sticky actions, galleries and overlays.
+- The final gate is independent and defect-bounded so the milestone can close.
+
+### Research Flags
+
+- **Phase 109:** verify the final viewport/state matrix against actual authenticated data fixtures before freezing it.
+- **Phase 112:** inspect live overlay combinations and campaign states in the browser during planning.
+- **Phase 114:** define screenshot tolerance and representative scenarios before implementation completes.
+
+All phases use established frontend patterns; external ecosystem research is not required during phase planning.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Existing stack fits; one bounded parser addition |
-| Features | HIGH | Core workflow follows official reporting/experiment behavior |
-| Architecture | HIGH | Clear integration anchors already exist |
-| Statistical thresholds | MEDIUM | Must be calibrated against actual imported data |
-| Provider mapping presets | MEDIUM | Real export samples are required |
+| Stack | HIGH | Verified against the current dependencies, tokens and component implementation |
+| Surface scope | HIGH | Authenticated route and feature-component inventory completed |
+| Architecture | HIGH | Shell, width, overflow, sticky and overlay patterns mapped from source |
+| Pitfalls | HIGH | Risks tied to concrete code patterns and prior product audits |
+| Live severity ranking | MEDIUM | Final ordering within route families requires authenticated browser baselines |
+
+**Overall confidence:** HIGH
+
+### Gaps to Address
+
+- No local app server was running during synthesis; Phase 109 must capture authenticated browser baselines before changing UI code.
+- Real long-content and dense-data fixtures must be selected for PT-BR and EN.
+- Dark-theme parity should be verified where the theme is user-accessible, without forcing identical visual weight across themes.
 
 ## Sources
 
 ### Primary
 
-- https://support.google.com/google-ads/answer/16259414
-- https://support.google.com/google-ads/answer/6318747
-- https://support.google.com/google-ads/answer/13719071
-- https://developers.google.com/google-ads/api/docs/api-policy/rmf
-- https://www.facebook.com/business/help/1738164643098669
-- https://www.papaparse.com/docs
-- https://docs.mem0.ai/core-concepts/memory-operations/search
-- https://docs.mem0.ai/platform/features/v2-memory-filters
-- https://docs.mem0.ai/api-reference/memory/history-memory
-- https://orm.drizzle.team/docs/transactions
-- https://orm.drizzle.team/docs/guides/upsert
-- https://www.postgresql.org/docs/current/datatype-numeric.html
-- https://owasp.org/www-community/attacks/CSV_Injection
+- `PRODUCT.md` and `DESIGN.md`
+- `.planning/PROJECT.md`
+- `app/src/app/globals.css`
+- `app/src/app/(dashboard)/`
+- `app/src/components/layout/`
+- `app/src/components/dashboard/`
+- `app/src/components/campaigns/`
+- `app/src/components/workspace/`
+- `app/src/components/settings/`
 
-### Project Evidence
+### Supporting Audits
 
-- `.planning/phases/94-learning-closure-threshold-tune/94-LEARNING-ANSWERS.md`
-- `app/src/server/db/schema.ts`
-- `app/src/server/memory/`
-- `app/src/app/(dashboard)/campaigns/[id]/page.tsx`
+- `tasks/todo.md` Layers surface and product-flow audits
+- `.planning/research/STACK.md`
+- `.planning/research/FEATURES.md`
+- `.planning/research/ARCHITECTURE.md`
+- `.planning/research/PITFALLS.md`
 
 ---
 *Research completed: 2026-06-12*
