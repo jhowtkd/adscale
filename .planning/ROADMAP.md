@@ -36,7 +36,7 @@
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
 | 109 | 6/6 | Complete |  | 2026-06-13 |
-| 110 | 0/TBD | Not started |  | - |
+| 110 | 4/5 | In Progress |  | - |
 | 110 | App Shell and Navigation | SHELL-01–05 | Not started | - |
 | 111 | Page Primitives and Operational Surfaces | SURF-01–05 | Not started | - |
 | 112 | Campaign Workspace and Overlays | WORK-01–05 | Not started | - |

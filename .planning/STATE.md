@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-12)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
-**Current focus:** Phase 110 — App Shell and Navigation
+**Current focus:** Phase 110 — App Shell and Navigation (plans 01–04 shipped; 05 pending)
 
 **Last updated:** 2026-06-13
 **Current milestone:** v12.2 Refinamento Visual e Consistência da Interface
@@ -30,11 +30,11 @@ See: .planning/PROJECT.md (updated 2026-06-12)
 ## Current Position
 
 Phase: 110 of 114 (App Shell and Navigation)
-Plan: 0 of TBD
-Status: Ready to discuss
-Last activity: 2026-06-13 — Phase 109 complete (6/6 plans)
+Plan: 4 of 5 (estimated)
+Status: In progress
+Last activity: 2026-06-13 — Shell tokens, landmarks, PageFrame, route migration
 
-Progress: [█░░░░░░░░░] 17% (milestone)
+Progress: [██░░░░░░░░] 20% (milestone)
 
 ## Summary
 
@@ -100,7 +100,7 @@ None.
 
 ## Next action
 
-Discuss Phase 110: App Shell and Navigation (SHELL-01–05).
+Execute Plan 110-05: Shell tests and browser proof (DEFECT-LANDMARKS closure).
 
 ## Session Continuity
 
