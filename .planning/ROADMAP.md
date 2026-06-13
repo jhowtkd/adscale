@@ -2,7 +2,7 @@
 
 ## Milestones
 
-- 📋 **v12.2 Refinamento Visual e Consistência da Interface** - Phases 109-114 (planned)
+- 📋 **v12.2 Refinamento Visual e Consistência da Interface** - Phases 109-114 (in progress — audit gaps_found 2026-06-13)
 - ✅ **v12.1 Memória Criativa e Aprendizado de Performance** - Phases 103-108 (shipped 2026-06-12)
 - ✅ **v12.0 Monetização Real** - Phases 97-102 (shipped 2026-06-11)
 - ✅ **v11.11 Aprendizado → Ação** - Phases 90-96 (shipped 2026-06-11)
@@ -22,12 +22,14 @@
 
 ## Phases
 
-### 📋 v12.2 Refinamento Visual e Consistência da Interface (Phases 109-114) — PLANNED
+### 📋 v12.2 Refinamento Visual e Consistência da Interface (Phases 109-114) — IN PROGRESS
 
 **Milestone Goal:** Tornar toda a interface autenticada do ADScale compacta, profissional, previsível e estruturalmente responsiva, eliminando sobreposições e divergências sem alterar capacidades, regras ou contratos dos fluxos existentes.
 
-- [ ] **Phase 109: Visual Foundations and Baseline** — inventário verificável, contratos visuais, geometria, densidade, camadas e ownership de rotas
-- [ ] **Phase 110: App Shell and Navigation** — shell responsivo, navegação e chrome global sem cortes, colisões ou ações inacessíveis
+**Audit:** [v12.2-MILESTONE-AUDIT.md](v12.2-MILESTONE-AUDIT.md) — `gaps_found` (2026-06-13)
+
+- [x] **Phase 109: Visual Foundations and Baseline** — inventário verificável, contratos visuais, geometria, densidade, camadas e ownership de rotas
+- [ ] **Phase 110: App Shell and Navigation** — shell responsivo, navegação e chrome global sem cortes, colisões ou ações inacessíveis *(partial — 4/5 plans)*
 - [ ] **Phase 111: Page Primitives and Operational Surfaces** — hierarquia, ações, toolbars, tabelas, formulários e estados compartilhados nas superfícies operacionais
 - [ ] **Phase 112: Campaign Workspace and Overlays** — workspace orientado por etapa, dados densos e overlays previsíveis em qualquer viewport
 - [ ] **Phase 113: Dashboard and Secondary Surface Consistency** — dashboard, biblioteca, templates/restyling, feedback e configurações alinhados em responsividade, acessibilidade e localização
@@ -35,12 +37,11 @@
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
-| 109 | 6/6 | Complete |  | 2026-06-13 |
-| 110 | 4/5 | In Progress |  | - |
-| 110 | App Shell and Navigation | SHELL-01–05 | Not started | - |
+| 109 | Visual Foundations and Baseline | FOUND-01–05, QA-14 | Complete | 2026-06-13 |
+| 110 | App Shell and Navigation | SHELL-01–05 | Partial (4/5 plans) | - |
 | 111 | Page Primitives and Operational Surfaces | SURF-01–05 | Not started | - |
 | 112 | Campaign Workspace and Overlays | WORK-01–05 | Not started | - |
-| 113 | Dashboard and Secondary Surface Consistency | SURF-06, RESP-06, RESP-08–09, A11Y-06–09 | Not started | - |
+| 113 | Dashboard and Secondary Surfaces | SURF-06, RESP-06/08/09, A11Y-06–09 | Not started | - |
 | 114 | Visual Regression and Release Gate | RESP-07, QA-15–17 | Not started | - |
 
 ---

@@ -2,6 +2,7 @@
 
 **Defined:** 2026-06-12
 **Milestone:** v12.2 Refinamento Visual e Consistência da Interface
+**Status:** In progress (audit 2026-06-13: `gaps_found` — see [v12.2-MILESTONE-AUDIT.md](v12.2-MILESTONE-AUDIT.md))
 **Core Value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
 ## Scope
@@ -20,15 +21,15 @@ Refinar todas as superfícies autenticadas do ADScale para uma linguagem compact
 - [x] **FOUND-02**: Usuário percebe uma escala consistente de tipografia, espaçamento e densidade adequada a uma ferramenta profissional compacta.
 - [x] **FOUND-03**: Todas as rotas usam contratos compartilhados de gutters, larguras de conteúdo, top bar, sidebar, navegação mobile e offsets sticky.
 - [x] **FOUND-04**: Conteúdo, navegação, sticky regions, popovers, backdrops, modais, sheets e toasts seguem uma escala única de camadas sem competição de z-index.
-- [ ] **FOUND-05**: Componentes equivalentes convergem para uma linguagem única de botões, controles, badges, painéis, estados e feedback interativo.
+- [x] **FOUND-05**: Componentes equivalentes convergem para uma linguagem única de botões, controles, badges, painéis, estados e feedback interativo.
 
 ### Shell and Navigation (SHELL)
 
-- [ ] **SHELL-01**: Usuário navega pelo app sem sidebar, top bar ou navegação mobile sobrepor ou ocultar conteúdo.
-- [ ] **SHELL-02**: Identidade, título, busca, ações, notificações e conta na top bar se reorganizam sem cortes em larguras intermediárias.
-- [ ] **SHELL-03**: Todas as rotas autenticadas usam o mesmo frame de página e comportamento previsível de largura e gutters.
-- [ ] **SHELL-04**: Navegação ativa, foco, menus, notificações e controles globais apresentam estados visuais e interativos consistentes.
-- [ ] **SHELL-05**: Shell e navegação permanecem utilizáveis com zoom, safe areas, teclado e textos longos em PT-BR e EN.
+- [ ] **SHELL-01**: Usuário navega pelo app sem sidebar, top bar ou navegação mobile sobrepor ou ocultar conteúdo. *(partial — Phase 110)*
+- [ ] **SHELL-02**: Identidade, título, busca, ações, notificações e conta na top bar se reorganizam sem cortes em larguras intermediárias. *(partial — Phase 110)*
+- [ ] **SHELL-03**: Todas as rotas autenticadas usam o mesmo frame de página e comportamento previsível de largura e gutters. *(partial — Phase 110)*
+- [ ] **SHELL-04**: Navegação ativa, foco, menus, notificações e controles globais apresentam estados visuais e interativos consistentes. *(partial — Phase 110)*
+- [ ] **SHELL-05**: Shell e navegação permanecem utilizáveis com zoom, safe areas, teclado e textos longos em PT-BR e EN. *(partial — Phase 110)*
 
 ### Product Surfaces (SURF)
 
@@ -101,41 +102,42 @@ Refinar todas as superfícies autenticadas do ADScale para uma linguagem compact
 | FOUND-02 | Phase 109 | Complete |
 | FOUND-03 | Phase 109 | Complete |
 | FOUND-04 | Phase 109 | Complete |
-| FOUND-05 | Phase 109 | Pending |
-| SHELL-01 | Phase 110 | Pending |
-| SHELL-02 | Phase 110 | Pending |
-| SHELL-03 | Phase 110 | Pending |
-| SHELL-04 | Phase 110 | Pending |
-| SHELL-05 | Phase 110 | Pending |
-| SURF-01 | Phase 111 | Pending |
-| SURF-02 | Phase 111 | Pending |
-| SURF-03 | Phase 111 | Pending |
-| SURF-04 | Phase 111 | Pending |
-| SURF-05 | Phase 111 | Pending |
-| SURF-06 | Phase 113 | Pending |
-| WORK-01 | Phase 112 | Pending |
-| WORK-02 | Phase 112 | Pending |
-| WORK-03 | Phase 112 | Pending |
-| WORK-04 | Phase 112 | Pending |
-| WORK-05 | Phase 112 | Pending |
-| RESP-06 | Phase 113 | Pending |
-| RESP-07 | Phase 114 | Pending |
-| RESP-08 | Phase 113 | Pending |
-| RESP-09 | Phase 113 | Pending |
-| A11Y-06 | Phase 113 | Pending |
-| A11Y-07 | Phase 113 | Pending |
-| A11Y-08 | Phase 113 | Pending |
-| A11Y-09 | Phase 113 | Pending |
+| FOUND-05 | Phase 109 | Complete |
+| SHELL-01 | Phase 110 | Partial |
+| SHELL-02 | Phase 110 | Partial |
+| SHELL-03 | Phase 110 | Partial |
+| SHELL-04 | Phase 110 | Partial |
+| SHELL-05 | Phase 110 | Partial |
+| SURF-01 | Phase 111 | Not started |
+| SURF-02 | Phase 111 | Not started |
+| SURF-03 | Phase 111 | Not started |
+| SURF-04 | Phase 111 | Not started |
+| SURF-05 | Phase 111 | Not started |
+| SURF-06 | Phase 113 | Not started |
+| WORK-01 | Phase 112 | Not started |
+| WORK-02 | Phase 112 | Not started |
+| WORK-03 | Phase 112 | Not started |
+| WORK-04 | Phase 112 | Not started |
+| WORK-05 | Phase 112 | Not started |
+| RESP-06 | Phase 113 | Not started |
+| RESP-07 | Phase 114 | Not started |
+| RESP-08 | Phase 113 | Not started |
+| RESP-09 | Phase 113 | Not started |
+| A11Y-06 | Phase 113 | Not started |
+| A11Y-07 | Phase 113 | Not started |
+| A11Y-08 | Phase 113 | Not started |
+| A11Y-09 | Phase 113 | Not started |
 | QA-14 | Phase 109 | Complete |
-| QA-15 | Phase 114 | Pending |
-| QA-16 | Phase 114 | Pending |
-| QA-17 | Phase 114 | Pending |
+| QA-15 | Phase 114 | Not started |
+| QA-16 | Phase 114 | Not started |
+| QA-17 | Phase 114 | Not started |
 
 **Coverage:**
 - v12.2 requirements: 33 total
+- Complete: 6 · Partial: 5 · Not started: 22
 - Mapped to phases: 33
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-06-12*
-*Last updated: 2026-06-13 after roadmap creation*
+*Last updated: 2026-06-13 after milestone audit (gaps_found)*

@@ -2,16 +2,17 @@
 gsd_state_version: 1.0
 milestone: v12.2
 milestone_name: Refinamento Visual e Consistência da Interface
-status: executing
-stopped_at: Completed 109-06-PLAN.md
-last_updated: "2026-06-13T16:20:00.000Z"
-last_activity: 2026-06-13 — Phase 109 complete; browser proof and validation closure
+status: audit_gaps_found
+stopped_at: Milestone audit v12.2 — gaps_found
+last_updated: "2026-06-13T18:45:00.000Z"
+last_activity: 2026-06-13 — v12.2 milestone audit; complete-milestone blocked
 progress:
   total_phases: 6
   completed_phases: 1
-  total_plans: 6
-  completed_plans: 6
-  percent: 100
+  partial_phases: 1
+  total_plans: 11
+  completed_plans: 10
+  percent: 33
 ---
 
 # Project State
@@ -21,11 +22,11 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-12)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
-**Current focus:** Phase 110 — App Shell and Navigation (plans 01–04 shipped; 05 pending)
+**Current focus:** v12.2 audit complete — resume Phase 110-05 or execute 111–114
 
 **Last updated:** 2026-06-13
 **Current milestone:** v12.2 Refinamento Visual e Consistência da Interface
-**Status:** In progress
+**Status:** In progress (audit: gaps_found)
 
 ## Current Position
 
@@ -34,7 +35,7 @@ Plan: 4 of 5 (estimated)
 Status: In progress
 Last activity: 2026-06-13 — Shell tokens, landmarks, PageFrame, route migration
 
-Progress: [██░░░░░░░░] 20% (milestone)
+Progress: [███░░░░░░░] 33% (milestone — 6/33 requirements complete)
 
 ## Summary
 
@@ -82,7 +83,7 @@ None yet.
 
 ### Blockers/Concerns
 
-None.
+- v12.2 milestone audit (2026-06-13): **gaps_found** — Phases 111–114 not started; Phase 110 partial. See `.planning/v12.2-MILESTONE-AUDIT.md`. `/gsd-complete-milestone` blocked until Phase 114 closes QA-15–17.
 
 ## Last completed milestone
 
@@ -100,7 +101,7 @@ None.
 
 ## Next action
 
-Execute Plan 110-05: Shell tests and browser proof (DEFECT-LANDMARKS closure).
+Finish Phase 110-05, then execute Phases 111–114. Re-audit before `/gsd-complete-milestone v12.2`.
 
 ## Session Continuity
 
