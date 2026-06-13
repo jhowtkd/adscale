@@ -10,6 +10,17 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Current Milestone
 
+### v12.2 Refinamento Visual e Consistência da Interface
+
+**Goal:** Tornar toda a interface do ADScale compacta, profissional, previsível e responsiva, eliminando sobreposições e irregularidades visuais sem perder velocidade operacional ou identidade.
+
+**Target features:**
+- Padronização de layout, espaçamento, tipografia, densidade e hierarquia em todas as superfícies autenticadas
+- Responsividade estrutural de mobile a ultrawide, sem sobreposição, corte ou ações inacessíveis
+- Simplificação de telas com redução de cards e ações concorrentes, preservando os fluxos e capacidades existentes
+- Consolidação de componentes, tokens e estados interativos para evitar novas divergências visuais
+- Auditoria visual, acessibilidade e regressão responsiva com validação em navegador
+
 ### v12.1 Memória Criativa e Aprendizado de Performance — SHIPPED (2026-06-12)
 
 Phases 103–108 complete; 31/31 requirements; prod migrate 0036–0040 applied on Render (`journal after=41`). Archive: `.planning/milestones/v12.1-*`.
@@ -204,13 +215,11 @@ Delivered: credit estimate transparency, enriched credit events, delivery/stale 
 
 ### Active
 
-- [ ] **PERF-13–16**: Métricas canônicas, derivadas, auditáveis e isoladas por workspace
-- [ ] **IMPT-01–06**: Entrada manual e CSV com preview, normalização, deduplicação e histórico
-- [ ] **HYPO-01–03**: Hipóteses criativas com variável, métrica e resultado observado
-- [ ] **COMP-05–08**: Comparação contextual com estados honestos de evidência
-- [ ] **MEM-01–06**: Aprendizado canônico por cliente projetado e recuperado via Mem0
-- [ ] **NEXT-01–04**: Recomendação explicável e editável para o próximo experimento
-- [ ] **QA-10–13**: Regressão, isolamento, sincronização Mem0, migração, build e UAT
+- [ ] Refinar todas as superfícies autenticadas com uma linguagem visual compacta e profissional
+- [ ] Eliminar sobreposições, cortes e quebras de layout de mobile a ultrawide
+- [ ] Reorganizar hierarquia, densidade e ações quando a estrutura atual prejudicar clareza ou operação
+- [ ] Consolidar tokens e componentes reutilizáveis para manter consistência entre telas
+- [ ] Validar acessibilidade, responsividade e fluxos críticos em navegador antes do release
 
 ### Validated (v10.0)
 
@@ -254,9 +263,9 @@ Delivered: credit estimate transparency, enriched credit events, delivery/stale 
 
 ## Context
 
-Current state: v12.0 Monetização Real shipped with 19/19 requirements, production checkout/webhook evidence, subscription lifecycle, credit conversion surfaces, and a green 1061-test release gate. Earlier milestones already provide creative contracts, quality/readiness scoring, guided briefing, strategy recipes, preview-before-batch, delivery/share, progression, feedback, and first-party product analytics.
+Current state: v12.1 shipped the complete performance-learning loop with manual/CSV import, hypotheses, contextual comparison, client memory and next-experiment recommendations. The product now has broad functional depth across dashboard, campaigns, creation, review, delivery, learning, feedback, library and settings.
 
-The remaining learning gap is external performance: ADScale records how users create and deliver ads, but does not yet associate media outcomes such as spend, CTR, CPC, conversions, CPA, and ROAS with the derivations that produced them. v12.1 closes this loop using manual/CSV ingestion before committing to direct ad-platform integrations.
+The current gap is interface coherence. Capabilities accumulated across many milestones with inconsistent density, hierarchy, spacing and responsive behavior. v12.2 treats the authenticated app as one product surface, using the existing Impeccable product context and design language to remove overlaps, simplify competing actions, consolidate reusable UI primitives and verify layouts from mobile through ultrawide.
 
 Marketing remains in `jhowtkd/site-adscale.git`; product feedback and owner triage live in ADScale_2 at `/feedback` for platform owners.
 
@@ -264,7 +273,7 @@ Migration `app/drizzle/0027_fine_morlun.sql` (Drizzle journal idx 27) must be ap
 
 Prior milestones delivered the strategy cockpit (v11.6), beta feedback capture (v11.4), presentation site separation (v11.3), beta entitlements (v11.2), generation quality gates (v11.1), coherent derivation flows (v11.0), and the full MVP through v10 UI polish.
 
-Current verification status at the v12.0 gate: 1061 tests passed (1 skipped), lint has 0 errors, and production build passed. Non-blocking billing follow-ups remain tracked in STATE.md while v12.1 requirements are defined.
+Current verification status at the v12.1 gate: 1185 tests passed (1 skipped), lint has 0 errors, production build passed, and Render migrations are at journal 41/41.
 
 Key stack decisions:
 - Next.js App Router, React, TypeScript, Tailwind, shadcn/ui
@@ -327,7 +336,7 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-12 — milestone v12.1 Memória Criativa e Aprendizado de Performance started*
+*Last updated: 2026-06-12 — milestone v12.2 Refinamento Visual e Consistência da Interface started*
 
 ## Milestone History
 

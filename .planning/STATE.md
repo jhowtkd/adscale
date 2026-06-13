@@ -1,10 +1,10 @@
 ---
 gsd_state_version: 1.0
-milestone: none
-milestone_name: (awaiting next milestone)
-status: between_milestones
-last_updated: "2026-06-12T18:15:00Z"
-last_activity: 2026-06-12 — v12.1 archived; prod deploy live (9a3417d6); migrate journal=41
+milestone: v12.2
+milestone_name: Refinamento Visual e Consistência da Interface
+status: defining_requirements
+last_updated: "2026-06-12T19:30:00Z"
+last_activity: 2026-06-12 — Milestone v12.2 started
 progress:
   total_phases: 0
   completed_phases: 0
@@ -15,12 +15,19 @@ progress:
 # Project State
 
 **Last updated:** 2026-06-12
-**Current milestone:** none — run `/gsd-new-milestone` to start v12.2+
-**Status:** Between milestones
+**Current milestone:** v12.2 Refinamento Visual e Consistência da Interface
+**Status:** Defining requirements
+
+## Current Position
+
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-06-12 — Milestone v12.2 started
 
 ## Summary
 
-v12.1 Memória Criativa e Aprendizado de Performance shipped 2026-06-12. Prod deploy live with migrations 0036–0040 applied (`journal after=41`). Archive in `.planning/milestones/v12.1-*`.
+v12.2 will refine the complete authenticated app into a compact, professional and consistent product surface. Scope includes structural responsiveness from mobile to ultrawide, elimination of overlaps and clipping, hierarchy and density improvements, component consolidation, accessibility and browser-verified visual regression.
 
 ## Last completed milestone
 
@@ -38,4 +45,4 @@ v12.1 Memória Criativa e Aprendizado de Performance shipped 2026-06-12. Prod de
 
 ## Next action
 
-Run `/gsd-new-milestone` to define v12.2+ scope and fresh REQUIREMENTS.md.
+Define and approve v12.2 requirements, then create the phase roadmap beginning at Phase 109.
