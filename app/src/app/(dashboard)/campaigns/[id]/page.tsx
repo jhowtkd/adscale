@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";
 import dynamic from "next/dynamic";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import PageFrame from "@/components/layout/PageFrame";
 import { useUploadAsset, useCampaignAssets } from "@/lib/hooks/use-assets";
 import type { DeliveryFormat } from "@/components/workspace/DeliveryPackageModal";
 
@@ -394,7 +395,7 @@ export default function CampaignWorkspacePage() {
   const isDraft = campaign?.status === "draft";
 
   return (
-    <div className="max-w-[1100px] min-w-0 mx-auto pb-20">
+    <PageFrame width="workspace" className="min-w-0 pb-20 [--content-max:68.75rem]">
       <CampaignWorkspaceHeader
         campaignId={campaignId}
         campaignName={campaign?.name ?? ""}
@@ -555,7 +556,7 @@ export default function CampaignWorkspacePage() {
         onDeleteDialogOpenChange={setShowDeleteDialog}
         onConfirmDelete={handleDelete}
       />
-    </div>
+    </PageFrame>
   );
 }
 

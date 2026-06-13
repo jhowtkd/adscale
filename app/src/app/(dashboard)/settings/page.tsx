@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
 import ProfileTab from "@/components/settings/ProfileTab";
+import PageFrame from "@/components/layout/PageFrame";
 import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
 
@@ -92,7 +93,7 @@ function SettingsContent() {
   const activeTab = requestedTab && tabIds.includes(requestedTab) ? requestedTab : "profile";
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <PageFrame width="operational" className="space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-semibold text-[var(--text-primary)]">
@@ -150,6 +151,6 @@ function SettingsContent() {
         {activeTab === "integrations" && <IntegrationsTab />}
         {activeTab === "privacy" && <PrivacyTab />}
       </m.div>
-    </div>
+    </PageFrame>
   );
 }

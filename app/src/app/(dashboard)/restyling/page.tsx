@@ -10,6 +10,7 @@ import { apiFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { RestylingUpload } from "@/components/restyling/RestylingUpload";
 import RestylingForm from "@/components/restyling/RestylingForm";
+import PageFrame from "@/components/layout/PageFrame";
 
 interface FormErrors {
   name?: string;
@@ -120,7 +121,7 @@ export default function RestylingPage() {
   }, [router]);
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <PageFrame width="form">
       <m.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
@@ -188,6 +189,6 @@ export default function RestylingPage() {
           </Button>
         </div>
       </form>
-    </div>
+    </PageFrame>
   );
 }

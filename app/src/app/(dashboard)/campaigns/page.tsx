@@ -31,6 +31,7 @@ import TableSkeleton from "@/components/campaigns/TableSkeleton";
 import GridSkeleton from "@/components/campaigns/GridSkeleton";
 
 import { useCampaignsPage } from "@/components/campaigns/useCampaignsPage";
+import PageFrame from "@/components/layout/PageFrame";
 
 const NewCampaignModal = dynamic(() => import("@/components/campaigns/NewCampaignModal"), {
   ssr: false,
@@ -102,7 +103,7 @@ function CampaignsListContent() {
   } = useCampaignsPage(searchParams);
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <PageFrame width="operational" className="space-y-6">
       <h1 className="sr-only">{tc("pageTitle") ?? "Campaigns"}</h1>
       <CampaignsHeader
         count={totalCount}
@@ -226,6 +227,6 @@ function CampaignsListContent() {
           if (deleteTarget) void handleDelete(deleteTarget);
         }}
       />
-    </div>
+    </PageFrame>
   );
 }

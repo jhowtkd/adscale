@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import PageFrame from "@/components/layout/PageFrame";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { logger } from "@/lib/logger";
@@ -143,7 +144,7 @@ export default function QuickToolsRestylingPage() {
   }, [router]);
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <PageFrame width="form" className="[--content-max:42rem]">
       <m.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
@@ -285,7 +286,7 @@ export default function QuickToolsRestylingPage() {
           </Button>
         </div>
       </form>
-    </div>
+    </PageFrame>
   );
 }
 

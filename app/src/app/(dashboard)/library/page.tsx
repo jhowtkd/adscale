@@ -7,6 +7,7 @@ import { Search, Upload, ImageIcon, Trash2, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import PageFrame from "@/components/layout/PageFrame";
 import {
   useWorkspaceAssets,
   useDeleteWorkspaceAsset,
@@ -124,7 +125,7 @@ export default function LibraryPage() {
   }, [handleUpload]);
 
   return (
-    <div className="space-y-6">
+    <PageFrame width="operational" className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -226,7 +227,7 @@ export default function LibraryPage() {
         isLoading={deleteAsset.isPending}
         onConfirm={handleDelete}
       />
-    </div>
+    </PageFrame>
   );
 }
 

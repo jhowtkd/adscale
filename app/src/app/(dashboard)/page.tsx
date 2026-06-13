@@ -13,6 +13,7 @@ import DashboardCampaignListView from "@/components/dashboard/DashboardCampaignL
 import CreditPanel from "@/components/dashboard/CreditPanel";
 import AdsScientistProgressCard from "@/components/dashboard/AdsScientistProgressCard";
 import MissionPathCard from "@/components/dashboard/MissionPathCard";
+import PageFrame from "@/components/layout/PageFrame";
 
 const CreditChart = dynamic(() => import("@/components/dashboard/CreditChart"), {
   loading: () => <div className="h-[300px] w-full bg-[var(--surface-raised)] rounded-xl animate-pulse border-2 border-[var(--border-dim)]" />,
@@ -98,7 +99,7 @@ export default function DashboardPage() {
           }}
         />
         
-        <div className="relative max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <PageFrame width="wide" className="relative py-6 sm:py-8">
           <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 sm:gap-6" data-tour-step="1">
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-3">
@@ -168,19 +169,20 @@ export default function DashboardPage() {
               </fieldset>
             </div>
           </div>
-        </div>
+        </PageFrame>
       </section>
 
       <section className="border-b-2 border-[var(--border-dim)] bg-[var(--surface-base)]">
-        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <PageFrame width="wide" className="py-6">
           <AdsScientistProgressCard />
           <MissionPathCard />
-        </div>
+        </PageFrame>
       </section>
 
       {/* Campaigns Grid Section */}
       <section className="py-10" style={{ contentVisibility: "auto" }}>
-        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8" data-tour-step="2">
+        <PageFrame width="wide">
+          <div data-tour-step="2">
           {statsPending ? (
             <CampaignGridSkeleton />
           ) : filteredCampaigns.length > 0 ? (
@@ -216,7 +218,8 @@ export default function DashboardPage() {
           ) : (
             <EmptyState searchQuery={searchQuery} />
           )}
-        </div>
+          </div>
+        </PageFrame>
       </section>
 
       {/* Bold Stats Section */}
@@ -232,7 +235,7 @@ export default function DashboardPage() {
           }}
         />
         
-        <div className="relative max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <PageFrame width="wide" className="relative py-10">
           {statsPending ? (
             <StatsSectionSkeleton />
           ) : (
@@ -257,7 +260,7 @@ export default function DashboardPage() {
               </div>
             </div>
           )}
-        </div>
+        </PageFrame>
       </section>
 
       {showTour && (

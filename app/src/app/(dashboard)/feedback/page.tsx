@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { BetaSessionsPanel } from "@/components/feedback/BetaSessionsPanel";
 import { OwnerAnalyticsPanel } from "@/components/feedback/OwnerAnalyticsPanel";
 import { cn } from "@/lib/utils";
+import PageFrame from "@/components/layout/PageFrame";
 
 type FeedbackReport = {
   id: string;
@@ -179,7 +180,7 @@ export default function FeedbackTriagePage() {
   const detail = detailQuery.data;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 px-4 py-8">
+    <PageFrame width="operational" className="space-y-6 py-8">
       <OwnerAnalyticsPanel sessionOptions={sessionOptions} />
       <BetaSessionsPanel />
     <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
@@ -435,6 +436,6 @@ export default function FeedbackTriagePage() {
         )}
       </section>
     </div>
-    </div>
+    </PageFrame>
   );
 }
