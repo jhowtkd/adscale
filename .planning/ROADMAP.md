@@ -29,7 +29,7 @@
 **Audit:** [v12.2-MILESTONE-AUDIT.md](v12.2-MILESTONE-AUDIT.md) — `gaps_found` (2026-06-13)
 
 - [x] **Phase 109: Visual Foundations and Baseline** — inventário verificável, contratos visuais, geometria, densidade, camadas e ownership de rotas
-- [ ] **Phase 110: App Shell and Navigation** — shell responsivo, navegação e chrome global sem cortes, colisões ou ações inacessíveis *(partial — 4/5 plans)*
+- [x] **Phase 110: App Shell and Navigation** — shell responsivo, navegação e chrome global sem cortes, colisões ou ações inacessíveis
 - [ ] **Phase 111: Page Primitives and Operational Surfaces** — hierarquia, ações, toolbars, tabelas, formulários e estados compartilhados nas superfícies operacionais
 - [ ] **Phase 112: Campaign Workspace and Overlays** — workspace orientado por etapa, dados densos e overlays previsíveis em qualquer viewport
 - [ ] **Phase 113: Dashboard and Secondary Surface Consistency** — dashboard, biblioteca, templates/restyling, feedback e configurações alinhados em responsividade, acessibilidade e localização
@@ -38,7 +38,7 @@
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
 | 109 | Visual Foundations and Baseline | FOUND-01–05, QA-14 | Complete | 2026-06-13 |
-| 110 | App Shell and Navigation | SHELL-01–05 | Partial (4/5 plans) | - |
+| 110 | App Shell and Navigation | SHELL-01–05 | Complete | 2026-06-13 |
 | 111 | Page Primitives and Operational Surfaces | SURF-01–05 | Not started | - |
 | 112 | Campaign Workspace and Overlays | WORK-01–05 | Not started | - |
 | 113 | Dashboard and Secondary Surfaces | SURF-06, RESP-06/08/09, A11Y-06–09 | Not started | - |

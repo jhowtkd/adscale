@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-06-13T18:47:49.815Z",
+  "identity": "visual-foundations@example.test",
+  "checks": [
+    {
+      "viewport": 390,
+      "route": "/",
+      "mainCount": 1,
+      "nestedMain": false,
+      "contentBelowHeader": true,
+      "mobileNavClear": true,
+      "result": "pass",
+      "key": "/@390"
+    },
+    {
+      "viewport": 390,
+      "route": "/campaigns",
+      "mainCount": 1,
+      "nestedMain": false,
+      "contentBelowHeader": true,
+      "mobileNavClear": true,
+      "result": "pass",
+      "key": "/campaigns@390"
+    },
+    {
+      "viewport": 390,
+      "route": "/settings",
+      "mainCount": 1,
+      "nestedMain": false,
+      "contentBelowHeader": true,
+      "mobileNavClear": true,
+      "result": "pass",
+      "key": "/settings@390"
+    },
+    {
+      "viewport": 768,
+      "route": "/",
+      "mainCount": 1,
+      "nestedMain": false,
+      "contentBelowHeader": true,
+      "mobileNavClear": true,
+      "result": "pass",
+      "key": "/@768"
+    },
+    {
+      "viewport": 768,
+      "route": "/campaigns",
+      "mainCount": 1,
+      "nestedMain": false,
+      "contentBelowHeader": true,
+      "mobileNavClear": true,
+      "result": "pass",
+      "key": "/campaigns@768"
+    },
+    {
+      "viewport": 768,
+      "route": "/settings",
+      "mainCount": 1,
+      "nestedMain": false,
+      "contentBelowHeader": true,
+      "mobileNavClear": true,
+      "result": "pass",
+      "key": "/settings@768"
+    },
+    {
+      "viewport": 1280,
+      "route": "/",
+      "mainCount": 1,
+      "nestedMain": false,
+      "contentBelowHeader": true,
+      "mobileNavClear": true,
+      "result": "pass",
+      "key": "/@1280"
+    },
+    {
+      "viewport": 1280,
+      "route": "/campaigns",
+      "mainCount": 1,
+      "nestedMain": false,
+      "contentBelowHeader": true,
+      "mobileNavClear": true,
+      "result": "pass",
+      "key": "/campaigns@1280"
+    },
+    {
+      "viewport": 1280,
+      "route": "/settings",
+      "mainCount": 1,
+      "nestedMain": false,
+      "contentBelowHeader": true,
+      "mobileNavClear": true,
+      "result": "pass",
+      "key": "/settings@1280"
+    }
+  ],
+  "requirements": {
+    "SHELL-01": {
+      "result": "pass",
+      "automated": "npx playwright test --config playwright.shell.config.ts",
+      "browser": "/@390, /campaigns@390, /settings@390, /@768, /campaigns@768, /settings@768, /@1280, /campaigns@1280, /settings@1280"
+    },
+    "SHELL-02": {
+      "result": "pass",
+      "automated": "npx playwright test --config playwright.shell.config.ts",
+      "browser": "/@390, /campaigns@390, /settings@390, /@768, /campaigns@768, /settings@768, /@1280, /campaigns@1280, /settings@1280"
+    },
+    "SHELL-03": {
+      "result": "pass",
+      "automated": "npx playwright test --config playwright.shell.config.ts",
+      "browser": "/@390, /campaigns@390, /settings@390, /@768, /campaigns@768, /settings@768, /@1280, /campaigns@1280, /settings@1280"
+    },
+    "SHELL-04": {
+      "result": "pass",
+      "automated": "npx playwright test --config playwright.shell.config.ts",
+      "browser": "/@390, /campaigns@390, /settings@390, /@768, /campaigns@768, /settings@768, /@1280, /campaigns@1280, /settings@1280"
+    },
+    "SHELL-05": {
+      "result": "pass",
+      "automated": "npx playwright test --config playwright.shell.config.ts",
+      "browser": "/@390, /campaigns@390, /settings@390, /@768, /campaigns@768, /settings@768, /@1280, /campaigns@1280, /settings@1280"
+    }
+  },
+  "resolvedDefects": [
+    "DEFECT-LANDMARKS"
+  ],
+  "verifiedAt": "2026-06-13T18:51:14.894Z"
+}

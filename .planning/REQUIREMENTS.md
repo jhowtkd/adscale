@@ -25,11 +25,11 @@ Refinar todas as superfícies autenticadas do ADScale para uma linguagem compact
 
 ### Shell and Navigation (SHELL)
 
-- [ ] **SHELL-01**: Usuário navega pelo app sem sidebar, top bar ou navegação mobile sobrepor ou ocultar conteúdo. *(partial — Phase 110)*
-- [ ] **SHELL-02**: Identidade, título, busca, ações, notificações e conta na top bar se reorganizam sem cortes em larguras intermediárias. *(partial — Phase 110)*
-- [ ] **SHELL-03**: Todas as rotas autenticadas usam o mesmo frame de página e comportamento previsível de largura e gutters. *(partial — Phase 110)*
-- [ ] **SHELL-04**: Navegação ativa, foco, menus, notificações e controles globais apresentam estados visuais e interativos consistentes. *(partial — Phase 110)*
-- [ ] **SHELL-05**: Shell e navegação permanecem utilizáveis com zoom, safe areas, teclado e textos longos em PT-BR e EN. *(partial — Phase 110)*
+- [x] **SHELL-01**: Usuário navega pelo app sem sidebar, top bar ou navegação mobile sobrepor ou ocultar conteúdo.
+- [x] **SHELL-02**: Identidade, título, busca, ações, notificações e conta na top bar se reorganizam sem cortes em larguras intermediárias.
+- [x] **SHELL-03**: Todas as rotas autenticadas usam o mesmo frame de página e comportamento previsível de largura e gutters.
+- [x] **SHELL-04**: Navegação ativa, foco, menus, notificações e controles globais apresentam estados visuais e interativos consistentes.
+- [x] **SHELL-05**: Shell e navegação permanecem utilizáveis com zoom, safe areas, teclado e textos longos em PT-BR e EN.
 
 ### Product Surfaces (SURF)
 
@@ -103,11 +103,11 @@ Refinar todas as superfícies autenticadas do ADScale para uma linguagem compact
 | FOUND-03 | Phase 109 | Complete |
 | FOUND-04 | Phase 109 | Complete |
 | FOUND-05 | Phase 109 | Complete |
-| SHELL-01 | Phase 110 | Partial |
-| SHELL-02 | Phase 110 | Partial |
-| SHELL-03 | Phase 110 | Partial |
-| SHELL-04 | Phase 110 | Partial |
-| SHELL-05 | Phase 110 | Partial |
+| SHELL-01 | Phase 110 | Complete |
+| SHELL-02 | Phase 110 | Complete |
+| SHELL-03 | Phase 110 | Complete |
+| SHELL-04 | Phase 110 | Complete |
+| SHELL-05 | Phase 110 | Complete |
 | SURF-01 | Phase 111 | Not started |
 | SURF-02 | Phase 111 | Not started |
 | SURF-03 | Phase 111 | Not started |
@@ -134,7 +134,7 @@ Refinar todas as superfícies autenticadas do ADScale para uma linguagem compact
 
 **Coverage:**
 - v12.2 requirements: 33 total
-- Complete: 6 · Partial: 5 · Not started: 22
+- Complete: 11 · Partial: 0 · Not started: 22
 - Mapped to phases: 33
 - Unmapped: 0 ✓
 

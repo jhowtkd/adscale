@@ -150,7 +150,7 @@
   --shell-topbar-desktop: 3.5rem;
   --shell-sidebar-expanded: 15rem;
   --shell-sidebar-rail: 4rem;
-  --shell-bottom-nav: 4rem;
+  --shell-bottom-nav: 4.75rem;
   --shell-sticky-gap: 0.5rem;
   --shell-safe-bottom: calc(var(--shell-bottom-nav) + env(safe-area-inset-bottom, 0px));
   --page-gutter-mobile: 1rem;

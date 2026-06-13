@@ -991,7 +991,10 @@
     {
       "id": "DEFECT-LANDMARKS",
       "observation": "Nested or duplicate main landmarks in authenticated shell",
-      "owner": "110"
+      "owner": "110",
+      "status": "resolved",
+      "resolvedIn": "110",
+      "resolvedAt": "2026-06-13T18:51:14.894Z"
     },
     {
       "id": "DEFECT-CONTRAST",
