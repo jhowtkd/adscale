@@ -4,8 +4,9 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { and, eq, like } from "drizzle-orm";
 import { db } from "../src/server/db";
-import { campaigns, user, workspaceMembers, workspaces } from "../src/server/db/schema";
+import { campaigns, derivations, user, workspaceMembers, workspaces } from "../src/server/db/schema";
 import { createCampaign } from "../src/server/repositories/campaign";
+import { upsertBrandKit } from "../src/server/db/repositories/brand-kit";
 
 const EMAIL = "visual-foundations@example.test";
 const NAME = "Visual Foundations Tester";
@@ -51,6 +52,12 @@ async function main() {
   const workspaceId = membership[0].workspaceId;
   await db.update(workspaces).set({ name: WORKSPACE_NAME, updatedAt: new Date() })
     .where(eq(workspaces.id, workspaceId));
+  await upsertBrandKit(workspaceId, {
+    name: "Example Test Brand Kit",
+    description: "Synthetic example.test visual fixture",
+    brandColors: ["#00B34A", "#172018"],
+    brandFonts: ["Inter"],
+  });
   await db.delete(campaigns).where(and(
     eq(campaigns.workspaceId, workspaceId),
     like(campaigns.name, `${CAMPAIGN_PREFIX}%`),
@@ -96,6 +103,18 @@ async function main() {
       constraints: "Never display production identity, tokens, or customer data.",
     }));
   }
+  const [derivation] = await db.insert(derivations).values({
+    campaignId: created[0].id,
+    workspaceId,
+    status: "completed",
+    prompt: "Synthetic example.test derivation for visual review",
+    format: "1:1",
+    generationMode: "art_variation",
+    variantIndex: 0,
+    ctaText: "Synthetic CTA",
+    scoreStatus: "analyzed",
+    qaStatus: "passed",
+  }).returning();
 
   const routes = {
     dashboard: "/",
@@ -114,7 +133,7 @@ async function main() {
   const manifest = {
     schemaVersion: 1,
     identity: { email: EMAIL, name: NAME },
-    fixtureIds: { userId, workspaceId, campaignIds: created.map((campaign) => campaign.id) },
+    fixtureIds: { userId, workspaceId, campaignIds: created.map((campaign) => campaign.id), derivationId: derivation.id },
     labels: { workspace: WORKSPACE_NAME, clients: fixtures.map((fixture) => fixture.client) },
     routes,
     states,
