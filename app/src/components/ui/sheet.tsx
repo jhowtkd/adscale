@@ -32,7 +32,7 @@ function SheetOverlay({
     <DialogPrimitive.Backdrop
       data-slot="sheet-overlay"
       className={cn(
-        "fixed inset-0 isolate z-50 bg-black/40 duration-200 supports-backdrop-filter:backdrop-blur-xs",
+        "fixed inset-0 isolate z-[var(--layer-backdrop)] bg-black/40 duration-[var(--duration-default)] supports-backdrop-filter:backdrop-blur-xs",
         "data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
         "motion-reduce:duration-0 motion-reduce:data-open:animate-none motion-reduce:data-closed:animate-none",
         className
@@ -44,8 +44,8 @@ function SheetOverlay({
 
 const sheetContentVariants = cva(
   [
-    "fixed z-50 flex flex-col overflow-hidden bg-popover text-sm text-popover-foreground ring-1 ring-border outline-none",
-    "duration-300 ease-[cubic-bezier(0.19,1,0.22,1)]",
+    "fixed z-[var(--layer-overlay)] flex flex-col overflow-hidden bg-[var(--surface-overlay)] text-[length:var(--text-body)] text-popover-foreground ring-1 ring-border outline-none shadow-[var(--shadow-overlay)]",
+    "duration-[var(--duration-slow)] ease-[var(--ease-emphasized)]",
     "data-open:animate-in data-closed:animate-out",
     "motion-reduce:duration-0 motion-reduce:data-open:animate-none motion-reduce:data-closed:animate-none",
   ],
@@ -60,7 +60,7 @@ const sheetContentVariants = cva(
           "w-full max-sm:inset-0 max-sm:h-full max-sm:max-w-none",
         ],
         bottom: [
-          "inset-x-0 bottom-0 max-h-[90dvh] rounded-t-xl border-t",
+          "inset-x-0 bottom-0 max-h-[90dvh] rounded-t-[var(--radius-overlay)] border-t",
           "data-open:slide-in-from-bottom data-closed:slide-out-to-bottom",
           "motion-reduce:data-open:slide-in-from-bottom-0 motion-reduce:data-closed:slide-out-to-bottom-0",
         ],
@@ -104,7 +104,7 @@ function SheetContent({
             render={
               <Button
                 variant="ghost"
-                className="absolute top-2 right-2 z-10"
+                className="absolute top-2 right-2 z-[var(--layer-raised)]"
                 size="icon-sm"
               />
             }
@@ -123,7 +123,7 @@ function SheetHeader({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="sheet-header"
       className={cn(
-        "shrink-0 border-b border-[var(--border-dim)] px-4 py-4 pr-12",
+        "shrink-0 border-b border-[var(--border-subtle)] px-[var(--space-4)] py-[var(--space-4)] pr-12",
         className
       )}
       {...props}
@@ -146,7 +146,7 @@ function SheetFooter({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="sheet-footer"
       className={cn(
-        "shrink-0 flex flex-col-reverse gap-2 border-t border-[var(--border-dim)] bg-muted/50 p-4 sm:flex-row sm:justify-end",
+        "shrink-0 flex flex-col-reverse gap-[var(--space-2)] border-t border-[var(--border-subtle)] bg-muted/50 p-[var(--space-4)] sm:flex-row sm:justify-end",
         className
       )}
       {...props}
