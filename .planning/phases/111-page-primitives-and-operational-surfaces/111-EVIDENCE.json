@@ -1,0 +1,55 @@
+{
+  "phase": 111,
+  "verifiedAt": "2026-06-13T19:00:00.000Z",
+  "requirements": {
+    "SURF-01": {
+      "status": "pass",
+      "evidence": [
+        "PageHeader on /campaigns and /settings",
+        "product-page-title and product-section-title tokens"
+      ],
+      "automated": "src/components/layout/page-primitives.test.tsx"
+    },
+    "SURF-02": {
+      "status": "pass",
+      "evidence": [
+        "Campaigns filter toolbar + list/grid/board share single Panel",
+        "CampaignsListView embedded mode removes redundant table border"
+      ],
+      "automated": "page-primitives.test.tsx + campaigns page structure"
+    },
+    "SURF-03": {
+      "status": "pass",
+      "evidence": [
+        "PageHeader actions slot keeps primary CTA separated from title/meta",
+        "Campaigns New button remains sole header primary action"
+      ],
+      "automated": "page-primitives.test.tsx"
+    },
+    "SURF-04": {
+      "status": "pass",
+      "evidence": [
+        "ResponsiveTabs overflow-x-auto on settings (9 tabs)",
+        "Toolbar flex-col on narrow viewports for campaigns filters"
+      ],
+      "automated": "page-primitives.test.tsx"
+    },
+    "SURF-05": {
+      "status": "pass",
+      "evidence": [
+        "EmptyState inside Panel preserves filter geometry on zero results",
+        "SettingsTabSkeleton uses Panel + Skeleton tokens",
+        "Loading campaigns state keeps Panel + toolbar placeholder"
+      ],
+      "automated": "npm test"
+    }
+  },
+  "families": {
+    "FAMILY-CAMPAIGN-LIST": "migrated",
+    "FAMILY-SETTINGS": "migrated"
+  },
+  "automated": {
+    "unit": "1218 passed, 1 skipped",
+    "build": "pass"
+  }
+}

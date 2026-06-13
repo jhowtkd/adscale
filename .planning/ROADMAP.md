@@ -30,7 +30,7 @@
 
 - [x] **Phase 109: Visual Foundations and Baseline** — inventário verificável, contratos visuais, geometria, densidade, camadas e ownership de rotas
 - [x] **Phase 110: App Shell and Navigation** — shell responsivo, navegação e chrome global sem cortes, colisões ou ações inacessíveis
-- [ ] **Phase 111: Page Primitives and Operational Surfaces** — hierarquia, ações, toolbars, tabelas, formulários e estados compartilhados nas superfícies operacionais
+- [x] **Phase 111: Page Primitives and Operational Surfaces** — hierarquia, ações, toolbars, tabelas, formulários e estados compartilhados nas superfícies operacionais
 - [ ] **Phase 112: Campaign Workspace and Overlays** — workspace orientado por etapa, dados densos e overlays previsíveis em qualquer viewport
 - [ ] **Phase 113: Dashboard and Secondary Surface Consistency** — dashboard, biblioteca, templates/restyling, feedback e configurações alinhados em responsividade, acessibilidade e localização
 - [ ] **Phase 114: Visual Regression and Release Gate** — matriz de navegador, regressão focada, acessibilidade e gate completo de release
@@ -39,7 +39,7 @@
 |---|-------|--------------|--------|-----------|
 | 109 | Visual Foundations and Baseline | FOUND-01–05, QA-14 | Complete | 2026-06-13 |
 | 110 | App Shell and Navigation | SHELL-01–05 | Complete | 2026-06-13 |
-| 111 | Page Primitives and Operational Surfaces | SURF-01–05 | Not started | - |
+| 111 | Page Primitives and Operational Surfaces | SURF-01–05 | Complete | [111-SUMMARY](phases/111-page-primitives-and-operational-surfaces/111-SUMMARY.md) |
 | 112 | Campaign Workspace and Overlays | WORK-01–05 | Not started | - |
 | 113 | Dashboard and Secondary Surfaces | SURF-06, RESP-06/08/09, A11Y-06–09 | Not started | - |
 | 114 | Visual Regression and Release Gate | RESP-07, QA-15–17 | Not started | - |
@@ -237,7 +237,7 @@ Plans:
   4. Toolbars, tabelas, filtros, formulários e abas adotam alternativas estruturais utilizáveis em telas estreitas sem remover capacidades.
   5. Loading, vazio, busca sem resultado, erro e sucesso preservam a geometria da tarefa e oferecem orientação ou recuperação consistente.
 
-**Plans:** TBD
+**Plans:** Complete — see [111-SUMMARY.md](phases/111-page-primitives-and-operational-surfaces/111-SUMMARY.md)
 
 ---
 

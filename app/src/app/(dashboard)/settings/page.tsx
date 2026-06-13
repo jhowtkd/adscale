@@ -3,10 +3,12 @@
 import { Suspense } from "react";
 import { m } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
-import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
 import ProfileTab from "@/components/settings/ProfileTab";
 import PageFrame from "@/components/layout/PageFrame";
+import PageHeader from "@/components/layout/PageHeader";
+import ResponsiveTabs from "@/components/layout/ResponsiveTabs";
+import SettingsTabSkeleton from "@/components/settings/SettingsTabSkeleton";
 import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
 
@@ -41,22 +43,6 @@ const IntegrationsTab = dynamic(() => import("@/components/settings/Integrations
 const PrivacyTab = dynamic(() => import("@/components/settings/PrivacyTab"), {
   loading: () => <SettingsTabSkeleton />,
 });
-
-function SettingsTabSkeleton() {
-  return (
-    <div className="space-y-4 rounded-xl border p-6 animate-pulse">
-      <div className="h-6 bg-muted rounded w-1/3" />
-      <div className="grid gap-4 sm:grid-cols-2">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="space-y-2">
-            <div className="h-4 bg-muted rounded w-24" />
-            <div className="h-10 bg-muted rounded w-full" />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 const tabs = [
   { id: "profile", labelKey: "profileTab" },
@@ -94,47 +80,22 @@ function SettingsContent() {
 
   return (
     <PageFrame width="operational" className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-semibold text-[var(--text-primary)]">
-          {t("title")}
-        </h1>
-        <p className="mt-1 text-sm text-[var(--text-secondary)]">
-          {t("managePreferences")}
-        </p>
-      </div>
+      <PageHeader title={t("title")} description={t("managePreferences")} />
 
-      {/* Tabs */}
-      <div className="border-b border-[var(--border-dim)]">
-        <nav className="flex gap-1 -mb-px">
-          {tabs.map((tab) => (
-            <button type="button"
-              key={tab.id}
-              onClick={() => router.replace(`/settings?tab=${tab.id}`, { scroll: false })}
-              className={cn(
-                "relative px-4 py-2.5 text-sm font-medium transition-colors duration-200",
-                activeTab === tab.id
-                  ? "text-[var(--accent-green)]"
-                  : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-              )}
-            >
-              <span className="flex items-center gap-2">
-                {t(tab.labelKey)}
-                {tab.id === "integrations" && <Badge variant="secondary">Setup</Badge>}
-              </span>
-              {activeTab === tab.id && (
-                <m.div
-                  layoutId="settings-tab-indicator"
-                  className="absolute bottom-0 left-0 right-0 h-[2px] bg-[var(--accent-green)]"
-                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                />
-              )}
-            </button>
-          ))}
-        </nav>
-      </div>
+      <ResponsiveTabs
+        ariaLabel={t("title")}
+        activeId={activeTab}
+        onSelect={(id) => router.replace(`/settings?tab=${id}`, { scroll: false })}
+        items={tabs.map((tab) => ({
+          id: tab.id,
+          label: t(tab.labelKey),
+          badge:
+            tab.id === "integrations" ? (
+              <Badge variant="secondary">Setup</Badge>
+            ) : undefined,
+        }))}
+      />
 
-      {/* Tab Content */}
       <m.div
         key={activeTab}
         variants={tabVariants}

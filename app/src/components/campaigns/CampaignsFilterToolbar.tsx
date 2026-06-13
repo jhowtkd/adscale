@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import Toolbar from "@/components/layout/Toolbar";
 import { useTranslations } from "next-intl";
 import type { ViewMode, SortOption, StatusFilter, PlatformFilter } from "./types";
 
@@ -32,6 +33,7 @@ interface CampaignsFilterToolbarProps {
   activeFilters: ActiveFilter[];
   hasActiveFilters: boolean;
   onClearFilters: () => void;
+  className?: string;
 }
 
 export default function CampaignsFilterToolbar({
@@ -48,13 +50,15 @@ export default function CampaignsFilterToolbar({
   activeFilters,
   hasActiveFilters,
   onClearFilters,
+  className,
 }: CampaignsFilterToolbarProps) {
   const t = useTranslations("campaign");
   const tc = useTranslations("common");
 
   return (
-    <div className="rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)] p-3">
-        <div className="flex flex-col lg:flex-row items-start lg:items-center gap-3">
+    <div className={className}>
+      <Toolbar>
+        <div className="flex w-full flex-col gap-3 lg:flex-row lg:items-center">
           {/* Search */}
           <div className="relative w-full lg:w-[280px]">
             <Search
@@ -176,8 +180,9 @@ export default function CampaignsFilterToolbar({
             </button>
           </div>
         </div>
+      </Toolbar>
 
-        {/* Active filter pills */}
+      {/* Active filter pills */}
         {hasActiveFilters && (
           <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[var(--border-dim)] overflow-hidden transition-all duration-250">
             <span className="text-xs text-[var(--text-muted)] uppercase tracking-wider">

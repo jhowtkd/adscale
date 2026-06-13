@@ -23,6 +23,7 @@ interface CampaignsListViewProps {
   onArchive: (id: string) => void;
   onDelete: (id: string) => void;
   onSaveAsTemplate: (campaign: Campaign) => void;
+  embedded?: boolean;
 }
 
 export default function CampaignsListView({
@@ -35,13 +36,19 @@ export default function CampaignsListView({
   onArchive,
   onDelete,
   onSaveAsTemplate,
+  embedded = false,
 }: CampaignsListViewProps) {
   const tc = useTranslations("common");
 
   return (
     <>
       {/* Desktop Table */}
-      <div className="hidden md:block rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)] overflow-hidden">
+      <div
+        className={cn(
+          "hidden md:block overflow-hidden",
+          !embedded && "rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)]",
+        )}
+      >
         <div className="overflow-x-auto">
           <Table>
             <TableHeader className="sticky top-0 z-20">

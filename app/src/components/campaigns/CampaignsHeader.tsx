@@ -2,6 +2,7 @@
 
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import PageHeader from "@/components/layout/PageHeader";
 import { useTranslations } from "next-intl";
 
 interface CampaignsHeaderProps {
@@ -15,37 +16,33 @@ export default function CampaignsHeader({ count, isLoading = false, onNewCampaig
   const tc = useTranslations("common");
 
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 py-6 border-b border-[var(--border-dim)] animate-fade-in">
-      <div>
-        <div className="flex items-center gap-3">
-          <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-[var(--text-primary)]">
-            {tc("campaign")}
-          </h1>
-          <span
-            className="inline-flex items-center justify-center rounded-full bg-[var(--surface-raised)] text-[var(--text-secondary)] text-xs font-medium px-2.5 py-0.5 min-w-[24px] h-6"
-            aria-busy={isLoading}
-          >
-            {isLoading ? (
-              <span className="inline-block h-3 w-4 rounded bg-[var(--border-dim)] animate-pulse" aria-hidden="true" />
-            ) : (
-              count
-            )}
-          </span>
-        </div>
-        <p className="mt-1 text-sm text-[var(--text-secondary)]">
-          {t("manageCampaigns")}
-        </p>
-      </div>
-
-      <div className="animate-fade-in" style={{ animationDelay: "150ms" }}>
-        <Button
-          onClick={onNewCampaign}
-          className="bg-[var(--accent-green)] text-[var(--ink)] hover:bg-[var(--accent-green-light)] hover:-translate-y-px active:scale-[0.98] transition-all duration-300 h-9 px-4 text-sm font-semibold"
+    <PageHeader
+      className="animate-fade-in"
+      title={tc("campaign")}
+      description={t("manageCampaigns")}
+      meta={
+        <span
+          className="inline-flex h-6 min-w-[24px] items-center justify-center rounded-full bg-[var(--surface-raised)] px-2.5 py-0.5 text-xs font-medium text-[var(--text-secondary)]"
+          aria-busy={isLoading}
         >
-          <Plus size={14} />
-          {t("new")}
-        </Button>
-      </div>
-    </div>
+          {isLoading ? (
+            <span className="inline-block h-3 w-4 animate-pulse rounded bg-[var(--border-dim)]" aria-hidden="true" />
+          ) : (
+            count
+          )}
+        </span>
+      }
+      actions={
+        <div className="animate-fade-in" style={{ animationDelay: "150ms" }}>
+          <Button
+            onClick={onNewCampaign}
+            className="h-9 bg-[var(--accent-green)] px-4 text-sm font-semibold text-[var(--ink)] transition-all duration-300 hover:-translate-y-px hover:bg-[var(--accent-green-light)] active:scale-[0.98]"
+          >
+            <Plus size={14} />
+            {t("new")}
+          </Button>
+        </div>
+      }
+    />
   );
 }

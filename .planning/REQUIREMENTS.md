@@ -33,11 +33,11 @@ Refinar todas as superfícies autenticadas do ADScale para uma linguagem compact
 
 ### Product Surfaces (SURF)
 
-- [ ] **SURF-01**: Usuário reconhece a mesma hierarquia de título, descrição, ação primária, ações secundárias e seções em todas as rotas.
-- [ ] **SURF-02**: Usuário vê menos containers e cards redundantes sem perder agrupamento, contexto ou escaneabilidade.
-- [ ] **SURF-03**: Ações primárias, secundárias e destrutivas têm prioridade inequívoca e comportamento consistente.
-- [ ] **SURF-04**: Tabelas, filtros, formulários, toolbars e abas possuem alternativas estruturais utilizáveis em telas estreitas.
-- [ ] **SURF-05**: Estados vazio, loading, erro e sucesso seguem padrões compartilhados, instrutivos e acessíveis.
+- [x] **SURF-01**: Usuário reconhece a mesma hierarquia de título, descrição, ação primária, ações secundárias e seções em todas as rotas.
+- [x] **SURF-02**: Usuário vê menos containers e cards redundantes sem perder agrupamento, contexto ou escaneabilidade.
+- [x] **SURF-03**: Ações primárias, secundárias e destrutivas têm prioridade inequívoca e comportamento consistente.
+- [x] **SURF-04**: Tabelas, filtros, formulários, toolbars e abas possuem alternativas estruturais utilizáveis em telas estreitas.
+- [x] **SURF-05**: Estados vazio, loading, erro e sucesso seguem padrões compartilhados, instrutivos e acessíveis.
 - [ ] **SURF-06**: Dashboard, campanhas, biblioteca, templates/restyling, feedback e configurações usam a mesma linguagem visual e de interação.
 
 ### Campaign Workspace (WORK)
@@ -108,11 +108,11 @@ Refinar todas as superfícies autenticadas do ADScale para uma linguagem compact
 | SHELL-03 | Phase 110 | Complete |
 | SHELL-04 | Phase 110 | Complete |
 | SHELL-05 | Phase 110 | Complete |
-| SURF-01 | Phase 111 | Not started |
-| SURF-02 | Phase 111 | Not started |
-| SURF-03 | Phase 111 | Not started |
-| SURF-04 | Phase 111 | Not started |
-| SURF-05 | Phase 111 | Not started |
+| SURF-01 | Phase 111 | Complete |
+| SURF-02 | Phase 111 | Complete |
+| SURF-03 | Phase 111 | Complete |
+| SURF-04 | Phase 111 | Complete |
+| SURF-05 | Phase 111 | Complete |
 | SURF-06 | Phase 113 | Not started |
 | WORK-01 | Phase 112 | Not started |
 | WORK-02 | Phase 112 | Not started |

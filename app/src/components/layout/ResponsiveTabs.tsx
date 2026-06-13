@@ -1,0 +1,62 @@
+"use client";
+
+import { cn } from "@/lib/utils";
+import type { ReactNode } from "react";
+
+export type ResponsiveTabItem = {
+  id: string;
+  label: ReactNode;
+  badge?: ReactNode;
+};
+
+export default function ResponsiveTabs({
+  items,
+  activeId,
+  onSelect,
+  ariaLabel,
+  className,
+}: {
+  items: ResponsiveTabItem[];
+  activeId: string;
+  onSelect: (id: string) => void;
+  ariaLabel: string;
+  className?: string;
+}) {
+  return (
+    <div className={cn("border-b border-[var(--border-dim)]", className)}>
+      <nav
+        aria-label={ariaLabel}
+        className="-mb-px flex gap-1 overflow-x-auto pb-px [scrollbar-width:thin]"
+      >
+        {items.map((item) => {
+          const active = item.id === activeId;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onSelect(item.id)}
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                "relative shrink-0 whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors duration-200",
+                active
+                  ? "text-[var(--accent-green)]"
+                  : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
+              )}
+            >
+              <span className="flex items-center gap-2">
+                {item.label}
+                {item.badge}
+              </span>
+              {active ? (
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-x-0 bottom-0 h-0.5 bg-[var(--accent-green)]"
+                />
+              ) : null}
+            </button>
+          );
+        })}
+      </nav>
+    </div>
+  );
+}

@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v12.2
 milestone_name: Refinamento Visual e Consistência da Interface
 status: executing
-stopped_at: Completed 110-05-PLAN.md — Phase 110 complete
-last_updated: "2026-06-13T18:55:00.000Z"
-last_activity: 2026-06-13 — Phase 110 shell e2e proof and DEFECT-LANDMARKS closure
+stopped_at: Completed Phase 111 — Page Primitives and Operational Surfaces
+last_updated: "2026-06-13T19:00:00.000Z"
+last_activity: 2026-06-13 — Phase 111 primitives + campaigns/settings migration
 progress:
   total_phases: 6
-  completed_phases: 2
+  completed_phases: 3
   partial_phases: 0
   total_plans: 11
   completed_plans: 11
@@ -22,18 +22,18 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-12)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
-**Current focus:** Phase 111 — Page Primitives and Operational Surfaces
+**Current focus:** Phase 112 — Campaign Workspace and Overlays
 
-**Status:** In progress (audit: gaps_found — 11/33 requirements)
+**Status:** In progress (audit: gaps_found — 16/33 requirements)
 
 ## Current Position
 
-Phase: 111 of 114 (Page Primitives and Operational Surfaces)
+Phase: 112 of 114 (Campaign Workspace and Overlays)
 Plan: 0 of TBD
 Status: Ready to plan
-Last activity: 2026-06-13 — Phase 110 complete (5/5 plans)
+Last activity: 2026-06-13 — Phase 111 complete
 
-Progress: [█████░░░░░] 50% (milestone — 11/33 requirements)
+Progress: [██████░░░░] 50% (milestone — 16/33 requirements)
 
 ## Summary
 
@@ -81,7 +81,7 @@ None yet.
 
 ### Blockers/Concerns
 
-- v12.2 milestone audit (2026-06-13): **gaps_found** — Phases 111–114 not started. Phase 110 complete. See `.planning/v12.2-MILESTONE-AUDIT.md`.
+- v12.2 milestone audit (2026-06-13): **gaps_found** — Phases 112–114 not started. Phases 109–111 complete. See `.planning/v12.2-MILESTONE-AUDIT.md`.
 
 ## Last completed milestone
 
@@ -92,14 +92,14 @@ None yet.
 
 ## Release gate (last verified)
 
-- `npm test` — **1211 passed** (1 skipped)
+- `npm test` — **1218 passed** (1 skipped)
 - `npm run lint` — **0 errors**
 - `npm run build` — OK
 - Prod migrate — **41/41 journal entries** (Render deploy `9a3417d6`)
 
 ## Next action
 
-Discuss and plan Phase 111: Page Primitives and Operational Surfaces (SURF-01–05).
+Discuss and plan Phase 112: Campaign Workspace and Overlays (WORK-01–05).
 
 ## Session Continuity
 

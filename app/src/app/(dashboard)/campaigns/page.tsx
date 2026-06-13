@@ -32,6 +32,7 @@ import GridSkeleton from "@/components/campaigns/GridSkeleton";
 
 import { useCampaignsPage } from "@/components/campaigns/useCampaignsPage";
 import PageFrame from "@/components/layout/PageFrame";
+import Panel from "@/components/layout/Panel";
 
 const NewCampaignModal = dynamic(() => import("@/components/campaigns/NewCampaignModal"), {
   ssr: false,
@@ -119,26 +120,13 @@ function CampaignsListContent() {
           onCancel={() => setSelectedIds(new Set())}
         />
 
-        <CampaignsFilterToolbar
-          searchQuery={searchQuery}
-          onSearchChange={updateSearchQuery}
-          statusFilter={statusFilter}
-          onStatusChange={updateStatusFilter}
-          platformFilter={platformFilter}
-          onPlatformChange={updatePlatformFilter}
-          sortOption={sortOption}
-          onSortChange={updateSortOption}
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-          activeFilters={activeFilters}
-          hasActiveFilters={hasActiveFilters}
-          onClearFilters={clearFilters}
-        />
-      </div>
-
-      <div className="mt-5">
         {isLoading ? (
-          viewMode === "list" ? <TableSkeleton /> : <GridSkeleton />
+          <Panel>
+            <div className="border-b border-[var(--border-dim)] p-3">
+              <div className="h-8 w-full max-w-[280px] animate-pulse rounded bg-[var(--surface-raised)]" />
+            </div>
+            {viewMode === "list" ? <TableSkeleton /> : <div className="p-5"><GridSkeleton /></div>}
+          </Panel>
         ) : isError ? (
           <EmptyState
             icon={AlertCircle}
@@ -150,42 +138,87 @@ function CampaignsListContent() {
             }}
           />
         ) : campaigns.length === 0 ? (
-          <EmptyState
-            icon={hasActiveFilters ? Search : ImageOff}
-            title={hasActiveFilters ? tc("noCampaignsMatch") : tc("noCampaignsYet")}
-            description={
-              hasActiveFilters
-                ? tc("adjustFilters")
-                : tc("createFirstCampaign")
-            }
-            action={
-              hasActiveFilters
-                ? {
-                    label: tc("clearAllFilters"),
-                    onClick: clearFilters,
-                  }
-                : {
-                    label: t("new"),
-                    onClick: () => setModalOpen(true),
-                  }
-            }
-          />
-        ) : viewMode === "list" ? (
-          <CampaignsListView
-            campaigns={campaigns}
-            selectedIds={selectedIds}
-            allSelected={allSelected}
-            onToggleSelect={toggleSelect}
-            onToggleSelectAll={toggleSelectAll}
-            onDuplicate={handleDuplicate}
-            onArchive={handleArchive}
-            onDelete={setDeleteTarget}
-            onSaveAsTemplate={setSaveTemplateCampaign}
-          />
-        ) : viewMode === "grid" ? (
-          <CampaignsGridView campaigns={campaigns} />
+          <Panel>
+            <CampaignsFilterToolbar
+              className="border-b border-[var(--border-dim)] p-3"
+              searchQuery={searchQuery}
+              onSearchChange={updateSearchQuery}
+              statusFilter={statusFilter}
+              onStatusChange={updateStatusFilter}
+              platformFilter={platformFilter}
+              onPlatformChange={updatePlatformFilter}
+              sortOption={sortOption}
+              onSortChange={updateSortOption}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              activeFilters={activeFilters}
+              hasActiveFilters={hasActiveFilters}
+              onClearFilters={clearFilters}
+            />
+            <div className="p-6">
+              <EmptyState
+                icon={hasActiveFilters ? Search : ImageOff}
+                title={hasActiveFilters ? tc("noCampaignsMatch") : tc("noCampaignsYet")}
+                description={
+                  hasActiveFilters
+                    ? tc("adjustFilters")
+                    : tc("createFirstCampaign")
+                }
+                action={
+                  hasActiveFilters
+                    ? {
+                        label: tc("clearAllFilters"),
+                        onClick: clearFilters,
+                      }
+                    : {
+                        label: t("new"),
+                        onClick: () => setModalOpen(true),
+                      }
+                }
+              />
+            </div>
+          </Panel>
         ) : (
-          <KanbanBoard campaigns={campaigns} />
+          <Panel>
+            <CampaignsFilterToolbar
+              className="border-b border-[var(--border-dim)] p-3"
+              searchQuery={searchQuery}
+              onSearchChange={updateSearchQuery}
+              statusFilter={statusFilter}
+              onStatusChange={updateStatusFilter}
+              platformFilter={platformFilter}
+              onPlatformChange={updatePlatformFilter}
+              sortOption={sortOption}
+              onSortChange={updateSortOption}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              activeFilters={activeFilters}
+              hasActiveFilters={hasActiveFilters}
+              onClearFilters={clearFilters}
+            />
+            {viewMode === "list" ? (
+              <CampaignsListView
+                embedded
+                campaigns={campaigns}
+                selectedIds={selectedIds}
+                allSelected={allSelected}
+                onToggleSelect={toggleSelect}
+                onToggleSelectAll={toggleSelectAll}
+                onDuplicate={handleDuplicate}
+                onArchive={handleArchive}
+                onDelete={setDeleteTarget}
+                onSaveAsTemplate={setSaveTemplateCampaign}
+              />
+            ) : viewMode === "grid" ? (
+              <div className="p-5">
+                <CampaignsGridView campaigns={campaigns} />
+              </div>
+            ) : (
+              <div className="p-5">
+                <KanbanBoard campaigns={campaigns} />
+              </div>
+            )}
+          </Panel>
         )}
       </div>
 
