@@ -1,5 +1,9 @@
 "use client";
+
+import { useTranslations, useLocale } from "next-intl";
+import { AlertTriangle } from "lucide-react";
 import Link from "next/link";
+import Panel from "@/components/layout/Panel";
 import { cn } from "@/lib/utils";
 
 interface CreditPanelProps {
@@ -10,40 +14,67 @@ interface CreditPanelProps {
 }
 
 export default function CreditPanel({ remaining, total, planKey, renewalDate }: CreditPanelProps) {
+  const t = useTranslations("dashboard.creditsPanel");
+  const locale = useLocale();
   const percentage = total > 0 ? Math.round((remaining / total) * 100) : 0;
   const isLow = percentage <= 20;
+
   return (
-    <div className="glass-card rounded-xl overflow-hidden">
-      <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border-dim)]">
-        <h2 className="text-sm font-semibold text-[var(--text-primary)]">Créditos</h2>
-        <Link href="/settings?tab=billing" className="text-[10px] font-mono uppercase tracking-wider text-[var(--accent-green-dark)] hover:text-[var(--accent-green)] transition-colors duration-200">Upgrade</Link>
+    <Panel padding="none">
+      <div className="flex items-center justify-between border-b border-[var(--border-dim)] px-5 py-4">
+        <h2 className="product-section-title text-sm text-[var(--text-primary)]">{t("title")}</h2>
+        <Link
+          href="/settings?tab=billing"
+          className="text-xs font-medium uppercase tracking-wider text-[var(--accent-green-dark)] transition-colors duration-200 hover:text-[var(--accent-green)]"
+        >
+          {t("upgrade")}
+        </Link>
       </div>
       <div className="p-5">
-        <div className="flex items-baseline justify-between mb-3">
+        <div className="mb-3 flex items-baseline justify-between">
           <div>
-            <span className="text-3xl font-bold font-pixel text-[var(--text-primary)] tracking-tight">{remaining}</span>
-            <span className="text-xs text-[var(--text-secondary)] ml-1 font-mono">/ {total.toLocaleString()}</span>
+            <span className="text-3xl font-bold tracking-tight text-[var(--text-primary)]">{remaining}</span>
+            <span className="ml-1 font-mono text-xs text-[var(--text-secondary)]">
+              / {total.toLocaleString(locale)}
+            </span>
           </div>
-          <span className={cn(
-            "text-xs font-mono font-bold",
-            isLow ? "text-[var(--accent-rose)]" : "text-[var(--accent-green)]"
-          )}>{percentage}%</span>
+          <div className="flex items-center gap-1.5">
+            {isLow ? (
+              <AlertTriangle size={14} className="text-[var(--accent-rose)]" aria-hidden="true" />
+            ) : null}
+            <span
+              className={cn(
+                "text-xs font-mono font-bold",
+                isLow ? "text-[var(--accent-rose)]" : "text-[var(--accent-green)]",
+              )}
+              aria-label={isLow ? t("lowBalance") : undefined}
+            >
+              {percentage}%
+            </span>
+          </div>
         </div>
-        <div className="h-2 rounded-full bg-[var(--surface-raised)] overflow-hidden">
-          <div 
+        {isLow ? (
+          <p className="mb-2 text-xs font-medium text-[var(--accent-rose)]">{t("lowBalance")}</p>
+        ) : null}
+        <div className="h-2 overflow-hidden rounded-full bg-[var(--surface-raised)]">
+          <div
             className={cn(
               "h-full rounded-full transition-all duration-500",
-              isLow ? "bg-[var(--accent-rose)]" : "bg-[var(--accent-green)]"
-            )} 
-            style={{ width: `${percentage}%` }} 
+              isLow ? "bg-[var(--accent-rose)]" : "bg-[var(--accent-green)]",
+            )}
+            style={{ width: `${percentage}%` }}
+            role="progressbar"
+            aria-valuenow={remaining}
+            aria-valuemin={0}
+            aria-valuemax={total}
+            aria-label={t("title")}
           />
         </div>
-        <div className="flex justify-between mt-3 text-[11px] text-[var(--text-secondary)] font-mono">
-          <span className="uppercase tracking-wider">Plano {planKey ?? "Free"}</span>
-          {renewalDate && <span>Renova em {renewalDate}</span>}
+        <div className="mt-3 flex justify-between font-mono text-xs text-[var(--text-secondary)]">
+          <span className="uppercase tracking-wider">{t("plan", { plan: planKey ?? "Free" })}</span>
+          {renewalDate ? <span>{t("renewsOn", { date: renewalDate })}</span> : null}
         </div>
       </div>
-    </div>
+    </Panel>
   );
 }
-

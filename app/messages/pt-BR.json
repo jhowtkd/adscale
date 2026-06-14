@@ -202,6 +202,44 @@
       "usedThisMonth": "usados no período",
       "seconds": "segundos"
     },
+    "home": {
+      "title": "Campanhas",
+      "summary": "{totalCampaigns} campanhas ativas · {derivationsThisMonth} derivações este mês",
+      "updatingStats": "Atualizando estatísticas",
+      "searchPlaceholder": "Buscar...",
+      "searchAriaLabel": "Buscar campanhas",
+      "viewModeLabel": "Visualização",
+      "viewGrid": "Visualização em grade",
+      "viewList": "Visualização em lista",
+      "emptyNoResults": "Nenhuma campanha encontrada",
+      "emptyNoCampaigns": "Nenhuma campanha ainda",
+      "emptyAdjustSearch": "Tente ajustar sua busca",
+      "emptyCreateHint": "Crie sua primeira campanha para começar a gerar criativos com IA",
+      "createCampaign": "Criar campanha",
+      "errorTitle": "Erro ao carregar",
+      "errorDescription": "Erro ao carregar dashboard",
+      "retry": "Tentar novamente"
+    },
+    "creditsPanel": {
+      "title": "Créditos",
+      "upgrade": "Upgrade",
+      "lowBalance": "Saldo baixo",
+      "plan": "Plano {plan}",
+      "renewsOn": "Renova em {date}"
+    },
+    "creditChart": {
+      "title": "Créditos por semana",
+      "noData": "Sem dados de uso de créditos",
+      "rangeAria": "Período de {range}"
+    },
+    "activity": {
+      "title": "Atividade",
+      "seeMore": "Ver mais",
+      "now": "agora",
+      "minutesAgo": "{count} min atrás",
+      "hoursAgo": "{count}h atrás",
+      "daysAgo": "{count}d atrás"
+    },
     "progression": {
       "title": "Cientista de Ads",
       "currentLevel": "Nível atual",
@@ -1576,8 +1614,13 @@
     "upload": "Upload",
     "searchPlaceholder": "Buscar por nome, tag ou descrição...",
     "deleteConfirm": "Tem certeza que deseja excluir este asset?",
+    "deleteConfirmDescription": "Tem certeza que deseja excluir \"{name}\"? Esta ação não pode ser desfeita.",
     "emptyTitle": "Nenhum asset ainda",
     "emptyDescription": "Faça upload de imagens, logos e vídeos para reutilizá-los em campanhas.",
+    "dropzoneLabel": "Arraste e solte imagens aqui ou clique em Upload",
+    "dropzoneHint": "PNG, JPEG, WebP · Máx 50MB",
+    "uploadAriaLabel": "Enviar asset para biblioteca",
+    "deleteConfirmTitle": "Confirmar exclusão",
     "chooseFromLibrary": "Escolher da biblioteca",
     "useAsset": "Usar este asset",
     "cancel": "Cancelar"
@@ -1742,6 +1785,30 @@
       "performance": "Performance",
       "mission": "Insight de missão",
       "other": "Outro"
+    },
+    "triage": {
+      "title": "Triagem de feedback beta",
+      "description": "Revise relatórios beta com contexto diagnóstico vinculado.",
+      "forbidden": "Esta superfície de triagem é restrita a proprietários da plataforma.",
+      "filterStatus": "Filtrar por status",
+      "filterSeverity": "Filtrar por severidade",
+      "filterCategory": "Filtrar por categoria",
+      "allStatuses": "Todos os status",
+      "allSeverities": "Todas as severidades",
+      "allCategories": "Todas as categorias",
+      "statusNew": "Novo",
+      "statusReviewing": "Em revisão",
+      "statusResolved": "Resolvido",
+      "statusArchived": "Arquivado",
+      "loading": "Carregando…",
+      "noReports": "Nenhum relatório ainda.",
+      "loadingDetail": "Carregando detalhes…",
+      "creditSignalsTitle": "Sinais de ativação de crédito",
+      "creditSignalsDescription": "Separe gasto saudável de frustração usando insights de missão.",
+      "healthy": "Saudável",
+      "frustration": "Frustração",
+      "afterSpend": "+{count} após gasto",
+      "creditFriction": "{friction} fricção de crédito · {skipped} etapas de gasto ignoradas"
     }
   },
   "missionInsights": {

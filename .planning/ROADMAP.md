@@ -32,7 +32,7 @@
 - [x] **Phase 110: App Shell and Navigation** — shell responsivo, navegação e chrome global sem cortes, colisões ou ações inacessíveis
 - [x] **Phase 111: Page Primitives and Operational Surfaces** — hierarquia, ações, toolbars, tabelas, formulários e estados compartilhados nas superfícies operacionais
 - [x] **Phase 112: Campaign Workspace and Overlays** — workspace orientado por etapa, dados densos e overlays previsíveis em qualquer viewport
-- [ ] **Phase 113: Dashboard and Secondary Surface Consistency** — dashboard, biblioteca, templates/restyling, feedback e configurações alinhados em responsividade, acessibilidade e localização
+- [x] **Phase 113: Dashboard and Secondary Surface Consistency** — dashboard, biblioteca, templates/restyling, feedback e configurações alinhados em responsividade, acessibilidade e localização
 - [ ] **Phase 114: Visual Regression and Release Gate** — matriz de navegador, regressão focada, acessibilidade e gate completo de release
 
 | # | Phase | Requirements | Status | Completed |
@@ -41,7 +41,7 @@
 | 110 | App Shell and Navigation | SHELL-01–05 | Complete | 2026-06-13 |
 | 111 | Page Primitives and Operational Surfaces | SURF-01–05 | Complete | [111-SUMMARY](phases/111-page-primitives-and-operational-surfaces/111-SUMMARY.md) |
 | 112 | Campaign Workspace and Overlays | WORK-01–05 | Complete | [112-SUMMARY](phases/112-campaign-workspace-and-overlays/112-SUMMARY.md) |
-| 113 | Dashboard and Secondary Surfaces | SURF-06, RESP-06/08/09, A11Y-06–09 | Not started | - |
+| 113 | Dashboard and Secondary Surfaces | SURF-06, RESP-06/08/09, A11Y-06–09 | Complete | [113-SUMMARY](phases/113-dashboard-and-secondary-surfaces/113-SUMMARY.md) |
 | 114 | Visual Regression and Release Gate | RESP-07, QA-15–17 | Not started | - |
 
 ---
@@ -275,7 +275,7 @@ Plans:
   4. Seleção, erro, alerta e sucesso mantêm contraste e significado sem depender apenas de cor nos modos light e dark.
   5. PT-BR e EN suportam textos longos, números, datas e labels sem quebrar a estrutura ou ocultar informação crítica.
 
-**Plans:** TBD
+**Plans:** Complete — see [113-SUMMARY.md](phases/113-dashboard-and-secondary-surfaces/113-SUMMARY.md)
 
 ---
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,8 @@ import { BetaSessionsPanel } from "@/components/feedback/BetaSessionsPanel";
 import { OwnerAnalyticsPanel } from "@/components/feedback/OwnerAnalyticsPanel";
 import { cn } from "@/lib/utils";
 import PageFrame from "@/components/layout/PageFrame";
+import PageHeader from "@/components/layout/PageHeader";
+import Panel from "@/components/layout/Panel";
 
 type FeedbackReport = {
   id: string;
@@ -77,6 +80,8 @@ async function fetchReportDetail(workspaceId: string, id: string) {
 }
 
 export default function FeedbackTriagePage() {
+  const t = useTranslations("feedback.triage");
+  const tFeedback = useTranslations("feedback");
   const queryClient = useQueryClient();
   const [status, setStatus] = useState("");
   const [severity, setSeverity] = useState("");
@@ -171,7 +176,7 @@ export default function FeedbackTriagePage() {
   if (error instanceof Error && error.message === "forbidden") {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 text-center text-[var(--text-secondary)]">
-        This triage surface is restricted to platform owners.
+        {t("forbidden")}
       </div>
     );
   }
@@ -180,86 +185,84 @@ export default function FeedbackTriagePage() {
   const detail = detailQuery.data;
 
   return (
-    <PageFrame width="operational" className="space-y-6 py-8">
+    <PageFrame width="operational" className="min-w-0 space-y-6 py-8">
+      <PageHeader title={t("title")} description={t("description")} />
+
       <OwnerAnalyticsPanel sessionOptions={sessionOptions} />
       <BetaSessionsPanel />
-    <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-      <section className="space-y-4">
-        <div>
-          <h1 className="text-xl font-semibold text-[var(--text-primary)]">
-            Beta feedback triage
-          </h1>
-          <p className="text-sm text-[var(--text-secondary)]">
-            Review beta reports with linked diagnostic context.
-          </p>
-        </div>
-
+      <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
+        <Panel padding="md" className="space-y-4">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value)}
+            aria-label={t("filterStatus")}
             className="h-10 rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2 text-sm"
           >
-            <option value="">All statuses</option>
-            <option value="new">New</option>
-            <option value="reviewing">Reviewing</option>
-            <option value="resolved">Resolved</option>
-            <option value="archived">Archived</option>
+            <option value="">{t("allStatuses")}</option>
+            <option value="new">{t("statusNew")}</option>
+            <option value="reviewing">{t("statusReviewing")}</option>
+            <option value="resolved">{t("statusResolved")}</option>
+            <option value="archived">{t("statusArchived")}</option>
           </select>
           <select
             value={severity}
             onChange={(e) => setSeverity(e.target.value)}
+            aria-label={t("filterSeverity")}
             className="h-10 rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2 text-sm"
           >
-            <option value="">All severities</option>
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-            <option value="critical">Critical</option>
+            <option value="">{t("allSeverities")}</option>
+            <option value="low">{tFeedback("severities.low")}</option>
+            <option value="medium">{tFeedback("severities.medium")}</option>
+            <option value="high">{tFeedback("severities.high")}</option>
+            <option value="critical">{tFeedback("severities.critical")}</option>
           </select>
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            className="h-10 rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2 text-sm sm:col-span-1 col-span-2"
+            aria-label={t("filterCategory")}
+            className="col-span-2 h-10 rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2 text-sm sm:col-span-1"
           >
-            <option value="">All categories</option>
-            <option value="mission">Mission insights</option>
-            <option value="generation">Generation</option>
-            <option value="ui">UI</option>
-            <option value="billing">Billing</option>
-            <option value="performance">Performance</option>
-            <option value="other">Other</option>
+            <option value="">{t("allCategories")}</option>
+            <option value="mission">{tFeedback("categories.mission")}</option>
+            <option value="generation">{tFeedback("categories.generation")}</option>
+            <option value="ui">{tFeedback("categories.ui")}</option>
+            <option value="billing">{tFeedback("categories.billing")}</option>
+            <option value="performance">{tFeedback("categories.performance")}</option>
+            <option value="other">{tFeedback("categories.other")}</option>
           </select>
         </div>
 
         {creditSignalsQuery.data ? (
-          <div className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] p-4 space-y-3">
+          <div className="space-y-3 rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] p-4">
             <div>
               <h2 className="text-sm font-semibold text-[var(--text-primary)]">
-                Credit activation signals
+                {t("creditSignalsTitle")}
               </h2>
-              <p className="text-xs text-[var(--text-secondary)] mt-1">
-                Separate healthy spend from frustration using mission insights.
+              <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                {t("creditSignalsDescription")}
               </p>
             </div>
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="rounded-md border border-[var(--accent-green)]/30 bg-[var(--accent-green)]/5 px-3 py-2">
-                <p className="font-medium text-[var(--accent-green)]">Healthy</p>
+                <p className="font-medium text-[var(--accent-green)]">{t("healthy")}</p>
                 <p className="text-lg font-bold text-[var(--text-primary)]">
                   {creditSignalsQuery.data.healthyCount}
                 </p>
                 <p className="text-[var(--text-muted)]">
-                  +{creditSignalsQuery.data.positiveAfterSpendCount} after spend
+                  {t("afterSpend", { count: creditSignalsQuery.data.positiveAfterSpendCount })}
                 </p>
               </div>
               <div className="rounded-md border border-[var(--accent-rose)]/30 bg-[var(--accent-rose)]/5 px-3 py-2">
-                <p className="font-medium text-[var(--accent-rose)]">Frustration</p>
+                <p className="font-medium text-[var(--accent-rose)]">{t("frustration")}</p>
                 <p className="text-lg font-bold text-[var(--text-primary)]">
                   {creditSignalsQuery.data.frustrationCount}
                 </p>
                 <p className="text-[var(--text-muted)]">
-                  {creditSignalsQuery.data.creditFrictionCount} credit friction ·{" "}
-                  {creditSignalsQuery.data.skippedCreditMissionCount} skipped spend steps
+                  {t("creditFriction", {
+                    friction: creditSignalsQuery.data.creditFrictionCount,
+                    skipped: creditSignalsQuery.data.skippedCreditMissionCount,
+                  })}
                 </p>
               </div>
             </div>
@@ -268,9 +271,9 @@ export default function FeedbackTriagePage() {
 
         <div className="space-y-2">
           {isLoading ? (
-            <p className="text-sm text-[var(--text-muted)]">Loading…</p>
+            <p className="text-sm text-[var(--text-muted)]">{t("loading")}</p>
           ) : reports.length === 0 ? (
-            <p className="text-sm text-[var(--text-muted)]">No reports yet.</p>
+            <p className="text-sm text-[var(--text-muted)]">{t("noReports")}</p>
           ) : (
             reports.map((report) => (
               <button
@@ -292,23 +295,23 @@ export default function FeedbackTriagePage() {
                   <span className="text-sm font-medium text-[var(--text-primary)]">
                     {report.category === "mission" ? "mission insight" : `${report.type} · ${report.severity}`}
                   </span>
-                  <span className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
+                  <span className="text-xs uppercase tracking-wide text-[var(--text-muted)]">
                     {report.status}
                   </span>
                 </div>
                 <p className="mt-1 line-clamp-2 text-xs text-[var(--text-secondary)]">
                   {report.message}
                 </p>
-                <p className="mt-2 text-[10px] text-[var(--text-muted)]">
+                <p className="mt-2 text-xs text-[var(--text-muted)]">
                   {report.route ?? "—"} · {new Date(report.createdAt).toLocaleString()}
                 </p>
               </button>
             ))
           )}
         </div>
-      </section>
+        </Panel>
 
-      <section className="rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)] p-5">
+      <Panel padding="md">
         {!selected ? (
           <p className="text-sm text-[var(--text-muted)]">Select a report to inspect details.</p>
         ) : detail ? (
@@ -432,9 +435,9 @@ export default function FeedbackTriagePage() {
             </div>
           </div>
         ) : (
-          <p className="text-sm text-[var(--text-muted)]">Loading detail…</p>
+          <p className="text-sm text-[var(--text-muted)]">{t("loadingDetail")}</p>
         )}
-      </section>
+      </Panel>
     </div>
     </PageFrame>
   );

@@ -1,6 +1,9 @@
 "use client";
+
 import { Check, Zap, Upload, Users } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
+import Panel from "@/components/layout/Panel";
 
 interface Activity {
   id: string;
@@ -27,39 +30,52 @@ const activityColors: Record<string, string> = {
   invite_accepted: "text-[var(--accent-secondary)]",
 };
 
-function formatTimeAgo(date: string): string {
-  const now = new Date();
-  const then = new Date(date);
-  const diff = Math.floor((now.getTime() - then.getTime()) / 1000);
-  if (diff < 60) return "agora";
-  if (diff < 3600) return `${Math.floor(diff / 60)} min atrás`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h atrás`;
-  return `${Math.floor(diff / 86400)}d atrás`;
-}
-
 export default function ActivityFeed({ activities }: ActivityFeedProps) {
+  const t = useTranslations("dashboard.activity");
+
+  const formatTimeAgo = (date: string): string => {
+    const now = new Date();
+    const then = new Date(date);
+    const diff = Math.floor((now.getTime() - then.getTime()) / 1000);
+    if (diff < 60) return t("now");
+    if (diff < 3600) return t("minutesAgo", { count: Math.floor(diff / 60) });
+    if (diff < 86400) return t("hoursAgo", { count: Math.floor(diff / 3600) });
+    return t("daysAgo", { count: Math.floor(diff / 86400) });
+  };
+
   return (
-    <div className="glass-card rounded-xl overflow-hidden">
-      <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border-dim)]">
-        <h2 className="text-sm font-semibold text-[var(--text-primary)]">Atividade</h2>
-        <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-secondary)] cursor-pointer transition-colors duration-200">Ver Mais →</span>
+    <Panel padding="none">
+      <div className="flex items-center justify-between border-b border-[var(--border-dim)] px-5 py-4">
+        <h2 className="product-section-title text-sm text-[var(--text-primary)]">{t("title")}</h2>
+        <span className="text-xs font-medium uppercase tracking-wider text-[var(--text-secondary)]">
+          {t("seeMore")} →
+        </span>
       </div>
-      <div className="divide-y divide-[var(--border-dim)] max-h-[300px] overflow-y-auto">
+      <div className="max-h-[300px] divide-y divide-[var(--border-dim)] overflow-y-auto">
         {activities.slice(0, 5).map((activity) => (
-          <div key={activity.id} className="flex gap-3 px-5 py-3 last:border-b-0 hover:bg-[var(--surface-raised)]/50 transition-colors duration-200">
-            <div className={cn(
-              "size-7 rounded-lg bg-[var(--surface-raised)] flex items-center justify-center flex-shrink-0",
-              activityColors[activity.type] ?? "text-[var(--text-secondary)]"
-            )}>
+          <div
+            key={activity.id}
+            className="flex gap-3 px-5 py-3 transition-colors duration-200 last:border-b-0 hover:bg-[var(--surface-raised)]/50"
+          >
+            <div
+              className={cn(
+                "flex size-7 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-raised)]",
+                activityColors[activity.type] ?? "text-[var(--text-secondary)]",
+              )}
+            >
               {activityIcons[activity.type] ?? <Check size={14} />}
             </div>
             <div className="min-w-0">
-              <div className="text-xs text-[var(--text-secondary)] leading-snug truncate">{activity.description}</div>
-              <div className="text-[10px] text-[var(--text-muted)] mt-0.5 font-mono">{formatTimeAgo(activity.createdAt)}</div>
+              <div className="truncate text-xs leading-snug text-[var(--text-secondary)]">
+                {activity.description}
+              </div>
+              <div className="mt-0.5 font-mono text-xs text-[var(--text-muted)]">
+                {formatTimeAgo(activity.createdAt)}
+              </div>
             </div>
           </div>
         ))}
       </div>
-    </div>
+    </Panel>
   );
 }

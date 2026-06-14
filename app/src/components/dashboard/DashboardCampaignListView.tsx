@@ -3,9 +3,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { formatDistanceToNow } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { enUS, ptBR } from "date-fns/locale";
 import { Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -63,6 +63,8 @@ export default function DashboardCampaignListView({
   campaigns,
 }: DashboardCampaignListViewProps) {
   const t = useTranslations("campaign");
+  const locale = useLocale();
+  const dateLocale = locale.startsWith("pt") ? ptBR : enUS;
 
   return (
     <ul className="flex flex-col gap-2" role="list">
@@ -70,7 +72,7 @@ export default function DashboardCampaignListView({
         const statusInfo = statusConfig[campaign.status] ?? statusConfig.draft;
         const formattedDate = formatDistanceToNow(new Date(campaign.updatedAt), {
           addSuffix: true,
-          locale: ptBR,
+          locale: dateLocale,
         });
 
         return (

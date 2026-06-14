@@ -6,6 +6,8 @@ import { Plus, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import EmptyState from "@/components/ui/EmptyState";
 import PageFrame from "@/components/layout/PageFrame";
+import PageHeader from "@/components/layout/PageHeader";
+import Panel from "@/components/layout/Panel";
 import {
   useTemplates,
   useDeleteTemplate,
@@ -23,7 +25,6 @@ export default function TemplatesPage() {
   const updateTemplate = useUpdateTemplate();
 
   const handleUseTemplate = (template: CampaignTemplate) => {
-    // Navigate to campaign creation with template ID
     router.push(`/campaigns?templateId=${template.id}`);
   };
 
@@ -46,59 +47,57 @@ export default function TemplatesPage() {
 
   return (
     <PageFrame width="operational" className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-[var(--text-primary)]">
-            {tTemplate("title")}
-          </h1>
-          <p className="text-sm text-[var(--text-secondary)] mt-1">
-            {tTemplate("subtitle")}
-          </p>
-        </div>
-        <Button
-          onClick={() => router.push("/campaigns")}
-          className="bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-light)]"
-        >
-          <Plus size={16} className="mr-2" />
-          {tTemplate("createFromCampaign")}
-        </Button>
-      </div>
+      <PageHeader
+        title={tTemplate("title")}
+        description={tTemplate("subtitle")}
+        actions={
+          <Button
+            onClick={() => router.push("/campaigns")}
+            className="bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-light)]"
+          >
+            <Plus size={16} className="mr-2" />
+            {tTemplate("createFromCampaign")}
+          </Button>
+        }
+      />
 
-      {/* Content */}
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div
-              key={i}
-              className="bg-[var(--surface-raised)] border border-[var(--border-dim)] rounded-lg p-5 h-48 animate-pulse"
+      <Panel padding={isLoading || (templates && templates.length > 0) ? "sm" : "none"}>
+        {isLoading ? (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div
+                key={i}
+                className="h-48 animate-pulse rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] p-5"
+              />
+            ))}
+          </div>
+        ) : templates && templates.length > 0 ? (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {templates.map((template, index) => (
+              <TemplateCard
+                key={template.id}
+                template={template}
+                index={index}
+                onUse={handleUseTemplate}
+                onDelete={handleDelete}
+                onRename={handleRename}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="p-6">
+            <EmptyState
+              icon={FileText}
+              title={tTemplate("emptyTitle")}
+              description={tTemplate("emptyDescription")}
+              action={{
+                label: tTemplate("createFromCampaign"),
+                href: "/campaigns",
+              }}
             />
-          ))}
-        </div>
-      ) : templates && templates.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {templates.map((template, index) => (
-            <TemplateCard
-              key={template.id}
-              template={template}
-              index={index}
-              onUse={handleUseTemplate}
-              onDelete={handleDelete}
-              onRename={handleRename}
-            />
-          ))}
-        </div>
-      ) : (
-        <EmptyState
-          icon={FileText}
-          title={tTemplate("emptyTitle")}
-          description={tTemplate("emptyDescription")}
-          action={{
-            label: tTemplate("createFromCampaign"),
-            href: "/campaigns",
-          }}
-        />
-      )}
+          </div>
+        )}
+      </Panel>
     </PageFrame>
   );
 }

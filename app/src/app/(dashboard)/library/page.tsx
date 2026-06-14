@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import PageFrame from "@/components/layout/PageFrame";
+import PageHeader from "@/components/layout/PageHeader";
+import Panel from "@/components/layout/Panel";
 import {
   useWorkspaceAssets,
   useDeleteWorkspaceAsset,
@@ -125,101 +127,100 @@ export default function LibraryPage() {
   }, [handleUpload]);
 
   return (
-    <PageFrame width="operational" className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-[var(--text-primary)]">
-            {t("title")}
-          </h1>
-          <p className="text-sm text-[var(--text-secondary)] mt-1">
-            {t("subtitle")}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            aria-label="Upload library asset"
-            accept="image/png,image/jpeg,image/webp"
-            className="hidden"
-            onChange={handleFileSelect}
-          />
-          <Button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isUploading}
-            className="bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-light)]"
-          >
-            <Upload size={16} className="mr-2" />
-            {isUploading ? `${uploadProgress}%` : t("upload")}
-          </Button>
-        </div>
-      </div>
-
-      {/* Dropzone */}
-      <div
-        onDragOver={(e) => { e.preventDefault(); updateState({ dragOver: true }); }}
-        onDragLeave={() => updateState({ dragOver: false })}
-        onDrop={handleDrop}
-        className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
-          dragOver
-            ? "border-[var(--accent-blue)] bg-[var(--accent-blue)]/5"
-            : "border-[var(--border-dim)] bg-[var(--surface-base)]"
-        }`}
-      >
-        <Upload size={32} className="mx-auto mb-3 text-[var(--text-muted)]" />
-        <p className="text-sm text-[var(--text-secondary)]">
-          Arraste e solte imagens aqui ou clique em Upload
-        </p>
-        <p className="text-xs text-[var(--text-muted)] mt-1">
-          PNG, JPEG, WebP • Máx 50MB
-        </p>
-      </div>
-
-      {/* Search */}
-      <div className="relative">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-        <Input
-          value={search}
-          onChange={(e) => handleSearch(e.target.value)}
-          placeholder={t("searchPlaceholder")}
-          className="pl-9 bg-[var(--surface-base)] border-[var(--border-dim)]"
-        />
-      </div>
-
-      {/* Grid */}
-      {isLoading ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          {Array.from({ length: 12 }).map((_, i) => (
-            <div
-              key={i}
-              className="bg-[var(--surface-raised)] border border-[var(--border-dim)] rounded-lg aspect-square animate-pulse"
+    <PageFrame width="operational" className="min-w-0 space-y-6">
+      <PageHeader
+        title={t("title")}
+        description={t("subtitle")}
+        actions={
+          <>
+            <input
+              ref={fileInputRef}
+              type="file"
+              aria-label={t("uploadAriaLabel")}
+              accept="image/png,image/jpeg,image/webp"
+              className="hidden"
+              onChange={handleFileSelect}
             />
-          ))}
+            <Button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+              className="bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-light)]"
+            >
+              <Upload size={16} className="mr-2" />
+              {isUploading ? `${uploadProgress}%` : t("upload")}
+            </Button>
+          </>
+        }
+      />
+
+      <Panel>
+        <button
+          type="button"
+          onDragOver={(e) => {
+            e.preventDefault();
+            updateState({ dragOver: true });
+          }}
+          onDragLeave={() => updateState({ dragOver: false })}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+          className={`w-full rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
+            dragOver
+              ? "border-[var(--accent-blue)] bg-[var(--accent-blue)]/5"
+              : "border-[var(--border-dim)] bg-[var(--surface-base)]"
+          }`}
+        >
+          <Upload size={32} className="mx-auto mb-3 text-[var(--text-muted)]" aria-hidden="true" />
+          <p className="text-sm text-[var(--text-secondary)]">{t("dropzoneLabel")}</p>
+          <p className="mt-1 text-xs text-[var(--text-muted)]">{t("dropzoneHint")}</p>
+        </button>
+
+        <div className="relative border-t border-[var(--border-dim)] p-4">
+          <Search size={16} className="absolute left-7 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+          <Input
+            value={search}
+            onChange={(e) => handleSearch(e.target.value)}
+            placeholder={t("searchPlaceholder")}
+            aria-label={t("searchPlaceholder")}
+            className="border-[var(--border-dim)] bg-[var(--surface-base)] pl-9"
+          />
         </div>
-      ) : data?.assets && data.assets.length > 0 ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          {data.assets.map((asset) => (
-            <AssetCard key={asset.id} asset={asset} onDelete={() => updateState({ deleteTarget: { id: asset.id, name: asset.name } })} />
-          ))}
-        </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center py-20 text-[var(--text-muted)]">
-          <ImageIcon size={48} className="mb-4 opacity-50" />
-          <p className="text-lg font-medium">{t("emptyTitle")}</p>
-          <p className="text-sm mt-1">{t("emptyDescription")}</p>
-        </div>
-      )}
+
+        {isLoading ? (
+          <div className="grid grid-cols-2 gap-4 p-4 md:grid-cols-4 lg:grid-cols-6">
+            {Array.from({ length: 12 }).map((_, i) => (
+              <div
+                key={i}
+                className="aspect-square animate-pulse rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)]"
+              />
+            ))}
+          </div>
+        ) : data?.assets && data.assets.length > 0 ? (
+          <div className="grid grid-cols-2 gap-4 p-4 md:grid-cols-4 lg:grid-cols-6">
+            {data.assets.map((asset) => (
+              <AssetCard
+                key={asset.id}
+                asset={asset}
+                onDelete={() => updateState({ deleteTarget: { id: asset.id, name: asset.name } })}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center px-4 py-20 text-[var(--text-muted)]">
+            <ImageIcon size={48} className="mb-4 opacity-50" aria-hidden="true" />
+            <p className="text-lg font-medium text-[var(--text-primary)]">{t("emptyTitle")}</p>
+            <p className="mt-1 text-sm">{t("emptyDescription")}</p>
+          </div>
+        )}
+      </Panel>
 
       <ConfirmDialog
         open={!!deleteTarget}
         onOpenChange={(open) => !open && updateState({ deleteTarget: null })}
-        title={t("deleteConfirmTitle") || "Confirmar exclusão"}
+        title={t("deleteConfirmTitle")}
         description={
           deleteTarget?.name
-            ? (t("deleteConfirmDescription", { name: deleteTarget.name }) ||
-              `Tem certeza que deseja excluir "${deleteTarget.name}"? Esta ação não pode ser desfeita.`)
-            : "Tem certeza que deseja excluir este item? Esta ação não pode ser desfeita."
+            ? t("deleteConfirmDescription", { name: deleteTarget.name })
+            : t("deleteConfirm")
         }
         confirmLabel={t("deleteConfirm")}
         cancelLabel={tCommon("cancel")}
@@ -282,20 +283,20 @@ function AssetCard({
             {asset.tags.slice(0, 3).map((tag) => (
               <span
                 key={tag}
-                className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--surface-base)] text-[var(--text-secondary)]"
+                className="inline-flex items-center gap-1 rounded-full bg-[var(--surface-base)] px-1.5 py-0.5 text-xs text-[var(--text-secondary)]"
               >
                 <Tag size={8} />
                 {tag}
               </span>
             ))}
             {asset.tags.length > 3 && (
-              <span className="text-[10px] text-[var(--text-muted)]">
+              <span className="text-xs text-[var(--text-muted)]">
                 +{asset.tags.length - 3}
               </span>
             )}
           </div>
         )}
-        <div className="flex items-center gap-2 text-[10px] text-[var(--text-muted)]">
+        <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
           <span>{asset.width ?? "?"}×{asset.height ?? "?"}</span>
           <span>•</span>
           <span>{(asset.size / 1024).toFixed(0)} KB</span>

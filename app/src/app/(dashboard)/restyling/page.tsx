@@ -3,7 +3,6 @@
 import { useCallback, useReducer } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { m } from "framer-motion";
 import { toast } from "sonner";
 
 import { apiFetch } from "@/lib/api-client";
@@ -11,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { RestylingUpload } from "@/components/restyling/RestylingUpload";
 import RestylingForm from "@/components/restyling/RestylingForm";
 import PageFrame from "@/components/layout/PageFrame";
+import PageHeader from "@/components/layout/PageHeader";
 
 interface FormErrors {
   name?: string;
@@ -121,20 +121,8 @@ export default function RestylingPage() {
   }, [router]);
 
   return (
-    <PageFrame width="form">
-      <m.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, ease: [0.19, 1, 0.22, 1] as [number, number, number, number] }}
-        className="pb-8 border-b border-[var(--border-dim)] mb-8"
-      >
-        <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-[var(--text-primary)]">
-          {t("title")}
-        </h1>
-        <p className="mt-1 text-sm text-[var(--text-secondary)]">
-          {t("description")}
-        </p>
-      </m.div>
+    <PageFrame width="form" className="space-y-8">
+      <PageHeader title={t("title")} description={t("description")} />
 
       <form onSubmit={handleSubmit} className="space-y-8">
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">

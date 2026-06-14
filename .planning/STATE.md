@@ -3,16 +3,16 @@ gsd_state_version: 1.0
 milestone: v12.2
 milestone_name: Refinamento Visual e Consistência da Interface
 status: executing
-stopped_at: Completed Phase 112 — Campaign Workspace and Overlays
-last_updated: "2026-06-13T19:15:00.000Z"
-last_activity: 2026-06-13 — Phase 112 workspace shell, sticky bar, PageSection migration
+stopped_at: Completed Phase 113 — Dashboard and Secondary Surfaces
+last_updated: "2026-06-14T07:45:00.000Z"
+last_activity: 2026-06-14 — Phase 113 secondary surfaces PageHeader/Panel + i18n/a11y
 progress:
   total_phases: 6
-  completed_phases: 4
+  completed_phases: 5
   partial_phases: 0
   total_plans: 11
   completed_plans: 11
-  percent: 67
+  percent: 83
 ---
 
 # Project State
@@ -22,18 +22,18 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-12)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
-**Current focus:** Phase 113 — Dashboard and Secondary Surface Consistency
+**Current focus:** Phase 114 — Visual Regression and Release Gate
 
-**Status:** In progress (audit: gaps_found — 21/33 requirements)
+**Status:** In progress (audit: gaps_found — 29/33 requirements)
 
 ## Current Position
 
-Phase: 113 of 114 (Dashboard and Secondary Surface Consistency)
+Phase: 114 of 114 (Visual Regression and Release Gate)
 Plan: 0 of TBD
 Status: Ready to plan
-Last activity: 2026-06-13 — Phase 112 complete
+Last activity: 2026-06-14 — Phase 113 complete
 
-Progress: [███████░░░] 67% (milestone — 21/33 requirements)
+Progress: [████████░░] 83% (milestone — 29/33 requirements)
 
 ## Summary
 
@@ -81,7 +81,7 @@ None yet.
 
 ### Blockers/Concerns
 
-- v12.2 milestone audit (2026-06-13): **gaps_found** — Phases 113–114 not started. Phases 109–112 complete. See `.planning/v12.2-MILESTONE-AUDIT.md`.
+- v12.2 milestone audit (2026-06-13): **gaps_found** — Phase 114 not started. Phases 109–113 complete. See `.planning/v12.2-MILESTONE-AUDIT.md`.
 
 ## Last completed milestone
 
@@ -92,14 +92,14 @@ None yet.
 
 ## Release gate (last verified)
 
-- `npm test` — **1221 passed** (1 skipped)
+- `npm test` — **1222 passed** (1 skipped)
 - `npm run lint` — **0 errors**
 - `npm run build` — OK
 - Prod migrate — **41/41 journal entries** (Render deploy `9a3417d6`)
 
 ## Next action
 
-Discuss and plan Phase 113: Dashboard and Secondary Surface Consistency (SURF-06, RESP-06/08/09, A11Y-06–09).
+Discuss and plan Phase 114: Visual Regression and Release Gate (RESP-07, QA-15–17).
 
 ## Session Continuity
 

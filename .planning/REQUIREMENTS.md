@@ -38,7 +38,7 @@ Refinar todas as superfícies autenticadas do ADScale para uma linguagem compact
 - [x] **SURF-03**: Ações primárias, secundárias e destrutivas têm prioridade inequívoca e comportamento consistente.
 - [x] **SURF-04**: Tabelas, filtros, formulários, toolbars e abas possuem alternativas estruturais utilizáveis em telas estreitas.
 - [x] **SURF-05**: Estados vazio, loading, erro e sucesso seguem padrões compartilhados, instrutivos e acessíveis.
-- [ ] **SURF-06**: Dashboard, campanhas, biblioteca, templates/restyling, feedback e configurações usam a mesma linguagem visual e de interação.
+- [x] **SURF-06**: Dashboard, campanhas, biblioteca, templates/restyling, feedback e configurações usam a mesma linguagem visual e de interação.
 
 ### Campaign Workspace (WORK)
 
@@ -50,17 +50,17 @@ Refinar todas as superfícies autenticadas do ADScale para uma linguagem compact
 
 ### Responsive Behavior (RESP)
 
-- [ ] **RESP-06**: Nenhuma rota autenticada apresenta scroll horizontal acidental, corte, colisão ou sobreposição de elementos.
+- [x] **RESP-06**: Nenhuma rota autenticada apresenta scroll horizontal acidental, corte, colisão ou sobreposição de elementos.
 - [ ] **RESP-07**: Rotas e estados representativos são validados em 390, 768, 1024, 1280, 1440 e 1920 pixels de largura.
-- [ ] **RESP-08**: Telas ultrawide aproveitam espaço para galerias e dados sem esticar leitura, formulários ou controles indefinidamente.
-- [ ] **RESP-09**: Controles e ações permanecem utilizáveis por toque, mouse e teclado em cada estrutura responsiva.
+- [x] **RESP-08**: Telas ultrawide aproveitam espaço para galerias e dados sem esticar leitura, formulários ou controles indefinidamente.
+- [x] **RESP-09**: Controles e ações permanecem utilizáveis por toque, mouse e teclado em cada estrutura responsiva.
 
 ### Accessibility and Localization (A11Y)
 
-- [ ] **A11Y-06**: Foco visível, ordem de tabulação e retorno de foco funcionam em navegação, menus, dialogs, sheets e popovers.
-- [ ] **A11Y-07**: Contraste, seleção, erro, alerta e sucesso permanecem compreensíveis sem depender apenas de cor.
-- [ ] **A11Y-08**: PT-BR e EN suportam textos longos, números, datas e labels sem quebra estrutural ou truncamento de informação crítica.
-- [ ] **A11Y-09**: Light e dark mode preservam legibilidade, hierarquia, foco e significado sem exigir paridade decorativa artificial.
+- [x] **A11Y-06**: Foco visível, ordem de tabulação e retorno de foco funcionam em navegação, menus, dialogs, sheets e popovers.
+- [x] **A11Y-07**: Contraste, seleção, erro, alerta e sucesso permanecem compreensíveis sem depender apenas de cor.
+- [x] **A11Y-08**: PT-BR e EN suportam textos longos, números, datas e labels sem quebra estrutural ou truncamento de informação crítica.
+- [x] **A11Y-09**: Light e dark mode preservam legibilidade, hierarquia, foco e significado sem exigir paridade decorativa artificial.
 
 ### Verification (QA)
 
@@ -113,20 +113,20 @@ Refinar todas as superfícies autenticadas do ADScale para uma linguagem compact
 | SURF-03 | Phase 111 | Complete |
 | SURF-04 | Phase 111 | Complete |
 | SURF-05 | Phase 111 | Complete |
-| SURF-06 | Phase 113 | Not started |
+| SURF-06 | Phase 113 | Complete |
 | WORK-01 | Phase 112 | Complete |
 | WORK-02 | Phase 112 | Complete |
 | WORK-03 | Phase 112 | Complete |
 | WORK-04 | Phase 112 | Complete |
 | WORK-05 | Phase 112 | Complete |
-| RESP-06 | Phase 113 | Not started |
+| RESP-06 | Phase 113 | Complete |
 | RESP-07 | Phase 114 | Not started |
-| RESP-08 | Phase 113 | Not started |
-| RESP-09 | Phase 113 | Not started |
-| A11Y-06 | Phase 113 | Not started |
-| A11Y-07 | Phase 113 | Not started |
-| A11Y-08 | Phase 113 | Not started |
-| A11Y-09 | Phase 113 | Not started |
+| RESP-08 | Phase 113 | Complete |
+| RESP-09 | Phase 113 | Complete |
+| A11Y-06 | Phase 113 | Complete |
+| A11Y-07 | Phase 113 | Complete |
+| A11Y-08 | Phase 113 | Complete |
+| A11Y-09 | Phase 113 | Complete |
 | QA-14 | Phase 109 | Complete |
 | QA-15 | Phase 114 | Not started |
 | QA-16 | Phase 114 | Not started |
@@ -134,7 +134,7 @@ Refinar todas as superfícies autenticadas do ADScale para uma linguagem compact
 
 **Coverage:**
 - v12.2 requirements: 33 total
-- Complete: 11 · Partial: 0 · Not started: 22
+- Complete: 29 · Partial: 0 · Not started: 4
 - Mapped to phases: 33
 - Unmapped: 0 ✓
 

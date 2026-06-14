@@ -4,9 +4,9 @@ import Image from "next/image";
 import Link from "next/link";
 import React, { useState, useMemo, memo } from "react";
 import { cn } from "@/lib/utils";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { formatDistanceToNow } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { enUS, ptBR } from "date-fns/locale";
 import { Layers, MoreHorizontal, Edit2, Copy, Trash2 } from "lucide-react";
 import {
   DropdownMenu,
@@ -74,6 +74,8 @@ const VisualCampaignCard = memo(function VisualCampaignCard({
   index = 0,
 }: VisualCampaignCardProps) {
   const t = useTranslations("campaign");
+  const locale = useLocale();
+  const dateLocale = locale.startsWith("pt") ? ptBR : enUS;
   const reducedMotion = useReducedMotion();
   const statusInfo = statusConfig[status] ?? statusConfig.draft;
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -83,9 +85,9 @@ const VisualCampaignCard = memo(function VisualCampaignCard({
     () =>
       formatDistanceToNow(new Date(updatedAt), {
         addSuffix: true,
-        locale: ptBR,
+        locale: dateLocale,
       }),
-    [updatedAt],
+    [updatedAt, dateLocale],
   );
 
   const displayName = useMemo(

@@ -3,12 +3,12 @@
 import { useReducer, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { m } from "framer-motion";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import PageFrame from "@/components/layout/PageFrame";
+import PageHeader from "@/components/layout/PageHeader";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { logger } from "@/lib/logger";
@@ -144,18 +144,8 @@ export default function QuickToolsRestylingPage() {
   }, [router]);
 
   return (
-    <PageFrame width="form" className="[--content-max:42rem]">
-      <m.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, ease: [0.19, 1, 0.22, 1] }}
-        className="pb-6 border-b border-[var(--border-dim)] mb-8"
-      >
-        <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-[var(--text-primary)]">
-          {t("title")}
-        </h1>
-        <p className="mt-1 text-sm text-[var(--text-secondary)]">{t("description")}</p>
-      </m.div>
+    <PageFrame width="form" className="space-y-8 [--content-max:42rem]">
+      <PageHeader title={t("title")} description={t("description")} />
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid gap-4 sm:grid-cols-2">
