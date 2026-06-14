@@ -34,7 +34,7 @@
     "node_modules",
     "config/**/*.ts",
     "drizzle.config.ts",
-    "playwright.config.ts",
+    "playwright*.config.ts",
     "scripts/**/*.ts",
     "tests/**/*.ts",
     "**/*.test.ts",

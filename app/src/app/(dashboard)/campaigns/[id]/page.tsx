@@ -36,12 +36,6 @@ import WorkspaceStageStrip from "@/components/workspace/WorkspaceStageStrip";
 import DerivationGrid from "@/components/workspace/DerivationGrid";
 import StrategyRecipePanel from "@/components/workspace/StrategyRecipePanel";
 import ClientApprovalPackagePanel from "@/components/workspace/ClientApprovalPackagePanel";
-import PerformanceImportPanel from "@/components/campaigns/PerformanceImportPanel";
-import HypothesesPanel from "@/components/campaigns/HypothesesPanel";
-import LearningsPanel from "@/components/campaigns/LearningsPanel";
-import NextExperimentRecommendationCard, {
-  type RecipePrefillPayload,
-} from "@/components/campaigns/NextExperimentRecommendationCard";
 import EstilizarModal from "@/components/workspace/EstilizarModal";
 import DerivationReviewSheet from "@/components/workspace/DerivationReviewSheet";
 import RegenerateFeedbackDialog, {
@@ -181,14 +175,6 @@ export default function CampaignWorkspacePage() {
     generatePlanPending,
     updatePlanStatusPending,
   } = useCampaignWorkspace(campaignId, isNew);
-
-  const openRecommendationFlow = (prefill: RecipePrefillPayload) => {
-    openDerivePanel({
-      recipeId: prefill.recipeId,
-      config: prefill.config,
-    });
-    goToDerivation();
-  };
 
   const { data: billingStatus } = useBillingStatus();
 
@@ -478,8 +464,6 @@ export default function CampaignWorkspacePage() {
         onRetryDerivations={() => void refetchDerivations()}
         readinessBlocking={readinessBlocking}
         onReadinessOverride={() => setReadinessOverrideActive(true)}
-        onRecommendationAccept={openRecommendationFlow}
-        onRecommendationEdit={openRecommendationFlow}
       />
 
       <DerivationReviewSheet
@@ -711,8 +695,6 @@ interface CampaignWorkspaceCardProps {
   onRetryDerivations?: () => void;
   readinessBlocking?: { blockingCount: number; topIssue?: string } | null;
   onReadinessOverride?: () => void;
-  onRecommendationAccept?: (prefill: RecipePrefillPayload) => void;
-  onRecommendationEdit?: (prefill: RecipePrefillPayload) => void;
 }
 
 function CampaignWorkspaceCard({
@@ -758,8 +740,6 @@ function CampaignWorkspaceCard({
   onRetryDerivations,
   readinessBlocking,
   onReadinessOverride,
-  onRecommendationAccept,
-  onRecommendationEdit,
 }: CampaignWorkspaceCardProps) {
   const tApproval = useTranslations("clientApprovalPackage");
 
@@ -844,46 +824,6 @@ function CampaignWorkspaceCard({
               readinessBlocking={readinessBlocking}
               disabled={workspaceState === "gerando"}
             />
-            {allDerivations.length > 0 ? (
-              <PageSection id="mission-performance" title="Resultados de mídia">
-                <PerformanceImportPanel
-                  campaignId={campaignId}
-                  derivations={allDerivations.map((d, index) => ({
-                    id: d.id,
-                    label:
-                      d.format && d.variantIndex != null
-                        ? `${d.format} #${d.variantIndex + 1}`
-                        : `Derivação ${index + 1}`,
-                  }))}
-                />
-              </PageSection>
-            ) : null}
-            {allDerivations.length > 0 ? (
-              <PageSection id="mission-hypotheses" title="Hipóteses e comparação">
-                <HypothesesPanel
-                  campaignId={campaignId}
-                  derivations={allDerivations.map((d, index) => ({
-                    id: d.id,
-                    label:
-                      d.format && d.variantIndex != null
-                        ? `${d.format} #${d.variantIndex + 1}`
-                        : `Derivação ${index + 1}`,
-                  }))}
-                />
-              </PageSection>
-            ) : null}
-            {allDerivations.length > 0 ? (
-              <PageSection id="mission-learnings" title="Memória de performance" className="space-y-4">
-                {onRecommendationAccept && onRecommendationEdit ? (
-                  <NextExperimentRecommendationCard
-                    campaignId={campaignId}
-                    onAccept={onRecommendationAccept}
-                    onEdit={onRecommendationEdit}
-                  />
-                ) : null}
-                <LearningsPanel campaignId={campaignId} />
-              </PageSection>
-            ) : null}
             <PageSection id="mission-share" title={tApproval("title")}>
               <ClientApprovalPackagePanel campaignId={campaignId} />
             </PageSection>
