@@ -27,7 +27,7 @@ export default function PageFrame({
   className?: string;
 }) {
   return (
-    <div className={cn("page-gutters w-full", WIDTH_CLASS[width], className)}>
+    <div className={cn("page-gutters w-full min-w-0 overflow-x-clip", WIDTH_CLASS[width], className)}>
       {children}
     </div>
   );

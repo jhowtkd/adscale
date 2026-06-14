@@ -765,7 +765,7 @@ export default function BrandKitTab() {
         onOpenChange={(open) => updateState({ showClearDialog: open })}
         title={t("brandKit.clearTitle") || "Limpar Brand Kit"}
         description={t("brandKit.confirmClear") || "Tem certeza que deseja limpar o Brand Kit? Esta ação não pode ser desfeita."}
-        confirmLabel={t("brandKit.clearConfirm") || "Limpar"}
+        confirmLabel={t("brandKit.clearButton")}
         variant="destructive"
         onConfirm={() => {
           clearBrandKit.mutate(undefined, {

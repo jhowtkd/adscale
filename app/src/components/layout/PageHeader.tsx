@@ -23,7 +23,7 @@ export default function PageHeader({
     >
       <div className="min-w-0 space-y-1">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="product-page-title text-[var(--text-primary)]">{title}</h1>
+          <h1 className="product-page-title min-w-0 break-words text-[var(--text-primary)]">{title}</h1>
           {meta ? <div className="shrink-0">{meta}</div> : null}
         </div>
         {description ? (

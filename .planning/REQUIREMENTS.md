@@ -51,7 +51,7 @@ Refinar todas as superfícies autenticadas do ADScale para uma linguagem compact
 ### Responsive Behavior (RESP)
 
 - [x] **RESP-06**: Nenhuma rota autenticada apresenta scroll horizontal acidental, corte, colisão ou sobreposição de elementos.
-- [ ] **RESP-07**: Rotas e estados representativos são validados em 390, 768, 1024, 1280, 1440 e 1920 pixels de largura.
+- [x] **RESP-07**: Rotas e estados representativos são validados em 390, 768, 1024, 1280, 1440 e 1920 pixels de largura.
 - [x] **RESP-08**: Telas ultrawide aproveitam espaço para galerias e dados sem esticar leitura, formulários ou controles indefinidamente.
 - [x] **RESP-09**: Controles e ações permanecem utilizáveis por toque, mouse e teclado em cada estrutura responsiva.
 
@@ -65,9 +65,9 @@ Refinar todas as superfícies autenticadas do ADScale para uma linguagem compact
 ### Verification (QA)
 
 - [x] **QA-14**: Cada rota autenticada e família de componentes pertence a exatamente uma phase de implementação e a pelo menos um cenário de browser no release gate.
-- [ ] **QA-15**: A matriz de validação cobre dados densos, vazio, loading, erro, conteúdo longo e combinações críticas de overlays.
-- [ ] **QA-16**: Regressões visuais ou responsivas com lógica reproduzível recebem cobertura automatizada focada.
-- [ ] **QA-17**: `npm test`, `npm run lint`, `npm run build`, auditoria de acessibilidade e UAT visual passam antes do release.
+- [x] **QA-15**: A matriz de validação cobre dados densos, vazio, loading, erro, conteúdo longo e combinações críticas de overlays.
+- [x] **QA-16**: Regressões visuais ou responsivas com lógica reproduzível recebem cobertura automatizada focada.
+- [x] **QA-17**: `npm test`, `npm run lint`, `npm run build`, auditoria de acessibilidade e UAT visual passam antes do release.
 
 ## Future Requirements
 
@@ -120,7 +120,7 @@ Refinar todas as superfícies autenticadas do ADScale para uma linguagem compact
 | WORK-04 | Phase 112 | Complete |
 | WORK-05 | Phase 112 | Complete |
 | RESP-06 | Phase 113 | Complete |
-| RESP-07 | Phase 114 | Not started |
+| RESP-07 | Phase 114 | Complete |
 | RESP-08 | Phase 113 | Complete |
 | RESP-09 | Phase 113 | Complete |
 | A11Y-06 | Phase 113 | Complete |
@@ -128,13 +128,13 @@ Refinar todas as superfícies autenticadas do ADScale para uma linguagem compact
 | A11Y-08 | Phase 113 | Complete |
 | A11Y-09 | Phase 113 | Complete |
 | QA-14 | Phase 109 | Complete |
-| QA-15 | Phase 114 | Not started |
-| QA-16 | Phase 114 | Not started |
-| QA-17 | Phase 114 | Not started |
+| QA-15 | Phase 114 | Complete |
+| QA-16 | Phase 114 | Complete |
+| QA-17 | Phase 114 | Complete |
 
 **Coverage:**
 - v12.2 requirements: 33 total
-- Complete: 29 · Partial: 0 · Not started: 4
+- Complete: 33 · Partial: 0 · Not started: 0
 - Mapped to phases: 33
 - Unmapped: 0 ✓
 

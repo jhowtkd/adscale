@@ -249,6 +249,7 @@ function ProfileAvatarSection({
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
+          aria-label={t("changeAvatar")}
           className={cn(
             "absolute inset-0 rounded-full flex items-center justify-center",
             "bg-black/40 opacity-0 group-hover:opacity-100",
@@ -379,10 +380,12 @@ function ProfileFieldsSection({
       </m.div>
 
       <m.div variants={itemVariants} className="space-y-2">
-        <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
+        <label htmlFor="profile-timezone" className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
           {t("timeZone")}
         </label>
         <select
+          id="profile-timezone"
+          aria-label={t("timeZone")}
           value={timezone}
           onChange={(e) => updateForm({ timezone: e.target.value })}
           className={cn(

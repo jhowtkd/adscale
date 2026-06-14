@@ -37,7 +37,7 @@ export default function AppShell({ children }: AppShellProps) {
         id="main"
         className="dot-grid shell-offset-top shell-offset-bottom-mobile min-h-screen"
       >
-        <div className="relative shell-min-height-below-topbar">
+        <div className="relative min-w-0 overflow-x-clip shell-min-height-below-topbar">
           {children}
         </div>
         <Footer />
