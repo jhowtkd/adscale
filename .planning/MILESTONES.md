@@ -1,5 +1,29 @@
 # Milestones: ADScale
 
+## v12.2 Refinamento Visual e Consistência da Interface (Shipped: 2026-06-14)
+
+**Phases completed:** 6 phases (109→114), 11 plans  
+**Requirements:** 33/33 complete
+
+**Scope:**
+- Visual foundation contracts, tokens, primitives, ownership inventory, and paired browser baseline
+- Responsive app shell with `PageFrame`, i18n TopBar, single-main landmark, and shell geometry e2e
+- Shared page primitives on campaigns, settings, dashboard, and secondary routes
+- Campaign workspace stage strip, sticky action bar, unified panels, and overlay layering
+- Playwright release gate: 54 layout checks + 8 axe audits; `npm test` / lint / build green
+
+**Key accomplishments:**
+- Canonical geometry/density/layer tokens with before/after visual evidence matrix
+- Operational surfaces migrated to shared page hierarchy without changing business flows
+- Workspace oriented by mission stage with predictable sticky chrome
+- Milestone-wide responsive matrix at 390–1920px with `run-release-gate.mjs`
+
+**Deferred:** `DEFECT-CONTRAST` — documented in axe gate, non-blocking
+
+Archive: [v12.2-ROADMAP.md](milestones/v12.2-ROADMAP.md) · [v12.2-REQUIREMENTS.md](milestones/v12.2-REQUIREMENTS.md) · [v12.2-MILESTONE-AUDIT.md](milestones/v12.2-MILESTONE-AUDIT.md)
+
+---
+
 ## v12.0 Monetização Real (Shipped: 2026-06-11)
 
 **Phases completed:** 6 phases (97→102)

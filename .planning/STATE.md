@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v12.2
 milestone_name: Refinamento Visual e Consistência da Interface
-status: executing
-stopped_at: Completed Phase 114 — Visual Regression and Release Gate
-last_updated: "2026-06-14T12:00:00.000Z"
-last_activity: 2026-06-14 — Phase 114 release gate (54 layout + 8 a11y checks)
+status: archived
+stopped_at: Milestone v12.2 archived
+last_updated: "2026-06-14T18:00:00.000Z"
+last_activity: 2026-06-14 — Milestone v12.2 archived and tagged
 progress:
   total_phases: 6
   completed_phases: 6
@@ -19,90 +19,30 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-06-12)
+See: .planning/PROJECT.md (updated 2026-06-14)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
-**Current focus:** Milestone v12.2 complete — ready for `/gsd-complete-milestone`
+**Current focus:** Planning next milestone (`/gsd-new-milestone`)
 
-**Status:** Complete (audit: passed — 33/33 requirements)
+**Status:** v12.2 milestone archived
 
 ## Current Position
 
-Phase: 114 of 114 (Visual Regression and Release Gate)
-Plan: Complete
-Status: Milestone v12.2 complete
-Last activity: 2026-06-14 — Phase 114 release gate passed
+Milestone: v12.2 — **SHIPPED** 2026-06-14  
+Phases: 109–114 complete  
+Requirements: 33/33  
+Tag: `v12.2`
 
-Progress: [██████████] 100% (milestone — 33/33 requirements)
+Progress: [██████████] 100%
 
 ## Summary
 
-v12.2 will refine the complete authenticated app into a compact, professional and consistent product surface. Scope includes structural responsiveness from mobile to ultrawide, elimination of overlaps and clipping, hierarchy and density improvements, component consolidation, accessibility and browser-verified visual regression.
-
-## Performance Metrics
-
-**Velocity:**
-- Total plans completed: 6
-- Average duration: 27 min
-- Total execution time: 2h 43m
-
-**By Phase:**
-
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| 109 | 6 | 6 | 27 min |
-| Phase 109 P01 | 3min | 2 tasks | 5 files |
-| Phase 109 P02 | 1h 15m | 3 tasks | 9 versioned files |
-| Phase 109 P03 | 8 min | 4 tasks | 4 files |
-| Phase 109 P04 | 18 min | 4 tasks | 9 files |
-| Phase 109 P05 | 14 min | 4 tasks | 6 files |
-| Phase 109 P06 | 45 min | 4 tasks | 5 files |
-
-## Accumulated Context
-
-### Decisions
-
-- Six phases follow the researched dependency order: foundations → shell → primitives/surfaces → workspace → secondary surfaces → release gate.
-- Every v12.2 requirement maps to exactly one phase; Phase 114 remains an independent evidence gate.
-- [Phase 109]: Protected verification compares per-path HEAD blobs, index entries, worktree hashes, and porcelain-v2 records so unrelated commits remain valid.
-- [Phase 109]: Immutable plan scope baselines live outside the worktree under .git/gsd-guards.
-- [Phase 109]: Visual evidence uses only visual-foundations@example.test and validates an exact 49-capture matrix with artifact hashes.
-- [Phase 109]: Screenshot binaries remain local while versioned JSON stores their paths and SHA-256 hashes.
-- [Phase 109]: Canonical semantic roles own all theme values; live legacy names are one-way aliases only.
-- [Phase 109]: Existing visual debt is frozen by exact file and rule counts while later owner phases migrate consumers.
-- [Phase 109]: Basic controls consume canonical density, radius, motion, and semantic roles without caller migration.
-- [Phase 109]: Dialog/sheet backdrops use layer-backdrop; content uses layer-overlay; popovers use layer-popover.
-- [Phase 109]: 49-capture before/after matrix validated; FOUND-01–05 and QA-14 pass structured final evidence.
-- [Phase 109]: DEFECT-LANDMARKS → 110, DEFECT-CONTRAST and DEFECT-BRAND-KIT-DIALOG → 113.
-
-### Pending Todos
-
-None yet.
-
-### Blockers/Concerns
-
-- v12.2 milestone audit (2026-06-14): **passed** — Phases 109–114 complete, 33/33 requirements.
-
-## Last completed milestone
-
-| Milestone | Phases | Shipped | Archive |
-|-----------|--------|---------|---------|
-| v12.1 Memória Criativa e Aprendizado de Performance | 103–108 | 2026-06-12 | [ROADMAP](milestones/v12.1-ROADMAP.md) · [REQUIREMENTS](milestones/v12.1-REQUIREMENTS.md) · [AUDIT](milestones/v12.1-MILESTONE-AUDIT.md) |
-| v12.0 Monetização Real | 97–102 | 2026-06-11 | [ROADMAP](milestones/v12.0-ROADMAP.md) · [REQUIREMENTS](milestones/v12.0-REQUIREMENTS.md) · [AUDIT](milestones/v12.0-MILESTONE-AUDIT.md) |
-
-## Release gate (last verified)
-
-- `npm test` — **1222 passed** (1 skipped)
-- `npm run lint` — **0 errors**
-- `npm run build` — OK
-- Prod migrate — **41/41 journal entries** (Render deploy `9a3417d6`)
-
-## Next action
-
-Run `/gsd-complete-milestone v12.2` to archive the milestone.
+v12.2 refined the authenticated ADScale interface into a compact, professional, and structurally responsive product surface. All six phases shipped with browser-verified release gate evidence.
 
 ## Session Continuity
 
-Last session: 2026-06-13T16:20:00.000Z
-Stopped at: Completed 109-06-PLAN.md — Phase 109 complete
-Resume file: .planning/phases/110-app-shell-and-navigation/
+Last activity: 2026-06-14 — `/gsd-complete-milestone v12.2`
+
+## Next Steps
+
+Run `/gsd-new-milestone` to define the next milestone cycle.

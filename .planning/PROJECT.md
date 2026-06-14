@@ -10,16 +10,18 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Current Milestone
 
-### v12.2 Refinamento Visual e Consistência da Interface
+_Planning next milestone — run `/gsd-new-milestone`._
 
-**Goal:** Tornar toda a interface do ADScale compacta, profissional, previsível e responsiva, eliminando sobreposições e irregularidades visuais sem perder velocidade operacional ou identidade.
+### v12.2 Refinamento Visual e Consistência da Interface — SHIPPED (2026-06-14)
 
-**Target features:**
-- Padronização de layout, espaçamento, tipografia, densidade e hierarquia em todas as superfícies autenticadas
-- Responsividade estrutural de mobile a ultrawide, sem sobreposição, corte ou ações inacessíveis
-- Simplificação de telas com redução de cards e ações concorrentes, preservando os fluxos e capacidades existentes
-- Consolidação de componentes, tokens e estados interativos para evitar novas divergências visuais
-- Auditoria visual, acessibilidade e regressão responsiva com validação em navegador
+Phases 109–114 complete; 33/33 requirements; release gate in `playwright.release.config.ts` + `run-release-gate.mjs`. Archive: `.planning/milestones/v12.2-*`.
+
+**Delivered:**
+- Visual foundation contracts, primitives, ownership validator, and paired browser baseline
+- Token-backed app shell, `PageFrame`, i18n navigation, and shell geometry proof
+- Shared `PageHeader` / `Panel` / `ResponsiveTabs` on campaigns, settings, dashboard, and secondary routes
+- Workspace stage orientation, sticky action bar, and overlay layering
+- Playwright release gate (54 layout + 8 a11y checks)
 
 ### v12.1 Memória Criativa e Aprendizado de Performance — SHIPPED (2026-06-12)
 
@@ -336,7 +338,7 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-12 — milestone v12.2 Refinamento Visual e Consistência da Interface started*
+*Last updated: 2026-06-14 — milestone v12.2 Refinamento Visual e Consistência da Interface shipped*
 
 ## Milestone History
 
