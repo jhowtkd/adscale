@@ -1,5 +1,26 @@
 import type { CreativeContract } from "./creative-contract";
 import type { Campaign, DerivationPromptConfig } from "./prompt-builder";
+import { resolveCanonicalCreative } from "./canonical-creative-contract";
+
+function withCanonicalCreative(
+  contract: CreativeContract,
+  campaign?: Campaign
+): CreativeContract {
+  if (contract.canonicalCreative) {
+    return contract;
+  }
+  return {
+    ...contract,
+    canonicalCreative: resolveCanonicalCreative(
+      contract,
+      campaign ?? campaignFixture({
+        client: contract.client,
+        product: contract.product,
+        offer: contract.offer,
+      })
+    ),
+  };
+}
 
 export function campaignFixture(overrides: Partial<Campaign> = {}): Campaign {
   return {
@@ -25,7 +46,7 @@ export function campaignFixture(overrides: Partial<Campaign> = {}): Campaign {
 export function artVariationContractFixture(
   overrides: Partial<CreativeContract> = {}
 ): CreativeContract {
-  return {
+  return withCanonicalCreative({
     generationMode: "art_variation",
     targetFormat: "1:1",
     ctaSemantics: { kind: "explicit", text: "Comprar agora" },
@@ -37,13 +58,13 @@ export function artVariationContractFixture(
     constraints: "Preserve LGPD badge",
     sourcePackage: "campaign_asset",
     ...overrides,
-  };
+  });
 }
 
 export function formatAdaptationCampaignAssetContractFixture(
   overrides: Partial<CreativeContract> = {}
 ): CreativeContract {
-  return {
+  return withCanonicalCreative({
     generationMode: "format_adaptation",
     targetFormat: "9:16",
     ctaSemantics: { kind: "explicit", text: "Comprar agora" },
@@ -55,13 +76,13 @@ export function formatAdaptationCampaignAssetContractFixture(
     constraints: "Preserve LGPD badge",
     sourcePackage: "campaign_asset",
     ...overrides,
-  };
+  });
 }
 
 export function formatAdaptationApprovedDerivationContractFixture(
   overrides: Partial<CreativeContract> = {}
 ): CreativeContract {
-  return {
+  return withCanonicalCreative({
     generationMode: "format_adaptation",
     targetFormat: "9:16",
     ctaSemantics: { kind: "inherited" },
@@ -73,13 +94,13 @@ export function formatAdaptationApprovedDerivationContractFixture(
     constraints: "Preserve LGPD badge",
     sourcePackage: "approved_derivation",
     ...overrides,
-  };
+  });
 }
 
 export function restylingContractFixture(
   overrides: Partial<CreativeContract> = {}
 ): CreativeContract {
-  return {
+  return withCanonicalCreative({
     generationMode: "restyling",
     targetFormat: "1:1",
     ctaSemantics: { kind: "inherited" },
@@ -90,7 +111,7 @@ export function restylingContractFixture(
     offer: "Auditoria gratuita",
     constraints: "Preserve LGPD badge",
     ...overrides,
-  };
+  });
 }
 
 export function derivationConfigFromContract(

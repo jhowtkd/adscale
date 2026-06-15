@@ -15,6 +15,7 @@ import {
   FACTUAL_SOURCE_RULES,
   resolveCtaSemantics,
 } from "../ai/creative-contract";
+import { resolveCanonicalCreative } from "../ai/canonical-creative-contract";
 import type {
   CreativeContract,
   ImageOperation,
@@ -440,7 +441,7 @@ export const derivationJob = inngest.createFunction(
 
       const childStoredContract = derivation.creativeContract ?? null;
 
-      const resolvedContract: CreativeContract = childStoredContract
+      const baseResolvedContract: CreativeContract = childStoredContract
         ? {
             ...childStoredContract,
             generationMode: effectiveGenerationMode as CreativeContract["generationMode"],
@@ -474,6 +475,14 @@ export const derivationJob = inngest.createFunction(
             sourcePackage,
             factualSourceRules: FACTUAL_SOURCE_RULES,
           };
+
+      const diagnosis = normalizeCreativeDiagnosis(campaign.creativeDiagnosis);
+      const resolvedContract: CreativeContract = {
+        ...baseResolvedContract,
+        canonicalCreative:
+          childStoredContract?.canonicalCreative ??
+          resolveCanonicalCreative(baseResolvedContract, campaign, diagnosis ?? undefined),
+      };
 
       if (usesParentOutput && parentDerivation?.outputKey) {
         logger.info(`[generate-and-store-output] downloading parent output key=${parentDerivation.outputKey}`);
