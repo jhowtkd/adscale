@@ -49,7 +49,7 @@
 | 120 | Quality Gate Hardening | Complete    | 2026-06-15 | 2026-06-15 |
 | 121 | Score Ceilings and Retry | Complete    | 2026-06-15 | 2026-06-15 |
 | 122 | Regression Test Suite | Complete    | 2026-06-15 | — |
-| 123 | Visual Validation Gate | 2/4 | In Progress|  |
+| 123 | Visual Validation Gate | 3/4 | In Progress|  |
 
 ---
 
@@ -415,7 +415,7 @@ Plans:
 Plans:
 - [x] 123-01-PLAN.md — Validation matrix (6 cells, all modes) + matrix unit tests
 - [x] 123-02-PLAN.md — Threshold aggregation + evidence check (--stage before + after; before fixture)
-- [ ] 123-03-PLAN.md — Operator capture script + base assets + live evidence (checkpoint; tasks 01–02 done)
+- [x] 123-03-PLAN.md — Operator capture script + base assets + live evidence (checkpoint; tasks 01–02 done)
 - [ ] 123-04-PLAN.md — Release gate orchestrator + final evidence validation + milestone closure
 
 ---
