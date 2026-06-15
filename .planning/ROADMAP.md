@@ -248,7 +248,12 @@ Plans:
   3. Nenhum prompt exige simultaneamente preservar todos os módulos literalmente e simplificar hierarquia sem regra de precedência.
   4. `VISUAL_HIERARCHY_CONTRACT` e `ANTI_HALLUCINATION_RULES` aparecem em todos os prompts de derivação aplicáveis.
 
-**Plans:** TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 116-01-PLAN.md — Canonical types, resolver, job wiring (CONT-01, CONT-02)
+- [ ] 116-02-PLAN.md — Integrity injection + extractors + regression tests (CONT-04)
+- [ ] 116-03-PLAN.md — Tier-aware mode blocks + preserve-all conflict resolution (CONT-03)
 
 ---
 
