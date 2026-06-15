@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v12.3
 milestone_name: Integridade Criativa
 status: executing
-last_updated: "2026-06-15T20:27:36.538Z"
+last_updated: "2026-06-15T20:30:58.466Z"
 last_activity: 2026-06-15
 progress:
   total_phases: 85
   completed_phases: 39
   total_plans: 109
-  completed_plans: 120
+  completed_plans: 121
   percent: 100
 ---
 
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-06-15)
 ## Current Position
 
 Phase: 123 — Visual Validation Gate
-Plan: 01 complete (3 remaining)
+Plan: 02 complete (2 remaining)
 Status: In progress
 Last activity: 2026-06-15
 
-Progress: Phase 123 plan 01/4 complete
+Progress: Phase 123 plan 02/4 complete
 
 ## Accumulated Context
 
@@ -94,7 +94,9 @@ Last activity: 2026-06-15 — Completed 121-03 (failure-specific correction dire
 - [Phase 121]: Restyling auto-retry calls images.edit with [base-image, style-reference] matching first-pass order
 - [Phase 123]: CREATIVE_VALIDATION_MATRIX is six-cell single source for operator capture and release gate (QA-18)
 - [Phase 123]: beforeCorpusRefId validated at module load via isCorpusRefIdKnown; CREATIVE_VALIDATION_SEED_SUPPORTED=false
+- [Phase 123]: FIDELITY_HARD_FAILURE_CODES frozen to seven production gate codes; after-stage fidelity failures are warnings until plan 04 final
+- [Phase 123]: check-creative-validation-evidence.mjs loads matrix keys via tsx from creative-validation-matrix.ts
 
 ## Next Steps
 
-Execute Phase 121 plans 01 and 02 (score ceilings SCR-02/03, mode-aware retry SCR-04)
+Execute Phase 123 plan 03 (operator capture script + live evidence checkpoint)
