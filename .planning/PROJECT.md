@@ -8,9 +8,20 @@ ADScale is a SaaS webapp for creative derivation: marketing teams upload a base 
 
 Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-## Current Milestone
+## Current Milestone: v12.3 Integridade Criativa
 
-_Planning next milestone — run `/gsd-new-milestone`._
+**Goal:** Impedir que o pipeline criativo aprove peças factualmente incorretas, visualmente genéricas ou hierarquicamente congestionadas — garantindo que regras críticas cheguem ao prompt, ao gate e aos testes.
+
+**Target features:**
+- Linha de base reproduzível com fixtures do corpus auditado (Cantona, overload, template genérico)
+- Contrato criativo canônico: ideia dominante, três zonas, preservação factual sem igual destaque
+- Separação factual vs linguagem visual (especialmente restyling)
+- Regras por modo (`art_variation`, `restyling`, `format_adaptation`)
+- Quality gate endurecido com hard failures observáveis e score com tetos
+- Suíte de regressão que detecta regras declaradas mas não aplicadas
+- Validação visual controlada com metas mensuráveis (≥75 média, ≥95 fidelidade)
+
+**Audit baseline:** corpus `app/exports/render-creatives/` — 34 peças, média 58,5/100; falhas críticas de entidades inventadas e adaptações que viram outra campanha.
 
 ### v12.2 Refinamento Visual e Consistência da Interface — SHIPPED (2026-06-14)
 
