@@ -12,12 +12,20 @@ import {
   type CreativeQaCriterionResult,
 } from "./creative-qa";
 import {
+  CAMPAIGN_IDENTITY_DRIFT_PATTERN,
+  CAMPAIGN_IDENTITY_SAFE_PATTERN,
   CROPPED_CONTENT_PATTERN,
   CTA_DRIFT_NOTE_PATTERN,
+  DECORATIVE_ONLY_PATTERN,
+  GENERIC_TEMPLATE_NOTE_MARKERS,
   ILLEGIBILITY_PATTERN,
   INVENTED_ENTITY_PATTERN,
   INVALID_FORMAT_LAYOUT_PATTERN,
+  MISSING_DOMINANT_IDEA_MARKERS,
+  OVERLOAD_NOTE_MARKERS,
+  REPLACED_SOURCE_SUBJECT_PATTERN,
   STYLE_REFERENCE_CONTAMINATION_PATTERN,
+  UNAUTHORIZED_BRAND_PATTERN,
   UNSUPPORTED_OFFER_PATTERN,
   WRONG_BRAND_PATTERN,
 } from "./creative-quality-taxonomy";
@@ -121,6 +129,16 @@ function noteMatches(pattern: RegExp, note: string): boolean {
   return pattern.test(note);
 }
 
+function hasCampaignIdentityDrift(note: string): boolean {
+  if (!noteMatches(CAMPAIGN_IDENTITY_DRIFT_PATTERN, note)) {
+    return false;
+  }
+  if (/not a faithful/i.test(note)) {
+    return true;
+  }
+  return !noteMatches(CAMPAIGN_IDENTITY_SAFE_PATTERN, note);
+}
+
 function pushUnique(list: string[], value: string): void {
   const trimmed = value.trim();
   if (trimmed.length > 0 && !list.includes(trimmed)) {
@@ -139,8 +157,36 @@ function pushHardFailure(
 
 function classifyBriefMatchFailed(
   hardFailures: CreativeHardFailure[],
+  contract: CreativeContract,
   note: string
 ): void {
+  if (noteMatches(UNAUTHORIZED_BRAND_PATTERN, note)) {
+    pushHardFailure(hardFailures, {
+      code: "unauthorized_brand_or_ip",
+      message: note,
+      criterion: "briefMatch",
+    });
+    return;
+  }
+  if (noteMatches(REPLACED_SOURCE_SUBJECT_PATTERN, note)) {
+    pushHardFailure(hardFailures, {
+      code: "replaced_source_subject",
+      message: note,
+      criterion: "briefMatch",
+    });
+    return;
+  }
+  if (
+    contract.generationMode === "format_adaptation" &&
+    hasCampaignIdentityDrift(note)
+  ) {
+    pushHardFailure(hardFailures, {
+      code: "campaign_identity_drift",
+      message: note,
+      criterion: "briefMatch",
+    });
+    return;
+  }
   if (noteMatches(WRONG_BRAND_PATTERN, note)) {
     pushHardFailure(hardFailures, {
       code: "wrong_brand",
@@ -199,6 +245,7 @@ function classifyCtaOfferFailed(
 function classifyCreativeRiskFailed(
   hardFailures: CreativeHardFailure[],
   polishSuggestions: string[],
+  contract: CreativeContract,
   note: string
 ): void {
   if (noteMatches(UNSUPPORTED_OFFER_PATTERN, note)) {
@@ -217,9 +264,44 @@ function classifyCreativeRiskFailed(
     });
     return;
   }
+  if (noteMatches(OVERLOAD_NOTE_MARKERS, note)) {
+    pushHardFailure(hardFailures, {
+      code: "visual_overload",
+      message: note,
+      criterion: "creativeRisk",
+    });
+    return;
+  }
+  if (noteMatches(GENERIC_TEMPLATE_NOTE_MARKERS, note)) {
+    pushHardFailure(hardFailures, {
+      code: "generic_template_aesthetic",
+      message: note,
+      criterion: "creativeRisk",
+    });
+    return;
+  }
+  if (noteMatches(MISSING_DOMINANT_IDEA_MARKERS, note)) {
+    pushHardFailure(hardFailures, {
+      code: "missing_dominant_idea",
+      message: note,
+      criterion: "creativeRisk",
+    });
+    return;
+  }
+  if (
+    contract.generationMode === "art_variation" &&
+    noteMatches(DECORATIVE_ONLY_PATTERN, note)
+  ) {
+    pushHardFailure(hardFailures, {
+      code: "decorative_only_variation",
+      message: note,
+      criterion: "creativeRisk",
+    });
+    return;
+  }
   if (noteMatches(STYLE_REFERENCE_CONTAMINATION_PATTERN, note)) {
     pushHardFailure(hardFailures, {
-      code: "copied_style_reference_facts",
+      code: "style_reference_contamination",
       message: note,
       criterion: "creativeRisk",
     });
@@ -241,6 +323,14 @@ function classifyScoreIssue(
     });
     return true;
   }
+  if (noteMatches(UNAUTHORIZED_BRAND_PATTERN, issue)) {
+    pushHardFailure(hardFailures, {
+      code: "unauthorized_brand_or_ip",
+      message: issue,
+      criterion: "briefMatch",
+    });
+    return true;
+  }
   if (noteMatches(UNSUPPORTED_OFFER_PATTERN, issue)) {
     pushHardFailure(hardFailures, {
       code: "unsupported_offer",
@@ -257,6 +347,14 @@ function classifyScoreIssue(
     });
     return true;
   }
+  if (noteMatches(REPLACED_SOURCE_SUBJECT_PATTERN, issue)) {
+    pushHardFailure(hardFailures, {
+      code: "replaced_source_subject",
+      message: issue,
+      criterion: "informationPreservation",
+    });
+    return true;
+  }
   if (noteMatches(CROPPED_CONTENT_PATTERN, issue)) {
     pushHardFailure(hardFailures, {
       code: "cropped_critical_content",
@@ -270,6 +368,49 @@ function classifyScoreIssue(
       code: "unreadable_required_text",
       message: issue,
       criterion: "legibility",
+    });
+    return true;
+  }
+  if (noteMatches(OVERLOAD_NOTE_MARKERS, issue)) {
+    pushHardFailure(hardFailures, {
+      code: "visual_overload",
+      message: issue,
+      criterion: "creativeRisk",
+    });
+    return true;
+  }
+  if (noteMatches(GENERIC_TEMPLATE_NOTE_MARKERS, issue)) {
+    pushHardFailure(hardFailures, {
+      code: "generic_template_aesthetic",
+      message: issue,
+      criterion: "creativeRisk",
+    });
+    return true;
+  }
+  if (noteMatches(MISSING_DOMINANT_IDEA_MARKERS, issue)) {
+    pushHardFailure(hardFailures, {
+      code: "missing_dominant_idea",
+      message: issue,
+      criterion: "creativeRisk",
+    });
+    return true;
+  }
+  if (
+    contract.generationMode === "art_variation" &&
+    noteMatches(DECORATIVE_ONLY_PATTERN, issue)
+  ) {
+    pushHardFailure(hardFailures, {
+      code: "decorative_only_variation",
+      message: issue,
+      criterion: "creativeRisk",
+    });
+    return true;
+  }
+  if (contract.generationMode === "format_adaptation" && hasCampaignIdentityDrift(issue)) {
+    pushHardFailure(hardFailures, {
+      code: "campaign_identity_drift",
+      message: issue,
+      criterion: "formatFit",
     });
     return true;
   }
@@ -353,16 +494,25 @@ export function classifyCreativeQualityGate(
   }
 
   if (checklist.informationPreservation.status === "failed") {
-    pushHardFailure(hardFailures, {
-      code: "cropped_critical_content",
-      message: checklist.informationPreservation.note,
-      criterion: "informationPreservation",
-    });
+    const note = checklist.informationPreservation.note;
+    if (noteMatches(REPLACED_SOURCE_SUBJECT_PATTERN, note)) {
+      pushHardFailure(hardFailures, {
+        code: "replaced_source_subject",
+        message: note,
+        criterion: "informationPreservation",
+      });
+    } else {
+      pushHardFailure(hardFailures, {
+        code: "cropped_critical_content",
+        message: note,
+        criterion: "informationPreservation",
+      });
+    }
   }
 
   if (checklist.styleFidelity?.status === "failed") {
     pushHardFailure(hardFailures, {
-      code: "copied_style_reference_facts",
+      code: "style_reference_contamination",
       message: checklist.styleFidelity.note,
       criterion: "styleFidelity",
     });
@@ -370,11 +520,20 @@ export function classifyCreativeQualityGate(
 
   if (checklist.formatFit.status === "failed") {
     if (contract.generationMode === "format_adaptation") {
-      pushHardFailure(hardFailures, {
-        code: "invalid_format_layout",
-        message: checklist.formatFit.note,
-        criterion: "formatFit",
-      });
+      const note = checklist.formatFit.note;
+      if (hasCampaignIdentityDrift(note)) {
+        pushHardFailure(hardFailures, {
+          code: "campaign_identity_drift",
+          message: note,
+          criterion: "formatFit",
+        });
+      } else {
+        pushHardFailure(hardFailures, {
+          code: "invalid_format_layout",
+          message: note,
+          criterion: "formatFit",
+        });
+      }
     } else {
       pushUnique(polishSuggestions, checklist.formatFit.note);
     }
@@ -385,11 +544,16 @@ export function classifyCreativeQualityGate(
   }
 
   if (checklist.briefMatch.status === "failed") {
-    classifyBriefMatchFailed(hardFailures, checklist.briefMatch.note);
+    classifyBriefMatchFailed(hardFailures, contract, checklist.briefMatch.note);
   }
 
   if (checklist.creativeRisk.status === "failed") {
-    classifyCreativeRiskFailed(hardFailures, polishSuggestions, checklist.creativeRisk.note);
+    classifyCreativeRiskFailed(
+      hardFailures,
+      polishSuggestions,
+      contract,
+      checklist.creativeRisk.note
+    );
   }
 
   collectChecklistWarnings(checklist, polishSuggestions);
