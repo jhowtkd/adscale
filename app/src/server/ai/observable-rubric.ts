@@ -18,7 +18,7 @@ export const OBSERVABLE_DEFECT_NOTE_RULE = `OBSERVABLE DEFECT NOTES (required fo
 export const VISUAL_OVERLOAD_RUBRIC = `VISUAL OVERLOAD (fail creativeRisk or briefMatch when ANY apply):
 - No single dominant focal point — hook/headline does not clearly win attention.
 - More than three information zones compete at similar visual weight (e.g. card grid + badge row + secondary CTA + icon strip).
-- Multiple CTAs or button-like modules compete with the primary hook for attention.
+- Multiple competing CTAs or button-like modules fight the primary hook for attention.
 - Mark failed and name the competing zones/modules observed.`;
 
 export const GENERIC_TEMPLATE_RUBRIC = `GENERIC TEMPLATE AESTHETIC (fail creativeRisk when severe AND unjustified):
