@@ -22,8 +22,10 @@ import {
 } from "./prompt-builder";
 import {
   buildInputClassificationPromptSection,
+  buildVisualReferenceTransferRuleSection,
   CONTAMINATION_FAILURE_CODES,
   extractPromptInputClassificationSection,
+  extractPromptVisualReferenceTransferSection,
   resolveInputSourceClassification,
 } from "./factual-visual-separation";
 import {
@@ -563,6 +565,75 @@ describe("restyling contract (AIC-04)", () => {
       "RESTYLING FACTUAL-SOURCE RULE:
       The base image is the ONLY source of factual content (brand name, product name, offer, CTA, price, course name, logo). The style reference provides visual language (color, typography style, layout composition, mood) only. Do NOT copy factual claims, text, prices, offers, brand names, or CTAs from the style reference into the output."
     `);
+  });
+});
+
+describe("visual reference transfer", () => {
+  const allowlistTerms = [
+    "ritmo",
+    "textura",
+    "cromia",
+    "tipografia",
+    "iluminação",
+    "lógica compositiva",
+  ];
+  const denylistTerms = [
+    "pessoas",
+    "uniformes",
+    "produtos",
+    "marcas",
+    "logos",
+    "textos",
+    "alegações",
+  ];
+
+  it("buildVisualReferenceTransferRuleSection includes SEP-02 allowlist and denylist", () => {
+    const section = buildVisualReferenceTransferRuleSection().join("\n");
+    expect(section).toContain("VISUAL REFERENCE TRANSFER RULE:");
+    for (const term of allowlistTerms) {
+      expect(section).toContain(term);
+    }
+    for (const term of denylistTerms) {
+      expect(section).toContain(term);
+    }
+    expect(section).toMatch(/sole factual source/i);
+    expect(section).toMatch(/Never copy factual content from the style reference/i);
+  });
+
+  it("extractPromptVisualReferenceTransferSection extracts block before next major section", () => {
+    const prompt = [
+      "prefix",
+      "VISUAL REFERENCE TRANSFER RULE:",
+      "- ritmo, textura",
+      "RESTYLING FACTUAL-SOURCE RULE:",
+      "rule text",
+      "MODE: restyling",
+    ].join("\n");
+    const section = extractPromptVisualReferenceTransferSection(prompt);
+    expect(section).toContain("VISUAL REFERENCE TRANSFER RULE:");
+    expect(section).toContain("ritmo");
+    expect(section).not.toContain("RESTYLING FACTUAL-SOURCE RULE:");
+  });
+
+  it("restyling prompt contains allowlist terms and denylist terms", () => {
+    const prompt = buildDerivationPrompt(
+      derivationConfigFromContract(restylingContractFixture())
+    );
+    const section = extractPromptVisualReferenceTransferSection(prompt);
+    expect(section).toContain("VISUAL REFERENCE TRANSFER RULE:");
+    for (const term of allowlistTerms) {
+      expect(prompt).toContain(term);
+    }
+    for (const term of denylistTerms) {
+      expect(prompt).toContain(term);
+    }
+  });
+
+  it("art_variation prompt does NOT contain VISUAL REFERENCE TRANSFER RULE header", () => {
+    const prompt = buildDerivationPrompt(
+      derivationConfigFromContract(artVariationContractFixture())
+    );
+    expect(prompt).not.toContain("VISUAL REFERENCE TRANSFER RULE:");
   });
 });
 
