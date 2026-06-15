@@ -15,12 +15,14 @@ export type CorpusArchetype =
   | "format_campaign_drift"
   | "restyling_factual_contamination";
 
-/** Target codes for post-v12.3 gate — includes Phase 120 forward references. */
+/** Target codes for post-v12.3 gate — canonical GATE-01 codes plus legacy aliases. */
 export type CorpusTargetHardFailureCode =
   | CreativeHardFailureCode
   | "invented_factual_entity"
   | "visual_overload"
   | "generic_template_aesthetic"
+  | "campaign_identity_drift"
+  | "style_reference_contamination"
   | "format_campaign_drift"
   | "restyling_factual_contamination";
 
@@ -156,7 +158,7 @@ export const CORPUS_ARCHETYPE_FIXTURES: CorpusArchetypeFixture[] = [
     }),
     expectedHardFailureCodes: ["visual_overload"],
     expectedVerdict: "invalid",
-    baselineVerdict: "acceptable",
+    baselineVerdict: "invalid",
   },
   {
     id: "corpus-generic-template-aesthetic",
@@ -175,13 +177,13 @@ export const CORPUS_ARCHETYPE_FIXTURES: CorpusArchetypeFixture[] = [
     }),
     expectedHardFailureCodes: ["generic_template_aesthetic"],
     expectedVerdict: "invalid",
-    baselineVerdict: "acceptable",
+    baselineVerdict: "invalid",
   },
   {
     id: "corpus-format-campaign-drift",
     archetype: "format_campaign_drift",
     label: "Format adaptation drifts to unrelated campaign narrative",
-    corpusRefIds: ["538246da", "27069645"],
+    corpusRefIds: ["538246da", "27069645", "a753e357"],
     canonicalSlug: "teste-3-nr1",
     renderTier: "final",
     contract: nr1FormatAdaptationContract({ targetFormat: "1.91:1" }),
@@ -196,7 +198,7 @@ export const CORPUS_ARCHETYPE_FIXTURES: CorpusArchetypeFixture[] = [
         note: "Layout reads as a different campaign identity, not a faithful NR1 format adaptation.",
       },
     }),
-    expectedHardFailureCodes: ["format_campaign_drift", "wrong_brand"],
+    expectedHardFailureCodes: ["campaign_identity_drift"],
     expectedVerdict: "invalid",
     baselineVerdict: "invalid",
   },
@@ -204,7 +206,7 @@ export const CORPUS_ARCHETYPE_FIXTURES: CorpusArchetypeFixture[] = [
     id: "corpus-restyling-factual-contamination",
     archetype: "restyling_factual_contamination",
     label: "Style reference imported people and uniforms into output",
-    corpusRefIds: ["d7d9d323", "a5f65b85"],
+    corpusRefIds: ["d7d9d323", "a5f65b85", "f420bcb2"],
     canonicalSlug: "nova-campanha",
     renderTier: "final",
     contract: educationRestylingContract(),
@@ -215,11 +217,37 @@ export const CORPUS_ARCHETYPE_FIXTURES: CorpusArchetypeFixture[] = [
           "Reference image imported athlete portraits and team uniforms; factual entities from style reference leaked into base education creative.",
       },
     }),
-    expectedHardFailureCodes: [
-      "restyling_factual_contamination",
-      "copied_style_reference_facts",
-    ],
+    expectedHardFailureCodes: ["style_reference_contamination"],
     expectedVerdict: "invalid",
     baselineVerdict: "invalid",
+  },
+];
+
+export const CORPUS_POSITIVE_FIXTURES: CorpusArchetypeFixture[] = [
+  {
+    id: "corpus-faithful-format-adaptation",
+    archetype: "format_campaign_drift",
+    label: "Faithful NR1 4:5 adaptation (c2c12774)",
+    corpusRefIds: ["c2c12774"],
+    canonicalSlug: "teste-3-nr1",
+    renderTier: "final",
+    contract: nr1FormatAdaptationContract({ targetFormat: "4:5" }),
+    rawQaModelOutput: qaModelOutput({
+      briefMatch: {
+        status: "passed",
+        note: "CENBRAP NR1 checklist narrative preserved.",
+      },
+      formatFit: {
+        status: "passed",
+        note: "Faithful NR1 format adaptation in native 4:5 layout.",
+      },
+      creativeRisk: {
+        status: "warning",
+        note: "badge row could be simplified; hook and CTA remain dominant",
+      },
+    }),
+    expectedHardFailureCodes: [],
+    expectedVerdict: "improvable",
+    baselineVerdict: "improvable",
   },
 ];

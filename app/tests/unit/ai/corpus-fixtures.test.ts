@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   CORPUS_ARCHETYPE_FIXTURES,
+  CORPUS_POSITIVE_FIXTURES,
   type CorpusArchetype,
 } from "@/server/ai/corpus-fixtures";
 import { CORPUS_MANIFEST_INDEX } from "@/server/ai/creative-corpus";
@@ -92,5 +93,24 @@ describe("CORPUS_ARCHETYPE_FIXTURES catalog integrity", () => {
       ).checklist;
       expect(otherChecklist?.styleFidelity).toBeUndefined();
     }
+  });
+});
+
+describe("CORPUS_POSITIVE_FIXTURES catalog integrity", () => {
+  it("exports exactly one faithful fixture with unique id", () => {
+    expect(CORPUS_POSITIVE_FIXTURES).toHaveLength(1);
+    const ids = CORPUS_POSITIVE_FIXTURES.map((f) => f.id);
+    expect(new Set(ids).size).toBe(1);
+  });
+
+  it("faithful format adaptation fixture links c2c12774 with improvable verdict", () => {
+    const faithful = CORPUS_POSITIVE_FIXTURES.find(
+      (f) => f.id === "corpus-faithful-format-adaptation"
+    );
+    expect(faithful).toBeDefined();
+    expect(faithful!.corpusRefIds).toContain("c2c12774");
+    expect(faithful!.expectedHardFailureCodes).toEqual([]);
+    expect(faithful!.expectedVerdict).toBe("improvable");
+    expect(faithful!.baselineVerdict).toBe("improvable");
   });
 });
