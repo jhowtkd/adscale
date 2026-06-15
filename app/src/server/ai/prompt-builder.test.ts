@@ -14,7 +14,9 @@ vi.mock("@/lib/logger", () => ({
 
 import {
   buildDerivationPrompt,
+  extractPromptCanonicalContractSection,
   extractPromptHardRulesSection,
+  extractPromptIntegritySection,
   extractPromptModeSection,
   extractPromptRestylingFactualSourceSection,
 } from "./prompt-builder";
@@ -549,6 +551,55 @@ describe("restyling contract (AIC-04)", () => {
       "RESTYLING FACTUAL-SOURCE RULE:
       The base image is the ONLY source of factual content (brand name, product name, offer, CTA, price, course name, logo). The style reference provides visual language (color, typography style, layout composition, mood) only. Do NOT copy factual claims, text, prices, offers, brand names, or CTAs from the style reference into the output."
     `);
+  });
+});
+
+describe("integrity injection", () => {
+  describe.each(["art_variation", "format_adaptation", "restyling"] as const)(
+    "%s mode",
+    (mode) => {
+      it("injects canonical and integrity sections before MODE", () => {
+        const contract =
+          mode === "restyling"
+            ? restylingContractFixture()
+            : mode === "format_adaptation"
+              ? formatAdaptationCampaignAssetContractFixture()
+              : artVariationContractFixture();
+
+        const prompt = buildDerivationPrompt(
+          derivationConfigFromContract(contract, { generationMode: mode })
+        );
+
+        const canonical = extractPromptCanonicalContractSection(prompt);
+        const integrity = extractPromptIntegritySection(prompt);
+
+        expect(canonical).toContain("CANONICAL CREATIVE CONTRACT:");
+        expect(canonical).toContain("RULE PRECEDENCE");
+        expect(integrity).toContain("VISUAL HIERARCHY CONTRACT:");
+        expect(integrity).toContain("ANTI-HALLUCINATION RULES:");
+
+        const canonicalIdx = prompt.indexOf("CANONICAL CREATIVE CONTRACT:");
+        const integrityIdx = prompt.indexOf("VISUAL HIERARCHY CONTRACT:");
+        const modeIdx = prompt.indexOf("MODE:");
+
+        expect(canonicalIdx).toBeGreaterThan(-1);
+        expect(integrityIdx).toBeGreaterThan(canonicalIdx);
+        expect(modeIdx).toBeGreaterThan(integrityIdx);
+      });
+    }
+  );
+
+  it("places restyling factual-source after integrity and before MODE", () => {
+    const prompt = buildDerivationPrompt(
+      derivationConfigFromContract(restylingContractFixture())
+    );
+
+    const integrityIdx = prompt.indexOf("VISUAL HIERARCHY CONTRACT:");
+    const factualIdx = prompt.indexOf("RESTYLING FACTUAL-SOURCE RULE:");
+    const modeIdx = prompt.indexOf("MODE:");
+
+    expect(factualIdx).toBeGreaterThan(integrityIdx);
+    expect(modeIdx).toBeGreaterThan(factualIdx);
   });
 });
 
