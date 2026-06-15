@@ -419,7 +419,7 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
     );
   }
 
-  if (generationMode === "restyling" && contract?.styleAssetId) {
+  if (generationMode === "restyling") {
     parts.push(
       "",
       "RESTYLING FACTUAL-SOURCE RULE:",
@@ -575,7 +575,12 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
     parts.push("\nNo reference asset was found. Produce a conservative ad concept from the campaign fields, but avoid pretending to follow a visual reference.");
   }
 
-  if (!isArtVariation && visualTokenBrief?.trim() && generationMode !== "format_adaptation") {
+  if (
+    !isArtVariation &&
+    visualTokenBrief?.trim() &&
+    generationMode !== "format_adaptation" &&
+    generationMode !== "restyling"
+  ) {
     parts.push(
       "\nExtracted Visual Token Brief from the reference image:",
       visualTokenBrief.trim(),
