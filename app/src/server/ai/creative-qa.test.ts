@@ -85,6 +85,8 @@ describe("buildCreativeQaPrompt", () => {
     expect(prompt).toContain("Return only JSON");
     expect(prompt).toContain("informationPreservation");
     expect(prompt).toContain("cropped, hidden, truncated, blurred, overlapped, deleted");
+    expect(prompt).toMatch(/Checklist keys: legibility, ctaOffer, informationPreservation, briefMatch, formatFit, creativeRisk/);
+    expect(prompt).toContain("Allowed status values: ready, warning, review.");
   });
 });
 
@@ -138,6 +140,13 @@ describe("observable rubric in QA prompt", () => {
     expect(section).toMatch(/VISUAL OVERLOAD/i);
     expect(section).toMatch(/GENERIC TEMPLATE/i);
     expect(section).toMatch(/THUMBNAIL/i);
+  });
+
+  it("preserves checklist keys and JSON return instruction after rubric injection", () => {
+    const prompt = buildCreativeQaPrompt(baseInput);
+    expect(prompt).toContain("Return only JSON with status, checklist, issues, and suggestions.");
+    expect(prompt).toMatch(/Checklist keys: legibility, ctaOffer, informationPreservation, briefMatch, formatFit, creativeRisk/);
+    expect(prompt).toContain("Allowed status values: ready, warning, review.");
   });
 });
 
