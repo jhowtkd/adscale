@@ -96,10 +96,14 @@ function parseArgs(argv) {
   };
 }
 
-function readEvidence(evidencePath) {
+function readEvidence(evidencePath, stage) {
   if (!existsSync(evidencePath)) {
+    const afterHint =
+      stage === "after"
+        ? " afterCaptures will be required for every matrix key once evidence exists."
+        : "";
     throw new Error(
-      `evidence file missing: ${evidencePath}. See ${templatePath} and complete operator capture (plan 123-03).`
+      `evidence file missing: ${evidencePath}.${afterHint} See ${templatePath} and complete operator capture (plan 123-03).`
     );
   }
   return JSON.parse(readFileSync(evidencePath, "utf8"));
@@ -250,7 +254,7 @@ try {
   } else if (stage === "final") {
     throw new Error("not implemented — complete in plan 123-04");
   } else {
-    const evidence = readEvidence(evidencePath);
+    const evidence = readEvidence(evidencePath, stage);
     const matrixKeys = loadMatrixKeys();
     const errors = [];
     const warnings = [];
