@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v12.3
 milestone_name: Integridade Criativa
 status: executing
-last_updated: "2026-06-15T19:09:42.637Z"
+last_updated: "2026-06-15T19:13:45.102Z"
 last_activity: 2026-06-15
 progress:
   total_phases: 82
-  completed_phases: 36
+  completed_phases: 37
   total_plans: 98
-  completed_plans: 111
+  completed_plans: 112
   percent: 100
 ---
 
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-06-15)
 ## Current Position
 
 Phase: 120 — Quality Gate Hardening
-Plan: 2 of 3 complete (120-01 done)
+Plan: 3 of 3 complete (120-01 done)
 Status: Ready to execute
 Last activity: 2026-06-15
 
@@ -83,6 +83,9 @@ Last activity: 2026-06-15 — completed 120-01-PLAN.md (GATE-01 taxonomy, types,
 - [Phase 120]: normalizeHardFailureCode maps copied_style_reference_facts, format_campaign_drift, restyling_factual_contamination to canonical GATE-01 codes
 - [Phase 120]: hasCampaignIdentityDrift: 'not a faithful' overrides safe-pattern false negative on formatFit drift notes
 - [Phase 120]: Gate classifiers emit style_reference_contamination; decorative_only_variation gated to art_variation
+- [Phase 120]: CORPUS_POSITIVE_FIXTURES holds faithful c2c12774; CORPUS_ARCHETYPE_FIXTURES stays five negatives with BASELINE_GAP_COUNT=0
+- [Phase 120]: Format drift corpus expects campaign_identity_drift only (not dual wrong_brand)
+- [Phase 120]: Faithful NR1 4:5 adaptation improvable with creativeRisk warning; assertDerivationApprovable ok
 
 ## Next Steps
 

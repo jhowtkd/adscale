@@ -57,8 +57,8 @@ Endurecer o pipeline criativo para que peças factualmente incorretas, visualmen
 - [x] **GATE-01**: Novas categorias bloqueantes: `invented_factual_entity`, `replaced_source_subject`, `unauthorized_brand_or_ip`, `campaign_identity_drift`, `style_reference_contamination`, `generic_template_aesthetic`, `visual_overload`, `missing_dominant_idea`, `decorative_only_variation`.
 - [x] **GATE-02**: Falha factual produz `invalid` independentemente da nota estética.
 - [x] **GATE-03**: Estética genérica severa não fica apenas em `polishSuggestions` — bloqueia exportação quando acima do threshold.
-- [ ] **GATE-04**: Peças `27069645`, `a753e357`, `538246da`, `a5f65b85`, `f420bcb2`, `d7d9d323` do corpus são bloqueadas após correção.
-- [ ] **GATE-05**: Peça fiel como `c2c12774` continua aprovável (pode receber sugestões de simplificação, não invalidação factual).
+- [x] **GATE-04**: Peças `27069645`, `a753e357`, `538246da`, `a5f65b85`, `f420bcb2`, `d7d9d323` do corpus são bloqueadas após correção.
+- [x] **GATE-05**: Peça fiel como `c2c12774` continua aprovável (pode receber sugestões de simplificação, não invalidação factual).
 
 ### Score and Retry (SCR)
 
@@ -127,8 +127,8 @@ Endurecer o pipeline criativo para que peças factualmente incorretas, visualmen
 | GATE-01 | Phase 120 | Complete |
 | GATE-02 | Phase 120 | Complete |
 | GATE-03 | Phase 120 | Complete |
-| GATE-04 | Phase 120 | Pending |
-| GATE-05 | Phase 120 | Pending |
+| GATE-04 | Phase 120 | Complete |
+| GATE-05 | Phase 120 | Complete |
 | SCR-01 | Phase 121 | Pending |
 | SCR-02 | Phase 121 | Pending |
 | SCR-03 | Phase 121 | Pending |
