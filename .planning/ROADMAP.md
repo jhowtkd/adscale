@@ -29,7 +29,7 @@
 
 **Audit baseline:** corpus `app/exports/render-creatives/` — 34 peças, média 58,5/100 (2026-06-15)
 
-- [ ] **Phase 115: Corpus Fixtures and Audit Baseline** — fixtures reproduzíveis para cada falha do corpus; campanhas canônicas; red tests provando aprovação indevida atual
+- [x] **Phase 115: Corpus Fixtures and Audit Baseline** — fixtures reproduzíveis para cada falha do corpus; campanhas canônicas; red tests provando aprovação indevida atual (completed 2026-06-15)
 - [ ] **Phase 116: Canonical Creative Contract** — contrato de ideia dominante, precedência fatos>hierarquia>decoração; injeção de `VISUAL_HIERARCHY_CONTRACT` e `ANTI_HALLUCINATION_RULES`
 - [ ] **Phase 117: Factual vs Visual Separation** — classificação de inputs; referência visual só transfere linguagem abstrata; bloqueio de entidades inventadas
 - [ ] **Phase 118: Per-Mode Prompt Rules** — regras distintas para `art_variation`, `restyling`, `format_adaptation`; orçamento de três zonas; mesma campanha em múltiplos formatos
@@ -41,7 +41,7 @@
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
-| 115 | Corpus Fixtures and Audit Baseline | 3/3 | Complete   | 2026-06-15 |
+| 115 | Corpus Fixtures and Audit Baseline | Complete    | 2026-06-15 | 2026-06-15 |
 | 116 | Canonical Creative Contract | CONT-01–04 | Pending | — |
 | 117 | Factual vs Visual Separation | SEP-01–04 | Pending | — |
 | 118 | Per-Mode Prompt Rules | MODE-01–05 | Pending | — |
@@ -225,7 +225,7 @@ Archive: [v11.8-ROADMAP.md](milestones/v11.8-ROADMAP.md) · [v11.8-REQUIREMENTS.
   3. Previews (`270×270`) e finais são categorias distintas nas fixtures e na validação — não misturadas na mesma expectativa de gate.
   4. Testes automatizados demonstram que o pipeline atual aprova indevidamente as peças-falha do corpus (baseline red antes da correção).
 
-**Plans:** 3 plans (2 waves)
+**Plans:** 3/3 plans complete
 
 Plans:
 - [x] 115-01-PLAN.md — Canonical campaign registry + manifest index (FIXT-02, FIXT-03)
