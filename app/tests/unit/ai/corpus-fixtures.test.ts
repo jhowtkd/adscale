@@ -59,4 +59,39 @@ describe("CORPUS_ARCHETYPE_FIXTURES catalog integrity", () => {
     expect(serialized).not.toMatch(/Desktop/i);
     expect(serialized).not.toContain("Teste_debuf");
   });
+
+  it("targets invalid verdict for all archetypes with wrongful baseline approval", () => {
+    for (const fixture of CORPUS_ARCHETYPE_FIXTURES) {
+      expect(fixture.expectedVerdict).toBe("invalid");
+      expect(fixture.expectedHardFailureCodes.length).toBeGreaterThan(0);
+      expect(["acceptable", "improvable"]).toContain(fixture.baselineVerdict);
+      expect(fixture.baselineVerdict).not.toBe(fixture.expectedVerdict);
+    }
+  });
+
+  it("represents both preview and final render tiers across fixtures", () => {
+    const tiers = new Set(CORPUS_ARCHETYPE_FIXTURES.map((f) => f.renderTier));
+    expect(tiers.has("preview")).toBe(true);
+    expect(tiers.has("final")).toBe(true);
+  });
+
+  it("includes styleFidelity in restyling contamination QA output only", () => {
+    const restyling = CORPUS_ARCHETYPE_FIXTURES.find(
+      (f) => f.archetype === "restyling_factual_contamination"
+    );
+    expect(restyling).toBeDefined();
+    const checklist = (
+      restyling!.rawQaModelOutput as { checklist?: Record<string, unknown> }
+    ).checklist;
+    expect(checklist?.styleFidelity).toBeDefined();
+
+    for (const fixture of CORPUS_ARCHETYPE_FIXTURES.filter(
+      (f) => f.archetype !== "restyling_factual_contamination"
+    )) {
+      const otherChecklist = (
+        fixture.rawQaModelOutput as { checklist?: Record<string, unknown> }
+      ).checklist;
+      expect(otherChecklist?.styleFidelity).toBeUndefined();
+    }
+  });
 });
