@@ -345,7 +345,12 @@ Plans:
   4. Peças `27069645`, `a753e357`, `538246da`, `a5f65b85`, `f420bcb2`, `d7d9d323` do corpus são bloqueadas após correção.
   5. Peça fiel como `c2c12774` continua aprovável (pode receber sugestões de simplificação, não invalidação factual).
 
-**Plans:** TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 120-01-PLAN.md — Taxonomy, type union, normalizeHardFailureCode, i18n (GATE-01)
+- [ ] 120-02-PLAN.md — Classifier refactor + CONTAMINATION_FAILURE_CODES (GATE-01–03)
+- [ ] 120-03-PLAN.md — Corpus alignment, faithful c2c12774 fixture, baseline flip (GATE-04–05)
 
 ---
 
