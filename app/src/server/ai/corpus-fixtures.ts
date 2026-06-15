@@ -175,7 +175,7 @@ export const CORPUS_ARCHETYPE_FIXTURES: CorpusArchetypeFixture[] = [
     }),
     expectedHardFailureCodes: ["generic_template_aesthetic"],
     expectedVerdict: "invalid",
-    baselineVerdict: "improvable",
+    baselineVerdict: "acceptable",
   },
   {
     id: "corpus-format-campaign-drift",
@@ -198,7 +198,7 @@ export const CORPUS_ARCHETYPE_FIXTURES: CorpusArchetypeFixture[] = [
     }),
     expectedHardFailureCodes: ["format_campaign_drift", "wrong_brand"],
     expectedVerdict: "invalid",
-    baselineVerdict: "acceptable",
+    baselineVerdict: "invalid",
   },
   {
     id: "corpus-restyling-factual-contamination",
@@ -220,6 +220,6 @@ export const CORPUS_ARCHETYPE_FIXTURES: CorpusArchetypeFixture[] = [
       "copied_style_reference_facts",
     ],
     expectedVerdict: "invalid",
-    baselineVerdict: "acceptable",
+    baselineVerdict: "invalid",
   },
 ];

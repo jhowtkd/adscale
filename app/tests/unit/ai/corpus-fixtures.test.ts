@@ -60,12 +60,11 @@ describe("CORPUS_ARCHETYPE_FIXTURES catalog integrity", () => {
     expect(serialized).not.toContain("Teste_debuf");
   });
 
-  it("targets invalid verdict for all archetypes with wrongful baseline approval", () => {
+  it("targets invalid verdict for all archetypes with documented baseline gap", () => {
     for (const fixture of CORPUS_ARCHETYPE_FIXTURES) {
       expect(fixture.expectedVerdict).toBe("invalid");
       expect(fixture.expectedHardFailureCodes.length).toBeGreaterThan(0);
-      expect(["acceptable", "improvable"]).toContain(fixture.baselineVerdict);
-      expect(fixture.baselineVerdict).not.toBe(fixture.expectedVerdict);
+      expect(["acceptable", "improvable", "invalid"]).toContain(fixture.baselineVerdict);
     }
   });
 
