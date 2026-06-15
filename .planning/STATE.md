@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v12.3
 milestone_name: Integridade Criativa
 status: executing
-last_updated: "2026-06-15T18:40:03.323Z"
+last_updated: "2026-06-15T18:42:18.397Z"
 last_activity: 2026-06-15
 progress:
   total_phases: 81
   completed_phases: 35
   total_plans: 95
-  completed_plans: 106
+  completed_plans: 107
   percent: 100
 ---
 
@@ -23,13 +23,13 @@ See: .planning/PROJECT.md (updated 2026-06-15)
 
 **Current focus:** v12.3 Integridade Criativa — factual fidelity, creative direction, and quality gate hardening for the derivation pipeline.
 
-**Status:** Executing
+**Status:** Ready to execute
 
 ## Current Position
 
 Phase: 119 — Observable Rubric
-Plan: 1 of 04 complete (119-01 done)
-Status: Executing
+Plan: 2 of 04 complete (119-01 done)
+Status: Ready to execute
 Last activity: 2026-06-15
 
 Progress: [██░░░░░░░░] 1/4 plans in phase 119
@@ -76,6 +76,7 @@ Last activity: 2026-06-15 — completed 119-01-PLAN.md (observable rubric module
 - [Phase 117]: assertParentFactualLineage blocks format_adaptation parent download when qualityVerdict invalid or hardFailures include contamination codes (SEP-03)
 - [Phase 119]: Observable rubric maps defects to existing criteria (creativeRisk, legibility, briefMatch) — no new checklist keys
 - [Phase 119]: Score rubric extends QA core lines with SCORE VISUAL QUALITY CAPS block
+- [Phase 119]: QA prompt injects observable rubric after styleFidelity/allowedEntities; export-softening removed
 
 ## Next Steps
 
