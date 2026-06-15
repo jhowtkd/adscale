@@ -195,6 +195,60 @@ describe("buildCreativeScorePrompt observable rubric", () => {
   });
 });
 
+describe("score dimension map (SCR-01)", () => {
+  const baseInput = {
+    imageBuffer: Buffer.from("fake"),
+    mimeType: "image/png",
+    locale: "en",
+    campaign: {
+      name: "Summer",
+      client: "Acme",
+      product: "Widget",
+      offer: "20% off",
+      objective: "Sales",
+      audience: "Parents",
+    },
+    derivation: {
+      ctaText: "Shop Now",
+      format: "4:5",
+      generationMode: "art_variation" as const,
+      feedback: null,
+    },
+    contract: {
+      generationMode: "art_variation" as const,
+      targetFormat: "4:5",
+      ctaSemantics: { kind: "explicit" as const, text: "Shop Now" },
+      baseAssetId: null,
+      styleAssetId: null,
+      client: "Acme",
+      product: "Widget",
+      offer: "20% off",
+      constraints: null,
+    },
+  };
+
+  it("dimension map lists all six SCR-01 concern buckets", () => {
+    const prompt = buildCreativeScorePrompt(baseInput);
+    expect(prompt).toMatch(/SCORE DIMENSION MAP/i);
+    expect(prompt).toContain("Factual integrity");
+    expect(prompt).toContain("Hierarchy");
+    expect(prompt).toContain("Legibility");
+    expect(prompt).toContain("Art direction");
+    expect(prompt).toContain("Originality");
+    expect(prompt).toContain("Format fit");
+  });
+
+  it("dimension map references breakdown keys per SCR-01 mapping", () => {
+    const prompt = buildCreativeScorePrompt(baseInput);
+    expect(prompt).toMatch(/briefMatch.*informationPreservation|informationPreservation.*briefMatch/);
+    expect(prompt).toContain("visualQuality");
+    expect(prompt).toContain("textLegibility");
+    expect(prompt).toContain("variationLevelFit");
+    expect(prompt).toContain("formatFit");
+    expect(prompt).toMatch(/server-side.*ceilings|SCR-02/i);
+  });
+});
+
 describe("creative scoring", () => {
   it("creates a heuristic score without visual analysis", () => {
     const result = scoreDerivationHeuristic({
