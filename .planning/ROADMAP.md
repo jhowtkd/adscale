@@ -37,7 +37,7 @@
 - [x] **Phase 120: Quality Gate Hardening** — novos hard failures; factual sempre invalid; corpus-falha bloqueado; fiel continua aprovável (completed 2026-06-15)
 - [x] **Phase 121: Score Ceilings and Retry** — tetos por categoria de falha; retry de restyling da fonte factual; correções específicas (completed 2026-06-15)
 - [x] **Phase 122: Regression Test Suite** — prompt injection tests; gate matrix; suíte por modo e formato; teste de miniatura (completed 2026-06-15)
-- [ ] **Phase 123: Visual Validation Gate** — geração controlada antes/depois; rubrica ≥75/≥95; CI verde
+- [ ] **Phase 123: Visual Validation Gate** — geração controlada antes/depois; rubrica ≥75/≥95; CI verde (4 plans)
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
@@ -410,7 +410,13 @@ Plans:
   3. Nenhuma entidade inventada e nenhuma campanha substituída no conjunto de validação.
   4. `npm test`, `npm run lint` e `npm run build` passam com cobertura de regressão do milestone.
 
-**Plans:** TBD
+**Plans:** 4 plans
+
+Plans:
+- [ ] 123-01-PLAN.md — Validation matrix (6 cells, all modes) + matrix unit tests
+- [ ] 123-02-PLAN.md — Threshold aggregation + evidence check (--stage before + after; before fixture)
+- [ ] 123-03-PLAN.md — Operator capture script + base assets + live evidence (checkpoint)
+- [ ] 123-04-PLAN.md — Release gate orchestrator + final evidence validation + milestone closure
 
 ---
 

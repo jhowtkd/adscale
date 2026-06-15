@@ -424,26 +424,17 @@ for (const capture of evidence.afterCaptures) {
 |---|-------|---------|---------------|
 | A1 | OpenAI image edit API has no seed param in ADScale integration | Pattern 5 | Operator cannot guarantee pixel-identical regen; document provenance hash instead |
 | A2 | "12 critérios" = 6 QA checklist + 7 score dimensions − 1 shared briefMatch | Pattern 3 | Threshold math wrong — confirm with product owner |
-| A3 | Factual fidelity ≥95% = % pieces with zero fidelity-class hard failures | Pattern 3 | If interpreted as mean of informationPreservation+briefMatch scores, bar may differ |
+| A3 | Factual fidelity ≥95% = % pieces with zero fidelity-class hard failures | Pattern 3 | **RESOLVED** — gate-based rate primary; dimension means documented for transparency only |
 | A4 | Committed validation-after PNG subset is acceptable vs full 34 corpus | Pitfall 3 | Matrix may miss edge campaigns |
 | A5 | Vision score variance ± few points on re-run | Pitfall 2 | Operator may need multiple attempts without committed evidence policy |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Commit corpus PNGs or R2-only?**
-   - What we know: 34 PNGs currently untracked in git; manifest has `public_url`.
-   - What's unclear: Whether to LFS-commit before subset or fetch-only in operator script.
-   - Recommendation: Commit matrix subset + validation-after outputs; operator script fetches before PNGs from `public_url` when local file missing; evidence stores sha256 either way.
+1. **Commit corpus PNGs or R2-only?** — **RESOLVED:** Commit matrix subset (`validation-after/` outputs + base assets) and `123-EVIDENCE.before-fixture.json` for CI. Operator script fetches before PNGs from manifest `public_url` when local `app/exports/render-creatives/` file missing; evidence stores sha256 either way.
 
-2. **Exact factual fidelity formula**
-   - What we know: FEATURES.md says "% with zero hard failures on fidelity dimensions".
-   - What's unclear: Whether QA-19 also requires mean of informationPreservation + briefMatch ≥ 95.
-   - Recommendation: Gate-based rate as primary; add secondary metric in evidence for transparency.
+2. **Exact factual fidelity formula (QA-19)** — **RESOLVED:** Primary pass/fail = gate-based rate: % of after captures with zero fidelity-class hard failures ≥ 95%. Mean capped `qualityScore` ≥ 75 on after set. Document per-capture dimension means (`informationPreservation`, `briefMatch`, etc.) in evidence/BASELINE for transparency only — not alternate pass criteria.
 
-3. **Restyling matrix scope**
-   - What we know: `nova-campanha` has restyling contamination archetype.
-   - What's unclear: Whether `teste-3-nr1` restyling row is required.
-   - Recommendation: Minimum one restyling cell (`nova-campanha:1:1`); add NR1 restyling if operator budget allows.
+3. **Restyling matrix scope** — **RESOLVED:** Minimum one restyling cell required: `nova-campanha:restyling:1:1` (already in 6-cell matrix). Additional NR1 restyling row deferred unless operator budget allows post-milestone.
 
 ## Environment Availability
 
@@ -594,9 +585,7 @@ for (const capture of evidence.afterCaptures) {
 
 ### Open Questions
 
-- Commit strategy for corpus PNGs vs R2 fetch-only
-- Confirm QA-19 fidelity formula with product (gate rate vs dimension mean)
-- Restyling matrix row scope (minimum vs full)
+All resolved — see **Open Questions (RESOLVED)** section above.
 
 ### Ready for Planning
 
