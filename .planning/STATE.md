@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v12.3
 milestone_name: Integridade Criativa
-status: ready_to_plan
-stopped_at: Ready to plan Phase 115
-last_updated: "2026-06-15T12:00:00.000Z"
-last_activity: 2026-06-15 — ROADMAP v12.3 phases 115-123 created
+status: ready_to_execute
+stopped_at: Phase 115 planned — ready to execute
+last_updated: "2026-06-15T14:00:00.000Z"
+last_activity: 2026-06-15 — Phase 115 planned (3 plans, 2 waves)
 progress:
   total_phases: 9
   completed_phases: 0
   partial_phases: 0
-  total_plans: 0
+  total_plans: 3
   completed_plans: 0
   percent: 0
 ---
@@ -25,14 +25,14 @@ See: .planning/PROJECT.md (updated 2026-06-15)
 
 **Current focus:** v12.3 Integridade Criativa — factual fidelity, creative direction, and quality gate hardening for the derivation pipeline.
 
-**Status:** Roadmap defined — ready to plan Phase 115
+**Status:** Phase 115 planned — ready to execute
 
 ## Current Position
 
 Phase: 115 — Corpus Fixtures and Audit Baseline
-Plan: —
-Status: Not started
-Last activity: 2026-06-15 — ROADMAP v12.3 phases 115-123 created
+Plan: 01 of 03
+Status: Ready to execute
+Last activity: 2026-06-15 — Phase 115 planned
 
 Progress: [░░░░░░░░░░] 0% (0/9 phases)
 
@@ -64,10 +64,8 @@ Progress: [░░░░░░░░░░] 0% (0/9 phases)
 
 ## Session Continuity
 
-Last activity: 2026-06-15 — Roadmap created for v12.3 Integridade Criativa
+Last activity: 2026-06-15 — `/gsd-plan-phase 115` complete
 
 ## Next Steps
 
-1. `/gsd-plan-phase 115` — Corpus Fixtures and Audit Baseline
-2. Execute phases 115→123 in dependency order
-3. Close milestone with Phase 123 visual validation (≥75 avg, ≥95 factual fidelity)
+`/gsd-execute-phase 115` — run plans 115-01 → 115-02 (wave 1) → 115-03 (wave 2)

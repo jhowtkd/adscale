@@ -225,7 +225,12 @@ Archive: [v11.8-ROADMAP.md](milestones/v11.8-ROADMAP.md) · [v11.8-REQUIREMENTS.
   3. Previews (`270×270`) e finais são categorias distintas nas fixtures e na validação — não misturadas na mesma expectativa de gate.
   4. Testes automatizados demonstram que o pipeline atual aprova indevidamente as peças-falha do corpus (baseline red antes da correção).
 
-**Plans:** TBD
+**Plans:** 3 plans (2 waves)
+
+Plans:
+- [ ] 115-01-PLAN.md — Canonical campaign registry + manifest index (FIXT-02, FIXT-03)
+- [ ] 115-02-PLAN.md — Audit archetype fixtures (FIXT-01)
+- [ ] 115-03-PLAN.md — Red baseline gate tests (FIXT-04)
 
 ---
 
