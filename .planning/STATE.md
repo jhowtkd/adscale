@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v12.3
 milestone_name: Integridade Criativa
 status: executing
-last_updated: "2026-06-15T14:09:00.000Z"
+last_updated: "2026-06-15T14:08:43.753Z"
 last_activity: 2026-06-15
 progress:
   total_phases: 78
   completed_phases: 32
   total_plans: 83
-  completed_plans: 95
+  completed_plans: 96
   percent: 100
 ---
 
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-06-15)
 ## Current Position
 
 Phase: 116 — Canonical Creative Contract
-Plan: 1 of 03 complete
-Status: In progress — ready for 116-02
-Last activity: 2026-06-15 — completed 116-01-PLAN.md
+Plan: 2 of 03 complete
+Status: In progress — ready for 116-03
+Last activity: 2026-06-15 — completed 116-02-PLAN.md
 
-Progress: [█░░░░░░░░░] 1/3 plans in phase 116
+Progress: [██░░░░░░░░] 2/3 plans in phase 116
 
 ## Accumulated Context
 
@@ -62,8 +62,8 @@ Progress: [█░░░░░░░░░] 1/3 plans in phase 116
 
 ## Session Continuity
 
-Last activity: 2026-06-15 — completed 116-01-PLAN.md (canonical types, resolver, job wiring)
+Last activity: 2026-06-15 — completed 116-02-PLAN.md (integrity injection + extractors)
 
 ## Next Steps
 
-`/gsd-execute-phase 116` — run plan 116-02 (integrity injection + extractors)
+`/gsd-execute-phase 116` — run plan 116-03 (mode conflict resolution)
