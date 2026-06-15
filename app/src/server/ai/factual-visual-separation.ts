@@ -75,6 +75,58 @@ export function resolveInputSourceClassification(
   };
 }
 
+function indexOfEarliestMarker(
+  prompt: string,
+  fromIndex: number,
+  markers: string[]
+): number {
+  let end = prompt.length;
+  for (const marker of markers) {
+    const idx = prompt.indexOf(marker, fromIndex);
+    if (idx !== -1 && idx < end) {
+      end = idx;
+    }
+  }
+  return end;
+}
+
+export function buildVisualReferenceTransferRuleSection(
+  options?: { hasClientStyleReferences?: boolean }
+): string[] {
+  const lines = [
+    "",
+    "VISUAL REFERENCE TRANSFER RULE:",
+    "The style reference is visual-only — transfer abstract design attributes, never factual content.",
+    "The base image remains the sole factual source for people, products, brands, logos, copy, offers, CTAs, and claims.",
+    "ALLOWLIST (abstract style attributes only): ritmo/rhythm, textura/texture, cromia/chroma, tipografia/typography, iluminação/lighting, lógica compositiva/compositional logic.",
+    "DENYLIST (never copy from style reference): pessoas/people, uniformes/uniforms, produtos/products, marcas/brands, logos, textos/texts, alegações/claims.",
+    "Never copy factual content from the style reference.",
+  ];
+
+  if (options?.hasClientStyleReferences) {
+    lines.push(
+      "Client library style references are visual-only auxiliary guidance — same allowlist/denylist as the style reference asset."
+    );
+  }
+
+  return lines;
+}
+
+export function extractPromptVisualReferenceTransferSection(
+  prompt: string
+): string {
+  const header = "VISUAL REFERENCE TRANSFER RULE:";
+  const start = prompt.indexOf(header);
+  if (start === -1) return "";
+
+  const end = indexOfEarliestMarker(prompt, start + header.length, [
+    "\nRESTYLING FACTUAL-SOURCE RULE:",
+    "\nMODE:",
+    "\n\nCampaign:",
+  ]);
+  return prompt.slice(start, end).trimEnd();
+}
+
 export function buildInputClassificationPromptSection(
   classification: InputSourceClassification
 ): string[] {
@@ -111,6 +163,10 @@ export function extractPromptInputClassificationSection(prompt: string): string 
   const header = "INPUT SOURCE CLASSIFICATION:";
   const start = prompt.indexOf(header);
   if (start === -1) return "";
-  const end = prompt.indexOf("\nMODE:", start);
-  return prompt.slice(start, end === -1 ? undefined : end).trimEnd();
+  const end = indexOfEarliestMarker(prompt, start + header.length, [
+    "\nVISUAL REFERENCE TRANSFER RULE:",
+    "\nRESTYLING FACTUAL-SOURCE RULE:",
+    "\nMODE:",
+  ]);
+  return prompt.slice(start, end).trimEnd();
 }

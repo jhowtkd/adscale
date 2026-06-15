@@ -13,6 +13,7 @@ import {
 } from "./canonical-creative-contract";
 import {
   buildInputClassificationPromptSection,
+  buildVisualReferenceTransferRuleSection,
   resolveInputSourceClassification,
 } from "./factual-visual-separation";
 
@@ -407,6 +408,17 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
     });
   parts.push(...buildInputClassificationPromptSection(classification));
 
+  if (generationMode === "restyling") {
+    const hasClientStyleReferences = config.clientReferences?.some(
+      (ref) => ref.kind === "style"
+    );
+    parts.push(
+      ...buildVisualReferenceTransferRuleSection({
+        hasClientStyleReferences,
+      })
+    );
+  }
+
   if (generationMode === "restyling" && contract?.styleAssetId) {
     parts.push(
       "",
@@ -648,6 +660,8 @@ export function extractPromptIntegritySection(prompt: string): string {
   if (start === -1) return "";
 
   const end = indexOfEarliest(prompt, start + header.length, [
+    "\nINPUT SOURCE CLASSIFICATION:",
+    "\nVISUAL REFERENCE TRANSFER RULE:",
     "\nRESTYLING FACTUAL-SOURCE RULE:",
     "\nMODE:",
   ]);
