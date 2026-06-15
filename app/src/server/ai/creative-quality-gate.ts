@@ -15,7 +15,9 @@ import {
   CROPPED_CONTENT_PATTERN,
   CTA_DRIFT_NOTE_PATTERN,
   ILLEGIBILITY_PATTERN,
+  INVENTED_ENTITY_PATTERN,
   INVALID_FORMAT_LAYOUT_PATTERN,
+  STYLE_REFERENCE_CONTAMINATION_PATTERN,
   UNSUPPORTED_OFFER_PATTERN,
   WRONG_BRAND_PATTERN,
 } from "./creative-quality-taxonomy";
@@ -103,6 +105,14 @@ function classifyBriefMatchFailed(
     });
     return;
   }
+  if (noteMatches(INVENTED_ENTITY_PATTERN, note)) {
+    pushHardFailure(hardFailures, {
+      code: "invented_factual_entity",
+      message: note,
+      criterion: "briefMatch",
+    });
+    return;
+  }
   if (noteMatches(UNSUPPORTED_OFFER_PATTERN, note)) {
     pushHardFailure(hardFailures, {
       code: "unsupported_offer",
@@ -150,6 +160,22 @@ function classifyCreativeRiskFailed(
   if (noteMatches(UNSUPPORTED_OFFER_PATTERN, note)) {
     pushHardFailure(hardFailures, {
       code: "unsupported_offer",
+      message: note,
+      criterion: "creativeRisk",
+    });
+    return;
+  }
+  if (noteMatches(INVENTED_ENTITY_PATTERN, note)) {
+    pushHardFailure(hardFailures, {
+      code: "invented_factual_entity",
+      message: note,
+      criterion: "creativeRisk",
+    });
+    return;
+  }
+  if (noteMatches(STYLE_REFERENCE_CONTAMINATION_PATTERN, note)) {
+    pushHardFailure(hardFailures, {
+      code: "copied_style_reference_facts",
       message: note,
       criterion: "creativeRisk",
     });

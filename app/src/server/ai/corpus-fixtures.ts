@@ -137,7 +137,7 @@ export const CORPUS_ARCHETYPE_FIXTURES: CorpusArchetypeFixture[] = [
     }),
     expectedHardFailureCodes: ["invented_factual_entity"],
     expectedVerdict: "invalid",
-    baselineVerdict: "acceptable",
+    baselineVerdict: "invalid",
   },
   {
     id: "corpus-visual-overload",

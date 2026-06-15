@@ -1,6 +1,7 @@
 import { env } from "@/server/validation/env";
 import { getOpenAI, extractOutputText } from "./utils";
 import type { CreativeContract } from "./creative-contract";
+import { resolveAllowedEntitiesForCampaign } from "./creative-corpus";
 import {
   CREATIVE_QA_CORE_CRITERIA,
   type CreativeQaCriterion,
@@ -121,6 +122,14 @@ export function buildCreativeQaPrompt(input: Omit<AnalyzeCreativeQaInput, "image
     ? `\nFor styleFidelity (restyling mode only): Check whether the output contains factual claims (price, brand name, product name, offer text, CTA text, course name, location) that were copied from the style reference rather than the base image. Mark as failed if such contamination is detected, warning if uncertain, passed if all facts clearly come from the base image content.`
     : "";
 
+  const allowedEntities = resolveAllowedEntitiesForCampaign({
+    name: input.campaign.name,
+    client: input.campaign.client,
+  });
+  const allowedEntitiesInstruction = allowedEntities
+    ? `\nFor briefMatch: compare visible people, brands, products, and claims against the campaign allowed entity registry — people: ${allowedEntities.people.join(", ") || "none"}; brands: ${allowedEntities.brands.join(", ")}; products: ${allowedEntities.products.join(", ")}; claims: ${allowedEntities.claims.join(", ")}. Flag invented_factual_entity when the output depicts entities absent from this list.`
+    : "";
+
   return `Review this final ad creative before export.
 Return only JSON with status, checklist, issues, and suggestions.
 
@@ -149,7 +158,7 @@ Evaluate legibility, exact CTA and offer preservation, information preservation,
 TEXT FIDELITY (critical): if an exact CTA was provided, the rendered CTA must match character-for-character (case and accents). Flag ctaOffer as failed on any substitution, paraphrase, or capitalization drift.
 TEXT FIDELITY (critical): scan all visible Portuguese copy for typos, missing letters, or garbled words (e.g. "ESPECIALITAS" instead of "ESPECIALISTAS"). Flag legibility as failed when any headline or key claim contains a spelling error.
 For informationPreservation, check whether important text, offer, CTA, logo, product/service, badges, small print, faces, and other information-bearing elements from the brief or creative diagnosis were cropped, hidden, truncated, blurred, overlapped, deleted, or made too small to read.
-For art_variation, also check whether the result rearranged elements intentionally instead of solving the variation by cropping the key ad.${styleFidelityInstruction}
+For art_variation, also check whether the result rearranged elements intentionally instead of solving the variation by cropping the key ad.${styleFidelityInstruction}${allowedEntitiesInstruction}
 Do not invent new facts, claims, offers, products, logos, or CTAs.
 Keep issues and suggestions short and actionable.
 Locale for user-facing notes: ${input.locale}.`;

@@ -718,6 +718,7 @@ describe("input classification", () => {
     );
     expect(CONTAMINATION_FAILURE_CODES.has("wrong_brand")).toBe(true);
     expect(CONTAMINATION_FAILURE_CODES.has("unsupported_offer")).toBe(true);
+    expect(CONTAMINATION_FAILURE_CODES.has("invented_factual_entity")).toBe(true);
     expect(CONTAMINATION_FAILURE_CODES.has("cta_drift" as never)).toBe(false);
   });
 

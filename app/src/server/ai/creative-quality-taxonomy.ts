@@ -80,3 +80,12 @@ export const INVALID_FORMAT_LAYOUT_PATTERN =
 
 export const COPIED_STYLE_REFERENCE_PATTERN =
   /style reference|from style|copied from style|style-ref|style ref/i;
+
+export const INVENTED_ENTITY_PATTERN =
+  /invented|hallucinat|not in allowed|allowedentities|allowed entities|not appear in allowed|celebrity athlete|Eric Cantona|Manchester United/i;
+
+export const UNAUTHORIZED_BRAND_PATTERN =
+  /unauthorized brand|unlisted brand|brand not in allowed/i;
+
+export const STYLE_REFERENCE_CONTAMINATION_PATTERN =
+  /style reference contamination|copied.*style reference facts|factual.*from style reference/i;
