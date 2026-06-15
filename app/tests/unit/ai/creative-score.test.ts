@@ -33,8 +33,11 @@ vi.mock("@/server/validation/env", () => ({
   },
 }));
 
+import { buildCreativeQaPrompt } from "@/server/ai/creative-qa";
+import { extractObservableRubricSection } from "@/server/ai/observable-rubric";
 import {
   analyzeDerivationCreative,
+  buildCreativeScorePrompt,
   buildRegenerationSuggestion,
   normalizeCreativeScoreResult,
   scoreDerivationHeuristic,
@@ -94,6 +97,89 @@ describe("normalizeCreativeScoreResult", () => {
     const result = normalizeCreativeScoreResult(null);
     expect(result.scoreStatus).toBe("failed");
     expect(result.qualityScore).toBe(0);
+  });
+});
+
+describe("buildCreativeScorePrompt observable rubric", () => {
+  const baseInput = {
+    imageBuffer: Buffer.from("fake"),
+    mimeType: "image/png",
+    locale: "pt-BR",
+    campaign: {
+      name: "NR1 Launch",
+      client: "Acme",
+      product: "Serum",
+      offer: "20% off",
+      objective: "Conversions",
+      audience: "New buyers",
+    },
+    derivation: {
+      ctaText: "Shop now",
+      format: "1:1",
+      generationMode: "art_variation" as const,
+      feedback: null,
+      creativeLevel: "balanced",
+    },
+    contract: {
+      generationMode: "art_variation" as const,
+      targetFormat: "1:1",
+      ctaSemantics: { kind: "explicit" as const, text: "Shop now" },
+      baseAssetId: "base-1",
+      styleAssetId: null,
+      client: "Acme",
+      product: "Serum",
+      offer: "20% off",
+      constraints: null,
+      canonicalCreative: {
+        dominantIdea: "NR1 card grid hero",
+      },
+    },
+  };
+
+  it("includes visual overload scoring guidance (RUBR-01)", () => {
+    const prompt = buildCreativeScorePrompt(baseInput);
+    expect(prompt).toMatch(/visual overload|visualQuality.*below 50|dominant focal/i);
+  });
+
+  it("includes generic template rubric (RUBR-02)", () => {
+    const prompt = buildCreativeScorePrompt(baseInput);
+    expect(prompt).toMatch(/GENERIC TEMPLATE|generic template/i);
+  });
+
+  it("includes observable defect note rule (RUBR-03)", () => {
+    const prompt = buildCreativeScorePrompt(baseInput);
+    expect(prompt).toMatch(/OBSERVABLE DEFECT|visible elements/i);
+  });
+
+  it("includes thumbnail preview scale (RUBR-04)", () => {
+    const prompt = buildCreativeScorePrompt(baseInput);
+    expect(prompt).toMatch(/THUMBNAIL|PREVIEW SCALE|270/i);
+  });
+
+  it("rubric parity with QA", () => {
+    const qaPrompt = buildCreativeQaPrompt({
+      locale: baseInput.locale,
+      campaign: baseInput.campaign,
+      derivation: baseInput.derivation,
+      contract: baseInput.contract,
+    });
+    const scorePrompt = buildCreativeScorePrompt(baseInput);
+    expect(extractObservableRubricSection(scorePrompt)).toEqual(
+      extractObservableRubricSection(qaPrompt)
+    );
+  });
+
+  it("includes allowedEntities briefMatch block for registry campaigns", () => {
+    const prompt = buildCreativeScorePrompt({
+      ...baseInput,
+      campaign: {
+        ...baseInput.campaign,
+        name: "Teste 3",
+        client: "CENBRAP",
+      },
+    });
+    expect(prompt).toMatch(/allowed entity registry/i);
+    expect(prompt).toMatch(/CENBRAP/);
   });
 });
 
