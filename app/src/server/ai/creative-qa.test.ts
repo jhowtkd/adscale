@@ -7,7 +7,11 @@ vi.mock("@/server/validation/env", () => ({
   },
 }));
 
-import { normalizeCreativeQaResult, buildCreativeQaPrompt } from "./creative-qa";
+import {
+  normalizeCreativeQaResult,
+  buildCreativeQaPrompt,
+  extractObservableRubricSection,
+} from "./creative-qa";
 
 describe("normalizeCreativeQaResult", () => {
   it("normalizes a complete QA result", () => {
@@ -81,6 +85,59 @@ describe("buildCreativeQaPrompt", () => {
     expect(prompt).toContain("Return only JSON");
     expect(prompt).toContain("informationPreservation");
     expect(prompt).toContain("cropped, hidden, truncated, blurred, overlapped, deleted");
+  });
+});
+
+describe("observable rubric in QA prompt", () => {
+  const baseInput = {
+    locale: "pt-BR",
+    campaign: {
+      name: "NR1 Launch",
+      client: "Acme",
+      product: "Serum",
+      offer: "20% off",
+      objective: "Conversions",
+      audience: "New buyers",
+    },
+    derivation: {
+      ctaText: "Shop now",
+      format: "1:1",
+      generationMode: "art_variation" as const,
+    },
+    contract: {
+      generationMode: "art_variation" as const,
+      targetFormat: "1:1",
+      ctaSemantics: { kind: "explicit" as const, text: "Shop now" },
+      baseAssetId: "base-1",
+      styleAssetId: null,
+      client: "Acme",
+      product: "Serum",
+      offer: "20% off",
+      constraints: null,
+      canonicalCreative: {
+        dominantIdea: "NR1 card grid hero",
+      },
+    },
+  };
+
+  it("does not contain export-softening bias (RUBR-03)", () => {
+    const prompt = buildCreativeQaPrompt(baseInput);
+    expect(prompt).not.toMatch(/Export must remain allowed/i);
+  });
+
+  it("includes integrity-first failed-criteria language", () => {
+    const prompt = buildCreativeQaPrompt(baseInput);
+    expect(prompt).toMatch(/failed.*checklist|checklist.*failed/i);
+  });
+
+  it("includes observable rubric sections (RUBR-01–04)", () => {
+    const prompt = buildCreativeQaPrompt(baseInput);
+    const section = extractObservableRubricSection(prompt);
+    expect(section.length).toBeGreaterThan(0);
+    expect(section).toMatch(/OBSERVABLE DEFECT NOTES/i);
+    expect(section).toMatch(/VISUAL OVERLOAD/i);
+    expect(section).toMatch(/GENERIC TEMPLATE/i);
+    expect(section).toMatch(/THUMBNAIL/i);
   });
 });
 
