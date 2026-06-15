@@ -457,16 +457,13 @@ const end = indexOfEarliest(prompt, start + header.length, [
 | A3 | Minimal mode-block edits satisfy CONT-03; full MODE packs wait for Phase 118 | Phase boundaries | Planner may need one art_variation + one format_adaptation edit task in 116 |
 | A4 | All three modes are "applicable" for CONT-04 (including format_adaptation) | Requirements | If product excludes format, tests should document exception |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should `canonical-creative-contract.ts` be a separate file or stay in `creative-contract.ts`?**
-   - What we know: contract file is 92 lines; builders ~60–100 lines
-   - What's unclear: team preference on module count
-   - Recommendation: separate file if combined exceeds ~180 lines
+   - **Resolution (116-01):** Separate `canonical-creative-contract.ts` module. Keeps `creative-contract.ts` under size budget and isolates prompt builders from persistence types.
 
 2. **Diagnosis `dominantIdea` in Phase 116 vs later?**
-   - What we know: `CreativeDiagnosis` has `detectedConcept`, `elementsToPreserve` only today
-   - Recommendation: Phase 116 reads `detectedConcept` as fallback for `dominantIdea`; structured `factualInventory` deferred
+   - **Resolution (116-01):** Phase 116 maps `creativeDiagnosis.detectedConcept` → `dominantIdea` when present; structured `factualInventory` deferred to Phase 117/118.
 
 ## Environment Availability
 
