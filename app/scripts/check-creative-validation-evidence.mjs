@@ -478,16 +478,23 @@ try {
     }
 
     if (stage === "final") {
-      validateAfterCaptures(evidence, matrixKeys, errors, warnings, { fidelityAsError: true });
-      const structuralErrorsBeforeThresholds = errors.length;
+      validateAfterCaptures(evidence, matrixKeys, errors, warnings, { fidelityAsError: false });
+      const structuralPass = errors.length === 0;
+
+      const fidelityErrors = [];
+      for (const capture of evidence.afterCaptures ?? []) {
+        for (const code of fidelityHits(capture)) {
+          const message = `${capture.key} afterCapture fidelity hard failure: ${code}`;
+          fidelityErrors.push(message);
+          errors.push(message);
+        }
+      }
+
       const aggregate = validateFinalThresholdsAndPrompt(evidence, errors);
-      const fidelityErrors = errors.filter((e) => e.includes("fidelity hard failure"));
       const thresholdError = errors.find(
         (e) => e.includes("meanQualityScore") || e.includes("factualFidelityRate")
       );
-      const structuralPass = structuralErrorsBeforeThresholds === 0;
-      const overallStatus =
-        errors.length === 0 ? "passed" : structuralPass ? "gaps_found" : "gaps_found";
+      const overallStatus = errors.length === 0 ? "passed" : "gaps_found";
 
       writeBaseline(evidence, aggregate, matrixKeys);
       const requirementRows = buildRequirementRows(
