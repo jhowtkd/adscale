@@ -46,6 +46,9 @@ created: 2026-06-15
 | 123-04-01 | 04 | 4 | QA-18–20 | `node app/scripts/check-creative-validation-evidence.mjs --stage final` | pending |
 | 123-04-02 | 04 | 4 | QA-20, QA-21 | `cd app && npm test -- tests/unit/ai/creative-validation-evidence-guard.test.ts && node scripts/run-creative-release-gate.mjs` | pending |
 | 123-04-03 | 04 | 4 | QA-21 | `grep -q "QA-21" .planning/phases/123-visual-validation-gate/123-VERIFICATION.md` | pending |
+| 123-05-01 | 05 | 5 | QA-18–20 | `cd app && npx tsx scripts/run-creative-validation.ts --matrix-key "smoke:art_variation:1:1" --merge --skip-regen` | pending |
+| 123-05-02 | 05 | 5 | QA-19, QA-20 | `node app/scripts/check-creative-validation-evidence.mjs --stage final` | pending |
+| 123-05-03 | 05 | 5 | QA-18–21 | `cd app && npm run creative-release-gate` | pending |
 
 ## Wave 0 Requirements
 
