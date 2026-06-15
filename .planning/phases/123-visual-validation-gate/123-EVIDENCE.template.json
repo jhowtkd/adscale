@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-06-15T00:00:00.000Z",
+  "seedSupported": false,
+  "pipeline": {
+    "promptHash": "pending-operator-run",
+    "openaiImageModel": "gpt-image-2-2026-04-21",
+    "matrixVersion": 1
+  },
+  "beforeCaptures": [
+    {
+      "key": "{slug}:{mode}:{format}",
+      "source": "corpus",
+      "corpusRefId": "8907bce5",
+      "path": "app/exports/render-creatives/{fileName}.png",
+      "sha256": "{sha256-of-on-disk-png}",
+      "public_url": "https://example.r2.dev/optional-when-local-missing",
+      "auditArchetype": "optional-archetype-from-matrix"
+    }
+  ],
+  "afterCaptures": [
+    {
+      "key": "{slug}:{mode}:{format}",
+      "source": "regenerated",
+      "path": "app/exports/render-creatives/validation-after/{matrixKey}__{shortHash}.png",
+      "sha256": "{sha256-of-after-png}",
+      "qualityScore": 80,
+      "qualityVerdict": "acceptable",
+      "hardFailures": [],
+      "qa": {
+        "checklist": {
+          "legibility": { "status": "passed", "note": "..." },
+          "ctaOffer": { "status": "passed", "note": "..." },
+          "informationPreservation": { "status": "passed", "note": "..." },
+          "briefMatch": { "status": "passed", "note": "..." },
+          "formatFit": { "status": "passed", "note": "..." },
+          "creativeRisk": { "status": "passed", "note": "..." }
+        }
+      },
+      "score": {
+        "scoreBreakdown": {
+          "textLegibility": 80,
+          "ctaClarity": 80,
+          "briefMatch": 80,
+          "visualQuality": 80,
+          "formatFit": 80,
+          "variationLevelFit": 80,
+          "informationPreservation": 80
+        }
+      }
+    }
+  ],
+  "aggregate": {
+    "meanQualityScore": 0,
+    "factualFidelityRate": 0
+  },
+  "requirements": [
+    { "id": "QA-18", "result": "pending" },
+    { "id": "QA-19", "result": "pending" },
+    { "id": "QA-20", "result": "pending" },
+    { "id": "QA-21", "result": "pending" }
+  ]
+}

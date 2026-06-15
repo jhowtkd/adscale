@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-06-15T00:00:00.000Z",
+  "seedSupported": false,
+  "pipeline": {
+    "promptHash": "before-fixture-only",
+    "openaiImageModel": "gpt-image-2-2026-04-21",
+    "matrixVersion": 1
+  },
+  "beforeCaptures": [
+    {
+      "key": "teste-3-nr1:art_variation:1:1",
+      "source": "corpus",
+      "corpusRefId": "6fc63100",
+      "path": "app/exports/render-creatives/2026-06-11__teste-3__art_variation__1x1__6fc63100.png",
+      "sha256": "03be8b9da1f566560604131f56a7be8cfe6ebf975d6403022641f419c5f40119",
+      "public_url": "https://pub-b6f51a073b12476e9f0875b18dda4f89.r2.dev/derivations/6fc63100-2759-4601-976e-154838624302/1781174474955.png"
+    },
+    {
+      "key": "teste-3-nr1:format_adaptation:9:16",
+      "source": "corpus",
+      "corpusRefId": "27069645",
+      "path": "app/exports/render-creatives/2026-06-11__teste-3__format_adaptation__9x16__27069645.png",
+      "sha256": "31a8dd903fbad1418434af329e3c86c58619462a552b0442cd7e460a1132ba75",
+      "public_url": "https://pub-b6f51a073b12476e9f0875b18dda4f89.r2.dev/derivations/27069645-e2c8-471b-8150-d380fa91dcbc/1781181184283-retry.png",
+      "auditArchetype": "invented_factual_entity"
+    },
+    {
+      "key": "teste-3-nr1:format_adaptation:4:5",
+      "source": "corpus",
+      "corpusRefId": "c2c12774",
+      "path": "app/exports/render-creatives/2026-06-11__teste-3__format_adaptation__4x5__c2c12774.png",
+      "sha256": "899ed1833a89b4ffcbfd01c57160c921bc74c1060807265bfde96fdee44ba24c",
+      "public_url": "https://pub-b6f51a073b12476e9f0875b18dda4f89.r2.dev/derivations/c2c12774-297e-4c0c-bb22-3b5627a2f79f/1781181063579.png",
+      "auditArchetype": "format_campaign_drift"
+    },
+    {
+      "key": "nova-campanha:restyling:1:1",
+      "source": "corpus",
+      "corpusRefId": "d7d9d323",
+      "path": "app/exports/render-creatives/2026-06-11__teste-debuf__restyling__1x1__d7d9d323.png",
+      "sha256": "ac7d4d23f4cba6f599a869c4a0dc4249a5894553f021ff31c5e6481f8d285348",
+      "public_url": "https://pub-b6f51a073b12476e9f0875b18dda4f89.r2.dev/derivations/d7d9d323-e378-4a3f-b68e-6eba61311808/1781168112879-retry.png",
+      "auditArchetype": "restyling_factual_contamination"
+    },
+    {
+      "key": "teste-campanha-nr1:art_variation:1:1",
+      "source": "corpus",
+      "corpusRefId": "8a2bebf9",
+      "path": "app/exports/render-creatives/2026-06-11__teste-campanha__art_variation__1x1__8a2bebf9.png",
+      "sha256": "bd783dd0b45d5d04088722fbe04d507db003c766461a739750e6bfc122fbe67a",
+      "public_url": "https://pub-b6f51a073b12476e9f0875b18dda4f89.r2.dev/derivations/8a2bebf9-693c-491e-9f15-bf85ced4a37e/1781176840357.png",
+      "auditArchetype": "visual_overload"
+    },
+    {
+      "key": "smoke:art_variation:1:1",
+      "source": "corpus",
+      "corpusRefId": "8907bce5",
+      "path": "app/exports/render-creatives/2026-06-06__smoke-v11-6-cqa-02__art_variation__1x1__8907bce5.png",
+      "sha256": "9dc850c6d3c421bac8bf2da25e341dd3df1367773733e00380036d7c5e15e6d9",
+      "public_url": "https://pub-b6f51a073b12476e9f0875b18dda4f89.r2.dev/derivations/8907bce5-cae9-4e58-928a-772ec6de825f/1780776516116.png"
+    }
+  ],
+  "afterCaptures": [],
+  "requirements": []
+}
