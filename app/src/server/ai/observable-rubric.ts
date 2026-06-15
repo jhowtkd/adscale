@@ -125,4 +125,4 @@ export const GENERIC_TEMPLATE_NOTE_MARKERS =
   /generic (?:premium|tech|template)|neon glow|glassmorphism|holographic|volumetric CTA|premium-tech gradient/i;
 
 export const MISSING_DOMINANT_IDEA_MARKERS =
-  /no (?:NR1|campaign-specific|dominant) (?:visual )?idea|no campaign-specific visual idea/i;
+  /no (?:NR1(?:\s+[\w-]+)*\s+(?:visual\s+)?idea|(?:campaign-specific|dominant) (?:visual )?idea)|no campaign-specific visual idea/i;

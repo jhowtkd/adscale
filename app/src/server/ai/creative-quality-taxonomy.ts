@@ -88,4 +88,22 @@ export const UNAUTHORIZED_BRAND_PATTERN =
   /unauthorized brand|unlisted brand|brand not in allowed/i;
 
 export const STYLE_REFERENCE_CONTAMINATION_PATTERN =
-  /style reference contamination|copied.*style reference facts|factual.*from style reference/i;
+  /style reference contamination|copied.*style reference facts|factual.*from style reference|athlete portraits|team uniforms.*style reference|(?:people|portraits|uniforms).*from style reference/i;
+
+export const CAMPAIGN_IDENTITY_DRIFT_PATTERN =
+  /different campaign (?:identity|narrative)|(?:instead of|replaced with).*(?:narrative|story|enrollment)|education\/professor|not a faithful.*adaptation/i;
+
+export const CAMPAIGN_IDENTITY_SAFE_PATTERN =
+  /faithful|same campaign|preserved.*narrative|identical people/i;
+
+export const REPLACED_SOURCE_SUBJECT_PATTERN =
+  /replaced hero(?:\s+photo)?|different subject(?:\s+than base)?|new hero photo/i;
+
+export const DECORATIVE_ONLY_PATTERN =
+  /background(?:-|\s)?only|(?:only|just)\s+(?:background|glow|gradient)|without (?:a\s+)?(?:new\s+)?(?:visual\s+)?mechanism(?:\s+change)?|color(?:-|\s)?only\s+swap|decorative(?:-|\s)?only/i;
+
+export {
+  OVERLOAD_NOTE_MARKERS,
+  GENERIC_TEMPLATE_NOTE_MARKERS,
+  MISSING_DOMINANT_IDEA_MARKERS,
+} from "./observable-rubric";
