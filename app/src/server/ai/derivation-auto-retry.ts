@@ -29,6 +29,8 @@ export interface AutoRetryDerivationInput {
   campaignId: string;
   referenceKey: string;
   referenceMimeType: string;
+  styleReferenceKey?: string;
+  styleReferenceMimeType?: string;
   correctionFeedback: string;
   promptContext: Parameters<typeof buildDerivationPrompt>[0];
   contract: CreativeContract;

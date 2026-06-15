@@ -921,10 +921,11 @@ export const derivationJob = inngest.createFunction(
         ? (row.hardFailures as CreativeHardFailure[])
         : [];
       const log = (row.generationLog as DerivationGenerationLog | null) ?? generationLog;
-      if (
-        generated.effectiveGenerationMode === "restyling" ||
-        !shouldAutoRetryDerivation(hardFailures, log.autoRetryAttempted)
-      ) {
+      const retryMode = generated.effectiveGenerationMode as
+        | "art_variation"
+        | "format_adaptation"
+        | "restyling";
+      if (!shouldAutoRetryDerivation(retryMode, hardFailures, log.autoRetryAttempted)) {
         return null;
       }
 
@@ -937,18 +938,52 @@ export const derivationJob = inngest.createFunction(
           qaChecklist: (row.qaChecklist as Record<string, { note?: string }> | null) ?? {},
         });
 
-      const referenceKey =
-        asset?.key ??
-        (parentDerivation?.outputKey && effectiveGenerationMode === "format_adaptation"
-          ? parentDerivation.outputKey
-          : generated.outputKey);
+      let referenceKey: string;
+      let referenceMimeType: string;
+      let styleReferenceKey: string | undefined;
+      let styleReferenceMimeType: string | undefined;
+
+      if (retryMode === "restyling") {
+        const assets = await getAssetsByCampaign(campaignId, workspaceId);
+        const baseAssetId = generated.resolvedContract.baseAssetId;
+        const styleAssetId = generated.resolvedContract.styleAssetId;
+        const baseAsset = baseAssetId
+          ? assets.find((a) => a.id === baseAssetId)
+          : assets.find((a) => a.role === "base") ?? assets[0] ?? null;
+        const styleAsset = styleAssetId
+          ? (assets.find((a) => a.id === styleAssetId) ??
+            assets.find((a) => a.role === "style_reference") ??
+            null)
+          : assets.find((a) => a.role === "style_reference") ?? null;
+
+        if (!baseAsset || !styleAsset) {
+          logger.warn(
+            `[auto-retry] skipping restyling retry: missing base or style asset derivationId=${derivationId}`
+          );
+          return null;
+        }
+
+        referenceKey = baseAsset.key;
+        referenceMimeType = baseAsset.type ?? "image/png";
+        styleReferenceKey = styleAsset.key;
+        styleReferenceMimeType = styleAsset.type ?? "image/png";
+      } else {
+        referenceKey =
+          asset?.key ??
+          (parentDerivation?.outputKey && effectiveGenerationMode === "format_adaptation"
+            ? parentDerivation.outputKey
+            : generated.outputKey);
+        referenceMimeType = asset?.type ?? "image/png";
+      }
 
       const result = await runDerivationAutoRetry({
         derivationId,
         workspaceId,
         campaignId,
         referenceKey,
-        referenceMimeType: asset?.type ?? "image/png",
+        referenceMimeType,
+        styleReferenceKey,
+        styleReferenceMimeType,
         correctionFeedback,
         contract: generated.resolvedContract,
         targetFormat: generated.targetFormat,
