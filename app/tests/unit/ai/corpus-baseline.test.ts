@@ -1,17 +1,19 @@
 import { describe, it, expect } from "vitest";
 import {
   CORPUS_ARCHETYPE_FIXTURES,
+  CORPUS_POSITIVE_FIXTURES,
   type CorpusArchetype,
 } from "@/server/ai/corpus-fixtures";
 import { normalizeCreativeQaResult } from "@/server/ai/creative-qa";
 import {
+  assertDerivationApprovable,
   classifyCreativeQualityGate,
   deriveQualityVerdict,
 } from "@/server/ai/creative-quality-gate";
 import type { CorpusArchetypeFixture } from "@/server/ai/corpus-fixtures";
 
-/** Count of archetypes with baseline gate gaps — flip to 0 when Phase 120 hardens the gate. */
-export const BASELINE_GAP_COUNT = CORPUS_ARCHETYPE_FIXTURES.length - 1;
+/** Phase 120 complete — all corpus archetypes reject with canonical GATE-01 codes. */
+export const BASELINE_GAP_COUNT = 0;
 
 const ARCHETYPES: CorpusArchetype[] = [
   "invented_factual_entity",
@@ -21,7 +23,14 @@ const ARCHETYPES: CorpusArchetype[] = [
   "restyling_factual_contamination",
 ];
 
-const PRIMARY_AUDIT_CORPUS_IDS = ["27069645", "538246da", "d7d9d323"] as const;
+const PRIMARY_AUDIT_CORPUS_IDS = [
+  "27069645",
+  "a753e357",
+  "538246da",
+  "a5f65b85",
+  "f420bcb2",
+  "d7d9d323",
+] as const;
 
 function runCorpusGatePipeline(fixture: CorpusArchetypeFixture) {
   const qa = normalizeCreativeQaResult(fixture.rawQaModelOutput);
@@ -38,8 +47,7 @@ function runCorpusGatePipeline(fixture: CorpusArchetypeFixture) {
 }
 
 describe.each(CORPUS_ARCHETYPE_FIXTURES)("corpus baseline gate — $id", (fixture) => {
-  const runBaselineRejectionTest =
-    fixture.archetype === "invented_factual_entity" ? it : it.fails;
+  const runBaselineRejectionTest = it;
 
   runBaselineRejectionTest(
     `baseline-red: ${fixture.id} — gate must reject ${fixture.archetype}`,
@@ -60,6 +68,20 @@ describe.each(CORPUS_ARCHETYPE_FIXTURES)("corpus baseline gate — $id", (fixtur
   });
 });
 
+describe.each(CORPUS_POSITIVE_FIXTURES)("corpus positive gate — $id", (fixture) => {
+  it(`faithful baseline: ${fixture.id} — export-approvable with optional warnings`, () => {
+    const { gate, verdict } = runCorpusGatePipeline(fixture);
+    expect(verdict).toBe("improvable");
+    expect(gate.hardFailures).toHaveLength(0);
+    expect(
+      assertDerivationApprovable({
+        qualityVerdict: verdict,
+        hardFailures: gate.hardFailures,
+      }).ok
+    ).toBe(true);
+  });
+});
+
 describe("corpus baseline coverage", () => {
   it("covers every CorpusArchetype in the baseline suite", () => {
     const covered = new Set(CORPUS_ARCHETYPE_FIXTURES.map((f) => f.archetype));
@@ -77,8 +99,7 @@ describe("corpus baseline coverage", () => {
     }
   });
 
-  it("documents baseline gap count for Phase 123 validation", () => {
-    // SEP-04 flipped invented_factual_entity; four archetypes remain red until Phase 120.
-    expect(BASELINE_GAP_COUNT).toBe(4);
+  it("documents baseline gap count — Phase 120 complete", () => {
+    expect(BASELINE_GAP_COUNT).toBe(0);
   });
 });

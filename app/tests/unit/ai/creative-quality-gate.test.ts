@@ -4,7 +4,7 @@ import type {
   CreativeQaChecklist,
   CreativeQaCriterionResult,
 } from "@/server/ai/creative-qa";
-import { CORPUS_ARCHETYPE_FIXTURES } from "@/server/ai/corpus-fixtures";
+import { CORPUS_ARCHETYPE_FIXTURES, CORPUS_POSITIVE_FIXTURES } from "@/server/ai/corpus-fixtures";
 import { normalizeCreativeQaResult } from "@/server/ai/creative-qa";
 import { CONTAMINATION_FAILURE_CODES } from "@/server/ai/factual-visual-separation";
 import {
@@ -747,6 +747,91 @@ describe("GATE-02 score override", () => {
         }),
       })
     ).toBe("invalid");
+  });
+});
+
+describe("GATE-05 faithful format adaptation guard", () => {
+  const faithfulFixture = CORPUS_POSITIVE_FIXTURES.find(
+    (f) => f.id === "corpus-faithful-format-adaptation"
+  )!;
+
+  const formatAdaptationContract: CreativeContract = {
+    generationMode: "format_adaptation",
+    targetFormat: "4:5",
+    client: "CENBRAP",
+    product: "NR1 compliance toolkit",
+    offer: "Conformidade NR1",
+    constraints: "Preserve NR1 checklist narrative",
+  };
+
+  it("faithful corpus fixture produces no hard failures at qualityScore 85", () => {
+    const qa = normalizeCreativeQaResult(faithfulFixture.rawQaModelOutput);
+    const gate = classifyCreativeQualityGate({
+      contract: faithfulFixture.contract,
+      checklist: qa.checklist,
+    });
+    const verdict = deriveQualityVerdict({
+      hardFailures: gate.hardFailures,
+      qualityScore: 85,
+      checklist: qa.checklist,
+    });
+
+    expect(gate.hardFailures).toHaveLength(0);
+    expect(verdict).toBe("improvable");
+    expect(
+      assertDerivationApprovable({
+        qualityVerdict: verdict,
+        hardFailures: gate.hardFailures,
+      }).ok
+    ).toBe(true);
+  });
+
+  it("mild generic warning does not promote to generic_template_aesthetic", () => {
+    const gate = classifyCreativeQualityGate({
+      contract: formatAdaptationContract,
+      checklist: checklist({
+        creativeRisk: {
+          status: "warning",
+          note: "could be bolder; hook remains campaign-specific",
+        },
+      }),
+    });
+
+    expect(
+      gate.hardFailures.some((f) => f.code === "generic_template_aesthetic")
+    ).toBe(false);
+  });
+
+  it("faithful format note does not promote campaign_identity_drift", () => {
+    const gate = classifyCreativeQualityGate({
+      contract: formatAdaptationContract,
+      checklist: checklist({
+        formatFit: {
+          status: "passed",
+          note: "Faithful NR1 format adaptation in native 4:5 layout.",
+        },
+      }),
+    });
+
+    expect(
+      gate.hardFailures.some((f) => f.code === "campaign_identity_drift")
+    ).toBe(false);
+  });
+
+  it("creativeRisk simplification warning does not promote visual_overload", () => {
+    const gate = classifyCreativeQualityGate({
+      contract: formatAdaptationContract,
+      checklist: checklist({
+        creativeRisk: {
+          status: "warning",
+          note: "badge row could be simplified; hook and CTA remain dominant",
+        },
+      }),
+    });
+
+    expect(gate.hardFailures.some((f) => f.code === "visual_overload")).toBe(
+      false
+    );
   });
 });
 
