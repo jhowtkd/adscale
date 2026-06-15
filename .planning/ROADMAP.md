@@ -33,7 +33,7 @@
 - [x] **Phase 116: Canonical Creative Contract** — contrato de ideia dominante, precedência fatos>hierarquia>decoração; injeção de `VISUAL_HIERARCHY_CONTRACT` e `ANTI_HALLUCINATION_RULES` (completed 2026-06-15)
 - [x] **Phase 117: Factual vs Visual Separation** — classificação de inputs; referência visual só transfere linguagem abstrata; bloqueio de entidades inventadas (completed 2026-06-15)
 - [x] **Phase 118: Per-Mode Prompt Rules** — regras distintas para `art_variation`, `restyling`, `format_adaptation`; orçamento de três zonas; mesma campanha em múltiplos formatos (completed 2026-06-15)
-- [ ] **Phase 119: Observable Rubric** — critérios observáveis substituem "polished"; reprova overload, genérico severo e hook ilegível em miniatura
+- [x] **Phase 119: Observable Rubric** — critérios observáveis substituem "polished"; reprova overload, genérico severo e hook ilegível em miniatura (completed 2026-06-15)
 - [ ] **Phase 120: Quality Gate Hardening** — novos hard failures; factual sempre invalid; corpus-falha bloqueado; fiel continua aprovável
 - [ ] **Phase 121: Score Ceilings and Retry** — tetos por categoria de falha; retry de restyling da fonte factual; correções específicas
 - [ ] **Phase 122: Regression Test Suite** — prompt injection tests; gate matrix; suíte por modo e formato; teste de miniatura
@@ -45,7 +45,7 @@
 | 116 | Canonical Creative Contract | Complete    | 2026-06-15 | 2026-06-15 |
 | 117 | Factual vs Visual Separation | Complete    | 2026-06-15 | 2026-06-15 |
 | 118 | 0/4 | Complete    | 2026-06-15 | — |
-| 119 | 0/4 | 4/4 | Complete   | 2026-06-15 |
+| 119 | 0/4 | Complete    | 2026-06-15 | 2026-06-15 |
 | 120 | Quality Gate Hardening | GATE-01–05 | Pending | — |
 | 121 | Score Ceilings and Retry | SCR-01–05 | Pending | — |
 | 122 | Regression Test Suite | TEST-01–04 | Pending | — |
@@ -320,7 +320,7 @@ Plans:
   3. Defeitos são explicados por elementos visíveis observáveis — termos como "polished" ou "professional" não são critério de aprovação isolado.
   4. Hook é compreensível em miniatura (escala de preview/mobile).
 
-**Plans:** 0/4 plans executed
+**Plans:** 4/4 plans complete
 
 Plans:
 - [x] 119-01-PLAN.md — Observable rubric module scaffold (RUBR-01–04)
