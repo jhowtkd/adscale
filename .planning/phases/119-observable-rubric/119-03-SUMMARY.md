@@ -71,7 +71,7 @@ Each task was committed atomically:
 2. **Task 1 GREEN:** `afcda815` (feat) — extract prompt builder with observable rubric
 3. **Task 2:** Verification only — full test suite passed, no file changes
 
-**Plan metadata:** pending (docs commit)
+**Plan metadata:** `9b2b4ac5` (docs)
 
 ## TDD Gate Compliance
 

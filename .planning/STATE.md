@@ -23,16 +23,16 @@ See: .planning/PROJECT.md (updated 2026-06-15)
 
 **Current focus:** v12.3 Integridade Criativa — factual fidelity, creative direction, and quality gate hardening for the derivation pipeline.
 
-**Status:** Ready to execute
+**Status:** Executing
 
 ## Current Position
 
 Phase: 119 — Observable Rubric
-Plan: 3 of 04 complete (119-02 done)
-Status: Ready to execute
+Plan: 3 of 04 complete (119-03 done)
+Status: Executing
 Last activity: 2026-06-15
 
-Progress: [████░░░░░░] 2/4 plans in phase 119
+Progress: [██████░░░░] 3/4 plans in phase 119
 
 ## Accumulated Context
 
@@ -62,7 +62,7 @@ Progress: [████░░░░░░] 2/4 plans in phase 119
 
 ## Session Continuity
 
-Last activity: 2026-06-15 — completed 119-02-PLAN.md (wire observable rubric into QA prompt, RUBR-01–04)
+Last activity: 2026-06-15 — completed 119-03-PLAN.md (extract buildCreativeScorePrompt with observable rubric)
 
 ## Decisions
 
@@ -81,4 +81,4 @@ Last activity: 2026-06-15 — completed 119-02-PLAN.md (wire observable rubric i
 
 ## Next Steps
 
-Execute 119-03-PLAN.md — wire rubric into creative-score prompt
+Execute 119-04-PLAN.md — complete observable rubric phase
