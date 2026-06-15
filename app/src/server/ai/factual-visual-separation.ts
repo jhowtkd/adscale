@@ -18,6 +18,10 @@ export type InputSourceClassification = {
 export const CONTAMINATION_FAILURE_CODES: ReadonlySet<CreativeHardFailureCode> =
   new Set([
     "copied_style_reference_facts",
+    "style_reference_contamination",
+    "campaign_identity_drift",
+    "replaced_source_subject",
+    "unauthorized_brand_or_ip",
     "wrong_brand",
     "unsupported_offer",
     "invented_factual_entity",
