@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v12.3
 milestone_name: Integridade Criativa
 status: executing
-last_updated: "2026-06-15T19:05:49.566Z"
+last_updated: "2026-06-15T19:09:42.637Z"
 last_activity: 2026-06-15
 progress:
   total_phases: 82
   completed_phases: 36
   total_plans: 98
-  completed_plans: 110
+  completed_plans: 111
   percent: 100
 ---
 
@@ -23,13 +23,13 @@ See: .planning/PROJECT.md (updated 2026-06-15)
 
 **Current focus:** v12.3 Integridade Criativa — factual fidelity, creative direction, and quality gate hardening for the derivation pipeline.
 
-**Status:** Executing phase 120 — gate hardening
+**Status:** Ready to execute
 
 ## Current Position
 
 Phase: 120 — Quality Gate Hardening
-Plan: 1 of 3 complete (120-01 done)
-Status: Ready to execute 120-02
+Plan: 2 of 3 complete (120-01 done)
+Status: Ready to execute
 Last activity: 2026-06-15
 
 Progress: [███░░░░░░░] 1/3 plans in phase 120
@@ -81,6 +81,8 @@ Last activity: 2026-06-15 — completed 120-01-PLAN.md (GATE-01 taxonomy, types,
 - [Phase 119]: Corpus archetype integration tests verify rubric parity without gate promotion; BASELINE_GAP_COUNT remains 4 until Phase 120
 - [Phase 120]: GATE-01 taxonomy patterns and extended CreativeHardFailureCode union established without classifier promotion (Plan 02)
 - [Phase 120]: normalizeHardFailureCode maps copied_style_reference_facts, format_campaign_drift, restyling_factual_contamination to canonical GATE-01 codes
+- [Phase 120]: hasCampaignIdentityDrift: 'not a faithful' overrides safe-pattern false negative on formatFit drift notes
+- [Phase 120]: Gate classifiers emit style_reference_contamination; decorative_only_variation gated to art_variation
 
 ## Next Steps
 
