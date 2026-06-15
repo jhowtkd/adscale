@@ -296,7 +296,13 @@ Plans:
   4. `format_adaptation` trata saída como edição da mesma campanha — preserva pessoas, copy, CTA, marca e conceito; altera apenas composição, escala e agrupamento.
   5. A mesma campanha permanece reconhecível em `1:1`, `4:5` e `9:16` sem introduzir nova narrativa.
 
-**Plans:** TBD
+**Plans:** 4 plans
+
+Plans:
+- [ ] 118-01-PLAN.md — Scaffold per-mode-prompt-rules.ts + art_variation pack (MODE-01/02)
+- [ ] 118-02-PLAN.md — Restyling MODE pack consolidation (MODE-03)
+- [ ] 118-03-PLAN.md — Format adaptation pack + flexible-context firewall (MODE-04/05)
+- [ ] 118-04-PLAN.md — Regression snapshots + integration verification
 
 ---
 
