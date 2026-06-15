@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v12.3
 milestone_name: Integridade Criativa
 status: executing
-last_updated: "2026-06-15T16:20:00.000Z"
-last_activity: 2026-06-15 — completed 117-01-PLAN.md
+last_updated: "2026-06-15T16:23:35.304Z"
+last_activity: 2026-06-15
 progress:
   total_phases: 79
   completed_phases: 33
   total_plans: 87
-  completed_plans: 98
+  completed_plans: 99
   percent: 100
 ---
 
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-06-15)
 ## Current Position
 
 Phase: 117 — Factual vs Visual Separation
-Plan: 1 of 04 complete
+Plan: 2 of 04 complete
 Status: In progress
-Last activity: 2026-06-15 — completed 117-01-PLAN.md (SEP-01 input source classification)
+Last activity: 2026-06-15 — completed 117-02-PLAN.md (visual reference transfer, SEP-02)
 
-Progress: [██░░░░░░░░] 1/4 plans in phase 117
+Progress: [████░░░░░░] 2/4 plans in phase 117
 
 ## Accumulated Context
 
@@ -62,14 +62,16 @@ Progress: [██░░░░░░░░] 1/4 plans in phase 117
 
 ## Session Continuity
 
-Last activity: 2026-06-15 — completed 117-01-PLAN.md (input source classification, SEP-01)
+Last activity: 2026-06-15 — completed 117-02-PLAN.md (visual reference transfer, SEP-02)
 
 ## Decisions
 
 - art_variation and format_adaptation MODE blocks use tier-aware preservation governed by RULE PRECEDENCE (CONT-03)
 - [Phase 117]: CONTAMINATION_FAILURE_CODES omits invented_factual_entity until Plan 04
 - [Phase 117]: INPUT SOURCE CLASSIFICATION injected after integrity block, before MODE-specific rules
+- [Phase 117]: RESTYLING FACTUAL-SOURCE RULE injects unconditionally; visualTokenBrief blocked for restyling
+- [Phase 117]: VISUAL REFERENCE TRANSFER RULE injected after classification with SEP-02 allowlist/denylist
 
 ## Next Steps
 
-Execute 117-02-PLAN.md — visual reference transfer rules (SEP-02)
+Execute 117-03-PLAN.md — lineage firewall
