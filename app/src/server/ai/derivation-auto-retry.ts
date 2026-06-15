@@ -74,14 +74,31 @@ export async function runDerivationAutoRetry(
     feedback: input.correctionFeedback,
   })}\n\nAUTO-RETRY CORRECTION:\nThe previous output failed QA. Fix these issues exactly:\n${input.correctionFeedback}`;
 
-  const referenceImage = await toFile(referenceBuffer, "reference-image", {
-    type: input.referenceMimeType,
-  });
+  const referenceImage = await toFile(
+    referenceBuffer,
+    input.generationMode === "restyling" ? "base-image" : "reference-image",
+    { type: input.referenceMimeType }
+  );
+
+  let editImage: OpenAI.Images.ImageEditParams["image"] = referenceImage;
+  if (input.generationMode === "restyling") {
+    if (!input.styleReferenceKey) {
+      logger.warn(
+        `[auto-retry] restyling retry missing styleReferenceKey derivationId=${input.derivationId}`
+      );
+    } else {
+      const styleBuffer = await downloadBuffer(input.styleReferenceKey);
+      const styleImage = await toFile(styleBuffer, "style-reference", {
+        type: input.styleReferenceMimeType ?? "image/png",
+      });
+      editImage = [referenceImage, styleImage];
+    }
+  }
 
   const response = await withTimeout(
     openai.images.edit({
       model: env.OPENAI_IMAGE_MODEL,
-      image: referenceImage,
+      image: editImage,
       prompt,
       n: 1,
       size: openaiSize,
