@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v12.3
 milestone_name: Integridade Criativa
-status: verifying
-last_updated: "2026-06-15T16:19:59.577Z"
-last_activity: 2026-06-15
+status: executing
+last_updated: "2026-06-15T16:20:00.000Z"
+last_activity: 2026-06-15 — completed 117-01-PLAN.md
 progress:
   total_phases: 79
   completed_phases: 33
@@ -23,16 +23,16 @@ See: .planning/PROJECT.md (updated 2026-06-15)
 
 **Current focus:** v12.3 Integridade Criativa — factual fidelity, creative direction, and quality gate hardening for the derivation pipeline.
 
-**Status:** Phase complete — ready for verification
+**Status:** Executing phase 117
 
 ## Current Position
 
-Phase: 116 — Canonical Creative Contract
-Plan: 3 of 03 complete
-Status: Phase complete — ready for verification
-Last activity: 2026-06-15
+Phase: 117 — Factual vs Visual Separation
+Plan: 1 of 04 complete
+Status: In progress
+Last activity: 2026-06-15 — completed 117-01-PLAN.md (SEP-01 input source classification)
 
-Progress: [██████████] 3/3 plans in phase 116
+Progress: [██░░░░░░░░] 1/4 plans in phase 117
 
 ## Accumulated Context
 
@@ -62,7 +62,7 @@ Progress: [██████████] 3/3 plans in phase 116
 
 ## Session Continuity
 
-Last activity: 2026-06-15 — completed 116-03-PLAN.md (tier-aware MODE blocks, CONT-03)
+Last activity: 2026-06-15 — completed 117-01-PLAN.md (input source classification, SEP-01)
 
 ## Decisions
 
@@ -72,4 +72,4 @@ Last activity: 2026-06-15 — completed 116-03-PLAN.md (tier-aware MODE blocks, 
 
 ## Next Steps
 
-`/gsd-execute-phase 117` — factual/visual separation
+Execute 117-02-PLAN.md — visual reference transfer rules (SEP-02)
