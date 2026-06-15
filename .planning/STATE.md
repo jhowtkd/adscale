@@ -2,14 +2,15 @@
 gsd_state_version: 1.0
 milestone: v12.3
 milestone_name: Integridade Criativa
-status: planning
-last_updated: "2026-06-15T20:08:19.125Z"
+status: executing
+last_updated: "2026-06-15T20:27:36.538Z"
 last_activity: 2026-06-15
 progress:
-  total_phases: 35
-  completed_phases: 13
-  total_plans: 44
-  completed_plans: 58
+  total_phases: 85
+  completed_phases: 39
+  total_plans: 109
+  completed_plans: 120
+  percent: 100
 ---
 
 # Project State
@@ -27,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-06-15)
 ## Current Position
 
 Phase: 123 — Visual Validation Gate
-Plan: Not started (4 plans ready)
-Status: Ready to execute
+Plan: 01 complete (3 remaining)
+Status: In progress
 Last activity: 2026-06-15
 
-Progress: Phase 122 complete (4/4 plans)
+Progress: Phase 123 plan 01/4 complete
 
 ## Accumulated Context
 
@@ -91,6 +92,8 @@ Last activity: 2026-06-15 — Completed 121-03 (failure-specific correction dire
 - [Phase 121]: computeQualityGateFromAnalysis returns capped qualityScore; breakdown clamping when scoreBreakdown provided
 - [Phase 121]: Mode-aware shouldAutoRetryDerivation with per-mode code sets; restyling uses base+style asset keys never outputKey
 - [Phase 121]: Restyling auto-retry calls images.edit with [base-image, style-reference] matching first-pass order
+- [Phase 123]: CREATIVE_VALIDATION_MATRIX is six-cell single source for operator capture and release gate (QA-18)
+- [Phase 123]: beforeCorpusRefId validated at module load via isCorpusRefIdKnown; CREATIVE_VALIDATION_SEED_SUPPORTED=false
 
 ## Next Steps
 

@@ -77,7 +77,7 @@ Endurecer o pipeline criativo para que peças factualmente incorretas, visualmen
 
 ### Visual Validation (QA)
 
-- [ ] **QA-18**: Geração controlada antes/depois com mesma campanha e seed quando suportado para cada modo em formatos representativos.
+- [x] **QA-18**: Geração controlada antes/depois com mesma campanha e seed quando suportado para cada modo em formatos representativos.
 - [ ] **QA-19**: Rubrica de 12 critérios aplicada ao conjunto pós-correção atinge média geral ≥75 e fidelidade factual ≥95.
 - [ ] **QA-20**: Nenhuma entidade inventada e nenhuma campanha substituída no conjunto de validação.
 - [ ] **QA-21**: `npm test`, `npm run lint`, `npm run build` passam com cobertura de regressão do milestone.
@@ -138,7 +138,7 @@ Endurecer o pipeline criativo para que peças factualmente incorretas, visualmen
 | TEST-02 | Phase 122 | Complete |
 | TEST-03 | Phase 122 | Complete |
 | TEST-04 | Phase 122 | Complete |
-| QA-18 | Phase 123 | Pending |
+| QA-18 | Phase 123 | Complete |
 | QA-19 | Phase 123 | Pending |
 | QA-20 | Phase 123 | Pending |
 | QA-21 | Phase 123 | Pending |
