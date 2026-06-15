@@ -62,9 +62,9 @@ Endurecer o pipeline criativo para que peças factualmente incorretas, visualmen
 
 ### Score and Retry (SCR)
 
-- [ ] **SCR-01**: Score separa integridade factual, hierarquia, legibilidade, direção de arte, originalidade e adequação ao formato.
-- [ ] **SCR-02**: Tetos de nota aplicados: fato inventado ≤20, campanha substituída ≤15, CTA ausente ≤50, overload grave ≤55, variação decorativa ≤60.
-- [ ] **SCR-03**: Nota alta não coexiste com hard failures ativos.
+- [x] **SCR-01**: Score separa integridade factual, hierarquia, legibilidade, direção de arte, originalidade e adequação ao formato.
+- [x] **SCR-02**: Tetos de nota aplicados: fato inventado ≤20, campanha substituída ≤15, CTA ausente ≤50, overload grave ≤55, variação decorativa ≤60.
+- [x] **SCR-03**: Nota alta não coexiste com hard failures ativos.
 - [ ] **SCR-04**: Retry habilitado para restyling e usa fonte factual original, nunca saída contaminada.
 - [x] **SCR-05**: Correção de retry é específica: remover entidade inventada, restaurar pessoa/marca, reduzir módulos, restaurar conceito/CTA.
 
@@ -129,9 +129,9 @@ Endurecer o pipeline criativo para que peças factualmente incorretas, visualmen
 | GATE-03 | Phase 120 | Complete |
 | GATE-04 | Phase 120 | Complete |
 | GATE-05 | Phase 120 | Complete |
-| SCR-01 | Phase 121 | Pending |
-| SCR-02 | Phase 121 | Pending |
-| SCR-03 | Phase 121 | Pending |
+| SCR-01 | Phase 121 | Complete |
+| SCR-02 | Phase 121 | Complete |
+| SCR-03 | Phase 121 | Complete |
 | SCR-04 | Phase 121 | Pending |
 | SCR-05 | Phase 121 | Complete |
 | TEST-01 | Phase 122 | Pending |

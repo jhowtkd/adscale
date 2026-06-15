@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v12.3
 milestone_name: Integridade Criativa
-status: executing
-last_updated: "2026-06-15T19:46:12.066Z"
+status: verifying
+last_updated: "2026-06-15T19:47:11.374Z"
 last_activity: 2026-06-15
 progress:
   total_phases: 83
   completed_phases: 37
   total_plans: 101
-  completed_plans: 113
+  completed_plans: 114
   percent: 100
 ---
 
@@ -23,14 +23,14 @@ See: .planning/PROJECT.md (updated 2026-06-15)
 
 **Current focus:** v12.3 Integridade Criativa — factual fidelity, creative direction, and quality gate hardening for the derivation pipeline.
 
-**Status:** Ready to plan
+**Status:** Phase complete — ready for verification
 
 ## Current Position
 
 Phase: 121 — Score Ceilings and Retry
 Plan: 03 of 03 complete (01, 02 pending)
-Status: In Progress
-Last activity: 2026-06-15 — Completed 121-03 (SCR-05 correction directives)
+Status: Phase complete — ready for verification
+Last activity: 2026-06-15
 
 Progress: Phase 121 (1/3 plans complete)
 
@@ -88,6 +88,8 @@ Last activity: 2026-06-15 — Completed 121-03 (failure-specific correction dire
 - [Phase 120]: Faithful NR1 4:5 adaptation improvable with creativeRisk warning; assertDerivationApprovable ok
 - [Phase 121]: Brief builder is sole injection point for RESTYLING FACTUAL-SOURCE RULE on correction retry
 - [Phase 121]: FAILURE_CORRECTION_DIRECTIVES prepends per-code imperatives before hard-failure trace list (SCR-05)
+- [Phase 121]: Separate creative-score-ceilings.ts module applies SCR-02 ceilings before gate verdict and DB persist
+- [Phase 121]: computeQualityGateFromAnalysis returns capped qualityScore; breakdown clamping when scoreBreakdown provided
 
 ## Next Steps
 
