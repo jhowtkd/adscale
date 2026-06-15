@@ -11,6 +11,19 @@ import {
 const KEY_PATTERN =
   /^[\w-]+:(art_variation|restyling|format_adaptation):[\d:.]+$/;
 
+describe("QA-18 creative validation matrix regression", () => {
+  it("anchors corpus refs used by downstream evidence capture scripts", () => {
+    const byRef = Object.fromEntries(
+      CREATIVE_VALIDATION_MATRIX.map((row) => [row.beforeCorpusRefId, row])
+    );
+    expect(byRef["27069645"]?.auditArchetype).toBe("invented_factual_entity");
+    expect(byRef["d7d9d323"]?.auditArchetype).toBe(
+      "restyling_factual_contamination"
+    );
+    expect(byRef["c2c12774"]?.format).toBe("4:5");
+  });
+});
+
 describe("CREATIVE_VALIDATION_MATRIX", () => {
   it("exports exactly six rows with unique keys", () => {
     expect(CREATIVE_VALIDATION_MATRIX).toHaveLength(6);
