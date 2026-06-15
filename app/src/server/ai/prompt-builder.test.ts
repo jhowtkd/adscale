@@ -21,6 +21,12 @@ import {
   extractPromptRestylingFactualSourceSection,
 } from "./prompt-builder";
 import {
+  buildInputClassificationPromptSection,
+  CONTAMINATION_FAILURE_CODES,
+  extractPromptInputClassificationSection,
+  resolveInputSourceClassification,
+} from "./factual-visual-separation";
+import {
   artVariationContractFixture,
   derivationConfigFromContract,
   formatAdaptationApprovedDerivationContractFixture,
@@ -557,6 +563,134 @@ describe("restyling contract (AIC-04)", () => {
       "RESTYLING FACTUAL-SOURCE RULE:
       The base image is the ONLY source of factual content (brand name, product name, offer, CTA, price, course name, logo). The style reference provides visual language (color, typography style, layout composition, mood) only. Do NOT copy factual claims, text, prices, offers, brand names, or CTAs from the style reference into the output."
     `);
+  });
+});
+
+describe("input classification", () => {
+  it("maps campaign_asset to campaign base asset factual label", () => {
+    const contract = artVariationContractFixture();
+    const classification = resolveInputSourceClassification(contract, {
+      hasBrandKit: false,
+      clientReferenceCount: 0,
+      packageSource: "campaign_asset",
+    });
+
+    expect(classification.factualBase.role).toBe("factual_base");
+    expect(classification.factualBase.label).toContain("campaign base asset");
+    expect(classification.visualReference).toBeNull();
+    expect(classification.brandKit).toBeNull();
+    expect(classification.auxiliaryReferences.count).toBe(0);
+  });
+
+  it("maps approved_derivation package to approved parent factual label", () => {
+    const contract = formatAdaptationApprovedDerivationContractFixture();
+    const classification = resolveInputSourceClassification(contract, {
+      hasBrandKit: false,
+      clientReferenceCount: 0,
+      packageSource: "approved_derivation",
+    });
+
+    expect(classification.factualBase.label).toContain("approved parent");
+  });
+
+  it("includes visual_reference when styleAssetId is set", () => {
+    const contract = restylingContractFixture();
+    const classification = resolveInputSourceClassification(contract, {
+      hasBrandKit: false,
+      clientReferenceCount: 0,
+    });
+
+    expect(classification.visualReference).toEqual(
+      expect.objectContaining({ role: "visual_reference" })
+    );
+  });
+
+  it("buildInputClassificationPromptSection emits required header and role lines", () => {
+    const section = buildInputClassificationPromptSection(
+      resolveInputSourceClassification(restylingContractFixture(), {
+        hasBrandKit: true,
+        clientReferenceCount: 2,
+        packageSource: "campaign_asset",
+      })
+    ).join("\n");
+
+    expect(section).toContain("INPUT SOURCE CLASSIFICATION:");
+    expect(section).toContain(
+      "sole source of people, products, brands, logos, copy, offers, CTAs, claims"
+    );
+    expect(section).toContain("Visual reference:");
+    expect(section).toContain("Brand kit:");
+    expect(section).toContain("Auxiliary references (2):");
+  });
+
+  it("extractPromptInputClassificationSection returns text before MODE block", () => {
+    const prompt = [
+      "prefix",
+      "INPUT SOURCE CLASSIFICATION:",
+      "- Factual base: campaign base asset — sole source of people, products, brands, logos, copy, offers, CTAs, claims.",
+      "- Visual reference: none.",
+      "MODE: art_variation — test",
+    ].join("\n");
+
+    expect(extractPromptInputClassificationSection(prompt)).toBe(
+      [
+        "INPUT SOURCE CLASSIFICATION:",
+        "- Factual base: campaign base asset — sole source of people, products, brands, logos, copy, offers, CTAs, claims.",
+        "- Visual reference: none.",
+      ].join("\n")
+    );
+  });
+
+  it("CONTAMINATION_FAILURE_CODES includes lineage hard-failure codes", () => {
+    expect(CONTAMINATION_FAILURE_CODES.has("copied_style_reference_facts")).toBe(
+      true
+    );
+    expect(CONTAMINATION_FAILURE_CODES.has("wrong_brand")).toBe(true);
+    expect(CONTAMINATION_FAILURE_CODES.has("unsupported_offer")).toBe(true);
+    expect(CONTAMINATION_FAILURE_CODES.has("cta_drift" as never)).toBe(false);
+  });
+
+  it("art_variation with campaign asset: factual base, no visual reference, brand kit not attached", () => {
+    const contract = artVariationContractFixture();
+    const section = buildInputClassificationPromptSection(
+      resolveInputSourceClassification(contract, {
+        hasBrandKit: false,
+        clientReferenceCount: 0,
+        packageSource: "campaign_asset",
+      })
+    ).join("\n");
+
+    expect(section).toContain("campaign base asset");
+    expect(section).toContain("Visual reference: none.");
+    expect(section).toContain("Brand kit: not attached.");
+    expect(section).toContain("Auxiliary references: none.");
+  });
+
+  it("format_adaptation with approved_derivation: factual base mentions approved parent", () => {
+    const contract = formatAdaptationApprovedDerivationContractFixture();
+    const section = buildInputClassificationPromptSection(
+      resolveInputSourceClassification(contract, {
+        hasBrandKit: false,
+        clientReferenceCount: 0,
+        packageSource: "approved_derivation",
+      })
+    ).join("\n");
+
+    expect(section).toMatch(/approved parent/i);
+  });
+
+  it("restyling with styleAssetId: visual reference line present", () => {
+    const contract = restylingContractFixture();
+    const section = buildInputClassificationPromptSection(
+      resolveInputSourceClassification(contract, {
+        hasBrandKit: false,
+        clientReferenceCount: 0,
+      })
+    ).join("\n");
+
+    expect(section).toContain("Visual reference:");
+    expect(section).toContain("style_reference asset");
+    expect(section).not.toContain("Visual reference: none.");
   });
 });
 

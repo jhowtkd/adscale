@@ -1,4 +1,5 @@
 import type { CanonicalCreative } from "./canonical-creative-contract";
+import type { InputSourceClassification } from "./factual-visual-separation";
 
 export type CtaSemantics =
   | { kind: "explicit"; text: string }
@@ -64,6 +65,7 @@ export interface CreativeContract {
   sourcePackage?: SourcePackage;
   factualSourceRules?: FactualSourceRules;
   canonicalCreative?: CanonicalCreative;
+  inputSourceClassification?: InputSourceClassification;
 }
 
 export type PromptProvenance = {
