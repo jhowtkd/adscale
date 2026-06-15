@@ -10,6 +10,7 @@ import { CONTAMINATION_FAILURE_CODES } from "@/server/ai/factual-visual-separati
 import {
   assertDerivationApprovable,
   classifyCreativeQualityGate,
+  computeQualityGateFromAnalysis,
   deriveQualityVerdict,
   extractPolishSuggestions,
   normalizeHardFailureCode,
@@ -448,6 +449,52 @@ describe("extractPolishSuggestions", () => {
     });
     expect(suggestions).toContain("Tone is slightly off.");
     expect(suggestions).toContain("Boost contrast");
+  });
+});
+
+describe("capped score", () => {
+  it("computeQualityGateFromAnalysis caps qualityScore when hard failure is active", () => {
+    const gate = computeQualityGateFromAnalysis({
+      contract: artVariationContract,
+      checklist: checklist({
+        ctaOffer: {
+          status: "failed",
+          note: "CTA missing; does not match contract Shop Now.",
+        },
+      }),
+      qualityScore: 85,
+    });
+
+    expect(gate.qualityScore).toBeLessThanOrEqual(50);
+    expect(gate.qualityVerdict).toBe("invalid");
+    expect(gate.hardFailures.some((f) => f.code === "cta_drift")).toBe(true);
+  });
+
+  it("computeQualityGateFromAnalysis caps invented_factual_entity raw 85 to ≤20", () => {
+    const gate = computeQualityGateFromAnalysis({
+      contract: artVariationContract,
+      checklist: checklist({
+        briefMatch: {
+          status: "failed",
+          note: "Output depicts Cantona, a celebrity athlete not in the campaign brief.",
+        },
+      }),
+      qualityScore: 85,
+    });
+
+    expect(gate.qualityScore).toBeLessThanOrEqual(20);
+    expect(gate.qualityVerdict).toBe("invalid");
+  });
+
+  it("leaves qualityScore unchanged when no hard failures are present", () => {
+    const gate = computeQualityGateFromAnalysis({
+      contract: artVariationContract,
+      checklist: checklist(),
+      qualityScore: 85,
+    });
+
+    expect(gate.qualityScore).toBe(85);
+    expect(gate.qualityVerdict).toBe("acceptable");
   });
 });
 

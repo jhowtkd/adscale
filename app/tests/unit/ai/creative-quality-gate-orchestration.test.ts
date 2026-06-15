@@ -116,7 +116,7 @@ describe("runCompletedDerivationQualityGate", () => {
       "deriv-1",
       "ws-1",
       expect.objectContaining({
-        qualityScore: 92,
+        qualityScore: 50,
         regenerationSuggestion: expect.stringMatching(
           /Hard failures:[\s\S]*cta_drift: CTA was replaced/
         ),
