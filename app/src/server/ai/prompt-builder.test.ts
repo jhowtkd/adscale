@@ -603,6 +603,46 @@ describe("integrity injection", () => {
   });
 });
 
+describe("precedence", () => {
+  it("includes RULE PRECEDENCE and mandatory tier in art_variation mode section", () => {
+    const prompt = buildDerivationPrompt(
+      derivationConfigFromContract(artVariationContractFixture())
+    );
+    const mode = extractPromptModeSection(prompt);
+    const canonical = extractPromptCanonicalContractSection(prompt);
+
+    expect(canonical).toContain("RULE PRECEDENCE");
+    expect(mode).toMatch(/mandatory tier|Tier mandatory/i);
+  });
+});
+
+describe("no preserve-all conflict", () => {
+  it("does not demand undifferentiated preserve-every-important-piece without tier qualification", () => {
+    const prompt = buildDerivationPrompt(
+      derivationConfigFromContract(artVariationContractFixture())
+    );
+    const mode = extractPromptModeSection(prompt);
+
+    expect(mode).not.toMatch(/preserve every important piece/i);
+    if (/preserve every/i.test(prompt)) {
+      expect(prompt).toMatch(/mandatory tier|Tier mandatory/i);
+    }
+  });
+
+  it("does not pair undifferentiated PRESERVE EXACTLY with hierarchy simplification in format_adaptation", () => {
+    const prompt = buildDerivationPrompt(
+      derivationConfigFromContract(formatAdaptationCampaignAssetContractFixture())
+    );
+    const mode = extractPromptModeSection(prompt);
+
+    expect(mode).not.toMatch(
+      /PRESERVE EXACTLY: the original photo\/subject, all text copy.*decorative shapes, icons, and graphic panels\./s
+    );
+    expect(mode).toMatch(/mandatory tier|visual prominence|three.*zone|hierarchy/i);
+    expect(extractPromptCanonicalContractSection(prompt)).toContain("RULE PRECEDENCE");
+  });
+});
+
 describe("CTA semantics contract", () => {
   it("art_variation with null ctaText uses inherited CTA instruction", () => {
     const prompt = buildDerivationPrompt({
