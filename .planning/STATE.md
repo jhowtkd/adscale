@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v12.3
 milestone_name: Integridade Criativa
-status: executing
-last_updated: "2026-06-15T20:56:00.000Z"
+status: completed
+last_updated: "2026-06-15T20:56:18.042Z"
 last_activity: 2026-06-15
 progress:
   total_phases: 85
-  completed_phases: 39
+  completed_phases: 40
   total_plans: 109
   completed_plans: 123
   percent: 100
@@ -103,6 +103,7 @@ Last activity: 2026-06-15 — Completed 121-03 (failure-specific correction dire
 - [Phase 123]: --stage final enforces thresholds, fidelity hard failures, prompt hash; writes 123-BASELINE.md + 123-VERIFICATION.md
 - [Phase 123]: run-creative-release-gate.mjs mirrors Phase 114 (test/lint/build + final evidence); QA-21 infrastructure complete
 - [Phase 123]: Committed evidence gaps_found — meanQualityScore=43.33, factualFidelityRate=0.667; wrong_brand + unsupported_offer on after set
+- [Phase 123]: Final evidence gate documents gaps_found when committed captures below QA-19/20 thresholds
 
 ## Next Steps
 
