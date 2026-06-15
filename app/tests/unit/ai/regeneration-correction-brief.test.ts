@@ -109,6 +109,142 @@ describe("buildRegenerationCorrectionBrief", () => {
   });
 });
 
+describe("buildRegenerationCorrectionBrief specific correction directives", () => {
+  it("invented_factual_entity includes remove-entity and allowed-registry language", () => {
+    const brief = buildRegenerationCorrectionBrief({
+      contract: baseContract,
+      hardFailures: [
+        { code: "invented_factual_entity", message: "Cantona detected." },
+      ],
+    });
+
+    expect(brief.promptFeedback).toContain("Correction directives:");
+    expect(brief.promptFeedback).toMatch(/allowed-entity registry|contract-approved entities/i);
+    expect(brief.promptFeedback).toMatch(/remove any person|remove.*not in/i);
+  });
+
+  it("replaced_source_subject instructs restoring original hero", () => {
+    const brief = buildRegenerationCorrectionBrief({
+      contract: baseContract,
+      hardFailures: [
+        { code: "replaced_source_subject", message: "Hero was swapped." },
+      ],
+    });
+
+    expect(brief.promptFeedback).toContain("Correction directives:");
+    expect(brief.promptFeedback).toMatch(/restore the original hero/i);
+  });
+
+  it("campaign_identity_drift instructs restoring campaign concept and CTA", () => {
+    const brief = buildRegenerationCorrectionBrief({
+      contract: baseContract,
+      hardFailures: [
+        { code: "campaign_identity_drift", message: "Became a different ad." },
+      ],
+    });
+
+    expect(brief.promptFeedback).toContain("Correction directives:");
+    expect(brief.promptFeedback).toMatch(/restore the original campaign concept/i);
+    expect(brief.promptFeedback).toMatch(/same campaign/i);
+  });
+
+  it("style_reference_contamination limits facts to base image only", () => {
+    const brief = buildRegenerationCorrectionBrief({
+      contract: baseContract,
+      hardFailures: [
+        {
+          code: "style_reference_contamination",
+          message: "Copied offer from style ref.",
+        },
+      ],
+    });
+
+    expect(brief.promptFeedback).toContain("Correction directives:");
+    expect(brief.promptFeedback).toMatch(/visual style only/i);
+    expect(brief.promptFeedback).toMatch(/base image only/i);
+  });
+
+  it("visual_overload instructs reducing to three information zones", () => {
+    const brief = buildRegenerationCorrectionBrief({
+      contract: baseContract,
+      hardFailures: [{ code: "visual_overload", message: "Too many modules." }],
+    });
+
+    expect(brief.promptFeedback).toContain("Correction directives:");
+    expect(brief.promptFeedback).toMatch(/three information zones/i);
+    expect(brief.promptFeedback).toMatch(/dominant hook/i);
+  });
+
+  it("decorative_only_variation requires new visual mechanism not color-only", () => {
+    const brief = buildRegenerationCorrectionBrief({
+      contract: baseContract,
+      hardFailures: [
+        { code: "decorative_only_variation", message: "Glow-only change." },
+      ],
+    });
+
+    expect(brief.promptFeedback).toContain("Correction directives:");
+    expect(brief.promptFeedback).toMatch(/new visual mechanism/i);
+    expect(brief.promptFeedback).toMatch(/not background\/glow\/color-only/i);
+  });
+
+  it("cta_drift instructs restoring contract CTA", () => {
+    const brief = buildRegenerationCorrectionBrief({
+      contract: baseContract,
+      hardFailures: [{ code: "cta_drift", message: "CTA replaced." }],
+    });
+
+    expect(brief.promptFeedback).toContain("Correction directives:");
+    expect(brief.promptFeedback).toMatch(/restore the contract cta exactly/i);
+  });
+
+  it("generic_template_aesthetic instructs removing generic template stacks", () => {
+    const brief = buildRegenerationCorrectionBrief({
+      contract: baseContract,
+      hardFailures: [
+        { code: "generic_template_aesthetic", message: "Neon glass stack." },
+      ],
+    });
+
+    expect(brief.promptFeedback).toContain("Correction directives:");
+    expect(brief.promptFeedback).toMatch(/generic neon\/glass\/template/i);
+  });
+
+  it("includes each matching directive when multiple failures are present", () => {
+    const brief = buildRegenerationCorrectionBrief({
+      contract: baseContract,
+      hardFailures: [
+        { code: "invented_factual_entity", message: "Invented player." },
+        { code: "cta_drift", message: "CTA wrong." },
+        { code: "visual_overload", message: "Too busy." },
+      ],
+    });
+
+    expect(brief.promptFeedback).toContain("Correction directives:");
+    expect(brief.promptFeedback).toMatch(/allowed-entity registry|contract-approved entities/i);
+    expect(brief.promptFeedback).toMatch(/restore the contract cta exactly/i);
+    expect(brief.promptFeedback).toMatch(/three information zones/i);
+    expect(brief.promptFeedback).toContain("Hard failures:");
+    expect(brief.promptFeedback).toContain("invented_factual_entity:");
+    expect(brief.promptFeedback).toContain("cta_drift:");
+  });
+
+  it("still respects MAX_PROMPT_FEEDBACK_CHARS with correction directives", () => {
+    const longIssues = Array.from({ length: 40 }, (_, i) => `Issue ${i}: ${"x".repeat(80)}`);
+    const brief = buildRegenerationCorrectionBrief({
+      contract: baseContract,
+      hardFailures: [
+        { code: "invented_factual_entity", message: "Entity invented." },
+        { code: "visual_overload", message: "Overload." },
+      ],
+      scoreIssues: longIssues,
+    });
+
+    expect(brief.promptFeedback.length).toBeLessThanOrEqual(1800);
+    expect(brief.promptFeedback).toContain('Preserve the exact CTA "Shop Now"');
+  });
+});
+
 describe("mergeUserRegenerationNotes", () => {
   const machine = "Hard failures:\n- cta_drift: missing\n\nSuggestion: Fix it. Preserve the exact CTA.";
 
