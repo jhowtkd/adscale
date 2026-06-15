@@ -6,6 +6,12 @@ import {
   CREATIVE_QA_CORE_CRITERIA,
   type CreativeQaCriterion,
 } from "./creative-quality-taxonomy";
+import {
+  buildObservableQaRubricSection,
+  extractObservableRubricSection,
+} from "./observable-rubric";
+
+export { extractObservableRubricSection };
 
 export type { CreativeQaCriterion } from "./creative-quality-taxonomy";
 
@@ -130,6 +136,12 @@ export function buildCreativeQaPrompt(input: Omit<AnalyzeCreativeQaInput, "image
     ? `\nFor briefMatch: compare visible people, brands, products, and claims against the campaign allowed entity registry — people: ${allowedEntities.people.join(", ") || "none"}; brands: ${allowedEntities.brands.join(", ")}; products: ${allowedEntities.products.join(", ")}; claims: ${allowedEntities.claims.join(", ")}. Flag invented_factual_entity when the output depicts entities absent from this list.`
     : "";
 
+  const rubricSection = buildObservableQaRubricSection({
+    generationMode: input.contract?.generationMode ?? input.derivation.generationMode ?? undefined,
+    targetFormat: input.derivation.format ?? input.contract?.targetFormat ?? undefined,
+    dominantIdea: input.contract?.canonicalCreative?.dominantIdea,
+  });
+
   return `Review this final ad creative before export.
 Return only JSON with status, checklist, issues, and suggestions.
 
@@ -137,7 +149,8 @@ Allowed status values: ready, warning, review.
 Checklist keys: ${checklistKeys}.
 Each checklist item must include status passed/warning/failed and a short note.
 
-Export must remain allowed. Use warning or review to guide the user, not to block them.
+Evaluate honestly against the rubric below. Use status "failed" on checklist criteria when observable defects are present — especially visual overload, unjustified generic template aesthetics, or hook illegibility at thumbnail scale.
+Overall QA status may be "review" when multiple warnings exist; do not mark "ready" if any criterion is "failed".
 
 Campaign:
 - Name: ${input.campaign.name}
@@ -159,6 +172,7 @@ TEXT FIDELITY (critical): if an exact CTA was provided, the rendered CTA must ma
 TEXT FIDELITY (critical): scan all visible Portuguese copy for typos, missing letters, or garbled words (e.g. "ESPECIALITAS" instead of "ESPECIALISTAS"). Flag legibility as failed when any headline or key claim contains a spelling error.
 For informationPreservation, check whether important text, offer, CTA, logo, product/service, badges, small print, faces, and other information-bearing elements from the brief or creative diagnosis were cropped, hidden, truncated, blurred, overlapped, deleted, or made too small to read.
 For art_variation, also check whether the result rearranged elements intentionally instead of solving the variation by cropping the key ad.${styleFidelityInstruction}${allowedEntitiesInstruction}
+${rubricSection}
 Do not invent new facts, claims, offers, products, logos, or CTAs.
 Keep issues and suggestions short and actionable.
 Locale for user-facing notes: ${input.locale}.`;
