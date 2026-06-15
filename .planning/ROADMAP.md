@@ -49,7 +49,7 @@
 | 120 | Quality Gate Hardening | Complete    | 2026-06-15 | 2026-06-15 |
 | 121 | Score Ceilings and Retry | Complete    | 2026-06-15 | 2026-06-15 |
 | 122 | Regression Test Suite | Complete    | 2026-06-15 | — |
-| 123 | Visual Validation Gate | 4/4 | Complete   | 2026-06-15 |
+| 123 | Visual Validation Gate | 4/4 | gaps_found |  |
 
 ---
 
