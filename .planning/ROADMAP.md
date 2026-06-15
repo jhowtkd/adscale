@@ -271,7 +271,13 @@ Plans:
   3. Derivação contaminada não pode servir como fonte para adaptações de formato subsequentes.
   4. Entidades como Cantona, Manchester United e Adidas ausentes da fonte factual são bloqueadas no gate.
 
-**Plans:** TBD
+**Plans:** 4 plans
+
+Plans:
+- [ ] 117-01-PLAN.md — Input source classification module + prompt/job wiring (SEP-01)
+- [ ] 117-02-PLAN.md — Visual reference transfer allowlist + visualTokenBrief guard (SEP-02)
+- [ ] 117-03-PLAN.md — Contaminated lineage firewall for format adaptation (SEP-03)
+- [ ] 117-04-PLAN.md — Allowed entities registry + invented_factual_entity gate (SEP-04)
 
 ---
 
