@@ -438,11 +438,7 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
   }
 
   if (generationMode === "restyling") {
-    parts.push(
-      "",
-      "RESTYLING FACTUAL-SOURCE RULE:",
-      "The base image is the ONLY source of factual content (brand name, product name, offer, CTA, price, course name, logo). The style reference provides visual language (color, typography style, layout composition, mood) only. Do NOT copy factual claims, text, prices, offers, brand names, or CTAs from the style reference into the output."
-    );
+    parts.push(...buildRestylingFactualSourceRuleSection());
   }
 
   parts.push(
@@ -667,6 +663,15 @@ export function extractPromptModeSection(prompt: string): string {
     "\nBRIEF-BASED PRESERVATION FALLBACK:",
   ]);
   return prompt.slice(start, end).trimEnd();
+}
+
+/** Restyling factual-source rule block for derivation and correction prompts. */
+export function buildRestylingFactualSourceRuleSection(): string[] {
+  return [
+    "",
+    "RESTYLING FACTUAL-SOURCE RULE:",
+    "The base image is the ONLY source of factual content (brand name, product name, offer, CTA, price, course name, logo). The style reference provides visual language (color, typography style, layout composition, mood) only. Do NOT copy factual claims, text, prices, offers, brand names, or CTAs from the style reference into the output.",
+  ];
 }
 
 /** Restyling factual-source rule block when present. */

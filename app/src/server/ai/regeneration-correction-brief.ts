@@ -4,6 +4,7 @@ import {
   normalizeHardFailureCode,
   type CreativeHardFailureCode,
 } from "./creative-quality-gate";
+import { buildRestylingFactualSourceRuleSection } from "./prompt-builder";
 import type { CreativeQaCheckStatus } from "./creative-qa";
 import type { FeedbackCategory } from "../repositories/feedback";
 import { QA_CRITERION_DISPLAY_ORDER } from "./creative-quality-taxonomy";
@@ -291,7 +292,16 @@ export function buildRegenerationCorrectionBrief(input: {
     modelSuggestion: undefined,
   });
 
-  const promptFeedback = applyBriefCharCap(issueBody, preservationTail);
+  const restylingRule =
+    input.contract.generationMode === "restyling"
+      ? buildRestylingFactualSourceRuleSection().join("\n")
+      : "";
+
+  const issueBodyWithRestyling = restylingRule
+    ? `${issueBody}\n\n${restylingRule}`
+    : issueBody;
+
+  const promptFeedback = applyBriefCharCap(issueBodyWithRestyling, preservationTail);
 
   return {
     primaryReason: buildPrimaryReason({ hardFailures, scoreIssues, qaFailed, qaWarnings }),
