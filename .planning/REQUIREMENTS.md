@@ -21,7 +21,7 @@ Endurecer o pipeline criativo para que peças factualmente incorretas, visualmen
 - [x] **FIXT-01**: Cada falha observada no corpus auditado (entidade inventada, overload, template genérico, drift de formato, contaminação de restyling) possui fixture reproduzível em `quality-fixtures` ou catálogo equivalente.
 - [x] **FIXT-02**: Fixtures registram campanha canônica, entidades permitidas, modos e formatos esperados para Smoke, Nova campanha, Teste 3/CENBRAP NR1 e Teste campanha/Master NR1.
 - [x] **FIXT-03**: Previews (`270×270`) e finais são categorias distintas nas fixtures e na validação.
-- [ ] **FIXT-04**: Testes demonstram que o pipeline atual aprova indevidamente as peças-falha do corpus antes da correção (red → green).
+- [x] **FIXT-04**: Testes demonstram que o pipeline atual aprova indevidamente as peças-falha do corpus antes da correção (red → green).
 
 ### Creative Contract (CONT)
 
@@ -106,7 +106,7 @@ Endurecer o pipeline criativo para que peças factualmente incorretas, visualmen
 | FIXT-01 | Phase 115 | Complete |
 | FIXT-02 | Phase 115 | Complete |
 | FIXT-03 | Phase 115 | Complete |
-| FIXT-04 | Phase 115 | Pending |
+| FIXT-04 | Phase 115 | Complete |
 | CONT-01 | Phase 116 | Pending |
 | CONT-02 | Phase 116 | Pending |
 | CONT-03 | Phase 116 | Pending |
