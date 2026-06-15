@@ -1031,3 +1031,39 @@ describe("CTA semantics contract", () => {
     expect(prompt).not.toContain("Bold headline stack");
   });
 });
+
+describe("allowed entities prompt section", () => {
+  it("CENBRAP NR1 restyling prompt contains ALLOWED ENTITIES with CENBRAP brand", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "restyling",
+      targetFormat: "1:1",
+      ctaText: "Solicitar checklist",
+      campaign: {
+        id: "camp-1",
+        workspaceId: "ws-1",
+        name: "CENBRAP NR1",
+        client: "CENBRAP",
+        product: "NR1 compliance toolkit",
+        objective: "NR1 compliance",
+        audience: "Safety managers",
+        platforms: ["meta"],
+        tone: "professional",
+        offer: "Conformidade NR1",
+        constraints: "No athlete imagery",
+        notes: null,
+        status: "active",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      contract: restylingContractFixture({
+        client: "CENBRAP",
+        product: "NR1 compliance toolkit",
+        offer: "Conformidade NR1",
+      }),
+    });
+
+    expect(prompt).toContain("ALLOWED ENTITIES (do not invent beyond this list):");
+    expect(prompt).toContain("CENBRAP");
+    expect(prompt).not.toContain("Cantona");
+  });
+});

@@ -3,6 +3,8 @@ import sourceManifest from "../../../exports/render-creatives/manifest.json";
 import {
   CANONICAL_CAMPAIGNS,
   CORPUS_MANIFEST_INDEX,
+  matchCanonicalCampaignSlug,
+  resolveAllowedEntitiesForCampaign,
   type CanonicalCampaignSlug,
   type CorpusManifestEntry,
 } from "@/server/ai/creative-corpus";
@@ -60,6 +62,51 @@ describe("CANONICAL_CAMPAIGNS registry", () => {
 
 /** Debug campaigns excluded from the four-campaign audit baseline. */
 const UNMAPPED_CAMPAIGN_NAMES = ["Teste_debuf", "Teste 5"] as const;
+
+describe("matchCanonicalCampaignSlug", () => {
+  it("maps CENBRAP NR1 to teste-3-nr1", () => {
+    expect(matchCanonicalCampaignSlug("CENBRAP NR1", null)).toBe("teste-3-nr1");
+  });
+
+  it("maps Teste 3 display name to teste-3-nr1", () => {
+    expect(matchCanonicalCampaignSlug("Teste 3", "CENBRAP")).toBe("teste-3-nr1");
+  });
+
+  it("maps smoke campaign display name", () => {
+    expect(matchCanonicalCampaignSlug("Smoke v11.6 CQA-02", null)).toBe("smoke");
+  });
+
+  it("maps nova-campanha display name", () => {
+    expect(matchCanonicalCampaignSlug("Nova campanha", null)).toBe("nova-campanha");
+  });
+
+  it("maps teste-campanha-nr1 via Master NR1 display name", () => {
+    expect(matchCanonicalCampaignSlug("Teste campanha", "Master NR1")).toBe(
+      "teste-campanha-nr1"
+    );
+  });
+
+  it("returns null for unmapped campaigns", () => {
+    expect(matchCanonicalCampaignSlug("Teste_debuf", null)).toBeNull();
+    expect(matchCanonicalCampaignSlug("Teste 5", null)).toBeNull();
+    expect(matchCanonicalCampaignSlug(null, null)).toBeNull();
+  });
+});
+
+describe("resolveAllowedEntitiesForCampaign", () => {
+  it("returns allowedEntities for mapped CENBRAP NR1 campaign", () => {
+    const entities = resolveAllowedEntitiesForCampaign({
+      name: "CENBRAP NR1",
+      client: "CENBRAP",
+    });
+    expect(entities).toEqual(CANONICAL_CAMPAIGNS["teste-3-nr1"].allowedEntities);
+  });
+
+  it("returns null when campaign is unmapped", () => {
+    expect(resolveAllowedEntitiesForCampaign({ name: "Teste 5" })).toBeNull();
+    expect(resolveAllowedEntitiesForCampaign(null)).toBeNull();
+  });
+});
 
 describe("CORPUS_MANIFEST_INDEX", () => {
   it("indexes every export in the source manifest", () => {
