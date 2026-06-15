@@ -2,14 +2,15 @@
 gsd_state_version: 1.0
 milestone: v12.3
 milestone_name: Integridade Criativa
-status: planning
-last_updated: "2026-06-15T14:17:10.981Z"
-last_activity: 2026-06-15 — completed 116-03-PLAN.md
+status: verifying
+last_updated: "2026-06-15T16:19:59.577Z"
+last_activity: 2026-06-15
 progress:
-  total_phases: 35
-  completed_phases: 7
-  total_plans: 22
-  completed_plans: 36
+  total_phases: 79
+  completed_phases: 33
+  total_plans: 87
+  completed_plans: 98
+  percent: 100
 ---
 
 # Project State
@@ -22,14 +23,14 @@ See: .planning/PROJECT.md (updated 2026-06-15)
 
 **Current focus:** v12.3 Integridade Criativa — factual fidelity, creative direction, and quality gate hardening for the derivation pipeline.
 
-**Status:** Ready to plan
+**Status:** Phase complete — ready for verification
 
 ## Current Position
 
 Phase: 116 — Canonical Creative Contract
 Plan: 3 of 03 complete
-Status: Phase complete
-Last activity: 2026-06-15 — completed 116-03-PLAN.md
+Status: Phase complete — ready for verification
+Last activity: 2026-06-15
 
 Progress: [██████████] 3/3 plans in phase 116
 
@@ -66,6 +67,8 @@ Last activity: 2026-06-15 — completed 116-03-PLAN.md (tier-aware MODE blocks, 
 ## Decisions
 
 - art_variation and format_adaptation MODE blocks use tier-aware preservation governed by RULE PRECEDENCE (CONT-03)
+- [Phase 117]: CONTAMINATION_FAILURE_CODES omits invented_factual_entity until Plan 04
+- [Phase 117]: INPUT SOURCE CLASSIFICATION injected after integrity block, before MODE-specific rules
 
 ## Next Steps
 
