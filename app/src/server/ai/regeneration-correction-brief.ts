@@ -1,11 +1,55 @@
 import { resolveCtaSemantics, type CreativeContract } from "./creative-contract";
 import { buildRegenerationSuggestion, ctaTextFromContract } from "./regeneration-suggestion";
-import type { CreativeHardFailureCode } from "./creative-quality-gate";
+import {
+  normalizeHardFailureCode,
+  type CreativeHardFailureCode,
+} from "./creative-quality-gate";
 import type { CreativeQaCheckStatus } from "./creative-qa";
 import type { FeedbackCategory } from "../repositories/feedback";
 import { QA_CRITERION_DISPLAY_ORDER } from "./creative-quality-taxonomy";
 
 const MAX_PROMPT_FEEDBACK_CHARS = 1800;
+
+export const FAILURE_CORRECTION_DIRECTIVES: Partial<
+  Record<CreativeHardFailureCode, string>
+> = {
+  invented_factual_entity:
+    "Remove any person, brand, team, or claim not in the allowed-entity registry; depict only contract-approved entities.",
+  replaced_source_subject:
+    "Restore the original hero person/photo from the factual base; do not substitute a different subject.",
+  wrong_brand:
+    "Restore the correct campaign brand/logo; remove unauthorized marks.",
+  unauthorized_brand_or_ip:
+    "Restore the correct campaign brand/logo; remove unauthorized marks.",
+  campaign_identity_drift:
+    "Restore the original campaign concept, offer narrative, and CTA; this is the same campaign in a new format, not a new ad.",
+  style_reference_contamination:
+    "Copy visual style only (palette, typography, mood) from the style reference; all facts, people, offers, and CTA text must come from the base image only.",
+  visual_overload:
+    "Reduce to at most three information zones; establish one dominant hook; demote or remove competing modules.",
+  missing_dominant_idea:
+    "Restore the campaign's dominant visual idea as the clear focal point.",
+  decorative_only_variation:
+    "Introduce a new visual mechanism or layout idea — not background/glow/color-only change.",
+  cta_drift:
+    "Restore the contract CTA exactly (or inherited CTA from base for restyling/format).",
+  generic_template_aesthetic:
+    "Remove generic neon/glass/template stacks unless required by brand; simplify to campaign-specific design.",
+};
+
+export function getFailureCorrectionDirectives(codes: string[]): string[] {
+  const seen = new Set<string>();
+  const directives: string[] = [];
+  for (const rawCode of codes) {
+    const code = normalizeHardFailureCode(rawCode);
+    const directive = FAILURE_CORRECTION_DIRECTIVES[code];
+    if (directive && !seen.has(directive)) {
+      seen.add(directive);
+      directives.push(directive);
+    }
+  }
+  return directives;
+}
 
 export type RegenerationBriefSource =
   | "hard_failures"
@@ -125,6 +169,14 @@ function formatIssueSections(input: {
   const sections: string[] = [];
 
   if (input.hardFailures.length > 0) {
+    const directives = getFailureCorrectionDirectives(
+      input.hardFailures.map((f) => f.code)
+    );
+    if (directives.length > 0) {
+      const directiveLines = directives.map((d) => `- ${d}`);
+      sections.push(`Correction directives:\n${directiveLines.join("\n")}`);
+    }
+
     const lines = input.hardFailures.map((f) => `- ${f.code}: ${f.message}`);
     sections.push(`Hard failures:\n${lines.join("\n")}`);
   }
