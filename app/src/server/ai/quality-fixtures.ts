@@ -113,10 +113,10 @@ export const QUALITY_FIXTURES: QualityFixture[] = [
         note: "Unrelated discount copied from style reference, not base image.",
       },
     }),
-    expectedHardFailureCodes: ["copied_style_reference_facts"],
+    expectedHardFailureCodes: ["style_reference_contamination"],
     expectedVerdict: "invalid",
     expectedRegenerationSnippets: [
-      "copied_style_reference_facts",
+      "style_reference_contamination",
       "restyling",
       "1:1",
     ],
