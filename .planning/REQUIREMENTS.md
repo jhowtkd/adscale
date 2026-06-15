@@ -70,10 +70,10 @@ Endurecer o pipeline criativo para que peças factualmente incorretas, visualmen
 
 ### Regression Tests (TEST)
 
-- [ ] **TEST-01**: Testes de prompt verificam presença de ideia dominante, três níveis, CTA secundário, entidades proibidas, separação factual/visual e simplificação permitida.
-- [ ] **TEST-02**: Testes de gate cobrem Cantona/Manchester United, pessoa substituída, logo não autorizado, campanha diferente, template genérico, excesso de módulos e variação decorativa.
-- [ ] **TEST-03**: Suíte independente por modo (`art_variation`, `restyling`, `format_adaptation`) com mesmas entradas em múltiplos formatos.
-- [ ] **TEST-04**: Teste de miniatura valida leitura do hook em escala mobile.
+- [x] **TEST-01**: Testes de prompt verificam presença de ideia dominante, três níveis, CTA secundário, entidades proibidas, separação factual/visual e simplificação permitida.
+- [x] **TEST-02**: Testes de gate cobrem Cantona/Manchester United, pessoa substituída, logo não autorizado, campanha diferente, template genérico, excesso de módulos e variação decorativa.
+- [x] **TEST-03**: Suíte independente por modo (`art_variation`, `restyling`, `format_adaptation`) com mesmas entradas em múltiplos formatos.
+- [x] **TEST-04**: Teste de miniatura valida leitura do hook em escala mobile.
 
 ### Visual Validation (QA)
 
@@ -134,10 +134,10 @@ Endurecer o pipeline criativo para que peças factualmente incorretas, visualmen
 | SCR-03 | Phase 121 | Complete |
 | SCR-04 | Phase 121 | Complete |
 | SCR-05 | Phase 121 | Complete |
-| TEST-01 | Phase 122 | Pending |
-| TEST-02 | Phase 122 | Pending |
-| TEST-03 | Phase 122 | Pending |
-| TEST-04 | Phase 122 | Pending |
+| TEST-01 | Phase 122 | Complete |
+| TEST-02 | Phase 122 | Complete |
+| TEST-03 | Phase 122 | Complete |
+| TEST-04 | Phase 122 | Complete |
 | QA-18 | Phase 123 | Pending |
 | QA-19 | Phase 123 | Pending |
 | QA-20 | Phase 123 | Pending |

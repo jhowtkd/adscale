@@ -36,7 +36,7 @@
 - [x] **Phase 119: Observable Rubric** — critérios observáveis substituem "polished"; reprova overload, genérico severo e hook ilegível em miniatura (completed 2026-06-15)
 - [x] **Phase 120: Quality Gate Hardening** — novos hard failures; factual sempre invalid; corpus-falha bloqueado; fiel continua aprovável (completed 2026-06-15)
 - [x] **Phase 121: Score Ceilings and Retry** — tetos por categoria de falha; retry de restyling da fonte factual; correções específicas (completed 2026-06-15)
-- [ ] **Phase 122: Regression Test Suite** — prompt injection tests; gate matrix; suíte por modo e formato; teste de miniatura
+- [x] **Phase 122: Regression Test Suite** — prompt injection tests; gate matrix; suíte por modo e formato; teste de miniatura (completed 2026-06-15)
 - [ ] **Phase 123: Visual Validation Gate** — geração controlada antes/depois; rubrica ≥75/≥95; CI verde
 
 | # | Phase | Requirements | Status | Completed |
@@ -48,7 +48,7 @@
 | 119 | 0/4 | Complete    | 2026-06-15 | 2026-06-15 |
 | 120 | Quality Gate Hardening | Complete    | 2026-06-15 | 2026-06-15 |
 | 121 | Score Ceilings and Retry | Complete    | 2026-06-15 | 2026-06-15 |
-| 122 | Regression Test Suite | TEST-01–04 | Pending | — |
+| 122 | Regression Test Suite | Complete    | 2026-06-15 | — |
 | 123 | Visual Validation Gate | QA-18–21 | Pending | — |
 
 ---
@@ -392,7 +392,7 @@ Plans:
   3. Suíte independente por modo (`art_variation`, `restyling`, `format_adaptation`) com mesmas entradas em múltiplos formatos.
   4. Teste de miniatura valida leitura do hook em escala mobile.
 
-**Plans:** TBD
+**Plans:** 4/4 plans complete
 
 ---
 
