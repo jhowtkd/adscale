@@ -95,8 +95,8 @@ OPERATIONAL RULES FOR BOLD:
 - Reorganize visual hierarchy: resize, reposition, and regroup key elements.
 - Apply new lighting treatment, shadows, and color grading while staying within the brand palette.
 - Preserve core brand assets (logo, product), campaign message, offer, and CTA.
-- INVIOLABLE TEXT: every headline, subhead, name, credential, offer line, and CTA from the reference must appear with EXACT spelling and punctuation — no typos, abbreviations, or substitutions.
-- INVIOLABLE FACTS: headline, offer, CTA, and named people/products from the reference must keep exact spelling — consolidate visual modules (bullets, badges, icon rows) instead of reproducing every block at equal size.
+- INVIOLABLE TEXT (mandatory tier): hook/headline, offer line, CTA, and named people/products from the reference must appear with EXACT spelling and punctuation — no typos, abbreviations, or substitutions.
+- CONSOLIDATION (condensable tier only): merge, shrink, or regroup bullets, badges, and icon rows instead of reproducing every block at equal size; decorative modules may yield per RULE PRECEDENCE.
 - Do not invent a new brand or unrelated visual universe.
 - The result must be clearly a different creative from the same campaign.`;
 
@@ -107,8 +107,8 @@ OPERATIONAL RULES FOR EXTREME:
 - Rebuild composition from scratch: new hierarchy, new spacing language, new rhythm.
 - Apply bold lighting shifts, contrast changes, and atmospheric treatment.
 - Preserve only: brand identity (logo behavior, palette family), campaign message, offer, and CTA.
-- INVIOLABLE TEXT: all visible copy from the reference (headlines, names, credentials, offer, CTA) must be reproduced with EXACT spelling — typos like missing letters are hard failures.
-- INVIOLABLE CONTENT BLOCKS: do not drop professor names, benefit pillars, offer badges, or legal copy while reorganizing the layout.
+- INVIOLABLE TEXT (mandatory tier): hook/headline, offer line, CTA, and named people/products must be reproduced with EXACT spelling — typos like missing letters are hard failures.
+- INVIOLABLE CONTENT BLOCKS (mandatory tier): professor names, offer badges, and legal copy spelling must survive reorganization; condensable and decorative modules may be merged, regrouped, or omitted per RULE PRECEDENCE.
 - The result should be almost unrecognizable side-by-side with the reference, yet clearly belong to the same campaign when viewed independently.`;
 
 const CREATIVITY_TEMPLATES: Record<string, string> = {
@@ -406,14 +406,14 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
     parts.push(
       "MODE: art_variation — Recompose the original campaign asset into a new artistic variation while keeping the SAME format/proportions.",
       "Requirements: produce a PERCEPTIBLY DIFFERENT result from the reference. Vary background, composition, CTA module placement, and visual hierarchy. Do NOT produce a near-identical copy.",
-      "MANDATORY PRESERVATION: preserve every important piece of campaign information from the reference: visible headline, offer, discount/price, CTA, product/service, logo if present, legal/small-print text if present, and key visual subject.",
-      "ANTI-CROPPING RULE: do not crop, hide, truncate, blur, or cover text, faces, products, logos, offer cards, CTA buttons, price/discount badges, or other information-bearing elements.",
-      "REARRANGEMENT RULE: when changing the composition, rebuild the layout by resizing, grouping, and repositioning elements so all preserved information remains visible, readable, and intentionally arranged inside the canvas.",
-      "LAYOUT SAFETY PASS: before finalizing, check the four canvas edges and all text boxes; if any important information touches an edge, overlaps, or becomes too small to read, reduce scale and rebalance whitespace instead of cropping.",
-      "SAFE MARGIN RULE: keep logos, CTA buttons, badges, legal copy, all text, faces, and key product/service visuals at least 8% of the canvas width/height away from the edges unless the original brand system intentionally uses full-bleed decorative background only.",
+      "MANDATORY PRESERVATION: preserve **mandatory tier** content in meaning (hook/headline, offer/proof, CTA, logo if present, product/subject). Condensable modules (badges, duration labels, bullet pillars, legal copy) may merge, shrink, or relocate per RULE PRECEDENCE and CONTENT TIERS above. Decorative modules (icon rows, selos, card chrome) may be omitted when hook + offer + CTA already communicate the campaign.",
+      "ANTI-CROPPING RULE: do not crop, hide, truncate, blur, or cover mandatory-tier text, faces, products, logos, offer cards, CTA buttons, price/discount badges, or other information-bearing elements.",
+      "REARRANGEMENT RULE: when changing the composition, rebuild the layout by resizing, grouping, and repositioning elements so mandatory-tier content remains visible, readable, and intentionally arranged inside the canvas.",
+      "LAYOUT SAFETY PASS: before finalizing, check the four canvas edges and all text boxes; if any mandatory-tier information touches an edge, overlaps, or becomes too small to read, reduce scale and rebalance whitespace instead of cropping.",
+      "SAFE MARGIN RULE: keep logos, CTA buttons, badges, legal copy, mandatory-tier text, faces, and key product/service visuals at least 8% of the canvas width/height away from the edges unless the original brand system intentionally uses full-bleed decorative background only.",
       "BRAND LOCKUP RULE: do not place vertical or horizontal logos flush against any edge. Move, scale, or rotate brand marks so the complete logo has visible breathing room and cannot be cut by platform placements.",
-      "THUMBNAIL LEGIBILITY RULE: secondary information such as duration, online/onsite labels, start date, badges, and offer details must remain readable when the image is viewed small; increase contrast, font weight, or grouping instead of shrinking them.",
-      "Do not solve a crowded layout by deleting information. Use hierarchy, grouping, spacing, and background extension to make the preserved information fit.",
+      "THUMBNAIL LEGIBILITY RULE: condensable information such as duration, online/onsite labels, start date, badges, and offer details must remain readable when the image is viewed small; increase contrast, font weight, or grouping instead of shrinking them — or merge into a single support line per CONTENT TIERS.",
+      "Do not drop **mandatory tier** meaning to solve a crowded layout. Condense or omit condensable and decorative modules per RULE PRECEDENCE; use hierarchy, grouping, spacing, and background extension so mandatory-tier content remains visible and legible.",
       "Preserve the original brand identity, palette, typography style, product treatment, and overall tone. Do not invent a new brand or unrelated visual universe."
     );
   } else if (generationMode === "format_adaptation") {
@@ -534,8 +534,8 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
     if (isArtVariation) {
       parts.push(
         "Keep the same format/proportions as the reference. Treat this as image-conditioned derivation, not text-to-image creation from scratch.",
-        "Use the reference as the complete source of truth for what information must survive. Rearrange the ad, do not crop out content.",
-        "If the original ad is dense, prioritize a cleaner hierarchy that still includes all critical copy and brand/product elements."
+        "Use the reference as the complete source of truth for what information must survive. Rearrange the ad, do not crop out mandatory-tier content.",
+        "If the original ad is dense, prioritize a cleaner three-zone hierarchy per VISUAL HIERARCHY CONTRACT. Mandatory-tier copy and brand/product elements must remain legible; condensable and decorative modules may yield visual weight per RULE PRECEDENCE."
       );
     } else {
       parts.push(

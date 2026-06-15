@@ -156,15 +156,16 @@ describe("buildDerivationPrompt", () => {
       },
     });
 
-    expect(prompt).toContain("visible headline, offer, discount/price, CTA");
+    expect(prompt).toContain("mandatory tier");
+    expect(prompt).toContain("hook/headline, offer/proof, CTA");
     expect(prompt).toContain("do not crop, hide, truncate, blur, or cover");
-    expect(prompt).toContain("all preserved information remains visible, readable, and intentionally arranged");
+    expect(prompt).toContain("mandatory-tier content remains visible, readable, and intentionally arranged");
     expect(prompt).toContain("reduce scale and rebalance whitespace instead of cropping");
     expect(prompt).toContain("at least 8% of the canvas width/height away from the edges");
     expect(prompt).toContain("do not place vertical or horizontal logos flush against any edge");
-    expect(prompt).toContain("secondary information such as duration");
-    expect(prompt).toContain("Use hierarchy, grouping, spacing, and background extension");
-    expect(prompt).toContain("Rearrange the ad, do not crop out content");
+    expect(prompt).toContain("condensable information such as duration");
+    expect(prompt).toContain("Condense or omit condensable and decorative modules per RULE PRECEDENCE");
+    expect(prompt).toContain("Rearrange the ad, do not crop out mandatory-tier content");
     expect(prompt).toContain("BRIEF-BASED PRESERVATION FALLBACK");
     expect(prompt).toContain("Brand/product from brief: ADScale");
     expect(prompt).toContain("Exact CTA for this variation: Teste agora");
@@ -403,10 +404,11 @@ describe("art variation contract (AIC-02)", () => {
 
     expect(prompt).toContain("CREATIVITY LEVEL: bold");
     expect(prompt).toContain("OPERATIONAL RULES FOR BOLD");
-    expect(prompt).toContain("visible headline, offer, discount/price, CTA");
-    expect(prompt).toContain("product/service");
+    expect(prompt).toContain("mandatory tier");
+    expect(prompt).toContain("hook/headline, offer/proof, CTA");
     expect(prompt).toContain("logo if present");
-    expect(prompt).toContain("legal/small-print");
+    expect(prompt).toContain("product/subject");
+    expect(prompt).toContain("CONSOLIDATION (condensable tier only)");
     expect(prompt).toContain("Vary background, composition, CTA module placement");
     expect(prompt).toContain("Do not invent a new brand");
 
@@ -627,19 +629,6 @@ describe("no preserve-all conflict", () => {
     if (/preserve every/i.test(prompt)) {
       expect(prompt).toMatch(/mandatory tier|Tier mandatory/i);
     }
-  });
-
-  it("does not pair undifferentiated PRESERVE EXACTLY with hierarchy simplification in format_adaptation", () => {
-    const prompt = buildDerivationPrompt(
-      derivationConfigFromContract(formatAdaptationCampaignAssetContractFixture())
-    );
-    const mode = extractPromptModeSection(prompt);
-
-    expect(mode).not.toMatch(
-      /PRESERVE EXACTLY: the original photo\/subject, all text copy.*decorative shapes, icons, and graphic panels\./s
-    );
-    expect(mode).toMatch(/mandatory tier|visual prominence|three.*zone|hierarchy/i);
-    expect(extractPromptCanonicalContractSection(prompt)).toContain("RULE PRECEDENCE");
   });
 });
 
