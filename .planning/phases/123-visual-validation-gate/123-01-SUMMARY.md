@@ -68,7 +68,7 @@ Each task was committed atomically:
 1. **Task 1: Define CREATIVE_VALIDATION_MATRIX with typed rows** - `460e5ee4` (test RED), `5f029db6` (feat GREEN)
 2. **Task 2: Matrix coverage and corpus anchor tests** - `8340716f` (test)
 
-**Plan metadata:** pending (docs commit)
+**Plan metadata:** `d8e46394` (docs: complete plan)
 
 ## Files Created/Modified
 
