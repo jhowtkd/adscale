@@ -42,7 +42,7 @@
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
 | 115 | Corpus Fixtures and Audit Baseline | Complete    | 2026-06-15 | 2026-06-15 |
-| 116 | Canonical Creative Contract | 2/3 | In Progress|  |
+| 116 | Canonical Creative Contract | 3/3 | Complete   | 2026-06-15 |
 | 117 | Factual vs Visual Separation | SEP-01–04 | Pending | — |
 | 118 | Per-Mode Prompt Rules | MODE-01–05 | Pending | — |
 | 119 | Observable Rubric | RUBR-01–04 | Pending | — |
@@ -253,7 +253,7 @@ Plans:
 Plans:
 - [x] 116-01-PLAN.md — Canonical types, resolver, job wiring (CONT-01, CONT-02)
 - [x] 116-02-PLAN.md — Integrity injection + extractors + regression tests (CONT-04)
-- [ ] 116-03-PLAN.md — Tier-aware mode blocks + preserve-all conflict resolution (CONT-03)
+- [x] 116-03-PLAN.md — Tier-aware mode blocks + preserve-all conflict resolution (CONT-03)
 
 ---
 

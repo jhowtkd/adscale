@@ -27,7 +27,7 @@ Endurecer o pipeline criativo para que peças factualmente incorretas, visualmen
 
 - [x] **CONT-01**: Contrato canônico declara ideia dominante, hook único, zona de prova/oferta, CTA único e identidade invariável (campanha, paleta, pessoas, produto, marca).
 - [x] **CONT-02**: Contrato distingue conteúdo obrigatório, condensável e decorativo descartável com precedência explícita: fatos > hierarquia > decoração.
-- [ ] **CONT-03**: Nenhum prompt exige simultaneamente preservar todos os módulos literalmente e simplificar hierarquia sem regra de precedência.
+- [x] **CONT-03**: Nenhum prompt exige simultaneamente preservar todos os módulos literalmente e simplificar hierarquia sem regra de precedência.
 - [x] **CONT-04**: `VISUAL_HIERARCHY_CONTRACT` e `ANTI_HALLUCINATION_RULES` são injetados em todos os prompts de derivação aplicáveis.
 
 ### Factual vs Visual Separation (SEP)
@@ -109,7 +109,7 @@ Endurecer o pipeline criativo para que peças factualmente incorretas, visualmen
 | FIXT-04 | Phase 115 | Complete |
 | CONT-01 | Phase 116 | Complete |
 | CONT-02 | Phase 116 | Complete |
-| CONT-03 | Phase 116 | Pending |
+| CONT-03 | Phase 116 | Complete |
 | CONT-04 | Phase 116 | Complete |
 | SEP-01 | Phase 117 | Pending |
 | SEP-02 | Phase 117 | Pending |

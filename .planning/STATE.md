@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v12.3
 milestone_name: Integridade Criativa
 status: executing
-last_updated: "2026-06-15T14:08:43.753Z"
+last_updated: "2026-06-15T14:15:11.962Z"
 last_activity: 2026-06-15
 progress:
   total_phases: 78
-  completed_phases: 32
+  completed_phases: 33
   total_plans: 83
-  completed_plans: 96
+  completed_plans: 97
   percent: 100
 ---
 
@@ -23,16 +23,16 @@ See: .planning/PROJECT.md (updated 2026-06-15)
 
 **Current focus:** v12.3 Integridade Criativa — factual fidelity, creative direction, and quality gate hardening for the derivation pipeline.
 
-**Status:** Executing Phase 116
+**Status:** Phase 116 complete — ready for Phase 117
 
 ## Current Position
 
 Phase: 116 — Canonical Creative Contract
-Plan: 2 of 03 complete
-Status: In progress — ready for 116-03
-Last activity: 2026-06-15 — completed 116-02-PLAN.md
+Plan: 3 of 03 complete
+Status: Phase complete
+Last activity: 2026-06-15 — completed 116-03-PLAN.md
 
-Progress: [██░░░░░░░░] 2/3 plans in phase 116
+Progress: [██████████] 3/3 plans in phase 116
 
 ## Accumulated Context
 
@@ -62,8 +62,12 @@ Progress: [██░░░░░░░░] 2/3 plans in phase 116
 
 ## Session Continuity
 
-Last activity: 2026-06-15 — completed 116-02-PLAN.md (integrity injection + extractors)
+Last activity: 2026-06-15 — completed 116-03-PLAN.md (tier-aware MODE blocks, CONT-03)
+
+## Decisions
+
+- art_variation and format_adaptation MODE blocks use tier-aware preservation governed by RULE PRECEDENCE (CONT-03)
 
 ## Next Steps
 
-`/gsd-execute-phase 116` — run plan 116-03 (mode conflict resolution)
+`/gsd-execute-phase 117` — factual/visual separation
