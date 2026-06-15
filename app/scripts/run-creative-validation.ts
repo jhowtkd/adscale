@@ -43,6 +43,7 @@ import { env } from "@/server/validation/env";
 import {
   CREATIVE_VALIDATION_MATRIX,
   CREATIVE_VALIDATION_SEED_SUPPORTED,
+  matrixKeys,
   matrixRowByKey,
   type CreativeValidationMatrixRow,
 } from "./creative-validation-matrix";
@@ -61,6 +62,12 @@ const EVIDENCE_PATH = path.join(
 
 const IMAGE_GENERATION_TIMEOUT_MS = 5 * 60 * 1000;
 const LOCALE = "pt-BR";
+
+// CLI usage:
+//   --dry-run              Resolve before captures only (no scoring or evidence write beyond dry-run exit)
+//   --skip-regen           Score existing validation-after PNGs (no OpenAI image call)
+//   --matrix-key <key>     Process a single matrix cell (default: full matrix)
+//   --merge                Merge refreshed captures into existing 123-EVIDENCE.json (requires prior full run)
 
 interface ManifestEntry {
   fileName: string;
@@ -81,7 +88,19 @@ interface BeforeCapture {
 interface CliOptions {
   dryRun: boolean;
   skipRegen: boolean;
+  merge: boolean;
   matrixKey?: string;
+}
+
+interface ExistingEvidence {
+  seedSupported: boolean;
+  pipeline: {
+    promptHash: string;
+    openaiImageModel: string;
+    matrixVersion: number;
+  };
+  beforeCaptures: BeforeCapture[];
+  afterCaptures: CreativeValidationAfterCapture[];
 }
 
 function parseArgs(argv: string[]): CliOptions {
@@ -89,6 +108,7 @@ function parseArgs(argv: string[]): CliOptions {
   return {
     dryRun: argv.includes("--dry-run"),
     skipRegen: argv.includes("--skip-regen"),
+    merge: argv.includes("--merge"),
     matrixKey: matrixKeyIndex >= 0 ? argv[matrixKeyIndex + 1] : undefined,
   };
 }
@@ -415,6 +435,54 @@ function selectRows(matrixKey?: string): CreativeValidationMatrixRow[] {
   return [row];
 }
 
+function loadExistingEvidence(): ExistingEvidence {
+  if (!fs.existsSync(EVIDENCE_PATH)) {
+    throw new Error(
+      `--merge requires existing evidence at ${repoRelativePath(EVIDENCE_PATH)}. Run a full matrix capture first.`
+    );
+  }
+  return JSON.parse(fs.readFileSync(EVIDENCE_PATH, "utf8")) as ExistingEvidence;
+}
+
+function mergeCapturesByKey<T extends { key: string }>(
+  existing: T[],
+  incoming: T[],
+  processedKeys: Set<string>
+): T[] {
+  const merged = existing.filter((capture) => !processedKeys.has(capture.key));
+  merged.push(...incoming);
+  return merged;
+}
+
+function assertFullMatrixCoverage(
+  beforeCaptures: BeforeCapture[],
+  afterCaptures: CreativeValidationAfterCapture[]
+): void {
+  const expectedKeys = matrixKeys();
+  const beforeKeys = new Set(beforeCaptures.map((capture) => capture.key));
+  const afterKeys = new Set(afterCaptures.map((capture) => capture.key));
+
+  if (beforeCaptures.length !== expectedKeys.length || beforeKeys.size !== expectedKeys.length) {
+    throw new Error(
+      `Merge invariant failed: beforeCaptures has ${beforeCaptures.length} entries (expected ${expectedKeys.length})`
+    );
+  }
+  if (afterCaptures.length !== expectedKeys.length || afterKeys.size !== expectedKeys.length) {
+    throw new Error(
+      `Merge invariant failed: afterCaptures has ${afterCaptures.length} entries (expected ${expectedKeys.length})`
+    );
+  }
+
+  for (const key of expectedKeys) {
+    if (!beforeKeys.has(key)) {
+      throw new Error(`Merge invariant failed: missing before capture for ${key}`);
+    }
+    if (!afterKeys.has(key)) {
+      throw new Error(`Merge invariant failed: missing after capture for ${key}`);
+    }
+  }
+}
+
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
   assertOpenAiKey(options);
@@ -469,18 +537,36 @@ async function main(): Promise<void> {
     );
   }
 
-  const aggregate = computeCreativeValidationAggregate(afterCaptures);
+  const processedKeys = new Set(rows.map((row) => row.key));
+  let finalBeforeCaptures = beforeCaptures;
+  let finalAfterCaptures = afterCaptures;
+  let seedSupported = CREATIVE_VALIDATION_SEED_SUPPORTED;
+  let matrixVersion = 1;
+
+  if (options.merge) {
+    const existing = loadExistingEvidence();
+    finalBeforeCaptures = mergeCapturesByKey(existing.beforeCaptures, beforeCaptures, processedKeys);
+    finalAfterCaptures = mergeCapturesByKey(existing.afterCaptures, afterCaptures, processedKeys);
+    assertFullMatrixCoverage(finalBeforeCaptures, finalAfterCaptures);
+    seedSupported = existing.seedSupported;
+    matrixVersion = existing.pipeline.matrixVersion;
+    console.log(
+      `merged ${processedKeys.size} key(s), total after captures=${finalAfterCaptures.length}`
+    );
+  }
+
+  const aggregate = computeCreativeValidationAggregate(finalAfterCaptures);
   const evidence = {
     schemaVersion: 1,
     capturedAt: new Date().toISOString(),
-    seedSupported: CREATIVE_VALIDATION_SEED_SUPPORTED,
+    seedSupported,
     pipeline: {
       promptHash: getPromptProvenanceHash(),
       openaiImageModel: env.OPENAI_IMAGE_MODEL,
-      matrixVersion: 1,
+      matrixVersion,
     },
-    beforeCaptures,
-    afterCaptures,
+    beforeCaptures: finalBeforeCaptures,
+    afterCaptures: finalAfterCaptures,
     aggregate,
     requirements: [
       { id: "QA-18", result: "captured" },
