@@ -45,8 +45,8 @@ export const CANONICAL_CAMPAIGNS: Record<CanonicalCampaignSlug, CanonicalCampaig
     allowedEntities: {
       people: [],
       brands: ["ADScale"],
-      products: ["Widget Pro"],
-      claims: ["Auditoria gratuita", "LGPD"],
+      products: [],
+      claims: ["smoke test", "CQA-02", "LGPD compliance check"],
     },
     typicalModes: ["art_variation"],
     typicalFormats: ["1:1"],

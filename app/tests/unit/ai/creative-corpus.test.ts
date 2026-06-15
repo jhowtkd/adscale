@@ -1,7 +1,10 @@
 import { describe, it, expect } from "vitest";
+import sourceManifest from "../../../exports/render-creatives/manifest.json";
 import {
   CANONICAL_CAMPAIGNS,
+  CORPUS_MANIFEST_INDEX,
   type CanonicalCampaignSlug,
+  type CorpusManifestEntry,
 } from "@/server/ai/creative-corpus";
 
 const EXPECTED_SLUGS: CanonicalCampaignSlug[] = [
@@ -52,5 +55,74 @@ describe("CANONICAL_CAMPAIGNS registry", () => {
     expect(serialized).not.toMatch(/\/Users\//);
     expect(serialized).not.toMatch(/r2\.dev/);
     expect(serialized).not.toMatch(/output_key/);
+  });
+});
+
+/** Debug campaigns excluded from the four-campaign audit baseline. */
+const UNMAPPED_CAMPAIGN_NAMES = ["Teste_debuf", "Teste 5"] as const;
+
+describe("CORPUS_MANIFEST_INDEX", () => {
+  it("indexes every export in the source manifest", () => {
+    expect(CORPUS_MANIFEST_INDEX).toHaveLength(sourceManifest.length);
+  });
+
+  it("distinguishes preview vs final render tiers from is_preview", () => {
+    const previews = CORPUS_MANIFEST_INDEX.filter(
+      (entry) => entry.renderTier === "preview"
+    );
+    const finals = CORPUS_MANIFEST_INDEX.filter(
+      (entry) => entry.renderTier === "final"
+    );
+
+    expect(previews.length + finals.length).toBe(CORPUS_MANIFEST_INDEX.length);
+    for (const entry of CORPUS_MANIFEST_INDEX) {
+      expect(entry.renderTier).toBe(entry.is_preview ? "preview" : "final");
+    }
+  });
+
+  it("maps canonical campaigns or documents unmapped debug exports", () => {
+    for (const entry of CORPUS_MANIFEST_INDEX) {
+      const campaign = CANONICAL_CAMPAIGNS[entry.canonicalSlug as CanonicalCampaignSlug];
+      if (entry.canonicalSlug === "unmapped") {
+        expect(UNMAPPED_CAMPAIGN_NAMES).toContain(entry.campaign);
+        continue;
+      }
+      expect(campaign.displayNames).toContain(entry.campaign);
+    }
+  });
+
+  it("keeps preview exports at 1:1 per audit observations", () => {
+    const previews = CORPUS_MANIFEST_INDEX.filter(
+      (entry) => entry.renderTier === "preview"
+    );
+    expect(previews.length).toBeGreaterThan(0);
+    for (const entry of previews) {
+      expect(entry.format).toBe("1:1");
+    }
+  });
+
+  it("stores slim metadata only — no secrets or absolute paths", () => {
+    const serialized = JSON.stringify(CORPUS_MANIFEST_INDEX);
+    expect(serialized).not.toMatch(/\/Users\//);
+    expect(serialized).not.toMatch(/r2\.dev/);
+    expect(serialized).not.toMatch(/output_key/);
+    expect(serialized).not.toMatch(/public_url/);
+
+    const allowedKeys = new Set([
+      "id",
+      "idPrefix",
+      "fileName",
+      "campaign",
+      "generation_mode",
+      "format",
+      "is_preview",
+      "renderTier",
+      "canonicalSlug",
+      "auditArchetype",
+    ]);
+    for (const entry of CORPUS_MANIFEST_INDEX as CorpusManifestEntry[]) {
+      expect(Object.keys(entry).every((key) => allowedKeys.has(key))).toBe(true);
+      expect(entry.idPrefix).toBe(entry.id.slice(0, 8));
+    }
   });
 });
