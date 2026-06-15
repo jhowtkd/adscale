@@ -11,7 +11,7 @@ import {
 import type { CorpusArchetypeFixture } from "@/server/ai/corpus-fixtures";
 
 /** Count of archetypes with baseline gate gaps — flip to 0 when Phase 120 hardens the gate. */
-export const BASELINE_GAP_COUNT = CORPUS_ARCHETYPE_FIXTURES.length;
+export const BASELINE_GAP_COUNT = CORPUS_ARCHETYPE_FIXTURES.length - 1;
 
 const ARCHETYPES: CorpusArchetype[] = [
   "invented_factual_entity",
@@ -38,15 +38,21 @@ function runCorpusGatePipeline(fixture: CorpusArchetypeFixture) {
 }
 
 describe.each(CORPUS_ARCHETYPE_FIXTURES)("corpus baseline gate — $id", (fixture) => {
-  it.fails(`baseline-red: ${fixture.id} — gate must reject ${fixture.archetype}`, () => {
-    const { gate, verdict } = runCorpusGatePipeline(fixture);
-    expect(verdict).toBe("invalid");
-    expect(
-      fixture.expectedHardFailureCodes.every((code) =>
-        gate.hardFailures.some((f) => f.code === code)
-      )
-    ).toBe(true);
-  });
+  const runBaselineRejectionTest =
+    fixture.archetype === "invented_factual_entity" ? it : it.fails;
+
+  runBaselineRejectionTest(
+    `baseline-red: ${fixture.id} — gate must reject ${fixture.archetype}`,
+    () => {
+      const { gate, verdict } = runCorpusGatePipeline(fixture);
+      expect(verdict).toBe("invalid");
+      expect(
+        fixture.expectedHardFailureCodes.every((code) =>
+          gate.hardFailures.some((f) => f.code === code)
+        )
+      ).toBe(true);
+    }
+  );
 
   it(`baseline-snapshot: ${fixture.id} current verdict`, () => {
     const { verdict } = runCorpusGatePipeline(fixture);
@@ -72,6 +78,7 @@ describe("corpus baseline coverage", () => {
   });
 
   it("documents baseline gap count for Phase 123 validation", () => {
-    expect(BASELINE_GAP_COUNT).toBe(5);
+    // SEP-04 flipped invented_factual_entity; four archetypes remain red until Phase 120.
+    expect(BASELINE_GAP_COUNT).toBe(4);
   });
 });

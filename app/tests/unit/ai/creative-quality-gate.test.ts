@@ -4,6 +4,8 @@ import type {
   CreativeQaChecklist,
   CreativeQaCriterionResult,
 } from "@/server/ai/creative-qa";
+import { CORPUS_ARCHETYPE_FIXTURES } from "@/server/ai/corpus-fixtures";
+import { normalizeCreativeQaResult } from "@/server/ai/creative-qa";
 import {
   assertDerivationApprovable,
   classifyCreativeQualityGate,
@@ -405,6 +407,50 @@ describe("deriveQualityVerdict", () => {
         checklist: checklist({}),
       })
     ).toBe("acceptable");
+  });
+});
+
+describe("invented_factual_entity", () => {
+  const inventedFixture = CORPUS_ARCHETYPE_FIXTURES.find(
+    (fixture) => fixture.id === "corpus-invented-factual-entity"
+  )!;
+
+  it("promotes Cantona-style briefMatch notes to invented_factual_entity hard failure", () => {
+    const qa = normalizeCreativeQaResult(inventedFixture.rawQaModelOutput);
+    const gate = classifyCreativeQualityGate({
+      contract: inventedFixture.contract,
+      checklist: qa.checklist,
+    });
+
+    expect(gate.hardFailures.some((f) => f.code === "invented_factual_entity")).toBe(
+      true
+    );
+    expect(
+      deriveQualityVerdict({
+        hardFailures: gate.hardFailures,
+        qualityScore: 85,
+        checklist: qa.checklist,
+      })
+    ).toBe("invalid");
+  });
+
+  it("does not send Cantona-style creativeRisk notes to polishSuggestions", () => {
+    const gate = classifyCreativeQualityGate({
+      contract: inventedFixture.contract,
+      checklist: checklist({
+        creativeRisk: {
+          status: "failed",
+          note: "Hallucinated celebrity athlete imported into NR1 compliance creative.",
+        },
+      }),
+    });
+
+    expect(gate.hardFailures.some((f) => f.code === "invented_factual_entity")).toBe(
+      true
+    );
+    expect(
+      gate.polishSuggestions.some((note) => /hallucinat|celebrity athlete/i.test(note))
+    ).toBe(false);
   });
 });
 
