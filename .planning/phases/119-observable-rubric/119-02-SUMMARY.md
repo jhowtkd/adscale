@@ -67,7 +67,7 @@ Each task was committed atomically:
 2. **Task 1 GREEN:** `31a0ec00` (feat) — wire rubric into buildCreativeQaPrompt
 3. **Task 2:** `838f175a` (test) — contract preservation assertions
 
-**Plan metadata:** pending (docs commit)
+**Plan metadata:** `673bea5c` (docs)
 
 ## TDD Gate Compliance
 
