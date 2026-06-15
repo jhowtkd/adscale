@@ -2,14 +2,15 @@
 gsd_state_version: 1.0
 milestone: v12.3
 milestone_name: Integridade Criativa
-status: planning
-last_updated: "2026-06-15T17:22:27.291Z"
+status: executing
+last_updated: "2026-06-15T18:40:03.323Z"
 last_activity: 2026-06-15
 progress:
-  total_phases: 35
-  completed_phases: 9
-  total_plans: 30
-  completed_plans: 44
+  total_phases: 81
+  completed_phases: 35
+  total_plans: 95
+  completed_plans: 106
+  percent: 100
 ---
 
 # Project State
@@ -22,16 +23,16 @@ See: .planning/PROJECT.md (updated 2026-06-15)
 
 **Current focus:** v12.3 Integridade Criativa — factual fidelity, creative direction, and quality gate hardening for the derivation pipeline.
 
-**Status:** Ready to plan
+**Status:** Executing
 
 ## Current Position
 
-Phase: 117 — Factual vs Visual Separation
-Plan: 4 of 04 complete (117-03 pending; 117-04 done)
-Status: Ready to execute
+Phase: 119 — Observable Rubric
+Plan: 1 of 04 complete (119-01 done)
+Status: Executing
 Last activity: 2026-06-15
 
-Progress: [███████░░░] 3/4 plans in phase 117
+Progress: [██░░░░░░░░] 1/4 plans in phase 119
 
 ## Accumulated Context
 
@@ -61,7 +62,7 @@ Progress: [███████░░░] 3/4 plans in phase 117
 
 ## Session Continuity
 
-Last activity: 2026-06-15 — completed 117-04-PLAN.md (allowed entities + invented_factual_entity gate, SEP-04)
+Last activity: 2026-06-15 — completed 119-01-PLAN.md (observable rubric module scaffold, RUBR-01–04)
 
 ## Decisions
 
@@ -73,7 +74,9 @@ Last activity: 2026-06-15 — completed 117-04-PLAN.md (allowed entities + inven
 - [Phase 117]: invented_factual_entity promoted to hard failure via INVENTED_ENTITY_PATTERN on briefMatch/creativeRisk
 - [Phase 117]: ALLOWED ENTITIES block injected from CANONICAL_CAMPAIGNS when campaign slug matches
 - [Phase 117]: assertParentFactualLineage blocks format_adaptation parent download when qualityVerdict invalid or hardFailures include contamination codes (SEP-03)
+- [Phase 119]: Observable rubric maps defects to existing criteria (creativeRisk, legibility, briefMatch) — no new checklist keys
+- [Phase 119]: Score rubric extends QA core lines with SCORE VISUAL QUALITY CAPS block
 
 ## Next Steps
 
-Execute 117-03-PLAN.md — lineage firewall (SEP-03)
+Execute 119-02-PLAN.md — wire rubric into QA prompt; remove export-softening

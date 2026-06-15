@@ -47,10 +47,10 @@ Endurecer o pipeline criativo para que peças factualmente incorretas, visualmen
 
 ### Observable Rubric (RUBR)
 
-- [ ] **RUBR-01**: Avaliação reprova quando não há ponto focal dominante, existem mais de três zonas concorrentes, ou múltiplos CTAs competem com o hook.
-- [ ] **RUBR-02**: Avaliação reprova estética template genérica severa (neon/glow/cards premium sem justificativa de marca ou campanha).
-- [ ] **RUBR-03**: Defeitos são explicados por elementos visíveis observáveis — termos como "polished" ou "professional" não são critério de aprovação isolado.
-- [ ] **RUBR-04**: Hook é compreensível em miniatura (preview scale).
+- [x] **RUBR-01**: Avaliação reprova quando não há ponto focal dominante, existem mais de três zonas concorrentes, ou múltiplos CTAs competem com o hook.
+- [x] **RUBR-02**: Avaliação reprova estética template genérica severa (neon/glow/cards premium sem justificativa de marca ou campanha).
+- [x] **RUBR-03**: Defeitos são explicados por elementos visíveis observáveis — termos como "polished" ou "professional" não são critério de aprovação isolado.
+- [x] **RUBR-04**: Hook é compreensível em miniatura (preview scale).
 
 ### Quality Gate (GATE)
 
@@ -120,10 +120,10 @@ Endurecer o pipeline criativo para que peças factualmente incorretas, visualmen
 | MODE-03 | Phase 118 | Pending |
 | MODE-04 | Phase 118 | Pending |
 | MODE-05 | Phase 118 | Pending |
-| RUBR-01 | Phase 119 | Pending |
-| RUBR-02 | Phase 119 | Pending |
-| RUBR-03 | Phase 119 | Pending |
-| RUBR-04 | Phase 119 | Pending |
+| RUBR-01 | Phase 119 | Complete |
+| RUBR-02 | Phase 119 | Complete |
+| RUBR-03 | Phase 119 | Complete |
+| RUBR-04 | Phase 119 | Complete |
 | GATE-01 | Phase 120 | Pending |
 | GATE-02 | Phase 120 | Pending |
 | GATE-03 | Phase 120 | Pending |
