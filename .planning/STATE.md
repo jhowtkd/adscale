@@ -26,12 +26,12 @@ See: .planning/PROJECT.md (updated 2026-06-15)
 
 ## Current Position
 
-Phase: 120 — Quality Gate Hardening
-Plan: 3 of 3 complete (120-01 done)
-Status: Ready to execute
+Phase: 121 — Score Ceilings and Retry
+Plan: Not started
+Status: Ready to plan
 Last activity: 2026-06-15
 
-Progress: [███░░░░░░░] 1/3 plans in phase 120
+Progress: Phase 120 complete (3/3 plans)
 
 ## Accumulated Context
 
@@ -61,7 +61,7 @@ Progress: [███░░░░░░░] 1/3 plans in phase 120
 
 ## Session Continuity
 
-Last activity: 2026-06-15 — completed 120-01-PLAN.md (GATE-01 taxonomy, types, i18n)
+Last activity: 2026-06-15 — Phase 120 complete (quality gate hardening; BASELINE_GAP_COUNT=0)
 
 ## Decisions
 
@@ -88,4 +88,4 @@ Last activity: 2026-06-15 — completed 120-01-PLAN.md (GATE-01 taxonomy, types,
 
 ## Next Steps
 
-Execute 120-02-PLAN.md — classifier refactor and CONTAMINATION_FAILURE_CODES
+Plan Phase 121 — Score Ceilings and Retry (SCR-01–05)
