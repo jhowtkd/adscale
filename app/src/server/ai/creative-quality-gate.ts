@@ -36,9 +36,53 @@ export type CreativeHardFailureCode =
   | "unsupported_offer"
   | "invented_factual_entity"
   | "copied_style_reference_facts"
+  | "replaced_source_subject"
+  | "unauthorized_brand_or_ip"
+  | "campaign_identity_drift"
+  | "style_reference_contamination"
+  | "generic_template_aesthetic"
+  | "visual_overload"
+  | "missing_dominant_idea"
+  | "decorative_only_variation"
   | "cropped_critical_content"
   | "unreadable_required_text"
   | "invalid_format_layout";
+
+const CREATIVE_HARD_FAILURE_CODES = new Set<CreativeHardFailureCode>([
+  "cta_drift",
+  "wrong_brand",
+  "unsupported_offer",
+  "invented_factual_entity",
+  "copied_style_reference_facts",
+  "replaced_source_subject",
+  "unauthorized_brand_or_ip",
+  "campaign_identity_drift",
+  "style_reference_contamination",
+  "generic_template_aesthetic",
+  "visual_overload",
+  "missing_dominant_idea",
+  "decorative_only_variation",
+  "cropped_critical_content",
+  "unreadable_required_text",
+  "invalid_format_layout",
+]);
+
+const HARD_FAILURE_CODE_ALIASES: Record<string, CreativeHardFailureCode> = {
+  copied_style_reference_facts: "style_reference_contamination",
+  format_campaign_drift: "campaign_identity_drift",
+  restyling_factual_contamination: "style_reference_contamination",
+};
+
+export function normalizeHardFailureCode(code: string): CreativeHardFailureCode {
+  const alias = HARD_FAILURE_CODE_ALIASES[code];
+  if (alias) {
+    return alias;
+  }
+  if (CREATIVE_HARD_FAILURE_CODES.has(code as CreativeHardFailureCode)) {
+    return code as CreativeHardFailureCode;
+  }
+  return code as CreativeHardFailureCode;
+}
 
 export interface CreativeHardFailure {
   code: CreativeHardFailureCode;

@@ -11,6 +11,7 @@ import {
   classifyCreativeQualityGate,
   deriveQualityVerdict,
   extractPolishSuggestions,
+  normalizeHardFailureCode,
   type CreativeHardFailureCode,
 } from "@/server/ai/creative-quality-gate";
 import {
@@ -555,6 +556,18 @@ describe("GATE-01 taxonomy patterns", () => {
     for (const note of noMatch) {
       expect(noteMatches(pattern, note), `expected no match: ${note}`).toBe(false);
     }
+  });
+});
+
+describe("normalizeHardFailureCode", () => {
+  it.each([
+    ["copied_style_reference_facts", "style_reference_contamination"],
+    ["format_campaign_drift", "campaign_identity_drift"],
+    ["restyling_factual_contamination", "style_reference_contamination"],
+    ["invented_factual_entity", "invented_factual_entity"],
+    ["campaign_identity_drift", "campaign_identity_drift"],
+  ] as const)("maps %s to %s", (input, expected) => {
+    expect(normalizeHardFailureCode(input)).toBe(expected);
   });
 });
 
