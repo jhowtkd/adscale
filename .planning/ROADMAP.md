@@ -41,7 +41,7 @@
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
-| 115 | Corpus Fixtures and Audit Baseline | 1/3 | In Progress|  |
+| 115 | Corpus Fixtures and Audit Baseline | 2/3 | In Progress|  |
 | 116 | Canonical Creative Contract | CONT-01–04 | Pending | — |
 | 117 | Factual vs Visual Separation | SEP-01–04 | Pending | — |
 | 118 | Per-Mode Prompt Rules | MODE-01–05 | Pending | — |
@@ -228,7 +228,7 @@ Archive: [v11.8-ROADMAP.md](milestones/v11.8-ROADMAP.md) · [v11.8-REQUIREMENTS.
 **Plans:** 3 plans (2 waves)
 
 Plans:
-- [ ] 115-01-PLAN.md — Canonical campaign registry + manifest index (FIXT-02, FIXT-03)
+- [x] 115-01-PLAN.md — Canonical campaign registry + manifest index (FIXT-02, FIXT-03)
 - [x] 115-02-PLAN.md — Audit archetype fixtures (FIXT-01)
 - [ ] 115-03-PLAN.md — Red baseline gate tests (FIXT-04)
 
