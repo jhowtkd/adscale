@@ -2,7 +2,9 @@ import { describe, it, expect } from "vitest";
 import { QUALITY_FIXTURES } from "@/server/ai/quality-fixtures";
 import {
   buildDerivationPrompt,
+  extractPromptCanonicalContractSection,
   extractPromptHardRulesSection,
+  extractPromptIntegritySection,
   extractPromptModeSection,
   extractPromptRestylingFactualSourceSection,
 } from "@/server/ai/prompt-builder";
@@ -13,6 +15,12 @@ describe.each(QUALITY_FIXTURES)("prompt regression — $id", (fixture) => {
     const prompt = buildDerivationPrompt(derivationConfigFromContract(fixture.contract));
     const hardRules = extractPromptHardRulesSection(prompt);
     const mode = extractPromptModeSection(prompt);
+    const integrity = extractPromptIntegritySection(prompt);
+    const canonical = extractPromptCanonicalContractSection(prompt);
+
+    expect(integrity).toContain("VISUAL HIERARCHY CONTRACT");
+    expect(integrity).toContain("ANTI-HALLUCINATION RULES");
+    expect(canonical).toContain("RULE PRECEDENCE");
 
     expect(hardRules).toContain(`Target format: ${fixture.contract.targetFormat}`);
     expect(prompt.length).toBeGreaterThan(100);

@@ -402,6 +402,21 @@ describe("derivationJob", () => {
           client: "Acme",
           product: "Widget",
           offer: "20% off",
+          canonicalCreative: expect.objectContaining({
+            dominantIdea: expect.any(String),
+            hook: expect.any(String),
+            proofZone: expect.any(String),
+            invariantIdentity: expect.objectContaining({
+              campaign: "Test Campaign",
+              brand: "Acme",
+              product: "Widget",
+            }),
+            tiers: expect.objectContaining({
+              mandatory: expect.any(Array),
+              condensable: expect.any(Array),
+              decorative: expect.any(Array),
+            }),
+          }),
         }),
         promptProvenance: expect.objectContaining({
           schemaVersion: 1,
