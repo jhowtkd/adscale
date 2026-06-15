@@ -1,3 +1,5 @@
+import type { CanonicalCreative } from "./canonical-creative-contract";
+
 export type CtaSemantics =
   | { kind: "explicit"; text: string }
   | { kind: "inherited" }
@@ -47,6 +49,8 @@ export type ImageOperation = "edit" | "generation_fallback" | "generate";
 
 export type GenerationMode = "art_variation" | "format_adaptation" | "restyling";
 
+export type { CanonicalCreative, ContentTiers, InvariantIdentity } from "./canonical-creative-contract";
+
 export interface CreativeContract {
   generationMode: GenerationMode;
   targetFormat: string;
@@ -59,6 +63,7 @@ export interface CreativeContract {
   constraints: string | null;
   sourcePackage?: SourcePackage;
   factualSourceRules?: FactualSourceRules;
+  canonicalCreative?: CanonicalCreative;
 }
 
 export type PromptProvenance = {

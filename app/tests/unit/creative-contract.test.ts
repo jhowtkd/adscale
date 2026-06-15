@@ -126,8 +126,13 @@ describe("canonical creative contract", () => {
     expect(section).toContain("RULE PRECEDENCE");
     expect(section).toContain("Factual accuracy");
     expect(section).toContain("Visual hierarchy");
-    expect(section).toContain("Decoration");
-    expect(section).toMatch(/facts.*hierarchy.*decoration/i);
+    expect(section).toContain("3. Decoration");
+    expect(section.indexOf("Factual accuracy")).toBeLessThan(
+      section.indexOf("Visual hierarchy")
+    );
+    expect(section.indexOf("Visual hierarchy")).toBeLessThan(
+      section.indexOf("3. Decoration")
+    );
     expect(section).toContain(
       "When mode instructions conflict with this block, this block wins."
     );

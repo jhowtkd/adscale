@@ -1,0 +1,127 @@
+import type { CreativeContract, CtaSemantics } from "./creative-contract";
+
+export interface InvariantIdentity {
+  campaign: string;
+  brand: string;
+  product: string;
+  palette: string;
+  people: string[];
+}
+
+export interface ContentTiers {
+  mandatory: string[];
+  condensable: string[];
+  decorative: string[];
+}
+
+export interface CanonicalCreative {
+  dominantIdea: string;
+  hook: string;
+  proofZone: string;
+  invariantIdentity: InvariantIdentity;
+  tiers: ContentTiers;
+}
+
+export const PRECEDENCE_RULES = `RULE PRECEDENCE (highest wins):
+1. Factual accuracy — no invented entities; preserve Tier mandatory meaning.
+2. Visual hierarchy — max three information zones; Tier condensable/decorative yield to focal hook.
+3. Decoration — styling, glow, card chrome; never overrides facts or hierarchy.`;
+
+export interface CanonicalCampaignInput {
+  name?: string | null;
+  objective?: string | null;
+}
+
+export interface CanonicalDiagnosisInput {
+  detectedConcept?: string;
+}
+
+const DEFAULT_TIERS: ContentTiers = {
+  mandatory: [
+    "hook/headline",
+    "offer/proof",
+    "CTA",
+    "logo if present",
+    "product/subject",
+  ],
+  condensable: ["badges", "duration labels", "bullet pillars", "legal copy"],
+  decorative: ["icon rows", "selos", "card chrome", "background shapes"],
+};
+
+function trimOrDefault(
+  value: string | null | undefined,
+  fallback: string
+): string {
+  const trimmed = value?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : fallback;
+}
+
+function resolveCtaLine(ctaSemantics: CtaSemantics): string {
+  if (ctaSemantics.kind === "explicit") {
+    return ctaSemantics.text;
+  }
+  if (ctaSemantics.kind === "inherited") {
+    return "inherit from reference";
+  }
+  return "absent";
+}
+
+export function resolveCanonicalCreative(
+  contract: CreativeContract,
+  campaign?: CanonicalCampaignInput | null,
+  diagnosis?: CanonicalDiagnosisInput | null
+): CanonicalCreative {
+  const dominantIdea = trimOrDefault(
+    diagnosis?.detectedConcept,
+    trimOrDefault(
+      campaign?.objective,
+      trimOrDefault(contract.offer, "Campaign core message from reference")
+    )
+  );
+
+  return {
+    dominantIdea,
+    hook: trimOrDefault(contract.offer, "Primary headline from reference"),
+    proofZone: trimOrDefault(
+      contract.product,
+      trimOrDefault(contract.client, "Supporting proof from reference")
+    ),
+    invariantIdentity: {
+      campaign: trimOrDefault(campaign?.name, "source campaign"),
+      brand: trimOrDefault(contract.client, "source brand"),
+      product: trimOrDefault(contract.product, "source product"),
+      palette: "from reference and brand kit",
+      people: [],
+    },
+    tiers: DEFAULT_TIERS,
+  };
+}
+
+export function buildCanonicalContractPromptSection(
+  contract: CreativeContract
+): string[] {
+  const c =
+    contract.canonicalCreative ?? resolveCanonicalCreative(contract);
+  const peopleLabel =
+    c.invariantIdentity.people.length > 0
+      ? c.invariantIdentity.people.join(", ")
+      : "as in source";
+
+  return [
+    "",
+    "CANONICAL CREATIVE CONTRACT:",
+    `Dominant idea: ${c.dominantIdea}`,
+    `Primary hook (Tier 1): ${c.hook}`,
+    `Proof/offer zone (Tier 2): ${c.proofZone}`,
+    `CTA (Tier 3): ${resolveCtaLine(contract.ctaSemantics)}`,
+    `Invariant identity: campaign=${c.invariantIdentity.campaign}; brand=${c.invariantIdentity.brand}; product=${c.invariantIdentity.product}; palette=${c.invariantIdentity.palette}; people=${peopleLabel}`,
+    "",
+    "CONTENT TIERS:",
+    `- Mandatory (must appear legibly): ${c.tiers.mandatory.join("; ")}`,
+    `- Condensable (may merge/shrink): ${c.tiers.condensable.join("; ")}`,
+    `- Decorative (may omit if hook+offer+CTA suffice): ${c.tiers.decorative.join("; ")}`,
+    "",
+    PRECEDENCE_RULES,
+    "When mode instructions conflict with this block, this block wins.",
+  ];
+}
