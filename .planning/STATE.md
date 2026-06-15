@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v12.3
 milestone_name: Integridade Criativa
 status: planning
-last_updated: "2026-06-15T16:32:08.968Z"
+last_updated: "2026-06-15T17:22:27.291Z"
 last_activity: 2026-06-15
 progress:
   total_phases: 35
-  completed_phases: 8
-  total_plans: 26
-  completed_plans: 40
+  completed_phases: 9
+  total_plans: 30
+  completed_plans: 44
 ---
 
 # Project State

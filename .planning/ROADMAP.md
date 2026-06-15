@@ -32,7 +32,7 @@
 - [x] **Phase 115: Corpus Fixtures and Audit Baseline** — fixtures reproduzíveis para cada falha do corpus; campanhas canônicas; red tests provando aprovação indevida atual (completed 2026-06-15)
 - [x] **Phase 116: Canonical Creative Contract** — contrato de ideia dominante, precedência fatos>hierarquia>decoração; injeção de `VISUAL_HIERARCHY_CONTRACT` e `ANTI_HALLUCINATION_RULES` (completed 2026-06-15)
 - [x] **Phase 117: Factual vs Visual Separation** — classificação de inputs; referência visual só transfere linguagem abstrata; bloqueio de entidades inventadas (completed 2026-06-15)
-- [ ] **Phase 118: Per-Mode Prompt Rules** — regras distintas para `art_variation`, `restyling`, `format_adaptation`; orçamento de três zonas; mesma campanha em múltiplos formatos
+- [x] **Phase 118: Per-Mode Prompt Rules** — regras distintas para `art_variation`, `restyling`, `format_adaptation`; orçamento de três zonas; mesma campanha em múltiplos formatos (completed 2026-06-15)
 - [ ] **Phase 119: Observable Rubric** — critérios observáveis substituem "polished"; reprova overload, genérico severo e hook ilegível em miniatura
 - [ ] **Phase 120: Quality Gate Hardening** — novos hard failures; factual sempre invalid; corpus-falha bloqueado; fiel continua aprovável
 - [ ] **Phase 121: Score Ceilings and Retry** — tetos por categoria de falha; retry de restyling da fonte factual; correções específicas
@@ -44,7 +44,7 @@
 | 115 | Corpus Fixtures and Audit Baseline | Complete    | 2026-06-15 | 2026-06-15 |
 | 116 | Canonical Creative Contract | Complete    | 2026-06-15 | 2026-06-15 |
 | 117 | Factual vs Visual Separation | Complete    | 2026-06-15 | 2026-06-15 |
-| 118 | 0/4 | Planned    |  | — |
+| 118 | 0/4 | Complete    | 2026-06-15 | — |
 | 119 | Observable Rubric | RUBR-01–04 | Pending | — |
 | 120 | Quality Gate Hardening | GATE-01–05 | Pending | — |
 | 121 | Score Ceilings and Retry | SCR-01–05 | Pending | — |
@@ -296,7 +296,7 @@ Plans:
   4. `format_adaptation` trata saída como edição da mesma campanha — preserva pessoas, copy, CTA, marca e conceito; altera apenas composição, escala e agrupamento.
   5. A mesma campanha permanece reconhecível em `1:1`, `4:5` e `9:16` sem introduzir nova narrativa.
 
-**Plans:** 0/4 plans executed
+**Plans:** 4/4 plans complete
 
 Plans:
 - [ ] 118-01-PLAN.md — Scaffold per-mode-prompt-rules.ts + art_variation pack (MODE-01/02)
