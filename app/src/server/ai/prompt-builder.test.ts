@@ -732,6 +732,12 @@ describe("input classification", () => {
     expect(CONTAMINATION_FAILURE_CODES.has("copied_style_reference_facts")).toBe(
       true
     );
+    expect(CONTAMINATION_FAILURE_CODES.has("style_reference_contamination")).toBe(
+      true
+    );
+    expect(CONTAMINATION_FAILURE_CODES.has("campaign_identity_drift")).toBe(true);
+    expect(CONTAMINATION_FAILURE_CODES.has("replaced_source_subject")).toBe(true);
+    expect(CONTAMINATION_FAILURE_CODES.has("unauthorized_brand_or_ip")).toBe(true);
     expect(CONTAMINATION_FAILURE_CODES.has("wrong_brand")).toBe(true);
     expect(CONTAMINATION_FAILURE_CODES.has("unsupported_offer")).toBe(true);
     expect(CONTAMINATION_FAILURE_CODES.has("invented_factual_entity")).toBe(true);

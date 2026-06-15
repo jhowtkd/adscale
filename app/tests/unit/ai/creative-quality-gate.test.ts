@@ -6,6 +6,7 @@ import type {
 } from "@/server/ai/creative-qa";
 import { CORPUS_ARCHETYPE_FIXTURES } from "@/server/ai/corpus-fixtures";
 import { normalizeCreativeQaResult } from "@/server/ai/creative-qa";
+import { CONTAMINATION_FAILURE_CODES } from "@/server/ai/factual-visual-separation";
 import {
   assertDerivationApprovable,
   classifyCreativeQualityGate,
@@ -670,6 +671,82 @@ describe("normalizeHardFailureCode", () => {
     ["campaign_identity_drift", "campaign_identity_drift"],
   ] as const)("maps %s to %s", (input, expected) => {
     expect(normalizeHardFailureCode(input)).toBe(expected);
+  });
+});
+
+describe("GATE-01 explicit promotion paths", () => {
+  it.each([
+    {
+      name: "unauthorized_brand_or_ip",
+      contract: artVariationContract,
+      checklist: checklist({
+        briefMatch: {
+          status: "failed",
+          note: "Unauthorized brand logo appears; brand not in allowed entities list.",
+        },
+      }),
+      code: "unauthorized_brand_or_ip" as const,
+    },
+    {
+      name: "missing_dominant_idea",
+      contract: artVariationContract,
+      checklist: checklist({
+        creativeRisk: {
+          status: "failed",
+          note: "No NR1 audit-specific visual idea; decorative chrome only.",
+        },
+      }),
+      code: "missing_dominant_idea" as const,
+    },
+  ])("promotes $name from failed checklist note", ({ contract, checklist: cl, code }) => {
+    const result = classifyCreativeQualityGate({ contract, checklist: cl });
+    expectHardCode(result, code);
+  });
+});
+
+describe("CONTAMINATION_FAILURE_CODES", () => {
+  it("includes GATE-01 factual and aesthetic contamination codes", () => {
+    const expected: CreativeHardFailureCode[] = [
+      "copied_style_reference_facts",
+      "style_reference_contamination",
+      "campaign_identity_drift",
+      "invented_factual_entity",
+      "replaced_source_subject",
+      "unauthorized_brand_or_ip",
+      "wrong_brand",
+      "unsupported_offer",
+    ];
+    for (const code of expected) {
+      expect(CONTAMINATION_FAILURE_CODES.has(code)).toBe(true);
+    }
+    expect(CONTAMINATION_FAILURE_CODES.has("cta_drift" as never)).toBe(false);
+  });
+});
+
+describe("GATE-02 score override", () => {
+  it("returns invalid when hardFailures exist with qualityScore 85", () => {
+    const { hardFailures } = classifyCreativeQualityGate({
+      contract: artVariationContract,
+      checklist: checklist({
+        creativeRisk: {
+          status: "failed",
+          note: "Generic premium-tech neon template aesthetic; no NR1 audit-specific visual idea.",
+        },
+      }),
+    });
+    expect(hardFailures.length).toBeGreaterThan(0);
+    expect(
+      deriveQualityVerdict({
+        hardFailures,
+        qualityScore: 85,
+        checklist: checklist({
+          creativeRisk: {
+            status: "failed",
+            note: "Generic premium-tech neon template aesthetic; no NR1 audit-specific visual idea.",
+          },
+        }),
+      })
+    ).toBe("invalid");
   });
 });
 
