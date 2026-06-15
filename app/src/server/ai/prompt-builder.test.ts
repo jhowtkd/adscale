@@ -692,6 +692,34 @@ describe("input classification", () => {
     expect(section).toContain("style_reference asset");
     expect(section).not.toContain("Visual reference: none.");
   });
+
+  describe.each([
+    ["art_variation", artVariationContractFixture(), "campaign_asset" as const],
+    [
+      "format_adaptation",
+      formatAdaptationApprovedDerivationContractFixture(),
+      "approved_derivation" as const,
+    ],
+    ["restyling", restylingContractFixture(), undefined],
+  ] as const)("buildDerivationPrompt %s", (_mode, contract, packageSource) => {
+    it("includes INPUT SOURCE CLASSIFICATION after integrity and before MODE", () => {
+      const prompt = buildDerivationPrompt(
+        derivationConfigFromContract(contract, {
+          packageSource: packageSource ?? contract.sourcePackage,
+        })
+      );
+
+      const section = extractPromptInputClassificationSection(prompt);
+      expect(section).toContain("INPUT SOURCE CLASSIFICATION:");
+
+      const integrityIdx = prompt.indexOf("ANTI-HALLUCINATION RULES:");
+      const classificationIdx = prompt.indexOf("INPUT SOURCE CLASSIFICATION:");
+      const modeIdx = prompt.indexOf("MODE:");
+
+      expect(classificationIdx).toBeGreaterThan(integrityIdx);
+      expect(modeIdx).toBeGreaterThan(classificationIdx);
+    });
+  });
 });
 
 describe("integrity injection", () => {
@@ -735,10 +763,12 @@ describe("integrity injection", () => {
     );
 
     const integrityIdx = prompt.indexOf("VISUAL HIERARCHY CONTRACT:");
+    const classificationIdx = prompt.indexOf("INPUT SOURCE CLASSIFICATION:");
     const factualIdx = prompt.indexOf("RESTYLING FACTUAL-SOURCE RULE:");
     const modeIdx = prompt.indexOf("MODE:");
 
-    expect(factualIdx).toBeGreaterThan(integrityIdx);
+    expect(classificationIdx).toBeGreaterThan(integrityIdx);
+    expect(factualIdx).toBeGreaterThan(classificationIdx);
     expect(modeIdx).toBeGreaterThan(factualIdx);
   });
 });

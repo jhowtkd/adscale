@@ -16,6 +16,7 @@ import {
   resolveCtaSemantics,
 } from "../ai/creative-contract";
 import { resolveCanonicalCreative } from "../ai/canonical-creative-contract";
+import { resolveInputSourceClassification } from "../ai/factual-visual-separation";
 import type {
   CreativeContract,
   ImageOperation,
@@ -477,11 +478,21 @@ export const derivationJob = inngest.createFunction(
           };
 
       const diagnosis = normalizeCreativeDiagnosis(campaign.creativeDiagnosis);
+      const canonicalCreative =
+        childStoredContract?.canonicalCreative ??
+        resolveCanonicalCreative(baseResolvedContract, campaign, diagnosis ?? undefined);
+
       const resolvedContract: CreativeContract = {
         ...baseResolvedContract,
-        canonicalCreative:
-          childStoredContract?.canonicalCreative ??
-          resolveCanonicalCreative(baseResolvedContract, campaign, diagnosis ?? undefined),
+        canonicalCreative,
+        inputSourceClassification: resolveInputSourceClassification(
+          { ...baseResolvedContract, canonicalCreative },
+          {
+            hasBrandKit: Boolean(brandKit),
+            clientReferenceCount: clientReferences?.length ?? 0,
+            packageSource: sourcePackage,
+          }
+        ),
       };
 
       if (usesParentOutput && parentDerivation?.outputKey) {

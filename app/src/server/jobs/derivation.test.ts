@@ -200,6 +200,7 @@ import { getAssetsByCampaign } from "../repositories/asset";
 import { getPlanByCampaign } from "../repositories/plan";
 import { getBrandKitByWorkspace } from "../db/repositories/brand-kit";
 import { getCompetitorAnalysesByCampaign } from "../repositories/competitor-analysis";
+import { getClientReferencesByIds } from "../repositories/client-reference";
 import { downloadBuffer } from "../storage/r2";
 import { getBrandMemoryContext } from "@/server/memory/brand-memory-context";
 import { env } from "../validation/env";
@@ -210,6 +211,7 @@ const mockGetAssetsByCampaign = vi.mocked(getAssetsByCampaign);
 const mockGetPlanByCampaign = vi.mocked(getPlanByCampaign);
 const mockGetBrandKitByWorkspace = vi.mocked(getBrandKitByWorkspace);
 const mockGetCompetitorAnalysesByCampaign = vi.mocked(getCompetitorAnalysesByCampaign);
+const mockGetClientReferencesByIds = vi.mocked(getClientReferencesByIds);
 const mockDownloadBuffer = vi.mocked(downloadBuffer);
 const mockGetBrandMemoryContext = vi.mocked(getBrandMemoryContext);
 const mockRunCompletedDerivationQualityGate = vi.mocked(runCompletedDerivationQualityGate);
@@ -436,6 +438,137 @@ describe("derivationJob", () => {
         prompt: "revised",
       })
     );
+  });
+
+  describe("input classification", () => {
+    it("persists inputSourceClassification with all role categories when brand kit and client refs present", async () => {
+      mockGetDerivationById.mockResolvedValue({
+        id: "derivation-id",
+        campaignId: "campaign-id",
+        workspaceId: "workspace-1",
+        parentId: null,
+        status: "queued",
+        generationMode: "art_variation",
+        format: "1:1",
+        ctaText: "Shop Now",
+        variantIndex: 0,
+        feedback: null,
+        prompt: null,
+        qualityScore: null,
+        scoreStatus: "pending",
+      } as Awaited<ReturnType<typeof getDerivationById>>);
+
+      mockGetCampaignById.mockResolvedValue({
+        id: "campaign-id",
+        workspaceId: "workspace-1",
+        name: "Test Campaign",
+        client: "Acme",
+        product: "Widget",
+        objective: null,
+        audience: null,
+        platforms: null,
+        tone: null,
+        offer: "20% off",
+        constraints: null,
+        notes: null,
+        status: "generating",
+        generationMode: "art_variation",
+        creativeLevel: "balanced",
+        styleIntensity: "medium",
+        creativeDiagnosisStatus: "pending",
+        creativeDiagnosis: null,
+        creativeDiagnosisSource: null,
+        selectedReferenceIds: ["ref-1", "ref-2"],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as Awaited<ReturnType<typeof getCampaignById>>);
+
+      mockGetAssetsByCampaign.mockResolvedValue([
+        {
+          id: "asset-1",
+          campaignId: "campaign-id",
+          workspaceId: "workspace-1",
+          key: "assets/campaign.png",
+          type: "image/png",
+          size: 1000,
+          width: 1080,
+          height: 1080,
+          role: "base",
+          metadata: null,
+          analysisStatus: null,
+          analyzedAt: null,
+          createdAt: new Date(),
+        },
+      ]);
+      mockGetPlanByCampaign.mockResolvedValue(null as never);
+
+      mockGetBrandKitByWorkspace.mockResolvedValue({
+        id: "brand-kit-1",
+        workspaceId: "workspace-1",
+        name: "Acme Brand",
+        description: "Primary brand kit",
+        visualNotes: null,
+        toneNotes: null,
+        constraints: null,
+        brandColors: ["#000000"],
+        brandFonts: ["Inter"],
+        logoAssetKey: null,
+        toneOfVoice: null,
+        prohibitedElements: null,
+        requiredElements: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as never);
+
+      mockGetClientReferencesByIds.mockResolvedValue([
+        {
+          id: "ref-1",
+          workspaceId: "workspace-1",
+          kind: "layout",
+          label: "Layout ref",
+          notes: null,
+          assetKey: "refs/layout.png",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+        {
+          id: "ref-2",
+          workspaceId: "workspace-1",
+          kind: "style",
+          label: "Style ref",
+          notes: null,
+          assetKey: "refs/style.png",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ] as never);
+
+      await runDerivationJob({
+        derivationId: "derivation-id",
+        campaignId: "campaign-id",
+        workspaceId: "workspace-1",
+        locale: "en",
+        generationMode: "art_variation",
+        variantIndex: 0,
+        ctaText: "Shop Now",
+        format: "1:1",
+      });
+
+      const finalCall = mockUpdateDerivationPromptProvenance.mock.calls.at(-1);
+      const persistedContract = finalCall?.[2]?.creativeContract;
+
+      expect(persistedContract?.inputSourceClassification).toEqual(
+        expect.objectContaining({
+          factualBase: expect.objectContaining({ role: "factual_base" }),
+          visualReference: null,
+          brandKit: expect.objectContaining({ role: "brand_kit" }),
+          auxiliaryReferences: expect.objectContaining({
+            role: "auxiliary_reference",
+            count: 2,
+          }),
+        })
+      );
+    });
   });
 
   it("uses parent outputKey as reference image for package format adaptation", async () => {

@@ -11,6 +11,10 @@ import {
   buildCanonicalContractPromptSection,
   resolveCanonicalCreative,
 } from "./canonical-creative-contract";
+import {
+  buildInputClassificationPromptSection,
+  resolveInputSourceClassification,
+} from "./factual-visual-separation";
 
 
 
@@ -393,6 +397,15 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
   });
   parts.push(...buildCanonicalContractPromptSection(effectiveContract));
   parts.push(...buildIntegrityPromptSection());
+
+  const classification =
+    effectiveContract.inputSourceClassification ??
+    resolveInputSourceClassification(effectiveContract, {
+      hasBrandKit: Boolean(config.brandKit),
+      clientReferenceCount: config.clientReferences?.length ?? 0,
+      packageSource: config.packageSource,
+    });
+  parts.push(...buildInputClassificationPromptSection(classification));
 
   if (generationMode === "restyling" && contract?.styleAssetId) {
     parts.push(
