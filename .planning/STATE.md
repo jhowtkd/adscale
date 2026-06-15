@@ -2,15 +2,14 @@
 gsd_state_version: 1.0
 milestone: v12.3
 milestone_name: Integridade Criativa
-status: executing
-last_updated: "2026-06-15T14:15:11.962Z"
-last_activity: 2026-06-15
+status: planning
+last_updated: "2026-06-15T14:17:10.981Z"
+last_activity: 2026-06-15 — completed 116-03-PLAN.md
 progress:
-  total_phases: 78
-  completed_phases: 33
-  total_plans: 83
-  completed_plans: 97
-  percent: 100
+  total_phases: 35
+  completed_phases: 7
+  total_plans: 22
+  completed_plans: 36
 ---
 
 # Project State
@@ -23,7 +22,7 @@ See: .planning/PROJECT.md (updated 2026-06-15)
 
 **Current focus:** v12.3 Integridade Criativa — factual fidelity, creative direction, and quality gate hardening for the derivation pipeline.
 
-**Status:** Phase 116 complete — ready for Phase 117
+**Status:** Ready to plan
 
 ## Current Position
 

@@ -30,7 +30,7 @@
 **Audit baseline:** corpus `app/exports/render-creatives/` — 34 peças, média 58,5/100 (2026-06-15)
 
 - [x] **Phase 115: Corpus Fixtures and Audit Baseline** — fixtures reproduzíveis para cada falha do corpus; campanhas canônicas; red tests provando aprovação indevida atual (completed 2026-06-15)
-- [ ] **Phase 116: Canonical Creative Contract** — contrato de ideia dominante, precedência fatos>hierarquia>decoração; injeção de `VISUAL_HIERARCHY_CONTRACT` e `ANTI_HALLUCINATION_RULES`
+- [x] **Phase 116: Canonical Creative Contract** — contrato de ideia dominante, precedência fatos>hierarquia>decoração; injeção de `VISUAL_HIERARCHY_CONTRACT` e `ANTI_HALLUCINATION_RULES` (completed 2026-06-15)
 - [ ] **Phase 117: Factual vs Visual Separation** — classificação de inputs; referência visual só transfere linguagem abstrata; bloqueio de entidades inventadas
 - [ ] **Phase 118: Per-Mode Prompt Rules** — regras distintas para `art_variation`, `restyling`, `format_adaptation`; orçamento de três zonas; mesma campanha em múltiplos formatos
 - [ ] **Phase 119: Observable Rubric** — critérios observáveis substituem "polished"; reprova overload, genérico severo e hook ilegível em miniatura
@@ -42,7 +42,7 @@
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
 | 115 | Corpus Fixtures and Audit Baseline | Complete    | 2026-06-15 | 2026-06-15 |
-| 116 | Canonical Creative Contract | 3/3 | Complete   | 2026-06-15 |
+| 116 | Canonical Creative Contract | Complete    | 2026-06-15 | 2026-06-15 |
 | 117 | Factual vs Visual Separation | SEP-01–04 | Pending | — |
 | 118 | Per-Mode Prompt Rules | MODE-01–05 | Pending | — |
 | 119 | Observable Rubric | RUBR-01–04 | Pending | — |
@@ -248,7 +248,7 @@ Plans:
   3. Nenhum prompt exige simultaneamente preservar todos os módulos literalmente e simplificar hierarquia sem regra de precedência.
   4. `VISUAL_HIERARCHY_CONTRACT` e `ANTI_HALLUCINATION_RULES` aparecem em todos os prompts de derivação aplicáveis.
 
-**Plans:** 3 plans
+**Plans:** 3/3 plans complete
 
 Plans:
 - [x] 116-01-PLAN.md — Canonical types, resolver, job wiring (CONT-01, CONT-02)
