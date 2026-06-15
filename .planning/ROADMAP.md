@@ -46,7 +46,7 @@
 | 117 | Factual vs Visual Separation | Complete    | 2026-06-15 | 2026-06-15 |
 | 118 | 0/4 | Complete    | 2026-06-15 | — |
 | 119 | 0/4 | Complete    | 2026-06-15 | 2026-06-15 |
-| 120 | Quality Gate Hardening | GATE-01–05 | Pending | — |
+| 120 | Quality Gate Hardening | 1/3 | In Progress|  |
 | 121 | Score Ceilings and Retry | SCR-01–05 | Pending | — |
 | 122 | Regression Test Suite | TEST-01–04 | Pending | — |
 | 123 | Visual Validation Gate | QA-18–21 | Pending | — |
@@ -348,7 +348,7 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 120-01-PLAN.md — Taxonomy, type union, normalizeHardFailureCode, i18n (GATE-01)
+- [x] 120-01-PLAN.md — Taxonomy, type union, normalizeHardFailureCode, i18n (GATE-01)
 - [ ] 120-02-PLAN.md — Classifier refactor + CONTAMINATION_FAILURE_CODES (GATE-01–03)
 - [ ] 120-03-PLAN.md — Corpus alignment, faithful c2c12774 fixture, baseline flip (GATE-04–05)
 

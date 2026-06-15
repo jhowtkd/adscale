@@ -2,14 +2,15 @@
 gsd_state_version: 1.0
 milestone: v12.3
 milestone_name: Integridade Criativa
-status: planning
-last_updated: "2026-06-15T18:50:29.882Z"
+status: executing
+last_updated: "2026-06-15T19:05:49.566Z"
 last_activity: 2026-06-15
 progress:
-  total_phases: 35
-  completed_phases: 10
-  total_plans: 34
-  completed_plans: 48
+  total_phases: 82
+  completed_phases: 36
+  total_plans: 98
+  completed_plans: 110
+  percent: 100
 ---
 
 # Project State
@@ -22,16 +23,16 @@ See: .planning/PROJECT.md (updated 2026-06-15)
 
 **Current focus:** v12.3 Integridade Criativa — factual fidelity, creative direction, and quality gate hardening for the derivation pipeline.
 
-**Status:** Ready to plan
+**Status:** Executing phase 120 — gate hardening
 
 ## Current Position
 
-Phase: 119 — Observable Rubric
-Plan: 4 of 04 complete (119-03 done)
-Status: Ready to execute
+Phase: 120 — Quality Gate Hardening
+Plan: 1 of 3 complete (120-01 done)
+Status: Ready to execute 120-02
 Last activity: 2026-06-15
 
-Progress: [██████░░░░] 3/4 plans in phase 119
+Progress: [███░░░░░░░] 1/3 plans in phase 120
 
 ## Accumulated Context
 
@@ -61,7 +62,7 @@ Progress: [██████░░░░] 3/4 plans in phase 119
 
 ## Session Continuity
 
-Last activity: 2026-06-15 — completed 119-03-PLAN.md (extract buildCreativeScorePrompt with observable rubric)
+Last activity: 2026-06-15 — completed 120-01-PLAN.md (GATE-01 taxonomy, types, i18n)
 
 ## Decisions
 
@@ -78,7 +79,9 @@ Last activity: 2026-06-15 — completed 119-03-PLAN.md (extract buildCreativeSco
 - [Phase 119]: QA prompt injects observable rubric after styleFidelity/allowedEntities; export-softening removed
 - [Phase 119]: Score prompt uses buildObservableScoreRubricSection + allowedEntities block matching QA pattern
 - [Phase 119]: Corpus archetype integration tests verify rubric parity without gate promotion; BASELINE_GAP_COUNT remains 4 until Phase 120
+- [Phase 120]: GATE-01 taxonomy patterns and extended CreativeHardFailureCode union established without classifier promotion (Plan 02)
+- [Phase 120]: normalizeHardFailureCode maps copied_style_reference_facts, format_campaign_drift, restyling_factual_contamination to canonical GATE-01 codes
 
 ## Next Steps
 
-Execute 119-04-PLAN.md — complete observable rubric phase
+Execute 120-02-PLAN.md — classifier refactor and CONTAMINATION_FAILURE_CODES

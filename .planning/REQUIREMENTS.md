@@ -54,7 +54,7 @@ Endurecer o pipeline criativo para que peças factualmente incorretas, visualmen
 
 ### Quality Gate (GATE)
 
-- [ ] **GATE-01**: Novas categorias bloqueantes: `invented_factual_entity`, `replaced_source_subject`, `unauthorized_brand_or_ip`, `campaign_identity_drift`, `style_reference_contamination`, `generic_template_aesthetic`, `visual_overload`, `missing_dominant_idea`, `decorative_only_variation`.
+- [x] **GATE-01**: Novas categorias bloqueantes: `invented_factual_entity`, `replaced_source_subject`, `unauthorized_brand_or_ip`, `campaign_identity_drift`, `style_reference_contamination`, `generic_template_aesthetic`, `visual_overload`, `missing_dominant_idea`, `decorative_only_variation`.
 - [ ] **GATE-02**: Falha factual produz `invalid` independentemente da nota estética.
 - [ ] **GATE-03**: Estética genérica severa não fica apenas em `polishSuggestions` — bloqueia exportação quando acima do threshold.
 - [ ] **GATE-04**: Peças `27069645`, `a753e357`, `538246da`, `a5f65b85`, `f420bcb2`, `d7d9d323` do corpus são bloqueadas após correção.
@@ -124,7 +124,7 @@ Endurecer o pipeline criativo para que peças factualmente incorretas, visualmen
 | RUBR-02 | Phase 119 | Complete |
 | RUBR-03 | Phase 119 | Complete |
 | RUBR-04 | Phase 119 | Complete |
-| GATE-01 | Phase 120 | Pending |
+| GATE-01 | Phase 120 | Complete |
 | GATE-02 | Phase 120 | Pending |
 | GATE-03 | Phase 120 | Pending |
 | GATE-04 | Phase 120 | Pending |
