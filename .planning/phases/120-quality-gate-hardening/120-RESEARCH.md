@@ -459,18 +459,13 @@ export {
 | A4 | `f420bcb2` shares restyling contamination archetype with `a5f65b85` | GATE-04 | May need separate note if audit differs |
 | A5 | UI uses `hardFailureCodes.{code}` with fallback to raw code | i18n | Missing keys show English code string |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Dual hard failures on format drift fixture (`campaign_identity_drift` + `wrong_brand`)?**
-   - What we know: Corpus expects both; briefMatch note may not match `WRONG_BRAND_PATTERN` today.
-   - Recommendation: Add narrative-mismatch clause to `WRONG_BRAND_PATTERN` or `CAMPAIGN_IDENTITY_DRIFT_PATTERN`; or narrow corpus expected codes to `[campaign_identity_drift]` only if redundant.
+1. **Dual hard failures on format drift fixture (`campaign_identity_drift` + `wrong_brand`)?** — **RESOLVED:** Narrow corpus `expectedHardFailureCodes` to `["campaign_identity_drift"]` only. The `format_campaign_drift` briefMatch note ("education/professor enrollment narrative instead of CENBRAP NR1") matches `CAMPAIGN_IDENTITY_DRIFT_PATTERN`, not `WRONG_BRAND_PATTERN`; dual codes are redundant.
 
-2. **`acceptable` vs `improvable` for faithful fixture with creativeRisk warning?**
-   - What we know: `deriveQualityVerdict` returns `improvable` when warnings exist even without hard failures [VERIFIED: L442-444].
-   - Recommendation: GATE-05 "aprovável" = `assertDerivationApprovable` ok → use `improvable` + empty hardFailures OR all-passed checklist for `acceptable`; document in fixture.
+2. **`acceptable` vs `improvable` for faithful fixture with creativeRisk warning?** — **RESOLVED:** Use `improvable` with `expectedHardFailureCodes: []`. `deriveQualityVerdict` returns `improvable` when checklist warnings exist without hard failures [VERIFIED: L442-444]; `assertDerivationApprovable` remains `ok: true` — satisfies GATE-05 "aprovável".
 
-3. **Emit one or two codes for restyling contamination?**
-   - Recommendation: Single canonical `style_reference_contamination` per GATE-01; update corpus to one expected code.
+3. **Emit one or two codes for restyling contamination?** — **RESOLVED:** Single canonical `style_reference_contamination` on emit (not dual with `copied_style_reference_facts`). Corpus `expectedHardFailureCodes` updates to `["style_reference_contamination"]`; `normalizeHardFailureCode` handles persisted legacy rows.
 
 ## Environment Availability
 
@@ -603,11 +598,11 @@ Step 2.6: **SKIPPED** — code-only phase; no new external dependencies.
 | Architecture | HIGH | Gate + corpus + rubric markers verified |
 | Pitfalls | HIGH | Baseline test run + line-level classifier audit |
 
-### Open Questions
+### Open Questions (RESOLVED)
 
-- Dual expected codes on format drift (`wrong_brand` + `campaign_identity_drift`)
-- `acceptable` vs `improvable` for faithful fixture with warnings
-- Single vs dual code on restyling contamination
+- Format drift fixture: `["campaign_identity_drift"]` only (not dual with `wrong_brand`)
+- Faithful c2c12774 fixture: `improvable` + empty `hardFailures` (`assertDerivationApprovable` ok)
+- Restyling contamination: single `style_reference_contamination` on emit
 
 ### Ready for Planning
 
