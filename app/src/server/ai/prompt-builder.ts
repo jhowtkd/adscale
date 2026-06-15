@@ -11,7 +11,9 @@ import {
   buildCanonicalContractPromptSection,
   resolveCanonicalCreative,
 } from "./canonical-creative-contract";
+import { resolveAllowedEntitiesForCampaign } from "./creative-corpus";
 import {
+  buildAllowedEntitiesPromptSection,
   buildInputClassificationPromptSection,
   buildVisualReferenceTransferRuleSection,
   resolveInputSourceClassification,
@@ -407,6 +409,11 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
       packageSource: config.packageSource,
     });
   parts.push(...buildInputClassificationPromptSection(classification));
+
+  const allowedEntities = resolveAllowedEntitiesForCampaign(campaign);
+  if (allowedEntities) {
+    parts.push(...buildAllowedEntitiesPromptSection(allowedEntities));
+  }
 
   if (generationMode === "restyling") {
     const hasClientStyleReferences = config.clientReferences?.some(

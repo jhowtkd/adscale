@@ -1,4 +1,5 @@
 import type { CreativeContract, SourcePackage } from "./creative-contract";
+import type { CanonicalCampaignAllowedEntities } from "./creative-corpus";
 import type { CreativeHardFailureCode } from "./creative-quality-gate";
 
 export type InputSourceRole =
@@ -19,6 +20,7 @@ export const CONTAMINATION_FAILURE_CODES: ReadonlySet<CreativeHardFailureCode> =
     "copied_style_reference_facts",
     "wrong_brand",
     "unsupported_offer",
+    "invented_factual_entity",
   ]);
 
 export type ResolveInputSourceClassificationContext = {
@@ -164,9 +166,47 @@ export function extractPromptInputClassificationSection(prompt: string): string 
   const start = prompt.indexOf(header);
   if (start === -1) return "";
   const end = indexOfEarliestMarker(prompt, start + header.length, [
+    "\nALLOWED ENTITIES (do not invent beyond this list):",
     "\nVISUAL REFERENCE TRANSFER RULE:",
     "\nRESTYLING FACTUAL-SOURCE RULE:",
     "\nMODE:",
+  ]);
+  return prompt.slice(start, end).trimEnd();
+}
+
+export function buildAllowedEntitiesPromptSection(
+  entities: CanonicalCampaignAllowedEntities
+): string[] {
+  const lines = [
+    "",
+    "ALLOWED ENTITIES (do not invent beyond this list):",
+  ];
+
+  if (entities.people.length > 0) {
+    lines.push(`- People: ${entities.people.join("; ")}`);
+  }
+  if (entities.brands.length > 0) {
+    lines.push(`- Brands: ${entities.brands.join("; ")}`);
+  }
+  if (entities.products.length > 0) {
+    lines.push(`- Products: ${entities.products.join("; ")}`);
+  }
+  if (entities.claims.length > 0) {
+    lines.push(`- Claims: ${entities.claims.join("; ")}`);
+  }
+
+  return lines;
+}
+
+export function extractPromptAllowedEntitiesSection(prompt: string): string {
+  const header = "ALLOWED ENTITIES (do not invent beyond this list):";
+  const start = prompt.indexOf(header);
+  if (start === -1) return "";
+  const end = indexOfEarliestMarker(prompt, start + header.length, [
+    "\nVISUAL REFERENCE TRANSFER RULE:",
+    "\nRESTYLING FACTUAL-SOURCE RULE:",
+    "\nMODE:",
+    "\n\nCampaign:",
   ]);
   return prompt.slice(start, end).trimEnd();
 }

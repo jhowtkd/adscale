@@ -32,6 +32,7 @@ export type CreativeHardFailureCode =
   | "cta_drift"
   | "wrong_brand"
   | "unsupported_offer"
+  | "invented_factual_entity"
   | "copied_style_reference_facts"
   | "cropped_critical_content"
   | "unreadable_required_text"

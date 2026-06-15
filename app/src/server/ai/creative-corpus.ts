@@ -99,3 +99,59 @@ const MANIFEST_ID_PREFIXES = new Set(
 export function isCorpusRefIdKnown(idPrefix: string): boolean {
   return MANIFEST_ID_PREFIXES.has(idPrefix);
 }
+
+export interface CanonicalCampaignLookupInput {
+  name?: string | null;
+  client?: string | null;
+}
+
+function normalizeCampaignToken(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+export function matchCanonicalCampaignSlug(
+  name?: string | null,
+  client?: string | null
+): CanonicalCampaignSlug | null {
+  const candidates = [name, client].filter(
+    (value): value is string => typeof value === "string" && value.trim().length > 0
+  );
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  for (const [slug, campaign] of Object.entries(CANONICAL_CAMPAIGNS) as [
+    CanonicalCampaignSlug,
+    CanonicalCampaign,
+  ][]) {
+    const searchTerms = [slug.replace(/-/g, " "), ...campaign.displayNames].map(
+      normalizeCampaignToken
+    );
+
+    for (const candidate of candidates) {
+      const normalized = normalizeCampaignToken(candidate);
+      for (const term of searchTerms) {
+        if (normalized.includes(term) || term.includes(normalized)) {
+          return slug;
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+export function resolveAllowedEntitiesForCampaign(
+  campaign?: CanonicalCampaignLookupInput | null
+): CanonicalCampaignAllowedEntities | null {
+  if (!campaign) {
+    return null;
+  }
+
+  const slug = matchCanonicalCampaignSlug(campaign.name, campaign.client);
+  if (!slug) {
+    return null;
+  }
+
+  return CANONICAL_CAMPAIGNS[slug].allowedEntities;
+}

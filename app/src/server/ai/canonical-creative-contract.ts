@@ -1,4 +1,5 @@
 import type { CreativeContract, CtaSemantics } from "./creative-contract";
+import { resolveAllowedEntitiesForCampaign } from "./creative-corpus";
 
 export interface InvariantIdentity {
   campaign: string;
@@ -79,6 +80,23 @@ export function resolveCanonicalCreative(
     )
   );
 
+  const allowedEntities = campaign
+    ? resolveAllowedEntitiesForCampaign({
+        name: campaign.name,
+        client: contract.client,
+      })
+    : null;
+
+  const baseBrand = trimOrDefault(contract.client, "source brand");
+  const people =
+    allowedEntities && allowedEntities.people.length > 0
+      ? [...allowedEntities.people]
+      : [];
+  const brand =
+    allowedEntities && allowedEntities.brands.length > 0
+      ? [...new Set([baseBrand, ...allowedEntities.brands])].join(", ")
+      : baseBrand;
+
   return {
     dominantIdea,
     hook: trimOrDefault(contract.offer, "Primary headline from reference"),
@@ -88,10 +106,10 @@ export function resolveCanonicalCreative(
     ),
     invariantIdentity: {
       campaign: trimOrDefault(campaign?.name, "source campaign"),
-      brand: trimOrDefault(contract.client, "source brand"),
+      brand,
       product: trimOrDefault(contract.product, "source product"),
       palette: "from reference and brand kit",
-      people: [],
+      people,
     },
     tiers: DEFAULT_TIERS,
   };
