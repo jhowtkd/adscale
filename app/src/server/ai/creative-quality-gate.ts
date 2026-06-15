@@ -37,6 +37,7 @@ import {
   type CreativeScoreBreakdown,
 } from "../repositories/derivation";
 import { buildHardFailureRegenerationSuggestion } from "./creative-score";
+import { applyScoreCeilings } from "./creative-score-ceilings";
 
 export type CreativeHardFailureCode =
   | "cta_drift"
@@ -615,10 +616,13 @@ export function computeQualityGateFromAnalysis(input: {
   contract: CreativeContract;
   scoreIssues?: string[];
   qualityScore?: number | null;
+  scoreBreakdown?: CreativeScoreBreakdown | null;
 }): {
   qualityVerdict: CreativeQualityVerdict;
   hardFailures: CreativeHardFailure[];
   polishSuggestions: string[];
+  qualityScore: number;
+  scoreBreakdown: CreativeScoreBreakdown | null;
 } {
   const scoreIssues = input.scoreIssues ?? [];
   const { hardFailures, polishSuggestions } = classifyCreativeQualityGate({
@@ -626,16 +630,29 @@ export function computeQualityGateFromAnalysis(input: {
     contract: input.contract,
     scoreIssues,
   });
-  const qualityScore =
+  const rawQualityScore =
     typeof input.qualityScore === "number" && Number.isFinite(input.qualityScore)
       ? input.qualityScore
       : 0;
+  const capped = applyScoreCeilings(
+    {
+      qualityScore: rawQualityScore,
+      scoreBreakdown: input.scoreBreakdown ?? null,
+    },
+    hardFailures
+  );
   const qualityVerdict = deriveQualityVerdict({
     hardFailures,
-    qualityScore,
+    qualityScore: capped.qualityScore,
     checklist: input.checklist,
   });
-  return { qualityVerdict, hardFailures, polishSuggestions };
+  return {
+    qualityVerdict,
+    hardFailures,
+    polishSuggestions,
+    qualityScore: capped.qualityScore,
+    scoreBreakdown: input.scoreBreakdown ? capped.scoreBreakdown : null,
+  };
 }
 
 export function deriveQualityVerdict(input: {
@@ -707,13 +724,16 @@ export async function runCompletedDerivationQualityGate(
         ? row.qualityScore
         : 0;
 
+    const scoreBreakdown =
+      (row?.scoreBreakdown as CreativeScoreBreakdown | null) ?? null;
     const checklist = qa.checklist as CreativeQaChecklistWithStyle;
-    const { qualityVerdict, hardFailures, polishSuggestions } =
+    const { qualityVerdict, hardFailures, polishSuggestions, qualityScore: cappedQualityScore, scoreBreakdown: cappedScoreBreakdown } =
       computeQualityGateFromAnalysis({
         checklist,
         contract: input.contract,
         scoreIssues,
         qualityScore,
+        scoreBreakdown,
       });
 
     await updateDerivationQa(input.derivationId, input.workspaceId, {
@@ -738,10 +758,10 @@ export async function runCompletedDerivationQualityGate(
         qaChecklist: checklist,
       });
       await updateDerivationScore(input.derivationId, input.workspaceId, {
-        qualityScore: row.qualityScore,
+        qualityScore: cappedQualityScore,
         scoreStatus:
           (row.scoreStatus as "heuristic" | "analyzed" | "failed" | "pending") ?? "analyzed",
-        scoreBreakdown: (row.scoreBreakdown as CreativeScoreBreakdown | null) ?? null,
+        scoreBreakdown: cappedScoreBreakdown ?? scoreBreakdown,
         scoreIssues,
         regenerationSuggestion,
       });
