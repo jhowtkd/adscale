@@ -193,6 +193,10 @@ vi.mock("../db", () => ({
 }));
 
 import { runCompletedDerivationQualityGate } from "../ai/creative-quality-gate";
+import {
+  assertParentFactualLineage,
+  parentHasContamination,
+} from "../ai/factual-visual-separation";
 import { derivationJob, normalizeGeneratedImage } from "./derivation";
 import { getDerivationById } from "../repositories/derivation";
 import { getCampaignById } from "../repositories/campaign";
@@ -571,6 +575,140 @@ describe("derivationJob", () => {
     });
   });
 
+  describe("contaminated parent", () => {
+    it("parentHasContamination returns false for null parent", () => {
+      expect(parentHasContamination(null)).toBe(false);
+      expect(parentHasContamination(undefined as never)).toBe(false);
+    });
+
+    it("assertParentFactualLineage does not throw for null parent", () => {
+      expect(() => assertParentFactualLineage(null)).not.toThrow();
+    });
+
+    it("throws when parent qualityVerdict is invalid", () => {
+      const parent = { qualityVerdict: "invalid", hardFailures: [] };
+      expect(parentHasContamination(parent)).toBe(true);
+      expect(() => assertParentFactualLineage(parent)).toThrow(/factual integrity/i);
+    });
+
+    it("throws when parent hardFailures include copied_style_reference_facts", () => {
+      const parent = {
+        qualityVerdict: "acceptable",
+        hardFailures: [{ code: "copied_style_reference_facts" }],
+      };
+      expect(parentHasContamination(parent)).toBe(true);
+      expect(() => assertParentFactualLineage(parent)).toThrow(
+        "Parent derivation failed factual integrity checks and cannot be used for format adaptation."
+      );
+    });
+
+    it("throws when parent hardFailures include wrong_brand", () => {
+      const parent = {
+        qualityVerdict: "acceptable",
+        hardFailures: [{ code: "wrong_brand" }],
+      };
+      expect(parentHasContamination(parent)).toBe(true);
+      expect(() => assertParentFactualLineage(parent)).toThrow(/factual integrity/i);
+    });
+
+    it("does not throw for clean parent with acceptable qualityVerdict", () => {
+      const parent = {
+        qualityVerdict: "acceptable",
+        hardFailures: [{ code: "cta_drift" }],
+      };
+      expect(parentHasContamination(parent)).toBe(false);
+      expect(() => assertParentFactualLineage(parent)).not.toThrow();
+    });
+
+    it("format_adaptation job throws before downloading contaminated parent output", async () => {
+      mockGetDerivationById.mockImplementation(async (id: string) => {
+        if (id === "parent-id") {
+          return {
+            id: "parent-id",
+            campaignId: "campaign-id",
+            workspaceId: "workspace-1",
+            outputKey: "derivations/parent/output.png",
+            status: "approved",
+            generationMode: "art_variation",
+            format: "1:1",
+            parentId: null,
+            ctaText: null,
+            variantIndex: null,
+            feedback: null,
+            prompt: null,
+            qualityScore: null,
+            scoreStatus: "pending",
+            qualityVerdict: "acceptable",
+            hardFailures: [
+              {
+                code: "copied_style_reference_facts",
+                message: "Style reference facts copied",
+              },
+            ],
+          } as Awaited<ReturnType<typeof getDerivationById>>;
+        }
+        return {
+          id: "child-id",
+          campaignId: "campaign-id",
+          workspaceId: "workspace-1",
+          parentId: "parent-id",
+          status: "queued",
+          generationMode: "format_adaptation",
+          format: "9:16",
+          ctaText: "Comprar agora",
+          variantIndex: 0,
+          feedback: null,
+          prompt: null,
+          qualityScore: null,
+          scoreStatus: "pending",
+        } as Awaited<ReturnType<typeof getDerivationById>>;
+      });
+
+      mockGetCampaignById.mockResolvedValue({
+        id: "campaign-id",
+        workspaceId: "workspace-1",
+        name: "Test Campaign",
+        client: "Test",
+        product: null,
+        objective: null,
+        audience: null,
+        platforms: null,
+        tone: null,
+        offer: null,
+        constraints: null,
+        notes: null,
+        status: "generating",
+        generationMode: "art_variation",
+        creativeLevel: "balanced",
+        styleIntensity: "medium",
+        creativeDiagnosisStatus: "pending",
+        creativeDiagnosis: null,
+        creativeDiagnosisSource: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as Awaited<ReturnType<typeof getCampaignById>>);
+
+      mockGetAssetsByCampaign.mockResolvedValue([]);
+      mockGetPlanByCampaign.mockResolvedValue(null as never);
+      mockDownloadBuffer.mockClear();
+
+      await expect(
+        runDerivationJob({
+          derivationId: "child-id",
+          campaignId: "campaign-id",
+          workspaceId: "workspace-1",
+          locale: "pt-BR",
+          generationMode: "format_adaptation",
+          variantIndex: 0,
+          ctaText: "Comprar agora",
+          format: "9:16",
+        })
+      ).rejects.toThrow(/factual integrity/i);
+
+      expect(mockDownloadBuffer).not.toHaveBeenCalledWith("derivations/parent/output.png");
+    });
+  });
+
   it("uses parent outputKey as reference image for package format adaptation", async () => {
     mockGetDerivationById.mockImplementation(async (id: string) => {
       if (id === "parent-id") {
@@ -589,6 +727,8 @@ describe("derivationJob", () => {
           prompt: null,
           qualityScore: null,
           scoreStatus: "pending",
+          qualityVerdict: "acceptable",
+          hardFailures: [],
         } as Awaited<ReturnType<typeof getDerivationById>>;
       }
       return {

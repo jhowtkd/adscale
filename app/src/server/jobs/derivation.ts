@@ -16,7 +16,7 @@ import {
   resolveCtaSemantics,
 } from "../ai/creative-contract";
 import { resolveCanonicalCreative } from "../ai/canonical-creative-contract";
-import { resolveInputSourceClassification } from "../ai/factual-visual-separation";
+import { resolveInputSourceClassification, assertParentFactualLineage } from "../ai/factual-visual-separation";
 import type {
   CreativeContract,
   ImageOperation,
@@ -494,6 +494,10 @@ export const derivationJob = inngest.createFunction(
           }
         ),
       };
+
+      if (usesParentOutput) {
+        assertParentFactualLineage(parentDerivation);
+      }
 
       if (usesParentOutput && parentDerivation?.outputKey) {
         logger.info(`[generate-and-store-output] downloading parent output key=${parentDerivation.outputKey}`);
