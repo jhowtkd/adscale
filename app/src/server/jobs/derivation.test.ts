@@ -89,9 +89,13 @@ vi.mock("../repositories/derivation", () => ({
   updateDerivationGenerationLog: vi.fn(() => Promise.resolve({})),
 }));
 
-vi.mock("../ai/creative-quality-gate", () => ({
-  runCompletedDerivationQualityGate: vi.fn(() => Promise.resolve()),
-}));
+vi.mock("../ai/creative-quality-gate", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../ai/creative-quality-gate")>();
+  return {
+    ...actual,
+    runCompletedDerivationQualityGate: vi.fn(() => Promise.resolve()),
+  };
+});
 
 vi.mock("../repositories/client-reference", () => ({
   getClientReferencesByIds: vi.fn(() => Promise.resolve([])),
@@ -107,10 +111,15 @@ vi.mock("@/server/memory/campaign-memory-context", () => ({
   recordCampaignMemoryEntry: vi.fn(() => Promise.resolve({ schemaVersion: 1, entries: [] })),
 }));
 
-vi.mock("../ai/derivation-auto-retry", () => ({
-  runDerivationAutoRetry: vi.fn(() => Promise.resolve(null)),
-  shouldAutoRetryDerivation: vi.fn(() => false),
-}));
+vi.mock("../ai/derivation-auto-retry", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../ai/derivation-auto-retry")>();
+  return {
+    ...actual,
+    runDerivationAutoRetry: vi.fn(() =>
+      Promise.resolve({ outputKey: "derivations/derivation-id/retry.png", revisedPrompt: "retry" })
+    ),
+  };
+});
 
 vi.mock("../repositories/usage", () => ({
   trackUsage: vi.fn(),
@@ -198,6 +207,7 @@ import {
   parentHasContamination,
 } from "../ai/factual-visual-separation";
 import { derivationJob, normalizeGeneratedImage } from "./derivation";
+import { runDerivationAutoRetry } from "../ai/derivation-auto-retry";
 import { getDerivationById } from "../repositories/derivation";
 import { getCampaignById } from "../repositories/campaign";
 import { getAssetsByCampaign } from "../repositories/asset";
@@ -219,6 +229,7 @@ const mockGetClientReferencesByIds = vi.mocked(getClientReferencesByIds);
 const mockDownloadBuffer = vi.mocked(downloadBuffer);
 const mockGetBrandMemoryContext = vi.mocked(getBrandMemoryContext);
 const mockRunCompletedDerivationQualityGate = vi.mocked(runCompletedDerivationQualityGate);
+const mockRunDerivationAutoRetry = vi.mocked(runDerivationAutoRetry);
 
 async function runDerivationJob(eventData: Record<string, unknown>) {
   const event = { data: eventData } as unknown;
@@ -819,6 +830,117 @@ describe("derivationJob", () => {
           revisedPrompt: "revised",
         }),
       })
+    );
+  });
+
+  it("restyling retry uses base asset key not generated output key", async () => {
+    const contaminatedOutputKey = "derivations/derivation-id/contaminated-output.png";
+
+    mockGetDerivationById.mockResolvedValue({
+      id: "derivation-id",
+      campaignId: "campaign-id",
+      workspaceId: "workspace-1",
+      parentId: null,
+      status: "queued",
+      generationMode: "restyling",
+      format: "1:1",
+      styleAssetId: "style-asset-id",
+      ctaText: null,
+      variantIndex: 0,
+      feedback: null,
+      prompt: null,
+      qualityScore: 40,
+      scoreStatus: "analyzed",
+      hardFailures: [
+        { code: "style_reference_contamination", message: "Style facts copied into output" },
+      ],
+      regenerationSuggestion: "Correction: keep factual content from base only",
+      generationLog: { autoRetryAttempted: false },
+    } as Awaited<ReturnType<typeof getDerivationById>>);
+
+    mockGetCampaignById.mockResolvedValue({
+      id: "campaign-id",
+      workspaceId: "workspace-1",
+      name: "Restyling Campaign",
+      client: "Acme",
+      product: "Widget",
+      objective: null,
+      audience: null,
+      platforms: null,
+      tone: null,
+      offer: null,
+      constraints: null,
+      notes: null,
+      status: "generating",
+      generationMode: "restyling",
+      creativeLevel: "balanced",
+      styleIntensity: "medium",
+      creativeDiagnosisStatus: "pending",
+      creativeDiagnosis: null,
+      creativeDiagnosisSource: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as Awaited<ReturnType<typeof getCampaignById>>);
+
+    mockGetAssetsByCampaign.mockResolvedValue([
+      {
+        id: "base-asset-id",
+        campaignId: "campaign-id",
+        workspaceId: "workspace-1",
+        key: "assets/base-factual.png",
+        type: "image/png",
+        size: 1000,
+        width: 1080,
+        height: 1080,
+        role: "base",
+        metadata: null,
+        analysisStatus: null,
+        analyzedAt: null,
+        createdAt: new Date(),
+      },
+      {
+        id: "style-asset-id",
+        campaignId: "campaign-id",
+        workspaceId: "workspace-1",
+        key: "assets/style-reference.png",
+        type: "image/png",
+        size: 1000,
+        width: 1080,
+        height: 1080,
+        role: "style_reference",
+        metadata: null,
+        analysisStatus: null,
+        analyzedAt: null,
+        createdAt: new Date(),
+      },
+    ]);
+    mockGetPlanByCampaign.mockResolvedValue(null as never);
+
+    const { stepNames } = await runDerivationJob({
+      derivationId: "derivation-id",
+      campaignId: "campaign-id",
+      workspaceId: "workspace-1",
+      locale: "en",
+      generationMode: "restyling",
+      styleAssetId: "style-asset-id",
+      variantIndex: 0,
+      format: "1:1",
+    });
+
+    expect(stepNames).toContain("auto-retry-on-text-failure");
+    expect(mockRunDerivationAutoRetry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        generationMode: "restyling",
+        referenceKey: "assets/base-factual.png",
+        styleReferenceKey: "assets/style-reference.png",
+        styleReferenceMimeType: "image/png",
+      })
+    );
+    expect(mockRunDerivationAutoRetry).not.toHaveBeenCalledWith(
+      expect.objectContaining({ referenceKey: contaminatedOutputKey })
+    );
+    expect(mockRunDerivationAutoRetry).not.toHaveBeenCalledWith(
+      expect.objectContaining({ referenceKey: expect.stringContaining("derivations/derivation-id/") })
     );
   });
 
