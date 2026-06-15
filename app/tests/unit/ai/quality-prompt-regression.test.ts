@@ -6,6 +6,7 @@ import {
   extractPromptHardRulesSection,
   extractPromptIntegritySection,
   extractPromptModeSection,
+  extractPromptPerModeRulesSection,
   extractPromptRestylingFactualSourceSection,
 } from "@/server/ai/prompt-builder";
 import { extractPromptVisualReferenceTransferSection } from "@/server/ai/factual-visual-separation";
@@ -59,6 +60,21 @@ describe.each(QUALITY_FIXTURES)("prompt regression — $id", (fixture) => {
     if (fixture.failureMode === "wrong_cta") {
       expect(hardRules).toContain("Comprar agora");
     }
+
+    const perMode = extractPromptPerModeRulesSection(prompt);
+    if (fixture.contract.generationMode === "art_variation") {
+      expect(perMode).toMatch(/DECORATIVE-ONLY|decorative-only/i);
+      expect(perMode).toMatch(/THREE-ZONE|three main information zones/i);
+    }
+    if (fixture.contract.generationMode === "restyling") {
+      expect(perMode).toMatch(/entity lock|base-locked|FACTUAL ENTITY LOCK/i);
+      expect(perMode).not.toMatch(/DENYLIST/);
+    }
+    if (fixture.contract.generationMode === "format_adaptation") {
+      expect(perMode).toMatch(/CAMPAIGN IDENTITY LOCK|same campaign/i);
+      expect(perMode).toMatch(/CROSS-FORMAT IDENTITY/i);
+      expect(perMode).toContain("PRESERVE COPY AND FACTS VERBATIM");
+    }
   });
 });
 
@@ -87,6 +103,11 @@ describe("compact prompt section snapshots by generation mode", () => {
     const prompt = buildDerivationPrompt(derivationConfigFromContract(fixture.contract));
     expect(extractPromptModeSection(prompt)).toMatchInlineSnapshot(`
       "MODE: format_adaptation — You are EDITING an existing ad to fit a DIFFERENT aspect ratio.
+      CAMPAIGN IDENTITY LOCK:
+      - This is an EDIT of the same campaign — preserve people, copy, CTA, brand, and concept.
+      - Only composition, scale, grouping, and safe margins may change.
+      - Do not recreate the ad as a new concept or introduce a different narrative.
+      Dominant idea (must not change): Lead generation
       You can see the original image. Rebuild the layout for the target format while keeping all copy and facts verbatim (headlines, subheads, CTA, legal copy, offer lines, badge text).
       This is a layout adaptation, not a resized poster. Treat the source ad as separate modules: headline, photo/subject, offer or proof, CTA, logo, badges, legal copy, and decorative background.
       PRESERVE COPY AND FACTS VERBATIM: the original photo/subject, all text copy (headlines, subheads, bullets, CTA), the logo, brand colors, offer/discount text, and legal copy must appear exactly as in the source — no rewrites or omissions of mandatory-tier copy.
@@ -97,6 +118,10 @@ describe("compact prompt section snapshots by generation mode", () => {
       HARD LAYOUT FAILURES TO AVOID: no blurred side/top/bottom bars, no poster pasted over a background, no stretched edge filler, no crowded cluster of text/photo/CTA/logo, no overlapping information modules.
       Build clear zones with gutters and whitespace. Keep headline, supporting copy, CTA, logo, badges, legal copy, faces, and products inside a central safe area; only decorative background may bleed to the edges.
       The result must be immediately recognizable as the same ad — same content, same visual identity, just fitting a different frame.
+      CROSS-FORMAT IDENTITY:
+      - The 1:1, 4:5, and 9:16 outputs must remain the SAME campaign: identical people, copy, CTA, brand, and dominant idea.
+      - Do not introduce a new narrative, new hero photo, new offer, or new concept when adapting aspect ratio.
+      - Only composition, scale, grouping, and safe margins may change.
       For 9:16 (vertical story): create a tall story layout with separate vertical zones. Use the upper zone for headline/brand hook, the middle zone for the photo or main visual, and the lower zone for offer/proof/CTA/logo. Do not squeeze the square layout into the center."
     `);
   });

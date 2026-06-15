@@ -18,6 +18,15 @@ import {
   buildVisualReferenceTransferRuleSection,
   resolveInputSourceClassification,
 } from "./factual-visual-separation";
+import {
+  buildFormatFlexibleContextSuffix,
+  buildFormatReferenceAssetSuffix,
+  buildPerModeRulesSection,
+  shouldIncludeCompetitorAnalysesForMode,
+  shouldIncludePlanHooksForMode,
+} from "./per-mode-prompt-rules";
+
+export { extractPromptPerModeRulesSection } from "./per-mode-prompt-rules";
 
 
 
@@ -86,7 +95,8 @@ OPERATIONAL RULES FOR CONSERVATIVE:
 - Change ONLY: layout/disposition, text content, CTA module placement, and minor spacing adjustments.
 - Do not introduce new scenes, unrelated motifs, experimental layouts, or major copy shifts.
 - Maintain minimal structural change; the result should feel like the same visual universe as the reference.
-- Preserve logo behavior, offer structure, and overall campaign recognition.`;
+- Preserve logo behavior, offer structure, and overall campaign recognition.
+- Decorative-only changes (background color, glow, card chrome) without a new visual mechanism are invalid — require a new composition mechanism per MODE rules.`;
 
 const balanced = `CREATIVITY LEVEL: balanced.
 OPERATIONAL RULES FOR BALANCED:
@@ -94,7 +104,8 @@ OPERATIONAL RULES FOR BALANCED:
 - Rebuild layout, visual hierarchy, CTA module placement, supporting shapes, rhythm, and spacing.
 - The result should feel like a sibling creative from the same campaign, not a near-copy.
 - Ensure perceptible difference in background, composition, CTA module, and visual hierarchy.
-- Preserve palette, character/product, texture, and brand system from the reference.`;
+- Preserve palette, character/product, texture, and brand system from the reference.
+- Decorative-only changes (background color, glow, card chrome) without a new visual mechanism are invalid — require a new composition mechanism per MODE rules.`;
 
 const bold = `CREATIVITY LEVEL: bold.
 OPERATIONAL RULES FOR BOLD:
@@ -434,64 +445,14 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
     );
   }
 
-  if (isArtVariation) {
-    parts.push(
-      "MODE: art_variation — Recompose the original campaign asset into a new artistic variation while keeping the SAME format/proportions.",
-      "Requirements: produce a PERCEPTIBLY DIFFERENT result from the reference. Vary background, composition, CTA module placement, and visual hierarchy. Do NOT produce a near-identical copy.",
-      "MANDATORY PRESERVATION: preserve **mandatory tier** content in meaning (hook/headline, offer/proof, CTA, logo if present, product/subject). Condensable modules (badges, duration labels, bullet pillars, legal copy) may merge, shrink, or relocate per RULE PRECEDENCE and CONTENT TIERS above. Decorative modules (icon rows, selos, card chrome) may be omitted when hook + offer + CTA already communicate the campaign.",
-      "ANTI-CROPPING RULE: do not crop, hide, truncate, blur, or cover mandatory-tier text, faces, products, logos, offer cards, CTA buttons, price/discount badges, or other information-bearing elements.",
-      "REARRANGEMENT RULE: when changing the composition, rebuild the layout by resizing, grouping, and repositioning elements so mandatory-tier content remains visible, readable, and intentionally arranged inside the canvas.",
-      "LAYOUT SAFETY PASS: before finalizing, check the four canvas edges and all text boxes; if any mandatory-tier information touches an edge, overlaps, or becomes too small to read, reduce scale and rebalance whitespace instead of cropping.",
-      "SAFE MARGIN RULE: keep logos, CTA buttons, badges, legal copy, mandatory-tier text, faces, and key product/service visuals at least 8% of the canvas width/height away from the edges unless the original brand system intentionally uses full-bleed decorative background only.",
-      "BRAND LOCKUP RULE: do not place vertical or horizontal logos flush against any edge. Move, scale, or rotate brand marks so the complete logo has visible breathing room and cannot be cut by platform placements.",
-      "THUMBNAIL LEGIBILITY RULE: condensable information such as duration, online/onsite labels, start date, badges, and offer details must remain readable when the image is viewed small; increase contrast, font weight, or grouping instead of shrinking them — or merge into a single support line per CONTENT TIERS.",
-      "Do not drop **mandatory tier** meaning to solve a crowded layout. Condense or omit condensable and decorative modules per RULE PRECEDENCE; use hierarchy, grouping, spacing, and background extension so mandatory-tier content remains visible and legible.",
-      "Preserve the original brand identity, palette, typography style, product treatment, and overall tone. Do not invent a new brand or unrelated visual universe."
-    );
-  } else if (generationMode === "format_adaptation") {
-    parts.push(
-      "MODE: format_adaptation — You are EDITING an existing ad to fit a DIFFERENT aspect ratio.",
-      "You can see the original image. Rebuild the layout for the target format while keeping all copy and facts verbatim (headlines, subheads, CTA, legal copy, offer lines, badge text).",
-      "This is a layout adaptation, not a resized poster. Treat the source ad as separate modules: headline, photo/subject, offer or proof, CTA, logo, badges, legal copy, and decorative background.",
-      "PRESERVE COPY AND FACTS VERBATIM: the original photo/subject, all text copy (headlines, subheads, bullets, CTA), the logo, brand colors, offer/discount text, and legal copy must appear exactly as in the source — no rewrites or omissions of mandatory-tier copy.",
-      "VISUAL PROMINENCE: factual completeness does not require equal visual weight. Apply the three information zones from VISUAL HIERARCHY CONTRACT and CANONICAL CREATIVE CONTRACT — hook, proof/offer, and CTA may dominate; decorative chrome, badges, and icon rows may shrink or yield to clear zones.",
-      "PRESERVE VISUAL IDENTITY: background color/texture, decorative shapes, icons, and graphic panels should remain recognizable but may be resized or repositioned for the target format.",
-      "DO NOT: create new photos, rewrite text, add new elements, remove mandatory-tier copy, change factual colors, or invent new brand assets.",
-      `Target format: ${targetFormat}. Rearrange the existing elements into a native composition for this format. Fill the entire canvas edge-to-edge. No blank bands, blurred padding, or letterboxing.`,
-      "HARD LAYOUT FAILURES TO AVOID: no blurred side/top/bottom bars, no poster pasted over a background, no stretched edge filler, no crowded cluster of text/photo/CTA/logo, no overlapping information modules.",
-      "Build clear zones with gutters and whitespace. Keep headline, supporting copy, CTA, logo, badges, legal copy, faces, and products inside a central safe area; only decorative background may bleed to the edges.",
-      "The result must be immediately recognizable as the same ad — same content, same visual identity, just fitting a different frame."
-    );
-
-    if (config.packageSource === "approved_derivation") {
-      parts.push(
-        "The uploaded reference image is the approved winning creative from this campaign.",
-        "Preserve this winner's visible copy, CTA, product, offer, brand cues, and design identity.",
-        "Only rearrange the approved winner into the target format. Do not return to the original campaign asset or invent a new concept."
-      );
-    }
-
-    if (targetFormat === "9:16") {
-      parts.push("For 9:16 (vertical story): create a tall story layout with separate vertical zones. Use the upper zone for headline/brand hook, the middle zone for the photo or main visual, and the lower zone for offer/proof/CTA/logo. Do not squeeze the square layout into the center.");
-    } else if (targetFormat === "4:5") {
-      parts.push("For 4:5 (portrait feed): create a portrait-feed layout with more vertical breathing room than the original. Keep photo prominence, stack text and proof modules intentionally, and give the CTA/logo their own clean area.");
-    } else if (targetFormat === "1:1") {
-      parts.push("For 1:1 (square): compress layout into a compact square. Keep all key elements visible and readable. Avoid cropping faces, text, or logos.");
-    }
-  } else if (generationMode === "restyling") {
-    parts.push(
-      "MODE: restyling — Apply the visual style of a reference image to the content of a base image.",
-      "BASE IMAGE CONTENT SOURCE: The base image provides the subject, product, offer, CTA, and factual content. preserve the base image subject, product, offer, CTA, and factual content.",
-      "STYLE REFERENCE DESIGN LANGUAGE: The style reference provides layout, visual style, typography aesthetic, color treatment, and design language. borrow only visual language from the style reference.",
-      "RULES:",
-      "- Preserve the base image subject, product, offer, CTA, and factual content exactly.",
-      "- do not copy factual content from the style reference.",
-      "- Apply the style reference's visual language (colors, typography style, layout rhythm, decorative elements) to the base image's content.",
-      "- The result should look like a restyled version of the base image, not a copy of the style reference.",
-      "- Keep the same format/proportions as the base image.",
-      "- Do NOT invent new facts, offers, or CTAs — use those from the base image only."
-    );
-  }
+  parts.push(
+    ...buildPerModeRulesSection({
+      generationMode,
+      targetFormat,
+      packageSource: config.packageSource,
+      dominantIdea: effectiveContract.canonicalCreative?.dominantIdea,
+    }),
+  );
 
   if (generationMode === "art_variation" && effectiveCreativeLevel) {
     const template = CREATIVITY_TEMPLATES[effectiveCreativeLevel];
@@ -507,7 +468,7 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
       `- Detected Concept: ${creativeDiagnosis.detectedConcept}`,
       `- Elements to Preserve: ${creativeDiagnosis.elementsToPreserve.join("; ")}`,
       `- Variation Opportunities: ${creativeDiagnosis.variationOpportunities.join("; ")}`,
-      "Use the Approved Creative Diagnosis as the primary creative direction. Preserve the listed elements. Explore the listed opportunities within the selected creativity level."
+      "Use the Approved Creative Diagnosis as the primary creative direction. Preserve the listed elements. Explore the listed opportunities within the three-zone visual budget only."
     );
   } else if (generationMode === "art_variation") {
     parts.push(...buildArtVariationFallbackPreservation(campaign, asset, ctaText ?? null));
@@ -530,19 +491,27 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
   }
 
   if (plan) {
-    parts.push(`\nCreative Strategy: ${plan.strategy}`);
-    if (plan.angles && plan.angles.length > 0) {
-      parts.push(`\nCreative Angles:\n${plan.angles.map((a, i) => `${i + 1}. ${a}`).join("\n")}`);
-    }
-    if (plan.hooks && plan.hooks.length > 0) {
-      parts.push(`\nHook Copy Options:\n${plan.hooks.map((h) => `- ${h}`).join("\n")}`);
+    parts.push(
+      `\nCreative Strategy${generationMode === "format_adaptation" ? " (layout tone only)" : ""}: ${plan.strategy}`,
+    );
+    if (shouldIncludePlanHooksForMode(generationMode)) {
+      if (plan.angles && plan.angles.length > 0) {
+        parts.push(`\nCreative Angles:\n${plan.angles.map((a, i) => `${i + 1}. ${a}`).join("\n")}`);
+      }
+      if (plan.hooks && plan.hooks.length > 0) {
+        parts.push(`\nHook Copy Options:\n${plan.hooks.map((h) => `- ${h}`).join("\n")}`);
+      }
     }
     if (plan.ctas && plan.ctas.length > 0) {
       parts.push(`\nCTA Recommendations:\n${plan.ctas.map((c) => `- ${c}`).join("\n")}`);
     }
   }
 
-  if (config.competitorAnalyses && config.competitorAnalyses.length > 0) {
+  if (
+    shouldIncludeCompetitorAnalysesForMode(generationMode) &&
+    config.competitorAnalyses &&
+    config.competitorAnalyses.length > 0
+  ) {
     const competitorSection = buildCompetitorContextPromptSection(config.competitorAnalyses);
     if (competitorSection.trim()) {
       parts.push(competitorSection);
@@ -557,6 +526,10 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
     parts.push("", config.brandMemory.block.trim());
   }
 
+  if (generationMode === "format_adaptation") {
+    parts.push("", buildFormatFlexibleContextSuffix());
+  }
+
   if (asset || config.packageSource === "approved_derivation") {
     if (asset) {
       parts.push(`\nReference Asset Key: ${asset.key} (${asset.type})`);
@@ -569,8 +542,10 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
       parts.push(
         "Keep the same format/proportions as the reference. Treat this as image-conditioned derivation, not text-to-image creation from scratch.",
         "Use the reference as the complete source of truth for what information must survive. Rearrange the ad, do not crop out mandatory-tier content.",
-        "If the original ad is dense, prioritize a cleaner three-zone hierarchy per VISUAL HIERARCHY CONTRACT. Mandatory-tier copy and brand/product elements must remain legible; condensable and decorative modules may yield visual weight per RULE PRECEDENCE."
+        "If the original ad is dense, prioritize a cleaner three-zone hierarchy per VISUAL HIERARCHY CONTRACT. Mandatory-tier copy and brand/product elements must remain legible; condensable and decorative modules may yield visual weight per RULE PRECEDENCE.",
       );
+    } else if (generationMode === "format_adaptation") {
+      parts.push(buildFormatReferenceAssetSuffix());
     } else {
       parts.push(
         "Use the reference as a design system and token source, not as a crop template.",

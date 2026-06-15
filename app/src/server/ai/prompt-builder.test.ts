@@ -18,6 +18,7 @@ import {
   extractPromptHardRulesSection,
   extractPromptIntegritySection,
   extractPromptModeSection,
+  extractPromptPerModeRulesSection,
   extractPromptRestylingFactualSourceSection,
 } from "./prompt-builder";
 import {
@@ -28,6 +29,11 @@ import {
   extractPromptVisualReferenceTransferSection,
   resolveInputSourceClassification,
 } from "./factual-visual-separation";
+import {
+  buildFormatAdaptationModeRulesSection,
+  shouldIncludeCompetitorAnalysesForMode,
+  shouldIncludePlanHooksForMode,
+} from "./per-mode-prompt-rules";
 import {
   artVariationContractFixture,
   derivationConfigFromContract,
@@ -119,7 +125,8 @@ describe("buildDerivationPrompt", () => {
     });
 
     expect(prompt).toContain("MODE: art_variation");
-    expect(prompt).toContain("PERCEPTIBLY DIFFERENT");
+    expect(prompt).toMatch(/DECORATIVE-ONLY|decorative-only/i);
+    expect(prompt).toMatch(/THREE-ZONE|three main information zones/i);
     expect(prompt).toContain("MANDATORY PRESERVATION");
     expect(prompt).toContain("ANTI-CROPPING RULE");
     expect(prompt).toContain("REARRANGEMENT RULE");
@@ -203,7 +210,7 @@ describe("buildDerivationPrompt", () => {
     });
 
     expect(prompt).toContain("MODE: restyling");
-    expect(prompt).toContain("STYLE REFERENCE DESIGN LANGUAGE");
+    expect(prompt).toMatch(/entity lock|base-locked|FACTUAL ENTITY LOCK/i);
   });
 
   it("renders client references under CLIENT REFERENCE LIBRARY section", () => {
@@ -417,7 +424,7 @@ describe("art variation contract (AIC-02)", () => {
     expect(prompt).toContain("logo if present");
     expect(prompt).toContain("product/subject");
     expect(prompt).toContain("CONSOLIDATION (condensable tier only)");
-    expect(prompt).toContain("Vary background, composition, CTA module placement");
+    expect(prompt).toMatch(/composition mechanism|focal hierarchy|CREATIVE MECHANISM/i);
     expect(prompt).toContain("Do not invent a new brand");
 
     expect(prompt.indexOf("CRITICAL LITERAL CTA RULE")).toBeLessThan(
@@ -506,6 +513,11 @@ describe("format adaptation contract (AIC-03)", () => {
     expect(prompt).toContain("Do not return to the original campaign asset");
     expect(extractPromptModeSection(prompt)).toMatchInlineSnapshot(`
       "MODE: format_adaptation — You are EDITING an existing ad to fit a DIFFERENT aspect ratio.
+      CAMPAIGN IDENTITY LOCK:
+      - This is an EDIT of the same campaign — preserve people, copy, CTA, brand, and concept.
+      - Only composition, scale, grouping, and safe margins may change.
+      - Do not recreate the ad as a new concept or introduce a different narrative.
+      Dominant idea (must not change): Lead generation
       You can see the original image. Rebuild the layout for the target format while keeping all copy and facts verbatim (headlines, subheads, CTA, legal copy, offer lines, badge text).
       This is a layout adaptation, not a resized poster. Treat the source ad as separate modules: headline, photo/subject, offer or proof, CTA, logo, badges, legal copy, and decorative background.
       PRESERVE COPY AND FACTS VERBATIM: the original photo/subject, all text copy (headlines, subheads, bullets, CTA), the logo, brand colors, offer/discount text, and legal copy must appear exactly as in the source — no rewrites or omissions of mandatory-tier copy.
@@ -516,6 +528,10 @@ describe("format adaptation contract (AIC-03)", () => {
       HARD LAYOUT FAILURES TO AVOID: no blurred side/top/bottom bars, no poster pasted over a background, no stretched edge filler, no crowded cluster of text/photo/CTA/logo, no overlapping information modules.
       Build clear zones with gutters and whitespace. Keep headline, supporting copy, CTA, logo, badges, legal copy, faces, and products inside a central safe area; only decorative background may bleed to the edges.
       The result must be immediately recognizable as the same ad — same content, same visual identity, just fitting a different frame.
+      CROSS-FORMAT IDENTITY:
+      - The 1:1, 4:5, and 9:16 outputs must remain the SAME campaign: identical people, copy, CTA, brand, and dominant idea.
+      - Do not introduce a new narrative, new hero photo, new offer, or new concept when adapting aspect ratio.
+      - Only composition, scale, grouping, and safe margins may change.
       The uploaded reference image is the approved winning creative from this campaign.
       Preserve this winner's visible copy, CTA, product, offer, brand cues, and design identity.
       Only rearrange the approved winner into the target format. Do not return to the original campaign asset or invent a new concept.
@@ -551,8 +567,8 @@ describe("restyling contract (AIC-04)", () => {
     expect(factual).toContain("color, typography style, layout composition, mood");
     expect(factual).toContain("Do NOT copy factual claims");
 
-    expect(prompt).toContain("preserve the base image subject, product, offer, CTA, and factual content");
-    expect(prompt).toContain("do not copy factual content from the style reference");
+    expect(prompt).toMatch(/entity lock|base-locked|FACTUAL ENTITY LOCK/i);
+    expect(prompt).toMatch(/VISUAL REFERENCE TRANSFER RULE|abstract style attributes/i);
     expect(prompt).toMatch(/preserve.*CTA|base image contains the factual CTA/i);
     expect(prompt).not.toContain("no CTA required");
   });
@@ -1066,5 +1082,164 @@ describe("allowed entities prompt section", () => {
     expect(prompt).toContain("ALLOWED ENTITIES (do not invent beyond this list):");
     expect(prompt).toContain("CENBRAP");
     expect(prompt).not.toContain("Cantona");
+  });
+});
+
+describe("art_variation decorative-only rejection (MODE-01)", () => {
+  it("rejects decorative-only changes and requires new composition mechanism", () => {
+    const prompt = buildDerivationPrompt(
+      derivationConfigFromContract(artVariationContractFixture()),
+    );
+    const mode = extractPromptPerModeRulesSection(prompt);
+    expect(mode).toMatch(/DECORATIVE-ONLY|decorative-only/i);
+    expect(mode).toMatch(/new composition mechanism|focal hierarchy|proof presentation/i);
+  });
+});
+
+describe("art_variation three-zone budget (MODE-02)", () => {
+  it("caps layout to three main information zones", () => {
+    const prompt = buildDerivationPrompt(
+      derivationConfigFromContract(artVariationContractFixture()),
+    );
+    const mode = extractPromptPerModeRulesSection(prompt);
+    expect(mode).toMatch(/THREE-ZONE|three main information zones/i);
+    expect(mode).toMatch(/hook.*proof.*CTA|no fourth module/i);
+  });
+});
+
+describe("per-mode rules injection order", () => {
+  it("places classification before MODE before creativity level for art_variation", () => {
+    const prompt = buildDerivationPrompt(
+      derivationConfigFromContract(artVariationContractFixture(), { creativeLevel: "balanced" }),
+    );
+    const classificationIdx = prompt.indexOf("INPUT SOURCE CLASSIFICATION:");
+    const modeIdx = prompt.indexOf("MODE: art_variation");
+    const creativityIdx = prompt.indexOf("CREATIVITY LEVEL:");
+    expect(classificationIdx).toBeGreaterThan(-1);
+    expect(modeIdx).toBeGreaterThan(classificationIdx);
+    expect(creativityIdx).toBeGreaterThan(modeIdx);
+    expect(extractPromptPerModeRulesSection(prompt).length).toBeGreaterThan(0);
+  });
+});
+
+describe("restyling factual entities (MODE-03)", () => {
+  it("locks factual entities to base without duplicating transfer denylist", () => {
+    const prompt = buildDerivationPrompt(
+      derivationConfigFromContract(restylingContractFixture()),
+    );
+    const mode = extractPromptPerModeRulesSection(prompt);
+    expect(mode).toMatch(/entity lock|base-locked|FACTUAL ENTITY LOCK/i);
+    expect(mode).not.toMatch(/DENYLIST/);
+    const transferIdx = prompt.indexOf("VISUAL REFERENCE TRANSFER RULE:");
+    const modeIdx = prompt.indexOf("MODE: restyling");
+    expect(transferIdx).toBeGreaterThan(-1);
+    expect(modeIdx).toBeGreaterThan(transferIdx);
+  });
+});
+
+describe("format adaptation helpers (MODE-04/05)", () => {
+  it("shouldIncludePlanHooksForMode returns false for format_adaptation", () => {
+    expect(shouldIncludePlanHooksForMode("format_adaptation")).toBe(false);
+    expect(shouldIncludePlanHooksForMode("art_variation")).toBe(true);
+    expect(shouldIncludePlanHooksForMode("restyling")).toBe(true);
+  });
+
+  it("shouldIncludeCompetitorAnalysesForMode returns false for format_adaptation", () => {
+    expect(shouldIncludeCompetitorAnalysesForMode("format_adaptation")).toBe(false);
+    expect(shouldIncludeCompetitorAnalysesForMode("art_variation")).toBe(true);
+    expect(shouldIncludeCompetitorAnalysesForMode("restyling")).toBe(true);
+  });
+
+  it("buildFormatAdaptationModeRulesSection includes identity locks", () => {
+    const lines = buildFormatAdaptationModeRulesSection({ targetFormat: "9:16" });
+    const section = lines.join("\n");
+    expect(section).toMatch(/CAMPAIGN IDENTITY LOCK/i);
+    expect(section).toContain("PRESERVE COPY AND FACTS VERBATIM");
+    expect(section).toMatch(/CROSS-FORMAT IDENTITY/i);
+  });
+
+  describe.each(["1:1", "4:5", "9:16"] as const)(
+    "format_adaptation cross-format identity — %s",
+    (targetFormat) => {
+      it("includes cross-format identity rule", () => {
+        const section = buildFormatAdaptationModeRulesSection({ targetFormat }).join("\n");
+        expect(section).toMatch(/CROSS-FORMAT IDENTITY/i);
+        expect(section).toMatch(/no new narrative|same campaign/i);
+      });
+    },
+  );
+});
+
+describe("format firewall (MODE-04)", () => {
+  it("omits plan hooks and competitor sections for format_adaptation", () => {
+    const prompt = buildDerivationPrompt(
+      derivationConfigFromContract(formatAdaptationCampaignAssetContractFixture(), {
+        plan: {
+          id: "plan-1",
+          strategy: "Layout-focused strategy",
+          angles: ["Angle A"],
+          hooks: ["Hook copy option"],
+          ctas: ["CTA option"],
+        },
+        competitorAnalyses: [
+          {
+            competitorName: "Rival Co",
+            strengths: ["Bold colors"],
+            weaknesses: ["Cluttered layout"],
+            opportunities: ["Cleaner CTA"],
+          },
+        ],
+      }),
+    );
+    expect(prompt).toContain("Creative Strategy (layout tone only)");
+    expect(prompt).not.toContain("Creative Angles:");
+    expect(prompt).not.toContain("Hook Copy Options:");
+    expect(prompt).not.toContain("Rival Co");
+    expect(prompt).toContain("Same ad, new frame");
+  });
+});
+
+describe("per-mode rules integration (MODE-01–05)", () => {
+  describe.each(["art_variation", "restyling", "format_adaptation"] as const)(
+    "%s injection order",
+    (mode) => {
+      it("places classification before MODE before Campaign", () => {
+        const contract =
+          mode === "restyling"
+            ? restylingContractFixture()
+            : mode === "format_adaptation"
+              ? formatAdaptationCampaignAssetContractFixture()
+              : artVariationContractFixture();
+        const prompt = buildDerivationPrompt(derivationConfigFromContract(contract));
+        const classificationIdx = prompt.indexOf("INPUT SOURCE CLASSIFICATION:");
+        const modeIdx = prompt.indexOf(`MODE: ${mode}`);
+        const campaignIdx = prompt.indexOf("\nCampaign:");
+        expect(classificationIdx).toBeGreaterThan(-1);
+        expect(modeIdx).toBeGreaterThan(classificationIdx);
+        expect(campaignIdx).toBeGreaterThan(modeIdx);
+      });
+    },
+  );
+
+  it("art_variation balanced level includes decorative-only guardrail", () => {
+    const prompt = buildDerivationPrompt(
+      derivationConfigFromContract(artVariationContractFixture(), { creativeLevel: "balanced" }),
+    );
+    expect(prompt).toMatch(/Decorative-only changes.*invalid/i);
+  });
+
+  it("format_adaptation omits plan hooks when plan includes hooks", () => {
+    const prompt = buildDerivationPrompt(
+      derivationConfigFromContract(formatAdaptationCampaignAssetContractFixture(), {
+        plan: {
+          id: "plan-1",
+          strategy: "Strategy",
+          angles: ["Angle"],
+          hooks: ["Hook"],
+          ctas: [],
+        },
+      }),
+    );
+    expect(prompt).not.toContain("Hook Copy Options:");
   });
 });

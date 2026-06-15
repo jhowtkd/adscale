@@ -496,7 +496,16 @@ export const derivationJob = inngest.createFunction(
       };
 
       if (usesParentOutput) {
-        assertParentFactualLineage(parentDerivation);
+        assertParentFactualLineage(
+          parentDerivation
+            ? {
+                qualityVerdict: parentDerivation.qualityVerdict ?? null,
+                hardFailures: Array.isArray(parentDerivation.hardFailures)
+                  ? (parentDerivation.hardFailures as Array<{ code: string }>)
+                  : null,
+              }
+            : null,
+        );
       }
 
       if (usesParentOutput && parentDerivation?.outputKey) {

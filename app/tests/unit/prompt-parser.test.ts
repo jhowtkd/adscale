@@ -107,11 +107,11 @@ describe("buildDerivationPrompt", () => {
     expect(prompt).toContain("Creative Strategy: Minimalist");
   });
 
-  it("art_variation mode demands perceptible variation", () => {
+  it("art_variation mode demands composition mechanism, not decorative-only swaps", () => {
     const prompt = buildDerivationPrompt({ generationMode: "art_variation" });
     expect(prompt).toContain("MODE: art_variation");
-    expect(prompt).toContain("PERCEPTIBLY DIFFERENT");
-    expect(prompt).toContain("Vary background, composition, CTA module placement, and visual hierarchy");
+    expect(prompt).toMatch(/DECORATIVE-ONLY|decorative-only/i);
+    expect(prompt).toMatch(/composition mechanism|focal hierarchy/i);
     expect(prompt).toContain("ANTI-CROPPING RULE");
     expect(prompt).toContain("REARRANGEMENT RULE");
     expect(prompt).toContain("LAYOUT SAFETY PASS");

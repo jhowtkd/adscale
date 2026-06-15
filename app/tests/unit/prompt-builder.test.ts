@@ -3,6 +3,7 @@ import {
   buildDerivationPrompt,
   extractPromptHardRulesSection,
   extractPromptModeSection,
+  extractPromptPerModeRulesSection,
   type DerivationPromptConfig,
 } from "@/server/ai/prompt-builder";
 import {
@@ -304,10 +305,9 @@ describe("buildDerivationPrompt restyling mode", () => {
     } as DerivationPromptConfig);
 
     expect(prompt).toContain("MODE: restyling");
-    expect(prompt).toContain("BASE IMAGE CONTENT SOURCE");
-    expect(prompt).toContain("preserve the base image subject, product, offer, CTA, and factual content");
-    expect(prompt).toContain("STYLE REFERENCE DESIGN LANGUAGE");
-    expect(prompt).toContain("borrow only visual language from the style reference");
-    expect(prompt).toContain("do not copy factual content from the style reference");
+    expect(extractPromptPerModeRulesSection(prompt)).toMatch(/FACTUAL ENTITY LOCK|entity lock/i);
+    expect(prompt).toMatch(/VISUAL REFERENCE TRANSFER RULE|abstract style attributes/i);
+    expect(prompt).toMatch(/base image is the ONLY source of factual content/i);
+    expect(extractPromptPerModeRulesSection(prompt)).not.toMatch(/DENYLIST/);
   });
 });
