@@ -35,7 +35,7 @@
 - [x] **Phase 118: Per-Mode Prompt Rules** — regras distintas para `art_variation`, `restyling`, `format_adaptation`; orçamento de três zonas; mesma campanha em múltiplos formatos (completed 2026-06-15)
 - [x] **Phase 119: Observable Rubric** — critérios observáveis substituem "polished"; reprova overload, genérico severo e hook ilegível em miniatura (completed 2026-06-15)
 - [x] **Phase 120: Quality Gate Hardening** — novos hard failures; factual sempre invalid; corpus-falha bloqueado; fiel continua aprovável (completed 2026-06-15)
-- [ ] **Phase 121: Score Ceilings and Retry** — tetos por categoria de falha; retry de restyling da fonte factual; correções específicas
+- [x] **Phase 121: Score Ceilings and Retry** — tetos por categoria de falha; retry de restyling da fonte factual; correções específicas (completed 2026-06-15)
 - [ ] **Phase 122: Regression Test Suite** — prompt injection tests; gate matrix; suíte por modo e formato; teste de miniatura
 - [ ] **Phase 123: Visual Validation Gate** — geração controlada antes/depois; rubrica ≥75/≥95; CI verde
 
@@ -47,7 +47,7 @@
 | 118 | 0/4 | Complete    | 2026-06-15 | — |
 | 119 | 0/4 | Complete    | 2026-06-15 | 2026-06-15 |
 | 120 | Quality Gate Hardening | Complete    | 2026-06-15 | 2026-06-15 |
-| 121 | Score Ceilings and Retry | 3/3 | Complete   | 2026-06-15 |
+| 121 | Score Ceilings and Retry | Complete    | 2026-06-15 | 2026-06-15 |
 | 122 | Regression Test Suite | TEST-01–04 | Pending | — |
 | 123 | Visual Validation Gate | QA-18–21 | Pending | — |
 
@@ -369,7 +369,7 @@ Plans:
   4. Retry habilitado para restyling usa fonte factual original, nunca saída contaminada.
   5. Correção de retry é específica: remover entidade inventada, restaurar pessoa/marca, reduzir módulos, restaurar conceito/CTA.
 
-**Plans:** 3 plans
+**Plans:** 3/3 plans complete
 
 Plans:
 - [x] 121-01-PLAN.md — Score ceilings (SCR-02/03), gate persist, SCR-01 dimension map
