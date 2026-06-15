@@ -183,7 +183,13 @@ function buildRequirementRows(evidence, aggregate, structuralPass, thresholdErro
   const qa18Pass = structuralPass;
   const qa19Pass = !thresholdError;
   const qa20Pass = fidelityErrors.length === 0;
-  const qa21Result = evidence.automated?.["creative-release-gate"] ?? "pending";
+  const qa21Automated = evidence.automated?.["creative-release-gate"];
+  const qa21Result =
+    qa21Automated === "pass"
+      ? "pass"
+      : qa21Automated === "fail"
+        ? "gaps_found"
+        : "pending";
 
   return [
     {
@@ -208,9 +214,14 @@ function buildRequirementRows(evidence, aggregate, structuralPass, thresholdErro
     },
     {
       id: "QA-21",
-      result: qa21Result === "pass" ? "pass" : qa21Result === "fail" ? "gaps_found" : "pending",
+      result: qa21Result,
       automated: releaseCmd,
-      note: "npm test + lint + build + final evidence check",
+      note:
+        qa21Result === "pass"
+          ? "npm test + lint + build + final evidence check"
+          : qa21Result === "gaps_found"
+            ? "test/lint/build pass; final evidence check failed on committed captures"
+            : "npm test + lint + build + final evidence check",
     },
   ];
 }

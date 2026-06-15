@@ -430,19 +430,34 @@
   "requirements": [
     {
       "id": "QA-18",
-      "result": "captured"
+      "result": "pass",
+      "automated": "node app/scripts/check-creative-validation-evidence.mjs --stage before && --stage after",
+      "note": "6/6 paired matrix keys"
     },
     {
       "id": "QA-19",
-      "result": "pending-final-gate"
+      "result": "gaps_found",
+      "automated": "node app/scripts/check-creative-validation-evidence.mjs --stage final",
+      "note": "meanQualityScore=43.33 (≥75); factualFidelityRate=0.667 (≥0.95)"
     },
     {
       "id": "QA-20",
-      "result": "pending-final-gate"
+      "result": "gaps_found",
+      "automated": "node app/scripts/check-creative-validation-evidence.mjs --stage final",
+      "note": "2 after capture(s) with fidelity hard failures"
     },
     {
       "id": "QA-21",
-      "result": "pending-final-gate"
+      "result": "gaps_found",
+      "automated": "cd app && node scripts/run-creative-release-gate.mjs",
+      "note": "test/lint/build pass; final evidence check failed on committed captures"
     }
-  ]
+  ],
+  "verifiedAt": "2026-06-15T20:55:44.555Z",
+  "automated": {
+    "unit": "pass",
+    "lint": "pass",
+    "build": "pass",
+    "creative-release-gate": "fail"
+  }
 }

@@ -37,7 +37,7 @@
 - [x] **Phase 120: Quality Gate Hardening** — novos hard failures; factual sempre invalid; corpus-falha bloqueado; fiel continua aprovável (completed 2026-06-15)
 - [x] **Phase 121: Score Ceilings and Retry** — tetos por categoria de falha; retry de restyling da fonte factual; correções específicas (completed 2026-06-15)
 - [x] **Phase 122: Regression Test Suite** — prompt injection tests; gate matrix; suíte por modo e formato; teste de miniatura (completed 2026-06-15)
-- [ ] **Phase 123: Visual Validation Gate** — geração controlada antes/depois; rubrica ≥75/≥95; CI verde (4 plans)
+- [ ] **Phase 123: Visual Validation Gate** — geração controlada antes/depois; rubrica ≥75/≥95; CI verde (4 plans; gaps_found on evidence)
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
@@ -49,7 +49,7 @@
 | 120 | Quality Gate Hardening | Complete    | 2026-06-15 | 2026-06-15 |
 | 121 | Score Ceilings and Retry | Complete    | 2026-06-15 | 2026-06-15 |
 | 122 | Regression Test Suite | Complete    | 2026-06-15 | — |
-| 123 | Visual Validation Gate | 3/4 | In Progress|  |
+| 123 | Visual Validation Gate | 4/4 | gaps_found |  |
 
 ---
 
@@ -416,7 +416,7 @@ Plans:
 - [x] 123-01-PLAN.md — Validation matrix (6 cells, all modes) + matrix unit tests
 - [x] 123-02-PLAN.md — Threshold aggregation + evidence check (--stage before + after; before fixture)
 - [x] 123-03-PLAN.md — Operator capture script + base assets + live evidence (checkpoint; tasks 01–02 done)
-- [ ] 123-04-PLAN.md — Release gate orchestrator + final evidence validation + milestone closure
+- [x] 123-04-PLAN.md — Release gate orchestrator + final evidence validation + milestone closure (gaps_found: operator refresh required)
 
 ---
 

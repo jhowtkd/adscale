@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v12.3
 milestone_name: Integridade Criativa
 status: executing
-last_updated: "2026-06-15T21:35:00.000Z"
+last_updated: "2026-06-15T20:56:00.000Z"
 last_activity: 2026-06-15
 progress:
   total_phases: 85
   completed_phases: 39
   total_plans: 109
-  completed_plans: 122
+  completed_plans: 123
   percent: 100
 ---
 
@@ -23,16 +23,16 @@ See: .planning/PROJECT.md (updated 2026-06-15)
 
 **Current focus:** v12.3 Integridade Criativa — factual fidelity, creative direction, and quality gate hardening for the derivation pipeline.
 
-**Status:** Ready to plan
+**Status:** Phase 123 infrastructure complete; evidence gaps block milestone closure
 
 ## Current Position
 
 Phase: 123 — Visual Validation Gate
-Plan: 04 ready (plan 03 complete — evidence committed)
-Status: Executing
+Plan: 04 complete (4/4 plans)
+Status: gaps_found — operator after-capture refresh required
 Last activity: 2026-06-15
 
-Progress: Phase 123 plan 3/4 complete — operator evidence committed; release gate next
+Progress: Phase 123 plan 4/4 complete — release gate wired; committed evidence below QA-19/QA-20 thresholds
 
 ## Accumulated Context
 
@@ -100,7 +100,10 @@ Last activity: 2026-06-15 — Completed 121-03 (failure-specific correction dire
 - [Phase 123]: Base assets committed under app/tests/fixtures/creative-corpus/base-assets/ for matrix regeneration inputs
 - [Phase 123]: Operator evidence 123-EVIDENCE.json committed with 6 paired before/after captures; fidelity warnings deferred to plan 04 final gate
 - [Phase 123]: check-creative-validation-evidence.mjs tsx subprocess cwd set to appDir for correct module resolution
+- [Phase 123]: --stage final enforces thresholds, fidelity hard failures, prompt hash; writes 123-BASELINE.md + 123-VERIFICATION.md
+- [Phase 123]: run-creative-release-gate.mjs mirrors Phase 114 (test/lint/build + final evidence); QA-21 infrastructure complete
+- [Phase 123]: Committed evidence gaps_found — meanQualityScore=43.33, factualFidelityRate=0.667; wrong_brand + unsupported_offer on after set
 
 ## Next Steps
 
-Execute plan 123-04: release gate orchestrator (`run-creative-release-gate.mjs`), `--stage final` threshold enforcement, milestone closure
+Operator refresh after captures via `npm run validate:creative:live` until `--stage final` passes; then re-run `npm run creative-release-gate` for milestone closure

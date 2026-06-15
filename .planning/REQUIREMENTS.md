@@ -78,9 +78,9 @@ Endurecer o pipeline criativo para que peças factualmente incorretas, visualmen
 ### Visual Validation (QA)
 
 - [x] **QA-18**: Geração controlada antes/depois com mesma campanha e seed quando suportado para cada modo em formatos representativos.
-- [x] **QA-19**: Rubrica de 12 critérios aplicada ao conjunto pós-correção atinge média geral ≥75 e fidelidade factual ≥95.
-- [x] **QA-20**: Nenhuma entidade inventada e nenhuma campanha substituída no conjunto de validação.
-- [ ] **QA-21**: `npm test`, `npm run lint`, `npm run build` passam com cobertura de regressão do milestone.
+- [ ] **QA-19**: Rubrica de 12 critérios aplicada ao conjunto pós-correção atinge média geral ≥75 e fidelidade factual ≥95. *(gaps_found: meanQualityScore=43.33, factualFidelityRate=0.667 — 123-VERIFICATION.md)*
+- [ ] **QA-20**: Nenhuma entidade inventada e nenhuma campanha substituída no conjunto de validação. *(gaps_found: wrong_brand, unsupported_offer on after captures)*
+- [ ] **QA-21**: `npm test`, `npm run lint`, `npm run build` passam com cobertura de regressão do milestone. *(Infrastructure complete; release gate blocked on QA-19/QA-20 evidence gaps — see 123-VERIFICATION.md)*
 
 ## Future Requirements
 
@@ -139,9 +139,9 @@ Endurecer o pipeline criativo para que peças factualmente incorretas, visualmen
 | TEST-03 | Phase 122 | Complete |
 | TEST-04 | Phase 122 | Complete |
 | QA-18 | Phase 123 | Complete |
-| QA-19 | Phase 123 | Complete |
-| QA-20 | Phase 123 | Complete |
-| QA-21 | Phase 123 | Pending |
+| QA-19 | Phase 123 | gaps_found |
+| QA-20 | Phase 123 | gaps_found |
+| QA-21 | Phase 123 | gaps_found |
 
 **Coverage:**
 - v12.3 requirements: 37 total
