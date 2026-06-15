@@ -2,14 +2,15 @@
 gsd_state_version: 1.0
 milestone: v12.3
 milestone_name: Integridade Criativa
-status: planning
-last_updated: "2026-06-15T19:30:05.463Z"
+status: executing
+last_updated: "2026-06-15T19:46:12.066Z"
 last_activity: 2026-06-15
 progress:
-  total_phases: 35
-  completed_phases: 11
-  total_plans: 37
-  completed_plans: 51
+  total_phases: 83
+  completed_phases: 37
+  total_plans: 101
+  completed_plans: 113
+  percent: 100
 ---
 
 # Project State
@@ -27,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-06-15)
 ## Current Position
 
 Phase: 121 — Score Ceilings and Retry
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-06-15
+Plan: 03 of 03 complete (01, 02 pending)
+Status: In Progress
+Last activity: 2026-06-15 — Completed 121-03 (SCR-05 correction directives)
 
-Progress: Phase 120 complete (3/3 plans)
+Progress: Phase 121 (1/3 plans complete)
 
 ## Accumulated Context
 
@@ -61,7 +62,7 @@ Progress: Phase 120 complete (3/3 plans)
 
 ## Session Continuity
 
-Last activity: 2026-06-15 — Phase 120 complete (quality gate hardening; BASELINE_GAP_COUNT=0)
+Last activity: 2026-06-15 — Completed 121-03 (failure-specific correction directives; SCR-05)
 
 ## Decisions
 
@@ -85,7 +86,9 @@ Last activity: 2026-06-15 — Phase 120 complete (quality gate hardening; BASELI
 - [Phase 120]: CORPUS_POSITIVE_FIXTURES holds faithful c2c12774; CORPUS_ARCHETYPE_FIXTURES stays five negatives with BASELINE_GAP_COUNT=0
 - [Phase 120]: Format drift corpus expects campaign_identity_drift only (not dual wrong_brand)
 - [Phase 120]: Faithful NR1 4:5 adaptation improvable with creativeRisk warning; assertDerivationApprovable ok
+- [Phase 121]: Brief builder is sole injection point for RESTYLING FACTUAL-SOURCE RULE on correction retry
+- [Phase 121]: FAILURE_CORRECTION_DIRECTIVES prepends per-code imperatives before hard-failure trace list (SCR-05)
 
 ## Next Steps
 
-Plan Phase 121 — Score Ceilings and Retry (SCR-01–05)
+Execute Phase 121 plans 01 and 02 (score ceilings SCR-02/03, mode-aware retry SCR-04)
