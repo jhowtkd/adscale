@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const appDir = resolve(repoRoot, "app");
 const phaseDir = resolve(repoRoot, ".planning/phases/123-visual-validation-gate");
 const defaultEvidencePath = resolve(phaseDir, "123-EVIDENCE.json");
 const templatePath = resolve(phaseDir, "123-EVIDENCE.template.json");
@@ -44,11 +45,11 @@ function resolveUnderRepo(relativePath) {
 
 function loadMatrixKeys() {
   const script = `
-    import { matrixKeys } from "./app/scripts/creative-validation-matrix.ts";
+    import { matrixKeys } from "./scripts/creative-validation-matrix.ts";
     console.log(JSON.stringify(matrixKeys()));
   `;
   const output = execFileSync("npx", ["tsx", "-e", script], {
-    cwd: repoRoot,
+    cwd: appDir,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -58,12 +59,12 @@ function loadMatrixKeys() {
 function twelveCriteriaPresentViaTsx(capture) {
   const payload = JSON.stringify(capture);
   const script = `
-    import { twelveCriteriaPresent } from "./app/src/server/ai/creative-validation-aggregation.ts";
+    import { twelveCriteriaPresent } from "./src/server/ai/creative-validation-aggregation.ts";
     const capture = ${payload};
     process.stdout.write(twelveCriteriaPresent(capture) ? "true" : "false");
   `;
   const output = execFileSync("npx", ["tsx", "-e", script], {
-    cwd: repoRoot,
+    cwd: appDir,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -72,13 +73,13 @@ function twelveCriteriaPresentViaTsx(capture) {
 
 function fidelityWarnings(capture) {
   const script = `
-    import { FIDELITY_HARD_FAILURE_CODES } from "./app/src/server/ai/creative-validation-aggregation.ts";
+    import { FIDELITY_HARD_FAILURE_CODES } from "./src/server/ai/creative-validation-aggregation.ts";
     const capture = ${JSON.stringify(capture)};
     const hits = (capture.hardFailures ?? []).filter((f) => FIDELITY_HARD_FAILURE_CODES.has(f.code));
     process.stdout.write(JSON.stringify(hits.map((f) => f.code)));
   `;
   const output = execFileSync("npx", ["tsx", "-e", script], {
-    cwd: repoRoot,
+    cwd: appDir,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
   });
