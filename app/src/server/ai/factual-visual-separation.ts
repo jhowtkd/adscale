@@ -210,3 +210,26 @@ export function extractPromptAllowedEntitiesSection(prompt: string): string {
   ]);
   return prompt.slice(start, end).trimEnd();
 }
+
+export type ParentFactualLineageInput = {
+  qualityVerdict?: string | null;
+  hardFailures?: Array<{ code: string }> | null;
+} | null;
+
+const PARENT_LINEAGE_ERROR =
+  "Parent derivation failed factual integrity checks and cannot be used for format adaptation.";
+
+export function parentHasContamination(parent: ParentFactualLineageInput): boolean {
+  if (!parent) return false;
+  if (parent.qualityVerdict === "invalid") return true;
+  const failures = parent.hardFailures ?? [];
+  return failures.some((failure) =>
+    CONTAMINATION_FAILURE_CODES.has(failure.code as CreativeHardFailureCode)
+  );
+}
+
+export function assertParentFactualLineage(parent: ParentFactualLineageInput): void {
+  if (parentHasContamination(parent)) {
+    throw new Error(PARENT_LINEAGE_ERROR);
+  }
+}
