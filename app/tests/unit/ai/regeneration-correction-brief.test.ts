@@ -245,6 +245,40 @@ describe("buildRegenerationCorrectionBrief specific correction directives", () =
   });
 });
 
+const restylingContract: CreativeContract = {
+  ...baseContract,
+  generationMode: "restyling",
+  ctaSemantics: { kind: "inherited" },
+};
+
+describe("buildRegenerationCorrectionBrief restyling factual-source rule", () => {
+  it("restyling with style_reference_contamination includes RESTYLING FACTUAL-SOURCE RULE", () => {
+    const brief = buildRegenerationCorrectionBrief({
+      contract: restylingContract,
+      hardFailures: [
+        {
+          code: "style_reference_contamination",
+          message: "Copied CTA from style reference.",
+        },
+      ],
+    });
+
+    expect(brief.promptFeedback).toContain("RESTYLING FACTUAL-SOURCE RULE");
+    expect(brief.promptFeedback).toMatch(/base image is the ONLY source/i);
+    expect(brief.promptFeedback).toContain("Correction directives:");
+  });
+
+  it("restyling brief includes factual-source rule even without contamination failure", () => {
+    const brief = buildRegenerationCorrectionBrief({
+      contract: restylingContract,
+      hardFailures: [{ code: "cta_drift", message: "CTA changed." }],
+    });
+
+    expect(brief.promptFeedback).toContain("RESTYLING FACTUAL-SOURCE RULE");
+    expect(brief.promptFeedback).toMatch(/base image is the ONLY source/i);
+  });
+});
+
 describe("mergeUserRegenerationNotes", () => {
   const machine = "Hard failures:\n- cta_drift: missing\n\nSuggestion: Fix it. Preserve the exact CTA.";
 
