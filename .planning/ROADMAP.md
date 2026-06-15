@@ -2,6 +2,7 @@
 
 ## Milestones
 
+- 🚧 **v12.3 Integridade Criativa** - Phases 115-123 (in progress)
 - ✅ **v12.2 Refinamento Visual e Consistência da Interface** - Phases 109-114 (shipped 2026-06-14)
 - ✅ **v12.1 Memória Criativa e Aprendizado de Performance** - Phases 103-108 (shipped 2026-06-12)
 - ✅ **v12.0 Monetização Real** - Phases 97-102 (shipped 2026-06-11)
@@ -21,6 +22,36 @@
 - ✅ **v11.0 Fluxos de Derivação Coerentes** - Phases 40-43 (shipped 2026-06-01)
 
 ## Phases
+
+### v12.3 Integridade Criativa (Phases 115-123) — IN PROGRESS
+
+**Milestone Goal:** Impedir que o pipeline criativo aprove peças factualmente incorretas, visualmente genéricas ou hierarquicamente congestionadas — garantindo que regras críticas cheguem ao prompt, ao gate e aos testes.
+
+**Audit baseline:** corpus `app/exports/render-creatives/` — 34 peças, média 58,5/100 (2026-06-15)
+
+- [ ] **Phase 115: Corpus Fixtures and Audit Baseline** — fixtures reproduzíveis para cada falha do corpus; campanhas canônicas; red tests provando aprovação indevida atual
+- [ ] **Phase 116: Canonical Creative Contract** — contrato de ideia dominante, precedência fatos>hierarquia>decoração; injeção de `VISUAL_HIERARCHY_CONTRACT` e `ANTI_HALLUCINATION_RULES`
+- [ ] **Phase 117: Factual vs Visual Separation** — classificação de inputs; referência visual só transfere linguagem abstrata; bloqueio de entidades inventadas
+- [ ] **Phase 118: Per-Mode Prompt Rules** — regras distintas para `art_variation`, `restyling`, `format_adaptation`; orçamento de três zonas; mesma campanha em múltiplos formatos
+- [ ] **Phase 119: Observable Rubric** — critérios observáveis substituem "polished"; reprova overload, genérico severo e hook ilegível em miniatura
+- [ ] **Phase 120: Quality Gate Hardening** — novos hard failures; factual sempre invalid; corpus-falha bloqueado; fiel continua aprovável
+- [ ] **Phase 121: Score Ceilings and Retry** — tetos por categoria de falha; retry de restyling da fonte factual; correções específicas
+- [ ] **Phase 122: Regression Test Suite** — prompt injection tests; gate matrix; suíte por modo e formato; teste de miniatura
+- [ ] **Phase 123: Visual Validation Gate** — geração controlada antes/depois; rubrica ≥75/≥95; CI verde
+
+| # | Phase | Requirements | Status | Completed |
+|---|-------|--------------|--------|-----------|
+| 115 | Corpus Fixtures and Audit Baseline | FIXT-01–04 | Pending | — |
+| 116 | Canonical Creative Contract | CONT-01–04 | Pending | — |
+| 117 | Factual vs Visual Separation | SEP-01–04 | Pending | — |
+| 118 | Per-Mode Prompt Rules | MODE-01–05 | Pending | — |
+| 119 | Observable Rubric | RUBR-01–04 | Pending | — |
+| 120 | Quality Gate Hardening | GATE-01–05 | Pending | — |
+| 121 | Score Ceilings and Retry | SCR-01–05 | Pending | — |
+| 122 | Regression Test Suite | TEST-01–04 | Pending | — |
+| 123 | Visual Validation Gate | QA-18–21 | Pending | — |
+
+---
 
 ### ✅ v12.2 Refinamento Visual e Consistência da Interface (Phases 109-114) — SHIPPED 2026-06-14
 
@@ -179,6 +210,171 @@ Archive: [v11.8-ROADMAP.md](milestones/v11.8-ROADMAP.md) · [v11.8-REQUIREMENTS.
 **12 requirements** | **3 phases** | Stabilization-only scope before beta
 
 ## Phase Details
+
+### Phase 115: Corpus Fixtures and Audit Baseline
+
+**Goal:** Operadores e testes podem reproduzir cada falha crítica do corpus auditado antes de qualquer correção do pipeline.
+
+**Depends on:** Phase 114 (v12.2 shipped baseline)
+
+**Requirements:** FIXT-01, FIXT-02, FIXT-03, FIXT-04
+
+**Success Criteria** (what must be TRUE):
+  1. Cada falha observada no corpus (entidade inventada, overload, template genérico, drift de formato, contaminação de restyling) possui fixture reproduzível no catálogo `quality-fixtures` ou equivalente.
+  2. Fixtures registram campanha canônica, entidades permitidas, modos e formatos para Smoke, Nova campanha, Teste 3/CENBRAP NR1 e Teste campanha/Master NR1.
+  3. Previews (`270×270`) e finais são categorias distintas nas fixtures e na validação — não misturadas na mesma expectativa de gate.
+  4. Testes automatizados demonstram que o pipeline atual aprova indevidamente as peças-falha do corpus (baseline red antes da correção).
+
+**Plans:** TBD
+
+---
+
+### Phase 116: Canonical Creative Contract
+
+**Goal:** Toda derivação parte de um contrato canônico que declara ideia dominante, hierarquia de três zonas e precedência factual sem contradições no prompt.
+
+**Depends on:** Phase 115
+
+**Requirements:** CONT-01, CONT-02, CONT-03, CONT-04
+
+**Success Criteria** (what must be TRUE):
+  1. Contrato declara ideia dominante, hook único, zona de prova/oferta, CTA único e identidade invariável (campanha, paleta, pessoas, produto, marca).
+  2. Contrato distingue conteúdo obrigatório, condensável e decorativo com precedência explícita: fatos > hierarquia > decoração.
+  3. Nenhum prompt exige simultaneamente preservar todos os módulos literalmente e simplificar hierarquia sem regra de precedência.
+  4. `VISUAL_HIERARCHY_CONTRACT` e `ANTI_HALLUCINATION_RULES` aparecem em todos os prompts de derivação aplicáveis.
+
+**Plans:** TBD
+
+---
+
+### Phase 117: Factual vs Visual Separation
+
+**Goal:** Restyling e adaptações subsequentes não herdam pessoas, marcas ou alegações da referência visual — apenas atributos abstratos de estilo.
+
+**Depends on:** Phase 116
+
+**Requirements:** SEP-01, SEP-02, SEP-03, SEP-04
+
+**Success Criteria** (what must be TRUE):
+  1. Inputs são classificados explicitamente: base factual, referência visual, brand kit e referências adicionais.
+  2. Referência visual transfere apenas ritmo, textura, cromia, tipografia, iluminação e lógica compositiva — nunca pessoas, uniformes, produtos, marcas, logos, textos ou alegações.
+  3. Derivação contaminada não pode servir como fonte para adaptações de formato subsequentes.
+  4. Entidades como Cantona, Manchester United e Adidas ausentes da fonte factual são bloqueadas no gate.
+
+**Plans:** TBD
+
+---
+
+### Phase 118: Per-Mode Prompt Rules
+
+**Goal:** Cada modo de derivação aplica regras distintas que impedem variação decorativa, contaminação de restyling e adaptações que viram outra campanha.
+
+**Depends on:** Phase 117
+
+**Requirements:** MODE-01, MODE-02, MODE-03, MODE-04, MODE-05
+
+**Success Criteria** (what must be TRUE):
+  1. `art_variation` exige ideia ou mecanismo visual novo e reprova variação meramente decorativa (cor, glow, fundo, reposição de cards).
+  2. `art_variation` limita o orçamento visual a no máximo três zonas principais de informação.
+  3. `restyling` preserva integralmente entidades da base factual e extrai apenas atributos abstratos da referência visual.
+  4. `format_adaptation` trata saída como edição da mesma campanha — preserva pessoas, copy, CTA, marca e conceito; altera apenas composição, escala e agrupamento.
+  5. A mesma campanha permanece reconhecível em `1:1`, `4:5` e `9:16` sem introduzir nova narrativa.
+
+**Plans:** TBD
+
+---
+
+### Phase 119: Observable Rubric
+
+**Goal:** Avaliação reprova peças congestionadas, genéricas ou com hook ilegível em miniatura — com defeitos explicados por elementos visíveis, não adjetivos vagos.
+
+**Depends on:** Phase 118
+
+**Requirements:** RUBR-01, RUBR-02, RUBR-03, RUBR-04
+
+**Success Criteria** (what must be TRUE):
+  1. Avaliação reprova quando não há ponto focal dominante, existem mais de três zonas concorrentes ou múltiplos CTAs competem com o hook.
+  2. Avaliação reprova estética template genérica severa (neon/glow/cards premium sem justificativa de marca ou campanha).
+  3. Defeitos são explicados por elementos visíveis observáveis — termos como "polished" ou "professional" não são critério de aprovação isolado.
+  4. Hook é compreensível em miniatura (escala de preview/mobile).
+
+**Plans:** TBD
+
+---
+
+### Phase 120: Quality Gate Hardening
+
+**Goal:** Peças factualmente incorretas ou esteticamente genéricas severas não passam para exportação — independentemente da nota estética.
+
+**Depends on:** Phase 119
+
+**Requirements:** GATE-01, GATE-02, GATE-03, GATE-04, GATE-05
+
+**Success Criteria** (what must be TRUE):
+  1. Novas categorias bloqueantes estão ativas: `invented_factual_entity`, `replaced_source_subject`, `unauthorized_brand_or_ip`, `campaign_identity_drift`, `style_reference_contamination`, `generic_template_aesthetic`, `visual_overload`, `missing_dominant_idea`, `decorative_only_variation`.
+  2. Falha factual produz `invalid` independentemente da nota estética.
+  3. Estética genérica severa bloqueia exportação quando acima do threshold — não fica apenas em `polishSuggestions`.
+  4. Peças `27069645`, `a753e357`, `538246da`, `a5f65b85`, `f420bcb2`, `d7d9d323` do corpus são bloqueadas após correção.
+  5. Peça fiel como `c2c12774` continua aprovável (pode receber sugestões de simplificação, não invalidação factual).
+
+**Plans:** TBD
+
+---
+
+### Phase 121: Score Ceilings and Retry
+
+**Goal:** Nota alta não mascara falhas factuais; retry de restyling sempre parte da fonte factual original com correção específica ao defeito.
+
+**Depends on:** Phase 120
+
+**Requirements:** SCR-01, SCR-02, SCR-03, SCR-04, SCR-05
+
+**Success Criteria** (what must be TRUE):
+  1. Score separa integridade factual, hierarquia, legibilidade, direção de arte, originalidade e adequação ao formato.
+  2. Tetos de nota aplicados: fato inventado ≤20, campanha substituída ≤15, CTA ausente ≤50, overload grave ≤55, variação decorativa ≤60.
+  3. Nota alta não coexiste com hard failures ativos.
+  4. Retry habilitado para restyling usa fonte factual original, nunca saída contaminada.
+  5. Correção de retry é específica: remover entidade inventada, restaurar pessoa/marca, reduzir módulos, restaurar conceito/CTA.
+
+**Plans:** TBD
+
+---
+
+### Phase 122: Regression Test Suite
+
+**Goal:** Suíte automatizada detecta regras declaradas mas não aplicadas — em prompts, gate e por modo — antes que falhas cheguem ao operador.
+
+**Depends on:** Phase 121
+
+**Requirements:** TEST-01, TEST-02, TEST-03, TEST-04
+
+**Success Criteria** (what must be TRUE):
+  1. Testes de prompt verificam presença de ideia dominante, três níveis, CTA secundário, entidades proibidas, separação factual/visual e simplificação permitida.
+  2. Testes de gate cobrem Cantona/Manchester United, pessoa substituída, logo não autorizado, campanha diferente, template genérico, excesso de módulos e variação decorativa.
+  3. Suíte independente por modo (`art_variation`, `restyling`, `format_adaptation`) com mesmas entradas em múltiplos formatos.
+  4. Teste de miniatura valida leitura do hook em escala mobile.
+
+**Plans:** TBD
+
+---
+
+### Phase 123: Visual Validation Gate
+
+**Goal:** Milestone fecha com evidência visual controlada de que o pipeline corrigido atinge metas de qualidade e fidelidade factual antes do release.
+
+**Depends on:** Phases 115–122
+
+**Requirements:** QA-18, QA-19, QA-20, QA-21
+
+**Success Criteria** (what must be TRUE):
+  1. Geração controlada antes/depois com mesma campanha e seed (quando suportado) para cada modo em formatos representativos.
+  2. Rubrica de 12 critérios aplicada ao conjunto pós-correção atinge média geral ≥75 e fidelidade factual ≥95.
+  3. Nenhuma entidade inventada e nenhuma campanha substituída no conjunto de validação.
+  4. `npm test`, `npm run lint` e `npm run build` passam com cobertura de regressão do milestone.
+
+**Plans:** TBD
+
+---
 
 ### Phase 109: Visual Foundations and Baseline
 
@@ -707,7 +903,16 @@ Archive: [v11.6-ROADMAP.md](milestones/v11.6-ROADMAP.md) · [v11.6-REQUIREMENTS.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 | ----- | --------- | -------------- | ------ | --------- |
-| 109 | v12.2 | 0/TBD | Not started | - |
+| 115 | v12.3 | 0/TBD | Not started | - |
+| 116 | v12.3 | 0/TBD | Not started | - |
+| 117 | v12.3 | 0/TBD | Not started | - |
+| 118 | v12.3 | 0/TBD | Not started | - |
+| 119 | v12.3 | 0/TBD | Not started | - |
+| 120 | v12.3 | 0/TBD | Not started | - |
+| 121 | v12.3 | 0/TBD | Not started | - |
+| 122 | v12.3 | 0/TBD | Not started | - |
+| 123 | v12.3 | 0/TBD | Not started | - |
+| 109 | v12.2 | 6/6 | Complete | 2026-06-13 |
 | 110 | v12.2 | 0/TBD | Not started | - |
 | 111 | v12.2 | 0/TBD | Not started | - |
 | 112 | v12.2 | 0/TBD | Not started | - |
@@ -767,4 +972,4 @@ Archive: [v11.6-ROADMAP.md](milestones/v11.6-ROADMAP.md) · [v11.6-REQUIREMENTS.
 | 60 | v11.5 | 4/4 | Complete | 2026-06-05 |
 
 ---
-*Roadmap updated: 2026-06-13 — v12.2 phases 109-114 created with 33/33 requirements mapped*
+*Roadmap updated: 2026-06-15 — v12.3 phases 115-123 created with 37/37 requirements mapped*

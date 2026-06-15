@@ -1,5 +1,25 @@
 # Milestones: ADScale
 
+## v12.3 Integridade Criativa (In Progress: 2026-06-15)
+
+**Phases planned:** 9 phases (115→123)
+**Requirements:** 37 requirements
+
+**Scope:**
+- Corpus fixtures from audited creative exports (58.5/100 baseline)
+- Canonical creative contract with hierarchy and anti-hallucination injection
+- Factual vs visual separation for restyling
+- Per-mode prompt rules (art_variation, restyling, format_adaptation)
+- Observable rubric replacing "polished" as pass criterion
+- Quality gate hardening with new hard failures
+- Score ceilings and factual-parent retry
+- Regression test suite proving rules reach prompts and gate
+- Visual validation gate (≥75 avg, ≥95 factual fidelity)
+
+**Audit baseline:** `app/exports/render-creatives/` — Cantona/Manchester United hallucinations, visual overload, generic templates pass current gate
+
+---
+
 ## v12.2 Refinamento Visual e Consistência da Interface (Shipped: 2026-06-14)
 
 **Phases completed:** 6 phases (109→114), 11 plans  
