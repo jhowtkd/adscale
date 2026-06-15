@@ -6,6 +6,11 @@ import { buildCompetitorContextPromptSection } from "./competitor-analyzer";
 import { buildPreflightPromptSection } from "./preflight-analysis";
 import type { BrandMemoryContext } from "@/server/memory/brand-memory-context";
 import type { CreativeContract, CtaSemantics } from "./creative-contract";
+import { resolveCtaSemantics } from "./creative-contract";
+import {
+  buildCanonicalContractPromptSection,
+  resolveCanonicalCreative,
+} from "./canonical-creative-contract";
 
 
 
@@ -91,7 +96,7 @@ OPERATIONAL RULES FOR BOLD:
 - Apply new lighting treatment, shadows, and color grading while staying within the brand palette.
 - Preserve core brand assets (logo, product), campaign message, offer, and CTA.
 - INVIOLABLE TEXT: every headline, subhead, name, credential, offer line, and CTA from the reference must appear with EXACT spelling and punctuation — no typos, abbreviations, or substitutions.
-- INVIOLABLE CONTENT BLOCKS: preserve benefit bullets, professor/person labels, badges, legal copy, and proof modules — rearrange them but do not delete or paraphrase.
+- INVIOLABLE FACTS: headline, offer, CTA, and named people/products from the reference must keep exact spelling — consolidate visual modules (bullets, badges, icon rows) instead of reproducing every block at equal size.
 - Do not invent a new brand or unrelated visual universe.
 - The result must be clearly a different creative from the same campaign.`;
 
@@ -112,6 +117,74 @@ const CREATIVITY_TEMPLATES: Record<string, string> = {
   bold,
   extreme,
 };
+
+const VISUAL_HIERARCHY_CONTRACT = `VISUAL HIERARCHY CONTRACT:
+- Express ONE dominant visual idea per piece (the scroll-stopping hook focal point).
+- Limit visible text hierarchy to THREE tiers: (1) primary hook/headline, (2) one supporting proof or offer line, (3) one CTA.
+- Preserve factual content from the reference in meaning, but do NOT give every fact equal visual weight.
+- Secondary facts (duration labels, badge rows, icon lists, legal copy, bullet pillars) may be merged into one support line, grouped smaller, or omitted from the layout when the hook + offer + CTA already communicate the campaign.
+- Do not stack competing cards, icon rows, selos, and badges at the same visual weight.
+- Use deliberate negative space: leave at least ~20% of the canvas free of text or UI modules.
+- Prefer editorial composition over dashboard/card-grid layouts.
+- Avoid generic AI tropes unless they already exist in the brand system: neon glow stacks, holographic grids, glassmorphism cards, excessive lens flares, volumetric CTA pills, and "premium tech" gradient stacks.`;
+
+const ANTI_HALLUCINATION_RULES = `ANTI-HALLUCINATION RULES:
+- Do NOT invent people, celebrities, athletes, teams, uniforms, products, logos, trademarks, or factual claims not visible in the source reference or campaign brief.
+- Do NOT substitute the source photo/subject with a different person, character, or scenario.`;
+
+export function buildIntegrityPromptSection(): string[] {
+  return ["", VISUAL_HIERARCHY_CONTRACT, "", ANTI_HALLUCINATION_RULES];
+}
+
+function resolveEffectiveContractForPrompt(
+  config: Pick<
+    DerivationPromptConfig,
+    | "contract"
+    | "campaign"
+    | "creativeDiagnosis"
+    | "generationMode"
+    | "targetFormat"
+    | "ctaText"
+    | "asset"
+  >
+): CreativeContract {
+  const {
+    contract,
+    campaign,
+    creativeDiagnosis,
+    generationMode = "art_variation",
+    targetFormat = "1:1",
+    ctaText,
+    asset,
+  } = config;
+
+  const base: CreativeContract =
+    contract ??
+    ({
+      generationMode,
+      targetFormat,
+      ctaSemantics: resolveCtaSemantics(ctaText, generationMode),
+      baseAssetId: asset?.id ?? null,
+      styleAssetId: null,
+      client: campaign?.client ?? null,
+      product: campaign?.product ?? null,
+      offer: campaign?.offer ?? null,
+      constraints: campaign?.constraints ?? null,
+    } satisfies CreativeContract);
+
+  if (base.canonicalCreative) {
+    return base;
+  }
+
+  return {
+    ...base,
+    canonicalCreative: resolveCanonicalCreative(
+      base,
+      campaign,
+      creativeDiagnosis ?? undefined
+    ),
+  };
+}
 
 export function buildPlanPrompt(campaign: Campaign, asset?: Asset, locale?: string) {
   return `You are a creative strategist. Based on this campaign brief, generate a creative plan.
@@ -308,6 +381,18 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
       ctaSemantics: contract?.ctaSemantics ?? null,
     })
   );
+
+  const effectiveContract = resolveEffectiveContractForPrompt({
+    contract,
+    campaign,
+    creativeDiagnosis,
+    generationMode,
+    targetFormat,
+    ctaText,
+    asset,
+  });
+  parts.push(...buildCanonicalContractPromptSection(effectiveContract));
+  parts.push(...buildIntegrityPromptSection());
 
   if (generationMode === "restyling" && contract?.styleAssetId) {
     parts.push(
@@ -518,6 +603,32 @@ function indexOfEarliest(prompt: string, fromIndex: number, markers: string[]): 
 /** Compact HARD RULES block for prompt regression snapshots. */
 export function extractPromptHardRulesSection(prompt: string): string {
   const header = "HARD RULES / NON-NEGOTIABLE CONTRACT";
+  const start = prompt.indexOf(header);
+  if (start === -1) return "";
+
+  const end = indexOfEarliest(prompt, start + header.length, [
+    "\nCANONICAL CREATIVE CONTRACT:",
+    "\nVISUAL HIERARCHY CONTRACT:",
+    "\nRESTYLING FACTUAL-SOURCE RULE:",
+    "\nMODE:",
+  ]);
+  return prompt.slice(start, end).trimEnd();
+}
+
+/** Canonical creative contract block through RULE PRECEDENCE. */
+export function extractPromptCanonicalContractSection(prompt: string): string {
+  const header = "CANONICAL CREATIVE CONTRACT:";
+  const start = prompt.indexOf(header);
+  if (start === -1) return "";
+
+  const end = prompt.indexOf("\nVISUAL HIERARCHY CONTRACT:", start + header.length);
+  if (end === -1) return prompt.slice(start).trimEnd();
+  return prompt.slice(start, end).trimEnd();
+}
+
+/** Visual hierarchy and anti-hallucination blocks before MODE or restyling factual-source. */
+export function extractPromptIntegritySection(prompt: string): string {
+  const header = "VISUAL HIERARCHY CONTRACT:";
   const start = prompt.indexOf(header);
   if (start === -1) return "";
 
