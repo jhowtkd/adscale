@@ -47,7 +47,7 @@
 | 118 | 0/4 | Complete    | 2026-06-15 | — |
 | 119 | 0/4 | Complete    | 2026-06-15 | 2026-06-15 |
 | 120 | Quality Gate Hardening | Complete    | 2026-06-15 | 2026-06-15 |
-| 121 | Score Ceilings and Retry | 2/3 | In Progress|  |
+| 121 | Score Ceilings and Retry | 3/3 | Complete   | 2026-06-15 |
 | 122 | Regression Test Suite | TEST-01–04 | Pending | — |
 | 123 | Visual Validation Gate | QA-18–21 | Pending | — |
 
@@ -374,7 +374,7 @@ Plans:
 Plans:
 - [x] 121-01-PLAN.md — Score ceilings (SCR-02/03), gate persist, SCR-01 dimension map
 - [x] 121-03-PLAN.md — Failure-specific correction directives + restyling factual-source rule (SCR-05)
-- [ ] 121-02-PLAN.md — Mode-aware retry policy, restyling job wiring, two-image auto-retry (SCR-04)
+- [x] 121-02-PLAN.md — Mode-aware retry policy, restyling job wiring, two-image auto-retry (SCR-04)
 
 ---
 

@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v12.3
 milestone_name: Integridade Criativa
 status: verifying
-last_updated: "2026-06-15T19:47:11.374Z"
+last_updated: "2026-06-15T19:51:20.094Z"
 last_activity: 2026-06-15
 progress:
   total_phases: 83
-  completed_phases: 37
+  completed_phases: 38
   total_plans: 101
-  completed_plans: 114
+  completed_plans: 115
   percent: 100
 ---
 
@@ -90,6 +90,8 @@ Last activity: 2026-06-15 — Completed 121-03 (failure-specific correction dire
 - [Phase 121]: FAILURE_CORRECTION_DIRECTIVES prepends per-code imperatives before hard-failure trace list (SCR-05)
 - [Phase 121]: Separate creative-score-ceilings.ts module applies SCR-02 ceilings before gate verdict and DB persist
 - [Phase 121]: computeQualityGateFromAnalysis returns capped qualityScore; breakdown clamping when scoreBreakdown provided
+- [Phase 121]: Mode-aware shouldAutoRetryDerivation with per-mode code sets; restyling uses base+style asset keys never outputKey
+- [Phase 121]: Restyling auto-retry calls images.edit with [base-image, style-reference] matching first-pass order
 
 ## Next Steps
 
