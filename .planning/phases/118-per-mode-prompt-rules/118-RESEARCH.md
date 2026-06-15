@@ -314,15 +314,15 @@ describe.each(["1:1", "4:5", "9:16"] as const)(
 | A3 | `1.91:1` corpus cases map to same format_adaptation rules as other aspects | MODE-05 | May need explicit 1.91:1 hint line |
 | A4 | Creativity templates stay in `prompt-builder.ts` with added guardrails, not moved to new file | Standard stack | Larger diff in prompt-builder if templates move |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should competitor analyses be fully omitted or relabeled for format_adaptation?**
    - What we know: PITFALLS recommends strip/demote; no product UAT on format jobs with competitor context [VERIFIED: PITFALLS.md §5].
-   - Recommendation: Omit competitor block for format; include in planner as default, flag if campaign workflow requires competitor-aware format jobs.
+   - **Resolution (118-03):** Fully omit competitor block for `format_adaptation` via `shouldIncludeCompetitorAnalysesForMode` returning false. No relabel fallback.
 
 2. **Does art_variation `creativeDiagnosis.variationOpportunities` need caps for MODE-02?**
    - What we know: Diagnosis can list many opportunities; three-zone budget is prompt-level [VERIFIED: prompt-builder.ts:503-510].
-   - Recommendation: Add line “explore opportunities within three-zone budget only.”
+   - **Resolution (118-01):** Add diagnosis suffix line “explore opportunities within three-zone budget only” in art_variation pack when diagnosis is injected.
 
 ## Environment Availability
 
@@ -493,10 +493,11 @@ Step 2.6: **SKIPPED** — code-only phase; no new external dependencies. Existin
 | Architecture | HIGH | Phase 117 module pattern + prompt-builder spine traced in code |
 | Pitfalls | HIGH | Mapped to corpus fixtures and PITFALLS.md with file references |
 
-### Open Questions
+### Open Questions (RESOLVED)
 
-- Competitor block: full omit vs relabel for format_adaptation (recommend omit).
-- Whether `1.91:1` needs explicit hint line alongside 1:1/4:5/9:16.
+- Competitor block: **omit** for format_adaptation (118-03 `shouldIncludeCompetitorAnalysesForMode`).
+- Diagnosis three-zone cap: **suffix line** in art_variation pack (118-01).
+- Whether `1.91:1` needs explicit hint line alongside 1:1/4:5/9:16 — deferred; MODE-05 tests cover 1:1/4:5/9:16 only.
 
 ### Ready for Planning
 

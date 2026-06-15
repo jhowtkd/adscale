@@ -44,7 +44,7 @@
 | 115 | Corpus Fixtures and Audit Baseline | Complete    | 2026-06-15 | 2026-06-15 |
 | 116 | Canonical Creative Contract | Complete    | 2026-06-15 | 2026-06-15 |
 | 117 | Factual vs Visual Separation | Complete    | 2026-06-15 | 2026-06-15 |
-| 118 | Per-Mode Prompt Rules | MODE-01–05 | Pending | — |
+| 118 | 0/4 | Planned    |  | — |
 | 119 | Observable Rubric | RUBR-01–04 | Pending | — |
 | 120 | Quality Gate Hardening | GATE-01–05 | Pending | — |
 | 121 | Score Ceilings and Retry | SCR-01–05 | Pending | — |
@@ -296,7 +296,7 @@ Plans:
   4. `format_adaptation` trata saída como edição da mesma campanha — preserva pessoas, copy, CTA, marca e conceito; altera apenas composição, escala e agrupamento.
   5. A mesma campanha permanece reconhecível em `1:1`, `4:5` e `9:16` sem introduzir nova narrativa.
 
-**Plans:** 4 plans
+**Plans:** 0/4 plans executed
 
 Plans:
 - [ ] 118-01-PLAN.md — Scaffold per-mode-prompt-rules.ts + art_variation pack (MODE-01/02)
