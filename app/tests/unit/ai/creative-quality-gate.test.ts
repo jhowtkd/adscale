@@ -13,6 +13,16 @@ import {
   extractPolishSuggestions,
   type CreativeHardFailureCode,
 } from "@/server/ai/creative-quality-gate";
+import {
+  CAMPAIGN_IDENTITY_DRIFT_PATTERN,
+  CAMPAIGN_IDENTITY_SAFE_PATTERN,
+  DECORATIVE_ONLY_PATTERN,
+  GENERIC_TEMPLATE_NOTE_MARKERS,
+  MISSING_DOMINANT_IDEA_MARKERS,
+  OVERLOAD_NOTE_MARKERS,
+  REPLACED_SOURCE_SUBJECT_PATTERN,
+  STYLE_REFERENCE_CONTAMINATION_PATTERN,
+} from "@/server/ai/creative-quality-taxonomy";
 
 const passed: CreativeQaCriterionResult = { status: "passed", note: "OK." };
 
@@ -451,6 +461,100 @@ describe("invented_factual_entity", () => {
     expect(
       gate.polishSuggestions.some((note) => /hallucinat|celebrity athlete/i.test(note))
     ).toBe(false);
+  });
+});
+
+function noteMatches(pattern: RegExp, note: string): boolean {
+  return pattern.test(note);
+}
+
+describe("GATE-01 taxonomy patterns", () => {
+  const patternCases: Array<{
+    name: string;
+    pattern: RegExp;
+    match: string[];
+    noMatch: string[];
+  }> = [
+    {
+      name: "CAMPAIGN_IDENTITY_DRIFT_PATTERN",
+      pattern: CAMPAIGN_IDENTITY_DRIFT_PATTERN,
+      match: [
+        "education/professor enrollment narrative instead of CENBRAP NR1",
+        "different campaign narrative than the base NR1 compliance piece",
+        "replaced with a new enrollment story",
+      ],
+      noMatch: [
+        "faithful NR1 format adaptation with same campaign identity",
+        "same campaign identity preserved across aspect ratios",
+      ],
+    },
+    {
+      name: "CAMPAIGN_IDENTITY_SAFE_PATTERN",
+      pattern: CAMPAIGN_IDENTITY_SAFE_PATTERN,
+      match: [
+        "faithful NR1 format adaptation",
+        "same campaign identity preserved",
+        "identical people and preserved narrative",
+      ],
+      noMatch: [
+        "education/professor enrollment narrative instead of CENBRAP NR1",
+      ],
+    },
+    {
+      name: "REPLACED_SOURCE_SUBJECT_PATTERN",
+      pattern: REPLACED_SOURCE_SUBJECT_PATTERN,
+      match: [
+        "replaced hero photo with a stock athlete",
+        "different subject than base image",
+      ],
+      noMatch: ["faithful subject framing with same hero photo"],
+    },
+    {
+      name: "DECORATIVE_ONLY_PATTERN",
+      pattern: DECORATIVE_ONLY_PATTERN,
+      match: [
+        "background-only recolor without mechanism change",
+        "glow-only tweak without a new visual mechanism",
+      ],
+      noMatch: ["new focal hierarchy with different proof presentation"],
+    },
+    {
+      name: "STYLE_REFERENCE_CONTAMINATION_PATTERN",
+      pattern: STYLE_REFERENCE_CONTAMINATION_PATTERN,
+      match: [
+        "athlete portraits and team uniforms from style reference",
+        "factual claims copied from style reference",
+        "style reference contamination in offer text",
+      ],
+      noMatch: ["palette and typography transfer only from style reference"],
+    },
+    {
+      name: "OVERLOAD_NOTE_MARKERS",
+      pattern: OVERLOAD_NOTE_MARKERS,
+      match: ["more than three competing information zones"],
+      noMatch: ["clear single dominant focal point"],
+    },
+    {
+      name: "GENERIC_TEMPLATE_NOTE_MARKERS",
+      pattern: GENERIC_TEMPLATE_NOTE_MARKERS,
+      match: ["generic premium-tech neon template aesthetic"],
+      noMatch: ["campaign-specific NR1 audit visual idea"],
+    },
+    {
+      name: "MISSING_DOMINANT_IDEA_MARKERS",
+      pattern: MISSING_DOMINANT_IDEA_MARKERS,
+      match: ["no NR1 audit-specific visual idea"],
+      noMatch: ["dominant NR1 compliance visual idea preserved"],
+    },
+  ];
+
+  it.each(patternCases)("$name matches corpus exemplars", ({ pattern, match, noMatch }) => {
+    for (const note of match) {
+      expect(noteMatches(pattern, note), `expected match: ${note}`).toBe(true);
+    }
+    for (const note of noMatch) {
+      expect(noteMatches(pattern, note), `expected no match: ${note}`).toBe(false);
+    }
   });
 });
 
