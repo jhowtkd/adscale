@@ -320,7 +320,13 @@ Plans:
   3. Defeitos são explicados por elementos visíveis observáveis — termos como "polished" ou "professional" não são critério de aprovação isolado.
   4. Hook é compreensível em miniatura (escala de preview/mobile).
 
-**Plans:** TBD
+**Plans:** 4 plans
+
+Plans:
+- [ ] 119-01-PLAN.md — Observable rubric module scaffold (RUBR-01–04)
+- [ ] 119-02-PLAN.md — Wire rubric into QA prompt; remove export-softening (RUBR-01–04)
+- [ ] 119-03-PLAN.md — Extract buildCreativeScorePrompt; score rubric parity (RUBR-01–04)
+- [ ] 119-04-PLAN.md — Corpus archetype regression + baseline gap verification (RUBR-01–04)
 
 ---
 
