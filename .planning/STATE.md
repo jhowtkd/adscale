@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v12.3
 milestone_name: Integridade Criativa
-status: planning
-last_updated: "2026-06-15T13:33:35.271Z"
+status: executing
+last_updated: "2026-06-15T14:09:00.000Z"
 last_activity: 2026-06-15
 progress:
-  total_phases: 35
-  completed_phases: 6
-  total_plans: 19
-  completed_plans: 33
-  percent: 0
+  total_phases: 78
+  completed_phases: 32
+  total_plans: 83
+  completed_plans: 95
+  percent: 100
 ---
 
 # Project State
@@ -23,16 +23,16 @@ See: .planning/PROJECT.md (updated 2026-06-15)
 
 **Current focus:** v12.3 Integridade Criativa — factual fidelity, creative direction, and quality gate hardening for the derivation pipeline.
 
-**Status:** Ready to plan
+**Status:** Executing Phase 116
 
 ## Current Position
 
-Phase: 115 — Corpus Fixtures and Audit Baseline
-Plan: 3 of 03
-Status: Phase complete — ready for verification
-Last activity: 2026-06-15
+Phase: 116 — Canonical Creative Contract
+Plan: 1 of 03 complete
+Status: In progress — ready for 116-02
+Last activity: 2026-06-15 — completed 116-01-PLAN.md
 
-Progress: [░░░░░░░░░░] 0% (0/9 phases)
+Progress: [█░░░░░░░░░] 1/3 plans in phase 116
 
 ## Accumulated Context
 
@@ -62,8 +62,8 @@ Progress: [░░░░░░░░░░] 0% (0/9 phases)
 
 ## Session Continuity
 
-Last activity: 2026-06-15 — `/gsd-plan-phase 115` complete
+Last activity: 2026-06-15 — completed 116-01-PLAN.md (canonical types, resolver, job wiring)
 
 ## Next Steps
 
-`/gsd-execute-phase 115` — run plans 115-01 → 115-02 (wave 1) → 115-03 (wave 2)
+`/gsd-execute-phase 116` — run plan 116-02 (integrity injection + extractors)
