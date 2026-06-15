@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v12.3
 milestone_name: Integridade Criativa
 status: executing
-last_updated: "2026-06-15T20:30:58.466Z"
+last_updated: "2026-06-15T21:15:00.000Z"
 last_activity: 2026-06-15
 progress:
   total_phases: 85
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-06-15)
 ## Current Position
 
 Phase: 123 — Visual Validation Gate
-Plan: 02 complete (2 remaining)
-Status: In progress
+Plan: 03 in progress (tasks 01–02 complete; checkpoint 03 pending operator OPENAI_API_KEY)
+Status: Awaiting human-action checkpoint
 Last activity: 2026-06-15
 
-Progress: Phase 123 plan 02/4 complete
+Progress: Phase 123 plan 03/4 — operator script ready; live capture pending
 
 ## Accumulated Context
 
@@ -96,7 +96,9 @@ Last activity: 2026-06-15 — Completed 121-03 (failure-specific correction dire
 - [Phase 123]: beforeCorpusRefId validated at module load via isCorpusRefIdKnown; CREATIVE_VALIDATION_SEED_SUPPORTED=false
 - [Phase 123]: FIDELITY_HARD_FAILURE_CODES frozen to seven production gate codes; after-stage fidelity failures are warnings until plan 04 final
 - [Phase 123]: check-creative-validation-evidence.mjs loads matrix keys via tsx from creative-validation-matrix.ts
+- [Phase 123]: run-creative-validation.ts dry-run resolves six before captures from corpus manifest; live capture requires operator OPENAI_API_KEY
+- [Phase 123]: Base assets committed under app/tests/fixtures/creative-corpus/base-assets/ for matrix regeneration inputs
 
 ## Next Steps
 
-Execute Phase 123 plan 03 (operator capture script + live evidence checkpoint)
+Operator live capture (123-03-03): set OPENAI_API_KEY in app/.env.local, run `cd app && npm run validate:creative:live`, commit 123-EVIDENCE.json + validation-after PNGs, then resume plan 03

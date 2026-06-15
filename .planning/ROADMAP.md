@@ -415,7 +415,7 @@ Plans:
 Plans:
 - [x] 123-01-PLAN.md — Validation matrix (6 cells, all modes) + matrix unit tests
 - [x] 123-02-PLAN.md — Threshold aggregation + evidence check (--stage before + after; before fixture)
-- [ ] 123-03-PLAN.md — Operator capture script + base assets + live evidence (checkpoint)
+- [ ] 123-03-PLAN.md — Operator capture script + base assets + live evidence (checkpoint; tasks 01–02 done)
 - [ ] 123-04-PLAN.md — Release gate orchestrator + final evidence validation + milestone closure
 
 ---
