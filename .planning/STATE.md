@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v12.3
 milestone_name: Integridade Criativa
 status: executing
-last_updated: "2026-06-15T16:27:29.055Z"
+last_updated: "2026-06-15T16:30:15.137Z"
 last_activity: 2026-06-15
 progress:
   total_phases: 79
-  completed_phases: 33
+  completed_phases: 34
   total_plans: 87
-  completed_plans: 100
+  completed_plans: 101
   percent: 100
 ---
 
@@ -23,14 +23,14 @@ See: .planning/PROJECT.md (updated 2026-06-15)
 
 **Current focus:** v12.3 Integridade Criativa — factual fidelity, creative direction, and quality gate hardening for the derivation pipeline.
 
-**Status:** Executing phase 117
+**Status:** Ready to execute
 
 ## Current Position
 
 Phase: 117 — Factual vs Visual Separation
-Plan: 3 of 04 complete (117-03 pending; 117-04 done)
-Status: In progress
-Last activity: 2026-06-15 — completed 117-04-PLAN.md (allowed entities + invented_factual_entity gate, SEP-04)
+Plan: 4 of 04 complete (117-03 pending; 117-04 done)
+Status: Ready to execute
+Last activity: 2026-06-15
 
 Progress: [███████░░░] 3/4 plans in phase 117
 
@@ -73,6 +73,7 @@ Last activity: 2026-06-15 — completed 117-04-PLAN.md (allowed entities + inven
 - [Phase 117]: VISUAL REFERENCE TRANSFER RULE injected after classification with SEP-02 allowlist/denylist
 - [Phase 117]: invented_factual_entity promoted to hard failure via INVENTED_ENTITY_PATTERN on briefMatch/creativeRisk
 - [Phase 117]: ALLOWED ENTITIES block injected from CANONICAL_CAMPAIGNS when campaign slug matches
+- [Phase 117]: assertParentFactualLineage blocks format_adaptation parent download when qualityVerdict invalid or hardFailures include contamination codes (SEP-03)
 
 ## Next Steps
 
