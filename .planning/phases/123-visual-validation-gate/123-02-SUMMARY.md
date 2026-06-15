@@ -76,7 +76,7 @@ Each task was committed atomically:
 2. **Task 2: Evidence template, before fixture, and check script --stage before** - `d20dfdf7` (feat)
 3. **Task 3: Check script --stage after (schema + sha256, no thresholds)** - `c13ec989` (feat)
 
-**Plan metadata:** `pending` (docs commit)
+**Plan metadata:** `df6a78c7` (docs: complete plan)
 
 ## Files Created/Modified
 
