@@ -369,7 +369,12 @@ Plans:
   4. Retry habilitado para restyling usa fonte factual original, nunca saída contaminada.
   5. Correção de retry é específica: remover entidade inventada, restaurar pessoa/marca, reduzir módulos, restaurar conceito/CTA.
 
-**Plans:** TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 121-01-PLAN.md — Score ceilings (SCR-02/03), gate persist, SCR-01 dimension map
+- [ ] 121-03-PLAN.md — Failure-specific correction directives + restyling factual-source rule (SCR-05)
+- [ ] 121-02-PLAN.md — Mode-aware retry policy, restyling job wiring, two-image auto-retry (SCR-04)
 
 ---
 
