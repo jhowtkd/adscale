@@ -477,7 +477,9 @@ describe("format adaptation contract (AIC-03)", () => {
     expect(prompt).toContain("no poster pasted over a background");
     expect(prompt).toContain("no stretched edge filler");
     expect(prompt).toContain("no crowded cluster");
-    expect(prompt).toContain("PRESERVE EXACTLY");
+    expect(prompt).toContain("PRESERVE COPY AND FACTS VERBATIM");
+    expect(prompt).toContain("VISUAL PROMINENCE");
+    expect(prompt).toContain("factual completeness does not require equal visual weight");
     expect(prompt).toContain("only decorative background may bleed to the edges");
     expect(prompt).toContain("upper zone");
     expect(prompt).toContain("middle zone");
@@ -496,10 +498,12 @@ describe("format adaptation contract (AIC-03)", () => {
     expect(prompt).toContain("Do not return to the original campaign asset");
     expect(extractPromptModeSection(prompt)).toMatchInlineSnapshot(`
       "MODE: format_adaptation — You are EDITING an existing ad to fit a DIFFERENT aspect ratio.
-      You can see the original image. Your job is to PRESERVE every visual element exactly as it appears, and rebuild the layout so it feels native to the target format.
+      You can see the original image. Rebuild the layout for the target format while keeping all copy and facts verbatim (headlines, subheads, CTA, legal copy, offer lines, badge text).
       This is a layout adaptation, not a resized poster. Treat the source ad as separate modules: headline, photo/subject, offer or proof, CTA, logo, badges, legal copy, and decorative background.
-      PRESERVE EXACTLY: the original photo/subject, all text copy (headlines, subheads, bullets, CTA), the logo, brand colors, background color/texture, offer cards, discount badges, decorative shapes, icons, and graphic panels.
-      DO NOT: create new photos, rewrite text, add new elements, remove elements, change colors, or invent new brand assets.
+      PRESERVE COPY AND FACTS VERBATIM: the original photo/subject, all text copy (headlines, subheads, bullets, CTA), the logo, brand colors, offer/discount text, and legal copy must appear exactly as in the source — no rewrites or omissions of mandatory-tier copy.
+      VISUAL PROMINENCE: factual completeness does not require equal visual weight. Apply the three information zones from VISUAL HIERARCHY CONTRACT and CANONICAL CREATIVE CONTRACT — hook, proof/offer, and CTA may dominate; decorative chrome, badges, and icon rows may shrink or yield to clear zones.
+      PRESERVE VISUAL IDENTITY: background color/texture, decorative shapes, icons, and graphic panels should remain recognizable but may be resized or repositioned for the target format.
+      DO NOT: create new photos, rewrite text, add new elements, remove mandatory-tier copy, change factual colors, or invent new brand assets.
       Target format: 9:16. Rearrange the existing elements into a native composition for this format. Fill the entire canvas edge-to-edge. No blank bands, blurred padding, or letterboxing.
       HARD LAYOUT FAILURES TO AVOID: no blurred side/top/bottom bars, no poster pasted over a background, no stretched edge filler, no crowded cluster of text/photo/CTA/logo, no overlapping information modules.
       Build clear zones with gutters and whitespace. Keep headline, supporting copy, CTA, logo, badges, legal copy, faces, and products inside a central safe area; only decorative background may bleed to the edges.
@@ -629,6 +633,20 @@ describe("no preserve-all conflict", () => {
     if (/preserve every/i.test(prompt)) {
       expect(prompt).toMatch(/mandatory tier|Tier mandatory/i);
     }
+  });
+
+  it("does not pair undifferentiated PRESERVE EXACTLY with hierarchy simplification in format_adaptation", () => {
+    const prompt = buildDerivationPrompt(
+      derivationConfigFromContract(formatAdaptationCampaignAssetContractFixture())
+    );
+    const mode = extractPromptModeSection(prompt);
+
+    expect(mode).not.toMatch(
+      /PRESERVE EXACTLY: the original photo\/subject, all text copy.*decorative shapes, icons, and graphic panels\./s
+    );
+    expect(mode).toMatch(/mandatory tier|visual prominence|three.*zone|hierarchy/i);
+    expect(extractPromptCanonicalContractSection(prompt)).toContain("RULE PRECEDENCE");
+    expect(mode).toContain("PRESERVE COPY AND FACTS VERBATIM");
   });
 });
 

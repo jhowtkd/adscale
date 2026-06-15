@@ -125,7 +125,7 @@ describe("buildDerivationPrompt", () => {
     });
     expect(prompt).toContain("MODE: format_adaptation");
     expect(prompt).toContain("Target format: 9:16");
-    expect(prompt).toContain("PRESERVE EXACTLY");
+    expect(prompt).toContain("PRESERVE COPY AND FACTS VERBATIM");
     expect(prompt).toContain("DO NOT");
     expect(prompt).toContain("For 9:16 (vertical story)");
   });

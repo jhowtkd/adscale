@@ -206,13 +206,14 @@ describe("buildDerivationPrompt format_adaptation layout contract", () => {
     expect(prompt).toContain("only decorative background may bleed to the edges");
   });
 
-  it("requires explicit PRESERVE EXACTLY instruction for factual content", () => {
+  it("requires explicit verbatim copy preservation for factual content", () => {
     const prompt = buildDerivationPrompt({
       generationMode: "format_adaptation",
       targetFormat: "4:5",
     });
 
-    expect(prompt).toContain("PRESERVE EXACTLY");
+    expect(prompt).toContain("PRESERVE COPY AND FACTS VERBATIM");
+    expect(prompt).toContain("VISUAL PROMINENCE");
   });
 
   it("includes 9:16 three-zone vertical layout guidance", () => {
