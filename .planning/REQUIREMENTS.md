@@ -18,7 +18,7 @@ Endurecer o pipeline criativo para que peças factualmente incorretas, visualmen
 
 ### Fixtures and Baseline (FIXT)
 
-- [ ] **FIXT-01**: Cada falha observada no corpus auditado (entidade inventada, overload, template genérico, drift de formato, contaminação de restyling) possui fixture reproduzível em `quality-fixtures` ou catálogo equivalente.
+- [x] **FIXT-01**: Cada falha observada no corpus auditado (entidade inventada, overload, template genérico, drift de formato, contaminação de restyling) possui fixture reproduzível em `quality-fixtures` ou catálogo equivalente.
 - [ ] **FIXT-02**: Fixtures registram campanha canônica, entidades permitidas, modos e formatos esperados para Smoke, Nova campanha, Teste 3/CENBRAP NR1 e Teste campanha/Master NR1.
 - [ ] **FIXT-03**: Previews (`270×270`) e finais são categorias distintas nas fixtures e na validação.
 - [ ] **FIXT-04**: Testes demonstram que o pipeline atual aprova indevidamente as peças-falha do corpus antes da correção (red → green).
@@ -103,7 +103,7 @@ Endurecer o pipeline criativo para que peças factualmente incorretas, visualmen
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FIXT-01 | Phase 115 | Pending |
+| FIXT-01 | Phase 115 | Complete |
 | FIXT-02 | Phase 115 | Pending |
 | FIXT-03 | Phase 115 | Pending |
 | FIXT-04 | Phase 115 | Pending |
