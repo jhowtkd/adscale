@@ -216,6 +216,18 @@ function scoreDimensionPromptLines(): string {
   }).join("\n");
 }
 
+function buildScoreDimensionMapSection(): string {
+  return `SCORE DIMENSION MAP (SCR-01 concern buckets → breakdown keys):
+- Factual integrity → briefMatch, informationPreservation
+- Hierarchy → visualQuality (creativeRisk criterion)
+- Legibility → textLegibility
+- Art direction → visualQuality
+- Originality → variationLevelFit
+- Format fit → formatFit
+
+After QA, server-side score ceilings (SCR-02) cap qualityScore when hard failures are detected — do not let a high model score contradict classified failures.`;
+}
+
 function buildCtaInstruction(input: AnalyzeInput): string {
   const ctaSemantics = input.contract?.ctaSemantics;
   if (ctaSemantics?.kind === "explicit") {
@@ -262,6 +274,8 @@ Return only JSON with qualityScore, scoreBreakdown, scoreIssues, regenerationSug
 
 Score breakdown dimensions (score key → canonical concern):
 ${scoreDimensionPromptLines()}
+
+${buildScoreDimensionMapSection()}
 
 Campaign context:
 - Name: ${input.campaign.name}
