@@ -835,11 +835,13 @@ describe("integrity injection", () => {
 
     const integrityIdx = prompt.indexOf("VISUAL HIERARCHY CONTRACT:");
     const classificationIdx = prompt.indexOf("INPUT SOURCE CLASSIFICATION:");
+    const transferIdx = prompt.indexOf("VISUAL REFERENCE TRANSFER RULE:");
     const factualIdx = prompt.indexOf("RESTYLING FACTUAL-SOURCE RULE:");
     const modeIdx = prompt.indexOf("MODE:");
 
     expect(classificationIdx).toBeGreaterThan(integrityIdx);
-    expect(factualIdx).toBeGreaterThan(classificationIdx);
+    expect(transferIdx).toBeGreaterThan(classificationIdx);
+    expect(factualIdx).toBeGreaterThan(transferIdx);
     expect(modeIdx).toBeGreaterThan(factualIdx);
   });
 });
@@ -988,5 +990,44 @@ describe("CTA semantics contract", () => {
     });
     expect(prompt).toContain("RESTYLING FACTUAL-SOURCE RULE");
     expect(prompt.toLowerCase()).toContain("factual");
+  });
+
+  it("restyling without styleAssetId still includes RESTYLING FACTUAL-SOURCE RULE", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "restyling",
+      targetFormat: "1:1",
+      contract: {
+        generationMode: "restyling",
+        targetFormat: "1:1",
+        ctaSemantics: { kind: "inherited" },
+        baseAssetId: "base-123",
+        styleAssetId: null,
+        client: null,
+        product: null,
+        offer: null,
+        constraints: null,
+      },
+    });
+    expect(prompt).toContain("RESTYLING FACTUAL-SOURCE RULE");
+    expect(prompt).toContain("VISUAL REFERENCE TRANSFER RULE:");
+  });
+
+  it("restyling with visualTokenBrief does not inject Extracted Visual Token Brief", () => {
+    const prompt = buildDerivationPrompt({
+      ...derivationConfigFromContract(restylingContractFixture()),
+      visualTokenBrief:
+        "Style reference: premium editorial shadows and serif typography.",
+    });
+    expect(prompt).not.toContain("Extracted Visual Token Brief");
+    expect(prompt).not.toContain("premium editorial shadows");
+  });
+
+  it("format_adaptation still excludes visualTokenBrief when configured", () => {
+    const prompt = buildDerivationPrompt({
+      ...derivationConfigFromContract(formatAdaptationCampaignAssetContractFixture()),
+      visualTokenBrief: "Bold headline stack with yellow CTA module.",
+    });
+    expect(prompt).not.toContain("Extracted Visual Token Brief");
+    expect(prompt).not.toContain("Bold headline stack");
   });
 });

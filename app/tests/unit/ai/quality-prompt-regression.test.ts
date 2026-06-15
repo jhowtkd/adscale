@@ -8,6 +8,7 @@ import {
   extractPromptModeSection,
   extractPromptRestylingFactualSourceSection,
 } from "@/server/ai/prompt-builder";
+import { extractPromptVisualReferenceTransferSection } from "@/server/ai/factual-visual-separation";
 import { derivationConfigFromContract } from "@/server/ai/prompt-builder.test-fixtures";
 
 describe.each(QUALITY_FIXTURES)("prompt regression — $id", (fixture) => {
@@ -44,8 +45,13 @@ describe.each(QUALITY_FIXTURES)("prompt regression — $id", (fixture) => {
 
     if (fixture.contract.generationMode === "restyling") {
       const factual = extractPromptRestylingFactualSourceSection(prompt);
+      const transfer = extractPromptVisualReferenceTransferSection(prompt);
       expect(factual).toMatch(/base|factual|content/i);
       expect(factual).toMatch(/style reference|visual language|style/i);
+      expect(transfer).toContain("VISUAL REFERENCE TRANSFER RULE:");
+      expect(transfer).toContain("ritmo");
+      expect(transfer).toContain("pessoas");
+      expect(prompt).not.toContain("Extracted Visual Token Brief");
       expect(fixture.contract.baseAssetId).toBeTruthy();
       expect(fixture.contract.styleAssetId).toBeTruthy();
     }
@@ -99,7 +105,15 @@ describe("compact prompt section snapshots by generation mode", () => {
     const fixture = QUALITY_FIXTURES.find(
       (f) => f.failureMode === "style_reference_contamination"
     )!;
-    const prompt = buildDerivationPrompt(derivationConfigFromContract(fixture.contract));
+    const prompt = buildDerivationPrompt(
+      derivationConfigFromContract(fixture.contract, {
+        visualTokenBrief: "Athlete jersey and rival brand discount from style ref.",
+      })
+    );
+    expect(prompt).not.toContain("Extracted Visual Token Brief");
+    expect(extractPromptVisualReferenceTransferSection(prompt)).toContain(
+      "lógica compositiva"
+    );
     expect(extractPromptRestylingFactualSourceSection(prompt)).toMatchInlineSnapshot(`
       "RESTYLING FACTUAL-SOURCE RULE:
       The base image is the ONLY source of factual content (brand name, product name, offer, CTA, price, course name, logo). The style reference provides visual language (color, typography style, layout composition, mood) only. Do NOT copy factual claims, text, prices, offers, brand names, or CTAs from the style reference into the output."
