@@ -47,7 +47,13 @@ export async function runDerivationAutoRetry(
     ? (row.hardFailures as CreativeHardFailure[])
     : [];
   const generationLog = row.generationLog as { autoRetryAttempted?: boolean } | null;
-  if (!shouldAutoRetryDerivation(hardFailures, generationLog?.autoRetryAttempted)) {
+  if (
+    !shouldAutoRetryDerivation(
+      input.generationMode,
+      hardFailures,
+      generationLog?.autoRetryAttempted
+    )
+  ) {
     return null;
   }
 
