@@ -67,7 +67,7 @@ Each task was committed atomically:
 1. **Task 1: Corpus archetype rubric integration tests** - `5790b67d` (test)
 2. **Task 2: Verify baseline gap unchanged and run phase gate** - verification only, no file changes
 
-**Plan metadata:** `aabdc770` (docs)
+**Plan metadata:** `58e99bca` (docs)
 
 ## TDD Gate Compliance
 
