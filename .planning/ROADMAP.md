@@ -34,7 +34,7 @@
 - [x] **Phase 117: Factual vs Visual Separation** — classificação de inputs; referência visual só transfere linguagem abstrata; bloqueio de entidades inventadas (completed 2026-06-15)
 - [x] **Phase 118: Per-Mode Prompt Rules** — regras distintas para `art_variation`, `restyling`, `format_adaptation`; orçamento de três zonas; mesma campanha em múltiplos formatos (completed 2026-06-15)
 - [x] **Phase 119: Observable Rubric** — critérios observáveis substituem "polished"; reprova overload, genérico severo e hook ilegível em miniatura (completed 2026-06-15)
-- [ ] **Phase 120: Quality Gate Hardening** — novos hard failures; factual sempre invalid; corpus-falha bloqueado; fiel continua aprovável
+- [x] **Phase 120: Quality Gate Hardening** — novos hard failures; factual sempre invalid; corpus-falha bloqueado; fiel continua aprovável (completed 2026-06-15)
 - [ ] **Phase 121: Score Ceilings and Retry** — tetos por categoria de falha; retry de restyling da fonte factual; correções específicas
 - [ ] **Phase 122: Regression Test Suite** — prompt injection tests; gate matrix; suíte por modo e formato; teste de miniatura
 - [ ] **Phase 123: Visual Validation Gate** — geração controlada antes/depois; rubrica ≥75/≥95; CI verde
@@ -46,7 +46,7 @@
 | 117 | Factual vs Visual Separation | Complete    | 2026-06-15 | 2026-06-15 |
 | 118 | 0/4 | Complete    | 2026-06-15 | — |
 | 119 | 0/4 | Complete    | 2026-06-15 | 2026-06-15 |
-| 120 | Quality Gate Hardening | 3/3 | Complete   | 2026-06-15 |
+| 120 | Quality Gate Hardening | Complete    | 2026-06-15 | 2026-06-15 |
 | 121 | Score Ceilings and Retry | SCR-01–05 | Pending | — |
 | 122 | Regression Test Suite | TEST-01–04 | Pending | — |
 | 123 | Visual Validation Gate | QA-18–21 | Pending | — |
@@ -345,7 +345,7 @@ Plans:
   4. Peças `27069645`, `a753e357`, `538246da`, `a5f65b85`, `f420bcb2`, `d7d9d323` do corpus são bloqueadas após correção.
   5. Peça fiel como `c2c12774` continua aprovável (pode receber sugestões de simplificação, não invalidação factual).
 
-**Plans:** 3 plans
+**Plans:** 3/3 plans complete
 
 Plans:
 - [x] 120-01-PLAN.md — Taxonomy, type union, normalizeHardFailureCode, i18n (GATE-01)
