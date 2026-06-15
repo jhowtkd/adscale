@@ -23,6 +23,7 @@ import {
   OVERLOAD_NOTE_MARKERS,
   REPLACED_SOURCE_SUBJECT_PATTERN,
   STYLE_REFERENCE_CONTAMINATION_PATTERN,
+  UNAUTHORIZED_BRAND_PATTERN,
 } from "@/server/ai/creative-quality-taxonomy";
 
 const passed: CreativeQaCriterionResult = { status: "passed", note: "OK." };
@@ -158,7 +159,7 @@ describe("classifyCreativeQualityGate — hard failures", () => {
     expect(result.polishSuggestions.some((s) => s.includes("generic"))).toBe(true);
   });
 
-  it("maps styleFidelity failed in restyling to copied_style_reference_facts", () => {
+  it("maps styleFidelity failed in restyling to style_reference_contamination", () => {
     const result = classifyCreativeQualityGate({
       contract: restylingContract,
       checklist: checklist({
@@ -168,7 +169,10 @@ describe("classifyCreativeQualityGate — hard failures", () => {
         },
       }),
     });
-    expectHardCode(result, "copied_style_reference_facts");
+    expectHardCode(result, "style_reference_contamination");
+    expect(result.hardFailures.some((f) => f.code === "copied_style_reference_facts")).toBe(
+      false
+    );
   });
 
   it("maps informationPreservation failed to cropped_critical_content", () => {
@@ -222,6 +226,104 @@ describe("classifyCreativeQualityGate — hard failures", () => {
     });
     expect(result.hardFailures).toHaveLength(0);
     expect(result.polishSuggestions.some((s) => s.includes("crowded"))).toBe(true);
+  });
+
+  it("promotes creativeRisk overload note to visual_overload hard failure", () => {
+    const overloadFixture = CORPUS_ARCHETYPE_FIXTURES.find(
+      (f) => f.id === "corpus-visual-overload"
+    )!;
+    const qa = normalizeCreativeQaResult(overloadFixture.rawQaModelOutput);
+    const result = classifyCreativeQualityGate({
+      contract: overloadFixture.contract,
+      checklist: qa.checklist,
+    });
+    expectHardCode(result, "visual_overload");
+    expect(
+      result.polishSuggestions.some((s) => /competing information zones/i.test(s))
+    ).toBe(false);
+  });
+
+  it("promotes severe generic template creativeRisk note to generic_template_aesthetic", () => {
+    const genericFixture = CORPUS_ARCHETYPE_FIXTURES.find(
+      (f) => f.id === "corpus-generic-template-aesthetic"
+    )!;
+    const qa = normalizeCreativeQaResult(genericFixture.rawQaModelOutput);
+    const result = classifyCreativeQualityGate({
+      contract: genericFixture.contract,
+      checklist: qa.checklist,
+    });
+    expectHardCode(result, "generic_template_aesthetic");
+    expect(result.polishSuggestions.some((s) => /generic premium-tech/i.test(s))).toBe(
+      false
+    );
+  });
+
+  it("promotes briefMatch campaign drift in format_adaptation to campaign_identity_drift", () => {
+    const driftFixture = CORPUS_ARCHETYPE_FIXTURES.find(
+      (f) => f.id === "corpus-format-campaign-drift"
+    )!;
+    const qa = normalizeCreativeQaResult(driftFixture.rawQaModelOutput);
+    const result = classifyCreativeQualityGate({
+      contract: driftFixture.contract,
+      checklist: qa.checklist,
+    });
+    expectHardCode(result, "campaign_identity_drift");
+  });
+
+  it("promotes formatFit drift note to campaign_identity_drift before invalid_format_layout", () => {
+    const result = classifyCreativeQualityGate({
+      contract: formatAdaptationContract,
+      checklist: checklist({
+        formatFit: {
+          status: "failed",
+          note: "Layout reads as a different campaign identity, not a faithful NR1 format adaptation.",
+        },
+      }),
+    });
+    expectHardCode(result, "campaign_identity_drift");
+    expect(result.hardFailures.some((f) => f.code === "invalid_format_layout")).toBe(
+      false
+    );
+  });
+
+  it("promotes informationPreservation replaced hero note to replaced_source_subject", () => {
+    const result = classifyCreativeQualityGate({
+      contract: artVariationContract,
+      checklist: checklist({
+        informationPreservation: {
+          status: "failed",
+          note: "replaced hero photo with different subject than base",
+        },
+      }),
+    });
+    expectHardCode(result, "replaced_source_subject");
+    expect(result.hardFailures.some((f) => f.code === "cropped_critical_content")).toBe(
+      false
+    );
+  });
+
+  it("promotes decorative_only_variation only in art_variation mode", () => {
+    const note = "background-only recolor without mechanism change";
+    const artResult = classifyCreativeQualityGate({
+      contract: artVariationContract,
+      checklist: checklist({
+        creativeRisk: { status: "failed", note },
+      }),
+    });
+    expectHardCode(artResult, "decorative_only_variation");
+
+    const formatResult = classifyCreativeQualityGate({
+      contract: formatAdaptationContract,
+      checklist: checklist({
+        creativeRisk: { status: "failed", note },
+      }),
+    });
+    expect(formatResult.hardFailures.some((f) => f.code === "decorative_only_variation")).toBe(
+      false
+    );
+    expect(formatResult.polishSuggestions.some((s) => s.includes("background-only"))).toBe(
+      true
+    );
   });
 });
 
