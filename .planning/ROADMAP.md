@@ -45,7 +45,7 @@
 | 116 | Canonical Creative Contract | Complete    | 2026-06-15 | 2026-06-15 |
 | 117 | Factual vs Visual Separation | Complete    | 2026-06-15 | 2026-06-15 |
 | 118 | 0/4 | Complete    | 2026-06-15 | — |
-| 119 | 0/4 | 3/4 | In Progress|  |
+| 119 | 0/4 | 4/4 | Complete   | 2026-06-15 |
 | 120 | Quality Gate Hardening | GATE-01–05 | Pending | — |
 | 121 | Score Ceilings and Retry | SCR-01–05 | Pending | — |
 | 122 | Regression Test Suite | TEST-01–04 | Pending | — |
@@ -326,7 +326,7 @@ Plans:
 - [x] 119-01-PLAN.md — Observable rubric module scaffold (RUBR-01–04)
 - [x] 119-02-PLAN.md — Wire rubric into QA prompt; remove export-softening (RUBR-01–04)
 - [x] 119-03-PLAN.md — Extract buildCreativeScorePrompt; score rubric parity (RUBR-01–04)
-- [ ] 119-04-PLAN.md — Corpus archetype regression + baseline gap verification (RUBR-01–04)
+- [x] 119-04-PLAN.md — Corpus archetype regression + baseline gap verification (RUBR-01–04)
 
 ---
 

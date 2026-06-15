@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v12.3
 milestone_name: Integridade Criativa
 status: executing
-last_updated: "2026-06-15T18:45:24.583Z"
+last_updated: "2026-06-15T18:48:22.288Z"
 last_activity: 2026-06-15
 progress:
   total_phases: 81
-  completed_phases: 35
+  completed_phases: 36
   total_plans: 95
-  completed_plans: 108
+  completed_plans: 109
   percent: 100
 ---
 
@@ -23,13 +23,13 @@ See: .planning/PROJECT.md (updated 2026-06-15)
 
 **Current focus:** v12.3 Integridade Criativa — factual fidelity, creative direction, and quality gate hardening for the derivation pipeline.
 
-**Status:** Executing
+**Status:** Ready to execute
 
 ## Current Position
 
 Phase: 119 — Observable Rubric
-Plan: 3 of 04 complete (119-03 done)
-Status: Executing
+Plan: 4 of 04 complete (119-03 done)
+Status: Ready to execute
 Last activity: 2026-06-15
 
 Progress: [██████░░░░] 3/4 plans in phase 119
@@ -78,6 +78,7 @@ Last activity: 2026-06-15 — completed 119-03-PLAN.md (extract buildCreativeSco
 - [Phase 119]: Score rubric extends QA core lines with SCORE VISUAL QUALITY CAPS block
 - [Phase 119]: QA prompt injects observable rubric after styleFidelity/allowedEntities; export-softening removed
 - [Phase 119]: Score prompt uses buildObservableScoreRubricSection + allowedEntities block matching QA pattern
+- [Phase 119]: Corpus archetype integration tests verify rubric parity without gate promotion; BASELINE_GAP_COUNT remains 4 until Phase 120
 
 ## Next Steps
 
