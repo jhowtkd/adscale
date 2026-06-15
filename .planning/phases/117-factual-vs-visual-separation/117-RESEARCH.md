@@ -374,21 +374,16 @@ export function extractPromptInputClassificationSection(prompt: string): string 
 | A4 | No DB migration required — classification stored on `creativeContract` JSONB | Standard Stack | Auditing lineage relies on parent `hardFailures` snapshot |
 | A5 | Phase 118 MODE-03 will refine restyling MODE text further; 117 owns separation infrastructure | Phase boundaries | Avoid duplicating full MODE pack rewrite in 117 |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should `style_reference_contamination` be a new gate code or alias `copied_style_reference_facts`?**
-   - What we know: Corpus fixtures list both; gate only has `copied_style_reference_facts`. [VERIFIED: creative-quality-gate.ts:31-38]
-   - What's unclear: Whether GATE-01 naming requires distinct code now.
-   - Recommendation: Alias in taxonomy mapper for Phase 117; add distinct code only if GATE-01 schema locked in 120.
+   - RESOLVED: Alias to `copied_style_reference_facts` in Phase 117 (Plan 117-04-02). Distinct gate code deferred to Phase 120 if GATE-01 schema requires it.
 
 2. **How to match live campaigns to `CANONICAL_CAMPAIGNS` slugs in production?**
-   - What we know: Fixtures use explicit slugs; manifest uses `canonicalSlug`. [VERIFIED: creative-corpus.ts]
-   - What's unclear: Production campaign names may not match `displayNames` exactly.
-   - Recommendation: `matchCanonicalCampaignSlug(name, client)` with normalized substring match + `constraints` field fallback for test campaigns; unmapped → empty allowlist (deny-by-QA-note only).
+   - RESOLVED: Implement `matchCanonicalCampaignSlug(name, client)` with normalized substring match + `constraints` field fallback (Plan 117-04-01). Unmapped campaigns → empty allowlist (deny-by-QA-note only).
 
 3. **Extent of corpus-baseline greening in 117 vs 120?**
-   - What we know: 5 archetypes red; only `format_campaign_drift` and `restyling_factual_contamination` already baseline `invalid`. [VERIFIED: corpus-fixtures.ts]
-   - Recommendation: 117 targets `invented_factual_entity` + strengthens restyling; overload/generic template remain Phase 120.
+   - RESOLVED: Phase 117 flips only `corpus-invented-factual-entity` baseline red test (Plan 117-04-02). Overload/generic-template reds remain Phase 120.
 
 ## Environment Availability
 
@@ -551,11 +546,11 @@ Step 2.6: SKIPPED — no external dependencies beyond existing Node/Vitest/OpenA
 | Architecture | HIGH | End-to-end path verified in code |
 | Pitfalls | HIGH | Corpus red tests + gate classifier traced |
 
-### Open Questions
+### Open Questions (RESOLVED)
 
-- Distinct `style_reference_contamination` gate code vs alias to `copied_style_reference_facts`
-- Production campaign → canonical slug matching heuristic
-- How many corpus baseline reds to flip in 117 vs defer to 120
+- `style_reference_contamination` → alias `copied_style_reference_facts` (Plan 117-04-02)
+- Campaign slug matching → `matchCanonicalCampaignSlug(name, client)` (Plan 117-04-01)
+- Corpus baseline scope → flip `corpus-invented-factual-entity` only in 117; defer others to Phase 120 (Plan 117-04-02)
 
 ### Ready for Planning
 
