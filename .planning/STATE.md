@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v12.3
 milestone_name: Integridade Criativa
 status: executing
-last_updated: "2026-06-15T16:23:35.304Z"
+last_updated: "2026-06-15T16:27:29.055Z"
 last_activity: 2026-06-15
 progress:
   total_phases: 79
   completed_phases: 33
   total_plans: 87
-  completed_plans: 99
+  completed_plans: 100
   percent: 100
 ---
 
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-06-15)
 ## Current Position
 
 Phase: 117 — Factual vs Visual Separation
-Plan: 2 of 04 complete
+Plan: 3 of 04 complete (117-03 pending; 117-04 done)
 Status: In progress
-Last activity: 2026-06-15 — completed 117-02-PLAN.md (visual reference transfer, SEP-02)
+Last activity: 2026-06-15 — completed 117-04-PLAN.md (allowed entities + invented_factual_entity gate, SEP-04)
 
-Progress: [████░░░░░░] 2/4 plans in phase 117
+Progress: [███████░░░] 3/4 plans in phase 117
 
 ## Accumulated Context
 
@@ -62,16 +62,18 @@ Progress: [████░░░░░░] 2/4 plans in phase 117
 
 ## Session Continuity
 
-Last activity: 2026-06-15 — completed 117-02-PLAN.md (visual reference transfer, SEP-02)
+Last activity: 2026-06-15 — completed 117-04-PLAN.md (allowed entities + invented_factual_entity gate, SEP-04)
 
 ## Decisions
 
 - art_variation and format_adaptation MODE blocks use tier-aware preservation governed by RULE PRECEDENCE (CONT-03)
-- [Phase 117]: CONTAMINATION_FAILURE_CODES omits invented_factual_entity until Plan 04
+- [Phase 117]: invented_factual_entity in CONTAMINATION_FAILURE_CODES and promoted at quality gate (SEP-04)
 - [Phase 117]: INPUT SOURCE CLASSIFICATION injected after integrity block, before MODE-specific rules
 - [Phase 117]: RESTYLING FACTUAL-SOURCE RULE injects unconditionally; visualTokenBrief blocked for restyling
 - [Phase 117]: VISUAL REFERENCE TRANSFER RULE injected after classification with SEP-02 allowlist/denylist
+- [Phase 117]: invented_factual_entity promoted to hard failure via INVENTED_ENTITY_PATTERN on briefMatch/creativeRisk
+- [Phase 117]: ALLOWED ENTITIES block injected from CANONICAL_CAMPAIGNS when campaign slug matches
 
 ## Next Steps
 
-Execute 117-03-PLAN.md — lineage firewall
+Execute 117-03-PLAN.md — lineage firewall (SEP-03)

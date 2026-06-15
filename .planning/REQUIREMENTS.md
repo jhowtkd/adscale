@@ -35,7 +35,7 @@ Endurecer o pipeline criativo para que peças factualmente incorretas, visualmen
 - [x] **SEP-01**: Inputs classificados explicitamente: base factual, referência visual, brand kit, referências adicionais.
 - [x] **SEP-02**: Referência visual pode transferir apenas ritmo, textura, cromia, tipografia, iluminação e lógica compositiva — nunca pessoas, uniformes, produtos, marcas, logos, textos ou alegações.
 - [ ] **SEP-03**: Derivação contaminada não pode servir como fonte para adaptações de formato subsequentes.
-- [ ] **SEP-04**: Cantona, Manchester United, Adidas e entidades similares ausentes da fonte factual são bloqueadas no gate.
+- [x] **SEP-04**: Cantona, Manchester United, Adidas e entidades similares ausentes da fonte factual são bloqueadas no gate.
 
 ### Per-Mode Rules (MODE)
 
@@ -114,7 +114,7 @@ Endurecer o pipeline criativo para que peças factualmente incorretas, visualmen
 | SEP-01 | Phase 117 | Complete |
 | SEP-02 | Phase 117 | Complete |
 | SEP-03 | Phase 117 | Pending |
-| SEP-04 | Phase 117 | Pending |
+| SEP-04 | Phase 117 | Complete |
 | MODE-01 | Phase 118 | Pending |
 | MODE-02 | Phase 118 | Pending |
 | MODE-03 | Phase 118 | Pending |

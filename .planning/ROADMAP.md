@@ -43,7 +43,7 @@
 |---|-------|--------------|--------|-----------|
 | 115 | Corpus Fixtures and Audit Baseline | Complete    | 2026-06-15 | 2026-06-15 |
 | 116 | Canonical Creative Contract | Complete    | 2026-06-15 | 2026-06-15 |
-| 117 | Factual vs Visual Separation | 2/4 | In Progress|  |
+| 117 | Factual vs Visual Separation | 3/4 | In Progress|  |
 | 118 | Per-Mode Prompt Rules | MODE-01–05 | Pending | — |
 | 119 | Observable Rubric | RUBR-01–04 | Pending | — |
 | 120 | Quality Gate Hardening | GATE-01–05 | Pending | — |
@@ -277,7 +277,7 @@ Plans:
 - [x] 117-01-PLAN.md — Input source classification module + prompt/job wiring (SEP-01)
 - [x] 117-02-PLAN.md — Visual reference transfer allowlist + visualTokenBrief guard (SEP-02)
 - [ ] 117-03-PLAN.md — Contaminated lineage firewall for format adaptation (SEP-03)
-- [ ] 117-04-PLAN.md — Allowed entities registry + invented_factual_entity gate (SEP-04)
+- [x] 117-04-PLAN.md — Allowed entities registry + invented_factual_entity gate (SEP-04)
 
 ---
 
