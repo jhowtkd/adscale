@@ -1,11 +1,27 @@
 import { describe, it, expect } from "vitest";
-import { CORPUS_ARCHETYPE_FIXTURES } from "@/server/ai/corpus-fixtures";
+import {
+  CORPUS_ARCHETYPE_FIXTURES,
+  type CorpusArchetype,
+} from "@/server/ai/corpus-fixtures";
 import { normalizeCreativeQaResult } from "@/server/ai/creative-qa";
 import {
   classifyCreativeQualityGate,
   deriveQualityVerdict,
 } from "@/server/ai/creative-quality-gate";
 import type { CorpusArchetypeFixture } from "@/server/ai/corpus-fixtures";
+
+/** Count of archetypes with baseline gate gaps — flip to 0 when Phase 120 hardens the gate. */
+export const BASELINE_GAP_COUNT = CORPUS_ARCHETYPE_FIXTURES.length;
+
+const ARCHETYPES: CorpusArchetype[] = [
+  "invented_factual_entity",
+  "visual_overload",
+  "generic_template_aesthetic",
+  "format_campaign_drift",
+  "restyling_factual_contamination",
+];
+
+const PRIMARY_AUDIT_CORPUS_IDS = ["27069645", "538246da", "d7d9d323"] as const;
 
 function runCorpusGatePipeline(fixture: CorpusArchetypeFixture) {
   const qa = normalizeCreativeQaResult(fixture.rawQaModelOutput);
@@ -35,5 +51,27 @@ describe.each(CORPUS_ARCHETYPE_FIXTURES)("corpus baseline gate — $id", (fixtur
   it(`baseline-snapshot: ${fixture.id} current verdict`, () => {
     const { verdict } = runCorpusGatePipeline(fixture);
     expect(verdict).toBe(fixture.baselineVerdict);
+  });
+});
+
+describe("corpus baseline coverage", () => {
+  it("covers every CorpusArchetype in the baseline suite", () => {
+    const covered = new Set(CORPUS_ARCHETYPE_FIXTURES.map((f) => f.archetype));
+    for (const archetype of ARCHETYPES) {
+      expect(covered.has(archetype)).toBe(true);
+    }
+  });
+
+  it("links primary audit corpus ids to at least one fixture", () => {
+    const allRefIds = new Set(
+      CORPUS_ARCHETYPE_FIXTURES.flatMap((f) => f.corpusRefIds)
+    );
+    for (const corpusId of PRIMARY_AUDIT_CORPUS_IDS) {
+      expect(allRefIds.has(corpusId)).toBe(true);
+    }
+  });
+
+  it("documents baseline gap count for Phase 123 validation", () => {
+    expect(BASELINE_GAP_COUNT).toBe(5);
   });
 });
