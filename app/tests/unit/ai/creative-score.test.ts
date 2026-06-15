@@ -164,9 +164,21 @@ describe("buildCreativeScorePrompt observable rubric", () => {
       contract: baseInput.contract,
     });
     const scorePrompt = buildCreativeScorePrompt(baseInput);
-    expect(extractObservableRubricSection(scorePrompt)).toEqual(
-      extractObservableRubricSection(qaPrompt)
-    );
+    const coreRubricMarkers = [
+      "OBSERVABLE DEFECT NOTES",
+      "VISUAL OVERLOAD",
+      "GENERIC TEMPLATE",
+      "THUMBNAIL / PREVIEW SCALE",
+      "CRITERION MAPPING",
+      "Dominant idea reference",
+    ];
+
+    for (const marker of coreRubricMarkers) {
+      expect(extractObservableRubricSection(scorePrompt)).toContain(marker);
+      expect(extractObservableRubricSection(qaPrompt)).toContain(marker);
+    }
+
+    expect(scorePrompt).toMatch(/SCORE VISUAL QUALITY CAPS/);
   });
 
   it("includes allowedEntities briefMatch block for registry campaigns", () => {

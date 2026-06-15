@@ -4,6 +4,8 @@ import { getOpenAI, extractOutputText } from "./utils";
 import type { CreativeContract } from "./creative-contract";
 import type { CreativeHardFailureCode } from "./creative-quality-gate";
 import { SCORE_BREAKDOWN_TO_CRITERION } from "./creative-quality-taxonomy";
+import { resolveAllowedEntitiesForCampaign } from "./creative-corpus";
+import { buildObservableScoreRubricSection } from "./observable-rubric";
 
 import {
   buildRegenerationSuggestion,
@@ -214,33 +216,44 @@ function scoreDimensionPromptLines(): string {
   }).join("\n");
 }
 
-export async function analyzeDerivationCreative(input: AnalyzeInput): Promise<ScoreResult> {
-  const base64 = input.imageBuffer.toString("base64");
-  const dataUrl = `data:${input.mimeType};base64,${base64}`;
+function buildCtaInstruction(input: AnalyzeInput): string {
+  const ctaSemantics = input.contract?.ctaSemantics;
+  if (ctaSemantics?.kind === "explicit") {
+    return `The exact CTA must remain: ${ctaSemantics.text}. Penalize if CTA is absent or replaced.`;
+  }
+  if (ctaSemantics?.kind === "inherited") {
+    return `The output must preserve a CTA element from the base creative. The exact text is determined by the base image content. Do NOT penalize for missing explicit CTA text — instead check that a CTA is visually present and consistent with the base creative.`;
+  }
+  const ctaText = input.derivation.ctaText ?? "none";
+  return `The exact CTA, if present, must remain: ${ctaText}.`;
+}
 
+export function buildCreativeScorePrompt(input: AnalyzeInput): string {
   const format = input.derivation.format ?? "unknown";
   const generationMode = input.derivation.generationMode ?? "unknown";
   const creativeLevel = input.derivation.creativeLevel ?? "balanced";
+  const ctaInstruction = buildCtaInstruction(input);
 
-  // Build contract-aware CTA instruction
-  let ctaInstruction: string;
-  const ctaSemantics = input.contract?.ctaSemantics;
-  if (ctaSemantics?.kind === "explicit") {
-    ctaInstruction = `The exact CTA must remain: ${ctaSemantics.text}. Penalize if CTA is absent or replaced.`;
-  } else if (ctaSemantics?.kind === "inherited") {
-    ctaInstruction = `The output must preserve a CTA element from the base creative. The exact text is determined by the base image content. Do NOT penalize for missing explicit CTA text — instead check that a CTA is visually present and consistent with the base creative.`;
-  } else {
-    // Fallback: no contract — use legacy ctaText behavior
-    const ctaText = input.derivation.ctaText ?? "none";
-    ctaInstruction = `The exact CTA, if present, must remain: ${ctaText}.`;
-  }
+  const restylingScoringInstruction =
+    input.contract?.generationMode === "restyling"
+      ? `\nRestyling evaluation: The base image is the factual source. The informationPreservation dimension must verify facts against BASE IMAGE content only. Penalize if the output contains factual claims (price, brand name, offer, CTA text, course name, product name) that match the style reference rather than the base image. Score the informationPreservation dimension down if style-reference facts contaminate the output.`
+      : "";
 
-  // Build restyling-specific scoring instruction
-  const restylingScoringInstruction = input.contract?.generationMode === "restyling"
-    ? `\nRestyling evaluation: The base image is the factual source. The informationPreservation dimension must verify facts against BASE IMAGE content only. Penalize if the output contains factual claims (price, brand name, offer, CTA text, course name, product name) that match the style reference rather than the base image. Score the informationPreservation dimension down if style-reference facts contaminate the output.`
+  const allowedEntities = resolveAllowedEntitiesForCampaign({
+    name: input.campaign.name,
+    client: input.campaign.client,
+  });
+  const allowedEntitiesInstruction = allowedEntities
+    ? `\nFor briefMatch scoring: compare visible people, brands, products, and claims against the campaign allowed entity registry — people: ${allowedEntities.people.join(", ") || "none"}; brands: ${allowedEntities.brands.join(", ")}; products: ${allowedEntities.products.join(", ")}; claims: ${allowedEntities.claims.join(", ")}. Penalize briefMatch when the output depicts entities absent from this list.`
     : "";
 
-  const prompt = `Evaluate the generated ad as a reviewer. Do not invent a new CTA.
+  const rubricSection = buildObservableScoreRubricSection({
+    generationMode: input.contract?.generationMode ?? input.derivation.generationMode ?? undefined,
+    targetFormat: input.derivation.format ?? input.contract?.targetFormat ?? undefined,
+    dominantIdea: input.contract?.canonicalCreative?.dominantIdea,
+  });
+
+  return `Evaluate the generated ad as a reviewer. Do not invent a new CTA.
 ${ctaInstruction}
 The target format must remain: ${format}.
 The generation mode must remain: ${generationMode}.
@@ -276,9 +289,17 @@ CRITICAL: scoreBreakdown MUST include variationLevelFit. Evaluate it as follows 
 - conservative: did the output preserve layout and recognizable structure? High score if nearly identical structure with minor changes.
 - balanced: did it change composition or concept without losing campaign intent? High score if clearly a sibling creative.
 - bold: did it change background and hierarchy while preserving core brand assets? High score if dramatically different but same campaign.
-- extreme: did it create a fresh reading while preserving product, offer, CTA, and brand constraints? High score if almost unrecognizable side-by-side yet clearly same campaign independently.
+- extreme: did it create a fresh reading while preserving product, offer, CTA, and brand constraints? High score if almost unrecognizable side-by-side yet clearly same campaign independently.${allowedEntitiesInstruction}
+${rubricSection}
 
 The regenerationSuggestion must preserve the exact CTA text, format, and generation mode.${restylingScoringInstruction}`;
+}
+
+export async function analyzeDerivationCreative(input: AnalyzeInput): Promise<ScoreResult> {
+  const base64 = input.imageBuffer.toString("base64");
+  const dataUrl = `data:${input.mimeType};base64,${base64}`;
+
+  const prompt = buildCreativeScorePrompt(input);
 
   const response = await getOpenAI().responses.create({
     model: env.OPENAI_TEXT_MODEL,
