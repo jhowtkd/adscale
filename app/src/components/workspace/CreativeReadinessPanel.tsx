@@ -35,7 +35,7 @@ function parseIssueText(
   text: string,
   t: ReturnType<typeof useTranslations<"readiness">>
 ): { title: string; detail: string; collapsible: boolean } {
-  const dimensionMatch = text.match(/^([a-zA-Z]+):\s*(.+)$/s);
+  const dimensionMatch = text.match(/^([a-zA-Z]+):\s*([\s\S]+)$/);
   if (dimensionMatch) {
     const [, rawId, detail] = dimensionMatch;
     const dimensionKey = `dimensions.${rawId}` as `dimensions.${ReadinessDimensionId}`;
