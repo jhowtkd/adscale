@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "capturedAt": "2026-06-15T20:48:03.340Z",
+  "capturedAt": "2026-06-16T02:47:58.203Z",
   "seedSupported": false,
   "pipeline": {
     "promptHash": "f34a20ac179fdba3704b968f38af0f39792e5667",
@@ -8,6 +8,33 @@
     "matrixVersion": 1
   },
   "beforeCaptures": [
+    {
+      "key": "teste-3-nr1:format_adaptation:4:5",
+      "source": "corpus",
+      "corpusRefId": "c2c12774",
+      "sha256": "899ed1833a89b4ffcbfd01c57160c921bc74c1060807265bfde96fdee44ba24c",
+      "public_url": "https://pub-b6f51a073b12476e9f0875b18dda4f89.r2.dev/derivations/c2c12774-297e-4c0c-bb22-3b5627a2f79f/1781181063579.png",
+      "path": "app/exports/render-creatives/2026-06-11__teste-3__format_adaptation__4x5__c2c12774.png",
+      "auditArchetype": "format_campaign_drift"
+    },
+    {
+      "key": "teste-campanha-nr1:art_variation:1:1",
+      "source": "corpus",
+      "corpusRefId": "8a2bebf9",
+      "sha256": "bd783dd0b45d5d04088722fbe04d507db003c766461a739750e6bfc122fbe67a",
+      "public_url": "https://pub-b6f51a073b12476e9f0875b18dda4f89.r2.dev/derivations/8a2bebf9-693c-491e-9f15-bf85ced4a37e/1781176840357.png",
+      "path": "app/exports/render-creatives/2026-06-11__teste-campanha__art_variation__1x1__8a2bebf9.png",
+      "auditArchetype": "visual_overload"
+    },
+    {
+      "key": "nova-campanha:restyling:1:1",
+      "source": "corpus",
+      "corpusRefId": "d7d9d323",
+      "sha256": "ac7d4d23f4cba6f599a869c4a0dc4249a5894553f021ff31c5e6481f8d285348",
+      "public_url": "https://pub-b6f51a073b12476e9f0875b18dda4f89.r2.dev/derivations/d7d9d323-e378-4a3f-b68e-6eba61311808/1781168112879-retry.png",
+      "path": "app/exports/render-creatives/2026-06-11__teste-debuf__restyling__1x1__d7d9d323.png",
+      "auditArchetype": "restyling_factual_contamination"
+    },
     {
       "key": "teste-3-nr1:art_variation:1:1",
       "source": "corpus",
@@ -26,33 +53,6 @@
       "auditArchetype": "invented_factual_entity"
     },
     {
-      "key": "teste-3-nr1:format_adaptation:4:5",
-      "source": "corpus",
-      "corpusRefId": "c2c12774",
-      "sha256": "899ed1833a89b4ffcbfd01c57160c921bc74c1060807265bfde96fdee44ba24c",
-      "public_url": "https://pub-b6f51a073b12476e9f0875b18dda4f89.r2.dev/derivations/c2c12774-297e-4c0c-bb22-3b5627a2f79f/1781181063579.png",
-      "path": "app/exports/render-creatives/2026-06-11__teste-3__format_adaptation__4x5__c2c12774.png",
-      "auditArchetype": "format_campaign_drift"
-    },
-    {
-      "key": "nova-campanha:restyling:1:1",
-      "source": "corpus",
-      "corpusRefId": "d7d9d323",
-      "sha256": "ac7d4d23f4cba6f599a869c4a0dc4249a5894553f021ff31c5e6481f8d285348",
-      "public_url": "https://pub-b6f51a073b12476e9f0875b18dda4f89.r2.dev/derivations/d7d9d323-e378-4a3f-b68e-6eba61311808/1781168112879-retry.png",
-      "path": "app/exports/render-creatives/2026-06-11__teste-debuf__restyling__1x1__d7d9d323.png",
-      "auditArchetype": "restyling_factual_contamination"
-    },
-    {
-      "key": "teste-campanha-nr1:art_variation:1:1",
-      "source": "corpus",
-      "corpusRefId": "8a2bebf9",
-      "sha256": "bd783dd0b45d5d04088722fbe04d507db003c766461a739750e6bfc122fbe67a",
-      "public_url": "https://pub-b6f51a073b12476e9f0875b18dda4f89.r2.dev/derivations/8a2bebf9-693c-491e-9f15-bf85ced4a37e/1781176840357.png",
-      "path": "app/exports/render-creatives/2026-06-11__teste-campanha__art_variation__1x1__8a2bebf9.png",
-      "auditArchetype": "visual_overload"
-    },
-    {
       "key": "smoke:art_variation:1:1",
       "source": "corpus",
       "corpusRefId": "8907bce5",
@@ -63,298 +63,164 @@
   ],
   "afterCaptures": [
     {
-      "key": "teste-3-nr1:art_variation:1:1",
-      "source": "regenerated",
-      "path": "app/exports/render-creatives/validation-after/teste-3-nr1:art_variation:1:1__d34725bb.png",
-      "sha256": "d34725bb100a7b5400a7f7eb10f8c34e64c38aa0aace2403afee6004ef7b7f09",
-      "qualityScore": 55,
-      "qualityVerdict": "invalid",
-      "hardFailures": [
-        {
-          "code": "visual_overload",
-          "message": "Visual competition / module crowding: The glowing open door at the right edge (bright vertical light and strong lens flare) competes with the headline 'CHEGOU O DIA' (top-left hook) and the primary CTA button 'Saiba mais' (large neon pill near bottom-center). Observed zones: hook headline (top-left), NR1 offer block (lower-left), feature bullet panel with icons (center-right), glowing door (right edge), CTA pill (bottom-center) — more than three prominent zones fighting for attention.",
-          "criterion": "creativeRisk"
-        },
-        {
-          "code": "unreadable_required_text",
-          "message": "Legibility risk at thumbnail: Secondary copy in the feature panel ('EVENTO 100% ONLINE E AO VIVO', 'CONTEÚDO PRÁTICO E DIRETO AO PONTO', 'GARANTA SUA VAGA AGORA') and the smaller line 'CHECKLIST DE SEGURANÇA / ONLINE & AO VIVO' under NR1 are small and use low micro-contrast against the neon-green glow. At feed/thumbnail scale these support texts will likely be unreadable.",
-          "criterion": "legibility"
-        },
-        {
-          "code": "generic_template_aesthetic",
-          "message": "Generic neon template aesthetic: Heavy neon-green glow on the CTA pill, headline outline, and door, plus hex-pattern background, creates a stylized 'tech/neon' look that isn't clearly justified by the compliance-focused brief. This reduces perceived authenticity for a safety/compliance offering and risks appearing as a generic template.",
-          "criterion": "creativeRisk"
-        }
-      ],
-      "qa": {
-        "checklist": {
-          "legibility": {
-            "status": "passed",
-            "note": "Título principal “CHEGOU O DIA” e CTA parecem legíveis mesmo em escala de miniatura; nenhuma grafia incorreta detectada."
-          },
-          "ctaOffer": {
-            "status": "passed",
-            "note": "CTA exibido é exatamente “Saiba mais” (case e acentuação correspondem ao brief)."
-          },
-          "informationPreservation": {
-            "status": "passed",
-            "note": "Elementos-chave preservados: oferta “Conformidade NR1”, produto NR1, checklist, CTA e logotipo CENBRAP visíveis e não cortados."
-          },
-          "briefMatch": {
-            "status": "passed",
-            "note": "Marca CENBRAP e produto/claim (Conformidade NR1 / Checklist de segurança) aparecem; não há entidades inventadas."
-          },
-          "formatFit": {
-            "status": "passed",
-            "note": "Formato 1:1 respeitado, composição centralizada adequada ao quadrado."
-          },
-          "creativeRisk": {
-            "status": "failed",
-            "note": "Sobrecarga visual e estética de template genérico (neon/ glow) competem com a hierarquia do anúncio."
-          }
-        }
-      },
-      "score": {
-        "scoreBreakdown": {
-          "ctaClarity": 100,
-          "textLegibility": 85,
-          "briefMatch": 95,
-          "visualQuality": 78,
-          "formatFit": 100,
-          "variationLevelFit": 90,
-          "informationPreservation": 92
-        }
-      }
-    },
-    {
-      "key": "teste-3-nr1:format_adaptation:9:16",
-      "source": "regenerated",
-      "path": "app/exports/render-creatives/validation-after/teste-3-nr1:format_adaptation:9:16__1b5314f3.png",
-      "sha256": "1b5314f386daf98f890a72fa841c42ffef64c43a0e6608d63797949e0684b8b6",
-      "qualityScore": 55,
-      "qualityVerdict": "invalid",
-      "hardFailures": [
-        {
-          "code": "cropped_critical_content",
-          "message": "Oferta do briefing ('Conformidade NR1' / 'Checklist de segurança') não está visível — arte exibe 'IMERSÃO NR1' em vez da oferta esperada.",
-          "criterion": "informationPreservation"
-        },
-        {
-          "code": "generic_template_aesthetic",
-          "message": "Generic template aesthetic / heavy neon treatment — visible elements show strong neon-green glow on the CTA pill, a halo light leaking from the open door, and dotted/gradient tech background (right-side dots behind 'IMERSÃO NR1'), which read like a stock/template trope not clearly justified by a compliance/NR1 training brand.",
-          "criterion": "creativeRisk"
-        }
-      ],
-      "qa": {
-        "checklist": {
-          "legibility": {
-            "status": "passed",
-            "note": "Tipografia legível e sem erros ortográficos; título principal 'CHEGOU O DIA' permanece dominante e legível em escala reduzida."
-          },
-          "ctaOffer": {
-            "status": "passed",
-            "note": "CTA exato preservado: botão mostra 'Saiba mais' idêntico ao fornecido."
-          },
-          "informationPreservation": {
-            "status": "failed",
-            "note": "Oferta do briefing ('Conformidade NR1' / 'Checklist de segurança') não está visível — arte exibe 'IMERSÃO NR1' em vez da oferta esperada."
-          },
-          "briefMatch": {
-            "status": "warning",
-            "note": "Marca CENBRAP e produto NR1 presentes; porém claims-chave do briefing ('Conformidade NR1', 'Checklist de segurança') estão ausentes ou não identificáveis."
-          },
-          "formatFit": {
-            "status": "passed",
-            "note": "Formato vertical 9:16 adequado; todos os elementos enquadrados corretamente."
-          },
-          "creativeRisk": {
-            "status": "failed",
-            "note": "Sobrecarga visual e estética de template genérico: múltiplas zonas competem (título large 'CHEGOU O DIA' top-center, porta luminosa direita, coluna de badges à esquerda, CTA volumétrico bottom) e uso intenso de halo/neon volumétrico cria aspecto de template não justificado pelo briefing."
-          }
-        }
-      },
-      "score": {
-        "scoreBreakdown": {
-          "ctaClarity": 100,
-          "textLegibility": 85,
-          "briefMatch": 85,
-          "visualQuality": 60,
-          "formatFit": 95,
-          "variationLevelFit": 88,
-          "informationPreservation": 90
-        }
-      }
-    },
-    {
       "key": "teste-3-nr1:format_adaptation:4:5",
       "source": "regenerated",
-      "path": "app/exports/render-creatives/validation-after/teste-3-nr1:format_adaptation:4:5__9a66edaa.png",
-      "sha256": "9a66edaaaa65dee2fae6bf98c5128a033474f4eb0e71909e2bc1fb069331e176",
-      "qualityScore": 60,
-      "qualityVerdict": "invalid",
-      "hardFailures": [
-        {
-          "code": "unreadable_required_text",
-          "message": "Generic/template aesthetic dominating brand clarity: heavy neon green glow and glassy rounded feature cards + glowing CTA pill (observable: bright neon outline around bottom CTA, inner neon green glow on door, three rounded translucent cards left) create a generic 'tech/glassmorphism' look that may not align with the formal compliance tone expected for CENBRAP/NR1. Also the three feature lines use small-weight type that risks becoming unreadable at feed thumbnail size.",
-          "criterion": "legibility"
-        }
-      ],
+      "path": "app/exports/render-creatives/validation-after/teste-3-nr1:format_adaptation:4:5__99f440e6.png",
+      "sha256": "99f440e628d3b2790507e4f154c0daceaf65f239973e0d9261997d0e44002c08",
+      "qualityScore": 78,
+      "qualityVerdict": "acceptable",
+      "hardFailures": [],
       "qa": {
         "checklist": {
           "legibility": {
             "status": "passed",
-            "note": "Manchete principal 'CHEGOU O DIA' é grande e legível; não há erros ortográficos nas cópias visíveis."
+            "note": "Título principal 'CHEGOU O DIA' é grande e legível; nenhum erro ortográfico detectado nas chamadas visíveis."
           },
           "ctaOffer": {
             "status": "passed",
-            "note": "CTA exato 'Saiba mais' aparece no botão com capitalização e acento idênticos ao especificado."
+            "note": "CTA preservado com correspondência exata: 'Saiba mais' (mesma grafia, maiúsculas/minúsculas e acento)."
           },
           "informationPreservation": {
             "status": "passed",
-            "note": "Logo CENBRAP, referência ao produto ('IMERSÃO NR1') e elementos informacionais (ícones e bullets) estão presentes e não parecem cortados."
+            "note": "Logo CENBRAP, produto 'NR1' e bullets (EVENTO 100% ONLINE E AO VIVO; CONTEÚDO PRÁTICO E DIRETO AO PONTO; GARANTA SUA VAGA AGORA) estão visíveis e não truncados."
           },
           "briefMatch": {
             "status": "passed",
-            "note": "Apenas entidades permitidas aparecem (CENBRAP, NR1). Nenhuma entidade inventada visível."
+            "note": "Apenas entidades do brief estão representadas (CENBRAP, NR1); nenhuma entidade inventada identificada."
           },
           "formatFit": {
             "status": "passed",
-            "note": "Composição adequada ao formato 4:5; elementos respeitam margens e não foram visivelmente cortados."
+            "note": "Composição adequada ao formato 4:5; elementos principais dentro da área segura."
           },
           "creativeRisk": {
             "status": "failed",
-            "note": "Sinais fortes de estética de template (bordas neon volumétricas, brilho intenso) e múltiplas zonas competindo pela atenção."
+            "note": "Sinais de sobrecarga visual e estética template: quatro zonas competem por atenção em peso similar — headline 'CHEGOU O DIA' (topo-esquerdo), porta iluminada/aberta (direita), botão CTA volumétrico neon 'Saiba mais' (fundo-centro) e as três caixas de benefício (meio-esquerdo). Além disso, efeitos de brilho/neon e o pill CTA volumétrico (contorno e brilho verde) são tropes visuais intensos que disputam o foco com a mensagem principal."
           }
         }
       },
       "score": {
         "scoreBreakdown": {
-          "ctaClarity": 95,
-          "textLegibility": 75,
-          "briefMatch": 65,
-          "visualQuality": 48,
-          "formatFit": 95,
-          "variationLevelFit": 82,
-          "informationPreservation": 70
-        }
-      }
-    },
-    {
-      "key": "nova-campanha:restyling:1:1",
-      "source": "regenerated",
-      "path": "app/exports/render-creatives/validation-after/nova-campanha:restyling:1:1__507b8a22.png",
-      "sha256": "507b8a2229fc5fc1afba74f972622298fe0058d9f5186aceb6d76f3536b818cc",
-      "qualityScore": 15,
-      "qualityVerdict": "invalid",
-      "hardFailures": [
-        {
-          "code": "cropped_critical_content",
-          "message": "Informação-chave faltante: oferta 'Matrículas abertas' ausente; sem identificação clara do anunciante (Instituto Educação+ não visível como texto).",
-          "criterion": "informationPreservation"
-        },
-        {
-          "code": "wrong_brand",
-          "message": "Brand / client mismatch (contract violation): The creative does not show the client name 'Instituto Educação+' or a clear matching wordmark. Visible evidence: top-right crest shows a stylized 'K' emblem and no 'Instituto Educação+' text; no recognizable Instituto Educação+ logo or name found in header or footer. This is a required contract element and is missing.",
-          "criterion": "briefMatch"
-        }
-      ],
-      "qa": {
-        "checklist": {
-          "legibility": {
-            "status": "passed",
-            "note": "Título principal “OS MELHORES PROFESSORES” está grande e legível; texto de apoio e pequenos blocos podem perder leitura em miniatura."
-          },
-          "ctaOffer": {
-            "status": "failed",
-            "note": "Oferta do briefing (“Matrículas abertas”) não aparece; CTA presente é “Ver lista completa” (texto diferente/omissão de oferta)."
-          },
-          "informationPreservation": {
-            "status": "failed",
-            "note": "Informação-chave faltante: oferta 'Matrículas abertas' ausente; sem identificação clara do anunciante (Instituto Educação+ não visível como texto)."
-          },
-          "briefMatch": {
-            "status": "warning",
-            "note": "Produto correto (‘Curso de capacitação docente’) e professores mostrados; porém falta a claim obrigatória do briefing e a marca não aparece explicitamente."
-          },
-          "formatFit": {
-            "status": "passed",
-            "note": "Formato 1:1 usado corretamente; composição aproveita o espaço quadrado."
-          },
-          "creativeRisk": {
-            "status": "failed",
-            "note": "Sinais de sobrecarga visual: múltiplas zonas competem (título grande, grid de 3 retratos centrais, coluna de benefícios à direita, CTA brilhante + faixa de ícone sob o título)."
-          },
-          "styleFidelity": {
-            "status": "passed",
-            "note": "Sem evidência de contaminação por fatos externos ao conteúdo visível; estilo parece consistente com o próprio criativo."
-          }
-        }
-      },
-      "score": {
-        "scoreBreakdown": {
-          "ctaClarity": 90,
-          "textLegibility": 78,
-          "briefMatch": 50,
-          "visualQuality": 70,
-          "formatFit": 95,
-          "variationLevelFit": 72,
-          "informationPreservation": 45
+          "ctaClarity": 100,
+          "textLegibility": 85,
+          "briefMatch": 55,
+          "visualQuality": 65,
+          "formatFit": 100,
+          "variationLevelFit": 80,
+          "informationPreservation": 60
         }
       }
     },
     {
       "key": "teste-campanha-nr1:art_variation:1:1",
       "source": "regenerated",
-      "path": "app/exports/render-creatives/validation-after/teste-campanha-nr1:art_variation:1:1__f7668e06.png",
-      "sha256": "f7668e0605956fd8c2a2f434d59f29978e9c3beb9cfed2986651990d6df8c69d",
-      "qualityScore": 55,
+      "path": "app/exports/render-creatives/validation-after/teste-campanha-nr1:art_variation:1:1__8dffce9c.png",
+      "sha256": "8dffce9c41058634a2ca1bd017d506ac15112aef0c26da3ac614f6d5da2b5a2f",
+      "qualityScore": 60,
       "qualityVerdict": "invalid",
       "hardFailures": [
         {
-          "code": "generic_template_aesthetic",
-          "message": "Sinais de sobrecarga visual e estética de template: múltiplas zonas de informação competem (título, grade de 3 retratos, badge de oferta, botão CTA neon, caixa de info à direita, linha de ícones e selo MEC). Tropes visuais (brilho dourado sob 'NR1', botão com glow neon laranja, painéis inclinados tipo glassmorphism) dominam sem justificativa aparente.",
-          "criterion": "creativeRisk"
-        },
-        {
-          "code": "visual_overload",
-          "message": "Visual hierarchy overload / competing information zones: More than three strong visual modules compete for attention — (1) large headline 'MASTER NR1' (top-left), (2) three slanted instructor portrait panels (top-right), (3) glowing CTA button 'Saiba mais' (center-bottom), and (4) left badge 'AUDITORIA NR1' + bottom info/icon strip and MEC certificate (bottom). These zones have similar visual weight and reduce a single dominant focal point.",
-          "criterion": "creativeRisk"
+          "code": "unreadable_required_text",
+          "message": "Legibility issues at thumbnail scale — several small information zones and microcopy are likely unreadable in feed: bottom module captions (\"PREÇO\", \"CONFIANÇA\", \"TEMPO\" details), small tagline at top-center \"DOCENTES REFERÊNCIA NO TEMA\", and the lines inside the small icon boxes (e.g. \"AULAS AO VIVO CERTIFICADO PELO MEC\") are too small/condensed and risk being illegible at mobile thumbnail.",
+          "criterion": "legibility"
         }
       ],
       "qa": {
         "checklist": {
           "legibility": {
             "status": "passed",
-            "note": "Texto em português está legível e sem erros ortográficos visíveis; título 'MASTER NR1' e CTA 'Saiba mais' têm contraste adequado."
+            "note": "Título principal 'AUDITORIA NR1' e demais textos aparentam legíveis e sem erros ortográficos; CTA 'Saiba mais' está legível."
           },
           "ctaOffer": {
             "status": "passed",
-            "note": "CTA exato 'Saiba mais' preservado character-for-character; oferta 'AUDITORIA NR1 / MÓDULOS DE CONFORMIDADE' presente."
+            "note": "CTA corresponde exatamente ao texto fornecido ('Saiba mais'); oferta 'AUDITORIA NR1' visível."
           },
           "informationPreservation": {
             "status": "passed",
-            "note": "Elementos informativos-chave (logo/brand, oferta, CTA, selo MEC, badges) estão visíveis e não parecem cortados ou removidos."
+            "note": "Marca 'Master NR1', oferta, selos e rostos preservados; nenhum texto-chave claramente cortado ou ilegível."
           },
           "briefMatch": {
             "status": "failed",
-            "note": "Apresenta pessoas nomeadas ('LUCCAS MIZO', 'MARCOS MINCOVANKI', 'FERNANDO LAO') — o briefing lista 'people: none'. Essas entidades não constam no registro permitido."
+            "note": "Exibe pessoas nomeadas (LUCAS MELO, MARCO MENCARINI, FERNANDO LAO) que não constam no registro permitido — inventou entidades de pessoa."
           },
           "formatFit": {
             "status": "passed",
-            "note": "Formato 1:1 correto; composição aproveita bem a área quadrada."
+            "note": "Formato 1:1 respeitado e elementos dentro da área visível; compõe bem o quadro quadrado."
           },
           "creativeRisk": {
             "status": "failed",
-            "note": "Sinais de sobrecarga visual e estética de template: múltiplas zonas de informação competem (título, grade de 3 retratos, badge de oferta, botão CTA neon, caixa de info à direita, linha de ícones e selo MEC). Tropes visuais (brilho dourado sob 'NR1', botão com glow neon laranja, painéis inclinados tipo glassmorphism) dominam sem justificativa aparente."
+            "note": "Composição com múltiplas zonas concorrentes (título, grid de 3 retratos, grande botão CTA volumétrico, fileira de módulos e rodapé com ícones) e uso forte de efeitos neon/volume no CTA e contornos dourados que sugerem estética genérica de template."
           }
         }
       },
       "score": {
         "scoreBreakdown": {
-          "ctaClarity": 95,
-          "textLegibility": 90,
-          "briefMatch": 40,
-          "visualQuality": 78,
+          "ctaClarity": 100,
+          "textLegibility": 75,
+          "briefMatch": 35,
+          "visualQuality": 45,
+          "formatFit": 95,
+          "variationLevelFit": 85,
+          "informationPreservation": 85
+        }
+      }
+    },
+    {
+      "key": "nova-campanha:restyling:1:1",
+      "source": "regenerated",
+      "path": "app/exports/render-creatives/validation-after/nova-campanha:restyling:1:1__91955851.png",
+      "sha256": "9195585173acf623708eb142cf4318ee462f552083943a04dd2343c2d4440e1f",
+      "qualityScore": 60,
+      "qualityVerdict": "invalid",
+      "hardFailures": [
+        {
+          "code": "cropped_critical_content",
+          "message": "Ausência visível do nome/logotipo 'Instituto Educação+' exigido pela campanha; marca não aparece no layout.",
+          "criterion": "informationPreservation"
+        },
+        {
+          "code": "unreadable_required_text",
+          "message": "Small secondary text legibility risk: instructor credits under each portrait (e.g. 'Dra. Alessandra Diehl', 'Dr. Sergio Rachman', 'Dra. Maristela Schaufelberger') in the lower-left of each portrait panel are narrow and may be unreadable at thumbnail/preview scale (~270×270px).",
+          "criterion": "legibility"
+        }
+      ],
+      "qa": {
+        "checklist": {
+          "legibility": {
+            "status": "passed",
+            "note": "Título principal 'MATRÍCULAS ABERTAS' grande e legível; outros blocos de texto (ex.: 'CURSO DE CAPACITAÇÃO DOCENTE', benefícios) sem erros óbvios."
+          },
+          "ctaOffer": {
+            "status": "passed",
+            "note": "Oferta 'MATRÍCULAS ABERTAS' está preservada. Não havia CTA exato exigido; botão visível: 'Ver lista completa'."
+          },
+          "informationPreservation": {
+            "status": "failed",
+            "note": "Ausência visível do nome/logotipo 'Instituto Educação+' exigido pela campanha; marca não aparece no layout."
+          },
+          "briefMatch": {
+            "status": "warning",
+            "note": "Pessoas e produto batem com a lista (professores; Curso de capacitação docente). Porém a marca 'Instituto Educação+' não está presente, reduzindo fidelidade ao briefing."
+          },
+          "formatFit": {
+            "status": "passed",
+            "note": "Formato 1:1 (quadrado) correto e aproveitado."
+          },
+          "creativeRisk": {
+            "status": "failed",
+            "note": "Sobrecarga visual: múltiplas zonas competem com o gancho principal (veja notas)."
+          },
+          "styleFidelity": {
+            "status": "passed",
+            "note": "Não há evidência óbvia de contaminação factual por referência de estilo; fatos apresentados parecem vir do criativo base."
+          }
+        }
+      },
+      "score": {
+        "scoreBreakdown": {
+          "ctaClarity": 92,
+          "textLegibility": 80,
+          "briefMatch": 95,
+          "visualQuality": 85,
           "formatFit": 100,
           "variationLevelFit": 88,
           "informationPreservation": 95
@@ -362,102 +228,205 @@
       }
     },
     {
-      "key": "smoke:art_variation:1:1",
+      "key": "teste-3-nr1:art_variation:1:1",
       "source": "regenerated",
-      "path": "app/exports/render-creatives/validation-after/smoke:art_variation:1:1__dbd65cd1.png",
-      "sha256": "dbd65cd1b691b800e8d70f61c9d6d52c44a8ed982761d68d9e94bbf6d7546a51",
-      "qualityScore": 20,
+      "path": "app/exports/render-creatives/validation-after/teste-3-nr1:art_variation:1:1__7d2d98fc.png",
+      "sha256": "7d2d98fc5b387278450810ae92335783ea29f659ab40d7a9ab0743c3f69f1bb4",
+      "qualityScore": 50,
       "qualityVerdict": "invalid",
       "hardFailures": [
         {
           "code": "cropped_critical_content",
-          "message": "Reivindicações do brief ('CQA-02', 'LGPD compliance check') não aparecem; além disso foi adicionada uma oferta promocional não solicitada ('30% OFF' + 'OFERTA LIMITADA' no cartão superior direito).",
+          "message": "Claims do brief ausentes: não há o texto 'Conformidade NR1' nem 'Checklist de segurança'. Elementos informativos visíveis: badge 'PREPARE-SE' (top-left), manchete central 'CHEGOU O DIA', bloco 'IMERSÃO NR1 | ONLINE & AO VIVO' (meio), faixa de 3 ícones/textos (centro-baixo), CTA 'Saiba mais' (inferior) e logo 'CENBRAP' (embaixo) — mas a oferta-chave do briefing foi substituída.",
           "criterion": "informationPreservation"
         },
         {
-          "code": "unsupported_offer",
-          "message": "Unsupported offer claim: The creative shows a prominent \"30% OFF\" offer in the top-right offer card (text: \"30% OFF\" and badge \"OFERTA LIMITADA\") which is not listed in the campaign context (offer: smoke test). This is a contract/claim mismatch and must be removed or verified.",
+          "code": "cta_drift",
+          "message": "CTA preservado exatamente como 'Saiba mais' (correspondência exata). A oferta esperada do brief ('Conformidade NR1' / 'Checklist de segurança') não aparece; arte usa a copy 'IMERSÃO NR1' que não corresponde literalmente ao produto listado ('NR1 compliance toolkit').",
+          "criterion": "ctaOffer"
+        },
+        {
+          "code": "visual_overload",
+          "message": "Visual hierarchy & template tropes: Multiple competing zones reduce a single dominant focal point — headline 'CHEGOU O DIA' (large, top-left) competes with a high‑intensity glowing open door (right) and a large neon CTA pill ('Saiba mais', bottom-center). Additionally, a three-module feature row (center-bottom icons/text: 'EVENTO 100% ONLINE E AO VIVO', 'CONTEÚDO PRÁTICO E DIRETO AO PONTO', 'GARANTA SUA VAGA AGORA') and a top-left badge 'PREPARE-SE' create more than three similarly weighted information zones. The neon green glow, volumetric CTA pill and heavy glow on the door read as generic template tropes not clearly justified by the compliance training brief.",
+          "criterion": "creativeRisk"
+        }
+      ],
+      "qa": {
+        "checklist": {
+          "legibility": {
+            "status": "passed",
+            "note": "Manchete 'CHEGOU O DIA' e CTA 'Saiba mais' estão legíveis e sem erros ortográficos visíveis. Texto em português revisado (EX: 'IMERSÃO', 'ONLINE & AO VIVO')."
+          },
+          "ctaOffer": {
+            "status": "failed",
+            "note": "CTA preservado exatamente como 'Saiba mais' (correspondência exata). A oferta esperada do brief ('Conformidade NR1' / 'Checklist de segurança') não aparece; arte usa a copy 'IMERSÃO NR1' que não corresponde literalmente ao produto listado ('NR1 compliance toolkit')."
+          },
+          "informationPreservation": {
+            "status": "failed",
+            "note": "Claims do brief ausentes: não há o texto 'Conformidade NR1' nem 'Checklist de segurança'. Elementos informativos visíveis: badge 'PREPARE-SE' (top-left), manchete central 'CHEGOU O DIA', bloco 'IMERSÃO NR1 | ONLINE & AO VIVO' (meio), faixa de 3 ícones/textos (centro-baixo), CTA 'Saiba mais' (inferior) e logo 'CENBRAP' (embaixo) — mas a oferta-chave do briefing foi substituída."
+          },
+          "briefMatch": {
+            "status": "warning",
+            "note": "Marca CENBRAP está correta. Produto/claim divergente: criação mostra 'IMERSÃO NR1' e mensagens de evento ao vivo, enquanto o registro do projeto lista 'NR1 compliance toolkit' e as claims 'Conformidade NR1' / 'Checklist de segurança' — possível entidade/claim inventada ou alterada."
+          },
+          "formatFit": {
+            "status": "passed",
+            "note": "Formato 1:1 correto; todos os elementos respeitam a área quadrada sem cortes visíveis nas bordas."
+          },
+          "creativeRisk": {
+            "status": "failed",
+            "note": "Sobrecarga visual e falta de um único ponto focal claro: três elementos competem pela atenção — manchete 'CHEGOU O DIA' (centro-esquerda), porta aberta brilhante (direita) e CTA 'Saiba mais' (inferior). Há ainda badge 'PREPARE-SE' e a faixa de 3 ícones, totalizando >3 zonas de informação com peso similar. Estética dominante de neon/glow volumétrico (brilho verde intenso, halo no botão) parece um tropo genérico de template e não está justificada pelo brief."
+          }
+        }
+      },
+      "score": {
+        "scoreBreakdown": {
+          "ctaClarity": 100,
+          "textLegibility": 90,
+          "briefMatch": 60,
+          "visualQuality": 60,
+          "formatFit": 100,
+          "variationLevelFit": 80,
+          "informationPreservation": 45
+        }
+      }
+    },
+    {
+      "key": "teste-3-nr1:format_adaptation:9:16",
+      "source": "regenerated",
+      "path": "app/exports/render-creatives/validation-after/teste-3-nr1:format_adaptation:9:16__0f062c8f.png",
+      "sha256": "0f062c8ffdef279d749f3a3bf941d847391c5c226f4896953ccee339623bc110",
+      "qualityScore": 55,
+      "qualityVerdict": "invalid",
+      "hardFailures": [
+        {
+          "code": "generic_template_aesthetic",
+          "message": "Visual overload and template tropes reduce clarity: four competing high-weight zones — (1) oversized headline \"CHEGOU O DIA\" (top-left), (2) bright open-door hero graphic (right-center) drawing attention, (3) three equal-weight info cards (mid-left: calendar / people / shield icons with copy), and (4) large glowing CTA pill (bottom-center). Heavy neon green glow and volumetric CTA styling (neon outline around CTA, green radial streaks from door) act as generic template tropes and compete with the lead generation hierarchy, causing creativeRisk concerns.",
+          "criterion": "creativeRisk"
+        }
+      ],
+      "qa": {
+        "checklist": {
+          "legibility": {
+            "status": "passed",
+            "note": "Todo o texto visível em português (PREPARE-SE, CHEGOU O DIA, IMERSÃO NR1, EVENTO 100% ONLINE E AO VIVO, etc.) está legível e sem erros ortográficos; CTA 'Saiba mais' é legível."
+          },
+          "ctaOffer": {
+            "status": "warning",
+            "note": "CTA corresponde exatamente ao solicitado ('Saiba mais'). A oferta do brief ('Conformidade NR1') não aparece textualmente — o criativo usa 'IMERSÃO NR1' em vez da expressão esperada."
+          },
+          "informationPreservation": {
+            "status": "warning",
+            "note": "Marca (CENBRAP) e produto NR1 preservados e legíveis. Reivindicações do brief ('Conformidade NR1', 'Checklist de segurança') não estão visíveis no criativo."
+          },
+          "briefMatch": {
+            "status": "passed",
+            "note": "Não há entidades inventadas; marca CENBRAP e produto NR1 presentes. Alinhamento geral com o objetivo (NR1 / evento online) mantido."
+          },
+          "formatFit": {
+            "status": "passed",
+            "note": "Formato 9:16 respeitado; elementos encaixam na área sem cortes aparentes nos textos e logo."
+          },
+          "creativeRisk": {
+            "status": "warning",
+            "note": "Estética de 'template' neon/glow e botão volumétrico muito dominante; múltiplas zonas de informação competem pela atenção (headline, porta iluminada, bloco IMERSÃO NR1 + caixas de benefícios, CTA neon)."
+          }
+        }
+      },
+      "score": {
+        "scoreBreakdown": {
+          "ctaClarity": 35,
+          "textLegibility": 80,
+          "briefMatch": 60,
+          "visualQuality": 55,
+          "formatFit": 95,
+          "variationLevelFit": 70,
+          "informationPreservation": 50
+        }
+      }
+    },
+    {
+      "key": "smoke:art_variation:1:1",
+      "source": "regenerated",
+      "path": "app/exports/render-creatives/validation-after/smoke:art_variation:1:1__acfe1d2e.png",
+      "sha256": "acfe1d2e9e3479cde79563b3f09372dda7dc7f3970733217897a30c13b7383b3",
+      "qualityScore": 50,
+      "qualityVerdict": "invalid",
+      "hardFailures": [
+        {
+          "code": "cropped_critical_content",
+          "message": "Elementos-chave do brief não preservados: oferta trocada por '30% OFF', ausência de menções a CQA-02 e 'LGPD compliance check'. CTA alterado com símbolo extra.",
+          "criterion": "informationPreservation"
+        },
+        {
+          "code": "cta_drift",
+          "message": "CTA exigido 'Saiba mais' não bate character-for-character: botão mostra 'Saiba mais »' (sinal extra). Oferta do brief ('smoke test') não aparece; foi introduzido '30% OFF'.",
           "criterion": "ctaOffer"
         }
       ],
       "qa": {
         "checklist": {
           "legibility": {
-            "status": "warning",
-            "note": "Título principal 'ADScale Smoke' legível; textos menores ('Teste de criativo base', caixa verde) e detalhes podem perder leitura em miniatura; o cartão branco '30% OFF' também domina visualmente."
+            "status": "passed",
+            "note": "Gancho principal '30% OFF' é grande e legível; texto secundário ('Teste de criativo base / Campanhas com IA') é pequeno mas ainda legível em full-size."
           },
           "ctaOffer": {
-            "status": "passed",
-            "note": "CTA exato exibido: botão amarelo no canto inferior esquerdo com texto 'Saiba mais' corresponde character-for-character ao CTA fornecido."
+            "status": "failed",
+            "note": "CTA exigido 'Saiba mais' não bate character-for-character: botão mostra 'Saiba mais »' (sinal extra). Oferta do brief ('smoke test') não aparece; foi introduzido '30% OFF'."
           },
           "informationPreservation": {
             "status": "failed",
-            "note": "Reivindicações do brief ('CQA-02', 'LGPD compliance check') não aparecem; além disso foi adicionada uma oferta promocional não solicitada ('30% OFF' + 'OFERTA LIMITADA' no cartão superior direito)."
+            "note": "Elementos-chave do brief não preservados: oferta trocada por '30% OFF', ausência de menções a CQA-02 e 'LGPD compliance check'. CTA alterado com símbolo extra."
           },
           "briefMatch": {
             "status": "failed",
-            "note": "Inclui entidade factual não autorizada — cartão '30% OFF' / 'OFERTA LIMITADA' (topo direito). Marca ADScale está correta, mas nova oferta contradiz o brief."
+            "note": "Foram adicionadas entidades/claims não listadas (desconto 30%, 'IA' / 'Campanhas com IA'). Marca ADScale aparece corretamente. CQA-02 e LGPD não estão presentes."
           },
           "formatFit": {
             "status": "passed",
-            "note": "Formato 1:1 adequado; todos os elementos principais estão dentro da área visível sem cortes óbvios."
+            "note": "Formato 1:1 corretamente utilizado; nenhum corte de borda visível ou elementos fora da área segura."
           },
           "creativeRisk": {
             "status": "failed",
-            "note": "Sobrecarga visual: pelo menos cinco zonas competem (título top‑left, cartão 30% top‑right, rótulo 'OFERTA LIMITADA', ícone/moeda 'IA' bottom‑right, CTA amarelo bottom‑left, caixa verde informativa). Forte uso de neon/glow e fumaça cria estética genérica de template que não é justificada no brief."
+            "note": "Sinais fortes de template genérico: glow/neon verde e pill CTA volumétrico competem com o hook. Múltiplas zonas de igual peso visual (gancho '30% OFF', botão CTA neon, badge 'IA' luminoso, topo 'ADScale Smoke')."
           }
         }
       },
       "score": {
         "scoreBreakdown": {
-          "ctaClarity": 95,
-          "textLegibility": 80,
-          "briefMatch": 75,
-          "visualQuality": 45,
+          "ctaClarity": 100,
+          "textLegibility": 75,
+          "briefMatch": 40,
+          "visualQuality": 40,
           "formatFit": 100,
-          "variationLevelFit": 85,
-          "informationPreservation": 85
+          "variationLevelFit": 60,
+          "informationPreservation": 30
         }
       }
     }
   ],
   "aggregate": {
-    "meanQualityScore": 43.333333333333336,
-    "factualFidelityRate": 0.6666666666666666,
-    "fidelityPassCount": 4,
+    "meanQualityScore": 58.833333333333336,
+    "factualFidelityRate": 1,
+    "fidelityPassCount": 6,
     "totalCount": 6
   },
   "requirements": [
     {
       "id": "QA-18",
-      "result": "pass",
-      "automated": "node app/scripts/check-creative-validation-evidence.mjs --stage before && --stage after",
-      "note": "6/6 paired matrix keys"
+      "result": "captured"
     },
     {
       "id": "QA-19",
-      "result": "gaps_found",
-      "automated": "node app/scripts/check-creative-validation-evidence.mjs --stage final",
-      "note": "meanQualityScore=43.33 (≥75); factualFidelityRate=0.667 (≥0.95)"
+      "result": "pending-final-gate"
     },
     {
       "id": "QA-20",
-      "result": "gaps_found",
-      "automated": "node app/scripts/check-creative-validation-evidence.mjs --stage final",
-      "note": "2 after capture(s) with fidelity hard failures"
+      "result": "pending-final-gate"
     },
     {
       "id": "QA-21",
-      "result": "gaps_found",
-      "automated": "cd app && node scripts/run-creative-release-gate.mjs",
-      "note": "test/lint/build pass; final evidence check failed on committed captures"
+      "result": "pending-final-gate"
     }
-  ],
-  "verifiedAt": "2026-06-15T20:55:44.555Z",
-  "automated": {
-    "unit": "pass",
-    "lint": "pass",
-    "build": "pass",
-    "creative-release-gate": "fail"
-  }
+  ]
 }
