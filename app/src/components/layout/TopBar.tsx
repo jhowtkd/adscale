@@ -30,7 +30,6 @@ import {
   Users,
   LayoutDashboard,
   FolderOpen,
-  LayoutTemplate,
   Plus,
 } from "lucide-react";
 import Link from "next/link";
@@ -57,7 +56,7 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
   const scrollDirection = useScrollDirection();
   const isMobile = useIsMobile();
   const { data: notificationsData } = useNotifications({
-    enabled: notificationsOpen,
+    refetchInterval: 30_000,
   });
   const markAllAsRead = useMarkAllNotificationsAsRead();
   const clearAll = useClearAllNotifications();
@@ -127,7 +126,6 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
         <nav className="hidden md:flex items-center gap-1">
           <NavLink href="/" icon={LayoutDashboard} label={tNav("dashboard")} active={pathname === "/"} />
           <NavLink href="/campaigns" icon={FolderOpen} label={tNav("campaigns")} active={pathname.startsWith("/campaigns")} />
-          <NavLink href="/templates" icon={LayoutTemplate} label={tNav("templates")} active={pathname.startsWith("/templates")} />
           <NavLink href="/settings" icon={Settings} label={tNav("settings")} active={pathname.startsWith("/settings")} />
         </nav>
 
@@ -159,7 +157,7 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
         )}
 
         {!isDashboard && (
-          <>
+          <div className="relative">
             {/* Notification Bell */}
             <button
               ref={(el) => { if (el) bellRef.current = el; }}
@@ -172,6 +170,7 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
                 "relative flex size-9 items-center justify-center rounded-full sm:size-10",
                 "text-[var(--text-muted)] hover:text-[var(--text-primary)]",
                 "hover:bg-[var(--surface-raised)]",
+                notificationsOpen && "bg-[var(--surface-raised)] text-[var(--text-primary)]",
                 "transition-all duration-200"
               )}
             >
@@ -199,7 +198,7 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
                 />
               )}
             </AnimatePresence>
-          </>
+          </div>
         )}
 
         {/* User Avatar */}
@@ -357,7 +356,7 @@ function NotificationPanel({ items, onClose, onClear, onMarkAsRead, onMarkAllAsR
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -8, scale: 0.98 }}
       transition={{ duration: 0.15 }}
-      className="layer-popover absolute right-16 top-11 w-[360px] max-w-[calc(100vw-2rem)] rounded-xl border border-[var(--border-dim)] bg-[var(--surface-raised)] shadow-[0_24px_80px_rgba(0,0,0,0.1)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-green)]"
+      className="layer-popover absolute right-0 top-[calc(100%+0.5rem)] z-[var(--layer-popover)] w-[360px] max-w-[calc(100vw-2rem)] rounded-xl border border-[var(--border-dim)] bg-[var(--surface-raised)] shadow-[0_24px_80px_rgba(0,0,0,0.1)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-green)]"
     >
       <div className="flex items-center justify-between border-b border-[var(--border-dim)] px-4 py-3">
         <div>

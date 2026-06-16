@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
-import { AlertCircle, Loader2, RefreshCw, ShieldCheck, ShieldAlert, ShieldX } from "lucide-react";
+import { AlertCircle, ChevronDown, Loader2, RefreshCw, ShieldCheck, ShieldAlert, ShieldX } from "lucide-react";
 import { useTranslations } from "next-intl";
 import {
   usePreflightScore,
@@ -28,6 +28,102 @@ const DIMENSION_ORDER: ReadinessDimensionId[] = [
   "brandFit",
   "platformFit",
 ];
+
+const DIMENSION_IDS = new Set<string>(DIMENSION_ORDER);
+
+function parseIssueText(
+  text: string,
+  t: ReturnType<typeof useTranslations<"readiness">>
+): { title: string; detail: string; collapsible: boolean } {
+  const dimensionMatch = text.match(/^([a-zA-Z]+):\s*(.+)$/s);
+  if (dimensionMatch) {
+    const [, rawId, detail] = dimensionMatch;
+    const dimensionKey = `dimensions.${rawId}` as `dimensions.${ReadinessDimensionId}`;
+    if (DIMENSION_IDS.has(rawId)) {
+      return {
+        title: t(dimensionKey),
+        detail,
+        collapsible: detail.trim().length > 0,
+      };
+    }
+  }
+
+  const firstSentence = text.match(/^(.+?[.!?])(?:\s|$)/)?.[1];
+  if (firstSentence && firstSentence.length < text.length && firstSentence.length <= 120) {
+    return {
+      title: firstSentence,
+      detail: text,
+      collapsible: true,
+    };
+  }
+
+  if (text.length > 96) {
+    return {
+      title: `${text.slice(0, 93).trimEnd()}…`,
+      detail: text,
+      collapsible: true,
+    };
+  }
+
+  return { title: text, detail: text, collapsible: false };
+}
+
+function ReadinessIssueList({
+  items,
+  variant,
+  t,
+}: {
+  items: string[];
+  variant: "blocking" | "suggestion";
+  t: ReturnType<typeof useTranslations<"readiness">>;
+}) {
+  if (items.length === 0) return null;
+
+  const borderClass =
+    variant === "blocking"
+      ? "border-[var(--accent-rose)]/25 bg-[var(--accent-rose)]/5"
+      : "border-[var(--border-dim)] bg-[var(--surface-raised)]/40";
+
+  return (
+    <ul className="mt-2 space-y-2">
+      {items.map((item, index) => {
+        const { title, detail, collapsible } = parseIssueText(item, t);
+
+        if (!collapsible) {
+          return (
+            <li
+              key={`${variant}-${index}-${item}`}
+              className={cn("rounded-lg border px-3 py-2 text-xs text-[var(--text-primary)]", borderClass)}
+            >
+              {item}
+            </li>
+          );
+        }
+
+        return (
+          <li key={`${variant}-${index}-${item}`}>
+            <details
+              open={variant === "blocking" && index === 0}
+              className={cn("group overflow-hidden rounded-lg border", borderClass)}
+            >
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-xs font-medium text-[var(--text-primary)] [&::-webkit-details-marker]:hidden">
+                <span className="min-w-0 text-left leading-snug">{title}</span>
+                <ChevronDown
+                  size={14}
+                  aria-hidden="true"
+                  className="shrink-0 text-[var(--text-muted)] transition-transform duration-200 group-open:rotate-180"
+                />
+              </summary>
+              <p className="border-t border-[var(--border-dim)]/80 px-3 py-2.5 text-xs leading-relaxed text-[var(--text-secondary)]">
+                {detail}
+              </p>
+            </details>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
 
 function statusIcon(status: ReadinessStatus | "pending" | "analyzing" | "failed" | "missing") {
   switch (status) {
@@ -220,14 +316,9 @@ export default function CreativeReadinessPanel({
             <div>
               <p className="font-mono text-[10px] uppercase tracking-wide text-[var(--accent-rose)]">
                 {t("blockingIssues")}
+                <span className="ml-1.5 text-[var(--text-muted)]">({readiness.blockingIssues.length})</span>
               </p>
-              <ul className="mt-2 space-y-1">
-                {readiness.blockingIssues.map((issue) => (
-                  <li key={issue} className="text-xs text-[var(--text-primary)]">
-                    {issue}
-                  </li>
-                ))}
-              </ul>
+              <ReadinessIssueList items={readiness.blockingIssues} variant="blocking" t={t} />
               {(readiness.status === "blocked" || readiness.blockingIssues.length > 0) && (
                 <button
                   type="button"
@@ -245,14 +336,9 @@ export default function CreativeReadinessPanel({
             <div>
               <p className="font-mono text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
                 {t("suggestions")}
+                <span className="ml-1.5">({readiness.suggestions.length})</span>
               </p>
-              <ul className="mt-2 space-y-1">
-                {readiness.suggestions.map((suggestion) => (
-                  <li key={suggestion} className="text-xs text-[var(--text-secondary)]">
-                    {suggestion}
-                  </li>
-                ))}
-              </ul>
+              <ReadinessIssueList items={readiness.suggestions} variant="suggestion" t={t} />
             </div>
           )}
 

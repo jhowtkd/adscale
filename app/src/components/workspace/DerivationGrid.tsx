@@ -96,6 +96,7 @@ export default function DerivationGrid({
       className="grid gap-4 animate-fade-in"
       style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}
     >
+      <AddNewCard onClick={onAddNew} />
       {derivations.map((derivation, index) => {
         const isPreviewGateCard =
           previewGate != null && previewGate.previewId === derivation.id;
@@ -171,7 +172,6 @@ export default function DerivationGrid({
           </div>
         );
       })}
-      <AddNewCard onClick={onAddNew} />
     </div>
   );
 }

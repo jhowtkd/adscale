@@ -21,6 +21,14 @@ const itemVariants = {
   show: { opacity: 1, y: 0, transition: { duration: 0.3 } },
 };
 
+const fieldClass = cn(
+  "w-full h-10 rounded-md border px-3 text-sm",
+  "bg-[var(--surface-base)] text-[var(--text-primary)]",
+  "placeholder:text-[var(--text-muted)]",
+  "focus:outline-none focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)]",
+  "transition-all duration-200 border-[var(--border-dim)]"
+);
+
 interface ProfileFormState {
   firstName: string;
   lastName: string;
@@ -37,10 +45,6 @@ function profileFormReducer(
 ): ProfileFormState {
   return { ...state, ...payload };
 }
-
-// ============================================
-// Profile Tab
-// ============================================
 
 export default function ProfileTab() {
   const profile = useAppStore((s) => s.profile);
@@ -115,75 +119,86 @@ export default function ProfileTab() {
     addToast("success", tc("tourRestarted"));
   };
 
+  const displayName = [firstName, lastName].filter(Boolean).join(" ") || email;
+
   return (
-    <m.div
-      variants={containerVariants}
-      initial="hidden"
-      animate="show"
-      className="max-w-[560px] space-y-6"
-    >
-      <ProfileAvatarSection
-        t={t}
-        firstName={firstName}
-        lastName={lastName}
-        avatarPreview={avatarPreview}
-        fileInputRef={fileInputRef}
-        onAvatarChange={handleAvatarChange}
-        onRemoveAvatar={() => updateForm({ avatarPreview: "" })}
-      />
+    <m.div variants={containerVariants} initial="hidden" animate="show" className="space-y-8">
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,220px)_1fr] lg:gap-10 xl:grid-cols-[minmax(0,240px)_minmax(0,1fr)]">
+        <ProfileAvatarSection
+          t={t}
+          firstName={firstName}
+          lastName={lastName}
+          displayName={displayName}
+          email={email}
+          avatarPreview={avatarPreview}
+          fileInputRef={fileInputRef}
+          onAvatarChange={handleAvatarChange}
+          onRemoveAvatar={() => updateForm({ avatarPreview: "" })}
+        />
 
-      <ProfileFieldsSection
-        t={t}
-        firstName={firstName}
-        lastName={lastName}
-        email={email}
-        bio={bio}
-        timezone={timezone}
-        updateForm={updateForm}
-      />
+        <div className="min-w-0 space-y-6">
+          <ProfileFieldsSection
+            t={t}
+            firstName={firstName}
+            lastName={lastName}
+            email={email}
+            bio={bio}
+            timezone={timezone}
+            updateForm={updateForm}
+          />
 
-      {/* Onboarding */}
-      {onboardingCompleted && (
-        <m.div variants={itemVariants} className="space-y-3 pt-4 border-t border-[var(--border-dim)]">
-          <div>
-            <h3 className="text-sm font-medium text-[var(--text-primary)]">{t("onboarding.preferences")}</h3>
-            <p className="text-xs text-[var(--text-muted)] mt-1">{t("onboarding.restartDescription")}</p>
-          </div>
-          <button type="button"
-            onClick={handleRestartTour}
-            disabled={isRestarting}
-            className={cn(
-              "inline-flex items-center gap-2 h-9 px-4 rounded-md text-sm font-medium",
-              "border border-[var(--border-dim)] bg-[var(--surface-base)] text-[var(--text-primary)]",
-              "hover:bg-[var(--surface-raised)] hover:border-[var(--border-medium)]",
-              "transition-all duration-200",
-              "disabled:opacity-50 disabled:cursor-not-allowed"
-            )}
-          >
-            <RotateCcw size={14} />
-            {isRestarting ? t("onboarding.restarting") : t("onboarding.restartTour")}
-          </button>
-        </m.div>
-      )}
+          {onboardingCompleted && (
+            <m.div
+              variants={itemVariants}
+              className="rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)]/60 px-4 py-4 sm:px-5"
+            >
+              <h3 className="text-sm font-medium text-[var(--text-primary)]">
+                {t("onboarding.preferences")}
+              </h3>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">
+                {t("onboarding.restartDescription")}
+              </p>
+              <button
+                type="button"
+                onClick={handleRestartTour}
+                disabled={isRestarting}
+                className={cn(
+                  "mt-3 inline-flex h-9 items-center gap-2 rounded-md px-4 text-sm font-medium",
+                  "border border-[var(--border-dim)] bg-[var(--surface-base)] text-[var(--text-primary)]",
+                  "hover:border-[var(--border-medium)] hover:bg-[var(--surface-raised)]",
+                  "transition-all duration-200",
+                  "disabled:cursor-not-allowed disabled:opacity-50"
+                )}
+              >
+                <RotateCcw size={14} />
+                {isRestarting ? t("onboarding.restarting") : t("onboarding.restartTour")}
+              </button>
+            </m.div>
+          )}
+        </div>
+      </div>
 
-      {/* Save Button */}
-      <m.div variants={itemVariants} className="flex justify-end pt-2">
-        <button type="button"
+      <m.div
+        variants={itemVariants}
+        className="flex justify-end border-t border-[var(--border-dim)] pt-6"
+      >
+        <button
+          type="button"
           onClick={handleSave}
           disabled={!hasChanges || saveState !== "idle"}
           className={cn(
-            "h-10 px-5 rounded-md text-sm font-medium text-white flex items-center gap-2",
+            "flex h-10 items-center gap-2 rounded-md px-5 text-sm font-medium text-white",
             "bg-[var(--accent-green)] hover:bg-[var(--accent-green-light)]",
             "active:scale-[0.98] active:brightness-90",
             "transition-all duration-200",
-            "disabled:opacity-50 disabled:cursor-not-allowed"
+            "disabled:cursor-not-allowed disabled:opacity-50"
           )}
         >
           {saveState === "saving" && (
             <m.div
               animate={{ rotate: 360 }}
               transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-              className="size-4 border-2 border-white/30 border-t-white rounded-full"
+              className="size-4 rounded-full border-2 border-white/30 border-t-white"
             />
           )}
           {saveState === "saved" && <Check size={16} />}
@@ -204,6 +219,8 @@ function ProfileAvatarSection({
   t,
   firstName,
   lastName,
+  displayName,
+  email,
   avatarPreview,
   fileInputRef,
   onAvatarChange,
@@ -212,17 +229,22 @@ function ProfileAvatarSection({
   t: (key: string) => string;
   firstName: string;
   lastName: string;
+  displayName: string;
+  email: string;
   avatarPreview: string;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   onAvatarChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onRemoveAvatar: () => void;
 }) {
   return (
-    <m.div variants={itemVariants} className="flex flex-col items-center gap-3">
-      <div className="relative group">
+    <m.div
+      variants={itemVariants}
+      className="flex flex-col items-center gap-3 lg:items-start lg:pt-1"
+    >
+      <div className="group relative">
         <div
           className={cn(
-            "size-24 rounded-full flex items-center justify-center text-2xl font-semibold",
+            "flex size-24 items-center justify-center rounded-full text-2xl font-semibold",
             "bg-[var(--accent-green-dim)] text-[var(--accent-green-text)]",
             "ring-2 ring-[var(--border-medium)]",
             avatarPreview ? "overflow-hidden" : ""
@@ -251,9 +273,9 @@ function ProfileAvatarSection({
           onClick={() => fileInputRef.current?.click()}
           aria-label={t("changeAvatar")}
           className={cn(
-            "absolute inset-0 rounded-full flex items-center justify-center",
+            "absolute inset-0 flex cursor-pointer items-center justify-center rounded-full",
             "bg-black/40 opacity-0 group-hover:opacity-100",
-            "transition-opacity duration-200 cursor-pointer"
+            "transition-opacity duration-200"
           )}
         >
           <Camera size={20} className="text-white" />
@@ -269,11 +291,16 @@ function ProfileAvatarSection({
         />
       </div>
 
+      <div className="text-center lg:text-left">
+        <p className="text-sm font-semibold text-[var(--text-primary)]">{displayName}</p>
+        <p className="mt-0.5 text-xs text-[var(--text-muted)]">{email}</p>
+      </div>
+
       <div className="flex items-center gap-3">
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="text-sm text-[var(--accent-green)] hover:underline"
+          className="text-sm font-medium text-[var(--accent-green)] hover:underline"
         >
           {t("changeAvatar")}
         </button>
@@ -281,7 +308,7 @@ function ProfileAvatarSection({
           <button
             type="button"
             onClick={onRemoveAvatar}
-            className="text-sm text-[var(--text-muted)] hover:text-[var(--accent-rose)] transition-colors"
+            className="text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--accent-rose)]"
           >
             {t("remove")}
           </button>
@@ -309,104 +336,111 @@ function ProfileFieldsSection({
   updateForm: (payload: Partial<ProfileFormState>) => void;
 }) {
   return (
-    <>
-      <m.div variants={itemVariants} className="space-y-2">
-        <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
-          {t("fullName")}
-        </label>
-        <input
-          type="text"
-          aria-label={t("fullName")}
-          value={`${firstName} ${lastName}`}
-          onChange={(e) => {
-            const parts = e.target.value.split(" ");
-            updateForm({
-              firstName: parts[0] || "",
-              lastName: parts.slice(1).join(" ") || "",
-            });
-          }}
-          placeholder={t("profile.namePlaceholder")}
-          className={cn(
-            "w-full h-10 rounded-md border px-3 text-sm",
-            "bg-[var(--surface-base)] text-[var(--text-primary)]",
-            "placeholder:text-[var(--text-muted)]",
-            "focus:outline-none focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)0.15)]",
-            "transition-all duration-200 border-[var(--border-dim)]"
-          )}
-        />
-      </m.div>
+    <m.div variants={itemVariants} className="space-y-5">
+      <div>
+        <h3 className="mb-4 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+          {t("profile.accountDetails")}
+        </h3>
 
-      <m.div variants={itemVariants} className="space-y-2">
-        <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
-          {t("emailAddress")}
-        </label>
-        <input
-          type="email"
-          aria-label={t("emailAddress")}
-          value={email}
-          onChange={(e) => updateForm({ email: e.target.value })}
-          placeholder={t("profile.emailPlaceholder")}
-          className={cn(
-            "w-full h-10 rounded-md border px-3 text-sm",
-            "bg-[var(--surface-base)] text-[var(--text-primary)]",
-            "placeholder:text-[var(--text-muted)]",
-            "focus:outline-none focus:border-[var(--accent-blue)] focus:ring-[3px] focus:ring-[rgba(99,102,241,0.15)]",
-            "transition-all duration-200 border-[var(--border-dim)]"
-          )}
-        />
-        <p className="text-xs text-[var(--text-muted)]">
-          {t("emailVerificationNote")}
-        </p>
-      </m.div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <label
+              htmlFor="profile-first-name"
+              className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]"
+            >
+              {t("firstName")}
+            </label>
+            <input
+              id="profile-first-name"
+              type="text"
+              value={firstName}
+              onChange={(e) => updateForm({ firstName: e.target.value })}
+              placeholder={t("profile.namePlaceholder")}
+              className={fieldClass}
+            />
+          </div>
+          <div className="space-y-2">
+            <label
+              htmlFor="profile-last-name"
+              className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]"
+            >
+              {t("lastName")}
+            </label>
+            <input
+              id="profile-last-name"
+              type="text"
+              value={lastName}
+              onChange={(e) => updateForm({ lastName: e.target.value })}
+              className={fieldClass}
+            />
+          </div>
+        </div>
+      </div>
 
-      <m.div variants={itemVariants} className="space-y-2">
-        <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2 sm:col-span-2 lg:col-span-1">
+          <label
+            htmlFor="profile-email"
+            className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]"
+          >
+            {t("emailAddress")}
+          </label>
+          <input
+            id="profile-email"
+            type="email"
+            value={email}
+            onChange={(e) => updateForm({ email: e.target.value })}
+            placeholder={t("profile.emailPlaceholder")}
+            className={fieldClass}
+          />
+          <p className="text-xs text-[var(--text-muted)]">{t("emailVerificationNote")}</p>
+        </div>
+
+        <div className="space-y-2 sm:col-span-2 lg:col-span-1">
+          <label
+            htmlFor="profile-timezone"
+            className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]"
+          >
+            {t("timeZone")}
+          </label>
+          <select
+            id="profile-timezone"
+            value={timezone}
+            onChange={(e) => updateForm({ timezone: e.target.value })}
+            className={cn(fieldClass, "cursor-pointer appearance-none")}
+          >
+            <option value="America/New_York">Eastern Time (ET)</option>
+            <option value="America/Chicago">Central Time (CT)</option>
+            <option value="America/Denver">Mountain Time (MT)</option>
+            <option value="America/Los_Angeles">Pacific Time (PT)</option>
+            <option value="Europe/London">London (GMT)</option>
+            <option value="Europe/Paris">Paris (CET)</option>
+            <option value="Asia/Tokyo">Tokyo (JST)</option>
+            <option value="Asia/Singapore">Singapore (SGT)</option>
+            <option value="Australia/Sydney">Sydney (AEDT)</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <label
+          htmlFor="profile-bio"
+          className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]"
+        >
           {t("bioRole")}
         </label>
         <textarea
-          aria-label={t("bioRole")}
+          id="profile-bio"
           value={bio}
           onChange={(e) => updateForm({ bio: e.target.value })}
           placeholder={t("profile.bioPlaceholder")}
           rows={3}
           className={cn(
-            "w-full rounded-md border px-3 py-2 text-sm resize-none",
-            "bg-[var(--surface-base)] text-[var(--text-primary)]",
-            "placeholder:text-[var(--text-muted)]",
-            "focus:outline-none focus:border-[var(--accent-blue)] focus:ring-[3px] focus:ring-[rgba(99,102,241,0.15)]",
-            "transition-all duration-200 border-[var(--border-dim)]"
+            fieldClass,
+            "h-auto min-h-[5.5rem] resize-y py-2"
           )}
         />
-      </m.div>
-
-      <m.div variants={itemVariants} className="space-y-2">
-        <label htmlFor="profile-timezone" className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
-          {t("timeZone")}
-        </label>
-        <select
-          id="profile-timezone"
-          aria-label={t("timeZone")}
-          value={timezone}
-          onChange={(e) => updateForm({ timezone: e.target.value })}
-          className={cn(
-            "w-full h-10 rounded-md border px-3 text-sm",
-            "bg-[var(--surface-base)] text-[var(--text-primary)]",
-            "focus:outline-none focus:border-[var(--accent-blue)] focus:ring-[3px] focus:ring-[rgba(99,102,241,0.15)]",
-            "transition-all duration-200 border-[var(--border-dim)]",
-            "appearance-none cursor-pointer"
-          )}
-        >
-          <option value="America/New_York">Eastern Time (ET)</option>
-          <option value="America/Chicago">Central Time (CT)</option>
-          <option value="America/Denver">Mountain Time (MT)</option>
-          <option value="America/Los_Angeles">Pacific Time (PT)</option>
-          <option value="Europe/London">London (GMT)</option>
-          <option value="Europe/Paris">Paris (CET)</option>
-          <option value="Asia/Tokyo">Tokyo (JST)</option>
-          <option value="Asia/Singapore">Singapore (SGT)</option>
-          <option value="Australia/Sydney">Sydney (AEDT)</option>
-        </select>
-      </m.div>
-    </>
+      </div>
+    </m.div>
   );
 }

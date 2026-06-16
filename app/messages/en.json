@@ -240,6 +240,14 @@
       "hoursAgo": "{count}h ago",
       "daysAgo": "{count}d ago"
     },
+    "laboratory": {
+      "title": "Ads Laboratory",
+      "stepLabel": "Step {current} of {total}",
+      "whatToDoNow": "What to do now",
+      "error": "We couldn't load your progress right now.",
+      "retry": "Try again",
+      "updating": "Updating progress"
+    },
     "progression": {
       "title": "Ads Scientist",
       "currentLevel": "Current level",
@@ -1185,6 +1193,7 @@
     "title": "Settings",
     "profile": {
       "title": "Profile",
+      "accountDetails": "Account details",
       "namePlaceholder": "Your name",
       "emailPlaceholder": "you@company.com",
       "bioPlaceholder": "Tell us about yourself..."
@@ -1205,6 +1214,8 @@
       "notConnected": "Not connected",
       "error": "Error"
     },
+    "firstName": "First name",
+    "lastName": "Last name",
     "changeAvatar": "Change avatar",
     "remove": "Remove",
     "fullName": "Full name",
@@ -1758,6 +1769,7 @@
   },
   "feedback": {
     "trigger": "Send feedback",
+    "triggerShort": "Feedback",
     "reportThis": "Report issue",
     "title": "Beta feedback",
     "description": "Tell us what went wrong or what we should improve. Diagnostic context is attached automatically.",

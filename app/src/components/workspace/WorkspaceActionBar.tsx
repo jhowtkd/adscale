@@ -1,5 +1,6 @@
 "use client";
 
+import { Sparkles } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -60,7 +61,9 @@ export default function WorkspaceActionBar({
         disabled={disabled}
         aria-label={t("estilizar")}
         onClick={onEstilizar}
+        className="border-[var(--accent-green)]/45 bg-[var(--accent-green)]/12 font-semibold text-[var(--accent-green-text)] hover:border-[var(--accent-green)]/60 hover:bg-[var(--accent-green)]/22 hover:text-[var(--accent-green-text)]"
       >
+        <Sparkles size={14} aria-hidden="true" />
         {t("estilizar")}
       </Button>
     </div>

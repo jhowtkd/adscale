@@ -11,8 +11,7 @@ import { Search, Plus, LayoutGrid, List } from "lucide-react";
 import VisualCampaignCard from "@/components/dashboard/VisualCampaignCard";
 import DashboardCampaignListView from "@/components/dashboard/DashboardCampaignListView";
 import CreditPanel from "@/components/dashboard/CreditPanel";
-import AdsScientistProgressCard from "@/components/dashboard/AdsScientistProgressCard";
-import MissionPathCard from "@/components/dashboard/MissionPathCard";
+import LaboratoryProgressPanel from "@/components/dashboard/LaboratoryProgressPanel";
 import PageFrame from "@/components/layout/PageFrame";
 import PageHeader from "@/components/layout/PageHeader";
 import Panel from "@/components/layout/Panel";
@@ -164,10 +163,7 @@ export default function DashboardPage() {
       </PageFrame>
 
       <PageFrame width="wide">
-        <Panel padding="md" className="space-y-6">
-          <AdsScientistProgressCard />
-          <MissionPathCard />
-        </Panel>
+        <LaboratoryProgressPanel />
       </PageFrame>
 
       <PageFrame width="wide">

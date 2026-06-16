@@ -11,7 +11,7 @@ import { FeedbackProvider } from "@/components/feedback/FeedbackProvider";
 import { MissionInsightProvider } from "@/components/mission-insights/MissionInsightProvider";
 import FeedbackBreadcrumbTracker from "@/components/feedback/FeedbackBreadcrumbTracker";
 import DeploymentVersionGuard from "./DeploymentVersionGuard";
-import { FolderOpen, LayoutDashboard, LayoutTemplate, Settings } from "lucide-react";
+import { FolderOpen, LayoutDashboard, Settings } from "lucide-react";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -45,7 +45,7 @@ export default function AppShell({ children }: AppShellProps) {
 
       {/* Bottom Navigation - Mobile */}
       <nav
-        className="layer-shell-floating fixed bottom-0 left-0 right-0 grid grid-cols-4 border-t border-[var(--border-dim)] bg-[var(--surface-base)] p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:hidden"
+        className="layer-shell-floating fixed bottom-0 left-0 right-0 grid grid-cols-3 border-t border-[var(--border-dim)] bg-[var(--surface-base)] p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:hidden"
         aria-label="Primary mobile navigation"
       >
         <MobileNavItem
@@ -59,12 +59,6 @@ export default function AppShell({ children }: AppShellProps) {
           label={tNav("campaigns")}
           icon={FolderOpen}
           active={pathname.startsWith("/campaigns")}
-        />
-        <MobileNavItem
-          href="/templates"
-          label={tNav("templates")}
-          icon={LayoutTemplate}
-          active={pathname.startsWith("/templates")}
         />
         <MobileNavItem
           href="/settings"

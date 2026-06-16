@@ -109,6 +109,38 @@ describe("CreativeReadinessPanel", () => {
     expect(recordEvent).toHaveBeenCalledWith("cockpit_stage_completed", STAGE_PROPS);
   });
 
+  it("renders blocking issues and suggestions as collapsible items", () => {
+    mockUsePreflightScore.mockReturnValue({
+      data: {
+        readiness: {
+          overallScore: 42,
+          status: "blocked",
+          canGenerate: false,
+          dimensions: [
+            { id: "ctaProminence", score: 45, suggestion: "Improve CTA" },
+          ],
+          blockingIssues: [
+            "ctaProminence: Não existe um CTA claro e clicável visível no criativo.",
+          ],
+          suggestions: [
+            "Aumente o contraste do botão principal para destacar a ação desejada no feed.",
+          ],
+        },
+        status: "completed",
+      },
+      isLoading: false,
+      isError: false,
+    });
+
+    render(<CreativeReadinessPanel campaignId="camp-1" assetId="asset-1" />);
+
+    expect(screen.getAllByText("dimensions.ctaProminence").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText("Não existe um CTA claro e clicável visível no criativo.")
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Aumente o contraste do botão principal/)).toBeInTheDocument();
+  });
+
   it("renders blocking issues before suggestions", () => {
     mockUsePreflightScore.mockReturnValue({
       data: {

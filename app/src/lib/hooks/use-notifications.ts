@@ -58,12 +58,17 @@ async function clearAllNotifications(): Promise<void> {
   }
 }
 
-export function useNotifications(options?: { enabled?: boolean }) {
+export function useNotifications(options?: {
+  enabled?: boolean;
+  refetchInterval?: number | false;
+}) {
   return useQuery({
     queryKey: ["notifications"],
     queryFn: fetchNotifications,
     staleTime: STALE_TIME.DYNAMIC,
     enabled: options?.enabled ?? true,
+    refetchInterval: options?.refetchInterval,
+    refetchOnWindowFocus: true,
   });
 }
 

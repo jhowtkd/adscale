@@ -240,6 +240,14 @@
       "hoursAgo": "{count}h atrás",
       "daysAgo": "{count}d atrás"
     },
+    "laboratory": {
+      "title": "Laboratório de Ads",
+      "stepLabel": "Passo {current} de {total}",
+      "whatToDoNow": "O que fazer agora",
+      "error": "Não foi possível carregar seu progresso agora.",
+      "retry": "Tentar novamente",
+      "updating": "Atualizando progresso"
+    },
     "progression": {
       "title": "Cientista de Ads",
       "currentLevel": "Nível atual",
@@ -1185,6 +1193,7 @@
     "title": "Configurações",
     "profile": {
       "title": "Perfil",
+      "accountDetails": "Dados da conta",
       "namePlaceholder": "Seu nome",
       "emailPlaceholder": "voce@empresa.com",
       "bioPlaceholder": "Conte-nos sobre você..."
@@ -1205,6 +1214,8 @@
       "notConnected": "Não conectado",
       "error": "Erro"
     },
+    "firstName": "Nome",
+    "lastName": "Sobrenome",
     "changeAvatar": "Mudar avatar",
     "remove": "Remover",
     "fullName": "Nome completo",
@@ -1759,6 +1770,7 @@
   },
   "feedback": {
     "trigger": "Enviar feedback",
+    "triggerShort": "Feedback",
     "reportThis": "Reportar problema",
     "title": "Feedback beta",
     "description": "Conte o que deu errado ou o que devemos melhorar. O contexto de diagnóstico é anexado automaticamente.",

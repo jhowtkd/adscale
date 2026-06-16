@@ -65,6 +65,19 @@ describe("TopBar notifications", () => {
     vi.clearAllMocks();
   });
 
+  it("prefetches notifications on mount instead of waiting for panel open", () => {
+    mockUseNotifications.mockReturnValue({ data: [] } as ReturnType<typeof useNotifications>);
+
+    render(<TopBar />, { wrapper: createWrapper() });
+
+    expect(mockUseNotifications).toHaveBeenCalledWith(
+      expect.objectContaining({ refetchInterval: 30_000 })
+    );
+    expect(mockUseNotifications).not.toHaveBeenCalledWith(
+      expect.objectContaining({ enabled: false })
+    );
+  });
+
   it("shows unread badge when there are unread notifications", () => {
     mockUseNotifications.mockReturnValue({
       data: [
