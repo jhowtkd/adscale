@@ -10,7 +10,20 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Current State
 
-v12.3 Integridade Criativa shipped on 2026-06-16 with one accepted quality gap: QA-19 mean visual quality closed at `70.17 <75`, while factual fidelity passed at `1.000` (6/6). Next work should start from fresh requirements.
+v12.4 Aprendizado de Qualidade dos Outputs starts on 2026-06-16. v12.3 closed the factual-integrity milestone, but the product still needs a durable way to learn from human output decisions and apply those lessons before the next generation.
+
+### v12.4 Aprendizado de Qualidade dos Outputs — ACTIVE (2026-06-16)
+
+**Goal:** Transformar aprovação, rejeição, regeneração e referências salvas em aprendizados canônicos que melhorem a próxima geração sem degradar com o tempo.
+
+**Target features:**
+- Captura normalizada de sinais humanos sobre outputs
+- Camada canônica de output learnings com confiança, contradição e supersession
+- Projeção para retrieval sem tornar memória vetorial fonte de verdade
+- Recomendação/prefill antes da próxima geração com explicação e limites claros
+- Eval orientado a melhoria de qualidade sem regredir fidelidade factual
+
+**Why now:** v12.3 fechou o eixo de integridade factual, mas terminou com gap aceito de qualidade visual média (`70.17 < 75`). O próximo passo é aprender com decisões humanas reais sobre quais outputs prestam e usar isso antes de gastar novos créditos.
 
 ### v12.3 Integridade Criativa — SHIPPED WITH ACCEPTED GAP (2026-06-16)
 
@@ -241,11 +254,11 @@ Delivered: credit estimate transparency, enriched credit events, delivery/stale 
 
 ### Active
 
-- [ ] Refinar todas as superfícies autenticadas com uma linguagem visual compacta e profissional
-- [ ] Eliminar sobreposições, cortes e quebras de layout de mobile a ultrawide
-- [ ] Reorganizar hierarquia, densidade e ações quando a estrutura atual prejudicar clareza ou operação
-- [ ] Consolidar tokens e componentes reutilizáveis para manter consistência entre telas
-- [ ] Validar acessibilidade, responsividade e fluxos críticos em navegador antes do release
+- [ ] Capturar aprovação, rejeição, regeneração, save-reference e sinais equivalentes como evidência canônica de qualidade de output
+- [ ] Consolidar evidências em output learnings versionados com confiança, contradição, frescor e supersession
+- [ ] Recuperar learnings relevantes por cliente, objetivo, modo e formato sem vazar contexto entre campanhas
+- [ ] Aplicar learnings antes da próxima geração como prefill/restrição explicável e limitada
+- [ ] Provar melhora em qualidade percebida sem regredir as garantias factuais de v12.3
 
 ### Validated (v10.0)
 

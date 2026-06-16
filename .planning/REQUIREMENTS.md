@@ -1,153 +1,110 @@
-# Requirements: ADScale v12.3 Integridade Criativa
+# Requirements: ADScale v12.4 Aprendizado de Qualidade dos Outputs
 
-**Defined:** 2026-06-15
-**Milestone:** v12.3 Integridade Criativa
+**Defined:** 2026-06-16
+**Milestone:** v12.4 Aprendizado de Qualidade dos Outputs
 **Core Value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
 ## Scope
 
-Endurecer o pipeline criativo para que peças factualmente incorretas, visualmente genéricas ou hierarquicamente congestionadas não sejam aprovadas. Garantir que regras críticas cheguem ao prompt, ao quality gate e aos testes — sem trocar modelo de imagem, rebrand ou mudanças de UI.
+Transformar decisões humanas reais sobre outputs em aprendizados duráveis e explicáveis que melhorem a próxima geração. O aprendizado deve seguir a arquitetura já validada no repo: Postgres canônico, projeção para Mem0 e aplicação limitada antes do prompt final.
 
-**Audit baseline:** corpus `app/exports/render-creatives/` — 34 peças, média 58,5/100.
+**Starting point:** v12.3 fechou com `meanQualityScore=70.17 <75` e `factualFidelityRate=1.000`. O problema restante é melhorar consistentemente a qualidade percebida dos outputs sem reabrir o risco factual.
 
-**In scope:** fixtures, contrato criativo, prompts por modo, rubrica observável, gate, score, retry, regressão, validação visual.
+**In scope:** sinais humanos, learnings canônicos, retrieval contextual, aplicação pré-geração, explanation packet, eval/release gate.
 
-**Out of scope:** novo modelo de imagem, design system, rebrand, telas de produto, otimização de custo/velocidade antes de integridade factual.
+**Out of scope:** fine-tuning, blend completo com performance de mídia, memória global cross-client, prompt mutation livre a partir de vector hits.
 
 ## Requirements
 
-### Fixtures and Baseline (FIXT)
+### Output Signals (SIGNAL)
 
-- [x] **FIXT-01**: Cada falha observada no corpus auditado (entidade inventada, overload, template genérico, drift de formato, contaminação de restyling) possui fixture reproduzível em `quality-fixtures` ou catálogo equivalente.
-- [x] **FIXT-02**: Fixtures registram campanha canônica, entidades permitidas, modos e formatos esperados para Smoke, Nova campanha, Teste 3/CENBRAP NR1 e Teste campanha/Master NR1.
-- [x] **FIXT-03**: Previews (`270×270`) e finais são categorias distintas nas fixtures e na validação.
-- [x] **FIXT-04**: Testes demonstram que o pipeline atual aprova indevidamente as peças-falha do corpus antes da correção (red → green).
+- [ ] **SIGNAL-01**: Aprovação, rejeição, regeneração, save-reference e seleção para entrega são normalizados como eventos de evidência de qualidade de output.
+- [ ] **SIGNAL-02**: Cada evento registra escopo mínimo: workspace, client profile, campaign, mode, format e derivation.
+- [ ] **SIGNAL-03**: O sistema distingue feedback explícito forte (aprovar, rejeitar, salvar referência) de sinais implícitos fracos.
+- [ ] **SIGNAL-04**: Motivos estruturados de rejeição/regeneração podem ser consolidados sem depender apenas de texto livre.
 
-### Creative Contract (CONT)
+### Canonical Learnings (LEARN)
 
-- [x] **CONT-01**: Contrato canônico declara ideia dominante, hook único, zona de prova/oferta, CTA único e identidade invariável (campanha, paleta, pessoas, produto, marca).
-- [x] **CONT-02**: Contrato distingue conteúdo obrigatório, condensável e decorativo descartável com precedência explícita: fatos > hierarquia > decoração.
-- [x] **CONT-03**: Nenhum prompt exige simultaneamente preservar todos os módulos literalmente e simplificar hierarquia sem regra de precedência.
-- [x] **CONT-04**: `VISUAL_HIERARCHY_CONTRACT` e `ANTI_HALLUCINATION_RULES` são injetados em todos os prompts de derivação aplicáveis.
+- [ ] **LEARN-01**: Evidências de output são agregadas em learnings canônicos versionados com `statement`, `variableKey`, `variableValue` e `algorithmVersion`.
+- [ ] **LEARN-02**: Cada learning rastreia `supportingEvidence`, `contradictingEvidence`, confiança, último uso e status (`draft`, `approved`, `superseded`, `removed`).
+- [ ] **LEARN-03**: Learnings antigos ou contrariados perdem força ou são supersedidos em vez de se acumularem indefinidamente.
+- [ ] **LEARN-04**: Learnings não vazam entre workspaces, clientes ou contextos incompatíveis de modo/formato.
+- [ ] **LEARN-05**: Mem0 recebe apenas projeção dos learnings aprovados; Postgres continua sendo a fonte de verdade.
 
-### Factual vs Visual Separation (SEP)
+### Pre-Generation Application (APPLY)
 
-- [x] **SEP-01**: Inputs classificados explicitamente: base factual, referência visual, brand kit, referências adicionais.
-- [x] **SEP-02**: Referência visual pode transferir apenas ritmo, textura, cromia, tipografia, iluminação e lógica compositiva — nunca pessoas, uniformes, produtos, marcas, logos, textos ou alegações.
-- [x] **SEP-03**: Derivação contaminada não pode servir como fonte para adaptações de formato subsequentes.
-- [x] **SEP-04**: Cantona, Manchester United, Adidas e entidades similares ausentes da fonte factual são bloqueadas no gate.
+- [ ] **APPLY-01**: A próxima geração pode receber recommendation/prefill baseado em learnings aprovados antes do prompt final.
+- [ ] **APPLY-02**: O mapeamento de learnings influencia apenas variáveis limitadas do produto (ex.: CTA, mode, format, recipe, style policy), não prompt prose arbitrária.
+- [ ] **APPLY-03**: Recomendação informa evidência, confiança e contradições quando existirem.
+- [ ] **APPLY-04**: Quando não houver evidência suficiente, o sistema retorna `insufficient_evidence` em vez de inventar regra.
 
-### Per-Mode Rules (MODE)
+### Safety and Boundaries (SAFE)
 
-- [x] **MODE-01**: `art_variation` exige ideia ou mecanismo visual novo; reprova variação meramente decorativa (cor, glow, fundo, reposição de cards).
-- [x] **MODE-02**: `art_variation` limita orçamento visual a no máximo três zonas principais de informação.
-- [x] **MODE-03**: `restyling` preserva integralmente entidades da base factual e extrai apenas atributos abstratos da referência visual.
-- [x] **MODE-04**: `format_adaptation` trata saída como edição da mesma campanha — preserva pessoas, copy, CTA, marca e conceito; altera apenas composição, escala e agrupamento.
-- [x] **MODE-05**: Mesma campanha permanece reconhecível em `1:1`, `4:5` e `9:16` sem introduzir nova narrativa.
+- [ ] **SAFE-01**: Learnings aplicados nunca sobrepõem as regras factuais e contratos canônicos vindos de v12.3.
+- [ ] **SAFE-02**: Retrieval relevance não é tratado como aprovação; apenas learnings canônicos aprovados podem influenciar a geração.
+- [ ] **SAFE-03**: A aplicação de learnings é auditável por payload, log ou resposta de API com identificadores de evidência.
+- [ ] **SAFE-04**: Learnings podem capturar padrões negativos ("evitar") além de positivos ("preferir"), sem autoaprovação.
 
-### Observable Rubric (RUBR)
+### Evaluation and Regression (EVAL)
 
-- [x] **RUBR-01**: Avaliação reprova quando não há ponto focal dominante, existem mais de três zonas concorrentes, ou múltiplos CTAs competem com o hook.
-- [x] **RUBR-02**: Avaliação reprova estética template genérica severa (neon/glow/cards premium sem justificativa de marca ou campanha).
-- [x] **RUBR-03**: Defeitos são explicados por elementos visíveis observáveis — termos como "polished" ou "professional" não são critério de aprovação isolado.
-- [x] **RUBR-04**: Hook é compreensível em miniatura (preview scale).
-
-### Quality Gate (GATE)
-
-- [x] **GATE-01**: Novas categorias bloqueantes: `invented_factual_entity`, `replaced_source_subject`, `unauthorized_brand_or_ip`, `campaign_identity_drift`, `style_reference_contamination`, `generic_template_aesthetic`, `visual_overload`, `missing_dominant_idea`, `decorative_only_variation`.
-- [x] **GATE-02**: Falha factual produz `invalid` independentemente da nota estética.
-- [x] **GATE-03**: Estética genérica severa não fica apenas em `polishSuggestions` — bloqueia exportação quando acima do threshold.
-- [x] **GATE-04**: Peças `27069645`, `a753e357`, `538246da`, `a5f65b85`, `f420bcb2`, `d7d9d323` do corpus são bloqueadas após correção.
-- [x] **GATE-05**: Peça fiel como `c2c12774` continua aprovável (pode receber sugestões de simplificação, não invalidação factual).
-
-### Score and Retry (SCR)
-
-- [x] **SCR-01**: Score separa integridade factual, hierarquia, legibilidade, direção de arte, originalidade e adequação ao formato.
-- [x] **SCR-02**: Tetos de nota aplicados: fato inventado ≤20, campanha substituída ≤15, CTA ausente ≤50, overload grave ≤55, variação decorativa ≤60.
-- [x] **SCR-03**: Nota alta não coexiste com hard failures ativos.
-- [x] **SCR-04**: Retry habilitado para restyling e usa fonte factual original, nunca saída contaminada.
-- [x] **SCR-05**: Correção de retry é específica: remover entidade inventada, restaurar pessoa/marca, reduzir módulos, restaurar conceito/CTA.
-
-### Regression Tests (TEST)
-
-- [x] **TEST-01**: Testes de prompt verificam presença de ideia dominante, três níveis, CTA secundário, entidades proibidas, separação factual/visual e simplificação permitida.
-- [x] **TEST-02**: Testes de gate cobrem Cantona/Manchester United, pessoa substituída, logo não autorizado, campanha diferente, template genérico, excesso de módulos e variação decorativa.
-- [x] **TEST-03**: Suíte independente por modo (`art_variation`, `restyling`, `format_adaptation`) com mesmas entradas em múltiplos formatos.
-- [x] **TEST-04**: Teste de miniatura valida leitura do hook em escala mobile.
-
-### Visual Validation (QA)
-
-- [x] **QA-18**: Geração controlada antes/depois com mesma campanha e seed quando suportado para cada modo em formatos representativos.
-- [ ] **QA-19**: Rubrica de 12 critérios aplicada ao conjunto pós-correção atinge média geral ≥75 e fidelidade factual ≥95. *(gaps_found: meanQualityScore=70.17 <75; factualFidelityRate=1.000 — 123-VERIFICATION.md)*
-- [x] **QA-20**: Nenhuma entidade inventada e nenhuma campanha substituída no conjunto de validação. *(pass: zero fidelity-class hard failures on after set — 123-VERIFICATION.md)*
-- [x] **QA-21**: `npm test`, `npm run lint`, `npm run build` passam com cobertura de regressão do milestone. *(test/lint/build pass; full creative-release-gate remains blocked only by accepted QA-19 mean-quality gap — see 123-VERIFICATION.md)*
+- [ ] **EVAL-01**: Existe um conjunto fixo de avaliação para provar se learnings de output melhoram a qualidade julgada por humanos.
+- [ ] **EVAL-02**: Métricas de avaliação permanecem separadas: melhoria de qualidade, taxa de regeneração/rejeição e fidelidade factual.
+- [ ] **EVAL-03**: Nenhuma melhoria de output learning pode reintroduzir regressão factual bloqueada por v12.3.
+- [ ] **EVAL-04**: `npm test`, `npm run lint`, `npm run build` e o gate focal do milestone passam com evidência reproduzível.
 
 ## Future Requirements
 
-### Model and Vision (deferred)
+### Performance Blending (deferred)
 
-- **VISION-01**: Gate assistido por vision model para verificação de entidades visuais
-- **VISION-02**: Comparação semântica imagem-a-imagem automatizada para format_adaptation
+- **PERFOUT-01**: Combinar learnings de output com performance de mídia importada como sinal conjunto
+- **PERFOUT-02**: Reponderar learnings de output por impacto real em CTR/CPA/ROAS quando houver evidência suficiente
+
+### Automation (deferred)
+
+- **AUTOOUT-01**: Auto-regeneration policies driven by approved output learnings
+- **AUTOOUT-02**: Adaptive ranking of generated options using learned output preferences
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Trocar modelo de imagem OpenAI | Não resolve gaps de prompt/gate; milestone foca contratos |
-| Rebrand / novo design system | Escopo visual de produto coberto em v12.2 |
-| Alterar telas do produto | Milestone é pipeline server-side |
-| Aprovação automática sem evidência visual | QA-18–20 exigem validação controlada |
-| Otimizar custo/velocidade antes de integridade | Factualidade é prioridade zero |
+| Fine-tuning do modelo de imagem | Alto custo e feedback loop ainda pequeno; primeiro validar learning loop no produto |
+| Memória global cross-client | Risco alto de vazamento e degradação de contexto |
+| Prompt mutation livre via vector hits | Difícil de auditar e degrada silenciosamente |
+| Misturar performance de mídia já no v1 | A decisão do usuário foi começar com aprovação/rejeição humanas |
+| Reabrir regras factuais de v12.3 | Esse milestone depende da fundação factual já estabilizada |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FIXT-01 | Phase 115 | Complete |
-| FIXT-02 | Phase 115 | Complete |
-| FIXT-03 | Phase 115 | Complete |
-| FIXT-04 | Phase 115 | Complete |
-| CONT-01 | Phase 116 | Complete |
-| CONT-02 | Phase 116 | Complete |
-| CONT-03 | Phase 116 | Complete |
-| CONT-04 | Phase 116 | Complete |
-| SEP-01 | Phase 117 | Complete |
-| SEP-02 | Phase 117 | Complete |
-| SEP-03 | Phase 117 | Complete |
-| SEP-04 | Phase 117 | Complete |
-| MODE-01 | Phase 118 | Complete |
-| MODE-02 | Phase 118 | Complete |
-| MODE-03 | Phase 118 | Complete |
-| MODE-04 | Phase 118 | Complete |
-| MODE-05 | Phase 118 | Complete |
-| RUBR-01 | Phase 119 | Complete |
-| RUBR-02 | Phase 119 | Complete |
-| RUBR-03 | Phase 119 | Complete |
-| RUBR-04 | Phase 119 | Complete |
-| GATE-01 | Phase 120 | Complete |
-| GATE-02 | Phase 120 | Complete |
-| GATE-03 | Phase 120 | Complete |
-| GATE-04 | Phase 120 | Complete |
-| GATE-05 | Phase 120 | Complete |
-| SCR-01 | Phase 121 | Complete |
-| SCR-02 | Phase 121 | Complete |
-| SCR-03 | Phase 121 | Complete |
-| SCR-04 | Phase 121 | Complete |
-| SCR-05 | Phase 121 | Complete |
-| TEST-01 | Phase 122 | Complete |
-| TEST-02 | Phase 122 | Complete |
-| TEST-03 | Phase 122 | Complete |
-| TEST-04 | Phase 122 | Complete |
-| QA-18 | Phase 123 | Complete |
-| QA-19 | Phase 123 | gaps_found |
-| QA-20 | Phase 123 | Complete |
-| QA-21 | Phase 123 | Complete |
+| SIGNAL-01 | Phase 124 | Pending |
+| SIGNAL-02 | Phase 124 | Pending |
+| SIGNAL-03 | Phase 124 | Pending |
+| SIGNAL-04 | Phase 124 | Pending |
+| LEARN-01 | Phase 125 | Pending |
+| LEARN-02 | Phase 125 | Pending |
+| LEARN-03 | Phase 125 | Pending |
+| LEARN-04 | Phase 125 | Pending |
+| LEARN-05 | Phase 125 | Pending |
+| APPLY-01 | Phase 126 | Pending |
+| APPLY-02 | Phase 126 | Pending |
+| APPLY-03 | Phase 126 | Pending |
+| APPLY-04 | Phase 126 | Pending |
+| SAFE-01 | Phase 127 | Pending |
+| SAFE-02 | Phase 127 | Pending |
+| SAFE-03 | Phase 127 | Pending |
+| SAFE-04 | Phase 127 | Pending |
+| EVAL-01 | Phase 128 | Pending |
+| EVAL-02 | Phase 128 | Pending |
+| EVAL-03 | Phase 128 | Pending |
+| EVAL-04 | Phase 128 | Pending |
 
 **Coverage:**
-- v12.3 requirements: 39 total
-- Mapped to phases: 39
+- v12.4 requirements: 21 total
+- Mapped to phases: 21
 - Unmapped: 0 ✓
 
 ---
-*Requirements defined: 2026-06-15*
-*Last updated: 2026-06-15 after milestone v12.3 initialization*
+*Requirements defined: 2026-06-16*
+*Last updated: 2026-06-16 after milestone v12.4 initialization*

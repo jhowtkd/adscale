@@ -2,6 +2,7 @@
 
 ## Milestones
 
+- **v12.4 Aprendizado de Qualidade dos Outputs** - Phases 124-128 (planned 2026-06-16)
 - ✅ **v12.3 Integridade Criativa** - Phases 115-123 (shipped 2026-06-16; QA-19 accepted gap)
 - ✅ **v12.2 Refinamento Visual e Consistência da Interface** - Phases 109-114 (shipped 2026-06-14)
 - ✅ **v12.1 Memória Criativa e Aprendizado de Performance** - Phases 103-108 (shipped 2026-06-12)
@@ -22,6 +23,118 @@
 - ✅ **v11.0 Fluxos de Derivação Coerentes** - Phases 40-43 (shipped 2026-06-01)
 
 ## Phases
+
+### v12.4 Aprendizado de Qualidade dos Outputs (Phases 124-128) — PLANNED 2026-06-16
+
+**Milestone Goal:** Aprender com decisões humanas reais sobre outputs e aplicar esses aprendizados antes da próxima geração, preservando a fundação factual de v12.3 e evitando degradação por memória solta.
+
+**Starting point:** v12.3 fechou com `meanQualityScore=70.17 < 75` e `factualFidelityRate=1.000`
+
+- [ ] **Phase 124: Output Signal Capture** — normalizar aprovação, rejeição, regeneração, save-reference e delivery selection como evidência canônica
+- [ ] **Phase 125: Canonical Output Learnings** — agregar evidências em learnings aprovados/supersedidos com confiança, contradição e projeção para Mem0
+- [ ] **Phase 126: Next-Generation Recommendation Application** — recuperar learnings relevantes e aplicá-los como recommendation/prefill antes da geração
+- [ ] **Phase 127: Safety, Boundaries, and Explainability** — garantir que learnings não sobreponham contratos factuais, nem virem prompt drift opaco
+- [ ] **Phase 128: Evaluation and Release Gate** — provar melhora de qualidade percebida sem regressão factual
+
+| # | Phase | Requirements | Status | Completed |
+|---|-------|--------------|--------|-----------|
+| 124 | Output Signal Capture | SIGNAL-01, SIGNAL-02, SIGNAL-03, SIGNAL-04 | Pending | — |
+| 125 | Canonical Output Learnings | LEARN-01, LEARN-02, LEARN-03, LEARN-04, LEARN-05 | Pending | — |
+| 126 | Next-Generation Recommendation Application | APPLY-01, APPLY-02, APPLY-03, APPLY-04 | Pending | — |
+| 127 | Safety, Boundaries, and Explainability | SAFE-01, SAFE-02, SAFE-03, SAFE-04 | Pending | — |
+| 128 | Evaluation and Release Gate | EVAL-01, EVAL-02, EVAL-03, EVAL-04 | Pending | — |
+
+## Phase Details
+
+### Phase 124: Output Signal Capture
+
+**Goal:** As decisões humanas sobre outputs viram evidência estruturada e reaproveitável em vez de ficarem dispersas em texto livre ou memória episódica.
+
+**Depends on:** Phase 123 (v12.3 shipped baseline)
+
+**Requirements:** SIGNAL-01, SIGNAL-02, SIGNAL-03, SIGNAL-04
+
+**Success Criteria** (what must be TRUE):
+  1. Approve, reject, regenerate, save-reference, and delivery-selection events are normalized into a canonical output-learning evidence model.
+  2. Each evidence record stores workspace, client profile, campaign, generation mode, target format, and derivation identity.
+  3. The system distinguishes strong explicit signals from weak implicit usage signals.
+  4. Structured rejection/regeneration reasons can be aggregated without depending only on freeform notes.
+
+**Plans:** 0/0 plans complete
+
+---
+
+### Phase 125: Canonical Output Learnings
+
+**Goal:** O sistema consolida sinais de output em learnings canônicos duráveis, com degradação controlada por confiança, contradição e supersession.
+
+**Depends on:** Phase 124
+
+**Requirements:** LEARN-01, LEARN-02, LEARN-03, LEARN-04, LEARN-05
+
+**Success Criteria** (what must be TRUE):
+  1. Output learnings exist as canonical records with stable IDs, variable mappings, evidence packets, confidence, freshness, and algorithm version.
+  2. Contradicting evidence can weaken or supersede old learnings instead of silently accumulating.
+  3. Learnings remain scoped to compatible workspace/client/context boundaries.
+  4. Only approved learnings are projected to Mem0; retrieval remains a projection layer, not the source of truth.
+
+**Plans:** 0/0 plans complete
+
+---
+
+### Phase 126: Next-Generation Recommendation Application
+
+**Goal:** A próxima geração recebe orientação concreta baseada em learnings aprovados antes do prompt final e antes do gasto de novos créditos.
+
+**Depends on:** Phase 125
+
+**Requirements:** APPLY-01, APPLY-02, APPLY-03, APPLY-04
+
+**Success Criteria** (what must be TRUE):
+  1. Campaign generation can request a recommendation/prefill packet derived from output learnings.
+  2. Learnings map only into bounded product variables such as CTA, mode, format, recipe, or style policy.
+  3. Recommendation payload explains evidence, confidence, and contradictions when applicable.
+  4. When evidence is insufficient, the API returns an honest no-recommendation state.
+
+**Plans:** 0/0 plans complete
+
+---
+
+### Phase 127: Safety, Boundaries, and Explainability
+
+**Goal:** Output learnings melhoram a geração sem criar um sistema opaco, frágil ou em conflito com a integridade factual.
+
+**Depends on:** Phase 126
+
+**Requirements:** SAFE-01, SAFE-02, SAFE-03, SAFE-04
+
+**Success Criteria** (what must be TRUE):
+  1. Learned preferences cannot override v12.3 factual-preservation and quality-gate guarantees.
+  2. Retrieval relevance alone never authorizes generation changes.
+  3. Applied learnings are inspectable through API payloads, logs, or structured traces.
+  4. Negative patterns ("avoid this") are supported without auto-approval behavior.
+
+**Plans:** 0/0 plans complete
+
+---
+
+### Phase 128: Evaluation and Release Gate
+
+**Goal:** O milestone fecha somente se o learning loop provar ganho de qualidade percebida sem reintroduzir regressão factual.
+
+**Depends on:** Phase 127
+
+**Requirements:** EVAL-01, EVAL-02, EVAL-03, EVAL-04
+
+**Success Criteria** (what must be TRUE):
+  1. A fixed evaluation set measures whether output-learned recommendations reduce rejection/regeneration and improve judged output quality.
+  2. Quality improvement metrics remain separate from factual fidelity metrics.
+  3. No applied learning causes a regression in v12.3 factual hard-failure protections.
+  4. Test, lint, build, and milestone-specific evaluation gate pass with reproducible evidence.
+
+**Plans:** 0/0 plans complete
+
+---
 
 ### ✅ v12.3 Integridade Criativa (Phases 115-123) — SHIPPED 2026-06-16
 
@@ -949,6 +1062,11 @@ Archive: [v11.6-ROADMAP.md](milestones/v11.6-ROADMAP.md) · [v11.6-REQUIREMENTS.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 | ----- | --------- | -------------- | ------ | --------- |
+| 124 | v12.4 | 0/0 | Pending | - |
+| 125 | v12.4 | 0/0 | Pending | - |
+| 126 | v12.4 | 0/0 | Pending | - |
+| 127 | v12.4 | 0/0 | Pending | - |
+| 128 | v12.4 | 0/0 | Pending | - |
 | 115 | v12.3 | 3/3 | Complete | 2026-06-15 |
 | 116 | v12.3 | 3/3 | Complete | 2026-06-15 |
 | 117 | v12.3 | 4/4 | Complete | 2026-06-15 |

@@ -1,12 +1,12 @@
 ---
 gsd_state_version: 1.0
-milestone: v12.3
-milestone_name: Integridade Criativa
-status: completed_with_known_gap
-last_updated: "2026-06-16T18:01:49.883Z"
+milestone: v12.4
+milestone_name: Aprendizado de Qualidade dos Outputs
+status: defining_requirements
+last_updated: "2026-06-16T19:00:00.000Z"
 last_activity: 2026-06-16
 progress:
-  total_phases: 35
+  total_phases: 40
   completed_phases: 13
   total_plans: 49
   completed_plans: 62
@@ -16,22 +16,22 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-06-15)
+See: .planning/PROJECT.md (updated 2026-06-16)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** Planning next milestone after v12.3 Integridade Criativa.
+**Current focus:** Defining v12.4 requirements and roadmap.
 
-**Status:** v12.3 milestone closed with accepted QA-19 visual-quality gap
+**Status:** v12.4 milestone started
 
 ## Current Position
 
-Phase: 123 — Visual Validation Gate
-Plan: 04 complete (4/4 plans)
-Status: completed_with_known_gap — QA-19 accepted for milestone closure
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
 Last activity: 2026-06-16
 
-Progress: Phase 123 plan 4/4 complete — release gate wired; factual fidelity passed; mean visual quality below QA-19 threshold accepted as known gap
+Progress: Milestone opened from accepted v12.3 quality gap; research, requirements, and roadmap drafted for next execution cycle
 
 ## Accumulated Context
 
@@ -47,6 +47,13 @@ Progress: Phase 123 plan 4/4 complete — release gate wired; factual fidelity p
 - Causa raiz: preservação literal de todos os módulos; regras de hierarquia/anti-alucinação declaradas mas não injetadas no prompt; gate trata genérico como polish
 - Testes atuais (152/152) passam sem detectar falhas observadas
 
+### For v12.4 start (2026-06-16)
+
+- Learnings must not live only in vector memory; Postgres remains the canonical layer
+- First-class signal for this milestone is human output decision data: approval, rejection, regeneration, save-reference, delivery choice
+- First application point is before the next generation, via bounded recommendation/prefill
+- Performance-media blending is deferred; this cycle starts with human quality signals only
+
 ### v12.3 delivery order
 
 1. Fixtures + baseline red (115)
@@ -61,7 +68,7 @@ Progress: Phase 123 plan 4/4 complete — release gate wired; factual fidelity p
 
 ## Session Continuity
 
-Last activity: 2026-06-15 — Completed 121-03 (failure-specific correction directives; SCR-05)
+Last activity: 2026-06-16 — Started v12.4 from accepted v12.3 quality gap
 
 ## Decisions
 
@@ -106,4 +113,4 @@ Last activity: 2026-06-15 — Completed 121-03 (failure-specific correction dire
 
 ## Next Steps
 
-Start the next milestone with fresh requirements. If visual quality becomes the next focus, begin from the accepted QA-19 gap: committed evidence `meanQualityScore=70.17 <75`, `factualFidelityRate=1.000`.
+Proceed to Phase 124 planning. The next cycle should turn human output decisions into canonical learnings, then apply them before generation without regressing v12.3 factual guarantees.
