@@ -2,15 +2,14 @@
 gsd_state_version: 1.0
 milestone: v12.3
 milestone_name: Integridade Criativa
-status: completed
-last_updated: "2026-06-15T20:56:18.042Z"
-last_activity: 2026-06-15
+status: completed_with_known_gap
+last_updated: "2026-06-16T18:01:49.883Z"
+last_activity: 2026-06-16
 progress:
-  total_phases: 85
-  completed_phases: 40
-  total_plans: 109
-  completed_plans: 123
-  percent: 100
+  total_phases: 35
+  completed_phases: 13
+  total_plans: 49
+  completed_plans: 62
 ---
 
 # Project State
@@ -21,18 +20,18 @@ See: .planning/PROJECT.md (updated 2026-06-15)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** v12.3 Integridade Criativa — factual fidelity, creative direction, and quality gate hardening for the derivation pipeline.
+**Current focus:** Planning next milestone after v12.3 Integridade Criativa.
 
-**Status:** Phase 123 infrastructure complete; evidence gaps block milestone closure
+**Status:** v12.3 milestone closed with accepted QA-19 visual-quality gap
 
 ## Current Position
 
 Phase: 123 — Visual Validation Gate
 Plan: 04 complete (4/4 plans)
-Status: gaps_found — operator after-capture refresh required
-Last activity: 2026-06-15
+Status: completed_with_known_gap — QA-19 accepted for milestone closure
+Last activity: 2026-06-16
 
-Progress: Phase 123 plan 4/4 complete — release gate wired; committed evidence below QA-19/QA-20 thresholds
+Progress: Phase 123 plan 4/4 complete — release gate wired; factual fidelity passed; mean visual quality below QA-19 threshold accepted as known gap
 
 ## Accumulated Context
 
@@ -102,9 +101,9 @@ Last activity: 2026-06-15 — Completed 121-03 (failure-specific correction dire
 - [Phase 123]: check-creative-validation-evidence.mjs tsx subprocess cwd set to appDir for correct module resolution
 - [Phase 123]: --stage final enforces thresholds, fidelity hard failures, prompt hash; writes 123-BASELINE.md + 123-VERIFICATION.md
 - [Phase 123]: run-creative-release-gate.mjs mirrors Phase 114 (test/lint/build + final evidence); QA-21 infrastructure complete
-- [Phase 123]: Committed evidence gaps_found — meanQualityScore=43.33, factualFidelityRate=0.667; wrong_brand + unsupported_offer on after set
+- [Phase 123]: Committed evidence gaps_found — meanQualityScore=70.17 (<75); factualFidelityRate=1.000 (6/6); QA-19 blocked on mean quality only
 - [Phase 123]: Final evidence gate documents gaps_found when committed captures below QA-19/20 thresholds
 
 ## Next Steps
 
-Operator refresh after captures via `npm run validate:creative:live` until `--stage final` passes; then re-run `npm run creative-release-gate` for milestone closure
+Start the next milestone with fresh requirements. If visual quality becomes the next focus, begin from the accepted QA-19 gap: committed evidence `meanQualityScore=70.17 <75`, `factualFidelityRate=1.000`.

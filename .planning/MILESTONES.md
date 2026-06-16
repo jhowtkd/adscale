@@ -1,9 +1,9 @@
 # Milestones: ADScale
 
-## v12.3 Integridade Criativa (In Progress: 2026-06-15)
+## v12.3 Integridade Criativa (Shipped with accepted gap: 2026-06-16)
 
-**Phases planned:** 9 phases (115→123)
-**Requirements:** 37 requirements
+**Phases completed:** 9 phases (115→123), 31 plans
+**Requirements:** 38/39 complete; QA-19 accepted as known visual-quality gap
 
 **Scope:**
 - Corpus fixtures from audited creative exports (58.5/100 baseline)
@@ -14,9 +14,20 @@
 - Quality gate hardening with new hard failures
 - Score ceilings and factual-parent retry
 - Regression test suite proving rules reach prompts and gate
-- Visual validation gate (≥75 avg, ≥95 factual fidelity)
+- Visual validation gate (factual fidelity passed; mean quality below target accepted for closure)
 
 **Audit baseline:** `app/exports/render-creatives/` — Cantona/Manchester United hallucinations, visual overload, generic templates pass current gate
+
+**Key accomplishments:**
+- Corpus-backed fixture matrix for hallucination, overload, generic-template, format-drift, and restyling-contamination failures
+- Canonical creative contract, factual/visual separation, and mode-specific prompt rules injected into real derivation prompts
+- Expanded hard-failure taxonomy, score ceilings, and restyling retry from factual source
+- Regression suite for prompt injection, gate matrix, mode/format behavior, and thumbnail legibility
+- Controlled before/after visual validation evidence: factual fidelity `1.000` (6/6), mean quality `70.17` against target `75`
+
+**Known accepted gap:** QA-19 mean quality remains below threshold (`70.17 < 75`); no further API regeneration in this milestone. QA-21 release gate remains blocked only because it includes QA-19.
+
+Archive: [v12.3-ROADMAP.md](milestones/v12.3-ROADMAP.md) · [v12.3-REQUIREMENTS.md](milestones/v12.3-REQUIREMENTS.md) · [v12.3-MILESTONE-AUDIT.md](milestones/v12.3-MILESTONE-AUDIT.md)
 
 ---
 

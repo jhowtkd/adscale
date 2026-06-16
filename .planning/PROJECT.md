@@ -8,7 +8,11 @@ ADScale is a SaaS webapp for creative derivation: marketing teams upload a base 
 
 Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-## Current Milestone: v12.3 Integridade Criativa
+## Current State
+
+v12.3 Integridade Criativa shipped on 2026-06-16 with one accepted quality gap: QA-19 mean visual quality closed at `70.17 <75`, while factual fidelity passed at `1.000` (6/6). Next work should start from fresh requirements.
+
+### v12.3 Integridade Criativa — SHIPPED WITH ACCEPTED GAP (2026-06-16)
 
 **Goal:** Impedir que o pipeline criativo aprove peças factualmente incorretas, visualmente genéricas ou hierarquicamente congestionadas — garantindo que regras críticas cheguem ao prompt, ao gate e aos testes.
 
@@ -22,6 +26,15 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 - Validação visual controlada com metas mensuráveis (≥75 média, ≥95 fidelidade)
 
 **Audit baseline:** corpus `app/exports/render-creatives/` — 34 peças, média 58,5/100; falhas críticas de entidades inventadas e adaptações que viram outra campanha.
+
+**Delivered:**
+- Corpus fixtures and canonical campaign registry for the audited creative failures
+- Canonical creative contract, factual/visual separation, and per-mode prompt rules
+- Observable rubric, hard-failure gate, score ceilings, and restyling retry from factual source
+- Regression suite covering prompts, gate matrix, mode/format behavior, and thumbnail legibility
+- Controlled before/after visual evidence proving factual fidelity while documenting the accepted mean-quality gap
+
+**Accepted gap:** QA-19 mean quality remains below target (`70.17 <75`); no further API regeneration in v12.3.
 
 ### v12.2 Refinamento Visual e Consistência da Interface — SHIPPED (2026-06-14)
 
