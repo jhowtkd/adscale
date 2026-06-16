@@ -44,7 +44,7 @@ function ListThumbnail({
         width={64}
         height={64}
         className="size-full object-cover"
-        loading="lazy"
+        loading="eager"
         decoding="async"
         onError={() => setImageError(true)}
         unoptimized

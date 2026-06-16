@@ -122,7 +122,7 @@ const VisualCampaignCard = memo(function VisualCampaignCard({
               <Image
                 src={thumbnailUrl}
                 alt={t("thumbnailAlt", { name })}
-                loading="lazy"
+                loading="eager"
                 decoding="async"
                 className={cn(
                   "size-full object-cover transition-transform duration-500 group-hover:scale-105",
