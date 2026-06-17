@@ -1,0 +1,172 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { FeedbackValidationError } from "@/server/feedback/validate-refs";
+
+vi.mock("@/server/repositories/derivation", () => ({
+  getDerivationById: vi.fn(),
+}));
+
+vi.mock("@/server/repositories/campaign", () => ({
+  getCampaignById: vi.fn(),
+}));
+
+vi.mock("@/server/repositories/human-quality-corpus", () => ({
+  insertCorpusItem: vi.fn(),
+  findCorpusItemByDerivationVersion: vi.fn(),
+}));
+
+import { getDerivationById } from "@/server/repositories/derivation";
+import { getCampaignById } from "@/server/repositories/campaign";
+import {
+  findCorpusItemByDerivationVersion,
+  insertCorpusItem,
+} from "@/server/repositories/human-quality-corpus";
+import {
+  batchSelectDerivationsForCorpus,
+} from "@/server/human-quality/service";
+
+const WORKSPACE_ID = "550e8400-e29b-41d4-a716-446655440002";
+const CAMPAIGN_ID = "550e8400-e29b-41d4-a716-446655440003";
+const DERIVATION_A = "550e8400-e29b-41d4-a716-446655440004";
+const DERIVATION_B = "550e8400-e29b-41d4-a716-446655440005";
+const DERIVATION_C = "550e8400-e29b-41d4-a716-446655440006";
+const CLIENT_PROFILE_ID = "550e8400-e29b-41d4-a716-446655440010";
+
+const mockGetDerivation = vi.mocked(getDerivationById);
+const mockGetCampaign = vi.mocked(getCampaignById);
+const mockFindExisting = vi.mocked(findCorpusItemByDerivationVersion);
+const mockInsert = vi.mocked(insertCorpusItem);
+
+const derivation = {
+  id: DERIVATION_A,
+  campaignId: CAMPAIGN_ID,
+  workspaceId: WORKSPACE_ID,
+  generationMode: "art_variation",
+  format: "1:1",
+  variantIndex: 0,
+  ctaText: "Shop now",
+  status: "completed",
+  qualityScore: 72,
+  qualityVerdict: "pass",
+  scoreStatus: "analyzed",
+  hardFailures: [],
+  scoreIssues: [],
+  polishSuggestions: [],
+  styleAssetId: "style-1",
+};
+
+const campaign = {
+  id: CAMPAIGN_ID,
+  clientProfileId: CLIENT_PROFILE_ID,
+};
+
+describe("live corpus operations", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe("batchSelectDerivationsForCorpus", () => {
+    it("returns per-item outcomes for mixed-validity derivations", async () => {
+      mockGetDerivation.mockImplementation(async (id) => {
+        if (id === DERIVATION_A) return derivation as never;
+        if (id === DERIVATION_B) return { ...derivation, id: DERIVATION_B } as never;
+        return null;
+      });
+      mockGetCampaign.mockResolvedValue(campaign as never);
+      mockFindExisting.mockImplementation(async (_ws, id) =>
+        id === DERIVATION_B ? ({ id: "existing" } as never) : null
+      );
+      mockInsert.mockResolvedValue({
+        id: "item-a",
+        status: "pending",
+        derivationId: DERIVATION_A,
+      } as never);
+
+      const result = await batchSelectDerivationsForCorpus({
+        workspaceId: WORKSPACE_ID,
+        campaignId: CAMPAIGN_ID,
+        selectedByUserId: "owner-1",
+        derivationIds: [DERIVATION_A, DERIVATION_B, DERIVATION_C],
+        cohort: "baseline",
+      });
+
+      expect(result.summary).toEqual({
+        total: 3,
+        selected: 1,
+        duplicate: 1,
+        invalid: 1,
+        missingProfile: 0,
+        unsafePayload: 0,
+      });
+      expect(result.results).toEqual([
+        expect.objectContaining({ derivationId: DERIVATION_A, outcome: "selected" }),
+        expect.objectContaining({ derivationId: DERIVATION_B, outcome: "duplicate" }),
+        expect.objectContaining({ derivationId: DERIVATION_C, outcome: "invalid" }),
+      ]);
+    });
+
+    it("reports missing client profile without failing the batch", async () => {
+      mockGetDerivation.mockResolvedValue(derivation as never);
+      mockGetCampaign.mockResolvedValue({ id: CAMPAIGN_ID, clientProfileId: null } as never);
+
+      const result = await batchSelectDerivationsForCorpus({
+        workspaceId: WORKSPACE_ID,
+        campaignId: CAMPAIGN_ID,
+        selectedByUserId: "owner-1",
+        derivationIds: [DERIVATION_A],
+      });
+
+      expect(result.results[0]).toMatchObject({
+        derivationId: DERIVATION_A,
+        outcome: "missing_profile",
+        errorCode: "missing_client_profile",
+      });
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
+    it("reports unsafe payload without failing the batch", async () => {
+      mockGetDerivation.mockResolvedValue(derivation as never);
+      mockGetCampaign.mockResolvedValue(campaign as never);
+
+      const result = await batchSelectDerivationsForCorpus({
+        workspaceId: WORKSPACE_ID,
+        campaignId: CAMPAIGN_ID,
+        selectedByUserId: "owner-1",
+        derivationIds: [DERIVATION_A],
+        qualitySnapshot: { prompt: "secret" },
+      });
+
+      expect(result.results[0]).toMatchObject({
+        derivationId: DERIVATION_A,
+        outcome: "unsafe_payload",
+        errorCode: "forbidden_corpus_payload",
+      });
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
+    it("rejects batches above the conservative size cap", async () => {
+      const derivationIds = Array.from({ length: 26 }, (_, index) =>
+        `550e8400-e29b-41d4-a716-44665544${String(index).padStart(4, "0")}`
+      );
+
+      await expect(
+        batchSelectDerivationsForCorpus({
+          workspaceId: WORKSPACE_ID,
+          campaignId: CAMPAIGN_ID,
+          selectedByUserId: "owner-1",
+          derivationIds,
+        })
+      ).rejects.toMatchObject({ code: "batch_size_exceeded" });
+    });
+
+    it("rejects empty derivation id lists", async () => {
+      await expect(
+        batchSelectDerivationsForCorpus({
+          workspaceId: WORKSPACE_ID,
+          campaignId: CAMPAIGN_ID,
+          selectedByUserId: "owner-1",
+          derivationIds: [],
+        })
+      ).rejects.toMatchObject({ code: "validation_error" });
+    });
+  });
+});

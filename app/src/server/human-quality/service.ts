@@ -54,6 +54,48 @@ export interface ListPendingCorpusQueueInput {
   limit?: number;
 }
 
+export const MAX_CORPUS_BATCH_SIZE = 25;
+
+export type BatchSelectCorpusOutcome =
+  | "selected"
+  | "duplicate"
+  | "invalid"
+  | "missing_profile"
+  | "unsafe_payload";
+
+export interface BatchSelectCorpusItemResult {
+  derivationId: string;
+  outcome: BatchSelectCorpusOutcome;
+  item?: HumanQualityCorpusItem;
+  errorCode?: string;
+  message?: string;
+}
+
+export interface BatchSelectCorpusInput {
+  workspaceId: string;
+  campaignId: string;
+  selectedByUserId: string;
+  derivationIds: string[];
+  cohort?: string | null;
+  corpusVersion?: number;
+  artifactRef?: Record<string, unknown>;
+  qualitySnapshot?: Record<string, unknown>;
+}
+
+export interface BatchSelectCorpusSummary {
+  total: number;
+  selected: number;
+  duplicate: number;
+  invalid: number;
+  missingProfile: number;
+  unsafePayload: number;
+}
+
+export interface BatchSelectCorpusResult {
+  results: BatchSelectCorpusItemResult[];
+  summary: BatchSelectCorpusSummary;
+}
+
 export interface SubmitHumanEvaluationInput {
   workspaceId: string;
   corpusItemId: string;
@@ -210,6 +252,92 @@ export async function selectDerivationForCorpus(
   };
 
   return insertCorpusItem(insertInput);
+}
+
+function mapSelectErrorToBatchOutcome(
+  error: unknown
+): Pick<BatchSelectCorpusItemResult, "outcome" | "errorCode" | "message"> {
+  if (error instanceof HumanQualityServiceError) {
+    if (error.code === "duplicate_corpus_item") {
+      return { outcome: "duplicate", errorCode: error.code, message: error.message };
+    }
+    if (error.code === "missing_client_profile") {
+      return { outcome: "missing_profile", errorCode: error.code, message: error.message };
+    }
+    if (error.code === "forbidden_corpus_payload") {
+      return { outcome: "unsafe_payload", errorCode: error.code, message: error.message };
+    }
+  }
+
+  if (error instanceof FeedbackValidationError) {
+    return { outcome: "invalid", errorCode: error.code, message: error.message };
+  }
+
+  throw error;
+}
+
+export async function batchSelectDerivationsForCorpus(
+  input: BatchSelectCorpusInput
+): Promise<BatchSelectCorpusResult> {
+  if (input.derivationIds.length === 0) {
+    throw new HumanQualityServiceError(
+      "derivationIds must contain at least one id",
+      "validation_error"
+    );
+  }
+
+  if (input.derivationIds.length > MAX_CORPUS_BATCH_SIZE) {
+    throw new HumanQualityServiceError(
+      `derivationIds exceeds batch size cap of ${MAX_CORPUS_BATCH_SIZE}`,
+      "batch_size_exceeded"
+    );
+  }
+
+  const results: BatchSelectCorpusItemResult[] = [];
+  const summary: BatchSelectCorpusSummary = {
+    total: input.derivationIds.length,
+    selected: 0,
+    duplicate: 0,
+    invalid: 0,
+    missingProfile: 0,
+    unsafePayload: 0,
+  };
+
+  for (const derivationId of input.derivationIds) {
+    try {
+      const item = await selectDerivationForCorpus({
+        workspaceId: input.workspaceId,
+        campaignId: input.campaignId,
+        derivationId,
+        selectedByUserId: input.selectedByUserId,
+        cohort: input.cohort,
+        corpusVersion: input.corpusVersion,
+        artifactRef: input.artifactRef,
+        qualitySnapshot: input.qualitySnapshot,
+      });
+      results.push({ derivationId, outcome: "selected", item });
+      summary.selected += 1;
+    } catch (error) {
+      const mapped = mapSelectErrorToBatchOutcome(error);
+      results.push({ derivationId, ...mapped });
+      switch (mapped.outcome) {
+        case "duplicate":
+          summary.duplicate += 1;
+          break;
+        case "invalid":
+          summary.invalid += 1;
+          break;
+        case "missing_profile":
+          summary.missingProfile += 1;
+          break;
+        case "unsafe_payload":
+          summary.unsafePayload += 1;
+          break;
+      }
+    }
+  }
+
+  return { results, summary };
 }
 
 export async function listPendingCorpusQueue(
