@@ -35,7 +35,7 @@
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
-| 129 | Live Human Quality Corpus | HUMAN-01, HUMAN-02, HUMAN-03, HUMAN-04 | Planned | — |
+| 129 | Live Human Quality Corpus | 1/3 | In Progress|  |
 | 130 | Score Calibration and Rubric Alignment | CALIB-01, CALIB-02, CALIB-03, CALIB-04 | Planned | — |
 | 131 | Learning Impact Measurement | IMPACT-01, IMPACT-02, IMPACT-03, IMPACT-04 | Planned | — |
 | 132 | Targeted Creative Quality Improvements | QUALITY-01, QUALITY-02, QUALITY-03, QUALITY-04 | Planned | — |
@@ -57,7 +57,7 @@
   3. Reviewer can record visual score, factual pass/fail, approve/reject/regenerate intent and primary visible failure reason.
   4. Corpus items distinguish baseline, pre-learning and post-learning samples for later movement analysis.
 
-**Plans:** TBD
+**Plans:** 1/3 plans executed
 
 ---
 

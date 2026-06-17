@@ -18,10 +18,10 @@ Transformar o learning loop de v12.4 em evidencia real de qualidade percebida. A
 
 ### Human Quality Corpus (HUMAN)
 
-- [ ] **HUMAN-01**: Operator can select real generated outputs into a versioned quality evaluation corpus with workspace, campaign, derivation, mode and format scope.
-- [ ] **HUMAN-02**: Each corpus item stores bounded artifact references and evaluation metadata without raw prompts, signed URLs, auth material or unbounded model payloads.
+- [x] **HUMAN-01**: Operator can select real generated outputs into a versioned quality evaluation corpus with workspace, campaign, derivation, mode and format scope.
+- [x] **HUMAN-02**: Each corpus item stores bounded artifact references and evaluation metadata without raw prompts, signed URLs, auth material or unbounded model payloads.
 - [ ] **HUMAN-03**: Reviewer can record structured human judgment: visual score, factual pass/fail, approve/reject/regenerate intent, and primary visible failure reason.
-- [ ] **HUMAN-04**: Corpus can distinguish baseline, pre-learning and post-learning samples so quality movement is measurable over time.
+- [x] **HUMAN-04**: Corpus can distinguish baseline, pre-learning and post-learning samples so quality movement is measurable over time.
 
 ### Score Calibration (CALIB)
 
@@ -76,10 +76,10 @@ Transformar o learning loop de v12.4 em evidencia real de qualidade percebida. A
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| HUMAN-01 | Phase 129 | Pending |
-| HUMAN-02 | Phase 129 | Pending |
+| HUMAN-01 | Phase 129 | Complete |
+| HUMAN-02 | Phase 129 | Complete |
 | HUMAN-03 | Phase 129 | Pending |
-| HUMAN-04 | Phase 129 | Pending |
+| HUMAN-04 | Phase 129 | Complete |
 | CALIB-01 | Phase 130 | Pending |
 | CALIB-02 | Phase 130 | Pending |
 | CALIB-03 | Phase 130 | Pending |

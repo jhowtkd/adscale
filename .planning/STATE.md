@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v12.5
 milestone_name: Validacao Real de Qualidade e Calibracao do Loop Criativo
-status: plan_ready
-last_updated: "2026-06-17T08:30:00.000Z"
-last_activity: 2026-06-17
+status: executing
+last_updated: "2026-06-17T09:59:49.812Z"
+last_activity: 2026-06-17 — Completed 129-01 corpus contract and repository
 progress:
   total_phases: 5
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_plans: 3
+  completed_plans: 1
+  percent: 33
 ---
 
 # Project State
@@ -23,14 +23,14 @@ See: .planning/PROJECT.md (updated 2026-06-17)
 
 **Current focus:** v12.5 — Validacao Real de Qualidade e Calibracao do Loop Criativo.
 
-**Status:** Phase 129 plan ready.
+**Status:** Phase 129 in progress — plan 129-01 complete.
 
 ## Current Position
 
 Phase: 129 — Live Human Quality Corpus
-Plan: 129-01, 129-02, 129-03
-Status: Planned
-Last activity: 2026-06-17 — Phase 129 context and implementation plan captured
+Plan: 129-02 (next), 129-03
+Status: In Progress (1/3 plans complete)
+Last activity: 2026-06-17 — Completed 129-01 corpus contract, schema, repository, privacy gate
 
 Progress: 0/5 phases complete; 19/19 requirements mapped to roadmap.
 
@@ -43,7 +43,9 @@ Progress: 0/5 phases complete; 19/19 requirements mapped to roadmap.
 - Measure whether v12.4 output-learning recommendation/prefill improves comparable real samples.
 - Attack proven visual-quality failures: overload, weak hierarchy, generic template feel, illegible CTA and unfocused composition.
 
-### Phase 129 (plan ready)
+### Phase 129 (in progress — 1/3 plans)
+
+- Summary: `.planning/phases/129-live-human-quality-corpus/129-01-SUMMARY.md`
 
 - Context file: `.planning/phases/129-live-human-quality-corpus/129-CONTEXT.md`
 - Research file: `.planning/phases/129-live-human-quality-corpus/129-RESEARCH.md`
@@ -76,7 +78,9 @@ Progress: 0/5 phases complete; 19/19 requirements mapped to roadmap.
 - [v12.5]: Treat fixture-based v12.4 evidence as necessary but not sufficient for quality claims.
 - [v12.5]: Keep factual metrics separate from visual quality and learning-impact metrics.
 - [v12.5]: Start with Phase 129 Live Human Quality Corpus.
+- [Phase 129]: Reject forbidden corpus payload keys at repository boundary before persistence
+- [Phase 129]: Default invalid cohort to baseline for conservative versioned comparisons
 
 ## Next Steps
 
-Run `$gsd-execute-phase 129` to implement the Live Human Quality Corpus plans.
+Continue Phase 129 with plan 129-02 (internal corpus API and queue service).
