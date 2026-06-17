@@ -22,9 +22,12 @@ import {
 } from "@/server/ai/creative-quality-gate";
 import {
   computeCreativeValidationAggregate,
+  capturePassesFactualFidelity,
   FIDELITY_HARD_FAILURE_CODES,
   type CreativeValidationAfterCapture,
 } from "@/server/ai/creative-validation-aggregation";
+import { shouldAutoRetryDerivation } from "@/server/ai/derivation-auto-retry-policy";
+import { buildHardFailureRegenerationSuggestion } from "@/server/ai/creative-score";
 import { buildDerivationPrompt } from "@/server/ai/prompt-builder";
 import {
   artVariationContractFixture,
@@ -60,14 +63,15 @@ const EVIDENCE_PATH = path.join(
   ".planning/phases/123-visual-validation-gate/123-EVIDENCE.json"
 );
 
-const IMAGE_GENERATION_TIMEOUT_MS = 5 * 60 * 1000;
+const IMAGE_GENERATION_TIMEOUT_MS = 10 * 60 * 1000;
 const LOCALE = "pt-BR";
 
 // CLI usage:
 //   --dry-run              Resolve before captures only (no scoring or evidence write beyond dry-run exit)
-//   --skip-regen           Score existing validation-after PNGs (no OpenAI image call)
+//   --from-png <path>      Score a specific validation-after PNG (no OpenAI image call)
 //   --matrix-key <key>     Process a single matrix cell (default: full matrix)
-//   --merge                Merge refreshed captures into existing 123-EVIDENCE.json (requires prior full run)
+//   --keep-if-better       With --merge, keep existing capture when incoming is not better
+//   --attempts <n>         Live regen attempts per matrix cell (default 1); each attempt may auto-retry once
 
 interface ManifestEntry {
   fileName: string;
@@ -89,7 +93,10 @@ interface CliOptions {
   dryRun: boolean;
   skipRegen: boolean;
   merge: boolean;
+  keepIfBetter: boolean;
+  attempts: number;
   matrixKey?: string;
+  fromPng?: string;
 }
 
 interface ExistingEvidence {
@@ -105,11 +112,18 @@ interface ExistingEvidence {
 
 function parseArgs(argv: string[]): CliOptions {
   const matrixKeyIndex = argv.indexOf("--matrix-key");
+  const fromPngIndex = argv.indexOf("--from-png");
+  const attemptsIndex = argv.indexOf("--attempts");
+  const attemptsRaw = attemptsIndex >= 0 ? argv[attemptsIndex + 1] : "1";
+  const attempts = Math.max(1, Number.parseInt(attemptsRaw, 10) || 1);
   return {
     dryRun: argv.includes("--dry-run"),
     skipRegen: argv.includes("--skip-regen"),
     merge: argv.includes("--merge"),
+    keepIfBetter: argv.includes("--keep-if-better"),
+    attempts,
     matrixKey: matrixKeyIndex >= 0 ? argv[matrixKeyIndex + 1] : undefined,
+    fromPng: fromPngIndex >= 0 ? argv[fromPngIndex + 1] : undefined,
   };
 }
 
@@ -286,12 +300,18 @@ async function downloadImageResult(first: OpenAI.Images.Image): Promise<Buffer> 
 async function regenerateAfter(
   row: CreativeValidationMatrixRow,
   contract: CreativeContract,
-  openai: OpenAI
+  openai: OpenAI,
+  feedback?: string | null
 ): Promise<Buffer> {
-  const prompt = buildDerivationPrompt({
+  const basePrompt = buildDerivationPrompt({
     ...derivationConfigFromContract(contract, { creativeLevel: row.creativeLevel }),
     locale: LOCALE,
+    feedback: feedback ?? null,
   });
+  const prompt =
+    feedback && feedback.trim().length > 0
+      ? `${basePrompt}\n\nAUTO-RETRY CORRECTION:\nThe previous output failed QA. Fix these issues exactly:\n${feedback}`
+      : basePrompt;
 
   const openaiSize = toOpenAISdkImageSize(
     formatToOpenAIImageSize(row.format, {
@@ -413,8 +433,47 @@ async function scoreAfterCapture(
   };
 }
 
+async function captureLiveWithAutoRetry(
+  row: CreativeValidationMatrixRow,
+  contract: CreativeContract,
+  openai: OpenAI
+): Promise<CreativeValidationAfterCapture> {
+  let buffer = await regenerateAfter(row, contract, openai);
+  let capture = await scoreAfterCapture(buffer, row, contract);
+
+  const shouldRetry =
+    capture.hardFailures.length > 0 &&
+    (shouldAutoRetryDerivation(row.mode, capture.hardFailures, false) ||
+      capture.qualityScore < 75);
+
+  if (shouldRetry) {
+    const correctionFeedback = buildHardFailureRegenerationSuggestion({
+      hardFailures: capture.hardFailures,
+      contract,
+      qaChecklist: capture.qa.checklist,
+    });
+    console.log(
+      `auto-retry ${row.key} failures=${capture.hardFailures.map((failure) => failure.code).join(",")}`
+    );
+    buffer = await regenerateAfter(row, contract, openai, correctionFeedback);
+    const retryCapture = await scoreAfterCapture(buffer, row, contract);
+    if (isCaptureBetter(retryCapture, capture)) {
+      console.log(
+        `auto-retry ${row.key} improved score ${capture.qualityScore} -> ${retryCapture.qualityScore}`
+      );
+      capture = retryCapture;
+    } else {
+      console.log(
+        `auto-retry ${row.key} kept score=${capture.qualityScore} over ${retryCapture.qualityScore}`
+      );
+    }
+  }
+
+  return capture;
+}
+
 function assertOpenAiKey(options: CliOptions): void {
-  if (options.dryRun || options.skipRegen) {
+  if (options.dryRun || options.skipRegen || options.fromPng) {
     return;
   }
   if (!env.OPENAI_API_KEY?.trim()) {
@@ -442,6 +501,21 @@ function loadExistingEvidence(): ExistingEvidence {
     );
   }
   return JSON.parse(fs.readFileSync(EVIDENCE_PATH, "utf8")) as ExistingEvidence;
+}
+
+function isCaptureBetter(
+  incoming: CreativeValidationAfterCapture,
+  existing: CreativeValidationAfterCapture | undefined
+): boolean {
+  if (!existing) return true;
+  const incomingFidelity = capturePassesFactualFidelity(incoming);
+  const existingFidelity = capturePassesFactualFidelity(existing);
+  if (incomingFidelity && !existingFidelity) return true;
+  if (!incomingFidelity && existingFidelity) return false;
+  if (incoming.qualityScore !== existing.qualityScore) {
+    return incoming.qualityScore > existing.qualityScore;
+  }
+  return incoming.hardFailures.length < existing.hardFailures.length;
 }
 
 function mergeCapturesByKey<T extends { key: string }>(
@@ -496,6 +570,8 @@ async function main(): Promise<void> {
     console.log("Mode: dry-run (before captures only)");
   } else if (options.skipRegen) {
     console.log("Mode: skip-regen (score existing validation-after PNGs)");
+  } else if (options.fromPng) {
+    console.log(`Mode: from-png (${options.fromPng})`);
   } else {
     console.log("Mode: live regeneration + scoring");
   }
@@ -511,14 +587,26 @@ async function main(): Promise<void> {
     return;
   }
 
-  const openai = options.skipRegen ? null : new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 120_000 });
+  const openai =
+    options.skipRegen || options.fromPng
+      ? null
+      : new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 120_000 });
   const afterCaptures: CreativeValidationAfterCapture[] = [];
 
   for (const row of rows) {
     const contract = buildContractForRow(row);
     let buffer: Buffer;
 
-    if (options.skipRegen) {
+    if (options.fromPng) {
+      const fromPath = path.isAbsolute(options.fromPng)
+        ? options.fromPng
+        : path.join(APP_ROOT, options.fromPng);
+      if (!fs.existsSync(fromPath)) {
+        throw new Error(`--from-png file not found: ${fromPath}`);
+      }
+      buffer = fs.readFileSync(fromPath);
+      console.log(`from-png ${row.key} ${path.basename(fromPath)}`);
+    } else if (options.skipRegen) {
       const existing = findExistingAfterPng(row.key);
       if (!existing) {
         throw new Error(`--skip-regen: no validation-after PNG for ${row.key}`);
@@ -526,8 +614,30 @@ async function main(): Promise<void> {
       buffer = fs.readFileSync(existing);
       console.log(`skip-regen ${row.key} from ${path.basename(existing)}`);
     } else {
-      console.log(`regenerating ${row.key}…`);
-      buffer = await regenerateAfter(row, contract, openai!);
+      let bestCapture: CreativeValidationAfterCapture | undefined;
+      for (let attempt = 1; attempt <= options.attempts; attempt++) {
+        console.log(`regenerating ${row.key} (attempt ${attempt}/${options.attempts})…`);
+        const capture = await captureLiveWithAutoRetry(row, contract, openai!);
+        if (!bestCapture || isCaptureBetter(capture, bestCapture)) {
+          bestCapture = capture;
+        }
+        if (
+          bestCapture.qualityScore >= 75 &&
+          bestCapture.hardFailures.length === 0 &&
+          capturePassesFactualFidelity(bestCapture)
+        ) {
+          console.log(`target met ${row.key} score=${bestCapture.qualityScore}`);
+          break;
+        }
+      }
+      if (!bestCapture) {
+        throw new Error(`No capture produced for ${row.key}`);
+      }
+      afterCaptures.push(bestCapture);
+      console.log(
+        `after ${row.key} score=${bestCapture.qualityScore} verdict=${bestCapture.qualityVerdict} failures=${bestCapture.hardFailures.length}`
+      );
+      continue;
     }
 
     const capture = await scoreAfterCapture(buffer, row, contract);
@@ -545,8 +655,22 @@ async function main(): Promise<void> {
 
   if (options.merge) {
     const existing = loadExistingEvidence();
+    const existingAfterByKey = new Map(
+      existing.afterCaptures.map((capture) => [capture.key, capture])
+    );
+    const mergedIncoming = afterCaptures.map((capture) => {
+      if (!options.keepIfBetter) return capture;
+      const prior = existingAfterByKey.get(capture.key);
+      if (isCaptureBetter(capture, prior)) {
+        return capture;
+      }
+      console.log(
+        `keep-if-better ${capture.key}: retained score=${prior!.qualityScore} over ${capture.qualityScore}`
+      );
+      return prior!;
+    });
     finalBeforeCaptures = mergeCapturesByKey(existing.beforeCaptures, beforeCaptures, processedKeys);
-    finalAfterCaptures = mergeCapturesByKey(existing.afterCaptures, afterCaptures, processedKeys);
+    finalAfterCaptures = mergeCapturesByKey(existing.afterCaptures, mergedIncoming, processedKeys);
     assertFullMatrixCoverage(finalBeforeCaptures, finalAfterCaptures);
     seedSupported = existing.seedSupported;
     matrixVersion = existing.pipeline.matrixVersion;

@@ -181,7 +181,9 @@ function buildRequirementRows(evidence, aggregate, structuralPass, thresholdErro
   const finalCmd = "node app/scripts/check-creative-validation-evidence.mjs --stage final";
   const releaseCmd = "cd app && node scripts/run-creative-release-gate.mjs";
   const qa18Pass = structuralPass;
-  const qa19Pass = !thresholdError;
+  const meanMet = aggregate.meanQualityScore >= MEAN_QUALITY_THRESHOLD;
+  const fidelityMet = aggregate.factualFidelityRate >= FACTUAL_FIDELITY_THRESHOLD;
+  const qa19Pass = meanMet && fidelityMet;
   const qa20Pass = fidelityErrors.length === 0;
   const qa21Automated = evidence.automated?.["creative-release-gate"];
   const qa21Result =
@@ -202,7 +204,7 @@ function buildRequirementRows(evidence, aggregate, structuralPass, thresholdErro
       id: "QA-19",
       result: qa19Pass ? "pass" : "gaps_found",
       automated: finalCmd,
-      note: `meanQualityScore=${aggregate.meanQualityScore.toFixed(2)} (≥${MEAN_QUALITY_THRESHOLD}); factualFidelityRate=${aggregate.factualFidelityRate.toFixed(3)} (≥${FACTUAL_FIDELITY_THRESHOLD})`,
+      note: `meanQualityScore=${aggregate.meanQualityScore.toFixed(2)} (${meanMet ? "≥" : "<"}${MEAN_QUALITY_THRESHOLD}); factualFidelityRate=${aggregate.factualFidelityRate.toFixed(3)} (${fidelityMet ? "≥" : "<"}${FACTUAL_FIDELITY_THRESHOLD})`,
     },
     {
       id: "QA-20",
@@ -235,12 +237,15 @@ function writeVerification(evidence, aggregate, requirementRows, overallStatus) 
   const requirementTable = requirementRows
     .map((row) => `| ${row.id} | ${row.result} | \`${row.automated}\` | ${row.note} |`)
     .join("\n");
+  const fidelityMet = aggregate.factualFidelityRate >= FACTUAL_FIDELITY_THRESHOLD;
   const conclusion =
     overallStatus === "passed"
       ? "All four Phase 123 success criteria met on committed evidence. Milestone v12.3 visual validation gate is closable from CI without live OpenAI."
       : overallStatus === "human_needed"
         ? "Infrastructure and regression gate are in place; operator must refresh after captures until QA-19/QA-20 thresholds pass."
-        : "Evidence infrastructure complete; committed after captures do not yet meet QA-19/QA-20 quality and fidelity thresholds. Operator regeneration required before milestone closure.";
+        : fidelityMet
+          ? "Evidence infrastructure complete; committed after captures meet factual fidelity (QA-20) but mean quality (QA-19) remains below threshold. Operator regeneration required before milestone closure."
+          : "Evidence infrastructure complete; committed after captures do not yet meet QA-19/QA-20 quality and fidelity thresholds. Operator regeneration required before milestone closure.";
 
   writeFileSync(
     verificationPath,
