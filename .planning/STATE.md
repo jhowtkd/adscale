@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v12.5
 milestone_name: Validacao Real de Qualidade e Calibracao do Loop Criativo
 status: executing
-last_updated: "2026-06-17T12:57:43.745Z"
+last_updated: "2026-06-17T13:03:40.717Z"
 last_activity: 2026-06-17
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 11
-  completed_plans: 8
-  percent: 73
+  completed_plans: 9
+  percent: 82
 ---
 
 # Project State
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-06-17)
 ## Current Position
 
 Phase: 131 — Learning Impact Measurement
-Plan: 1 of 04
+Plan: 2 of 04
 Status: Ready to execute
 Last activity: 2026-06-17
 
@@ -101,6 +101,9 @@ Progress: 2/5 v12.5 phases complete; Phase 131 planned (4 plans, 4 waves).
 - [Phase 130]: API caps visual comparisons at 100 with truncated flag for DoS mitigation
 - [Phase 131]: Store output-learning attribution on derivations jsonb; legacy null resolves to not_recorded
 - [Phase 131]: Batch derivations POST applies identical outputLearningApplication snapshot to every job
+- [Phase 131]: Edit-before-generate from output-learning card does not set application snapshot — only accept path
+- [Phase 131]: sanitizeOutputLearningApplication runs at corpus freeze when derivation has stored application
+- [Phase 131]: resolveLearningApplied returns true only when snapshot.applied===true
 
 ### Phase 130 (complete — 4/4 plans)
 
