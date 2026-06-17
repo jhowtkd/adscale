@@ -29,6 +29,7 @@ import {
 
 const WORKSPACE_ID = "550e8400-e29b-41d4-a716-446655440002";
 const CAMPAIGN_ID = "550e8400-e29b-41d4-a716-446655440003";
+const CAMPAIGN_ID_2 = "550e8400-e29b-41d4-a716-446655440011";
 const DERIVATION_A = "550e8400-e29b-41d4-a716-446655440004";
 const DERIVATION_B = "550e8400-e29b-41d4-a716-446655440005";
 const DERIVATION_C = "550e8400-e29b-41d4-a716-446655440006";
@@ -175,7 +176,7 @@ describe("live corpus operations", () => {
   });
 
   describe("getCorpusQueueProgress", () => {
-    it("returns operational queue progress grouped by cohort, mode and format", async () => {
+    it("returns operational queue progress grouped by cohort, mode, format and campaign", async () => {
       const latestSelectedAt = new Date("2026-06-17T10:00:00.000Z");
       const latestEvaluatedAt = new Date("2026-06-17T11:00:00.000Z");
       mockGetProgress.mockResolvedValue({
@@ -191,6 +192,10 @@ describe("live corpus operations", () => {
         byFormat: {
           "1:1": { pending: 2, evaluated: 1 },
           "9:16": { pending: 1, evaluated: 1 },
+        },
+        byCampaign: {
+          [CAMPAIGN_ID]: { pending: 2, evaluated: 1 },
+          [CAMPAIGN_ID_2]: { pending: 1, evaluated: 1 },
         },
         latestSelectedAt,
         latestEvaluatedAt,
@@ -212,6 +217,10 @@ describe("live corpus operations", () => {
         byFormat: {
           "1:1": { pending: 2, evaluated: 1 },
           "9:16": { pending: 1, evaluated: 1 },
+        },
+        byCampaign: {
+          [CAMPAIGN_ID]: { pending: 2, evaluated: 1 },
+          [CAMPAIGN_ID_2]: { pending: 1, evaluated: 1 },
         },
         latestSelectedAt: latestSelectedAt.toISOString(),
         latestEvaluatedAt: latestEvaluatedAt.toISOString(),

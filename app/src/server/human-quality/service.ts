@@ -104,6 +104,7 @@ export interface CorpusQueueProgress {
   byCohort: Record<string, { pending: number; evaluated: number }>;
   byGenerationMode: Record<string, { pending: number; evaluated: number }>;
   byFormat: Record<string, { pending: number; evaluated: number }>;
+  byCampaign: Record<string, { pending: number; evaluated: number }>;
   latestSelectedAt: string | null;
   latestEvaluatedAt: string | null;
 }
@@ -368,6 +369,7 @@ export async function getCorpusQueueProgress(
     byCohort: progress.byCohort,
     byGenerationMode: progress.byGenerationMode,
     byFormat: progress.byFormat,
+    byCampaign: progress.byCampaign,
     latestSelectedAt: progress.latestSelectedAt?.toISOString() ?? null,
     latestEvaluatedAt: progress.latestEvaluatedAt?.toISOString() ?? null,
   };

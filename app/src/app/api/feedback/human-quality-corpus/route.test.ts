@@ -144,6 +144,7 @@ describe("/api/feedback/human-quality-corpus", () => {
       byCohort: { baseline: { pending: 1, evaluated: 4 } },
       byGenerationMode: { art_variation: { pending: 1, evaluated: 4 } },
       byFormat: { "1:1": { pending: 1, evaluated: 4 } },
+      byCampaign: { "550e8400-e29b-41d4-a716-446655440003": { pending: 1, evaluated: 4 } },
       latestSelectedAt: "2026-06-17T10:00:00.000Z",
       latestEvaluatedAt: "2026-06-17T11:00:00.000Z",
     });
@@ -158,6 +159,9 @@ describe("/api/feedback/human-quality-corpus", () => {
     const body = await res.json();
     expect(body.progress.totalPending).toBe(1);
     expect(body.progress.totalEvaluated).toBe(4);
+    expect(body.progress.byCampaign).toEqual({
+      "550e8400-e29b-41d4-a716-446655440003": { pending: 1, evaluated: 4 },
+    });
     expect(mockProgress).toHaveBeenCalledWith({ workspaceId: WORKSPACE_ID });
   });
 

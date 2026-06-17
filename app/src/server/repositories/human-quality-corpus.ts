@@ -72,6 +72,7 @@ export interface CorpusOperationsProgress {
   byCohort: Record<string, CorpusStatusCount>;
   byGenerationMode: Record<string, CorpusStatusCount>;
   byFormat: Record<string, CorpusStatusCount>;
+  byCampaign: Record<string, CorpusStatusCount>;
   latestSelectedAt: Date | null;
   latestEvaluatedAt: Date | null;
 }
@@ -239,6 +240,7 @@ export async function getCorpusOperationsProgress(
       cohort: humanQualityCorpusItems.cohort,
       generationMode: humanQualityCorpusItems.generationMode,
       format: humanQualityCorpusItems.format,
+      campaignId: humanQualityCorpusItems.campaignId,
       selectedAt: humanQualityCorpusItems.selectedAt,
       updatedAt: humanQualityCorpusItems.updatedAt,
     })
@@ -256,6 +258,7 @@ export async function getCorpusOperationsProgress(
     byCohort: {},
     byGenerationMode: {},
     byFormat: {},
+    byCampaign: {},
     latestSelectedAt: null,
     latestEvaluatedAt: null,
   };
@@ -271,6 +274,7 @@ export async function getCorpusOperationsProgress(
     bumpStatusCount(progress.byCohort, row.cohort, status);
     bumpStatusCount(progress.byGenerationMode, row.generationMode, status);
     bumpStatusCount(progress.byFormat, row.format || "unknown", status);
+    bumpStatusCount(progress.byCampaign, row.campaignId, status);
 
     if (
       !progress.latestSelectedAt ||
