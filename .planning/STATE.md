@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v12.5
 milestone_name: Validacao Real de Qualidade e Calibracao do Loop Criativo
-status: milestone_complete
-last_updated: "2026-06-17T16:53:14.103Z"
+status: completed
+last_updated: "2026-06-17T16:55:18.551Z"
 last_activity: 2026-06-17
 progress:
   total_phases: 5
@@ -124,6 +124,8 @@ Progress: v12.5 milestone shipped — 19/19 plans (100%).
 - [Phase 133]: Milestone full regression: cd app && npm run real-quality-release-gate -- --run-regression after --aggregate
 - [Phase 133]: QA-24 Path B accepted_gap visual_quality_gap (currentValue 72, gapToTarget 3 < prior 4.83) — live human corpus refresh deferred operator action
 - [Phase 133]: v12.5 milestone audit at .planning/milestones/v12.5-MILESTONE-AUDIT.md; shipped 2026-06-17
+- [Phase 133]: QA-24 Path B accepted_gap visual_quality_gap (gap 3 < prior 4.83); live corpus refresh deferred
+- [Phase 133]: v12.5 milestone shipped 2026-06-17 with real-quality-release-gate --run-regression pass
 
 ### Phase 132 (complete — 4/4 plans)
 
