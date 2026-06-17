@@ -70,7 +70,12 @@ Plans:
   3. Fixture, live-human and accepted-caveat metrics remain separated in evidence.
   4. Operator can see which slices need more samples for the next gate.
 
-**Plans:** 0/0 plans complete
+**Plans:** 0/3 plans complete
+
+Plans:
+- [ ] 135-01-PLAN.md — Canonical sampling module and report sampleGuidance (SAMPLE-01, SAMPLE-02)
+- [ ] 135-02-PLAN.md — Evidence source separation and honesty checkers (SAMPLE-03)
+- [ ] 135-03-PLAN.md — Operator coverage API and panel (SAMPLE-04)
 
 ---
 
@@ -119,7 +124,7 @@ Archive: [v12.5-ROADMAP.md](milestones/v12.5-ROADMAP.md) · [v12.5-REQUIREMENTS.
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 134 | v12.6 | 4/4 | Complete | 2026-06-17 |
-| 135 | v12.6 | 0/0 | Pending | — |
+| 135 | v12.6 | 0/3 | Pending | — |
 | 136 | v12.6 | 0/0 | Pending | — |
 | 137 | v12.6 | 0/0 | Pending | — |
 
