@@ -38,7 +38,7 @@
 | 129 | Live Human Quality Corpus | Complete    | 2026-06-17 | 2026-06-17 |
 | 130 | Score Calibration and Rubric Alignment | Complete    | 2026-06-17 | 2026-06-17 |
 | 131 | Learning Impact Measurement | 4/4 | Complete   | 2026-06-17 |
-| 132 | Targeted Creative Quality Improvements | QUALITY-01, QUALITY-02, QUALITY-03, QUALITY-04 | Planned | — |
+| 132 | Targeted Creative Quality Improvements | QUALITY-01, QUALITY-02, QUALITY-03, QUALITY-04 | Planned (0/4) | — |
 | 133 | Real Quality Release Gate | QA-22, QA-23, QA-24 | Planned | — |
 
 ## Phase Details
@@ -146,7 +146,13 @@ Plans:
   2. Evidence separates quality metrics, factual metrics, learning-impact metrics and accepted caveats.
   3. Milestone passes only if factual pass rate remains 1.0 and quality crosses target or the smaller remaining gap is explicitly accepted.
 
-**Plans:** TBD
+**Plans:** 0/4 plans planned (verification passed 2026-06-17)
+
+Plans:
+- [ ] 132-01-PLAN.md — Accept lifecycle + apply contracts + RUBRIC_CALIBRATION_VERSION 1.1.0 (QUALITY-02)
+- [ ] 132-02-PLAN.md — Evidence-bound ceiling/rubric/gate edits + archetype fixtures (QUALITY-01, QUALITY-02)
+- [ ] 132-03-PLAN.md — v12.3/v12.4 regression guard wiring (QUALITY-03)
+- [ ] 132-04-PLAN.md — Re-evaluation report + CLI + API + Quality tab (QUALITY-04)
 
 ---
 
@@ -161,7 +167,7 @@ Archive: [v12.4-ROADMAP.md](milestones/v12.4-ROADMAP.md) · [v12.4-REQUIREMENTS.
 | 129 | v12.5 | 0/TBD | Planned | — |
 | 130 | v12.5 | 0/TBD | Planned | — |
 | 131 | v12.5 | 0/TBD | Planned | — |
-| 132 | v12.5 | 0/TBD | Planned | — |
+| 132 | v12.5 | 0/4 | Planned | — |
 | 133 | v12.5 | 0/TBD | Planned | — |
 
 ---
