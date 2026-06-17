@@ -50,8 +50,8 @@
   ],
   "regressionMetrics": {
     "gateMatrixPass": true,
-    "creativeValidationScript": "pending",
-    "outputLearningScript": "pending"
+    "creativeValidationScript": "factual_only_pass",
+    "outputLearningScript": "pass"
   },
   "automated": {
     "corpus-eval": "pass",
