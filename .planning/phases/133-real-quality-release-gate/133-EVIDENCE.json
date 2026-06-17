@@ -85,5 +85,6 @@
       "result": "pass",
       "automated": "node app/scripts/check-real-quality-release-evidence.mjs --skip-tests"
     }
-  ]
+  ],
+  "verifiedAt": "2026-06-17T16:53:14.103Z"
 }
