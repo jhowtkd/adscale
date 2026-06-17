@@ -1,108 +1,95 @@
-# Requirements: ADScale v12.5 Validacao Real de Qualidade e Calibracao do Loop Criativo
+# Requirements: ADScale v12.6 Operacao Live do Corpus de Qualidade
 
 **Defined:** 2026-06-17
-**Milestone:** v12.5 Validacao Real de Qualidade e Calibracao do Loop Criativo
+**Milestone:** v12.6 Operacao Live do Corpus de Qualidade
 **Core Value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
 ## Scope
 
-Transformar o learning loop de v12.4 em evidencia real de qualidade percebida. A milestone deve medir outputs reais com julgamento humano estruturado, calibrar o score automatico contra esse julgamento, provar impacto dos learnings aplicados e atacar os padroes visuais que mantiveram o gap aceito de v12.3 (`meanQualityScore 70.17 < 75`).
+Transformar a infraestrutura de qualidade de v12.5 em uma rotina operacional real: selecionar outputs de campanhas reais, avaliar com julgamento humano estruturado, calcular tendencias apenas quando houver amostra suficiente e fechar release gates que separem green tecnico de evidencia live.
 
-**Starting point:** v12.4 passou com `qualityImprovementPathRate=1.0` e `safetyGuardPassRate=1.0`, mas o audit aceitou que o ganho de qualidade foi fixture-based e que o gap visual de v12.3 ainda nao foi fechado em corpus live.
+**Starting point:** v12.5 fechou com `real-quality-release-gate --run-regression` verde, mas o audit registrou `evaluatedItemCount=0` no corpus live e QA-24 fechou por `accepted_gap`, nao por cruzar a meta humana.
 
-**In scope:** corpus live versionado, avaliacao humana estruturada, calibracao score vs julgamento humano, medicionamento de impacto dos learnings, melhorias focadas em qualidade visual, release gate com evidencia reproduzivel.
+**In scope:** rotina de selecao e avaliacao live, playbook de reviewer, politica de amostragem, tendencias owner-facing, rerun aggregate dos CLIs 130/131/132/133 e release evidence operacional.
 
-**Out of scope:** fine-tuning, julgamento humano terceirizado/externo, mudancas livres de prompt sem contrato, ranking automatico por performance de midia, deploy/prod smoke nao relacionado ao corpus.
+**Out of scope:** terceirizar avaliadores, fine-tuning, mudar modelo de imagem, performance-media blending completo, claims comerciais de melhoria antes de suficiencia estatistica.
 
 ## Requirements
 
-### Human Quality Corpus (HUMAN)
+### Live Corpus Operations (LIVEQUAL)
 
-- [x] **HUMAN-01**: Operator can select real generated outputs into a versioned quality evaluation corpus with workspace, campaign, derivation, mode and format scope.
-- [x] **HUMAN-02**: Each corpus item stores bounded artifact references and evaluation metadata without raw prompts, signed URLs, auth material or unbounded model payloads.
-- [x] **HUMAN-03**: Reviewer can record structured human judgment: visual score, factual pass/fail, approve/reject/regenerate intent, and primary visible failure reason.
-- [x] **HUMAN-04**: Corpus can distinguish baseline, pre-learning and post-learning samples so quality movement is measurable over time.
+- [ ] **LIVEQUAL-01**: Operator can select a controlled weekly batch of real generated outputs into the live quality corpus from eligible campaigns.
+- [ ] **LIVEQUAL-02**: Operator can track review queue progress by workspace, campaign, generation mode, format, cohort and reviewer status.
+- [ ] **LIVEQUAL-03**: Reviewer can evaluate corpus items through a fast, repeatable flow with visual score, factual pass/fail, intent and visible failure reason.
+- [ ] **LIVEQUAL-04**: Corpus operations reject unsafe artifacts and never persist raw prompts, signed URLs, secrets or unbounded model payloads.
 
-### Score Calibration (CALIB)
+### Sampling and Sufficiency (SAMPLE)
 
-- [x] **CALIB-01**: Automatic quality score can be compared against human visual score for every evaluated corpus item.
-- [x] **CALIB-02**: Calibration report identifies systematic divergences by failure type, mode and format.
-- [x] **CALIB-03**: Gate/rubric adjustments are versioned and backed by corpus evidence instead of anecdotal judgment.
-- [x] **CALIB-04**: Factual fidelity remains measured separately from visual quality and cannot be traded away for higher visual score.
+- [ ] **SAMPLE-01**: System defines minimum sample thresholds per quality trend, calibration slice and learning-impact slice.
+- [ ] **SAMPLE-02**: Reports return `insufficient_sample` with required-next-sample guidance when thresholds are not met.
+- [ ] **SAMPLE-03**: Release evidence distinguishes fixture metrics, live human metrics and accepted caveats without mixing denominators.
+- [ ] **SAMPLE-04**: Operator can see which slices need more samples before the next release gate can make a stronger claim.
 
-### Learning Impact (IMPACT)
+### Quality Trend Dashboard (TREND)
 
-- [x] **IMPACT-01**: System can measure whether v12.4 output-learning recommendation/prefill was applied for a generated sample.
-- [x] **IMPACT-02**: Evaluation separates learned outputs from non-learned comparable outputs by client, mode and format.
-- [x] **IMPACT-03**: Impact report measures rejection/regeneration intent, human visual score movement and factual pass rate.
-- [x] **IMPACT-04**: If evidence is insufficient, report returns an honest insufficient-sample state instead of claiming improvement.
+- [ ] **TREND-01**: Owner can view live human quality trend, factual pass rate and learning-impact status over time.
+- [ ] **TREND-02**: Owner can filter trends by workspace, mode, format, client profile and visible failure reason.
+- [ ] **TREND-03**: Dashboard flags regressions, stale evidence and insufficient live corpus coverage separately.
+- [ ] **TREND-04**: Dashboard links each aggregate back to bounded corpus evidence for auditability.
 
-### Creative Improvement (QUALITY)
+### Operational Release Gate (QALIVE)
 
-- [x] **QUALITY-01**: Overload, weak hierarchy, generic template feel, illegible CTA and unfocused composition are represented as first-class visible failure reasons.
-- [x] **QUALITY-02**: Prompt/gate/rubric changes target only failure reasons proven by corpus evidence.
-- [x] **QUALITY-03**: Visual quality changes preserve v12.3 hard factual protections and v12.4 learning safety guards.
-- [x] **QUALITY-04**: Improved outputs can be re-evaluated against the same corpus dimensions to show whether the targeted failure decreased.
-
-### Release Evidence (QA)
-
-- [x] **QA-22**: Milestone release gate runs focused corpus/evaluation tests, score calibration checks, v12.3 factual subset, v12.4 output-learning subset, `npm test`, `npm run lint`, and `npm run build`.  
-  **Command:** `cd app && npm run real-quality-release-gate -- --run-regression`
-- [x] **QA-23**: Release evidence stores quality metrics, factual metrics, learning-impact metrics and accepted caveats in separate sections.  
-  **Command:** `node app/scripts/check-real-quality-release-evidence.mjs --skip-tests`
-- [x] **QA-24**: Milestone cannot close as passed unless factual pass rate remains 1.0 and either human visual quality crosses the target or the remaining gap is smaller and explicitly accepted.  
-  **Command:** `node app/scripts/check-real-quality-release-evidence.mjs --skip-tests` (Path B `acceptedCaveats` when human corpus insufficient)
+- [ ] **QALIVE-01**: Release gate reruns score calibration, learning impact, quality improvement and real-quality aggregate against live evidence.
+- [ ] **QALIVE-02**: Gate passes technical regression independently from operational-evidence status.
+- [ ] **QALIVE-03**: Milestone cannot claim quality improvement unless live human metrics meet sample sufficiency and factual pass remains 1.0.
+- [ ] **QALIVE-04**: Release audit records exact commands, live sample counts, accepted caveats and next operator action.
 
 ## Future Requirements
 
-### Live Product Rollout (deferred)
-
-- **LIVEQUAL-01**: Beta operators can run the evaluation workflow directly in production with controlled reviewer permissions.
-- **LIVEQUAL-02**: Owner dashboard shows trend lines for human quality score and learning impact over time.
-
 ### Performance Blending (deferred)
 
-- **PERFOUT-01**: Combine human output quality learnings with imported media performance once enough real performance data exists.
-- **PERFOUT-02**: Reweight output learnings by CTR/CPA/ROAS impact without losing factual and human-quality guardrails.
+- **PERFOUT-01**: Combine human quality learnings with imported CTR/CPA/ROAS once live corpus and performance samples are both sufficient.
+- **PERFOUT-02**: Reweight recommendations by media outcome without weakening factual and human-quality gates.
+
+### Reviewer Scale (deferred)
+
+- **REVIEWOPS-01**: Multiple reviewers can evaluate the same item and measure inter-reviewer agreement.
+- **REVIEWOPS-02**: External reviewer permissions can be isolated from workspace data.
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Fine-tuning image models | Costly and premature; first prove measurable product-loop improvement |
-| External reviewer marketplace | Operational complexity; this milestone needs an internal/operator corpus first |
-| Mem0 as quality source of truth | v12.4 established Postgres canonical truth; retrieval remains projection |
-| Freeform prompt mutation from learnings | Hard to audit and likely to regress factual protections |
-| Media performance blending | Valuable later, but this milestone is about human output quality |
+| External reviewer marketplace | Operational and privacy scope is too large before internal live loop works |
+| Fine-tuning image generation models | Premature; first prove real corpus trend and failure taxonomy |
+| Commercial quality claims | Blocked until live sample sufficiency and factual pass are proven |
+| Full performance blending | Depends on enough real performance rows and stable live quality corpus |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| HUMAN-01 | Phase 129 | Complete |
-| HUMAN-02 | Phase 129 | Complete |
-| HUMAN-03 | Phase 129 | Complete |
-| HUMAN-04 | Phase 129 | Complete |
-| CALIB-01 | Phase 130 | Complete |
-| CALIB-02 | Phase 130 | Complete |
-| CALIB-03 | Phase 130 | Complete |
-| CALIB-04 | Phase 130 | Complete |
-| IMPACT-01 | Phase 131 | Complete |
-| IMPACT-02 | Phase 131 | Complete |
-| IMPACT-03 | Phase 131 | Complete |
-| IMPACT-04 | Phase 131 | Complete |
-| QUALITY-01 | Phase 132 | Complete |
-| QUALITY-02 | Phase 132 | Complete |
-| QUALITY-03 | Phase 132 | Complete |
-| QUALITY-04 | Phase 132 | Complete |
-| QA-22 | Phase 133 | Complete |
-| QA-23 | Phase 133 | Complete |
-| QA-24 | Phase 133 | Complete |
+| LIVEQUAL-01 | Phase 134 | Pending |
+| LIVEQUAL-02 | Phase 134 | Pending |
+| LIVEQUAL-03 | Phase 134 | Pending |
+| LIVEQUAL-04 | Phase 134 | Pending |
+| SAMPLE-01 | Phase 135 | Pending |
+| SAMPLE-02 | Phase 135 | Pending |
+| SAMPLE-03 | Phase 135 | Pending |
+| SAMPLE-04 | Phase 135 | Pending |
+| TREND-01 | Phase 136 | Pending |
+| TREND-02 | Phase 136 | Pending |
+| TREND-03 | Phase 136 | Pending |
+| TREND-04 | Phase 136 | Pending |
+| QALIVE-01 | Phase 137 | Pending |
+| QALIVE-02 | Phase 137 | Pending |
+| QALIVE-03 | Phase 137 | Pending |
+| QALIVE-04 | Phase 137 | Pending |
 
 **Coverage:**
-- v12.5 requirements: 19 total
-- Mapped to phases: 19
+- v12.6 requirements: 16 total
+- Mapped to phases: 16
 - Unmapped: 0
 
 ---
-*Requirements defined: 2026-06-17 after v12.5 milestone initialization*
+*Requirements defined: 2026-06-17 after v12.6 milestone initialization*

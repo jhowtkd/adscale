@@ -1,67 +1,32 @@
-# v12.4 Research: Architecture
+# Research: v12.6 Architecture
 
-**Milestone:** v12.4 Aprendizado de Qualidade dos Outputs
+## Question
 
-## Architectural Direction
+How should live quality operations integrate with the existing v12.5 corpus, calibration, impact and gate architecture?
 
-Follow the same three-layer pattern already used in v12.1:
+## Integration Points
 
-1. `Canonical layer` in Postgres
-2. `Projection / retrieval layer` in Mem0
-3. `Application layer` that converts approved learnings into bounded product behavior
+- Phase 129 corpus selection and evaluation data model remains the source for reviewed items.
+- Phase 130 score calibration consumes evaluated corpus rows and needs clearer status/output guidance when sample count is low.
+- Phase 131 learning impact report already supports `insufficient_sample`; v12.6 should make the missing slices actionable.
+- Phase 132 quality improvement report should read live evidence without overwriting fixture-based regression value.
+- Phase 133 release evidence should become an operational gate that separates technical regression pass from live evidence sufficiency.
 
-This is the key guardrail against degradation.
+## Suggested Build Order
 
-## Proposed Flow
+1. Build live corpus operations and queue visibility.
+2. Add sample sufficiency policy and next-sample guidance.
+3. Expose trends and drilldown in owner dashboard.
+4. Close with a live operational release gate.
 
-1. Human acts on a derivation:
-   approve, reject, regenerate, save reference, choose for delivery
-2. Route writes a normalized output-learning evidence event
-3. Background recompute groups evidence into scoped learnings
-4. Canonical learnings are approved/superseded based on confidence + contradiction rules
-5. Approved learnings are projected to Mem0
-6. Next-generation recommendation/retrieval fetches relevant learnings
-7. Prefill/restriction mapper applies only bounded variables before prompt build
-8. Evals compare quality outcomes and ensure factual fidelity is not regressed
+## Risks
 
-## Scope Boundaries for Learning
+- If sampling thresholds are hardcoded too narrowly, operators may not understand how to unblock the next claim.
+- If dashboard aggregates hide denominators, the product may look healthier than the evidence supports.
+- If technical gate and operational gate share a single pass/fail, milestone status will become ambiguous again.
 
-Every learning should be scoped by as many of these as needed:
+## Sources Consulted
 
-- workspace
-- client profile
-- campaign objective
-- generation mode
-- target format
-- CTA semantics or CTA class
-- quality issue family
-
-## Canonical Record Requirements
-
-Each learning should include:
-
-- stable ID
-- statement
-- variable key / value
-- evidence references
-- supporting count
-- contradicting count
-- confidence level / score
-- freshness window or last-evidence timestamp
-- algorithm version
-- status: `draft`, `approved`, `superseded`, `removed`
-
-## Application Rules
-
-- Learnings influence bounded product variables, not arbitrary prompt prose
-- Canonical contract and factual rules remain higher priority than learned preferences
-- When contradictions are present, recommendations must be framed as hypotheses
-- If evidence is insufficient, return no recommendation rather than forcing one
-
-## Recommended Build Order
-
-1. Signal capture + canonical schema
-2. Aggregation + supersession logic
-3. Retrieval + recommendation packet
-4. Generation prefill application
-5. Eval + regression gate
+- https://www.braintrust.dev/articles/llm-evaluation-guide
+- https://cameronrwolfe.substack.com/p/stats-llm-evals
+- https://arxiv.org/html/2506.13023v2

@@ -1,5 +1,33 @@
 # Milestones: ADScale
 
+## v12.5 Validacao Real de Qualidade e Calibracao do Loop Criativo (Shipped with tech debt: 2026-06-17)
+
+**Phases completed:** 5 phases (129→133), 19 plans
+**Requirements:** 19/19 complete
+
+**Scope:**
+- Corpus live versionado de outputs reais com julgamento humano estruturado
+- Calibracao de score automatico contra nota visual humana
+- Medicao de impacto dos learnings de v12.4 em outputs comparaveis
+- Melhorias focadas nos defeitos visuais provados pelo corpus
+- Release gate realista com metricas separadas de qualidade, factualidade e learning impact
+
+**Key accomplishments:**
+- Criou o fluxo interno de selecao, congelamento e avaliacao de outputs reais para corpus humano.
+- Implementou comparacao score automatico vs julgamento humano, divergencias agrupadas e propostas versionadas de ajuste.
+- Adicionou medicao de impacto do output-learning aplicado, com estados honestos de amostra insuficiente.
+- Aplicou melhoria focada em falha visual aceita e manteve regressao v12.3/v12.4 verde.
+- Fechou o milestone com `real-quality-release-gate --run-regression` passando.
+
+**Known tech debt:**
+- Corpus live ainda estava vazio no refresh com `DATABASE_URL`: `evaluatedItemCount=0`.
+- QA-24 fechou por Path B `accepted_gap` (`currentValue 72`, `gapToTarget 3`, menor que o gap anterior `4.83`), nao por cruzar a meta humana `75`.
+- Proxima operacao deve popular/evaluar corpus real e rerodar 130/131/132/133 aggregate antes de claims de tendencia.
+
+Archive: [v12.5-ROADMAP.md](milestones/v12.5-ROADMAP.md) · [v12.5-REQUIREMENTS.md](milestones/v12.5-REQUIREMENTS.md) · [v12.5-MILESTONE-AUDIT.md](milestones/v12.5-MILESTONE-AUDIT.md)
+
+---
+
 ## v12.4 Aprendizado de Qualidade dos Outputs (Shipped: 2026-06-17)
 
 **Phases completed:** 5 phases (124→128), 15 plans

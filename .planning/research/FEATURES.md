@@ -1,59 +1,32 @@
-# v12.4 Research: Features
+# Research: v12.6 Features
 
-**Milestone:** v12.4 Aprendizado de Qualidade dos Outputs
+## Question
+
+How should live corpus operations work for an AI creative quality loop?
 
 ## Table Stakes
 
-| Feature | Why it matters | Notes |
-|---|---|---|
-| Durable output-decision capture | Learnings cannot improve if approval/rejection/regeneration signals are not normalized | Capture intent, not just clicks |
-| Canonical learning records with confidence | Prevents memory drift and lets the product explain recommendations | Must include evidence counts and contradictions |
-| Retrieval bounded by client/campaign context | Avoids leaking one client's pattern into another client's generation | Current workspace/client model already supports this |
-| Pre-generation application | Learning should affect the next generation before spend happens | Best first insertion point per user choice |
-| Explanation packet | Operator should see why a setting/restriction was recommended | Reuse current recommendation framing style |
-| Supersession / freshness handling | Old patterns must weaken or retire instead of accumulating forever | Core anti-degradation mechanism |
+- A versioned golden/live corpus that grows from real traffic.
+- Human review flow with structured rubric fields rather than ad hoc notes.
+- Sampling rules that make insufficient evidence visible.
+- Drilldown from aggregate metrics back to reviewed examples.
+- Clear separation between automatic scores, human visual score, factual pass/fail and accepted caveats.
 
-## Differentiators
+## Differentiators for ADScale
 
-| Feature | Why it matters | Notes |
-|---|---|---|
-| Approval-oriented learning from output decisions | Learns from product-native human judgment, not only ad performance | Faster feedback loop than waiting for media data |
-| Negative-pattern memory | Learn not only "do more of this" but also "avoid this layout/CTA/mode combo" | Particularly useful for reducing medium-quality outputs |
-| Contradiction-aware recommendations | Product can say "this is a hypothesis" instead of pretending certainty | Already present in performance recommendation style |
-| Mode/format scoped learnings | `art_variation`, `restyling`, `format_adaptation` should not share all lessons | Prevents overgeneralization |
+- Tie review items to generation mode, format, client profile and learning-applied cohort.
+- Report next required samples per slice, so the operator knows what to evaluate next.
+- Keep factual fidelity as a hard guardrail that visual quality cannot offset.
+- Make operational status visible beside technical gate status.
 
 ## Anti-Features
 
-| Anti-feature | Why to avoid |
-|---|---|
-| Global memory that mutates prompt behavior with no audit trail | Impossible to debug and degrades silently |
-| Treating vector hits as approved learnings | Retrieval is not evidence |
-| Applying every past approval as a permanent rule | Leads to rigid or stale generations |
-| One blended "quality score" as the only feedback signal | Loses the structure of why outputs were accepted or rejected |
+- Do not claim quality uplift from empty or tiny live corpus slices.
+- Do not blend media performance with human quality in this milestone.
+- Do not persist raw prompts, signed URLs or large model payloads for reviewer convenience.
 
-## Milestone Candidate Scope
+## Sources Consulted
 
-### Category 1: Output Signals
-
-- Capture approval, rejection, regeneration, save-reference, and delivery choice as normalized learning evidence
-- Distinguish explicit approval from weak implicit signals
-
-### Category 2: Canonical Learnings
-
-- Aggregate evidence into scoped learnings
-- Track status, confidence, freshness, contradiction, and supersession
-
-### Category 3: Learning Application
-
-- Apply relevant learnings to next-generation prefill/restrictions
-- Explain which variables were influenced and why
-
-### Category 4: Evaluation
-
-- Measure whether output learnings improve human-judged quality without harming v12.3 factual fidelity gains
-
-## Deferred
-
-- Blend in imported media performance as a first-class signal
-- Auto-regeneration policies driven directly by learned output patterns
-- Cross-client generalization layer
+- https://snorkel.ai/blog/data-quality-and-rubrics-how-to-build-trust-in-your-models/
+- https://imerit.ai/solutions/generative-ai-data-solutions/image-generation-evaluation/
+- https://kinde.com/learn/ai-for-software-engineering/ai-devops/human-in-the-loop-evals-at-scale-golden-sets-review-queues-drift-watch/

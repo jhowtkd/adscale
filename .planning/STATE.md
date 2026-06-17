@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v12.5
-milestone_name: Validacao Real de Qualidade e Calibracao do Loop Criativo
-status: completed
-last_updated: "2026-06-17T16:57:17.902Z"
+milestone: v12.6
+milestone_name: Operacao Live do Corpus de Qualidade
+status: planned
+last_updated: "2026-06-17T18:35:00.000Z"
 last_activity: 2026-06-17
 progress:
-  total_phases: 5
-  completed_phases: 5
-  total_plans: 19
-  completed_plans: 19
-  percent: 100
+  total_phases: 4
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -21,18 +21,18 @@ See: .planning/PROJECT.md (updated 2026-06-17)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** v12.5 shipped — Validacao Real de Qualidade e Calibracao do Loop Criativo.
+**Current focus:** v12.6 defining — Operacao Live do Corpus de Qualidade.
 
-**Status:** Milestone complete
+**Status:** Milestone initialized; ready to plan Phase 134
 
 ## Current Position
 
-Phase: 133 — Real Quality Release Gate
-Plan: 4/4 complete
-Status: Complete
+Phase: 134 — Live Corpus Operations
+Plan: —
+Status: Ready to plan
 Last activity: 2026-06-17
 
-Progress: v12.5 milestone shipped — 19/19 plans (100%).
+Progress: v12.6 milestone initialized — 16/16 requirements mapped across phases 134-137.
 
 ## Accumulated Context
 
@@ -42,6 +42,14 @@ Progress: v12.5 milestone shipped — 19/19 plans (100%).
 - Calibrate automatic scoring against human judgment while keeping factual metrics separate.
 - Measure whether v12.4 output-learning recommendation/prefill improves comparable real samples.
 - Attack proven visual-quality failures: overload, weak hierarchy, generic template feel, illegible CTA and unfocused composition.
+
+### v12.6 Direction
+
+- Turn the v12.5 quality infrastructure into a live operating loop.
+- Populate and evaluate real corpus rows from actual campaigns before claiming quality movement.
+- Separate operational evidence from technical green checks.
+- Add sampling and sufficiency rules so small datasets produce `insufficient_sample`, not optimistic claims.
+- Surface live quality, factuality and learning-impact trends for owner decisions.
 
 ### Phase 129 (complete — 3/3 plans)
 
@@ -190,4 +198,4 @@ Progress: v12.5 milestone shipped — 19/19 plans (100%).
 
 ## Next Steps
 
-v12.5 milestone complete. Deferred operator action: refresh live human corpus evidence when DATABASE_URL available (130/131/132 CLIs → `--aggregate`). Plan next milestone or maintenance via `/gsd-new-milestone`.
+Start Phase 134 via `/gsd-plan-phase 134`.

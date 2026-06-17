@@ -1,36 +1,33 @@
-# v12.4 Research: Pitfalls
+# Research: v12.6 Pitfalls
 
-**Milestone:** v12.4 Aprendizado de Qualidade dos Outputs
+## Question
 
-## Primary Risks
+What mistakes are common when adding live human evaluation to an AI product?
 
-| Risk | Why it happens | Prevention |
-|---|---|---|
-| Memory drift | Retrieval memory accumulates stale patterns and starts steering generations incorrectly | Keep Postgres canonical; Mem0 projection only |
-| False certainty | A few approvals look like a durable rule | Require confidence + evidence counts + contradiction checks |
-| Cross-context leakage | One client's preferences spill into another campaign or mode | Scope learnings tightly by workspace/client/mode/format/objective |
-| Prompt bloat | Learned context becomes another long freeform prompt section | Apply learnings as bounded variables or compact rule packs |
-| Reward hacking | System optimizes for easy approvals rather than genuinely better outputs | Keep explicit evals and preserve factual fidelity gates |
-| Silent regression | Learnings improve approval rate but reintroduce factual drift or generic visuals | Reuse v12.3 eval structure and track fidelity separately from quality |
+## Pitfalls
 
-## Specific Anti-Degradation Rules
+### Vague Rubrics
 
-- Retrieval never becomes source of truth
-- Negative evidence can supersede positive evidence
-- Old evidence must decay or be explicitly superseded
-- Learnings should be explainable and inspectable in the UI or API payload
-- Human acceptance must be treated differently from weak implicit signals
+Rubric-driven evaluation is useful only when labels are stable enough for repeat use. v12.6 should keep visible failure reasons closed and explicit, with "other" bounded rather than freeform as the main signal.
 
-## Evaluation Guidance
+### False Certainty From Small Samples
 
-- Do not compress all output quality into one hidden score
-- Keep explicit metrics separate:
-  approval tendency, rejection reasons, regeneration frequency, factual fidelity, human quality rating
-- Add a fixed evaluation set before trusting live adaptive behavior
+Averages without sample count and uncertainty create misleading improvement claims. v12.6 should default to `insufficient_sample` until minimum slice counts are met.
 
-## Recommended Warnings to Encode in Requirements
+### Hidden Denominators
 
-- No auto-approval from learned confidence
-- No mutation of core factual-preservation rules
-- No cross-workspace shared learning pool
-- No shipping if learned application cannot be explained with evidence
+Trend charts must show coverage and stale evidence state. Otherwise a single evaluated item can look like a product-level quality trend.
+
+### Human Review Drift
+
+If reviewers do not see a consistent flow and playbook, the corpus becomes inconsistent over time. v12.6 needs an operator playbook and review queue progress state.
+
+### Conflating Technical Green With Product Evidence
+
+Tests/build/regressions can pass while live corpus evidence is empty. The gate must report both independently.
+
+## Sources Consulted
+
+- https://aclanthology.org/W19-8643.pdf
+- https://openaccess.thecvf.com/content/CVPR2023/papers/Otani_Toward_Verifiable_and_Reproducible_Human_Evaluation_for_Text-to-Image_Generation_CVPR_2023_paper.pdf
+- https://www.getmaxim.ai/articles/llm-as-a-judge-vs-human-in-the-loop-evaluations-a-complete-guide-for-ai-engineers/

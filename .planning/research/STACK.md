@@ -1,54 +1,26 @@
-# v12.4 Research: Stack
+# Research: v12.6 Stack
 
-**Milestone:** v12.4 Aprendizado de Qualidade dos Outputs  
-**Question:** What stack additions or changes are needed to learn from human output decisions without degrading over time?
+## Question
 
-## Existing Stack We Should Reuse
+What stack additions or changes are needed to operationalize live human quality evaluation for ADScale outputs?
 
-- Postgres canonical tables and repositories for durable learning records
-- Mem0 projection + retrieval already used for performance learnings
-- Existing derivation QA, score, hard-failure taxonomy, and recommendation prefill flows
-- Inngest jobs for async recompute / projection work
+## Findings
 
-## Recommended Stack Shape
+No new core stack is required. v12.6 should reuse the existing Next.js, Postgres/Drizzle, owner UI, evidence CLIs and release-gate scripts from v12.5.
 
-| Area | Recommendation | Why |
-|---|---|---|
-| Canonical storage | Reuse Postgres first, with a dedicated `output learnings` table family or equivalent JSONB-backed schema | Prevents retrieval-layer drift from becoming source of truth |
-| Retrieval | Reuse Mem0 only as projection/search index | Keeps relevance search fast without trusting vector memory as authority |
-| Learning compute | Reuse TypeScript aggregation services + background recompute job | Fits current `performance/learning` architecture |
-| Input signals | Reuse existing derivation review, regenerate, save-reference, delivery, and QA routes | Human decisions already exist in the product; capture before inventing new UI |
-| Evaluation | Extend current evidence/eval approach with a fixed output-learning eval set | Research and OpenAI eval guidance both favor measured iteration over prompt-only tweaking |
+Useful additions are operational, not architectural:
 
-## New Components to Add
+- Scheduled/operator-driven batch selection around existing corpus tables.
+- Queue progress views on existing owner/internal surfaces.
+- Threshold configuration for sample sufficiency, stored close to the existing calibration/impact services.
+- Evidence aggregation extensions that keep fixture metrics, live human metrics and accepted caveats separate.
 
-- Canonical event normalization for output decisions:
-  approval, rejection, regeneration reason, save-as-reference, export, delivery selection
-- Output-learning aggregation service:
-  convert raw events into approved/superseded learnings with confidence and contradiction tracking
-- Output-learning retrieval service:
-  fetch relevant learnings by client profile, campaign objective, mode, format, CTA, and quality pattern
-- Generation pre-application step:
-  map learnings into bounded prefill/restriction inputs before prompt build
-- Eval harness:
-  fixed corpus that measures whether applied learnings improve approval-oriented metrics without harming factual fidelity
+## Sources Consulted
 
-## What Not to Add
+- https://www.braintrust.dev/articles/llm-evaluation-guide
+- https://cameronrwolfe.substack.com/p/stats-llm-evals
+- https://openaccess.thecvf.com/content/CVPR2023/papers/Otani_Toward_Verifiable_and_Reproducible_Human_Evaluation_for_Text-to-Image_Generation_CVPR_2023_paper.pdf
 
-- No fine-tuning in this milestone
-- No second vector store
-- No prompt-only freeform memory injection as the primary mechanism
-- No fully autonomous self-updating rules without approval/supersession states
+## Recommendation
 
-## Research Notes
-
-- OpenAI's optimization guidance recommends a feedback flywheel of evals, prompt changes, and measured improvement rather than relying on intuition alone.
-- OpenAI image-eval guidance recommends keeping graded metrics separate instead of collapsing them too early.
-- RLHF/recommender literature consistently treats explicit and intentional human feedback as a high-value signal, but warns that stale signals need ongoing evaluation and confidence management.
-
-## Sources
-
-- OpenAI model optimization: https://developers.openai.com/api/docs/guides/model-optimization
-- OpenAI eval best practices: https://developers.openai.com/api/docs/guides/evaluation-best-practices
-- OpenAI image evals cookbook: https://developers.openai.com/cookbook/examples/multimodal/image_evals
-- RLHF survey: https://arxiv.org/pdf/2312.14925
+Do not add a third-party evaluation platform in v12.6. The existing product already has the right primitives; the milestone should harden operations, thresholds and reporting.

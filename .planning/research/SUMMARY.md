@@ -1,60 +1,37 @@
-# v12.4 Research Summary
+# Research Summary: v12.6 Operacao Live do Corpus de Qualidade
 
-**Milestone candidate:** v12.4 Aprendizado de Qualidade dos Outputs
+## Stack Additions
 
-## Recommended Direction
+No major stack addition. Reuse the v12.5 corpus, calibration, impact and release-gate infrastructure. Add operational logic: batch selection, review queue progress, sample sufficiency policy, trend aggregation and release evidence separation.
 
-Use real human output decisions as the first-class learning signal:
+## Feature Table Stakes
 
-- approval
-- rejection
-- regeneration
-- save as reference
-- delivery selection
-
-Then apply those learnings to the **next generation** through bounded prefills and restrictions, not through uncontrolled freeform memory.
-
-## Why This Fits ADScale_2
-
-- v12.3 fixed the integrity foundation but left a quality gap (`meanQualityScore=70.17 < 75`)
-- v12.1 already established the right architecture for durable learning:
-  Postgres canonical + Mem0 projection + explainable recommendation
-- The repo already captures key human actions in derivation review flows, so this milestone can extend real product behavior instead of inventing a lab-only system
-
-## Architecture Decision
-
-`Postgres canonical -> Mem0 projection -> bounded application`
-
-This is the main protection against degradation.
-
-## Scope Recommendation
-
-### In scope
-
-- normalized output-decision evidence
-- canonical output learnings with confidence/contradiction/supersession
-- retrieval by client/campaign/mode/format context
-- next-generation recommendation and prefill application
-- evals proving quality improvement without factual regression
-
-### Out of scope
-
-- fine-tuning
-- full media-performance blending in v1 of this milestone
-- autonomous prompt mutation from vector memory
-- cross-client global taste model
-
-## Proposed Requirement Themes
-
-- `SIGNAL`: capture trustworthy human output signals
-- `LEARN`: aggregate durable learnings from those signals
-- `APPLY`: use learnings before the next generation
-- `SAFE`: bound and explain learned behavior
-- `EVAL`: prove improvement with a fixed regression set
+- Versioned live corpus sourced from real outputs.
+- Human review flow with structured, repeatable rubric fields.
+- Sample sufficiency and `insufficient_sample` states.
+- Trends with visible denominators, stale-state warnings and drilldown.
+- Release gate that separates technical regression from operational evidence.
 
 ## Watch Out For
 
-- stale learnings treated as permanent truths
-- retrieval relevance confused with approval
-- recommendation logic that hides contradictions
-- quality optimization that weakens factual fidelity
+- Do not claim improvement from an empty or tiny live corpus.
+- Do not merge fixture, live-human and accepted-caveat metrics into one number.
+- Do not let visual quality improvements offset factual pass/fail.
+- Do not introduce a new evaluation vendor before internal operations are stable.
+
+## Roadmap Implication
+
+The natural v12.6 sequence is:
+
+1. Live corpus operations.
+2. Sampling sufficiency and evidence honesty.
+3. Quality trend dashboard.
+4. Operational quality release gate.
+
+## Sources
+
+- Braintrust, "What is LLM evaluation?" https://www.braintrust.dev/articles/llm-evaluation-guide
+- Cameron Wolfe, "Applying Statistics to LLM Evaluations" https://cameronrwolfe.substack.com/p/stats-llm-evals
+- Otani et al., "Toward Verifiable and Reproducible Human Evaluation for Text-to-Image Generation" https://openaccess.thecvf.com/content/CVPR2023/papers/Otani_Toward_Verifiable_and_Reproducible_Human_Evaluation_for_Text-to-Image_Generation_CVPR_2023_paper.pdf
+- Snorkel AI, "Data quality and rubrics" https://snorkel.ai/blog/data-quality-and-rubrics-how-to-build-trust-in-your-models/
+- iMerit, "Image Generation Evaluation" https://imerit.ai/solutions/generative-ai-data-solutions/image-generation-evaluation/
