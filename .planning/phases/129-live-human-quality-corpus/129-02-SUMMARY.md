@@ -75,7 +75,7 @@ Each task was committed atomically:
 2. **Task 2: Create human evaluation submission API** - `9a265546` (feat)
 3. **Task 3: Protect admin/internal and privacy boundaries** - boundary tests co-located in `f0c0017a` and `9a265546` (test coverage within task 1/2 commits)
 
-**Plan metadata:** pending (docs commit)
+**Plan metadata:** `3b61a266` (docs)
 
 ## Files Created/Modified
 

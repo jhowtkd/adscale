@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v12.5
 milestone_name: Validacao Real de Qualidade e Calibracao do Loop Criativo
 status: executing
-last_updated: "2026-06-17T10:05:42.619Z"
+last_updated: "2026-06-17T11:06:00.000Z"
 last_activity: 2026-06-17 — Completed 129-02 internal corpus API and queue service
 progress:
   total_phases: 5
