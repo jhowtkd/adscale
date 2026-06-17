@@ -28,7 +28,7 @@
 **Starting point:** v12.4 passou com learning loop fixture-based; v12.3 deixou gap aceito de `meanQualityScore 70.17 < 75`.
 
 - [x] **Phase 129: Live Human Quality Corpus** — criar corpus versionado de outputs reais com julgamento humano estruturado (completed 2026-06-17)
-- [ ] **Phase 130: Score Calibration and Rubric Alignment** — comparar score automatico vs julgamento humano e versionar ajustes de rubric/gate
+- [x] **Phase 130: Score Calibration and Rubric Alignment** — comparar score automatico vs julgamento humano e versionar ajustes de rubric/gate (completed 2026-06-17)
 - [ ] **Phase 131: Learning Impact Measurement** — medir impacto real de recommendation/prefill de v12.4 em qualidade, rejeicao/regeneracao e factual pass
 - [ ] **Phase 132: Targeted Creative Quality Improvements** — atacar falhas visuais provadas pelo corpus sem regredir factualidade
 - [ ] **Phase 133: Real Quality Release Gate** — fechar milestone com gate reproduzivel, metricas separadas e caveats explicitos
@@ -36,7 +36,7 @@
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
 | 129 | Live Human Quality Corpus | Complete    | 2026-06-17 | 2026-06-17 |
-| 130 | Score Calibration and Rubric Alignment | 3/4 | In Progress|  |
+| 130 | Score Calibration and Rubric Alignment | 4/4 | Complete   | 2026-06-17 |
 | 131 | Learning Impact Measurement | IMPACT-01, IMPACT-02, IMPACT-03, IMPACT-04 | Planned | — |
 | 132 | Targeted Creative Quality Improvements | QUALITY-01, QUALITY-02, QUALITY-03, QUALITY-04 | Planned | — |
 | 133 | Real Quality Release Gate | QA-22, QA-23, QA-24 | Planned | — |
@@ -75,13 +75,13 @@
   3. Rubric/gate adjustments cite corpus evidence and carry an explicit version.
   4. Factual pass/fail remains separate and cannot be offset by visual score improvements.
 
-**Plans:** 3/4 plans executed
+**Plans:** 4/4 plans complete
 
 Plans:
 - [x] 130-01-PLAN.md — Evaluated corpus join and per-item score comparison (CALIB-01)
 - [x] 130-02-PLAN.md — Grouped divergence report and factual metric separation (CALIB-02, CALIB-04)
 - [x] 130-03-PLAN.md — Versioned rubric/gate adjustment proposal registry (CALIB-03)
-- [ ] 130-04-PLAN.md — Evidence CLI, calibration API and read-only UI tab (CALIB-01–04 integration)
+- [x] 130-04-PLAN.md — Evidence CLI, calibration API and read-only UI tab (CALIB-01–04 integration)
 
 ---
 
