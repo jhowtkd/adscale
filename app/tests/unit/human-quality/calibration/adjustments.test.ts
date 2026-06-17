@@ -41,7 +41,7 @@ describe("proposeAdjustments", () => {
 
     expect(proposals).toHaveLength(1);
     expect(proposals[0].status).toBe("proposed");
-    expect(proposals[0].adjustmentVersion).toBe("1.0.0");
+    expect(proposals[0].adjustmentVersion).toBe("1.1.0");
     expect(proposals[0].targetModule).toBe("score_ceiling");
     expect(proposals[0].targetKey).toBe("visual_overload");
     expect(proposals[0].sliceKey).toBe(
