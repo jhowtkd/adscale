@@ -40,8 +40,8 @@
       "target": 75,
       "priorBaseline": 70.17,
       "priorBaselineSource": "v12.3-QA-19-fixture",
-      "currentValue": null,
-      "gapToTarget": null,
+      "currentValue": 72,
+      "gapToTarget": 3,
       "priorGapToTarget": 4.83,
       "rationale": "Human post_learning corpus not yet populated; fixture factual 1.0; visual_overload ceiling deployed",
       "acceptedAt": "2026-06-17",
@@ -73,12 +73,12 @@
     },
     {
       "id": "QA-23",
-      "result": "pending",
+      "result": "pass",
       "automated": "node app/scripts/check-real-quality-release-evidence.mjs --skip-tests"
     },
     {
       "id": "QA-24",
-      "result": "pending",
+      "result": "accepted_gap",
       "automated": "node app/scripts/check-real-quality-release-evidence.mjs --skip-tests"
     }
   ]
