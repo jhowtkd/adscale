@@ -68,6 +68,44 @@ export async function insertCorpusItem(
   return item;
 }
 
+export async function getCorpusItemById(
+  workspaceId: string,
+  corpusItemId: string
+): Promise<HumanQualityCorpusItem | null> {
+  const rows = await db
+    .select()
+    .from(humanQualityCorpusItems)
+    .where(
+      and(
+        eq(humanQualityCorpusItems.id, corpusItemId),
+        eq(humanQualityCorpusItems.workspaceId, workspaceId)
+      )
+    )
+    .limit(1);
+
+  return rows[0] ?? null;
+}
+
+export async function findCorpusItemByDerivationVersion(
+  workspaceId: string,
+  derivationId: string,
+  corpusVersion: number
+): Promise<HumanQualityCorpusItem | null> {
+  const rows = await db
+    .select()
+    .from(humanQualityCorpusItems)
+    .where(
+      and(
+        eq(humanQualityCorpusItems.workspaceId, workspaceId),
+        eq(humanQualityCorpusItems.derivationId, derivationId),
+        eq(humanQualityCorpusItems.corpusVersion, corpusVersion)
+      )
+    )
+    .limit(1);
+
+  return rows[0] ?? null;
+}
+
 export async function listPendingCorpusItems(
   filters: ListPendingCorpusItemsFilters
 ): Promise<HumanQualityCorpusItem[]> {
