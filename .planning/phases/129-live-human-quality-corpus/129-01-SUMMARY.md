@@ -72,7 +72,7 @@ Each task was committed atomically:
 2. **Task 2: Add schema, migration, and repository helpers** - `f777d571` (feat)
 3. **Task 3: Enforce privacy-safe corpus snapshots** - `ff1cb79a` (feat)
 
-**Plan metadata:** `77e2f23c` (docs)
+**Plan metadata:** `54c7fc82` (docs)
 
 ## Files Created/Modified
 
