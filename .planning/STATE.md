@@ -32,7 +32,7 @@ Plan: 03/03
 Status: Milestone shipped
 Last activity: 2026-06-17
 
-Progress: v12.4 complete — output learning eval gate passed; 22/22 requirements satisfied
+Progress: v12.4 complete — output learning eval gate passed; 21/21 requirements satisfied
 
 ## Accumulated Context
 

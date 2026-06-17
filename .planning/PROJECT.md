@@ -10,9 +10,9 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Current State
 
-v12.4 Aprendizado de Qualidade dos Outputs starts on 2026-06-16. v12.3 closed the factual-integrity milestone, but the product still needs a durable way to learn from human output decisions and apply those lessons before the next generation.
+v12.4 Aprendizado de Qualidade dos Outputs shipped on 2026-06-17. v12.3 closed the factual-integrity milestone, and v12.4 added a durable loop to learn from human output decisions and apply those lessons before the next generation.
 
-### v12.4 Aprendizado de Qualidade dos Outputs — ACTIVE (2026-06-16)
+### v12.4 Aprendizado de Qualidade dos Outputs — SHIPPED (2026-06-17)
 
 **Goal:** Transformar aprovação, rejeição, regeneração e referências salvas em aprendizados canônicos que melhorem a próxima geração sem degradar com o tempo.
 
