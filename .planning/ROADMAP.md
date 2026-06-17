@@ -38,7 +38,7 @@
 | 129 | Live Human Quality Corpus | Complete    | 2026-06-17 | 2026-06-17 |
 | 130 | Score Calibration and Rubric Alignment | Complete    | 2026-06-17 | 2026-06-17 |
 | 131 | Learning Impact Measurement | 4/4 | Complete   | 2026-06-17 |
-| 132 | Targeted Creative Quality Improvements | QUALITY-01, QUALITY-02, QUALITY-03, QUALITY-04 | Planned (0/4) | — |
+| 132 | Targeted Creative Quality Improvements | 1/4 | In Progress|  |
 | 133 | Real Quality Release Gate | QA-22, QA-23, QA-24 | Planned | — |
 
 ## Phase Details
@@ -123,10 +123,10 @@ Plans:
   3. v12.3 factual hard failures and v12.4 learning safety guards remain green.
   4. Re-evaluation shows whether targeted failure frequency decreased.
 
-**Plans:** 4 plans
+**Plans:** 1/4 plans executed
 
 Plans:
-- [ ] 132-01-PLAN.md — Accept lifecycle, apply contracts, and calibration version bump (QUALITY-02)
+- [x] 132-01-PLAN.md — Accept lifecycle, apply contracts, and calibration version bump (QUALITY-02)
 - [ ] 132-02-PLAN.md — Evidence-bound ceiling/rubric/gate edits and visual archetype fixtures (QUALITY-01, QUALITY-02)
 - [ ] 132-03-PLAN.md — v12.3/v12.4 regression guard wiring and evidence template (QUALITY-03)
 - [ ] 132-04-PLAN.md — Re-evaluation report, CLI, API, and Quality UI tab (QUALITY-04)
