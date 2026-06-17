@@ -270,3 +270,43 @@ export function sanitizeQualitySnapshot(
 export function containsForbiddenPayloadKeys(value: Record<string, unknown>): boolean {
   return Object.keys(value).some((key) => FORBIDDEN_PAYLOAD_KEYS.has(key));
 }
+
+export function findForbiddenPayloadKeys(value: Record<string, unknown>): string[] {
+  return Object.keys(value).filter((key) => FORBIDDEN_PAYLOAD_KEYS.has(key));
+}
+
+export function validatePrivacySafePayload(
+  value: Record<string, unknown>
+): ValidationResult<Record<string, unknown>> {
+  const forbidden = findForbiddenPayloadKeys(value);
+  if (forbidden.length > 0) {
+    return {
+      ok: false,
+      error: `forbidden corpus payload keys: ${forbidden.join(", ")}`,
+    };
+  }
+  return { ok: true, value };
+}
+
+export function sanitizeCorpusPayloads(input: {
+  artifactRef: Record<string, unknown>;
+  qualitySnapshot: Record<string, unknown>;
+}): {
+  artifactRef: HumanQualityArtifactRef;
+  qualitySnapshot: HumanQualityQualitySnapshot;
+} {
+  const artifactValidation = validatePrivacySafePayload(input.artifactRef);
+  const snapshotValidation = validatePrivacySafePayload(input.qualitySnapshot);
+
+  if (!artifactValidation.ok) {
+    throw new Error(artifactValidation.error);
+  }
+  if (!snapshotValidation.ok) {
+    throw new Error(snapshotValidation.error);
+  }
+
+  return {
+    artifactRef: sanitizeArtifactRef(input.artifactRef),
+    qualitySnapshot: sanitizeQualitySnapshot(input.qualitySnapshot),
+  };
+}

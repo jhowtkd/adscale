@@ -5,12 +5,15 @@ import {
   HUMAN_QUALITY_INTENTS,
   buildQualitySnapshot,
   classifyCohort,
+  findForbiddenPayloadKeys,
   isHumanQualityCorpusCohort,
   isHumanQualityFailureReason,
   isHumanQualityIntent,
   sanitizeArtifactRef,
+  sanitizeCorpusPayloads,
   sanitizeQualitySnapshot,
   validateFactualPass,
+  validatePrivacySafePayload,
   validateVisualScore,
 } from "@/server/human-quality/corpus";
 
@@ -131,6 +134,73 @@ describe("human-quality corpus contract", () => {
         derivationId: "deriv-1",
         assetId: "asset-1",
       });
+    });
+  });
+
+  describe("privacy", () => {
+    const forbiddenSamples = [
+      { prompt: "secret prompt" },
+      { signedUrl: "https://cdn.example/signed" },
+      { imageBytes: "base64payload" },
+      { modelResponse: { output: "raw" } },
+      { sessionToken: "sess_123" },
+      { diagnostics: { trace: "x".repeat(5000) } },
+    ] as const;
+
+    it.each(forbiddenSamples)("rejects forbidden key in artifactRef: %j", (payload) => {
+      const result = validatePrivacySafePayload({
+        derivationId: "deriv-1",
+        ...payload,
+      });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error).toContain("forbidden corpus payload keys");
+      }
+    });
+
+    it.each(forbiddenSamples)("rejects forbidden key in qualitySnapshot: %j", (payload) => {
+      const result = validatePrivacySafePayload({
+        generationMode: "art_variation",
+        ...payload,
+      });
+      expect(result.ok).toBe(false);
+    });
+
+    it("findForbiddenPayloadKeys reports all forbidden fields", () => {
+      const keys = findForbiddenPayloadKeys({
+        prompt: "x",
+        signedUrl: "y",
+        generationMode: "ok",
+      });
+      expect(keys).toEqual(expect.arrayContaining(["prompt", "signedUrl"]));
+      expect(keys).not.toContain("generationMode");
+    });
+
+    it("sanitizeCorpusPayloads rejects payloads with forbidden keys", () => {
+      expect(() =>
+        sanitizeCorpusPayloads({
+          artifactRef: { derivationId: "deriv-1", prompt: "secret" },
+          qualitySnapshot: { generationMode: "art_variation" },
+        })
+      ).toThrow(/forbidden corpus payload keys/);
+    });
+
+    it("sanitizeCorpusPayloads accepts and sanitizes safe payloads", () => {
+      const result = sanitizeCorpusPayloads({
+        artifactRef: { derivationId: "deriv-1", assetId: "asset-1" },
+        qualitySnapshot: {
+          generationMode: "restyling",
+          qualityScore: 71,
+          scoreIssues: ["weak hierarchy"],
+        },
+      });
+
+      expect(result.artifactRef).toEqual({
+        derivationId: "deriv-1",
+        assetId: "asset-1",
+      });
+      expect(result.qualitySnapshot.generationMode).toBe("restyling");
+      expect(result.qualitySnapshot.qualityScore).toBe(71);
     });
   });
 });

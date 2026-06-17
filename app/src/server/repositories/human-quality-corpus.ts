@@ -12,8 +12,7 @@ import type {
   HumanQualityIntent,
 } from "../human-quality/corpus";
 import {
-  sanitizeArtifactRef,
-  sanitizeQualitySnapshot,
+  sanitizeCorpusPayloads,
 } from "../human-quality/corpus";
 
 export interface InsertCorpusItemInput
@@ -51,12 +50,17 @@ export interface SubmitCorpusEvaluationResult {
 export async function insertCorpusItem(
   input: InsertCorpusItemInput
 ): Promise<HumanQualityCorpusItem> {
+  const sanitized = sanitizeCorpusPayloads({
+    artifactRef: input.artifactRef,
+    qualitySnapshot: input.qualitySnapshot,
+  });
+
   const [item] = await db
     .insert(humanQualityCorpusItems)
     .values({
       ...input,
-      artifactRef: sanitizeArtifactRef(input.artifactRef),
-      qualitySnapshot: sanitizeQualitySnapshot(input.qualitySnapshot),
+      artifactRef: sanitized.artifactRef,
+      qualitySnapshot: sanitized.qualitySnapshot,
       status: "pending",
     })
     .returning();
