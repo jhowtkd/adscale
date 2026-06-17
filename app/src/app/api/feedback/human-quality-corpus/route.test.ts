@@ -16,8 +16,11 @@ vi.mock("@/server/human-quality/service", () => ({
       this.name = "HumanQualityServiceError";
     }
   },
+  MAX_CORPUS_BATCH_SIZE: 25,
   selectDerivationForCorpus: vi.fn(),
+  batchSelectDerivationsForCorpus: vi.fn(),
   listPendingCorpusQueue: vi.fn(),
+  getCorpusQueueProgress: vi.fn(),
 }));
 
 vi.mock("@/server/db", () => ({
@@ -43,6 +46,8 @@ vi.mock("next-intl/server", () => ({
 import { requirePlatformOwner } from "@/server/auth/platform-owner";
 import {
   HumanQualityServiceError,
+  batchSelectDerivationsForCorpus,
+  getCorpusQueueProgress,
   listPendingCorpusQueue,
   selectDerivationForCorpus,
 } from "@/server/human-quality/service";
@@ -54,7 +59,9 @@ const ITEM_ID = "550e8400-e29b-41d4-a716-446655440001";
 
 const mockRequireOwner = vi.mocked(requirePlatformOwner);
 const mockSelect = vi.mocked(selectDerivationForCorpus);
+const mockBatchSelect = vi.mocked(batchSelectDerivationsForCorpus);
 const mockList = vi.mocked(listPendingCorpusQueue);
+const mockProgress = vi.mocked(getCorpusQueueProgress);
 
 const baseItem = {
   id: ITEM_ID,
@@ -125,6 +132,33 @@ describe("/api/feedback/human-quality-corpus", () => {
     const body = await res.json();
     expect(body.items).toHaveLength(1);
     expect(mockList).toHaveBeenCalledWith({ workspaceId: WORKSPACE_ID, limit: 20 });
+    expect(body.progress).toBeUndefined();
+  });
+
+  it("GET includes queue progress when includeProgress=true", async () => {
+    mockList.mockResolvedValue([baseItem]);
+    mockProgress.mockResolvedValue({
+      workspaceId: WORKSPACE_ID,
+      totalPending: 1,
+      totalEvaluated: 4,
+      byCohort: { baseline: { pending: 1, evaluated: 4 } },
+      byGenerationMode: { art_variation: { pending: 1, evaluated: 4 } },
+      byFormat: { "1:1": { pending: 1, evaluated: 4 } },
+      latestSelectedAt: "2026-06-17T10:00:00.000Z",
+      latestEvaluatedAt: "2026-06-17T11:00:00.000Z",
+    });
+
+    const res = await GET(
+      new Request(
+        `http://localhost/api/feedback/human-quality-corpus?workspaceId=${WORKSPACE_ID}&includeProgress=true`
+      )
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.progress.totalPending).toBe(1);
+    expect(body.progress.totalEvaluated).toBe(4);
+    expect(mockProgress).toHaveBeenCalledWith({ workspaceId: WORKSPACE_ID });
   });
 
   it("GET requires workspaceId", async () => {
@@ -227,5 +261,67 @@ describe("/api/feedback/human-quality-corpus", () => {
     );
 
     expect(res.status).toBe(400);
+  });
+
+  it("POST accepts controlled batch selection payloads", async () => {
+    mockBatchSelect.mockResolvedValue({
+      results: [
+        { derivationId: DERIVATION_ID, outcome: "selected", item: baseItem },
+        { derivationId: "550e8400-e29b-41d4-a716-446655440099", outcome: "duplicate" },
+      ],
+      summary: {
+        total: 2,
+        selected: 1,
+        duplicate: 1,
+        invalid: 0,
+        missingProfile: 0,
+        unsafePayload: 0,
+      },
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/feedback/human-quality-corpus", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          workspaceId: WORKSPACE_ID,
+          campaignId: CAMPAIGN_ID,
+          derivationIds: [DERIVATION_ID, "550e8400-e29b-41d4-a716-446655440099"],
+        }),
+      })
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.summary.selected).toBe(1);
+    expect(mockBatchSelect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: WORKSPACE_ID,
+        campaignId: CAMPAIGN_ID,
+        selectedByUserId: "owner-1",
+      })
+    );
+    expect(mockSelect).not.toHaveBeenCalled();
+  });
+
+  it("rejects batch payloads above the size cap", async () => {
+    const derivationIds = Array.from({ length: 26 }, (_, index) =>
+      `550e8400-e29b-41d4-a716-44665544${String(index).padStart(4, "0")}`
+    );
+
+    const res = await POST(
+      new Request("http://localhost/api/feedback/human-quality-corpus", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          workspaceId: WORKSPACE_ID,
+          campaignId: CAMPAIGN_ID,
+          derivationIds,
+        }),
+      })
+    );
+
+    expect(res.status).toBe(400);
+    expect(mockBatchSelect).not.toHaveBeenCalled();
   });
 });

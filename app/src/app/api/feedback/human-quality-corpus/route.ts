@@ -9,6 +9,9 @@ import { FeedbackValidationError } from "@/server/feedback/validate-refs";
 import { HUMAN_QUALITY_CORPUS_COHORTS } from "@/server/human-quality/corpus";
 import {
   HumanQualityServiceError,
+  MAX_CORPUS_BATCH_SIZE,
+  batchSelectDerivationsForCorpus,
+  getCorpusQueueProgress,
   listPendingCorpusQueue,
   selectDerivationForCorpus,
 } from "@/server/human-quality/service";
@@ -39,15 +42,26 @@ async function attachPreviewImages(items: HumanQualityCorpusItem[]) {
   );
 }
 
-const selectCorpusSchema = z.object({
+const selectCorpusBaseSchema = z.object({
   workspaceId: z.string().uuid(),
   campaignId: z.string().uuid(),
-  derivationId: z.string().uuid(),
   cohort: z.enum(HUMAN_QUALITY_CORPUS_COHORTS).optional(),
   corpusVersion: z.number().int().min(1).max(100).optional(),
   artifactRef: z.record(z.string(), z.unknown()).optional(),
   qualitySnapshot: z.record(z.string(), z.unknown()).optional(),
 });
+
+const selectCorpusSchema = z.union([
+  selectCorpusBaseSchema.extend({
+    derivationId: z.string().uuid(),
+  }),
+  selectCorpusBaseSchema.extend({
+    derivationIds: z
+      .array(z.string().uuid())
+      .min(1)
+      .max(MAX_CORPUS_BATCH_SIZE),
+  }),
+]);
 
 export async function GET(request: Request) {
   try {
@@ -65,10 +79,21 @@ export async function GET(request: Request) {
       return apiError("validation_error", 400, { field: "limit" });
     }
 
+    const includeProgress = searchParams.get("includeProgress") === "true";
+
     const items = await listPendingCorpusQueue({ workspaceId, limit });
     const itemsWithPreview = await attachPreviewImages(items);
 
-    return NextResponse.json({ items: itemsWithPreview });
+    const response: {
+      items: typeof itemsWithPreview;
+      progress?: Awaited<ReturnType<typeof getCorpusQueueProgress>>;
+    } = { items: itemsWithPreview };
+
+    if (includeProgress) {
+      response.progress = await getCorpusQueueProgress({ workspaceId });
+    }
+
+    return NextResponse.json(response);
   } catch (error) {
     return handleApiError(error, "feedback.human-quality-corpus.GET");
   }
@@ -83,8 +108,25 @@ export async function POST(request: Request) {
       return apiError("validation_error", 400, parsed.error.flatten());
     }
 
+    const payload = parsed.data;
+
+    if ("derivationIds" in payload) {
+      const batchResult = await batchSelectDerivationsForCorpus({
+        workspaceId: payload.workspaceId,
+        campaignId: payload.campaignId,
+        derivationIds: payload.derivationIds,
+        selectedByUserId: user.id,
+        cohort: payload.cohort,
+        corpusVersion: payload.corpusVersion,
+        artifactRef: payload.artifactRef,
+        qualitySnapshot: payload.qualitySnapshot,
+      });
+
+      return NextResponse.json(batchResult);
+    }
+
     const item = await selectDerivationForCorpus({
-      ...parsed.data,
+      ...payload,
       selectedByUserId: user.id,
     });
 
@@ -99,6 +141,9 @@ export async function POST(request: Request) {
         return apiError(error.code, 409);
       }
       if (error.code === "forbidden_corpus_payload") {
+        return apiError(error.code, 400);
+      }
+      if (error.code === "batch_size_exceeded") {
         return apiError(error.code, 400);
       }
       return apiError(error.code, 400);
