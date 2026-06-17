@@ -2,15 +2,14 @@
 gsd_state_version: 1.0
 milestone: v12.5
 milestone_name: Validacao Real de Qualidade e Calibracao do Loop Criativo
-status: phase_complete
-last_updated: "2026-06-17T10:26:00.000Z"
+status: planning
+last_updated: "2026-06-17T10:43:31.744Z"
 last_activity: 2026-06-17 — Completed 129-03 owner evaluation UI and verification
 progress:
   total_phases: 5
   completed_phases: 1
   total_plans: 3
   completed_plans: 3
-  percent: 100
 ---
 
 # Project State
@@ -23,16 +22,16 @@ See: .planning/PROJECT.md (updated 2026-06-17)
 
 **Current focus:** v12.5 — Validacao Real de Qualidade e Calibracao do Loop Criativo.
 
-**Status:** Phase 129 complete — all 3 plans shipped.
+**Status:** Phase 129 verified — ready to plan Phase 130
 
 ## Current Position
 
-Phase: 129 — Live Human Quality Corpus
-Plan: 129-03 (complete)
-Status: Complete (3/3 plans)
-Last activity: 2026-06-17 — Completed 129-03 owner evaluation UI and verification
+Phase: 130 — Score Calibration and Rubric Alignment
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-06-17 — Phase 129 human verification approved
 
-Progress: 1/5 v12.5 phases complete; 19/19 requirements mapped to roadmap.
+Progress: 1/5 v12.5 phases complete; HUMAN-01–04 validated.
 
 ## Accumulated Context
 
@@ -90,4 +89,4 @@ Progress: 1/5 v12.5 phases complete; 19/19 requirements mapped to roadmap.
 
 ## Next Steps
 
-Begin Phase 130 (score calibration against human visual judgments). Phase 129 does not claim calibration or learning-impact results.
+Run `$gsd-discuss-phase 130` to gather context for score calibration and rubric alignment.
