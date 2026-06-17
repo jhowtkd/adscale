@@ -42,6 +42,23 @@ export interface HumanQualityArtifactRef {
   styleAssetId?: string | null;
 }
 
+export type OutputLearningApplicationResolution =
+  | "recorded"
+  | "not_recorded"
+  | "recommendation_only";
+
+export interface OutputLearningApplicationSnapshot {
+  schemaVersion: 1;
+  applied: boolean;
+  resolution: OutputLearningApplicationResolution;
+  traceId?: string;
+  recommendationId?: string;
+  primaryVariableKey?: string;
+  algorithmVersion?: string;
+  safetyVersion?: string;
+  learningsSource: "postgres";
+}
+
 export interface HumanQualityQualitySnapshot {
   generationMode?: string | null;
   format?: string | null;
@@ -54,6 +71,7 @@ export interface HumanQualityQualitySnapshot {
   hardFailures?: { code?: string; message?: string }[];
   scoreIssues?: string[];
   polishSuggestions?: string[];
+  outputLearningApplication?: OutputLearningApplicationSnapshot;
 }
 
 export interface HumanQualityEvaluationInput {
