@@ -12,16 +12,19 @@ vi.mock("@/server/repositories/campaign", () => ({
 vi.mock("@/server/repositories/human-quality-corpus", () => ({
   insertCorpusItem: vi.fn(),
   findCorpusItemByDerivationVersion: vi.fn(),
+  getCorpusOperationsProgress: vi.fn(),
 }));
 
 import { getDerivationById } from "@/server/repositories/derivation";
 import { getCampaignById } from "@/server/repositories/campaign";
 import {
   findCorpusItemByDerivationVersion,
+  getCorpusOperationsProgress,
   insertCorpusItem,
 } from "@/server/repositories/human-quality-corpus";
 import {
   batchSelectDerivationsForCorpus,
+  getCorpusQueueProgress,
 } from "@/server/human-quality/service";
 
 const WORKSPACE_ID = "550e8400-e29b-41d4-a716-446655440002";
@@ -35,6 +38,7 @@ const mockGetDerivation = vi.mocked(getDerivationById);
 const mockGetCampaign = vi.mocked(getCampaignById);
 const mockFindExisting = vi.mocked(findCorpusItemByDerivationVersion);
 const mockInsert = vi.mocked(insertCorpusItem);
+const mockGetProgress = vi.mocked(getCorpusOperationsProgress);
 
 const derivation = {
   id: DERIVATION_A,
@@ -167,6 +171,52 @@ describe("live corpus operations", () => {
           derivationIds: [],
         })
       ).rejects.toMatchObject({ code: "validation_error" });
+    });
+  });
+
+  describe("getCorpusQueueProgress", () => {
+    it("returns operational queue progress grouped by cohort, mode and format", async () => {
+      const latestSelectedAt = new Date("2026-06-17T10:00:00.000Z");
+      const latestEvaluatedAt = new Date("2026-06-17T11:00:00.000Z");
+      mockGetProgress.mockResolvedValue({
+        totalPending: 3,
+        totalEvaluated: 2,
+        byCohort: {
+          baseline: { pending: 2, evaluated: 1 },
+          post_learning: { pending: 1, evaluated: 1 },
+        },
+        byGenerationMode: {
+          art_variation: { pending: 3, evaluated: 2 },
+        },
+        byFormat: {
+          "1:1": { pending: 2, evaluated: 1 },
+          "9:16": { pending: 1, evaluated: 1 },
+        },
+        latestSelectedAt,
+        latestEvaluatedAt,
+      });
+
+      const progress = await getCorpusQueueProgress({ workspaceId: WORKSPACE_ID });
+
+      expect(progress).toEqual({
+        workspaceId: WORKSPACE_ID,
+        totalPending: 3,
+        totalEvaluated: 2,
+        byCohort: {
+          baseline: { pending: 2, evaluated: 1 },
+          post_learning: { pending: 1, evaluated: 1 },
+        },
+        byGenerationMode: {
+          art_variation: { pending: 3, evaluated: 2 },
+        },
+        byFormat: {
+          "1:1": { pending: 2, evaluated: 1 },
+          "9:16": { pending: 1, evaluated: 1 },
+        },
+        latestSelectedAt: latestSelectedAt.toISOString(),
+        latestEvaluatedAt: latestEvaluatedAt.toISOString(),
+      });
+      expect(mockGetProgress).toHaveBeenCalledWith(WORKSPACE_ID);
     });
   });
 });

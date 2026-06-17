@@ -7,6 +7,7 @@ import {
   insertCorpusItem,
   listPendingCorpusItems,
   submitCorpusEvaluation,
+  getCorpusOperationsProgress,
   type InsertCorpusItemInput,
 } from "@/server/repositories/human-quality-corpus";
 import type { HumanQualityCorpusItem } from "@/server/db/schema";
@@ -94,6 +95,21 @@ export interface BatchSelectCorpusSummary {
 export interface BatchSelectCorpusResult {
   results: BatchSelectCorpusItemResult[];
   summary: BatchSelectCorpusSummary;
+}
+
+export interface CorpusQueueProgress {
+  workspaceId: string;
+  totalPending: number;
+  totalEvaluated: number;
+  byCohort: Record<string, { pending: number; evaluated: number }>;
+  byGenerationMode: Record<string, { pending: number; evaluated: number }>;
+  byFormat: Record<string, { pending: number; evaluated: number }>;
+  latestSelectedAt: string | null;
+  latestEvaluatedAt: string | null;
+}
+
+export interface GetCorpusQueueProgressInput {
+  workspaceId: string;
 }
 
 export interface SubmitHumanEvaluationInput {
@@ -338,6 +354,23 @@ export async function batchSelectDerivationsForCorpus(
   }
 
   return { results, summary };
+}
+
+export async function getCorpusQueueProgress(
+  input: GetCorpusQueueProgressInput
+): Promise<CorpusQueueProgress> {
+  const progress = await getCorpusOperationsProgress(input.workspaceId);
+
+  return {
+    workspaceId: input.workspaceId,
+    totalPending: progress.totalPending,
+    totalEvaluated: progress.totalEvaluated,
+    byCohort: progress.byCohort,
+    byGenerationMode: progress.byGenerationMode,
+    byFormat: progress.byFormat,
+    latestSelectedAt: progress.latestSelectedAt?.toISOString() ?? null,
+    latestEvaluatedAt: progress.latestEvaluatedAt?.toISOString() ?? null,
+  };
 }
 
 export async function listPendingCorpusQueue(

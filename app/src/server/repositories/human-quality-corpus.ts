@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "../db";
 import {
   humanQualityCorpusItems,
@@ -59,6 +59,21 @@ export interface ListEvaluatedCorpusWithEvaluationsFilters {
   workspaceId?: string;
   cohort?: string;
   limit?: number;
+}
+
+export interface CorpusStatusCount {
+  pending: number;
+  evaluated: number;
+}
+
+export interface CorpusOperationsProgress {
+  totalPending: number;
+  totalEvaluated: number;
+  byCohort: Record<string, CorpusStatusCount>;
+  byGenerationMode: Record<string, CorpusStatusCount>;
+  byFormat: Record<string, CorpusStatusCount>;
+  latestSelectedAt: Date | null;
+  latestEvaluatedAt: Date | null;
 }
 
 const DEFAULT_EVALUATED_CORPUS_LIMIT = 500;
@@ -201,4 +216,78 @@ export async function submitCorpusEvaluation(
     .returning();
 
   return { item, evaluation };
+}
+
+function bumpStatusCount(
+  buckets: Record<string, CorpusStatusCount>,
+  key: string,
+  status: "pending" | "evaluated"
+): void {
+  if (!buckets[key]) {
+    buckets[key] = { pending: 0, evaluated: 0 };
+  }
+  buckets[key][status] += 1;
+}
+
+/** Summarize pending/evaluated corpus rows for operational queue progress. */
+export async function getCorpusOperationsProgress(
+  workspaceId: string
+): Promise<CorpusOperationsProgress> {
+  const rows = await db
+    .select({
+      status: humanQualityCorpusItems.status,
+      cohort: humanQualityCorpusItems.cohort,
+      generationMode: humanQualityCorpusItems.generationMode,
+      format: humanQualityCorpusItems.format,
+      selectedAt: humanQualityCorpusItems.selectedAt,
+      updatedAt: humanQualityCorpusItems.updatedAt,
+    })
+    .from(humanQualityCorpusItems)
+    .where(
+      and(
+        eq(humanQualityCorpusItems.workspaceId, workspaceId),
+        inArray(humanQualityCorpusItems.status, ["pending", "evaluated"])
+      )
+    );
+
+  const progress: CorpusOperationsProgress = {
+    totalPending: 0,
+    totalEvaluated: 0,
+    byCohort: {},
+    byGenerationMode: {},
+    byFormat: {},
+    latestSelectedAt: null,
+    latestEvaluatedAt: null,
+  };
+
+  for (const row of rows) {
+    const status = row.status as "pending" | "evaluated";
+    if (status === "pending") {
+      progress.totalPending += 1;
+    } else {
+      progress.totalEvaluated += 1;
+    }
+
+    bumpStatusCount(progress.byCohort, row.cohort, status);
+    bumpStatusCount(progress.byGenerationMode, row.generationMode, status);
+    bumpStatusCount(progress.byFormat, row.format || "unknown", status);
+
+    if (
+      !progress.latestSelectedAt ||
+      row.selectedAt.getTime() > progress.latestSelectedAt.getTime()
+    ) {
+      progress.latestSelectedAt = row.selectedAt;
+    }
+
+    if (status === "evaluated") {
+      if (
+        !progress.latestEvaluatedAt ||
+        row.updatedAt.getTime() > progress.latestEvaluatedAt.getTime()
+      ) {
+        progress.latestEvaluatedAt = row.updatedAt;
+      }
+    }
+  }
+
+  return progress;
 }
