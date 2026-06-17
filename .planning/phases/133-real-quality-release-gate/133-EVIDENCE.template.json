@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "milestoneVersion": "v12.5",
+  "capturedAt": "2026-06-17T18:00:00.000Z",
+  "verifiedAt": "2026-06-17T18:00:00.000Z",
+  "status": "ok",
+  "qualityMetrics": {
+    "humanCorpus": {
+      "evaluatedItemCount": 0,
+      "meanHumanVisualScore": null,
+      "calibrationStatus": "insufficient_corpus",
+      "qualityImprovementStatus": "insufficient_sample",
+      "sourcePath": ".planning/phases/130-score-calibration-and-rubric-alignment/130-EVIDENCE.json"
+    },
+    "fixtureValidation": {
+      "meanQualityScore": 70.17,
+      "factualFidelityRate": 1.0,
+      "sourcePath": ".planning/phases/123-visual-validation-gate/123-EVIDENCE.json",
+      "note": "Deterministic v12.3 matrix — not human corpus"
+    }
+  },
+  "factualMetrics": {
+    "humanCorpusFactualPassRate": 1.0,
+    "v12_3FactualFidelityRate": 1.0,
+    "v12_3RegressionSubsetPassed": true,
+    "fidelityHardFailureCount": 0,
+    "safetyGuardPassRate": 1.0
+  },
+  "learningImpactMetrics": {
+    "status": "insufficient_sample",
+    "learnedFactualPassRate": 1.0,
+    "globalVisualScoreDelta": null,
+    "sourcePath": ".planning/phases/131-learning-impact-measurement/131-EVIDENCE.json"
+  },
+  "acceptedCaveats": [
+    {
+      "id": "visual_quality_gap",
+      "status": "accepted_gap",
+      "metric": "meanHumanVisualScore",
+      "target": 75,
+      "priorBaseline": 70.17,
+      "priorBaselineSource": "v12.3-QA-19-fixture",
+      "currentValue": null,
+      "gapToTarget": null,
+      "priorGapToTarget": 4.83,
+      "rationale": "Human post_learning corpus not yet populated; fixture factual 1.0; visual_overload ceiling deployed",
+      "acceptedAt": "2026-06-17",
+      "acceptedBy": "operator"
+    }
+  ],
+  "regressionMetrics": {
+    "gateMatrixPass": true,
+    "creativeValidationScript": "pending",
+    "outputLearningScript": "pending"
+  },
+  "automated": {
+    "corpus-eval": "pending",
+    "score-calibration": "pending",
+    "learning-impact": "pending",
+    "quality-improvement": "pending",
+    "v12_3-factual": "pending",
+    "v12_4-output-learning": "pending",
+    "unit": "pending",
+    "lint": "pending",
+    "build": "pending",
+    "real-quality-evidence": "pending"
+  },
+  "requirements": [
+    {
+      "id": "QA-22",
+      "result": "pending",
+      "automated": "cd app && npm run real-quality-release-gate"
+    },
+    {
+      "id": "QA-23",
+      "result": "pending",
+      "automated": "node app/scripts/check-real-quality-release-evidence.mjs --skip-tests"
+    },
+    {
+      "id": "QA-24",
+      "result": "pending",
+      "automated": "node app/scripts/check-real-quality-release-evidence.mjs --skip-tests"
+    }
+  ]
+}
