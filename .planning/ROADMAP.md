@@ -2,7 +2,7 @@
 
 ## Milestones
 
-- 🚧 **v12.5 Validacao Real de Qualidade e Calibracao do Loop Criativo** - Phases 129-133 (active)
+- ✅ **v12.5 Validacao Real de Qualidade e Calibracao do Loop Criativo** - Phases 129-133 (shipped 2026-06-17)
 - ✅ **v12.4 Aprendizado de Qualidade dos Outputs** - Phases 124-128 (shipped 2026-06-17)
 - ✅ **v12.3 Integridade Criativa** - Phases 115-123 (shipped 2026-06-16; QA-19 accepted gap)
 - ✅ **v12.2 Refinamento Visual e Consistência da Interface** - Phases 109-114 (shipped 2026-06-14)
@@ -21,7 +21,7 @@
 
 ## Phases
 
-### 🚧 v12.5 Validacao Real de Qualidade e Calibracao do Loop Criativo (Phases 129-133) — ACTIVE
+### ✅ v12.5 Validacao Real de Qualidade e Calibracao do Loop Criativo (Phases 129-133) — SHIPPED 2026-06-17
 
 **Milestone Goal:** Provar e melhorar a qualidade percebida dos outputs com corpus real avaliado por humanos, mantendo fidelidade factual e o learning loop seguro.
 
@@ -31,7 +31,7 @@
 - [x] **Phase 130: Score Calibration and Rubric Alignment** — comparar score automatico vs julgamento humano e versionar ajustes de rubric/gate (completed 2026-06-17)
 - [x] **Phase 131: Learning Impact Measurement** — medir impacto real de recommendation/prefill de v12.4 em qualidade, rejeicao/regeneracao e factual pass (completed 2026-06-17)
 - [x] **Phase 132: Targeted Creative Quality Improvements** — atacar falhas visuais provadas pelo corpus sem regredir factualidade (completed 2026-06-17)
-- [ ] **Phase 133: Real Quality Release Gate** — fechar milestone com gate reproduzivel, metricas separadas e caveats explicitos
+- [x] **Phase 133: Real Quality Release Gate** — fechar milestone com gate reproduzivel, metricas separadas e caveats explicitos (completed 2026-06-17)
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
@@ -39,7 +39,7 @@
 | 130 | Score Calibration and Rubric Alignment | Complete    | 2026-06-17 | 2026-06-17 |
 | 131 | Learning Impact Measurement | 4/4 | Complete   | 2026-06-17 |
 | 132 | Targeted Creative Quality Improvements | Complete    | 2026-06-17 | 2026-06-17 |
-| 133 | Real Quality Release Gate | 3/4 | In Progress|  |
+| 133 | Real Quality Release Gate | Complete    | 2026-06-17 | 2026-06-17 |
 
 ## Phase Details
 
@@ -146,13 +146,13 @@ Plans:
   2. Evidence separates quality metrics, factual metrics, learning-impact metrics and accepted caveats.
   3. Milestone passes only if factual pass rate remains 1.0 and quality crosses target or the smaller remaining gap is explicitly accepted.
 
-**Plans:** 3/4 plans executed
+**Plans:** 4/4 plans complete
 
 Plans:
 - [x] 133-01-PLAN.md — Milestone evidence schema + QA-23/24 checker (QA-23, QA-24)
 - [x] 133-02-PLAN.md — QA-22 real-quality-release-gate orchestrator (QA-22)
 - [x] 133-03-PLAN.md — Evidence aggregation from 130/131/132 + --run-regression / --factual-only (QA-22, QA-23, QA-24)
-- [ ] 133-04-PLAN.md — v12.5 milestone audit + ROADMAP/STATE closure (QA-22–24)
+- [x] 133-04-PLAN.md — v12.5 milestone audit + ROADMAP/STATE closure (QA-22–24)
 
 ---
 
@@ -164,11 +164,11 @@ Archive: [v12.4-ROADMAP.md](milestones/v12.4-ROADMAP.md) · [v12.4-REQUIREMENTS.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 129 | v12.5 | 0/TBD | Planned | — |
-| 130 | v12.5 | 0/TBD | Planned | — |
-| 131 | v12.5 | 0/TBD | Planned | — |
-| 132 | v12.5 | 0/4 | Planned | — |
-| 133 | v12.5 | 0/4 | Planned | — |
+| 129 | v12.5 | 3/3 | Complete | 2026-06-17 |
+| 130 | v12.5 | 4/4 | Complete | 2026-06-17 |
+| 131 | v12.5 | 4/4 | Complete | 2026-06-17 |
+| 132 | v12.5 | 4/4 | Complete | 2026-06-17 |
+| 133 | v12.5 | 4/4 | Complete | 2026-06-17 |
 
 ---
-*Roadmap updated: 2026-06-17 — v12.5 initialized after v12.4 shipped*
+*Roadmap updated: 2026-06-17 — v12.5 shipped; milestone audit at milestones/v12.5-MILESTONE-AUDIT.md*
