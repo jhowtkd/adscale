@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import type { CalibrationAdjustmentEvidence } from "../calibration/types";
 import type { AdjustmentTargetModule } from "../../repositories/rubric-calibration-adjustments";
-import type { HumanQualityFailureReason } from "../../corpus";
+import type { HumanQualityFailureReason } from "../corpus";
 
 export const qualityImprovementChangeSpecSchema = z.object({
   ceilingDelta: z.number().min(-5).max(5).optional(),

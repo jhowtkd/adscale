@@ -20,6 +20,22 @@ vi.mock("@/server/human-quality/service", () => ({
   listPendingCorpusQueue: vi.fn(),
 }));
 
+vi.mock("@/server/db", () => ({
+  db: {
+    select: vi.fn(() => ({
+      from: vi.fn(() => ({
+        where: vi.fn().mockResolvedValue([
+          { id: "550e8400-e29b-41d4-a716-446655440004", outputKey: "derivations/preview.png" },
+        ]),
+      })),
+    })),
+  },
+}));
+
+vi.mock("@/server/storage/r2", () => ({
+  getPresignedDownloadUrl: vi.fn(() => Promise.resolve("https://signed.example/preview.png")),
+}));
+
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
 }));

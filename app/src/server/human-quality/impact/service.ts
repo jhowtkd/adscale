@@ -1,9 +1,7 @@
 import { listEvaluatedCorpusWithEvaluations } from "../../repositories/human-quality-corpus";
 import { buildImpactRows } from "./enrich";
-import {
-  buildLearningImpactReport,
-  type LearningImpactReport,
-} from "./report";
+import { buildLearningImpactReport } from "./report";
+import type { LearningImpactReport } from "./types";
 
 const DEFAULT_IMPACT_ROW_LIMIT = 500;
 
@@ -38,4 +36,4 @@ export async function runLearningImpact(
   return { report };
 }
 
-export type { LearningImpactReport } from "./report";
+export type { LearningImpactReport } from "./types";
