@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { Check, RefreshCw, X } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useMutation } from "@tanstack/react-query";
 import {
   Sheet,
   SheetBody,
@@ -13,6 +14,8 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { scoreCappedForDisplay } from "@/lib/derivation-quality";
+import { apiFetch } from "@/lib/api-client";
+import { useAppStore } from "@/lib/store";
 import type { Derivation } from "@/lib/mock-data";
 import type { AssetWithUrl } from "@/lib/hooks/use-assets";
 import ContextualFeedbackButton from "@/components/feedback/ContextualFeedbackButton";
@@ -20,15 +23,18 @@ import ContextualFeedbackButton from "@/components/feedback/ContextualFeedbackBu
 interface DerivationReviewSheetProps {
   open: boolean;
   derivation: Derivation | null;
+  workspaceId?: string;
   baseAsset?: AssetWithUrl | null;
   styleAsset?: AssetWithUrl | null;
   isRegenerating?: boolean;
   isApproving?: boolean;
   isRejecting?: boolean;
+  isAddingToCorpus?: boolean;
   onOpenChange: (open: boolean) => void;
   onRegenerateWithFixes: () => void;
   onApprove?: () => void;
   onReject?: () => void;
+  onAddToCorpus?: () => void;
 }
 
 function AssetThumb({
@@ -66,19 +72,65 @@ function AssetThumb({
 export default function DerivationReviewSheet({
   open,
   derivation,
+  workspaceId,
   baseAsset,
   styleAsset,
   isRegenerating = false,
   isApproving = false,
   isRejecting = false,
+  isAddingToCorpus = false,
   onOpenChange,
   onRegenerateWithFixes,
   onApprove,
   onReject,
+  onAddToCorpus,
 }: DerivationReviewSheetProps) {
   const t = useTranslations("derivation");
   const tr = useTranslations("review");
   const tc = useTranslations("common");
+  const addToast = useAppStore((s) => s.addToast);
+
+  const addToCorpusMutation = useMutation({
+    mutationFn: async () => {
+      if (!derivation || !workspaceId) {
+        throw new Error("missing context");
+      }
+      const res = await apiFetch("/api/feedback/human-quality-corpus", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          workspaceId,
+          campaignId: derivation.campaignId,
+          derivationId: derivation.id,
+        }),
+      });
+      if (res.status === 403) {
+        return { skipped: true as const };
+      }
+      if (res.status === 409) {
+        throw new Error("Already in corpus queue");
+      }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err.error as string | undefined) ?? "Could not add to corpus");
+      }
+      return { skipped: false as const };
+    },
+    onSuccess: (result) => {
+      if (result.skipped) return;
+      addToast("success", "Added to human quality corpus queue");
+      onAddToCorpus?.();
+    },
+    onError: (error: Error) => {
+      addToast("error", error.message);
+    },
+  });
+
+  const corpusPending = isAddingToCorpus || addToCorpusMutation.isPending;
+  const showCorpusAction =
+    Boolean(workspaceId) &&
+    derivation?.status === "completed" &&
+    Boolean(derivation?.imageUrl ?? derivation?.outputKey);
 
   if (!derivation) {
     return null;
@@ -246,6 +298,17 @@ export default function DerivationReviewSheet({
                   : undefined
               }
             />
+            {showCorpusAction ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={corpusPending}
+                onClick={() => addToCorpusMutation.mutate()}
+              >
+                {corpusPending ? "Adding to corpus…" : "Add to quality corpus"}
+              </Button>
+            ) : null}
           </div>
           <div className="flex flex-wrap gap-2">
             {isInvalid ? (
