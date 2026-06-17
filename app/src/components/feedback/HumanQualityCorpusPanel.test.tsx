@@ -130,7 +130,11 @@ function renderPanel() {
 
 function mockQueueOnly() {
   mockApiFetch.mockImplementation(async (url: string, init?: RequestInit) => {
-    if (url.includes("score-calibration") || url.includes("learning-impact")) {
+    if (
+      url.includes("score-calibration") ||
+      url.includes("learning-impact") ||
+      url.includes("quality-improvement")
+    ) {
       return { ok: false, status: 403 } as Response;
     }
     if (url.includes("human-quality-corpus") && !init?.method) {
@@ -494,5 +498,161 @@ describe("HumanQualityCorpusPanel impact tab", () => {
     expect(screen.getByText("insufficient_sample")).toBeInTheDocument();
     expect(screen.getByText("global_below_minimum")).toBeInTheDocument();
     expect(screen.queryByText("Global visual delta (comparable slices):")).not.toBeInTheDocument();
+  });
+});
+
+const qualityReport = {
+  schemaVersion: 1,
+  rubricCalibrationVersion: "1.1.0",
+  capturedAt: "2026-06-17T12:00:00.000Z",
+  status: "ok" as const,
+  targetedFailureReasons: [
+    "visual_overload",
+    "weak_hierarchy",
+    "generic_template_feel",
+    "illegible_cta",
+    "unfocused_composition",
+  ],
+  visualMetrics: {
+    failureFrequencyBefore: {
+      visual_overload: { count: 3, rate: 0.2 },
+      weak_hierarchy: { count: 3, rate: 0.2 },
+      generic_template_feel: { count: 3, rate: 0.2 },
+      illegible_cta: { count: 3, rate: 0.2 },
+      unfocused_composition: { count: 3, rate: 0.2 },
+    },
+    failureFrequencyAfter: {
+      visual_overload: { count: 2, rate: 0.13 },
+      weak_hierarchy: { count: 3, rate: 0.2 },
+      generic_template_feel: { count: 3, rate: 0.2 },
+      illegible_cta: { count: 3, rate: 0.2 },
+      unfocused_composition: { count: 3, rate: 0.2 },
+    },
+    deltaRateByReason: {
+      visual_overload: -0.07,
+      weak_hierarchy: 0,
+      generic_template_feel: 0,
+      illegible_cta: 0,
+      unfocused_composition: 0,
+    },
+  },
+  factualMetrics: {
+    factualPassRateBefore: 0.93,
+    factualPassRateAfter: 0.95,
+  },
+  fixtureMetrics: {
+    targetedArchetypePassRateBefore: 1,
+    targetedArchetypePassRateAfter: 1,
+  },
+  acceptedAdjustments: [
+    {
+      adjustmentId: "634f9104-0000-4000-8000-000000000001",
+      targetModule: "score_ceiling",
+      targetKey: "visual_overload",
+    },
+  ],
+};
+
+describe("HumanQualityCorpusPanel quality tab", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("shows failure frequency table and separated factual metrics", async () => {
+    mockApiFetch.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url.includes("quality-improvement")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ report: qualityReport }),
+        } as Response;
+      }
+      if (url.includes("score-calibration") || url.includes("learning-impact")) {
+        return { ok: false, status: 403 } as Response;
+      }
+      if (url.includes("human-quality-corpus") && !init?.method) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ items: [pendingItem] }),
+        } as Response;
+      }
+      return { ok: false, status: 500 } as Response;
+    });
+
+    renderPanel();
+    fireEvent.change(screen.getByLabelText("Workspace ID"), {
+      target: { value: WORKSPACE_ID },
+    });
+
+    await screen.findByText("Human quality corpus");
+    fireEvent.click(screen.getByRole("button", { name: "Quality" }));
+
+    expect(await screen.findByText("Quality improvement report")).toBeInTheDocument();
+    expect(screen.getByText("Visual failure frequency (targeted reasons)")).toBeInTheDocument();
+    expect(screen.getByText("Factual pass rates (separate from visual)")).toBeInTheDocument();
+    expect(screen.getByText("Fixture gate detection")).toBeInTheDocument();
+    expect(screen.getByText(/score_ceiling\/visual_overload/)).toBeInTheDocument();
+    expect(screen.getAllByText("93%").length).toBeGreaterThan(0);
+    expect(screen.getByText("95%")).toBeInTheDocument();
+  });
+
+  it("shows honest insufficient_sample messaging without positive delta headline", async () => {
+    mockApiFetch.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url.includes("quality-improvement")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            report: {
+              ...qualityReport,
+              status: "insufficient_sample",
+              visualMetrics: {
+                ...qualityReport.visualMetrics,
+                failureFrequencyAfter: {
+                  visual_overload: { count: 0, rate: null },
+                  weak_hierarchy: { count: 0, rate: null },
+                  generic_template_feel: { count: 0, rate: null },
+                  illegible_cta: { count: 0, rate: null },
+                  unfocused_composition: { count: 0, rate: null },
+                },
+                deltaRateByReason: {
+                  visual_overload: null,
+                  weak_hierarchy: null,
+                  generic_template_feel: null,
+                  illegible_cta: null,
+                  unfocused_composition: null,
+                },
+              },
+              factualMetrics: {
+                factualPassRateBefore: 0.93,
+                factualPassRateAfter: null,
+              },
+            },
+          }),
+        } as Response;
+      }
+      if (url.includes("score-calibration") || url.includes("learning-impact")) {
+        return { ok: false, status: 403 } as Response;
+      }
+      if (url.includes("human-quality-corpus") && !init?.method) {
+        return { ok: false, status: 403 } as Response;
+      }
+      return { ok: false, status: 500 } as Response;
+    });
+
+    renderPanel();
+    fireEvent.change(screen.getByLabelText("Workspace ID"), {
+      target: { value: WORKSPACE_ID },
+    });
+
+    await screen.findByText("Human quality corpus");
+    fireEvent.click(screen.getByRole("button", { name: "Quality" }));
+
+    expect(
+      await screen.findByText(/insufficient to claim targeted failure-frequency improvement/)
+    ).toBeInTheDocument();
+    expect(screen.getByText("insufficient_sample")).toBeInTheDocument();
+    expect(screen.getAllByText("—").length).toBeGreaterThan(0);
   });
 });
