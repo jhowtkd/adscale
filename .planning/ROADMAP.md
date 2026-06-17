@@ -123,7 +123,13 @@ Plans:
   3. v12.3 factual hard failures and v12.4 learning safety guards remain green.
   4. Re-evaluation shows whether targeted failure frequency decreased.
 
-**Plans:** TBD
+**Plans:** 4 plans
+
+Plans:
+- [ ] 132-01-PLAN.md — Accept lifecycle, apply contracts, and calibration version bump (QUALITY-02)
+- [ ] 132-02-PLAN.md — Evidence-bound ceiling/rubric/gate edits and visual archetype fixtures (QUALITY-01, QUALITY-02)
+- [ ] 132-03-PLAN.md — v12.3/v12.4 regression guard wiring and evidence template (QUALITY-03)
+- [ ] 132-04-PLAN.md — Re-evaluation report, CLI, API, and Quality UI tab (QUALITY-04)
 
 ---
 
