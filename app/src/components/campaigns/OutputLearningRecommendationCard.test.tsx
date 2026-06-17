@@ -51,6 +51,24 @@ const recommendation = {
   },
   learningsSource: "postgres" as const,
   algorithmVersion: "1.0.0",
+  appliedLearningTrace: {
+    traceId: "trace-1",
+    learningsSource: "postgres" as const,
+    safetyVersion: "1.0.0",
+    algorithmVersion: "1.0.0",
+    entries: [
+      {
+        learningId: "l-1",
+        variableKey: "cta",
+        variableValue: "Comprar agora",
+        preferenceDirection: "prefer" as const,
+        applied: true,
+        evidenceEventIds: ["evt-1"],
+      },
+    ],
+    blockedFields: [],
+    avoidPatternHints: [],
+  },
 };
 
 describe("OutputLearningRecommendationCard", () => {

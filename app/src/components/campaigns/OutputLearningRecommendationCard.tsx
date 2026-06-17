@@ -101,6 +101,12 @@ export default function OutputLearningRecommendationCard({
       confidence: recommendation.confidence,
       recipeId: prefill.recipeId,
       action: "accept",
+      traceId: recommendation.appliedLearningTrace.traceId,
+      evidenceEventCount: recommendation.appliedLearningTrace.entries.reduce(
+        (count, entry) => count + entry.evidenceEventIds.length,
+        0
+      ),
+      blockedFieldCount: recommendation.appliedLearningTrace.blockedFields.length,
     });
     onAccept(prefill);
   };
