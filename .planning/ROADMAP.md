@@ -2,7 +2,7 @@
 
 ## Milestones
 
-- **v12.4 Aprendizado de Qualidade dos Outputs** - Phases 124-128 (planned 2026-06-16)
+- **v12.4 Aprendizado de Qualidade dos Outputs** - Phases 124-128 (shipped 2026-06-17)
 - ✅ **v12.3 Integridade Criativa** - Phases 115-123 (shipped 2026-06-16; QA-19 accepted gap)
 - ✅ **v12.2 Refinamento Visual e Consistência da Interface** - Phases 109-114 (shipped 2026-06-14)
 - ✅ **v12.1 Memória Criativa e Aprendizado de Performance** - Phases 103-108 (shipped 2026-06-12)
@@ -24,9 +24,11 @@
 
 ## Phases
 
-### v12.4 Aprendizado de Qualidade dos Outputs (Phases 124-128) — PLANNED 2026-06-16
+### ✅ v12.4 Aprendizado de Qualidade dos Outputs (Phases 124-128) — SHIPPED 2026-06-17
 
 **Milestone Goal:** Aprender com decisões humanas reais sobre outputs e aplicar esses aprendizados antes da próxima geração, preservando a fundação factual de v12.3 e evitando degradação por memória solta.
+
+**Audit:** [v12.4-MILESTONE-AUDIT.md](milestones/v12.4-MILESTONE-AUDIT.md) — `passed` (2026-06-17)
 
 **Starting point:** v12.3 fechou com `meanQualityScore=70.17 < 75` e `factualFidelityRate=1.000`
 
@@ -34,7 +36,7 @@
 - [x] **Phase 125: Canonical Output Learnings** — agregar evidências em learnings aprovados/supersedidos com confiança, contradição e projeção para Mem0 (completed 2026-06-16)
 - [x] **Phase 126: Next-Generation Recommendation Application** — recuperar learnings relevantes e aplicá-los como recommendation/prefill antes da geração (completed 2026-06-16)
 - [x] **Phase 127: Safety, Boundaries, and Explainability** — garantir que learnings não sobreponham contratos factuais, nem virem prompt drift opaco (completed 2026-06-16)
-- [ ] **Phase 128: Evaluation and Release Gate** — provar melhora de qualidade percebida sem regressão factual
+- [x] **Phase 128: Evaluation and Release Gate** — provar melhora de qualidade percebida sem regressão factual (completed 2026-06-17)
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
@@ -42,7 +44,7 @@
 | 125 | Canonical Output Learnings | LEARN-01, LEARN-02, LEARN-03, LEARN-04, LEARN-05 | Complete | 2026-06-16 |
 | 126 | Next-Generation Recommendation Application | APPLY-01, APPLY-02, APPLY-03, APPLY-04 | Complete | 2026-06-16 |
 | 127 | Safety, Boundaries, and Explainability | SAFE-01, SAFE-02, SAFE-03, SAFE-04 | Complete | 2026-06-16 |
-| 128 | Evaluation and Release Gate | EVAL-01, EVAL-02, EVAL-03, EVAL-04 | Pending | — |
+| 128 | Evaluation and Release Gate | 1/3 | In Progress|  |
 
 ## Phase Details
 
@@ -142,7 +144,12 @@ Plans:
   3. No applied learning causes a regression in v12.3 factual hard-failure protections.
   4. Test, lint, build, and milestone-specific evaluation gate pass with reproducible evidence.
 
-**Plans:** 0/0 plans complete
+**Plans:** 3/3 plans complete
+
+Plans:
+- [x] 128-01-PLAN.md — Fixed eval matrix + pipeline eval tests (EVAL-01)
+- [x] 128-02-PLAN.md — Evidence checker with quality/factual separation (EVAL-02)
+- [x] 128-03-PLAN.md — Release gate orchestrator + milestone audit (EVAL-03, EVAL-04)
 
 ---
 

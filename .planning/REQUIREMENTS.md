@@ -47,10 +47,10 @@ Transformar decisões humanas reais sobre outputs em aprendizados duráveis e ex
 
 ### Evaluation and Regression (EVAL)
 
-- [ ] **EVAL-01**: Existe um conjunto fixo de avaliação para provar se learnings de output melhoram a qualidade julgada por humanos.
-- [ ] **EVAL-02**: Métricas de avaliação permanecem separadas: melhoria de qualidade, taxa de regeneração/rejeição e fidelidade factual.
-- [ ] **EVAL-03**: Nenhuma melhoria de output learning pode reintroduzir regressão factual bloqueada por v12.3.
-- [ ] **EVAL-04**: `npm test`, `npm run lint`, `npm run build` e o gate focal do milestone passam com evidência reproduzível.
+- [x] **EVAL-01**: Existe um conjunto fixo de avaliação para provar se learnings de output melhoram a qualidade julgada por humanos.
+- [x] **EVAL-02**: Métricas de avaliação permanecem separadas: melhoria de qualidade, taxa de regeneração/rejeição e fidelidade factual.
+- [x] **EVAL-03**: Nenhuma melhoria de output learning pode reintroduzir regressão factual bloqueada por v12.3.
+- [x] **EVAL-04**: `npm test`, `npm run lint`, `npm run build` e o gate focal do milestone passam com evidência reproduzível.
 
 ## Future Requirements
 
@@ -95,10 +95,10 @@ Transformar decisões humanas reais sobre outputs em aprendizados duráveis e ex
 | SAFE-02 | Phase 127 | Complete |
 | SAFE-03 | Phase 127 | Complete |
 | SAFE-04 | Phase 127 | Complete |
-| EVAL-01 | Phase 128 | Pending |
-| EVAL-02 | Phase 128 | Pending |
-| EVAL-03 | Phase 128 | Pending |
-| EVAL-04 | Phase 128 | Pending |
+| EVAL-01 | Phase 128 | Complete |
+| EVAL-02 | Phase 128 | Complete |
+| EVAL-03 | Phase 128 | Complete |
+| EVAL-04 | Phase 128 | Complete |
 
 **Coverage:**
 - v12.4 requirements: 21 total
