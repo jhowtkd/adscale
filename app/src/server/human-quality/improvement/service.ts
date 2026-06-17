@@ -19,6 +19,7 @@ export interface RunQualityImprovementInput {
 
 export interface RunQualityImprovementResult {
   report: QualityImprovementReport;
+  comparisons: import("../calibration/types").CalibrationComparison[];
 }
 
 function resolveImprovementDeployedAt(
@@ -82,7 +83,7 @@ export async function runQualityImprovement(
     capturedAt,
   });
 
-  return { report };
+  return { report, comparisons: [...before, ...after] };
 }
 
 export type { QualityImprovementReport } from "./reevaluate";
