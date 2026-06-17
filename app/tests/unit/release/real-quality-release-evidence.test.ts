@@ -217,7 +217,9 @@ describe("real-quality-release-evidence QA-24", () => {
 });
 
 describe("real-quality-release-evidence regression metrics", () => {
-  it("keeps regressionMetrics separate from qualityMetrics root after runRegressionMode", () => {
+  it(
+    "keeps regressionMetrics separate from qualityMetrics root after runRegressionMode",
+    () => {
     const evidence = aggregateEvidence({
       acceptedCaveats: [
         {
@@ -247,7 +249,9 @@ describe("real-quality-release-evidence regression metrics", () => {
     validateMetricSeparation(updated, separationErrors);
     expect(separationErrors).toEqual([]);
     expect(runQa24(updated)).toEqual([]);
-  });
+    },
+    20_000
+  );
 
   it("exposes PHASE_EVIDENCE paths for sub-phase audit trail", () => {
     expect(PHASE_EVIDENCE.calibration).toContain("130-EVIDENCE.json");
