@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v12.5
 milestone_name: Validacao Real de Qualidade e Calibracao do Loop Criativo
 status: executing
-last_updated: "2026-06-17T14:00:00.000Z"
+last_updated: "2026-06-17T16:00:00.000Z"
 last_activity: 2026-06-17
 progress:
   total_phases: 5
   completed_phases: 4
-  total_plans: 11
+  total_plans: 15
   completed_plans: 11
-  percent: 100
+  percent: 73
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-06-17)
 ## Current Position
 
 Phase: 132 — Targeted Creative Quality Improvements
-Plan: not yet planned
-Status: Ready to plan
+Plan: 0/4 planned
+Status: Ready to execute
 Last activity: 2026-06-17
 
-Progress: 4/5 v12.5 phases complete; Phase 131 verified with human sign-off (4/4 plans).
+Progress: 4/5 v12.5 phases complete; Phase 132 planned (4 plans, verification passed).
 
 ## Accumulated Context
 
@@ -109,6 +109,18 @@ Progress: 4/5 v12.5 phases complete; Phase 131 verified with human sign-off (4/4
 - [Phase 131]: Evidence CLI + checker mirror Phase 130 calibration pattern with insufficient_sample honesty gates
 - [Phase 131]: Impact API reuses requireCalibrationAccess; panel hides only when queue, calibration, and impact all 403
 
+### Phase 132 (planned — 0/4 plans, verification passed 2026-06-17)
+
+- Research: `.planning/phases/132-targeted-creative-quality-improvements/132-RESEARCH.md`
+- Validation: `.planning/phases/132-targeted-creative-quality-improvements/132-VALIDATION.md`
+- Plans:
+  - `.planning/phases/132-targeted-creative-quality-improvements/132-01-PLAN.md` — accept lifecycle + apply contracts + RUBRIC_CALIBRATION_VERSION 1.1.0 (QUALITY-02)
+  - `.planning/phases/132-targeted-creative-quality-improvements/132-02-PLAN.md` — evidence-bound ceiling/rubric/gate edits + archetype fixtures (QUALITY-01, QUALITY-02)
+  - `.planning/phases/132-targeted-creative-quality-improvements/132-03-PLAN.md` — v12.3/v12.4 regression guard wiring (QUALITY-03)
+  - `.planning/phases/132-targeted-creative-quality-improvements/132-04-PLAN.md` — re-evaluation report + CLI + API + Quality tab (QUALITY-04)
+- Operator must accept ≥1 visual calibration proposal before module edits (checkpoint 02-00)
+- Re-evaluation uses post_learning cohort for after-arm; insufficient_sample when afterCount=0
+
 ### Phase 130 (complete — 4/4 plans)
 
 - Context: `.planning/phases/130-score-calibration-and-rubric-alignment/130-CONTEXT.md`
@@ -133,4 +145,4 @@ Progress: 4/5 v12.5 phases complete; Phase 131 verified with human sign-off (4/4
 
 ## Next Steps
 
-Plan: `/gsd-plan-phase 132`
+Execute: `/gsd-execute-phase 132`

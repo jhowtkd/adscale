@@ -474,7 +474,7 @@ export function computeBoundedCeiling(
 | A4 | Three missing corpus archetypes can be added without new render captures | Pitfall 4 | May need synthetic QA outputs only (no PNG) |
 | A5 | `RUBRIC_CALIBRATION_VERSION` bump to `1.1.0` signals apply tranche | Pattern 1 | Version semantics need Phase 133 gate alignment |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Zero accepted proposals at plan time**
    - What we know: Proposals are auto-generated when calibration runs; `persistedAdjustmentCount` may be 0 on fresh DB [VERIFIED: `130-EVIDENCE.template.json:14`].
@@ -639,10 +639,11 @@ export function computeBoundedCeiling(
 | Architecture | HIGH | Clear 130→132 apply boundary in code and summaries |
 | Pitfalls | MEDIUM | Operator corpus size and proposal availability |
 
-### Open Questions
-- Whether production DB already has non-zero proposed adjustments at plan time.
-- Whether to add `post_quality_132` cohort vs reuse `post_learning`.
-- Optional human-failure → regeneration directive map.
+### Open Questions (RESOLVED)
+
+- **Whether production DB already has non-zero proposed adjustments at plan time.** RESOLVED: Plan 132-02 checkpoint 02-00 requires operator to run `run-score-calibration.ts` and accept ≥1 visual proposal before module edits; if zero proposals exist, operator must generate proposals first (no auto-accept).
+- **Whether to add `post_quality_132` cohort vs reuse `post_learning`.** RESOLVED: Reuse `post_learning` cohort for after-arm human re-evaluation; Plan 132-04 re-evaluation report compares before (baseline/pre_learning) vs after (`post_learning`) failure-frequency slices. Dedicated `post_quality_132` cohort deferred — not needed for QUALITY-04 honesty gates.
+- **Optional human-failure → regeneration directive map.** RESOLVED: Plan 132-02-02 optionally adds `HUMAN_FAILURE_CORRECTION_DIRECTIVES` in `regeneration-correction-brief.ts` delegating to gate codes via `resolveGateTargets` — only for accepted visual slices; not mandatory for phase completion.
 
 ### Ready for Planning
 Research complete. Planner can now create PLAN.md files.
