@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v12.5
 milestone_name: Validacao Real de Qualidade e Calibracao do Loop Criativo
-status: planning
-last_updated: "2026-06-17T11:51:23.381Z"
+status: ready_to_execute
+last_updated: "2026-06-17T12:00:00.000Z"
 last_activity: 2026-06-17
 progress:
   total_phases: 5
   completed_phases: 2
-  total_plans: 7
+  total_plans: 11
   completed_plans: 7
 ---
 
@@ -22,16 +22,16 @@ See: .planning/PROJECT.md (updated 2026-06-17)
 
 **Current focus:** v12.5 — Validacao Real de Qualidade e Calibracao do Loop Criativo.
 
-**Status:** Ready to plan
+**Status:** Ready to execute Phase 131
 
 ## Current Position
 
-Phase: 130 — Score Calibration and Rubric Alignment
-Plan: 4 of 04
-Status: Phase complete — ready for verification
+Phase: 131 — Learning Impact Measurement
+Plan: 0 of 04
+Status: Planned — ready for execution
 Last activity: 2026-06-17
 
-Progress: 1/5 v12.5 phases complete; Phase 130 plan 1/4 complete; CALIB-01 done.
+Progress: 2/5 v12.5 phases complete; Phase 131 planned (4 plans, 4 waves).
 
 ## Accumulated Context
 
@@ -99,18 +99,27 @@ Progress: 1/5 v12.5 phases complete; Phase 130 plan 1/4 complete; CALIB-01 done.
 - [Phase 130]: Panel hides only when both queue and calibration APIs return 403
 - [Phase 130]: API caps visual comparisons at 100 with truncated flag for DoS mitigation
 
-### Phase 130 (in progress — 1/4 plans)
-
-- Summary: `.planning/phases/130-score-calibration-and-rubric-alignment/130-01-SUMMARY.md`
+### Phase 130 (complete — 4/4 plans)
 
 - Context: `.planning/phases/130-score-calibration-and-rubric-alignment/130-CONTEXT.md`
 - Research: `.planning/phases/130-score-calibration-and-rubric-alignment/130-RESEARCH.md`
+- Validation: `.planning/phases/130-score-calibration-and-rubric-alignment/130-VALIDATION.md`
 - Plans:
   - `.planning/phases/130-score-calibration-and-rubric-alignment/130-01-PLAN.md` — corpus join + per-item comparison
   - `.planning/phases/130-score-calibration-and-rubric-alignment/130-02-PLAN.md` — grouped divergence + factual separation
   - `.planning/phases/130-score-calibration-and-rubric-alignment/130-03-PLAN.md` — adjustment proposal registry
   - `.planning/phases/130-score-calibration-and-rubric-alignment/130-04-PLAN.md` — CLI evidence + API + UI tab
 
+### Phase 131 (planned — 0/4 plans)
+
+- Research: `.planning/phases/131-learning-impact-measurement/131-RESEARCH.md`
+- Validation: `.planning/phases/131-learning-impact-measurement/131-VALIDATION.md`
+- Plans:
+  - `.planning/phases/131-learning-impact-measurement/131-01-PLAN.md` — application snapshot schema and API persistence (IMPACT-01)
+  - `.planning/phases/131-learning-impact-measurement/131-02-PLAN.md` — accept flow threading, corpus freeze, enrich helpers (IMPACT-01)
+  - `.planning/phases/131-learning-impact-measurement/131-03-PLAN.md` — impact report engine with slice comparison and honesty gates (IMPACT-02–04)
+  - `.planning/phases/131-learning-impact-measurement/131-04-PLAN.md` — evidence CLI, impact API, read-only Impact UI tab (IMPACT-01–04)
+
 ## Next Steps
 
-Execute: Plan 130-02 — grouped divergence + factual separation
+Execute: `/gsd-execute-phase 131`
