@@ -10,6 +10,7 @@
       "meanHumanVisualScore": null,
       "calibrationStatus": "insufficient_corpus",
       "qualityImprovementStatus": "insufficient_sample",
+      "targetedFailureDelta": null,
       "sourcePath": ".planning/phases/130-score-calibration-and-rubric-alignment/130-EVIDENCE.json"
     },
     "fixtureValidation": {
@@ -22,7 +23,7 @@
   "factualMetrics": {
     "humanCorpusFactualPassRate": 1.0,
     "v12_3FactualFidelityRate": 1.0,
-    "v12_3RegressionSubsetPassed": true,
+    "v12_3RegressionSubsetPassed": false,
     "fidelityHardFailureCount": 0,
     "safetyGuardPassRate": 1.0
   },

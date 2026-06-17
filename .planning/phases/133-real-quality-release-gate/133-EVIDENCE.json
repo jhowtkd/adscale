@@ -1,8 +1,7 @@
 {
   "schemaVersion": 1,
   "milestoneVersion": "v12.5",
-  "capturedAt": "2026-06-17T18:00:00.000Z",
-  "verifiedAt": "2026-06-17T16:45:38.721Z",
+  "capturedAt": "2026-06-17T16:48:46.525Z",
   "status": "ok",
   "qualityMetrics": {
     "humanCorpus": {
@@ -10,10 +9,11 @@
       "meanHumanVisualScore": null,
       "calibrationStatus": "insufficient_corpus",
       "qualityImprovementStatus": "insufficient_sample",
+      "targetedFailureDelta": null,
       "sourcePath": ".planning/phases/130-score-calibration-and-rubric-alignment/130-EVIDENCE.json"
     },
     "fixtureValidation": {
-      "meanQualityScore": 70.17,
+      "meanQualityScore": 70.16666666666667,
       "factualFidelityRate": 1,
       "sourcePath": ".planning/phases/123-visual-validation-gate/123-EVIDENCE.json",
       "note": "Deterministic v12.3 matrix — not human corpus"
@@ -27,9 +27,9 @@
     "safetyGuardPassRate": 1
   },
   "learningImpactMetrics": {
-    "status": "insufficient_sample",
+    "status": "ok",
+    "globalVisualScoreDelta": 14,
     "learnedFactualPassRate": 1,
-    "globalVisualScoreDelta": null,
     "sourcePath": ".planning/phases/131-learning-impact-measurement/131-EVIDENCE.json"
   },
   "acceptedCaveats": [
