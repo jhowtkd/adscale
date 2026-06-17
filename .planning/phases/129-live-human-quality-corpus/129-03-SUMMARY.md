@@ -80,7 +80,7 @@ Each task was committed atomically:
 2. **Task 2: Add explicit add-to-corpus entry point and discreet confirmation** - `eeeaf752` (feat)
 3. **Task 3: Run focused phase verification and update planning state** - `7c031971` (fix)
 
-**Plan metadata:** pending final docs commit
+**Plan metadata:** `3984aad0` (docs)
 
 ## Files Created/Modified
 
