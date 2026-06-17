@@ -22,6 +22,11 @@ import {
   type HumanQualityFailureReason,
   type HumanQualityIntent,
 } from "./corpus";
+import {
+  resolveOutputLearningApplication,
+  sanitizeOutputLearningApplication,
+} from "./application-schema";
+import type { OutputLearningApplicationSnapshot } from "./corpus";
 
 export class HumanQualityServiceError extends Error {
   constructor(
@@ -174,8 +179,21 @@ export async function selectDerivationForCorpus(
     derivation,
     input.artifactRef
   );
-  const qualitySnapshot =
+  const baseQualitySnapshot =
     input.qualitySnapshot ?? buildQualitySnapshotFromDerivation(derivation);
+  const storedApplication = derivation.outputLearningApplication as
+    | OutputLearningApplicationSnapshot
+    | null
+    | undefined;
+  const outputLearningApplication = storedApplication
+    ? sanitizeOutputLearningApplication(
+        storedApplication as unknown as Record<string, unknown>
+      )
+    : resolveOutputLearningApplication(null);
+  const qualitySnapshot = {
+    ...baseQualitySnapshot,
+    outputLearningApplication,
+  };
 
   const insertInput: InsertCorpusItemInput = {
     workspaceId: input.workspaceId,
