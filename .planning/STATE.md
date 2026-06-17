@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v12.5
 milestone_name: Validacao Real de Qualidade e Calibracao do Loop Criativo
-status: context_ready
-last_updated: "2026-06-17T08:15:00.000Z"
+status: plan_ready
+last_updated: "2026-06-17T08:30:00.000Z"
 last_activity: 2026-06-17
 progress:
   total_phases: 5
@@ -23,14 +23,14 @@ See: .planning/PROJECT.md (updated 2026-06-17)
 
 **Current focus:** v12.5 — Validacao Real de Qualidade e Calibracao do Loop Criativo.
 
-**Status:** Phase 129 context ready.
+**Status:** Phase 129 plan ready.
 
 ## Current Position
 
 Phase: 129 — Live Human Quality Corpus
-Plan: —
-Status: Context gathered
-Last activity: 2026-06-17 — Phase 129 context captured
+Plan: 129-01, 129-02, 129-03
+Status: Planned
+Last activity: 2026-06-17 — Phase 129 context and implementation plan captured
 
 Progress: 0/5 phases complete; 19/19 requirements mapped to roadmap.
 
@@ -43,9 +43,15 @@ Progress: 0/5 phases complete; 19/19 requirements mapped to roadmap.
 - Measure whether v12.4 output-learning recommendation/prefill improves comparable real samples.
 - Attack proven visual-quality failures: overload, weak hierarchy, generic template feel, illegible CTA and unfocused composition.
 
-### Phase 129 (context ready)
+### Phase 129 (plan ready)
 
 - Context file: `.planning/phases/129-live-human-quality-corpus/129-CONTEXT.md`
+- Research file: `.planning/phases/129-live-human-quality-corpus/129-RESEARCH.md`
+- Validation file: `.planning/phases/129-live-human-quality-corpus/129-VALIDATION.md`
+- Plans:
+  - `.planning/phases/129-live-human-quality-corpus/129-01-PLAN.md` — canonical corpus contract, schema and repository.
+  - `.planning/phases/129-live-human-quality-corpus/129-02-PLAN.md` — internal corpus API and queue service.
+  - `.planning/phases/129-live-human-quality-corpus/129-03-PLAN.md` — owner evaluation UI and verification.
 - Corpus inclusion is explicit/manual, not automatic.
 - Evaluation happens in an owner/feedback/internal queue, one item at a time.
 - First reviewer role is admin/technical, not workspace members or external reviewers.
@@ -73,4 +79,4 @@ Progress: 0/5 phases complete; 19/19 requirements mapped to roadmap.
 
 ## Next Steps
 
-Run `$gsd-plan-phase 129` to plan the Live Human Quality Corpus implementation.
+Run `$gsd-execute-phase 129` to implement the Live Human Quality Corpus plans.
