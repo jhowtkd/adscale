@@ -37,7 +37,7 @@
 |---|-------|--------------|--------|-----------|
 | 129 | Live Human Quality Corpus | Complete    | 2026-06-17 | 2026-06-17 |
 | 130 | Score Calibration and Rubric Alignment | Complete    | 2026-06-17 | 2026-06-17 |
-| 131 | Learning Impact Measurement | 2/4 | In Progress|  |
+| 131 | Learning Impact Measurement | 3/4 | In Progress|  |
 | 132 | Targeted Creative Quality Improvements | QUALITY-01, QUALITY-02, QUALITY-03, QUALITY-04 | Planned | — |
 | 133 | Real Quality Release Gate | QA-22, QA-23, QA-24 | Planned | — |
 
@@ -99,12 +99,12 @@ Plans:
   3. Report measures rejection/regeneration intent, human visual score movement and factual pass rate.
   4. Insufficient sample states are explicit and block false claims of improvement.
 
-**Plans:** 2/4 plans executed
+**Plans:** 3/4 plans executed
 
 Plans:
 - [x] 131-01-PLAN.md — Application snapshot schema and API persistence on derivations (IMPACT-01)
 - [x] 131-02-PLAN.md — Accept flow threading, corpus freeze, and enrich helpers (IMPACT-01)
-- [ ] 131-03-PLAN.md — Learning impact report engine with slice comparison and honesty gates (IMPACT-02, IMPACT-03, IMPACT-04)
+- [x] 131-03-PLAN.md — Learning impact report engine with slice comparison and honesty gates (IMPACT-02, IMPACT-03, IMPACT-04)
 - [ ] 131-04-PLAN.md — Evidence CLI, impact API and read-only Impact UI tab (IMPACT-01–04 integration)
 
 ---
