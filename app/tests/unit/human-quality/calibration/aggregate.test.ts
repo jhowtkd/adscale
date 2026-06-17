@@ -8,6 +8,7 @@ import {
   highVisualButFactualFail,
 } from "@/server/human-quality/calibration/aggregate";
 import { DIVERGENCE_FLAG_THRESHOLD } from "@/server/human-quality/calibration/compare";
+import { buildCalibrationReport, MIN_GLOBAL_EVALUATED_ITEMS } from "@/server/human-quality/calibration/report";
 
 function makeComparison(
   overrides: Partial<CalibrationComparison> = {}
@@ -225,5 +226,70 @@ describe("highVisualButFactualFail", () => {
     ]);
 
     expect(guard).toHaveLength(0);
+  });
+});
+
+function makeComparisons(count: number): CalibrationComparison[] {
+  return Array.from({ length: count }, (_, index) =>
+    makeComparison({
+      corpusItemId: `item-${index}`,
+      scoreDelta: index % 2 === 0 ? 10 : -5,
+      absError: index % 2 === 0 ? 10 : 5,
+      factualPass: index % 3 !== 0,
+    })
+  );
+}
+
+describe("buildCalibrationReport", () => {
+  const capturedAt = "2026-06-17T12:00:00.000Z";
+
+  it("returns insufficient_corpus when fewer than MIN_GLOBAL_EVALUATED_ITEMS", () => {
+    const report = buildCalibrationReport({
+      comparisons: makeComparisons(MIN_GLOBAL_EVALUATED_ITEMS - 1),
+      capturedAt,
+      rubricCalibrationVersion: "1.0.0",
+    });
+
+    expect(report.status).toBe("insufficient_corpus");
+    expect(report.evaluatedItemCount).toBe(MIN_GLOBAL_EVALUATED_ITEMS - 1);
+    expect(report.visualMetrics.meanAbsError).toBeNull();
+    expect(report.visualMetrics.meanSignedDelta).toBeNull();
+    expect(report.visualMetrics.divergenceByFailureReason).toEqual({});
+    expect(report.factualMetrics.factualPassRate).not.toBeNull();
+    expect(report.adjustments).toEqual([]);
+  });
+
+  it("returns ok status with full visual and factual metrics at corpus minimum", () => {
+    const comparisons = makeComparisons(MIN_GLOBAL_EVALUATED_ITEMS);
+    const report = buildCalibrationReport({
+      comparisons,
+      capturedAt,
+      rubricCalibrationVersion: "1.0.0",
+    });
+
+    expect(report.status).toBe("ok");
+    expect(report.schemaVersion).toBe(1);
+    expect(report.capturedAt).toBe(capturedAt);
+    expect(report.rubricCalibrationVersion).toBe("1.0.0");
+    expect(report.visualMetrics.comparisons).toHaveLength(MIN_GLOBAL_EVALUATED_ITEMS);
+    expect(report.visualMetrics.meanAbsError).not.toBeNull();
+    expect(report.visualMetrics.meanSignedDelta).not.toBeNull();
+    expect(Object.keys(report.visualMetrics.divergenceByFailureReason).length).toBeGreaterThan(0);
+    expect(report.factualMetrics.factualFailCount).toBeGreaterThanOrEqual(0);
+    expect(report.adjustments).toEqual([]);
+    expect(report).not.toHaveProperty("overallQualityPass");
+    expect(report).not.toHaveProperty("overallPass");
+  });
+
+  it("keeps visualMetrics and factualMetrics as separate top-level buckets", () => {
+    const report = buildCalibrationReport({
+      comparisons: makeComparisons(MIN_GLOBAL_EVALUATED_ITEMS),
+      capturedAt,
+    });
+
+    expect(report.visualMetrics).toBeDefined();
+    expect(report.factualMetrics).toBeDefined();
+    expect(report.visualMetrics).not.toHaveProperty("factualPassRate");
+    expect(report.factualMetrics).not.toHaveProperty("meanAbsError");
   });
 });
