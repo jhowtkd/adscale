@@ -29,7 +29,8 @@
     "seed:dev-admin": "tsx scripts/seed-dev-admin.ts",
     "validate:creative": "node scripts/check-creative-validation-evidence.mjs --stage final",
     "validate:creative:live": "npx tsx scripts/run-creative-validation.ts",
-    "creative-release-gate": "node scripts/run-creative-release-gate.mjs"
+    "creative-release-gate": "node scripts/run-creative-release-gate.mjs",
+    "output-learning-release-gate": "node scripts/run-output-learning-release-gate.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.0.0",
