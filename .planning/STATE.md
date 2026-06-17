@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v12.5
 milestone_name: Validacao Real de Qualidade e Calibracao do Loop Criativo
 status: executing
-last_updated: "2026-06-17T09:59:49.812Z"
-last_activity: 2026-06-17 — Completed 129-01 corpus contract and repository
+last_updated: "2026-06-17T10:05:42.619Z"
+last_activity: 2026-06-17 — Completed 129-02 internal corpus API and queue service
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
-  percent: 33
+  completed_plans: 2
+  percent: 67
 ---
 
 # Project State
@@ -23,14 +23,14 @@ See: .planning/PROJECT.md (updated 2026-06-17)
 
 **Current focus:** v12.5 — Validacao Real de Qualidade e Calibracao do Loop Criativo.
 
-**Status:** Phase 129 in progress — plan 129-01 complete.
+**Status:** Phase 129 in progress — plans 129-01 and 129-02 complete.
 
 ## Current Position
 
 Phase: 129 — Live Human Quality Corpus
-Plan: 129-02 (next), 129-03
-Status: In Progress (1/3 plans complete)
-Last activity: 2026-06-17 — Completed 129-01 corpus contract, schema, repository, privacy gate
+Plan: 129-03 (next)
+Status: In Progress (2/3 plans complete)
+Last activity: 2026-06-17 — Completed 129-02 internal corpus API and queue service
 
 Progress: 0/5 phases complete; 19/19 requirements mapped to roadmap.
 
@@ -43,9 +43,11 @@ Progress: 0/5 phases complete; 19/19 requirements mapped to roadmap.
 - Measure whether v12.4 output-learning recommendation/prefill improves comparable real samples.
 - Attack proven visual-quality failures: overload, weak hierarchy, generic template feel, illegible CTA and unfocused composition.
 
-### Phase 129 (in progress — 1/3 plans)
+### Phase 129 (in progress — 2/3 plans)
 
-- Summary: `.planning/phases/129-live-human-quality-corpus/129-01-SUMMARY.md`
+- Summaries:
+  - `.planning/phases/129-live-human-quality-corpus/129-01-SUMMARY.md`
+  - `.planning/phases/129-live-human-quality-corpus/129-02-SUMMARY.md`
 
 - Context file: `.planning/phases/129-live-human-quality-corpus/129-CONTEXT.md`
 - Research file: `.planning/phases/129-live-human-quality-corpus/129-RESEARCH.md`
@@ -80,7 +82,9 @@ Progress: 0/5 phases complete; 19/19 requirements mapped to roadmap.
 - [v12.5]: Start with Phase 129 Live Human Quality Corpus.
 - [Phase 129]: Reject forbidden corpus payload keys at repository boundary before persistence
 - [Phase 129]: Default invalid cohort to baseline for conservative versioned comparisons
+- [Phase 129]: Platform-owner auth on all human-quality corpus API routes
+- [Phase 129]: Build quality snapshots from derivation metadata without prompt or outputKey fields
 
 ## Next Steps
 
-Continue Phase 129 with plan 129-02 (internal corpus API and queue service).
+Continue Phase 129 with plan 129-03 (owner evaluation UI and verification).
