@@ -21,3 +21,18 @@ export interface CalibrationComparison {
   qualityVerdict: string | null;
   hardFailureCodes: string[];
 }
+
+export interface CalibrationAdjustmentEvidenceItemRef {
+  corpusItemId: string;
+  scoreDelta: number | null;
+}
+
+export interface CalibrationAdjustmentEvidence {
+  corpusItemIds: string[];
+  sliceStats: {
+    count: number;
+    meanSignedDelta: number;
+    meanAbsError: number | null;
+  };
+  itemRefs: CalibrationAdjustmentEvidenceItemRef[];
+}

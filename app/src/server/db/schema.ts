@@ -1683,6 +1683,53 @@ export const humanQualityEvaluations = adscaleSchema.table(
 export type HumanQualityEvaluation = typeof humanQualityEvaluations.$inferSelect;
 export type NewHumanQualityEvaluation = typeof humanQualityEvaluations.$inferInsert;
 
+export const rubricCalibrationAdjustments = adscaleSchema.table(
+  "rubric_calibration_adjustments",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    adjustmentVersion: text("adjustment_version").notNull(),
+    status: text("status").notNull().default("proposed"),
+    targetModule: text("target_module").notNull(),
+    targetKey: text("target_key").notNull(),
+    sliceKey: text("slice_key").notNull(),
+    rationale: text("rationale").notNull(),
+    evidenceRefs: jsonb("evidence_refs")
+      .$type<import("../human-quality/calibration/types").CalibrationAdjustmentEvidence>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    proposedAt: timestamp("proposed_at", { mode: "date" }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("rubric_calibration_adjustments_slice_version_uq").on(
+      table.sliceKey,
+      table.adjustmentVersion,
+      table.targetModule,
+      table.targetKey
+    ),
+    index("rubric_calibration_adjustments_version_status_idx").on(
+      table.adjustmentVersion,
+      table.status,
+      table.proposedAt
+    ),
+    check(
+      "rubric_calibration_adjustments_status_check",
+      sql`${table.status} in ('proposed', 'accepted', 'superseded')`
+    ),
+    check(
+      "rubric_calibration_adjustments_target_module_check",
+      sql`${table.targetModule} in ('score_ceiling', 'observable_rubric', 'gate_classifier')`
+    ),
+  ]
+);
+
+export type RubricCalibrationAdjustment =
+  typeof rubricCalibrationAdjustments.$inferSelect;
+export type NewRubricCalibrationAdjustment =
+  typeof rubricCalibrationAdjustments.$inferInsert;
+
 export const workspaceProgression = adscaleSchema.table(
   "workspace_progression",
   {
