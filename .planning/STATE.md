@@ -28,8 +28,8 @@ See: .planning/PROJECT.md (updated 2026-06-17)
 
 Phase: 130 — Score Calibration and Rubric Alignment
 Plan: Not started
-Status: Ready to plan
-Last activity: 2026-06-17 — Phase 130 discuss-phase context captured
+Status: Ready to execute
+Last activity: 2026-06-17 — Phase 130 plans created (4 plans, 4 waves)
 
 Progress: 1/5 v12.5 phases complete; HUMAN-01–04 validated.
 
@@ -91,11 +91,16 @@ Progress: 1/5 v12.5 phases complete; HUMAN-01–04 validated.
 - [Phase 130]: Global multi-workspace rollup report with cohort filter; min 5 items for ok status
 - [Phase 130]: JSON evidence in .planning/phases/130-*; platform-owner and workspace admin access
 
-### Phase 130 (context gathered — 0 plans)
+### Phase 130 (planned — 0/4 plans)
 
 - Context: `.planning/phases/130-score-calibration-and-rubric-alignment/130-CONTEXT.md`
 - Research: `.planning/phases/130-score-calibration-and-rubric-alignment/130-RESEARCH.md`
+- Plans:
+  - `.planning/phases/130-score-calibration-and-rubric-alignment/130-01-PLAN.md` — corpus join + per-item comparison
+  - `.planning/phases/130-score-calibration-and-rubric-alignment/130-02-PLAN.md` — grouped divergence + factual separation
+  - `.planning/phases/130-score-calibration-and-rubric-alignment/130-03-PLAN.md` — adjustment proposal registry
+  - `.planning/phases/130-score-calibration-and-rubric-alignment/130-04-PLAN.md` — CLI evidence + API + UI tab
 
 ## Next Steps
 
-Run `$gsd-plan-phase 130` to create executable plans from research + context.
+Execute: `/gsd-execute-phase 130`
