@@ -42,7 +42,10 @@ import RegenerateFeedbackDialog, {
   DerivationLoadErrorBanner,
 } from "@/components/workspace/RegenerateFeedbackDialog";
 
-import OutputLearningRecommendationCard from "@/components/campaigns/OutputLearningRecommendationCard";
+import OutputLearningRecommendationCard, {
+  type OutputLearningAcceptPayload,
+  type RecipePrefillPayload,
+} from "@/components/campaigns/OutputLearningRecommendationCard";
 import CampaignClientSubtitle from "@/components/campaigns/CampaignClientSubtitle";
 import type { StrategyRecipePrefill } from "@/lib/hooks/use-strategy-recipe";
 import ContextualFeedbackButton from "@/components/feedback/ContextualFeedbackButton";
@@ -105,6 +108,8 @@ export default function CampaignWorkspacePage() {
     isDerivePanelOpen,
     derivePanelSession,
     recipePrefill,
+    pendingOutputLearningApplication,
+    setPendingOutputLearningApplication,
     openDerivePanel,
     closeFlow,
   } = useDerivationFlow();
@@ -177,7 +182,9 @@ export default function CampaignWorkspacePage() {
     planData,
     generatePlanPending,
     updatePlanStatusPending,
-  } = useCampaignWorkspace(campaignId, isNew);
+  } = useCampaignWorkspace(campaignId, isNew, {
+    pendingOutputLearningApplication,
+  });
 
   const { data: billingStatus } = useBillingStatus();
 
@@ -332,6 +339,28 @@ export default function CampaignWorkspacePage() {
     goToActions();
   };
 
+  const handleOpenDerivar = (prefill?: StrategyRecipePrefill | null) => {
+    openDerivePanel(prefill);
+    goToDerivation();
+  };
+
+  const handleOutputLearningAccept = (payload: OutputLearningAcceptPayload) => {
+    setPendingOutputLearningApplication(payload.applicationSnapshot);
+    openDerivePanel({
+      recipeId: payload.prefill.recipeId,
+      ...payload.prefill.config,
+    });
+    goToDerivation();
+  };
+
+  const handleOutputLearningEdit = (prefill: RecipePrefillPayload) => {
+    openDerivePanel({
+      recipeId: prefill.recipeId,
+      ...prefill.config,
+    });
+    goToDerivation();
+  };
+
   const handleDerivePreview = async (patch: {
     generationMode: "art_variation" | "format_adaptation";
     creativeLevel?: "conservative" | "balanced" | "bold" | "extreme";
@@ -454,10 +483,9 @@ export default function CampaignWorkspacePage() {
           goToDerivation();
         }}
         createDerivationsPending={createDerivationsPending}
-        onOpenDerivar={(prefill) => {
-          openDerivePanel(prefill);
-          goToDerivation();
-        }}
+        onOpenDerivar={handleOpenDerivar}
+        onOutputLearningAccept={handleOutputLearningAccept}
+        onOutputLearningEdit={handleOutputLearningEdit}
         onOpenEstilizar={() => {
           setShowEstilizarModal(true);
           goToStyling();
@@ -684,6 +712,8 @@ interface CampaignWorkspaceCardProps {
   }) => void;
   guidedBriefingHints: GuidedBriefingHints;
   onOpenDerivar: (prefill?: StrategyRecipePrefill | null) => void;
+  onOutputLearningAccept: (payload: OutputLearningAcceptPayload) => void;
+  onOutputLearningEdit: (prefill: RecipePrefillPayload) => void;
   onOpenEstilizar: () => void;
   showPreviewGate?: boolean;
   previewDerivation?: WorkspaceHookResult["previewDerivation"];
@@ -729,6 +759,8 @@ function CampaignWorkspaceCard({
   onGuidedBriefingComplete,
   guidedBriefingHints,
   onOpenDerivar,
+  onOutputLearningAccept,
+  onOutputLearningEdit,
   onOpenEstilizar,
   showPreviewGate,
   previewDerivation,
@@ -825,8 +857,8 @@ function CampaignWorkspaceCard({
             <div id="mission-output-learnings" className="px-4 sm:px-6">
               <OutputLearningRecommendationCard
                 campaignId={campaignId}
-                onAccept={onOpenDerivar}
-                onEdit={onOpenDerivar}
+                onAccept={onOutputLearningAccept}
+                onEdit={onOutputLearningEdit}
               />
             </div>
             <WorkspaceActionBar

@@ -33,6 +33,7 @@ import {
   creditFrictionDiagnostic,
   isInsufficientCreditsError,
 } from "@/lib/mission-insights/helpers";
+import type { OutputLearningApplicationSnapshot } from "@/server/human-quality/corpus";
 
 export type WorkspaceState =
   | "piloto"           // upload + briefing
@@ -41,7 +42,13 @@ export type WorkspaceState =
   | "estilizando"      // configuring styling
   | "gerando";         // loading while generating
 
-export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
+export function useCampaignWorkspace(
+  campaignId: string,
+  isNew: boolean,
+  options?: { pendingOutputLearningApplication?: OutputLearningApplicationSnapshot | null }
+) {
+  const pendingOutputLearningApplication =
+    options?.pendingOutputLearningApplication ?? null;
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -268,37 +275,56 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
   const handleGenerateDerivations = useCallback(
     (options?: { preview?: boolean }) => {
       if (createDerivations.isPending) return;
-      createDerivations.mutate(options, {
-        onSuccess: () => {
-          addToast("success", options?.preview ? tc("previewQueued") : tc("derivationsQueued"));
-          setWorkspaceState("acoes");
-          if (campaign && !isNew) updateCampaign.mutate({ status: "generating" });
-          if (options?.preview && missionInsight) {
-            missionInsight.maybePromptMissionInsight({
-              moment: "preview_first",
-              missionKey: "preview",
-              campaignId: campaignId !== "new" ? campaignId : undefined,
-              route: currentRoute,
-              diagnosticContext: { isPreview: true, operation: "preview_generate" },
-            });
-          }
+      createDerivations.mutate(
+        {
+          preview: options?.preview ?? false,
+          ...(pendingOutputLearningApplication
+            ? { outputLearningApplication: pendingOutputLearningApplication }
+            : {}),
         },
-        onError: (error) => {
-          addToast("error", options?.preview ? tc("failedQueuePreview") : tc("failedQueueDerivations"));
-          setWorkspaceState("acoes");
-          if (isInsufficientCreditsError(error) && missionInsight) {
-            missionInsight.maybePromptMissionInsight({
-              moment: "credit_friction",
-              missionKey: options?.preview ? "preview" : "batch",
-              campaignId: campaignId !== "new" ? campaignId : undefined,
-              route: currentRoute,
-              diagnosticContext: creditFrictionDiagnostic(error),
-            });
-          }
-        },
-      });
+        {
+          onSuccess: () => {
+            addToast("success", options?.preview ? tc("previewQueued") : tc("derivationsQueued"));
+            setWorkspaceState("acoes");
+            if (campaign && !isNew) updateCampaign.mutate({ status: "generating" });
+            if (options?.preview && missionInsight) {
+              missionInsight.maybePromptMissionInsight({
+                moment: "preview_first",
+                missionKey: "preview",
+                campaignId: campaignId !== "new" ? campaignId : undefined,
+                route: currentRoute,
+                diagnosticContext: { isPreview: true, operation: "preview_generate" },
+              });
+            }
+          },
+          onError: (error) => {
+            addToast("error", options?.preview ? tc("failedQueuePreview") : tc("failedQueueDerivations"));
+            setWorkspaceState("acoes");
+            if (isInsufficientCreditsError(error) && missionInsight) {
+              missionInsight.maybePromptMissionInsight({
+                moment: "credit_friction",
+                missionKey: options?.preview ? "preview" : "batch",
+                campaignId: campaignId !== "new" ? campaignId : undefined,
+                route: currentRoute,
+                diagnosticContext: creditFrictionDiagnostic(error),
+              });
+            }
+          },
+        }
+      );
     },
-    [createDerivations, campaign, isNew, updateCampaign, addToast, tc, campaignId, missionInsight, currentRoute]
+    [
+      createDerivations,
+      campaign,
+      isNew,
+      updateCampaign,
+      addToast,
+      tc,
+      campaignId,
+      missionInsight,
+      currentRoute,
+      pendingOutputLearningApplication,
+    ]
   );
 
   const configureAndGenerate = useCallback(

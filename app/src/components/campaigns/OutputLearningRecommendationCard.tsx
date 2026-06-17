@@ -9,15 +9,22 @@ import {
   type OutputGenerationPrefill,
 } from "@/lib/hooks/use-output-learning-recommendation";
 import { CONFIDENCE_LABELS } from "@/lib/hooks/use-performance-learnings";
+import { buildApplicationSnapshotFromAccept } from "@/server/human-quality/application-schema";
+import type { OutputLearningApplicationSnapshot } from "@/server/human-quality/corpus";
 
 export interface RecipePrefillPayload {
   recipeId: OutputGenerationPrefill["recipeId"];
   config: Omit<OutputGenerationPrefill, "recipeId">;
 }
 
+export interface OutputLearningAcceptPayload {
+  prefill: RecipePrefillPayload;
+  applicationSnapshot: OutputLearningApplicationSnapshot;
+}
+
 interface OutputLearningRecommendationCardProps {
   campaignId: string;
-  onAccept: (prefill: RecipePrefillPayload) => void;
+  onAccept: (payload: OutputLearningAcceptPayload) => void;
   onEdit: (prefill: RecipePrefillPayload) => void;
 }
 
@@ -95,6 +102,13 @@ export default function OutputLearningRecommendationCard({
 
   const handleAccept = () => {
     const prefill = toRecipePrefill(recommendation.prefill);
+    const applicationSnapshot = buildApplicationSnapshotFromAccept({
+      traceId: recommendation.appliedLearningTrace.traceId,
+      recommendationId: recommendation.id,
+      primaryVariableKey: recommendation.primaryVariableKey,
+      algorithmVersion: recommendation.appliedLearningTrace.algorithmVersion,
+      safetyVersion: recommendation.appliedLearningTrace.safetyVersion,
+    });
     recordEvent("output_learning_recommendation_accepted", {
       recommendationId: recommendation.id,
       variableKey: recommendation.primaryVariableKey,
@@ -108,7 +122,7 @@ export default function OutputLearningRecommendationCard({
       ),
       blockedFieldCount: recommendation.appliedLearningTrace.blockedFields.length,
     });
-    onAccept(prefill);
+    onAccept({ prefill, applicationSnapshot });
   };
 
   const handleEdit = () => {
