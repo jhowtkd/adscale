@@ -4,6 +4,8 @@ import {
   aggregateGroup,
   groupComparisonsBy,
   buildCompositeSliceKey,
+  buildFactualMetrics,
+  highVisualButFactualFail,
 } from "@/server/human-quality/calibration/aggregate";
 import { DIVERGENCE_FLAG_THRESHOLD } from "@/server/human-quality/calibration/compare";
 
@@ -150,5 +152,78 @@ describe("buildCompositeSliceKey", () => {
     expect(
       buildCompositeSliceKey("visual_overload", "art_variation", "1:1")
     ).toBe("visual_overload|art_variation|1:1");
+  });
+});
+
+describe("buildFactualMetrics", () => {
+  it("computes factualPassRate independently from visual score deltas", () => {
+    const comparisons = [
+      makeComparison({ corpusItemId: "a", factualPass: true, scoreDelta: 20 }),
+      makeComparison({ corpusItemId: "b", factualPass: true, scoreDelta: -20 }),
+      makeComparison({ corpusItemId: "c", factualPass: false, scoreDelta: 5 }),
+      makeComparison({ corpusItemId: "d", factualPass: false, scoreDelta: -5 }),
+    ];
+
+    const metrics = buildFactualMetrics(comparisons);
+
+    expect(metrics.factualPassRate).toBe(0.5);
+    expect(metrics.factualFailCount).toBe(2);
+  });
+
+  it("returns null factualPassRate for empty comparisons", () => {
+    const metrics = buildFactualMetrics([]);
+
+    expect(metrics.factualPassRate).toBeNull();
+    expect(metrics.factualFailCount).toBe(0);
+    expect(metrics.highVisualButFactualFail).toEqual([]);
+  });
+});
+
+describe("highVisualButFactualFail", () => {
+  it("includes items where factualPass is false and both scores are >= 70", () => {
+    const guard = highVisualButFactualFail([
+      makeComparison({
+        corpusItemId: "guard-hit",
+        factualPass: false,
+        humanVisualScore: 75,
+        automaticQualityScore: 80,
+        primaryFailureReason: "factual_issue",
+      }),
+      makeComparison({
+        corpusItemId: "low-human",
+        factualPass: false,
+        humanVisualScore: 65,
+        automaticQualityScore: 80,
+      }),
+      makeComparison({
+        corpusItemId: "low-auto",
+        factualPass: false,
+        humanVisualScore: 75,
+        automaticQualityScore: 60,
+      }),
+      makeComparison({
+        corpusItemId: "factual-pass",
+        factualPass: true,
+        humanVisualScore: 90,
+        automaticQualityScore: 90,
+      }),
+    ]);
+
+    expect(guard).toHaveLength(1);
+    expect(guard[0].corpusItemId).toBe("guard-hit");
+  });
+
+  it("treats null automatic score as 0 for guard threshold", () => {
+    const guard = highVisualButFactualFail([
+      makeComparison({
+        corpusItemId: "null-auto",
+        factualPass: false,
+        humanVisualScore: 80,
+        automaticQualityScore: null,
+        scoreDelta: null,
+      }),
+    ]);
+
+    expect(guard).toHaveLength(0);
   });
 });
