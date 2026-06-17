@@ -21,6 +21,9 @@ const ARCHETYPES: CorpusArchetype[] = [
   "generic_template_aesthetic",
   "format_campaign_drift",
   "restyling_factual_contamination",
+  "weak_hierarchy",
+  "illegible_cta",
+  "unfocused_composition",
 ];
 
 const PRIMARY_AUDIT_CORPUS_IDS = [

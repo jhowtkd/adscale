@@ -12,6 +12,9 @@ const ARCHETYPES: CorpusArchetype[] = [
   "generic_template_aesthetic",
   "format_campaign_drift",
   "restyling_factual_contamination",
+  "weak_hierarchy",
+  "illegible_cta",
+  "unfocused_composition",
 ];
 
 const MANIFEST_PREFIXES = new Set(
@@ -19,10 +22,10 @@ const MANIFEST_PREFIXES = new Set(
 );
 
 describe("CORPUS_ARCHETYPE_FIXTURES catalog integrity", () => {
-  it("exports exactly five fixtures with unique ids", () => {
-    expect(CORPUS_ARCHETYPE_FIXTURES).toHaveLength(5);
+  it("exports exactly eight fixtures with unique ids", () => {
+    expect(CORPUS_ARCHETYPE_FIXTURES).toHaveLength(8);
     const ids = CORPUS_ARCHETYPE_FIXTURES.map((f) => f.id);
-    expect(new Set(ids).size).toBe(5);
+    expect(new Set(ids).size).toBe(8);
   });
 
   it("covers every audit archetype exactly once", () => {
