@@ -245,6 +245,59 @@ export function validateEvidenceShape(evidence, errors, label = "evidence") {
   }
 }
 
+export function assertQa24(evidence, errors) {
+  const factual = evidence.factualMetrics;
+  if (!isPlainObject(factual)) {
+    errors.push("QA-24: factualMetrics must be an object");
+    return;
+  }
+
+  if (factual.humanCorpusFactualPassRate !== 1.0) {
+    errors.push("QA-24: humanCorpusFactualPassRate must be 1.0");
+  }
+  if (factual.v12_3FactualFidelityRate !== 1.0) {
+    errors.push("QA-24: v12_3FactualFidelityRate must be 1.0");
+  }
+
+  const meanHuman = evidence.qualityMetrics?.humanCorpus?.meanHumanVisualScore;
+  if (meanHuman != null && meanHuman >= HUMAN_VISUAL_TARGET) {
+    return;
+  }
+
+  const acceptedCaveats = Array.isArray(evidence.acceptedCaveats) ? evidence.acceptedCaveats : [];
+  const caveat = acceptedCaveats.find(
+    (entry) => isPlainObject(entry) && entry.id === "visual_quality_gap" && entry.status === "accepted_gap"
+  );
+
+  if (!caveat) {
+    errors.push(
+      `QA-24: meanHumanVisualScore ${meanHuman ?? "null"} < ${HUMAN_VISUAL_TARGET} and no accepted_gap caveat`
+    );
+    return;
+  }
+
+  const current = caveat.currentValue ?? meanHuman ?? V12_3_FIXTURE_BASELINE;
+  const priorBaseline = caveat.priorBaseline ?? V12_3_FIXTURE_BASELINE;
+  const priorGap = HUMAN_VISUAL_TARGET - priorBaseline;
+  const currentGap = HUMAN_VISUAL_TARGET - current;
+
+  if (currentGap >= priorGap) {
+    errors.push(
+      `QA-24: gap ${currentGap.toFixed(2)} not smaller than prior gap ${priorGap.toFixed(2)}`
+    );
+  }
+
+  if (!caveat.acceptedAt) {
+    errors.push("QA-24: accepted_gap caveat requires acceptedAt");
+  }
+  if (!caveat.rationale) {
+    errors.push("QA-24: accepted_gap caveat requires rationale");
+  }
+  if (!caveat.acceptedBy) {
+    errors.push("QA-24: accepted_gap caveat requires acceptedBy");
+  }
+}
+
 function writeBaseline(evidence) {
   const human = evidence.qualityMetrics?.humanCorpus ?? {};
   const fixture = evidence.qualityMetrics?.fixtureValidation ?? {};
@@ -385,6 +438,8 @@ function main() {
   }
 
   validateEvidenceShape(evidence, errors);
+
+  assertQa24(evidence, errors);
 
   if (errors.length > 0) {
     writeVerification(evidence, errors);
