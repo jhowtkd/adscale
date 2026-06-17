@@ -99,7 +99,12 @@ Plans:
   3. Report measures rejection/regeneration intent, human visual score movement and factual pass rate.
   4. Insufficient sample states are explicit and block false claims of improvement.
 
-**Plans:** TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 131-01-PLAN.md — Output-learning application attribution on derivations and corpus freeze (IMPACT-01)
+- [ ] 131-02-PLAN.md — Learning impact report engine with slice comparison and honesty gates (IMPACT-02, IMPACT-03, IMPACT-04)
+- [ ] 131-03-PLAN.md — Evidence CLI, impact API and read-only Impact UI tab (IMPACT-01–04 integration)
 
 ---
 
