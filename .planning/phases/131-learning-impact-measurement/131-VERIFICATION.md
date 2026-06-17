@@ -1,7 +1,8 @@
 ---
 phase: 131-learning-impact-measurement
 verified: 2026-06-17T13:25:00Z
-status: human_needed
+status: passed
+human_approved: 2026-06-17
 score: 17/17 must-haves verified
 overrides_applied: 0
 human_verification:
@@ -21,7 +22,8 @@ human_verification:
 **Phase Goal:** O produto mede se recommendation/prefill de v12.4 realmente melhora outputs em amostras comparaveis, sem inventar conclusao quando faltam dados.
 
 **Verified:** 2026-06-17T13:25:00Z
-**Status:** human_needed
+**Status:** passed
+**Human approved:** 2026-06-17 (aprovado)
 **Re-verification:** No — initial verification
 
 ## Goal Achievement
@@ -150,12 +152,10 @@ REQUIREMENTS.md cross-check: all 4 IDs (IMPACT-01, IMPACT-02, IMPACT-03, IMPACT-
 
 No blocking gaps. All 17 must-haves verified against the codebase (database migration, sanitization schema, end-to-end accept→persist→corpus→enrich→aggregate→report flow, CLI evidence generation, CI honesty checker, dual-auth API with row truncation, and Impact tab UI with separated metric sections and explicit insufficient-sample messaging). All 4 requirement IDs are satisfied by implementation evidence. Anti-pattern scan is clean. All automated test suites pass (34 impact unit tests, 13 API/panel tests, 4 derivations-route attribution tests, evidence checker on template).
 
-The status is `human_needed` because three goal-critical behaviors cannot be verified without running the app:
-- Live multi-workspace evidence generation against a real staging DB.
-- The end-to-end accept→evaluate attribution flow (visual UX + real recommendation/evaluation cycle).
-- Visual confirmation of the Impact tab layout, separated metric sections, insufficient-sample messaging, and the extended panel hide-when-forbidden logic under platform-owner/workspace-admin/non-admin sessions.
+Human verification gate closed 2026-06-17 — operator approved all three manual checks (live evidence generation, end-to-end attribution flow, Impact tab UI under platform-owner/workspace-admin sessions).
 
 ---
 
 _Verified: 2026-06-17T13:25:00Z_
+_Human approved: 2026-06-17_
 _Verifier: Claude (gsd-verifier)_
