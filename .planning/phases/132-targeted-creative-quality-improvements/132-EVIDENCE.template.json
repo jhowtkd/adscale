@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "rubricCalibrationVersion": "1.1.0",
+  "capturedAt": "2026-06-17T14:00:00.000Z",
+  "verifiedAt": "2026-06-17T14:00:00.000Z",
+  "status": "ok",
+  "regressionMetrics": {
+    "factualFidelityRate": 1.0,
+    "safetyGuardPassRate": 1.0,
+    "gateMatrixPass": true
+  },
+  "acceptedAdjustments": [
+    {
+      "adjustmentId": "634f9104-0000-4000-8000-000000000001",
+      "targetModule": "score_ceiling",
+      "targetKey": "visual_overload"
+    }
+  ],
+  "visualMetrics": {
+    "_stub": "Populated by run-quality-improvement.ts in plan 132-04"
+  },
+  "factualMetrics": {
+    "_stub": "Populated by run-quality-improvement.ts in plan 132-04"
+  },
+  "requirements": [
+    {
+      "id": "QUALITY-01",
+      "result": "pass",
+      "note": "Evidence-bound module edits from accepted calibration adjustments (132-02)"
+    },
+    {
+      "id": "QUALITY-02",
+      "result": "pass",
+      "note": "RUBRIC_CALIBRATION_VERSION 1.1.0 apply tranche with accepted visual_overload ceiling"
+    },
+    {
+      "id": "QUALITY-03",
+      "result": "pass",
+      "note": "v12.3 factualFidelityRate and v12.4 safetyGuardPassRate at 1.0; gate matrix tests green"
+    },
+    {
+      "id": "QUALITY-04",
+      "result": "pending",
+      "note": "Failure-frequency re-evaluation report completed in plan 132-04"
+    }
+  ],
+  "_schemaExamples": {
+    "regression_fail": {
+      "schemaVersion": 1,
+      "rubricCalibrationVersion": "1.1.0",
+      "status": "ok",
+      "regressionMetrics": {
+        "factualFidelityRate": 0.95,
+        "safetyGuardPassRate": 1.0,
+        "gateMatrixPass": false
+      },
+      "acceptedAdjustments": [],
+      "visualMetrics": {},
+      "factualMetrics": {},
+      "requirements": [
+        { "id": "QUALITY-03", "result": "fail", "note": "factualFidelityRate below 1.0" }
+      ],
+      "_checkerRejection": "QUALITY-IMPROVEMENT-EVIDENCE: evidence.regressionMetrics.factualFidelityRate 0.95 is below required 1.0"
+    }
+  }
+}

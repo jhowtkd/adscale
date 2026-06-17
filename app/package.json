@@ -32,7 +32,8 @@
     "creative-release-gate": "node scripts/run-creative-release-gate.mjs",
     "output-learning-release-gate": "node scripts/run-output-learning-release-gate.mjs",
     "score-calibration-evidence": "node scripts/check-score-calibration-evidence.mjs",
-    "learning-impact-evidence": "node scripts/check-learning-impact-evidence.mjs"
+    "learning-impact-evidence": "node scripts/check-learning-impact-evidence.mjs",
+    "quality-improvement-evidence": "node scripts/check-quality-improvement-evidence.mjs --evidence ../.planning/phases/132-targeted-creative-quality-improvements/132-EVIDENCE.template.json --skip-tests"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.0.0",
