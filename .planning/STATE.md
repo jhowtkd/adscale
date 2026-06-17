@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v12.5
 milestone_name: Validacao Real de Qualidade e Calibracao do Loop Criativo
 status: executing
-last_updated: "2026-06-17T11:33:04.043Z"
+last_updated: "2026-06-17T11:38:50.639Z"
 last_activity: 2026-06-17
 progress:
   total_phases: 5
   completed_phases: 1
   total_plans: 7
-  completed_plans: 5
-  percent: 71
+  completed_plans: 6
+  percent: 86
 ---
 
 # Project State
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-06-17)
 ## Current Position
 
 Phase: 130 — Score Calibration and Rubric Alignment
-Plan: 3 of 04
+Plan: 4 of 04
 Status: Ready to execute
 Last activity: 2026-06-17
 
@@ -95,6 +95,8 @@ Progress: 1/5 v12.5 phases complete; Phase 130 plan 1/4 complete; CALIB-01 done.
 - [Phase 130]: Default evaluated corpus query limit 500 for calibration payload bounds
 - [Phase 130]: Insufficient corpus returns null visual aggregates; factual metrics still computed from available rows
 - [Phase 130]: highVisualButFactualFail guard at visual threshold 70 for both human and automatic scores
+- [Phase 130-score-calibration-and-rubric-alignment]: Dedupe calibration proposals by slice_key + adjustmentVersion + target_module + target_key
+- [Phase 130-score-calibration-and-rubric-alignment]: factual_issue slices target gate_classifier only — no score_ceiling auto-proposals
 
 ### Phase 130 (in progress — 1/4 plans)
 
