@@ -34,6 +34,38 @@ type CorpusQueueItem = {
   previewImageUrl?: string | null;
 };
 
+type CorpusStatusCount = {
+  pending: number;
+  evaluated: number;
+};
+
+type CorpusQueueProgress = {
+  workspaceId: string;
+  totalPending: number;
+  totalEvaluated: number;
+  byCohort: Record<string, CorpusStatusCount>;
+  byGenerationMode: Record<string, CorpusStatusCount>;
+  byFormat: Record<string, CorpusStatusCount>;
+  latestSelectedAt: string | null;
+  latestEvaluatedAt: string | null;
+};
+
+type CorpusQueueResponse = {
+  items: CorpusQueueItem[];
+  progress?: CorpusQueueProgress;
+};
+
+/** Ephemeral preview fields must never be posted back to the corpus API. */
+const FORBIDDEN_EVALUATION_PAYLOAD_KEYS = [
+  "previewImageUrl",
+  "signedUrl",
+  "outputKey",
+  "prompt",
+  "model",
+  "modelResponse",
+  "imageBytes",
+] as const;
+
 type ImpactSliceComparison = {
   sliceKey: string;
   learned: {
@@ -188,14 +220,16 @@ const PANEL_TABS = [
 
 type PanelTab = (typeof PANEL_TABS)[number]["id"];
 
-async function fetchPendingQueue(workspaceId: string): Promise<CorpusQueueItem[] | null> {
-  const res = await apiFetch(
-    `/api/feedback/human-quality-corpus?workspaceId=${encodeURIComponent(workspaceId)}&limit=50`
-  );
+async function fetchPendingQueue(workspaceId: string): Promise<CorpusQueueResponse | null> {
+  const params = new URLSearchParams({
+    workspaceId,
+    limit: "50",
+    includeProgress: "true",
+  });
+  const res = await apiFetch(`/api/feedback/human-quality-corpus?${params.toString()}`);
   if (res.status === 403) return null;
   if (!res.ok) throw new Error("failed");
-  const payload = (await res.json()) as { items: CorpusQueueItem[] };
-  return payload.items;
+  return (await res.json()) as CorpusQueueResponse;
 }
 
 async function fetchCalibrationReport(
@@ -249,6 +283,121 @@ function MetadataRow({ label, value }: { label: string; value: string }) {
       <dd className="text-right text-[var(--text-primary)]">{value}</dd>
     </div>
   );
+}
+
+function ProgressBreakdownTable({
+  title,
+  slices,
+}: {
+  title: string;
+  slices: Record<string, CorpusStatusCount>;
+}) {
+  const entries = Object.entries(slices);
+  if (entries.length === 0) return null;
+
+  return (
+    <div className="space-y-1.5">
+      <h4 className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+        {title}
+      </h4>
+      <div className="overflow-x-auto rounded-md border border-[var(--border-dim)]">
+        <table className="min-w-full text-[11px]">
+          <thead className="bg-[var(--surface-base)] text-[var(--text-muted)]">
+            <tr>
+              <th className="px-2 py-1 text-left font-medium">Slice</th>
+              <th className="px-2 py-1 text-right font-medium">Pending</th>
+              <th className="px-2 py-1 text-right font-medium">Evaluated</th>
+            </tr>
+          </thead>
+          <tbody>
+            {entries.map(([sliceKey, counts]) => (
+              <tr key={sliceKey} className="border-t border-[var(--border-dim)]">
+                <td className="px-2 py-1 text-[var(--text-primary)]">{sliceKey}</td>
+                <td className="px-2 py-1 text-right">{counts.pending}</td>
+                <td className="px-2 py-1 text-right">{counts.evaluated}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function QueueProgressSummary({
+  progress,
+  reviewPosition,
+  pendingInView,
+}: {
+  progress: CorpusQueueProgress;
+  reviewPosition: number;
+  pendingInView: number;
+}) {
+  return (
+    <div
+      className="space-y-3 rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] p-3"
+      aria-label="Queue progress"
+    >
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="text-sm font-semibold text-[var(--text-primary)]">Queue progress</h3>
+        <p className="text-xs text-[var(--text-secondary)]">
+          {progress.totalPending} pending · {progress.totalEvaluated} evaluated
+        </p>
+      </div>
+
+      <p className="text-xs font-medium text-[var(--text-primary)]">
+        Reviewing {reviewPosition} of {pendingInView} loaded pending
+        {progress.totalPending > pendingInView
+          ? ` (${progress.totalPending} total pending)`
+          : ""}
+      </p>
+
+      <dl className="grid gap-2 sm:grid-cols-2">
+        <MetadataRow
+          label="Latest selected"
+          value={
+            progress.latestSelectedAt
+              ? new Date(progress.latestSelectedAt).toLocaleString()
+              : "—"
+          }
+        />
+        <MetadataRow
+          label="Latest evaluated"
+          value={
+            progress.latestEvaluatedAt
+              ? new Date(progress.latestEvaluatedAt).toLocaleString()
+              : "—"
+          }
+        />
+      </dl>
+
+      <div className="grid gap-3 lg:grid-cols-3">
+        <ProgressBreakdownTable title="By cohort" slices={progress.byCohort} />
+        <ProgressBreakdownTable title="By mode" slices={progress.byGenerationMode} />
+        <ProgressBreakdownTable title="By format" slices={progress.byFormat} />
+      </div>
+    </div>
+  );
+}
+
+function buildEvaluationPayload(input: {
+  workspaceId: string;
+  visualScore: number;
+  factualPass: boolean;
+  intent: HumanQualityIntent;
+  primaryFailureReason: HumanQualityFailureReason;
+  otherReasonText: string | null;
+  notes: string | null;
+}) {
+  return {
+    workspaceId: input.workspaceId,
+    visualScore: input.visualScore,
+    factualPass: input.factualPass,
+    intent: input.intent,
+    primaryFailureReason: input.primaryFailureReason,
+    otherReasonText: input.otherReasonText,
+    notes: input.notes,
+  };
 }
 
 function formatSignedDelta(value: number | null): string {
@@ -871,7 +1020,10 @@ export function HumanQualityCorpusPanel() {
     retry: false,
   });
 
-  const currentItem = queueQuery.data?.[0] ?? null;
+  const queueItems = queueQuery.data?.items ?? [];
+  const queueProgress = queueQuery.data?.progress ?? null;
+  const currentItem = queueItems[0] ?? null;
+  const pendingCount = queueProgress?.totalPending ?? queueItems.length;
 
   const resetForm = () => {
     setVisualScore("");
@@ -905,20 +1057,28 @@ export function HumanQualityCorpusPanel() {
         throw new Error("Describe the other failure reason");
       }
 
+      const evaluationBody = buildEvaluationPayload({
+        workspaceId,
+        visualScore: parsedScore,
+        factualPass: factualPass === "true",
+        intent: intent as HumanQualityIntent,
+        primaryFailureReason: primaryFailureReason as HumanQualityFailureReason,
+        otherReasonText: primaryFailureReason === "other" ? otherReasonText.trim() : null,
+        notes: notes.trim() || null,
+      });
+
+      for (const key of FORBIDDEN_EVALUATION_PAYLOAD_KEYS) {
+        if (key in evaluationBody) {
+          throw new Error(`Unsafe evaluation payload key: ${key}`);
+        }
+      }
+
       const res = await apiFetch(
         `/api/feedback/human-quality-corpus/${currentItem.id}/evaluation`,
         {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            workspaceId,
-            visualScore: parsedScore,
-            factualPass: factualPass === "true",
-            intent,
-            primaryFailureReason,
-            otherReasonText: primaryFailureReason === "other" ? otherReasonText.trim() : null,
-            notes: notes.trim() || null,
-          }),
+          body: JSON.stringify(evaluationBody),
         }
       );
 
@@ -1067,16 +1227,40 @@ export function HumanQualityCorpusPanel() {
             <p className="text-sm text-[var(--text-muted)]">Loading corpus queue…</p>
           ) : queueQuery.isError ? (
             <p className="text-sm text-[var(--text-muted)]">Unable to load corpus queue.</p>
-          ) : (queueQuery.data?.length ?? 0) === 0 ? (
-            <p className="text-sm text-[var(--text-muted)]">No pending corpus items.</p>
+          ) : queueItems.length === 0 ? (
+            <div className="space-y-3 pt-2">
+              {queueProgress ? (
+                <QueueProgressSummary
+                  progress={queueProgress}
+                  reviewPosition={0}
+                  pendingInView={0}
+                />
+              ) : null}
+              <p className="rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-muted)]">
+                Queue is clear — no pending corpus items remain for review. Select new derivations
+                from campaign review to continue live corpus operations.
+              </p>
+            </div>
           ) : currentItem ? (
-            <div className="grid gap-4 pt-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+            <div className="space-y-4 pt-2">
+              {queueProgress ? (
+                <QueueProgressSummary
+                  progress={queueProgress}
+                  reviewPosition={1}
+                  pendingInView={queueItems.length}
+                />
+              ) : null}
+
+              <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
               <div className="space-y-3 rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] p-4">
-                <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--text-secondary)]">
-                  <span>{queueQuery.data?.length ?? 0} pending</span>
-                  <span>
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                    Current item
+                  </p>
+                  <p className="text-sm font-medium text-[var(--text-primary)]">
+                    {currentItem.generationMode} · {currentItem.format || "—"} ·{" "}
                     {currentItem.cohort} · v{currentItem.corpusVersion}
-                  </span>
+                  </p>
                 </div>
 
                 <div className="relative aspect-square w-full overflow-hidden rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)]">
@@ -1097,13 +1281,16 @@ export function HumanQualityCorpusPanel() {
                 </div>
 
                 <dl className="space-y-1.5">
+                  <MetadataRow label="Workspace" value={currentItem.workspaceId.slice(0, 8) + "…"} />
+                  <MetadataRow label="Campaign" value={currentItem.campaignId.slice(0, 8) + "…"} />
                   <MetadataRow
                     label="Derivation"
                     value={currentItem.derivationId.slice(0, 8) + "…"}
                   />
-                  <MetadataRow label="Campaign" value={currentItem.campaignId.slice(0, 8) + "…"} />
                   <MetadataRow label="Mode" value={currentItem.generationMode} />
                   <MetadataRow label="Format" value={currentItem.format || "—"} />
+                  <MetadataRow label="Cohort" value={currentItem.cohort} />
+                  <MetadataRow label="Corpus version" value={`v${currentItem.corpusVersion}`} />
                   {snapshot?.qualityScore != null ? (
                     <MetadataRow label="Auto score" value={String(snapshot.qualityScore)} />
                   ) : null}
@@ -1235,9 +1422,14 @@ export function HumanQualityCorpusPanel() {
                 ) : null}
 
                 <Button type="submit" disabled={!formValid || submitMutation.isPending}>
-                  {submitMutation.isPending ? "Submitting…" : "Submit evaluation"}
+                  {submitMutation.isPending
+                    ? "Submitting…"
+                    : pendingCount > 1
+                      ? "Submit & next"
+                      : "Submit evaluation"}
                 </Button>
               </form>
+              </div>
             </div>
           ) : null}
         </>
