@@ -66,6 +66,8 @@ const OUTPUT_LEARNING_EVAL_TESTS = [
 ];
 
 const dryRun = process.argv.includes("--dry-run");
+const runRegression =
+  process.argv.includes("--run-regression") || process.env.REAL_QUALITY_RUN_REGRESSION === "1";
 
 function ensureEvidenceFile() {
   mkdirSync(phaseDir, { recursive: true });
@@ -168,6 +170,7 @@ const steps = [
       "--evidence",
       evidencePath,
       "--skip-tests",
+      ...(runRegression ? ["--run-regression"] : []),
     ],
   },
 ];
@@ -192,6 +195,9 @@ function main() {
 
   if (dryRun) {
     console.log("Real quality release gate (dry-run)");
+    if (runRegression) {
+      console.log("[dry-run] --run-regression enabled (argv or REAL_QUALITY_RUN_REGRESSION=1)");
+    }
     for (const step of steps) {
       runStep(step);
     }

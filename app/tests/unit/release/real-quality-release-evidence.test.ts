@@ -3,7 +3,10 @@ import { validateFactualOnly } from "../../../scripts/check-creative-validation-
 import {
   assertQa24,
   HUMAN_VISUAL_TARGET,
+  PHASE_EVIDENCE,
   V12_3_FIXTURE_BASELINE,
+  aggregateEvidence,
+  runRegressionMode,
   validateMetricSeparation,
 } from "../../../scripts/check-real-quality-release-evidence.mjs";
 
@@ -210,6 +213,45 @@ describe("real-quality-release-evidence QA-24", () => {
     });
 
     expect(runQa24(evidence)).toEqual([]);
+  });
+});
+
+describe("real-quality-release-evidence regression metrics", () => {
+  it("keeps regressionMetrics separate from qualityMetrics root after runRegressionMode", () => {
+    const evidence = aggregateEvidence({
+      acceptedCaveats: [
+        {
+          id: "visual_quality_gap",
+          status: "accepted_gap",
+          priorBaseline: V12_3_FIXTURE_BASELINE,
+          currentValue: 72,
+          acceptedAt: "2026-06-17",
+          rationale: "Fixture factual green; human corpus pending",
+          acceptedBy: "operator",
+        },
+      ],
+    });
+
+    const { evidence: updated } = runRegressionMode(evidence, { skipTests: true });
+
+    expect(updated.regressionMetrics).toEqual({
+      gateMatrixPass: true,
+      creativeValidationScript: "factual_only_pass",
+      outputLearningScript: "pass",
+    });
+    expect(updated.qualityMetrics?.humanCorpus?.meanHumanVisualScore).toBeNull();
+    expect(updated.factualMetrics?.v12_3FactualFidelityRate).toBe(1);
+    expect(updated.factualMetrics?.v12_3RegressionSubsetPassed).toBe(true);
+
+    const separationErrors: string[] = [];
+    validateMetricSeparation(updated, separationErrors);
+    expect(separationErrors).toEqual([]);
+    expect(runQa24(updated)).toEqual([]);
+  });
+
+  it("exposes PHASE_EVIDENCE paths for sub-phase audit trail", () => {
+    expect(PHASE_EVIDENCE.calibration).toContain("130-EVIDENCE.json");
+    expect(PHASE_EVIDENCE.fixture).toContain("123-EVIDENCE.json");
   });
 });
 
