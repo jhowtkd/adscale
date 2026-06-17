@@ -47,8 +47,8 @@ Transformar o learning loop de v12.4 em evidencia real de qualidade percebida. A
 ### Release Evidence (QA)
 
 - [ ] **QA-22**: Milestone release gate runs focused corpus/evaluation tests, score calibration checks, v12.3 factual subset, v12.4 output-learning subset, `npm test`, `npm run lint`, and `npm run build`.
-- [ ] **QA-23**: Release evidence stores quality metrics, factual metrics, learning-impact metrics and accepted caveats in separate sections.
-- [ ] **QA-24**: Milestone cannot close as passed unless factual pass rate remains 1.0 and either human visual quality crosses the target or the remaining gap is smaller and explicitly accepted.
+- [x] **QA-23**: Release evidence stores quality metrics, factual metrics, learning-impact metrics and accepted caveats in separate sections.
+- [x] **QA-24**: Milestone cannot close as passed unless factual pass rate remains 1.0 and either human visual quality crosses the target or the remaining gap is smaller and explicitly accepted.
 
 ## Future Requirements
 
@@ -93,8 +93,8 @@ Transformar o learning loop de v12.4 em evidencia real de qualidade percebida. A
 | QUALITY-03 | Phase 132 | Complete |
 | QUALITY-04 | Phase 132 | Complete |
 | QA-22 | Phase 133 | Pending |
-| QA-23 | Phase 133 | Pending |
-| QA-24 | Phase 133 | Pending |
+| QA-23 | Phase 133 | Complete |
+| QA-24 | Phase 133 | Complete |
 
 **Coverage:**
 - v12.5 requirements: 19 total
