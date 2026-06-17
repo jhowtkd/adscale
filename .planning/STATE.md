@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v12.5
 milestone_name: Validacao Real de Qualidade e Calibracao do Loop Criativo
-status: planning
-last_updated: "2026-06-17T18:00:00.000Z"
+status: executing
+last_updated: "2026-06-17T16:38:34.295Z"
 last_activity: 2026-06-17
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 19
-  completed_plans: 15
-  percent: 79
+  completed_plans: 16
+  percent: 84
 ---
 
 # Project State
@@ -23,16 +23,16 @@ See: .planning/PROJECT.md (updated 2026-06-17)
 
 **Current focus:** v12.5 — Validacao Real de Qualidade e Calibracao do Loop Criativo.
 
-**Status:** Phase 133 planned — ready to execute
+**Status:** Phase 133 in progress — Plan 01 complete
 
 ## Current Position
 
 Phase: 133 — Real Quality Release Gate
-Plan: 0/4 planned
-Status: Planned
+Plan: 1/4 complete
+Status: In Progress
 Last activity: 2026-06-17
 
-Progress: Phase 133 planned (4 plans, 4 waves); Phases 129–132 complete (15/19 v12.5 plans, 79%).
+Progress: Phase 133 plan 01 complete (1/4); v12.5 milestone 16/19 plans (84%).
 
 ## Accumulated Context
 
@@ -117,6 +117,8 @@ Progress: Phase 133 planned (4 plans, 4 waves); Phases 129–132 complete (15/19
 - [Phase 132]: MIN_SLICE_SAMPLE per targeted reason in both arms required before quality improvement status ok
 - [Phase 132]: improvementDeployedAt defaults to earliest acceptedAt among accepted adjustments
 - [Phase 132]: Panel hides only when queue, calibration, impact, and quality APIs all return 403
+- [Phase 133]: QA-24 primary metric is meanHumanVisualScore; fixture 70.17 is reference baseline only
+- [Phase 133]: accepted_gap caveat requires acceptedAt, rationale, acceptedBy and shrunk gap vs 70.17 prior baseline
 
 ### Phase 132 (complete — 4/4 plans)
 
@@ -162,8 +164,10 @@ Progress: Phase 133 planned (4 plans, 4 waves); Phases 129–132 complete (15/19
 - [Phase 132]: Fixture before-arm pass rate uses baselineVerdict snapshot on targeted archetypes
 - [Phase 132]: QUALITY-04 checker rejects non-null deltas when insufficient_sample
 
-### Phase 133 (planned — 0/4 plans)
+### Phase 133 (in progress — 1/4 plans)
 
+- Summaries:
+  - `.planning/phases/133-real-quality-release-gate/133-01-SUMMARY.md`
 - Research: `.planning/phases/133-real-quality-release-gate/133-RESEARCH.md`
 - Validation: `.planning/phases/133-real-quality-release-gate/133-VALIDATION.md`
 - Plans:
@@ -174,4 +178,4 @@ Progress: Phase 133 planned (4 plans, 4 waves); Phases 129–132 complete (15/19
 
 ## Next Steps
 
-Execute Phase 133: `/gsd-execute-phase 133`
+Execute Phase 133 Plan 02: QA-22 real-quality-release-gate orchestrator
