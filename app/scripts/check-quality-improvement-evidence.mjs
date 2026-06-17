@@ -25,7 +25,21 @@ const V12_3_REGRESSION_TESTS = [
 
 const V12_4_SAFETY_TESTS = ["src/server/output-learning/safety/guards.test.ts"];
 
-const REQUIRED_REQUIREMENT_IDS = ["QUALITY-03"];
+const REQUIRED_REQUIREMENT_IDS = ["QUALITY-01", "QUALITY-02", "QUALITY-03", "QUALITY-04"];
+
+const TARGETED_VISUAL_FAILURE_REASONS = [
+  "visual_overload",
+  "weak_hierarchy",
+  "generic_template_feel",
+  "illegible_cta",
+  "unfocused_composition",
+];
+
+const IMPROVEMENT_HEADLINE_FIELDS = [
+  "improvementClaimed",
+  "globalFailureRateDelta",
+  "targetedImprovementAchieved",
+];
 
 const BLENDED_FIELD_DENYLIST = [
   "overallQualityPass",
@@ -149,12 +163,157 @@ function validateAcceptedAdjustments(acceptedAdjustments, errors, label = "evide
   }
 }
 
-function validateMetricStubs(evidence, errors, label = "evidence") {
-  if (!isPlainObject(evidence.visualMetrics)) {
-    errors.push(`${label}.visualMetrics must be an object (stub until 132-04 CLI)`);
+function validateFailureFrequencyBucket(bucket, errors, prefix) {
+  if (!isPlainObject(bucket)) {
+    errors.push(`${prefix} must be an object`);
+    return;
   }
-  if (!isPlainObject(evidence.factualMetrics)) {
-    errors.push(`${label}.factualMetrics must be an object (stub until 132-04 CLI)`);
+
+  for (const reason of TARGETED_VISUAL_FAILURE_REASONS) {
+    const entry = bucket[reason];
+    const entryPrefix = `${prefix}.${reason}`;
+    if (!isPlainObject(entry)) {
+      errors.push(`${entryPrefix} must be an object`);
+      continue;
+    }
+    if (typeof entry.count !== "number" || entry.count < 0) {
+      errors.push(`${entryPrefix}.count must be a non-negative number`);
+    }
+    if (entry.rate != null && (typeof entry.rate !== "number" || Number.isNaN(entry.rate))) {
+      errors.push(`${entryPrefix}.rate must be a number or null`);
+    }
+  }
+}
+
+function validateVisualMetrics(visualMetrics, errors, label = "evidence") {
+  if (!isPlainObject(visualMetrics)) {
+    errors.push(`${label}.visualMetrics must be an object`);
+    return;
+  }
+
+  if ("_stub" in visualMetrics) {
+    errors.push(`${label}.visualMetrics must not contain stub placeholder fields`);
+    return;
+  }
+
+  validateFailureFrequencyBucket(
+    visualMetrics.failureFrequencyBefore,
+    errors,
+    `${label}.visualMetrics.failureFrequencyBefore`
+  );
+  validateFailureFrequencyBucket(
+    visualMetrics.failureFrequencyAfter,
+    errors,
+    `${label}.visualMetrics.failureFrequencyAfter`
+  );
+
+  if (!isPlainObject(visualMetrics.deltaRateByReason)) {
+    errors.push(`${label}.visualMetrics.deltaRateByReason must be an object`);
+    return;
+  }
+
+  for (const reason of TARGETED_VISUAL_FAILURE_REASONS) {
+    const delta = visualMetrics.deltaRateByReason[reason];
+    if (!(reason in visualMetrics.deltaRateByReason)) {
+      errors.push(`${label}.visualMetrics.deltaRateByReason.${reason} is required`);
+      continue;
+    }
+    if (delta != null && (typeof delta !== "number" || Number.isNaN(delta))) {
+      errors.push(`${label}.visualMetrics.deltaRateByReason.${reason} must be a number or null`);
+    }
+  }
+}
+
+function validateFactualMetrics(factualMetrics, errors, label = "evidence") {
+  if (!isPlainObject(factualMetrics)) {
+    errors.push(`${label}.factualMetrics must be an object`);
+    return;
+  }
+
+  if ("_stub" in factualMetrics) {
+    errors.push(`${label}.factualMetrics must not contain stub placeholder fields`);
+    return;
+  }
+
+  for (const key of ["factualPassRateBefore", "factualPassRateAfter"]) {
+    if (!(key in factualMetrics)) {
+      errors.push(`${label}.factualMetrics.${key} is required`);
+      continue;
+    }
+    const value = factualMetrics[key];
+    if (value != null && (typeof value !== "number" || Number.isNaN(value))) {
+      errors.push(`${label}.factualMetrics.${key} must be a number or null`);
+    }
+  }
+}
+
+function validateFixtureMetrics(fixtureMetrics, errors, label = "evidence") {
+  if (fixtureMetrics == null) {
+    return;
+  }
+
+  if (!isPlainObject(fixtureMetrics)) {
+    errors.push(`${label}.fixtureMetrics must be an object when present`);
+    return;
+  }
+
+  for (const key of [
+    "targetedArchetypePassRateBefore",
+    "targetedArchetypePassRateAfter",
+  ]) {
+    if (!(key in fixtureMetrics)) {
+      errors.push(`${label}.fixtureMetrics.${key} is required when fixtureMetrics is present`);
+      continue;
+    }
+    const value = fixtureMetrics[key];
+    if (value != null && (typeof value !== "number" || Number.isNaN(value))) {
+      errors.push(`${label}.fixtureMetrics.${key} must be a number or null`);
+    }
+  }
+}
+
+function sumAfterCounts(visualMetrics) {
+  if (!isPlainObject(visualMetrics?.failureFrequencyAfter)) {
+    return 0;
+  }
+
+  return TARGETED_VISUAL_FAILURE_REASONS.reduce(
+    (sum, reason) => sum + (visualMetrics.failureFrequencyAfter[reason]?.count ?? 0),
+    0
+  );
+}
+
+function validateHonestyGates(evidence, errors, label = "evidence") {
+  const afterCount = sumAfterCounts(evidence.visualMetrics);
+
+  if (afterCount === 0) {
+    for (const field of IMPROVEMENT_HEADLINE_FIELDS) {
+      if (field in evidence) {
+        errors.push(
+          `${label}.${field} must not be present when all targeted after counts are zero`
+        );
+      }
+    }
+  }
+
+  if (evidence.status !== "insufficient_sample") {
+    return;
+  }
+
+  if (!isPlainObject(evidence.visualMetrics?.deltaRateByReason)) {
+    return;
+  }
+
+  for (const reason of TARGETED_VISUAL_FAILURE_REASONS) {
+    if (evidence.visualMetrics.deltaRateByReason[reason] != null) {
+      errors.push(
+        `${label}.visualMetrics.deltaRateByReason.${reason} must be null when status is insufficient_sample`
+      );
+    }
+  }
+
+  if (evidence.improvementClaimed === true) {
+    errors.push(`${label}.improvementClaimed must not be true when status is insufficient_sample`);
   }
 }
 
@@ -184,7 +343,14 @@ function validateEvidenceShape(evidence, errors, label = "evidence") {
 
   validateRegressionMetrics(evidence.regressionMetrics, errors, label);
   validateAcceptedAdjustments(evidence.acceptedAdjustments, errors, label);
-  validateMetricStubs(evidence, errors, label);
+  validateVisualMetrics(evidence.visualMetrics, errors, label);
+  validateFactualMetrics(evidence.factualMetrics, errors, label);
+  validateFixtureMetrics(evidence.fixtureMetrics, errors, label);
+  validateHonestyGates(evidence, errors, label);
+
+  if (!Array.isArray(evidence.targetedFailureReasons)) {
+    errors.push(`${label}.targetedFailureReasons must be an array`);
+  }
 
   if (!Array.isArray(evidence.requirements)) {
     errors.push(`${label}.requirements must be an array`);
@@ -317,6 +483,14 @@ function main() {
   }
 
   validateEvidenceShape(evidence, errors);
+
+  if (isPlainObject(evidence._schemaExamples?.insufficient_sample)) {
+    validateEvidenceShape(
+      evidence._schemaExamples.insufficient_sample,
+      errors,
+      "_schemaExamples.insufficient_sample"
+    );
+  }
 
   if (!skipTests) {
     try {
