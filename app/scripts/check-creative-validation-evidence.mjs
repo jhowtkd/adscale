@@ -18,7 +18,10 @@ const MEAN_QUALITY_THRESHOLD = 75;
 const FACTUAL_FIDELITY_THRESHOLD = 0.95;
 
 function usage() {
-  return "Usage: node app/scripts/check-creative-validation-evidence.mjs --stage before|after|final [--evidence PATH]";
+  return [
+    "Usage: node app/scripts/check-creative-validation-evidence.mjs --stage before|after|final [--evidence PATH]",
+    "       node app/scripts/check-creative-validation-evidence.mjs --factual-only [--evidence PATH]",
+  ].join("\n");
 }
 
 function hashFile(path) {
@@ -282,12 +285,37 @@ function updateEvidenceArtifacts(evidence, evidencePath, aggregate, requirementR
 function parseArgs(argv) {
   const stageIndex = argv.indexOf("--stage");
   const evidenceIndex = argv.indexOf("--evidence");
+  const factualOnly = argv.includes("--factual-only");
   const stage = stageIndex >= 0 ? argv[stageIndex + 1] : undefined;
   const evidenceArg = evidenceIndex >= 0 ? argv[evidenceIndex + 1] : undefined;
   return {
     stage,
+    factualOnly,
     evidencePath: evidenceArg ? resolve(repoRoot, evidenceArg) : defaultEvidencePath,
   };
+}
+
+export function validateFactualOnly(evidence, errors, { fidelityHitsFn = fidelityHits, computeAggregateFn = computeAggregateViaTsx } = {}) {
+  const afterCaptures = evidence.afterCaptures ?? [];
+  if (afterCaptures.length === 0) {
+    errors.push("afterCaptures required for --factual-only");
+    return null;
+  }
+
+  const aggregate = computeAggregateFn(afterCaptures);
+  if (aggregate.factualFidelityRate < FACTUAL_FIDELITY_THRESHOLD) {
+    errors.push(
+      `factualFidelityRate ${aggregate.factualFidelityRate.toFixed(3)} is below threshold ${FACTUAL_FIDELITY_THRESHOLD}`
+    );
+  }
+
+  for (const capture of afterCaptures) {
+    for (const code of fidelityHitsFn(capture)) {
+      errors.push(`${capture.key} afterCapture fidelity hard failure: ${code}`);
+    }
+  }
+
+  return aggregate;
 }
 
 function readEvidence(evidencePath, stage) {
@@ -475,9 +503,21 @@ function validateFinalThresholdsAndPrompt(evidence, errors) {
 }
 
 try {
-  const { stage, evidencePath } = parseArgs(process.argv);
+  const { stage, factualOnly, evidencePath } = parseArgs(process.argv);
 
-  if (process.argv[2] !== "--stage" || !stage || !VALID_STAGES.has(stage)) {
+  if (factualOnly) {
+    const evidence = readEvidence(evidencePath, "final");
+    const errors = [];
+    const aggregate = validateFactualOnly(evidence, errors);
+
+    if (errors.length) {
+      fail(errors);
+    } else {
+      console.log(
+        `CREATIVE-EVIDENCE factual-only pass: factualFidelityRate=${aggregate.factualFidelityRate.toFixed(3)} (${aggregate.fidelityPassCount}/${aggregate.totalCount}); meanQualityScore=${aggregate.meanQualityScore.toFixed(2)} (QA-19 visual threshold not enforced).`
+      );
+    }
+  } else if (process.argv[2] !== "--stage" || !stage || !VALID_STAGES.has(stage)) {
     console.error(usage());
     process.exitCode = 1;
   } else {
