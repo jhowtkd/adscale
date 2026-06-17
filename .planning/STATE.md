@@ -21,20 +21,28 @@ See: .planning/PROJECT.md (updated 2026-06-16)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** Phase 126 — Next-Generation Recommendation Application.
+**Current focus:** Phase 127 — Safety, Boundaries, and Explainability.
 
-**Status:** Phase 125 complete; ready for Phase 126
+**Status:** Phase 126 complete; ready for Phase 127
 
 ## Current Position
 
-Phase: 126 — Next-Generation Recommendation Application
+Phase: 127 — Safety, Boundaries, and Explainability
 Plan: —
 Status: Ready for discuss/plan
 Last activity: 2026-06-16
 
-Progress: Phase 125 shipped — canonical output learnings with confidence, supersession, and Mem0 projection
+Progress: Phase 126 shipped — output learning recommendations with bounded prefill before generation
 
 ## Accumulated Context
+
+### Phase 126 (shipped 2026-06-16)
+
+- `getOutputLearningRecommendation` ranks approved output learnings into prefill packet
+- API: `GET /api/campaigns/[id]/output-recommendation`
+- Bounded prefill: cta, generation_mode, format, style_policy only
+- `avoid_pattern` hints informational only — no prompt prose mutation
+- UI card at `#mission-output-learnings` above derive action bar (before credits)
 
 ### Phase 125 (shipped 2026-06-16)
 
@@ -55,7 +63,7 @@ Progress: Phase 125 shipped — canonical output learnings with confidence, supe
 
 ## Session Continuity
 
-Last activity: 2026-06-16 — Phase 125 executed autonomously (plans 01–03)
+Last activity: 2026-06-16 — Phase 126 executed autonomously (plans 01–03)
 
 ## Decisions
 
@@ -70,4 +78,4 @@ Last activity: 2026-06-16 — Phase 125 executed autonomously (plans 01–03)
 
 ## Next Steps
 
-Proceed to Phase 126: apply approved output learnings as recommendation/prefill before generation.
+Proceed to Phase 127: safety guards and explainability for applied output learnings.

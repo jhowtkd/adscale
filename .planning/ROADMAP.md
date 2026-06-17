@@ -32,15 +32,15 @@
 
 - [x] **Phase 124: Output Signal Capture** — normalizar aprovação, rejeição, regeneração, save-reference e delivery selection como evidência canônica (completed 2026-06-16)
 - [x] **Phase 125: Canonical Output Learnings** — agregar evidências em learnings aprovados/supersedidos com confiança, contradição e projeção para Mem0 (completed 2026-06-16)
-- [ ] **Phase 126: Next-Generation Recommendation Application** — recuperar learnings relevantes e aplicá-los como recommendation/prefill antes da geração
+- [x] **Phase 126: Next-Generation Recommendation Application** — recuperar learnings relevantes e aplicá-los como recommendation/prefill antes da geração (completed 2026-06-16)
 - [ ] **Phase 127: Safety, Boundaries, and Explainability** — garantir que learnings não sobreponham contratos factuais, nem virem prompt drift opaco
 - [ ] **Phase 128: Evaluation and Release Gate** — provar melhora de qualidade percebida sem regressão factual
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
 | 124 | Output Signal Capture | SIGNAL-01, SIGNAL-02, SIGNAL-03, SIGNAL-04 | Complete | 2026-06-16 |
-| 125 | Canonical Output Learnings | 1/3 | In Progress|  |
-| 126 | Next-Generation Recommendation Application | 1/3 | In Progress|  |
+| 125 | Canonical Output Learnings | LEARN-01, LEARN-02, LEARN-03, LEARN-04, LEARN-05 | Complete | 2026-06-16 |
+| 126 | Next-Generation Recommendation Application | APPLY-01, APPLY-02, APPLY-03, APPLY-04 | Complete | 2026-06-16 |
 | 127 | Safety, Boundaries, and Explainability | SAFE-01, SAFE-02, SAFE-03, SAFE-04 | Pending | — |
 | 128 | Evaluation and Release Gate | EVAL-01, EVAL-02, EVAL-03, EVAL-04 | Pending | — |
 
@@ -101,7 +101,7 @@ Plans:
   3. Recommendation payload explains evidence, confidence, and contradictions when applicable.
   4. When evidence is insufficient, the API returns an honest no-recommendation state.
 
-**Plans:** 0/0 plans complete
+**Plans:** 3/3 plans complete
 
 ---
 
