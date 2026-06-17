@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v12.5
 milestone_name: Validacao Real de Qualidade e Calibracao do Loop Criativo
 status: planning
-last_updated: "2026-06-17T10:43:31.744Z"
-last_activity: 2026-06-17 — Completed 129-03 owner evaluation UI and verification
+last_updated: "2026-06-17T12:00:00.000Z"
+last_activity: 2026-06-17 — Phase 130 context gathered (discuss-phase)
 progress:
   total_phases: 5
   completed_phases: 1
@@ -22,14 +22,14 @@ See: .planning/PROJECT.md (updated 2026-06-17)
 
 **Current focus:** v12.5 — Validacao Real de Qualidade e Calibracao do Loop Criativo.
 
-**Status:** Phase 129 verified — ready to plan Phase 130
+**Status:** Phase 130 context gathered — ready to plan
 
 ## Current Position
 
 Phase: 130 — Score Calibration and Rubric Alignment
 Plan: Not started
 Status: Ready to plan
-Last activity: 2026-06-17 — Phase 129 human verification approved
+Last activity: 2026-06-17 — Phase 130 discuss-phase context captured
 
 Progress: 1/5 v12.5 phases complete; HUMAN-01–04 validated.
 
@@ -86,7 +86,16 @@ Progress: 1/5 v12.5 phases complete; HUMAN-01–04 validated.
 - [Phase 129]: Build quality snapshots from derivation metadata without prompt or outputKey fields
 - [Phase 129]: Mount corpus evaluation panel from OwnerAnalyticsPanel; review sheet only enqueues selections
 - [Phase 129]: Attach ephemeral previewImageUrl on corpus queue GET without persisting signed URLs
+- [Phase 130]: CLI + read-only calibration UI extending HumanQualityCorpusPanel
+- [Phase 130]: Auto-propose adjustments at |delta| ≥ 15 with min 3 items per slice; status proposed only
+- [Phase 130]: Global multi-workspace rollup report with cohort filter; min 5 items for ok status
+- [Phase 130]: JSON evidence in .planning/phases/130-*; platform-owner and workspace admin access
+
+### Phase 130 (context gathered — 0 plans)
+
+- Context: `.planning/phases/130-score-calibration-and-rubric-alignment/130-CONTEXT.md`
+- Research: `.planning/phases/130-score-calibration-and-rubric-alignment/130-RESEARCH.md`
 
 ## Next Steps
 
-Run `$gsd-discuss-phase 130` to gather context for score calibration and rubric alignment.
+Run `$gsd-plan-phase 130` to create executable plans from research + context.
