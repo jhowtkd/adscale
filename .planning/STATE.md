@@ -2,15 +2,14 @@
 gsd_state_version: 1.0
 milestone: v12.5
 milestone_name: Validacao Real de Qualidade e Calibracao do Loop Criativo
-status: verifying
-last_updated: "2026-06-17T11:47:43.405Z"
+status: planning
+last_updated: "2026-06-17T11:51:23.381Z"
 last_activity: 2026-06-17
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 7
   completed_plans: 7
-  percent: 100
 ---
 
 # Project State
@@ -23,7 +22,7 @@ See: .planning/PROJECT.md (updated 2026-06-17)
 
 **Current focus:** v12.5 — Validacao Real de Qualidade e Calibracao do Loop Criativo.
 
-**Status:** Phase complete — ready for verification
+**Status:** Ready to plan
 
 ## Current Position
 
