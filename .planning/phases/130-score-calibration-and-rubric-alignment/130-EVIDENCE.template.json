@@ -1,0 +1,144 @@
+{
+  "schemaVersion": 1,
+  "rubricCalibrationVersion": "1.0.0",
+  "capturedAt": "2026-06-17T12:00:00.000Z",
+  "verifiedAt": "2026-06-17T12:00:00.000Z",
+  "snapshotCapturedAtNote": "Automatic scores use qualitySnapshot frozen at corpus selection time; not live re-scored.",
+  "status": "ok",
+  "evaluatedItemCount": 5,
+  "scope": {
+    "allWorkspaces": true,
+    "workspaceId": null,
+    "cohort": null
+  },
+  "persistedAdjustmentCount": 0,
+  "visualMetrics": {
+    "meanAbsError": 12.4,
+    "meanSignedDelta": 8.2,
+    "overScoreCount": 2,
+    "underScoreCount": 1,
+    "divergenceByFailureReason": {
+      "weak_hierarchy": {
+        "count": 2,
+        "meanSignedDelta": 10,
+        "meanAbsError": 10,
+        "overScoreCount": 1,
+        "underScoreCount": 0
+      }
+    },
+    "divergenceByMode": {
+      "art_variation": {
+        "count": 5,
+        "meanSignedDelta": 8.2,
+        "meanAbsError": 12.4,
+        "overScoreCount": 2,
+        "underScoreCount": 1
+      }
+    },
+    "divergenceByFormat": {
+      "1:1": {
+        "count": 5,
+        "meanSignedDelta": 8.2,
+        "meanAbsError": 12.4,
+        "overScoreCount": 2,
+        "underScoreCount": 1
+      }
+    },
+    "comparisons": [
+      {
+        "corpusItemId": "550e8400-e29b-41d4-a716-446655440001",
+        "derivationId": "550e8400-e29b-41d4-a716-446655440004",
+        "generationMode": "art_variation",
+        "format": "1:1",
+        "cohort": "baseline",
+        "automaticQualityScore": 80,
+        "humanVisualScore": 65,
+        "scoreDelta": 15,
+        "absError": 15,
+        "primaryFailureReason": "weak_hierarchy",
+        "factualPass": true,
+        "qualityVerdict": "improvable",
+        "hardFailureCodes": []
+      }
+    ]
+  },
+  "factualMetrics": {
+    "factualPassRate": 0.8,
+    "factualFailCount": 1,
+    "highVisualButFactualFail": []
+  },
+  "adjustments": [],
+  "requirements": [
+    {
+      "id": "CALIB-01",
+      "result": "pass",
+      "note": "per-item automatic vs human visual score comparison",
+      "evaluatedItemCount": 5
+    },
+    {
+      "id": "CALIB-02",
+      "result": "pass",
+      "note": "grouped divergence by failure reason, mode and format"
+    },
+    {
+      "id": "CALIB-03",
+      "result": "pass",
+      "note": "versioned adjustment proposals with corpus evidence refs"
+    },
+    {
+      "id": "CALIB-04",
+      "result": "pass",
+      "note": "visualMetrics and factualMetrics stored separately"
+    }
+  ],
+  "_schemaExamples": {
+    "insufficient_corpus": {
+      "schemaVersion": 1,
+      "rubricCalibrationVersion": "1.0.0",
+      "capturedAt": "2026-06-17T12:00:00.000Z",
+      "verifiedAt": "2026-06-17T12:00:00.000Z",
+      "snapshotCapturedAtNote": "Automatic scores use qualitySnapshot frozen at corpus selection time; not live re-scored.",
+      "status": "insufficient_corpus",
+      "evaluatedItemCount": 2,
+      "visualMetrics": {
+        "meanAbsError": null,
+        "meanSignedDelta": null,
+        "overScoreCount": 0,
+        "underScoreCount": 0,
+        "divergenceByFailureReason": {},
+        "divergenceByMode": {},
+        "divergenceByFormat": {},
+        "comparisons": []
+      },
+      "factualMetrics": {
+        "factualPassRate": 0.5,
+        "factualFailCount": 1,
+        "highVisualButFactualFail": []
+      },
+      "adjustments": [],
+      "requirements": [
+        {
+          "id": "CALIB-01",
+          "result": "pending",
+          "note": "per-item automatic vs human visual score comparison",
+          "evaluatedItemCount": 2
+        },
+        {
+          "id": "CALIB-02",
+          "result": "pending",
+          "note": "grouped divergence by failure reason, mode and format"
+        },
+        {
+          "id": "CALIB-03",
+          "result": "pass",
+          "note": "versioned adjustment proposals with corpus evidence refs"
+        },
+        {
+          "id": "CALIB-04",
+          "result": "pending",
+          "note": "visualMetrics and factualMetrics stored separately"
+        }
+      ]
+    }
+  }
+}
