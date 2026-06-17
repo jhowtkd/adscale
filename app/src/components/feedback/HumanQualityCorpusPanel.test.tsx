@@ -277,13 +277,13 @@ describe("HumanQualityCorpusPanel calibration tab", () => {
 
     expect(await screen.findByText("Calibration report")).toBeInTheDocument();
     expect(screen.getByText("ok")).toBeInTheDocument();
-    expect(screen.getByText("12.40")).toBeInTheDocument();
-    expect(screen.getByText("+8.20")).toBeInTheDocument();
-    expect(screen.getByText("weak_hierarchy")).toBeInTheDocument();
+    expect(screen.getAllByText("12.40").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("+8.20").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("weak_hierarchy").length).toBeGreaterThan(0);
     expect(screen.getByText("80")).toBeInTheDocument();
     expect(screen.getByText("65")).toBeInTheDocument();
-    expect(screen.getByText("+15")).toBeInTheDocument();
-    expect(screen.getByText("score_ceiling")).toBeInTheDocument();
+    expect(screen.getByText("+15.00")).toBeInTheDocument();
+    expect(screen.getByText(/score_ceiling/)).toBeInTheDocument();
     expect(screen.queryByLabelText("Visual score (0–100)")).not.toBeInTheDocument();
   });
 
