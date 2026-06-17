@@ -36,7 +36,7 @@
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
 | 129 | Live Human Quality Corpus | Complete    | 2026-06-17 | 2026-06-17 |
-| 130 | Score Calibration and Rubric Alignment | 4/4 | Complete   | 2026-06-17 |
+| 130 | Score Calibration and Rubric Alignment | Complete    | 2026-06-17 | 2026-06-17 |
 | 131 | Learning Impact Measurement | IMPACT-01, IMPACT-02, IMPACT-03, IMPACT-04 | Planned | — |
 | 132 | Targeted Creative Quality Improvements | QUALITY-01, QUALITY-02, QUALITY-03, QUALITY-04 | Planned | — |
 | 133 | Real Quality Release Gate | QA-22, QA-23, QA-24 | Planned | — |
