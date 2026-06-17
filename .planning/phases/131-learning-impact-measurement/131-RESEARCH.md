@@ -447,21 +447,19 @@ export function buildLearningImpactReport(
 | A3 | `clientProfileId` on corpus items is the correct "client" dimension for IMPACT-02 | Pattern 2 | User may mean workspace — corpus already stores `clientProfileId` [VERIFIED: `0043_human_quality_corpus.sql:4`] |
 | A4 | Learned vs non-learned comparison is primary; cohort movement is supplementary | Pattern 3 | User may want cohort-only — locked IMPACT-02 requires learned/non-learned split |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Regenerate path attribution**
    - What we know: Regenerate route exists; may create child derivations [VERIFIED: `regenerate/route.ts`].
-   - What's unclear: Whether regenerate should inherit parent application snapshot or re-record.
-   - Recommendation: Copy parent `outputLearningApplication` on regenerate unless new recommendation accept overwrites; document in plan.
+   - **RESOLVED:** Copy parent `outputLearningApplication` on regenerate unless POST body includes a new application snapshot from a fresh recommendation accept. Child derivations inherit parent attribution by default (Plan 131-01 Task 2).
 
 2. **Campaign-level batch derivations without per-job application**
    - What we know: `derivations/route.ts` creates multiple jobs from campaign config [VERIFIED: `derivations/route.ts:107-228`].
-   - What's unclear: Output learning prefill applies via recipe campaign patch before batch — all jobs in batch should share same snapshot.
-   - Recommendation: Persist identical snapshot on each derivation in batch when POST includes application payload.
+   - **RESOLVED:** Output-learning prefill applies via recipe campaign patch before batch — persist identical `outputLearningApplication` snapshot on every derivation job in the batch when POST includes application payload (Plan 131-01 Task 2).
 
 3. **Historical corpus items without application metadata**
    - What we know: Existing evaluated items lack `outputLearningApplication` in snapshot.
-   - Recommendation: Treat as `not_recorded` / `learningApplied: false`; report includes `unlabeledCount`; do not backfill heuristically.
+   - **RESOLVED:** Treat as `resolution: "not_recorded"` / `learningApplied: false`; report includes `unlabeledCount`; do not backfill heuristically (Plan 131-02 enrich + Plan 131-03 report).
 
 ## Environment Availability
 
