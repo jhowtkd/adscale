@@ -25,7 +25,7 @@
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
-| 134 | Live Corpus Operations | 4/4 | Complete   | 2026-06-17 |
+| 134 | Live Corpus Operations | Complete    | 2026-06-17 | 2026-06-17 |
 | 135 | Sampling Sufficiency and Evidence Honesty | SAMPLE-01..04 | Pending | — |
 | 136 | Quality Trend Dashboard | TREND-01..04 | Pending | — |
 | 137 | Operational Quality Release Gate | QALIVE-01..04 | Pending | — |
