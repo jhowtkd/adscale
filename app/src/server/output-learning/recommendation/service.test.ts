@@ -103,6 +103,10 @@ describe("getOutputLearningRecommendation", () => {
     expect(result.recommendation?.evidence).toHaveLength(2);
     expect(result.recommendation?.justification).toContain("Comprar agora");
     expect(result.recommendation?.learningsSource).toBe("postgres");
+    expect(result.recommendation?.appliedLearningTrace.learningsSource).toBe("postgres");
+    expect(result.recommendation?.appliedLearningTrace.entries[0]?.evidenceEventIds).toEqual([
+      "e1",
+    ]);
   });
 
   it("surfaces contradicting evidence in the recommendation packet", async () => {
@@ -177,5 +181,53 @@ describe("getOutputLearningRecommendation", () => {
     expect(result.recommendation?.primaryVariableKey).toBe("cta");
     expect(result.recommendation?.avoidPatterns).toHaveLength(1);
     expect(result.recommendation?.avoidPatterns[0]?.pattern).toBe("logo_distorted");
+    expect(
+      result.recommendation?.appliedLearningTrace.entries.find(
+        (entry) => entry.variableKey === "avoid_pattern"
+      )?.applied
+    ).toBe(false);
+  });
+
+  it("sanitizes prefill when restyling campaign conflicts with format_adaptation (SAFE-01)", async () => {
+    vi.mocked(getCampaignById).mockResolvedValue({
+      id: "campaign-1",
+      clientProfileId: "client-1",
+      ctaVariants: [],
+      generationMode: "restyling",
+    } as never);
+    vi.mocked(listOutputLearningsByClientProfile).mockResolvedValue([
+      {
+        ...baseLearning,
+        variableKey: "format",
+        variableValue: "9:16",
+      },
+    ] as never);
+
+    const result = await getOutputLearningRecommendation({
+      workspaceId: "ws-1",
+      campaignId: "campaign-1",
+    });
+
+    expect(result.status).toBe("ready");
+    expect(result.recommendation?.prefill.generationMode).toBe("art_variation");
+    expect(result.recommendation?.appliedLearningTrace.blockedFields.length).toBeGreaterThan(0);
+  });
+
+  it("excludes non-approved learnings even if returned by repository (SAFE-02)", async () => {
+    vi.mocked(getCampaignById).mockResolvedValue({
+      id: "campaign-1",
+      clientProfileId: "client-1",
+      ctaVariants: [],
+    } as never);
+    vi.mocked(listOutputLearningsByClientProfile).mockResolvedValue([
+      { ...baseLearning, status: "draft" },
+    ] as never);
+
+    const result = await getOutputLearningRecommendation({
+      workspaceId: "ws-1",
+      campaignId: "campaign-1",
+    });
+
+    expect(result.status).toBe("insufficient_evidence");
   });
 });

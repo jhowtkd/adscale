@@ -1,4 +1,5 @@
 import type { StrategyRecipeId } from "@/server/ai/strategy-recipes";
+import type { AppliedLearningTrace } from "../safety/types";
 import type {
   OutputLearningConfidenceLevel,
   OutputLearningEvidenceRef,
@@ -52,6 +53,8 @@ export interface OutputLearningRecommendation {
   prefill: OutputGenerationPrefill;
   learningsSource: "postgres";
   algorithmVersion: string;
+  /** SAFE-03: inspectable audit trail with evidence event IDs and guard outcomes. */
+  appliedLearningTrace: AppliedLearningTrace;
 }
 
 export type OutputRecommendationStatus =

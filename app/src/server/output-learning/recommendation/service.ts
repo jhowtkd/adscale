@@ -7,6 +7,12 @@ import { OutputLearningDomainError } from "../service";
 import { normalizeScopeValue } from "../variable-value";
 import type { OutputLearningConfidenceLevel, OutputSupportedVariableKey } from "../types";
 import { OUTPUT_SUPPORTED_VARIABLE_KEYS } from "../types";
+import {
+  buildAppliedLearningTrace,
+  filterApprovedPostgresLearnings,
+  guardOutputLearningPrefill,
+  logAppliedLearningTrace,
+} from "../safety/guards";
 import { mapOutputLearningToPrefill } from "./map-prefill";
 import {
   OUTPUT_LEARNING_ALGORITHM_VERSION,
@@ -148,11 +154,12 @@ export async function getOutputLearningRecommendation(input: {
     return { status: "no_client_profile", recommendation: null };
   }
 
-  const learnings = await listOutputLearningsByClientProfile(
+  const rawLearnings = await listOutputLearningsByClientProfile(
     campaign.clientProfileId,
     input.workspaceId,
     { status: "approved" }
   );
+  const learnings = filterApprovedPostgresLearnings(rawLearnings);
 
   const scopeContext = {
     generationMode: input.generationMode ?? campaign.generationMode ?? undefined,
@@ -180,12 +187,38 @@ export async function getOutputLearningRecommendation(input: {
   const primaryVariableKey = primary.variableKey as OutputPrefillVariableKey;
   const evidence = ranked.slice(0, 3).map(toEvidenceSummary);
   const contradictions = primary.contradictingEvidence ?? [];
+  const avoidPatternLearnings = scoped.filter(
+    (learning) =>
+      learning.variableKey === "avoid_pattern" &&
+      learning.preferenceDirection === "avoid" &&
+      (learning.supportingEvidence?.length ?? 0) > 0
+  );
   const avoidPatterns = collectAvoidPatterns(scoped);
 
-  const prefill = mapOutputLearningToPrefill({
+  const rawPrefill = mapOutputLearningToPrefill({
     variableKey: primaryVariableKey,
     variableValue: primary.variableValue,
     existingCtas: campaign.ctaVariants ?? undefined,
+  });
+
+  const { prefill, blockedFields } = guardOutputLearningPrefill(rawPrefill, {
+    campaignGenerationMode:
+      scopeContext.generationMode ?? campaign.generationMode ?? null,
+  });
+
+  const appliedLearningTrace = buildAppliedLearningTrace({
+    campaignId: input.campaignId,
+    algorithmVersion: OUTPUT_LEARNING_ALGORITHM_VERSION,
+    primaryLearning: primary,
+    supportingLearnings: ranked.slice(0, 3),
+    avoidPatternLearnings: avoidPatternLearnings.slice(0, 5),
+    blockedFields,
+    prefillApplied: true,
+  });
+
+  logAppliedLearningTrace(appliedLearningTrace, {
+    campaignId: input.campaignId,
+    workspaceId: input.workspaceId,
   });
 
   const recommendation: OutputLearningRecommendation = {
@@ -209,6 +242,7 @@ export async function getOutputLearningRecommendation(input: {
     prefill,
     learningsSource: "postgres",
     algorithmVersion: OUTPUT_LEARNING_ALGORITHM_VERSION,
+    appliedLearningTrace,
   };
 
   return { status: "ready", recommendation };
