@@ -1070,6 +1070,82 @@ export type ClientPerformanceLearning =
 export type NewClientPerformanceLearning =
   typeof clientPerformanceLearnings.$inferInsert;
 
+export const clientOutputLearnings = adscaleSchema.table(
+  "client_output_learnings",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    clientProfileId: uuid("client_profile_id")
+      .notNull()
+      .references(() => clientProfiles.id, { onDelete: "cascade" }),
+    variableKey: text("variable_key").notNull(),
+    variableValue: text("variable_value").notNull(),
+    scopeGenerationMode: text("scope_generation_mode").notNull().default(""),
+    scopeFormat: text("scope_format").notNull().default(""),
+    preferenceDirection: text("preference_direction").notNull().default("prefer"),
+    statement: text("statement").notNull(),
+    confidence: text("confidence").notNull().default("low"),
+    confidenceScore: numeric("confidence_score", { precision: 5, scale: 4 })
+      .notNull()
+      .default("0"),
+    sampleEventCount: integer("sample_event_count").notNull().default(0),
+    sampleCampaignCount: integer("sample_campaign_count").notNull().default(0),
+    supportingEvidence: jsonb("supporting_evidence")
+      .$type<import("../output-learning/types").OutputLearningEvidenceRef[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    contradictingEvidence: jsonb("contradicting_evidence")
+      .$type<import("../output-learning/types").OutputLearningEvidenceRef[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    algorithmVersion: text("algorithm_version").notNull(),
+    status: text("status").notNull().default("draft"),
+    mem0MemoryId: text("mem0_memory_id"),
+    lastEvidenceAt: timestamp("last_evidence_at", { mode: "date" }),
+    approvedAt: timestamp("approved_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("client_output_learnings_identity_uq").on(
+      table.workspaceId,
+      table.clientProfileId,
+      table.variableKey,
+      table.variableValue,
+      table.scopeGenerationMode,
+      table.scopeFormat
+    ),
+    index("client_output_learnings_client_idx").on(
+      table.workspaceId,
+      table.clientProfileId
+    ),
+    index("client_output_learnings_status_idx").on(
+      table.workspaceId,
+      table.clientProfileId,
+      table.status
+    ),
+    check(
+      "client_output_learnings_confidence_check",
+      sql`${table.confidence} in ('low', 'medium', 'high')`
+    ),
+    check(
+      "client_output_learnings_direction_check",
+      sql`${table.preferenceDirection} in ('prefer', 'avoid')`
+    ),
+    check(
+      "client_output_learnings_status_check",
+      sql`${table.status} in ('draft', 'approved', 'superseded', 'removed')`
+    ),
+  ]
+);
+
+export type ClientOutputLearning = typeof clientOutputLearnings.$inferSelect;
+export type NewClientOutputLearning = typeof clientOutputLearnings.$inferInsert;
+
 export const usageEvents = adscaleSchema.table(
   "usage_events",
   {
@@ -1407,6 +1483,70 @@ export const betaAnalyticsEvents = adscaleSchema.table(
 
 export type BetaAnalyticsEvent = typeof betaAnalyticsEvents.$inferSelect;
 export type NewBetaAnalyticsEvent = typeof betaAnalyticsEvents.$inferInsert;
+
+export const outputDecisionEvents = adscaleSchema.table(
+  "output_decision_events",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    clientProfileId: uuid("client_profile_id").references(() => clientProfiles.id, {
+      onDelete: "set null",
+    }),
+    campaignId: uuid("campaign_id")
+      .notNull()
+      .references(() => campaigns.id, { onDelete: "cascade" }),
+    derivationId: uuid("derivation_id")
+      .notNull()
+      .references(() => derivations.id, { onDelete: "cascade" }),
+    parentDerivationId: uuid("parent_derivation_id").references(() => derivations.id, {
+      onDelete: "set null",
+    }),
+    action: text("action").notNull(),
+    direction: text("direction").notNull(),
+    strength: text("strength").notNull(),
+    source: text("source").notNull(),
+    contextSnapshot: jsonb("context_snapshot")
+      .$type<import("../output-learning/output-decision-events").OutputDecisionSnapshot>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    idempotencyKey: text("idempotency_key"),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("output_decision_events_idempotency_uq")
+      .on(table.workspaceId, table.idempotencyKey)
+      .where(sql`${table.idempotencyKey} is not null`),
+    index("output_decision_events_workspace_created_idx").on(
+      table.workspaceId,
+      table.createdAt
+    ),
+    index("output_decision_events_campaign_idx").on(
+      table.workspaceId,
+      table.campaignId,
+      table.createdAt
+    ),
+    index("output_decision_events_derivation_idx").on(
+      table.workspaceId,
+      table.derivationId,
+      table.createdAt
+    ),
+    index("output_decision_events_client_profile_idx").on(
+      table.workspaceId,
+      table.clientProfileId,
+      table.createdAt
+    ),
+  ]
+);
+
+export type OutputDecisionEvent = typeof outputDecisionEvents.$inferSelect;
+export type NewOutputDecisionEvent = typeof outputDecisionEvents.$inferInsert;
 
 export const workspaceProgression = adscaleSchema.table(
   "workspace_progression",

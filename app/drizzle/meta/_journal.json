@@ -288,6 +288,20 @@
       "when": 1781524800000,
       "tag": "0040_client_performance_learnings",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1781611200000,
+      "tag": "0041_output_decision_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1781697600000,
+      "tag": "0042_client_output_learnings",
+      "breakpoints": true
     }
   ]
 }
