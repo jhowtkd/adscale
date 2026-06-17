@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { buildImpactRow, resolveLearningApplied } from "@/server/human-quality/impact/enrich";
+import {
+  buildImpactRow,
+  buildImpactRows,
+  resolveLearningApplied,
+} from "@/server/human-quality/impact/enrich";
+import { buildImpactSliceKey } from "@/server/human-quality/impact/types";
 import type { EvaluatedCorpusRow } from "@/server/human-quality/calibration/types";
 import type { OutputLearningApplicationSnapshot } from "@/server/human-quality/corpus";
 
@@ -114,5 +119,40 @@ describe("buildImpactRow", () => {
 
     expect(row.learningApplied).toBe(false);
     expect(row.applicationResolution).toBe("not_recorded");
+  });
+});
+
+describe("buildImpactSliceKey", () => {
+  it("formats slice key as clientProfileId|generationMode|format", () => {
+    expect(
+      buildImpactSliceKey({
+        clientProfileId: "client-1",
+        generationMode: "art_variation",
+        format: "1:1",
+      })
+    ).toBe("client-1|art_variation|1:1");
+  });
+});
+
+describe("buildImpactRows", () => {
+  it("maps batch of evaluated rows to impact rows", () => {
+    const result = buildImpactRows([
+      makeEvaluatedRow({ outputLearningApplication: recordedApplication }),
+      makeEvaluatedRow({ generationMode: "restyling" }),
+    ]);
+
+    expect(result.rows).toHaveLength(2);
+    expect(result.rows[0].learningApplied).toBe(true);
+    expect(result.rows[1].learningApplied).toBe(false);
+  });
+
+  it("tracks unlabeledCount for rows with not_recorded resolution", () => {
+    const result = buildImpactRows([
+      makeEvaluatedRow({ outputLearningApplication: recordedApplication }),
+      makeEvaluatedRow({ generationMode: "restyling" }),
+      makeEvaluatedRow(null),
+    ]);
+
+    expect(result.unlabeledCount).toBe(2);
   });
 });

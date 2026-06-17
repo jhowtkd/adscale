@@ -1,22 +1,12 @@
 import type { EvaluatedCorpusRow } from "../calibration/types";
 import type {
   HumanQualityQualitySnapshot,
-  OutputLearningApplicationResolution,
   OutputLearningApplicationSnapshot,
 } from "../corpus";
+import type { BuildImpactRowsResult, ImpactEvaluatedRow } from "./types";
 
-export interface ImpactEvaluatedRow {
-  corpusItemId: string;
-  clientProfileId: string;
-  generationMode: string;
-  format: string;
-  cohort: string;
-  learningApplied: boolean;
-  applicationResolution: OutputLearningApplicationResolution;
-  visualScore: number;
-  factualPass: boolean;
-  intent: string;
-}
+export type { ImpactEvaluatedRow, BuildImpactRowsResult } from "./types";
+export { LEARNING_IMPACT_VERSION, buildImpactSliceKey } from "./types";
 
 export function resolveLearningApplied(
   snapshot: HumanQualityQualitySnapshot & {
@@ -52,4 +42,15 @@ export function buildImpactRow(row: EvaluatedCorpusRow): ImpactEvaluatedRow {
     factualPass: row.evaluation.factualPass,
     intent: row.evaluation.intent,
   };
+}
+
+export function buildImpactRows(
+  evaluatedRows: EvaluatedCorpusRow[]
+): BuildImpactRowsResult {
+  const rows = evaluatedRows.map(buildImpactRow);
+  const unlabeledCount = rows.filter(
+    (row) => row.applicationResolution === "not_recorded"
+  ).length;
+
+  return { rows, unlabeledCount };
 }
