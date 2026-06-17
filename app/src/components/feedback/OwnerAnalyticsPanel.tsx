@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
+import { HumanQualityCorpusPanel } from "@/components/feedback/HumanQualityCorpusPanel";
 import { cn } from "@/lib/utils";
 
 type MissionFunnelRow = {
@@ -260,6 +261,7 @@ export function OwnerAnalyticsPanel({
   const exportUrl = `/api/feedback/analytics/export.csv?${query}`;
 
   return (
+    <div className="space-y-4">
     <section className="space-y-4 rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)] p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -572,5 +574,7 @@ export function OwnerAnalyticsPanel({
         <p className="text-sm text-[var(--text-muted)]">Unable to load analytics.</p>
       )}
     </section>
+    <HumanQualityCorpusPanel />
+    </div>
   );
 }

@@ -1,0 +1,156 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { HumanQualityCorpusPanel } from "./HumanQualityCorpusPanel";
+
+vi.mock("@/lib/api-client", () => ({
+  apiFetch: vi.fn(),
+}));
+
+vi.mock("next/image", () => ({
+  default: (props: { alt: string }) => <img alt={props.alt} />,
+}));
+
+import { apiFetch } from "@/lib/api-client";
+
+const mockApiFetch = vi.mocked(apiFetch);
+
+const WORKSPACE_ID = "550e8400-e29b-41d4-a716-446655440002";
+const ITEM_ID = "550e8400-e29b-41d4-a716-446655440001";
+const CAMPAIGN_ID = "550e8400-e29b-41d4-a716-446655440003";
+const DERIVATION_ID = "550e8400-e29b-41d4-a716-446655440004";
+
+const pendingItem = {
+  id: ITEM_ID,
+  workspaceId: WORKSPACE_ID,
+  clientProfileId: "550e8400-e29b-41d4-a716-446655440010",
+  campaignId: CAMPAIGN_ID,
+  derivationId: DERIVATION_ID,
+  generationMode: "art_variation",
+  format: "1:1",
+  cohort: "baseline",
+  corpusVersion: 1,
+  artifactRef: { derivationId: DERIVATION_ID },
+  qualitySnapshot: {
+    qualityScore: 72,
+    qualityVerdict: "improvable",
+    generationMode: "art_variation",
+    format: "1:1",
+    hardFailures: [{ code: "cta_drift", message: "CTA drift" }],
+  },
+  selectedByUserId: "owner-1",
+  selectedAt: new Date().toISOString(),
+  status: "pending",
+  previewImageUrl: "https://cdn.example.com/preview.png",
+};
+
+function renderPanel() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={client}>
+      <HumanQualityCorpusPanel />
+    </QueryClientProvider>
+  );
+}
+
+describe("HumanQualityCorpusPanel", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns null when owner is forbidden", async () => {
+    mockApiFetch.mockResolvedValue({ ok: false, status: 403 } as Response);
+
+    const { container } = renderPanel();
+    fireEvent.change(screen.getByLabelText("Workspace ID"), {
+      target: { value: WORKSPACE_ID },
+    });
+
+    await waitFor(() => {
+      expect(container.querySelector("section")).toBeNull();
+    });
+  });
+
+  it("renders one pending item with evaluation form and queue metadata", async () => {
+    mockApiFetch.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url.includes("human-quality-corpus") && !init?.method) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ items: [pendingItem] }),
+        } as Response;
+      }
+      return { ok: false, status: 500 } as Response;
+    });
+
+    renderPanel();
+    fireEvent.change(screen.getByLabelText("Workspace ID"), {
+      target: { value: WORKSPACE_ID },
+    });
+
+    expect(await screen.findByText("Human quality corpus")).toBeInTheDocument();
+    expect(await screen.findByText("1 pending")).toBeInTheDocument();
+    expect(screen.getByText(/baseline/)).toBeInTheDocument();
+    expect(screen.getByText(/v1/)).toBeInTheDocument();
+    expect(screen.getByText("72")).toBeInTheDocument();
+    expect(screen.getByText("improvable")).toBeInTheDocument();
+    expect(screen.getByLabelText("Visual score (0–100)")).toBeInTheDocument();
+    expect(screen.getByLabelText("Factual pass")).toBeInTheDocument();
+    expect(screen.getByLabelText("Reviewer intent")).toBeInTheDocument();
+    expect(screen.getByLabelText("Primary visible failure reason")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Submit evaluation" })).toBeDisabled();
+  });
+
+  it("submits structured evaluation and advances queue", async () => {
+    mockApiFetch.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url.includes("human-quality-corpus") && !init?.method) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ items: [pendingItem] }),
+        } as Response;
+      }
+      if (url.includes("/evaluation") && init?.method === "POST") {
+        return {
+          ok: true,
+          status: 201,
+          json: async () => ({ item: { ...pendingItem, status: "evaluated" }, evaluation: {} }),
+        } as Response;
+      }
+      return { ok: false, status: 500 } as Response;
+    });
+
+    renderPanel();
+    fireEvent.change(screen.getByLabelText("Workspace ID"), {
+      target: { value: WORKSPACE_ID },
+    });
+
+    await screen.findByText("Human quality corpus");
+    await screen.findByLabelText("Visual score (0–100)");
+
+    fireEvent.change(screen.getByLabelText("Visual score (0–100)"), {
+      target: { value: "68" },
+    });
+    fireEvent.change(screen.getByLabelText("Factual pass"), {
+      target: { value: "true" },
+    });
+    fireEvent.change(screen.getByLabelText("Reviewer intent"), {
+      target: { value: "reject" },
+    });
+    fireEvent.change(screen.getByLabelText("Primary visible failure reason"), {
+      target: { value: "weak_hierarchy" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Submit evaluation" }));
+
+    await waitFor(() => {
+      expect(mockApiFetch).toHaveBeenCalledWith(
+        `/api/feedback/human-quality-corpus/${ITEM_ID}/evaluation`,
+        expect.objectContaining({
+          method: "POST",
+          body: expect.stringContaining('"visualScore":68'),
+        })
+      );
+    });
+  });
+});

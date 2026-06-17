@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { and, eq, inArray } from "drizzle-orm";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requirePlatformOwner } from "@/server/auth/platform-owner";
+import { db } from "@/server/db";
+import { derivations } from "@/server/db/schema";
 import { FeedbackValidationError } from "@/server/feedback/validate-refs";
 import { HUMAN_QUALITY_CORPUS_COHORTS } from "@/server/human-quality/corpus";
 import {
@@ -9,6 +12,32 @@ import {
   listPendingCorpusQueue,
   selectDerivationForCorpus,
 } from "@/server/human-quality/service";
+import { getPresignedDownloadUrl } from "@/server/storage/r2";
+import type { HumanQualityCorpusItem } from "@/server/db/schema";
+
+async function attachPreviewImages(items: HumanQualityCorpusItem[]) {
+  if (items.length === 0) return [];
+
+  const workspaceId = items[0].workspaceId;
+  const derivationIds = [...new Set(items.map((item) => item.derivationId))];
+  const rows = await db
+    .select({ id: derivations.id, outputKey: derivations.outputKey })
+    .from(derivations)
+    .where(
+      and(eq(derivations.workspaceId, workspaceId), inArray(derivations.id, derivationIds))
+    );
+
+  const outputKeyById = new Map(rows.map((row) => [row.id, row.outputKey]));
+
+  return Promise.all(
+    items.map(async (item) => ({
+      ...item,
+      previewImageUrl: outputKeyById.get(item.derivationId)
+        ? await getPresignedDownloadUrl(outputKeyById.get(item.derivationId)!)
+        : null,
+    }))
+  );
+}
 
 const selectCorpusSchema = z.object({
   workspaceId: z.string().uuid(),
@@ -37,8 +66,9 @@ export async function GET(request: Request) {
     }
 
     const items = await listPendingCorpusQueue({ workspaceId, limit });
+    const itemsWithPreview = await attachPreviewImages(items);
 
-    return NextResponse.json({ items });
+    return NextResponse.json({ items: itemsWithPreview });
   } catch (error) {
     return handleApiError(error, "feedback.human-quality-corpus.GET");
   }
