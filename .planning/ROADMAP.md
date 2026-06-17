@@ -124,9 +124,9 @@ Archive: [v12.5-ROADMAP.md](milestones/v12.5-ROADMAP.md) · [v12.5-REQUIREMENTS.
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 134 | v12.6 | 4/4 | Complete | 2026-06-17 |
-| 135 | v12.6 | 0/3 | Pending | — |
+| 135 | v12.6 | 0/3 | Planned | — |
 | 136 | v12.6 | 0/0 | Pending | — |
 | 137 | v12.6 | 0/0 | Pending | — |
 
 ---
-*Roadmap updated: 2026-06-17 — Phase 134 complete; next step is Phase 135 planning*
+*Roadmap updated: 2026-06-17 — Phase 135 planned (3 plans in 2 waves); next step is execute*

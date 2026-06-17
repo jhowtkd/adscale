@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v12.6
 milestone_name: Operacao Live do Corpus de Qualidade
-status: planning
-last_updated: "2026-06-17T20:21:44.034Z"
+status: ready_to_execute
+last_updated: "2026-06-17T21:00:00.000Z"
 last_activity: 2026-06-17
 progress:
   total_phases: 4
@@ -21,15 +21,15 @@ See: .planning/PROJECT.md (updated 2026-06-17)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** v12.6 active — Phase 134 complete; Phase 135 Sampling Sufficiency ready to plan.
+**Current focus:** v12.6 active — Phase 135 planned (3/3 plans); ready to execute.
 
-**Status:** Ready to plan
+**Status:** Ready to execute
 
 ## Current Position
 
 Phase: 135 — Sampling Sufficiency and Evidence Honesty
-Plan: 0/0 (ready to plan)
-Status: Ready to plan
+Plan: 0/3 (planned, ready to execute)
+Status: Ready to execute
 Last activity: 2026-06-17
 
 Progress: [███░░░░░░░] 25% — Phase 134 complete (4/4 plans); Phase 135 next.
@@ -68,10 +68,16 @@ Progress: [███░░░░░░░] 25% — Phase 134 complete (4/4 plans
   - `.planning/phases/134-live-corpus-operations/134-03-PLAN.md` — phase verification and operator handoff (LIVEQUAL-01..04) ✅
   - `.planning/phases/134-live-corpus-operations/134-04-PLAN.md` — campaign-dimensional queue progress gap closure (LIVEQUAL-02) ✅
 
-### Phase 135 (next — ready to plan)
+### Phase 135 (planned — 0/3 plans executed)
 
 - Goal: Sampling sufficiency thresholds and honest `insufficient_sample` states (SAMPLE-01..04)
 - Depends on: Phase 134 live corpus operational loop
+- Research: `.planning/phases/135-sampling-sufficiency-and-evidence-honesty/135-RESEARCH.md`
+- Validation: `.planning/phases/135-sampling-sufficiency-and-evidence-honesty/135-VALIDATION.md`
+- Plans:
+  - `.planning/phases/135-sampling-sufficiency-and-evidence-honesty/135-01-PLAN.md` — canonical sampling module + sampleGuidance (SAMPLE-01, SAMPLE-02)
+  - `.planning/phases/135-sampling-sufficiency-and-evidence-honesty/135-02-PLAN.md` — evidenceSource tags + honesty checkers (SAMPLE-03)
+  - `.planning/phases/135-sampling-sufficiency-and-evidence-honesty/135-03-PLAN.md` — operator coverage API + panel (SAMPLE-04)
 
 ### Phase 129 (complete — 3/3 plans)
 
@@ -230,4 +236,4 @@ Progress: [███░░░░░░░] 25% — Phase 134 complete (4/4 plans
 
 ## Next Steps
 
-Plan Phase 135 via `/gsd-plan-phase 135` (sampling sufficiency and evidence honesty).
+Execute Phase 135 via `/gsd-execute-phase 135` (sampling sufficiency and evidence honesty).

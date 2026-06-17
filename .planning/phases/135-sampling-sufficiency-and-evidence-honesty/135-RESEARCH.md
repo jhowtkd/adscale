@@ -424,22 +424,19 @@ export function validateMetricSeparation(evidence, errors, label = "evidence") {
 | A3 | Keep `insufficient_corpus` label on calibration reports | Pitfall 1 | Alias field may be cleaner long-term |
 | A4 | Phase 135 evidence CLI is optional if existing four checkers gain guidance validation | Claude's Discretion | Phase 137 may want single 135-EVIDENCE.json artifact |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Should calibration status rename to `insufficient_sample`?**
+1. **Should calibration status rename to `insufficient_sample`?** — **RESOLVED: Keep `insufficient_corpus`**
    - What we know: 130 checker expects `insufficient_corpus`; impact/improvement use `insufficient_sample`.
-   - What's unclear: Whether v12.6 milestone wants one canonical status enum.
-   - Recommendation: Keep calibration label; normalize in coverage rollup only.
+   - Decision (Plan 135-01): Keep calibration `status: "insufficient_corpus"` unchanged; use `normalizeSamplingStatus()` in guidance/coverage rollup only. Do not mass-rename (Pitfall 1).
 
-2. **What is the minimum for trend time buckets?**
+2. **What is the minimum for trend time buckets?** — **RESOLVED: `TREND_MIN_TIME_BUCKETS=2`**
    - What we know: SAMPLE-01 mentions trend thresholds; no code exists yet.
-   - What's unclear: Weekly vs daily bucketing for v12.6 ops.
-   - Recommendation: `TREND_MIN_TIME_BUCKETS=2` as constant; Phase 136 implements bucketing.
+   - Decision (Plan 135-01): Export `TREND_MIN_TIME_BUCKETS = 2` in `sampling/thresholds.ts` alongside `TREND_GLOBAL_MIN_EVALUATED` and `TREND_SLICE_MIN`. Phase 136 implements bucketing UI; no chart logic in 135.
 
-3. **Does operator coverage scope to workspace or global rollup?**
+3. **Does operator coverage scope to workspace or global rollup?** — **RESOLVED: Workspace-scoped API**
    - What we know: Calibration/impact CLIs support `--all-workspaces`.
-   - What's unclear: Panel default workspace filter vs global owner view.
-   - Recommendation: Match Phase 130 — workspace-scoped API with optional global for platform owner.
+   - Decision (Plan 135-03): `GET /api/feedback/sample-coverage` is workspace-scoped by default with `workspaceId` query param; platform owner may omit for global rollup following `runScoreCalibration` workspace filter semantics. Panel uses workspace filter like other human-quality tabs.
 
 ## Environment Availability
 
@@ -573,10 +570,10 @@ No `.cursor/rules/` directory in workspace root [VERIFIED: glob 2026-06-17]. Fol
 | Architecture | HIGH | Clear consolidation path via `sampling/` module |
 | Pitfalls | HIGH | Grounded in checker scripts and panel code |
 
-### Open Questions
-- Canonical status enum: keep `insufficient_corpus` vs normalize to `insufficient_sample`
-- `TREND_MIN_TIME_BUCKETS` value for trend sufficiency
-- Workspace vs global default for coverage API
+### Open Questions (RESOLVED)
+- **RESOLVED:** Keep `insufficient_corpus` on calibration; normalize via `normalizeSamplingStatus()` in coverage/guidance only
+- **RESOLVED:** `TREND_MIN_TIME_BUCKETS=2` in `sampling/thresholds.ts`; Phase 136 owns bucketing implementation
+- **RESOLVED:** Workspace-scoped coverage API with optional global rollup for platform owner
 
 ### Ready for Planning
 Research complete. Planner can now create PLAN.md files.
