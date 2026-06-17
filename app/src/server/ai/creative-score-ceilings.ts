@@ -8,7 +8,8 @@ export const SCORE_CEILING_BY_FAILURE: Partial<Record<CreativeHardFailureCode, n
   wrong_brand: 15,
   unauthorized_brand_or_ip: 15,
   cta_drift: 50,
-  visual_overload: 55,
+  // 132-adjustment:634f9104-c080-4dda-82c1-4b1298b6a072
+  visual_overload: 50,
   missing_dominant_idea: 55,
   generic_template_aesthetic: 55,
   decorative_only_variation: 60,
