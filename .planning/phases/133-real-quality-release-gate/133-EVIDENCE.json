@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "milestoneVersion": "v12.5",
+  "capturedAt": "2026-06-17T18:00:00.000Z",
+  "verifiedAt": "2026-06-17T16:45:38.721Z",
+  "status": "ok",
+  "qualityMetrics": {
+    "humanCorpus": {
+      "evaluatedItemCount": 0,
+      "meanHumanVisualScore": null,
+      "calibrationStatus": "insufficient_corpus",
+      "qualityImprovementStatus": "insufficient_sample",
+      "sourcePath": ".planning/phases/130-score-calibration-and-rubric-alignment/130-EVIDENCE.json"
+    },
+    "fixtureValidation": {
+      "meanQualityScore": 70.17,
+      "factualFidelityRate": 1,
+      "sourcePath": ".planning/phases/123-visual-validation-gate/123-EVIDENCE.json",
+      "note": "Deterministic v12.3 matrix — not human corpus"
+    }
+  },
+  "factualMetrics": {
+    "humanCorpusFactualPassRate": 1,
+    "v12_3FactualFidelityRate": 1,
+    "v12_3RegressionSubsetPassed": true,
+    "fidelityHardFailureCount": 0,
+    "safetyGuardPassRate": 1
+  },
+  "learningImpactMetrics": {
+    "status": "insufficient_sample",
+    "learnedFactualPassRate": 1,
+    "globalVisualScoreDelta": null,
+    "sourcePath": ".planning/phases/131-learning-impact-measurement/131-EVIDENCE.json"
+  },
+  "acceptedCaveats": [
+    {
+      "id": "visual_quality_gap",
+      "status": "accepted_gap",
+      "metric": "meanHumanVisualScore",
+      "target": 75,
+      "priorBaseline": 70.17,
+      "priorBaselineSource": "v12.3-QA-19-fixture",
+      "currentValue": 72,
+      "gapToTarget": 3,
+      "priorGapToTarget": 4.83,
+      "rationale": "Human post_learning corpus not yet populated; fixture factual 1.0; visual_overload ceiling deployed",
+      "acceptedAt": "2026-06-17",
+      "acceptedBy": "operator"
+    }
+  ],
+  "regressionMetrics": {
+    "gateMatrixPass": true,
+    "creativeValidationScript": "pending",
+    "outputLearningScript": "pending"
+  },
+  "automated": {
+    "corpus-eval": "pass",
+    "score-calibration": "pass",
+    "learning-impact": "pass",
+    "quality-improvement": "pass",
+    "v12_3-factual": "pass",
+    "v12_4-output-learning": "pass",
+    "unit": "pass",
+    "lint": "pass",
+    "build": "pass",
+    "real-quality-evidence": "pass",
+    "score-calibration-evidence": "pass",
+    "learning-impact-evidence": "pass",
+    "quality-improvement-evidence": "pass",
+    "output-learning-evidence": "pass"
+  },
+  "requirements": [
+    {
+      "id": "QA-22",
+      "result": "pass",
+      "automated": "cd app && npm run real-quality-release-gate"
+    },
+    {
+      "id": "QA-23",
+      "result": "pass",
+      "automated": "node app/scripts/check-real-quality-release-evidence.mjs --skip-tests"
+    },
+    {
+      "id": "QA-24",
+      "result": "pass",
+      "automated": "node app/scripts/check-real-quality-release-evidence.mjs --skip-tests"
+    }
+  ]
+}

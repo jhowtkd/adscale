@@ -52,7 +52,7 @@ const recommendation = {
   learningsSource: "postgres" as const,
   algorithmVersion: "1.0.0",
   appliedLearningTrace: {
-    traceId: "trace-1",
+    traceId: "ol-trace-1",
     learningsSource: "postgres" as const,
     safetyVersion: "1.0.0",
     algorithmVersion: "1.0.0",
@@ -119,8 +119,15 @@ describe("OutputLearningRecommendationCard", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Aceitar e abrir receita/i }));
     expect(onAccept).toHaveBeenCalledWith({
-      recipeId: "performance_push",
-      config: expect.objectContaining({ ctaVariants: ["Comprar agora"] }),
+      prefill: {
+        recipeId: "performance_push",
+        config: expect.objectContaining({ ctaVariants: ["Comprar agora"] }),
+      },
+      applicationSnapshot: expect.objectContaining({
+        applied: true,
+        resolution: "recorded",
+        traceId: "ol-trace-1",
+      }),
     });
   });
 
