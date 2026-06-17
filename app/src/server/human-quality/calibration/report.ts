@@ -9,7 +9,7 @@ import type { CalibrationComparison } from "./types";
 
 export const MIN_GLOBAL_EVALUATED_ITEMS = 5;
 export const MIN_SLICE_SAMPLE = 3;
-export const RUBRIC_CALIBRATION_VERSION = "1.0.0";
+export const RUBRIC_CALIBRATION_VERSION = "1.1.0";
 
 export interface AdjustmentProposalSummary {
   adjustmentVersion: string;
