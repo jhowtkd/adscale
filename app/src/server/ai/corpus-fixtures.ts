@@ -13,7 +13,10 @@ export type CorpusArchetype =
   | "visual_overload"
   | "generic_template_aesthetic"
   | "format_campaign_drift"
-  | "restyling_factual_contamination";
+  | "restyling_factual_contamination"
+  | "weak_hierarchy"
+  | "illegible_cta"
+  | "unfocused_composition";
 
 /** Target codes for post-v12.3 gate — canonical GATE-01 codes plus legacy aliases. */
 export type CorpusTargetHardFailureCode =
@@ -218,6 +221,73 @@ export const CORPUS_ARCHETYPE_FIXTURES: CorpusArchetypeFixture[] = [
       },
     }),
     expectedHardFailureCodes: ["style_reference_contamination"],
+    expectedVerdict: "invalid",
+    baselineVerdict: "invalid",
+  },
+  {
+    id: "corpus-weak-hierarchy",
+    archetype: "weak_hierarchy",
+    label: "Equal-weight modules with no dominant NR1 visual idea",
+    corpusRefIds: ["18cec5e9", "307b2a41"],
+    canonicalSlug: "teste-campanha-nr1",
+    renderTier: "preview",
+    contract: masterNr1ArtVariationContract({ targetFormat: "1:1" }),
+    rawQaModelOutput: qaModelOutput({
+      creativeRisk: {
+        status: "failed",
+        note:
+          "No campaign-specific visual idea — hook, badge row, and icon strip all compete without a single dominant focal point for the NR1 audit story.",
+      },
+    }),
+    expectedHardFailureCodes: ["missing_dominant_idea"],
+    expectedVerdict: "invalid",
+    baselineVerdict: "invalid",
+  },
+  {
+    id: "corpus-illegible-cta",
+    archetype: "illegible_cta",
+    label: "CTA pill illegible at thumbnail preview scale",
+    corpusRefIds: ["11cba06e", "a44fcb50"],
+    canonicalSlug: "nova-campanha",
+    renderTier: "final",
+    contract: artVariationContractFixture({
+      client: "Instituto Educação+",
+      product: "Curso de capacitação docente",
+      offer: "Matrículas abertas",
+      constraints: "CTA must remain readable at mobile thumbnail scale",
+      targetFormat: "1:1",
+    }),
+    rawQaModelOutput: qaModelOutput({
+      legibility: {
+        status: "failed",
+        note:
+          "CTA pill text is illegible at thumbnail scale — low contrast neon on gradient, too small to read.",
+      },
+      ctaOffer: {
+        status: "failed",
+        note: "Primary CTA not visible at preview scale; hook merges into background chrome.",
+      },
+    }),
+    expectedHardFailureCodes: ["unreadable_required_text"],
+    expectedVerdict: "invalid",
+    baselineVerdict: "invalid",
+  },
+  {
+    id: "corpus-unfocused-composition",
+    archetype: "unfocused_composition",
+    label: "Decorative-only background recolor without composition change",
+    corpusRefIds: ["5ded45de", "ceee6a3d"],
+    canonicalSlug: "teste-campanha-nr1",
+    renderTier: "preview",
+    contract: masterNr1ArtVariationContract({ targetFormat: "1:1" }),
+    rawQaModelOutput: qaModelOutput({
+      creativeRisk: {
+        status: "failed",
+        note:
+          "Decorative-only variation: background-only glow recolor without a new visual mechanism or layout idea.",
+      },
+    }),
+    expectedHardFailureCodes: ["decorative_only_variation"],
     expectedVerdict: "invalid",
     baselineVerdict: "invalid",
   },
