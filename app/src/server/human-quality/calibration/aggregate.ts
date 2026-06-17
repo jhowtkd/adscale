@@ -69,3 +69,42 @@ export function buildCompositeSliceKey(
 ): string {
   return `${reason}|${mode}|${format}`;
 }
+
+export interface FactualMetrics {
+  factualPassRate: number | null;
+  factualFailCount: number;
+  highVisualButFactualFail: CalibrationComparison[];
+}
+
+export function highVisualButFactualFail(
+  comparisons: CalibrationComparison[],
+  visualThreshold = 70
+): CalibrationComparison[] {
+  return comparisons.filter(
+    (comparison) =>
+      !comparison.factualPass &&
+      comparison.humanVisualScore >= visualThreshold &&
+      (comparison.automaticQualityScore ?? 0) >= visualThreshold
+  );
+}
+
+export function buildFactualMetrics(
+  comparisons: CalibrationComparison[]
+): FactualMetrics {
+  if (comparisons.length === 0) {
+    return {
+      factualPassRate: null,
+      factualFailCount: 0,
+      highVisualButFactualFail: [],
+    };
+  }
+
+  const factualFailCount = comparisons.filter((c) => !c.factualPass).length;
+  const factualPassCount = comparisons.length - factualFailCount;
+
+  return {
+    factualPassRate: factualPassCount / comparisons.length,
+    factualFailCount,
+    highVisualButFactualFail: highVisualButFactualFail(comparisons),
+  };
+}
