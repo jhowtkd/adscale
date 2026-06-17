@@ -30,7 +30,7 @@ describe("SCORE_CEILING_BY_FAILURE", () => {
     expect(SCORE_CEILING_BY_FAILURE.unsupported_offer).toBe(20);
     expect(SCORE_CEILING_BY_FAILURE.campaign_identity_drift).toBe(15);
     expect(SCORE_CEILING_BY_FAILURE.cta_drift).toBe(50);
-    expect(SCORE_CEILING_BY_FAILURE.visual_overload).toBe(55);
+    expect(SCORE_CEILING_BY_FAILURE.visual_overload).toBe(50);
     expect(SCORE_CEILING_BY_FAILURE.decorative_only_variation).toBe(60);
     expect(SCORE_CEILING_BY_FAILURE.style_reference_contamination).toBe(20);
     expect(SCORE_CEILING_BY_FAILURE.generic_template_aesthetic).toBe(55);
@@ -53,9 +53,9 @@ describe("applyScoreCeilings", () => {
     expect(result.qualityScore).toBeLessThanOrEqual(50);
   });
 
-  it("caps visual_overload + raw 75 to ≤55", () => {
+  it("caps visual_overload + raw 75 to ≤50 (132-adjustment bounded ceiling)", () => {
     const result = applyScoreCeilings(scoreInput(75), [failure("visual_overload")]);
-    expect(result.qualityScore).toBeLessThanOrEqual(55);
+    expect(result.qualityScore).toBeLessThanOrEqual(50);
   });
 
   it("caps decorative_only_variation + raw 70 to ≤60", () => {
