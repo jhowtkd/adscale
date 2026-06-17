@@ -1,5 +1,33 @@
 # Milestones: ADScale
 
+## v12.4 Aprendizado de Qualidade dos Outputs (Shipped: 2026-06-17)
+
+**Phases completed:** 5 phases (124→128), 15 plans
+**Requirements:** 21/21 complete
+
+**Scope:**
+- Captura canônica de decisões humanas sobre outputs em `output_decision_events`
+- Agregação em learnings canônicos versionados com confiança, contradição e supersession
+- Projeção Mem0 apenas como camada de retrieval, mantendo Postgres como fonte de verdade
+- Recommendation/prefill antes da próxima geração com escopo limitado e explicável
+- Safety guards que preservam as proteções factuais da v12.3
+- Release gate com métricas separadas de qualidade e fidelidade factual
+
+**Key accomplishments:**
+- Criou o loop completo de evidência: review/regenerate/save-reference/delivery selection → evento canônico → learning aprovado.
+- Implementou `client_output_learnings` com confiança, evidências de suporte/contradição e supersession.
+- Adicionou `/api/campaigns/[id]/output-recommendation` e UI de recomendação antes do gasto de créditos.
+- Garantiu que Mem0 relevance nunca autoriza mudança de geração sem learning aprovado em Postgres.
+- Fechou o release gate com `qualityImprovementPathRate=1.0` e `safetyGuardPassRate=1.0`.
+
+**Known accepted gaps:**
+- Human-judged quality uplift ainda não foi re-medido em corpus live; o gate usa pipeline determinístico com fixtures.
+- Gap visual herdado de v12.3 permanece aceito: `meanQualityScore 70.17 < 75`.
+
+Archive: [v12.4-ROADMAP.md](milestones/v12.4-ROADMAP.md) · [v12.4-REQUIREMENTS.md](milestones/v12.4-REQUIREMENTS.md) · [v12.4-MILESTONE-AUDIT.md](milestones/v12.4-MILESTONE-AUDIT.md)
+
+---
+
 ## v12.3 Integridade Criativa (Shipped with accepted gap: 2026-06-16)
 
 **Phases completed:** 9 phases (115→123), 31 plans

@@ -1,72 +1,68 @@
 ---
 gsd_state_version: 1.0
-milestone: v12.4
-milestone_name: Aprendizado de Qualidade dos Outputs
-status: v12.4 shipped 2026-06-17
-last_updated: "2026-06-17T00:48:34.912Z"
+milestone: v12.5
+milestone_name: Validacao Real de Qualidade e Calibracao do Loop Criativo
+status: defining requirements
+last_updated: "2026-06-17T07:55:00.000Z"
 last_activity: 2026-06-17
 progress:
   total_phases: 5
-  completed_phases: 5
-  total_plans: 15
-  completed_plans: 15
-  percent: 100
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-06-16)
+See: .planning/PROJECT.md (updated 2026-06-17)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** v12.4 milestone complete — ready for archive/cleanup.
+**Current focus:** v12.5 — Validacao Real de Qualidade e Calibracao do Loop Criativo.
 
-**Status:** v12.4 shipped 2026-06-17
+**Status:** v12.5 initialized; ready to discuss Phase 129.
 
 ## Current Position
 
-Phase: 128 — Evaluation and Release Gate (complete)
-Plan: 03/03
-Status: Milestone shipped
-Last activity: 2026-06-17
+Phase: 129 — Live Human Quality Corpus
+Plan: —
+Status: Not started
+Last activity: 2026-06-17 — v12.5 milestone initialized after v12.4 archive
 
-Progress: v12.4 complete — output learning eval gate passed; 21/21 requirements satisfied
+Progress: 0/5 phases complete; 19/19 requirements mapped to roadmap.
 
 ## Accumulated Context
 
-### Phase 128 (shipped 2026-06-17)
+### v12.5 Direction
 
-- `OUTPUT_LEARNING_EVAL_MATRIX` — 8 fixed scenarios (quality vs factual separation)
-- `check-output-learning-evidence.mjs` — qualityImprovementPathRate 1.0, safetyGuardPassRate 1.0
-- `run-output-learning-release-gate.mjs` — npm test/lint/build + v12.3 factual subset
-- Milestone audit: `.planning/milestones/v12.4-MILESTONE-AUDIT.md` — passed
+- Validate output quality with a real human-judged corpus, not only deterministic fixtures.
+- Calibrate automatic scoring against human judgment while keeping factual metrics separate.
+- Measure whether v12.4 output-learning recommendation/prefill improves comparable real samples.
+- Attack proven visual-quality failures: overload, weak hierarchy, generic template feel, illegible CTA and unfocused composition.
 
-### Phase 127 (shipped 2026-06-16)
+### From v12.4
 
-- `guardOutputLearningPrefill` blocks factual-contract conflicts (restyling/format, readiness caps)
-- `filterApprovedPostgresLearnings` — Mem0 relevance never authorizes prefill (SAFE-02)
-- `appliedLearningTrace` on recommendation API with evidence event IDs and blocked fields
+- `output_decision_events` captures canonical human output evidence.
+- `client_output_learnings` stores approved/superseded output learnings in Postgres.
+- `/api/campaigns/[id]/output-recommendation` applies bounded pre-generation recommendation/prefill.
+- `guardOutputLearningPrefill` and `filterApprovedPostgresLearnings` preserve factual and authorization boundaries.
+- `qualityImprovementPathRate=1.0` and `safetyGuardPassRate=1.0` passed in fixture release gate.
 
-### From v12.3 (inherited)
+### From v12.3
 
-- QA-19 accepted gap: meanQualityScore 70.17 < 75 — EVAL-03 guards factual only
-
-## Session Continuity
-
-Last activity: 2026-06-17 — Phase 128 executed autonomously (plans 01–03); v12.4 milestone shipped
+- Accepted visual-quality gap remains: `meanQualityScore 70.17 < 75`.
+- Factual fidelity baseline must remain 1.0 in any new release gate.
 
 ## Decisions
 
-- [Phase 128]: Fixture-based pipeline eval proves improvement path without live OpenAI spend
-- [Phase 128]: EVAL-03 uses gate-failure-matrix + creative-quality-gate subset only
-- [Phase 128]: qualityMetrics and factualMetrics stored separately in 128-EVIDENCE.json
-- [Phase 127]: Postgres-approved filter before ranking — Mem0 relevance never authorizes prefill
-- [Phase 126]: avoid_pattern surfaced as hints only — never in prefill or prompt
-- [Phase 125]: Mem0 projects only approved output learnings (memoryType output_learning)
-- [Phase 124]: Canonical evidence in `output_decision_events`
+- [v12.5]: Focus on real human quality validation before adding new product features.
+- [v12.5]: Treat fixture-based v12.4 evidence as necessary but not sufficient for quality claims.
+- [v12.5]: Keep factual metrics separate from visual quality and learning-impact metrics.
+- [v12.5]: Start with Phase 129 Live Human Quality Corpus.
 
 ## Next Steps
 
-Run `gsd-complete-milestone` to archive v12.4 roadmap slice.
+Run `$gsd-discuss-phase 129` to clarify corpus shape, reviewer workflow, data model and validation strategy.

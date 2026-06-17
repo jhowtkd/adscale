@@ -1,110 +1,105 @@
-# Requirements: ADScale v12.4 Aprendizado de Qualidade dos Outputs
+# Requirements: ADScale v12.5 Validacao Real de Qualidade e Calibracao do Loop Criativo
 
-**Defined:** 2026-06-16
-**Milestone:** v12.4 Aprendizado de Qualidade dos Outputs
+**Defined:** 2026-06-17
+**Milestone:** v12.5 Validacao Real de Qualidade e Calibracao do Loop Criativo
 **Core Value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
 ## Scope
 
-Transformar decisões humanas reais sobre outputs em aprendizados duráveis e explicáveis que melhorem a próxima geração. O aprendizado deve seguir a arquitetura já validada no repo: Postgres canônico, projeção para Mem0 e aplicação limitada antes do prompt final.
+Transformar o learning loop de v12.4 em evidencia real de qualidade percebida. A milestone deve medir outputs reais com julgamento humano estruturado, calibrar o score automatico contra esse julgamento, provar impacto dos learnings aplicados e atacar os padroes visuais que mantiveram o gap aceito de v12.3 (`meanQualityScore 70.17 < 75`).
 
-**Starting point:** v12.3 fechou com `meanQualityScore=70.17 <75` e `factualFidelityRate=1.000`. O problema restante é melhorar consistentemente a qualidade percebida dos outputs sem reabrir o risco factual.
+**Starting point:** v12.4 passou com `qualityImprovementPathRate=1.0` e `safetyGuardPassRate=1.0`, mas o audit aceitou que o ganho de qualidade foi fixture-based e que o gap visual de v12.3 ainda nao foi fechado em corpus live.
 
-**In scope:** sinais humanos, learnings canônicos, retrieval contextual, aplicação pré-geração, explanation packet, eval/release gate.
+**In scope:** corpus live versionado, avaliacao humana estruturada, calibracao score vs julgamento humano, medicionamento de impacto dos learnings, melhorias focadas em qualidade visual, release gate com evidencia reproduzivel.
 
-**Out of scope:** fine-tuning, blend completo com performance de mídia, memória global cross-client, prompt mutation livre a partir de vector hits.
+**Out of scope:** fine-tuning, julgamento humano terceirizado/externo, mudancas livres de prompt sem contrato, ranking automatico por performance de midia, deploy/prod smoke nao relacionado ao corpus.
 
 ## Requirements
 
-### Output Signals (SIGNAL)
+### Human Quality Corpus (HUMAN)
 
-- [x] **SIGNAL-01**: Aprovação, rejeição, regeneração, save-reference e seleção para entrega são normalizados como eventos de evidência de qualidade de output.
-- [x] **SIGNAL-02**: Cada evento registra escopo mínimo: workspace, client profile, campaign, mode, format e derivation.
-- [x] **SIGNAL-03**: O sistema distingue feedback explícito forte (aprovar, rejeitar, salvar referência) de sinais implícitos fracos.
-- [x] **SIGNAL-04**: Motivos estruturados de rejeição/regeneração podem ser consolidados sem depender apenas de texto livre.
+- [ ] **HUMAN-01**: Operator can select real generated outputs into a versioned quality evaluation corpus with workspace, campaign, derivation, mode and format scope.
+- [ ] **HUMAN-02**: Each corpus item stores bounded artifact references and evaluation metadata without raw prompts, signed URLs, auth material or unbounded model payloads.
+- [ ] **HUMAN-03**: Reviewer can record structured human judgment: visual score, factual pass/fail, approve/reject/regenerate intent, and primary visible failure reason.
+- [ ] **HUMAN-04**: Corpus can distinguish baseline, pre-learning and post-learning samples so quality movement is measurable over time.
 
-### Canonical Learnings (LEARN)
+### Score Calibration (CALIB)
 
-- [x] **LEARN-01**: Evidências de output são agregadas em learnings canônicos versionados com `statement`, `variableKey`, `variableValue` e `algorithmVersion`.
-- [x] **LEARN-02**: Cada learning rastreia `supportingEvidence`, `contradictingEvidence`, confiança, último uso e status (`draft`, `approved`, `superseded`, `removed`).
-- [x] **LEARN-03**: Learnings antigos ou contrariados perdem força ou são supersedidos em vez de se acumularem indefinidamente.
-- [x] **LEARN-04**: Learnings não vazam entre workspaces, clientes ou contextos incompatíveis de modo/formato.
-- [x] **LEARN-05**: Mem0 recebe apenas projeção dos learnings aprovados; Postgres continua sendo a fonte de verdade.
+- [ ] **CALIB-01**: Automatic quality score can be compared against human visual score for every evaluated corpus item.
+- [ ] **CALIB-02**: Calibration report identifies systematic divergences by failure type, mode and format.
+- [ ] **CALIB-03**: Gate/rubric adjustments are versioned and backed by corpus evidence instead of anecdotal judgment.
+- [ ] **CALIB-04**: Factual fidelity remains measured separately from visual quality and cannot be traded away for higher visual score.
 
-### Pre-Generation Application (APPLY)
+### Learning Impact (IMPACT)
 
-- [x] **APPLY-01**: A próxima geração pode receber recommendation/prefill baseado em learnings aprovados antes do prompt final.
-- [x] **APPLY-02**: O mapeamento de learnings influencia apenas variáveis limitadas do produto (ex.: CTA, mode, format, recipe, style policy), não prompt prose arbitrária.
-- [x] **APPLY-03**: Recomendação informa evidência, confiança e contradições quando existirem.
-- [x] **APPLY-04**: Quando não houver evidência suficiente, o sistema retorna `insufficient_evidence` em vez de inventar regra.
+- [ ] **IMPACT-01**: System can measure whether v12.4 output-learning recommendation/prefill was applied for a generated sample.
+- [ ] **IMPACT-02**: Evaluation separates learned outputs from non-learned comparable outputs by client, mode and format.
+- [ ] **IMPACT-03**: Impact report measures rejection/regeneration intent, human visual score movement and factual pass rate.
+- [ ] **IMPACT-04**: If evidence is insufficient, report returns an honest insufficient-sample state instead of claiming improvement.
 
-### Safety and Boundaries (SAFE)
+### Creative Improvement (QUALITY)
 
-- [x] **SAFE-01**: Learnings aplicados nunca sobrepõem as regras factuais e contratos canônicos vindos de v12.3.
-- [x] **SAFE-02**: Retrieval relevance não é tratado como aprovação; apenas learnings canônicos aprovados podem influenciar a geração.
-- [x] **SAFE-03**: A aplicação de learnings é auditável por payload, log ou resposta de API com identificadores de evidência.
-- [x] **SAFE-04**: Learnings podem capturar padrões negativos ("evitar") além de positivos ("preferir"), sem autoaprovação.
+- [ ] **QUALITY-01**: Overload, weak hierarchy, generic template feel, illegible CTA and unfocused composition are represented as first-class visible failure reasons.
+- [ ] **QUALITY-02**: Prompt/gate/rubric changes target only failure reasons proven by corpus evidence.
+- [ ] **QUALITY-03**: Visual quality changes preserve v12.3 hard factual protections and v12.4 learning safety guards.
+- [ ] **QUALITY-04**: Improved outputs can be re-evaluated against the same corpus dimensions to show whether the targeted failure decreased.
 
-### Evaluation and Regression (EVAL)
+### Release Evidence (QA)
 
-- [x] **EVAL-01**: Existe um conjunto fixo de avaliação para provar se learnings de output melhoram a qualidade julgada por humanos.
-- [x] **EVAL-02**: Métricas de avaliação permanecem separadas: melhoria de qualidade, taxa de regeneração/rejeição e fidelidade factual.
-- [x] **EVAL-03**: Nenhuma melhoria de output learning pode reintroduzir regressão factual bloqueada por v12.3.
-- [x] **EVAL-04**: `npm test`, `npm run lint`, `npm run build` e o gate focal do milestone passam com evidência reproduzível.
+- [ ] **QA-22**: Milestone release gate runs focused corpus/evaluation tests, score calibration checks, v12.3 factual subset, v12.4 output-learning subset, `npm test`, `npm run lint`, and `npm run build`.
+- [ ] **QA-23**: Release evidence stores quality metrics, factual metrics, learning-impact metrics and accepted caveats in separate sections.
+- [ ] **QA-24**: Milestone cannot close as passed unless factual pass rate remains 1.0 and either human visual quality crosses the target or the remaining gap is smaller and explicitly accepted.
 
 ## Future Requirements
 
+### Live Product Rollout (deferred)
+
+- **LIVEQUAL-01**: Beta operators can run the evaluation workflow directly in production with controlled reviewer permissions.
+- **LIVEQUAL-02**: Owner dashboard shows trend lines for human quality score and learning impact over time.
+
 ### Performance Blending (deferred)
 
-- **PERFOUT-01**: Combinar learnings de output com performance de mídia importada como sinal conjunto
-- **PERFOUT-02**: Reponderar learnings de output por impacto real em CTR/CPA/ROAS quando houver evidência suficiente
-
-### Automation (deferred)
-
-- **AUTOOUT-01**: Auto-regeneration policies driven by approved output learnings
-- **AUTOOUT-02**: Adaptive ranking of generated options using learned output preferences
+- **PERFOUT-01**: Combine human output quality learnings with imported media performance once enough real performance data exists.
+- **PERFOUT-02**: Reweight output learnings by CTR/CPA/ROAS impact without losing factual and human-quality guardrails.
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Fine-tuning do modelo de imagem | Alto custo e feedback loop ainda pequeno; primeiro validar learning loop no produto |
-| Memória global cross-client | Risco alto de vazamento e degradação de contexto |
-| Prompt mutation livre via vector hits | Difícil de auditar e degrada silenciosamente |
-| Misturar performance de mídia já no v1 | A decisão do usuário foi começar com aprovação/rejeição humanas |
-| Reabrir regras factuais de v12.3 | Esse milestone depende da fundação factual já estabilizada |
+| Fine-tuning image models | Costly and premature; first prove measurable product-loop improvement |
+| External reviewer marketplace | Operational complexity; this milestone needs an internal/operator corpus first |
+| Mem0 as quality source of truth | v12.4 established Postgres canonical truth; retrieval remains projection |
+| Freeform prompt mutation from learnings | Hard to audit and likely to regress factual protections |
+| Media performance blending | Valuable later, but this milestone is about human output quality |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SIGNAL-01 | Phase 124 | Complete |
-| SIGNAL-02 | Phase 124 | Complete |
-| SIGNAL-03 | Phase 124 | Complete |
-| SIGNAL-04 | Phase 124 | Complete |
-| LEARN-01 | Phase 125 | Complete |
-| LEARN-02 | Phase 125 | Complete |
-| LEARN-03 | Phase 125 | Complete |
-| LEARN-04 | Phase 125 | Complete |
-| LEARN-05 | Phase 125 | Complete |
-| APPLY-01 | Phase 126 | Complete |
-| APPLY-02 | Phase 126 | Complete |
-| APPLY-03 | Phase 126 | Complete |
-| APPLY-04 | Phase 126 | Complete |
-| SAFE-01 | Phase 127 | Complete |
-| SAFE-02 | Phase 127 | Complete |
-| SAFE-03 | Phase 127 | Complete |
-| SAFE-04 | Phase 127 | Complete |
-| EVAL-01 | Phase 128 | Complete |
-| EVAL-02 | Phase 128 | Complete |
-| EVAL-03 | Phase 128 | Complete |
-| EVAL-04 | Phase 128 | Complete |
+| HUMAN-01 | Phase 129 | Pending |
+| HUMAN-02 | Phase 129 | Pending |
+| HUMAN-03 | Phase 129 | Pending |
+| HUMAN-04 | Phase 129 | Pending |
+| CALIB-01 | Phase 130 | Pending |
+| CALIB-02 | Phase 130 | Pending |
+| CALIB-03 | Phase 130 | Pending |
+| CALIB-04 | Phase 130 | Pending |
+| IMPACT-01 | Phase 131 | Pending |
+| IMPACT-02 | Phase 131 | Pending |
+| IMPACT-03 | Phase 131 | Pending |
+| IMPACT-04 | Phase 131 | Pending |
+| QUALITY-01 | Phase 132 | Pending |
+| QUALITY-02 | Phase 132 | Pending |
+| QUALITY-03 | Phase 132 | Pending |
+| QUALITY-04 | Phase 132 | Pending |
+| QA-22 | Phase 133 | Pending |
+| QA-23 | Phase 133 | Pending |
+| QA-24 | Phase 133 | Pending |
 
 **Coverage:**
-- v12.4 requirements: 21 total
-- Mapped to phases: 21
-- Unmapped: 0 ✓
+- v12.5 requirements: 19 total
+- Mapped to phases: 19
+- Unmapped: 0
 
 ---
-*Requirements defined: 2026-06-16*
-*Last updated: 2026-06-16 after milestone v12.4 initialization*
+*Requirements defined: 2026-06-17 after v12.5 milestone initialization*

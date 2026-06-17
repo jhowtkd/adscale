@@ -10,7 +10,20 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Current State
 
-v12.4 Aprendizado de Qualidade dos Outputs shipped on 2026-06-17. v12.3 closed the factual-integrity milestone, and v12.4 added a durable loop to learn from human output decisions and apply those lessons before the next generation.
+v12.5 Validacao Real de Qualidade e Calibracao do Loop Criativo starts on 2026-06-17. v12.4 added a durable output-learning loop, but its release gate proved the improvement path with deterministic fixtures rather than a live human-judged corpus. v12.5 turns that loop into measured real quality improvement.
+
+### v12.5 Validacao Real de Qualidade e Calibracao do Loop Criativo — ACTIVE (2026-06-17)
+
+**Goal:** Provar e melhorar a qualidade percebida dos outputs com corpus real avaliado por humanos, mantendo fidelidade factual e o learning loop seguro.
+
+**Target features:**
+- Corpus live versionado de outputs reais com julgamento humano estruturado
+- Calibracao de score automatico contra nota visual humana
+- Medicao de impacto dos learnings de v12.4 em outputs comparaveis
+- Melhorias focadas nos defeitos visuais provados pelo corpus
+- Release gate realista com metricas separadas de qualidade, factualidade e learning impact
+
+**Why now:** v12.4 fechou o loop tecnico de aprendizado, mas aceitou que o uplift era fixture-based. O produto precisa provar qualidade percebida em outputs reais e reduzir o gap visual herdado de v12.3 (`70.17 < 75`) sem perder fidelidade factual.
 
 ### v12.4 Aprendizado de Qualidade dos Outputs — SHIPPED (2026-06-17)
 
