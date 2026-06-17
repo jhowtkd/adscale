@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v12.5
 milestone_name: Validacao Real de Qualidade e Calibracao do Loop Criativo
-status: executing
-last_updated: "2026-06-17T14:27:20.572Z"
+status: complete
+last_updated: "2026-06-17T14:39:49.019Z"
 last_activity: 2026-06-17
 progress:
   total_phases: 5
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 15
-  completed_plans: 14
-  percent: 93
+  completed_plans: 15
+  percent: 100
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-06-17)
 ## Current Position
 
 Phase: 132 — Targeted Creative Quality Improvements
-Plan: 3/4 complete
-Status: Executing
+Plan: 4/4 complete
+Status: Complete
 Last activity: 2026-06-17
 
-Progress: Phase 132 in progress (3/4 plans); 14/15 v12.5 plans complete (93%).
+Progress: Phase 132 complete (4/4 plans); 15/15 v12.5 plans complete (100%).
 
 ## Accumulated Context
 
@@ -107,20 +107,24 @@ Progress: Phase 132 in progress (3/4 plans); 14/15 v12.5 plans complete (93%).
 - [Phase 131]: Slice key clientProfileId|generationMode|format; cohort does not determine learningApplied arm
 - [Phase 131]: LearningImpactReport nulls movement deltas when status insufficient_sample; intent/factual remain descriptive
 - [Phase 131]: Evidence CLI + checker mirror Phase 130 calibration pattern with insufficient_sample honesty gates
-- [Phase 131]: Impact API reuses requireCalibrationAccess; panel hides only when queue, calibration, and impact all 403
+- [Phase 132]: Panel hides only when queue, calibration, impact, and quality APIs all return 403
 - [Phase 132]: Store bounded changeSpec as jsonb on rubric_calibration_adjustments row
 - [Phase 132]: Bump RUBRIC_CALIBRATION_VERSION to 1.1.0 signaling Phase 132 apply tranche
 - [Phase 132]: Applied only accepted visual_overload ceiling (-5) at v1.1.0; gate taxonomy unchanged without gate_classifier accepts
 - [Phase 132]: Corpus archetypes weak_hierarchy, illegible_cta, unfocused_composition added for deterministic re-eval arm
 - [Phase 132]: Default quality-improvement-evidence npm script uses --skip-tests; vitest subset runs when flag omitted
 - [Phase 132]: Phase 133 gate uses --run-regression for full v12.3/v12.4 script regression against live evidence
+- [Phase 132]: MIN_SLICE_SAMPLE per targeted reason in both arms required before quality improvement status ok
+- [Phase 132]: improvementDeployedAt defaults to earliest acceptedAt among accepted adjustments
+- [Phase 132]: Panel hides only when queue, calibration, impact, and quality APIs all return 403
 
-### Phase 132 (in progress — 3/4 plans)
+### Phase 132 (complete — 4/4 plans)
 
 - Summaries:
   - `.planning/phases/132-targeted-creative-quality-improvements/132-01-SUMMARY.md`
   - `.planning/phases/132-targeted-creative-quality-improvements/132-02-SUMMARY.md`
   - `.planning/phases/132-targeted-creative-quality-improvements/132-03-SUMMARY.md`
+  - `.planning/phases/132-targeted-creative-quality-improvements/132-04-SUMMARY.md`
 - Research: `.planning/phases/132-targeted-creative-quality-improvements/132-RESEARCH.md`
 - Validation: `.planning/phases/132-targeted-creative-quality-improvements/132-VALIDATION.md`
 - Plans:
@@ -153,6 +157,11 @@ Progress: Phase 132 in progress (3/4 plans); 14/15 v12.5 plans complete (93%).
   - `.planning/phases/131-learning-impact-measurement/131-03-PLAN.md` — impact report engine with slice comparison and honesty gates (IMPACT-02–04)
   - `.planning/phases/131-learning-impact-measurement/131-04-PLAN.md` — evidence CLI, impact API, read-only Impact UI tab (IMPACT-01–04)
 
+- [Phase 132]: MIN_SLICE_SAMPLE per targeted reason in both arms required before quality improvement status ok
+- [Phase 132]: improvementDeployedAt defaults to earliest acceptedAt among accepted adjustments
+- [Phase 132]: Fixture before-arm pass rate uses baselineVerdict snapshot on targeted archetypes
+- [Phase 132]: QUALITY-04 checker rejects non-null deltas when insufficient_sample
+
 ## Next Steps
 
-Execute: Phase 132 plan 04 — re-evaluation report + CLI + API + Quality tab (132-04-PLAN.md)
+Phase 132 complete. Proceed to Phase 133 release gate or milestone verification.
