@@ -18,14 +18,14 @@
 
 **Starting point:** v12.5 passou tecnicamente, mas o audit registrou corpus live vazio (`evaluatedItemCount=0`) e QA-24 fechou por `accepted_gap`.
 
-- [ ] **Phase 134: Live Corpus Operations** — transformar selecao e avaliacao humana de outputs reais em rotina operacional segura
+- [ ] **Phase 134: Live Corpus Operations** — transformar selecao e avaliacao humana de outputs reais em rotina operacional segura (planned 2026-06-17)
 - [ ] **Phase 135: Sampling Sufficiency and Evidence Honesty** — definir thresholds e estados honestos para bloquear claims com pouca amostra
 - [ ] **Phase 136: Quality Trend Dashboard** — expor tendencias live, filtros e drilldown de evidencia para owner decisions
 - [ ] **Phase 137: Operational Quality Release Gate** — fechar milestone com gate live, regressao tecnica e audit operacional separados
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
-| 134 | Live Corpus Operations | LIVEQUAL-01..04 | Pending | — |
+| 134 | Live Corpus Operations | LIVEQUAL-01..04 | Planned | — |
 | 135 | Sampling Sufficiency and Evidence Honesty | SAMPLE-01..04 | Pending | — |
 | 136 | Quality Trend Dashboard | TREND-01..04 | Pending | — |
 | 137 | Operational Quality Release Gate | QALIVE-01..04 | Pending | — |
@@ -46,7 +46,12 @@
   3. Reviewer completes structured evaluation in a fast repeatable flow.
   4. Unsafe artifacts are rejected and raw prompts/signed URLs/secrets are never persisted.
 
-**Plans:** 0/0 plans complete
+**Plans:** 0/3 plans complete
+
+Plans:
+- [ ] 134-01-PLAN.md — Batch selection and queue progress contracts (LIVEQUAL-01, LIVEQUAL-02, LIVEQUAL-04)
+- [ ] 134-02-PLAN.md — Operator review UX and fast evaluation loop (LIVEQUAL-02, LIVEQUAL-03, LIVEQUAL-04)
+- [ ] 134-03-PLAN.md — Phase verification and operator handoff (LIVEQUAL-01..04)
 
 ---
 
@@ -112,10 +117,10 @@ Archive: [v12.5-ROADMAP.md](milestones/v12.5-ROADMAP.md) · [v12.5-REQUIREMENTS.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 134 | v12.6 | 0/0 | Pending | — |
+| 134 | v12.6 | 0/3 | Planned | — |
 | 135 | v12.6 | 0/0 | Pending | — |
 | 136 | v12.6 | 0/0 | Pending | — |
 | 137 | v12.6 | 0/0 | Pending | — |
 
 ---
-*Roadmap updated: 2026-06-17 — v12.6 initialized; next step is Phase 134 planning*
+*Roadmap updated: 2026-06-17 — Phase 134 planned; next step is Phase 134 execution*

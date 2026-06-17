@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v12.6
 milestone_name: Operacao Live do Corpus de Qualidade
 status: planned
-last_updated: "2026-06-17T18:35:00.000Z"
+last_updated: "2026-06-17T19:05:00.000Z"
 last_activity: 2026-06-17
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 0
+  total_plans: 3
   completed_plans: 0
   percent: 0
 ---
@@ -21,18 +21,18 @@ See: .planning/PROJECT.md (updated 2026-06-17)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** v12.6 defining — Operacao Live do Corpus de Qualidade.
+**Current focus:** v12.6 active — Phase 134 Live Corpus Operations planned.
 
-**Status:** Milestone initialized; ready to plan Phase 134
+**Status:** Phase 134 planned; ready to execute
 
 ## Current Position
 
 Phase: 134 — Live Corpus Operations
-Plan: —
-Status: Ready to plan
+Plan: 0/3 complete
+Status: Ready to execute
 Last activity: 2026-06-17
 
-Progress: v12.6 milestone initialized — 16/16 requirements mapped across phases 134-137.
+Progress: Phase 134 planned — 3 plans ready; 0/3 complete.
 
 ## Accumulated Context
 
@@ -50,6 +50,16 @@ Progress: v12.6 milestone initialized — 16/16 requirements mapped across phase
 - Separate operational evidence from technical green checks.
 - Add sampling and sufficiency rules so small datasets produce `insufficient_sample`, not optimistic claims.
 - Surface live quality, factuality and learning-impact trends for owner decisions.
+
+### Phase 134 (planned — 0/3 plans)
+
+- Context: `.planning/phases/134-live-corpus-operations/134-CONTEXT.md`
+- Research: `.planning/phases/134-live-corpus-operations/134-RESEARCH.md`
+- Validation: `.planning/phases/134-live-corpus-operations/134-VALIDATION.md`
+- Plans:
+  - `.planning/phases/134-live-corpus-operations/134-01-PLAN.md` — batch selection and queue progress contracts (LIVEQUAL-01, LIVEQUAL-02, LIVEQUAL-04)
+  - `.planning/phases/134-live-corpus-operations/134-02-PLAN.md` — operator review UX and fast evaluation loop (LIVEQUAL-02, LIVEQUAL-03, LIVEQUAL-04)
+  - `.planning/phases/134-live-corpus-operations/134-03-PLAN.md` — phase verification and operator handoff (LIVEQUAL-01..04)
 
 ### Phase 129 (complete — 3/3 plans)
 
@@ -198,4 +208,4 @@ Progress: v12.6 milestone initialized — 16/16 requirements mapped across phase
 
 ## Next Steps
 
-Start Phase 134 via `/gsd-plan-phase 134`.
+Execute Phase 134 via `/gsd-execute-phase 134`.
