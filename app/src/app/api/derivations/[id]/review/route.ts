@@ -13,6 +13,8 @@ import {
 import { getCampaignById, refreshCampaignStatus } from "@/server/repositories/campaign";
 import { recordBrandMemoryEvent } from "@/server/memory/brand-memory-dispatch";
 import { recordCampaignMemoryEntry } from "@/server/memory/campaign-memory-context";
+import { recordOutputDecisionEvidenceBestEffort } from "@/server/output-learning/output-decision-recorder";
+import { extractRejectionReason } from "@/server/output-learning/output-decision-reasons";
 
 const bodySchema = z.object({
   status: z.enum(["approved", "rejected"]),
@@ -143,6 +145,27 @@ export async function PATCH(
           feedback: updated.feedback,
         },
       },
+    });
+
+    void recordOutputDecisionEvidenceBestEffort({
+      workspaceId: workspace.id,
+      userId: user.id,
+      clientProfileId: campaign?.clientProfileId ?? null,
+      campaignId: updated.campaignId,
+      derivationId: updated.id,
+      action: parsed.data.status,
+      source: "derivations.review.PATCH",
+      snapshotInput: updated,
+      snapshotExtras:
+        parsed.data.status === "rejected"
+          ? {
+              reason: extractRejectionReason({
+                hardFailures: updated.hardFailures,
+                scoreIssues: updated.scoreIssues,
+                regenerationSuggestion: updated.regenerationSuggestion,
+              }),
+            }
+          : undefined,
     });
 
     return NextResponse.json({ derivation: updated });

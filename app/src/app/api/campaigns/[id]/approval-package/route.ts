@@ -19,6 +19,7 @@ import {
 } from "@/server/repositories/share-link";
 import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
 import { getBetaSessionIdFromRequest } from "@/server/beta-analytics/session";
+import { recordOutputDecisionEvidenceBestEffort } from "@/server/output-learning/output-decision-recorder";
 
 const SHARE_LINK_TTL_DAYS = 7;
 
@@ -247,6 +248,28 @@ export async function POST(
         },
       }).catch((err) => {
         logger.warn("[approval-package.POST] refresh analytics failed", err);
+      });
+    }
+
+    for (const rootId of selectedRootIds) {
+      const rootDerivation = derivations.find((d) => d.id === rootId);
+      void recordOutputDecisionEvidenceBestEffort({
+        workspaceId: workspace.id,
+        userId: user.id,
+        clientProfileId: campaign.clientProfileId ?? null,
+        campaignId,
+        derivationId: rootId,
+        action: "selected_for_delivery",
+        source: "campaigns.approval-package.POST",
+        snapshotInput: rootDerivation
+          ? {
+              generationMode: rootDerivation.generationMode,
+              format: rootDerivation.format,
+              variantIndex: rootDerivation.variantIndex,
+              ctaText: rootDerivation.ctaText,
+              status: rootDerivation.status,
+            }
+          : undefined,
       });
     }
 

@@ -6,6 +6,7 @@ import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getDerivationById } from "@/server/repositories/derivation";
 import { createClientReference, getClientProfile } from "@/server/repositories/client-reference";
 import { recordBrandMemoryEvent } from "@/server/memory/brand-memory-dispatch";
+import { recordOutputDecisionEvidenceBestEffort } from "@/server/output-learning/output-decision-recorder";
 
 const referenceKindSchema = z.enum([
   "style",
@@ -28,7 +29,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const [{ workspace }, { id }] = await Promise.all([
+    const [{ user, workspace }, { id }] = await Promise.all([
       requireWorkspaceAccess(request),
       params,
     ]);
@@ -97,6 +98,21 @@ export async function POST(
           qualityScore: derivation.qualityScore,
           qaStatus: derivation.qaStatus,
         },
+      },
+    });
+
+    void recordOutputDecisionEvidenceBestEffort({
+      workspaceId: workspace.id,
+      userId: user.id,
+      clientProfileId: profile.id,
+      campaignId: derivation.campaignId,
+      derivationId: derivation.id,
+      action: "saved_reference",
+      source: "derivations.save-reference.POST",
+      snapshotInput: derivation,
+      snapshotExtras: {
+        referenceKind: reference.kind,
+        referenceLabel: reference.label,
       },
     });
 

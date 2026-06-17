@@ -10,7 +10,7 @@ import {
   getActiveChildrenByParent,
   updateDerivationStatus,
 } from "@/server/repositories/derivation";
-import { refreshCampaignStatus, updateCampaign } from "@/server/repositories/campaign";
+import { refreshCampaignStatus, updateCampaign, getCampaignById } from "@/server/repositories/campaign";
 import { getUserLocale } from "@/server/repositories/user";
 import { getLatestOpenFeedbackReportForDerivation } from "@/server/repositories/feedback";
 import { inngest } from "@/server/jobs/client";
@@ -23,6 +23,8 @@ import {
 } from "@/server/ai/regeneration-correction-brief";
 import type { CreativeHardFailure } from "@/server/ai/creative-quality-gate";
 import { recordCampaignMemoryEntry } from "@/server/memory/campaign-memory-context";
+import { recordOutputDecisionEvidenceBestEffort } from "@/server/output-learning/output-decision-recorder";
+import { extractRegenerationReason } from "@/server/output-learning/output-decision-reasons";
 
 function parseHardFailures(value: unknown): CreativeHardFailure[] {
   if (!Array.isArray(value)) return [];
@@ -245,6 +247,30 @@ export async function POST(
         derivationId: original.id,
       });
     }
+
+    const campaign = await getCampaignById(original.campaignId, workspace.id);
+
+    void recordOutputDecisionEvidenceBestEffort({
+      workspaceId: workspace.id,
+      userId: user.id,
+      clientProfileId: campaign?.clientProfileId ?? null,
+      campaignId: original.campaignId,
+      derivationId: original.id,
+      parentDerivationId: original.id,
+      action: "regenerated",
+      source: "derivations.regenerate.POST",
+      snapshotInput: original,
+      snapshotExtras: {
+        childDerivationId: newDerivation.id,
+        reason: extractRegenerationReason({
+          hardFailures: original.hardFailures,
+          scoreIssues: original.scoreIssues,
+          regenerationSuggestion: original.regenerationSuggestion,
+          correctionPrimaryReason: resolved.primaryReason,
+          userFeedback: parsed.data.feedback,
+        }),
+      },
+    });
 
     return NextResponse.json({ derivation: newDerivation }, { status: 201 });
   } catch (error) {
