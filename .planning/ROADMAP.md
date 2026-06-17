@@ -25,7 +25,7 @@
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
-| 134 | Live Corpus Operations | 3/3 | Complete | 2026-06-17 |
+| 134 | Live Corpus Operations | 3/3 | Complete   | 2026-06-17 |
 | 135 | Sampling Sufficiency and Evidence Honesty | SAMPLE-01..04 | Pending | — |
 | 136 | Quality Trend Dashboard | TREND-01..04 | Pending | — |
 | 137 | Operational Quality Release Gate | QALIVE-01..04 | Pending | — |
@@ -46,7 +46,7 @@
   3. Reviewer completes structured evaluation in a fast repeatable flow.
   4. Unsafe artifacts are rejected and raw prompts/signed URLs/secrets are never persisted.
 
-**Plans:** 3/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [x] 134-01-PLAN.md — Batch selection and queue progress contracts (LIVEQUAL-01, LIVEQUAL-02, LIVEQUAL-04)

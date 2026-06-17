@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v12.6
 milestone_name: Operacao Live do Corpus de Qualidade
-status: ready-to-plan
-last_updated: "2026-06-17T20:08:00.000Z"
+status: planning
+last_updated: "2026-06-17T20:08:53.655Z"
 last_activity: 2026-06-17
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 3
   completed_plans: 3
-  percent: 25
+  percent: 100
 ---
 
 # Project State
@@ -159,6 +159,8 @@ Progress: [███░░░░░░░] 25% — Phase 134 complete (3/3 plans
 - [Phase 134]: GET includeProgress=true opt-in for queue progress without default query cost
 - [Phase 134]: Queue panel always fetches includeProgress=true for operator totals without extra round trip
 - [Phase 134]: Automated verification green; real operator sample execution is data-dependent — deferred to operator action before Phase 135 sampling claims
+- [Phase 134]: Phase 135 is next for sampling sufficiency; do not mark SAMPLE/TREND/QALIVE complete in Phase 134
+- [Phase 134]: Automated verification green; real operator sample execution is data-dependent
 - [Phase 134]: Phase 135 is next for sampling sufficiency; do not mark SAMPLE/TREND/QALIVE complete in Phase 134
 
 ### Phase 132 (complete — 4/4 plans)
