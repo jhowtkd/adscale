@@ -42,7 +42,9 @@ import RegenerateFeedbackDialog, {
   DerivationLoadErrorBanner,
 } from "@/components/workspace/RegenerateFeedbackDialog";
 
+import OutputLearningRecommendationCard from "@/components/campaigns/OutputLearningRecommendationCard";
 import CampaignClientSubtitle from "@/components/campaigns/CampaignClientSubtitle";
+import type { StrategyRecipePrefill } from "@/lib/hooks/use-strategy-recipe";
 import ContextualFeedbackButton from "@/components/feedback/ContextualFeedbackButton";
 import CampaignSkeleton from "@/components/campaigns/CampaignSkeleton";
 import CampaignErrorState from "@/components/campaigns/CampaignErrorState";
@@ -451,8 +453,8 @@ export default function CampaignWorkspacePage() {
           goToDerivation();
         }}
         createDerivationsPending={createDerivationsPending}
-        onOpenDerivar={() => {
-          openDerivePanel();
+        onOpenDerivar={(prefill) => {
+          openDerivePanel(prefill);
           goToDerivation();
         }}
         onOpenEstilizar={() => {
@@ -679,7 +681,7 @@ interface CampaignWorkspaceCardProps {
     offer?: string;
   }) => void;
   guidedBriefingHints: GuidedBriefingHints;
-  onOpenDerivar: () => void;
+  onOpenDerivar: (prefill?: StrategyRecipePrefill | null) => void;
   onOpenEstilizar: () => void;
   showPreviewGate?: boolean;
   previewDerivation?: WorkspaceHookResult["previewDerivation"];
@@ -818,8 +820,15 @@ function CampaignWorkspaceCard({
             />
           </div>
           <div className="flex-1 min-w-0 space-y-6">
+            <div id="mission-output-learnings" className="px-4 sm:px-6">
+              <OutputLearningRecommendationCard
+                campaignId={campaignId}
+                onAccept={onOpenDerivar}
+                onEdit={onOpenDerivar}
+              />
+            </div>
             <WorkspaceActionBar
-              onDerivar={onOpenDerivar}
+              onDerivar={() => onOpenDerivar()}
               onEstilizar={onOpenEstilizar}
               readinessBlocking={readinessBlocking}
               disabled={workspaceState === "gerando"}
