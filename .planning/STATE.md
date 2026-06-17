@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v12.5
 milestone_name: Validacao Real de Qualidade e Calibracao do Loop Criativo
-status: executing
-last_updated: "2026-06-17T11:38:50.639Z"
+status: verifying
+last_updated: "2026-06-17T11:47:43.405Z"
 last_activity: 2026-06-17
 progress:
   total_phases: 5
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 7
-  completed_plans: 6
-  percent: 86
+  completed_plans: 7
+  percent: 100
 ---
 
 # Project State
@@ -23,13 +23,13 @@ See: .planning/PROJECT.md (updated 2026-06-17)
 
 **Current focus:** v12.5 — Validacao Real de Qualidade e Calibracao do Loop Criativo.
 
-**Status:** Ready to execute
+**Status:** Phase complete — ready for verification
 
 ## Current Position
 
 Phase: 130 — Score Calibration and Rubric Alignment
 Plan: 4 of 04
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-06-17
 
 Progress: 1/5 v12.5 phases complete; Phase 130 plan 1/4 complete; CALIB-01 done.
@@ -97,6 +97,8 @@ Progress: 1/5 v12.5 phases complete; Phase 130 plan 1/4 complete; CALIB-01 done.
 - [Phase 130]: highVisualButFactualFail guard at visual threshold 70 for both human and automatic scores
 - [Phase 130-score-calibration-and-rubric-alignment]: Dedupe calibration proposals by slice_key + adjustmentVersion + target_module + target_key
 - [Phase 130-score-calibration-and-rubric-alignment]: factual_issue slices target gate_classifier only — no score_ceiling auto-proposals
+- [Phase 130]: Panel hides only when both queue and calibration APIs return 403
+- [Phase 130]: API caps visual comparisons at 100 with truncated flag for DoS mitigation
 
 ### Phase 130 (in progress — 1/4 plans)
 
