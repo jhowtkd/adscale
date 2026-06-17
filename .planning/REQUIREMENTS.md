@@ -40,7 +40,7 @@ Transformar o learning loop de v12.4 em evidencia real de qualidade percebida. A
 ### Creative Improvement (QUALITY)
 
 - [ ] **QUALITY-01**: Overload, weak hierarchy, generic template feel, illegible CTA and unfocused composition are represented as first-class visible failure reasons.
-- [ ] **QUALITY-02**: Prompt/gate/rubric changes target only failure reasons proven by corpus evidence.
+- [x] **QUALITY-02**: Prompt/gate/rubric changes target only failure reasons proven by corpus evidence.
 - [ ] **QUALITY-03**: Visual quality changes preserve v12.3 hard factual protections and v12.4 learning safety guards.
 - [ ] **QUALITY-04**: Improved outputs can be re-evaluated against the same corpus dimensions to show whether the targeted failure decreased.
 
@@ -89,7 +89,7 @@ Transformar o learning loop de v12.4 em evidencia real de qualidade percebida. A
 | IMPACT-03 | Phase 131 | Complete |
 | IMPACT-04 | Phase 131 | Complete |
 | QUALITY-01 | Phase 132 | Pending |
-| QUALITY-02 | Phase 132 | Pending |
+| QUALITY-02 | Phase 132 | Complete |
 | QUALITY-03 | Phase 132 | Pending |
 | QUALITY-04 | Phase 132 | Pending |
 | QA-22 | Phase 133 | Pending |

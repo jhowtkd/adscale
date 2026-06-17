@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v12.5
 milestone_name: Validacao Real de Qualidade e Calibracao do Loop Criativo
 status: executing
-last_updated: "2026-06-17T16:00:00.000Z"
+last_updated: "2026-06-17T13:58:22.487Z"
 last_activity: 2026-06-17
 progress:
   total_phases: 5
-  completed_phases: 4
+  completed_phases: 3
   total_plans: 15
-  completed_plans: 11
-  percent: 73
+  completed_plans: 12
+  percent: 80
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-06-17)
 ## Current Position
 
 Phase: 132 — Targeted Creative Quality Improvements
-Plan: 0/4 planned
-Status: Ready to execute
+Plan: 1/4 complete
+Status: Executing
 Last activity: 2026-06-17
 
-Progress: 4/5 v12.5 phases complete; Phase 132 planned (4 plans, verification passed).
+Progress: Phase 132 in progress (1/4 plans); 12/15 v12.5 plans complete (80%).
 
 ## Accumulated Context
 
@@ -108,9 +108,12 @@ Progress: 4/5 v12.5 phases complete; Phase 132 planned (4 plans, verification pa
 - [Phase 131]: LearningImpactReport nulls movement deltas when status insufficient_sample; intent/factual remain descriptive
 - [Phase 131]: Evidence CLI + checker mirror Phase 130 calibration pattern with insufficient_sample honesty gates
 - [Phase 131]: Impact API reuses requireCalibrationAccess; panel hides only when queue, calibration, and impact all 403
+- [Phase 132]: Store bounded changeSpec as jsonb on rubric_calibration_adjustments row
+- [Phase 132]: Bump RUBRIC_CALIBRATION_VERSION to 1.1.0 signaling Phase 132 apply tranche
 
-### Phase 132 (planned — 0/4 plans, verification passed 2026-06-17)
+### Phase 132 (in progress — 1/4 plans)
 
+- Summary: `.planning/phases/132-targeted-creative-quality-improvements/132-01-SUMMARY.md`
 - Research: `.planning/phases/132-targeted-creative-quality-improvements/132-RESEARCH.md`
 - Validation: `.planning/phases/132-targeted-creative-quality-improvements/132-VALIDATION.md`
 - Plans:
@@ -145,4 +148,4 @@ Progress: 4/5 v12.5 phases complete; Phase 132 planned (4 plans, verification pa
 
 ## Next Steps
 
-Execute: `/gsd-execute-phase 132`
+Execute: Phase 132 plan 02 — evidence-bound ceiling/rubric/gate edits (132-02-PLAN.md)
