@@ -16,7 +16,15 @@ vi.mock("@/server/repositories/derivation", () => ({
 
 vi.mock("@/server/repositories/client-reference", () => ({
   createClientReference: vi.fn(),
-  getClientProfile: vi.fn(() => Promise.resolve({ id: "profile-id", workspaceId: "workspace-1" })),
+  getClientProfile: vi.fn(() => Promise.resolve({ id: "profile-id", workspaceId: "workspace-1", name: "Acme" })),
+}));
+
+vi.mock("@/server/memory/brand-memory-dispatch", () => ({
+  recordBrandMemoryEvent: vi.fn(() => Promise.resolve()),
+}));
+
+vi.mock("@/server/output-learning/output-decision-recorder", () => ({
+  recordOutputDecisionEvidenceBestEffort: vi.fn(() => Promise.resolve({ id: "evidence-1" })),
 }));
 
 vi.mock("next-intl/server", () => ({
@@ -25,6 +33,7 @@ vi.mock("next-intl/server", () => ({
 
 import { getDerivationById } from "@/server/repositories/derivation";
 import { createClientReference, getClientProfile } from "@/server/repositories/client-reference";
+import { recordOutputDecisionEvidenceBestEffort } from "@/server/output-learning/output-decision-recorder";
 
 const mockGetDerivationById = vi.mocked(getDerivationById);
 const mockCreateClientReference = vi.mocked(createClientReference);
@@ -154,6 +163,16 @@ describe("POST /api/derivations/[id]/save-reference", () => {
         label: "Winner",
         kind: "style",
         sourceDerivationId: "derivation-id",
+      })
+    );
+    expect(vi.mocked(recordOutputDecisionEvidenceBestEffort)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "saved_reference",
+        derivationId: "derivation-id",
+        snapshotExtras: expect.objectContaining({
+          referenceKind: "style",
+          referenceLabel: "Winner",
+        }),
       })
     );
   });

@@ -24,6 +24,10 @@ vi.mock("@/server/repositories/share-link", () => ({
   upsertShareLinkForCampaign: vi.fn(),
 }));
 
+vi.mock("@/server/output-learning/output-decision-recorder", () => ({
+  recordOutputDecisionEvidenceBestEffort: vi.fn(() => Promise.resolve({ id: "evidence-1" })),
+}));
+
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() =>
     Promise.resolve((key: string) => key)
@@ -36,6 +40,7 @@ import {
   getLatestShareLinkForCampaign,
   upsertShareLinkForCampaign,
 } from "@/server/repositories/share-link";
+import { recordOutputDecisionEvidenceBestEffort } from "@/server/output-learning/output-decision-recorder";
 
 const mockGetCampaignById = vi.mocked(getCampaignById);
 const mockUpdateCampaign = vi.mocked(updateCampaign);
@@ -142,6 +147,7 @@ describe("POST /api/campaigns/[id]/approval-package", () => {
       notes: "Old notes",
       product: "Shoes",
       offer: "20% off",
+      clientProfileId: "profile-id",
     } as Awaited<ReturnType<typeof getCampaignById>>);
     mockGetDerivationsByCampaign.mockResolvedValue(
       derivations as Awaited<ReturnType<typeof getDerivationsByCampaign>>
@@ -174,6 +180,13 @@ describe("POST /api/campaigns/[id]/approval-package", () => {
       notes: "Client package notes",
     });
     expect(mockUpsertShareLinkForCampaign).toHaveBeenCalled();
+    expect(vi.mocked(recordOutputDecisionEvidenceBestEffort)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "selected_for_delivery",
+        derivationId: ROOT_ID,
+        campaignId: CAMPAIGN_ID,
+      })
+    );
   });
 
   it("rejects non-approved selection", async () => {

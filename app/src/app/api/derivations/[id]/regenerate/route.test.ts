@@ -24,6 +24,12 @@ vi.mock("@/server/repositories/derivation", () => ({
 vi.mock("@/server/repositories/campaign", () => ({
   updateCampaign: vi.fn(),
   refreshCampaignStatus: vi.fn(),
+  getCampaignById: vi.fn(() =>
+    Promise.resolve({
+      id: "campaign-id",
+      clientProfileId: "profile-id",
+    })
+  ),
 }));
 
 vi.mock("@/server/repositories/feedback", () => ({
@@ -42,6 +48,10 @@ vi.mock("@/server/memory/campaign-memory-context", () => ({
   recordCampaignMemoryEntry: vi.fn(() => Promise.resolve({ schemaVersion: 1, entries: [] })),
 }));
 
+vi.mock("@/server/output-learning/output-decision-recorder", () => ({
+  recordOutputDecisionEvidenceBestEffort: vi.fn(() => Promise.resolve({ id: "evidence-1" })),
+}));
+
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
 }));
@@ -52,8 +62,9 @@ import {
   getActiveChildrenByParent,
 } from "@/server/repositories/derivation";
 import { getLatestOpenFeedbackReportForDerivation } from "@/server/repositories/feedback";
-import { updateCampaign } from "@/server/repositories/campaign";
+import { updateCampaign, getCampaignById } from "@/server/repositories/campaign";
 import { inngest } from "@/server/jobs/client";
+import { recordOutputDecisionEvidenceBestEffort } from "@/server/output-learning/output-decision-recorder";
 import { FACTUAL_SOURCE_RULES } from "@/server/ai/creative-contract";
 
 const mockGetDerivationById = vi.mocked(getDerivationById);
@@ -63,7 +74,11 @@ const mockGetLatestOpenFeedbackReportForDerivation = vi.mocked(
   getLatestOpenFeedbackReportForDerivation
 );
 const mockUpdateCampaign = vi.mocked(updateCampaign);
+const mockGetCampaignById = vi.mocked(getCampaignById);
 const mockInngestSend = vi.mocked(inngest.send);
+const mockRecordOutputDecisionEvidenceBestEffort = vi.mocked(
+  recordOutputDecisionEvidenceBestEffort
+);
 
 const parentContract = {
   generationMode: "art_variation" as const,
@@ -163,6 +178,16 @@ describe("POST /api/derivations/[id]/regenerate", () => {
         parentId: "source-id",
         status: "queued",
         feedback: expect.stringContaining("Additional notes: try a warmer style"),
+      })
+    );
+    expect(mockRecordOutputDecisionEvidenceBestEffort).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "regenerated",
+        derivationId: "source-id",
+        campaignId: "campaign-id",
+        snapshotExtras: expect.objectContaining({
+          childDerivationId: "child-id",
+        }),
       })
     );
   });

@@ -38,6 +38,10 @@ vi.mock("@/server/beta-analytics/record", () => ({
   recordBetaAnalyticsEvent: vi.fn(() => Promise.resolve({ id: "event-1" })),
 }));
 
+vi.mock("@/server/output-learning/output-decision-recorder", () => ({
+  recordOutputDecisionEvidenceBestEffort: vi.fn(() => Promise.resolve({ id: "evidence-1" })),
+}));
+
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
 }));
@@ -47,10 +51,14 @@ import {
   updateDerivationStatus,
 } from "@/server/repositories/derivation";
 import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
+import { recordOutputDecisionEvidenceBestEffort } from "@/server/output-learning/output-decision-recorder";
 
 const mockGetDerivationById = vi.mocked(getDerivationById);
 const mockUpdateDerivationStatus = vi.mocked(updateDerivationStatus);
 const mockRecordBetaAnalyticsEvent = vi.mocked(recordBetaAnalyticsEvent);
+const mockRecordOutputDecisionEvidenceBestEffort = vi.mocked(
+  recordOutputDecisionEvidenceBestEffort
+);
 
 const VALID_SESSION_ID = "550e8400-e29b-41d4-a716-446655440000";
 
@@ -158,6 +166,16 @@ describe("PATCH /api/derivations/[id]/review", () => {
         }),
       })
     );
+    expect(mockRecordOutputDecisionEvidenceBestEffort).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "approved",
+        workspaceId: "workspace-1",
+        userId: "user-1",
+        campaignId: "campaign-id",
+        derivationId: "derivation-id",
+        source: "derivations.review.PATCH",
+      })
+    );
   });
 
   it("forwards sessionId from x-beta-session-id on approve", async () => {
@@ -229,5 +247,48 @@ describe("PATCH /api/derivations/[id]/review", () => {
     expect(res.status).toBe(200);
     expect(mockGetDerivationById).not.toHaveBeenCalled();
     expect(mockRecordBetaAnalyticsEvent).not.toHaveBeenCalled();
+    expect(mockRecordOutputDecisionEvidenceBestEffort).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "rejected",
+        derivationId: "derivation-id",
+      })
+    );
+  });
+
+  it("still returns 200 when evidence recording fails", async () => {
+    mockUpdateDerivationStatus.mockResolvedValue({
+      id: "derivation-id",
+      status: "approved",
+      campaignId: "campaign-id",
+      workspaceId: "workspace-1",
+      format: "4:5",
+      generationMode: "art_variation",
+      ctaText: "Buy",
+      qualityScore: 75,
+      scoreStatus: "analyzed",
+      scoreIssues: null,
+      regenerationSuggestion: null,
+      qaStatus: "passed",
+      qaIssues: null,
+      feedback: null,
+      updatedAt: new Date(),
+    } as Awaited<ReturnType<typeof updateDerivationStatus>>);
+
+    mockGetDerivationById.mockResolvedValue({
+      id: "derivation-id",
+      status: "completed",
+      qualityVerdict: "improvable",
+      hardFailures: [],
+      campaignId: "campaign-id",
+      workspaceId: "workspace-1",
+    } as Awaited<ReturnType<typeof getDerivationById>>);
+
+    mockRecordOutputDecisionEvidenceBestEffort.mockResolvedValue(null);
+
+    const res = await PATCH(requestWith({ status: "approved" }), {
+      params: paramsWith("derivation-id"),
+    });
+
+    expect(res.status).toBe(200);
   });
 });

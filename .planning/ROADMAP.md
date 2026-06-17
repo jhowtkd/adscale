@@ -30,6 +30,8 @@
 
 **Audit:** [v12.4-MILESTONE-AUDIT.md](milestones/v12.4-MILESTONE-AUDIT.md) — `passed` (2026-06-17)
 
+Archive: [v12.4-ROADMAP.md](milestones/v12.4-ROADMAP.md) · [v12.4-REQUIREMENTS.md](milestones/v12.4-REQUIREMENTS.md) · [v12.4-MILESTONE-AUDIT.md](milestones/v12.4-MILESTONE-AUDIT.md)
+
 **Starting point:** v12.3 fechou com `meanQualityScore=70.17 < 75` e `factualFidelityRate=1.000`
 
 - [x] **Phase 124: Output Signal Capture** — normalizar aprovação, rejeição, regeneração, save-reference e delivery selection como evidência canônica (completed 2026-06-16)
@@ -44,7 +46,7 @@
 | 125 | Canonical Output Learnings | LEARN-01, LEARN-02, LEARN-03, LEARN-04, LEARN-05 | Complete | 2026-06-16 |
 | 126 | Next-Generation Recommendation Application | APPLY-01, APPLY-02, APPLY-03, APPLY-04 | Complete | 2026-06-16 |
 | 127 | Safety, Boundaries, and Explainability | SAFE-01, SAFE-02, SAFE-03, SAFE-04 | Complete | 2026-06-16 |
-| 128 | Evaluation and Release Gate | 1/3 | In Progress|  |
+| 128 | Evaluation and Release Gate | EVAL-01, EVAL-02, EVAL-03, EVAL-04 | Complete | 2026-06-17 |
 
 ## Phase Details
 
@@ -1080,10 +1082,10 @@ Archive: [v11.6-ROADMAP.md](milestones/v11.6-ROADMAP.md) · [v11.6-REQUIREMENTS.
 | Phase | Milestone | Plans Complete | Status | Completed |
 | ----- | --------- | -------------- | ------ | --------- |
 | 124 | v12.4 | 3/3 | Complete | 2026-06-16 |
-| 125 | v12.4 | 0/0 | Pending | - |
-| 126 | v12.4 | 0/0 | Pending | - |
-| 127 | v12.4 | 0/0 | Pending | - |
-| 128 | v12.4 | 0/0 | Pending | - |
+| 125 | v12.4 | 3/3 | Complete | 2026-06-16 |
+| 126 | v12.4 | 3/3 | Complete | 2026-06-16 |
+| 127 | v12.4 | 3/3 | Complete | 2026-06-16 |
+| 128 | v12.4 | 3/3 | Complete | 2026-06-17 |
 | 115 | v12.3 | 3/3 | Complete | 2026-06-15 |
 | 116 | v12.3 | 3/3 | Complete | 2026-06-15 |
 | 117 | v12.3 | 4/4 | Complete | 2026-06-15 |
