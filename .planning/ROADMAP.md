@@ -30,7 +30,7 @@
 - [x] **Phase 129: Live Human Quality Corpus** — criar corpus versionado de outputs reais com julgamento humano estruturado (completed 2026-06-17)
 - [x] **Phase 130: Score Calibration and Rubric Alignment** — comparar score automatico vs julgamento humano e versionar ajustes de rubric/gate (completed 2026-06-17)
 - [x] **Phase 131: Learning Impact Measurement** — medir impacto real de recommendation/prefill de v12.4 em qualidade, rejeicao/regeneracao e factual pass (completed 2026-06-17)
-- [ ] **Phase 132: Targeted Creative Quality Improvements** — atacar falhas visuais provadas pelo corpus sem regredir factualidade
+- [x] **Phase 132: Targeted Creative Quality Improvements** — atacar falhas visuais provadas pelo corpus sem regredir factualidade (completed 2026-06-17)
 - [ ] **Phase 133: Real Quality Release Gate** — fechar milestone com gate reproduzivel, metricas separadas e caveats explicitos
 
 | # | Phase | Requirements | Status | Completed |
@@ -38,7 +38,7 @@
 | 129 | Live Human Quality Corpus | Complete    | 2026-06-17 | 2026-06-17 |
 | 130 | Score Calibration and Rubric Alignment | Complete    | 2026-06-17 | 2026-06-17 |
 | 131 | Learning Impact Measurement | 4/4 | Complete   | 2026-06-17 |
-| 132 | Targeted Creative Quality Improvements | 3/4 | In Progress|  |
+| 132 | Targeted Creative Quality Improvements | 4/4 | Complete   | 2026-06-17 |
 | 133 | Real Quality Release Gate | QA-22, QA-23, QA-24 | Planned | — |
 
 ## Phase Details
@@ -123,13 +123,13 @@ Plans:
   3. v12.3 factual hard failures and v12.4 learning safety guards remain green.
   4. Re-evaluation shows whether targeted failure frequency decreased.
 
-**Plans:** 3/4 plans executed
+**Plans:** 4/4 plans complete
 
 Plans:
 - [x] 132-01-PLAN.md — Accept lifecycle, apply contracts, and calibration version bump (QUALITY-02)
 - [x] 132-02-PLAN.md — Evidence-bound ceiling/rubric/gate edits and visual archetype fixtures (QUALITY-01, QUALITY-02)
 - [x] 132-03-PLAN.md — v12.3/v12.4 regression guard wiring and evidence template (QUALITY-03)
-- [ ] 132-04-PLAN.md — Re-evaluation report, CLI, API, and Quality UI tab (QUALITY-04)
+- [x] 132-04-PLAN.md — Re-evaluation report, CLI, API, and Quality UI tab (QUALITY-04)
 
 ---
 
