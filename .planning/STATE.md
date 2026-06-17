@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v12.4
 milestone_name: Aprendizado de Qualidade dos Outputs
 status: completed
-last_updated: "2026-06-17T00:31:33.826Z"
+last_updated: "2026-06-17T00:37:01.371Z"
 last_activity: 2026-06-16
 progress:
   total_phases: 5
   completed_phases: 0
-  total_plans: 6
-  completed_plans: 2
+  total_plans: 9
+  completed_plans: 3
   percent: 33
 ---
 
@@ -65,6 +65,8 @@ Last activity: 2026-06-16 — Phase 125 executed autonomously (plans 01–03)
 - [Phase 124]: Canonical evidence in `output_decision_events`; not beta_analytics or memory tables
 - [Phase 125]: Learning identity scoped by workspace/client/mode/format with empty-string sentinel
 - [Phase 125]: Mem0 projects only approved output learnings (memoryType output_learning)
+- [Phase 126]: avoid_pattern surfaced as hints only — never in prefill or prompt
+- [Phase 126]: Primary prefill from prefer-direction bounded keys with scope filtering
 
 ## Next Steps
 

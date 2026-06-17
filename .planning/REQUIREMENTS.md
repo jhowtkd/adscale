@@ -33,10 +33,10 @@ Transformar decisões humanas reais sobre outputs em aprendizados duráveis e ex
 
 ### Pre-Generation Application (APPLY)
 
-- [ ] **APPLY-01**: A próxima geração pode receber recommendation/prefill baseado em learnings aprovados antes do prompt final.
-- [ ] **APPLY-02**: O mapeamento de learnings influencia apenas variáveis limitadas do produto (ex.: CTA, mode, format, recipe, style policy), não prompt prose arbitrária.
-- [ ] **APPLY-03**: Recomendação informa evidência, confiança e contradições quando existirem.
-- [ ] **APPLY-04**: Quando não houver evidência suficiente, o sistema retorna `insufficient_evidence` em vez de inventar regra.
+- [x] **APPLY-01**: A próxima geração pode receber recommendation/prefill baseado em learnings aprovados antes do prompt final.
+- [x] **APPLY-02**: O mapeamento de learnings influencia apenas variáveis limitadas do produto (ex.: CTA, mode, format, recipe, style policy), não prompt prose arbitrária.
+- [x] **APPLY-03**: Recomendação informa evidência, confiança e contradições quando existirem.
+- [x] **APPLY-04**: Quando não houver evidência suficiente, o sistema retorna `insufficient_evidence` em vez de inventar regra.
 
 ### Safety and Boundaries (SAFE)
 
@@ -87,10 +87,10 @@ Transformar decisões humanas reais sobre outputs em aprendizados duráveis e ex
 | LEARN-03 | Phase 125 | Complete |
 | LEARN-04 | Phase 125 | Complete |
 | LEARN-05 | Phase 125 | Complete |
-| APPLY-01 | Phase 126 | Pending |
-| APPLY-02 | Phase 126 | Pending |
-| APPLY-03 | Phase 126 | Pending |
-| APPLY-04 | Phase 126 | Pending |
+| APPLY-01 | Phase 126 | Complete |
+| APPLY-02 | Phase 126 | Complete |
+| APPLY-03 | Phase 126 | Complete |
+| APPLY-04 | Phase 126 | Complete |
 | SAFE-01 | Phase 127 | Pending |
 | SAFE-02 | Phase 127 | Pending |
 | SAFE-03 | Phase 127 | Pending |

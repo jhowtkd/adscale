@@ -40,7 +40,7 @@
 |---|-------|--------------|--------|-----------|
 | 124 | Output Signal Capture | SIGNAL-01, SIGNAL-02, SIGNAL-03, SIGNAL-04 | Complete | 2026-06-16 |
 | 125 | Canonical Output Learnings | 1/3 | In Progress|  |
-| 126 | Next-Generation Recommendation Application | APPLY-01, APPLY-02, APPLY-03, APPLY-04 | Pending | — |
+| 126 | Next-Generation Recommendation Application | 1/3 | In Progress|  |
 | 127 | Safety, Boundaries, and Explainability | SAFE-01, SAFE-02, SAFE-03, SAFE-04 | Pending | — |
 | 128 | Evaluation and Release Gate | EVAL-01, EVAL-02, EVAL-03, EVAL-04 | Pending | — |
 
