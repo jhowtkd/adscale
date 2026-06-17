@@ -2,14 +2,15 @@
 gsd_state_version: 1.0
 milestone: v12.5
 milestone_name: Validacao Real de Qualidade e Calibracao do Loop Criativo
-status: planning
-last_updated: "2026-06-17T12:00:00.000Z"
-last_activity: 2026-06-17 — Phase 130 context gathered (discuss-phase)
+status: executing
+last_updated: "2026-06-17T11:35:00.000Z"
+last_activity: 2026-06-17 — Completed 130-01 plan (calibration comparison foundation)
 progress:
   total_phases: 5
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
+  total_plans: 7
+  completed_plans: 4
+  percent: 57
 ---
 
 # Project State
@@ -22,16 +23,16 @@ See: .planning/PROJECT.md (updated 2026-06-17)
 
 **Current focus:** v12.5 — Validacao Real de Qualidade e Calibracao do Loop Criativo.
 
-**Status:** Phase 130 context gathered — ready to plan
+**Status:** Phase 130 executing — plan 01 complete
 
 ## Current Position
 
 Phase: 130 — Score Calibration and Rubric Alignment
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-06-17 — Phase 130 plans created (4 plans, 4 waves)
+Plan: 02 of 04
+Status: In progress
+Last activity: 2026-06-17 — Completed 130-01 (evaluated corpus join + per-item comparison)
 
-Progress: 1/5 v12.5 phases complete; HUMAN-01–04 validated.
+Progress: 1/5 v12.5 phases complete; Phase 130 plan 1/4 complete; CALIB-01 done.
 
 ## Accumulated Context
 
@@ -90,8 +91,12 @@ Progress: 1/5 v12.5 phases complete; HUMAN-01–04 validated.
 - [Phase 130]: Auto-propose adjustments at |delta| ≥ 15 with min 3 items per slice; status proposed only
 - [Phase 130]: Global multi-workspace rollup report with cohort filter; min 5 items for ok status
 - [Phase 130]: JSON evidence in .planning/phases/130-*; platform-owner and workspace admin access
+- [Phase 130]: EvaluatedCorpusRow canonical in calibration/types.ts; repository re-exports for join consumers
+- [Phase 130]: Default evaluated corpus query limit 500 for calibration payload bounds
 
-### Phase 130 (planned — 0/4 plans)
+### Phase 130 (in progress — 1/4 plans)
+
+- Summary: `.planning/phases/130-score-calibration-and-rubric-alignment/130-01-SUMMARY.md`
 
 - Context: `.planning/phases/130-score-calibration-and-rubric-alignment/130-CONTEXT.md`
 - Research: `.planning/phases/130-score-calibration-and-rubric-alignment/130-RESEARCH.md`
@@ -103,4 +108,4 @@ Progress: 1/5 v12.5 phases complete; HUMAN-01–04 validated.
 
 ## Next Steps
 
-Execute: `/gsd-execute-phase 130`
+Execute: Plan 130-02 — grouped divergence + factual separation
