@@ -475,22 +475,13 @@ node app/scripts/check-score-calibration-evidence.mjs --evidence .planning/phase
 | A4 | One evaluation per corpus item (latest row) | Repository | Multiple evaluations per item would need "latest" or "primary" selection rule |
 | A5 | `|delta| ≥ 15` is a useful divergence flag threshold | aggregate.ts | Threshold may need operator tuning after first corpus batch |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Owner UI vs CLI-only for calibration report?**
-   - What we know: Phase 129 owner panel exists; calibration is internal/operator workflow.
-   - What's unclear: Whether Phase 130 needs a read-only panel or evidence JSON suffices until Phase 133.
-   - Recommendation: Ship pure module + CLI + optional GET API in 130; thin read-only panel as discretion if planner wants operator UX.
+1. **Owner UI vs CLI-only for calibration report?** — RESOLVED (130-CONTEXT.md): Ship **both** CLI evidence generation and a **read-only** calibration tab on `HumanQualityCorpusPanel`; GET API for platform-owner and workspace admin. Plan 130-04.
 
-2. **Cross-workspace aggregation for milestone evidence?**
-   - What we know: Corpus is workspace-scoped; v12.5 milestone may need global evidence.
-   - What's unclear: Platform-owner multi-workspace rollup in one report.
-   - Recommendation: Per-workspace report first; platform-owner `--all-workspaces` flag as optional script enhancement.
+2. **Cross-workspace aggregation for milestone evidence?** — RESOLVED (130-CONTEXT.md): Primary report scope is **global multi-workspace rollup**; CLI `--all-workspaces` flag and optional `workspaceId` filter. Repository join omits workspace filter when unscoped. Plans 130-01, 130-04.
 
-3. **Adjustment auto-generation rules vs human-approved proposals?**
-   - What we know: CALIB-03 requires versioned evidence-backed adjustments.
-   - What's unclear: Whether proposals are auto-created from divergence rules or operator-triggered.
-   - Recommendation: Auto-propose when slice `meanSignedDelta` exceeds threshold AND `count ≥ MIN_SLICE_SAMPLE`; operator accepts in Phase 132.
+3. **Adjustment auto-generation rules vs human-approved proposals?** — RESOLVED (130-CONTEXT.md): **Auto-propose** when composite slice (failure reason × mode × format) has `|meanSignedDelta| ≥ 15` AND `count ≥ 3`; status **`proposed` only** in Phase 130; Phase 132 accepts/applies. Plan 130-03.
 
 ## Environment Availability
 
