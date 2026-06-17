@@ -25,7 +25,7 @@
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
-| 134 | Live Corpus Operations | 3/3 | Complete   | 2026-06-17 |
+| 134 | Live Corpus Operations | 4/4 | Complete   | 2026-06-17 |
 | 135 | Sampling Sufficiency and Evidence Honesty | SAMPLE-01..04 | Pending | — |
 | 136 | Quality Trend Dashboard | TREND-01..04 | Pending | — |
 | 137 | Operational Quality Release Gate | QALIVE-01..04 | Pending | — |
@@ -46,12 +46,13 @@
   3. Reviewer completes structured evaluation in a fast repeatable flow.
   4. Unsafe artifacts are rejected and raw prompts/signed URLs/secrets are never persisted.
 
-**Plans:** 3/3 plans complete
+**Plans:** 4/4 plans complete
 
 Plans:
 - [x] 134-01-PLAN.md — Batch selection and queue progress contracts (LIVEQUAL-01, LIVEQUAL-02, LIVEQUAL-04)
 - [x] 134-02-PLAN.md — Operator review UX and fast evaluation loop (LIVEQUAL-02, LIVEQUAL-03, LIVEQUAL-04)
 - [x] 134-03-PLAN.md — Phase verification and operator handoff (LIVEQUAL-01..04)
+- [x] 134-04-PLAN.md — Campaign-dimensional queue progress gap closure (LIVEQUAL-02)
 
 ---
 
@@ -117,7 +118,7 @@ Archive: [v12.5-ROADMAP.md](milestones/v12.5-ROADMAP.md) · [v12.5-REQUIREMENTS.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 134 | v12.6 | 3/3 | Complete | 2026-06-17 |
+| 134 | v12.6 | 4/4 | Complete | 2026-06-17 |
 | 135 | v12.6 | 0/0 | Pending | — |
 | 136 | v12.6 | 0/0 | Pending | — |
 | 137 | v12.6 | 0/0 | Pending | — |

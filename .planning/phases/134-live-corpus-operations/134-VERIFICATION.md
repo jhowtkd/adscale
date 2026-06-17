@@ -1,84 +1,123 @@
 ---
 phase: 134-live-corpus-operations
-verified: 2026-06-17T20:06:22Z
+verified: 2026-06-17T20:19:00Z
 status: passed_automated_operator_data_pending
-requirements: [LIVEQUAL-01, LIVEQUAL-02, LIVEQUAL-03, LIVEQUAL-04]
+score: 4/4
+overrides_applied: 0
+re_verification:
+  previous_status: gaps_found
+  previous_score: 3/4
+  gaps_closed:
+    - "Queue progress missing campaign-dimensional breakdown required by LIVEQUAL-02"
+  gaps_remaining: []
+  regressions: []
+gaps:
+  - truth: "Review queue exposes workspace, campaign, mode, format, cohort and reviewer status"
+    status: closed
+    closed_by: 134-04-PLAN.md
+    reason: "byCampaign aggregation added in getCorpusOperationsProgress; exposed via includeProgress=true; rendered in QueueProgressSummary By campaign table"
+human_verification:
+  - test: "Platform owner selects real derivations from campaign review and evaluates one through submit-and-advance"
+    expected: "Items enter pending queue from DerivationReviewSheet POST; after evaluation they leave pending and progress totals update; no sensitive fields persist"
+    why_human: "Requires DATABASE_URL, platform-owner session and eligible campaign/derivation data not available in automated CI"
 ---
 
-# Phase 134: Live Corpus Operations Verification
+# Phase 134: Live Corpus Operations Verification Report
 
-**Phase Goal:** Operators can select real outputs into the live corpus, track queue progress, evaluate items through a fast repeatable flow, and reject unsafe artifacts — with automated evidence separated from real-operator data availability.
+**Phase Goal:** Operadores conseguem montar e avaliar um lote real de outputs para o corpus live sem vazar dados sensiveis e sem depender de fixtures.
 
-**Status:** passed (automated); real operator sample execution pending data-dependent manual evidence.
+**Verified:** 2026-06-17T20:12:00Z  
+**Status:** gaps_found  
+**Re-verification:** Yes — independent goal-backward check (previous report had no structured `gaps:` frontmatter)
 
 ## Goal Achievement
 
+### Observable Truths
+
 | # | Truth | Status | Evidence |
-|---|---|---|---|
-| 1 | Operator can select a controlled batch of real outputs into the corpus | VERIFIED (code) | Batch POST with per-item outcomes; `live-corpus-operations.test.ts` green |
-| 2 | Review queue exposes progress by cohort, mode, format and reviewer status | VERIFIED (code) | `includeProgress=true` GET + panel summary tables; API/component tests green |
-| 3 | Reviewer completes structured evaluation in a fast repeatable flow | VERIFIED (code) | Submit & next, form reset, compact context; `HumanQualityCorpusPanel.test.tsx` green |
-| 4 | Unsafe artifacts rejected; prompts/signed URLs/secrets never persisted | VERIFIED (code) | `buildEvaluationPayload` forbidden-key guard; repository boundary tests green |
+|---|-------|--------|----------|
+| 1 | Operator can select eligible real outputs into a weekly corpus batch | ✓ VERIFIED | `batchSelectDerivationsForCorpus` (cap 25) + single-item enqueue via `DerivationReviewSheet` → POST `/api/feedback/human-quality-corpus`; `selectDerivationForCorpus` loads real derivations from DB (`getDerivationById`, `getCampaignById`) |
+| 2 | Review queue exposes workspace, campaign, mode, format, cohort and reviewer status | ✓ VERIFIED | Workspace scope + pending/evaluated totals + byCohort/byGenerationMode/byFormat/byCampaign ✓ (134-04); reviewer status via pending/evaluated counts |
+| 3 | Reviewer completes structured evaluation in a fast repeatable flow | ✓ VERIFIED | `HumanQualityCorpusPanel` Submit & next, form reset on success, required fields enforced; wired to evaluation POST |
+| 4 | Unsafe artifacts rejected; raw prompts/signed URLs/secrets never persisted | ✓ VERIFIED | `validatePrivacySafePayload` / `sanitizeCorpusPayloads` on insert; `FORBIDDEN_EVALUATION_PAYLOAD_KEYS` guard in panel; preview URLs resolved ephemerally in GET only |
 
-## Requirement Coverage
+**Score:** 4/4 roadmap success criteria verified (automated); operator live-data execution remains human checkpoint
 
-| Requirement | Description | Status | Evidence |
-|---|---|---|---|
-| LIVEQUAL-01 | Controlled weekly batch selection from eligible campaigns | SATISFIED (automated) | Batch selection API + unit tests pass |
-| LIVEQUAL-02 | Queue progress by workspace, campaign, mode, format, cohort, status | SATISFIED (automated) | Progress summary service + panel tests pass |
-| LIVEQUAL-03 | Fast repeatable evaluation flow with structured fields | SATISFIED (automated) | Panel submit-and-advance tests pass |
-| LIVEQUAL-04 | Reject unsafe artifacts; never persist sensitive payloads | SATISFIED (automated) | Forbidden-key guards + corpus repository tests pass |
+### Deferred Items
 
-## Focused Automated Verification (Task 134-03-01)
+| # | Item | Addressed In | Evidence |
+|---|------|-------------|----------|
+| 1 | Live corpus population / sampling sufficiency (`evaluatedItemCount=0`) | Phase 135 | Phase 135 goal: "O sistema sabe quando ha amostra suficiente para tendencias" |
+| 2 | Owner trend dashboards and release gate evidence | Phases 136–137 | Explicitly out of Phase 134 scope per `134-CONTEXT.md` |
 
-**Command:**
+### Required Artifacts
 
-```bash
-cd app && npm test -- tests/unit/human-quality app/src/app/api/feedback/human-quality-corpus app/src/components/feedback/HumanQualityCorpusPanel.test.tsx
-```
+| Artifact | Expected | Status | Details |
+|----------|----------|--------|---------|
+| `app/src/server/human-quality/service.ts` | Batch selection + queue progress service | ✓ VERIFIED | 434 lines; `batchSelectDerivationsForCorpus`, `getCorpusQueueProgress` wired to repository |
+| `app/src/server/repositories/human-quality-corpus.ts` | Progress summary queries | ✓ VERIFIED | `getCorpusOperationsProgress` includes byCampaign (134-04) |
+| `app/src/app/api/feedback/human-quality-corpus/route.ts` | Owner batch/progress API | ✓ VERIFIED | GET with `includeProgress`; POST single + batch payloads; preview URLs ephemeral |
+| `app/src/components/feedback/HumanQualityCorpusPanel.tsx` | Live operations UI | ✓ VERIFIED | Wired in `OwnerAnalyticsPanel`; progress + fast review flow |
+| `app/src/components/feedback/HumanQualityCorpusPanel.test.tsx` | UI coverage | ✓ VERIFIED | Submit & next, progress, forbidden payload keys tested |
 
-**Result:** PASS
+### Key Link Verification
 
-| Metric | Value |
-|---|---|
-| Test files | 17 passed |
-| Tests | 152 passed |
-| Duration | 2.86s |
-| Timestamp | 2026-06-17T20:06:22Z |
+| From | To | Via | Status | Details |
+|------|----|-----|--------|---------|
+| `DerivationReviewSheet.tsx` | `/api/feedback/human-quality-corpus` | `apiFetch` POST single derivation | ✓ WIRED | Real campaign/derivation IDs from review context |
+| `HumanQualityCorpusPanel.tsx` | `/api/feedback/human-quality-corpus` | `apiFetch` GET `includeProgress=true` | ✓ WIRED | Queue + progress loaded together |
+| `HumanQualityCorpusPanel.tsx` | `/api/feedback/human-quality-corpus/[id]/evaluation` | `submitMutation` POST | ✓ WIRED | Structured evaluation fields only |
+| `route.ts` GET | `getPresignedDownloadUrl` | `attachPreviewImages` | ✓ WIRED | Ephemeral preview; not stored in corpus rows |
+| `insertCorpusItem` | `sanitizeCorpusPayloads` | repository insert path | ✓ WIRED | Forbidden keys rejected before DB write |
 
-**Caveats:**
+### Data-Flow Trace (Level 4)
 
-- Real operator batch selection and evaluation require `DATABASE_URL`, platform-owner session, and eligible campaign/derivation data — not exercised in this automated run.
-- v12.5 audit recorded `evaluatedItemCount=0`; Phase 134 delivers the operational loop but does not claim live corpus population or sampling sufficiency (deferred to Phase 135).
+| Artifact | Data Variable | Source | Produces Real Data | Status |
+|----------|---------------|--------|-------------------|--------|
+| `HumanQualityCorpusPanel` | `queueItems` / `queueProgress` | GET corpus API → `listPendingCorpusQueue` + `getCorpusOperationsProgress` | Yes (DB queries) | ✓ FLOWING |
+| `HumanQualityCorpusPanel` | `currentItem.previewImageUrl` | GET resolves presigned URL from derivation `outputKey` | Yes (R2 presign) | ✓ FLOWING (ephemeral) |
+| `DerivationReviewSheet` | corpus enqueue | POST → `selectDerivationForCorpus` → DB | Yes (real derivation lookup) | ✓ FLOWING |
 
-## Build Gate (Task 134-03-02)
+### Behavioral Spot-Checks
 
-**Command:**
+| Behavior | Command | Result | Status |
+|----------|---------|--------|--------|
+| Focused corpus test suite | `cd app && npm test -- tests/unit/human-quality app/src/app/api/feedback/human-quality-corpus app/src/components/feedback/HumanQualityCorpusPanel.test.tsx` | 17 files, 152 tests passed (2.50s) | ✓ PASS |
+| Next.js build gate | `cd app && npm run build` | Compile + TypeScript success; 68 static pages | ✓ PASS |
+| Batch service exports | `batchSelectDerivationsForCorpus` in service.ts | Function exists, per-item outcomes | ✓ PASS |
 
-```bash
-cd app && npm run build
-```
+### Requirements Coverage
 
-**Result:** PASS
+| Requirement | Source Plan | Description | Status | Evidence |
+|-------------|-------------|-------------|--------|----------|
+| LIVEQUAL-01 | 134-01, 134-03 | Controlled weekly batch of real outputs into live corpus | ✓ SATISFIED | Batch API (≤25 IDs), single enqueue from campaign review, real DB derivation path |
+| LIVEQUAL-02 | 134-01, 134-02, 134-03, 134-04 | Track queue progress by workspace, campaign, mode, format, cohort, reviewer status | ✓ SATISFIED | byCampaign in progress API and QueueProgressSummary (134-04) |
+| LIVEQUAL-03 | 134-02, 134-03 | Fast repeatable evaluation with structured fields | ✓ SATISFIED | Visual score, factual pass, intent, failure reason enforced; Submit & next |
+| LIVEQUAL-04 | 134-01, 134-02, 134-03 | Reject unsafe artifacts; never persist sensitive payloads | ✓ SATISFIED | `FORBIDDEN_PAYLOAD_KEYS`, `sanitizeCorpusPayloads`, evaluation payload guards |
 
-| Metric | Value |
-|---|---|
-| Next.js version | 16.2.6 (webpack) |
-| Compile | success in 9.0s |
-| TypeScript | finished in 9.3s |
-| Static pages | 68 generated |
-| Timestamp | 2026-06-17T20:06:50Z |
+All four requirement IDs from plan frontmatter are accounted for. No orphaned LIVEQUAL IDs mapped to Phase 134 in `REQUIREMENTS.md`.
 
-**Route modules verified:** `/api/feedback/human-quality-corpus`, `/api/feedback/human-quality-corpus/[id]/evaluation` compiled without export errors.
+### Anti-Patterns Found
 
-**Warnings (non-blocking):** Rate limiter in-memory fallback when Upstash Redis env vars unset — pre-existing, not Phase 134 regression.
+| File | Line | Pattern | Severity | Impact |
+|------|------|---------|----------|--------|
+| — | — | No blocker stubs in phase artifacts | — | — |
 
-## Operator Handoff
+### Human Verification Required
 
-Phase 134 automated verification is green. The next operator action is **data-dependent**, not a code blocker:
+### 1. Real-operator batch and evaluation loop
 
-1. Sign in as platform owner with `DATABASE_URL` pointed at a workspace containing eligible derivations.
-2. Open Feedback → Human Quality Corpus panel.
-3. Select a small batch (≤25 items) from eligible campaigns.
-4. Evaluate at least one item through the submit-and-advance flow; confirm it moves from pending to evaluated.
-5. Proceed to **Phase 135** for sampling sufficiency thresholds — do not claim trend or quality movement until SAMPLE requirements are met.
+**Test:** Sign in as platform owner with `DATABASE_URL` pointed at a workspace with eligible derivations. From campaign review, add derivations to corpus; open Feedback → Human Quality Corpus; evaluate at least one item via Submit & next.
+
+**Expected:** Items move from pending to evaluated; progress totals update; no prompts/signed URLs in persisted corpus payloads.
+
+**Why human:** Requires live DB, owner session and real campaign data outside automated test scope.
+
+### Gaps Summary
+
+Phase 134 delivers a substantive live-corpus operations loop: real derivation selection (not fixtures), batch API contracts, privacy-safe persistence, fast reviewer UX, and campaign-dimensional queue progress (134-04 gap closure). Automated verification: 4/4 truths. Operator handoff for real data execution remains data-dependent (documented in `134-VALIDATION.md`); sampling sufficiency claims stay deferred to Phase 135.
+
+---
+
+_Verified: 2026-06-17T20:19:00Z_  
+_Verifier: Claude (gsd-verifier)_

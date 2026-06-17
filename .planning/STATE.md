@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v12.6
 milestone_name: Operacao Live do Corpus de Qualidade
 status: planning
-last_updated: "2026-06-17T20:08:53.655Z"
+last_updated: "2026-06-17T20:19:37.052Z"
 last_activity: 2026-06-17
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
+  total_plans: 4
+  completed_plans: 4
   percent: 100
 ---
 
@@ -32,7 +32,7 @@ Plan: 0/0 (ready to plan)
 Status: Ready to plan
 Last activity: 2026-06-17
 
-Progress: [███░░░░░░░] 25% — Phase 134 complete (3/3 plans); Phase 135 next.
+Progress: [███░░░░░░░] 25% — Phase 134 complete (4/4 plans); Phase 135 next.
 
 ## Accumulated Context
 
@@ -51,20 +51,22 @@ Progress: [███░░░░░░░] 25% — Phase 134 complete (3/3 plans
 - Add sampling and sufficiency rules so small datasets produce `insufficient_sample`, not optimistic claims.
 - Surface live quality, factuality and learning-impact trends for owner decisions.
 
-### Phase 134 (complete — 3/3 plans)
+### Phase 134 (complete — 4/4 plans)
 
 - Context: `.planning/phases/134-live-corpus-operations/134-CONTEXT.md`
 - Research: `.planning/phases/134-live-corpus-operations/134-RESEARCH.md`
 - Validation: `.planning/phases/134-live-corpus-operations/134-VALIDATION.md`
-- Verification: `.planning/phases/134-live-corpus-operations/134-VERIFICATION.md` (passed automated 2026-06-17; operator data pending)
+- Verification: `.planning/phases/134-live-corpus-operations/134-VERIFICATION.md` (passed automated 2026-06-17; operator data pending; LIVEQUAL-02 gap closed in 134-04)
 - Summaries:
   - `.planning/phases/134-live-corpus-operations/134-01-SUMMARY.md`
   - `.planning/phases/134-live-corpus-operations/134-02-SUMMARY.md`
   - `.planning/phases/134-live-corpus-operations/134-03-SUMMARY.md`
+  - `.planning/phases/134-live-corpus-operations/134-04-SUMMARY.md`
 - Plans:
   - `.planning/phases/134-live-corpus-operations/134-01-PLAN.md` — batch selection and queue progress contracts (LIVEQUAL-01, LIVEQUAL-02, LIVEQUAL-04) ✅
   - `.planning/phases/134-live-corpus-operations/134-02-PLAN.md` — operator review UX and fast evaluation loop (LIVEQUAL-02, LIVEQUAL-03, LIVEQUAL-04) ✅
   - `.planning/phases/134-live-corpus-operations/134-03-PLAN.md` — phase verification and operator handoff (LIVEQUAL-01..04) ✅
+  - `.planning/phases/134-live-corpus-operations/134-04-PLAN.md` — campaign-dimensional queue progress gap closure (LIVEQUAL-02) ✅
 
 ### Phase 135 (next — ready to plan)
 
@@ -162,6 +164,8 @@ Progress: [███░░░░░░░] 25% — Phase 134 complete (3/3 plans
 - [Phase 134]: Phase 135 is next for sampling sufficiency; do not mark SAMPLE/TREND/QALIVE complete in Phase 134
 - [Phase 134]: Automated verification green; real operator sample execution is data-dependent
 - [Phase 134]: Phase 135 is next for sampling sufficiency; do not mark SAMPLE/TREND/QALIVE complete in Phase 134
+- [Phase 134]: byCampaign queue progress uses campaignId UUID slice keys without campaigns table join
+- [Phase 134]: QueueProgressSummary uses lg:grid-cols-2 for four breakdown tables including By campaign
 
 ### Phase 132 (complete — 4/4 plans)
 
