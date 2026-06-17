@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v12.5
 milestone_name: Validacao Real de Qualidade e Calibracao do Loop Criativo
 status: executing
-last_updated: "2026-06-17T14:22:38.642Z"
+last_updated: "2026-06-17T14:27:20.572Z"
 last_activity: 2026-06-17
 progress:
   total_phases: 5
   completed_phases: 3
   total_plans: 15
-  completed_plans: 13
-  percent: 87
+  completed_plans: 14
+  percent: 93
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-06-17)
 ## Current Position
 
 Phase: 132 — Targeted Creative Quality Improvements
-Plan: 2/4 complete
+Plan: 3/4 complete
 Status: Executing
 Last activity: 2026-06-17
 
-Progress: Phase 132 in progress (2/4 plans); 13/15 v12.5 plans complete (87%).
+Progress: Phase 132 in progress (3/4 plans); 14/15 v12.5 plans complete (93%).
 
 ## Accumulated Context
 
@@ -112,12 +112,15 @@ Progress: Phase 132 in progress (2/4 plans); 13/15 v12.5 plans complete (87%).
 - [Phase 132]: Bump RUBRIC_CALIBRATION_VERSION to 1.1.0 signaling Phase 132 apply tranche
 - [Phase 132]: Applied only accepted visual_overload ceiling (-5) at v1.1.0; gate taxonomy unchanged without gate_classifier accepts
 - [Phase 132]: Corpus archetypes weak_hierarchy, illegible_cta, unfocused_composition added for deterministic re-eval arm
+- [Phase 132]: Default quality-improvement-evidence npm script uses --skip-tests; vitest subset runs when flag omitted
+- [Phase 132]: Phase 133 gate uses --run-regression for full v12.3/v12.4 script regression against live evidence
 
-### Phase 132 (in progress — 2/4 plans)
+### Phase 132 (in progress — 3/4 plans)
 
 - Summaries:
   - `.planning/phases/132-targeted-creative-quality-improvements/132-01-SUMMARY.md`
   - `.planning/phases/132-targeted-creative-quality-improvements/132-02-SUMMARY.md`
+  - `.planning/phases/132-targeted-creative-quality-improvements/132-03-SUMMARY.md`
 - Research: `.planning/phases/132-targeted-creative-quality-improvements/132-RESEARCH.md`
 - Validation: `.planning/phases/132-targeted-creative-quality-improvements/132-VALIDATION.md`
 - Plans:
@@ -152,4 +155,4 @@ Progress: Phase 132 in progress (2/4 plans); 13/15 v12.5 plans complete (87%).
 
 ## Next Steps
 
-Execute: Phase 132 plan 03 — v12.3/v12.4 regression guard wiring (132-03-PLAN.md)
+Execute: Phase 132 plan 04 — re-evaluation report + CLI + API + Quality tab (132-04-PLAN.md)
