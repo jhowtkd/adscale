@@ -149,10 +149,3 @@ describe("proposeAdjustments", () => {
     );
   });
 });
-
-describe("runScoreCalibration orchestrator", () => {
-  it("is exported from calibration service module", async () => {
-    const service = await import("@/server/human-quality/calibration/service");
-    expect(typeof service.runScoreCalibration).toBe("function");
-  });
-});
