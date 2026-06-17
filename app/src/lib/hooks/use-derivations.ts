@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/api-client";
+import type { OutputLearningApplicationSnapshot } from "@/server/human-quality/corpus";
 import {
   createLoadError,
   getLoadErrorKind,
@@ -125,12 +126,22 @@ function mergeDerivations(
 
 async function createDerivations(
   campaignId: string,
-  options?: { preview?: boolean }
+  options?: {
+    preview?: boolean;
+    outputLearningApplication?: OutputLearningApplicationSnapshot;
+  }
 ): Promise<Derivation[]> {
+  const body: {
+    preview: boolean;
+    outputLearningApplication?: OutputLearningApplicationSnapshot;
+  } = { preview: options?.preview ?? false };
+  if (options?.outputLearningApplication) {
+    body.outputLearningApplication = options.outputLearningApplication;
+  }
   const res = await apiFetch(`/api/campaigns/${campaignId}/derivations`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ preview: options?.preview ?? false }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -181,7 +192,10 @@ export function useDerivations(
 export function useCreateDerivations(campaignId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (options?: { preview?: boolean }) => createDerivations(campaignId, options),
+    mutationFn: (options?: {
+      preview?: boolean;
+      outputLearningApplication?: OutputLearningApplicationSnapshot;
+    }) => createDerivations(campaignId, options),
     onSuccess: (created) => {
       queryClient.setQueryData<Derivation[]>(["derivations", campaignId], (old) =>
         mergeDerivations(old, created)

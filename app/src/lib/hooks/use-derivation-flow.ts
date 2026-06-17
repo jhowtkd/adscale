@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import type { StrategyRecipePrefill } from "@/lib/hooks/use-strategy-recipe";
+import type { OutputLearningApplicationSnapshot } from "@/server/human-quality/corpus";
 
 /** @deprecated Used by art-variation suggestions only; derivation config lives in StrategyRecipePanel. */
 export type DerivationIntent =
@@ -16,6 +17,8 @@ export function useDerivationFlow() {
   const [recipePrefill, setRecipePrefill] = useState<StrategyRecipePrefill | null>(
     null
   );
+  const [pendingOutputLearningApplication, setPendingOutputLearningApplication] =
+    useState<OutputLearningApplicationSnapshot | null>(null);
 
   const openDerivePanel = useCallback((prefill?: StrategyRecipePrefill | null) => {
     setRecipePrefill(prefill ?? null);
@@ -26,12 +29,15 @@ export function useDerivationFlow() {
   const closeFlow = useCallback(() => {
     setIsOpen(false);
     setRecipePrefill(null);
+    setPendingOutputLearningApplication(null);
   }, []);
 
   return {
     isDerivePanelOpen: isOpen,
     derivePanelSession: sessionKey,
     recipePrefill,
+    pendingOutputLearningApplication,
+    setPendingOutputLearningApplication,
     openDerivePanel,
     closeFlow,
     /** @deprecated use isDerivePanelOpen */
