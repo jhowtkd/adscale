@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { validateFactualOnly } from "../../../scripts/check-creative-validation-evidence.mjs";
 import {
   assertQa24,
   HUMAN_VISUAL_TARGET,
@@ -49,6 +50,52 @@ function runQa24(evidence: Evidence): string[] {
   assertQa24(evidence, errors);
   return errors;
 }
+
+describe("creative-validation-evidence --factual-only", () => {
+  it("passes factual checks when meanQualityScore is below QA-19 threshold", () => {
+    const evidence = {
+      afterCaptures: [
+        {
+          key: "smoke:art_variation:1:1",
+          hardFailures: [],
+        },
+      ],
+    };
+    const errors: string[] = [];
+    const aggregate = validateFactualOnly(evidence, errors, {
+      fidelityHitsFn: () => [],
+      computeAggregateFn: () => ({
+        meanQualityScore: 70.17,
+        factualFidelityRate: 1,
+        fidelityPassCount: 1,
+        totalCount: 1,
+      }),
+    });
+
+    expect(errors).toEqual([]);
+    expect(aggregate?.meanQualityScore).toBe(70.17);
+    expect(aggregate?.factualFidelityRate).toBe(1);
+  });
+
+  it("fails factual-only when fidelity rate is below threshold", () => {
+    const errors: string[] = [];
+    validateFactualOnly(
+      { afterCaptures: [{ key: "k", hardFailures: [] }] },
+      errors,
+      {
+        fidelityHitsFn: () => [],
+        computeAggregateFn: () => ({
+          meanQualityScore: 80,
+          factualFidelityRate: 0.9,
+          fidelityPassCount: 9,
+          totalCount: 10,
+        }),
+      }
+    );
+
+    expect(errors.some((error) => error.includes("factualFidelityRate"))).toBe(true);
+  });
+});
 
 describe("real-quality-release-evidence QA-24", () => {
   it("Path A passes when meanHumanVisualScore >= target and factual rates are 1.0", () => {
