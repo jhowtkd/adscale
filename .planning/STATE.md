@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v12.5
 milestone_name: Validacao Real de Qualidade e Calibracao do Loop Criativo
-status: complete
-last_updated: "2026-06-17T14:39:49.019Z"
+status: planning
+last_updated: "2026-06-17T18:00:00.000Z"
 last_activity: 2026-06-17
 progress:
   total_phases: 5
   completed_phases: 4
-  total_plans: 15
+  total_plans: 19
   completed_plans: 15
-  percent: 100
+  percent: 79
 ---
 
 # Project State
@@ -23,16 +23,16 @@ See: .planning/PROJECT.md (updated 2026-06-17)
 
 **Current focus:** v12.5 — Validacao Real de Qualidade e Calibracao do Loop Criativo.
 
-**Status:** Ready to execute
+**Status:** Phase 133 planned — ready to execute
 
 ## Current Position
 
-Phase: 132 — Targeted Creative Quality Improvements
-Plan: 4/4 complete
-Status: Complete
+Phase: 133 — Real Quality Release Gate
+Plan: 0/4 planned
+Status: Planned
 Last activity: 2026-06-17
 
-Progress: Phase 132 complete (4/4 plans); 15/15 v12.5 plans complete (100%).
+Progress: Phase 133 planned (4 plans, 4 waves); Phases 129–132 complete (15/19 v12.5 plans, 79%).
 
 ## Accumulated Context
 
@@ -162,6 +162,16 @@ Progress: Phase 132 complete (4/4 plans); 15/15 v12.5 plans complete (100%).
 - [Phase 132]: Fixture before-arm pass rate uses baselineVerdict snapshot on targeted archetypes
 - [Phase 132]: QUALITY-04 checker rejects non-null deltas when insufficient_sample
 
+### Phase 133 (planned — 0/4 plans)
+
+- Research: `.planning/phases/133-real-quality-release-gate/133-RESEARCH.md`
+- Validation: `.planning/phases/133-real-quality-release-gate/133-VALIDATION.md`
+- Plans:
+  - `.planning/phases/133-real-quality-release-gate/133-01-PLAN.md` — milestone evidence schema + QA-23/24 checker
+  - `.planning/phases/133-real-quality-release-gate/133-02-PLAN.md` — QA-22 real-quality-release-gate orchestrator
+  - `.planning/phases/133-real-quality-release-gate/133-03-PLAN.md` — evidence aggregation + --run-regression / --factual-only
+  - `.planning/phases/133-real-quality-release-gate/133-04-PLAN.md` — v12.5 milestone audit + ROADMAP/STATE closure
+
 ## Next Steps
 
-Phase 132 complete. Proceed to Phase 133 release gate or milestone verification.
+Execute Phase 133: `/gsd-execute-phase 133`

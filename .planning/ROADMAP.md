@@ -146,13 +146,13 @@ Plans:
   2. Evidence separates quality metrics, factual metrics, learning-impact metrics and accepted caveats.
   3. Milestone passes only if factual pass rate remains 1.0 and quality crosses target or the smaller remaining gap is explicitly accepted.
 
-**Plans:** 0/4 plans complete
+**Plans:** 0/4 plans complete (planned 2026-06-17)
 
 Plans:
-- [ ] 133-01-PLAN.md — Milestone evidence schema + QA-23/24 checker
-- [ ] 133-02-PLAN.md — QA-22 real-quality-release-gate orchestrator
-- [ ] 133-03-PLAN.md — Evidence aggregation from 130/131/132 + --run-regression / --factual-only
-- [ ] 133-04-PLAN.md — v12.5 milestone audit + ROADMAP/STATE closure
+- [ ] 133-01-PLAN.md — Milestone evidence schema + QA-23/24 checker (QA-23, QA-24)
+- [ ] 133-02-PLAN.md — QA-22 real-quality-release-gate orchestrator (QA-22)
+- [ ] 133-03-PLAN.md — Evidence aggregation from 130/131/132 + --run-regression / --factual-only (QA-22, QA-23, QA-24)
+- [ ] 133-04-PLAN.md — v12.5 milestone audit + ROADMAP/STATE closure (QA-22–24)
 
 ---
 
