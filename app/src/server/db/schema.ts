@@ -1548,6 +1548,141 @@ export const outputDecisionEvents = adscaleSchema.table(
 export type OutputDecisionEvent = typeof outputDecisionEvents.$inferSelect;
 export type NewOutputDecisionEvent = typeof outputDecisionEvents.$inferInsert;
 
+export const humanQualityCorpusItems = adscaleSchema.table(
+  "human_quality_corpus_items",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    clientProfileId: uuid("client_profile_id")
+      .notNull()
+      .references(() => clientProfiles.id, { onDelete: "cascade" }),
+    campaignId: uuid("campaign_id")
+      .notNull()
+      .references(() => campaigns.id, { onDelete: "cascade" }),
+    derivationId: uuid("derivation_id")
+      .notNull()
+      .references(() => derivations.id, { onDelete: "cascade" }),
+    generationMode: text("generation_mode").notNull(),
+    format: text("format").notNull().default(""),
+    cohort: text("cohort").notNull().default("baseline"),
+    corpusVersion: integer("corpus_version").notNull().default(1),
+    artifactRef: jsonb("artifact_ref")
+      .$type<import("../human-quality/corpus").HumanQualityArtifactRef>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    qualitySnapshot: jsonb("quality_snapshot")
+      .$type<import("../human-quality/corpus").HumanQualityQualitySnapshot>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    selectedByUserId: text("selected_by_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    selectedAt: timestamp("selected_at", { mode: "date" }).notNull().defaultNow(),
+    status: text("status").notNull().default("pending"),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("human_quality_corpus_items_derivation_version_uq").on(
+      table.workspaceId,
+      table.derivationId,
+      table.corpusVersion
+    ),
+    index("human_quality_corpus_items_workspace_status_idx").on(
+      table.workspaceId,
+      table.status,
+      table.selectedAt
+    ),
+    index("human_quality_corpus_items_workspace_cohort_idx").on(
+      table.workspaceId,
+      table.cohort,
+      table.generationMode,
+      table.format
+    ),
+    index("human_quality_corpus_items_campaign_idx").on(
+      table.workspaceId,
+      table.campaignId,
+      table.selectedAt
+    ),
+    check(
+      "human_quality_corpus_items_cohort_check",
+      sql`${table.cohort} in ('baseline', 'pre_learning', 'post_learning')`
+    ),
+    check(
+      "human_quality_corpus_items_status_check",
+      sql`${table.status} in ('pending', 'evaluated', 'removed')`
+    ),
+  ]
+);
+
+export type HumanQualityCorpusItem = typeof humanQualityCorpusItems.$inferSelect;
+export type NewHumanQualityCorpusItem = typeof humanQualityCorpusItems.$inferInsert;
+
+export const humanQualityEvaluations = adscaleSchema.table(
+  "human_quality_evaluations",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    corpusItemId: uuid("corpus_item_id")
+      .notNull()
+      .references(() => humanQualityCorpusItems.id, { onDelete: "cascade" }),
+    reviewerUserId: text("reviewer_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    visualScore: integer("visual_score").notNull(),
+    factualPass: boolean("factual_pass").notNull(),
+    intent: text("intent").notNull(),
+    primaryFailureReason: text("primary_failure_reason").notNull(),
+    otherReasonText: text("other_reason_text"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("human_quality_evaluations_item_idx").on(
+      table.workspaceId,
+      table.corpusItemId,
+      table.createdAt
+    ),
+    index("human_quality_evaluations_reviewer_idx").on(
+      table.workspaceId,
+      table.reviewerUserId,
+      table.createdAt
+    ),
+    check(
+      "human_quality_evaluations_visual_score_check",
+      sql`${table.visualScore} >= 0 and ${table.visualScore} <= 100`
+    ),
+    check(
+      "human_quality_evaluations_intent_check",
+      sql`${table.intent} in ('approve', 'reject', 'regenerate')`
+    ),
+    check(
+      "human_quality_evaluations_failure_reason_check",
+      sql`${table.primaryFailureReason} in (
+        'visual_overload',
+        'weak_hierarchy',
+        'generic_template_feel',
+        'illegible_cta',
+        'unfocused_composition',
+        'factual_issue',
+        'format_or_crop_issue',
+        'other'
+      )`
+    ),
+  ]
+);
+
+export type HumanQualityEvaluation = typeof humanQualityEvaluations.$inferSelect;
+export type NewHumanQualityEvaluation = typeof humanQualityEvaluations.$inferInsert;
+
 export const workspaceProgression = adscaleSchema.table(
   "workspace_progression",
   {
