@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v12.5
 milestone_name: Validacao Real de Qualidade e Calibracao do Loop Criativo
-status: executing
-last_updated: "2026-06-17T16:49:35.050Z"
+status: milestone_complete
+last_updated: "2026-06-17T16:53:14.103Z"
 last_activity: 2026-06-17
 progress:
   total_phases: 5
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 19
-  completed_plans: 18
-  percent: 95
+  completed_plans: 19
+  percent: 100
 ---
 
 # Project State
@@ -21,18 +21,18 @@ See: .planning/PROJECT.md (updated 2026-06-17)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** v12.5 — Validacao Real de Qualidade e Calibracao do Loop Criativo.
+**Current focus:** v12.5 shipped — Validacao Real de Qualidade e Calibracao do Loop Criativo.
 
-**Status:** Phase 133 in progress — Plan 03 complete
+**Status:** v12.5 milestone complete — Phase 133 plan 04 complete (2026-06-17)
 
 ## Current Position
 
 Phase: 133 — Real Quality Release Gate
-Plan: 3/4 complete
-Status: In Progress
+Plan: 4/4 complete
+Status: Complete
 Last activity: 2026-06-17
 
-Progress: Phase 133 plan 03 complete (3/4); v12.5 milestone 18/19 plans (95%).
+Progress: v12.5 milestone shipped — 19/19 plans (100%).
 
 ## Accumulated Context
 
@@ -122,6 +122,8 @@ Progress: Phase 133 plan 03 complete (3/4); v12.5 milestone 18/19 plans (95%).
 - [Phase 133]: QA-22 orchestrator runs 14 sequential steps; sub-checkers use --skip-tests; --run-regression deferred to 133-03
 - [Phase 133]: 131 evidence aggregation falls back to 131-EVIDENCE.template.json when JSON absent
 - [Phase 133]: Milestone full regression: cd app && npm run real-quality-release-gate -- --run-regression after --aggregate
+- [Phase 133]: QA-24 Path B accepted_gap visual_quality_gap (currentValue 72, gapToTarget 3 < prior 4.83) — live human corpus refresh deferred operator action
+- [Phase 133]: v12.5 milestone audit at .planning/milestones/v12.5-MILESTONE-AUDIT.md; shipped 2026-06-17
 
 ### Phase 132 (complete — 4/4 plans)
 
@@ -167,14 +169,17 @@ Progress: Phase 133 plan 03 complete (3/4); v12.5 milestone 18/19 plans (95%).
 - [Phase 132]: Fixture before-arm pass rate uses baselineVerdict snapshot on targeted archetypes
 - [Phase 132]: QUALITY-04 checker rejects non-null deltas when insufficient_sample
 
-### Phase 133 (in progress — 3/4 plans)
+### Phase 133 (complete — 4/4 plans)
 
 - Summaries:
   - `.planning/phases/133-real-quality-release-gate/133-01-SUMMARY.md`
   - `.planning/phases/133-real-quality-release-gate/133-02-SUMMARY.md`
   - `.planning/phases/133-real-quality-release-gate/133-03-SUMMARY.md`
+  - `.planning/phases/133-real-quality-release-gate/133-04-SUMMARY.md`
 - Research: `.planning/phases/133-real-quality-release-gate/133-RESEARCH.md`
 - Validation: `.planning/phases/133-real-quality-release-gate/133-VALIDATION.md`
+- Verification: `.planning/phases/133-real-quality-release-gate/133-VERIFICATION.md` (passed 2026-06-17)
+- Milestone audit: `.planning/milestones/v12.5-MILESTONE-AUDIT.md`
 - Plans:
   - `.planning/phases/133-real-quality-release-gate/133-01-PLAN.md` — milestone evidence schema + QA-23/24 checker
   - `.planning/phases/133-real-quality-release-gate/133-02-PLAN.md` — QA-22 real-quality-release-gate orchestrator
@@ -183,4 +188,4 @@ Progress: Phase 133 plan 03 complete (3/4); v12.5 milestone 18/19 plans (95%).
 
 ## Next Steps
 
-Execute Phase 133 Plan 04: v12.5 milestone audit + ROADMAP/STATE closure
+v12.5 milestone complete. Deferred operator action: refresh live human corpus evidence when DATABASE_URL available (130/131/132 CLIs → `--aggregate`). Plan next milestone or maintenance via `/gsd-new-milestone`.
