@@ -1703,6 +1703,11 @@ export const rubricCalibrationAdjustments = adscaleSchema.table(
       .notNull()
       .default(sql`'{}'::jsonb`),
     proposedAt: timestamp("proposed_at", { mode: "date" }).notNull().defaultNow(),
+    acceptedAt: timestamp("accepted_at", { mode: "date" }),
+    acceptedBy: text("accepted_by").references(() => user.id, { onDelete: "set null" }),
+    changeSpec: jsonb("change_spec")
+      .$type<import("../human-quality/improvement/types").QualityImprovementChangeSpec>()
+      .default(sql`NULL`),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
   },
   (table) => [
