@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 
 import { proposeAdjustments } from "@/server/human-quality/calibration/adjustments";
 import { buildCompositeSliceKey } from "@/server/human-quality/calibration/aggregate";
@@ -147,5 +147,120 @@ describe("proposeAdjustments", () => {
         buildCompositeSliceKey("weak_hierarchy", "restyling", "9:16"),
       ].sort()
     );
+  });
+});
+
+describe("runScoreCalibration orchestrator", () => {
+  it("produces complete CalibrationReport with persisted proposed adjustments", async () => {
+    vi.resetModules();
+
+    const evaluatedRows = Array.from({ length: 5 }, (_, index) => ({
+      item: {
+        id: `item-${index + 1}`,
+        workspaceId: "ws-1",
+        derivationId: `deriv-${index + 1}`,
+        generationMode: "art_variation",
+        format: "1:1",
+        cohort: "baseline",
+        status: "evaluated",
+        qualitySnapshot: { qualityScore: 80, qualityVerdict: "pass", hardFailures: [] },
+      },
+      evaluation: {
+        id: `eval-${index + 1}`,
+        corpusItemId: `item-${index + 1}`,
+        visualScore: 62,
+        factualPass: true,
+        primaryFailureReason: "visual_overload",
+      },
+    }));
+
+    vi.doMock("@/server/repositories/human-quality-corpus", () => ({
+      listEvaluatedCorpusWithEvaluations: vi
+        .fn()
+        .mockResolvedValue(evaluatedRows),
+    }));
+
+    vi.doMock("@/server/repositories/rubric-calibration-adjustments", () => ({
+      findProposedAdjustmentBySlice: vi.fn().mockResolvedValue(null),
+      insertProposedAdjustment: vi.fn().mockImplementation(async (input) => ({
+        id: "adj-new",
+        status: "proposed",
+        ...input,
+        proposedAt: new Date("2026-06-17"),
+        createdAt: new Date("2026-06-17"),
+      })),
+      listProposedAdjustments: vi.fn(),
+    }));
+
+    const { runScoreCalibration } = await import(
+      "@/server/human-quality/calibration/service"
+    );
+    const adjustmentsRepo = await import(
+      "@/server/repositories/rubric-calibration-adjustments"
+    );
+
+    const result = await runScoreCalibration({
+      workspaceId: "ws-1",
+      capturedAt: "2026-06-17T12:00:00.000Z",
+    });
+
+    expect(result.report.schemaVersion).toBe(1);
+    expect(result.report.status).toBe("ok");
+    expect(result.report.evaluatedItemCount).toBe(5);
+    expect(result.report.adjustments.length).toBeGreaterThan(0);
+    expect(result.persistedAdjustments.length).toBeGreaterThan(0);
+    expect(adjustmentsRepo.insertProposedAdjustment).toHaveBeenCalled();
+  });
+
+  it("skips persistence when identical proposal already exists for slice and version", async () => {
+    vi.resetModules();
+
+    const evaluatedRows = Array.from({ length: 5 }, (_, index) => ({
+      item: {
+        id: `item-${index + 1}`,
+        workspaceId: "ws-1",
+        derivationId: `deriv-${index + 1}`,
+        generationMode: "art_variation",
+        format: "1:1",
+        cohort: "baseline",
+        status: "evaluated",
+        qualitySnapshot: { qualityScore: 80, qualityVerdict: "pass", hardFailures: [] },
+      },
+      evaluation: {
+        id: `eval-${index + 1}`,
+        corpusItemId: `item-${index + 1}`,
+        visualScore: 62,
+        factualPass: true,
+        primaryFailureReason: "visual_overload",
+      },
+    }));
+
+    vi.doMock("@/server/repositories/human-quality-corpus", () => ({
+      listEvaluatedCorpusWithEvaluations: vi
+        .fn()
+        .mockResolvedValue(evaluatedRows),
+    }));
+
+    vi.doMock("@/server/repositories/rubric-calibration-adjustments", () => ({
+      findProposedAdjustmentBySlice: vi.fn().mockResolvedValue({
+        id: "adj-existing",
+        status: "proposed",
+      }),
+      insertProposedAdjustment: vi.fn(),
+      listProposedAdjustments: vi.fn(),
+    }));
+
+    const { runScoreCalibration } = await import(
+      "@/server/human-quality/calibration/service"
+    );
+    const adjustmentsRepo = await import(
+      "@/server/repositories/rubric-calibration-adjustments"
+    );
+
+    const result = await runScoreCalibration({ workspaceId: "ws-1" });
+
+    expect(result.report.adjustments.length).toBeGreaterThan(0);
+    expect(result.persistedAdjustments).toEqual([]);
+    expect(adjustmentsRepo.insertProposedAdjustment).not.toHaveBeenCalled();
   });
 });
