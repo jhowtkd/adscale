@@ -32,7 +32,7 @@ Transformar o learning loop de v12.4 em evidencia real de qualidade percebida. A
 
 ### Learning Impact (IMPACT)
 
-- [ ] **IMPACT-01**: System can measure whether v12.4 output-learning recommendation/prefill was applied for a generated sample.
+- [x] **IMPACT-01**: System can measure whether v12.4 output-learning recommendation/prefill was applied for a generated sample.
 - [ ] **IMPACT-02**: Evaluation separates learned outputs from non-learned comparable outputs by client, mode and format.
 - [ ] **IMPACT-03**: Impact report measures rejection/regeneration intent, human visual score movement and factual pass rate.
 - [ ] **IMPACT-04**: If evidence is insufficient, report returns an honest insufficient-sample state instead of claiming improvement.
@@ -84,7 +84,7 @@ Transformar o learning loop de v12.4 em evidencia real de qualidade percebida. A
 | CALIB-02 | Phase 130 | Complete |
 | CALIB-03 | Phase 130 | Complete |
 | CALIB-04 | Phase 130 | Complete |
-| IMPACT-01 | Phase 131 | Pending |
+| IMPACT-01 | Phase 131 | Complete |
 | IMPACT-02 | Phase 131 | Pending |
 | IMPACT-03 | Phase 131 | Pending |
 | IMPACT-04 | Phase 131 | Pending |

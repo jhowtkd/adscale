@@ -2,14 +2,15 @@
 gsd_state_version: 1.0
 milestone: v12.5
 milestone_name: Validacao Real de Qualidade e Calibracao do Loop Criativo
-status: ready_to_execute
-last_updated: "2026-06-17T12:00:00.000Z"
+status: executing
+last_updated: "2026-06-17T12:57:43.745Z"
 last_activity: 2026-06-17
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 11
-  completed_plans: 7
+  completed_plans: 8
+  percent: 73
 ---
 
 # Project State
@@ -22,13 +23,13 @@ See: .planning/PROJECT.md (updated 2026-06-17)
 
 **Current focus:** v12.5 — Validacao Real de Qualidade e Calibracao do Loop Criativo.
 
-**Status:** Ready to execute Phase 131
+**Status:** Ready to execute
 
 ## Current Position
 
 Phase: 131 — Learning Impact Measurement
-Plan: 0 of 04
-Status: Planned — ready for execution
+Plan: 1 of 04
+Status: Ready to execute
 Last activity: 2026-06-17
 
 Progress: 2/5 v12.5 phases complete; Phase 131 planned (4 plans, 4 waves).
@@ -98,6 +99,8 @@ Progress: 2/5 v12.5 phases complete; Phase 131 planned (4 plans, 4 waves).
 - [Phase 130-score-calibration-and-rubric-alignment]: factual_issue slices target gate_classifier only — no score_ceiling auto-proposals
 - [Phase 130]: Panel hides only when both queue and calibration APIs return 403
 - [Phase 130]: API caps visual comparisons at 100 with truncated flag for DoS mitigation
+- [Phase 131]: Store output-learning attribution on derivations jsonb; legacy null resolves to not_recorded
+- [Phase 131]: Batch derivations POST applies identical outputLearningApplication snapshot to every job
 
 ### Phase 130 (complete — 4/4 plans)
 
