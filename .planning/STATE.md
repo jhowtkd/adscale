@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v12.4
 milestone_name: Aprendizado de Qualidade dos Outputs
-status: defining_requirements
-last_updated: "2026-06-16T19:00:00.000Z"
+status: context_ready
+last_updated: "2026-06-16T19:20:00.000Z"
 last_activity: 2026-06-16
 progress:
   total_phases: 40
@@ -20,18 +20,18 @@ See: .planning/PROJECT.md (updated 2026-06-16)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** Defining v12.4 requirements and roadmap.
+**Current focus:** Phase 124 context captured; ready to plan output signal capture.
 
-**Status:** v12.4 milestone started
+**Status:** Phase 124 context ready
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 124 — Output Signal Capture
 Plan: —
-Status: Defining requirements
+Status: Context gathered
 Last activity: 2026-06-16
 
-Progress: Milestone opened from accepted v12.3 quality gap; research, requirements, and roadmap drafted for next execution cycle
+Progress: 124-CONTEXT.md captured decisions for canonical append-only output evidence; ready for phase planning
 
 ## Accumulated Context
 
@@ -68,7 +68,7 @@ Progress: Milestone opened from accepted v12.3 quality gap; research, requiremen
 
 ## Session Continuity
 
-Last activity: 2026-06-16 — Started v12.4 from accepted v12.3 quality gap
+Last activity: 2026-06-16 — Captured Phase 124 context in `.planning/phases/124-output-signal-capture/124-CONTEXT.md`
 
 ## Decisions
 
@@ -113,4 +113,4 @@ Last activity: 2026-06-16 — Started v12.4 from accepted v12.3 quality gap
 
 ## Next Steps
 
-Proceed to Phase 124 planning. The next cycle should turn human output decisions into canonical learnings, then apply them before generation without regressing v12.3 factual guarantees.
+Proceed to Phase 124 planning. The planner should start from `.planning/phases/124-output-signal-capture/124-CONTEXT.md` and keep scope limited to canonical signal capture.
