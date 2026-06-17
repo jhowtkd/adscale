@@ -40,10 +40,10 @@ Transformar decisões humanas reais sobre outputs em aprendizados duráveis e ex
 
 ### Safety and Boundaries (SAFE)
 
-- [ ] **SAFE-01**: Learnings aplicados nunca sobrepõem as regras factuais e contratos canônicos vindos de v12.3.
-- [ ] **SAFE-02**: Retrieval relevance não é tratado como aprovação; apenas learnings canônicos aprovados podem influenciar a geração.
-- [ ] **SAFE-03**: A aplicação de learnings é auditável por payload, log ou resposta de API com identificadores de evidência.
-- [ ] **SAFE-04**: Learnings podem capturar padrões negativos ("evitar") além de positivos ("preferir"), sem autoaprovação.
+- [x] **SAFE-01**: Learnings aplicados nunca sobrepõem as regras factuais e contratos canônicos vindos de v12.3.
+- [x] **SAFE-02**: Retrieval relevance não é tratado como aprovação; apenas learnings canônicos aprovados podem influenciar a geração.
+- [x] **SAFE-03**: A aplicação de learnings é auditável por payload, log ou resposta de API com identificadores de evidência.
+- [x] **SAFE-04**: Learnings podem capturar padrões negativos ("evitar") além de positivos ("preferir"), sem autoaprovação.
 
 ### Evaluation and Regression (EVAL)
 
@@ -91,10 +91,10 @@ Transformar decisões humanas reais sobre outputs em aprendizados duráveis e ex
 | APPLY-02 | Phase 126 | Complete |
 | APPLY-03 | Phase 126 | Complete |
 | APPLY-04 | Phase 126 | Complete |
-| SAFE-01 | Phase 127 | Pending |
-| SAFE-02 | Phase 127 | Pending |
-| SAFE-03 | Phase 127 | Pending |
-| SAFE-04 | Phase 127 | Pending |
+| SAFE-01 | Phase 127 | Complete |
+| SAFE-02 | Phase 127 | Complete |
+| SAFE-03 | Phase 127 | Complete |
+| SAFE-04 | Phase 127 | Complete |
 | EVAL-01 | Phase 128 | Pending |
 | EVAL-02 | Phase 128 | Pending |
 | EVAL-03 | Phase 128 | Pending |

@@ -33,7 +33,7 @@
 - [x] **Phase 124: Output Signal Capture** — normalizar aprovação, rejeição, regeneração, save-reference e delivery selection como evidência canônica (completed 2026-06-16)
 - [x] **Phase 125: Canonical Output Learnings** — agregar evidências em learnings aprovados/supersedidos com confiança, contradição e projeção para Mem0 (completed 2026-06-16)
 - [x] **Phase 126: Next-Generation Recommendation Application** — recuperar learnings relevantes e aplicá-los como recommendation/prefill antes da geração (completed 2026-06-16)
-- [ ] **Phase 127: Safety, Boundaries, and Explainability** — garantir que learnings não sobreponham contratos factuais, nem virem prompt drift opaco
+- [x] **Phase 127: Safety, Boundaries, and Explainability** — garantir que learnings não sobreponham contratos factuais, nem virem prompt drift opaco (completed 2026-06-16)
 - [ ] **Phase 128: Evaluation and Release Gate** — provar melhora de qualidade percebida sem regressão factual
 
 | # | Phase | Requirements | Status | Completed |
@@ -41,7 +41,7 @@
 | 124 | Output Signal Capture | SIGNAL-01, SIGNAL-02, SIGNAL-03, SIGNAL-04 | Complete | 2026-06-16 |
 | 125 | Canonical Output Learnings | LEARN-01, LEARN-02, LEARN-03, LEARN-04, LEARN-05 | Complete | 2026-06-16 |
 | 126 | Next-Generation Recommendation Application | APPLY-01, APPLY-02, APPLY-03, APPLY-04 | Complete | 2026-06-16 |
-| 127 | Safety, Boundaries, and Explainability | SAFE-01, SAFE-02, SAFE-03, SAFE-04 | Pending | — |
+| 127 | Safety, Boundaries, and Explainability | SAFE-01, SAFE-02, SAFE-03, SAFE-04 | Complete | 2026-06-16 |
 | 128 | Evaluation and Release Gate | EVAL-01, EVAL-02, EVAL-03, EVAL-04 | Pending | — |
 
 ## Phase Details
@@ -119,7 +119,12 @@ Plans:
   3. Applied learnings are inspectable through API payloads, logs, or structured traces.
   4. Negative patterns ("avoid this") are supported without auto-approval behavior.
 
-**Plans:** 0/0 plans complete
+**Plans:** 3/3 plans complete
+
+Plans:
+- [x] 127-01-PLAN.md — Safety guards and Postgres-approved filter (SAFE-01, SAFE-02, SAFE-04)
+- [x] 127-02-PLAN.md — Wire guards + appliedLearningTrace into service (SAFE-01–03)
+- [x] 127-03-PLAN.md — Audit trace in accept events + verification (SAFE-03–04)
 
 ---
 

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v12.4
 milestone_name: Aprendizado de Qualidade dos Outputs
 status: completed
-last_updated: "2026-06-17T00:37:01.371Z"
+last_updated: "2026-06-17T00:45:00.000Z"
 last_activity: 2026-06-16
 progress:
   total_phases: 5
-  completed_phases: 3
-  total_plans: 9
-  completed_plans: 6
-  percent: 67
+  completed_phases: 4
+  total_plans: 12
+  completed_plans: 7
+  percent: 80
 ---
 
 # Project State
@@ -21,20 +21,27 @@ See: .planning/PROJECT.md (updated 2026-06-16)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** Phase 127 — Safety, Boundaries, and Explainability.
+**Current focus:** Phase 128 — Evaluation and Release Gate.
 
-**Status:** Phase 126 complete; ready for Phase 127
+**Status:** Phase 127 complete; ready for Phase 128
 
 ## Current Position
 
-Phase: 127 — Safety, Boundaries, and Explainability
+Phase: 128 — Evaluation and Release Gate
 Plan: —
 Status: Ready for discuss/plan
 Last activity: 2026-06-16
 
-Progress: Phase 126 shipped — output learning recommendations with bounded prefill before generation
+Progress: Phase 127 shipped — safety guards and appliedLearningTrace on output recommendations
 
 ## Accumulated Context
+
+### Phase 127 (shipped 2026-06-16)
+
+- `guardOutputLearningPrefill` blocks factual-contract conflicts (restyling/format, readiness caps)
+- `filterApprovedPostgresLearnings` — Mem0 relevance never authorizes prefill (SAFE-02)
+- `appliedLearningTrace` on recommendation API with evidence event IDs and blocked fields
+- avoid_pattern entries in trace always `applied: false`
 
 ### Phase 126 (shipped 2026-06-16)
 
@@ -63,7 +70,7 @@ Progress: Phase 126 shipped — output learning recommendations with bounded pre
 
 ## Session Continuity
 
-Last activity: 2026-06-16 — Phase 126 executed autonomously (plans 01–03)
+Last activity: 2026-06-16 — Phase 127 executed autonomously (plans 01–03)
 
 ## Decisions
 
@@ -75,7 +82,10 @@ Last activity: 2026-06-16 — Phase 126 executed autonomously (plans 01–03)
 - [Phase 125]: Mem0 projects only approved output learnings (memoryType output_learning)
 - [Phase 126]: avoid_pattern surfaced as hints only — never in prefill or prompt
 - [Phase 126]: Primary prefill from prefer-direction bounded keys with scope filtering
+- [Phase 127]: Postgres-approved filter before ranking — Mem0 relevance never authorizes prefill
+- [Phase 127]: Prefill guards block restyling/format conflicts and cap aggressive creative on identity-sensitive modes
+- [Phase 127]: appliedLearningTrace on API payload with evidence event IDs for audit
 
 ## Next Steps
 
-Proceed to Phase 127: safety guards and explainability for applied output learnings.
+Proceed to Phase 128: evaluation and release gate for v12.4 milestone.
