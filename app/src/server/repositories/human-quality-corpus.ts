@@ -14,6 +14,9 @@ import type {
 import {
   sanitizeCorpusPayloads,
 } from "../human-quality/corpus";
+import type { EvaluatedCorpusRow } from "../human-quality/calibration/types";
+
+export type { EvaluatedCorpusRow };
 
 export interface InsertCorpusItemInput
   extends Omit<
@@ -51,6 +54,14 @@ export interface SubmitCorpusEvaluationResult {
   item: HumanQualityCorpusItem;
   evaluation: HumanQualityEvaluation;
 }
+
+export interface ListEvaluatedCorpusWithEvaluationsFilters {
+  workspaceId?: string;
+  cohort?: string;
+  limit?: number;
+}
+
+const DEFAULT_EVALUATED_CORPUS_LIMIT = 500;
 
 /** Create a pending corpus item with sanitized bounded payloads. */
 export async function insertCorpusItem(
@@ -126,6 +137,35 @@ export async function listPendingCorpusItems(
     )
     .orderBy(desc(humanQualityCorpusItems.selectedAt))
     .limit(filters.limit ?? 50);
+}
+
+/** Join evaluated corpus items with their human evaluations for calibration rollup. */
+export async function listEvaluatedCorpusWithEvaluations(
+  filters: ListEvaluatedCorpusWithEvaluationsFilters = {}
+): Promise<EvaluatedCorpusRow[]> {
+  const conditions = [eq(humanQualityCorpusItems.status, "evaluated")];
+
+  if (filters.workspaceId) {
+    conditions.push(eq(humanQualityCorpusItems.workspaceId, filters.workspaceId));
+  }
+
+  if (filters.cohort) {
+    conditions.push(eq(humanQualityCorpusItems.cohort, filters.cohort));
+  }
+
+  return db
+    .select({
+      item: humanQualityCorpusItems,
+      evaluation: humanQualityEvaluations,
+    })
+    .from(humanQualityCorpusItems)
+    .innerJoin(
+      humanQualityEvaluations,
+      eq(humanQualityEvaluations.corpusItemId, humanQualityCorpusItems.id)
+    )
+    .where(and(...conditions))
+    .orderBy(desc(humanQualityCorpusItems.selectedAt))
+    .limit(filters.limit ?? DEFAULT_EVALUATED_CORPUS_LIMIT);
 }
 
 export async function submitCorpusEvaluation(
