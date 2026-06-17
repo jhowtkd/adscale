@@ -34,6 +34,71 @@ type CorpusQueueItem = {
   previewImageUrl?: string | null;
 };
 
+type ImpactSliceComparison = {
+  sliceKey: string;
+  learned: {
+    count: number;
+    meanVisualScore: number | null;
+    rejectIntentRate: number | null;
+    regenerateIntentRate: number | null;
+    factualPassRate: number | null;
+  };
+  nonLearned: {
+    count: number;
+    meanVisualScore: number | null;
+    rejectIntentRate: number | null;
+    regenerateIntentRate: number | null;
+    factualPassRate: number | null;
+  };
+  visualScoreDelta: number | null;
+  comparability: "ok" | "insufficient";
+};
+
+type ImpactReportResponse = {
+  schemaVersion: 1;
+  learningImpactVersion: string;
+  capturedAt: string;
+  status: "ok" | "insufficient_sample";
+  evaluatedItemCount: number;
+  insufficientReasons: string[];
+  truncated?: boolean;
+  totalRowCount?: number;
+  learningImpactMetrics: {
+    learnedCount: number;
+    nonLearnedCount: number;
+    unlabeledCount: number;
+    slices: ImpactSliceComparison[];
+    globalVisualScoreDelta: number | null;
+  };
+  intentMetrics: {
+    learned: { rejectRate: number | null; regenerateRate: number | null };
+    nonLearned: { rejectRate: number | null; regenerateRate: number | null };
+  };
+  visualMovementMetrics: {
+    learnedMeanVisualScore: number | null;
+    nonLearnedMeanVisualScore: number | null;
+    deltaLearnedMinusNonLearned: number | null;
+    cohortMovement?: {
+      preLearningMean: number | null;
+      postLearningMean: number | null;
+      deltaPostMinusPre: number | null;
+    };
+  };
+  factualMetrics: {
+    learnedFactualPassRate: number | null;
+    nonLearnedFactualPassRate: number | null;
+  };
+  rows: Array<{
+    corpusItemId: string;
+    learningApplied: boolean;
+    visualScore: number;
+    factualPass: boolean;
+    intent: string;
+    generationMode: string;
+    format: string;
+  }>;
+};
+
 type CalibrationReportResponse = {
   schemaVersion: 1;
   rubricCalibrationVersion: string;
@@ -81,6 +146,7 @@ const INTENT_LABELS: Record<HumanQualityIntent, string> = {
 const PANEL_TABS = [
   { id: "queue", label: "Queue" },
   { id: "calibration", label: "Calibration" },
+  { id: "impact", label: "Impact" },
 ] as const;
 
 type PanelTab = (typeof PANEL_TABS)[number]["id"];
@@ -106,6 +172,24 @@ async function fetchCalibrationReport(
   if (!res.ok) throw new Error("failed");
   const payload = (await res.json()) as { report: CalibrationReportResponse };
   return payload.report;
+}
+
+async function fetchLearningImpactReport(
+  workspaceId: string,
+  cohort: HumanQualityCorpusCohort | ""
+): Promise<ImpactReportResponse | null> {
+  const params = new URLSearchParams({ workspaceId });
+  if (cohort) params.set("cohort", cohort);
+  const res = await apiFetch(`/api/feedback/learning-impact?${params.toString()}`);
+  if (res.status === 403) return null;
+  if (!res.ok) throw new Error("failed");
+  const payload = (await res.json()) as { report: ImpactReportResponse };
+  return payload.report;
+}
+
+function formatRate(value: number | null): string {
+  if (value == null) return "—";
+  return `${(value * 100).toFixed(0)}%`;
 }
 
 function MetadataRow({ label, value }: { label: string; value: string }) {
@@ -169,6 +253,217 @@ function SliceTable({
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+function ImpactReportView({
+  report,
+  isLoading,
+  isError,
+}: {
+  report: ImpactReportResponse | null | undefined;
+  isLoading: boolean;
+  isError: boolean;
+}) {
+  if (isLoading) {
+    return <p className="text-sm text-[var(--text-muted)]">Loading learning impact report…</p>;
+  }
+
+  if (isError || report == null) {
+    return (
+      <p className="text-sm text-[var(--text-muted)]">
+        Learning impact report unavailable for this workspace.
+      </p>
+    );
+  }
+
+  const insufficient = report.status === "insufficient_sample";
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h3 className="text-sm font-semibold text-[var(--text-primary)]">Learning impact report</h3>
+        <p className="text-xs text-[var(--text-secondary)]">
+          Compares learned vs non-learned arms per client×mode×format slice.
+        </p>
+      </div>
+
+      <dl className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <MetadataRow label="Status" value={report.status} />
+        <MetadataRow label="Evaluated items" value={String(report.evaluatedItemCount)} />
+        <MetadataRow
+          label="Learned arm"
+          value={String(report.learningImpactMetrics.learnedCount)}
+        />
+        <MetadataRow
+          label="Non-learned arm"
+          value={String(report.learningImpactMetrics.nonLearnedCount)}
+        />
+        <MetadataRow
+          label="Unlabeled"
+          value={String(report.learningImpactMetrics.unlabeledCount)}
+        />
+      </dl>
+
+      {insufficient ? (
+        <div className="space-y-2">
+          <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100/90">
+            Sample size is insufficient to claim learning impact improvement. Movement deltas are
+            withheld until comparability gates pass (≥5 evaluated items globally and ≥3 per arm per
+            slice). Current count: {report.evaluatedItemCount}.
+          </p>
+          {report.insufficientReasons.length > 0 ? (
+            <ul className="list-inside list-disc text-xs text-[var(--text-muted)]">
+              {report.insufficientReasons.map((reason) => (
+                <li key={reason}>{reason}</li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : (
+        <p className="text-xs text-[var(--text-secondary)]">
+          Global visual delta (comparable slices):{" "}
+          {formatSignedDelta(report.learningImpactMetrics.globalVisualScoreDelta)}
+        </p>
+      )}
+
+      {report.learningImpactMetrics.slices.length > 0 ? (
+        <div className="space-y-2">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+            Slice comparisons
+          </h4>
+          <div className="overflow-x-auto rounded-md border border-[var(--border-dim)]">
+            <table className="min-w-full text-xs">
+              <thead className="bg-[var(--surface-base)] text-[var(--text-muted)]">
+                <tr>
+                  <th className="px-2 py-1.5 text-left font-medium">Slice</th>
+                  <th className="px-2 py-1.5 text-right font-medium">Learned n</th>
+                  <th className="px-2 py-1.5 text-right font-medium">Non-learned n</th>
+                  <th className="px-2 py-1.5 text-right font-medium">Visual Δ</th>
+                  <th className="px-2 py-1.5 text-left font-medium">Comparability</th>
+                </tr>
+              </thead>
+              <tbody>
+                {report.learningImpactMetrics.slices.map((slice) => (
+                  <tr key={slice.sliceKey} className="border-t border-[var(--border-dim)]">
+                    <td className="px-2 py-1.5 font-mono text-[10px]">{slice.sliceKey}</td>
+                    <td className="px-2 py-1.5 text-right">{slice.learned.count}</td>
+                    <td className="px-2 py-1.5 text-right">{slice.nonLearned.count}</td>
+                    <td className="px-2 py-1.5 text-right">
+                      {formatSignedDelta(slice.visualScoreDelta)}
+                    </td>
+                    <td className="px-2 py-1.5">{slice.comparability}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="space-y-2 rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] p-4">
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+          Intent metrics (per arm)
+        </h4>
+        <dl className="space-y-1.5">
+          <MetadataRow
+            label="Learned reject rate"
+            value={formatRate(report.intentMetrics.learned.rejectRate)}
+          />
+          <MetadataRow
+            label="Learned regenerate rate"
+            value={formatRate(report.intentMetrics.learned.regenerateRate)}
+          />
+          <MetadataRow
+            label="Non-learned reject rate"
+            value={formatRate(report.intentMetrics.nonLearned.rejectRate)}
+          />
+          <MetadataRow
+            label="Non-learned regenerate rate"
+            value={formatRate(report.intentMetrics.nonLearned.regenerateRate)}
+          />
+        </dl>
+      </div>
+
+      <div className="space-y-2 rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] p-4">
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+          Visual movement metrics
+        </h4>
+        <dl className="space-y-1.5">
+          <MetadataRow
+            label="Learned mean visual"
+            value={formatNullableNumber(report.visualMovementMetrics.learnedMeanVisualScore, 1)}
+          />
+          <MetadataRow
+            label="Non-learned mean visual"
+            value={formatNullableNumber(report.visualMovementMetrics.nonLearnedMeanVisualScore, 1)}
+          />
+          <MetadataRow
+            label="Δ learned − non-learned"
+            value={formatSignedDelta(report.visualMovementMetrics.deltaLearnedMinusNonLearned)}
+          />
+        </dl>
+      </div>
+
+      <div className="space-y-2 rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] p-4">
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+          Factual metrics (per arm)
+        </h4>
+        <dl className="space-y-1.5">
+          <MetadataRow
+            label="Learned factual pass rate"
+            value={formatRate(report.factualMetrics.learnedFactualPassRate)}
+          />
+          <MetadataRow
+            label="Non-learned factual pass rate"
+            value={formatRate(report.factualMetrics.nonLearnedFactualPassRate)}
+          />
+        </dl>
+      </div>
+
+      {report.rows.length > 0 ? (
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+              Evaluated rows
+            </h4>
+            {report.truncated ? (
+              <span className="text-[11px] text-[var(--text-muted)]">
+                Showing {report.rows.length} of {report.totalRowCount ?? report.rows.length}
+              </span>
+            ) : null}
+          </div>
+          <div className="overflow-x-auto rounded-md border border-[var(--border-dim)]">
+            <table className="min-w-full text-xs">
+              <thead className="bg-[var(--surface-base)] text-[var(--text-muted)]">
+                <tr>
+                  <th className="px-2 py-1.5 text-left font-medium">Item</th>
+                  <th className="px-2 py-1.5 text-left font-medium">Learning</th>
+                  <th className="px-2 py-1.5 text-right font-medium">Visual</th>
+                  <th className="px-2 py-1.5 text-left font-medium">Intent</th>
+                  <th className="px-2 py-1.5 text-left font-medium">Factual</th>
+                </tr>
+              </thead>
+              <tbody>
+                {report.rows.map((row) => (
+                  <tr key={row.corpusItemId} className="border-t border-[var(--border-dim)]">
+                    <td className="px-2 py-1.5 font-mono text-[10px]">
+                      {row.corpusItemId.slice(0, 8)}…
+                    </td>
+                    <td className="px-2 py-1.5">
+                      {row.learningApplied ? "learned" : "non-learned"}
+                    </td>
+                    <td className="px-2 py-1.5 text-right">{row.visualScore}</td>
+                    <td className="px-2 py-1.5">{row.intent}</td>
+                    <td className="px-2 py-1.5">{row.factualPass ? "pass" : "fail"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -362,6 +657,13 @@ export function HumanQualityCorpusPanel() {
     retry: false,
   });
 
+  const impactQuery = useQuery({
+    queryKey: ["learning-impact", workspaceId, cohortFilter],
+    queryFn: () => fetchLearningImpactReport(workspaceId, cohortFilter),
+    enabled: Boolean(workspaceId),
+    retry: false,
+  });
+
   const currentItem = queueQuery.data?.[0] ?? null;
 
   const resetForm = () => {
@@ -425,6 +727,9 @@ export function HumanQualityCorpusPanel() {
       void queryClient.invalidateQueries({
         queryKey: ["score-calibration", workspaceId, cohortFilter],
       });
+      void queryClient.invalidateQueries({
+        queryKey: ["learning-impact", workspaceId, cohortFilter],
+      });
     },
     onError: (error: Error) => {
       setSubmitError(error.message);
@@ -446,13 +751,16 @@ export function HumanQualityCorpusPanel() {
 
   const queueForbidden = queueQuery.isFetched && queueQuery.data === null;
   const calibrationForbidden = calibrationQuery.isFetched && calibrationQuery.data === null;
+  const impactForbidden = impactQuery.isFetched && impactQuery.data === null;
 
   if (
     workspaceId &&
     queueQuery.isFetched &&
     calibrationQuery.isFetched &&
+    impactQuery.isFetched &&
     queueForbidden &&
-    calibrationForbidden
+    calibrationForbidden &&
+    impactForbidden
   ) {
     return null;
   }
@@ -466,7 +774,7 @@ export function HumanQualityCorpusPanel() {
           Human quality corpus
         </h2>
         <p className="text-sm text-[var(--text-secondary)]">
-          Internal evaluation queue and read-only score calibration audit against human judgments.
+          Internal evaluation queue, score calibration audit, and learning impact measurement.
         </p>
       </div>
 
@@ -497,7 +805,7 @@ export function HumanQualityCorpusPanel() {
             ariaLabel="Human quality corpus views"
           />
 
-          {activeTab === "calibration" ? (
+          {activeTab === "calibration" || activeTab === "impact" ? (
             <div className="space-y-3 pt-2">
               <label className="grid max-w-xs gap-1 text-xs">
                 <span className="font-medium text-[var(--text-primary)]">Cohort filter</span>
@@ -517,11 +825,19 @@ export function HumanQualityCorpusPanel() {
                   ))}
                 </select>
               </label>
-              <CalibrationTabContent
-                report={calibrationQuery.data}
-                isLoading={calibrationQuery.isLoading}
-                isError={calibrationQuery.isError}
-              />
+              {activeTab === "calibration" ? (
+                <CalibrationTabContent
+                  report={calibrationQuery.data}
+                  isLoading={calibrationQuery.isLoading}
+                  isError={calibrationQuery.isError}
+                />
+              ) : (
+                <ImpactReportView
+                  report={impactQuery.data}
+                  isLoading={impactQuery.isLoading}
+                  isError={impactQuery.isError}
+                />
+              )}
             </div>
           ) : queueForbidden ? (
             <p className="text-sm text-[var(--text-muted)]">

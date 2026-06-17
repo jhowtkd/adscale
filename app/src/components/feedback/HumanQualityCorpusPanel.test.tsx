@@ -130,7 +130,7 @@ function renderPanel() {
 
 function mockQueueOnly() {
   mockApiFetch.mockImplementation(async (url: string, init?: RequestInit) => {
-    if (url.includes("score-calibration")) {
+    if (url.includes("score-calibration") || url.includes("learning-impact")) {
       return { ok: false, status: 403 } as Response;
     }
     if (url.includes("human-quality-corpus") && !init?.method) {
@@ -143,6 +143,68 @@ function mockQueueOnly() {
     return { ok: false, status: 500 } as Response;
   });
 }
+
+const impactReport = {
+  schemaVersion: 1,
+  learningImpactVersion: "1.0.0",
+  capturedAt: "2026-06-17T12:00:00.000Z",
+  status: "ok" as const,
+  evaluatedItemCount: 6,
+  insufficientReasons: [] as string[],
+  truncated: false,
+  totalRowCount: 1,
+  learningImpactMetrics: {
+    learnedCount: 3,
+    nonLearnedCount: 3,
+    unlabeledCount: 0,
+    slices: [
+      {
+        sliceKey: "550e8400-e29b-41d4-a716-446655440010|art_variation|1:1",
+        learned: {
+          count: 3,
+          meanVisualScore: 82,
+          rejectIntentRate: 0,
+          regenerateIntentRate: 0.33,
+          factualPassRate: 1,
+        },
+        nonLearned: {
+          count: 3,
+          meanVisualScore: 68,
+          rejectIntentRate: 0.33,
+          regenerateIntentRate: 0,
+          factualPassRate: 0.67,
+        },
+        visualScoreDelta: 14,
+        comparability: "ok" as const,
+      },
+    ],
+    globalVisualScoreDelta: 14,
+  },
+  intentMetrics: {
+    learned: { rejectRate: 0, regenerateRate: 0.33 },
+    nonLearned: { rejectRate: 0.33, regenerateRate: 0 },
+  },
+  visualMovementMetrics: {
+    learnedMeanVisualScore: 82,
+    nonLearnedMeanVisualScore: 68,
+    deltaLearnedMinusNonLearned: 14,
+  },
+  factualMetrics: {
+    learnedFactualPassRate: 1,
+    nonLearnedFactualPassRate: 0.67,
+  },
+  rows: [
+    {
+      corpusItemId: ITEM_ID,
+      learningApplied: true,
+      visualScore: 85,
+      factualPass: true,
+      intent: "approve",
+      generationMode: "art_variation",
+      format: "1:1",
+    },
+  ],
+};
 
 describe("HumanQualityCorpusPanel", () => {
   beforeEach(() => {
@@ -185,7 +247,7 @@ describe("HumanQualityCorpusPanel", () => {
 
   it("submits structured evaluation and advances queue", async () => {
     mockApiFetch.mockImplementation(async (url: string, init?: RequestInit) => {
-      if (url.includes("score-calibration")) {
+      if (url.includes("score-calibration") || url.includes("learning-impact")) {
         return { ok: false, status: 403 } as Response;
       }
       if (url.includes("human-quality-corpus") && !init?.method) {
@@ -257,6 +319,9 @@ describe("HumanQualityCorpusPanel calibration tab", () => {
           }),
         } as Response;
       }
+      if (url.includes("learning-impact")) {
+        return { ok: false, status: 403 } as Response;
+      }
       if (url.includes("human-quality-corpus") && !init?.method) {
         return {
           ok: true,
@@ -309,6 +374,9 @@ describe("HumanQualityCorpusPanel calibration tab", () => {
           }),
         } as Response;
       }
+      if (url.includes("learning-impact")) {
+        return { ok: false, status: 403 } as Response;
+      }
       if (url.includes("human-quality-corpus")) {
         return { ok: false, status: 403 } as Response;
       }
@@ -327,5 +395,104 @@ describe("HumanQualityCorpusPanel calibration tab", () => {
       await screen.findByText(/At least 5 evaluated corpus items are required/)
     ).toBeInTheDocument();
     expect(screen.getByText("insufficient_corpus")).toBeInTheDocument();
+  });
+});
+
+describe("HumanQualityCorpusPanel impact tab", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("shows separated intent, visual, and factual metric sections", async () => {
+    mockApiFetch.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url.includes("learning-impact")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ report: impactReport }),
+        } as Response;
+      }
+      if (url.includes("score-calibration")) {
+        return { ok: false, status: 403 } as Response;
+      }
+      if (url.includes("human-quality-corpus") && !init?.method) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ items: [pendingItem] }),
+        } as Response;
+      }
+      return { ok: false, status: 500 } as Response;
+    });
+
+    renderPanel();
+    fireEvent.change(screen.getByLabelText("Workspace ID"), {
+      target: { value: WORKSPACE_ID },
+    });
+
+    await screen.findByText("Human quality corpus");
+    fireEvent.click(screen.getByRole("button", { name: "Impact" }));
+
+    expect(await screen.findByText("Learning impact report")).toBeInTheDocument();
+    expect(screen.getByText("Intent metrics (per arm)")).toBeInTheDocument();
+    expect(screen.getByText("Visual movement metrics")).toBeInTheDocument();
+    expect(screen.getByText("Factual metrics (per arm)")).toBeInTheDocument();
+    expect(screen.getAllByText("+14.00").length).toBeGreaterThan(0);
+    expect(screen.getByText("Learned arm")).toBeInTheDocument();
+    expect(screen.getByText("Non-learned arm")).toBeInTheDocument();
+    expect(screen.getByText("learned")).toBeInTheDocument();
+    expect(screen.getAllByText("33%").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("67%").length).toBeGreaterThan(0);
+  });
+
+  it("shows honest insufficient_sample messaging without positive delta headline", async () => {
+    mockApiFetch.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url.includes("learning-impact")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            report: {
+              ...impactReport,
+              status: "insufficient_sample",
+              evaluatedItemCount: 2,
+              insufficientReasons: ["global_below_minimum"],
+              learningImpactMetrics: {
+                ...impactReport.learningImpactMetrics,
+                globalVisualScoreDelta: null,
+                slices: [],
+              },
+              visualMovementMetrics: {
+                ...impactReport.visualMovementMetrics,
+                deltaLearnedMinusNonLearned: null,
+              },
+              rows: [],
+            },
+          }),
+        } as Response;
+      }
+      if (url.includes("score-calibration")) {
+        return { ok: false, status: 403 } as Response;
+      }
+      if (url.includes("human-quality-corpus") && !init?.method) {
+        return { ok: false, status: 403 } as Response;
+      }
+      return { ok: false, status: 500 } as Response;
+    });
+
+    renderPanel();
+    fireEvent.change(screen.getByLabelText("Workspace ID"), {
+      target: { value: WORKSPACE_ID },
+    });
+
+    await screen.findByText("Human quality corpus");
+    fireEvent.click(screen.getByRole("button", { name: "Impact" }));
+
+    expect(
+      await screen.findByText(/insufficient to claim learning impact improvement/)
+    ).toBeInTheDocument();
+    expect(screen.getByText("insufficient_sample")).toBeInTheDocument();
+    expect(screen.getByText("global_below_minimum")).toBeInTheDocument();
+    expect(screen.queryByText("Global visual delta (comparable slices):")).not.toBeInTheDocument();
   });
 });
