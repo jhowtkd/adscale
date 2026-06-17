@@ -8,6 +8,8 @@ import { buildRestylingFactualSourceRuleSection } from "./prompt-builder";
 import type { CreativeQaCheckStatus } from "./creative-qa";
 import type { FeedbackCategory } from "../repositories/feedback";
 import { QA_CRITERION_DISPLAY_ORDER } from "./creative-quality-taxonomy";
+import { resolveGateTargets } from "../human-quality/calibration/failure-bridge";
+import type { HumanQualityFailureReason } from "../human-quality/corpus";
 
 const MAX_PROMPT_FEEDBACK_CHARS = 1800;
 
@@ -36,7 +38,31 @@ export const FAILURE_CORRECTION_DIRECTIVES: Partial<
     "Restore the contract CTA exactly (or inherited CTA from base for restyling/format).",
   generic_template_aesthetic:
     "Remove generic neon/glass/template stacks unless required by brand; simplify to campaign-specific design.",
+  unreadable_required_text:
+    "Restore hook and CTA legibility at thumbnail scale; increase contrast and size for required text.",
 };
+
+/** Accepted human failure reasons → gate correction directives (Phase 132 evidence-bound). */
+// 132-adjustment:634f9104-c080-4dda-82c1-4b1298b6a072
+export const HUMAN_FAILURE_CORRECTION_DIRECTIVES: Partial<
+  Record<HumanQualityFailureReason, string>
+> = {
+  visual_overload: FAILURE_CORRECTION_DIRECTIVES.visual_overload,
+};
+
+export function getHumanFailureCorrectionDirectives(
+  reason: HumanQualityFailureReason
+): string[] {
+  const gateCodes = resolveGateTargets(reason);
+  const directives = gateCodes
+    .map((code) => FAILURE_CORRECTION_DIRECTIVES[code as CreativeHardFailureCode])
+    .filter((directive): directive is string => Boolean(directive));
+  const humanDirective = HUMAN_FAILURE_CORRECTION_DIRECTIVES[reason];
+  if (humanDirective && !directives.includes(humanDirective)) {
+    directives.unshift(humanDirective);
+  }
+  return [...new Set(directives)];
+}
 
 export function getFailureCorrectionDirectives(codes: string[]): string[] {
   const seen = new Set<string>();
