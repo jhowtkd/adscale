@@ -44,6 +44,8 @@ const pendingItem = {
   previewImageUrl: "https://cdn.example.com/preview.png",
 };
 
+const CAMPAIGN_ID_2 = "550e8400-e29b-41d4-a716-446655440011";
+
 const queueProgress = {
   workspaceId: WORKSPACE_ID,
   totalPending: 3,
@@ -58,6 +60,10 @@ const queueProgress = {
   },
   byFormat: {
     "1:1": { pending: 3, evaluated: 12 },
+  },
+  byCampaign: {
+    [CAMPAIGN_ID]: { pending: 2, evaluated: 5 },
+    [CAMPAIGN_ID_2]: { pending: 1, evaluated: 7 },
   },
   latestSelectedAt: "2026-06-17T10:00:00.000Z",
   latestEvaluatedAt: "2026-06-17T11:00:00.000Z",
@@ -275,7 +281,9 @@ describe("HumanQualityCorpusPanel", () => {
     expect(screen.getByText("72")).toBeInTheDocument();
     expect(screen.getByText("improvable")).toBeInTheDocument();
     expect(screen.getByText("By cohort")).toBeInTheDocument();
+    expect(screen.getByText("By campaign")).toBeInTheDocument();
     expect(screen.getByText("By mode")).toBeInTheDocument();
+    expect(screen.getByText(CAMPAIGN_ID)).toBeInTheDocument();
     expect(screen.getByText("post_learning")).toBeInTheDocument();
     expect(screen.getByLabelText("Visual score (0–100)")).toBeInTheDocument();
     expect(screen.getByLabelText("Factual pass")).toBeInTheDocument();
@@ -458,7 +466,7 @@ describe("HumanQualityCorpusPanel", () => {
           ok: true,
           status: 200,
           json: async () =>
-            queueJson([], { ...queueProgress, totalPending: 0, byCohort: {}, byGenerationMode: {}, byFormat: {} }),
+            queueJson([], { ...queueProgress, totalPending: 0, byCohort: {}, byGenerationMode: {}, byFormat: {}, byCampaign: {} }),
         } as Response;
       }
       return { ok: false, status: 500 } as Response;

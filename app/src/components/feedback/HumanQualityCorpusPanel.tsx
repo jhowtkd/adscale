@@ -46,6 +46,7 @@ type CorpusQueueProgress = {
   byCohort: Record<string, CorpusStatusCount>;
   byGenerationMode: Record<string, CorpusStatusCount>;
   byFormat: Record<string, CorpusStatusCount>;
+  byCampaign: Record<string, CorpusStatusCount>;
   latestSelectedAt: string | null;
   latestEvaluatedAt: string | null;
 };
@@ -371,8 +372,9 @@ function QueueProgressSummary({
         />
       </dl>
 
-      <div className="grid gap-3 lg:grid-cols-3">
+      <div className="grid gap-3 lg:grid-cols-2">
         <ProgressBreakdownTable title="By cohort" slices={progress.byCohort} />
+        <ProgressBreakdownTable title="By campaign" slices={progress.byCampaign} />
         <ProgressBreakdownTable title="By mode" slices={progress.byGenerationMode} />
         <ProgressBreakdownTable title="By format" slices={progress.byFormat} />
       </div>
