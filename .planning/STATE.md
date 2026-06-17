@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v12.5
 milestone_name: Validacao Real de Qualidade e Calibracao do Loop Criativo
-status: defining requirements
-last_updated: "2026-06-17T07:55:00.000Z"
+status: context_ready
+last_updated: "2026-06-17T08:15:00.000Z"
 last_activity: 2026-06-17
 progress:
   total_phases: 5
@@ -23,14 +23,14 @@ See: .planning/PROJECT.md (updated 2026-06-17)
 
 **Current focus:** v12.5 — Validacao Real de Qualidade e Calibracao do Loop Criativo.
 
-**Status:** v12.5 initialized; ready to discuss Phase 129.
+**Status:** Phase 129 context ready.
 
 ## Current Position
 
 Phase: 129 — Live Human Quality Corpus
 Plan: —
-Status: Not started
-Last activity: 2026-06-17 — v12.5 milestone initialized after v12.4 archive
+Status: Context gathered
+Last activity: 2026-06-17 — Phase 129 context captured
 
 Progress: 0/5 phases complete; 19/19 requirements mapped to roadmap.
 
@@ -42,6 +42,14 @@ Progress: 0/5 phases complete; 19/19 requirements mapped to roadmap.
 - Calibrate automatic scoring against human judgment while keeping factual metrics separate.
 - Measure whether v12.4 output-learning recommendation/prefill improves comparable real samples.
 - Attack proven visual-quality failures: overload, weak hierarchy, generic template feel, illegible CTA and unfocused composition.
+
+### Phase 129 (context ready)
+
+- Context file: `.planning/phases/129-live-human-quality-corpus/129-CONTEXT.md`
+- Corpus inclusion is explicit/manual, not automatic.
+- Evaluation happens in an owner/feedback/internal queue, one item at a time.
+- First reviewer role is admin/technical, not workspace members or external reviewers.
+- Human form: visual score 0-100, factual pass/fail, approve/reject/regenerate intent, closed primary visible failure reason plus other.
 
 ### From v12.4
 
@@ -65,4 +73,4 @@ Progress: 0/5 phases complete; 19/19 requirements mapped to roadmap.
 
 ## Next Steps
 
-Run `$gsd-discuss-phase 129` to clarify corpus shape, reviewer workflow, data model and validation strategy.
+Run `$gsd-plan-phase 129` to plan the Live Human Quality Corpus implementation.
