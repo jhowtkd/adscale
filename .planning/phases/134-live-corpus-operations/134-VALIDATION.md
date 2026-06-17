@@ -1,7 +1,7 @@
 ---
 phase: 134
 slug: live-corpus-operations
-status: draft
+status: complete
 nyquist_compliant: true
 wave_0_complete: true
 created: 2026-06-17
@@ -38,14 +38,14 @@ created: 2026-06-17
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 134-01-01 | 01 | 1 | LIVEQUAL-01 | unit/API | `cd app && npm test -- tests/unit/human-quality app/src/app/api/feedback/human-quality-corpus` | ✅ | ⬜ pending |
-| 134-01-02 | 01 | 1 | LIVEQUAL-02 | unit/API | `cd app && npm test -- tests/unit/human-quality app/src/app/api/feedback/human-quality-corpus` | ✅ | ⬜ pending |
-| 134-01-03 | 01 | 1 | LIVEQUAL-04 | unit/API | `cd app && npm test -- tests/unit/human-quality app/src/app/api/feedback/human-quality-corpus` | ✅ | ⬜ pending |
-| 134-02-01 | 02 | 2 | LIVEQUAL-02 | component | `cd app && npm test -- app/src/components/feedback/HumanQualityCorpusPanel.test.tsx` | ✅ | ⬜ pending |
-| 134-02-02 | 02 | 2 | LIVEQUAL-03 | component | `cd app && npm test -- app/src/components/feedback/HumanQualityCorpusPanel.test.tsx` | ✅ | ⬜ pending |
-| 134-02-03 | 02 | 2 | LIVEQUAL-04 | component/API | `cd app && npm test -- app/src/components/feedback/HumanQualityCorpusPanel.test.tsx app/src/app/api/feedback/human-quality-corpus` | ✅ | ⬜ pending |
-| 134-03-01 | 03 | 3 | LIVEQUAL-01..04 | regression | `cd app && npm test -- tests/unit/human-quality app/src/app/api/feedback/human-quality-corpus app/src/components/feedback/HumanQualityCorpusPanel.test.tsx` | ✅ | ⬜ pending |
-| 134-03-02 | 03 | 3 | LIVEQUAL-01..04 | build | `cd app && npm run build` | ✅ | ⬜ pending |
+| 134-01-01 | 01 | 1 | LIVEQUAL-01 | unit/API | `cd app && npm test -- tests/unit/human-quality app/src/app/api/feedback/human-quality-corpus` | ✅ | ✅ green |
+| 134-01-02 | 01 | 1 | LIVEQUAL-02 | unit/API | `cd app && npm test -- tests/unit/human-quality app/src/app/api/feedback/human-quality-corpus` | ✅ | ✅ green |
+| 134-01-03 | 01 | 1 | LIVEQUAL-04 | unit/API | `cd app && npm test -- tests/unit/human-quality app/src/app/api/feedback/human-quality-corpus` | ✅ | ✅ green |
+| 134-02-01 | 02 | 2 | LIVEQUAL-02 | component | `cd app && npm test -- app/src/components/feedback/HumanQualityCorpusPanel.test.tsx` | ✅ | ✅ green |
+| 134-02-02 | 02 | 2 | LIVEQUAL-03 | component | `cd app && npm test -- app/src/components/feedback/HumanQualityCorpusPanel.test.tsx` | ✅ | ✅ green |
+| 134-02-03 | 02 | 2 | LIVEQUAL-04 | component/API | `cd app && npm test -- app/src/components/feedback/HumanQualityCorpusPanel.test.tsx app/src/app/api/feedback/human-quality-corpus` | ✅ | ✅ green |
+| 134-03-01 | 03 | 3 | LIVEQUAL-01..04 | regression | `cd app && npm test -- tests/unit/human-quality app/src/app/api/feedback/human-quality-corpus app/src/components/feedback/HumanQualityCorpusPanel.test.tsx` | ✅ | ✅ green |
+| 134-03-02 | 03 | 3 | LIVEQUAL-01..04 | build | `cd app && npm run build` | ✅ | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
