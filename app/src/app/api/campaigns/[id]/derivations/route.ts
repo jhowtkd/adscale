@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { logger } from "@/lib/logger";
+import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { eq, and, sql } from "drizzle-orm";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
@@ -27,8 +28,18 @@ import {
   derivationHasRegenerationPreview,
   resolveContractForDerivationRow,
 } from "@/server/ai/regeneration-correction-brief";
+import {
+  outputLearningApplicationSchema,
+  sanitizeOutputLearningApplication,
+} from "@/server/human-quality/application-schema";
 
 const STALE_ACTIVE_DERIVATION_MINUTES = 10;
+
+const postBodySchema = z.object({
+  preview: z.boolean().optional(),
+  styleAssetId: z.string().min(1).optional(),
+  outputLearningApplication: outputLearningApplicationSchema.optional(),
+});
 
 function logRouteError(context: string, error: unknown) {
   const details =
@@ -62,11 +73,23 @@ export async function POST(
 
     let isPreview = false;
     let requestedStyleAssetId: string | null = null;
+    let outputLearningApplication: ReturnType<
+      typeof sanitizeOutputLearningApplication
+    > | null = null;
     try {
-      const body = await request.json();
-      isPreview = body.preview === true;
-      if (typeof body.styleAssetId === "string" && body.styleAssetId.length > 0) {
-        requestedStyleAssetId = body.styleAssetId;
+      const rawBody = await request.json();
+      const parsedBody = postBodySchema.safeParse(rawBody);
+      if (!parsedBody.success) {
+        return apiError("invalidRequestBody", 400, parsedBody.error.flatten());
+      }
+      isPreview = parsedBody.data.preview === true;
+      if (parsedBody.data.styleAssetId) {
+        requestedStyleAssetId = parsedBody.data.styleAssetId;
+      }
+      if (parsedBody.data.outputLearningApplication) {
+        outputLearningApplication = sanitizeOutputLearningApplication(
+          parsedBody.data.outputLearningApplication
+        );
       }
     } catch {
       // No body or invalid JSON, treat as non-preview
@@ -192,6 +215,7 @@ export async function POST(
           ctaText: job.ctaText ?? undefined,
           format: job.format,
           isPreview,
+          outputLearningApplication,
           ...(generationMode === "restyling" &&
             requestedStyleAssetId && { styleAssetId: requestedStyleAssetId }),
         });

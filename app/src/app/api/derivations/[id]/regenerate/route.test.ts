@@ -349,4 +349,80 @@ describe("POST /api/derivations/[id]/regenerate", () => {
       { status: "generating" }
     );
   });
+
+  it("inherits parent outputLearningApplication on child when body omits override", async () => {
+    const parentApplication = {
+      schemaVersion: 1 as const,
+      applied: true,
+      resolution: "recorded" as const,
+      traceId: "ol-parent-trace",
+      recommendationId: "rec-parent",
+      primaryVariableKey: "cta_tone",
+      algorithmVersion: "1.0.0",
+      safetyVersion: "1.0.0",
+      learningsSource: "postgres" as const,
+    };
+    mockGetDerivationById.mockResolvedValue({
+      id: "source-id",
+      campaignId: "campaign-id",
+      workspaceId: "workspace-1",
+      status: "completed",
+      hardFailures: [{ code: "cta_drift", message: "CTA missing" }],
+      generationMode: "art_variation",
+      ctaText: "Shop now",
+      format: "1:1",
+      creativeContract: parentContract,
+      outputLearningApplication: parentApplication,
+    } as Awaited<ReturnType<typeof getDerivationById>>);
+
+    await POST(requestWith({}), { params: paramsWith("source-id") });
+
+    expect(mockCreateDerivation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        outputLearningApplication: parentApplication,
+      })
+    );
+  });
+
+  it("overrides parent outputLearningApplication when body includes snapshot", async () => {
+    const parentApplication = {
+      schemaVersion: 1 as const,
+      applied: true,
+      resolution: "recorded" as const,
+      traceId: "ol-parent-trace",
+      recommendationId: "rec-parent",
+      primaryVariableKey: "cta_tone",
+      algorithmVersion: "1.0.0",
+      safetyVersion: "1.0.0",
+      learningsSource: "postgres" as const,
+    };
+    const overrideApplication = {
+      ...parentApplication,
+      traceId: "ol-override-trace",
+      recommendationId: "rec-override",
+    };
+    mockGetDerivationById.mockResolvedValue({
+      id: "source-id",
+      campaignId: "campaign-id",
+      workspaceId: "workspace-1",
+      status: "completed",
+      hardFailures: [{ code: "cta_drift", message: "CTA missing" }],
+      generationMode: "art_variation",
+      ctaText: "Shop now",
+      format: "1:1",
+      creativeContract: parentContract,
+      outputLearningApplication: parentApplication,
+    } as Awaited<ReturnType<typeof getDerivationById>>);
+
+    await POST(
+      requestWith({ outputLearningApplication: overrideApplication }),
+      { params: paramsWith("source-id") }
+    );
+
+    expect(mockCreateDerivation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        outputLearningApplication: overrideApplication,
+      })
+    );
+  });
 });

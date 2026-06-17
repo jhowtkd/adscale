@@ -646,6 +646,9 @@ export const derivations = adscaleSchema.table(
     generationLog: jsonb("generation_log").$type<
       import("../ai/generation-log").DerivationGenerationLog
     >(),
+    outputLearningApplication: jsonb("output_learning_application").$type<
+      import("../human-quality/corpus").OutputLearningApplicationSnapshot
+    >(),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
   },

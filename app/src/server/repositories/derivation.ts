@@ -6,6 +6,7 @@ import type {
 import type { DerivationGenerationLog } from "../ai/generation-log";
 import type { CreativeContract, PromptProvenance } from "../ai/creative-contract";
 import type { RegenerationCorrectionBriefRecord } from "../ai/regeneration-correction-brief";
+import type { OutputLearningApplicationSnapshot } from "../human-quality/corpus";
 import { db } from "../db";
 import { derivations } from "../db/schema";
 
@@ -51,6 +52,7 @@ export interface CreateDerivationInput {
   isPreview?: boolean;
   creativeContract?: CreativeContract;
   regenerationCorrectionBrief?: RegenerationCorrectionBriefRecord;
+  outputLearningApplication?: OutputLearningApplicationSnapshot | null;
 }
 
 export async function createDerivation(data: CreateDerivationInput) {
@@ -71,6 +73,7 @@ export async function createDerivation(data: CreateDerivationInput) {
       isPreview: data.isPreview ?? false,
       creativeContract: data.creativeContract ?? null,
       regenerationCorrectionBrief: data.regenerationCorrectionBrief ?? null,
+      outputLearningApplication: data.outputLearningApplication ?? null,
     })
     .returning();
   return result[0];

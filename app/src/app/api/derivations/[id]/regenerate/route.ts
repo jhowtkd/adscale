@@ -25,6 +25,11 @@ import type { CreativeHardFailure } from "@/server/ai/creative-quality-gate";
 import { recordCampaignMemoryEntry } from "@/server/memory/campaign-memory-context";
 import { recordOutputDecisionEvidenceBestEffort } from "@/server/output-learning/output-decision-recorder";
 import { extractRegenerationReason } from "@/server/output-learning/output-decision-reasons";
+import {
+  outputLearningApplicationSchema,
+  sanitizeOutputLearningApplication,
+} from "@/server/human-quality/application-schema";
+import type { OutputLearningApplicationSnapshot } from "@/server/human-quality/corpus";
 
 function parseHardFailures(value: unknown): CreativeHardFailure[] {
   if (!Array.isArray(value)) return [];
@@ -131,6 +136,7 @@ async function resolveRegenerationBrief(
 
 const bodySchema = z.object({
   feedback: z.string().trim().max(2000).optional(),
+  outputLearningApplication: outputLearningApplicationSchema.optional(),
 });
 
 export async function POST(
@@ -184,6 +190,15 @@ export async function POST(
         }
       : undefined;
 
+    let outputLearningApplication: OutputLearningApplicationSnapshot | null =
+      (original.outputLearningApplication as OutputLearningApplicationSnapshot | null) ??
+      null;
+    if (parsed.data.outputLearningApplication) {
+      outputLearningApplication = sanitizeOutputLearningApplication(
+        parsed.data.outputLearningApplication
+      );
+    }
+
     const newDerivation = await createDerivation({
       campaignId: original.campaignId,
       workspaceId: workspace.id,
@@ -197,6 +212,7 @@ export async function POST(
       format: original.format ?? undefined,
       creativeContract: parentContract ?? undefined,
       regenerationCorrectionBrief,
+      outputLearningApplication,
     });
 
     try {
