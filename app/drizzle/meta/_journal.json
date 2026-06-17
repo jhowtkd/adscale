@@ -306,12 +306,26 @@
     {
       "idx": 43,
       "version": "7",
+      "when": 1781731200000,
+      "tag": "0043_human_quality_corpus",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1781764800000,
+      "tag": "0044_rubric_calibration_adjustments",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
       "when": 1781784000000,
       "tag": "0045_derivation_output_learning_application",
       "breakpoints": true
     },
     {
-      "idx": 44,
+      "idx": 46,
       "version": "7",
       "when": 1781870400000,
       "tag": "0046_rubric_calibration_accept_metadata",
