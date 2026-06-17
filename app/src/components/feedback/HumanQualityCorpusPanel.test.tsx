@@ -44,6 +44,36 @@ const pendingItem = {
   previewImageUrl: "https://cdn.example.com/preview.png",
 };
 
+const queueProgress = {
+  workspaceId: WORKSPACE_ID,
+  totalPending: 3,
+  totalEvaluated: 12,
+  byCohort: {
+    baseline: { pending: 2, evaluated: 8 },
+    post_learning: { pending: 1, evaluated: 4 },
+  },
+  byGenerationMode: {
+    art_variation: { pending: 2, evaluated: 10 },
+    restyling: { pending: 1, evaluated: 2 },
+  },
+  byFormat: {
+    "1:1": { pending: 3, evaluated: 12 },
+  },
+  latestSelectedAt: "2026-06-17T10:00:00.000Z",
+  latestEvaluatedAt: "2026-06-17T11:00:00.000Z",
+};
+
+const secondPendingItem = {
+  ...pendingItem,
+  id: "550e8400-e29b-41d4-a716-446655440099",
+  derivationId: "550e8400-e29b-41d4-a716-446655440098",
+  generationMode: "restyling",
+};
+
+function queueJson(items: typeof pendingItem[], progress = queueProgress) {
+  return { items, progress };
+}
+
 const calibrationReport = {
   schemaVersion: 1,
   rubricCalibrationVersion: "1.0.0",
@@ -141,7 +171,7 @@ function mockQueueOnly() {
       return {
         ok: true,
         status: 200,
-        json: async () => ({ items: [pendingItem] }),
+        json: async () => queueJson([pendingItem]),
       } as Response;
     }
     return { ok: false, status: 500 } as Response;
@@ -237,28 +267,39 @@ describe("HumanQualityCorpusPanel", () => {
     });
 
     expect(await screen.findByText("Human quality corpus")).toBeInTheDocument();
-    expect(await screen.findByText("1 pending")).toBeInTheDocument();
-    expect(screen.getByText(/baseline/)).toBeInTheDocument();
-    expect(screen.getByText(/v1/)).toBeInTheDocument();
+    expect(await screen.findByLabelText("Queue progress")).toBeInTheDocument();
+    expect(screen.getByText("3 pending · 12 evaluated")).toBeInTheDocument();
+    expect(screen.getByText(/Reviewing 1 of 1 loaded pending/)).toBeInTheDocument();
+    expect(screen.getByText("Current item")).toBeInTheDocument();
+    expect(screen.getByText(/art_variation · 1:1 · baseline · v1/)).toBeInTheDocument();
     expect(screen.getByText("72")).toBeInTheDocument();
     expect(screen.getByText("improvable")).toBeInTheDocument();
+    expect(screen.getByText("By cohort")).toBeInTheDocument();
+    expect(screen.getByText("By mode")).toBeInTheDocument();
+    expect(screen.getByText("post_learning")).toBeInTheDocument();
     expect(screen.getByLabelText("Visual score (0–100)")).toBeInTheDocument();
     expect(screen.getByLabelText("Factual pass")).toBeInTheDocument();
     expect(screen.getByLabelText("Reviewer intent")).toBeInTheDocument();
     expect(screen.getByLabelText("Primary visible failure reason")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Submit evaluation" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Submit & next" })).toBeDisabled();
   });
 
   it("submits structured evaluation and advances queue", async () => {
+    let queueCall = 0;
     mockApiFetch.mockImplementation(async (url: string, init?: RequestInit) => {
       if (url.includes("score-calibration") || url.includes("learning-impact")) {
         return { ok: false, status: 403 } as Response;
       }
       if (url.includes("human-quality-corpus") && !init?.method) {
+        queueCall += 1;
         return {
           ok: true,
           status: 200,
-          json: async () => ({ items: [pendingItem] }),
+          json: async () =>
+            queueJson(
+              queueCall === 1 ? [pendingItem, secondPendingItem] : [secondPendingItem],
+              { ...queueProgress, totalPending: queueCall === 1 ? 2 : 1 }
+            ),
         } as Response;
       }
       if (url.includes("/evaluation") && init?.method === "POST") {
@@ -278,6 +319,7 @@ describe("HumanQualityCorpusPanel", () => {
 
     await screen.findByText("Human quality corpus");
     await screen.findByLabelText("Visual score (0–100)");
+    expect(screen.getByRole("button", { name: "Submit & next" })).toBeDisabled();
 
     fireEvent.change(screen.getByLabelText("Visual score (0–100)"), {
       target: { value: "68" },
@@ -292,7 +334,8 @@ describe("HumanQualityCorpusPanel", () => {
       target: { value: "weak_hierarchy" },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Submit evaluation" }));
+    expect(screen.getByRole("button", { name: "Submit & next" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Submit & next" }));
 
     await waitFor(() => {
       expect(mockApiFetch).toHaveBeenCalledWith(
@@ -303,6 +346,162 @@ describe("HumanQualityCorpusPanel", () => {
         })
       );
     });
+
+    expect(await screen.findByText(/restyling · 1:1 · baseline · v1/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Visual score (0–100)")).toHaveValue(null);
+  });
+
+  it("requests queue progress with includeProgress=true", async () => {
+    mockQueueOnly();
+
+    renderPanel();
+    fireEvent.change(screen.getByLabelText("Workspace ID"), {
+      target: { value: WORKSPACE_ID },
+    });
+
+    await screen.findByText("Queue progress");
+
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      expect.stringMatching(/includeProgress=true/)
+    );
+  });
+
+  it("does not post preview or artifact fields in evaluation payload", async () => {
+    mockApiFetch.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url.includes("score-calibration") || url.includes("learning-impact")) {
+        return { ok: false, status: 403 } as Response;
+      }
+      if (url.includes("human-quality-corpus") && !init?.method) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => queueJson([pendingItem]),
+        } as Response;
+      }
+      if (url.includes("/evaluation") && init?.method === "POST") {
+        return {
+          ok: true,
+          status: 201,
+          json: async () => ({ item: { ...pendingItem, status: "evaluated" }, evaluation: {} }),
+        } as Response;
+      }
+      return { ok: false, status: 500 } as Response;
+    });
+
+    renderPanel();
+    fireEvent.change(screen.getByLabelText("Workspace ID"), {
+      target: { value: WORKSPACE_ID },
+    });
+
+    await screen.findByLabelText("Visual score (0–100)");
+    fireEvent.change(screen.getByLabelText("Visual score (0–100)"), {
+      target: { value: "70" },
+    });
+    fireEvent.change(screen.getByLabelText("Factual pass"), {
+      target: { value: "true" },
+    });
+    fireEvent.change(screen.getByLabelText("Reviewer intent"), {
+      target: { value: "approve" },
+    });
+    fireEvent.change(screen.getByLabelText("Primary visible failure reason"), {
+      target: { value: "other" },
+    });
+    fireEvent.change(screen.getByLabelText("Other reason"), {
+      target: { value: "Minor spacing issue" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Submit & next" }));
+
+    await waitFor(() => {
+      const postCall = mockApiFetch.mock.calls.find(
+        ([callUrl, callInit]) =>
+          typeof callUrl === "string" &&
+          callUrl.includes("/evaluation") &&
+          callInit?.method === "POST"
+      );
+      expect(postCall).toBeDefined();
+      const body = JSON.parse(String(postCall?.[1]?.body));
+      expect(body).toEqual({
+        workspaceId: WORKSPACE_ID,
+        visualScore: 70,
+        factualPass: true,
+        intent: "approve",
+        primaryFailureReason: "other",
+        otherReasonText: "Minor spacing issue",
+        notes: null,
+      });
+      for (const forbidden of [
+        "previewImageUrl",
+        "signedUrl",
+        "outputKey",
+        "prompt",
+        "model",
+        "modelResponse",
+        "imageBytes",
+      ]) {
+        expect(body).not.toHaveProperty(forbidden);
+      }
+    });
+  });
+
+  it("shows operational empty state with progress when queue is clear", async () => {
+    mockApiFetch.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (
+        url.includes("score-calibration") ||
+        url.includes("learning-impact") ||
+        url.includes("quality-improvement")
+      ) {
+        return { ok: false, status: 403 } as Response;
+      }
+      if (url.includes("human-quality-corpus") && !init?.method) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () =>
+            queueJson([], { ...queueProgress, totalPending: 0, byCohort: {}, byGenerationMode: {}, byFormat: {} }),
+        } as Response;
+      }
+      return { ok: false, status: 500 } as Response;
+    });
+
+    renderPanel();
+    fireEvent.change(screen.getByLabelText("Workspace ID"), {
+      target: { value: WORKSPACE_ID },
+    });
+
+    expect(await screen.findByText(/Queue is clear/)).toBeInTheDocument();
+    expect(screen.getByText("0 pending · 12 evaluated")).toBeInTheDocument();
+    expect(screen.getByText(/Reviewing 0 of 0 loaded pending/)).toBeInTheDocument();
+  });
+
+  it("shows queue forbidden message without hiding entire panel when other tabs are allowed", async () => {
+    mockApiFetch.mockImplementation(async (url: string) => {
+      if (url.includes("score-calibration")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            report: calibrationReport,
+            persistedAdjustmentCount: 0,
+          }),
+        } as Response;
+      }
+      if (url.includes("human-quality-corpus")) {
+        return { ok: false, status: 403 } as Response;
+      }
+      return { ok: false, status: 403 } as Response;
+    });
+
+    renderPanel();
+    fireEvent.change(screen.getByLabelText("Workspace ID"), {
+      target: { value: WORKSPACE_ID },
+    });
+
+    expect(
+      await screen.findByText(/Corpus evaluation queue is restricted to platform owners/)
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Calibration" }));
+    expect(await screen.findByText("Calibration report")).toBeInTheDocument();
   });
 });
 
@@ -330,7 +529,7 @@ describe("HumanQualityCorpusPanel calibration tab", () => {
         return {
           ok: true,
           status: 200,
-          json: async () => ({ items: [pendingItem] }),
+          json: async () => queueJson([pendingItem]),
         } as Response;
       }
       return { ok: false, status: 500 } as Response;
@@ -423,7 +622,7 @@ describe("HumanQualityCorpusPanel impact tab", () => {
         return {
           ok: true,
           status: 200,
-          json: async () => ({ items: [pendingItem] }),
+          json: async () => queueJson([pendingItem]),
         } as Response;
       }
       return { ok: false, status: 500 } as Response;
@@ -574,7 +773,7 @@ describe("HumanQualityCorpusPanel quality tab", () => {
         return {
           ok: true,
           status: 200,
-          json: async () => ({ items: [pendingItem] }),
+          json: async () => queueJson([pendingItem]),
         } as Response;
       }
       return { ok: false, status: 500 } as Response;
