@@ -26,9 +26,9 @@ Transformar o learning loop de v12.4 em evidencia real de qualidade percebida. A
 ### Score Calibration (CALIB)
 
 - [x] **CALIB-01**: Automatic quality score can be compared against human visual score for every evaluated corpus item.
-- [ ] **CALIB-02**: Calibration report identifies systematic divergences by failure type, mode and format.
+- [x] **CALIB-02**: Calibration report identifies systematic divergences by failure type, mode and format.
 - [ ] **CALIB-03**: Gate/rubric adjustments are versioned and backed by corpus evidence instead of anecdotal judgment.
-- [ ] **CALIB-04**: Factual fidelity remains measured separately from visual quality and cannot be traded away for higher visual score.
+- [x] **CALIB-04**: Factual fidelity remains measured separately from visual quality and cannot be traded away for higher visual score.
 
 ### Learning Impact (IMPACT)
 
@@ -81,9 +81,9 @@ Transformar o learning loop de v12.4 em evidencia real de qualidade percebida. A
 | HUMAN-03 | Phase 129 | Complete |
 | HUMAN-04 | Phase 129 | Complete |
 | CALIB-01 | Phase 130 | Complete |
-| CALIB-02 | Phase 130 | Pending |
+| CALIB-02 | Phase 130 | Complete |
 | CALIB-03 | Phase 130 | Pending |
-| CALIB-04 | Phase 130 | Pending |
+| CALIB-04 | Phase 130 | Complete |
 | IMPACT-01 | Phase 131 | Pending |
 | IMPACT-02 | Phase 131 | Pending |
 | IMPACT-03 | Phase 131 | Pending |
