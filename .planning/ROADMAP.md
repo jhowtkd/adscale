@@ -27,7 +27,7 @@
 
 **Starting point:** v12.4 passou com learning loop fixture-based; v12.3 deixou gap aceito de `meanQualityScore 70.17 < 75`.
 
-- [ ] **Phase 129: Live Human Quality Corpus** — criar corpus versionado de outputs reais com julgamento humano estruturado
+- [x] **Phase 129: Live Human Quality Corpus** — criar corpus versionado de outputs reais com julgamento humano estruturado (completed 2026-06-17)
 - [ ] **Phase 130: Score Calibration and Rubric Alignment** — comparar score automatico vs julgamento humano e versionar ajustes de rubric/gate
 - [ ] **Phase 131: Learning Impact Measurement** — medir impacto real de recommendation/prefill de v12.4 em qualidade, rejeicao/regeneracao e factual pass
 - [ ] **Phase 132: Targeted Creative Quality Improvements** — atacar falhas visuais provadas pelo corpus sem regredir factualidade
@@ -35,7 +35,7 @@
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
-| 129 | Live Human Quality Corpus | 2/3 | In Progress|  |
+| 129 | Live Human Quality Corpus | 3/3 | Complete   | 2026-06-17 |
 | 130 | Score Calibration and Rubric Alignment | CALIB-01, CALIB-02, CALIB-03, CALIB-04 | Planned | — |
 | 131 | Learning Impact Measurement | IMPACT-01, IMPACT-02, IMPACT-03, IMPACT-04 | Planned | — |
 | 132 | Targeted Creative Quality Improvements | QUALITY-01, QUALITY-02, QUALITY-03, QUALITY-04 | Planned | — |
@@ -57,7 +57,7 @@
   3. Reviewer can record visual score, factual pass/fail, approve/reject/regenerate intent and primary visible failure reason.
   4. Corpus items distinguish baseline, pre-learning and post-learning samples for later movement analysis.
 
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 ---
 
