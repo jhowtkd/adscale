@@ -5,6 +5,11 @@ import {
 } from "@/server/human-quality/calibration/failure-bridge";
 import type { CalibrationComparison } from "@/server/human-quality/calibration/types";
 import { FIDELITY_HARD_FAILURE_CODES } from "@/server/ai/creative-validation-aggregation";
+import {
+  getHumanFailureCorrectionDirectives,
+  HUMAN_FAILURE_CORRECTION_DIRECTIVES,
+} from "@/server/ai/regeneration-correction-brief";
+import { TARGETED_VISUAL_FAILURE_REASONS } from "@/server/human-quality/improvement/types";
 
 function makeComparison(
   overrides: Partial<CalibrationComparison> = {}
@@ -53,6 +58,21 @@ describe("resolveGateTargets", () => {
 
     expect(targets).toContain("missing_dominant_idea");
     expect(targets).toContain("MISSING_DOMINANT_IDEA_MARKERS");
+  });
+
+  it("delegates accepted visual_overload human reason to gate correction directives", () => {
+    expect(HUMAN_FAILURE_CORRECTION_DIRECTIVES.visual_overload).toMatch(
+      /dominant hook|information zones/i
+    );
+    const directives = getHumanFailureCorrectionDirectives("visual_overload");
+    expect(directives.length).toBeGreaterThan(0);
+    expect(directives[0]).toMatch(/dominant hook|information zones/i);
+  });
+
+  it("covers all five targeted visual failure reasons via gate targets", () => {
+    for (const reason of TARGETED_VISUAL_FAILURE_REASONS) {
+      expect(resolveGateTargets(reason).length).toBeGreaterThan(0);
+    }
   });
 });
 
