@@ -1,0 +1,164 @@
+{
+  "schemaVersion": 1,
+  "learningImpactVersion": "1.0.0",
+  "capturedAt": "2026-06-17T12:00:00.000Z",
+  "verifiedAt": "2026-06-17T12:00:00.000Z",
+  "status": "ok",
+  "evaluatedItemCount": 6,
+  "insufficientReasons": [],
+  "scope": {
+    "allWorkspaces": true,
+    "workspaceId": null,
+    "cohort": null
+  },
+  "learningImpactMetrics": {
+    "learnedCount": 3,
+    "nonLearnedCount": 3,
+    "unlabeledCount": 0,
+    "slices": [
+      {
+        "sliceKey": "550e8400-e29b-41d4-a716-446655440010|art_variation|1:1",
+        "learned": {
+          "count": 3,
+          "meanVisualScore": 82,
+          "rejectIntentRate": 0,
+          "regenerateIntentRate": 0.33,
+          "factualPassRate": 1
+        },
+        "nonLearned": {
+          "count": 3,
+          "meanVisualScore": 68,
+          "rejectIntentRate": 0.33,
+          "regenerateIntentRate": 0,
+          "factualPassRate": 0.67
+        },
+        "visualScoreDelta": 14,
+        "comparability": "ok"
+      }
+    ],
+    "globalVisualScoreDelta": 14
+  },
+  "intentMetrics": {
+    "learned": {
+      "rejectRate": 0,
+      "regenerateRate": 0.33
+    },
+    "nonLearned": {
+      "rejectRate": 0.33,
+      "regenerateRate": 0
+    }
+  },
+  "visualMovementMetrics": {
+    "learnedMeanVisualScore": 82,
+    "nonLearnedMeanVisualScore": 68,
+    "deltaLearnedMinusNonLearned": 14,
+    "cohortMovement": {
+      "preLearningMean": 70,
+      "postLearningMean": 82,
+      "deltaPostMinusPre": 12
+    }
+  },
+  "factualMetrics": {
+    "learnedFactualPassRate": 1,
+    "nonLearnedFactualPassRate": 0.67
+  },
+  "rows": [
+    {
+      "corpusItemId": "550e8400-e29b-41d4-a716-446655440001",
+      "clientProfileId": "550e8400-e29b-41d4-a716-446655440010",
+      "generationMode": "art_variation",
+      "format": "1:1",
+      "cohort": "baseline",
+      "learningApplied": true,
+      "applicationResolution": "recorded",
+      "visualScore": 85,
+      "factualPass": true,
+      "intent": "approve"
+    }
+  ],
+  "requirements": [
+    {
+      "id": "IMPACT-01",
+      "result": "pass",
+      "note": "output-learning application snapshot on derivations and corpus freeze",
+      "evaluatedItemCount": 6
+    },
+    {
+      "id": "IMPACT-02",
+      "result": "pass",
+      "note": "learned vs non-learned arm comparison per client×mode×format slice"
+    },
+    {
+      "id": "IMPACT-03",
+      "result": "pass",
+      "note": "separated learningImpact, intent, visualMovement, and factual metric buckets"
+    },
+    {
+      "id": "IMPACT-04",
+      "result": "pass",
+      "note": "insufficient_sample nulls movement deltas; no improvement claims when gated"
+    }
+  ],
+  "_schemaExamples": {
+    "insufficient_sample": {
+      "schemaVersion": 1,
+      "learningImpactVersion": "1.0.0",
+      "capturedAt": "2026-06-17T12:00:00.000Z",
+      "verifiedAt": "2026-06-17T12:00:00.000Z",
+      "status": "insufficient_sample",
+      "evaluatedItemCount": 2,
+      "insufficientReasons": ["global_below_minimum"],
+      "learningImpactMetrics": {
+        "learnedCount": 1,
+        "nonLearnedCount": 1,
+        "unlabeledCount": 0,
+        "slices": [],
+        "globalVisualScoreDelta": null
+      },
+      "intentMetrics": {
+        "learned": {
+          "rejectRate": 0,
+          "regenerateRate": 0
+        },
+        "nonLearned": {
+          "rejectRate": 0,
+          "regenerateRate": 1
+        }
+      },
+      "visualMovementMetrics": {
+        "learnedMeanVisualScore": 75,
+        "nonLearnedMeanVisualScore": 60,
+        "deltaLearnedMinusNonLearned": null
+      },
+      "factualMetrics": {
+        "learnedFactualPassRate": 1,
+        "nonLearnedFactualPassRate": 0
+      },
+      "rows": [],
+      "requirements": [
+        {
+          "id": "IMPACT-01",
+          "result": "pending",
+          "note": "output-learning application snapshot on derivations and corpus freeze",
+          "evaluatedItemCount": 2
+        },
+        {
+          "id": "IMPACT-02",
+          "result": "pending",
+          "note": "learned vs non-learned arm comparison per client×mode×format slice"
+        },
+        {
+          "id": "IMPACT-03",
+          "result": "pass",
+          "note": "separated learningImpact, intent, visualMovement, and factual metric buckets"
+        },
+        {
+          "id": "IMPACT-04",
+          "result": "pass",
+          "note": "insufficient_sample nulls movement deltas; no improvement claims when gated"
+        }
+      ],
+      "improvementClaimed": false
+    }
+  }
+}
