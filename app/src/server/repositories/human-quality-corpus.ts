@@ -18,7 +18,13 @@ import {
 export interface InsertCorpusItemInput
   extends Omit<
     NewHumanQualityCorpusItem,
-    "id" | "status" | "selectedAt" | "createdAt" | "updatedAt"
+    | "id"
+    | "status"
+    | "selectedAt"
+    | "createdAt"
+    | "updatedAt"
+    | "artifactRef"
+    | "qualitySnapshot"
   > {
   artifactRef: Record<string, unknown>;
   qualitySnapshot: Record<string, unknown>;

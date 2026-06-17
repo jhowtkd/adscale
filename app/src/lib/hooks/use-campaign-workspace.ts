@@ -610,6 +610,7 @@ export function useCampaignWorkspace(campaignId: string, isNew: boolean) {
 
   return {
     campaign,
+    workspaceId: derivationsData?.[0]?.workspaceId,
     isLoading,
     isError,
     loadErrorKind,

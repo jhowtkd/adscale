@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
-import { Button } from "@/components/ui/button";
 import { HumanQualityCorpusPanel } from "@/components/feedback/HumanQualityCorpusPanel";
 import { cn } from "@/lib/utils";
 

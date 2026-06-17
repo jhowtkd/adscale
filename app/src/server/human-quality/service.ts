@@ -104,7 +104,7 @@ function buildQualitySnapshotFromDerivation(derivation: {
     hardFailures: derivation.hardFailures,
     scoreIssues: derivation.scoreIssues,
     polishSuggestions: derivation.polishSuggestions,
-  });
+  }) as Record<string, unknown>;
 }
 
 function assertBoundedPayload(

@@ -111,6 +111,7 @@ export default function CampaignWorkspacePage() {
 
   const {
     campaign,
+    workspaceId,
     isLoading,
     isError,
     loadErrorKind,
@@ -471,7 +472,7 @@ export default function CampaignWorkspacePage() {
       <DerivationReviewSheet
         open={Boolean(reviewDerivationId && reviewDerivation)}
         derivation={reviewDerivation}
-        workspaceId={campaign?.workspaceId}
+        workspaceId={workspaceId}
         baseAsset={baseAsset}
         styleAsset={styleAsset}
         isRegenerating={regeneratePending}
