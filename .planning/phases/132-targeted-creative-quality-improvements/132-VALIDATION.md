@@ -1,9 +1,9 @@
 ---
 phase: 132
 slug: targeted-creative-quality-improvements
-status: draft
+status: verified
 nyquist_compliant: true
-wave_0_complete: false
+wave_0_complete: true
 created: 2026-06-17
 ---
 
@@ -38,19 +38,19 @@ created: 2026-06-17
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 132-01-01 | 01 | 1 | QUALITY-02 | unit | `cd app && npm test -- tests/unit/human-quality/improvement/accept.test.ts` | ❌ W0 | ⬜ pending |
-| 132-01-02 | 01 | 1 | QUALITY-02 | unit | `cd app && npm test -- tests/unit/human-quality/improvement/apply.test.ts` | ❌ W0 | ⬜ pending |
-| 132-01-03 | 01 | 1 | QUALITY-02 | unit | `cd app && npm test -- tests/unit/human-quality/improvement/accept.test.ts` | ❌ W0 | ⬜ pending |
-| 132-02-00 | 02 | 2 | QUALITY-02 | checkpoint | Operator accept via API; resume with "accepted" | — | ⬜ pending |
-| 132-02-01 | 02 | 2 | QUALITY-01, QUALITY-02 | unit | `cd app && npm test -- tests/unit/ai/quality-rubric-regression.test.ts` | ❌ W0 | ⬜ pending |
-| 132-02-02 | 02 | 2 | QUALITY-01, QUALITY-02 | unit | `cd app && npm test -- tests/unit/ai/gate-failure-matrix.test.ts` | ✅ | ⬜ pending |
-| 132-02-03 | 02 | 2 | QUALITY-01 | unit | `cd app && npm test -- tests/unit/ai/corpus-fixtures.test.ts` | ❌ W0 | ⬜ pending |
-| 132-03-01 | 03 | 3 | QUALITY-03 | script | `node app/scripts/check-quality-improvement-evidence.mjs --skip-tests` | ❌ W0 | ⬜ pending |
-| 132-03-02 | 03 | 3 | QUALITY-03 | script | `cd app && npm run quality-improvement-evidence` | ❌ W0 | ⬜ pending |
-| 132-04-01 | 04 | 4 | QUALITY-04 | unit | `cd app && npm test -- tests/unit/human-quality/improvement/reevaluate.test.ts` | ❌ W0 | ⬜ pending |
-| 132-04-02 | 04 | 4 | QUALITY-04 | script | `node app/scripts/run-quality-improvement.ts` | ❌ W0 | ⬜ pending |
-| 132-04-03 | 04 | 4 | QUALITY-04 | unit | `cd app && npm test -- src/app/api/feedback/quality-improvement/route.test.ts` | ❌ W0 | ⬜ pending |
-| 132-04-04 | 04 | 4 | QUALITY-03, QUALITY-04 | checkpoint | Full regression with `--run-regression` | — | ⬜ pending |
+| 132-01-01 | 01 | 1 | QUALITY-02 | unit | `cd app && npm test -- tests/unit/human-quality/improvement/accept.test.ts` | ✅ | ✅ green |
+| 132-01-02 | 01 | 1 | QUALITY-02 | unit | `cd app && npm test -- tests/unit/human-quality/improvement/apply.test.ts` | ✅ | ✅ green |
+| 132-01-03 | 01 | 1 | QUALITY-02 | unit | `cd app && npm test -- tests/unit/human-quality/improvement/accept.test.ts` | ✅ | ✅ green |
+| 132-02-00 | 02 | 2 | QUALITY-02 | checkpoint | Operator accept via API; resume with "accepted" | — | ✅ green |
+| 132-02-01 | 02 | 2 | QUALITY-01, QUALITY-02 | unit | `cd app && npm test -- tests/unit/ai/quality-rubric-regression.test.ts` | ✅ | ✅ green |
+| 132-02-02 | 02 | 2 | QUALITY-01, QUALITY-02 | unit | `cd app && npm test -- tests/unit/ai/gate-failure-matrix.test.ts` | ✅ | ✅ green |
+| 132-02-03 | 02 | 2 | QUALITY-01 | unit | `cd app && npm test -- tests/unit/ai/corpus-fixtures.test.ts` | ✅ | ✅ green |
+| 132-03-01 | 03 | 3 | QUALITY-03 | script | `node app/scripts/check-quality-improvement-evidence.mjs --skip-tests` | ✅ | ✅ green |
+| 132-03-02 | 03 | 3 | QUALITY-03 | script | `cd app && npm run quality-improvement-evidence` | ✅ | ✅ green |
+| 132-04-01 | 04 | 4 | QUALITY-04 | unit | `cd app && npm test -- tests/unit/human-quality/improvement/reevaluate.test.ts` | ✅ | ✅ green |
+| 132-04-02 | 04 | 4 | QUALITY-04 | script | `node app/scripts/run-quality-improvement.ts` | ✅ | ✅ green |
+| 132-04-03 | 04 | 4 | QUALITY-04 | unit | `cd app && npm test -- src/app/api/feedback/quality-improvement/route.test.ts` | ✅ | ✅ green |
+| 132-04-04 | 04 | 4 | QUALITY-03, QUALITY-04 | checkpoint | Full regression with `--run-regression` | — | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -60,13 +60,13 @@ created: 2026-06-17
 
 ## Wave 0 Requirements
 
-- [ ] `app/src/server/human-quality/improvement/` module (accept, apply, reevaluate, service)
-- [ ] `acceptAdjustment` / `listAcceptedAdjustments` in `rubric-calibration-adjustments.ts`
-- [ ] `tests/unit/human-quality/improvement/*.test.ts` — requirement coverage
-- [ ] `app/scripts/run-quality-improvement.ts` + `check-quality-improvement-evidence.mjs`
-- [ ] `132-EVIDENCE.template.json` — schema contract for Phase 133 gate
-- [ ] Optional: 3 `CORPUS_ARCHETYPE_FIXTURES` for weak_hierarchy, illegible_cta, unfocused_composition
-- [ ] Schema migration: `accepted_at`, `accepted_by` columns on `rubric_calibration_adjustments` (if not jsonb-metadata)
+- [x] `app/src/server/human-quality/improvement/` module (accept, apply, reevaluate, service)
+- [x] `acceptAdjustment` / `listAcceptedAdjustments` in `rubric-calibration-adjustments.ts`
+- [x] `tests/unit/human-quality/improvement/*.test.ts` — requirement coverage
+- [x] `app/scripts/run-quality-improvement.ts` + `check-quality-improvement-evidence.mjs`
+- [x] `132-EVIDENCE.template.json` — schema contract for Phase 133 gate
+- [x] Optional: 3 `CORPUS_ARCHETYPE_FIXTURES` for weak_hierarchy, illegible_cta, unfocused_composition
+- [x] Schema migration: `accepted_at`, `accepted_by` columns on `rubric_calibration_adjustments` (if not jsonb-metadata)
 
 ---
 
@@ -88,4 +88,4 @@ created: 2026-06-17
 - [x] Feedback latency < 60s
 - [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** approved 2026-06-17

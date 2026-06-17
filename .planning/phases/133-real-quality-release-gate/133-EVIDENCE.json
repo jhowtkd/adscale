@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "milestoneVersion": "v12.5",
-  "capturedAt": "2026-06-17T16:48:46.525Z",
+  "capturedAt": "2026-06-17T17:43:41.935Z",
   "status": "ok",
   "qualityMetrics": {
     "humanCorpus": {
@@ -27,8 +27,8 @@
     "safetyGuardPassRate": 1
   },
   "learningImpactMetrics": {
-    "status": "ok",
-    "globalVisualScoreDelta": 14,
+    "status": "insufficient_sample",
+    "globalVisualScoreDelta": null,
     "learnedFactualPassRate": 1,
     "sourcePath": ".planning/phases/131-learning-impact-measurement/131-EVIDENCE.json"
   },
@@ -85,6 +85,5 @@
       "result": "pass",
       "automated": "node app/scripts/check-real-quality-release-evidence.mjs --skip-tests"
     }
-  ],
-  "verifiedAt": "2026-06-17T16:53:14.103Z"
+  ]
 }

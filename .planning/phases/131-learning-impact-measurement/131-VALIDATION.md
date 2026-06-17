@@ -1,9 +1,9 @@
 ---
 phase: 131
 slug: learning-impact-measurement
-status: draft
+status: verified
 nyquist_compliant: true
-wave_0_complete: false
+wave_0_complete: true
 created: 2026-06-17
 ---
 
@@ -38,17 +38,17 @@ created: 2026-06-17
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 131-01-01 | 01 | 1 | IMPACT-01 | unit | `cd app && npm test -- tests/unit/human-quality/impact/application-schema.test.ts` | ❌ W0 | ⬜ pending |
-| 131-01-02 | 01 | 1 | IMPACT-01 | integration | `cd app && npm test -- src/app/api/campaigns/\[id\]/derivations/route.test.ts -t "outputLearningApplication"` | ❌ W0 | ⬜ pending |
-| 131-02-01 | 02 | 2 | IMPACT-01 | integration | `cd app && npm test -- src/app/api/campaigns/\[id\]/derivations/route.test.ts -t "outputLearningApplication"` | ❌ W0 | ⬜ pending |
-| 131-02-02 | 02 | 2 | IMPACT-01 | unit | `cd app && npm test -- tests/unit/human-quality/impact/enrich.test.ts` | ❌ W0 | ⬜ pending |
-| 131-03-01 | 03 | 3 | IMPACT-02 | unit | `cd app && npm test -- tests/unit/human-quality/impact/enrich.test.ts` | ❌ W0 | ⬜ pending |
-| 131-03-02 | 03 | 3 | IMPACT-02, IMPACT-03 | unit | `cd app && npm test -- tests/unit/human-quality/impact/aggregate.test.ts` | ❌ W0 | ⬜ pending |
-| 131-03-03 | 03 | 3 | IMPACT-04 | unit | `cd app && npm test -- tests/unit/human-quality/impact/report.test.ts` | ❌ W0 | ⬜ pending |
-| 131-04-01 | 04 | 4 | IMPACT-01–04 | integration | `node app/scripts/check-learning-impact-evidence.mjs --evidence .planning/phases/131-learning-impact-measurement/131-EVIDENCE.template.json --skip-tests` | ❌ W0 | ⬜ pending |
-| 131-04-02 | 04 | 4 | IMPACT-01–04 | unit | `cd app && npm test -- src/app/api/feedback/learning-impact/route.test.ts` | ❌ W0 | ⬜ pending |
-| 131-04-03 | 04 | 4 | IMPACT-01–04 | unit | `cd app && npm test -- src/components/feedback/HumanQualityCorpusPanel.test.tsx -t "impact"` | ❌ W0 | ⬜ pending |
-| 131-04-04 | 04 | 4 | IMPACT-01–04 | checkpoint | `cd app && npm test -- tests/unit/human-quality/impact` + evidence checker | ❌ W0 | ⬜ pending |
+| 131-01-01 | 01 | 1 | IMPACT-01 | unit | `cd app && npm test -- tests/unit/human-quality/impact/application-schema.test.ts` | ✅ | ✅ green |
+| 131-01-02 | 01 | 1 | IMPACT-01 | integration | `cd app && npm test -- src/app/api/campaigns/\[id\]/derivations/route.test.ts -t "outputLearningApplication"` | ✅ | ✅ green |
+| 131-02-01 | 02 | 2 | IMPACT-01 | integration | `cd app && npm test -- src/app/api/campaigns/\[id\]/derivations/route.test.ts -t "outputLearningApplication"` | ✅ | ✅ green |
+| 131-02-02 | 02 | 2 | IMPACT-01 | unit | `cd app && npm test -- tests/unit/human-quality/impact/enrich.test.ts` | ✅ | ✅ green |
+| 131-03-01 | 03 | 3 | IMPACT-02 | unit | `cd app && npm test -- tests/unit/human-quality/impact/enrich.test.ts` | ✅ | ✅ green |
+| 131-03-02 | 03 | 3 | IMPACT-02, IMPACT-03 | unit | `cd app && npm test -- tests/unit/human-quality/impact/aggregate.test.ts` | ✅ | ✅ green |
+| 131-03-03 | 03 | 3 | IMPACT-04 | unit | `cd app && npm test -- tests/unit/human-quality/impact/report.test.ts` | ✅ | ✅ green |
+| 131-04-01 | 04 | 4 | IMPACT-01–04 | integration | `node app/scripts/check-learning-impact-evidence.mjs --evidence .planning/phases/131-learning-impact-measurement/131-EVIDENCE.template.json --skip-tests` | ✅ | ✅ green |
+| 131-04-02 | 04 | 4 | IMPACT-01–04 | unit | `cd app && npm test -- src/app/api/feedback/learning-impact/route.test.ts` | ✅ | ✅ green |
+| 131-04-03 | 04 | 4 | IMPACT-01–04 | unit | `cd app && npm test -- src/components/feedback/HumanQualityCorpusPanel.test.tsx -t "impact"` | ✅ | ✅ green |
+| 131-04-04 | 04 | 4 | IMPACT-01–04 | checkpoint | `cd app && npm test -- tests/unit/human-quality/impact` + evidence checker | ✅ | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -58,14 +58,14 @@ created: 2026-06-17
 
 ## Wave 0 Requirements
 
-- [ ] `app/src/server/human-quality/impact/` module (types, enrich, aggregate, report, service)
-- [ ] `tests/unit/human-quality/impact/*.test.ts` — requirement coverage
-- [ ] `app/drizzle/0045_derivation_output_learning_application.sql` (or equivalent)
-- [ ] `app/scripts/run-learning-impact.ts` + `check-learning-impact-evidence.mjs`
-- [ ] Extend `human-quality/corpus.ts` + `service.ts` for snapshot copy
-- [ ] Thread application payload through output-learning accept → derivations POST
-- [ ] `GET /api/feedback/learning-impact` + optional Impact tab on `HumanQualityCorpusPanel`
-- [ ] `131-EVIDENCE.template.json` — schema contract for Phase 133 gate
+- [x] `app/src/server/human-quality/impact/` module (types, enrich, aggregate, report, service)
+- [x] `tests/unit/human-quality/impact/*.test.ts` — requirement coverage
+- [x] `app/drizzle/0045_derivation_output_learning_application.sql` (or equivalent)
+- [x] `app/scripts/run-learning-impact.ts` + `check-learning-impact-evidence.mjs`
+- [x] Extend `human-quality/corpus.ts` + `service.ts` for snapshot copy
+- [x] Thread application payload through output-learning accept → derivations POST
+- [x] `GET /api/feedback/learning-impact` + optional Impact tab on `HumanQualityCorpusPanel`
+- [x] `131-EVIDENCE.template.json` — schema contract for Phase 133 gate
 
 ---
 
@@ -87,4 +87,4 @@ created: 2026-06-17
 - [x] Feedback latency < 60s
 - [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** approved 2026-06-17

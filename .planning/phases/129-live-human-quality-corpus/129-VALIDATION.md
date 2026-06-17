@@ -1,7 +1,7 @@
 ---
 phase: 129
 slug: live-human-quality-corpus
-status: draft
+status: verified
 nyquist_compliant: true
 wave_0_complete: true
 created: 2026-06-17
@@ -32,21 +32,21 @@ created: 2026-06-17
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 129-01-01 | 01 | 1 | HUMAN-01, HUMAN-04 | unit | `cd app && npm test -- tests/unit/human-quality/human-quality-corpus.test.ts` | W0 | pending |
-| 129-01-02 | 01 | 1 | HUMAN-01, HUMAN-02 | repository | `cd app && npm test -- tests/unit/human-quality/human-quality-repository.test.ts` | W0 | pending |
-| 129-01-03 | 01 | 1 | HUMAN-02 | unit | `cd app && npm test -- tests/unit/human-quality/human-quality-corpus.test.ts -t "privacy"` | W0 | pending |
-| 129-02-01 | 02 | 2 | HUMAN-01, HUMAN-02 | route | `cd app && npm test -- app/src/app/api/feedback/human-quality-corpus/route.test.ts` | W0 | pending |
-| 129-02-02 | 02 | 2 | HUMAN-03 | route | `cd app && npm test -- app/src/app/api/feedback/human-quality-corpus/[id]/evaluation/route.test.ts` | W0 | pending |
-| 129-02-03 | 02 | 2 | HUMAN-04 | route/unit | `cd app && npm test -- app/src/app/api/feedback/human-quality-corpus/route.test.ts tests/unit/human-quality/human-quality-repository.test.ts` | W0 | pending |
-| 129-03-01 | 03 | 3 | HUMAN-03 | component | `cd app && npm test -- app/src/components/feedback/HumanQualityCorpusPanel.test.tsx` | W0 | pending |
-| 129-03-02 | 03 | 3 | HUMAN-01, HUMAN-03 | component | `cd app && npm test -- app/src/components/feedback/HumanQualityCorpusPanel.test.tsx` | W0 | pending |
-| 129-03-03 | 03 | 3 | HUMAN-01, HUMAN-02, HUMAN-03, HUMAN-04 | focused | `cd app && npm test -- tests/unit/human-quality app/src/app/api/feedback/human-quality-corpus app/src/components/feedback/HumanQualityCorpusPanel.test.tsx` | W0 | pending |
+| 129-01-01 | 01 | 1 | HUMAN-01, HUMAN-04 | unit | `cd app && npm test -- tests/unit/human-quality/human-quality-corpus.test.ts` | ✅ | ✅ green |
+| 129-01-02 | 01 | 1 | HUMAN-01, HUMAN-02 | repository | `cd app && npm test -- tests/unit/human-quality/human-quality-repository.test.ts` | ✅ | ✅ green |
+| 129-01-03 | 01 | 1 | HUMAN-02 | unit | `cd app && npm test -- tests/unit/human-quality/human-quality-corpus.test.ts -t "privacy"` | ✅ | ✅ green |
+| 129-02-01 | 02 | 2 | HUMAN-01, HUMAN-02 | route | `cd app && npm test -- app/src/app/api/feedback/human-quality-corpus/route.test.ts` | ✅ | ✅ green |
+| 129-02-02 | 02 | 2 | HUMAN-03 | route | `cd app && npm test -- app/src/app/api/feedback/human-quality-corpus/[id]/evaluation/route.test.ts` | ✅ | ✅ green |
+| 129-02-03 | 02 | 2 | HUMAN-04 | route/unit | `cd app && npm test -- app/src/app/api/feedback/human-quality-corpus/route.test.ts tests/unit/human-quality/human-quality-repository.test.ts` | ✅ | ✅ green |
+| 129-03-01 | 03 | 3 | HUMAN-03 | component | `cd app && npm test -- app/src/components/feedback/HumanQualityCorpusPanel.test.tsx` | ✅ | ✅ green |
+| 129-03-02 | 03 | 3 | HUMAN-01, HUMAN-03 | component | `cd app && npm test -- app/src/components/feedback/HumanQualityCorpusPanel.test.tsx` | ✅ | ✅ green |
+| 129-03-03 | 03 | 3 | HUMAN-01, HUMAN-02, HUMAN-03, HUMAN-04 | focused | `cd app && npm test -- tests/unit/human-quality app/src/app/api/feedback/human-quality-corpus app/src/components/feedback/HumanQualityCorpusPanel.test.tsx` | ✅ | ✅ green |
 
 ## Wave 0 Requirements
 
 - [x] Existing Vitest infrastructure is present.
 - [x] Existing feedback route/component tests provide patterns.
-- [ ] New `tests/unit/human-quality/` and route/component tests will be introduced test-first in Plans 01-03.
+- [x] New `tests/unit/human-quality/` and route/component tests were introduced test-first in Plans 01-03.
 
 ## Manual-Only Verifications
 

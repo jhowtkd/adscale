@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "learningImpactVersion": "1.0.0",
+  "capturedAt": "2026-06-17T17:42:58.169Z",
+  "status": "insufficient_sample",
+  "evaluatedItemCount": 0,
+  "insufficientReasons": [
+    "global_below_minimum",
+    "no_comparable_slices"
+  ],
+  "learningImpactMetrics": {
+    "learnedCount": 0,
+    "nonLearnedCount": 0,
+    "unlabeledCount": 0,
+    "slices": [],
+    "globalVisualScoreDelta": null
+  },
+  "intentMetrics": {
+    "learned": {
+      "rejectRate": null,
+      "regenerateRate": null
+    },
+    "nonLearned": {
+      "rejectRate": null,
+      "regenerateRate": null
+    }
+  },
+  "visualMovementMetrics": {
+    "learnedMeanVisualScore": null,
+    "nonLearnedMeanVisualScore": null,
+    "deltaLearnedMinusNonLearned": null,
+    "cohortMovement": {
+      "preLearningMean": null,
+      "postLearningMean": null,
+      "deltaPostMinusPre": null
+    }
+  },
+  "factualMetrics": {
+    "learnedFactualPassRate": null,
+    "nonLearnedFactualPassRate": null
+  },
+  "rows": [],
+  "verifiedAt": "2026-06-17T17:42:58.169Z",
+  "scope": {
+    "allWorkspaces": true,
+    "workspaceId": null,
+    "cohort": null
+  },
+  "requirements": [
+    {
+      "id": "IMPACT-01",
+      "result": "pending",
+      "note": "output-learning application snapshot on derivations and corpus freeze",
+      "evaluatedItemCount": 0
+    },
+    {
+      "id": "IMPACT-02",
+      "result": "pending",
+      "note": "learned vs non-learned arm comparison per client×mode×format slice"
+    },
+    {
+      "id": "IMPACT-03",
+      "result": "pending",
+      "note": "separated learningImpact, intent, visualMovement, and factual metric buckets"
+    },
+    {
+      "id": "IMPACT-04",
+      "result": "pending",
+      "note": "insufficient_sample nulls movement deltas; no improvement claims when gated"
+    }
+  ]
+}

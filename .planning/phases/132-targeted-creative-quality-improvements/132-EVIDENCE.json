@@ -1,0 +1,116 @@
+{
+  "schemaVersion": 1,
+  "rubricCalibrationVersion": "1.1.0",
+  "capturedAt": "2026-06-17T17:42:58.332Z",
+  "status": "insufficient_sample",
+  "targetedFailureReasons": [
+    "visual_overload",
+    "weak_hierarchy",
+    "generic_template_feel",
+    "illegible_cta",
+    "unfocused_composition"
+  ],
+  "visualMetrics": {
+    "failureFrequencyBefore": {
+      "visual_overload": {
+        "count": 0,
+        "rate": null
+      },
+      "weak_hierarchy": {
+        "count": 0,
+        "rate": null
+      },
+      "generic_template_feel": {
+        "count": 0,
+        "rate": null
+      },
+      "illegible_cta": {
+        "count": 0,
+        "rate": null
+      },
+      "unfocused_composition": {
+        "count": 0,
+        "rate": null
+      }
+    },
+    "failureFrequencyAfter": {
+      "visual_overload": {
+        "count": 0,
+        "rate": null
+      },
+      "weak_hierarchy": {
+        "count": 0,
+        "rate": null
+      },
+      "generic_template_feel": {
+        "count": 0,
+        "rate": null
+      },
+      "illegible_cta": {
+        "count": 0,
+        "rate": null
+      },
+      "unfocused_composition": {
+        "count": 0,
+        "rate": null
+      }
+    },
+    "deltaRateByReason": {
+      "visual_overload": null,
+      "weak_hierarchy": null,
+      "generic_template_feel": null,
+      "illegible_cta": null,
+      "unfocused_composition": null
+    }
+  },
+  "factualMetrics": {
+    "factualPassRateBefore": null,
+    "factualPassRateAfter": null
+  },
+  "fixtureMetrics": {
+    "targetedArchetypePassRateBefore": 1,
+    "targetedArchetypePassRateAfter": 1
+  },
+  "acceptedAdjustments": [
+    {
+      "adjustmentId": "634f9104-c080-4dda-82c1-4b1298b6a072",
+      "targetModule": "score_ceiling",
+      "targetKey": "visual_overload"
+    }
+  ],
+  "verifiedAt": "2026-06-17T17:42:58.332Z",
+  "scope": {
+    "allWorkspaces": true,
+    "workspaceId": null,
+    "cohort": null,
+    "improvementDeployedAt": null,
+    "runRegression": false
+  },
+  "regressionMetrics": {
+    "factualFidelityRate": 1,
+    "safetyGuardPassRate": 1,
+    "gateMatrixPass": true
+  },
+  "requirements": [
+    {
+      "id": "QUALITY-01",
+      "result": "pass",
+      "note": "Evidence-bound module edits from accepted calibration adjustments (132-02)"
+    },
+    {
+      "id": "QUALITY-02",
+      "result": "pass",
+      "note": "RUBRIC_CALIBRATION_VERSION 1.1.0 apply tranche with accepted adjustments"
+    },
+    {
+      "id": "QUALITY-03",
+      "result": "pass",
+      "note": "v12.3 factualFidelityRate and v12.4 safetyGuardPassRate regression guards (checker)"
+    },
+    {
+      "id": "QUALITY-04",
+      "result": "pending",
+      "note": "Failure-frequency re-evaluation with honest insufficient_sample when after arm missing"
+    }
+  ]
+}
