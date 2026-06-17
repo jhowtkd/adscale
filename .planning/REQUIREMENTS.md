@@ -18,18 +18,18 @@ Transformar decisões humanas reais sobre outputs em aprendizados duráveis e ex
 
 ### Output Signals (SIGNAL)
 
-- [ ] **SIGNAL-01**: Aprovação, rejeição, regeneração, save-reference e seleção para entrega são normalizados como eventos de evidência de qualidade de output.
-- [ ] **SIGNAL-02**: Cada evento registra escopo mínimo: workspace, client profile, campaign, mode, format e derivation.
-- [ ] **SIGNAL-03**: O sistema distingue feedback explícito forte (aprovar, rejeitar, salvar referência) de sinais implícitos fracos.
-- [ ] **SIGNAL-04**: Motivos estruturados de rejeição/regeneração podem ser consolidados sem depender apenas de texto livre.
+- [x] **SIGNAL-01**: Aprovação, rejeição, regeneração, save-reference e seleção para entrega são normalizados como eventos de evidência de qualidade de output.
+- [x] **SIGNAL-02**: Cada evento registra escopo mínimo: workspace, client profile, campaign, mode, format e derivation.
+- [x] **SIGNAL-03**: O sistema distingue feedback explícito forte (aprovar, rejeitar, salvar referência) de sinais implícitos fracos.
+- [x] **SIGNAL-04**: Motivos estruturados de rejeição/regeneração podem ser consolidados sem depender apenas de texto livre.
 
 ### Canonical Learnings (LEARN)
 
-- [ ] **LEARN-01**: Evidências de output são agregadas em learnings canônicos versionados com `statement`, `variableKey`, `variableValue` e `algorithmVersion`.
-- [ ] **LEARN-02**: Cada learning rastreia `supportingEvidence`, `contradictingEvidence`, confiança, último uso e status (`draft`, `approved`, `superseded`, `removed`).
-- [ ] **LEARN-03**: Learnings antigos ou contrariados perdem força ou são supersedidos em vez de se acumularem indefinidamente.
-- [ ] **LEARN-04**: Learnings não vazam entre workspaces, clientes ou contextos incompatíveis de modo/formato.
-- [ ] **LEARN-05**: Mem0 recebe apenas projeção dos learnings aprovados; Postgres continua sendo a fonte de verdade.
+- [x] **LEARN-01**: Evidências de output são agregadas em learnings canônicos versionados com `statement`, `variableKey`, `variableValue` e `algorithmVersion`.
+- [x] **LEARN-02**: Cada learning rastreia `supportingEvidence`, `contradictingEvidence`, confiança, último uso e status (`draft`, `approved`, `superseded`, `removed`).
+- [x] **LEARN-03**: Learnings antigos ou contrariados perdem força ou são supersedidos em vez de se acumularem indefinidamente.
+- [x] **LEARN-04**: Learnings não vazam entre workspaces, clientes ou contextos incompatíveis de modo/formato.
+- [x] **LEARN-05**: Mem0 recebe apenas projeção dos learnings aprovados; Postgres continua sendo a fonte de verdade.
 
 ### Pre-Generation Application (APPLY)
 
@@ -78,15 +78,15 @@ Transformar decisões humanas reais sobre outputs em aprendizados duráveis e ex
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SIGNAL-01 | Phase 124 | Pending |
-| SIGNAL-02 | Phase 124 | Pending |
-| SIGNAL-03 | Phase 124 | Pending |
-| SIGNAL-04 | Phase 124 | Pending |
-| LEARN-01 | Phase 125 | Pending |
-| LEARN-02 | Phase 125 | Pending |
-| LEARN-03 | Phase 125 | Pending |
-| LEARN-04 | Phase 125 | Pending |
-| LEARN-05 | Phase 125 | Pending |
+| SIGNAL-01 | Phase 124 | Complete |
+| SIGNAL-02 | Phase 124 | Complete |
+| SIGNAL-03 | Phase 124 | Complete |
+| SIGNAL-04 | Phase 124 | Complete |
+| LEARN-01 | Phase 125 | Complete |
+| LEARN-02 | Phase 125 | Complete |
+| LEARN-03 | Phase 125 | Complete |
+| LEARN-04 | Phase 125 | Complete |
+| LEARN-05 | Phase 125 | Complete |
 | APPLY-01 | Phase 126 | Pending |
 | APPLY-02 | Phase 126 | Pending |
 | APPLY-03 | Phase 126 | Pending |

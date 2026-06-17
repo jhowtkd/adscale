@@ -30,16 +30,16 @@
 
 **Starting point:** v12.3 fechou com `meanQualityScore=70.17 < 75` e `factualFidelityRate=1.000`
 
-- [ ] **Phase 124: Output Signal Capture** — normalizar aprovação, rejeição, regeneração, save-reference e delivery selection como evidência canônica
-- [ ] **Phase 125: Canonical Output Learnings** — agregar evidências em learnings aprovados/supersedidos com confiança, contradição e projeção para Mem0
+- [x] **Phase 124: Output Signal Capture** — normalizar aprovação, rejeição, regeneração, save-reference e delivery selection como evidência canônica (completed 2026-06-16)
+- [x] **Phase 125: Canonical Output Learnings** — agregar evidências em learnings aprovados/supersedidos com confiança, contradição e projeção para Mem0 (completed 2026-06-16)
 - [ ] **Phase 126: Next-Generation Recommendation Application** — recuperar learnings relevantes e aplicá-los como recommendation/prefill antes da geração
 - [ ] **Phase 127: Safety, Boundaries, and Explainability** — garantir que learnings não sobreponham contratos factuais, nem virem prompt drift opaco
 - [ ] **Phase 128: Evaluation and Release Gate** — provar melhora de qualidade percebida sem regressão factual
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
-| 124 | Output Signal Capture | SIGNAL-01, SIGNAL-02, SIGNAL-03, SIGNAL-04 | Pending | — |
-| 125 | Canonical Output Learnings | LEARN-01, LEARN-02, LEARN-03, LEARN-04, LEARN-05 | Pending | — |
+| 124 | Output Signal Capture | SIGNAL-01, SIGNAL-02, SIGNAL-03, SIGNAL-04 | Complete | 2026-06-16 |
+| 125 | Canonical Output Learnings | 1/3 | In Progress|  |
 | 126 | Next-Generation Recommendation Application | APPLY-01, APPLY-02, APPLY-03, APPLY-04 | Pending | — |
 | 127 | Safety, Boundaries, and Explainability | SAFE-01, SAFE-02, SAFE-03, SAFE-04 | Pending | — |
 | 128 | Evaluation and Release Gate | EVAL-01, EVAL-02, EVAL-03, EVAL-04 | Pending | — |
@@ -60,7 +60,12 @@
   3. The system distinguishes strong explicit signals from weak implicit usage signals.
   4. Structured rejection/regeneration reasons can be aggregated without depending only on freeform notes.
 
-**Plans:** 0/0 plans complete
+**Plans:** 3/3 plans complete
+
+Plans:
+- [x] 124-01-PLAN.md — Canonical output decision event contract (SIGNAL-01–03)
+- [x] 124-02-PLAN.md — Evidence recorder and structured reasons (SIGNAL-01–04)
+- [x] 124-03-PLAN.md — Route integration and phase verification (SIGNAL-01–04)
 
 ---
 
@@ -78,7 +83,7 @@
   3. Learnings remain scoped to compatible workspace/client/context boundaries.
   4. Only approved learnings are projected to Mem0; retrieval remains a projection layer, not the source of truth.
 
-**Plans:** 0/0 plans complete
+**Plans:** 3/3 plans complete
 
 ---
 
@@ -1062,7 +1067,7 @@ Archive: [v11.6-ROADMAP.md](milestones/v11.6-ROADMAP.md) · [v11.6-REQUIREMENTS.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 | ----- | --------- | -------------- | ------ | --------- |
-| 124 | v12.4 | 0/0 | Pending | - |
+| 124 | v12.4 | 3/3 | Complete | 2026-06-16 |
 | 125 | v12.4 | 0/0 | Pending | - |
 | 126 | v12.4 | 0/0 | Pending | - |
 | 127 | v12.4 | 0/0 | Pending | - |
