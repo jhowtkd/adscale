@@ -18,10 +18,10 @@ Transformar a infraestrutura de qualidade de v12.5 em uma rotina operacional rea
 
 ### Live Corpus Operations (LIVEQUAL)
 
-- [ ] **LIVEQUAL-01**: Operator can select a controlled weekly batch of real generated outputs into the live quality corpus from eligible campaigns.
-- [ ] **LIVEQUAL-02**: Operator can track review queue progress by workspace, campaign, generation mode, format, cohort and reviewer status.
+- [x] **LIVEQUAL-01**: Operator can select a controlled weekly batch of real generated outputs into the live quality corpus from eligible campaigns.
+- [x] **LIVEQUAL-02**: Operator can track review queue progress by workspace, campaign, generation mode, format, cohort and reviewer status.
 - [ ] **LIVEQUAL-03**: Reviewer can evaluate corpus items through a fast, repeatable flow with visual score, factual pass/fail, intent and visible failure reason.
-- [ ] **LIVEQUAL-04**: Corpus operations reject unsafe artifacts and never persist raw prompts, signed URLs, secrets or unbounded model payloads.
+- [x] **LIVEQUAL-04**: Corpus operations reject unsafe artifacts and never persist raw prompts, signed URLs, secrets or unbounded model payloads.
 
 ### Sampling and Sufficiency (SAMPLE)
 
@@ -69,10 +69,10 @@ Transformar a infraestrutura de qualidade de v12.5 em uma rotina operacional rea
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| LIVEQUAL-01 | Phase 134 | Pending |
-| LIVEQUAL-02 | Phase 134 | Pending |
+| LIVEQUAL-01 | Phase 134 | Complete |
+| LIVEQUAL-02 | Phase 134 | Complete |
 | LIVEQUAL-03 | Phase 134 | Pending |
-| LIVEQUAL-04 | Phase 134 | Pending |
+| LIVEQUAL-04 | Phase 134 | Complete |
 | SAMPLE-01 | Phase 135 | Pending |
 | SAMPLE-02 | Phase 135 | Pending |
 | SAMPLE-03 | Phase 135 | Pending |

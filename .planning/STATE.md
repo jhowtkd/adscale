@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v12.6
 milestone_name: Operacao Live do Corpus de Qualidade
-status: planned
-last_updated: "2026-06-17T19:05:00.000Z"
+status: executing
+last_updated: "2026-06-17T20:00:58.556Z"
 last_activity: 2026-06-17
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 3
-  completed_plans: 0
-  percent: 0
+  completed_plans: 1
+  percent: 33
 ---
 
 # Project State
@@ -21,18 +21,18 @@ See: .planning/PROJECT.md (updated 2026-06-17)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** v12.6 active — Phase 134 Live Corpus Operations planned.
+**Current focus:** v12.6 active — Phase 134 Live Corpus Operations in progress (1/3 plans).
 
-**Status:** Phase 134 planned; ready to execute
+**Status:** Phase 134 executing — plan 01 complete
 
 ## Current Position
 
 Phase: 134 — Live Corpus Operations
-Plan: 0/3 complete
-Status: Ready to execute
+Plan: 1/3 complete
+Status: Executing
 Last activity: 2026-06-17
 
-Progress: Phase 134 planned — 3 plans ready; 0/3 complete.
+Progress: [███░░░░░░░] 33% — plan 134-01 complete; 134-02 next.
 
 ## Accumulated Context
 
@@ -51,13 +51,15 @@ Progress: Phase 134 planned — 3 plans ready; 0/3 complete.
 - Add sampling and sufficiency rules so small datasets produce `insufficient_sample`, not optimistic claims.
 - Surface live quality, factuality and learning-impact trends for owner decisions.
 
-### Phase 134 (planned — 0/3 plans)
+### Phase 134 (in progress — 1/3 plans)
 
 - Context: `.planning/phases/134-live-corpus-operations/134-CONTEXT.md`
 - Research: `.planning/phases/134-live-corpus-operations/134-RESEARCH.md`
 - Validation: `.planning/phases/134-live-corpus-operations/134-VALIDATION.md`
+- Summaries:
+  - `.planning/phases/134-live-corpus-operations/134-01-SUMMARY.md`
 - Plans:
-  - `.planning/phases/134-live-corpus-operations/134-01-PLAN.md` — batch selection and queue progress contracts (LIVEQUAL-01, LIVEQUAL-02, LIVEQUAL-04)
+  - `.planning/phases/134-live-corpus-operations/134-01-PLAN.md` — batch selection and queue progress contracts (LIVEQUAL-01, LIVEQUAL-02, LIVEQUAL-04) ✅
   - `.planning/phases/134-live-corpus-operations/134-02-PLAN.md` — operator review UX and fast evaluation loop (LIVEQUAL-02, LIVEQUAL-03, LIVEQUAL-04)
   - `.planning/phases/134-live-corpus-operations/134-03-PLAN.md` — phase verification and operator handoff (LIVEQUAL-01..04)
 
@@ -144,6 +146,9 @@ Progress: Phase 134 planned — 3 plans ready; 0/3 complete.
 - [Phase 133]: v12.5 milestone audit at .planning/milestones/v12.5-MILESTONE-AUDIT.md; shipped 2026-06-17
 - [Phase 133]: QA-24 Path B accepted_gap visual_quality_gap (gap 3 < prior 4.83); live corpus refresh deferred
 - [Phase 133]: v12.5 milestone shipped 2026-06-17 with real-quality-release-gate --run-regression pass
+- [Phase 134]: MAX_CORPUS_BATCH_SIZE=25 for conservative operator batch selection cap
+- [Phase 134]: Batch POST returns 200 with per-item results; single POST keeps 201 item response
+- [Phase 134]: GET includeProgress=true opt-in for queue progress without default query cost
 
 ### Phase 132 (complete — 4/4 plans)
 
@@ -208,4 +213,4 @@ Progress: Phase 134 planned — 3 plans ready; 0/3 complete.
 
 ## Next Steps
 
-Execute Phase 134 via `/gsd-execute-phase 134`.
+Execute Phase 134 plan 02 via `/gsd-execute-phase 134` (operator review UX).
