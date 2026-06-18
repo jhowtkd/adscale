@@ -59,6 +59,10 @@ export interface ListEvaluatedCorpusWithEvaluationsFilters {
   workspaceId?: string;
   cohort?: string;
   limit?: number;
+  generationMode?: string;
+  format?: string;
+  clientProfileId?: string;
+  primaryFailureReason?: string;
 }
 
 export interface CorpusStatusCount {
@@ -167,6 +171,31 @@ export async function listEvaluatedCorpusWithEvaluations(
 
   if (filters.cohort) {
     conditions.push(eq(humanQualityCorpusItems.cohort, filters.cohort));
+  }
+
+  if (filters.generationMode) {
+    conditions.push(
+      eq(humanQualityCorpusItems.generationMode, filters.generationMode)
+    );
+  }
+
+  if (filters.format) {
+    conditions.push(eq(humanQualityCorpusItems.format, filters.format));
+  }
+
+  if (filters.clientProfileId) {
+    conditions.push(
+      eq(humanQualityCorpusItems.clientProfileId, filters.clientProfileId)
+    );
+  }
+
+  if (filters.primaryFailureReason) {
+    conditions.push(
+      eq(
+        humanQualityEvaluations.primaryFailureReason,
+        filters.primaryFailureReason
+      )
+    );
   }
 
   return db
