@@ -18,6 +18,7 @@ import {
 import type { GroupSlice } from "@/server/human-quality/calibration/aggregate";
 import type { CalibrationComparison } from "@/server/human-quality/calibration/types";
 import type { AdjustmentProposalSummary } from "@/server/human-quality/calibration/report";
+import type { SampleGuidance } from "@/server/human-quality/sampling/types";
 
 type CorpusQueueItem = {
   id: string;
@@ -94,6 +95,7 @@ type ImpactReportResponse = {
   status: "ok" | "insufficient_sample";
   evaluatedItemCount: number;
   insufficientReasons: string[];
+  sampleGuidance?: SampleGuidance[];
   truncated?: boolean;
   totalRowCount?: number;
   learningImpactMetrics: {
@@ -146,6 +148,7 @@ type QualityReportResponse = {
   capturedAt: string;
   status: "ok" | "insufficient_sample";
   targetedFailureReasons: HumanQualityFailureReason[];
+  sampleGuidance?: SampleGuidance[];
   truncated?: boolean;
   totalComparisonCount?: number;
   visualMetrics: {
@@ -175,6 +178,7 @@ type CalibrationReportResponse = {
   snapshotCapturedAtNote: string;
   status: "ok" | "insufficient_corpus";
   evaluatedItemCount: number;
+  sampleGuidance?: SampleGuidance[];
   truncated?: boolean;
   totalComparisonCount?: number;
   visualMetrics: {
@@ -193,6 +197,20 @@ type CalibrationReportResponse = {
     highVisualButFactualFail: CalibrationComparison[];
   };
   adjustments: AdjustmentProposalSummary[];
+};
+
+type SampleCoverageReportResponse = {
+  schemaVersion: 1;
+  capturedAt: string;
+  evaluatedItemCount: number;
+  gates: Array<{
+    id: string;
+    status: string;
+    blockedClaims: string[];
+  }>;
+  sliceGaps: SampleGuidance[];
+  nextGate: string;
+  nextOperatorAction: string;
 };
 
 const FAILURE_REASON_LABELS: Record<HumanQualityFailureReason, string> = {
@@ -217,6 +235,7 @@ const PANEL_TABS = [
   { id: "calibration", label: "Calibration" },
   { id: "impact", label: "Impact" },
   { id: "quality", label: "Quality" },
+  { id: "coverage", label: "Coverage" },
 ] as const;
 
 type PanelTab = (typeof PANEL_TABS)[number]["id"];
@@ -270,6 +289,56 @@ async function fetchQualityImprovementReport(
   if (!res.ok) throw new Error("failed");
   const payload = (await res.json()) as { report: QualityReportResponse };
   return payload.report;
+}
+
+async function fetchSampleCoverage(
+  workspaceId: string,
+  cohort: HumanQualityCorpusCohort | ""
+): Promise<SampleCoverageReportResponse | null> {
+  const params = new URLSearchParams({ workspaceId });
+  if (cohort) params.set("cohort", cohort);
+  const res = await apiFetch(`/api/feedback/sample-coverage?${params.toString()}`);
+  if (res.status === 403) return null;
+  if (!res.ok) throw new Error("failed");
+  const payload = (await res.json()) as { report: SampleCoverageReportResponse };
+  return payload.report;
+}
+
+function guidanceItemKey(item: SampleGuidance): string {
+  return `${item.gate}-${item.sliceKey ?? item.dimension ?? "global"}-${item.arm ?? ""}`;
+}
+
+function SampleGuidanceList({
+  guidance,
+  fallback,
+}: {
+  guidance?: SampleGuidance[];
+  fallback: string;
+}) {
+  if (!guidance || guidance.length === 0) {
+    return (
+      <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100/90">
+        {fallback}
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100/90">
+      <p className="text-xs font-medium">Sample guidance from API thresholds:</p>
+      <ul className="list-inside list-disc text-xs">
+        {guidance.map((item) => (
+          <li key={guidanceItemKey(item)}>
+            Need {item.additionalNeeded} more for {item.blockedClaim} ({item.currentCount}/
+            {item.requiredCount})
+            {item.sliceKey ? ` · slice ${item.sliceKey}` : ""}
+            {item.dimension ? ` · ${item.dimension}` : ""}
+            {item.arm ? ` · ${item.arm} arm` : ""}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 function formatRate(value: number | null): string {
@@ -509,11 +578,10 @@ function ImpactReportView({
 
       {insufficient ? (
         <div className="space-y-2">
-          <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100/90">
-            Sample size is insufficient to claim learning impact improvement. Movement deltas are
-            withheld until comparability gates pass (≥5 evaluated items globally and ≥3 per arm per
-            slice). Current count: {report.evaluatedItemCount}.
-          </p>
+          <SampleGuidanceList
+            guidance={report.sampleGuidance}
+            fallback="Sample size is insufficient to claim learning impact improvement. Movement deltas are withheld until comparability gates pass."
+          />
           {report.insufficientReasons.length > 0 ? (
             <ul className="list-inside list-disc text-xs text-[var(--text-muted)]">
               {report.insufficientReasons.map((reason) => (
@@ -711,18 +779,21 @@ function QualityImprovementReportView({
           value={String(report.acceptedAdjustments.length)}
         />
         {report.fixtureMetrics ? (
-          <MetadataRow
-            label="Fixture pass (after)"
-            value={formatRate(report.fixtureMetrics.targetedArchetypePassRateAfter)}
-          />
+          <>
+            <MetadataRow
+              label="Fixture pass (after)"
+              value={formatRate(report.fixtureMetrics.targetedArchetypePassRateAfter)}
+            />
+            <MetadataRow label="Evidence source" value="fixture" />
+          </>
         ) : null}
       </dl>
 
       {insufficient ? (
-        <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100/90">
-          Sample size is insufficient to claim targeted failure-frequency improvement. Delta rates
-          are withheld until the post-change corpus arm has enough human evaluations.
-        </p>
+        <SampleGuidanceList
+          guidance={report.sampleGuidance}
+          fallback="Sample size is insufficient to claim targeted failure-frequency improvement. Delta rates are withheld until the post-change corpus arm has enough human evaluations."
+        />
       ) : null}
 
       {report.acceptedAdjustments.length > 0 ? (
@@ -863,11 +934,10 @@ function CalibrationTabContent({
       </dl>
 
       {insufficient ? (
-        <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100/90">
-          At least 5 evaluated corpus items are required before calibration aggregates are
-          reported. Current count: {report.evaluatedItemCount}. Factual metrics below reflect
-          available evaluations only.
-        </p>
+        <SampleGuidanceList
+          guidance={report.sampleGuidance}
+          fallback={`At least ${report.evaluatedItemCount} evaluated corpus items are in scope. Calibration aggregates are withheld until the global minimum is met. Factual metrics below reflect available evaluations only.`}
+        />
       ) : null}
 
       {!insufficient ? (
@@ -981,6 +1051,115 @@ function CalibrationTabContent({
   );
 }
 
+function CoverageTabContent({
+  report,
+  isLoading,
+  isError,
+}: {
+  report: SampleCoverageReportResponse | null | undefined;
+  isLoading: boolean;
+  isError: boolean;
+}) {
+  if (isLoading) {
+    return <p className="text-sm text-[var(--text-muted)]">Loading sample coverage report…</p>;
+  }
+
+  if (isError || report == null) {
+    return (
+      <p className="text-sm text-[var(--text-muted)]">
+        Sample coverage report unavailable for this workspace.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h3 className="text-sm font-semibold text-[var(--text-primary)]">Sample coverage</h3>
+        <p className="text-xs text-[var(--text-secondary)]">
+          Cross-gate rollup of which slices need more evaluations before stronger release claims.
+        </p>
+      </div>
+
+      <dl className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        <MetadataRow label="Evaluated items" value={String(report.evaluatedItemCount)} />
+        <MetadataRow label="Next gate" value={report.nextGate} />
+        <MetadataRow label="Captured" value={new Date(report.capturedAt).toLocaleString()} />
+      </dl>
+
+      <p className="rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-primary)]">
+        {report.nextOperatorAction}
+      </p>
+
+      <div className="space-y-2">
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+          Gate status
+        </h4>
+        <div className="overflow-x-auto rounded-md border border-[var(--border-dim)]">
+          <table className="min-w-full text-xs">
+            <thead className="bg-[var(--surface-base)] text-[var(--text-muted)]">
+              <tr>
+                <th className="px-2 py-1.5 text-left font-medium">Gate</th>
+                <th className="px-2 py-1.5 text-left font-medium">Status</th>
+                <th className="px-2 py-1.5 text-left font-medium">Blocked claims</th>
+              </tr>
+            </thead>
+            <tbody>
+              {report.gates.map((gate) => (
+                <tr key={gate.id} className="border-t border-[var(--border-dim)]">
+                  <td className="px-2 py-1.5 text-[var(--text-primary)]">{gate.id}</td>
+                  <td className="px-2 py-1.5">{gate.status}</td>
+                  <td className="px-2 py-1.5 text-[var(--text-muted)]">
+                    {gate.blockedClaims.length > 0 ? gate.blockedClaims.join("; ") : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {report.sliceGaps.length > 0 ? (
+        <div className="space-y-2">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+            Slice gaps
+          </h4>
+          <div className="overflow-x-auto rounded-md border border-[var(--border-dim)]">
+            <table className="min-w-full text-xs">
+              <thead className="bg-[var(--surface-base)] text-[var(--text-muted)]">
+                <tr>
+                  <th className="px-2 py-1.5 text-left font-medium">Gate</th>
+                  <th className="px-2 py-1.5 text-left font-medium">Slice / dimension</th>
+                  <th className="px-2 py-1.5 text-left font-medium">Arm</th>
+                  <th className="px-2 py-1.5 text-right font-medium">Need</th>
+                  <th className="px-2 py-1.5 text-left font-medium">Blocked claim</th>
+                </tr>
+              </thead>
+              <tbody>
+                {report.sliceGaps.map((gap) => (
+                  <tr key={guidanceItemKey(gap)} className="border-t border-[var(--border-dim)]">
+                    <td className="px-2 py-1.5">{gap.gate}</td>
+                    <td className="px-2 py-1.5 font-mono text-[10px]">
+                      {gap.sliceKey ?? gap.dimension ?? "—"}
+                    </td>
+                    <td className="px-2 py-1.5">{gap.arm ?? "—"}</td>
+                    <td className="px-2 py-1.5 text-right">{gap.additionalNeeded}</td>
+                    <td className="px-2 py-1.5 text-[var(--text-muted)]">{gap.blockedClaim}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+        <p className="text-xs text-[var(--text-secondary)]">
+          No slice gaps — all sampling gates satisfied for this snapshot.
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function HumanQualityCorpusPanel() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<PanelTab>("queue");
@@ -1018,6 +1197,13 @@ export function HumanQualityCorpusPanel() {
   const qualityQuery = useQuery({
     queryKey: ["quality-improvement", workspaceId, cohortFilter],
     queryFn: () => fetchQualityImprovementReport(workspaceId, cohortFilter),
+    enabled: Boolean(workspaceId),
+    retry: false,
+  });
+
+  const coverageQuery = useQuery({
+    queryKey: ["sample-coverage", workspaceId, cohortFilter],
+    queryFn: () => fetchSampleCoverage(workspaceId, cohortFilter),
     enabled: Boolean(workspaceId),
     retry: false,
   });
@@ -1102,6 +1288,9 @@ export function HumanQualityCorpusPanel() {
       void queryClient.invalidateQueries({
         queryKey: ["quality-improvement", workspaceId, cohortFilter],
       });
+      void queryClient.invalidateQueries({
+        queryKey: ["sample-coverage", workspaceId, cohortFilter],
+      });
     },
     onError: (error: Error) => {
       setSubmitError(error.message);
@@ -1125,6 +1314,7 @@ export function HumanQualityCorpusPanel() {
   const calibrationForbidden = calibrationQuery.isFetched && calibrationQuery.data === null;
   const impactForbidden = impactQuery.isFetched && impactQuery.data === null;
   const qualityForbidden = qualityQuery.isFetched && qualityQuery.data === null;
+  const coverageForbidden = coverageQuery.isFetched && coverageQuery.data === null;
 
   if (
     workspaceId &&
@@ -1132,10 +1322,12 @@ export function HumanQualityCorpusPanel() {
     calibrationQuery.isFetched &&
     impactQuery.isFetched &&
     qualityQuery.isFetched &&
+    coverageQuery.isFetched &&
     queueForbidden &&
     calibrationForbidden &&
     impactForbidden &&
-    qualityForbidden
+    qualityForbidden &&
+    coverageForbidden
   ) {
     return null;
   }
@@ -1181,7 +1373,10 @@ export function HumanQualityCorpusPanel() {
             ariaLabel="Human quality corpus views"
           />
 
-          {activeTab === "calibration" || activeTab === "impact" || activeTab === "quality" ? (
+          {activeTab === "calibration" ||
+          activeTab === "impact" ||
+          activeTab === "quality" ||
+          activeTab === "coverage" ? (
             <div className="space-y-3 pt-2">
               <label className="grid max-w-xs gap-1 text-xs">
                 <span className="font-medium text-[var(--text-primary)]">Cohort filter</span>
@@ -1213,11 +1408,17 @@ export function HumanQualityCorpusPanel() {
                   isLoading={impactQuery.isLoading}
                   isError={impactQuery.isError}
                 />
-              ) : (
+              ) : activeTab === "quality" ? (
                 <QualityImprovementReportView
                   report={qualityQuery.data}
                   isLoading={qualityQuery.isLoading}
                   isError={qualityQuery.isError}
+                />
+              ) : (
+                <CoverageTabContent
+                  report={coverageQuery.data}
+                  isLoading={coverageQuery.isLoading}
+                  isError={coverageQuery.isError}
                 />
               )}
             </div>

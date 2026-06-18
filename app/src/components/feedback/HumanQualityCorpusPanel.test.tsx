@@ -169,7 +169,8 @@ function mockQueueOnly() {
     if (
       url.includes("score-calibration") ||
       url.includes("learning-impact") ||
-      url.includes("quality-improvement")
+      url.includes("quality-improvement") ||
+      url.includes("sample-coverage")
     ) {
       return { ok: false, status: 403 } as Response;
     }
@@ -563,7 +564,7 @@ describe("HumanQualityCorpusPanel calibration tab", () => {
     expect(screen.queryByLabelText("Visual score (0–100)")).not.toBeInTheDocument();
   });
 
-  it("shows honest insufficient_corpus messaging", async () => {
+  it("shows honest insufficient_corpus messaging from sampleGuidance", async () => {
     mockApiFetch.mockImplementation(async (url: string) => {
       if (url.includes("score-calibration")) {
         return {
@@ -574,6 +575,15 @@ describe("HumanQualityCorpusPanel calibration tab", () => {
               ...calibrationReport,
               status: "insufficient_corpus",
               evaluatedItemCount: 2,
+              sampleGuidance: [
+                {
+                  gate: "calibration_global",
+                  currentCount: 2,
+                  requiredCount: 5,
+                  additionalNeeded: 3,
+                  blockedClaim: "calibration visual divergence",
+                },
+              ],
               visualMetrics: {
                 ...calibrationReport.visualMetrics,
                 meanAbsError: null,
@@ -585,7 +595,7 @@ describe("HumanQualityCorpusPanel calibration tab", () => {
           }),
         } as Response;
       }
-      if (url.includes("learning-impact")) {
+      if (url.includes("learning-impact") || url.includes("sample-coverage")) {
         return { ok: false, status: 403 } as Response;
       }
       if (url.includes("human-quality-corpus")) {
@@ -603,7 +613,7 @@ describe("HumanQualityCorpusPanel calibration tab", () => {
     fireEvent.click(screen.getByRole("button", { name: "Calibration" }));
 
     expect(
-      await screen.findByText(/At least 5 evaluated corpus items are required/)
+      await screen.findByText(/Need 3 more for calibration visual divergence/)
     ).toBeInTheDocument();
     expect(screen.getByText("insufficient_corpus")).toBeInTheDocument();
   });
@@ -656,7 +666,7 @@ describe("HumanQualityCorpusPanel impact tab", () => {
     expect(screen.getAllByText("67%").length).toBeGreaterThan(0);
   });
 
-  it("shows honest insufficient_sample messaging without positive delta headline", async () => {
+  it("shows honest insufficient_sample messaging from sampleGuidance without positive delta headline", async () => {
     mockApiFetch.mockImplementation(async (url: string, init?: RequestInit) => {
       if (url.includes("learning-impact")) {
         return {
@@ -668,6 +678,15 @@ describe("HumanQualityCorpusPanel impact tab", () => {
               status: "insufficient_sample",
               evaluatedItemCount: 2,
               insufficientReasons: ["global_below_minimum"],
+              sampleGuidance: [
+                {
+                  gate: "impact_global",
+                  currentCount: 2,
+                  requiredCount: 5,
+                  additionalNeeded: 3,
+                  blockedClaim: "learning impact movement delta",
+                },
+              ],
               learningImpactMetrics: {
                 ...impactReport.learningImpactMetrics,
                 globalVisualScoreDelta: null,
@@ -682,7 +701,7 @@ describe("HumanQualityCorpusPanel impact tab", () => {
           }),
         } as Response;
       }
-      if (url.includes("score-calibration")) {
+      if (url.includes("score-calibration") || url.includes("sample-coverage")) {
         return { ok: false, status: 403 } as Response;
       }
       if (url.includes("human-quality-corpus") && !init?.method) {
@@ -700,7 +719,7 @@ describe("HumanQualityCorpusPanel impact tab", () => {
     fireEvent.click(screen.getByRole("button", { name: "Impact" }));
 
     expect(
-      await screen.findByText(/insufficient to claim learning impact improvement/)
+      await screen.findByText(/Need 3 more for learning impact movement delta/)
     ).toBeInTheDocument();
     expect(screen.getByText("insufficient_sample")).toBeInTheDocument();
     expect(screen.getByText("global_below_minimum")).toBeInTheDocument();
@@ -799,12 +818,14 @@ describe("HumanQualityCorpusPanel quality tab", () => {
     expect(screen.getByText("Visual failure frequency (targeted reasons)")).toBeInTheDocument();
     expect(screen.getByText("Factual pass rates (separate from visual)")).toBeInTheDocument();
     expect(screen.getByText("Fixture gate detection")).toBeInTheDocument();
+    expect(screen.getByText("Evidence source")).toBeInTheDocument();
+    expect(screen.getByText("fixture")).toBeInTheDocument();
     expect(screen.getByText(/score_ceiling\/visual_overload/)).toBeInTheDocument();
     expect(screen.getAllByText("93%").length).toBeGreaterThan(0);
     expect(screen.getByText("95%")).toBeInTheDocument();
   });
 
-  it("shows honest insufficient_sample messaging without positive delta headline", async () => {
+  it("shows honest insufficient_sample messaging from sampleGuidance without positive delta headline", async () => {
     mockApiFetch.mockImplementation(async (url: string, init?: RequestInit) => {
       if (url.includes("quality-improvement")) {
         return {
@@ -814,6 +835,17 @@ describe("HumanQualityCorpusPanel quality tab", () => {
             report: {
               ...qualityReport,
               status: "insufficient_sample",
+              sampleGuidance: [
+                {
+                  gate: "quality_improvement_reason",
+                  dimension: "visual_overload",
+                  arm: "after",
+                  currentCount: 0,
+                  requiredCount: 3,
+                  additionalNeeded: 3,
+                  blockedClaim: "targeted failure-frequency improvement",
+                },
+              ],
               visualMetrics: {
                 ...qualityReport.visualMetrics,
                 failureFrequencyAfter: {
@@ -839,7 +871,11 @@ describe("HumanQualityCorpusPanel quality tab", () => {
           }),
         } as Response;
       }
-      if (url.includes("score-calibration") || url.includes("learning-impact")) {
+      if (
+        url.includes("score-calibration") ||
+        url.includes("learning-impact") ||
+        url.includes("sample-coverage")
+      ) {
         return { ok: false, status: 403 } as Response;
       }
       if (url.includes("human-quality-corpus") && !init?.method) {
@@ -857,9 +893,84 @@ describe("HumanQualityCorpusPanel quality tab", () => {
     fireEvent.click(screen.getByRole("button", { name: "Quality" }));
 
     expect(
-      await screen.findByText(/insufficient to claim targeted failure-frequency improvement/)
+      await screen.findByText(/Need 3 more for targeted failure-frequency improvement/)
     ).toBeInTheDocument();
     expect(screen.getByText("insufficient_sample")).toBeInTheDocument();
     expect(screen.getAllByText("—").length).toBeGreaterThan(0);
+  });
+});
+
+const coverageReport = {
+  schemaVersion: 1,
+  capturedAt: "2026-06-17T12:00:00.000Z",
+  evaluatedItemCount: 2,
+  gates: [
+    { id: "calibration_global", status: "insufficient_sample", blockedClaims: ["calibration visual divergence"] },
+    { id: "impact_global", status: "insufficient_sample", blockedClaims: ["learning impact movement delta"] },
+    { id: "quality_improvement", status: "insufficient_sample", blockedClaims: ["targeted failure-frequency improvement"] },
+    { id: "trend_global", status: "insufficient_sample", blockedClaims: ["quality trend direction (trend charts deferred to Phase 136)"] },
+  ],
+  sliceGaps: [
+    {
+      gate: "calibration_global",
+      currentCount: 2,
+      requiredCount: 5,
+      additionalNeeded: 3,
+      blockedClaim: "calibration visual divergence",
+    },
+    {
+      gate: "impact_slice_arm",
+      sliceKey: "550e8400-e29b-41d4-a716-446655440010|art_variation|1:1",
+      arm: "learned",
+      currentCount: 1,
+      requiredCount: 3,
+      additionalNeeded: 2,
+      blockedClaim: "learning impact movement delta",
+    },
+  ],
+  nextGate: "calibration",
+  nextOperatorAction: "Evaluate corpus items in the human-quality queue.",
+};
+
+describe("HumanQualityCorpusPanel coverage tab", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("renders cross-gate slice gaps from coverage API", async () => {
+    mockApiFetch.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url.includes("sample-coverage")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ report: coverageReport }),
+        } as Response;
+      }
+      if (url.includes("score-calibration") || url.includes("learning-impact") || url.includes("quality-improvement")) {
+        return { ok: false, status: 403 } as Response;
+      }
+      if (url.includes("human-quality-corpus") && !init?.method) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => queueJson([pendingItem]),
+        } as Response;
+      }
+      return { ok: false, status: 500 } as Response;
+    });
+
+    renderPanel();
+    fireEvent.change(screen.getByLabelText("Workspace ID"), {
+      target: { value: WORKSPACE_ID },
+    });
+
+    await screen.findByText("Human quality corpus");
+    fireEvent.click(screen.getByRole("button", { name: "Coverage" }));
+
+    expect(await screen.findByText("Sample coverage")).toBeInTheDocument();
+    expect(screen.getByText(coverageReport.nextOperatorAction)).toBeInTheDocument();
+    expect(screen.getAllByText("calibration_global").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("learning impact movement delta").length).toBeGreaterThan(0);
+    expect(screen.getByText("impact_slice_arm")).toBeInTheDocument();
   });
 });
