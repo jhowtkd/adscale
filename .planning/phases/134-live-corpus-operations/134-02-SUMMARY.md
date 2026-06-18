@@ -69,7 +69,7 @@ Each task was committed atomically (tasks 2–3 share the feature commit because
 2. **Task 2: Make evaluation faster while preserving required judgment fields** - `9660920b` (feat)
 3. **Task 3: Guard UI payloads and owner-only fallback states** - `9660920b` (feat)
 
-**Plan metadata:** pending (docs commit)
+**Plan metadata:** `6199407b` (docs: complete plan)
 
 ## Files Created/Modified
 

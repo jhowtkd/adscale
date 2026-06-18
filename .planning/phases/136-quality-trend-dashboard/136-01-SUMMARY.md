@@ -79,7 +79,7 @@ Each task was committed atomically (TDD: test → feat):
 2. **Task 2: Per-bucket metrics and regression detection** - `443e2532` (test), `cb1fbcc3` (feat)
 3. **Task 3: Trend report builder, guidance and evidence caps** - `09507984` (test), `23786c6f` (feat)
 
-**Plan metadata:** `115d20cf` (docs: complete plan)
+**Plan metadata:** `c7b16ee9` (docs: complete plan)
 
 ## Files Created/Modified
 

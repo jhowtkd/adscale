@@ -81,7 +81,7 @@ Each task was committed atomically:
 2. **Task 2: Coverage API with platform-owner auth** - `df58018b` (feat)
 3. **Task 3: Coverage tab and guidance-driven insufficient UI** - `c9f74dbd` (feat)
 
-**Plan metadata:** `pending` (docs commit in final metadata commit)
+**Plan metadata:** `4a57e455` (docs: complete plan)
 
 ## Files Created/Modified
 

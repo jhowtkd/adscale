@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "capturedAt": "2026-06-17T07:28:37.961Z",
-  "verifiedAt": "2026-06-17T07:28:42.810Z",
+  "capturedAt": "2026-06-18T12:20:19.770Z",
+  "verifiedAt": "2026-06-18T12:20:19.770Z",
   "evalMatrixVersion": 1,
   "qualityMetrics": {
     "scenarioCount": 8,
@@ -24,35 +24,28 @@
   },
   "automated": {
     "outputLearningEval": "pass",
-    "v12_3FactualRegression": "pass",
-    "output-learning-evidence": "pass"
+    "v12_3FactualRegression": "pass"
   },
   "requirements": [
     {
       "id": "EVAL-01",
       "result": "pass",
-      "automated": "node app/scripts/check-output-learning-evidence.mjs",
       "note": "fixed eval matrix + pipeline scenarios"
     },
     {
       "id": "EVAL-02",
       "result": "pass",
-      "automated": "node app/scripts/check-output-learning-evidence.mjs",
-      "note": "qualityMetrics vs factualMetrics separation",
-      "qualityImprovementPathRate": 1,
-      "safetyGuardPassRate": 1
+      "note": "qualityMetrics and factualMetrics stored separately"
     },
     {
       "id": "EVAL-03",
       "result": "pass",
-      "automated": "npm test -- gate-failure-matrix creative-quality-gate",
-      "note": "v12.3 factual hard-failure protections — no regression"
+      "note": "gate-failure-matrix + creative-quality-gate subset"
     },
     {
       "id": "EVAL-04",
-      "result": "pass",
-      "automated": "cd app && npm run output-learning-release-gate",
-      "note": "npm test + lint + build + output-learning evidence"
+      "result": "pending",
+      "note": "completed by run-output-learning-release-gate.mjs"
     }
   ]
 }
