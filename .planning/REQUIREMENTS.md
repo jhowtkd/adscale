@@ -39,7 +39,7 @@ Transformar a infraestrutura de qualidade de v12.5 em uma rotina operacional rea
 
 ### Operational Release Gate (QALIVE)
 
-- [ ] **QALIVE-01**: Release gate reruns score calibration, learning impact, quality improvement and real-quality aggregate against live evidence.
+- [x] **QALIVE-01**: Release gate reruns score calibration, learning impact, quality improvement and real-quality aggregate against live evidence.
 - [x] **QALIVE-02**: Gate passes technical regression independently from operational-evidence status.
 - [x] **QALIVE-03**: Milestone cannot claim quality improvement unless live human metrics meet sample sufficiency and factual pass remains 1.0.
 - [ ] **QALIVE-04**: Release audit records exact commands, live sample counts, accepted caveats and next operator action.
@@ -81,7 +81,7 @@ Transformar a infraestrutura de qualidade de v12.5 em uma rotina operacional rea
 | TREND-02 | Phase 136 | Complete |
 | TREND-03 | Phase 136 | Complete |
 | TREND-04 | Phase 136 | Complete |
-| QALIVE-01 | Phase 137 | Pending |
+| QALIVE-01 | Phase 137 | Complete |
 | QALIVE-02 | Phase 137 | Complete |
 | QALIVE-03 | Phase 137 | Complete |
 | QALIVE-04 | Phase 137 | Pending |

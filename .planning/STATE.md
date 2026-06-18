@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v12.6
 milestone_name: Operacao Live do Corpus de Qualidade
 status: executing
-last_updated: "2026-06-18T11:46:19.004Z"
+last_updated: "2026-06-18T11:54:06.553Z"
 last_activity: 2026-06-18
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 14
-  completed_plans: 11
-  percent: 79
+  completed_plans: 12
+  percent: 86
 ---
 
 # Project State
@@ -21,18 +21,18 @@ See: .planning/PROJECT.md (updated 2026-06-17)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** v12.6 active — Phase 137 in progress (1/4 plans complete).
+**Current focus:** v12.6 active — Phase 137 in progress (2/4 plans complete).
 
 **Status:** Executing
 
 ## Current Position
 
 Phase: 137 — Operational Quality Release Gate
-Plan: 137-02 (next)
+Plan: 137-03 (next)
 Status: In Progress
 Last activity: 2026-06-18
 
-Progress: [████████░░] Phase 137 — 1/4 plans complete; execute 137-02 next.
+Progress: [██████████] Phase 137 — 2/4 plans complete; execute 137-03 next.
 
 ## Accumulated Context
 
@@ -68,7 +68,7 @@ Progress: [████████░░] Phase 137 — 1/4 plans complete; exe
   - `.planning/phases/134-live-corpus-operations/134-03-PLAN.md` — phase verification and operator handoff (LIVEQUAL-01..04) ✅
   - `.planning/phases/134-live-corpus-operations/134-04-PLAN.md` — campaign-dimensional queue progress gap closure (LIVEQUAL-02) ✅
 
-### Phase 137 (in progress — 1/4 plans)
+### Phase 137 (in progress — 2/4 plans)
 
 - Goal: Operational quality release gate with dual technical/operational status (QALIVE-01..04)
 - Depends on: Phases 134-136 live ops, sampling honesty, trend dashboard
@@ -76,9 +76,10 @@ Progress: [████████░░] Phase 137 — 1/4 plans complete; exe
 - Validation: `.planning/phases/137-operational-quality-release-gate/137-VALIDATION.md`
 - Summaries:
   - `.planning/phases/137-operational-quality-release-gate/137-01-SUMMARY.md` ✅
+  - `.planning/phases/137-operational-quality-release-gate/137-02-SUMMARY.md` ✅
 - Plans:
   - `.planning/phases/137-operational-quality-release-gate/137-01-PLAN.md` — operational evidence schema + QALIVE-02/03 checker ✅
-  - `.planning/phases/137-operational-quality-release-gate/137-02-PLAN.md` — dual-block release gate orchestrator (QALIVE-01, QALIVE-02)
+  - `.planning/phases/137-operational-quality-release-gate/137-02-PLAN.md` — dual-block release gate orchestrator (QALIVE-01, QALIVE-02) ✅
   - `.planning/phases/137-operational-quality-release-gate/137-03-PLAN.md` — live aggregation + --run-regression + CLI registration (QALIVE-01, QALIVE-03)
   - `.planning/phases/137-operational-quality-release-gate/137-04-PLAN.md` — v12.6 milestone audit + ROADMAP/STATE closure (QALIVE-04)
 
@@ -225,6 +226,8 @@ Progress: [████████░░] Phase 137 — 1/4 plans complete; exe
 - [Phase 137]: Exported BLENDED_FIELD_DENYLIST from Phase 133 checker for operational evidence validation
 - [Phase 137]: 137 template uses tech_debt root status when technical pass coexists with operational insufficient_sample
 - [Phase 137]: QALIVE-03 blocks qualityImprovementClaimed when factual pass not 1.0 or sampleGuidance additionalNeeded > 0
+- [Phase 137]: Inlined Phase 133 TECHNICAL_STEPS in operational gate orchestrator to avoid nested exit-code confusion
+- [Phase 137]: resolveMilestoneStatus encodes QALIVE-02: technical fail exit 1; operational insufficient_sample exit 0 with tech_debt root status
 
 ### Phase 132 (complete — 4/4 plans)
 
@@ -289,4 +292,4 @@ Progress: [████████░░] Phase 137 — 1/4 plans complete; exe
 
 ## Next Steps
 
-Execute Phase 137 operational quality release gate: `/gsd-execute-phase 137`
+Execute Phase 137 plan 137-03: live aggregation + --run-regression + CLI registration.
