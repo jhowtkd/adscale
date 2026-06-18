@@ -27,7 +27,10 @@ import {
   type BatchCreditBreakdown,
   type RecipeGenerationConfig,
 } from "@/server/ai/strategy-recipes";
-import { shouldShowPreviewGate } from "@/server/ai/preview-gate";
+import {
+  getActivePreviewGateDerivation,
+  shouldShowPreviewGate,
+} from "@/server/ai/preview-gate";
 import { useMissionInsightOptional } from "@/components/mission-insights/MissionInsightProvider";
 import {
   creditFrictionDiagnostic,
@@ -98,8 +101,10 @@ export function useCampaignWorkspace(
     if (realCampaign) {
       return {
         id: realCampaign.id,
+        workspaceId: realCampaign.workspaceId,
         name: realCampaign.name,
         client: realCampaign.client,
+        clientProfileId: realCampaign.clientProfileId,
         product: realCampaign.product,
         offer: realCampaign.offer,
         objective: realCampaign.objective,
@@ -398,7 +403,7 @@ export function useCampaignWorkspace(
   );
 
   const previewDerivation = useMemo(
-    () => allDerivations.find((d) => d.isPreview) ?? null,
+    () => getActivePreviewGateDerivation(allDerivations),
     [allDerivations]
   );
 

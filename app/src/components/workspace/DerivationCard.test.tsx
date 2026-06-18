@@ -4,6 +4,7 @@ import DerivationCard from "./DerivationCard";
 
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
+  useLocale: () => "pt-BR",
 }));
 
 vi.mock("@/lib/hooks/use-export", () => ({

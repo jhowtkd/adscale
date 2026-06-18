@@ -829,6 +829,7 @@
     "createShareLink": "Criar link público",
     "liveUpdates": "Atualizações em tempo real",
     "previewBadge": "Prévia",
+    "generatedAt": "Gerada em {dateTime}",
     "downloadFinalVersion": "Baixe a versão final",
     "previewDerivation": "Visualizar {name}",
     "downloadDerivation": "Baixar {name}",

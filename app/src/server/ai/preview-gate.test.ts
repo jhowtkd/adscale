@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { shouldShowPreviewGate } from "./preview-gate";
+import {
+  getActivePreviewGateDerivation,
+  shouldShowPreviewGate,
+} from "./preview-gate";
 
 describe("shouldShowPreviewGate", () => {
   it("returns false when no preview derivation exists", () => {
@@ -55,5 +58,21 @@ describe("shouldShowPreviewGate", () => {
         { status: "generating", imageUrl: null },
       ])
     ).toBe(false);
+  });
+
+  it("returns the active preview row only when the gate is valid", () => {
+    const preview = {
+      isPreview: true,
+      status: "completed",
+      imageUrl: "https://example.com/preview.png",
+    };
+
+    expect(getActivePreviewGateDerivation([preview])).toEqual(preview);
+    expect(
+      getActivePreviewGateDerivation([
+        preview,
+        { status: "completed", imageUrl: "https://example.com/batch.png" },
+      ])
+    ).toBeNull();
   });
 });

@@ -69,6 +69,7 @@ export interface CampaignListResponse {
 
 export interface UiCampaign {
   id: string;
+  workspaceId: string;
   name: string;
   client?: string;
   product?: string;
@@ -108,6 +109,7 @@ export interface UiCampaign {
 function toUiCampaign(c: Campaign): UiCampaign {
   return {
     id: c.id,
+    workspaceId: c.workspaceId,
     name: c.name,
     client: c.client ?? undefined,
     product: c.product ?? undefined,

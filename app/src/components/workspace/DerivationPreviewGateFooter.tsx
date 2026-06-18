@@ -122,12 +122,12 @@ export default function DerivationPreviewGateFooter({
         <ConversionCta payload={conversionPayload} className="w-full" />
       ) : null}
 
-      <div className="flex flex-col gap-2 sm:flex-row">
+      <div className="flex flex-col gap-2">
         <Button
           type="button"
           variant="outline"
           size="sm"
-          className="flex-1"
+          className="h-auto w-full whitespace-normal px-3 py-2 text-center leading-snug"
           onClick={onReviseRecipe}
           disabled={isApproving}
         >
@@ -137,7 +137,7 @@ export default function DerivationPreviewGateFooter({
         <Button
           type="button"
           size="sm"
-          className="flex-1"
+          className="h-auto w-full whitespace-normal px-3 py-2 text-center leading-snug"
           onClick={handleApproveBatch}
           disabled={approveDisabled}
         >

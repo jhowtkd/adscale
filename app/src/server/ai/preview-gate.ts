@@ -10,17 +10,23 @@ export type PreviewGateDerivation = {
   outputKey?: string | null;
 };
 
+export function getActivePreviewGateDerivation<T extends PreviewGateDerivation>(
+  derivations: T[]
+): T | null {
+  // Newest preview first (API returns createdAt desc); gate only the latest preview.
+  const preview = derivations.find((d) => d.isPreview);
+  if (!preview) return null;
+
+  const hasBatch = derivations.some((d) => !d.isPreview);
+  if (hasBatch) return null;
+
+  if (preview.status === "generating") return null;
+
+  return preview.imageUrl || preview.outputKey ? preview : null;
+}
+
 export function shouldShowPreviewGate(
   derivations: PreviewGateDerivation[]
 ): boolean {
-  // Newest preview first (API returns createdAt desc); gate only the latest preview.
-  const preview = derivations.find((d) => d.isPreview);
-  if (!preview) return false;
-
-  const hasBatch = derivations.some((d) => !d.isPreview);
-  if (hasBatch) return false;
-
-  if (preview.status === "generating") return false;
-
-  return Boolean(preview.imageUrl || preview.outputKey);
+  return getActivePreviewGateDerivation(derivations) != null;
 }

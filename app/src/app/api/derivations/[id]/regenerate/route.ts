@@ -7,7 +7,6 @@ import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import {
   getDerivationById,
   createDerivation,
-  getActiveChildrenByParent,
   updateDerivationStatus,
 } from "@/server/repositories/derivation";
 import { refreshCampaignStatus, updateCampaign, getCampaignById } from "@/server/repositories/campaign";
@@ -169,16 +168,15 @@ export async function POST(
     );
     const feedback = resolved.promptFeedback;
 
-    const activeChildren = await getActiveChildrenByParent(id, workspace.id);
-    if (activeChildren.length > 0) {
-      return apiError("derivationRegenerationInProgress", 429);
-    }
-
+    const regenerationRequestId = crypto.randomUUID();
     const creditError = await spendCreditsOrApiError({
       workspaceId: workspace.id,
       action: "regeneration",
-      idempotencyKey: `regeneration:${id}:${feedback ?? ""}`,
-      metadata: { sourceDerivationId: id },
+      idempotencyKey: `regeneration:${id}:${regenerationRequestId}`,
+      metadata: {
+        sourceDerivationId: id,
+        regenerationRequestId,
+      },
     });
     if (creditError) return creditError;
 

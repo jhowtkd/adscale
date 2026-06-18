@@ -17,7 +17,6 @@ vi.mock("@/server/repositories/user", () => ({
 vi.mock("@/server/repositories/derivation", () => ({
   getDerivationById: vi.fn(),
   createDerivation: vi.fn(),
-  getActiveChildrenByParent: vi.fn(),
   updateDerivationStatus: vi.fn(),
 }));
 
@@ -59,7 +58,6 @@ vi.mock("next-intl/server", () => ({
 import {
   getDerivationById,
   createDerivation,
-  getActiveChildrenByParent,
 } from "@/server/repositories/derivation";
 import { getLatestOpenFeedbackReportForDerivation } from "@/server/repositories/feedback";
 import { updateCampaign, getCampaignById } from "@/server/repositories/campaign";
@@ -69,7 +67,6 @@ import { FACTUAL_SOURCE_RULES } from "@/server/ai/creative-contract";
 
 const mockGetDerivationById = vi.mocked(getDerivationById);
 const mockCreateDerivation = vi.mocked(createDerivation);
-const mockGetActiveChildrenByParent = vi.mocked(getActiveChildrenByParent);
 const mockGetLatestOpenFeedbackReportForDerivation = vi.mocked(
   getLatestOpenFeedbackReportForDerivation
 );
@@ -109,7 +106,6 @@ function paramsWith(id: string) {
 describe("POST /api/derivations/[id]/regenerate", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetActiveChildrenByParent.mockResolvedValue([]);
     mockGetLatestOpenFeedbackReportForDerivation.mockResolvedValue(null);
     mockCreateDerivation.mockResolvedValue({
       id: "child-id",
@@ -133,24 +129,26 @@ describe("POST /api/derivations/[id]/regenerate", () => {
     expect(mockGetDerivationById).not.toHaveBeenCalled();
   });
 
-  it("rejects regeneration while a child is already active", async () => {
+  it("allows queueing another regeneration even when a child is already active", async () => {
     mockGetDerivationById.mockResolvedValue({
       id: "source-id",
       campaignId: "campaign-id",
       workspaceId: "workspace-1",
       status: "approved",
     } as Awaited<ReturnType<typeof getDerivationById>>);
-    mockGetActiveChildrenByParent.mockResolvedValue([
-      { id: "active-child", status: "queued" },
-    ] as Awaited<ReturnType<typeof getActiveChildrenByParent>>);
 
     const res = await POST(requestWith({ feedback: "try a warmer style" }), {
       params: paramsWith("source-id"),
     });
 
-    expect(res.status).toBe(429);
-    expect(mockCreateDerivation).not.toHaveBeenCalled();
-    expect(mockInngestSend).not.toHaveBeenCalled();
+    expect(res.status).toBe(201);
+    expect(mockCreateDerivation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        parentId: "source-id",
+        status: "queued",
+      })
+    );
+    expect(mockInngestSend).toHaveBeenCalled();
   });
 
   it("creates one queued child when no active regeneration exists", async () => {

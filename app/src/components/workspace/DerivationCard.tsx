@@ -5,7 +5,7 @@ import Image from "next/image";
 
 import { useEffect, useState, startTransition } from "react";
 import { Eye, Download, RefreshCw, Clock, AlertCircle, Check, X, Package, ShieldCheck, BookmarkPlus, FileText, Users, Scale, PenTool } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import StatusBadge from "@/components/ui/StatusBadge";
 import type { Derivation } from "@/lib/mock-data";
@@ -259,6 +259,7 @@ export default function DerivationCard({
   const tr = useTranslations("review");
   const commonT = useTranslations("common");
   const toastT = useTranslations("toast");
+  const locale = useLocale();
   const isCompleted = derivation.status === "completed";
   const platformStyle = platformColors[derivation.platform] || {
     bg: "rgba(99,102,241,0.12)",
@@ -302,6 +303,12 @@ export default function DerivationCard({
     derivation.qualityScore,
     derivation.qualityVerdict
   );
+  const generatedAtLabel = new Intl.DateTimeFormat(locale, {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(derivation.createdAt);
 
   const handleRegenerate = (feedback?: string) => {
     if (isRegenerating) return;
@@ -417,9 +424,14 @@ export default function DerivationCard({
       <div className="p-3.5 space-y-2">
         {/* Row 1: Name + Status */}
         <div className="flex items-center justify-between gap-2">
-          <h4 className="text-sm font-semibold text-[var(--text-primary)] truncate">
-            {derivation.name}
-          </h4>
+          <div className="min-w-0">
+            <h4 className="truncate text-sm font-semibold text-[var(--text-primary)]">
+              {derivation.name}
+            </h4>
+            <p className="text-[10px] text-[var(--text-muted)]">
+              {t("generatedAt", { dateTime: generatedAtLabel })}
+            </p>
+          </div>
           <div className="flex items-center gap-1.5 flex-shrink-0">
             {derivation.qualityVerdict === "invalid" ? (
               <span className="inline-flex items-center rounded-md border border-rose-500/40 bg-rose-500/10 px-2 py-0.5 text-[10px] font-semibold text-rose-400">
