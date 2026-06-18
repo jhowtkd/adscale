@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { EVIDENCE_SOURCE } from "../../../scripts/lib/evidence-honesty.mjs";
 import {
+  aggregateOperationalEvidence,
   assertQalive02,
   assertQalive03,
+  mergeRegressionIntoTechnical,
+  PHASE_EVIDENCE_V126,
   validateRootBlendedFields,
 } from "../../../scripts/check-operational-quality-release-evidence.mjs";
 import { resolveMilestoneStatus } from "../../../scripts/run-operational-quality-release-gate.mjs";
@@ -285,5 +288,45 @@ describe("operational-quality-release-evidence blended field denylist", () => {
     const errors: string[] = [];
     validateRootBlendedFields({ overallPass: true }, errors);
     expect(errors.some((error) => error.includes("overallPass"))).toBe(true);
+  });
+});
+
+describe("aggregateOperationalEvidence", () => {
+  it("aggregate: operationalEvidence.gates.trend.sourcePath points to 136 evidence path", () => {
+    const merged = aggregateOperationalEvidence({});
+
+    expect(merged.operationalEvidence.gates.trend.sourcePath).toBe(PHASE_EVIDENCE_V126.trend);
+    expect(merged.milestoneVersion).toBe("v12.6");
+    expect(merged.qualityImprovementClaimed).toBe(false);
+    expect(merged.operationalEvidence.sampleCoverage?.sourcePath).toBe(
+      PHASE_EVIDENCE_V126.sampling
+    );
+  });
+});
+
+describe("mergeRegressionIntoTechnical", () => {
+  it("runRegression: updates technicalRegression without setting qualityImprovementClaimed true", () => {
+    const evidence = baseEvidence({
+      qualityImprovementClaimed: false,
+      operationalEvidence: {
+        status: "insufficient_sample",
+        evidenceSource: EVIDENCE_SOURCE.LIVE_HUMAN,
+        evaluatedItemCount: 0,
+        gates: {
+          qualityImprovement: {
+            status: "insufficient_sample",
+            evidenceSource: EVIDENCE_SOURCE.LIVE_HUMAN,
+          },
+        },
+      },
+    });
+
+    const { errors } = mergeRegressionIntoTechnical(evidence, { skipTests: true });
+
+    expect(errors).toEqual([]);
+    expect(evidence.technicalRegression?.gateMatrixPass).toBe(true);
+    expect(evidence.technicalRegression?.creativeValidationScript).toBe("factual_only_pass");
+    expect(evidence.qualityImprovementClaimed).toBe(false);
+    expect(evidence.operationalEvidence?.status).toBe("insufficient_sample");
   });
 });

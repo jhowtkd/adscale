@@ -4,7 +4,12 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { BLENDED_FIELD_DENYLIST } from "./check-real-quality-release-evidence.mjs";
+import {
+  aggregateEvidence,
+  BLENDED_FIELD_DENYLIST,
+  PHASE_EVIDENCE,
+  runRegressionMode,
+} from "./check-real-quality-release-evidence.mjs";
 import {
   EVIDENCE_SOURCE,
   isPlainObject,
@@ -17,8 +22,48 @@ export { BLENDED_FIELD_DENYLIST };
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const phaseDir = resolve(repoRoot, ".planning/phases/137-operational-quality-release-gate");
 const defaultEvidencePath = resolve(phaseDir, "137-EVIDENCE.template.json");
+const milestoneEvidencePath = resolve(phaseDir, "137-EVIDENCE.json");
 const baselinePath = resolve(phaseDir, "137-BASELINE.md");
 const verificationPath = resolve(phaseDir, "137-VERIFICATION.md");
+
+export const PHASE_EVIDENCE_V126 = {
+  ...PHASE_EVIDENCE,
+  sampling:
+    ".planning/phases/135-sampling-sufficiency-and-evidence-honesty/135-EVIDENCE.json",
+  samplingFallback:
+    ".planning/phases/135-sampling-sufficiency-and-evidence-honesty/135-EVIDENCE.template.json",
+  trend: ".planning/phases/136-quality-trend-dashboard/136-EVIDENCE.json",
+  trendFallback: ".planning/phases/136-quality-trend-dashboard/136-EVIDENCE.template.json",
+  v125Gate: ".planning/phases/133-real-quality-release-gate/133-EVIDENCE.json",
+  v125GateFallback: ".planning/phases/133-real-quality-release-gate/133-EVIDENCE.template.json",
+};
+
+const LIVE_HUMAN_DENOMINATOR = "Human-evaluated corpus items only";
+const FIXTURE_DENOMINATOR = "Deterministic v12.3 archetype matrix — not human corpus";
+const TECHNICAL_DENOMINATOR = "Deterministic v12.3/v12.4 regression scripts — not human corpus";
+
+const DEFAULT_QALIVE_REQUIREMENTS = [
+  {
+    id: "QALIVE-01",
+    result: "pending",
+    automated: "cd app && npm run operational-quality-release-gate",
+  },
+  {
+    id: "QALIVE-02",
+    result: "pass",
+    automated: "node app/scripts/check-operational-quality-release-evidence.mjs --skip-tests",
+  },
+  {
+    id: "QALIVE-03",
+    result: "pass",
+    automated: "node app/scripts/check-operational-quality-release-evidence.mjs --skip-tests",
+  },
+  {
+    id: "QALIVE-04",
+    result: "pending",
+    automated: ".planning/milestones/v12.6-MILESTONE-AUDIT.md",
+  },
+];
 
 export const OPERATIONAL_BLENDED_FIELD_DENYLIST = ["milestonePass", "overallOperationalPass"];
 
@@ -37,7 +82,255 @@ const REQUIRED_TOP_LEVEL_SECTIONS = [
 const VALID_ROOT_STATUSES = ["ok", "gaps_found", "tech_debt", "blocked"];
 
 function usage() {
-  return "Usage: node app/scripts/check-operational-quality-release-evidence.mjs [--evidence PATH] [--skip-tests]";
+  return "Usage: node app/scripts/check-operational-quality-release-evidence.mjs [--evidence PATH] [--skip-tests] [--aggregate] [--run-regression] [--technical-only]";
+}
+
+function readPhaseEvidence(relativePath, { fallbackPath = null, label = relativePath } = {}) {
+  const absolute = resolve(repoRoot, relativePath);
+  if (existsSync(absolute)) {
+    return JSON.parse(readFileSync(absolute, "utf8"));
+  }
+  if (fallbackPath) {
+    const fallbackAbsolute = resolve(repoRoot, fallbackPath);
+    if (existsSync(fallbackAbsolute)) {
+      console.warn(
+        `OPERATIONAL-QUALITY-RELEASE-EVIDENCE: ${label} missing; using fallback ${fallbackPath}`
+      );
+      return JSON.parse(readFileSync(fallbackAbsolute, "utf8"));
+    }
+  }
+  throw new Error(`${label} not found. Run the phase evidence CLI to generate it.`);
+}
+
+function gateSampleGuidance(phaseEvidence, samplingGate) {
+  if (Array.isArray(phaseEvidence?.sampleGuidance) && phaseEvidence.sampleGuidance.length > 0) {
+    return phaseEvidence.sampleGuidance;
+  }
+  if (Array.isArray(samplingGate?.sampleGuidance) && samplingGate.sampleGuidance.length > 0) {
+    return samplingGate.sampleGuidance;
+  }
+  return [];
+}
+
+function buildLiveHumanGate(phaseEvidence, samplingGate, sourcePath, extra = {}) {
+  return {
+    status: phaseEvidence?.status ?? samplingGate?.status ?? "insufficient_sample",
+    evidenceSource: EVIDENCE_SOURCE.LIVE_HUMAN,
+    denominatorNote: LIVE_HUMAN_DENOMINATOR,
+    evaluatedItemCount: phaseEvidence?.evaluatedItemCount ?? samplingGate?.evaluatedItemCount ?? 0,
+    sampleGuidance: gateSampleGuidance(phaseEvidence, samplingGate),
+    sourcePath,
+    ...extra,
+  };
+}
+
+function resolveOperationalStatus(gates, alertFlags) {
+  if (alertFlags?.regressionDetected === true || alertFlags?.staleEvidence === true) {
+    return "gaps_found";
+  }
+
+  const liveGates = [gates.calibration, gates.impact, gates.qualityImprovement, gates.trend];
+  if (liveGates.every((gate) => gate?.status === "ok")) {
+    return "ok";
+  }
+
+  return "insufficient_sample";
+}
+
+export function deriveRootStatus(technicalStatus, operationalStatus) {
+  if (technicalStatus === "fail") {
+    return "blocked";
+  }
+  if (operationalStatus === "ok") {
+    return "ok";
+  }
+  if (operationalStatus === "gaps_found") {
+    return "gaps_found";
+  }
+  return "tech_debt";
+}
+
+function buildTechnicalRegression(v125Core, v133Evidence) {
+  const regression = v133Evidence?.regressionMetrics ?? v125Core.regressionMetrics ?? {};
+  const factual = v133Evidence?.factualMetrics ?? v125Core.factualMetrics ?? {};
+  const gateMatrixPass = regression.gateMatrixPass ?? true;
+  const v12_3Rate = factual.v12_3FactualFidelityRate ?? 1.0;
+  const creativeValidationScript = regression.creativeValidationScript ?? "pending";
+  const outputLearningScript = regression.outputLearningScript ?? "pending";
+  const scriptsPass =
+    creativeValidationScript !== "fail" && outputLearningScript !== "fail";
+  const status = gateMatrixPass && v12_3Rate === 1.0 && scriptsPass ? "pass" : "fail";
+
+  return {
+    status,
+    evidenceSource: EVIDENCE_SOURCE.TECHNICAL_REGRESSION,
+    denominatorNote: TECHNICAL_DENOMINATOR,
+    gateMatrixPass,
+    creativeValidationScript,
+    outputLearningScript,
+    v12_3FactualFidelityRate: v12_3Rate,
+    safetyGuardPassRate: factual.safetyGuardPassRate ?? 1.0,
+    sourcePath: PHASE_EVIDENCE_V126.v125Gate,
+  };
+}
+
+function resolveSampleCoverage(sampling) {
+  const defaultAction =
+    "Evaluate corpus items in the human-quality queue — at least 5 human evaluations are required.";
+  return {
+    nextGate: sampling.nextGate ?? sampling.sampleCoverage?.nextGate ?? "calibration",
+    nextOperatorAction:
+      sampling.nextOperatorAction ??
+      sampling.sampleCoverage?.nextOperatorAction ??
+      defaultAction,
+    sourcePath: PHASE_EVIDENCE_V126.sampling,
+  };
+}
+
+export function aggregateOperationalEvidence(existingEvidence = {}) {
+  const v125Core = aggregateEvidence(existingEvidence);
+  const calibration = readPhaseEvidence(PHASE_EVIDENCE.calibration, {
+    label: PHASE_EVIDENCE.calibration,
+  });
+  const impact = readPhaseEvidence(PHASE_EVIDENCE.impact, {
+    fallbackPath: PHASE_EVIDENCE.impactFallback,
+    label: PHASE_EVIDENCE.impact,
+  });
+  const quality = readPhaseEvidence(PHASE_EVIDENCE.quality, {
+    label: PHASE_EVIDENCE.quality,
+  });
+  const sampling = readPhaseEvidence(PHASE_EVIDENCE_V126.sampling, {
+    fallbackPath: PHASE_EVIDENCE_V126.samplingFallback,
+    label: PHASE_EVIDENCE_V126.sampling,
+  });
+  const trend = readPhaseEvidence(PHASE_EVIDENCE_V126.trend, {
+    fallbackPath: PHASE_EVIDENCE_V126.trendFallback,
+    label: PHASE_EVIDENCE_V126.trend,
+  });
+  const v133Evidence = readPhaseEvidence(PHASE_EVIDENCE_V126.v125Gate, {
+    fallbackPath: PHASE_EVIDENCE_V126.v125GateFallback,
+    label: PHASE_EVIDENCE_V126.v125Gate,
+  });
+
+  const trendReport = isPlainObject(trend.report) ? trend.report : trend;
+  const trendAlertFlags = trend.alertFlags ?? trendReport.alertFlags ?? {};
+  const samplingGates = isPlainObject(sampling.gates) ? sampling.gates : {};
+
+  const gates = {
+    calibration: buildLiveHumanGate(calibration, samplingGates.calibration, PHASE_EVIDENCE.calibration),
+    impact: buildLiveHumanGate(impact, samplingGates.impact, PHASE_EVIDENCE.impact),
+    qualityImprovement: buildLiveHumanGate(quality, samplingGates.qualityImprovement, PHASE_EVIDENCE.quality, {
+      fixtureMetrics: isPlainObject(quality.fixtureMetrics)
+        ? quality.fixtureMetrics
+        : {
+            evidenceSource: EVIDENCE_SOURCE.FIXTURE,
+            denominatorNote: FIXTURE_DENOMINATOR,
+            targetedArchetypePassRateBefore: 0.7,
+            targetedArchetypePassRateAfter: null,
+          },
+    }),
+    trend: buildLiveHumanGate(trendReport, null, PHASE_EVIDENCE_V126.trend, {
+      evaluatedItemCount: trendReport.evaluatedItemCount ?? 0,
+      sampleGuidance:
+        gateSampleGuidance(trendReport, null).length > 0
+          ? gateSampleGuidance(trendReport, null)
+          : Array.isArray(trend.sampleGuidance)
+            ? trend.sampleGuidance
+            : [],
+    }),
+  };
+
+  const operationalStatus = resolveOperationalStatus(gates, trendAlertFlags);
+  const technicalRegression = buildTechnicalRegression(v125Core, v133Evidence);
+  const rootStatus = deriveRootStatus(technicalRegression.status, operationalStatus);
+  const evaluatedItemCount = calibration.evaluatedItemCount ?? 0;
+
+  const merged = {
+    ...v125Core,
+    schemaVersion: 1,
+    milestoneVersion: "v12.6",
+    capturedAt: new Date().toISOString(),
+    status: rootStatus,
+    qualityImprovementClaimed:
+      existingEvidence.qualityImprovementClaimed === true ? true : false,
+    technicalRegression,
+    operationalEvidence: {
+      status: operationalStatus,
+      evidenceSource: EVIDENCE_SOURCE.LIVE_HUMAN,
+      denominatorNote: LIVE_HUMAN_DENOMINATOR,
+      evaluatedItemCount,
+      gates,
+      sampleCoverage: resolveSampleCoverage(sampling),
+    },
+    trendMetrics: {
+      evidenceSource: EVIDENCE_SOURCE.LIVE_HUMAN,
+      status: trendReport.status ?? trend.status ?? "insufficient_sample",
+      populatedBucketCount: trendReport.populatedBucketCount ?? 0,
+      alertFlags: trendAlertFlags,
+      sampleGuidance: trendReport.sampleGuidance ?? trend.sampleGuidance ?? [],
+      sourcePath: PHASE_EVIDENCE_V126.trend,
+    },
+    requirements: Array.isArray(existingEvidence.requirements)
+      ? existingEvidence.requirements
+      : DEFAULT_QALIVE_REQUIREMENTS,
+    automated: isPlainObject(existingEvidence.automated) ? existingEvidence.automated : {},
+    acceptedCaveats: Array.isArray(v125Core.acceptedCaveats) ? v125Core.acceptedCaveats : [],
+  };
+
+  delete merged.regressionMetrics;
+  return merged;
+}
+
+export function mergeRegressionIntoTechnical(evidence, { skipTests = false } = {}) {
+  const working = structuredClone(evidence);
+  const { evidence: regressionEvidence, errors } = runRegressionMode(working, { skipTests });
+  const regression = regressionEvidence.regressionMetrics ?? {};
+  const factual = regressionEvidence.factualMetrics ?? {};
+
+  evidence.technicalRegression = {
+    ...(evidence.technicalRegression ?? {}),
+    status: errors.length === 0 ? "pass" : "fail",
+    evidenceSource: EVIDENCE_SOURCE.TECHNICAL_REGRESSION,
+    denominatorNote: TECHNICAL_DENOMINATOR,
+    gateMatrixPass: regression.gateMatrixPass ?? false,
+    creativeValidationScript: regression.creativeValidationScript ?? "fail",
+    outputLearningScript: regression.outputLearningScript ?? "fail",
+    v12_3FactualFidelityRate: factual.v12_3FactualFidelityRate ?? 1.0,
+    safetyGuardPassRate: factual.safetyGuardPassRate ?? 1.0,
+    sourcePath: PHASE_EVIDENCE_V126.v125Gate,
+  };
+  evidence.factualMetrics = {
+    ...(evidence.factualMetrics ?? {}),
+    v12_3FactualFidelityRate:
+      factual.v12_3FactualFidelityRate ?? evidence.factualMetrics?.v12_3FactualFidelityRate ?? 1.0,
+    safetyGuardPassRate:
+      factual.safetyGuardPassRate ?? evidence.factualMetrics?.safetyGuardPassRate ?? 1.0,
+  };
+
+  return { errors };
+}
+
+export function assertTechnicalOnly(evidence, errors) {
+  const technical = evidence.technicalRegression;
+  if (!isPlainObject(technical)) {
+    errors.push("technical-only: technicalRegression must be a top-level object");
+    return;
+  }
+
+  validateEvidenceSourceTag(
+    technical,
+    EVIDENCE_SOURCE.TECHNICAL_REGRESSION,
+    "technicalRegression",
+    errors
+  );
+
+  if (technical.status !== "pass" && technical.status !== "fail") {
+    errors.push('technical-only: technicalRegression.status must be "pass" or "fail"');
+  }
+
+  if (technical.status === "fail") {
+    errors.push("technical-only: technicalRegression.status is fail");
+  }
 }
 
 function fail(errors) {
@@ -51,6 +344,9 @@ function parseArgs(argv) {
   const args = {
     evidencePath: defaultEvidencePath,
     skipTests: false,
+    aggregate: false,
+    runRegression: false,
+    technicalOnly: false,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index];
@@ -59,6 +355,18 @@ function parseArgs(argv) {
       index += 1;
     } else if (token === "--skip-tests") {
       args.skipTests = true;
+    } else if (token === "--aggregate") {
+      args.aggregate = true;
+      if (args.evidencePath === defaultEvidencePath) {
+        args.evidencePath = milestoneEvidencePath;
+      }
+    } else if (token === "--run-regression") {
+      args.runRegression = true;
+      if (args.evidencePath === defaultEvidencePath) {
+        args.evidencePath = milestoneEvidencePath;
+      }
+    } else if (token === "--technical-only") {
+      args.technicalOnly = true;
     } else if (token === "--help" || token === "-h") {
       console.log(usage());
       process.exit(0);
@@ -341,19 +649,49 @@ function updateRequirementRows(evidence) {
 }
 
 function main() {
-  const { evidencePath, skipTests } = parseArgs(process.argv.slice(2));
+  const { evidencePath, skipTests, aggregate, runRegression, technicalOnly } = parseArgs(
+    process.argv.slice(2)
+  );
   const errors = [];
 
-  if (!existsSync(evidencePath)) {
+  let evidence = null;
+  if (existsSync(evidencePath)) {
+    try {
+      evidence = JSON.parse(readFileSync(evidencePath, "utf8"));
+    } catch {
+      fail([`invalid JSON: ${evidencePath}`]);
+      return;
+    }
+  } else if (!aggregate) {
     fail([`evidence file not found: ${evidencePath}`]);
     return;
   }
 
-  let evidence;
-  try {
-    evidence = JSON.parse(readFileSync(evidencePath, "utf8"));
-  } catch {
-    fail([`invalid JSON: ${evidencePath}`]);
+  if (aggregate) {
+    evidence = aggregateOperationalEvidence(evidence ?? {});
+    mkdirSync(phaseDir, { recursive: true });
+    writeFileSync(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`);
+    console.log(`Aggregated operational evidence written to ${evidencePath}`);
+  }
+
+  if (runRegression) {
+    const regressionResult = mergeRegressionIntoTechnical(evidence, { skipTests });
+    errors.push(...regressionResult.errors);
+    mkdirSync(phaseDir, { recursive: true });
+    writeFileSync(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`);
+    if (regressionResult.errors.length === 0) {
+      console.log("Regression mode complete: technicalRegression updated.");
+    }
+  }
+
+  if (technicalOnly) {
+    assertTechnicalOnly(evidence, errors);
+    if (errors.length > 0) {
+      fail(errors);
+      return;
+    }
+    console.log("Operational quality technical-only check passed.");
+    console.log(`Evidence: ${evidencePath}`);
     return;
   }
 
