@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useReducer, useState } from "react";
+import { useEffect, useMemo, useReducer, useState } from "react";
 import { AlertTriangle, Calculator, CreditCard, DollarSign, ShieldCheck, TrendingUp, Check, Zap, Crown, Sparkles, XCircle } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   brlCurrency,
   calculateForecast,
@@ -66,12 +67,12 @@ function resolveStatusLabel(
   t: ReturnType<typeof useTranslations<"billing.account">>
 ) {
   const access = billingStatus?.access;
-  const subscription = billingStatus?.subscription;
+  const status = billingStatus?.subscriptionStatus;
   if (access?.kind === "beta") return t("statusLabels.beta");
-  if (billingStatus?.subscriptionStatus === "past_due") return t("statusLabels.pastDue");
-  if (billingStatus?.subscriptionStatus === "canceled") return t("statusLabels.canceled");
-  if (subscription?.status === "trialing") return t("statusLabels.trial");
-  if (subscription?.status === "active") return t("statusLabels.active");
+  if (status === "past_due") return t("statusLabels.pastDue");
+  if (status === "canceled") return t("statusLabels.canceled");
+  if (status === "trialing") return t("statusLabels.trial");
+  if (status === "active") return t("statusLabels.active");
   return t("statusLabels.inactive");
 }
 
@@ -79,13 +80,15 @@ function resolveRenewalLabel(
   billingStatus: BillingStatus | undefined,
   t: ReturnType<typeof useTranslations<"billing.account">>
 ) {
-  if (billingStatus?.subscription?.status === "trialing") return t("financial.trialEnds");
-  if (billingStatus?.subscription?.status === "active") return t("financial.nextRenewal");
+  if (billingStatus?.subscriptionStatus === "trialing") return t("financial.trialEnds");
+  if (billingStatus?.subscriptionStatus === "active") return t("financial.nextRenewal");
   return t("financial.renewal");
 }
 
 export default function BillingTab() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
   const locale = useLocale();
   const t = useTranslations("billing.account");
   const { data: billingStatus, isLoading, isError } = useBillingStatus();
@@ -130,15 +133,25 @@ export default function BillingTab() {
 
   const subscription = billingStatus?.subscription;
   const access = billingStatus?.access;
-  const isTrialing = subscription?.status === "trialing";
-  const isActive = subscription?.status === "active";
-  const isPastDue = billingStatus?.subscriptionStatus === "past_due";
-  const isCanceled = billingStatus?.subscriptionStatus === "canceled";
+  const subscriptionStatus = billingStatus?.subscriptionStatus ?? "none";
+  const isTrialing = subscriptionStatus === "trialing";
+  const isActive = subscriptionStatus === "active";
+  const isPastDue = subscriptionStatus === "past_due";
+  const isCanceled = subscriptionStatus === "canceled";
   const hasPaidPlan = isActive || isTrialing;
   const isBeta = access?.kind === "beta";
   const hasSpendAccess = access?.hasSpendAccess ?? (hasPaidPlan || isBeta);
   const grants = creditHistory?.grants ?? [];
   const renewalDate = formatBillingDate(subscription?.currentPeriodEnd, locale);
+
+  useEffect(() => {
+    if (searchParams.get("checkout") !== "success") return;
+    void queryClient.invalidateQueries({ queryKey: ["billing", "status"] });
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.delete("checkout");
+    const query = nextParams.toString();
+    router.replace(query ? `/settings?${query}` : "/settings?tab=billing", { scroll: false });
+  }, [queryClient, router, searchParams]);
 
   async function handleRedeemBeta() {
     setBetaError("");

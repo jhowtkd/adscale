@@ -256,6 +256,12 @@ export function useCampaignWorkspace(
     return mapped;
   }, [derivationsData, campaign, td]);
 
+  useEffect(() => {
+    // #region agent log
+    fetch('http://127.0.0.1:7899/ingest/cfdc6907-57c9-49e8-855d-2427aa77ea62',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'1bdb31'},body:JSON.stringify({sessionId:'1bdb31',location:'use-campaign-workspace.ts:allDerivations',message:'grid derivations snapshot',data:{campaignId,rawCount:derivationsData?.length??0,mappedCount:allDerivations.length,previewCount:allDerivations.filter((d)=>d.isPreview).length,ids:allDerivations.map((d)=>d.id),isDerivationsError},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
+    // #endregion
+  }, [campaignId, derivationsData, allDerivations, isDerivationsError]);
+
   const approvedDerivation = useMemo(
     () => allDerivations.find((derivation) => derivation.status === "approved"),
     [allDerivations]

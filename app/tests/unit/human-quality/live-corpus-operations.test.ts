@@ -7,6 +7,11 @@ vi.mock("@/server/repositories/derivation", () => ({
 
 vi.mock("@/server/repositories/campaign", () => ({
   getCampaignById: vi.fn(),
+  updateCampaign: vi.fn(),
+}));
+
+vi.mock("@/server/repositories/client-reference", () => ({
+  resolveCampaignClientProfileId: vi.fn(),
 }));
 
 vi.mock("@/server/repositories/human-quality-corpus", () => ({
@@ -17,6 +22,7 @@ vi.mock("@/server/repositories/human-quality-corpus", () => ({
 
 import { getDerivationById } from "@/server/repositories/derivation";
 import { getCampaignById } from "@/server/repositories/campaign";
+import { resolveCampaignClientProfileId } from "@/server/repositories/client-reference";
 import {
   findCorpusItemByDerivationVersion,
   getCorpusOperationsProgress,
@@ -37,6 +43,7 @@ const CLIENT_PROFILE_ID = "550e8400-e29b-41d4-a716-446655440010";
 
 const mockGetDerivation = vi.mocked(getDerivationById);
 const mockGetCampaign = vi.mocked(getCampaignById);
+const mockResolveClientProfile = vi.mocked(resolveCampaignClientProfileId);
 const mockFindExisting = vi.mocked(findCorpusItemByDerivationVersion);
 const mockInsert = vi.mocked(insertCorpusItem);
 const mockGetProgress = vi.mocked(getCorpusOperationsProgress);
@@ -67,6 +74,9 @@ const campaign = {
 describe("live corpus operations", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockResolveClientProfile.mockImplementation(async (_workspaceId, campaign) => {
+      return campaign.clientProfileId ?? null;
+    });
   });
 
   describe("batchSelectDerivationsForCorpus", () => {
@@ -111,7 +121,12 @@ describe("live corpus operations", () => {
 
     it("reports missing client profile without failing the batch", async () => {
       mockGetDerivation.mockResolvedValue(derivation as never);
-      mockGetCampaign.mockResolvedValue({ id: CAMPAIGN_ID, clientProfileId: null } as never);
+      mockGetCampaign.mockResolvedValue({
+        id: CAMPAIGN_ID,
+        clientProfileId: null,
+        client: null,
+      } as never);
+      mockResolveClientProfile.mockResolvedValue(null);
 
       const result = await batchSelectDerivationsForCorpus({
         workspaceId: WORKSPACE_ID,

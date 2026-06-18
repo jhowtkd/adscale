@@ -21,8 +21,11 @@ vi.mock("next-intl", () => ({
   },
 }));
 
+const mockRouterReplace = vi.fn();
+
 vi.mock("next/navigation", () => ({
-  useRouter: vi.fn(() => ({ replace: vi.fn() })),
+  useRouter: vi.fn(() => ({ replace: mockRouterReplace })),
+  useSearchParams: vi.fn(() => new URLSearchParams()),
 }));
 
 vi.mock("@/lib/hooks/use-billing", () => ({
@@ -184,6 +187,29 @@ describe("BillingTab account states", () => {
 
     expect(screen.getByText("billing.account.beta.title")).toBeInTheDocument();
     expect(screen.getAllByText("billing.account.accessKinds.beta").length).toBeGreaterThan(0);
+  });
+
+  it("shows active status from subscriptionStatus when subscription object is null", () => {
+    mockBillingStatus({
+      hasCustomer: true,
+      subscriptionStatus: "active",
+      access: {
+        kind: "paid",
+        label: "Dev admin",
+        remainingAds: 100,
+        hasSpendAccess: true,
+        beta: null,
+      },
+      pastDue: null,
+      canceled: null,
+      subscription: null,
+      creditBalance: 500,
+    });
+
+    render(<BillingTab />, { wrapper: createWrapper() });
+
+    expect(screen.getByText("billing.account.statusLabels.active")).toBeInTheDocument();
+    expect(screen.getByText("billing.account.financial.manageBilling")).toBeInTheDocument();
   });
 
   it("shows trialing renewal date in account section", () => {

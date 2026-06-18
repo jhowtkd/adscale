@@ -500,7 +500,10 @@ export default function CampaignWorkspacePage() {
       <DerivationReviewSheet
         open={Boolean(reviewDerivationId && reviewDerivation)}
         derivation={reviewDerivation}
-        workspaceId={workspaceId}
+        workspaceId={workspaceId ?? campaign?.workspaceId}
+        campaignId={campaignId}
+        clientProfileId={campaign?.clientProfileId}
+        campaignClient={campaign?.client}
         baseAsset={baseAsset}
         styleAsset={styleAsset}
         isRegenerating={regeneratePending}

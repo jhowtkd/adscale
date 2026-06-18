@@ -40,6 +40,7 @@ import {
   createClientReference,
   getClientReferences,
   getClientReferencesByIds,
+  resolveCampaignClientProfileId,
 } from "./client-reference";
 
 describe("client-reference repository", () => {
@@ -94,6 +95,57 @@ describe("client-reference repository", () => {
       expect(whereMock).toHaveBeenCalledTimes(1);
       expect(orderByMock).toHaveBeenCalledTimes(1);
       expect(result).toBe(rows);
+    });
+  });
+
+  describe("resolveCampaignClientProfileId", () => {
+    it("returns linked clientProfileId when present", async () => {
+      const result = await resolveCampaignClientProfileId("ws-1", {
+        clientProfileId: "profile-linked",
+        client: "CENBRAP",
+      });
+
+      expect(result).toBe("profile-linked");
+      expect(selectMock).not.toHaveBeenCalled();
+    });
+
+    it("matches campaign.client to a unique profile name", async () => {
+      orderByMock.mockResolvedValue([
+        { id: "profile-cenbrap", name: "Cenbrap" },
+        { id: "profile-other", name: "Other" },
+      ]);
+
+      const result = await resolveCampaignClientProfileId("ws-1", {
+        clientProfileId: null,
+        client: "CENBRAP",
+      });
+
+      expect(result).toBe("profile-cenbrap");
+    });
+
+    it("falls back to the sole workspace profile when no name matches", async () => {
+      orderByMock.mockResolvedValue([{ id: "profile-other", name: "Other" }]);
+
+      const result = await resolveCampaignClientProfileId("ws-1", {
+        clientProfileId: null,
+        client: "CENBRAP",
+      });
+
+      expect(result).toBe("profile-other");
+    });
+
+    it("returns null when multiple profiles exist and no profile matches campaign.client", async () => {
+      orderByMock.mockResolvedValue([
+        { id: "profile-other", name: "Other" },
+        { id: "profile-another", name: "Another" },
+      ]);
+
+      const result = await resolveCampaignClientProfileId("ws-1", {
+        clientProfileId: null,
+        client: "CENBRAP",
+      });
+
+      expect(result).toBeNull();
     });
   });
 

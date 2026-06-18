@@ -1384,7 +1384,17 @@
     "inviteExpired": "Este convite expirou",
     "inviteEmailMismatch": "O e-mail do convite não corresponde à sua conta",
     "cannotRemoveSelf": "Você não pode se remover",
-    "memberNotFound": "Membro não encontrado"
+    "memberNotFound": "Membro não encontrado",
+    "missing_client_profile": "Vincule um perfil de cliente nas configurações da campanha, ou defina o nome do cliente igual ao de um perfil existente (ex.: CENBRAP).",
+    "invalid_derivation": "Variação criativa não encontrada neste workspace.",
+    "invalid_derivation_campaign": "A variação criativa não pertence a esta campanha.",
+    "invalid_campaign": "Campanha não encontrada neste workspace.",
+    "forbidden_corpus_payload": "Esta saída não pode entrar no corpus porque o metadado inclui campos bloqueados.",
+    "validation_error": "Requisição de corpus inválida. Verifique os IDs de workspace, campanha e variação criativa.",
+    "duplicate_corpus_item": "Esta saída já está na fila do corpus de qualidade.",
+    "corpusAddFailed": "Não foi possível adicionar ao corpus de qualidade.",
+    "corpusMissingContext": "Faltam dados de workspace ou campanha para selecionar no corpus.",
+    "invalid_quality_snapshot": "Esta saída tem metadados de aprendizado inválidos e não pode entrar no corpus."
   },
   "review": {
     "title": "Revisão",
@@ -1406,6 +1416,9 @@
     "assetNotAvailable": "Asset indisponível",
     "styleNotProvided": "Não informado",
     "unknownMode": "Modo não informado",
+    "addToCorpus": "Adicionar ao corpus de qualidade",
+    "corpusAdding": "Adicionando ao corpus…",
+    "corpusAddSuccess": "Adicionado à fila do corpus de qualidade humana",
     "qualityScore": "Score",
     "hardFailuresTitle": "Problemas que impedem uso",
     "polishSuggestionsTitle": "Sugestões de melhoria",

@@ -74,6 +74,23 @@ function ToastItem({
   });
   const Icon = icons[type];
   const style = styles[type];
+  // #region agent log
+  if (!style || !Icon) {
+    fetch("http://127.0.0.1:7899/ingest/cfdc6907-57c9-49e8-855d-2427aa77ea62", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "a8b5a7" },
+      body: JSON.stringify({
+        sessionId: "a8b5a7",
+        runId: "pre-fix",
+        hypothesisId: "H5",
+        location: "ToastStack.tsx:ToastItem",
+        message: "invalid toast type",
+        data: { type, hasStyle: Boolean(style), hasIcon: Boolean(Icon), messagePreview: message.slice(0, 80) },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+  }
+  // #endregion
   const duration = 4000;
   const removeToastAfterTimeout = useEffectEvent(() => onRemove(id));
 

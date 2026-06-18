@@ -20,10 +20,26 @@ import type { Derivation } from "@/lib/mock-data";
 import type { AssetWithUrl } from "@/lib/hooks/use-assets";
 import ContextualFeedbackButton from "@/components/feedback/ContextualFeedbackButton";
 
+type DerivationWithWorkspace = Derivation & { workspaceId?: string };
+
+const CORPUS_API_ERROR_CODES = [
+  "missing_client_profile",
+  "invalid_derivation",
+  "invalid_derivation_campaign",
+  "invalid_campaign",
+  "forbidden_corpus_payload",
+  "validation_error",
+  "duplicate_corpus_item",
+  "invalid_quality_snapshot",
+] as const;
+
 interface DerivationReviewSheetProps {
   open: boolean;
   derivation: Derivation | null;
   workspaceId?: string;
+  campaignId?: string;
+  clientProfileId?: string | null;
+  campaignClient?: string | null;
   baseAsset?: AssetWithUrl | null;
   styleAsset?: AssetWithUrl | null;
   isRegenerating?: boolean;
@@ -69,10 +85,29 @@ function AssetThumb({
   );
 }
 
+function resolveCorpusApiError(
+  translateError: (key: string) => string,
+  body: { error?: string; code?: string }
+): string {
+  const code =
+    body.code ??
+    ((body.error && (CORPUS_API_ERROR_CODES as readonly string[]).includes(body.error))
+      ? body.error
+      : undefined);
+  if (
+    code &&
+    (CORPUS_API_ERROR_CODES as readonly string[]).includes(code)
+  ) {
+    return translateError(code);
+  }
+  return body.error ?? translateError("corpusAddFailed");
+}
+
 export default function DerivationReviewSheet({
   open,
   derivation,
   workspaceId,
+  campaignId,
   baseAsset,
   styleAsset,
   isRegenerating = false,
@@ -88,19 +123,24 @@ export default function DerivationReviewSheet({
   const t = useTranslations("derivation");
   const tr = useTranslations("review");
   const tc = useTranslations("common");
+  const te = useTranslations("errors");
   const addToast = useAppStore((s) => s.addToast);
+
+  const effectiveWorkspaceId =
+    workspaceId ?? (derivation as DerivationWithWorkspace | null)?.workspaceId;
+  const effectiveCampaignId = campaignId ?? derivation?.campaignId;
 
   const addToCorpusMutation = useMutation({
     mutationFn: async () => {
-      if (!derivation || !workspaceId) {
-        throw new Error("missing context");
+      if (!derivation || !effectiveWorkspaceId || !effectiveCampaignId) {
+        throw new Error(te("corpusMissingContext"));
       }
       const res = await apiFetch("/api/feedback/human-quality-corpus", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          workspaceId,
-          campaignId: derivation.campaignId,
+          workspaceId: effectiveWorkspaceId,
+          campaignId: effectiveCampaignId,
           derivationId: derivation.id,
         }),
       });
@@ -108,17 +148,20 @@ export default function DerivationReviewSheet({
         return { skipped: true as const };
       }
       if (res.status === 409) {
-        throw new Error("Already in corpus queue");
+        throw new Error(te("duplicate_corpus_item"));
       }
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error((err.error as string | undefined) ?? "Could not add to corpus");
+        const err = (await res.json().catch(() => ({}))) as {
+          error?: string;
+          code?: string;
+        };
+        throw new Error(resolveCorpusApiError(te, err));
       }
       return { skipped: false as const };
     },
     onSuccess: (result) => {
       if (result.skipped) return;
-      addToast("success", "Added to human quality corpus queue");
+      addToast("success", tr("corpusAddSuccess"));
       onAddToCorpus?.();
     },
     onError: (error: Error) => {
@@ -127,8 +170,9 @@ export default function DerivationReviewSheet({
   });
 
   const corpusPending = isAddingToCorpus || addToCorpusMutation.isPending;
-  const showCorpusAction =
-    Boolean(workspaceId) &&
+  const corpusEligible =
+    Boolean(effectiveWorkspaceId) &&
+    Boolean(effectiveCampaignId) &&
     derivation?.status === "completed" &&
     Boolean(derivation?.imageUrl ?? derivation?.outputKey);
 
@@ -298,7 +342,7 @@ export default function DerivationReviewSheet({
                   : undefined
               }
             />
-            {showCorpusAction ? (
+            {corpusEligible ? (
               <Button
                 type="button"
                 variant="ghost"
@@ -306,7 +350,7 @@ export default function DerivationReviewSheet({
                 disabled={corpusPending}
                 onClick={() => addToCorpusMutation.mutate()}
               >
-                {corpusPending ? "Adding to corpus…" : "Add to quality corpus"}
+                {corpusPending ? tr("corpusAdding") : tr("addToCorpus")}
               </Button>
             ) : null}
           </div>

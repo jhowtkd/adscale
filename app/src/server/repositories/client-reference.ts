@@ -64,6 +64,40 @@ export async function getClientProfile(workspaceId: string, id: string) {
   return result[0] ?? null;
 }
 
+function normalizeClientLabel(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+/** Resolve linked profile id, then exact client-name match, then the sole workspace profile. */
+export async function resolveCampaignClientProfileId(
+  workspaceId: string,
+  campaign: { clientProfileId: string | null; client: string | null }
+): Promise<string | null> {
+  if (campaign.clientProfileId) {
+    return campaign.clientProfileId;
+  }
+
+  const profiles = await getClientProfiles(workspaceId);
+  const clientName = campaign.client?.trim();
+
+  if (clientName) {
+    const normalized = normalizeClientLabel(clientName);
+    const matches = profiles.filter(
+      (profile) => normalizeClientLabel(profile.name) === normalized
+    );
+
+    if (matches.length === 1) {
+      return matches[0].id;
+    }
+  }
+
+  if (profiles.length === 1) {
+    return profiles[0].id;
+  }
+
+  return null;
+}
+
 export async function createClientReference(
   workspaceId: string,
   data: CreateClientReferenceInput

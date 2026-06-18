@@ -1383,7 +1383,17 @@
     "inviteExpired": "This invite has expired",
     "inviteEmailMismatch": "Invite email does not match your account",
     "cannotRemoveSelf": "You cannot remove yourself",
-    "memberNotFound": "Member not found"
+    "memberNotFound": "Member not found",
+    "missing_client_profile": "Link this campaign to a client profile in campaign settings, or set the client name to match an existing profile exactly (e.g. CENBRAP).",
+    "invalid_derivation": "Creative variant not found in this workspace.",
+    "invalid_derivation_campaign": "Creative variant does not belong to this campaign.",
+    "invalid_campaign": "Campaign not found in this workspace.",
+    "forbidden_corpus_payload": "This output cannot be added to the corpus because its metadata includes blocked fields.",
+    "validation_error": "Invalid corpus request. Check workspace, campaign, and creative variant IDs.",
+    "duplicate_corpus_item": "This output is already in the quality corpus queue.",
+    "corpusAddFailed": "Could not add to the quality corpus.",
+    "corpusMissingContext": "Missing workspace or campaign context for corpus selection.",
+    "invalid_quality_snapshot": "This output has invalid learning metadata and cannot be added to the corpus."
   },
   "review": {
     "title": "Review",
@@ -1405,6 +1415,9 @@
     "assetNotAvailable": "Asset unavailable",
     "styleNotProvided": "Not provided",
     "unknownMode": "Mode not specified",
+    "addToCorpus": "Add to quality corpus",
+    "corpusAdding": "Adding to corpus…",
+    "corpusAddSuccess": "Added to human quality corpus queue",
     "qualityScore": "Score",
     "hardFailuresTitle": "Issues blocking use",
     "polishSuggestionsTitle": "Improvement suggestions",

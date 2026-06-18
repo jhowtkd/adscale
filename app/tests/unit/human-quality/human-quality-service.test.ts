@@ -7,6 +7,11 @@ vi.mock("@/server/repositories/derivation", () => ({
 
 vi.mock("@/server/repositories/campaign", () => ({
   getCampaignById: vi.fn(),
+  updateCampaign: vi.fn(),
+}));
+
+vi.mock("@/server/repositories/client-reference", () => ({
+  resolveCampaignClientProfileId: vi.fn(),
 }));
 
 vi.mock("@/server/repositories/human-quality-corpus", () => ({
@@ -18,7 +23,8 @@ vi.mock("@/server/repositories/human-quality-corpus", () => ({
 }));
 
 import { getDerivationById } from "@/server/repositories/derivation";
-import { getCampaignById } from "@/server/repositories/campaign";
+import { getCampaignById, updateCampaign } from "@/server/repositories/campaign";
+import { resolveCampaignClientProfileId } from "@/server/repositories/client-reference";
 import {
   findCorpusItemByDerivationVersion,
   getCorpusItemById,
@@ -41,6 +47,8 @@ const ITEM_ID = "550e8400-e29b-41d4-a716-446655440001";
 
 const mockGetDerivation = vi.mocked(getDerivationById);
 const mockGetCampaign = vi.mocked(getCampaignById);
+const mockUpdateCampaign = vi.mocked(updateCampaign);
+const mockResolveClientProfile = vi.mocked(resolveCampaignClientProfileId);
 const mockFindExisting = vi.mocked(findCorpusItemByDerivationVersion);
 const mockInsert = vi.mocked(insertCorpusItem);
 const mockListPending = vi.mocked(listPendingCorpusItems);
@@ -70,6 +78,10 @@ const derivation = {
 describe("human-quality service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockResolveClientProfile.mockImplementation(async (_workspaceId, campaign) => {
+      return campaign.clientProfileId ?? null;
+    });
+    mockUpdateCampaign.mockResolvedValue({} as never);
   });
 
   describe("selectDerivationForCorpus", () => {
@@ -186,7 +198,9 @@ describe("human-quality service", () => {
       mockGetCampaign.mockResolvedValue({
         id: CAMPAIGN_ID,
         clientProfileId: null,
+        client: null,
       } as never);
+      mockResolveClientProfile.mockResolvedValue(null);
 
       await expect(
         selectDerivationForCorpus({
@@ -196,6 +210,36 @@ describe("human-quality service", () => {
           selectedByUserId: "owner-1",
         })
       ).rejects.toMatchObject({ code: "missing_client_profile" });
+    });
+
+    it("resolves client profile from campaign.client and backfills the link", async () => {
+      mockGetDerivation.mockResolvedValue(derivation as never);
+      mockGetCampaign.mockResolvedValue({
+        id: CAMPAIGN_ID,
+        clientProfileId: null,
+        client: "CENBRAP",
+      } as never);
+      mockResolveClientProfile.mockResolvedValue(CLIENT_PROFILE_ID);
+      mockFindExisting.mockResolvedValue(null);
+      mockInsert.mockResolvedValue({ id: ITEM_ID } as never);
+
+      await selectDerivationForCorpus({
+        workspaceId: WORKSPACE_ID,
+        campaignId: CAMPAIGN_ID,
+        derivationId: DERIVATION_ID,
+        selectedByUserId: "owner-1",
+      });
+
+      expect(mockResolveClientProfile).toHaveBeenCalledWith(WORKSPACE_ID, {
+        clientProfileId: null,
+        client: "CENBRAP",
+      });
+      expect(mockUpdateCampaign).toHaveBeenCalledWith(CAMPAIGN_ID, WORKSPACE_ID, {
+        clientProfileId: CLIENT_PROFILE_ID,
+      });
+      expect(mockInsert).toHaveBeenCalledWith(
+        expect.objectContaining({ clientProfileId: CLIENT_PROFILE_ID })
+      );
     });
   });
 

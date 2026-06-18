@@ -133,7 +133,7 @@ export async function getActiveSubscriptionByWorkspace(workspaceId: string) {
     .where(
       and(
         eq(subscriptions.workspaceId, workspaceId),
-        inArray(subscriptions.status, ["active", "trialing"])
+        inArray(subscriptions.status, ["active", "trialing", "checkout_completed"])
       )
     )
     .orderBy(desc(subscriptions.updatedAt))

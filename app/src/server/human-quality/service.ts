@@ -1,5 +1,6 @@
 import { FeedbackValidationError } from "@/server/feedback/validate-refs";
-import { getCampaignById } from "@/server/repositories/campaign";
+import { getCampaignById, updateCampaign } from "@/server/repositories/campaign";
+import { resolveCampaignClientProfileId } from "@/server/repositories/client-reference";
 import { getDerivationById } from "@/server/repositories/derivation";
 import {
   findCorpusItemByDerivationVersion,
@@ -211,11 +212,20 @@ export async function selectDerivationForCorpus(
     );
   }
 
-  if (!campaign.clientProfileId) {
+  const clientProfileId = await resolveCampaignClientProfileId(input.workspaceId, {
+    clientProfileId: campaign.clientProfileId,
+    client: campaign.client,
+  });
+
+  if (!clientProfileId) {
     throw new HumanQualityServiceError(
       "Campaign is missing client profile for corpus selection",
       "missing_client_profile"
     );
+  }
+
+  if (!campaign.clientProfileId) {
+    await updateCampaign(campaign.id, input.workspaceId, { clientProfileId });
   }
 
   assertBoundedPayload("artifactRef", input.artifactRef);
@@ -244,11 +254,19 @@ export async function selectDerivationForCorpus(
     | OutputLearningApplicationSnapshot
     | null
     | undefined;
-  const outputLearningApplication = storedApplication
-    ? sanitizeOutputLearningApplication(
-        storedApplication as unknown as Record<string, unknown>
-      )
-    : resolveOutputLearningApplication(null);
+  let outputLearningApplication: OutputLearningApplicationSnapshot;
+  try {
+    outputLearningApplication = storedApplication
+      ? sanitizeOutputLearningApplication(
+          storedApplication as unknown as Record<string, unknown>
+        )
+      : resolveOutputLearningApplication(null);
+  } catch (error) {
+    throw new HumanQualityServiceError(
+      error instanceof Error ? error.message : "Invalid output learning snapshot",
+      "invalid_quality_snapshot"
+    );
+  }
   const qualitySnapshot = {
     ...baseQualitySnapshot,
     outputLearningApplication,
@@ -256,7 +274,7 @@ export async function selectDerivationForCorpus(
 
   const insertInput: InsertCorpusItemInput = {
     workspaceId: input.workspaceId,
-    clientProfileId: campaign.clientProfileId,
+    clientProfileId,
     campaignId: input.campaignId,
     derivationId: input.derivationId,
     generationMode: derivation.generationMode ?? "art_variation",
