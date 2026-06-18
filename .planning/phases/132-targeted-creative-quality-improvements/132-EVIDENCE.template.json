@@ -24,6 +24,8 @@
     }
   ],
   "visualMetrics": {
+    "evidenceSource": "live_human",
+    "denominatorNote": "Human-evaluated corpus items only",
     "failureFrequencyBefore": {
       "visual_overload": { "count": 6, "rate": 0.4 },
       "weak_hierarchy": { "count": 3, "rate": 0.2 },
@@ -47,10 +49,14 @@
     }
   },
   "factualMetrics": {
+    "evidenceSource": "live_human",
+    "denominatorNote": "Human-evaluated corpus items only",
     "factualPassRateBefore": 0.93,
     "factualPassRateAfter": 0.93
   },
   "fixtureMetrics": {
+    "evidenceSource": "fixture",
+    "denominatorNote": "Deterministic v12.3 archetype matrix — not human corpus",
     "targetedArchetypePassRateBefore": 1.0,
     "targetedArchetypePassRateAfter": 1.0
   },
@@ -102,6 +108,8 @@
         }
       ],
       "visualMetrics": {
+        "evidenceSource": "live_human",
+        "denominatorNote": "Human-evaluated corpus items only",
         "failureFrequencyBefore": {
           "visual_overload": { "count": 5, "rate": 0.33 },
           "weak_hierarchy": { "count": 3, "rate": 0.2 },
@@ -125,13 +133,27 @@
         }
       },
       "factualMetrics": {
+        "evidenceSource": "live_human",
+        "denominatorNote": "Human-evaluated corpus items only",
         "factualPassRateBefore": 0.93,
         "factualPassRateAfter": null
       },
       "fixtureMetrics": {
+        "evidenceSource": "fixture",
+        "denominatorNote": "Deterministic v12.3 archetype matrix — not human corpus",
         "targetedArchetypePassRateBefore": 1.0,
         "targetedArchetypePassRateAfter": 1.0
       },
+      "sampleGuidance": [
+        {
+          "gate": "quality_improvement_reason",
+          "dimension": "visual_overload",
+          "currentCount": 0,
+          "requiredCount": 3,
+          "additionalNeeded": 3,
+          "blockedClaim": "Per-reason improvement deltas withheld until slice sample sufficient"
+        }
+      ],
       "requirements": [
         { "id": "QUALITY-01", "result": "pass", "note": "accepted adjustments present" },
         { "id": "QUALITY-02", "result": "pass", "note": "apply tranche" },

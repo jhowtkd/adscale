@@ -5,6 +5,7 @@ import {
   assertQalive03,
   validateRootBlendedFields,
 } from "../../../scripts/check-operational-quality-release-evidence.mjs";
+import { resolveMilestoneStatus } from "../../../scripts/run-operational-quality-release-gate.mjs";
 
 type OperationalEvidence = {
   schemaVersion: number;
@@ -251,6 +252,31 @@ describe("operational-quality-release-evidence QALIVE-03", () => {
 
   it("passes when qualityImprovementClaimed false with insufficient operational sample", () => {
     expect(runQalive03(baseEvidence())).toEqual([]);
+  });
+});
+
+describe("resolveMilestoneStatus", () => {
+  it("returns technical pass without aborting when operational insufficient_sample", () => {
+    const result = resolveMilestoneStatus("pass", "insufficient_sample");
+
+    expect(result.technicalStatus).toBe("pass");
+    expect(result.exitCode).toBe(0);
+    expect(result.rootStatus).toBe("tech_debt");
+  });
+
+  it("blocks with exit 1 when technical fails regardless of operational status", () => {
+    const result = resolveMilestoneStatus("fail", "ok");
+
+    expect(result.technicalStatus).toBe("fail");
+    expect(result.exitCode).toBe(1);
+    expect(result.rootStatus).toBe("blocked");
+  });
+
+  it("returns ok when both technical and operational pass", () => {
+    const result = resolveMilestoneStatus("pass", "ok");
+
+    expect(result.rootStatus).toBe("ok");
+    expect(result.exitCode).toBe(0);
   });
 });
 
