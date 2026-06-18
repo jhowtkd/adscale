@@ -5,6 +5,14 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  EVIDENCE_SOURCE,
+  validateDenominatorNote,
+  validateEvidenceSourceTag,
+} from "./lib/evidence-honesty.mjs";
+
+export { EVIDENCE_SOURCE };
+
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const appDir = resolve(repoRoot, "app");
 const phaseDir = resolve(repoRoot, ".planning/phases/133-real-quality-release-gate");
@@ -214,6 +222,8 @@ export function aggregateEvidence(existingEvidence = {}) {
     status: existingEvidence.status ?? "ok",
     qualityMetrics: {
       humanCorpus: {
+        evidenceSource: EVIDENCE_SOURCE.LIVE_HUMAN,
+        denominatorNote: "Human-evaluated corpus items only",
         evaluatedItemCount,
         meanHumanVisualScore,
         calibrationStatus,
@@ -222,6 +232,8 @@ export function aggregateEvidence(existingEvidence = {}) {
         sourcePath: PHASE_EVIDENCE.calibration,
       },
       fixtureValidation: {
+        evidenceSource: EVIDENCE_SOURCE.FIXTURE,
+        denominatorNote: "Deterministic v12.3 matrix — not human corpus",
         meanQualityScore: fixtureAggregate.meanQualityScore ?? V12_3_FIXTURE_BASELINE,
         factualFidelityRate: fixtureAggregate.factualFidelityRate ?? 1.0,
         sourcePath: PHASE_EVIDENCE.fixture,
@@ -242,7 +254,14 @@ export function aggregateEvidence(existingEvidence = {}) {
       sourcePath: PHASE_EVIDENCE.impact,
     },
     acceptedCaveats: Array.isArray(existingEvidence.acceptedCaveats)
-      ? existingEvidence.acceptedCaveats
+      ? existingEvidence.acceptedCaveats.map((caveat) =>
+          isPlainObject(caveat)
+            ? {
+                ...caveat,
+                evidenceSource: caveat.evidenceSource ?? EVIDENCE_SOURCE.ACCEPTED_CAVEAT,
+              }
+            : caveat
+        )
       : [],
     regressionMetrics: {
       gateMatrixPass: existingEvidence.regressionMetrics?.gateMatrixPass ?? false,
@@ -302,6 +321,49 @@ export function validateMetricSeparation(evidence, errors, label = "evidence") {
       }
     }
   }
+
+  if (isPlainObject(evidence.qualityMetrics)) {
+    const { humanCorpus, fixtureValidation } = evidence.qualityMetrics;
+    validateEvidenceSourceTag(
+      humanCorpus,
+      EVIDENCE_SOURCE.LIVE_HUMAN,
+      `${label}.qualityMetrics.humanCorpus`,
+      errors
+    );
+    validateEvidenceSourceTag(
+      fixtureValidation,
+      EVIDENCE_SOURCE.FIXTURE,
+      `${label}.qualityMetrics.fixtureValidation`,
+      errors
+    );
+
+    if (isPlainObject(humanCorpus)) {
+      const count = humanCorpus.evaluatedItemCount ?? 0;
+      if (count === 0) {
+        if (humanCorpus.meanHumanVisualScore != null) {
+          errors.push(
+            `${label}.qualityMetrics.humanCorpus.meanHumanVisualScore must be null when evaluatedItemCount is 0`
+          );
+        }
+        if (humanCorpus.calibrationStatus === "ok") {
+          errors.push(
+            `${label}.qualityMetrics.humanCorpus.calibrationStatus must not be "ok" when evaluatedItemCount is 0`
+          );
+        }
+      }
+    }
+  }
+
+  if (Array.isArray(evidence.acceptedCaveats)) {
+    for (const [index, caveat] of evidence.acceptedCaveats.entries()) {
+      validateEvidenceSourceTag(
+        caveat,
+        EVIDENCE_SOURCE.ACCEPTED_CAVEAT,
+        `${label}.acceptedCaveats[${index}]`,
+        errors
+      );
+    }
+  }
 }
 
 function validateQualityMetrics(qualityMetrics, errors, label = "evidence") {
@@ -326,6 +388,8 @@ function validateQualityMetrics(qualityMetrics, errors, label = "evidence") {
     if (typeof humanCorpus.sourcePath !== "string" || !humanCorpus.sourcePath) {
       errors.push(`${label}.qualityMetrics.humanCorpus.sourcePath must be a non-empty string`);
     }
+    validateEvidenceSourceTag(humanCorpus, EVIDENCE_SOURCE.LIVE_HUMAN, `${label}.qualityMetrics.humanCorpus`, errors);
+    validateDenominatorNote(humanCorpus.denominatorNote, `${label}.qualityMetrics.humanCorpus`, errors);
     if (
       humanCorpus.targetedFailureDelta != null &&
       (typeof humanCorpus.targetedFailureDelta !== "number" || Number.isNaN(humanCorpus.targetedFailureDelta))
@@ -344,6 +408,17 @@ function validateQualityMetrics(qualityMetrics, errors, label = "evidence") {
     if (typeof fixtureValidation.sourcePath !== "string" || !fixtureValidation.sourcePath) {
       errors.push(`${label}.qualityMetrics.fixtureValidation.sourcePath must be a non-empty string`);
     }
+    validateEvidenceSourceTag(
+      fixtureValidation,
+      EVIDENCE_SOURCE.FIXTURE,
+      `${label}.qualityMetrics.fixtureValidation`,
+      errors
+    );
+    validateDenominatorNote(
+      fixtureValidation.denominatorNote,
+      `${label}.qualityMetrics.fixtureValidation`,
+      errors
+    );
   }
 }
 
@@ -398,6 +473,7 @@ function validateAcceptedCaveats(acceptedCaveats, errors, label = "evidence") {
     if (typeof caveat.status !== "string" || !caveat.status) {
       errors.push(`${prefix}.status must be a non-empty string`);
     }
+    validateEvidenceSourceTag(caveat, EVIDENCE_SOURCE.ACCEPTED_CAVEAT, prefix, errors);
   }
 }
 

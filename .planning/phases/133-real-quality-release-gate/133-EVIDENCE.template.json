@@ -6,6 +6,8 @@
   "status": "ok",
   "qualityMetrics": {
     "humanCorpus": {
+      "evidenceSource": "live_human",
+      "denominatorNote": "Human-evaluated corpus items only",
       "evaluatedItemCount": 0,
       "meanHumanVisualScore": null,
       "calibrationStatus": "insufficient_corpus",
@@ -14,6 +16,8 @@
       "sourcePath": ".planning/phases/130-score-calibration-and-rubric-alignment/130-EVIDENCE.json"
     },
     "fixtureValidation": {
+      "evidenceSource": "fixture",
+      "denominatorNote": "Deterministic v12.3 matrix — not human corpus",
       "meanQualityScore": 70.17,
       "factualFidelityRate": 1.0,
       "sourcePath": ".planning/phases/123-visual-validation-gate/123-EVIDENCE.json",
@@ -35,6 +39,7 @@
   },
   "acceptedCaveats": [
     {
+      "evidenceSource": "accepted_caveat",
       "id": "visual_quality_gap",
       "status": "accepted_gap",
       "metric": "meanHumanVisualScore",

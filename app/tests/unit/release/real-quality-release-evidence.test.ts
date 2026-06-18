@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { validateFactualOnly } from "../../../scripts/check-creative-validation-evidence.mjs";
+import { EVIDENCE_SOURCE } from "../../../scripts/lib/evidence-honesty.mjs";
 import {
   assertQa24,
   HUMAN_VISUAL_TARGET,
@@ -275,5 +276,143 @@ describe("real-quality-release-evidence QA-23 metric separation", () => {
       errors
     );
     expect(errors.length).toBeGreaterThan(0);
+  });
+});
+
+export function taggedAggregateEvidence(overrides: Record<string, unknown> = {}) {
+  const aggregated = aggregateEvidence({
+    acceptedCaveats: [
+      {
+        id: "visual_quality_gap",
+        status: "accepted_gap",
+        evidenceSource: EVIDENCE_SOURCE.ACCEPTED_CAVEAT,
+        priorBaseline: V12_3_FIXTURE_BASELINE,
+        currentValue: 72,
+        acceptedAt: "2026-06-17",
+        rationale: "Human corpus insufficient; fixture factual green",
+        acceptedBy: "operator",
+      },
+    ],
+  });
+
+  return {
+    ...aggregated,
+    ...overrides,
+    qualityMetrics: {
+      ...aggregated.qualityMetrics,
+      ...(overrides.qualityMetrics as object | undefined),
+      humanCorpus: {
+        ...aggregated.qualityMetrics.humanCorpus,
+        evidenceSource: EVIDENCE_SOURCE.LIVE_HUMAN,
+        denominatorNote: "Human-evaluated corpus items only",
+        ...(overrides.qualityMetrics as { humanCorpus?: object } | undefined)?.humanCorpus,
+      },
+      fixtureValidation: {
+        ...aggregated.qualityMetrics.fixtureValidation,
+        evidenceSource: EVIDENCE_SOURCE.FIXTURE,
+        denominatorNote: "Deterministic v12.3 matrix — not human corpus",
+        ...(overrides.qualityMetrics as { fixtureValidation?: object } | undefined)?.fixtureValidation,
+      },
+    },
+    acceptedCaveats: overrides.acceptedCaveats ?? aggregated.acceptedCaveats,
+  };
+}
+
+describe("real-quality-release-evidence SAMPLE-03 evidenceSource tags", () => {
+  it("rejects humanCorpus missing evidenceSource live_human", () => {
+    const errors: string[] = [];
+    validateMetricSeparation(
+      {
+        qualityMetrics: {
+          humanCorpus: { evaluatedItemCount: 0, sourcePath: "x" },
+          fixtureValidation: { evidenceSource: EVIDENCE_SOURCE.FIXTURE, sourcePath: "y" },
+        },
+        acceptedCaveats: [],
+      },
+      errors
+    );
+    expect(errors.some((error) => error.includes("evidenceSource"))).toBe(true);
+    expect(errors.some((error) => error.includes("live_human"))).toBe(true);
+  });
+
+  it("rejects fixtureValidation missing evidenceSource fixture", () => {
+    const errors: string[] = [];
+    validateMetricSeparation(
+      {
+        qualityMetrics: {
+          humanCorpus: { evidenceSource: EVIDENCE_SOURCE.LIVE_HUMAN, sourcePath: "x" },
+          fixtureValidation: { meanQualityScore: 70.17, sourcePath: "y" },
+        },
+        acceptedCaveats: [],
+      },
+      errors
+    );
+    expect(errors.some((error) => error.includes("fixture"))).toBe(true);
+  });
+
+  it("rejects acceptedCaveats entries missing evidenceSource accepted_caveat", () => {
+    const errors: string[] = [];
+    validateMetricSeparation(
+      {
+        qualityMetrics: {
+          humanCorpus: { evidenceSource: EVIDENCE_SOURCE.LIVE_HUMAN, sourcePath: "x" },
+          fixtureValidation: { evidenceSource: EVIDENCE_SOURCE.FIXTURE, sourcePath: "y" },
+        },
+        acceptedCaveats: [{ id: "visual_quality_gap", status: "accepted_gap" }],
+      },
+      errors
+    );
+    expect(errors.some((error) => error.includes("accepted_caveat"))).toBe(true);
+  });
+
+  it("passes valid tagged aggregate evidence shape", () => {
+    const evidence = taggedAggregateEvidence();
+    const errors: string[] = [];
+    validateMetricSeparation(evidence, errors);
+    expect(errors).toEqual([]);
+  });
+
+  it("rejects empty human corpus claiming ok calibration status", () => {
+    const errors: string[] = [];
+    validateMetricSeparation(
+      {
+        qualityMetrics: {
+          humanCorpus: {
+            evidenceSource: EVIDENCE_SOURCE.LIVE_HUMAN,
+            evaluatedItemCount: 0,
+            meanHumanVisualScore: 72,
+            calibrationStatus: "ok",
+            sourcePath: "x",
+          },
+          fixtureValidation: { evidenceSource: EVIDENCE_SOURCE.FIXTURE, sourcePath: "y" },
+        },
+        acceptedCaveats: [],
+      },
+      errors
+    );
+    expect(errors.length).toBeGreaterThan(0);
+  });
+
+  it("aggregateEvidence tags humanCorpus and fixtureValidation with evidenceSource", () => {
+    const evidence = aggregateEvidence({
+      acceptedCaveats: [
+        {
+          id: "visual_quality_gap",
+          status: "accepted_gap",
+          evidenceSource: EVIDENCE_SOURCE.ACCEPTED_CAVEAT,
+          priorBaseline: V12_3_FIXTURE_BASELINE,
+          currentValue: 72,
+          acceptedAt: "2026-06-17",
+          rationale: "test",
+          acceptedBy: "operator",
+        },
+      ],
+    });
+
+    expect(evidence.qualityMetrics.humanCorpus.evidenceSource).toBe(EVIDENCE_SOURCE.LIVE_HUMAN);
+    expect(evidence.qualityMetrics.fixtureValidation.evidenceSource).toBe(EVIDENCE_SOURCE.FIXTURE);
+    expect(evidence.qualityMetrics.humanCorpus.evaluatedItemCount).not.toBe(
+      evidence.qualityMetrics.fixtureValidation.meanQualityScore
+    );
   });
 });

@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "phaseVersion": "v12.6",
+  "capturedAt": "2026-06-17T21:00:00.000Z",
+  "verifiedAt": "2026-06-17T21:00:00.000Z",
+  "status": "insufficient_sample",
+  "requirements": ["SAMPLE-01", "SAMPLE-02", "SAMPLE-03", "SAMPLE-04"],
+  "gates": {
+    "calibration": {
+      "status": "insufficient_corpus",
+      "evidenceSource": "live_human",
+      "denominatorNote": "Human-evaluated corpus items only",
+      "evaluatedItemCount": 0,
+      "sampleGuidance": [
+        {
+          "gate": "calibration_global",
+          "currentCount": 0,
+          "requiredCount": 5,
+          "additionalNeeded": 5,
+          "blockedClaim": "Global calibration aggregates withheld until corpus reaches minimum"
+        }
+      ]
+    },
+    "impact": {
+      "status": "insufficient_sample",
+      "evidenceSource": "live_human",
+      "denominatorNote": "Human-evaluated corpus items only",
+      "evaluatedItemCount": 0,
+      "sampleGuidance": [
+        {
+          "gate": "impact_global",
+          "currentCount": 0,
+          "requiredCount": 5,
+          "additionalNeeded": 5,
+          "blockedClaim": "Learning impact movement deltas withheld until sample sufficient"
+        }
+      ]
+    },
+    "qualityImprovement": {
+      "status": "insufficient_sample",
+      "evidenceSource": "live_human",
+      "denominatorNote": "Human-evaluated corpus items only",
+      "fixtureMetrics": {
+        "evidenceSource": "fixture",
+        "denominatorNote": "Deterministic v12.3 archetype matrix — not human corpus",
+        "targetedArchetypePassRateBefore": 0.7,
+        "targetedArchetypePassRateAfter": null
+      },
+      "sampleGuidance": [
+        {
+          "gate": "quality_improvement_reason",
+          "dimension": "visual_overload",
+          "currentCount": 0,
+          "requiredCount": 3,
+          "additionalNeeded": 3,
+          "blockedClaim": "Per-reason improvement deltas withheld until slice sample sufficient"
+        }
+      ]
+    },
+    "technicalRegression": {
+      "status": "ok",
+      "evidenceSource": "technical_regression",
+      "denominatorNote": "Deterministic v12.3/v12.4 regression scripts — not human corpus",
+      "v12_3FactualFidelityRate": 1.0,
+      "safetyGuardPassRate": 1.0
+    }
+  },
+  "automated": {
+    "sampling-sufficiency": "node app/scripts/check-sampling-sufficiency-evidence.mjs --skip-tests",
+    "unit": "cd app && npm test -- tests/unit/human-quality/sampling/evidence-honesty.test.ts"
+  }
+}
