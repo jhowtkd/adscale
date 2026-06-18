@@ -4,7 +4,8 @@ export type SampleGate =
   | "impact_global"
   | "impact_slice_arm"
   | "quality_improvement_reason"
-  | "trend_global";
+  | "trend_global"
+  | "trend_time_buckets";
 
 export type EvidenceSource =
   | "live_human_corpus"

@@ -2,6 +2,8 @@ import {
   SAMPLE_ARM_MIN,
   SAMPLE_GLOBAL_MIN,
   SAMPLE_SLICE_MIN,
+  TREND_GLOBAL_MIN_EVALUATED,
+  TREND_MIN_TIME_BUCKETS,
 } from "./thresholds";
 import type {
   CalibrationSamplingStatus,
@@ -147,6 +149,41 @@ export function buildQualityImprovementGuidance(
         blockedClaim: "targeted failure-frequency improvement",
       });
     }
+  }
+
+  return guidance;
+}
+
+export function buildTrendGuidance(input: {
+  evaluatedItemCount: number;
+  populatedBucketCount: number;
+}): SampleGuidance[] {
+  const guidance: SampleGuidance[] = [];
+
+  if (input.evaluatedItemCount < TREND_GLOBAL_MIN_EVALUATED) {
+    guidance.push({
+      gate: "trend_global",
+      currentCount: input.evaluatedItemCount,
+      requiredCount: TREND_GLOBAL_MIN_EVALUATED,
+      additionalNeeded: computeAdditionalNeeded(
+        input.evaluatedItemCount,
+        TREND_GLOBAL_MIN_EVALUATED
+      ),
+      blockedClaim: "quality trend direction",
+    });
+  }
+
+  if (input.populatedBucketCount < TREND_MIN_TIME_BUCKETS) {
+    guidance.push({
+      gate: "trend_time_buckets",
+      currentCount: input.populatedBucketCount,
+      requiredCount: TREND_MIN_TIME_BUCKETS,
+      additionalNeeded: computeAdditionalNeeded(
+        input.populatedBucketCount,
+        TREND_MIN_TIME_BUCKETS
+      ),
+      blockedClaim: "quality trend direction",
+    });
   }
 
   return guidance;
