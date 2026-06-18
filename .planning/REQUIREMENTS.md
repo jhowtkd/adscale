@@ -33,7 +33,7 @@ Transformar a infraestrutura de qualidade de v12.5 em uma rotina operacional rea
 ### Quality Trend Dashboard (TREND)
 
 - [x] **TREND-01**: Owner can view live human quality trend, factual pass rate and learning-impact status over time.
-- [ ] **TREND-02**: Owner can filter trends by workspace, mode, format, client profile and visible failure reason.
+- [x] **TREND-02**: Owner can filter trends by workspace, mode, format, client profile and visible failure reason.
 - [x] **TREND-03**: Dashboard flags regressions, stale evidence and insufficient live corpus coverage separately.
 - [x] **TREND-04**: Dashboard links each aggregate back to bounded corpus evidence for auditability.
 
@@ -78,7 +78,7 @@ Transformar a infraestrutura de qualidade de v12.5 em uma rotina operacional rea
 | SAMPLE-03 | Phase 135 | Complete |
 | SAMPLE-04 | Phase 135 | Complete |
 | TREND-01 | Phase 136 | Complete |
-| TREND-02 | Phase 136 | Pending |
+| TREND-02 | Phase 136 | Complete |
 | TREND-03 | Phase 136 | Complete |
 | TREND-04 | Phase 136 | Complete |
 | QALIVE-01 | Phase 137 | Pending |
