@@ -93,7 +93,12 @@ Plans:
   3. Regressions, stale evidence and insufficient coverage are flagged separately.
   4. Aggregates link back to bounded corpus evidence.
 
-**Plans:** 0/0 plans complete
+**Plans:** 0/3 plans complete
+
+Plans:
+- [ ] 136-01-PLAN.md — Trend engine: ISO-week bucketing, metrics, alert flags, evidence refs (TREND-01, TREND-03, TREND-04)
+- [ ] 136-02-PLAN.md — Quality trend API, repository filters, coverage gate wire, evidence CLI (TREND-02, TREND-03, TREND-04)
+- [ ] 136-03-PLAN.md — Trend tab UI: LineChart, filters, alert chips, drilldown (TREND-01..04)
 
 ---
 
