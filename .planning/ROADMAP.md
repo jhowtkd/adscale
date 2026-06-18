@@ -116,7 +116,13 @@ Plans:
   3. Quality-improvement claims require sample sufficiency and factual pass rate 1.0.
   4. Audit records commands, sample counts, caveats and next operator action.
 
-**Plans:** 0/0 plans complete
+**Plans:** 4 plans
+
+Plans:
+- [ ] 137-01-PLAN.md — Operational evidence schema + QALIVE-02/03 checker
+- [ ] 137-02-PLAN.md — Dual-block release gate orchestrator (QALIVE-01, QALIVE-02)
+- [ ] 137-03-PLAN.md — Live aggregation + --run-regression + CLI registration (QALIVE-01, QALIVE-03)
+- [ ] 137-04-PLAN.md — v12.6 milestone audit + ROADMAP/STATE closure (QALIVE-04)
 
 ---
 
@@ -130,8 +136,8 @@ Archive: [v12.5-ROADMAP.md](milestones/v12.5-ROADMAP.md) · [v12.5-REQUIREMENTS.
 |-------|-----------|----------------|--------|-----------|
 | 134 | v12.6 | 4/4 | Complete | 2026-06-17 |
 | 135 | v12.6 | 3/3 | Complete | 2026-06-18 |
-| 136 | v12.6 | 0/3 | Planned | — |
-| 137 | v12.6 | 0/0 | Pending | — |
+| 136 | v12.6 | 3/3 | Complete | 2026-06-18 |
+| 137 | v12.6 | 0/4 | Planned | — |
 
 ---
-*Roadmap updated: 2026-06-18 — Phase 136 planned (3 plans in 3 waves); next step is execute*
+*Roadmap updated: 2026-06-18 — Phase 137 planned (4 plans in 4 waves); next step is execute*
