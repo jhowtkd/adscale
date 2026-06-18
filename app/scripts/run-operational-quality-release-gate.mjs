@@ -70,8 +70,11 @@ const OUTPUT_LEARNING_EVAL_TESTS = [
 ];
 
 const dryRun = process.argv.includes("--dry-run");
+const runRegression =
+  process.argv.includes("--run-regression") || process.env.OPERATIONAL_QUALITY_RUN_REGRESSION === "1";
+const runAggregate = process.argv.includes("--aggregate");
 
-const TECHNICAL_STEPS = [
+const TECHNICAL_STEPS_BASE = [
   { id: "corpus-eval", type: "vitest", files: FOCUSED_CORPUS_EVAL_TESTS },
   { id: "score-calibration", type: "vitest", files: CALIBRATION_UNIT_TESTS },
   { id: "learning-impact", type: "vitest", files: IMPACT_UNIT_TESTS },
@@ -118,7 +121,45 @@ const TECHNICAL_STEPS = [
   },
 ];
 
-const OPERATIONAL_STEPS = [
+function buildTechnicalSteps() {
+  const steps = [...TECHNICAL_STEPS_BASE];
+  if (runRegression) {
+    steps.push({
+      id: "operational-technical-regression",
+      type: "node",
+      args: [
+        "scripts/check-operational-quality-release-evidence.mjs",
+        "--evidence",
+        evidencePath,
+        "--technical-only",
+        "--run-regression",
+        "--skip-tests",
+      ],
+    });
+  }
+  return steps;
+}
+
+function buildOperationalSteps() {
+  const steps = [];
+  if (runAggregate) {
+    steps.push({
+      id: "aggregate-evidence",
+      type: "node",
+      args: [
+        "scripts/check-operational-quality-release-evidence.mjs",
+        "--evidence",
+        evidencePath,
+        "--aggregate",
+        "--skip-tests",
+      ],
+    });
+  }
+  steps.push(...OPERATIONAL_STEPS_BASE);
+  return steps;
+}
+
+const OPERATIONAL_STEPS_BASE = [
   {
     id: "sampling-sufficiency-evidence",
     type: "node",
@@ -294,6 +335,8 @@ function finalizeEvidence(technicalPassed) {
 
 function main() {
   ensureEvidenceFile();
+  const TECHNICAL_STEPS = buildTechnicalSteps();
+  const OPERATIONAL_STEPS = buildOperationalSteps();
 
   if (dryRun) {
     console.log("Operational quality release gate (dry-run)");
