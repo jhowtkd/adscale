@@ -2,7 +2,7 @@
 
 ## Milestones
 
-- 🟡 **v12.6 Operacao Live do Corpus de Qualidade** - Phases 134-137 (active)
+- ✅ **v12.6 Operacao Live do Corpus de Qualidade** - Phases 134-137 (shipped 2026-06-18; tech debt: empty live corpus, template 135/136 fallbacks)
 - ✅ **v12.5 Validacao Real de Qualidade e Calibracao do Loop Criativo** - Phases 129-133 (shipped 2026-06-17; tech debt: empty live corpus)
 - ✅ **v12.4 Aprendizado de Qualidade dos Outputs** - Phases 124-128 (shipped 2026-06-17)
 - ✅ **v12.3 Integridade Criativa** - Phases 115-123 (shipped 2026-06-16; QA-19 accepted gap)
@@ -12,7 +12,7 @@
 
 ## Phases
 
-### 🟡 v12.6 Operacao Live do Corpus de Qualidade (Phases 134-137) — ACTIVE
+### ✅ v12.6 Operacao Live do Corpus de Qualidade (Phases 134-137) — SHIPPED 2026-06-18
 
 **Milestone Goal:** Fazer o corpus live rodar em operacao real, com amostragem, avaliacao humana, tendencias e release gate que so permita claims quando houver evidencia suficiente.
 
@@ -21,14 +21,14 @@
 - [x] **Phase 134: Live Corpus Operations** — transformar selecao e avaliacao humana de outputs reais em rotina operacional segura (complete 2026-06-17)
 - [x] **Phase 135: Sampling Sufficiency and Evidence Honesty** — definir thresholds e estados honestos para bloquear claims com pouca amostra (completed 2026-06-18)
 - [x] **Phase 136: Quality Trend Dashboard** — expor tendencias live, filtros e drilldown de evidencia para owner decisions (completed 2026-06-18)
-- [ ] **Phase 137: Operational Quality Release Gate** — fechar milestone com gate live, regressao tecnica e audit operacional separados
+- [x] **Phase 137: Operational Quality Release Gate** — fechar milestone com gate live, regressao tecnica e audit operacional separados (complete 2026-06-18)
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
 | 134 | Live Corpus Operations | Complete    | 2026-06-17 | 2026-06-17 |
 | 135 | Sampling Sufficiency and Evidence Honesty | Complete    | 2026-06-18 | 2026-06-18 |
 | 136 | Quality Trend Dashboard | Complete    | 2026-06-18 | 2026-06-18 |
-| 137 | 3/4 | 3/4 | In Progress|  |
+| 137 | Operational Quality Release Gate | Complete | 2026-06-18 | 2026-06-18 |
 
 ## Phase Details
 
@@ -116,13 +116,13 @@ Plans:
   3. Quality-improvement claims require sample sufficiency and factual pass rate 1.0.
   4. Audit records commands, sample counts, caveats and next operator action.
 
-**Plans:** 3/4 plans executed
+**Plans:** 4/4 plans complete
 
 Plans:
 - [x] 137-01-PLAN.md — Operational evidence schema + QALIVE-02/03 checker
 - [x] 137-02-PLAN.md — Dual-block release gate orchestrator (QALIVE-01, QALIVE-02)
 - [x] 137-03-PLAN.md — Live aggregation + --run-regression + CLI registration (QALIVE-01, QALIVE-03)
-- [ ] 137-04-PLAN.md — v12.6 milestone audit + ROADMAP/STATE closure (QALIVE-04)
+- [x] 137-04-PLAN.md — v12.6 milestone audit + ROADMAP/STATE closure (QALIVE-04)
 
 ---
 
@@ -137,7 +137,7 @@ Archive: [v12.5-ROADMAP.md](milestones/v12.5-ROADMAP.md) · [v12.5-REQUIREMENTS.
 | 134 | v12.6 | 4/4 | Complete | 2026-06-17 |
 | 135 | v12.6 | 3/3 | Complete | 2026-06-18 |
 | 136 | v12.6 | 3/3 | Complete | 2026-06-18 |
-| 137 | v12.6 | 0/4 | Planned | — |
+| 137 | v12.6 | 4/4 | Complete | 2026-06-18 |
 
 ---
-*Roadmap updated: 2026-06-18 — Phase 137 planned (4 plans in 4 waves); next step is execute*
+*Roadmap updated: 2026-06-18 — v12.6 milestone shipped; Phase 137 complete (4/4 plans)*

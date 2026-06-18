@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v12.6
 milestone_name: Operacao Live do Corpus de Qualidade
-status: executing
-last_updated: "2026-06-18T13:01:00.000Z"
+status: shipped
+last_updated: "2026-06-18T12:10:00.000Z"
 last_activity: 2026-06-18
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 14
-  completed_plans: 13
-  percent: 93
+  completed_plans: 14
+  percent: 100
 ---
 
 # Project State
@@ -21,18 +21,18 @@ See: .planning/PROJECT.md (updated 2026-06-17)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** v12.6 active — Phase 137 in progress (3/4 plans complete).
+**Current focus:** v12.6 shipped — live quality operating loop complete (tech debt: operator corpus population pending).
 
-**Status:** Executing
+**Status:** Shipped
 
 ## Current Position
 
 Phase: 137 — Operational Quality Release Gate
-Plan: 137-04 (next)
-Status: In Progress
+Plan: Complete (4/4)
+Status: Complete
 Last activity: 2026-06-18
 
-Progress: [██████████] Phase 137 — 3/4 plans complete; execute 137-04 next.
+Progress: [██████████] v12.6 milestone shipped — Phase 137 complete (4/4 plans).
 
 ## Accumulated Context
 
@@ -68,21 +68,24 @@ Progress: [██████████] Phase 137 — 3/4 plans complete; exe
   - `.planning/phases/134-live-corpus-operations/134-03-PLAN.md` — phase verification and operator handoff (LIVEQUAL-01..04) ✅
   - `.planning/phases/134-live-corpus-operations/134-04-PLAN.md` — campaign-dimensional queue progress gap closure (LIVEQUAL-02) ✅
 
-### Phase 137 (in progress — 3/4 plans)
+### Phase 137 (complete — 4/4 plans)
 
 - Goal: Operational quality release gate with dual technical/operational status (QALIVE-01..04)
 - Depends on: Phases 134-136 live ops, sampling honesty, trend dashboard
 - Research: `.planning/phases/137-operational-quality-release-gate/137-RESEARCH.md`
 - Validation: `.planning/phases/137-operational-quality-release-gate/137-VALIDATION.md`
+- Verification: `.planning/phases/137-operational-quality-release-gate/137-VERIFICATION.md` (passed 2026-06-18)
+- Milestone audit: `.planning/milestones/v12.6-MILESTONE-AUDIT.md`
 - Summaries:
   - `.planning/phases/137-operational-quality-release-gate/137-01-SUMMARY.md` ✅
   - `.planning/phases/137-operational-quality-release-gate/137-02-SUMMARY.md` ✅
   - `.planning/phases/137-operational-quality-release-gate/137-03-SUMMARY.md` ✅
+  - `.planning/phases/137-operational-quality-release-gate/137-04-SUMMARY.md` ✅
 - Plans:
   - `.planning/phases/137-operational-quality-release-gate/137-01-PLAN.md` — operational evidence schema + QALIVE-02/03 checker ✅
   - `.planning/phases/137-operational-quality-release-gate/137-02-PLAN.md` — dual-block release gate orchestrator (QALIVE-01, QALIVE-02) ✅
   - `.planning/phases/137-operational-quality-release-gate/137-03-PLAN.md` — live aggregation + --run-regression + CLI registration (QALIVE-01, QALIVE-03) ✅
-  - `.planning/phases/137-operational-quality-release-gate/137-04-PLAN.md` — v12.6 milestone audit + ROADMAP/STATE closure (QALIVE-04)
+  - `.planning/phases/137-operational-quality-release-gate/137-04-PLAN.md` — v12.6 milestone audit + ROADMAP/STATE closure (QALIVE-04) ✅
 
 ### Phase 136 (complete — 3/3 plans)
 
@@ -231,6 +234,9 @@ Progress: [██████████] Phase 137 — 3/4 plans complete; exe
 - [Phase 137]: resolveMilestoneStatus encodes QALIVE-02: technical fail exit 1; operational insufficient_sample exit 0 with tech_debt root status
 - [Phase 137]: aggregateOperationalEvidence derives technicalRegression from 133 metrics not stale 137 fail state
 - [Phase 137]: runRegressionMode updates technicalRegression only; qualityImprovementClaimed defaults false
+- [Phase 137]: v12.6 milestone audit at .planning/milestones/v12.6-MILESTONE-AUDIT.md; shipped 2026-06-18
+- [Phase 137]: QALIVE-03 blocks improvement claims not milestone closure; tech_debt when operational insufficient_sample
+- [Phase 137]: DATABASE_URL unavailable at audit — template 135/136 fallbacks; operator must refresh live corpus before stronger claims
 
 ### Phase 132 (complete — 4/4 plans)
 
@@ -295,4 +301,4 @@ Progress: [██████████] Phase 137 — 3/4 plans complete; exe
 
 ## Next Steps
 
-Execute Phase 137 plan 137-04: v12.6 milestone audit + ROADMAP/STATE closure.
+v12.6 milestone shipped. Operator action: populate live human corpus (≥5 evaluations), set DATABASE_URL, rerun refresh CLIs and `operational-quality-release-gate -- --run-regression`. Next milestone planning TBD.
