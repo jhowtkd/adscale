@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v12.6
 milestone_name: Operacao Live do Corpus de Qualidade
-status: executing
-last_updated: "2026-06-18T00:31:05.024Z"
+status: planning
+last_updated: "2026-06-18T00:33:48.324Z"
 last_activity: 2026-06-17
 progress:
   total_phases: 4
@@ -23,7 +23,7 @@ See: .planning/PROJECT.md (updated 2026-06-17)
 
 **Current focus:** v12.6 active — Phase 135 complete (3/3 plans).
 
-**Status:** Executing
+**Status:** Ready to plan
 
 ## Current Position
 
