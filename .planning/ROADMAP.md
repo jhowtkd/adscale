@@ -28,7 +28,7 @@
 | 134 | Live Corpus Operations | Complete    | 2026-06-17 | 2026-06-17 |
 | 135 | Sampling Sufficiency and Evidence Honesty | Complete    | 2026-06-18 | 2026-06-18 |
 | 136 | Quality Trend Dashboard | Complete    | 2026-06-18 | 2026-06-18 |
-| 137 | 0/4 | Planned    |  | — |
+| 137 | 0/4 | 1/4 | In Progress|  |
 
 ## Phase Details
 
@@ -116,10 +116,10 @@ Plans:
   3. Quality-improvement claims require sample sufficiency and factual pass rate 1.0.
   4. Audit records commands, sample counts, caveats and next operator action.
 
-**Plans:** 0/4 plans executed
+**Plans:** 1/4 plans executed
 
 Plans:
-- [ ] 137-01-PLAN.md — Operational evidence schema + QALIVE-02/03 checker
+- [x] 137-01-PLAN.md — Operational evidence schema + QALIVE-02/03 checker
 - [ ] 137-02-PLAN.md — Dual-block release gate orchestrator (QALIVE-01, QALIVE-02)
 - [ ] 137-03-PLAN.md — Live aggregation + --run-regression + CLI registration (QALIVE-01, QALIVE-03)
 - [ ] 137-04-PLAN.md — v12.6 milestone audit + ROADMAP/STATE closure (QALIVE-04)
