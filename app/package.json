@@ -35,6 +35,7 @@
     "learning-impact-evidence": "node scripts/check-learning-impact-evidence.mjs",
     "quality-improvement-evidence": "node scripts/check-quality-improvement-evidence.mjs --evidence ../.planning/phases/132-targeted-creative-quality-improvements/132-EVIDENCE.template.json --skip-tests",
     "real-quality-release-evidence": "node scripts/check-real-quality-release-evidence.mjs --evidence ../.planning/phases/133-real-quality-release-gate/133-EVIDENCE.template.json --skip-tests",
+    "operational-quality-release-evidence": "node scripts/check-operational-quality-release-evidence.mjs --evidence ../.planning/phases/137-operational-quality-release-gate/137-EVIDENCE.template.json --skip-tests",
     "real-quality-release-gate": "node scripts/run-real-quality-release-gate.mjs"
   },
   "dependencies": {
