@@ -82,7 +82,7 @@ Each task was committed atomically (TDD: test → feat):
 2. **Task 2: Quality trend API route** - `1e30384d` (test), `e9a5dcbe` (feat)
 3. **Task 3: Coverage trend_global wire and evidence CLI** - `762fd2ad` (test), `674f3194` (feat)
 
-**Plan metadata:** `2b335cfb` (docs: complete plan)
+**Plan metadata:** `0b1b80d2` (docs: complete plan)
 
 ## Files Created/Modified
 
