@@ -541,20 +541,13 @@ evidence.technicalRegression = {
 | A4 | Operator must run live CLIs before milestone audit; CI uses committed JSON | Environment | Audit stale if operator skips refresh |
 | A5 | `qualityImprovementClaimed` is a new explicit boolean field on 137 evidence | Schema | Planner may prefer inferring from gate status only |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Minimum evaluatedItemCount for v12.6 milestone closure without `blocked` status?**
-   - What we know: Phase 130/135 use global min 5 for `ok`; v12.5 closed at 0 with `tech_debt`.
-   - What's unclear: Whether v12.6 requires >0 live evaluations to close at all.
-   - Recommendation: Allow closure with `tech_debt` at 0; require `evaluatedItemCount >= 5` only for `status: ok` and `qualityImprovementClaimed: true`.
+1. **Minimum evaluatedItemCount for v12.6 milestone closure without `blocked` status?** — **RESOLVED:** Allow closure with `tech_debt` at `evaluatedItemCount=0`; require `evaluatedItemCount >= 5` only for `status: ok` and `qualityImprovementClaimed: true` (Plan 137-04 audit, Pattern 1).
 
-2. **Should 137 orchestrator invoke live `tsx` CLIs when `DATABASE_URL` is set?**
-   - What we know: Phase 133-04 used manual operator refresh; v12.6 is "live operations" milestone.
-   - Recommendation: Optional `--refresh-live` flag; default CI path uses committed evidence (mirror 133).
+2. **Should 137 orchestrator invoke live `tsx` CLIs when `DATABASE_URL` is set?** — **RESOLVED:** Operator-only live refresh via checkpoint in Plan 137-04; CI uses committed JSON + templates (mirror Phase 133-04). No `--refresh-live` in orchestrator default path.
 
-3. **Reuse `assertQa24` for visual target or operational-only gate?**
-   - What we know: QA-24 Path B `accepted_gap` allowed v12.5 ship without human corpus.
-   - Recommendation: Keep QA-24 logic in Phase 133 artifact; 137 adds QALIVE-03 claim gate — do not weaken factual 1.0 hard gate.
+3. **Reuse `assertQa24` for visual target or operational-only gate?** — **RESOLVED:** Reuse `runRegressionMode()` from Phase 133 checker; keep QA-24 logic in 133 artifact. Plan 137-03 adds QALIVE-03 `qualityImprovementClaimed` gate — do not weaken factual 1.0 hard gate.
 
 ## Environment Availability
 
@@ -699,10 +692,10 @@ evidence.technicalRegression = {
 | Pitfalls | HIGH | Documented in v12.5 audit + Phase 135 honesty module |
 | QALIVE-03 scope (claims vs closure) | MEDIUM | REQUIREMENTS imply claim blocking; no Phase 137 CONTEXT.md |
 
-### Open Questions
-- Minimum `evaluatedItemCount` for `status: ok` vs `tech_debt` closure
-- Optional `--refresh-live` in orchestrator vs operator-only refresh
-- Whether to add explicit `qualityImprovementClaimed` boolean
+### Open Questions (RESOLVED)
+- Minimum `evaluatedItemCount` for `status: ok` vs `tech_debt` closure — **RESOLVED:** `tech_debt` at 0; `ok` requires >= 5 evaluated items
+- Optional `--refresh-live` in orchestrator vs operator-only refresh — **RESOLVED:** operator-only refresh; CI uses committed evidence
+- Whether to add explicit `qualityImprovementClaimed` boolean — **RESOLVED:** explicit boolean field, default `false`
 
 ### Ready for Planning
 Research complete. Planner can now create PLAN.md files (recommended 4-plan wave: schema/checker → orchestrator → aggregation/regression → milestone audit).

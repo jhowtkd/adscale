@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v12.6
 milestone_name: Operacao Live do Corpus de Qualidade
 status: planning
-last_updated: "2026-06-18T09:45:31.521Z"
+last_updated: "2026-06-18T12:00:00.000Z"
 last_activity: 2026-06-18
 progress:
   total_phases: 4
   completed_phases: 3
-  total_plans: 10
+  total_plans: 14
   completed_plans: 10
-  percent: 100
+  percent: 71
 ---
 
 # Project State
@@ -21,18 +21,18 @@ See: .planning/PROJECT.md (updated 2026-06-17)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** v12.6 active — Phase 136 verified (human approved 2026-06-17); Phase 137 next.
+**Current focus:** v12.6 active — Phase 137 planned (4 plans); ready to execute.
 
-**Status:** Ready to plan
+**Status:** Ready to execute
 
 ## Current Position
 
 Phase: 137 — Operational Quality Release Gate
-Plan: Not started
-Status: Pending
+Plan: 137-01 (not started)
+Status: Planned
 Last activity: 2026-06-18
 
-Progress: [██████████] Phase 136 complete — human verification passed; proceed to Phase 137.
+Progress: [████████░░] Phase 137 planned — 4 plans in 4 waves; execute next.
 
 ## Accumulated Context
 
@@ -67,6 +67,18 @@ Progress: [██████████] Phase 136 complete — human verifica
   - `.planning/phases/134-live-corpus-operations/134-02-PLAN.md` — operator review UX and fast evaluation loop (LIVEQUAL-02, LIVEQUAL-03, LIVEQUAL-04) ✅
   - `.planning/phases/134-live-corpus-operations/134-03-PLAN.md` — phase verification and operator handoff (LIVEQUAL-01..04) ✅
   - `.planning/phases/134-live-corpus-operations/134-04-PLAN.md` — campaign-dimensional queue progress gap closure (LIVEQUAL-02) ✅
+
+### Phase 137 (planned — 0/4 plans)
+
+- Goal: Operational quality release gate with dual technical/operational status (QALIVE-01..04)
+- Depends on: Phases 134-136 live ops, sampling honesty, trend dashboard
+- Research: `.planning/phases/137-operational-quality-release-gate/137-RESEARCH.md`
+- Validation: `.planning/phases/137-operational-quality-release-gate/137-VALIDATION.md`
+- Plans:
+  - `.planning/phases/137-operational-quality-release-gate/137-01-PLAN.md` — operational evidence schema + QALIVE-02/03 checker
+  - `.planning/phases/137-operational-quality-release-gate/137-02-PLAN.md` — dual-block release gate orchestrator (QALIVE-01, QALIVE-02)
+  - `.planning/phases/137-operational-quality-release-gate/137-03-PLAN.md` — live aggregation + --run-regression + CLI registration (QALIVE-01, QALIVE-03)
+  - `.planning/phases/137-operational-quality-release-gate/137-04-PLAN.md` — v12.6 milestone audit + ROADMAP/STATE closure (QALIVE-04)
 
 ### Phase 136 (complete — 3/3 plans)
 
@@ -272,4 +284,4 @@ Progress: [██████████] Phase 136 complete — human verifica
 
 ## Next Steps
 
-Phase 136 human verification approved. Plan Phase 137 operational quality release gate.
+Execute Phase 137 operational quality release gate: `/gsd-execute-phase 137`
