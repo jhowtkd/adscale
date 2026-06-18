@@ -3,6 +3,16 @@
   "rubricCalibrationVersion": "1.1.0",
   "capturedAt": "2026-06-17T17:42:58.332Z",
   "status": "insufficient_sample",
+  "sampleGuidance": [
+    {
+      "gate": "quality_improvement_reason",
+      "dimension": "visual_overload",
+      "currentCount": 0,
+      "requiredCount": 3,
+      "additionalNeeded": 3,
+      "blockedClaim": "Per-reason improvement deltas withheld until slice sample sufficient"
+    }
+  ],
   "targetedFailureReasons": [
     "visual_overload",
     "weak_hierarchy",
@@ -11,6 +21,8 @@
     "unfocused_composition"
   ],
   "visualMetrics": {
+    "evidenceSource": "live_human",
+    "denominatorNote": "Human-evaluated corpus items only",
     "failureFrequencyBefore": {
       "visual_overload": {
         "count": 0,
@@ -64,10 +76,14 @@
     }
   },
   "factualMetrics": {
+    "evidenceSource": "live_human",
+    "denominatorNote": "Human-evaluated corpus items only",
     "factualPassRateBefore": null,
     "factualPassRateAfter": null
   },
   "fixtureMetrics": {
+    "evidenceSource": "fixture",
+    "denominatorNote": "Deterministic v12.3 archetype matrix — not human corpus",
     "targetedArchetypePassRateBefore": 1,
     "targetedArchetypePassRateAfter": 1
   },

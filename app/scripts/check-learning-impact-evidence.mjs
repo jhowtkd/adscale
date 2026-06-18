@@ -5,6 +5,13 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  EVIDENCE_SOURCE,
+  rejectClaimsWhenGuidanceBlocked,
+  validateEvidenceSourceTag,
+  validateInsufficientSampleGuidance,
+} from "./lib/evidence-honesty.mjs";
+
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const appDir = resolve(repoRoot, "app");
 const phaseDir = resolve(repoRoot, ".planning/phases/131-learning-impact-measurement");
@@ -87,6 +94,8 @@ function validateLearningImpactMetrics(metrics, errors, prefix = "learningImpact
   if (!Array.isArray(metrics.slices)) {
     errors.push(`${prefix}.slices must be an array`);
   }
+
+  validateEvidenceSourceTag(metrics, EVIDENCE_SOURCE.LIVE_HUMAN, prefix, errors);
 }
 
 function validateIntentMetrics(metrics, errors, prefix = "intentMetrics") {
@@ -137,6 +146,8 @@ function validateFactualMetrics(metrics, errors, prefix = "factualMetrics") {
       errors.push(`${prefix}.${key} is required`);
     }
   }
+
+  validateEvidenceSourceTag(metrics, EVIDENCE_SOURCE.LIVE_HUMAN, prefix, errors);
 }
 
 function validateHonestyGates(evidence, errors, label = "evidence") {
@@ -161,7 +172,19 @@ function validateHonestyGates(evidence, errors, label = "evidence") {
   }
 }
 
-function validateEvidenceShape(evidence, errors, label = "evidence") {
+function validateSamplingHonesty(evidence, errors, label = "evidence") {
+  if (evidence.status === "insufficient_sample") {
+    validateInsufficientSampleGuidance(evidence, errors, label);
+    rejectClaimsWhenGuidanceBlocked(evidence, errors, label, {
+      movementPaths: [
+        "learningImpactMetrics.globalVisualScoreDelta",
+        "visualMovementMetrics.deltaLearnedMinusNonLearned",
+      ],
+    });
+  }
+}
+
+export function validateEvidenceShape(evidence, errors, label = "evidence") {
   if (!isPlainObject(evidence)) {
     errors.push(`${label} must be a JSON object`);
     return;
@@ -231,6 +254,7 @@ function validateEvidenceShape(evidence, errors, label = "evidence") {
   }
 
   validateHonestyGates(evidence, errors, label);
+  validateSamplingHonesty(evidence, errors, label);
 }
 
 function main() {
@@ -277,4 +301,10 @@ function main() {
   console.log(`Evidence: ${evidencePath}`);
 }
 
-main();
+const isMain =
+  process.argv[1] != null &&
+  resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isMain) {
+  main();
+}

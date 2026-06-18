@@ -5,6 +5,13 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  EVIDENCE_SOURCE,
+  rejectClaimsWhenGuidanceBlocked,
+  validateEvidenceSourceTag,
+  validateInsufficientSampleGuidance,
+} from "./lib/evidence-honesty.mjs";
+
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const appDir = resolve(repoRoot, "app");
 const phaseDir = resolve(repoRoot, ".planning/phases/132-targeted-creative-quality-improvements");
@@ -222,6 +229,8 @@ function validateVisualMetrics(visualMetrics, errors, label = "evidence") {
       errors.push(`${label}.visualMetrics.deltaRateByReason.${reason} must be a number or null`);
     }
   }
+
+  validateEvidenceSourceTag(visualMetrics, EVIDENCE_SOURCE.LIVE_HUMAN, `${label}.visualMetrics`, errors);
 }
 
 function validateFactualMetrics(factualMetrics, errors, label = "evidence") {
@@ -245,6 +254,8 @@ function validateFactualMetrics(factualMetrics, errors, label = "evidence") {
       errors.push(`${label}.factualMetrics.${key} must be a number or null`);
     }
   }
+
+  validateEvidenceSourceTag(factualMetrics, EVIDENCE_SOURCE.LIVE_HUMAN, `${label}.factualMetrics`, errors);
 }
 
 function validateFixtureMetrics(fixtureMetrics, errors, label = "evidence") {
@@ -270,6 +281,8 @@ function validateFixtureMetrics(fixtureMetrics, errors, label = "evidence") {
       errors.push(`${label}.fixtureMetrics.${key} must be a number or null`);
     }
   }
+
+  validateEvidenceSourceTag(fixtureMetrics, EVIDENCE_SOURCE.FIXTURE, `${label}.fixtureMetrics`, errors);
 }
 
 function sumAfterCounts(visualMetrics) {
@@ -317,7 +330,14 @@ function validateHonestyGates(evidence, errors, label = "evidence") {
   }
 }
 
-function validateEvidenceShape(evidence, errors, label = "evidence") {
+function validateSamplingHonesty(evidence, errors, label = "evidence") {
+  if (evidence.status === "insufficient_sample") {
+    validateInsufficientSampleGuidance(evidence, errors, label);
+    rejectClaimsWhenGuidanceBlocked(evidence, errors, label);
+  }
+}
+
+export function validateEvidenceShape(evidence, errors, label = "evidence") {
   if (!isPlainObject(evidence)) {
     errors.push(`${label} must be a JSON object`);
     return;
@@ -347,6 +367,7 @@ function validateEvidenceShape(evidence, errors, label = "evidence") {
   validateFactualMetrics(evidence.factualMetrics, errors, label);
   validateFixtureMetrics(evidence.fixtureMetrics, errors, label);
   validateHonestyGates(evidence, errors, label);
+  validateSamplingHonesty(evidence, errors, label);
 
   if (!Array.isArray(evidence.targetedFailureReasons)) {
     errors.push(`${label}.targetedFailureReasons must be an array`);
@@ -538,4 +559,10 @@ function main() {
   }
 }
 
-main();
+const isMain =
+  process.argv[1] != null &&
+  resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isMain) {
+  main();
+}

@@ -12,6 +12,8 @@
     "cohort": null
   },
   "learningImpactMetrics": {
+    "evidenceSource": "live_human",
+    "denominatorNote": "Human-evaluated corpus items only",
     "learnedCount": 3,
     "nonLearnedCount": 3,
     "unlabeledCount": 0,
@@ -59,6 +61,8 @@
     }
   },
   "factualMetrics": {
+    "evidenceSource": "live_human",
+    "denominatorNote": "Human-evaluated corpus items only",
     "learnedFactualPassRate": 1,
     "nonLearnedFactualPassRate": 0.67
   },
@@ -108,7 +112,17 @@
       "status": "insufficient_sample",
       "evaluatedItemCount": 2,
       "insufficientReasons": ["global_below_minimum"],
+      "sampleGuidance": [
+        {
+          "gate": "impact_global",
+          "currentCount": 2,
+          "requiredCount": 5,
+          "additionalNeeded": 3,
+          "blockedClaim": "Learning impact movement deltas withheld until sample sufficient"
+        }
+      ],
       "learningImpactMetrics": {
+        "evidenceSource": "live_human",
         "learnedCount": 1,
         "nonLearnedCount": 1,
         "unlabeledCount": 0,
@@ -131,6 +145,7 @@
         "deltaLearnedMinusNonLearned": null
       },
       "factualMetrics": {
+        "evidenceSource": "live_human",
         "learnedFactualPassRate": 1,
         "nonLearnedFactualPassRate": 0
       },

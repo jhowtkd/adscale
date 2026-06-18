@@ -13,6 +13,8 @@
   },
   "persistedAdjustmentCount": 0,
   "visualMetrics": {
+    "evidenceSource": "live_human",
+    "denominatorNote": "Human-evaluated corpus items only",
     "meanAbsError": 12.4,
     "meanSignedDelta": 8.2,
     "overScoreCount": 2,
@@ -63,6 +65,8 @@
     ]
   },
   "factualMetrics": {
+    "evidenceSource": "live_human",
+    "denominatorNote": "Human-evaluated corpus items only",
     "factualPassRate": 0.8,
     "factualFailCount": 1,
     "highVisualButFactualFail": []
@@ -100,7 +104,17 @@
       "snapshotCapturedAtNote": "Automatic scores use qualitySnapshot frozen at corpus selection time; not live re-scored.",
       "status": "insufficient_corpus",
       "evaluatedItemCount": 2,
+      "sampleGuidance": [
+        {
+          "gate": "calibration_global",
+          "currentCount": 2,
+          "requiredCount": 5,
+          "additionalNeeded": 3,
+          "blockedClaim": "Global calibration aggregates withheld until corpus reaches minimum"
+        }
+      ],
       "visualMetrics": {
+        "evidenceSource": "live_human",
         "meanAbsError": null,
         "meanSignedDelta": null,
         "overScoreCount": 0,
@@ -111,6 +125,7 @@
         "comparisons": []
       },
       "factualMetrics": {
+        "evidenceSource": "live_human",
         "factualPassRate": 0.5,
         "factualFailCount": 1,
         "highVisualButFactualFail": []

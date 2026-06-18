@@ -5,6 +5,13 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  EVIDENCE_SOURCE,
+  rejectClaimsWhenGuidanceBlocked,
+  validateEvidenceSourceTag,
+  validateInsufficientSampleGuidance,
+} from "./lib/evidence-honesty.mjs";
+
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const appDir = resolve(repoRoot, "app");
 const phaseDir = resolve(repoRoot, ".planning/phases/130-score-calibration-and-rubric-alignment");
@@ -91,6 +98,8 @@ function validateVisualMetrics(visualMetrics, errors, prefix = "visualMetrics") 
   if (!Array.isArray(visualMetrics.comparisons)) {
     errors.push(`${prefix}.comparisons must be an array`);
   }
+
+  validateEvidenceSourceTag(visualMetrics, EVIDENCE_SOURCE.LIVE_HUMAN, prefix, errors);
 }
 
 function validateFactualMetrics(factualMetrics, errors, prefix = "factualMetrics") {
@@ -108,9 +117,22 @@ function validateFactualMetrics(factualMetrics, errors, prefix = "factualMetrics
   if (!Array.isArray(factualMetrics.highVisualButFactualFail)) {
     errors.push(`${prefix}.highVisualButFactualFail must be an array`);
   }
+
+  validateEvidenceSourceTag(factualMetrics, EVIDENCE_SOURCE.LIVE_HUMAN, prefix, errors);
 }
 
-function validateEvidenceShape(evidence, errors, label = "evidence") {
+function validateSamplingHonesty(evidence, errors, label = "evidence") {
+  if (evidence.status === "insufficient_corpus") {
+    validateInsufficientSampleGuidance(evidence, errors, label, {
+      insufficientStatuses: ["insufficient_corpus"],
+    });
+    rejectClaimsWhenGuidanceBlocked(evidence, errors, label, {
+      movementPaths: ["visualMetrics.meanAbsError", "visualMetrics.meanSignedDelta"],
+    });
+  }
+}
+
+export function validateEvidenceShape(evidence, errors, label = "evidence") {
   if (!isPlainObject(evidence)) {
     errors.push(`${label} must be a JSON object`);
     return;
@@ -178,6 +200,8 @@ function validateEvidenceShape(evidence, errors, label = "evidence") {
       errors.push(`${label}.visualMetrics.meanSignedDelta must be null when status is insufficient_corpus`);
     }
   }
+
+  validateSamplingHonesty(evidence, errors, label);
 }
 
 function main() {
@@ -224,4 +248,10 @@ function main() {
   console.log(`Evidence: ${evidencePath}`);
 }
 
-main();
+const isMain =
+  process.argv[1] != null &&
+  resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isMain) {
+  main();
+}
