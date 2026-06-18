@@ -252,6 +252,14 @@ describe("buildCalibrationReport", () => {
 
     expect(report.status).toBe("insufficient_corpus");
     expect(report.evaluatedItemCount).toBe(MIN_GLOBAL_EVALUATED_ITEMS - 1);
+    expect(report.sampleGuidance).toHaveLength(1);
+    expect(report.sampleGuidance[0]).toMatchObject({
+      gate: "calibration_global",
+      currentCount: MIN_GLOBAL_EVALUATED_ITEMS - 1,
+      requiredCount: MIN_GLOBAL_EVALUATED_ITEMS,
+      additionalNeeded: 1,
+      blockedClaim: "calibration visual divergence",
+    });
     expect(report.visualMetrics.meanAbsError).toBeNull();
     expect(report.visualMetrics.meanSignedDelta).toBeNull();
     expect(report.visualMetrics.divergenceByFailureReason).toEqual({});
@@ -269,6 +277,7 @@ describe("buildCalibrationReport", () => {
 
     expect(report.status).toBe("ok");
     expect(report.schemaVersion).toBe(1);
+    expect(report.sampleGuidance).toEqual([]);
     expect(report.capturedAt).toBe(capturedAt);
     expect(report.rubricCalibrationVersion).toBe("1.0.0");
     expect(report.visualMetrics.comparisons).toHaveLength(MIN_GLOBAL_EVALUATED_ITEMS);

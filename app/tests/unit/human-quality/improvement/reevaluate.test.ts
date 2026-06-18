@@ -151,6 +151,13 @@ describe("buildQualityImprovementReport", () => {
     });
 
     expect(report.status).toBe("insufficient_sample");
+    expect(report.sampleGuidance.length).toBeGreaterThan(0);
+    expect(
+      report.sampleGuidance.some(
+        (item) =>
+          item.gate === "quality_improvement_reason" && item.arm === "after"
+      )
+    ).toBe(true);
     expect(report.visualMetrics.deltaRateByReason.visual_overload).toBeNull();
     expect(report.factualMetrics.factualPassRateBefore).not.toBeNull();
     expect(report.factualMetrics.factualPassRateAfter).toBeNull();
@@ -198,6 +205,7 @@ describe("buildQualityImprovementReport", () => {
     });
 
     expect(report.status).toBe("ok");
+    expect(report.sampleGuidance).toEqual([]);
     expect(report.visualMetrics.deltaRateByReason.visual_overload).toBeLessThan(0);
     expect(report.fixtureMetrics?.targetedArchetypePassRateAfter).not.toBeNull();
   });
@@ -217,6 +225,14 @@ describe("buildQualityImprovementReport", () => {
     });
 
     expect(report.status).toBe("insufficient_sample");
+    expect(report.sampleGuidance.length).toBeGreaterThan(0);
+    expect(
+      report.sampleGuidance.some(
+        (item) =>
+          item.gate === "quality_improvement_reason" &&
+          item.additionalNeeded > 0
+      )
+    ).toBe(true);
     for (const reason of TARGETED_VISUAL_FAILURE_REASONS) {
       expect(report.visualMetrics.deltaRateByReason[reason]).toBeNull();
     }

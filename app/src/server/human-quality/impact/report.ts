@@ -1,10 +1,14 @@
+import { buildImpactGuidance } from "../sampling/guidance";
+import {
+  MIN_ARM_SAMPLE,
+  MIN_GLOBAL_IMPACT_ITEMS,
+} from "../sampling/thresholds";
 import {
   computeArmMetrics,
   computeCohortMovement,
   computeGlobalVisualDelta,
   computeSliceComparison,
   partitionImpactSlices,
-  MIN_ARM_SAMPLE,
 } from "./aggregate";
 import type { BuildImpactRowsResult } from "./enrich";
 import type {
@@ -16,8 +20,7 @@ import type {
 } from "./types";
 import { LEARNING_IMPACT_VERSION } from "./types";
 
-export const MIN_GLOBAL_IMPACT_ITEMS = 5;
-export { MIN_ARM_SAMPLE };
+export { MIN_ARM_SAMPLE, MIN_GLOBAL_IMPACT_ITEMS };
 
 export interface BuildLearningImpactReportInput {
   rows: ImpactEvaluatedRow[];
@@ -130,6 +133,18 @@ export function buildLearningImpactReport(
   const globalVisualScoreDelta =
     status === "ok" ? computeGlobalVisualDelta(slices) : null;
 
+  const sampleGuidance =
+    status === "ok"
+      ? []
+      : buildImpactGuidance({
+          globalCount: rows.length,
+          slices: slices.map((slice) => ({
+            sliceKey: slice.sliceKey,
+            learnedCount: slice.learned.count,
+            nonLearnedCount: slice.nonLearned.count,
+          })),
+        });
+
   return {
     schemaVersion: 1,
     learningImpactVersion,
@@ -137,6 +152,7 @@ export function buildLearningImpactReport(
     status,
     evaluatedItemCount: rows.length,
     insufficientReasons,
+    sampleGuidance,
     learningImpactMetrics: {
       learnedCount,
       nonLearnedCount,

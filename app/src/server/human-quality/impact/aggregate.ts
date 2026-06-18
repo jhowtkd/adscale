@@ -1,3 +1,4 @@
+import { MIN_ARM_SAMPLE } from "../sampling/thresholds";
 import type {
   ImpactArmMetrics,
   ImpactEvaluatedRow,
@@ -5,7 +6,7 @@ import type {
 } from "./types";
 import { buildImpactSliceKey } from "./types";
 
-export const MIN_ARM_SAMPLE = 3;
+export { MIN_ARM_SAMPLE };
 
 export function partitionImpactSlices(
   rows: ImpactEvaluatedRow[]

@@ -1,4 +1,5 @@
 import type { OutputLearningApplicationResolution } from "../corpus";
+import type { SampleGuidance } from "../sampling/types";
 
 export const LEARNING_IMPACT_VERSION = "1.0.0";
 
@@ -73,6 +74,7 @@ export interface LearningImpactReport {
   status: "ok" | "insufficient_sample";
   evaluatedItemCount: number;
   insufficientReasons: string[];
+  sampleGuidance: SampleGuidance[];
   learningImpactMetrics: LearningImpactMetrics;
   intentMetrics: LearningImpactIntentMetrics;
   visualMovementMetrics: LearningImpactVisualMovementMetrics;

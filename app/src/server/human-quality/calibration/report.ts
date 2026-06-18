@@ -1,3 +1,9 @@
+import { buildCalibrationGuidance } from "../sampling/guidance";
+import {
+  MIN_GLOBAL_EVALUATED_ITEMS,
+  MIN_SLICE_SAMPLE,
+} from "../sampling/thresholds";
+import type { SampleGuidance } from "../sampling/types";
 import {
   aggregateGroup,
   buildFactualMetrics,
@@ -7,8 +13,7 @@ import {
 } from "./aggregate";
 import type { CalibrationComparison } from "./types";
 
-export const MIN_GLOBAL_EVALUATED_ITEMS = 5;
-export const MIN_SLICE_SAMPLE = 3;
+export { MIN_GLOBAL_EVALUATED_ITEMS, MIN_SLICE_SAMPLE };
 export const RUBRIC_CALIBRATION_VERSION = "1.1.0";
 
 export interface AdjustmentProposalSummary {
@@ -37,6 +42,7 @@ export interface CalibrationReport {
   snapshotCapturedAtNote: string;
   status: "ok" | "insufficient_corpus";
   evaluatedItemCount: number;
+  sampleGuidance: SampleGuidance[];
   visualMetrics: CalibrationVisualMetrics;
   factualMetrics: FactualMetrics;
   adjustments: AdjustmentProposalSummary[];
@@ -97,6 +103,9 @@ export function buildCalibrationReport(
     snapshotCapturedAtNote: SNAPSHOT_CAPTURED_AT_NOTE,
     status: hasSufficientCorpus ? "ok" : "insufficient_corpus",
     evaluatedItemCount: comparisons.length,
+    sampleGuidance: hasSufficientCorpus
+      ? []
+      : buildCalibrationGuidance(comparisons.length),
     visualMetrics: buildVisualMetrics(comparisons, hasSufficientCorpus),
     factualMetrics: buildFactualMetrics(comparisons),
     adjustments: [],

@@ -63,6 +63,17 @@ describe("buildLearningImpactReport", () => {
 
     expect(report.status).toBe("insufficient_sample");
     expect(report.insufficientReasons).toContain("global_below_minimum");
+    expect(report.sampleGuidance).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          gate: "impact_global",
+          currentCount: MIN_GLOBAL_IMPACT_ITEMS - 1,
+          requiredCount: MIN_GLOBAL_IMPACT_ITEMS,
+          additionalNeeded: 1,
+          blockedClaim: "learning impact movement delta",
+        }),
+      ])
+    );
     expect(report.learningImpactMetrics.globalVisualScoreDelta).toBeNull();
     expect(
       report.visualMovementMetrics.deltaLearnedMinusNonLearned
@@ -80,6 +91,7 @@ describe("buildLearningImpactReport", () => {
 
     expect(report.status).toBe("ok");
     expect(report.insufficientReasons).toHaveLength(0);
+    expect(report.sampleGuidance).toEqual([]);
     expect(report.learningImpactMetrics.globalVisualScoreDelta).toBeCloseTo(20);
     expect(
       report.visualMovementMetrics.deltaLearnedMinusNonLearned
@@ -105,6 +117,10 @@ describe("buildLearningImpactReport", () => {
 
     expect(report.status).toBe("insufficient_sample");
     expect(report.insufficientReasons).toContain("no_comparable_slices");
+    expect(report.sampleGuidance.length).toBeGreaterThan(0);
+    expect(
+      report.sampleGuidance.some((item) => item.gate === "impact_slice_arm")
+    ).toBe(true);
     expect(report.learningImpactMetrics.globalVisualScoreDelta).toBeNull();
     expect(
       report.visualMovementMetrics.deltaLearnedMinusNonLearned

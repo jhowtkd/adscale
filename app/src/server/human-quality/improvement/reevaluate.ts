@@ -5,8 +5,13 @@ import {
   deriveQualityVerdict,
 } from "../../ai/creative-quality-gate";
 import type { CalibrationComparison, EvaluatedCorpusRow } from "../calibration/types";
-import { MIN_SLICE_SAMPLE, RUBRIC_CALIBRATION_VERSION } from "../calibration/report";
+import { RUBRIC_CALIBRATION_VERSION } from "../calibration/report";
+import { buildQualityImprovementGuidance } from "../sampling/guidance";
+import { MIN_SLICE_SAMPLE } from "../sampling/thresholds";
+import type { SampleGuidance } from "../sampling/types";
 import type { HumanQualityFailureReason } from "../corpus";
+
+export { MIN_SLICE_SAMPLE };
 import { TARGETED_VISUAL_FAILURE_REASONS } from "./types";
 
 export interface FailureFrequencyEntry {
@@ -26,6 +31,7 @@ export interface QualityImprovementReport {
   capturedAt: string;
   status: "ok" | "insufficient_sample";
   targetedFailureReasons: readonly HumanQualityFailureReason[];
+  sampleGuidance: SampleGuidance[];
   visualMetrics: {
     failureFrequencyBefore: Record<string, FailureFrequencyEntry>;
     failureFrequencyAfter: Record<string, FailureFrequencyEntry>;
@@ -250,6 +256,15 @@ export function buildQualityImprovementReport(
     input.afterComparisons
   );
 
+  const reasonCounts = TARGETED_VISUAL_FAILURE_REASONS.map((reason) => ({
+    reason,
+    beforeCount: failureFrequencyBefore[reason]?.count ?? 0,
+    afterCount: failureFrequencyAfter[reason]?.count ?? 0,
+  }));
+
+  const sampleGuidance =
+    status === "ok" ? [] : buildQualityImprovementGuidance(reasonCounts);
+
   return {
     schemaVersion: 1,
     rubricCalibrationVersion:
@@ -257,6 +272,7 @@ export function buildQualityImprovementReport(
     capturedAt: input.capturedAt,
     status,
     targetedFailureReasons: TARGETED_VISUAL_FAILURE_REASONS,
+    sampleGuidance,
     visualMetrics: {
       failureFrequencyBefore,
       failureFrequencyAfter,
