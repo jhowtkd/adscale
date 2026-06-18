@@ -68,7 +68,7 @@ Progress: [██████████] 100% — Phase 135 all plans complete
   - `.planning/phases/134-live-corpus-operations/134-03-PLAN.md` — phase verification and operator handoff (LIVEQUAL-01..04) ✅
   - `.planning/phases/134-live-corpus-operations/134-04-PLAN.md` — campaign-dimensional queue progress gap closure (LIVEQUAL-02) ✅
 
-### Phase 135 (executing — 2/3 plans complete)
+### Phase 135 (complete — 3/3 plans)
 
 - Goal: Sampling sufficiency thresholds and honest `insufficient_sample` states (SAMPLE-01..04)
 - Depends on: Phase 134 live corpus operational loop
@@ -77,10 +77,11 @@ Progress: [██████████] 100% — Phase 135 all plans complete
 - Summaries:
   - `.planning/phases/135-sampling-sufficiency-and-evidence-honesty/135-01-SUMMARY.md` ✅
   - `.planning/phases/135-sampling-sufficiency-and-evidence-honesty/135-02-SUMMARY.md` ✅
+  - `.planning/phases/135-sampling-sufficiency-and-evidence-honesty/135-03-SUMMARY.md` ✅
 - Plans:
   - `.planning/phases/135-sampling-sufficiency-and-evidence-honesty/135-01-PLAN.md` — canonical sampling module + sampleGuidance (SAMPLE-01, SAMPLE-02) ✅
   - `.planning/phases/135-sampling-sufficiency-and-evidence-honesty/135-02-PLAN.md` — evidenceSource tags + honesty checkers (SAMPLE-03) ✅
-  - `.planning/phases/135-sampling-sufficiency-and-evidence-honesty/135-03-PLAN.md` — operator coverage API + panel (SAMPLE-04)
+  - `.planning/phases/135-sampling-sufficiency-and-evidence-honesty/135-03-PLAN.md` — operator coverage API + panel (SAMPLE-04) ✅
 
 ### Phase 129 (complete — 3/3 plans)
 
@@ -247,4 +248,4 @@ Progress: [██████████] 100% — Phase 135 all plans complete
 
 ## Next Steps
 
-Execute Phase 135 plan 03 (operator coverage API + panel — SAMPLE-04).
+Phase 135 complete. Proceed to Phase 136 (quality trend dashboard) or Phase 137 (live release gate) per ROADMAP.
