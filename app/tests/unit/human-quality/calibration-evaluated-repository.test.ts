@@ -116,4 +116,70 @@ describe("listEvaluatedCorpusWithEvaluations", () => {
 
     expect(mockLimit).toHaveBeenCalledWith(500);
   });
+
+  it("narrows results when generationMode filter is provided", async () => {
+    const { mockWhere } = mockEvaluatedQuery([
+      {
+        ...evaluatedRow,
+        item: { ...evaluatedRow.item, generationMode: "restyling" },
+      },
+    ]);
+
+    const rows = await listEvaluatedCorpusWithEvaluations({
+      generationMode: "restyling",
+    });
+
+    expect(rows[0].item.generationMode).toBe("restyling");
+    expect(mockWhere).toHaveBeenCalled();
+  });
+
+  it("narrows results when format filter is provided", async () => {
+    const { mockWhere } = mockEvaluatedQuery([
+      {
+        ...evaluatedRow,
+        item: { ...evaluatedRow.item, format: "4:5" },
+      },
+    ]);
+
+    const rows = await listEvaluatedCorpusWithEvaluations({ format: "4:5" });
+
+    expect(rows[0].item.format).toBe("4:5");
+    expect(mockWhere).toHaveBeenCalled();
+  });
+
+  it("narrows results when clientProfileId filter is provided", async () => {
+    const profileId = "770e8400-e29b-41d4-a716-446655440004";
+    const { mockWhere } = mockEvaluatedQuery([
+      {
+        ...evaluatedRow,
+        item: { ...evaluatedRow.item, clientProfileId: profileId },
+      },
+    ]);
+
+    const rows = await listEvaluatedCorpusWithEvaluations({
+      clientProfileId: profileId,
+    });
+
+    expect(rows[0].item.clientProfileId).toBe(profileId);
+    expect(mockWhere).toHaveBeenCalled();
+  });
+
+  it("narrows results when primaryFailureReason filter is provided", async () => {
+    const { mockWhere } = mockEvaluatedQuery([
+      {
+        ...evaluatedRow,
+        evaluation: {
+          ...evaluatedRow.evaluation,
+          primaryFailureReason: "weak_hierarchy",
+        },
+      },
+    ]);
+
+    const rows = await listEvaluatedCorpusWithEvaluations({
+      primaryFailureReason: "weak_hierarchy",
+    });
+
+    expect(rows[0].evaluation.primaryFailureReason).toBe("weak_hierarchy");
+    expect(mockWhere).toHaveBeenCalled();
+  });
 });
