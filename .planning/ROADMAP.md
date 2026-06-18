@@ -20,14 +20,14 @@
 
 - [x] **Phase 134: Live Corpus Operations** — transformar selecao e avaliacao humana de outputs reais em rotina operacional segura (complete 2026-06-17)
 - [x] **Phase 135: Sampling Sufficiency and Evidence Honesty** — definir thresholds e estados honestos para bloquear claims com pouca amostra (completed 2026-06-18)
-- [ ] **Phase 136: Quality Trend Dashboard** — expor tendencias live, filtros e drilldown de evidencia para owner decisions
+- [x] **Phase 136: Quality Trend Dashboard** — expor tendencias live, filtros e drilldown de evidencia para owner decisions (completed 2026-06-18)
 - [ ] **Phase 137: Operational Quality Release Gate** — fechar milestone com gate live, regressao tecnica e audit operacional separados
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
 | 134 | Live Corpus Operations | Complete    | 2026-06-17 | 2026-06-17 |
 | 135 | Sampling Sufficiency and Evidence Honesty | Complete    | 2026-06-18 | 2026-06-18 |
-| 136 | Quality Trend Dashboard | 2/3 | In Progress|  |
+| 136 | Quality Trend Dashboard | 3/3 | Complete   | 2026-06-18 |
 | 137 | Operational Quality Release Gate | QALIVE-01..04 | Pending | — |
 
 ## Phase Details
@@ -93,12 +93,12 @@ Plans:
   3. Regressions, stale evidence and insufficient coverage are flagged separately.
   4. Aggregates link back to bounded corpus evidence.
 
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [x] 136-01-PLAN.md — Trend engine: ISO-week bucketing, metrics, alert flags, evidence refs (TREND-01, TREND-03, TREND-04)
 - [x] 136-02-PLAN.md — Quality trend API, repository filters, coverage gate wire, evidence CLI (TREND-02, TREND-03, TREND-04)
-- [ ] 136-03-PLAN.md — Trend tab UI: LineChart, filters, alert chips, drilldown (TREND-01..04)
+- [x] 136-03-PLAN.md — Trend tab UI: LineChart, filters, alert chips, drilldown (TREND-01..04)
 
 ---
 

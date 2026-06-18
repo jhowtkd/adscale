@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v12.6
 milestone_name: Operacao Live do Corpus de Qualidade
-status: executing
-last_updated: "2026-06-18T08:09:06.649Z"
+status: complete
+last_updated: "2026-06-18T08:20:00.000Z"
 last_activity: 2026-06-18
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 10
-  completed_plans: 9
-  percent: 90
+  completed_plans: 10
+  percent: 100
 ---
 
 # Project State
@@ -21,18 +21,18 @@ See: .planning/PROJECT.md (updated 2026-06-17)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** v12.6 active — Phase 136 in progress (2/3 plans complete).
+**Current focus:** v12.6 active — Phase 136 complete (3/3 plans); Phase 137 next.
 
-**Status:** Executing
+**Status:** Phase 136 complete
 
 ## Current Position
 
 Phase: 136 — Quality Trend Dashboard
-Plan: 2/3 complete
-Status: In Progress
+Plan: 3/3 complete
+Status: Complete
 Last activity: 2026-06-18
 
-Progress: [█████████░] 90% — Phase 136-02 API and coverage wire complete; 136-03 UI next.
+Progress: [██████████] 100% — Phase 136-03 Trend tab UI complete; all TREND-01..04 surfaced.
 
 ## Accumulated Context
 
@@ -68,7 +68,7 @@ Progress: [█████████░] 90% — Phase 136-02 API and coverage
   - `.planning/phases/134-live-corpus-operations/134-03-PLAN.md` — phase verification and operator handoff (LIVEQUAL-01..04) ✅
   - `.planning/phases/134-live-corpus-operations/134-04-PLAN.md` — campaign-dimensional queue progress gap closure (LIVEQUAL-02) ✅
 
-### Phase 136 (in progress — 2/3 plans)
+### Phase 136 (complete — 3/3 plans)
 
 - Goal: Owner tracks live quality over time and decides where to intervene (TREND-01..04)
 - Depends on: Phase 135 sampling thresholds, coverage API, evidence honesty
@@ -77,10 +77,11 @@ Progress: [█████████░] 90% — Phase 136-02 API and coverage
 - Summaries:
   - `.planning/phases/136-quality-trend-dashboard/136-01-SUMMARY.md` ✅
   - `.planning/phases/136-quality-trend-dashboard/136-02-SUMMARY.md` ✅
+  - `.planning/phases/136-quality-trend-dashboard/136-03-SUMMARY.md` ✅
 - Plans:
   - `.planning/phases/136-quality-trend-dashboard/136-01-PLAN.md` — trend engine: ISO-week bucketing, metrics, alert flags, evidence refs (TREND-01, TREND-03, TREND-04) ✅
   - `.planning/phases/136-quality-trend-dashboard/136-02-PLAN.md` — quality trend API, repository filters, coverage gate wire, evidence CLI (TREND-02, TREND-03, TREND-04) ✅
-  - `.planning/phases/136-quality-trend-dashboard/136-03-PLAN.md` — Trend tab UI: LineChart, filters, alert chips, drilldown (TREND-01..04)
+  - `.planning/phases/136-quality-trend-dashboard/136-03-PLAN.md` — Trend tab UI: LineChart, filters, alert chips, drilldown (TREND-01..04) ✅
 
 ### Phase 135 (complete — 3/3 plans)
 
@@ -204,6 +205,8 @@ Progress: [█████████░] 90% — Phase 136-02 API and coverage
 - [Phase 136-quality-trend-dashboard]: TREND_MAX_ROWS=500 matches DEFAULT_EVALUATED_CORPUS_LIMIT; truncated when row count hits limit
 - [Phase 136-quality-trend-dashboard]: trend_global blockedClaims from trend guidance gates; Phase 135 placeholder removed
 - [Phase 136-quality-trend-dashboard]: runQualityTrend fetched in parallel with calibration/impact/quality in runSampleCoverage
+- [Phase 136]: Trend tab owns full filter row; sixth 403 gate includes quality-trend API
+- [Phase 136]: Chart bucket selection via dropdown and LineChart activeLabel click
 
 ### Phase 132 (complete — 4/4 plans)
 
@@ -268,4 +271,4 @@ Progress: [█████████░] 90% — Phase 136-02 API and coverage
 
 ## Next Steps
 
-Execute 136-03-PLAN.md — Trend tab UI: LineChart, filters, alert chips, drilldown.
+Phase 136 complete. Proceed to Phase 137 operational gate verification.
