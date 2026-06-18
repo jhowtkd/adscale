@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v12.6
 milestone_name: Operacao Live do Corpus de Qualidade
-status: completed
-last_updated: "2026-06-18T12:14:17.361Z"
+status: between_milestones
+last_updated: "2026-06-18T12:36:53.020Z"
 last_activity: 2026-06-18
 progress:
   total_phases: 4
@@ -16,22 +16,22 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-06-17)
+See: .planning/PROJECT.md (updated 2026-06-18)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** v12.6 shipped — live quality operating loop complete (tech debt: operator corpus population pending).
+**Current focus:** Between milestones. v12.6 shipped with tech debt; next natural work is operator corpus population before stronger quality claims.
 
-**Status:** Milestone complete
+**Status:** Between milestones
 
 ## Current Position
 
-Phase: 137 — Operational Quality Release Gate
-Plan: Complete (4/4)
-Status: Complete
+Phase: None
+Plan: Next milestone not started
+Status: Ready for `$gsd-new-milestone`
 Last activity: 2026-06-18
 
-Progress: [██████████] v12.6 milestone shipped — Phase 137 complete (4/4 plans).
+Progress: [██████████] v12.6 archived — 4/4 phases and 14/14 plans complete.
 
 ## Accumulated Context
 

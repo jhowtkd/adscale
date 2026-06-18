@@ -10,9 +10,9 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Current State
 
-v12.6 Operacao Live do Corpus de Qualidade starts on 2026-06-17. v12.5 built the human-quality corpus, calibration, impact reports and release gate, but the milestone audit kept the real operational gap explicit: the live corpus refresh still had `evaluatedItemCount=0`. v12.6 turns the quality loop from implemented infrastructure into a repeatable operator workflow with real evaluated outputs and trend-safe claims.
+v12.6 Operacao Live do Corpus de Qualidade shipped on 2026-06-18 with documented tech debt. The milestone delivered the live corpus operating loop, sampling honesty, owner trend surfaces and a dual technical/operational release gate. The gate is technically green, but operational evidence remains `insufficient_sample` because the live corpus still needs real operator evaluations.
 
-### v12.6 Operacao Live do Corpus de Qualidade — ACTIVE (2026-06-17)
+### v12.6 Operacao Live do Corpus de Qualidade — SHIPPED WITH TECH DEBT (2026-06-18)
 
 **Goal:** Fazer o corpus live rodar em operacao real, com amostragem, avaliacao humana, tendencias e release gate que so permita claims quando houver evidencia suficiente.
 
@@ -24,6 +24,15 @@ v12.6 Operacao Live do Corpus de Qualidade starts on 2026-06-17. v12.5 built the
 - Release gate live que reroda 130/131/132/133 aggregate e separa green tecnico de evidencia operacional
 
 **Why now:** v12.5 provou o loop tecnico e fechou com `accepted_gap`, mas o corpus live ainda estava vazio. O produto precisa de uma rotina confiavel para transformar outputs reais em evidencia, antes de escalar recomendacoes ou claims de melhoria.
+
+**Delivered:**
+- Batch corpus selection and queue progress for real generated outputs, including campaign-dimensional progress.
+- Fast human-quality review loop with safe evaluation payloads and bounded artifact exposure.
+- Canonical sampling thresholds and `sampleGuidance` for calibration, impact, quality-improvement and trend gates.
+- Owner-facing quality trend reporting with filters, alerts and drilldown links to bounded evidence.
+- Operational release gate that separates technical regression pass from operational `insufficient_sample`.
+
+**Tech debt carried forward:** live corpus has `evaluatedItemCount=0`; trend gate is still 3/5 global and 1/2 buckets; `qualityImprovementClaimed` remains withheld; Nyquist metadata is partial for Phases 135-137.
 
 ### v12.5 Validacao Real de Qualidade e Calibracao do Loop Criativo — SHIPPED WITH TECH DEBT (2026-06-17)
 
@@ -401,7 +410,7 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-14 — milestone v12.2 Refinamento Visual e Consistência da Interface shipped*
+*Last updated: 2026-06-18 — milestone v12.6 Operacao Live do Corpus de Qualidade shipped with tech debt*
 
 ## Milestone History
 

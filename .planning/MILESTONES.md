@@ -1,5 +1,34 @@
 # Milestones: ADScale
 
+## v12.6 Operacao Live do Corpus de Qualidade (Shipped with tech debt: 2026-06-18)
+
+**Phases completed:** 4 phases (134→137), 14 plans
+**Requirements:** 16/16 complete
+
+**Scope:**
+- Rotina operacional para selecionar e avaliar outputs reais no corpus live
+- Review queue com progresso por workspace, campanha, modo, formato, cohort e reviewer status
+- Regras canonicas de amostragem e `insufficient_sample` para impedir claims prematuros
+- Dashboard de tendencias live com filtros, alertas e drilldown para evidencia
+- Release gate dual que separa regressao tecnica verde de suficiencia operacional
+
+**Key accomplishments:**
+- Criou batch selection e queue progress para transformar campanhas reais em corpus humano auditavel.
+- Melhorou o painel de avaliacao para fluxo rapido de reviewer, com payload seguro e sem persistir URLs/prompt bruto.
+- Centralizou thresholds de amostra e guidance para calibracao, learning impact, quality improvement e trend gates.
+- Adicionou trend dashboard/API/evidence CLI para qualidade humana, factualidade e coverage por fatias.
+- Fechou o milestone com `operational-quality-release-gate -- --run-regression` passando tecnicamente e reportando operacional `insufficient_sample` honestamente.
+
+**Known tech debt:**
+- Corpus live operacional ainda esta sem amostra suficiente: `evaluatedItemCount=0` na evidencia canonica.
+- Trend gate permanece insuficiente: 3/5 itens globais e 1/2 buckets populados.
+- `qualityImprovementClaimed` fica withheld ate haver sample sufficiency e factual pass 1.0.
+- Nyquist metadata ainda esta parcial nas fases 135, 136 e 137.
+
+Archive: [v12.6-ROADMAP.md](milestones/v12.6-ROADMAP.md) · [v12.6-REQUIREMENTS.md](milestones/v12.6-REQUIREMENTS.md) · [v12.6-MILESTONE-AUDIT.md](milestones/v12.6-MILESTONE-AUDIT.md)
+
+---
+
 ## v12.5 Validacao Real de Qualidade e Calibracao do Loop Criativo (Shipped with tech debt: 2026-06-17)
 
 **Phases completed:** 5 phases (129→133), 19 plans

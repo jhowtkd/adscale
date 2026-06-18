@@ -12,132 +12,17 @@
 
 ## Phases
 
-### ✅ v12.6 Operacao Live do Corpus de Qualidade (Phases 134-137) — SHIPPED 2026-06-18
-
-**Milestone Goal:** Fazer o corpus live rodar em operacao real, com amostragem, avaliacao humana, tendencias e release gate que so permita claims quando houver evidencia suficiente.
-
-**Starting point:** v12.5 passou tecnicamente, mas o audit registrou corpus live vazio (`evaluatedItemCount=0`) e QA-24 fechou por `accepted_gap`.
-
-- [x] **Phase 134: Live Corpus Operations** — transformar selecao e avaliacao humana de outputs reais em rotina operacional segura (complete 2026-06-17)
-- [x] **Phase 135: Sampling Sufficiency and Evidence Honesty** — definir thresholds e estados honestos para bloquear claims com pouca amostra (completed 2026-06-18)
-- [x] **Phase 136: Quality Trend Dashboard** — expor tendencias live, filtros e drilldown de evidencia para owner decisions (completed 2026-06-18)
-- [x] **Phase 137: Operational Quality Release Gate** — fechar milestone com gate live, regressao tecnica e audit operacional separados (complete 2026-06-18)
-
-| # | Phase | Requirements | Status | Completed |
-|---|-------|--------------|--------|-----------|
-| 134 | Live Corpus Operations | Complete    | 2026-06-17 | 2026-06-17 |
-| 135 | Sampling Sufficiency and Evidence Honesty | Complete    | 2026-06-18 | 2026-06-18 |
-| 136 | Quality Trend Dashboard | Complete    | 2026-06-18 | 2026-06-18 |
-| 137 | Operational Quality Release Gate | Complete    | 2026-06-18 | 2026-06-18 |
-
-## Phase Details
-
-### Phase 134: Live Corpus Operations
-
-**Goal:** Operadores conseguem montar e avaliar um lote real de outputs para o corpus live sem vazar dados sensiveis e sem depender de fixtures.
-
-**Depends on:** v12.5 corpus/evaluation infrastructure
-
-**Requirements:** LIVEQUAL-01, LIVEQUAL-02, LIVEQUAL-03, LIVEQUAL-04
-
-**Success Criteria** (what must be TRUE):
-  1. Operator can select eligible real outputs into a weekly corpus batch.
-  2. Review queue exposes workspace, campaign, mode, format, cohort and reviewer status.
-  3. Reviewer completes structured evaluation in a fast repeatable flow.
-  4. Unsafe artifacts are rejected and raw prompts/signed URLs/secrets are never persisted.
-
-**Plans:** 4/4 plans complete
-
-Plans:
-- [x] 134-01-PLAN.md — Batch selection and queue progress contracts (LIVEQUAL-01, LIVEQUAL-02, LIVEQUAL-04)
-- [x] 134-02-PLAN.md — Operator review UX and fast evaluation loop (LIVEQUAL-02, LIVEQUAL-03, LIVEQUAL-04)
-- [x] 134-03-PLAN.md — Phase verification and operator handoff (LIVEQUAL-01..04)
-- [x] 134-04-PLAN.md — Campaign-dimensional queue progress gap closure (LIVEQUAL-02)
-
----
-
-### Phase 135: Sampling Sufficiency and Evidence Honesty
-
-**Goal:** O sistema sabe quando ha amostra suficiente para tendencias e quando deve bloquear conclusoes.
-
-**Depends on:** Phase 134
-
-**Requirements:** SAMPLE-01, SAMPLE-02, SAMPLE-03, SAMPLE-04
-
-**Success Criteria** (what must be TRUE):
-  1. Minimum sample thresholds exist for trend, calibration and impact slices.
-  2. Reports return `insufficient_sample` with next-sample guidance when needed.
-  3. Fixture, live-human and accepted-caveat metrics remain separated in evidence.
-  4. Operator can see which slices need more samples for the next gate.
-
-**Plans:** 3/3 plans complete
-
-Plans:
-- [x] 135-01-PLAN.md — Canonical sampling module and report sampleGuidance (SAMPLE-01, SAMPLE-02)
-- [x] 135-02-PLAN.md — Evidence source separation and honesty checkers (SAMPLE-03)
-- [x] 135-03-PLAN.md — Operator coverage API and panel (SAMPLE-04)
-
----
-
-### Phase 136: Quality Trend Dashboard
-
-**Goal:** Owner consegue acompanhar qualidade real ao longo do tempo e decidir onde intervir.
-
-**Depends on:** Phase 135
-
-**Requirements:** TREND-01, TREND-02, TREND-03, TREND-04
-
-**Success Criteria** (what must be TRUE):
-  1. Dashboard shows live human quality trend, factual pass rate and learning-impact status.
-  2. Trends can be filtered by workspace, mode, format, client profile and failure reason.
-  3. Regressions, stale evidence and insufficient coverage are flagged separately.
-  4. Aggregates link back to bounded corpus evidence.
-
-**Plans:** 3/3 plans complete
-
-Plans:
-- [x] 136-01-PLAN.md — Trend engine: ISO-week bucketing, metrics, alert flags, evidence refs (TREND-01, TREND-03, TREND-04)
-- [x] 136-02-PLAN.md — Quality trend API, repository filters, coverage gate wire, evidence CLI (TREND-02, TREND-03, TREND-04)
-- [x] 136-03-PLAN.md — Trend tab UI: LineChart, filters, alert chips, drilldown (TREND-01..04)
-
----
-
-### Phase 137: Operational Quality Release Gate
-
-**Goal:** O milestone fecha com evidencia live auditavel e sem confundir regressao tecnica verde com qualidade operacional provada.
-
-**Depends on:** Phases 134-136
-
-**Requirements:** QALIVE-01, QALIVE-02, QALIVE-03, QALIVE-04
-
-**Success Criteria** (what must be TRUE):
-  1. Gate reruns score calibration, learning impact, quality improvement and real-quality aggregate against live evidence.
-  2. Technical regression status is reported separately from operational-evidence status.
-  3. Quality-improvement claims require sample sufficiency and factual pass rate 1.0.
-  4. Audit records commands, sample counts, caveats and next operator action.
-
-**Plans:** 4/4 plans complete
-
-Plans:
-- [x] 137-01-PLAN.md — Operational evidence schema + QALIVE-02/03 checker
-- [x] 137-02-PLAN.md — Dual-block release gate orchestrator (QALIVE-01, QALIVE-02)
-- [x] 137-03-PLAN.md — Live aggregation + --run-regression + CLI registration (QALIVE-01, QALIVE-03)
-- [x] 137-04-PLAN.md — v12.6 milestone audit + ROADMAP/STATE closure (QALIVE-04)
-
----
+No active milestone. Start the next milestone with `$gsd-new-milestone`.
 
 ## Completed Milestone Context
+
+Latest archive: [v12.6-ROADMAP.md](milestones/v12.6-ROADMAP.md) · [v12.6-REQUIREMENTS.md](milestones/v12.6-REQUIREMENTS.md) · [v12.6-MILESTONE-AUDIT.md](milestones/v12.6-MILESTONE-AUDIT.md)
 
 Archive: [v12.5-ROADMAP.md](milestones/v12.5-ROADMAP.md) · [v12.5-REQUIREMENTS.md](milestones/v12.5-REQUIREMENTS.md) · [v12.5-MILESTONE-AUDIT.md](milestones/v12.5-MILESTONE-AUDIT.md)
 
 ## Progress
 
-| Phase | Milestone | Plans Complete | Status | Completed |
-|-------|-----------|----------------|--------|-----------|
-| 134 | v12.6 | 4/4 | Complete | 2026-06-17 |
-| 135 | v12.6 | 3/3 | Complete | 2026-06-18 |
-| 136 | v12.6 | 3/3 | Complete | 2026-06-18 |
-| 137 | v12.6 | 4/4 | Complete | 2026-06-18 |
+Between milestones. Last completed: v12.6 (Phases 134-137, 14/14 plans).
 
 ---
-*Roadmap updated: 2026-06-18 — v12.6 milestone shipped; Phase 137 complete (4/4 plans)*
+*Roadmap updated: 2026-06-18 — v12.6 archived; ready for next milestone planning*
