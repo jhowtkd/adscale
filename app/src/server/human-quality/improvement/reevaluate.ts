@@ -42,6 +42,8 @@ export interface QualityImprovementReport {
     factualPassRateAfter: number | null;
   };
   fixtureMetrics?: {
+    evidenceSource: "fixture";
+    denominatorNote: string;
     targetedArchetypePassRateBefore: number | null;
     targetedArchetypePassRateAfter: number | null;
   };
@@ -287,6 +289,8 @@ export function buildQualityImprovementReport(
       factualPassRateAfter: computeFactualPassRate(input.afterComparisons),
     },
     fixtureMetrics: {
+      evidenceSource: "fixture",
+      denominatorNote: "Deterministic v12.3 archetype matrix — not human corpus",
       targetedArchetypePassRateBefore: computeFixtureArchetypePassRate(true),
       targetedArchetypePassRateAfter: computeFixtureArchetypePassRate(false),
     },

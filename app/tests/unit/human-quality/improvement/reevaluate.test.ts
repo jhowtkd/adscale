@@ -208,6 +208,8 @@ describe("buildQualityImprovementReport", () => {
     expect(report.sampleGuidance).toEqual([]);
     expect(report.visualMetrics.deltaRateByReason.visual_overload).toBeLessThan(0);
     expect(report.fixtureMetrics?.targetedArchetypePassRateAfter).not.toBeNull();
+    expect(report.fixtureMetrics?.evidenceSource).toBe("fixture");
+    expect(report.fixtureMetrics?.denominatorNote).toContain("not human corpus");
   });
 
   it("nulls deltaRateByReason when any targeted reason is below MIN_SLICE_SAMPLE", () => {

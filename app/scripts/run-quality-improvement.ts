@@ -168,6 +168,25 @@ async function main(): Promise<void> {
 
   const evidence = {
     ...report,
+    visualMetrics: {
+      ...report.visualMetrics,
+      evidenceSource: "live_human" as const,
+      denominatorNote: "Human-evaluated corpus items only",
+    },
+    factualMetrics: {
+      ...report.factualMetrics,
+      evidenceSource: "live_human" as const,
+      denominatorNote: "Human-evaluated corpus items only",
+    },
+    fixtureMetrics: report.fixtureMetrics
+      ? {
+          ...report.fixtureMetrics,
+          evidenceSource: "fixture" as const,
+          denominatorNote:
+            report.fixtureMetrics.denominatorNote ??
+            "Deterministic v12.3 archetype matrix — not human corpus",
+        }
+      : undefined,
     verifiedAt,
     scope: {
       allWorkspaces: options.allWorkspaces,

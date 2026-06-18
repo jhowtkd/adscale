@@ -114,6 +114,16 @@ async function main(): Promise<void> {
 
   const evidence = {
     ...report,
+    learningImpactMetrics: {
+      ...report.learningImpactMetrics,
+      evidenceSource: "live_human" as const,
+      denominatorNote: "Human-evaluated corpus items only",
+    },
+    factualMetrics: {
+      ...report.factualMetrics,
+      evidenceSource: "live_human" as const,
+      denominatorNote: "Human-evaluated corpus items only",
+    },
     verifiedAt,
     scope: {
       allWorkspaces: options.allWorkspaces,
