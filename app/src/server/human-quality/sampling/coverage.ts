@@ -1,5 +1,4 @@
 import { normalizeSamplingStatus } from "./guidance";
-import { TREND_GLOBAL_MIN_EVALUATED } from "./thresholds";
 import type {
   CalibrationSamplingStatus,
   SampleGuidance,
@@ -43,6 +42,12 @@ export interface BuildSampleCoverageReportInput {
   quality: {
     status: SamplingStatus;
     sampleGuidance: SampleGuidance[];
+  };
+  trend: {
+    status: SamplingStatus;
+    sampleGuidance: SampleGuidance[];
+    evaluatedItemCount: number;
+    populatedBucketCount: number;
   };
 }
 
@@ -113,11 +118,7 @@ export function buildSampleCoverageReport(
   const calibrationNormalized = normalizeSamplingStatus(input.calibration.status);
   const impactNormalized = input.impact.status;
   const qualityNormalized = input.quality.status;
-
-  const trendStatus: SamplingStatus =
-    input.calibration.evaluatedItemCount >= TREND_GLOBAL_MIN_EVALUATED
-      ? "ok"
-      : "insufficient_sample";
+  const trendNormalized = input.trend.status;
 
   const gates: SampleCoverageGate[] = [
     {
@@ -145,11 +146,15 @@ export function buildSampleCoverageReport(
     },
     {
       id: "trend_global",
-      status: trendStatus,
+      status: trendNormalized,
       blockedClaims:
-        trendStatus === "ok"
+        trendNormalized === "ok"
           ? []
-          : ["quality trend direction (trend charts deferred to Phase 136)"],
+          : collectBlockedClaims(
+              input.trend.sampleGuidance.filter(
+                (g) => g.gate === "trend_global" || g.gate === "trend_time_buckets"
+              )
+            ),
     },
   ];
 

@@ -1,6 +1,7 @@
 import { runScoreCalibration } from "../calibration/service";
 import { runLearningImpact } from "../impact/service";
 import { runQualityImprovement } from "../improvement/service";
+import { runQualityTrend } from "../trend/service";
 import { buildSampleCoverageReport, type SampleCoverageReport } from "./coverage";
 
 export interface RunSampleCoverageInput {
@@ -18,7 +19,8 @@ export async function runSampleCoverage(
 ): Promise<RunSampleCoverageResult> {
   const capturedAt = input.capturedAt ?? new Date().toISOString();
 
-  const [calibrationResult, impactResult, qualityResult] = await Promise.all([
+  const [calibrationResult, impactResult, qualityResult, trendResult] =
+    await Promise.all([
     runScoreCalibration({
       workspaceId: input.workspaceId,
       cohort: input.cohort,
@@ -30,6 +32,11 @@ export async function runSampleCoverage(
       capturedAt,
     }),
     runQualityImprovement({
+      workspaceId: input.workspaceId,
+      cohort: input.cohort,
+      capturedAt,
+    }),
+    runQualityTrend({
       workspaceId: input.workspaceId,
       cohort: input.cohort,
       capturedAt,
@@ -51,6 +58,12 @@ export async function runSampleCoverage(
     quality: {
       status: qualityResult.report.status,
       sampleGuidance: qualityResult.report.sampleGuidance,
+    },
+    trend: {
+      status: trendResult.report.status,
+      sampleGuidance: trendResult.report.sampleGuidance,
+      evaluatedItemCount: trendResult.report.evaluatedItemCount,
+      populatedBucketCount: trendResult.report.populatedBucketCount,
     },
   });
 

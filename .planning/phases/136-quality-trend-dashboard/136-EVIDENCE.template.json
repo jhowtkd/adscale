@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "phaseVersion": "v12.6",
+  "capturedAt": "2026-06-18T12:00:00.000Z",
+  "verifiedAt": "2026-06-18T12:00:00.000Z",
+  "evidenceSource": "live_human",
+  "status": "insufficient_sample",
+  "scope": {
+    "allWorkspaces": true,
+    "workspaceId": null,
+    "cohort": null,
+    "generationMode": null,
+    "format": null,
+    "clientProfileId": null,
+    "primaryFailureReason": null
+  },
+  "requirements": [
+    {
+      "id": "TREND-01",
+      "result": "pending",
+      "note": "ISO-week bucketing with populated time buckets"
+    },
+    {
+      "id": "TREND-02",
+      "result": "pass",
+      "note": "server-side dimensional filters applied before aggregation"
+    },
+    {
+      "id": "TREND-03",
+      "result": "pending",
+      "note": "coverage trend_global gate reflects real trend status and guidance"
+    },
+    {
+      "id": "TREND-04",
+      "result": "pending",
+      "note": "bounded evidence refs and independent alert flags in API delivery"
+    }
+  ],
+  "report": {
+    "status": "insufficient_sample",
+    "evaluatedItemCount": 3,
+    "populatedBucketCount": 1,
+    "evidenceSource": "live_human",
+    "capturedAt": "2026-06-18T12:00:00.000Z",
+    "latestEvaluatedAt": "2026-06-17T10:00:00.000Z",
+    "buckets": [
+      {
+        "bucketKey": "2026-W24",
+        "periodStart": "2026-06-09T00:00:00.000Z",
+        "periodEnd": "2026-06-15T23:59:59.999Z",
+        "count": 3,
+        "meanHumanVisualScore": 72,
+        "factualPassRate": 1,
+        "learningImpactStatus": "insufficient_sample",
+        "evidenceRefs": null
+      }
+    ],
+    "alertFlags": {
+      "insufficientCoverage": true,
+      "staleEvidence": false,
+      "regressionDetected": false,
+      "reasons": {
+        "insufficientCoverage": "Live corpus sample is below trend thresholds; trend direction is withheld."
+      }
+    },
+    "sampleGuidance": [
+      {
+        "gate": "trend_global",
+        "currentCount": 3,
+        "requiredCount": 5,
+        "additionalNeeded": 2,
+        "blockedClaim": "quality trend direction"
+      },
+      {
+        "gate": "trend_time_buckets",
+        "currentCount": 1,
+        "requiredCount": 2,
+        "additionalNeeded": 1,
+        "blockedClaim": "quality trend direction"
+      }
+    ]
+  },
+  "alertFlags": {
+    "insufficientCoverage": true,
+    "staleEvidence": false,
+    "regressionDetected": false,
+    "reasons": {
+      "insufficientCoverage": "Live corpus sample is below trend thresholds; trend direction is withheld."
+    }
+  },
+  "sampleGuidance": [
+    {
+      "gate": "trend_global",
+      "currentCount": 3,
+      "requiredCount": 5,
+      "additionalNeeded": 2,
+      "blockedClaim": "quality trend direction"
+    },
+    {
+      "gate": "trend_time_buckets",
+      "currentCount": 1,
+      "requiredCount": 2,
+      "additionalNeeded": 1,
+      "blockedClaim": "quality trend direction"
+    }
+  ],
+  "automated": {
+    "quality-trend": "node app/scripts/check-quality-trend-evidence.mjs --skip-tests",
+    "unit": "cd app && npm test -- tests/unit/human-quality/trend/"
+  }
+}
