@@ -2,15 +2,14 @@
 gsd_state_version: 1.0
 milestone: v12.6
 milestone_name: Operacao Live do Corpus de Qualidade
-status: Shipped
-last_updated: "2026-06-18T12:11:06.362Z"
+status: completed
+last_updated: "2026-06-18T12:14:17.361Z"
 last_activity: 2026-06-18
 progress:
   total_phases: 4
   completed_phases: 4
   total_plans: 14
   completed_plans: 14
-  percent: 100
 ---
 
 # Project State
@@ -23,7 +22,7 @@ See: .planning/PROJECT.md (updated 2026-06-17)
 
 **Current focus:** v12.6 shipped — live quality operating loop complete (tech debt: operator corpus population pending).
 
-**Status:** Shipped
+**Status:** Milestone complete
 
 ## Current Position
 
