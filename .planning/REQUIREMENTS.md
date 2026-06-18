@@ -27,8 +27,8 @@ Transformar a infraestrutura de qualidade de v12.5 em uma rotina operacional rea
 
 - [x] **SAMPLE-01**: System defines minimum sample thresholds per quality trend, calibration slice and learning-impact slice.
 - [x] **SAMPLE-02**: Reports return `insufficient_sample` with required-next-sample guidance when thresholds are not met.
-- [ ] **SAMPLE-03**: Release evidence distinguishes fixture metrics, live human metrics and accepted caveats without mixing denominators.
-- [ ] **SAMPLE-04**: Operator can see which slices need more samples before the next release gate can make a stronger claim.
+- [x] **SAMPLE-03**: Release evidence distinguishes fixture metrics, live human metrics and accepted caveats without mixing denominators.
+- [x] **SAMPLE-04**: Operator can see which slices need more samples before the next release gate can make a stronger claim.
 
 ### Quality Trend Dashboard (TREND)
 
@@ -75,8 +75,8 @@ Transformar a infraestrutura de qualidade de v12.5 em uma rotina operacional rea
 | LIVEQUAL-04 | Phase 134 | Complete |
 | SAMPLE-01 | Phase 135 | Complete |
 | SAMPLE-02 | Phase 135 | Complete |
-| SAMPLE-03 | Phase 135 | Pending |
-| SAMPLE-04 | Phase 135 | Pending |
+| SAMPLE-03 | Phase 135 | Complete |
+| SAMPLE-04 | Phase 135 | Complete |
 | TREND-01 | Phase 136 | Pending |
 | TREND-02 | Phase 136 | Pending |
 | TREND-03 | Phase 136 | Pending |

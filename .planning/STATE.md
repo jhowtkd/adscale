@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v12.6
 milestone_name: Operacao Live do Corpus de Qualidade
 status: executing
-last_updated: "2026-06-18T00:25:37.605Z"
+last_updated: "2026-06-18T00:31:05.024Z"
 last_activity: 2026-06-17
 progress:
   total_phases: 4
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 7
-  completed_plans: 5
-  percent: 71
+  completed_plans: 7
+  percent: 100
 ---
 
 # Project State
@@ -21,18 +21,18 @@ See: .planning/PROJECT.md (updated 2026-06-17)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** v12.6 active — Phase 135 executing (1/3 plans complete).
+**Current focus:** v12.6 active — Phase 135 complete (3/3 plans).
 
 **Status:** Executing
 
 ## Current Position
 
 Phase: 135 — Sampling Sufficiency and Evidence Honesty
-Plan: 1/3 (135-01 complete)
-Status: Executing
+Plan: 3/3 (135-03 complete)
+Status: Complete
 Last activity: 2026-06-17
 
-Progress: [████░░░░░░] 33% — Phase 135 plan 01 complete; plans 02-03 next.
+Progress: [██████████] 100% — Phase 135 all plans complete (SAMPLE-01..04).
 
 ## Accumulated Context
 
@@ -68,7 +68,7 @@ Progress: [████░░░░░░] 33% — Phase 135 plan 01 complete; p
   - `.planning/phases/134-live-corpus-operations/134-03-PLAN.md` — phase verification and operator handoff (LIVEQUAL-01..04) ✅
   - `.planning/phases/134-live-corpus-operations/134-04-PLAN.md` — campaign-dimensional queue progress gap closure (LIVEQUAL-02) ✅
 
-### Phase 135 (executing — 1/3 plans complete)
+### Phase 135 (executing — 2/3 plans complete)
 
 - Goal: Sampling sufficiency thresholds and honest `insufficient_sample` states (SAMPLE-01..04)
 - Depends on: Phase 134 live corpus operational loop
@@ -76,9 +76,10 @@ Progress: [████░░░░░░] 33% — Phase 135 plan 01 complete; p
 - Validation: `.planning/phases/135-sampling-sufficiency-and-evidence-honesty/135-VALIDATION.md`
 - Summaries:
   - `.planning/phases/135-sampling-sufficiency-and-evidence-honesty/135-01-SUMMARY.md` ✅
+  - `.planning/phases/135-sampling-sufficiency-and-evidence-honesty/135-02-SUMMARY.md` ✅
 - Plans:
   - `.planning/phases/135-sampling-sufficiency-and-evidence-honesty/135-01-PLAN.md` — canonical sampling module + sampleGuidance (SAMPLE-01, SAMPLE-02) ✅
-  - `.planning/phases/135-sampling-sufficiency-and-evidence-honesty/135-02-PLAN.md` — evidenceSource tags + honesty checkers (SAMPLE-03)
+  - `.planning/phases/135-sampling-sufficiency-and-evidence-honesty/135-02-PLAN.md` — evidenceSource tags + honesty checkers (SAMPLE-03) ✅
   - `.planning/phases/135-sampling-sufficiency-and-evidence-honesty/135-03-PLAN.md` — operator coverage API + panel (SAMPLE-04)
 
 ### Phase 129 (complete — 3/3 plans)
@@ -177,6 +178,11 @@ Progress: [████░░░░░░] 33% — Phase 135 plan 01 complete; p
 - [Phase 135]: Canonical sampling thresholds in human-quality/sampling/thresholds.ts; reports re-export MIN_* for backward compat
 - [Phase 135]: sampleGuidance additive on insufficient reports; calibration keeps insufficient_corpus label
 - [Phase 135]: TREND_* constants defined for Phase 136; no trend chart UI in 135-01
+- [Phase 135]: evidenceSource short tags (live_human, fixture) in evidence JSON per 135-RESEARCH Pattern 3
+- [Phase 135]: Shared honesty validators in app/scripts/lib/evidence-honesty.mjs for checker and vitest reuse
+- [Phase 135]: Dedicated Coverage tab on HumanQualityCorpusPanel for cross-gate slice gaps (SAMPLE-04)
+- [Phase 135]: Panel hides when queue, calibration, impact, quality and coverage APIs all return 403
+- [Phase 135]: trend_global coverage gate placeholder only; trend charts deferred to Phase 136
 
 ### Phase 132 (complete — 4/4 plans)
 
@@ -241,4 +247,4 @@ Progress: [████░░░░░░] 33% — Phase 135 plan 01 complete; p
 
 ## Next Steps
 
-Execute Phase 135 plan 02 (evidenceSource tags + honesty checkers — SAMPLE-03).
+Execute Phase 135 plan 03 (operator coverage API + panel — SAMPLE-04).

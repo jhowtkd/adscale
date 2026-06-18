@@ -19,14 +19,14 @@
 **Starting point:** v12.5 passou tecnicamente, mas o audit registrou corpus live vazio (`evaluatedItemCount=0`) e QA-24 fechou por `accepted_gap`.
 
 - [x] **Phase 134: Live Corpus Operations** — transformar selecao e avaliacao humana de outputs reais em rotina operacional segura (complete 2026-06-17)
-- [ ] **Phase 135: Sampling Sufficiency and Evidence Honesty** — definir thresholds e estados honestos para bloquear claims com pouca amostra
+- [x] **Phase 135: Sampling Sufficiency and Evidence Honesty** — definir thresholds e estados honestos para bloquear claims com pouca amostra (completed 2026-06-18)
 - [ ] **Phase 136: Quality Trend Dashboard** — expor tendencias live, filtros e drilldown de evidencia para owner decisions
 - [ ] **Phase 137: Operational Quality Release Gate** — fechar milestone com gate live, regressao tecnica e audit operacional separados
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
 | 134 | Live Corpus Operations | Complete    | 2026-06-17 | 2026-06-17 |
-| 135 | Sampling Sufficiency and Evidence Honesty | 1/3 | In Progress|  |
+| 135 | Sampling Sufficiency and Evidence Honesty | 3/3 | Complete   | 2026-06-18 |
 | 136 | Quality Trend Dashboard | TREND-01..04 | Pending | — |
 | 137 | Operational Quality Release Gate | QALIVE-01..04 | Pending | — |
 
@@ -70,12 +70,12 @@ Plans:
   3. Fixture, live-human and accepted-caveat metrics remain separated in evidence.
   4. Operator can see which slices need more samples for the next gate.
 
-**Plans:** 1/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [x] 135-01-PLAN.md — Canonical sampling module and report sampleGuidance (SAMPLE-01, SAMPLE-02)
-- [ ] 135-02-PLAN.md — Evidence source separation and honesty checkers (SAMPLE-03)
-- [ ] 135-03-PLAN.md — Operator coverage API and panel (SAMPLE-04)
+- [x] 135-02-PLAN.md — Evidence source separation and honesty checkers (SAMPLE-03)
+- [x] 135-03-PLAN.md — Operator coverage API and panel (SAMPLE-04)
 
 ---
 
