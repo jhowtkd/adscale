@@ -5,6 +5,9 @@ import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { ImageIcon, Target, Users, MessageSquare, Monitor, MousePointer, Loader2 } from "lucide-react";
 import { useCampaignAssets } from "@/lib/hooks/use-assets";
+import { useUpdateCampaign } from "@/lib/hooks/use-campaigns";
+import { useClientProfiles, useCreateClientProfile } from "@/lib/hooks/use-client-profiles";
+import { useAppStore } from "@/lib/store";
 import Panel from "@/components/layout/Panel";
 import CreativeReadinessPanel from "@/components/workspace/CreativeReadinessPanel";
 
@@ -12,7 +15,8 @@ interface PilotSidebarProps {
   campaignId: string;
   campaign: {
     name: string;
-    client?: string;
+    client?: string | null;
+    clientProfileId?: string | null;
   };
   briefing: {
     objective?: string;
@@ -50,6 +54,115 @@ function BriefingRow({ icon, label, value }: BriefingRowProps) {
         </p>
         <p className="mt-0.5 truncate text-sm text-[var(--text-primary)]">{value}</p>
       </div>
+    </div>
+  );
+}
+
+function ClientProfileLinkControl({
+  campaignId,
+  clientName,
+  clientProfileId,
+}: {
+  campaignId: string;
+  clientName?: string | null;
+  clientProfileId?: string | null;
+}) {
+  const addToast = useAppStore((s) => s.addToast);
+  const { data: profiles = [], isLoading } = useClientProfiles();
+  const updateCampaign = useUpdateCampaign(campaignId);
+  const createProfile = useCreateClientProfile();
+  const selectedProfile = profiles.find((profile) => profile.id === clientProfileId);
+  const isSaving = updateCampaign.isPending || createProfile.isPending;
+  const canCreateProfile = Boolean(clientName?.trim()) && profiles.length === 0;
+
+  const handleProfileChange = (value: string) => {
+    updateCampaign.mutate(
+      { clientProfileId: value === "none" ? null : value },
+      {
+        onSuccess: () => addToast("success", "Perfil de cliente vinculado à campanha."),
+        onError: (error) =>
+          addToast(
+            "error",
+            error instanceof Error ? error.message : "Não foi possível vincular o perfil."
+          ),
+      }
+    );
+  };
+
+  const handleCreateProfile = () => {
+    const name = clientName?.trim();
+    if (!name) return;
+    createProfile.mutate(
+      { name },
+      {
+        onSuccess: (profile) => {
+          updateCampaign.mutate(
+            { clientProfileId: profile.id },
+            {
+              onSuccess: () => addToast("success", "Perfil criado e vinculado à campanha."),
+              onError: (error) =>
+                addToast(
+                  "error",
+                  error instanceof Error ? error.message : "Perfil criado, mas não foi possível vincular."
+                ),
+            }
+          );
+        },
+        onError: (error) =>
+          addToast(
+            "error",
+            error instanceof Error ? error.message : "Não foi possível criar o perfil."
+          ),
+      }
+    );
+  };
+
+  return (
+    <div className="border-t border-[var(--border-dim)] pt-4">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ghost)]">
+          Perfil do cliente
+        </p>
+        {selectedProfile ? (
+          <span className="rounded-full bg-[var(--accent-green-dim)] px-2 py-0.5 text-[10px] font-medium text-[var(--accent-green-text)]">
+            Vinculado
+          </span>
+        ) : (
+          <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-300">
+            Pendente
+          </span>
+        )}
+      </div>
+
+      {profiles.length > 0 ? (
+        <select
+          value={clientProfileId ?? "none"}
+          disabled={isLoading || isSaving}
+          onChange={(event) => handleProfileChange(event.target.value)}
+          aria-label="Perfil do cliente"
+          className="h-9 w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2 text-xs text-[var(--text-primary)] disabled:opacity-60"
+        >
+          <option value="none">Sem perfil vinculado</option>
+          {profiles.map((profile) => (
+            <option key={profile.id} value={profile.id}>
+              {profile.name}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <button
+          type="button"
+          disabled={!canCreateProfile || isSaving}
+          onClick={handleCreateProfile}
+          className="inline-flex h-9 w-full items-center justify-center rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-3 text-xs font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-raised)] disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isSaving ? "Salvando…" : "Criar perfil a partir deste cliente"}
+        </button>
+      )}
+
+      <p className="mt-2 text-[11px] leading-snug text-[var(--text-muted)]">
+        Necessário para aprendizados e quality corpus.
+      </p>
     </div>
   );
 }
@@ -127,6 +240,12 @@ export default function PilotSidebar({
             {campaign.name}
           </h3>
         </div>
+
+        <ClientProfileLinkControl
+          campaignId={campaignId}
+          clientName={campaign.client}
+          clientProfileId={campaign.clientProfileId}
+        />
 
         {hasBriefing ? (
           <div className="border-t border-[var(--border-dim)] pt-4 animate-fade-in">

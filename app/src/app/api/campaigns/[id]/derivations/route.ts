@@ -254,11 +254,6 @@ export async function POST(
     const created = results.map((result) => result.derivation);
     const queuedCount = results.filter((result) => result.queued).length;
 
-    // #region agent log
-    const existingTotal = await getDerivationsByCampaign(campaignId, workspace.id);
-    fetch('http://127.0.0.1:7899/ingest/cfdc6907-57c9-49e8-855d-2427aa77ea62',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'1bdb31'},body:JSON.stringify({sessionId:'1bdb31',location:'derivations/route.ts:POST',message:'server derivations created',data:{campaignId,isPreview,createdCount:created.length,totalAfterCreate:existingTotal.length,createdIds:created.map((d)=>d.id),jobCount:jobsToCreate.length},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
-    // #endregion
-
     await updateCampaign(campaignId, workspace.id, {
       status: queuedCount > 0 ? "generating" : "failed",
     });
@@ -290,9 +285,6 @@ export async function GET(
     }
 
     const items = await getDerivationsByCampaign(campaignId, workspace.id);
-    // #region agent log
-    fetch('http://127.0.0.1:7899/ingest/cfdc6907-57c9-49e8-855d-2427aa77ea62',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'1bdb31'},body:JSON.stringify({sessionId:'1bdb31',location:'derivations/route.ts:GET',message:'server derivations list',data:{campaignId,count:items.length,previewCount:items.filter((d)=>d.isPreview).length,ids:items.map((d)=>d.id)},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
-    // #endregion
     const derivationsWithImageUrl = await Promise.all(
       items.map(async (d) => {
         const base = {

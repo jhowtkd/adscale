@@ -78,9 +78,6 @@ async function fetchDerivations(campaignId: string): Promise<Derivation[]> {
     }
     const data = await res.json();
     const raw = data.derivations as Derivation[];
-    // #region agent log
-    fetch('http://127.0.0.1:7899/ingest/cfdc6907-57c9-49e8-855d-2427aa77ea62',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'1bdb31'},body:JSON.stringify({sessionId:'1bdb31',location:'use-derivations.ts:fetchDerivations',message:'GET derivations response',data:{campaignId,count:raw.length,previewCount:raw.filter((d)=>d.isPreview).length,ids:raw.map((d)=>d.id),statuses:raw.map((d)=>d.status)},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
-    // #endregion
     return raw.map((d) => ({
       ...d,
       createdAt: new Date(d.createdAt),
@@ -125,9 +122,6 @@ function mergeDerivations(
   const merged = Array.from(byId.values()).sort(
     (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
   );
-  // #region agent log
-  fetch('http://127.0.0.1:7899/ingest/cfdc6907-57c9-49e8-855d-2427aa77ea62',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'1bdb31'},body:JSON.stringify({sessionId:'1bdb31',location:'use-derivations.ts:mergeDerivations',message:'merge derivations',data:{existingCount:existing?.length??0,incomingCount:incoming.length,mergedCount:merged.length,mergedIds:merged.map((d)=>d.id)},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
-  // #endregion
   return merged;
 }
 
@@ -152,9 +146,6 @@ async function createDerivations(
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    // #region agent log
-    fetch('http://127.0.0.1:7899/ingest/cfdc6907-57c9-49e8-855d-2427aa77ea62',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'1bdb31'},body:JSON.stringify({sessionId:'1bdb31',location:'use-derivations.ts:createDerivations',message:'POST derivations failed',data:{campaignId,status:res.status,error:err.error,code:err.code,preview:options?.preview??false},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
-    // #endregion
     throw new Error(err.error || "Erro ao criar derivações");
   }
   const data = await res.json();
@@ -207,14 +198,9 @@ export function useCreateDerivations(campaignId: string) {
       outputLearningApplication?: OutputLearningApplicationSnapshot;
     }) => createDerivations(campaignId, options),
     onSuccess: (created) => {
-      const before = queryClient.getQueryData<Derivation[]>(["derivations", campaignId]);
       queryClient.setQueryData<Derivation[]>(["derivations", campaignId], (old) =>
         mergeDerivations(old, created)
       );
-      const afterMerge = queryClient.getQueryData<Derivation[]>(["derivations", campaignId]);
-      // #region agent log
-      fetch('http://127.0.0.1:7899/ingest/cfdc6907-57c9-49e8-855d-2427aa77ea62',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'1bdb31'},body:JSON.stringify({sessionId:'1bdb31',location:'use-derivations.ts:onSuccess',message:'createDerivations cache update',data:{campaignId,createdCount:created.length,beforeCount:before?.length??0,afterMergeCount:afterMerge?.length??0,createdIds:created.map((d)=>d.id),preview:created.some((d)=>d.isPreview)},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
-      // #endregion
       queryClient.invalidateQueries({
         queryKey: ["derivations", campaignId],
       });

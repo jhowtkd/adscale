@@ -830,7 +830,11 @@ function CampaignWorkspaceCard({
             <div className="border-t border-[var(--border-dim)] p-4">
               <PilotSidebar
                 campaignId={campaignId}
-                campaign={{ name: campaign?.name || "", client: campaign?.client }}
+                campaign={{
+                  name: campaign?.name || "",
+                  client: campaign?.client,
+                  clientProfileId: campaign?.clientProfileId,
+                }}
                 briefing={{
                   objective: analysis.suggestedObjective,
                   audience: analysis.suggestedAudience,
@@ -845,7 +849,11 @@ function CampaignWorkspaceCard({
           <div className="hidden shrink-0 lg:block lg:w-[280px]">
             <PilotSidebar
               campaignId={campaignId}
-              campaign={{ name: campaign?.name || "", client: campaign?.client }}
+              campaign={{
+                name: campaign?.name || "",
+                client: campaign?.client,
+                clientProfileId: campaign?.clientProfileId,
+              }}
               briefing={{
                 objective: analysis.suggestedObjective,
                 audience: analysis.suggestedAudience,
