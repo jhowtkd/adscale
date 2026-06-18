@@ -73,7 +73,7 @@ Tasks 2–3 share the same component surface; delivered in one atomic commit wit
 2. **Task 2: LineChart series and separate alert chips** - `e9558b18` (same commit — monolithic UI component)
 3. **Task 3: Bucket evidence drilldown table** - `e9558b18` (same commit — monolithic UI component)
 
-**Plan metadata:** pending (docs commit)
+**Plan metadata:** `bcc547ec` (docs: complete plan)
 
 ## Files Created/Modified
 
