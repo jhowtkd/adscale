@@ -28,7 +28,7 @@
 | 134 | Live Corpus Operations | Complete    | 2026-06-17 | 2026-06-17 |
 | 135 | Sampling Sufficiency and Evidence Honesty | Complete    | 2026-06-18 | 2026-06-18 |
 | 136 | Quality Trend Dashboard | Complete    | 2026-06-18 | 2026-06-18 |
-| 137 | Operational Quality Release Gate | Complete | 2026-06-18 | 2026-06-18 |
+| 137 | Operational Quality Release Gate | 4/4 | Complete   | 2026-06-18 |
 
 ## Phase Details
 

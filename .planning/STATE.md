@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v12.6
 milestone_name: Operacao Live do Corpus de Qualidade
-status: shipped
-last_updated: "2026-06-18T12:10:00.000Z"
+status: Shipped
+last_updated: "2026-06-18T12:11:06.362Z"
 last_activity: 2026-06-18
 progress:
   total_phases: 4
@@ -237,6 +237,9 @@ Progress: [██████████] v12.6 milestone shipped — Phase 137
 - [Phase 137]: v12.6 milestone audit at .planning/milestones/v12.6-MILESTONE-AUDIT.md; shipped 2026-06-18
 - [Phase 137]: QALIVE-03 blocks improvement claims not milestone closure; tech_debt when operational insufficient_sample
 - [Phase 137]: DATABASE_URL unavailable at audit — template 135/136 fallbacks; operator must refresh live corpus before stronger claims
+- [Phase 137]: DATABASE_URL unavailable at audit — template 135/136 fallbacks; operator must refresh live corpus
+- [Phase 137]: QALIVE-03 blocks improvement claims not milestone closure; tech_debt when operational insufficient_sample
+- [Phase 137]: v12.6 milestone shipped 2026-06-18 with operational-quality-release-gate --run-regression pass
 
 ### Phase 132 (complete — 4/4 plans)
 
