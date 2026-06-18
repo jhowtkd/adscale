@@ -129,8 +129,8 @@ Archive: [v12.5-ROADMAP.md](milestones/v12.5-ROADMAP.md) · [v12.5-REQUIREMENTS.
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 134 | v12.6 | 4/4 | Complete | 2026-06-17 |
-| 135 | v12.6 | 1/3 | In Progress | 135-01 |
-| 136 | v12.6 | 0/3 | Pending | — |
+| 135 | v12.6 | 3/3 | Complete | 2026-06-18 |
+| 136 | v12.6 | 0/3 | Planned | — |
 | 137 | v12.6 | 0/0 | Pending | — |
 
 ---

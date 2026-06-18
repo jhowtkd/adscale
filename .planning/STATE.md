@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v12.6
 milestone_name: Operacao Live do Corpus de Qualidade
-status: planning
-last_updated: "2026-06-18T00:33:48.324Z"
-last_activity: 2026-06-17
+status: executing
+last_updated: "2026-06-18T04:50:00.000Z"
+last_activity: 2026-06-18
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 7
+  total_plans: 10
   completed_plans: 7
-  percent: 100
+  percent: 70
 ---
 
 # Project State
@@ -21,18 +21,18 @@ See: .planning/PROJECT.md (updated 2026-06-17)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** v12.6 active — Phase 135 complete (3/3 plans).
+**Current focus:** v12.6 active — Phase 136 planned (3 plans in 3 waves).
 
-**Status:** Ready to plan
+**Status:** Ready to execute
 
 ## Current Position
 
-Phase: 135 — Sampling Sufficiency and Evidence Honesty
-Plan: 3/3 (135-03 complete)
-Status: Complete
-Last activity: 2026-06-17
+Phase: 136 — Quality Trend Dashboard
+Plan: 0/3 (planned, not started)
+Status: Planned
+Last activity: 2026-06-18
 
-Progress: [██████████] 100% — Phase 135 all plans complete (SAMPLE-01..04).
+Progress: [███████░░░] 70% — Phase 135 complete; Phase 136 plans ready (TREND-01..04).
 
 ## Accumulated Context
 
@@ -67,6 +67,17 @@ Progress: [██████████] 100% — Phase 135 all plans complete
   - `.planning/phases/134-live-corpus-operations/134-02-PLAN.md` — operator review UX and fast evaluation loop (LIVEQUAL-02, LIVEQUAL-03, LIVEQUAL-04) ✅
   - `.planning/phases/134-live-corpus-operations/134-03-PLAN.md` — phase verification and operator handoff (LIVEQUAL-01..04) ✅
   - `.planning/phases/134-live-corpus-operations/134-04-PLAN.md` — campaign-dimensional queue progress gap closure (LIVEQUAL-02) ✅
+
+### Phase 136 (planned — 0/3 plans)
+
+- Goal: Owner tracks live quality over time and decides where to intervene (TREND-01..04)
+- Depends on: Phase 135 sampling thresholds, coverage API, evidence honesty
+- Research: `.planning/phases/136-quality-trend-dashboard/136-RESEARCH.md`
+- Validation: `.planning/phases/136-quality-trend-dashboard/136-VALIDATION.md`
+- Plans:
+  - `.planning/phases/136-quality-trend-dashboard/136-01-PLAN.md` — trend engine: ISO-week bucketing, metrics, alert flags, evidence refs (TREND-01, TREND-03, TREND-04)
+  - `.planning/phases/136-quality-trend-dashboard/136-02-PLAN.md` — quality trend API, repository filters, coverage gate wire, evidence CLI (TREND-02, TREND-03, TREND-04)
+  - `.planning/phases/136-quality-trend-dashboard/136-03-PLAN.md` — Trend tab UI: LineChart, filters, alert chips, drilldown (TREND-01..04)
 
 ### Phase 135 (complete — 3/3 plans)
 
@@ -248,4 +259,4 @@ Progress: [██████████] 100% — Phase 135 all plans complete
 
 ## Next Steps
 
-Phase 135 complete. Proceed to Phase 136 (quality trend dashboard) or Phase 137 (live release gate) per ROADMAP.
+Phase 136 planned. Execute `/gsd-execute-phase 136` to build trend engine, API, and owner Trend tab.

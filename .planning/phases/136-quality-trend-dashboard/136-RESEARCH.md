@@ -431,17 +431,15 @@ function computeBucketMetrics(rows: EvaluatedCorpusRow[]) {
 | A4 | Stale = `latestEvaluatedAt > capturedAt` | Pattern 3 | May flag on every page load until cache refresh — acceptable for honesty |
 | A5 | `evaluation.createdAt` is the canonical trend timestamp | Pattern 1 | Product may want `selectedAt` for operational throughput view |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Should trend report include automatic `qualityScore` series?**
+1. **Should trend report include automatic `qualityScore` series?** — **RESOLVED: Defer**
+   - Resolution: Do **not** include automatic `qualityScore` in Phase 136 trend series. TREND-01 scope is human visual, factual pass rate, and learning-impact status only. Automatic score drift for calibration monitoring is out of scope (follow-up if needed).
    - What we know: Calibration compares automatic vs human at snapshot time; trend is about **live human** quality per REQUIREMENTS.
-   - What's unclear: Owner might want automatic score drift for calibration monitoring.
-   - Recommendation: **Defer** — TREND-01 lists human visual, factual, learning-impact only; automatic series is a follow-up.
 
-2. **Multi-workspace rollup for platform owner?**
+2. **Multi-workspace rollup for platform owner?** — **RESOLVED: Optional workspaceId + cross-workspace rollup**
+   - Resolution: Match calibration API pattern — `workspaceId` is optional on `GET /api/feedback/quality-trend` and `run-quality-trend.ts`; when omitted, platform-owner sees cross-workspace rollup with `truncated` bounds (`TREND_MAX_ROWS`).
    - What we know: Calibration CLI supports `--all-workspaces` [VERIFIED: `run-score-calibration.ts:34`].
-   - What's unclear: Trend dashboard may need global view when no `workspaceId` set.
-   - Recommendation: Match calibration API — optional `workspaceId`; without it, platform-owner sees cross-workspace rollup with `truncated` bounds.
 
 ## Environment Availability
 
