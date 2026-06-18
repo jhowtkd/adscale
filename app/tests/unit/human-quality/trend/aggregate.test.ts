@@ -224,14 +224,17 @@ describe("detectRegression", () => {
     expect(detectRegression(buckets)).toBe(false);
   });
 
-  it("ignores empty buckets when finding last two sufficient buckets", () => {
+  it("ignores empty buckets when comparing last two populated buckets", () => {
     const buckets = [
       makeBucket("2026-W23", { count: 0, meanHumanVisualScore: null }),
       makeBucket("2026-W24", {
         count: TREND_SLICE_MIN,
         meanHumanVisualScore: 85,
       }),
-      makeBucket("2026-W25", { count: 1, meanHumanVisualScore: 90 }),
+      makeBucket("2026-W25", {
+        count: TREND_SLICE_MIN,
+        meanHumanVisualScore: 90,
+      }),
       makeBucket("2026-W26", {
         count: TREND_SLICE_MIN,
         meanHumanVisualScore: 75,
