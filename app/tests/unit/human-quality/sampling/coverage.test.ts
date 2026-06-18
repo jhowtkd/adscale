@@ -5,9 +5,40 @@ import {
   SAMPLE_ARM_MIN,
   SAMPLE_GLOBAL_MIN,
   SAMPLE_SLICE_MIN,
+  TREND_GLOBAL_MIN_EVALUATED,
+  TREND_MIN_TIME_BUCKETS,
 } from "@/server/human-quality/sampling/thresholds";
 
 const CAPTURED_AT = "2026-06-17T12:00:00.000Z";
+
+function defaultTrendInput(overrides: Partial<{
+  status: "ok" | "insufficient_sample";
+  sampleGuidance: SampleGuidance[];
+  evaluatedItemCount: number;
+  populatedBucketCount: number;
+}> = {}) {
+  return {
+    status: overrides.status ?? ("insufficient_sample" as const),
+    sampleGuidance: overrides.sampleGuidance ?? [
+      {
+        gate: "trend_global" as const,
+        currentCount: overrides.evaluatedItemCount ?? 0,
+        requiredCount: TREND_GLOBAL_MIN_EVALUATED,
+        additionalNeeded: TREND_GLOBAL_MIN_EVALUATED,
+        blockedClaim: "quality trend direction",
+      },
+      {
+        gate: "trend_time_buckets" as const,
+        currentCount: overrides.populatedBucketCount ?? 0,
+        requiredCount: TREND_MIN_TIME_BUCKETS,
+        additionalNeeded: TREND_MIN_TIME_BUCKETS,
+        blockedClaim: "quality trend direction",
+      },
+    ],
+    evaluatedItemCount: overrides.evaluatedItemCount ?? 0,
+    populatedBucketCount: overrides.populatedBucketCount ?? 0,
+  };
+}
 
 function emptyReports() {
   return buildSampleCoverageReport({
@@ -52,6 +83,7 @@ function emptyReports() {
         },
       ],
     },
+    trend: defaultTrendInput(),
   });
 }
 
@@ -126,6 +158,7 @@ describe("buildSampleCoverageReport", () => {
         status: "insufficient_sample",
         sampleGuidance: [guidance[2]],
       },
+      trend: defaultTrendInput({ evaluatedItemCount: 2, populatedBucketCount: 1 }),
     });
 
     expect(report.sliceGaps).toHaveLength(3);
@@ -161,6 +194,10 @@ describe("buildSampleCoverageReport", () => {
         status: "insufficient_sample",
         sampleGuidance: [],
       },
+      trend: defaultTrendInput({
+        evaluatedItemCount: SAMPLE_GLOBAL_MIN,
+        populatedBucketCount: 1,
+      }),
     });
 
     expect(report.gates.find((g) => g.id === "calibration_global")?.status).toBe("ok");
@@ -187,6 +224,12 @@ describe("buildSampleCoverageReport", () => {
         status: "ok",
         sampleGuidance: [],
       },
+      trend: defaultTrendInput({
+        status: "ok",
+        sampleGuidance: [],
+        evaluatedItemCount: 10,
+        populatedBucketCount: TREND_MIN_TIME_BUCKETS,
+      }),
     });
 
     expect(report.nextGate).toBe("release");
@@ -199,5 +242,64 @@ describe("buildSampleCoverageReport", () => {
     const calibrationGate = report.gates.find((g) => g.id === "calibration_global");
 
     expect(calibrationGate?.blockedClaims).toContain("calibration visual divergence");
+  });
+
+  it("uses real trend status for trend_global gate with empty blockedClaims when ok", () => {
+    const report = buildSampleCoverageReport({
+      capturedAt: CAPTURED_AT,
+      calibration: {
+        status: "ok",
+        evaluatedItemCount: 10,
+        sampleGuidance: [],
+      },
+      impact: { status: "ok", evaluatedItemCount: 10, sampleGuidance: [] },
+      quality: { status: "ok", sampleGuidance: [] },
+      trend: defaultTrendInput({
+        status: "ok",
+        sampleGuidance: [],
+        evaluatedItemCount: 10,
+        populatedBucketCount: TREND_MIN_TIME_BUCKETS,
+      }),
+    });
+
+    const trendGate = report.gates.find((g) => g.id === "trend_global");
+    expect(trendGate?.status).toBe("ok");
+    expect(trendGate?.blockedClaims).toEqual([]);
+  });
+
+  it("surfaces time-bucket guidance on trend_global when only one populated week", () => {
+    const report = buildSampleCoverageReport({
+      capturedAt: CAPTURED_AT,
+      calibration: {
+        status: "ok",
+        evaluatedItemCount: TREND_GLOBAL_MIN_EVALUATED,
+        sampleGuidance: [],
+      },
+      impact: {
+        status: "ok",
+        evaluatedItemCount: TREND_GLOBAL_MIN_EVALUATED,
+        sampleGuidance: [],
+      },
+      quality: { status: "ok", sampleGuidance: [] },
+      trend: {
+        status: "insufficient_sample",
+        evaluatedItemCount: TREND_GLOBAL_MIN_EVALUATED,
+        populatedBucketCount: 1,
+        sampleGuidance: [
+          {
+            gate: "trend_time_buckets",
+            currentCount: 1,
+            requiredCount: TREND_MIN_TIME_BUCKETS,
+            additionalNeeded: 1,
+            blockedClaim: "quality trend direction",
+          },
+        ],
+      },
+    });
+
+    const trendGate = report.gates.find((g) => g.id === "trend_global");
+    expect(trendGate?.status).toBe("insufficient_sample");
+    expect(trendGate?.blockedClaims).toContain("quality trend direction");
+    expect(trendGate?.blockedClaims.join(" ")).not.toContain("Phase 136");
   });
 });
