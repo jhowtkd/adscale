@@ -11,6 +11,37 @@ vi.mock("next/image", () => ({
   default: (props: { alt: string }) => <img alt={props.alt} />,
 }));
 
+vi.mock("recharts", () => ({
+  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="trend-chart">{children}</div>
+  ),
+  LineChart: ({
+    children,
+    data,
+    onClick,
+  }: {
+    children: React.ReactNode;
+    data?: Array<{ bucketKey: string }>;
+    onClick?: (state: { activeLabel?: string }) => void;
+  }) => (
+    <div
+      data-testid="line-chart"
+      onClick={() =>
+        onClick?.({
+          activeLabel: data?.[0]?.bucketKey,
+        })
+      }
+    >
+      {children}
+    </div>
+  ),
+  Line: () => null,
+  XAxis: () => null,
+  YAxis: () => null,
+  Tooltip: () => null,
+  CartesianGrid: () => null,
+}));
+
 import { apiFetch } from "@/lib/api-client";
 
 const mockApiFetch = vi.mocked(apiFetch);
@@ -170,7 +201,8 @@ function mockQueueOnly() {
       url.includes("score-calibration") ||
       url.includes("learning-impact") ||
       url.includes("quality-improvement") ||
-      url.includes("sample-coverage")
+      url.includes("sample-coverage") ||
+      url.includes("quality-trend")
     ) {
       return { ok: false, status: 403 } as Response;
     }
@@ -972,5 +1004,295 @@ describe("HumanQualityCorpusPanel coverage tab", () => {
     expect(screen.getAllByText("calibration_global").length).toBeGreaterThan(0);
     expect(screen.getAllByText("learning impact movement delta").length).toBeGreaterThan(0);
     expect(screen.getByText("impact_slice_arm")).toBeInTheDocument();
+  });
+});
+
+const CLIENT_PROFILE_ID = "550e8400-e29b-41d4-a716-446655440010";
+
+const trendReport = {
+  status: "ok" as const,
+  evaluatedItemCount: 8,
+  populatedBucketCount: 2,
+  capturedAt: "2026-06-17T12:00:00.000Z",
+  latestEvaluatedAt: "2026-06-17T11:00:00.000Z",
+  truncated: false,
+  evidenceSource: "live_human" as const,
+  sampleGuidance: [] as Array<{
+    gate: string;
+    currentCount: number;
+    requiredCount: number;
+    additionalNeeded: number;
+    blockedClaim: string;
+  }>,
+  alertFlags: {
+    insufficientCoverage: false,
+    staleEvidence: false,
+    regressionDetected: false,
+  },
+  buckets: [
+    {
+      bucketKey: "2026-W23",
+      periodStart: "2026-06-02T00:00:00.000Z",
+      periodEnd: "2026-06-08T23:59:59.999Z",
+      count: 4,
+      meanHumanVisualScore: 72,
+      factualPassRate: 0.75,
+      learningImpactStatus: "ok" as const,
+      evidenceRefs: {
+        bucketKey: "2026-W23",
+        corpusItemIds: [ITEM_ID],
+        itemRefs: [
+          {
+            corpusItemId: ITEM_ID,
+            visualScore: 72,
+            factualPass: true,
+            evaluatedAt: "2026-06-06T10:00:00.000Z",
+          },
+        ],
+        truncated: false,
+        totalCount: 1,
+      },
+    },
+    {
+      bucketKey: "2026-W24",
+      periodStart: "2026-06-09T00:00:00.000Z",
+      periodEnd: "2026-06-15T23:59:59.999Z",
+      count: 4,
+      meanHumanVisualScore: 68,
+      factualPassRate: 0.5,
+      learningImpactStatus: "insufficient_sample" as const,
+      evidenceRefs: {
+        bucketKey: "2026-W24",
+        corpusItemIds: ["550e8400-e29b-41d4-a716-446655440099"],
+        itemRefs: [
+          {
+            corpusItemId: "550e8400-e29b-41d4-a716-446655440099",
+            visualScore: 68,
+            factualPass: false,
+            evaluatedAt: "2026-06-14T10:00:00.000Z",
+          },
+        ],
+        truncated: true,
+        totalCount: 120,
+      },
+    },
+  ],
+};
+
+function mockTrendApis(overrides?: { trend?: typeof trendReport }) {
+  mockApiFetch.mockImplementation(async (url: string, init?: RequestInit) => {
+    if (url.includes("quality-trend")) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ report: overrides?.trend ?? trendReport }),
+      } as Response;
+    }
+    if (
+      url.includes("score-calibration") ||
+      url.includes("learning-impact") ||
+      url.includes("quality-improvement") ||
+      url.includes("sample-coverage")
+    ) {
+      return { ok: false, status: 403 } as Response;
+    }
+    if (url.includes("human-quality-corpus") && !init?.method) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => queueJson([pendingItem]),
+      } as Response;
+    }
+    return { ok: false, status: 500 } as Response;
+  });
+}
+
+describe("HumanQualityCorpusPanel trend tab", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("shows Trend tab in tab list", async () => {
+    mockTrendApis();
+
+    renderPanel();
+    fireEvent.change(screen.getByLabelText("Workspace ID"), {
+      target: { value: WORKSPACE_ID },
+    });
+
+    await screen.findByText("Human quality corpus");
+    expect(screen.getByRole("button", { name: "Trend" })).toBeInTheDocument();
+  });
+
+  it("returns null when all six APIs return 403", async () => {
+    mockApiFetch.mockResolvedValue({ ok: false, status: 403 } as Response);
+
+    const { container } = renderPanel();
+    fireEvent.change(screen.getByLabelText("Workspace ID"), {
+      target: { value: WORKSPACE_ID },
+    });
+
+    await waitFor(() => {
+      expect(container.querySelector("section")).toBeNull();
+    });
+
+    const trendCalls = mockApiFetch.mock.calls.filter(
+      ([url]) => typeof url === "string" && url.includes("quality-trend")
+    );
+    expect(trendCalls.length).toBeGreaterThan(0);
+  });
+
+  it("renders separate alert chips when flags are set", async () => {
+    mockTrendApis({
+      trend: {
+        ...trendReport,
+        alertFlags: {
+          insufficientCoverage: true,
+          staleEvidence: true,
+          regressionDetected: true,
+          reasons: {
+            insufficientCoverage: "Global bucket count below minimum",
+            staleEvidence: "Evidence captured before latest evaluation",
+            regressionDetected: "2026-W23 → 2026-W24 visual drop",
+          },
+        },
+        sampleGuidance: [
+          {
+            gate: "trend_global",
+            currentCount: 2,
+            requiredCount: 5,
+            additionalNeeded: 3,
+            blockedClaim: "quality trend direction",
+          },
+        ],
+      },
+    });
+
+    renderPanel();
+    fireEvent.change(screen.getByLabelText("Workspace ID"), {
+      target: { value: WORKSPACE_ID },
+    });
+
+    await screen.findByText("Human quality corpus");
+    fireEvent.click(screen.getByRole("button", { name: "Trend" }));
+
+    expect(await screen.findByTestId("trend-alert-insufficient-coverage")).toBeInTheDocument();
+    expect(screen.getByTestId("trend-alert-stale-evidence")).toBeInTheDocument();
+    expect(screen.getByTestId("trend-alert-regression")).toBeInTheDocument();
+    expect(screen.getByText(/Corpus refreshed — re-run evidence CLI/)).toBeInTheDocument();
+    expect(screen.getByText(/2026-W23 → 2026-W24 visual drop/)).toBeInTheDocument();
+    expect(screen.getByText(/Need 3 more for quality trend direction/)).toBeInTheDocument();
+  });
+
+  it("shows sample guidance without trend direction claim when insufficient_sample", async () => {
+    mockTrendApis({
+      trend: {
+        ...trendReport,
+        status: "insufficient_sample",
+        sampleGuidance: [
+          {
+            gate: "trend_time_buckets",
+            currentCount: 1,
+            requiredCount: 2,
+            additionalNeeded: 1,
+            blockedClaim: "quality trend direction",
+          },
+        ],
+      },
+    });
+
+    renderPanel();
+    fireEvent.change(screen.getByLabelText("Workspace ID"), {
+      target: { value: WORKSPACE_ID },
+    });
+
+    await screen.findByText("Human quality corpus");
+    fireEvent.click(screen.getByRole("button", { name: "Trend" }));
+
+    expect(
+      await screen.findByText(/Need 1 more for quality trend direction/)
+    ).toBeInTheDocument();
+    expect(screen.getByText("insufficient_sample")).toBeInTheDocument();
+    expect(screen.queryByText(/improved|declined|↑|↓/i)).not.toBeInTheDocument();
+  });
+
+  it("renders bucket evidence rows and truncated message", async () => {
+    mockTrendApis();
+
+    renderPanel();
+    fireEvent.change(screen.getByLabelText("Workspace ID"), {
+      target: { value: WORKSPACE_ID },
+    });
+
+    await screen.findByText("Human quality corpus");
+    fireEvent.click(screen.getByRole("button", { name: "Trend" }));
+
+    expect(await screen.findByText("Quality trend")).toBeInTheDocument();
+    expect(screen.getByText("live_human")).toBeInTheDocument();
+    expect(screen.getByTestId("trend-chart")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Trend evidence bucket"), {
+      target: { value: "2026-W24" },
+    });
+
+    expect(await screen.findByText(/Showing 1 of 120/)).toBeInTheDocument();
+    expect(screen.getByText("68")).toBeInTheDocument();
+    expect(screen.getByText("fail")).toBeInTheDocument();
+  });
+
+  it("refetches trend when dimension filter changes", async () => {
+    mockTrendApis();
+
+    renderPanel();
+    fireEvent.change(screen.getByLabelText("Workspace ID"), {
+      target: { value: WORKSPACE_ID },
+    });
+
+    await screen.findByText("Human quality corpus");
+    fireEvent.click(screen.getByRole("button", { name: "Trend" }));
+    await screen.findByText("Quality trend");
+
+    const initialTrendCalls = mockApiFetch.mock.calls.filter(
+      ([url]) => typeof url === "string" && url.includes("quality-trend")
+    ).length;
+
+    fireEvent.change(screen.getByLabelText("Trend generation mode filter"), {
+      target: { value: "art_variation" },
+    });
+
+    await waitFor(() => {
+      const trendCalls = mockApiFetch.mock.calls.filter(
+        ([url]) => typeof url === "string" && url.includes("quality-trend")
+      );
+      expect(trendCalls.length).toBeGreaterThan(initialTrendCalls);
+      expect(String(trendCalls.at(-1)?.[0])).toContain("generationMode=art_variation");
+    });
+  });
+
+  it("passes client profile filter to quality-trend API", async () => {
+    mockTrendApis();
+
+    renderPanel();
+    fireEvent.change(screen.getByLabelText("Workspace ID"), {
+      target: { value: WORKSPACE_ID },
+    });
+
+    await screen.findByText("Human quality corpus");
+    fireEvent.click(screen.getByRole("button", { name: "Trend" }));
+    await screen.findByText("Quality trend");
+
+    fireEvent.change(screen.getByLabelText("Trend client profile ID filter"), {
+      target: { value: CLIENT_PROFILE_ID },
+    });
+
+    await waitFor(() => {
+      const trendCall = mockApiFetch.mock.calls.find(
+        ([url]) =>
+          typeof url === "string" &&
+          url.includes("quality-trend") &&
+          url.includes(encodeURIComponent(CLIENT_PROFILE_ID))
+      );
+      expect(trendCall).toBeDefined();
+    });
   });
 });
