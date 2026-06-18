@@ -1178,7 +1178,7 @@ function TrendTabContent({
         learningImpactStatus: bucket.learningImpactStatus,
         count: bucket.count,
       }));
-  }, [report?.buckets]);
+  }, [report]);
 
   const selectedBucket = useMemo(() => {
     if (!report || !selectedBucketKey) return null;

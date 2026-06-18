@@ -1,6 +1,6 @@
 # Phase 137 Operational Quality Release Gate Baseline
 
-Generated at 2026-06-18T12:00:00.000Z.
+Generated at 2026-06-18T12:05:13.001Z.
 
 **Dual-status separation (QALIVE-02):** technical regression and operational live evidence are independent top-level sections.
 

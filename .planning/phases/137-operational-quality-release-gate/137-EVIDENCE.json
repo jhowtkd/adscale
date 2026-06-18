@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "milestoneVersion": "v12.6",
-  "capturedAt": "2026-06-18T11:59:16.603Z",
+  "capturedAt": "2026-06-18T12:05:13.001Z",
   "status": "tech_debt",
   "qualityMetrics": {
     "humanCorpus": {
@@ -49,12 +49,18 @@
     "technical:v12_4-output-learning": "pass",
     "technical:output-learning-evidence": "pass",
     "technical:unit": "pass",
-    "technical:lint": "fail"
+    "technical:lint": "pass",
+    "technical:build": "pass",
+    "technical:real-quality-evidence": "pass",
+    "technical:operational-technical-regression": "pass",
+    "operational:sampling-sufficiency-evidence": "pass",
+    "operational:quality-trend-evidence": "pass",
+    "operational:operational-evidence": "pass"
   },
   "requirements": [
     {
       "id": "QALIVE-01",
-      "result": "fail",
+      "result": "pass",
       "automated": "cd app && npm run operational-quality-release-gate"
     },
     {
@@ -205,5 +211,6 @@
       }
     ],
     "sourcePath": ".planning/phases/136-quality-trend-dashboard/136-EVIDENCE.json"
-  }
+  },
+  "verifiedAt": "2026-06-18T12:07:29.142Z"
 }

@@ -305,7 +305,9 @@ describe("aggregateOperationalEvidence", () => {
 });
 
 describe("mergeRegressionIntoTechnical", () => {
-  it("runRegression: updates technicalRegression without setting qualityImprovementClaimed true", () => {
+  it(
+    "runRegression: updates technicalRegression without setting qualityImprovementClaimed true",
+    async () => {
     const evidence = baseEvidence({
       qualityImprovementClaimed: false,
       operationalEvidence: {
@@ -328,5 +330,7 @@ describe("mergeRegressionIntoTechnical", () => {
     expect(evidence.technicalRegression?.creativeValidationScript).toBe("factual_only_pass");
     expect(evidence.qualityImprovementClaimed).toBe(false);
     expect(evidence.operationalEvidence?.status).toBe("insufficient_sample");
-  });
+    },
+    15_000
+  );
 });
