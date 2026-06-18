@@ -27,7 +27,7 @@
 |---|-------|--------------|--------|-----------|
 | 134 | Live Corpus Operations | Complete    | 2026-06-17 | 2026-06-17 |
 | 135 | Sampling Sufficiency and Evidence Honesty | Complete    | 2026-06-18 | 2026-06-18 |
-| 136 | Quality Trend Dashboard | TREND-01..04 | Pending | — |
+| 136 | Quality Trend Dashboard | 1/3 | In Progress|  |
 | 137 | Operational Quality Release Gate | QALIVE-01..04 | Pending | — |
 
 ## Phase Details
@@ -93,10 +93,10 @@ Plans:
   3. Regressions, stale evidence and insufficient coverage are flagged separately.
   4. Aggregates link back to bounded corpus evidence.
 
-**Plans:** 0/3 plans complete
+**Plans:** 1/3 plans executed
 
 Plans:
-- [ ] 136-01-PLAN.md — Trend engine: ISO-week bucketing, metrics, alert flags, evidence refs (TREND-01, TREND-03, TREND-04)
+- [x] 136-01-PLAN.md — Trend engine: ISO-week bucketing, metrics, alert flags, evidence refs (TREND-01, TREND-03, TREND-04)
 - [ ] 136-02-PLAN.md — Quality trend API, repository filters, coverage gate wire, evidence CLI (TREND-02, TREND-03, TREND-04)
 - [ ] 136-03-PLAN.md — Trend tab UI: LineChart, filters, alert chips, drilldown (TREND-01..04)
 
