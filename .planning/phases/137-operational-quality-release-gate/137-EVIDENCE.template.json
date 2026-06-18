@@ -1,0 +1,156 @@
+{
+  "schemaVersion": 1,
+  "milestoneVersion": "v12.6",
+  "capturedAt": "2026-06-18T12:00:00.000Z",
+  "verifiedAt": "2026-06-18T12:00:00.000Z",
+  "status": "tech_debt",
+  "qualityImprovementClaimed": false,
+  "technicalRegression": {
+    "status": "pass",
+    "evidenceSource": "technical_regression",
+    "denominatorNote": "Deterministic v12.3/v12.4 regression scripts — not human corpus",
+    "gateMatrixPass": true,
+    "v12_3FactualFidelityRate": 1.0,
+    "safetyGuardPassRate": 1.0,
+    "sourcePath": ".planning/phases/133-real-quality-release-gate/133-EVIDENCE.json"
+  },
+  "operationalEvidence": {
+    "status": "insufficient_sample",
+    "evidenceSource": "live_human",
+    "denominatorNote": "Human-evaluated corpus items only",
+    "evaluatedItemCount": 0,
+    "gates": {
+      "calibration": {
+        "status": "insufficient_corpus",
+        "evidenceSource": "live_human",
+        "denominatorNote": "Human-evaluated corpus items only",
+        "evaluatedItemCount": 0,
+        "sampleGuidance": [
+          {
+            "gate": "calibration_global",
+            "currentCount": 0,
+            "requiredCount": 5,
+            "additionalNeeded": 5,
+            "blockedClaim": "Global calibration aggregates withheld until corpus reaches minimum"
+          }
+        ],
+        "sourcePath": ".planning/phases/130-score-calibration-and-rubric-alignment/130-EVIDENCE.json"
+      },
+      "impact": {
+        "status": "insufficient_sample",
+        "evidenceSource": "live_human",
+        "denominatorNote": "Human-evaluated corpus items only",
+        "evaluatedItemCount": 0,
+        "sampleGuidance": [
+          {
+            "gate": "impact_global",
+            "currentCount": 0,
+            "requiredCount": 5,
+            "additionalNeeded": 5,
+            "blockedClaim": "Learning impact movement deltas withheld until sample sufficient"
+          }
+        ],
+        "sourcePath": ".planning/phases/131-learning-impact-measurement/131-EVIDENCE.json"
+      },
+      "qualityImprovement": {
+        "status": "insufficient_sample",
+        "evidenceSource": "live_human",
+        "denominatorNote": "Human-evaluated corpus items only",
+        "evaluatedItemCount": 0,
+        "fixtureMetrics": {
+          "evidenceSource": "fixture",
+          "denominatorNote": "Deterministic v12.3 archetype matrix — not human corpus",
+          "targetedArchetypePassRateBefore": 0.7,
+          "targetedArchetypePassRateAfter": null
+        },
+        "sampleGuidance": [
+          {
+            "gate": "quality_improvement_reason",
+            "dimension": "visual_overload",
+            "currentCount": 0,
+            "requiredCount": 3,
+            "additionalNeeded": 3,
+            "blockedClaim": "Per-reason improvement deltas withheld until slice sample sufficient"
+          }
+        ],
+        "sourcePath": ".planning/phases/132-targeted-creative-quality-improvements/132-EVIDENCE.json"
+      },
+      "trend": {
+        "status": "insufficient_sample",
+        "evidenceSource": "live_human",
+        "denominatorNote": "Human-evaluated corpus items only",
+        "evaluatedItemCount": 0,
+        "sampleGuidance": [
+          {
+            "gate": "trend_global",
+            "currentCount": 0,
+            "requiredCount": 5,
+            "additionalNeeded": 5,
+            "blockedClaim": "Trend direction claims withheld until sample sufficient"
+          }
+        ],
+        "sourcePath": ".planning/phases/136-quality-trend-dashboard/136-EVIDENCE.json"
+      }
+    },
+    "sampleCoverage": {
+      "nextGate": "calibration",
+      "nextOperatorAction": "Evaluate corpus items in the human-quality queue — at least 5 human evaluations are required.",
+      "sourcePath": ".planning/phases/135-sampling-sufficiency-and-evidence-honesty/135-EVIDENCE.json"
+    }
+  },
+  "qualityMetrics": {
+    "humanCorpus": {
+      "evidenceSource": "live_human",
+      "denominatorNote": "Human-evaluated corpus items only",
+      "evaluatedItemCount": 0,
+      "meanHumanVisualScore": null,
+      "sourcePath": ".planning/phases/130-score-calibration-and-rubric-alignment/130-EVIDENCE.json"
+    },
+    "fixtureValidation": {
+      "evidenceSource": "fixture",
+      "denominatorNote": "Deterministic v12.3 matrix — not human corpus",
+      "meanQualityScore": 70.17,
+      "sourcePath": ".planning/phases/123-visual-validation-gate/123-EVIDENCE.json"
+    }
+  },
+  "factualMetrics": {
+    "humanCorpusFactualPassRate": 1.0,
+    "v12_3FactualFidelityRate": 1.0,
+    "safetyGuardPassRate": 1.0
+  },
+  "learningImpactMetrics": {
+    "status": "insufficient_sample",
+    "globalVisualScoreDelta": null,
+    "sourcePath": ".planning/phases/131-learning-impact-measurement/131-EVIDENCE.json"
+  },
+  "trendMetrics": {
+    "evidenceSource": "live_human",
+    "status": "insufficient_sample",
+    "populatedBucketCount": 0,
+    "sourcePath": ".planning/phases/136-quality-trend-dashboard/136-EVIDENCE.json"
+  },
+  "acceptedCaveats": [],
+  "automated": {},
+  "requirements": [
+    {
+      "id": "QALIVE-01",
+      "result": "pending",
+      "automated": "cd app && npm run operational-quality-release-gate"
+    },
+    {
+      "id": "QALIVE-02",
+      "result": "pass",
+      "automated": "node app/scripts/check-operational-quality-release-evidence.mjs --skip-tests"
+    },
+    {
+      "id": "QALIVE-03",
+      "result": "pass",
+      "automated": "node app/scripts/check-operational-quality-release-evidence.mjs --skip-tests"
+    },
+    {
+      "id": "QALIVE-04",
+      "result": "pending",
+      "automated": ".planning/milestones/v12.6-MILESTONE-AUDIT.md"
+    }
+  ]
+}

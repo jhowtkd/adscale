@@ -43,7 +43,7 @@ const MIN_CALIBRATION_CORPUS = 5;
 export const HUMAN_VISUAL_TARGET = 75;
 export const V12_3_FIXTURE_BASELINE = 70.17;
 
-const BLENDED_FIELD_DENYLIST = [
+export const BLENDED_FIELD_DENYLIST = [
   "overallQualityPass",
   "combinedScore",
   "overallPass",
