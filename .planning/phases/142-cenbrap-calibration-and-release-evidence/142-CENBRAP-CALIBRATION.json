@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "capturedAt": "2026-06-19T17:17:02.985Z",
+  "capturedAt": "2026-06-19T17:51:13.399Z",
   "client": "Cenbrap",
   "mode": "live",
   "status": "insufficient_sample",
@@ -70,6 +70,7 @@
             "derivationId": "a92788f7-18d7-4289-99eb-bab8a0fa2f80",
             "humanDecision": null,
             "humanDecisionSource": "manual_pending",
+            "mismatchBucket": null,
             "mismatchReason": null,
             "reviewer": null,
             "reviewedAt": null,
@@ -77,6 +78,7 @@
             "overrideApproved": false
           },
           "agreement": "missing_human_decision",
+          "mismatchBucket": null,
           "mismatchReason": null
         }
       ]
@@ -142,6 +144,7 @@
             "derivationId": "01faf2a6-7808-406b-aeff-efd0169be9a1",
             "humanDecision": null,
             "humanDecisionSource": "manual_pending",
+            "mismatchBucket": null,
             "mismatchReason": null,
             "reviewer": null,
             "reviewedAt": null,
@@ -149,6 +152,7 @@
             "overrideApproved": false
           },
           "agreement": "missing_human_decision",
+          "mismatchBucket": null,
           "mismatchReason": null
         }
       ]
@@ -162,6 +166,7 @@
       "exportStatus": "ajuste_menor",
       "humanDecision": null,
       "humanDecisionSource": "manual_pending",
+      "mismatchBucket": null,
       "mismatchReason": null,
       "overrideApproved": false,
       "agreement": "missing_human_decision",
@@ -174,6 +179,7 @@
       "exportStatus": "ok",
       "humanDecision": null,
       "humanDecisionSource": "manual_pending",
+      "mismatchBucket": null,
       "mismatchReason": null,
       "overrideApproved": false,
       "agreement": "missing_human_decision",
@@ -206,8 +212,6 @@
   ],
   "evidenceNotes": [
     "Live Cenbrap calibration run — agreement claims remain blocked until sample guidance clears.",
-    "Jhonatan's decisions are the calibration authority.",
-    "Phase 143 history: first live run (2026-06-19T16:44:10Z) had evaluatedCampaignCount=0 (insufficient_campaigns). Corpus seeded in Phase 144-01 resolved the campaign gate.",
-    "All campaigns are synthetic_fixture — operational calibration only, not real customer evidence."
+    "Jhonatan's decisions are the calibration authority."
   ]
 }

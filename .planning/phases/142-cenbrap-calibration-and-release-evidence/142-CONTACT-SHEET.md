@@ -1,6 +1,6 @@
 # Phase 142 — Cenbrap Calibration Contact Sheet
 
-Captured: 2026-06-19T17:17:02.985Z
+Captured: 2026-06-19T17:51:13.399Z
 Status: insufficient_sample
 Mode: live
 
@@ -23,19 +23,6 @@ Rows without operator decisions stay `manual_pending` until entered below.
 - Missing dual verdict rows: 0
 - Missing human decision rows: 2
 
-## Row readiness (Phase 144 gate)
-
-| Readiness | Count | Notes |
-|-----------|------:|-------|
-| `review_ready` | 2 | Requires `olharVerdict` + `exportStatus` + safe `outputRef` |
-| `missing_dual_verdict` | 0 | All derivation rows have dual verdict |
-| `missing_output_ref` | 0 | All rows have safe `derivation:` output refs |
-| `manual_pending` | 2 | Awaiting Jhonatan's `entra/quase/nao_entra` decisions |
-
-**Phase 143 history:** First live run (2026-06-19T16:44:10Z) had `evaluatedCampaignCount=0` — see [143-BLOCKERS.md](../143-live-cenbrap-calibration-run/143-BLOCKERS.md). Corpus seeding in Phase 144-01 resolved `insufficient_campaigns`.
-
-**Source labels:** Both campaigns are `synthetic_fixture` — operational calibration only, not real customer evidence. Agreement rate and quality claims remain withheld.
-
 ## Campaign: Cenbrap Calibration — NR1 Convite
 
 - Campaign ID: `676e1c08-0813-4f1e-adff-0e96c01e6a57`
@@ -43,9 +30,9 @@ Rows without operator decisions stay `manual_pending` until entered below.
 - Client profile: —
 - Selection signals: client_contains_cenbrap, campaign_name_cenbrap, campaign_name_nr1
 
-| derivation | outputRef | olharVerdict | exportStatus | packageEligible | override | humanDecision | mismatchReason | reviewer | reviewedAt |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-`a92788f7` | derivation:a92788f7-18d7-4289-99eb-bab8a0fa2f80 | pronta | ajuste_menor | yes | no | manual_pending | — | — | —
+| derivation | outputRef | olharVerdict | exportStatus | packageEligible | override | humanDecision | mismatchBucket | mismatchNote | reviewer | reviewedAt |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+`a92788f7` | derivation:a92788f7-18d7-4289-99eb-bab8a0fa2f80 | pronta | ajuste_menor | yes | no | manual_pending | — | — | — | —
 
 ### Manual decision capture
 
@@ -53,7 +40,8 @@ For rows still marked `manual_pending`, record Jhonatan's decision and mismatch 
 
 #### Derivation `a92788f7-18d7-4289-99eb-bab8a0fa2f80`
 - humanDecision: manual_pending
-- mismatchReason: 
+- mismatchBucket: 
+- mismatchNote: 
 - reviewer: Jhonatan
 - reviewedAt: 
 
@@ -64,9 +52,9 @@ For rows still marked `manual_pending`, record Jhonatan's decision and mismatch 
 - Client profile: —
 - Selection signals: client_contains_cenbrap, campaign_name_cenbrap, campaign_name_nr1
 
-| derivation | outputRef | olharVerdict | exportStatus | packageEligible | override | humanDecision | mismatchReason | reviewer | reviewedAt |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-`01faf2a6` | derivation:01faf2a6-7808-406b-aeff-efd0169be9a1 | quase | ok | yes | no | manual_pending | — | — | —
+| derivation | outputRef | olharVerdict | exportStatus | packageEligible | override | humanDecision | mismatchBucket | mismatchNote | reviewer | reviewedAt |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+`01faf2a6` | derivation:01faf2a6-7808-406b-aeff-efd0169be9a1 | quase | ok | yes | no | manual_pending | — | — | — | —
 
 ### Manual decision capture
 
@@ -74,7 +62,8 @@ For rows still marked `manual_pending`, record Jhonatan's decision and mismatch 
 
 #### Derivation `01faf2a6-7808-406b-aeff-efd0169be9a1`
 - humanDecision: manual_pending
-- mismatchReason: 
+- mismatchBucket: 
+- mismatchNote: 
 - reviewer: Jhonatan
 - reviewedAt: 
 

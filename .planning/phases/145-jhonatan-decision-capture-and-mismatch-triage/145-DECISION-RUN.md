@@ -118,6 +118,33 @@ Both derivations validated against `142-CENBRAP-CALIBRATION.json` as `review_rea
 
 `missingHumanDecisionCount` in `142-CENBRAP-CALIBRATION.json` is **2** until Jhonatan fills `145-DECISIONS.json`, `--confirm` records events, and Phase 145-02 re-runs calibration. `decisionCount` remains **0** until then.
 
+## Calibration rerun (Phase 145-02, 2026-06-19T17:51:13Z)
+
+Re-run after mismatch bucket normalization. **No decisions recorded yet** — Jhonatan has not filled `145-DECISIONS.json` or run `--confirm`.
+
+```bash
+cd app && npx tsx scripts/run-cenbrap-calibration.ts \
+  --output ../.planning/phases/142-cenbrap-calibration-and-release-evidence/142-CENBRAP-CALIBRATION.json \
+  --contact-sheet ../.planning/phases/142-cenbrap-calibration-and-release-evidence/142-CONTACT-SHEET.md
+```
+
+| Metric | Value |
+| --- | ---: |
+| status | `insufficient_sample` |
+| decisionCount | 0 |
+| comparableCount | 0 |
+| agreementCount | 0 |
+| mismatchCount | 0 |
+| agreementRate | null (withheld) |
+| missingHumanDecisionCount | 2 |
+| mismatchReasonCounts | `{}` |
+
+Sample guidance:
+
+- **Cenbrap art-direction agreement rate**: 0/5 (need 5 more) — claim withheld
+
+**Outcome:** `manual_decisions_missing` — calibration infrastructure and bucket normalization are ready; comparable-row metrics await operator decisions. Contact sheet updated with `mismatchBucket` / `mismatchNote` columns.
+
 ## Secret scan
 
 Scanned `.planning/phases/145-jhonatan-decision-capture-and-mismatch-triage/` for `DATABASE_URL`, signed URLs, API keys, and postgres connection strings.
