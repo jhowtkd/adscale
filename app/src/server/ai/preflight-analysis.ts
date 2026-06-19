@@ -2,6 +2,11 @@ import { z } from "zod";
 import { getOpenAI, extractOutputText } from "./utils";
 import sharp from "sharp";
 import { env } from "@/server/validation/env";
+import {
+  buildBaseReadingPromptSection,
+  normalizeBaseCreativeReading,
+  type BaseCreativeReading,
+} from "./olhar/base-reading";
 
 // ============================================
 // Zod Schema
@@ -12,7 +17,17 @@ const preflightDimensionSchema = z.object({
   suggestion: z.string(),
 });
 
+const baseCreativeReadingSchema = z.object({
+  dominantIdea: z.string(),
+  gestaltRead: z.string(),
+  inviteWeight: z.enum(["absent", "weak", "balanced", "overpowering"]),
+  thumbnailRead: z.string(),
+  brandPresence: z.enum(["absent", "weak", "present", "dominant"]),
+  risks: z.array(z.string()).max(2),
+});
+
 export const preflightResultSchema = z.object({
+  baseReading: baseCreativeReadingSchema.optional(),
   overallScore: z.number().min(0).max(100),
   breakdown: z.object({
     technicalQuality: preflightDimensionSchema,
@@ -127,11 +142,21 @@ function simplifyRatio(w: number, h: number): string {
 function buildPreflightSystemPrompt(locale?: string): string {
   const lang = locale === "pt-BR" ? "pt-BR" : "en";
 
-  return `You are an expert advertising creative director and performance marketer. Analyze the provided ad creative image BEFORE any derivations are generated. Evaluate it as a BASE creative that will be used to generate variations.
+  return `You are a senior art director analyzing a BASE creative BEFORE any derivations are generated.
 
-Evaluate these dimensions and return ONLY a JSON object:
+Start with a creative reading ("Leitura do base"), then keep the compatibility score fields for downstream analytics.
+
+Return ONLY a JSON object:
 
 {
+  "baseReading": {
+    "dominantIdea": "string — the single visual/communicative idea anchoring the piece",
+    "gestaltRead": "string — how figure, ground, and reading path work together",
+    "inviteWeight": "absent|weak|balanced|overpowering",
+    "thumbnailRead": "string — what reads at feed thumbnail scale",
+    "brandPresence": "absent|weak|present|dominant",
+    "risks": ["string"]
+  },
   "overallScore": 0-100,
   "breakdown": {
     "technicalQuality": { "score": 0-100, "suggestion": "string" },
@@ -156,7 +181,8 @@ Scoring guidelines:
 - platformReadiness: is it optimized for the chosen platforms? (e.g., too much text for Meta, wrong ratio for Stories)
 
 Rules:
-- overallScore must be a weighted average with heavy weight on textLegibility, ctaProminence, and visualHierarchy
+- Leitura do base is the primary judgment: dominant idea, gestalt, invite weight, thumbnail read, brand presence, and at most two real pre-generation risks
+- overallScore remains a weighted average with heavy weight on textLegibility, ctaProminence, and visualHierarchy for compatibility
 - Scores < 50 in any dimension create a critical issue
 - Provide 1-3 criticalIssues max. Be specific: "Headline is too small to read on mobile" not "Bad text"
 - Provide 3-5 actionable suggestions max. Each should be a concrete improvement
@@ -297,7 +323,12 @@ function normalizePreflightResult(raw: unknown): Omit<PreflightResult, "technica
   }
   const criticalIssues = [...criticalIssuesSet];
 
+  const baseReading = normalizeBaseCreativeReading(
+    (obj as { baseReading?: unknown }).baseReading
+  );
+
   return {
+    ...(baseReading ? { baseReading } : {}),
     overallScore,
     breakdown,
     criticalIssues,
@@ -346,7 +377,13 @@ export async function analyzePreflight(input: PreflightInput): Promise<Preflight
 
 export function buildPreflightPromptSection(preflightResult: PreflightResult): string {
   const dims = preflightResult.breakdown;
-  const lines: string[] = [
+  const lines: string[] = [];
+
+  if (preflightResult.baseReading) {
+    lines.push(buildBaseReadingPromptSection(preflightResult.baseReading), "");
+  }
+
+  lines.push(
     "## Pre-flight Analysis Results",
     `Overall Score: ${preflightResult.overallScore}/100`,
     "",
@@ -358,8 +395,8 @@ export function buildPreflightPromptSection(preflightResult: PreflightResult): s
     `- Composition: ${dims.composition.score}/100 — ${dims.composition.suggestion}`,
     `- Brand Consistency: ${dims.brandConsistency.score}/100 — ${dims.brandConsistency.suggestion}`,
     `- Platform Readiness: ${dims.platformReadiness.score}/100 — ${dims.platformReadiness.suggestion}`,
-    "",
-  ];
+    ""
+  );
 
   if (preflightResult.criticalIssues.length > 0) {
     lines.push("### Critical Issues");
