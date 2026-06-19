@@ -71,4 +71,49 @@ Both rows remain `manual_pending`:
 
 ## Task 147-02-02 — Release evidence rebuild
 
-_(filled after evidence build and checker run)_
+**Build command:**
+
+```bash
+cd app && npm run olhar-release-evidence:build
+```
+
+**Exit code:** 0
+
+**Output:** `Status=human_needed Campaigns=2 derivations=2 decisions=0 agreementRate=null`
+
+**Checker command:**
+
+```bash
+node app/scripts/check-olhar-release-evidence.mjs \
+  --evidence .planning/phases/142-cenbrap-calibration-and-release-evidence/142-EVIDENCE.json \
+  --skip-tests
+```
+
+**Checker result:** exit 0 — `Olhar release evidence check passed. Status: human_needed`
+
+### Evidence metrics (post-rebuild)
+
+Captured: `2026-06-19T21:13:42.047Z`
+
+| Field | Value |
+| --- | --- |
+| `status` | `human_needed` |
+| `humanDecisionCount` | 0 |
+| `missingHumanDecisionCount` | 2 |
+| `agreementRate` | null (withheld — `additionalNeeded=5`) |
+| `mismatchReasonCounts` | `{}` |
+| `qualityImprovementClaimed` | null |
+
+**Claims gate:** `agreementRate` correctly withheld while sample guidance shows `0/5 (need 5 more)`. No agreement or quality claim introduced.
+
+### Focused tests
+
+```bash
+cd app && npm test -- src/server/olhar-calibration/cenbrap-calibration.test.ts src/server/olhar-calibration/olhar-release-evidence.test.ts
+```
+
+**Result:** 22 passed (2 files)
+
+### Artifacts updated
+
+- `.planning/phases/142-cenbrap-calibration-and-release-evidence/142-EVIDENCE.json`
