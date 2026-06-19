@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v12.7
 milestone_name: "Olhar ADScale: Direcao de Arte Antes de Compliance"
 status: executing
-last_updated: "2026-06-19T13:18:00Z"
-last_activity: 2026-06-19 - Completed 141-02 override audit trail and package gating
+last_updated: "2026-06-19T13:42:00Z"
+last_activity: 2026-06-19 - Completed 141-03 conscious override UX gap closure
 progress:
   total_phases: 5
   completed_phases: 4
-  total_plans: 8
-  completed_plans: 8
+  total_plans: 9
+  completed_plans: 9
   percent: 100
 ---
 
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-06-19)
 ## Current Position
 
 Phase: 141 - Review Surface and Override UX (complete)
-Plan: 141-02 complete — override audit trail and package gating shipped
-Status: Phase 141 complete — review API, audit evidence, and dual-verdict package gating
-Last activity: 2026-06-19 - Completed 141-02 override audit trail and package gating
+Plan: 141-03 complete — conscious override UX gap closure
+Status: Phase 141 verification 4/4; REVIEW-04 workspace override UX and package marker shipped
+Last activity: 2026-06-19 - Completed 141-03 conscious override UX gap closure
 
-Progress: [██████████] v12.7 — 4/5 phases; 8/8 plans complete; Phase 141 complete.
+Progress: [██████████] v12.7 — 4/5 phases; 9/9 plans complete; Phase 141 complete.
 
 ## Accumulated Context
 
@@ -269,6 +269,8 @@ Progress: [██████████] v12.7 — 4/5 phases; 8/8 plans compl
 - [Phase 141]: Override package inclusion inferred from approved status with unchanged blocking dual verdicts
 - [Phase 141]: Review PATCH records override audit in output_decision_events without mutating olharVerdict or exportStatus
 - [Phase 141]: Package eligibility uses isDerivationPackageEligibleByVerdict and exposes approvalOverride on snapshot items
+- [Phase 141]: Override UX is secondary action only; primary Entra stays disabled when approvalBlocked
+- [Phase 141]: Package override items use amber warning tone with olharVerdictValue and exportStatusValue context
 
 ### Phase 132 (complete — 4/4 plans)
 
