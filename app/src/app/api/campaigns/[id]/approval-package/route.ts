@@ -58,6 +58,8 @@ function toDerivationLike(
     variantIndex: derivation.variantIndex,
     ctaText: derivation.ctaText,
     isPreview: derivation.isPreview,
+    olharVerdict: derivation.olharVerdict ?? null,
+    exportStatus: derivation.exportStatus ?? null,
   };
 }
 

@@ -7,6 +7,9 @@ import {
   getApprovedRootDerivations,
   getPackageEligibleRoots,
   inferSelectedRootIdsFromPackage,
+  isDerivationApprovalOverride,
+  isDerivationPackageBlockedByVerdict,
+  isDerivationPackageEligibleByVerdict,
 } from "./client-approval-package";
 
 const baseDerivations = [
@@ -182,7 +185,99 @@ describe("client-approval-package", () => {
       "root-2",
     ]);
     expect(snapshot.items).toHaveLength(3);
+    expect(snapshot.items.every((item) => item.approvalOverride === false)).toBe(
+      true
+    );
     expect(snapshot.notes).toBe("Client review batch A");
     expect(snapshot.isStale).toBe(false);
+  });
+
+  it("excludes blocked verdict derivations from package eligibility", () => {
+    const derivations = [
+      {
+        id: "blocked-root",
+        parentId: null,
+        status: "completed",
+        outputKey: "out/blocked.png",
+        format: "1:1",
+        olharVerdict: { value: "sem_opiniao" },
+        isPreview: false,
+      },
+      {
+        id: "eligible-root",
+        parentId: null,
+        status: "approved",
+        outputKey: "out/eligible.png",
+        format: "1:1",
+        olharVerdict: { value: "pronta" },
+        exportStatus: { value: "ok" },
+        isPreview: false,
+      },
+    ];
+
+    expect(isDerivationPackageBlockedByVerdict(derivations[0]!)).toBe(true);
+    expect(isDerivationPackageEligibleByVerdict(derivations[0]!)).toBe(false);
+    expect(getPackageEligibleRoots(derivations).map((d) => d.id)).toEqual([
+      "eligible-root",
+    ]);
+    expect(expandPackageDerivationIds(["blocked-root"], derivations)).toEqual([]);
+    expect(expandPackageDerivationIds(["eligible-root"], derivations)).toEqual([
+      "eligible-root",
+    ]);
+  });
+
+  it("includes override-approved blocked derivations with explicit marker", () => {
+    const derivations = [
+      {
+        id: "override-root",
+        parentId: null,
+        status: "approved",
+        outputKey: "out/override.png",
+        format: "1:1",
+        olharVerdict: { value: "confusa" },
+        isPreview: false,
+      },
+    ];
+
+    expect(isDerivationApprovalOverride(derivations[0]!)).toBe(true);
+    expect(isDerivationPackageEligibleByVerdict(derivations[0]!)).toBe(true);
+    expect(getPackageEligibleRoots(derivations).map((d) => d.id)).toEqual([
+      "override-root",
+    ]);
+
+    const snapshot = buildApprovalPackageSnapshot({
+      selectedRootIds: ["override-root"],
+      derivations,
+    });
+
+    expect(snapshot.items[0]).toMatchObject({
+      id: "override-root",
+      approvalOverride: true,
+      olharVerdictValue: "confusa",
+    });
+  });
+
+  it("detects stale package when blocked export verdict is not override-approved", () => {
+    const derivations = [
+      {
+        id: "root-1",
+        parentId: null,
+        status: "completed",
+        outputKey: "out/root-1.png",
+        format: "1:1",
+        exportStatus: { value: "bloqueado" },
+        isPreview: false,
+      },
+    ];
+
+    const { isStale, staleReasons } = detectPackageStaleness({
+      packageDerivationIds: ["root-1"],
+      selectedRootIds: [],
+      derivations,
+    });
+
+    expect(isStale).toBe(true);
+    expect(staleReasons).toContain("unapproved:root-1");
+    expect(staleReasons).toContain("blocked-export:bloqueado:root-1");
   });
 });

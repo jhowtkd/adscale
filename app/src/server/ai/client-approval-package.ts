@@ -1,3 +1,10 @@
+import {
+  isBlockingExportStatus,
+  isBlockingOlharVerdict,
+  type ExportStatusPayload,
+  type OlharVerdictPayload,
+} from "./olhar/dual-verdict";
+
 export type DerivationLike = {
   id: string;
   parentId?: string | null;
@@ -8,6 +15,8 @@ export type DerivationLike = {
   variantIndex?: number | null;
   ctaText?: string | null;
   isPreview?: boolean;
+  olharVerdict?: OlharVerdictPayload | null;
+  exportStatus?: ExportStatusPayload | null;
 };
 
 export type CampaignNotesContext = {
@@ -27,6 +36,9 @@ export type ApprovalPackageItem = {
   creativeNote: string;
   hasOutput: boolean;
   isRoot: boolean;
+  approvalOverride: boolean;
+  olharVerdictValue: string | null;
+  exportStatusValue: string | null;
 };
 
 export type ApprovalPackageSnapshot = {
@@ -36,6 +48,47 @@ export type ApprovalPackageSnapshot = {
   isStale: boolean;
   staleReasons: string[];
 };
+
+export function isDerivationPackageBlockedByVerdict(
+  derivation: Pick<DerivationLike, "olharVerdict" | "exportStatus">
+): boolean {
+  if (
+    derivation.olharVerdict?.value &&
+    isBlockingOlharVerdict(derivation.olharVerdict.value)
+  ) {
+    return true;
+  }
+  if (
+    derivation.exportStatus?.value &&
+    isBlockingExportStatus(derivation.exportStatus.value)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+export function isDerivationApprovalOverride(derivation: DerivationLike): boolean {
+  return (
+    derivation.status === "approved" &&
+    isDerivationPackageBlockedByVerdict(derivation)
+  );
+}
+
+export function isDerivationPackageEligibleByVerdict(
+  derivation: DerivationLike
+): boolean {
+  if (!derivation.olharVerdict && !derivation.exportStatus) {
+    return true;
+  }
+  if (isDerivationPackageBlockedByVerdict(derivation)) {
+    return isDerivationApprovalOverride(derivation);
+  }
+  return true;
+}
+
+function hasPackageOutput(derivation: DerivationLike): boolean {
+  return Boolean(derivation.outputKey) && !derivation.isPreview;
+}
 
 export function buildCreativeNote(
   derivation: DerivationLike,
@@ -74,7 +127,8 @@ export function getApprovedRootDerivations(
       d.status === "approved" &&
       !d.isPreview &&
       !d.parentId &&
-      Boolean(d.outputKey)
+      hasPackageOutput(d) &&
+      isDerivationPackageEligibleByVerdict(d)
   );
 }
 
@@ -86,7 +140,8 @@ export function getPackageEligibleRoots(
 
   for (const derivation of derivations) {
     if (!derivation.parentId) continue;
-    if (derivation.status !== "approved" || !derivation.outputKey) continue;
+    if (derivation.status !== "approved" || !hasPackageOutput(derivation)) continue;
+    if (!isDerivationPackageEligibleByVerdict(derivation)) continue;
     const siblings = approvedChildrenByParent.get(derivation.parentId) ?? [];
     siblings.push(derivation);
     approvedChildrenByParent.set(derivation.parentId, siblings);
@@ -94,7 +149,13 @@ export function getPackageEligibleRoots(
 
   return derivations.filter((derivation) => {
     if (derivation.parentId || derivation.isPreview) return false;
-    if (derivation.status === "approved" && derivation.outputKey) return true;
+    if (
+      derivation.status === "approved" &&
+      hasPackageOutput(derivation) &&
+      isDerivationPackageEligibleByVerdict(derivation)
+    ) {
+      return true;
+    }
     return (approvedChildrenByParent.get(derivation.id) ?? []).length > 0;
   });
 }
@@ -150,10 +211,17 @@ export function expandPackageDerivationIds(
     const root = byId.get(rootId);
     const children = byParent.get(rootId) ?? [];
     const approvedChildren = children.filter(
-      (child) => child.status === "approved" && child.outputKey
+      (child) =>
+        child.status === "approved" &&
+        hasPackageOutput(child) &&
+        isDerivationPackageEligibleByVerdict(child)
     );
 
-    if (root?.status === "approved" && root.outputKey) {
+    if (
+      root?.status === "approved" &&
+      hasPackageOutput(root) &&
+      isDerivationPackageEligibleByVerdict(root)
+    ) {
       expanded.push(rootId);
     }
 
@@ -192,7 +260,34 @@ export function buildApprovalPackageItems(
       creativeNote: buildCreativeNote(derivation, campaign),
       hasOutput: Boolean(derivation.outputKey),
       isRoot: selectedRoots.has(derivation.id) || !derivation.parentId,
+      approvalOverride: isDerivationApprovalOverride(derivation),
+      olharVerdictValue: derivation.olharVerdict?.value ?? null,
+      exportStatusValue: derivation.exportStatus?.value ?? null,
     }));
+}
+
+function appendBlockedVerdictStaleReasons(
+  derivation: DerivationLike,
+  staleReasons: string[]
+): void {
+  if (
+    derivation.olharVerdict?.value &&
+    isBlockingOlharVerdict(derivation.olharVerdict.value) &&
+    !isDerivationApprovalOverride(derivation)
+  ) {
+    staleReasons.push(
+      `blocked-olhar:${derivation.olharVerdict.value}:${derivation.id}`
+    );
+  }
+  if (
+    derivation.exportStatus?.value &&
+    isBlockingExportStatus(derivation.exportStatus.value) &&
+    !isDerivationApprovalOverride(derivation)
+  ) {
+    staleReasons.push(
+      `blocked-export:${derivation.exportStatus.value}:${derivation.id}`
+    );
+  }
 }
 
 export function detectPackageStaleness({
@@ -222,6 +317,7 @@ export function detectPackageStaleness({
     if (!derivation.outputKey) {
       staleReasons.push(`no-output:${id}`);
     }
+    appendBlockedVerdictStaleReasons(derivation, staleReasons);
   }
 
   for (const id of expectedIds) {
