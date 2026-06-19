@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v12.8
 milestone_name: Operacao Real do Olhar Cenbrap
 status: executing
-last_updated: "2026-06-19T17:15:00Z"
-last_activity: 2026-06-19 - Completed 144-01 corpus inspection and seeding
+last_updated: "2026-06-19T17:20:00Z"
+last_activity: 2026-06-19 - Completed 144-02 live calibration rerun; Phase 145 unblocked
 progress:
   total_phases: 4
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 8
-  completed_plans: 3
-  percent: 38
+  completed_plans: 4
+  percent: 50
 ---
 
 # Project State
@@ -23,16 +23,16 @@ See: .planning/PROJECT.md (updated 2026-06-19)
 
 **Current focus:** v12.8 Operacao Real do Olhar Cenbrap. Turn v12.7's Olhar infrastructure into live Cenbrap calibration evidence with Jhonatan decisions and honest claim gates.
 
-**Status:** Phase 144 in progress — 144-01 complete; corpus seeded (synthetic_fixture)
+**Status:** Phase 144 complete — live calibration with review_ready=2; Phase 145 ready
 
 ## Current Position
 
-Phase: 144 - Cenbrap Corpus Seeding and Calibration Rerun
-Plan: 144-02 next (live calibration rerun)
-Status: Executing Phase 144; campaign minimum gate passed
-Last activity: 2026-06-19 - Completed 144-01 corpus inspection and seeding
+Phase: 145 - Jhonatan Decision Capture (next)
+Plan: Phase 144 complete (144-01 + 144-02)
+Status: ready_for_jhonatan_review — 2 contact sheet rows await human decisions
+Last activity: 2026-06-19 - Completed 144-02 live calibration rerun
 
-Progress: [████░░░░░░] v12.8 — 1/4 phases; 3/8 plans complete; Phase 144 plan 01 done.
+Progress: [█████░░░░░] v12.8 — 2/4 phases; 4/8 plans complete; Phase 144 done.
 
 ## Accumulated Context
 
@@ -82,7 +82,10 @@ Progress: [████░░░░░░] v12.8 — 1/4 phases; 3/8 plans compl
 - [Phase 144]: Jhonatan decision capture moves to Phase 145; evidence claims gate moves to Phase 146
 - [Phase 144]: Seeded synthetic_fixture Cenbrap corpus in dev workspace; honest source labels on manifest
 - [Phase 144]: Applied 0047 dual-verdict migration on drifted local DB before seed
+- [Phase 144]: Phase 145 unblocked: ready_for_jhonatan_review with review_ready=2 synthetic_fixture rows
+- [Phase 144]: Live calibration rerun mode=live with evaluatedCampaignCount=2; Phase 143 insufficient_campaigns resolved
+- [Phase 144]: Agreement rate and quality claims remain withheld until operator decisions meet sample guidance
 
 ## Next Steps
 
-Execute Phase 144 plan 02: live calibration rerun and `review_ready` gate verification.
+Execute Phase 145: Jhonatan decision capture on 2 `review_ready` contact sheet rows (`entra/quase/nao_entra`). Agreement rate claims remain withheld until sample guidance clears.

@@ -27,8 +27,8 @@ Transformar a infraestrutura v12.7 do `Olhar ADScale` em uma operacao real de ca
 
 - [x] **CORPUS-01**: Operator can inspect the connected database for existing Cenbrap candidates without exposing `DATABASE_URL`, prompts or signed URLs.
 - [x] **CORPUS-02**: Calibration environment contains at least two Cenbrap campaigns with derivations and explicit source labels (`real_customer`, `operator_imported` or `synthetic_fixture`), or records `operator_data_unavailable`.
-- [ ] **CORPUS-03**: Reviewable derivation rows have safe `outputKey`, `olharVerdict` and `exportStatus`; missing verdict/output rows are excluded or routed before human judgment.
-- [ ] **CORPUS-04**: Live calibration rerun produces `mode=live`, `evaluatedCampaignCount >= 2` and `review_ready > 0`, or keeps Phase 145 blocked with an exact blocker.
+- [x] **CORPUS-03**: Reviewable derivation rows have safe `outputKey`, `olharVerdict` and `exportStatus`; missing verdict/output rows are excluded or routed before human judgment.
+- [x] **CORPUS-04**: Live calibration rerun produces `mode=live`, `evaluatedCampaignCount >= 2` and `review_ready > 0`, or keeps Phase 145 blocked with an exact blocker.
 
 ### Human Judgment Capture (JUDGE)
 
@@ -78,8 +78,8 @@ Transformar a infraestrutura v12.7 do `Olhar ADScale` em uma operacao real de ca
 | CENLIVE-04 | Phase 143 | Complete |
 | CORPUS-01 | Phase 144 | Complete |
 | CORPUS-02 | Phase 144 | Complete |
-| CORPUS-03 | Phase 144 | Pending |
-| CORPUS-04 | Phase 144 | Pending |
+| CORPUS-03 | Phase 144 | Complete |
+| CORPUS-04 | Phase 144 | Complete |
 | JUDGE-01 | Phase 145 | Pending |
 | JUDGE-02 | Phase 145 | Pending |
 | JUDGE-03 | Phase 145 | Pending |

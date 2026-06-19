@@ -21,14 +21,14 @@
 **Starting point:** `v12.7-MILESTONE-AUDIT.md` fechou como `tech_debt`; Phase 143 depois provou o runner live, mas o ambiente conectado voltou `mode=live`, `evaluatedCampaignCount=0`, `humanDecisionCount=0`, `agreementRate=null` e blocker `insufficient_campaigns`.
 
 - [x] **Phase 143: Live Cenbrap Calibration Run** — completed with blocker `insufficient_campaigns`; runner live funcionou, corpus Cenbrap conectado estava vazio. (completed 2026-06-19)
-- [ ] **Phase 144: Cenbrap Corpus Seeding and Calibration Rerun** — criar/identificar corpus revisavel, re-rodar calibracao live e liberar contact sheet `review_ready`.
+- [x] **Phase 144: Cenbrap Corpus Seeding and Calibration Rerun** — criar/identificar corpus revisavel, re-rodar calibracao live e liberar contact sheet `review_ready`. (completed 2026-06-19)
 - [ ] **Phase 145: Jhonatan Decision Capture and Mismatch Triage** — capturar `entra/quase/nao_entra`, motivos de mismatch e filas de follow-up.
 - [ ] **Phase 146: Evidence Refresh and Claims Gate** — regenerar evidencia, fechar/carry-forward da divida v12.7 e bloquear claims se a amostra ainda for insuficiente.
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
 | 143 | Live Cenbrap Calibration Run | CENLIVE-01..04 | Complete   | 2026-06-19 |
-| 144 | Cenbrap Corpus Seeding and Calibration Rerun | 1/2 | In Progress|  |
+| 144 | Cenbrap Corpus Seeding and Calibration Rerun | 2/2 | Complete   | 2026-06-19 |
 | 145 | Jhonatan Decision Capture and Mismatch Triage | JUDGE-01..04 | Pending | — |
 | 146 | Evidence Refresh and Claims Gate | CLAIM-01..04 | Pending | — |
 
@@ -70,11 +70,11 @@ Plans:
   3. Reviewable rows include safe `outputKey`, `olharVerdict` and `exportStatus`; missing rows are excluded or routed.
   4. Calibration rerun produces `mode=live`, `evaluatedCampaignCount >= 2` and `review_ready > 0`, or Phase 145 remains blocked with an exact blocker.
 
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 144-01-PLAN.md — Corpus source inspection and safe seeding path
-- [ ] 144-02-PLAN.md — Dual-verdict readiness and live calibration rerun
+- [x] 144-02-PLAN.md — Dual-verdict readiness and live calibration rerun
 
 ---
 
