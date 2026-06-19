@@ -1515,6 +1515,7 @@
     "regenerationFailed": "Failed to regenerate",
     "derivationApproved": "Creative variant approved",
     "derivationRejected": "Creative variant rejected",
+    "derivationQuaseRegenerar": "Direction recorded — regeneration queued",
     "statusUpdateFailed": "Failed to update status",
     "exportReady": "Export ready — download started",
     "exportFailed": "Failed to export",

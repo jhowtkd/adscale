@@ -11,6 +11,7 @@ import { useDerivations, useCreateDerivations, useRestyleCampaign } from "@/lib/
 import { useRegenerateDerivation } from "@/lib/hooks/use-regenerate";
 import { useExport } from "@/lib/hooks/use-export";
 import { useReviewDerivation } from "@/lib/hooks/use-review";
+import type { ReviewDecision } from "@/lib/hooks/use-review";
 import { useCreateDeliveryPackage } from "@/lib/hooks/use-delivery-package";
 import { useCreativeQa } from "@/lib/hooks/use-creative-qa";
 import { usePlan, useGeneratePlan, useUpdatePlanStatus } from "./use-plan";
@@ -544,14 +545,18 @@ export function useCampaignWorkspace(
   );
 
   const handleApproveDerivation = useCallback(
-    (id: string) => reviewMutation.mutate({ id, status: "approved" }),
+    (id: string) => reviewMutation.mutate({ id, decision: "entra" }),
     [reviewMutation]
   );
 
   const handleRejectDerivation = useCallback(
-    (id: string) =>
+    (id: string, directionReason?: string) =>
       reviewMutation.mutate(
-        { id, status: "rejected" },
+        {
+          id,
+          decision: "nao_entra",
+          ...(directionReason ? { directionReason } : {}),
+        },
         {
           onSuccess: () => {
             missionInsight?.maybePromptMissionInsight({
@@ -565,6 +570,37 @@ export function useCampaignWorkspace(
         }
       ),
     [reviewMutation, missionInsight, campaignId]
+  );
+
+  const handleReviewDecision = useCallback(
+    (
+      id: string,
+      input: { decision: ReviewDecision; directionReason?: string }
+    ) => {
+      reviewMutation.mutate(
+        { id, ...input },
+        {
+          onSuccess: (_data, variables) => {
+            if (variables.decision === "quase_regenerar" && variables.directionReason) {
+              regenerateMutation.mutate({
+                id,
+                feedback: variables.directionReason,
+              });
+            }
+            if (variables.decision === "nao_entra") {
+              missionInsight?.maybePromptMissionInsight({
+                moment: "rejection_first",
+                missionKey: "review",
+                campaignId,
+                derivationId: id,
+                diagnosticContext: { derivationStatus: "rejected" },
+              });
+            }
+          },
+        }
+      );
+    },
+    [reviewMutation, regenerateMutation, missionInsight, campaignId]
   );
 
   const handleRunQa = useCallback(
@@ -684,6 +720,7 @@ export function useCampaignWorkspace(
     handleRegenerateDerivation,
     handleApproveDerivation,
     handleRejectDerivation,
+    handleReviewDecision,
     handleRunQa,
     handleCreateDeliveryPackage,
     handleConfirmDeliveryPackage,

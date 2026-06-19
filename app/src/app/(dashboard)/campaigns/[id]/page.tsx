@@ -159,6 +159,7 @@ export default function CampaignWorkspacePage() {
     handleRegenerateDerivation,
     handleApproveDerivation,
     handleRejectDerivation,
+    handleReviewDecision,
     handleRunQa,
     handleCreateDeliveryPackage,
     handleConfirmDeliveryPackage,
@@ -507,14 +508,27 @@ export default function CampaignWorkspacePage() {
         baseAsset={baseAsset}
         styleAsset={styleAsset}
         isRegenerating={regeneratePending}
-        isApproving={reviewPending && reviewVariables?.status === "approved"}
-        isRejecting={reviewPending && reviewVariables?.status === "rejected"}
+        isApproving={
+          reviewPending &&
+          (reviewVariables?.decision === "entra" || reviewVariables?.status === "approved")
+        }
+        isRejecting={
+          reviewPending &&
+          (reviewVariables?.decision === "nao_entra" ||
+            reviewVariables?.decision === "quase_regenerar" ||
+            reviewVariables?.status === "rejected")
+        }
         onOpenChange={(open) => {
           if (!open) handleCloseReview();
         }}
         onRegenerateWithFixes={() => {
           if (reviewDerivationId) {
             handleRequestRegenerate(reviewDerivationId);
+          }
+        }}
+        onSubmitDecision={(input) => {
+          if (reviewDerivationId) {
+            handleReviewDecision(reviewDerivationId, input);
           }
         }}
         onApprove={
@@ -690,7 +704,11 @@ interface CampaignWorkspaceCardProps {
   simulatingPersonasId: string | null;
   savingReferenceId: string | null;
   reviewPending: boolean;
-  reviewVariables: { id?: string; status: string } | null;
+  reviewVariables: {
+    id?: string;
+    status?: string;
+    decision?: "entra" | "quase_regenerar" | "nao_entra";
+  } | null;
   onAssetUploaded: (assetId: string) => void;
   onAnalysisComplete: (analysis: {
     detectedConcept: string;

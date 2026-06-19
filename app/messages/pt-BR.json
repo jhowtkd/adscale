@@ -1516,6 +1516,7 @@
     "regenerationFailed": "Falha ao regenerar",
     "derivationApproved": "Variação criativa aprovada",
     "derivationRejected": "Variação criativa rejeitada",
+    "derivationQuaseRegenerar": "Direção registrada — regeneração em fila",
     "statusUpdateFailed": "Falha ao atualizar status",
     "exportReady": "Exportação pronta — download iniciado",
     "exportFailed": "Falha ao exportar",
