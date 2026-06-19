@@ -68,8 +68,8 @@ describe("buildOlharAdscaleSection", () => {
   });
 
   it("frames CTA as invite hierarchy, not a widget", () => {
-    expect(joined).toMatch(/invite/i);
-    expect(joined).not.toMatch(/clickable widget|UI widget/i);
+    expect(joined).toMatch(/invite and (hierarchy|reading path)/i);
+    expect(joined).toMatch(/not a clickable widget/i);
   });
 
   it("does not contain forbidden UI-first creative terms", () => {

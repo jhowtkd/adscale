@@ -25,6 +25,7 @@ import {
   shouldIncludeCompetitorAnalysesForMode,
   shouldIncludePlanHooksForMode,
 } from "./per-mode-prompt-rules";
+import { buildOlharAdscaleSection } from "./olhar/constitution";
 
 export { extractPromptPerModeRulesSection } from "./per-mode-prompt-rules";
 
@@ -151,7 +152,14 @@ const ANTI_HALLUCINATION_RULES = `ANTI-HALLUCINATION RULES:
 - Do NOT substitute the source photo/subject with a different person, character, or scenario.`;
 
 export function buildIntegrityPromptSection(): string[] {
-  return ["", VISUAL_HIERARCHY_CONTRACT, "", ANTI_HALLUCINATION_RULES];
+  return [
+    "",
+    ...buildOlharAdscaleSection(),
+    "",
+    VISUAL_HIERARCHY_CONTRACT,
+    "",
+    ANTI_HALLUCINATION_RULES,
+  ];
 }
 
 function resolveEffectiveContractForPrompt(
