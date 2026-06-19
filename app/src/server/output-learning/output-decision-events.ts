@@ -32,6 +32,10 @@ export interface OutputDecisionReason {
   source?: string;
 }
 
+export interface OutputDecisionVerdictRef {
+  value?: string | null;
+}
+
 export interface OutputDecisionSnapshot {
   generationMode?: string | null;
   format?: string | null;
@@ -45,6 +49,9 @@ export interface OutputDecisionSnapshot {
   scoreIssues?: string[];
   polishSuggestions?: string[];
   reason?: OutputDecisionReason;
+  olharVerdict?: OutputDecisionVerdictRef | null;
+  exportStatus?: OutputDecisionVerdictRef | null;
+  overrideApproved?: boolean;
   referenceKind?: string | null;
   referenceLabel?: string | null;
   parentDerivationId?: string | null;
@@ -158,6 +165,9 @@ export function buildOutputDecisionSnapshot(
     referenceKind: extras?.referenceKind ?? null,
     referenceLabel: extras?.referenceLabel ?? null,
     reason: extras?.reason,
+    olharVerdict: extras?.olharVerdict ?? null,
+    exportStatus: extras?.exportStatus ?? null,
+    overrideApproved: extras?.overrideApproved,
   };
 
   return sanitizeOutputDecisionSnapshot(snapshot);
@@ -198,6 +208,18 @@ export function sanitizeOutputDecisionSnapshot(
       ...cleaned.reason,
       text: cleaned.reason.text.slice(0, 1000),
       code: cleaned.reason.code?.slice(0, 120),
+    };
+  }
+
+  if (cleaned.olharVerdict?.value) {
+    cleaned.olharVerdict = {
+      value: cleaned.olharVerdict.value.slice(0, 120),
+    };
+  }
+
+  if (cleaned.exportStatus?.value) {
+    cleaned.exportStatus = {
+      value: cleaned.exportStatus.value.slice(0, 120),
     };
   }
 
