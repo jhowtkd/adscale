@@ -249,4 +249,33 @@ describe("DerivationReviewSheet", () => {
       expect(addToast).toHaveBeenCalledWith("error", "Assign a client profile first");
     });
   });
+
+  it("offers conscious override path for blocked creatives", () => {
+    const onSubmitDecision = vi.fn();
+    renderSheet({ onSubmitDecision });
+
+    const entraButton = screen.getByRole("button", { name: "decisionEntra" });
+    expect(entraButton).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "overrideApprovalAction" }));
+    expect(screen.getByLabelText("overrideReasonLabel")).toBeInTheDocument();
+    expect(screen.getByText("overrideWarning")).toBeInTheDocument();
+    expect(screen.getByText("olharVerdict.confusa")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "overrideApprovalAction" }));
+    expect(screen.getByText(/overrideReasonRequired/)).toBeInTheDocument();
+    expect(onSubmitDecision).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText("overrideReasonLabel"), {
+      target: {
+        value: "Client explicitly accepted weak composition for this test.",
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "overrideApprovalAction" }));
+
+    expect(onSubmitDecision).toHaveBeenCalledWith({
+      decision: "entra",
+      overrideReason: "Client explicitly accepted weak composition for this test.",
+    });
+  });
 });

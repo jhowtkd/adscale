@@ -71,6 +71,7 @@ interface DerivationReviewSheetProps {
   onSubmitDecision?: (input: {
     decision: ReviewDecision;
     directionReason?: string;
+    overrideReason?: string;
   }) => void;
   onAddToCorpus?: () => void;
 }
@@ -176,6 +177,9 @@ export default function DerivationReviewSheet({
   const [pendingDecision, setPendingDecision] = useState<ReviewDecision | null>(null);
   const [directionReason, setDirectionReason] = useState("");
   const [directionReasonError, setDirectionReasonError] = useState<string | null>(null);
+  const [overrideMode, setOverrideMode] = useState(false);
+  const [overrideReason, setOverrideReason] = useState("");
+  const [overrideReasonError, setOverrideReasonError] = useState<string | null>(null);
 
   const effectiveWorkspaceId =
     workspaceId ?? (derivation as DerivationWithWorkspace | null)?.workspaceId;
@@ -473,6 +477,76 @@ export default function DerivationReviewSheet({
                   <RefreshCw className="size-4 mr-1" />
                   {tr("regenerateWithFixesConfirm")}
                 </Button>
+              ) : null}
+              {approvalBlocked ? (
+                <div
+                  className="space-y-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2"
+                  role="region"
+                  aria-label={tr("overrideApprovalAction")}
+                >
+                  <p className="text-xs leading-relaxed text-amber-400">{tr("overrideWarning")}</p>
+                  {overrideMode ? (
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="override-reason"
+                        className="text-xs font-medium text-[var(--text-secondary)]"
+                      >
+                        {tr("overrideReasonLabel")}
+                      </label>
+                      <textarea
+                        id="override-reason"
+                        value={overrideReason}
+                        onChange={(event) => {
+                          setOverrideReason(event.target.value);
+                          if (
+                            overrideReasonError &&
+                            validateDirectionReason(event.target.value)
+                          ) {
+                            setOverrideReasonError(null);
+                          }
+                        }}
+                        rows={3}
+                        placeholder={tr("overrideReasonPlaceholder")}
+                        className="w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-primary)]"
+                      />
+                      {overrideReasonError ? (
+                        <p className="text-xs text-rose-400">{overrideReasonError}</p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (!overrideMode) {
+                        setOverrideMode(true);
+                        return;
+                      }
+                      if (!validateDirectionReason(overrideReason)) {
+                        setOverrideReasonError(
+                          tr("overrideReasonRequired", {
+                            min: String(MIN_DIRECTION_REASON_LENGTH),
+                          })
+                        );
+                        return;
+                      }
+                      setOverrideReasonError(null);
+                      setPendingDecision("entra");
+                      if (onSubmitDecision) {
+                        onSubmitDecision({
+                          decision: "entra",
+                          overrideReason: overrideReason.trim(),
+                        });
+                        return;
+                      }
+                      onApprove?.();
+                    }}
+                    disabled={decisionPending}
+                  >
+                    {tr("overrideApprovalAction")}
+                  </Button>
+                </div>
               ) : null}
             </section>
           ) : null}
