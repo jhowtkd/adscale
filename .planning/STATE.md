@@ -2,15 +2,14 @@
 gsd_state_version: 1.0
 milestone: v12.8
 milestone_name: Operacao Real do Olhar Cenbrap
-status: executing
-last_updated: "2026-06-19T17:20:00Z"
-last_activity: 2026-06-19 - Completed 144-02 live calibration rerun; Phase 145 unblocked
+status: planning
+last_updated: "2026-06-19T17:23:53.236Z"
+last_activity: 2026-06-19 - Completed 144-02 live calibration rerun
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 8
+  total_plans: 4
   completed_plans: 4
-  percent: 50
 ---
 
 # Project State
@@ -23,7 +22,7 @@ See: .planning/PROJECT.md (updated 2026-06-19)
 
 **Current focus:** v12.8 Operacao Real do Olhar Cenbrap. Turn v12.7's Olhar infrastructure into live Cenbrap calibration evidence with Jhonatan decisions and honest claim gates.
 
-**Status:** Phase 144 complete — live calibration with review_ready=2; Phase 145 ready
+**Status:** Ready to plan
 
 ## Current Position
 

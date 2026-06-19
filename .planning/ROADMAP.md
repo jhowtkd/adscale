@@ -28,7 +28,7 @@
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
 | 143 | Live Cenbrap Calibration Run | CENLIVE-01..04 | Complete   | 2026-06-19 |
-| 144 | Cenbrap Corpus Seeding and Calibration Rerun | 2/2 | Complete   | 2026-06-19 |
+| 144 | Cenbrap Corpus Seeding and Calibration Rerun | Complete    | 2026-06-19 | 2026-06-19 |
 | 145 | Jhonatan Decision Capture and Mismatch Triage | JUDGE-01..04 | Pending | — |
 | 146 | Evidence Refresh and Claims Gate | CLAIM-01..04 | Pending | — |
 
