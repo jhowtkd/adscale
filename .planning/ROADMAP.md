@@ -22,14 +22,14 @@
 **Starting point:** v12.8 fechou como `tech_debt`; `142-EVIDENCE.json` live e checker passam com `human_needed`, mas `humanDecisionCount=0`, `missingHumanDecisionCount=2`, sample guidance `0/5`, `agreementRate=null` e corpus `synthetic_fixture`.
 
 - [x] **Phase 147: Operator Decision Session and Calibration Rerun** — capturar decisoes do Jhonatan nas linhas atuais, persistir eventos e rerodar calibracao sem inferir julgamento humano. (completed 2026-06-19)
-- [ ] **Phase 148: Sample Sufficiency Expansion** — chegar a 5 decisoes humanas ou registrar blocker exato; preservar claims withheld enquanto a amostra nao fecha. (planned 2026-06-19)
+- [x] **Phase 148: Sample Sufficiency Expansion** — chegar a 5 decisoes humanas ou registrar blocker exato; preservar claims withheld enquanto a amostra nao fecha. (planned 2026-06-19) (completed 2026-06-19)
 - [ ] **Phase 149: Customer-Real Cenbrap Corpus Replacement** — localizar/importar rows customer-real ou documentar `operator_data_unavailable`, separando fixture de prova real.
 - [ ] **Phase 150: Agreement Calibration and Final Claims Gate** — auditar mismatches, aplicar ajustes pequenos se provados, refrescar evidencia e fechar/carry-forward de v12.9.
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
 | 147 | Operator Decision Session and Calibration Rerun | HUMDEC-01..04 | Complete (human_needed) | 2026-06-19 |
-| 148 | Sample Sufficiency Expansion | 1/2 | In Progress|  |
+| 148 | Sample Sufficiency Expansion | 2/2 | Complete   | 2026-06-19 |
 | 149 | Customer-Real Cenbrap Corpus Replacement | REALCORP-01..04 | Pending | — |
 | 150 | Agreement Calibration and Final Claims Gate | AGREE-01..04 | Pending | — |
 
@@ -71,11 +71,11 @@ Plans:
   3. Quando `additionalNeeded=0`, agreement/mismatch usa apenas linhas comparaveis.
   4. Source composition aparece na evidencia e no audit.
 
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 148-01-PLAN.md — Reviewable-row sourcing and sample expansion
-- [ ] 148-02-PLAN.md — Sample-guidance rerun and claim-state update
+- [x] 148-02-PLAN.md — Sample-guidance rerun and claim-state update
 
 ---
 

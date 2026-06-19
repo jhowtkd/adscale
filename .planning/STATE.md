@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v12.9
 milestone_name: Fechamento Humano do Olhar Cenbrap
 status: in_progress
-last_updated: "2026-06-19T22:15:21.082Z"
-last_activity: 2026-06-19 - Completed Phase 148-01 sample expansion (5 reviewable rows, 0/5 decisions)
+last_updated: "2026-06-19T22:25:30.000Z"
+last_activity: 2026-06-19 - Completed Phase 148-02 sample gate and claim-state audit
 progress:
   total_phases: 4
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 4
-  completed_plans: 3
-  percent: 75
+  completed_plans: 4
+  percent: 50
 ---
 
 # Project State
@@ -23,16 +23,16 @@ See: .planning/PROJECT.md (updated 2026-06-19)
 
 **Current focus:** v12.9 Fechamento Humano do Olhar Cenbrap. Convert v12.8's honest `human_needed` gate into real operator decisions, sample sufficiency and customer-real evidence discipline.
 
-**Status:** Phase 148-01 complete; 5 reviewable rows ready, sample still `0/5` (`human_needed`)
+**Status:** Phase 148 complete; sample gate `0/5` (`human_needed`) — operator decisions required
 
 ## Current Position
 
-Phase: 148 - Sample Sufficiency Expansion (in progress)
-Plan: 148-01 complete; 148-02 ready
-Status: sample_rows_ready — 5 reviewable `synthetic_fixture` rows; `humanDecisionCount=0`; sample guidance `0/5`
-Last activity: 2026-06-19 - Completed Phase 148-01 sample expansion
+Phase: 149 - Customer-Real Cenbrap Corpus Replacement (next)
+Plan: Phase 148 complete (2/2 plans)
+Status: sample_gate_audited — 5 reviewable `synthetic_fixture` rows; `humanDecisionCount=0`; sample guidance `0/5`; `agreementRate=null`
+Last activity: 2026-06-19 - Completed Phase 148-02 sample gate and claim-state audit
 
-Progress: [██████░░░░] v12.9 — 1/4 phases complete; 3/4 plans complete; operator decisions still required
+Progress: [█████░░░░░] v12.9 — 2/4 phases complete; 4/4 plans through Phase 148; operator decisions still required
 
 ## Accumulated Context
 
@@ -82,9 +82,12 @@ Progress: [██████░░░░] v12.9 — 1/4 phases complete; 3/4 pl
 - [Phase 148]: Expanded corpus via synthetic_fixture expand-only seed; Phase 144 manifest unchanged
 - [Phase 148]: NR1 Voz uses quase verdict to stay review_ready (confusa blocks packageEligible)
 - [Phase 148]: Sample guidance remains 0/5 until Jhonatan records 5 decisions via 148-DECISIONS.template.json
+- [Phase 148]: Sample gate at 0/5 after 5-row expansion — agreementRate withheld until operator decisions
+- [Phase 148]: 148-SAMPLE-GATE.md is Phase 148 claims authority with explicit synthetic_fixture source composition
 
 ## Next Steps
 
-1. Execute Phase 148-02 (calibration rerun and sample audit)
-2. Jhonatan copies `148-DECISIONS.template.json` → `145-DECISIONS.json`, fills decisions, runs recorder `--confirm`
-3. Do not claim agreement until sample guidance clears (`additionalNeeded=0`)
+1. Jhonatan copies `148-DECISIONS.template.json` → `145-DECISIONS.json`, fills decisions, runs recorder `--confirm`
+2. Rerun calibration and evidence after decisions; re-read `148-SAMPLE-GATE.md`
+3. Execute Phase 149 (customer-real corpus) or proceed to Phase 150 only after `additionalNeeded=0`
+4. Do not claim agreement until sample guidance clears (`additionalNeeded=0`)

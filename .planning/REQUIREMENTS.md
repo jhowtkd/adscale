@@ -28,8 +28,8 @@ Transformar o `human_needed` de v12.8 em calibracao humana real: capturar deciso
 ### Sample Sufficiency (SAMPLE)
 
 - [x] **SAMPLE-01**: Operator can identify or create enough reviewable rows to reach at least 5 human decisions, or records an exact blocker if more rows are unavailable.
-- [ ] **SAMPLE-02**: Evidence keeps `agreementRate=null` and quality/agreement claims withheld until sample guidance `additionalNeeded=0`.
-- [ ] **SAMPLE-03**: When the minimum sample is reached, evidence computes agreement and mismatch metrics only from comparable rows with both system and human verdicts.
+- [x] **SAMPLE-02**: Evidence keeps `agreementRate=null` and quality/agreement claims withheld until sample guidance `additionalNeeded=0`.
+- [x] **SAMPLE-03**: When the minimum sample is reached, evidence computes agreement and mismatch metrics only from comparable rows with both system and human verdicts.
 - [x] **SAMPLE-04**: Sample guidance reports source composition (`synthetic_fixture`, `operator_imported`, `real_customer`) so claims cannot hide weak evidence.
 
 ### Customer-Real Corpus (REALCORP)
@@ -79,8 +79,8 @@ Transformar o `human_needed` de v12.8 em calibracao humana real: capturar deciso
 | HUMDEC-03 | Phase 147 | Complete (human_needed carry-forward) |
 | HUMDEC-04 | Phase 147 | Complete (human_needed carry-forward) |
 | SAMPLE-01 | Phase 148 | Complete |
-| SAMPLE-02 | Phase 148 | Pending |
-| SAMPLE-03 | Phase 148 | Pending |
+| SAMPLE-02 | Phase 148 | Complete |
+| SAMPLE-03 | Phase 148 | Complete |
 | SAMPLE-04 | Phase 148 | Complete |
 | REALCORP-01 | Phase 149 | Pending |
 | REALCORP-02 | Phase 149 | Pending |
