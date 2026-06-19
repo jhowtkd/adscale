@@ -291,4 +291,65 @@ describe("PATCH /api/derivations/[id]/review", () => {
 
     expect(res.status).toBe(200);
   });
+
+  it("returns 409 when approving derivation with exportStatus bloqueado", async () => {
+    mockGetDerivationById.mockResolvedValue({
+      id: "derivation-id",
+      status: "completed",
+      qualityVerdict: "improvable",
+      hardFailures: [],
+      exportStatus: {
+        value: "bloqueado",
+        issues: [{ code: "wrong_brand", message: "Brand mismatch", severity: "blocker" }],
+        setupIssues: [],
+        evaluatedAt: "2026-06-19T12:00:00.000Z",
+      },
+      campaignId: "campaign-id",
+      workspaceId: "workspace-1",
+    } as Awaited<ReturnType<typeof getDerivationById>>);
+
+    const res = await PATCH(requestWith({ status: "approved" }), {
+      params: paramsWith("derivation-id"),
+    });
+    const body = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(body.details).toMatchObject({
+      qualityVerdict: "improvable",
+      hardFailures: [],
+      exportStatus: expect.objectContaining({ value: "bloqueado" }),
+    });
+    expect(mockUpdateDerivationStatus).not.toHaveBeenCalled();
+  });
+
+  it("returns 409 when approving derivation with olharVerdict confusa", async () => {
+    mockGetDerivationById.mockResolvedValue({
+      id: "derivation-id",
+      status: "completed",
+      qualityVerdict: "improvable",
+      hardFailures: [],
+      olharVerdict: {
+        value: "confusa",
+        axes: { figura: 0, gestalt: 0, voz: 1, convite: 0 },
+        whatWorks: [],
+        whatBlocks: ["No focal point"],
+        directionNote: "Composition lacks a dominant idea.",
+        source: "quality_gate",
+        evaluatedAt: "2026-06-19T12:00:00.000Z",
+      },
+      campaignId: "campaign-id",
+      workspaceId: "workspace-1",
+    } as Awaited<ReturnType<typeof getDerivationById>>);
+
+    const res = await PATCH(requestWith({ status: "approved" }), {
+      params: paramsWith("derivation-id"),
+    });
+    const body = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(body.details).toMatchObject({
+      olharVerdict: expect.objectContaining({ value: "confusa" }),
+    });
+    expect(mockUpdateDerivationStatus).not.toHaveBeenCalled();
+  });
 });

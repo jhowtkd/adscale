@@ -47,6 +47,8 @@ export async function PATCH(
         return apiError("derivationHardFailures", 409, {
           qualityVerdict: approvable.qualityVerdict,
           hardFailures: approvable.hardFailures,
+          olharVerdict: approvable.olharVerdict ?? null,
+          exportStatus: approvable.exportStatus ?? null,
         });
       }
     }
