@@ -31,7 +31,7 @@
 | 139 | Dual Verdict and Export Validator | Complete    | 2026-06-19 | 2026-06-19 |
 | 140 | Advisor and Generation Direction | Complete    | 2026-06-19 | 2026-06-19 |
 | 141 | Review Surface and Override UX | 3/3 | Complete   | 2026-06-19 |
-| 142 | Cenbrap Calibration and Release Evidence | CALIB-01..04 | Pending | — |
+| 142 | Cenbrap Calibration and Release Evidence | 1/2 | In Progress|  |
 
 ## Phase Details
 
@@ -138,10 +138,10 @@ Plans:
   3. Evidence reports agreement, approved-invalid prevention, sem-opiniao detection and export-block separation.
   4. Release audit keeps factual fidelity, art-direction quality and sample sufficiency separate.
 
-**Plans:** 0/2 plans complete
+**Plans:** 1/2 plans executed
 
 Plans:
-- [ ] 142-01-PLAN.md — Cenbrap real-campaign calibration run
+- [x] 142-01-PLAN.md — Cenbrap real-campaign calibration run
 - [ ] 142-02-PLAN.md — Release evidence, audit and milestone closure
 
 ---
@@ -160,7 +160,7 @@ Archive: [v12.5-ROADMAP.md](milestones/v12.5-ROADMAP.md) · [v12.5-REQUIREMENTS.
 | 139 | v12.7 | 2/2 | Complete | 2026-06-19 |
 | 140 | v12.7 | 2/2 | Complete | 2026-06-19 |
 | 141 | v12.7 | 3/3 | Complete | 2026-06-19 |
-| 142 | v12.7 | 0/2 | Pending | — |
+| 142 | v12.7 | 0/2 | Planned | — |
 
 ---
-*Roadmap updated: 2026-06-19 — Phase 141 complete after 141-03 override UX gap closure*
+*Roadmap updated: 2026-06-19 — Phase 141 complete; Phase 142 planned and ready for execution*

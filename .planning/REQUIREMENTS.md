@@ -53,8 +53,8 @@ Trocar o eixo do advisor criativo: sair de um checklist de UX/performance que tr
 
 ### Cenbrap Calibration And Evidence (CALIB)
 
-- [ ] **CALIB-01**: At least two real Cenbrap campaigns are re-evaluated with the new dual-verdict system and exported as contact sheets for side-by-side operator review.
-- [ ] **CALIB-02**: Jhonatan's `entra`, `quase` and `nao entra` decisions are captured against system verdicts to measure agreement and mismatch reasons.
+- [x] **CALIB-01**: At least two real Cenbrap campaigns are re-evaluated with the new dual-verdict system and exported as contact sheets for side-by-side operator review.
+- [x] **CALIB-02**: Jhonatan's `entra`, `quase` and `nao entra` decisions are captured against system verdicts to measure agreement and mismatch reasons.
 - [ ] **CALIB-03**: Milestone evidence reports agreement rate, approved-invalid prevention, sem-opiniao detection, export-block separation and remaining visual-quality gaps without claiming sample sufficiency if corpus is too small.
 - [ ] **CALIB-04**: The release gate keeps factual fidelity separate from art-direction quality and preserves `insufficient_sample` / accepted-gap language when evidence is not strong enough.
 
@@ -106,8 +106,8 @@ Trocar o eixo do advisor criativo: sair de um checklist de UX/performance que tr
 | REVIEW-02 | Phase 141 | Complete |
 | REVIEW-03 | Phase 141 | Complete |
 | REVIEW-04 | Phase 141 | Complete |
-| CALIB-01 | Phase 142 | Pending |
-| CALIB-02 | Phase 142 | Pending |
+| CALIB-01 | Phase 142 | Complete |
+| CALIB-02 | Phase 142 | Complete |
 | CALIB-03 | Phase 142 | Pending |
 | CALIB-04 | Phase 142 | Pending |
 

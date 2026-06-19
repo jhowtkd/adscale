@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v12.7
 milestone_name: "Olhar ADScale: Direcao de Arte Antes de Compliance"
 status: executing
-last_updated: "2026-06-19T13:42:00Z"
-last_activity: 2026-06-19 - Completed 141-03 conscious override UX gap closure
+last_updated: "2026-06-19T14:00:00Z"
+last_activity: 2026-06-19 - Completed Phase 142-01 Cenbrap calibration run
 progress:
   total_phases: 5
   completed_phases: 4
-  total_plans: 9
-  completed_plans: 9
-  percent: 100
+  total_plans: 11
+  completed_plans: 10
+  percent: 91
 ---
 
 # Project State
@@ -27,12 +27,12 @@ See: .planning/PROJECT.md (updated 2026-06-19)
 
 ## Current Position
 
-Phase: 141 - Review Surface and Override UX (complete)
-Plan: 141-03 complete — conscious override UX gap closure
-Status: Phase 141 verification 4/4; REVIEW-04 workspace override UX and package marker shipped
-Last activity: 2026-06-19 - Completed 141-03 conscious override UX gap closure
+Phase: 142 - Cenbrap Calibration and Release Evidence (in progress)
+Plan: 142-01 complete; 142-02 next
+Status: Cenbrap calibration module, run script and template/contact-sheet artifacts ready; live operator decisions pending
+Last activity: 2026-06-19 - Completed Phase 142-01 Cenbrap calibration run
 
-Progress: [██████████] v12.7 — 4/5 phases; 9/9 plans complete; Phase 141 complete.
+Progress: [█████████░] v12.7 — 4/5 phases; 10/11 plans complete; Phase 142-02 release evidence next.
 
 ## Accumulated Context
 
@@ -271,6 +271,9 @@ Progress: [██████████] v12.7 — 4/5 phases; 9/9 plans compl
 - [Phase 141]: Package eligibility uses isDerivationPackageEligibleByVerdict and exposes approvalOverride on snapshot items
 - [Phase 141]: Override UX is secondary action only; primary Entra stays disabled when approvalBlocked
 - [Phase 141]: Package override items use amber warning tone with olharVerdictValue and exportStatusValue context
+- [Phase 142]: Treat missing olharVerdict/exportStatus as missing_dual_verdict; never infer agreement from absent evidence
+- [Phase 142]: Cenbrap calibration script emits template artifacts when live DB or campaigns are unavailable
+- [Phase 142]: Jhonatan entra/quase/nao_entra decisions are calibration authority; system verdicts are evidence under test
 
 ### Phase 132 (complete — 4/4 plans)
 
@@ -335,4 +338,4 @@ Progress: [██████████] v12.7 — 4/5 phases; 9/9 plans compl
 
 ## Next Steps
 
-Execute `$gsd-execute-phase 141`: first 141-01 workspace review UI and decision language, then 141-02 override audit trail and package gating. Review Cenbrap voice in `138-VOICE-REVIEW.md` and set `CENBRAP_VOICE_REVIEW_STATUS` to `approved` before enabling live client voice injection. Keep v12.6 operator debt visible: populate live human corpus (at least 5 evaluations), set `DATABASE_URL`, rerun refresh CLIs and `operational-quality-release-gate -- --run-regression` before making live quality claims.
+Execute `$gsd-execute-phase 142`: first generate Cenbrap calibration/contact-sheet evidence, then run the v12.7 release evidence/audit closure. Keep v12.6/v12.7 evidence honesty visible: do not claim art-direction quality or agreement if the Cenbrap sample or Jhonatan decisions are insufficient.
