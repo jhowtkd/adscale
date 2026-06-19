@@ -38,6 +38,7 @@ export default function ClientApprovalPackagePanel({
   className,
 }: ClientApprovalPackagePanelProps) {
   const t = useTranslations("clientApprovalPackage");
+  const tr = useTranslations("review");
   const tc = useTranslations("common");
   const addToast = useAppStore((s) => s.addToast);
   const missionInsight = useMissionInsightOptional();
@@ -273,16 +274,42 @@ export default function ClientApprovalPackagePanel({
             {packageItems.map((item) => (
               <li
                 key={item.id}
-                className="flex items-start justify-between gap-3 rounded-lg border border-[var(--border-dim)] px-3 py-2"
+                className={cn(
+                  "flex items-start justify-between gap-3 rounded-lg border px-3 py-2",
+                  item.approvalOverride
+                    ? "border-amber-500/30 bg-amber-500/5"
+                    : "border-[var(--border-dim)]"
+                )}
               >
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm text-[var(--text-primary)]">
-                    {item.creativeNote}
-                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm text-[var(--text-primary)]">
+                      {item.creativeNote}
+                    </p>
+                    {item.approvalOverride ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-400">
+                        <AlertTriangle className="size-3" />
+                        {t("approvalOverrideBadge")}
+                      </span>
+                    ) : null}
+                  </div>
                   <p className="mt-1 text-[10px] text-[var(--text-muted)]">
                     {item.format ? `${item.format} · ` : ""}
                     {t(`status.${statusLabel(item.status)}`)}
                   </p>
+                  {item.approvalOverride &&
+                  (item.olharVerdictValue || item.exportStatusValue) ? (
+                    <p className="mt-1 text-[10px] text-amber-500/90">
+                      {t("approvalOverrideVerdictContext", {
+                        olhar: item.olharVerdictValue
+                          ? tr(`olharVerdict.${item.olharVerdictValue}`)
+                          : tr("notSpecified"),
+                        export: item.exportStatusValue
+                          ? tr(`exportStatus.${item.exportStatusValue}`)
+                          : tr("notSpecified"),
+                      })}
+                    </p>
+                  ) : null}
                 </div>
                 <div className="flex items-center gap-1">
                   {item.status === "approved" && item.hasOutput && (
@@ -297,7 +324,12 @@ export default function ClientApprovalPackagePanel({
                       <Download className="size-3.5" />
                     </Button>
                   )}
-                  {item.status === "approved" ? (
+                  {item.approvalOverride ? (
+                    <AlertTriangle
+                      className="size-4 text-amber-400"
+                      aria-label={t("approvalOverrideBadge")}
+                    />
+                  ) : item.status === "approved" ? (
                     <CheckCircle2 className="size-4 text-[var(--accent-green-text)]" />
                   ) : (
                     <Loader2 className="size-4 animate-spin text-[var(--text-muted)]" />

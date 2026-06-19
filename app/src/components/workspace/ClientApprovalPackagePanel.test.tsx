@@ -67,6 +67,9 @@ describe("ClientApprovalPackagePanel", () => {
               creativeNote: "CTA: Shop now",
               hasOutput: true,
               isRoot: true,
+              approvalOverride: false,
+              olharVerdictValue: null,
+              exportStatusValue: null,
             },
           ],
           notes: "",
@@ -178,5 +181,54 @@ describe("ClientApprovalPackagePanel", () => {
       { derivationIds: ["root-1"], notes: "" },
       expect.any(Object)
     );
+  });
+
+  it("marks override-approved package items with warning tone and verdict context", () => {
+    mockUseApprovalPackage.mockReturnValue({
+      data: {
+        campaignId: "campaign-1",
+        availableRoots: [
+          { id: "root-1", format: "1:1", ctaText: "Shop now" },
+        ],
+        selectedRootIds: ["root-1"],
+        package: {
+          derivationIds: ["root-1"],
+          items: [
+            {
+              id: "root-1",
+              parentId: null,
+              format: "1:1",
+              status: "approved",
+              generationMode: "art_variation",
+              variantIndex: 0,
+              ctaText: "Shop now",
+              creativeNote: "CTA: Shop now",
+              hasOutput: true,
+              isRoot: true,
+              approvalOverride: true,
+              olharVerdictValue: "confusa",
+              exportStatusValue: "ajuste_menor",
+            },
+          ],
+          notes: "",
+          isStale: false,
+          staleReasons: [],
+        },
+        shareUrl: "https://app.example.com/share/token",
+        expiresAt: null,
+      },
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof useApprovalPackage>);
+
+    render(<ClientApprovalPackagePanel campaignId="campaign-1" />);
+
+    expect(
+      screen.getByText("clientApprovalPackage.approvalOverrideBadge")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("clientApprovalPackage.approvalOverrideVerdictContext")
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("img", { hidden: true })).not.toBeInTheDocument();
   });
 });
