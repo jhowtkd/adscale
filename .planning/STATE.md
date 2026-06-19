@@ -2,15 +2,14 @@
 gsd_state_version: 1.0
 milestone: v12.7
 milestone_name: "Olhar ADScale: Direcao de Arte Antes de Compliance"
-status: in_progress
-last_updated: "2026-06-19T12:20:30.000Z"
+status: planning
+last_updated: "2026-06-19T12:25:22.842Z"
 last_activity: 2026-06-19 - Completed Phase 140 Plan 02 (generation direction and score demotion)
 progress:
   total_phases: 5
   completed_phases: 3
   total_plans: 6
   completed_plans: 6
-  percent: 100
 ---
 
 # Project State
@@ -23,7 +22,7 @@ See: .planning/PROJECT.md (updated 2026-06-19)
 
 **Current focus:** v12.7 Olhar ADScale. Replace the creative advisor's UI/UX checklist bias with art-direction judgment before export compliance.
 
-**Status:** Executing Phase 140
+**Status:** Ready to plan
 
 ## Current Position
 

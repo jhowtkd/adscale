@@ -29,7 +29,7 @@
 |---|-------|--------------|--------|-----------|
 | 138 | Olhar Constitution and Cenbrap Voice | Complete    | 2026-06-19 | 2026-06-19 |
 | 139 | Dual Verdict and Export Validator | Complete    | 2026-06-19 | 2026-06-19 |
-| 140 | Advisor and Generation Direction | 2/2 | Complete   | 2026-06-19 |
+| 140 | Advisor and Generation Direction | Complete    | 2026-06-19 | 2026-06-19 |
 | 141 | Review Surface and Override UX | REVIEW-01..04 | Pending | — |
 | 142 | Cenbrap Calibration and Release Evidence | CALIB-01..04 | Pending | — |
 
