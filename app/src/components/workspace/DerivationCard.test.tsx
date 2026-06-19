@@ -377,4 +377,110 @@ describe("DerivationCard", () => {
     expect(screen.getByText("improvableOutputBadge")).toBeInTheDocument();
     expect(screen.getByText("Increase CTA contrast")).toBeInTheDocument();
   });
+
+  it("shows Olhar and Exportacao badges before score", () => {
+    render(
+      <DerivationCard
+        derivation={{
+          ...baseDerivation,
+          status: "completed",
+          qualityScore: 82,
+          olharVerdict: {
+            value: "pronta",
+            axes: { figura: 3, gestalt: 2, voz: 2, convite: 2 },
+            whatWorks: ["Strong silhouette"],
+            whatBlocks: [],
+            directionNote: "Ready for export.",
+            source: "quality_gate",
+            evaluatedAt: "2026-06-19T00:00:00.000Z",
+          },
+          exportStatus: {
+            value: "ok",
+            issues: [],
+            setupIssues: [],
+            evaluatedAt: "2026-06-19T00:00:00.000Z",
+          },
+        }}
+        index={0}
+        onPreview={vi.fn()}
+      />
+    );
+
+    const olhar = screen.getByText("olharVerdict.pronta");
+    const exportacao = screen.getByText("exportStatus.ok");
+    const score = screen.getByText("82");
+    expect(olhar.compareDocumentPosition(score) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(exportacao.compareDocumentPosition(score) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("shows package blocked hint for sem_opiniao olhar verdict", () => {
+    render(
+      <DerivationCard
+        derivation={{
+          ...baseDerivation,
+          status: "completed",
+          olharVerdict: {
+            value: "sem_opiniao",
+            axes: { figura: 1, gestalt: 1, voz: 1, convite: 0 },
+            whatWorks: [],
+            whatBlocks: ["No dominant idea"],
+            directionNote: "Rebuild around a clearer figure.",
+            source: "quality_gate",
+            evaluatedAt: "2026-06-19T00:00:00.000Z",
+          },
+        }}
+        index={0}
+        onPreview={vi.fn()}
+        onApprove={vi.fn()}
+        onReject={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("packageBlockedOlhar")).toBeInTheDocument();
+    expect(screen.getByText("olharVerdict.sem_opiniao")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /approve/i })).toBeDisabled();
+  });
+
+  it("shows blocked export badge and package hint", () => {
+    render(
+      <DerivationCard
+        derivation={{
+          ...baseDerivation,
+          status: "completed",
+          exportStatus: {
+            value: "bloqueado",
+            issues: [{ code: "cta_drift", message: "CTA missing" }],
+            setupIssues: [],
+            evaluatedAt: "2026-06-19T00:00:00.000Z",
+          },
+        }}
+        index={0}
+        onPreview={vi.fn()}
+        onApprove={vi.fn()}
+        onReject={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("exportStatus.bloqueado")).toBeInTheDocument();
+    expect(screen.getByText("packageBlockedExport")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /approve/i })).toBeDisabled();
+  });
+
+  it("falls back to legacy invalid badge when olhar verdict is missing", () => {
+    render(
+      <DerivationCard
+        derivation={{
+          ...baseDerivation,
+          status: "completed",
+          qualityVerdict: "invalid",
+          hardFailures: [{ code: "cta_drift", message: "CTA not visible" }],
+        }}
+        index={0}
+        onPreview={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("invalidOutputBadge")).toBeInTheDocument();
+    expect(screen.queryByText(/olharVerdict\./)).not.toBeInTheDocument();
+  });
 });

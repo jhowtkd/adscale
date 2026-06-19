@@ -16,6 +16,13 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAppStore } from "@/lib/store";
 import { scoreCappedForDisplay } from "@/lib/derivation-quality";
+import {
+  getExportDisplay,
+  getOlharDisplay,
+  getPackageEligibilityHintKey,
+  isNormalApprovalBlocked,
+  verdictBadgeClassName,
+} from "@/lib/derivation-review-display";
 
 // ============================================
 // Types
@@ -220,13 +227,6 @@ function DerivationActionTooltip({
 // Main Component
 // ============================================
 
-function getScoreLabel(score: number | null | undefined, t: (key: string) => string) {
-  if (score == null) return null;
-  if (score >= 80) return t("scoreStrong");
-  if (score >= 60) return t("scoreAdjust");
-  return t("scoreWeak");
-}
-
 function getQaLabelKey(status: string | null | undefined) {
   if (status === "ready") return "qaReady";
   if (status === "warning") return "qaWarning";
@@ -303,6 +303,10 @@ export default function DerivationCard({
     derivation.qualityScore,
     derivation.qualityVerdict
   );
+  const olharDisplay = getOlharDisplay(derivation.olharVerdict);
+  const exportDisplay = getExportDisplay(derivation.exportStatus);
+  const packageBlockedHintKey = getPackageEligibilityHintKey(derivation);
+  const approvalBlocked = isNormalApprovalBlocked(derivation);
   const generatedAtLabel = new Intl.DateTimeFormat(locale, {
     day: "2-digit",
     month: "2-digit",
@@ -432,24 +436,50 @@ export default function DerivationCard({
               {t("generatedAt", { dateTime: generatedAtLabel })}
             </p>
           </div>
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            {derivation.qualityVerdict === "invalid" ? (
+          <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end">
+            {olharDisplay ? (
+              <span
+                className={cn(
+                  "inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-semibold",
+                  verdictBadgeClassName(olharDisplay.tone)
+                )}
+              >
+                <span className="text-[9px] uppercase tracking-wide opacity-70 mr-1">
+                  {tr("olharLabel")}
+                </span>
+                {tr(olharDisplay.labelKey)}
+              </span>
+            ) : null}
+            {exportDisplay ? (
+              <span
+                className={cn(
+                  "inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-semibold",
+                  verdictBadgeClassName(exportDisplay.tone)
+                )}
+              >
+                <span className="text-[9px] uppercase tracking-wide opacity-70 mr-1">
+                  {tr("exportacaoLabel")}
+                </span>
+                {tr(exportDisplay.labelKey)}
+              </span>
+            ) : null}
+            {!olharDisplay && derivation.qualityVerdict === "invalid" ? (
               <span className="inline-flex items-center rounded-md border border-rose-500/40 bg-rose-500/10 px-2 py-0.5 text-[10px] font-semibold text-rose-400">
                 {t("invalidOutputBadge")}
               </span>
             ) : null}
-            {derivation.qualityVerdict === "improvable" ? (
+            {!olharDisplay && derivation.qualityVerdict === "improvable" ? (
               <span className="inline-flex items-center rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-500">
                 {t("improvableOutputBadge")}
               </span>
             ) : null}
             {displayScore != null && (
-              <div className="inline-flex items-center gap-1 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-2 py-1">
-                <span className="text-xs font-semibold text-[var(--text-primary)]">
-                  {displayScore}
+              <div className="inline-flex items-center gap-1 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)]/60 px-1.5 py-0.5 opacity-80">
+                <span className="text-[10px] font-medium text-[var(--text-muted)]">
+                  {tr("qualityScore")}
                 </span>
-                <span className="text-[10px] text-[var(--text-muted)]">
-                  {getScoreLabel(displayScore, t)}
+                <span className="text-[10px] font-semibold text-[var(--text-secondary)]">
+                  {displayScore}
                 </span>
               </div>
             )}
@@ -479,6 +509,18 @@ export default function DerivationCard({
             </span>
           )}
         </div>
+
+        {packageBlockedHintKey ? (
+          <p className="text-[11px] text-rose-400/90 leading-snug">
+            {tr(packageBlockedHintKey)}
+          </p>
+        ) : null}
+
+        {derivation.olharVerdict?.directionNote ? (
+          <p className="text-[11px] text-[var(--text-secondary)] line-clamp-2 leading-snug">
+            {derivation.olharVerdict.directionNote}
+          </p>
+        ) : null}
 
         {derivation.qualityVerdict === "invalid" &&
         derivation.hardFailures &&
@@ -614,7 +656,7 @@ export default function DerivationCard({
         {/* Row 5: Approve / Reject */}
         {derivation.status === "completed" && onApprove && onReject && (
           <div className="flex flex-col gap-2 mt-2">
-            {derivation.qualityVerdict === "invalid" ? (
+            {approvalBlocked ? (
               <Button
                 size="sm"
                 onClick={() => handleRegenerate()}
@@ -630,10 +672,12 @@ export default function DerivationCard({
                 size="sm"
                 variant="outline"
                 onClick={onApprove}
-                disabled={isApproving || derivation.qualityVerdict === "invalid"}
+                disabled={isApproving || approvalBlocked}
                 title={
-                  derivation.qualityVerdict === "invalid"
-                    ? t("approveBlockedInvalid")
+                  approvalBlocked
+                    ? packageBlockedHintKey
+                      ? tr(packageBlockedHintKey)
+                      : t("approveBlockedInvalid")
                     : undefined
                 }
               >
