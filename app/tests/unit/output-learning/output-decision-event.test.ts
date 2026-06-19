@@ -79,5 +79,61 @@ describe("output-decision-events", () => {
 
       expect(snapshot.reason?.text?.length).toBeLessThanOrEqual(1000);
     });
+
+    it("preserves override audit context and verdict refs", () => {
+      const snapshot = buildOutputDecisionSnapshot(
+        {
+          generationMode: "art_variation",
+          status: "approved",
+          prompt: "secret prompt",
+          outputKey: "r2://bucket/key",
+        },
+        {
+          overrideApproved: true,
+          olharVerdict: { value: "confusa" },
+          exportStatus: { value: "bloqueado" },
+          reason: {
+            code: "override_approval",
+            text: "Client accepted weak composition for this placement.",
+            source: "review_override",
+          },
+        }
+      );
+
+      expect(snapshot).toMatchObject({
+        overrideApproved: true,
+        olharVerdict: { value: "confusa" },
+        exportStatus: { value: "bloqueado" },
+        reason: {
+          code: "override_approval",
+          source: "review_override",
+        },
+      });
+      expect(snapshot).not.toHaveProperty("prompt");
+      expect(snapshot).not.toHaveProperty("outputKey");
+    });
+
+    it("preserves direction reason without sensitive derivation fields", () => {
+      const snapshot = buildOutputDecisionSnapshot(
+        {
+          generationMode: "art_variation",
+          inputPrompt: "secret input",
+        },
+        {
+          reason: {
+            code: "nao_entra",
+            text: "Direction does not match campaign voice.",
+            source: "direction_reason",
+          },
+        }
+      );
+
+      expect(snapshot.reason).toEqual({
+        code: "nao_entra",
+        text: "Direction does not match campaign voice.",
+        source: "direction_reason",
+      });
+      expect(snapshot).not.toHaveProperty("inputPrompt");
+    });
   });
 });
