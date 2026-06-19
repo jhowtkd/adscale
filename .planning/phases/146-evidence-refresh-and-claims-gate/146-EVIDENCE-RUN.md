@@ -76,4 +76,35 @@ Status: human_needed
 
 ## Task 146-01-03 — Focused tests and consistency scan
 
-_Pending — will be filled after test run._
+```bash
+cd app && npm test -- src/server/olhar-calibration/olhar-release-evidence.test.ts src/server/olhar-calibration/cenbrap-calibration.test.ts
+```
+
+**Result:** exit 0 — 22 tests passed (2 files)
+
+### Consistency scan (`142-EVIDENCE.json`)
+
+```bash
+node -e 'const e=require("./.planning/phases/142-cenbrap-calibration-and-release-evidence/142-EVIDENCE.json"); console.log(e.status, e.artDirectionMetrics, e.factualExportMetrics, e.sampleGuidance)'
+```
+
+| Check | Result |
+| --- | --- |
+| `status` | `human_needed` |
+| `artDirectionMetrics.agreementRate` | `null` (blocked by sample guidance) |
+| `artDirectionMetrics.humanDecisionCount` | `0` |
+| `artDirectionMetrics.missingHumanDecisionCount` | `2` |
+| `factualExportMetrics` | Separate block with export-safety counters at 0 |
+| `sampleGuidance[0].additionalNeeded` | `5` |
+| `acceptedGaps` includes `synthetic_fixture` | yes |
+| `requirements` include `human_needed` | CALIB-03 and CALIB-04 both `human_needed` |
+| Blended fields absent | no `overallPass`, `qualityScore`, etc. |
+
+### Full verification chain
+
+```bash
+cd app && npx tsx scripts/build-olhar-release-evidence.ts --calibration ../.planning/phases/142-cenbrap-calibration-and-release-evidence/142-CENBRAP-CALIBRATION.json --output ../.planning/phases/142-cenbrap-calibration-and-release-evidence/142-EVIDENCE.json
+node app/scripts/check-olhar-release-evidence.mjs --evidence .planning/phases/142-cenbrap-calibration-and-release-evidence/142-EVIDENCE.json --skip-tests
+```
+
+**Result:** build exit 0, checker exit 0, status `human_needed`.
