@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "capturedAt": "2026-06-19T21:13:42.047Z",
+  "capturedAt": "2026-06-19T22:18:04.551Z",
   "verifiedAt": null,
   "milestone": "v12.7",
   "status": "human_needed",
@@ -9,14 +9,14 @@
   "artDirectionMetrics": {
     "evidenceSource": "live_human",
     "denominatorNote": "Cenbrap derivations with operator decisions from output_decision_events",
-    "evaluatedCampaignCount": 2,
-    "evaluatedDerivationCount": 2,
+    "evaluatedCampaignCount": 5,
+    "evaluatedDerivationCount": 5,
     "humanDecisionCount": 0,
     "agreementRate": null,
     "mismatchReasonCounts": {},
     "overrideApprovedCount": 0,
     "missingDualVerdictCount": 0,
-    "missingHumanDecisionCount": 2
+    "missingHumanDecisionCount": 5
   },
   "factualExportMetrics": {
     "evidenceSource": "live_human",
