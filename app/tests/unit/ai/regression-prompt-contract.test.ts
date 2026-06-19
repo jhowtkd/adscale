@@ -69,7 +69,7 @@ function qaInputFromContract(contract: CreativeContract) {
 }
 
 describe.each(MODES)("TEST-01 prompt contract — $name", ({ contract, extra }) => {
-  it("injects dominant idea, three-zone budget, secondary CTA, anti-hallucination, simplification", () => {
+  it("injects dominant idea, reading-path gestalt budget, secondary CTA, anti-hallucination, simplification", () => {
     const resolved = contract();
     const prompt = buildDerivationPrompt(derivationConfigFromContract(resolved));
 
@@ -87,11 +87,11 @@ describe.each(MODES)("TEST-01 prompt contract — $name", ({ contract, extra }) 
     expect(canonical).toMatch(/Dominant idea:/i);
 
     if (resolved.generationMode === "art_variation") {
-      expect(perMode).toMatch(/three main information zones|THREE-ZONE/i);
+      expect(perMode).toMatch(/reading-path anchors|READING PATH AND GESTALT BUDGET/i);
     } else if (resolved.generationMode === "format_adaptation") {
       expect(modeSection).toMatch(/three information zones/i);
     } else {
-      expect(prompt).toMatch(/three information zones|max three|THREE-ZONE/i);
+      expect(prompt).toMatch(/three information zones|max three|reading-path/i);
     }
 
     if (resolved.ctaSemantics.kind === "explicit") {

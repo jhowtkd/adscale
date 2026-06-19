@@ -44,5 +44,5 @@ export const SCANNED_OLHAR_PROMPT_FILES = [
 export const ALLOWED_CONTEXT_PATTERNS: RegExp[] = [
   /^export const \w+_NOTE_MARKERS\s*=/,
   /^export const \w+_MARKERS\s*=/,
-  /\/.*\/[gimsuy]*$/,
+  /^\/.+\/[gimsuy]*;?$/,
 ];

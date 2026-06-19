@@ -59,7 +59,7 @@ describe.each(MODE_FORMAT_MATRIX)(
 
       if (mode === "art_variation") {
         expect(perMode).toMatch(/DECORATIVE-ONLY|decorative-only/i);
-        expect(perMode).toMatch(/THREE-ZONE|three main information zones/i);
+        expect(perMode).toMatch(/READING PATH AND GESTALT BUDGET|reading-path anchors/i);
       }
 
       if (mode === "format_adaptation") {

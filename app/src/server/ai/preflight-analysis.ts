@@ -150,7 +150,7 @@ Scoring guidelines:
 - technicalQuality: resolution, clarity, compression artifacts, color banding
 - textLegibility: can you read the headline? CTA? Any text? Is font size adequate?
 - visualHierarchy: is the offer clear? Do you know what is being sold within 1 second?
-- ctaProminence: is the call-to-action visible, contrasting, and clickable-looking?
+- ctaProminence: is the call-to-action visible, contrasting, and clear in the reading path?
 - composition: rule of thirds, balance, negative space, alignment
 - brandConsistency: if brand info is provided, does it match? Otherwise judge general professionalism
 - platformReadiness: is it optimized for the chosen platforms? (e.g., too much text for Meta, wrong ratio for Stories)

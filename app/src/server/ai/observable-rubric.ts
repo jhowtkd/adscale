@@ -9,16 +9,16 @@ export const FORBIDDEN_APPROVAL_TERMS = [
 ] as const;
 
 export const OBSERVABLE_DEFECT_NOTE_RULE = `OBSERVABLE DEFECT NOTES (required for every failed/warning criterion):
-- Cite VISIBLE evidence: named zones (hook headline, offer card, CTA button), exact text snippets, colors, positions (top-left badge row), or counts (four equal-weight modules).
+- Cite VISIBLE evidence: named zones (hook headline, offer card, invite/call-to-action text), exact text snippets, colors, positions (top-left badge row), or counts (four equal-weight information groups).
 - Do NOT approve or excuse with vague praise alone: ${FORBIDDEN_APPROVAL_TERMS.map((t) => `"${t}"`).join(", ")} without citing what is wrong.
 - A high-production look does NOT override hierarchy overload, missing dominant idea, or illegible hook at thumbnail scale.
 - BAD: "Generic visual." / "Looks polished and professional."
-- GOOD: "Four equal-weight glass cards in center grid compete with headline; neon cyan glow on CTA pill." / "NR1 card grid dominates frame and crowds headline, CTA, and badge."`;
+- GOOD: "Four equal-weight glass information groups in center grid compete with headline; neon cyan glow on invite pill." / "NR1 competing equal-weight groups dominate frame and crowd headline, invite, and badge."`;
 
 export const VISUAL_OVERLOAD_RUBRIC = `VISUAL OVERLOAD (fail creativeRisk or briefMatch when ANY apply):
 - No single dominant focal point — hook/headline does not clearly win attention.
-- More than three information zones compete at similar visual weight (e.g. card grid + badge row + secondary CTA + icon strip).
-- Multiple competing CTAs or button-like modules fight the primary hook for attention.
+- More than three information zones compete at similar visual weight (e.g. competing equal-weight groups + badge row + secondary invite + icon strip).
+- Multiple competing invites or pill-like treatments fight the primary hook for attention.
 - Mark failed and name the competing zones/modules observed.`;
 
 export const GENERIC_TEMPLATE_RUBRIC = `GENERIC TEMPLATE AESTHETIC (fail creativeRisk when severe AND unjustified):

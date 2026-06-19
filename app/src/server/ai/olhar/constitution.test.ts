@@ -6,19 +6,7 @@ import {
   buildOlharAdscaleSection,
   summarizeOlharAxis,
 } from "./constitution";
-
-const FORBIDDEN_UI_FIRST_TERMS = [
-  "clickable-looking",
-  "CTA module",
-  "UI modules",
-  "CTA button",
-  "CTA buttons",
-  "button-like modules",
-  "card grid",
-  "card-grid",
-  "three-zone visual budget",
-  "THREE-ZONE VISUAL BUDGET",
-];
+import { FORBIDDEN_UI_FIRST_CREATIVE_TERMS } from "./vocabulary";
 
 describe("OLHAR_AXES", () => {
   it("exposes figura, gestalt, voz, and convite", () => {
@@ -74,7 +62,7 @@ describe("buildOlharAdscaleSection", () => {
 
   it("does not contain forbidden UI-first creative terms", () => {
     const lower = joined.toLowerCase();
-    for (const term of FORBIDDEN_UI_FIRST_TERMS) {
+    for (const term of FORBIDDEN_UI_FIRST_CREATIVE_TERMS) {
       expect(lower).not.toContain(term.toLowerCase());
     }
   });

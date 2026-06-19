@@ -126,7 +126,7 @@ describe("buildDerivationPrompt", () => {
 
     expect(prompt).toContain("MODE: art_variation");
     expect(prompt).toMatch(/DECORATIVE-ONLY|decorative-only/i);
-    expect(prompt).toMatch(/THREE-ZONE|three main information zones/i);
+    expect(prompt).toMatch(/READING PATH AND GESTALT BUDGET|reading-path anchors/i);
     expect(prompt).toContain("MANDATORY PRESERVATION");
     expect(prompt).toContain("ANTI-CROPPING RULE");
     expect(prompt).toContain("REARRANGEMENT RULE");
@@ -172,7 +172,7 @@ describe("buildDerivationPrompt", () => {
     });
 
     expect(prompt).toContain("mandatory tier");
-    expect(prompt).toContain("hook/headline, offer/proof, CTA");
+    expect(prompt).toContain("hook/headline, offer/proof, invite/call-to-action text");
     expect(prompt).toContain("do not crop, hide, truncate, blur, or cover");
     expect(prompt).toContain("mandatory-tier content remains visible, readable, and intentionally arranged");
     expect(prompt).toContain("reduce scale and rebalance whitespace instead of cropping");
@@ -420,7 +420,7 @@ describe("art variation contract (AIC-02)", () => {
     expect(prompt).toContain("CREATIVITY LEVEL: bold");
     expect(prompt).toContain("OPERATIONAL RULES FOR BOLD");
     expect(prompt).toContain("mandatory tier");
-    expect(prompt).toContain("hook/headline, offer/proof, CTA");
+    expect(prompt).toContain("hook/headline, offer/proof, invite/call-to-action text");
     expect(prompt).toContain("logo if present");
     expect(prompt).toContain("product/subject");
     expect(prompt).toContain("CONSOLIDATION (condensable tier only)");
@@ -1102,14 +1102,14 @@ describe("art_variation decorative-only rejection (MODE-01)", () => {
   });
 });
 
-describe("art_variation three-zone budget (MODE-02)", () => {
-  it("caps layout to three main information zones", () => {
+describe("art_variation reading-path gestalt budget (MODE-02)", () => {
+  it("caps layout to three main reading-path anchors", () => {
     const prompt = buildDerivationPrompt(
       derivationConfigFromContract(artVariationContractFixture()),
     );
     const mode = extractPromptPerModeRulesSection(prompt);
-    expect(mode).toMatch(/THREE-ZONE|three main information zones/i);
-    expect(mode).toMatch(/hook.*proof.*CTA|no fourth module/i);
+    expect(mode).toMatch(/READING PATH AND GESTALT BUDGET|reading-path anchors/i);
+    expect(mode).toMatch(/hook.*proof.*invite|no fourth information group/i);
   });
 });
 

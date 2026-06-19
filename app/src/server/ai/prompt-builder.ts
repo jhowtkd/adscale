@@ -93,7 +93,7 @@ function imageLanguageInstruction(locale?: string): string {
 const conservative = `CREATIVITY LEVEL: conservative.
 OPERATIONAL RULES FOR CONSERVATIVE:
 - Preserve character/product, brand palette, texture, typography style, and visual structure from the reference.
-- Change ONLY: layout/disposition, text content, CTA module placement, and minor spacing adjustments.
+- Change ONLY: layout/disposition, text content, invite placement and reading path, and minor spacing adjustments.
 - Do not introduce new scenes, unrelated motifs, experimental layouts, or major copy shifts.
 - Maintain minimal structural change; the result should feel like the same visual universe as the reference.
 - Preserve logo behavior, offer structure, and overall campaign recognition.
@@ -102,9 +102,9 @@ OPERATIONAL RULES FOR CONSERVATIVE:
 const balanced = `CREATIVITY LEVEL: balanced.
 OPERATIONAL RULES FOR BALANCED:
 - Create a noticeably new composition while keeping brand identity recognizable.
-- Rebuild layout, visual hierarchy, CTA module placement, supporting shapes, rhythm, and spacing.
+- Rebuild layout, visual hierarchy, invite placement and reading path, supporting shapes, rhythm, and spacing.
 - The result should feel like a sibling creative from the same campaign, not a near-copy.
-- Ensure perceptible difference in background, composition, CTA module, and visual hierarchy.
+- Ensure perceptible difference in background, composition, invite placement, and visual hierarchy.
 - Preserve palette, character/product, texture, and brand system from the reference.
 - Decorative-only changes (background color, glow, card chrome) without a new visual mechanism are invalid — require a new composition mechanism per MODE rules.`;
 
@@ -143,8 +143,8 @@ const VISUAL_HIERARCHY_CONTRACT = `VISUAL HIERARCHY CONTRACT:
 - Preserve factual content from the reference in meaning, but do NOT give every fact equal visual weight.
 - Secondary facts (duration labels, badge rows, icon lists, legal copy, bullet pillars) may be merged into one support line, grouped smaller, or omitted from the layout when the hook + offer + CTA already communicate the campaign.
 - Do not stack competing cards, icon rows, selos, and badges at the same visual weight.
-- Use deliberate negative space: leave at least ~20% of the canvas free of text or UI modules.
-- Prefer editorial composition over dashboard/card-grid layouts.
+- Use deliberate negative space: leave at least ~20% of the canvas free of text or visible information groups.
+- Prefer editorial composition over dashboard-style grid layouts.
 - Avoid generic AI tropes unless they already exist in the brand system: neon glow stacks, holographic grids, glassmorphism cards, excessive lens flares, volumetric CTA pills, and "premium tech" gradient stacks.`;
 
 const ANTI_HALLUCINATION_RULES = `ANTI-HALLUCINATION RULES:
@@ -472,7 +472,7 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
       `- Detected Concept: ${creativeDiagnosis.detectedConcept}`,
       `- Elements to Preserve: ${creativeDiagnosis.elementsToPreserve.join("; ")}`,
       `- Variation Opportunities: ${creativeDiagnosis.variationOpportunities.join("; ")}`,
-      "Use the Approved Creative Diagnosis as the primary creative direction. Preserve the listed elements. Explore the listed opportunities within the three-zone visual budget only."
+      "Use the Approved Creative Diagnosis as the primary creative direction. Preserve the listed elements. Explore the listed opportunities within the reading-path and gestalt budget only."
     );
   } else if (generationMode === "art_variation") {
     parts.push(...buildArtVariationFallbackPreservation(campaign, asset, ctaText ?? null));

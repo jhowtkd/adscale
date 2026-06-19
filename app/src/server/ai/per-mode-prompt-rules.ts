@@ -2,12 +2,12 @@ export type GenerationMode = "art_variation" | "format_adaptation" | "restyling"
 
 export const DECORATIVE_ONLY_REJECTION = `DECORATIVE-ONLY VARIATION (REJECT):
 - Changing only background color/texture, glow, gradient stack, or card chrome WITHOUT a new visual mechanism is NOT a valid art_variation.
-- Valid variation requires a NEW composition mechanism: different focal hierarchy, proof presentation, subject framing, or CTA module architecture — not recoloring the same layout.`;
+- Valid variation requires a NEW composition mechanism: different focal hierarchy, proof presentation, subject framing, or invite and reading-path architecture — not recoloring the same layout.`;
 
-export const THREE_ZONE_VISUAL_BUDGET = `THREE-ZONE VISUAL BUDGET:
-- At most three main information zones: hook (headline/hero focal), proof/offer, and CTA.
-- No fourth module at equal visual weight competing with hook, proof/offer, or CTA.
-- Apply zones from VISUAL HIERARCHY CONTRACT — decorative chrome, badges, and icon rows must yield to clear hook / proof-offer / CTA hierarchy.`;
+export const READING_PATH_GESTALT_BUDGET = `READING PATH AND GESTALT BUDGET:
+- At most three main reading-path anchors: hook (headline/hero focal), proof/offer, and invite (call-to-action text).
+- No fourth information group at equal visual weight competing with hook, proof/offer, or invite.
+- Apply reading path from VISUAL HIERARCHY CONTRACT — decorative chrome, badges, and icon rows must yield to clear hook / proof-offer / invite hierarchy.`;
 
 export const RESTYLING_ENTITY_LOCK_CHECKLIST = `FACTUAL ENTITY LOCK (base image only):
 - People/subject, product, offer, CTA text, brand/logo, and factual claims are locked to the factual base per INPUT SOURCE CLASSIFICATION above.
@@ -34,13 +34,13 @@ export function buildArtVariationModeRulesSection(): string[] {
   return [
     "MODE: art_variation — Recompose the original campaign asset into a new artistic variation while keeping the SAME format/proportions.",
     DECORATIVE_ONLY_REJECTION,
-    THREE_ZONE_VISUAL_BUDGET,
-    "CREATIVE MECHANISM REQUIREMENT: require a new composition mechanism — different focal hierarchy, proof presentation, subject framing, or CTA module architecture. Background-only or color-only swaps without mechanism change are invalid.",
-    "MANDATORY PRESERVATION: preserve **mandatory tier** content in meaning (hook/headline, offer/proof, CTA, logo if present, product/subject). Condensable modules (badges, duration labels, bullet pillars, legal copy) may merge, shrink, or relocate per RULE PRECEDENCE and CONTENT TIERS above. Decorative modules (icon rows, selos, card chrome) may be omitted when hook + offer + CTA already communicate the campaign.",
-    "ANTI-CROPPING RULE: do not crop, hide, truncate, blur, or cover mandatory-tier text, faces, products, logos, offer cards, CTA buttons, price/discount badges, or other information-bearing elements.",
+    READING_PATH_GESTALT_BUDGET,
+    "CREATIVE MECHANISM REQUIREMENT: require a new composition mechanism — different focal hierarchy, proof presentation, subject framing, or invite and reading-path architecture. Background-only or color-only swaps without mechanism change are invalid.",
+    "MANDATORY PRESERVATION: preserve **mandatory tier** content in meaning (hook/headline, offer/proof, invite/call-to-action text, logo if present, product/subject). Condensable information groups (badges, duration labels, bullet pillars, legal copy) may merge, shrink, or relocate per RULE PRECEDENCE and CONTENT TIERS above. Decorative information groups (icon rows, selos, card chrome) may be omitted when hook + offer + invite already communicate the campaign.",
+    "ANTI-CROPPING RULE: do not crop, hide, truncate, blur, or cover mandatory-tier text, faces, products, logos, offer cards, call-to-action text (or visible source button if present), price/discount badges, or other information-bearing elements.",
     "REARRANGEMENT RULE: when changing the composition, rebuild the layout by resizing, grouping, and repositioning elements so mandatory-tier content remains visible, readable, and intentionally arranged inside the canvas.",
     "LAYOUT SAFETY PASS: before finalizing, check the four canvas edges and all text boxes; if any mandatory-tier information touches an edge, overlaps, or becomes too small to read, reduce scale and rebalance whitespace instead of cropping.",
-    "SAFE MARGIN RULE: keep logos, CTA buttons, badges, legal copy, mandatory-tier text, faces, and key product/service visuals at least 8% of the canvas width/height away from the edges unless the original brand system intentionally uses full-bleed decorative background only.",
+    "SAFE MARGIN RULE: keep logos, call-to-action text, badges, legal copy, mandatory-tier text, faces, and key product/service visuals at least 8% of the canvas width/height away from the edges unless the original brand system intentionally uses full-bleed decorative background only.",
     "BRAND LOCKUP RULE: do not place vertical or horizontal logos flush against any edge. Move, scale, or rotate brand marks so the complete logo has visible breathing room and cannot be cut by platform placements.",
     "THUMBNAIL LEGIBILITY RULE: condensable information such as duration, online/onsite labels, start date, badges, and offer details must remain readable when the image is viewed small; increase contrast, font weight, or grouping instead of shrinking them — or merge into a single support line per CONTENT TIERS.",
     "Do not drop **mandatory tier** meaning to solve a crowded layout. Condense or omit condensable and decorative modules per RULE PRECEDENCE; use hierarchy, grouping, spacing, and background extension so mandatory-tier content remains visible and legible.",

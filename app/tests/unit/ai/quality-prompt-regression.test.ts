@@ -64,7 +64,7 @@ describe.each(QUALITY_FIXTURES)("prompt regression — $id", (fixture) => {
     const perMode = extractPromptPerModeRulesSection(prompt);
     if (fixture.contract.generationMode === "art_variation") {
       expect(perMode).toMatch(/DECORATIVE-ONLY|decorative-only/i);
-      expect(perMode).toMatch(/THREE-ZONE|three main information zones/i);
+      expect(perMode).toMatch(/READING PATH AND GESTALT BUDGET|reading-path anchors/i);
     }
     if (fixture.contract.generationMode === "restyling") {
       expect(perMode).toMatch(/entity lock|base-locked|FACTUAL ENTITY LOCK/i);
