@@ -2,6 +2,7 @@
 
 ## Milestones
 
+- 🚧 **v12.8 Operacao Real do Olhar Cenbrap** - Phases 143-145 (active; started 2026-06-19)
 - ✅ **v12.7 Olhar ADScale: Direcao de Arte Antes de Compliance** - Phases 138-142 (shipped 2026-06-19; tech debt: template Cenbrap calibration, operator decisions pending)
 - ✅ **v12.6 Operacao Live do Corpus de Qualidade** - Phases 134-137 (shipped 2026-06-18; tech debt: empty live corpus, template 135/136 fallbacks)
 - ✅ **v12.5 Validacao Real de Qualidade e Calibracao do Loop Criativo** - Phases 129-133 (shipped 2026-06-17; tech debt: empty live corpus)
@@ -13,154 +14,103 @@
 
 ## Phases
 
-### ✅ v12.7 Olhar ADScale: Direcao de Arte Antes de Compliance (Phases 138-142) — SHIPPED WITH TECH DEBT (2026-06-19)
+### 🚧 v12.8 Operacao Real do Olhar Cenbrap (Phases 143-145) — ACTIVE
 
-**Milestone Goal:** Separar julgamento de direcao de arte de compliance de exportacao, para que o ADScale julgue figura, gestalt, voz e convite antes de permitir aprovacao ou pacote de entrega.
+**Milestone Goal:** Sair da evidencia template do v12.7 e operar a calibracao real do Olhar Cenbrap: campanhas reais, decisoes do Jhonatan, metricas honestas e fechamento/carry-forward explicito da divida.
 
-**Starting point:** campanhas reais expuseram outputs invalidos, aprovacao de peca `approved + invalid`, outputs com estetica de template/interface e prompts que tratam CTA como widget clicavel. v12.3 preservou factualidade, mas deixou o gap visual QA-19 como divida; v12.5/v12.6 criaram infraestrutura de corpus, mas ainda nao trocaram a regua criativa.
+**Starting point:** `v12.7-MILESTONE-AUDIT.md` fechou como `tech_debt`: implementacao do Olhar esta pronta, mas `evaluatedCampaignCount=0`, `humanDecisionCount=0`, `agreementRate=null` e `142-CENBRAP-CALIBRATION.json` live ainda nao existe.
 
-- [x] **Phase 138: Olhar Constitution and Cenbrap Voice** — definir a ontologia global do Olhar ADScale e a primeira voz editorial Cenbrap. (completed 2026-06-19)
-- [x] **Phase 139: Dual Verdict and Export Validator** — separar contrato criativo (`olharVerdict`) de exportacao (`exportStatus`) e bloquear `approved + invalid`. (completed 2026-06-19)
-- [x] **Phase 140: Advisor and Generation Direction** — reescrever preflight, QA, score e prompt-builder para direcao de arte, nao checklist de UX. (completed 2026-06-19)
-- [x] **Phase 141: Review Surface and Override UX** — exibir Olhar/Exportacao na workspace, capturar decisao humana e exigir override consciente. (completed 2026-06-19)
-- [x] **Phase 142: Cenbrap Calibration and Release Evidence** — reavaliar campanhas reais, medir concordancia com Jhonatan e fechar com evidencia honesta.
+- [ ] **Phase 143: Live Cenbrap Calibration Run** — planned; rodar a calibracao contra dados reais, produzir JSON live/contact sheet e classificar lacunas de dual verdict.
+- [ ] **Phase 144: Jhonatan Decision Capture and Mismatch Triage** — capturar `entra/quase/nao_entra`, motivos de mismatch e filas de follow-up.
+- [ ] **Phase 145: Evidence Refresh and Claims Gate** — regenerar evidencia, fechar/carry-forward da divida v12.7 e bloquear claims se a amostra ainda for insuficiente.
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
-| 138 | Olhar Constitution and Cenbrap Voice | Complete    | 2026-06-19 | 2026-06-19 |
-| 139 | Dual Verdict and Export Validator | Complete    | 2026-06-19 | 2026-06-19 |
-| 140 | Advisor and Generation Direction | Complete    | 2026-06-19 | 2026-06-19 |
-| 141 | Review Surface and Override UX | 3/3 | Complete   | 2026-06-19 |
-| 142 | Cenbrap Calibration and Release Evidence | 2/2 | Complete   | 2026-06-19 |
+| 143 | Live Cenbrap Calibration Run | 1/2 | In Progress|  |
+| 144 | Jhonatan Decision Capture and Mismatch Triage | JUDGE-01..04 | Pending | — |
+| 145 | Evidence Refresh and Claims Gate | CLAIM-01..04 | Pending | — |
 
 ## Phase Details
 
-### Phase 138: Olhar Constitution and Cenbrap Voice
+### Phase 143: Live Cenbrap Calibration Run
 
-**Goal:** O sistema ganha uma constituicao criativa clara e uma voz Cenbrap inicial antes de alterar score, gate ou UI.
+**Goal:** Rodar a calibracao Cenbrap contra ambiente real e substituir a evidencia template por artefatos com campanhas/derivacoes reais ou blocker operacional explicito.
 
-**Depends on:** v12.3 creative integrity, v12.5/v12.6 quality evidence, `advisor-redesign-v3.md`, attached Olhar ADScale proposal
+**Depends on:** v12.7 Phase 142 calibration infrastructure
 
-**Requirements:** OLHAR-01, OLHAR-02, OLHAR-03, OLHAR-04
+**Requirements:** CENLIVE-01, CENLIVE-02, CENLIVE-03, CENLIVE-04
 
 **Success Criteria** (what must be TRUE):
-  1. `Olhar ADScale` defines figure, gestalt, voice, invite and anti-template principles in implementation-facing form.
-  2. Cenbrap voice document captures what feels Cenbrap, what is anti-Cenbrap and how authority/people/claims/CTA should behave.
-  3. UI-first vocabulary is inventoried and removed from the core creative prompt/rubric language where it drives composition.
-  4. Existing visual failure reasons map to first-class art-direction verdicts.
+  1. `run-cenbrap-calibration.ts` runs without `--template` against a configured environment or emits a blocker typed with exact missing prerequisite.
+  2. `142-CENBRAP-CALIBRATION.json` exists with live mode and at least two Cenbrap campaigns, or an explicit insufficient-campaign blocker.
+  3. `142-CONTACT-SHEET.md` contains real rows with safe derivation refs, dual verdicts, package eligibility and override markers.
+  4. Missing dual-verdict rows are counted and routed to follow-up instead of being inferred.
 
-**Plans:** 2/2 plans complete
+**Plans:** 1/2 plans executed
 
 Plans:
-- [x] 138-01-PLAN.md — Olhar ADScale constitution and vocabulary inventory
-- [x] 138-02-PLAN.md — Cenbrap voice document and failure mapping
+- [x] 143-01-PLAN.md — Live environment calibration execution and artifact refresh
+- [ ] 143-02-PLAN.md — Dual-verdict coverage cleanup and blocker classification
 
 ---
 
-### Phase 139: Dual Verdict and Export Validator
+### Phase 144: Jhonatan Decision Capture and Mismatch Triage
 
-**Goal:** Toda derivacao passa a ter duas verdades separadas: se e boa como peca grafica e se pode ser exportada sem risco factual/tecnico.
+**Goal:** Transformar o contact sheet em calibracao humana: Jhonatan decide `entra/quase/nao_entra`, e o sistema classifica acordos, desacordos e motivos acionaveis.
 
-**Depends on:** Phase 138
+**Depends on:** Phase 143
 
-**Requirements:** VERDICT-01, VERDICT-02, VERDICT-03, VERDICT-04, EXPORT-01, EXPORT-02, EXPORT-03, EXPORT-04
+**Requirements:** JUDGE-01, JUDGE-02, JUDGE-03, JUDGE-04
 
 **Success Criteria** (what must be TRUE):
-  1. Output metadata can represent `olharVerdict`, four 0-3 axes, direction notes and `exportStatus` independently.
-  2. Export validator handles brand/source identity, CTA normalization, offer/claim drift, required text, ratio and resolution deterministically.
-  3. Campaign setup mismatch is reported as setup/contract issue, not as art-direction weakness.
-  4. Approval APIs cannot create normal `approved + invalid` states.
+  1. Contact sheet ou evento canonico registra decisoes humanas por derivacao com reviewer/reviewedAt.
+  2. Mismatch reasons sao normalizados em buckets acionaveis.
+  3. Agreement metrics usam apenas linhas comparaveis com veredito do sistema e decisao humana.
+  4. As decisoes do Jhonatan ficam ligadas ao artifact/evidence sem vazar prompt, signed URL ou payload sensivel.
 
-**Plans:** 2/2 plans complete
+**Plans:** 0/2 plans complete
 
 Plans:
-- [x] 139-01-PLAN.md — Dual-verdict contracts and persistence compatibility
-- [x] 139-02-PLAN.md — Deterministic export validator and approval blocking
+- [ ] 144-01-PLAN.md — Operator decision capture workflow
+- [ ] 144-02-PLAN.md — Mismatch taxonomy and comparable-row agreement metrics
 
 ---
 
-### Phase 140: Advisor and Generation Direction
+### Phase 145: Evidence Refresh and Claims Gate
 
-**Goal:** Preflight, QA, score and generation prompts passam a falar como diretor de arte senior: figura, gestalt, ritmo, convite e voz, mantendo compliance como segunda passagem.
+**Goal:** Atualizar a evidencia de release com dados reais e fechar v12.8 com linguagem honesta: clean pass, human_needed, insufficient_sample ou tech_debt, sem score unico enganoso.
 
-**Depends on:** Phases 138-139
+**Depends on:** Phase 144
 
-**Requirements:** ADVISOR-01, ADVISOR-02, ADVISOR-03, ADVISOR-04
-
-**Success Criteria** (what must be TRUE):
-  1. Preflight becomes `Leitura do base` with dominant idea, gestalt, invite weight, thumbnail read, brand presence and at most two real risks.
-  2. Post-generation QA/score returns art-direction verdicts and short notes instead of generic compliance/checklist language.
-  3. Prompt builder injects a concise direction paragraph with sacred facts, allowed variation and anti-patterns.
-  4. Numeric score is no longer the primary user-facing signal.
-
-**Plans:** 2/2 plans complete
-
-Plans:
-- [x] 140-01-PLAN.md — Leitura do base and Passagem Olhar ✅
-- [x] 140-02-PLAN.md — Generation direction injection and score demotion ✅
-
----
-
-### Phase 141: Review Surface and Override UX
-
-**Goal:** A workspace mostra a mesa de direcao correta: Olhar primeiro, exportacao depois, decisoes humanas estruturadas e override auditavel.
-
-**Depends on:** Phase 140
-
-**Requirements:** REVIEW-01, REVIEW-02, REVIEW-03, REVIEW-04
+**Requirements:** CLAIM-01, CLAIM-02, CLAIM-03, CLAIM-04
 
 **Success Criteria** (what must be TRUE):
-  1. Review cards/modals show `Olhar` and `Exportacao` separately, with `Sem opiniao`/`Confusa` unable to enter package by default.
-  2. Modal prioritizes creative verdict, what works, what blocks and collapsed export details.
-  3. User can record `Entra`, `Quase - regenerar assim` and `Nao entra` with structured direction reason.
-  4. Override requires typed reason and creates an auditable event without normalizing weak creative as approved.
+  1. Evidence JSON consome calibracao live e atualiza contadores de acordo, mismatch, sem-opiniao, export block e override.
+  2. `agreementRate` e qualquer claim de qualidade permanecem null/withheld quando sample guidance bloqueia.
+  3. Audit separa factual/export safety de art-direction agreement.
+  4. v12.7 tech debt e v12.8 status final ficam sincronizados em PROJECT/ROADMAP/STATE/MILESTONES.
 
-**Plans:** 3/3 plans complete
-
-Plans:
-- [x] 141-01-PLAN.md — Workspace review UI and decision language
-- [x] 141-02-PLAN.md — Override audit trail and package gating
-- [x] 141-03-PLAN.md — Conscious override UX gap closure
-
----
-
-### Phase 142: Cenbrap Calibration and Release Evidence
-
-**Goal:** Provar o novo olhar em campanhas reais Cenbrap, medir concordancia com Jhonatan e fechar com evidencia honesta, sem transformar amostra pequena em claim de qualidade.
-
-**Depends on:** Phases 138-141
-
-**Requirements:** CALIB-01, CALIB-02, CALIB-03, CALIB-04
-
-**Success Criteria** (what must be TRUE):
-  1. At least two real Cenbrap campaigns are re-evaluated with contact sheets and dual verdicts.
-  2. Jhonatan's decisions are captured against system verdicts with mismatch reasons.
-  3. Evidence reports agreement, approved-invalid prevention, sem-opiniao detection and export-block separation.
-  4. Release audit keeps factual fidelity, art-direction quality and sample sufficiency separate.
-
-**Plans:** 2/2 plans complete
+**Plans:** 0/2 plans complete
 
 Plans:
-- [x] 142-01-PLAN.md — Cenbrap real-campaign calibration run
-- [x] 142-02-PLAN.md — Release evidence, audit and milestone closure
+- [ ] 145-01-PLAN.md — Live evidence refresh and release gate rerun
+- [ ] 145-02-PLAN.md — Milestone audit, tech-debt closure and planning sync
 
 ---
 
 ## Completed Milestone Context
 
-Latest archive: [v12.6-ROADMAP.md](milestones/v12.6-ROADMAP.md) · [v12.6-REQUIREMENTS.md](milestones/v12.6-REQUIREMENTS.md) · [v12.6-MILESTONE-AUDIT.md](milestones/v12.6-MILESTONE-AUDIT.md)
+Latest archive: [v12.7-ROADMAP.md](milestones/v12.7-ROADMAP.md) · [v12.7-REQUIREMENTS.md](milestones/v12.7-REQUIREMENTS.md) · [v12.7-MILESTONE-AUDIT.md](milestones/v12.7-MILESTONE-AUDIT.md)
 
-Archive: [v12.5-ROADMAP.md](milestones/v12.5-ROADMAP.md) · [v12.5-REQUIREMENTS.md](milestones/v12.5-REQUIREMENTS.md) · [v12.5-MILESTONE-AUDIT.md](milestones/v12.5-MILESTONE-AUDIT.md)
+Archive: [v12.6-ROADMAP.md](milestones/v12.6-ROADMAP.md) · [v12.6-REQUIREMENTS.md](milestones/v12.6-REQUIREMENTS.md) · [v12.6-MILESTONE-AUDIT.md](milestones/v12.6-MILESTONE-AUDIT.md)
 
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 138 | v12.7 | 2/2 | Complete | 2026-06-19 |
-| 139 | v12.7 | 2/2 | Complete | 2026-06-19 |
-| 140 | v12.7 | 2/2 | Complete | 2026-06-19 |
-| 141 | v12.7 | 3/3 | Complete | 2026-06-19 |
-| 142 | v12.7 | 2/2 | Complete | 2026-06-19 |
+| 143 | v12.8 | 0/2 | Planned | — |
+| 144 | v12.8 | 0/2 | Pending | — |
+| 145 | v12.8 | 0/2 | Pending | — |
 
 ---
-*Roadmap updated: 2026-06-19 — Phase 142 complete; v12.7 milestone audit tech_debt*
+*Roadmap updated: 2026-06-19 — Phase 143 planned from v12.7 tech_debt audit*
