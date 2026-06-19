@@ -3,6 +3,10 @@ import type {
   CreativeHardFailure,
   CreativeQualityVerdict,
 } from "../ai/creative-quality-gate";
+import type {
+  ExportStatusPayload,
+  OlharVerdictPayload,
+} from "../ai/olhar/dual-verdict";
 import type { DerivationGenerationLog } from "../ai/generation-log";
 import type { CreativeContract, PromptProvenance } from "../ai/creative-contract";
 import type { RegenerationCorrectionBriefRecord } from "../ai/regeneration-correction-brief";
@@ -35,6 +39,11 @@ export interface UpdateDerivationQualityGateInput {
   hardFailures: CreativeHardFailure[];
   polishSuggestions: string[];
   qualityGatedAt: Date;
+}
+
+export interface UpdateDerivationDualVerdictInput {
+  olharVerdict?: OlharVerdictPayload | null;
+  exportStatus?: ExportStatusPayload | null;
 }
 
 export interface CreateDerivationInput {
@@ -274,6 +283,29 @@ export async function updateDerivationQualityGate(
       polishSuggestions: data.polishSuggestions,
       qualityGatedAt: data.qualityGatedAt,
       updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(derivations.id, id),
+        eq(derivations.workspaceId, workspaceId)
+      )
+    )
+    .returning();
+  return result[0] ?? null;
+}
+
+export async function updateDerivationDualVerdict(
+  id: string,
+  workspaceId: string,
+  data: UpdateDerivationDualVerdictInput
+) {
+  const now = new Date();
+  const result = await db
+    .update(derivations)
+    .set({
+      ...(data.olharVerdict !== undefined && { olharVerdict: data.olharVerdict }),
+      ...(data.exportStatus !== undefined && { exportStatus: data.exportStatus }),
+      updatedAt: now,
     })
     .where(
       and(

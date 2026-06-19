@@ -330,6 +330,13 @@
       "when": 1781870400000,
       "tag": "0046_rubric_calibration_accept_metadata",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1781956800000,
+      "tag": "0047_derivation_dual_verdict",
+      "breakpoints": true
     }
   ]
 }

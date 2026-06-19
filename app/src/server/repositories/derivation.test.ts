@@ -20,10 +20,15 @@ vi.mock("../db", () => ({
 
 import {
   getActivePackageChildren,
+  updateDerivationDualVerdict,
   updateDerivationPromptProvenance,
   updateDerivationQa,
 } from "./derivation";
 import { FACTUAL_SOURCE_RULES } from "../ai/creative-contract";
+import type {
+  ExportStatusPayload,
+  OlharVerdictPayload,
+} from "../ai/olhar/dual-verdict";
 
 describe("derivation repository", () => {
   beforeEach(() => {
@@ -146,6 +151,61 @@ describe("derivation repository", () => {
     });
   });
 
+  describe("updateDerivationDualVerdict", () => {
+    const olharVerdict: OlharVerdictPayload = {
+      value: "quase",
+      axes: { figura: 2, gestalt: 2, voz: 1, convite: 1 },
+      whatWorks: ["Clear figure"],
+      whatBlocks: ["Weak invite"],
+      directionNote: "Strengthen the invitation before export.",
+      source: "quality_gate",
+      evaluatedAt: "2026-06-19T12:00:00.000Z",
+    };
+
+    const exportStatus: ExportStatusPayload = {
+      value: "ajuste_menor",
+      issues: [{ code: "cta_drift", message: "CTA wording shifted slightly" }],
+      setupIssues: [],
+      evaluatedAt: "2026-06-19T12:00:00.000Z",
+    };
+
+    it("writes both dual verdict payloads and updates updatedAt", async () => {
+      const row = {
+        id: "derivation-id",
+        olharVerdict,
+        exportStatus,
+      };
+      returningMock.mockResolvedValue([row]);
+
+      const result = await updateDerivationDualVerdict(
+        "derivation-id",
+        "workspace-id",
+        { olharVerdict, exportStatus }
+      );
+
+      expect(updateMock).toHaveBeenCalledTimes(1);
+      expect(setMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          olharVerdict,
+          exportStatus,
+          updatedAt: expect.any(Date),
+        })
+      );
+      expect(updateWhereMock).toHaveBeenCalledTimes(1);
+      expect(result).toBe(row);
+    });
+
+    it("returns null when no row matches", async () => {
+      returningMock.mockResolvedValue([]);
+
+      const result = await updateDerivationDualVerdict("missing-id", "workspace-id", {
+        olharVerdict,
+      });
+
+      expect(result).toBeNull();
+    });
+  });
+
   describe("updateDerivationQa", () => {
     it("updates QA fields scoped by id and workspace", async () => {
       const row = { id: "derivation-id", qaStatus: "warning" };
@@ -175,6 +235,49 @@ describe("derivation repository", () => {
       });
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe("updateDerivationDualVerdict", () => {
+    const olharVerdict = {
+      value: "quase" as const,
+      axes: { figura: 2, gestalt: 2, voz: 2, convite: 2 },
+      whatWorks: [],
+      whatBlocks: [],
+      directionNote: "Nearly ready.",
+      source: "quality_gate" as const,
+      evaluatedAt: "2026-06-19T12:00:00.000Z",
+    };
+    const exportStatus = {
+      value: "ok" as const,
+      issues: [],
+      setupIssues: [],
+      evaluatedAt: "2026-06-19T12:00:00.000Z",
+    };
+
+    it("writes both dual verdict payloads and updates updatedAt", async () => {
+      const row = {
+        id: "derivation-id",
+        olharVerdict,
+        exportStatus,
+        updatedAt: new Date("2026-06-19T12:00:00.000Z"),
+      };
+      returningMock.mockResolvedValue([row]);
+
+      const result = await updateDerivationDualVerdict("derivation-id", "workspace-id", {
+        olharVerdict,
+        exportStatus,
+      });
+
+      expect(updateMock).toHaveBeenCalledTimes(1);
+      expect(setMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          olharVerdict,
+          exportStatus,
+          updatedAt: expect.any(Date),
+        })
+      );
+      expect(result).toBe(row);
     });
   });
 });

@@ -649,6 +649,12 @@ export const derivations = adscaleSchema.table(
     outputLearningApplication: jsonb("output_learning_application").$type<
       import("../human-quality/corpus").OutputLearningApplicationSnapshot
     >(),
+    olharVerdict: jsonb("olhar_verdict").$type<
+      import("../ai/olhar/dual-verdict").OlharVerdictPayload
+    >(),
+    exportStatus: jsonb("export_status").$type<
+      import("../ai/olhar/dual-verdict").ExportStatusPayload
+    >(),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
   },
