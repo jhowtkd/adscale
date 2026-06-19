@@ -69,3 +69,67 @@ cd app && npx tsx scripts/seed-cenbrap-calibration-corpus.ts --inspect-only
 - **Row sufficiency:** Only 2 reviewable rows exist; minimum sample requires 5 rows with human decisions.
 - **Customer-real inputs:** No safe `operator_imported` or `real_customer` rows available in corpus inspection.
 - **Next action:** Expand fixture corpus by 3 additional `synthetic_fixture` rows (Phase 148-01-02), then prepare decision template covering all 5 rows.
+
+## Task 148-01-02 — Sample expansion
+
+**Strategy:** No safe `operator_imported` or `real_customer` inputs available. Extended fixture path with 3 additional `synthetic_fixture` rows via expand-only seed (preserves Phase 144 derivation IDs).
+
+**Dry-run command:**
+
+```bash
+cd app && npx tsx scripts/seed-cenbrap-calibration-corpus.ts --sample-expansion
+```
+
+**Apply command:**
+
+```bash
+cd app && npx tsx scripts/seed-cenbrap-calibration-corpus.ts --sample-expansion --confirm
+```
+
+**Expansion captured:** 2026-06-19T22:01:45.062Z
+
+| Metric | Pre-expansion | Post-expansion |
+| --- | ---: | ---: |
+| Candidate Cenbrap campaigns | 2 | 5 |
+| Campaigns with dual verdict coverage | 2 | 5 |
+| New campaigns created | — | 3 |
+| Existing campaigns preserved | — | 2 |
+
+### New reviewable rows (synthetic_fixture)
+
+| Campaign | Derivation ID | Olhar | Export | Source |
+| --- | --- | --- | --- | --- |
+| Cenbrap Calibration — NR1 Figura | `201d1d3e-5dc8-43be-b1a7-6ca237851802` | `quase` | `ok` | `synthetic_fixture` |
+| Cenbrap Calibration — NR1 Voz | `bf179981-8ac0-4fce-9d6f-e6b71577518f` | `nao_pronta` | `ok` | `synthetic_fixture` |
+| Cenbrap Calibration — NR1 Equilibrio | `d19e19f6-475b-443a-a7e3-d97f1b8b147b` | `quase` | `ajuste_menor` | `synthetic_fixture` |
+
+### Post-expansion row inventory
+
+| Category | Count |
+| --- | ---: |
+| Reviewable rows (`review_ready`, dual verdict) | 5 |
+| Rows with human decisions | 0 |
+| Rows still `manual_pending` | 5 |
+| Rows missing human decision | 5 |
+
+### Post-expansion sample guidance
+
+| Metric | Value |
+| --- | --- |
+| Human decision sample | **0/5** (unchanged — no decisions recorded) |
+| `additionalNeeded` | 5 |
+| `agreementRate` | null (withheld) |
+
+Reviewable row count is now sufficient (5 rows). Sample sufficiency remains blocked until Jhonatan records 5 human decisions.
+
+### Source composition (post-expansion)
+
+| Source label | Reviewable rows | Customer-real evidence? |
+| --- | ---: | --- |
+| `synthetic_fixture` | 5 | No — operational calibration only |
+| `operator_imported` | 0 | — |
+| `real_customer` | 0 | — |
+
+**Manifest:** `.planning/phases/148-sample-sufficiency-expansion/148-SAMPLE-MANIFEST.json` (Phase 148 manifest; Phase 144 manifest unchanged).
+
+**Blocker status:** `operator_data_unavailable` for customer-real rows. Row sufficiency blocker cleared; human decision blocker remains (`human_needed`).

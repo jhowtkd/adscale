@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-06-19T22:01:45.062Z",
+  "seedMarker": "phase144_cenbrap_calibration_corpus",
+  "phase": 148,
+  "mode": "expanded",
+  "envSource": "app/.env.local",
+  "secretExposed": false,
+  "targetWorkspace": {
+    "id": "b118d928-9a25-48b3-9647-ad6e11db7f47",
+    "name": "Dev Admin's Workspace",
+    "memberEmail": "dev@adscale.local"
+  },
+  "sourcePolicy": "All rows in this manifest are synthetic_fixture — operational calibration only, not real customer evidence.",
+  "campaigns": [
+    {
+      "id": "9d338b9a-e15a-4029-ae95-728c17e77c3a",
+      "name": "Cenbrap Calibration — NR1 Gestalt",
+      "sourceLabel": "synthetic_fixture",
+      "selectionSignals": [
+        "client_contains_cenbrap",
+        "campaign_name_cenbrap",
+        "campaign_name_nr1"
+      ],
+      "derivationId": "01faf2a6-7808-406b-aeff-efd0169be9a1",
+      "outputKey": "cenbrap-calibration/b118d928/nr1-gestalt.png",
+      "olharVerdict": "quase",
+      "exportStatus": "ok"
+    },
+    {
+      "id": "676e1c08-0813-4f1e-adff-0e96c01e6a57",
+      "name": "Cenbrap Calibration — NR1 Convite",
+      "sourceLabel": "synthetic_fixture",
+      "selectionSignals": [
+        "client_contains_cenbrap",
+        "campaign_name_cenbrap",
+        "campaign_name_nr1"
+      ],
+      "derivationId": "a92788f7-18d7-4289-99eb-bab8a0fa2f80",
+      "outputKey": "cenbrap-calibration/b118d928/nr1-convite.png",
+      "olharVerdict": "pronta",
+      "exportStatus": "ajuste_menor"
+    },
+    {
+      "id": "b2f2c44d-b0cd-4bc3-996f-98494af0a65a",
+      "name": "Cenbrap Calibration — NR1 Figura",
+      "sourceLabel": "synthetic_fixture",
+      "selectionSignals": [
+        "client_contains_cenbrap",
+        "campaign_name_cenbrap",
+        "campaign_name_nr1"
+      ],
+      "derivationId": "201d1d3e-5dc8-43be-b1a7-6ca237851802",
+      "outputKey": "cenbrap-calibration/b118d928/nr1-figura.png",
+      "olharVerdict": "quase",
+      "exportStatus": "ok"
+    },
+    {
+      "id": "e3689e52-d090-4bd2-abc6-072e8d32d425",
+      "name": "Cenbrap Calibration — NR1 Voz",
+      "sourceLabel": "synthetic_fixture",
+      "selectionSignals": [
+        "client_contains_cenbrap",
+        "campaign_name_cenbrap",
+        "campaign_name_nr1"
+      ],
+      "derivationId": "bf179981-8ac0-4fce-9d6f-e6b71577518f",
+      "outputKey": "cenbrap-calibration/b118d928/nr1-voz.png",
+      "olharVerdict": "nao_pronta",
+      "exportStatus": "ok"
+    },
+    {
+      "id": "4e801177-d5de-471c-8bce-6958c7f474d3",
+      "name": "Cenbrap Calibration — NR1 Equilibrio",
+      "sourceLabel": "synthetic_fixture",
+      "selectionSignals": [
+        "client_contains_cenbrap",
+        "campaign_name_cenbrap",
+        "campaign_name_nr1"
+      ],
+      "derivationId": "d19e19f6-475b-443a-a7e3-d97f1b8b147b",
+      "outputKey": "cenbrap-calibration/b118d928/nr1-equilibrio.png",
+      "olharVerdict": "quase",
+      "exportStatus": "ajuste_menor"
+    }
+  ]
+}
