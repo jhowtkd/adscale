@@ -24,6 +24,21 @@ Rows without operator decisions stay `manual_pending` until entered below.
 - Missing dual verdict rows: 0
 - Missing human decision rows: 0
 
+## Row readiness (Phase 144 gate)
+
+| Readiness | Count | Notes |
+|-----------|------:|-------|
+| `review_ready` | 0 | Requires `olharVerdict` + `exportStatus` + safe `outputRef` |
+| `missing_dual_verdict` | 0 | No derivation rows to classify |
+| `missing_output_ref` | 0 | No derivation rows without output |
+| `manual_pending` | 1 | Template placeholder row only — not a real derivation |
+
+**Template-only:** No live campaign sections exist. This sheet cannot support Jhonatan decision capture until campaigns are seeded.
+
+**Blocker:** [insufficient_campaigns](../143-live-cenbrap-calibration-run/143-BLOCKERS.md) — re-run calibration after ≥2 Cenbrap campaigns with derivations exist in the connected database.
+
+Do not invent operator decisions here; Phase 144 fields remain empty/pending.
+
 ## Campaigns
 
 _No live Cenbrap campaigns selected. Use this template to record manual review when data becomes available._
@@ -33,4 +48,6 @@ _No live Cenbrap campaigns selected. Use this template to record manual review w
 | derivationId | olharVerdict | exportStatus | packageEligible | override | humanDecision | mismatchReason | reviewer | reviewedAt |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | _pending_ | — | — | — | — | manual_pending | — | Jhonatan | — |
+
+_Readiness: `manual_pending` (template) — not `review_ready`. See [143-BLOCKERS.md](../143-live-cenbrap-calibration-run/143-BLOCKERS.md)._
 

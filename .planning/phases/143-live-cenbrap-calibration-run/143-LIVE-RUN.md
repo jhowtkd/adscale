@@ -104,3 +104,14 @@ Parsed `142-CENBRAP-CALIBRATION.json` (`mode=live`, `status=no_live_data`). JSON
 | `review_ready` rows for Jhonatan | **0** — blocked |
 | `manual_pending` placeholders | 1 (template table only) |
 | Phase 144 decision capture | **blocked** until `evaluatedCampaignCount >= 2` and rows have visible system verdict context |
+
+## Contact Sheet Readiness (2026-06-19T16:48:30Z)
+
+| Readiness state | Count |
+|-----------------|------:|
+| `review_ready` | 0 |
+| `missing_dual_verdict` | 0 |
+| `missing_output_ref` | 0 |
+| `manual_pending` (template placeholder) | 1 |
+
+Contact sheet updated with explicit row-readiness table and link to `143-BLOCKERS.md`. Template-only state preserved — not collapsed into disagreement or fake review rows.
