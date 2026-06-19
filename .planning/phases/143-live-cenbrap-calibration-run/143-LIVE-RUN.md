@@ -70,3 +70,37 @@ Scanned `143-LIVE-RUN.md`, `143-BLOCKERS.md`, `142-CENBRAP-CALIBRATION.json`, `1
 npm test -- src/server/olhar-calibration/cenbrap-calibration.test.ts src/server/olhar-calibration/olhar-release-evidence.test.ts
 → 17 passed (2 files)
 ```
+
+## Dual-Verdict Coverage Analysis (2026-06-19T16:48:00Z)
+
+Parsed `142-CENBRAP-CALIBRATION.json` (`mode=live`, `status=no_live_data`). JSON shape exposes `campaigns[].rows[].derivation` with `olharVerdict`, `exportStatus`, `outputRef`, and `dualVerdictState` — no `artifact_shape_gap`.
+
+### Row counts
+
+| Metric | Count |
+|--------|------:|
+| Total campaign sections | 0 |
+| Total derivation rows | 0 |
+| Rows with both `olharVerdict` and `exportStatus` | 0 |
+| `review_ready` (dual verdict + safe output ref) | 0 |
+| Rows missing only `olharVerdict` (`missing_olhar`) | 0 |
+| Rows missing only `exportStatus` (`missing_export`) | 0 |
+| Rows missing both (`missing_both`) | 0 |
+| Rows without safe output refs (`no_output_key` / `missing_output_ref`) | 0 |
+| Legacy derivations without modern verdict payloads (`legacy_derivation`) | 0 |
+| Total `missing_dual_verdict` rows | 0 |
+
+### Classification notes
+
+- With zero derivation rows, dual-verdict coverage cannot be evaluated — this is a **corpus gap**, not missing evidence on existing rows.
+- `metrics.missingDualVerdictCount` in JSON: **0** (consistent — no rows to classify).
+- Contact sheet is **template-only**; the single `manual_pending` placeholder is not a reviewable derivation row.
+- Primary blocker remains `insufficient_campaigns` (see `143-BLOCKERS.md`).
+
+### Phase 144 readiness
+
+| Gate | Status |
+|------|--------|
+| `review_ready` rows for Jhonatan | **0** — blocked |
+| `manual_pending` placeholders | 1 (template table only) |
+| Phase 144 decision capture | **blocked** until `evaluatedCampaignCount >= 2` and rows have visible system verdict context |
