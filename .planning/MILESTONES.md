@@ -30,7 +30,7 @@
 - `evaluatedCampaignCount=0` → 2 campanhas, 2 derivacoes
 - Sem path de decisao operatoria → Phase 145 tooling completo
 
-Archive: [v12.8-MILESTONE-AUDIT.md](milestones/v12.8-MILESTONE-AUDIT.md) · Claims gate: [146-CLAIMS-GATE.md](phases/146-evidence-refresh-and-claims-gate/146-CLAIMS-GATE.md)
+Archive: [v12.8-ROADMAP.md](milestones/v12.8-ROADMAP.md) · [v12.8-REQUIREMENTS.md](milestones/v12.8-REQUIREMENTS.md) · [v12.8-MILESTONE-AUDIT.md](milestones/v12.8-MILESTONE-AUDIT.md) · Claims gate: [146-CLAIMS-GATE.md](phases/146-evidence-refresh-and-claims-gate/146-CLAIMS-GATE.md)
 
 ---
 

@@ -10,7 +10,23 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Current State
 
-v12.8 Operacao Real do Olhar Cenbrap shipped with tech debt as of 2026-06-19. The milestone turned v12.7's Olhar infrastructure into live calibration evidence with honest claim gates. Operator decisions and sample sufficiency remain pending before agreement claims.
+v12.9 Fechamento Humano do Olhar Cenbrap is active as of 2026-06-19. The milestone turns v12.8's honest `human_needed` gate into real operator calibration: Jhonatan decisions, minimum sample, source-label discipline and claims only when evidence supports them.
+
+### v12.9 Fechamento Humano do Olhar Cenbrap — ACTIVE (started 2026-06-19)
+
+**Goal:** Capturar julgamento humano real para o Olhar Cenbrap, atingir amostra minima e separar fixture operacional de prova customer-real antes de qualquer claim de acordo ou qualidade.
+
+**Target features:**
+- Decisoes do Jhonatan para linhas `review_ready` (`entra`, `quase`, `nao_entra`)
+- Persistencia idempotente via `output_decision_events`
+- Rerun de calibracao e evidencia apos decisoes
+- Expansao para 5 decisoes humanas ou blocker operacional exato
+- Inspecao/import seguro de rows customer-real Cenbrap quando disponiveis
+- Audit final de agreement, mismatch, claims permitidos/proibidos e carry-forward
+
+**Why now:** v12.8 fechou a infraestrutura e o claims gate, mas a evidencia segue `human_needed`: `humanDecisionCount=0`, `missingHumanDecisionCount=2`, sample guidance `0/5`, `agreementRate=null` e corpus `synthetic_fixture`.
+
+**Current status:** Phase 147 complete with truthful `human_needed` carry-forward; Phase 148 is planned for sample sufficiency expansion. Jhonatan decisions are still absent, sample remains `0/5`, and agreement/quality claims stay blocked.
 
 ### v12.8 Operacao Real do Olhar Cenbrap — SHIPPED WITH TECH DEBT (2026-06-19)
 
@@ -369,7 +385,7 @@ Delivered: credit estimate transparency, enriched credit events, delivery/stale 
 
 ## Context
 
-Current state: v12.8 shipped with tech debt. The immediate product gap is capturing Jhonatan's judgment on the reviewable Cenbrap calibration rows without overstating the evidence. Live evidence refresh and claims gate are complete; agreement claims stay blocked.
+Current state: v12.9 active. Phase 147 validated the operator-decision workflow and reran calibration/evidence, but Jhonatan decisions remain absent. The immediate product gap is expanding sample sufficiency without overstating the evidence; agreement claims stay blocked until decisions and sample guidance clear.
 
 v12.7 treated ADScale as a tool that scales creative criterion, not just variation volume. v12.8 now tests that criterion operationally: real campaigns, contact sheets, human decisions and honest evidence refresh.
 
@@ -381,7 +397,7 @@ Migration `app/drizzle/0027_fine_morlun.sql` (Drizzle journal idx 27) must be ap
 
 Prior milestones delivered the strategy cockpit (v11.6), beta feedback capture (v11.4), presentation site separation (v11.3), beta entitlements (v11.2), generation quality gates (v11.1), coherent derivation flows (v11.0), and the full MVP through v10 UI polish.
 
-Current verification baseline: v12.8 closed with live `142-EVIDENCE.json` (`human_needed`), claims gate at `146-CLAIMS-GATE.md`, and milestone audit `tech_debt`. Technical release checker passes; agreement and quality claims remain withheld until operator decisions meet sample guidance. Corpus is `synthetic_fixture` — operational calibration, not customer-real proof.
+Current verification baseline: v12.8 closed with live `142-EVIDENCE.json` (`human_needed`), claims gate at `146-CLAIMS-GATE.md`, and milestone audit `tech_debt`. v12.9 starts from that blocker: technical release checker passes; agreement and quality claims remain withheld until operator decisions meet sample guidance. Corpus is `synthetic_fixture` — operational calibration, not customer-real proof.
 
 Key stack decisions:
 - Next.js App Router, React, TypeScript, Tailwind, shadcn/ui
@@ -430,6 +446,8 @@ Key stack decisions:
 | Live operator calibration before claims | Agreement/quality claims require reviewable rows, Jhonatan decisions and sufficient sample — infrastructure complete, operator gate open | ✓ Good — v12.8 shipped with tech_debt |
 | Corpus before judgment | Jhonatan decision capture unblocked with `review_ready` rows | ✓ Good — v12.8 |
 | Judgment before evidence claims | Phase 146 refreshed evidence and claims gate; agreement blocked while decisions missing | ✓ Good — v12.8 |
+| Human authority before calibration learning | Jhonatan decisions are the calibration authority; system verdicts are evidence under test | — Pending — v12.9 |
+| Source labels before customer claims | Fixture rows can validate operation but cannot support customer-real claims | — Pending — v12.9 |
 
 ## Evolution
 
@@ -449,7 +467,7 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-19 — v12.8 shipped with tech_debt; Phase 146 claims gate complete*
+*Last updated: 2026-06-19 — Phase 148 planned from Phase 147 human_needed / sample 0/5 gate*
 
 ## Milestone History
 

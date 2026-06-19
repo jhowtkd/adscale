@@ -74,7 +74,7 @@ Each task was committed atomically:
 2. **Task 146-02-02: Resolve v12.7/v12.8 tech-debt wording** - `3e33d4a0` (docs)
 3. **Task 146-02-03: Sync planning docs** - `9ef6a8e1` (docs)
 
-**Plan metadata:** pending final docs commit
+**Plan metadata:** `076a48b4` (docs: complete plan)
 
 ## Files Created/Modified
 
