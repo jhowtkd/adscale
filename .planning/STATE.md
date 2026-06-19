@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v12.8
 milestone_name: Operacao Real do Olhar Cenbrap
-status: completed
-last_updated: "2026-06-19T17:53:23.971Z"
-last_activity: 2026-06-19 - Completed 145-02 mismatch taxonomy and calibration rerun
+status: Phase 146 in progress — live evidence refreshed (human_needed); claims gate pending
+last_updated: "2026-06-19T20:18:00.000Z"
+last_activity: 2026-06-19 - Completed 146-01 live evidence refresh and release gate rerun
 progress:
   total_phases: 4
   completed_phases: 3
-  total_plans: 6
-  completed_plans: 6
-  percent: 100
+  total_plans: 8
+  completed_plans: 7
+  percent: 88
 ---
 
 # Project State
@@ -23,16 +23,16 @@ See: .planning/PROJECT.md (updated 2026-06-19)
 
 **Current focus:** v12.8 Operacao Real do Olhar Cenbrap. Turn v12.7's Olhar infrastructure into live Cenbrap calibration evidence with Jhonatan decisions and honest claim gates.
 
-**Status:** Phase 145 complete (partial) — metrics_ready_claims_withheld; Jhonatan decisions pending
+**Status:** Phase 146 in progress — live evidence refreshed (`human_needed`); claims gate audit pending in 146-02
 
 ## Current Position
 
-Phase: 145 - Jhonatan Decision Capture and Mismatch Triage (complete — partial outcome)
-Plan: 145-02 complete; Phase 146 next
-Status: metrics_ready_claims_withheld — mismatch buckets normalized; Jhonatan decisions still pending
-Last activity: 2026-06-19 - Completed 145-02 mismatch taxonomy and calibration rerun
+Phase: 146 - Evidence Refresh and Claims Gate (in progress)
+Plan: 146-01 complete, 146-02 ready
+Status: live_evidence_human_needed — `142-EVIDENCE.json` generated from live calibration; agreement claims withheld (`decisionCount=0`, `additionalNeeded=5`)
+Last activity: 2026-06-19 - Completed 146-01 live evidence refresh and release gate rerun
 
-Progress: [████████░░] v12.8 — 3/4 phases; 6/6 plans complete; Phase 146 next.
+Progress: [█████████░] v12.8 — 3/4 phases; 7/8 plans complete; Phase 146 plan 01 done.
 
 ## Accumulated Context
 
@@ -60,7 +60,7 @@ Progress: [████████░░] v12.8 — 3/4 phases; 6/6 plans compl
 - Phase 141: Review Surface and Override UX.
 - Phase 142: Cenbrap Calibration and Release Evidence infrastructure.
 - Audit: `.planning/milestones/v12.7-MILESTONE-AUDIT.md` status `tech_debt`.
-- Key gap: live calibration run complete but `evaluatedCampaignCount=0`; insufficient_campaigns blocker; Jhonatan decisions pending.
+- Original key gap: v12.7 audit had template-only evidence; v12.8 resolved the empty-corpus blocker with `synthetic_fixture` rows, but Jhonatan decisions and sample sufficiency are still pending.
 
 ### v12.6 / v12.5 Evidence Honesty
 
@@ -94,9 +94,14 @@ Progress: [████████░░] v12.8 — 3/4 phases; 6/6 plans compl
 - [Phase 145]: synthetic_fixture source caveat mandatory in all Phase 146 artifacts
 - [Phase 145]: mismatchReasonCounts aggregates by normalized CENBRAP_MISMATCH_BUCKETS not free-text
 - [Phase 145]: Phase 145 outcome: manual_decisions_missing + metrics_ready_claims_withheld; Phase 146 evidence refresh ok, claims blocked
+- [Phase 146]: Planned next as live evidence refresh plus milestone claims gate; `human_needed` is valid if decisions remain missing
+- [Phase 146]: Canonical generated evidence path should be `142-EVIDENCE.json`; `142-EVIDENCE.template.json` remains historical/template evidence
+- [Phase 146]: Live evidence builder CLI refuses template calibration unless --template flag
+- [Phase 146]: 142-EVIDENCE.json generated from live calibration with human_needed and agreementRate null
+- [Phase 146]: synthetic_fixture caveat merged from corpus manifest into acceptedGaps
 
 ## Next Steps
 
-1. Jhonatan fills `145-DECISIONS.json` and runs `--confirm` script (operator gate)
-2. Re-run calibration after decisions to populate comparableCount and mismatchReasonCounts
-3. Execute Phase 146: evidence refresh and claims gate with claims_withheld until sample guidance clears
+1. Execute Phase 146 plan 02: milestone audit, claims gate, and planning sync
+2. Optionally, Jhonatan fills `145-DECISIONS.json`, runs `--confirm` script, reruns calibration and evidence build
+3. Re-run `npm run olhar-release-evidence:build` after operator decisions to refresh evidence status
