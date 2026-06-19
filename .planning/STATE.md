@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v12.7
 milestone_name: "Olhar ADScale: Direcao de Arte Antes de Compliance"
 status: in_progress
-last_updated: "2026-06-19T12:11:30.000Z"
-last_activity: 2026-06-19 - Completed Phase 140 Plan 01 (Leitura do base and Passagem Olhar)
+last_updated: "2026-06-19T12:20:30.000Z"
+last_activity: 2026-06-19 - Completed Phase 140 Plan 02 (generation direction and score demotion)
 progress:
   total_phases: 5
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 6
-  completed_plans: 5
-  percent: 83
+  completed_plans: 6
+  percent: 100
 ---
 
 # Project State
@@ -27,12 +27,12 @@ See: .planning/PROJECT.md (updated 2026-06-19)
 
 ## Current Position
 
-Phase: 140 - Advisor and Generation Direction (in progress)
-Plan: 140-01 complete; 140-02 ready
-Status: Leitura do base and Passagem Olhar server layers shipped
-Last activity: 2026-06-19 - Completed Phase 140 Plan 01 (Leitura do base and Passagem Olhar)
+Phase: 140 - Advisor and Generation Direction (complete)
+Plan: 140-02 complete — phase 140 fully shipped
+Status: Generation direction injected; score demoted to compatibility detail; dual-verdict types ready for UI
+Last activity: 2026-06-19 - Completed Phase 140 Plan 02 (generation direction and score demotion)
 
-Progress: [████████░░] v12.7 — 2/5 phases; 5/6 plans complete; Phase 140 Plan 02 ready.
+Progress: [██████████] v12.7 — 3/5 phases; 6/6 plans complete; Phase 141 ready.
 
 ## Accumulated Context
 
@@ -260,6 +260,9 @@ Progress: [████████░░] v12.7 — 2/5 phases; 5/6 plans compl
 - [Phase 140]: Keep legacy preflight score fields; baseReading is optional on normalized results
 - [Phase 140]: buildPassagemOlharVerdict returns null for export-only failures (conservative)
 - [Phase 140]: QA route persists olharVerdict via updateDerivationDualVerdict when available
+- [Phase 140]: Gate Cenbrap voice injection on pending_review until 138-VOICE-REVIEW approval
+- [Phase 140]: Generation direction block precedes MODE and flexible creative strategy in derivation prompts
+- [Phase 140]: Creative score prompt is direction-first; qualityScore remains secondary analytics field
 
 ### Phase 132 (complete — 4/4 plans)
 
@@ -324,4 +327,4 @@ Progress: [████████░░] v12.7 — 2/5 phases; 5/6 plans compl
 
 ## Next Steps
 
-Execute Phase 140 Plan 02 (`140-02-PLAN.md`) for generation direction injection and score demotion. Review Cenbrap voice in `138-VOICE-REVIEW.md` before enabling client voice injection. Keep v12.6 operator debt visible: populate live human corpus (at least 5 evaluations), set `DATABASE_URL`, rerun refresh CLIs and `operational-quality-release-gate -- --run-regression` before making live quality claims.
+Execute Phase 141 workspace UI reprioritization to surface `olharVerdict`, `directionNote`, and `exportStatus` as primary review signals. Review Cenbrap voice in `138-VOICE-REVIEW.md` and set `CENBRAP_VOICE_REVIEW_STATUS` to `approved` before enabling live client voice injection. Keep v12.6 operator debt visible: populate live human corpus (at least 5 evaluations), set `DATABASE_URL`, rerun refresh CLIs and `operational-quality-release-gate -- --run-regression` before making live quality claims.

@@ -41,8 +41,8 @@ Trocar o eixo do advisor criativo: sair de um checklist de UX/performance que tr
 
 - [x] **ADVISOR-01**: Preflight becomes `Leitura do base`, returning dominant idea, gestalt, invite weight, thumbnail read, brand presence and at most two real pre-generation risks.
 - [x] **ADVISOR-02**: Post-generation QA and score are rewritten as `Passagem Olhar`, using art-direction language instead of compliance-ticket language.
-- [ ] **ADVISOR-03**: Image generation prompts inject a short direction paragraph that states the gestalt to preserve, sacred facts, allowed variation range and explicit anti-patterns.
-- [ ] **ADVISOR-04**: Numeric quality score is demoted to internal analytics/detail; the primary user-facing decision is the dual verdict and direction note.
+- [x] **ADVISOR-03**: Image generation prompts inject a short direction paragraph that states the gestalt to preserve, sacred facts, allowed variation range and explicit anti-patterns.
+- [x] **ADVISOR-04**: Numeric quality score is demoted to internal analytics/detail; the primary user-facing decision is the dual verdict and direction note.
 
 ### Review Surface And Override (REVIEW)
 
@@ -100,8 +100,8 @@ Trocar o eixo do advisor criativo: sair de um checklist de UX/performance que tr
 | EXPORT-04 | Phase 139 | Complete |
 | ADVISOR-01 | Phase 140 | Complete |
 | ADVISOR-02 | Phase 140 | Complete |
-| ADVISOR-03 | Phase 140 | Pending |
-| ADVISOR-04 | Phase 140 | Pending |
+| ADVISOR-03 | Phase 140 | Complete |
+| ADVISOR-04 | Phase 140 | Complete |
 | REVIEW-01 | Phase 141 | Pending |
 | REVIEW-02 | Phase 141 | Pending |
 | REVIEW-03 | Phase 141 | Pending |

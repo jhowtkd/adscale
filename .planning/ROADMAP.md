@@ -21,7 +21,7 @@
 
 - [x] **Phase 138: Olhar Constitution and Cenbrap Voice** — definir a ontologia global do Olhar ADScale e a primeira voz editorial Cenbrap. (completed 2026-06-19)
 - [x] **Phase 139: Dual Verdict and Export Validator** — separar contrato criativo (`olharVerdict`) de exportacao (`exportStatus`) e bloquear `approved + invalid`. (completed 2026-06-19)
-- [ ] **Phase 140: Advisor and Generation Direction** — reescrever preflight, QA, score e prompt-builder para direcao de arte, nao checklist de UX.
+- [x] **Phase 140: Advisor and Generation Direction** — reescrever preflight, QA, score e prompt-builder para direcao de arte, nao checklist de UX. (completed 2026-06-19)
 - [ ] **Phase 141: Review Surface and Override UX** — exibir Olhar/Exportacao na workspace, capturar decisao humana e exigir override consciente.
 - [ ] **Phase 142: Cenbrap Calibration and Release Evidence** — reavaliar campanhas reais, medir concordancia com Jhonatan e fechar com evidencia honesta.
 
@@ -29,7 +29,7 @@
 |---|-------|--------------|--------|-----------|
 | 138 | Olhar Constitution and Cenbrap Voice | Complete    | 2026-06-19 | 2026-06-19 |
 | 139 | Dual Verdict and Export Validator | Complete    | 2026-06-19 | 2026-06-19 |
-| 140 | Advisor and Generation Direction | 1/2 | In Progress|  |
+| 140 | Advisor and Generation Direction | 2/2 | Complete   | 2026-06-19 |
 | 141 | Review Surface and Override UX | REVIEW-01..04 | Pending | — |
 | 142 | Cenbrap Calibration and Release Evidence | CALIB-01..04 | Pending | — |
 
@@ -93,11 +93,11 @@ Plans:
   3. Prompt builder injects a concise direction paragraph with sacred facts, allowed variation and anti-patterns.
   4. Numeric score is no longer the primary user-facing signal.
 
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 140-01-PLAN.md — Leitura do base and Passagem Olhar ✅
-- [ ] 140-02-PLAN.md — Generation direction injection and score demotion (ready)
+- [x] 140-02-PLAN.md — Generation direction injection and score demotion ✅
 
 ---
 
