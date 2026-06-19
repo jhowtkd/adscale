@@ -2,14 +2,15 @@
 gsd_state_version: 1.0
 milestone: v12.9
 milestone_name: Fechamento Humano do Olhar Cenbrap
-status: planning
-last_updated: "2026-06-19T21:18:04.747Z"
-last_activity: 2026-06-19 - Completed 147-02 calibration rerun and evidence refresh
+status: in_progress
+last_updated: "2026-06-19T22:15:21.082Z"
+last_activity: 2026-06-19 - Completed Phase 148-01 sample expansion (5 reviewable rows, 0/5 decisions)
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
+  total_plans: 4
+  completed_plans: 3
+  percent: 75
 ---
 
 # Project State
@@ -22,23 +23,23 @@ See: .planning/PROJECT.md (updated 2026-06-19)
 
 **Current focus:** v12.9 Fechamento Humano do Olhar Cenbrap. Convert v12.8's honest `human_needed` gate into real operator decisions, sample sufficiency and customer-real evidence discipline.
 
-**Status:** Ready to plan
+**Status:** Phase 148-01 complete; 5 reviewable rows ready, sample still `0/5` (`human_needed`)
 
 ## Current Position
 
-Phase: 148 - Sample Sufficiency Expansion (ready to plan)
-Plan: Not started
-Status: human_needed carry-forward — `humanDecisionCount=0`, `missingHumanDecisionCount=2`, sample `0/5`
-Last activity: 2026-06-19 - Completed 147-02 calibration rerun and evidence refresh
+Phase: 148 - Sample Sufficiency Expansion (in progress)
+Plan: 148-01 complete; 148-02 ready
+Status: sample_rows_ready — 5 reviewable `synthetic_fixture` rows; `humanDecisionCount=0`; sample guidance `0/5`
+Last activity: 2026-06-19 - Completed Phase 148-01 sample expansion
 
-Progress: [██░░░░░░░░] v12.9 — 1/4 phases complete; operator loop not unblocked
+Progress: [██████░░░░] v12.9 — 1/4 phases complete; 3/4 plans complete; operator decisions still required
 
 ## Accumulated Context
 
 ### v12.9 Direction
 
 - v12.9 exists because v12.8 proved the gate, not the agreement.
-- The primary blocker is human: Jhonatan decisions are missing (`humanDecisionCount=0`, `missingHumanDecisionCount=2`).
+- The primary blocker is human: Jhonatan decisions are missing (`humanDecisionCount=0`, `missingHumanDecisionCount=5`).
 - The minimum sample rule remains 5 operator decisions before art-direction agreement claims can unlock.
 - `synthetic_fixture` rows are acceptable for operational calibration, not customer-real proof.
 - The milestone should close v12.8 carry-forward only with decisions, sample sufficiency and source-label honesty.
@@ -75,11 +76,15 @@ Progress: [██░░░░░░░░] v12.9 — 1/4 phases complete; operat
 - [Phase 147]: First planned phase captures current review-ready decisions and reruns calibration; it may honestly remain `human_needed` if decisions are unavailable.
 - [Phase 147]: Skipped --confirm; 145-DECISIONS.json absent — human_needed carry-forward is truthful partial success
 - [Phase 147]: Dry-run validates template rows; idempotency key phase145:cenbrap-calibration:{derivationId}:{reviewer} prevents duplicate events
-- [Phase 147]: Phase 147 closes human_needed — calibration/evidence tooling complete; operator decisions carry to Phase 148
+- [Phase 147]: Phase 147 closes with `human_needed` — calibration/evidence tooling complete; operator decisions carry to Phase 148
 - [Phase 147]: HUMDEC-03/04 satisfied via truthful metrics; agreementRate withheld at 0/5
+- [Phase 148]: Phase planned as sample sufficiency expansion; it may only unlock agreement claims after at least 5 human decisions or exact blocker evidence
+- [Phase 148]: Expanded corpus via synthetic_fixture expand-only seed; Phase 144 manifest unchanged
+- [Phase 148]: NR1 Voz uses quase verdict to stay review_ready (confusa blocks packageEligible)
+- [Phase 148]: Sample guidance remains 0/5 until Jhonatan records 5 decisions via 148-DECISIONS.template.json
 
 ## Next Steps
 
-1. Jhonatan fills `145-DECISIONS.json` and runs recorder `--confirm` (operator action — can run in parallel with Phase 148)
-2. Plan Phase 148: sample sufficiency expansion (`0/5` blocker)
+1. Execute Phase 148-02 (calibration rerun and sample audit)
+2. Jhonatan copies `148-DECISIONS.template.json` → `145-DECISIONS.json`, fills decisions, runs recorder `--confirm`
 3. Do not claim agreement until sample guidance clears (`additionalNeeded=0`)

@@ -23,12 +23,14 @@ Transformar o `human_needed` de v12.8 em calibracao humana real: capturar deciso
 - [x] **HUMDEC-03**: Calibration rerun after decisions updates `humanDecisionCount`, `missingHumanDecisionCount`, `comparableCount` and mismatch reason counts from persisted decisions.
 - [x] **HUMDEC-04**: Any row still lacking human decision remains explicitly `manual_pending` / `human_needed`; no decision is inferred from system verdict.
 
+**Phase 147 note:** HUMDEC is complete at workflow/tooling and blocker-honesty level. Actual Jhonatan decisions are still absent (`humanDecisionCount=0`) and carry forward to SAMPLE / Phase 148.
+
 ### Sample Sufficiency (SAMPLE)
 
-- [ ] **SAMPLE-01**: Operator can identify or create enough reviewable rows to reach at least 5 human decisions, or records an exact blocker if more rows are unavailable.
+- [x] **SAMPLE-01**: Operator can identify or create enough reviewable rows to reach at least 5 human decisions, or records an exact blocker if more rows are unavailable.
 - [ ] **SAMPLE-02**: Evidence keeps `agreementRate=null` and quality/agreement claims withheld until sample guidance `additionalNeeded=0`.
 - [ ] **SAMPLE-03**: When the minimum sample is reached, evidence computes agreement and mismatch metrics only from comparable rows with both system and human verdicts.
-- [ ] **SAMPLE-04**: Sample guidance reports source composition (`synthetic_fixture`, `operator_imported`, `real_customer`) so claims cannot hide weak evidence.
+- [x] **SAMPLE-04**: Sample guidance reports source composition (`synthetic_fixture`, `operator_imported`, `real_customer`) so claims cannot hide weak evidence.
 
 ### Customer-Real Corpus (REALCORP)
 
@@ -72,14 +74,14 @@ Transformar o `human_needed` de v12.8 em calibracao humana real: capturar deciso
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| HUMDEC-01 | Phase 147 | Complete |
-| HUMDEC-02 | Phase 147 | Complete |
-| HUMDEC-03 | Phase 147 | Complete |
-| HUMDEC-04 | Phase 147 | Complete |
-| SAMPLE-01 | Phase 148 | Pending |
+| HUMDEC-01 | Phase 147 | Complete (human_needed carry-forward) |
+| HUMDEC-02 | Phase 147 | Complete (human_needed carry-forward) |
+| HUMDEC-03 | Phase 147 | Complete (human_needed carry-forward) |
+| HUMDEC-04 | Phase 147 | Complete (human_needed carry-forward) |
+| SAMPLE-01 | Phase 148 | Complete |
 | SAMPLE-02 | Phase 148 | Pending |
 | SAMPLE-03 | Phase 148 | Pending |
-| SAMPLE-04 | Phase 148 | Pending |
+| SAMPLE-04 | Phase 148 | Complete |
 | REALCORP-01 | Phase 149 | Pending |
 | REALCORP-02 | Phase 149 | Pending |
 | REALCORP-03 | Phase 149 | Pending |
@@ -96,3 +98,4 @@ Transformar o `human_needed` de v12.8 em calibracao humana real: capturar deciso
 
 ---
 *Requirements defined: 2026-06-19 after v12.8 human_needed claims gate*
+*Last updated: 2026-06-19 after Phase 147 human_needed verification*
