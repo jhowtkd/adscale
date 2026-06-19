@@ -31,7 +31,7 @@
 | 139 | Dual Verdict and Export Validator | Complete    | 2026-06-19 | 2026-06-19 |
 | 140 | Advisor and Generation Direction | Complete    | 2026-06-19 | 2026-06-19 |
 | 141 | Review Surface and Override UX | 3/3 | Complete   | 2026-06-19 |
-| 142 | Cenbrap Calibration and Release Evidence | 2/2 | Complete | 2026-06-19 |
+| 142 | Cenbrap Calibration and Release Evidence | 2/2 | Complete   | 2026-06-19 |
 
 ## Phase Details
 
@@ -138,7 +138,7 @@ Plans:
   3. Evidence reports agreement, approved-invalid prevention, sem-opiniao detection and export-block separation.
   4. Release audit keeps factual fidelity, art-direction quality and sample sufficiency separate.
 
-**Plans:** 2/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 142-01-PLAN.md — Cenbrap real-campaign calibration run

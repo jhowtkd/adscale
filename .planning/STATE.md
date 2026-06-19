@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v12.7
 milestone_name: "Olhar ADScale: Direcao de Arte Antes de Compliance"
-status: executing
-last_updated: "2026-06-19T14:00:00Z"
-last_activity: 2026-06-19 - Completed Phase 142-01 Cenbrap calibration run
+status: complete
+last_updated: "2026-06-19T15:04:00Z"
+last_activity: 2026-06-19 - Completed Phase 142-02; v12.7 milestone audit tech_debt
 progress:
   total_phases: 5
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 11
-  completed_plans: 10
-  percent: 91
+  completed_plans: 11
+  percent: 100
 ---
 
 # Project State
@@ -23,16 +23,16 @@ See: .planning/PROJECT.md (updated 2026-06-19)
 
 **Current focus:** v12.7 Olhar ADScale. Replace the creative advisor's UI/UX checklist bias with art-direction judgment before export compliance.
 
-**Status:** Ready to plan
+**Status:** v12.7 shipped with tech debt — live Cenbrap calibration refresh pending
 
 ## Current Position
 
-Phase: 142 - Cenbrap Calibration and Release Evidence (in progress)
-Plan: 142-01 complete; 142-02 next
-Status: Cenbrap calibration module, run script and template/contact-sheet artifacts ready; live operator decisions pending
-Last activity: 2026-06-19 - Completed Phase 142-01 Cenbrap calibration run
+Phase: 142 - Cenbrap Calibration and Release Evidence (complete)
+Plan: 142-02 complete — v12.7 milestone closed
+Status: Release evidence gate and milestone audit shipped; template Cenbrap evidence; operator decisions pending for agreement claims
+Last activity: 2026-06-19 - Completed Phase 142-02 release evidence and v12.7 milestone audit
 
-Progress: [█████████░] v12.7 — 4/5 phases; 10/11 plans complete; Phase 142-02 release evidence next.
+Progress: [██████████] v12.7 — 5/5 phases; 11/11 plans complete; milestone tech_debt.
 
 ## Accumulated Context
 
@@ -274,6 +274,8 @@ Progress: [█████████░] v12.7 — 4/5 phases; 10/11 plans com
 - [Phase 142]: Treat missing olharVerdict/exportStatus as missing_dual_verdict; never infer agreement from absent evidence
 - [Phase 142]: Cenbrap calibration script emits template artifacts when live DB or campaigns are unavailable
 - [Phase 142]: Jhonatan entra/quase/nao_entra decisions are calibration authority; system verdicts are evidence under test
+- [Phase 142]: Withhold artDirectionMetrics.agreementRate when sample guidance blocks claims
+- [Phase 142]: Close v12.7 milestone as tech_debt while Cenbrap calibration evidence remains template-only
 
 ### Phase 132 (complete — 4/4 plans)
 
@@ -338,4 +340,11 @@ Progress: [█████████░] v12.7 — 4/5 phases; 10/11 plans com
 
 ## Next Steps
 
-Execute `$gsd-execute-phase 142`: first generate Cenbrap calibration/contact-sheet evidence, then run the v12.7 release evidence/audit closure. Keep v12.6/v12.7 evidence honesty visible: do not claim art-direction quality or agreement if the Cenbrap sample or Jhonatan decisions are insufficient.
+v12.7 implementation is complete. Operator actions for stronger calibration claims:
+
+1. Run live Cenbrap calibration when `DATABASE_URL` has real campaigns.
+2. Record Jhonatan decisions in the contact sheet.
+3. Regenerate `142-EVIDENCE.json` and re-run `npm run olhar-release-evidence`.
+4. Confirm Phase 141 override UX on real campaign data.
+
+See `.planning/milestones/v12.7-MILESTONE-AUDIT.md` for full operator commands.
