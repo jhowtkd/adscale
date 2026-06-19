@@ -120,3 +120,14 @@ Regression spot-check: `olhar-release-evidence.test.ts` — 4/4 pass, including 
 | Missing decisions (current) | Operator action — Jhonatan records 5 decisions |
 | Not enough rows | Phase 149 / customer-real corpus (row blocker cleared) |
 | `additionalNeeded=0` with comparable rows | Phase 150 agreement calibration |
+
+## Claim-State Verification Log
+
+**Verified:** 2026-06-19T22:19:30Z
+
+```bash
+node -e 'const e=require("./.planning/phases/142-cenbrap-calibration-and-release-evidence/142-EVIDENCE.json"); const blocked=e.sampleGuidance.some(g=>g.additionalNeeded>0); console.assert(e.status==="human_needed"); console.assert(e.artDirectionMetrics.agreementRate===null); console.assert(blocked); console.log("claim-state-ok")'
+(cd app && npm test -- --run src/server/olhar-calibration/olhar-release-evidence.test.ts)
+```
+
+**Result:** `claim-state-ok` — evidence checker pass; 4/4 unit tests pass. No regression gap; test file unchanged.
