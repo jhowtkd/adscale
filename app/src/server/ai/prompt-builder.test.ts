@@ -22,6 +22,10 @@ import {
   extractPromptRestylingFactualSourceSection,
 } from "./prompt-builder";
 import {
+  extractPromptGenerationDirectionSection,
+  GENERATION_DIRECTION_HEADER,
+} from "./olhar/generation-direction";
+import {
   buildInputClassificationPromptSection,
   buildVisualReferenceTransferRuleSection,
   CONTAMINATION_FAILURE_CODES,
@@ -43,6 +47,65 @@ import {
 } from "./prompt-builder.test-fixtures";
 
 describe("buildDerivationPrompt", () => {
+  it("injects generation direction after hard rules and before flexible strategy", () => {
+    const prompt = buildDerivationPrompt(
+      derivationConfigFromContract(artVariationContractFixture(), {
+        plan: {
+          id: "plan-1",
+          strategy: "Use a playful summer concept",
+          angles: ["Seasonal freshness"],
+          hooks: ["Oferta por tempo limitado"],
+          ctas: ["Ver ofertas"],
+        },
+        feedback: "Tighten the invite rhythm",
+      })
+    );
+
+    const hardRulesIdx = prompt.indexOf("HARD RULES / NON-NEGOTIABLE CONTRACT");
+    const directionIdx = prompt.indexOf(GENERATION_DIRECTION_HEADER);
+    const modeIdx = prompt.indexOf("MODE: art_variation");
+    const strategyIdx = prompt.indexOf("Creative Strategy: Use a playful summer concept");
+    const feedbackIdx = prompt.indexOf("Revision Feedback: Tighten the invite rhythm");
+
+    expect(hardRulesIdx).toBeGreaterThan(-1);
+    expect(directionIdx).toBeGreaterThan(hardRulesIdx);
+    expect(modeIdx).toBeGreaterThan(directionIdx);
+    expect(strategyIdx).toBeGreaterThan(directionIdx);
+    expect(feedbackIdx).toBeGreaterThan(directionIdx);
+
+    const direction = extractPromptGenerationDirectionSection(prompt);
+    expect(direction).toContain("Sacred facts");
+    expect(direction).toContain("Allowed variation");
+    expect(direction).toMatch(/anti-patterns/i);
+  });
+
+  it("does not inject unapproved Cenbrap voice by default", () => {
+    const prompt = buildDerivationPrompt({
+      generationMode: "art_variation",
+      targetFormat: "1:1",
+      campaign: {
+        id: "camp-1",
+        workspaceId: "ws-1",
+        name: "CENBRAP NR1",
+        client: "CENBRAP",
+        product: "NR1 compliance",
+        objective: "NR1 compliance",
+        audience: null,
+        platforms: ["Meta"],
+        tone: null,
+        offer: "Conformidade NR1",
+        constraints: null,
+        notes: null,
+        status: "active",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+
+    expect(prompt).toContain(GENERATION_DIRECTION_HEADER);
+    expect(prompt).not.toContain("CLIENT VOICE — Cenbrap");
+  });
+
   it("places hard rules before flexible creative guidance", () => {
     const prompt = buildDerivationPrompt({
       generationMode: "art_variation",

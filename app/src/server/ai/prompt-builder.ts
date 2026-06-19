@@ -26,6 +26,7 @@ import {
   shouldIncludePlanHooksForMode,
 } from "./per-mode-prompt-rules";
 import { buildOlharAdscaleSection } from "./olhar/constitution";
+import { buildGenerationDirectionSection, GENERATION_DIRECTION_HEADER } from "./olhar/generation-direction";
 
 export { extractPromptPerModeRulesSection } from "./per-mode-prompt-rules";
 
@@ -450,6 +451,18 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
   }
 
   parts.push(
+    ...buildGenerationDirectionSection({
+      contract: effectiveContract,
+      campaign,
+      generationMode,
+      creativeLevel: effectiveCreativeLevel,
+      targetFormat,
+      baseReading: config.preflightResult?.baseReading ?? null,
+      locale,
+    })
+  );
+
+  parts.push(
     ...buildPerModeRulesSection({
       generationMode,
       targetFormat,
@@ -688,6 +701,10 @@ export function extractPromptRestylingFactualSourceSection(prompt: string): stri
   const start = prompt.indexOf(header);
   if (start === -1) return "";
 
-  const end = indexOfEarliest(prompt, start + header.length, ["\nMODE:", "\n\nCampaign:"]);
+  const end = indexOfEarliest(prompt, start + header.length, [
+    `\n${GENERATION_DIRECTION_HEADER}:`,
+    "\nMODE:",
+    "\n\nCampaign:",
+  ]);
   return prompt.slice(start, end).trimEnd();
 }
