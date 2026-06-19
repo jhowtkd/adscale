@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v12.8
 milestone_name: Operacao Real do Olhar Cenbrap
 status: executing
-last_updated: "2026-06-19T16:45:56.158Z"
-last_activity: 2026-06-19 - Planned Phase 143 live Cenbrap calibration run
+last_updated: "2026-06-19T16:50:00Z"
+last_activity: 2026-06-19 - Completed Phase 143 dual-verdict coverage and blocker classification
 progress:
   total_phases: 3
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
-  percent: 50
+  completed_plans: 2
+  percent: 100
 ---
 
 # Project State
@@ -23,16 +23,16 @@ See: .planning/PROJECT.md (updated 2026-06-19)
 
 **Current focus:** v12.8 Operacao Real do Olhar Cenbrap. Turn v12.7's Olhar infrastructure into live Cenbrap calibration evidence with Jhonatan decisions and honest claim gates.
 
-**Status:** Phase 143 executing — plan 143-01 complete, insufficient_campaigns blocker
+**Status:** Phase 143 complete — outcome `insufficient_campaigns`; Phase 144 blocked
 
 ## Current Position
 
-Phase: 143 - Live Cenbrap Calibration Run (in progress)
-Plan: 143-01 complete; 143-02 next
-Status: Live run executed (mode=live, 0 campaigns); insufficient_campaigns blocker recorded
-Last activity: 2026-06-19 - Completed 143-01 live calibration execution
+Phase: 143 - Live Cenbrap Calibration Run (complete)
+Plan: 143-02 complete (both plans done)
+Status: Live pipeline operational; zero campaigns in corpus; dual-verdict coverage N/A; Phase 144 blocked
+Last activity: 2026-06-19 - Completed 143-02 dual-verdict coverage and blocker classification
 
-Progress: [█████░░░░░] v12.8 — 0/3 phases; 1/6 plans complete; Phase 143 plan 143-01 done.
+Progress: [███░░░░░░░] v12.8 — 1/3 phases; 2/6 plans complete; Phase 143 complete with blocker.
 
 ## Accumulated Context
 
@@ -76,7 +76,9 @@ Progress: [█████░░░░░] v12.8 — 0/3 phases; 1/6 plans compl
 - [v12.8]: Sample guidance controls claims; no agreement rate claim while additional samples are required.
 - [Phase 143]: Live run mode=live with zero campaigns is insufficient_campaigns blocker, not template pass
 - [Phase 143]: DATABASE_URL from app/.env.local; no secrets in planning artifacts
+- [Phase 143]: Phase 143 outcome insufficient_campaigns; missing_dual_verdict_coverage N/A with zero rows
+- [Phase 143]: Phase 144 fully blocked until review_ready rows exist after corpus seeding
 
 ## Next Steps
 
-Execute Phase 143 plan 143-02: dual-verdict coverage cleanup and blocker classification.
+Phase 144 blocked until Cenbrap campaigns seeded (≥2) and `review_ready` rows exist. Operator action: seed corpus in `app/.env.local` database, re-run calibration, then proceed to Jhonatan decision capture.

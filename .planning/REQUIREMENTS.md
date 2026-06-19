@@ -21,7 +21,7 @@ Transformar a infraestrutura v12.7 do `Olhar ADScale` em uma operacao real de ca
 - [x] **CENLIVE-01**: Operator can run live Cenbrap calibration against a configured `DATABASE_URL` without using template fallback.
 - [x] **CENLIVE-02**: Calibration selects at least two real Cenbrap campaigns or records an explicit blocker explaining why the environment lacks enough campaigns.
 - [x] **CENLIVE-03**: Generated contact sheet includes real campaign rows with safe derivation refs, `olharVerdict`, `exportStatus`, package eligibility and override markers.
-- [ ] **CENLIVE-04**: Rows missing `olharVerdict` or `exportStatus` are classified as missing evidence and routed to QA/regeneration follow-up, not inferred as agreement or disagreement.
+- [x] **CENLIVE-04**: Rows missing `olharVerdict` or `exportStatus` are classified as missing evidence and routed to QA/regeneration follow-up, not inferred as agreement or disagreement.
 
 ### Human Judgment Capture (JUDGE)
 
@@ -68,7 +68,7 @@ Transformar a infraestrutura v12.7 do `Olhar ADScale` em uma operacao real de ca
 | CENLIVE-01 | Phase 143 | Complete |
 | CENLIVE-02 | Phase 143 | Complete |
 | CENLIVE-03 | Phase 143 | Complete |
-| CENLIVE-04 | Phase 143 | Pending |
+| CENLIVE-04 | Phase 143 | Complete |
 | JUDGE-01 | Phase 144 | Pending |
 | JUDGE-02 | Phase 144 | Pending |
 | JUDGE-03 | Phase 144 | Pending |

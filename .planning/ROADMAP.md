@@ -20,13 +20,13 @@
 
 **Starting point:** `v12.7-MILESTONE-AUDIT.md` fechou como `tech_debt`: implementacao do Olhar esta pronta, mas `evaluatedCampaignCount=0`, `humanDecisionCount=0`, `agreementRate=null` e `142-CENBRAP-CALIBRATION.json` live ainda nao existe.
 
-- [ ] **Phase 143: Live Cenbrap Calibration Run** — planned; rodar a calibracao contra dados reais, produzir JSON live/contact sheet e classificar lacunas de dual verdict.
+- [x] **Phase 143: Live Cenbrap Calibration Run** — planned; rodar a calibracao contra dados reais, produzir JSON live/contact sheet e classificar lacunas de dual verdict. (completed 2026-06-19)
 - [ ] **Phase 144: Jhonatan Decision Capture and Mismatch Triage** — capturar `entra/quase/nao_entra`, motivos de mismatch e filas de follow-up.
 - [ ] **Phase 145: Evidence Refresh and Claims Gate** — regenerar evidencia, fechar/carry-forward da divida v12.7 e bloquear claims se a amostra ainda for insuficiente.
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
-| 143 | Live Cenbrap Calibration Run | 1/2 | In Progress|  |
+| 143 | Live Cenbrap Calibration Run | 2/2 | Complete   | 2026-06-19 |
 | 144 | Jhonatan Decision Capture and Mismatch Triage | JUDGE-01..04 | Pending | — |
 | 145 | Evidence Refresh and Claims Gate | CLAIM-01..04 | Pending | — |
 
@@ -46,11 +46,11 @@
   3. `142-CONTACT-SHEET.md` contains real rows with safe derivation refs, dual verdicts, package eligibility and override markers.
   4. Missing dual-verdict rows are counted and routed to follow-up instead of being inferred.
 
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 143-01-PLAN.md — Live environment calibration execution and artifact refresh
-- [ ] 143-02-PLAN.md — Dual-verdict coverage cleanup and blocker classification
+- [x] 143-02-PLAN.md — Dual-verdict coverage cleanup and blocker classification
 
 ---
 
