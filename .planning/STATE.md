@@ -2,14 +2,15 @@
 gsd_state_version: 1.0
 milestone: v12.8
 milestone_name: Operacao Real do Olhar Cenbrap
-status: planning
-last_updated: "2026-06-19T17:23:53.236Z"
-last_activity: 2026-06-19 - Completed 144-02 live calibration rerun
+status: executing
+last_updated: "2026-06-19T17:47:43.136Z"
+last_activity: 2026-06-19 - Planned Phase 145 Jhonatan decision capture and mismatch triage
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 4
-  completed_plans: 4
+  total_plans: 6
+  completed_plans: 5
+  percent: 83
 ---
 
 # Project State
@@ -22,16 +23,16 @@ See: .planning/PROJECT.md (updated 2026-06-19)
 
 **Current focus:** v12.8 Operacao Real do Olhar Cenbrap. Turn v12.7's Olhar infrastructure into live Cenbrap calibration evidence with Jhonatan decisions and honest claim gates.
 
-**Status:** Ready to plan
+**Status:** Phase 145-01 complete — decision capture workflow ready; human_needed
 
 ## Current Position
 
-Phase: 145 - Jhonatan Decision Capture (next)
-Plan: Phase 144 complete (144-01 + 144-02)
-Status: ready_for_jhonatan_review — 2 contact sheet rows await human decisions
-Last activity: 2026-06-19 - Completed 144-02 live calibration rerun
+Phase: 145 - Jhonatan Decision Capture and Mismatch Triage (in progress)
+Plan: 145-01 complete; 145-02 next
+Status: human_needed — workflow ready; Jhonatan must fill 145-DECISIONS.json
+Last activity: 2026-06-19 - Completed 145-01 operator decision capture workflow
 
-Progress: [█████░░░░░] v12.8 — 2/4 phases; 4/8 plans complete; Phase 144 done.
+Progress: [███████░░░] v12.8 — 2/4 phases; 5/6 plans complete; Phase 145 in progress.
 
 ## Accumulated Context
 
@@ -84,7 +85,12 @@ Progress: [█████░░░░░] v12.8 — 2/4 phases; 4/8 plans compl
 - [Phase 144]: Phase 145 unblocked: ready_for_jhonatan_review with review_ready=2 synthetic_fixture rows
 - [Phase 144]: Live calibration rerun mode=live with evaluatedCampaignCount=2; Phase 143 insufficient_campaigns resolved
 - [Phase 144]: Agreement rate and quality claims remain withheld until operator decisions meet sample guidance
+- [Phase 145]: Planned decision capture through canonical output_decision_events or deterministic normalized artifact
+- [Phase 145]: Two synthetic_fixture review_ready rows are enough to test the operator loop, not enough for quality claims
+- [Phase 145]: Operator decision capture uses JSON template + record-cenbrap-calibration-decisions.ts; human_needed until Jhonatan fills decisions
+- [Phase 145]: Idempotency key phase145:cenbrap-calibration:{derivationId}:{reviewer} prevents duplicate event inserts
 
 ## Next Steps
 
-Execute Phase 145: Jhonatan decision capture on 2 `review_ready` contact sheet rows (`entra/quase/nao_entra`). Agreement rate claims remain withheld until sample guidance clears.
+1. Jhonatan fills `145-DECISIONS.json` from template and runs `--confirm` script
+2. Execute Phase 145-02: mismatch taxonomy and calibration rerun
