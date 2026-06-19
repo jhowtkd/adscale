@@ -324,4 +324,4 @@ Progress: [████████░░] v12.7 — 2/5 phases; 5/6 plans compl
 
 ## Next Steps
 
-Execute Phase 139 Plan 02 (`139-02-PLAN.md`) for deterministic export validation. Review Cenbrap voice in `138-VOICE-REVIEW.md` before Phase 140 prompt injection. Keep v12.6 operator debt visible: populate live human corpus (at least 5 evaluations), set `DATABASE_URL`, rerun refresh CLIs and `operational-quality-release-gate -- --run-regression` before making live quality claims.
+Execute Phase 140 Plan 02 (`140-02-PLAN.md`) for generation direction injection and score demotion. Review Cenbrap voice in `138-VOICE-REVIEW.md` before enabling client voice injection. Keep v12.6 operator debt visible: populate live human corpus (at least 5 evaluations), set `DATABASE_URL`, rerun refresh CLIs and `operational-quality-release-gate -- --run-regression` before making live quality claims.
