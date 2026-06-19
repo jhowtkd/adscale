@@ -1,8 +1,8 @@
 # Phase 142 — Cenbrap Calibration Contact Sheet
 
-Captured: 2026-06-19T13:54:39.162Z
-Status: template
-Mode: template
+Captured: 2026-06-19T16:44:10.333Z
+Status: no_live_data
+Mode: live
 
 ## Calibration authority
 

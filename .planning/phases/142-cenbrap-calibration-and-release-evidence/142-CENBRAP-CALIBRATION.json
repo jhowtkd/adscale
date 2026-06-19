@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-06-19T16:44:10.333Z",
+  "client": "Cenbrap",
+  "mode": "live",
+  "status": "no_live_data",
+  "campaigns": [],
+  "operatorDecisions": [],
+  "metrics": {
+    "evaluatedCampaignCount": 0,
+    "evaluatedDerivationCount": 0,
+    "decisionCount": 0,
+    "comparableCount": 0,
+    "agreementCount": 0,
+    "mismatchCount": 0,
+    "agreementRate": null,
+    "mismatchReasonCounts": {},
+    "approvedInvalidPreventedCount": 0,
+    "semOpiniaoDetectionCount": 0,
+    "exportBlockSeparationCount": 0,
+    "missingDualVerdictCount": 0,
+    "missingHumanDecisionCount": 0
+  },
+  "sampleGuidance": [
+    {
+      "gate": "calibration_global",
+      "currentCount": 0,
+      "requiredCount": 5,
+      "additionalNeeded": 5,
+      "blockedClaim": "Cenbrap art-direction agreement rate"
+    },
+    {
+      "gate": "calibration_slice",
+      "sliceKey": "cenbrap_campaigns",
+      "currentCount": 0,
+      "requiredCount": 2,
+      "additionalNeeded": 2,
+      "blockedClaim": "multi-campaign Cenbrap calibration coverage"
+    }
+  ],
+  "evidenceNotes": [
+    "No Cenbrap campaigns matched conservative selection signals.",
+    "Template or insufficient_sample status is expected until live data exists."
+  ]
+}
