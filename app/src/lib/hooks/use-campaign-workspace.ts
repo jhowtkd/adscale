@@ -575,7 +575,11 @@ export function useCampaignWorkspace(
   const handleReviewDecision = useCallback(
     (
       id: string,
-      input: { decision: ReviewDecision; directionReason?: string }
+      input: {
+        decision: ReviewDecision;
+        directionReason?: string;
+        overrideReason?: string;
+      }
     ) => {
       reviewMutation.mutate(
         { id, ...input },
