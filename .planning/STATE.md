@@ -27,12 +27,12 @@ See: .planning/PROJECT.md (updated 2026-06-19)
 
 ## Current Position
 
-Phase: 145 - Jhonatan Decision Capture and Mismatch Triage (in progress)
-Plan: 145-01 complete; 145-02 next
-Status: human_needed — workflow ready; Jhonatan must fill 145-DECISIONS.json
-Last activity: 2026-06-19 - Completed 145-01 operator decision capture workflow
+Phase: 145 - Jhonatan Decision Capture and Mismatch Triage (complete — partial outcome)
+Plan: 145-02 complete; Phase 146 next
+Status: metrics_ready_claims_withheld — mismatch buckets normalized; Jhonatan decisions still pending
+Last activity: 2026-06-19 - Completed 145-02 mismatch taxonomy and calibration rerun
 
-Progress: [███████░░░] v12.8 — 2/4 phases; 5/6 plans complete; Phase 145 in progress.
+Progress: [████████░░] v12.8 — 2/4 phases; 6/6 plans complete; Phase 145 closed with honest partial state.
 
 ## Accumulated Context
 
@@ -89,8 +89,12 @@ Progress: [███████░░░] v12.8 — 2/4 phases; 5/6 plans compl
 - [Phase 145]: Two synthetic_fixture review_ready rows are enough to test the operator loop, not enough for quality claims
 - [Phase 145]: Operator decision capture uses JSON template + record-cenbrap-calibration-decisions.ts; human_needed until Jhonatan fills decisions
 - [Phase 145]: Idempotency key phase145:cenbrap-calibration:{derivationId}:{reviewer} prevents duplicate event inserts
+- [Phase 145]: Mismatch buckets normalized in cenbrap-calibration.ts; mismatchReasonCounts aggregates by bucket
+- [Phase 145]: Phase outcome manual_decisions_missing + metrics_ready_claims_withheld; Phase 146 may refresh evidence but claims stay blocked
+- [Phase 145]: synthetic_fixture source caveat mandatory in all Phase 146 artifacts
 
 ## Next Steps
 
-1. Jhonatan fills `145-DECISIONS.json` from template and runs `--confirm` script
-2. Execute Phase 145-02: mismatch taxonomy and calibration rerun
+1. Jhonatan fills `145-DECISIONS.json` and runs `--confirm` script (operator gate)
+2. Re-run calibration after decisions to populate comparableCount and mismatchReasonCounts
+3. Execute Phase 146: evidence refresh and claims gate with claims_withheld until sample guidance clears
