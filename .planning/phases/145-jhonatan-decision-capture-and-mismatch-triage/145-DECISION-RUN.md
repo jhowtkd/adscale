@@ -60,17 +60,44 @@ cd app && npx tsx scripts/record-cenbrap-calibration-decisions.ts --dry-run
 cd app && npx tsx scripts/record-cenbrap-calibration-decisions.ts --confirm --input ../.planning/phases/145-jhonatan-decision-capture-and-mismatch-triage/145-DECISIONS.json
 ```
 
+## Decision source
+
+- **Input artifact:** `145-DECISIONS.template.json` (pending copy to `145-DECISIONS.json`)
+- **Calibration authority:** Jhonatan (`reviewerEmail`: `dev@adscale.local`)
+- **Status:** `human_needed` — no fabricated decisions in this session
+- **Canonical store:** `output_decision_events` (append-only, sanitized snapshots)
+
+## Dry-run validation (2026-06-19)
+
+```bash
+cd app && npx tsx scripts/record-cenbrap-calibration-decisions.ts --dry-run
+```
+
+Result:
+
+| Metric | Value |
+| --- | ---: |
+| totalRows | 2 |
+| pendingHumanInput | 2 |
+| wouldRecord | 0 |
+| recorded | 0 |
+| skippedExisting | 0 |
+
+Both derivations validated against `142-CENBRAP-CALIBRATION.json` as `review_ready`. Script exits 0.
+
 ## Event ids
 
 | Derivation | decisionEventId | reviewer | reviewedAt |
 | --- | --- | --- | --- |
-| `a92788f7` | pending | — | — |
-| `01faf2a6` | pending | — | — |
+| `a92788f7` | pending — human_needed | — | — |
+| `01faf2a6` | pending — human_needed | — | — |
 
 ## Metrics expectation
 
-`missingHumanDecisionCount` in `142-CENBRAP-CALIBRATION.json` is **2** until decisions are recorded and calibration is re-run (Phase 145-02). `decisionCount` remains **0** until then.
+`missingHumanDecisionCount` in `142-CENBRAP-CALIBRATION.json` is **2** until Jhonatan fills `145-DECISIONS.json`, `--confirm` records events, and Phase 145-02 re-runs calibration. `decisionCount` remains **0** until then.
 
 ## Secret scan
 
-_Pending — completed in task 145-01-03._
+Scanned `.planning/phases/145-jhonatan-decision-capture-and-mismatch-triage/` for `DATABASE_URL`, signed URLs, API keys, and postgres connection strings.
+
+**Result: PASS** — no secrets, prompts, or signed URLs in phase artifacts. Only policy references in plan docs (e.g. "do not write DATABASE_URL").
