@@ -94,3 +94,35 @@ test -f .planning/phases/144-cenbrap-corpus-seeding-and-calibration-rerun/144-CO
 ```
 
 Post-seed inspection: 2 candidate campaigns, 2 with dual verdict coverage across 2 workspaces scanned.
+
+## Dual-verdict readiness pass (144-02-01)
+
+| Field | Value |
+|-------|-------|
+| `inspected_at` | 2026-06-19T17:15:49.288Z |
+| `command` | `cd app && npx tsx scripts/seed-cenbrap-calibration-corpus.ts --inspect-only` |
+| `candidate_cenbrap_campaigns` | 2 |
+| `campaigns_with_output_derivations` | 2 |
+| `campaigns_with_dual_verdict_coverage` | 2 |
+
+### Derivation row classification
+
+| Metric | Count |
+|--------|------:|
+| Total candidate derivations (`outputKey`, not preview) | 2 |
+| `review_ready` (dual verdict + safe `outputRef`) | 2 |
+| `missing_dual_verdict` | 0 |
+| `missing_olhar` | 0 |
+| `missing_export` | 0 |
+| `missing_both` | 0 |
+| `missing_output_ref` | 0 |
+| `legacy_derivation` | 0 |
+
+### Per-campaign summary (safe)
+
+| Campaign | Output derivations | Dual verdict | Package eligible | Source label |
+|----------|-------------------:|:------------:|:----------------:|--------------|
+| Cenbrap Calibration — NR1 Gestalt | 1 | yes (`quase` / `ok`) | yes | synthetic_fixture |
+| Cenbrap Calibration — NR1 Convite | 1 | yes (`pronta` / `ajuste_menor`) | yes | synthetic_fixture |
+
+All rows passed readiness inspection — no QA/regeneration routing required. Rows are `synthetic_fixture` operational calibration only, not real customer evidence.
