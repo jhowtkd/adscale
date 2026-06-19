@@ -58,6 +58,22 @@ const derivation = {
   generationMode: "format_adaptation" as const,
   qualityVerdict: "invalid" as const,
   hardFailures: [{ code: "cta_drift", message: "CTA not visible" }],
+  qualityScore: 72,
+  olharVerdict: {
+    value: "confusa" as const,
+    axes: { figura: 1, gestalt: 1, voz: 1, convite: 0 },
+    whatWorks: ["Readable headline"],
+    whatBlocks: ["No dominant idea"],
+    directionNote: "Rebuild around a clearer figure.",
+    source: "quality_gate" as const,
+    evaluatedAt: "2026-06-19T00:00:00.000Z",
+  },
+  exportStatus: {
+    value: "ajuste_menor" as const,
+    issues: [{ code: "cta_drift", message: "CTA contrast low" }],
+    setupIssues: [],
+    evaluatedAt: "2026-06-19T00:00:00.000Z",
+  },
   createdAt: new Date(),
 };
 
@@ -86,16 +102,57 @@ describe("DerivationReviewSheet", () => {
     vi.clearAllMocks();
   });
 
-  it("renders contract and quality panels for a derivation", () => {
+  it("renders Olhar-first review hierarchy before export and score details", () => {
     renderSheet();
 
     expect(screen.getByText("reviewTitle:Test Derivation")).toBeInTheDocument();
-    expect(screen.getByText("contractPanelTitle")).toBeInTheDocument();
-    expect(screen.getByText("qualityPanelTitle")).toBeInTheDocument();
-    expect(screen.getByText("hardFailureCodes.cta_drift")).toBeInTheDocument();
-    expect(screen.getByText("CTA not visible")).toBeInTheDocument();
-    expect(screen.getByText("blockingFailureHint")).toBeInTheDocument();
-    expect(screen.getByText("generationMode.format_adaptation")).toBeInTheDocument();
+    expect(screen.getByText("olharPanelTitle")).toBeInTheDocument();
+    expect(screen.getByText("olharVerdict.confusa")).toBeInTheDocument();
+    expect(screen.getByText("Rebuild around a clearer figure.")).toBeInTheDocument();
+    expect(screen.getByText("Readable headline")).toBeInTheDocument();
+    expect(screen.getByText("No dominant idea")).toBeInTheDocument();
+    expect(screen.getByText("decisionEntra")).toBeInTheDocument();
+    expect(screen.getByText("decisionQuaseRegenerar")).toBeInTheDocument();
+    expect(screen.getByText("decisionNaoEntra")).toBeInTheDocument();
+    expect(screen.getByText("exportDetailsToggle")).toBeInTheDocument();
+    expect(screen.getByText("scoreDetailsToggle")).toBeInTheDocument();
+
+    const olhar = screen.getByText("olharPanelTitle");
+    const exportToggle = screen.getByText("exportDetailsToggle");
+    const scoreToggle = screen.getByText("scoreDetailsToggle");
+    expect(
+      olhar.compareDocumentPosition(exportToggle) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    expect(
+      exportToggle.compareDocumentPosition(scoreToggle) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+  });
+
+  it("requires direction reason before submitting quase or nao entra", () => {
+    const onSubmitDecision = vi.fn();
+    renderSheet({ onSubmitDecision });
+
+    fireEvent.click(screen.getByRole("button", { name: "decisionQuaseRegenerar" }));
+    fireEvent.click(screen.getByRole("button", { name: "decisionQuaseRegenerar" }));
+
+    expect(screen.getByText(/directionReasonRequired/)).toBeInTheDocument();
+    expect(onSubmitDecision).not.toHaveBeenCalled();
+  });
+
+  it("submits structured decision with direction reason", () => {
+    const onSubmitDecision = vi.fn();
+    renderSheet({ onSubmitDecision });
+
+    fireEvent.click(screen.getByRole("button", { name: "decisionNaoEntra" }));
+    fireEvent.change(screen.getByLabelText("directionReasonLabel"), {
+      target: { value: "Simplify the lower third and strengthen the invite." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "decisionNaoEntra" }));
+
+    expect(onSubmitDecision).toHaveBeenCalledWith({
+      decision: "nao_entra",
+      directionReason: "Simplify the lower third and strengthen the invite.",
+    });
   });
 
   it("shows add-to-corpus action for completed derivations with workspace context", () => {

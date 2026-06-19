@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { Check, RefreshCw, X } from "lucide-react";
+import { useState } from "react";
+import { RefreshCw } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useMutation } from "@tanstack/react-query";
 import {
@@ -14,11 +15,21 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { scoreCappedForDisplay } from "@/lib/derivation-quality";
+import {
+  getExportDisplay,
+  getOlharDisplay,
+  isNormalApprovalBlocked,
+  MIN_DIRECTION_REASON_LENGTH,
+  type ReviewDecision,
+  validateDirectionReason,
+  verdictBadgeClassName,
+} from "@/lib/derivation-review-display";
 import { apiFetch } from "@/lib/api-client";
 import { useAppStore } from "@/lib/store";
 import type { Derivation } from "@/lib/mock-data";
 import type { AssetWithUrl } from "@/lib/hooks/use-assets";
 import ContextualFeedbackButton from "@/components/feedback/ContextualFeedbackButton";
+import { cn } from "@/lib/utils";
 
 type DerivationWithWorkspace = Derivation & { workspaceId?: string };
 
@@ -31,6 +42,13 @@ const CORPUS_API_ERROR_CODES = [
   "validation_error",
   "duplicate_corpus_item",
   "invalid_quality_snapshot",
+] as const;
+
+const OLHAR_AXIS_KEYS = [
+  ["figura", "olharAxisFigura"],
+  ["gestalt", "olharAxisGestalt"],
+  ["voz", "olharAxisVoz"],
+  ["convite", "olharAxisConvite"],
 ] as const;
 
 interface DerivationReviewSheetProps {
@@ -50,6 +68,10 @@ interface DerivationReviewSheetProps {
   onRegenerateWithFixes: () => void;
   onApprove?: () => void;
   onReject?: () => void;
+  onSubmitDecision?: (input: {
+    decision: ReviewDecision;
+    directionReason?: string;
+  }) => void;
   onAddToCorpus?: () => void;
 }
 
@@ -82,6 +104,31 @@ function AssetThumb({
         <p className="text-xs text-[var(--text-secondary)]">{emptyLabel}</p>
       )}
     </div>
+  );
+}
+
+function BulletList({
+  items,
+  tone,
+}: {
+  items: string[];
+  tone: "positive" | "negative";
+}) {
+  if (items.length === 0) return null;
+  return (
+    <ul className="space-y-1">
+      {items.map((item) => (
+        <li
+          key={item}
+          className={cn(
+            "text-xs leading-snug",
+            tone === "positive" ? "text-emerald-400/90" : "text-rose-300/90"
+          )}
+        >
+          {item}
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -118,6 +165,7 @@ export default function DerivationReviewSheet({
   onRegenerateWithFixes,
   onApprove,
   onReject,
+  onSubmitDecision,
   onAddToCorpus,
 }: DerivationReviewSheetProps) {
   const t = useTranslations("derivation");
@@ -125,6 +173,9 @@ export default function DerivationReviewSheet({
   const tc = useTranslations("common");
   const te = useTranslations("errors");
   const addToast = useAppStore((s) => s.addToast);
+  const [pendingDecision, setPendingDecision] = useState<ReviewDecision | null>(null);
+  const [directionReason, setDirectionReason] = useState("");
+  const [directionReasonError, setDirectionReasonError] = useState<string | null>(null);
 
   const effectiveWorkspaceId =
     workspaceId ?? (derivation as DerivationWithWorkspace | null)?.workspaceId;
@@ -184,7 +235,12 @@ export default function DerivationReviewSheet({
     derivation.qualityScore,
     derivation.qualityVerdict
   );
-  const isInvalid = derivation.qualityVerdict === "invalid";
+  const olhar = derivation.olharVerdict;
+  const exportStatus = derivation.exportStatus;
+  const olharDisplay = getOlharDisplay(olhar);
+  const exportDisplay = getExportDisplay(exportStatus);
+  const approvalBlocked = isNormalApprovalBlocked(derivation);
+  const legacyInvalid = derivation.qualityVerdict === "invalid" && !olhar;
   const showInheritedCta =
     !derivation.ctaText &&
     (derivation.generationMode === "format_adaptation" ||
@@ -192,6 +248,54 @@ export default function DerivationReviewSheet({
   const modeLabel = derivation.generationMode
     ? t(`generationMode.${derivation.generationMode}`)
     : tr("unknownMode");
+  const whatWorks = olhar?.whatWorks?.length
+    ? olhar.whatWorks
+    : derivation.polishSuggestions ?? [];
+  const whatBlocks = olhar?.whatBlocks?.length
+    ? olhar.whatBlocks
+    : derivation.hardFailures?.map((failure) => {
+        const title = tr(`hardFailureCodes.${failure.code}` as "hardFailureCodes.cta_drift");
+        return failure.message && failure.message !== title
+          ? `${title}: ${failure.message}`
+          : title;
+      }) ?? [];
+
+  const submitDecision = (decision: ReviewDecision) => {
+    if (decision === "quase_regenerar" || decision === "nao_entra") {
+      if (!validateDirectionReason(directionReason)) {
+        setDirectionReasonError(
+          tr("directionReasonRequired", { min: String(MIN_DIRECTION_REASON_LENGTH) })
+        );
+        setPendingDecision(decision);
+        return;
+      }
+    }
+
+    setDirectionReasonError(null);
+    if (onSubmitDecision) {
+      onSubmitDecision({
+        decision,
+        directionReason:
+          decision === "quase_regenerar" || decision === "nao_entra"
+            ? directionReason.trim()
+            : undefined,
+      });
+      return;
+    }
+
+    if (decision === "entra") {
+      onApprove?.();
+      return;
+    }
+    onReject?.();
+  };
+
+  const decisionPending =
+    pendingDecision === "entra"
+      ? isApproving
+      : pendingDecision === "nao_entra" || pendingDecision === "quase_regenerar"
+        ? isRejecting || isRegenerating
+        : isApproving || isRejecting;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -218,107 +322,256 @@ export default function DerivationReviewSheet({
             )}
           </div>
 
-          <section className="space-y-3 rounded-lg border border-[var(--border-dim)] p-3">
-            <h3 className="text-sm font-semibold text-[var(--text-primary)]">
-              {tr("contractPanelTitle")}
-            </h3>
-            <dl className="grid gap-2 text-sm">
-              <div className="flex justify-between gap-4">
-                <dt className="text-[var(--text-muted)]">{tr("generationMode")}</dt>
-                <dd className="text-right text-[var(--text-primary)]">{modeLabel}</dd>
-              </div>
-              <div className="flex justify-between gap-4">
-                <dt className="text-[var(--text-muted)]">{tr("targetFormat")}</dt>
-                <dd className="text-right text-[var(--text-primary)]">
-                  {derivation.format ?? tr("notSpecified")}
-                </dd>
-              </div>
-              <div className="flex justify-between gap-4">
-                <dt className="text-[var(--text-muted)]">{tr("ctaContract")}</dt>
-                <dd className="text-right text-[var(--text-primary)]">
-                  {derivation.ctaText ??
-                    (showInheritedCta ? tr("ctaInheritedFromBase") : tr("notSpecified"))}
-                </dd>
-              </div>
-            </dl>
-            <div className="flex flex-wrap gap-4 pt-1">
-              <AssetThumb
-                asset={baseAsset}
-                label={tr("baseAsset")}
-                emptyLabel={tr("assetNotAvailable")}
-              />
-              {derivation.generationMode === "restyling" ? (
-                <AssetThumb
-                  asset={styleAsset}
-                  label={tr("styleReference")}
-                  emptyLabel={tr("styleNotProvided")}
-                />
-              ) : null}
+          <section className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+                {tr("olharPanelTitle")}
+              </h3>
+              {olharDisplay ? (
+                <span
+                  className={cn(
+                    "inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-semibold",
+                    verdictBadgeClassName(olharDisplay.tone)
+                  )}
+                >
+                  {tr(olharDisplay.labelKey)}
+                </span>
+              ) : (
+                <span className="text-xs text-[var(--text-muted)]">{tr("notSpecified")}</span>
+              )}
             </div>
+
+            {olhar?.axes ? (
+              <dl className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+                {OLHAR_AXIS_KEYS.map(([axisKey, labelKey]) => (
+                  <div key={axisKey} className="rounded-md border border-[var(--border-dim)] px-2 py-1.5">
+                    <dt className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
+                      {tr(labelKey)}
+                    </dt>
+                    <dd className="text-sm font-semibold text-[var(--text-primary)]">
+                      {olhar.axes[axisKey]}/3
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            ) : null}
           </section>
 
-          <section className="space-y-3 rounded-lg border border-[var(--border-dim)] p-3">
-            <h3 className="text-sm font-semibold text-[var(--text-primary)]">
-              {tr("qualityPanelTitle")}
-            </h3>
-            {derivation.qualityVerdict === "invalid" ? (
-              <p className="text-xs font-semibold text-rose-400">{t("invalidOutputBadge")}</p>
-            ) : null}
-            {derivation.qualityVerdict === "improvable" ? (
-              <p className="text-xs font-semibold text-amber-500">{t("improvableOutputBadge")}</p>
-            ) : null}
-            {displayScore != null ? (
-              <p className="text-xs text-[var(--text-secondary)]">
-                {tr("qualityScore")}: {displayScore}
+          {olhar?.directionNote ? (
+            <section className="space-y-1.5">
+              <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+                {tr("directionNoteTitle")}
+              </h3>
+              <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
+                {olhar.directionNote}
               </p>
-            ) : null}
-            {derivation.hardFailures && derivation.hardFailures.length > 0 ? (
-              <div>
-                <p className="text-[11px] font-medium text-[var(--text-muted)] mb-1">
-                  {tr("hardFailuresTitle")}
-                </p>
-                <p className="text-[10px] text-[var(--text-muted)] mb-1.5">
-                  {tr("blockingFailureHint")}
-                </p>
-                <ul className="space-y-1.5">
-                  {derivation.hardFailures.map((failure) => {
-                    const title = tr(`hardFailureCodes.${failure.code}` as "hardFailureCodes.cta_drift");
-                    const detail =
-                      failure.message && failure.message !== title
-                        ? failure.message.length > 120
-                          ? `${failure.message.slice(0, 117)}...`
-                          : failure.message
-                        : null;
-                    return (
-                      <li key={failure.code} className="text-xs text-rose-300/90">
-                        <span className="font-medium">{title}</span>
-                        {detail ? (
-                          <span className="mt-0.5 block text-[11px] text-rose-300/70">{detail}</span>
-                        ) : null}
-                      </li>
-                    );
-                  })}
-                </ul>
+            </section>
+          ) : null}
+
+          {(whatWorks.length > 0 || whatBlocks.length > 0) && (
+            <section className="grid gap-4 sm:grid-cols-2">
+              {whatWorks.length > 0 ? (
+                <div className="space-y-1.5">
+                  <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+                    {tr("whatWorksTitle")}
+                  </h3>
+                  <BulletList items={whatWorks} tone="positive" />
+                </div>
+              ) : null}
+              {whatBlocks.length > 0 ? (
+                <div className="space-y-1.5">
+                  <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+                    {tr("whatBlocksTitle")}
+                  </h3>
+                  <BulletList items={whatBlocks} tone="negative" />
+                </div>
+              ) : null}
+            </section>
+          )}
+
+          {derivation.status === "completed" && (onSubmitDecision || (onApprove && onReject)) ? (
+            <section className="space-y-3 border-t border-[var(--border-dim)] pt-4">
+              <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+                {tr("decisionTitle")}
+              </h3>
+              {(pendingDecision === "quase_regenerar" || pendingDecision === "nao_entra") && (
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="direction-reason"
+                    className="text-xs font-medium text-[var(--text-secondary)]"
+                  >
+                    {tr("directionReasonLabel")}
+                  </label>
+                  <textarea
+                    id="direction-reason"
+                    value={directionReason}
+                    onChange={(event) => {
+                      setDirectionReason(event.target.value);
+                      if (directionReasonError && validateDirectionReason(event.target.value)) {
+                        setDirectionReasonError(null);
+                      }
+                    }}
+                    rows={3}
+                    placeholder={tr("directionReasonPlaceholder")}
+                    className="w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-primary)]"
+                  />
+                  {directionReasonError ? (
+                    <p className="text-xs text-rose-400">{directionReasonError}</p>
+                  ) : null}
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setPendingDecision("entra");
+                    submitDecision("entra");
+                  }}
+                  disabled={decisionPending || approvalBlocked}
+                  title={approvalBlocked ? tr("approveBlockedInvalid") : undefined}
+                >
+                  {tr("decisionEntra")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    if (pendingDecision !== "quase_regenerar") {
+                      setPendingDecision("quase_regenerar");
+                      return;
+                    }
+                    submitDecision("quase_regenerar");
+                  }}
+                  disabled={decisionPending}
+                >
+                  {tr("decisionQuaseRegenerar")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    if (pendingDecision !== "nao_entra") {
+                      setPendingDecision("nao_entra");
+                      return;
+                    }
+                    submitDecision("nao_entra");
+                  }}
+                  disabled={decisionPending}
+                >
+                  {tr("decisionNaoEntra")}
+                </Button>
               </div>
-            ) : null}
-            {derivation.polishSuggestions && derivation.polishSuggestions.length > 0 ? (
-              <div>
-                <p className="text-[11px] font-medium text-[var(--text-muted)] mb-1">
-                  {tr("polishSuggestionsTitle")}
-                </p>
-                <p className="text-[10px] text-[var(--text-muted)] mb-1.5">
-                  {tr("polishSuggestionHint")}
-                </p>
-                <ul className="space-y-1">
-                  {derivation.polishSuggestions.map((suggestion) => (
-                    <li key={suggestion} className="text-xs text-amber-500/90">
-                      {suggestion}
-                    </li>
-                  ))}
-                </ul>
+              {legacyInvalid ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={onRegenerateWithFixes}
+                  disabled={isRegenerating}
+                  className="px-0 text-[var(--accent-blue)]"
+                >
+                  <RefreshCw className="size-4 mr-1" />
+                  {tr("regenerateWithFixesConfirm")}
+                </Button>
+              ) : null}
+            </section>
+          ) : null}
+
+          <details className="rounded-lg border border-[var(--border-dim)] p-3">
+            <summary className="cursor-pointer text-sm font-medium text-[var(--text-secondary)]">
+              {tr("exportDetailsToggle")}
+            </summary>
+            <div className="mt-3 space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-semibold text-[var(--text-primary)]">
+                  {tr("exportPanelTitle")}
+                </span>
+                {exportDisplay ? (
+                  <span
+                    className={cn(
+                      "inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-semibold",
+                      verdictBadgeClassName(exportDisplay.tone)
+                    )}
+                  >
+                    {tr(exportDisplay.labelKey)}
+                  </span>
+                ) : (
+                  <span className="text-xs text-[var(--text-muted)]">{tr("notSpecified")}</span>
+                )}
               </div>
-            ) : null}
-          </section>
+              {exportStatus?.issues?.length ? (
+                <BulletList
+                  items={exportStatus.issues.map((issue) => issue.message)}
+                  tone="negative"
+                />
+              ) : null}
+              {exportStatus?.setupIssues?.length ? (
+                <BulletList
+                  items={exportStatus.setupIssues.map((issue) => issue.message)}
+                  tone="negative"
+                />
+              ) : null}
+              <dl className="grid gap-2 text-sm">
+                <div className="flex justify-between gap-4">
+                  <dt className="text-[var(--text-muted)]">{tr("targetFormat")}</dt>
+                  <dd className="text-right text-[var(--text-primary)]">
+                    {derivation.format ?? tr("notSpecified")}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-[var(--text-muted)]">{tr("ctaContract")}</dt>
+                  <dd className="text-right text-[var(--text-primary)]">
+                    {derivation.ctaText ??
+                      (showInheritedCta ? tr("ctaInheritedFromBase") : tr("notSpecified"))}
+                  </dd>
+                </div>
+              </dl>
+              <div className="flex flex-wrap gap-4">
+                <AssetThumb
+                  asset={baseAsset}
+                  label={tr("baseAsset")}
+                  emptyLabel={tr("assetNotAvailable")}
+                />
+                {derivation.generationMode === "restyling" ? (
+                  <AssetThumb
+                    asset={styleAsset}
+                    label={tr("styleReference")}
+                    emptyLabel={tr("styleNotProvided")}
+                  />
+                ) : null}
+              </div>
+            </div>
+          </details>
+
+          <details className="rounded-lg border border-[var(--border-dim)] p-3">
+            <summary className="cursor-pointer text-sm font-medium text-[var(--text-secondary)]">
+              {tr("scoreDetailsToggle")}
+            </summary>
+            <div className="mt-3 space-y-3 text-sm text-[var(--text-secondary)]">
+              {displayScore != null ? (
+                <p>
+                  {tr("qualityScore")}: {displayScore}
+                </p>
+              ) : null}
+              {derivation.qualityVerdict === "improvable" ? (
+                <p className="text-amber-500">{t("improvableOutputBadge")}</p>
+              ) : null}
+              {derivation.scoreIssues?.map((issue) => (
+                <p key={issue}>{issue}</p>
+              ))}
+              <div className="space-y-2 border-t border-[var(--border-dim)] pt-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                  {tr("contractContextTitle")}
+                </p>
+                <dl className="grid gap-2 text-sm">
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-[var(--text-muted)]">{tr("generationMode")}</dt>
+                    <dd className="text-right text-[var(--text-primary)]">{modeLabel}</dd>
+                  </div>
+                </dl>
+              </div>
+            </div>
+          </details>
         </SheetBody>
 
         <SheetFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
@@ -352,37 +605,6 @@ export default function DerivationReviewSheet({
               >
                 {corpusPending ? tr("corpusAdding") : tr("addToCorpus")}
               </Button>
-            ) : null}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {isInvalid ? (
-              <Button type="button" onClick={onRegenerateWithFixes} disabled={isRegenerating}>
-                <RefreshCw className="size-4 mr-1" />
-                {tr("regenerateWithFixesConfirm")}
-              </Button>
-            ) : null}
-            {derivation.status === "completed" && onApprove && onReject ? (
-              <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={onApprove}
-                  disabled={isApproving || isInvalid}
-                  title={isInvalid ? tr("approveBlockedInvalid") : undefined}
-                >
-                  <Check className="size-4 mr-1" />
-                  {tc("approve")}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={onReject}
-                  disabled={isRejecting}
-                >
-                  <X className="size-4 mr-1" />
-                  {tc("reject")}
-                </Button>
-              </>
             ) : null}
           </div>
         </SheetFooter>
