@@ -21,14 +21,14 @@
 
 **Starting point:** v12.8 fechou como `tech_debt`; `142-EVIDENCE.json` live e checker passam com `human_needed`, mas `humanDecisionCount=0`, `missingHumanDecisionCount=2`, sample guidance `0/5`, `agreementRate=null` e corpus `synthetic_fixture`.
 
-- [ ] **Phase 147: Operator Decision Session and Calibration Rerun** — capturar decisoes do Jhonatan nas linhas atuais, persistir eventos e rerodar calibracao sem inferir julgamento humano.
+- [x] **Phase 147: Operator Decision Session and Calibration Rerun** — capturar decisoes do Jhonatan nas linhas atuais, persistir eventos e rerodar calibracao sem inferir julgamento humano. (completed 2026-06-19)
 - [ ] **Phase 148: Sample Sufficiency Expansion** — chegar a 5 decisoes humanas ou registrar blocker exato; preservar claims withheld enquanto a amostra nao fecha.
 - [ ] **Phase 149: Customer-Real Cenbrap Corpus Replacement** — localizar/importar rows customer-real ou documentar `operator_data_unavailable`, separando fixture de prova real.
 - [ ] **Phase 150: Agreement Calibration and Final Claims Gate** — auditar mismatches, aplicar ajustes pequenos se provados, refrescar evidencia e fechar/carry-forward de v12.9.
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
-| 147 | Operator Decision Session and Calibration Rerun | 1/2 | In Progress|  |
+| 147 | Operator Decision Session and Calibration Rerun | 2/2 | Complete   | 2026-06-19 |
 | 148 | Sample Sufficiency Expansion | SAMPLE-01..04 | Pending | — |
 | 149 | Customer-Real Cenbrap Corpus Replacement | REALCORP-01..04 | Pending | — |
 | 150 | Agreement Calibration and Final Claims Gate | AGREE-01..04 | Pending | — |
@@ -49,11 +49,11 @@
   3. Rerun da calibracao atualiza `humanDecisionCount`, `missingHumanDecisionCount`, `comparableCount` e mismatch reason counts.
   4. Evidence/verification nao infere decisao humana a partir de `olharVerdict` ou `exportStatus`.
 
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 147-01-PLAN.md — Decision artifact completion and safe event recording
-- [ ] 147-02-PLAN.md — Calibration rerun, evidence refresh and human-needed audit
+- [x] 147-02-PLAN.md — Calibration rerun, evidence refresh and human-needed audit
 
 ---
 
@@ -133,7 +133,7 @@ Previous archive: [v12.7-ROADMAP.md](milestones/v12.7-ROADMAP.md) · [v12.7-REQU
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 147 | v12.9 | 0/2 | Planned | — |
+| 147 | v12.9 | 2/2 | Complete (human_needed) | 2026-06-19 |
 | 148 | v12.9 | 0/2 | Pending | — |
 | 149 | v12.9 | 0/2 | Pending | — |
 | 150 | v12.9 | 0/2 | Pending | — |

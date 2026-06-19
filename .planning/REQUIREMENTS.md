@@ -20,8 +20,8 @@ Transformar o `human_needed` de v12.8 em calibracao humana real: capturar deciso
 
 - [x] **HUMDEC-01**: Jhonatan can review every current `review_ready` calibration row and record `entra`, `quase` or `nao_entra` with optional mismatch bucket/note.
 - [x] **HUMDEC-02**: Decision recording is idempotent and persists reviewer, reviewedAt, derivation id, decision and sanitized snapshot without prompts, signed URLs or secrets.
-- [ ] **HUMDEC-03**: Calibration rerun after decisions updates `humanDecisionCount`, `missingHumanDecisionCount`, `comparableCount` and mismatch reason counts from persisted decisions.
-- [ ] **HUMDEC-04**: Any row still lacking human decision remains explicitly `manual_pending` / `human_needed`; no decision is inferred from system verdict.
+- [x] **HUMDEC-03**: Calibration rerun after decisions updates `humanDecisionCount`, `missingHumanDecisionCount`, `comparableCount` and mismatch reason counts from persisted decisions.
+- [x] **HUMDEC-04**: Any row still lacking human decision remains explicitly `manual_pending` / `human_needed`; no decision is inferred from system verdict.
 
 ### Sample Sufficiency (SAMPLE)
 
@@ -74,8 +74,8 @@ Transformar o `human_needed` de v12.8 em calibracao humana real: capturar deciso
 |-------------|-------|--------|
 | HUMDEC-01 | Phase 147 | Complete |
 | HUMDEC-02 | Phase 147 | Complete |
-| HUMDEC-03 | Phase 147 | Pending |
-| HUMDEC-04 | Phase 147 | Pending |
+| HUMDEC-03 | Phase 147 | Complete |
+| HUMDEC-04 | Phase 147 | Complete |
 | SAMPLE-01 | Phase 148 | Pending |
 | SAMPLE-02 | Phase 148 | Pending |
 | SAMPLE-03 | Phase 148 | Pending |

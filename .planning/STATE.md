@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v12.9
 milestone_name: Fechamento Humano do Olhar Cenbrap
-status: Phase 147 in progress — 147-01 complete, human_needed blocker documented
-last_updated: "2026-06-19T21:20:00.000Z"
-last_activity: 2026-06-19 - Completed 147-01; awaiting Jhonatan decisions for confirm path
+status: Phase 147 complete — human_needed carry-forward to Phase 148
+last_updated: "2026-06-19T21:15:00.000Z"
+last_activity: 2026-06-19 - Completed 147-02; calibration rerun and evidence refresh with human_needed
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
-  percent: 50
+  completed_plans: 2
+  percent: 25
 ---
 
 # Project State
@@ -23,16 +23,16 @@ See: .planning/PROJECT.md (updated 2026-06-19)
 
 **Current focus:** v12.9 Fechamento Humano do Olhar Cenbrap. Convert v12.8's honest `human_needed` gate into real operator decisions, sample sufficiency and customer-real evidence discipline.
 
-**Status:** Phase 147-01 complete — `human_needed` blocker documented; confirm path awaits `145-DECISIONS.json`
+**Status:** Phase 147 complete (`human_needed`) — tooling validated; operator decisions still absent; Phase 148 next
 
 ## Current Position
 
-Phase: 147 - Operator Decision Session and Calibration Rerun (in progress)
-Plan: 147-02 ready (calibration rerun and evidence refresh)
-Status: human_needed — 2 rows `manual_pending`; dry-run validated; `--confirm` skipped
-Last activity: 2026-06-19 - Completed 147-01 plan execution
+Phase: 148 - Sample Sufficiency Expansion (ready to plan)
+Plan: Not started
+Status: human_needed carry-forward — `humanDecisionCount=0`, `missingHumanDecisionCount=2`, sample `0/5`
+Last activity: 2026-06-19 - Completed 147-02 calibration rerun and evidence refresh
 
-Progress: [█░░░░░░░░░] v12.9 — 0/4 phases; 1/8 plans complete.
+Progress: [██░░░░░░░░] v12.9 — 1/4 phases complete; operator loop not unblocked
 
 ## Accumulated Context
 
@@ -76,9 +76,11 @@ Progress: [█░░░░░░░░░] v12.9 — 0/4 phases; 1/8 plans compl
 - [Phase 147]: First planned phase captures current review-ready decisions and reruns calibration; it may honestly remain `human_needed` if decisions are unavailable.
 - [Phase 147]: Skipped --confirm; 145-DECISIONS.json absent — human_needed carry-forward is truthful partial success
 - [Phase 147]: Dry-run validates template rows; idempotency key phase145:cenbrap-calibration:{derivationId}:{reviewer} prevents duplicate events
+- [Phase 147]: Phase 147 closes human_needed — calibration/evidence tooling complete; operator decisions carry to Phase 148
+- [Phase 147]: HUMDEC-03/04 satisfied via truthful metrics; agreementRate withheld at 0/5
 
 ## Next Steps
 
-1. Jhonatan fills `145-DECISIONS.json` from `145-DECISIONS.template.json` and runs recorder `--confirm`
-2. Execute Phase 147-02: calibration rerun and evidence refresh
-3. Do not claim agreement until sample guidance clears (0/5)
+1. Jhonatan fills `145-DECISIONS.json` and runs recorder `--confirm` (operator action — can run in parallel with Phase 148)
+2. Plan Phase 148: sample sufficiency expansion (`0/5` blocker)
+3. Do not claim agreement until sample guidance clears (`additionalNeeded=0`)
