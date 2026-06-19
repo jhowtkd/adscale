@@ -82,6 +82,9 @@ describe("buildCreativeQaPrompt", () => {
     expect(prompt).toContain("Shop now");
     expect(prompt).toContain("20% off");
     expect(prompt).toContain("4:5");
+    expect(prompt).toContain("Passagem Olhar");
+    expect(prompt).toContain("Exportacao");
+    expect(prompt).toMatch(/Do NOT treat CTA drift, brand mismatch/i);
     expect(prompt).toContain("Return only JSON");
     expect(prompt).toContain("informationPreservation");
     expect(prompt).toContain("cropped, hidden, truncated, blurred, overlapped, deleted");

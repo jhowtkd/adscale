@@ -6,6 +6,7 @@ import { getBetaSessionIdFromRequest } from "@/server/beta-analytics/session";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import {
   getDerivationById,
+  updateDerivationDualVerdict,
   updateDerivationQa,
   updateDerivationQualityGate,
 } from "@/server/repositories/derivation";
@@ -14,6 +15,7 @@ import { getCampaignById } from "@/server/repositories/campaign";
 import { getUserLocale } from "@/server/repositories/user";
 import { downloadBuffer } from "@/server/storage/r2";
 import { analyzeCreativeQa } from "@/server/ai/creative-qa";
+import { buildPassagemOlharVerdict } from "@/server/ai/olhar/olhar-qa";
 import { spendCreditsOrApiError } from "@/server/billing/gates";
 import { recordBrandMemoryEvent } from "@/server/memory/brand-memory-dispatch";
 import { resolveCtaSemantics } from "@/server/ai/creative-contract";
@@ -152,12 +154,23 @@ export async function POST(
     });
 
     const gatedAt = new Date();
+    const olharVerdict = buildPassagemOlharVerdict({
+      hardFailures: gate.hardFailures,
+      qa,
+      evaluatedAt: gatedAt.toISOString(),
+    });
+
     const withGate = await updateDerivationQualityGate(id, workspace.id, {
       qualityVerdict: gate.qualityVerdict,
       hardFailures: gate.hardFailures,
       polishSuggestions: gate.polishSuggestions,
       qualityGatedAt: gatedAt,
     });
+
+    const withOlhar =
+      olharVerdict !== null
+        ? await updateDerivationDualVerdict(id, workspace.id, { olharVerdict })
+        : null;
 
     emitReviewMissionCompleted({
       workspaceId: workspace.id,
@@ -202,10 +215,11 @@ export async function POST(
 
     return NextResponse.json({
       qa,
-      derivation: withGate ?? updated,
+      derivation: withOlhar ?? withGate ?? updated,
       qualityVerdict: gate.qualityVerdict,
       hardFailures: gate.hardFailures,
       polishSuggestions: gate.polishSuggestions,
+      ...(olharVerdict ? { olharVerdict } : {}),
     });
   } catch (error) {
     return handleApiError(error, "derivations.[id].qa.POST");

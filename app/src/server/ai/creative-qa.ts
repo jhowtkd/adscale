@@ -142,7 +142,14 @@ export function buildCreativeQaPrompt(input: Omit<AnalyzeCreativeQaInput, "image
     dominantIdea: input.contract?.canonicalCreative?.dominantIdea,
   });
 
-  return `Review this final ad creative before export.
+  return `Run two passes on this final ad creative before export.
+
+## Passagem Olhar (art direction)
+Judge figure, gestalt, voice, and invite at thumbnail scale.
+Name what works and what blocks the creative idea.
+Do NOT treat CTA drift, brand mismatch, format layout, missing required text, or offer/claim mismatches as art-direction opinion — those belong to Exportacao only.
+
+## Exportacao (compliance checklist)
 Return only JSON with status, checklist, issues, and suggestions.
 
 Allowed status values: ready, warning, review.
