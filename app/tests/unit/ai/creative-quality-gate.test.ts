@@ -910,4 +910,106 @@ describe("assertDerivationApprovable", () => {
       }).ok
     ).toBe(true);
   });
+
+  it("blocks when olharVerdict is sem_opiniao even without legacy hard failures", () => {
+    const result = assertDerivationApprovable({
+      qualityVerdict: "improvable",
+      hardFailures: [],
+      olharVerdict: {
+        value: "sem_opiniao",
+        axes: { figura: 1, gestalt: 1, voz: 1, convite: 1 },
+        whatWorks: [],
+        whatBlocks: ["Generic template feel"],
+        directionNote: "Rebuild around a dominant idea.",
+        source: "quality_gate",
+        evaluatedAt: "2026-06-19T12:00:00.000Z",
+      },
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.olharVerdict?.value).toBe("sem_opiniao");
+    }
+  });
+
+  it("blocks when olharVerdict is confusa even without legacy hard failures", () => {
+    const result = assertDerivationApprovable({
+      qualityVerdict: "improvable",
+      hardFailures: [],
+      olharVerdict: {
+        value: "confusa",
+        axes: { figura: 0, gestalt: 0, voz: 1, convite: 0 },
+        whatWorks: [],
+        whatBlocks: ["No focal point"],
+        directionNote: "Composition lacks a dominant idea.",
+        source: "quality_gate",
+        evaluatedAt: "2026-06-19T12:00:00.000Z",
+      },
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.olharVerdict?.value).toBe("confusa");
+    }
+  });
+
+  it("blocks when exportStatus is bloqueado even when legacy gate passes", () => {
+    const result = assertDerivationApprovable({
+      qualityVerdict: "acceptable",
+      hardFailures: [],
+      exportStatus: {
+        value: "bloqueado",
+        issues: [{ code: "wrong_brand", message: "Brand mismatch", severity: "blocker" }],
+        setupIssues: [],
+        evaluatedAt: "2026-06-19T12:00:00.000Z",
+      },
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.exportStatus?.value).toBe("bloqueado");
+    }
+  });
+
+  it("allows improvable when olharVerdict is quase and export is ajuste_menor", () => {
+    expect(
+      assertDerivationApprovable({
+        qualityVerdict: "improvable",
+        hardFailures: [],
+        olharVerdict: {
+          value: "quase",
+          axes: { figura: 2, gestalt: 2, voz: 2, convite: 2 },
+          whatWorks: ["Clear figure"],
+          whatBlocks: ["Invite could be stronger"],
+          directionNote: "Minor polish before export.",
+          source: "manual",
+          evaluatedAt: "2026-06-19T12:00:00.000Z",
+        },
+        exportStatus: {
+          value: "ajuste_menor",
+          issues: [{ code: "cta_drift", message: "Minor CTA drift" }],
+          setupIssues: [],
+          evaluatedAt: "2026-06-19T12:00:00.000Z",
+        },
+      }).ok
+    ).toBe(true);
+  });
+
+  it("legacy hard failures still block when dual verdict payloads are absent", () => {
+    const result = assertDerivationApprovable({
+      qualityVerdict: "improvable",
+      hardFailures: [{ code: "cta_drift", message: "CTA drift" }],
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.olharVerdict).toBeUndefined();
+      expect(result.exportStatus).toBeUndefined();
+    }
+  });
+
+  it("legacy rows without dual verdict keep current behavior", () => {
+    expect(
+      assertDerivationApprovable({
+        qualityVerdict: "improvable",
+        hardFailures: [],
+      }).ok
+    ).toBe(true);
+  });
 });

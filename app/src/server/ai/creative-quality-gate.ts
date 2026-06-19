@@ -38,6 +38,14 @@ import {
 } from "../repositories/derivation";
 import { buildHardFailureRegenerationSuggestion } from "./creative-score";
 import { applyScoreCeilings } from "./creative-score-ceilings";
+import {
+  isBlockingExportStatus,
+  isBlockingOlharVerdict,
+  normalizeExportStatusPayload,
+  normalizeOlharVerdictPayload,
+  type ExportStatusPayload,
+  type OlharVerdictPayload,
+} from "./olhar/dual-verdict";
 
 export type CreativeHardFailureCode =
   | "cta_drift"
@@ -591,23 +599,55 @@ export type DerivationApprovableResult =
       ok: false;
       qualityVerdict: CreativeQualityVerdict | null;
       hardFailures: CreativeHardFailure[];
+      olharVerdict?: OlharVerdictPayload | null;
+      exportStatus?: ExportStatusPayload | null;
     };
 
 export function assertDerivationApprovable(derivation: {
   qualityVerdict?: string | null;
   hardFailures?: unknown;
+  olharVerdict?: unknown;
+  exportStatus?: unknown;
 }): DerivationApprovableResult {
   const hardFailures = Array.isArray(derivation.hardFailures)
     ? (derivation.hardFailures as CreativeHardFailure[])
     : [];
+  const olharVerdict = normalizeOlharVerdictPayload(derivation.olharVerdict);
+  const exportStatus = normalizeExportStatusPayload(derivation.exportStatus);
+
   if (derivation.qualityVerdict === "invalid" || hardFailures.length > 0) {
     return {
       ok: false,
       qualityVerdict:
         (derivation.qualityVerdict as CreativeQualityVerdict | null) ?? "invalid",
       hardFailures,
+      ...(olharVerdict !== null ? { olharVerdict } : {}),
+      ...(exportStatus !== null ? { exportStatus } : {}),
     };
   }
+
+  if (olharVerdict !== null && isBlockingOlharVerdict(olharVerdict.value)) {
+    return {
+      ok: false,
+      qualityVerdict:
+        (derivation.qualityVerdict as CreativeQualityVerdict | null) ?? null,
+      hardFailures,
+      olharVerdict,
+      ...(exportStatus !== null ? { exportStatus } : {}),
+    };
+  }
+
+  if (exportStatus !== null && isBlockingExportStatus(exportStatus.value)) {
+    return {
+      ok: false,
+      qualityVerdict:
+        (derivation.qualityVerdict as CreativeQualityVerdict | null) ?? null,
+      hardFailures,
+      ...(olharVerdict !== null ? { olharVerdict } : {}),
+      exportStatus,
+    };
+  }
+
   return { ok: true };
 }
 
