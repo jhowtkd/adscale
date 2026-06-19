@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "phase": 145,
+  "sourceLabel": "synthetic_fixture",
+  "sourcePolicy": "All rows are synthetic_fixture — operational calibration only, not real customer evidence.",
+  "calibrationJson": "../142-cenbrap-calibration-and-release-evidence/142-CENBRAP-CALIBRATION.json",
+  "corpusManifest": "../144-cenbrap-corpus-seeding-and-calibration-rerun/144-CORPUS-MANIFEST.json",
+  "reviewer": "Jhonatan",
+  "reviewerEmail": "dev@adscale.local",
+  "status": "pending_human_input",
+  "instructions": "Copy to 145-DECISIONS.json and fill decision (entra|quase|nao_entra), mismatchBucket when disagreeing, optional note, and reviewedAt (ISO-8601). Do not fabricate decisions.",
+  "decisions": [
+    {
+      "derivationId": "a92788f7-18d7-4289-99eb-bab8a0fa2f80",
+      "campaignId": "676e1c08-0813-4f1e-adff-0e96c01e6a57",
+      "campaignName": "Cenbrap Calibration — NR1 Convite",
+      "workspaceId": "b118d928-9a25-48b3-9647-ad6e11db7f47",
+      "outputRef": "derivation:a92788f7-18d7-4289-99eb-bab8a0fa2f80",
+      "olharVerdict": "pronta",
+      "exportStatus": "ajuste_menor",
+      "sourceLabel": "synthetic_fixture",
+      "humanDecisionSource": "manual_pending",
+      "decision": null,
+      "mismatchBucket": null,
+      "note": null,
+      "reviewer": "Jhonatan",
+      "reviewedAt": null
+    },
+    {
+      "derivationId": "01faf2a6-7808-406b-aeff-efd0169be9a1",
+      "campaignId": "9d338b9a-e15a-4029-ae95-728c17e77c3a",
+      "campaignName": "Cenbrap Calibration — NR1 Gestalt",
+      "workspaceId": "b118d928-9a25-48b3-9647-ad6e11db7f47",
+      "outputRef": "derivation:01faf2a6-7808-406b-aeff-efd0169be9a1",
+      "olharVerdict": "quase",
+      "exportStatus": "ok",
+      "sourceLabel": "synthetic_fixture",
+      "humanDecisionSource": "manual_pending",
+      "decision": null,
+      "mismatchBucket": null,
+      "note": null,
+      "reviewer": "Jhonatan",
+      "reviewedAt": null
+    }
+  ],
+  "mismatchBuckets": [
+    "system_too_permissive",
+    "system_too_harsh",
+    "voice_nuance",
+    "export_setup_issue",
+    "acceptable_override",
+    "unclear_sample"
+  ]
+}
