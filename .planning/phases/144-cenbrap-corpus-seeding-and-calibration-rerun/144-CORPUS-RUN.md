@@ -50,6 +50,47 @@ No campaigns contained Cenbrap-like client/profile/name signals that the matcher
 | `source_label` | `synthetic_fixture` (operational calibration only, not real customer evidence) |
 | `target_workspace` | Dev Admin's Workspace (`dev@adscale.local`, first workspace by inspection order) |
 
+## Seed execution
+
+| Field | Value |
+|-------|-------|
+| `seeded_at` | 2026-06-19T17:11:33.464Z |
+| `command` | `cd app && npx tsx scripts/seed-cenbrap-calibration-corpus.ts --confirm --workspace-email=dev@adscale.local` |
+| `mode` | applied (`--confirm`) |
+| `target_workspace` | Dev Admin's Workspace (`dev@adscale.local`) |
+| `source_label` | `synthetic_fixture` |
+| `manifest` | [144-CORPUS-MANIFEST.json](./144-CORPUS-MANIFEST.json) |
+
+### Pre-seed migration note
+
+Local `app/.env.local` database was missing `derivations.olhar_verdict` / `export_status` columns. Applied `drizzle/0047_derivation_dual_verdict.sql` before seeding (schema drift fix — no secrets logged).
+
 ## Campaign minimum gate
 
-_Pending seed execution — see Task 144-01-03 update below._
+| Gate | Result |
+|------|--------|
+| Minimum campaigns (≥ 2) | **pass** — 2 matched |
+| Matcher signals | `client_contains_cenbrap` + `campaign_name_cenbrap` + `campaign_name_nr1` on both |
+| Output derivations | 2 campaigns × 1 derivation with safe `outputKey` |
+| Dual verdict coverage | 2 derivations with `olharVerdict` + `exportStatus` |
+| `operator_data_unavailable` blocker | **not triggered** |
+| Phase 145 blocked by corpus | **no** — minimum gate met; live rerun (144-02) still required for `review_ready` |
+
+### Seeded campaigns (safe summary)
+
+| Campaign name | Source label | Olhar | Export | Output ref |
+|---------------|--------------|-------|--------|------------|
+| Cenbrap Calibration — NR1 Gestalt | synthetic_fixture | quase | ok | `derivation:01faf2a6-...` |
+| Cenbrap Calibration — NR1 Convite | synthetic_fixture | pronta | ajuste_menor | `derivation:a92788f7-...` |
+
+Full ids and keys are in `144-CORPUS-MANIFEST.json`. Rows are operational calibration fixtures — not real customer evidence.
+
+## Verification (144-01)
+
+```bash
+test -f .planning/phases/144-cenbrap-corpus-seeding-and-calibration-rerun/144-CORPUS-RUN.md
+cd app && npx tsx scripts/seed-cenbrap-calibration-corpus.ts --dry-run
+test -f .planning/phases/144-cenbrap-corpus-seeding-and-calibration-rerun/144-CORPUS-MANIFEST.json
+```
+
+Post-seed inspection: 2 candidate campaigns, 2 with dual verdict coverage across 2 workspaces scanned.
