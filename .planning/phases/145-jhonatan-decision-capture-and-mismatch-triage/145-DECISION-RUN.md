@@ -7,6 +7,28 @@ Status: **human_needed** — awaiting Jhonatan `entra` / `quase` / `nao_entra` d
 
 Both contact-sheet rows are **`synthetic_fixture`** (Phase 144 corpus manifest). They exercise the operator calibration loop only — not real customer evidence. Agreement rate and quality claims remain withheld until sample guidance clears (5 decisions required).
 
+## Mismatch bucket normalization (JUDGE-03)
+
+Normalized buckets (canonical in `cenbrap-calibration.ts`):
+
+| Bucket | When to use |
+| --- | --- |
+| `system_too_permissive` | System verdict too lenient vs Jhonatan's judgment |
+| `system_too_harsh` | System verdict too strict vs Jhonatan's judgment |
+| `voice_nuance` | Cenbrap voice / tone disagreement |
+| `export_setup_issue` | Export status blocks package but art direction is fine |
+| `acceptable_override` | Jhonatan approves despite system mismatch (override) |
+| `unclear_sample` | Sample too ambiguous to classify; fallback when bucket omitted |
+
+Each mismatch row preserves:
+
+- `humanDecision` — operator `entra` / `quase` / `nao_entra`
+- `olharVerdict` / `exportStatus` — system evidence under test
+- `mismatchBucket` — normalized triage bucket (from `reason.source` or inferred)
+- `mismatchReason` — optional free-text note from operator
+
+`mismatchReasonCounts` in calibration JSON aggregates by **bucket**, not free-text prose.
+
 ## Decision input contract
 
 | Field | Required | Notes |

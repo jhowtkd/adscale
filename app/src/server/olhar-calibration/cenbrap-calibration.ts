@@ -25,6 +25,19 @@ import type { SampleGuidance } from "@/server/human-quality/sampling/types";
 export const CENBRAP_CALIBRATION_SCHEMA_VERSION = 1;
 export const CENBRAP_CLIENT_LABEL = "Cenbrap";
 
+export const CENBRAP_MISMATCH_BUCKETS = [
+  "system_too_permissive",
+  "system_too_harsh",
+  "voice_nuance",
+  "export_setup_issue",
+  "acceptable_override",
+  "unclear_sample",
+] as const;
+
+export type CenbrapMismatchBucket = (typeof CENBRAP_MISMATCH_BUCKETS)[number];
+
+const MISMATCH_BUCKET_SET = new Set<string>(CENBRAP_MISMATCH_BUCKETS);
+
 export type HumanCalibrationDecision = "entra" | "quase" | "nao_entra";
 export type HumanDecisionSource =
   | "output_decision_event"
@@ -97,6 +110,7 @@ export interface CenbrapHumanDecisionRow {
   derivationId: string;
   humanDecision: HumanCalibrationDecision | null;
   humanDecisionSource: HumanDecisionSource;
+  mismatchBucket: CenbrapMismatchBucket | null;
   mismatchReason: string | null;
   reviewer: string | null;
   reviewedAt: string | null;
@@ -108,6 +122,7 @@ export interface CenbrapCalibrationRow {
   derivation: CenbrapDerivationRow;
   human: CenbrapHumanDecisionRow;
   agreement: AgreementClassification;
+  mismatchBucket: CenbrapMismatchBucket | null;
   mismatchReason: string | null;
 }
 
@@ -146,6 +161,7 @@ export interface CenbrapCalibrationReport {
     exportStatus: ExportStatusValue | null;
     humanDecision: HumanCalibrationDecision | null;
     humanDecisionSource: HumanDecisionSource;
+    mismatchBucket: CenbrapMismatchBucket | null;
     mismatchReason: string | null;
     overrideApproved: boolean;
     agreement: AgreementClassification;
@@ -250,6 +266,81 @@ function humanDecisionFromApprovedAction(
   return "entra";
 }
 
+export function isCenbrapMismatchBucket(
+  value: string
+): value is CenbrapMismatchBucket {
+  return MISMATCH_BUCKET_SET.has(value);
+}
+
+export function extractMismatchBucketFromReason(reason?: {
+  code?: string;
+  source?: string;
+} | null): CenbrapMismatchBucket | null {
+  if (!reason) {
+    return null;
+  }
+
+  if (
+    reason.source === "calibration_bucket" &&
+    reason.code &&
+    isCenbrapMismatchBucket(reason.code)
+  ) {
+    return reason.code;
+  }
+
+  if (
+    reason.source &&
+    reason.source !== "direction_reason" &&
+    isCenbrapMismatchBucket(reason.source)
+  ) {
+    return reason.source;
+  }
+
+  if (reason.code && isCenbrapMismatchBucket(reason.code)) {
+    return reason.code;
+  }
+
+  return null;
+}
+
+export function inferMismatchBucket(input: {
+  olharVerdict: OlharVerdictValue | null;
+  exportStatus: ExportStatusValue | null;
+  humanDecision: HumanCalibrationDecision | null;
+  overrideApproved?: boolean;
+}): CenbrapMismatchBucket {
+  if (input.overrideApproved) {
+    return "acceptable_override";
+  }
+
+  const exportBlocked =
+    input.exportStatus != null && isBlockingExportStatus(input.exportStatus);
+
+  if (input.humanDecision === "entra" && exportBlocked) {
+    return "export_setup_issue";
+  }
+
+  if (
+    input.humanDecision === "entra" &&
+    (input.olharVerdict === "confusa" || input.olharVerdict === "sem_opiniao")
+  ) {
+    return "system_too_permissive";
+  }
+
+  if (
+    input.humanDecision === "nao_entra" &&
+    (input.olharVerdict === "pronta" || input.olharVerdict === "quase")
+  ) {
+    return "system_too_harsh";
+  }
+
+  if (input.humanDecision === "quase") {
+    return "voice_nuance";
+  }
+
+  return "unclear_sample";
+}
+
 export function normalizeHumanDecisionFromEvent(
   event: Pick<OutputDecisionEvent, "id" | "userId" | "createdAt" | "action" | "contextSnapshot"> | null
 ): CenbrapHumanDecisionRow {
@@ -258,6 +349,7 @@ export function normalizeHumanDecisionFromEvent(
       derivationId: "",
       humanDecision: null,
       humanDecisionSource: "manual_pending",
+      mismatchBucket: null,
       mismatchReason: null,
       reviewer: null,
       reviewedAt: null,
@@ -269,16 +361,20 @@ export function normalizeHumanDecisionFromEvent(
   const snapshot = event.contextSnapshot ?? {};
   const overrideApproved = snapshot.overrideApproved === true;
   let humanDecision: HumanCalibrationDecision | null = null;
+  let mismatchBucket: CenbrapMismatchBucket | null = null;
   let mismatchReason: string | null = null;
 
   if (event.action === "approved") {
     humanDecision = humanDecisionFromApprovedAction(snapshot);
+    mismatchBucket = extractMismatchBucketFromReason(snapshot.reason);
   } else if (event.action === "rejected") {
     const mapped = mapReviewCodeToHumanDecision(snapshot.reason?.code);
     humanDecision = mapped ?? "nao_entra";
+    mismatchBucket = extractMismatchBucketFromReason(snapshot.reason);
     mismatchReason = snapshot.reason?.text?.trim() ?? null;
   } else if (event.action === "regenerated") {
     humanDecision = "quase";
+    mismatchBucket = extractMismatchBucketFromReason(snapshot.reason);
     mismatchReason = snapshot.reason?.text?.trim() ?? null;
   }
 
@@ -286,6 +382,7 @@ export function normalizeHumanDecisionFromEvent(
     derivationId: "",
     humanDecision,
     humanDecisionSource: "output_decision_event",
+    mismatchBucket,
     mismatchReason,
     reviewer: event.userId,
     reviewedAt: event.createdAt.toISOString(),
@@ -361,15 +458,21 @@ export function buildCalibrationRow(input: {
     overrideApproved: input.human.overrideApproved,
   });
 
+  const mismatchContext = {
+    olharVerdict: input.derivation.olharVerdictValue,
+    exportStatus: input.derivation.exportStatusValue,
+    humanDecision: input.human.humanDecision,
+    overrideApproved: input.human.overrideApproved,
+  };
+
+  const mismatchBucket =
+    agreement === "mismatch"
+      ? input.human.mismatchBucket ?? inferMismatchBucket(mismatchContext)
+      : null;
+
   const mismatchReason =
     agreement === "mismatch"
-      ? input.human.mismatchReason ??
-        describeMismatch({
-          olharVerdict: input.derivation.olharVerdictValue,
-          exportStatus: input.derivation.exportStatusValue,
-          humanDecision: input.human.humanDecision,
-          overrideApproved: input.human.overrideApproved,
-        })
+      ? input.human.mismatchReason ?? describeMismatch(mismatchContext)
       : null;
 
   return {
@@ -377,8 +480,10 @@ export function buildCalibrationRow(input: {
     human: {
       ...input.human,
       derivationId: input.derivation.id,
+      mismatchBucket,
     },
     agreement,
+    mismatchBucket,
     mismatchReason,
   };
 }
@@ -408,7 +513,14 @@ export function aggregateMismatchReasons(
     if (row.agreement !== "mismatch") {
       continue;
     }
-    const key = row.mismatchReason?.trim() || "unspecified_mismatch";
+    const key =
+      row.mismatchBucket ??
+      inferMismatchBucket({
+        olharVerdict: row.derivation.olharVerdictValue,
+        exportStatus: row.derivation.exportStatusValue,
+        humanDecision: row.human.humanDecision,
+        overrideApproved: row.human.overrideApproved,
+      });
     counts[key] = (counts[key] ?? 0) + 1;
   }
 
@@ -561,6 +673,7 @@ export function buildCenbrapCalibrationReport(input: {
       exportStatus: row.derivation.exportStatusValue,
       humanDecision: row.human.humanDecision,
       humanDecisionSource: row.human.humanDecisionSource,
+      mismatchBucket: row.mismatchBucket,
       mismatchReason: row.mismatchReason,
       overrideApproved: row.human.overrideApproved,
       agreement: row.agreement,
@@ -715,10 +828,10 @@ export function renderContactSheetMarkdown(
     lines.push(`- Selection signals: ${section.campaign.selectionSignals.join(", ") || "—"}`);
     lines.push("");
     lines.push(
-      "| derivation | outputRef | olharVerdict | exportStatus | packageEligible | override | humanDecision | mismatchReason | reviewer | reviewedAt |"
+      "| derivation | outputRef | olharVerdict | exportStatus | packageEligible | override | humanDecision | mismatchBucket | mismatchNote | reviewer | reviewedAt |"
     );
     lines.push(
-      "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
+      "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
     );
 
     for (const row of section.rows) {
@@ -731,6 +844,7 @@ export function renderContactSheetMarkdown(
           row.derivation.packageEligible ? "yes" : "no",
           row.derivation.approvalOverride ? "yes" : "no",
           row.human.humanDecision ?? "manual_pending",
+          formatNullable(row.mismatchBucket),
           formatNullable(row.mismatchReason),
           formatNullable(row.human.reviewer),
           formatNullable(row.human.reviewedAt),
@@ -750,7 +864,8 @@ export function renderContactSheetMarkdown(
       }
       lines.push(`#### Derivation \`${row.derivation.id}\``);
       lines.push(`- humanDecision: manual_pending`);
-      lines.push(`- mismatchReason: `);
+      lines.push(`- mismatchBucket: `);
+      lines.push(`- mismatchNote: `);
       lines.push(`- reviewer: Jhonatan`);
       lines.push(`- reviewedAt: `);
       lines.push("");

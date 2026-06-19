@@ -3,8 +3,12 @@ import {
   buildCalibrationRow,
   buildCenbrapCalibrationReport,
   classifyAgreement,
+  extractMismatchBucketFromReason,
+  inferMismatchBucket,
+  isCenbrapMismatchBucket,
   normalizeDerivationRow,
   normalizeHumanDecisionFromEvent,
+  aggregateMismatchReasons,
 } from "./cenbrap-calibration";
 
 function makeDerivation(overrides: Record<string, unknown> = {}) {
@@ -212,6 +216,73 @@ describe("cenbrap-calibration", () => {
 
       expect(row.agreement).toBe("agree");
       expect(row.human.mismatchReason).toBe("Hierarchy still weak");
+      expect(row.mismatchBucket).toBeNull();
+    });
+  });
+
+  describe("mismatch bucket normalization", () => {
+    it("extracts bucket from rejected event reason.source", () => {
+      expect(
+        extractMismatchBucketFromReason({
+          code: "nao_entra",
+          text: "System rated pronta but gestalt is weak",
+          source: "system_too_permissive",
+        })
+      ).toBe("system_too_permissive");
+    });
+
+    it("extracts bucket from entra calibration_bucket reason.code", () => {
+      expect(
+        extractMismatchBucketFromReason({
+          code: "acceptable_override",
+          source: "calibration_bucket",
+        })
+      ).toBe("acceptable_override");
+    });
+
+    it("validates canonical bucket names", () => {
+      expect(isCenbrapMismatchBucket("voice_nuance")).toBe(true);
+      expect(isCenbrapMismatchBucket("random_bucket")).toBe(false);
+    });
+
+    it("infers export_setup_issue when human entra conflicts with export block", () => {
+      expect(
+        inferMismatchBucket({
+          olharVerdict: "pronta",
+          exportStatus: "bloqueado",
+          humanDecision: "entra",
+        })
+      ).toBe("export_setup_issue");
+    });
+
+    it("aggregates mismatch rows by normalized bucket", () => {
+      const row = buildCalibrationRow({
+        derivation: makeDerivation({
+          olharVerdict: {
+            value: "pronta",
+            axes: { figura: 2, gestalt: 2, voz: 2, convite: 2 },
+            whatWorks: [],
+            whatBlocks: [],
+            directionNote: "Readable",
+            source: "quality_gate",
+            evaluatedAt: "2026-06-19T10:00:00.000Z",
+          },
+        }),
+        human: makeHumanFromAction("rejected", {
+          reason: {
+            code: "nao_entra",
+            text: "Too generic for Cenbrap voice",
+            source: "system_too_harsh",
+          },
+        }),
+      });
+
+      expect(row.agreement).toBe("mismatch");
+      expect(row.mismatchBucket).toBe("system_too_harsh");
+      expect(row.mismatchReason).toBe("Too generic for Cenbrap voice");
+      expect(aggregateMismatchReasons([row])).toEqual({
+        system_too_harsh: 1,
+      });
     });
   });
 

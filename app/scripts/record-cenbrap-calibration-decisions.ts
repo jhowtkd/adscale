@@ -23,6 +23,10 @@ import { outputDecisionEvents, user, workspaceMembers } from "@/server/db/schema
 import { recordOutputDecisionEvidence } from "@/server/output-learning/output-decision-recorder";
 import type { OutputDecisionAction } from "@/server/output-learning/output-decision-events";
 import { getDerivationById } from "@/server/repositories/derivation";
+import {
+  CENBRAP_MISMATCH_BUCKETS,
+  type CenbrapMismatchBucket,
+} from "@/server/olhar-calibration/cenbrap-calibration";
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const APP_ROOT = path.resolve(SCRIPT_DIR, "..");
@@ -37,14 +41,7 @@ const DEFAULT_CALIBRATION = path.join(
   ".planning/phases/142-cenbrap-calibration-and-release-evidence/142-CENBRAP-CALIBRATION.json"
 );
 
-export const MISMATCH_BUCKETS = [
-  "system_too_permissive",
-  "system_too_harsh",
-  "voice_nuance",
-  "export_setup_issue",
-  "acceptable_override",
-  "unclear_sample",
-] as const;
+export const MISMATCH_BUCKETS = CENBRAP_MISMATCH_BUCKETS;
 
 export const HUMAN_DECISIONS = ["entra", "quase", "nao_entra"] as const;
 
@@ -110,7 +107,7 @@ const calibrationFileSchema = z.object({
 });
 
 export type HumanDecision = z.infer<typeof humanDecisionSchema>;
-export type MismatchBucket = z.infer<typeof mismatchBucketSchema>;
+export type MismatchBucket = CenbrapMismatchBucket;
 export type DecisionRowInput = z.infer<typeof decisionRowSchema>;
 export type DecisionsFileInput = z.infer<typeof decisionsFileSchema>;
 

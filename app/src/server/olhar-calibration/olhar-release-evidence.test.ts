@@ -192,6 +192,7 @@ describe("olhar-release-evidence", () => {
                 derivationId: "deriv-1",
                 humanDecision: null,
                 humanDecisionSource: "manual_pending",
+                mismatchBucket: null,
                 mismatchReason: null,
                 reviewer: null,
                 reviewedAt: null,
