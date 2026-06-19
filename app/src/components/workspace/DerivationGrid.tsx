@@ -7,6 +7,8 @@ import DerivationCard from "./DerivationCard";
 import DerivationPreviewGateFooter from "./DerivationPreviewGateFooter";
 import type { BatchCreditBreakdown } from "@/server/ai/strategy-recipes";
 import type { ConversionErrorPayload } from "@/lib/billing/conversion-contract";
+import type { ReviewDerivationVariables } from "@/lib/hooks/use-review";
+import { mapDecisionToStatus } from "@/lib/derivation-review-display";
 
 // ============================================
 // Types
@@ -31,7 +33,7 @@ export interface DerivationGridProps {
   simulatingPersonasId?: string | null;
   savingReferenceId?: string | null;
   reviewPending?: boolean;
-  reviewVariables?: { id?: string; status: string } | null;
+  reviewVariables?: ReviewDerivationVariables | null;
   previewGate?: {
     campaignId: string;
     previewId: string;
@@ -100,6 +102,11 @@ export default function DerivationGrid({
       {derivations.map((derivation, index) => {
         const isPreviewGateCard =
           previewGate != null && previewGate.previewId === derivation.id;
+        const reviewStatus =
+          reviewVariables?.status ??
+          (reviewVariables?.decision
+            ? mapDecisionToStatus(reviewVariables.decision)
+            : undefined);
 
         return (
           <div
@@ -149,11 +156,11 @@ export default function DerivationGrid({
                 approving:
                   reviewPending &&
                   reviewVariables?.id === derivation.id &&
-                  reviewVariables?.status === "approved",
+                  reviewStatus === "approved",
                 rejecting:
                   reviewPending &&
                   reviewVariables?.id === derivation.id &&
-                  reviewVariables?.status === "rejected",
+                  reviewStatus === "rejected",
               }}
             />
             {isPreviewGateCard ? (

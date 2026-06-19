@@ -54,6 +54,7 @@ import CampaignErrorState from "@/components/campaigns/CampaignErrorState";
 import CampaignNotFoundState from "@/components/campaigns/CampaignNotFoundState";
 
 import { useCampaignWorkspace } from "@/lib/hooks/use-campaign-workspace";
+import type { ReviewDerivationVariables } from "@/lib/hooks/use-review";
 import { useBillingStatus } from "@/lib/hooks/use-billing";
 import { resolveConversionGateFromBilling } from "@/lib/billing/conversion-client";
 import { useDerivationFlow } from "@/lib/hooks/use-derivation-flow";
@@ -704,11 +705,7 @@ interface CampaignWorkspaceCardProps {
   simulatingPersonasId: string | null;
   savingReferenceId: string | null;
   reviewPending: boolean;
-  reviewVariables: {
-    id?: string;
-    status?: string;
-    decision?: "entra" | "quase_regenerar" | "nao_entra";
-  } | null;
+  reviewVariables: ReviewDerivationVariables | null;
   onAssetUploaded: (assetId: string) => void;
   onAnalysisComplete: (analysis: {
     detectedConcept: string;

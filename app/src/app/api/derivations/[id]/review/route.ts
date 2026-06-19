@@ -93,7 +93,9 @@ export async function PATCH(
     }
 
     let isOverrideApproval = false;
-    let derivationForAudit: Awaited<ReturnType<typeof getDerivationById>> = null;
+    let derivationForAudit:
+      | Awaited<ReturnType<typeof getDerivationById>>
+      | undefined;
 
     if (effectiveStatus === "approved") {
       const derivation = await getDerivationById(id, workspace.id);
