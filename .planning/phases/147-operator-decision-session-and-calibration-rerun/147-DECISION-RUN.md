@@ -32,3 +32,35 @@ Status: **human_needed** — awaiting Jhonatan `entra` / `quase` / `nao_entra` d
 **Constraints honored:** No decisions pre-filled from `olharVerdict` or `exportStatus`. System verdicts listed above are evidence context only.
 
 **Source label:** Both rows are `synthetic_fixture` — operational calibration, not customer-real evidence.
+
+## Recorder dry-run (147-01-02)
+
+**Command:**
+
+```bash
+cd app && npx tsx scripts/record-cenbrap-calibration-decisions.ts --dry-run
+```
+
+**Input artifact:** `145-DECISIONS.template.json` (default — `145-DECISIONS.json` not present)
+
+**Exit code:** 0
+
+| Metric | Value |
+| --- | ---: |
+| mode | `dry-run` |
+| totalRows | 2 |
+| pendingHumanInput | 2 |
+| wouldRecord | 0 |
+| recorded | 0 |
+| skippedExisting | 0 |
+
+**Per-row results:**
+
+| Derivation | status | idempotencyKey | decisionEventId |
+| --- | --- | --- | --- |
+| `a92788f7-18d7-4289-99eb-bab8a0fa2f80` | `skipped_pending` | `phase145:cenbrap-calibration:a92788f7-18d7-4289-99eb-bab8a0fa2f80:Jhonatan` | — |
+| `01faf2a6-7808-406b-aeff-efd0169be9a1` | `skipped_pending` | `phase145:cenbrap-calibration:01faf2a6-7808-406b-aeff-efd0169be9a1:Jhonatan` | — |
+
+**Confirm skipped:** `145-DECISIONS.json` absent — no real operator decisions supplied. `--confirm` not run per stop condition.
+
+**Idempotency semantics:** When decisions are supplied and `--confirm` runs, duplicate applies with the same `phase145:cenbrap-calibration:{derivationId}:{reviewer}` key return `skipped_existing` with the prior `eventId` — no duplicate `output_decision_events` insertion.
