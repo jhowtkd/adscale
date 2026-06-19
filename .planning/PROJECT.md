@@ -10,7 +10,23 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Current State
 
-v12.6 Operacao Live do Corpus de Qualidade shipped on 2026-06-18 with documented tech debt. The milestone delivered the live corpus operating loop, sampling honesty, owner trend surfaces and a dual technical/operational release gate. The gate is technically green, but operational evidence remains `insufficient_sample` because the live corpus still needs real operator evaluations.
+v12.7 Olhar ADScale is active as of 2026-06-19. The milestone changes the creative advisor's core judgment from a UI/UX checklist into an art-direction pass that evaluates figure, gestalt, voice and invite before export compliance.
+
+### v12.7 Olhar ADScale: Direcao de Arte Antes de Compliance — ACTIVE (started 2026-06-19)
+
+**Goal:** Separar julgamento de direcao de arte de compliance de exportacao, para que o ADScale julgue figura, gestalt, voz e convite antes de permitir aprovacao ou pacote de entrega.
+
+**Target features:**
+- Constituicao `Olhar ADScale` e primeira voz editorial Cenbrap
+- Contratos separados para `olharVerdict` e `exportStatus`
+- Validador deterministico de exportacao para marca, CTA, claims, formato, texto obrigatorio e resolucao
+- Reescrita de preflight, QA, score e prompt-builder para direcao de arte, nao checklist de UX
+- Review UI com veredito editorial, decisao humana estruturada e override auditavel
+- Calibracao em campanhas reais Cenbrap com contact sheets e evidencia honesta
+
+**Why now:** audits de campanhas reais expuseram outputs invalidos, aprovacao de peca `approved + invalid`, estetica de template/interface e prompts que tratam CTA como widget clicavel. v12.3 preservou factualidade mas manteve QA-19 como gap visual; v12.5/v12.6 criaram infraestrutura de corpus, mas ainda nao trocaram a regua criativa.
+
+**Current status:** Phases 138-142 complete; v12.7 milestone audit status `tech_debt` — implementation shipped, live Cenbrap calibration evidence awaits operator data and Jhonatan decisions.
 
 ### v12.6 Operacao Live do Corpus de Qualidade — SHIPPED WITH TECH DEBT (2026-06-18)
 
@@ -289,11 +305,11 @@ Delivered: credit estimate transparency, enriched credit events, delivery/stale 
 
 ### Active
 
-- [ ] Capturar aprovação, rejeição, regeneração, save-reference e sinais equivalentes como evidência canônica de qualidade de output
-- [ ] Consolidar evidências em output learnings versionados com confiança, contradição, frescor e supersession
-- [ ] Recuperar learnings relevantes por cliente, objetivo, modo e formato sem vazar contexto entre campanhas
-- [ ] Aplicar learnings antes da próxima geração como prefill/restrição explicável e limitada
-- [ ] Provar melhora em qualidade percebida sem regredir as garantias factuais de v12.3
+- [ ] Definir a constituicao `Olhar ADScale` e a voz Cenbrap inicial como fonte de julgamento criativo
+- [ ] Separar `olharVerdict` de `exportStatus` para nao misturar peca ruim com peca tecnicamente invalida
+- [ ] Substituir vocabulario UI-first nos prompts criativos por figura, gestalt, voz, convite e anti-template
+- [ ] Bloquear `approved + invalid` e registrar override consciente quando houver excecao
+- [ ] Reavaliar campanhas reais Cenbrap com contact sheets, decisoes humanas e evidencia honesta
 
 ### Validated (v10.0)
 
@@ -337,9 +353,11 @@ Delivered: credit estimate transparency, enriched credit events, delivery/stale 
 
 ## Context
 
-Current state: v12.1 shipped the complete performance-learning loop with manual/CSV import, hypotheses, contextual comparison, client memory and next-experiment recommendations. The product now has broad functional depth across dashboard, campaigns, creation, review, delivery, learning, feedback, library and settings.
+Current state: v12.7 is active. The immediate product gap is not another analytics surface; it is the creative advisor's judgment model. Recent campaign audits showed that the system is strong at operational checks but still pushes outputs toward UI-like modular layouts, template aesthetics and CTA-as-button thinking.
 
-The current gap is interface coherence. Capabilities accumulated across many milestones with inconsistent density, hierarchy, spacing and responsive behavior. v12.2 treats the authenticated app as one product surface, using the existing Impeccable product context and design language to remove overlaps, simplify competing actions, consolidate reusable UI primitives and verify layouts from mobile through ultrawide.
+v12.7 treats ADScale as a tool that scales creative criterion, not just variation volume. Compliance remains necessary, but it becomes the export layer. The first pass must judge whether the creative has figure, gestalt, voice and invite strong enough to enter a paid-media review package.
+
+v12.6 remains relevant infrastructure: the live corpus, sampling honesty and release-gate separation must be reused so v12.7 does not claim quality movement from a green script or a tiny sample.
 
 Marketing remains in `jhowtkd/site-adscale.git`; product feedback and owner triage live in ADScale_2 at `/feedback` for platform owners.
 
@@ -347,7 +365,7 @@ Migration `app/drizzle/0027_fine_morlun.sql` (Drizzle journal idx 27) must be ap
 
 Prior milestones delivered the strategy cockpit (v11.6), beta feedback capture (v11.4), presentation site separation (v11.3), beta entitlements (v11.2), generation quality gates (v11.1), coherent derivation flows (v11.0), and the full MVP through v10 UI polish.
 
-Current verification status at the v12.1 gate: 1185 tests passed (1 skipped), lint has 0 errors, production build passed, and Render migrations are at journal 41/41.
+Current verification baseline: v12.6 closed with technical regression green and operational evidence `insufficient_sample`. New v12.7 claims must keep technical checks, factual fidelity and art-direction/operator evidence separate.
 
 Key stack decisions:
 - Next.js App Router, React, TypeScript, Tailwind, shadcn/ui
@@ -391,6 +409,8 @@ Key stack decisions:
 | Evidence-capped friction fixes | Max 5 surgical UX fixes per milestone with session citations | ✓ Good — v11.8 |
 | Manual/CSV performance ingestion before platform APIs | Validate data model and recommendation value before OAuth, rate-limit, and provider-maintenance complexity | — Pending — v12.1 |
 | Explainable recommendations over opaque ranking | Users need evidence, sample size, and confidence to trust the next creative experiment | — Pending — v12.1 |
+| Olhar before export compliance | A creative can be exportable and still weak, or strong and still blocked by factual/export issues; the product must show both truths separately | — Pending — v12.7 |
+| Client voice as prompt overlay | Cenbrap validates the structure before multi-client voice management is productized | — Pending — v12.7 |
 
 ## Evolution
 
@@ -410,7 +430,7 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-18 — milestone v12.6 Operacao Live do Corpus de Qualidade shipped with tech debt*
+*Last updated: 2026-06-19 — milestone v12.7 Olhar ADScale initialized*
 
 ## Milestone History
 

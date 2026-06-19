@@ -338,7 +338,7 @@ export function classifyAgreement(input: {
     if (olharVerdict === "quase") {
       return "agree";
     }
-    if (exportBlocked && (olharVerdict === "pronta" || olharVerdict === "quase")) {
+    if (exportBlocked && olharVerdict === "pronta") {
       return "agree";
     }
     if (olharVerdict === "pronta" && input.exportStatus === "ajuste_menor") {

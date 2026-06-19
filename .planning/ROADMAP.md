@@ -2,7 +2,7 @@
 
 ## Milestones
 
-- 🚧 **v12.7 Olhar ADScale: Direcao de Arte Antes de Compliance** - Phases 138-142 (active; started 2026-06-19)
+- ✅ **v12.7 Olhar ADScale: Direcao de Arte Antes de Compliance** - Phases 138-142 (shipped 2026-06-19; tech debt: template Cenbrap calibration, operator decisions pending)
 - ✅ **v12.6 Operacao Live do Corpus de Qualidade** - Phases 134-137 (shipped 2026-06-18; tech debt: empty live corpus, template 135/136 fallbacks)
 - ✅ **v12.5 Validacao Real de Qualidade e Calibracao do Loop Criativo** - Phases 129-133 (shipped 2026-06-17; tech debt: empty live corpus)
 - ✅ **v12.4 Aprendizado de Qualidade dos Outputs** - Phases 124-128 (shipped 2026-06-17)
@@ -13,7 +13,7 @@
 
 ## Phases
 
-### 🚧 v12.7 Olhar ADScale: Direcao de Arte Antes de Compliance (Phases 138-142) — ACTIVE
+### ✅ v12.7 Olhar ADScale: Direcao de Arte Antes de Compliance (Phases 138-142) — SHIPPED WITH TECH DEBT (2026-06-19)
 
 **Milestone Goal:** Separar julgamento de direcao de arte de compliance de exportacao, para que o ADScale julgue figura, gestalt, voz e convite antes de permitir aprovacao ou pacote de entrega.
 
@@ -23,7 +23,7 @@
 - [x] **Phase 139: Dual Verdict and Export Validator** — separar contrato criativo (`olharVerdict`) de exportacao (`exportStatus`) e bloquear `approved + invalid`. (completed 2026-06-19)
 - [x] **Phase 140: Advisor and Generation Direction** — reescrever preflight, QA, score e prompt-builder para direcao de arte, nao checklist de UX. (completed 2026-06-19)
 - [x] **Phase 141: Review Surface and Override UX** — exibir Olhar/Exportacao na workspace, capturar decisao humana e exigir override consciente. (completed 2026-06-19)
-- [ ] **Phase 142: Cenbrap Calibration and Release Evidence** — reavaliar campanhas reais, medir concordancia com Jhonatan e fechar com evidencia honesta.
+- [x] **Phase 142: Cenbrap Calibration and Release Evidence** — reavaliar campanhas reais, medir concordancia com Jhonatan e fechar com evidencia honesta.
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
@@ -31,7 +31,7 @@
 | 139 | Dual Verdict and Export Validator | Complete    | 2026-06-19 | 2026-06-19 |
 | 140 | Advisor and Generation Direction | Complete    | 2026-06-19 | 2026-06-19 |
 | 141 | Review Surface and Override UX | 3/3 | Complete   | 2026-06-19 |
-| 142 | Cenbrap Calibration and Release Evidence | 1/2 | In Progress|  |
+| 142 | Cenbrap Calibration and Release Evidence | 2/2 | Complete | 2026-06-19 |
 
 ## Phase Details
 
@@ -138,11 +138,11 @@ Plans:
   3. Evidence reports agreement, approved-invalid prevention, sem-opiniao detection and export-block separation.
   4. Release audit keeps factual fidelity, art-direction quality and sample sufficiency separate.
 
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans executed
 
 Plans:
 - [x] 142-01-PLAN.md — Cenbrap real-campaign calibration run
-- [ ] 142-02-PLAN.md — Release evidence, audit and milestone closure
+- [x] 142-02-PLAN.md — Release evidence, audit and milestone closure
 
 ---
 
@@ -160,7 +160,7 @@ Archive: [v12.5-ROADMAP.md](milestones/v12.5-ROADMAP.md) · [v12.5-REQUIREMENTS.
 | 139 | v12.7 | 2/2 | Complete | 2026-06-19 |
 | 140 | v12.7 | 2/2 | Complete | 2026-06-19 |
 | 141 | v12.7 | 3/3 | Complete | 2026-06-19 |
-| 142 | v12.7 | 0/2 | Planned | — |
+| 142 | v12.7 | 2/2 | Complete | 2026-06-19 |
 
 ---
-*Roadmap updated: 2026-06-19 — Phase 141 complete; Phase 142 planned and ready for execution*
+*Roadmap updated: 2026-06-19 — Phase 142 complete; v12.7 milestone audit tech_debt*
