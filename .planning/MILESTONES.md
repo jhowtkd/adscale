@@ -1,5 +1,68 @@
 # Milestones: ADScale
 
+## v12.8 Operacao Real do Olhar Cenbrap (Shipped with tech debt: 2026-06-19)
+
+**Phases completed:** 4 phases (143→146), 8 plans
+**Requirements:** 16/16 complete at implementation/operational-infrastructure level
+
+**Scope:**
+- Calibracao Cenbrap live contra ambiente configurado
+- Seeding/import seguro com corpus `synthetic_fixture` revisavel
+- Contact sheet com linhas `review_ready`, dual verdicts e elegibilidade de pacote
+- Captura de decisoes do Jhonatan e buckets de mismatch acionaveis
+- Refresh de evidencia live e claims gate honesto (`human_needed`)
+- Fechamento parcial da divida v12.7 com carry-forward explicito
+
+**Key accomplishments:**
+- Provou runner live e resolveu blocker `insufficient_campaigns` com corpus seedado (Phase 144).
+- Criou tooling de decisao operatoria e metricas comparaveis sem fabricar acordo (Phase 145).
+- Gerou `142-EVIDENCE.json` a partir de calibracao live — nao mais template-only (Phase 146).
+- Publicou `146-CLAIMS-GATE.md` separando factual/export safety de art-direction agreement.
+
+**Known tech debt (accepted carry-forward):**
+- `humanDecisionCount=0` — Jhonatan ainda nao preencheu decisoes nas 2 linhas `review_ready`.
+- Sample guidance `0/5` — `agreementRate` e claims de qualidade corretamente withheld.
+- Corpus `synthetic_fixture` — calibracao operacional, nao prova customer-real.
+- Phase 141 override UX ainda `human_needed` em campanha real.
+
+**v12.7 debt closed by v12.8:**
+- Evidencia template-only → `142-EVIDENCE.json` live
+- `evaluatedCampaignCount=0` → 2 campanhas, 2 derivacoes
+- Sem path de decisao operatoria → Phase 145 tooling completo
+
+Archive: [v12.8-MILESTONE-AUDIT.md](milestones/v12.8-MILESTONE-AUDIT.md) · Claims gate: [146-CLAIMS-GATE.md](phases/146-evidence-refresh-and-claims-gate/146-CLAIMS-GATE.md)
+
+---
+
+## v12.7 Olhar ADScale: Direcao de Arte Antes de Compliance (Shipped with tech debt: 2026-06-19)
+
+**Phases completed:** 5 phases (138→142), 11 plans
+**Requirements:** 24/24 complete at implementation level
+
+**Scope:**
+- Constituicao `Olhar ADScale` e primeira voz editorial Cenbrap
+- Contratos separados de `olharVerdict` e `exportStatus`
+- Validador deterministico de exportacao e bloqueio de `approved + invalid`
+- Preflight, QA, score e prompt-builder reescritos como direcao de arte
+- Review UI Olhar-first com decisoes humanas estruturadas e override auditavel
+- Infraestrutura de calibracao Cenbrap e release evidence com template honesto
+
+**Key accomplishments:**
+- Separou julgamento criativo de compliance/exportacao em contratos persistidos.
+- Rebaixou score numerico para detalhe e promoveu veredito/direction note como sinal primario.
+- Criou UX de review com `Entra`, `Quase - regenerar assim`, `Nao entra` e override com motivo tipado.
+- Criou pipeline de calibracao/evidence Cenbrap com checker que preserva `insufficient_sample`.
+
+**Known tech debt (partially resolved in v12.8):**
+- Template-only evidence and empty corpus — **closed in v12.8** via live calibration and `142-EVIDENCE.json`.
+- Decision capture path — **closed in v12.8** (Phase 145 tooling); operator decisions still pending (`humanDecisionCount=0`).
+- Agreement/quality claims — **still withheld** until 5 operator decisions and cleared sample guidance.
+- Phase 141 override UX — **carried forward**; human confirmation on real campaign still pending.
+
+Archive: [v12.7-ROADMAP.md](milestones/v12.7-ROADMAP.md) · [v12.7-REQUIREMENTS.md](milestones/v12.7-REQUIREMENTS.md) · [v12.7-MILESTONE-AUDIT.md](milestones/v12.7-MILESTONE-AUDIT.md)
+
+---
+
 ## v12.6 Operacao Live do Corpus de Qualidade (Shipped with tech debt: 2026-06-18)
 
 **Phases completed:** 4 phases (134→137), 14 plans
