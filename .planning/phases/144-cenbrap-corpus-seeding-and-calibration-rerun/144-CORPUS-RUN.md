@@ -126,3 +126,45 @@ Post-seed inspection: 2 candidate campaigns, 2 with dual verdict coverage across
 | Cenbrap Calibration — NR1 Convite | 1 | yes (`pronta` / `ajuste_menor`) | yes | synthetic_fixture |
 
 All rows passed readiness inspection — no QA/regeneration routing required. Rows are `synthetic_fixture` operational calibration only, not real customer evidence.
+
+## Live calibration rerun (144-02-02)
+
+| Field | Value |
+|-------|-------|
+| `command` | `cd app && npx tsx scripts/run-cenbrap-calibration.ts --output ../.planning/phases/142-cenbrap-calibration-and-release-evidence/142-CENBRAP-CALIBRATION.json --contact-sheet ../.planning/phases/142-cenbrap-calibration-and-release-evidence/142-CONTACT-SHEET.md` |
+| `template_flag` | not used |
+| `captured_at` | 2026-06-19T17:17:02.985Z |
+| `exit_code` | 0 |
+| `artifact_mode` | live |
+| `artifact_status` | insufficient_sample |
+| `evaluated_campaign_count` | 2 |
+| `evaluated_derivation_count` | 2 |
+| `missing_dual_verdict_count` | 0 |
+| `decision_count` | 0 |
+
+### Run summary
+
+Live path executed against `app/.env.local` database without `--template`. Two seeded `synthetic_fixture` Cenbrap campaigns matched conservative selection signals. `insufficient_sample` status is expected — operator decisions pending; agreement rate withheld.
+
+### Phase 143 history preserved
+
+First live run (Phase 143, 2026-06-19T16:44:10Z) had `evaluatedCampaignCount=0` (`no_live_data`). This rerun resolves `insufficient_campaigns` via Phase 144-01 corpus seeding. See [143-BLOCKERS.md](../143-live-cenbrap-calibration-run/143-BLOCKERS.md).
+
+### Artifact inspection
+
+| Check | Result |
+|-------|--------|
+| `mode` | live |
+| `evaluatedCampaignCount` | 2 (≥ 2 gate **pass**) |
+| `evaluatedDerivationCount` | 2 (> 0 **pass**) |
+| `missingDualVerdictCount` | 0 |
+| Contact sheet `review_ready` | 2 |
+| Contact sheet campaign sections | 2 live sections |
+| Agreement rate claim | withheld (`decisionCount=0`, sample guidance 0/5) |
+
+### Verification tests
+
+```
+npm test -- src/server/olhar-calibration/cenbrap-calibration.test.ts src/server/olhar-calibration/olhar-release-evidence.test.ts
+→ 17 passed (2 files)
+```

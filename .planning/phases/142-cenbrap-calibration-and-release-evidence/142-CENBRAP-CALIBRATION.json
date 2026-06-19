@@ -1,14 +1,188 @@
 {
   "schemaVersion": 1,
-  "capturedAt": "2026-06-19T16:44:10.333Z",
+  "capturedAt": "2026-06-19T17:17:02.985Z",
   "client": "Cenbrap",
   "mode": "live",
-  "status": "no_live_data",
-  "campaigns": [],
-  "operatorDecisions": [],
+  "status": "insufficient_sample",
+  "campaigns": [
+    {
+      "campaign": {
+        "id": "676e1c08-0813-4f1e-adff-0e96c01e6a57",
+        "workspaceId": "b118d928-9a25-48b3-9647-ad6e11db7f47",
+        "name": "Cenbrap Calibration — NR1 Convite",
+        "client": "Cenbrap",
+        "clientProfileId": null,
+        "clientProfileName": null,
+        "status": "completed",
+        "selectionSignals": [
+          "client_contains_cenbrap",
+          "campaign_name_cenbrap",
+          "campaign_name_nr1"
+        ]
+      },
+      "rows": [
+        {
+          "derivation": {
+            "id": "a92788f7-18d7-4289-99eb-bab8a0fa2f80",
+            "campaignId": "676e1c08-0813-4f1e-adff-0e96c01e6a57",
+            "workspaceId": "b118d928-9a25-48b3-9647-ad6e11db7f47",
+            "status": "completed",
+            "format": "1:1",
+            "generationMode": "art_variation",
+            "variantIndex": 0,
+            "hasOutput": true,
+            "outputRef": "derivation:a92788f7-18d7-4289-99eb-bab8a0fa2f80",
+            "olharVerdict": {
+              "value": "pronta",
+              "axes": {
+                "figura": 3,
+                "gestalt": 2,
+                "voz": 2,
+                "convite": 2
+              },
+              "whatWorks": [
+                "Invite reads as action without UI chrome"
+              ],
+              "whatBlocks": [],
+              "directionNote": "Calibration fixture — judge invite clarity only.",
+              "source": "manual",
+              "evaluatedAt": "2026-06-19T17:11:32.069Z"
+            },
+            "exportStatus": {
+              "value": "ajuste_menor",
+              "issues": [
+                {
+                  "code": "cta_spacing",
+                  "message": "Minor CTA spacing adjustment for export",
+                  "severity": "warning"
+                }
+              ],
+              "setupIssues": [],
+              "evaluatedAt": "2026-06-19T17:11:32.069Z"
+            },
+            "olharVerdictValue": "pronta",
+            "exportStatusValue": "ajuste_menor",
+            "dualVerdictState": "present",
+            "packageEligible": true,
+            "approvalOverride": false
+          },
+          "human": {
+            "derivationId": "a92788f7-18d7-4289-99eb-bab8a0fa2f80",
+            "humanDecision": null,
+            "humanDecisionSource": "manual_pending",
+            "mismatchReason": null,
+            "reviewer": null,
+            "reviewedAt": null,
+            "decisionEventId": null,
+            "overrideApproved": false
+          },
+          "agreement": "missing_human_decision",
+          "mismatchReason": null
+        }
+      ]
+    },
+    {
+      "campaign": {
+        "id": "9d338b9a-e15a-4029-ae95-728c17e77c3a",
+        "workspaceId": "b118d928-9a25-48b3-9647-ad6e11db7f47",
+        "name": "Cenbrap Calibration — NR1 Gestalt",
+        "client": "Cenbrap",
+        "clientProfileId": null,
+        "clientProfileName": null,
+        "status": "completed",
+        "selectionSignals": [
+          "client_contains_cenbrap",
+          "campaign_name_cenbrap",
+          "campaign_name_nr1"
+        ]
+      },
+      "rows": [
+        {
+          "derivation": {
+            "id": "01faf2a6-7808-406b-aeff-efd0169be9a1",
+            "campaignId": "9d338b9a-e15a-4029-ae95-728c17e77c3a",
+            "workspaceId": "b118d928-9a25-48b3-9647-ad6e11db7f47",
+            "status": "completed",
+            "format": "1:1",
+            "generationMode": "art_variation",
+            "variantIndex": 0,
+            "hasOutput": true,
+            "outputRef": "derivation:01faf2a6-7808-406b-aeff-efd0169be9a1",
+            "olharVerdict": {
+              "value": "quase",
+              "axes": {
+                "figura": 2,
+                "gestalt": 2,
+                "voz": 2,
+                "convite": 1
+              },
+              "whatWorks": [
+                "Clear focal hierarchy for calibration"
+              ],
+              "whatBlocks": [
+                "Lower-third density needs simplification"
+              ],
+              "directionNote": "Calibration fixture — judge gestalt balance only.",
+              "source": "manual",
+              "evaluatedAt": "2026-06-19T17:11:32.069Z"
+            },
+            "exportStatus": {
+              "value": "ok",
+              "issues": [],
+              "setupIssues": [],
+              "evaluatedAt": "2026-06-19T17:11:32.069Z"
+            },
+            "olharVerdictValue": "quase",
+            "exportStatusValue": "ok",
+            "dualVerdictState": "present",
+            "packageEligible": true,
+            "approvalOverride": false
+          },
+          "human": {
+            "derivationId": "01faf2a6-7808-406b-aeff-efd0169be9a1",
+            "humanDecision": null,
+            "humanDecisionSource": "manual_pending",
+            "mismatchReason": null,
+            "reviewer": null,
+            "reviewedAt": null,
+            "decisionEventId": null,
+            "overrideApproved": false
+          },
+          "agreement": "missing_human_decision",
+          "mismatchReason": null
+        }
+      ]
+    }
+  ],
+  "operatorDecisions": [
+    {
+      "derivationId": "a92788f7-18d7-4289-99eb-bab8a0fa2f80",
+      "campaignId": "676e1c08-0813-4f1e-adff-0e96c01e6a57",
+      "olharVerdict": "pronta",
+      "exportStatus": "ajuste_menor",
+      "humanDecision": null,
+      "humanDecisionSource": "manual_pending",
+      "mismatchReason": null,
+      "overrideApproved": false,
+      "agreement": "missing_human_decision",
+      "decisionEventId": null
+    },
+    {
+      "derivationId": "01faf2a6-7808-406b-aeff-efd0169be9a1",
+      "campaignId": "9d338b9a-e15a-4029-ae95-728c17e77c3a",
+      "olharVerdict": "quase",
+      "exportStatus": "ok",
+      "humanDecision": null,
+      "humanDecisionSource": "manual_pending",
+      "mismatchReason": null,
+      "overrideApproved": false,
+      "agreement": "missing_human_decision",
+      "decisionEventId": null
+    }
+  ],
   "metrics": {
-    "evaluatedCampaignCount": 0,
-    "evaluatedDerivationCount": 0,
+    "evaluatedCampaignCount": 2,
+    "evaluatedDerivationCount": 2,
     "decisionCount": 0,
     "comparableCount": 0,
     "agreementCount": 0,
@@ -19,7 +193,7 @@
     "semOpiniaoDetectionCount": 0,
     "exportBlockSeparationCount": 0,
     "missingDualVerdictCount": 0,
-    "missingHumanDecisionCount": 0
+    "missingHumanDecisionCount": 2
   },
   "sampleGuidance": [
     {
@@ -28,18 +202,12 @@
       "requiredCount": 5,
       "additionalNeeded": 5,
       "blockedClaim": "Cenbrap art-direction agreement rate"
-    },
-    {
-      "gate": "calibration_slice",
-      "sliceKey": "cenbrap_campaigns",
-      "currentCount": 0,
-      "requiredCount": 2,
-      "additionalNeeded": 2,
-      "blockedClaim": "multi-campaign Cenbrap calibration coverage"
     }
   ],
   "evidenceNotes": [
-    "No Cenbrap campaigns matched conservative selection signals.",
-    "Template or insufficient_sample status is expected until live data exists."
+    "Live Cenbrap calibration run — agreement claims remain blocked until sample guidance clears.",
+    "Jhonatan's decisions are the calibration authority.",
+    "Phase 143 history: first live run (2026-06-19T16:44:10Z) had evaluatedCampaignCount=0 (insufficient_campaigns). Corpus seeded in Phase 144-01 resolved the campaign gate.",
+    "All campaigns are synthetic_fixture — operational calibration only, not real customer evidence."
   ]
 }

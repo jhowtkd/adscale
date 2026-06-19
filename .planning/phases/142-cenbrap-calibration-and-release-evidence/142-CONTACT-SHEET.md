@@ -1,7 +1,7 @@
 # Phase 142 — Cenbrap Calibration Contact Sheet
 
-Captured: 2026-06-19T16:44:10.333Z
-Status: no_live_data
+Captured: 2026-06-19T17:17:02.985Z
+Status: insufficient_sample
 Mode: live
 
 ## Calibration authority
@@ -13,41 +13,68 @@ Rows without operator decisions stay `manual_pending` until entered below.
 ## Sample guidance
 
 - **Cenbrap art-direction agreement rate**: 0/5 (need 5 more)
-- **multi-campaign Cenbrap calibration coverage**: 0/2 (need 2 more)
 
 ## Metrics snapshot
 
-- Campaigns: 0
-- Derivations: 0
+- Campaigns: 2
+- Derivations: 2
 - Operator decisions: 0
 - Agreement rate: withheld (insufficient comparable decisions)
 - Missing dual verdict rows: 0
-- Missing human decision rows: 0
+- Missing human decision rows: 2
 
 ## Row readiness (Phase 144 gate)
 
 | Readiness | Count | Notes |
 |-----------|------:|-------|
-| `review_ready` | 0 | Requires `olharVerdict` + `exportStatus` + safe `outputRef` |
-| `missing_dual_verdict` | 0 | No derivation rows to classify |
-| `missing_output_ref` | 0 | No derivation rows without output |
-| `manual_pending` | 1 | Template placeholder row only — not a real derivation |
+| `review_ready` | 2 | Requires `olharVerdict` + `exportStatus` + safe `outputRef` |
+| `missing_dual_verdict` | 0 | All derivation rows have dual verdict |
+| `missing_output_ref` | 0 | All rows have safe `derivation:` output refs |
+| `manual_pending` | 2 | Awaiting Jhonatan's `entra/quase/nao_entra` decisions |
 
-**Template-only:** No live campaign sections exist. This sheet cannot support Jhonatan decision capture until campaigns are seeded.
+**Phase 143 history:** First live run (2026-06-19T16:44:10Z) had `evaluatedCampaignCount=0` — see [143-BLOCKERS.md](../143-live-cenbrap-calibration-run/143-BLOCKERS.md). Corpus seeding in Phase 144-01 resolved `insufficient_campaigns`.
 
-**Blocker:** [insufficient_campaigns](../143-live-cenbrap-calibration-run/143-BLOCKERS.md) — re-run calibration after ≥2 Cenbrap campaigns with derivations exist in the connected database.
+**Source labels:** Both campaigns are `synthetic_fixture` — operational calibration only, not real customer evidence. Agreement rate and quality claims remain withheld.
 
-Do not invent operator decisions here; Phase 144 fields remain empty/pending.
+## Campaign: Cenbrap Calibration — NR1 Convite
 
-## Campaigns
+- Campaign ID: `676e1c08-0813-4f1e-adff-0e96c01e6a57`
+- Client: Cenbrap
+- Client profile: —
+- Selection signals: client_contains_cenbrap, campaign_name_cenbrap, campaign_name_nr1
 
-_No live Cenbrap campaigns selected. Use this template to record manual review when data becomes available._
+| derivation | outputRef | olharVerdict | exportStatus | packageEligible | override | humanDecision | mismatchReason | reviewer | reviewedAt |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+`a92788f7` | derivation:a92788f7-18d7-4289-99eb-bab8a0fa2f80 | pronta | ajuste_menor | yes | no | manual_pending | — | — | —
 
-### Manual decision table (template)
+### Manual decision capture
 
-| derivationId | olharVerdict | exportStatus | packageEligible | override | humanDecision | mismatchReason | reviewer | reviewedAt |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| _pending_ | — | — | — | — | manual_pending | — | Jhonatan | — |
+For rows still marked `manual_pending`, record Jhonatan's decision and mismatch reason here before closing Phase 142:
 
-_Readiness: `manual_pending` (template) — not `review_ready`. See [143-BLOCKERS.md](../143-live-cenbrap-calibration-run/143-BLOCKERS.md)._
+#### Derivation `a92788f7-18d7-4289-99eb-bab8a0fa2f80`
+- humanDecision: manual_pending
+- mismatchReason: 
+- reviewer: Jhonatan
+- reviewedAt: 
+
+## Campaign: Cenbrap Calibration — NR1 Gestalt
+
+- Campaign ID: `9d338b9a-e15a-4029-ae95-728c17e77c3a`
+- Client: Cenbrap
+- Client profile: —
+- Selection signals: client_contains_cenbrap, campaign_name_cenbrap, campaign_name_nr1
+
+| derivation | outputRef | olharVerdict | exportStatus | packageEligible | override | humanDecision | mismatchReason | reviewer | reviewedAt |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+`01faf2a6` | derivation:01faf2a6-7808-406b-aeff-efd0169be9a1 | quase | ok | yes | no | manual_pending | — | — | —
+
+### Manual decision capture
+
+For rows still marked `manual_pending`, record Jhonatan's decision and mismatch reason here before closing Phase 142:
+
+#### Derivation `01faf2a6-7808-406b-aeff-efd0169be9a1`
+- humanDecision: manual_pending
+- mismatchReason: 
+- reviewer: Jhonatan
+- reviewedAt: 
 
