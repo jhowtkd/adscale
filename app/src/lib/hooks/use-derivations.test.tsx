@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useRestyleCampaign } from "./use-derivations";
+import { useRestyleCampaign, type Derivation } from "./use-derivations";
 
 vi.mock("@/lib/api-client", () => ({
   apiFetch: vi.fn(),
@@ -94,5 +94,30 @@ describe("useRestyleCampaign", () => {
     await waitFor(() => {
       expect(result.current.isError).toBe(true);
     });
+  });
+});
+
+describe("Derivation dual-verdict types", () => {
+  it("accepts olharVerdict and exportStatus on derivation payloads", () => {
+    const derivation: Partial<Derivation> = {
+      olharVerdict: {
+        value: "quase",
+        axes: { figura: 2, gestalt: 2, voz: 2, convite: 2 },
+        whatWorks: ["Clear focal figure"],
+        whatBlocks: ["CTA competes with headline"],
+        directionNote: "Simplify lower third.",
+        source: "quality_gate",
+        evaluatedAt: "2026-06-19T00:00:00.000Z",
+      },
+      exportStatus: {
+        value: "ok",
+        issues: [],
+        setupIssues: [],
+        evaluatedAt: "2026-06-19T00:00:00.000Z",
+      },
+    };
+
+    expect(derivation.olharVerdict?.value).toBe("quase");
+    expect(derivation.exportStatus?.value).toBe("ok");
   });
 });

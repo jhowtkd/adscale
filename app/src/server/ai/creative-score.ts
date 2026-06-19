@@ -13,6 +13,7 @@ import {
   type BuildSuggestionInput,
 } from "./regeneration-suggestion";
 import { buildRegenerationCorrectionBrief } from "./regeneration-correction-brief";
+import type { OlharVerdictValue } from "./olhar/dual-verdict";
 
 export interface ScoreResult {
   qualityScore: number;
@@ -28,6 +29,10 @@ export interface ScoreResult {
   };
   scoreIssues: string[];
   regenerationSuggestion: string;
+  olharVerdict?: OlharVerdictValue | null;
+  whatWorks?: string[];
+  whatBlocks?: string[];
+  directionNote?: string | null;
 }
 
 const SCORE_BREAKDOWN_KEYS = [
@@ -42,11 +47,22 @@ const SCORE_BREAKDOWN_KEYS = [
 
 type ScoreBreakdownKey = (typeof SCORE_BREAKDOWN_KEYS)[number];
 
+const OLHAR_VERDICT_VALUES = new Set<OlharVerdictValue>([
+  "pronta",
+  "quase",
+  "sem_opiniao",
+  "confusa",
+]);
+
 const rawScoreJsonSchema = z.object({
   qualityScore: z.unknown().optional(),
   scoreBreakdown: z.record(z.unknown()).optional(),
   scoreIssues: z.unknown().optional(),
   regenerationSuggestion: z.unknown().optional(),
+  olharVerdict: z.unknown().optional(),
+  whatWorks: z.unknown().optional(),
+  whatBlocks: z.unknown().optional(),
+  directionNote: z.unknown().optional(),
 });
 
 function emptyBreakdown(): ScoreResult["scoreBreakdown"] {
@@ -80,6 +96,25 @@ function asScoreIssues(value: unknown): string[] {
     .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
     .map((item) => item.trim())
     .slice(0, 3);
+}
+
+function asDirectionStringList(value: unknown, max = 3): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    .map((item) => item.trim())
+    .slice(0, max);
+}
+
+function parseOlharVerdict(value: unknown): OlharVerdictValue | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  return OLHAR_VERDICT_VALUES.has(value as OlharVerdictValue)
+    ? (value as OlharVerdictValue)
+    : null;
 }
 
 export function normalizeCreativeScoreResult(value: unknown): ScoreResult {
@@ -130,12 +165,21 @@ export function normalizeCreativeScoreResult(value: unknown): ScoreResult {
   const regenerationSuggestion =
     typeof input.regenerationSuggestion === "string" ? input.regenerationSuggestion.trim() : "";
 
+  const directionNote =
+    typeof input.directionNote === "string" && input.directionNote.trim().length > 0
+      ? input.directionNote.trim()
+      : null;
+
   return {
     qualityScore,
     scoreStatus,
     scoreBreakdown: breakdown,
     scoreIssues: asScoreIssues(input.scoreIssues),
     regenerationSuggestion,
+    olharVerdict: parseOlharVerdict(input.olharVerdict),
+    whatWorks: asDirectionStringList(input.whatWorks),
+    whatBlocks: asDirectionStringList(input.whatBlocks),
+    directionNote,
   };
 }
 
@@ -265,12 +309,25 @@ export function buildCreativeScorePrompt(input: AnalyzeInput): string {
     dominantIdea: input.contract?.canonicalCreative?.dominantIdea,
   });
 
-  return `Evaluate the generated ad as a reviewer. Do not invent a new CTA.
+  return `Evaluate the generated ad as an art director first, then as an analytics reviewer.
+
+PRIMARY OUTPUT (art direction — leads regeneration and human review):
+- directionNote: one concise note on figure, gestalt, voice, and invite at thumbnail scale.
+- whatWorks: 1-3 short strengths (art direction only).
+- whatBlocks: 1-3 art-direction blockers (not export/CTA compliance — those belong in scoreIssues).
+- olharVerdict: one of pronta, quase, sem_opiniao, confusa — art-direction readiness only.
+
+SECONDARY / INTERNAL ANALYTICS (backward compatibility — do not treat as the primary judgment):
+- qualityScore: 0-100 aggregate for analytics dashboards only; secondary to olharVerdict and directionNote.
+- scoreBreakdown: per-dimension telemetry; internal compatibility field.
+
+Return only JSON with directionNote, whatWorks, whatBlocks, olharVerdict, qualityScore, scoreBreakdown, scoreIssues, regenerationSuggestion.
+
+Do not invent a new CTA.
 ${ctaInstruction}
 The target format must remain: ${format}.
 The generation mode must remain: ${generationMode}.
 The creativity/variation level is: ${creativeLevel}.
-Return only JSON with qualityScore, scoreBreakdown, scoreIssues, regenerationSuggestion.
 
 Score breakdown dimensions (score key → canonical concern):
 ${scoreDimensionPromptLines()}

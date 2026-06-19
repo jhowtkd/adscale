@@ -98,6 +98,48 @@ describe("normalizeCreativeScoreResult", () => {
     expect(result.scoreStatus).toBe("failed");
     expect(result.qualityScore).toBe(0);
   });
+
+  it("preserves direction-first fields when present", () => {
+    const result = normalizeCreativeScoreResult({
+      qualityScore: 72,
+      olharVerdict: "quase",
+      whatWorks: ["Strong focal figure"],
+      whatBlocks: ["Invite competes with headline"],
+      directionNote: "Simplify the lower third before export.",
+      scoreBreakdown: { visualQuality: 70 },
+    });
+
+    expect(result.olharVerdict).toBe("quase");
+    expect(result.whatWorks).toEqual(["Strong focal figure"]);
+    expect(result.whatBlocks).toEqual(["Invite competes with headline"]);
+    expect(result.directionNote).toBe(
+      "Simplify the lower third before export."
+    );
+    expect(result.qualityScore).toBe(72);
+  });
+
+  it("accepts legacy score-only responses without direction fields", () => {
+    const result = normalizeCreativeScoreResult({
+      qualityScore: 84,
+      scoreBreakdown: {
+        ctaClarity: 88,
+        textLegibility: 80,
+        briefMatch: 86,
+        visualQuality: 82,
+        formatFit: 84,
+        variationLevelFit: 83,
+        informationPreservation: 52,
+      },
+      scoreIssues: ["CTA contrast could be stronger"],
+    });
+
+    expect(result.scoreStatus).toBe("analyzed");
+    expect(result.qualityScore).toBe(84);
+    expect(result.olharVerdict).toBeNull();
+    expect(result.directionNote).toBeNull();
+    expect(result.whatWorks).toEqual([]);
+    expect(result.whatBlocks).toEqual([]);
+  });
 });
 
 describe("buildCreativeScorePrompt observable rubric", () => {
@@ -246,6 +288,14 @@ describe("score dimension map (SCR-01)", () => {
     expect(prompt).toContain("variationLevelFit");
     expect(prompt).toContain("formatFit");
     expect(prompt).toMatch(/server-side.*ceilings|SCR-02/i);
+  });
+
+  it("treats numeric qualityScore as secondary/internal analytics", () => {
+    const prompt = buildCreativeScorePrompt(baseInput);
+    expect(prompt).toMatch(/PRIMARY OUTPUT/i);
+    expect(prompt).toMatch(/SECONDARY.*INTERNAL ANALYTICS/i);
+    expect(prompt).toMatch(/qualityScore.*secondary|secondary.*qualityScore/i);
+    expect(prompt).toMatch(/olharVerdict|directionNote|whatWorks|whatBlocks/i);
   });
 });
 

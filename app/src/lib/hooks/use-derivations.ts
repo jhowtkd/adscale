@@ -1,4 +1,8 @@
 import { apiFetch } from "@/lib/api-client";
+import type {
+  ExportStatusPayload,
+  OlharVerdictPayload,
+} from "@/server/ai/olhar/dual-verdict";
 import type { OutputLearningApplicationSnapshot } from "@/server/human-quality/corpus";
 import {
   createLoadError,
@@ -57,6 +61,8 @@ export interface Derivation {
   regenerationIssueBreakdown?: import("@/lib/regeneration-preview-types").RegenerationIssueBreakdown | null;
   polishSuggestions?: string[] | null;
   qualityGatedAt?: Date | null;
+  olharVerdict?: OlharVerdictPayload | null;
+  exportStatus?: ExportStatusPayload | null;
   styleAssetId?: string | null;
   isPreview?: boolean;
   createdAt: Date;

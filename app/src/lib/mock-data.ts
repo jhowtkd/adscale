@@ -2,6 +2,11 @@
 // ADScale - Mock Data
 // ============================================
 
+import type {
+  ExportStatusPayload,
+  OlharVerdictPayload,
+} from "@/server/ai/olhar/dual-verdict";
+
 export type CampaignStatus =
   | "draft"
   | "active"
@@ -115,6 +120,8 @@ export interface Derivation {
   hardFailures?: Array<{ code: string; message: string; criterion?: string }> | null;
   polishSuggestions?: string[] | null;
   qualityGatedAt?: Date | null;
+  olharVerdict?: OlharVerdictPayload | null;
+  exportStatus?: ExportStatusPayload | null;
   styleAssetId?: string | null;
   isPreview?: boolean;
   annotations?: Annotation[];
