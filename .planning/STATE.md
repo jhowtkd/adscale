@@ -2,14 +2,15 @@
 gsd_state_version: 1.0
 milestone: v12.7
 milestone_name: "Olhar ADScale: Direcao de Arte Antes de Compliance"
-status: planning
-last_updated: "2026-06-19T11:45:00.498Z"
-last_activity: 2026-06-19 - Completed Phase 139 Plan 01 dual-verdict contracts and persistence
+status: in_progress
+last_updated: "2026-06-19T12:11:30.000Z"
+last_activity: 2026-06-19 - Completed Phase 140 Plan 01 (Leitura do base and Passagem Olhar)
 progress:
   total_phases: 5
   completed_phases: 2
-  total_plans: 4
-  completed_plans: 4
+  total_plans: 6
+  completed_plans: 5
+  percent: 83
 ---
 
 # Project State
@@ -22,16 +23,16 @@ See: .planning/PROJECT.md (updated 2026-06-19)
 
 **Current focus:** v12.7 Olhar ADScale. Replace the creative advisor's UI/UX checklist bias with art-direction judgment before export compliance.
 
-**Status:** Ready to plan
+**Status:** Executing Phase 140
 
 ## Current Position
 
-Phase: 139 - Dual Verdict and Export Validator (in progress)
-Plan: 139-01 complete; 139-02 ready
-Status: Dual-verdict contracts, persistence, and approvability gate shipped in 139-01
-Last activity: 2026-06-19 - Completed Phase 139 Plan 01 dual-verdict contracts and persistence
+Phase: 140 - Advisor and Generation Direction (in progress)
+Plan: 140-01 complete; 140-02 ready
+Status: Leitura do base and Passagem Olhar server layers shipped
+Last activity: 2026-06-19 - Completed Phase 140 Plan 01 (Leitura do base and Passagem Olhar)
 
-Progress: [███░░░░░░░] v12.7 — 2/5 phases; 3/10 plans complete; next 139-02 export validator
+Progress: [████████░░] v12.7 — 2/5 phases; 5/6 plans complete; Phase 140 Plan 02 ready.
 
 ## Accumulated Context
 
@@ -256,6 +257,9 @@ Progress: [███░░░░░░░] v12.7 — 2/5 phases; 3/10 plans comp
 - [Phase 139]: buildOlharVerdictFromFailures returns null for export-only failures; never infers pronta/quase
 - [Phase 139]: Dual verdict rejection payloads include olharVerdict/exportStatus only when normalized
 - [Phase 139-01]: Typed dual-verdict contracts, nullable jsonb persistence, dual-verdict-aware assertDerivationApprovable
+- [Phase 140]: Keep legacy preflight score fields; baseReading is optional on normalized results
+- [Phase 140]: buildPassagemOlharVerdict returns null for export-only failures (conservative)
+- [Phase 140]: QA route persists olharVerdict via updateDerivationDualVerdict when available
 
 ### Phase 132 (complete — 4/4 plans)
 

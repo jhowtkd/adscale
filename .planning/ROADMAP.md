@@ -29,7 +29,7 @@
 |---|-------|--------------|--------|-----------|
 | 138 | Olhar Constitution and Cenbrap Voice | Complete    | 2026-06-19 | 2026-06-19 |
 | 139 | Dual Verdict and Export Validator | Complete    | 2026-06-19 | 2026-06-19 |
-| 140 | Advisor and Generation Direction | ADVISOR-01..04 | Pending | — |
+| 140 | Advisor and Generation Direction | 1/2 | In Progress|  |
 | 141 | Review Surface and Override UX | REVIEW-01..04 | Pending | — |
 | 142 | Cenbrap Calibration and Release Evidence | CALIB-01..04 | Pending | — |
 
@@ -74,8 +74,8 @@ Plans:
 **Plans:** 2/2 plans complete
 
 Plans:
-- [x] 139-01-PLAN.md — Dual-verdict contracts and persistence compatibility (ready)
-- [x] 139-02-PLAN.md — Deterministic export validator and approval blocking (ready)
+- [x] 139-01-PLAN.md — Dual-verdict contracts and persistence compatibility
+- [x] 139-02-PLAN.md — Deterministic export validator and approval blocking
 
 ---
 
@@ -93,11 +93,11 @@ Plans:
   3. Prompt builder injects a concise direction paragraph with sacred facts, allowed variation and anti-patterns.
   4. Numeric score is no longer the primary user-facing signal.
 
-**Plans:** 0/2 plans complete
+**Plans:** 1/2 plans executed
 
 Plans:
-- [ ] 140-01-PLAN.md — Leitura do base and advisor prompt rewrite
-- [ ] 140-02-PLAN.md — Generation direction injection and score demotion
+- [x] 140-01-PLAN.md — Leitura do base and Passagem Olhar ✅
+- [ ] 140-02-PLAN.md — Generation direction injection and score demotion (ready)
 
 ---
 
@@ -156,10 +156,10 @@ Archive: [v12.5-ROADMAP.md](milestones/v12.5-ROADMAP.md) · [v12.5-REQUIREMENTS.
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 138 | v12.7 | 2/2 | Complete | 2026-06-19 |
-| 139 | v12.7 | 0/2 | Planned | — |
-| 140 | v12.7 | 0/2 | Pending | — |
+| 139 | v12.7 | 2/2 | Complete | 2026-06-19 |
+| 140 | v12.7 | 0/2 | Planned | — |
 | 141 | v12.7 | 0/2 | Pending | — |
 | 142 | v12.7 | 0/2 | Pending | — |
 
 ---
-*Roadmap updated: 2026-06-19 — Phase 138 validated; Phase 139 planned and ready for execution*
+*Roadmap updated: 2026-06-19 — Phase 139 validated; Phase 140 planned and ready for execution*

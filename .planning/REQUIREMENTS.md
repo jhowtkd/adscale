@@ -32,15 +32,15 @@ Trocar o eixo do advisor criativo: sair de um checklist de UX/performance que tr
 
 ### Export Validator (EXPORT)
 
-- [ ] **EXPORT-01**: Deterministic export validation checks brand/source identity, CTA drift, offer/claim drift, required text readability, format ratio and output resolution separately from art-direction judgment.
-- [ ] **EXPORT-02**: Campaign setup mismatches such as campaign name `Teste 5` with a CENBRAP base creative are reported as setup/contract problems, not as weak art direction.
-- [ ] **EXPORT-03**: Approval APIs reject `approved + invalid` states by default and require an explicit audited override path for exceptional cases.
-- [ ] **EXPORT-04**: Character-level CTA issues such as punctuation, NBSP, hyphen and typographic quotes are normalized before deciding whether CTA drift is material.
+- [x] **EXPORT-01**: Deterministic export validation checks brand/source identity, CTA drift, offer/claim drift, required text readability, format ratio and output resolution separately from art-direction judgment.
+- [x] **EXPORT-02**: Campaign setup mismatches such as campaign name `Teste 5` with a CENBRAP base creative are reported as setup/contract problems, not as weak art direction.
+- [x] **EXPORT-03**: Approval APIs reject `approved + invalid` states by default and require an explicit audited override path for exceptional cases.
+- [x] **EXPORT-04**: Character-level CTA issues such as punctuation, NBSP, hyphen and typographic quotes are normalized before deciding whether CTA drift is material.
 
 ### Advisor And Generation (ADVISOR)
 
-- [ ] **ADVISOR-01**: Preflight becomes `Leitura do base`, returning dominant idea, gestalt, invite weight, thumbnail read, brand presence and at most two real pre-generation risks.
-- [ ] **ADVISOR-02**: Post-generation QA and score are rewritten as `Passagem Olhar`, using art-direction language instead of compliance-ticket language.
+- [x] **ADVISOR-01**: Preflight becomes `Leitura do base`, returning dominant idea, gestalt, invite weight, thumbnail read, brand presence and at most two real pre-generation risks.
+- [x] **ADVISOR-02**: Post-generation QA and score are rewritten as `Passagem Olhar`, using art-direction language instead of compliance-ticket language.
 - [ ] **ADVISOR-03**: Image generation prompts inject a short direction paragraph that states the gestalt to preserve, sacred facts, allowed variation range and explicit anti-patterns.
 - [ ] **ADVISOR-04**: Numeric quality score is demoted to internal analytics/detail; the primary user-facing decision is the dual verdict and direction note.
 
@@ -94,12 +94,12 @@ Trocar o eixo do advisor criativo: sair de um checklist de UX/performance que tr
 | VERDICT-02 | Phase 139 | Complete |
 | VERDICT-03 | Phase 139 | Complete |
 | VERDICT-04 | Phase 139 | Complete |
-| EXPORT-01 | Phase 139 | Pending |
-| EXPORT-02 | Phase 139 | Pending |
-| EXPORT-03 | Phase 139 | Pending |
-| EXPORT-04 | Phase 139 | Pending |
-| ADVISOR-01 | Phase 140 | Pending |
-| ADVISOR-02 | Phase 140 | Pending |
+| EXPORT-01 | Phase 139 | Complete |
+| EXPORT-02 | Phase 139 | Complete |
+| EXPORT-03 | Phase 139 | Complete |
+| EXPORT-04 | Phase 139 | Complete |
+| ADVISOR-01 | Phase 140 | Complete |
+| ADVISOR-02 | Phase 140 | Complete |
 | ADVISOR-03 | Phase 140 | Pending |
 | ADVISOR-04 | Phase 140 | Pending |
 | REVIEW-01 | Phase 141 | Pending |
