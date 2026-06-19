@@ -1,39 +1,48 @@
 ---
 gsd_state_version: 1.0
-milestone: v12.6
-milestone_name: Operacao Live do Corpus de Qualidade
-status: between_milestones
-last_updated: "2026-06-18T12:36:53.020Z"
-last_activity: 2026-06-18
+milestone: v12.7
+milestone_name: "Olhar ADScale: Direcao de Arte Antes de Compliance"
+status: Active milestone
+last_updated: "2026-06-19T09:54:20.630Z"
+last_activity: 2026-06-19 - Completed 138-01 Olhar constitution and vocabulary inventory
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 14
-  completed_plans: 14
+  total_phases: 5
+  completed_phases: 0
+  total_plans: 2
+  completed_plans: 1
+  percent: 50
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-06-18)
+See: .planning/PROJECT.md (updated 2026-06-19)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** Between milestones. v12.6 shipped with tech debt; next natural work is operator corpus population before stronger quality claims.
+**Current focus:** v12.7 Olhar ADScale. Replace the creative advisor's UI/UX checklist bias with art-direction judgment before export compliance.
 
-**Status:** Between milestones
+**Status:** Active milestone
 
 ## Current Position
 
-Phase: None
-Plan: Next milestone not started
-Status: Ready for `$gsd-new-milestone`
-Last activity: 2026-06-18
+Phase: 138 - Olhar Constitution and Cenbrap Voice
+Plan: 138-02 planned (138-01 complete)
+Status: Ready for `$gsd-execute-phase 138` plan 02
+Last activity: 2026-06-19 - Completed 138-01 Olhar constitution and vocabulary inventory
 
-Progress: [██████████] v12.6 archived — 4/4 phases and 14/14 plans complete.
+Progress: [█░░░░░░░░░] v12.7 — 0/5 phases; 1/10 plans complete (Phase 138: 1/2).
 
 ## Accumulated Context
+
+### v12.7 Direction
+
+- ADScale should scale creative criterion, not just generate variations or enforce export compliance.
+- Creative judgment must happen in two passes: `Olhar` (figure, gestalt, voice, invite) and `Exportacao` (brand, CTA, claims, format, required text, resolution).
+- Production campaign audits exposed the core failure: outputs can be invalid, approved, generic or UI-like while the existing advisor still speaks in CTA/button/module/checklist language.
+- The first client voice is Cenbrap. Voice is an overlay on the global Olhar ADScale constitution, not a full multi-tenant voice management product.
+- v12.7 must keep v12.5/v12.6 evidence honesty: no quality claim from empty corpus, insufficient sample or automated green alone.
 
 ### v12.5 Direction
 
@@ -239,6 +248,9 @@ Progress: [██████████] v12.6 archived — 4/4 phases and 14/
 - [Phase 137]: DATABASE_URL unavailable at audit — template 135/136 fallbacks; operator must refresh live corpus
 - [Phase 137]: QALIVE-03 blocks improvement claims not milestone closure; tech_debt when operational insufficient_sample
 - [Phase 137]: v12.6 milestone shipped 2026-06-18 with operational-quality-release-gate --run-regression pass
+- [Phase 138]: Inject Olhar section before legacy integrity rules; keep factual preservation active
+- [Phase 138]: READING_PATH_GESTALT_BUDGET replaces THREE_ZONE_VISUAL_BUDGET in art_variation mode rules
+- [Phase 138]: check-olhar-vocabulary.mjs scans core prompt/rubric files with regex-line allowlist
 
 ### Phase 132 (complete — 4/4 plans)
 
@@ -303,4 +315,4 @@ Progress: [██████████] v12.6 archived — 4/4 phases and 14/
 
 ## Next Steps
 
-v12.6 milestone shipped. Operator action: populate live human corpus (≥5 evaluations), set DATABASE_URL, rerun refresh CLIs and `operational-quality-release-gate -- --run-regression`. Next milestone planning TBD.
+Execute Phase 138 with `$gsd-execute-phase 138`. Keep v12.6 operator debt visible: populate live human corpus (at least 5 evaluations), set `DATABASE_URL`, rerun refresh CLIs and `operational-quality-release-gate -- --run-regression` before making live quality claims.

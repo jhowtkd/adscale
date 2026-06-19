@@ -2,6 +2,7 @@
 
 ## Milestones
 
+- 🚧 **v12.7 Olhar ADScale: Direcao de Arte Antes de Compliance** - Phases 138-142 (active; started 2026-06-19)
 - ✅ **v12.6 Operacao Live do Corpus de Qualidade** - Phases 134-137 (shipped 2026-06-18; tech debt: empty live corpus, template 135/136 fallbacks)
 - ✅ **v12.5 Validacao Real de Qualidade e Calibracao do Loop Criativo** - Phases 129-133 (shipped 2026-06-17; tech debt: empty live corpus)
 - ✅ **v12.4 Aprendizado de Qualidade dos Outputs** - Phases 124-128 (shipped 2026-06-17)
@@ -12,7 +13,137 @@
 
 ## Phases
 
-No active milestone. Start the next milestone with `$gsd-new-milestone`.
+### 🚧 v12.7 Olhar ADScale: Direcao de Arte Antes de Compliance (Phases 138-142) — ACTIVE
+
+**Milestone Goal:** Separar julgamento de direcao de arte de compliance de exportacao, para que o ADScale julgue figura, gestalt, voz e convite antes de permitir aprovacao ou pacote de entrega.
+
+**Starting point:** campanhas reais expuseram outputs invalidos, aprovacao de peca `approved + invalid`, outputs com estetica de template/interface e prompts que tratam CTA como widget clicavel. v12.3 preservou factualidade, mas deixou o gap visual QA-19 como divida; v12.5/v12.6 criaram infraestrutura de corpus, mas ainda nao trocaram a regua criativa.
+
+- [ ] **Phase 138: Olhar Constitution and Cenbrap Voice** — definir a ontologia global do Olhar ADScale e a primeira voz editorial Cenbrap.
+- [ ] **Phase 139: Dual Verdict and Export Validator** — separar contrato criativo (`olharVerdict`) de exportacao (`exportStatus`) e bloquear `approved + invalid`.
+- [ ] **Phase 140: Advisor and Generation Direction** — reescrever preflight, QA, score e prompt-builder para direcao de arte, nao checklist de UX.
+- [ ] **Phase 141: Review Surface and Override UX** — exibir Olhar/Exportacao na workspace, capturar decisao humana e exigir override consciente.
+- [ ] **Phase 142: Cenbrap Calibration and Release Evidence** — reavaliar campanhas reais, medir concordancia com Jhonatan e fechar com evidencia honesta.
+
+| # | Phase | Requirements | Status | Completed |
+|---|-------|--------------|--------|-----------|
+| 138 | Olhar Constitution and Cenbrap Voice | 1/2 | In Progress|  |
+| 139 | Dual Verdict and Export Validator | VERDICT-01..04, EXPORT-01..04 | Pending | — |
+| 140 | Advisor and Generation Direction | ADVISOR-01..04 | Pending | — |
+| 141 | Review Surface and Override UX | REVIEW-01..04 | Pending | — |
+| 142 | Cenbrap Calibration and Release Evidence | CALIB-01..04 | Pending | — |
+
+## Phase Details
+
+### Phase 138: Olhar Constitution and Cenbrap Voice
+
+**Goal:** O sistema ganha uma constituicao criativa clara e uma voz Cenbrap inicial antes de alterar score, gate ou UI.
+
+**Depends on:** v12.3 creative integrity, v12.5/v12.6 quality evidence, `advisor-redesign-v3.md`, attached Olhar ADScale proposal
+
+**Requirements:** OLHAR-01, OLHAR-02, OLHAR-03, OLHAR-04
+
+**Success Criteria** (what must be TRUE):
+  1. `Olhar ADScale` defines figure, gestalt, voice, invite and anti-template principles in implementation-facing form.
+  2. Cenbrap voice document captures what feels Cenbrap, what is anti-Cenbrap and how authority/people/claims/CTA should behave.
+  3. UI-first vocabulary is inventoried and removed from the core creative prompt/rubric language where it drives composition.
+  4. Existing visual failure reasons map to first-class art-direction verdicts.
+
+**Plans:** 1/2 plans executed
+
+Plans:
+- [x] 138-01-PLAN.md — Olhar ADScale constitution and vocabulary inventory
+- [ ] 138-02-PLAN.md — Cenbrap voice document and failure mapping
+
+---
+
+### Phase 139: Dual Verdict and Export Validator
+
+**Goal:** Toda derivacao passa a ter duas verdades separadas: se e boa como peca grafica e se pode ser exportada sem risco factual/tecnico.
+
+**Depends on:** Phase 138
+
+**Requirements:** VERDICT-01, VERDICT-02, VERDICT-03, VERDICT-04, EXPORT-01, EXPORT-02, EXPORT-03, EXPORT-04
+
+**Success Criteria** (what must be TRUE):
+  1. Output metadata can represent `olharVerdict`, four 0-3 axes, direction notes and `exportStatus` independently.
+  2. Export validator handles brand/source identity, CTA normalization, offer/claim drift, required text, ratio and resolution deterministically.
+  3. Campaign setup mismatch is reported as setup/contract issue, not as art-direction weakness.
+  4. Approval APIs cannot create normal `approved + invalid` states.
+
+**Plans:** 0/2 plans complete
+
+Plans:
+- [ ] 139-01-PLAN.md — Dual-verdict contracts and persistence compatibility
+- [ ] 139-02-PLAN.md — Deterministic export validator and approval blocking
+
+---
+
+### Phase 140: Advisor and Generation Direction
+
+**Goal:** Preflight, QA, score and generation prompts passam a falar como diretor de arte senior: figura, gestalt, ritmo, convite e voz, mantendo compliance como segunda passagem.
+
+**Depends on:** Phases 138-139
+
+**Requirements:** ADVISOR-01, ADVISOR-02, ADVISOR-03, ADVISOR-04
+
+**Success Criteria** (what must be TRUE):
+  1. Preflight becomes `Leitura do base` with dominant idea, gestalt, invite weight, thumbnail read, brand presence and at most two real risks.
+  2. Post-generation QA/score returns art-direction verdicts and short notes instead of generic compliance/checklist language.
+  3. Prompt builder injects a concise direction paragraph with sacred facts, allowed variation and anti-patterns.
+  4. Numeric score is no longer the primary user-facing signal.
+
+**Plans:** 0/2 plans complete
+
+Plans:
+- [ ] 140-01-PLAN.md — Leitura do base and advisor prompt rewrite
+- [ ] 140-02-PLAN.md — Generation direction injection and score demotion
+
+---
+
+### Phase 141: Review Surface and Override UX
+
+**Goal:** A workspace mostra a mesa de direcao correta: Olhar primeiro, exportacao depois, decisoes humanas estruturadas e override auditavel.
+
+**Depends on:** Phase 140
+
+**Requirements:** REVIEW-01, REVIEW-02, REVIEW-03, REVIEW-04
+
+**Success Criteria** (what must be TRUE):
+  1. Review cards/modals show `Olhar` and `Exportacao` separately, with `Sem opiniao`/`Confusa` unable to enter package by default.
+  2. Modal prioritizes creative verdict, what works, what blocks and collapsed export details.
+  3. User can record `Entra`, `Quase - regenerar assim` and `Nao entra` with structured direction reason.
+  4. Override requires typed reason and creates an auditable event without normalizing weak creative as approved.
+
+**Plans:** 0/2 plans complete
+
+Plans:
+- [ ] 141-01-PLAN.md — Workspace review UI and decision language
+- [ ] 141-02-PLAN.md — Override audit trail and package gating
+
+---
+
+### Phase 142: Cenbrap Calibration and Release Evidence
+
+**Goal:** Provar o novo olhar em campanhas reais Cenbrap, medir concordancia com Jhonatan e fechar com evidencia honesta, sem transformar amostra pequena em claim de qualidade.
+
+**Depends on:** Phases 138-141
+
+**Requirements:** CALIB-01, CALIB-02, CALIB-03, CALIB-04
+
+**Success Criteria** (what must be TRUE):
+  1. At least two real Cenbrap campaigns are re-evaluated with contact sheets and dual verdicts.
+  2. Jhonatan's decisions are captured against system verdicts with mismatch reasons.
+  3. Evidence reports agreement, approved-invalid prevention, sem-opiniao detection and export-block separation.
+  4. Release audit keeps factual fidelity, art-direction quality and sample sufficiency separate.
+
+**Plans:** 0/2 plans complete
+
+Plans:
+- [ ] 142-01-PLAN.md — Cenbrap real-campaign calibration run
+- [ ] 142-02-PLAN.md — Release evidence, audit and milestone closure
+
+---
 
 ## Completed Milestone Context
 
@@ -22,7 +153,13 @@ Archive: [v12.5-ROADMAP.md](milestones/v12.5-ROADMAP.md) · [v12.5-REQUIREMENTS.
 
 ## Progress
 
-Between milestones. Last completed: v12.6 (Phases 134-137, 14/14 plans).
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 138 | v12.7 | 0/2 | Pending | — |
+| 139 | v12.7 | 0/2 | Pending | — |
+| 140 | v12.7 | 0/2 | Pending | — |
+| 141 | v12.7 | 0/2 | Pending | — |
+| 142 | v12.7 | 0/2 | Pending | — |
 
 ---
-*Roadmap updated: 2026-06-18 — v12.6 archived; ready for next milestone planning*
+*Roadmap updated: 2026-06-19 — v12.7 milestone initialized; ready for Phase 138 planning*
