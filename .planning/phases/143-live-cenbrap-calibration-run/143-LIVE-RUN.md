@@ -34,3 +34,39 @@ No database connection string or credential appears in this document.
 ### Run summary
 
 Live path executed against `app/.env.local` database. Exit code zero with `mode=live` — no template fallback. Zero Cenbrap campaigns matched conservative selection signals; classified as `insufficient_campaigns` blocker (implementation OK, corpus not ready).
+
+## Artifact Inspection (2026-06-19T16:45:05Z)
+
+### JSON (`142-CENBRAP-CALIBRATION.json`)
+
+| Field | Value |
+|-------|-------|
+| `mode` | live |
+| `status` | no_live_data |
+| `metrics.evaluatedCampaignCount` | 0 |
+| `metrics.evaluatedDerivationCount` | 0 |
+| `metrics.decisionCount` | 0 |
+| `sampleGuidance` | 2 gates — calibration_global (0/5), calibration_slice cenbrap_campaigns (0/2) |
+
+### Contact sheet (`142-CONTACT-SHEET.md`)
+
+| Check | Result |
+|-------|--------|
+| Real campaign sections | absent — `_No live Cenbrap campaigns selected_` |
+| Safe derivation refs | absent (no rows) |
+| `olharVerdict` | template table header only |
+| `exportStatus` | template table header only |
+| Package eligibility | template table header only |
+| Override marker | template table header only |
+| Human-decision placeholder (Phase 144) | present — `manual_pending` row |
+
+### Safety scan
+
+Scanned `143-LIVE-RUN.md`, `143-BLOCKERS.md`, `142-CENBRAP-CALIBRATION.json`, `142-CONTACT-SHEET.md` for `DATABASE_URL=`, signed URL query params, and prompt payload labels. **No secrets or sensitive payloads found.**
+
+### Verification tests
+
+```
+npm test -- src/server/olhar-calibration/cenbrap-calibration.test.ts src/server/olhar-calibration/olhar-release-evidence.test.ts
+→ 17 passed (2 files)
+```
