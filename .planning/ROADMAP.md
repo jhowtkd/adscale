@@ -30,7 +30,7 @@
 | 138 | Olhar Constitution and Cenbrap Voice | Complete    | 2026-06-19 | 2026-06-19 |
 | 139 | Dual Verdict and Export Validator | Complete    | 2026-06-19 | 2026-06-19 |
 | 140 | Advisor and Generation Direction | Complete    | 2026-06-19 | 2026-06-19 |
-| 141 | Review Surface and Override UX | REVIEW-01..04 | Pending | — |
+| 141 | Review Surface and Override UX | 1/2 | In Progress|  |
 | 142 | Cenbrap Calibration and Release Evidence | CALIB-01..04 | Pending | — |
 
 ## Phase Details
@@ -115,10 +115,10 @@ Plans:
   3. User can record `Entra`, `Quase - regenerar assim` and `Nao entra` with structured direction reason.
   4. Override requires typed reason and creates an auditable event without normalizing weak creative as approved.
 
-**Plans:** 0/2 plans complete
+**Plans:** 1/2 plans executed
 
 Plans:
-- [ ] 141-01-PLAN.md — Workspace review UI and decision language
+- [x] 141-01-PLAN.md — Workspace review UI and decision language
 - [ ] 141-02-PLAN.md — Override audit trail and package gating
 
 ---
@@ -157,9 +157,9 @@ Archive: [v12.5-ROADMAP.md](milestones/v12.5-ROADMAP.md) · [v12.5-REQUIREMENTS.
 |-------|-----------|----------------|--------|-----------|
 | 138 | v12.7 | 2/2 | Complete | 2026-06-19 |
 | 139 | v12.7 | 2/2 | Complete | 2026-06-19 |
-| 140 | v12.7 | 0/2 | Planned | — |
-| 141 | v12.7 | 0/2 | Pending | — |
+| 140 | v12.7 | 2/2 | Complete | 2026-06-19 |
+| 141 | v12.7 | 0/2 | Planned | — |
 | 142 | v12.7 | 0/2 | Pending | — |
 
 ---
-*Roadmap updated: 2026-06-19 — Phase 139 validated; Phase 140 planned and ready for execution*
+*Roadmap updated: 2026-06-19 — Phase 140 validated; Phase 141 planned and ready for execution*

@@ -2,14 +2,15 @@
 gsd_state_version: 1.0
 milestone: v12.7
 milestone_name: "Olhar ADScale: Direcao de Arte Antes de Compliance"
-status: planning
-last_updated: "2026-06-19T12:25:22.842Z"
-last_activity: 2026-06-19 - Completed Phase 140 Plan 02 (generation direction and score demotion)
+status: executing
+last_updated: "2026-06-19T12:56:00Z"
+last_activity: 2026-06-19 - Completed 141-01 workspace review UI and decision language
 progress:
   total_phases: 5
   completed_phases: 3
-  total_plans: 6
-  completed_plans: 6
+  total_plans: 8
+  completed_plans: 7
+  percent: 88
 ---
 
 # Project State
@@ -26,12 +27,12 @@ See: .planning/PROJECT.md (updated 2026-06-19)
 
 ## Current Position
 
-Phase: 140 - Advisor and Generation Direction (complete)
-Plan: 140-02 complete — phase 140 fully shipped
-Status: Generation direction injected; score demoted to compatibility detail; dual-verdict types ready for UI
-Last activity: 2026-06-19 - Completed Phase 140 Plan 02 (generation direction and score demotion)
+Phase: 141 - Review Surface and Override UX (in progress)
+Plan: 141-02 next (override audit trail and package gating)
+Status: 141-01 complete — Olhar-first card/sheet and structured client decisions shipped
+Last activity: 2026-06-19 - Completed 141-01 workspace review UI and decision language
 
-Progress: [██████████] v12.7 — 3/5 phases; 6/6 plans complete; Phase 141 ready.
+Progress: [█████████░] v12.7 — 3/5 phases; 7/8 plans complete; Phase 141 in progress.
 
 ## Accumulated Context
 
@@ -262,6 +263,9 @@ Progress: [██████████] v12.7 — 3/5 phases; 6/6 plans compl
 - [Phase 140]: Gate Cenbrap voice injection on pending_review until 138-VOICE-REVIEW approval
 - [Phase 140]: Generation direction block precedes MODE and flexible creative strategy in derivation prompts
 - [Phase 140]: Creative score prompt is direction-first; qualityScore remains secondary analytics field
+- [Phase 141]: Plan review UI as Olhar-first, Exportacao-second; score remains secondary detail
+- [Phase 141]: Plan override path as typed reason plus output_decision_events audit; package eligibility must inspect dual verdicts, not status alone
+- [Phase 141]: Workspace review UI is Olhar-first with literal sem_opiniao/confusa/bloqueado labels and client-side direction reason validation
 
 ### Phase 132 (complete — 4/4 plans)
 
@@ -326,4 +330,4 @@ Progress: [██████████] v12.7 — 3/5 phases; 6/6 plans compl
 
 ## Next Steps
 
-Execute Phase 141 workspace UI reprioritization to surface `olharVerdict`, `directionNote`, and `exportStatus` as primary review signals. Review Cenbrap voice in `138-VOICE-REVIEW.md` and set `CENBRAP_VOICE_REVIEW_STATUS` to `approved` before enabling live client voice injection. Keep v12.6 operator debt visible: populate live human corpus (at least 5 evaluations), set `DATABASE_URL`, rerun refresh CLIs and `operational-quality-release-gate -- --run-regression` before making live quality claims.
+Execute `$gsd-execute-phase 141`: first 141-01 workspace review UI and decision language, then 141-02 override audit trail and package gating. Review Cenbrap voice in `138-VOICE-REVIEW.md` and set `CENBRAP_VOICE_REVIEW_STATUS` to `approved` before enabling live client voice injection. Keep v12.6 operator debt visible: populate live human corpus (at least 5 evaluations), set `DATABASE_URL`, rerun refresh CLIs and `operational-quality-release-gate -- --run-regression` before making live quality claims.

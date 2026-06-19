@@ -46,9 +46,9 @@ Trocar o eixo do advisor criativo: sair de um checklist de UX/performance que tr
 
 ### Review Surface And Override (REVIEW)
 
-- [ ] **REVIEW-01**: Campaign workspace review surface displays `Olhar` and `Exportacao` separately, with `Sem opiniao` and `Confusa` visibly unable to enter the approval package.
-- [ ] **REVIEW-02**: Review modal prioritizes the creative verdict, what works, what blocks and a collapsed export section instead of a long checklist of generic score dimensions.
-- [ ] **REVIEW-03**: User decisions use `Entra`, `Quase - regenerar assim` and `Nao entra` language, capturing a structured direction reason when rejecting or regenerating.
+- [x] **REVIEW-01**: Campaign workspace review surface displays `Olhar` and `Exportacao` separately, with `Sem opiniao` and `Confusa` visibly unable to enter the approval package.
+- [x] **REVIEW-02**: Review modal prioritizes the creative verdict, what works, what blocks and a collapsed export section instead of a long checklist of generic score dimensions.
+- [x] **REVIEW-03**: User decisions use `Entra`, `Quase - regenerar assim` and `Nao entra` language, capturing a structured direction reason when rejecting or regenerating.
 - [ ] **REVIEW-04**: Overrides require a typed reason, are logged with actor/campaign/derivation/context, and do not silently convert a weak creative into a normal approved state.
 
 ### Cenbrap Calibration And Evidence (CALIB)
@@ -102,9 +102,9 @@ Trocar o eixo do advisor criativo: sair de um checklist de UX/performance que tr
 | ADVISOR-02 | Phase 140 | Complete |
 | ADVISOR-03 | Phase 140 | Complete |
 | ADVISOR-04 | Phase 140 | Complete |
-| REVIEW-01 | Phase 141 | Pending |
-| REVIEW-02 | Phase 141 | Pending |
-| REVIEW-03 | Phase 141 | Pending |
+| REVIEW-01 | Phase 141 | Complete |
+| REVIEW-02 | Phase 141 | Complete |
+| REVIEW-03 | Phase 141 | Complete |
 | REVIEW-04 | Phase 141 | Pending |
 | CALIB-01 | Phase 142 | Pending |
 | CALIB-02 | Phase 142 | Pending |
