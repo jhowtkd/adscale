@@ -67,7 +67,7 @@ completed: 2026-06-19
 2. **Task 2: Idempotent seed/import path** - `0bdd06a2` (feat)
 3. **Task 3: Campaign minimum gate** - `c9b0b3cc` (feat)
 
-**Plan metadata:** `1431561a` (docs: complete plan)
+**Plan metadata:** `d0eedf77` (docs: complete plan)
 
 ## Files Created/Modified
 
