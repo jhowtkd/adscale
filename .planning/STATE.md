@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v12.8
 milestone_name: Operacao Real do Olhar Cenbrap
-status: executing
-last_updated: "2026-06-19T17:47:43.136Z"
-last_activity: 2026-06-19 - Planned Phase 145 Jhonatan decision capture and mismatch triage
+status: completed
+last_updated: "2026-06-19T17:53:23.971Z"
+last_activity: 2026-06-19 - Completed 145-02 mismatch taxonomy and calibration rerun
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 6
-  completed_plans: 5
-  percent: 83
+  completed_plans: 6
+  percent: 100
 ---
 
 # Project State
@@ -23,7 +23,7 @@ See: .planning/PROJECT.md (updated 2026-06-19)
 
 **Current focus:** v12.8 Operacao Real do Olhar Cenbrap. Turn v12.7's Olhar infrastructure into live Cenbrap calibration evidence with Jhonatan decisions and honest claim gates.
 
-**Status:** Phase 145-01 complete — decision capture workflow ready; human_needed
+**Status:** Phase 145 complete (partial) — metrics_ready_claims_withheld; Jhonatan decisions pending
 
 ## Current Position
 
@@ -32,7 +32,7 @@ Plan: 145-02 complete; Phase 146 next
 Status: metrics_ready_claims_withheld — mismatch buckets normalized; Jhonatan decisions still pending
 Last activity: 2026-06-19 - Completed 145-02 mismatch taxonomy and calibration rerun
 
-Progress: [████████░░] v12.8 — 2/4 phases; 6/6 plans complete; Phase 145 closed with honest partial state.
+Progress: [████████░░] v12.8 — 3/4 phases; 6/6 plans complete; Phase 146 next.
 
 ## Accumulated Context
 
@@ -92,6 +92,8 @@ Progress: [████████░░] v12.8 — 2/4 phases; 6/6 plans compl
 - [Phase 145]: Mismatch buckets normalized in cenbrap-calibration.ts; mismatchReasonCounts aggregates by bucket
 - [Phase 145]: Phase outcome manual_decisions_missing + metrics_ready_claims_withheld; Phase 146 may refresh evidence but claims stay blocked
 - [Phase 145]: synthetic_fixture source caveat mandatory in all Phase 146 artifacts
+- [Phase 145]: mismatchReasonCounts aggregates by normalized CENBRAP_MISMATCH_BUCKETS not free-text
+- [Phase 145]: Phase 145 outcome: manual_decisions_missing + metrics_ready_claims_withheld; Phase 146 evidence refresh ok, claims blocked
 
 ## Next Steps
 

@@ -32,10 +32,10 @@ Transformar a infraestrutura v12.7 do `Olhar ADScale` em uma operacao real de ca
 
 ### Human Judgment Capture (JUDGE)
 
-- [ ] **JUDGE-01**: Jhonatan can record `entra`, `quase` and `nao_entra` decisions for each calibration row with optional mismatch reason.
-- [ ] **JUDGE-02**: Operator decisions are persisted or normalized into the calibration artifact with reviewer and reviewedAt metadata.
-- [ ] **JUDGE-03**: Mismatches are classified into actionable buckets: system too harsh, system too permissive, voice nuance, export/setup issue, acceptable override or unclear sample.
-- [ ] **JUDGE-04**: Calibration can compute agreement metrics only from comparable rows with both system verdict and human decision.
+- [x] **JUDGE-01**: Jhonatan can record `entra`, `quase` and `nao_entra` decisions for each calibration row with optional mismatch reason.
+- [x] **JUDGE-02**: Operator decisions are persisted or normalized into the calibration artifact with reviewer and reviewedAt metadata.
+- [x] **JUDGE-03**: Mismatches are classified into actionable buckets: system too harsh, system too permissive, voice nuance, export/setup issue, acceptable override or unclear sample.
+- [x] **JUDGE-04**: Calibration can compute agreement metrics only from comparable rows with both system verdict and human decision.
 
 ### Evidence Refresh And Claims Gate (CLAIM)
 
@@ -80,10 +80,10 @@ Transformar a infraestrutura v12.7 do `Olhar ADScale` em uma operacao real de ca
 | CORPUS-02 | Phase 144 | Complete |
 | CORPUS-03 | Phase 144 | Complete |
 | CORPUS-04 | Phase 144 | Complete |
-| JUDGE-01 | Phase 145 | Pending |
-| JUDGE-02 | Phase 145 | Pending |
-| JUDGE-03 | Phase 145 | Pending |
-| JUDGE-04 | Phase 145 | Pending |
+| JUDGE-01 | Phase 145 | Complete |
+| JUDGE-02 | Phase 145 | Complete |
+| JUDGE-03 | Phase 145 | Complete |
+| JUDGE-04 | Phase 145 | Complete |
 | CLAIM-01 | Phase 146 | Pending |
 | CLAIM-02 | Phase 146 | Pending |
 | CLAIM-03 | Phase 146 | Pending |

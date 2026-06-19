@@ -22,14 +22,14 @@
 
 - [x] **Phase 143: Live Cenbrap Calibration Run** — completed with blocker `insufficient_campaigns`; runner live funcionou, corpus Cenbrap conectado estava vazio. (completed 2026-06-19)
 - [x] **Phase 144: Cenbrap Corpus Seeding and Calibration Rerun** — criar/identificar corpus revisavel, re-rodar calibracao live e liberar contact sheet `review_ready`. (completed 2026-06-19)
-- [ ] **Phase 145: Jhonatan Decision Capture and Mismatch Triage** — planned; capturar `entra/quase/nao_entra`, motivos de mismatch e filas de follow-up.
+- [x] **Phase 145: Jhonatan Decision Capture and Mismatch Triage** — planned; capturar `entra/quase/nao_entra`, motivos de mismatch e filas de follow-up. (completed 2026-06-19)
 - [ ] **Phase 146: Evidence Refresh and Claims Gate** — regenerar evidencia, fechar/carry-forward da divida v12.7 e bloquear claims se a amostra ainda for insuficiente.
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
 | 143 | Live Cenbrap Calibration Run | CENLIVE-01..04 | Complete   | 2026-06-19 |
 | 144 | Cenbrap Corpus Seeding and Calibration Rerun | Complete    | 2026-06-19 | 2026-06-19 |
-| 145 | Jhonatan Decision Capture and Mismatch Triage | 1/2 | In Progress|  |
+| 145 | Jhonatan Decision Capture and Mismatch Triage | 2/2 | Complete   | 2026-06-19 |
 | 146 | Evidence Refresh and Claims Gate | CLAIM-01..04 | Pending | — |
 
 ## Phase Details
@@ -92,11 +92,11 @@ Plans:
   3. Agreement metrics usam apenas linhas comparaveis com veredito do sistema e decisao humana.
   4. As decisoes do Jhonatan ficam ligadas ao artifact/evidence sem vazar prompt, signed URL ou payload sensivel.
 
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 145-01-PLAN.md — Operator decision capture workflow
-- [ ] 145-02-PLAN.md — Mismatch taxonomy and comparable-row agreement metrics
+- [x] 145-02-PLAN.md — Mismatch taxonomy and comparable-row agreement metrics
 
 ---
 
