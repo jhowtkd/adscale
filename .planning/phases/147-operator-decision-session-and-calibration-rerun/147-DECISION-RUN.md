@@ -64,3 +64,24 @@ cd app && npx tsx scripts/record-cenbrap-calibration-decisions.ts --dry-run
 **Confirm skipped:** `145-DECISIONS.json` absent — no real operator decisions supplied. `--confirm` not run per stop condition.
 
 **Idempotency semantics:** When decisions are supplied and `--confirm` runs, duplicate applies with the same `phase145:cenbrap-calibration:{derivationId}:{reviewer}` key return `skipped_existing` with the prior `eventId` — no duplicate `output_decision_events` insertion.
+
+## Safety scan (147-01-03)
+
+**Command:**
+
+```bash
+rg -n "DATABASE_URL|postgres://|X-Amz-Signature|prompt" \
+  .planning/phases/145-jhonatan-decision-capture-and-mismatch-triage \
+  .planning/phases/147-operator-decision-session-and-calibration-rerun
+```
+
+**Scanned:** Phase 145 and Phase 147 planning artifacts.
+
+| Pattern | Hits | Disposition |
+| --- | ---: | --- |
+| `DATABASE_URL` | 4 | Benign — policy references in plan/validation docs only |
+| `postgres://` | 0 | — |
+| `X-Amz-Signature` | 0 | — |
+| `prompt` | 6 | Benign — policy text ("do not store prompt text") in CONTEXT/PLAN/RESEARCH |
+
+**Result: PASS** — no live secrets, postgres connection strings, signed URLs, or prompt payloads in phase artifacts.
