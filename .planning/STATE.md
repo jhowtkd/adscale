@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v12.8
 milestone_name: Operacao Real do Olhar Cenbrap
-status: Phase 146 in progress — live evidence refreshed (human_needed); claims gate pending
-last_updated: "2026-06-19T20:18:00.000Z"
-last_activity: 2026-06-19 - Completed 146-01 live evidence refresh and release gate rerun
+status: v12.8 shipped with tech_debt — human_needed; agreement claims withheld
+last_updated: "2026-06-19T20:50:00.000Z"
+last_activity: 2026-06-19 - Completed Phase 146 claims gate and planning sync
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 8
-  completed_plans: 7
-  percent: 88
+  completed_plans: 8
+  percent: 100
 ---
 
 # Project State
@@ -21,28 +21,27 @@ See: .planning/PROJECT.md (updated 2026-06-19)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** v12.8 Operacao Real do Olhar Cenbrap. Turn v12.7's Olhar infrastructure into live Cenbrap calibration evidence with Jhonatan decisions and honest claim gates.
+**Current focus:** v12.8 closed with tech_debt. Live Cenbrap calibration infrastructure, evidence refresh, and honest claims gate are complete. Next operator work: Jhonatan decisions and sample sufficiency before agreement claims.
 
-**Status:** Phase 146 in progress — live evidence refreshed (`human_needed`); claims gate audit pending in 146-02
+**Status:** v12.8 shipped with tech_debt — `142-EVIDENCE.json` is `human_needed`; `agreementRate=null`; `additionalNeeded=5`; `synthetic_fixture` caveat active
 
 ## Current Position
 
-Phase: 146 - Evidence Refresh and Claims Gate (in progress)
-Plan: 146-01 complete, 146-02 ready
-Status: live_evidence_human_needed — `142-EVIDENCE.json` generated from live calibration; agreement claims withheld (`decisionCount=0`, `additionalNeeded=5`)
-Last activity: 2026-06-19 - Completed 146-01 live evidence refresh and release gate rerun
+Phase: 146 - Evidence Refresh and Claims Gate (complete)
+Plan: 146-02 complete
+Status: claims_gate_human_needed — release checker passes; agreement and quality claims withheld
+Last activity: 2026-06-19 - Completed Phase 146 claims gate audit and planning sync
 
-Progress: [█████████░] v12.8 — 3/4 phases; 7/8 plans complete; Phase 146 plan 01 done.
+Progress: [██████████] v12.8 — 4/4 phases; 8/8 plans complete.
 
 ## Accumulated Context
 
 ### v12.8 Direction
 
-- v12.7 shipped the Olhar implementation but not the live proof.
-- `v12.7-MILESTONE-AUDIT.md` is the starting evidence: implementation scope complete, but live Cenbrap calibration is template-only.
-- The product must not claim art-direction agreement while `evaluatedCampaignCount=0`, `humanDecisionCount=0` or sample guidance has `additionalNeeded > 0`.
-- Jhonatan's `entra/quase/nao_entra` decisions are the calibration authority; system verdicts are evidence under test.
-- The milestone should close v12.7 tech debt only with live artifacts or carry it forward with exact blockers.
+- v12.8 shipped operational calibration infrastructure, not agreement proof.
+- `v12.8-MILESTONE-AUDIT.md` status `tech_debt` — 16/16 requirements at infrastructure level.
+- `146-CLAIMS-GATE.md` is the authoritative claims document; do not overclaim while `human_needed`.
+- v12.7 template-only evidence debt is closed; operator decisions and sample sufficiency are carry-forward.
 
 ### v12.7 Direction
 
@@ -60,13 +59,21 @@ Progress: [█████████░] v12.8 — 3/4 phases; 7/8 plans compl
 - Phase 141: Review Surface and Override UX.
 - Phase 142: Cenbrap Calibration and Release Evidence infrastructure.
 - Audit: `.planning/milestones/v12.7-MILESTONE-AUDIT.md` status `tech_debt`.
-- Original key gap: v12.7 audit had template-only evidence; v12.8 resolved the empty-corpus blocker with `synthetic_fixture` rows, but Jhonatan decisions and sample sufficiency are still pending.
+
+### Completed v12.8
+
+- Phase 143: Live Cenbrap Calibration Run.
+- Phase 144: Cenbrap Corpus Seeding and Calibration Rerun.
+- Phase 145: Jhonatan Decision Capture and Mismatch Triage.
+- Phase 146: Evidence Refresh and Claims Gate.
+- Audit: `.planning/milestones/v12.8-MILESTONE-AUDIT.md` status `tech_debt`.
+- Claims gate: `.planning/phases/146-evidence-refresh-and-claims-gate/146-CLAIMS-GATE.md`.
 
 ### v12.6 / v12.5 Evidence Honesty
 
 - v12.6 closed with technical regression green and operational evidence `insufficient_sample`.
 - v12.5 quality evidence refresh stayed truthful even when scripts passed but `evaluatedItemCount=0`.
-- v12.8 must preserve the same distinction: technical green is not operator agreement.
+- v12.8 preserved the same distinction: technical green is not operator agreement.
 
 ## Decisions
 
@@ -74,34 +81,13 @@ Progress: [█████████░] v12.8 — 3/4 phases; 7/8 plans compl
 - [v12.8]: Live Cenbrap calibration and Jhonatan decisions are required before agreement claims.
 - [v12.8]: Missing dual verdict rows are evidence gaps, not disagreement.
 - [v12.8]: Sample guidance controls claims; no agreement rate claim while additional samples are required.
-- [Phase 143]: Live run mode=live with zero campaigns is insufficient_campaigns blocker, not template pass
-- [Phase 143]: DATABASE_URL from app/.env.local; no secrets in planning artifacts
-- [Phase 143]: Phase 143 outcome insufficient_campaigns; missing_dual_verdict_coverage N/A with zero rows
-- [Phase 143]: Jhonatan decision capture fully blocked until review_ready rows exist after corpus seeding
-- [Phase 144]: Replanned next phase from Jhonatan decision capture to corpus seeding/rerun because review_ready=0
-- [Phase 144]: Jhonatan decision capture moves to Phase 145; evidence claims gate moves to Phase 146
-- [Phase 144]: Seeded synthetic_fixture Cenbrap corpus in dev workspace; honest source labels on manifest
-- [Phase 144]: Applied 0047 dual-verdict migration on drifted local DB before seed
-- [Phase 144]: Phase 145 unblocked: ready_for_jhonatan_review with review_ready=2 synthetic_fixture rows
-- [Phase 144]: Live calibration rerun mode=live with evaluatedCampaignCount=2; Phase 143 insufficient_campaigns resolved
-- [Phase 144]: Agreement rate and quality claims remain withheld until operator decisions meet sample guidance
-- [Phase 145]: Planned decision capture through canonical output_decision_events or deterministic normalized artifact
-- [Phase 145]: Two synthetic_fixture review_ready rows are enough to test the operator loop, not enough for quality claims
-- [Phase 145]: Operator decision capture uses JSON template + record-cenbrap-calibration-decisions.ts; human_needed until Jhonatan fills decisions
-- [Phase 145]: Idempotency key phase145:cenbrap-calibration:{derivationId}:{reviewer} prevents duplicate event inserts
-- [Phase 145]: Mismatch buckets normalized in cenbrap-calibration.ts; mismatchReasonCounts aggregates by bucket
-- [Phase 145]: Phase outcome manual_decisions_missing + metrics_ready_claims_withheld; Phase 146 may refresh evidence but claims stay blocked
-- [Phase 145]: synthetic_fixture source caveat mandatory in all Phase 146 artifacts
-- [Phase 145]: mismatchReasonCounts aggregates by normalized CENBRAP_MISMATCH_BUCKETS not free-text
-- [Phase 145]: Phase 145 outcome: manual_decisions_missing + metrics_ready_claims_withheld; Phase 146 evidence refresh ok, claims blocked
-- [Phase 146]: Planned next as live evidence refresh plus milestone claims gate; `human_needed` is valid if decisions remain missing
-- [Phase 146]: Canonical generated evidence path should be `142-EVIDENCE.json`; `142-EVIDENCE.template.json` remains historical/template evidence
-- [Phase 146]: Live evidence builder CLI refuses template calibration unless --template flag
-- [Phase 146]: 142-EVIDENCE.json generated from live calibration with human_needed and agreementRate null
-- [Phase 146]: synthetic_fixture caveat merged from corpus manifest into acceptedGaps
+- [Phase 146]: v12.8 closes as tech_debt — infrastructure complete, operator decisions pending
+- [Phase 146]: v12.7 template-only evidence debt closed via live 142-EVIDENCE.json
+- [Phase 146]: Claims gate human_needed is correct — checker pass does not authorize agreement claims
+- [Phase 146]: synthetic_fixture caveat mandatory in all external calibration wording
 
 ## Next Steps
 
-1. Execute Phase 146 plan 02: milestone audit, claims gate, and planning sync
-2. Optionally, Jhonatan fills `145-DECISIONS.json`, runs `--confirm` script, reruns calibration and evidence build
-3. Re-run `npm run olhar-release-evidence:build` after operator decisions to refresh evidence status
+1. Jhonatan fills `145-DECISIONS.json`, runs `record-cenbrap-calibration-decisions.ts --confirm`, reruns calibration and evidence build
+2. Re-read `146-CLAIMS-GATE.md` before any agreement or quality claim
+3. Plan next milestone — operator loop completion or customer-real corpus when available

@@ -10,9 +10,25 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Current State
 
-v12.7 Olhar ADScale is active as of 2026-06-19. The milestone changes the creative advisor's core judgment from a UI/UX checklist into an art-direction pass that evaluates figure, gestalt, voice and invite before export compliance.
+v12.8 Operacao Real do Olhar Cenbrap shipped with tech debt as of 2026-06-19. The milestone turned v12.7's Olhar infrastructure into live calibration evidence with honest claim gates. Operator decisions and sample sufficiency remain pending before agreement claims.
 
-### v12.7 Olhar ADScale: Direcao de Arte Antes de Compliance — ACTIVE (started 2026-06-19)
+### v12.8 Operacao Real do Olhar Cenbrap — SHIPPED WITH TECH DEBT (2026-06-19)
+
+**Goal:** Sair da evidencia template do v12.7 e operar a calibracao real do Olhar Cenbrap com campanhas reais, decisoes humanas e claims bloqueados por sample guidance quando necessario.
+
+**Target features:**
+- Calibracao Cenbrap live contra `DATABASE_URL` configurado
+- Seeding/import seguro quando o corpus Cenbrap conectado esta vazio
+- Contact sheet com linhas reais, dual verdicts e elegibilidade de pacote
+- Captura de decisoes do Jhonatan (`entra`, `quase`, `nao_entra`) e motivos de mismatch
+- Refresh de evidencia e audit que separa factual/export safety de art-direction agreement
+- Fechamento ou carry-forward explicito da divida v12.7
+
+**Why now:** v12.7 fechou como `tech_debt`; Phase 143 provou o runner live, mas a base conectada voltou `mode=live` com `evaluatedCampaignCount=0`, `humanDecisionCount=0` e `agreementRate` corretamente withheld.
+
+**Current status:** Phases 143–146 complete. Live evidence `human_needed` (`decisionCount=0`, `additionalNeeded=5`). Claims gate audit published; v12.7 template-only evidence debt closed. Jhonatan decisions, sample sufficiency (0/5), and `synthetic_fixture` corpus caveat remain carry-forward blockers.
+
+### v12.7 Olhar ADScale: Direcao de Arte Antes de Compliance — SHIPPED WITH TECH DEBT (2026-06-19)
 
 **Goal:** Separar julgamento de direcao de arte de compliance de exportacao, para que o ADScale julgue figura, gestalt, voz e convite antes de permitir aprovacao ou pacote de entrega.
 
@@ -26,7 +42,7 @@ v12.7 Olhar ADScale is active as of 2026-06-19. The milestone changes the creati
 
 **Why now:** audits de campanhas reais expuseram outputs invalidos, aprovacao de peca `approved + invalid`, estetica de template/interface e prompts que tratam CTA como widget clicavel. v12.3 preservou factualidade mas manteve QA-19 como gap visual; v12.5/v12.6 criaram infraestrutura de corpus, mas ainda nao trocaram a regua criativa.
 
-**Current status:** Phases 138-142 complete; v12.7 milestone audit status `tech_debt` — implementation shipped, live Cenbrap calibration evidence awaits operator data and Jhonatan decisions.
+**Delivered:** Phases 138-142 complete; milestone audit status `tech_debt` — implementation shipped, live Cenbrap calibration evidence awaits operator data and Jhonatan decisions.
 
 ### v12.6 Operacao Live do Corpus de Qualidade — SHIPPED WITH TECH DEBT (2026-06-18)
 
@@ -353,9 +369,9 @@ Delivered: credit estimate transparency, enriched credit events, delivery/stale 
 
 ## Context
 
-Current state: v12.7 is active. The immediate product gap is not another analytics surface; it is the creative advisor's judgment model. Recent campaign audits showed that the system is strong at operational checks but still pushes outputs toward UI-like modular layouts, template aesthetics and CTA-as-button thinking.
+Current state: v12.8 shipped with tech debt. The immediate product gap is capturing Jhonatan's judgment on the reviewable Cenbrap calibration rows without overstating the evidence. Live evidence refresh and claims gate are complete; agreement claims stay blocked.
 
-v12.7 treats ADScale as a tool that scales creative criterion, not just variation volume. Compliance remains necessary, but it becomes the export layer. The first pass must judge whether the creative has figure, gestalt, voice and invite strong enough to enter a paid-media review package.
+v12.7 treated ADScale as a tool that scales creative criterion, not just variation volume. v12.8 now tests that criterion operationally: real campaigns, contact sheets, human decisions and honest evidence refresh.
 
 v12.6 remains relevant infrastructure: the live corpus, sampling honesty and release-gate separation must be reused so v12.7 does not claim quality movement from a green script or a tiny sample.
 
@@ -365,7 +381,7 @@ Migration `app/drizzle/0027_fine_morlun.sql` (Drizzle journal idx 27) must be ap
 
 Prior milestones delivered the strategy cockpit (v11.6), beta feedback capture (v11.4), presentation site separation (v11.3), beta entitlements (v11.2), generation quality gates (v11.1), coherent derivation flows (v11.0), and the full MVP through v10 UI polish.
 
-Current verification baseline: v12.6 closed with technical regression green and operational evidence `insufficient_sample`. New v12.7 claims must keep technical checks, factual fidelity and art-direction/operator evidence separate.
+Current verification baseline: v12.8 closed with live `142-EVIDENCE.json` (`human_needed`), claims gate at `146-CLAIMS-GATE.md`, and milestone audit `tech_debt`. Technical release checker passes; agreement and quality claims remain withheld until operator decisions meet sample guidance. Corpus is `synthetic_fixture` — operational calibration, not customer-real proof.
 
 Key stack decisions:
 - Next.js App Router, React, TypeScript, Tailwind, shadcn/ui
@@ -409,8 +425,11 @@ Key stack decisions:
 | Evidence-capped friction fixes | Max 5 surgical UX fixes per milestone with session citations | ✓ Good — v11.8 |
 | Manual/CSV performance ingestion before platform APIs | Validate data model and recommendation value before OAuth, rate-limit, and provider-maintenance complexity | — Pending — v12.1 |
 | Explainable recommendations over opaque ranking | Users need evidence, sample size, and confidence to trust the next creative experiment | — Pending — v12.1 |
-| Olhar before export compliance | A creative can be exportable and still weak, or strong and still blocked by factual/export issues; the product must show both truths separately | — Pending — v12.7 |
-| Client voice as prompt overlay | Cenbrap validates the structure before multi-client voice management is productized | — Pending — v12.7 |
+| Olhar before export compliance | A creative can be exportable and still weak, or strong and still blocked by factual/export issues; the product must show both truths separately | ✓ Good — v12.7 |
+| Client voice as prompt overlay | Cenbrap validates the structure before multi-client voice management is productized | ✓ Good — v12.7 |
+| Live operator calibration before claims | Agreement/quality claims require reviewable rows, Jhonatan decisions and sufficient sample — infrastructure complete, operator gate open | ✓ Good — v12.8 shipped with tech_debt |
+| Corpus before judgment | Jhonatan decision capture unblocked with `review_ready` rows | ✓ Good — v12.8 |
+| Judgment before evidence claims | Phase 146 refreshed evidence and claims gate; agreement blocked while decisions missing | ✓ Good — v12.8 |
 
 ## Evolution
 
@@ -430,7 +449,7 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-19 — milestone v12.7 Olhar ADScale initialized*
+*Last updated: 2026-06-19 — v12.8 shipped with tech_debt; Phase 146 claims gate complete*
 
 ## Milestone History
 

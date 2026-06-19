@@ -2,7 +2,7 @@
 
 ## Milestones
 
-- 🚧 **v12.8 Operacao Real do Olhar Cenbrap** - Phases 143-146 (active; started 2026-06-19)
+- 🚧 **v12.8 Operacao Real do Olhar Cenbrap** - Phases 143-146 (shipped 2026-06-19; tech debt: Jhonatan decisions pending, sample 0/5, synthetic_fixture corpus)
 - ✅ **v12.7 Olhar ADScale: Direcao de Arte Antes de Compliance** - Phases 138-142 (shipped 2026-06-19; tech debt: template Cenbrap calibration, operator decisions pending)
 - ✅ **v12.6 Operacao Live do Corpus de Qualidade** - Phases 134-137 (shipped 2026-06-18; tech debt: empty live corpus, template 135/136 fallbacks)
 - ✅ **v12.5 Validacao Real de Qualidade e Calibracao do Loop Criativo** - Phases 129-133 (shipped 2026-06-17; tech debt: empty live corpus)
@@ -14,7 +14,7 @@
 
 ## Phases
 
-### 🚧 v12.8 Operacao Real do Olhar Cenbrap (Phases 143-146) — ACTIVE
+### ✅ v12.8 Operacao Real do Olhar Cenbrap (Phases 143-146) — SHIPPED WITH TECH DEBT
 
 **Milestone Goal:** Sair da evidencia template do v12.7 e operar a calibracao real do Olhar Cenbrap: campanhas reais, decisoes do Jhonatan, metricas honestas e fechamento/carry-forward explicito da divida.
 
@@ -23,14 +23,14 @@
 - [x] **Phase 143: Live Cenbrap Calibration Run** — completed with blocker `insufficient_campaigns`; runner live funcionou, corpus Cenbrap conectado estava vazio. (completed 2026-06-19)
 - [x] **Phase 144: Cenbrap Corpus Seeding and Calibration Rerun** — criar/identificar corpus revisavel, re-rodar calibracao live e liberar contact sheet `review_ready`. (completed 2026-06-19)
 - [x] **Phase 145: Jhonatan Decision Capture and Mismatch Triage** — tooling complete; decisoes humanas ainda ausentes, entao metricas ficam prontas mas claims seguem blocked. (completed 2026-06-19)
-- [ ] **Phase 146: Evidence Refresh and Claims Gate** — planned; regenerar evidencia, fechar/carry-forward da divida v12.7 e bloquear claims se a amostra ainda for insuficiente.
+- [x] **Phase 146: Evidence Refresh and Claims Gate** — live evidence refreshed (`human_needed`); claims gate audit complete; v12.7 template debt closed, operator decisions still pending. (completed 2026-06-19)
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
 | 143 | Live Cenbrap Calibration Run | CENLIVE-01..04 | Complete   | 2026-06-19 |
 | 144 | Cenbrap Corpus Seeding and Calibration Rerun | CORPUS-01..04 | Complete | 2026-06-19 |
 | 145 | Jhonatan Decision Capture and Mismatch Triage | JUDGE-01..04 | Complete | 2026-06-19 |
-| 146 | Evidence Refresh and Claims Gate | 1/2 | In Progress|  |
+| 146 | Evidence Refresh and Claims Gate | CLAIM-01..04 | Complete | 2026-06-19 |
 
 ## Phase Details
 
@@ -114,11 +114,11 @@ Plans:
   3. Audit separa factual/export safety de art-direction agreement.
   4. v12.7 tech debt e v12.8 status final ficam sincronizados em PROJECT/ROADMAP/STATE/MILESTONES.
 
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 146-01-PLAN.md — Live evidence refresh and release gate rerun
-- [ ] 146-02-PLAN.md — Milestone audit, tech-debt closure and planning sync
+- [x] 146-02-PLAN.md — Milestone audit, tech-debt closure and planning sync
 
 ---
 
@@ -135,7 +135,7 @@ Archive: [v12.6-ROADMAP.md](milestones/v12.6-ROADMAP.md) · [v12.6-REQUIREMENTS.
 | 143 | v12.8 | 2/2 | Complete | 2026-06-19 |
 | 144 | v12.8 | 2/2 | Complete | 2026-06-19 |
 | 145 | v12.8 | 2/2 | Complete | 2026-06-19 |
-| 146 | v12.8 | 0/2 | Planned | — |
+| 146 | v12.8 | 2/2 | Complete | 2026-06-19 |
 
 ---
-*Roadmap updated: 2026-06-19 — Phase 146 planned from Phase 145 human_needed / metrics_ready_claims_withheld gate*
+*Roadmap updated: 2026-06-19 — Phase 146 complete; v12.8 shipped with tech_debt (human_needed, sample 0/5)*

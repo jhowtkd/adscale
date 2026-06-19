@@ -41,8 +41,8 @@ Transformar a infraestrutura v12.7 do `Olhar ADScale` em uma operacao real de ca
 
 - [x] **CLAIM-01**: Release evidence refresh consumes live calibration JSON and updates agreement, mismatch, approved-invalid prevention, sem-opiniao detection and export-block separation counters.
 - [x] **CLAIM-02**: Evidence status remains `insufficient_sample` or `human_needed` until sample guidance thresholds are met.
-- [ ] **CLAIM-03**: v12.8 audit separates factual/export safety from art-direction agreement and explicitly withholds quality claims when sample guidance blocks them.
-- [ ] **CLAIM-04**: v12.7 tech debt is either closed with live evidence or carried forward with exact operator blockers and next actions.
+- [x] **CLAIM-03**: v12.8 audit separates factual/export safety from art-direction agreement and explicitly withholds quality claims when sample guidance blocks them.
+- [x] **CLAIM-04**: v12.7 tech debt is either closed with live evidence or carried forward with exact operator blockers and next actions.
 
 ## Future Requirements
 
@@ -86,8 +86,8 @@ Transformar a infraestrutura v12.7 do `Olhar ADScale` em uma operacao real de ca
 | JUDGE-04 | Phase 145 | Complete |
 | CLAIM-01 | Phase 146 | Complete |
 | CLAIM-02 | Phase 146 | Complete |
-| CLAIM-03 | Phase 146 | Pending |
-| CLAIM-04 | Phase 146 | Pending |
+| CLAIM-03 | Phase 146 | Complete |
+| CLAIM-04 | Phase 146 | Complete |
 
 **Coverage:**
 - v12.8 requirements: 16 total
