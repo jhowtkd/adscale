@@ -168,3 +168,33 @@ First live run (Phase 143, 2026-06-19T16:44:10Z) had `evaluatedCampaignCount=0` 
 npm test -- src/server/olhar-calibration/cenbrap-calibration.test.ts src/server/olhar-calibration/olhar-release-evidence.test.ts
 → 17 passed (2 files)
 ```
+
+## Phase 145 readiness gate (144-02-03)
+
+| Field | Value |
+|-------|-------|
+| `outcome` | **ready_for_jhonatan_review** |
+| `evaluated_campaign_count` | 2 (≥ 2 **pass**) |
+| `evaluated_derivation_count` | 2 |
+| `review_ready` | 2 (> 0 **pass**) |
+| `missing_dual_verdict` | 0 |
+| `operator_data_unavailable` | not triggered |
+| `insufficient_campaigns` | resolved (was Phase 143 blocker) |
+| `no_output_derivations` | not triggered |
+| `missing_dual_verdict_coverage` | not triggered |
+| `no_review_ready_rows` | not triggered |
+| `phase_145_blocked` | **no** |
+| `agreement_rate_claim` | withheld (`decisionCount=0`, sample guidance 0/5) |
+
+### Gate decision
+
+Phase 145 (Jhonatan decision capture) is **unblocked**. Contact sheet has 2 `review_ready` rows with visible `olharVerdict`, `exportStatus`, safe `outputRef`, and package eligibility context. Rows await `entra/quase/nao_entra` human decisions — system verdicts are evidence under test, not final truth.
+
+**Caveats:**
+- All rows are `synthetic_fixture` — operational calibration only, not real customer evidence.
+- Agreement rate and quality claims remain withheld until sample guidance clears.
+- Phase 143 `insufficient_campaigns` history preserved in artifacts and [143-BLOCKERS.md](../143-live-cenbrap-calibration-run/143-BLOCKERS.md).
+
+### Next step
+
+Proceed to Phase 145: Jhonatan decision capture on contact sheet rows.
