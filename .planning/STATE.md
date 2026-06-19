@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v12.8
 milestone_name: Operacao Real do Olhar Cenbrap
-status: v12.8 shipped with tech_debt — human_needed; agreement claims withheld
-last_updated: "2026-06-19T20:50:00.000Z"
-last_activity: 2026-06-19 - Completed Phase 146 claims gate and planning sync
+status: v12.8 shipped with tech_debt — `142-EVIDENCE.json` is `human_needed`; `agreementRate=null`; `additionalNeeded=5`; `synthetic_fixture` caveat active
+last_updated: "2026-06-19T20:21:42.259Z"
+last_activity: 2026-06-19 - Completed Phase 146 claims gate audit and planning sync
 progress:
   total_phases: 4
   completed_phases: 4
@@ -85,6 +85,9 @@ Progress: [██████████] v12.8 — 4/4 phases; 8/8 plans compl
 - [Phase 146]: v12.7 template-only evidence debt closed via live 142-EVIDENCE.json
 - [Phase 146]: Claims gate human_needed is correct — checker pass does not authorize agreement claims
 - [Phase 146]: synthetic_fixture caveat mandatory in all external calibration wording
+- [Phase 146]: v12.8 closes as tech_debt — infrastructure complete, operator decisions pending
+- [Phase 146]: Claims gate human_needed is correct — checker pass does not authorize agreement claims
+- [Phase 146]: v12.7 template-only evidence debt closed via live 142-EVIDENCE.json
 
 ## Next Steps
 
