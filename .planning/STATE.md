@@ -2,15 +2,14 @@
 gsd_state_version: 1.0
 milestone: v12.8
 milestone_name: Operacao Real do Olhar Cenbrap
-status: v12.8 shipped with tech_debt — `142-EVIDENCE.json` is `human_needed`; `agreementRate=null`; `additionalNeeded=5`; `synthetic_fixture` caveat active
-last_updated: "2026-06-19T20:21:42.259Z"
+status: completed
+last_updated: "2026-06-19T20:27:07.401Z"
 last_activity: 2026-06-19 - Completed Phase 146 claims gate audit and planning sync
 progress:
   total_phases: 4
   completed_phases: 4
   total_plans: 8
   completed_plans: 8
-  percent: 100
 ---
 
 # Project State
@@ -23,7 +22,7 @@ See: .planning/PROJECT.md (updated 2026-06-19)
 
 **Current focus:** v12.8 closed with tech_debt. Live Cenbrap calibration infrastructure, evidence refresh, and honest claims gate are complete. Next operator work: Jhonatan decisions and sample sufficiency before agreement claims.
 
-**Status:** v12.8 shipped with tech_debt — `142-EVIDENCE.json` is `human_needed`; `agreementRate=null`; `additionalNeeded=5`; `synthetic_fixture` caveat active
+**Status:** Milestone complete
 
 ## Current Position
 
