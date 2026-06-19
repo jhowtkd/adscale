@@ -70,7 +70,7 @@ Each task was committed atomically:
 2. **Task 146-01-02: Rerun release checker** - `6d5f8f3b` (docs)
 3. **Task 146-01-03: Focused tests and consistency scan** - `fd05f34b` (test)
 
-**Plan metadata:** pending (docs: complete plan)
+**Plan metadata:** `a9bcddd4` (docs: complete plan)
 
 ## Files Created/Modified
 
