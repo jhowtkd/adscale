@@ -2,8 +2,9 @@
 
 ## Milestones
 
-- 🚧 **v12.8 Operacao Real do Olhar Cenbrap** - Phases 143-146 (shipped 2026-06-19; tech debt: Jhonatan decisions pending, sample 0/5, synthetic_fixture corpus)
-- ✅ **v12.7 Olhar ADScale: Direcao de Arte Antes de Compliance** - Phases 138-142 (shipped 2026-06-19; tech debt: template Cenbrap calibration, operator decisions pending)
+- 🚧 **v12.9 Fechamento Humano do Olhar Cenbrap** - Phases 147-150 (active; started 2026-06-19)
+- ✅ **v12.8 Operacao Real do Olhar Cenbrap** - Phases 143-146 (shipped 2026-06-19; tech debt: Jhonatan decisions pending, sample 0/5, synthetic_fixture corpus)
+- ✅ **v12.7 Olhar ADScale: Direcao de Arte Antes de Compliance** - Phases 138-142 (shipped 2026-06-19; tech debt partially closed by v12.8)
 - ✅ **v12.6 Operacao Live do Corpus de Qualidade** - Phases 134-137 (shipped 2026-06-18; tech debt: empty live corpus, template 135/136 fallbacks)
 - ✅ **v12.5 Validacao Real de Qualidade e Calibracao do Loop Criativo** - Phases 129-133 (shipped 2026-06-17; tech debt: empty live corpus)
 - ✅ **v12.4 Aprendizado de Qualidade dos Outputs** - Phases 124-128 (shipped 2026-06-17)
@@ -14,128 +15,128 @@
 
 ## Phases
 
-### ✅ v12.8 Operacao Real do Olhar Cenbrap (Phases 143-146) — SHIPPED WITH TECH DEBT
+### 🚧 v12.9 Fechamento Humano do Olhar Cenbrap (Phases 147-150) — ACTIVE
 
-**Milestone Goal:** Sair da evidencia template do v12.7 e operar a calibracao real do Olhar Cenbrap: campanhas reais, decisoes do Jhonatan, metricas honestas e fechamento/carry-forward explicito da divida.
+**Milestone Goal:** Transformar o gate honesto de v12.8 em calibracao humana real: decisoes do Jhonatan, amostra minima, corpus customer-real quando disponivel e claims de acordo/qualidade somente quando a evidencia permitir.
 
-**Starting point:** `v12.7-MILESTONE-AUDIT.md` fechou como `tech_debt`; Phase 143 depois provou o runner live, mas o ambiente conectado voltou `mode=live`, `evaluatedCampaignCount=0`, `humanDecisionCount=0`, `agreementRate=null` e blocker `insufficient_campaigns`.
+**Starting point:** v12.8 fechou como `tech_debt`; `142-EVIDENCE.json` live e checker passam com `human_needed`, mas `humanDecisionCount=0`, `missingHumanDecisionCount=2`, sample guidance `0/5`, `agreementRate=null` e corpus `synthetic_fixture`.
 
-- [x] **Phase 143: Live Cenbrap Calibration Run** — completed with blocker `insufficient_campaigns`; runner live funcionou, corpus Cenbrap conectado estava vazio. (completed 2026-06-19)
-- [x] **Phase 144: Cenbrap Corpus Seeding and Calibration Rerun** — criar/identificar corpus revisavel, re-rodar calibracao live e liberar contact sheet `review_ready`. (completed 2026-06-19)
-- [x] **Phase 145: Jhonatan Decision Capture and Mismatch Triage** — tooling complete; decisoes humanas ainda ausentes, entao metricas ficam prontas mas claims seguem blocked. (completed 2026-06-19)
-- [x] **Phase 146: Evidence Refresh and Claims Gate** — live evidence refreshed (`human_needed`); claims gate audit complete; v12.7 template debt closed, operator decisions still pending. (completed 2026-06-19)
+- [ ] **Phase 147: Operator Decision Session and Calibration Rerun** — capturar decisoes do Jhonatan nas linhas atuais, persistir eventos e rerodar calibracao sem inferir julgamento humano.
+- [ ] **Phase 148: Sample Sufficiency Expansion** — chegar a 5 decisoes humanas ou registrar blocker exato; preservar claims withheld enquanto a amostra nao fecha.
+- [ ] **Phase 149: Customer-Real Cenbrap Corpus Replacement** — localizar/importar rows customer-real ou documentar `operator_data_unavailable`, separando fixture de prova real.
+- [ ] **Phase 150: Agreement Calibration and Final Claims Gate** — auditar mismatches, aplicar ajustes pequenos se provados, refrescar evidencia e fechar/carry-forward de v12.9.
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
-| 143 | Live Cenbrap Calibration Run | CENLIVE-01..04 | Complete   | 2026-06-19 |
-| 144 | Cenbrap Corpus Seeding and Calibration Rerun | CORPUS-01..04 | Complete | 2026-06-19 |
-| 145 | Jhonatan Decision Capture and Mismatch Triage | JUDGE-01..04 | Complete | 2026-06-19 |
-| 146 | Evidence Refresh and Claims Gate | Complete    | 2026-06-19 | 2026-06-19 |
+| 147 | Operator Decision Session and Calibration Rerun | 1/2 | In Progress|  |
+| 148 | Sample Sufficiency Expansion | SAMPLE-01..04 | Pending | — |
+| 149 | Customer-Real Cenbrap Corpus Replacement | REALCORP-01..04 | Pending | — |
+| 150 | Agreement Calibration and Final Claims Gate | AGREE-01..04 | Pending | — |
 
 ## Phase Details
 
-### Phase 143: Live Cenbrap Calibration Run
+### Phase 147: Operator Decision Session and Calibration Rerun
 
-**Goal:** Rodar a calibracao Cenbrap contra ambiente real e substituir a evidencia template por artefatos com campanhas/derivacoes reais ou blocker operacional explicito.
+**Goal:** Capturar ou bloquear explicitamente as decisoes do Jhonatan para as linhas `review_ready`, persistir com seguranca e rerodar a calibracao para trocar `missing_human_decision` por metricas comparaveis.
 
-**Depends on:** v12.7 Phase 142 calibration infrastructure
+**Depends on:** v12.8 Phase 146 claims gate
 
-**Requirements:** CENLIVE-01, CENLIVE-02, CENLIVE-03, CENLIVE-04
+**Requirements:** HUMDEC-01, HUMDEC-02, HUMDEC-03, HUMDEC-04
 
 **Success Criteria** (what must be TRUE):
-  1. `run-cenbrap-calibration.ts` runs without `--template` against a configured environment or emits a blocker typed with exact missing prerequisite.
-  2. `142-CENBRAP-CALIBRATION.json` exists with live mode and at least two Cenbrap campaigns, or an explicit insufficient-campaign blocker.
-  3. `142-CONTACT-SHEET.md` contains real rows with safe derivation refs, dual verdicts, package eligibility and override markers.
-  4. Missing dual-verdict rows are counted and routed to follow-up instead of being inferred.
+  1. `145-DECISIONS.json` ou artifact equivalente registra decisao humana para cada linha atual `review_ready`, ou deixa cada ausencia como `manual_pending`.
+  2. `record-cenbrap-calibration-decisions.ts --confirm` grava decisoes idempotentes com reviewer/reviewedAt e sem payload sensivel.
+  3. Rerun da calibracao atualiza `humanDecisionCount`, `missingHumanDecisionCount`, `comparableCount` e mismatch reason counts.
+  4. Evidence/verification nao infere decisao humana a partir de `olharVerdict` ou `exportStatus`.
 
-**Plans:** 2/2 plans complete
+**Plans:** 1/2 plans executed
 
 Plans:
-- [x] 143-01-PLAN.md — Live environment calibration execution and artifact refresh
-- [x] 143-02-PLAN.md — Dual-verdict coverage cleanup and blocker classification
+- [x] 147-01-PLAN.md — Decision artifact completion and safe event recording
+- [ ] 147-02-PLAN.md — Calibration rerun, evidence refresh and human-needed audit
 
 ---
 
-### Phase 144: Cenbrap Corpus Seeding and Calibration Rerun
+### Phase 148: Sample Sufficiency Expansion
 
-**Goal:** Desbloquear a calibracao humana criando ou identificando um corpus Cenbrap real, revisavel e seguro: pelo menos duas campanhas com derivacoes, refs seguras, dual verdict e contact sheet `review_ready`.
+**Goal:** Atingir a amostra minima de 5 decisoes humanas para liberar metricas de acordo, ou documentar exatamente por que a amostra ainda esta indisponivel.
 
-**Depends on:** Phase 143
+**Depends on:** Phase 147
 
-**Requirements:** CORPUS-01, CORPUS-02, CORPUS-03, CORPUS-04
+**Requirements:** SAMPLE-01, SAMPLE-02, SAMPLE-03, SAMPLE-04
 
 **Success Criteria** (what must be TRUE):
-  1. Existing DB is inspected for Cenbrap candidates without exposing secrets, prompts or signed URLs.
-  2. At least two Cenbrap campaigns with derivations exist in the calibration environment, or `operator_data_unavailable` is documented.
-  3. Reviewable rows include safe `outputKey`, `olharVerdict` and `exportStatus`; missing rows are excluded or routed.
-  4. Calibration rerun produces `mode=live`, `evaluatedCampaignCount >= 2` and `review_ready > 0`, or Phase 145 remains blocked with an exact blocker.
+  1. Existem pelo menos 5 linhas revisaveis com decisao humana, ou blocker operacional explicito para rows faltantes.
+  2. Evidence mantem `agreementRate=null` enquanto `additionalNeeded > 0`.
+  3. Quando `additionalNeeded=0`, agreement/mismatch usa apenas linhas comparaveis.
+  4. Source composition aparece na evidencia e no audit.
 
-**Plans:** 2/2 plans complete
+**Plans:** 0/2 plans complete
 
 Plans:
-- [x] 144-01-PLAN.md — Corpus source inspection and safe seeding path
-- [x] 144-02-PLAN.md — Dual-verdict readiness and live calibration rerun
+- [ ] 148-01-PLAN.md — Reviewable-row sourcing and sample expansion
+- [ ] 148-02-PLAN.md — Sample-guidance rerun and claim-state update
 
 ---
 
-### Phase 145: Jhonatan Decision Capture and Mismatch Triage
+### Phase 149: Customer-Real Cenbrap Corpus Replacement
 
-**Goal:** Transformar o contact sheet em calibracao humana: Jhonatan decide `entra/quase/nao_entra`, e o sistema classifica acordos, desacordos e motivos acionaveis.
+**Goal:** Substituir ou complementar `synthetic_fixture` com derivacoes customer-real Cenbrap, ou fechar o blocker `operator_data_unavailable` sem contaminar claims.
 
-**Depends on:** Phase 144
+**Depends on:** Phase 148
 
-**Requirements:** JUDGE-01, JUDGE-02, JUDGE-03, JUDGE-04
+**Requirements:** REALCORP-01, REALCORP-02, REALCORP-03, REALCORP-04
 
 **Success Criteria** (what must be TRUE):
-  1. Contact sheet ou evento canonico registra decisoes humanas por derivacao com reviewer/reviewedAt.
-  2. Mismatch reasons sao normalizados em buckets acionaveis.
-  3. Agreement metrics usam apenas linhas comparaveis com veredito do sistema e decisao humana.
-  4. As decisoes do Jhonatan ficam ligadas ao artifact/evidence sem vazar prompt, signed URL ou payload sensivel.
+  1. Ambientes configurados sao inspecionados sem vazar secrets.
+  2. Rows customer-real elegiveis entram no contact sheet com safe refs e dual verdicts, ou blocker typed e documentado.
+  3. Evidence separa fixture operacional de prova customer-real.
+  4. Claims externos so usam rows elegiveis para o tipo de prova declarado.
 
-**Plans:** 2/2 plans complete
+**Plans:** 0/2 plans complete
 
 Plans:
-- [x] 145-01-PLAN.md — Operator decision capture workflow
-- [x] 145-02-PLAN.md — Mismatch taxonomy and comparable-row agreement metrics
+- [ ] 149-01-PLAN.md — Safe customer-real corpus discovery
+- [ ] 149-02-PLAN.md — Customer-real contact sheet and evidence source split
 
 ---
 
-### Phase 146: Evidence Refresh and Claims Gate
+### Phase 150: Agreement Calibration and Final Claims Gate
 
-**Goal:** Atualizar a evidencia de release com dados reais e fechar v12.8 com linguagem honesta: clean pass, human_needed, insufficient_sample ou tech_debt, sem score unico enganoso.
+**Goal:** Converter decisoes humanas em aprendizado operacional do Olhar, atualizar evidencia final e fechar v12.9 com claims permitidos/proibidos explicitamente.
 
-**Depends on:** Phase 145
+**Depends on:** Phase 149
 
-**Requirements:** CLAIM-01, CLAIM-02, CLAIM-03, CLAIM-04
+**Requirements:** AGREE-01, AGREE-02, AGREE-03, AGREE-04
 
 **Success Criteria** (what must be TRUE):
-  1. Evidence JSON consome calibracao live e atualiza contadores de acordo, mismatch, sem-opiniao, export block e override.
-  2. `agreementRate` e qualquer claim de qualidade permanecem null/withheld quando sample guidance bloqueia.
-  3. Audit separa factual/export safety de art-direction agreement.
-  4. v12.7 tech debt e v12.8 status final ficam sincronizados em PROJECT/ROADMAP/STATE/MILESTONES.
+  1. Mismatches sao auditados por bucket acionavel e ligados a follow-ups.
+  2. Ajustes de prompt/rubric so entram se houver padrao de discordancia e regressao factual/export verde.
+  3. Release evidence final declara claims permitidos, proibidos e bloqueados.
+  4. v12.8/v12.9 debt fica fechado ou carregado com blockers concretos.
 
-**Plans:** 2/2 plans complete
+**Plans:** 0/2 plans complete
 
 Plans:
-- [x] 146-01-PLAN.md — Live evidence refresh and release gate rerun
-- [x] 146-02-PLAN.md — Milestone audit, tech-debt closure and planning sync
+- [ ] 150-01-PLAN.md — Agreement mismatch audit and safe calibration adjustments
+- [ ] 150-02-PLAN.md — Final evidence refresh, claims gate and milestone audit
 
 ---
 
 ## Completed Milestone Context
 
-Latest archive: [v12.7-ROADMAP.md](milestones/v12.7-ROADMAP.md) · [v12.7-REQUIREMENTS.md](milestones/v12.7-REQUIREMENTS.md) · [v12.7-MILESTONE-AUDIT.md](milestones/v12.7-MILESTONE-AUDIT.md)
+Latest archive: [v12.8-ROADMAP.md](milestones/v12.8-ROADMAP.md) · [v12.8-REQUIREMENTS.md](milestones/v12.8-REQUIREMENTS.md) · [v12.8-MILESTONE-AUDIT.md](milestones/v12.8-MILESTONE-AUDIT.md)
 
-Archive: [v12.6-ROADMAP.md](milestones/v12.6-ROADMAP.md) · [v12.6-REQUIREMENTS.md](milestones/v12.6-REQUIREMENTS.md) · [v12.6-MILESTONE-AUDIT.md](milestones/v12.6-MILESTONE-AUDIT.md)
+Previous archive: [v12.7-ROADMAP.md](milestones/v12.7-ROADMAP.md) · [v12.7-REQUIREMENTS.md](milestones/v12.7-REQUIREMENTS.md) · [v12.7-MILESTONE-AUDIT.md](milestones/v12.7-MILESTONE-AUDIT.md)
 
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 143 | v12.8 | 2/2 | Complete | 2026-06-19 |
-| 144 | v12.8 | 2/2 | Complete | 2026-06-19 |
-| 145 | v12.8 | 2/2 | Complete | 2026-06-19 |
-| 146 | v12.8 | 2/2 | Complete | 2026-06-19 |
+| 147 | v12.9 | 0/2 | Planned | — |
+| 148 | v12.9 | 0/2 | Pending | — |
+| 149 | v12.9 | 0/2 | Pending | — |
+| 150 | v12.9 | 0/2 | Pending | — |
 
 ---
-*Roadmap updated: 2026-06-19 — Phase 146 complete; v12.8 shipped with tech_debt (human_needed, sample 0/5)*
+*Roadmap updated: 2026-06-19 — v12.9 started from v12.8 human_needed claims gate*

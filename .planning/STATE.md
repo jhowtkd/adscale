@@ -1,15 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v12.8
-milestone_name: Operacao Real do Olhar Cenbrap
-status: completed
-last_updated: "2026-06-19T20:27:07.401Z"
-last_activity: 2026-06-19 - Completed Phase 146 claims gate audit and planning sync
+milestone: v12.9
+milestone_name: Fechamento Humano do Olhar Cenbrap
+status: Phase 147 in progress — 147-01 complete, human_needed blocker documented
+last_updated: "2026-06-19T21:20:00.000Z"
+last_activity: 2026-06-19 - Completed 147-01; awaiting Jhonatan decisions for confirm path
 progress:
   total_phases: 4
-  completed_phases: 4
-  total_plans: 8
-  completed_plans: 8
+  completed_phases: 0
+  total_plans: 2
+  completed_plans: 1
+  percent: 50
 ---
 
 # Project State
@@ -20,44 +21,28 @@ See: .planning/PROJECT.md (updated 2026-06-19)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** v12.8 closed with tech_debt. Live Cenbrap calibration infrastructure, evidence refresh, and honest claims gate are complete. Next operator work: Jhonatan decisions and sample sufficiency before agreement claims.
+**Current focus:** v12.9 Fechamento Humano do Olhar Cenbrap. Convert v12.8's honest `human_needed` gate into real operator decisions, sample sufficiency and customer-real evidence discipline.
 
-**Status:** Milestone complete
+**Status:** Phase 147-01 complete — `human_needed` blocker documented; confirm path awaits `145-DECISIONS.json`
 
 ## Current Position
 
-Phase: 146 - Evidence Refresh and Claims Gate (complete)
-Plan: 146-02 complete
-Status: claims_gate_human_needed — release checker passes; agreement and quality claims withheld
-Last activity: 2026-06-19 - Completed Phase 146 claims gate audit and planning sync
+Phase: 147 - Operator Decision Session and Calibration Rerun (in progress)
+Plan: 147-02 ready (calibration rerun and evidence refresh)
+Status: human_needed — 2 rows `manual_pending`; dry-run validated; `--confirm` skipped
+Last activity: 2026-06-19 - Completed 147-01 plan execution
 
-Progress: [██████████] v12.8 — 4/4 phases; 8/8 plans complete.
+Progress: [█░░░░░░░░░] v12.9 — 0/4 phases; 1/8 plans complete.
 
 ## Accumulated Context
 
-### v12.8 Direction
+### v12.9 Direction
 
-- v12.8 shipped operational calibration infrastructure, not agreement proof.
-- `v12.8-MILESTONE-AUDIT.md` status `tech_debt` — 16/16 requirements at infrastructure level.
-- `146-CLAIMS-GATE.md` is the authoritative claims document; do not overclaim while `human_needed`.
-- v12.7 template-only evidence debt is closed; operator decisions and sample sufficiency are carry-forward.
-
-### v12.7 Direction
-
-- ADScale should scale creative criterion, not just generate variations or enforce export compliance.
-- Creative judgment must happen in two passes: `Olhar` (figure, gestalt, voice, invite) and `Exportacao` (brand, CTA, claims, format, required text, resolution).
-- Production campaign audits exposed the core failure: outputs can be invalid, approved, generic or UI-like while the existing advisor still speaks in CTA/button/module/checklist language.
-- The first client voice is Cenbrap. Voice is an overlay on the global Olhar ADScale constitution, not a full multi-tenant voice management product.
-- v12.7 kept v12.5/v12.6 evidence honesty: no quality claim from empty corpus, insufficient sample or automated green alone.
-
-### Completed v12.7
-
-- Phase 138: Olhar Constitution and Cenbrap Voice.
-- Phase 139: Dual Verdict and Export Validator.
-- Phase 140: Advisor and Generation Direction.
-- Phase 141: Review Surface and Override UX.
-- Phase 142: Cenbrap Calibration and Release Evidence infrastructure.
-- Audit: `.planning/milestones/v12.7-MILESTONE-AUDIT.md` status `tech_debt`.
+- v12.9 exists because v12.8 proved the gate, not the agreement.
+- The primary blocker is human: Jhonatan decisions are missing (`humanDecisionCount=0`, `missingHumanDecisionCount=2`).
+- The minimum sample rule remains 5 operator decisions before art-direction agreement claims can unlock.
+- `synthetic_fixture` rows are acceptable for operational calibration, not customer-real proof.
+- The milestone should close v12.8 carry-forward only with decisions, sample sufficiency and source-label honesty.
 
 ### Completed v12.8
 
@@ -66,30 +51,34 @@ Progress: [██████████] v12.8 — 4/4 phases; 8/8 plans compl
 - Phase 145: Jhonatan Decision Capture and Mismatch Triage.
 - Phase 146: Evidence Refresh and Claims Gate.
 - Audit: `.planning/milestones/v12.8-MILESTONE-AUDIT.md` status `tech_debt`.
-- Claims gate: `.planning/phases/146-evidence-refresh-and-claims-gate/146-CLAIMS-GATE.md`.
+- Claims gate: `.planning/phases/146-evidence-refresh-and-claims-gate/146-CLAIMS-GATE.md` status `human_needed`.
+- v12.7 template-only evidence debt closed via live `142-EVIDENCE.json`.
+
+### v12.7 Direction
+
+- ADScale should scale creative criterion, not just generate variations or enforce export compliance.
+- Creative judgment must happen in two passes: `Olhar` (figure, gestalt, voice, invite) and `Exportacao` (brand, CTA, claims, format, required text, resolution).
+- Production campaign audits exposed the core failure: outputs can be invalid, approved, generic or UI-like while the existing advisor still speaks in CTA/button/module/checklist language.
+- The first client voice is Cenbrap. Voice is an overlay on the global Olhar ADScale constitution, not a full multi-tenant voice management product.
 
 ### v12.6 / v12.5 Evidence Honesty
 
 - v12.6 closed with technical regression green and operational evidence `insufficient_sample`.
 - v12.5 quality evidence refresh stayed truthful even when scripts passed but `evaluatedItemCount=0`.
-- v12.8 preserved the same distinction: technical green is not operator agreement.
+- v12.9 must preserve the same distinction: technical green is not operator agreement.
 
 ## Decisions
 
-- [v12.8]: Next milestone is operational calibration, not new creative-generation surface.
-- [v12.8]: Live Cenbrap calibration and Jhonatan decisions are required before agreement claims.
-- [v12.8]: Missing dual verdict rows are evidence gaps, not disagreement.
-- [v12.8]: Sample guidance controls claims; no agreement rate claim while additional samples are required.
-- [Phase 146]: v12.8 closes as tech_debt — infrastructure complete, operator decisions pending
-- [Phase 146]: v12.7 template-only evidence debt closed via live 142-EVIDENCE.json
-- [Phase 146]: Claims gate human_needed is correct — checker pass does not authorize agreement claims
-- [Phase 146]: synthetic_fixture caveat mandatory in all external calibration wording
-- [Phase 146]: v12.8 closes as tech_debt — infrastructure complete, operator decisions pending
-- [Phase 146]: Claims gate human_needed is correct — checker pass does not authorize agreement claims
-- [Phase 146]: v12.7 template-only evidence debt closed via live 142-EVIDENCE.json
+- [v12.9]: Next milestone focuses on human calibration closure, not new generation features.
+- [v12.9]: Jhonatan decisions remain the calibration authority; no automated fallback may infer them.
+- [v12.9]: Sample sufficiency blocks `agreementRate` and quality claims until `additionalNeeded=0`.
+- [v12.9]: Source labels must separate `synthetic_fixture`, `operator_imported` and `real_customer`.
+- [Phase 147]: First planned phase captures current review-ready decisions and reruns calibration; it may honestly remain `human_needed` if decisions are unavailable.
+- [Phase 147]: Skipped --confirm; 145-DECISIONS.json absent — human_needed carry-forward is truthful partial success
+- [Phase 147]: Dry-run validates template rows; idempotency key phase145:cenbrap-calibration:{derivationId}:{reviewer} prevents duplicate events
 
 ## Next Steps
 
-1. Jhonatan fills `145-DECISIONS.json`, runs `record-cenbrap-calibration-decisions.ts --confirm`, reruns calibration and evidence build
-2. Re-read `146-CLAIMS-GATE.md` before any agreement or quality claim
-3. Plan next milestone — operator loop completion or customer-real corpus when available
+1. Jhonatan fills `145-DECISIONS.json` from `145-DECISIONS.template.json` and runs recorder `--confirm`
+2. Execute Phase 147-02: calibration rerun and evidence refresh
+3. Do not claim agreement until sample guidance clears (0/5)
