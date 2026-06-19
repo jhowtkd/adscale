@@ -68,7 +68,7 @@ completed: 2026-06-19
 2. **Task 2: Live calibration rerun and contact sheet refresh** - `03d56c69` (feat)
 3. **Task 3: Phase 145 readiness gate** - `adaed205` (docs)
 
-**Plan metadata:** `3ec7927e` (docs: complete plan)
+**Plan metadata:** `7d865bc5` (docs: complete plan)
 
 ## Files Created/Modified
 
