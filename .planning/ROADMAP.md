@@ -2,7 +2,7 @@
 
 ## Milestones
 
-- 🚧 **v12.8 Operacao Real do Olhar Cenbrap** - Phases 143-145 (active; started 2026-06-19)
+- 🚧 **v12.8 Operacao Real do Olhar Cenbrap** - Phases 143-146 (active; started 2026-06-19)
 - ✅ **v12.7 Olhar ADScale: Direcao de Arte Antes de Compliance** - Phases 138-142 (shipped 2026-06-19; tech debt: template Cenbrap calibration, operator decisions pending)
 - ✅ **v12.6 Operacao Live do Corpus de Qualidade** - Phases 134-137 (shipped 2026-06-18; tech debt: empty live corpus, template 135/136 fallbacks)
 - ✅ **v12.5 Validacao Real de Qualidade e Calibracao do Loop Criativo** - Phases 129-133 (shipped 2026-06-17; tech debt: empty live corpus)
@@ -14,21 +14,23 @@
 
 ## Phases
 
-### 🚧 v12.8 Operacao Real do Olhar Cenbrap (Phases 143-145) — ACTIVE
+### 🚧 v12.8 Operacao Real do Olhar Cenbrap (Phases 143-146) — ACTIVE
 
 **Milestone Goal:** Sair da evidencia template do v12.7 e operar a calibracao real do Olhar Cenbrap: campanhas reais, decisoes do Jhonatan, metricas honestas e fechamento/carry-forward explicito da divida.
 
-**Starting point:** `v12.7-MILESTONE-AUDIT.md` fechou como `tech_debt`: implementacao do Olhar esta pronta, mas `evaluatedCampaignCount=0`, `humanDecisionCount=0`, `agreementRate=null` e `142-CENBRAP-CALIBRATION.json` live ainda nao existe.
+**Starting point:** `v12.7-MILESTONE-AUDIT.md` fechou como `tech_debt`; Phase 143 depois provou o runner live, mas o ambiente conectado voltou `mode=live`, `evaluatedCampaignCount=0`, `humanDecisionCount=0`, `agreementRate=null` e blocker `insufficient_campaigns`.
 
-- [x] **Phase 143: Live Cenbrap Calibration Run** — planned; rodar a calibracao contra dados reais, produzir JSON live/contact sheet e classificar lacunas de dual verdict. (completed 2026-06-19)
-- [ ] **Phase 144: Jhonatan Decision Capture and Mismatch Triage** — capturar `entra/quase/nao_entra`, motivos de mismatch e filas de follow-up.
-- [ ] **Phase 145: Evidence Refresh and Claims Gate** — regenerar evidencia, fechar/carry-forward da divida v12.7 e bloquear claims se a amostra ainda for insuficiente.
+- [x] **Phase 143: Live Cenbrap Calibration Run** — completed with blocker `insufficient_campaigns`; runner live funcionou, corpus Cenbrap conectado estava vazio. (completed 2026-06-19)
+- [ ] **Phase 144: Cenbrap Corpus Seeding and Calibration Rerun** — criar/identificar corpus revisavel, re-rodar calibracao live e liberar contact sheet `review_ready`.
+- [ ] **Phase 145: Jhonatan Decision Capture and Mismatch Triage** — capturar `entra/quase/nao_entra`, motivos de mismatch e filas de follow-up.
+- [ ] **Phase 146: Evidence Refresh and Claims Gate** — regenerar evidencia, fechar/carry-forward da divida v12.7 e bloquear claims se a amostra ainda for insuficiente.
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
-| 143 | Live Cenbrap Calibration Run | 2/2 | Complete   | 2026-06-19 |
-| 144 | Jhonatan Decision Capture and Mismatch Triage | JUDGE-01..04 | Pending | — |
-| 145 | Evidence Refresh and Claims Gate | CLAIM-01..04 | Pending | — |
+| 143 | Live Cenbrap Calibration Run | CENLIVE-01..04 | Complete   | 2026-06-19 |
+| 144 | Cenbrap Corpus Seeding and Calibration Rerun | 1/2 | In Progress|  |
+| 145 | Jhonatan Decision Capture and Mismatch Triage | JUDGE-01..04 | Pending | — |
+| 146 | Evidence Refresh and Claims Gate | CLAIM-01..04 | Pending | — |
 
 ## Phase Details
 
@@ -54,11 +56,33 @@ Plans:
 
 ---
 
-### Phase 144: Jhonatan Decision Capture and Mismatch Triage
+### Phase 144: Cenbrap Corpus Seeding and Calibration Rerun
+
+**Goal:** Desbloquear a calibracao humana criando ou identificando um corpus Cenbrap real, revisavel e seguro: pelo menos duas campanhas com derivacoes, refs seguras, dual verdict e contact sheet `review_ready`.
+
+**Depends on:** Phase 143
+
+**Requirements:** CORPUS-01, CORPUS-02, CORPUS-03, CORPUS-04
+
+**Success Criteria** (what must be TRUE):
+  1. Existing DB is inspected for Cenbrap candidates without exposing secrets, prompts or signed URLs.
+  2. At least two Cenbrap campaigns with derivations exist in the calibration environment, or `operator_data_unavailable` is documented.
+  3. Reviewable rows include safe `outputKey`, `olharVerdict` and `exportStatus`; missing rows are excluded or routed.
+  4. Calibration rerun produces `mode=live`, `evaluatedCampaignCount >= 2` and `review_ready > 0`, or Phase 145 remains blocked with an exact blocker.
+
+**Plans:** 1/2 plans executed
+
+Plans:
+- [x] 144-01-PLAN.md — Corpus source inspection and safe seeding path
+- [ ] 144-02-PLAN.md — Dual-verdict readiness and live calibration rerun
+
+---
+
+### Phase 145: Jhonatan Decision Capture and Mismatch Triage
 
 **Goal:** Transformar o contact sheet em calibracao humana: Jhonatan decide `entra/quase/nao_entra`, e o sistema classifica acordos, desacordos e motivos acionaveis.
 
-**Depends on:** Phase 143
+**Depends on:** Phase 144
 
 **Requirements:** JUDGE-01, JUDGE-02, JUDGE-03, JUDGE-04
 
@@ -71,16 +95,16 @@ Plans:
 **Plans:** 0/2 plans complete
 
 Plans:
-- [ ] 144-01-PLAN.md — Operator decision capture workflow
-- [ ] 144-02-PLAN.md — Mismatch taxonomy and comparable-row agreement metrics
+- [ ] 145-01-PLAN.md — Operator decision capture workflow
+- [ ] 145-02-PLAN.md — Mismatch taxonomy and comparable-row agreement metrics
 
 ---
 
-### Phase 145: Evidence Refresh and Claims Gate
+### Phase 146: Evidence Refresh and Claims Gate
 
 **Goal:** Atualizar a evidencia de release com dados reais e fechar v12.8 com linguagem honesta: clean pass, human_needed, insufficient_sample ou tech_debt, sem score unico enganoso.
 
-**Depends on:** Phase 144
+**Depends on:** Phase 145
 
 **Requirements:** CLAIM-01, CLAIM-02, CLAIM-03, CLAIM-04
 
@@ -93,8 +117,8 @@ Plans:
 **Plans:** 0/2 plans complete
 
 Plans:
-- [ ] 145-01-PLAN.md — Live evidence refresh and release gate rerun
-- [ ] 145-02-PLAN.md — Milestone audit, tech-debt closure and planning sync
+- [ ] 146-01-PLAN.md — Live evidence refresh and release gate rerun
+- [ ] 146-02-PLAN.md — Milestone audit, tech-debt closure and planning sync
 
 ---
 
@@ -108,9 +132,10 @@ Archive: [v12.6-ROADMAP.md](milestones/v12.6-ROADMAP.md) · [v12.6-REQUIREMENTS.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 143 | v12.8 | 0/2 | Planned | — |
-| 144 | v12.8 | 0/2 | Pending | — |
+| 143 | v12.8 | 2/2 | Complete | 2026-06-19 |
+| 144 | v12.8 | 0/2 | Planned | — |
 | 145 | v12.8 | 0/2 | Pending | — |
+| 146 | v12.8 | 0/2 | Pending | — |
 
 ---
-*Roadmap updated: 2026-06-19 — Phase 143 planned from v12.7 tech_debt audit*
+*Roadmap updated: 2026-06-19 — Phase 144 planned from Phase 143 insufficient_campaigns blocker*

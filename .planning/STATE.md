@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v12.8
 milestone_name: Operacao Real do Olhar Cenbrap
 status: executing
-last_updated: "2026-06-19T16:50:00Z"
-last_activity: 2026-06-19 - Completed Phase 143 dual-verdict coverage and blocker classification
+last_updated: "2026-06-19T17:15:00Z"
+last_activity: 2026-06-19 - Completed 144-01 corpus inspection and seeding
 progress:
-  total_phases: 3
+  total_phases: 4
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
-  percent: 100
+  total_plans: 8
+  completed_plans: 3
+  percent: 38
 ---
 
 # Project State
@@ -23,16 +23,16 @@ See: .planning/PROJECT.md (updated 2026-06-19)
 
 **Current focus:** v12.8 Operacao Real do Olhar Cenbrap. Turn v12.7's Olhar infrastructure into live Cenbrap calibration evidence with Jhonatan decisions and honest claim gates.
 
-**Status:** Phase 143 complete — outcome `insufficient_campaigns`; Phase 144 blocked
+**Status:** Phase 144 in progress — 144-01 complete; corpus seeded (synthetic_fixture)
 
 ## Current Position
 
-Phase: 143 - Live Cenbrap Calibration Run (complete)
-Plan: 143-02 complete (both plans done)
-Status: Live pipeline operational; zero campaigns in corpus; dual-verdict coverage N/A; Phase 144 blocked
-Last activity: 2026-06-19 - Completed 143-02 dual-verdict coverage and blocker classification
+Phase: 144 - Cenbrap Corpus Seeding and Calibration Rerun
+Plan: 144-02 next (live calibration rerun)
+Status: Executing Phase 144; campaign minimum gate passed
+Last activity: 2026-06-19 - Completed 144-01 corpus inspection and seeding
 
-Progress: [███░░░░░░░] v12.8 — 1/3 phases; 2/6 plans complete; Phase 143 complete with blocker.
+Progress: [████░░░░░░] v12.8 — 1/4 phases; 3/8 plans complete; Phase 144 plan 01 done.
 
 ## Accumulated Context
 
@@ -77,8 +77,12 @@ Progress: [███░░░░░░░] v12.8 — 1/3 phases; 2/6 plans compl
 - [Phase 143]: Live run mode=live with zero campaigns is insufficient_campaigns blocker, not template pass
 - [Phase 143]: DATABASE_URL from app/.env.local; no secrets in planning artifacts
 - [Phase 143]: Phase 143 outcome insufficient_campaigns; missing_dual_verdict_coverage N/A with zero rows
-- [Phase 143]: Phase 144 fully blocked until review_ready rows exist after corpus seeding
+- [Phase 143]: Jhonatan decision capture fully blocked until review_ready rows exist after corpus seeding
+- [Phase 144]: Replanned next phase from Jhonatan decision capture to corpus seeding/rerun because review_ready=0
+- [Phase 144]: Jhonatan decision capture moves to Phase 145; evidence claims gate moves to Phase 146
+- [Phase 144]: Seeded synthetic_fixture Cenbrap corpus in dev workspace; honest source labels on manifest
+- [Phase 144]: Applied 0047 dual-verdict migration on drifted local DB before seed
 
 ## Next Steps
 
-Phase 144 blocked until Cenbrap campaigns seeded (≥2) and `review_ready` rows exist. Operator action: seed corpus in `app/.env.local` database, re-run calibration, then proceed to Jhonatan decision capture.
+Execute Phase 144 plan 02: live calibration rerun and `review_ready` gate verification.
