@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v12.7
 milestone_name: "Olhar ADScale: Direcao de Arte Antes de Compliance"
 status: executing
-last_updated: "2026-06-19T12:56:00Z"
-last_activity: 2026-06-19 - Completed 141-01 workspace review UI and decision language
+last_updated: "2026-06-19T13:18:00Z"
+last_activity: 2026-06-19 - Completed 141-02 override audit trail and package gating
 progress:
   total_phases: 5
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 8
-  completed_plans: 7
-  percent: 88
+  completed_plans: 8
+  percent: 100
 ---
 
 # Project State
@@ -27,12 +27,12 @@ See: .planning/PROJECT.md (updated 2026-06-19)
 
 ## Current Position
 
-Phase: 141 - Review Surface and Override UX (in progress)
-Plan: 141-02 next (override audit trail and package gating)
-Status: 141-01 complete — Olhar-first card/sheet and structured client decisions shipped
-Last activity: 2026-06-19 - Completed 141-01 workspace review UI and decision language
+Phase: 141 - Review Surface and Override UX (complete)
+Plan: 141-02 complete — override audit trail and package gating shipped
+Status: Phase 141 complete — review API, audit evidence, and dual-verdict package gating
+Last activity: 2026-06-19 - Completed 141-02 override audit trail and package gating
 
-Progress: [█████████░] v12.7 — 3/5 phases; 7/8 plans complete; Phase 141 in progress.
+Progress: [██████████] v12.7 — 4/5 phases; 8/8 plans complete; Phase 141 complete.
 
 ## Accumulated Context
 
@@ -266,6 +266,9 @@ Progress: [█████████░] v12.7 — 3/5 phases; 7/8 plans compl
 - [Phase 141]: Plan review UI as Olhar-first, Exportacao-second; score remains secondary detail
 - [Phase 141]: Plan override path as typed reason plus output_decision_events audit; package eligibility must inspect dual verdicts, not status alone
 - [Phase 141]: Workspace review UI is Olhar-first with literal sem_opiniao/confusa/bloqueado labels and client-side direction reason validation
+- [Phase 141]: Override package inclusion inferred from approved status with unchanged blocking dual verdicts
+- [Phase 141]: Review PATCH records override audit in output_decision_events without mutating olharVerdict or exportStatus
+- [Phase 141]: Package eligibility uses isDerivationPackageEligibleByVerdict and exposes approvalOverride on snapshot items
 
 ### Phase 132 (complete — 4/4 plans)
 

@@ -22,7 +22,7 @@
 - [x] **Phase 138: Olhar Constitution and Cenbrap Voice** — definir a ontologia global do Olhar ADScale e a primeira voz editorial Cenbrap. (completed 2026-06-19)
 - [x] **Phase 139: Dual Verdict and Export Validator** — separar contrato criativo (`olharVerdict`) de exportacao (`exportStatus`) e bloquear `approved + invalid`. (completed 2026-06-19)
 - [x] **Phase 140: Advisor and Generation Direction** — reescrever preflight, QA, score e prompt-builder para direcao de arte, nao checklist de UX. (completed 2026-06-19)
-- [ ] **Phase 141: Review Surface and Override UX** — exibir Olhar/Exportacao na workspace, capturar decisao humana e exigir override consciente.
+- [x] **Phase 141: Review Surface and Override UX** — exibir Olhar/Exportacao na workspace, capturar decisao humana e exigir override consciente. (completed 2026-06-19)
 - [ ] **Phase 142: Cenbrap Calibration and Release Evidence** — reavaliar campanhas reais, medir concordancia com Jhonatan e fechar com evidencia honesta.
 
 | # | Phase | Requirements | Status | Completed |
@@ -30,7 +30,7 @@
 | 138 | Olhar Constitution and Cenbrap Voice | Complete    | 2026-06-19 | 2026-06-19 |
 | 139 | Dual Verdict and Export Validator | Complete    | 2026-06-19 | 2026-06-19 |
 | 140 | Advisor and Generation Direction | Complete    | 2026-06-19 | 2026-06-19 |
-| 141 | Review Surface and Override UX | 1/2 | In Progress|  |
+| 141 | Review Surface and Override UX | 2/2 | Complete   | 2026-06-19 |
 | 142 | Cenbrap Calibration and Release Evidence | CALIB-01..04 | Pending | — |
 
 ## Phase Details
@@ -115,11 +115,11 @@ Plans:
   3. User can record `Entra`, `Quase - regenerar assim` and `Nao entra` with structured direction reason.
   4. Override requires typed reason and creates an auditable event without normalizing weak creative as approved.
 
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 141-01-PLAN.md — Workspace review UI and decision language
-- [ ] 141-02-PLAN.md — Override audit trail and package gating
+- [x] 141-02-PLAN.md — Override audit trail and package gating
 
 ---
 
