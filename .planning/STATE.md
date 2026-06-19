@@ -2,15 +2,14 @@
 gsd_state_version: 1.0
 milestone: v12.7
 milestone_name: "Olhar ADScale: Direcao de Arte Antes de Compliance"
-status: Active milestone
-last_updated: "2026-06-19T09:59:42.884Z"
+status: planning
+last_updated: "2026-06-19T10:02:11.046Z"
 last_activity: 2026-06-19 - Completed 138-02 Cenbrap voice and failure mapping
 progress:
   total_phases: 5
   completed_phases: 1
   total_plans: 2
   completed_plans: 2
-  percent: 100
 ---
 
 # Project State
@@ -23,7 +22,7 @@ See: .planning/PROJECT.md (updated 2026-06-19)
 
 **Current focus:** v12.7 Olhar ADScale. Replace the creative advisor's UI/UX checklist bias with art-direction judgment before export compliance.
 
-**Status:** Active milestone
+**Status:** Ready to plan
 
 ## Current Position
 

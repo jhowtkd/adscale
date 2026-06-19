@@ -27,7 +27,7 @@
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
-| 138 | Olhar Constitution and Cenbrap Voice | 2/2 | Complete   | 2026-06-19 |
+| 138 | Olhar Constitution and Cenbrap Voice | Complete    | 2026-06-19 | 2026-06-19 |
 | 139 | Dual Verdict and Export Validator | VERDICT-01..04, EXPORT-01..04 | Pending | — |
 | 140 | Advisor and Generation Direction | ADVISOR-01..04 | Pending | — |
 | 141 | Review Surface and Override UX | REVIEW-01..04 | Pending | — |
