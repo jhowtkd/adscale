@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-06-19T20:15:13.357Z",
+  "verifiedAt": null,
+  "milestone": "v12.7",
+  "status": "human_needed",
+  "calibrationSourcePath": ".planning/phases/142-cenbrap-calibration-and-release-evidence/142-CENBRAP-CALIBRATION.json",
+  "contactSheetPath": ".planning/phases/142-cenbrap-calibration-and-release-evidence/142-CONTACT-SHEET.md",
+  "artDirectionMetrics": {
+    "evidenceSource": "live_human",
+    "denominatorNote": "Cenbrap derivations with operator decisions from output_decision_events",
+    "evaluatedCampaignCount": 2,
+    "evaluatedDerivationCount": 2,
+    "humanDecisionCount": 0,
+    "agreementRate": null,
+    "mismatchReasonCounts": {},
+    "overrideApprovedCount": 0,
+    "missingDualVerdictCount": 0,
+    "missingHumanDecisionCount": 2
+  },
+  "factualExportMetrics": {
+    "evidenceSource": "live_human",
+    "denominatorNote": "Cenbrap derivations with dual verdict evidence — export safety separate from art direction",
+    "approvedInvalidPreventedCount": 0,
+    "semOpiniaoDetectionCount": 0,
+    "exportBlockSeparationCount": 0
+  },
+  "sampleGuidance": [
+    {
+      "gate": "calibration_global",
+      "currentCount": 0,
+      "requiredCount": 5,
+      "additionalNeeded": 5,
+      "blockedClaim": "Cenbrap art-direction agreement rate"
+    }
+  ],
+  "qualityImprovementClaimed": null,
+  "acceptedGaps": [
+    "Jhonatan operator decisions missing for evaluated derivations — agreement claims withheld.",
+    "Cenbrap art-direction agreement rate: 0/5 (need 5 more).",
+    "All rows in this manifest are synthetic_fixture — operational calibration only, not real customer evidence.",
+    "All evaluated rows are synthetic_fixture — operational calibration only, not real customer evidence."
+  ],
+  "requirements": [
+    {
+      "id": "CALIB-03",
+      "result": "human_needed",
+      "note": "Art-direction agreement, mismatch reasons and export-safety counters reported separately"
+    },
+    {
+      "id": "CALIB-04",
+      "result": "human_needed",
+      "note": "Factual/export metrics kept separate from art-direction quality metrics"
+    }
+  ],
+  "technicalVerification": {
+    "phases138to141": "human_needed",
+    "note": "Phases 138-141 automated verification green; live override UX confirmation pending operator review."
+  }
+}

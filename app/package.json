@@ -37,6 +37,7 @@
     "real-quality-release-evidence": "node scripts/check-real-quality-release-evidence.mjs --evidence ../.planning/phases/133-real-quality-release-gate/133-EVIDENCE.template.json --skip-tests",
     "operational-quality-release-evidence": "node scripts/check-operational-quality-release-evidence.mjs --evidence ../.planning/phases/137-operational-quality-release-gate/137-EVIDENCE.template.json --skip-tests",
     "olhar-release-evidence": "node scripts/check-olhar-release-evidence.mjs --evidence ../.planning/phases/142-cenbrap-calibration-and-release-evidence/142-EVIDENCE.template.json --skip-tests",
+    "olhar-release-evidence:build": "npx tsx scripts/build-olhar-release-evidence.ts --calibration ../.planning/phases/142-cenbrap-calibration-and-release-evidence/142-CENBRAP-CALIBRATION.json --output ../.planning/phases/142-cenbrap-calibration-and-release-evidence/142-EVIDENCE.json",
     "real-quality-release-gate": "node scripts/run-real-quality-release-gate.mjs",
     "operational-quality-release-gate": "node scripts/run-operational-quality-release-gate.mjs",
     "sample-coverage-evidence": "npx tsx scripts/run-sample-coverage.ts --all-workspaces",
