@@ -256,7 +256,7 @@ function buildFixtures(now: string): FixtureSpec[] {
       tone: "Acolhedor",
       offer: "Synthetic fixture — not customer evidence",
       olharVerdict: {
-        value: "nao_pronta",
+        value: "quase",
         axes: { figura: 2, gestalt: 2, voz: 1, convite: 2 },
         whatWorks: ["Layout is export-safe"],
         whatBlocks: ["Voice feels generic, not Cenbrap invite"],

@@ -1,10 +1,238 @@
 {
   "schemaVersion": 1,
-  "capturedAt": "2026-06-19T21:12:48.318Z",
+  "capturedAt": "2026-06-19T22:12:54.795Z",
   "client": "Cenbrap",
   "mode": "live",
   "status": "insufficient_sample",
   "campaigns": [
+    {
+      "campaign": {
+        "id": "41b8c319-ae81-406f-97c0-98c6080916a1",
+        "workspaceId": "b118d928-9a25-48b3-9647-ad6e11db7f47",
+        "name": "Cenbrap Calibration — NR1 Voz",
+        "client": "Cenbrap",
+        "clientProfileId": null,
+        "clientProfileName": null,
+        "status": "completed",
+        "selectionSignals": [
+          "client_contains_cenbrap",
+          "campaign_name_cenbrap",
+          "campaign_name_nr1"
+        ]
+      },
+      "rows": [
+        {
+          "derivation": {
+            "id": "a4eec9bc-f48e-4c9e-89b7-16a847fdf695",
+            "campaignId": "41b8c319-ae81-406f-97c0-98c6080916a1",
+            "workspaceId": "b118d928-9a25-48b3-9647-ad6e11db7f47",
+            "status": "completed",
+            "format": "1:1",
+            "generationMode": "art_variation",
+            "variantIndex": 0,
+            "hasOutput": true,
+            "outputRef": "derivation:a4eec9bc-f48e-4c9e-89b7-16a847fdf695",
+            "olharVerdict": {
+              "value": "quase",
+              "axes": {
+                "figura": 2,
+                "gestalt": 2,
+                "voz": 1,
+                "convite": 2
+              },
+              "whatWorks": [
+                "Layout is export-safe"
+              ],
+              "whatBlocks": [
+                "Voice feels generic, not Cenbrap invite"
+              ],
+              "directionNote": "Calibration fixture — judge voice overlay only.",
+              "source": "manual",
+              "evaluatedAt": "2026-06-19T22:12:02.968Z"
+            },
+            "exportStatus": {
+              "value": "ok",
+              "issues": [],
+              "setupIssues": [],
+              "evaluatedAt": "2026-06-19T22:12:02.968Z"
+            },
+            "olharVerdictValue": "quase",
+            "exportStatusValue": "ok",
+            "dualVerdictState": "present",
+            "packageEligible": true,
+            "approvalOverride": false
+          },
+          "human": {
+            "derivationId": "a4eec9bc-f48e-4c9e-89b7-16a847fdf695",
+            "humanDecision": null,
+            "humanDecisionSource": "manual_pending",
+            "mismatchBucket": null,
+            "mismatchReason": null,
+            "reviewer": null,
+            "reviewedAt": null,
+            "decisionEventId": null,
+            "overrideApproved": false
+          },
+          "agreement": "missing_human_decision",
+          "mismatchBucket": null,
+          "mismatchReason": null
+        }
+      ]
+    },
+    {
+      "campaign": {
+        "id": "4e801177-d5de-471c-8bce-6958c7f474d3",
+        "workspaceId": "b118d928-9a25-48b3-9647-ad6e11db7f47",
+        "name": "Cenbrap Calibration — NR1 Equilibrio",
+        "client": "Cenbrap",
+        "clientProfileId": null,
+        "clientProfileName": null,
+        "status": "completed",
+        "selectionSignals": [
+          "client_contains_cenbrap",
+          "campaign_name_cenbrap",
+          "campaign_name_nr1"
+        ]
+      },
+      "rows": [
+        {
+          "derivation": {
+            "id": "d19e19f6-475b-443a-a7e3-d97f1b8b147b",
+            "campaignId": "4e801177-d5de-471c-8bce-6958c7f474d3",
+            "workspaceId": "b118d928-9a25-48b3-9647-ad6e11db7f47",
+            "status": "completed",
+            "format": "1:1",
+            "generationMode": "art_variation",
+            "variantIndex": 0,
+            "hasOutput": true,
+            "outputRef": "derivation:d19e19f6-475b-443a-a7e3-d97f1b8b147b",
+            "olharVerdict": {
+              "value": "quase",
+              "axes": {
+                "figura": 2,
+                "gestalt": 3,
+                "voz": 2,
+                "convite": 2
+              },
+              "whatWorks": [
+                "Balanced composition across axes"
+              ],
+              "whatBlocks": [
+                "Invite competes with headline hierarchy"
+              ],
+              "directionNote": "Calibration fixture — judge cross-axis balance only.",
+              "source": "manual",
+              "evaluatedAt": "2026-06-19T22:01:43.307Z"
+            },
+            "exportStatus": {
+              "value": "ajuste_menor",
+              "issues": [
+                {
+                  "code": "headline_spacing",
+                  "message": "Minor headline spacing for export",
+                  "severity": "warning"
+                }
+              ],
+              "setupIssues": [],
+              "evaluatedAt": "2026-06-19T22:01:43.307Z"
+            },
+            "olharVerdictValue": "quase",
+            "exportStatusValue": "ajuste_menor",
+            "dualVerdictState": "present",
+            "packageEligible": true,
+            "approvalOverride": false
+          },
+          "human": {
+            "derivationId": "d19e19f6-475b-443a-a7e3-d97f1b8b147b",
+            "humanDecision": null,
+            "humanDecisionSource": "manual_pending",
+            "mismatchBucket": null,
+            "mismatchReason": null,
+            "reviewer": null,
+            "reviewedAt": null,
+            "decisionEventId": null,
+            "overrideApproved": false
+          },
+          "agreement": "missing_human_decision",
+          "mismatchBucket": null,
+          "mismatchReason": null
+        }
+      ]
+    },
+    {
+      "campaign": {
+        "id": "b2f2c44d-b0cd-4bc3-996f-98494af0a65a",
+        "workspaceId": "b118d928-9a25-48b3-9647-ad6e11db7f47",
+        "name": "Cenbrap Calibration — NR1 Figura",
+        "client": "Cenbrap",
+        "clientProfileId": null,
+        "clientProfileName": null,
+        "status": "completed",
+        "selectionSignals": [
+          "client_contains_cenbrap",
+          "campaign_name_cenbrap",
+          "campaign_name_nr1"
+        ]
+      },
+      "rows": [
+        {
+          "derivation": {
+            "id": "201d1d3e-5dc8-43be-b1a7-6ca237851802",
+            "campaignId": "b2f2c44d-b0cd-4bc3-996f-98494af0a65a",
+            "workspaceId": "b118d928-9a25-48b3-9647-ad6e11db7f47",
+            "status": "completed",
+            "format": "1:1",
+            "generationMode": "art_variation",
+            "variantIndex": 0,
+            "hasOutput": true,
+            "outputRef": "derivation:201d1d3e-5dc8-43be-b1a7-6ca237851802",
+            "olharVerdict": {
+              "value": "quase",
+              "axes": {
+                "figura": 1,
+                "gestalt": 2,
+                "voz": 2,
+                "convite": 2
+              },
+              "whatWorks": [
+                "Subject reads clearly at thumbnail scale"
+              ],
+              "whatBlocks": [
+                "Figure-to-background contrast needs tightening"
+              ],
+              "directionNote": "Calibration fixture — judge figure focal strength only.",
+              "source": "manual",
+              "evaluatedAt": "2026-06-19T22:01:43.307Z"
+            },
+            "exportStatus": {
+              "value": "ok",
+              "issues": [],
+              "setupIssues": [],
+              "evaluatedAt": "2026-06-19T22:01:43.307Z"
+            },
+            "olharVerdictValue": "quase",
+            "exportStatusValue": "ok",
+            "dualVerdictState": "present",
+            "packageEligible": true,
+            "approvalOverride": false
+          },
+          "human": {
+            "derivationId": "201d1d3e-5dc8-43be-b1a7-6ca237851802",
+            "humanDecision": null,
+            "humanDecisionSource": "manual_pending",
+            "mismatchBucket": null,
+            "mismatchReason": null,
+            "reviewer": null,
+            "reviewedAt": null,
+            "decisionEventId": null,
+            "overrideApproved": false
+          },
+          "agreement": "missing_human_decision",
+          "mismatchBucket": null,
+          "mismatchReason": null
+        }
+      ]
+    },
     {
       "campaign": {
         "id": "676e1c08-0813-4f1e-adff-0e96c01e6a57",
@@ -160,6 +388,45 @@
   ],
   "operatorDecisions": [
     {
+      "derivationId": "a4eec9bc-f48e-4c9e-89b7-16a847fdf695",
+      "campaignId": "41b8c319-ae81-406f-97c0-98c6080916a1",
+      "olharVerdict": "quase",
+      "exportStatus": "ok",
+      "humanDecision": null,
+      "humanDecisionSource": "manual_pending",
+      "mismatchBucket": null,
+      "mismatchReason": null,
+      "overrideApproved": false,
+      "agreement": "missing_human_decision",
+      "decisionEventId": null
+    },
+    {
+      "derivationId": "d19e19f6-475b-443a-a7e3-d97f1b8b147b",
+      "campaignId": "4e801177-d5de-471c-8bce-6958c7f474d3",
+      "olharVerdict": "quase",
+      "exportStatus": "ajuste_menor",
+      "humanDecision": null,
+      "humanDecisionSource": "manual_pending",
+      "mismatchBucket": null,
+      "mismatchReason": null,
+      "overrideApproved": false,
+      "agreement": "missing_human_decision",
+      "decisionEventId": null
+    },
+    {
+      "derivationId": "201d1d3e-5dc8-43be-b1a7-6ca237851802",
+      "campaignId": "b2f2c44d-b0cd-4bc3-996f-98494af0a65a",
+      "olharVerdict": "quase",
+      "exportStatus": "ok",
+      "humanDecision": null,
+      "humanDecisionSource": "manual_pending",
+      "mismatchBucket": null,
+      "mismatchReason": null,
+      "overrideApproved": false,
+      "agreement": "missing_human_decision",
+      "decisionEventId": null
+    },
+    {
       "derivationId": "a92788f7-18d7-4289-99eb-bab8a0fa2f80",
       "campaignId": "676e1c08-0813-4f1e-adff-0e96c01e6a57",
       "olharVerdict": "pronta",
@@ -187,8 +454,8 @@
     }
   ],
   "metrics": {
-    "evaluatedCampaignCount": 2,
-    "evaluatedDerivationCount": 2,
+    "evaluatedCampaignCount": 5,
+    "evaluatedDerivationCount": 5,
     "decisionCount": 0,
     "comparableCount": 0,
     "agreementCount": 0,
@@ -199,7 +466,7 @@
     "semOpiniaoDetectionCount": 0,
     "exportBlockSeparationCount": 0,
     "missingDualVerdictCount": 0,
-    "missingHumanDecisionCount": 2
+    "missingHumanDecisionCount": 5
   },
   "sampleGuidance": [
     {

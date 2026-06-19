@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "capturedAt": "2026-06-19T22:01:45.062Z",
+  "capturedAt": "2026-06-19T22:12:03.754Z",
   "seedMarker": "phase144_cenbrap_calibration_corpus",
   "phase": 148,
   "mode": "expanded",
@@ -56,7 +56,7 @@
       "exportStatus": "ok"
     },
     {
-      "id": "e3689e52-d090-4bd2-abc6-072e8d32d425",
+      "id": "41b8c319-ae81-406f-97c0-98c6080916a1",
       "name": "Cenbrap Calibration — NR1 Voz",
       "sourceLabel": "synthetic_fixture",
       "selectionSignals": [
@@ -64,9 +64,9 @@
         "campaign_name_cenbrap",
         "campaign_name_nr1"
       ],
-      "derivationId": "bf179981-8ac0-4fce-9d6f-e6b71577518f",
+      "derivationId": "a4eec9bc-f48e-4c9e-89b7-16a847fdf695",
       "outputKey": "cenbrap-calibration/b118d928/nr1-voz.png",
-      "olharVerdict": "nao_pronta",
+      "olharVerdict": "quase",
       "exportStatus": "ok"
     },
     {

@@ -100,7 +100,7 @@ cd app && npx tsx scripts/seed-cenbrap-calibration-corpus.ts --sample-expansion 
 | Campaign | Derivation ID | Olhar | Export | Source |
 | --- | --- | --- | --- | --- |
 | Cenbrap Calibration — NR1 Figura | `201d1d3e-5dc8-43be-b1a7-6ca237851802` | `quase` | `ok` | `synthetic_fixture` |
-| Cenbrap Calibration — NR1 Voz | `bf179981-8ac0-4fce-9d6f-e6b71577518f` | `nao_pronta` | `ok` | `synthetic_fixture` |
+| Cenbrap Calibration — NR1 Voz | `a4eec9bc-f48e-4c9e-89b7-16a847fdf695` | `quase` | `ok` | `synthetic_fixture` |
 | Cenbrap Calibration — NR1 Equilibrio | `d19e19f6-475b-443a-a7e3-d97f1b8b147b` | `quase` | `ajuste_menor` | `synthetic_fixture` |
 
 ### Post-expansion row inventory
@@ -133,3 +133,37 @@ Reviewable row count is now sufficient (5 rows). Sample sufficiency remains bloc
 **Manifest:** `.planning/phases/148-sample-sufficiency-expansion/148-SAMPLE-MANIFEST.json` (Phase 148 manifest; Phase 144 manifest unchanged).
 
 **Blocker status:** `operator_data_unavailable` for customer-real rows. Row sufficiency blocker cleared; human decision blocker remains (`human_needed`).
+
+## Task 148-01-03 — Decision input preparation
+
+**Artifact created:** `148-DECISIONS.template.json` — 5 rows, all `decision: null`
+
+**Operator action (when ready):**
+
+1. Copy `148-DECISIONS.template.json` → `145-DECISIONS.json`
+2. Fill `decision` (`entra` | `quase` | `nao_entra`), `reviewedAt` (ISO-8601), optional `mismatchBucket` and `note` per row
+3. Run recorder with `--confirm` only after decisions are supplied
+
+**Recorder dry-run command:**
+
+```bash
+cd app && npx tsx scripts/record-cenbrap-calibration-decisions.ts --dry-run \
+  --input ../.planning/phases/148-sample-sufficiency-expansion/148-DECISIONS.template.json
+```
+
+**Exit code:** 0
+
+| Metric | Value |
+| --- | ---: |
+| mode | `dry-run` |
+| totalRows | 5 |
+| pendingHumanInput | 5 |
+| wouldRecord | 0 |
+| recorded | 0 |
+| skippedExisting | 0 |
+
+**Per-row status:** All 5 rows `skipped_pending` — no fabricated decisions.
+
+**Confirm skipped:** `145-DECISIONS.json` absent — `--confirm` not run per stop condition.
+
+**Sample guidance remains:** **0/5** — reviewable rows exist but human decisions are still required before sample sufficiency unlocks.
