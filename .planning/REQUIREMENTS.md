@@ -19,9 +19,9 @@ Trocar o eixo do advisor criativo: sair de um checklist de UX/performance que tr
 ### Olhar Foundation (OLHAR)
 
 - [x] **OLHAR-01**: System has a global `Olhar ADScale` constitution that defines figure, gestalt, voice, invite, anti-template judgment and the separation between creative quality and export compliance.
-- [ ] **OLHAR-02**: System has a first client voice document for Cenbrap that describes editorial principles, anti-references, brand presence, people/authority handling, CTA rhythm and common "correct but soulless" failures.
+- [x] **OLHAR-02**: System has a first client voice document for Cenbrap that describes editorial principles, anti-references, brand presence, people/authority handling, CTA rhythm and common "correct but soulless" failures.
 - [x] **OLHAR-03**: Creative prompts and rubrics no longer use UI-first vocabulary as the default creative solution, including `clickable-looking`, `CTA module`, `UI modules`, generic card-grid language and button-as-default CTA framing.
-- [ ] **OLHAR-04**: Existing visual failure concepts (`generic_template_aesthetic`, `missing_dominant_idea`, `visual_overload`) are promoted into first-class art-direction verdicts rather than optional polish notes.
+- [x] **OLHAR-04**: Existing visual failure concepts (`generic_template_aesthetic`, `missing_dominant_idea`, `visual_overload`) are promoted into first-class art-direction verdicts rather than optional polish notes.
 
 ### Dual Verdict Contract (VERDICT)
 
@@ -87,9 +87,9 @@ Trocar o eixo do advisor criativo: sair de um checklist de UX/performance que tr
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | OLHAR-01 | Phase 138 | Complete |
-| OLHAR-02 | Phase 138 | Pending |
+| OLHAR-02 | Phase 138 | Complete |
 | OLHAR-03 | Phase 138 | Complete |
-| OLHAR-04 | Phase 138 | Pending |
+| OLHAR-04 | Phase 138 | Complete |
 | VERDICT-01 | Phase 139 | Pending |
 | VERDICT-02 | Phase 139 | Pending |
 | VERDICT-03 | Phase 139 | Pending |

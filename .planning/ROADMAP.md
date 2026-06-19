@@ -19,7 +19,7 @@
 
 **Starting point:** campanhas reais expuseram outputs invalidos, aprovacao de peca `approved + invalid`, outputs com estetica de template/interface e prompts que tratam CTA como widget clicavel. v12.3 preservou factualidade, mas deixou o gap visual QA-19 como divida; v12.5/v12.6 criaram infraestrutura de corpus, mas ainda nao trocaram a regua criativa.
 
-- [ ] **Phase 138: Olhar Constitution and Cenbrap Voice** — definir a ontologia global do Olhar ADScale e a primeira voz editorial Cenbrap.
+- [x] **Phase 138: Olhar Constitution and Cenbrap Voice** — definir a ontologia global do Olhar ADScale e a primeira voz editorial Cenbrap. (completed 2026-06-19)
 - [ ] **Phase 139: Dual Verdict and Export Validator** — separar contrato criativo (`olharVerdict`) de exportacao (`exportStatus`) e bloquear `approved + invalid`.
 - [ ] **Phase 140: Advisor and Generation Direction** — reescrever preflight, QA, score e prompt-builder para direcao de arte, nao checklist de UX.
 - [ ] **Phase 141: Review Surface and Override UX** — exibir Olhar/Exportacao na workspace, capturar decisao humana e exigir override consciente.
@@ -27,7 +27,7 @@
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
-| 138 | Olhar Constitution and Cenbrap Voice | 1/2 | In Progress|  |
+| 138 | Olhar Constitution and Cenbrap Voice | 2/2 | Complete   | 2026-06-19 |
 | 139 | Dual Verdict and Export Validator | VERDICT-01..04, EXPORT-01..04 | Pending | — |
 | 140 | Advisor and Generation Direction | ADVISOR-01..04 | Pending | — |
 | 141 | Review Surface and Override UX | REVIEW-01..04 | Pending | — |
@@ -49,11 +49,11 @@
   3. UI-first vocabulary is inventoried and removed from the core creative prompt/rubric language where it drives composition.
   4. Existing visual failure reasons map to first-class art-direction verdicts.
 
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 138-01-PLAN.md — Olhar ADScale constitution and vocabulary inventory
-- [ ] 138-02-PLAN.md — Cenbrap voice document and failure mapping
+- [x] 138-02-PLAN.md — Cenbrap voice document and failure mapping
 
 ---
 

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v12.7
 milestone_name: "Olhar ADScale: Direcao de Arte Antes de Compliance"
 status: Active milestone
-last_updated: "2026-06-19T09:54:20.630Z"
-last_activity: 2026-06-19 - Completed 138-01 Olhar constitution and vocabulary inventory
+last_updated: "2026-06-19T09:59:42.884Z"
+last_activity: 2026-06-19 - Completed 138-02 Cenbrap voice and failure mapping
 progress:
   total_phases: 5
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
-  percent: 50
+  completed_plans: 2
+  percent: 100
 ---
 
 # Project State
@@ -27,12 +27,12 @@ See: .planning/PROJECT.md (updated 2026-06-19)
 
 ## Current Position
 
-Phase: 138 - Olhar Constitution and Cenbrap Voice
-Plan: 138-02 planned (138-01 complete)
-Status: Ready for `$gsd-execute-phase 138` plan 02
-Last activity: 2026-06-19 - Completed 138-01 Olhar constitution and vocabulary inventory
+Phase: 138 - Olhar Constitution and Cenbrap Voice (complete)
+Plan: 138-02 complete (2/2 plans)
+Status: Phase 138 complete — ready for Phase 139 dual verdict contracts
+Last activity: 2026-06-19 - Completed 138-02 Cenbrap voice and failure mapping
 
-Progress: [█░░░░░░░░░] v12.7 — 0/5 phases; 1/10 plans complete (Phase 138: 1/2).
+Progress: [██░░░░░░░░] v12.7 — 1/5 phases; 2/10 plans complete (Phase 138: 2/2).
 
 ## Accumulated Context
 
@@ -251,6 +251,9 @@ Progress: [█░░░░░░░░░] v12.7 — 0/5 phases; 1/10 plans comp
 - [Phase 138]: Inject Olhar section before legacy integrity rules; keep factual preservation active
 - [Phase 138]: READING_PATH_GESTALT_BUDGET replaces THREE_ZONE_VISUAL_BUDGET in art_variation mode rules
 - [Phase 138]: check-olhar-vocabulary.mjs scans core prompt/rubric files with regex-line allowlist
+- [Phase 138]: Cenbrap voice uses principles only — no fixed layout prescription in prompt section
+- [Phase 138]: Art-direction mapping returns null for export-only failures; confusa wins over sem_opiniao
+- [Phase 138]: Voice review artifact defaults to pending_review until Jhonatan approves for Phase 140
 
 ### Phase 132 (complete — 4/4 plans)
 
@@ -315,4 +318,4 @@ Progress: [█░░░░░░░░░] v12.7 — 0/5 phases; 1/10 plans comp
 
 ## Next Steps
 
-Execute Phase 138 with `$gsd-execute-phase 138`. Keep v12.6 operator debt visible: populate live human corpus (at least 5 evaluations), set `DATABASE_URL`, rerun refresh CLIs and `operational-quality-release-gate -- --run-regression` before making live quality claims.
+Execute Phase 139 with `$gsd-execute-phase 139` for dual verdict contracts and export validator. Review Cenbrap voice in `138-VOICE-REVIEW.md` before Phase 140 prompt injection. Keep v12.6 operator debt visible: populate live human corpus (at least 5 evaluations), set `DATABASE_URL`, rerun refresh CLIs and `operational-quality-release-gate -- --run-regression` before making live quality claims.
