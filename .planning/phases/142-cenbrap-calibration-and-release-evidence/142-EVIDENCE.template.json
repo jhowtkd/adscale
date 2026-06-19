@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-06-19T14:30:00.000Z",
+  "verifiedAt": null,
+  "milestone": "v12.7",
+  "status": "template",
+  "calibrationSourcePath": ".planning/phases/142-cenbrap-calibration-and-release-evidence/142-CENBRAP-CALIBRATION.template.json",
+  "contactSheetPath": ".planning/phases/142-cenbrap-calibration-and-release-evidence/142-CONTACT-SHEET.md",
+  "artDirectionMetrics": {
+    "evidenceSource": "live_human",
+    "denominatorNote": "Cenbrap derivations with operator decisions from output_decision_events",
+    "evaluatedCampaignCount": 0,
+    "evaluatedDerivationCount": 0,
+    "humanDecisionCount": 0,
+    "agreementRate": null,
+    "mismatchReasonCounts": {},
+    "overrideApprovedCount": 0,
+    "missingDualVerdictCount": 0,
+    "missingHumanDecisionCount": 0
+  },
+  "factualExportMetrics": {
+    "evidenceSource": "live_human",
+    "denominatorNote": "Cenbrap derivations with dual verdict evidence — export safety separate from art direction",
+    "approvedInvalidPreventedCount": 0,
+    "semOpiniaoDetectionCount": 0,
+    "exportBlockSeparationCount": 0
+  },
+  "sampleGuidance": [
+    {
+      "gate": "calibration_global",
+      "currentCount": 0,
+      "requiredCount": 5,
+      "additionalNeeded": 5,
+      "blockedClaim": "Cenbrap art-direction agreement rate"
+    },
+    {
+      "gate": "calibration_slice",
+      "sliceKey": "cenbrap_campaigns",
+      "currentCount": 0,
+      "requiredCount": 2,
+      "additionalNeeded": 2,
+      "blockedClaim": "multi-campaign Cenbrap calibration coverage"
+    }
+  ],
+  "qualityImprovementClaimed": null,
+  "acceptedGaps": [
+    "Live Cenbrap calibration data unavailable — template artifact only.",
+    "Cenbrap art-direction agreement rate: 0/5 (need 5 more).",
+    "multi-campaign Cenbrap calibration coverage: 0/2 (need 2 more).",
+    "Do not infer agreement or quality claims from this file."
+  ],
+  "requirements": [
+    {
+      "id": "CALIB-03",
+      "result": "insufficient_sample",
+      "note": "Art-direction agreement, mismatch reasons and export-safety counters reported separately"
+    },
+    {
+      "id": "CALIB-04",
+      "result": "insufficient_sample",
+      "note": "Factual/export metrics kept separate from art-direction quality metrics"
+    }
+  ],
+  "technicalVerification": {
+    "phases138to141": "human_needed",
+    "note": "Template evidence — technical phases verified; Cenbrap calibration awaits live data and operator decisions."
+  }
+}
