@@ -33,11 +33,20 @@ Canonical persistence: `output_decision_events` via `recordOutputDecisionEvidenc
 
 Script: `app/scripts/record-cenbrap-calibration-decisions.ts`
 
+Behavior:
+
+- Default `--dry-run` (no `--confirm`) — validates derivation ids against calibration JSON, reports pending rows.
+- `--confirm` writes `output_decision_events` via `recordOutputDecisionEvidence`.
+- Reviewer resolved by `--reviewer-email` or `reviewerEmail` in decisions file (default `dev@adscale.local`).
+- Duplicate apply with same idempotency key is skipped (`skipped_existing`).
+
 Mapping:
 
 - `entra` → `approved`
 - `quase` → `rejected` + reason code `quase`
 - `nao_entra` → `rejected` + reason code `nao_entra`
+
+Event snapshots include sanitized `olharVerdict`, `exportStatus`, reason code/text and mismatch bucket (in `reason.source` when provided).
 
 Idempotency key: `phase145:cenbrap-calibration:{derivationId}:{reviewer}`
 
