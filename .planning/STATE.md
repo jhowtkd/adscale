@@ -2,14 +2,15 @@
 gsd_state_version: 1.0
 milestone: v12.7
 milestone_name: "Olhar ADScale: Direcao de Arte Antes de Compliance"
-status: planning
-last_updated: "2026-06-19T10:02:11.046Z"
-last_activity: 2026-06-19 - Completed 138-02 Cenbrap voice and failure mapping
+status: executing
+last_updated: "2026-06-19T11:47:00.000Z"
+last_activity: 2026-06-19 - Completed Phase 139 Plan 01 dual-verdict contracts and persistence
 progress:
   total_phases: 5
-  completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
+  completed_phases: 2
+  total_plans: 10
+  completed_plans: 3
+  percent: 30
 ---
 
 # Project State
@@ -26,12 +27,12 @@ See: .planning/PROJECT.md (updated 2026-06-19)
 
 ## Current Position
 
-Phase: 138 - Olhar Constitution and Cenbrap Voice (complete)
-Plan: 138-02 complete (2/2 plans)
-Status: Phase 138 complete — ready for Phase 139 dual verdict contracts
-Last activity: 2026-06-19 - Completed 138-02 Cenbrap voice and failure mapping
+Phase: 139 - Dual Verdict and Export Validator (in progress)
+Plan: 139-01 complete; 139-02 ready
+Status: Dual-verdict contracts, persistence, and approvability gate shipped in 139-01
+Last activity: 2026-06-19 - Completed Phase 139 Plan 01 dual-verdict contracts and persistence
 
-Progress: [██░░░░░░░░] v12.7 — 1/5 phases; 2/10 plans complete (Phase 138: 2/2).
+Progress: [███░░░░░░░] v12.7 — 2/5 phases; 3/10 plans complete; next 139-02 export validator
 
 ## Accumulated Context
 
@@ -253,6 +254,9 @@ Progress: [██░░░░░░░░] v12.7 — 1/5 phases; 2/10 plans comp
 - [Phase 138]: Cenbrap voice uses principles only — no fixed layout prescription in prompt section
 - [Phase 138]: Art-direction mapping returns null for export-only failures; confusa wins over sem_opiniao
 - [Phase 138]: Voice review artifact defaults to pending_review until Jhonatan approves for Phase 140
+- [Phase 139]: buildOlharVerdictFromFailures returns null for export-only failures; never infers pronta/quase
+- [Phase 139]: Dual verdict rejection payloads include olharVerdict/exportStatus only when normalized
+- [Phase 139-01]: Typed dual-verdict contracts, nullable jsonb persistence, dual-verdict-aware assertDerivationApprovable
 
 ### Phase 132 (complete — 4/4 plans)
 
@@ -317,4 +321,4 @@ Progress: [██░░░░░░░░] v12.7 — 1/5 phases; 2/10 plans comp
 
 ## Next Steps
 
-Execute Phase 139 with `$gsd-execute-phase 139` for dual verdict contracts and export validator. Review Cenbrap voice in `138-VOICE-REVIEW.md` before Phase 140 prompt injection. Keep v12.6 operator debt visible: populate live human corpus (at least 5 evaluations), set `DATABASE_URL`, rerun refresh CLIs and `operational-quality-release-gate -- --run-regression` before making live quality claims.
+Execute Phase 139 Plan 02 (`139-02-PLAN.md`) for deterministic export validation. Review Cenbrap voice in `138-VOICE-REVIEW.md` before Phase 140 prompt injection. Keep v12.6 operator debt visible: populate live human corpus (at least 5 evaluations), set `DATABASE_URL`, rerun refresh CLIs and `operational-quality-release-gate -- --run-regression` before making live quality claims.

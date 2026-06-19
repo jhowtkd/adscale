@@ -25,10 +25,10 @@ Trocar o eixo do advisor criativo: sair de um checklist de UX/performance que tr
 
 ### Dual Verdict Contract (VERDICT)
 
-- [ ] **VERDICT-01**: Generated outputs receive a creative verdict `olharVerdict` with values `pronta`, `quase`, `sem_opiniao` or `confusa`.
-- [ ] **VERDICT-02**: Generated outputs receive an independent export verdict `exportStatus` with values `ok`, `ajuste_menor` or `bloqueado`.
-- [ ] **VERDICT-03**: `olharVerdict` includes four compact axes (`figura`, `gestalt`, `voz`, `convite`) scored 0-3 plus short direction notes, what works and what blocks.
-- [ ] **VERDICT-04**: Quality gate never treats `completed` as ready-to-approve unless the creative verdict and export verdict both allow it.
+- [x] **VERDICT-01**: Generated outputs receive a creative verdict `olharVerdict` with values `pronta`, `quase`, `sem_opiniao` or `confusa`.
+- [x] **VERDICT-02**: Generated outputs receive an independent export verdict `exportStatus` with values `ok`, `ajuste_menor` or `bloqueado`.
+- [x] **VERDICT-03**: `olharVerdict` includes four compact axes (`figura`, `gestalt`, `voz`, `convite`) scored 0-3 plus short direction notes, what works and what blocks.
+- [x] **VERDICT-04**: Quality gate never treats `completed` as ready-to-approve unless the creative verdict and export verdict both allow it.
 
 ### Export Validator (EXPORT)
 
@@ -90,10 +90,10 @@ Trocar o eixo do advisor criativo: sair de um checklist de UX/performance que tr
 | OLHAR-02 | Phase 138 | Complete |
 | OLHAR-03 | Phase 138 | Complete |
 | OLHAR-04 | Phase 138 | Complete |
-| VERDICT-01 | Phase 139 | Pending |
-| VERDICT-02 | Phase 139 | Pending |
-| VERDICT-03 | Phase 139 | Pending |
-| VERDICT-04 | Phase 139 | Pending |
+| VERDICT-01 | Phase 139 | Complete |
+| VERDICT-02 | Phase 139 | Complete |
+| VERDICT-03 | Phase 139 | Complete |
+| VERDICT-04 | Phase 139 | Complete |
 | EXPORT-01 | Phase 139 | Pending |
 | EXPORT-02 | Phase 139 | Pending |
 | EXPORT-03 | Phase 139 | Pending |

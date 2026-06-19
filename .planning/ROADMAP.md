@@ -20,7 +20,7 @@
 **Starting point:** campanhas reais expuseram outputs invalidos, aprovacao de peca `approved + invalid`, outputs com estetica de template/interface e prompts que tratam CTA como widget clicavel. v12.3 preservou factualidade, mas deixou o gap visual QA-19 como divida; v12.5/v12.6 criaram infraestrutura de corpus, mas ainda nao trocaram a regua criativa.
 
 - [x] **Phase 138: Olhar Constitution and Cenbrap Voice** — definir a ontologia global do Olhar ADScale e a primeira voz editorial Cenbrap. (completed 2026-06-19)
-- [ ] **Phase 139: Dual Verdict and Export Validator** — separar contrato criativo (`olharVerdict`) de exportacao (`exportStatus`) e bloquear `approved + invalid`.
+- [x] **Phase 139: Dual Verdict and Export Validator** — separar contrato criativo (`olharVerdict`) de exportacao (`exportStatus`) e bloquear `approved + invalid`. (completed 2026-06-19)
 - [ ] **Phase 140: Advisor and Generation Direction** — reescrever preflight, QA, score e prompt-builder para direcao de arte, nao checklist de UX.
 - [ ] **Phase 141: Review Surface and Override UX** — exibir Olhar/Exportacao na workspace, capturar decisao humana e exigir override consciente.
 - [ ] **Phase 142: Cenbrap Calibration and Release Evidence** — reavaliar campanhas reais, medir concordancia com Jhonatan e fechar com evidencia honesta.
@@ -28,7 +28,7 @@
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
 | 138 | Olhar Constitution and Cenbrap Voice | Complete    | 2026-06-19 | 2026-06-19 |
-| 139 | Dual Verdict and Export Validator | VERDICT-01..04, EXPORT-01..04 | Pending | — |
+| 139 | Dual Verdict and Export Validator | 2/2 | Complete   | 2026-06-19 |
 | 140 | Advisor and Generation Direction | ADVISOR-01..04 | Pending | — |
 | 141 | Review Surface and Override UX | REVIEW-01..04 | Pending | — |
 | 142 | Cenbrap Calibration and Release Evidence | CALIB-01..04 | Pending | — |
@@ -71,11 +71,11 @@ Plans:
   3. Campaign setup mismatch is reported as setup/contract issue, not as art-direction weakness.
   4. Approval APIs cannot create normal `approved + invalid` states.
 
-**Plans:** 0/2 plans complete
+**Plans:** 2/2 plans complete
 
 Plans:
-- [ ] 139-01-PLAN.md — Dual-verdict contracts and persistence compatibility
-- [ ] 139-02-PLAN.md — Deterministic export validator and approval blocking
+- [x] 139-01-PLAN.md — Dual-verdict contracts and persistence compatibility (ready)
+- [x] 139-02-PLAN.md — Deterministic export validator and approval blocking (ready)
 
 ---
 
@@ -155,11 +155,11 @@ Archive: [v12.5-ROADMAP.md](milestones/v12.5-ROADMAP.md) · [v12.5-REQUIREMENTS.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 138 | v12.7 | 0/2 | Pending | — |
-| 139 | v12.7 | 0/2 | Pending | — |
+| 138 | v12.7 | 2/2 | Complete | 2026-06-19 |
+| 139 | v12.7 | 0/2 | Planned | — |
 | 140 | v12.7 | 0/2 | Pending | — |
 | 141 | v12.7 | 0/2 | Pending | — |
 | 142 | v12.7 | 0/2 | Pending | — |
 
 ---
-*Roadmap updated: 2026-06-19 — v12.7 milestone initialized; ready for Phase 138 planning*
+*Roadmap updated: 2026-06-19 — Phase 138 validated; Phase 139 planned and ready for execution*
