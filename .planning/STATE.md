@@ -2,15 +2,14 @@
 gsd_state_version: 1.0
 milestone: v12.9
 milestone_name: Fechamento Humano do Olhar Cenbrap
-status: Phase 147 complete — human_needed carry-forward to Phase 148
-last_updated: "2026-06-19T21:15:00.000Z"
-last_activity: 2026-06-19 - Completed 147-02; calibration rerun and evidence refresh with human_needed
+status: planning
+last_updated: "2026-06-19T21:18:04.747Z"
+last_activity: 2026-06-19 - Completed 147-02 calibration rerun and evidence refresh
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 2
   completed_plans: 2
-  percent: 25
 ---
 
 # Project State
@@ -23,7 +22,7 @@ See: .planning/PROJECT.md (updated 2026-06-19)
 
 **Current focus:** v12.9 Fechamento Humano do Olhar Cenbrap. Convert v12.8's honest `human_needed` gate into real operator decisions, sample sufficiency and customer-real evidence discipline.
 
-**Status:** Phase 147 complete (`human_needed`) — tooling validated; operator decisions still absent; Phase 148 next
+**Status:** Ready to plan
 
 ## Current Position
 

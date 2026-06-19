@@ -28,7 +28,7 @@
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
-| 147 | Operator Decision Session and Calibration Rerun | 2/2 | Complete   | 2026-06-19 |
+| 147 | Operator Decision Session and Calibration Rerun | Complete    | 2026-06-19 | 2026-06-19 |
 | 148 | Sample Sufficiency Expansion | SAMPLE-01..04 | Pending | — |
 | 149 | Customer-Real Cenbrap Corpus Replacement | REALCORP-01..04 | Pending | — |
 | 150 | Agreement Calibration and Final Claims Gate | AGREE-01..04 | Pending | — |
