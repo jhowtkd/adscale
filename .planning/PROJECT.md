@@ -10,9 +10,26 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Current State
 
-v13.0 Brand Taste Calibration Loop is active as of 2026-06-20. The milestone turns sparse human judgment into reusable brand criteria: calibration signals, brand taste profiles, approved rules, advisor/generation application, uncertainty routing and evidence-backed claims.
+v13.1 Global Owner Quality Corpus is active as of 2026-06-20. The milestone turns the existing workspace-scoped human-quality corpus into a platform-owner global review system: all generated creatives can become reviewable candidates, Jhonatan can evaluate them in one private panel, and those evaluations feed the quality/calibration loop with honest evidence gates.
 
-### v13.0 Brand Taste Calibration Loop — ACTIVE (started 2026-06-20)
+### v13.1 Global Owner Quality Corpus — ACTIVE (started 2026-06-20)
+
+**Goal:** Dar ao dono do projeto um painel global e privado com criativos gerados por todos os usuarios, para avaliar qualidade humana e alimentar o loop de melhoria sem quebrar isolamento de workspace.
+
+**Target features:**
+- Owner-only global corpus queue across all workspaces
+- Automatic/global candidate capture for generated creatives with privacy-safe metadata
+- Signed preview handling that works across workspaces without exposing storage keys or prompts
+- Human evaluation flow that resolves workspace context server-side from the corpus item
+- Aggregated quality/calibration dashboards that support global and filtered views
+- Feedback-generation handoff from human evaluations into calibration, quality-improvement and learning loops
+- Release gate that separates technical green from sufficient global human evidence
+
+**Why now:** v12.5/v12.6 created the human-quality corpus and v13.0 created reusable brand-taste calibration, but the operating surface still depends on workspace-scoped queues and manual selection. A global owner corpus is the natural control plane for turning real generated outputs into reusable product learning.
+
+**Current status:** Milestone v13.1 started; Phase 157 is ready to plan. Carry-forward remains explicit: Jhonatan decisions for Cenbrap are still pending, customer-real claims remain blocked, and global quality claims require sufficient evaluated samples.
+
+### v13.0 Brand Taste Calibration Loop — SHIPPED WITH TECH DEBT (2026-06-20)
 
 **Goal:** Fazer o sistema aprender o criterio de direcao de arte a partir de decisoes humanas esparsas, para que Jhonatan calibre o olhar em vez de operar a esteira.
 
@@ -27,7 +44,7 @@ v13.0 Brand Taste Calibration Loop is active as of 2026-06-20. The milestone tur
 
 **Why now:** v12.9 provou que o gate e honesto, mas tambem mostrou o limite do modelo: se toda marca depender de revisao manual recorrente, ADScale vira servico. O proximo passo e transformar julgamento humano em calibracao reutilizavel.
 
-**Current status:** Milestone v13.0 started; Phase 151 is ready to plan. v12.9 carry-forward remains explicit: 5 Jhonatan decisions pending, customer-real corpus absent, agreement/customer-real claims blocked.
+**Current status:** Phases 151-156 complete. Infrastructure for calibration signals, brand taste profiles, rules, application, uncertainty routing and claims gate shipped. Tech debt remains: 5 Jhonatan decisions pending, fixture-only corpus, agreement/customer-real claims blocked.
 
 ### v12.9 Fechamento Humano do Olhar Cenbrap — SHIPPED WITH TECH DEBT (2026-06-20)
 
@@ -354,11 +371,13 @@ Delivered: credit estimate transparency, enriched credit events, delivery/stale 
 
 ### Active
 
-- [ ] Definir a constituicao `Olhar ADScale` e a voz Cenbrap inicial como fonte de julgamento criativo
-- [ ] Separar `olharVerdict` de `exportStatus` para nao misturar peca ruim com peca tecnicamente invalida
-- [ ] Substituir vocabulario UI-first nos prompts criativos por figura, gestalt, voz, convite e anti-template
-- [ ] Bloquear `approved + invalid` e registrar override consciente quando houver excecao
-- [ ] Reavaliar campanhas reais Cenbrap com contact sheets, decisoes humanas e evidencia honesta
+- [ ] Transformar o human-quality corpus em uma fila global owner-only para todos os criativos gerados
+- [ ] Capturar candidatos globais de criativos com metadados sanitizados, deduplicacao e filtros operacionais
+- [ ] Exibir previews assinadas cross-workspace sem expor prompts, storage keys ou dados sensiveis
+- [ ] Permitir avaliacao humana global resolvendo `workspaceId` no servidor a partir do item do corpus
+- [ ] Agregar score calibration, learning impact, quality improvement e trends em visao global e filtravel
+- [ ] Gerar feedbacks acionaveis para o loop de melhoria a partir das avaliacoes humanas
+- [ ] Bloquear claims de melhoria global ate haver amostra humana suficiente e source composition honesta
 
 ### Validated (v10.0)
 
@@ -402,11 +421,11 @@ Delivered: credit estimate transparency, enriched credit events, delivery/stale 
 
 ## Context
 
-Current state: v13.0 active. v12.9 closed as tech debt after validating the honest operator gate and expanding Cenbrap to 5 reviewable rows, but human decisions and customer-real proof remain absent. The immediate product goal is turning sparse human decisions into reusable calibration criteria, not adding more manual review throughput.
+Current state: v13.1 active. v13.0 shipped the calibration infrastructure but remains evidence-limited: 5 Jhonatan decisions are still pending, the Cenbrap corpus is fixture-only, and agreement/customer-real claims remain blocked. The immediate product goal is making corpus operation global and owner-controlled so real generated outputs can feed the learning loop.
 
 v12.7 treated ADScale as a tool that scales creative criterion, not just variation volume. v12.8 now tests that criterion operationally: real campaigns, contact sheets, human decisions and honest evidence refresh.
 
-v12.6 remains relevant infrastructure: the live corpus, sampling honesty and release-gate separation must be reused so v12.7 does not claim quality movement from a green script or a tiny sample.
+v12.6 remains relevant infrastructure: the live corpus, sampling honesty and release-gate separation must be reused so v13.1 does not claim quality movement from a green script or a tiny sample.
 
 Marketing remains in `jhowtkd/site-adscale.git`; product feedback and owner triage live in ADScale_2 at `/feedback` for platform owners.
 
@@ -414,7 +433,7 @@ Migration `app/drizzle/0027_fine_morlun.sql` (Drizzle journal idx 27) must be ap
 
 Prior milestones delivered the strategy cockpit (v11.6), beta feedback capture (v11.4), presentation site separation (v11.3), beta entitlements (v11.2), generation quality gates (v11.1), coherent derivation flows (v11.0), and the full MVP through v10 UI polish.
 
-Current verification baseline: v12.9 closed with `142-EVIDENCE.json` still `human_needed`, `148-SAMPLE-GATE.md` as the current claims authority, and audit status `tech_debt`. Agreement and quality claims remain withheld until operator decisions meet sample guidance. Corpus is `synthetic_fixture` — operational calibration, not customer-real proof.
+Current verification baseline: v13.0 release gate is technically complete but evidence-limited. Agreement, quality and customer-real claims remain withheld until operator decisions and global corpus evaluations meet sample guidance. Corpus source composition must stay explicit: fixture rows validate operation, not customer-real proof.
 
 Key stack decisions:
 - Next.js App Router, React, TypeScript, Tailwind, shadcn/ui
@@ -465,7 +484,8 @@ Key stack decisions:
 | Judgment before evidence claims | Phase 146 refreshed evidence and claims gate; agreement blocked while decisions missing | ✓ Good — v12.8 |
 | Human authority before calibration learning | Jhonatan decisions are the calibration authority; system verdicts are evidence under test | — Pending — v12.9 |
 | Source labels before customer claims | Fixture rows can validate operation but cannot support customer-real claims | — Pending — v12.9 |
-| Human judgment as calibration, not throughput | Decisions should create reusable taste rules and reduce future uncertainty | — Pending — v13.0 |
+| Human judgment as calibration, not throughput | Decisions should create reusable taste rules and reduce future uncertainty | ✓ Good — v13.0 infrastructure shipped |
+| Global owner corpus before global claims | Owner can review all generated creatives, but product claims require sample and source sufficiency | — Pending — v13.1 |
 
 ## Evolution
 
@@ -485,7 +505,7 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-20 — v13.0 Brand Taste Calibration Loop started after v12.9 tech_debt closure*
+*Last updated: 2026-06-20 — v13.1 Global Owner Quality Corpus started after v13.0 tech_debt closure*
 
 ## Milestone History
 

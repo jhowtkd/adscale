@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v13.0
-milestone_name: Brand Taste Calibration Loop
-status: complete
+milestone: v13.1
+milestone_name: Global Owner Quality Corpus
+status: defining_requirements
 last_updated: "2026-06-20T12:00:00Z"
-last_activity: 2026-06-20 - Completed v13.0 Brand Taste Calibration Loop (phases 151-156)
+last_activity: 2026-06-20 - Started v13.1 Global Owner Quality Corpus
 progress:
-  total_phases: 6
-  completed_phases: 6
-  total_plans: 12
-  completed_plans: 12
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -21,44 +21,46 @@ See: .planning/PROJECT.md (updated 2026-06-20)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** v13.0 Brand Taste Calibration Loop — **shipped** (tech debt: 5 Jhonatan decisions pending, fixture-only corpus).
+**Current focus:** v13.1 Global Owner Quality Corpus — owner-only global corpus, human evaluation, feedback generation and evidence-safe quality loop.
 
-**Status:** Milestone complete. Calibration infrastructure ready; awaiting operator decisions for live learning.
+**Status:** Defining requirements and roadmap for the new milestone.
 
 ## Current Position
 
-Phase: 156 - Calibration Evidence and Release Gate (complete)
-Plan: 12/12 complete
-Status: milestone shipped with tech_debt
-Last activity: 2026-06-20 - Completed v13.0 Brand Taste Calibration Loop
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-06-20 - Milestone v13.1 started
 
-Progress: [██████████] v13.0 — 6/6 phases complete
+Progress: [----------] v13.1 — 0/0 phases complete
 
 ## Accumulated Context
 
-### v13.0 Shipped
+### v13.0 Shipped With Tech Debt
 
 - `calibration_signals` + `calibration_rules` tables and brand-taste module
 - Cenbrap recorder dual-writes calibration signals on confirm
 - Brand taste profiles, rule extraction, prompt-builder integration
 - Uncertainty queue classifier and claims matrix release gate
+- Remaining evidence debt: 5 Jhonatan decisions pending, fixture-only corpus, agreement/customer-real claims blocked
 
-### v12.9 Carry-Forward (still active)
+### v13.1 Starting Point
 
-- `humanDecisionCount=0`, `additionalNeeded=5`, `agreementRate=null`
-- Corpus 100% `synthetic_fixture`
-- Agreement/customer-real claims blocked until gates cleared
+- Existing `/feedback` owner surface already hosts owner analytics, beta sessions and `HumanQualityCorpusPanel`
+- Existing `human_quality_corpus_items` and `human_quality_evaluations` are workspace-scoped
+- Existing corpus GET/evaluation flows require `workspaceId` from the client, which is not enough for a global owner queue
+- Preview attachment currently assumes all corpus items belong to the first item's workspace
+- Global learning claims must remain blocked until sample size and source composition are sufficient
 
 ## Decisions
 
-- [v13.0]: Extended output_decision_events with calibration_signals rather than replacing
-- [v13.0]: Evidence levels: uncalibrated → seed_calibrated → assisted → evidence_backed
-- [v13.0]: Unapproved rules cannot silently mutate prompts
-- [v13.0]: Closed as shipped with tech_debt pending Jhonatan calibration decisions
+- [v13.1]: Use platform-owner access for global corpus, not workspace admin access
+- [v13.1]: Resolve workspace context server-side from corpus item during evaluation
+- [v13.1]: Treat every generated creative as a candidate stream, but keep reviewed corpus as a prioritized queue
+- [v13.1]: Keep prompts, storage keys and raw sensitive payloads out of global review artifacts
 
 ## Next Steps
 
-1. Jhonatan supplies 5 Cenbrap decisions via `148-DECISIONS.template.json`
-2. Run recorder `--confirm` to populate calibration_signals
-3. Approve extracted rule candidates for Cenbrap
-4. Plan next milestone when calibration loop proves value with real decisions
+1. Define v13.1 requirements
+2. Create roadmap starting at Phase 157
+3. Start with `$gsd-discuss-phase 157` or `$gsd-plan-phase 157`
