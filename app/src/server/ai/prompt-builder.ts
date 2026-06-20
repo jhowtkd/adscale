@@ -27,8 +27,10 @@ import {
 } from "./per-mode-prompt-rules";
 import { buildOlharAdscaleSection } from "./olhar/constitution";
 import { buildGenerationDirectionSection, GENERATION_DIRECTION_HEADER } from "./olhar/generation-direction";
+import { buildBrandTastePromptSection } from "@/server/brand-taste/taste-application";
 
 export { extractPromptPerModeRulesSection } from "./per-mode-prompt-rules";
+export { buildBrandTastePromptSection } from "@/server/brand-taste/taste-application";
 
 
 
@@ -272,6 +274,8 @@ export interface DerivationPromptConfig {
   brandMemory?: BrandMemoryContext | null;
   campaignMemoryBlock?: string | null;
   contract?: CreativeContract | null;
+  /** Approved brand taste rule constraint lines from calibration loop. */
+  brandTasteConstraints?: string[];
 }
 
 function buildHardRulesSection(
@@ -420,6 +424,18 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
   });
   parts.push(...buildCanonicalContractPromptSection(effectiveContract));
   parts.push(...buildIntegrityPromptSection());
+
+  if (config.brandTasteConstraints && config.brandTasteConstraints.length > 0) {
+    parts.push(...buildBrandTastePromptSection(
+      config.brandTasteConstraints.map((line, index) => ({
+        id: `inline-${index}`,
+        category: "brand_nuance",
+        rationale: line,
+      }))
+    ));
+  } else if (config.brandTasteConstraints?.length === 0) {
+    // no-op: explicit empty array means no brand taste overlay
+  }
 
   const classification =
     effectiveContract.inputSourceClassification ??

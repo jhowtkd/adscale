@@ -1,5 +1,36 @@
 # Milestones: ADScale
 
+## v12.9 Fechamento Humano do Olhar Cenbrap (Shipped with tech debt: 2026-06-20)
+
+**Phases completed:** 2 of 4 phases (147→148 complete; 149→150 deferred), 4 plans
+**Requirements:** 8/16 complete; 8/16 deferred as accepted tech debt
+
+**Scope:**
+- Validar o workflow de decisao operatoria sem fabricar julgamento humano
+- Expandir a amostra Cenbrap para 5 rows revisaveis
+- Rerodar calibracao/evidencia mantendo `agreementRate=null` enquanto decisoes humanas faltam
+- Separar row sufficiency de human-decision sufficiency
+- Registrar source composition e claims proibidos enquanto a prova e fixture-only
+
+**Key accomplishments:**
+- Phase 147 confirmou o recorder/dry-run e o rerun de calibracao com `human_needed` honesto.
+- Phase 148 expandiu o corpus para 5 rows revisaveis e publicou `148-SAMPLE-GATE.md`.
+- Evidence manteve `humanDecisionCount=0`, `additionalNeeded=5` e `agreementRate=null`.
+- `148-DECISIONS.template.json` ficou pronto para as 5 decisoes do Jhonatan.
+
+**Known tech debt (accepted carry-forward):**
+- `145-DECISIONS.json` ainda ausente; as 5 decisoes humanas nao foram fornecidas.
+- Source composition continua 5 `synthetic_fixture`, 0 `operator_imported`, 0 `real_customer`.
+- Phase 149 customer-real corpus replacement foi deferida.
+- Phase 150 agreement calibration/final claims gate foi deferida porque nao ha comparable rows.
+- Nenhum claim externo de acordo, melhoria de qualidade ou prova customer-real esta autorizado.
+
+**Next direction:** v13.0 transforma julgamento humano em calibracao reutilizavel: decisoes viram sinais, perfis de gosto de marca, regras aprovaveis e fila de incerteza.
+
+Archive: [v12.9-ROADMAP.md](milestones/v12.9-ROADMAP.md) · [v12.9-REQUIREMENTS.md](milestones/v12.9-REQUIREMENTS.md) · [v12.9-MILESTONE-AUDIT.md](milestones/v12.9-MILESTONE-AUDIT.md) · Plan: [human-judgment-calibration-loop-plan.md](human-judgment-calibration-loop-plan.md)
+
+---
+
 ## v12.8 Operacao Real do Olhar Cenbrap (Shipped with tech debt: 2026-06-19)
 
 **Phases completed:** 4 phases (143→146), 8 plans

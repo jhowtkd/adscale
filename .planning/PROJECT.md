@@ -10,9 +10,26 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Current State
 
-v12.9 Fechamento Humano do Olhar Cenbrap is active as of 2026-06-19. The milestone turns v12.8's honest `human_needed` gate into real operator calibration: Jhonatan decisions, minimum sample, source-label discipline and claims only when evidence supports them.
+v13.0 Brand Taste Calibration Loop is active as of 2026-06-20. The milestone turns sparse human judgment into reusable brand criteria: calibration signals, brand taste profiles, approved rules, advisor/generation application, uncertainty routing and evidence-backed claims.
 
-### v12.9 Fechamento Humano do Olhar Cenbrap — ACTIVE (started 2026-06-19)
+### v13.0 Brand Taste Calibration Loop — ACTIVE (started 2026-06-20)
+
+**Goal:** Fazer o sistema aprender o criterio de direcao de arte a partir de decisoes humanas esparsas, para que Jhonatan calibre o olhar em vez de operar a esteira.
+
+**Target features:**
+- Modelo canonico de eventos de calibracao humana
+- Perfil de gosto por marca com nivel de evidencia e source composition
+- Extracao de regras candidatas a partir de mismatches sistema-humano
+- Aprovacao/depreciacao de regras antes de afetarem advisor ou prompt-builder
+- Aplicacao de taste rules no advisor, preflight e geracao
+- Fila de incerteza para pedir humano apenas quando a decisao ensina algo
+- Release gate que mede acordo, reducao de incerteza e claims permitidos/proibidos
+
+**Why now:** v12.9 provou que o gate e honesto, mas tambem mostrou o limite do modelo: se toda marca depender de revisao manual recorrente, ADScale vira servico. O proximo passo e transformar julgamento humano em calibracao reutilizavel.
+
+**Current status:** Milestone v13.0 started; Phase 151 is ready to plan. v12.9 carry-forward remains explicit: 5 Jhonatan decisions pending, customer-real corpus absent, agreement/customer-real claims blocked.
+
+### v12.9 Fechamento Humano do Olhar Cenbrap — SHIPPED WITH TECH DEBT (2026-06-20)
 
 **Goal:** Capturar julgamento humano real para o Olhar Cenbrap, atingir amostra minima e separar fixture operacional de prova customer-real antes de qualquer claim de acordo ou qualidade.
 
@@ -26,7 +43,7 @@ v12.9 Fechamento Humano do Olhar Cenbrap is active as of 2026-06-19. The milesto
 
 **Why now:** v12.8 fechou a infraestrutura e o claims gate, mas a evidencia segue `human_needed`: `humanDecisionCount=0`, `missingHumanDecisionCount=2`, sample guidance `0/5`, `agreementRate=null` e corpus `synthetic_fixture`.
 
-**Current status:** Phase 147 complete with truthful `human_needed` carry-forward; Phase 148 is planned for sample sufficiency expansion. Jhonatan decisions are still absent, sample remains `0/5`, and agreement/quality claims stay blocked.
+**Current status:** Phases 147-148 complete; Phases 149-150 deferred as accepted tech debt. Five reviewable Cenbrap rows exist, but Jhonatan decisions are still absent, sample remains `0/5`, all rows are `synthetic_fixture`, and agreement/quality/customer-real claims stay blocked.
 
 ### v12.8 Operacao Real do Olhar Cenbrap — SHIPPED WITH TECH DEBT (2026-06-19)
 
@@ -385,7 +402,7 @@ Delivered: credit estimate transparency, enriched credit events, delivery/stale 
 
 ## Context
 
-Current state: v12.9 active. Phase 147 validated the operator-decision workflow and reran calibration/evidence, but Jhonatan decisions remain absent. The immediate product gap is expanding sample sufficiency without overstating the evidence; agreement claims stay blocked until decisions and sample guidance clear.
+Current state: v13.0 active. v12.9 closed as tech debt after validating the honest operator gate and expanding Cenbrap to 5 reviewable rows, but human decisions and customer-real proof remain absent. The immediate product goal is turning sparse human decisions into reusable calibration criteria, not adding more manual review throughput.
 
 v12.7 treated ADScale as a tool that scales creative criterion, not just variation volume. v12.8 now tests that criterion operationally: real campaigns, contact sheets, human decisions and honest evidence refresh.
 
@@ -397,7 +414,7 @@ Migration `app/drizzle/0027_fine_morlun.sql` (Drizzle journal idx 27) must be ap
 
 Prior milestones delivered the strategy cockpit (v11.6), beta feedback capture (v11.4), presentation site separation (v11.3), beta entitlements (v11.2), generation quality gates (v11.1), coherent derivation flows (v11.0), and the full MVP through v10 UI polish.
 
-Current verification baseline: v12.8 closed with live `142-EVIDENCE.json` (`human_needed`), claims gate at `146-CLAIMS-GATE.md`, and milestone audit `tech_debt`. v12.9 starts from that blocker: technical release checker passes; agreement and quality claims remain withheld until operator decisions meet sample guidance. Corpus is `synthetic_fixture` — operational calibration, not customer-real proof.
+Current verification baseline: v12.9 closed with `142-EVIDENCE.json` still `human_needed`, `148-SAMPLE-GATE.md` as the current claims authority, and audit status `tech_debt`. Agreement and quality claims remain withheld until operator decisions meet sample guidance. Corpus is `synthetic_fixture` — operational calibration, not customer-real proof.
 
 Key stack decisions:
 - Next.js App Router, React, TypeScript, Tailwind, shadcn/ui
@@ -448,6 +465,7 @@ Key stack decisions:
 | Judgment before evidence claims | Phase 146 refreshed evidence and claims gate; agreement blocked while decisions missing | ✓ Good — v12.8 |
 | Human authority before calibration learning | Jhonatan decisions are the calibration authority; system verdicts are evidence under test | — Pending — v12.9 |
 | Source labels before customer claims | Fixture rows can validate operation but cannot support customer-real claims | — Pending — v12.9 |
+| Human judgment as calibration, not throughput | Decisions should create reusable taste rules and reduce future uncertainty | — Pending — v13.0 |
 
 ## Evolution
 
@@ -467,7 +485,7 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-19 — Phase 148 planned from Phase 147 human_needed / sample 0/5 gate*
+*Last updated: 2026-06-20 — v13.0 Brand Taste Calibration Loop started after v12.9 tech_debt closure*
 
 ## Milestone History
 

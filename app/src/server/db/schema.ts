@@ -1557,6 +1557,103 @@ export const outputDecisionEvents = adscaleSchema.table(
 export type OutputDecisionEvent = typeof outputDecisionEvents.$inferSelect;
 export type NewOutputDecisionEvent = typeof outputDecisionEvents.$inferInsert;
 
+export const calibrationSignals = adscaleSchema.table(
+  "calibration_signals",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    clientProfileId: uuid("client_profile_id").references(() => clientProfiles.id, {
+      onDelete: "set null",
+    }),
+    campaignId: uuid("campaign_id")
+      .notNull()
+      .references(() => campaigns.id, { onDelete: "cascade" }),
+    derivationId: uuid("derivation_id")
+      .notNull()
+      .references(() => derivations.id, { onDelete: "cascade" }),
+    outputDecisionEventId: uuid("output_decision_event_id").references(
+      () => outputDecisionEvents.id,
+      { onDelete: "set null" }
+    ),
+    humanVerdict: text("human_verdict").notNull(),
+    systemOlharVerdict: text("system_olhar_verdict"),
+    systemExportStatus: text("system_export_status"),
+    mismatchBucket: text("mismatch_bucket"),
+    sourceLabel: text("source_label").notNull(),
+    reviewerId: text("reviewer_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    reviewedAt: timestamp("reviewed_at", { mode: "date" }).notNull(),
+    sanitizedNote: text("sanitized_note"),
+    idempotencyKey: text("idempotency_key"),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("calibration_signals_idempotency_uq")
+      .on(table.workspaceId, table.idempotencyKey)
+      .where(sql`${table.idempotencyKey} is not null`),
+    index("calibration_signals_client_profile_idx").on(
+      table.workspaceId,
+      table.clientProfileId,
+      table.reviewedAt
+    ),
+    index("calibration_signals_derivation_idx").on(
+      table.workspaceId,
+      table.derivationId
+    ),
+  ]
+);
+
+export type CalibrationSignal = typeof calibrationSignals.$inferSelect;
+export type NewCalibrationSignal = typeof calibrationSignals.$inferInsert;
+
+export const calibrationRules = adscaleSchema.table(
+  "calibration_rules",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    clientProfileId: uuid("client_profile_id")
+      .notNull()
+      .references(() => clientProfiles.id, { onDelete: "cascade" }),
+    category: text("category").notNull(),
+    status: text("status").notNull().default("candidate"),
+    rationale: text("rationale").notNull(),
+    supportingSignalIds: jsonb("supporting_signal_ids")
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    confidence: text("confidence").notNull().default("low"),
+    caveats: jsonb("caveats")
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    mismatchBucket: text("mismatch_bucket"),
+    version: integer("version").notNull().default(1),
+    approvedAt: timestamp("approved_at", { mode: "date" }),
+    approvedBy: text("approved_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("calibration_rules_client_status_idx").on(
+      table.workspaceId,
+      table.clientProfileId,
+      table.status
+    ),
+  ]
+);
+
+export type CalibrationRule = typeof calibrationRules.$inferSelect;
+export type NewCalibrationRule = typeof calibrationRules.$inferInsert;
+
 export const humanQualityCorpusItems = adscaleSchema.table(
   "human_quality_corpus_items",
   {

@@ -61,13 +61,13 @@ function corpusScoreInput(fixture: CorpusArchetypeFixture) {
 }
 
 describe("observable rubric module — visual overload (RUBR-01)", () => {
-  it("includes dominant focal, zone count, and competing CTA rules", () => {
+  it("includes dominant focal, zone count, and competing invite rules", () => {
     const rubric = buildObservableQaRubricSection({ targetFormat: "1:1" });
 
     expect(rubric).toMatch(/VISUAL OVERLOAD/i);
     expect(rubric).toMatch(/dominant focal/i);
     expect(rubric).toMatch(/more than three|three information zones/i);
-    expect(rubric).toMatch(/competing.*CTA/i);
+    expect(rubric).toMatch(/competing invites|invite\/call-to-action text/i);
     expect(VISUAL_OVERLOAD_RUBRIC).toMatch(/creativeRisk|briefMatch/i);
   });
 });

@@ -22,6 +22,11 @@ import { db } from "@/server/db";
 import { outputDecisionEvents, user, workspaceMembers } from "@/server/db/schema";
 import { recordOutputDecisionEvidence } from "@/server/output-learning/output-decision-recorder";
 import type { OutputDecisionAction } from "@/server/output-learning/output-decision-events";
+import { recordCalibrationSignal } from "@/server/brand-taste/calibration-signal-recorder";
+import { buildCalibrationIdempotencyKey } from "@/server/brand-taste/calibration-signal";
+import type { CalibrationSourceLabel } from "@/server/brand-taste/calibration-signal-types";
+import { getCampaignById } from "@/server/repositories/campaign";
+import { resolveCampaignClientProfileId } from "@/server/repositories/client-reference";
 import { getDerivationById } from "@/server/repositories/derivation";
 import {
   CENBRAP_MISMATCH_BUCKETS,
@@ -235,6 +240,12 @@ export function mapHumanDecisionToAction(
   return decision === "entra" ? "approved" : "rejected";
 }
 
+export function mapHumanDecisionToVerdict(
+  decision: HumanDecision
+): "entra" | "quase" | "nao_entra" {
+  return decision;
+}
+
 export function buildSnapshotExtras(input: {
   decision: HumanDecision;
   mismatchBucket?: MismatchBucket | null;
@@ -338,6 +349,36 @@ async function findExistingDecisionEvent(
   return rows[0] ?? null;
 }
 
+async function resolveClientProfileIdForCampaign(
+  workspaceId: string,
+  campaignId: string,
+  cache: Map<string, string>
+): Promise<string> {
+  const cacheKey = `${workspaceId}:${campaignId}`;
+  const cached = cache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  const campaign = await getCampaignById(campaignId, workspaceId);
+  if (!campaign) {
+    throw new Error(`Campaign ${campaignId} not found in workspace ${workspaceId}`);
+  }
+
+  const clientProfileId = await resolveCampaignClientProfileId(workspaceId, {
+    clientProfileId: campaign.clientProfileId,
+    client: campaign.client,
+  });
+  if (!clientProfileId) {
+    throw new Error(
+      `Could not resolve client profile for campaign ${campaignId} (client=${campaign.client ?? "null"})`
+    );
+  }
+
+  cache.set(cacheKey, clientProfileId);
+  return clientProfileId;
+}
+
 async function assertWorkspaceMembership(
   workspaceId: string,
   userId: string
@@ -367,6 +408,7 @@ export async function applyCalibrationDecisions(input: {
   confirm: boolean;
 }): Promise<ApplyResult[]> {
   const results: ApplyResult[] = [];
+  const campaignProfileCache = new Map<string, string>();
 
   for (const row of input.decisionsFile.decisions) {
     const calibrationRow = input.calibrationIndex.get(row.derivationId)!;
@@ -437,11 +479,16 @@ export async function applyCalibrationDecisions(input: {
 
     const olharVerdict = normalizeOlharVerdictPayload(derivation.olharVerdict);
     const exportStatus = normalizeExportStatusPayload(derivation.exportStatus);
+    const clientProfileId = await resolveClientProfileIdForCampaign(
+      calibrationRow.workspaceId,
+      row.campaignId,
+      campaignProfileCache
+    );
 
     const event = await recordOutputDecisionEvidence({
       workspaceId: calibrationRow.workspaceId,
       userId: input.userId,
-      clientProfileId: null,
+      clientProfileId,
       campaignId: row.campaignId,
       derivationId: row.derivationId,
       action,
@@ -455,6 +502,31 @@ export async function applyCalibrationDecisions(input: {
         exportStatus: exportStatus?.value ?? calibrationRow.exportStatus,
       }),
       idempotencyKey,
+    });
+
+    const sourceLabel = (row.sourceLabel ??
+      input.decisionsFile.sourceLabel ??
+      "synthetic_fixture") as CalibrationSourceLabel;
+
+    await recordCalibrationSignal({
+      workspaceId: calibrationRow.workspaceId,
+      clientProfileId,
+      campaignId: row.campaignId,
+      derivationId: row.derivationId,
+      outputDecisionEventId: event.id,
+      humanVerdict: mapHumanDecisionToVerdict(row.decision),
+      systemOlharVerdict: olharVerdict?.value ?? calibrationRow.olharVerdict,
+      systemExportStatus: exportStatus?.value ?? calibrationRow.exportStatus,
+      mismatchBucket: row.mismatchBucket ?? null,
+      sourceLabel,
+      reviewerId: input.userId,
+      reviewedAt: row.reviewedAt,
+      sanitizedNote: row.note?.trim() ?? null,
+      idempotencyKey: buildCalibrationIdempotencyKey({
+        workspaceId: calibrationRow.workspaceId,
+        derivationId: row.derivationId,
+        reviewerId: input.userId,
+      }),
     });
 
     results.push({
