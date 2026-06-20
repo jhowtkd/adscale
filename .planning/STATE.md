@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v13.1
 milestone_name: Global Owner Quality Corpus
-status: context_ready
+status: phase_planned
 last_updated: "2026-06-20T12:00:00Z"
-last_activity: 2026-06-20 - Gathered Phase 157 context
+last_activity: 2026-06-20 - Planned Phase 157
 progress:
   total_phases: 5
   completed_phases: 0
@@ -23,14 +23,14 @@ See: .planning/PROJECT.md (updated 2026-06-20)
 
 **Current focus:** v13.1 Global Owner Quality Corpus — owner-only global corpus, human evaluation, feedback generation and evidence-safe quality loop.
 
-**Status:** Phase 157 context ready. Planning is next.
+**Status:** Phase 157 planned. Execution is next.
 
 ## Current Position
 
-Phase: 157 - Global Corpus Access Boundary (ready to plan)
-Plan: —
-Status: Context gathered
-Last activity: 2026-06-20 - Phase 157 context gathered
+Phase: 157 - Global Corpus Access Boundary (ready to execute)
+Plan: 2/2 ready
+Status: Planned
+Last activity: 2026-06-20 - Phase 157 planned
 
 Progress: [----------] v13.1 — 0/5 phases complete
 
@@ -63,6 +63,6 @@ Resume file: .planning/phases/157-global-corpus-access-boundary/157-CONTEXT.md
 
 ## Next Steps
 
-1. Plan Phase 157 with `$gsd-plan-phase 157`
-2. Review context at `.planning/phases/157-global-corpus-access-boundary/157-CONTEXT.md` if needed
+1. Execute Phase 157 with `$gsd-execute-phase 157`
+2. Review plans at `.planning/phases/157-global-corpus-access-boundary/157-01-PLAN.md` and `157-02-PLAN.md` if needed
 3. Keep global claims blocked until sample/source sufficiency is proven

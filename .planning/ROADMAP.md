@@ -23,7 +23,7 @@
 
 **Carry-forward constraints:** Jhonatan decisions for Cenbrap remain pending; customer-real and quality-improvement claims stay blocked until sample/source sufficiency is real.
 
-- [ ] **Phase 157: Global Corpus Access Boundary** — platform-owner global scope, workspace-admin scoped access and server-side workspace resolution.
+- [ ] **Phase 157: Global Corpus Access Boundary** — platform-owner global scope, workspace-admin scoped access and server-side workspace resolution. Plans ready.
 - [ ] **Phase 158: Candidate Capture and Privacy-Safe Corpus Model** — every generated creative can become a global candidate with sanitized metadata and source composition.
 - [ ] **Phase 159: Global Review Queue and Preview** — owner queue, filters, progress and mixed-workspace signed previews.
 - [ ] **Phase 160: Human Evaluation and Feedback Artifacts** — global evaluation writes and structured feedback handoff into improvement loops.
@@ -31,7 +31,7 @@
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
-| 157 | Global Corpus Access Boundary | ACCESS-01..04 | Pending | — |
+| 157 | Global Corpus Access Boundary | ACCESS-01..04 | Planned | — |
 | 158 | Candidate Capture and Privacy-Safe Corpus Model | CAPTURE-01..05 | Pending | — |
 | 159 | Global Review Queue and Preview | QUEUE-01..05 | Pending | — |
 | 160 | Human Evaluation and Feedback Artifacts | EVAL-01..05, LOOP-01..02 | Pending | — |
@@ -53,7 +53,7 @@
   3. Workspace admins retain only explicit workspace-scoped access.
   4. Evaluation writes resolve workspace from corpus item server-side.
 
-**Plans:** 0/2 planned
+**Plans:** 2/2 plans ready
 
 Planned:
 - [ ] 157-01-PLAN.md — Global access contract and route scoping
@@ -169,11 +169,11 @@ Previous archive: [v12.9-ROADMAP.md](milestones/v12.9-ROADMAP.md) · [v12.9-REQU
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 157 | v13.1 | 0/2 | Pending | — |
+| 157 | v13.1 | 0/2 | Planned | — |
 | 158 | v13.1 | 0/2 | Pending | — |
 | 159 | v13.1 | 0/2 | Pending | — |
 | 160 | v13.1 | 0/2 | Pending | — |
 | 161 | v13.1 | 0/2 | Pending | — |
 
 ---
-*Roadmap updated: 2026-06-20 — v13.1 Global Owner Quality Corpus initialized*
+*Roadmap updated: 2026-06-20 — Phase 157 planned*
