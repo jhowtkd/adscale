@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v13.1
 milestone_name: Global Owner Quality Corpus
-status: defining_requirements
+status: roadmap_ready
 last_updated: "2026-06-20T12:00:00Z"
-last_activity: 2026-06-20 - Started v13.1 Global Owner Quality Corpus
+last_activity: 2026-06-20 - Created v13.1 Global Owner Quality Corpus roadmap
 progress:
-  total_phases: 0
+  total_phases: 5
   completed_phases: 0
-  total_plans: 0
+  total_plans: 10
   completed_plans: 0
   percent: 0
 ---
@@ -23,16 +23,16 @@ See: .planning/PROJECT.md (updated 2026-06-20)
 
 **Current focus:** v13.1 Global Owner Quality Corpus — owner-only global corpus, human evaluation, feedback generation and evidence-safe quality loop.
 
-**Status:** Defining requirements and roadmap for the new milestone.
+**Status:** Roadmap ready. Phase 157 is next.
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 157 - Global Corpus Access Boundary (ready to plan)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-06-20 - Milestone v13.1 started
+Status: Ready to plan
+Last activity: 2026-06-20 - Milestone v13.1 roadmap created
 
-Progress: [----------] v13.1 — 0/0 phases complete
+Progress: [----------] v13.1 — 0/5 phases complete
 
 ## Accumulated Context
 
@@ -61,6 +61,6 @@ Progress: [----------] v13.1 — 0/0 phases complete
 
 ## Next Steps
 
-1. Define v13.1 requirements
-2. Create roadmap starting at Phase 157
-3. Start with `$gsd-discuss-phase 157` or `$gsd-plan-phase 157`
+1. Start Phase 157 with `$gsd-discuss-phase 157`
+2. Or skip discussion and run `$gsd-plan-phase 157`
+3. Keep global claims blocked until sample/source sufficiency is proven

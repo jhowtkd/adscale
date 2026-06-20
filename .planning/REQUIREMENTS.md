@@ -98,41 +98,41 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 | --- | --- | --- |
-| ACCESS-01 | — | Pending |
-| ACCESS-02 | — | Pending |
-| ACCESS-03 | — | Pending |
-| ACCESS-04 | — | Pending |
-| CAPTURE-01 | — | Pending |
-| CAPTURE-02 | — | Pending |
-| CAPTURE-03 | — | Pending |
-| CAPTURE-04 | — | Pending |
-| CAPTURE-05 | — | Pending |
-| QUEUE-01 | — | Pending |
-| QUEUE-02 | — | Pending |
-| QUEUE-03 | — | Pending |
-| QUEUE-04 | — | Pending |
-| QUEUE-05 | — | Pending |
-| EVAL-01 | — | Pending |
-| EVAL-02 | — | Pending |
-| EVAL-03 | — | Pending |
-| EVAL-04 | — | Pending |
-| EVAL-05 | — | Pending |
-| LOOP-01 | — | Pending |
-| LOOP-02 | — | Pending |
-| LOOP-03 | — | Pending |
-| LOOP-04 | — | Pending |
-| LOOP-05 | — | Pending |
-| EVIDENCE-01 | — | Pending |
-| EVIDENCE-02 | — | Pending |
-| EVIDENCE-03 | — | Pending |
-| EVIDENCE-04 | — | Pending |
-| EVIDENCE-05 | — | Pending |
+| ACCESS-01 | Phase 157 | Pending |
+| ACCESS-02 | Phase 157 | Pending |
+| ACCESS-03 | Phase 157 | Pending |
+| ACCESS-04 | Phase 157 | Pending |
+| CAPTURE-01 | Phase 158 | Pending |
+| CAPTURE-02 | Phase 158 | Pending |
+| CAPTURE-03 | Phase 158 | Pending |
+| CAPTURE-04 | Phase 158 | Pending |
+| CAPTURE-05 | Phase 158 | Pending |
+| QUEUE-01 | Phase 159 | Pending |
+| QUEUE-02 | Phase 159 | Pending |
+| QUEUE-03 | Phase 159 | Pending |
+| QUEUE-04 | Phase 159 | Pending |
+| QUEUE-05 | Phase 159 | Pending |
+| EVAL-01 | Phase 160 | Pending |
+| EVAL-02 | Phase 160 | Pending |
+| EVAL-03 | Phase 160 | Pending |
+| EVAL-04 | Phase 160 | Pending |
+| EVAL-05 | Phase 160 | Pending |
+| LOOP-01 | Phase 160 | Pending |
+| LOOP-02 | Phase 160 | Pending |
+| LOOP-03 | Phase 161 | Pending |
+| LOOP-04 | Phase 161 | Pending |
+| LOOP-05 | Phase 161 | Pending |
+| EVIDENCE-01 | Phase 161 | Pending |
+| EVIDENCE-02 | Phase 161 | Pending |
+| EVIDENCE-03 | Phase 161 | Pending |
+| EVIDENCE-04 | Phase 161 | Pending |
+| EVIDENCE-05 | Phase 161 | Pending |
 
 **Coverage:**
 - v13.1 requirements: 29 total
-- Mapped to phases: 0
-- Unmapped: 29
+- Mapped to phases: 29
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-06-20 — v13.1 Global Owner Quality Corpus*
-*Last updated: 2026-06-20 after milestone requirements definition*
+*Last updated: 2026-06-20 after roadmap traceability mapping*

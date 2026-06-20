@@ -2,6 +2,7 @@
 
 ## Milestones
 
+- 🔄 **v13.1 Global Owner Quality Corpus** - Phases 157-161 (active; owner-only global corpus, human evaluation, feedback generation and evidence-safe quality loop)
 - ✅ **v13.0 Brand Taste Calibration Loop** - Phases 151-156 (shipped 2026-06-20; tech debt: 5 Jhonatan decisions pending, fixture-only corpus, agreement claims blocked)
 - ✅ **v12.9 Fechamento Humano do Olhar Cenbrap** - Phases 147-150 (shipped 2026-06-20; tech debt: 5 Jhonatan decisions pending, customer-real corpus deferred, agreement claims blocked)
 - ✅ **v12.8 Operacao Real do Olhar Cenbrap** - Phases 143-146 (shipped 2026-06-19; tech debt: Jhonatan decisions pending, sample 0/5, synthetic_fixture corpus)
@@ -16,180 +17,163 @@
 
 ## Phases
 
-### ✅ v13.0 Brand Taste Calibration Loop (Phases 151-156) — SHIPPED 2026-06-20
+### 🔄 v13.1 Global Owner Quality Corpus (Phases 157-161) — ACTIVE
 
-**Milestone Goal:** Transformar julgamento humano em calibracao reutilizavel: decisoes esparsas viram sinais, perfis de gosto por marca, regras aprovaveis, aplicacao no advisor/geracao, fila de incerteza e evidencia de aprendizado.
+**Milestone Goal:** Dar ao dono do projeto um painel global e privado com criativos gerados por todos os usuarios, para avaliar qualidade humana e alimentar o loop de melhoria sem quebrar isolamento de workspace.
 
-**Tech debt:** humanDecisionCount=0, fixture-only corpus, agreement claims blocked until Jhonatan supplies 5 decisions.
+**Carry-forward constraints:** Jhonatan decisions for Cenbrap remain pending; customer-real and quality-improvement claims stay blocked until sample/source sufficiency is real.
 
-- [x] **Phase 151: Calibration Signal Model** — contrato canonico para decisoes humanas como eventos de calibracao.
-- [x] **Phase 152: Brand Taste Profile** — perfil inspecionavel por marca com nivel de evidencia.
-- [x] **Phase 153: Calibration Rule Extraction** — regras candidatas aprovaveis, versionadas e reversiveis.
-- [x] **Phase 154: Apply Taste to Advisor and Generation** — regras aprovadas no prompt-builder com regressao de seguranca.
-- [x] **Phase 155: Uncertainty Queue** — julgamento humano apenas em casos de baixa confianca.
-- [x] **Phase 156: Calibration Evidence and Release Gate** — claims matrix e evidencia de calibracao.
+- [ ] **Phase 157: Global Corpus Access Boundary** — platform-owner global scope, workspace-admin scoped access and server-side workspace resolution.
+- [ ] **Phase 158: Candidate Capture and Privacy-Safe Corpus Model** — every generated creative can become a global candidate with sanitized metadata and source composition.
+- [ ] **Phase 159: Global Review Queue and Preview** — owner queue, filters, progress and mixed-workspace signed previews.
+- [ ] **Phase 160: Human Evaluation and Feedback Artifacts** — global evaluation writes and structured feedback handoff into improvement loops.
+- [ ] **Phase 161: Global Evidence and Release Gate** — global analytics, calibration reports and claims gate with sample/source honesty.
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
-| 151 | Calibration Signal Model | SIGNAL-01..04 | Complete | 2026-06-20 |
-| 152 | Brand Taste Profile | PROFILE-01..04 | Complete | 2026-06-20 |
-| 153 | Calibration Rule Extraction | RULE-01..04 | Complete | 2026-06-20 |
-| 154 | Apply Taste to Advisor and Generation | APPLY-01..04 | Complete | 2026-06-20 |
-| 155 | Uncertainty Queue | QUEUE-01..04 | Complete | 2026-06-20 |
-| 156 | Calibration Evidence and Release Gate | EVIDENCE-01..04 | Complete | 2026-06-20 |
+| 157 | Global Corpus Access Boundary | ACCESS-01..04 | Pending | — |
+| 158 | Candidate Capture and Privacy-Safe Corpus Model | CAPTURE-01..05 | Pending | — |
+| 159 | Global Review Queue and Preview | QUEUE-01..05 | Pending | — |
+| 160 | Human Evaluation and Feedback Artifacts | EVAL-01..05, LOOP-01..02 | Pending | — |
+| 161 | Global Evidence and Release Gate | LOOP-03..05, EVIDENCE-01..05 | Pending | — |
 
 ## Phase Details
 
-### Phase 151: Calibration Signal Model
+### Phase 157: Global Corpus Access Boundary
 
-**Goal:** Definir e implementar o modelo canonico para decisoes humanas como sinais de calibracao, nao reviews descartaveis.
+**Goal:** Define and implement the access/scoping boundary for global corpus operations so only platform owners can operate globally while workspace admins remain scoped.
 
-**Depends on:** v12.9 tech-debt closure and existing `output_decision_events`/Cenbrap decision capture tooling
+**Depends on:** Existing platform owner auth, workspace auth and human-quality corpus routes
 
-**Requirements:** SIGNAL-01, SIGNAL-02, SIGNAL-03, SIGNAL-04
+**Requirements:** ACCESS-01, ACCESS-02, ACCESS-03, ACCESS-04
 
 **Success Criteria** (what must be TRUE):
-  1. Cada decisao humana e rastreavel ate output, marca, campanha, veredito do sistema, veredito humano e source label.
-  2. O evento persiste reviewer/reviewedAt, bucket e nota sanitizada sem prompt, signed URL ou segredo.
-  3. Imports repetidos sao idempotentes.
-  4. O template/recorder Cenbrap atual consegue escrever ou adaptar para o novo contrato.
+  1. Platform owner can open global corpus without selecting a workspace.
+  2. Non-owner users cannot list, preview, evaluate or export global corpus items.
+  3. Workspace admins retain only explicit workspace-scoped access.
+  4. Evaluation writes resolve workspace from corpus item server-side.
 
-**Plans:** 2/2 plans complete
+**Plans:** 0/2 planned
 
-Plans:
-- [x] 151-01-PLAN.md — Calibration event contract and storage boundary
-- [x] 151-02-PLAN.md — Cenbrap decision adapter and idempotency proof
+Planned:
+- [ ] 157-01-PLAN.md — Global access contract and route scoping
+- [ ] 157-02-PLAN.md — Server-resolved workspace evaluation boundary
 
 ---
 
-### Phase 152: Brand Taste Profile
+### Phase 158: Candidate Capture and Privacy-Safe Corpus Model
 
-**Goal:** Agregar decisoes humanas em um perfil de gosto por marca, inspecionavel e com nivel de evidencia explicito.
+**Goal:** Turn completed generated creatives into privacy-safe global corpus candidates with dedupe, cohort promotion and source composition.
 
-**Depends on:** Phase 151
+**Depends on:** Phase 157
 
-**Requirements:** PROFILE-01, PROFILE-02, PROFILE-03, PROFILE-04
+**Requirements:** CAPTURE-01, CAPTURE-02, CAPTURE-03, CAPTURE-04, CAPTURE-05
 
 **Success Criteria** (what must be TRUE):
-  1. Um perfil de marca nasce a partir de eventos de calibracao.
-  2. Padroes de entrada, rejeicao e `quase` ficam separados.
-  3. O perfil declara evidence level: `uncalibrated`, `seed_calibrated`, `assisted` ou `evidence_backed`.
-  4. Source composition impede representar fixture-only como validacao customer-real.
+  1. Completed generated creatives can be registered as corpus candidates.
+  2. Candidate capture is idempotent per workspace, derivation and corpus version.
+  3. Candidate payloads exclude prompts, signed URLs, storage keys, secrets and raw diagnostic text.
+  4. Owner can promote candidates into cohorts without duplicating rows.
+  5. Source composition separates synthetic, operator-imported and real customer generated outputs.
 
-**Plans:** 2/2 plans complete
+**Plans:** 0/2 planned
 
-Plans:
-- [x] 152-01-PLAN.md — Brand taste profile read model
-- [x] 152-02-PLAN.md — Evidence level and source composition audit
+Planned:
+- [ ] 158-01-PLAN.md — Candidate registration and dedupe model
+- [ ] 158-02-PLAN.md — Sanitized metadata, cohort promotion and source labels
 
 ---
 
-### Phase 153: Calibration Rule Extraction
+### Phase 159: Global Review Queue and Preview
 
-**Goal:** Extrair regras candidatas a partir de divergencias sistema-humano, mantendo aprovacao humana antes de afetar geracao.
+**Goal:** Give the owner a usable global queue with filters, bounded context, progress metrics and mixed-workspace preview signing.
 
-**Depends on:** Phase 152
+**Depends on:** Phase 158
 
-**Requirements:** RULE-01, RULE-02, RULE-03, RULE-04
+**Requirements:** QUEUE-01, QUEUE-02, QUEUE-03, QUEUE-04, QUEUE-05
 
 **Success Criteria** (what must be TRUE):
-  1. Mismatches geram rule candidates por categoria acionavel.
-  2. Cada regra explica racional, decisoes de suporte, confianca e caveats.
-  3. Jhonatan pode aprovar, rejeitar ou depreciar regras.
-  4. Evidencia ambigua ou unica nao vira regra ativa sem caveat.
+  1. Owner can list pending corpus items across all workspaces.
+  2. Filters cover workspace, client profile, campaign, mode, format, cohort, status, date and source label.
+  3. Review context is sufficient without exposing private prompts or storage identifiers.
+  4. Preview image signing works for mixed-workspace result sets.
+  5. Queue progress reports global and dimensional pending/evaluated counts.
 
-**Plans:** 2/2 plans complete
+**Plans:** 0/2 planned
 
-Plans:
-- [x] 153-01-PLAN.md — Mismatch grouping and rule candidate extraction
-- [x] 153-02-PLAN.md — Rule approval, versioning and rollback
+Planned:
+- [ ] 159-01-PLAN.md — Global queue API and filters
+- [ ] 159-02-PLAN.md — Owner review UI, context and mixed-workspace previews
 
 ---
 
-### Phase 154: Apply Taste to Advisor and Generation
+### Phase 160: Human Evaluation and Feedback Artifacts
 
-**Goal:** Usar regras aprovadas no advisor, preflight e prompt-builder sem diluir o Olhar global nem regredir safety/export.
+**Goal:** Let Jhonatan evaluate global corpus items and produce structured feedback artifacts that can feed quality/calibration loops.
 
-**Depends on:** Phase 153
+**Depends on:** Phase 159
 
-**Requirements:** APPLY-01, APPLY-02, APPLY-03, APPLY-04
+**Requirements:** EVAL-01, EVAL-02, EVAL-03, EVAL-04, EVAL-05, LOOP-01, LOOP-02
 
 **Success Criteria** (what must be TRUE):
-  1. Advisor/preflight combina Olhar global com brand taste rules aprovadas.
-  2. Prompt-builder recupera regras aprovadas como constraints delimitadas.
-  3. Explicacoes de veredito referenciam rule ids.
-  4. Regressao factual/export permanece verde.
+  1. Owner can submit bounded evaluation fields for any pending global item.
+  2. Evaluation writes use the corpus item's workspace, not browser-supplied scope.
+  3. Submit-and-next flow advances through the global queue.
+  4. Invalid, duplicate or stale evaluation attempts fail clearly.
+  5. Structured feedback artifacts link corpus item, derivation, evaluation and source composition.
 
-**Plans:** 2/2 plans complete
+**Plans:** 0/2 planned
 
-Plans:
-- [x] 154-01-PLAN.md — Advisor/preflight brand taste application
-- [x] 154-02-PLAN.md — Prompt-builder integration and safety regression
+Planned:
+- [ ] 160-01-PLAN.md — Global evaluation write path and stale-submit handling
+- [ ] 160-02-PLAN.md — Structured feedback artifact generation
 
 ---
 
-### Phase 155: Uncertainty Queue
+### Phase 161: Global Evidence and Release Gate
 
-**Goal:** Pedir julgamento humano somente onde ele ensina algo: baixa confianca, marca nova, conflito de regra ou output de alto impacto.
+**Goal:** Aggregate global corpus evidence into calibration/quality reports while blocking inflated claims until sample and source conditions are met.
 
-**Depends on:** Phase 154
+**Depends on:** Phase 160
 
-**Requirements:** QUEUE-01, QUEUE-02, QUEUE-03, QUEUE-04
-
-**Success Criteria** (what must be TRUE):
-  1. Incerteza e classificada por amostra, historico de desacordo, source evidence e conflitos.
-  2. Outputs low-confidence entram em review com motivo claro.
-  3. Outputs calibrados/high-confidence nao exigem review humano por default.
-  4. Batch review suporta 5 a 15 itens sem virar esteira manual permanente.
-
-**Plans:** 2/2 plans complete
-
-Plans:
-- [x] 155-01-PLAN.md — Judgment uncertainty classifier
-- [x] 155-02-PLAN.md — Human review queue and batch decision UX
-
----
-
-### Phase 156: Calibration Evidence and Release Gate
-
-**Goal:** Medir se o sistema aprendeu e impedir claims inflados sobre acordo, qualidade ou prova customer-real.
-
-**Depends on:** Phase 155
-
-**Requirements:** EVIDENCE-01, EVIDENCE-02, EVIDENCE-03, EVIDENCE-04
+**Requirements:** LOOP-03, LOOP-04, LOOP-05, EVIDENCE-01, EVIDENCE-02, EVIDENCE-03, EVIDENCE-04, EVIDENCE-05
 
 **Success Criteria** (what must be TRUE):
-  1. Evidence reporta acordo, reducao de incerteza e tendencias de mismatch por marca/perfil.
-  2. Claims matrix bloqueia claims sem amostra/source suficientes.
-  3. Ha comparacao antes/depois em novo batch ou evaluation set Cenbrap.
-  4. Audit final declara o que esta calibrado, incerto e ainda dependente do Jhonatan.
+  1. Score calibration, learning impact and quality-improvement reports can run globally and by filter.
+  2. Brand taste calibration consumes global corpus evaluations without cross-client rule leakage.
+  3. Owner dashboard reports sample sufficiency, evaluated count, source composition and withheld claims.
+  4. Release gate separates technical regression from operational evidence status.
+  5. Regression tests cover owner/non-owner access, mixed previews, server-resolved evaluation and global aggregates.
 
-**Plans:** 2/2 plans complete
+**Plans:** 0/2 planned
 
-Plans:
-- [x] 156-01-PLAN.md — Calibration evidence metrics and before/after eval
-- [x] 156-02-PLAN.md — Claims matrix, release gate and milestone audit
+Planned:
+- [ ] 161-01-PLAN.md — Global calibration/quality analytics
+- [ ] 161-02-PLAN.md — Release gate, evidence docs and regression suite
 
 ---
 
 ## Completed Milestone Context
 
-Latest archive: [v12.9-ROADMAP.md](milestones/v12.9-ROADMAP.md) · [v12.9-REQUIREMENTS.md](milestones/v12.9-REQUIREMENTS.md) · [v12.9-MILESTONE-AUDIT.md](milestones/v12.9-MILESTONE-AUDIT.md)
+Latest active predecessor: v13.0 Brand Taste Calibration Loop — Phases 151-156 shipped with tech debt.
 
-Strategy plan: [human-judgment-calibration-loop-plan.md](human-judgment-calibration-loop-plan.md)
+Carry-forward evidence blockers:
+- 5 Jhonatan decisions pending
+- Fixture-only Cenbrap corpus
+- Agreement/customer-real claims blocked
+- Global quality claims blocked until v13.1 creates sufficient evaluated sample/source evidence
 
-Previous archive: [v12.8-ROADMAP.md](milestones/v12.8-ROADMAP.md) · [v12.8-REQUIREMENTS.md](milestones/v12.8-REQUIREMENTS.md) · [v12.8-MILESTONE-AUDIT.md](milestones/v12.8-MILESTONE-AUDIT.md)
+Previous archive: [v12.9-ROADMAP.md](milestones/v12.9-ROADMAP.md) · [v12.9-REQUIREMENTS.md](milestones/v12.9-REQUIREMENTS.md) · [v12.9-MILESTONE-AUDIT.md](milestones/v12.9-MILESTONE-AUDIT.md)
 
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 151 | v13.0 | 2/2 | Complete | 2026-06-20 |
-| 152 | v13.0 | 2/2 | Complete | 2026-06-20 |
-| 153 | v13.0 | 2/2 | Complete | 2026-06-20 |
-| 154 | v13.0 | 2/2 | Complete | 2026-06-20 |
-| 155 | v13.0 | 2/2 | Complete | 2026-06-20 |
-| 156 | v13.0 | 2/2 | Complete | 2026-06-20 |
+| 157 | v13.1 | 0/2 | Pending | — |
+| 158 | v13.1 | 0/2 | Pending | — |
+| 159 | v13.1 | 0/2 | Pending | — |
+| 160 | v13.1 | 0/2 | Pending | — |
+| 161 | v13.1 | 0/2 | Pending | — |
 
 ---
-*Roadmap updated: 2026-06-20 — v13.0 shipped with tech_debt*
+*Roadmap updated: 2026-06-20 — v13.1 Global Owner Quality Corpus initialized*
