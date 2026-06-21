@@ -2238,6 +2238,34 @@
         "staleCorpusItems": "Stale corpus items",
         "empty": "Nothing here right now."
       }
+    },
+    "users": {
+      "title": "Users",
+      "description": "Search and filter platform users.",
+      "searchPlaceholder": "Search by name or email…",
+      "loading": "Loading users…",
+      "error": "Could not load users.",
+      "empty": "No users match the current filters.",
+      "columns": {
+        "name": "Name",
+        "email": "Email",
+        "workspace": "Workspace",
+        "plan": "Plan",
+        "credits": "Credits",
+        "lastActivity": "Last activity",
+        "created": "Created"
+      },
+      "filters": {
+        "active7d": "Active (7d)",
+        "creditsZero": "Zero credits",
+        "onboardingIncomplete": "Onboarding incomplete",
+        "emailUnverified": "Email unverified"
+      },
+      "pagination": {
+        "summary": "{total} users · page {page} of {totalPages}",
+        "previous": "Previous",
+        "next": "Next"
+      }
     }
   }
 }

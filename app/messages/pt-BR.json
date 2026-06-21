@@ -2239,6 +2239,34 @@
         "staleCorpusItems": "Itens do corpus antigos",
         "empty": "Nada por aqui no momento."
       }
+    },
+    "users": {
+      "title": "Usuários",
+      "description": "Busque e filtre usuários da plataforma.",
+      "searchPlaceholder": "Buscar por nome ou e-mail…",
+      "loading": "Carregando usuários…",
+      "error": "Não foi possível carregar os usuários.",
+      "empty": "Nenhum usuário corresponde aos filtros atuais.",
+      "columns": {
+        "name": "Nome",
+        "email": "E-mail",
+        "workspace": "Workspace",
+        "plan": "Plano",
+        "credits": "Créditos",
+        "lastActivity": "Última atividade",
+        "created": "Criado em"
+      },
+      "filters": {
+        "active7d": "Ativos (7d)",
+        "creditsZero": "Sem créditos",
+        "onboardingIncomplete": "Onboarding incompleto",
+        "emailUnverified": "E-mail não verificado"
+      },
+      "pagination": {
+        "summary": "{total} usuários · página {page} de {totalPages}",
+        "previous": "Anterior",
+        "next": "Próxima"
+      }
     }
   }
 }
