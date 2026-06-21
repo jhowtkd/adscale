@@ -23,7 +23,8 @@ export class CorpusCandidatePromotionError extends Error {
 export interface PromoteCorpusCandidateInput {
   candidateId: string;
   cohort: string;
-  selectedByUserId: string;
+  selectedByUserId?: string;
+  autoPromoted?: boolean;
 }
 
 export interface PromoteCorpusCandidateResult {
@@ -81,7 +82,8 @@ export async function promoteCorpusCandidateToQueue(
     corpusVersion: candidate.corpusVersion,
     artifactRef: candidate.artifactRef as unknown as Record<string, unknown>,
     qualitySnapshot: candidate.qualitySnapshot as unknown as Record<string, unknown>,
-    selectedByUserId: input.selectedByUserId,
+    selectedByUserId: input.selectedByUserId ?? null,
+    autoPromoted: input.autoPromoted ?? false,
   });
 
   const updatedCandidate =
