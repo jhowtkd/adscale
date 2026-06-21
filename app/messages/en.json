@@ -2219,6 +2219,25 @@
       "feedbacks": "Feedbacks",
       "analytics": "Analytics",
       "sessions": "Beta Sessions"
+    },
+    "dashboard": {
+      "title": "Dashboard",
+      "description": "Platform KPIs and items that need attention.",
+      "loading": "Loading dashboard...",
+      "error": "Could not load dashboard summary.",
+      "kpis": {
+        "activeUsers": "Active users (7d)",
+        "pendingFeedbacks": "Pending feedbacks",
+        "corpusPending": "Corpus queue pending",
+        "failedDerivations": "Failed derivations (24h)"
+      },
+      "attention": {
+        "title": "Needs attention",
+        "criticalFeedbacks": "Critical feedbacks",
+        "zeroCreditUsers": "Zero-credit users",
+        "staleCorpusItems": "Stale corpus items",
+        "empty": "Nothing here right now."
+      }
     }
   }
 }

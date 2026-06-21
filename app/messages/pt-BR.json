@@ -2220,6 +2220,25 @@
       "feedbacks": "Feedbacks",
       "analytics": "Analytics",
       "sessions": "Sessões Beta"
+    },
+    "dashboard": {
+      "title": "Dashboard",
+      "description": "KPIs da plataforma e itens que precisam de atenção.",
+      "loading": "Carregando dashboard...",
+      "error": "Não foi possível carregar o resumo do dashboard.",
+      "kpis": {
+        "activeUsers": "Usuários ativos (7d)",
+        "pendingFeedbacks": "Feedbacks pendentes",
+        "corpusPending": "Fila do corpus pendente",
+        "failedDerivations": "Derivações com falha (24h)"
+      },
+      "attention": {
+        "title": "Requer atenção",
+        "criticalFeedbacks": "Feedbacks críticos",
+        "zeroCreditUsers": "Usuários sem créditos",
+        "staleCorpusItems": "Itens do corpus antigos",
+        "empty": "Nada por aqui no momento."
+      }
     }
   }
 }
