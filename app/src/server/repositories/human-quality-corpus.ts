@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, lte, or, sql, isNull } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lt, lte, or, sql, isNull } from "drizzle-orm";
 import { db } from "../db";
 import {
   humanQualityCorpusCandidates,
@@ -51,7 +51,18 @@ export interface ListCorpusQueueFilters {
   sourceLabel?: HumanQualitySourceLabel;
   selectedAfter?: Date;
   selectedBefore?: Date;
+  cursor?: { selectedAt: Date; id: string };
   limit?: number;
+}
+
+export interface CorpusQueueCursor {
+  selectedAt: string;
+  id: string;
+}
+
+export interface ListCorpusQueueResult {
+  items: CorpusQueueListRow[];
+  nextCursor: CorpusQueueCursor | null;
 }
 
 export interface CorpusQueueListRow {
@@ -179,7 +190,7 @@ export async function findCorpusItemByDerivationVersion(
 export async function listPendingCorpusItems(
   filters: ListPendingCorpusItemsFilters
 ): Promise<HumanQualityCorpusItem[]> {
-  const rows = await listCorpusQueueItems({
+  const { items: rows } = await listCorpusQueueItems({
     workspaceId: filters.workspaceId,
     status: "pending",
     limit: filters.limit,
@@ -239,12 +250,26 @@ const corpusSourceLabelSql = sql<HumanQualitySourceLabel>`coalesce(${humanQualit
 
 export async function listCorpusQueueItems(
   filters: ListCorpusQueueFilters
-): Promise<CorpusQueueListRow[]> {
+): Promise<ListCorpusQueueResult> {
   const effectiveFilters: ListCorpusQueueFilters = {
     status: "pending",
     ...filters,
   };
   const conditions = buildCorpusQueueConditions(effectiveFilters);
+
+  if (filters.cursor) {
+    conditions.push(
+      or(
+        lt(humanQualityCorpusItems.selectedAt, filters.cursor.selectedAt),
+        and(
+          eq(humanQualityCorpusItems.selectedAt, filters.cursor.selectedAt),
+          lt(humanQualityCorpusItems.id, filters.cursor.id)
+        )
+      )!
+    );
+  }
+
+  const limit = filters.limit ?? 50;
 
   const rows = await db
     .select({
@@ -261,13 +286,24 @@ export async function listCorpusQueueItems(
       )
     )
     .where(and(...conditions))
-    .orderBy(desc(humanQualityCorpusItems.selectedAt))
-    .limit(filters.limit ?? 50);
+    .orderBy(desc(humanQualityCorpusItems.selectedAt), desc(humanQualityCorpusItems.id))
+    .limit(limit);
 
-  return rows.map((row) => ({
+  const items = rows.map((row) => ({
     item: row.item,
     sourceLabel: row.sourceLabel,
   }));
+
+  const last = items[items.length - 1];
+  const nextCursor =
+    items.length === limit && last
+      ? {
+          selectedAt: last.item.selectedAt.toISOString(),
+          id: last.item.id,
+        }
+      : null;
+
+  return { items, nextCursor };
 }
 
 /** Join evaluated corpus items with their human evaluations for calibration rollup. */

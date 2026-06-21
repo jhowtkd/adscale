@@ -91,7 +91,7 @@ describe("/api/feedback/human-quality-corpus", () => {
     mockRequireOwner.mockResolvedValue({
       user: { id: "owner-1", email: "owner@test.com" },
     });
-    mockListQueue.mockResolvedValue([queueRow]);
+    mockListQueue.mockResolvedValue({ items: [queueRow], nextCursor: null });
   });
 
   it("POST selects derivation into corpus for platform owner", async () => {
@@ -124,7 +124,7 @@ describe("/api/feedback/human-quality-corpus", () => {
   });
 
   it("GET lists global pending corpus queue without workspaceId", async () => {
-    mockListQueue.mockResolvedValue([queueRow]);
+    mockListQueue.mockResolvedValue({ items: [queueRow], nextCursor: null });
 
     const res = await GET(
       new Request("http://localhost/api/feedback/human-quality-corpus?limit=20")
@@ -139,7 +139,7 @@ describe("/api/feedback/human-quality-corpus", () => {
   });
 
   it("GET lists pending corpus queue items for scoped workspace", async () => {
-    mockListQueue.mockResolvedValue([queueRow]);
+    mockListQueue.mockResolvedValue({ items: [queueRow], nextCursor: null });
 
     const res = await GET(
       new Request(
@@ -157,7 +157,7 @@ describe("/api/feedback/human-quality-corpus", () => {
   });
 
   it("GET includes queue progress when includeProgress=true", async () => {
-    mockListQueue.mockResolvedValue([queueRow]);
+    mockListQueue.mockResolvedValue({ items: [queueRow], nextCursor: null });
     mockProgress.mockResolvedValue({
       workspaceId: WORKSPACE_ID,
       totalPending: 1,
@@ -189,12 +189,50 @@ describe("/api/feedback/human-quality-corpus", () => {
   });
 
   it("GET supports global list without workspaceId", async () => {
-    mockListQueue.mockResolvedValue([]);
+    mockListQueue.mockResolvedValue({ items: [], nextCursor: null });
 
     const res = await GET(new Request("http://localhost/api/feedback/human-quality-corpus"));
 
     expect(res.status).toBe(200);
     expect(mockListQueue).toHaveBeenCalledWith(expect.objectContaining({ status: "pending" }));
+  });
+
+  it("GET forwards cursor query params and returns nextCursor", async () => {
+    const cursorSelectedAt = "2026-06-17T10:00:00.000Z";
+    mockListQueue.mockResolvedValue({
+      items: [queueRow],
+      nextCursor: { selectedAt: cursorSelectedAt, id: ITEM_ID },
+    });
+
+    const res = await GET(
+      new Request(
+        `http://localhost/api/feedback/human-quality-corpus?cursorSelectedAt=${encodeURIComponent(cursorSelectedAt)}&cursorId=${ITEM_ID}&limit=1`
+      )
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.nextCursor).toEqual({ selectedAt: cursorSelectedAt, id: ITEM_ID });
+    expect(mockListQueue).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cursor: {
+          selectedAt: new Date(cursorSelectedAt),
+          id: ITEM_ID,
+        },
+        limit: 1,
+      })
+    );
+  });
+
+  it("GET rejects partial cursor params", async () => {
+    const res = await GET(
+      new Request(
+        `http://localhost/api/feedback/human-quality-corpus?cursorSelectedAt=2026-06-17T10:00:00.000Z`
+      )
+    );
+
+    expect(res.status).toBe(400);
+    expect(mockListQueue).not.toHaveBeenCalled();
   });
 
   it("returns 403 when not platform owner", async () => {

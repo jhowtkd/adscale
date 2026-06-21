@@ -11,6 +11,7 @@ vi.mock("@/server/db", () => ({
 import { db } from "@/server/db";
 import {
   insertCorpusItem,
+  listCorpusQueueItems,
   listPendingCorpusItems,
   submitCorpusEvaluation,
 } from "@/server/repositories/human-quality-corpus";
@@ -57,10 +58,16 @@ describe("human-quality-corpus repository", () => {
   });
 
   it("listPendingCorpusItems scopes by workspace", async () => {
-    const mockLimit = vi.fn().mockResolvedValue([{ id: "item-1", workspaceId: workspaceA }]);
+    const mockLimit = vi.fn().mockResolvedValue([
+      {
+        item: { id: "item-1", workspaceId: workspaceA, selectedAt: new Date() },
+        sourceLabel: "operator_imported",
+      },
+    ]);
     const mockOrderBy = vi.fn().mockReturnValue({ limit: mockLimit });
     const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
-    const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+    const mockLeftJoin = vi.fn().mockReturnValue({ where: mockWhere });
+    const mockFrom = vi.fn().mockReturnValue({ leftJoin: mockLeftJoin });
     (db.select as ReturnType<typeof vi.fn>).mockReturnValue({ from: mockFrom });
 
     const rows = await listPendingCorpusItems({ workspaceId: workspaceA, limit: 20 });
@@ -74,12 +81,59 @@ describe("human-quality-corpus repository", () => {
     const mockLimit = vi.fn().mockResolvedValue([]);
     const mockOrderBy = vi.fn().mockReturnValue({ limit: mockLimit });
     const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
-    const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+    const mockLeftJoin = vi.fn().mockReturnValue({ where: mockWhere });
+    const mockFrom = vi.fn().mockReturnValue({ leftJoin: mockLeftJoin });
     (db.select as ReturnType<typeof vi.fn>).mockReturnValue({ from: mockFrom });
 
     const rows = await listPendingCorpusItems({ workspaceId: workspaceB });
 
     expect(rows).toEqual([]);
+  });
+
+  it("listCorpusQueueItems returns nextCursor when page is full", async () => {
+    const selectedAt = new Date("2026-06-17T10:00:00.000Z");
+    const mockLimit = vi.fn().mockResolvedValue([
+      {
+        item: { id: "item-2", selectedAt, status: "pending" },
+        sourceLabel: "operator_imported",
+      },
+      {
+        item: { id: "item-1", selectedAt: new Date("2026-06-16T10:00:00.000Z"), status: "pending" },
+        sourceLabel: "real_customer",
+      },
+    ]);
+    const mockOrderBy = vi.fn().mockReturnValue({ limit: mockLimit });
+    const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
+    const mockLeftJoin = vi.fn().mockReturnValue({ where: mockWhere });
+    const mockFrom = vi.fn().mockReturnValue({ leftJoin: mockLeftJoin });
+    (db.select as ReturnType<typeof vi.fn>).mockReturnValue({ from: mockFrom });
+
+    const result = await listCorpusQueueItems({ limit: 2 });
+
+    expect(result.items).toHaveLength(2);
+    expect(result.nextCursor).toEqual({
+      selectedAt: new Date("2026-06-16T10:00:00.000Z").toISOString(),
+      id: "item-1",
+    });
+  });
+
+  it("listCorpusQueueItems returns null nextCursor when page is partial", async () => {
+    const mockLimit = vi.fn().mockResolvedValue([
+      {
+        item: { id: "item-1", selectedAt: new Date(), status: "pending" },
+        sourceLabel: "operator_imported",
+      },
+    ]);
+    const mockOrderBy = vi.fn().mockReturnValue({ limit: mockLimit });
+    const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
+    const mockLeftJoin = vi.fn().mockReturnValue({ where: mockWhere });
+    const mockFrom = vi.fn().mockReturnValue({ leftJoin: mockLeftJoin });
+    (db.select as ReturnType<typeof vi.fn>).mockReturnValue({ from: mockFrom });
+
+    const result = await listCorpusQueueItems({ limit: 2 });
+
+    expect(result.items).toHaveLength(1);
+    expect(result.nextCursor).toBeNull();
   });
 
   it("submitCorpusEvaluation inserts evaluation and marks item evaluated", async () => {

@@ -68,7 +68,7 @@ export async function GET(request: Request) {
 
     const includeProgress = searchParams.get("includeProgress") === "true";
 
-    const rows = await listCorpusQueue(filters);
+    const { items: rows, nextCursor } = await listCorpusQueue(filters);
     const itemsWithPreview = await attachPreviewImages(rows.map((row) => row.item));
     const items = itemsWithPreview.map((item, index) => ({
       ...item,
@@ -91,8 +91,9 @@ export async function GET(request: Request) {
 
     const response: {
       items: typeof items;
+      nextCursor: typeof nextCursor;
       progress?: Awaited<ReturnType<typeof getCorpusQueueProgress>>;
-    } = { items };
+    } = { items, nextCursor };
 
     if (includeProgress) {
       response.progress = await getCorpusQueueProgress(filters);

@@ -21,8 +21,12 @@ export interface CorpusQueueFilters {
   sourceLabel?: HumanQualitySourceLabel;
   selectedAfter?: Date;
   selectedBefore?: Date;
+  cursor?: { selectedAt: Date; id: string };
   limit?: number;
 }
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface ParsedCorpusQueueFilters {
   filters: CorpusQueueFilters;
@@ -103,6 +107,21 @@ export function parseCorpusQueueFilters(searchParams: URLSearchParams): ParsedCo
       errors.push("limit must be an integer between 1 and 100");
     } else {
       filters.limit = limit;
+    }
+  }
+
+  const cursorSelectedAt = searchParams.get("cursorSelectedAt");
+  const cursorId = searchParams.get("cursorId");
+  if (cursorSelectedAt || cursorId) {
+    if (!cursorSelectedAt || !cursorId) {
+      errors.push("cursorSelectedAt and cursorId must be provided together");
+    } else {
+      const selectedAt = parseOptionalDate(cursorSelectedAt, "cursorSelectedAt", errors);
+      if (!UUID_PATTERN.test(cursorId)) {
+        errors.push("cursorId must be a valid UUID");
+      } else if (selectedAt) {
+        filters.cursor = { selectedAt, id: cursorId };
+      }
     }
   }
 

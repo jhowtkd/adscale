@@ -423,7 +423,10 @@ export async function listPendingCorpusQueue(
 
 export async function listCorpusQueue(
   input: ListCorpusQueueInput
-): Promise<CorpusQueueItemView[]> {
+): Promise<{
+  items: CorpusQueueItemView[];
+  nextCursor: { selectedAt: string; id: string } | null;
+}> {
   return listCorpusQueueItems(input);
 }
 

@@ -31,4 +31,23 @@ describe("parseCorpusQueueFilters", () => {
     );
     expect(errors.length).toBeGreaterThan(0);
   });
+
+  it("parses cursor pagination params", () => {
+    const cursorSelectedAt = "2026-06-17T10:00:00.000Z";
+    const cursorId = "550e8400-e29b-41d4-a716-446655440001";
+    const { filters, errors } = parseCorpusQueueFilters(
+      new URLSearchParams({
+        cursorSelectedAt,
+        cursorId,
+        limit: "10",
+      })
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(filters.cursor).toEqual({
+      selectedAt: new Date(cursorSelectedAt),
+      id: cursorId,
+    });
+    expect(filters.limit).toBe(10);
+  });
 });
