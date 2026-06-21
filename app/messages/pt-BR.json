@@ -2373,6 +2373,74 @@
       "submitting": "Enviando…",
       "success": "Ação concluída com sucesso.",
       "error": "Falha na ação. Tente novamente."
+    },
+    "workspaces": {
+      "detail": {
+        "title": "Detalhe do workspace",
+        "description": "Membros, billing, histórico de créditos e ações administrativas.",
+        "backToUsers": "← Voltar para usuários",
+        "loading": "Carregando detalhe do workspace…",
+        "error": "Não foi possível carregar o detalhe do workspace.",
+        "workspace": {
+          "title": "Workspace",
+          "name": "Nome",
+          "slug": "Slug",
+          "campaigns": "Campanhas",
+          "created": "Criado em"
+        },
+        "billing": {
+          "title": "Billing",
+          "plan": "Plano",
+          "credits": "Créditos",
+          "remainingAds": "Anúncios restantes",
+          "status": "Status de billing"
+        },
+        "members": {
+          "title": "Membros",
+          "empty": "Nenhum membro neste workspace.",
+          "columns": {
+            "name": "Nome",
+            "email": "E-mail",
+            "role": "Papel",
+            "joined": "Entrou em"
+          }
+        },
+        "creditHistory": {
+          "title": "Histórico de créditos",
+          "empty": "Nenhuma transação de crédito ainda.",
+          "columns": {
+            "type": "Tipo",
+            "amount": "Valor",
+            "description": "Descrição",
+            "campaign": "Campanha",
+            "created": "Criado em"
+          }
+        }
+      },
+      "actions": {
+        "title": "Ações de billing",
+        "description": "Ajustes de crédito e plano exigem motivo e são registrados no audit log.",
+        "buttons": {
+          "adjust_credits": "Ajustar créditos",
+          "override_plan": "Sobrescrever plano"
+        },
+        "fields": {
+          "delta": "Delta de créditos",
+          "deltaPlaceholder": "ex.: 10 ou -5",
+          "deltaHint": "Valores positivos concedem créditos; negativos consomem dos grants existentes.",
+          "planKey": "Plano"
+        },
+        "confirm": {
+          "adjust_credits": {
+            "title": "Ajustar créditos do workspace?",
+            "description": "Cria um grant para deltas positivos ou consome dos grants existentes para deltas negativos."
+          },
+          "override_plan": {
+            "title": "Sobrescrever plano do workspace?",
+            "description": "Atualiza o plano da assinatura ativa ou os metadados do entitlement beta quando não há assinatura."
+          }
+        }
+      }
     }
   }
 }
