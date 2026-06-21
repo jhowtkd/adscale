@@ -64,6 +64,8 @@ import {
 import { normalizeCreativeDiagnosis } from "@/server/ai/creative-diagnosis";
 import { getTargetDimensions, formatToOpenAIImageSize, toOpenAISdkImageSize } from "@/lib/formats";
 import { captureAndAutoPromote } from "../human-quality/auto-promote";
+import { buildCorpusQualityPromptSection } from "../human-quality/learning/corpus-quality-prompt";
+import { listApprovedCalibrationRulesByCategories } from "../repositories/calibration-rule";
 
 const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 120_000 });
 const IMAGE_GENERATION_TIMEOUT_MS = 5 * 60 * 1000;
@@ -363,7 +365,7 @@ export const derivationJob = inngest.createFunction(
       constraints: null,
     };
 
-    const [brandMemory, campaignMemoryBlock] = await Promise.all([
+    const [brandMemory, campaignMemoryBlock, corpusQualityContext] = await Promise.all([
       step.run("fetch-brand-memory", async () => {
         const context = await getBrandMemoryContext({
           workspaceId,
@@ -384,6 +386,23 @@ export const derivationJob = inngest.createFunction(
       step.run("fetch-campaign-memory", async () =>
         getCampaignMemoryPromptBlock(campaignId, workspaceId)
       ),
+      step.run("load-corpus-quality-rules", async () => {
+        if (!campaign.clientProfileId) {
+          return { section: [] as string[], appliedRuleIds: [] as string[] };
+        }
+
+        const rules = await listApprovedCalibrationRulesByCategories({
+          workspaceId,
+          clientProfileId: campaign.clientProfileId,
+          categories: ["corpus_quality"],
+        });
+        const cappedRules = rules.slice(0, 10);
+
+        return {
+          section: buildCorpusQualityPromptSection(cappedRules),
+          appliedRuleIds: cappedRules.map((rule) => rule.id),
+        };
+      }),
     ]);
 
     // 4. Download, generate, and store inside one step to avoid persisting large blobs
@@ -583,6 +602,7 @@ export const derivationJob = inngest.createFunction(
           };
         }),
         preflightResult: asset?.metadata ? (asset.metadata as Record<string, unknown>).preflightResult as import("@/server/ai/preflight-analysis").PreflightResult | undefined : null,
+        corpusQualitySection: corpusQualityContext.section,
       });
       logger.info(`[generate-and-store-output] model=${env.OPENAI_IMAGE_MODEL} hasAsset=${!!asset} locale=${locale ?? "default"}`);
 
@@ -1063,6 +1083,7 @@ export const derivationJob = inngest.createFunction(
           preflightResult: asset?.metadata
             ? ((asset.metadata as Record<string, unknown>).preflightResult as import("@/server/ai/preflight-analysis").PreflightResult | undefined)
             : null,
+          corpusQualitySection: corpusQualityContext.section,
         },
       });
 
@@ -1177,6 +1198,7 @@ export const derivationJob = inngest.createFunction(
         {
           model: env.OPENAI_IMAGE_MODEL,
           imageOperation: generated.promptProvenance?.imageOperation ?? undefined,
+          appliedCorpusRuleIds: corpusQualityContext.appliedRuleIds,
         }
       );
       await updateDerivationGenerationLog(derivationId, workspaceId, generationLog);

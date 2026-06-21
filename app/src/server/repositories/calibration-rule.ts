@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "../db";
 import {
   calibrationRules,
@@ -67,4 +67,27 @@ export async function listApprovedCalibrationRules(input: {
     ...input,
     status: "approved",
   });
+}
+
+export async function listApprovedCalibrationRulesByCategories(input: {
+  workspaceId: string;
+  clientProfileId: string;
+  categories: string[];
+}): Promise<CalibrationRule[]> {
+  if (input.categories.length === 0) {
+    return [];
+  }
+
+  return db
+    .select()
+    .from(calibrationRules)
+    .where(
+      and(
+        eq(calibrationRules.workspaceId, input.workspaceId),
+        eq(calibrationRules.clientProfileId, input.clientProfileId),
+        eq(calibrationRules.status, "approved"),
+        inArray(calibrationRules.category, input.categories)
+      )
+    )
+    .orderBy(desc(calibrationRules.updatedAt));
 }

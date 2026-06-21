@@ -276,6 +276,8 @@ export interface DerivationPromptConfig {
   contract?: CreativeContract | null;
   /** Approved brand taste rule constraint lines from calibration loop. */
   brandTasteConstraints?: string[];
+  /** Human-evaluated corpus quality constraints for this client profile. */
+  corpusQualitySection?: string[];
 }
 
 function buildHardRulesSection(
@@ -435,6 +437,10 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
     ));
   } else if (config.brandTasteConstraints?.length === 0) {
     // no-op: explicit empty array means no brand taste overlay
+  }
+
+  if (config.corpusQualitySection && config.corpusQualitySection.length > 0) {
+    parts.push(...config.corpusQualitySection);
   }
 
   const classification =
