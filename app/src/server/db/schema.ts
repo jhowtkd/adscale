@@ -2023,5 +2023,27 @@ export const waitlistSignups = adscaleSchema.table(
 export type WaitlistSignup = typeof waitlistSignups.$inferSelect;
 export type NewWaitlistSignup = typeof waitlistSignups.$inferInsert;
 
+export const adminAuditLog = adscaleSchema.table(
+  "admin_audit_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    actorEmail: text("actor_email").notNull(),
+    action: text("action").notNull(),
+    targetType: text("target_type").notNull(),
+    targetId: text("target_id").notNull(),
+    payload: jsonb("payload"),
+    reason: text("reason").notNull(),
+    status: text("status").notNull().default("success"),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("admin_audit_log_target_idx").on(table.targetType, table.targetId),
+    index("admin_audit_log_created_at_idx").on(table.createdAt),
+  ]
+);
+
+export type AdminAuditLog = typeof adminAuditLog.$inferSelect;
+export type NewAdminAuditLog = typeof adminAuditLog.$inferInsert;
+
 export type PersonaSimulation = typeof personaSimulations.$inferSelect;
 export type NewPersonaSimulation = typeof personaSimulations.$inferInsert;
