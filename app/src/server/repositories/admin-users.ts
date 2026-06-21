@@ -506,7 +506,7 @@ export async function getAdminUserMirror(userId: string): Promise<AdminUserMirro
     .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.workspaceId))
     .where(eq(user.id, userId));
 
-  const primary = pickPrimaryWorkspaceByUser(memberships);
+  const primary = pickPrimaryWorkspaceByUser(memberships).get(userId);
   if (!primary) {
     return {
       user: { name: profileRow.name, email: profileRow.email },

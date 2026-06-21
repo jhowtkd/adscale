@@ -31,7 +31,7 @@ function KpiCard({ href, label, value }: KpiCardProps) {
   );
 }
 
-function AttentionList({
+function AttentionList<T>({
   title,
   emptyLabel,
   items,
@@ -39,8 +39,8 @@ function AttentionList({
 }: {
   title: string;
   emptyLabel: string;
-  items: unknown[];
-  renderItem: (item: never, index: number) => ReactNode;
+  items: T[];
+  renderItem: (item: T, index: number) => ReactNode;
 }) {
   return (
     <section className="rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)] p-4">

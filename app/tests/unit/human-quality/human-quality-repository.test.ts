@@ -57,10 +57,13 @@ describe("human-quality-corpus repository", () => {
   });
 
   it("listPendingCorpusItems scopes by workspace", async () => {
-    const mockLimit = vi.fn().mockResolvedValue([{ id: "item-1", workspaceId: workspaceA }]);
+    const mockLimit = vi.fn().mockResolvedValue([
+      { item: { id: "item-1", workspaceId: workspaceA }, sourceLabel: null },
+    ]);
     const mockOrderBy = vi.fn().mockReturnValue({ limit: mockLimit });
     const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
-    const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+    const mockLeftJoin = vi.fn().mockReturnValue({ where: mockWhere });
+    const mockFrom = vi.fn().mockReturnValue({ leftJoin: mockLeftJoin });
     (db.select as ReturnType<typeof vi.fn>).mockReturnValue({ from: mockFrom });
 
     const rows = await listPendingCorpusItems({ workspaceId: workspaceA, limit: 20 });
@@ -74,7 +77,8 @@ describe("human-quality-corpus repository", () => {
     const mockLimit = vi.fn().mockResolvedValue([]);
     const mockOrderBy = vi.fn().mockReturnValue({ limit: mockLimit });
     const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
-    const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+    const mockLeftJoin = vi.fn().mockReturnValue({ where: mockWhere });
+    const mockFrom = vi.fn().mockReturnValue({ leftJoin: mockLeftJoin });
     (db.select as ReturnType<typeof vi.fn>).mockReturnValue({ from: mockFrom });
 
     const rows = await listPendingCorpusItems({ workspaceId: workspaceB });

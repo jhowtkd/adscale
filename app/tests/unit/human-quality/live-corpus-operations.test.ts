@@ -240,7 +240,7 @@ describe("live corpus operations", () => {
         latestSelectedAt: latestSelectedAt.toISOString(),
         latestEvaluatedAt: latestEvaluatedAt.toISOString(),
       });
-      expect(mockGetProgress).toHaveBeenCalledWith(WORKSPACE_ID);
+      expect(mockGetProgress).toHaveBeenCalledWith(WORKSPACE_ID, { workspaceId: WORKSPACE_ID });
     });
   });
 });

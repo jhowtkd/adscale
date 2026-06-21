@@ -2,9 +2,39 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HumanQualityCorpusPanel } from "./HumanQualityCorpusPanel";
+import en from "../../../messages/en.json";
 
 vi.mock("@/lib/api-client", () => ({
   apiFetch: vi.fn(),
+}));
+
+vi.mock("next-intl", () => ({
+  useTranslations: (namespace: string) => {
+    const root = namespace
+      .split(".")
+      .reduce<unknown>(
+        (acc, part) => (acc as Record<string, unknown> | undefined)?.[part],
+        en as unknown
+      );
+
+    return (key: string, values?: Record<string, unknown>) => {
+      const resolved = key
+        .split(".")
+        .reduce<unknown>(
+          (acc, part) => (acc as Record<string, unknown> | undefined)?.[part],
+          root
+        );
+
+      if (typeof resolved !== "string") {
+        return key;
+      }
+
+      return Object.entries(values ?? {}).reduce(
+        (text, [placeholder, value]) => text.replace(`{${placeholder}}`, String(value)),
+        resolved
+      );
+    };
+  },
 }));
 
 vi.mock("next/image", () => ({
@@ -1239,7 +1269,7 @@ describe("HumanQualityCorpusPanel trend tab", () => {
     expect(screen.getByText("live_human")).toBeInTheDocument();
     expect(screen.getByTestId("trend-chart")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Trend evidence bucket"), {
+    fireEvent.change(screen.getByLabelText("Evidence bucket"), {
       target: { value: "2026-W24" },
     });
 

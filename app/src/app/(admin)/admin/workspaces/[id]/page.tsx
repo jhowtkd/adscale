@@ -1,16 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import PageFrame from "@/components/layout/PageFrame";
 import PageHeader from "@/components/layout/PageHeader";
 import WorkspaceDetailPanel from "@/components/admin/WorkspaceDetailPanel";
 
-type AdminWorkspaceDetailPageProps = {
-  params: { id: string };
-};
-
-export default function AdminWorkspaceDetailPage({ params }: AdminWorkspaceDetailPageProps) {
+export default function AdminWorkspaceDetailPage() {
+  const params = useParams<{ id: string }>();
+  const workspaceId = params.id;
   const t = useTranslations("admin.workspaces.detail");
 
   return (
@@ -25,7 +24,7 @@ export default function AdminWorkspaceDetailPage({ params }: AdminWorkspaceDetai
         <PageHeader title={t("title")} description={t("description")} />
       </div>
 
-      <WorkspaceDetailPanel workspaceId={params.id} />
+      <WorkspaceDetailPanel workspaceId={workspaceId} />
     </PageFrame>
   );
 }
