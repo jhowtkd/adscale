@@ -2200,5 +2200,25 @@
         "past_due_recovery": "Payment pending — update billing to restore access"
       }
     }
+  },
+  "admin": {
+    "nav": {
+      "overview": "Overview",
+      "dashboard": "Dashboard",
+      "platform": "Platform",
+      "users": "Users",
+      "quality": "Quality",
+      "qualityQueue": "Queue",
+      "qualityCandidates": "Candidates",
+      "qualityCalibration": "Calibration",
+      "qualityImpact": "Impact",
+      "qualityReports": "Reports",
+      "qualityCoverage": "Coverage",
+      "qualityTrends": "Trends",
+      "operations": "Operations",
+      "feedbacks": "Feedbacks",
+      "analytics": "Analytics",
+      "sessions": "Beta Sessions"
+    }
   }
 }

@@ -2201,5 +2201,25 @@
         "past_due_recovery": "Pagamento pendente — atualize a cobrança para restaurar o acesso"
       }
     }
+  },
+  "admin": {
+    "nav": {
+      "overview": "Visão geral",
+      "dashboard": "Dashboard",
+      "platform": "Plataforma",
+      "users": "Usuários",
+      "quality": "Qualidade",
+      "qualityQueue": "Fila",
+      "qualityCandidates": "Candidatos",
+      "qualityCalibration": "Calibração",
+      "qualityImpact": "Impacto",
+      "qualityReports": "Relatórios",
+      "qualityCoverage": "Cobertura",
+      "qualityTrends": "Tendências",
+      "operations": "Operações",
+      "feedbacks": "Feedbacks",
+      "analytics": "Analytics",
+      "sessions": "Sessões Beta"
+    }
   }
 }
