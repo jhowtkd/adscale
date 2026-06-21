@@ -29,10 +29,12 @@ import {
   QueueProgressSummary,
   type CorpusQueueFilterState,
 } from "./corpus-shared";
+import { useQualityLabels } from "./quality-labels";
 
 export function CorpusQueueView() {
   const queryClient = useQueryClient();
   const { scope: corpusScope, workspaceId } = useQualityContext();
+  const { t, tc } = useQualityLabels();
   const [queueFilters, setQueueFilters] = useState<CorpusQueueFilterState>(DEFAULT_QUEUE_FILTERS);
   const [visualScore, setVisualScore] = useState("");
   const [factualPass, setFactualPass] = useState("");
@@ -80,21 +82,21 @@ export function CorpusQueueView() {
       if (corpusScope === "workspace" && !workspaceId) throw new Error("missing workspace");
       const parsedScore = Number(visualScore);
       if (!Number.isInteger(parsedScore) || parsedScore < 0 || parsedScore > 100) {
-        throw new Error("Visual score must be an integer from 0 to 100");
+        throw new Error(t("queue.errors.visualScore"));
       }
       if (factualPass !== "true" && factualPass !== "false") {
-        throw new Error("Factual pass is required");
+        throw new Error(t("queue.errors.factualPass"));
       }
       if (!HUMAN_QUALITY_INTENTS.includes(intent as HumanQualityIntent)) {
-        throw new Error("Reviewer intent is required");
+        throw new Error(t("queue.errors.reviewerIntent"));
       }
       if (
         !HUMAN_QUALITY_FAILURE_REASONS.includes(primaryFailureReason as HumanQualityFailureReason)
       ) {
-        throw new Error("Primary failure reason is required");
+        throw new Error(t("queue.errors.primaryFailureReason"));
       }
       if (primaryFailureReason === "other" && !otherReasonText.trim()) {
-        throw new Error("Describe the other failure reason");
+        throw new Error(t("queue.errors.otherReason"));
       }
 
       const evaluationBody = buildEvaluationPayload({
@@ -124,7 +126,7 @@ export function CorpusQueueView() {
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error((err.error as string | undefined) ?? "Evaluation failed");
+        throw new Error((err.error as string | undefined) ?? t("queue.errors.evaluationFailed"));
       }
       return res.json();
     },
@@ -173,19 +175,17 @@ export function CorpusQueueView() {
   return (
     <div className="space-y-3 pt-2">
       {queueForbidden ? (
-        <p className="text-sm text-[var(--text-muted)]">
-          Corpus evaluation queue is restricted to platform owners.
-        </p>
+        <p className="text-sm text-[var(--text-muted)]">{t("queue.forbidden")}</p>
       ) : queueQuery.isLoading ? (
-        <p className="text-sm text-[var(--text-muted)]">Loading corpus queue…</p>
+        <p className="text-sm text-[var(--text-muted)]">{t("queue.loading")}</p>
       ) : queueQuery.isError ? (
-        <p className="text-sm text-[var(--text-muted)]">Unable to load corpus queue.</p>
+        <p className="text-sm text-[var(--text-muted)]">{t("queue.error")}</p>
       ) : (
         <div className="space-y-3 pt-2">
           {corpusScope === "global" ? (
             <div className="flex flex-wrap items-end gap-3">
               <label className="grid max-w-xs gap-1 text-xs">
-                <span className="font-medium text-[var(--text-primary)]">Status</span>
+                <span className="font-medium text-[var(--text-primary)]">{tc("status")}</span>
                 <select
                   value={queueFilters.status}
                   onChange={(e) =>
@@ -197,13 +197,13 @@ export function CorpusQueueView() {
                   aria-label="Queue status filter"
                   className="h-9 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-2"
                 >
-                  <option value="pending">Pending</option>
-                  <option value="evaluated">Evaluated</option>
-                  <option value="removed">Removed</option>
+                  <option value="pending">{t("queue.pending")}</option>
+                  <option value="evaluated">{t("queue.evaluated")}</option>
+                  <option value="removed">{t("queue.removed")}</option>
                 </select>
               </label>
               <label className="grid max-w-xs gap-1 text-xs">
-                <span className="font-medium text-[var(--text-primary)]">Cohort</span>
+                <span className="font-medium text-[var(--text-primary)]">{tc("cohort")}</span>
                 <select
                   value={queueFilters.cohort}
                   onChange={(e) =>
@@ -215,7 +215,7 @@ export function CorpusQueueView() {
                   aria-label="Queue cohort filter"
                   className="h-9 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-2"
                 >
-                  <option value="">All cohorts</option>
+                  <option value="">{t("scope.allCohorts")}</option>
                   {HUMAN_QUALITY_CORPUS_COHORTS.map((cohort) => (
                     <option key={cohort} value={cohort}>
                       {cohort}
@@ -224,7 +224,7 @@ export function CorpusQueueView() {
                 </select>
               </label>
               <label className="grid max-w-xs gap-1 text-xs">
-                <span className="font-medium text-[var(--text-primary)]">Source</span>
+                <span className="font-medium text-[var(--text-primary)]">{tc("source")}</span>
                 <select
                   value={queueFilters.sourceLabel}
                   onChange={(e) =>
@@ -236,7 +236,7 @@ export function CorpusQueueView() {
                   aria-label="Queue source label filter"
                   className="h-9 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-2"
                 >
-                  <option value="">All sources</option>
+                  <option value="">{tc("allSources")}</option>
                   {HUMAN_QUALITY_SOURCE_LABELS.map((label) => (
                     <option key={label} value={label}>
                       {label}
@@ -245,7 +245,7 @@ export function CorpusQueueView() {
                 </select>
               </label>
               <label className="grid max-w-xs gap-1 text-xs">
-                <span className="font-medium text-[var(--text-primary)]">Mode</span>
+                <span className="font-medium text-[var(--text-primary)]">{tc("mode")}</span>
                 <select
                   value={queueFilters.generationMode}
                   onChange={(e) =>
@@ -254,7 +254,7 @@ export function CorpusQueueView() {
                   aria-label="Queue generation mode filter"
                   className="h-9 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-2"
                 >
-                  <option value="">All modes</option>
+                  <option value="">{tc("allModes")}</option>
                   {TREND_GENERATION_MODES.map((mode) => (
                     <option key={mode} value={mode}>
                       {mode}
@@ -263,7 +263,7 @@ export function CorpusQueueView() {
                 </select>
               </label>
               <label className="grid max-w-xs gap-1 text-xs">
-                <span className="font-medium text-[var(--text-primary)]">Format</span>
+                <span className="font-medium text-[var(--text-primary)]">{tc("format")}</span>
                 <select
                   value={queueFilters.format}
                   onChange={(e) =>
@@ -272,7 +272,7 @@ export function CorpusQueueView() {
                   aria-label="Queue format filter"
                   className="h-9 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-2"
                 >
-                  <option value="">All formats</option>
+                  <option value="">{tc("allFormats")}</option>
                   {TREND_FORMATS.map((format) => (
                     <option key={format} value={format}>
                       {format}
@@ -293,9 +293,7 @@ export function CorpusQueueView() {
             />
           ) : null}
           <p className="rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-muted)]">
-            {corpusScope === "global"
-              ? "No pending global corpus items. Open the Candidates tab to promote captured creatives into a review cohort."
-              : "Queue is clear — no pending corpus items remain for review. Promote candidates or select new derivations from campaign review."}
+            {corpusScope === "global" ? t("queue.emptyGlobal") : t("queue.emptyWorkspace")}
           </p>
         </div>
       ) : currentItem && queueFilters.status === "pending" ? (
@@ -312,7 +310,7 @@ export function CorpusQueueView() {
           <div className="space-y-3 rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] p-4">
             <div className="space-y-1">
               <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-                Current item
+                {t("queue.currentItem")}
               </p>
               <p className="text-sm font-medium text-[var(--text-primary)]">
                 {currentItem.generationMode} · {currentItem.format || "—"} ·{" "}
@@ -324,7 +322,7 @@ export function CorpusQueueView() {
               {currentItem.previewImageUrl ? (
                 <Image
                   src={currentItem.previewImageUrl}
-                  alt="Derivation preview"
+                  alt={t("queue.derivationPreviewAlt")}
                   fill
                   sizes="(max-width: 1024px) 100vw, 480px"
                   className="object-contain"
@@ -332,37 +330,37 @@ export function CorpusQueueView() {
                 />
               ) : (
                 <div className="flex size-full items-center justify-center text-xs text-[var(--text-muted)]">
-                  Preview unavailable
+                  {t("queue.previewUnavailable")}
                 </div>
               )}
             </div>
 
             <dl className="space-y-1.5">
-              <MetadataRow label="Workspace" value={currentItem.workspaceId.slice(0, 8) + "…"} />
-              <MetadataRow label="Campaign" value={currentItem.campaignId.slice(0, 8) + "…"} />
+              <MetadataRow label={tc("workspace")} value={currentItem.workspaceId.slice(0, 8) + "…"} />
+              <MetadataRow label={tc("campaign")} value={currentItem.campaignId.slice(0, 8) + "…"} />
               <MetadataRow
-                label="Derivation"
+                label={tc("derivation")}
                 value={currentItem.derivationId.slice(0, 8) + "…"}
               />
-              <MetadataRow label="Mode" value={currentItem.generationMode} />
-              <MetadataRow label="Format" value={currentItem.format || "—"} />
-              <MetadataRow label="Cohort" value={currentItem.cohort} />
+              <MetadataRow label={tc("mode")} value={currentItem.generationMode} />
+              <MetadataRow label={tc("format")} value={currentItem.format || "—"} />
+              <MetadataRow label={tc("cohort")} value={currentItem.cohort} />
               {currentItem.sourceLabel ? (
-                <MetadataRow label="Source" value={currentItem.sourceLabel} />
+                <MetadataRow label={tc("source")} value={currentItem.sourceLabel} />
               ) : null}
-              <MetadataRow label="Corpus version" value={`v${currentItem.corpusVersion}`} />
+              <MetadataRow label={t("queue.corpusVersion")} value={`v${currentItem.corpusVersion}`} />
               {snapshot?.qualityScore != null ? (
-                <MetadataRow label="Auto score" value={String(snapshot.qualityScore)} />
+                <MetadataRow label={t("queue.autoScore")} value={String(snapshot.qualityScore)} />
               ) : null}
               {snapshot?.qualityVerdict ? (
-                <MetadataRow label="Auto verdict" value={snapshot.qualityVerdict} />
+                <MetadataRow label={t("queue.autoVerdict")} value={snapshot.qualityVerdict} />
               ) : null}
             </dl>
 
             {snapshot?.hardFailures && snapshot.hardFailures.length > 0 ? (
               <div className="space-y-1">
                 <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--text-muted)]">
-                  Auto hard failures
+                  {t("queue.autoHardFailures")}
                 </p>
                 <ul className="space-y-1 text-xs text-rose-300/90">
                   {snapshot.hardFailures.map((failure, index) => (
@@ -385,13 +383,11 @@ export function CorpusQueueView() {
             }}
           >
             <h3 className="text-sm font-semibold text-[var(--text-primary)]">
-              Human evaluation
+              {t("queue.humanEvaluation")}
             </h3>
 
             <label className="grid gap-1 text-xs">
-              <span className="font-medium text-[var(--text-primary)]">
-                Visual score (0–100)
-              </span>
+              <span className="font-medium text-[var(--text-primary)]">{t("queue.visualScore")}</span>
               <input
                 type="number"
                 min={0}
@@ -399,34 +395,34 @@ export function CorpusQueueView() {
                 step={1}
                 value={visualScore}
                 onChange={(e) => setVisualScore(e.target.value)}
-                aria-label="Visual score (0–100)"
+                aria-label={t("queue.visualScore")}
                 className="h-9 rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2"
               />
             </label>
 
             <label className="grid gap-1 text-xs">
-              <span className="font-medium text-[var(--text-primary)]">Factual pass</span>
+              <span className="font-medium text-[var(--text-primary)]">{t("queue.factualPass")}</span>
               <select
                 value={factualPass}
                 onChange={(e) => setFactualPass(e.target.value)}
-                aria-label="Factual pass"
+                aria-label={t("queue.factualPass")}
                 className="h-9 rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2"
               >
-                <option value="">Select…</option>
-                <option value="true">Pass</option>
-                <option value="false">Fail</option>
+                <option value="">{tc("select")}</option>
+                <option value="true">{t("queue.passOption")}</option>
+                <option value="false">{t("queue.failOption")}</option>
               </select>
             </label>
 
             <label className="grid gap-1 text-xs">
-              <span className="font-medium text-[var(--text-primary)]">Reviewer intent</span>
+              <span className="font-medium text-[var(--text-primary)]">{t("queue.reviewerIntent")}</span>
               <select
                 value={intent}
                 onChange={(e) => setIntent(e.target.value)}
-                aria-label="Reviewer intent"
+                aria-label={t("queue.reviewerIntent")}
                 className="h-9 rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2"
               >
-                <option value="">Select…</option>
+                <option value="">{tc("select")}</option>
                 {HUMAN_QUALITY_INTENTS.map((value) => (
                   <option key={value} value={value}>
                     {INTENT_LABELS[value]}
@@ -437,15 +433,15 @@ export function CorpusQueueView() {
 
             <label className="grid gap-1 text-xs">
               <span className="font-medium text-[var(--text-primary)]">
-                Primary visible failure reason
+                {t("queue.primaryFailureReason")}
               </span>
               <select
                 value={primaryFailureReason}
                 onChange={(e) => setPrimaryFailureReason(e.target.value)}
-                aria-label="Primary visible failure reason"
+                aria-label={t("queue.primaryFailureReason")}
                 className="h-9 rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2"
               >
-                <option value="">Select…</option>
+                <option value="">{tc("select")}</option>
                 {HUMAN_QUALITY_FAILURE_REASONS.map((value) => (
                   <option key={value} value={value}>
                     {FAILURE_REASON_LABELS[value]}
@@ -456,18 +452,18 @@ export function CorpusQueueView() {
 
             {primaryFailureReason === "other" ? (
               <label className="grid gap-1 text-xs">
-                <span className="font-medium text-[var(--text-primary)]">Other reason</span>
+                <span className="font-medium text-[var(--text-primary)]">{t("queue.otherReason")}</span>
                 <input
                   value={otherReasonText}
                   onChange={(e) => setOtherReasonText(e.target.value)}
-                  aria-label="Other reason"
+                  aria-label={t("queue.otherReason")}
                   className="h-9 rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2"
                 />
               </label>
             ) : null}
 
             <label className="grid gap-1 text-xs">
-              <span className="font-medium text-[var(--text-primary)]">Notes (optional)</span>
+              <span className="font-medium text-[var(--text-primary)]">{t("queue.notesOptional")}</span>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
@@ -483,10 +479,10 @@ export function CorpusQueueView() {
 
             <Button type="submit" disabled={!formValid || submitMutation.isPending}>
               {submitMutation.isPending
-                ? "Submitting…"
+                ? tc("submitting")
                 : pendingCount > 1
-                  ? "Submit & next"
-                  : "Submit evaluation"}
+                  ? t("queue.submitAndNext")
+                  : t("queue.submitEvaluation")}
             </Button>
           </form>
           </div>

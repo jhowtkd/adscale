@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { OwnerAnalyticsPanel } from "@/components/feedback/OwnerAnalyticsPanel";
@@ -8,6 +9,8 @@ import PageFrame from "@/components/layout/PageFrame";
 import PageHeader from "@/components/layout/PageHeader";
 
 export default function AdminAnalyticsPage() {
+  const t = useTranslations("admin.analytics");
+
   const sessionsQuery = useQuery({
     queryKey: ["beta-sessions-list"],
     queryFn: async () => {
@@ -26,14 +29,14 @@ export default function AdminAnalyticsPage() {
     () =>
       (sessionsQuery.data ?? []).map((session) => ({
         id: session.id,
-        label: session.cohortLabel ?? `Session ${session.id.slice(0, 8)}`,
+        label: session.cohortLabel ?? t("sessionFallback", { id: session.id.slice(0, 8) }),
       })),
-    [sessionsQuery.data]
+    [sessionsQuery.data, t]
   );
 
   return (
     <PageFrame width="operational" className="min-w-0 space-y-6 py-8">
-      <PageHeader title="Analytics" />
+      <PageHeader title={t("title")} description={t("description")} />
       <OwnerAnalyticsPanel sessionOptions={sessionOptions} />
     </PageFrame>
   );

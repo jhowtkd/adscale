@@ -37,6 +37,7 @@ import {
   type CorpusQueueFilterState,
   type CorpusCandidateListResponse,
 } from "./corpus-shared";
+import { useQualityLabels } from "./quality-labels";
 
 function ImpactReportView({
   report,
@@ -47,16 +48,14 @@ function ImpactReportView({
   isLoading: boolean;
   isError: boolean;
 }) {
+  const { t, tc } = useQualityLabels();
+
   if (isLoading) {
-    return <p className="text-sm text-[var(--text-muted)]">Loading learning impact report…</p>;
+    return <p className="text-sm text-[var(--text-muted)]">{t("impact.loading")}</p>;
   }
 
   if (isError || report == null) {
-    return (
-      <p className="text-sm text-[var(--text-muted)]">
-        Learning impact report unavailable for this workspace.
-      </p>
-    );
+    return <p className="text-sm text-[var(--text-muted)]">{t("impact.error")}</p>;
   }
 
   const insufficient = report.status === "insufficient_sample";
@@ -64,34 +63,26 @@ function ImpactReportView({
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-sm font-semibold text-[var(--text-primary)]">Learning impact report</h3>
-        <p className="text-xs text-[var(--text-secondary)]">
-          Compares learned vs non-learned arms per client×mode×format slice.
-        </p>
+        <h3 className="text-sm font-semibold text-[var(--text-primary)]">{t("impact.title")}</h3>
+        <p className="text-xs text-[var(--text-secondary)]">{t("impact.description")}</p>
       </div>
 
       <dl className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        <MetadataRow label="Status" value={report.status} />
-        <MetadataRow label="Evaluated items" value={String(report.evaluatedItemCount)} />
+        <MetadataRow label={tc("status")} value={report.status} />
+        <MetadataRow label={tc("evaluatedItems")} value={String(report.evaluatedItemCount)} />
+        <MetadataRow label={t("impact.learnedArm")} value={String(report.learningImpactMetrics.learnedCount)} />
         <MetadataRow
-          label="Learned arm"
-          value={String(report.learningImpactMetrics.learnedCount)}
-        />
-        <MetadataRow
-          label="Non-learned arm"
+          label={t("impact.nonLearnedArm")}
           value={String(report.learningImpactMetrics.nonLearnedCount)}
         />
-        <MetadataRow
-          label="Unlabeled"
-          value={String(report.learningImpactMetrics.unlabeledCount)}
-        />
+        <MetadataRow label={t("impact.unlabeled")} value={String(report.learningImpactMetrics.unlabeledCount)} />
       </dl>
 
       {insufficient ? (
         <div className="space-y-2">
           <SampleGuidanceList
             guidance={report.sampleGuidance}
-            fallback="Sample size is insufficient to claim learning impact improvement. Movement deltas are withheld until comparability gates pass."
+            fallback={t("impact.insufficientFallback")}
           />
           {report.insufficientReasons.length > 0 ? (
             <ul className="list-inside list-disc text-xs text-[var(--text-muted)]">
@@ -103,25 +94,26 @@ function ImpactReportView({
         </div>
       ) : (
         <p className="text-xs text-[var(--text-secondary)]">
-          Global visual delta (comparable slices):{" "}
-          {formatSignedDelta(report.learningImpactMetrics.globalVisualScoreDelta)}
+          {tc("globalVisualDelta", {
+            delta: formatSignedDelta(report.learningImpactMetrics.globalVisualScoreDelta),
+          })}
         </p>
       )}
 
       {report.learningImpactMetrics.slices.length > 0 ? (
         <div className="space-y-2">
           <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-            Slice comparisons
+            {t("impact.sliceComparisons")}
           </h4>
           <div className="overflow-x-auto rounded-md border border-[var(--border-dim)]">
             <table className="min-w-full text-xs">
               <thead className="bg-[var(--surface-base)] text-[var(--text-muted)]">
                 <tr>
-                  <th className="px-2 py-1.5 text-left font-medium">Slice</th>
-                  <th className="px-2 py-1.5 text-right font-medium">Learned n</th>
-                  <th className="px-2 py-1.5 text-right font-medium">Non-learned n</th>
-                  <th className="px-2 py-1.5 text-right font-medium">Visual Δ</th>
-                  <th className="px-2 py-1.5 text-left font-medium">Comparability</th>
+                  <th className="px-2 py-1.5 text-left font-medium">{t("impact.slice")}</th>
+                  <th className="px-2 py-1.5 text-right font-medium">{t("impact.learnedN")}</th>
+                  <th className="px-2 py-1.5 text-right font-medium">{t("impact.nonLearnedN")}</th>
+                  <th className="px-2 py-1.5 text-right font-medium">{t("impact.visualDelta")}</th>
+                  <th className="px-2 py-1.5 text-left font-medium">{t("impact.comparability")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -144,23 +136,20 @@ function ImpactReportView({
 
       <div className="space-y-2 rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] p-4">
         <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-          Intent metrics (per arm)
+          {t("impact.intentMetrics")}
         </h4>
         <dl className="space-y-1.5">
+          <MetadataRow label={t("impact.learnedRejectRate")} value={formatRate(report.intentMetrics.learned.rejectRate)} />
           <MetadataRow
-            label="Learned reject rate"
-            value={formatRate(report.intentMetrics.learned.rejectRate)}
-          />
-          <MetadataRow
-            label="Learned regenerate rate"
+            label={t("impact.learnedRegenerateRate")}
             value={formatRate(report.intentMetrics.learned.regenerateRate)}
           />
           <MetadataRow
-            label="Non-learned reject rate"
+            label={t("impact.nonLearnedRejectRate")}
             value={formatRate(report.intentMetrics.nonLearned.rejectRate)}
           />
           <MetadataRow
-            label="Non-learned regenerate rate"
+            label={t("impact.nonLearnedRegenerateRate")}
             value={formatRate(report.intentMetrics.nonLearned.regenerateRate)}
           />
         </dl>
@@ -168,19 +157,19 @@ function ImpactReportView({
 
       <div className="space-y-2 rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] p-4">
         <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-          Visual movement metrics
+          {t("impact.visualMovementMetrics")}
         </h4>
         <dl className="space-y-1.5">
           <MetadataRow
-            label="Learned mean visual"
+            label={t("impact.learnedMeanVisual")}
             value={formatNullableNumber(report.visualMovementMetrics.learnedMeanVisualScore, 1)}
           />
           <MetadataRow
-            label="Non-learned mean visual"
+            label={t("impact.nonLearnedMeanVisual")}
             value={formatNullableNumber(report.visualMovementMetrics.nonLearnedMeanVisualScore, 1)}
           />
           <MetadataRow
-            label="Δ learned − non-learned"
+            label={t("impact.deltaLearnedMinusNonLearned")}
             value={formatSignedDelta(report.visualMovementMetrics.deltaLearnedMinusNonLearned)}
           />
         </dl>
@@ -188,15 +177,15 @@ function ImpactReportView({
 
       <div className="space-y-2 rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] p-4">
         <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-          Factual metrics (per arm)
+          {t("impact.factualMetricsPerArm")}
         </h4>
         <dl className="space-y-1.5">
           <MetadataRow
-            label="Learned factual pass rate"
+            label={t("impact.learnedFactualPassRate")}
             value={formatRate(report.factualMetrics.learnedFactualPassRate)}
           />
           <MetadataRow
-            label="Non-learned factual pass rate"
+            label={t("impact.nonLearnedFactualPassRate")}
             value={formatRate(report.factualMetrics.nonLearnedFactualPassRate)}
           />
         </dl>
@@ -206,11 +195,14 @@ function ImpactReportView({
         <div className="space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-              Evaluated rows
+              {t("impact.evaluatedRows")}
             </h4>
             {report.truncated ? (
               <span className="text-[11px] text-[var(--text-muted)]">
-                Showing {report.rows.length} of {report.totalRowCount ?? report.rows.length}
+                {tc("showing", {
+                  shown: report.rows.length,
+                  total: report.totalRowCount ?? report.rows.length,
+                })}
               </span>
             ) : null}
           </div>
@@ -218,11 +210,11 @@ function ImpactReportView({
             <table className="min-w-full text-xs">
               <thead className="bg-[var(--surface-base)] text-[var(--text-muted)]">
                 <tr>
-                  <th className="px-2 py-1.5 text-left font-medium">Item</th>
-                  <th className="px-2 py-1.5 text-left font-medium">Learning</th>
-                  <th className="px-2 py-1.5 text-right font-medium">Visual</th>
-                  <th className="px-2 py-1.5 text-left font-medium">Intent</th>
-                  <th className="px-2 py-1.5 text-left font-medium">Factual</th>
+                  <th className="px-2 py-1.5 text-left font-medium">{tc("item")}</th>
+                  <th className="px-2 py-1.5 text-left font-medium">{t("impact.learning")}</th>
+                  <th className="px-2 py-1.5 text-right font-medium">{t("impact.visual")}</th>
+                  <th className="px-2 py-1.5 text-left font-medium">{t("impact.intent")}</th>
+                  <th className="px-2 py-1.5 text-left font-medium">{tc("factual")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -232,11 +224,11 @@ function ImpactReportView({
                       {row.corpusItemId.slice(0, 8)}…
                     </td>
                     <td className="px-2 py-1.5">
-                      {row.learningApplied ? "learned" : "non-learned"}
+                      {row.learningApplied ? t("impact.learned") : t("impact.nonLearned")}
                     </td>
                     <td className="px-2 py-1.5 text-right">{row.visualScore}</td>
                     <td className="px-2 py-1.5">{row.intent}</td>
-                    <td className="px-2 py-1.5">{row.factualPass ? "pass" : "fail"}</td>
+                    <td className="px-2 py-1.5">{row.factualPass ? tc("pass") : tc("fail")}</td>
                   </tr>
                 ))}
               </tbody>

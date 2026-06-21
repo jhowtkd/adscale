@@ -37,6 +37,7 @@ import {
   type CorpusQueueFilterState,
   type CorpusCandidateListResponse,
 } from "./corpus-shared";
+import { useQualityLabels } from "./quality-labels";
 
 function QualityImprovementReportView({
   report,
@@ -47,16 +48,14 @@ function QualityImprovementReportView({
   isLoading: boolean;
   isError: boolean;
 }) {
+  const { t, tc } = useQualityLabels();
+
   if (isLoading) {
-    return <p className="text-sm text-[var(--text-muted)]">Loading quality improvement report…</p>;
+    return <p className="text-sm text-[var(--text-muted)]">{t("reports.loading")}</p>;
   }
 
   if (isError || report == null) {
-    return (
-      <p className="text-sm text-[var(--text-muted)]">
-        Quality improvement report unavailable for this workspace.
-      </p>
-    );
+    return <p className="text-sm text-[var(--text-muted)]">{t("reports.error")}</p>;
   }
 
   const insufficient = report.status === "insufficient_sample";
@@ -65,27 +64,22 @@ function QualityImprovementReportView({
     <div className="space-y-4">
       <div>
         <h3 className="text-sm font-semibold text-[var(--text-primary)]">
-          Quality improvement report
+          {t("reports.title")}
         </h3>
-        <p className="text-xs text-[var(--text-secondary)]">
-          Compares targeted visual failure frequency before vs after accepted calibration changes.
-        </p>
+        <p className="text-xs text-[var(--text-secondary)]">{t("reports.description")}</p>
       </div>
 
       <dl className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        <MetadataRow label="Status" value={report.status} />
-        <MetadataRow label="Rubric version" value={report.rubricCalibrationVersion} />
-        <MetadataRow
-          label="Accepted adjustments"
-          value={String(report.acceptedAdjustments.length)}
-        />
+        <MetadataRow label={tc("status")} value={report.status} />
+        <MetadataRow label={t("reports.rubricVersion")} value={report.rubricCalibrationVersion} />
+        <MetadataRow label={t("reports.acceptedAdjustments")} value={String(report.acceptedAdjustments.length)} />
         {report.fixtureMetrics ? (
           <>
             <MetadataRow
-              label="Fixture pass (after)"
+              label={t("reports.fixturePassAfter")}
               value={formatRate(report.fixtureMetrics.targetedArchetypePassRateAfter)}
             />
-            <MetadataRow label="Evidence source" value="fixture" />
+            <MetadataRow label={t("reports.evidenceSource")} value={t("reports.fixture")} />
           </>
         ) : null}
       </dl>
@@ -93,14 +87,14 @@ function QualityImprovementReportView({
       {insufficient ? (
         <SampleGuidanceList
           guidance={report.sampleGuidance}
-          fallback="Sample size is insufficient to claim targeted failure-frequency improvement. Delta rates are withheld until the post-change corpus arm has enough human evaluations."
+          fallback={t("reports.insufficientFallback")}
         />
       ) : null}
 
       {report.acceptedAdjustments.length > 0 ? (
         <div className="space-y-2">
           <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-            Accepted adjustments
+            {t("reports.acceptedAdjustments")}
           </h4>
           <ul className="space-y-1 text-xs text-[var(--text-primary)]">
             {report.acceptedAdjustments.map((adjustment) => (
@@ -115,18 +109,18 @@ function QualityImprovementReportView({
 
       <div className="space-y-2">
         <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-          Visual failure frequency (targeted reasons)
+          {t("reports.visualFailureFrequency")}
         </h4>
         <div className="overflow-x-auto rounded-md border border-[var(--border-dim)]">
           <table className="min-w-full text-xs">
             <thead className="bg-[var(--surface-base)] text-[var(--text-muted)]">
               <tr>
-                <th className="px-2 py-1.5 text-left font-medium">Reason</th>
-                <th className="px-2 py-1.5 text-right font-medium">Before count</th>
-                <th className="px-2 py-1.5 text-right font-medium">Before rate</th>
-                <th className="px-2 py-1.5 text-right font-medium">After count</th>
-                <th className="px-2 py-1.5 text-right font-medium">After rate</th>
-                <th className="px-2 py-1.5 text-right font-medium">Δ rate</th>
+                <th className="px-2 py-1.5 text-left font-medium">{t("reports.reason")}</th>
+                <th className="px-2 py-1.5 text-right font-medium">{t("reports.beforeCount")}</th>
+                <th className="px-2 py-1.5 text-right font-medium">{t("reports.beforeRate")}</th>
+                <th className="px-2 py-1.5 text-right font-medium">{t("reports.afterCount")}</th>
+                <th className="px-2 py-1.5 text-right font-medium">{t("reports.afterRate")}</th>
+                <th className="px-2 py-1.5 text-right font-medium">{t("reports.deltaRate")}</th>
               </tr>
             </thead>
             <tbody>
@@ -157,15 +151,15 @@ function QualityImprovementReportView({
       {report.fixtureMetrics ? (
         <div className="space-y-2 rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] p-4">
           <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-            Fixture gate detection
+            {t("reports.fixtureGateDetection")}
           </h4>
           <dl className="space-y-1.5">
             <MetadataRow
-              label="Targeted archetype pass (before)"
+              label={t("reports.targetedArchetypePassBefore")}
               value={formatRate(report.fixtureMetrics.targetedArchetypePassRateBefore)}
             />
             <MetadataRow
-              label="Targeted archetype pass (after)"
+              label={t("reports.targetedArchetypePassAfter")}
               value={formatRate(report.fixtureMetrics.targetedArchetypePassRateAfter)}
             />
           </dl>
@@ -174,15 +168,15 @@ function QualityImprovementReportView({
 
       <div className="space-y-2 rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] p-4">
         <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-          Factual pass rates (separate from visual)
+          {t("reports.factualPassRates")}
         </h4>
         <dl className="space-y-1.5">
           <MetadataRow
-            label="Before arm factual pass rate"
+            label={t("reports.beforeArmFactualPassRate")}
             value={formatRate(report.factualMetrics.factualPassRateBefore)}
           />
           <MetadataRow
-            label="After arm factual pass rate"
+            label={t("reports.afterArmFactualPassRate")}
             value={formatRate(report.factualMetrics.factualPassRateAfter)}
           />
         </dl>

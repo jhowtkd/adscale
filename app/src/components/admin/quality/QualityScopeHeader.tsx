@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { HUMAN_QUALITY_CORPUS_COHORTS } from "@/server/human-quality/corpus";
 import { useQualityContext } from "./quality-context";
+import { useQualityLabels } from "./quality-labels";
 
 export default function QualityScopeHeader({
   showCohortFilter = false,
@@ -13,16 +14,17 @@ export default function QualityScopeHeader({
 }) {
   const pathname = usePathname();
   const { scope, workspaceId, cohort, setScope, setWorkspaceId, setCohort } = useQualityContext();
+  const { t } = useQualityLabels();
   const showCohort = showCohortFilter && !(pathname?.endsWith("/trends") ?? false);
 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium text-[var(--text-primary)]">Corpus scope</span>
+        <span className="text-xs font-medium text-[var(--text-primary)]">{t("scope.label")}</span>
         <div
           className="inline-flex rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] p-0.5"
           role="group"
-          aria-label="Corpus scope"
+          aria-label={t("scope.label")}
         >
           {(["global", "workspace"] as const).map((scopeOption) => (
             <button
@@ -39,7 +41,7 @@ export default function QualityScopeHeader({
                   : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
               }`}
             >
-              {scopeOption}
+              {t(`scope.${scopeOption}`)}
             </button>
           ))}
         </div>
@@ -47,15 +49,15 @@ export default function QualityScopeHeader({
 
       {scope === "workspace" ? (
         <label className="grid max-w-md gap-1 text-xs">
-          <span className="font-medium text-[var(--text-primary)]">Workspace ID</span>
+          <span className="font-medium text-[var(--text-primary)]">{t("scope.workspaceId")}</span>
           <input
             value={workspaceId}
             onChange={(e) => {
               setWorkspaceId(e.target.value);
               onScopeChange?.();
             }}
-            placeholder="Required to load scoped queue"
-            aria-label="Workspace ID"
+            placeholder={t("scope.workspacePlaceholder")}
+            aria-label={t("scope.workspaceId")}
             className="h-9 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-2"
           />
         </label>
@@ -63,14 +65,14 @@ export default function QualityScopeHeader({
 
       {showCohort ? (
         <label className="grid max-w-xs gap-1 text-xs">
-          <span className="font-medium text-[var(--text-primary)]">Cohort filter</span>
+          <span className="font-medium text-[var(--text-primary)]">{t("scope.cohortFilter")}</span>
           <select
             value={cohort}
             onChange={(e) => setCohort(e.target.value)}
-            aria-label="Cohort filter"
+            aria-label={t("scope.cohortFilter")}
             className="h-9 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-2"
           >
-            <option value="">All cohorts</option>
+            <option value="">{t("scope.allCohorts")}</option>
             {HUMAN_QUALITY_CORPUS_COHORTS.map((cohortOption) => (
               <option key={cohortOption} value={cohortOption}>
                 {cohortOption}
@@ -81,9 +83,7 @@ export default function QualityScopeHeader({
       ) : null}
 
       {scope === "workspace" && !workspaceId ? (
-        <p className="text-sm text-[var(--text-muted)]">
-          Enter a workspace ID to load a scoped corpus queue and calibration reports.
-        </p>
+        <p className="text-sm text-[var(--text-muted)]">{t("scope.workspaceHint")}</p>
       ) : null}
     </div>
   );

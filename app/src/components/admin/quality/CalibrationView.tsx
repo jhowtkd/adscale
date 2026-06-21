@@ -37,6 +37,7 @@ import {
   type CorpusQueueFilterState,
   type CorpusCandidateListResponse,
 } from "./corpus-shared";
+import { useQualityLabels } from "./quality-labels";
 
 function CalibrationTabContent({
   report,
@@ -47,16 +48,14 @@ function CalibrationTabContent({
   isLoading: boolean;
   isError: boolean;
 }) {
+  const { t, tc } = useQualityLabels();
+
   if (isLoading) {
-    return <p className="text-sm text-[var(--text-muted)]">Loading calibration report…</p>;
+    return <p className="text-sm text-[var(--text-muted)]">{t("calibration.loading")}</p>;
   }
 
   if (isError || report == null) {
-    return (
-      <p className="text-sm text-[var(--text-muted)]">
-        Calibration report unavailable for this workspace.
-      </p>
-    );
+    return <p className="text-sm text-[var(--text-muted)]">{t("calibration.error")}</p>;
   }
 
   const insufficient = report.status === "insufficient_corpus";
@@ -64,19 +63,19 @@ function CalibrationTabContent({
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-sm font-semibold text-[var(--text-primary)]">Calibration report</h3>
+        <h3 className="text-sm font-semibold text-[var(--text-primary)]">{t("calibration.title")}</h3>
         <p className="text-xs text-[var(--text-secondary)]">{report.snapshotCapturedAtNote}</p>
       </div>
 
       <dl className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        <MetadataRow label="Status" value={report.status} />
-        <MetadataRow label="Evaluated items" value={String(report.evaluatedItemCount)} />
+        <MetadataRow label={tc("status")} value={report.status} />
+        <MetadataRow label={tc("evaluatedItems")} value={String(report.evaluatedItemCount)} />
         <MetadataRow
-          label="Visual MAE"
+          label={t("calibration.visualMae")}
           value={formatNullableNumber(report.visualMetrics.meanAbsError)}
         />
         <MetadataRow
-          label="Signed bias"
+          label={t("calibration.signedBias")}
           value={formatSignedDelta(report.visualMetrics.meanSignedDelta)}
         />
       </dl>
@@ -84,28 +83,30 @@ function CalibrationTabContent({
       {insufficient ? (
         <SampleGuidanceList
           guidance={report.sampleGuidance}
-          fallback={`At least ${report.evaluatedItemCount} evaluated corpus items are in scope. Calibration aggregates are withheld until the global minimum is met. Factual metrics below reflect available evaluations only.`}
+          fallback={t("calibration.insufficientFallback", {
+            count: report.evaluatedItemCount,
+          })}
         />
       ) : null}
 
       {!insufficient ? (
         <>
           <SliceTable
-            title="Divergence by failure reason"
+            title={t("calibration.divergenceByFailureReason")}
             slices={report.visualMetrics.divergenceByFailureReason}
           />
-          <SliceTable title="Divergence by mode" slices={report.visualMetrics.divergenceByMode} />
-          <SliceTable title="Divergence by format" slices={report.visualMetrics.divergenceByFormat} />
+          <SliceTable title={t("calibration.divergenceByMode")} slices={report.visualMetrics.divergenceByMode} />
+          <SliceTable title={t("calibration.divergenceByFormat")} slices={report.visualMetrics.divergenceByFormat} />
         </>
       ) : null}
 
       <div className="space-y-2 rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] p-4">
         <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-          Factual metrics
+          {t("calibration.factualMetrics")}
         </h4>
         <dl className="space-y-1.5">
           <MetadataRow
-            label="Factual pass rate"
+            label={t("calibration.factualPassRate")}
             value={
               report.factualMetrics.factualPassRate == null
                 ? "—"
@@ -113,11 +114,11 @@ function CalibrationTabContent({
             }
           />
           <MetadataRow
-            label="Factual fail count"
+            label={t("calibration.factualFailCount")}
             value={String(report.factualMetrics.factualFailCount)}
           />
           <MetadataRow
-            label="High visual but factual fail"
+            label={t("calibration.highVisualFactualFail")}
             value={String(report.factualMetrics.highVisualButFactualFail.length)}
           />
         </dl>
@@ -126,7 +127,7 @@ function CalibrationTabContent({
       {report.adjustments.length > 0 ? (
         <div className="space-y-2">
           <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-            Proposed adjustments (read-only)
+            {t("calibration.proposedAdjustments")}
           </h4>
           <ul className="space-y-1 text-xs text-[var(--text-primary)]">
             {report.adjustments.map((adjustment) => (
@@ -147,12 +148,14 @@ function CalibrationTabContent({
         <div className="space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-              Per-item comparison
+              {t("calibration.perItemComparison")}
             </h4>
             {report.truncated ? (
               <span className="text-[11px] text-[var(--text-muted)]">
-                Showing {report.visualMetrics.comparisons.length} of{" "}
-                {report.totalComparisonCount ?? report.visualMetrics.comparisons.length}
+                {tc("showing", {
+                  shown: report.visualMetrics.comparisons.length,
+                  total: report.totalComparisonCount ?? report.visualMetrics.comparisons.length,
+                })}
               </span>
             ) : null}
           </div>
@@ -160,12 +163,12 @@ function CalibrationTabContent({
             <table className="min-w-full text-xs">
               <thead className="bg-[var(--surface-base)] text-[var(--text-muted)]">
                 <tr>
-                  <th className="px-2 py-1.5 text-left font-medium">Item</th>
-                  <th className="px-2 py-1.5 text-right font-medium">Auto</th>
-                  <th className="px-2 py-1.5 text-right font-medium">Human</th>
-                  <th className="px-2 py-1.5 text-right font-medium">Delta</th>
-                  <th className="px-2 py-1.5 text-left font-medium">Failure reason</th>
-                  <th className="px-2 py-1.5 text-left font-medium">Factual</th>
+                  <th className="px-2 py-1.5 text-left font-medium">{tc("item")}</th>
+                  <th className="px-2 py-1.5 text-right font-medium">{tc("auto")}</th>
+                  <th className="px-2 py-1.5 text-right font-medium">{tc("human")}</th>
+                  <th className="px-2 py-1.5 text-right font-medium">{tc("delta")}</th>
+                  <th className="px-2 py-1.5 text-left font-medium">{tc("failureReason")}</th>
+                  <th className="px-2 py-1.5 text-left font-medium">{tc("factual")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -186,7 +189,7 @@ function CalibrationTabContent({
                     </td>
                     <td className="px-2 py-1.5">{comparison.primaryFailureReason}</td>
                     <td className="px-2 py-1.5">
-                      {comparison.factualPass ? "pass" : "fail"}
+                      {comparison.factualPass ? tc("pass") : tc("fail")}
                     </td>
                   </tr>
                 ))}

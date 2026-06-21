@@ -267,7 +267,7 @@ export default function AdminFeedbacksPage() {
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-sm font-medium text-[var(--text-primary)]">
                       {report.category === "mission"
-                        ? "mission insight"
+                        ? t("missionInsightLabel")
                         : `${report.type} · ${report.severity}`}
                     </span>
                     <span className="text-xs uppercase tracking-wide text-[var(--text-muted)]">
@@ -288,7 +288,7 @@ export default function AdminFeedbacksPage() {
 
         <Panel padding="md">
           {!selected ? (
-            <p className="text-sm text-[var(--text-muted)]">Select a report to inspect details.</p>
+            <p className="text-sm text-[var(--text-muted)]">{t("selectReport")}</p>
           ) : detail ? (
             <div className="space-y-5">
               <div>
@@ -301,10 +301,18 @@ export default function AdminFeedbacksPage() {
               </div>
 
               <div className="grid gap-2 text-xs text-[var(--text-secondary)] sm:grid-cols-2">
-                <p>Route: {detail.report.route ?? "—"}</p>
-                <p>Workspace: {detail.report.workspaceId}</p>
-                <p>Campaign: {detail.report.campaignId ?? "—"}</p>
-                <p>Derivation: {detail.report.derivationId ?? "—"}</p>
+                <p>
+                  {t("route")}: {detail.report.route ?? "—"}
+                </p>
+                <p>
+                  {t("workspace")}: {detail.report.workspaceId}
+                </p>
+                <p>
+                  {t("campaign")}: {detail.report.campaignId ?? "—"}
+                </p>
+                <p>
+                  {t("derivation")}: {detail.report.derivationId ?? "—"}
+                </p>
               </div>
 
               {detail.report.diagnosticContext &&
@@ -312,14 +320,24 @@ export default function AdminFeedbacksPage() {
                 "mission_insight" ? (
                 <div className="space-y-2 rounded-lg border border-[var(--accent-green)]/20 bg-[var(--accent-green)]/5 p-4">
                   <h3 className="text-sm font-medium text-[var(--text-primary)]">
-                    Mission insight
+                    {t("missionInsight")}
                   </h3>
                   <div className="grid gap-1 text-xs text-[var(--text-secondary)] sm:grid-cols-2">
-                    <p>Moment: {String(detail.report.diagnosticContext.moment ?? "—")}</p>
-                    <p>Mission: {String(detail.report.diagnosticContext.missionKey ?? "—")}</p>
-                    <p>Sentiment: {String(detail.report.diagnosticContext.sentiment ?? "—")}</p>
-                    <p>Reason: {String(detail.report.diagnosticContext.reason ?? "—")}</p>
-                    <p>Action: {String(detail.report.diagnosticContext.action ?? "—")}</p>
+                    <p>
+                      {t("moment")}: {String(detail.report.diagnosticContext.moment ?? "—")}
+                    </p>
+                    <p>
+                      {t("mission")}: {String(detail.report.diagnosticContext.missionKey ?? "—")}
+                    </p>
+                    <p>
+                      {t("sentiment")}: {String(detail.report.diagnosticContext.sentiment ?? "—")}
+                    </p>
+                    <p>
+                      {t("reason")}: {String(detail.report.diagnosticContext.reason ?? "—")}
+                    </p>
+                    <p>
+                      {t("action")}: {String(detail.report.diagnosticContext.action ?? "—")}
+                    </p>
                   </div>
                 </div>
               ) : null}
@@ -336,7 +354,7 @@ export default function AdminFeedbacksPage() {
                           : "bg-[var(--surface-raised)] text-[var(--text-muted)]"
                       )}
                     >
-                      {key}: {value ? "yes" : "no"}
+                      {key}: {value ? t("contextYes") : t("contextNo")}
                     </span>
                   ))}
                 </div>
@@ -344,7 +362,7 @@ export default function AdminFeedbacksPage() {
 
               {detail.assetLinks.length > 0 ? (
                 <div className="space-y-2">
-                  <h3 className="text-sm font-medium text-[var(--text-primary)]">Assets</h3>
+                  <h3 className="text-sm font-medium text-[var(--text-primary)]">{t("assets")}</h3>
                   <ul className="space-y-1 text-sm">
                     {detail.assetLinks.map((asset) => (
                       <li key={`${asset.kind}-${asset.id}`}>
@@ -370,7 +388,7 @@ export default function AdminFeedbacksPage() {
 
               <div className="grid gap-3">
                 <label className="grid gap-1 text-sm">
-                  <span className="font-medium text-[var(--text-primary)]">Internal notes</span>
+                  <span className="font-medium text-[var(--text-primary)]">{t("internalNotes")}</span>
                   <textarea
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
@@ -379,7 +397,9 @@ export default function AdminFeedbacksPage() {
                   />
                 </label>
                 <label className="grid gap-1 text-sm">
-                  <span className="font-medium text-[var(--text-primary)]">Resolution summary</span>
+                  <span className="font-medium text-[var(--text-primary)]">
+                    {t("resolutionSummary")}
+                  </span>
                   <textarea
                     value={resolution}
                     onChange={(e) => setResolution(e.target.value)}
@@ -406,7 +426,7 @@ export default function AdminFeedbacksPage() {
                       })
                     }
                   >
-                    Mark {nextStatus}
+                    {t("markStatus", { status: nextStatus })}
                   </Button>
                 ))}
               </div>

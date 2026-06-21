@@ -37,6 +37,7 @@ import {
   type CorpusQueueFilterState,
   type CorpusCandidateListResponse,
 } from "./corpus-shared";
+import { useQualityLabels } from "./quality-labels";
 
 function CoverageTabContent({
   report,
@@ -49,44 +50,40 @@ function CoverageTabContent({
   isLoading: boolean;
   isError: boolean;
 }) {
+  const { t, tc } = useQualityLabels();
+
   if (isLoading) {
-    return <p className="text-sm text-[var(--text-muted)]">Loading sample coverage report…</p>;
+    return <p className="text-sm text-[var(--text-muted)]">{t("coverage.loading")}</p>;
   }
 
   if (isError || report == null) {
-    return (
-      <p className="text-sm text-[var(--text-muted)]">
-        Sample coverage report unavailable for this scope.
-      </p>
-    );
+    return <p className="text-sm text-[var(--text-muted)]">{t("coverage.error")}</p>;
   }
 
   return (
     <div className="space-y-4">
       {globalEvidence ? (
         <div className="space-y-2 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] p-3">
-          <h3 className="text-sm font-semibold text-[var(--text-primary)]">Global evidence</h3>
+          <h3 className="text-sm font-semibold text-[var(--text-primary)]">{t("coverage.globalEvidence")}</h3>
           <dl className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <MetadataRow label={t("coverage.operationalStatus")} value={globalEvidence.operationalStatus} />
+            <MetadataRow label={t("coverage.pendingItems")} value={String(globalEvidence.pendingItemCount)} />
             <MetadataRow
-              label="Operational status"
-              value={globalEvidence.operationalStatus}
+              label={t("coverage.fixtureOnly")}
+              value={globalEvidence.fixtureOnly ? tc("yes") : tc("no")}
             />
             <MetadataRow
-              label="Pending items"
-              value={String(globalEvidence.pendingItemCount)}
-            />
-            <MetadataRow
-              label="Fixture only"
-              value={globalEvidence.fixtureOnly ? "yes" : "no"}
-            />
-            <MetadataRow
-              label="Source mix"
-              value={`real ${globalEvidence.sourceComposition.real_customer} · synth ${globalEvidence.sourceComposition.synthetic_fixture} · op ${globalEvidence.sourceComposition.operator_imported}`}
+              label={t("coverage.sourceMix")}
+              value={tc("sourceMix", {
+                real: globalEvidence.sourceComposition.real_customer,
+                synth: globalEvidence.sourceComposition.synthetic_fixture,
+                op: globalEvidence.sourceComposition.operator_imported,
+              })}
             />
           </dl>
           {globalEvidence.withheldClaims.length > 0 ? (
             <p className="text-xs text-[var(--text-secondary)]">
-              Withheld claims: {globalEvidence.withheldClaims.join("; ")}
+              {tc("withheldClaims", { claims: globalEvidence.withheldClaims.join("; ") })}
             </p>
           ) : null}
           {globalEvidence.dependsOnOperator.length > 0 ? (
@@ -96,16 +93,14 @@ function CoverageTabContent({
       ) : null}
 
       <div>
-        <h3 className="text-sm font-semibold text-[var(--text-primary)]">Sample coverage</h3>
-        <p className="text-xs text-[var(--text-secondary)]">
-          Cross-gate rollup of which slices need more evaluations before stronger release claims.
-        </p>
+        <h3 className="text-sm font-semibold text-[var(--text-primary)]">{t("coverage.title")}</h3>
+        <p className="text-xs text-[var(--text-secondary)]">{t("coverage.description")}</p>
       </div>
 
       <dl className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        <MetadataRow label="Evaluated items" value={String(report.evaluatedItemCount)} />
-        <MetadataRow label="Next gate" value={report.nextGate} />
-        <MetadataRow label="Captured" value={new Date(report.capturedAt).toLocaleString()} />
+        <MetadataRow label={tc("evaluatedItems")} value={String(report.evaluatedItemCount)} />
+        <MetadataRow label={t("coverage.nextGate")} value={report.nextGate} />
+        <MetadataRow label={t("coverage.captured")} value={new Date(report.capturedAt).toLocaleString()} />
       </dl>
 
       <p className="rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-primary)]">
@@ -114,15 +109,15 @@ function CoverageTabContent({
 
       <div className="space-y-2">
         <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-          Gate status
+          {t("coverage.gateStatus")}
         </h4>
         <div className="overflow-x-auto rounded-md border border-[var(--border-dim)]">
           <table className="min-w-full text-xs">
             <thead className="bg-[var(--surface-base)] text-[var(--text-muted)]">
               <tr>
-                <th className="px-2 py-1.5 text-left font-medium">Gate</th>
-                <th className="px-2 py-1.5 text-left font-medium">Status</th>
-                <th className="px-2 py-1.5 text-left font-medium">Blocked claims</th>
+                <th className="px-2 py-1.5 text-left font-medium">{t("coverage.gate")}</th>
+                <th className="px-2 py-1.5 text-left font-medium">{tc("status")}</th>
+                <th className="px-2 py-1.5 text-left font-medium">{t("coverage.blockedClaims")}</th>
               </tr>
             </thead>
             <tbody>
@@ -143,17 +138,17 @@ function CoverageTabContent({
       {report.sliceGaps.length > 0 ? (
         <div className="space-y-2">
           <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-            Slice gaps
+            {t("coverage.sliceGaps")}
           </h4>
           <div className="overflow-x-auto rounded-md border border-[var(--border-dim)]">
             <table className="min-w-full text-xs">
               <thead className="bg-[var(--surface-base)] text-[var(--text-muted)]">
                 <tr>
-                  <th className="px-2 py-1.5 text-left font-medium">Gate</th>
-                  <th className="px-2 py-1.5 text-left font-medium">Slice / dimension</th>
-                  <th className="px-2 py-1.5 text-left font-medium">Arm</th>
-                  <th className="px-2 py-1.5 text-right font-medium">Need</th>
-                  <th className="px-2 py-1.5 text-left font-medium">Blocked claim</th>
+                  <th className="px-2 py-1.5 text-left font-medium">{t("coverage.gate")}</th>
+                  <th className="px-2 py-1.5 text-left font-medium">{t("coverage.sliceDimension")}</th>
+                  <th className="px-2 py-1.5 text-left font-medium">{t("coverage.arm")}</th>
+                  <th className="px-2 py-1.5 text-right font-medium">{t("coverage.need")}</th>
+                  <th className="px-2 py-1.5 text-left font-medium">{t("coverage.blockedClaim")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -173,9 +168,7 @@ function CoverageTabContent({
           </div>
         </div>
       ) : (
-        <p className="text-xs text-[var(--text-secondary)]">
-          No slice gaps — all sampling gates satisfied for this snapshot.
-        </p>
+        <p className="text-xs text-[var(--text-secondary)]">{t("coverage.noSliceGaps")}</p>
       )}
     </div>
   );

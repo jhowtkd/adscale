@@ -11,6 +11,7 @@ import {
   fetchCorpusCandidates,
   type CorpusCandidateListResponse,
 } from "./corpus-shared";
+import { useQualityLabels } from "./quality-labels";
 
 function CandidatesTabContent({
   items,
@@ -29,23 +30,20 @@ function CandidatesTabContent({
   promotingId: string | null;
   onPromote: (candidateId: string) => void;
 }) {
+  const { t, tc } = useQualityLabels();
+
   if (isLoading) {
-    return <p className="text-sm text-[var(--text-muted)]">Loading captured candidates…</p>;
+    return <p className="text-sm text-[var(--text-muted)]">{t("candidates.loading")}</p>;
   }
 
   if (isError) {
-    return (
-      <p className="text-sm text-[var(--text-muted)]">
-        Candidate list unavailable for this scope.
-      </p>
-    );
+    return <p className="text-sm text-[var(--text-muted)]">{t("candidates.error")}</p>;
   }
 
   if (items.length === 0) {
     return (
       <p className="rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-muted)]">
-        No unpromoted candidates yet. Completed derivations are captured automatically after
-        quality-gate — check back after new creatives finish generating.
+        {t("candidates.empty")}
       </p>
     );
   }
@@ -54,11 +52,13 @@ function CandidatesTabContent({
     <div className="space-y-3">
       <div className="flex flex-wrap items-end gap-3">
         <label className="grid max-w-xs gap-1 text-xs">
-          <span className="font-medium text-[var(--text-primary)]">Promote into cohort</span>
+          <span className="font-medium text-[var(--text-primary)]">
+            {t("candidates.promoteIntoCohort")}
+          </span>
           <select
             value={promoteCohort}
             onChange={(e) => onPromoteCohortChange(e.target.value as HumanQualityCorpusCohort)}
-            aria-label="Promote cohort"
+            aria-label={t("candidates.promoteIntoCohort")}
             className="h-9 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-2"
           >
             {HUMAN_QUALITY_CORPUS_COHORTS.map((cohort) => (
@@ -68,18 +68,20 @@ function CandidatesTabContent({
             ))}
           </select>
         </label>
-        <p className="text-xs text-[var(--text-secondary)]">{items.length} unpromoted candidate(s)</p>
+        <p className="text-xs text-[var(--text-secondary)]">
+          {t("candidates.unpromotedCount", { count: items.length })}
+        </p>
       </div>
 
       <div className="overflow-x-auto rounded-md border border-[var(--border-dim)]">
         <table className="min-w-full text-xs">
           <thead className="bg-[var(--surface-base)] text-[var(--text-muted)]">
             <tr>
-              <th className="px-2 py-1.5 text-left font-medium">Preview</th>
-              <th className="px-2 py-1.5 text-left font-medium">Mode / format</th>
-              <th className="px-2 py-1.5 text-left font-medium">Source</th>
-              <th className="px-2 py-1.5 text-left font-medium">Workspace</th>
-              <th className="px-2 py-1.5 text-right font-medium">Action</th>
+              <th className="px-2 py-1.5 text-left font-medium">{tc("preview")}</th>
+              <th className="px-2 py-1.5 text-left font-medium">{t("candidates.modeFormat")}</th>
+              <th className="px-2 py-1.5 text-left font-medium">{tc("source")}</th>
+              <th className="px-2 py-1.5 text-left font-medium">{tc("workspace")}</th>
+              <th className="px-2 py-1.5 text-right font-medium">{tc("action")}</th>
             </tr>
           </thead>
           <tbody>
@@ -90,7 +92,7 @@ function CandidatesTabContent({
                     <div className="relative h-12 w-12 overflow-hidden rounded border border-[var(--border-dim)]">
                       <Image
                         src={item.previewImageUrl}
-                        alt="Candidate preview"
+                        alt={t("candidates.previewAlt")}
                         fill
                         sizes="48px"
                         className="object-contain"
@@ -115,7 +117,7 @@ function CandidatesTabContent({
                     disabled={promotingId === item.id}
                     onClick={() => onPromote(item.id)}
                   >
-                    {promotingId === item.id ? "Promoting…" : "Promote"}
+                    {promotingId === item.id ? tc("promoting") : tc("promote")}
                   </Button>
                 </td>
               </tr>
@@ -130,6 +132,7 @@ function CandidatesTabContent({
 export function CorpusCandidatesView() {
   const queryClient = useQueryClient();
   const { scope, workspaceId } = useQualityContext();
+  const { t } = useQualityLabels();
   const [promoteCohort, setPromoteCohort] = useState<HumanQualityCorpusCohort>("baseline");
   const [promotingCandidateId, setPromotingCandidateId] = useState<string | null>(null);
 
@@ -154,7 +157,7 @@ export function CorpusCandidatesView() {
       );
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error((err.error as string | undefined) ?? "Promote failed");
+        throw new Error((err.error as string | undefined) ?? t("candidates.promoteFailed"));
       }
       return res.json();
     },

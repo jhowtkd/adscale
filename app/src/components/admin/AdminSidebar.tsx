@@ -94,7 +94,7 @@ export default function AdminSidebar() {
   return (
     <aside className="flex w-56 shrink-0 flex-col border-r border-[var(--border-dim)] bg-[var(--surface-base)]">
       <div className="border-b border-[var(--border-dim)] px-4 py-5">
-        <p className="text-sm font-semibold text-[var(--text-primary)]">ADScale Admin</p>
+        <p className="text-sm font-semibold text-[var(--text-primary)]">{t("brand")}</p>
       </div>
 
       <nav className="flex flex-1 flex-col gap-6 overflow-y-auto px-3 py-4">
