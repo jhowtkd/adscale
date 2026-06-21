@@ -4,6 +4,7 @@ import { apiError, handleApiError } from "@/lib/api-response";
 import { requirePlatformOwner } from "@/server/auth/platform-owner";
 import { HUMAN_QUALITY_CORPUS_COHORTS } from "@/server/human-quality/corpus";
 import { buildClientLearningProposals } from "@/server/human-quality/learning/aggregate";
+import { detectAndPersistCrossClientGlobalProposals } from "@/server/human-quality/learning/cross-client";
 import {
   findActiveProposalBySlice,
   insertClientLearningProposal,
@@ -44,7 +45,13 @@ export async function POST(request: Request) {
       proposals.push(await insertClientLearningProposal(proposal));
     }
 
-    return NextResponse.json({ generated: proposals.length, proposals });
+    const globalProposals = await detectAndPersistCrossClientGlobalProposals();
+
+    return NextResponse.json({
+      generated: proposals.length,
+      proposals,
+      globalProposals: globalProposals.length,
+    });
   } catch (error) {
     return handleApiError(error, "admin.quality.learning.proposals.generate.POST");
   }

@@ -25,20 +25,9 @@ export interface RunScoreCalibrationResult {
   persistedAdjustments: ProposedAdjustment[];
 }
 
-export async function runScoreCalibration(
-  input: RunScoreCalibrationInput = {}
-): Promise<RunScoreCalibrationResult> {
-  const capturedAt = input.capturedAt ?? new Date().toISOString();
-
-  const rows = await listEvaluatedCorpusWithEvaluations({
-    workspaceId: input.workspaceId,
-    cohort: input.cohort,
-  });
-
-  const comparisons = buildCalibrationComparisons(rows);
-  const baseReport = buildCalibrationReport({ comparisons, capturedAt });
-  const proposals = proposeAdjustments(comparisons);
-
+export async function persistProposedAdjustments(
+  proposals: ProposedAdjustment[]
+): Promise<ProposedAdjustment[]> {
   const persistedAdjustments: ProposedAdjustment[] = [];
 
   for (const proposal of proposals) {
@@ -63,6 +52,24 @@ export async function runScoreCalibration(
     });
     persistedAdjustments.push(proposal);
   }
+
+  return persistedAdjustments;
+}
+
+export async function runScoreCalibration(
+  input: RunScoreCalibrationInput = {}
+): Promise<RunScoreCalibrationResult> {
+  const capturedAt = input.capturedAt ?? new Date().toISOString();
+
+  const rows = await listEvaluatedCorpusWithEvaluations({
+    workspaceId: input.workspaceId,
+    cohort: input.cohort,
+  });
+
+  const comparisons = buildCalibrationComparisons(rows);
+  const baseReport = buildCalibrationReport({ comparisons, capturedAt });
+  const proposals = proposeAdjustments(comparisons);
+  const persistedAdjustments = await persistProposedAdjustments(proposals);
 
   const report: CalibrationReport = {
     ...baseReport,

@@ -69,6 +69,19 @@ export async function listApprovedCalibrationRules(input: {
   });
 }
 
+export async function listApprovedCorpusQualityRules(): Promise<CalibrationRule[]> {
+  return db
+    .select()
+    .from(calibrationRules)
+    .where(
+      and(
+        eq(calibrationRules.status, "approved"),
+        eq(calibrationRules.category, "corpus_quality")
+      )
+    )
+    .orderBy(desc(calibrationRules.updatedAt));
+}
+
 export async function listApprovedCalibrationRulesByCategories(input: {
   workspaceId: string;
   clientProfileId: string;

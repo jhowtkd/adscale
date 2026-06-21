@@ -18,6 +18,10 @@ vi.mock("@/server/repositories/client-learning-proposal", () => ({
   insertClientLearningProposal: vi.fn(),
 }));
 
+vi.mock("@/server/human-quality/learning/cross-client", () => ({
+  detectAndPersistCrossClientGlobalProposals: vi.fn(),
+}));
+
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
 }));
@@ -28,6 +32,7 @@ import {
   findActiveProposalBySlice,
   insertClientLearningProposal,
 } from "@/server/repositories/client-learning-proposal";
+import { detectAndPersistCrossClientGlobalProposals } from "@/server/human-quality/learning/cross-client";
 import { listEvaluatedCorpusWithEvaluations } from "@/server/repositories/human-quality-corpus";
 import { WorkspaceAuthError, AUTH_ERROR_CODES } from "@/server/auth/errors";
 
@@ -40,6 +45,7 @@ const mockListEvaluated = vi.mocked(listEvaluatedCorpusWithEvaluations);
 const mockBuildProposals = vi.mocked(buildClientLearningProposals);
 const mockFindActive = vi.mocked(findActiveProposalBySlice);
 const mockInsertProposal = vi.mocked(insertClientLearningProposal);
+const mockDetectCrossClient = vi.mocked(detectAndPersistCrossClientGlobalProposals);
 
 const builtProposal = {
   workspaceId: WORKSPACE_ID,
@@ -81,6 +87,7 @@ describe("POST /api/admin/quality/learning/proposals/generate", () => {
     mockBuildProposals.mockReturnValue([builtProposal]);
     mockFindActive.mockResolvedValue(null);
     mockInsertProposal.mockResolvedValue(insertedProposal);
+    mockDetectCrossClient.mockResolvedValue([]);
   });
 
   it("generates proposals for platform owner", async () => {
@@ -99,6 +106,8 @@ describe("POST /api/admin/quality/learning/proposals/generate", () => {
     const body = await res.json();
     expect(body.generated).toBe(1);
     expect(body.proposals).toHaveLength(1);
+    expect(body.globalProposals).toBe(0);
+    expect(mockDetectCrossClient).toHaveBeenCalledOnce();
     expect(mockListEvaluated).toHaveBeenCalledWith({
       workspaceId: WORKSPACE_ID,
       cohort: "post_learning",
