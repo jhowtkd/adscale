@@ -1684,9 +1684,10 @@ export const humanQualityCorpusItems = adscaleSchema.table(
       .$type<import("../human-quality/corpus").HumanQualityQualitySnapshot>()
       .notNull()
       .default(sql`'{}'::jsonb`),
-    selectedByUserId: text("selected_by_user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
+    autoPromoted: boolean("auto_promoted").notNull().default(false),
+    selectedByUserId: text("selected_by_user_id").references(() => user.id, {
+      onDelete: "cascade",
+    }),
     selectedAt: timestamp("selected_at", { mode: "date" }).notNull().defaultNow(),
     status: text("status").notNull().default("pending"),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
