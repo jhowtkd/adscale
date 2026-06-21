@@ -2265,7 +2265,113 @@
         "summary": "{total} users · page {page} of {totalPages}",
         "previous": "Previous",
         "next": "Next"
+      },
+      "detail": {
+        "title": "User detail",
+        "description": "Profile, workspaces, billing, and recent activity.",
+        "backToList": "← Back to users",
+        "loading": "Loading user detail…",
+        "error": "Could not load user detail.",
+        "profile": {
+          "title": "Profile",
+          "name": "Name",
+          "email": "Email",
+          "locale": "Locale",
+          "verified": "Email verified",
+          "yes": "Yes",
+          "no": "No",
+          "onboarding": "Onboarding",
+          "complete": "Complete",
+          "incomplete": "Incomplete",
+          "lastSession": "Last session",
+          "created": "Created"
+        },
+        "workspaces": {
+          "title": "Workspaces",
+          "empty": "No workspace memberships.",
+          "columns": {
+            "name": "Workspace",
+            "role": "Role",
+            "plan": "Plan",
+            "credits": "Credits",
+            "status": "Billing status"
+          }
+        },
+        "campaigns": {
+          "title": "Recent campaigns",
+          "empty": "No recent campaigns.",
+          "columns": {
+            "name": "Name",
+            "status": "Status",
+            "created": "Created"
+          }
+        },
+        "derivations": {
+          "title": "Recent derivations",
+          "empty": "No recent derivations.",
+          "columns": {
+            "campaign": "Campaign",
+            "status": "Status",
+            "format": "Format",
+            "created": "Created"
+          }
+        }
+      },
+      "mirror": {
+        "banner": "Admin view — read-only",
+        "loading": "Loading mirror snapshot…",
+        "error": "Could not load mirror snapshot.",
+        "user": {
+          "title": "User snapshot",
+          "name": "Name",
+          "email": "Email"
+        },
+        "workspace": {
+          "title": "Primary workspace",
+          "name": "Workspace",
+          "credits": "Credits",
+          "remainingAds": "Remaining ads",
+          "empty": "No primary workspace."
+        },
+        "campaigns": {
+          "title": "Recent campaigns",
+          "empty": "No campaigns in snapshot.",
+          "status": "Status: {status}",
+          "derivations": "{count} derivations"
+        }
+      },
+      "actions": {
+        "title": "Admin actions",
+        "description": "Write operations require a reason and are recorded in the audit log.",
+        "buttons": {
+          "verify_email": "Verify email",
+          "reset_onboarding": "Reset onboarding",
+          "unlock_trial_notifications": "Unlock trial notifications"
+        },
+        "confirm": {
+          "verify_email": {
+            "title": "Verify user email?",
+            "description": "Marks the user's email as verified without sending a confirmation email."
+          },
+          "reset_onboarding": {
+            "title": "Reset onboarding?",
+            "description": "Clears onboarding completion so the user sees the onboarding flow again."
+          },
+          "unlock_trial_notifications": {
+            "title": "Unlock trial notifications?",
+            "description": "Clears low-credit and trial-expiring notification locks on the user."
+          }
+        }
       }
+    },
+    "actions": {
+      "reasonLabel": "Reason",
+      "reasonPlaceholder": "Describe why this action is needed…",
+      "cancel": "Cancel",
+      "confirm": "Confirm",
+      "submitting": "Submitting…",
+      "success": "Action completed successfully.",
+      "error": "Action failed. Try again."
     }
   }
 }

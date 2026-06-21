@@ -2266,7 +2266,113 @@
         "summary": "{total} usuários · página {page} de {totalPages}",
         "previous": "Anterior",
         "next": "Próxima"
+      },
+      "detail": {
+        "title": "Detalhe do usuário",
+        "description": "Perfil, workspaces, billing e atividade recente.",
+        "backToList": "← Voltar para usuários",
+        "loading": "Carregando detalhe do usuário…",
+        "error": "Não foi possível carregar o detalhe do usuário.",
+        "profile": {
+          "title": "Perfil",
+          "name": "Nome",
+          "email": "E-mail",
+          "locale": "Idioma",
+          "verified": "E-mail verificado",
+          "yes": "Sim",
+          "no": "Não",
+          "onboarding": "Onboarding",
+          "complete": "Concluído",
+          "incomplete": "Incompleto",
+          "lastSession": "Última sessão",
+          "created": "Criado em"
+        },
+        "workspaces": {
+          "title": "Workspaces",
+          "empty": "Sem memberships em workspace.",
+          "columns": {
+            "name": "Workspace",
+            "role": "Papel",
+            "plan": "Plano",
+            "credits": "Créditos",
+            "status": "Status de billing"
+          }
+        },
+        "campaigns": {
+          "title": "Campanhas recentes",
+          "empty": "Nenhuma campanha recente.",
+          "columns": {
+            "name": "Nome",
+            "status": "Status",
+            "created": "Criado em"
+          }
+        },
+        "derivations": {
+          "title": "Derivações recentes",
+          "empty": "Nenhuma derivação recente.",
+          "columns": {
+            "campaign": "Campanha",
+            "status": "Status",
+            "format": "Formato",
+            "created": "Criado em"
+          }
+        }
+      },
+      "mirror": {
+        "banner": "Visualização admin — read-only",
+        "loading": "Carregando espelho do usuário…",
+        "error": "Não foi possível carregar o espelho do usuário.",
+        "user": {
+          "title": "Snapshot do usuário",
+          "name": "Nome",
+          "email": "E-mail"
+        },
+        "workspace": {
+          "title": "Workspace principal",
+          "name": "Workspace",
+          "credits": "Créditos",
+          "remainingAds": "Anúncios restantes",
+          "empty": "Sem workspace principal."
+        },
+        "campaigns": {
+          "title": "Campanhas recentes",
+          "empty": "Nenhuma campanha no snapshot.",
+          "status": "Status: {status}",
+          "derivations": "{count} derivações"
+        }
+      },
+      "actions": {
+        "title": "Ações administrativas",
+        "description": "Operações de escrita exigem motivo e são registradas no audit log.",
+        "buttons": {
+          "verify_email": "Verificar e-mail",
+          "reset_onboarding": "Resetar onboarding",
+          "unlock_trial_notifications": "Desbloquear notificações de trial"
+        },
+        "confirm": {
+          "verify_email": {
+            "title": "Verificar e-mail do usuário?",
+            "description": "Marca o e-mail como verificado sem enviar confirmação."
+          },
+          "reset_onboarding": {
+            "title": "Resetar onboarding?",
+            "description": "Limpa a conclusão do onboarding para o usuário ver o fluxo novamente."
+          },
+          "unlock_trial_notifications": {
+            "title": "Desbloquear notificações de trial?",
+            "description": "Limpa os bloqueios de notificação de créditos baixos e trial expirando."
+          }
+        }
       }
+    },
+    "actions": {
+      "reasonLabel": "Motivo",
+      "reasonPlaceholder": "Descreva por que esta ação é necessária…",
+      "cancel": "Cancelar",
+      "confirm": "Confirmar",
+      "submitting": "Enviando…",
+      "success": "Ação concluída com sucesso.",
+      "error": "Falha na ação. Tente novamente."
     }
   }
 }
