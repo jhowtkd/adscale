@@ -48,6 +48,13 @@ export const HUMAN_FAILURE_CORRECTION_DIRECTIVES: Partial<
   Record<HumanQualityFailureReason, string>
 > = {
   visual_overload: FAILURE_CORRECTION_DIRECTIVES.visual_overload,
+  weak_hierarchy: FAILURE_CORRECTION_DIRECTIVES.missing_dominant_idea,
+  generic_template_feel: FAILURE_CORRECTION_DIRECTIVES.generic_template_aesthetic,
+  illegible_cta: FAILURE_CORRECTION_DIRECTIVES.unreadable_required_text,
+  unfocused_composition:
+    "Tighten composition to a single focal idea; remove competing elements that dilute the primary message.",
+  format_or_crop_issue:
+    "Respect format safe zones; never crop critical text or CTA at the edges.",
 };
 
 export function getHumanFailureCorrectionDirectives(
