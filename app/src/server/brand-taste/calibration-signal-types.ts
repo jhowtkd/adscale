@@ -47,6 +47,7 @@ export const RULE_CATEGORIES = [
   "invite",
   "export_conflict",
   "brand_nuance",
+  "corpus_quality",
 ] as const;
 
 export type RuleCategory = (typeof RULE_CATEGORIES)[number];

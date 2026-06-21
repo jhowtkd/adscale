@@ -142,5 +142,8 @@ export function canPromoteRuleToApproved(rule: CalibrationRuleCandidate): {
 }
 
 export function ruleConstraintText(rule: Pick<CalibrationRuleCandidate, "category" | "rationale" | "id">): string {
+  if (rule.category === "corpus_quality") {
+    return `[corpus-quality:${rule.id}] ${rule.rationale}`;
+  }
   return `[brand-taste:${rule.id}] ${rule.category}: ${rule.rationale}`;
 }
