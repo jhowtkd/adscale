@@ -1955,6 +1955,47 @@ export type RubricCalibrationAdjustment =
 export type NewRubricCalibrationAdjustment =
   typeof rubricCalibrationAdjustments.$inferInsert;
 
+export const clientLearningProposals = adscaleSchema.table(
+  "client_learning_proposals",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    clientProfileId: uuid("client_profile_id")
+      .notNull()
+      .references(() => clientProfiles.id, { onDelete: "cascade" }),
+    sliceKey: text("slice_key").notNull(),
+    primaryFailureReason: text("primary_failure_reason").notNull(),
+    status: text("status").notNull().default("proposed"),
+    evidenceRefs: jsonb("evidence_refs")
+      .$type<import("../human-quality/calibration/types").ClientLearningProposalEvidence>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    rationale: text("rationale").notNull(),
+    proposedAt: timestamp("proposed_at", { mode: "date" }).notNull().defaultNow(),
+    acceptedAt: timestamp("accepted_at", { mode: "date" }),
+    acceptedBy: text("accepted_by").references(() => user.id, { onDelete: "set null" }),
+    rejectedReason: text("rejected_reason"),
+    cooldownUntil: timestamp("cooldown_until", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("client_learning_proposals_active_slice_uq")
+      .on(table.workspaceId, table.clientProfileId, table.sliceKey)
+      .where(sql`${table.status} = 'proposed'`),
+    check(
+      "client_learning_proposals_status_check",
+      sql`${table.status} in ('proposed', 'accepted', 'rejected')`
+    ),
+  ]
+);
+
+export type ClientLearningProposal = typeof clientLearningProposals.$inferSelect;
+export type NewClientLearningProposal = typeof clientLearningProposals.$inferInsert;
+
 export const workspaceProgression = adscaleSchema.table(
   "workspace_progression",
   {

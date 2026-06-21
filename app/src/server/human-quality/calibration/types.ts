@@ -36,3 +36,15 @@ export interface CalibrationAdjustmentEvidence {
   };
   itemRefs: CalibrationAdjustmentEvidenceItemRef[];
 }
+
+export interface ClientLearningProposalEvidence {
+  corpusItemIds: string[];
+  artifactIds?: string[];
+  stats: {
+    count: number;
+    meanSignedDelta: number | null;
+    meanAbsError: number | null;
+    overScoreCount: number;
+    underScoreCount: number;
+  };
+}
