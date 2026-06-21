@@ -1,6 +1,6 @@
 import type { SortOption, StatusFilter, PlatformFilter } from "./types";
 
-type TranslateFn = (key: string, values?: Record<string, unknown>) => string;
+type TranslateFn = (key: string, values?: Record<string, string | number | Date>) => string;
 
 export function getStatusFilterLabel(
   value: StatusFilter,
