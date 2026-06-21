@@ -104,7 +104,7 @@ function CampaignsListContent() {
   } = useCampaignsPage(searchParams);
 
   return (
-    <PageFrame width="operational" className="space-y-6">
+    <PageFrame width="operational" className="space-y-4">
       <h1 className="sr-only">{tc("pageTitle") ?? "Campaigns"}</h1>
       <CampaignsHeader
         count={totalCount}
@@ -112,7 +112,7 @@ function CampaignsListContent() {
         onNewCampaign={() => setModalOpen(true)}
       />
 
-      <div className="mt-5 animate-fade-in" style={{ animationDelay: "80ms" }}>
+      <div className="mt-4 animate-fade-in" style={{ animationDelay: "80ms" }}>
         <CampaignsBulkActionsBar
           selectedCount={selectedIds.size}
           onArchive={handleBulkArchive}
@@ -252,9 +252,11 @@ function CampaignsListContent() {
       <ConfirmDialog
         open={!!deleteTarget}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
-        title="Excluir campanha"
-        description={`Tem certeza que deseja excluir "${campaigns.find((c) => c.id === deleteTarget)?.name ?? ""}"? Esta ação não pode ser desfeita.`}
-        confirmLabel="Excluir"
+        title={t("deleteTitle")}
+        description={tc("deleteCampaignConfirm", {
+          name: campaigns.find((c) => c.id === deleteTarget)?.name ?? "",
+        })}
+        confirmLabel={tc("delete")}
         variant="destructive"
         onConfirm={() => {
           if (deleteTarget) void handleDelete(deleteTarget);

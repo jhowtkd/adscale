@@ -36,10 +36,13 @@ export interface PersonaSimulationResponse {
 async function fetchPersonaSimulation(
   sourceType: "derivation" | "landing_page",
   sourceId: string
-): Promise<PersonaSimulationResponse> {
+): Promise<PersonaSimulationResponse | null> {
   const res = await apiFetch(
     `/api/creatives/${sourceId}/persona-simulation?sourceType=${sourceType}`
   );
+  if (res.status === 404) {
+    return null;
+  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || "Failed to load persona analysis");

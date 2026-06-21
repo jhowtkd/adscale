@@ -1728,6 +1728,67 @@ export const humanQualityCorpusItems = adscaleSchema.table(
 export type HumanQualityCorpusItem = typeof humanQualityCorpusItems.$inferSelect;
 export type NewHumanQualityCorpusItem = typeof humanQualityCorpusItems.$inferInsert;
 
+export const humanQualityCorpusCandidates = adscaleSchema.table(
+  "human_quality_corpus_candidates",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    clientProfileId: uuid("client_profile_id").references(() => clientProfiles.id, {
+      onDelete: "set null",
+    }),
+    campaignId: uuid("campaign_id")
+      .notNull()
+      .references(() => campaigns.id, { onDelete: "cascade" }),
+    derivationId: uuid("derivation_id")
+      .notNull()
+      .references(() => derivations.id, { onDelete: "cascade" }),
+    generationMode: text("generation_mode").notNull(),
+    format: text("format").notNull().default(""),
+    corpusVersion: integer("corpus_version").notNull().default(1),
+    sourceLabel: text("source_label").notNull(),
+    artifactRef: jsonb("artifact_ref")
+      .$type<import("../human-quality/corpus").HumanQualityArtifactRef>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    qualitySnapshot: jsonb("quality_snapshot")
+      .$type<import("../human-quality/corpus").HumanQualityQualitySnapshot>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    promotedCorpusItemId: uuid("promoted_corpus_item_id").references(
+      () => humanQualityCorpusItems.id,
+      { onDelete: "set null" }
+    ),
+    promotedAt: timestamp("promoted_at", { mode: "date" }),
+    capturedAt: timestamp("captured_at", { mode: "date" }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("human_quality_corpus_candidates_derivation_version_uq").on(
+      table.workspaceId,
+      table.derivationId,
+      table.corpusVersion
+    ),
+    index("human_quality_corpus_candidates_workspace_source_idx").on(
+      table.workspaceId,
+      table.sourceLabel,
+      table.capturedAt
+    ),
+    index("human_quality_corpus_candidates_promoted_idx").on(table.promotedCorpusItemId),
+    check(
+      "human_quality_corpus_candidates_source_label_check",
+      sql`${table.sourceLabel} in ('synthetic_fixture', 'operator_imported', 'real_customer')`
+    ),
+  ]
+);
+
+export type HumanQualityCorpusCandidate = typeof humanQualityCorpusCandidates.$inferSelect;
+export type NewHumanQualityCorpusCandidate = typeof humanQualityCorpusCandidates.$inferInsert;
+
 export const humanQualityEvaluations = adscaleSchema.table(
   "human_quality_evaluations",
   {
@@ -1788,6 +1849,58 @@ export const humanQualityEvaluations = adscaleSchema.table(
 
 export type HumanQualityEvaluation = typeof humanQualityEvaluations.$inferSelect;
 export type NewHumanQualityEvaluation = typeof humanQualityEvaluations.$inferInsert;
+
+export const humanQualityFeedbackArtifacts = adscaleSchema.table(
+  "human_quality_feedback_artifacts",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    corpusItemId: uuid("corpus_item_id")
+      .notNull()
+      .references(() => humanQualityCorpusItems.id, { onDelete: "cascade" }),
+    evaluationId: uuid("evaluation_id")
+      .notNull()
+      .references(() => humanQualityEvaluations.id, { onDelete: "cascade" }),
+    derivationId: uuid("derivation_id")
+      .notNull()
+      .references(() => derivations.id, { onDelete: "cascade" }),
+    campaignId: uuid("campaign_id")
+      .notNull()
+      .references(() => campaigns.id, { onDelete: "cascade" }),
+    clientProfileId: uuid("client_profile_id")
+      .notNull()
+      .references(() => clientProfiles.id, { onDelete: "cascade" }),
+    sourceLabel: text("source_label").notNull(),
+    cohort: text("cohort").notNull(),
+    generationMode: text("generation_mode").notNull(),
+    format: text("format").notNull().default(""),
+    payload: jsonb("payload")
+      .$type<import("../human-quality/feedback-artifact").HumanQualityFeedbackArtifactPayload>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("human_quality_feedback_artifacts_corpus_item_uq").on(table.corpusItemId),
+    uniqueIndex("human_quality_feedback_artifacts_evaluation_uq").on(table.evaluationId),
+    index("human_quality_feedback_artifacts_workspace_source_idx").on(
+      table.workspaceId,
+      table.sourceLabel,
+      table.createdAt
+    ),
+    check(
+      "human_quality_feedback_artifacts_source_label_check",
+      sql`${table.sourceLabel} in ('synthetic_fixture', 'operator_imported', 'real_customer')`
+    ),
+  ]
+);
+
+export type HumanQualityFeedbackArtifact = typeof humanQualityFeedbackArtifacts.$inferSelect;
+export type NewHumanQualityFeedbackArtifact = typeof humanQualityFeedbackArtifacts.$inferInsert;
 
 export const rubricCalibrationAdjustments = adscaleSchema.table(
   "rubric_calibration_adjustments",

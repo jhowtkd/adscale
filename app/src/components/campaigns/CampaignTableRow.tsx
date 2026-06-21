@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import type { Campaign } from "@/lib/mock-data";
-import { platformColors } from "@/lib/mock-data";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { formatDistanceToNow } from "date-fns";
 import {
@@ -52,6 +51,7 @@ function CampaignTableRow({
   onSaveAsTemplate,
 }: CampaignTableRowProps) {
   const tCommon = useTranslations("common");
+  const tCampaign = useTranslations("campaign");
   const tCampaigns = useTranslations("campaigns");
   const router = useRouter();
   const rowRef = useRef<HTMLTableRowElement>(null);
@@ -84,6 +84,14 @@ function CampaignTableRow({
     }
   };
 
+  const platformCount = campaign.platforms?.length ?? 0;
+  const platformSummary =
+    platformCount === 0
+      ? tCampaign("noPlatforms")
+      : platformCount === 1
+        ? campaign.platforms![0]
+        : tCampaign("platformCount", { count: platformCount });
+
   return (
     <tr
       ref={rowRef}
@@ -97,7 +105,7 @@ function CampaignTableRow({
         "group border-b border-[var(--border-dim)] transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-green)] focus-visible:ring-inset cursor-pointer",
         "md:table-row flex flex-col rounded-xl md:rounded-none mb-3 md:mb-0 bg-[var(--surface-base)] md:bg-transparent shadow-sm md:shadow-none p-4 md:p-0",
         index % 2 === 1 && "md:bg-[rgba(0,0,0,0.02)]",
-        selected && "bg-[var(--accent-green-dim)] border-l-2 border-l-[var(--accent-green)] md:border-l-0 md:border-l-transparent",
+        selected && "bg-[var(--accent-green-dim)]",
         !selected && "hover:bg-[var(--surface-raised)]"
       )}
     >
@@ -143,8 +151,8 @@ function CampaignTableRow({
             >
               {campaign.name}
             </Link>
-            <p className="text-[13px] text-[var(--text-secondary)] truncate mt-0.5 md:hidden">
-              {campaign.platforms?.join(", ")}
+            <p className="mt-0.5 truncate text-[13px] text-[var(--text-secondary)] md:hidden">
+              {platformSummary}
             </p>
           </div>
           {/* Mobile: actions dropdown */}
@@ -212,24 +220,10 @@ function CampaignTableRow({
       </td>
 
       {/* Platforms — desktop only */}
-      <td className="hidden md:table-cell px-4 py-3 w-[140px]">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {campaign.platforms?.map((platform) => {
-            const colors = platformColors[platform as keyof typeof platformColors];
-            return (
-              <span
-                key={platform}
-                className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
-                style={{
-                  backgroundColor: colors?.bg || "rgba(99,102,241,0.12)",
-                  color: colors?.text || "#818cf8",
-                }}
-              >
-                {platform}
-              </span>
-            );
-          })}
-        </div>
+      <td className="hidden w-[120px] px-4 py-2.5 md:table-cell">
+        <span className="text-[13px] text-[var(--text-secondary)]" title={campaign.platforms?.join(", ")}>
+          {platformSummary}
+        </span>
       </td>
 
       {/* Status */}
@@ -242,24 +236,6 @@ function CampaignTableRow({
               {tCampaigns("previewPendingBatchCta")}
             </span>
           ) : null}
-          {/* Mobile: inline platform tags */}
-          <div className="flex items-center gap-1.5 flex-wrap md:hidden">
-            {campaign.platforms?.map((platform) => {
-              const colors = platformColors[platform as keyof typeof platformColors];
-              return (
-                <span
-                  key={platform}
-                  className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
-                  style={{
-                    backgroundColor: colors?.bg || "rgba(99,102,241,0.12)",
-                    color: colors?.text || "#818cf8",
-                  }}
-                >
-                  {platform}
-                </span>
-              );
-            })}
-          </div>
         </div>
       </td>
 
@@ -283,12 +259,6 @@ function CampaignTableRow({
         </div>
       </td>
 
-      {/* Credits */}
-      <td className="hidden md:table-cell px-4 py-3 w-[100px]">
-        <span className="text-[13px] text-[var(--text-secondary)]">
-          {campaign.creditsUsed > 0 ? `~${campaign.creditsUsed}` : "—"}
-        </span>
-      </td>
 
       {/* Last Modified */}
       <td className="md:table-cell px-0 md:px-4 py-1 md:py-3 w-[140px]">

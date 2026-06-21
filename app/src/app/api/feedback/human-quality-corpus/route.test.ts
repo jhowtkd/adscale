@@ -20,6 +20,7 @@ vi.mock("@/server/human-quality/service", () => ({
   selectDerivationForCorpus: vi.fn(),
   batchSelectDerivationsForCorpus: vi.fn(),
   listPendingCorpusQueue: vi.fn(),
+  listCorpusQueue: vi.fn(),
   getCorpusQueueProgress: vi.fn(),
 }));
 
@@ -48,7 +49,7 @@ import {
   HumanQualityServiceError,
   batchSelectDerivationsForCorpus,
   getCorpusQueueProgress,
-  listPendingCorpusQueue,
+  listCorpusQueue,
   selectDerivationForCorpus,
 } from "@/server/human-quality/service";
 
@@ -60,7 +61,7 @@ const ITEM_ID = "550e8400-e29b-41d4-a716-446655440001";
 const mockRequireOwner = vi.mocked(requirePlatformOwner);
 const mockSelect = vi.mocked(selectDerivationForCorpus);
 const mockBatchSelect = vi.mocked(batchSelectDerivationsForCorpus);
-const mockList = vi.mocked(listPendingCorpusQueue);
+const mockListQueue = vi.mocked(listCorpusQueue);
 const mockProgress = vi.mocked(getCorpusQueueProgress);
 
 const baseItem = {
@@ -82,12 +83,15 @@ const baseItem = {
   updatedAt: new Date(),
 };
 
+const queueRow = { item: baseItem, sourceLabel: "operator_imported" as const };
+
 describe("/api/feedback/human-quality-corpus", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockRequireOwner.mockResolvedValue({
       user: { id: "owner-1", email: "owner@test.com" },
     });
+    mockListQueue.mockResolvedValue([queueRow]);
   });
 
   it("POST selects derivation into corpus for platform owner", async () => {
@@ -119,8 +123,23 @@ describe("/api/feedback/human-quality-corpus", () => {
     );
   });
 
-  it("GET lists pending corpus queue items", async () => {
-    mockList.mockResolvedValue([baseItem]);
+  it("GET lists global pending corpus queue without workspaceId", async () => {
+    mockListQueue.mockResolvedValue([queueRow]);
+
+    const res = await GET(
+      new Request("http://localhost/api/feedback/human-quality-corpus?limit=20")
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.items).toHaveLength(1);
+    expect(mockListQueue).toHaveBeenCalledWith(
+      expect.objectContaining({ limit: 20, status: "pending" })
+    );
+  });
+
+  it("GET lists pending corpus queue items for scoped workspace", async () => {
+    mockListQueue.mockResolvedValue([queueRow]);
 
     const res = await GET(
       new Request(
@@ -131,12 +150,14 @@ describe("/api/feedback/human-quality-corpus", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.items).toHaveLength(1);
-    expect(mockList).toHaveBeenCalledWith({ workspaceId: WORKSPACE_ID, limit: 20 });
+    expect(mockListQueue).toHaveBeenCalledWith(
+      expect.objectContaining({ workspaceId: WORKSPACE_ID, limit: 20, status: "pending" })
+    );
     expect(body.progress).toBeUndefined();
   });
 
   it("GET includes queue progress when includeProgress=true", async () => {
-    mockList.mockResolvedValue([baseItem]);
+    mockListQueue.mockResolvedValue([queueRow]);
     mockProgress.mockResolvedValue({
       workspaceId: WORKSPACE_ID,
       totalPending: 1,
@@ -162,14 +183,18 @@ describe("/api/feedback/human-quality-corpus", () => {
     expect(body.progress.byCampaign).toEqual({
       "550e8400-e29b-41d4-a716-446655440003": { pending: 1, evaluated: 4 },
     });
-    expect(mockProgress).toHaveBeenCalledWith({ workspaceId: WORKSPACE_ID });
+    expect(mockProgress).toHaveBeenCalledWith(
+      expect.objectContaining({ workspaceId: WORKSPACE_ID })
+    );
   });
 
-  it("GET requires workspaceId", async () => {
+  it("GET supports global list without workspaceId", async () => {
+    mockListQueue.mockResolvedValue([]);
+
     const res = await GET(new Request("http://localhost/api/feedback/human-quality-corpus"));
 
-    expect(res.status).toBe(400);
-    expect(mockList).not.toHaveBeenCalled();
+    expect(res.status).toBe(200);
+    expect(mockListQueue).toHaveBeenCalledWith(expect.objectContaining({ status: "pending" }));
   });
 
   it("returns 403 when not platform owner", async () => {

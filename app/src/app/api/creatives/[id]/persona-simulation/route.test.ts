@@ -26,6 +26,7 @@ vi.mock("@/server/repositories/persona-simulation", () => ({
   createPersonaSimulation: vi.fn(),
   getPersonaSimulationBySource: vi.fn(),
   isCacheValid: vi.fn(),
+  updatePersonaSimulation: vi.fn(),
 }));
 
 vi.mock("@/server/ai/persona-simulator", () => ({
@@ -42,6 +43,7 @@ import {
   createPersonaSimulation,
   getPersonaSimulationBySource,
   isCacheValid,
+  updatePersonaSimulation,
 } from "@/server/repositories/persona-simulation";
 import { simulatePersonas } from "@/server/ai/persona-simulator";
 
@@ -49,6 +51,7 @@ const mockGetDerivationById = vi.mocked(getDerivationById);
 const mockGetCampaignById = vi.mocked(getCampaignById);
 const mockGetPersonaSimulationBySource = vi.mocked(getPersonaSimulationBySource);
 const mockCreatePersonaSimulation = vi.mocked(createPersonaSimulation);
+const mockUpdatePersonaSimulation = vi.mocked(updatePersonaSimulation);
 const mockIsCacheValid = vi.mocked(isCacheValid);
 const mockSimulatePersonas = vi.mocked(simulatePersonas);
 
@@ -228,6 +231,37 @@ describe("POST /api/creatives/[id]/persona-simulation", () => {
     expect(body.cached).toBe(true);
     expect(body.simulation.id).toBe("sim-1");
     expect(mockSimulatePersonas).not.toHaveBeenCalled();
+    expect(mockCreatePersonaSimulation).not.toHaveBeenCalled();
+  });
+
+  it("updates stale simulation instead of creating a duplicate", async () => {
+    mockGetDerivationById.mockResolvedValue({
+      id: "derivation-id",
+      status: "approved",
+      outputKey: "derivations/test.png",
+      campaignId: "campaign-id",
+      workspaceId: "workspace-1",
+    } as Awaited<ReturnType<typeof getDerivationById>>);
+
+    mockGetCampaignById.mockResolvedValue(mockCampaign as Awaited<ReturnType<typeof getCampaignById>>);
+
+    const staleSimulation = makeMockSimulation({
+      cacheExpiresAt: new Date(Date.now() - 48 * 60 * 60 * 1000),
+    });
+    mockGetPersonaSimulationBySource.mockResolvedValue(staleSimulation);
+    mockIsCacheValid.mockReturnValue(false);
+    mockSimulatePersonas.mockResolvedValue(mockResults);
+    mockUpdatePersonaSimulation.mockResolvedValue(makeMockSimulation());
+
+    const res = await POST(postRequest("derivation-id", { sourceType: "derivation" }), {
+      params: paramsWith("derivation-id"),
+    });
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.cached).toBe(false);
+    expect(mockSimulatePersonas).toHaveBeenCalled();
+    expect(mockUpdatePersonaSimulation).toHaveBeenCalledWith("sim-1", mockResults);
     expect(mockCreatePersonaSimulation).not.toHaveBeenCalled();
   });
 });

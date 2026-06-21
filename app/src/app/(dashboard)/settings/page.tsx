@@ -11,6 +11,7 @@ import ResponsiveTabs from "@/components/layout/ResponsiveTabs";
 import SettingsTabSkeleton from "@/components/settings/SettingsTabSkeleton";
 import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
+import { resolveSettingsTab, settingsTabs } from "./settings-tabs";
 
 const WorkspaceTab = dynamic(() => import("@/components/settings/WorkspaceTab"), {
   loading: () => <SettingsTabSkeleton />,
@@ -44,20 +45,6 @@ const PrivacyTab = dynamic(() => import("@/components/settings/PrivacyTab"), {
   loading: () => <SettingsTabSkeleton />,
 });
 
-const tabs = [
-  { id: "profile", labelKey: "profileTab" },
-  { id: "workspace", labelKey: "workspaceTab" },
-  { id: "brandKit", labelKey: "brandKitTab" },
-  { id: "team", labelKey: "teamTab" },
-  { id: "billing", labelKey: "billingTab" },
-  { id: "creditHistory", labelKey: "creditHistoryTab" },
-  { id: "plans", labelKey: "plansTab" },
-  { id: "integrations", labelKey: "integrationsTab" },
-  { id: "privacy", labelKey: "privacyTab" },
-];
-
-const tabIds = tabs.map((tab) => tab.id);
-
 const tabVariants = {
   hidden: { opacity: 0, y: 8 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.3 } },
@@ -75,8 +62,9 @@ function SettingsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const t = useTranslations("settings");
+  const tc = useTranslations("common");
   const requestedTab = searchParams.get("tab");
-  const activeTab = requestedTab && tabIds.includes(requestedTab) ? requestedTab : "profile";
+  const activeTab = resolveSettingsTab(requestedTab);
 
   return (
     <PageFrame width="operational" className="space-y-6">
@@ -86,13 +74,15 @@ function SettingsContent() {
         ariaLabel={t("title")}
         activeId={activeTab}
         onSelect={(id) => router.replace(`/settings?tab=${id}`, { scroll: false })}
-        items={tabs.map((tab) => ({
+        items={settingsTabs.map((tab) => ({
           id: tab.id,
           label: t(tab.labelKey),
-          badge:
-            tab.id === "integrations" ? (
-              <Badge variant="secondary">Setup</Badge>
-            ) : undefined,
+          disabled: !tab.enabled,
+          badge: !tab.enabled ? (
+            <Badge variant="secondary" className="text-[var(--text-muted)]">
+              {tc("comingSoon")}
+            </Badge>
+          ) : undefined,
         }))}
       />
 

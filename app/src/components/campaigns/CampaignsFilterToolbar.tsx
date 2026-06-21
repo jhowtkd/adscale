@@ -13,6 +13,11 @@ import {
 import Toolbar from "@/components/layout/Toolbar";
 import { useTranslations } from "next-intl";
 import type { ViewMode, SortOption, StatusFilter, PlatformFilter } from "./types";
+import {
+  getPlatformFilterLabel,
+  getSortFilterLabel,
+  getStatusFilterLabel,
+} from "./filter-labels";
 
 interface ActiveFilter {
   label: string;
@@ -55,125 +60,158 @@ export default function CampaignsFilterToolbar({
   const t = useTranslations("campaign");
   const tc = useTranslations("common");
 
+  const statusLabel = getStatusFilterLabel(statusFilter, t, tc);
+  const platformLabel = getPlatformFilterLabel(platformFilter, t, tc);
+  const sortLabel = getSortFilterLabel(sortOption, tc);
+
   return (
     <div className={className}>
       <Toolbar>
-        <div className="flex w-full flex-col gap-3 lg:flex-row lg:items-center">
-          {/* Search */}
-          <div className="relative w-full lg:w-[280px]">
+        <div className="flex w-full flex-col gap-2.5 lg:flex-row lg:items-end">
+          <div className="relative w-full lg:max-w-[300px]">
             <Search
               size={16}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none"
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]"
             />
             <Input
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              placeholder={tc("search")}
-              aria-label={tc("search")}
-              className="h-8 w-full pl-9 pr-8 bg-[var(--surface-raised)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] text-sm"
+              placeholder={t("searchPlaceholder")}
+              aria-label={t("searchPlaceholder")}
+              className="h-8 w-full border-[var(--border-dim)] bg-[var(--surface-raised)] pl-9 pr-8 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
             />
             {searchQuery && (
-              <button type="button"
+              <button
+                type="button"
                 onClick={() => onSearchChange("")}
-                aria-label="Clear search"
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+                aria-label={tc("clearSearch")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
               >
                 <X size={14} />
               </button>
             )}
           </div>
 
-          {/* Filter Dropdowns */}
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Status Filter */}
-            <Select
-              value={statusFilter}
-              onValueChange={(v) => onStatusChange(v as StatusFilter)}
-            >
-              <SelectTrigger aria-label={tc("allStatus")} className="h-8 w-[140px] bg-[var(--surface-raised)] border-[var(--border-dim)] text-[var(--text-primary)] text-xs">
-                <SelectValue placeholder={tc("allStatus")} />
-              </SelectTrigger>
-              <SelectContent className="bg-[var(--surface-raised)] border-[var(--border-dim)]">
-                <SelectItem value="all" className="text-[var(--text-primary)] text-xs">{tc("allStatus")}</SelectItem>
-                <SelectItem value="draft" className="text-[var(--text-primary)] text-xs">{t("status.draft")}</SelectItem>
-                <SelectItem value="active" className="text-[var(--text-primary)] text-xs">{t("status.active")}</SelectItem>
-                <SelectItem value="generating" className="text-[var(--text-primary)] text-xs">{t("status.generating")}</SelectItem>
-                <SelectItem value="completed" className="text-[var(--text-primary)] text-xs">{t("status.completed")}</SelectItem>
-                <SelectItem value="failed" className="text-[var(--text-primary)] text-xs">{t("status.failed")}</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="flex flex-col gap-1">
+              <span className="px-0.5 text-[10px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
+                {tc("status")}
+              </span>
+              <Select
+                value={statusFilter}
+                onValueChange={(v) => onStatusChange(v as StatusFilter)}
+              >
+                <SelectTrigger
+                  aria-label={`${tc("status")}: ${statusLabel}`}
+                  className="h-8 w-[148px] border-[var(--border-dim)] bg-[var(--surface-raised)] text-xs text-[var(--text-primary)]"
+                >
+                  <SelectValue>{statusLabel}</SelectValue>
+                </SelectTrigger>
+                <SelectContent className="border-[var(--border-dim)] bg-[var(--surface-raised)]">
+                  <SelectItem value="all" className="text-xs text-[var(--text-primary)]">{tc("allStatus")}</SelectItem>
+                  <SelectItem value="draft" className="text-xs text-[var(--text-primary)]">{t("status.draft")}</SelectItem>
+                  <SelectItem value="active" className="text-xs text-[var(--text-primary)]">{t("status.active")}</SelectItem>
+                  <SelectItem value="generating" className="text-xs text-[var(--text-primary)]">{t("status.generating")}</SelectItem>
+                  <SelectItem value="completed" className="text-xs text-[var(--text-primary)]">{t("status.completed")}</SelectItem>
+                  <SelectItem value="failed" className="text-xs text-[var(--text-primary)]">{t("status.failed")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </label>
 
-            {/* Platform Filter */}
-            <Select
-              value={platformFilter}
-              onValueChange={(v) => onPlatformChange(v as PlatformFilter)}
-            >
-              <SelectTrigger aria-label={tc("allPlatforms")} className="h-8 w-[150px] bg-[var(--surface-raised)] border-[var(--border-dim)] text-[var(--text-primary)] text-xs">
-                <SelectValue placeholder={tc("allPlatforms")} />
-              </SelectTrigger>
-              <SelectContent className="bg-[var(--surface-raised)] border-[var(--border-dim)]">
-                <SelectItem value="all" className="text-[var(--text-primary)] text-xs">{tc("allPlatforms")}</SelectItem>
-                <SelectItem value="Meta" className="text-[var(--text-primary)] text-xs">{t("platformNames.Meta")}</SelectItem>
-                <SelectItem value="TikTok" className="text-[var(--text-primary)] text-xs">{t("platformNames.TikTok")}</SelectItem>
-                <SelectItem value="Google" className="text-[var(--text-primary)] text-xs">{t("platformNames.Google")}</SelectItem>
-              </SelectContent>
-            </Select>
+            <label className="flex flex-col gap-1">
+              <span className="px-0.5 text-[10px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
+                {tc("platforms")}
+              </span>
+              <Select
+                value={platformFilter}
+                onValueChange={(v) => onPlatformChange(v as PlatformFilter)}
+              >
+                <SelectTrigger
+                  aria-label={`${tc("platforms")}: ${platformLabel}`}
+                  className="h-8 w-[156px] border-[var(--border-dim)] bg-[var(--surface-raised)] text-xs text-[var(--text-primary)]"
+                >
+                  <SelectValue>{platformLabel}</SelectValue>
+                </SelectTrigger>
+                <SelectContent className="border-[var(--border-dim)] bg-[var(--surface-raised)]">
+                  <SelectItem value="all" className="text-xs text-[var(--text-primary)]">{tc("allPlatforms")}</SelectItem>
+                  <SelectItem value="Meta" className="text-xs text-[var(--text-primary)]">{t("platformNames.Meta")}</SelectItem>
+                  <SelectItem value="TikTok" className="text-xs text-[var(--text-primary)]">{t("platformNames.TikTok")}</SelectItem>
+                  <SelectItem value="Google" className="text-xs text-[var(--text-primary)]">{t("platformNames.Google")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </label>
 
-            {/* Sort */}
-            <Select
-              value={sortOption}
-              onValueChange={(v) => onSortChange(v as SortOption)}
-            >
-              <SelectTrigger aria-label={tc("sort")} className="h-8 w-[140px] bg-[var(--surface-raised)] border-[var(--border-dim)] text-[var(--text-primary)] text-xs">
-                <SelectValue placeholder={tc("sort")} />
-              </SelectTrigger>
-              <SelectContent className="bg-[var(--surface-raised)] border-[var(--border-dim)]">
-                <SelectItem value="newest" className="text-[var(--text-primary)] text-xs">{tc("newest")}</SelectItem>
-                <SelectItem value="oldest" className="text-[var(--text-primary)] text-xs">{tc("oldest")}</SelectItem>
-                <SelectItem value="name-asc" className="text-[var(--text-primary)] text-xs">{tc("nameAsc")}</SelectItem>
-                <SelectItem value="name-desc" className="text-[var(--text-primary)] text-xs">{tc("nameDesc")}</SelectItem>
-                <SelectItem value="variations" className="text-[var(--text-primary)] text-xs">{tc("mostDerivations")}</SelectItem>
-              </SelectContent>
-            </Select>
+            <label className="flex flex-col gap-1">
+              <span className="px-0.5 text-[10px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
+                {tc("sort")}
+              </span>
+              <Select
+                value={sortOption}
+                onValueChange={(v) => onSortChange(v as SortOption)}
+              >
+                <SelectTrigger
+                  aria-label={`${tc("sort")}: ${sortLabel}`}
+                  className="h-8 w-[148px] border-[var(--border-dim)] bg-[var(--surface-raised)] text-xs text-[var(--text-primary)]"
+                >
+                  <SelectValue>{sortLabel}</SelectValue>
+                </SelectTrigger>
+                <SelectContent className="border-[var(--border-dim)] bg-[var(--surface-raised)]">
+                  <SelectItem value="newest" className="text-xs text-[var(--text-primary)]">{tc("newest")}</SelectItem>
+                  <SelectItem value="oldest" className="text-xs text-[var(--text-primary)]">{tc("oldest")}</SelectItem>
+                  <SelectItem value="name-asc" className="text-xs text-[var(--text-primary)]">{tc("nameAsc")}</SelectItem>
+                  <SelectItem value="name-desc" className="text-xs text-[var(--text-primary)]">{tc("nameDesc")}</SelectItem>
+                  <SelectItem value="variations" className="text-xs text-[var(--text-primary)]">{tc("mostDerivations")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </label>
           </div>
 
-          {/* View Toggle */}
-          <div className="ml-auto flex items-center rounded-lg bg-[var(--surface-raised)] p-0.5">
-            <button type="button"
+          <div
+            className="ml-auto flex items-center rounded-lg bg-[var(--surface-raised)] p-0.5"
+            role="group"
+            aria-label={t("viewModeLabel")}
+          >
+            <button
+              type="button"
               onClick={() => onViewModeChange("list")}
-              aria-label="List view"
+              aria-label={t("viewList")}
               aria-pressed={viewMode === "list"}
+              title={t("viewList")}
               className={cn(
-                "flex items-center justify-center size-7 rounded-md transition-all duration-200",
+                "flex size-7 items-center justify-center rounded-md transition-colors duration-200",
                 viewMode === "list"
                   ? "bg-[var(--surface-base)] text-[var(--accent-green-text)] shadow-sm"
-                  : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                  : "text-[var(--text-muted)] hover:text-[var(--text-primary)]",
               )}
             >
               <List size={16} />
             </button>
-            <button type="button"
+            <button
+              type="button"
               onClick={() => onViewModeChange("grid")}
-              aria-label="Grid view"
+              aria-label={t("viewGrid")}
               aria-pressed={viewMode === "grid"}
+              title={t("viewGrid")}
               className={cn(
-                "flex items-center justify-center size-7 rounded-md transition-all duration-200",
+                "flex size-7 items-center justify-center rounded-md transition-colors duration-200",
                 viewMode === "grid"
-                  ? "bg-[var(--surface-base)] text-[var(--accent-blue)] shadow-sm"
-                  : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                  ? "bg-[var(--surface-base)] text-[var(--accent-green-text)] shadow-sm"
+                  : "text-[var(--text-muted)] hover:text-[var(--text-primary)]",
               )}
             >
               <LayoutGrid size={16} />
             </button>
-            <button type="button"
+            <button
+              type="button"
               onClick={() => onViewModeChange("board")}
-              aria-label="Board view"
+              aria-label={t("viewBoard")}
               aria-pressed={viewMode === "board"}
+              title={t("viewBoard")}
               className={cn(
-                "flex items-center justify-center size-7 rounded-md transition-all duration-200",
+                "flex size-7 items-center justify-center rounded-md transition-colors duration-200",
                 viewMode === "board"
                   ? "bg-[var(--surface-base)] text-[var(--accent-green-text)] shadow-sm"
-                  : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                  : "text-[var(--text-muted)] hover:text-[var(--text-primary)]",
               )}
             >
               <Columns3 size={16} />

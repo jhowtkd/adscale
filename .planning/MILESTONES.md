@@ -1,5 +1,23 @@
 # Milestones: ADScale
 
+## v13.1 Global Owner Quality Corpus (Gaps found: 2026-06-20)
+
+**Phases completed:** 5 phases (157→161), 10 plans — **documentation reconciled; closure blocked**
+**Requirements:** 28/29 complete; CAPTURE-04 partial (promote API only, no candidate list UI)
+
+**Scope:** (same as shipped intent — global owner corpus, capture, queue, evaluation, evidence)
+
+**Key accomplishments:** (unchanged — infrastructure largely in place)
+
+**Open gaps:**
+- Build was red (`outputKey` null) — fixed pending verify
+- CAPTURE-04: candidate list/UI missing
+- Work uncommitted in git
+
+Archive: [ROADMAP.md](ROADMAP.md) · [REQUIREMENTS.md](REQUIREMENTS.md) · [v13.1-MILESTONE-AUDIT.md](milestones/v13.1-MILESTONE-AUDIT.md)
+
+---
+
 ## v12.9 Fechamento Humano do Olhar Cenbrap (Shipped with tech debt: 2026-06-20)
 
 **Phases completed:** 2 of 4 phases (147→148 complete; 149→150 deferred), 4 plans

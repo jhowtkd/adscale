@@ -431,6 +431,16 @@
       "Google": "Google Ads"
     },
     "manageCampaigns": "Manage your campaigns and creative variants",
+    "manageCampaignsShort": "Create and manage creative variations",
+    "listSubtitle": "{count, plural, one {# campaign} other {# campaigns}}",
+    "searchPlaceholder": "Search campaigns...",
+    "platformCount": "{count, plural, one {# platform} other {# platforms}}",
+    "noPlatforms": "No platform",
+    "viewModeLabel": "View mode",
+    "viewList": "List",
+    "viewGrid": "Grid",
+    "viewBoard": "Board",
+    "deleteTitle": "Delete campaign",
     "createNew": "Create New Campaign",
     "createDescription": "Fill in the basic campaign details. You can add the key creative now or later.",
     "clientProfile": "Client Profile",
@@ -1888,6 +1898,124 @@
       "frustration": "Frustration",
       "afterSpend": "+{count} after spend",
       "creditFriction": "{friction} credit friction · {skipped} skipped spend steps"
+    },
+    "analytics": {
+      "title": "Beta analytics",
+      "description": "Mission and cockpit funnels, credit signals, readiness overrides.",
+      "exportCsv": "Export CSV",
+      "loading": "Loading analytics…",
+      "loadError": "Unable to load analytics.",
+      "noData": "No data for current filters.",
+      "filters": {
+        "toggle": "Filters",
+        "workspaceId": "Workspace",
+        "workspacePlaceholder": "All workspaces",
+        "session": "Session",
+        "allSessions": "All sessions",
+        "from": "From",
+        "to": "To",
+        "active": "Filters active"
+      },
+      "metrics": {
+        "events": "{count} events",
+        "sessions": "{count} sessions",
+        "creditBlocks": "{count} credit blocks",
+        "creditSurprises": "{count} credit surprises"
+      },
+      "groups": {
+        "coreFunnels": "Core funnels",
+        "credits": "Credits and billing",
+        "sessions": "Sessions and timing",
+        "shareReadiness": "Share and readiness"
+      },
+      "sections": {
+        "missionConversion": "Mission conversion",
+        "cockpitStage": "Cockpit stage funnel",
+        "recipeSelection": "Recipe selection funnel",
+        "guidedBriefingAbandon": "Guided briefing abandon by step",
+        "creditSpendByStage": "Credits by stage",
+        "creditSurprisesByOperation": "Credit surprises by operation",
+        "creditSurprisesRecent": "Recent credit surprises",
+        "sessionTimeline": "Session stage timeline",
+        "sessionTimelineAll": "Session stage timeline (all sessions)",
+        "shareLinkOpens": "Share link opens by campaign",
+        "readinessOverridesByDimension": "Readiness overrides by dimension",
+        "postPreviewStall": "Post-preview stall",
+        "draftToShare": "Median draft to share",
+        "shareOpenByAssistance": "Share open rate by assistance",
+        "activePostPreviewStalls": "Active post-preview stalls",
+        "readinessOverrideSignals": "Readiness override signals"
+      },
+      "columns": {
+        "mission": "Mission",
+        "stage": "Stage",
+        "recipe": "Recipe",
+        "step": "Step",
+        "entered": "Entered",
+        "completed": "Completed",
+        "abandoned": "Abandoned",
+        "rate": "Rate",
+        "tradeoffViewed": "Tradeoff viewed",
+        "selected": "Selected",
+        "abandons": "Abandons",
+        "creditsSpent": "Credits spent",
+        "spendEvents": "Spend events",
+        "operation": "Operation",
+        "count": "Count",
+        "totalDelta": "Total Δ",
+        "maxDelta": "Max |Δ|",
+        "estimate": "Estimate",
+        "actual": "Actual",
+        "delta": "Delta",
+        "session": "Session",
+        "gap": "Gap",
+        "campaign": "Campaign",
+        "opens": "Opens",
+        "dimension": "Dimension",
+        "overrides": "Overrides",
+        "assistance": "Assistance",
+        "created": "Created",
+        "opened": "Opened",
+        "stall": "Stall",
+        "outcome": "Outcome"
+      },
+      "stall": {
+        "median": "Median stall",
+        "rate": "Stall rate",
+        "proceed": "Stall then proceed"
+      },
+      "signals": {
+        "none": "No readiness blocks or operator false-positive notes yet.",
+        "operatorNote": "Operator note",
+        "overrideEvent": "Override event",
+        "blockedEvent": "Blocked event"
+      },
+      "stages": {
+        "setup": "Session setup",
+        "readiness": "Creative readiness",
+        "guided_briefing": "Guided briefing",
+        "strategy_recipe": "Strategy recipe",
+        "preview": "Preview gate",
+        "batch": "Batch generation",
+        "review": "Review creatives",
+        "export": "Export",
+        "share": "Client approval package"
+      },
+      "operations": {
+        "preview": "Preview",
+        "batch": "Batch",
+        "individual": "Individual derivation",
+        "image_derivation": "Image derivation"
+      },
+      "assistanceLevels": {
+        "hands_on": "Hands-on",
+        "observe_only": "Observe only",
+        "unknown": "Unknown"
+      },
+      "outcomes": {
+        "proceed": "Proceeded",
+        "abandon": "Abandoned"
+      }
     }
   },
   "missionInsights": {

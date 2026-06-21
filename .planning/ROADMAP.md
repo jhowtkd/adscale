@@ -2,7 +2,7 @@
 
 ## Milestones
 
-- 🔄 **v13.1 Global Owner Quality Corpus** - Phases 157-161 (active; owner-only global corpus, human evaluation, feedback generation and evidence-safe quality loop)
+- 🔄 **v13.1 Global Owner Quality Corpus** - Phases 157-161 (passed_with_tech_debt — commit pending)
 - ✅ **v13.0 Brand Taste Calibration Loop** - Phases 151-156 (shipped 2026-06-20; tech debt: 5 Jhonatan decisions pending, fixture-only corpus, agreement claims blocked)
 - ✅ **v12.9 Fechamento Humano do Olhar Cenbrap** - Phases 147-150 (shipped 2026-06-20; tech debt: 5 Jhonatan decisions pending, customer-real corpus deferred, agreement claims blocked)
 - ✅ **v12.8 Operacao Real do Olhar Cenbrap** - Phases 143-146 (shipped 2026-06-19; tech debt: Jhonatan decisions pending, sample 0/5, synthetic_fixture corpus)
@@ -17,25 +17,25 @@
 
 ## Phases
 
-### 🔄 v13.1 Global Owner Quality Corpus (Phases 157-161) — ACTIVE
+### ✅ v13.1 Global Owner Quality Corpus (Phases 157-161) — PASSED WITH TECH DEBT
 
 **Milestone Goal:** Dar ao dono do projeto um painel global e privado com criativos gerados por todos os usuarios, para avaliar qualidade humana e alimentar o loop de melhoria sem quebrar isolamento de workspace.
 
 **Carry-forward constraints:** Jhonatan decisions for Cenbrap remain pending; customer-real and quality-improvement claims stay blocked until sample/source sufficiency is real.
 
-- [ ] **Phase 157: Global Corpus Access Boundary** — platform-owner global scope, workspace-admin scoped access and server-side workspace resolution. Plans ready.
-- [ ] **Phase 158: Candidate Capture and Privacy-Safe Corpus Model** — every generated creative can become a global candidate with sanitized metadata and source composition.
-- [ ] **Phase 159: Global Review Queue and Preview** — owner queue, filters, progress and mixed-workspace signed previews.
-- [ ] **Phase 160: Human Evaluation and Feedback Artifacts** — global evaluation writes and structured feedback handoff into improvement loops.
-- [ ] **Phase 161: Global Evidence and Release Gate** — global analytics, calibration reports and claims gate with sample/source honesty.
+- [x] **Phase 157: Global Corpus Access Boundary** — platform-owner global scope, workspace-admin scoped access and server-side workspace resolution. **Complete 2026-06-20.**
+- [x] **Phase 158: Candidate Capture and Privacy-Safe Corpus Model** — auto-capture, source labels, owner promotion. **Complete 2026-06-20.**
+- [x] **Phase 159: Global Review Queue and Preview** — filters, source labels, mixed-workspace previews, global UI. **Complete 2026-06-20.**
+- [x] **Phase 160: Human Evaluation and Feedback Artifacts** — global evaluation writes and structured feedback handoff into improvement loops. **Complete 2026-06-20.**
+- [x] **Phase 161: Global Evidence and Release Gate** — global analytics, calibration reports and claims gate with sample/source honesty. **Complete 2026-06-20.**
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
-| 157 | Global Corpus Access Boundary | ACCESS-01..04 | Planned | — |
-| 158 | Candidate Capture and Privacy-Safe Corpus Model | CAPTURE-01..05 | Pending | — |
-| 159 | Global Review Queue and Preview | QUEUE-01..05 | Pending | — |
-| 160 | Human Evaluation and Feedback Artifacts | EVAL-01..05, LOOP-01..02 | Pending | — |
-| 161 | Global Evidence and Release Gate | LOOP-03..05, EVIDENCE-01..05 | Pending | — |
+| 157 | Global Corpus Access Boundary | ACCESS-01..04 | Complete | 2026-06-20 |
+| 158 | Candidate Capture and Privacy-Safe Corpus Model | CAPTURE-01..05 | Complete | 2026-06-20 |
+| 159 | Global Review Queue and Preview | QUEUE-01..05 | Complete | 2026-06-20 |
+| 160 | Human Evaluation and Feedback Artifacts | EVAL-01..05, LOOP-01..02 | Complete | 2026-06-20 |
+| 161 | Global Evidence and Release Gate | LOOP-03..05, EVIDENCE-01..05 | Complete | 2026-06-20 |
 
 ## Phase Details
 
@@ -53,11 +53,11 @@
   3. Workspace admins retain only explicit workspace-scoped access.
   4. Evaluation writes resolve workspace from corpus item server-side.
 
-**Plans:** 2/2 plans ready
+**Plans:** 2/2 complete
 
-Planned:
-- [ ] 157-01-PLAN.md — Global access contract and route scoping
-- [ ] 157-02-PLAN.md — Server-resolved workspace evaluation boundary
+Completed:
+- [x] 157-01-PLAN.md — Global access contract and route scoping
+- [x] 157-02-PLAN.md — Server-resolved workspace evaluation boundary
 
 ---
 
@@ -76,11 +76,11 @@ Planned:
   4. Owner can promote candidates into cohorts without duplicating rows.
   5. Source composition separates synthetic, operator-imported and real customer generated outputs.
 
-**Plans:** 0/2 planned
+**Plans:** 2/2 complete
 
-Planned:
-- [ ] 158-01-PLAN.md — Candidate registration and dedupe model
-- [ ] 158-02-PLAN.md — Sanitized metadata, cohort promotion and source labels
+Completed:
+- [x] 158-01-PLAN.md — Candidate registration and dedupe model
+- [x] 158-02-PLAN.md — Sanitized metadata, cohort promotion and source labels
 
 ---
 
@@ -99,11 +99,11 @@ Planned:
   4. Preview image signing works for mixed-workspace result sets.
   5. Queue progress reports global and dimensional pending/evaluated counts.
 
-**Plans:** 0/2 planned
+**Plans:** 2/2 complete
 
-Planned:
-- [ ] 159-01-PLAN.md — Global queue API and filters
-- [ ] 159-02-PLAN.md — Owner review UI, context and mixed-workspace previews
+Completed:
+- [x] 159-01-PLAN.md — Global queue API and filters
+- [x] 159-02-PLAN.md — Owner review UI, context and mixed-workspace previews
 
 ---
 
@@ -122,11 +122,10 @@ Planned:
   4. Invalid, duplicate or stale evaluation attempts fail clearly.
   5. Structured feedback artifacts link corpus item, derivation, evaluation and source composition.
 
-**Plans:** 0/2 planned
+**Plans:** 2/2 complete
 
-Planned:
-- [ ] 160-01-PLAN.md — Global evaluation write path and stale-submit handling
-- [ ] 160-02-PLAN.md — Structured feedback artifact generation
+- [x] 160-01-PLAN.md — Global evaluation write path and stale-submit handling
+- [x] 160-02-PLAN.md — Structured feedback artifact generation
 
 ---
 
@@ -145,11 +144,10 @@ Planned:
   4. Release gate separates technical regression from operational evidence status.
   5. Regression tests cover owner/non-owner access, mixed previews, server-resolved evaluation and global aggregates.
 
-**Plans:** 0/2 planned
+**Plans:** 2/2 complete
 
-Planned:
-- [ ] 161-01-PLAN.md — Global calibration/quality analytics
-- [ ] 161-02-PLAN.md — Release gate, evidence docs and regression suite
+- [x] 161-01-PLAN.md — Global calibration/quality analytics
+- [x] 161-02-PLAN.md — Release gate, evidence docs and regression suite
 
 ---
 
@@ -169,11 +167,11 @@ Previous archive: [v12.9-ROADMAP.md](milestones/v12.9-ROADMAP.md) · [v12.9-REQU
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 157 | v13.1 | 0/2 | Planned | — |
-| 158 | v13.1 | 0/2 | Pending | — |
-| 159 | v13.1 | 0/2 | Pending | — |
-| 160 | v13.1 | 0/2 | Pending | — |
-| 161 | v13.1 | 0/2 | Pending | — |
+| 157 | v13.1 | 2/2 | Complete | 2026-06-20 |
+| 158 | v13.1 | 2/2 | Complete | 2026-06-20 |
+| 159 | v13.1 | 2/2 | Complete | 2026-06-20 |
+| 160 | v13.1 | 2/2 | Complete | 2026-06-20 |
+| 161 | v13.1 | 2/2 | Complete | 2026-06-20 |
 
 ---
 *Roadmap updated: 2026-06-20 — Phase 157 planned*

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
+import { logger } from "@/lib/logger";
 import { requirePlatformOwner } from "@/server/auth/platform-owner";
 import {
   HUMAN_QUALITY_FAILURE_REASONS,
@@ -11,8 +12,10 @@ import {
   submitHumanEvaluation,
 } from "@/server/human-quality/service";
 
+const corpusLogger = logger.child("human-quality-corpus");
+
 const submitEvaluationSchema = z.object({
-  workspaceId: z.string().uuid(),
+  workspaceId: z.string().uuid().optional(),
   visualScore: z.number().int().min(0).max(100),
   factualPass: z.boolean(),
   intent: z.enum(HUMAN_QUALITY_INTENTS),
@@ -46,6 +49,14 @@ export async function POST(
       notes: parsed.data.notes,
     });
 
+    if (!parsed.data.workspaceId) {
+      corpusLogger.info("global corpus evaluation", {
+        userId: user.id,
+        action: "evaluate",
+        corpusItemId,
+      });
+    }
+
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
     if (error instanceof HumanQualityServiceError) {
@@ -54,6 +65,12 @@ export async function POST(
       }
       if (error.code === "corpus_item_not_pending") {
         return apiError(error.code, 409);
+      }
+      if (error.code === "corpus_evaluation_duplicate") {
+        return apiError(error.code, 409);
+      }
+      if (error.code === "corpus_item_workspace_mismatch") {
+        return apiError(error.code, 400);
       }
       return apiError(error.code, 400);
     }

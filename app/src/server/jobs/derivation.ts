@@ -63,6 +63,7 @@ import {
 } from "@/server/ai/creative-score";
 import { normalizeCreativeDiagnosis } from "@/server/ai/creative-diagnosis";
 import { getTargetDimensions, formatToOpenAIImageSize, toOpenAISdkImageSize } from "@/lib/formats";
+import { captureCorpusCandidateFromDerivation } from "../human-quality/candidate-capture";
 
 const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 120_000 });
 const IMAGE_GENERATION_TIMEOUT_MS = 5 * 60 * 1000;
@@ -911,6 +912,22 @@ export const derivationJob = inngest.createFunction(
         logger.warn(`[quality-gate] step failed derivationId=${derivationId}: ${message}`);
       }
     });
+
+    if (!isPreview) {
+      await step.run("capture-corpus-candidate", async () => {
+        try {
+          await captureCorpusCandidateFromDerivation({
+            workspaceId,
+            derivationId,
+          });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Unknown error";
+          logger.warn(
+            `[capture-corpus-candidate] failed derivationId=${derivationId}: ${message}`
+          );
+        }
+      });
+    }
 
     // 5c. Auto-retry once when text/CTA hard failures are detected
     const retried = await step.run("auto-retry-on-text-failure", async () => {

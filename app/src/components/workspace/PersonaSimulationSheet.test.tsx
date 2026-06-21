@@ -74,6 +74,7 @@ function setupQueryMock(overrides: Partial<ReturnType<typeof mockUsePersonaSimul
     data: null,
     isLoading: false,
     isError: false,
+    isSuccess: true,
     refetch: vi.fn(),
     ...overrides,
   });
@@ -108,6 +109,26 @@ describe("PersonaSimulationSheet", () => {
 
     expect(screen.getByText("Persona Analysis")).toBeInTheDocument();
     expect(screen.getAllByRole("generic", { name: "" }).length).toBeGreaterThan(0);
+  });
+
+  it("auto-generates when query succeeds with no existing simulation", () => {
+    const mutate = vi.fn();
+    setupMutationMock({ mutate });
+    setupQueryMock({ data: null, isSuccess: true });
+
+    render(
+      <PersonaSimulationSheet
+        isOpen
+        onClose={vi.fn()}
+        sourceType="derivation"
+        sourceId="creative-1"
+      />
+    );
+
+    expect(mutate).toHaveBeenCalledWith({
+      sourceType: "derivation",
+      sourceId: "creative-1",
+    });
   });
 
   it("renders error state with retry button", () => {

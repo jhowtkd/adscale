@@ -431,6 +431,16 @@
       "Google": "Google Ads"
     },
     "manageCampaigns": "Gerencie suas campanhas e variações criativas",
+    "manageCampaignsShort": "Crie e gerencie variações criativas",
+    "listSubtitle": "{count, plural, one {# campanha} other {# campanhas}}",
+    "searchPlaceholder": "Buscar campanhas...",
+    "platformCount": "{count, plural, one {# plataforma} other {# plataformas}}",
+    "noPlatforms": "Sem plataforma",
+    "viewModeLabel": "Modo de visualização",
+    "viewList": "Lista",
+    "viewGrid": "Grade",
+    "viewBoard": "Quadro",
+    "deleteTitle": "Excluir campanha",
     "createNew": "Criar nova campanha",
     "createDescription": "Preencha os dados básicos da campanha. Você pode adicionar a peça-chave agora ou depois.",
     "clientProfile": "Perfil do cliente",
@@ -1889,6 +1899,124 @@
       "frustration": "Frustração",
       "afterSpend": "+{count} após gasto",
       "creditFriction": "{friction} fricção de crédito · {skipped} etapas de gasto ignoradas"
+    },
+    "analytics": {
+      "title": "Analytics beta",
+      "description": "Funis de missão e cockpit, sinais de crédito e overrides de prontidão.",
+      "exportCsv": "Exportar CSV",
+      "loading": "Carregando analytics…",
+      "loadError": "Não foi possível carregar os analytics.",
+      "noData": "Sem dados para os filtros atuais.",
+      "filters": {
+        "toggle": "Filtros",
+        "workspaceId": "Workspace",
+        "workspacePlaceholder": "Todos os workspaces",
+        "session": "Sessão",
+        "allSessions": "Todas as sessões",
+        "from": "De",
+        "to": "Até",
+        "active": "Filtros ativos"
+      },
+      "metrics": {
+        "events": "{count} eventos",
+        "sessions": "{count} sessões",
+        "creditBlocks": "{count} bloqueios de crédito",
+        "creditSurprises": "{count} surpresas de crédito"
+      },
+      "groups": {
+        "coreFunnels": "Funis principais",
+        "credits": "Créditos e cobrança",
+        "sessions": "Sessões e tempo",
+        "shareReadiness": "Compartilhamento e prontidão"
+      },
+      "sections": {
+        "missionConversion": "Conversão por missão",
+        "cockpitStage": "Funil de etapas do cockpit",
+        "recipeSelection": "Funil de seleção de receita",
+        "guidedBriefingAbandon": "Abandono do briefing guiado por etapa",
+        "creditSpendByStage": "Créditos por etapa",
+        "creditSurprisesByOperation": "Surpresas de crédito por operação",
+        "creditSurprisesRecent": "Surpresas de crédito recentes",
+        "sessionTimeline": "Linha do tempo da sessão",
+        "sessionTimelineAll": "Linha do tempo (todas as sessões)",
+        "shareLinkOpens": "Aberturas de link por campanha",
+        "readinessOverridesByDimension": "Overrides de prontidão por dimensão",
+        "postPreviewStall": "Parada pós-prévia",
+        "draftToShare": "Mediana rascunho → compartilhar",
+        "shareOpenByAssistance": "Taxa de abertura por assistência",
+        "activePostPreviewStalls": "Paradas pós-prévia ativas",
+        "readinessOverrideSignals": "Sinais de override de prontidão"
+      },
+      "columns": {
+        "mission": "Missão",
+        "stage": "Etapa",
+        "recipe": "Receita",
+        "step": "Passo",
+        "entered": "Entradas",
+        "completed": "Concluídas",
+        "abandoned": "Abandonadas",
+        "rate": "Taxa",
+        "tradeoffViewed": "Tradeoff visto",
+        "selected": "Selecionadas",
+        "abandons": "Abandonos",
+        "creditsSpent": "Créditos gastos",
+        "spendEvents": "Eventos de gasto",
+        "operation": "Operação",
+        "count": "Contagem",
+        "totalDelta": "Δ total",
+        "maxDelta": "Máx |Δ|",
+        "estimate": "Estimativa",
+        "actual": "Real",
+        "delta": "Delta",
+        "session": "Sessão",
+        "gap": "Intervalo",
+        "campaign": "Campanha",
+        "opens": "Aberturas",
+        "dimension": "Dimensão",
+        "overrides": "Overrides",
+        "assistance": "Assistência",
+        "created": "Criadas",
+        "opened": "Abertas",
+        "stall": "Parada",
+        "outcome": "Resultado"
+      },
+      "stall": {
+        "median": "Mediana de parada",
+        "rate": "Taxa de parada",
+        "proceed": "Parou e seguiu"
+      },
+      "signals": {
+        "none": "Ainda não há bloqueios de prontidão nem notas de falso positivo.",
+        "operatorNote": "Nota do operador",
+        "overrideEvent": "Evento de override",
+        "blockedEvent": "Evento de bloqueio"
+      },
+      "stages": {
+        "setup": "Configuração da sessão",
+        "readiness": "Prontidão criativa",
+        "guided_briefing": "Briefing guiado",
+        "strategy_recipe": "Receita de estratégia",
+        "preview": "Portão de prévia",
+        "batch": "Geração em lote",
+        "review": "Revisar criativos",
+        "export": "Exportar",
+        "share": "Pacote de aprovação"
+      },
+      "operations": {
+        "preview": "Prévia",
+        "batch": "Lote",
+        "individual": "Derivação individual",
+        "image_derivation": "Derivação de imagem"
+      },
+      "assistanceLevels": {
+        "hands_on": "Mãos na massa",
+        "observe_only": "Somente observar",
+        "unknown": "Desconhecido"
+      },
+      "outcomes": {
+        "proceed": "Seguiu",
+        "abandon": "Abandonou"
+      }
     }
   },
   "missionInsights": {

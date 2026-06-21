@@ -1,6 +1,7 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte, or, sql, isNull } from "drizzle-orm";
 import { db } from "../db";
 import {
+  humanQualityCorpusCandidates,
   humanQualityCorpusItems,
   humanQualityEvaluations,
   type HumanQualityCorpusItem,
@@ -10,6 +11,7 @@ import {
 import type {
   HumanQualityFailureReason,
   HumanQualityIntent,
+  HumanQualitySourceLabel,
 } from "../human-quality/corpus";
 import {
   sanitizeCorpusPayloads,
@@ -34,8 +36,27 @@ export interface InsertCorpusItemInput
 }
 
 export interface ListPendingCorpusItemsFilters {
-  workspaceId: string;
+  workspaceId?: string;
   limit?: number;
+}
+
+export interface ListCorpusQueueFilters {
+  workspaceId?: string;
+  clientProfileId?: string;
+  campaignId?: string;
+  generationMode?: string;
+  format?: string;
+  cohort?: string;
+  status?: string;
+  sourceLabel?: HumanQualitySourceLabel;
+  selectedAfter?: Date;
+  selectedBefore?: Date;
+  limit?: number;
+}
+
+export interface CorpusQueueListRow {
+  item: HumanQualityCorpusItem;
+  sourceLabel: HumanQualitySourceLabel;
 }
 
 export interface SubmitCorpusEvaluationInput {
@@ -123,6 +144,18 @@ export async function getCorpusItemById(
   return rows[0] ?? null;
 }
 
+export async function getCorpusItemByIdAnyWorkspace(
+  corpusItemId: string
+): Promise<HumanQualityCorpusItem | null> {
+  const rows = await db
+    .select()
+    .from(humanQualityCorpusItems)
+    .where(eq(humanQualityCorpusItems.id, corpusItemId))
+    .limit(1);
+
+  return rows[0] ?? null;
+}
+
 export async function findCorpusItemByDerivationVersion(
   workspaceId: string,
   derivationId: string,
@@ -146,17 +179,95 @@ export async function findCorpusItemByDerivationVersion(
 export async function listPendingCorpusItems(
   filters: ListPendingCorpusItemsFilters
 ): Promise<HumanQualityCorpusItem[]> {
-  return db
-    .select()
+  const rows = await listCorpusQueueItems({
+    workspaceId: filters.workspaceId,
+    status: "pending",
+    limit: filters.limit,
+  });
+  return rows.map((row) => row.item);
+}
+
+function buildCorpusQueueConditions(filters: ListCorpusQueueFilters) {
+  const conditions = [];
+
+  if (filters.status) {
+    conditions.push(eq(humanQualityCorpusItems.status, filters.status));
+  }
+
+  if (filters.workspaceId) {
+    conditions.push(eq(humanQualityCorpusItems.workspaceId, filters.workspaceId));
+  }
+  if (filters.clientProfileId) {
+    conditions.push(eq(humanQualityCorpusItems.clientProfileId, filters.clientProfileId));
+  }
+  if (filters.campaignId) {
+    conditions.push(eq(humanQualityCorpusItems.campaignId, filters.campaignId));
+  }
+  if (filters.generationMode) {
+    conditions.push(eq(humanQualityCorpusItems.generationMode, filters.generationMode));
+  }
+  if (filters.format) {
+    conditions.push(eq(humanQualityCorpusItems.format, filters.format));
+  }
+  if (filters.cohort) {
+    conditions.push(eq(humanQualityCorpusItems.cohort, filters.cohort));
+  }
+  if (filters.selectedAfter) {
+    conditions.push(gte(humanQualityCorpusItems.selectedAt, filters.selectedAfter));
+  }
+  if (filters.selectedBefore) {
+    conditions.push(lte(humanQualityCorpusItems.selectedAt, filters.selectedBefore));
+  }
+
+  if (filters.sourceLabel) {
+    if (filters.sourceLabel === "operator_imported") {
+      conditions.push(
+        or(
+          isNull(humanQualityCorpusCandidates.id),
+          eq(humanQualityCorpusCandidates.sourceLabel, "operator_imported")
+        )!
+      );
+    } else {
+      conditions.push(eq(humanQualityCorpusCandidates.sourceLabel, filters.sourceLabel));
+    }
+  }
+
+  return conditions;
+}
+
+const corpusSourceLabelSql = sql<HumanQualitySourceLabel>`coalesce(${humanQualityCorpusCandidates.sourceLabel}, 'operator_imported')`;
+
+export async function listCorpusQueueItems(
+  filters: ListCorpusQueueFilters
+): Promise<CorpusQueueListRow[]> {
+  const effectiveFilters: ListCorpusQueueFilters = {
+    status: "pending",
+    ...filters,
+  };
+  const conditions = buildCorpusQueueConditions(effectiveFilters);
+
+  const rows = await db
+    .select({
+      item: humanQualityCorpusItems,
+      sourceLabel: corpusSourceLabelSql,
+    })
     .from(humanQualityCorpusItems)
-    .where(
+    .leftJoin(
+      humanQualityCorpusCandidates,
       and(
-        eq(humanQualityCorpusItems.workspaceId, filters.workspaceId),
-        eq(humanQualityCorpusItems.status, "pending")
+        eq(humanQualityCorpusCandidates.workspaceId, humanQualityCorpusItems.workspaceId),
+        eq(humanQualityCorpusCandidates.derivationId, humanQualityCorpusItems.derivationId),
+        eq(humanQualityCorpusCandidates.corpusVersion, humanQualityCorpusItems.corpusVersion)
       )
     )
+    .where(and(...conditions))
     .orderBy(desc(humanQualityCorpusItems.selectedAt))
     .limit(filters.limit ?? 50);
+
+  return rows.map((row) => ({
+    item: row.item,
+    sourceLabel: row.sourceLabel,
+  }));
 }
 
 /** Join evaluated corpus items with their human evaluations for calibration rollup. */
@@ -261,8 +372,15 @@ function bumpStatusCount(
 
 /** Summarize pending/evaluated corpus rows for operational queue progress. */
 export async function getCorpusOperationsProgress(
-  workspaceId: string
+  workspaceId?: string,
+  filters: Omit<ListCorpusQueueFilters, "limit" | "status"> = {}
 ): Promise<CorpusOperationsProgress> {
+  const conditions = buildCorpusQueueConditions({
+    ...filters,
+    workspaceId: filters.workspaceId ?? workspaceId,
+  });
+  conditions.push(inArray(humanQualityCorpusItems.status, ["pending", "evaluated"]));
+
   const rows = await db
     .select({
       status: humanQualityCorpusItems.status,
@@ -274,12 +392,15 @@ export async function getCorpusOperationsProgress(
       updatedAt: humanQualityCorpusItems.updatedAt,
     })
     .from(humanQualityCorpusItems)
-    .where(
+    .leftJoin(
+      humanQualityCorpusCandidates,
       and(
-        eq(humanQualityCorpusItems.workspaceId, workspaceId),
-        inArray(humanQualityCorpusItems.status, ["pending", "evaluated"])
+        eq(humanQualityCorpusCandidates.workspaceId, humanQualityCorpusItems.workspaceId),
+        eq(humanQualityCorpusCandidates.derivationId, humanQualityCorpusItems.derivationId),
+        eq(humanQualityCorpusCandidates.corpusVersion, humanQualityCorpusItems.corpusVersion)
       )
-    );
+    )
+    .where(and(...conditions));
 
   const progress: CorpusOperationsProgress = {
     totalPending: 0,

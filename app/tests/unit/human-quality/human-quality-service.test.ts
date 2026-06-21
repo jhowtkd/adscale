@@ -14,10 +14,20 @@ vi.mock("@/server/repositories/client-reference", () => ({
   resolveCampaignClientProfileId: vi.fn(),
 }));
 
+vi.mock("@/server/repositories/human-quality-candidate", () => ({
+  findCorpusCandidateByDerivationVersion: vi.fn(),
+}));
+
+vi.mock("@/server/repositories/human-quality-feedback-artifact", () => ({
+  findEvaluationByCorpusItemId: vi.fn(),
+  insertFeedbackArtifact: vi.fn(),
+}));
+
 vi.mock("@/server/repositories/human-quality-corpus", () => ({
   insertCorpusItem: vi.fn(),
   listPendingCorpusItems: vi.fn(),
   getCorpusItemById: vi.fn(),
+  getCorpusItemByIdAnyWorkspace: vi.fn(),
   findCorpusItemByDerivationVersion: vi.fn(),
   submitCorpusEvaluation: vi.fn(),
 }));
@@ -28,10 +38,16 @@ import { resolveCampaignClientProfileId } from "@/server/repositories/client-ref
 import {
   findCorpusItemByDerivationVersion,
   getCorpusItemById,
+  getCorpusItemByIdAnyWorkspace,
   insertCorpusItem,
   listPendingCorpusItems,
   submitCorpusEvaluation,
 } from "@/server/repositories/human-quality-corpus";
+import { findCorpusCandidateByDerivationVersion } from "@/server/repositories/human-quality-candidate";
+import {
+  findEvaluationByCorpusItemId,
+  insertFeedbackArtifact,
+} from "@/server/repositories/human-quality-feedback-artifact";
 import {
   HumanQualityServiceError,
   listPendingCorpusQueue,
@@ -53,7 +69,11 @@ const mockFindExisting = vi.mocked(findCorpusItemByDerivationVersion);
 const mockInsert = vi.mocked(insertCorpusItem);
 const mockListPending = vi.mocked(listPendingCorpusItems);
 const mockGetItem = vi.mocked(getCorpusItemById);
+const mockGetItemGlobal = vi.mocked(getCorpusItemByIdAnyWorkspace);
 const mockSubmitEval = vi.mocked(submitCorpusEvaluation);
+const mockFindCandidate = vi.mocked(findCorpusCandidateByDerivationVersion);
+const mockFindExistingEval = vi.mocked(findEvaluationByCorpusItemId);
+const mockInsertArtifact = vi.mocked(insertFeedbackArtifact);
 
 const derivation = {
   id: DERIVATION_ID,
@@ -82,6 +102,9 @@ describe("human-quality service", () => {
       return campaign.clientProfileId ?? null;
     });
     mockUpdateCampaign.mockResolvedValue({} as never);
+    mockFindExistingEval.mockResolvedValue(null);
+    mockFindCandidate.mockResolvedValue(null);
+    mockInsertArtifact.mockResolvedValue({ id: "artifact-1" } as never);
   });
 
   describe("selectDerivationForCorpus", () => {
@@ -262,7 +285,18 @@ describe("human-quality service", () => {
 
   describe("submitHumanEvaluation", () => {
     it("submits evaluation for pending corpus item", async () => {
-      mockGetItem.mockResolvedValue({ id: ITEM_ID, status: "pending" } as never);
+      mockGetItem.mockResolvedValue({
+        id: ITEM_ID,
+        workspaceId: WORKSPACE_ID,
+        clientProfileId: CLIENT_PROFILE_ID,
+        campaignId: CAMPAIGN_ID,
+        derivationId: DERIVATION_ID,
+        cohort: "baseline",
+        generationMode: "art_variation",
+        format: "1:1",
+        corpusVersion: 1,
+        status: "pending",
+      } as never);
       mockSubmitEval.mockResolvedValue({
         item: { id: ITEM_ID, status: "evaluated" },
         evaluation: { id: "eval-1", visualScore: 80 },
@@ -281,10 +315,90 @@ describe("human-quality service", () => {
       expect(result.item.status).toBe("evaluated");
       expect(mockSubmitEval).toHaveBeenCalledWith(
         expect.objectContaining({
+          workspaceId: WORKSPACE_ID,
           visualScore: 80,
           intent: "approve",
         })
       );
+      expect(result.feedbackArtifact.id).toBe("artifact-1");
+      expect(mockInsertArtifact).toHaveBeenCalled();
+    });
+
+    it("rejects duplicate evaluation for corpus item", async () => {
+      mockGetItem.mockResolvedValue({
+        id: ITEM_ID,
+        workspaceId: WORKSPACE_ID,
+        status: "pending",
+      } as never);
+      mockFindExistingEval.mockResolvedValue({ id: "eval-existing" });
+
+      await expect(
+        submitHumanEvaluation({
+          workspaceId: WORKSPACE_ID,
+          corpusItemId: ITEM_ID,
+          reviewerUserId: "reviewer-1",
+          visualScore: 70,
+          factualPass: false,
+          intent: "reject",
+          primaryFailureReason: "weak_hierarchy",
+        })
+      ).rejects.toMatchObject({ code: "corpus_evaluation_duplicate" });
+      expect(mockSubmitEval).not.toHaveBeenCalled();
+    });
+
+    it("resolves workspace from corpus item when workspaceId is omitted", async () => {
+      mockGetItemGlobal.mockResolvedValue({
+        id: ITEM_ID,
+        workspaceId: WORKSPACE_ID,
+        clientProfileId: CLIENT_PROFILE_ID,
+        campaignId: CAMPAIGN_ID,
+        derivationId: DERIVATION_ID,
+        cohort: "baseline",
+        generationMode: "art_variation",
+        format: "1:1",
+        corpusVersion: 1,
+        status: "pending",
+      } as never);
+      mockSubmitEval.mockResolvedValue({
+        item: { id: ITEM_ID, status: "evaluated" },
+        evaluation: { id: "eval-1", visualScore: 80 },
+      } as never);
+
+      await submitHumanEvaluation({
+        corpusItemId: ITEM_ID,
+        reviewerUserId: "reviewer-1",
+        visualScore: 80,
+        factualPass: true,
+        intent: "approve",
+        primaryFailureReason: "other",
+      });
+
+      expect(mockGetItemGlobal).toHaveBeenCalledWith(ITEM_ID);
+      expect(mockGetItem).not.toHaveBeenCalled();
+      expect(mockSubmitEval).toHaveBeenCalledWith(
+        expect.objectContaining({ workspaceId: WORKSPACE_ID })
+      );
+    });
+
+    it("rejects mismatched workspace scope", async () => {
+      mockGetItem.mockResolvedValue({
+        id: ITEM_ID,
+        workspaceId: WORKSPACE_ID,
+        status: "pending",
+      } as never);
+
+      await expect(
+        submitHumanEvaluation({
+          workspaceId: "550e8400-e29b-41d4-a716-446655440099",
+          corpusItemId: ITEM_ID,
+          reviewerUserId: "reviewer-1",
+          visualScore: 70,
+          factualPass: false,
+          intent: "reject",
+          primaryFailureReason: "weak_hierarchy",
+        })
+      ).rejects.toMatchObject({ code: "corpus_item_workspace_mismatch" });
+      expect(mockSubmitEval).not.toHaveBeenCalled();
     });
 
     it("rejects invalid visual score", async () => {
@@ -318,7 +432,11 @@ describe("human-quality service", () => {
     });
 
     it("rejects already evaluated corpus item", async () => {
-      mockGetItem.mockResolvedValue({ id: ITEM_ID, status: "evaluated" } as never);
+      mockGetItem.mockResolvedValue({
+        id: ITEM_ID,
+        workspaceId: WORKSPACE_ID,
+        status: "evaluated",
+      } as never);
 
       await expect(
         submitHumanEvaluation({

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { ShieldAlert, Flame, TrendingUp, HelpCircle, RefreshCw } from "lucide-react";
 import { useTranslations } from "next-intl";
 import {
@@ -149,15 +150,47 @@ export default function PersonaSimulationSheet({
   const t = useTranslations("personaSimulation");
   const commonT = useTranslations("common");
 
-  const { data, isLoading, isError, refetch } = usePersonaSimulation(sourceType, sourceId);
-  const createMutation = useCreatePersonaSimulation();
+  const { data, isLoading, isError, refetch, isSuccess } = usePersonaSimulation(
+    sourceType,
+    sourceId
+  );
+  const {
+    mutate: createSimulation,
+    isPending: isGenerating,
+    isError: isCreateError,
+    data: mutationData,
+  } = useCreatePersonaSimulation();
 
   const handleRegenerate = () => {
-    createMutation.mutate({ sourceType, sourceId });
+    createSimulation({ sourceType, sourceId });
   };
 
-  const results = data?.results;
-  const isGenerating = createMutation.isPending;
+  useEffect(() => {
+    if (
+      !isOpen ||
+      isLoading ||
+      !isSuccess ||
+      data ||
+      isGenerating ||
+      isCreateError
+    ) {
+      return;
+    }
+
+    createSimulation({ sourceType, sourceId });
+  }, [
+    isOpen,
+    isLoading,
+    isSuccess,
+    data,
+    isGenerating,
+    isCreateError,
+    createSimulation,
+    sourceType,
+    sourceId,
+  ]);
+
+  const results = data?.results ?? mutationData?.results;
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -184,7 +217,7 @@ export default function PersonaSimulationSheet({
                 <SkeletonCard key={key} />
               ))}
             </div>
-          ) : isError ? (
+          ) : isError || isCreateError ? (
             <div className="flex flex-col items-center justify-center py-12 gap-4">
               <p className="text-sm text-[var(--accent-rose)]">{commonT("error")}</p>
               <Button

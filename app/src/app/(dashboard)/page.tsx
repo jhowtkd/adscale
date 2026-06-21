@@ -8,6 +8,11 @@ import { useOnboarding } from "@/lib/hooks/use-onboarding";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { Search, Plus, LayoutGrid, List } from "lucide-react";
+import CampaignMasonryGrid, {
+  CampaignMasonryGridItem,
+  campaignMasonryGridClassName,
+  campaignMasonryItemClassName,
+} from "@/components/dashboard/CampaignMasonryGrid";
 import VisualCampaignCard from "@/components/dashboard/VisualCampaignCard";
 import DashboardCampaignListView from "@/components/dashboard/DashboardCampaignListView";
 import CreditPanel from "@/components/dashboard/CreditPanel";
@@ -184,21 +189,22 @@ export default function DashboardPage() {
                 }))}
               />
             ) : (
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+              <CampaignMasonryGrid>
                 {filteredCampaigns.map((campaign, index) => (
-                  <VisualCampaignCard
-                    key={campaign.id}
-                    id={campaign.id}
-                    name={campaign.name}
-                    thumbnailUrl={campaign.thumbnailUrl}
-                    pieceCount={campaign.pieceCount}
-                    approvedCount={campaign.approvedCount}
-                    status={campaign.status}
-                    updatedAt={campaign.updatedAt.toString()}
-                    index={index}
-                  />
+                  <CampaignMasonryGridItem key={campaign.id}>
+                    <VisualCampaignCard
+                      id={campaign.id}
+                      name={campaign.name}
+                      thumbnailUrl={campaign.thumbnailUrl}
+                      pieceCount={campaign.pieceCount}
+                      approvedCount={campaign.approvedCount}
+                      status={campaign.status}
+                      updatedAt={campaign.updatedAt.toString()}
+                      index={index}
+                    />
+                  </CampaignMasonryGridItem>
                 ))}
-              </div>
+              </CampaignMasonryGrid>
             )
           ) : (
             <EmptyState searchQuery={searchQuery} />
@@ -279,11 +285,18 @@ function EmptyState({ searchQuery }: { searchQuery: string }) {
   );
 }
 
+const SKELETON_CARD_HEIGHTS = [280, 360, 320, 400, 300, 380];
+
 function CampaignGridSkeleton() {
   return (
-    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-      {Array.from({ length: 6 }).map((_, i) => (
-        <div key={i} className="aspect-[4/3] animate-pulse rounded-xl border border-[var(--border-dim)] bg-[var(--surface-raised)]" />
+    <div className={campaignMasonryGridClassName}>
+      {SKELETON_CARD_HEIGHTS.map((height, i) => (
+        <div key={i} className={campaignMasonryItemClassName}>
+          <div
+            className="animate-pulse rounded-xl border border-[var(--border-dim)] bg-[var(--surface-raised)]"
+            style={{ height }}
+          />
+        </div>
       ))}
     </div>
   );

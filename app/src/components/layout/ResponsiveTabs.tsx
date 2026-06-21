@@ -7,6 +7,7 @@ export type ResponsiveTabItem = {
   id: string;
   label: ReactNode;
   badge?: ReactNode;
+  disabled?: boolean;
 };
 
 export default function ResponsiveTabs({
@@ -30,17 +31,24 @@ export default function ResponsiveTabs({
       >
         {items.map((item) => {
           const active = item.id === activeId;
+          const disabled = item.disabled === true;
           return (
             <button
               key={item.id}
               type="button"
-              onClick={() => onSelect(item.id)}
+              onClick={() => {
+                if (!disabled) onSelect(item.id);
+              }}
+              disabled={disabled}
               aria-current={active ? "page" : undefined}
+              aria-disabled={disabled || undefined}
               className={cn(
                 "relative shrink-0 whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors duration-200",
-                active
-                  ? "text-[var(--accent-green)]"
-                  : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
+                disabled
+                  ? "cursor-not-allowed opacity-50 text-[var(--text-muted)]"
+                  : active
+                    ? "text-[var(--accent-green)]"
+                    : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
               )}
             >
               <span className="flex items-center gap-2">

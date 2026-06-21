@@ -426,17 +426,20 @@ export default function DerivationCard({
 
       {/* ---- Info Area ---- */}
       <div className="p-3.5 space-y-2">
-        {/* Row 1: Name + Status */}
-        <div className="flex items-center justify-between gap-2">
+        {/* Row 1: Name + date, then verdict badges on their own wrapping row */}
+        <div className="space-y-1.5 min-w-0">
           <div className="min-w-0">
             <h4 className="truncate text-sm font-semibold text-[var(--text-primary)]">
               {derivation.name}
             </h4>
-            <p className="text-[10px] text-[var(--text-muted)]">
+            <p className="truncate text-[10px] text-[var(--text-muted)]">
               {t("generatedAt", { dateTime: generatedAtLabel })}
             </p>
           </div>
-          <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end">
+          <div
+            data-derivation-badges
+            className="flex flex-wrap items-center gap-1.5"
+          >
             {olharDisplay ? (
               <span
                 className={cn(
@@ -754,7 +757,8 @@ export default function DerivationCard({
                 size="sm"
                 variant="outline"
                 onClick={onGenerateLandingPage}
-                disabled={isGeneratingLandingPage}
+                disabled
+                title={commonT("comingSoon")}
                 className="border-[var(--accent-blue)] text-[var(--accent-blue)] hover:bg-[var(--accent-blue)]/10 w-fit"
               >
                 {isGeneratingLandingPage ? (

@@ -18,50 +18,50 @@ Transformar o corpus de qualidade em uma operacao global privada: Jhonatan, como
 
 ### Global Owner Access (ACCESS)
 
-- [ ] **ACCESS-01**: Platform owner can open a global quality corpus panel without selecting a workspace first.
-- [ ] **ACCESS-02**: Non-owner users cannot list, preview, evaluate or export global corpus items.
-- [ ] **ACCESS-03**: Workspace admins can still access only workspace-scoped calibration views when a workspace scope is explicitly requested.
-- [ ] **ACCESS-04**: Server routes never trust client-provided `workspaceId` for global evaluation writes; workspace context is resolved from the corpus item.
+- [x] **ACCESS-01**: Platform owner can open a global quality corpus panel without selecting a workspace first.
+- [x] **ACCESS-02**: Non-owner users cannot list, preview, evaluate or export global corpus items.
+- [x] **ACCESS-03**: Workspace admins can still access only workspace-scoped calibration views when a workspace scope is explicitly requested.
+- [x] **ACCESS-04**: Server routes never trust client-provided `workspaceId` for global evaluation writes; workspace context is resolved from the corpus item.
 
 ### Candidate Capture and Corpus Model (CAPTURE)
 
-- [ ] **CAPTURE-01**: System can register every completed generated creative as a global corpus candidate with workspace, campaign, derivation, client profile, generation mode, format and created-at metadata.
-- [ ] **CAPTURE-02**: Candidate capture is idempotent per workspace, derivation and corpus version.
-- [ ] **CAPTURE-03**: Corpus candidate payloads exclude prompts, signed URLs, storage keys, secrets and raw user diagnostic text.
-- [ ] **CAPTURE-04**: Owner can promote candidates into review cohorts (`baseline`, `pre_learning`, `post_learning`) without duplicating rows.
-- [ ] **CAPTURE-05**: Source composition distinguishes synthetic fixtures, operator-imported rows and real customer generated outputs.
+- [x] **CAPTURE-01**: System can register every completed generated creative as a global corpus candidate with workspace, campaign, derivation, client profile, generation mode, format and created-at metadata.
+- [x] **CAPTURE-02**: Candidate capture is idempotent per workspace, derivation and corpus version.
+- [x] **CAPTURE-03**: Corpus candidate payloads exclude prompts, signed URLs, storage keys, secrets and raw user diagnostic text.
+- [x] **CAPTURE-04**: Owner can promote candidates into review cohorts (`baseline`, `pre_learning`, `post_learning`) without duplicating rows.
+- [x] **CAPTURE-05**: Source composition distinguishes synthetic fixtures, operator-imported rows and real customer generated outputs.
 
 ### Global Review Queue (QUEUE)
 
-- [ ] **QUEUE-01**: Owner can list pending global corpus items across all workspaces ordered by operational priority.
-- [ ] **QUEUE-02**: Owner can filter global corpus by workspace, client profile, campaign, generation mode, format, cohort, status, date range and source label.
-- [ ] **QUEUE-03**: Owner can see enough context to evaluate a creative without exposing private prompts or raw storage identifiers.
-- [ ] **QUEUE-04**: Preview image signing works correctly for mixed-workspace result sets.
-- [ ] **QUEUE-05**: Queue progress reports pending/evaluated counts globally and by workspace, cohort, generation mode, format and campaign.
+- [x] **QUEUE-01**: Owner can list pending global corpus items across all workspaces ordered by operational priority.
+- [x] **QUEUE-02**: Owner can filter global corpus by workspace, client profile, campaign, generation mode, format, cohort, status, date range and source label.
+- [x] **QUEUE-03**: Owner can see enough context to evaluate a creative without exposing private prompts or raw storage identifiers.
+- [x] **QUEUE-04**: Preview image signing works correctly for mixed-workspace result sets.
+- [x] **QUEUE-05**: Queue progress reports pending/evaluated counts globally and by workspace, cohort, generation mode, format and campaign.
 
 ### Human Evaluation (EVAL)
 
-- [ ] **EVAL-01**: Owner can submit visual score, factual pass, intent, primary failure reason, optional other reason and notes for a global corpus item.
-- [ ] **EVAL-02**: Evaluation writes use the corpus item's workspace, not a workspace value from the browser.
-- [ ] **EVAL-03**: Submitting an evaluation marks the item evaluated and advances the reviewer to the next pending item.
-- [ ] **EVAL-04**: Evaluation payload validation preserves current safe bounds for score, reason, notes and forbidden keys.
-- [ ] **EVAL-05**: Duplicate or stale evaluation attempts fail clearly without corrupting corpus status.
+- [x] **EVAL-01**: Owner can submit visual score, factual pass, intent, primary failure reason, optional other reason and notes for a global corpus item.
+- [x] **EVAL-02**: Evaluation writes use the corpus item's workspace, not a workspace value from the browser.
+- [x] **EVAL-03**: Submitting an evaluation marks the item evaluated and advances the reviewer to the next pending item.
+- [x] **EVAL-04**: Evaluation payload validation preserves current safe bounds for score, reason, notes and forbidden keys.
+- [x] **EVAL-05**: Duplicate or stale evaluation attempts fail clearly without corrupting corpus status.
 
 ### Feedback and Learning Loop (LOOP)
 
-- [ ] **LOOP-01**: Human evaluations generate structured improvement feedback that can be consumed by calibration, prompt/rubric adjustment or quality-improvement tooling.
-- [ ] **LOOP-02**: Feedback artifacts link back to corpus item, derivation, evaluation and source composition.
-- [ ] **LOOP-03**: Score calibration can run globally and can still be filtered by workspace/cohort for diagnosis.
-- [ ] **LOOP-04**: Learning impact and quality-improvement reports can compare pre/post-learning cohorts in global mode.
-- [ ] **LOOP-05**: Brand taste calibration can consume global corpus evaluations without leaking one client's rules into another.
+- [x] **LOOP-01**: Human evaluations generate structured improvement feedback that can be consumed by calibration, prompt/rubric adjustment or quality-improvement tooling.
+- [x] **LOOP-02**: Feedback artifacts link back to corpus item, derivation, evaluation and source composition.
+- [x] **LOOP-03**: Score calibration can run globally and can still be filtered by workspace/cohort for diagnosis.
+- [x] **LOOP-04**: Learning impact and quality-improvement reports can compare pre/post-learning cohorts in global mode.
+- [x] **LOOP-05**: Brand taste calibration can consume global corpus evaluations without leaking one client's rules into another.
 
 ### Evidence and Release Gate (EVIDENCE)
 
-- [ ] **EVIDENCE-01**: Owner dashboard reports global sample sufficiency, evaluated item count, source composition and withheld claims.
-- [ ] **EVIDENCE-02**: Release gate blocks global quality/improvement claims until human sample and source sufficiency are met.
-- [ ] **EVIDENCE-03**: Technical regression remains separate from operational evidence status.
-- [ ] **EVIDENCE-04**: Evidence output names the exact missing sample/source conditions when status is `insufficient_sample`, `insufficient_corpus` or `human_needed`.
-- [ ] **EVIDENCE-05**: Tests cover global owner access, non-owner denial, mixed-workspace previews, server-resolved evaluation workspace and global aggregate filters.
+- [x] **EVIDENCE-01**: Owner dashboard reports global sample sufficiency, evaluated item count, source composition and withheld claims.
+- [x] **EVIDENCE-02**: Release gate blocks global quality/improvement claims until human sample and source sufficiency are met.
+- [x] **EVIDENCE-03**: Technical regression remains separate from operational evidence status.
+- [x] **EVIDENCE-04**: Evidence output names the exact missing sample/source conditions when status is `insufficient_sample`, `insufficient_corpus` or `human_needed`.
+- [x] **EVIDENCE-05**: Tests cover global owner access, non-owner denial, mixed-workspace previews, server-resolved evaluation workspace and global aggregate filters.
 
 ## Future Requirements
 
@@ -98,41 +98,41 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 | --- | --- | --- |
-| ACCESS-01 | Phase 157 | Pending |
-| ACCESS-02 | Phase 157 | Pending |
-| ACCESS-03 | Phase 157 | Pending |
-| ACCESS-04 | Phase 157 | Pending |
-| CAPTURE-01 | Phase 158 | Pending |
-| CAPTURE-02 | Phase 158 | Pending |
-| CAPTURE-03 | Phase 158 | Pending |
-| CAPTURE-04 | Phase 158 | Pending |
-| CAPTURE-05 | Phase 158 | Pending |
-| QUEUE-01 | Phase 159 | Pending |
-| QUEUE-02 | Phase 159 | Pending |
-| QUEUE-03 | Phase 159 | Pending |
-| QUEUE-04 | Phase 159 | Pending |
-| QUEUE-05 | Phase 159 | Pending |
-| EVAL-01 | Phase 160 | Pending |
-| EVAL-02 | Phase 160 | Pending |
-| EVAL-03 | Phase 160 | Pending |
-| EVAL-04 | Phase 160 | Pending |
-| EVAL-05 | Phase 160 | Pending |
-| LOOP-01 | Phase 160 | Pending |
-| LOOP-02 | Phase 160 | Pending |
-| LOOP-03 | Phase 161 | Pending |
-| LOOP-04 | Phase 161 | Pending |
-| LOOP-05 | Phase 161 | Pending |
-| EVIDENCE-01 | Phase 161 | Pending |
-| EVIDENCE-02 | Phase 161 | Pending |
-| EVIDENCE-03 | Phase 161 | Pending |
-| EVIDENCE-04 | Phase 161 | Pending |
-| EVIDENCE-05 | Phase 161 | Pending |
+| ACCESS-01 | Phase 157 | Complete |
+| ACCESS-02 | Phase 157 | Complete |
+| ACCESS-03 | Phase 157 | Complete |
+| ACCESS-04 | Phase 157 | Complete |
+| CAPTURE-01 | Phase 158 | Complete |
+| CAPTURE-02 | Phase 158 | Complete |
+| CAPTURE-03 | Phase 158 | Complete |
+| CAPTURE-04 | Phase 158 | Complete |
+| CAPTURE-05 | Phase 158 | Complete |
+| QUEUE-01 | Phase 159 | Complete |
+| QUEUE-02 | Phase 159 | Complete |
+| QUEUE-03 | Phase 159 | Complete |
+| QUEUE-04 | Phase 159 | Complete |
+| QUEUE-05 | Phase 159 | Complete |
+| EVAL-01 | Phase 160 | Complete |
+| EVAL-02 | Phase 160 | Complete |
+| EVAL-03 | Phase 160 | Complete |
+| EVAL-04 | Phase 160 | Complete |
+| EVAL-05 | Phase 160 | Complete |
+| LOOP-01 | Phase 160 | Complete |
+| LOOP-02 | Phase 160 | Complete |
+| LOOP-03 | Phase 161 | Complete |
+| LOOP-04 | Phase 161 | Complete |
+| LOOP-05 | Phase 161 | Complete |
+| EVIDENCE-01 | Phase 161 | Complete |
+| EVIDENCE-02 | Phase 161 | Complete |
+| EVIDENCE-03 | Phase 161 | Complete |
+| EVIDENCE-04 | Phase 161 | Complete |
+| EVIDENCE-05 | Phase 161 | Complete |
 
 **Coverage:**
-- v13.1 requirements: 29 total
+- v13.1 requirements: 29 total (29 complete)
 - Mapped to phases: 29
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-06-20 — v13.1 Global Owner Quality Corpus*
-*Last updated: 2026-06-20 after roadmap traceability mapping*
+*Last updated: 2026-06-20 after milestone audit reconciliation*

@@ -100,4 +100,33 @@ describe("page primitives", () => {
     expect(screen.getByRole("navigation", { name: "Settings" })).toHaveClass("overflow-x-auto");
     expect(screen.getByRole("button", { name: "Billing" })).toHaveAttribute("aria-current", "page");
   });
+
+  it("ResponsiveTabs disables tabs and blocks selection", () => {
+    let active = "profile";
+
+    render(
+      <ResponsiveTabs
+        ariaLabel="Settings"
+        activeId={active}
+        onSelect={(id) => {
+          active = id;
+        }}
+        items={[
+          { id: "profile", label: "Profile", disabled: true, badge: <span>Em breve</span> },
+          { id: "billing", label: "Billing" },
+        ]}
+      />,
+    );
+
+    const disabledTab = screen.getByRole("button", { name: /Profile/i });
+    expect(disabledTab).toBeDisabled();
+    expect(disabledTab).toHaveAttribute("aria-disabled", "true");
+    expect(disabledTab).toHaveClass("opacity-50");
+
+    fireEvent.click(disabledTab);
+    expect(active).toBe("profile");
+
+    fireEvent.click(screen.getByRole("button", { name: "Billing" }));
+    expect(active).toBe("billing");
+  });
 });

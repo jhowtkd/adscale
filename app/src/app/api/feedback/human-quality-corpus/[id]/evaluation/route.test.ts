@@ -51,6 +51,43 @@ describe("POST /api/feedback/human-quality-corpus/[id]/evaluation", () => {
     });
   });
 
+  it("submits structured human evaluation without workspaceId for global mode", async () => {
+    mockSubmit.mockResolvedValue({
+      item: { id: ITEM_ID, status: "evaluated" },
+      evaluation: {
+        id: "eval-1",
+        visualScore: 82,
+        factualPass: true,
+        intent: "approve",
+        primaryFailureReason: "other",
+      },
+    } as never);
+
+    const { workspaceId: _workspaceId, ...globalBody } = validEvaluationBody;
+
+    const res = await POST(
+      new Request(
+        `http://localhost/api/feedback/human-quality-corpus/${ITEM_ID}/evaluation`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(globalBody),
+        }
+      ),
+      { params: Promise.resolve({ id: ITEM_ID }) }
+    );
+
+    expect(res.status).toBe(201);
+    expect(mockSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        corpusItemId: ITEM_ID,
+        reviewerUserId: "reviewer-1",
+        visualScore: 82,
+      })
+    );
+    expect(mockSubmit.mock.calls[0][0].workspaceId).toBeUndefined();
+  });
+
   it("submits structured human evaluation for platform owner", async () => {
     mockSubmit.mockResolvedValue({
       item: { id: ITEM_ID, status: "evaluated" },
@@ -90,6 +127,33 @@ describe("POST /api/feedback/human-quality-corpus/[id]/evaluation", () => {
         intent: "approve",
       })
     );
+  });
+
+  it("returns 400 when workspace scope mismatches corpus item", async () => {
+    mockSubmit.mockRejectedValue(
+      new HumanQualityServiceError(
+        "Corpus item does not belong to workspace",
+        "corpus_item_workspace_mismatch"
+      )
+    );
+
+    const res = await POST(
+      new Request(
+        `http://localhost/api/feedback/human-quality-corpus/${ITEM_ID}/evaluation`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            ...validEvaluationBody,
+            workspaceId: "550e8400-e29b-41d4-a716-446655440099",
+            intent: "approve",
+          }),
+        }
+      ),
+      { params: Promise.resolve({ id: ITEM_ID }) }
+    );
+
+    expect(res.status).toBe(400);
   });
 
   it("returns 403 when not platform owner", async () => {

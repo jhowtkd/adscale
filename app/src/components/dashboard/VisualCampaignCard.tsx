@@ -80,6 +80,21 @@ const VisualCampaignCard = memo(function VisualCampaignCard({
   const statusInfo = statusConfig[status] ?? statusConfig.draft;
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [imageDimensions, setImageDimensions] = useState<{
+    width: number;
+    height: number;
+  } | null>(null);
+
+  const handleImageLoad = (event: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = event.currentTarget;
+    if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+      setImageDimensions({
+        width: img.naturalWidth,
+        height: img.naturalHeight,
+      });
+    }
+    setImageLoaded(true);
+  };
 
   const formattedDate = useMemo(
     () =>
@@ -115,8 +130,13 @@ const VisualCampaignCard = memo(function VisualCampaignCard({
         className="block outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-green)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--deep-bg)] rounded-2xl"
         aria-label={`${t("openCampaign")}: ${name}`}
       >
-        {/* Thumbnail Area */}
-        <div className="relative aspect-[4/3] overflow-hidden bg-[var(--surface-raised)]">
+        {/* Thumbnail Area — natural height from image aspect ratio for masonry layout */}
+        <div
+          className={cn(
+            "relative overflow-hidden bg-[var(--surface-raised)]",
+            (!thumbnailUrl || imageError || !imageLoaded) && "aspect-[4/3]",
+          )}
+        >
           {thumbnailUrl && !imageError ? (
             <>
               <Image
@@ -125,14 +145,14 @@ const VisualCampaignCard = memo(function VisualCampaignCard({
                 loading="eager"
                 decoding="async"
                 className={cn(
-                  "size-full object-cover transition-transform duration-500 group-hover:scale-105",
+                  "block w-full h-auto object-cover transition-transform duration-500 group-hover:scale-105",
                   !imageLoaded && "opacity-0",
                   reducedMotion && "group-hover:scale-100",
                 )}
-                onLoad={() => setImageLoaded(true)}
+                onLoad={handleImageLoad}
                 onError={() => setImageError(true)}
-                width={800}
-                height={800}
+                width={imageDimensions?.width ?? 800}
+                height={imageDimensions?.height ?? 600}
                 unoptimized
               />
               {!imageLoaded && (

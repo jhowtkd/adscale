@@ -195,6 +195,21 @@ function renderPanel() {
   );
 }
 
+function switchToWorkspaceScope() {
+  fireEvent.click(screen.getByRole("button", { name: "workspace" }));
+}
+
+function enterWorkspaceId(id: string) {
+  fireEvent.change(screen.getByLabelText("Workspace ID"), {
+    target: { value: id },
+  });
+}
+
+function useWorkspaceScope(id = WORKSPACE_ID) {
+  switchToWorkspaceScope();
+  enterWorkspaceId(id);
+}
+
 function mockQueueOnly() {
   mockApiFetch.mockImplementation(async (url: string, init?: RequestInit) => {
     if (
@@ -288,22 +303,50 @@ describe("HumanQualityCorpusPanel", () => {
     mockApiFetch.mockResolvedValue({ ok: false, status: 403 } as Response);
 
     const { container } = renderPanel();
-    fireEvent.change(screen.getByLabelText("Workspace ID"), {
-      target: { value: WORKSPACE_ID },
-    });
 
     await waitFor(() => {
       expect(container.querySelector("section")).toBeNull();
     });
   });
 
+  it("loads global queue by default without workspace ID", async () => {
+    mockQueueOnly();
+
+    renderPanel();
+
+    expect(await screen.findByText("Human quality corpus")).toBeInTheDocument();
+    expect(await screen.findByLabelText("Queue progress")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Workspace ID")).not.toBeInTheDocument();
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      expect.stringMatching(/\/api\/feedback\/human-quality-corpus\?.*limit=50/)
+    );
+    expect(mockApiFetch).toHaveBeenCalledWith(expect.not.stringContaining("workspaceId="));
+  });
+
+  it("shows global empty state when queue has no items", async () => {
+    mockApiFetch.mockImplementation(async (url: string) => {
+      if (url.includes("human-quality-corpus")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => queueJson([], { ...queueProgress, totalPending: 0 }),
+        } as Response;
+      }
+      return { ok: false, status: 403 } as Response;
+    });
+
+    renderPanel();
+
+    expect(
+      await screen.findByText(/Open the Candidates tab to promote captured creatives/)
+    ).toBeInTheDocument();
+  });
+
   it("renders one pending item with evaluation form and queue metadata", async () => {
     mockQueueOnly();
 
     renderPanel();
-    fireEvent.change(screen.getByLabelText("Workspace ID"), {
-      target: { value: WORKSPACE_ID },
-    });
+    useWorkspaceScope();
 
     expect(await screen.findByText("Human quality corpus")).toBeInTheDocument();
     expect(await screen.findByLabelText("Queue progress")).toBeInTheDocument();
@@ -354,13 +397,10 @@ describe("HumanQualityCorpusPanel", () => {
     });
 
     renderPanel();
-    fireEvent.change(screen.getByLabelText("Workspace ID"), {
-      target: { value: WORKSPACE_ID },
-    });
 
     await screen.findByText("Human quality corpus");
     await screen.findByLabelText("Visual score (0–100)");
-    expect(screen.getByRole("button", { name: "Submit & next" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Submit/ })).toBeDisabled();
 
     fireEvent.change(screen.getByLabelText("Visual score (0–100)"), {
       target: { value: "68" },
@@ -375,8 +415,8 @@ describe("HumanQualityCorpusPanel", () => {
       target: { value: "weak_hierarchy" },
     });
 
-    expect(screen.getByRole("button", { name: "Submit & next" })).toBeEnabled();
-    fireEvent.click(screen.getByRole("button", { name: "Submit & next" }));
+    expect(screen.getByRole("button", { name: /Submit/ })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: /Submit/ }));
 
     await waitFor(() => {
       expect(mockApiFetch).toHaveBeenCalledWith(
@@ -396,9 +436,7 @@ describe("HumanQualityCorpusPanel", () => {
     mockQueueOnly();
 
     renderPanel();
-    fireEvent.change(screen.getByLabelText("Workspace ID"), {
-      target: { value: WORKSPACE_ID },
-    });
+    useWorkspaceScope();
 
     await screen.findByText("Queue progress");
 
@@ -430,9 +468,7 @@ describe("HumanQualityCorpusPanel", () => {
     });
 
     renderPanel();
-    fireEvent.change(screen.getByLabelText("Workspace ID"), {
-      target: { value: WORKSPACE_ID },
-    });
+    useWorkspaceScope();
 
     await screen.findByLabelText("Visual score (0–100)");
     fireEvent.change(screen.getByLabelText("Visual score (0–100)"), {
@@ -506,9 +542,7 @@ describe("HumanQualityCorpusPanel", () => {
     });
 
     renderPanel();
-    fireEvent.change(screen.getByLabelText("Workspace ID"), {
-      target: { value: WORKSPACE_ID },
-    });
+    useWorkspaceScope();
 
     expect(await screen.findByText(/Queue is clear/)).toBeInTheDocument();
     expect(screen.getByText("0 pending · 12 evaluated")).toBeInTheDocument();
@@ -534,9 +568,7 @@ describe("HumanQualityCorpusPanel", () => {
     });
 
     renderPanel();
-    fireEvent.change(screen.getByLabelText("Workspace ID"), {
-      target: { value: WORKSPACE_ID },
-    });
+    useWorkspaceScope();
 
     expect(
       await screen.findByText(/Corpus evaluation queue is restricted to platform owners/)
@@ -577,9 +609,7 @@ describe("HumanQualityCorpusPanel calibration tab", () => {
     });
 
     renderPanel();
-    fireEvent.change(screen.getByLabelText("Workspace ID"), {
-      target: { value: WORKSPACE_ID },
-    });
+    useWorkspaceScope();
 
     await screen.findByText("Human quality corpus");
     fireEvent.click(screen.getByRole("button", { name: "Calibration" }));
@@ -637,9 +667,7 @@ describe("HumanQualityCorpusPanel calibration tab", () => {
     });
 
     renderPanel();
-    fireEvent.change(screen.getByLabelText("Workspace ID"), {
-      target: { value: WORKSPACE_ID },
-    });
+    useWorkspaceScope();
 
     await screen.findByText("Human quality corpus");
     fireEvent.click(screen.getByRole("button", { name: "Calibration" }));
@@ -679,9 +707,7 @@ describe("HumanQualityCorpusPanel impact tab", () => {
     });
 
     renderPanel();
-    fireEvent.change(screen.getByLabelText("Workspace ID"), {
-      target: { value: WORKSPACE_ID },
-    });
+    useWorkspaceScope();
 
     await screen.findByText("Human quality corpus");
     fireEvent.click(screen.getByRole("button", { name: "Impact" }));
@@ -743,9 +769,7 @@ describe("HumanQualityCorpusPanel impact tab", () => {
     });
 
     renderPanel();
-    fireEvent.change(screen.getByLabelText("Workspace ID"), {
-      target: { value: WORKSPACE_ID },
-    });
+    useWorkspaceScope();
 
     await screen.findByText("Human quality corpus");
     fireEvent.click(screen.getByRole("button", { name: "Impact" }));
@@ -839,9 +863,7 @@ describe("HumanQualityCorpusPanel quality tab", () => {
     });
 
     renderPanel();
-    fireEvent.change(screen.getByLabelText("Workspace ID"), {
-      target: { value: WORKSPACE_ID },
-    });
+    useWorkspaceScope();
 
     await screen.findByText("Human quality corpus");
     fireEvent.click(screen.getByRole("button", { name: "Quality" }));
@@ -917,9 +939,7 @@ describe("HumanQualityCorpusPanel quality tab", () => {
     });
 
     renderPanel();
-    fireEvent.change(screen.getByLabelText("Workspace ID"), {
-      target: { value: WORKSPACE_ID },
-    });
+    useWorkspaceScope();
 
     await screen.findByText("Human quality corpus");
     fireEvent.click(screen.getByRole("button", { name: "Quality" }));
@@ -992,9 +1012,7 @@ describe("HumanQualityCorpusPanel coverage tab", () => {
     });
 
     renderPanel();
-    fireEvent.change(screen.getByLabelText("Workspace ID"), {
-      target: { value: WORKSPACE_ID },
-    });
+    useWorkspaceScope();
 
     await screen.findByText("Human quality corpus");
     fireEvent.click(screen.getByRole("button", { name: "Coverage" }));
@@ -1116,9 +1134,7 @@ describe("HumanQualityCorpusPanel trend tab", () => {
     mockTrendApis();
 
     renderPanel();
-    fireEvent.change(screen.getByLabelText("Workspace ID"), {
-      target: { value: WORKSPACE_ID },
-    });
+    useWorkspaceScope();
 
     await screen.findByText("Human quality corpus");
     expect(screen.getByRole("button", { name: "Trend" })).toBeInTheDocument();
@@ -1128,9 +1144,7 @@ describe("HumanQualityCorpusPanel trend tab", () => {
     mockApiFetch.mockResolvedValue({ ok: false, status: 403 } as Response);
 
     const { container } = renderPanel();
-    fireEvent.change(screen.getByLabelText("Workspace ID"), {
-      target: { value: WORKSPACE_ID },
-    });
+    useWorkspaceScope();
 
     await waitFor(() => {
       expect(container.querySelector("section")).toBeNull();
@@ -1169,9 +1183,7 @@ describe("HumanQualityCorpusPanel trend tab", () => {
     });
 
     renderPanel();
-    fireEvent.change(screen.getByLabelText("Workspace ID"), {
-      target: { value: WORKSPACE_ID },
-    });
+    useWorkspaceScope();
 
     await screen.findByText("Human quality corpus");
     fireEvent.click(screen.getByRole("button", { name: "Trend" }));
@@ -1202,9 +1214,7 @@ describe("HumanQualityCorpusPanel trend tab", () => {
     });
 
     renderPanel();
-    fireEvent.change(screen.getByLabelText("Workspace ID"), {
-      target: { value: WORKSPACE_ID },
-    });
+    useWorkspaceScope();
 
     await screen.findByText("Human quality corpus");
     fireEvent.click(screen.getByRole("button", { name: "Trend" }));
@@ -1220,9 +1230,7 @@ describe("HumanQualityCorpusPanel trend tab", () => {
     mockTrendApis();
 
     renderPanel();
-    fireEvent.change(screen.getByLabelText("Workspace ID"), {
-      target: { value: WORKSPACE_ID },
-    });
+    useWorkspaceScope();
 
     await screen.findByText("Human quality corpus");
     fireEvent.click(screen.getByRole("button", { name: "Trend" }));
@@ -1244,9 +1252,7 @@ describe("HumanQualityCorpusPanel trend tab", () => {
     mockTrendApis();
 
     renderPanel();
-    fireEvent.change(screen.getByLabelText("Workspace ID"), {
-      target: { value: WORKSPACE_ID },
-    });
+    useWorkspaceScope();
 
     await screen.findByText("Human quality corpus");
     fireEvent.click(screen.getByRole("button", { name: "Trend" }));
@@ -1273,9 +1279,7 @@ describe("HumanQualityCorpusPanel trend tab", () => {
     mockTrendApis();
 
     renderPanel();
-    fireEvent.change(screen.getByLabelText("Workspace ID"), {
-      target: { value: WORKSPACE_ID },
-    });
+    useWorkspaceScope();
 
     await screen.findByText("Human quality corpus");
     fireEvent.click(screen.getByRole("button", { name: "Trend" }));

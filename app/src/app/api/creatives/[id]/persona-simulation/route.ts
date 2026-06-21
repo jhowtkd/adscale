@@ -9,6 +9,7 @@ import {
   createPersonaSimulation,
   getPersonaSimulationBySource,
   isCacheValid,
+  updatePersonaSimulation,
 } from "@/server/repositories/persona-simulation";
 import { simulatePersonas } from "@/server/ai/persona-simulator";
 import { recordBrandMemoryEvent } from "@/server/memory/brand-memory-dispatch";
@@ -102,13 +103,15 @@ export async function POST(
       locale: "pt-BR",
     });
 
-    const simulation = await createPersonaSimulation(
-      workspace.id,
-      campaign.id,
-      sourceType,
-      creativeId,
-      results
-    );
+    const simulation = cached
+      ? await updatePersonaSimulation(cached.id, results)
+      : await createPersonaSimulation(
+          workspace.id,
+          campaign.id,
+          sourceType,
+          creativeId,
+          results
+        );
 
     await recordBrandMemoryEvent({
       type: "persona_test_completed",

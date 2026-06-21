@@ -83,22 +83,19 @@ export default function CampaignsListView({
                     }
                   />
                 </TableHead>
-                <TableHead className="text-xs font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)] px-4 py-3">
+                <TableHead className="px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
                   {tc("campaign")}
                 </TableHead>
-                <TableHead className="text-xs font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)] px-4 py-3 w-[140px]">
+                <TableHead className="w-[120px] px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
                   {tc("platforms")}
                 </TableHead>
-                <TableHead className="text-xs font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)] px-4 py-3 w-[120px]">
+                <TableHead className="w-[110px] px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
                   {tc("status")}
                 </TableHead>
-                <TableHead className="text-xs font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)] px-4 py-3 w-[100px]">
+                <TableHead className="w-[90px] px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
                   {tc("variations")}
                 </TableHead>
-                <TableHead className="text-xs font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)] px-4 py-3 w-[100px] hidden md:table-cell">
-                  {tc("credits")}
-                </TableHead>
-                <TableHead className="text-xs font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)] px-4 py-3 w-[140px]">
+                <TableHead className="w-[120px] px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
                   {tc("modified")}
                 </TableHead>
                 <TableHead className="w-[56px] px-4 py-3" />

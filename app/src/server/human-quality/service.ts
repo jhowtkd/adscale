@@ -4,13 +4,25 @@ import { resolveCampaignClientProfileId } from "@/server/repositories/client-ref
 import { getDerivationById } from "@/server/repositories/derivation";
 import {
   findCorpusItemByDerivationVersion,
+  getCorpusItemByIdAnyWorkspace,
   getCorpusItemById,
   insertCorpusItem,
   listPendingCorpusItems,
+  listCorpusQueueItems,
   submitCorpusEvaluation,
   getCorpusOperationsProgress,
   type InsertCorpusItemInput,
+  type ListCorpusQueueFilters,
 } from "@/server/repositories/human-quality-corpus";
+import { findCorpusCandidateByDerivationVersion } from "@/server/repositories/human-quality-candidate";
+import {
+  findEvaluationByCorpusItemId,
+  insertFeedbackArtifact,
+} from "@/server/repositories/human-quality-feedback-artifact";
+import {
+  buildHumanQualityFeedbackArtifactPayload,
+  resolveCorpusSourceLabel,
+} from "./feedback-artifact";
 import type { HumanQualityCorpusItem } from "@/server/db/schema";
 import {
   buildQualitySnapshot,
@@ -52,8 +64,15 @@ export interface SelectCorpusItemInput {
 }
 
 export interface ListPendingCorpusQueueInput {
-  workspaceId: string;
+  workspaceId?: string;
   limit?: number;
+}
+
+export interface ListCorpusQueueInput extends ListCorpusQueueFilters {}
+
+export interface CorpusQueueItemView {
+  item: HumanQualityCorpusItem;
+  sourceLabel: import("./corpus").HumanQualitySourceLabel;
 }
 
 export const MAX_CORPUS_BATCH_SIZE = 25;
@@ -99,7 +118,7 @@ export interface BatchSelectCorpusResult {
 }
 
 export interface CorpusQueueProgress {
-  workspaceId: string;
+  workspaceId: string | null;
   totalPending: number;
   totalEvaluated: number;
   byCohort: Record<string, { pending: number; evaluated: number }>;
@@ -110,12 +129,12 @@ export interface CorpusQueueProgress {
   latestEvaluatedAt: string | null;
 }
 
-export interface GetCorpusQueueProgressInput {
-  workspaceId: string;
+export interface GetCorpusQueueProgressInput extends Omit<ListCorpusQueueFilters, "limit" | "status"> {
+  workspaceId?: string;
 }
 
 export interface SubmitHumanEvaluationInput {
-  workspaceId: string;
+  workspaceId?: string;
   corpusItemId: string;
   reviewerUserId: string;
   visualScore: unknown;
@@ -378,10 +397,10 @@ export async function batchSelectDerivationsForCorpus(
 export async function getCorpusQueueProgress(
   input: GetCorpusQueueProgressInput
 ): Promise<CorpusQueueProgress> {
-  const progress = await getCorpusOperationsProgress(input.workspaceId);
+  const progress = await getCorpusOperationsProgress(input.workspaceId, input);
 
   return {
-    workspaceId: input.workspaceId,
+    workspaceId: input.workspaceId ?? null,
     totalPending: progress.totalPending,
     totalEvaluated: progress.totalEvaluated,
     byCohort: progress.byCohort,
@@ -400,6 +419,12 @@ export async function listPendingCorpusQueue(
     workspaceId: input.workspaceId,
     limit: input.limit,
   });
+}
+
+export async function listCorpusQueue(
+  input: ListCorpusQueueInput
+): Promise<CorpusQueueItemView[]> {
+  return listCorpusQueueItems(input);
 }
 
 export async function submitHumanEvaluation(input: SubmitHumanEvaluationInput) {
@@ -427,9 +452,18 @@ export async function submitHumanEvaluation(input: SubmitHumanEvaluationInput) {
     );
   }
 
-  const item = await getCorpusItemById(input.workspaceId, input.corpusItemId);
+  const item = input.workspaceId
+    ? await getCorpusItemById(input.workspaceId, input.corpusItemId)
+    : await getCorpusItemByIdAnyWorkspace(input.corpusItemId);
   if (!item) {
     throw new HumanQualityServiceError("Corpus item not found", "corpus_item_not_found");
+  }
+
+  if (input.workspaceId && item.workspaceId !== input.workspaceId) {
+    throw new HumanQualityServiceError(
+      "Corpus item does not belong to workspace",
+      "corpus_item_workspace_mismatch"
+    );
   }
 
   if (item.status !== "pending") {
@@ -439,8 +473,16 @@ export async function submitHumanEvaluation(input: SubmitHumanEvaluationInput) {
     );
   }
 
-  return submitCorpusEvaluation({
-    workspaceId: input.workspaceId,
+  const existingEvaluation = await findEvaluationByCorpusItemId(input.corpusItemId);
+  if (existingEvaluation) {
+    throw new HumanQualityServiceError(
+      "Corpus item already has an evaluation",
+      "corpus_evaluation_duplicate"
+    );
+  }
+
+  const result = await submitCorpusEvaluation({
+    workspaceId: item.workspaceId,
     corpusItemId: input.corpusItemId,
     reviewerUserId: input.reviewerUserId,
     visualScore: visualScoreResult.value,
@@ -450,4 +492,31 @@ export async function submitHumanEvaluation(input: SubmitHumanEvaluationInput) {
     otherReasonText: input.otherReasonText,
     notes: input.notes,
   });
+
+  const candidate = await findCorpusCandidateByDerivationVersion(
+    item.workspaceId,
+    item.derivationId,
+    item.corpusVersion
+  );
+  const sourceLabel = resolveCorpusSourceLabel(candidate?.sourceLabel);
+  const payload = buildHumanQualityFeedbackArtifactPayload({
+    item: result.item,
+    evaluation: result.evaluation,
+  });
+
+  const feedbackArtifact = await insertFeedbackArtifact({
+    workspaceId: item.workspaceId,
+    corpusItemId: result.item.id,
+    evaluationId: result.evaluation.id,
+    derivationId: item.derivationId,
+    campaignId: item.campaignId,
+    clientProfileId: item.clientProfileId,
+    sourceLabel,
+    cohort: item.cohort,
+    generationMode: item.generationMode,
+    format: item.format,
+    payload,
+  });
+
+  return { ...result, feedbackArtifact };
 }

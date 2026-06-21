@@ -11,10 +11,12 @@ import {
   HUMAN_QUALITY_CORPUS_COHORTS,
   HUMAN_QUALITY_FAILURE_REASONS,
   HUMAN_QUALITY_INTENTS,
+  HUMAN_QUALITY_SOURCE_LABELS,
   type HumanQualityCorpusCohort,
   type HumanQualityFailureReason,
   type HumanQualityIntent,
   type HumanQualityQualitySnapshot,
+  type HumanQualitySourceLabel,
 } from "@/server/human-quality/corpus";
 import type { GroupSlice } from "@/server/human-quality/calibration/aggregate";
 import type { CalibrationComparison } from "@/server/human-quality/calibration/types";
@@ -34,6 +36,7 @@ type CorpusQueueItem = {
   qualitySnapshot: HumanQualityQualitySnapshot;
   selectedAt: string;
   previewImageUrl?: string | null;
+  sourceLabel?: HumanQualitySourceLabel;
 };
 
 type CorpusStatusCount = {
@@ -42,7 +45,7 @@ type CorpusStatusCount = {
 };
 
 type CorpusQueueProgress = {
-  workspaceId: string;
+  workspaceId: string | null;
   totalPending: number;
   totalEvaluated: number;
   byCohort: Record<string, CorpusStatusCount>;
@@ -200,6 +203,32 @@ type CalibrationReportResponse = {
   adjustments: AdjustmentProposalSummary[];
 };
 
+type GlobalCorpusEvidenceResponse = {
+  schemaVersion: 1;
+  capturedAt: string;
+  evaluatedItemCount: number;
+  pendingItemCount: number;
+  sourceComposition: Record<HumanQualitySourceLabel, number>;
+  fixtureOnly: boolean;
+  operationalStatus: string;
+  claimsAllowed: string[];
+  claimsBlocked: string[];
+  withheldClaims: string[];
+  dependsOnOperator: string[];
+};
+
+async function fetchGlobalCorpusEvidence(
+  cohort: HumanQualityCorpusCohort | ""
+): Promise<GlobalCorpusEvidenceResponse | null> {
+  const params = new URLSearchParams();
+  if (cohort) params.set("cohort", cohort);
+  const res = await apiFetch(`/api/feedback/global-corpus-evidence?${params.toString()}`);
+  if (res.status === 403) return null;
+  if (!res.ok) throw new Error("failed");
+  const payload = (await res.json()) as { report: GlobalCorpusEvidenceResponse };
+  return payload.report;
+}
+
 type SampleCoverageReportResponse = {
   schemaVersion: 1;
   capturedAt: string;
@@ -305,6 +334,7 @@ const CartesianGrid = dynamic(
 
 const PANEL_TABS = [
   { id: "queue", label: "Queue" },
+  { id: "candidates", label: "Candidates" },
   { id: "calibration", label: "Calibration" },
   { id: "impact", label: "Impact" },
   { id: "quality", label: "Quality" },
@@ -314,12 +344,68 @@ const PANEL_TABS = [
 
 type PanelTab = (typeof PANEL_TABS)[number]["id"];
 
-async function fetchPendingQueue(workspaceId: string): Promise<CorpusQueueResponse | null> {
+type CorpusScope = "global" | "workspace";
+
+type CorpusQueueFilterState = {
+  cohort: HumanQualityCorpusCohort | "";
+  generationMode: string;
+  format: string;
+  sourceLabel: HumanQualitySourceLabel | "";
+  status: "pending" | "evaluated" | "removed";
+};
+
+const DEFAULT_QUEUE_FILTERS: CorpusQueueFilterState = {
+  cohort: "",
+  generationMode: "",
+  format: "",
+  sourceLabel: "",
+  status: "pending",
+};
+
+async function fetchCorpusCandidates(
+  workspaceId: string | undefined
+): Promise<CorpusCandidateListResponse | null> {
+  const params = new URLSearchParams();
+  if (workspaceId) params.set("workspaceId", workspaceId);
+  const res = await apiFetch(`/api/feedback/human-quality-corpus/candidates?${params.toString()}`);
+  if (res.status === 403) return null;
+  if (!res.ok) throw new Error("failed");
+  return (await res.json()) as CorpusCandidateListResponse;
+}
+
+type CorpusCandidateListResponse = {
+  items: Array<{
+    id: string;
+    workspaceId: string;
+    campaignId: string;
+    derivationId: string;
+    generationMode: string;
+    format: string;
+    corpusVersion: number;
+    sourceLabel: HumanQualitySourceLabel;
+    qualitySnapshot: { qualityScore?: number | null; qualityVerdict?: string | null };
+    capturedAt: string;
+    previewImageUrl: string | null;
+  }>;
+  total: number;
+};
+
+async function fetchPendingQueue(
+  workspaceId: string | undefined,
+  filters: CorpusQueueFilterState
+): Promise<CorpusQueueResponse | null> {
   const params = new URLSearchParams({
-    workspaceId,
     limit: "50",
     includeProgress: "true",
+    status: filters.status,
   });
+  if (workspaceId) {
+    params.set("workspaceId", workspaceId);
+  }
+  if (filters.cohort) params.set("cohort", filters.cohort);
+  if (filters.generationMode) params.set("generationMode", filters.generationMode);
+  if (filters.format) params.set("format", filters.format);
+  if (filters.sourceLabel) params.set("sourceLabel", filters.sourceLabel);
   const res = await apiFetch(`/api/feedback/human-quality-corpus?${params.toString()}`);
   if (res.status === 403) return null;
   if (!res.ok) throw new Error("failed");
@@ -327,10 +413,11 @@ async function fetchPendingQueue(workspaceId: string): Promise<CorpusQueueRespon
 }
 
 async function fetchCalibrationReport(
-  workspaceId: string,
+  workspaceId: string | undefined,
   cohort: HumanQualityCorpusCohort | ""
 ): Promise<CalibrationReportResponse | null> {
-  const params = new URLSearchParams({ workspaceId });
+  const params = new URLSearchParams();
+  if (workspaceId) params.set("workspaceId", workspaceId);
   if (cohort) params.set("cohort", cohort);
   const res = await apiFetch(`/api/feedback/score-calibration?${params.toString()}`);
   if (res.status === 403) return null;
@@ -340,10 +427,11 @@ async function fetchCalibrationReport(
 }
 
 async function fetchLearningImpactReport(
-  workspaceId: string,
+  workspaceId: string | undefined,
   cohort: HumanQualityCorpusCohort | ""
 ): Promise<ImpactReportResponse | null> {
-  const params = new URLSearchParams({ workspaceId });
+  const params = new URLSearchParams();
+  if (workspaceId) params.set("workspaceId", workspaceId);
   if (cohort) params.set("cohort", cohort);
   const res = await apiFetch(`/api/feedback/learning-impact?${params.toString()}`);
   if (res.status === 403) return null;
@@ -353,10 +441,11 @@ async function fetchLearningImpactReport(
 }
 
 async function fetchQualityImprovementReport(
-  workspaceId: string,
+  workspaceId: string | undefined,
   cohort: HumanQualityCorpusCohort | ""
 ): Promise<QualityReportResponse | null> {
-  const params = new URLSearchParams({ workspaceId });
+  const params = new URLSearchParams();
+  if (workspaceId) params.set("workspaceId", workspaceId);
   if (cohort) params.set("cohort", cohort);
   const res = await apiFetch(`/api/feedback/quality-improvement?${params.toString()}`);
   if (res.status === 403) return null;
@@ -366,10 +455,11 @@ async function fetchQualityImprovementReport(
 }
 
 async function fetchSampleCoverage(
-  workspaceId: string,
+  workspaceId: string | undefined,
   cohort: HumanQualityCorpusCohort | ""
 ): Promise<SampleCoverageReportResponse | null> {
-  const params = new URLSearchParams({ workspaceId });
+  const params = new URLSearchParams();
+  if (workspaceId) params.set("workspaceId", workspaceId);
   if (cohort) params.set("cohort", cohort);
   const res = await apiFetch(`/api/feedback/sample-coverage?${params.toString()}`);
   if (res.status === 403) return null;
@@ -379,11 +469,12 @@ async function fetchSampleCoverage(
 }
 
 async function fetchQualityTrendReport(
-  workspaceId: string,
+  workspaceId: string | undefined,
   cohort: HumanQualityCorpusCohort | "",
   filters: TrendDimensionFilters
 ): Promise<QualityTrendReportResponse | null> {
-  const params = new URLSearchParams({ workspaceId });
+  const params = new URLSearchParams();
+  if (workspaceId) params.set("workspaceId", workspaceId);
   if (cohort) params.set("cohort", cohort);
   if (filters.generationMode) params.set("generationMode", filters.generationMode);
   if (filters.format) params.set("format", filters.format);
@@ -546,7 +637,7 @@ function QueueProgressSummary({
 }
 
 function buildEvaluationPayload(input: {
-  workspaceId: string;
+  workspaceId?: string;
   visualScore: number;
   factualPass: boolean;
   intent: HumanQualityIntent;
@@ -554,8 +645,7 @@ function buildEvaluationPayload(input: {
   otherReasonText: string | null;
   notes: string | null;
 }) {
-  return {
-    workspaceId: input.workspaceId,
+  const payload: Record<string, unknown> = {
     visualScore: input.visualScore,
     factualPass: input.factualPass,
     intent: input.intent,
@@ -563,6 +653,10 @@ function buildEvaluationPayload(input: {
     otherReasonText: input.otherReasonText,
     notes: input.notes,
   };
+  if (input.workspaceId) {
+    payload.workspaceId = input.workspaceId;
+  }
+  return payload;
 }
 
 function formatSignedDelta(value: number | null): string {
@@ -1552,12 +1646,129 @@ function TrendTabContent({
   );
 }
 
+function CandidatesTabContent({
+  items,
+  isLoading,
+  isError,
+  promoteCohort,
+  onPromoteCohortChange,
+  promotingId,
+  onPromote,
+}: {
+  items: CorpusCandidateListResponse["items"];
+  isLoading: boolean;
+  isError: boolean;
+  promoteCohort: HumanQualityCorpusCohort;
+  onPromoteCohortChange: (cohort: HumanQualityCorpusCohort) => void;
+  promotingId: string | null;
+  onPromote: (candidateId: string) => void;
+}) {
+  if (isLoading) {
+    return <p className="text-sm text-[var(--text-muted)]">Loading captured candidates…</p>;
+  }
+
+  if (isError) {
+    return (
+      <p className="text-sm text-[var(--text-muted)]">
+        Candidate list unavailable for this scope.
+      </p>
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <p className="rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-muted)]">
+        No unpromoted candidates yet. Completed derivations are captured automatically after
+        quality-gate — check back after new creatives finish generating.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="grid max-w-xs gap-1 text-xs">
+          <span className="font-medium text-[var(--text-primary)]">Promote into cohort</span>
+          <select
+            value={promoteCohort}
+            onChange={(e) => onPromoteCohortChange(e.target.value as HumanQualityCorpusCohort)}
+            aria-label="Promote cohort"
+            className="h-9 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-2"
+          >
+            {HUMAN_QUALITY_CORPUS_COHORTS.map((cohort) => (
+              <option key={cohort} value={cohort}>
+                {cohort}
+              </option>
+            ))}
+          </select>
+        </label>
+        <p className="text-xs text-[var(--text-secondary)]">{items.length} unpromoted candidate(s)</p>
+      </div>
+
+      <div className="overflow-x-auto rounded-md border border-[var(--border-dim)]">
+        <table className="min-w-full text-xs">
+          <thead className="bg-[var(--surface-base)] text-[var(--text-muted)]">
+            <tr>
+              <th className="px-2 py-1.5 text-left font-medium">Preview</th>
+              <th className="px-2 py-1.5 text-left font-medium">Mode / format</th>
+              <th className="px-2 py-1.5 text-left font-medium">Source</th>
+              <th className="px-2 py-1.5 text-left font-medium">Workspace</th>
+              <th className="px-2 py-1.5 text-right font-medium">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item) => (
+              <tr key={item.id} className="border-t border-[var(--border-dim)]">
+                <td className="px-2 py-1.5">
+                  {item.previewImageUrl ? (
+                    <div className="relative h-12 w-12 overflow-hidden rounded border border-[var(--border-dim)]">
+                      <Image
+                        src={item.previewImageUrl}
+                        alt="Candidate preview"
+                        fill
+                        sizes="48px"
+                        className="object-contain"
+                        unoptimized
+                      />
+                    </div>
+                  ) : (
+                    <span className="text-[var(--text-muted)]">—</span>
+                  )}
+                </td>
+                <td className="px-2 py-1.5 text-[var(--text-primary)]">
+                  {item.generationMode} · {item.format || "—"} · v{item.corpusVersion}
+                </td>
+                <td className="px-2 py-1.5">{item.sourceLabel}</td>
+                <td className="px-2 py-1.5 font-mono text-[10px]">
+                  {item.workspaceId.slice(0, 8)}…
+                </td>
+                <td className="px-2 py-1.5 text-right">
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={promotingId === item.id}
+                    onClick={() => onPromote(item.id)}
+                  >
+                    {promotingId === item.id ? "Promoting…" : "Promote"}
+                  </Button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function CoverageTabContent({
   report,
+  globalEvidence,
   isLoading,
   isError,
 }: {
   report: SampleCoverageReportResponse | null | undefined;
+  globalEvidence?: GlobalCorpusEvidenceResponse | null;
   isLoading: boolean;
   isError: boolean;
 }) {
@@ -1568,13 +1779,45 @@ function CoverageTabContent({
   if (isError || report == null) {
     return (
       <p className="text-sm text-[var(--text-muted)]">
-        Sample coverage report unavailable for this workspace.
+        Sample coverage report unavailable for this scope.
       </p>
     );
   }
 
   return (
     <div className="space-y-4">
+      {globalEvidence ? (
+        <div className="space-y-2 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] p-3">
+          <h3 className="text-sm font-semibold text-[var(--text-primary)]">Global evidence</h3>
+          <dl className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <MetadataRow
+              label="Operational status"
+              value={globalEvidence.operationalStatus}
+            />
+            <MetadataRow
+              label="Pending items"
+              value={String(globalEvidence.pendingItemCount)}
+            />
+            <MetadataRow
+              label="Fixture only"
+              value={globalEvidence.fixtureOnly ? "yes" : "no"}
+            />
+            <MetadataRow
+              label="Source mix"
+              value={`real ${globalEvidence.sourceComposition.real_customer} · synth ${globalEvidence.sourceComposition.synthetic_fixture} · op ${globalEvidence.sourceComposition.operator_imported}`}
+            />
+          </dl>
+          {globalEvidence.withheldClaims.length > 0 ? (
+            <p className="text-xs text-[var(--text-secondary)]">
+              Withheld claims: {globalEvidence.withheldClaims.join("; ")}
+            </p>
+          ) : null}
+          {globalEvidence.dependsOnOperator.length > 0 ? (
+            <p className="text-xs text-amber-400">{globalEvidence.dependsOnOperator[0]}</p>
+          ) : null}
+        </div>
+      ) : null}
+
       <div>
         <h3 className="text-sm font-semibold text-[var(--text-primary)]">Sample coverage</h3>
         <p className="text-xs text-[var(--text-secondary)]">
@@ -1664,7 +1907,9 @@ function CoverageTabContent({
 export function HumanQualityCorpusPanel() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<PanelTab>("queue");
+  const [corpusScope, setCorpusScope] = useState<CorpusScope>("global");
   const [workspaceId, setWorkspaceId] = useState("");
+  const [queueFilters, setQueueFilters] = useState<CorpusQueueFilterState>(DEFAULT_QUEUE_FILTERS);
   const [cohortFilter, setCohortFilter] = useState<HumanQualityCorpusCohort | "">("");
   const [trendFilters, setTrendFilters] = useState<TrendDimensionFilters>({
     generationMode: "",
@@ -1680,45 +1925,110 @@ export function HumanQualityCorpusPanel() {
   const [otherReasonText, setOtherReasonText] = useState("");
   const [notes, setNotes] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [promoteCohort, setPromoteCohort] = useState<HumanQualityCorpusCohort>("baseline");
+  const [promotingCandidateId, setPromotingCandidateId] = useState<string | null>(null);
 
   const queueQuery = useQuery({
-    queryKey: ["human-quality-corpus-queue", workspaceId],
-    queryFn: () => fetchPendingQueue(workspaceId),
-    enabled: Boolean(workspaceId),
+    queryKey: [
+      "human-quality-corpus-queue",
+      corpusScope,
+      workspaceId,
+      queueFilters.cohort,
+      queueFilters.generationMode,
+      queueFilters.format,
+      queueFilters.sourceLabel,
+      queueFilters.status,
+    ],
+    queryFn: () =>
+      fetchPendingQueue(
+        corpusScope === "workspace" ? workspaceId : undefined,
+        queueFilters
+      ),
+    enabled: corpusScope === "global" || Boolean(workspaceId),
     retry: false,
   });
 
+  const analyticsEnabled =
+    corpusScope === "global" || (corpusScope === "workspace" && Boolean(workspaceId));
+  const scopedWorkspaceId = corpusScope === "workspace" ? workspaceId : undefined;
+
   const calibrationQuery = useQuery({
-    queryKey: ["score-calibration", workspaceId, cohortFilter],
-    queryFn: () => fetchCalibrationReport(workspaceId, cohortFilter),
-    enabled: Boolean(workspaceId),
+    queryKey: ["score-calibration", corpusScope, workspaceId, cohortFilter],
+    queryFn: () => fetchCalibrationReport(scopedWorkspaceId, cohortFilter),
+    enabled: analyticsEnabled,
     retry: false,
   });
 
   const impactQuery = useQuery({
-    queryKey: ["learning-impact", workspaceId, cohortFilter],
-    queryFn: () => fetchLearningImpactReport(workspaceId, cohortFilter),
-    enabled: Boolean(workspaceId),
+    queryKey: ["learning-impact", corpusScope, workspaceId, cohortFilter],
+    queryFn: () => fetchLearningImpactReport(scopedWorkspaceId, cohortFilter),
+    enabled: analyticsEnabled,
     retry: false,
   });
 
   const qualityQuery = useQuery({
-    queryKey: ["quality-improvement", workspaceId, cohortFilter],
-    queryFn: () => fetchQualityImprovementReport(workspaceId, cohortFilter),
-    enabled: Boolean(workspaceId),
+    queryKey: ["quality-improvement", corpusScope, workspaceId, cohortFilter],
+    queryFn: () => fetchQualityImprovementReport(scopedWorkspaceId, cohortFilter),
+    enabled: analyticsEnabled,
     retry: false,
   });
 
   const coverageQuery = useQuery({
-    queryKey: ["sample-coverage", workspaceId, cohortFilter],
-    queryFn: () => fetchSampleCoverage(workspaceId, cohortFilter),
-    enabled: Boolean(workspaceId),
+    queryKey: ["sample-coverage", corpusScope, workspaceId, cohortFilter],
+    queryFn: () => fetchSampleCoverage(scopedWorkspaceId, cohortFilter),
+    enabled: analyticsEnabled,
     retry: false,
+  });
+
+  const globalEvidenceQuery = useQuery({
+    queryKey: ["global-corpus-evidence", cohortFilter],
+    queryFn: () => fetchGlobalCorpusEvidence(cohortFilter),
+    enabled: corpusScope === "global" && activeTab === "coverage",
+    retry: false,
+  });
+
+  const candidatesQuery = useQuery({
+    queryKey: ["corpus-candidates", corpusScope, workspaceId],
+    queryFn: () =>
+      fetchCorpusCandidates(corpusScope === "workspace" ? workspaceId : undefined),
+    enabled: activeTab === "candidates" && analyticsEnabled,
+    retry: false,
+  });
+
+  const promoteCandidateMutation = useMutation({
+    mutationFn: async (candidateId: string) => {
+      const res = await apiFetch(
+        `/api/feedback/human-quality-corpus/candidates/${candidateId}/promote`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ cohort: promoteCohort }),
+        }
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err.error as string | undefined) ?? "Promote failed");
+      }
+      return res.json();
+    },
+    onMutate: (candidateId) => {
+      setPromotingCandidateId(candidateId);
+    },
+    onSettled: () => {
+      setPromotingCandidateId(null);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["corpus-candidates"] });
+      void queryClient.invalidateQueries({
+        queryKey: ["human-quality-corpus-queue", corpusScope, workspaceId],
+      });
+    },
   });
 
   const trendQuery = useQuery({
     queryKey: [
       "quality-trend",
+      corpusScope,
       workspaceId,
       cohortFilter,
       trendFilters.generationMode,
@@ -1726,8 +2036,8 @@ export function HumanQualityCorpusPanel() {
       trendFilters.clientProfileId,
       trendFilters.primaryFailureReason,
     ],
-    queryFn: () => fetchQualityTrendReport(workspaceId, cohortFilter, trendFilters),
-    enabled: Boolean(workspaceId),
+    queryFn: () => fetchQualityTrendReport(scopedWorkspaceId, cohortFilter, trendFilters),
+    enabled: analyticsEnabled,
     retry: false,
   });
 
@@ -1748,7 +2058,8 @@ export function HumanQualityCorpusPanel() {
 
   const submitMutation = useMutation({
     mutationFn: async () => {
-      if (!currentItem || !workspaceId) throw new Error("missing item");
+      if (!currentItem) throw new Error("missing item");
+      if (corpusScope === "workspace" && !workspaceId) throw new Error("missing workspace");
       const parsedScore = Number(visualScore);
       if (!Number.isInteger(parsedScore) || parsedScore < 0 || parsedScore > 100) {
         throw new Error("Visual score must be an integer from 0 to 100");
@@ -1769,7 +2080,7 @@ export function HumanQualityCorpusPanel() {
       }
 
       const evaluationBody = buildEvaluationPayload({
-        workspaceId,
+        workspaceId: corpusScope === "workspace" ? workspaceId : undefined,
         visualScore: parsedScore,
         factualPass: factualPass === "true",
         intent: intent as HumanQualityIntent,
@@ -1801,7 +2112,18 @@ export function HumanQualityCorpusPanel() {
     },
     onSuccess: () => {
       resetForm();
-      void queryClient.invalidateQueries({ queryKey: ["human-quality-corpus-queue", workspaceId] });
+      void queryClient.invalidateQueries({
+        queryKey: [
+          "human-quality-corpus-queue",
+          corpusScope,
+          workspaceId,
+          queueFilters.cohort,
+          queueFilters.generationMode,
+          queueFilters.format,
+          queueFilters.sourceLabel,
+          queueFilters.status,
+        ],
+      });
       void queryClient.invalidateQueries({
         queryKey: ["score-calibration", workspaceId, cohortFilter],
       });
@@ -1851,7 +2173,12 @@ export function HumanQualityCorpusPanel() {
   const coverageForbidden = coverageQuery.isFetched && coverageQuery.data === null;
   const trendForbidden = trendQuery.isFetched && trendQuery.data === null;
 
+  if (corpusScope === "global" && queueQuery.isFetched && queueForbidden) {
+    return null;
+  }
+
   if (
+    corpusScope === "workspace" &&
     workspaceId &&
     queueQuery.isFetched &&
     calibrationQuery.isFetched &&
@@ -1883,23 +2210,53 @@ export function HumanQualityCorpusPanel() {
         </p>
       </div>
 
-      <label className="grid max-w-md gap-1 text-xs">
-        <span className="font-medium text-[var(--text-primary)]">Workspace ID</span>
-        <input
-          value={workspaceId}
-          onChange={(e) => {
-            setWorkspaceId(e.target.value);
-            resetForm();
-          }}
-          placeholder="Required to load queue"
-          aria-label="Workspace ID"
-          className="h-9 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-2"
-        />
-      </label>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-medium text-[var(--text-primary)]">Corpus scope</span>
+        <div
+          className="inline-flex rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] p-0.5"
+          role="group"
+          aria-label="Corpus scope"
+        >
+          {(["global", "workspace"] as const).map((scope) => (
+            <button
+              key={scope}
+              type="button"
+              aria-pressed={corpusScope === scope}
+              onClick={() => {
+                setCorpusScope(scope);
+                resetForm();
+              }}
+              className={`rounded px-3 py-1 text-xs font-medium capitalize transition-colors ${
+                corpusScope === scope
+                  ? "bg-[var(--surface-base)] text-[var(--text-primary)] shadow-sm"
+                  : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+              }`}
+            >
+              {scope}
+            </button>
+          ))}
+        </div>
+      </div>
 
-      {!workspaceId ? (
+      {corpusScope === "workspace" ? (
+        <label className="grid max-w-md gap-1 text-xs">
+          <span className="font-medium text-[var(--text-primary)]">Workspace ID</span>
+          <input
+            value={workspaceId}
+            onChange={(e) => {
+              setWorkspaceId(e.target.value);
+              resetForm();
+            }}
+            placeholder="Required to load scoped queue"
+            aria-label="Workspace ID"
+            className="h-9 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-2"
+          />
+        </label>
+      ) : null}
+
+      {corpusScope === "workspace" && !workspaceId ? (
         <p className="text-sm text-[var(--text-muted)]">
-          Enter a workspace ID to load pending corpus items and calibration report.
+          Enter a workspace ID to load a scoped corpus queue and calibration reports.
         </p>
       ) : (
         <>
@@ -1957,7 +2314,8 @@ export function HumanQualityCorpusPanel() {
               ) : activeTab === "coverage" ? (
                 <CoverageTabContent
                   report={coverageQuery.data}
-                  isLoading={coverageQuery.isLoading}
+                  globalEvidence={globalEvidenceQuery.data}
+                  isLoading={coverageQuery.isLoading || globalEvidenceQuery.isLoading}
                   isError={coverageQuery.isError}
                 />
               ) : (
@@ -1974,6 +2332,18 @@ export function HumanQualityCorpusPanel() {
                 />
               )}
             </div>
+          ) : activeTab === "candidates" ? (
+            <div className="space-y-3 pt-2">
+              <CandidatesTabContent
+                items={candidatesQuery.data?.items ?? []}
+                isLoading={candidatesQuery.isLoading}
+                isError={candidatesQuery.isError}
+                promoteCohort={promoteCohort}
+                onPromoteCohortChange={setPromoteCohort}
+                promotingId={promotingCandidateId}
+                onPromote={(candidateId) => promoteCandidateMutation.mutate(candidateId)}
+              />
+            </div>
           ) : queueForbidden ? (
             <p className="text-sm text-[var(--text-muted)]">
               Corpus evaluation queue is restricted to platform owners.
@@ -1982,7 +2352,110 @@ export function HumanQualityCorpusPanel() {
             <p className="text-sm text-[var(--text-muted)]">Loading corpus queue…</p>
           ) : queueQuery.isError ? (
             <p className="text-sm text-[var(--text-muted)]">Unable to load corpus queue.</p>
-          ) : queueItems.length === 0 ? (
+          ) : (
+            <div className="space-y-3 pt-2">
+              {corpusScope === "global" ? (
+                <div className="flex flex-wrap items-end gap-3">
+                  <label className="grid max-w-xs gap-1 text-xs">
+                    <span className="font-medium text-[var(--text-primary)]">Status</span>
+                    <select
+                      value={queueFilters.status}
+                      onChange={(e) =>
+                        setQueueFilters({
+                          ...queueFilters,
+                          status: e.target.value as CorpusQueueFilterState["status"],
+                        })
+                      }
+                      aria-label="Queue status filter"
+                      className="h-9 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-2"
+                    >
+                      <option value="pending">Pending</option>
+                      <option value="evaluated">Evaluated</option>
+                      <option value="removed">Removed</option>
+                    </select>
+                  </label>
+                  <label className="grid max-w-xs gap-1 text-xs">
+                    <span className="font-medium text-[var(--text-primary)]">Cohort</span>
+                    <select
+                      value={queueFilters.cohort}
+                      onChange={(e) =>
+                        setQueueFilters({
+                          ...queueFilters,
+                          cohort: e.target.value as HumanQualityCorpusCohort | "",
+                        })
+                      }
+                      aria-label="Queue cohort filter"
+                      className="h-9 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-2"
+                    >
+                      <option value="">All cohorts</option>
+                      {HUMAN_QUALITY_CORPUS_COHORTS.map((cohort) => (
+                        <option key={cohort} value={cohort}>
+                          {cohort}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="grid max-w-xs gap-1 text-xs">
+                    <span className="font-medium text-[var(--text-primary)]">Source</span>
+                    <select
+                      value={queueFilters.sourceLabel}
+                      onChange={(e) =>
+                        setQueueFilters({
+                          ...queueFilters,
+                          sourceLabel: e.target.value as HumanQualitySourceLabel | "",
+                        })
+                      }
+                      aria-label="Queue source label filter"
+                      className="h-9 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-2"
+                    >
+                      <option value="">All sources</option>
+                      {HUMAN_QUALITY_SOURCE_LABELS.map((label) => (
+                        <option key={label} value={label}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="grid max-w-xs gap-1 text-xs">
+                    <span className="font-medium text-[var(--text-primary)]">Mode</span>
+                    <select
+                      value={queueFilters.generationMode}
+                      onChange={(e) =>
+                        setQueueFilters({ ...queueFilters, generationMode: e.target.value })
+                      }
+                      aria-label="Queue generation mode filter"
+                      className="h-9 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-2"
+                    >
+                      <option value="">All modes</option>
+                      {TREND_GENERATION_MODES.map((mode) => (
+                        <option key={mode} value={mode}>
+                          {mode}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="grid max-w-xs gap-1 text-xs">
+                    <span className="font-medium text-[var(--text-primary)]">Format</span>
+                    <select
+                      value={queueFilters.format}
+                      onChange={(e) =>
+                        setQueueFilters({ ...queueFilters, format: e.target.value })
+                      }
+                      aria-label="Queue format filter"
+                      className="h-9 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-2"
+                    >
+                      <option value="">All formats</option>
+                      {TREND_FORMATS.map((format) => (
+                        <option key={format} value={format}>
+                          {format}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              ) : null}
+
+              {queueItems.length === 0 ? (
             <div className="space-y-3 pt-2">
               {queueProgress ? (
                 <QueueProgressSummary
@@ -1992,11 +2465,12 @@ export function HumanQualityCorpusPanel() {
                 />
               ) : null}
               <p className="rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-muted)]">
-                Queue is clear — no pending corpus items remain for review. Select new derivations
-                from campaign review to continue live corpus operations.
+                {corpusScope === "global"
+                  ? "No pending global corpus items. Open the Candidates tab to promote captured creatives into a review cohort."
+                  : "Queue is clear — no pending corpus items remain for review. Promote candidates or select new derivations from campaign review."}
               </p>
             </div>
-          ) : currentItem ? (
+          ) : currentItem && queueFilters.status === "pending" ? (
             <div className="space-y-4 pt-2">
               {queueProgress ? (
                 <QueueProgressSummary
@@ -2045,6 +2519,9 @@ export function HumanQualityCorpusPanel() {
                   <MetadataRow label="Mode" value={currentItem.generationMode} />
                   <MetadataRow label="Format" value={currentItem.format || "—"} />
                   <MetadataRow label="Cohort" value={currentItem.cohort} />
+                  {currentItem.sourceLabel ? (
+                    <MetadataRow label="Source" value={currentItem.sourceLabel} />
+                  ) : null}
                   <MetadataRow label="Corpus version" value={`v${currentItem.corpusVersion}`} />
                   {snapshot?.qualityScore != null ? (
                     <MetadataRow label="Auto score" value={String(snapshot.qualityScore)} />
@@ -2187,6 +2664,8 @@ export function HumanQualityCorpusPanel() {
               </div>
             </div>
           ) : null}
+            </div>
+          )}
         </>
       )}
     </section>

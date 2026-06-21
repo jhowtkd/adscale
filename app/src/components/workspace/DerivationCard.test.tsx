@@ -202,7 +202,7 @@ describe("DerivationCard", () => {
     expect(onRunQa).toHaveBeenCalledTimes(1);
   });
 
-  it("shows generate landing page for approved derivations with images", () => {
+  it("shows disabled generate landing page for approved derivations with images", () => {
     render(
       <DerivationCard
         derivation={baseDerivation}
@@ -212,9 +212,9 @@ describe("DerivationCard", () => {
       />
     );
 
-    expect(
-      screen.getByRole("button", { name: /generateLandingPage/i })
-    ).toBeInTheDocument();
+    const btn = screen.getByRole("button", { name: /generateLandingPage/i });
+    expect(btn).toBeInTheDocument();
+    expect(btn).toBeDisabled();
   });
 
   it("does not show generate landing page for unapproved derivations", () => {
@@ -247,7 +247,7 @@ describe("DerivationCard", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("calls onGenerateLandingPage when clicked", () => {
+  it("does not call onGenerateLandingPage when clicked", () => {
     const onGenerateLandingPage = vi.fn();
     render(
       <DerivationCard
@@ -259,22 +259,7 @@ describe("DerivationCard", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /generateLandingPage/i }));
-    expect(onGenerateLandingPage).toHaveBeenCalledTimes(1);
-  });
-
-  it("disables generate landing page when active derivation matches", () => {
-    render(
-      <DerivationCard
-        derivation={baseDerivation}
-        index={0}
-        onPreview={vi.fn()}
-        onGenerateLandingPage={vi.fn()}
-        landingPageGeneratingId={baseDerivation.id}
-      />
-    );
-
-    const btn = screen.getByRole("button", { name: /generateLandingPage/i });
-    expect(btn).toBeDisabled();
+    expect(onGenerateLandingPage).not.toHaveBeenCalled();
   });
 
   it("shows simulate personas button when callback is provided for approved derivation", () => {
@@ -464,6 +449,34 @@ describe("DerivationCard", () => {
     expect(screen.getByText("exportStatus.bloqueado")).toBeInTheDocument();
     expect(screen.getByText("packageBlockedExport")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /approve/i })).toBeDisabled();
+  });
+
+  it("stacks title and date above wrapping badges to avoid overlap", () => {
+    const { container } = render(
+      <DerivationCard
+        derivation={{
+          ...baseDerivation,
+          status: "completed",
+          name: "Peça 1",
+          qualityVerdict: "improvable",
+          qualityScore: 86,
+          polishSuggestions: ["Needs a quick manual review."],
+        }}
+        index={0}
+        onPreview={vi.fn()}
+      />
+    );
+
+    const badgesRow = container.querySelector("[data-derivation-badges]");
+    expect(badgesRow).toBeTruthy();
+    expect(badgesRow).toHaveClass("flex-wrap");
+
+    const title = screen.getByText("Peça 1");
+    const date = screen.getByText(/generatedAt/);
+    expect(title.closest(".min-w-0")).not.toContainElement(badgesRow);
+    expect(date.closest(".min-w-0")).not.toContainElement(badgesRow);
+    expect(screen.getByText("improvableOutputBadge")).toBeInTheDocument();
+    expect(screen.getByText("86")).toBeInTheDocument();
   });
 
   it("falls back to legacy invalid badge when olhar verdict is missing", () => {

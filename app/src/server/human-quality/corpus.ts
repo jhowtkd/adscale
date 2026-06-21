@@ -19,6 +19,14 @@ export const HUMAN_QUALITY_CORPUS_STATUSES = [
 
 export type HumanQualityCorpusStatus = (typeof HUMAN_QUALITY_CORPUS_STATUSES)[number];
 
+export const HUMAN_QUALITY_SOURCE_LABELS = [
+  "synthetic_fixture",
+  "operator_imported",
+  "real_customer",
+] as const;
+
+export type HumanQualitySourceLabel = (typeof HUMAN_QUALITY_SOURCE_LABELS)[number];
+
 export const HUMAN_QUALITY_INTENTS = ["approve", "reject", "regenerate"] as const;
 
 export type HumanQualityIntent = (typeof HUMAN_QUALITY_INTENTS)[number];
@@ -121,6 +129,10 @@ export function isHumanQualityCorpusCohort(value: string): value is HumanQuality
 
 export function isHumanQualityCorpusStatus(value: string): value is HumanQualityCorpusStatus {
   return (HUMAN_QUALITY_CORPUS_STATUSES as readonly string[]).includes(value);
+}
+
+export function isHumanQualitySourceLabel(value: string): value is HumanQualitySourceLabel {
+  return (HUMAN_QUALITY_SOURCE_LABELS as readonly string[]).includes(value);
 }
 
 export function isHumanQualityIntent(value: string): value is HumanQualityIntent {

@@ -218,10 +218,6 @@ function CampaignListCard({
             <Layers size={12} />
             {campaign.variations > 0 ? campaign.variations : "—"}
           </span>
-          <span className="flex items-center gap-1 text-xs text-[var(--text-secondary)]">
-            <Zap size={12} />
-            {campaign.creditsUsed > 0 ? `~${campaign.creditsUsed}` : "—"}
-          </span>
         </div>
         <span className="text-xs text-[var(--text-muted)]">
           {formattedDate}

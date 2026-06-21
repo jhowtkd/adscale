@@ -104,9 +104,30 @@ describe("usePersonaSimulation", () => {
     expect(mockApiFetch).not.toHaveBeenCalled();
   });
 
-  it("throws on non-ok response", async () => {
+  it("returns null on 404 when simulation does not exist", async () => {
     mockApiFetch.mockResolvedValue({
       ok: false,
+      status: 404,
+      json: () => Promise.resolve({ error: "not found", code: "notFound" }),
+    } as unknown as Response);
+
+    const { result } = renderHook(
+      () => usePersonaSimulation("derivation", "creative-1"),
+      { wrapper: createWrapper() }
+    );
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    expect(result.current.data).toBeNull();
+    expect(result.current.isError).toBe(false);
+  });
+
+  it("throws on non-ok response other than 404", async () => {
+    mockApiFetch.mockResolvedValue({
+      ok: false,
+      status: 500,
       json: () => Promise.resolve({ error: "derivationNotFound" }),
     } as unknown as Response);
 
