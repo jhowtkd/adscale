@@ -212,6 +212,9 @@ function useWorkspaceScope(id = WORKSPACE_ID) {
 
 function mockQueueOnly() {
   mockApiFetch.mockImplementation(async (url: string, init?: RequestInit) => {
+    if (url.includes("ingestion/status") || url.includes("learning/proposals")) {
+      return { ok: false, status: 403 } as Response;
+    }
     if (
       url.includes("score-calibration") ||
       url.includes("learning-impact") ||
@@ -1099,6 +1102,9 @@ const trendReport = {
 
 function mockTrendApis(overrides?: { trend?: typeof trendReport }) {
   mockApiFetch.mockImplementation(async (url: string, init?: RequestInit) => {
+    if (url.includes("ingestion/status") || url.includes("learning/proposals")) {
+      return { ok: false, status: 403 } as Response;
+    }
     if (url.includes("quality-trend")) {
       return {
         ok: true,
@@ -1298,5 +1304,102 @@ describe("HumanQualityCorpusPanel trend tab", () => {
       );
       expect(trendCall).toBeDefined();
     });
+  });
+});
+
+const learningProposal = {
+  id: "550e8400-e29b-41d4-a716-446655440020",
+  sliceKey: `${CLIENT_PROFILE_ID}|art_variation|1:1`,
+  primaryFailureReason: "visual_overload",
+  rationale: "Cap visual zones at three; one dominant hook",
+  evidenceRefs: {
+    corpusItemIds: [ITEM_ID],
+    stats: { count: 3 },
+  },
+};
+
+describe("HumanQualityCorpusPanel learning tab", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("lists proposed client learning rules and can generate", async () => {
+    mockApiFetch.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url.includes("ingestion/status")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            eligibleDerivations: 100,
+            totalCandidates: 40,
+            pendingQueue: 3,
+            evaluated: 12,
+            blockedMissingClientProfile: 2,
+          }),
+        } as Response;
+      }
+      if (url.includes("learning/proposals/generate") && init?.method === "POST") {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            generated: 1,
+            globalProposals: 2,
+            proposals: [learningProposal],
+          }),
+        } as Response;
+      }
+      if (url.includes("learning/proposals") && !init?.method) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ proposals: [learningProposal] }),
+        } as Response;
+      }
+      if (
+        url.includes("score-calibration") ||
+        url.includes("learning-impact") ||
+        url.includes("quality-improvement") ||
+        url.includes("sample-coverage") ||
+        url.includes("quality-trend")
+      ) {
+        return { ok: false, status: 403 } as Response;
+      }
+      if (url.includes("human-quality-corpus") && !init?.method) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => queueJson([pendingItem]),
+        } as Response;
+      }
+      return { ok: false, status: 500 } as Response;
+    });
+
+    renderPanel();
+    useWorkspaceScope();
+
+    await screen.findByText("Human quality corpus");
+    expect(await screen.findByText("Eligible:")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Backfill batch" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Learning" }));
+
+    expect(await screen.findByText("Client learning proposals")).toBeInTheDocument();
+    expect(screen.getByText(learningProposal.sliceKey)).toBeInTheDocument();
+    expect(screen.getByText(learningProposal.primaryFailureReason)).toBeInTheDocument();
+    expect(screen.getByText(learningProposal.rationale)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Generate proposals" }));
+
+    await waitFor(() => {
+      expect(mockApiFetch).toHaveBeenCalledWith(
+        "/api/admin/quality/learning/proposals/generate",
+        expect.objectContaining({ method: "POST" })
+      );
+    });
+
+    expect(
+      await screen.findByText(/2 global proposal\(s\) saved to rubric calibration adjustments/)
+    ).toBeInTheDocument();
   });
 });

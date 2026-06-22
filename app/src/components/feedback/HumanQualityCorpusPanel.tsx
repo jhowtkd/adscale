@@ -5,6 +5,8 @@ import dynamic from "next/dynamic";
 import Image from "next/image";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import ResponsiveTabs from "@/components/layout/ResponsiveTabs";
+import { CorpusIngestionBanner } from "@/components/feedback/CorpusIngestionBanner";
+import { LearningProposalsTab } from "@/components/feedback/LearningProposalsTab";
 import { apiFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import {
@@ -335,6 +337,7 @@ const CartesianGrid = dynamic(
 const PANEL_TABS = [
   { id: "queue", label: "Queue" },
   { id: "candidates", label: "Candidates" },
+  { id: "learning", label: "Learning" },
   { id: "calibration", label: "Calibration" },
   { id: "impact", label: "Impact" },
   { id: "quality", label: "Quality" },
@@ -2210,6 +2213,8 @@ export function HumanQualityCorpusPanel() {
         </p>
       </div>
 
+      <CorpusIngestionBanner />
+
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs font-medium text-[var(--text-primary)]">Corpus scope</span>
         <div
@@ -2342,6 +2347,13 @@ export function HumanQualityCorpusPanel() {
                 onPromoteCohortChange={setPromoteCohort}
                 promotingId={promotingCandidateId}
                 onPromote={(candidateId) => promoteCandidateMutation.mutate(candidateId)}
+              />
+            </div>
+          ) : activeTab === "learning" ? (
+            <div className="space-y-3 pt-2">
+              <LearningProposalsTab
+                workspaceId={scopedWorkspaceId}
+                onOpenCalibration={() => setActiveTab("calibration")}
               />
             </div>
           ) : queueForbidden ? (
