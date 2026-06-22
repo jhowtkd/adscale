@@ -3,13 +3,8 @@ import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requirePlatformOwner } from "@/server/auth/platform-owner";
 import { HUMAN_QUALITY_CORPUS_COHORTS } from "@/server/human-quality/corpus";
-import { buildClientLearningProposals } from "@/server/human-quality/learning/aggregate";
 import { detectAndPersistCrossClientGlobalProposals } from "@/server/human-quality/learning/cross-client";
-import {
-  findActiveProposalBySlice,
-  insertClientLearningProposal,
-} from "@/server/repositories/client-learning-proposal";
-import { listEvaluatedCorpusWithEvaluations } from "@/server/repositories/human-quality-corpus";
+import { generateAndPersistClientLearningProposals } from "@/server/human-quality/learning/generate";
 
 const bodySchema = z.object({
   workspaceId: z.string().uuid().optional(),
@@ -25,30 +20,15 @@ export async function POST(request: Request) {
       return apiError("validation_error", 400);
     }
 
-    const rows = await listEvaluatedCorpusWithEvaluations({
+    const { generated, proposals } = await generateAndPersistClientLearningProposals({
       workspaceId: parsed.data.workspaceId,
       cohort: parsed.data.cohort,
     });
 
-    const built = buildClientLearningProposals(rows);
-    const proposals = [];
-
-    for (const proposal of built) {
-      const existing = await findActiveProposalBySlice(
-        proposal.workspaceId,
-        proposal.clientProfileId,
-        proposal.sliceKey
-      );
-      if (existing) {
-        continue;
-      }
-      proposals.push(await insertClientLearningProposal(proposal));
-    }
-
     const globalProposals = await detectAndPersistCrossClientGlobalProposals();
 
     return NextResponse.json({
-      generated: proposals.length,
+      generated,
       proposals,
       globalProposals: globalProposals.length,
     });
