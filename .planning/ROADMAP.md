@@ -2,6 +2,7 @@
 
 ## Milestones
 
+- 🚧 **v13.2 Calibração Multi-Marca** - Phases 162-167 (in progress — roadmap defined 2026-06-23)
 - 🔄 **v13.1 Global Owner Quality Corpus** - Phases 157-161 (passed_with_tech_debt — commit pending)
 - ✅ **v13.0 Brand Taste Calibration Loop** - Phases 151-156 (shipped 2026-06-20; tech debt: 5 Jhonatan decisions pending, fixture-only corpus, agreement claims blocked)
 - ✅ **v12.9 Fechamento Humano do Olhar Cenbrap** - Phases 147-150 (shipped 2026-06-20; tech debt: 5 Jhonatan decisions pending, customer-real corpus deferred, agreement claims blocked)
@@ -36,6 +37,28 @@
 | 159 | Global Review Queue and Preview | QUEUE-01..05 | Complete | 2026-06-20 |
 | 160 | Human Evaluation and Feedback Artifacts | EVAL-01..05, LOOP-01..02 | Complete | 2026-06-20 |
 | 161 | Global Evidence and Release Gate | LOOP-03..05, EVIDENCE-01..05 | Complete | 2026-06-20 |
+
+### 🚧 v13.2 Calibração Multi-Marca (Phases 162-167)
+
+**Milestone Goal:** Generalizar calibração de gosto de marca para qualquer `clientProfile`: substituir hardcode Cenbrap por configuração por marca, conectar avaliações do corpus global a propostas e regras aprovadas, aplicar constraints no prompt-builder e expor superfície owner-only com claims gate honesto por marca.
+
+**Carry-forward constraints:** 5 Jhonatan decisions pending; fixture-only Cenbrap corpus; agreement/customer-real claims blocked until sample/source sufficiency.
+
+- [ ] **Phase 162: Per-Brand Voice Configuration** — schema, resolver by `clientProfileId`, Cenbrap seed and hardcode removal
+- [ ] **Phase 163: Corpus Learning Proposals** — aggregate evaluations into deduped client proposals with owner accept/reject
+- [ ] **Phase 164: Prompt Rule Application** — inject approved rules per profile with provenance log and isolation cap
+- [ ] **Phase 165: Owner Calibration Panel** — per-brand profile, rules, proposals and owner-only access
+- [ ] **Phase 166: Per-Brand Evidence Gate** — evidence levels, claims matrix and fixture caveats per marca
+- [ ] **Phase 167: Global Cross-Client Promotion** — multi-brand rubric adjustment proposals without prompt leakage
+
+| # | Phase | Requirements | Status | Completed |
+|---|-------|--------------|--------|-----------|
+| 162 | Per-Brand Voice Configuration | VOICE-01..05 | Not started | - |
+| 163 | Corpus Learning Proposals | LEARN-01..06 | Not started | - |
+| 164 | Prompt Rule Application | APPLY-01..05 | Not started | - |
+| 165 | Owner Calibration Panel | PANEL-01..05 | Not started | - |
+| 166 | Per-Brand Evidence Gate | EVIDENCE-01..05 | Not started | - |
+| 167 | Global Cross-Client Promotion | GLOBAL-01..05 | Not started | - |
 
 ## Phase Details
 
@@ -151,6 +174,123 @@ Completed:
 
 ---
 
+### Phase 162: Per-Brand Voice Configuration
+
+**Goal:** Any `clientProfileId` resolves brand voice from structured DB configuration instead of campaign-name hardcode.
+
+**Depends on:** v13.0 brand-taste infrastructure, v13.1 global corpus (no phase dependency)
+
+**Requirements:** VOICE-01, VOICE-02, VOICE-03, VOICE-04, VOICE-05
+
+**Success Criteria** (what must be TRUE):
+  1. Owner can inspect structured voice/olhar configuration (match terms, prompt lines, status) for any `clientProfileId`.
+  2. New derivations resolve brand voice by `clientProfileId`, not campaign name string matching.
+  3. Cenbrap `clientProfileId` seeded config produces output at parity with pre-migration hardcoded voice.
+  4. `resolveClientVoice` hardcode path is removed or reduced to a deprecated fallback no longer used by generation.
+  5. Voice configuration is view-only — owner cannot edit freeform constitution text in this milestone.
+
+**Plans:** TBD
+
+---
+
+### Phase 163: Corpus Learning Proposals
+
+**Goal:** Global corpus evaluations become client-scoped learning proposals the owner can accept or reject before they affect generation.
+
+**Depends on:** Phase 162
+
+**Requirements:** LEARN-01, LEARN-02, LEARN-03, LEARN-04, LEARN-05, LEARN-06
+
+**Success Criteria** (what must be TRUE):
+  1. When a slice reaches ≥3 evaluations with |delta|≥15, the system creates a client-scoped learning proposal for that `clientProfileId`.
+  2. At most one active `proposed` proposal exists per `(workspaceId, clientProfileId, sliceKey)`.
+  3. Owner can list pending client learning proposals filtered by workspace and `clientProfileId`.
+  4. Owner accepting a proposal creates an approved `calibration_rule` with category `corpus_quality` and evidence refs.
+  5. Owner rejecting a proposal requires a reason and enforces a 30-day cooldown before re-proposal.
+  6. `factual_issue` failure reason never becomes a prompt rule — it surfaces as an admin alert only.
+
+**Plans:** TBD
+
+---
+
+### Phase 164: Prompt Rule Application
+
+**Goal:** Approved brand-taste and `corpus_quality` rules for a `clientProfileId` shape derivation prompts with logged provenance and strict per-brand isolation.
+
+**Depends on:** Phase 163
+
+**Requirements:** APPLY-01, APPLY-02, APPLY-03, APPLY-04, APPLY-05
+
+**Success Criteria** (what must be TRUE):
+  1. Next derivation for a `clientProfileId` loads only that profile's approved brand-taste and `corpus_quality` rules.
+  2. Prompt-builder injects sections in order: Olhar ADScale → brand-taste → corpus_quality.
+  3. Each derivation's generation log records `appliedBrandRuleIds` and `appliedCorpusRuleIds`.
+  4. Active `corpus_quality` rules per `clientProfileId` are capped (default 10) with oldest deprecated on overflow.
+  5. Rules from one `clientProfileId` never appear in another profile's prompt (integration-tested).
+
+**Plans:** TBD
+
+---
+
+### Phase 165: Owner Calibration Panel
+
+**Goal:** Owner can operate per-brand taste calibration from a single owner-only panel spanning profile, rules and proposals.
+
+**Depends on:** Phase 164
+
+**Requirements:** PANEL-01, PANEL-02, PANEL-03, PANEL-04, PANEL-05
+
+**Success Criteria** (what must be TRUE):
+  1. Owner can select a `clientProfileId` and view its brand taste profile (patterns, evidence level, caveats).
+  2. Owner can view approved and pending calibration rules for the selected brand.
+  3. Owner can accept or reject client learning proposals from the same panel.
+  4. Panel shows source composition and blocks misleading "fully calibrated" copy when evidence is fixture-only.
+  5. Non-owner users cannot access brand calibration panel routes or APIs.
+
+**Plans:** TBD
+**UI hint**: yes
+
+---
+
+### Phase 166: Per-Brand Evidence Gate
+
+**Goal:** Each brand's calibration state and product claims reflect honest sample size and source composition.
+
+**Depends on:** Phase 165
+
+**Requirements:** EVIDENCE-01, EVIDENCE-02, EVIDENCE-03, EVIDENCE-04, EVIDENCE-05
+
+**Success Criteria** (what must be TRUE):
+  1. Each brand profile exposes evidence level (`uncalibrated`, `seed_calibrated`, `assisted`, `evidence_backed`) derived from decision/evaluation count and source composition.
+  2. Per-brand claims matrix blocks customer-real and quality-improvement claims when sample or source gates fail.
+  3. Evidence report names exact missing conditions per `clientProfileId` when status is insufficient.
+  4. Fixture-only brands always carry an explicit caveat in profile and panel UI.
+  5. Tests cover evidence withholding for fixture-only vs mixed-source brands.
+
+**Plans:** TBD
+**UI hint**: yes
+
+---
+
+### Phase 167: Global Cross-Client Promotion
+
+**Goal:** Recurring failure patterns across brands can be proposed as global rubric adjustments without breaking per-brand prompt isolation.
+
+**Depends on:** Phase 166
+
+**Requirements:** GLOBAL-01, GLOBAL-02, GLOBAL-03, GLOBAL-04, GLOBAL-05
+
+**Success Criteria** (what must be TRUE):
+  1. When the same `primaryFailureReason` has approved `corpus_quality` rules in ≥2 distinct `clientProfileId`s with ≥6 total evaluations, the system proposes global `rubric_calibration_adjustments`.
+  2. Global proposals require source composition gate (≥1 `real_customer` or `operator_imported`) or are flagged `fixture_only`.
+  3. Owner can accept a global adjustment via the existing calibration-adjustments accept flow with links to supporting client rules.
+  4. Global proposals never auto-accept; rejected global proposals require a reason.
+  5. Global promotion does not bypass per-brand isolation in prompt application.
+
+**Plans:** TBD
+
+---
+
 ## Completed Milestone Context
 
 Latest active predecessor: v13.0 Brand Taste Calibration Loop — Phases 151-156 shipped with tech debt.
@@ -172,6 +312,12 @@ Previous archive: [v12.9-ROADMAP.md](milestones/v12.9-ROADMAP.md) · [v12.9-REQU
 | 159 | v13.1 | 2/2 | Complete | 2026-06-20 |
 | 160 | v13.1 | 2/2 | Complete | 2026-06-20 |
 | 161 | v13.1 | 2/2 | Complete | 2026-06-20 |
+| 162 | v13.2 | 0/TBD | Not started | - |
+| 163 | v13.2 | 0/TBD | Not started | - |
+| 164 | v13.2 | 0/TBD | Not started | - |
+| 165 | v13.2 | 0/TBD | Not started | - |
+| 166 | v13.2 | 0/TBD | Not started | - |
+| 167 | v13.2 | 0/TBD | Not started | - |
 
 ---
-*Roadmap updated: 2026-06-20 — Phase 157 planned*
+*Roadmap updated: 2026-06-23 — v13.2 Phases 162-167 defined*

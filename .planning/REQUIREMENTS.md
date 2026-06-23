@@ -96,43 +96,43 @@ Generalizar calibração de gosto de marca para qualquer `clientProfile`: substi
 
 | Requirement | Phase | Status |
 | --- | --- | --- |
-| VOICE-01 | — | Pending |
-| VOICE-02 | — | Pending |
-| VOICE-03 | — | Pending |
-| VOICE-04 | — | Pending |
-| VOICE-05 | — | Pending |
-| LEARN-01 | — | Pending |
-| LEARN-02 | — | Pending |
-| LEARN-03 | — | Pending |
-| LEARN-04 | — | Pending |
-| LEARN-05 | — | Pending |
-| LEARN-06 | — | Pending |
-| APPLY-01 | — | Pending |
-| APPLY-02 | — | Pending |
-| APPLY-03 | — | Pending |
-| APPLY-04 | — | Pending |
-| APPLY-05 | — | Pending |
-| PANEL-01 | — | Pending |
-| PANEL-02 | — | Pending |
-| PANEL-03 | — | Pending |
-| PANEL-04 | — | Pending |
-| PANEL-05 | — | Pending |
-| EVIDENCE-01 | — | Pending |
-| EVIDENCE-02 | — | Pending |
-| EVIDENCE-03 | — | Pending |
-| EVIDENCE-04 | — | Pending |
-| EVIDENCE-05 | — | Pending |
-| GLOBAL-01 | — | Pending |
-| GLOBAL-02 | — | Pending |
-| GLOBAL-03 | — | Pending |
-| GLOBAL-04 | — | Pending |
-| GLOBAL-05 | — | Pending |
+| VOICE-01 | Phase 162 | Pending |
+| VOICE-02 | Phase 162 | Pending |
+| VOICE-03 | Phase 162 | Pending |
+| VOICE-04 | Phase 162 | Pending |
+| VOICE-05 | Phase 162 | Pending |
+| LEARN-01 | Phase 163 | Pending |
+| LEARN-02 | Phase 163 | Pending |
+| LEARN-03 | Phase 163 | Pending |
+| LEARN-04 | Phase 163 | Pending |
+| LEARN-05 | Phase 163 | Pending |
+| LEARN-06 | Phase 163 | Pending |
+| APPLY-01 | Phase 164 | Pending |
+| APPLY-02 | Phase 164 | Pending |
+| APPLY-03 | Phase 164 | Pending |
+| APPLY-04 | Phase 164 | Pending |
+| APPLY-05 | Phase 164 | Pending |
+| PANEL-01 | Phase 165 | Pending |
+| PANEL-02 | Phase 165 | Pending |
+| PANEL-03 | Phase 165 | Pending |
+| PANEL-04 | Phase 165 | Pending |
+| PANEL-05 | Phase 165 | Pending |
+| EVIDENCE-01 | Phase 166 | Pending |
+| EVIDENCE-02 | Phase 166 | Pending |
+| EVIDENCE-03 | Phase 166 | Pending |
+| EVIDENCE-04 | Phase 166 | Pending |
+| EVIDENCE-05 | Phase 166 | Pending |
+| GLOBAL-01 | Phase 167 | Pending |
+| GLOBAL-02 | Phase 167 | Pending |
+| GLOBAL-03 | Phase 167 | Pending |
+| GLOBAL-04 | Phase 167 | Pending |
+| GLOBAL-05 | Phase 167 | Pending |
 
 **Coverage:**
 - v13.2 requirements: 30 total
-- Mapped to phases: 0
-- Unmapped: 30 ⚠️ (awaiting roadmap)
+- Mapped to phases: 30
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-06-23*
-*Last updated: 2026-06-23 after milestone v13.2 scoping*
+*Last updated: 2026-06-23 after roadmap Phases 162-167*
