@@ -70,6 +70,34 @@ import { listApprovedCalibrationRulesByCategories } from "../repositories/calibr
 const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 120_000 });
 const IMAGE_GENERATION_TIMEOUT_MS = 5 * 60 * 1000;
 
+type CampaignAsset = Awaited<ReturnType<typeof getAssetsByCampaign>>[number];
+
+function resolveRestylingBaseAsset(assets: CampaignAsset[]) {
+  return (
+    assets.find((asset) => asset.role === "base") ??
+    assets.find((asset) => asset.role !== "style_reference") ??
+    null
+  );
+}
+
+function resolveRestylingStyleAsset(
+  assets: CampaignAsset[],
+  styleAssetId: string | null,
+  baseAssetId: string | null
+) {
+  const isUsableStyleAsset = (asset: CampaignAsset) =>
+    asset.id !== baseAssetId && asset.role === "style_reference";
+
+  if (styleAssetId) {
+    const selected = assets.find((asset) => asset.id === styleAssetId) ?? null;
+    if (selected && isUsableStyleAsset(selected)) {
+      return selected;
+    }
+  }
+
+  return assets.find(isUsableStyleAsset) ?? null;
+}
+
 export async function normalizeGeneratedImage(
   buffer: Buffer,
   dimensions: { width: number; height: number },
@@ -438,17 +466,17 @@ export const derivationJob = inngest.createFunction(
       let resolvedBaseAssetId: string | null = null;
       let resolvedStyleAssetId =
         (styleAssetId ?? (derivation as { styleAssetId?: string | null }).styleAssetId) ?? null;
-      let restylingBaseAsset: Awaited<ReturnType<typeof getAssetsByCampaign>>[number] | null = null;
-      let restylingStyleAsset: Awaited<ReturnType<typeof getAssetsByCampaign>>[number] | null = null;
+      let restylingBaseAsset: CampaignAsset | null = null;
+      let restylingStyleAsset: CampaignAsset | null = null;
 
       if (effectiveGenerationMode === "restyling") {
         const assets = await getAssetsByCampaign(campaignId, workspaceId);
-        restylingBaseAsset = assets.find((a) => a.role === "base") ?? assets[0] ?? null;
-        restylingStyleAsset = resolvedStyleAssetId
-          ? (assets.find((a) => a.id === resolvedStyleAssetId) ??
-             assets.find((a) => a.role === "style_reference") ??
-             null)
-          : assets.find((a) => a.role === "style_reference") ?? null;
+        restylingBaseAsset = resolveRestylingBaseAsset(assets);
+        restylingStyleAsset = resolveRestylingStyleAsset(
+          assets,
+          resolvedStyleAssetId,
+          restylingBaseAsset?.id ?? null
+        );
 
         if (!restylingBaseAsset || !restylingStyleAsset) {
           throw new Error("Restyling requires both a base asset and a style reference asset");
@@ -458,6 +486,16 @@ export const derivationJob = inngest.createFunction(
         resolvedStyleAssetId = restylingStyleAsset.id;
       } else if (!usesParentOutput && asset) {
         resolvedBaseAssetId = asset.id;
+      }
+      const promptAsset =
+        effectiveGenerationMode === "restyling" ? restylingBaseAsset : asset;
+      if (effectiveGenerationMode === "restyling" && restylingBaseAsset) {
+        sourceDescriptor = {
+          kind: "campaign_asset",
+          assetId: restylingBaseAsset.id,
+          assetKey: restylingBaseAsset.key,
+          assetType: restylingBaseAsset.type,
+        };
       }
 
       const childStoredContract = derivation.creativeContract ?? null;
@@ -533,7 +571,7 @@ export const derivationJob = inngest.createFunction(
         referenceBuffer = await downloadBuffer(parentDerivation.outputKey);
         referenceMimeType = "image/png";
         logger.info(`[generate-and-store-output] downloaded ${referenceBuffer.length} bytes from parent`);
-      } else if (asset) {
+      } else if (effectiveGenerationMode !== "restyling" && asset) {
         logger.info(`[generate-and-store-output] downloading asset key=${asset.key}`);
         referenceBuffer = await downloadBuffer(asset.key);
         referenceMimeType = asset.type;
@@ -554,7 +592,7 @@ export const derivationJob = inngest.createFunction(
       const prompt = buildDerivationPrompt({
         campaign,
         plan,
-        asset,
+        asset: promptAsset,
         feedback: derivation.feedback,
         locale,
         generationMode: effectiveGenerationMode,
@@ -601,7 +639,7 @@ export const derivationJob = inngest.createFunction(
             differentiationOpportunities: Array.isArray(a.differentiators) ? a.differentiators as string[] : [],
           };
         }),
-        preflightResult: asset?.metadata ? (asset.metadata as Record<string, unknown>).preflightResult as import("@/server/ai/preflight-analysis").PreflightResult | undefined : null,
+        preflightResult: promptAsset?.metadata ? (promptAsset.metadata as Record<string, unknown>).preflightResult as import("@/server/ai/preflight-analysis").PreflightResult | undefined : null,
         corpusQualitySection: corpusQualityContext.section,
       });
       logger.info(`[generate-and-store-output] model=${env.OPENAI_IMAGE_MODEL} hasAsset=${!!asset} locale=${locale ?? "default"}`);
@@ -987,13 +1025,14 @@ export const derivationJob = inngest.createFunction(
         const baseAssetId = generated.resolvedContract.baseAssetId;
         const styleAssetId = generated.resolvedContract.styleAssetId;
         const baseAsset = baseAssetId
-          ? assets.find((a) => a.id === baseAssetId)
-          : assets.find((a) => a.role === "base") ?? assets[0] ?? null;
-        const styleAsset = styleAssetId
-          ? (assets.find((a) => a.id === styleAssetId) ??
-            assets.find((a) => a.role === "style_reference") ??
-            null)
-          : assets.find((a) => a.role === "style_reference") ?? null;
+          ? (assets.find((a) => a.id === baseAssetId && a.role !== "style_reference") ??
+            resolveRestylingBaseAsset(assets))
+          : resolveRestylingBaseAsset(assets);
+        const styleAsset = resolveRestylingStyleAsset(
+          assets,
+          styleAssetId ?? null,
+          baseAsset?.id ?? null
+        );
 
         if (!baseAsset || !styleAsset) {
           logger.warn(

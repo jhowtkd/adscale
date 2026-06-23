@@ -10,10 +10,11 @@ AI-powered creative derivation platform for marketing teams. Upload a base creat
 
 - **Campaign management** — Organize campaigns with structured briefs (audience, platforms, tone, constraints).
 - **AI creative planning** — Generate strategy, angles, hooks, and CTAs from briefs via OpenAI text models.
-- **Image derivations** — Produce art variations, native format adaptations (Meta/Google aspect ratios), and restyling from reference creatives.
+- **Image derivations** — Produce art variations, native format adaptations (Meta/Google aspect ratios), and **restyling** from style-reference assets with adjustable intensity (`soft` / `medium` / `strong`). Restyle requests enqueue Inngest `derivation.generate` jobs via `POST /api/campaigns/[id]/restyle`.
 - **Creative contract** — Shared contract across prompts, scoring, and QA so generation modes stay consistent end-to-end.
 - **Hard quality gate** — Automatic `invalid` / `improvable` / `acceptable` verdicts block approval of failing derivations.
 - **Review UI** — Verdict badges on derivation cards, review modal, and **regenerate with fixes** flow for improvable outputs.
+- **Persona simulation** — Preview how target personas might react to a creative before committing to a full derivation batch.
 - **Campaign load errors** — Typed error taxonomy (`session`, `workspace`, `not_found`, `timeout`, `server`) with dedicated UI states.
 - **Export & delivery** — Download approved sets as ZIP archives; assets stored on Cloudflare R2.
 - **Workspaces & i18n** — Multi-tenant workspace isolation; English and Brazilian Portuguese (`next-intl`).
@@ -33,7 +34,7 @@ AI-powered creative derivation platform for marketing teams. Upload a base creat
 - **Readiness override** — Operators can override false-positive readiness blocks and continue to derivation when preflight is overly strict.
 - **Credit estimate transparency** — Batch and preview credit estimates with upfront breakdown before approving generation.
 - **Mission resume UX** — Dashboard mission path with deep links back into blocked or in-progress cockpit stages.
-- **Owner analytics** — Feedback dashboard with cockpit funnel, credit surprise signals, briefing abandon by step, and CSV export.
+- **Owner analytics** — Feedback dashboard with cockpit funnel, credit surprise signals, briefing abandon by step, human-quality corpus (calibration, coverage, trends, learning impact), and CSV export.
 - **Beta operator sessions** — Session-scoped grouping for operator runbooks and analytics correlation.
 
 ## Tech stack
@@ -50,8 +51,9 @@ AI-powered creative derivation platform for marketing teams. Upload a base creat
 | Storage | Cloudflare R2 (S3-compatible) |
 | Payments | [Stripe](https://stripe.com/) (Checkout, Customer Portal, webhooks) |
 | Email | [Resend](https://resend.com/) |
+| Monitoring | [Sentry](https://sentry.io/) (`@sentry/nextjs`) |
 | State | [TanStack Query](https://tanstack.com/query), [Zustand](https://github.com/pmndrs/zustand) |
-| Testing | [Vitest](https://vitest.dev/) (1061 tests), Testing Library |
+| Testing | [Vitest](https://vitest.dev/) (2204 tests), Testing Library, [Playwright](https://playwright.dev/) (E2E) |
 
 The runnable application lives in **`app/`** (not the repository root). API routes are under `app/src/app/api/`.
 
@@ -92,7 +94,7 @@ For Stripe webhooks, Docker, billing smoke tests, and production preflight, see 
 3. **Run readiness preflight** — Review readiness score; override if a false positive blocks progress.
 4. **Generate a creative plan** — AI proposes strategy, angles, hooks, and CTAs from the brief.
 5. **Choose a strategy recipe** — Pick a recipe, review credit estimates, and generate a preview batch.
-6. **Run derivations** — Choose a mode (`art_variation`, `format_adaptation`, or `restyling`), enqueue jobs via Inngest, then review verdicts and approve or regenerate with fixes.
+6. **Run derivations** — Choose a mode (`art_variation`, `format_adaptation`, or `restyling`), enqueue jobs via Inngest, then review verdicts and approve or regenerate with fixes. For restyling, upload a style-reference asset and call `POST /api/campaigns/{id}/restyle` with optional `styleIntensity`.
 7. **Export** — Download approved derivations individually or as a ZIP.
 
 ### Subscribe and manage billing
@@ -110,7 +112,7 @@ From `app/`:
 npm test
 ```
 
-The billing regression gate runs **1061 tests** across billing lifecycle, access policy, conversion surfaces, and account UI. CI runs lint, migrations, tests, and production build on push/PR to `main` (see `.github/workflows/ci.yml`).
+The test suite runs **2204 Vitest tests** across billing lifecycle, derivation jobs, access policy, conversion surfaces, and account UI. Playwright E2E specs (`npm run test:e2e`) cover browser-only flows such as restyle file uploads. CI runs lint, migrations, tests, and production build on push/PR to `main` (see `.github/workflows/ci.yml`).
 
 ## Documentation
 
@@ -119,6 +121,13 @@ The billing regression gate runs **1061 tests** across billing lifecycle, access
 | [`app/README.md`](app/README.md) | Local env, Stripe test mode, webhook setup, verification commands |
 | [`app/.env.example`](app/.env.example) | Environment variable reference |
 | [`app/DOCKER.md`](app/DOCKER.md) | Docker Compose for Postgres + optional Inngest |
+| [`docs/GETTING-STARTED.md`](docs/GETTING-STARTED.md) | Prerequisites, first run, billing setup |
+| [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) | Dev scripts, lint, branch conventions |
+| [`docs/TESTING.md`](docs/TESTING.md) | Vitest, Playwright E2E, coverage, CI |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | System design, data flow, billing model |
+| [`docs/API.md`](docs/API.md) | HTTP API overview |
+| [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) | Environment variables and defaults |
+| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | Render deployment and rollback |
 | [`render.yaml`](render.yaml) | Render deployment blueprint (`rootDir: app`) |
 
 ### Billing scripts (from `app/`)
@@ -136,8 +145,9 @@ ADScale_2/
 ├── app/                    # Next.js application (package.json, src/, tests/)
 │   ├── src/app/            # App Router pages and API routes
 │   ├── src/server/         # Auth, AI, billing, jobs, repositories
-│   ├── tests/              # Vitest unit and integration suites
+│   ├── tests/              # Vitest unit/integration suites; Playwright E2E
 │   └── drizzle/            # SQL migrations
+├── docs/                   # Architecture, API, deployment, and dev guides
 ├── render.yaml             # Render.com deploy config
 └── README.md               # This file
 ```

@@ -944,6 +944,116 @@ describe("derivationJob", () => {
     );
   });
 
+  it("uses the factual base asset for restyling prompt provenance when style reference is newest", async () => {
+    mockGetDerivationById.mockResolvedValue({
+      id: "derivation-id",
+      campaignId: "campaign-id",
+      workspaceId: "workspace-1",
+      parentId: null,
+      status: "queued",
+      generationMode: "restyling",
+      format: "1:1",
+      styleAssetId: "style-asset-id",
+      ctaText: null,
+      variantIndex: 0,
+      feedback: null,
+      prompt: null,
+      hardFailures: [],
+      generationLog: { autoRetryAttempted: false },
+    } as Awaited<ReturnType<typeof getDerivationById>>);
+
+    mockGetCampaignById.mockResolvedValue({
+      id: "campaign-id",
+      workspaceId: "workspace-1",
+      name: "Restyling Campaign",
+      client: "Acme",
+      product: "Widget",
+      objective: null,
+      audience: null,
+      platforms: null,
+      tone: null,
+      offer: null,
+      constraints: null,
+      notes: null,
+      status: "generating",
+      generationMode: "restyling",
+      creativeLevel: "balanced",
+      styleIntensity: "medium",
+      creativeDiagnosisStatus: "pending",
+      creativeDiagnosis: null,
+      creativeDiagnosisSource: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as Awaited<ReturnType<typeof getCampaignById>>);
+
+    mockGetAssetsByCampaign.mockResolvedValue([
+      {
+        id: "style-asset-id",
+        campaignId: "campaign-id",
+        workspaceId: "workspace-1",
+        key: "assets/style-reference.png",
+        type: "image/png",
+        size: 1000,
+        width: 1080,
+        height: 1080,
+        role: "style_reference",
+        metadata: null,
+        analysisStatus: null,
+        analyzedAt: null,
+        createdAt: new Date("2026-06-22T10:00:00Z"),
+      },
+      {
+        id: "base-asset-id",
+        campaignId: "campaign-id",
+        workspaceId: "workspace-1",
+        key: "assets/base-factual.png",
+        type: "image/png",
+        size: 1000,
+        width: 1080,
+        height: 1080,
+        role: "base",
+        metadata: null,
+        analysisStatus: null,
+        analyzedAt: null,
+        createdAt: new Date("2026-06-22T09:00:00Z"),
+      },
+    ]);
+    mockGetPlanByCampaign.mockResolvedValue(null as never);
+
+    await runDerivationJob({
+      derivationId: "derivation-id",
+      campaignId: "campaign-id",
+      workspaceId: "workspace-1",
+      locale: "en",
+      generationMode: "restyling",
+      styleAssetId: "style-asset-id",
+      variantIndex: 0,
+      format: "1:1",
+      isPreview: true,
+    });
+
+    const promptWrite = mockUpdateDerivationPromptProvenance.mock.calls.at(-1)?.[2];
+    expect(promptWrite?.inputPrompt).toContain("Reference Asset Key: assets/base-factual.png");
+    expect(promptWrite?.inputPrompt).not.toContain("Reference Asset Key: assets/style-reference.png");
+    expect(promptWrite?.promptProvenance).toEqual(
+      expect.objectContaining({
+        source: expect.objectContaining({
+          kind: "campaign_asset",
+          assetId: "base-asset-id",
+          assetKey: "assets/base-factual.png",
+        }),
+      })
+    );
+    expect(mockOpenAIImages.edit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        image: [
+          expect.objectContaining({ name: "base-image" }),
+          expect.objectContaining({ name: "style-reference" }),
+        ],
+      })
+    );
+  });
+
   it("inherits parent creativeContract fields for regeneration children", async () => {
     const inheritedContract = {
       generationMode: "art_variation" as const,

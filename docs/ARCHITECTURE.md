@@ -8,7 +8,7 @@ ADScale is a multi-tenant SaaS for AI-assisted advertising creative production. 
 
 ## System overview
 
-The application follows a classic **browser → Next.js API routes → repositories → Postgres/R2** shape, with **async workers** for derivation generation and brand-memory ingestion. **v12.0** adds real monetization: **Stripe subscriptions**, **credit grants** with FIFO spend, **workspace entitlements** (beta access), and **conversion gates** that return structured 402 payloads when spend is blocked. **v11.10–11.11** carry a closed-loop **beta analytics** pipeline (cockpit events, mission funnels, credit signals) and **owner-facing feedback tooling**.
+The application follows a classic **browser → Next.js API routes → repositories → Postgres/R2** shape, with **async workers** for derivation generation and brand-memory ingestion. **v12.0** adds real monetization: **Stripe subscriptions**, **credit grants** with FIFO spend, **workspace entitlements** (beta access), and **conversion gates** that return structured 402 payloads when spend is blocked. **v11.10–11.11** carry a closed-loop **beta analytics** pipeline (cockpit events, mission funnels, credit signals) and **owner-facing feedback tooling**. Later phases add a **human-quality corpus** (owner evaluation → learning proposals), **performance import** and **hypothesis comparison** loops, and **client/output learning** projections into brand memory.
 
 | Concern | Implementation |
 |--------|----------------|
@@ -16,13 +16,18 @@ The application follows a classic **browser → Next.js API routes → repositor
 | Auth & tenancy | Better Auth + `requireWorkspaceAccess()` (`app/src/server/auth/workspace.ts`) |
 | Persistence | Drizzle ORM, schema `adscale_app` (`app/src/server/db/schema.ts`) |
 | Files | `objectStorage` abstraction → R2 (`app/src/server/storage/`) |
-| AI | OpenAI SDK modules under `app/src/server/ai/` |
+| AI | OpenAI SDK modules under `app/src/server/ai/` (including **Olhar** art-direction verdicts) |
 | Background jobs | Inngest functions registered in `app/src/app/api/inngest/route.ts` |
 | Billing & credits | Stripe webhooks, plans, grants, gates (`app/src/server/billing/`) |
 | Entitlements | Beta tester access (`app/src/server/repositories/entitlements.ts`) |
 | Mission progression | `app/src/server/progression/missions/` — ordered cockpit missions with evidence inference |
 | Beta analytics | `app/src/server/beta-analytics/` — event ingest, sanitization, aggregation, CSV export |
 | Feedback & beta ops | `app/src/server/feedback/`, `app/src/server/mission-insights/`, owner routes under `api/feedback/` |
+| Human quality loop | `app/src/server/human-quality/` — corpus queue, evaluations, calibration, learning proposals |
+| Performance & hypotheses | `app/src/server/performance/` — CSV import, snapshots, variant comparisons, client learnings |
+| Output learning | `app/src/server/output-learning/` — decision events → client output learnings → Mem0 projection |
+| Brand taste & Olhar calibration | `app/src/server/brand-taste/`, `app/src/server/olhar-calibration/` |
+| Admin quality ops | Platform-owner routes under `api/admin/quality/` |
 
 **v12.0 cross-cutting concerns** (monetization):
 
@@ -39,6 +44,13 @@ The application follows a classic **browser → Next.js API routes → repositor
 2. **Mission instrumentation** — ordered mission path (`setup` → `share`) with evidence inference, credit estimates, and `mission_completed` / cockpit stage events.
 3. **Owner analytics** — platform-owner routes aggregate funnel summaries, credit surprises, and readiness overrides; CSV export bundles raw events plus summary sections.
 4. **Delivery package multiformat** — approved parent derivations spawn `format_adaptation` children per requested format, with quality-gate guard and per-format credit metering.
+
+**Human-quality & learning loop** (post-v12):
+
+1. **Corpus capture** — derivations that fail quality gates or meet sampling rules become `human_quality_corpus_items` (and optional `human_quality_corpus_candidates`).
+2. **Owner evaluation** — platform owners score corpus items via `api/feedback/human-quality-corpus/*`; evaluations persist rubric scores and failure reasons.
+3. **Learning proposals** — nightly `learningProposalAggregatorJob` (and on-demand `POST /api/admin/quality/learning/proposals/generate`) aggregates evaluations into `client_learning_proposals`; cross-client patterns become global proposals.
+4. **Calibration** — accepted proposals and corpus trends feed `calibration_rules`, `rubric_calibration_adjustments`, and Olhar release evidence for prompt/score tuning.
 
 ---
 
@@ -60,6 +72,7 @@ graph TD
     BillingAPI[api/billing/*]
     AnalyticsAPI[api/analytics/events]
     FeedbackAPI[api/feedback/*]
+    AdminAPI[api/admin/quality/*]
     InngestRoute[api/inngest]
   end
 
@@ -78,6 +91,10 @@ graph TD
     Progress[progression/missions]
     BetaA[beta-analytics/*]
     MissionI[mission-insights]
+    HQ[human-quality/*]
+    Perf[performance/*]
+    OutLearn[output-learning/*]
+    Memory[memory/*]
   end
 
   subgraph External
@@ -86,6 +103,7 @@ graph TD
     OAI[OpenAI]
     ING[Inngest Cloud]
     STR[Stripe]
+    MEM[Mem0]
   end
 
   UI --> Hooks
@@ -103,12 +121,17 @@ graph TD
   BillingAPI --> BillAccess
   BillingAPI --> BillEvents
   FeedbackAPI --> Owner
+  AdminAPI --> Owner
   AnalyticsAPI --> Auth
   AnalyticsAPI --> BetaA
   FeedbackAPI --> BetaA
+  FeedbackAPI --> HQ
+  AdminAPI --> HQ
   API --> Repo
   API --> BillCredits
   API --> Progress
+  API --> Perf
+  API --> OutLearn
   API --> ING
   BillCredits --> BillAccess
   BillCredits --> Entitlements
@@ -121,6 +144,7 @@ graph TD
   Jobs --> AI
   Jobs --> Store
   Jobs --> BillCredits
+  Jobs --> HQ
   Repo --> PG
   Entitlements --> PG
   Store --> R2
@@ -128,6 +152,12 @@ graph TD
   ING --> Jobs
   STR --> BillingAPI
   MissionI --> Repo
+  HQ --> Repo
+  Perf --> Repo
+  Perf --> Memory
+  OutLearn --> Repo
+  OutLearn --> Memory
+  Memory --> MEM
 ```
 
 ---
@@ -139,23 +169,29 @@ Application code lives under `app/` (npm package `adscale-app`). Source is roote
 | Path | Role |
 |------|------|
 | `app/src/app/` | App Router: UI routes `(dashboard)/`, public pages, and `api/*` Route Handlers |
-| `app/src/components/` | Presentational and feature components (campaign workspace, billing settings, feedback owner panels, UI primitives) |
+| `app/src/components/` | Presentational and feature components (campaign workspace, billing settings, feedback owner panels, hypotheses, UI primitives) |
 | `app/src/lib/` | Client utilities: `api-client`, React Query hooks, `billing/conversion-gate`, `campaign-load-error`, `beta-analytics/constants`, formats, logger |
-| `app/src/server/ai/` | OpenAI-backed creative pipeline: prompts, scoring, QA, quality gate, contract, readiness, preview gate |
+| `app/src/server/ai/` | OpenAI-backed creative pipeline: prompts, scoring, QA, quality gate, contract, readiness, preview gate, **Olhar** art-direction verdicts |
 | `app/src/server/auth/` | Better Auth config, session helpers, workspace access, platform-owner guard, dev-admin bypass |
 | `app/src/server/billing/` | Stripe client, plans, checkout/portal sessions, webhook event processor, access resolution, credit spend/gates, beta redemption, conversion payloads |
 | `app/src/server/beta-analytics/` | Event types, sanitization, `recordBetaAnalyticsEvent`, aggregation, credit-signal summaries, CSV helpers |
 | `app/src/server/beta-sessions/` | Beta session Zod types shared with repositories |
+| `app/src/server/brand-taste/` | Taste profiles, calibration signal recording, calibration rules |
 | `app/src/server/db/` | Drizzle client + `schema.ts` (all tables in `adscale_app` schema) |
 | `app/src/server/feedback/` | Feedback validation, mission-credit-signal classification |
-| `app/src/server/jobs/` | Inngest client, `derivationJob`, trial notifications, workspace asset analysis, brand memory |
-| `app/src/server/memory/` | Mem0 brand-memory ingest, context assembly for prompts |
+| `app/src/server/human-quality/` | Corpus queue, evaluations, sampling, calibration, learning proposal generation, trend/impact reports |
+| `app/src/server/jobs/` | Inngest client, `derivationJob`, trial notifications, workspace asset analysis, brand memory, **learning proposal aggregator** |
+| `app/src/server/memory/` | Mem0 brand-memory ingest, context assembly, performance/output learning projections |
 | `app/src/server/mission-insights/` | Sanitize and persist mission insight moments as `feedback_reports` |
+| `app/src/server/olhar-calibration/` | Olhar release evidence and calibration services |
+| `app/src/server/output-learning/` | Output decision recording, aggregation, recommendations |
+| `app/src/server/performance/` | Performance CSV import, snapshots, hypothesis comparison, client performance learnings |
 | `app/src/server/progression/` | Workspace levels and ordered **missions** (definitions, evidence, status, credits) |
-| `app/src/server/repositories/` | Data access layer; includes `billing`, `entitlements`, `credit-transactions`, `beta-analytics`, `beta-sessions` |
+| `app/src/server/repositories/` | Data access layer; includes billing, entitlements, human-quality corpus, performance, output decisions |
 | `app/src/server/services/` | Email, notifications (low-credits alerts), export, landing-page render |
-| `app/src/server/storage/` | `objectStorage` interface; R2 and in-memory implementations |
+| `app/src/server/storage/` | `ObjectStorage` interface; `R2ObjectStorage` (`r2-object-storage.ts`), presign helpers (`r2.ts`), in-memory test impl |
 | `app/src/server/validation/` | `env` (Zod-validated environment) |
+| `app/src/server/waitlist/` | Waitlist signup schema and normalization |
 | `app/src/i18n/` | `next-intl` message catalogs |
 
 Tests: `app/tests/` (integration) and co-located `*.test.ts` beside modules. SQL migrations: `app/drizzle/`.
@@ -183,6 +219,15 @@ Tests: `app/tests/` (integration) and co-located `*.test.ts` beside modules. SQL
    - **`score-derivation`** — heuristic + visual analysis (`creative-score.ts`), persists `qualityScore` / `scoreIssues`
    - **`quality-gate`** — `runCompletedDerivationQualityGate` (see below)
    - **`track-usage`** for billing metering (idempotent; credits already debited at API boundary for most flows)
+
+### 2b. Campaign restyling (dedicated entry)
+
+1. `POST /api/campaigns/[id]/restyle` accepts optional `{ styleAssetIds, styleIntensity }`.
+2. Validates base asset and a distinct `style_reference` asset; blocks when other derivations are `queued`/`processing`.
+3. Updates campaign `generationMode: restyling` and optional `styleIntensity`.
+4. Charges credits (`image_derivation`, idempotency key scoped to campaign + base asset).
+5. Creates a single `restyling` derivation with `styleAssetId` and queues `derivation.generate`.
+6. Job resolves base/style assets in `derivationJob` before prompt build (separate from standard art-variation asset selection).
 
 ### 3. Review, QA, and export
 
@@ -231,7 +276,7 @@ Events are deduplicated via `processed_stripe_events`. Unsupported types are ski
 ### 6. Credit spend and conversion gates (v12.0)
 
 1. Metered API routes call `spendCreditsOrApiError({ workspaceId, action, idempotencyKey, userId, ... })`.
-2. `recordUsage` checks idempotency (`usage` table), then `canSpend` via `getWorkspaceBillingAccess` + available grant balance.
+2. `recordUsage` checks idempotency (`usage_events` table), then `canSpend` via `getWorkspaceBillingAccess` + available grant balance.
 3. On allow: FIFO debit across `credit_grants.remaining` in a transaction, `trackUsage`, optional `credit_transactions` row, `credit_spend` analytics event, low-credits email if balance &lt; 10.
 4. On block: HTTP **402** with `ConversionErrorPayload` from `buildConversionErrorPayloadForWorkspace` — reasons include `insufficient_credits`, `beta_exhausted`, `subscription_required`, `past_due_recovery`; `recommendedAction` is `checkout`, `portal`, or `billing`.
 5. Client `lib/billing/conversion-gate.ts` parses 402 payloads and routes users to checkout, portal, or billing settings.
@@ -280,6 +325,28 @@ Events are deduplicated via `processed_stripe_events`. Unsupported types are ski
 4. `POST /api/workspace/mission-insights` persists structured diagnostic context on `feedback_reports`.
 5. `GET /api/feedback/mission-credit-signals` (owner) classifies mission insights into healthy vs frustration signals.
 
+### 10. Human quality corpus & learning (post-v12)
+
+1. Failed or sampled derivations enter the corpus via `human-quality/candidate-capture` and repository inserts (`human_quality_corpus_items`, optional `human_quality_corpus_candidates`).
+2. Owners list and evaluate via `GET/POST /api/feedback/human-quality-corpus/*`; evaluations stored in `human_quality_evaluations` with linked `human_quality_feedback_artifacts`.
+3. `learningProposalAggregatorJob` runs daily (cron `0 6 * * *`): `generateAndPersistClientLearningProposals` then `detectAndPersistCrossClientGlobalProposals`.
+4. Owners accept/reject proposals via `POST /api/admin/quality/learning/proposals/[id]/accept|reject`; manual trigger via `POST /api/admin/quality/learning/proposals/generate`.
+5. Ingestion backfill/status: `POST /api/admin/quality/ingestion/backfill`, `GET /api/admin/quality/ingestion/status`.
+6. Trend and calibration surfaces: `GET /api/feedback/quality-trend`, `score-calibration`, `calibration-adjustments/[id]/accept`.
+
+### 11. Performance import & client learnings
+
+1. `POST /api/campaigns/[id]/performance/import/preview` parses CSV rows; `confirm` persists `performance_import_batches` and `performance_import_rows`.
+2. Snapshots land in `creative_performance_snapshots`; hypotheses and variant comparisons use `creative_hypotheses`, `hypothesis_variants`, `variant_comparisons`.
+3. `recomputeClientLearnings` (`performance/learning/service.ts`) aggregates comparison evidence into `client_performance_learnings` and projects into Mem0 via `performance-learning-projection`.
+4. Campaign UI (`HypothesesPanel`, performance routes) reads comparisons and recommendations.
+
+### 12. Output decision learning
+
+1. Approval, export, and review flows record `output_decision_events` (via `output-learning/output-decision-recorder`).
+2. `recomputeClientOutputLearnings` aggregates events into `client_output_learnings` and projects to brand memory (`output-learning-projection`).
+3. `GET /api/client-profiles/[id]/output-learnings` exposes learnings for strategy surfaces.
+
 ---
 
 ## Billing domain (v12.0)
@@ -319,7 +386,7 @@ Grants expire at `currentPeriodEnd` for invoice-sourced grants; beta grants have
 | `beta_access_redemptions` | One redemption record per workspace |
 | `processed_stripe_events` | Webhook idempotency |
 | `credit_transactions` | Spend audit trail linked to user/campaign/derivation |
-| `usage` | Idempotent operation log (action + idempotency key) |
+| `usage_events` | Idempotent operation log (action + idempotency key per workspace) |
 
 ### HTTP surface (`app/src/app/api/billing/`)
 
@@ -412,7 +479,7 @@ After an image is generated and scored, the gate classifies QA output into **har
 | `improvable` | No hard failures, but score &lt; 70 and/or checklist warnings |
 | `acceptable` | No hard failures, score ≥ 70, no checklist warnings |
 
-**Orchestration:** Inngest step `quality-gate` after scoring; on-demand `POST /api/derivations/[id]/qa`; `assertDerivationApprovable` on approve and delivery-package flows.
+**Orchestration:** Inngest step `quality-gate` after scoring; on-demand `POST /api/derivations/[id]/qa`; `assertDerivationApprovable` on approve and delivery-package flows. **Olhar** art-direction verdicts (`server/ai/olhar/`) complement export/factual hard-failure classification.
 
 ---
 
@@ -435,12 +502,16 @@ Repositories take `workspaceId` as an explicit argument. Drizzle updates include
 **Representative API groups** under `app/src/app/api/`:
 
 - `campaigns/`, `derivations/`, `workspace/` (assets, brand-kit, invites, **missions**, **mission-insights**, progression)
+- `campaigns/[id]/restyle`, `performance/`, `hypotheses/`, `competitors/`, `learnings/`, `approval-package/`
 - `billing/` — **checkout**, **portal**, **status**, **history**, **beta/redeem**, **webhook**
 - `analytics/events` — workspace-scoped beta event ingest
-- `feedback/` — reports, beta-sessions, analytics funnel/credit-signals/export, mission-credit-signals
-- `dashboard/`, `export/`, `client-profiles/`
+- `feedback/` — reports, beta-sessions, human-quality corpus, analytics funnel/credit-signals/export, mission-credit-signals, quality-trend, calibration
+- `admin/quality/` — learning proposal accept/reject/generate, ingestion backfill/status (platform owner)
+- `client-profiles/` — references, memory, output-learnings
+- `dashboard/`, `export/`, `templates/`, `restyling/`, `quick-tools/`
 - `inngest/` (worker webhook — Inngest signing, no end-user session)
 - `health/`, `share/` (token-based public read paths scope differently)
+- `waitlist/` (public signup)
 
 ---
 
@@ -456,8 +527,9 @@ Repositories take `workspaceId` as an explicit argument. Drizzle updates include
 | `trialNotificationJob` | Trial lifecycle emails |
 | `workspaceAssetAnalyzeJob` | Asset analysis (preflight / metadata) |
 | `brandMemoryIngestJob` | Mem0 brand-memory ingestion |
+| `learningProposalAggregatorJob` | Daily cron — client + cross-client learning proposals from human-quality corpus |
 
-**Derivation job highlights:** Event `derivation.generate`; retries 2; realtime `derivationChannel`; idempotent skip if `outputKey` already set.
+**Derivation job highlights:** Event `derivation.generate`; retries 2; realtime `derivationChannel`; idempotent skip if `outputKey` already set; dedicated base/style asset resolution for `restyling` mode.
 
 Local dev: `npm run dev` runs Next + Inngest dev (`scripts/dev-with-inngest.mjs`); worker URL `http://localhost:3000/api/inngest`.
 
@@ -480,7 +552,11 @@ Modules under `app/src/server/ai/`:
 | `copy-generator.ts`, `landing-page.ts` | Copy and landing-page generation |
 | `campaign-deduction.ts`, `preflight-analysis.ts` | Briefing assistance, upload preflight |
 | `competitor-analyzer.ts`, `persona-simulator.ts` | Competitor and persona flows |
+| `creative-diagnosis.ts` | Campaign creative diagnosis |
+| `derivation-auto-retry.ts` | Auto-retry policy for failed generations |
+| `olhar/*` | Art-direction verdicts, dual-verdict constitution, base reading |
 | `smart-resize.ts`, `image-analysis.ts` | Resize preview and image utilities |
+| `voices/client-voice.ts` | Client voice extraction and review gate |
 
 OpenAI calls use `env.OPENAI_API_KEY` and model names from validated env. Image generation timeout in the derivation job is 5 minutes per attempt.
 
@@ -501,10 +577,14 @@ OpenAI calls use `env.OPENAI_API_KEY` and model names from validated env. Image 
 | `recordBetaAnalyticsEvent` | `server/beta-analytics/record.ts` | Validated analytics ingest |
 | `buildAnalyticsFunnelSummary` | `server/beta-analytics/aggregate.ts` | Owner funnel aggregations |
 | `getWorkspaceMissions` | `server/progression/missions/service.ts` | Mission path status |
+| `generateAndPersistClientLearningProposals` | `server/human-quality/learning/generate.ts` | Corpus → client learning proposals |
+| `learningProposalAggregatorJob` | `server/jobs/learning-proposal-aggregator.ts` | Scheduled proposal generation |
+| `recomputeClientLearnings` | `server/performance/learning/service.ts` | Performance comparisons → client learnings |
+| `recomputeClientOutputLearnings` | `server/output-learning/service.ts` | Output decisions → client output learnings |
 | `CampaignLoadError` | `lib/campaign-load-error.ts` | Client load error taxonomy |
 | `requireWorkspaceAccess` | `server/auth/workspace.ts` | API tenancy guard |
 | `requirePlatformOwner` | `server/auth/platform-owner.ts` | Owner-only analytics and beta ops |
-| `objectStorage` | `server/storage/object-storage.ts` | R2 put/get/presign |
+| `objectStorage` | `server/storage/index.ts` | R2 put/get/presign via `R2ObjectStorage` |
 | `derivationJob` | `server/jobs/derivation.ts` | End-to-end async generation |
 | Repository functions | `server/repositories/*` | Workspace-scoped CRUD |
 
@@ -513,34 +593,35 @@ OpenAI calls use `env.OPENAI_API_KEY` and model names from validated env. Image 
 ## Data layer
 
 - **ORM:** Drizzle with `pg` pool (`app/src/server/db/index.ts`).
-- **Schema:** PostgreSQL schema `adscale_app` — users/sessions (Better Auth), workspaces, campaigns, assets, derivations (quality gate + `parent_id`), **billing_customers**, **subscriptions**, **credit_grants**, **workspace_entitlements**, **beta_access_redemptions**, **processed_stripe_events**, **credit_transactions**, **usage**, notifications, landing pages, **beta_sessions**, **beta_analytics_events**, **feedback_reports**, workspace progression, etc.
+- **Schema:** PostgreSQL schema `adscale_app` — users/sessions (Better Auth), workspaces, campaigns, assets, derivations (quality gate + `parent_id`), billing tables, notifications, landing pages, beta analytics, feedback, progression, **performance import/snapshots/hypotheses**, **client_performance_learnings**, **client_output_learnings**, **output_decision_events**, **human_quality_corpus_***, **client_learning_proposals**, **calibration_signals/rules**, **rubric_calibration_adjustments**, waitlist signups, etc.
 - **Migrations:** `app/drizzle/*.sql`, managed via `drizzle-kit` (`npm run db:migrate`).
 
 ---
 
 ## Authentication and authorization
 
-- **Better Auth** tables in Drizzle schema; config in `app/src/server/auth/config.ts`.
+- **Better Auth** tables in Drizzle schema; config in `app/src/server/auth/config.ts`; catch-all route at `app/api/auth/[...all]/route.ts`.
 - Session resolution: `getSession` / `getSessionFromHeaders` (`server/auth/session.ts`).
 - Workspace membership roles: `owner` | `admin` | `member` (`requireRole` for privileged actions).
-- **Platform owners** — separate guard for internal beta analytics and session management.
+- **Platform owners** — separate guard for internal beta analytics, human-quality corpus, and admin quality routes.
 - **Dev-admin owners** — bypass credit debits with synthetic balance (`server/auth/dev-admin.ts`).
 
 ---
 
 ## Storage
 
-Binary assets (campaign uploads, derivation outputs, brand kit logos) are stored under workspace-scoped keys in R2. The `objectStorage` abstraction supports presigned upload/download URLs for browser-direct transfers.
+Binary assets (campaign uploads, derivation outputs, brand kit logos) are stored under workspace-scoped keys in R2. The `ObjectStorage` interface (`object-storage.ts`) is implemented by `R2ObjectStorage` (`r2-object-storage.ts`), exported as `objectStorage` from `storage/index.ts`. Presigned upload/download URLs use env `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, and `R2_PUBLIC_BASE_URL` for browser-direct transfers. An in-memory implementation exists for tests.
 
 ---
 
 ## Frontend architecture (summary)
 
-- **Routing:** App Router with `(dashboard)` layout; `(dashboard)/feedback` for owner analytics; settings billing tab.
-- **Server state:** TanStack Query hooks in `app/src/lib/hooks/` (campaigns, derivations, **billing**, export, missions, delivery-package, record-beta-event).
+- **Routing:** App Router with `(dashboard)` layout; `(dashboard)/feedback` for owner analytics and human-quality corpus; settings billing tab.
+- **Server state:** TanStack Query hooks in `app/src/lib/hooks/` (campaigns, derivations, **billing**, export, missions, delivery-package, hypotheses, performance, record-beta-event).
 - **Billing UX:** `BillingTab`, `CreditPanel`, `CreditChart` consume `/api/billing/status` and `/api/billing/history`; 402 responses handled via `conversion-gate` client helpers.
 - **Mission UX:** `MissionPathCard`, `MissionInsightProvider`, cockpit stage events via `useRecordBetaEvent`.
-- **Owner feedback UI:** `OwnerAnalyticsPanel`, `BetaSessionsPanel` consume platform-owner analytics APIs.
+- **Owner feedback UI:** `OwnerAnalyticsPanel`, `BetaSessionsPanel`, `HumanQualityCorpusPanel` consume platform-owner analytics and corpus APIs.
+- **Performance UX:** `HypothesesPanel`, learnings panels, performance import flows.
 - **UI state:** Zustand where needed (`app/src/lib/store.ts`).
 - **i18n:** `next-intl` (`app/src/i18n.ts`, message files under `app/src/i18n/`).
 - **Observability:** Sentry (`@sentry/nextjs`), structured logging via `app/src/lib/logger.ts`.

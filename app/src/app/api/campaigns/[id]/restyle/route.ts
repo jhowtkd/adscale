@@ -30,6 +30,34 @@ const restyleSchema = z.object({
 
 const STALE_ACTIVE_DERIVATION_MINUTES = 10;
 
+type CampaignAsset = Awaited<ReturnType<typeof getAssetsByCampaign>>[number];
+
+function resolveRestylingBaseAsset(assets: CampaignAsset[]) {
+  return (
+    assets.find((asset) => asset.role === "base") ??
+    assets.find((asset) => asset.role !== "style_reference") ??
+    null
+  );
+}
+
+function resolveRestylingStyleAsset(
+  assets: CampaignAsset[],
+  styleAssetId: string | undefined,
+  baseAssetId: string
+) {
+  if (styleAssetId) {
+    const selected = assets.find((asset) => asset.id === styleAssetId);
+    if (selected?.role === "style_reference" && selected.id !== baseAssetId) {
+      return selected;
+    }
+    return null;
+  }
+
+  return assets.find(
+    (asset) => asset.id !== baseAssetId && asset.role === "style_reference"
+  ) ?? null;
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -72,7 +100,7 @@ export async function POST(
 
     // Ensure we have a base asset
     const assets = await getAssetsByCampaign(campaignId, workspace.id);
-    const baseAsset = assets.find((a) => a.role === "base") ?? assets[0];
+    const baseAsset = resolveRestylingBaseAsset(assets);
     if (!baseAsset) {
       return apiError("missingBaseAsset", 400);
     }
@@ -85,6 +113,19 @@ export async function POST(
           return apiError("assetNotFound", 404);
         }
       }
+    }
+
+    const selectedStyleAssetId =
+      styleAssetIds && styleAssetIds.length > 0 ? styleAssetIds[0] : undefined;
+    const styleAsset = resolveRestylingStyleAsset(
+      assets,
+      selectedStyleAssetId,
+      baseAsset.id
+    );
+    if (!styleAsset) {
+      return apiError("invalidInput", 400, {
+        styleAssetIds: ["Restyling requires a style reference asset different from the factual base asset"],
+      });
     }
 
     // Update campaign for restyling
@@ -104,9 +145,6 @@ export async function POST(
     });
     if (creditError) return creditError;
 
-    const selectedStyleAssetId =
-      styleAssetIds && styleAssetIds.length > 0 ? styleAssetIds[0] : undefined;
-
     // Create a single restyling derivation
     const derivation = await createDerivation({
       campaignId,
@@ -117,7 +155,7 @@ export async function POST(
       format: baseAsset.width && baseAsset.height
         ? `${baseAsset.width}x${baseAsset.height}`
         : "1:1",
-      styleAssetId: selectedStyleAssetId,
+      styleAssetId: styleAsset.id,
     });
 
     logger.info(`[restyle POST] created derivationId=${derivation.id} mode=restyling`);
@@ -134,7 +172,7 @@ export async function POST(
           generationMode: "restyling",
           variantIndex: 0,
           format: derivation.format,
-          styleAssetId: selectedStyleAssetId ?? null,
+          styleAssetId: styleAsset.id,
         },
       });
       logger.info(`[restyle POST] event sent derivationId=${derivation.id}`);

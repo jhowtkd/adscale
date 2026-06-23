@@ -8,7 +8,7 @@ Set up the ADScale Next.js application (`app/`) on your machine: install depende
 
 | Tool | Version | Purpose |
 |------|---------|---------|
-| **Node.js** | 20+ (Docker and CI use Node 20) | Run Next.js, Vitest, and Drizzle |
+| **Node.js** | 20.19+ (CI and Docker use Node 20; Next.js 16 also supports 22.12+ and 24+) | Run Next.js, Vitest, and Drizzle |
 | **npm** | Bundled with Node | Install dependencies (`app/package-lock.json`) |
 | **PostgreSQL** | 16+ recommended | App database (`DATABASE_URL`) |
 | **Git** | Any recent version | Clone the repository |
@@ -29,7 +29,8 @@ Set up the ADScale Next.js application (`app/`) on your machine: install depende
 
 - **Google / GitHub OAuth** — leave `GOOGLE_*` and `GITHUB_*` empty to use email/password only
 - **Docker** — `app/docker-compose.yml` provides PostgreSQL 16 (and optional full stack); see [Common setup issues](#common-setup-issues)
-- **Marketing site** — `MARKETING_UPSTREAM_URL` in `.env.example` points at a separate Vite landing (`site-adscale` on port 5173), proxied at `/hi` when `MARKETING_URL` is set
+- **Marketing site** — `MARKETING_UPSTREAM_URL` in `.env.example` points at a separate Vite landing (`site-adscale` repo on port 5173), proxied at `/hi` when `MARKETING_URL` is set
+- **Mem0 brand memory** — set `MEM0_ENABLED=true` and `MEM0_API_KEY` (optional; not in `.env.example`)
 
 ## Installation steps
 
@@ -44,7 +45,7 @@ Set up the ADScale Next.js application (`app/`) on your machine: install depende
 
 2. **Install application dependencies**
 
-   All runnable scripts live under `app/`:
+   All runnable scripts live under `app/` (the repository root only holds shared tooling such as `cross-env`):
 
    ```bash
    cd app
@@ -57,7 +58,7 @@ Set up the ADScale Next.js application (`app/`) on your machine: install depende
    cp .env.example .env.local
    ```
 
-   Edit `app/.env.local` with real values. Next.js and project scripts load `.env.local` (not `.env.example`).
+   Edit `app/.env.local` with real values. Next.js loads `.env.local` for `npm run dev`; project scripts load the same file via `app/scripts/load-env.ts`.
 
 4. **Start PostgreSQL** (if not using a hosted database)
 
@@ -87,6 +88,8 @@ Set up the ADScale Next.js application (`app/`) on your machine: install depende
 
 Copy `app/.env.example` to `app/.env.local` and set at least the variables validated in `app/src/server/validation/env.ts`. Missing or invalid values throw at runtime when server code reads `env` (for example `Env validation failed for BETTER_AUTH_SECRET: ...`).
 
+Replace placeholder secrets before starting the app—values like `replace-with-a-strong-random-secret` pass Zod length checks but must be unique random strings in real use.
+
 **Core (required for local dev)**
 
 | Variable | Notes |
@@ -109,20 +112,21 @@ Copy `app/.env.example` to `app/.env.local` and set at least the variables valid
 |----------|--------|
 | `STRIPE_SECRET_KEY` | Test key (`sk_test_...`); must start with `sk_` or `rk_` |
 | `STRIPE_WEBHOOK_SECRET` | From Stripe CLI or Dashboard; must start with `whsec_` |
-| `STRIPE_STARTER_PRICE_ID`, `STRIPE_GROWTH_PRICE_ID`, `STRIPE_SCALE_PRICE_ID` | Stripe Price IDs (`price_...`) for Starter (30 credits/mo), Growth (120), Scale (360) |
+| `STRIPE_STARTER_PRICE_ID`, `STRIPE_GROWTH_PRICE_ID`, `STRIPE_SCALE_PRICE_ID` | Real Stripe Price IDs (`price_...`) for Starter (30 credits/mo), Growth (120), Scale (360)—placeholders like `price_replace_starter` pass validation but fail against the Stripe API |
 | `STRIPE_SUCCESS_URL`, `STRIPE_CANCEL_URL` | Defaults in `.env.example` point at localhost settings routes |
 
 **Optional in `.env.example`**
 
 - `MARKETING_URL` — public marketing landing URL; unauthenticated `/` redirects here when set (`app/src/proxy.ts`). Locally typically `http://localhost:3000/hi` (proxied marketing). Leave unset for local-only work (redirect falls back to `/login`).
-- `MARKETING_UPSTREAM_URL` — upstream static site proxied at `/hi` via Next.js rewrites; locally `http://localhost:5173`
+- `MARKETING_UPSTREAM_URL` — upstream static site proxied at `/hi` via Next.js rewrites; locally `http://localhost:5173` (falls back to `https://adscale-marketing.onrender.com` when unset)
 - `MARKETING_ALLOWED_ORIGINS` — CORS origins for `POST /api/waitlist` from the marketing site
 - `RESEND_WAITLIST_SEGMENT_ID` — Resend Audiences segment for waitlist sync (optional in dev)
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` — OAuth
 - `BETA_ACCESS_CODES` — comma-separated beta invite codes (10 ads per workspace, no Stripe checkout)
 - `DEV_ADMIN_EMAIL` — comma-separated dev admin emails; skips email verification and credit debits for owner workspaces
+- `MEM0_API_KEY`, `MEM0_ENABLED`, `MEM0_USER_PREFIX`, `MEM0_ORGANIZATION_ID`, `MEM0_PROJECT_ID` — optional Mem0 brand memory (supported in `envSchema`, not in `.env.example`)
 - `SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT` — error reporting
-- `TEST_DATABASE_URL` — integration tests (default `postgres://test:test@localhost:5433/adscale_test`)
+- `TEST_DATABASE_URL` — integration tests (default `postgres://test:test@localhost:5433/adscale_test`; use `npm run test:db:setup` to start a dedicated test Postgres container on port 5433)
 
 For the full variable list, defaults, and validation rules, see [CONFIGURATION.md](CONFIGURATION.md).
 
@@ -137,7 +141,7 @@ Local billing (v12.0) requires Stripe **test mode** credentials and a webhook fo
 
 ### 2. Create subscription prices
 
-Create three **recurring** Prices in test mode and map them to env vars:
+Create three **recurring** Prices in the Stripe Dashboard (test mode) and map them to env vars:
 
 | Plan | Env var | Credits/month |
 |------|---------|-----------------|
@@ -145,13 +149,7 @@ Create three **recurring** Prices in test mode and map them to env vars:
 | Growth | `STRIPE_GROWTH_PRICE_ID` | 120 |
 | Scale | `STRIPE_SCALE_PRICE_ID` | 360 |
 
-Alternatively, with real test keys already in `.env.local`, run:
-
-```bash
-npm run seed:stripe
-```
-
-This seeds test-mode products/prices via the Stripe API (test keys only; refuses live keys).
+There is no script to auto-create these prices—you must create them in Stripe and paste the `price_...` IDs into `.env.local`.
 
 ### 3. Forward webhooks with Stripe CLI
 
@@ -227,13 +225,13 @@ npm run seed:dev-admin -- --create --email=you@example.com --password='YourSecur
 
 Set `DEV_ADMIN_EMAIL=you@example.com` in `.env.local` so the account skips credit debits. The app must be reachable at `BETTER_AUTH_URL` when using `--create` (start `npm run dev` first, or sign up manually and run with `--email` only).
 
-To attach a real Stripe test customer for checkout/portal E2E flows:
+To attach a real Stripe test customer and subscription for checkout/portal E2E flows (requires real test Price IDs in `.env.local`):
 
 ```bash
 npm run seed:stripe -- --email=you@example.com
 ```
 
-(Run `seed:dev-admin` first if the user does not exist.)
+This runs `scripts/seed-stripe-real.ts`: it creates a Stripe test customer, attaches a test card, and subscribes the workspace to the Scale plan. It does **not** create Stripe products or prices. Run `seed:dev-admin` first if the user does not exist.
 
 **Alternatives**
 
@@ -254,7 +252,7 @@ Server modules validate env via Zod (`app/src/server/validation/env.ts`). Typica
 - `OPENAI_API_KEY` not starting with `sk-`
 - `RESEND_API_KEY` not starting with `re_`
 - `STRIPE_WEBHOOK_SECRET` not starting with `whsec_`
-- Stripe Price IDs not starting with `price_`
+- Stripe Price IDs not starting with `price_`, or still set to `price_replace_*` placeholders
 
 Fix the named variable in `.env.local` and restart `npm run dev`.
 

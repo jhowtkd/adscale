@@ -11,7 +11,7 @@ Internal HTTP API for the ADScale Next.js application (`app/src/app/api`). Consu
 | Auth (default) | Better Auth session cookie + workspace scoping |
 | Max upload | 50 MB per file; images: `image/png`, `image/jpeg`, `image/webp` |
 
-Route handlers live under `app/src/app/api/**/route.ts` (87 route files).
+Route handlers live under `app/src/app/api/**/route.ts` (118 route files).
 
 ---
 
@@ -44,6 +44,17 @@ Beta feedback console and analytics routes call `requirePlatformOwner(request)` 
 2. Checks the user's email against `PLATFORM_OWNER_EMAILS` (comma-separated env) and `DEV_ADMIN_EMAILS`.
 
 Returns `401 unauthorized` without a session; `403 forbidden` when the email is not an owner.
+
+### Calibration access endpoints
+
+Quality calibration and human-quality analytics routes call `requireCalibrationAccess(request, workspaceId?)` (`app/src/server/auth/calibration-access.ts`):
+
+1. **Platform owners** — emails in `PLATFORM_OWNER_EMAILS` / `DEV_ADMIN_EMAILS` get full scope.
+2. **Workspace admins** — session users with `owner` or `admin` role on the requested workspace (or their default workspace when `workspaceId` is omitted).
+
+Returns `401 unauthorized` without a session; `403 forbidden` for members or when no workspace can be resolved.
+
+Routes: `GET /api/feedback/quality-trend`, `quality-improvement`, `score-calibration`, `sample-coverage`, `learning-impact`; `PATCH /api/feedback/calibration-adjustments/:id/accept`.
 
 ### Session-only (no workspace)
 
@@ -135,6 +146,9 @@ Request bodies are validated with **Zod** where noted below. Failures typically 
 | 400 | `validation_error` | Zod validation (feedback, analytics, beta sessions) |
 | 400 | `fileTooLarge` | File over 50 MB |
 | 400 | `invalidFileType` | Disallowed MIME / magic bytes |
+| 400 | `missingBaseAsset` | Campaign has no base asset for restyling / derivations |
+| 400 | `performanceCampaignPathMismatch` | Performance snapshot `campaignId` does not match URL |
+| 400 | `importFileTooLarge` | Performance CSV import exceeds size limit |
 | 400 | `sourceDerivationMissingOutput` | Delivery package source has no output |
 | 400 | `stripeSignatureMissing` / `stripeSignatureInvalid` | Billing webhook |
 | 401 | `unauthorized` | No session (`requireWorkspaceAccess` / webhooks) |
@@ -192,7 +206,7 @@ Storage: Upstash Redis when `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN
 
 ## Endpoints overview
 
-Dynamic segments use `:id` notation. Auth column: **none**, **session**, **session+workspace**, **platform-owner**, **better-auth**, **stripe-signature**, **x-webhook-secret**, **inngest-signing**, **share-token**.
+Dynamic segments use `:id` notation. Auth column: **none**, **session**, **session+workspace**, **platform-owner**, **calibration-access**, **better-auth**, **stripe-signature**, **x-webhook-secret**, **inngest-signing**, **share-token**.
 
 | Method(s) | Path | Auth | Description |
 |-----------|------|------|-------------|
@@ -201,6 +215,12 @@ Dynamic segments use `:id` notation. Auth column: **none**, **session**, **sessi
 | GET | `/api/build-id` | none | Git commit / build identifier |
 | OPTIONS, POST | `/api/waitlist` | none (CORS) | Marketing-site waitlist signup |
 | GET, POST, PUT | `/api/inngest` | inngest-signing | Inngest job handler (derivation, trial, assets, brand memory) |
+| GET | `/api/admin/quality/learning/proposals` | platform-owner | List client learning proposals |
+| POST | `/api/admin/quality/learning/proposals/generate` | platform-owner | Generate client learning proposals (AI) |
+| POST | `/api/admin/quality/learning/proposals/:id/accept` | platform-owner | Accept learning proposal |
+| POST | `/api/admin/quality/learning/proposals/:id/reject` | platform-owner | Reject learning proposal |
+| GET | `/api/admin/quality/ingestion/status` | platform-owner | Quality ingestion pipeline status |
+| POST | `/api/admin/quality/ingestion/backfill` | platform-owner | Backfill quality ingestion records |
 | POST | `/api/billing/webhook` | stripe-signature | Stripe subscription events |
 | POST | `/api/notifications/webhook` | x-webhook-secret | Internal notification email dispatcher |
 | POST | `/api/analytics/events` | session+workspace | Record client beta analytics event |
@@ -212,6 +232,17 @@ Dynamic segments use `:id` notation. Auth column: **none**, **session**, **sessi
 | GET | `/api/feedback/beta-sessions/:id/summary` | platform-owner | Aggregated beta session summary |
 | PATCH | `/api/feedback/beta-sessions/:id/notes` | platform-owner | Merge runbook stage operator notes |
 | GET | `/api/feedback/mission-credit-signals` | platform-owner | Mission-level credit signal rollup |
+| GET | `/api/feedback/quality-trend` | calibration-access | Human-quality trend report |
+| GET | `/api/feedback/quality-improvement` | calibration-access | Quality improvement recommendations |
+| GET | `/api/feedback/score-calibration` | calibration-access | Score calibration analysis |
+| GET | `/api/feedback/sample-coverage` | calibration-access | Corpus sample coverage report |
+| GET | `/api/feedback/learning-impact` | calibration-access | Learning impact metrics |
+| GET | `/api/feedback/global-corpus-evidence` | platform-owner | Global corpus evidence summary |
+| GET, POST | `/api/feedback/human-quality-corpus` | platform-owner | Human-quality corpus queue |
+| GET | `/api/feedback/human-quality-corpus/candidates` | platform-owner | Corpus promotion candidates |
+| POST | `/api/feedback/human-quality-corpus/candidates/:id/promote` | platform-owner | Promote candidate into corpus |
+| POST | `/api/feedback/human-quality-corpus/:id/evaluation` | platform-owner | Submit corpus item evaluation |
+| PATCH | `/api/feedback/calibration-adjustments/:id/accept` | calibration-access | Accept score calibration adjustment |
 | GET, POST | `/api/feedback/reports` | platform-owner (GET) / session+workspace (POST) | List / submit user feedback |
 | GET, PATCH | `/api/feedback/reports/:id` | platform-owner | Feedback detail + triage (`?workspaceId=`) |
 | GET, POST | `/api/campaigns` | session+workspace | List / create campaigns |
@@ -224,7 +255,19 @@ Dynamic segments use `:id` notation. Auth column: **none**, **session**, **sessi
 | POST | `/api/campaigns/:id/pilot` | session+workspace | Pilot briefing flow |
 | POST | `/api/campaigns/:id/suggest-ctas` | session+workspace | CTA suggestions (AI) |
 | GET | `/api/campaigns/:id/smart-resize-preview` | session+workspace | Smart resize preview |
-| GET, POST | `/api/campaigns/:id/restyle` | session+workspace | Campaign restyle job |
+| GET, POST | `/api/campaigns/:id/restyle` | session+workspace | Queue restyling derivation (POST) / list derivations with image URLs (GET) |
+| GET, POST | `/api/campaigns/:id/performance` | session+workspace | List / record performance snapshots |
+| POST | `/api/campaigns/:id/performance/import/preview` | session+workspace | Preview CSV or manual performance import |
+| POST | `/api/campaigns/:id/performance/import/confirm` | session+workspace | Confirm performance import batch |
+| GET | `/api/campaigns/:id/performance/import/batches` | session+workspace | List performance import batches |
+| GET | `/api/campaigns/:id/performance/import/batches/:batchId` | session+workspace | Get performance import batch detail |
+| GET, POST | `/api/campaigns/:id/learnings` | session+workspace | List / recompute campaign learnings |
+| GET, POST | `/api/campaigns/:id/hypotheses` | session+workspace | List / create experiment hypotheses |
+| PATCH, DELETE | `/api/campaigns/:id/hypotheses/:hypothesisId` | session+workspace | Update / delete hypothesis |
+| POST | `/api/campaigns/:id/hypotheses/:hypothesisId/compare` | session+workspace | Run hypothesis comparison |
+| GET, POST | `/api/campaigns/:id/comparisons` | session+workspace | List / run observational comparisons |
+| GET | `/api/campaigns/:id/recommendation` | session+workspace | Next experiment recommendation |
+| GET | `/api/campaigns/:id/output-recommendation` | session+workspace | Output-level experiment recommendation |
 | GET, POST | `/api/campaigns/:id/derivations` | session+workspace | List / queue derivations |
 | GET, POST | `/api/campaigns/:id/approval-package` | session+workspace | Client approval package + share link |
 | GET | `/api/campaigns/:id/assets` | session+workspace | List campaign assets |
@@ -248,6 +291,8 @@ Dynamic segments use `:id` notation. Auth column: **none**, **session**, **sessi
 | GET, POST | `/api/creatives/:id/persona-simulation` | session+workspace | Persona simulation |
 | GET, POST | `/api/client-profiles` | session+workspace | List / create client profiles |
 | GET | `/api/client-profiles/:id/memory` | session+workspace | Brand memory for profile |
+| GET, POST | `/api/client-profiles/:id/learnings` | session+workspace | Client profile learnings |
+| GET, POST | `/api/client-profiles/:id/output-learnings` | session+workspace | Output learnings for profile |
 | GET, POST | `/api/client-profiles/:id/references` | session+workspace | Reference library |
 | GET, POST | `/api/templates` | session+workspace | Campaign templates |
 | PATCH | `/api/templates/:id` | session+workspace | Update template |
@@ -554,6 +599,39 @@ Queues Inngest derivation jobs from campaign config; may return `derivationsInPr
 ```
 
 Creates or updates share link (7-day TTL). May return `invalidApprovalPackageSelection` (409) if roots are not package-eligible.
+
+**`POST /api/campaigns/:id/restyle`** — JSON body (`restyleSchema`):
+
+```json
+{
+  "styleAssetIds": ["<uuid>"],
+  "styleIntensity": "soft | medium | strong"
+}
+```
+
+Both fields optional. Requires a factual base asset and a distinct `style_reference` asset (explicit `styleAssetIds[0]` or auto-selected). Spends 5 credits (`image_derivation`). Response `201`: `{ "derivations": [{ ... }] }`. Sets campaign `generationMode` to `restyling`. Errors: `missingBaseAsset` (400), `assetNotFound` (404), `derivationsInProgress` (429), `failedQueueDerivations` (500).
+
+**`GET /api/campaigns/:id/restyle`** — returns `{ derivations: [...] }` with presigned `imageUrl` per derivation. Fails stale `queued`/`processing` derivations older than 10 minutes before listing.
+
+### Performance and learnings
+
+**`GET /api/campaigns/:id/performance`** — returns `{ snapshots: [...] }`.
+
+**`POST /api/campaigns/:id/performance`** — body validated by `canonicalPerformanceSnapshotInputSchema`; `campaignId` in body must match URL path. Errors include `performanceCampaignPathMismatch` (400) and domain codes from `PerformanceDomainError`.
+
+**`POST /api/campaigns/:id/performance/import/preview`** — accepts `multipart/form-data` (CSV `file` + `columnMapping`) or JSON manual preview payload. May return `importFileTooLarge` (400).
+
+**`POST /api/campaigns/:id/performance/import/confirm`** — confirms a previewed import batch.
+
+**`GET /api/campaigns/:id/performance/import/batches`** — lists import batches; **`GET .../batches/:batchId`** returns batch detail.
+
+**`GET /api/campaigns/:id/learnings`** — query: `q`, `platform`. **`POST`** triggers `recomputeLearningsForCampaign`.
+
+**`GET /api/campaigns/:id/hypotheses`** — returns `{ hypotheses: [...] }`. **`POST`** body: `createHypothesisSchema`.
+
+**`POST /api/campaigns/:id/comparisons`** — body: `observationalComparisonSchema` for observational A/B analysis.
+
+**`GET /api/campaigns/:id/recommendation`** — next experiment recommendation from performance history.
 
 ### Derivations
 

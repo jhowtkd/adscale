@@ -32,7 +32,7 @@ Runtime secrets and service URLs are read from `process.env`. The canonical list
 | `EMAIL_FROM` | Yes | — | Default transactional email sender (min. 3 characters). |
 | `RESEND_WAITLIST_SEGMENT_ID` | No (prod: Yes) | — | Resend Audiences segment ID for waitlist contact sync (`app/src/server/services/resend-contacts.ts`). Example: `seg_abc123`. Optional in development (sync skipped when unset); required in production for marketing waitlist sync. Not in `envSchema`. |
 | `APP_URL` | Yes | — | Canonical app URL (trusted origin, emails, redirects, Inngest serve URL). |
-| `MARKETING_URL` | No | — | Public marketing landing URL. Unauthenticated visits to `/` redirect here when set (`app/src/proxy.ts`). Locally typically `http://localhost:3000/hi` (proxied marketing). Must be a valid URL if provided. |
+| `MARKETING_URL` | No | — | Public marketing landing URL. Optional in `envSchema` (must be a valid URL if set). Read via `process.env` in `app/src/proxy.ts`; unauthenticated `/` redirects here when set. Locally typically `http://localhost:3000/hi` (proxied marketing). |
 | `MARKETING_UPSTREAM_URL` | No | `https://adscale-marketing.onrender.com` | Upstream static marketing site proxied at `/hi` via Next.js rewrites (`app/next.config.ts`). Locally typically `http://localhost:5173`. Not in `envSchema`. |
 | `MARKETING_ALLOWED_ORIGINS` | No (prod: Yes) | — | Comma-separated CORS origins for `POST /api/waitlist` from the marketing site (`app/src/lib/cors-marketing.ts`). Example: `http://localhost:5173,https://adscale.jhonatansoares.com`. Not in `envSchema`. |
 | `E2E_DISABLE_RATE_LIMIT` | No | — | Set to `true`, `1`, or `yes` to skip API rate limits during E2E/TestSprite runs. Not in `envSchema`. |
@@ -43,23 +43,24 @@ Runtime secrets and service URLs are read from `process.env`. The canonical list
 | `STRIPE_SCALE_PRICE_ID` | Yes | — | Stripe Price ID for Scale; must start with `price_`. Maps to 360 credits/month. |
 | `STRIPE_SUCCESS_URL` | Yes | — | Redirect after successful checkout (URL). Should share origin with `APP_URL`. |
 | `STRIPE_CANCEL_URL` | Yes | — | Redirect after cancelled checkout (URL). Should share origin with `APP_URL`. |
-| `BETA_ACCESS_CODES` | No | — | Comma-separated beta invite codes; each workspace redeems once (10 ads, no Stripe). Optional in `envSchema`; parsed in `app/src/server/billing/beta.ts`. |
+| `BETA_ACCESS_CODES` | No | — | Comma-separated beta invite codes; each workspace redeems once (10 ads, no Stripe). Optional in `envSchema`; read via `process.env` in `app/src/server/billing/beta.ts`. |
 | `DEV_ADMIN_EMAIL` | No | — | Comma-separated dev admin emails; skips email verification and credit debits for owner workspaces (`app/src/server/auth/dev-admin.ts`). Also grants platform-owner access. Not in `envSchema`. |
 | `PLATFORM_OWNER_EMAILS` | No | — | Comma-separated platform owner emails for admin-only routes (`app/src/server/auth/platform-owner.ts`). Not in `.env.example` or `envSchema`. |
-| `MEM0_API_KEY` | No | — | Mem0 Platform API key; required when brand memory is enabled. Not in `.env.example` but supported in `envSchema`. |
-| `MEM0_ENABLED` | No | — | Set to `true` with `MEM0_API_KEY` to enable Mem0 brand memory. |
-| `MEM0_USER_PREFIX` | No | `adscale_workspace` (in code) | Prefix for Mem0 `user_id` scope per workspace. |
-| `MEM0_ORGANIZATION_ID` | No | — | Optional Mem0 organization scope. |
-| `MEM0_PROJECT_ID` | No | — | Optional Mem0 project scope. |
+| `MEM0_API_KEY` | No | — | Mem0 Platform API key; required when brand memory is enabled. Optional in `envSchema`; not in `.env.example`. |
+| `MEM0_ENABLED` | No | — | Set to `true` with `MEM0_API_KEY` to enable Mem0 brand memory (`app/src/server/memory/mem0-client.ts`). Optional in `envSchema`. |
+| `MEM0_USER_PREFIX` | No | `adscale_workspace` | Prefix for Mem0 `user_id` scope per workspace. Optional in `envSchema`; default applied in `mem0-client.ts` when unset. |
+| `MEM0_ORGANIZATION_ID` | No | — | Optional Mem0 organization scope (`envSchema`). |
+| `MEM0_PROJECT_ID` | No | — | Optional Mem0 project scope (`envSchema`). |
 | `NODE_ENV` | No | Node default | `development`, `production`, or `test`; affects auth email verification, rate limiting, Sentry sampling, and console stripping. |
 | `NEXT_TELEMETRY_DISABLED` | No | — | Set to `1` in `render.yaml` to disable Next.js telemetry. |
-| `SENTRY_DSN` | No | — | Sentry DSN; when set, enables error reporting via `app/src/instrumentation.ts`. |
-| `SENTRY_ORG` | No | — | Sentry org slug for source map upload (`next.config.ts`). |
-| `SENTRY_PROJECT` | No | — | Sentry project slug for source map upload. |
+| `SENTRY_DSN` | No | — | Sentry DSN; when set, enables error reporting via `app/src/instrumentation.ts`. Listed in `.env.example` (empty by default). |
+| `SENTRY_ORG` | No | — | Sentry org slug for source map upload (`next.config.ts`). Listed in `.env.example`. |
+| `SENTRY_PROJECT` | No | — | Sentry project slug for source map upload. Listed in `.env.example`. |
 | `NEXT_PUBLIC_SENTRY_DSN` | No | — | Client-side Sentry DSN for feedback diagnostics (`app/src/lib/feedback/diagnostic-collector.ts`). |
 | `UPSTASH_REDIS_REST_URL` | No | — | Upstash Redis REST URL for distributed rate limiting. |
 | `UPSTASH_REDIS_REST_TOKEN` | No | — | Upstash Redis REST token (pair with URL). |
-| `NOTIFICATION_WEBHOOK_SECRET` | No | — | Shared secret for `POST /api/notifications/webhook` (not in Zod schema). |
+| `NOTIFICATION_WEBHOOK_SECRET` | No | — | Shared secret for `POST /api/notifications/webhook` (not in `envSchema`). |
+| `HUMAN_QUALITY_SYNTHETIC_WORKSPACE_IDS` | No | — | Comma-separated workspace IDs labeled `synthetic_fixture` during human-quality auto-capture (`app/src/server/human-quality/source-label.ts`). All other workspaces default to `real_customer`. Not in `envSchema` or `.env.example`. |
 | `NEXT_PUBLIC_APP_URL` | No | — | Optional public URL for share links and approval packages (`app/src/lib/share-token.ts`). |
 | `NEXT_PUBLIC_APP_VERSION` | No | `unknown` | App version string for feedback diagnostics. |
 | `ANALYZE` | No | — | Set to `true` to enable bundle analyzer (`npm run analyze`). |
@@ -70,21 +71,23 @@ Runtime secrets and service URLs are read from `process.env`. The canonical list
 | `E2E_BASE_URL` | No | `http://localhost:3000` | Playwright base URL (`app/playwright.config.ts`). |
 | `E2E_EMAIL` / `E2E_PASSWORD` | No | — | Credentials for verification scripts (e.g. `app/scripts/verify-preview-fix.mjs`). Not in `envSchema`. |
 | `PORT` | No | `3000` | HTTP port for production start script. |
-| `RENDER_GIT_COMMIT` | No | — | Injected by Render at deploy time; exposed via `GET /api/build-id`. |
+| `RENDER_GIT_COMMIT` | No | — | Injected by Render at deploy time; primary source for `GET /api/build-id`. |
+| `VERCEL_GIT_COMMIT_SHA` | No | — | Fallback build ID on Vercel (`app/src/app/api/build-id/route.ts`). |
+| `BUILD_ID` | No | — | Generic build ID fallback when Render/Vercel commit vars are unset. |
 
-Variables in `.env.example` but **not** in `envSchema` still matter for tooling and middleware (e.g. `TEST_DATABASE_URL`, `MARKETING_UPSTREAM_URL`, `SENTRY_*`, `E2E_DISABLE_RATE_LIMIT`, `DEV_ADMIN_EMAIL`). Variables used in code but absent from `.env.example` should be added to `.env.local` when you need that feature.
+Variables in `.env.example` but **not** in `envSchema` still matter for tooling and middleware (e.g. `TEST_DATABASE_URL`, `MARKETING_UPSTREAM_URL`, `MARKETING_ALLOWED_ORIGINS`, `RESEND_WAITLIST_SEGMENT_ID`, `SENTRY_*`, `E2E_DISABLE_RATE_LIMIT`, `DEV_ADMIN_EMAIL`). Variables used in code but absent from `.env.example` (e.g. `MEM0_*`, `PLATFORM_OWNER_EMAILS`, `HUMAN_QUALITY_SYNTHETIC_WORKSPACE_IDS`) should be added to `.env.local` when you need that feature.
 
 ## Env validation (Zod)
 
 Validation lives in `app/src/server/validation/env.ts`:
 
-- `envSchema` — `z.object({ ... })` with the rules in the table above (formats, prefixes, min lengths, and optional URL fields).
+- `envSchema` — `z.object({ ... })` with the rules in the table above (formats, prefixes, min lengths, and optional fields such as `MARKETING_URL`, `BETA_ACCESS_CODES`, OAuth, and Mem0 keys).
 - `env` — parsed once at module load via `envSchema.safeParse(process.env)`.
 - On failure, accessing `env.<KEY>` throws: `Env validation failed for <KEY>: <message>` (except in `NODE_ENV=test`, where missing keys return `undefined` from the proxy).
 
 Import `env` from `@/server/validation/env` in server modules (database, auth, billing, storage, AI, jobs, email). Do not read validated secrets directly from `process.env` in those paths.
 
-Some features read `process.env` directly instead of `env` (e.g. `BETA_ACCESS_CODES` in `beta.ts`, `DEV_ADMIN_EMAIL`, `MARKETING_URL` in proxy, `MARKETING_UPSTREAM_URL` in `next.config.ts`, rate-limit flags). Those variables are either optional, test-only, or evaluated before the validated `env` object is needed.
+Some features read `process.env` directly even when a key exists in `envSchema` (e.g. `BETA_ACCESS_CODES` in `beta.ts`, `MARKETING_URL` in `proxy.ts`). Others are outside `envSchema` entirely (`DEV_ADMIN_EMAIL`, `MARKETING_UPSTREAM_URL` in `next.config.ts`, `HUMAN_QUALITY_SYNTHETIC_WORKSPACE_IDS`, rate-limit flags). Those variables are optional, test-only, or evaluated before the validated `env` object is needed.
 
 CLI scripts that import `env` before other modules should import `app/scripts/load-env.ts` first so `app/.env.local` is loaded:
 
@@ -168,7 +171,8 @@ The script validates env presence, Zod schema, plan-to-price alignment, URL orig
 - Beta access — off unless `BETA_ACCESS_CODES` lists at least one code.
 - Dev admins — no special treatment unless `DEV_ADMIN_EMAIL` lists one or more addresses.
 - Platform owners — `PLATFORM_OWNER_EMAILS` plus any `DEV_ADMIN_EMAIL` entries can access owner-only admin routes.
-- Mem0 brand memory — off unless `MEM0_ENABLED === "true"` and `MEM0_API_KEY` is set.
+- Mem0 brand memory — off unless `env.MEM0_ENABLED === "true"` and `env.MEM0_API_KEY` is set (`mem0-client.ts`).
+- Human-quality source labels — auto-capture defaults to `real_customer`; workspaces listed in `HUMAN_QUALITY_SYNTHETIC_WORKSPACE_IDS` are labeled `synthetic_fixture`.
 - Sentry — disabled when `SENTRY_DSN` is unset (`silent: !process.env.SENTRY_DSN` in `app/next.config.ts`).
 - Upstash rate limiting — if `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are unset, production uses an in-memory limiter with a warning (`app/src/lib/rate-limit.ts`).
 - E2E rate limits — set `E2E_DISABLE_RATE_LIMIT=true` on the server during parallel browser tests.
@@ -193,7 +197,8 @@ Code defaults not in Zod:
 
 | Variable | Default | Location |
 |----------|---------|----------|
-| `MEM0_USER_PREFIX` | `adscale_workspace` | `app/src/server/memory/mem0-client.ts` |
+| `MEM0_USER_PREFIX` | `adscale_workspace` | `app/src/server/memory/mem0-client.ts` (`env.MEM0_USER_PREFIX` or fallback) |
+| `HUMAN_QUALITY_SYNTHETIC_WORKSPACE_IDS` | empty (no synthetic workspaces) | `app/src/server/human-quality/source-label.ts` |
 | `MARKETING_UPSTREAM_URL` | `https://adscale-marketing.onrender.com` | `app/next.config.ts` |
 | `LOG_LEVEL` | `info` | `app/src/lib/logger.ts` |
 | `TEST_DATABASE_URL` | `postgres://test:test@localhost:5433/adscale_test` | `app/scripts/setup-test-db.ts` |
@@ -211,7 +216,7 @@ Example local values from `app/.env.example`: `BETTER_AUTH_URL` and `APP_URL` de
 
 ### `app/.env.example` / `app/.env.local`
 
-Dotenv-style `KEY=value` pairs. Use `.env.local` for secrets (gitignored). Never commit real API keys. Commented lines in `.env.example` document optional features (`BETA_ACCESS_CODES`, `DEV_ADMIN_EMAIL`, `E2E_DISABLE_RATE_LIMIT`).
+Dotenv-style `KEY=value` pairs. Use `.env.local` for secrets (gitignored). Never commit real API keys. Commented lines document optional features (`BETA_ACCESS_CODES`, `DEV_ADMIN_EMAIL`, `E2E_DISABLE_RATE_LIMIT`). `SENTRY_DSN`, `SENTRY_ORG`, and `SENTRY_PROJECT` are present but empty by default.
 
 ### `render.yaml` (repository root)
 

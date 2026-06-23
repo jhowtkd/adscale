@@ -25,11 +25,19 @@ This guide describes how to run and write tests for the ADScale Next.js applicat
 - Path alias `@` → `app/src` (same as the app)
 - When `TEST_DATABASE_URL` is set in the environment, Vitest forwards it into `process.env` for tests that need it
 
-**Playwright configuration:** `app/playwright.config.ts`
+**Playwright configuration:**
 
-- `testDir: "./tests/e2e"`, `testMatch: /.*\.spec\.ts$/`
+| Config file | Purpose |
+|-------------|---------|
+| `app/playwright.config.ts` | Local E2E (`npm run test:e2e`) — all `tests/e2e/*.spec.ts` |
+| `app/playwright.release.config.ts` | Visual release gate (`npm run test:visual-release`) — layout and a11y gate specs only |
+
+Shared defaults:
+
+- `testDir: "./tests/e2e"`, `testMatch: /.*\.spec\.ts$/` (release config narrows the match)
 - Default `baseURL`: `http://localhost:3000` (override with `E2E_BASE_URL`)
-- Long timeouts (240s per test) for async Inngest/OpenAI image jobs
+- Long timeouts (180–240s per test) for async Inngest/OpenAI image jobs and layout checks
+- Release config starts a dev server via `webServer` (`E2E_DISABLE_RATE_LIMIT=true npm run dev:next`)
 
 **Global setup:** `app/tests/setup.ts` registers jest-dom matchers:
 
@@ -64,10 +72,10 @@ npm test
 Equivalent to:
 
 ```bash
-npx vitest run --config config/vitest.config.ts --passWithNoTests
+vitest run --config config/vitest.config.ts --passWithNoTests
 ```
 
-The project currently has **195** Vitest test files (`*.test.ts` / `*.test.tsx`) under `app/src/` (co-located with source) and `app/tests/` (shared unit/integration suites). A full local run reports **1061** passing tests and **1** skipped (v12.0 billing regression gate baseline).
+The project currently has **340** Vitest test files (`*.test.ts` / `*.test.tsx`) under `app/src/` (co-located with source) and `app/tests/` (shared unit/integration suites). A full local run reports **~2200** tests (exact count grows with the codebase; one billing regression gate test is skipped by default).
 
 ### Watch mode (development)
 
@@ -108,20 +116,36 @@ npx vitest run --config config/vitest.config.ts --coverage
 
 ### End-to-end tests (Playwright)
 
-E2E specs live in `app/tests/e2e/` and use the `*.spec.ts` suffix. They are **not** run by `npm test`; use the dedicated script:
+E2E specs live in `app/tests/e2e/` and use the `*.spec.ts` suffix. They are **not** run by `npm test`.
 
-```bash
-npm run test:e2e
-```
+| Script | Config | Specs |
+|--------|--------|-------|
+| `npm run test:e2e` | `playwright.config.ts` | All E2E specs |
+| `npm run test:visual-release` | `playwright.release.config.ts` | `visual-release-gate.spec.ts`, `visual-a11y-gate.spec.ts` |
+| `npm run release-gate` | (orchestrator) | Unit tests, lint, build, then visual release Playwright suite |
 
-**Prerequisites for E2E:**
+**E2E spec files:**
+
+| File | Purpose |
+|------|---------|
+| `restyle.spec.ts` | Restyle upload flows (TC014/TC019) with real file attachments |
+| `visual-release-gate.spec.ts` | Multi-viewport layout checks for release evidence |
+| `visual-a11y-gate.spec.ts` | Accessibility gate at mobile and desktop viewports |
+| `visual-foundations.spec.ts` | Visual baseline capture for foundations phase evidence |
+| `visual-shell.spec.ts` | App shell and navigation layout checks |
+
+**Prerequisites for `test:e2e` (restyle and general E2E):**
 
 1. App running on `http://localhost:3000` (for example `npm run start` after a build, or a production-like local server).
 2. Inngest dev server available so async image-generation jobs complete.
 3. `E2E_DISABLE_RATE_LIMIT=true` on the app process (restyle upload flows hit rate limits otherwise).
 4. Test fixtures in `app/tests/fixtures/` (`base.png`, `style.png`, etc.) for file-upload scenarios.
 
-The current suite (`tests/e2e/restyle.spec.ts`) covers restyle upload flows that require real `<input type="file">` attachments — cases the TestSprite cloud runner cannot execute. Playwright logs in with the dev-admin seed credentials and exercises TC014/TC019-style flows with a 240s per-test timeout.
+`restyle.spec.ts` logs in with the dev-admin seed credentials and exercises TC014/TC019-style flows with a 240s per-test timeout. These cases require real `<input type="file">` attachments — something the TestSprite cloud runner cannot execute.
+
+**Visual release gate (`test:visual-release`):**
+
+Starts (or reuses) a local dev server automatically via `playwright.release.config.ts` `webServer`. Uses the `visual-foundations@example.test` seed identity from `tests/e2e/support/visual-auth.ts`. Override credentials with `VISUAL_FOUNDATIONS_PASSWORD` if needed.
 
 Override the target server:
 
@@ -151,7 +175,7 @@ Use the `.test.ts` or `.test.tsx` suffix for Vitest (not `.spec.*`). Reserve `.s
 - Use `@/` imports for application code (resolved via Vitest config).
 - React components: `@testing-library/react` plus jest-dom matchers from setup.
 - Env validation tests live in `app/tests/unit/env-validation.test.ts` and `app/src/server/validation/env.test.ts`; keep required env shapes consistent with `app/.env.example`.
-- E2E: use `@playwright/test`; put shared helpers and fixture paths next to specs (see `tests/e2e/restyle.spec.ts`).
+- E2E: use `@playwright/test`; share helpers from `tests/e2e/support/` (`visual-auth.ts`, `visual-layer-harness.ts`).
 
 ### Unit vs integration
 
@@ -161,7 +185,7 @@ Use the `.test.ts` or `.test.tsx` suffix for Vitest (not `.spec.*`). Reserve `.s
 | **Integration** | `tests/integration/`, some `src/app/api/**/*.test.ts` | Exercise wiring between modules; still often use `vi.mock` for DB and externals |
 | **E2E** | `tests/e2e/` | Real browser against a running app; minimal mocking; requires live services |
 
-There is no shared `tests/helpers` module; copy mocking patterns from tests in the same layer (unit vs integration vs e2e).
+There is no shared `tests/helpers` module for Vitest; copy mocking patterns from tests in the same layer. E2E specs share helpers under `tests/e2e/support/`.
 
 ### Billing test patterns
 
@@ -240,7 +264,7 @@ No minimum coverage thresholds are defined in `app/config/vitest.config.ts` or e
 
 CI does not run `test:db:setup`; it relies on the GitHub Actions Postgres service and `DATABASE_URL` on port **5432**, while local Docker setup from `test:db:setup` defaults to port **5433**.
 
-CI does **not** run Playwright E2E tests; those are manual/local verification against a running server.
+CI does **not** run Playwright E2E tests or the visual release gate; those are manual/local verification (or run via `npm run release-gate` before a release).
 
 ---
 

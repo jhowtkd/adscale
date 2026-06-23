@@ -136,6 +136,13 @@ describe("POST /api/campaigns/[id]/restyle", () => {
         width: 1024,
         height: 1024,
       },
+      {
+        id: "550e8400-e29b-41d4-a716-446655440002",
+        role: "style_reference",
+        key: "campaigns/camp-1/style.png",
+        width: 1024,
+        height: 1024,
+      },
     ] as Awaited<ReturnType<typeof getAssetsByCampaign>>);
     mockCreateDerivation.mockResolvedValue({
       id: "derivation-1",
@@ -200,7 +207,7 @@ describe("POST /api/campaigns/[id]/restyle", () => {
 
   it("creates derivation, spends credits, sends event, and updates campaign", async () => {
     const res = await POST(
-      postRequest({ styleAssetIds: ["550e8400-e29b-41d4-a716-446655440001"], styleIntensity: "strong" }),
+      postRequest({ styleAssetIds: ["550e8400-e29b-41d4-a716-446655440002"], styleIntensity: "strong" }),
       { params: makeParams("camp-1") }
     );
     const body = await res.json();
@@ -232,7 +239,7 @@ describe("POST /api/campaigns/[id]/restyle", () => {
         generationMode: "restyling",
         variantIndex: 0,
         format: "1024x1024",
-        styleAssetId: "550e8400-e29b-41d4-a716-446655440001",
+        styleAssetId: "550e8400-e29b-41d4-a716-446655440002",
       })
     );
 
@@ -244,7 +251,7 @@ describe("POST /api/campaigns/[id]/restyle", () => {
           campaignId: "camp-1",
           workspaceId: "workspace-1",
           generationMode: "restyling",
-          styleAssetId: "550e8400-e29b-41d4-a716-446655440001",
+          styleAssetId: "550e8400-e29b-41d4-a716-446655440002",
         }),
       })
     );
@@ -272,6 +279,7 @@ describe("POST /api/campaigns/[id]/restyle", () => {
   it("falls back to first asset when no role=base asset exists", async () => {
     mockGetAssetsByCampaign.mockResolvedValue([
       { id: "550e8400-e29b-41d4-a716-446655440002", role: null, key: "k2", width: 512, height: 512 },
+      { id: "550e8400-e29b-41d4-a716-446655440003", role: "style_reference", key: "style", width: 512, height: 512 },
     ] as Awaited<ReturnType<typeof getAssetsByCampaign>>);
 
     const res = await POST(postRequest({}), { params: makeParams("camp-1") });
@@ -280,6 +288,31 @@ describe("POST /api/campaigns/[id]/restyle", () => {
     expect(mockCreateDerivation).toHaveBeenCalledWith(
       expect.objectContaining({ format: "512x512" })
     );
+  });
+
+  it("does not treat a style reference as the fallback base asset", async () => {
+    mockGetAssetsByCampaign.mockResolvedValue([
+      { id: "550e8400-e29b-41d4-a716-446655440003", role: "style_reference", key: "style", width: 512, height: 512 },
+    ] as Awaited<ReturnType<typeof getAssetsByCampaign>>);
+
+    const res = await POST(postRequest({}), { params: makeParams("camp-1") });
+
+    expect(res.status).toBe(400);
+    expect(mockCreateDerivation).not.toHaveBeenCalled();
+    expect(mockUpdateCampaign).not.toHaveBeenCalled();
+    expect(mockSpendCredits).not.toHaveBeenCalled();
+  });
+
+  it("rejects using the factual base asset as the style reference", async () => {
+    const res = await POST(
+      postRequest({ styleAssetIds: ["550e8400-e29b-41d4-a716-446655440001"] }),
+      { params: makeParams("camp-1") }
+    );
+
+    expect(res.status).toBe(400);
+    expect(mockCreateDerivation).not.toHaveBeenCalled();
+    expect(mockUpdateCampaign).not.toHaveBeenCalled();
+    expect(mockSpendCredits).not.toHaveBeenCalled();
   });
 });
 

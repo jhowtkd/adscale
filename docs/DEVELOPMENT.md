@@ -54,6 +54,8 @@ For Stripe webhooks, billing smoke tests, and the full Docker stack, see [`app/R
 
 ## Build commands
 
+### Development, build, and lint
+
 | Command | Description |
 |---------|-------------|
 | `npm run dev` | Next.js dev server + Inngest dev CLI (see [Inngest development](#inngest-development)) |
@@ -63,12 +65,23 @@ For Stripe webhooks, billing smoke tests, and the full Docker stack, see [`app/R
 | `npm run start:prod` | Production start with Inngest sync (`scripts/start-with-inngest-sync.mjs`) |
 | `npm run analyze` | Production build with bundle analyzer (`ANALYZE=true`) |
 | `npm run analyze:ci` | CI-oriented bundle analysis (`scripts/analyze-bundle.mjs`) |
-| `npm run lint` | ESLint |
-| `npm test` | Vitest single run |
+| `npm run lint` | ESLint (`eslint`) |
+| `npm run inngest:dev` | Inngest dev server only (app must be running) |
+
+### Testing
+
+| Command | Description |
+|---------|-------------|
+| `npm test` | Vitest single run (`config/vitest.config.ts`) |
 | `npm run test:e2e` | Playwright E2E tests (`tests/e2e/*.spec.ts`; requires running app + Inngest) |
+| `npm run test:visual-release` | Playwright visual/a11y release specs (`playwright.release.config.ts`) |
 | `npm run test:db:setup` | Start Docker Postgres for tests (port 5433) |
 | `npm run test:db:teardown` | Stop/remove test Postgres container |
-| `npm run inngest:dev` | Inngest dev server only (app must be running) |
+
+### Database and seeds
+
+| Command | Description |
+|---------|-------------|
 | `npm run db:generate` | Generate Drizzle migration from schema |
 | `npm run db:migrate` | Apply Drizzle migrations (`scripts/migrate-with-retry.mjs`) |
 | `npm run db:push` | Push schema to database (no migration file) |
@@ -77,6 +90,29 @@ For Stripe webhooks, billing smoke tests, and the full Docker stack, see [`app/R
 | `npm run seed:stripe` | Seed Stripe products/prices for local billing (`scripts/seed-stripe-real.ts`) |
 | `npm run preflight:stripe` | Offline/live Stripe billing preflight (`scripts/preflight-stripe-billing.ts`) |
 | `npm run seed:testsprite` | Seed data for TestSprite workflows (`scripts/seed-testsprite.ts`) |
+
+### Release gates and evidence
+
+These scripts orchestrate phase release checks and write evidence JSON under `.planning/phases/`. Use when working on quality gates or milestone sign-off — not part of everyday feature development.
+
+| Command | Description |
+|---------|-------------|
+| `npm run release-gate` | Full release gate: unit tests, lint, build, visual release, evidence check |
+| `npm run creative-release-gate` | Creative validation release gate (phase 123) |
+| `npm run output-learning-release-gate` | Output-learning release gate |
+| `npm run real-quality-release-gate` | Real-quality release gate |
+| `npm run operational-quality-release-gate` | Operational-quality release gate |
+| `npm run validate:creative` | Check creative validation evidence (final stage) |
+| `npm run validate:creative:live` | Run live creative validation (`scripts/run-creative-validation.ts`) |
+| `npm run score-calibration-evidence` | Score calibration evidence check |
+| `npm run learning-impact-evidence` | Learning impact evidence check |
+| `npm run quality-improvement-evidence` | Quality improvement evidence check (phase 132) |
+| `npm run real-quality-release-evidence` | Real-quality release evidence check (phase 133) |
+| `npm run operational-quality-release-evidence` | Operational-quality release evidence check (phase 137) |
+| `npm run olhar-release-evidence` | Olhar/Cenbrap release evidence check (phase 142) |
+| `npm run olhar-release-evidence:build` | Build Olhar release evidence JSON from calibration data |
+| `npm run sample-coverage-evidence` | Sample coverage evidence across workspaces |
+| `npm run quality-trend-evidence` | Quality trend evidence across workspaces |
 
 ## Billing development
 
@@ -114,7 +150,7 @@ npm run preflight:stripe -- --app-url=https://...  # optional live Stripe checks
 npm run test -- src/lib/hooks/use-billing.test.tsx src/server/billing/events.test.ts src/app/api/billing/webhook/route.test.ts src/server/billing/credits.test.ts src/server/billing/gates.test.ts src/server/billing/sessions.test.ts src/app/api/billing/checkout/route.test.ts src/app/api/billing/portal/route.test.ts tests/integration/auth-workspace-access.test.ts
 ```
 
-The v12.0 billing regression gate is the full Vitest suite (`npm test` — 1061+ tests). Manual Stripe smoke steps are in [`app/README.md`](../app/README.md#manual-stripe-smoke).
+The v12.0 billing regression gate is the full Vitest suite (`npm test` — 1061 passing tests per [TESTING.md](./TESTING.md)). Manual Stripe smoke steps are in [`app/README.md`](../app/README.md#manual-stripe-smoke).
 
 ## Database migrations
 
@@ -189,7 +225,7 @@ With `docker compose --profile dev`, the Inngest container targets `http://app:3
 | **ESLint** | `app/eslint.config.mjs` | `npm run lint` |
 | **TypeScript** | `app/tsconfig.json` (strict) | `npx tsc --noEmit` |
 
-ESLint 9 uses `eslint-config-next` (core-web-vitals + TypeScript). No Prettier, Biome, or root `.editorconfig` is configured in this repository. Follow existing patterns in neighboring files (imports, `@/` path alias, server vs client component boundaries).
+ESLint 9 uses flat config with `eslint-config-next` (`core-web-vitals` + `typescript` presets). No Prettier, Biome, or `.editorconfig` is configured in this repository. Follow existing patterns in neighboring files (imports, `@/` path alias, server vs client component boundaries).
 
 CI (`.github/workflows/ci.yml`) enforces **lint**, **typecheck**, **migrations**, **tests**, and **build** on pushes and pull requests to `main`. The workflow runs `npm run typecheck`, but `app/package.json` does not define that script yet — use `npx tsc --noEmit` locally until a `typecheck` script is added (for example `"typecheck": "tsc --noEmit"`).
 
@@ -245,6 +281,8 @@ Playwright config: `app/playwright.config.ts`. Tests live in `app/tests/e2e/` (`
 npm run test:e2e
 ```
 
+Visual release specs use `playwright.release.config.ts` and run via `npm run test:visual-release` (also invoked by `npm run release-gate`).
+
 E2E cases expect a running server (typically `npm run start` or production build) with Inngest dev up and `E2E_DISABLE_RATE_LIMIT=true`. See `playwright.config.ts` for `E2E_BASE_URL` and timeout settings.
 
 Focused billing/auth examples are listed in [Billing development](#billing-development) and [`app/README.md`](../app/README.md#verification). Full test layout and CI steps: [TESTING.md](./TESTING.md).
@@ -265,7 +303,7 @@ When touching billing or Stripe config, also run `npm run preflight:stripe -- --
 
 Default branch: **`main`**.
 
-No branch naming convention is documented in `CONTRIBUTING.md` or pull request templates. Recent branches use prefixes such as `feat/`, `feature/`, `codex/`, and `cursor/`. Prefer short, descriptive names tied to the change (for example `feat/waitlist`).
+No branch naming convention is documented in `CONTRIBUTING.md` or pull request templates. Recent branches use prefixes such as `feat/`, `feature/`, `pr/`, `codex/`, and `cursor/`. Prefer short, descriptive names tied to the change (for example `feat/waitlist` or `pr/v12.5-133-release-gate`).
 
 ## Pull request process
 
@@ -277,7 +315,7 @@ There is no `.github/PULL_REQUEST_TEMPLATE.md` in this repository. Before openin
 - Describe user-visible behavior, API changes, and any new or required env vars (update `app/.env.example` when adding configuration).
 - For billing changes, note Stripe webhook/event impact and whether `seed:stripe` or `preflight:stripe` was run.
 
-Reviewers typically expect green CI: install → lint → typecheck → migrate against CI Postgres → test → build (`.github/workflows/ci.yml`). Open issues via GitHub Issues; no issue templates are checked in under `.github/ISSUE_TEMPLATE/`.
+Reviewers typically expect green CI: install → lint → typecheck → `npx drizzle-kit migrate` against CI Postgres → test → build (`.github/workflows/ci.yml`). Open issues via GitHub Issues; no issue templates are checked in under `.github/ISSUE_TEMPLATE/`.
 
 ## Related docs
 

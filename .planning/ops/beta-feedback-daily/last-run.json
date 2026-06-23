@@ -1,8 +1,8 @@
 {
-  "exportedAt": "2026-06-21T12:09:42Z",
-  "from": "2026-06-20T09:03:03-03:00",
-  "to": "2026-06-21T09:01:46.522325-03:00",
-  "total": 0,
-  "openCount": 0,
-  "status": "ok_render_job_logs_after_retries"
+  "exportedAt": "2026-06-22T12:10:24.660008Z",
+  "from": "2026-06-21T09:09:42-03:00",
+  "to": "2026-06-22T09:02:21.473456-03:00",
+  "total": 2,
+  "openCount": 2,
+  "status": "ok_render_job_logs_after_retries_with_service_log_fallback_check"
 }
