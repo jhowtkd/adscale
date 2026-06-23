@@ -1,138 +1,138 @@
-# Requirements: ADScale v13.1 Global Owner Quality Corpus
+# Requirements: ADScale v13.2 Calibração Multi-Marca
 
-**Defined:** 2026-06-20
-**Milestone:** v13.1 Global Owner Quality Corpus
+**Defined:** 2026-06-23
+**Milestone:** v13.2 Calibração Multi-Marca
 **Core Value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
 ## Scope
 
-Transformar o corpus de qualidade em uma operacao global privada: Jhonatan, como platform owner, consegue ver criativos gerados em todos os workspaces, avaliar qualidade humana, gerar feedbacks acionaveis e alimentar os loops de calibracao/qualidade sem expor dados sensiveis nem quebrar isolamento normal de workspace.
+Generalizar calibração de gosto de marca para qualquer `clientProfile`: substituir hardcode Cenbrap por configuração por marca, conectar avaliações do corpus global a propostas e regras aprovadas, aplicar constraints no prompt-builder e expor superfície owner-only com claims gate honesto por marca.
 
-**Starting point:** v13.0 entregou infraestrutura de calibracao e claims gate, mas a operacao de corpus segue workspace-scoped e depende de selecao manual. O painel `/feedback` ja existe, `human_quality_corpus_items` e `human_quality_evaluations` ja existem, e o acesso platform-owner ja e suportado por `PLATFORM_OWNER_EMAILS`.
+**Starting point:** v13.0 entregou brand-taste infra acoplada ao Cenbrap; v13.1 entregou corpus global owner-only; design corpus-learning-loop aprovado; migrations 0051/0052 e APIs admin parcialmente implementadas.
 
-**In scope:** global owner-only queue, candidate capture, privacy-safe preview, cross-workspace filters, human evaluation, feedback generation, analytics/global evidence, release gate and regression coverage.
+**In scope:** voice config por marca, corpus→propostas→regras, aplicação no prompt, painel owner, evidence gate por marca, promoção cross-client→global.
 
-**Out of scope:** acesso de usuarios comuns ao corpus global, claims comerciais de qualidade, fine-tuning, direct ad-platform ingestion, gestao multi-reviewer completa e customer-real claims sem sample/source sufficiency.
+**Out of scope:** editor livre de voz, auto-approve, UI workspace admin/end-user, regenerate automático, fine-tuning, claims comerciais sem amostra real.
 
 ## Requirements
 
-### Global Owner Access (ACCESS)
+### Voice Configuration (VOICE)
 
-- [x] **ACCESS-01**: Platform owner can open a global quality corpus panel without selecting a workspace first.
-- [x] **ACCESS-02**: Non-owner users cannot list, preview, evaluate or export global corpus items.
-- [x] **ACCESS-03**: Workspace admins can still access only workspace-scoped calibration views when a workspace scope is explicitly requested.
-- [x] **ACCESS-04**: Server routes never trust client-provided `workspaceId` for global evaluation writes; workspace context is resolved from the corpus item.
+- [ ] **VOICE-01**: System stores structured voice/olhar configuration per `clientProfileId` (match terms, prompt lines, status).
+- [ ] **VOICE-02**: Generation resolves brand voice by `clientProfileId`, not campaign name string matching.
+- [ ] **VOICE-03**: Existing Cenbrap voice is seeded into DB config for the Cenbrap `clientProfileId` with parity to current output.
+- [ ] **VOICE-04**: `resolveClientVoice` hardcode path is removed or reduced to deprecated fallback after migration.
+- [ ] **VOICE-05**: Owner can view active voice configuration for any `clientProfileId` without editing freeform constitution text.
 
-### Candidate Capture and Corpus Model (CAPTURE)
+### Corpus Learning Loop (LEARN)
 
-- [x] **CAPTURE-01**: System can register every completed generated creative as a global corpus candidate with workspace, campaign, derivation, client profile, generation mode, format and created-at metadata.
-- [x] **CAPTURE-02**: Candidate capture is idempotent per workspace, derivation and corpus version.
-- [x] **CAPTURE-03**: Corpus candidate payloads exclude prompts, signed URLs, storage keys, secrets and raw user diagnostic text.
-- [x] **CAPTURE-04**: Owner can promote candidates into review cohorts (`baseline`, `pre_learning`, `post_learning`) without duplicating rows.
-- [x] **CAPTURE-05**: Source composition distinguishes synthetic fixtures, operator-imported rows and real customer generated outputs.
+- [ ] **LEARN-01**: System aggregates global corpus evaluations into client-scoped learning proposals when slice thresholds are met (≥3 evals, |delta|≥15).
+- [ ] **LEARN-02**: Proposals are deduped to one active `proposed` slice per `(workspaceId, clientProfileId, sliceKey)`.
+- [ ] **LEARN-03**: Owner can list pending client learning proposals filtered by workspace and `clientProfileId`.
+- [ ] **LEARN-04**: Owner can accept a proposal, creating an approved `calibration_rule` with category `corpus_quality` and evidence refs.
+- [ ] **LEARN-05**: Owner can reject a proposal with required reason and 30-day cooldown.
+- [ ] **LEARN-06**: `factual_issue` failure reason never becomes a prompt rule; it surfaces as admin alert only.
 
-### Global Review Queue (QUEUE)
+### Prompt Application (APPLY)
 
-- [x] **QUEUE-01**: Owner can list pending global corpus items across all workspaces ordered by operational priority.
-- [x] **QUEUE-02**: Owner can filter global corpus by workspace, client profile, campaign, generation mode, format, cohort, status, date range and source label.
-- [x] **QUEUE-03**: Owner can see enough context to evaluate a creative without exposing private prompts or raw storage identifiers.
-- [x] **QUEUE-04**: Preview image signing works correctly for mixed-workspace result sets.
-- [x] **QUEUE-05**: Queue progress reports pending/evaluated counts globally and by workspace, cohort, generation mode, format and campaign.
+- [ ] **APPLY-01**: Next derivation for a `clientProfileId` loads approved brand-taste and `corpus_quality` rules for that profile only.
+- [ ] **APPLY-02**: Prompt-builder injects sections in order: Olhar ADScale → brand-taste → corpus_quality.
+- [ ] **APPLY-03**: Generation log records `appliedBrandRuleIds` and `appliedCorpusRuleIds` for each derivation.
+- [ ] **APPLY-04**: Active `corpus_quality` rules per `clientProfileId` are capped (default 10) with deprecation of oldest on overflow.
+- [ ] **APPLY-05**: Rules from one `clientProfileId` never appear in another profile's prompt (integration-tested).
 
-### Human Evaluation (EVAL)
+### Owner Calibration Panel (PANEL)
 
-- [x] **EVAL-01**: Owner can submit visual score, factual pass, intent, primary failure reason, optional other reason and notes for a global corpus item.
-- [x] **EVAL-02**: Evaluation writes use the corpus item's workspace, not a workspace value from the browser.
-- [x] **EVAL-03**: Submitting an evaluation marks the item evaluated and advances the reviewer to the next pending item.
-- [x] **EVAL-04**: Evaluation payload validation preserves current safe bounds for score, reason, notes and forbidden keys.
-- [x] **EVAL-05**: Duplicate or stale evaluation attempts fail clearly without corrupting corpus status.
+- [ ] **PANEL-01**: Owner can select a `clientProfileId` and view its brand taste profile (patterns, evidence level, caveats).
+- [ ] **PANEL-02**: Owner can view approved and pending calibration rules for the selected brand.
+- [ ] **PANEL-03**: Owner can accept or reject client learning proposals from the same panel.
+- [ ] **PANEL-04**: Panel shows source composition and blocks misleading "fully calibrated" copy when evidence is fixture-only.
+- [ ] **PANEL-05**: Non-owner users cannot access brand calibration panel routes or APIs.
 
-### Feedback and Learning Loop (LOOP)
+### Per-Brand Evidence Gate (EVIDENCE)
 
-- [x] **LOOP-01**: Human evaluations generate structured improvement feedback that can be consumed by calibration, prompt/rubric adjustment or quality-improvement tooling.
-- [x] **LOOP-02**: Feedback artifacts link back to corpus item, derivation, evaluation and source composition.
-- [x] **LOOP-03**: Score calibration can run globally and can still be filtered by workspace/cohort for diagnosis.
-- [x] **LOOP-04**: Learning impact and quality-improvement reports can compare pre/post-learning cohorts in global mode.
-- [x] **LOOP-05**: Brand taste calibration can consume global corpus evaluations without leaking one client's rules into another.
+- [ ] **EVIDENCE-01**: Each brand profile exposes evidence level (`uncalibrated`, `seed_calibrated`, `assisted`, `evidence_backed`) from decision/evaluation count and source composition.
+- [ ] **EVIDENCE-02**: Per-brand claims matrix blocks customer-real and quality-improvement claims when sample or source gates fail.
+- [ ] **EVIDENCE-03**: Evidence report names exact missing conditions per `clientProfileId` when status is insufficient.
+- [ ] **EVIDENCE-04**: Fixture-only brands always carry explicit caveat in profile and panel UI.
+- [ ] **EVIDENCE-05**: Tests cover evidence withholding for fixture-only vs mixed-source brands.
 
-### Evidence and Release Gate (EVIDENCE)
+### Global Cross-Client Promotion (GLOBAL)
 
-- [x] **EVIDENCE-01**: Owner dashboard reports global sample sufficiency, evaluated item count, source composition and withheld claims.
-- [x] **EVIDENCE-02**: Release gate blocks global quality/improvement claims until human sample and source sufficiency are met.
-- [x] **EVIDENCE-03**: Technical regression remains separate from operational evidence status.
-- [x] **EVIDENCE-04**: Evidence output names the exact missing sample/source conditions when status is `insufficient_sample`, `insufficient_corpus` or `human_needed`.
-- [x] **EVIDENCE-05**: Tests cover global owner access, non-owner denial, mixed-workspace previews, server-resolved evaluation workspace and global aggregate filters.
+- [ ] **GLOBAL-01**: When the same `primaryFailureReason` has approved `corpus_quality` rules in ≥2 distinct `clientProfileId`s with ≥6 total evaluations, system proposes global `rubric_calibration_adjustments`.
+- [ ] **GLOBAL-02**: Global proposals require source composition gate (≥1 `real_customer` or `operator_imported`) or are flagged `fixture_only`.
+- [ ] **GLOBAL-03**: Owner can accept global adjustment via existing calibration-adjustments accept flow with links to supporting client rules.
+- [ ] **GLOBAL-04**: Global adjustments never auto-accept; rejected global proposals require reason.
+- [ ] **GLOBAL-05**: Global promotion does not bypass per-brand isolation in prompt application.
 
 ## Future Requirements
 
-### Multi-Reviewer Operations (deferred)
+### Workspace Admin Calibration (deferred)
 
-- **REVIEWER-01**: Multiple reviewers can be assigned to corpus batches with inter-rater agreement.
-- **REVIEWER-02**: Owner can compare reviewer calibration drift over time.
+- **ADMIN-01**: Workspace admin can view (read-only) brand taste profile for their client profiles.
+- **ADMIN-02**: Workspace admin can request rule review from platform owner.
 
-### Customer Consent and Policy UX (deferred)
+### Freeform Voice Editor (deferred)
 
-- **POLICY-01**: Customers can see a product policy explaining how generated outputs may be reviewed for product quality.
-- **POLICY-02**: Customer-level opt-out or anonymization controls can be configured if needed for enterprise plans.
+- **EDITOR-01**: Owner can edit structured olhar constitution fields beyond seed template.
 
-### Automated Prioritization (deferred)
+### Auto-Prioritization (deferred)
 
-- **PRIORITY-01**: Queue can prioritize low-confidence, high-spend or high-disagreement outputs automatically.
-- **PRIORITY-02**: System can sample enough items per workspace/client while avoiding over-representing a single account.
+- **AUTO-01**: System auto-prioritizes corpus items for brands with `uncalibrated` evidence level.
 
 ## Out of Scope
 
 | Feature | Reason |
 | --- | --- |
-| User-visible global corpus | Global corpus is platform-owner only; customers must not see other workspaces |
-| Fine-tuning | Evaluation/feedback loop must prove value before model-level training |
-| Commercial quality claims | Claims require sample and source sufficiency first |
-| Direct Meta/TikTok/Google Ads ingestion | Not required for corpus review; performance blending remains separate |
-| Multi-reviewer management | Start with Jhonatan as owner/reviewer before adding reviewer operations |
-| Raw prompt/debug exposure | Privacy and security boundary; review gets bounded context only |
-| Customer-real proof from fixture rows | Source composition must block this claim |
+| Freeform voice constitution editor | User chose profile+rules only; risks prompt drift |
+| Auto-approve learning proposals | Human authority before generation impact |
+| Workspace admin / end-user calibration UI | Owner-only milestone |
+| Regenerate on `intent=regenerate` | Explicitly out of corpus-learning-loop v1 |
+| Fine-tuning / image model training | Prompt constraints prove value first |
+| Commercial quality claims without real_customer sample | Evidence gate honesty |
+| Replacing Olhar ADScale global constitution | Per-brand overlay only |
 
 ## Traceability
 
-Which phases cover which requirements. Updated during roadmap creation.
-
 | Requirement | Phase | Status |
 | --- | --- | --- |
-| ACCESS-01 | Phase 157 | Complete |
-| ACCESS-02 | Phase 157 | Complete |
-| ACCESS-03 | Phase 157 | Complete |
-| ACCESS-04 | Phase 157 | Complete |
-| CAPTURE-01 | Phase 158 | Complete |
-| CAPTURE-02 | Phase 158 | Complete |
-| CAPTURE-03 | Phase 158 | Complete |
-| CAPTURE-04 | Phase 158 | Complete |
-| CAPTURE-05 | Phase 158 | Complete |
-| QUEUE-01 | Phase 159 | Complete |
-| QUEUE-02 | Phase 159 | Complete |
-| QUEUE-03 | Phase 159 | Complete |
-| QUEUE-04 | Phase 159 | Complete |
-| QUEUE-05 | Phase 159 | Complete |
-| EVAL-01 | Phase 160 | Complete |
-| EVAL-02 | Phase 160 | Complete |
-| EVAL-03 | Phase 160 | Complete |
-| EVAL-04 | Phase 160 | Complete |
-| EVAL-05 | Phase 160 | Complete |
-| LOOP-01 | Phase 160 | Complete |
-| LOOP-02 | Phase 160 | Complete |
-| LOOP-03 | Phase 161 | Complete |
-| LOOP-04 | Phase 161 | Complete |
-| LOOP-05 | Phase 161 | Complete |
-| EVIDENCE-01 | Phase 161 | Complete |
-| EVIDENCE-02 | Phase 161 | Complete |
-| EVIDENCE-03 | Phase 161 | Complete |
-| EVIDENCE-04 | Phase 161 | Complete |
-| EVIDENCE-05 | Phase 161 | Complete |
+| VOICE-01 | — | Pending |
+| VOICE-02 | — | Pending |
+| VOICE-03 | — | Pending |
+| VOICE-04 | — | Pending |
+| VOICE-05 | — | Pending |
+| LEARN-01 | — | Pending |
+| LEARN-02 | — | Pending |
+| LEARN-03 | — | Pending |
+| LEARN-04 | — | Pending |
+| LEARN-05 | — | Pending |
+| LEARN-06 | — | Pending |
+| APPLY-01 | — | Pending |
+| APPLY-02 | — | Pending |
+| APPLY-03 | — | Pending |
+| APPLY-04 | — | Pending |
+| APPLY-05 | — | Pending |
+| PANEL-01 | — | Pending |
+| PANEL-02 | — | Pending |
+| PANEL-03 | — | Pending |
+| PANEL-04 | — | Pending |
+| PANEL-05 | — | Pending |
+| EVIDENCE-01 | — | Pending |
+| EVIDENCE-02 | — | Pending |
+| EVIDENCE-03 | — | Pending |
+| EVIDENCE-04 | — | Pending |
+| EVIDENCE-05 | — | Pending |
+| GLOBAL-01 | — | Pending |
+| GLOBAL-02 | — | Pending |
+| GLOBAL-03 | — | Pending |
+| GLOBAL-04 | — | Pending |
+| GLOBAL-05 | — | Pending |
 
 **Coverage:**
-- v13.1 requirements: 29 total (29 complete)
-- Mapped to phases: 29
-- Unmapped: 0
+- v13.2 requirements: 30 total
+- Mapped to phases: 0
+- Unmapped: 30 ⚠️ (awaiting roadmap)
 
 ---
-*Requirements defined: 2026-06-20 — v13.1 Global Owner Quality Corpus*
-*Last updated: 2026-06-20 after milestone audit reconciliation*
+*Requirements defined: 2026-06-23*
+*Last updated: 2026-06-23 after milestone v13.2 scoping*
