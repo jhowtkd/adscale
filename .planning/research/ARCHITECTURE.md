@@ -34,10 +34,22 @@ clientProfileId
 | Component | Change |
 |-----------|--------|
 | `client-voice.ts` | Delegate to DB config; deprecate `REGISTERED_VOICES` |
-| `prompt-builder.ts` | Load voice by `clientProfileId`; merge corpus_quality section |
-| `derivationJob` | Pass `clientProfileId` to voice + rules loaders; log applied IDs |
-| `buildBrandTasteProfile` | Accept corpus evaluation signals in addition to calibration_signals |
-| `/feedback` owner panel | Add brand selector + calibration sub-panel |
+| `prompt-builder.ts` / `taste-loader` | Centralize section assembly; reorder to Olhar → voice → brand-taste → corpus_quality |
+| `derivationJob` | Wire `getApprovedRuleConstraints` (brand-taste rules) — **gap today:** only `corpus_quality` loaded |
+| `generation-direction.ts` | Resolve voice by `clientProfileId` from DB, not campaign name |
+| `recordCalibrationSignal` | Wire from production review APIs, not only Cenbrap scripts |
+| `buildBrandTasteProfile` | Optional corpus evaluation bootstrap into signals |
+| `/feedback` or `/admin/quality/brands` | Per-brand profile, rules, proposals panel |
+
+## Code Gaps Verified (2026-06-23)
+
+| Gap | Location | v13.2 fix |
+|-----|----------|-----------|
+| Brand-taste rules not in generation | `derivation.ts` loads only `corpus_quality` | Phase 164: add `getApprovedRuleConstraints` |
+| Prompt section order | Taste/corpus may inject before Olhar/voice | Phase 164: `taste-loader` with spec order |
+| Calibration signals script-only | `record-cenbrap-calibration-decisions.ts` | Phase 163+: wire `recordCalibrationSignalFromOutputDecisionEvent` |
+| Cenbrap triple hardcode | `resolveClientVoice`, `matchCenbrapCampaign`, calibration runners | Phase 162: single `clientProfileId` resolver |
+| Fixture ack on accept | `proposals.ts` may lack design-spec acknowledgment | Phase 163: enforce on accept |
 
 ## Data Flow (target)
 

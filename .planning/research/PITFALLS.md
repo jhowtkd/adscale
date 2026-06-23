@@ -54,7 +54,22 @@ Common mistakes when adding multi-brand taste calibration and corpus-fed prompt 
 ### 10. Owner UI without server enforcement
 **Warning:** UI hides rules but API still leaks cross-brand data.
 **Prevention:** `requirePlatformOwner` + server-side `clientProfileId` resolution from corpus items.
-**Phase:** All API routes.
+**Phase:** 165 (PANEL).
+
+### 11. Global rule query used for prompt injection
+**Warning:** `listApprovedCorpusQualityRules()` without profile scope leaks cross-brand constraints into prompts.
+**Prevention:** Prompt path must only use `(workspaceId, clientProfileId)` scoped queries; global list reserved for cross-client promotion aggregator.
+**Phase:** 164 (APPLY).
+
+### 12. Fixture-only accept without acknowledgment
+**Warning:** Owner accepts corpus proposal from 100% `synthetic_fixture` slice; UI implies real calibration.
+**Prevention:** Require explicit fixture acknowledgment on accept (design spec §6.4); block misleading panel copy.
+**Phase:** 163 (LEARN) + 166 (EVIDENCE).
+
+### 13. Missing `clientProfileId` on campaigns
+**Warning:** Corpus items without resolvable profile cannot learn; silent skip hides coverage gaps.
+**Prevention:** Warn in ingestion status; block or flag generation paths missing profile.
+**Phase:** 162 (VOICE) — product decision in plan-phase.
 
 ## Sources Consulted
 
