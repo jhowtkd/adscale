@@ -1,68 +1,73 @@
 ---
 gsd_state_version: 1.0
-milestone: v13.1
-milestone_name: Global Owner Quality Corpus
-status: passed_with_tech_debt
-last_updated: "2026-06-21T00:50:00Z"
-last_activity: 2026-06-21 - CAPTURE-04 closed; audit passed_with_tech_debt
+milestone: v13.2
+milestone_name: Calibração Multi-Marca
+status: defining_requirements
+last_updated: "2026-06-23T00:00:00Z"
+last_activity: 2026-06-23 — Milestone v13.2 started
 progress:
-  total_phases: 5
-  completed_phases: 5
-  total_plans: 10
-  completed_plans: 10
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-06-20)
+See: .planning/PROJECT.md (updated 2026-06-23)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** v13.1 Global Owner Quality Corpus — owner-only global corpus, human evaluation, feedback generation and evidence-safe quality loop.
+**Current focus:** v13.2 Calibração Multi-Marca — generalizar brand-taste para qualquer clientProfile, substituir hardcode Cenbrap, conectar corpus global a regras no prompt.
 
-**Status:** v13.1 passed_with_tech_debt — pending git commit for durable closure.
+**Status:** Defining requirements
 
 ## Current Position
 
-Phase: 161 - Global Evidence and Release Gate (complete)
-Plan: 2/2 complete
-Status: Complete
-Last activity: 2026-06-20 - Completed Phase 161
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-06-23 — Milestone v13.2 started
 
-Progress: [##########] v13.1 — 5/5 phases complete
-
-Resume file: .planning/milestones/v13.0-ROADMAP.md (Phase 158 context from ROADMAP)
+Progress: [          ] v13.2 — 0 phases planned
 
 ## Accumulated Context
 
-### v13.0 Shipped With Tech Debt
+### v13.1 Shipped With Tech Debt
 
-- `calibration_signals` + `calibration_rules` tables and brand-taste module
-- Cenbrap recorder dual-writes calibration signals on confirm
-- Brand taste profiles, rule extraction, prompt-builder integration
-- Uncertainty queue classifier and claims matrix release gate
-- Remaining evidence debt: 5 Jhonatan decisions pending, fixture-only corpus, agreement/customer-real claims blocked
+- Global owner corpus queue, candidate capture, cross-workspace previews
+- Human evaluation with server-resolved workspace context
+- Feedback artifacts and global evidence/release gate (72/72 pass)
+- Operational evidence and customer-real claims still blocked by sample/source gates
+- Cenbrap decisions (5 pending) and fixture-only corpus carry forward
 
-### v13.1 Starting Point
+### v13.0 Shipped Infrastructure (reused)
 
-- Existing `/feedback` owner surface already hosts owner analytics, beta sessions and `HumanQualityCorpusPanel`
-- Existing `human_quality_corpus_items` and `human_quality_evaluations` are workspace-scoped
-- Existing corpus GET/evaluation flows require `workspaceId` from the client, which is not enough for a global owner queue
-- Preview attachment currently assumes all corpus items belong to the first item's workspace
-- Global learning claims must remain blocked until sample size and source composition are sufficient
+- `calibration_signals`, `calibration_rules`, brand taste profiles
+- Rule extraction, prompt-builder integration, uncertainty queue
+- Cenbrap-specific voice resolution and calibration runners still hardcoded
+
+### v13.2 Starting Point
+
+- `resolveClientVoice()` hardcodes Cenbrap detection in `app/src/server/ai/voices/`
+- Brand taste profiles exist but lack owner product surface per clientProfile
+- Corpus learning loop partially implemented: migrations 0051/0052, admin APIs for ingestion/proposals
+- Design approved: `docs/superpowers/specs/2026-06-21-corpus-learning-loop-design.md`
+- User scope: owner-only, prompt rules impact, profile+rules surface (no free voice editor)
 
 ## Decisions
 
-- [v13.1]: Use platform-owner access for global corpus, not workspace admin access
-- [v13.1]: Resolve workspace context server-side from corpus item during evaluation
-- [v13.1]: Treat every generated creative as a candidate stream, but keep reviewed corpus as a prioritized queue
-- [v13.1]: Keep prompts, storage keys and raw sensitive payloads out of global review artifacts
+- [v13.2]: Replace Cenbrap hardcode with per-clientProfile Olhar/voice configuration
+- [v13.2]: Owner-only operation — no workspace admin or end-user calibration UI in this milestone
+- [v13.2]: Include corpus global evaluations feeding per-brand profiles and rules
+- [v13.2]: Prompt-builder is the primary generation impact surface (not advisor/preflight expansion)
+- [v13.2]: No freeform voice editor — inspectable profile + approved rules only
 
 ## Next Steps
 
-1. Verify `npm run build` passes after outputKey fix
-2. Implement candidate list GET + owner promote UI (CAPTURE-04) or formally defer
-3. Commit v13.1 changes when operator approves
+1. Define scoped requirements (REQ-IDs)
+2. Create roadmap starting at Phase 162
+3. `/gsd-plan-phase 162` to begin execution

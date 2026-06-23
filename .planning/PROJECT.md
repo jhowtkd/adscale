@@ -10,9 +10,25 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Current State
 
-v13.1 Global Owner Quality Corpus is active as of 2026-06-20. The milestone turns the existing workspace-scoped human-quality corpus into a platform-owner global review system: all generated creatives can become reviewable candidates, Jhonatan can evaluate them in one private panel, and those evaluations feed the quality/calibration loop with honest evidence gates.
+v13.2 Calibração Multi-Marca is active as of 2026-06-23. O milestone generaliza calibração de gosto de marca para qualquer `clientProfile`, substitui hardcode Cenbrap por configuração por marca, conecta avaliações do corpus global a perfis/regras por cliente e aplica constraints no prompt-builder — com operação owner-only e claims gate honesto.
 
-### v13.1 Global Owner Quality Corpus — ACTIVE (started 2026-06-20)
+### v13.2 Calibração Multi-Marca — ACTIVE (started 2026-06-23)
+
+**Goal:** Generalizar calibração de gosto de marca para qualquer clientProfile, substituindo hardcode Cenbrap por configuração por marca e fechando o caminho corpus → perfil → regras aprovadas → prompt.
+
+**Target features:**
+- Configuração de voz/constituição Olhar por `clientProfile` em vez de detecção hardcoded Cenbrap
+- Perfil de gosto e regras aprovadas inspecionáveis por marca no painel owner-only
+- Avaliações do corpus global alimentam sinais e propostas de regra para qualquer marca
+- Aceite owner de propostas cliente (`corpus_quality`) com aplicação no prompt-builder
+- Bootstrap de perfil por marca via decisões/avaliações importadas ou acumuladas
+- Claims gate preserva honestidade de amostra e source composition por marca
+
+**Why now:** v13.0 entregou infraestrutura brand-taste acoplada ao fluxo Cenbrap/fixtures; v13.1 criou corpus global owner-only, mas o aprendizado ainda não generaliza voz e regras para todas as marcas de forma produtizada.
+
+**Current status:** Milestone v13.2 started; Phase 162 ready to plan. Carry-forward: decisões Jhonatan Cenbrap pendentes, claims customer-real bloqueados até amostra suficiente.
+
+### v13.1 Global Owner Quality Corpus — SHIPPED WITH TECH DEBT (2026-06-20)
 
 **Goal:** Dar ao dono do projeto um painel global e privado com criativos gerados por todos os usuarios, para avaliar qualidade humana e alimentar o loop de melhoria sem quebrar isolamento de workspace.
 
@@ -27,7 +43,7 @@ v13.1 Global Owner Quality Corpus is active as of 2026-06-20. The milestone turn
 
 **Why now:** v12.5/v12.6 created the human-quality corpus and v13.0 created reusable brand-taste calibration, but the operating surface still depends on workspace-scoped queues and manual selection. A global owner corpus is the natural control plane for turning real generated outputs into reusable product learning.
 
-**Current status:** Milestone v13.1 started; Phase 157 is ready to plan. Carry-forward remains explicit: Jhonatan decisions for Cenbrap are still pending, customer-real claims remain blocked, and global quality claims require sufficient evaluated samples.
+**Current status:** Phases 157-161 complete. Infrastructure shipped; operational evidence and customer-real claims remain blocked by design.
 
 ### v13.0 Brand Taste Calibration Loop — SHIPPED WITH TECH DEBT (2026-06-20)
 
@@ -371,13 +387,12 @@ Delivered: credit estimate transparency, enriched credit events, delivery/stale 
 
 ### Active
 
-- [ ] Transformar o human-quality corpus em uma fila global owner-only para todos os criativos gerados
-- [ ] Capturar candidatos globais de criativos com metadados sanitizados, deduplicacao e filtros operacionais
-- [ ] Exibir previews assinadas cross-workspace sem expor prompts, storage keys ou dados sensiveis
-- [ ] Permitir avaliacao humana global resolvendo `workspaceId` no servidor a partir do item do corpus
-- [ ] Agregar score calibration, learning impact, quality improvement e trends em visao global e filtravel
-- [ ] Gerar feedbacks acionaveis para o loop de melhoria a partir das avaliacoes humanas
-- [ ] Bloquear claims de melhoria global ate haver amostra humana suficiente e source composition honesta
+- [ ] Substituir hardcode Cenbrap por configuracao de voz/constituicao Olhar por `clientProfile`
+- [ ] Expor perfil de gosto e regras aprovadas por marca em superficie owner-only
+- [ ] Conectar avaliacoes do corpus global a sinais e propostas de regra por `clientProfile`
+- [ ] Permitir aceite owner de propostas cliente (`corpus_quality`) com aplicacao no prompt-builder
+- [ ] Bootstrap de perfil por marca a partir de decisoes/avaliacoes acumuladas
+- [ ] Preservar claims gate honesto por marca (amostra, source composition, fixture vs customer-real)
 
 ### Validated (v10.0)
 
@@ -421,7 +436,7 @@ Delivered: credit estimate transparency, enriched credit events, delivery/stale 
 
 ## Context
 
-Current state: v13.1 active. v13.0 shipped the calibration infrastructure but remains evidence-limited: 5 Jhonatan decisions are still pending, the Cenbrap corpus is fixture-only, and agreement/customer-real claims remain blocked. The immediate product goal is making corpus operation global and owner-controlled so real generated outputs can feed the learning loop.
+Current state: v13.2 active. v13.1 shipped global owner corpus infrastructure; v13.0 shipped brand-taste calibration but Cenbrap remains hardcoded. The immediate product goal is productizing per-brand taste calibration: any clientProfile gets inspectable profile, approved rules, and prompt constraints fed by global corpus evaluations — without Cenbrap-specific detection paths.
 
 v12.7 treated ADScale as a tool that scales creative criterion, not just variation volume. v12.8 now tests that criterion operationally: real campaigns, contact sheets, human decisions and honest evidence refresh.
 
@@ -505,7 +520,7 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-20 — v13.1 Global Owner Quality Corpus started after v13.0 tech_debt closure*
+*Last updated: 2026-06-23 — v13.2 Calibração Multi-Marca started after v13.1 closure*
 
 ## Milestone History
 
