@@ -2,14 +2,15 @@
 gsd_state_version: 1.0
 milestone: v13.2
 milestone_name: Calibração Multi-Marca
-status: ready_to_plan
-last_updated: "2026-06-23T12:00:00Z"
-last_activity: 2026-06-23 — Roadmap Phases 162-167 created
+status: planning
+stopped_at: Phase 162 context gathered
+last_updated: "2026-06-23T23:57:37.104Z"
+last_activity: 2026-06-23 — Roadmap created for v13.2 (Phases 162-167)
 progress:
-  total_phases: 6
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_phases: 11
+  completed_phases: 5
+  total_plans: 10
+  completed_plans: 10
   percent: 0
 ---
 
@@ -66,6 +67,6 @@ Progress: [░░░░░░░░░░] 0% (0/6 v13.2 phases)
 
 ## Session Continuity
 
-Last session: 2026-06-23
-Stopped at: Roadmap defined — ready for `/gsd-plan-phase 162`
-Resume file: None
+Last session: 2026-06-23T23:57:37.100Z
+Stopped at: Phase 162 context gathered
+Resume file: .planning/phases/162-per-brand-voice-configuration/162-CONTEXT.md
