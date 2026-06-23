@@ -1,33 +1,63 @@
-# Research: v12.6 Pitfalls
+# Research: v13.2 Pitfalls
 
 ## Question
 
-What mistakes are common when adding live human evaluation to an AI product?
+Common mistakes when adding multi-brand taste calibration and corpus-fed prompt rules?
 
 ## Pitfalls
 
-### Vague Rubrics
+### 1. Cross-brand rule leakage
+**Warning:** Rule from Client A appears in Client B's prompt.
+**Prevention:** Every query filters by `(workspaceId, clientProfileId)`; integration test with two profiles.
+**Phase:** Voice config + prompt application (early).
 
-Rubric-driven evaluation is useful only when labels are stable enough for repeat use. v12.6 should keep visible failure reasons closed and explicit, with "other" bounded rather than freeform as the main signal.
+### 2. Cenbrap regression on migration
+**Warning:** Replacing hardcode breaks existing Cenbrap campaigns.
+**Prevention:** Seed DB from `CENBRAP_VOICE`; snapshot tests on prompt output before/after.
+**Phase:** Cenbrap migration (first).
 
-### False Certainty From Small Samples
+### 3. Prompt bloat from unconstrained rules
+**Warning:** 20+ corpus_quality lines degrade image model adherence.
+**Prevention:** Cap active rules per `clientProfileId` (design: 10); deprecate oldest on overflow.
+**Phase:** Prompt application.
 
-Averages without sample count and uncertainty create misleading improvement claims. v12.6 should default to `insufficient_sample` until minimum slice counts are met.
+### 4. Overfitting corpus slices
+**Warning:** 3 evaluations on one campaign become "brand law."
+**Prevention:** Enforce `MIN_SLICE_SAMPLE=3`, cooldown on reject, require post-approval evals for rule updates.
+**Phase:** Proposal aggregator.
 
-### Hidden Denominators
+### 5. False quality claims per brand
+**Warning:** "Brand X is calibrated" with fixture-only evidence.
+**Prevention:** Reuse evidence levels (`uncalibrated` → `evidence_backed`); UI shows caveats.
+**Phase:** Owner UI + evidence gate.
 
-Trend charts must show coverage and stale evidence state. Otherwise a single evaluated item can look like a product-level quality trend.
+### 6. factual_issue as prompt rule
+**Warning:** Weakening factual gate by moving failures to soft prompt hints.
+**Prevention:** Block `factual_issue` in proposal→rule mapper; admin alert only.
+**Phase:** Accept flow.
 
-### Human Review Drift
+### 7. Duplicate learning paths
+**Warning:** Cenbrap calibration_signals and corpus evaluations create conflicting rules.
+**Prevention:** Unified `calibration_rules` table; category distinguishes source (`figure` vs `corpus_quality`).
+**Phase:** Rule extraction + corpus accept.
 
-If reviewers do not see a consistent flow and playbook, the corpus becomes inconsistent over time. v12.6 needs an operator playbook and review queue progress state.
+### 8. Skipping generation log provenance
+**Warning:** Cannot diagnose if rule actually affected output.
+**Prevention:** Log `appliedBrandRuleIds` + `appliedCorpusRuleIds` on every derivation.
+**Phase:** derivationJob wiring.
 
-### Conflating Technical Green With Product Evidence
+### 9. Global cross-client promotion too early
+**Warning:** Two fixture brands trigger global rubric change.
+**Prevention:** Require ≥2 clients AND source composition gate before global proposals.
+**Phase:** Defer to late phase or v13.3.
 
-Tests/build/regressions can pass while live corpus evidence is empty. The gate must report both independently.
+### 10. Owner UI without server enforcement
+**Warning:** UI hides rules but API still leaks cross-brand data.
+**Prevention:** `requirePlatformOwner` + server-side `clientProfileId` resolution from corpus items.
+**Phase:** All API routes.
 
 ## Sources Consulted
 
-- https://aclanthology.org/W19-8643.pdf
-- https://openaccess.thecvf.com/content/CVPR2023/papers/Otani_Toward_Verifiable_and_Reproducible_Human_Evaluation_for_Text-to-Image_Generation_CVPR_2023_paper.pdf
-- https://www.getmaxim.ai/articles/llm-as-a-judge-vs-human-in-the-loop-evaluations-a-complete-guide-for-ai-engineers/
+- `docs/superpowers/specs/2026-06-21-corpus-learning-loop-design.md` (§11 Risks)
+- `.planning/milestones/v13.1-MILESTONE-AUDIT.md`
+- v13.0 claims gate patterns

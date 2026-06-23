@@ -1,37 +1,41 @@
-# Research Summary: v12.6 Operacao Live do Corpus de Qualidade
+# Research Summary: v13.2 Calibração Multi-Marca
 
 ## Stack Additions
 
-No major stack addition. Reuse the v12.5 corpus, calibration, impact and release-gate infrastructure. Add operational logic: batch selection, review queue progress, sample sufficiency policy, trend aggregation and release evidence separation.
+**Nenhuma dependência npm nova.** Estender Postgres (tabela `client_profile_voice_config`), reutilizar `brand-taste`, `client_learning_proposals` (migrations 0051/0052) e APIs admin existentes. Substituir `resolveClientVoice()` hardcoded por resolução via `clientProfileId`.
 
 ## Feature Table Stakes
 
-- Versioned live corpus sourced from real outputs.
-- Human review flow with structured, repeatable rubric fields.
-- Sample sufficiency and `insufficient_sample` states.
-- Trends with visible denominators, stale-state warnings and drilldown.
-- Release gate that separates technical regression from operational evidence.
+- Voz/taste por `clientProfileId` (não match de string em nome de campanha)
+- Perfil de gosto + regras aprovadas inspecionáveis (owner-only)
+- Corpus global → propostas → aceite → `calibration_rules` (`corpus_quality`)
+- Constraints no prompt-builder com provenance logada
+- Isolamento por marca e claims gate honesto (fixture vs customer-real)
 
 ## Watch Out For
 
-- Do not claim improvement from an empty or tiny live corpus.
-- Do not merge fixture, live-human and accepted-caveat metrics into one number.
-- Do not let visual quality improvements offset factual pass/fail.
-- Do not introduce a new evaluation vendor before internal operations are stable.
+- Vazamento de regras entre `clientProfileId`
+- Regressão Cenbrap na migração do hardcode
+- Prompt bloat (cap ~10 regras ativas por marca)
+- Overfitting com amostra mínima (3 evals)
+- `factual_issue` virando regra de prompt
+- Claims de calibração sem evidência real
 
 ## Roadmap Implication
 
-The natural v12.6 sequence is:
+Sequência natural:
 
-1. Live corpus operations.
-2. Sampling sufficiency and evidence honesty.
-3. Quality trend dashboard.
-4. Operational quality release gate.
+1. Schema + resolver de voz por marca (seed Cenbrap)
+2. Remoção do hardcode + testes de paridade
+3. Agregador corpus → propostas cliente
+4. Aceite → regra → aplicação no prompt
+5. UI owner por marca (perfil, regras, propostas)
+6. Evidence gate multi-marca
+
+Promoção cross-client → global (`rubric_calibration_adjustments`) pode ser fase final ou v13.3.
 
 ## Sources
 
-- Braintrust, "What is LLM evaluation?" https://www.braintrust.dev/articles/llm-evaluation-guide
-- Cameron Wolfe, "Applying Statistics to LLM Evaluations" https://cameronrwolfe.substack.com/p/stats-llm-evals
-- Otani et al., "Toward Verifiable and Reproducible Human Evaluation for Text-to-Image Generation" https://openaccess.thecvf.com/content/CVPR2023/papers/Otani_Toward_Verifiable_and_Reproducible_Human_Evaluation_for_Text-to-Image_Generation_CVPR_2023_paper.pdf
-- Snorkel AI, "Data quality and rubrics" https://snorkel.ai/blog/data-quality-and-rubrics-how-to-build-trust-in-your-models/
-- iMerit, "Image Generation Evaluation" https://imerit.ai/solutions/generative-ai-data-solutions/image-generation-evaluation/
+- `docs/superpowers/specs/2026-06-21-corpus-learning-loop-design.md`
+- `.planning/milestones/v13.0-REQUIREMENTS.md`
+- `app/src/server/brand-taste/`, `app/src/server/ai/voices/`
