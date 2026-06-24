@@ -59,9 +59,9 @@ Generalizar calibração de gosto de marca para qualquer `clientProfile`: substi
 
 ### Global Cross-Client Promotion (GLOBAL)
 
-- [ ] **GLOBAL-01**: When the same `primaryFailureReason` has approved `corpus_quality` rules in ≥2 distinct `clientProfileId`s with ≥6 total evaluations, system proposes global `rubric_calibration_adjustments`.
-- [ ] **GLOBAL-02**: Global proposals require source composition gate (≥1 `real_customer` or `operator_imported`) or are flagged `fixture_only`.
-- [ ] **GLOBAL-03**: Owner can accept global adjustment via existing calibration-adjustments accept flow with links to supporting client rules.
+- [x] **GLOBAL-01**: When the same `primaryFailureReason` has approved `corpus_quality` rules in ≥2 distinct `clientProfileId`s with ≥6 total evaluations, system proposes global `rubric_calibration_adjustments`.
+- [x] **GLOBAL-02**: Global proposals require source composition gate (≥1 `real_customer` or `operator_imported`) or are flagged `fixture_only`.
+- [x] **GLOBAL-03**: Owner can accept global adjustment via existing calibration-adjustments accept flow with links to supporting client rules.
 - [ ] **GLOBAL-04**: Global adjustments never auto-accept; rejected global proposals require reason.
 - [ ] **GLOBAL-05**: Global promotion does not bypass per-brand isolation in prompt application.
 
@@ -122,9 +122,9 @@ Generalizar calibração de gosto de marca para qualquer `clientProfile`: substi
 | EVIDENCE-03 | Phase 166 | Complete |
 | EVIDENCE-04 | Phase 166 | Complete |
 | EVIDENCE-05 | Phase 166 | Complete |
-| GLOBAL-01 | Phase 167 | Pending |
-| GLOBAL-02 | Phase 167 | Pending |
-| GLOBAL-03 | Phase 167 | Pending |
+| GLOBAL-01 | Phase 167 | Complete |
+| GLOBAL-02 | Phase 167 | Complete |
+| GLOBAL-03 | Phase 167 | Complete |
 | GLOBAL-04 | Phase 167 | Pending |
 | GLOBAL-05 | Phase 167 | Pending |
 

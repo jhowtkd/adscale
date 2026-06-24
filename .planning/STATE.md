@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v13.2
 milestone_name: Calibração Multi-Marca
-status: ready_to_execute
-stopped_at: Phase 167 planned — ready to execute
-last_updated: "2026-06-24T18:00:00.000Z"
+status: executing
+stopped_at: Completed 167-01-PLAN.md
+last_updated: "2026-06-24T18:36:10.285Z"
 last_activity: 2026-06-24
 progress:
-  total_phases: 6
-  completed_phases: 5
+  total_phases: 11
+  completed_phases: 10
   total_plans: 27
-  completed_plans: 24
-  percent: 89
+  completed_plans: 25
+  percent: 93
 ---
 
 # Project State
@@ -22,16 +22,16 @@ See: .planning/PROJECT.md (updated 2026-06-23)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** Phase 167 — Global Cross-Client Promotion (ready to execute)
+**Current focus:** Phase 167 — Global Cross-Client Promotion (Wave 1 complete)
 
 ## Current Position
 
 Phase: 167 of 167 (global cross-client promotion)
-Plan: Not started
-Status: Planned — ready to execute
+Plan: 1 of 3 complete
+Status: Executing — ready for 167-02
 Last activity: 2026-06-24
 
-Progress: [░░░░░░░░░░] 0/3 plans in Phase 167
+Progress: [███░░░░░░░] 1/3 plans in Phase 167
 
 ## Performance Metrics
 
@@ -44,7 +44,8 @@ Progress: [░░░░░░░░░░] 0/3 plans in Phase 167
 | 164 | 3/3 | Complete |
 | 165 | 3/3 | Complete |
 | 166 | 2/2 | Complete |
-| 167 | 0/3 | Planned |
+| 167 | 1/3 | In Progress |
+| Phase 167-global-cross-client-promotion P01 | 8 | 1 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -61,6 +62,8 @@ Progress: [░░░░░░░░░░] 0/3 plans in Phase 167
 - [Phase 167]: fixtureOnly global accept requires acknowledgeFixtureOnly (mirror client proposals)
 - [Phase 166]: Dedicated GET .../evidence API — do not bloat profile cache
 - [Phase 166]: buildPerBrandEvidenceReport scopes claims per clientProfileId
+- [Phase 167]: Always set fixtureOnly boolean on cross-client evidenceRefs (true/false), not only when true
+- [Phase 167]: primaryFailureReason on evidenceRefs uses rule rationale prefix; targetKey remains failure-bridge adjustment target
 
 ### Blockers/Concerns
 
@@ -77,7 +80,7 @@ Progress: [░░░░░░░░░░] 0/3 plans in Phase 167
 
 ## Session Continuity
 
-Last session: 2026-06-24
-Stopped at: Phase 167 planned
+Last session: 2026-06-24T18:36:10.282Z
+Stopped at: Completed 167-01-PLAN.md
 Resume file: None
 Next command: `$gsd-execute-phase 167`

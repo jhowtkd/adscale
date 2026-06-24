@@ -58,7 +58,7 @@
 | 164 | Prompt Rule Application | 3/3 | Complete    | 2026-06-24 |
 | 165 | Owner Calibration Panel | 3/3 | Complete    | 2026-06-24 |
 | 166 | Per-Brand Evidence Gate | 2/2 | Complete    | 2026-06-24 |
-| 167 | Global Cross-Client Promotion | GLOBAL-01..05 | Not started | - |
+| 167 | Global Cross-Client Promotion | 1/3 | In Progress|  |
 
 ## Phase Details
 
@@ -313,10 +313,10 @@ Plans:
   4. Global proposals never auto-accept; rejected global proposals require a reason.
   5. Global promotion does not bypass per-brand isolation in prompt application.
 
-**Plans:** 3/3 plans defined
+**Plans:** 1/3 plans executed
 
 Plans:
-- [ ] 167-01-PLAN.md — Cross-client detector hardening + evidence metadata (GLOBAL-01, GLOBAL-02, GLOBAL-03 server)
+- [x] 167-01-PLAN.md — Cross-client detector hardening + evidence metadata (GLOBAL-01, GLOBAL-02, GLOBAL-03 server)
 - [ ] 167-02-PLAN.md — Reject lifecycle + accept fixture ack (GLOBAL-03, GLOBAL-04)
 - [ ] 167-03-PLAN.md — Calibration UI + isolation regression (GLOBAL-03 UI, GLOBAL-05)
 
