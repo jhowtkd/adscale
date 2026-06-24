@@ -1403,3 +1403,217 @@ describe("HumanQualityCorpusPanel learning tab", () => {
     ).toBeInTheDocument();
   });
 });
+
+const GLOBAL_ADJUSTMENT_ID = "634f9104-0000-4000-8000-000000000002";
+const SUPPORTING_RULE_A = "rule-profile-a-corpus-1";
+const SUPPORTING_RULE_B = "rule-profile-b-corpus-1";
+
+const crossClientCalibrationReport = {
+  ...calibrationReport,
+  adjustments: [
+    {
+      id: GLOBAL_ADJUSTMENT_ID,
+      adjustmentVersion: "1.1.0",
+      targetModule: "score_ceiling",
+      targetKey: "weak_hierarchy",
+      status: "proposed" as const,
+      evidenceCount: 6,
+      evidenceRefs: {
+        fixtureOnly: true,
+        supportingClientRuleIds: [SUPPORTING_RULE_A, SUPPORTING_RULE_B],
+        promotionSource: "cross_client" as const,
+        primaryFailureReason: "weak_hierarchy",
+        corpusItemIds: ["item-1", "item-2", "item-3", "item-4", "item-5", "item-6"],
+        sliceStats: { count: 6, meanSignedDelta: 18, meanAbsError: 18 },
+        itemRefs: [],
+      },
+    },
+  ],
+};
+
+function mockCalibrationTabApis(
+  report: typeof calibrationReport = crossClientCalibrationReport
+) {
+  mockApiFetch.mockImplementation(async (url: string, init?: RequestInit) => {
+    if (url.includes("score-calibration")) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          report,
+          persistedAdjustmentCount: report.adjustments.length,
+        }),
+      } as Response;
+    }
+    if (url.includes("learning-impact") || url.includes("sample-coverage")) {
+      return { ok: false, status: 403 } as Response;
+    }
+    if (url.includes("human-quality-corpus") && !init?.method) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => queueJson([pendingItem]),
+      } as Response;
+    }
+    return { ok: false, status: 500 } as Response;
+  });
+}
+
+async function openCalibrationTab() {
+  renderPanel();
+  useWorkspaceScope();
+  await screen.findByText("Human quality corpus");
+  fireEvent.click(screen.getByRole("button", { name: "Calibration" }));
+  await screen.findByText("Calibration report");
+}
+
+describe("HumanQualityCorpusPanel cross-client calibration", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("shows Cross-client badge and supporting rule count for cross_client proposals", async () => {
+    mockCalibrationTabApis();
+
+    await openCalibrationTab();
+
+    expect(screen.getByText("Cross-client")).toBeInTheDocument();
+    expect(screen.getByText(/2 supporting client rules/)).toBeInTheDocument();
+    expect(screen.getByText(SUPPORTING_RULE_A)).toBeInTheDocument();
+    expect(screen.getByText(SUPPORTING_RULE_B)).toBeInTheDocument();
+  });
+
+  it("shows fixture-only warning and requires acknowledgment before accept", async () => {
+    mockCalibrationTabApis();
+
+    await openCalibrationTab();
+
+    expect(
+      screen.getByText(/uses only fixture evidence/i)
+    ).toBeInTheDocument();
+
+    const acceptButton = screen.getByRole("button", { name: "Accept" });
+    expect(acceptButton).toBeDisabled();
+
+    fireEvent.click(
+      screen.getByRole("checkbox", {
+        name: /fixture evidence/i,
+      })
+    );
+
+    expect(acceptButton).toBeEnabled();
+  });
+
+  it("accept calls PATCH calibration-adjustments with acknowledgeFixtureOnly when fixtureOnly", async () => {
+    mockCalibrationTabApis();
+
+    mockApiFetch.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (
+        url.includes(`/calibration-adjustments/${GLOBAL_ADJUSTMENT_ID}/accept`) &&
+        init?.method === "PATCH"
+      ) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ adjustment: { id: GLOBAL_ADJUSTMENT_ID } }),
+        } as Response;
+      }
+      if (url.includes("score-calibration")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            report: crossClientCalibrationReport,
+            persistedAdjustmentCount: 1,
+          }),
+        } as Response;
+      }
+      if (url.includes("learning-impact") || url.includes("sample-coverage")) {
+        return { ok: false, status: 403 } as Response;
+      }
+      if (url.includes("human-quality-corpus") && !init?.method) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => queueJson([pendingItem]),
+        } as Response;
+      }
+      return { ok: false, status: 500 } as Response;
+    });
+
+    await openCalibrationTab();
+
+    fireEvent.click(
+      screen.getByRole("checkbox", {
+        name: /fixture evidence/i,
+      })
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Accept" }));
+
+    await waitFor(() => {
+      expect(mockApiFetch).toHaveBeenCalledWith(
+        `/api/feedback/calibration-adjustments/${GLOBAL_ADJUSTMENT_ID}/accept`,
+        expect.objectContaining({
+          method: "PATCH",
+          body: JSON.stringify({ acknowledgeFixtureOnly: true }),
+        })
+      );
+    });
+  });
+
+  it("reject calls PATCH reject with reason text", async () => {
+    const promptSpy = vi.spyOn(window, "prompt").mockReturnValue("Not enough real customer evidence");
+
+    mockApiFetch.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (
+        url.includes(`/calibration-adjustments/${GLOBAL_ADJUSTMENT_ID}/reject`) &&
+        init?.method === "PATCH"
+      ) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ adjustment: { id: GLOBAL_ADJUSTMENT_ID, status: "rejected" } }),
+        } as Response;
+      }
+      if (url.includes("score-calibration")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            report: crossClientCalibrationReport,
+            persistedAdjustmentCount: 1,
+          }),
+        } as Response;
+      }
+      if (url.includes("learning-impact") || url.includes("sample-coverage")) {
+        return { ok: false, status: 403 } as Response;
+      }
+      if (url.includes("human-quality-corpus") && !init?.method) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => queueJson([pendingItem]),
+        } as Response;
+      }
+      return { ok: false, status: 500 } as Response;
+    });
+
+    await openCalibrationTab();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reject" }));
+
+    await waitFor(() => {
+      expect(mockApiFetch).toHaveBeenCalledWith(
+        `/api/feedback/calibration-adjustments/${GLOBAL_ADJUSTMENT_ID}/reject`,
+        expect.objectContaining({
+          method: "PATCH",
+          body: JSON.stringify({
+            reason: "Not enough real customer evidence",
+          }),
+        })
+      );
+    });
+
+    promptSpy.mockRestore();
+  });
+});
