@@ -1996,6 +1996,52 @@ export const clientLearningProposals = adscaleSchema.table(
 export type ClientLearningProposal = typeof clientLearningProposals.$inferSelect;
 export type NewClientLearningProposal = typeof clientLearningProposals.$inferInsert;
 
+export type OlharVoiceReviewStatus = "pending_review" | "approved" | "changes_requested";
+
+export type OlharVoiceConfigPayload = {
+  principles: string[];
+  positiveSignals: string[];
+  negativeSignals: string[];
+  authorityAndClaims: string[];
+  inviteRhythm: string[];
+  correctButSoulless: string[];
+  matchTerms?: string[];
+};
+
+export const clientProfileOlharConfig = adscaleSchema.table(
+  "client_profile_olhar_config",
+  {
+    clientProfileId: uuid("client_profile_id")
+      .primaryKey()
+      .references(() => clientProfiles.id, { onDelete: "cascade" }),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    voiceId: text("voice_id").notNull(),
+    displayName: text("display_name").notNull(),
+    config: jsonb("config").$type<OlharVoiceConfigPayload>().notNull(),
+    reviewStatus: text("review_status").$type<OlharVoiceReviewStatus>().notNull(),
+    source: text("source").notNull().default("seeded"),
+    approvedAt: timestamp("approved_at", { mode: "date" }),
+    approvedBy: text("approved_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("client_profile_olhar_config_workspace_profile_uq").on(
+      table.workspaceId,
+      table.clientProfileId
+    ),
+    check(
+      "client_profile_olhar_config_review_status_check",
+      sql`${table.reviewStatus} in ('pending_review', 'approved', 'changes_requested')`
+    ),
+  ]
+);
+
+export type ClientProfileOlharConfig = typeof clientProfileOlharConfig.$inferSelect;
+export type NewClientProfileOlharConfig = typeof clientProfileOlharConfig.$inferInsert;
+
 export const workspaceProgression = adscaleSchema.table(
   "workspace_progression",
   {
