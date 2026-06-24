@@ -123,6 +123,21 @@ describe("BrandTasteProfilePanel", () => {
     expect(emptyMessages.length).toBeGreaterThanOrEqual(3);
   });
 
+  it("shows fixture-only warning banner via getCalibrationStatusDisplay", async () => {
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => profileFixture,
+    } as Response);
+
+    renderPanel();
+
+    expect(
+      await screen.findByText(/Evidência apenas de fixture\/operador/i)
+    ).toBeInTheDocument();
+    expect(screen.getByText(/não validado com cliente real/i)).toBeInTheDocument();
+  });
+
   it("shows forbidden message on 403", async () => {
     mockApiFetch.mockResolvedValue({ ok: false, status: 403 } as Response);
 

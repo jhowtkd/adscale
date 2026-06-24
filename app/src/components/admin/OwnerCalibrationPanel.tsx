@@ -8,6 +8,7 @@ import { LearningProposalsTab } from "@/components/feedback/LearningProposalsTab
 import { BrandVoiceInspectPanel } from "./BrandVoiceInspectPanel";
 import { BrandTasteProfilePanel, fetchBrandTasteProfile } from "./BrandTasteProfilePanel";
 import { BrandCalibrationRulesPanel } from "./BrandCalibrationRulesPanel";
+import { BrandEvidencePanel } from "./BrandEvidencePanel";
 
 type BrandListItem = {
   id: string;
@@ -26,6 +27,7 @@ async function fetchBrandList(): Promise<BrandListItem[] | "forbidden"> {
 
 const TAB_ITEMS = [
   { id: "profile", label: "Perfil" },
+  { id: "evidence", label: "Evidência" },
   { id: "voice", label: "Voz" },
   { id: "rules", label: "Regras" },
   { id: "proposals", label: "Propostas" },
@@ -122,6 +124,9 @@ export function OwnerCalibrationPanel({
       <div className="pt-2">
         {activeTab === "profile" ? (
           <BrandTasteProfilePanel clientProfileId={clientProfileId} />
+        ) : null}
+        {activeTab === "evidence" ? (
+          <BrandEvidencePanel clientProfileId={clientProfileId} />
         ) : null}
         {activeTab === "voice" ? (
           <BrandVoiceInspectPanel clientProfileId={clientProfileId} />

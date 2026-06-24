@@ -29,6 +29,12 @@ vi.mock("./BrandCalibrationRulesPanel", () => ({
   ),
 }));
 
+vi.mock("./BrandEvidencePanel", () => ({
+  BrandEvidencePanel: ({ clientProfileId }: { clientProfileId: string }) => (
+    <div data-testid="brand-evidence-panel">Evidence panel for {clientProfileId}</div>
+  ),
+}));
+
 vi.mock("@/components/feedback/LearningProposalsTab", () => ({
   LearningProposalsTab: ({
     clientProfileId,
@@ -137,11 +143,12 @@ describe("OwnerCalibrationPanel", () => {
     vi.clearAllMocks();
   });
 
-  it("renders ResponsiveTabs with Perfil, Voz, Regras, Propostas labels", async () => {
+  it("renders ResponsiveTabs with Perfil, Evidência, Voz, Regras, Propostas labels", async () => {
     mockApis();
     renderPanel();
 
     expect(await screen.findByRole("tab", { name: "Perfil" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Evidência" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Voz" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Regras" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Propostas" })).toBeInTheDocument();
@@ -167,6 +174,17 @@ describe("OwnerCalibrationPanel", () => {
     expect(
       await screen.findByText(/Painel restrito a proprietários da plataforma/i)
     ).toBeInTheDocument();
+  });
+
+  it("mounts BrandEvidencePanel on Evidência tab with clientProfileId", async () => {
+    mockApis();
+    renderPanel();
+
+    fireEvent.click(await screen.findByRole("tab", { name: "Evidência" }));
+
+    expect(await screen.findByTestId("brand-evidence-panel")).toHaveTextContent(
+      `Evidence panel for ${CLIENT_PROFILE_ID}`
+    );
   });
 
   it("mounts BrandVoiceInspectPanel on Voice tab with clientProfileId", async () => {
