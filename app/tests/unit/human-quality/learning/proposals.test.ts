@@ -8,9 +8,15 @@ vi.mock("@/server/repositories/client-learning-proposal", () => ({
 
 vi.mock("@/server/repositories/calibration-rule", () => ({
   insertCalibrationRule: vi.fn(),
+  listApprovedCalibrationRulesByCategories: vi.fn(),
 }));
 
-import { insertCalibrationRule } from "@/server/repositories/calibration-rule";
+vi.mock("@/server/human-quality/learning/corpus-quality-cap", () => ({
+  enforceCorpusQualityRuleCap: vi.fn(),
+}));
+
+import { insertCalibrationRule, listApprovedCalibrationRulesByCategories } from "@/server/repositories/calibration-rule";
+import { enforceCorpusQualityRuleCap } from "@/server/human-quality/learning/corpus-quality-cap";
 import {
   getClientLearningProposalById,
   markProposalAccepted,
@@ -54,6 +60,8 @@ const proposedProposal = {
 describe("client learning proposal accept/reject", () => {
   const mockGetProposal = vi.mocked(getClientLearningProposalById);
   const mockInsertRule = vi.mocked(insertCalibrationRule);
+  const mockListApprovedRules = vi.mocked(listApprovedCalibrationRulesByCategories);
+  const mockEnforceCap = vi.mocked(enforceCorpusQualityRuleCap);
   const mockMarkAccepted = vi.mocked(markProposalAccepted);
   const mockMarkRejected = vi.mocked(markProposalRejected);
 
@@ -83,6 +91,8 @@ describe("client learning proposal accept/reject", () => {
       acceptedAt: new Date("2026-06-17T12:00:00Z"),
       acceptedBy: "user-1",
     } as never);
+    mockListApprovedRules.mockResolvedValue([]);
+    mockEnforceCap.mockResolvedValue({ active: [], deprecatedIds: [] });
   });
 
   it("acceptProposal creates approved calibration_rule and marks proposal accepted", async () => {
@@ -106,6 +116,49 @@ describe("client learning proposal accept/reject", () => {
     );
     expect(mockMarkAccepted).toHaveBeenCalledWith("p1", "user-1");
     expect(result.proposal.status).toBe("accepted");
+  });
+
+  it("acceptProposal triggers enforceCorpusQualityRuleCap after rule insert", async () => {
+    const insertedRule = {
+      id: "rule-1",
+      workspaceId: "ws-1",
+      clientProfileId: "profile-1",
+      category: "corpus_quality",
+      status: "approved",
+      rationale: "visual_overload: Máx. 3 zonas de informação; um hook dominante",
+      supportingSignalIds: ["artifact-1", "artifact-2"],
+      confidence: "medium",
+      caveats: [],
+      mismatchBucket: null,
+      version: 1,
+      approvedAt: new Date("2026-06-17T12:00:00Z"),
+      approvedBy: "user-1",
+      createdAt: new Date("2026-06-17"),
+      updatedAt: new Date("2026-06-17"),
+    };
+    mockInsertRule.mockResolvedValue(insertedRule as never);
+    const approvedRules = [insertedRule];
+    mockListApprovedRules.mockResolvedValue(approvedRules as never);
+    mockEnforceCap.mockResolvedValue({
+      active: approvedRules as never,
+      deprecatedIds: [],
+    });
+
+    await acceptClientLearningProposal({
+      proposalId: "p1",
+      reviewerUserId: "user-1",
+    });
+
+    expect(mockListApprovedRules).toHaveBeenCalledWith({
+      workspaceId: "ws-1",
+      clientProfileId: "profile-1",
+      categories: ["corpus_quality"],
+    });
+    expect(mockEnforceCap).toHaveBeenCalledWith({
+      workspaceId: "ws-1",
+      clientProfileId: "profile-1",
+      rules: approvedRules,
+    });
   });
 
   it("acceptProposal rejects when proposal is not proposed", async () => {

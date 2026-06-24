@@ -10,12 +10,18 @@ vi.mock("@/server/repositories/calibration-signal", () => ({
   listCalibrationSignalsForClientProfile: vi.fn(),
 }));
 
+vi.mock("@/server/human-quality/learning/corpus-quality-cap", () => ({
+  enforceCorpusQualityRuleCap: vi.fn(),
+}));
+
 import { listApprovedCalibrationRulesByCategories } from "@/server/repositories/calibration-rule";
 import { listCalibrationSignalsForClientProfile } from "@/server/repositories/calibration-signal";
+import { enforceCorpusQualityRuleCap } from "@/server/human-quality/learning/corpus-quality-cap";
 import { loadPromptCalibrationContext } from "@/server/brand-taste/prompt-calibration-loader";
 
 const mockListRules = vi.mocked(listApprovedCalibrationRulesByCategories);
 const mockListSignals = vi.mocked(listCalibrationSignalsForClientProfile);
+const mockEnforceCap = vi.mocked(enforceCorpusQualityRuleCap);
 
 function rule(overrides: Partial<CalibrationRule> = {}): CalibrationRule {
   return {
@@ -63,6 +69,10 @@ function signal(overrides: Partial<CalibrationSignal> = {}): CalibrationSignal {
 describe("loadPromptCalibrationContext", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockEnforceCap.mockImplementation(async (input) => ({
+      active: input.rules.slice(0, 10),
+      deprecatedIds: [],
+    }));
   });
 
   it("returns empty sections and ID arrays when clientProfileId is null", async () => {
@@ -169,7 +179,7 @@ describe("loadPromptCalibrationContext", () => {
     expect(result.appliedCorpusRuleIds).toEqual(["corpus-rule-1"]);
   });
 
-  it("caps corpus rules at 10 via prompt-time slice", async () => {
+  it("enforces corpus quality cap via enforceCorpusQualityRuleCap", async () => {
     const calibratedSignals = Array.from({ length: 5 }, (_, i) =>
       signal({ id: `sig-${i}`, derivationId: `deriv-${i}` })
     );
@@ -180,6 +190,7 @@ describe("loadPromptCalibrationContext", () => {
         rationale: `Rule ${i}`,
       })
     );
+    const cappedRules = corpusRules.slice(0, 10);
 
     mockListSignals.mockResolvedValue(calibratedSignals);
     mockListRules.mockImplementation(async (input) => {
@@ -188,12 +199,21 @@ describe("loadPromptCalibrationContext", () => {
       }
       return [];
     });
+    mockEnforceCap.mockResolvedValue({
+      active: cappedRules,
+      deprecatedIds: ["corpus-10", "corpus-11"],
+    });
 
     const result = await loadPromptCalibrationContext({
       workspaceId: "ws-1",
       clientProfileId: "client-1",
     });
 
+    expect(mockEnforceCap).toHaveBeenCalledWith({
+      workspaceId: "ws-1",
+      clientProfileId: "client-1",
+      rules: corpusRules,
+    });
     expect(result.appliedCorpusRuleIds).toHaveLength(10);
     expect(result.appliedCorpusRuleIds[0]).toBe("corpus-0");
     expect(result.appliedCorpusRuleIds[9]).toBe("corpus-9");
