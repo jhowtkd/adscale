@@ -1,252 +1,213 @@
-# Automação de Conteúdo — Kanban + Rotinas Instaladas
+# Kanban de Conteúdo — ADScale (no repo)
 
-> Como rodar a produção de conteúdo com 1 pessoa e ~5h30/semana,
-> usando Trello (ou Notion) + automações nativas + ferramentas instaladas.
+> Sem Trello. Sem Notion. Sem ferramenta externa. O Kanban vive aqui,
+> em 4 arquivos `.md`, um por coluna. Mover o card de arquivo conforme
+> avança (ou copiar o bullet de um arquivo pro outro).
 >
-> **Por que este doc existe:** Jhonatan quer produzir Reels e carrossel
-> "do mais simples possível". A resposta não é cortar volume, é cortar
-> fricção — template, automação e rotina fixa.
+> **Por que aqui:** você disse "vamos gerir por aqui mesmo".
+> 1 pessoa não precisa de ferramenta terceira — só precisa de
+> 4 arquivos e 1 rotina de domingo.
 
 ---
 
-## 1. Stack final (tudo free ou já disponível)
-
-| Função | Ferramenta | Custo | Por que |
-|--------|-----------|-------|---------|
-| **Kanban** | Trello (free) — app desktop instalado | R$ 0 | Automações nativas (Butler) suficientes. App desktop permite trabalhar offline. |
-| **Banco de ideias** | Notion (free) ou Google Sheets | R$ 0 | Infinito, editável de qualquer lugar, exportável. |
-| **Briefing de post** | Template do Trello (campos custom) | R$ 0 | Força o Jhonatan a pensar antes de criar. |
-| **Edição de vídeo** | CapCut desktop (instalado) | R$ 0 | Atalhos, templates, export rápido. |
-| **Edição de carrossel** | Canva (Pro trial 30 dias, depois free) | R$ 0–R$ 30/mês | Templates prontos, resize automático. |
-| **Agendamento IG/FB** | Meta Business Suite (nativo) | R$ 0 | Sem limite, integração com IG e FB. |
-| **Agendamento LinkedIn** | Manual (postar direto) | R$ 0 | LinkedIn pune tools 3rd-party no alcance orgânico. |
-| **Thumbnail YouTube** | Canva | R$ 0 | Templates prontos, fonte bold. |
-| **Métricas unificadas** | Metricool (free) | R$ 0 | IG + LinkedIn + YouTube em 1 dashboard. |
-| **Tracking no site** | PostHog (já no produto) | R$ 0 | Já configurado, só ativar. |
-
-**Custo total: R$ 0–R$ 30/mês.** O CapCut e o Trello são **apps instalados** (como o usuário pediu).
-
----
-
-## 2. Estrutura do Kanban (5 colunas)
+## 0. Estrutura
 
 ```
-┌──────────┐    ┌──────────┐    ┌────────────────┐    ┌──────────┐    ┌──────────────┐
-│ 📥 IDEIA │ -> │ 📝 BRIEF │ -> │ 🎨 EM PRODUÇÃO │ -> │ 👀 REVISÃO│ -> │ ✅ PRONTO    │
-│          │    │          │    │                │    │          │    │              │
-│ Tópico   │    │ Tema,    │    │ Gravação,      │    │ Aprovação│    │ Agendado em  │
-│ bruto    │    │ pilar,   │    │ edição, legenda│    │ final    │    │ Meta / YouTube│
-│          │    │ CTA      │    │                │    │          │    │              │
-└──────────┘    └──────────┘    └────────────────┘    └──────────┘    └──────────────┘
+marketing/2026-Q3/kanban/
+├── 01-ideias.md       (banco infinito, sem filtro)
+├── 02-briefs.md       (cards priorizados da semana)
+├── 03-prontos.md      (cards finalizados, prontos pra agendar)
+└── 04-publicados.md   (log de posts publicados)
 ```
-
-**Regras de fluxo:**
-
-- **IDEIA → BRIEF:** quando virar prioridade da semana (revisão domingo).
-- **BRIEF → EM PRODUÇÃO:** quando Jhonatan sentar pra produzir (seg/qua/sex de manhã).
-- **EM PRODUÇÃO → REVISÃO:** quando terminar edição, antes de agendar.
-- **REVISÃO → PRONTO:** quando aprovar (não perfectionismo — 5 min de revisão e segue).
-- **Card parado em qualquer coluna há 14 dias:** deletado automaticamente (regra Butler).
-
-**Regra de ouro:** nenhum card fica mais que 7 dias em "EM PRODUÇÃO". Se ficou, quebrar em 2 posts.
 
 ---
 
-## 3. Template de card (obrigatório)
+## 1. Como cada arquivo funciona
 
-Quando um card entra em "BRIEF", já vem com estes campos preenchidos (template do Trello):
+### `01-ideias.md` — Banco infinito (sem filtro)
+
+Aqui entra TUDO. Não julgue. Anote a ideia e siga. Quanto mais denso, melhor.
 
 ```markdown
-## 🎯 Tema
-[Frase resumida do tema em 1 linha]
+# 💡 Banco de Ideias
 
-## 🏷️ Pilar
-[ ] Bastidor   [ ] Educação   [ ] Opinião   [ ] Caso   [ ] Comunidade
+> Banco infinito. Adicione sem filtro. Filtre domingo à noite.
 
-## 📐 Formato
-[ ] Reel 30s   [ ] Reel 60s   [ ] Carrossel 5-7 slides   [ ] Short YT   [ ] Micro-post LI
+## Tópicos brutos
 
-## 🎙️ Gancho (primeiros 2 segundos / primeira linha)
-[Frase exata que vai abrir o post]
-
-## 💡 Conteúdo principal (3 bullets)
-- 
-- 
-- 
-
-## 🪝 CTA
-[ ] Salvar   [ ] Comentar "X"   [ ] Link na bio   [ ] Mandar DM   [ ] Save + Share
-
-## 📅 Data alvo
-[dd/mm]
-
-## 🔗 Reaproveita em
-[ ] LinkedIn (post)   [ ] LinkedIn (carrossel PDF)   [ ] YouTube Short
+- [ ] "5 coisas que travam a produção de criativos da sua agência" — Pilar: Educação
+- [ ] "Por que IA não mata o designer" — Pilar: Opinião
+- [ ] "Bastidor: como geramos 24 variações em 11 min" — Pilar: Bastidor
+- [ ] "3 perguntas que todo cliente deveria fazer pro designer antes de aprovar" — Pilar: Educação
+- [ ] "A matemática do criativo: por que testar 10 é melhor que testar 2" — Pilar: Opinião
+...
 ```
 
-**Por que campos obrigatórios?** Força o Jhonatan a decidir ANTES de produzir. Evita o "vou fazendo e vejo no que dá" (que vira 3h de edição sem direção).
+**Regra:** deletar daqui só se a ideia for manifestamente ruim (ex: ofensiva). Não deletar por preguiça.
+
+### `02-briefs.md` — Cards priorizados da semana
+
+Aqui mora o que vai virar post **essa semana**. 3 cards = 1 semana.
+
+```markdown
+# 📝 Briefs da semana
+
+> Atualizar todo domingo à noite. 3 cards por semana (1 carrossel + 1 Reels + 1 LinkedIn).
+> Apagar cards da semana passada que não foram produzidos.
+
+## Semana [dd/mm] a [dd/mm]
+
+### 🎯 Slot 1 — Carrossel IG (segunda)
+- **Tema:** 5 coisas que travam a produção de criativos
+- **Pilar:** Educação
+- **Formato:** Carrossel 6 slides
+- **Slide 1 (gancho):** "5 coisas que travam a produção de criativos da sua agência"
+- **Slides 2–6 (1 ponto por slide):**
+  1. Variação tratada como projeto individual
+  2. Briefing vago que gera retrabalho
+  3. Adaptação de formato feita à mão
+  4. Decisão de aprovação por e-mail/Slack
+  5. Zero teste A/B
+- **CTA final:** "Link na bio pra esperar o ADScale"
+- **Pessoa que produz:** Jhonatan
+- **Prazo:** segunda 10h
+
+### 🎯 Slot 2 — Reels IG (quarta)
+- **Tema:** 24 variações em 11 min
+- **Pilar:** Bastidor
+- **Formato:** Reels 30s, tela + voz
+- **Gancho:** "24 variações de criativo. 11 minutos. Sem designer."
+- **Conteúdo:** gravar tela gerando derivações
+- **CTA:** "Link na bio pra esperar o ADScale"
+
+### 🎯 Slot 3 — Post LinkedIn (sexta)
+- **Tema:** Most agencies are wrong about creative production
+- **Pilar:** Opinião
+- **Formato:** Post longo (1.200–1.500 chars, EN)
+- **Gancho (1ª linha):** "Most agencies treat ad creative variation as a project. It isn't."
+- **CTA:** link nos comentários (não no corpo)
+```
+
+**Regra:** card que não foi produzido até sexta = deletado. Sem culpa. Próxima semana tem 3 novos.
+
+### `03-prontos.md` — Finalizados, prontos pra agendar
+
+Aqui entra o post **produzido** mas ainda não publicado.
+
+```markdown
+# ✅ Posts prontos (aguardando agendamento)
+
+> Posts com arquivo final exportado + legenda escrita.
+> Quando agendar, mover pro `04-publicados.md`.
+
+## Semana [dd/mm]
+
+- [x] **Carrossel #1** — "5 coisas que travam..."
+  - Arquivo: `2026-06-30_carrossel-1.png`
+  - Legenda: "..."
+  - Data agendada: 2026-06-30 09:00
+  - Plataforma: Meta Business Suite
+
+- [x] **Reels #1** — "24 variações em 11 min"
+  - Arquivo: `2026-07-02_reels-1.mp4`
+  - Legenda: "..."
+  - Data agendada: 2026-07-02 09:00
+
+- [x] **Post LinkedIn #1** — "Most agencies are wrong..."
+  - Arquivo: copiado no Google Docs (postar manualmente)
+  - Data agendada: 2026-07-04 09:00
+```
+
+**Regra:** mais que 7 dias aqui = alerta. Provavelmente foi esquecido.
+
+### `04-publicados.md` — Log do que já foi publicado
+
+Aqui mora o histórico. Pra consultar retrospecto e medir.
+
+```markdown
+# 📚 Histórico de publicações
+
+> Toda semana adiciona as linhas dos posts que foram ao ar.
+> Formato: tabela pra dar pra filtrar/exportar.
+
+| Data | Canal | Formato | Tema | Link | Views | Saves | Leads |
+|------|-------|---------|------|------|-------|-------|-------|
+| 2026-06-30 | IG | Carrossel | 5 erros de produção | https://... | — | — | — |
+| 2026-07-02 | IG | Reels 30s | 24 variações em 11 min | https://... | — | — | — |
+| 2026-07-04 | LinkedIn | Post longo | Most agencies are wrong | https://... | — | — | — |
+```
+
+**Métricas:** preencher na sexta à noite (sábado de manhã no máximo). Não virar refém de números diários.
 
 ---
 
-## 4. As 4 automações nativas (Trello Butler)
-
-### 4.1 Auto-criação de checklist na entrada em "EM PRODUÇÃO"
-
-**Trigger:** card movido para coluna "EM PRODUÇÃO".
-**Ação:** adicionar checklist:
+## 2. Fluxo
 
 ```
-[ ] Gravar tela / voz (10 min)
-[ ] Importar pro CapCut (2 min)
-[ ] Editar (20 min)
-[ ] Adicionar legenda / texto na tela (10 min)
-[ ] Exportar (2 min)
-[ ] Renomear arquivo com padrão [data]_[canal]_[formato].mp4
+   ┌─────────────┐
+   │ 01-ideias   │ ← adiciona a qualquer momento
+   └──────┬──────┘
+          │ domingo 19h, escolher 3
+          ↓
+   ┌─────────────┐
+   │ 02-briefs   │ ← prioriza + desenvolve
+   └──────┬──────┘
+          │ produz (seg/qua/sex)
+          ↓
+   ┌─────────────┐
+   │ 03-prontos  │ ← arquivo final + legenda
+   └──────┬──────┘
+          │ agenda + publica
+          ↓
+   ┌─────────────┐
+   │ 04-publicados│ ← log + métricas
+   └─────────────┘
 ```
-
-**Por que:** checklist visível = zero chance de pular etapa. Reduz a "eu esqueci de gravar legenda" de toda semana.
-
-### 4.2 Auto-template na criação em "IDEIA"
-
-**Trigger:** card criado na coluna "IDEIA".
-**Ação:** adicionar o template de card descrito na seção 3 acima, com 5 prompts de ideia pré-preenchidos.
-
-**Por que:** card vazio = ideia perdida. Card com template = ideia que tem chance de virar post.
-
-### 4.3 Notificação de aprovação na entrada em "REVISÃO"
-
-**Trigger:** card movido para coluna "REVISÃO".
-**Ação:** enviar notificação push + e-mail com link direto pro card.
-
-**Por que:** Jhonatan pode estar longe do Trello. Notificação puxa ele de volta no momento certo.
-
-### 4.4 Limpeza semanal (regra anti-entropia)
-
-**Trigger:** todo domingo 23h.
-**Ação:**
-
-- Listar todos os cards em "IDEIA" com mais de 30 dias → mover pra arquivo.
-- Listar todos os cards em "EM PRODUÇÃO" há mais de 14 dias → deletar (sem dó).
-- Listar todos os cards em "PRONTO" há mais de 7 dias sem postar → alerta (provavelmente foi esquecido).
-
-**Por que:** Kanban com 200 cards = Kanban que ninguém olha. Manter enxuto.
 
 ---
 
-## 5. Rotina semanal (instalada na agenda do Jhonatan)
+## 3. Rotina semanal (instalada)
 
-> Recorte para 1 pessoa. Total: 7h/semana, dividido em blocos curtos.
+| Dia | Horário | Atividade | Tempo |
+|-----|---------|-----------|-------|
+| **Dom** | 19h | Olhar `01-ideias.md`, escolher 3, copiar pra `02-briefs.md` | 15 min |
+| **Seg** | 09h | Pegar Slot 1 do `02-briefs.md`, produzir carrossel, mover pra `03-prontos.md` | 60 min |
+| **Qua** | 09h | Pegar Slot 2 do `02-briefs.md`, produzir Reels, mover pra `03-prontos.md` | 45 min |
+| **Sex** | 09h | Pegar Slot 3 do `02-briefs.md`, escrever post LinkedIn, mover pra `03-prontos.md` | 45 min |
+| **Sex** | 17h | Agendar posts da semana no Meta Business Suite (e LinkedIn direto) | 10 min |
+| **Diário** | 12h30 | Responder comentários, DMs | 10 min |
+| **Sáb** | 09h | Preencher métricas da semana anterior em `04-publicados.md` | 10 min |
 
-### Domingo (30 min) — planejamento
-- 19h00–19h30: sentar na frente do Trello.
-- Aprovar 5 cards que estão em "IDEIA" → mover pra "BRIEF".
-- Descartar 3 cards ruins (mover pra arquivo).
-- Criar 5 cards novos (puxar do banco de ideias do Notion).
-- Verificar posts da semana seguinte estão todos em "PRONTO".
-
-### Segunda (90 min) — carrossel
-- 09h00–09h15: pegar 1 card de "BRIEF" → mover pra "EM PRODUÇÃO".
-- 09h15–10h15: abrir Canva, escolher template de carrossel, editar slides.
-- 10h15–10h30: exportar PNG, escrever legenda, agendar no Meta Business Suite.
-- Mover card pra "PRONTO".
-
-### Terça (60 min) — LinkedIn
-- 09h00–09h15: pegar 1 card de "BRIEF" (post longo).
-- 09h15–09h45: escrever post no Google Docs (rascunho).
-- 09h45–10h00: revisar tom (conferir `brand/tom-de-voz.md`).
-- 10h00–10h15: postar no LinkedIn + colocar link do post nos comentários.
-- Mover card pra "PRONTO".
-
-### Quarta (60 min) — Reel 30s
-- 09h00–09h15: pegar 1 card → mover pra "EM PRODUÇÃO".
-- 09h15–09h30: gravar tela/voz (Celular + Loom ou OBS).
-- 09h30–09h50: editar no CapCut (cortes, legenda, texto).
-- 09h50–10h00: exportar + agendar no Meta Business Suite.
-
-### Quinta (20 min) — micro-post LinkedIn
-- 12h30–12h50: 1 micro-post rápido (200–400 chars) puxado de ideia do banco.
-
-### Sexta (90 min) — Reel 60s
-- 09h00–09h15: pegar 1 card → mover pra "EM PRODUÇÃO".
-- 09h15–09h35: gravar (pode ser demo, caso, bastidor).
-- 09h35–10h15: editar CapCut + legenda + agendar.
-
-### Sábado (10 min) — story opcional
-- 1–2 stories de bastidor, enquete ou repost.
-
-### Diário (15 min) — gestão
-- 12h30–12h45: responder comentários, DMs, mover 1–2 cards de "REVISÃO" pra "PRONTO".
+**Total: ~3h40/semana.**
 
 ---
 
-## 6. Os 2 templates mestres (repetição inteligente)
+## 4. Como mover um card entre arquivos
 
-> A regra é: **2 templates, infinitas variações**. Não criar do zero toda semana.
+**Opção A — Mover (cortar/colar):** se você quer manter o kanban enxuto, copie o conteúdo de um arquivo, delete do anterior, e cole no novo.
 
-### Template A — Carrossel educativo (Instagram, 5–7 slides)
+**Opção B — Marcar como feito (mais simples):** mantém o card no arquivo antigo e adiciona `[FEITO]` ou `[MOVIDO PARA 04]` no início. Mais bagunçado, mas zero risco de perder contexto.
 
-**Estrutura visual (Canva):**
-```
-Slide 1: Título com gancho (problema ou número)
-Slide 2: Ponto 1
-Slide 3: Ponto 2
-Slide 4: Ponto 3
-Slide 5: Ponto 4
-Slide 6: Ponto 5 (opcional)
-Slide 7: Resumo (1 frase)
-Slide 8: CTA (link na bio / save / comentário)
-```
-
-**Exemplos de título slide 1 (rotacionar):**
-- "5 coisas que travam a produção de criativos da sua agência"
-- "3 erros que todo designer de ads comete no briefing"
-- "Por que seus criativos não convertem (e como testar 10x mais)"
-- "Como organizar 50 criativos no Canva sem enlouquecer"
-- "A matemática do criativo: por que testar 10 é melhor que testar 2"
-
-**Tempo:** 60–90 min no Canva (com template).
-**Reaproveita:** vira post LinkedIn (carrossel PDF) + Short YouTube.
-
-### Template B — Reel "tela + voz" (Instagram, 30s ou 60s)
-
-**Estrutura narrativa:**
-```
-0–2s: gancho (texto na tela, corte seco, ou frase polêmica)
-2–8s: contexto (1 frase)
-8–25s: conteúdo (gravação de tela, demo, ou bastidor)
-25–30s: conclusão + CTA
-```
-
-**Variações de gancho (rotacionar):**
-- "[Número] que você não sabia sobre [tema]"
-- "Por que [coisa popular] está errada"
-- "Aqui está o que aprendi [tempo] fazendo [atividade]"
-- "3 segundos pra entender [conceito]"
-- "[Pergunta provocativa]?"
-
-**Tempo:** 30–60 min (gravar 10 min + editar 30 min).
-**Reaproveita:** Short YouTube (mesma edição, legenda EN) + micro-post LinkedIn (print + frase).
+**Recomendação:** Opção B nas primeiras 2 semanas pra pegar o jeito. Depois migra pra Opção A.
 
 ---
 
-## 7. Banco de ideias (Notion)
+## 5. Regras de qualidade (mínimas)
 
-Lista infinita. Jhonatan adiciona ideia a qualquer momento, sem filtro. O filtro acontece no domingo.
+- **Tamanho mínimo de fonte em carrossel:** 28pt na arte final.
+- **Duração de Reels:** 15–30s (cortar 60s por enquanto, esforço alto).
+- **Gancho em 2 segundos:** se não prendeu nesses 2s, regravar.
+- **1 CTA por post:** nunca 2 botões.
+- **Hashtags IG:** 8–10 máx. Misturar 2–3 grandes + 3–4 médias + 2–3 nichadas.
+- **Hashtags LinkedIn:** ≤ 3 ou nenhuma.
+- **Sem "TL;DR" no fim do post:** se é longo demais, encurta.
+- **Responder TODOS os comentários** no 1º dia. Depois, só os relevantes.
 
-### 7.1 Estrutura no Notion
+---
 
-```
-| Tópico | Pilar | Ângulo | Fonte/inspiração | Status |
-|--------|-------|--------|--------------------|--------|
-| IA substitui designers? | Opinião | Mito vs Realidade | Pergunta no LinkedIn | Bruto |
-| ... | ... | ... | ... | ... |
-```
+## 6. Banco de 20 prompts pra nunca travar
 
-**Status possíveis:** `Bruto` → `Refinado` → `No Trello` → `Publicado` → `Reaproveitado`.
-
-### 7.2 Os 20 prompts-base (pra gerar ideias em 5 min)
-
-Quando o Jhonatan estiver sem ideia, abrir o Notion, fechar os olhos, escolher 1 prompt, escrever a resposta. Pronto, 1 ideia nova.
+Quando o `01-ideias.md` tiver vazio, abrir esta lista, escolher 1, escrever a resposta em 1 frase. Pronto, ideia nova.
 
 1. "O erro mais comum que agências cometem em [briefing/variação/formato] é…"
 2. "Aqui está o que [X meses/anos] me ensinou sobre produção criativa…"
@@ -271,46 +232,32 @@ Quando o Jhonatan estiver sem ideia, abrir o Notion, fechar os olhos, escolher 1
 
 ---
 
-## 8. Regras de qualidade (mínimas, sem obsessão)
-
-- **Tamanho mínimo de fonte em carrossel:** 28pt na arte final.
-- **Duração mínima de Reel:** 15s. **Máxima:** 60s (exceção: demo 90s).
-- **Gancho em 2 segundos:** se não prendeu nesses 2s, regravar.
-- **1 CTA por post:** nunca 2 botões. Confunde.
-- **Hashtags IG:** 8–10 máx. Misturar 2–3 grandes + 3–4 médias + 2–3 nichadas.
-- **Hashtags LinkedIn:** ≤ 3 ou nenhuma.
-- **Legenda:** primeiro caractere já é o gancho. LinkedIn: 3 linhas visíveis antes do "ver mais".
-
----
-
-## 9. O que NÃO fazer (anti-padrões comuns em 1-founder-SaaS)
-
-- ❌ Tentar ser perfeito. >80% de qualidade publicado > 100% não publicado.
-- ❌ "Investir 3 dias num Reel". Capricho ≠ qualidade. Reels com 90% de qualidade e publicado > 100% no rascunho.
-- ❌ Misturar 5 canais no Mês 1. IG + LinkedIn cobrem 90% do ICP.
-- ❌ Reels sem fala/voz (só texto na tela) — performa pior em 2026.
-- ❌ Imagem estática solta — alcance morreu em 2026.
-- ❌ Conteúdo "motivacional de coach" — vai contra `brand/tom-de-voz.md`.
-- ❌ Responder comentário com "obrigado!" seco. Sempre adicionar valor (1 frase útil, concordar com argumento, fazer pergunta).
-- ❌ Ficar olhando métricas todo dia. **Métricas 1× por semana**, domingo.
-
----
-
-## 10. Setup inicial (1 tarde)
+## 7. Setup inicial (1 tarde)
 
 | Passo | Tempo |
 |-------|-------|
-| Criar board Trello com 5 colunas | 10 min |
-| Configurar 4 automações Butler (descritas seção 4) | 30 min |
-| Criar template de card (seção 3) | 15 min |
-| Criar 2 templates Canva (carrossel + Reel frame) | 45 min |
+| Criar os 4 arquivos .md com template (este doc mostra) | 15 min |
+| Adicionar 10 ideias iniciais no `01-ideias.md` (puxar dos 20 prompts) | 30 min |
+| Configurar 2 templates no Canva (carrossel + frame de Reels) | 45 min |
 | Instalar CapCut desktop + configurar atalhos | 15 min |
-| Criar banco de ideias no Notion com 20 prompts-base | 30 min |
-| Criar 10 cards iniciais em "IDEIA" (puxar dos prompts) | 30 min |
-| Configurar Meta Business Suite + agendar 3 posts | 20 min |
-| **Total** | **~3h15** |
+| Conectar Meta Business Suite à conta IG (postar + agendar) | 20 min |
+| **Total** | **~2h** |
 
 **Quando:** uma tarde de sábado. Pronto pra rodar na segunda.
+
+---
+
+## 8. Métricas pra acompanhar (sem obsessão)
+
+| KPI | Onde olhar | Frequência |
+|-----|-----------|------------|
+| **Alcance / saves / DMs** | Instagram Insights | Semanal (sábado de manhã) |
+| **Impressões / comentários LinkedIn** | LinkedIn dashboard nativo | Semanal |
+| **Leads na waitlist** | PostHog ou planilha | Semanal |
+| **Abertura de e-mail** | Resend | Semanal |
+| **Trial → pago** | Stripe | Semanal |
+
+**Regra:** abrir painel 1× por semana, sábado de manhã, 10 min. Não ficar olhando todo dia.
 
 ---
 

@@ -1,316 +1,256 @@
-# Plano de Marketing Unificado — ADScale (Q3 2026)
+# Plano de Produção de Conteúdo — ADScale (Fase 0, base zero)
 
-> Documento operacional. Tudo que o Jhonatan precisa rodar em **90 dias**
-> pra lançar o ADScale com base quente, com 1 pessoa mandando no conteúdo.
+> **Objetivo: produzir conteúdo. Não vender. Não converter. Construir.**
+> A meta é construir a máquina de conteúdo (banco de ideias, templates,
+> ritmo, voz) **antes** de tentar qualquer lançamento.
 >
-> Reaproveita o que já existe em `marketing/` (tom de voz, mensagens-chave,
-> plano de lançamento, estratégia por canal) e preenche os 3 gaps
-> operacionais: **automações de produção**, **ads de lançamento** e
-> **sequência de e-mails**.
+> Reaproveita o que já existe em `marketing/` (tom de voz,
+> mensagens-chave, plano de lançamento) e opera dentro do
+> próprio repo em `marketing/2026-Q3/`.
 
 ---
 
-## 0. TL;DR — o que rodar, em que ritmo, com que ferramentas
+## 0. TL;DR
 
-| Frente | Ferramenta principal | Custo | Esforço semanal | Objetivo 90 dias |
-|--------|----------------------|-------|------------------|------------------|
-| **Redes sociais (orgânico)** | Canva + CapCut + Trello (Kanban) + Meta Business Suite | R$ 0 | 8h | 2k seguidores IG + 500 conexões ICP no LinkedIn + 500 waitlist |
-| **Ads de lançamento** | Meta Ads + Google Ads | R$ 2.000/mês | 2h | CPL ≤ R$ 8, 250 leads qualificados |
-| **E-mail marketing** | Resend (já tem no stack) + Loops ou Resend Audiences | R$ 0–50/mês | 1h | 35% abertura média, 8% clique, 4 trials/semana vindos de e-mail |
+| Frente | Ferramenta | Custo | Esforço semanal | Meta 30 dias |
+|--------|-----------|-------|------------------|----------------|
+| **Produção de conteúdo (IG + LinkedIn)** | Canva + CapCut + Kanban no repo | R$ 0 | 5h | 12 posts publicados + 30 no banco |
+| **Construção de marca** | Tom de voz, identidade visual, bio | R$ 0 | 1h | Bio OK, foto OK, tom testado |
+| **Ativação leve de rede** | Comentários em 5-10 posts do ICP/dia | R$ 0 | 1h | 100 comentários no mês |
+| **E-mail marketing (preparação)** | Resend | R$ 0 | 30 min | Sequências escritas, sem envio ainda |
 
-**Princípio-mestre:** conteúdo orgânico constrói a base e valida a mensagem; ads entram só depois que a copy tá convertendo; e-mails seguram e recuperam quem já tocou o produto.
+**Total: ~7h30/semana.** Cabe na agenda de qualquer founder com folga.
+
+**Por que esta fase existe:**
+
+- Base zero = sem algoritmo, sem leads, sem prova social. Tentar vender agora é desperdiçar tiro.
+- Antes de acelerar, **construir o motor**. Quando o lançamento chegar, o motor já tá rodando.
+- Conteúdo bom não vira viral no dia 1. **Vira viral depois de 30-60 posts consistentes** com mensagem clara.
+- Sequências de e-mail escritas, validadas, mas sem envio. Quando lançar, é só flipar o switch.
 
 ---
 
-## 1. Redes sociais — operação pra 1 pessoa
+## 1. O que é "produzir conteúdo" nesta fase
 
-### 1.1 Formatos e frequência (recorte operacional)
+### 1.1 Não é só "postar"
+
+Produzir conteúdo aqui significa:
+
+- ✅ **Construir o Kanban com 30+ ideias** (banco infinito, sem filtro).
+- ✅ **Produzir 12 posts em 30 dias** (3 por semana).
+- ✅ **Criar 2 templates mestres** (carrossel + Reels) e refinar 5x cada um.
+- ✅ **Testar 3-4 ângulos diferentes** de mensagem (qual ressoa mais?).
+- ✅ **Acumular 5-7 "case studies"** de bastidor, mesmo que sintéticos no início.
+- ✅ **Estabelecer voz** — Jhonatan aparece, fala com a voz dele, sem copiar ninguém.
+- ❌ **Não** tentar viralizar 1 post específico.
+- ❌ **Não** vender ADScale diretamente.
+- ❌ **Não** ficar obcecado com métrica.
+
+### 1.2 Formatos e frequência (sustentável)
 
 | Dia | Canal | Formato | Pilar | Tempo |
 |-----|-------|---------|-------|-------|
-| **Seg** | Instagram | **Carrossel educativo** (5–7 slides) | Educação | 90 min |
-| **Ter** | LinkedIn | **Post longo** (1.200–1.500 chars, EN) | Opinião / Bastidor | 60 min |
-| **Qua** | Instagram | **Reels 30s** (tela gravada ou fala rápida) | Opinião / Bastidor | 60 min |
-| **Qui** | LinkedIn | **Micro-post** (200–400 chars) | Comunidade | 20 min |
-| **Sex** | Instagram | **Reels 60s** (demo, caso, bastidor) | Caso / Bastidor | 90 min |
-| **Sáb** | Instagram | 1–2 stories (opcional) | Comunidade | 10 min |
-| **Dom** | — | descanso | — | 0 min |
+| **Seg** | Instagram | **Carrossel educativo** (5–7 slides) | Educação | 60 min |
+| **Qua** | Instagram | **Reels 30s** (tela + voz) | Opinião / Bastidor | 45 min |
+| **Sex** | LinkedIn | **Post longo** (1.200–1.500 chars, EN) | Opinião / Bastidor | 45 min |
 
-**Total:** ~5h30 de execução + 2h30 de gestão (comentários, DMs, Kanban) = **8h/semana**.
+**Total: 2h30 execução + 1h gestão (comentários, DMs, Kanban) = 3h30/semana.**
 
-### 1.2 Por que SÓ carrossel e Reels (e não imagem estática, texto, lives)
+Isso é o **mínimo** da fase 0. Tem mais 4h sobrando pra construir banco de ideias, refinar templates, e estudar o que tá funcionando.
 
-- **Reels** = alcance orgânico gratuito (Instagram prioriza vídeo vertical).
-- **Carrossel** = mais saves (sinal forte de qualidade pro algoritmo) e melhor pra conteúdo educativo.
-- **Imagem estática** = quase zero alcance em 2026. Só vale como caso de excepção (manifesto, dado forte).
-- **Lives** = muito esforço, retorno incerto. Cortar.
-- **Texto longo no IG** = alcance pior que Reels. LinkedIn já cobre isso.
+### 1.3 Métricas de Fase 0 (sem pressão de venda)
 
-### 1.3 Os 2 templates que sustentam a operação
+| KPI | Meta Mês 1 | Meta Mês 2 | Meta Mês 3 |
+|-----|-----------|-----------|-----------|
+| Posts publicados | 12 | 24 | 36 |
+| **Banco de ideias** | **30** | **60** | **100** |
+| Templates refinados | 2 | 4 | 4 |
+| Seguidores IG | 100 | 400 | 1.000 |
+| Conexões ICP no LinkedIn | 30 | 100 | 250 |
+| Reach médio/Reels | 300 | 1.000 | 3.000 |
+| Saves/carrossel | 5 | 20 | 50 |
+| DMs inbound/semana | 1 | 5 | 15 |
+| Posts com > 1k views OU > 500 impressões | 1 | 5 | 15 |
+| **Decisão de lançar?** | NÃO | TALVEZ | SIM (se base ≥ 1k seguidores) |
 
-Em vez de criar do zero toda semana, **2 templates mestres** que se repetem com variações:
-
-#### Template A — Carrossel "lista + lição" (Instagram)
-```
-Slide 1: Título com gancho (problema ou número)
-  "5 coisas que travam a produção de criativos da sua agência"
-Slide 2: Item 1 + visual limpo
-Slide 3: Item 2
-Slide 4: Item 3
-Slide 5: Item 4
-Slide 6: Item 5
-Slide 7: Resumo (1 frase)
-Slide 8: CTA (link na bio / save / comentário)
-```
-- **Tempo de produção:** 60–90 min (no Canva, com template)
-- **Reaproveita:** virar post LinkedIn (carrossel PDF) e Short YouTube
-
-#### Template B — Reel "tela + voz" (Instagram)
-```
-0–2s: gancho visual (texto na tela, corte seco, rosto)
-2–8s: contexto (1 frase)
-8–30s: conteúdo (gravação de tela do ADScale em uso)
-30–45s: virada ou conclusão
-45–50s: CTA (link na bio, save, comenta "X")
-```
-- **Tempo de produção:** 30–60 min (CapCut)
-- **Reaproveita:** Short YouTube, micro-post LinkedIn
-
-### 1.4 Métricas mínimas (sem obsessão)
-
-| KPI | Meta Mês 1 | Meta Mês 3 |
-|-----|-----------|-----------|
-| Seguidores IG | 500 | 2.000 |
-| Reach médio/Reel | 1.500 | 8.000 |
-| Saves/carrossel | 20 | 80 |
-| Conexões LinkedIn (ICP) | 100 | 500 |
-| Impressões LinkedIn/post | 1.500 | 8.000 |
-| DMs inbound/semana | 3 | 15 |
-| Posts com >5k views ou impressões (Mês) | 1 | 5 |
-
-A regra: **se Reach/Reel não bate 1.500 no Mês 1, mudar gancho, não aumentar volume**.
+**Regra:** não lançar antes de ter **≥ 1.000 seguidores IG + 250 conexões ICP no LinkedIn + 1 case beta publicável**. Antes disso, conteúdo é o produto.
 
 ---
 
-## 2. Automação da produção — Kanban + rotinas instaladas
+## 2. Construção de marca (paralela à produção)
 
-> A ideia: **2h por semana** olhando o Kanban, e o sistema cospe posts prontos pra revisar.
-> Detalhe completo em [`automacao-conteudo-kanban.md`](./automacao-conteudo-kanban.md).
+### 2.1 Identidade visual (1 tarde)
 
-### 2.1 Stack recomendada (tudo free ou já no toolkit)
+> **Os tokens do app já servem.** Extraí a paleta, tipografia, raios e
+> componentes pra um doc pronto pra colar no Canva/Figma. A vibe
+> ("studio at 2am" — Inter + Space Mono + Press Start 2P + accent
+> verde neon em dark mode) encaixa perfeito pra marketing.
+>
+> Detalhe completo em [`identidade-visual-para-marketing.md`](./identidade-visual-para-marketing.md).
 
-| Função | Ferramenta | Custo |
-|--------|-----------|-------|
-| **Kanban** | Trello (free) ou Notion (free) | R$ 0 |
-| **Banco de ideias** | Notion (mesmo lugar do Kanban) | R$ 0 |
-| **Agendamento IG/FB** | Meta Business Suite | R$ 0 |
-| **Agendamento LinkedIn** | Manual (LinkedIn pune automação 3rd-party) | R$ 0 |
-| **Edição de vídeo** | CapCut desktop (instalado) | R$ 0 |
-| **Criação de carrossel** | Canva Pro (trial) ou Figma (free) | R$ 0–R$ 30/mês |
-| **Copy/caption** | Google Docs (rascunho) + IA (revisão) | R$ 0 |
-| **Métricas** | Metricool (free) ou PostHog (já no produto) | R$ 0 |
+**O que fazer (checklist resumido, ~2h):**
 
-**Por que Trello/Notion e não Linear/Jira/ClickUp?** Pra 1 pessoa, é over-engineering. Trello free aguenta 90 dias de cards, tem app desktop (instalado) e tem automações nativas (Butler) suficientes.
+| Item | Onde | Tempo |
+|------|------|-------|
+| Foto de perfil (rosto, fundo claro) | Foto real do Jhonatan | 10 min |
+| Bio IG + bio LinkedIn (EN) | Ver seção 2.3 deste plano | 15 min |
+| Brand Kit no Canva: 3 fontes + 12 cores | Canva (passo-a-passo no doc) | 20 min |
+| 1 template de carrossel (5-7 slides) | Canva (1080×1350) | 45 min |
+| 1 template de Reels (1080×1920, dark) | CapCut | 30 min |
+| Wordmark "ADScale" simples (Inter 800 + detalhe verde) | Canva | 30 min |
 
-### 2.2 Estrutura do Kanban (5 colunas)
+**Total: ~2h30.** Pode ser feito em uma tarde.
 
+### 2.2 Tom de voz (já existe, agora é usar)
+
+A base já tá em `marketing/brand/tom-de-voz.md` e `marketing/brand/mensagens-chave.md`. Não recriar.
+
+**Ritual semanal (domingo à noite, 15 min):**
+- Reler `tom-de-voz.md` antes de planejar a semana.
+- Marcar 1 post da semana anterior que **fugiu** do tom e analisar por quê.
+- Marcar 1 post da semana anterior que **acertou** o tom e copiar o esquelet0.
+
+### 2.3 Bio (template)
+
+**Instagram:**
 ```
-[📥 Ideia]  →  [📝 Brief]  →  [🎨 Em produção]  →  [👀 Revisão]  →  [✅ Pronto/Agendado]
+Jhonatan Soares
+Construindo ADScale — IA que escala criativos para agências.
+BR + EUA 🇧🇷🇺🇸
+[link pra waitlist ou site]
 ```
 
-### 2.3 As 4 automações nativas (Trello Butler, sem código)
-
-Toda semana o sistema executa:
-
-1. **Card criado em "Ideia"** → cria automaticamente um template com brief (tema, pilar, CTA, copy sugestão).
-2. **Card movido pra "Em produção"** → cria checklist com 5 tarefas (gravar tela, gravar voz, editar, legenda, thumbnail).
-3. **Card movido pra "Revisão"** → notifica o Jhonatan com botão de aprovação.
-4. **Card em "Pronto"** há 7 dias sem postar → alerta pra não ficar parado.
-
-### 2.4 Rotina semanal (instalada na agenda)
-
-| Dia | Horário | Atividade | Tempo |
-|-----|---------|-----------|-------|
-| **Dom** | 19h | 30 min olhando Trello: aprovar 5 cards, descartar 3, criar 5 novos | 30 min |
-| **Seg** | 09h–10h30 | Produzir 1 carrossel | 90 min |
-| **Qua** | 09h–10h | Produzir 1 Reels 30s | 60 min |
-| **Sex** | 09h–10h30 | Produzir 1 Reels 60s | 90 min |
-| **Sex** | 17h | Agendar posts da semana seguinte no Meta Business Suite | 15 min |
-| **Diário** | 12h30 | 15 min respondendo comentários + DMs | 15 min |
-
-**Total: ~5h30 produção + 1h30 gestão = 7h/semana. Cabe numa agenda de founder.**
-
-### 2.5 Banco de ideias — 20 prompts pra nunca travar
-
-No Notion, manter uma lista infinita. Quando o card do Trello tá vazio, o Jhonatan puxa 1 prompt e gera 3 posts em 10 minutos.
-
-1. "O erro mais comum que agências cometem em [briefing/variação/formato] é…"
-2. "Aqui está o que [X] me ensinou sobre produção criativa…"
-3. "A matemática do criativo: por que testar 10 é melhor que testar 2…"
-4. "Por que a maioria dos criativos de [segmento] não converte…"
-5. "Bastidor: como o ADScale gera [X] em [Y] minutos…"
-6. "3 perguntas que todo cliente deveria fazer pro designer antes de aprovar…"
-7. "5 coisas que travam a produção de criativos na sua agência…"
-8. "O que aprendi lançando [feature] essa semana…"
-9. "Por que [concorrente X] faz Y mas eu prefiro Z…"
-10. "Como eu organizo 50 criativos no Canva sem enlouquecer…"
-11. "A diferença entre [X] e [Y] em produção de criativos…"
-12. "Mito: IA mata o designer. Realidade:…"
-13. "Antes e depois: [descreve caso real ou fictício]…"
-14. "Por que [decisão técnica] do ADScale foi a mais difícil…"
-15. "3 Reels que eu faria se tivesse 10 min a mais por dia…"
-16. "O post que eu queria ter lido quando comecei a produzir criativos…"
-17. "Por que carrossel educativo é o melhor formato pra [X]…"
-18. "Como usar [feature do ADScale] em 30 segundos…"
-19. "Feedback real de cliente (verbatim)…"
-20. "O que ninguém te conta sobre escalar produção criativa…"
+**LinkedIn (EN):**
+```
+Founder, ADScale
+Building AI that helps marketing agencies ship 10x more ad creatives
+without scaling headcount.
+🇧🇷🇺🇸 BR + US
+```
 
 ---
 
-## 3. Anúncios — campanha inicial de lançamento
+## 3. Kanban (sem mudar nada)
 
-> Detalhe operacional e copy pronta em [`ads-lancamento.md`](./ads-lancamento.md).
-> Resumo executivo aqui.
+O Kanban já tá montado. Manter:
+- `kanban/01-ideias.md` (banco infinito — sem filtro).
+- `kanban/02-briefs.md` (3 cards por semana).
+- `kanban/03-prontos.md` (produzido, agendado).
+- `kanban/04-publicados.md` (log + métricas).
 
-### 3.1 Por que ads já no lançamento (e não só na Fase 3)
+**O que muda na Fase 0:** o ritmo de **alimentar o banco de ideias** é mais importante que o ritmo de postar. Se a fila do `01-ideias.md` ficar curta, **travar produção até reabastecer**.
 
-O plano de lançamento original deixava ads pra depois de 200 signups. **Mudar essa ordem** porque:
+Regra prática: 1 post no ar = 3 ideias novas no banco. Mantém a máquina sempre rodando.
 
-- A base orgânica sozinha vai demorar pra atingir volume.
-- Ads com **copy validada organicamente** (a que já tá performando nos posts) entram com CPL baixo.
-- O funil precisa de tráfego pago pra treinar o algoritmo de lookalike desde cedo.
-
-### 3.2 Estrutura de campanha (3 frentes paralelas)
-
-| Campanha | Canal | Objetivo | Budget mês 1 | Budget mês 2–3 |
-|----------|-------|----------|--------------|----------------|
-| **A — Waitlist Scale** | Meta Ads (FB + IG) | Capturar leads pra waitlist | R$ 800 | R$ 1.500 |
-| **B — Search Capture** | Google Ads (Search) | Capturar demanda existente (keywords) | R$ 500 | R$ 800 |
-| **C — LinkedIn ICP** | LinkedIn Ads | Decisor B2B (dono de agência) | R$ 700 | R$ 1.200 |
-| **Total** | | | **R$ 2.000** | **R$ 3.500** |
-
-### 3.3 Métricas de corte (kill switch)
-
-| KPI | Meta mínima | Ação se não bater |
-|-----|-------------|--------------------|
-| **CPL (custo por lead)** | ≤ R$ 8 (Meta), ≤ R$ 12 (Google), ≤ R$ 25 (LinkedIn) | Pausar anúncio, iterar copy |
-| **CTR** | ≥ 1% (Meta), ≥ 3% (Google) | Trocar gancho, não orçamento |
-| **Taxa de conversão waitlist → trial** | ≥ 15% | Rever página de waitlist |
-| **ROAS** (trial → pago, mês 3) | ≥ 2x | Rever oferta de pricing |
-
-### 3.4 Estrutura de anúncios (3 criativos por campanha)
-
-**Para cada frente**, 3 criativos testando ângulos diferentes:
-
-- **Ângulo 1 — Dor:** "Sua agência está travada no gargalo da produção de criativos?"
-- **Ângulo 2 — Resultado:** "Como gerar 30 variações de criativo em 20 minutos."
-- **Ângulo 3 — Curiosidade/Prova:** "Como uma agência produziu 200 criativos em 1 semana (sem contratar ninguém)."
-
-**Reaproveitamento:** os Reels e carrosséis orgânicos que performam bem viram anúncios. Não criar criativo separado pra ads. Isso é o que economiza o esforço de 1 pessoa.
+Detalhe em [`automacao-conteudo-kanban.md`](./automacao-conteudo-kanban.md).
 
 ---
 
-## 4. E-mail marketing — sequência completa
+## 4. E-mail marketing (preparação, sem envio)
 
-> Copy completa de todos os e-mails em [`sequencia-emails.md`](./sequencia-emails.md).
-> Resumo das sequências aqui.
+> Não enviar e-mails nesta fase. **Escrever, validar, deixar pronto.**
 
-### 4.1 Stack de e-mail
+### 4.1 O que fazer
 
-**Recomendado:** **Resend** (já está no stack do ADScale) + **Loops** ou **Resend Audiences**.
+- ✅ Manter as 3 sequências escritas em [`sequencia-emails.md`](./sequencia-emails.md).
+- ✅ Revisar a copy domingo à noite (1 vez por mês).
+- ✅ Testar envio manual pra si mesmo, abrir e clicar. Garantir que nada vai pro spam.
+- ✅ **Configurar a infraestrutura no Resend** (domínio, SPF/DKIM/DMARC) mas **não ativar triggers**.
+- ❌ **Não** criar landing page de waitlist agora.
+- ❌ **Não** ativar sequência de welcome.
 
-- **Resend** já tem domínio configurável, tracking de abertura, e integração com React Email.
-- **Loops** (R$ 0 até 1k contatos) é mais amigável pra automações visuais.
-- **Resend Audiences** é suficiente se orçamento for zero e a base for < 500 contatos.
+### 4.2 Por que preparar e não enviar
 
-### 4.2 As 6 sequências de e-mail
-
-| # | Sequência | Trigger | E-mails | Objetivo |
-|---|-----------|---------|---------|----------|
-| **1** | **Boas-vindas waitlist** | Signup na waitlist | 3 (D+0, D+3, D+7) | Manter lead quente, entregar valor, mostrar bastidor |
-| **2** | **Anúncio de lançamento** | T-7, T-3, T-1, T0 | 4 | Converter waitlist em trial no dia 0 |
-| **3** | **Onboarding trial** | Signup no produto | 5 (D+0, D+1, D+3, D+7, D+12) | Levar trial até 1ª derivação aprovada (ativação) |
-| **4** | **Recuperação de trial** | Trial inativo 3+ dias | 3 (D+3, D+7, D+11) | Trazer de volta antes de expirar |
-| **5** | **Conversão trial → pago** | D-3, D-1, D0 (fim do trial) | 3 | Converter em assinatura paga |
-| **6** | **Reativação de antigos trials** | Trial expirou sem pagar, 30+ dias | 2 | Reabordagem com nova feature/social proof |
-
-### 4.3 KPIs de e-mail
-
-| Métrica | Meta |
-|---------|------|
-| **Taxa de abertura** | ≥ 35% (welcome), ≥ 25% (nurture) |
-| **Taxa de clique (CTOR)** | ≥ 8% (welcome), ≥ 4% (nurture) |
-| **Taxa de conversão welcome → trial** | ≥ 15% |
-| **Trial → pago** | ≥ 20% |
-| **Reativação** | ≥ 5% |
-
-### 4.4 Princípios de copy (consistente com `brand/tom-de-voz.md`)
-
-- **Assunto ≤ 50 caracteres**, sem caps, sem emoji de exclamação.
-- **1 CTA por e-mail** (botão principal + 1 link secundário opcional).
-- **Pessoa escreve pra pessoa.** Sem "Prezado cliente", sem "não perca esta oportunidade".
-- **Linha de assunto que diz o que tem dentro.** Sem clickbait.
-- **Rodapé com descadastro** (LGPD/CAN-SPAM compliance, sem exceção).
+- Sem lista, enviar é desperdício.
+- E-mails precisam de **gatilho** (sign-up, lançamento, etc.). Sem lista, não tem gatilho.
+- O esforço de preparar agora = **5 minutos de ativação** depois. Vale a pena.
 
 ---
 
-## 5. Calendário executivo de 90 dias
+## 5. Ativação leve de rede (manter pegada)
 
-> Detalhe dia-a-dia em [`calendario/90-dias.md`](./calendario/90-dias.md).
+> Sem base, o algoritmo do IG e do LinkedIn não entrega conteúdo.
+> **Aparecer em outros canais** é o que constrói a rede que vai
+> te encontrar de volta.
+
+### 4.1 Comprometimento diário (15-20 min)
+
+- **10 min:** comentar em 5 posts de donos de agência / head of marketing / fundadores SaaS B2B no LinkedIn. **Comentário útil, não elogio.** Concordar com argumento + adicionar 1 ideia.
+- **5 min:** salvar/responder 1-2 posts de referência no IG (perfis de design, marketing, IA).
+- **Opcional:** entrar em 2-3 grupos de Facebook/WhatsApp de marketing, observar 1 semana antes de postar.
+
+### 4.2 Por que isso importa
+
+- Quem comenta no post do decisor B2B vira "nome familiar". Quando o Jhonatan lançar conteúdo próprio, esses perfis já o reconhecem.
+- IG/LinkedIn entrega mais conteúdo pra quem tem **conexões reais**, não seguidores comprados.
+- 100 comentários no mês = ~30-50 perfis que vão olhar o perfil do Jhonatan pelo menos uma vez.
+
+---
+
+## 6. Cronograma de 30 dias (produção pura)
+
+> Detalhe dia-a-dia em [`calendario/30-dias.md`](./calendario/30-dias.md).
 > Visão macro aqui.
 
-### 5.1 Fases alinhadas ao `launch/timeline.md`
+### 6.1 Fases dos 30 dias
 
-| Fase | Semanas | Foco principal | Métrica dominante |
-|------|---------|----------------|--------------------|
-| **Fase 1 — Aquecimento** | -8 a -5 | Conteúdo orgânico + Kanban rodando | Seguidores, impressões, ideias geradas |
-| **Fase 2 — Espera ativa** | -4 a -2 | Waitlist crescendo, ads A/B testando | Signups waitlist, CPL |
-| **Fase 3 — Lançamento** | -1 a +2 | T0 + sequência de e-mails + ads no talo | Trial → pago |
-| **Fase 4 — Tração** | +3 a +4 | Otimização de tudo, cases | MRR, churn, ROAS |
+| Fase | Dias | Foco | Métrica dominante |
+|------|------|------|--------------------|
+| **0 — Setup** | D-7 a D-1 | Templates, Kanban, identidade visual | Setup pronto |
+| **1 — Produção pura** | D+0 a D+14 | 6 posts publicados, banco em 30+ | 6 posts no ar |
+| **2 — Iteração** | D+15 a D+30 | 6 posts + ajustar o que funcionou | 12 posts totais |
 
-### 5.2 Esforço semanal por fase
+### 6.2 Esforço por fase
 
-| Fase | Redes | Ads | E-mail | **Total** |
-|------|-------|-----|--------|-----------|
-| Fase 1 (sem -8 a -5) | 8h | — | 1h | **9h** |
-| Fase 2 (sem -4 a -2) | 8h | 2h | 2h | **12h** |
-| Fase 3 (sem -1 a +2) | 10h | 3h | 3h | **16h** |
-| Fase 4 (sem +3 a +4) | 6h | 2h | 2h | **10h** |
+| Fase | Dias | Esforço total |
+|------|------|----------------|
+| Setup | 7 | ~5h |
+| Produção pura | 14 | ~10h |
+| Iteração | 14 | ~10h |
+| **Total** | **30** | **~25h** |
 
-**Total: ~170 horas em 90 dias.** Equivale a ~12 horas/semana nas 14 semanas. Cabe numa agenda de founder com folga.
-
----
-
-## 6. Riscos e mitigações (específicos deste plano)
-
-| Risco | Mitigação |
-|-------|-----------|
-| Founder cansa e para | Frequência foi cortada ao mínimo viável (8h/sem redes). Kanban automatiza o que dá. Domingo é sagrado. |
-| Conteúdo fica raso/repetitivo | 20 prompts rotativos + 5 pilares cobrem 90% do que o ICP quer ver. Banco de ideias é infinito. |
-| Ads queima dinheiro com copy ruim | Só escala anúncio orgânico que já performou. Kill switch de CPL. R$ 500/mês de teste antes de escalar. |
-| E-mail vai pro spam | Domínio próprio + SPF/DKIM/DMARC (Resend configura). Conteúdo relevante, sem imagem pesada, sem link encurtado. |
-| Kanban vira bagunça | 1 revisão semanal de 30 min pra limpar. Regra: card parado há 14 dias é deletado. |
-| Lançamento atrasa | Plano tem 8 semanas de buffer. Só entra em Fase 3 quando waitlist ≥ 800 e produto tem 3 beta testers ativos. |
+**Média: ~6h/semana.** Folgado. Sobra tempo pra estudar concorrentes, ler referências, ou descansar.
 
 ---
 
-## 7. O que NÃO está neste plano (e por quê)
+## 7. Sinal verde pra próxima fase
 
-- **TikTok separado do IG:** IG Reels e TikTok têm o mesmo conteúdo. Não duplicar.
-- **Newsletter própria:** cedo demais. A waitlist + 6 sequências cobrem o fluxo. Newsletter mensal entra no Mês 4.
-- **YouTube longo no Mês 1:** esforço alto, retorno lento. Começa com 1 short/semana (corte de Reel). Vídeo longo só a partir do Mês 2.
-- **Pinterest, X, Threads:** canais com baixa concentração do ICP (gestor de tráfego, dono de agência). Não perder tempo.
-- **Comunidade/Slack próprio:** premature. Escalar quando MRR ≥ R$ 5k.
+**Ao fim dos 30 dias, decidir se avança pra Fase 1 (pré-lançamento):**
+
+- ✅ Avançar SE:
+  - Banco de ideias ≥ 30 itens.
+  - 12 posts publicados sem perder a qualidade.
+  - ≥ 100 seguidores IG (mesmo poucos).
+  - ≥ 1 post viralizou (> 1k views OU > 500 impressões).
+  - Jhonatan tá com vontade de continuar.
+- ❌ NÃO avançar SE:
+  - Posts estão saindo fracos.
+  - Banco de ideias travou.
+  - Burnout do founder.
+  - Zero engajamento (zero salvou, zero comentou, zero DM).
+
+**Se não avançar:** mais 30 dias de produção. Sem julgamento. Construir base é fundação, não performance.
 
 ---
 
-## 8. Decisões que precisam ser tomadas antes de começar
+## 8. Decisões que precisam ser tomadas HOJE
 
-1. **Trello ou Notion** como Kanban? (Recomendo Trello — automações Butler são mais simples.)
-2. **Loops ou só Resend Audiences** pra e-mail? (Loops se ≥ 500 contatos esperados no Mês 1; senão, Resend puro.)
-3. **Domínio de e-mail próprio** configurado no Resend? (Essencial. Sem isso, vai pro spam.)
-4. **Orçamento de ads aprovado** (R$ 2.000/mês × 3 meses = R$ 6.000)? Sem isso, pularFrente 3.
-5. **Pixel do Meta e tag do Google** já instalados no site? (Sem isso, ads não otimizam.)
+1. **Data de início (D+0).** Qual segunda?
+2. **Identidade visual (foto, paleta, logo):** Jhonatan faz sozinho ou pede ajuda?
+3. **Bio IG e LinkedIn:** escreve sozinho ou pede revisão?
+4. **Conta IG é nova ou já existe com algum conteúdo antigo?** (Se existe, revisar antes de começar a postar.)
+5. **Conta LinkedIn é pessoal ou corporativa?** (Recomendo pessoal pra founder-led.)
+
+---
+
+## 9. O que NÃO está nesta fase (e por quê)
+
+- **Lançamento / vendas diretas:** sem base, vender é desperdício. Vem depois.
+- **Ads pagos:** confirmado, sem ads nesta fase.
+- **Newsletter mensal:** cedo demais.
+- **Comunidade/Slack próprio:** premature.
+- **YouTube longo:** 30-60 dias de produção orgânica antes.
+- **TikTok:** mesmo conteúdo, sem ganho de base.
 
 ---
 

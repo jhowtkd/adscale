@@ -48,11 +48,12 @@
 - [x] **Mensagens-chave** (5 pilares) — [`brand/mensagens-chave.md`](./brand/mensagens-chave.md)
 - [x] **Estratégia por canal** (Instagram, LinkedIn, YouTube) — [`social-media/canais/`](./social-media/canais/)
 - [x] **Página de vendas** (v1) — [`copy/sales-page.md`](./copy/sales-page.md)
-- [x] **Plano unificado Q3 2026** — [`2026-Q3/plano-marketing-completo.md`](./2026-Q3/plano-marketing-completo.md)
-- [x] **Automação de produção (Kanban + rotinas)** — [`2026-Q3/automacao-conteudo-kanban.md`](./2026-Q3/automacao-conteudo-kanban.md)
-- [x] **Sequência de e-mails** (6 sequências, 20 e-mails prontos) — [`2026-Q3/sequencia-emails.md`](./2026-Q3/sequencia-emails.md)
-- [x] **Copy de ads pagos** (Meta + Google + LinkedIn) — [`2026-Q3/ads-lancamento.md`](./2026-Q3/ads-lancamento.md)
-- [x] **Calendário executivo 90 dias** — [`2026-Q3/calendario/90-dias.md`](./2026-Q3/calendario/90-dias.md)
+- [x] **Plano unificado Q3 2026 (Fase 0: produção de conteúdo)** — [`2026-Q3/plano-marketing-completo.md`](./2026-Q3/plano-marketing-completo.md)
+- [x] **Identidade visual pra marketing (tokens do app extraídos)** — [`2026-Q3/identidade-visual-para-marketing.md`](./2026-Q3/identidade-visual-para-marketing.md)
+- [x] **Kanban no repo (4 arquivos .md)** — [`2026-Q3/automacao-conteudo-kanban.md`](./2026-Q3/automacao-conteudo-kanban.md) + [`2026-Q3/kanban/`](./2026-Q3/kanban/)
+- [x] **Sequência de e-mails escrita (3/10 + push)** — [`2026-Q3/sequencia-emails.md`](./2026-Q3/sequencia-emails.md)
+- [x] **Calendário executivo 30 dias (produção pura)** — [`2026-Q3/calendario/30-dias.md`](./2026-Q3/calendario/30-dias.md)
+- [x] **Material de ads + versões anteriores arquivados** — [`2026-Q3/_futuro/`](./2026-Q3/_futuro/)
 
 ### Pendente ⏳
 - [ ] Pesquisa de público-alvo (entrevistas/desk)
@@ -60,7 +61,7 @@
 - [ ] KPIs e tracking (definir fontes: PostHog, Stripe, Metricool)
 - [ ] Pesquisa de mercado e tendências
 - [ ] Press kit e bio oficial EN
-- [ ] **Setup operacional:** Kanban no Trello, e-mails no Resend, pixel Meta/tag Google, contas de ads. (Detalhe em `2026-Q3/README.md`)
+- [ ] **Setup operacional da Fase 0:** foto + bio + Brand Kit Canva + templates + CapCut + Meta BS + Resend. (Detalhe em `2026-Q3/README.md`)
 
 ---
 
