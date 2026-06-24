@@ -112,11 +112,11 @@ Generalizar calibração de gosto de marca para qualquer `clientProfile`: substi
 | APPLY-03 | Phase 164 (164-01) | Complete |
 | APPLY-04 | Phase 164 (164-02) | Complete |
 | APPLY-05 | Phase 164 (164-03) | Complete |
-| PANEL-01 | Phase 165 | Pending |
-| PANEL-02 | Phase 165 | Pending |
-| PANEL-03 | Phase 165 | Pending |
-| PANEL-04 | Phase 165 | Pending |
-| PANEL-05 | Phase 165 | Pending |
+| PANEL-01 | Phase 165 (165-01, 165-02) | Planned |
+| PANEL-02 | Phase 165 (165-01, 165-02) | Planned |
+| PANEL-03 | Phase 165 (165-03) | Planned |
+| PANEL-04 | Phase 165 (165-02, 165-03) | Planned |
+| PANEL-05 | Phase 165 (165-01, 165-02) | Planned |
 | EVIDENCE-01 | Phase 166 | Pending |
 | EVIDENCE-02 | Phase 166 | Pending |
 | EVIDENCE-03 | Phase 166 | Pending |

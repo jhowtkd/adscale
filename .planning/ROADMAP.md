@@ -55,8 +55,8 @@
 |---|-------|--------------|--------|-----------|
 | 162 | Per-Brand Voice Configuration | Complete    | 2026-06-24 |  |
 | 163 | Corpus Learning Proposals | 3/3 | Complete   | 2026-06-24 |
-| 164 | Prompt Rule Application | 3/3 | Complete   | 2026-06-24 |
-| 165 | Owner Calibration Panel | PANEL-01..05 | Not started | - |
+| 164 | Prompt Rule Application | 3/3 | Complete    | 2026-06-24 |
+| 165 | Owner Calibration Panel | PANEL-01..05 | Not started | 0/3 |
 | 166 | Per-Brand Evidence Gate | EVIDENCE-01..05 | Not started | - |
 | 167 | Global Cross-Client Promotion | GLOBAL-01..05 | Not started | - |
 
@@ -262,7 +262,13 @@ Plans:
   4. Panel shows source composition and blocks misleading "fully calibrated" copy when evidence is fixture-only.
   5. Non-owner users cannot access brand calibration panel routes or APIs.
 
-**Plans:** TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 165-01-PLAN.md — Owner read APIs: brand list, taste profile, calibration rules (PANEL-01/02/05 API)
+- [ ] 165-02-PLAN.md — Unified OwnerCalibrationPanel: selector, Profile/Voice/Rules tabs, honest copy (PANEL-01/02/04/05 UI)
+- [ ] 165-03-PLAN.md — Proposals tab: clientProfileId filter, fixture ack, corpus tab preserved (PANEL-03/04)
+
 **UI hint**: yes
 
 ---
@@ -330,7 +336,7 @@ Previous archive: [v12.9-ROADMAP.md](milestones/v12.9-ROADMAP.md) · [v12.9-REQU
 | 162 | v13.2 | 0/TBD | Not started | - |
 | 163 | v13.2 | 0/TBD | Not started | - |
 | 164 | v13.2 | 0/TBD | Not started | - |
-| 165 | v13.2 | 0/TBD | Not started | - |
+| 165 | v13.2 | 0/3 | Not started | - |
 | 166 | v13.2 | 0/TBD | Not started | - |
 | 167 | v13.2 | 0/TBD | Not started | - |
 

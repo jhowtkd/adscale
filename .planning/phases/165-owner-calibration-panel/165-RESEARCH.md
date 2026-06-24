@@ -310,21 +310,16 @@ function calibrationStatusLabel(profile: BrandTasteProfile): string {
 | A3 | “Pending rules” means `status: candidate` plus `proposed` learning proposals, not a third entity | PANEL-02 | UX may need two subsections: rule candidates vs corpus proposals |
 | A4 | Portuguese UI copy for operator (matches existing panels) | Patterns | [ASSUMED] — existing panels use PT-BR |
 
-## Open Questions
+## Open Questions (RESOLVED — 2026-06-24, Phase 165 plans)
 
-1. **Brand index route vs deep-link only?**
-   - What we know: Only `[clientProfileId]` page exists; screenshot script deep-links first DB profile.
-   - What's unclear: Whether `/admin/quality/brands` index is required for PANEL-01 or combobox on panel suffices.
-   - Recommendation: Ship list API + combobox on panel page; optional index redirect.
+1. **Brand index route vs deep-link only?** → **RESOLVED**
+   - **Decision:** `GET /api/admin/quality/brands` list API + combobox on `OwnerCalibrationPanel` (Plan 165-01 + 165-02). No `/admin/quality/brands` index page required.
 
-2. **Corpus-derived evidence in taste profile for v13.2?**
-   - What we know: Taste profile reads `calibration_signals` only; corpus evaluations feed proposals separately.
-   - What's unclear: Whether PANEL-04 source composition should include corpus eval sources.
-   - Recommendation: Phase 165 uses signal `sourceComposition`; Phase 166 can extend evidence report — document caveat in Profile tab if `decisionCount === 0` but corpus evals exist.
+2. **Corpus-derived evidence in taste profile for v13.2?** → **RESOLVED**
+   - **Decision:** Taste profile uses `calibration_signals` only via `buildBrandTasteProfile` (Plan 165-01). Profile API returns `corpusSignalsNote` when `decisionCount === 0`. Full corpus source composition deferred to Phase 166.
 
-3. **Deprecate Learning tab proposals after unify?**
-   - What we know: `LearningProposalsTab` embedded in `HumanQualityCorpusPanel`.
-   - Recommendation: Keep corpus Learning tab for workspace-wide ops; brand panel uses filtered instance — avoid duplicate accept paths with divergent UX.
+3. **Deprecate Learning tab proposals after unify?** → **RESOLVED**
+   - **Decision:** Keep `LearningProposalsTab` in `HumanQualityCorpusPanel` for workspace-wide ops. Brand panel embeds filtered instance with `clientProfileId` (Plan 165-03). No divergent accept UX.
 
 ## Environment Availability
 
