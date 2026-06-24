@@ -1,4 +1,5 @@
 import { db } from "../../db";
+import { CalibrationAdjustmentError } from "../../repositories/calibration-adjustment-errors";
 import {
   acceptAdjustment,
   findAdjustmentById,
@@ -10,6 +11,19 @@ export type { AcceptAdjustmentInput } from "./types";
 
 export async function acceptProposedAdjustment(input: AcceptAdjustmentInput) {
   const row = await findAdjustmentById(input.adjustmentId);
+
+  if (row) {
+    if (
+      row.evidenceRefs.promotionSource === "cross_client" &&
+      row.evidenceRefs.fixtureOnly === true &&
+      !input.acknowledgeFixtureOnly
+    ) {
+      throw new CalibrationAdjustmentError(
+        "insufficient_acknowledgment",
+        "Fixture-only cross-client proposal requires explicit acknowledgment"
+      );
+    }
+  }
 
   if (!row) {
     return acceptAdjustment({

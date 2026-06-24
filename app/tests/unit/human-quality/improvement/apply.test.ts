@@ -96,6 +96,48 @@ describe("acceptProposedAdjustment", () => {
       changeSpec: { ceilingDelta: -3 },
     });
   });
+
+  it("throws insufficient_acknowledgment for cross_client fixtureOnly without ack", async () => {
+    mockFindById.mockResolvedValue({
+      ...proposedRow,
+      evidenceRefs: {
+        ...baseEvidence,
+        fixtureOnly: true,
+        promotionSource: "cross_client",
+        supportingClientRuleIds: ["rule-a", "rule-b"],
+      },
+    });
+
+    await expect(
+      acceptProposedAdjustment({
+        adjustmentId: "adj-proposed",
+        reviewerUserId: "reviewer-1",
+      })
+    ).rejects.toMatchObject({ code: "insufficient_acknowledgment" });
+
+    expect(mockAccept).not.toHaveBeenCalled();
+  });
+
+  it("accepts cross_client fixtureOnly proposal when acknowledgeFixtureOnly is true", async () => {
+    mockFindById.mockResolvedValue({
+      ...proposedRow,
+      evidenceRefs: {
+        ...baseEvidence,
+        fixtureOnly: true,
+        promotionSource: "cross_client",
+        supportingClientRuleIds: ["rule-a", "rule-b"],
+      },
+    });
+
+    const result = await acceptProposedAdjustment({
+      adjustmentId: "adj-proposed",
+      reviewerUserId: "reviewer-1",
+      acknowledgeFixtureOnly: true,
+    });
+
+    expect(result.status).toBe("accepted");
+    expect(mockAccept).toHaveBeenCalled();
+  });
 });
 
 describe("buildApplyPlan", () => {

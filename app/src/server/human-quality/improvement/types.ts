@@ -16,6 +16,7 @@ export interface AcceptAdjustmentInput {
   adjustmentId: string;
   reviewerUserId: string;
   changeSpec?: QualityImprovementChangeSpec;
+  acknowledgeFixtureOnly?: boolean;
 }
 
 export type ApplyKind = "full" | "factual_guard_only";

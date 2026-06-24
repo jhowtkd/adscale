@@ -3,12 +3,10 @@ import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireCalibrationAccess } from "@/server/auth/calibration-access";
 import { CalibrationAdjustmentError } from "@/server/repositories/calibration-adjustment-errors";
-import { acceptProposedAdjustment } from "@/server/human-quality/improvement/accept";
-import { qualityImprovementChangeSpecSchema } from "@/server/human-quality/improvement/types";
+import { rejectAdjustment } from "@/server/repositories/rubric-calibration-adjustments";
 
-const acceptBodySchema = z.object({
-  changeSpec: qualityImprovementChangeSpecSchema.optional(),
-  acknowledgeFixtureOnly: z.boolean().optional(),
+const rejectBodySchema = z.object({
+  reason: z.string().min(1).max(500),
 });
 
 export async function PATCH(
@@ -19,17 +17,16 @@ export async function PATCH(
     const { user } = await requireCalibrationAccess(request);
     const { id: adjustmentId } = await context.params;
 
-    const parsed = acceptBodySchema.safeParse(await request.json().catch(() => ({})));
+    const parsed = rejectBodySchema.safeParse(await request.json().catch(() => ({})));
 
     if (!parsed.success) {
       return apiError("validation_error", 400, parsed.error.flatten());
     }
 
-    const adjustment = await acceptProposedAdjustment({
+    const adjustment = await rejectAdjustment({
       adjustmentId,
       reviewerUserId: user.id,
-      changeSpec: parsed.data.changeSpec,
-      acknowledgeFixtureOnly: parsed.data.acknowledgeFixtureOnly,
+      reason: parsed.data.reason,
     });
 
     return NextResponse.json({ adjustment });
@@ -38,12 +35,9 @@ export async function PATCH(
       if (error.code === "adjustment_not_found") {
         return apiError(error.code, 404);
       }
-      if (error.code === "insufficient_evidence" || error.code === "insufficient_acknowledgment") {
-        return apiError(error.code, 422);
-      }
       return apiError(error.code, 409);
     }
 
-    return handleApiError(error, "feedback.calibration-adjustments.accept.PATCH");
+    return handleApiError(error, "feedback.calibration-adjustments.reject.PATCH");
   }
 }
