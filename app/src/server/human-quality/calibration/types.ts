@@ -43,6 +43,7 @@ export interface CalibrationAdjustmentEvidence {
 export interface ClientLearningProposalEvidence {
   corpusItemIds: string[];
   artifactIds?: string[];
+  fixtureOnly?: boolean;
   stats: {
     count: number;
     meanSignedDelta: number | null;
@@ -50,4 +51,24 @@ export interface ClientLearningProposalEvidence {
     overScoreCount: number;
     underScoreCount: number;
   };
+}
+
+export interface FactualIssueAlertEvidence {
+  corpusItemIds: string[];
+  artifactIds?: string[];
+  stats: {
+    count: number;
+    meanSignedDelta: number | null;
+    meanAbsError: number | null;
+    overScoreCount: number;
+    underScoreCount: number;
+  };
+}
+
+export interface FactualIssueAlert {
+  workspaceId: string;
+  clientProfileId: string;
+  sliceKey: string;
+  evidenceRefs: FactualIssueAlertEvidence;
+  rationale: "factual_guard_review_required";
 }

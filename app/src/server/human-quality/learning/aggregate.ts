@@ -1,14 +1,14 @@
 import { aggregateGroup, buildCompositeSliceKey } from "../calibration/aggregate";
 import { buildCalibrationComparisons } from "../calibration/compare";
 import type { EvaluatedCorpusRow } from "../calibration/types";
-import type { HumanQualitySourceLabel } from "../corpus";
+import type { HumanQualityFailureReason, HumanQualitySourceLabel } from "../corpus";
 import type { InsertClientLearningProposalInput } from "../../repositories/client-learning-proposal";
 import { MIN_SLICE_SAMPLE } from "../sampling/thresholds";
 import { buildDirectiveForFailureReason } from "./directives";
 
 const DIVERGENCE_THRESHOLD = 15;
 
-interface SliceMember {
+export interface LearningSliceMember {
   workspaceId: string;
   clientProfileId: string;
   intent: string;
@@ -17,10 +17,23 @@ interface SliceMember {
   feedbackArtifactId?: string;
 }
 
+export interface LearningSliceBucket {
+  sliceKey: string;
+  workspaceId: string;
+  clientProfileId: string;
+  primaryFailureReason: HumanQualityFailureReason;
+  members: LearningSliceMember[];
+  stats: ReturnType<typeof aggregateGroup>;
+  rejectRegenerateCount: number;
+  corpusItemIds: string[];
+  artifactIds: string[];
+  fixtureOnly: boolean;
+}
+
 function buildSliceKey(
   workspaceId: string,
   clientProfileId: string,
-  comparison: SliceMember["comparison"]
+  comparison: LearningSliceMember["comparison"]
 ): string {
   const compositeKey = buildCompositeSliceKey(
     comparison.primaryFailureReason,
@@ -30,11 +43,11 @@ function buildSliceKey(
   return `${workspaceId}:${clientProfileId}:${compositeKey}`;
 }
 
-export function buildClientLearningProposals(
+export function buildLearningSliceBuckets(
   rows: EvaluatedCorpusRow[]
-): InsertClientLearningProposalInput[] {
+): LearningSliceBucket[] {
   const comparisons = buildCalibrationComparisons(rows);
-  const members: SliceMember[] = rows.map((row, index) => ({
+  const members: LearningSliceMember[] = rows.map((row, index) => ({
     workspaceId: row.item.workspaceId,
     clientProfileId: row.item.clientProfileId,
     intent: row.evaluation.intent,
@@ -43,7 +56,7 @@ export function buildClientLearningProposals(
     feedbackArtifactId: row.feedbackArtifactId,
   }));
 
-  const buckets = new Map<string, SliceMember[]>();
+  const buckets = new Map<string, LearningSliceMember[]>();
 
   for (const member of members) {
     const sliceKey = buildSliceKey(
@@ -56,39 +69,14 @@ export function buildClientLearningProposals(
     buckets.set(sliceKey, existing);
   }
 
-  const proposals: InsertClientLearningProposalInput[] = [];
+  const result: LearningSliceBucket[] = [];
 
   for (const [sliceKey, sliceMembers] of buckets) {
     const sliceComparisons = sliceMembers.map((member) => member.comparison);
     const stats = aggregateGroup(sliceComparisons);
-
-    if (stats.count < MIN_SLICE_SAMPLE) {
-      continue;
-    }
-
-    if (
-      stats.meanSignedDelta === null ||
-      Math.abs(stats.meanSignedDelta) < DIVERGENCE_THRESHOLD
-    ) {
-      continue;
-    }
-
     const rejectRegenerateCount = sliceMembers.filter(
       (member) => member.intent === "reject" || member.intent === "regenerate"
     ).length;
-    if (rejectRegenerateCount < 2) {
-      continue;
-    }
-
-    const primaryFailureReason = sliceComparisons[0].primaryFailureReason;
-    if (primaryFailureReason === "factual_issue") {
-      continue;
-    }
-
-    const rationale = buildDirectiveForFailureReason(primaryFailureReason);
-    if (!rationale) {
-      continue;
-    }
 
     const corpusItemIds = sliceComparisons
       .filter((comparison) => comparison.scoreDelta !== null)
@@ -106,30 +94,85 @@ export function buildClientLearningProposals(
       sliceMembers.length > 0 &&
       sliceMembers.every((member) => member.sourceLabel === "synthetic_fixture");
 
-    const evidenceRefs: InsertClientLearningProposalInput["evidenceRefs"] = {
+    result.push({
+      sliceKey,
+      workspaceId: sliceMembers[0].workspaceId,
+      clientProfileId: sliceMembers[0].clientProfileId,
+      primaryFailureReason: sliceComparisons[0].primaryFailureReason,
+      members: sliceMembers,
+      stats,
+      rejectRegenerateCount,
       corpusItemIds,
+      artifactIds,
+      fixtureOnly,
+    });
+  }
+
+  return result;
+}
+
+export function meetsLearningSliceThresholds(bucket: LearningSliceBucket): boolean {
+  if (bucket.stats.count < MIN_SLICE_SAMPLE) {
+    return false;
+  }
+
+  if (
+    bucket.stats.meanSignedDelta === null ||
+    Math.abs(bucket.stats.meanSignedDelta) < DIVERGENCE_THRESHOLD
+  ) {
+    return false;
+  }
+
+  if (bucket.rejectRegenerateCount < 2) {
+    return false;
+  }
+
+  return true;
+}
+
+export function buildClientLearningProposals(
+  rows: EvaluatedCorpusRow[]
+): InsertClientLearningProposalInput[] {
+  const proposals: InsertClientLearningProposalInput[] = [];
+
+  for (const bucket of buildLearningSliceBuckets(rows)) {
+    if (!meetsLearningSliceThresholds(bucket)) {
+      continue;
+    }
+
+    if (bucket.primaryFailureReason === "factual_issue") {
+      continue;
+    }
+
+    const rationale = buildDirectiveForFailureReason(bucket.primaryFailureReason);
+    if (!rationale) {
+      continue;
+    }
+
+    const evidenceRefs: InsertClientLearningProposalInput["evidenceRefs"] = {
+      corpusItemIds: bucket.corpusItemIds,
       stats: {
-        count: stats.count,
-        meanSignedDelta: stats.meanSignedDelta,
-        meanAbsError: stats.meanAbsError,
-        overScoreCount: stats.overScoreCount,
-        underScoreCount: stats.underScoreCount,
+        count: bucket.stats.count,
+        meanSignedDelta: bucket.stats.meanSignedDelta,
+        meanAbsError: bucket.stats.meanAbsError,
+        overScoreCount: bucket.stats.overScoreCount,
+        underScoreCount: bucket.stats.underScoreCount,
       },
     };
 
-    if (artifactIds.length > 0) {
-      evidenceRefs.artifactIds = artifactIds;
+    if (bucket.artifactIds.length > 0) {
+      evidenceRefs.artifactIds = bucket.artifactIds;
     }
 
-    if (fixtureOnly) {
+    if (bucket.fixtureOnly) {
       evidenceRefs.fixtureOnly = true;
     }
 
     proposals.push({
-      workspaceId: sliceMembers[0].workspaceId,
-      clientProfileId: sliceMembers[0].clientProfileId,
-      sliceKey,
-      primaryFailureReason,
+      workspaceId: bucket.workspaceId,
+      clientProfileId: bucket.clientProfileId,
+      sliceKey: bucket.sliceKey,
+      primaryFailureReason: bucket.primaryFailureReason,
       rationale,
       evidenceRefs,
     });
