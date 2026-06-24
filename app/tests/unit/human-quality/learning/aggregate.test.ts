@@ -48,7 +48,8 @@ function makeEvaluation(
 
 function makeRow(
   itemOverrides: Partial<HumanQualityCorpusItem> = {},
-  evaluationOverrides: Partial<HumanQualityEvaluation> = {}
+  evaluationOverrides: Partial<HumanQualityEvaluation> = {},
+  rowOverrides: Partial<Pick<EvaluatedCorpusRow, "sourceLabel" | "feedbackArtifactId">> = {}
 ): EvaluatedCorpusRow {
   const item = makeItem(itemOverrides);
   return {
@@ -57,6 +58,7 @@ function makeRow(
       corpusItemId: item.id,
       ...evaluationOverrides,
     }),
+    ...rowOverrides,
   };
 }
 
@@ -228,5 +230,33 @@ describe("buildClientLearningProposals", () => {
         `ws-2:profile-2:${buildCompositeSliceKey("visual_overload", "restyling", "9:16")}`,
       ].sort()
     );
+  });
+
+  it("sets fixtureOnly when every slice member is synthetic_fixture", () => {
+    const rows = makeVisualOverloadSliceRows(3).map((row) => ({
+      ...row,
+      sourceLabel: "synthetic_fixture" as const,
+    }));
+
+    const proposals = buildClientLearningProposals(rows);
+
+    expect(proposals).toHaveLength(1);
+    expect(proposals[0].evidenceRefs.fixtureOnly).toBe(true);
+  });
+
+  it("includes artifactIds when feedback artifacts are present", () => {
+    const rows = makeVisualOverloadSliceRows(3).map((row, index) => ({
+      ...row,
+      feedbackArtifactId: `artifact-${index + 1}`,
+    }));
+
+    const proposals = buildClientLearningProposals(rows);
+
+    expect(proposals).toHaveLength(1);
+    expect(proposals[0].evidenceRefs.artifactIds).toEqual([
+      "artifact-1",
+      "artifact-2",
+      "artifact-3",
+    ]);
   });
 });

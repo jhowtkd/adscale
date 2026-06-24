@@ -173,4 +173,52 @@ describe("generateAndPersistClientLearningProposals", () => {
       cohort: "post_learning",
     });
   });
+
+  it("skips slices in reject cooldown", async () => {
+    mockListEvaluated.mockResolvedValue(makeVisualOverloadSliceRows(3));
+    mockFindCooldown.mockResolvedValue({
+      id: "rejected-proposal",
+      status: "rejected",
+      cooldownUntil: new Date("2026-07-01"),
+    } as never);
+
+    const result = await generateAndPersistClientLearningProposals();
+
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(result.generated).toBe(0);
+  });
+
+  it("skips when approved corpus_quality rule exists without post-approval evals", async () => {
+    mockListEvaluated.mockResolvedValue(
+      makeVisualOverloadSliceRows(3).map((row) => ({
+        ...row,
+        evaluation: {
+          ...row.evaluation,
+          createdAt: new Date("2026-06-01"),
+        },
+      }))
+    );
+    mockGetApprovedRule.mockResolvedValue({
+      id: "rule-1",
+      approvedAt: new Date("2026-06-15"),
+    } as never);
+
+    const result = await generateAndPersistClientLearningProposals();
+
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(result.generated).toBe(0);
+  });
+
+  it("allows proposal when 3+ evaluations exist after rule approval", async () => {
+    mockListEvaluated.mockResolvedValue(makeVisualOverloadSliceRows(3));
+    mockGetApprovedRule.mockResolvedValue({
+      id: "rule-1",
+      approvedAt: new Date("2026-06-01"),
+    } as never);
+
+    const result = await generateAndPersistClientLearningProposals();
+
+    expect(mockInsert).toHaveBeenCalledTimes(1);
+    expect(result.generated).toBe(1);
+  });
 });
