@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v13.2
 milestone_name: Calibração Multi-Marca
 status: executing
-stopped_at: Completed 164-03-PLAN.md
-last_updated: "2026-06-24T14:26:24.533Z"
+stopped_at: Completed 165-01-PLAN.md
+last_updated: "2026-06-24T17:05:48.464Z"
 last_activity: 2026-06-24
 progress:
   total_phases: 11
   completed_phases: 8
-  total_plans: 19
-  completed_plans: 19
-  percent: 100
+  total_plans: 22
+  completed_plans: 20
+  percent: 91
 ---
 
 # Project State
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-06-23)
 ## Current Position
 
 Phase: 165 of 167 (Owner Calibration Panel)
-Plan: 0 of 3 complete
+Plan: 1 of 3 complete
 Status: Ready to execute
 Last activity: 2026-06-24
 
@@ -49,6 +49,7 @@ Progress: [░░░░░░░░░░] 0/3 plans in Phase 165
 | Phase 164-prompt-rule-application P01 | 8 | 3 tasks | 8 files |
 | Phase 164-prompt-rule-application P02 | 5 | 2 tasks | 7 files |
 | Phase 164-prompt-rule-application P03 | 3 | 2 tasks | 1 files |
+| Phase 165-owner-calibration-panel P01 | 6 | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,8 @@ Progress: [░░░░░░░░░░] 0/3 plans in Phase 165
 - [Phase 164]: Accept-time corpus cap enforcement is primary; loader cap is legacy safety net
 - [Phase 164]: Oldest corpus_quality deprecation uses approvedAt ASC with createdAt fallback
 - [Phase 164]: Cross-profile isolation tested via mock-based two-profile fixture without TEST_DATABASE_URL
+- [Phase 165]: Profile API adds fixtureOnly and corpusSignalsNote server-side for PANEL-04 honesty without client evaluateClaimsMatrix
+- [Phase 165]: Rules API returns approved and candidate in parallel; rejected/deprecated excluded from panel read payload
 
 ### Blockers/Concerns
 
@@ -91,6 +94,6 @@ Progress: [░░░░░░░░░░] 0/3 plans in Phase 165
 
 ## Session Continuity
 
-Last session: 2026-06-24T14:25:41.344Z
-Stopped at: Completed 164-03-PLAN.md
+Last session: 2026-06-24T17:05:48.461Z
+Stopped at: Completed 165-01-PLAN.md
 Resume file: None

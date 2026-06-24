@@ -43,11 +43,11 @@ Generalizar calibração de gosto de marca para qualquer `clientProfile`: substi
 
 ### Owner Calibration Panel (PANEL)
 
-- [ ] **PANEL-01**: Owner can select a `clientProfileId` and view its brand taste profile (patterns, evidence level, caveats).
-- [ ] **PANEL-02**: Owner can view approved and pending calibration rules for the selected brand.
+- [x] **PANEL-01**: Owner can select a `clientProfileId` and view its brand taste profile (patterns, evidence level, caveats).
+- [x] **PANEL-02**: Owner can view approved and pending calibration rules for the selected brand.
 - [ ] **PANEL-03**: Owner can accept or reject client learning proposals from the same panel.
 - [ ] **PANEL-04**: Panel shows source composition and blocks misleading "fully calibrated" copy when evidence is fixture-only.
-- [ ] **PANEL-05**: Non-owner users cannot access brand calibration panel routes or APIs.
+- [x] **PANEL-05**: Non-owner users cannot access brand calibration panel routes or APIs.
 
 ### Per-Brand Evidence Gate (EVIDENCE)
 
