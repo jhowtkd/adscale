@@ -1,6 +1,17 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { RULE_CATEGORIES } from "@/server/brand-taste/calibration-signal-types";
 import type { CalibrationRule, CalibrationSignal } from "@/server/db/schema";
+import { GENERATION_DIRECTION_HEADER } from "@/server/ai/olhar/generation-direction";
+import {
+  artVariationContractFixture,
+  campaignFixture,
+  derivationConfigFromContract,
+} from "@/server/ai/prompt-builder.test-fixtures";
+import { buildDerivationPrompt } from "@/server/ai/prompt-builder";
+import {
+  createGenerationLog,
+  finalizeGenerationLog,
+} from "@/server/ai/generation-log";
 
 vi.mock("@/server/repositories/calibration-rule", () => ({
   listApprovedCalibrationRulesByCategories: vi.fn(),
@@ -12,6 +23,10 @@ vi.mock("@/server/repositories/calibration-signal", () => ({
 
 vi.mock("@/server/human-quality/learning/corpus-quality-cap", () => ({
   enforceCorpusQualityRuleCap: vi.fn(),
+}));
+
+vi.mock("@/server/ai/voices/voice-config-resolver", () => ({
+  resolveVoiceForClientProfile: vi.fn().mockResolvedValue(null),
 }));
 
 import { listApprovedCalibrationRulesByCategories } from "@/server/repositories/calibration-rule";
@@ -191,5 +206,100 @@ describe("loader isolation", () => {
         categories: ["corpus_quality"],
       });
     }
+  });
+});
+
+describe("prompt and provenance isolation", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setupTwoProfileMocks();
+  });
+
+  async function buildPromptForProfile(clientProfileId: string) {
+    const calibration = await loadPromptCalibrationContext({
+      workspaceId: WORKSPACE,
+      clientProfileId,
+    });
+
+    const prompt = await buildDerivationPrompt(
+      derivationConfigFromContract(artVariationContractFixture(), {
+        campaign: campaignFixture({
+          workspaceId: WORKSPACE,
+          clientProfileId,
+        }),
+        brandTasteSection: calibration.brandTasteSection,
+        corpusQualitySection: calibration.corpusQualitySection,
+      })
+    );
+
+    return { prompt, calibration };
+  }
+
+  it("profile A prompt contains own rule tags and excludes profile B rule IDs", async () => {
+    const { prompt } = await buildPromptForProfile(PROFILE_A);
+
+    expect(prompt).toContain("[brand-taste:rule-a-1]");
+    expect(prompt).toContain("[corpus-quality:rule-a-corpus]");
+    expect(prompt).not.toContain("[brand-taste:rule-b-brand]");
+    expect(prompt).not.toContain("[corpus-quality:rule-b-1]");
+    expect(prompt).not.toContain("rule-b-brand");
+    expect(prompt).not.toContain("rule-b-1");
+  });
+
+  it("profile B prompt contains own rule tags and excludes profile A rule IDs", async () => {
+    const { prompt } = await buildPromptForProfile(PROFILE_B);
+
+    expect(prompt).toContain("[brand-taste:rule-b-brand]");
+    expect(prompt).toContain("[corpus-quality:rule-b-1]");
+    expect(prompt).not.toContain("[brand-taste:rule-a-1]");
+    expect(prompt).not.toContain("[corpus-quality:rule-a-corpus]");
+    expect(prompt).not.toContain("rule-a-1");
+    expect(prompt).not.toContain("rule-a-corpus");
+  });
+
+  it("maintains Olhar → brand-taste → corpus_quality section order when sections are non-empty", async () => {
+    const { prompt } = await buildPromptForProfile(PROFILE_A);
+
+    const olharIdx = prompt.indexOf(GENERATION_DIRECTION_HEADER);
+    const brandIdx = prompt.indexOf("BRAND TASTE CONSTRAINTS");
+    const corpusIdx = prompt.indexOf("CORPUS QUALITY CONSTRAINTS");
+
+    expect(olharIdx).toBeGreaterThan(-1);
+    expect(brandIdx).toBeGreaterThan(-1);
+    expect(corpusIdx).toBeGreaterThan(-1);
+    expect(olharIdx).toBeLessThan(brandIdx);
+    expect(brandIdx).toBeLessThan(corpusIdx);
+  });
+
+  it("generation log provenance arrays never include foreign profile rule IDs", async () => {
+    const calibrationA = await loadPromptCalibrationContext({
+      workspaceId: WORKSPACE,
+      clientProfileId: PROFILE_A,
+    });
+    const calibrationB = await loadPromptCalibrationContext({
+      workspaceId: WORKSPACE,
+      clientProfileId: PROFILE_B,
+    });
+
+    const logA = finalizeGenerationLog(createGenerationLog("camp-a", "deriv-a"), {
+      model: "gpt-image-1",
+      appliedBrandRuleIds: calibrationA.appliedBrandRuleIds,
+      appliedCorpusRuleIds: calibrationA.appliedCorpusRuleIds,
+    });
+    const logB = finalizeGenerationLog(createGenerationLog("camp-b", "deriv-b"), {
+      model: "gpt-image-1",
+      appliedBrandRuleIds: calibrationB.appliedBrandRuleIds,
+      appliedCorpusRuleIds: calibrationB.appliedCorpusRuleIds,
+    });
+
+    expect(logA.appliedBrandRuleIds).toEqual(["rule-a-1"]);
+    expect(logA.appliedCorpusRuleIds).toEqual(["rule-a-corpus"]);
+    expect(logA.appliedBrandRuleIds).not.toContain("rule-b-brand");
+    expect(logA.appliedCorpusRuleIds).not.toContain("rule-b-1");
+
+    expect(logB.appliedBrandRuleIds).toEqual(["rule-b-brand"]);
+    expect(logB.appliedCorpusRuleIds).toEqual(["rule-b-1"]);
+    expect(logB.appliedBrandRuleIds).not.toContain("rule-a-1");
+    expect(logB.appliedCorpusRuleIds).not.toContain("rule-a-corpus");
   });
 });
