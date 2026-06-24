@@ -19,6 +19,7 @@ export interface DerivationGenerationLog {
   imageOperation?: string;
   autoRetryAttempted?: boolean;
   autoRetryReason?: string;
+  appliedBrandRuleIds?: string[];
   appliedCorpusRuleIds?: string[];
   error?: string;
 }

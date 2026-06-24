@@ -64,8 +64,7 @@ import {
 import { normalizeCreativeDiagnosis } from "@/server/ai/creative-diagnosis";
 import { getTargetDimensions, formatToOpenAIImageSize, toOpenAISdkImageSize } from "@/lib/formats";
 import { captureAndAutoPromote } from "../human-quality/auto-promote";
-import { buildCorpusQualityPromptSection } from "../human-quality/learning/corpus-quality-prompt";
-import { listApprovedCalibrationRulesByCategories } from "../repositories/calibration-rule";
+import { loadPromptCalibrationContext } from "../brand-taste/prompt-calibration-loader";
 
 const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 120_000 });
 const IMAGE_GENERATION_TIMEOUT_MS = 5 * 60 * 1000;
@@ -393,7 +392,7 @@ export const derivationJob = inngest.createFunction(
       constraints: null,
     };
 
-    const [brandMemory, campaignMemoryBlock, corpusQualityContext] = await Promise.all([
+    const [brandMemory, campaignMemoryBlock, calibrationContext] = await Promise.all([
       step.run("fetch-brand-memory", async () => {
         const context = await getBrandMemoryContext({
           workspaceId,
@@ -414,22 +413,11 @@ export const derivationJob = inngest.createFunction(
       step.run("fetch-campaign-memory", async () =>
         getCampaignMemoryPromptBlock(campaignId, workspaceId)
       ),
-      step.run("load-corpus-quality-rules", async () => {
-        if (!campaign.clientProfileId) {
-          return { section: [] as string[], appliedRuleIds: [] as string[] };
-        }
-
-        const rules = await listApprovedCalibrationRulesByCategories({
+      step.run("load-prompt-calibration-context", async () => {
+        return loadPromptCalibrationContext({
           workspaceId,
           clientProfileId: campaign.clientProfileId,
-          categories: ["corpus_quality"],
         });
-        const cappedRules = rules.slice(0, 10);
-
-        return {
-          section: buildCorpusQualityPromptSection(cappedRules),
-          appliedRuleIds: cappedRules.map((rule) => rule.id),
-        };
       }),
     ]);
 
@@ -640,7 +628,8 @@ export const derivationJob = inngest.createFunction(
           };
         }),
         preflightResult: promptAsset?.metadata ? (promptAsset.metadata as Record<string, unknown>).preflightResult as import("@/server/ai/preflight-analysis").PreflightResult | undefined : null,
-        corpusQualitySection: corpusQualityContext.section,
+        brandTasteSection: calibrationContext.brandTasteSection,
+        corpusQualitySection: calibrationContext.corpusQualitySection,
       });
       logger.info(`[generate-and-store-output] model=${env.OPENAI_IMAGE_MODEL} hasAsset=${!!asset} locale=${locale ?? "default"}`);
 
@@ -1122,7 +1111,8 @@ export const derivationJob = inngest.createFunction(
           preflightResult: asset?.metadata
             ? ((asset.metadata as Record<string, unknown>).preflightResult as import("@/server/ai/preflight-analysis").PreflightResult | undefined)
             : null,
-          corpusQualitySection: corpusQualityContext.section,
+          brandTasteSection: calibrationContext.brandTasteSection,
+          corpusQualitySection: calibrationContext.corpusQualitySection,
         },
       });
 
@@ -1144,7 +1134,12 @@ export const derivationJob = inngest.createFunction(
           status: "completed",
           detail: correctionFeedback.slice(0, 240),
         }),
-        { autoRetryAttempted: true, autoRetryReason: hardFailures.map((f) => f.code).join(",") }
+        {
+          autoRetryAttempted: true,
+          autoRetryReason: hardFailures.map((f) => f.code).join(","),
+          appliedBrandRuleIds: calibrationContext.appliedBrandRuleIds,
+          appliedCorpusRuleIds: calibrationContext.appliedCorpusRuleIds,
+        }
       );
       await updateDerivationGenerationLog(derivationId, workspaceId, generationLog);
 
@@ -1237,7 +1232,8 @@ export const derivationJob = inngest.createFunction(
         {
           model: env.OPENAI_IMAGE_MODEL,
           imageOperation: generated.promptProvenance?.imageOperation ?? undefined,
-          appliedCorpusRuleIds: corpusQualityContext.appliedRuleIds,
+          appliedBrandRuleIds: calibrationContext.appliedBrandRuleIds,
+          appliedCorpusRuleIds: calibrationContext.appliedCorpusRuleIds,
         }
       );
       await updateDerivationGenerationLog(derivationId, workspaceId, generationLog);
