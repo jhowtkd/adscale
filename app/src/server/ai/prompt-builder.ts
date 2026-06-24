@@ -277,6 +277,8 @@ export interface DerivationPromptConfig {
   contract?: CreativeContract | null;
   /** Approved brand taste rule constraint lines from calibration loop. */
   brandTasteConstraints?: string[];
+  /** Pre-rendered brand taste section from loadPromptCalibrationContext. */
+  brandTasteSection?: string[];
   /** Human-evaluated corpus quality constraints for this client profile. */
   corpusQualitySection?: string[];
 }
@@ -428,22 +430,6 @@ export async function buildDerivationPrompt(config: DerivationPromptConfig) {
   parts.push(...buildCanonicalContractPromptSection(effectiveContract));
   parts.push(...buildIntegrityPromptSection());
 
-  if (config.brandTasteConstraints && config.brandTasteConstraints.length > 0) {
-    parts.push(...buildBrandTastePromptSection(
-      config.brandTasteConstraints.map((line, index) => ({
-        id: `inline-${index}`,
-        category: "brand_nuance",
-        rationale: line,
-      }))
-    ));
-  } else if (config.brandTasteConstraints?.length === 0) {
-    // no-op: explicit empty array means no brand taste overlay
-  }
-
-  if (config.corpusQualitySection && config.corpusQualitySection.length > 0) {
-    parts.push(...config.corpusQualitySection);
-  }
-
   const classification =
     effectiveContract.inputSourceClassification ??
     resolveInputSourceClassification(effectiveContract, {
@@ -486,6 +472,24 @@ export async function buildDerivationPrompt(config: DerivationPromptConfig) {
       clientProfileId: campaign?.clientProfileId,
     }))
   );
+
+  if (config.brandTasteSection && config.brandTasteSection.length > 0) {
+    parts.push(...config.brandTasteSection);
+  } else if (config.brandTasteConstraints && config.brandTasteConstraints.length > 0) {
+    parts.push(
+      ...buildBrandTastePromptSection(
+        config.brandTasteConstraints.map((line, index) => ({
+          id: `inline-${index}`,
+          category: "brand_nuance",
+          rationale: line,
+        }))
+      )
+    );
+  }
+
+  if (config.corpusQualitySection && config.corpusQualitySection.length > 0) {
+    parts.push(...config.corpusQualitySection);
+  }
 
   parts.push(
     ...buildPerModeRulesSection({
