@@ -54,6 +54,7 @@ function makeEvaluatedRow(input: {
   clientProfileId: string;
   scoreDelta: number;
   primaryFailureReason?: string;
+  sourceLabel?: "synthetic_fixture" | "real_customer" | "operator_imported";
 }) {
   const humanVisualScore = 80 - input.scoreDelta;
   return {
@@ -75,7 +76,55 @@ function makeEvaluatedRow(input: {
       factualPass: true,
       primaryFailureReason: input.primaryFailureReason ?? "illegible_cta",
     },
+    sourceLabel: input.sourceLabel,
   };
+}
+
+function setupCrossClientPromotionMocks(input?: {
+  ruleIds?: { clientA: string; clientB: string };
+  sourceLabels?: Array<"synthetic_fixture" | "real_customer" | "operator_imported">;
+}) {
+  const ruleIdA = input?.ruleIds?.clientA ?? "rule-client-a";
+  const ruleIdB = input?.ruleIds?.clientB ?? "rule-client-b";
+
+  mockListApprovedRules.mockResolvedValue([
+    makeApprovedRule({
+      id: ruleIdA,
+      clientProfileId: "client-a",
+      rationale: "illegible_cta: CTA must be legible at thumbnail size",
+    }),
+    makeApprovedRule({
+      id: ruleIdB,
+      clientProfileId: "client-b",
+      rationale: "illegible_cta: CTA must be legible at thumbnail size",
+    }),
+  ]);
+
+  const defaultSourceLabels: Array<
+    "synthetic_fixture" | "real_customer" | "operator_imported"
+  > = Array.from({ length: 6 }, () => "synthetic_fixture");
+  const sourceLabels = input?.sourceLabels ?? defaultSourceLabels;
+
+  mockListEvaluated.mockResolvedValue([
+    ...Array.from({ length: 3 }, (_, index) =>
+      makeEvaluatedRow({
+        id: `a-${index + 1}`,
+        clientProfileId: "client-a",
+        scoreDelta: 18,
+        sourceLabel: sourceLabels[index],
+      })
+    ),
+    ...Array.from({ length: 3 }, (_, index) =>
+      makeEvaluatedRow({
+        id: `b-${index + 1}`,
+        clientProfileId: "client-b",
+        scoreDelta: 16,
+        sourceLabel: sourceLabels[index + 3],
+      })
+    ),
+  ]);
+
+  return { ruleIdA, ruleIdB };
 }
 
 describe("extractPrimaryFailureReasonFromRationale", () => {
@@ -99,57 +148,73 @@ describe("detectAndPersistCrossClientGlobalProposals", () => {
   });
 
   it("promotes to global when 2+ clients have approved corpus_quality rules for same failure", async () => {
-    mockListApprovedRules.mockResolvedValue([
-      makeApprovedRule({
-        clientProfileId: "client-a",
-        rationale: "illegible_cta: CTA must be legible at thumbnail size",
-      }),
-      makeApprovedRule({
-        clientProfileId: "client-b",
-        rationale: "illegible_cta: CTA must be legible at thumbnail size",
-      }),
-    ]);
+    setupCrossClientPromotionMocks();
 
-    mockListEvaluated.mockResolvedValue([
-      ...Array.from({ length: 3 }, (_, index) =>
-        makeEvaluatedRow({
-          id: `a-${index + 1}`,
-          clientProfileId: "client-a",
-          scoreDelta: 18,
-        })
-      ),
-      ...Array.from({ length: 3 }, (_, index) =>
-        makeEvaluatedRow({
-          id: `b-${index + 1}`,
-          clientProfileId: "client-b",
-          scoreDelta: 16,
-        })
-      ),
-    ]);
-
-    const persistedProposal = {
-      adjustmentVersion: "1.1.0",
-      status: "proposed" as const,
-      targetModule: "score_ceiling" as const,
-      targetKey: "illegible_cta",
-      sliceKey: "illegible_cta|art_variation|1:1",
-      rationale: "cross-client proposal",
-      evidenceRefs: {
-        corpusItemIds: ["a-1", "a-2", "a-3", "b-1", "b-2", "b-3"],
-        sliceStats: { count: 6, meanSignedDelta: 17, meanAbsError: 17 },
-        itemRefs: [],
-      },
-    };
-    mockPersistProposed.mockResolvedValue([persistedProposal]);
+    mockPersistProposed.mockImplementation(async (proposals) => proposals);
 
     const result = await detectAndPersistCrossClientGlobalProposals();
 
     expect(result).toHaveLength(1);
-    expect(result[0].targetKey).toBe("illegible_cta");
+    expect(result[0].targetKey).toBe("unreadable_required_text");
     expect(mockListEvaluated).toHaveBeenCalledWith({
       primaryFailureReason: "illegible_cta",
     });
     expect(mockPersistProposed).toHaveBeenCalledOnce();
+  });
+
+  it("sets fixtureOnly true when all supporting evaluations are synthetic_fixture", async () => {
+    setupCrossClientPromotionMocks();
+    mockPersistProposed.mockImplementation(async (proposals) => proposals);
+
+    await detectAndPersistCrossClientGlobalProposals();
+
+    const persistedProposals = mockPersistProposed.mock.calls[0][0];
+    expect(persistedProposals[0].evidenceRefs.fixtureOnly).toBe(true);
+  });
+
+  it("sets fixtureOnly false when any supporting evaluation is real_customer", async () => {
+    setupCrossClientPromotionMocks({
+      sourceLabels: [
+        "synthetic_fixture",
+        "synthetic_fixture",
+        "real_customer",
+        "synthetic_fixture",
+        "synthetic_fixture",
+        "synthetic_fixture",
+      ],
+    });
+    mockPersistProposed.mockImplementation(async (proposals) => proposals);
+
+    await detectAndPersistCrossClientGlobalProposals();
+
+    const persistedProposals = mockPersistProposed.mock.calls[0][0];
+    expect(persistedProposals[0].evidenceRefs.fixtureOnly).toBe(false);
+  });
+
+  it("populates supportingClientRuleIds with every approved rule for the failure reason", async () => {
+    const { ruleIdA, ruleIdB } = setupCrossClientPromotionMocks({
+      ruleIds: { clientA: "rule-a-uuid", clientB: "rule-b-uuid" },
+    });
+    mockPersistProposed.mockImplementation(async (proposals) => proposals);
+
+    await detectAndPersistCrossClientGlobalProposals();
+
+    const persistedProposals = mockPersistProposed.mock.calls[0][0];
+    expect(persistedProposals[0].evidenceRefs.supportingClientRuleIds).toEqual([
+      ruleIdA,
+      ruleIdB,
+    ]);
+  });
+
+  it("tags persisted proposals with promotionSource cross_client", async () => {
+    setupCrossClientPromotionMocks();
+    mockPersistProposed.mockImplementation(async (proposals) => proposals);
+
+    await detectAndPersistCrossClientGlobalProposals();
+
+    const persistedProposals = mockPersistProposed.mock.calls[0][0];
+    expect(persistedProposals[0].evidenceRefs.promotionSource).toBe("cross_client");
+    expect(persistedProposals[0].evidenceRefs.primaryFailureReason).toBe("illegible_cta");
   });
 
   it("skips when fewer than 2 distinct clients have approved rules", async () => {
