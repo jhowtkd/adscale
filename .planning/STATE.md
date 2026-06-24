@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v13.2
 milestone_name: Calibração Multi-Marca
 status: executing
-stopped_at: Completed 165-02-PLAN.md
-last_updated: "2026-06-24T17:10:48.862Z"
+stopped_at: Completed 165-03-PLAN.md
+last_updated: "2026-06-24T17:14:37.001Z"
 last_activity: 2026-06-24
 progress:
   total_phases: 11
-  completed_phases: 8
+  completed_phases: 9
   total_plans: 22
-  completed_plans: 21
-  percent: 95
+  completed_plans: 22
+  percent: 100
 ---
 
 # Project State
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-06-23)
 ## Current Position
 
 Phase: 165 of 167 (Owner Calibration Panel)
-Plan: 2 of 3 complete
+Plan: 3 of 3 complete
 Status: Ready to execute
 Last activity: 2026-06-24
 
@@ -51,6 +51,7 @@ Progress: [░░░░░░░░░░] 0/3 plans in Phase 165
 | Phase 164-prompt-rule-application P03 | 3 | 2 tasks | 1 files |
 | Phase 165-owner-calibration-panel P01 | 6 | 3 tasks | 6 files |
 | Phase 165-owner-calibration-panel P02 | 4 | 3 tasks | 9 files |
+| Phase 165-owner-calibration-panel P03 | 8 | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -80,6 +81,9 @@ Progress: [░░░░░░░░░░] 0/3 plans in Phase 165
 - [Phase 165]: Rules API returns approved and candidate in parallel; rejected/deprecated excluded from panel read payload
 - [Phase 165]: Panel-level profile 403 gate blocks tabs before child panels render (PANEL-05)
 - [Phase 165]: calibration-status-copy uses neutral PT-BR labels; warning when fixtureOnly or zero real_customer
+- [Phase 165]: LearningProposalsTab clientProfileId optional — corpus Learning tab unchanged
+- [Phase 165]: Fixture-only proposal accept requires checkbox ack before POST acknowledgeFixtureOnly
+- [Phase 165]: Propostas tab resolves workspaceId from brand list query with profile fallback
 
 ### Blockers/Concerns
 
@@ -97,6 +101,6 @@ Progress: [░░░░░░░░░░] 0/3 plans in Phase 165
 
 ## Session Continuity
 
-Last session: 2026-06-24T17:10:48.854Z
-Stopped at: Completed 165-02-PLAN.md
+Last session: 2026-06-24T17:14:36.998Z
+Stopped at: Completed 165-03-PLAN.md
 Resume file: None
