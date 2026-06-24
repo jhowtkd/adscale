@@ -1922,6 +1922,9 @@ export const rubricCalibrationAdjustments = adscaleSchema.table(
     proposedAt: timestamp("proposed_at", { mode: "date" }).notNull().defaultNow(),
     acceptedAt: timestamp("accepted_at", { mode: "date" }),
     acceptedBy: text("accepted_by").references(() => user.id, { onDelete: "set null" }),
+    rejectedReason: text("rejected_reason"),
+    rejectedAt: timestamp("rejected_at", { mode: "date" }),
+    rejectedBy: text("rejected_by").references(() => user.id, { onDelete: "set null" }),
     changeSpec: jsonb("change_spec")
       .$type<import("../human-quality/improvement/types").QualityImprovementChangeSpec>()
       .default(sql`NULL`),
@@ -1941,7 +1944,7 @@ export const rubricCalibrationAdjustments = adscaleSchema.table(
     ),
     check(
       "rubric_calibration_adjustments_status_check",
-      sql`${table.status} in ('proposed', 'accepted', 'superseded')`
+      sql`${table.status} in ('proposed', 'accepted', 'superseded', 'rejected')`
     ),
     check(
       "rubric_calibration_adjustments_target_module_check",

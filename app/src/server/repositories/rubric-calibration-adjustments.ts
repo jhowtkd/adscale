@@ -40,6 +40,12 @@ export interface AcceptAdjustmentRepoInput {
   changeSpec?: QualityImprovementChangeSpec | null;
 }
 
+export interface RejectAdjustmentRepoInput {
+  adjustmentId: string;
+  reviewerUserId: string;
+  reason: string;
+}
+
 export async function insertProposedAdjustment(
   input: InsertProposedAdjustmentInput
 ): Promise<RubricCalibrationAdjustment> {
@@ -194,6 +200,41 @@ export async function acceptAdjustment(
       acceptedAt,
       acceptedBy: input.reviewerUserId,
       changeSpec: input.changeSpec ?? null,
+    })
+    .where(eq(rubricCalibrationAdjustments.id, input.adjustmentId))
+    .returning();
+
+  return updated;
+}
+
+export async function rejectAdjustment(
+  input: RejectAdjustmentRepoInput
+): Promise<RubricCalibrationAdjustment> {
+  const row = await findAdjustmentById(input.adjustmentId);
+
+  if (!row) {
+    throw new CalibrationAdjustmentError(
+      "adjustment_not_found",
+      `Adjustment ${input.adjustmentId} not found`
+    );
+  }
+
+  if (row.status !== "proposed") {
+    throw new CalibrationAdjustmentError(
+      "adjustment_not_proposed",
+      `Adjustment ${input.adjustmentId} is not proposed (status=${row.status})`
+    );
+  }
+
+  const rejectedAt = new Date();
+
+  const [updated] = await db
+    .update(rubricCalibrationAdjustments)
+    .set({
+      status: "rejected",
+      rejectedReason: input.reason.trim(),
+      rejectedAt,
+      rejectedBy: input.reviewerUserId,
     })
     .where(eq(rubricCalibrationAdjustments.id, input.adjustmentId))
     .returning();
