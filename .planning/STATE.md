@@ -4,7 +4,7 @@ milestone: v13.2
 milestone_name: Calibração Multi-Marca
 status: executing
 stopped_at: Completed 164-03-PLAN.md
-last_updated: "2026-06-24T14:25:41.351Z"
+last_updated: "2026-06-24T14:26:24.533Z"
 last_activity: 2026-06-24
 progress:
   total_phases: 11
@@ -22,16 +22,16 @@ See: .planning/PROJECT.md (updated 2026-06-23)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** Phase 164 — Prompt Rule Application
+**Current focus:** Phase 165 — Owner Calibration Panel
 
 ## Current Position
 
-Phase: 164 of 167 (Prompt Rule Application)
-Plan: 3 of 3 complete
+Phase: 165 of 167 (Owner Calibration Panel)
+Plan: 0 of 3 complete
 Status: Ready to execute
 Last activity: 2026-06-24
 
-Progress: [░░░░░░░░░░] 0/3 plans in Phase 164
+Progress: [░░░░░░░░░░] 0/3 plans in Phase 165
 
 ## Performance Metrics
 
