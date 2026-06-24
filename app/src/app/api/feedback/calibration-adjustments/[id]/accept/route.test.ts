@@ -139,6 +139,65 @@ describe("/api/feedback/calibration-adjustments/[id]/accept PATCH", () => {
     expect(res.status).toBe(422);
   });
 
+  it("returns 409 when adjustment is rejected", async () => {
+    mockAccept.mockRejectedValue(
+      new CalibrationAdjustmentError(
+        "adjustment_not_proposed",
+        "Adjustment adj-1 is not proposed (status=rejected)"
+      )
+    );
+
+    const res = await PATCH(
+      new Request("http://localhost/api/feedback/calibration-adjustments/adj-1/accept", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      }),
+      { params: Promise.resolve({ id: "adj-1" }) }
+    );
+
+    expect(res.status).toBe(409);
+  });
+
+  it("returns 422 insufficient_acknowledgment for fixtureOnly cross_client without ack", async () => {
+    mockAccept.mockRejectedValue(
+      new CalibrationAdjustmentError(
+        "insufficient_acknowledgment",
+        "Fixture-only cross-client proposal requires explicit acknowledgment"
+      )
+    );
+
+    const res = await PATCH(
+      new Request("http://localhost/api/feedback/calibration-adjustments/adj-1/accept", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      }),
+      { params: Promise.resolve({ id: "adj-1" }) }
+    );
+
+    expect(res.status).toBe(422);
+  });
+
+  it("accepts fixtureOnly cross_client proposal with acknowledgeFixtureOnly", async () => {
+    const res = await PATCH(
+      new Request("http://localhost/api/feedback/calibration-adjustments/adj-1/accept", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ acknowledgeFixtureOnly: true }),
+      }),
+      { params: Promise.resolve({ id: "adj-1" }) }
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockAccept).toHaveBeenCalledWith({
+      adjustmentId: "adj-1",
+      reviewerUserId: "owner-1",
+      changeSpec: undefined,
+      acknowledgeFixtureOnly: true,
+    });
+  });
+
   it("RUBRIC_CALIBRATION_VERSION is 1.1.0 after Phase 132 bump", () => {
     expect(RUBRIC_CALIBRATION_VERSION).toBe("1.1.0");
   });

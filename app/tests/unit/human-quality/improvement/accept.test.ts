@@ -5,7 +5,14 @@ vi.mock("@/server/db", () => ({
     insert: vi.fn(),
     select: vi.fn(),
     update: vi.fn(),
+    transaction: vi.fn((callback: () => Promise<unknown>) => callback()),
   },
+}));
+
+vi.mock("@/server/repositories/rubric-calibration-adjustments", () => ({
+  acceptAdjustment: vi.fn(),
+  supersedeAcceptedForSlice: vi.fn(),
+  findAdjustmentById: vi.fn(),
 }));
 
 import { db } from "@/server/db";
@@ -15,6 +22,12 @@ import {
   listAcceptedAdjustments,
   supersedeAcceptedForSlice,
 } from "@/server/repositories/rubric-calibration-adjustments";
+import { acceptProposedAdjustment } from "@/server/human-quality/improvement/accept";
+import { CalibrationAdjustmentError } from "@/server/repositories/calibration-adjustment-errors";
+
+const mockAccept = vi.mocked(acceptAdjustment);
+const mockSupersede = vi.mocked(supersedeAcceptedForSlice);
+const mockFindById = vi.mocked(findAdjustmentById);
 
 const baseEvidence = {
   corpusItemIds: ["item-1", "item-2", "item-3"],
@@ -165,5 +178,55 @@ describe("rubric-calibration-adjustments accept lifecycle", () => {
     const row = await findAdjustmentById("adj-1");
 
     expect(row?.id).toBe("adj-1");
+  });
+});
+
+describe("acceptProposedAdjustment fixture acknowledgment", () => {
+  const crossClientFixtureRow = {
+    ...proposedRow,
+    evidenceRefs: {
+      ...baseEvidence,
+      fixtureOnly: true,
+      promotionSource: "cross_client" as const,
+      supportingClientRuleIds: ["rule-a", "rule-b"],
+    },
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFindById.mockResolvedValue(crossClientFixtureRow);
+    mockSupersede.mockResolvedValue([]);
+    mockAccept.mockResolvedValue({
+      ...crossClientFixtureRow,
+      status: "accepted",
+      acceptedAt: new Date("2026-06-24"),
+      acceptedBy: "reviewer-1",
+    });
+  });
+
+  it("throws insufficient_acknowledgment for cross_client fixtureOnly without ack", async () => {
+    await expect(
+      acceptProposedAdjustment({
+        adjustmentId: "adj-1",
+        reviewerUserId: "reviewer-1",
+      })
+    ).rejects.toMatchObject({ code: "insufficient_acknowledgment" });
+
+    expect(mockAccept).not.toHaveBeenCalled();
+  });
+
+  it("accepts cross_client fixtureOnly proposal when acknowledgeFixtureOnly is true", async () => {
+    const result = await acceptProposedAdjustment({
+      adjustmentId: "adj-1",
+      reviewerUserId: "reviewer-1",
+      acknowledgeFixtureOnly: true,
+    });
+
+    expect(result.status).toBe("accepted");
+    expect(mockAccept).toHaveBeenCalledWith({
+      adjustmentId: "adj-1",
+      reviewerUserId: "reviewer-1",
+      changeSpec: null,
+    });
   });
 });

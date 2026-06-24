@@ -293,4 +293,40 @@ describe("detectAndPersistCrossClientGlobalProposals", () => {
     expect(result).toEqual([]);
     expect(mockPersistProposed).not.toHaveBeenCalled();
   });
+
+  it("only persists proposed adjustments — never auto-accepts global proposals", async () => {
+    // Regression: GLOBAL-04 human-authority gate — detection must not accept
+    mockListApprovedRules.mockResolvedValue([
+      makeApprovedRule({
+        clientProfileId: "client-a",
+        rationale: "visual_overload: Reduce visual clutter",
+      }),
+      makeApprovedRule({
+        clientProfileId: "client-b",
+        rationale: "visual_overload: Reduce visual clutter",
+      }),
+    ]);
+
+    mockListEvaluated.mockResolvedValue(
+      Array.from({ length: 6 }, (_, index) =>
+        makeEvaluatedRow({
+          id: `item-${index + 1}`,
+          clientProfileId: index < 3 ? "client-a" : "client-b",
+          scoreDelta: 18,
+          primaryFailureReason: "visual_overload",
+        })
+      )
+    );
+
+    mockPersistProposed.mockImplementation(async (proposals) =>
+      proposals.map((p) => ({ ...p, id: "adj-new", status: "proposed" as const }))
+    );
+
+    await detectAndPersistCrossClientGlobalProposals();
+
+    expect(mockPersistProposed).toHaveBeenCalled();
+    const persisted = mockPersistProposed.mock.results[0]?.value;
+    const resolved = await persisted;
+    expect(resolved.every((p: { status: string }) => p.status === "proposed")).toBe(true);
+  });
 });
