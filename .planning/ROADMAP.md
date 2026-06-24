@@ -55,7 +55,7 @@
 |---|-------|--------------|--------|-----------|
 | 162 | Per-Brand Voice Configuration | Complete    | 2026-06-24 |  |
 | 163 | Corpus Learning Proposals | 3/3 | Complete   | 2026-06-24 |
-| 164 | Prompt Rule Application | 1/3 | In Progress|  |
+| 164 | Prompt Rule Application | 2/3 | In Progress|  |
 | 165 | Owner Calibration Panel | PANEL-01..05 | Not started | - |
 | 166 | Per-Brand Evidence Gate | EVIDENCE-01..05 | Not started | - |
 | 167 | Global Cross-Client Promotion | GLOBAL-01..05 | Not started | - |
@@ -238,11 +238,11 @@ Plans:
   4. Active `corpus_quality` rules per `clientProfileId` are capped (default 10) with oldest deprecated on overflow.
   5. Rules from one `clientProfileId` never appear in another profile's prompt (integration-tested).
 
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 Plans:
 - [x] 164-01-PLAN.md — Brand-taste loader, prompt section order, generation log provenance (APPLY-01, APPLY-02, APPLY-03)
-- [ ] 164-02-PLAN.md — Corpus quality cap with DB deprecation on accept and load (APPLY-04)
+- [x] 164-02-PLAN.md — Corpus quality cap with DB deprecation on accept and load (APPLY-04)
 - [ ] 164-03-PLAN.md — Cross-profile rule isolation test (APPLY-05)
 
 ---
