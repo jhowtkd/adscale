@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v13.2
 milestone_name: Calibração Multi-Marca
 status: executing
-stopped_at: Completed 164-02-PLAN.md
-last_updated: "2026-06-24T14:19:48.880Z"
+stopped_at: Completed 164-03-PLAN.md
+last_updated: "2026-06-24T14:25:41.351Z"
 last_activity: 2026-06-24
 progress:
   total_phases: 11
-  completed_phases: 7
+  completed_phases: 8
   total_plans: 19
-  completed_plans: 18
-  percent: 95
+  completed_plans: 19
+  percent: 100
 ---
 
 # Project State
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-06-23)
 ## Current Position
 
 Phase: 164 of 167 (Prompt Rule Application)
-Plan: 2 of 3 complete
+Plan: 3 of 3 complete
 Status: Ready to execute
 Last activity: 2026-06-24
 
@@ -48,6 +48,7 @@ Progress: [░░░░░░░░░░] 0/3 plans in Phase 164
 | Phase 163-corpus-learning-proposals P03 | 16 | 3 tasks | 4 files |
 | Phase 164-prompt-rule-application P01 | 8 | 3 tasks | 8 files |
 | Phase 164-prompt-rule-application P02 | 5 | 2 tasks | 7 files |
+| Phase 164-prompt-rule-application P03 | 3 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -72,6 +73,7 @@ Progress: [░░░░░░░░░░] 0/3 plans in Phase 164
 - [Phase 164]: Auto-retry finalize merges both appliedBrandRuleIds and appliedCorpusRuleIds
 - [Phase 164]: Accept-time corpus cap enforcement is primary; loader cap is legacy safety net
 - [Phase 164]: Oldest corpus_quality deprecation uses approvedAt ASC with createdAt fallback
+- [Phase 164]: Cross-profile isolation tested via mock-based two-profile fixture without TEST_DATABASE_URL
 
 ### Blockers/Concerns
 
@@ -89,6 +91,6 @@ Progress: [░░░░░░░░░░] 0/3 plans in Phase 164
 
 ## Session Continuity
 
-Last session: 2026-06-24T14:19:48.877Z
-Stopped at: Completed 164-02-PLAN.md
+Last session: 2026-06-24T14:25:41.344Z
+Stopped at: Completed 164-03-PLAN.md
 Resume file: None

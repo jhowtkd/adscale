@@ -39,7 +39,7 @@ Generalizar calibração de gosto de marca para qualquer `clientProfile`: substi
 - [x] **APPLY-02**: Prompt-builder injects sections in order: Olhar ADScale → brand-taste → corpus_quality.
 - [x] **APPLY-03**: Generation log records `appliedBrandRuleIds` and `appliedCorpusRuleIds` for each derivation.
 - [x] **APPLY-04**: Active `corpus_quality` rules per `clientProfileId` are capped (default 10) with deprecation of oldest on overflow.
-- [ ] **APPLY-05**: Rules from one `clientProfileId` never appear in another profile's prompt (integration-tested).
+- [x] **APPLY-05**: Rules from one `clientProfileId` never appear in another profile's prompt (integration-tested).
 
 ### Owner Calibration Panel (PANEL)
 
@@ -111,7 +111,7 @@ Generalizar calibração de gosto de marca para qualquer `clientProfile`: substi
 | APPLY-02 | Phase 164 (164-01) | Complete |
 | APPLY-03 | Phase 164 (164-01) | Complete |
 | APPLY-04 | Phase 164 (164-02) | Complete |
-| APPLY-05 | Phase 164 (164-03) | Pending |
+| APPLY-05 | Phase 164 (164-03) | Complete |
 | PANEL-01 | Phase 165 | Pending |
 | PANEL-02 | Phase 165 | Pending |
 | PANEL-03 | Phase 165 | Pending |

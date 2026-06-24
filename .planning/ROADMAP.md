@@ -46,7 +46,7 @@
 
 - [x] **Phase 162: Per-Brand Voice Configuration** — schema, resolver by `clientProfileId`, Cenbrap seed and hardcode removal (completed 2026-06-24)
 - [x] **Phase 163: Corpus Learning Proposals** — aggregate evaluations into deduped client proposals with owner accept/reject (completed 2026-06-24)
-- [ ] **Phase 164: Prompt Rule Application** — inject approved rules per profile with provenance log and isolation cap
+- [x] **Phase 164: Prompt Rule Application** — inject approved rules per profile with provenance log and isolation cap (completed 2026-06-24)
 - [ ] **Phase 165: Owner Calibration Panel** — per-brand profile, rules, proposals and owner-only access
 - [ ] **Phase 166: Per-Brand Evidence Gate** — evidence levels, claims matrix and fixture caveats per marca
 - [ ] **Phase 167: Global Cross-Client Promotion** — multi-brand rubric adjustment proposals without prompt leakage
@@ -55,7 +55,7 @@
 |---|-------|--------------|--------|-----------|
 | 162 | Per-Brand Voice Configuration | Complete    | 2026-06-24 |  |
 | 163 | Corpus Learning Proposals | 3/3 | Complete   | 2026-06-24 |
-| 164 | Prompt Rule Application | 2/3 | In Progress|  |
+| 164 | Prompt Rule Application | 3/3 | Complete   | 2026-06-24 |
 | 165 | Owner Calibration Panel | PANEL-01..05 | Not started | - |
 | 166 | Per-Brand Evidence Gate | EVIDENCE-01..05 | Not started | - |
 | 167 | Global Cross-Client Promotion | GLOBAL-01..05 | Not started | - |
@@ -238,12 +238,12 @@ Plans:
   4. Active `corpus_quality` rules per `clientProfileId` are capped (default 10) with oldest deprecated on overflow.
   5. Rules from one `clientProfileId` never appear in another profile's prompt (integration-tested).
 
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [x] 164-01-PLAN.md — Brand-taste loader, prompt section order, generation log provenance (APPLY-01, APPLY-02, APPLY-03)
 - [x] 164-02-PLAN.md — Corpus quality cap with DB deprecation on accept and load (APPLY-04)
-- [ ] 164-03-PLAN.md — Cross-profile rule isolation test (APPLY-05)
+- [x] 164-03-PLAN.md — Cross-profile rule isolation test (APPLY-05)
 
 ---
 
