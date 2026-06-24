@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v13.2
 milestone_name: Calibração Multi-Marca
 status: executing
-stopped_at: Completed 165-01-PLAN.md
-last_updated: "2026-06-24T17:05:48.464Z"
+stopped_at: Completed 165-02-PLAN.md
+last_updated: "2026-06-24T17:10:48.862Z"
 last_activity: 2026-06-24
 progress:
   total_phases: 11
   completed_phases: 8
   total_plans: 22
-  completed_plans: 20
-  percent: 91
+  completed_plans: 21
+  percent: 95
 ---
 
 # Project State
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-06-23)
 ## Current Position
 
 Phase: 165 of 167 (Owner Calibration Panel)
-Plan: 1 of 3 complete
+Plan: 2 of 3 complete
 Status: Ready to execute
 Last activity: 2026-06-24
 
@@ -50,6 +50,7 @@ Progress: [░░░░░░░░░░] 0/3 plans in Phase 165
 | Phase 164-prompt-rule-application P02 | 5 | 2 tasks | 7 files |
 | Phase 164-prompt-rule-application P03 | 3 | 2 tasks | 1 files |
 | Phase 165-owner-calibration-panel P01 | 6 | 3 tasks | 6 files |
+| Phase 165-owner-calibration-panel P02 | 4 | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -77,6 +78,8 @@ Progress: [░░░░░░░░░░] 0/3 plans in Phase 165
 - [Phase 164]: Cross-profile isolation tested via mock-based two-profile fixture without TEST_DATABASE_URL
 - [Phase 165]: Profile API adds fixtureOnly and corpusSignalsNote server-side for PANEL-04 honesty without client evaluateClaimsMatrix
 - [Phase 165]: Rules API returns approved and candidate in parallel; rejected/deprecated excluded from panel read payload
+- [Phase 165]: Panel-level profile 403 gate blocks tabs before child panels render (PANEL-05)
+- [Phase 165]: calibration-status-copy uses neutral PT-BR labels; warning when fixtureOnly or zero real_customer
 
 ### Blockers/Concerns
 
@@ -94,6 +97,6 @@ Progress: [░░░░░░░░░░] 0/3 plans in Phase 165
 
 ## Session Continuity
 
-Last session: 2026-06-24T17:05:48.461Z
-Stopped at: Completed 165-01-PLAN.md
+Last session: 2026-06-24T17:10:48.854Z
+Stopped at: Completed 165-02-PLAN.md
 Resume file: None
