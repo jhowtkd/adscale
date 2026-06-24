@@ -13,6 +13,7 @@ type LearningProposal = {
   evidenceRefs: {
     corpusItemIds?: string[];
     stats: { count: number };
+    fixtureOnly?: boolean;
   };
 };
 
@@ -22,11 +23,16 @@ type GenerateResult = {
   proposals: LearningProposal[];
 };
 
+const learningProposalsQueryKey = (workspaceId?: string, clientProfileId?: string) =>
+  ["learning-proposals", workspaceId, clientProfileId] as const;
+
 async function fetchLearningProposals(
-  workspaceId?: string
+  workspaceId?: string,
+  clientProfileId?: string
 ): Promise<LearningProposal[] | null> {
   const params = new URLSearchParams({ status: "proposed" });
   if (workspaceId) params.set("workspaceId", workspaceId);
+  if (clientProfileId) params.set("clientProfileId", clientProfileId);
   const res = await apiFetch(`/api/admin/quality/learning/proposals?${params.toString()}`);
   if (res.status === 403) return null;
   if (!res.ok) throw new Error("failed");
@@ -36,18 +42,25 @@ async function fetchLearningProposals(
 
 export function LearningProposalsTab({
   workspaceId,
+  clientProfileId,
   onOpenCalibration,
+  variant = "workspace",
 }: {
   workspaceId?: string;
+  clientProfileId?: string;
   onOpenCalibration: () => void;
+  variant?: "workspace" | "brand";
 }) {
   const queryClient = useQueryClient();
   const [actionError, setActionError] = useState<string | null>(null);
   const [generateSummary, setGenerateSummary] = useState<string | null>(null);
+  const [fixtureAcknowledged, setFixtureAcknowledged] = useState<Record<string, boolean>>({});
+
+  const queryKey = learningProposalsQueryKey(workspaceId, clientProfileId);
 
   const proposalsQuery = useQuery({
-    queryKey: ["learning-proposals", workspaceId],
-    queryFn: () => fetchLearningProposals(workspaceId),
+    queryKey,
+    queryFn: () => fetchLearningProposals(workspaceId, clientProfileId),
     retry: false,
   });
 
@@ -69,7 +82,7 @@ export function LearningProposalsTab({
       setGenerateSummary(
         `Generated ${result.generated} client proposal(s). ${result.globalProposals} global proposal(s) saved to rubric calibration adjustments.`
       );
-      void queryClient.invalidateQueries({ queryKey: ["learning-proposals", workspaceId] });
+      void queryClient.invalidateQueries({ queryKey: ["learning-proposals"] });
       void queryClient.invalidateQueries({ queryKey: ["score-calibration"] });
     },
     onError: (error: Error) => {
@@ -79,10 +92,21 @@ export function LearningProposalsTab({
   });
 
   const acceptMutation = useMutation({
-    mutationFn: async (proposalId: string) => {
+    mutationFn: async ({
+      proposalId,
+      acknowledgeFixtureOnly,
+    }: {
+      proposalId: string;
+      acknowledgeFixtureOnly?: boolean;
+    }) => {
+      const init: RequestInit = { method: "POST" };
+      if (acknowledgeFixtureOnly) {
+        init.headers = { "content-type": "application/json" };
+        init.body = JSON.stringify({ acknowledgeFixtureOnly: true });
+      }
       const res = await apiFetch(
         `/api/admin/quality/learning/proposals/${proposalId}/accept`,
-        { method: "POST" }
+        init
       );
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -92,7 +116,7 @@ export function LearningProposalsTab({
     },
     onSuccess: () => {
       setActionError(null);
-      void queryClient.invalidateQueries({ queryKey: ["learning-proposals", workspaceId] });
+      void queryClient.invalidateQueries({ queryKey: ["learning-proposals"] });
     },
     onError: (error: Error) => setActionError(error.message),
   });
@@ -115,7 +139,7 @@ export function LearningProposalsTab({
     },
     onSuccess: () => {
       setActionError(null);
-      void queryClient.invalidateQueries({ queryKey: ["learning-proposals", workspaceId] });
+      void queryClient.invalidateQueries({ queryKey: ["learning-proposals"] });
     },
     onError: (error: Error) => setActionError(error.message),
   });
@@ -147,40 +171,52 @@ export function LearningProposalsTab({
   const proposals = proposalsQuery.data ?? [];
   const busyId =
     acceptMutation.isPending
-      ? acceptMutation.variables
+      ? acceptMutation.variables?.proposalId
       : rejectMutation.isPending
         ? rejectMutation.variables?.proposalId
         : null;
+
+  const isBrandVariant = variant === "brand";
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold text-[var(--text-primary)]">
-            Client learning proposals
+            {isBrandVariant
+              ? "Propostas de aprendizado desta marca"
+              : "Client learning proposals"}
           </h3>
           <p className="text-xs text-[var(--text-secondary)]">
-            Proposed calibration rules from evaluated corpus slices. Global cross-client proposals
-            appear under{" "}
-            <button
-              type="button"
-              onClick={onOpenCalibration}
-              className="font-medium text-[var(--text-primary)] underline underline-offset-2"
-            >
-              Calibration
-            </button>{" "}
-            (rubric calibration adjustments).
+            {isBrandVariant ? (
+              <>Propostas de calibração pendentes para esta marca.</>
+            ) : (
+              <>
+                Proposed calibration rules from evaluated corpus slices. Global cross-client
+                proposals appear under{" "}
+                <button
+                  type="button"
+                  onClick={onOpenCalibration}
+                  className="font-medium text-[var(--text-primary)] underline underline-offset-2"
+                >
+                  Calibration
+                </button>{" "}
+                (rubric calibration adjustments).
+              </>
+            )}
           </p>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={generateMutation.isPending}
-          onClick={() => generateMutation.mutate()}
-        >
-          {generateMutation.isPending ? "Generating…" : "Generate proposals"}
-        </Button>
+        {!isBrandVariant ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={generateMutation.isPending}
+            onClick={() => generateMutation.mutate()}
+          >
+            {generateMutation.isPending ? "Generating…" : "Generate proposals"}
+          </Button>
+        ) : null}
       </div>
 
       {generateSummary ? (
@@ -211,42 +247,71 @@ export function LearningProposalsTab({
               </tr>
             </thead>
             <tbody>
-              {proposals.map((proposal) => (
-                <tr key={proposal.id} className="border-t border-[var(--border-dim)]">
-                  <td className="max-w-[12rem] truncate px-2 py-1.5 font-mono text-[10px]">
-                    {proposal.sliceKey}
-                  </td>
-                  <td className="px-2 py-1.5">{proposal.primaryFailureReason}</td>
-                  <td className="max-w-md px-2 py-1.5 text-[var(--text-secondary)]">
-                    {proposal.rationale}
-                  </td>
-                  <td className="px-2 py-1.5 text-right tabular-nums">
-                    {proposal.evidenceRefs.stats.count}
-                  </td>
-                  <td className="px-2 py-1.5 text-right">
-                    <div className="inline-flex gap-1">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        disabled={busyId === proposal.id}
-                        onClick={() => acceptMutation.mutate(proposal.id)}
-                      >
-                        Accept
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        disabled={busyId === proposal.id}
-                        onClick={() => handleReject(proposal.id)}
-                      >
-                        Reject
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {proposals.map((proposal) => {
+                const isFixtureOnly = proposal.evidenceRefs.fixtureOnly === true;
+                const acked = fixtureAcknowledged[proposal.id] === true;
+                const acceptDisabled = busyId === proposal.id || (isFixtureOnly && !acked);
+
+                return (
+                  <tr key={proposal.id} className="border-t border-[var(--border-dim)]">
+                    <td className="max-w-[12rem] truncate px-2 py-1.5 font-mono text-[10px]">
+                      {proposal.sliceKey}
+                    </td>
+                    <td className="px-2 py-1.5">{proposal.primaryFailureReason}</td>
+                    <td className="max-w-md px-2 py-1.5 text-[var(--text-secondary)]">
+                      {proposal.rationale}
+                      {isFixtureOnly ? (
+                        <label className="mt-1.5 flex items-start gap-2 text-[10px] text-amber-200/90">
+                          <input
+                            type="checkbox"
+                            className="mt-0.5"
+                            checked={acked}
+                            onChange={(event) =>
+                              setFixtureAcknowledged((prev) => ({
+                                ...prev,
+                                [proposal.id]: event.target.checked,
+                              }))
+                            }
+                          />
+                          <span>
+                            Reconheço que esta proposta usa apenas evidência de fixture
+                          </span>
+                        </label>
+                      ) : null}
+                    </td>
+                    <td className="px-2 py-1.5 text-right tabular-nums">
+                      {proposal.evidenceRefs.stats.count}
+                    </td>
+                    <td className="px-2 py-1.5 text-right">
+                      <div className="inline-flex gap-1">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={acceptDisabled}
+                          onClick={() =>
+                            acceptMutation.mutate({
+                              proposalId: proposal.id,
+                              acknowledgeFixtureOnly: isFixtureOnly ? true : undefined,
+                            })
+                          }
+                        >
+                          Accept
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          disabled={busyId === proposal.id}
+                          onClick={() => handleReject(proposal.id)}
+                        >
+                          Reject
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
