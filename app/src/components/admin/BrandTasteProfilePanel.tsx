@@ -14,7 +14,7 @@ export type BrandProfileResponse = BrandTasteProfile & {
   corpusSignalsNote: string | null;
 };
 
-const SOURCE_LABELS: Record<CalibrationSourceLabel, string> = {
+export const SOURCE_LABELS: Record<CalibrationSourceLabel, string> = {
   synthetic_fixture: "Fixture sintético",
   operator_imported: "Importado pelo operador",
   real_customer: "Cliente real",

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { PerBrandEvidenceReport } from "@/server/brand-taste/calibration-evidence";
 import { EVIDENCE_LEVEL_LABELS } from "./calibration-status-copy";
@@ -111,8 +111,9 @@ describe("BrandEvidencePanel", () => {
     mockEvidence(fixtureOnlyReport);
     renderPanel();
 
-    const caveat = await screen.findByText(fixtureOnlyReport.fixtureCaveat!);
-    expect(caveat.closest("div")).toHaveClass("border-amber-500/30");
+    const banner = await screen.findByTestId("fixture-caveat-banner");
+    expect(banner).toHaveTextContent(fixtureOnlyReport.fixtureCaveat!);
+    expect(banner).toHaveClass("border-amber-500/30");
   });
 
   it("lists claimsBlocked including validated_against_customer_real for fixture-only", async () => {
@@ -120,8 +121,8 @@ describe("BrandEvidencePanel", () => {
     renderPanel();
 
     expect(await screen.findByText("Afirmações bloqueadas")).toBeInTheDocument();
-    expect(screen.getByText("Validado contra cliente real")).toBeInTheDocument();
-    expect(screen.queryByText("Validado contra cliente real", { selector: "li" })).toBeTruthy();
+    const blockedSection = screen.getByTestId("claims-blocked");
+    expect(within(blockedSection).getByText("Validado contra cliente real")).toBeInTheDocument();
   });
 
   it("does not show fixture caveat for mixed-source evidence_backed report", async () => {
@@ -132,7 +133,14 @@ describe("BrandEvidencePanel", () => {
     expect(
       screen.queryByText(fixtureOnlyReport.fixtureCaveat!)
     ).not.toBeInTheDocument();
-    expect(screen.queryByText("Validado contra cliente real")).not.toBeInTheDocument();
+
+    const allowedSection = screen.getByTestId("claims-allowed");
+    expect(within(allowedSection).getByText("Validado contra cliente real")).toBeInTheDocument();
+
+    const blockedSection = screen.getByTestId("claims-blocked");
+    expect(
+      within(blockedSection).queryByText("Validado contra cliente real")
+    ).not.toBeInTheDocument();
   });
 
   it("renders missingConditions as bullet list when non-empty", async () => {
@@ -150,7 +158,7 @@ describe("BrandEvidencePanel", () => {
     renderPanel();
 
     expect(
-      await screen.findByText(/restrito a proprietários da plataforma/i)
+      await screen.findByText(/restrita a proprietários da plataforma/i)
     ).toBeInTheDocument();
   });
 });
