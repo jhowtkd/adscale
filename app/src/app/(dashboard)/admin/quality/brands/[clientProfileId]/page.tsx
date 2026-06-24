@@ -1,23 +1,27 @@
 "use client";
 
-import { useParams } from "next/navigation";
-import { BrandVoiceInspectPanel } from "@/components/admin/BrandVoiceInspectPanel";
+import { useParams, useRouter } from "next/navigation";
+import { OwnerCalibrationPanel } from "@/components/admin/OwnerCalibrationPanel";
 import PageFrame from "@/components/layout/PageFrame";
 import PageHeader from "@/components/layout/PageHeader";
 import Panel from "@/components/layout/Panel";
 
-export default function BrandVoiceInspectPage() {
+export default function BrandCalibrationPage() {
   const params = useParams<{ clientProfileId: string }>();
+  const router = useRouter();
   const clientProfileId = params.clientProfileId;
 
   return (
     <PageFrame width="operational" className="min-w-0 space-y-6 py-8">
       <PageHeader
-        title="Voz da marca"
-        description="Inspeção read-only da configuração editorial Olhar por perfil de cliente."
+        title="Calibração da marca"
+        description="Governança de gosto por marca: perfil de evidência, voz editorial e regras aprovadas."
       />
       <Panel padding="md">
-        <BrandVoiceInspectPanel clientProfileId={clientProfileId} />
+        <OwnerCalibrationPanel
+          clientProfileId={clientProfileId}
+          onBrandChange={(id) => router.push(`/admin/quality/brands/${id}`)}
+        />
       </Panel>
     </PageFrame>
   );
