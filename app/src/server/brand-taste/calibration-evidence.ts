@@ -7,8 +7,47 @@ import type {
   ExportStatusValue,
   OlharVerdictValue,
 } from "@/server/ai/olhar/dual-verdict";
-import type { BrandTasteProfile, EvidenceLevel } from "./calibration-signal-types";
+import type {
+  BrandTasteProfile,
+  CalibrationSourceLabel,
+  EvidenceLevel,
+} from "./calibration-signal-types";
 import { buildBrandTasteProfile } from "./taste-profile";
+
+export const PER_BRAND_EVIDENCE_SCHEMA_VERSION = 1 as const;
+
+const SEED_CALIBRATION_MIN = 5;
+const ASSISTED_MIN = 10;
+const EVIDENCE_BACKED_REAL_MIN = 3;
+const AGREEMENT_COMPARABLE_MIN = 5;
+
+const FIXTURE_ONLY_CAVEAT_PT =
+  "Evidência apenas de fixture/operador — não validado com cliente real";
+
+const WITHHELD_CLAIM_KEYS = new Set([
+  "customer_real_validation",
+  "commercial_quality_claim",
+  "validated_against_customer_real",
+]);
+
+export interface PerBrandEvidenceReport {
+  schemaVersion: typeof PER_BRAND_EVIDENCE_SCHEMA_VERSION;
+  capturedAt: string;
+  clientProfileId: string;
+  workspaceId: string;
+  evidenceLevel: EvidenceLevel;
+  decisionCount: number;
+  comparableCount: number;
+  agreementRate: number | null;
+  sourceComposition: Record<CalibrationSourceLabel, number>;
+  fixtureOnly: boolean;
+  fixtureCaveat: string | null;
+  claimsAllowed: string[];
+  claimsBlocked: string[];
+  withheldClaims: string[];
+  missingConditions: string[];
+  caveats: string[];
+}
 
 export interface CalibrationEvidenceReport {
   capturedAt: string;
@@ -213,4 +252,106 @@ export function buildBrandProfilesFromSignals(
   }
 
   return profiles;
+}
+
+export function buildMissingConditions(input: {
+  profile: BrandTasteProfile;
+  agreement: { comparable: number; rate: number | null };
+  claims: { claimsAllowed: string[]; claimsBlocked: string[] };
+}): string[] {
+  const conditions: string[] = [];
+  const { profile, agreement } = input;
+
+  if (profile.decisionCount < SEED_CALIBRATION_MIN) {
+    conditions.push(
+      `Faltam ${SEED_CALIBRATION_MIN - profile.decisionCount} decisão(ões) de calibração para atingir calibração inicial (mínimo ${SEED_CALIBRATION_MIN}).`
+    );
+  }
+
+  if (
+    profile.decisionCount > 0 &&
+    profile.decisionCount < ASSISTED_MIN &&
+    profile.evidenceLevel !== "assisted" &&
+    profile.evidenceLevel !== "evidence_backed"
+  ) {
+    conditions.push(
+      `Faltam ${ASSISTED_MIN - profile.decisionCount} decisão(ões) para calibração assistida (mínimo ${ASSISTED_MIN}).`
+    );
+  }
+
+  if (profile.sourceComposition.real_customer < EVIDENCE_BACKED_REAL_MIN) {
+    const needed = EVIDENCE_BACKED_REAL_MIN - profile.sourceComposition.real_customer;
+    if (needed > 0 && profile.decisionCount > 0) {
+      conditions.push(
+        `Faltam ${needed} sinal(is) de cliente real para calibração com evidência (mínimo ${EVIDENCE_BACKED_REAL_MIN}).`
+      );
+    }
+  }
+
+  if (profile.sourceComposition.real_customer === 0 && profile.decisionCount > 0) {
+    conditions.push(
+      "Sinais apenas de fixture/operador — validação com cliente real bloqueada até amostra real."
+    );
+  }
+
+  if (agreement.comparable < AGREEMENT_COMPARABLE_MIN && profile.decisionCount > 0) {
+    conditions.push(
+      `Faltam ${AGREEMENT_COMPARABLE_MIN - agreement.comparable} decisão(ões) comparáveis para relatório de taxa de concordância (mínimo ${AGREEMENT_COMPARABLE_MIN}).`
+    );
+  }
+
+  return conditions;
+}
+
+export function buildPerBrandEvidenceReport(input: {
+  clientProfileId: string;
+  workspaceId: string;
+  signals: CalibrationSignal[];
+}): PerBrandEvidenceReport {
+  const profile = buildBrandTasteProfile({
+    clientProfileId: input.clientProfileId,
+    workspaceId: input.workspaceId,
+    signals: input.signals,
+  });
+
+  const agreement = computeAgreementRate(input.signals);
+  const fixtureOnly =
+    profile.sourceComposition.real_customer === 0 && profile.decisionCount > 0;
+
+  const claims = evaluateClaimsMatrix({
+    humanDecisionCount: profile.decisionCount,
+    comparableCount: agreement.comparable,
+    agreementRate: agreement.rate,
+    fixtureOnly,
+    evidenceLevel: profile.evidenceLevel,
+  });
+
+  const missingConditions = buildMissingConditions({
+    profile,
+    agreement,
+    claims,
+  });
+
+  const withheldClaims = claims.claimsBlocked.filter((key) =>
+    WITHHELD_CLAIM_KEYS.has(key)
+  );
+
+  return {
+    schemaVersion: PER_BRAND_EVIDENCE_SCHEMA_VERSION,
+    capturedAt: new Date().toISOString(),
+    clientProfileId: profile.clientProfileId,
+    workspaceId: profile.workspaceId,
+    evidenceLevel: profile.evidenceLevel,
+    decisionCount: profile.decisionCount,
+    comparableCount: agreement.comparable,
+    agreementRate: agreement.rate,
+    sourceComposition: profile.sourceComposition,
+    fixtureOnly,
+    fixtureCaveat: fixtureOnly ? FIXTURE_ONLY_CAVEAT_PT : null,
+    claimsAllowed: claims.claimsAllowed,
+    claimsBlocked: claims.claimsBlocked,
+    withheldClaims,
+    missingConditions,
+    caveats: profile.caveats,
+  };
 }

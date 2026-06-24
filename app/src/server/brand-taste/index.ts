@@ -72,7 +72,12 @@ export {
 
 export {
   buildCalibrationEvidenceReport,
+  buildPerBrandEvidenceReport,
+  buildMissingConditions,
   computeAgreementRate,
   evaluateClaimsMatrix,
   buildBrandProfilesFromSignals,
+  PER_BRAND_EVIDENCE_SCHEMA_VERSION,
 } from "./calibration-evidence";
+
+export type { PerBrandEvidenceReport } from "./calibration-evidence";
