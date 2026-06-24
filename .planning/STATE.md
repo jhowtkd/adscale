@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v13.2
 milestone_name: Calibração Multi-Marca
-status: executing
-stopped_at: Completed 165-03-PLAN.md
-last_updated: "2026-06-24T17:14:37.001Z"
+status: planning
+stopped_at: Phase 166 planned — ready to execute
+last_updated: "2026-06-24T18:00:00.000Z"
 last_activity: 2026-06-24
 progress:
   total_phases: 11
-  completed_phases: 9
-  total_plans: 22
+  completed_phases: 10
+  total_plans: 24
   completed_plans: 22
-  percent: 100
+  percent: 92
 ---
 
 # Project State
@@ -22,16 +22,16 @@ See: .planning/PROJECT.md (updated 2026-06-23)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** Phase 165 — Owner Calibration Panel
+**Current focus:** Phase 166 — Per-Brand Evidence Gate
 
 ## Current Position
 
-Phase: 165 of 167 (Owner Calibration Panel)
-Plan: 3 of 3 complete
+Phase: 166 of 167 (per-brand evidence gate)
+Plan: Not started
 Status: Ready to execute
 Last activity: 2026-06-24
 
-Progress: [░░░░░░░░░░] 0/3 plans in Phase 165
+Progress: [░░░░░░░░░░] 0/2 plans in Phase 166
 
 ## Performance Metrics
 
@@ -40,7 +40,9 @@ Progress: [░░░░░░░░░░] 0/3 plans in Phase 165
 | Phase | Plans | Status |
 |-------|-------|--------|
 | 163 | 3/3 | Complete |
-| 164 | 0/3 | Ready to execute |
+| 164 | 3/3 | Complete |
+| 165 | 3/3 | Complete |
+| 166 | 0/2 | Ready to execute |
 | Phase 162-per-brand-voice-configuration P02 | 12min | 2 tasks | 19 files |
 | Phase 163 P0 | 0 | 0 tasks | 6 files |
 | Phase 163-corpus-learning-proposals P01 | 5 | 3 tasks | 10 files |
@@ -83,7 +85,10 @@ Progress: [░░░░░░░░░░] 0/3 plans in Phase 165
 - [Phase 165]: calibration-status-copy uses neutral PT-BR labels; warning when fixtureOnly or zero real_customer
 - [Phase 165]: LearningProposalsTab clientProfileId optional — corpus Learning tab unchanged
 - [Phase 165]: Fixture-only proposal accept requires checkbox ack before POST acknowledgeFixtureOnly
-- [Phase 165]: Propostas tab resolves workspaceId from brand list query with profile fallback
+- [Phase 166]: Dedicated GET .../evidence API — do not bloat profile cache
+- [Phase 166]: Evidência tab on OwnerCalibrationPanel (separate from Profile)
+- [Phase 166]: buildPerBrandEvidenceReport scopes claims per clientProfileId (fixes multi-brand aggregate bug)
+- [Phase 166]: missingConditions PT-BR operator strings from taste-profile thresholds
 
 ### Blockers/Concerns
 
@@ -101,6 +106,6 @@ Progress: [░░░░░░░░░░] 0/3 plans in Phase 165
 
 ## Session Continuity
 
-Last session: 2026-06-24T17:14:36.998Z
-Stopped at: Completed 165-03-PLAN.md
+Last session: 2026-06-24T18:00:00.000Z
+Stopped at: Phase 166 planned — ready to execute
 Resume file: None
