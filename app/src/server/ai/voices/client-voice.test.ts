@@ -5,7 +5,7 @@ import {
 } from "./client-voice";
 import { CENBRAP_VOICE } from "./cenbrap";
 
-describe("resolveClientVoice", () => {
+describe("deprecated resolveClientVoice", () => {
   it("returns Cenbrap voice when client is CENBRAP", () => {
     expect(resolveClientVoice({ client: "CENBRAP" })).toBe(CENBRAP_VOICE);
   });

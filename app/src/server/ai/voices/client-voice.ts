@@ -1,12 +1,13 @@
 import type { ClientVoice } from "./cenbrap";
 import { CENBRAP_VOICE } from "./cenbrap";
-import type { OlharVoiceConfigPayload } from "../db/schema";
+import type { OlharVoiceConfigPayload } from "../../db/schema";
 import { buildClientVoicePromptLines } from "./voice-prompt-section";
 
 export type { ClientVoice } from "./cenbrap";
 export { CENBRAP_VOICE } from "./cenbrap";
 export { buildClientVoicePromptLines } from "./voice-prompt-section";
 
+/** @deprecated Use resolveVoiceForClientProfile with clientProfileId — string matching is not used in generation. */
 const REGISTERED_VOICES: readonly ClientVoice[] = [CENBRAP_VOICE];
 
 export interface OlharVoiceConfigRowInput {
@@ -91,6 +92,10 @@ function voiceMatchesInput(voice: ClientVoice, input: ClientVoiceLookupInput): b
   return false;
 }
 
+/**
+ * @deprecated Resolve voice by clientProfileId via resolveVoiceForClientProfile instead.
+ * Kept for legacy unit tests only — not used in generation-direction or prompt-builder.
+ */
 export function resolveClientVoice(
   input: ClientVoiceLookupInput = {}
 ): ClientVoice | null {

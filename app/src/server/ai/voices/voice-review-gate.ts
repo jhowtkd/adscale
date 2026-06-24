@@ -6,19 +6,27 @@ export type ClientVoiceReviewStatus =
 /**
  * Mirrors `.planning/phases/138-olhar-constitution-and-cenbrap-voice/138-VOICE-REVIEW.md`.
  * Update to `approved` after manual creative-director sign-off.
+ * @deprecated Legacy hardcoded status — generation path uses DB `reviewStatus`.
  */
 export const CENBRAP_VOICE_REVIEW_STATUS: ClientVoiceReviewStatus =
   "pending_review";
 
+export interface ClientVoiceInjectionOptions {
+  forceApproved?: boolean;
+  clientProfileId?: string;
+  workspaceId?: string;
+  reviewStatus?: ClientVoiceReviewStatus;
+}
+
 export function isClientVoiceInjectionAllowed(
-  voiceId: string,
-  options?: { forceApproved?: boolean }
+  _voiceId: string,
+  options?: ClientVoiceInjectionOptions
 ): boolean {
   if (options?.forceApproved) {
     return true;
   }
-  if (voiceId === "cenbrap") {
-    return CENBRAP_VOICE_REVIEW_STATUS === "approved";
+  if (options?.reviewStatus !== undefined) {
+    return options.reviewStatus === "approved";
   }
   return false;
 }
