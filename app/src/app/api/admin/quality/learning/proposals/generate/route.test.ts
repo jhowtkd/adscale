@@ -5,17 +5,8 @@ vi.mock("@/server/auth/platform-owner", () => ({
   requirePlatformOwner: vi.fn(),
 }));
 
-vi.mock("@/server/repositories/human-quality-corpus", () => ({
-  listEvaluatedCorpusWithEvaluations: vi.fn(),
-}));
-
-vi.mock("@/server/human-quality/learning/aggregate", () => ({
-  buildClientLearningProposals: vi.fn(),
-}));
-
-vi.mock("@/server/repositories/client-learning-proposal", () => ({
-  findActiveProposalBySlice: vi.fn(),
-  insertClientLearningProposal: vi.fn(),
+vi.mock("@/server/human-quality/learning/generate", () => ({
+  generateAndPersistClientLearningProposals: vi.fn(),
 }));
 
 vi.mock("@/server/human-quality/learning/cross-client", () => ({
@@ -27,13 +18,8 @@ vi.mock("next-intl/server", () => ({
 }));
 
 import { requirePlatformOwner } from "@/server/auth/platform-owner";
-import { buildClientLearningProposals } from "@/server/human-quality/learning/aggregate";
-import {
-  findActiveProposalBySlice,
-  insertClientLearningProposal,
-} from "@/server/repositories/client-learning-proposal";
 import { detectAndPersistCrossClientGlobalProposals } from "@/server/human-quality/learning/cross-client";
-import { listEvaluatedCorpusWithEvaluations } from "@/server/repositories/human-quality-corpus";
+import { generateAndPersistClientLearningProposals } from "@/server/human-quality/learning/generate";
 import { WorkspaceAuthError, AUTH_ERROR_CODES } from "@/server/auth/errors";
 
 const WORKSPACE_ID = "550e8400-e29b-41d4-a716-446655440002";
@@ -41,10 +27,7 @@ const CLIENT_PROFILE_ID = "550e8400-e29b-41d4-a716-446655440003";
 const PROPOSAL_ID = "550e8400-e29b-41d4-a716-446655440001";
 
 const mockRequireOwner = vi.mocked(requirePlatformOwner);
-const mockListEvaluated = vi.mocked(listEvaluatedCorpusWithEvaluations);
-const mockBuildProposals = vi.mocked(buildClientLearningProposals);
-const mockFindActive = vi.mocked(findActiveProposalBySlice);
-const mockInsertProposal = vi.mocked(insertClientLearningProposal);
+const mockGenerate = vi.mocked(generateAndPersistClientLearningProposals);
 const mockDetectCrossClient = vi.mocked(detectAndPersistCrossClientGlobalProposals);
 
 const builtProposal = {
@@ -83,10 +66,10 @@ describe("POST /api/admin/quality/learning/proposals/generate", () => {
     mockRequireOwner.mockResolvedValue({
       user: { id: "owner-1", email: "owner@test.com" },
     });
-    mockListEvaluated.mockResolvedValue([]);
-    mockBuildProposals.mockReturnValue([builtProposal]);
-    mockFindActive.mockResolvedValue(null);
-    mockInsertProposal.mockResolvedValue(insertedProposal);
+    mockGenerate.mockResolvedValue({
+      generated: 1,
+      proposals: [insertedProposal],
+    });
     mockDetectCrossClient.mockResolvedValue([]);
   });
 
@@ -108,21 +91,14 @@ describe("POST /api/admin/quality/learning/proposals/generate", () => {
     expect(body.proposals).toHaveLength(1);
     expect(body.globalProposals).toBe(0);
     expect(mockDetectCrossClient).toHaveBeenCalledOnce();
-    expect(mockListEvaluated).toHaveBeenCalledWith({
+    expect(mockGenerate).toHaveBeenCalledWith({
       workspaceId: WORKSPACE_ID,
       cohort: "post_learning",
     });
-    expect(mockBuildProposals).toHaveBeenCalledOnce();
-    expect(mockFindActive).toHaveBeenCalledWith(
-      WORKSPACE_ID,
-      CLIENT_PROFILE_ID,
-      builtProposal.sliceKey
-    );
-    expect(mockInsertProposal).toHaveBeenCalledWith(builtProposal);
   });
 
-  it("skips slices that already have an active proposal", async () => {
-    mockFindActive.mockResolvedValue(insertedProposal);
+  it("returns empty proposals when generate finds no new slices", async () => {
+    mockGenerate.mockResolvedValue({ generated: 0, proposals: [] });
 
     const res = await POST(
       new Request("http://localhost/api/admin/quality/learning/proposals/generate", {
@@ -136,8 +112,7 @@ describe("POST /api/admin/quality/learning/proposals/generate", () => {
     const body = await res.json();
     expect(body.generated).toBe(0);
     expect(body.proposals).toEqual([]);
-    expect(mockInsertProposal).not.toHaveBeenCalled();
-    expect(mockListEvaluated).toHaveBeenCalledWith({});
+    expect(mockGenerate).toHaveBeenCalledWith({});
   });
 
   it("returns 400 for invalid payload", async () => {
@@ -150,7 +125,7 @@ describe("POST /api/admin/quality/learning/proposals/generate", () => {
     );
 
     expect(res.status).toBe(400);
-    expect(mockListEvaluated).not.toHaveBeenCalled();
+    expect(mockGenerate).not.toHaveBeenCalled();
   });
 
   it("returns 401 when not authenticated", async () => {
@@ -167,7 +142,7 @@ describe("POST /api/admin/quality/learning/proposals/generate", () => {
     );
 
     expect(res.status).toBe(401);
-    expect(mockListEvaluated).not.toHaveBeenCalled();
+    expect(mockGenerate).not.toHaveBeenCalled();
   });
 
   it("returns 403 when not platform owner", async () => {
@@ -184,6 +159,6 @@ describe("POST /api/admin/quality/learning/proposals/generate", () => {
     );
 
     expect(res.status).toBe(403);
-    expect(mockListEvaluated).not.toHaveBeenCalled();
+    expect(mockGenerate).not.toHaveBeenCalled();
   });
 });

@@ -1,10 +1,11 @@
 ---
 phase: 163
 slug: corpus-learning-proposals
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: automated_complete
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-06-24
+updated: 2026-06-24
 ---
 
 # Phase 163 — Validation Strategy
@@ -39,13 +40,13 @@ created: 2026-06-24
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 163-01-01 | 01 | 1 | LEARN-02, LEARN-05 | unit | repository cooldown + approved-rule helpers | ❌ W0 | ⬜ pending |
-| 163-01-02 | 01 | 1 | LEARN-01, LEARN-04 | unit | `aggregate.test.ts` + `generate.test.ts` extensions | ✅ | ⬜ pending |
-| 163-02-01 | 02 | 2 | LEARN-06 | unit | `factual-alerts.test.ts` | ❌ W0 | ⬜ pending |
-| 163-02-02 | 02 | 2 | LEARN-04 | unit | `proposals.test.ts` fixture ack | ✅ | ⬜ pending |
-| 163-02-03 | 02 | 2 | LEARN-06 | integration | factual-alerts route test | ❌ W0 | ⬜ pending |
-| 163-03-01 | 03 | 3 | LEARN-01..06 | unit | `corpus-learning-loop.test.ts` vertical slice | ❌ W0 | ⬜ pending |
-| 163-03-02 | 03 | 3 | LEARN-03 | integration | proposals route filters (existing) | ✅ | ⬜ pending |
+| 163-01-01 | 01 | 1 | LEARN-02, LEARN-05 | unit | repository cooldown + approved-rule helpers | ✅ | ✅ green |
+| 163-01-02 | 01 | 1 | LEARN-01, LEARN-04 | unit | `aggregate.test.ts` + `generate.test.ts` extensions | ✅ | ✅ green |
+| 163-02-01 | 02 | 2 | LEARN-06 | unit | `factual-alerts.test.ts` | ✅ | ✅ green |
+| 163-02-02 | 02 | 2 | LEARN-04 | unit | `proposals.test.ts` fixture ack | ✅ | ✅ green |
+| 163-02-03 | 02 | 2 | LEARN-06 | integration | factual-alerts route test | ✅ | ✅ green |
+| 163-03-01 | 03 | 3 | LEARN-01..06 | unit | `corpus-learning-loop.test.ts` vertical slice | ✅ | ✅ green |
+| 163-03-02 | 03 | 3 | LEARN-03 | integration | proposals route filters (existing) | ✅ | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -53,10 +54,10 @@ created: 2026-06-24
 
 ## Wave 0 Requirements
 
-- [ ] `app/tests/unit/human-quality/learning/client-learning-proposal-repository.test.ts` — cooldown query + approved-rule lookup
-- [ ] `app/tests/unit/human-quality/learning/factual-alerts.test.ts` — factual_issue slice detection
-- [ ] `app/src/app/api/admin/quality/learning/factual-alerts/route.test.ts` — owner auth + payload shape
-- [ ] `app/tests/unit/human-quality/learning/corpus-learning-loop.test.ts` — eval → propose → accept → rule chain
+- [x] `app/tests/unit/human-quality/learning/client-learning-proposal-repository.test.ts` — cooldown query + approved-rule lookup
+- [x] `app/tests/unit/human-quality/learning/factual-alerts.test.ts` — factual_issue slice detection
+- [x] `app/src/app/api/admin/quality/learning/factual-alerts/route.test.ts` — owner auth + payload shape
+- [x] `app/tests/unit/human-quality/learning/corpus-learning-loop.test.ts` — eval → propose → accept → rule chain
 
 ---
 
@@ -64,9 +65,9 @@ created: 2026-06-24
 
 | Requirement | Automated Proof |
 |-------------|-----------------|
-| LEARN-01 | aggregate + generate tests: thresholds, artifactIds, fixtureOnly |
+| LEARN-01 | aggregate + generate tests: thresholds, artifactIds, fixtureOnly; vertical slice |
 | LEARN-02 | dedupe + approved-rule skip + DB partial unique index (existing) |
-| LEARN-03 | `route.test.ts` GET filters (existing) + vertical slice list step |
+| LEARN-03 | `route.test.ts` GET filters + vertical slice list step |
 | LEARN-04 | accept creates `corpus_quality` rule; fixture ack enforced |
 | LEARN-05 | reject cooldown persisted; generate skips slice in cooldown |
 | LEARN-06 | factual alerts API; aggregate never proposes `factual_issue` |
@@ -84,11 +85,11 @@ created: 2026-06-24
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 120s
-- [ ] `nyquist_compliant: true` set in frontmatter after Wave 0
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 120s
+- [x] `nyquist_compliant: true` set in frontmatter after Wave 0
 
-**Approval:** pending
+**Approval:** automated complete — staging smoke pending (163-03 Task 3)
