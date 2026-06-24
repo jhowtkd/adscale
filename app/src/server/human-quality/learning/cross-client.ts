@@ -79,7 +79,21 @@ export async function detectAndPersistCrossClientGlobalProposals(): Promise<
     }
 
     const proposals = proposeAdjustments(comparisons);
-    const persisted = await persistProposedAdjustments(proposals);
+    const fixtureOnly =
+      filteredRows.length > 0 &&
+      filteredRows.every((row) => row.sourceLabel === "synthetic_fixture");
+    const supportingClientRuleIds = rules.map((rule) => rule.id);
+    const enrichedProposals = proposals.map((proposal) => ({
+      ...proposal,
+      evidenceRefs: {
+        ...proposal.evidenceRefs,
+        fixtureOnly,
+        supportingClientRuleIds,
+        primaryFailureReason: failureReason,
+        promotionSource: "cross_client" as const,
+      },
+    }));
+    const persisted = await persistProposedAdjustments(enrichedProposals);
     persistedAdjustments.push(...persisted);
   }
 

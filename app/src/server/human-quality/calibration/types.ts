@@ -38,6 +38,10 @@ export interface CalibrationAdjustmentEvidence {
     meanAbsError: number | null;
   };
   itemRefs: CalibrationAdjustmentEvidenceItemRef[];
+  fixtureOnly?: boolean;
+  supportingClientRuleIds?: string[];
+  primaryFailureReason?: string;
+  promotionSource?: "cross_client";
 }
 
 export interface ClientLearningProposalEvidence {
