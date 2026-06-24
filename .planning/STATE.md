@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v13.2
 milestone_name: Calibração Multi-Marca
 status: executing
-stopped_at: Completed 163-03-PLAN.md
-last_updated: "2026-06-24T12:00:08.802Z"
+stopped_at: Phase 164 planning complete — ready to execute
+last_updated: "2026-06-24T12:30:00.000Z"
 last_activity: 2026-06-24
 progress:
   total_phases: 11
@@ -22,16 +22,16 @@ See: .planning/PROJECT.md (updated 2026-06-23)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** Phase 163 — Corpus Learning Proposals
+**Current focus:** Phase 164 — Prompt Rule Application
 
 ## Current Position
 
-Phase: 163 of 167 (Corpus Learning Proposals)
-Plan: 3 of 3 complete
+Phase: 164 of 167 (Prompt Rule Application)
+Plan: 0 of 3 complete
 Status: Ready to execute
 Last activity: 2026-06-24
 
-Progress: [░░░░░░░░░░] 0/3 plans in Phase 163
+Progress: [░░░░░░░░░░] 0/3 plans in Phase 164
 
 ## Performance Metrics
 
@@ -39,8 +39,8 @@ Progress: [░░░░░░░░░░] 0/3 plans in Phase 163
 
 | Phase | Plans | Status |
 |-------|-------|--------|
-| 162 | 3/3 | Complete |
-| 163 | 0/3 | Ready to execute |
+| 163 | 3/3 | Complete |
+| 164 | 0/3 | Ready to execute |
 | Phase 162-per-brand-voice-configuration P02 | 12min | 2 tasks | 19 files |
 | Phase 163 P0 | 0 | 0 tasks | 6 files |
 | Phase 163-corpus-learning-proposals P01 | 5 | 3 tasks | 10 files |

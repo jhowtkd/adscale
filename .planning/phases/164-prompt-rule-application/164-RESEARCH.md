@@ -437,16 +437,13 @@ generationLog = finalizeGenerationLog(generationLog, {
 | A3 | `selectApplicableRules` empty for `uncalibrated` is intended for generation | Pattern 1 | Brand with approved rules but no signals gets no taste overlay |
 | A4 | Auto-retry prompt rebuild must receive same calibration context | Architecture | Retry generation misses rules if only primary path loads them |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should cap enforcement run on accept only, load only, or both?**
-   - What we know: Design says deprecate on overflow; load already slices.
-   - What's unclear: Whether accept-time alone is sufficient for consistency.
-   - Recommendation: Both — accept immediately deprecates; load acts as safety net for legacy overflow.
+   - **RESOLVED:** Both — accept immediately deprecates via `enforceCorpusQualityRuleCap` (164-02); load acts as safety net in `loadPromptCalibrationContext` (164-01/02).
 
 2. **Should auto-retry `finalizeGenerationLog` also record rule IDs?**
-   - What we know: Primary path sets `appliedCorpusRuleIds`; retry finalize sets `autoRetryAttempted` only.
-   - Recommendation: Yes — merge rule IDs on retry finalize for consistent provenance.
+   - **RESOLVED:** Yes — 164-01 Task 3 merges `appliedBrandRuleIds` and `appliedCorpusRuleIds` on retry finalize for consistent provenance.
 
 ## Environment Availability
 
