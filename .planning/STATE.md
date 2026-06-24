@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v13.2
 milestone_name: Calibração Multi-Marca
-status: planning
-stopped_at: Phase 166 planned — ready to execute
-last_updated: "2026-06-24T18:00:00.000Z"
+status: executing
+stopped_at: Completed 166-01-PLAN.md
+last_updated: "2026-06-24T17:38:00.423Z"
 last_activity: 2026-06-24
 progress:
   total_phases: 11
-  completed_phases: 10
+  completed_phases: 9
   total_plans: 24
-  completed_plans: 22
-  percent: 92
+  completed_plans: 23
+  percent: 96
 ---
 
 # Project State
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-06-23)
 ## Current Position
 
 Phase: 166 of 167 (per-brand evidence gate)
-Plan: Not started
-Status: Ready to execute
+Plan: 2 of 2
+Status: Ready to execute 166-02
 Last activity: 2026-06-24
 
-Progress: [░░░░░░░░░░] 0/2 plans in Phase 166
+Progress: [█████░░░░░] 1/2 plans in Phase 166
 
 ## Performance Metrics
 
@@ -42,7 +42,7 @@ Progress: [░░░░░░░░░░] 0/2 plans in Phase 166
 | 163 | 3/3 | Complete |
 | 164 | 3/3 | Complete |
 | 165 | 3/3 | Complete |
-| 166 | 0/2 | Ready to execute |
+| 166 | 1/2 | In progress |
 | Phase 162-per-brand-voice-configuration P02 | 12min | 2 tasks | 19 files |
 | Phase 163 P0 | 0 | 0 tasks | 6 files |
 | Phase 163-corpus-learning-proposals P01 | 5 | 3 tasks | 10 files |
@@ -54,6 +54,7 @@ Progress: [░░░░░░░░░░] 0/2 plans in Phase 166
 | Phase 165-owner-calibration-panel P01 | 6 | 3 tasks | 6 files |
 | Phase 165-owner-calibration-panel P02 | 4 | 3 tasks | 9 files |
 | Phase 165-owner-calibration-panel P03 | 8 | 3 tasks | 5 files |
+| Phase 166-per-brand-evidence-gate P01 | 3 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -89,6 +90,8 @@ Progress: [░░░░░░░░░░] 0/2 plans in Phase 166
 - [Phase 166]: Evidência tab on OwnerCalibrationPanel (separate from Profile)
 - [Phase 166]: buildPerBrandEvidenceReport scopes claims per clientProfileId (fixes multi-brand aggregate bug)
 - [Phase 166]: missingConditions PT-BR operator strings from taste-profile thresholds
+- [Phase 166]: FIXTURE_ONLY_CAVEAT_PT duplicated server-side to match calibration-status-copy
+- [Phase 166]: withheldClaims filters claimsBlocked to customer-real and commercial quality keys
 
 ### Blockers/Concerns
 
@@ -106,6 +109,6 @@ Progress: [░░░░░░░░░░] 0/2 plans in Phase 166
 
 ## Session Continuity
 
-Last session: 2026-06-24T18:00:00.000Z
-Stopped at: Phase 166 planned — ready to execute
+Last session: 2026-06-24T17:38:00.418Z
+Stopped at: Completed 166-01-PLAN.md
 Resume file: None

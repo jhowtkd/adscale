@@ -57,7 +57,7 @@
 | 163 | Corpus Learning Proposals | 3/3 | Complete   | 2026-06-24 |
 | 164 | Prompt Rule Application | 3/3 | Complete    | 2026-06-24 |
 | 165 | Owner Calibration Panel | 3/3 | Complete    | 2026-06-24 |
-| 166 | Per-Brand Evidence Gate | 0/2 | Ready to execute | - |
+| 166 | Per-Brand Evidence Gate | 1/2 | In Progress|  |
 | 167 | Global Cross-Client Promotion | GLOBAL-01..05 | Not started | - |
 
 ## Phase Details
@@ -288,10 +288,10 @@ Plans:
   4. Fixture-only brands always carry an explicit caveat in profile and panel UI.
   5. Tests cover evidence withholding for fixture-only vs mixed-source brands.
 
-**Plans:** 2 plans in 2 waves
+**Plans:** 1/2 plans executed
 
 Plans:
-- [ ] 166-01-PLAN.md — Per-brand evidence builder + owner evidence API (EVIDENCE-01, EVIDENCE-02, EVIDENCE-03, EVIDENCE-05 server)
+- [x] 166-01-PLAN.md — Per-brand evidence builder + owner evidence API (EVIDENCE-01, EVIDENCE-02, EVIDENCE-03, EVIDENCE-05 server)
 - [ ] 166-02-PLAN.md — Evidência tab UI + fixture caveats (EVIDENCE-04, EVIDENCE-05 UI)
 
 **UI hint**: yes

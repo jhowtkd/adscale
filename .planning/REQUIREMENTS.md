@@ -51,11 +51,11 @@ Generalizar calibração de gosto de marca para qualquer `clientProfile`: substi
 
 ### Per-Brand Evidence Gate (EVIDENCE)
 
-- [ ] **EVIDENCE-01**: Each brand profile exposes evidence level (`uncalibrated`, `seed_calibrated`, `assisted`, `evidence_backed`) from decision/evaluation count and source composition.
-- [ ] **EVIDENCE-02**: Per-brand claims matrix blocks customer-real and quality-improvement claims when sample or source gates fail.
-- [ ] **EVIDENCE-03**: Evidence report names exact missing conditions per `clientProfileId` when status is insufficient.
+- [x] **EVIDENCE-01**: Each brand profile exposes evidence level (`uncalibrated`, `seed_calibrated`, `assisted`, `evidence_backed`) from decision/evaluation count and source composition.
+- [x] **EVIDENCE-02**: Per-brand claims matrix blocks customer-real and quality-improvement claims when sample or source gates fail.
+- [x] **EVIDENCE-03**: Evidence report names exact missing conditions per `clientProfileId` when status is insufficient.
 - [ ] **EVIDENCE-04**: Fixture-only brands always carry explicit caveat in profile and panel UI.
-- [ ] **EVIDENCE-05**: Tests cover evidence withholding for fixture-only vs mixed-source brands.
+- [x] **EVIDENCE-05**: Tests cover evidence withholding for fixture-only vs mixed-source brands.
 
 ### Global Cross-Client Promotion (GLOBAL)
 
@@ -117,11 +117,11 @@ Generalizar calibração de gosto de marca para qualquer `clientProfile`: substi
 | PANEL-03 | Phase 165 (165-03) | Planned |
 | PANEL-04 | Phase 165 (165-02, 165-03) | Planned |
 | PANEL-05 | Phase 165 (165-01, 165-02) | Planned |
-| EVIDENCE-01 | Phase 166 | Pending |
-| EVIDENCE-02 | Phase 166 | Pending |
-| EVIDENCE-03 | Phase 166 | Pending |
+| EVIDENCE-01 | Phase 166 | Complete |
+| EVIDENCE-02 | Phase 166 | Complete |
+| EVIDENCE-03 | Phase 166 | Complete |
 | EVIDENCE-04 | Phase 166 | Pending |
-| EVIDENCE-05 | Phase 166 | Pending |
+| EVIDENCE-05 | Phase 166 | Complete |
 | GLOBAL-01 | Phase 167 | Pending |
 | GLOBAL-02 | Phase 167 | Pending |
 | GLOBAL-03 | Phase 167 | Pending |
