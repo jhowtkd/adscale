@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v13.2
 milestone_name: Calibração Multi-Marca
-status: executing
-stopped_at: Completed 166-01-PLAN.md
-last_updated: "2026-06-24T17:38:00.423Z"
+status: verifying
+stopped_at: Completed 166-02-PLAN.md
+last_updated: "2026-06-24T17:42:28.437Z"
 last_activity: 2026-06-24
 progress:
   total_phases: 11
-  completed_phases: 9
+  completed_phases: 10
   total_plans: 24
-  completed_plans: 23
-  percent: 96
+  completed_plans: 24
+  percent: 100
 ---
 
 # Project State
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-06-23)
 
 Phase: 166 of 167 (per-brand evidence gate)
 Plan: 2 of 2
-Status: Ready to execute 166-02
+Status: Phase complete — ready for verification
 Last activity: 2026-06-24
 
 Progress: [█████░░░░░] 1/2 plans in Phase 166
@@ -55,6 +55,7 @@ Progress: [█████░░░░░] 1/2 plans in Phase 166
 | Phase 165-owner-calibration-panel P02 | 4 | 3 tasks | 9 files |
 | Phase 165-owner-calibration-panel P03 | 8 | 3 tasks | 5 files |
 | Phase 166-per-brand-evidence-gate P01 | 3 | 2 tasks | 5 files |
+| Phase 166-per-brand-evidence-gate P02 | 8 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -92,6 +93,8 @@ Progress: [█████░░░░░] 1/2 plans in Phase 166
 - [Phase 166]: missingConditions PT-BR operator strings from taste-profile thresholds
 - [Phase 166]: FIXTURE_ONLY_CAVEAT_PT duplicated server-side to match calibration-status-copy
 - [Phase 166]: withheldClaims filters claimsBlocked to customer-real and commercial quality keys
+- [Phase 166]: Dedicated fixture-caveat-banner in Evidência tab separate from status row bannerText
+- [Phase 166]: Exported SOURCE_LABELS from BrandTasteProfilePanel for evidence source table reuse
 
 ### Blockers/Concerns
 
@@ -109,6 +112,6 @@ Progress: [█████░░░░░] 1/2 plans in Phase 166
 
 ## Session Continuity
 
-Last session: 2026-06-24T17:38:00.418Z
-Stopped at: Completed 166-01-PLAN.md
+Last session: 2026-06-24T17:42:28.433Z
+Stopped at: Completed 166-02-PLAN.md
 Resume file: None

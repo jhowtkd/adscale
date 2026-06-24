@@ -48,7 +48,7 @@
 - [x] **Phase 163: Corpus Learning Proposals** — aggregate evaluations into deduped client proposals with owner accept/reject (completed 2026-06-24)
 - [x] **Phase 164: Prompt Rule Application** — inject approved rules per profile with provenance log and isolation cap (completed 2026-06-24)
 - [x] **Phase 165: Owner Calibration Panel** — per-brand profile, rules, proposals and owner-only access (completed 2026-06-24)
-- [ ] **Phase 166: Per-Brand Evidence Gate** — evidence levels, claims matrix and fixture caveats per marca
+- [x] **Phase 166: Per-Brand Evidence Gate** — evidence levels, claims matrix and fixture caveats per marca (completed 2026-06-24)
 - [ ] **Phase 167: Global Cross-Client Promotion** — multi-brand rubric adjustment proposals without prompt leakage
 
 | # | Phase | Requirements | Status | Completed |
@@ -57,7 +57,7 @@
 | 163 | Corpus Learning Proposals | 3/3 | Complete   | 2026-06-24 |
 | 164 | Prompt Rule Application | 3/3 | Complete    | 2026-06-24 |
 | 165 | Owner Calibration Panel | 3/3 | Complete    | 2026-06-24 |
-| 166 | Per-Brand Evidence Gate | 1/2 | In Progress|  |
+| 166 | Per-Brand Evidence Gate | 2/2 | Complete   | 2026-06-24 |
 | 167 | Global Cross-Client Promotion | GLOBAL-01..05 | Not started | - |
 
 ## Phase Details
@@ -288,11 +288,11 @@ Plans:
   4. Fixture-only brands always carry an explicit caveat in profile and panel UI.
   5. Tests cover evidence withholding for fixture-only vs mixed-source brands.
 
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 166-01-PLAN.md — Per-brand evidence builder + owner evidence API (EVIDENCE-01, EVIDENCE-02, EVIDENCE-03, EVIDENCE-05 server)
-- [ ] 166-02-PLAN.md — Evidência tab UI + fixture caveats (EVIDENCE-04, EVIDENCE-05 UI)
+- [x] 166-02-PLAN.md — Evidência tab UI + fixture caveats (EVIDENCE-04, EVIDENCE-05 UI)
 
 **UI hint**: yes
 
