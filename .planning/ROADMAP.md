@@ -238,7 +238,12 @@ Plans:
   4. Active `corpus_quality` rules per `clientProfileId` are capped (default 10) with oldest deprecated on overflow.
   5. Rules from one `clientProfileId` never appear in another profile's prompt (integration-tested).
 
-**Plans:** TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 164-01-PLAN.md — Brand-taste loader, prompt section order, generation log provenance (APPLY-01, APPLY-02, APPLY-03)
+- [ ] 164-02-PLAN.md — Corpus quality cap with DB deprecation on accept and load (APPLY-04)
+- [ ] 164-03-PLAN.md — Cross-profile rule isolation test (APPLY-05)
 
 ---
 

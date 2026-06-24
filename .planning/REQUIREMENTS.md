@@ -107,11 +107,11 @@ Generalizar calibração de gosto de marca para qualquer `clientProfile`: substi
 | LEARN-04 | Phase 163 | Complete |
 | LEARN-05 | Phase 163 | Complete |
 | LEARN-06 | Phase 163 | Complete |
-| APPLY-01 | Phase 164 | Pending |
-| APPLY-02 | Phase 164 | Pending |
-| APPLY-03 | Phase 164 | Pending |
-| APPLY-04 | Phase 164 | Pending |
-| APPLY-05 | Phase 164 | Pending |
+| APPLY-01 | Phase 164 (164-01) | Pending |
+| APPLY-02 | Phase 164 (164-01) | Pending |
+| APPLY-03 | Phase 164 (164-01) | Pending |
+| APPLY-04 | Phase 164 (164-02) | Pending |
+| APPLY-05 | Phase 164 (164-03) | Pending |
 | PANEL-01 | Phase 165 | Pending |
 | PANEL-02 | Phase 165 | Pending |
 | PANEL-03 | Phase 165 | Pending |
