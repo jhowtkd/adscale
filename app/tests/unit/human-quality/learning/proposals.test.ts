@@ -146,6 +146,66 @@ describe("client learning proposal accept/reject", () => {
     ).rejects.toMatchObject({ code: "insufficient_evidence" });
   });
 
+  it("acceptProposal rejects fixture-only proposals without acknowledgment", async () => {
+    mockGetProposal.mockResolvedValue({
+      ...proposedProposal,
+      evidenceRefs: {
+        ...baseEvidence,
+        fixtureOnly: true,
+      },
+    } as never);
+
+    await expect(
+      acceptClientLearningProposal({
+        proposalId: "p1",
+        reviewerUserId: "user-1",
+      })
+    ).rejects.toMatchObject({ code: "fixture_ack_required" });
+
+    expect(mockInsertRule).not.toHaveBeenCalled();
+  });
+
+  it("acceptProposal proceeds for fixture-only when acknowledged", async () => {
+    mockGetProposal.mockResolvedValue({
+      ...proposedProposal,
+      evidenceRefs: {
+        ...baseEvidence,
+        fixtureOnly: true,
+      },
+    } as never);
+    mockInsertRule.mockResolvedValue({
+      id: "rule-1",
+      workspaceId: "ws-1",
+      clientProfileId: "profile-1",
+      category: "corpus_quality",
+      status: "approved",
+      rationale: "visual_overload: Máx. 3 zonas de informação; um hook dominante",
+      supportingSignalIds: ["artifact-1", "artifact-2"],
+      confidence: "medium",
+      caveats: ["fixture_only_corpus"],
+      mismatchBucket: null,
+      version: 1,
+      approvedAt: new Date("2026-06-17T12:00:00Z"),
+      approvedBy: "user-1",
+      createdAt: new Date("2026-06-17"),
+      updatedAt: new Date("2026-06-17"),
+    } as never);
+
+    const result = await acceptClientLearningProposal({
+      proposalId: "p1",
+      reviewerUserId: "user-1",
+      acknowledgeFixtureOnly: true,
+    });
+
+    expect(mockInsertRule).toHaveBeenCalledWith(
+      expect.objectContaining({
+        caveats: ["fixture_only_corpus"],
+        supportingSignalIds: ["artifact-1", "artifact-2"],
+      })
+    );
+    expect(result.rule.caveats).toEqual(["fixture_only_corpus"]);
+  });
+
   it("rejectProposal marks proposal rejected with 30-day cooldown", async () => {
     const rejectedAt = new Date("2026-06-17T12:00:00Z");
     const cooldownUntil = new Date("2026-07-17T12:00:00Z");

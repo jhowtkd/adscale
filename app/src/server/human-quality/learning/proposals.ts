@@ -14,7 +14,8 @@ export class ClientLearningProposalError extends Error {
     public readonly code:
       | "not_proposed"
       | "insufficient_evidence"
-      | "missing_reason",
+      | "missing_reason"
+      | "fixture_ack_required",
     message: string
   ) {
     super(message);
@@ -36,6 +37,7 @@ function assertProposalIsProposed(
 export async function acceptClientLearningProposal(input: {
   proposalId: string;
   reviewerUserId: string;
+  acknowledgeFixtureOnly?: boolean;
 }): Promise<{ proposal: ClientLearningProposal; rule: CalibrationRule }> {
   const proposal = await getClientLearningProposalById(input.proposalId);
   assertProposalIsProposed(proposal);
@@ -47,6 +49,16 @@ export async function acceptClientLearningProposal(input: {
     );
   }
 
+  if (proposal.evidenceRefs.fixtureOnly === true && !input.acknowledgeFixtureOnly) {
+    throw new ClientLearningProposalError(
+      "fixture_ack_required",
+      "Fixture-only corpus evidence requires explicit acknowledgment"
+    );
+  }
+
+  const caveats =
+    proposal.evidenceRefs.fixtureOnly === true ? ["fixture_only_corpus"] : [];
+
   const rule = await insertCalibrationRule({
     workspaceId: proposal.workspaceId,
     clientProfileId: proposal.clientProfileId,
@@ -55,7 +67,7 @@ export async function acceptClientLearningProposal(input: {
     rationale: `${proposal.primaryFailureReason}: ${proposal.rationale}`,
     supportingSignalIds: proposal.evidenceRefs.artifactIds ?? [],
     confidence: "medium",
-    caveats: [],
+    caveats,
     mismatchBucket: null,
     version: 1,
     approvedAt: new Date(),

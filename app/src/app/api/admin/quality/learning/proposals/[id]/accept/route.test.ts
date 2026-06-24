@@ -9,7 +9,11 @@ vi.mock("@/server/human-quality/learning/proposals", () => ({
   acceptClientLearningProposal: vi.fn(),
   ClientLearningProposalError: class ClientLearningProposalError extends Error {
     constructor(
-      public readonly code: "not_proposed" | "insufficient_evidence" | "missing_reason",
+      public readonly code:
+        | "not_proposed"
+        | "insufficient_evidence"
+        | "missing_reason"
+        | "fixture_ack_required",
       message: string
     ) {
       super(message);
@@ -107,6 +111,28 @@ describe("POST /api/admin/quality/learning/proposals/[id]/accept", () => {
     expect(mockAccept).toHaveBeenCalledWith({
       proposalId: PROPOSAL_ID,
       reviewerUserId: "owner-1",
+      acknowledgeFixtureOnly: false,
+    });
+  });
+
+  it("passes acknowledgeFixtureOnly from request body", async () => {
+    const res = await POST(
+      new Request(
+        `http://localhost/api/admin/quality/learning/proposals/${PROPOSAL_ID}/accept`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ acknowledgeFixtureOnly: true }),
+        }
+      ),
+      { params: Promise.resolve({ id: PROPOSAL_ID }) }
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockAccept).toHaveBeenCalledWith({
+      proposalId: PROPOSAL_ID,
+      reviewerUserId: "owner-1",
+      acknowledgeFixtureOnly: true,
     });
   });
 
@@ -129,6 +155,25 @@ describe("POST /api/admin/quality/learning/proposals/[id]/accept", () => {
   it("returns 422 when evidence is insufficient", async () => {
     mockAccept.mockRejectedValue(
       new ClientLearningProposalError("insufficient_evidence", "Need 3+ corpus items")
+    );
+
+    const res = await POST(
+      new Request(
+        `http://localhost/api/admin/quality/learning/proposals/${PROPOSAL_ID}/accept`,
+        { method: "POST" }
+      ),
+      { params: Promise.resolve({ id: PROPOSAL_ID }) }
+    );
+
+    expect(res.status).toBe(422);
+  });
+
+  it("returns 422 when fixture acknowledgment is required", async () => {
+    mockAccept.mockRejectedValue(
+      new ClientLearningProposalError(
+        "fixture_ack_required",
+        "Fixture-only corpus evidence requires explicit acknowledgment"
+      )
     );
 
     const res = await POST(
