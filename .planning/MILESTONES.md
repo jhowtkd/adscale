@@ -1,5 +1,41 @@
 # Milestones: ADScale
 
+## v13.2 Calibração Multi-Marca (Shipped: 2026-06-24)
+
+**Phases completed:** 11 phases, 27 plans, 37 tasks
+
+**Key accomplishments:**
+
+- Status:
+- Status:
+- Status:
+- Status:
+- Status:
+- Status:
+- Status:
+- Status:
+- Status:
+- Status:
+- Dedicated `client_profile_olhar_config` table with workspace-scoped repository, Cenbrap seed script, and golden parity between DB-shaped config and `CENBRAP_VOICE` prompt output
+- Generation resolves brand voice by `clientProfileId` with DB `review_status` gate; string-matching `resolveClientVoice` deprecated and removed from the prompt path
+- Owner-only GET API and read-only admin UI for per-brand Olhar voice configuration at `/admin/quality/brands/[clientProfileId]`
+- Cooldown and approved-rule gates on corpus learning proposals with complete evidenceRefs (artifactIds + fixtureOnly)
+- Fixture-only accept gate with corpus_quality caveat plus owner factual_issue alert API using shared slice bucketing
+- End-to-end corpus learning loop proven in vertical slice test with LEARN-01..06 signed off via automated tests and operator-approved staging smoke
+- Unified calibration loader wires brand-taste rules through selectApplicableRules gate, enforces Olhar → brand-taste → corpus_quality prompt order, and logs both rule ID arrays on derivation finalize.
+- enforceCorpusQualityRuleCap deprecates oldest approved corpus_quality rules in DB on overflow, wired on proposal accept and derivation loader.
+- Mock-based two-profile test suite proves brand-taste and corpus_quality rule IDs never leak across clientProfileIds in loader output, derivation prompts, or generation log provenance.
+- Owner-only GET APIs for cross-workspace brand list, per-brand taste profile (buildBrandTasteProfile), and calibration rules grouped by approved/candidate status
+- Tabbed OwnerCalibrationPanel with honest fixture-only status copy, taste profile pattern groups, and read-only rules tables on the brand calibration route
+- Per-brand learning proposals with clientProfileId API filter, fixture-only accept acknowledgment, and Propostas tab in OwnerCalibrationPanel
+- Per-brand evidence report builder with brand-scoped claims matrix and owner-only GET .../evidence API
+- BrandEvidencePanel with PT-BR claims matrix, fixture caveat banner, and Evidência tab wired on OwnerCalibrationPanel
+- Cross-client global proposals now persist fixtureOnly, supportingClientRuleIds, primaryFailureReason, and promotionSource on evidenceRefs without changing detection thresholds
+- Rejected global calibration adjustments with reason audit trail, PATCH reject API, and acknowledgeFixtureOnly gate for fixture-only cross-client accepts
+- Calibration tab accept/reject for cross-client global proposals with fixture acknowledgment, plus GLOBAL-05 proof that accepted global rubric adjustments do not leak corpus_quality rules across clientProfile prompts
+
+---
+
 ## v13.1 Global Owner Quality Corpus (Gaps found: 2026-06-20)
 
 **Phases completed:** 5 phases (157→161), 10 plans — **documentation reconciled; closure blocked**
@@ -10,6 +46,7 @@
 **Key accomplishments:** (unchanged — infrastructure largely in place)
 
 **Open gaps:**
+
 - Build was red (`outputKey` null) — fixed pending verify
 - CAPTURE-04: candidate list/UI missing
 - Work uncommitted in git
@@ -24,6 +61,7 @@ Archive: [ROADMAP.md](ROADMAP.md) · [REQUIREMENTS.md](REQUIREMENTS.md) · [v13.
 **Requirements:** 8/16 complete; 8/16 deferred as accepted tech debt
 
 **Scope:**
+
 - Validar o workflow de decisao operatoria sem fabricar julgamento humano
 - Expandir a amostra Cenbrap para 5 rows revisaveis
 - Rerodar calibracao/evidencia mantendo `agreementRate=null` enquanto decisoes humanas faltam
@@ -31,12 +69,14 @@ Archive: [ROADMAP.md](ROADMAP.md) · [REQUIREMENTS.md](REQUIREMENTS.md) · [v13.
 - Registrar source composition e claims proibidos enquanto a prova e fixture-only
 
 **Key accomplishments:**
+
 - Phase 147 confirmou o recorder/dry-run e o rerun de calibracao com `human_needed` honesto.
 - Phase 148 expandiu o corpus para 5 rows revisaveis e publicou `148-SAMPLE-GATE.md`.
 - Evidence manteve `humanDecisionCount=0`, `additionalNeeded=5` e `agreementRate=null`.
 - `148-DECISIONS.template.json` ficou pronto para as 5 decisoes do Jhonatan.
 
 **Known tech debt (accepted carry-forward):**
+
 - `145-DECISIONS.json` ainda ausente; as 5 decisoes humanas nao foram fornecidas.
 - Source composition continua 5 `synthetic_fixture`, 0 `operator_imported`, 0 `real_customer`.
 - Phase 149 customer-real corpus replacement foi deferida.
@@ -55,6 +95,7 @@ Archive: [v12.9-ROADMAP.md](milestones/v12.9-ROADMAP.md) · [v12.9-REQUIREMENTS.
 **Requirements:** 16/16 complete at implementation/operational-infrastructure level
 
 **Scope:**
+
 - Calibracao Cenbrap live contra ambiente configurado
 - Seeding/import seguro com corpus `synthetic_fixture` revisavel
 - Contact sheet com linhas `review_ready`, dual verdicts e elegibilidade de pacote
@@ -63,18 +104,21 @@ Archive: [v12.9-ROADMAP.md](milestones/v12.9-ROADMAP.md) · [v12.9-REQUIREMENTS.
 - Fechamento parcial da divida v12.7 com carry-forward explicito
 
 **Key accomplishments:**
+
 - Provou runner live e resolveu blocker `insufficient_campaigns` com corpus seedado (Phase 144).
 - Criou tooling de decisao operatoria e metricas comparaveis sem fabricar acordo (Phase 145).
 - Gerou `142-EVIDENCE.json` a partir de calibracao live — nao mais template-only (Phase 146).
 - Publicou `146-CLAIMS-GATE.md` separando factual/export safety de art-direction agreement.
 
 **Known tech debt (accepted carry-forward):**
+
 - `humanDecisionCount=0` — Jhonatan ainda nao preencheu decisoes nas 2 linhas `review_ready`.
 - Sample guidance `0/5` — `agreementRate` e claims de qualidade corretamente withheld.
 - Corpus `synthetic_fixture` — calibracao operacional, nao prova customer-real.
 - Phase 141 override UX ainda `human_needed` em campanha real.
 
 **v12.7 debt closed by v12.8:**
+
 - Evidencia template-only → `142-EVIDENCE.json` live
 - `evaluatedCampaignCount=0` → 2 campanhas, 2 derivacoes
 - Sem path de decisao operatoria → Phase 145 tooling completo
@@ -89,6 +133,7 @@ Archive: [v12.8-ROADMAP.md](milestones/v12.8-ROADMAP.md) · [v12.8-REQUIREMENTS.
 **Requirements:** 24/24 complete at implementation level
 
 **Scope:**
+
 - Constituicao `Olhar ADScale` e primeira voz editorial Cenbrap
 - Contratos separados de `olharVerdict` e `exportStatus`
 - Validador deterministico de exportacao e bloqueio de `approved + invalid`
@@ -97,12 +142,14 @@ Archive: [v12.8-ROADMAP.md](milestones/v12.8-ROADMAP.md) · [v12.8-REQUIREMENTS.
 - Infraestrutura de calibracao Cenbrap e release evidence com template honesto
 
 **Key accomplishments:**
+
 - Separou julgamento criativo de compliance/exportacao em contratos persistidos.
 - Rebaixou score numerico para detalhe e promoveu veredito/direction note como sinal primario.
 - Criou UX de review com `Entra`, `Quase - regenerar assim`, `Nao entra` e override com motivo tipado.
 - Criou pipeline de calibracao/evidence Cenbrap com checker que preserva `insufficient_sample`.
 
 **Known tech debt (partially resolved in v12.8):**
+
 - Template-only evidence and empty corpus — **closed in v12.8** via live calibration and `142-EVIDENCE.json`.
 - Decision capture path — **closed in v12.8** (Phase 145 tooling); operator decisions still pending (`humanDecisionCount=0`).
 - Agreement/quality claims — **still withheld** until 5 operator decisions and cleared sample guidance.
@@ -118,6 +165,7 @@ Archive: [v12.7-ROADMAP.md](milestones/v12.7-ROADMAP.md) · [v12.7-REQUIREMENTS.
 **Requirements:** 16/16 complete
 
 **Scope:**
+
 - Rotina operacional para selecionar e avaliar outputs reais no corpus live
 - Review queue com progresso por workspace, campanha, modo, formato, cohort e reviewer status
 - Regras canonicas de amostragem e `insufficient_sample` para impedir claims prematuros
@@ -125,6 +173,7 @@ Archive: [v12.7-ROADMAP.md](milestones/v12.7-ROADMAP.md) · [v12.7-REQUIREMENTS.
 - Release gate dual que separa regressao tecnica verde de suficiencia operacional
 
 **Key accomplishments:**
+
 - Criou batch selection e queue progress para transformar campanhas reais em corpus humano auditavel.
 - Melhorou o painel de avaliacao para fluxo rapido de reviewer, com payload seguro e sem persistir URLs/prompt bruto.
 - Centralizou thresholds de amostra e guidance para calibracao, learning impact, quality improvement e trend gates.
@@ -132,6 +181,7 @@ Archive: [v12.7-ROADMAP.md](milestones/v12.7-ROADMAP.md) · [v12.7-REQUIREMENTS.
 - Fechou o milestone com `operational-quality-release-gate -- --run-regression` passando tecnicamente e reportando operacional `insufficient_sample` honestamente.
 
 **Known tech debt:**
+
 - Corpus live operacional ainda esta sem amostra suficiente: `evaluatedItemCount=0` na evidencia canonica.
 - Trend gate permanece insuficiente: 3/5 itens globais e 1/2 buckets populados.
 - `qualityImprovementClaimed` fica withheld ate haver sample sufficiency e factual pass 1.0.
@@ -147,6 +197,7 @@ Archive: [v12.6-ROADMAP.md](milestones/v12.6-ROADMAP.md) · [v12.6-REQUIREMENTS.
 **Requirements:** 19/19 complete
 
 **Scope:**
+
 - Corpus live versionado de outputs reais com julgamento humano estruturado
 - Calibracao de score automatico contra nota visual humana
 - Medicao de impacto dos learnings de v12.4 em outputs comparaveis
@@ -154,6 +205,7 @@ Archive: [v12.6-ROADMAP.md](milestones/v12.6-ROADMAP.md) · [v12.6-REQUIREMENTS.
 - Release gate realista com metricas separadas de qualidade, factualidade e learning impact
 
 **Key accomplishments:**
+
 - Criou o fluxo interno de selecao, congelamento e avaliacao de outputs reais para corpus humano.
 - Implementou comparacao score automatico vs julgamento humano, divergencias agrupadas e propostas versionadas de ajuste.
 - Adicionou medicao de impacto do output-learning aplicado, com estados honestos de amostra insuficiente.
@@ -161,6 +213,7 @@ Archive: [v12.6-ROADMAP.md](milestones/v12.6-ROADMAP.md) · [v12.6-REQUIREMENTS.
 - Fechou o milestone com `real-quality-release-gate --run-regression` passando.
 
 **Known tech debt:**
+
 - Corpus live ainda estava vazio no refresh com `DATABASE_URL`: `evaluatedItemCount=0`.
 - QA-24 fechou por Path B `accepted_gap` (`currentValue 72`, `gapToTarget 3`, menor que o gap anterior `4.83`), nao por cruzar a meta humana `75`.
 - Proxima operacao deve popular/evaluar corpus real e rerodar 130/131/132/133 aggregate antes de claims de tendencia.
@@ -175,6 +228,7 @@ Archive: [v12.5-ROADMAP.md](milestones/v12.5-ROADMAP.md) · [v12.5-REQUIREMENTS.
 **Requirements:** 21/21 complete
 
 **Scope:**
+
 - Captura canônica de decisões humanas sobre outputs em `output_decision_events`
 - Agregação em learnings canônicos versionados com confiança, contradição e supersession
 - Projeção Mem0 apenas como camada de retrieval, mantendo Postgres como fonte de verdade
@@ -183,6 +237,7 @@ Archive: [v12.5-ROADMAP.md](milestones/v12.5-ROADMAP.md) · [v12.5-REQUIREMENTS.
 - Release gate com métricas separadas de qualidade e fidelidade factual
 
 **Key accomplishments:**
+
 - Criou o loop completo de evidência: review/regenerate/save-reference/delivery selection → evento canônico → learning aprovado.
 - Implementou `client_output_learnings` com confiança, evidências de suporte/contradição e supersession.
 - Adicionou `/api/campaigns/[id]/output-recommendation` e UI de recomendação antes do gasto de créditos.
@@ -190,6 +245,7 @@ Archive: [v12.5-ROADMAP.md](milestones/v12.5-ROADMAP.md) · [v12.5-REQUIREMENTS.
 - Fechou o release gate com `qualityImprovementPathRate=1.0` e `safetyGuardPassRate=1.0`.
 
 **Known accepted gaps:**
+
 - Human-judged quality uplift ainda não foi re-medido em corpus live; o gate usa pipeline determinístico com fixtures.
 - Gap visual herdado de v12.3 permanece aceito: `meanQualityScore 70.17 < 75`.
 
@@ -203,6 +259,7 @@ Archive: [v12.4-ROADMAP.md](milestones/v12.4-ROADMAP.md) · [v12.4-REQUIREMENTS.
 **Requirements:** 38/39 complete; QA-19 accepted as known visual-quality gap
 
 **Scope:**
+
 - Corpus fixtures from audited creative exports (58.5/100 baseline)
 - Canonical creative contract with hierarchy and anti-hallucination injection
 - Factual vs visual separation for restyling
@@ -216,6 +273,7 @@ Archive: [v12.4-ROADMAP.md](milestones/v12.4-ROADMAP.md) · [v12.4-REQUIREMENTS.
 **Audit baseline:** `app/exports/render-creatives/` — Cantona/Manchester United hallucinations, visual overload, generic templates pass current gate
 
 **Key accomplishments:**
+
 - Corpus-backed fixture matrix for hallucination, overload, generic-template, format-drift, and restyling-contamination failures
 - Canonical creative contract, factual/visual separation, and mode-specific prompt rules injected into real derivation prompts
 - Expanded hard-failure taxonomy, score ceilings, and restyling retry from factual source
@@ -234,6 +292,7 @@ Archive: [v12.3-ROADMAP.md](milestones/v12.3-ROADMAP.md) · [v12.3-REQUIREMENTS.
 **Requirements:** 33/33 complete
 
 **Scope:**
+
 - Visual foundation contracts, tokens, primitives, ownership inventory, and paired browser baseline
 - Responsive app shell with `PageFrame`, i18n TopBar, single-main landmark, and shell geometry e2e
 - Shared page primitives on campaigns, settings, dashboard, and secondary routes
@@ -241,6 +300,7 @@ Archive: [v12.3-ROADMAP.md](milestones/v12.3-ROADMAP.md) · [v12.3-REQUIREMENTS.
 - Playwright release gate: 54 layout checks + 8 axe audits; `npm test` / lint / build green
 
 **Key accomplishments:**
+
 - Canonical geometry/density/layer tokens with before/after visual evidence matrix
 - Operational surfaces migrated to shared page hierarchy without changing business flows
 - Workspace oriented by mission stage with predictable sticky chrome
@@ -258,6 +318,7 @@ Archive: [v12.2-ROADMAP.md](milestones/v12.2-ROADMAP.md) · [v12.2-REQUIREMENTS.
 **Requirements:** 19 requirements
 
 **Scope:**
+
 - Subscription status contract and idempotent invoice-paid credit grants
 - Explicit past-due spend policy and Customer Portal recovery
 - Structured 402 conversion payloads and trial/upgrade CTAs
@@ -281,6 +342,7 @@ Archive: [v12.0-ROADMAP.md](milestones/v12.0-ROADMAP.md) · [v12.0-REQUIREMENTS.
 **Requirements:** 14 requirements
 
 **Scope:**
+
 - Cockpit instrumentation: recipe_tradeoff_viewed, recipe_selected, briefing step abandon, preview funnel false-abandon fix
 - Readiness false-positive override workflow with auditable server-side event
 - Owner dashboard polish: uncapped session timeline, credit consumption funnel, real session filter

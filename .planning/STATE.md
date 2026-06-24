@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v13.2
 milestone_name: Calibração Multi-Marca
 status: executing
-stopped_at: Completed 167-02-PLAN.md
-last_updated: "2026-06-24T18:39:54.931Z"
+stopped_at: Completed 167-03-PLAN.md
+last_updated: "2026-06-24T19:04:00.425Z"
 last_activity: 2026-06-24
 progress:
   total_phases: 11
-  completed_phases: 10
+  completed_phases: 11
   total_plans: 27
-  completed_plans: 26
-  percent: 96
+  completed_plans: 27
+  percent: 100
 ---
 
 # Project State
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-06-23)
 ## Current Position
 
 Phase: 167 of 167 (global cross-client promotion)
-Plan: 2 of 3 complete
+Plan: Not started
 Status: Ready to execute
 Last activity: 2026-06-24
 
@@ -47,6 +47,7 @@ Progress: [███░░░░░░░] 1/3 plans in Phase 167
 | 167 | 1/3 | In Progress |
 | Phase 167-global-cross-client-promotion P01 | 8 | 1 tasks | 3 files |
 | Phase 167-global-cross-client-promotion P02 | 8 | 2 tasks | 14 files |
+| Phase 167-global-cross-client-promotion P03 | 12 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -67,6 +68,8 @@ Progress: [███░░░░░░░] 1/3 plans in Phase 167
 - [Phase 167]: primaryFailureReason on evidenceRefs uses rule rationale prefix; targetKey remains failure-bridge adjustment target
 - [Phase 167]: Use insufficient_acknowledgment error code for global fixture-only accept (distinct from client fixture_ack_required)
 - [Phase 167]: Global adjustment reject mirrors client proposal reject without cooldown period
+- [Phase 167]: Score-calibration report loads proposed adjustments from DB for id and evidenceRefs
+- [Phase 167]: Calibration tab reject uses window.prompt matching LearningProposalsTab UX
 
 ### Blockers/Concerns
 
@@ -83,7 +86,7 @@ Progress: [███░░░░░░░] 1/3 plans in Phase 167
 
 ## Session Continuity
 
-Last session: 2026-06-24T18:39:54.928Z
-Stopped at: Completed 167-02-PLAN.md
+Last session: 2026-06-24T19:03:39.161Z
+Stopped at: Completed 167-03-PLAN.md
 Resume file: None
 Next command: `$gsd-execute-phase 167`

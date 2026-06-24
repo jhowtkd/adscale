@@ -63,7 +63,7 @@ Generalizar calibração de gosto de marca para qualquer `clientProfile`: substi
 - [x] **GLOBAL-02**: Global proposals require source composition gate (≥1 `real_customer` or `operator_imported`) or are flagged `fixture_only`.
 - [x] **GLOBAL-03**: Owner can accept global adjustment via existing calibration-adjustments accept flow with links to supporting client rules.
 - [x] **GLOBAL-04**: Global adjustments never auto-accept; rejected global proposals require reason.
-- [ ] **GLOBAL-05**: Global promotion does not bypass per-brand isolation in prompt application.
+- [x] **GLOBAL-05**: Global promotion does not bypass per-brand isolation in prompt application.
 
 ## Future Requirements
 
@@ -126,7 +126,7 @@ Generalizar calibração de gosto de marca para qualquer `clientProfile`: substi
 | GLOBAL-02 | Phase 167 | Complete |
 | GLOBAL-03 | Phase 167 | Complete |
 | GLOBAL-04 | Phase 167 | Complete |
-| GLOBAL-05 | Phase 167 | Pending |
+| GLOBAL-05 | Phase 167 | Complete |
 
 **Coverage:**
 - v13.2 requirements: 30 total
