@@ -1,4 +1,4 @@
-import { insertCalibrationRule } from "@/server/repositories/calibration-rule";
+import { insertCalibrationRule, listApprovedCalibrationRulesByCategories } from "@/server/repositories/calibration-rule";
 import {
   getClientLearningProposalById,
   markProposalAccepted,
@@ -6,6 +6,7 @@ import {
 } from "@/server/repositories/client-learning-proposal";
 import type { CalibrationRule, ClientLearningProposal } from "@/server/db/schema";
 import { MIN_SLICE_SAMPLE } from "../calibration/report";
+import { enforceCorpusQualityRuleCap } from "./corpus-quality-cap";
 
 const REJECT_COOLDOWN_DAYS = 30;
 
@@ -72,6 +73,17 @@ export async function acceptClientLearningProposal(input: {
     version: 1,
     approvedAt: new Date(),
     approvedBy: input.reviewerUserId,
+  });
+
+  const approvedCorpusRules = await listApprovedCalibrationRulesByCategories({
+    workspaceId: proposal.workspaceId,
+    clientProfileId: proposal.clientProfileId,
+    categories: ["corpus_quality"],
+  });
+  await enforceCorpusQualityRuleCap({
+    workspaceId: proposal.workspaceId,
+    clientProfileId: proposal.clientProfileId,
+    rules: approvedCorpusRules,
   });
 
   const acceptedProposal = await markProposalAccepted(

@@ -5,11 +5,11 @@ import {
   selectApplicableRules,
 } from "./taste-application";
 import { buildCorpusQualityPromptSection } from "@/server/human-quality/learning/corpus-quality-prompt";
+import { enforceCorpusQualityRuleCap } from "@/server/human-quality/learning/corpus-quality-cap";
 import { listApprovedCalibrationRulesByCategories } from "@/server/repositories/calibration-rule";
 import { listCalibrationSignalsForClientProfile } from "@/server/repositories/calibration-signal";
 
 const BRAND_TASTE_CATEGORIES = RULE_CATEGORIES.filter((c) => c !== "corpus_quality");
-const MAX_CORPUS_QUALITY_RULES = 10;
 
 export interface PromptCalibrationContext {
   brandTasteSection: string[];
@@ -69,7 +69,11 @@ export async function loadPromptCalibrationContext(input: {
         )
       : [];
 
-  const cappedCorpusRules = corpusRules.slice(0, MAX_CORPUS_QUALITY_RULES);
+  const { active: cappedCorpusRules } = await enforceCorpusQualityRuleCap({
+    workspaceId: input.workspaceId,
+    clientProfileId: input.clientProfileId,
+    rules: corpusRules,
+  });
   const corpusQualitySection = buildCorpusQualityPromptSection(cappedCorpusRules);
 
   return {
