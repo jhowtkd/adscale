@@ -28,7 +28,7 @@ Generalizar calibração de gosto de marca para qualquer `clientProfile`: substi
 
 - [x] **LEARN-01**: System aggregates global corpus evaluations into client-scoped learning proposals when slice thresholds are met (≥3 evals, |delta|≥15).
 - [x] **LEARN-02**: Proposals are deduped to one active `proposed` slice per `(workspaceId, clientProfileId, sliceKey)`.
-- [ ] **LEARN-03**: Owner can list pending client learning proposals filtered by workspace and `clientProfileId`.
+- [x] **LEARN-03**: Owner can list pending client learning proposals filtered by workspace and `clientProfileId`.
 - [x] **LEARN-04**: Owner can accept a proposal, creating an approved `calibration_rule` with category `corpus_quality` and evidence refs.
 - [x] **LEARN-05**: Owner can reject a proposal with required reason and 30-day cooldown.
 - [x] **LEARN-06**: `factual_issue` failure reason never becomes a prompt rule; it surfaces as admin alert only.
@@ -101,12 +101,12 @@ Generalizar calibração de gosto de marca para qualquer `clientProfile`: substi
 | VOICE-03 | Phase 162 | Complete |
 | VOICE-04 | Phase 162 | Complete |
 | VOICE-05 | Phase 162 | Complete |
-| LEARN-01 | Phase 163 (163-03) | Automated PASS — staging smoke pending (163-03 Task 3) |
-| LEARN-02 | Phase 163 (163-03) | Automated PASS — staging smoke pending (163-03 Task 3) |
-| LEARN-03 | Phase 163 (163-03) | Automated PASS — staging smoke pending (163-03 Task 3) |
-| LEARN-04 | Phase 163 (163-03) | Automated PASS — staging smoke pending (163-03 Task 3) |
-| LEARN-05 | Phase 163 (163-03) | Automated PASS — staging smoke pending (163-03 Task 3) |
-| LEARN-06 | Phase 163 (163-03) | Automated PASS — staging smoke pending (163-03 Task 3) |
+| LEARN-01 | Phase 163 | Complete |
+| LEARN-02 | Phase 163 | Complete |
+| LEARN-03 | Phase 163 | Complete |
+| LEARN-04 | Phase 163 | Complete |
+| LEARN-05 | Phase 163 | Complete |
+| LEARN-06 | Phase 163 | Complete |
 | APPLY-01 | Phase 164 | Pending |
 | APPLY-02 | Phase 164 | Pending |
 | APPLY-03 | Phase 164 | Pending |

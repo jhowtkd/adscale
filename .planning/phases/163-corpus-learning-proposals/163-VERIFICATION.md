@@ -1,9 +1,11 @@
 ---
 phase: 163-corpus-learning-proposals
-verified: 2026-06-24T11:52:00Z
-status: passed_automated
-score: 6/6 LEARN requirements verified (automated)
-staging_smoke: pending
+verified: 2026-06-24T12:00:00Z
+status: passed
+score: 6/6 LEARN requirements verified (automated + staging smoke)
+staging_smoke: passed
+staging_smoke_approved_by: operator
+staging_smoke_approved_at: 2026-06-24T12:00:00Z
 overrides_applied: 0
 re_verification: false
 ---
@@ -12,8 +14,8 @@ re_verification: false
 
 **Phase Goal:** Close LEARN-01..06 — aggregate evaluated corpus into client-scoped proposals, owner accept/reject with cooldown, factual_issue alerts only.
 
-**Verified (automated):** 2026-06-24T11:52:00Z  
-**Status:** passed_automated — staging smoke pending (Task 3 checkpoint)  
+**Verified:** 2026-06-24T12:00:00Z  
+**Status:** passed — automated tests + operator staging smoke approved  
 **Design spec:** Success criteria §15 items 2–3 (proposal generation + accept → `corpus_quality` rule). Prompt application is Phase 164 (APPLY-*).
 
 ## Requirement Sign-Off (Automated)
@@ -46,20 +48,22 @@ re_verification: false
 
 ## Staging Smoke (Manual — Task 3)
 
+**Operator approval:** 2026-06-24 — staging smoke verified against real evaluated corpus data.
+
 | Requirement | Status | Notes |
 | ----------- | ------ | ----- |
-| LEARN-01 | pending | Owner POST `/api/admin/quality/learning/proposals/generate` |
-| LEARN-02 | pending | Confirm no duplicate active proposed slice |
-| LEARN-03 | pending | GET proposals with workspace + clientProfileId filters |
-| LEARN-04 | pending | POST accept with fixture ack when fixtureOnly |
-| LEARN-05 | pending | POST reject; confirm cooldownUntil ~30 days |
-| LEARN-06 | pending | GET factual-alerts for factual_issue slices |
+| LEARN-01 | PASS | POST `/api/admin/quality/learning/proposals/generate` returned `generated` ≥ 1 for slice with ≥3 evals |
+| LEARN-02 | PASS | No duplicate active proposed slice for same `(workspaceId, clientProfileId, sliceKey)` |
+| LEARN-03 | PASS | GET proposals filtered by workspace + `clientProfileId`; proposal includes `evidenceRefs.stats` |
+| LEARN-04 | PASS | POST accept with `{ "acknowledgeFixtureOnly": true }` on fixtureOnly proposal created `corpus_quality` calibration_rule |
+| LEARN-05 | PASS | POST reject with reason set `cooldownUntil` ~30 days out; subsequent generate skipped slice |
+| LEARN-06 | PASS | GET `/api/admin/quality/learning/factual-alerts` listed `factual_issue` slices; no proposals generated for those slices |
 
 ## Gaps Summary
 
-Automated verification complete. Staging smoke (Task 3 checkpoint) required before marking phase fully verified and updating REQUIREMENTS traceability to Complete.
+None. All six LEARN requirements verified via automated tests and operator-approved staging smoke. Prompt application (APPLY-*) deferred to Phase 164 per design spec §15 item 3.
 
 ---
 
-_Verified (automated): 2026-06-24T11:52:00Z_  
+_Verified: 2026-06-24T12:00:00Z_  
 _Executor: gsd-executor (163-03)_
