@@ -3,7 +3,7 @@ phase: 162-per-brand-voice-configuration
 plan: "03"
 subsystem: api
 tags: [nextjs, vitest, platform-owner, admin-ui, read-only]
-status: checkpoint-pending
+status: complete
 
 requires:
   - phase: 162-01
@@ -34,31 +34,31 @@ key-decisions:
 patterns-established:
   - "Brand voice inspect page uses PageFrame/PageHeader/Panel consistent with /feedback"
 
-requirements-completed: []
+requirements-completed: [VOICE-05]
 
-duration: 15min
-completed: null
+duration: 20min
+completed: 2026-06-24
 checkpoint: 162-03-03
+checkpoint_approved: 2026-06-24
+checkpoint_approved_by: operator
 ---
 
-# Phase 162 Plan 03: Owner Voice Inspect Summary (Partial — Checkpoint Pending)
+# Phase 162 Plan 03: Owner Voice Inspect Summary
 
 **Owner-only GET API and read-only admin UI for per-brand Olhar voice configuration at `/admin/quality/brands/[clientProfileId]`**
 
 ## Status
 
-**Checkpoint 162-03-03 (human-verify) — awaiting operator approval**
+**Complete** — checkpoint 162-03-03 approved by operator (2026-06-24).
 
-Automated pre-checks passed:
+Automated verification (re-run on approval):
 - Route tests: 5/5 passed
-- `npm run build`: succeeded
-- Dev server started at http://localhost:3000
-- Seed dry-run: no Cenbrap profiles in local DB (operator may need Cenbrap profile + `--confirm` seed before UI shows data)
+- Phase 162 voice stack: 32/32 passed
 
 ## Performance
 
 - **Duration:** ~15 min (tasks 1–2 only)
-- **Tasks completed:** 2/3 (checkpoint pending)
+- **Tasks completed:** 3/3 (checkpoint approved)
 - **Files created:** 4
 
 ## Accomplishments
@@ -72,6 +72,7 @@ Automated pre-checks passed:
 
 1. **Task 162-03-01: Owner-only GET voice inspect API** - `d0e69d26` (feat)
 2. **Task 162-03-02: Read-only brand voice inspect UI** - `bd1e874a` (feat)
+3. **Task 162-03-03: Human verify** - operator approved 2026-06-24
 
 ## Deviations from Plan
 
@@ -99,4 +100,4 @@ Automated pre-checks passed:
 
 ---
 *Phase: 162-per-brand-voice-configuration*
-*Checkpoint pending: 162-03-03*
+*Completed: 2026-06-24*
