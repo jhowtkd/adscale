@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v13.2
 milestone_name: Calibração Multi-Marca
 status: executing
-stopped_at: Completed 162-01-PLAN.md
-last_updated: "2026-06-24T00:12:00.000Z"
-last_activity: 2026-06-23 — Completed 162-01 (olhar voice persistence + Cenbrap seed)
+stopped_at: Completed 162-02-PLAN.md
+last_updated: "2026-06-24T00:15:00.690Z"
+last_activity: 2026-06-24
 progress:
   total_phases: 11
   completed_phases: 5
   total_plans: 13
-  completed_plans: 11
-  percent: 85
+  completed_plans: 12
+  percent: 92
 ---
 
 # Project State
@@ -27,9 +27,9 @@ See: .planning/PROJECT.md (updated 2026-06-23)
 ## Current Position
 
 Phase: 162 of 167 (Per-Brand Voice Configuration)
-Plan: 1 of 3 complete
-Status: In progress
-Last activity: 2026-06-23 — Completed 162-01 (olhar voice persistence + Cenbrap seed)
+Plan: 2 of 3 complete
+Status: Ready to execute
+Last activity: 2026-06-24
 
 Progress: [█░░░░░░░░░] 1/3 plans in Phase 162
 
@@ -41,6 +41,7 @@ Progress: [█░░░░░░░░░] 1/3 plans in Phase 162
 |-------|-------|--------|
 | 162 | 1/3 | In progress |
 | 163-167 | TBD | Not started |
+| Phase 162-per-brand-voice-configuration P02 | 12min | 2 tasks | 19 files |
 
 ## Accumulated Context
 
@@ -53,6 +54,8 @@ Progress: [█░░░░░░░░░] 1/3 plans in Phase 162
 - [v13.2]: No freeform voice editor — inspectable profile + approved rules only
 - [Phase 162-per-brand-voice-configuration]: Extracted voice-prompt-section.ts for shared prompt builder between hardcoded and DB-derived voices
 - [Phase 162-per-brand-voice-configuration]: Upsert targets client_profile_id PK for idempotent Cenbrap seed
+- [Phase 162-per-brand-voice-configuration]: buildDerivationPrompt async for DB voice lookup in generation-direction
+- [Phase 162-per-brand-voice-configuration]: Review gate uses DB reviewStatus; no campaign string fallback for voice injection
 
 ### Blockers/Concerns
 
@@ -70,6 +73,6 @@ Progress: [█░░░░░░░░░] 1/3 plans in Phase 162
 
 ## Session Continuity
 
-Last session: 2026-06-24T00:11:54.852Z
-Stopped at: Completed 162-01-PLAN.md
-Resume file: .planning/phases/162-per-brand-voice-configuration/162-02-PLAN.md
+Last session: 2026-06-24T00:15:00.687Z
+Stopped at: Completed 162-02-PLAN.md
+Resume file: None
