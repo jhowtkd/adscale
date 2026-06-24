@@ -45,7 +45,7 @@
 **Carry-forward constraints:** 5 Jhonatan decisions pending; fixture-only Cenbrap corpus; agreement/customer-real claims blocked until sample/source sufficiency.
 
 - [x] **Phase 162: Per-Brand Voice Configuration** — schema, resolver by `clientProfileId`, Cenbrap seed and hardcode removal (completed 2026-06-24)
-- [ ] **Phase 163: Corpus Learning Proposals** — aggregate evaluations into deduped client proposals with owner accept/reject
+- [x] **Phase 163: Corpus Learning Proposals** — aggregate evaluations into deduped client proposals with owner accept/reject (completed 2026-06-24)
 - [ ] **Phase 164: Prompt Rule Application** — inject approved rules per profile with provenance log and isolation cap
 - [ ] **Phase 165: Owner Calibration Panel** — per-brand profile, rules, proposals and owner-only access
 - [ ] **Phase 166: Per-Brand Evidence Gate** — evidence levels, claims matrix and fixture caveats per marca
@@ -54,7 +54,7 @@
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
 | 162 | Per-Brand Voice Configuration | Complete    | 2026-06-24 |  |
-| 163 | Corpus Learning Proposals | 2/3 | In Progress|  |
+| 163 | Corpus Learning Proposals | 3/3 | Complete   | 2026-06-24 |
 | 164 | Prompt Rule Application | APPLY-01..05 | Not started | - |
 | 165 | Owner Calibration Panel | PANEL-01..05 | Not started | - |
 | 166 | Per-Brand Evidence Gate | EVIDENCE-01..05 | Not started | - |
@@ -214,12 +214,12 @@ Plans:
   5. Owner rejecting a proposal requires a reason and enforces a 30-day cooldown before re-proposal.
   6. `factual_issue` failure reason never becomes a prompt rule — it surfaces as an admin alert only.
 
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [x] 163-01-PLAN.md — Aggregator hardening (cooldown, approved-rule gate, evidenceRefs)
 - [x] 163-02-PLAN.md — Fixture ack on accept + factual_issue admin alerts API
-- [ ] 163-03-PLAN.md — Vertical loop test + phase verification + staging smoke
+- [x] 163-03-PLAN.md — Vertical loop test + phase verification + staging smoke
 
 ---
 

@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v13.2
 milestone_name: Calibração Multi-Marca
 status: executing
-stopped_at: Checkpoint 163-03-PLAN.md Task 3 staging smoke
-last_updated: "2026-06-24T11:53:02.874Z"
+stopped_at: Completed 163-03-PLAN.md
+last_updated: "2026-06-24T12:00:08.802Z"
 last_activity: 2026-06-24
 progress:
   total_phases: 11
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 16
-  completed_plans: 15
-  percent: 94
+  completed_plans: 16
+  percent: 100
 ---
 
 # Project State
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-06-23)
 ## Current Position
 
 Phase: 163 of 167 (Corpus Learning Proposals)
-Plan: 2 of 3 complete
+Plan: 3 of 3 complete
 Status: Ready to execute
 Last activity: 2026-06-24
 
@@ -45,6 +45,7 @@ Progress: [░░░░░░░░░░] 0/3 plans in Phase 163
 | Phase 163 P0 | 0 | 0 tasks | 6 files |
 | Phase 163-corpus-learning-proposals P01 | 5 | 3 tasks | 10 files |
 | Phase 163-corpus-learning-proposals P02 | 6 | 2 tasks | 11 files |
+| Phase 163-corpus-learning-proposals P03 | 16 | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -63,6 +64,7 @@ Progress: [░░░░░░░░░░] 0/3 plans in Phase 163
 - [Phase 163]: Match approved corpus_quality rules via rationale prefix like cross-client.ts
 - [Phase 163]: Extract buildLearningSliceBuckets for shared threshold logic between proposals and factual alerts
 - [Phase 163]: Factual alerts computed on read via primaryFailureReason filter; no persistence table for v1
+- [Phase 163]: Vertical slice test proves full corpus learning chain with mocked db; staging smoke operator-approved
 
 ### Blockers/Concerns
 
@@ -80,6 +82,6 @@ Progress: [░░░░░░░░░░] 0/3 plans in Phase 163
 
 ## Session Continuity
 
-Last session: 2026-06-24T11:53:02.868Z
-Stopped at: Checkpoint 163-03-PLAN.md Task 3 staging smoke
+Last session: 2026-06-24T12:00:08.799Z
+Stopped at: Completed 163-03-PLAN.md
 Resume file: None
