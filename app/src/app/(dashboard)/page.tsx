@@ -1,11 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import { useDashboardStats } from "@/lib/hooks/use-dashboard-stats";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { useOnboarding } from "@/lib/hooks/use-onboarding";
-import Link from "next/link";
 import dynamic from "next/dynamic";
 import { Search, Plus, LayoutGrid, List } from "lucide-react";
 import CampaignMasonryGrid, {
@@ -20,6 +18,8 @@ import LaboratoryProgressPanel from "@/components/dashboard/LaboratoryProgressPa
 import PageFrame from "@/components/layout/PageFrame";
 import PageHeader from "@/components/layout/PageHeader";
 import Panel from "@/components/layout/Panel";
+import { Input } from "@/components/ui/input";
+import EmptyState from "@/components/ui/EmptyState";
 
 const CreditChart = dynamic(() => import("@/components/dashboard/CreditChart"), {
   loading: () => <div className="h-[300px] w-full bg-[var(--surface-raised)] rounded-xl animate-pulse border-2 border-[var(--border-dim)]" />,
@@ -117,16 +117,16 @@ export default function DashboardPage() {
               <div className="relative min-w-0 flex-1 sm:max-w-[220px] lg:w-[220px] lg:flex-none">
                 <Search
                   size={16}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]"
+                  className="absolute left-3 top-1/2 z-10 -translate-y-1/2 text-[var(--text-muted)]"
                   aria-hidden="true"
                 />
-                <input
+                <Input
                   type="search"
                   aria-label={t("home.searchAriaLabel")}
                   placeholder={t("home.searchPlaceholder")}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-11 w-full rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)] pl-9 pr-4 text-sm font-medium text-[var(--text-primary)] placeholder:text-[var(--text-muted)] transition-all focus:border-[var(--accent-green)]/50 focus:outline-none focus:ring-2 focus:ring-[var(--accent-green)]/20"
+                  className="h-11 rounded-xl border-[var(--border-dim)] bg-[var(--surface-base)] pl-9 pr-4 text-sm font-medium focus-visible:border-[var(--accent-green)]/50 focus-visible:ring-[var(--accent-green)]/20"
                 />
               </div>
 
@@ -207,7 +207,7 @@ export default function DashboardPage() {
               </CampaignMasonryGrid>
             )
           ) : (
-            <EmptyState searchQuery={searchQuery} />
+            <CampaignsEmptyState searchQuery={searchQuery} />
           )}
         </Panel>
       </PageFrame>
@@ -248,40 +248,24 @@ export default function DashboardPage() {
   );
 }
 
-function EmptyState({ searchQuery }: { searchQuery: string }) {
+function CampaignsEmptyState({ searchQuery }: { searchQuery: string }) {
   const t = useTranslations("dashboard.home");
 
   return (
-    <div className="flex flex-col items-center justify-center py-24">
-      <div className="mb-6">
-        <Image
-          src="/images/empty-state.svg"
-          alt=""
-          aria-hidden="true"
-          className="size-48 object-contain"
-          width={192}
-          height={192}
-          priority
-          loading="eager"
-          unoptimized
-        />
-      </div>
-      <h2 className="mb-2 text-xl font-semibold text-[var(--text-primary)]">
-        {searchQuery ? t("emptyNoResults") : t("emptyNoCampaigns")}
-      </h2>
-      <p className="mt-2 max-w-md text-center text-sm text-[var(--text-muted)]">
-        {searchQuery ? t("emptyAdjustSearch") : t("emptyCreateHint")}
-      </p>
-      {!searchQuery ? (
-        <Link
-          href="/campaigns?new=1"
-          className="mt-8 flex items-center gap-2 rounded-xl bg-[var(--accent-green)] px-6 py-3 text-sm font-semibold text-[var(--deep-bg)] transition-all hover:bg-[var(--accent-green-light)]"
-        >
-          <Plus size={16} strokeWidth={3} aria-hidden="true" />
-          {t("createCampaign")}
-        </Link>
-      ) : null}
-    </div>
+    <EmptyState
+      image="/images/empty-state.svg"
+      title={searchQuery ? t("emptyNoResults") : t("emptyNoCampaigns")}
+      description={searchQuery ? t("emptyAdjustSearch") : t("emptyCreateHint")}
+      action={
+        searchQuery
+          ? undefined
+          : {
+              label: t("createCampaign"),
+              href: "/campaigns?new=1",
+              icon: Plus,
+            }
+      }
+    />
   );
 }
 

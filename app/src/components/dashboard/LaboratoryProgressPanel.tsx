@@ -155,6 +155,12 @@ export default function LaboratoryProgressPanel() {
     <Panel padding="none">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-dim)] px-3 py-2.5">
         <div className="flex min-w-0 items-center gap-1.5">
+          <span
+            className="font-pixel text-[8px] uppercase tracking-wider text-[var(--text-muted)]"
+            aria-hidden="true"
+          >
+            v1
+          </span>
           <FlaskConical size={14} className="shrink-0 text-[var(--accent-green)]" aria-hidden="true" />
           <h2 className="text-xs font-semibold text-[var(--text-primary)]">{t("title")}</h2>
           {isFetching ? <span className="sr-only">{t("updating")}</span> : null}
