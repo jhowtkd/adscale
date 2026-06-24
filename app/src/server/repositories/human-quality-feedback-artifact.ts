@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../db";
 import {
   humanQualityFeedbackArtifacts,
@@ -39,6 +39,24 @@ export async function insertFeedbackArtifact(
     .returning();
 
   return artifact;
+}
+
+export async function listFeedbackArtifactIdsByCorpusItemIds(
+  corpusItemIds: string[]
+): Promise<Map<string, string>> {
+  if (corpusItemIds.length === 0) {
+    return new Map();
+  }
+
+  const rows = await db
+    .select({
+      id: humanQualityFeedbackArtifacts.id,
+      corpusItemId: humanQualityFeedbackArtifacts.corpusItemId,
+    })
+    .from(humanQualityFeedbackArtifacts)
+    .where(inArray(humanQualityFeedbackArtifacts.corpusItemId, corpusItemIds));
+
+  return new Map(rows.map((row) => [row.corpusItemId, row.id]));
 }
 
 export async function countFeedbackArtifactsBySourceLabel(filters: {

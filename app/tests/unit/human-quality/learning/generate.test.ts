@@ -4,22 +4,37 @@ vi.mock("@/server/repositories/human-quality-corpus", () => ({
   listEvaluatedCorpusWithEvaluations: vi.fn(),
 }));
 
+vi.mock("@/server/repositories/human-quality-feedback-artifact", () => ({
+  listFeedbackArtifactIdsByCorpusItemIds: vi.fn(),
+}));
+
+vi.mock("@/server/repositories/calibration-rule", () => ({
+  getApprovedCorpusQualityRuleForFailure: vi.fn(),
+}));
+
 vi.mock("@/server/repositories/client-learning-proposal", () => ({
   findActiveProposalBySlice: vi.fn(),
+  findSliceInCooldown: vi.fn(),
   insertClientLearningProposal: vi.fn(),
 }));
 
 import {
   findActiveProposalBySlice,
+  findSliceInCooldown,
   insertClientLearningProposal,
 } from "@/server/repositories/client-learning-proposal";
+import { getApprovedCorpusQualityRuleForFailure } from "@/server/repositories/calibration-rule";
 import { listEvaluatedCorpusWithEvaluations } from "@/server/repositories/human-quality-corpus";
+import { listFeedbackArtifactIdsByCorpusItemIds } from "@/server/repositories/human-quality-feedback-artifact";
 import { generateAndPersistClientLearningProposals } from "@/server/human-quality/learning/generate";
 import type { EvaluatedCorpusRow } from "@/server/human-quality/calibration/types";
 import type { HumanQualityCorpusItem, HumanQualityEvaluation } from "@/server/db/schema";
 
 const mockListEvaluated = vi.mocked(listEvaluatedCorpusWithEvaluations);
+const mockListFeedbackArtifacts = vi.mocked(listFeedbackArtifactIdsByCorpusItemIds);
+const mockGetApprovedRule = vi.mocked(getApprovedCorpusQualityRuleForFailure);
 const mockFindActive = vi.mocked(findActiveProposalBySlice);
+const mockFindCooldown = vi.mocked(findSliceInCooldown);
 const mockInsert = vi.mocked(insertClientLearningProposal);
 
 function makeItem(overrides: Partial<HumanQualityCorpusItem> = {}): HumanQualityCorpusItem {
@@ -97,6 +112,9 @@ function makeVisualOverloadSliceRows(count: number): EvaluatedCorpusRow[] {
 describe("generateAndPersistClientLearningProposals", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockListFeedbackArtifacts.mockResolvedValue(new Map());
+    mockGetApprovedRule.mockResolvedValue(null);
+    mockFindCooldown.mockResolvedValue(null);
     mockFindActive.mockResolvedValue(null);
     mockInsert.mockImplementation(async (input) => ({
       id: `proposal-${input.sliceKey}`,

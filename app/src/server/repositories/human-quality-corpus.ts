@@ -349,15 +349,31 @@ export async function listEvaluatedCorpusWithEvaluations(
     .select({
       item: humanQualityCorpusItems,
       evaluation: humanQualityEvaluations,
+      sourceLabel: corpusSourceLabelSql,
     })
     .from(humanQualityCorpusItems)
     .innerJoin(
       humanQualityEvaluations,
       eq(humanQualityEvaluations.corpusItemId, humanQualityCorpusItems.id)
     )
+    .leftJoin(
+      humanQualityCorpusCandidates,
+      and(
+        eq(humanQualityCorpusCandidates.workspaceId, humanQualityCorpusItems.workspaceId),
+        eq(humanQualityCorpusCandidates.derivationId, humanQualityCorpusItems.derivationId),
+        eq(humanQualityCorpusCandidates.corpusVersion, humanQualityCorpusItems.corpusVersion)
+      )
+    )
     .where(and(...conditions))
     .orderBy(desc(humanQualityCorpusItems.selectedAt))
-    .limit(filters.limit ?? DEFAULT_EVALUATED_CORPUS_LIMIT);
+    .limit(filters.limit ?? DEFAULT_EVALUATED_CORPUS_LIMIT)
+    .then((rows) =>
+      rows.map((row) => ({
+        item: row.item,
+        evaluation: row.evaluation,
+        sourceLabel: row.sourceLabel,
+      }))
+    );
 }
 
 export async function submitCorpusEvaluation(

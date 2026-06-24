@@ -1,9 +1,12 @@
 import type { HumanQualityCorpusItem, HumanQualityEvaluation } from "../../db/schema";
 import type { HumanQualityFailureReason } from "../corpus";
+import type { HumanQualitySourceLabel } from "../corpus";
 
 export interface EvaluatedCorpusRow {
   item: HumanQualityCorpusItem;
   evaluation: HumanQualityEvaluation;
+  sourceLabel?: HumanQualitySourceLabel;
+  feedbackArtifactId?: string;
 }
 
 export interface CalibrationComparison {
