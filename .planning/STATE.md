@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v13.2
 milestone_name: Calibração Multi-Marca
 status: executing
-stopped_at: Phase 164 planning complete — ready to execute
-last_updated: "2026-06-24T12:30:00.000Z"
+stopped_at: Completed 164-01-PLAN.md
+last_updated: "2026-06-24T14:14:21.908Z"
 last_activity: 2026-06-24
 progress:
   total_phases: 11
   completed_phases: 7
-  total_plans: 16
-  completed_plans: 16
-  percent: 100
+  total_plans: 19
+  completed_plans: 17
+  percent: 89
 ---
 
 # Project State
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-06-23)
 ## Current Position
 
 Phase: 164 of 167 (Prompt Rule Application)
-Plan: 0 of 3 complete
+Plan: 1 of 3 complete
 Status: Ready to execute
 Last activity: 2026-06-24
 
@@ -46,6 +46,7 @@ Progress: [░░░░░░░░░░] 0/3 plans in Phase 164
 | Phase 163-corpus-learning-proposals P01 | 5 | 3 tasks | 10 files |
 | Phase 163-corpus-learning-proposals P02 | 6 | 2 tasks | 11 files |
 | Phase 163-corpus-learning-proposals P03 | 16 | 3 tasks | 4 files |
+| Phase 164-prompt-rule-application P01 | 8 | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -65,6 +66,9 @@ Progress: [░░░░░░░░░░] 0/3 plans in Phase 164
 - [Phase 163]: Extract buildLearningSliceBuckets for shared threshold logic between proposals and factual alerts
 - [Phase 163]: Factual alerts computed on read via primaryFailureReason filter; no persistence table for v1
 - [Phase 163]: Vertical slice test proves full corpus learning chain with mocked db; staging smoke operator-approved
+- [Phase 164]: Brand-taste categories = all RULE_CATEGORIES except corpus_quality
+- [Phase 164]: Corpus cap remains prompt-time slice until Plan 164-02 adds DB deprecation
+- [Phase 164]: Auto-retry finalize merges both appliedBrandRuleIds and appliedCorpusRuleIds
 
 ### Blockers/Concerns
 
@@ -82,6 +86,6 @@ Progress: [░░░░░░░░░░] 0/3 plans in Phase 164
 
 ## Session Continuity
 
-Last session: 2026-06-24T12:00:08.799Z
-Stopped at: Phase 164 planning complete — ready to execute
+Last session: 2026-06-24T14:14:21.905Z
+Stopped at: Completed 164-01-PLAN.md
 Resume file: None
