@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v13.2
 milestone_name: Calibração Multi-Marca
 status: executing
-stopped_at: Completed 163-02-PLAN.md
-last_updated: "2026-06-24T11:49:13.556Z"
+stopped_at: Checkpoint 163-03-PLAN.md Task 3 staging smoke
+last_updated: "2026-06-24T11:53:02.874Z"
 last_activity: 2026-06-24
 progress:
   total_phases: 11
@@ -80,6 +80,6 @@ Progress: [░░░░░░░░░░] 0/3 plans in Phase 163
 
 ## Session Continuity
 
-Last session: 2026-06-24T11:49:13.552Z
-Stopped at: Completed 163-02-PLAN.md
+Last session: 2026-06-24T11:53:02.868Z
+Stopped at: Checkpoint 163-03-PLAN.md Task 3 staging smoke
 Resume file: None
