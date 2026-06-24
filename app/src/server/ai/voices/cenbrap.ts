@@ -1,3 +1,5 @@
+import { buildClientVoicePromptLines } from "./voice-prompt-section";
+
 export interface ClientVoice {
   id: string;
   displayName: string;
@@ -58,30 +60,14 @@ export const CENBRAP_VOICE: ClientVoice = {
     "Professor photo present but cropped into a modular card grid with no gestalt or reading rhythm.",
   ],
   buildPromptSection(): string[] {
-    return [
-      `CLIENT VOICE — ${this.displayName} (overlay on Olhar ADScale):`,
-      "- This voice describes what feels like Cenbrap and what is anti-Cenbrap. It does not replace global Olhar principles or export compliance.",
-      "",
-      "Principles:",
-      ...this.principles.map((p) => `- ${p}`),
-      "",
-      "Positive signals (seek these):",
-      ...this.positiveSignals.map((s) => `- ${s}`),
-      "",
-      "Negative signals (reject these):",
-      ...this.negativeSignals.map((s) => `- ${s}`),
-      "",
-      "Authority and claims:",
-      ...this.authorityAndClaims.map((a) => `- ${a}`),
-      "",
-      "Invite rhythm:",
-      ...this.inviteRhythm.map((r) => `- ${r}`),
-      "",
-      "Correct but soulless (fail Olhar even when export-clean):",
-      ...this.correctButSoulless.map((e) => `- ${e}`),
-      "",
-      "Anti-template: reject generic AI education aesthetics. Do not default to neon, glass, smartphone mockups, or widget-card layouts.",
-      "No fixed layout prescription — apply principles to each piece's dominant idea, gestalt, and reading path.",
-    ];
+    return buildClientVoicePromptLines({
+      displayName: this.displayName,
+      principles: this.principles,
+      positiveSignals: this.positiveSignals,
+      negativeSignals: this.negativeSignals,
+      authorityAndClaims: this.authorityAndClaims,
+      inviteRhythm: this.inviteRhythm,
+      correctButSoulless: this.correctButSoulless,
+    });
   },
 };

@@ -1,10 +1,46 @@
 import type { ClientVoice } from "./cenbrap";
 import { CENBRAP_VOICE } from "./cenbrap";
+import type { OlharVoiceConfigPayload } from "../db/schema";
+import { buildClientVoicePromptLines } from "./voice-prompt-section";
 
 export type { ClientVoice } from "./cenbrap";
 export { CENBRAP_VOICE } from "./cenbrap";
+export { buildClientVoicePromptLines } from "./voice-prompt-section";
 
 const REGISTERED_VOICES: readonly ClientVoice[] = [CENBRAP_VOICE];
+
+export interface OlharVoiceConfigRowInput {
+  voiceId: string;
+  displayName: string;
+  config: OlharVoiceConfigPayload;
+}
+
+export function buildClientVoiceFromConfig(row: OlharVoiceConfigRowInput): ClientVoice {
+  const { voiceId, displayName, config } = row;
+
+  return {
+    id: voiceId,
+    displayName,
+    matchTerms: config.matchTerms ?? [],
+    principles: config.principles,
+    positiveSignals: config.positiveSignals,
+    negativeSignals: config.negativeSignals,
+    authorityAndClaims: config.authorityAndClaims,
+    inviteRhythm: config.inviteRhythm,
+    correctButSoulless: config.correctButSoulless,
+    buildPromptSection(): string[] {
+      return buildClientVoicePromptLines({
+        displayName,
+        principles: config.principles,
+        positiveSignals: config.positiveSignals,
+        negativeSignals: config.negativeSignals,
+        authorityAndClaims: config.authorityAndClaims,
+        inviteRhythm: config.inviteRhythm,
+        correctButSoulless: config.correctButSoulless,
+      });
+    },
+  };
+}
 
 export interface ClientVoiceLookupInput {
   name?: string | null;
