@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v13.2
 milestone_name: Calibração Multi-Marca
-status: planning
-stopped_at: Phase 162 context gathered
-last_updated: "2026-06-23T23:57:37.104Z"
-last_activity: 2026-06-23 — Roadmap created for v13.2 (Phases 162-167)
+status: executing
+stopped_at: Completed 162-01-PLAN.md
+last_updated: "2026-06-24T00:12:00.000Z"
+last_activity: 2026-06-23 — Completed 162-01 (olhar voice persistence + Cenbrap seed)
 progress:
   total_phases: 11
   completed_phases: 5
-  total_plans: 10
-  completed_plans: 10
-  percent: 0
+  total_plans: 13
+  completed_plans: 11
+  percent: 85
 ---
 
 # Project State
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-06-23)
 ## Current Position
 
 Phase: 162 of 167 (Per-Brand Voice Configuration)
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-06-23 — Roadmap created for v13.2 (Phases 162-167)
+Plan: 1 of 3 complete
+Status: In progress
+Last activity: 2026-06-23 — Completed 162-01 (olhar voice persistence + Cenbrap seed)
 
-Progress: [░░░░░░░░░░] 0% (0/6 v13.2 phases)
+Progress: [█░░░░░░░░░] 1/3 plans in Phase 162
 
 ## Performance Metrics
 
@@ -39,7 +39,8 @@ Progress: [░░░░░░░░░░] 0% (0/6 v13.2 phases)
 
 | Phase | Plans | Status |
 |-------|-------|--------|
-| 162-167 | TBD | Not started |
+| 162 | 1/3 | In progress |
+| 163-167 | TBD | Not started |
 
 ## Accumulated Context
 
@@ -50,6 +51,8 @@ Progress: [░░░░░░░░░░] 0% (0/6 v13.2 phases)
 - [v13.2]: Corpus global evaluations feed per-brand profiles and `corpus_quality` rules
 - [v13.2]: Prompt-builder is primary generation impact surface
 - [v13.2]: No freeform voice editor — inspectable profile + approved rules only
+- [Phase 162-per-brand-voice-configuration]: Extracted voice-prompt-section.ts for shared prompt builder between hardcoded and DB-derived voices
+- [Phase 162-per-brand-voice-configuration]: Upsert targets client_profile_id PK for idempotent Cenbrap seed
 
 ### Blockers/Concerns
 
@@ -67,6 +70,6 @@ Progress: [░░░░░░░░░░] 0% (0/6 v13.2 phases)
 
 ## Session Continuity
 
-Last session: 2026-06-23T23:57:37.100Z
-Stopped at: Phase 162 context gathered
-Resume file: .planning/phases/162-per-brand-voice-configuration/162-CONTEXT.md
+Last session: 2026-06-24T00:11:54.852Z
+Stopped at: Completed 162-01-PLAN.md
+Resume file: .planning/phases/162-per-brand-voice-configuration/162-02-PLAN.md

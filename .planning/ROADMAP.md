@@ -53,7 +53,7 @@
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
-| 162 | Per-Brand Voice Configuration | VOICE-01..05 | Not started | - |
+| 162 | Per-Brand Voice Configuration | 1/3 | In Progress|  |
 | 163 | Corpus Learning Proposals | LEARN-01..06 | Not started | - |
 | 164 | Prompt Rule Application | APPLY-01..05 | Not started | - |
 | 165 | Owner Calibration Panel | PANEL-01..05 | Not started | - |
@@ -189,7 +189,12 @@ Completed:
   4. `resolveClientVoice` hardcode path is removed or reduced to a deprecated fallback no longer used by generation.
   5. Voice configuration is view-only — owner cannot edit freeform constitution text in this milestone.
 
-**Plans:** TBD
+**Plans:** 1/3 plans executed
+
+Plans:
+- [x] 162-01-PLAN.md — Schema, repository, and Cenbrap seed with parity tests
+- [ ] 162-02-PLAN.md — Profile-based generation resolver and review gate generalization
+- [ ] 162-03-PLAN.md — Owner read-only voice inspect API and UI
 
 ---
 

@@ -18,9 +18,9 @@ Generalizar calibração de gosto de marca para qualquer `clientProfile`: substi
 
 ### Voice Configuration (VOICE)
 
-- [ ] **VOICE-01**: System stores structured voice/olhar configuration per `clientProfileId` (match terms, prompt lines, status).
+- [x] **VOICE-01**: System stores structured voice/olhar configuration per `clientProfileId` (match terms, prompt lines, status).
 - [ ] **VOICE-02**: Generation resolves brand voice by `clientProfileId`, not campaign name string matching.
-- [ ] **VOICE-03**: Existing Cenbrap voice is seeded into DB config for the Cenbrap `clientProfileId` with parity to current output.
+- [x] **VOICE-03**: Existing Cenbrap voice is seeded into DB config for the Cenbrap `clientProfileId` with parity to current output.
 - [ ] **VOICE-04**: `resolveClientVoice` hardcode path is removed or reduced to deprecated fallback after migration.
 - [ ] **VOICE-05**: Owner can view active voice configuration for any `clientProfileId` without editing freeform constitution text.
 
@@ -96,9 +96,9 @@ Generalizar calibração de gosto de marca para qualquer `clientProfile`: substi
 
 | Requirement | Phase | Status |
 | --- | --- | --- |
-| VOICE-01 | Phase 162 | Pending |
+| VOICE-01 | Phase 162 | Complete |
 | VOICE-02 | Phase 162 | Pending |
-| VOICE-03 | Phase 162 | Pending |
+| VOICE-03 | Phase 162 | Complete |
 | VOICE-04 | Phase 162 | Pending |
 | VOICE-05 | Phase 162 | Pending |
 | LEARN-01 | Phase 163 | Pending |
