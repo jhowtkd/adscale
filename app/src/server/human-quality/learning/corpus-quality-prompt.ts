@@ -1,4 +1,4 @@
-const MAX_CORPUS_QUALITY_RULES = 10;
+export const MAX_CORPUS_QUALITY_RULES = 10;
 
 export function buildCorpusQualityPromptSection(
   rules: Array<{ id: string; rationale: string; category: string }>
