@@ -214,7 +214,12 @@ Plans:
   5. Owner rejecting a proposal requires a reason and enforces a 30-day cooldown before re-proposal.
   6. `factual_issue` failure reason never becomes a prompt rule — it surfaces as an admin alert only.
 
-**Plans:** TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 163-01-PLAN.md — Aggregator hardening (cooldown, approved-rule gate, evidenceRefs)
+- [ ] 163-02-PLAN.md — Fixture ack on accept + factual_issue admin alerts API
+- [ ] 163-03-PLAN.md — Vertical loop test + phase verification + staging smoke
 
 ---
 

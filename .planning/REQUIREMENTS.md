@@ -101,12 +101,12 @@ Generalizar calibração de gosto de marca para qualquer `clientProfile`: substi
 | VOICE-03 | Phase 162 | Complete |
 | VOICE-04 | Phase 162 | Complete |
 | VOICE-05 | Phase 162 | Complete |
-| LEARN-01 | Phase 163 | Pending |
-| LEARN-02 | Phase 163 | Pending |
-| LEARN-03 | Phase 163 | Pending |
-| LEARN-04 | Phase 163 | Pending |
-| LEARN-05 | Phase 163 | Pending |
-| LEARN-06 | Phase 163 | Pending |
+| LEARN-01 | Phase 163 (163-01) | Pending — aggregator exists; harden cooldown/approved-rule/evidence |
+| LEARN-02 | Phase 163 (163-01) | Pending — dedupe index exists; harden cooldown + approved-rule skip |
+| LEARN-03 | Phase 163 (163-03) | Pending — list API exists; verify in vertical test |
+| LEARN-04 | Phase 163 (163-02) | Pending — accept exists; add fixture ack + artifactIds |
+| LEARN-05 | Phase 163 (163-01) | Pending — reject cooldown exists; enforce on re-propose |
+| LEARN-06 | Phase 163 (163-02) | Pending — skip in aggregate exists; add factual-alerts API |
 | APPLY-01 | Phase 164 | Pending |
 | APPLY-02 | Phase 164 | Pending |
 | APPLY-03 | Phase 164 | Pending |
