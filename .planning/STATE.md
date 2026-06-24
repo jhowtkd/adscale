@@ -4,7 +4,7 @@ milestone: v13.2
 milestone_name: Calibração Multi-Marca
 status: executing
 stopped_at: Completed 167-03-PLAN.md
-last_updated: "2026-06-24T19:04:00.425Z"
+last_updated: "2026-06-24T19:04:24.094Z"
 last_activity: 2026-06-24
 progress:
   total_phases: 11
