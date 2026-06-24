@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v13.2
 milestone_name: Calibração Multi-Marca
 status: executing
-stopped_at: Completed 163-01-PLAN.md
-last_updated: "2026-06-24T11:45:32.692Z"
+stopped_at: Completed 163-02-PLAN.md
+last_updated: "2026-06-24T11:49:13.556Z"
 last_activity: 2026-06-24
 progress:
   total_phases: 11
   completed_phases: 6
   total_plans: 16
-  completed_plans: 14
-  percent: 88
+  completed_plans: 15
+  percent: 94
 ---
 
 # Project State
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-06-23)
 ## Current Position
 
 Phase: 163 of 167 (Corpus Learning Proposals)
-Plan: 1 of 3 complete
+Plan: 2 of 3 complete
 Status: Ready to execute
 Last activity: 2026-06-24
 
@@ -44,6 +44,7 @@ Progress: [░░░░░░░░░░] 0/3 plans in Phase 163
 | Phase 162-per-brand-voice-configuration P02 | 12min | 2 tasks | 19 files |
 | Phase 163 P0 | 0 | 0 tasks | 6 files |
 | Phase 163-corpus-learning-proposals P01 | 5 | 3 tasks | 10 files |
+| Phase 163-corpus-learning-proposals P02 | 6 | 2 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -60,6 +61,8 @@ Progress: [░░░░░░░░░░] 0/3 plans in Phase 163
 - [Phase 162-per-brand-voice-configuration]: Review gate uses DB reviewStatus; no campaign string fallback for voice injection
 - [Phase 163]: Enrich rows with feedbackArtifactId in generate before aggregate to keep buildClientLearningProposals pure
 - [Phase 163]: Match approved corpus_quality rules via rationale prefix like cross-client.ts
+- [Phase 163]: Extract buildLearningSliceBuckets for shared threshold logic between proposals and factual alerts
+- [Phase 163]: Factual alerts computed on read via primaryFailureReason filter; no persistence table for v1
 
 ### Blockers/Concerns
 
@@ -77,6 +80,6 @@ Progress: [░░░░░░░░░░] 0/3 plans in Phase 163
 
 ## Session Continuity
 
-Last session: 2026-06-24T11:45:32.689Z
-Stopped at: Completed 163-01-PLAN.md
+Last session: 2026-06-24T11:49:13.552Z
+Stopped at: Completed 163-02-PLAN.md
 Resume file: None
