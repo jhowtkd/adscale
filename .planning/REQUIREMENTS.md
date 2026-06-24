@@ -26,11 +26,11 @@ Generalizar calibração de gosto de marca para qualquer `clientProfile`: substi
 
 ### Corpus Learning Loop (LEARN)
 
-- [ ] **LEARN-01**: System aggregates global corpus evaluations into client-scoped learning proposals when slice thresholds are met (≥3 evals, |delta|≥15).
-- [ ] **LEARN-02**: Proposals are deduped to one active `proposed` slice per `(workspaceId, clientProfileId, sliceKey)`.
+- [x] **LEARN-01**: System aggregates global corpus evaluations into client-scoped learning proposals when slice thresholds are met (≥3 evals, |delta|≥15).
+- [x] **LEARN-02**: Proposals are deduped to one active `proposed` slice per `(workspaceId, clientProfileId, sliceKey)`.
 - [ ] **LEARN-03**: Owner can list pending client learning proposals filtered by workspace and `clientProfileId`.
 - [ ] **LEARN-04**: Owner can accept a proposal, creating an approved `calibration_rule` with category `corpus_quality` and evidence refs.
-- [ ] **LEARN-05**: Owner can reject a proposal with required reason and 30-day cooldown.
+- [x] **LEARN-05**: Owner can reject a proposal with required reason and 30-day cooldown.
 - [ ] **LEARN-06**: `factual_issue` failure reason never becomes a prompt rule; it surfaces as admin alert only.
 
 ### Prompt Application (APPLY)

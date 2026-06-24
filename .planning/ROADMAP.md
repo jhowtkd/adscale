@@ -54,7 +54,7 @@
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
 | 162 | Per-Brand Voice Configuration | Complete    | 2026-06-24 |  |
-| 163 | Corpus Learning Proposals | LEARN-01..06 | Not started | - |
+| 163 | Corpus Learning Proposals | 1/3 | In Progress|  |
 | 164 | Prompt Rule Application | APPLY-01..05 | Not started | - |
 | 165 | Owner Calibration Panel | PANEL-01..05 | Not started | - |
 | 166 | Per-Brand Evidence Gate | EVIDENCE-01..05 | Not started | - |
@@ -214,10 +214,10 @@ Plans:
   5. Owner rejecting a proposal requires a reason and enforces a 30-day cooldown before re-proposal.
   6. `factual_issue` failure reason never becomes a prompt rule — it surfaces as an admin alert only.
 
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 
 Plans:
-- [ ] 163-01-PLAN.md — Aggregator hardening (cooldown, approved-rule gate, evidenceRefs)
+- [x] 163-01-PLAN.md — Aggregator hardening (cooldown, approved-rule gate, evidenceRefs)
 - [ ] 163-02-PLAN.md — Fixture ack on accept + factual_issue admin alerts API
 - [ ] 163-03-PLAN.md — Vertical loop test + phase verification + staging smoke
 

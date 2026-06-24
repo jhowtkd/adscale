@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v13.2
 milestone_name: Calibração Multi-Marca
 status: executing
-stopped_at: Phase 163 planning complete — ready to execute
-last_updated: "2026-06-24T08:20:00.000Z"
+stopped_at: Completed 163-01-PLAN.md
+last_updated: "2026-06-24T11:45:32.692Z"
 last_activity: 2026-06-24
 progress:
   total_phases: 11
   completed_phases: 6
   total_plans: 16
-  completed_plans: 13
-  percent: 81
+  completed_plans: 14
+  percent: 88
 ---
 
 # Project State
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-06-23)
 ## Current Position
 
 Phase: 163 of 167 (Corpus Learning Proposals)
-Plan: 0 of 3 complete
+Plan: 1 of 3 complete
 Status: Ready to execute
 Last activity: 2026-06-24
 
@@ -43,6 +43,7 @@ Progress: [░░░░░░░░░░] 0/3 plans in Phase 163
 | 163 | 0/3 | Ready to execute |
 | Phase 162-per-brand-voice-configuration P02 | 12min | 2 tasks | 19 files |
 | Phase 163 P0 | 0 | 0 tasks | 6 files |
+| Phase 163-corpus-learning-proposals P01 | 5 | 3 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -57,6 +58,8 @@ Progress: [░░░░░░░░░░] 0/3 plans in Phase 163
 - [Phase 162-per-brand-voice-configuration]: Upsert targets client_profile_id PK for idempotent Cenbrap seed
 - [Phase 162-per-brand-voice-configuration]: buildDerivationPrompt async for DB voice lookup in generation-direction
 - [Phase 162-per-brand-voice-configuration]: Review gate uses DB reviewStatus; no campaign string fallback for voice injection
+- [Phase 163]: Enrich rows with feedbackArtifactId in generate before aggregate to keep buildClientLearningProposals pure
+- [Phase 163]: Match approved corpus_quality rules via rationale prefix like cross-client.ts
 
 ### Blockers/Concerns
 
@@ -74,6 +77,6 @@ Progress: [░░░░░░░░░░] 0/3 plans in Phase 163
 
 ## Session Continuity
 
-Last session: 2026-06-24T00:15:00.687Z
-Stopped at: Phase 163 planning complete — ready to execute
+Last session: 2026-06-24T11:45:32.689Z
+Stopped at: Completed 163-01-PLAN.md
 Resume file: None
