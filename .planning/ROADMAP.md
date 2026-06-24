@@ -194,7 +194,7 @@ Completed:
 Plans:
 - [x] 162-01-PLAN.md — Schema, repository, and Cenbrap seed with parity tests
 - [x] 162-02-PLAN.md — Profile-based generation resolver and review gate generalization
-- [ ] 162-03-PLAN.md — Owner read-only voice inspect API and UI
+- [x] 162-03-PLAN.md — Owner read-only voice inspect API and UI
 
 ---
 
