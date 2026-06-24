@@ -29,6 +29,23 @@ vi.mock("./BrandCalibrationRulesPanel", () => ({
   ),
 }));
 
+vi.mock("@/components/feedback/LearningProposalsTab", () => ({
+  LearningProposalsTab: ({
+    clientProfileId,
+    workspaceId,
+    variant,
+  }: {
+    clientProfileId?: string;
+    workspaceId?: string;
+    variant?: string;
+    onOpenCalibration: () => void;
+  }) => (
+    <div data-testid="learning-proposals-tab">
+      Proposals for {clientProfileId} in {workspaceId} ({variant})
+    </div>
+  ),
+}));
+
 import { apiFetch } from "@/lib/api-client";
 
 const mockApiFetch = vi.mocked(apiFetch);
@@ -120,13 +137,14 @@ describe("OwnerCalibrationPanel", () => {
     vi.clearAllMocks();
   });
 
-  it("renders ResponsiveTabs with Perfil, Voz, Regras labels", async () => {
+  it("renders ResponsiveTabs with Perfil, Voz, Regras, Propostas labels", async () => {
     mockApis();
     renderPanel();
 
     expect(await screen.findByRole("tab", { name: "Perfil" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Voz" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Regras" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Propostas" })).toBeInTheDocument();
   });
 
   it("calls onBrandChange when brand selection changes", async () => {
@@ -159,6 +177,17 @@ describe("OwnerCalibrationPanel", () => {
 
     expect(await screen.findByTestId("brand-voice-inspect")).toHaveTextContent(
       `Voice panel for ${CLIENT_PROFILE_ID}`
+    );
+  });
+
+  it("mounts LearningProposalsTab on Propostas tab with clientProfileId and workspaceId", async () => {
+    mockApis();
+    renderPanel();
+
+    fireEvent.click(await screen.findByRole("tab", { name: "Propostas" }));
+
+    expect(await screen.findByTestId("learning-proposals-tab")).toHaveTextContent(
+      `Proposals for ${CLIENT_PROFILE_ID} in ${brandsFixture.brands[0].workspaceId} (brand)`
     );
   });
 });

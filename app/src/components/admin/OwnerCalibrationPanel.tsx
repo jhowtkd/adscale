@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import ResponsiveTabs from "@/components/layout/ResponsiveTabs";
+import { LearningProposalsTab } from "@/components/feedback/LearningProposalsTab";
 import { BrandVoiceInspectPanel } from "./BrandVoiceInspectPanel";
 import { BrandTasteProfilePanel, fetchBrandTasteProfile } from "./BrandTasteProfilePanel";
 import { BrandCalibrationRulesPanel } from "./BrandCalibrationRulesPanel";
@@ -27,6 +28,7 @@ const TAB_ITEMS = [
   { id: "profile", label: "Perfil" },
   { id: "voice", label: "Voz" },
   { id: "rules", label: "Regras" },
+  { id: "proposals", label: "Propostas" },
 ] as const;
 
 type TabId = (typeof TAB_ITEMS)[number]["id"];
@@ -65,6 +67,8 @@ export function OwnerCalibrationPanel({
   }
 
   const brands = brandsQuery.data === "forbidden" ? [] : (brandsQuery.data ?? []);
+  const selectedBrand = brands.find((brand) => brand.id === clientProfileId);
+  const workspaceId = selectedBrand?.workspaceId ?? profileGateQuery.data?.workspaceId;
 
   return (
     <div className="space-y-6">
@@ -124,6 +128,14 @@ export function OwnerCalibrationPanel({
         ) : null}
         {activeTab === "rules" ? (
           <BrandCalibrationRulesPanel clientProfileId={clientProfileId} />
+        ) : null}
+        {activeTab === "proposals" ? (
+          <LearningProposalsTab
+            workspaceId={workspaceId}
+            clientProfileId={clientProfileId}
+            variant="brand"
+            onOpenCalibration={() => setActiveTab("rules")}
+          />
         ) : null}
       </div>
     </div>
