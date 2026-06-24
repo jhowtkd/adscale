@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, gt } from "drizzle-orm";
 
 import { db } from "../db";
 import {
@@ -39,6 +39,29 @@ export async function insertClientLearningProposal(
     .returning();
 
   return row;
+}
+
+export async function findSliceInCooldown(
+  workspaceId: string,
+  clientProfileId: string,
+  sliceKey: string
+): Promise<ClientLearningProposal | null> {
+  const [row] = await db
+    .select()
+    .from(clientLearningProposals)
+    .where(
+      and(
+        eq(clientLearningProposals.workspaceId, workspaceId),
+        eq(clientLearningProposals.clientProfileId, clientProfileId),
+        eq(clientLearningProposals.sliceKey, sliceKey),
+        eq(clientLearningProposals.status, "rejected"),
+        gt(clientLearningProposals.cooldownUntil, new Date())
+      )
+    )
+    .orderBy(desc(clientLearningProposals.proposedAt))
+    .limit(1);
+
+  return row ?? null;
 }
 
 export async function findActiveProposalBySlice(

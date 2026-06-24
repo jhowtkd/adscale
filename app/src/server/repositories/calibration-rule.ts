@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, like } from "drizzle-orm";
 import { db } from "../db";
 import {
   calibrationRules,
@@ -67,6 +67,29 @@ export async function listApprovedCalibrationRules(input: {
     ...input,
     status: "approved",
   });
+}
+
+export async function getApprovedCorpusQualityRuleForFailure(input: {
+  workspaceId: string;
+  clientProfileId: string;
+  primaryFailureReason: string;
+}): Promise<CalibrationRule | null> {
+  const [row] = await db
+    .select()
+    .from(calibrationRules)
+    .where(
+      and(
+        eq(calibrationRules.workspaceId, input.workspaceId),
+        eq(calibrationRules.clientProfileId, input.clientProfileId),
+        eq(calibrationRules.category, "corpus_quality"),
+        eq(calibrationRules.status, "approved"),
+        like(calibrationRules.rationale, `${input.primaryFailureReason}:%`)
+      )
+    )
+    .orderBy(desc(calibrationRules.approvedAt))
+    .limit(1);
+
+  return row ?? null;
 }
 
 export async function listApprovedCorpusQualityRules(): Promise<CalibrationRule[]> {
