@@ -79,6 +79,31 @@ describe("buildDerivationPrompt", () => {
     expect(direction).toMatch(/anti-patterns/i);
   });
 
+  it("section order: Olhar before brand-taste before corpus_quality", async () => {
+    const prompt = await buildDerivationPrompt(
+      derivationConfigFromContract(artVariationContractFixture(), {
+        brandTasteSection: [
+          "BRAND TASTE CONSTRAINTS (approved calibration rules — bounded, do not override export safety):",
+          "[brand-taste:rule-1] voice: Warm invitation tone",
+        ],
+        corpusQualitySection: [
+          "CORPUS QUALITY CONSTRAINTS (human-evaluated patterns for this brand):",
+          "[corpus-quality:corpus-1] corpus_quality: Keep CTA visible",
+        ],
+      })
+    );
+
+    const olharIdx = prompt.indexOf(GENERATION_DIRECTION_HEADER);
+    const brandIdx = prompt.indexOf("BRAND TASTE CONSTRAINTS");
+    const corpusIdx = prompt.indexOf("CORPUS QUALITY CONSTRAINTS");
+
+    expect(olharIdx).toBeGreaterThan(-1);
+    expect(brandIdx).toBeGreaterThan(-1);
+    expect(corpusIdx).toBeGreaterThan(-1);
+    expect(olharIdx).toBeLessThan(brandIdx);
+    expect(brandIdx).toBeLessThan(corpusIdx);
+  });
+
   it("does not inject unapproved Cenbrap voice by default", async () => {
     const prompt = await buildDerivationPrompt({
       generationMode: "art_variation",
