@@ -11,17 +11,36 @@ import {
   type FactualMetrics,
   type GroupSlice,
 } from "./aggregate";
-import type { CalibrationComparison } from "./types";
+import type { RubricCalibrationAdjustment } from "../../db/schema";
+import type { CalibrationAdjustmentEvidence, CalibrationComparison } from "./types";
 
 export { MIN_GLOBAL_EVALUATED_ITEMS, MIN_SLICE_SAMPLE };
 export const RUBRIC_CALIBRATION_VERSION = "1.1.0";
 
 export interface AdjustmentProposalSummary {
+  id?: string;
   adjustmentVersion: string;
   targetModule: string;
   targetKey: string;
   status: "proposed";
   evidenceCount: number;
+  rationale?: string;
+  evidenceRefs?: CalibrationAdjustmentEvidence;
+}
+
+export function toAdjustmentProposalSummaryFromRow(
+  row: RubricCalibrationAdjustment
+): AdjustmentProposalSummary {
+  return {
+    id: row.id,
+    adjustmentVersion: row.adjustmentVersion,
+    targetModule: row.targetModule,
+    targetKey: row.targetKey,
+    status: "proposed",
+    evidenceCount: row.evidenceRefs.corpusItemIds.length,
+    rationale: row.rationale,
+    evidenceRefs: row.evidenceRefs,
+  };
 }
 
 export interface CalibrationVisualMetrics {

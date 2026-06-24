@@ -1090,6 +1090,75 @@ function CalibrationTabContent({
   isLoading: boolean;
   isError: boolean;
 }) {
+  const queryClient = useQueryClient();
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [fixtureAcknowledged, setFixtureAcknowledged] = useState<Record<string, boolean>>({});
+
+  const acceptMutation = useMutation({
+    mutationFn: async ({
+      adjustmentId,
+      acknowledgeFixtureOnly,
+    }: {
+      adjustmentId: string;
+      acknowledgeFixtureOnly?: boolean;
+    }) => {
+      const init: RequestInit = { method: "PATCH" };
+      if (acknowledgeFixtureOnly) {
+        init.headers = { "content-type": "application/json" };
+        init.body = JSON.stringify({ acknowledgeFixtureOnly: true });
+      }
+      const res = await apiFetch(
+        `/api/feedback/calibration-adjustments/${adjustmentId}/accept`,
+        init
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err.error as string | undefined) ?? "Accept failed");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      setActionError(null);
+      void queryClient.invalidateQueries({ queryKey: ["score-calibration"] });
+    },
+    onError: (error: Error) => setActionError(error.message),
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: async ({
+      adjustmentId,
+      reason,
+    }: {
+      adjustmentId: string;
+      reason: string;
+    }) => {
+      const res = await apiFetch(
+        `/api/feedback/calibration-adjustments/${adjustmentId}/reject`,
+        {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ reason }),
+        }
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err.error as string | undefined) ?? "Reject failed");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      setActionError(null);
+      void queryClient.invalidateQueries({ queryKey: ["score-calibration"] });
+    },
+    onError: (error: Error) => setActionError(error.message),
+  });
+
+  const handleReject = (adjustmentId: string) => {
+    const reason = window.prompt("Rejection reason (required):");
+    if (!reason?.trim()) return;
+    rejectMutation.mutate({ adjustmentId, reason: reason.trim() });
+  };
+
   if (isLoading) {
     return <p className="text-sm text-[var(--text-muted)]">Loading calibration report…</p>;
   }
@@ -1103,6 +1172,12 @@ function CalibrationTabContent({
   }
 
   const insufficient = report.status === "insufficient_corpus";
+  const busyAdjustmentId =
+    acceptMutation.isPending
+      ? acceptMutation.variables?.adjustmentId
+      : rejectMutation.isPending
+        ? rejectMutation.variables?.adjustmentId
+        : null;
 
   return (
     <div className="space-y-4">
@@ -1169,19 +1244,123 @@ function CalibrationTabContent({
       {report.adjustments.length > 0 ? (
         <div className="space-y-2">
           <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-            Proposed adjustments (read-only)
+            Proposed adjustments
           </h4>
-          <ul className="space-y-1 text-xs text-[var(--text-primary)]">
-            {report.adjustments.map((adjustment) => (
-              <li
-                key={`${adjustment.targetModule}:${adjustment.targetKey}:${adjustment.adjustmentVersion}`}
-                className="rounded-md border border-[var(--border-dim)] px-2 py-1.5"
-              >
-                {adjustment.targetModule} · {adjustment.targetKey} · v
-                {adjustment.adjustmentVersion} · {adjustment.evidenceCount} items ·{" "}
-                {adjustment.status}
-              </li>
-            ))}
+          {actionError ? (
+            <p className="text-xs text-rose-400">{actionError}</p>
+          ) : null}
+          <ul className="space-y-2 text-xs text-[var(--text-primary)]">
+            {report.adjustments.map((adjustment) => {
+              const evidenceRefs = adjustment.evidenceRefs;
+              const isCrossClient = evidenceRefs?.promotionSource === "cross_client";
+              const isFixtureOnly = evidenceRefs?.fixtureOnly === true;
+              const supportingRuleIds = evidenceRefs?.supportingClientRuleIds ?? [];
+              const acked = adjustment.id
+                ? fixtureAcknowledged[adjustment.id] === true
+                : false;
+              const acceptDisabled =
+                !adjustment.id ||
+                busyAdjustmentId === adjustment.id ||
+                (isFixtureOnly && !acked);
+
+              return (
+                <li
+                  key={
+                    adjustment.id ??
+                    `${adjustment.targetModule}:${adjustment.targetKey}:${adjustment.adjustmentVersion}`
+                  }
+                  className="space-y-2 rounded-md border border-[var(--border-dim)] px-3 py-2"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    {isCrossClient ? (
+                      <span className="rounded bg-indigo-500/20 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-indigo-200">
+                        Cross-client
+                      </span>
+                    ) : null}
+                    <span>
+                      {adjustment.targetModule} · {adjustment.targetKey} · v
+                      {adjustment.adjustmentVersion} · {adjustment.evidenceCount} items ·{" "}
+                      {adjustment.status}
+                    </span>
+                  </div>
+
+                  {isCrossClient && supportingRuleIds.length > 0 ? (
+                    <div className="space-y-1">
+                      <p className="text-[10px] text-[var(--text-muted)]">
+                        {supportingRuleIds.length} supporting client rules
+                      </p>
+                      <ul className="flex flex-wrap gap-1">
+                        {supportingRuleIds.map((ruleId) => (
+                          <li
+                            key={ruleId}
+                            className="rounded border border-[var(--border-dim)] bg-[var(--surface-base)] px-1.5 py-0.5 font-mono text-[10px]"
+                          >
+                            {ruleId}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+
+                  {isFixtureOnly ? (
+                    <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[10px] text-amber-200">
+                      This proposal uses only fixture evidence — acknowledge before accepting.
+                    </p>
+                  ) : null}
+
+                  {adjustment.status === "proposed" && adjustment.id ? (
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      {isFixtureOnly ? (
+                        <label className="flex items-start gap-2 text-[10px] text-amber-200/90">
+                          <input
+                            type="checkbox"
+                            className="mt-0.5"
+                            aria-label="I acknowledge this proposal uses only fixture evidence"
+                            checked={acked}
+                            onChange={(event) =>
+                              setFixtureAcknowledged((prev) => ({
+                                ...prev,
+                                [adjustment.id!]: event.target.checked,
+                              }))
+                            }
+                          />
+                          <span>
+                            Reconheço que esta proposta usa apenas evidência de fixture
+                          </span>
+                        </label>
+                      ) : (
+                        <span />
+                      )}
+                      <div className="inline-flex gap-1">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={acceptDisabled}
+                          onClick={() =>
+                            acceptMutation.mutate({
+                              adjustmentId: adjustment.id!,
+                              acknowledgeFixtureOnly: isFixtureOnly ? true : undefined,
+                            })
+                          }
+                        >
+                          Accept
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          disabled={busyAdjustmentId === adjustment.id}
+                          onClick={() => handleReject(adjustment.id!)}
+                        >
+                          Reject
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
         </div>
       ) : null}

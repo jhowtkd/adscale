@@ -2,15 +2,17 @@ import { listEvaluatedCorpusWithEvaluations } from "../../repositories/human-qua
 import {
   findProposedAdjustmentBySlice,
   insertProposedAdjustment,
+  listProposedAdjustments,
 } from "../../repositories/rubric-calibration-adjustments";
 import {
   proposeAdjustments,
-  toAdjustmentProposalSummaries,
   type ProposedAdjustment,
 } from "./adjustments";
 import { buildCalibrationComparisons } from "./compare";
 import {
   buildCalibrationReport,
+  RUBRIC_CALIBRATION_VERSION,
+  toAdjustmentProposalSummaryFromRow,
   type CalibrationReport,
 } from "./report";
 
@@ -71,9 +73,13 @@ export async function runScoreCalibration(
   const proposals = proposeAdjustments(comparisons);
   const persistedAdjustments = await persistProposedAdjustments(proposals);
 
+  const dbProposed = await listProposedAdjustments({
+    adjustmentVersion: RUBRIC_CALIBRATION_VERSION,
+  });
+
   const report: CalibrationReport = {
     ...baseReport,
-    adjustments: toAdjustmentProposalSummaries(proposals),
+    adjustments: dbProposed.map(toAdjustmentProposalSummaryFromRow),
   };
 
   return { report, persistedAdjustments };
