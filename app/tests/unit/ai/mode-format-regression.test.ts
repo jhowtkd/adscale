@@ -46,9 +46,9 @@ const MODE_FORMAT_MATRIX: Array<{ mode: GenerationMode; format: (typeof FORMATS)
 describe.each(MODE_FORMAT_MATRIX)(
   "TEST-03 mode × format — $mode @ $format",
   ({ mode, format }) => {
-    it("builds prompt with correct mode section, target format, and shared campaign identity", () => {
+    it("builds prompt with correct mode section, target format, and shared campaign identity", async () => {
       const contract = baseContract(mode, format);
-      const prompt = buildDerivationPrompt(derivationConfigFromContract(contract));
+      const prompt = await buildDerivationPrompt(derivationConfigFromContract(contract));
       const hardRules = extractPromptHardRulesSection(prompt);
       const modeSection = extractPromptModeSection(prompt);
       const perMode = extractPromptPerModeRulesSection(prompt);
@@ -77,7 +77,7 @@ describe.each(MODE_FORMAT_MATRIX)(
 );
 
 describe("TEST-03 cross-format identity consistency", () => {
-  it("format_adaptation prompts for 1:1, 4:5, 9:16 share dominant idea and CTA", () => {
+  it("format_adaptation prompts for 1:1, 4:5, 9:16 share dominant idea and CTA", async () => {
     const prompts = FORMATS.map((format) =>
       buildDerivationPrompt(
         derivationConfigFromContract(baseContract("format_adaptation", format))

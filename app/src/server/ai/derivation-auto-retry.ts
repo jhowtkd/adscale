@@ -69,7 +69,7 @@ export async function runDerivationAutoRetry(
     })
   );
 
-  const prompt = `${buildDerivationPrompt({
+  const prompt = `${await buildDerivationPrompt({
     ...input.promptContext,
     feedback: input.correctionFeedback,
   })}\n\nAUTO-RETRY CORRECTION:\nThe previous output failed QA. Fix these issues exactly:\n${input.correctionFeedback}`;

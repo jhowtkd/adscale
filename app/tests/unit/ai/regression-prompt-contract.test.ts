@@ -69,9 +69,9 @@ function qaInputFromContract(contract: CreativeContract) {
 }
 
 describe.each(MODES)("TEST-01 prompt contract — $name", ({ contract, extra }) => {
-  it("injects dominant idea, reading-path gestalt budget, secondary CTA, anti-hallucination, simplification", () => {
+  it("injects dominant idea, reading-path gestalt budget, secondary CTA, anti-hallucination, simplification", async () => {
     const resolved = contract();
-    const prompt = buildDerivationPrompt(derivationConfigFromContract(resolved));
+    const prompt = await buildDerivationPrompt(derivationConfigFromContract(resolved));
 
     const integrity = extractPromptIntegritySection(prompt);
     const canonical = extractPromptCanonicalContractSection(prompt);
@@ -111,10 +111,10 @@ describe.each(MODES)("TEST-01 prompt contract — $name", ({ contract, extra }) 
     extra?.(prompt);
   });
 
-  it("QA prompt includes integrity, canonical, observable rubric parity (TEST-01)", () => {
+  it("QA prompt includes integrity, canonical, observable rubric parity (TEST-01)", async () => {
     const resolved = contract();
     const qaPrompt = buildCreativeQaPrompt(qaInputFromContract(resolved));
-    const derivationPrompt = buildDerivationPrompt(derivationConfigFromContract(resolved));
+    const derivationPrompt = await buildDerivationPrompt(derivationConfigFromContract(resolved));
 
     expect(qaPrompt).toMatch(/OBSERVABLE DEFECT NOTES/i);
     expect(qaPrompt).toMatch(/Dominant idea reference|do not invent/i);
@@ -139,7 +139,7 @@ describe.each(MODES)("TEST-01 prompt contract — $name", ({ contract, extra }) 
 });
 
 describe("TEST-01 forbidden entities — CENBRAP NR1", () => {
-  it("derivation and QA prompts include ALLOWED ENTITIES for canonical campaign", () => {
+  it("derivation and QA prompts include ALLOWED ENTITIES for canonical campaign", async () => {
     const contract = restylingContractFixture({
       client: "CENBRAP",
       product: "NR1",
@@ -152,7 +152,7 @@ describe("TEST-01 forbidden entities — CENBRAP NR1", () => {
       },
     });
 
-    const prompt = buildDerivationPrompt(config);
+    const prompt = await buildDerivationPrompt(config);
     const qaPrompt = buildCreativeQaPrompt(qaInputFromContract(contract));
 
     expect(prompt).toContain("ALLOWED ENTITIES (do not invent beyond this list):");

@@ -589,7 +589,7 @@ export const derivationJob = inngest.createFunction(
         })
       );
 
-      const prompt = buildDerivationPrompt({
+      const prompt = await buildDerivationPrompt({
         campaign,
         plan,
         asset: promptAsset,

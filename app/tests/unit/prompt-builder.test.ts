@@ -14,16 +14,16 @@ import {
 } from "@/server/ai/prompt-builder.test-fixtures";
 
 describe("buildDerivationPrompt creativity level", () => {
-  it("art_variation + conservative contains CREATIVITY LEVEL: conservative", () => {
-    const prompt = buildDerivationPrompt({
+  it("art_variation + conservative contains CREATIVITY LEVEL: conservative", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "art_variation",
       creativeLevel: "conservative",
     });
     expect(prompt).toContain("CREATIVITY LEVEL: conservative");
   });
 
-  it("art_variation + conservative emits restraint-oriented operational rules", () => {
-    const prompt = buildDerivationPrompt({
+  it("art_variation + conservative emits restraint-oriented operational rules", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "art_variation",
       creativeLevel: "conservative",
     });
@@ -34,16 +34,16 @@ describe("buildDerivationPrompt creativity level", () => {
     expect(prompt).toContain("Do not introduce new scenes");
   });
 
-  it("art_variation + balanced contains CREATIVITY LEVEL: balanced", () => {
-    const prompt = buildDerivationPrompt({
+  it("art_variation + balanced contains CREATIVITY LEVEL: balanced", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "art_variation",
       creativeLevel: "balanced",
     });
     expect(prompt).toContain("CREATIVITY LEVEL: balanced");
   });
 
-  it("art_variation + balanced emits sibling-campaign operational rules", () => {
-    const prompt = buildDerivationPrompt({
+  it("art_variation + balanced emits sibling-campaign operational rules", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "art_variation",
       creativeLevel: "balanced",
     });
@@ -54,16 +54,16 @@ describe("buildDerivationPrompt creativity level", () => {
     expect(prompt).toContain("keeping brand identity recognizable");
   });
 
-  it("art_variation + bold contains CREATIVITY LEVEL: bold", () => {
-    const prompt = buildDerivationPrompt({
+  it("art_variation + bold contains CREATIVITY LEVEL: bold", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "art_variation",
       creativeLevel: "bold",
     });
     expect(prompt).toContain("CREATIVITY LEVEL: bold");
   });
 
-  it("art_variation + bold emits high-change-but-on-brand operational rules", () => {
-    const prompt = buildDerivationPrompt({
+  it("art_variation + bold emits high-change-but-on-brand operational rules", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "art_variation",
       creativeLevel: "bold",
     });
@@ -74,23 +74,23 @@ describe("buildDerivationPrompt creativity level", () => {
     expect(prompt).toContain("Do not invent a new brand");
   });
 
-  it("format_adaptation + any creativeLevel does NOT contain CREATIVITY LEVEL", () => {
-    const prompt = buildDerivationPrompt({
+  it("format_adaptation + any creativeLevel does NOT contain CREATIVITY LEVEL", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "format_adaptation",
       creativeLevel: "bold",
     });
     expect(prompt).not.toContain("CREATIVITY LEVEL");
   });
 
-  it("art_variation without creativeLevel defaults to balanced", () => {
-    const prompt = buildDerivationPrompt({
+  it("art_variation without creativeLevel defaults to balanced", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "art_variation",
     });
     expect(prompt).toContain("CREATIVITY LEVEL: balanced");
   });
 
-  it("art_variation includes approved creative diagnosis when provided", () => {
-    const prompt = buildDerivationPrompt({
+  it("art_variation includes approved creative diagnosis when provided", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "art_variation",
       creativeDiagnosis: {
         detectedConcept: "Premium skincare promotion.",
@@ -104,8 +104,8 @@ describe("buildDerivationPrompt creativity level", () => {
     expect(prompt).toContain("stronger contrast");
   });
 
-  it("format_adaptation does not include creative diagnosis", () => {
-    const prompt = buildDerivationPrompt({
+  it("format_adaptation does not include creative diagnosis", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "format_adaptation",
       creativeDiagnosis: {
         detectedConcept: "Test",
@@ -118,8 +118,8 @@ describe("buildDerivationPrompt creativity level", () => {
 });
 
 describe("buildDerivationPrompt CTA contract", () => {
-  it("emits a critical literal CTA rule when ctaText exists", () => {
-    const prompt = buildDerivationPrompt({
+  it("emits a critical literal CTA rule when ctaText exists", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "art_variation",
       ctaText: "Comprar agora",
     });
@@ -132,8 +132,8 @@ describe("buildDerivationPrompt CTA contract", () => {
     expect(prompt).toContain("Do not replace");
   });
 
-  it("keeps plan CTA recommendations secondary when literal ctaText exists", () => {
-    const prompt = buildDerivationPrompt({
+  it("keeps plan CTA recommendations secondary when literal ctaText exists", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "art_variation",
       ctaText: "Comprar agora",
       plan: {
@@ -152,8 +152,8 @@ describe("buildDerivationPrompt CTA contract", () => {
 });
 
 describe("buildDerivationPrompt format_adaptation layout contract", () => {
-  it("names all source ad modules that must be preserved as separate entities", () => {
-    const prompt = buildDerivationPrompt({
+  it("names all source ad modules that must be preserved as separate entities", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "format_adaptation",
       targetFormat: "9:16",
     });
@@ -170,8 +170,8 @@ describe("buildDerivationPrompt format_adaptation layout contract", () => {
     expect(prompt).toContain("decorative background");
   });
 
-  it("explicitly forbids letterboxing and blank bands", () => {
-    const prompt = buildDerivationPrompt({
+  it("explicitly forbids letterboxing and blank bands", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "format_adaptation",
       targetFormat: "9:16",
     });
@@ -180,8 +180,8 @@ describe("buildDerivationPrompt format_adaptation layout contract", () => {
     expect(prompt).toContain("No blank bands");
   });
 
-  it("explicitly forbids a pasted poster over a background", () => {
-    const prompt = buildDerivationPrompt({
+  it("explicitly forbids a pasted poster over a background", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "format_adaptation",
       targetFormat: "9:16",
     });
@@ -189,8 +189,8 @@ describe("buildDerivationPrompt format_adaptation layout contract", () => {
     expect(prompt).toContain("no poster pasted over a background");
   });
 
-  it("explicitly forbids stretched edge filler", () => {
-    const prompt = buildDerivationPrompt({
+  it("explicitly forbids stretched edge filler", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "format_adaptation",
       targetFormat: "4:5",
     });
@@ -198,8 +198,8 @@ describe("buildDerivationPrompt format_adaptation layout contract", () => {
     expect(prompt).toContain("no stretched edge filler");
   });
 
-  it("restricts decorative background to bleed at edges; all other modules stay inside safe area", () => {
-    const prompt = buildDerivationPrompt({
+  it("restricts decorative background to bleed at edges; all other modules stay inside safe area", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "format_adaptation",
       targetFormat: "9:16",
     });
@@ -207,8 +207,8 @@ describe("buildDerivationPrompt format_adaptation layout contract", () => {
     expect(prompt).toContain("only decorative background may bleed to the edges");
   });
 
-  it("requires explicit verbatim copy preservation for factual content", () => {
-    const prompt = buildDerivationPrompt({
+  it("requires explicit verbatim copy preservation for factual content", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "format_adaptation",
       targetFormat: "4:5",
     });
@@ -217,8 +217,8 @@ describe("buildDerivationPrompt format_adaptation layout contract", () => {
     expect(prompt).toContain("VISUAL PROMINENCE");
   });
 
-  it("includes 9:16 three-zone vertical layout guidance", () => {
-    const prompt = buildDerivationPrompt({
+  it("includes 9:16 three-zone vertical layout guidance", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "format_adaptation",
       targetFormat: "9:16",
     });
@@ -228,8 +228,8 @@ describe("buildDerivationPrompt format_adaptation layout contract", () => {
     expect(prompt).toContain("lower zone");
   });
 
-  it("includes 4:5 portrait-feed separated-modules layout guidance", () => {
-    const prompt = buildDerivationPrompt({
+  it("includes 4:5 portrait-feed separated-modules layout guidance", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "format_adaptation",
       targetFormat: "4:5",
     });
@@ -238,8 +238,8 @@ describe("buildDerivationPrompt format_adaptation layout contract", () => {
     expect(prompt).toContain("CTA/logo their own clean area");
   });
 
-  it("does not apply format_adaptation layout guidance to 1:1 as a vertical-format rule", () => {
-    const prompt = buildDerivationPrompt({
+  it("does not apply format_adaptation layout guidance to 1:1 as a vertical-format rule", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "format_adaptation",
       targetFormat: "1:1",
     });
@@ -251,7 +251,7 @@ describe("buildDerivationPrompt format_adaptation layout contract", () => {
 });
 
 describe("buildDerivationPrompt contract fixtures", () => {
-  it("builds comparable configs from persisted CreativeContract shapes", () => {
+  it("builds comparable configs from persisted CreativeContract shapes", async () => {
     const art = derivationConfigFromContract(artVariationContractFixture());
     const formatApproved = derivationConfigFromContract(
       formatAdaptationApprovedDerivationContractFixture()
@@ -265,16 +265,16 @@ describe("buildDerivationPrompt contract fixtures", () => {
     expect(restyle.contract?.styleAssetId).toBe("asset-style-1");
   });
 
-  it("snapshots art variation hard rules via shared extractor", () => {
-    const prompt = buildDerivationPrompt(
+  it("snapshots art variation hard rules via shared extractor", async () => {
+    const prompt = await buildDerivationPrompt(
       derivationConfigFromContract(artVariationContractFixture())
     );
     expect(extractPromptHardRulesSection(prompt)).toContain("Comprar agora");
     expect(extractPromptHardRulesSection(prompt)).toContain("Target format: 1:1");
   });
 
-  it("snapshots format adaptation mode for approved_derivation package", () => {
-    const prompt = buildDerivationPrompt(
+  it("snapshots format adaptation mode for approved_derivation package", async () => {
+    const prompt = await buildDerivationPrompt(
       derivationConfigFromContract(formatAdaptationApprovedDerivationContractFixture(), {
         packageSource: "approved_derivation",
         asset: undefined,
@@ -287,8 +287,8 @@ describe("buildDerivationPrompt contract fixtures", () => {
 });
 
 describe("buildDerivationPrompt restyling mode", () => {
-  it("separates base image content from style reference design language", () => {
-    const prompt = buildDerivationPrompt({
+  it("separates base image content from style reference design language", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "restyling",
       visualTokenBrief: "Style reference: premium editorial shadows and serif typography.",
       asset: {

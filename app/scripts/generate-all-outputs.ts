@@ -80,7 +80,7 @@ async function generateImage(
 
     if (task.type === "restyling") {
       if (!refBuffer) throw new Error("Restyling requires reference buffer");
-      prompt = buildDerivationPrompt({
+      prompt = await buildDerivationPrompt({
         generationMode: "restyling",
         campaign: { name: "Test", client: "Test", product: "Education", objective: "Leads", audience: "Young professionals", platforms: ["meta"], tone: "Professional", offer: "Discount", constraints: null, notes: null, status: "active", id: "1", workspaceId: "1", createdAt: new Date(), updatedAt: new Date() },
         ctaText: "INSCREVA-SE",
@@ -99,7 +99,7 @@ async function generateImage(
       fs.unlinkSync(tmpStyle);
     } else if (task.type === "format_adaptation") {
       formatCfg = FORMAT_CONFIG[task.format ?? "1:1"];
-      prompt = buildDerivationPrompt({
+      prompt = await buildDerivationPrompt({
         generationMode: "format_adaptation",
         campaign: { name: "Test", client: "Test", product: "Education", objective: "Leads", audience: "Young professionals", platforms: ["meta"], tone: "Professional", offer: "Discount", constraints: null, notes: null, status: "active", id: "1", workspaceId: "1", createdAt: new Date(), updatedAt: new Date() },
         ctaText: "INSCREVA-SE",
@@ -113,7 +113,7 @@ async function generateImage(
       size = formatCfg.apiSize as OpenAI.Images.ImageEditParams["size"];
     } else {
       // art_variation
-      prompt = buildDerivationPrompt({
+      prompt = await buildDerivationPrompt({
         generationMode: "art_variation",
         campaign: { name: "Test", client: "Test", product: "Education", objective: "Leads", audience: "Young professionals", platforms: ["meta"], tone: "Professional", offer: "Discount", constraints: null, notes: null, status: "active", id: "1", workspaceId: "1", createdAt: new Date(), updatedAt: new Date() },
         ctaText: "INSCREVA-SE",

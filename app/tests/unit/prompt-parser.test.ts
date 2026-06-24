@@ -6,7 +6,7 @@ import {
 import type { Campaign, Asset, Plan } from "@/server/ai/prompt-builder";
 
 describe("buildPlanPrompt", () => {
-  it("returns a string containing campaign name", () => {
+  it("returns a string containing campaign name", async () => {
     const campaign: Campaign = {
       id: "c1",
       workspaceId: "ws1",
@@ -30,7 +30,7 @@ describe("buildPlanPrompt", () => {
     expect(prompt).toContain("Summer Sale");
   });
 
-  it("includes reference asset when provided", () => {
+  it("includes reference asset when provided", async () => {
     const campaign: Campaign = {
       id: "c1",
       workspaceId: "ws1",
@@ -68,7 +68,7 @@ describe("buildPlanPrompt", () => {
 });
 
 describe("buildDerivationPrompt", () => {
-  it("includes feedback when provided", () => {
+  it("includes feedback when provided", async () => {
     const plan: Plan = {
       id: "p1",
       strategy: "Bold",
@@ -77,11 +77,11 @@ describe("buildDerivationPrompt", () => {
       ctas: ["CTA 1"],
     };
 
-    const prompt = buildDerivationPrompt({ plan, feedback: "Make it brighter" });
+    const prompt = await buildDerivationPrompt({ plan, feedback: "Make it brighter" });
     expect(prompt).toContain("Revision Feedback: Make it brighter");
   });
 
-  it("does not include feedback when empty", () => {
+  it("does not include feedback when empty", async () => {
     const plan: Plan = {
       id: "p1",
       strategy: "Bold",
@@ -90,11 +90,11 @@ describe("buildDerivationPrompt", () => {
       ctas: null,
     };
 
-    const prompt = buildDerivationPrompt({ plan, feedback: "" });
+    const prompt = await buildDerivationPrompt({ plan, feedback: "" });
     expect(prompt).not.toContain("Revision Feedback");
   });
 
-  it("includes plan strategy when plan exists", () => {
+  it("includes plan strategy when plan exists", async () => {
     const plan: Plan = {
       id: "p1",
       strategy: "Minimalist",
@@ -103,12 +103,12 @@ describe("buildDerivationPrompt", () => {
       ctas: null,
     };
 
-    const prompt = buildDerivationPrompt({ plan });
+    const prompt = await buildDerivationPrompt({ plan });
     expect(prompt).toContain("Creative Strategy: Minimalist");
   });
 
-  it("art_variation mode demands composition mechanism, not decorative-only swaps", () => {
-    const prompt = buildDerivationPrompt({ generationMode: "art_variation" });
+  it("art_variation mode demands composition mechanism, not decorative-only swaps", async () => {
+    const prompt = await buildDerivationPrompt({ generationMode: "art_variation" });
     expect(prompt).toContain("MODE: art_variation");
     expect(prompt).toMatch(/DECORATIVE-ONLY|decorative-only/i);
     expect(prompt).toMatch(/composition mechanism|focal hierarchy/i);
@@ -118,8 +118,8 @@ describe("buildDerivationPrompt", () => {
     expect(prompt).toContain("SAFE MARGIN RULE");
   });
 
-  it("format_adaptation mode includes target format", () => {
-    const prompt = buildDerivationPrompt({
+  it("format_adaptation mode includes target format", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "format_adaptation",
       targetFormat: "9:16",
     });
@@ -130,21 +130,21 @@ describe("buildDerivationPrompt", () => {
     expect(prompt).toContain("For 9:16 (vertical story)");
   });
 
-  it("includes logo preservation rule", () => {
-    const prompt = buildDerivationPrompt({});
+  it("includes logo preservation rule", async () => {
+    const prompt = await buildDerivationPrompt({});
     expect(prompt).toContain("HARD RULES / NON-NEGOTIABLE CONTRACT");
     expect(prompt).toContain("CRITICAL LOGO RULE");
     expect(prompt).toContain("Do NOT invent a logo");
   });
 
-  it("includes applied CTA when provided", () => {
-    const prompt = buildDerivationPrompt({ ctaText: "Compre agora" });
+  it("includes applied CTA when provided", async () => {
+    const prompt = await buildDerivationPrompt({ ctaText: "Compre agora" });
     expect(prompt).toContain("Applied CTA text for this piece: Compre agora");
     expect(prompt).toContain("CRITICAL LITERAL CTA RULE");
   });
 
-  it("keeps hard rules before flexible plan guidance", () => {
-    const prompt = buildDerivationPrompt({
+  it("keeps hard rules before flexible plan guidance", async () => {
+    const prompt = await buildDerivationPrompt({
       locale: "pt-BR",
       ctaText: "Compre agora",
       targetFormat: "4:5",
@@ -168,8 +168,8 @@ describe("buildDerivationPrompt", () => {
     expect(prompt).toContain("must not override the literal CTA text");
   });
 
-  it("includes variant index for art_variation", () => {
-    const prompt = buildDerivationPrompt({
+  it("includes variant index for art_variation", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "art_variation",
       variantIndex: 2,
     });

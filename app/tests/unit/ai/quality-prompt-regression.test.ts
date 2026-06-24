@@ -13,8 +13,8 @@ import { extractPromptVisualReferenceTransferSection } from "@/server/ai/factual
 import { derivationConfigFromContract } from "@/server/ai/prompt-builder.test-fixtures";
 
 describe.each(QUALITY_FIXTURES)("prompt regression — $id", (fixture) => {
-  it("builds a prompt honoring contract hard rules and mode invariants", () => {
-    const prompt = buildDerivationPrompt(derivationConfigFromContract(fixture.contract));
+  it("builds a prompt honoring contract hard rules and mode invariants", async () => {
+    const prompt = await buildDerivationPrompt(derivationConfigFromContract(fixture.contract));
     const hardRules = extractPromptHardRulesSection(prompt);
     const mode = extractPromptModeSection(prompt);
     const integrity = extractPromptIntegritySection(prompt);
@@ -79,9 +79,9 @@ describe.each(QUALITY_FIXTURES)("prompt regression — $id", (fixture) => {
 });
 
 describe("compact prompt section snapshots by generation mode", () => {
-  it("snapshots art_variation hard rules from wrong_cta fixture", () => {
+  it("snapshots art_variation hard rules from wrong_cta fixture", async () => {
     const fixture = QUALITY_FIXTURES.find((f) => f.failureMode === "wrong_cta")!;
-    const prompt = buildDerivationPrompt(derivationConfigFromContract(fixture.contract));
+    const prompt = await buildDerivationPrompt(derivationConfigFromContract(fixture.contract));
     expect(extractPromptHardRulesSection(prompt)).toMatchInlineSnapshot(`
       "HARD RULES / NON-NEGOTIABLE CONTRACT:
       - Target format: 1:1. This target format overrides any flexible layout suggestion.
@@ -98,9 +98,9 @@ describe("compact prompt section snapshots by generation mode", () => {
     `);
   });
 
-  it("snapshots format_adaptation mode section from poor_format_adaptation fixture", () => {
+  it("snapshots format_adaptation mode section from poor_format_adaptation fixture", async () => {
     const fixture = QUALITY_FIXTURES.find((f) => f.failureMode === "poor_format_adaptation")!;
-    const prompt = buildDerivationPrompt(derivationConfigFromContract(fixture.contract));
+    const prompt = await buildDerivationPrompt(derivationConfigFromContract(fixture.contract));
     expect(extractPromptModeSection(prompt)).toMatchInlineSnapshot(`
       "MODE: format_adaptation — You are EDITING an existing ad to fit a DIFFERENT aspect ratio.
       CAMPAIGN IDENTITY LOCK:
@@ -126,11 +126,11 @@ describe("compact prompt section snapshots by generation mode", () => {
     `);
   });
 
-  it("snapshots restyling factual-source section from style_reference_contamination fixture", () => {
+  it("snapshots restyling factual-source section from style_reference_contamination fixture", async () => {
     const fixture = QUALITY_FIXTURES.find(
       (f) => f.failureMode === "style_reference_contamination"
     )!;
-    const prompt = buildDerivationPrompt(
+    const prompt = await buildDerivationPrompt(
       derivationConfigFromContract(fixture.contract, {
         visualTokenBrief: "Athlete jersey and rival brand discount from style ref.",
       })

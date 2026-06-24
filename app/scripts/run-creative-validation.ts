@@ -303,7 +303,7 @@ async function regenerateAfter(
   openai: OpenAI,
   feedback?: string | null
 ): Promise<Buffer> {
-  const basePrompt = buildDerivationPrompt({
+  const basePrompt = await buildDerivationPrompt({
     ...derivationConfigFromContract(contract, { creativeLevel: row.creativeLevel }),
     locale: LOCALE,
     feedback: feedback ?? null,

@@ -809,7 +809,7 @@ async function main() {
 
     const ad1Ctx = adResults[0]?.extractedContext;
 
-    const prompt = buildDerivationPrompt({
+    const prompt = await buildDerivationPrompt({
       generationMode: "restyling",
       campaign: {
         id: "test-campaign",

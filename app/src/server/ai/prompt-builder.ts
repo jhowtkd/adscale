@@ -47,6 +47,7 @@ export interface Campaign {
   offer: string | null;
   constraints: string | null;
   notes: string | null;
+  clientProfileId?: string | null;
   styleIntensity?: string | null;
   status: string;
   createdAt: Date | string;
@@ -375,7 +376,7 @@ function buildArtVariationFallbackPreservation(
   ];
 }
 
-export function buildDerivationPrompt(config: DerivationPromptConfig) {
+export async function buildDerivationPrompt(config: DerivationPromptConfig) {
   const {
     campaign,
     plan,
@@ -473,7 +474,7 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
   }
 
   parts.push(
-    ...buildGenerationDirectionSection({
+    ...(await buildGenerationDirectionSection({
       contract: effectiveContract,
       campaign,
       generationMode,
@@ -481,7 +482,9 @@ export function buildDerivationPrompt(config: DerivationPromptConfig) {
       targetFormat,
       baseReading: config.preflightResult?.baseReading ?? null,
       locale,
-    })
+      workspaceId: campaign?.workspaceId,
+      clientProfileId: campaign?.clientProfileId,
+    }))
   );
 
   parts.push(

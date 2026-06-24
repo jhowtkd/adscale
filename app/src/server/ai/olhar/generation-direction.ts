@@ -2,10 +2,8 @@ import type { CreativeContract } from "../creative-contract";
 import { resolveCanonicalCreative } from "../canonical-creative-contract";
 import type { BaseCreativeReading } from "./base-reading";
 import { OLHAR_ADSCALE_PRINCIPLES } from "./constitution";
-import {
-  buildClientVoicePromptSection,
-  resolveClientVoice,
-} from "../voices/client-voice";
+import { buildClientVoicePromptSection } from "../voices/client-voice";
+import { resolveVoiceForClientProfile } from "../voices/voice-config-resolver";
 import { isClientVoiceInjectionAllowed } from "../voices/voice-review-gate";
 
 export const GENERATION_DIRECTION_HEADER = "DIRECAO DE ARTE PARA GERACAO";
@@ -25,6 +23,8 @@ export interface GenerationDirectionInput {
   targetFormat?: string;
   baseReading?: BaseCreativeReading | null;
   locale?: string;
+  workspaceId?: string;
+  clientProfileId?: string | null;
   /** Operator/test override — still requires a matching client voice resolver. */
   allowClientVoice?: boolean;
 }
@@ -154,9 +154,9 @@ function buildOlharAntiPatternLines(): string[] {
   ];
 }
 
-export function buildGenerationDirectionSection(
+export async function buildGenerationDirectionSection(
   input: GenerationDirectionInput
-): string[] {
+): Promise<string[]> {
   const lines: string[] = [
     "",
     `${GENERATION_DIRECTION_HEADER}:`,
@@ -179,19 +179,26 @@ export function buildGenerationDirectionSection(
     ...buildOlharAntiPatternLines(),
   ];
 
-  const voice = resolveClientVoice({
-    name: input.campaign?.name,
-    client: input.campaign?.client ?? input.contract.client,
-    product: input.campaign?.product ?? input.contract.product,
-  });
+  const workspaceId = input.workspaceId;
+  const clientProfileId = input.clientProfileId;
 
-  if (
-    voice &&
-    isClientVoiceInjectionAllowed(voice.id, {
-      forceApproved: input.allowClientVoice,
-    })
-  ) {
-    lines.push("", ...buildClientVoicePromptSection(voice));
+  if (workspaceId && clientProfileId) {
+    const resolved = await resolveVoiceForClientProfile({
+      workspaceId,
+      clientProfileId,
+    });
+
+    if (
+      resolved &&
+      isClientVoiceInjectionAllowed(resolved.voice.id, {
+        clientProfileId,
+        workspaceId,
+        reviewStatus: resolved.reviewStatus,
+        forceApproved: input.allowClientVoice,
+      })
+    ) {
+      lines.push("", ...buildClientVoicePromptSection(resolved.voice));
+    }
   }
 
   return lines;

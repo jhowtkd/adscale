@@ -47,8 +47,8 @@ import {
 } from "./prompt-builder.test-fixtures";
 
 describe("buildDerivationPrompt", () => {
-  it("injects generation direction after hard rules and before flexible strategy", () => {
-    const prompt = buildDerivationPrompt(
+  it("injects generation direction after hard rules and before flexible strategy", async () => {
+    const prompt = await buildDerivationPrompt(
       derivationConfigFromContract(artVariationContractFixture(), {
         plan: {
           id: "plan-1",
@@ -79,8 +79,8 @@ describe("buildDerivationPrompt", () => {
     expect(direction).toMatch(/anti-patterns/i);
   });
 
-  it("does not inject unapproved Cenbrap voice by default", () => {
-    const prompt = buildDerivationPrompt({
+  it("does not inject unapproved Cenbrap voice by default", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "art_variation",
       targetFormat: "1:1",
       campaign: {
@@ -106,8 +106,8 @@ describe("buildDerivationPrompt", () => {
     expect(prompt).not.toContain("CLIENT VOICE — Cenbrap");
   });
 
-  it("places hard rules before flexible creative guidance", () => {
-    const prompt = buildDerivationPrompt({
+  it("places hard rules before flexible creative guidance", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "art_variation",
       targetFormat: "1:1",
       ctaText: "Comprar agora",
@@ -130,8 +130,8 @@ describe("buildDerivationPrompt", () => {
     expect(prompt).toContain("CTA Recommendations are secondary context only and must not override the literal CTA text.");
   });
 
-  it("describes the reference as approved winner for package format adaptation", () => {
-    const prompt = buildDerivationPrompt({
+  it("describes the reference as approved winner for package format adaptation", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "format_adaptation",
       targetFormat: "9:16",
       packageSource: "approved_derivation",
@@ -145,8 +145,8 @@ describe("buildDerivationPrompt", () => {
     expect(prompt).not.toContain("No reference asset was found");
   });
 
-  it("treats format adaptation as a native layout rebuild without blurred bars or crowding", () => {
-    const prompt = buildDerivationPrompt({
+  it("treats format adaptation as a native layout rebuild without blurred bars or crowding", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "format_adaptation",
       targetFormat: "9:16",
       ctaText: "Comprar agora",
@@ -159,8 +159,8 @@ describe("buildDerivationPrompt", () => {
     expect(prompt).toContain("Do not squeeze the square layout into the center");
   });
 
-  it("does not include approved winner text for campaign asset source", () => {
-    const prompt = buildDerivationPrompt({
+  it("does not include approved winner text for campaign asset source", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "format_adaptation",
       targetFormat: "4:5",
       packageSource: "campaign_asset",
@@ -171,8 +171,8 @@ describe("buildDerivationPrompt", () => {
     expect(prompt).toContain("Target format: 4:5");
   });
 
-  it("does not include approved winner text when packageSource is omitted", () => {
-    const prompt = buildDerivationPrompt({
+  it("does not include approved winner text when packageSource is omitted", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "format_adaptation",
       targetFormat: "1:1",
     });
@@ -181,8 +181,8 @@ describe("buildDerivationPrompt", () => {
     expect(prompt).toContain("Target format: 1:1");
   });
 
-  it("includes art_variation mode instructions", () => {
-    const prompt = buildDerivationPrompt({
+  it("includes art_variation mode instructions", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "art_variation",
       targetFormat: "1:1",
     });
@@ -199,8 +199,8 @@ describe("buildDerivationPrompt", () => {
     expect(prompt).toContain("THUMBNAIL LEGIBILITY RULE");
   });
 
-  it("requires art_variation to preserve visible ad information while rearranging", () => {
-    const prompt = buildDerivationPrompt({
+  it("requires art_variation to preserve visible ad information while rearranging", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "art_variation",
       targetFormat: "1:1",
       ctaText: "Teste agora",
@@ -250,8 +250,8 @@ describe("buildDerivationPrompt", () => {
     expect(prompt).toContain("Reference asset dimensions: 1080x1080px");
   });
 
-  it("uses approved creative diagnosis instead of fallback preservation when present", () => {
-    const prompt = buildDerivationPrompt({
+  it("uses approved creative diagnosis instead of fallback preservation when present", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "art_variation",
       targetFormat: "1:1",
       creativeDiagnosis: {
@@ -266,8 +266,8 @@ describe("buildDerivationPrompt", () => {
     expect(prompt).not.toContain("BRIEF-BASED PRESERVATION FALLBACK");
   });
 
-  it("includes restyling mode instructions", () => {
-    const prompt = buildDerivationPrompt({
+  it("includes restyling mode instructions", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "restyling",
       targetFormat: "1:1",
     });
@@ -276,8 +276,8 @@ describe("buildDerivationPrompt", () => {
     expect(prompt).toMatch(/entity lock|base-locked|FACTUAL ENTITY LOCK/i);
   });
 
-  it("renders client references under CLIENT REFERENCE LIBRARY section", () => {
-    const prompt = buildDerivationPrompt({
+  it("renders client references under CLIENT REFERENCE LIBRARY section", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "art_variation",
       targetFormat: "1:1",
       clientReferences: [
@@ -293,8 +293,8 @@ describe("buildDerivationPrompt", () => {
     expect(prompt).toContain("must not override the primary campaign asset, literal CTA, target format, or campaign constraints");
   });
 
-  it("does not include CLIENT REFERENCE LIBRARY when no references provided", () => {
-    const prompt = buildDerivationPrompt({
+  it("does not include CLIENT REFERENCE LIBRARY when no references provided", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "art_variation",
       targetFormat: "1:1",
     });
@@ -302,8 +302,8 @@ describe("buildDerivationPrompt", () => {
     expect(prompt).not.toContain("CLIENT REFERENCE LIBRARY:");
   });
 
-  it("preserves literal CTA text even with client references", () => {
-    const prompt = buildDerivationPrompt({
+  it("preserves literal CTA text even with client references", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "art_variation",
       targetFormat: "1:1",
       ctaText: "Buy Now",
@@ -317,8 +317,8 @@ describe("buildDerivationPrompt", () => {
     expect(prompt).toContain("CLIENT REFERENCE LIBRARY:");
   });
 
-  it("renders brand memory as auxiliary context without overriding hard rules", () => {
-    const prompt = buildDerivationPrompt({
+  it("renders brand memory as auxiliary context without overriding hard rules", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "art_variation",
       targetFormat: "9:16",
       ctaText: "Comprar agora",
@@ -349,8 +349,8 @@ describe("buildDerivationPrompt", () => {
     expect(prompt).toContain("Target format: 9:16");
   });
 
-  it("keeps target format and pt-BR visible text requirements in hard rules", () => {
-    const prompt = buildDerivationPrompt({
+  it("keeps target format and pt-BR visible text requirements in hard rules", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "format_adaptation",
       targetFormat: "9:16",
       locale: "pt-BR",
@@ -364,8 +364,8 @@ describe("buildDerivationPrompt", () => {
     expect(prompt).toContain("todo texto visivel, CTA, chamada, legenda e direcao textual deve estar em portugues brasileiro");
   });
 
-  it("includes brand kit colors, fonts, and tone when brandKit is provided", () => {
-    const prompt = buildDerivationPrompt({
+  it("includes brand kit colors, fonts, and tone when brandKit is provided", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "art_variation",
       targetFormat: "1:1",
       brandKit: {
@@ -384,8 +384,8 @@ describe("buildDerivationPrompt", () => {
     expect(prompt).toContain("--- END BRAND KIT ---");
   });
 
-  it("includes competitor context when competitorAnalyses is provided", () => {
-    const prompt = buildDerivationPrompt({
+  it("includes competitor context when competitorAnalyses is provided", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "art_variation",
       targetFormat: "1:1",
       competitorAnalyses: [
@@ -416,8 +416,8 @@ describe("buildDerivationPrompt", () => {
     expect(prompt).toContain("--- End Competitor Context ---");
   });
 
-  it("includes pre-flight analysis when preflightResult is provided", () => {
-    const prompt = buildDerivationPrompt({
+  it("includes pre-flight analysis when preflightResult is provided", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "art_variation",
       targetFormat: "1:1",
       preflightResult: {
@@ -457,8 +457,8 @@ describe("buildDerivationPrompt", () => {
 });
 
 describe("prompt contract regression helpers", () => {
-  it("extracts compact sections without the full prompt body", () => {
-    const prompt = buildDerivationPrompt(
+  it("extracts compact sections without the full prompt body", async () => {
+    const prompt = await buildDerivationPrompt(
       derivationConfigFromContract(artVariationContractFixture())
     );
     const hardRules = extractPromptHardRulesSection(prompt);
@@ -473,8 +473,8 @@ describe("prompt contract regression helpers", () => {
 });
 
 describe("art variation contract (AIC-02)", () => {
-  it("preserves creative level, mandatory facts, and hard-rule precedence", () => {
-    const prompt = buildDerivationPrompt(
+  it("preserves creative level, mandatory facts, and hard-rule precedence", async () => {
+    const prompt = await buildDerivationPrompt(
       derivationConfigFromContract(artVariationContractFixture(), {
         creativeLevel: "bold",
       })
@@ -507,8 +507,8 @@ describe("art variation contract (AIC-02)", () => {
     expect(prompt).toContain("Target format: 1:1");
   });
 
-  it("uses inherited CTA semantics without no-CTA language", () => {
-    const prompt = buildDerivationPrompt(
+  it("uses inherited CTA semantics without no-CTA language", async () => {
+    const prompt = await buildDerivationPrompt(
       derivationConfigFromContract(
         artVariationContractFixture({
           ctaSemantics: { kind: "inherited" },
@@ -521,8 +521,8 @@ describe("art variation contract (AIC-02)", () => {
     expect(prompt).not.toContain("no CTA required");
   });
 
-  it("snapshots the art variation hard-rule section", () => {
-    const prompt = buildDerivationPrompt(
+  it("snapshots the art variation hard-rule section", async () => {
+    const prompt = await buildDerivationPrompt(
       derivationConfigFromContract(artVariationContractFixture())
     );
     expect(extractPromptHardRulesSection(prompt)).toMatchInlineSnapshot(`
@@ -543,8 +543,8 @@ describe("art variation contract (AIC-02)", () => {
 });
 
 describe("format adaptation contract (AIC-03)", () => {
-  it("requires native layout rebuild and rejects poster padding patterns", () => {
-    const prompt = buildDerivationPrompt(
+  it("requires native layout rebuild and rejects poster padding patterns", async () => {
+    const prompt = await buildDerivationPrompt(
       derivationConfigFromContract(formatAdaptationCampaignAssetContractFixture())
     );
 
@@ -564,8 +564,8 @@ describe("format adaptation contract (AIC-03)", () => {
     expect(prompt).toContain("lower zone");
   });
 
-  it("snapshots approved_derivation source-package mode section", () => {
-    const prompt = buildDerivationPrompt(
+  it("snapshots approved_derivation source-package mode section", async () => {
+    const prompt = await buildDerivationPrompt(
       derivationConfigFromContract(formatAdaptationApprovedDerivationContractFixture(), {
         packageSource: "approved_derivation",
         asset: undefined,
@@ -602,8 +602,8 @@ describe("format adaptation contract (AIC-03)", () => {
     `);
   });
 
-  it("includes 4:5 portrait-feed guidance when target format is 4:5", () => {
-    const prompt = buildDerivationPrompt(
+  it("includes 4:5 portrait-feed guidance when target format is 4:5", async () => {
+    const prompt = await buildDerivationPrompt(
       derivationConfigFromContract(
         formatAdaptationCampaignAssetContractFixture({ targetFormat: "4:5" }),
         { targetFormat: "4:5" }
@@ -616,9 +616,9 @@ describe("format adaptation contract (AIC-03)", () => {
 });
 
 describe("restyling contract (AIC-04)", () => {
-  it("separates base factual content from style-reference visual language", () => {
+  it("separates base factual content from style-reference visual language", async () => {
     const contract = restylingContractFixture();
-    const prompt = buildDerivationPrompt(derivationConfigFromContract(contract));
+    const prompt = await buildDerivationPrompt(derivationConfigFromContract(contract));
 
     expect(contract.baseAssetId).toBe("asset-base-1");
     expect(contract.styleAssetId).toBe("asset-style-1");
@@ -636,8 +636,8 @@ describe("restyling contract (AIC-04)", () => {
     expect(prompt).not.toContain("no CTA required");
   });
 
-  it("snapshots the restyling factual-source section", () => {
-    const prompt = buildDerivationPrompt(
+  it("snapshots the restyling factual-source section", async () => {
+    const prompt = await buildDerivationPrompt(
       derivationConfigFromContract(restylingContractFixture())
     );
     expect(extractPromptRestylingFactualSourceSection(prompt)).toMatchInlineSnapshot(`
@@ -666,7 +666,7 @@ describe("visual reference transfer", () => {
     "alegações",
   ];
 
-  it("buildVisualReferenceTransferRuleSection includes SEP-02 allowlist and denylist", () => {
+  it("buildVisualReferenceTransferRuleSection includes SEP-02 allowlist and denylist", async () => {
     const section = buildVisualReferenceTransferRuleSection().join("\n");
     expect(section).toContain("VISUAL REFERENCE TRANSFER RULE:");
     for (const term of allowlistTerms) {
@@ -679,7 +679,7 @@ describe("visual reference transfer", () => {
     expect(section).toMatch(/Never copy factual content from the style reference/i);
   });
 
-  it("extractPromptVisualReferenceTransferSection extracts block before next major section", () => {
+  it("extractPromptVisualReferenceTransferSection extracts block before next major section", async () => {
     const prompt = [
       "prefix",
       "VISUAL REFERENCE TRANSFER RULE:",
@@ -694,8 +694,8 @@ describe("visual reference transfer", () => {
     expect(section).not.toContain("RESTYLING FACTUAL-SOURCE RULE:");
   });
 
-  it("restyling prompt contains allowlist terms and denylist terms", () => {
-    const prompt = buildDerivationPrompt(
+  it("restyling prompt contains allowlist terms and denylist terms", async () => {
+    const prompt = await buildDerivationPrompt(
       derivationConfigFromContract(restylingContractFixture())
     );
     const section = extractPromptVisualReferenceTransferSection(prompt);
@@ -708,8 +708,8 @@ describe("visual reference transfer", () => {
     }
   });
 
-  it("art_variation prompt does NOT contain VISUAL REFERENCE TRANSFER RULE header", () => {
-    const prompt = buildDerivationPrompt(
+  it("art_variation prompt does NOT contain VISUAL REFERENCE TRANSFER RULE header", async () => {
+    const prompt = await buildDerivationPrompt(
       derivationConfigFromContract(artVariationContractFixture())
     );
     expect(prompt).not.toContain("VISUAL REFERENCE TRANSFER RULE:");
@@ -717,7 +717,7 @@ describe("visual reference transfer", () => {
 });
 
 describe("input classification", () => {
-  it("maps campaign_asset to campaign base asset factual label", () => {
+  it("maps campaign_asset to campaign base asset factual label", async () => {
     const contract = artVariationContractFixture();
     const classification = resolveInputSourceClassification(contract, {
       hasBrandKit: false,
@@ -732,7 +732,7 @@ describe("input classification", () => {
     expect(classification.auxiliaryReferences.count).toBe(0);
   });
 
-  it("maps approved_derivation package to approved parent factual label", () => {
+  it("maps approved_derivation package to approved parent factual label", async () => {
     const contract = formatAdaptationApprovedDerivationContractFixture();
     const classification = resolveInputSourceClassification(contract, {
       hasBrandKit: false,
@@ -743,7 +743,7 @@ describe("input classification", () => {
     expect(classification.factualBase.label).toContain("approved parent");
   });
 
-  it("includes visual_reference when styleAssetId is set", () => {
+  it("includes visual_reference when styleAssetId is set", async () => {
     const contract = restylingContractFixture();
     const classification = resolveInputSourceClassification(contract, {
       hasBrandKit: false,
@@ -755,7 +755,7 @@ describe("input classification", () => {
     );
   });
 
-  it("buildInputClassificationPromptSection emits required header and role lines", () => {
+  it("buildInputClassificationPromptSection emits required header and role lines", async () => {
     const section = buildInputClassificationPromptSection(
       resolveInputSourceClassification(restylingContractFixture(), {
         hasBrandKit: true,
@@ -773,7 +773,7 @@ describe("input classification", () => {
     expect(section).toContain("Auxiliary references (2):");
   });
 
-  it("extractPromptInputClassificationSection returns text before MODE block", () => {
+  it("extractPromptInputClassificationSection returns text before MODE block", async () => {
     const prompt = [
       "prefix",
       "INPUT SOURCE CLASSIFICATION:",
@@ -791,7 +791,7 @@ describe("input classification", () => {
     );
   });
 
-  it("CONTAMINATION_FAILURE_CODES includes lineage hard-failure codes", () => {
+  it("CONTAMINATION_FAILURE_CODES includes lineage hard-failure codes", async () => {
     expect(CONTAMINATION_FAILURE_CODES.has("copied_style_reference_facts")).toBe(
       true
     );
@@ -807,7 +807,7 @@ describe("input classification", () => {
     expect(CONTAMINATION_FAILURE_CODES.has("cta_drift" as never)).toBe(false);
   });
 
-  it("art_variation with campaign asset: factual base, no visual reference, brand kit not attached", () => {
+  it("art_variation with campaign asset: factual base, no visual reference, brand kit not attached", async () => {
     const contract = artVariationContractFixture();
     const section = buildInputClassificationPromptSection(
       resolveInputSourceClassification(contract, {
@@ -823,7 +823,7 @@ describe("input classification", () => {
     expect(section).toContain("Auxiliary references: none.");
   });
 
-  it("format_adaptation with approved_derivation: factual base mentions approved parent", () => {
+  it("format_adaptation with approved_derivation: factual base mentions approved parent", async () => {
     const contract = formatAdaptationApprovedDerivationContractFixture();
     const section = buildInputClassificationPromptSection(
       resolveInputSourceClassification(contract, {
@@ -836,7 +836,7 @@ describe("input classification", () => {
     expect(section).toMatch(/approved parent/i);
   });
 
-  it("restyling with styleAssetId: visual reference line present", () => {
+  it("restyling with styleAssetId: visual reference line present", async () => {
     const contract = restylingContractFixture();
     const section = buildInputClassificationPromptSection(
       resolveInputSourceClassification(contract, {
@@ -859,8 +859,8 @@ describe("input classification", () => {
     ],
     ["restyling", restylingContractFixture(), undefined],
   ] as const)("buildDerivationPrompt %s", (_mode, contract, packageSource) => {
-    it("includes INPUT SOURCE CLASSIFICATION after integrity and before MODE", () => {
-      const prompt = buildDerivationPrompt(
+    it("includes INPUT SOURCE CLASSIFICATION after integrity and before MODE", async () => {
+      const prompt = await buildDerivationPrompt(
         derivationConfigFromContract(contract, {
           packageSource: packageSource ?? contract.sourcePackage,
         })
@@ -883,7 +883,7 @@ describe("integrity injection", () => {
   describe.each(["art_variation", "format_adaptation", "restyling"] as const)(
     "%s mode",
     (mode) => {
-      it("injects canonical and integrity sections before MODE", () => {
+      it("injects canonical and integrity sections before MODE", async () => {
         const contract =
           mode === "restyling"
             ? restylingContractFixture()
@@ -891,7 +891,7 @@ describe("integrity injection", () => {
               ? formatAdaptationCampaignAssetContractFixture()
               : artVariationContractFixture();
 
-        const prompt = buildDerivationPrompt(
+        const prompt = await buildDerivationPrompt(
           derivationConfigFromContract(contract, { generationMode: mode })
         );
 
@@ -914,8 +914,8 @@ describe("integrity injection", () => {
     }
   );
 
-  it("places restyling factual-source after integrity and before MODE", () => {
-    const prompt = buildDerivationPrompt(
+  it("places restyling factual-source after integrity and before MODE", async () => {
+    const prompt = await buildDerivationPrompt(
       derivationConfigFromContract(restylingContractFixture())
     );
 
@@ -933,8 +933,8 @@ describe("integrity injection", () => {
 });
 
 describe("precedence", () => {
-  it("includes RULE PRECEDENCE and mandatory tier in art_variation mode section", () => {
-    const prompt = buildDerivationPrompt(
+  it("includes RULE PRECEDENCE and mandatory tier in art_variation mode section", async () => {
+    const prompt = await buildDerivationPrompt(
       derivationConfigFromContract(artVariationContractFixture())
     );
     const mode = extractPromptModeSection(prompt);
@@ -946,8 +946,8 @@ describe("precedence", () => {
 });
 
 describe("no preserve-all conflict", () => {
-  it("does not demand undifferentiated preserve-every-important-piece without tier qualification", () => {
-    const prompt = buildDerivationPrompt(
+  it("does not demand undifferentiated preserve-every-important-piece without tier qualification", async () => {
+    const prompt = await buildDerivationPrompt(
       derivationConfigFromContract(artVariationContractFixture())
     );
     const mode = extractPromptModeSection(prompt);
@@ -958,8 +958,8 @@ describe("no preserve-all conflict", () => {
     }
   });
 
-  it("does not pair undifferentiated PRESERVE EXACTLY with hierarchy simplification in format_adaptation", () => {
-    const prompt = buildDerivationPrompt(
+  it("does not pair undifferentiated PRESERVE EXACTLY with hierarchy simplification in format_adaptation", async () => {
+    const prompt = await buildDerivationPrompt(
       derivationConfigFromContract(formatAdaptationCampaignAssetContractFixture())
     );
     const mode = extractPromptModeSection(prompt);
@@ -974,8 +974,8 @@ describe("no preserve-all conflict", () => {
 });
 
 describe("CTA semantics contract", () => {
-  it("art_variation with null ctaText uses inherited CTA instruction", () => {
-    const prompt = buildDerivationPrompt({
+  it("art_variation with null ctaText uses inherited CTA instruction", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "art_variation",
       targetFormat: "1:1",
       ctaText: null,
@@ -995,8 +995,8 @@ describe("CTA semantics contract", () => {
     expect(prompt).not.toContain("no CTA required");
   });
 
-  it("art_variation with explicit ctaText uses literal CTA rule", () => {
-    const prompt = buildDerivationPrompt({
+  it("art_variation with explicit ctaText uses literal CTA rule", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "art_variation",
       targetFormat: "1:1",
       ctaText: "Comprar agora",
@@ -1016,8 +1016,8 @@ describe("CTA semantics contract", () => {
     expect(prompt.indexOf("HARD RULES")).toBeLessThan(prompt.indexOf("Comprar agora"));
   });
 
-  it("format_adaptation with null ctaText uses CTA preservation instruction", () => {
-    const prompt = buildDerivationPrompt({
+  it("format_adaptation with null ctaText uses CTA preservation instruction", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "format_adaptation",
       targetFormat: "9:16",
       ctaText: null,
@@ -1037,8 +1037,8 @@ describe("CTA semantics contract", () => {
     expect(prompt).not.toContain("no CTA required");
   });
 
-  it("restyling with null ctaText does not emit no-CTA instruction", () => {
-    const prompt = buildDerivationPrompt({
+  it("restyling with null ctaText does not emit no-CTA instruction", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "restyling",
       targetFormat: "1:1",
       ctaText: null,
@@ -1058,8 +1058,8 @@ describe("CTA semantics contract", () => {
     expect(prompt).not.toContain("CTA: none");
   });
 
-  it("restyling with styleAssetId includes RESTYLING FACTUAL-SOURCE RULE", () => {
-    const prompt = buildDerivationPrompt({
+  it("restyling with styleAssetId includes RESTYLING FACTUAL-SOURCE RULE", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "restyling",
       targetFormat: "1:1",
       contract: {
@@ -1078,8 +1078,8 @@ describe("CTA semantics contract", () => {
     expect(prompt.toLowerCase()).toContain("factual");
   });
 
-  it("restyling without styleAssetId still includes RESTYLING FACTUAL-SOURCE RULE", () => {
-    const prompt = buildDerivationPrompt({
+  it("restyling without styleAssetId still includes RESTYLING FACTUAL-SOURCE RULE", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "restyling",
       targetFormat: "1:1",
       contract: {
@@ -1098,8 +1098,8 @@ describe("CTA semantics contract", () => {
     expect(prompt).toContain("VISUAL REFERENCE TRANSFER RULE:");
   });
 
-  it("restyling with visualTokenBrief does not inject Extracted Visual Token Brief", () => {
-    const prompt = buildDerivationPrompt({
+  it("restyling with visualTokenBrief does not inject Extracted Visual Token Brief", async () => {
+    const prompt = await buildDerivationPrompt({
       ...derivationConfigFromContract(restylingContractFixture()),
       visualTokenBrief:
         "Style reference: premium editorial shadows and serif typography.",
@@ -1108,8 +1108,8 @@ describe("CTA semantics contract", () => {
     expect(prompt).not.toContain("premium editorial shadows");
   });
 
-  it("format_adaptation still excludes visualTokenBrief when configured", () => {
-    const prompt = buildDerivationPrompt({
+  it("format_adaptation still excludes visualTokenBrief when configured", async () => {
+    const prompt = await buildDerivationPrompt({
       ...derivationConfigFromContract(formatAdaptationCampaignAssetContractFixture()),
       visualTokenBrief: "Bold headline stack with yellow CTA module.",
     });
@@ -1119,8 +1119,8 @@ describe("CTA semantics contract", () => {
 });
 
 describe("allowed entities prompt section", () => {
-  it("CENBRAP NR1 restyling prompt contains ALLOWED ENTITIES with CENBRAP brand", () => {
-    const prompt = buildDerivationPrompt({
+  it("CENBRAP NR1 restyling prompt contains ALLOWED ENTITIES with CENBRAP brand", async () => {
+    const prompt = await buildDerivationPrompt({
       generationMode: "restyling",
       targetFormat: "1:1",
       ctaText: "Solicitar checklist",
@@ -1155,8 +1155,8 @@ describe("allowed entities prompt section", () => {
 });
 
 describe("art_variation decorative-only rejection (MODE-01)", () => {
-  it("rejects decorative-only changes and requires new composition mechanism", () => {
-    const prompt = buildDerivationPrompt(
+  it("rejects decorative-only changes and requires new composition mechanism", async () => {
+    const prompt = await buildDerivationPrompt(
       derivationConfigFromContract(artVariationContractFixture()),
     );
     const mode = extractPromptPerModeRulesSection(prompt);
@@ -1166,8 +1166,8 @@ describe("art_variation decorative-only rejection (MODE-01)", () => {
 });
 
 describe("art_variation reading-path gestalt budget (MODE-02)", () => {
-  it("caps layout to three main reading-path anchors", () => {
-    const prompt = buildDerivationPrompt(
+  it("caps layout to three main reading-path anchors", async () => {
+    const prompt = await buildDerivationPrompt(
       derivationConfigFromContract(artVariationContractFixture()),
     );
     const mode = extractPromptPerModeRulesSection(prompt);
@@ -1177,8 +1177,8 @@ describe("art_variation reading-path gestalt budget (MODE-02)", () => {
 });
 
 describe("per-mode rules injection order", () => {
-  it("places classification before MODE before creativity level for art_variation", () => {
-    const prompt = buildDerivationPrompt(
+  it("places classification before MODE before creativity level for art_variation", async () => {
+    const prompt = await buildDerivationPrompt(
       derivationConfigFromContract(artVariationContractFixture(), { creativeLevel: "balanced" }),
     );
     const classificationIdx = prompt.indexOf("INPUT SOURCE CLASSIFICATION:");
@@ -1192,8 +1192,8 @@ describe("per-mode rules injection order", () => {
 });
 
 describe("restyling factual entities (MODE-03)", () => {
-  it("locks factual entities to base without duplicating transfer denylist", () => {
-    const prompt = buildDerivationPrompt(
+  it("locks factual entities to base without duplicating transfer denylist", async () => {
+    const prompt = await buildDerivationPrompt(
       derivationConfigFromContract(restylingContractFixture()),
     );
     const mode = extractPromptPerModeRulesSection(prompt);
@@ -1207,19 +1207,19 @@ describe("restyling factual entities (MODE-03)", () => {
 });
 
 describe("format adaptation helpers (MODE-04/05)", () => {
-  it("shouldIncludePlanHooksForMode returns false for format_adaptation", () => {
+  it("shouldIncludePlanHooksForMode returns false for format_adaptation", async () => {
     expect(shouldIncludePlanHooksForMode("format_adaptation")).toBe(false);
     expect(shouldIncludePlanHooksForMode("art_variation")).toBe(true);
     expect(shouldIncludePlanHooksForMode("restyling")).toBe(true);
   });
 
-  it("shouldIncludeCompetitorAnalysesForMode returns false for format_adaptation", () => {
+  it("shouldIncludeCompetitorAnalysesForMode returns false for format_adaptation", async () => {
     expect(shouldIncludeCompetitorAnalysesForMode("format_adaptation")).toBe(false);
     expect(shouldIncludeCompetitorAnalysesForMode("art_variation")).toBe(true);
     expect(shouldIncludeCompetitorAnalysesForMode("restyling")).toBe(true);
   });
 
-  it("buildFormatAdaptationModeRulesSection includes identity locks", () => {
+  it("buildFormatAdaptationModeRulesSection includes identity locks", async () => {
     const lines = buildFormatAdaptationModeRulesSection({ targetFormat: "9:16" });
     const section = lines.join("\n");
     expect(section).toMatch(/CAMPAIGN IDENTITY LOCK/i);
@@ -1230,7 +1230,7 @@ describe("format adaptation helpers (MODE-04/05)", () => {
   describe.each(["1:1", "4:5", "9:16"] as const)(
     "format_adaptation cross-format identity — %s",
     (targetFormat) => {
-      it("includes cross-format identity rule", () => {
+      it("includes cross-format identity rule", async () => {
         const section = buildFormatAdaptationModeRulesSection({ targetFormat }).join("\n");
         expect(section).toMatch(/CROSS-FORMAT IDENTITY/i);
         expect(section).toMatch(/no new narrative|same campaign/i);
@@ -1240,8 +1240,8 @@ describe("format adaptation helpers (MODE-04/05)", () => {
 });
 
 describe("format firewall (MODE-04)", () => {
-  it("omits plan hooks and competitor sections for format_adaptation", () => {
-    const prompt = buildDerivationPrompt(
+  it("omits plan hooks and competitor sections for format_adaptation", async () => {
+    const prompt = await buildDerivationPrompt(
       derivationConfigFromContract(formatAdaptationCampaignAssetContractFixture(), {
         plan: {
           id: "plan-1",
@@ -1272,14 +1272,14 @@ describe("per-mode rules integration (MODE-01–05)", () => {
   describe.each(["art_variation", "restyling", "format_adaptation"] as const)(
     "%s injection order",
     (mode) => {
-      it("places classification before MODE before Campaign", () => {
+      it("places classification before MODE before Campaign", async () => {
         const contract =
           mode === "restyling"
             ? restylingContractFixture()
             : mode === "format_adaptation"
               ? formatAdaptationCampaignAssetContractFixture()
               : artVariationContractFixture();
-        const prompt = buildDerivationPrompt(derivationConfigFromContract(contract));
+        const prompt = await buildDerivationPrompt(derivationConfigFromContract(contract));
         const classificationIdx = prompt.indexOf("INPUT SOURCE CLASSIFICATION:");
         const modeIdx = prompt.indexOf(`MODE: ${mode}`);
         const campaignIdx = prompt.indexOf("\nCampaign:");
@@ -1290,15 +1290,15 @@ describe("per-mode rules integration (MODE-01–05)", () => {
     },
   );
 
-  it("art_variation balanced level includes decorative-only guardrail", () => {
-    const prompt = buildDerivationPrompt(
+  it("art_variation balanced level includes decorative-only guardrail", async () => {
+    const prompt = await buildDerivationPrompt(
       derivationConfigFromContract(artVariationContractFixture(), { creativeLevel: "balanced" }),
     );
     expect(prompt).toMatch(/Decorative-only changes.*invalid/i);
   });
 
-  it("format_adaptation omits plan hooks when plan includes hooks", () => {
-    const prompt = buildDerivationPrompt(
+  it("format_adaptation omits plan hooks when plan includes hooks", async () => {
+    const prompt = await buildDerivationPrompt(
       derivationConfigFromContract(formatAdaptationCampaignAssetContractFixture(), {
         plan: {
           id: "plan-1",
