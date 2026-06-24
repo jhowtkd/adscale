@@ -22,7 +22,7 @@ Generalizar calibração de gosto de marca para qualquer `clientProfile`: substi
 - [x] **VOICE-02**: Generation resolves brand voice by `clientProfileId`, not campaign name string matching.
 - [x] **VOICE-03**: Existing Cenbrap voice is seeded into DB config for the Cenbrap `clientProfileId` with parity to current output.
 - [x] **VOICE-04**: `resolveClientVoice` hardcode path is removed or reduced to deprecated fallback after migration.
-- [ ] **VOICE-05**: Owner can view active voice configuration for any `clientProfileId` without editing freeform constitution text.
+- [x] **VOICE-05**: Owner can view active voice configuration for any `clientProfileId` without editing freeform constitution text.
 
 ### Corpus Learning Loop (LEARN)
 
@@ -100,7 +100,7 @@ Generalizar calibração de gosto de marca para qualquer `clientProfile`: substi
 | VOICE-02 | Phase 162 | Complete |
 | VOICE-03 | Phase 162 | Complete |
 | VOICE-04 | Phase 162 | Complete |
-| VOICE-05 | Phase 162 | Pending |
+| VOICE-05 | Phase 162 | Complete |
 | LEARN-01 | Phase 163 | Pending |
 | LEARN-02 | Phase 163 | Pending |
 | LEARN-03 | Phase 163 | Pending |

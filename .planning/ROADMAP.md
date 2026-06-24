@@ -44,7 +44,7 @@
 
 **Carry-forward constraints:** 5 Jhonatan decisions pending; fixture-only Cenbrap corpus; agreement/customer-real claims blocked until sample/source sufficiency.
 
-- [ ] **Phase 162: Per-Brand Voice Configuration** — schema, resolver by `clientProfileId`, Cenbrap seed and hardcode removal
+- [x] **Phase 162: Per-Brand Voice Configuration** — schema, resolver by `clientProfileId`, Cenbrap seed and hardcode removal (completed 2026-06-24)
 - [ ] **Phase 163: Corpus Learning Proposals** — aggregate evaluations into deduped client proposals with owner accept/reject
 - [ ] **Phase 164: Prompt Rule Application** — inject approved rules per profile with provenance log and isolation cap
 - [ ] **Phase 165: Owner Calibration Panel** — per-brand profile, rules, proposals and owner-only access
@@ -53,7 +53,7 @@
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
-| 162 | Per-Brand Voice Configuration | 2/3 | In Progress|  |
+| 162 | Per-Brand Voice Configuration | Complete    | 2026-06-24 |  |
 | 163 | Corpus Learning Proposals | LEARN-01..06 | Not started | - |
 | 164 | Prompt Rule Application | APPLY-01..05 | Not started | - |
 | 165 | Owner Calibration Panel | PANEL-01..05 | Not started | - |
@@ -189,7 +189,7 @@ Completed:
   4. `resolveClientVoice` hardcode path is removed or reduced to a deprecated fallback no longer used by generation.
   5. Voice configuration is view-only — owner cannot edit freeform constitution text in this milestone.
 
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [x] 162-01-PLAN.md — Schema, repository, and Cenbrap seed with parity tests
