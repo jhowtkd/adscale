@@ -1810,6 +1810,43 @@
       "namePlaceholder": "e.g. Creative review",
       "submit": "Create thread",
       "cancel": "Cancel"
+    },
+    "chat": {
+      "inputPlaceholder": "Type a message…",
+      "send": "Send",
+      "noThreadHint": "Select a thread to start chatting",
+      "close": "Close",
+      "loading": "Loading conversation…"
+    },
+    "actionCard": {
+      "unknownAction": "Unknown action",
+      "creditImpact": "Credit impact",
+      "confirmationPolicy": "Confirmation",
+      "confirmationRequired": "Confirmation required",
+      "confirmationNone": "No confirmation required",
+      "riskDetails": "Risk details",
+      "confirm": "Confirm",
+      "cancel": "Cancel",
+      "status": {
+        "pending": "Awaiting confirmation",
+        "confirmed": "Confirmed",
+        "running": "Running",
+        "completed": "Completed",
+        "failed": "Failed",
+        "canceled": "Canceled"
+      }
+    },
+    "context": {
+      "title": "Context",
+      "noThread": "Select a thread to see contract readiness and job status.",
+      "loading": "Loading context…",
+      "contractReadiness": "Contract readiness",
+      "suggestedActions": "Suggested actions",
+      "jobStatus": "Job status",
+      "noPending": "No pending actions",
+      "noRiskCopy": "No additional risk details",
+      "noJobs": "No active jobs",
+      "unknownAction": "Unknown action"
     }
   },
   "analytics": {

@@ -1811,6 +1811,43 @@
       "namePlaceholder": "ex.: Revisão criativa",
       "submit": "Criar thread",
       "cancel": "Cancelar"
+    },
+    "chat": {
+      "inputPlaceholder": "Digite uma mensagem…",
+      "send": "Enviar",
+      "noThreadHint": "Selecione uma thread para começar a conversar",
+      "close": "Fechar",
+      "loading": "Carregando conversa…"
+    },
+    "actionCard": {
+      "unknownAction": "Ação desconhecida",
+      "creditImpact": "Impacto em créditos",
+      "confirmationPolicy": "Confirmação",
+      "confirmationRequired": "Confirmação obrigatória",
+      "confirmationNone": "Sem confirmação obrigatória",
+      "riskDetails": "Detalhes de risco",
+      "confirm": "Confirmar",
+      "cancel": "Cancelar",
+      "status": {
+        "pending": "Aguardando confirmação",
+        "confirmed": "Confirmada",
+        "running": "Em execução",
+        "completed": "Concluída",
+        "failed": "Falhou",
+        "canceled": "Cancelada"
+      }
+    },
+    "context": {
+      "title": "Contexto",
+      "noThread": "Selecione uma thread para ver prontidão do contrato e status de jobs.",
+      "loading": "Carregando contexto…",
+      "contractReadiness": "Prontidão do contrato",
+      "suggestedActions": "Ações sugeridas",
+      "jobStatus": "Status de jobs",
+      "noPending": "Nenhuma ação pendente",
+      "noRiskCopy": "Sem detalhes adicionais de risco",
+      "noJobs": "Nenhum job ativo",
+      "unknownAction": "Ação desconhecida"
     }
   },
   "analytics": {
