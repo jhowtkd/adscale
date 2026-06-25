@@ -5,13 +5,14 @@ vi.mock("@/server/auth/workspace", () => ({
   requireRole: vi.fn(),
 }));
 
-vi.mock("@/server/repositories/workspace", () => ({
-  getWorkspaceSettings: vi.fn(),
-  updateWorkspaceSettings: vi.fn(),
-  WorkspaceSlugConflictError: class WorkspaceSlugConflictError extends Error {
-    name = "WorkspaceSlugConflictError";
-  },
-}));
+vi.mock("@/server/repositories/workspace", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/server/repositories/workspace")>();
+  return {
+    ...actual,
+    getWorkspaceSettings: vi.fn(),
+    updateWorkspaceSettings: vi.fn(),
+  };
+});
 
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
@@ -20,9 +21,8 @@ vi.mock("next-intl/server", () => ({
 import {
   requireWorkspaceAccess,
   requireRole,
-  WorkspaceAuthError,
-  AUTH_ERROR_CODES,
 } from "@/server/auth/workspace";
+import { WorkspaceAuthError, AUTH_ERROR_CODES } from "@/server/auth/errors";
 import {
   getWorkspaceSettings,
   updateWorkspaceSettings,
