@@ -2,6 +2,7 @@ import type {
   CalibrationSourceLabel,
   EvidenceLevel,
 } from "@/server/brand-taste/calibration-signal-types";
+import type { HumanQualitySourceLabel } from "@/server/human-quality/corpus";
 
 export const EVIDENCE_LEVEL_LABELS: Record<EvidenceLevel, string> = {
   uncalibrated: "Sem calibração suficiente",
@@ -23,8 +24,40 @@ export type CalibrationStatusDisplay = {
   bannerText?: string;
 };
 
-const FIXTURE_ONLY_BANNER =
-  "Evidência apenas de fixture/operador — não validado com cliente real";
+export const HUMAN_QUALITY_SOURCE_LABEL_COPY: Record<HumanQualitySourceLabel, string> = {
+  synthetic_fixture: "Fixture/seed evidence",
+  operator_imported: "Operator-imported evidence",
+  real_customer: "Real customer evidence",
+};
+
+export function formatHumanQualitySourceLabel(sourceLabel: HumanQualitySourceLabel): string {
+  return HUMAN_QUALITY_SOURCE_LABEL_COPY[sourceLabel];
+}
+
+export function getHumanQualitySourceCaveat(
+  sourceLabel: HumanQualitySourceLabel
+): string | undefined {
+  switch (sourceLabel) {
+    case "synthetic_fixture":
+      return "Validates workflow only — not customer-real proof.";
+    case "operator_imported":
+      return "Operator-imported — not equivalent to customer-real validation.";
+    case "real_customer":
+      return undefined;
+  }
+}
+
+function nonCustomerEvidenceBanner(profile: CalibrationStatusInput): string {
+  const { synthetic_fixture, operator_imported, real_customer } = profile.sourceComposition;
+
+  if (profile.fixtureOnly || (real_customer === 0 && synthetic_fixture > 0 && operator_imported === 0)) {
+    return "Evidência apenas de fixture/seed — valida operação, não cliente real";
+  }
+  if (real_customer === 0 && operator_imported > 0 && synthetic_fixture === 0) {
+    return "Evidência importada pelo operador — não equivale a validação com cliente real";
+  }
+  return "Evidência de fixture/operador — não validado com cliente real";
+}
 
 export function getCalibrationStatusDisplay(
   profile: CalibrationStatusInput
@@ -38,7 +71,7 @@ export function getCalibrationStatusDisplay(
     return {
       label,
       variant: "warning",
-      bannerText: FIXTURE_ONLY_BANNER,
+      bannerText: nonCustomerEvidenceBanner(profile),
     };
   }
 
