@@ -1,4 +1,8 @@
 import { buildAssistantContext, toAssistantModelRequest } from "@/server/assistant/context/context-builder";
+import {
+  buildIntentPromptAugment,
+  classifyUserIntent,
+} from "@/server/assistant/action-contracts/intent-classifier";
 import { createMiniMaxModelAdapter } from "@/server/assistant/model/minimax-adapter";
 import type { AssistantModelClient } from "@/server/assistant/model/client";
 import { assertNoReasoningInText } from "@/server/assistant/model/reasoning-sanitizer";
@@ -45,12 +49,30 @@ export async function* runAssistantTurn(
     threadId: input.threadId,
   });
 
+  const intentResult = classifyUserIntent(input.userMessage);
+
+  if (intentResult.kind === "clarify") {
+    const assistantMessage = await createAssistantMessage(input.workspaceId, {
+      threadId: input.threadId,
+      type: "assistant",
+      content: intentResult.question,
+    });
+
+    yield { type: "done", assistantMessageId: assistantMessage.id };
+    return;
+  }
+
   const modelClient = input.modelClient ?? createMiniMaxModelAdapter();
   const request = toAssistantModelRequest(
     context,
     input.userMessage,
     listToolsForProvider()
   );
+
+  const intentAugment = buildIntentPromptAugment(intentResult);
+  if (intentAugment) {
+    request.systemPrompt = `${request.systemPrompt}\n${intentAugment}`;
+  }
 
   let assistantText = "";
 
