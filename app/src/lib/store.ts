@@ -52,24 +52,6 @@ interface UsageRecord {
   balance: number;
 }
 
-interface ProfileState {
-  firstName: string;
-  lastName: string;
-  email: string;
-  bio: string;
-  timezone: string;
-  avatar: string;
-}
-
-interface WorkspaceSettingsState {
-  name: string;
-  slug: string;
-  description: string;
-  industry: string;
-  website: string;
-  timezone: string;
-}
-
 // ============================================
 // Store State
 // ============================================
@@ -83,8 +65,6 @@ interface AppState {
   billing: BillingState;
   paymentMethod: PaymentMethodState;
   usageHistory: UsageRecord[];
-  profile: ProfileState;
-  workspaceSettings: WorkspaceSettingsState;
 
   // Actions - UI
   toggleSidebar: () => void;
@@ -92,8 +72,6 @@ interface AppState {
   setCurrentPageTitle: (title: string) => void;
   addToast: (type: ToastType, message: string) => void;
   removeToast: (id: string) => void;
-  updateProfile: (profile: Partial<ProfileState>) => void;
-  updateWorkspaceSettings: (settings: Partial<WorkspaceSettingsState>) => void;
 }
 
 // ============================================
@@ -132,22 +110,6 @@ export const useAppStore = create<AppState>()(
         expiryYear: "26",
       },
       usageHistory: [],
-      profile: {
-        firstName: "User",
-        lastName: "Name",
-        email: "user@example.com",
-        bio: "",
-        timezone: "America/New_York",
-        avatar: "",
-      },
-      workspaceSettings: {
-        name: "My Workspace",
-        slug: "my-workspace",
-        description: "",
-        industry: "Marketing & Advertising",
-        website: "",
-        timezone: "America/New_York",
-      },
 
       // ---- UI Actions ----
       toggleSidebar: () =>
@@ -173,16 +135,6 @@ export const useAppStore = create<AppState>()(
       removeToast: (id) =>
         set((state) => ({
           toasts: state.toasts.filter((t) => t.id !== id),
-        })),
-
-      updateProfile: (profile) =>
-        set((state) => ({
-          profile: { ...state.profile, ...profile },
-        })),
-
-      updateWorkspaceSettings: (settings) =>
-        set((state) => ({
-          workspaceSettings: { ...state.workspaceSettings, ...settings },
         })),
     }),
     {
