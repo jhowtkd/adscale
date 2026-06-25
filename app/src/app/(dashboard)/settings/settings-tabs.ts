@@ -1,7 +1,7 @@
 /** Tabs audited for end-to-end functionality (API + real UI, not local-only stubs). */
 export const settingsTabs = [
-  { id: "profile", labelKey: "profileTab", enabled: false },
-  { id: "workspace", labelKey: "workspaceTab", enabled: false },
+  { id: "profile", labelKey: "profileTab", enabled: true },
+  { id: "workspace", labelKey: "workspaceTab", enabled: true },
   { id: "brandKit", labelKey: "brandKitTab", enabled: true },
   { id: "team", labelKey: "teamTab", enabled: true },
   { id: "billing", labelKey: "billingTab", enabled: true },
@@ -14,7 +14,8 @@ export const settingsTabs = [
 export type SettingsTabId = (typeof settingsTabs)[number]["id"];
 
 const tabIds = settingsTabs.map((tab) => tab.id);
-const defaultTabId = settingsTabs.find((tab) => tab.enabled)?.id ?? "profile";
+/** Default landing tab — brandKit (least disruptive; profile/workspace stay navigable via ?tab=). */
+const defaultTabId: SettingsTabId = "brandKit";
 
 export function resolveSettingsTab(requestedTab: string | null): SettingsTabId {
   if (requestedTab && tabIds.includes(requestedTab as SettingsTabId)) {
