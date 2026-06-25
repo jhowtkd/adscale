@@ -30,7 +30,7 @@ Transformar ADScale em uma experiência chat-first para ações rápidas e campa
 ### Action Contracts
 
 - [x] **ACT-01**: System classifies user intent as a quick action or complete campaign flow before asking for inputs.
-- [ ] **ACT-02**: Each supported action declares required inputs, optional inputs, allowed roles, risk copy, credit impact, and confirmation policy.
+- [x] **ACT-02**: Each supported action declares required inputs, optional inputs, allowed roles, risk copy, credit impact, and confirmation policy.
 - [ ] **ACT-03**: User can run quick restyling without completing a full campaign brief.
 - [ ] **ACT-04**: Format adaptation, regeneration, review, save-reference, and package actions use their own minimum input contracts.
 - [ ] **ACT-05**: Complete campaign flow requires a stronger minimum brief: client, product or offer, audience, objective, CTA, platform or initial format, critical constraints, and base creative.
@@ -92,7 +92,7 @@ Transformar ADScale em uma experiência chat-first para ações rápidas e campa
 | CHAT-03 | Phase 181 | Pending |
 | CHAT-04 | Phase 181 | Pending |
 | ACT-01 | Phase 180 | Complete |
-| ACT-02 | Phase 180 | Pending |
+| ACT-02 | Phase 180 | Complete |
 | ACT-03 | Phase 182 | Pending |
 | ACT-04 | Phase 182 | Pending |
 | ACT-05 | Phase 183 | Pending |

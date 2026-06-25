@@ -37,7 +37,7 @@
 | 177 | Multi-Client Foundation | Complete    | 2026-06-25 | 2026-06-25 |
 | 178 | 4/4 | Complete    | 2026-06-25 | - |
 | 179 | 4/4 | Complete    | 2026-06-25 | - |
-| 180 | Action Contracts | 1/4 | In Progress|  |
+| 180 | Action Contracts | 2/4 | In Progress|  |
 | 181 | Assistant Surface | CHAT-01, CHAT-02, CHAT-03, CHAT-04 | Pending | - |
 | 182 | Quick Actions | ACT-03, ACT-04 | Pending | - |
 | 183 | Campaign Complete Happy Path | ACT-05, EXEC-03, EXEC-04 | Pending | - |
@@ -125,10 +125,10 @@ Plans:
   3. Missing optional inputs produce honest risk copy rather than blocking the action.
   4. Writing or credit-impacting actions produce confirmed action cards before execution.
 
-**Plans:** 1/4 plans executed
+**Plans:** 2/4 plans executed
 
 Plans:
-- [ ] 180-01-PLAN.md — Action contract types, registry, risk-copy, example contracts (ACT-02)
+- [x] 180-01-PLAN.md — Action contract types, registry, risk-copy, example contracts (ACT-02)
 - [x] 180-02-PLAN.md — Binary intent classifier and orchestrator hook (ACT-01)
 - [ ] 180-03-PLAN.md — propose_action contract validation and policy errors (ACT-02, EXEC-01)
 - [ ] 180-04-PLAN.md — Confirm route revalidation (EXEC-01)
