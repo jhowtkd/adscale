@@ -184,13 +184,19 @@ const OPERATIONAL_STEPS_BASE = [
 
 /**
  * Exit policy (QALIVE-02): technical fail → exit 1; operational insufficient_sample → exit 0.
+ * SOURCE-05: fixture-only active brand sample → claim_withheld with exit 0.
  */
-export function resolveMilestoneStatus(technicalStatus, operationalStatus) {
+export function resolveMilestoneStatus(technicalStatus, operationalStatus, activeBrandSample = null) {
   if (technicalStatus === "fail") {
     return { rootStatus: "blocked", exitCode: 1, technicalStatus: "fail" };
   }
 
-  if (operationalStatus === "ok") {
+  const brandStatus = activeBrandSample?.operationalStatus ?? null;
+  if (brandStatus === "claim_withheld" || brandStatus === "insufficient_source") {
+    return { rootStatus: "claim_withheld", exitCode: 0, technicalStatus: "pass" };
+  }
+
+  if (operationalStatus === "ok" && (!activeBrandSample || brandStatus === "ok")) {
     return { rootStatus: "ok", exitCode: 0, technicalStatus: "pass" };
   }
 
@@ -314,9 +320,11 @@ function finalizeEvidence(technicalPassed) {
   const evidence = JSON.parse(readFileSync(evidencePath, "utf8"));
   const releaseCmd = "cd app && npm run operational-quality-release-gate";
   const operationalStatus = evidence.operationalEvidence?.status ?? "insufficient_sample";
+  const activeBrandSample = evidence.operationalEvidence?.activeBrandSample ?? null;
   const resolved = resolveMilestoneStatus(
     technicalPassed ? "pass" : "fail",
-    operationalStatus
+    operationalStatus,
+    activeBrandSample
   );
 
   evidence.status = resolved.rootStatus;

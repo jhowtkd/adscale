@@ -19,6 +19,27 @@
     "evidenceSource": "live_human",
     "denominatorNote": "Human-evaluated corpus items only",
     "evaluatedItemCount": 0,
+    "activeBrandSample": {
+      "workspaceId": null,
+      "clientProfileId": null,
+      "sourceComposition": {
+        "synthetic_fixture": 0,
+        "operator_imported": 0,
+        "real_customer": 0
+      },
+      "evaluatedItemCount": 0,
+      "operationalStatus": "insufficient_source",
+      "fixtureOnly": true,
+      "claimsAllowed": ["global_corpus_evaluations_recorded"],
+      "claimsBlocked": [
+        "validated_against_customer_real",
+        "customer_real_validation"
+      ],
+      "nextActions": [
+        "Import or promote real_customer corpus rows for the active brand before customer-real claims.",
+        "operator_imported and synthetic_fixture rows validate operation only — not market proof."
+      ]
+    },
     "gates": {
       "calibration": {
         "status": "insufficient_corpus",
