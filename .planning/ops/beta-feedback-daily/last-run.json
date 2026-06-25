@@ -1,8 +1,8 @@
 {
-  "exportedAt": "2026-06-22T12:10:24.660008Z",
-  "from": "2026-06-21T09:09:42-03:00",
-  "to": "2026-06-22T09:02:21.473456-03:00",
-  "total": 2,
-  "openCount": 2,
-  "status": "ok_render_job_logs_after_retries_with_service_log_fallback_check"
+  "exportedAt": "2026-06-25T12:06:09.778639Z",
+  "from": "2026-06-22T09:10:24.660008-03:00",
+  "to": "2026-06-25T09:06:09.778639-03:00",
+  "total": 0,
+  "openCount": 0,
+  "status": "ok_render_job_sql_utc_window"
 }

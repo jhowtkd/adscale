@@ -10,9 +10,22 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Current State
 
-v13.4 Fechamento de Evidência Operacional shipped 2026-06-25 with accepted tech debt. Operational evidence infrastructure is in place: generic live corpus seed, evidence refresh, smoke manifest capture, and release-gate auto-refresh. Technical regression remains green. **Operational pass is still blocked** — `operationalEvidence: insufficient_sample` until owner runs live corpus seed on a migrated database.
+v13.5 Assistente Conversacional de Ações is active. ADScale is moving from a form-first campaign workflow to a chat-first operating surface where the assistant asks only for the minimum information needed for the next useful action, while preserving credit control, action confirmation, auditability, and multi-client isolation.
 
-**Next:** `$gsd-new-milestone` for product scope, or close operational debt via live seed + refresh + release gate on owner workspace.
+**Active milestone:** v13.5 Assistente Conversacional de Ações (phases 177-183).
+
+## Current Milestone: v13.5 Assistente Conversacional de Ações
+
+**Goal:** Permitir que usuários operem ADScale por chat, com contratos mínimos por ação, preservando controle, créditos e isolamento multi-cliente.
+
+**Target features:**
+- Multi-`clientProfile` real dentro de um workspace, com marca, memória, referências, voz, corpus e regras escopados por cliente.
+- `/assistant` como seção primária em três áreas: árvore cliente/campanha/thread, chat e painel contextual de prontidão/ações/review.
+- Registry de action contracts para ações rápidas e campanha completa, sem obrigar briefing completo quando a intenção pedir só uma ação pontual.
+- `AssistantModelClient` com MiniMax M3 como primeiro adapter, streaming de texto, contexto allowlistado e policy de tools deny-by-default.
+- Happy path de ideia solta a pacote final: cliente, campanha draft, ação/briefing, preview, batch, review e delivery package.
+
+**Guiding principle:** O assistente não força formulário; ele pede o mínimo necessário para a próxima ação útil.
 
 ### v13.4 Fechamento de Evidência Operacional — SHIPPED WITH TECH DEBT (2026-06-25)
 

@@ -1,5 +1,42 @@
 # Milestones: ADScale
 
+## v13.5 Assistente Conversacional de Ações (Active: 2026-06-25)
+
+**Phases planned:** 7 phases (177→183), 7 initial plans
+**Requirements:** 21 requirements mapped
+**Status:** active — requirements and roadmap defined
+
+**Scope:**
+
+- Multi-`clientProfile` foundation so one workspace can contain multiple client/brand profiles without cross-client leakage
+- `/assistant` as a primary authenticated section with client/campaign/thread navigation, chat, and contextual action panel
+- Action contracts that ask for the minimum required inputs per action instead of forcing a full briefing by default
+- MiniMax M3 adapter behind `AssistantModelClient`, with streaming text, allowlisted context, and server-side tool policy
+- Quick actions for restyling, adaptation, regeneration, review, save-reference, and package creation
+- Complete-campaign happy path from loose idea to preview, batch, review, and delivery package
+
+**Guiding principle:**
+
+O assistente não força formulário; ele pede o mínimo necessário para a próxima ação útil.
+
+**Planned phases:**
+
+| Phase | Name | Requirements |
+| --- | --- | --- |
+| 177 | Multi-Client Foundation | CLIENT-01, CLIENT-02, CLIENT-03 |
+| 178 | Conversation Persistence | EXEC-02 |
+| 179 | Model Adapter and Tool Policy | AI-01, AI-02, AI-03, AI-04, AI-05 |
+| 180 | Action Contracts | ACT-01, ACT-02, EXEC-01 |
+| 181 | Assistant Surface | CHAT-01, CHAT-02, CHAT-03, CHAT-04 |
+| 182 | Quick Actions | ACT-03, ACT-04 |
+| 183 | Campaign Complete Happy Path | ACT-05, EXEC-03, EXEC-04 |
+
+**Next:** `$gsd-plan-phase 177`
+
+Archive: Active docs in [ROADMAP.md](ROADMAP.md) · [REQUIREMENTS.md](REQUIREMENTS.md)
+
+---
+
 ## v13.4 Fechamento de Evidência Operacional (Shipped with tech debt: 2026-06-25)
 
 **Phases completed:** 4 phases (173→176), 4 plans
