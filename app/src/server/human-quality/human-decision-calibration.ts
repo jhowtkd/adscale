@@ -103,7 +103,8 @@ export async function recordHumanDecisionCalibrationEvidence(
   const { item, evaluation, reviewerUserId, sourceLabel } = input;
   const intent = evaluation.intent as HumanQualityIntent;
   const action = mapIntentToAction(intent);
-  const reviewedAt = evaluation.createdAt.toISOString();
+  const reviewedAt =
+    evaluation.createdAt?.toISOString() ?? new Date().toISOString();
 
   const outputDecisionIdempotencyKey = `human-quality-evaluation:${evaluation.id}:output-decision`;
   const calibrationSignalIdempotencyKey = `human-quality-evaluation:${evaluation.id}:calibration-signal`;
