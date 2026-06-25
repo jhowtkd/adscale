@@ -546,16 +546,13 @@ export function getMiniMaxClient(): OpenAI {
 | A2 | `openai@6.x` `extra_body` passes MiniMax-specific fields | Pattern 2 | May need raw `fetch` fallback for `thinking` control |
 | A3 | Tool calls use OpenAI `tool_calls` / `function` shape (not Anthropic-only) | Pattern 2 | Adapter may need format translation if OpenAI path differs from docs examples |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should `MINIMAX_API_KEY` be required at app boot or only when chat route is hit?**
-   - What we know: `OPENAI_API_KEY` is required globally in `envSchema` [VERIFIED: env.ts].
-   - What's unclear: Whether dev environments without assistant testing should boot without MiniMax.
-   - Recommendation: Required in production; allow optional with feature guard in dev/test (mirror `MEM0_*` optional pattern).
+   - **RESOLVED:** Optional at boot (mirror `MEM0_*` pattern); required at runtime when chat route is invoked in production. Dev/test may boot without key.
 
 2. **SSE event schema for Phase 181 UI**
-   - What we know: Phase 181 not in scope; need stable contract.
-   - Recommendation: Document minimal events: `text_delta`, `tool_summary`, `action_card`, `done`, `error` — JSON payloads, one event type per SSE `event:` line.
+   - **RESOLVED:** Minimal stable contract: `text_delta`, `tool_summary`, `action_card`, `done`, `error` — JSON payloads, one event type per SSE `event:` line.
 
 ## Environment Availability
 
@@ -701,10 +698,10 @@ No `.cursor/rules/` directory found in workspace [VERIFIED: glob]. Follow existi
 | Architecture | HIGH | Phase 178 integration points read from source |
 | Pitfalls | HIGH | Reasoning field names from official docs; denylist exists in codebase |
 
-### Open Questions
+### Open Questions (RESOLVED)
 
-- Boot-time vs lazy requirement for `MINIMAX_API_KEY`
-- Final SSE event schema naming for Phase 181 consumer
+- **RESOLVED:** `MINIMAX_API_KEY` optional at boot, required at chat route in production
+- **RESOLVED:** SSE events `text_delta`, `tool_summary`, `action_card`, `done`, `error`
 
 ### Ready for Planning
 
