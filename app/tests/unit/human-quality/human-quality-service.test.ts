@@ -32,6 +32,14 @@ vi.mock("@/server/repositories/human-quality-corpus", () => ({
   submitCorpusEvaluation: vi.fn(),
 }));
 
+vi.mock("@/server/output-learning/output-decision-recorder", () => ({
+  recordOutputDecisionEvidence: vi.fn(),
+}));
+
+vi.mock("@/server/brand-taste/calibration-signal-recorder", () => ({
+  recordCalibrationSignalFromOutputDecisionEvent: vi.fn(),
+}));
+
 import { getDerivationById } from "@/server/repositories/derivation";
 import { getCampaignById, updateCampaign } from "@/server/repositories/campaign";
 import { resolveCampaignClientProfileId } from "@/server/repositories/client-reference";
@@ -48,6 +56,8 @@ import {
   findEvaluationByCorpusItemId,
   insertFeedbackArtifact,
 } from "@/server/repositories/human-quality-feedback-artifact";
+import { recordOutputDecisionEvidence } from "@/server/output-learning/output-decision-recorder";
+import { recordCalibrationSignalFromOutputDecisionEvent } from "@/server/brand-taste/calibration-signal-recorder";
 import {
   HumanQualityServiceError,
   listPendingCorpusQueue,
@@ -59,7 +69,12 @@ const WORKSPACE_ID = "550e8400-e29b-41d4-a716-446655440002";
 const CAMPAIGN_ID = "550e8400-e29b-41d4-a716-446655440003";
 const DERIVATION_ID = "550e8400-e29b-41d4-a716-446655440004";
 const CLIENT_PROFILE_ID = "550e8400-e29b-41d4-a716-446655440010";
+const CLIENT_PROFILE_ID_B = "550e8400-e29b-41d4-a716-446655440011";
 const ITEM_ID = "550e8400-e29b-41d4-a716-446655440001";
+const EVAL_ID = "550e8400-e29b-41d4-a716-446655440020";
+const EVAL_ID_A = "550e8400-e29b-41d4-a716-446655440021";
+const EVAL_ID_B = "550e8400-e29b-41d4-a716-446655440022";
+const REVIEWED_AT = "2026-06-25T12:00:00.000Z";
 
 const mockGetDerivation = vi.mocked(getDerivationById);
 const mockGetCampaign = vi.mocked(getCampaignById);
@@ -74,6 +89,10 @@ const mockSubmitEval = vi.mocked(submitCorpusEvaluation);
 const mockFindCandidate = vi.mocked(findCorpusCandidateByDerivationVersion);
 const mockFindExistingEval = vi.mocked(findEvaluationByCorpusItemId);
 const mockInsertArtifact = vi.mocked(insertFeedbackArtifact);
+const mockRecordOutputDecision = vi.mocked(recordOutputDecisionEvidence);
+const mockRecordCalibrationSignal = vi.mocked(
+  recordCalibrationSignalFromOutputDecisionEvent
+);
 
 const derivation = {
   id: DERIVATION_ID,
@@ -105,6 +124,21 @@ describe("human-quality service", () => {
     mockFindExistingEval.mockResolvedValue(null);
     mockFindCandidate.mockResolvedValue(null);
     mockInsertArtifact.mockResolvedValue({ id: "artifact-1" } as never);
+    mockRecordOutputDecision.mockResolvedValue({
+      id: "output-decision-1",
+      workspaceId: WORKSPACE_ID,
+      userId: "reviewer-1",
+      clientProfileId: CLIENT_PROFILE_ID,
+      campaignId: CAMPAIGN_ID,
+      derivationId: DERIVATION_ID,
+      action: "approved",
+      contextSnapshot: {},
+      createdAt: new Date(REVIEWED_AT),
+    } as never);
+    mockRecordCalibrationSignal.mockResolvedValue({
+      status: "recorded",
+      signalId: "calibration-signal-1",
+    });
   });
 
   describe("selectDerivationForCorpus", () => {
@@ -299,7 +333,13 @@ describe("human-quality service", () => {
       } as never);
       mockSubmitEval.mockResolvedValue({
         item: { id: ITEM_ID, status: "evaluated" },
-        evaluation: { id: "eval-1", visualScore: 80 },
+        evaluation: {
+          id: EVAL_ID,
+          visualScore: 80,
+          intent: "approve",
+          primaryFailureReason: "other",
+          createdAt: new Date(REVIEWED_AT),
+        },
       } as never);
 
       const result = await submitHumanEvaluation({
@@ -361,7 +401,13 @@ describe("human-quality service", () => {
       } as never);
       mockSubmitEval.mockResolvedValue({
         item: { id: ITEM_ID, status: "evaluated" },
-        evaluation: { id: "eval-1", visualScore: 80 },
+        evaluation: {
+          id: EVAL_ID,
+          visualScore: 80,
+          intent: "approve",
+          primaryFailureReason: "other",
+          createdAt: new Date(REVIEWED_AT),
+        },
       } as never);
 
       await submitHumanEvaluation({
@@ -449,6 +495,243 @@ describe("human-quality service", () => {
           primaryFailureReason: "weak_hierarchy",
         })
       ).rejects.toMatchObject({ code: "corpus_item_not_pending" });
+    });
+
+    it("records output decision and calibration signal for operator_imported approval", async () => {
+      mockGetItem.mockResolvedValue({
+        id: ITEM_ID,
+        workspaceId: WORKSPACE_ID,
+        clientProfileId: CLIENT_PROFILE_ID,
+        campaignId: CAMPAIGN_ID,
+        derivationId: DERIVATION_ID,
+        cohort: "baseline",
+        generationMode: "art_variation",
+        format: "1:1",
+        corpusVersion: 1,
+        status: "pending",
+        qualitySnapshot: { qualityScore: 72, qualityVerdict: "pass" },
+      } as never);
+      mockFindCandidate.mockResolvedValue({ sourceLabel: "operator_imported" } as never);
+      mockSubmitEval.mockResolvedValue({
+        item: {
+          id: ITEM_ID,
+          workspaceId: WORKSPACE_ID,
+          clientProfileId: CLIENT_PROFILE_ID,
+          campaignId: CAMPAIGN_ID,
+          derivationId: DERIVATION_ID,
+          status: "evaluated",
+          qualitySnapshot: { qualityScore: 72, qualityVerdict: "pass" },
+        },
+        evaluation: {
+          id: EVAL_ID,
+          visualScore: 80,
+          intent: "approve",
+          primaryFailureReason: "other",
+          createdAt: new Date(REVIEWED_AT),
+        },
+      } as never);
+
+      await submitHumanEvaluation({
+        workspaceId: WORKSPACE_ID,
+        corpusItemId: ITEM_ID,
+        reviewerUserId: "reviewer-1",
+        visualScore: 80,
+        factualPass: true,
+        intent: "approve",
+        primaryFailureReason: "other",
+      });
+
+      expect(mockRecordOutputDecision).toHaveBeenCalledWith(
+        expect.objectContaining({
+          workspaceId: WORKSPACE_ID,
+          clientProfileId: CLIENT_PROFILE_ID,
+          campaignId: CAMPAIGN_ID,
+          derivationId: DERIVATION_ID,
+          userId: "reviewer-1",
+          action: "approved",
+          idempotencyKey: `human-quality-evaluation:${EVAL_ID}:output-decision`,
+        })
+      );
+      expect(mockRecordCalibrationSignal).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sourceLabel: "operator_imported",
+          reviewedAt: REVIEWED_AT,
+          idempotencyKey: `human-quality-evaluation:${EVAL_ID}:calibration-signal`,
+        })
+      );
+    });
+
+    it("uses item workspace in global mode without browser workspace input", async () => {
+      mockGetItemGlobal.mockResolvedValue({
+        id: ITEM_ID,
+        workspaceId: WORKSPACE_ID,
+        clientProfileId: CLIENT_PROFILE_ID,
+        campaignId: CAMPAIGN_ID,
+        derivationId: DERIVATION_ID,
+        cohort: "baseline",
+        generationMode: "art_variation",
+        format: "1:1",
+        corpusVersion: 1,
+        status: "pending",
+        qualitySnapshot: {},
+      } as never);
+      mockSubmitEval.mockResolvedValue({
+        item: {
+          id: ITEM_ID,
+          workspaceId: WORKSPACE_ID,
+          clientProfileId: CLIENT_PROFILE_ID,
+          campaignId: CAMPAIGN_ID,
+          derivationId: DERIVATION_ID,
+          status: "evaluated",
+          qualitySnapshot: {},
+        },
+        evaluation: {
+          id: EVAL_ID,
+          intent: "approve",
+          primaryFailureReason: "other",
+          createdAt: new Date(REVIEWED_AT),
+        },
+      } as never);
+
+      await submitHumanEvaluation({
+        corpusItemId: ITEM_ID,
+        reviewerUserId: "reviewer-1",
+        visualScore: 80,
+        factualPass: true,
+        intent: "approve",
+        primaryFailureReason: "other",
+      });
+
+      expect(mockGetItemGlobal).toHaveBeenCalledWith(ITEM_ID);
+      expect(mockGetItem).not.toHaveBeenCalled();
+      expect(mockRecordOutputDecision).toHaveBeenCalledWith(
+        expect.objectContaining({ workspaceId: WORKSPACE_ID })
+      );
+    });
+
+    it("preserves synthetic_fixture source label in calibration signal path", async () => {
+      mockGetItem.mockResolvedValue({
+        id: ITEM_ID,
+        workspaceId: WORKSPACE_ID,
+        clientProfileId: CLIENT_PROFILE_ID,
+        campaignId: CAMPAIGN_ID,
+        derivationId: DERIVATION_ID,
+        status: "pending",
+        qualitySnapshot: {},
+      } as never);
+      mockFindCandidate.mockResolvedValue({ sourceLabel: "synthetic_fixture" } as never);
+      mockSubmitEval.mockResolvedValue({
+        item: {
+          id: ITEM_ID,
+          workspaceId: WORKSPACE_ID,
+          clientProfileId: CLIENT_PROFILE_ID,
+          campaignId: CAMPAIGN_ID,
+          derivationId: DERIVATION_ID,
+          status: "evaluated",
+          qualitySnapshot: {},
+        },
+        evaluation: {
+          id: EVAL_ID,
+          intent: "reject",
+          primaryFailureReason: "weak_hierarchy",
+          createdAt: new Date(REVIEWED_AT),
+        },
+      } as never);
+      mockRecordOutputDecision.mockResolvedValue({
+        id: "output-decision-2",
+        workspaceId: WORKSPACE_ID,
+        userId: "reviewer-1",
+        clientProfileId: CLIENT_PROFILE_ID,
+        campaignId: CAMPAIGN_ID,
+        derivationId: DERIVATION_ID,
+        action: "rejected",
+        contextSnapshot: { reason: { code: "weak_hierarchy" } },
+        createdAt: new Date(REVIEWED_AT),
+      } as never);
+
+      await submitHumanEvaluation({
+        workspaceId: WORKSPACE_ID,
+        corpusItemId: ITEM_ID,
+        reviewerUserId: "reviewer-1",
+        visualScore: 40,
+        factualPass: true,
+        intent: "reject",
+        primaryFailureReason: "weak_hierarchy",
+      });
+
+      expect(mockRecordCalibrationSignal).toHaveBeenCalledWith(
+        expect.objectContaining({ sourceLabel: "synthetic_fixture" })
+      );
+    });
+
+    it("passes each item clientProfileId through without cross-contamination", async () => {
+      const scenarios = [
+        { clientProfileId: CLIENT_PROFILE_ID, evalId: EVAL_ID_A },
+        { clientProfileId: CLIENT_PROFILE_ID_B, evalId: EVAL_ID_B },
+      ] as const;
+
+      for (const scenario of scenarios) {
+        vi.clearAllMocks();
+        mockFindExistingEval.mockResolvedValue(null);
+        mockFindCandidate.mockResolvedValue({ sourceLabel: "operator_imported" } as never);
+        mockInsertArtifact.mockResolvedValue({ id: `artifact-${scenario.evalId}` } as never);
+        mockRecordOutputDecision.mockResolvedValue({
+          id: `output-decision-${scenario.evalId}`,
+          workspaceId: WORKSPACE_ID,
+          userId: "reviewer-1",
+          clientProfileId: scenario.clientProfileId,
+          campaignId: CAMPAIGN_ID,
+          derivationId: DERIVATION_ID,
+          action: "approved",
+          contextSnapshot: {},
+          createdAt: new Date(REVIEWED_AT),
+        } as never);
+        mockRecordCalibrationSignal.mockResolvedValue({
+          status: "recorded",
+          signalId: `calibration-signal-${scenario.evalId}`,
+        });
+
+        mockGetItem.mockResolvedValue({
+          id: ITEM_ID,
+          workspaceId: WORKSPACE_ID,
+          clientProfileId: scenario.clientProfileId,
+          campaignId: CAMPAIGN_ID,
+          derivationId: DERIVATION_ID,
+          status: "pending",
+          qualitySnapshot: {},
+        } as never);
+        mockSubmitEval.mockResolvedValue({
+          item: {
+            id: ITEM_ID,
+            workspaceId: WORKSPACE_ID,
+            clientProfileId: scenario.clientProfileId,
+            campaignId: CAMPAIGN_ID,
+            derivationId: DERIVATION_ID,
+            status: "evaluated",
+            qualitySnapshot: {},
+          },
+          evaluation: {
+            id: scenario.evalId,
+            intent: "approve",
+            primaryFailureReason: "other",
+            createdAt: new Date(REVIEWED_AT),
+          },
+        } as never);
+
+        await submitHumanEvaluation({
+          workspaceId: WORKSPACE_ID,
+          corpusItemId: ITEM_ID,
+          reviewerUserId: "reviewer-1",
+          visualScore: 80,
+          factualPass: true,
+          intent: "approve",
+          primaryFailureReason: "other",
+        });
+
+        expect(mockRecordOutputDecision).toHaveBeenCalledWith(
+          expect.objectContaining({ clientProfileId: scenario.clientProfileId })
+        );
+      }
     });
   });
 });
