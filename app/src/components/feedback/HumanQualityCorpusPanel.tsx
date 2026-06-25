@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import ResponsiveTabs from "@/components/layout/ResponsiveTabs";
 import { CorpusIngestionBanner } from "@/components/feedback/CorpusIngestionBanner";
+import { FactualAlertsPanel } from "@/components/feedback/FactualAlertsPanel";
 import { LearningProposalsTab } from "@/components/feedback/LearningProposalsTab";
 import { apiFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
@@ -2544,7 +2545,8 @@ export function HumanQualityCorpusPanel() {
               />
             </div>
           ) : activeTab === "learning" ? (
-            <div className="space-y-3 pt-2">
+            <div className="space-y-6 pt-2">
+              <FactualAlertsPanel workspaceId={scopedWorkspaceId} variant="workspace" />
               <LearningProposalsTab
                 workspaceId={scopedWorkspaceId}
                 onOpenCalibration={() => setActiveTab("calibration")}
