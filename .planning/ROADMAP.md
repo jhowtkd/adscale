@@ -125,7 +125,13 @@ Plans:
   3. Missing optional inputs produce honest risk copy rather than blocking the action.
   4. Writing or credit-impacting actions produce confirmed action cards before execution.
 
-**Plans:** 0/1 plans complete
+**Plans:** 0/4 plans complete
+
+Plans:
+- [ ] 180-01-PLAN.md — Action contract types, registry, risk-copy, example contracts (ACT-02)
+- [ ] 180-02-PLAN.md — Binary intent classifier and orchestrator hook (ACT-01)
+- [ ] 180-03-PLAN.md — propose_action contract validation and policy errors (ACT-02, EXEC-01)
+- [ ] 180-04-PLAN.md — Confirm route revalidation (EXEC-01)
 
 ---
 
