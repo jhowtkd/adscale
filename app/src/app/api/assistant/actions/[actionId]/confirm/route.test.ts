@@ -23,6 +23,20 @@ vi.mock("@/server/assistant/action-contracts/validate", () => ({
   revalidateOnConfirm: vi.fn(),
 }));
 
+vi.mock("@/server/repositories/user", () => ({
+  getUserLocale: vi.fn(() => Promise.resolve("pt-BR")),
+}));
+
+vi.mock("@/server/assistant/action-execution/execute", () => ({
+  executeConfirmedAssistantAction: vi.fn(),
+  AssistantActionExecutionError: class AssistantActionExecutionError extends Error {
+    constructor(message: string, public code: string) {
+      super(message);
+      this.name = "AssistantActionExecutionError";
+    }
+  },
+}));
+
 vi.mock("@/server/repositories/assistant-action", () => ({
   confirmAssistantAction: vi.fn(),
   InvalidActionTransitionError: class InvalidActionTransitionError extends Error {
@@ -46,11 +60,13 @@ import {
   confirmAssistantAction,
   InvalidActionTransitionError,
 } from "@/server/repositories/assistant-action";
+import { executeConfirmedAssistantAction } from "@/server/assistant/action-execution/execute";
 import { POST } from "./route";
 
 const mockRequireWorkspaceAccess = vi.mocked(requireWorkspaceAccess);
 const mockRevalidateOnConfirm = vi.mocked(revalidateOnConfirm);
 const mockConfirmAssistantAction = vi.mocked(confirmAssistantAction);
+const mockExecuteConfirmed = vi.mocked(executeConfirmedAssistantAction);
 
 const ACTION_ID = "action-1";
 
@@ -69,23 +85,36 @@ describe("POST /api/assistant/actions/[actionId]/confirm", () => {
     mockRevalidateOnConfirm.mockResolvedValue(undefined);
   });
 
-  it("returns 200 with confirmed action when revalidation passes", async () => {
+  it("returns 200 with executed action when revalidation passes", async () => {
     const confirmedAction = {
       id: ACTION_ID,
       workspaceId: "workspace-1",
       status: "confirmed",
     };
+    const runningAction = {
+      ...confirmedAction,
+      status: "running",
+    };
     mockConfirmAssistantAction.mockResolvedValue(
       confirmedAction as Awaited<ReturnType<typeof confirmAssistantAction>>
+    );
+    mockExecuteConfirmed.mockResolvedValue(
+      runningAction as Awaited<ReturnType<typeof executeConfirmedAssistantAction>>
     );
 
     const res = await confirmRequest();
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(body.action).toEqual(confirmedAction);
+    expect(body.action).toEqual(runningAction);
     expect(mockRevalidateOnConfirm).toHaveBeenCalledWith("workspace-1", ACTION_ID);
     expect(mockConfirmAssistantAction).toHaveBeenCalledWith("workspace-1", ACTION_ID);
+    expect(mockExecuteConfirmed).toHaveBeenCalledWith(
+      "workspace-1",
+      ACTION_ID,
+      "user-1",
+      "pt-BR"
+    );
   });
 
   it("returns 400 invalidInput when snapshot fails revalidation", async () => {
