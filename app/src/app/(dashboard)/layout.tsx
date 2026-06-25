@@ -1,9 +1,9 @@
-import AppShell from "@/components/layout/AppShell";
+import DashboardShellSwitcher from "@/components/layout/DashboardShellSwitcher";
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <AppShell>{children}</AppShell>;
+  return <DashboardShellSwitcher>{children}</DashboardShellSwitcher>;
 }
