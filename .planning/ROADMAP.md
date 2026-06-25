@@ -33,7 +33,7 @@
 |---|-------|--------------|--------|-----------|
 | 168 | Client-Agnostic Human Decision Intake | DECISION-01..05 | Complete | 2026-06-25 |
 | 169 | Real Corpus and Claim Gates | Complete    | 2026-06-25 | 2026-06-25 |
-| 170 | Product Narrative Rollout | Complete | 2026-06-25 | 2026-06-25 |
+| 170 | Product Narrative Rollout | 3/3 | Complete   | 2026-06-25 |
 | 171 | Persistent Product Trust Baseline | TRUST-01..05 | Planned | - |
 | 172 | Operational Evidence UI and Release Gate | ALERT-01..04 | Planned | - |
 
