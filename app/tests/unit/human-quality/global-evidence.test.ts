@@ -26,6 +26,19 @@ const emptyCoverageInput = {
   },
 };
 
+const passingCoverageInput = {
+  capturedAt: "2026-06-20T00:00:00.000Z",
+  calibration: { status: "ok" as const, evaluatedItemCount: 10, sampleGuidance: [] },
+  impact: { status: "ok" as const, evaluatedItemCount: 10, sampleGuidance: [] },
+  quality: { status: "ok" as const, sampleGuidance: [] },
+  trend: {
+    status: "ok" as const,
+    sampleGuidance: [],
+    evaluatedItemCount: 10,
+    populatedBucketCount: 3,
+  },
+};
+
 describe("global-evidence", () => {
   it("groups evaluated rows by client profile without mixing workspaces", () => {
     const scopes = groupEvaluationsByClientProfile([
@@ -62,6 +75,84 @@ describe("global-evidence", () => {
         real_customer: 0,
       })
     ).toBe(true);
+  });
+
+  it("treats operator-only scope as fixture-only for customer-real claims", () => {
+    expect(
+      isFixtureOnlySourceComposition({
+        synthetic_fixture: 0,
+        operator_imported: 8,
+        real_customer: 0,
+      })
+    ).toBe(true);
+  });
+
+  it("blocks validated_against_customer_real for synthetic-only scope", () => {
+    const coverage = buildSampleCoverageReport(passingCoverageInput);
+    const claims = evaluateGlobalCorpusClaims({
+      evaluatedItemCount: 10,
+      fixtureOnly: isFixtureOnlySourceComposition({
+        synthetic_fixture: 10,
+        operator_imported: 0,
+        real_customer: 0,
+      }),
+      operationalStatus: "ok",
+      sampleCoverage: coverage,
+    });
+
+    expect(claims.claimsBlocked).toContain("validated_against_customer_real");
+    expect(claims.claimsAllowed).not.toContain("validated_against_customer_real");
+  });
+
+  it("blocks validated_against_customer_real for operator-only scope", () => {
+    const coverage = buildSampleCoverageReport(passingCoverageInput);
+    const claims = evaluateGlobalCorpusClaims({
+      evaluatedItemCount: 10,
+      fixtureOnly: isFixtureOnlySourceComposition({
+        synthetic_fixture: 0,
+        operator_imported: 10,
+        real_customer: 0,
+      }),
+      operationalStatus: "ok",
+      sampleCoverage: coverage,
+    });
+
+    expect(claims.claimsBlocked).toContain("validated_against_customer_real");
+    expect(claims.dependsOnOperator.some((m) => m.includes("real_customer"))).toBe(true);
+  });
+
+  it("blocks validated_against_customer_real for mixed operator and synthetic without real customer", () => {
+    const coverage = buildSampleCoverageReport(passingCoverageInput);
+    const claims = evaluateGlobalCorpusClaims({
+      evaluatedItemCount: 12,
+      fixtureOnly: isFixtureOnlySourceComposition({
+        synthetic_fixture: 5,
+        operator_imported: 7,
+        real_customer: 0,
+      }),
+      operationalStatus: "ok",
+      sampleCoverage: coverage,
+    });
+
+    expect(claims.claimsBlocked).toContain("validated_against_customer_real");
+    expect(claims.claimsAllowed).not.toContain("validated_against_customer_real");
+  });
+
+  it("allows validated_against_customer_real when real_customer sufficiency and sampling gates pass", () => {
+    const coverage = buildSampleCoverageReport(passingCoverageInput);
+    const claims = evaluateGlobalCorpusClaims({
+      evaluatedItemCount: 10,
+      fixtureOnly: isFixtureOnlySourceComposition({
+        synthetic_fixture: 2,
+        operator_imported: 1,
+        real_customer: 7,
+      }),
+      operationalStatus: "ok",
+      sampleCoverage: coverage,
+    });
+
+    expect(claims.claimsAllowed).toContain("validated_against_customer_real");
+    expect(claims.claimsBlocked).not.toContain("validated_against_customer_real");
   });
 
   it("returns human_needed when no evaluations exist", () => {
