@@ -4,7 +4,8 @@ import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getDerivationById } from "@/server/repositories/derivation";
 import { getCampaignById } from "@/server/repositories/campaign";
-import { getBrandKitByWorkspace } from "@/server/db/repositories/brand-kit";
+import { getBrandKit } from "@/server/db/repositories/brand-kit";
+import { resolveCampaignClientProfileId } from "@/server/repositories/client-reference";
 import {
   createCopyVariant,
   getCopyVariantsByDerivation,
@@ -57,7 +58,13 @@ export async function POST(
     if (creditError) return creditError;
 
     // Get brand kit
-    const brandKit = await getBrandKitByWorkspace(workspace.id);
+    const clientProfileId = await resolveCampaignClientProfileId(workspace.id, {
+      clientProfileId: campaign.clientProfileId,
+      client: campaign.client,
+    });
+    const brandKit = clientProfileId
+      ? await getBrandKit(workspace.id, clientProfileId)
+      : null;
 
     // Generate copy variants
     const variants = await generateCopyVariants(

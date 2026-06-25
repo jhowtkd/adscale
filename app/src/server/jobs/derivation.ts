@@ -51,7 +51,11 @@ import {
 import { runCompletedDerivationQualityGate } from "../ai/creative-quality-gate";
 import { getClientProfile, getClientReferencesByIds } from "../repositories/client-reference";
 import { trackUsage } from "../repositories/usage";
-import { getBrandKitByWorkspace } from "../db/repositories/brand-kit";
+import {
+  getBrandKit,
+  getBrandKitByWorkspace,
+} from "../db/repositories/brand-kit";
+import { resolveCampaignClientProfileId } from "../repositories/client-reference";
 import { getCompetitorAnalysesByCampaign } from "../repositories/competitor-analysis";
 import { getBrandMemoryContext } from "@/server/memory/brand-memory-context";
 import OpenAI, { toFile } from "openai";
@@ -341,7 +345,10 @@ export const derivationJob = inngest.createFunction(
           campaign.clientProfileId
             ? getClientProfile(workspaceId, campaign.clientProfileId)
             : Promise.resolve(null),
-          getBrandKitByWorkspace(workspaceId),
+          resolveCampaignClientProfileId(workspaceId, campaign).then(async (profileId) => {
+            if (!profileId) return null;
+            return getBrandKit(workspaceId, profileId);
+          }),
           getCompetitorAnalysesByCampaign(campaignId, workspaceId),
         ]);
         const asset = assets[0];
@@ -396,6 +403,7 @@ export const derivationJob = inngest.createFunction(
       step.run("fetch-brand-memory", async () => {
         const context = await getBrandMemoryContext({
           workspaceId,
+          clientProfileId: clientProfile?.id ?? campaign.clientProfileId ?? null,
           clientProfileName: clientProfile?.name ?? null,
           client: campaign.client,
           product: campaign.product,

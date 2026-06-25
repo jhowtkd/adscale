@@ -5,15 +5,23 @@ import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { uploadBuffer, getPublicUrl } from "@/server/storage/r2";
 import { createClientReference } from "@/server/repositories/client-reference";
 import {
+  BrandKitAmbiguityError,
+  BrandKitProfileNotFoundError,
+  getBrandKit,
   getBrandKitByWorkspace,
   upsertBrandKit,
 } from "@/server/db/repositories/brand-kit";
 
 const MAX_SIZE = 10 * 1024 * 1024;
 
+function readClientProfileId(request: Request) {
+  return new URL(request.url).searchParams.get("clientProfileId");
+}
+
 export async function POST(request: Request) {
   try {
     const { workspace } = await requireWorkspaceAccess(request);
+    const clientProfileId = readClientProfileId(request);
 
     const contentLengthHeader = request.headers.get("content-length");
     if (contentLengthHeader) {
@@ -50,13 +58,24 @@ export async function POST(request: Request) {
 
     await uploadBuffer(key, buffer, file.type);
 
-    // Ensure brand kit profile exists
-    let brandKit = await getBrandKitByWorkspace(workspace.id);
+    let brandKit = clientProfileId
+      ? await getBrandKit(workspace.id, clientProfileId)
+      : await getBrandKitByWorkspace(workspace.id);
+
     if (!brandKit) {
-      brandKit = await upsertBrandKit(workspace.id, { name: "Brand Kit" });
+      if (!clientProfileId) {
+        const profiles = await import("@/server/repositories/client-reference").then((mod) =>
+          mod.getClientProfiles(workspace.id)
+        );
+        if (profiles.length > 1) {
+          return apiError("brandKitAmbiguous", 409, {
+            detail: "Multiple client profiles exist; clientProfileId is required",
+          });
+        }
+      }
+      brandKit = await upsertBrandKit(workspace.id, { name: "Brand Kit" }, clientProfileId);
     }
 
-    // Create client reference with kind = "logo"
     const reference = await createClientReference(workspace.id, {
       clientProfileId: brandKit.id,
       assetKey: key,
@@ -64,8 +83,7 @@ export async function POST(request: Request) {
       kind: "logo",
     });
 
-    // Update logoAssetKey on the profile
-    await upsertBrandKit(workspace.id, { logoAssetKey: key });
+    await upsertBrandKit(workspace.id, { logoAssetKey: key }, brandKit.id);
 
     return NextResponse.json(
       {
@@ -78,6 +96,12 @@ export async function POST(request: Request) {
       { status: 201 }
     );
   } catch (error) {
+    if (error instanceof BrandKitAmbiguityError) {
+      return apiError("brandKitAmbiguous", 409, { detail: error.message });
+    }
+    if (error instanceof BrandKitProfileNotFoundError) {
+      return apiError("clientProfileNotFound", 404, { detail: error.message });
+    }
     return handleApiError(error, "workspace.brand-kit.logo.POST");
   }
 }
