@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v13.5
 milestone_name: Assistente Conversacional de Ações
 status: completed
-stopped_at: Phase 180 context gathered
-last_updated: "2026-06-25T18:58:23.785Z"
+stopped_at: Completed 180-action-contracts-02-PLAN.md
+last_updated: "2026-06-25T19:15:41.520Z"
 last_activity: 2026-06-25 — Phase 177 plan 01 executed (multi-client foundation)
 progress:
   total_phases: 7
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-06-25 — v13.5 started)
 
 ## Current Position
 
-Phase: 178 of 183 (pending)
-Plan: —
-Status: Phase 177 complete; ready for `$gsd-plan-phase 178` or `$gsd-execute-phase 178`
-Last activity: 2026-06-25 — Phase 177 plan 01 executed (multi-client foundation)
+Phase: 180 of 183 (in progress)
+Plan: 2 of 4 complete
+Status: Phase 180 plan 02 complete; ready for `$gsd-execute-phase 180` plan 03
+Last activity: 2026-06-25 — Phase 180 plan 02 executed (intent classifier + orchestrator hook)
 
 Progress: [#---------] 1/7 phases
 
@@ -39,11 +39,12 @@ Progress: [#---------] 1/7 phases
 | 177 | 1/1 | Complete |
 | 178 | 0/1 | Pending |
 | 179 | 0/1 | Pending |
-| 180 | 0/1 | Pending |
+| 180 | 1/4 | In Progress |
 | 181 | 0/1 | Pending |
 | 182 | 0/1 | Pending |
 | 183 | 0/1 | Pending |
 | Phase 177-multi-client-foundation P01 | 11 | 5 tasks | 24 files |
+| Phase 180-action-contracts P02 | 5 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -62,6 +63,8 @@ Progress: [#---------] 1/7 phases
 - [Phase 177]: Brand kit ambiguity returns HTTP 409 instead of mutating an arbitrary profile.
 - [Phase 177]: Mem0 isolation uses profile-suffixed user ids plus metadata filters on search.
 - [Phase 177]: Legacy workspace brand-kit endpoints accept optional `clientProfileId` query/body field.
+- [Phase 180]: Binary intent classifier runs server-side in orchestrator before model stream; ambiguous dual-match short-circuits with Portuguese clarify.
+- [Phase 180]: Skip path injects model fallback hint; classified path augments systemPrompt with intent family.
 
 ### Carry-forward from v13.4
 
@@ -89,7 +92,7 @@ Progress: [#---------] 1/7 phases
 
 ## Session Continuity
 
-Last session: 2026-06-25T18:58:23.783Z
-Stopped at: Phase 180 context gathered
-Resume file: .planning/milestones/v13.5-phases/180-action-contracts/180-CONTEXT.md
-Next command: `$gsd-plan-phase 178` or `$gsd-execute-phase 178`
+Last session: 2026-06-25T19:15:41.517Z
+Stopped at: Completed 180-action-contracts-02-PLAN.md
+Resume file: None
+Next command: `$gsd-execute-phase 180` plan 03 or `$gsd-execute-phase 180` plan 01
