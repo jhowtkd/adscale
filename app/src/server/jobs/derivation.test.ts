@@ -73,7 +73,7 @@ vi.mock("../repositories/plan", () => ({
 }));
 
 vi.mock("../db/repositories/brand-kit", () => ({
-  getBrandKitByWorkspace: vi.fn(),
+  getBrandKit: vi.fn(),
 }));
 
 vi.mock("../repositories/competitor-analysis", () => ({
@@ -100,6 +100,7 @@ vi.mock("../ai/creative-quality-gate", async (importOriginal) => {
 vi.mock("../repositories/client-reference", () => ({
   getClientReferencesByIds: vi.fn(() => Promise.resolve([])),
   getClientProfile: vi.fn(() => Promise.resolve(null)),
+  resolveCampaignClientProfileId: vi.fn(() => Promise.resolve(null)),
 }));
 
 vi.mock("@/server/memory/brand-memory-context", () => ({
@@ -212,9 +213,9 @@ import { getDerivationById } from "../repositories/derivation";
 import { getCampaignById } from "../repositories/campaign";
 import { getAssetsByCampaign } from "../repositories/asset";
 import { getPlanByCampaign } from "../repositories/plan";
-import { getBrandKitByWorkspace } from "../db/repositories/brand-kit";
+import { getBrandKit } from "../db/repositories/brand-kit";
 import { getCompetitorAnalysesByCampaign } from "../repositories/competitor-analysis";
-import { getClientReferencesByIds } from "../repositories/client-reference";
+import { getClientReferencesByIds, resolveCampaignClientProfileId } from "../repositories/client-reference";
 import { downloadBuffer } from "../storage/r2";
 import { getBrandMemoryContext } from "@/server/memory/brand-memory-context";
 import { env } from "../validation/env";
@@ -223,9 +224,10 @@ const mockGetDerivationById = vi.mocked(getDerivationById);
 const mockGetCampaignById = vi.mocked(getCampaignById);
 const mockGetAssetsByCampaign = vi.mocked(getAssetsByCampaign);
 const mockGetPlanByCampaign = vi.mocked(getPlanByCampaign);
-const mockGetBrandKitByWorkspace = vi.mocked(getBrandKitByWorkspace);
+const mockGetBrandKit = vi.mocked(getBrandKit);
 const mockGetCompetitorAnalysesByCampaign = vi.mocked(getCompetitorAnalysesByCampaign);
 const mockGetClientReferencesByIds = vi.mocked(getClientReferencesByIds);
+const mockResolveCampaignClientProfileId = vi.mocked(resolveCampaignClientProfileId);
 const mockDownloadBuffer = vi.mocked(downloadBuffer);
 const mockGetBrandMemoryContext = vi.mocked(getBrandMemoryContext);
 const mockRunCompletedDerivationQualityGate = vi.mocked(runCompletedDerivationQualityGate);
@@ -262,7 +264,8 @@ describe("derivationJob", () => {
     mockOpenAIImages.generate.mockResolvedValue({
       data: [{ b64_json: "bW9ja2ltYWdl", revised_prompt: "revised" }],
     });
-    mockGetBrandKitByWorkspace.mockResolvedValue(null as never);
+    mockGetBrandKit.mockResolvedValue(null as never);
+    mockResolveCampaignClientProfileId.mockResolvedValue(null);
     mockGetCompetitorAnalysesByCampaign.mockResolvedValue([]);
     mockGetBrandMemoryContext.mockResolvedValue({ items: [], block: "" });
   });
@@ -517,7 +520,8 @@ describe("derivationJob", () => {
       ]);
       mockGetPlanByCampaign.mockResolvedValue(null as never);
 
-      mockGetBrandKitByWorkspace.mockResolvedValue({
+      mockResolveCampaignClientProfileId.mockResolvedValue("brand-kit-1");
+      mockGetBrandKit.mockResolvedValue({
         id: "brand-kit-1",
         workspaceId: "workspace-1",
         name: "Acme Brand",
@@ -1355,7 +1359,7 @@ describe("derivationJob — format adaptation generation sizes (gpt-image-2)", (
     mockOpenAIImages.generate.mockResolvedValue({
       data: [{ b64_json: "bW9ja2ltYWdl", revised_prompt: "revised" }],
     });
-    mockGetBrandKitByWorkspace.mockResolvedValue(null as never);
+    mockGetBrandKit.mockResolvedValue(null as never);
     mockGetCompetitorAnalysesByCampaign.mockResolvedValue([]);
     mockGetBrandMemoryContext.mockResolvedValue({ items: [], block: "" });
 

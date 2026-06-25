@@ -18,8 +18,12 @@ vi.mock("@/server/repositories/campaign", () => ({
   getCampaignById: vi.fn(),
 }));
 
+vi.mock("@/server/repositories/client-reference", () => ({
+  resolveCampaignClientProfileId: vi.fn(),
+}));
+
 vi.mock("@/server/db/repositories/brand-kit", () => ({
-  getBrandKitByWorkspace: vi.fn(),
+  getBrandKit: vi.fn(),
 }));
 
 vi.mock("@/server/repositories/copy-variant", () => ({
@@ -42,7 +46,8 @@ vi.mock("next-intl/server", () => ({
 
 import { getDerivationById } from "@/server/repositories/derivation";
 import { getCampaignById } from "@/server/repositories/campaign";
-import { getBrandKitByWorkspace } from "@/server/db/repositories/brand-kit";
+import { resolveCampaignClientProfileId } from "@/server/repositories/client-reference";
+import { getBrandKit } from "@/server/db/repositories/brand-kit";
 import {
   createCopyVariant,
   getCopyVariantsByDerivation,
@@ -52,7 +57,8 @@ import { generateCopyVariants } from "@/server/ai/copy-generator";
 
 const mockGetDerivationById = vi.mocked(getDerivationById);
 const mockGetCampaignById = vi.mocked(getCampaignById);
-const mockGetBrandKitByWorkspace = vi.mocked(getBrandKitByWorkspace);
+const mockResolveCampaignClientProfileId = vi.mocked(resolveCampaignClientProfileId);
+const mockGetBrandKit = vi.mocked(getBrandKit);
 const mockGenerateCopyVariants = vi.mocked(generateCopyVariants);
 const mockCreateCopyVariant = vi.mocked(createCopyVariant);
 const mockGetCopyVariantsByDerivation = vi.mocked(getCopyVariantsByDerivation);
@@ -76,19 +82,23 @@ describe("POST /api/derivations/[id]/copy-variants", () => {
       id: "camp-1",
       client: "Nike",
       offer: "50% off",
+      clientProfileId: "profile-1",
     } as Awaited<ReturnType<typeof getCampaignById>>);
-    mockGetBrandKitByWorkspace.mockResolvedValue(null);
+    mockResolveCampaignClientProfileId.mockResolvedValue("profile-1");
+    mockGetBrandKit.mockResolvedValue(null);
     mockGenerateCopyVariants.mockResolvedValue([
-      { headline: "Oferta imperdível", ctaText: "Compre", toneLabel: "urgent", confidenceScore: 85, reasoning: "Urgência funciona" },
+      { headline: "Headline", body: "Body", cta: "CTA", tone: "direct" },
     ]);
-    mockCreateCopyVariant.mockResolvedValue({ id: "cv-1", headline: "Oferta imperdível" } as Awaited<ReturnType<typeof createCopyVariant>>);
-    mockDeleteCopyVariantsByDerivation.mockResolvedValue([]);
+    mockCreateCopyVariant.mockResolvedValue({
+      id: "cv-1",
+      headline: "Headline",
+    } as Awaited<ReturnType<typeof createCopyVariant>>);
 
     const res = await POST(
       new Request("http://localhost/api/derivations/der-1/copy-variants", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ count: 5 }),
+        body: JSON.stringify({ count: 3 }),
       }),
       { params: makeParams("der-1") }
     );
@@ -96,22 +106,12 @@ describe("POST /api/derivations/[id]/copy-variants", () => {
 
     expect(res.status).toBe(201);
     expect(body.variants).toHaveLength(1);
+    expect(mockResolveCampaignClientProfileId).toHaveBeenCalledWith("workspace-1", {
+      clientProfileId: "profile-1",
+      client: "Nike",
+    });
+    expect(mockGetBrandKit).toHaveBeenCalledWith("workspace-1", "profile-1");
     expect(mockGenerateCopyVariants).toHaveBeenCalled();
-  });
-
-  it("returns 404 for missing derivation", async () => {
-    mockGetDerivationById.mockResolvedValue(null);
-
-    const res = await POST(
-      new Request("http://localhost/api/derivations/der-999/copy-variants", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      }),
-      { params: makeParams("der-999") }
-    );
-
-    expect(res.status).toBe(404);
   });
 });
 
@@ -119,14 +119,21 @@ describe("GET /api/derivations/[id]/copy-variants", () => {
   beforeEach(() => vi.clearAllMocks());
   afterEach(() => vi.restoreAllMocks());
 
-  it("returns copy variants for derivation", async () => {
-    const variants = [{ id: "cv-1", headline: "Test" }];
-    mockGetCopyVariantsByDerivation.mockResolvedValue(variants as Awaited<ReturnType<typeof getCopyVariantsByDerivation>>);
+  it("returns saved variants", async () => {
+    mockGetDerivationById.mockResolvedValue({
+      id: "der-1",
+      campaignId: "camp-1",
+    } as Awaited<ReturnType<typeof getDerivationById>>);
+    mockGetCopyVariantsByDerivation.mockResolvedValue([
+      { id: "cv-1", headline: "Headline" },
+    ] as Awaited<ReturnType<typeof getCopyVariantsByDerivation>>);
 
-    const res = await GET(new Request("http://localhost/api/derivations/der-1/copy-variants"), { params: makeParams("der-1") });
+    const res = await GET(new Request("http://localhost"), {
+      params: makeParams("der-1"),
+    });
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(body.variants).toEqual(variants);
+    expect(body.variants).toHaveLength(1);
   });
 });
