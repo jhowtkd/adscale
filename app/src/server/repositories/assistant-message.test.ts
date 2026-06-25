@@ -124,4 +124,32 @@ describe("assistant-message repository", () => {
 
     expect(updated?.payload).toMatchObject({ status: "running" });
   });
+
+  it("mirrors jobRef on action card payload for UI linking", async () => {
+    state.selectResults.push([
+      {
+        id: "msg-card",
+        type: "action_card",
+        payload: { status: "running", display: { title: "Run" } },
+      },
+    ]);
+    state.updateResult = [
+      {
+        id: "msg-card",
+        payload: {
+          status: "running",
+          display: { title: "Run" },
+          jobRef: { kind: "derivation", id: "deriv-1" },
+        },
+      },
+    ];
+
+    const updated = await updateActionCardPayload("ws-1", "msg-card", {
+      jobRef: { kind: "derivation", id: "deriv-1" },
+    });
+
+    expect(updated?.payload).toMatchObject({
+      jobRef: { kind: "derivation", id: "deriv-1" },
+    });
+  });
 });

@@ -10,11 +10,13 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Current State
 
-v13.5 Assistente Conversacional de Ações is active. ADScale is moving from a form-first campaign workflow to a chat-first operating surface where the assistant asks only for the minimum information needed for the next useful action, while preserving credit control, action confirmation, auditability, and multi-client isolation.
+v13.5 Assistente Conversacional de Ações shipped 2026-06-25 (`passed_with_tech_debt`). ADScale now has a chat-first operating surface where the assistant asks only for the minimum information needed for the next useful action, while preserving credit control, action confirmation, auditability, and multi-client isolation.
 
-**Active milestone:** v13.5 Assistente Conversacional de Ações (phases 177-183).
+**Latest milestone:** v13.5 Assistente Conversacional de Ações (phases 177-183) — **archived** 2026-06-25 (`passed_with_tech_debt`).
 
-## Current Milestone: v13.5 Assistente Conversacional de Ações
+**Next:** `$gsd-new-milestone` for v13.6.
+
+## Shipped Milestone: v13.5 Assistente Conversacional de Ações
 
 **Goal:** Permitir que usuários operem ADScale por chat, com contratos mínimos por ação, preservando controle, créditos e isolamento multi-cliente.
 
@@ -442,11 +444,22 @@ Delivered: credit estimate transparency, enriched credit events, delivery/stale 
 - ✓ **SMOKE-03**: Structured operational evidence record path (refresh + smoke manifest) — v13.4
 - ✓ **EVIDENCE-03**: Claim unlock requires technical + operational pass; no manual override — v13.4
 
+### Validated (v13.5)
+
+- ✓ **CLIENT-01..03**: Multi-`clientProfile` per workspace with scoped brand kit, memory, references, voice, corpus, and calibration — v13.5
+- ✓ **CHAT-01..04**: `/assistant` primary surface with tree/chat/context, create flows, and campaign drawer thread continuity — v13.5
+- ✓ **ACT-01..05**: Action contracts, intent classification, quick actions without full brief, and complete-campaign minimum brief — v13.5
+- ✓ **AI-01..05**: `AssistantModelClient`, MiniMax M3 streaming, allowlisted context, deny-by-default tool policy, no reasoning persistence — v13.5
+- ✓ **EXEC-01..03**: Confirmed action cards, Inngest job status in thread with `jobRef` on action-card payload, review reuses workspace components — v13.5
+- ~ **EXEC-04**: Happy path E2E shell + authenticated Playwright; full live lifecycle pending owner smoke — v13.5 (partial)
+
 ### Active
 
 - [ ] Run live corpus seed (`npm run seed:live-real-customer-corpus -- --confirm`) on owner workspace after `db:migrate`
 - [ ] Refresh evidence and release gate after `173-CORPUS-MANIFEST.json` exists
 - [ ] Complete owner smoke checklist with live workspace data (`172-RELEASE-CHECKLIST.md`)
+- [ ] Apply assistant migrations `0056`/`0057` on staging/production
+- [ ] Owner smoke: `start_complete_campaign` full lifecycle (EXEC-04)
 - [ ] Define next milestone scope via `$gsd-new-milestone`
 
 ### Validated (v10.0)

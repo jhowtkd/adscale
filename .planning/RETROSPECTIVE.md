@@ -38,6 +38,44 @@
 
 ---
 
+## Milestone: v13.5 — Assistente Conversacional de Ações
+
+**Shipped:** 2026-06-25
+**Phases:** 7 | **Plans:** 18
+
+### What Was Built
+- Multi-client foundation removing workspace-level `clientProfile` uniqueness (migration 0056).
+- Assistant conversation persistence: threads, messages, action records, job sync (migration 0057).
+- MiniMax M3 orchestration with allowlisted context and deny-by-default tool policy.
+- Action contract grammar with propose/confirm gates and seven post-confirm executors.
+- `/assistant` three-column surface, campaign drawer, review panel reusing workspace components.
+
+### What Worked
+- Reusing mature workspace primitives (derivation jobs, review sheet) instead of duplicating chat UI logic.
+- Action contracts kept quick paths honest without forcing full campaign briefs.
+- Audit-driven closure fixed the `jobRef` payload gap before milestone archive.
+
+### What Was Inefficient
+- Phases 182/183 shipped code before full GSD PLAN/SUMMARY artifacts existed on disk.
+- `roadmap analyze` could not see phases under `milestones/v13.5-phases/` (0 plans reported by CLI).
+
+### Patterns Established
+- `Cliente > Campanha > Thread` as the assistant navigation model.
+- Confirmed action cards as the only gate for write/credit/async execution.
+- `jobRef` mirrored on both `assistant_action_records` and action-card message payload for UI linking.
+
+### Key Lessons
+1. Integration audits should verify message payload fields UI components actually read, not only DB record fields.
+2. Retrospective GSD artifacts are cheap insurance when execution outpaces planning docs.
+3. `passed_with_tech_debt` is the right close when automated coverage is green but live operator smoke remains.
+
+### Cost Observations
+- Model mix: not measured in repo artifacts.
+- Assistant unit tests: 99 passing at archive time.
+- Notable: P0 `jobRef` fix was ~30 lines; high UX impact per line changed.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution

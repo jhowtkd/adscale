@@ -2,7 +2,7 @@
 
 ## Milestones
 
-- 🚧 **v13.5 Assistente Conversacional de Ações** - Phases 177-183 (active — roadmap defined 2026-06-25)
+- ✅ **v13.5 Assistente Conversacional de Ações** - Phases 177-183 (shipped 2026-06-25; tech debt: EXEC-04 live lifecycle human verify, migrations 0056/0057 ops)
 - ✅ **v13.4 Fechamento de Evidência Operacional** - Phases 173-176 (shipped 2026-06-25; tech debt: live DB seed pending, operational `insufficient_sample`)
 - ✅ **v13.3 Tracao Multi-Cliente** - Phases 168-172 (shipped 2026-06-25; tech debt: operational evidence `insufficient_sample`, live owner smoke pending)
 - ✅ **v13.2 Calibracao Multi-Marca** - Phases 162-167 (shipped 2026-06-24; tech debt: generic real-client evidence still needed)
@@ -21,208 +21,45 @@
 
 ## Active Milestone
 
-### 🚧 v13.5 Assistente Conversacional de Ações (Phases 177-183)
+_None — run `$gsd-new-milestone` to define v13.6._
 
-**Milestone Goal:** Permitir que usuários operem ADScale por chat, com contratos mínimos por ação, preservando controle, créditos e isolamento multi-cliente.
+## Shipped Milestones (detail)
 
-**Guiding constraints:**
-- O assistente não força formulário; ele pede o mínimo necessário para a próxima ação útil.
-- Ações rápidas não exigem briefing completo quando o contrato da ação não precisa dele.
-- Ações de escrita, crédito, memória, export/package ou job longo exigem action card confirmado.
-- Contexto enviado ao provider é amplo, mas allowlistado; não enviar segredos, URLs assinadas brutas ou payloads internos crus.
-- Review completo no assistente deve reutilizar componentes existentes, não duplicar a lógica visual do workspace.
+<details>
+<summary>✅ v13.5 Assistente Conversacional de Ações (Phases 177-183) — SHIPPED 2026-06-25</summary>
 
-| # | Phase | Requirements | Status | Completed |
-|---|-------|--------------|--------|-----------|
-| 177 | Multi-Client Foundation | Complete    | 2026-06-25 | 2026-06-25 |
-| 178 | 4/4 | Complete    | 2026-06-25 | - |
-| 179 | 4/4 | Complete    | 2026-06-25 | - |
-| 180 | Action Contracts | Complete    | 2026-06-25 | 2026-06-25 |
-| 181 | Assistant Surface | 5/5 | Complete   | 2026-06-25 |
-| 182 | Quick Actions | ACT-03, ACT-04 | Complete | 2026-06-25 |
-| 183 | Campaign Complete Happy Path | ACT-05, EXEC-03, EXEC-04 | Complete | 2026-06-25 |
+Chat-first assistant with multi-client foundation, conversation persistence, MiniMax orchestration, action contracts, `/assistant` surface, quick actions, and campaign-complete happy path.
 
-## Phase Details
+- [x] Phase 177: Multi-Client Foundation (1/1 plans)
+- [x] Phase 178: Conversation Persistence (4/4 plans)
+- [x] Phase 179: Model Adapter and Tool Policy (4/4 plans)
+- [x] Phase 180: Action Contracts (4/4 plans)
+- [x] Phase 181: Assistant Surface (5/5 plans)
+- [x] Phase 182: Quick Actions (2/2 plans)
+- [x] Phase 183: Campaign Complete Happy Path (2/2 plans)
 
-### Phase 177: Multi-Client Foundation
+Archive: [v13.5-ROADMAP.md](milestones/v13.5-ROADMAP.md) · [v13.5-REQUIREMENTS.md](milestones/v13.5-REQUIREMENTS.md) · [v13.5-MILESTONE-AUDIT.md](milestones/v13.5-MILESTONE-AUDIT.md)
 
-**Goal:** Remover a limitação de um `clientProfile` por workspace e garantir que todos os dados de marca relevantes fiquem isolados por cliente.
+**Tech debt:** EXEC-04 live lifecycle human verify; apply migrations 0056/0057 in staging/prod.
 
-**Depends on:** v13.2/v13.3 brand/clientProfile calibration infrastructure.
+</details>
 
-**Requirements:** CLIENT-01, CLIENT-02, CLIENT-03
-
-**Success Criteria** (what must be TRUE):
-  1. Workspace can create and list multiple `clientProfile` records without violating DB constraints.
-  2. Brand kit, memory retrieval, references, voice config, corpus, and calibration rules resolve by `clientProfileId`.
-  3. Existing campaigns keep working after migration and resolve their linked or inferred client profile deterministically.
-  4. Regression tests prove no cross-client leakage in the updated scoped paths.
-
-**Plans:** 1/1 plans complete
-
----
-
-### Phase 178: Conversation Persistence
-
-**Goal:** Persist assistant threads, messages, and action records with workspace/client/campaign scoping and job status support.
-
-**Depends on:** Phase 177 client scope decisions.
-
-**Requirements:** EXEC-02
-
-**Success Criteria** (what must be TRUE):
-  1. Server can create and retrieve threads scoped by workspace, client profile, and campaign.
-  2. Messages preserve user, assistant, tool, and action-card history without storing provider reasoning/thinking.
-  3. Action records support pending, confirmed, running, completed, failed, and canceled states.
-  4. Long-running jobs can update or be reflected in the related assistant action status.
-
-**Plans:** 4/4 plans complete
-
-Plans:
-- [ ] 178-01-PLAN.md — Schema, types, and migration 0057 for assistant tables
-- [ ] 178-02-PLAN.md — Thread repository with client/campaign scoping and default thread
-- [ ] 178-03-PLAN.md — Message stream and action record lifecycle repositories
-- [ ] 178-04-PLAN.md — Inngest job sync wiring and REST API routes
-
----
-
-### Phase 179: Model Adapter and Tool Policy
-
-**Goal:** Introduce provider-agnostic assistant orchestration with MiniMax M3 as the first adapter and a server-side tool policy gate.
-
-**Depends on:** Phase 178 persistence.
-
-**Requirements:** AI-01, AI-02, AI-03, AI-04, AI-05
-
-**Success Criteria** (what must be TRUE):
-  1. `AssistantModelClient` supports streaming text through a provider adapter boundary.
-  2. MiniMax M3 adapter can produce assistant responses through the internal interface.
-  3. Context builder uses an allowlist and excludes secrets, raw signed URLs, internal evidence payloads, and out-of-scope customer data.
-  4. Tool calls are validated by server-side policy before any execution or action-card creation.
-  5. Tests prove provider reasoning/thinking is neither displayed nor persisted.
-
-**Plans:** 4/4 plans complete
-
-Plans:
-- [ ] 179-01-PLAN.md — AssistantModelClient interface, MiniMax adapter, reasoning sanitizer (AI-01, AI-02, AI-05)
-- [ ] 179-02-PLAN.md — Allowlisted context builder with sanitizer (AI-03)
-- [ ] 179-03-PLAN.md — Tool registry and deny-by-default policy gate (AI-04)
-- [ ] 179-04-PLAN.md — Orchestrator, SSE chat route, integration tests (AI-01–AI-05)
-
----
-
-### Phase 180: Action Contracts
-
-**Goal:** Define action contracts as the assistant's execution grammar: intent classification, required/optional inputs, roles, risk, credits, and confirmation.
-
-**Depends on:** Phase 179 tool policy.
-
-**Requirements:** ACT-01, ACT-02, EXEC-01
-
-**Success Criteria** (what must be TRUE):
-  1. User intent is classified into quick action or complete campaign flow before input collection.
-  2. Each supported action exposes required inputs, optional inputs, role gates, risk labels, credit impact, and confirmation policy.
-  3. Missing optional inputs produce honest risk copy rather than blocking the action.
-  4. Writing or credit-impacting actions produce confirmed action cards before execution.
-
-**Plans:** 4/4 plans complete
-
-Plans:
-- [x] 180-01-PLAN.md — Action contract types, registry, risk-copy, example contracts (ACT-02)
-- [x] 180-02-PLAN.md — Binary intent classifier and orchestrator hook (ACT-01)
-- [x] 180-03-PLAN.md — propose_action contract validation and policy errors (ACT-02, EXEC-01)
-- [x] 180-04-PLAN.md — Confirm route revalidation (EXEC-01)
-
----
-
-### Phase 181: Assistant Surface
-
-**Goal:** Ship `/assistant` and campaign drawer as the primary conversational operating surface.
-
-**Depends on:** Phases 178-180.
-
-**Requirements:** CHAT-01, CHAT-02, CHAT-03, CHAT-04
-
-**Success Criteria** (what must be TRUE):
-  1. Authenticated user can open `/assistant` from primary navigation.
-  2. Desktop assistant has three working areas: client/campaign/thread tree, chat, and contextual panel.
-  3. User can create a client, create a campaign draft, and start a thread from the assistant.
-  4. Campaign workspace drawer opens and continues the same campaign thread.
-  5. Mobile layout remains usable through tabs or equivalent responsive navigation.
-
-**Plans:** 5/5 plans complete
-
-Plans:
-- [x] 181-01-PLAN.md — Assistant client data layer (SSE parser + React Query hooks)
-- [x] 181-02-PLAN.md — CHAT-01 mode toggle, `/assistant` route, AssistantShell layout
-- [x] 181-03-PLAN.md — Navigation tree, empty state, create client/campaign/thread (CHAT-02/03)
-- [x] 181-04-PLAN.md — Chat core, action cards, context panel, full page wiring
-- [x] 181-05-PLAN.md — Campaign workspace drawer with default thread (CHAT-04)
-
----
-
-### Phase 182: Quick Actions
-
-**Goal:** Prove quick actions can run through chat without forcing a complete briefing.
-
-**Depends on:** Phase 180 contracts and Phase 181 surface.
-
-**Requirements:** ACT-03, ACT-04
-
-**Success Criteria** (what must be TRUE):
-  1. User can run restyling from the assistant with only base image and style reference as required inputs.
-  2. User can request format adaptation from an existing piece or output with only source and target format as required inputs.
-  3. User can request regeneration with a target derivation and feedback, without filling unrelated campaign fields.
-  4. Review, save-reference, and delivery package actions follow their own contracts and expose optional-missing risk copy when relevant.
-  5. Quick action tests prove full briefing is not required for the supported quick paths.
-
-**Plans:** 2/2 plans complete
-
-Plans:
-- [x] 182-01-PLAN.md — Register ACT-04 quick action contracts
-- [x] 182-02-PLAN.md — Post-confirm execution wiring
-
----
-
-### Phase 183: Campaign Complete Happy Path
-
-**Goal:** Complete the chat-first campaign path from loose idea to final package, reusing existing generation and review primitives.
-
-**Depends on:** Phases 177-182.
-
-**Requirements:** ACT-05, EXEC-03, EXEC-04
-
-**Success Criteria** (what must be TRUE):
-  1. User can go from selected/created client and loose idea to a campaign draft with the complete-campaign minimum brief.
-  2. User can confirm `Aplicar e gerar preview` with visible mode and credit impact.
-  3. Preview generation, approval, batch generation, review, and delivery package creation run through existing pipeline/components where available.
-  4. Assistant review surface reuses current review components rather than duplicating review logic.
-  5. Playwright smoke covers the happy path from idea to final package.
-
-**Plans:** 2/2 plans complete
-
-Plans:
-- [x] 183-01-PLAN.md — start_complete_campaign executor (preview path)
-- [x] 183-02-PLAN.md — AssistantReviewPanel + Playwright smoke
-
----
-
-## Completed Milestone Context
-
-### ✅ v13.4 Fechamento de Evidência Operacional (Phases 173-176)
-
-**Shipped 2026-06-25** with tech debt: operational evidence infrastructure complete; live `173-CORPUS-MANIFEST.json` not yet produced (DB migration required for `--confirm` seed).
+<details>
+<summary>✅ v13.4 Fechamento de Evidência Operacional (Phases 173-176) — SHIPPED 2026-06-25</summary>
 
 Archive: [v13.4-ROADMAP.md](milestones/v13.4-ROADMAP.md) · [v13.4-REQUIREMENTS.md](milestones/v13.4-REQUIREMENTS.md) · [v13.4-MILESTONE-AUDIT.md](milestones/v13.4-MILESTONE-AUDIT.md)
 
-### ✅ v13.3 Tracao Multi-Cliente (Phases 168-172)
+</details>
 
-**Shipped 2026-06-25** with tech debt: `operationalEvidence: insufficient_sample`, `activeBrandSample.fixtureOnly: true`, owner smoke pending.
+<details>
+<summary>✅ v13.3 Tracao Multi-Cliente (Phases 168-172) — SHIPPED 2026-06-25</summary>
 
 Archive: [v13.3-ROADMAP.md](milestones/v13.3-ROADMAP.md) · [v13.3-REQUIREMENTS.md](milestones/v13.3-REQUIREMENTS.md) · [v13.3-MILESTONE-AUDIT.md](milestones/v13.3-MILESTONE-AUDIT.md)
 
+</details>
+
 ## Progress
 
-**Current milestone:** v13.5 — 7/7 phases complete
+**Latest shipped:** v13.5 — 2026-06-25 (`passed_with_tech_debt`)
 
-**Status:** Milestone ready for audit/complete (`gsd-complete-milestone v13.5`)
+**Next:** `$gsd-new-milestone`

@@ -1,3 +1,4 @@
+import "@/server/assistant/action-contracts/contracts";
 import { getActionContract } from "@/server/assistant/action-contracts/registry";
 import {
   getAssistantActionById,

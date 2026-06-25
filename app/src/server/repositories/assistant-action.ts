@@ -187,6 +187,7 @@ export async function transitionAssistantAction(
     status: nextStatus,
     display: patch?.display,
     safeError,
+    jobRef: patch?.jobRef,
   });
   await touchAssistantThread(workspaceId, action.threadId);
 

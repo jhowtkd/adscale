@@ -80,7 +80,7 @@ Each task was committed atomically:
 1. **Task 1: Define action-contract types, registry, and risk-copy builder** - `c9062222` (feat)
 2. **Task 2: Register quick_restyle and start_complete_campaign example contracts** - `85abf99e` (test RED), `12e37ede` (feat GREEN)
 
-**Plan metadata:** pending (docs commit)
+**Plan metadata:** `eea6fc5a` (docs: complete plan)
 
 ## Files Created/Modified
 

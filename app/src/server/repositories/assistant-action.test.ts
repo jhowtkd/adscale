@@ -121,6 +121,31 @@ describe("assistant-action repository", () => {
     ).rejects.toBeInstanceOf(InvalidActionTransitionError);
   });
 
+  it("passes jobRef to action card payload on transition", async () => {
+    state.selectResults.push([
+      {
+        id: "action-1",
+        status: "confirmed",
+        messageId: "msg-1",
+        threadId: "thread-1",
+        jobRefs: [],
+        safeError: null,
+      },
+    ]);
+    state.updateResult = [{ id: "action-1", status: "running" }];
+
+    await transitionAssistantAction("ws-1", "action-1", "running", {
+      jobRef: { kind: "derivation", id: "deriv-42" },
+    });
+
+    expect(mockUpdateCard).toHaveBeenCalledWith("ws-1", "msg-1", {
+      status: "running",
+      display: undefined,
+      safeError: null,
+      jobRef: { kind: "derivation", id: "deriv-42" },
+    });
+  });
+
   it("cancels pending action with safe error", async () => {
     state.selectResults.push([
       {

@@ -4,6 +4,7 @@ import { assistantMessages, assistantThreads } from "../db/schema";
 import {
   containsDeniedPersistenceKeys,
   type ActionStatus,
+  type JobRef,
   type MessageType,
   type ToolMessagePayload,
 } from "./assistant-types";
@@ -112,6 +113,7 @@ export async function updateActionCardPayload(
     status?: ActionStatus;
     display?: Record<string, unknown>;
     safeError?: string | null;
+    jobRef?: JobRef;
   }
 ) {
   const [existing] = await db
@@ -141,6 +143,7 @@ export async function updateActionCardPayload(
     ...(patch.status !== undefined ? { status: patch.status } : {}),
     ...(display !== undefined ? { display } : {}),
     ...(patch.safeError !== undefined ? { safeError: patch.safeError } : {}),
+    ...(patch.jobRef !== undefined ? { jobRef: patch.jobRef } : {}),
   };
 
   if (containsDeniedPersistenceKeys(nextPayload)) {

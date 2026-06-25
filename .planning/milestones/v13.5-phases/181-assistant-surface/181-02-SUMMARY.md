@@ -73,7 +73,7 @@ completed: 2026-06-25
 2. **Task 3: AssistantShell three-column layout and mobile tabs** - `6424046` (feat)
 3. **Task 2: Dashboard shell switcher and assistant route** - `6f8567d` (feat)
 
-**Plan metadata:** pending (docs commit)
+**Plan metadata:** `df9e3e4` (docs: complete plan)
 
 _Note: Task 3 committed before Task 2 because `assistant/layout.tsx` depends on `AssistantShell`._
 

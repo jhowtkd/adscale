@@ -1,39 +1,28 @@
 # Milestones: ADScale
 
-## v13.5 Assistente Conversacional de Ações (Active: 2026-06-25)
+## v13.5 Assistente Conversacional de Ações (Shipped with tech debt: 2026-06-25)
 
-**Phases planned:** 7 phases (177→183), 7 initial plans
-**Requirements:** 21 requirements mapped
-**Status:** active — requirements and roadmap defined
+**Phases completed:** 7 phases (177→183), 18 plans
+**Requirements:** 20/21 satisfied, 1 partial (EXEC-04 live lifecycle)
+**Audit:** `passed_with_tech_debt` — P0 jobRef payload fix applied; 99 assistant tests green
 
-**Scope:**
+**Key accomplishments:**
 
-- Multi-`clientProfile` foundation so one workspace can contain multiple client/brand profiles without cross-client leakage
-- `/assistant` as a primary authenticated section with client/campaign/thread navigation, chat, and contextual action panel
-- Action contracts that ask for the minimum required inputs per action instead of forcing a full briefing by default
-- MiniMax M3 adapter behind `AssistantModelClient`, with streaming text, allowlisted context, and server-side tool policy
-- Quick actions for restyling, adaptation, regeneration, review, save-reference, and package creation
-- Complete-campaign happy path from loose idea to preview, batch, review, and delivery package
+- Multi-`clientProfile` per workspace with brand kit, memory, and corpus scoped by `clientProfileId` (Phase 177)
+- Assistant threads, messages, action records, and Inngest job sync with migrations 0056/0057 (Phase 178)
+- MiniMax M3 adapter, allowlisted context builder, and deny-by-default tool policy (Phase 179)
+- Action contracts with intent classification, propose/confirm gates, and risk copy (Phase 180)
+- `/assistant` surface with tree/chat/context panels and campaign workspace drawer (Phase 181)
+- Seven quick-action executors wired post-confirm with `assistantActionId` on async jobs (Phase 182)
+- Campaign-complete executor, `AssistantReviewPanel` reusing `DerivationReviewSheet`, authenticated Playwright spec (Phase 183)
 
-**Guiding principle:**
+**Known tech debt (accepted):**
 
-O assistente não força formulário; ele pede o mínimo necessário para a próxima ação útil.
+- EXEC-04: full idea→package lifecycle with live OpenAI/Inngest requires owner smoke
+- Ops: apply migrations `0056` and `0057` on staging/production
+- Optional human UX verify: mobile tabs, live MiniMax SSE streaming
 
-**Planned phases:**
-
-| Phase | Name | Requirements |
-| --- | --- | --- |
-| 177 | Multi-Client Foundation | CLIENT-01, CLIENT-02, CLIENT-03 |
-| 178 | Conversation Persistence | EXEC-02 |
-| 179 | Model Adapter and Tool Policy | AI-01, AI-02, AI-03, AI-04, AI-05 |
-| 180 | Action Contracts | ACT-01, ACT-02, EXEC-01 |
-| 181 | Assistant Surface | CHAT-01, CHAT-02, CHAT-03, CHAT-04 |
-| 182 | Quick Actions | ACT-03, ACT-04 |
-| 183 | Campaign Complete Happy Path | ACT-05, EXEC-03, EXEC-04 |
-
-**Next:** `$gsd-plan-phase 177`
-
-Archive: Active docs in [ROADMAP.md](ROADMAP.md) · [REQUIREMENTS.md](REQUIREMENTS.md)
+Archive: [v13.5-ROADMAP.md](milestones/v13.5-ROADMAP.md) · [v13.5-REQUIREMENTS.md](milestones/v13.5-REQUIREMENTS.md) · [v13.5-MILESTONE-AUDIT.md](milestones/v13.5-MILESTONE-AUDIT.md)
 
 ---
 
