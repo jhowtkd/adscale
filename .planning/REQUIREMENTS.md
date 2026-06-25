@@ -26,8 +26,8 @@ Corrigir a direcao pos-v13.2 para que ADScale prove tracao de produto de forma c
 
 ### Real Corpus and Claims (SOURCE)
 
-- [ ] **SOURCE-01**: Owner can import or promote real customer/operator corpus rows for any `clientProfileId` with explicit `sourceLabel`.
-- [ ] **SOURCE-02**: Source composition separates `synthetic_fixture`, `operator_imported` and `real_customer` in every customer-facing or owner-facing evidence surface.
+- [x] **SOURCE-01**: Owner can import or promote real customer/operator corpus rows for any `clientProfileId` with explicit `sourceLabel`.
+- [x] **SOURCE-02**: Source composition separates `synthetic_fixture`, `operator_imported` and `real_customer` in every customer-facing or owner-facing evidence surface.
 - [ ] **SOURCE-03**: Customer-real, agreement-rate and quality-improvement claims stay withheld until the selected brand meets sample and source sufficiency.
 - [ ] **SOURCE-04**: Fixture-only evidence can validate operation but cannot unlock external claims, regardless of whether the fixture is Cenbrap.
 - [ ] **SOURCE-05**: Release evidence reports both technical status and operational evidence status for the active brand sample.
@@ -97,8 +97,8 @@ Corrigir a direcao pos-v13.2 para que ADScale prove tracao de produto de forma c
 | DECISION-03 | Phase 168 | Complete |
 | DECISION-04 | Phase 168 | Complete |
 | DECISION-05 | Phase 168 | Complete |
-| SOURCE-01 | Phase 169 | Pending |
-| SOURCE-02 | Phase 169 | Pending |
+| SOURCE-01 | Phase 169 | Complete |
+| SOURCE-02 | Phase 169 | Complete |
 | SOURCE-03 | Phase 169 | Pending |
 | SOURCE-04 | Phase 169 | Pending |
 | SOURCE-05 | Phase 169 | Pending |

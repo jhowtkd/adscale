@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v13.3
 milestone_name: Tracao Multi-Cliente
 status: executing
-stopped_at: Completed 168-03-PLAN.md
-last_updated: "2026-06-25T07:54:43.315Z"
+stopped_at: Completed 169-01-PLAN.md
+last_updated: "2026-06-25T08:11:26.973Z"
 last_activity: 2026-06-25
 progress:
   total_phases: 5
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
-  percent: 100
+  total_plans: 6
+  completed_plans: 4
+  percent: 67
 ---
 
 # Project State
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-06-25)
 ## Current Position
 
 Phase: 169 of 172 (real corpus and claim gates)
-Plan: 0 of TBD — next Phase 169 planning/execution
+Plan: 1 of 3 — next Phase 169 execution
 Status: Ready to execute
 Last activity: 2026-06-25
 
@@ -40,12 +40,11 @@ Progress: [█░░░░░░░░░] 1/5 phases
 | Phase | Plans | Status |
 |-------|-------|--------|
 | 168 | 3/3 | Complete |
-| 169 | 0/TBD | Planned |
+| 169 | 0/3 | Planned |
 | 170 | 0/TBD | Planned |
 | 171 | 0/TBD | Planned |
 | 172 | 0/TBD | Planned |
-| Phase 168-client-agnostic-human-decision-intake P03 | 15 | 3 tasks | 5 files |
-| Phase 168-client-agnostic-human-decision-intake P03 | 14 | 3 tasks | 5 files |
+| Phase 169-real-corpus-and-claim-gates P01 | 12 | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -69,6 +68,11 @@ Progress: [█░░░░░░░░░] 1/5 phases
 
 - [Phase 168]: Per-brand evidence tests require profile-scoped signal filtering before buildPerBrandEvidenceReport
 - [Phase 168]: Cenbrap remains fixture/seed only; phase verification documents accepted gaps for customer-real corpus
+- [Phase 169]: Plan source-labeled corpus intake as generic promotion/import for any `clientProfileId`, not a Cenbrap-specific path
+- [Phase 169]: Claim gates must evaluate active workspace/profile source composition; operator-imported evidence remains distinct from real-customer proof
+- [Phase 169]: Release evidence must separate technical regression pass from operational source/sample sufficiency
+- [Phase 169]: Owner promotion accepts operator_imported/real_customer explicitly; synthetic_fixture only when candidate already has it
+- [Phase 169]: Candidate source label override persists at markCorpusCandidatePromoted for queue/evidence joins
 
 ### Blockers/Concerns
 
@@ -92,7 +96,7 @@ Progress: [█░░░░░░░░░] 1/5 phases
 
 ## Session Continuity
 
-Last session: 2026-06-25T07:54:43.303Z
-Stopped at: Completed 168-03-PLAN.md
+Last session: 2026-06-25T08:11:26.970Z
+Stopped at: Completed 169-01-PLAN.md
 Resume file: None
-Next command: `$gsd-plan-phase 169` or `$gsd-execute-phase 169`
+Next command: `$gsd-execute-phase 169`

@@ -31,8 +31,8 @@
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
-| 168 | Client-Agnostic Human Decision Intake | 3/3 | Complete   | 2026-06-25 |
-| 169 | Real Corpus and Claim Gates | SOURCE-01..05 | Planned | - |
+| 168 | Client-Agnostic Human Decision Intake | DECISION-01..05 | Complete | 2026-06-25 |
+| 169 | Real Corpus and Claim Gates | 1/3 | In Progress|  |
 | 170 | Product Narrative Rollout | BRAND-01..04 | Planned | - |
 | 171 | Persistent Product Trust Baseline | TRUST-01..05 | Planned | - |
 | 172 | Operational Evidence UI and Release Gate | ALERT-01..04 | Planned | - |
@@ -78,7 +78,12 @@ Plans:
   4. Brand-level claim gates use the selected profile's source/sample sufficiency.
   5. Release evidence separates technical regression from operational evidence status.
 
-**Plans:** 0/TBD
+**Plans:** 1/3 plans executed
+
+Plans:
+- [x] 169-01-PLAN.md - Source-labeled candidate promotion and intake
+- [ ] 169-02-PLAN.md - Active-scope evidence and claim gates
+- [ ] 169-03-PLAN.md - Release evidence and phase verification
 
 ---
 
@@ -165,8 +170,8 @@ Previous archive: [v13.2-ROADMAP.md](milestones/v13.2-ROADMAP.md) · [v13.2-REQU
 | 165 | v13.2 | 3/3 | Complete | 2026-06-24 |
 | 166 | v13.2 | 2/2 | Complete | 2026-06-24 |
 | 167 | v13.2 | 3/3 | Complete | 2026-06-24 |
-| 168 | v13.3 | 0/3 | Planned | - |
-| 169 | v13.3 | 0/TBD | Planned | - |
+| 168 | v13.3 | 3/3 | Complete | 2026-06-25 |
+| 169 | v13.3 | 0/3 | Planned | - |
 | 170 | v13.3 | 0/TBD | Planned | - |
 | 171 | v13.3 | 0/TBD | Planned | - |
 | 172 | v13.3 | 0/TBD | Planned | - |
