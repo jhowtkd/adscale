@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v13.3
 milestone_name: Tracao Multi-Cliente
 status: verifying
-stopped_at: Completed 172-01-PLAN.md
-last_updated: "2026-06-25T09:10:00.447Z"
+stopped_at: Completed 172-02-PLAN.md
+last_updated: "2026-06-25T09:14:33.696Z"
 last_activity: 2026-06-25
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 16
-  completed_plans: 14
-  percent: 88
+  completed_plans: 15
+  percent: 94
 ---
 
 # Project State
@@ -55,6 +55,7 @@ Progress: [██░░░░░░░░] 2/5 phases
 | Phase 171-persistent-product-trust-baseline P02 | 12 | 2 tasks | 3 files |
 | Phase 171-persistent-product-trust-baseline P04 | 12 | 2 tasks | 5 files |
 | Phase 172-operational-evidence-ui-and-release-gate P01 | 4 | 2 tasks | 2 files |
+| Phase 172-operational-evidence-ui-and-release-gate P02 | 8 | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -101,6 +102,8 @@ Progress: [██░░░░░░░░] 2/5 phases
 - [Phase 171]: Zustand profile/workspace mock slices removed; API hooks are persistence source of truth
 - [Phase 172]: Stats displayed with labeled rows in FactualAlertsPanel for operator scanability
 - [Phase 172]: Corpus evidence links to /feedback with id label; artifacts count-only per D-02
+- [Phase 172]: Workspace Learning tab omits clientProfileId for workspace-level factual alerts
+- [Phase 172]: Factual alerts mounted above proposals with space-y-6 on both owner surfaces
 
 ### Blockers/Concerns
 
@@ -124,7 +127,7 @@ Progress: [██░░░░░░░░] 2/5 phases
 
 ## Session Continuity
 
-Last session: 2026-06-25T09:10:00.444Z
-Stopped at: Completed 172-01-PLAN.md
+Last session: 2026-06-25T09:14:33.693Z
+Stopped at: Completed 172-02-PLAN.md
 Resume file: None
 Next command: `$gsd-execute-phase 170` (Plan 02)
