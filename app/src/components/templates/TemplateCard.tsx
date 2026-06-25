@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Trash2, Copy, Pencil, Check, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import type { CampaignTemplate } from "@/lib/hooks/use-templates";
 
 interface TemplateCardProps {
@@ -97,17 +98,18 @@ export default function TemplateCard({
             </p>
           )}
         </div>
-        <span
-          className={cn(
-            "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium flex-shrink-0 ml-2",
-            template.generationMode === "art_variation" &&
-              "bg-[rgba(99,102,241,0.12)] text-[#818cf8]",
-            template.generationMode === "format_adaptation" &&
-              "bg-[rgba(45,182,125,0.12)] text-[#2db67d]"
-          )}
+        <Badge
+          variant={
+            template.generationMode === "art_variation"
+              ? "info"
+              : template.generationMode === "format_adaptation"
+                ? "success"
+                : "neutral"
+          }
+          className="text-[10px] flex-shrink-0 ml-2"
         >
           {modeLabels[template.generationMode] || template.generationMode}
-        </span>
+        </Badge>
       </div>
 
       <div className="space-y-1.5 mb-4">
@@ -140,16 +142,17 @@ export default function TemplateCard({
         <Button
           size="sm"
           onClick={() => onUse(template)}
-          className="flex-1 bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-light)] text-xs"
+          className="flex-1 text-xs"
         >
-          <Copy size={14} className="mr-1.5" />
+          <Copy size={14} aria-hidden="true" />
           {tTemplate("useTemplate")}
         </Button>
         <Button
           size="sm"
-          variant="outline"
+          variant="ghost"
           onClick={() => onDelete(template.id)}
-          className="border-[var(--border-dim)] text-[var(--text-muted)] hover:text-[var(--accent-rose)] hover:border-[var(--accent-rose)]"
+          className="text-[var(--text-muted)] hover:text-[var(--danger-text)] hover:bg-[var(--danger-bg)]"
+          aria-label={tTemplate("delete")}
         >
           <Trash2 size={14} />
         </Button>
