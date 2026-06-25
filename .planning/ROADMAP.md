@@ -34,7 +34,7 @@
 | 168 | Client-Agnostic Human Decision Intake | DECISION-01..05 | Complete | 2026-06-25 |
 | 169 | Real Corpus and Claim Gates | Complete    | 2026-06-25 | 2026-06-25 |
 | 170 | Product Narrative Rollout | Complete    | 2026-06-25 | 2026-06-25 |
-| 171 | Persistent Product Trust Baseline | 3/4 | In Progress|  |
+| 171 | Persistent Product Trust Baseline | 4/4 | Complete   | 2026-06-25 |
 | 172 | Operational Evidence UI and Release Gate | ALERT-01..04 | Planned | - |
 
 ## Phase Details
@@ -125,13 +125,13 @@ Plans:
   4. Save, error and loading behavior is deterministic and tested.
   5. Existing settings surfaces retain their current behavior.
 
-**Plans:** 3/4 plans executed
+**Plans:** 4/4 plans complete
 
 Plans:
 - [x] 171-01-PLAN.md — Schema + profile/workspace settings APIs with route tests
 - [x] 171-02-PLAN.md — Profile hook and ProfileTab API wiring
 - [x] 171-03-PLAN.md — Workspace hook and WorkspaceTab API wiring
-- [ ] 171-04-PLAN.md — Tab enablement, store cleanup, regression guard
+- [x] 171-04-PLAN.md — Tab enablement, store cleanup, regression guard
 
 ---
 

@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v13.3
 milestone_name: Tracao Multi-Cliente
 status: verifying
-stopped_at: Completed 171-02-PLAN.md
-last_updated: "2026-06-25T08:57:00.081Z"
+stopped_at: Completed 171-04-PLAN.md
+last_updated: "2026-06-25T08:59:51.210Z"
 last_activity: 2026-06-25
 progress:
   total_phases: 5
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 13
-  completed_plans: 12
-  percent: 92
+  completed_plans: 13
+  percent: 100
 ---
 
 # Project State
@@ -53,6 +53,7 @@ Progress: [██░░░░░░░░] 2/5 phases
 | Phase 171-persistent-product-trust-baseline P01 | 25 | 3 tasks | 11 files |
 | Phase 171-persistent-product-trust-baseline P03 | 15 | 2 tasks | 3 files |
 | Phase 171-persistent-product-trust-baseline P02 | 12 | 2 tasks | 3 files |
+| Phase 171-persistent-product-trust-baseline P04 | 12 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -95,6 +96,8 @@ Progress: [██░░░░░░░░] 2/5 phases
 - [Phase 171]: Profile PATCH rejects email via zod strict; workspace slug conflicts return 409 via pre-update lookup
 - [Phase 171]: canEdit optional on workspace settings GET; member save blocked via PATCH 403 until API exposes role
 - [Phase 171]: ProfileTab pendingAvatarFile uses state for reactive hasChanges; avatar uploads on Save
+- [Phase 171]: defaultTabId pinned to brandKit while profile/workspace tabs enabled for honest navigation
+- [Phase 171]: Zustand profile/workspace mock slices removed; API hooks are persistence source of truth
 
 ### Blockers/Concerns
 
@@ -118,7 +121,7 @@ Progress: [██░░░░░░░░] 2/5 phases
 
 ## Session Continuity
 
-Last session: 2026-06-25T08:57:00.077Z
-Stopped at: Completed 171-02-PLAN.md
+Last session: 2026-06-25T08:59:51.207Z
+Stopped at: Completed 171-04-PLAN.md
 Resume file: None
 Next command: `$gsd-execute-phase 170` (Plan 02)
