@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v13.3
 milestone_name: Tracao Multi-Cliente
 status: executing
-stopped_at: Completed 169-01-PLAN.md
-last_updated: "2026-06-25T08:11:26.973Z"
+stopped_at: Completed 169-02-PLAN.md
+last_updated: "2026-06-25T08:14:10.185Z"
 last_activity: 2026-06-25
 progress:
   total_phases: 5
   completed_phases: 1
   total_plans: 6
-  completed_plans: 4
-  percent: 67
+  completed_plans: 5
+  percent: 83
 ---
 
 # Project State
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-06-25)
 ## Current Position
 
 Phase: 169 of 172 (real corpus and claim gates)
-Plan: 1 of 3 — next Phase 169 execution
+Plan: 2 of 3 — next Phase 169 execution
 Status: Ready to execute
 Last activity: 2026-06-25
 
@@ -45,6 +45,7 @@ Progress: [█░░░░░░░░░] 1/5 phases
 | 171 | 0/TBD | Planned |
 | 172 | 0/TBD | Planned |
 | Phase 169-real-corpus-and-claim-gates P01 | 12 | 3 tasks | 6 files |
+| Phase 169-real-corpus-and-claim-gates P02 | 18 | 4 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -73,6 +74,9 @@ Progress: [█░░░░░░░░░] 1/5 phases
 - [Phase 169]: Release evidence must separate technical regression pass from operational source/sample sufficiency
 - [Phase 169]: Owner promotion accepts operator_imported/real_customer explicitly; synthetic_fixture only when candidate already has it
 - [Phase 169]: Candidate source label override persists at markCorpusCandidatePromoted for queue/evidence joins
+- [Phase 169]: fixtureOnly blocks customer-real claims when active scope has zero real_customer rows
+- [Phase 169]: Sampling sub-services accept clientProfileId so scoped evidence does not fall back to global rows
+- [Phase 169]: Owner global evidence route validates workspaceId/clientProfileId as UUID query params
 
 ### Blockers/Concerns
 
@@ -96,7 +100,7 @@ Progress: [█░░░░░░░░░] 1/5 phases
 
 ## Session Continuity
 
-Last session: 2026-06-25T08:11:26.970Z
-Stopped at: Completed 169-01-PLAN.md
+Last session: 2026-06-25T08:14:10.182Z
+Stopped at: Completed 169-02-PLAN.md
 Resume file: None
 Next command: `$gsd-execute-phase 169`
