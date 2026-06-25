@@ -37,7 +37,7 @@
 | 177 | Multi-Client Foundation | Complete    | 2026-06-25 | 2026-06-25 |
 | 178 | 4/4 | Complete    | 2026-06-25 | - |
 | 179 | 4/4 | Complete    | 2026-06-25 | - |
-| 180 | Action Contracts | 4/4 | Complete   | 2026-06-25 |
+| 180 | Action Contracts | Complete    | 2026-06-25 | 2026-06-25 |
 | 181 | Assistant Surface | CHAT-01, CHAT-02, CHAT-03, CHAT-04 | Pending | - |
 | 182 | Quick Actions | ACT-03, ACT-04 | Pending | - |
 | 183 | Campaign Complete Happy Path | ACT-05, EXEC-03, EXEC-04 | Pending | - |
