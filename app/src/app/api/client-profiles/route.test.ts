@@ -47,6 +47,7 @@ describe("GET /api/client-profiles", () => {
   it("returns workspace profiles", async () => {
     const profiles = [
       { id: "p1", name: "Acme", workspaceId: "workspace-1" },
+      { id: "p2", name: "Beta Corp", workspaceId: "workspace-1" },
     ];
     mockGetClientProfiles.mockResolvedValue(profiles as Awaited<ReturnType<typeof getClientProfiles>>);
 
@@ -55,6 +56,8 @@ describe("GET /api/client-profiles", () => {
 
     expect(res.status).toBe(200);
     expect(body.profiles).toEqual(profiles);
+    expect(body.profiles).toHaveLength(2);
+    expect(mockGetClientProfiles).toHaveBeenCalledWith("workspace-1");
   });
 });
 
@@ -65,6 +68,24 @@ describe("POST /api/client-profiles", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it("creates a second profile in the same workspace", async () => {
+    const profile = { id: "p2", name: "Beta Corp", workspaceId: "workspace-1" };
+    mockCreateClientProfile.mockResolvedValue(profile as Awaited<ReturnType<typeof createClientProfile>>);
+
+    const res = await POST(requestWith({ name: "Beta Corp" }));
+    const body = await res.json();
+
+    expect(res.status).toBe(201);
+    expect(body.profile).toEqual(profile);
+    expect(mockCreateClientProfile).toHaveBeenCalledWith("workspace-1", {
+      name: "Beta Corp",
+      description: undefined,
+      visualNotes: undefined,
+      toneNotes: undefined,
+      constraints: undefined,
+    });
   });
 
   it("validates name and creates a profile", async () => {
