@@ -99,15 +99,71 @@ export function FactualAlertsPanel({
           No factual issue slices meet alert thresholds.
         </p>
       ) : (
-        <div className="space-y-2">
-          {alerts.map((alert) => (
-            <div
-              key={`${alert.workspaceId}-${alert.clientProfileId}-${alert.sliceKey}`}
-              className="rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 py-2 text-xs"
-            >
-              <p className="font-mono text-[10px]">{alert.sliceKey}</p>
-            </div>
-          ))}
+        <div className="overflow-x-auto rounded-md border border-[var(--border-dim)]">
+          <table className="min-w-full text-xs">
+            <thead className="bg-[var(--surface-base)] text-[var(--text-muted)]">
+              <tr>
+                <th className="px-2 py-1.5 text-left font-medium">Slice</th>
+                <th className="px-2 py-1.5 text-left font-medium">Workspace</th>
+                <th className="px-2 py-1.5 text-left font-medium">Brand</th>
+                <th className="px-2 py-1.5 text-left font-medium">Rationale</th>
+                <th className="px-2 py-1.5 text-left font-medium">Stats</th>
+                <th className="px-2 py-1.5 text-left font-medium">Corpus items</th>
+                <th className="px-2 py-1.5 text-left font-medium">Artifacts</th>
+              </tr>
+            </thead>
+            <tbody>
+              {alerts.map((alert) => {
+                const { stats, corpusItemIds, artifactIds } = alert.evidenceRefs;
+                return (
+                  <tr
+                    key={`${alert.workspaceId}-${alert.clientProfileId}-${alert.sliceKey}`}
+                    className="border-t border-[var(--border-dim)]"
+                  >
+                    <td className="max-w-[12rem] truncate px-2 py-1.5 font-mono text-[10px]">
+                      {alert.sliceKey}
+                    </td>
+                    <td className="px-2 py-1.5 font-mono text-[10px]">{alert.workspaceId}</td>
+                    <td className="px-2 py-1.5">
+                      <a
+                        href={`/admin/quality/brands/${alert.clientProfileId}`}
+                        className="font-mono text-[10px] text-[var(--text-primary)] underline underline-offset-2"
+                      >
+                        {alert.clientProfileId}
+                      </a>
+                    </td>
+                    <td className="px-2 py-1.5 text-[var(--text-secondary)]">{alert.rationale}</td>
+                    <td className="px-2 py-1.5 tabular-nums text-[var(--text-secondary)]">
+                      <div>count: {stats.count}</div>
+                      <div>meanSignedDelta: {stats.meanSignedDelta}</div>
+                      <div>meanAbsError: {stats.meanAbsError}</div>
+                      <div>over: {stats.overScoreCount}</div>
+                      <div>under: {stats.underScoreCount}</div>
+                    </td>
+                    <td className="px-2 py-1.5">
+                      <ul className="space-y-0.5">
+                        {corpusItemIds.map((corpusItemId) => (
+                          <li key={corpusItemId}>
+                            <a
+                              href="/feedback"
+                              className="font-mono text-[10px] text-[var(--text-primary)] underline underline-offset-2"
+                            >
+                              {corpusItemId}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </td>
+                    <td className="px-2 py-1.5 text-[var(--text-secondary)]">
+                      {artifactIds && artifactIds.length > 0
+                        ? `${artifactIds.length} artifacts referenced`
+                        : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </section>

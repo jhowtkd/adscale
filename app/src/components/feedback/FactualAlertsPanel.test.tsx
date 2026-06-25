@@ -128,11 +128,12 @@ describe("FactualAlertsPanel — safe evidence links and stats", () => {
     expect(screen.getByText(alertFixture.workspaceId)).toBeInTheDocument();
     expect(screen.getByText(alertFixture.clientProfileId)).toBeInTheDocument();
     expect(screen.getByText("factual_guard_review_required")).toBeInTheDocument();
-    expect(screen.getByText(String(alertFixture.evidenceRefs.stats.count))).toBeInTheDocument();
-    expect(screen.getByText(String(alertFixture.evidenceRefs.stats.meanSignedDelta))).toBeInTheDocument();
-    expect(screen.getByText(String(alertFixture.evidenceRefs.stats.meanAbsError))).toBeInTheDocument();
-    expect(screen.getByText(String(alertFixture.evidenceRefs.stats.overScoreCount))).toBeInTheDocument();
-    expect(screen.getByText(String(alertFixture.evidenceRefs.stats.underScoreCount))).toBeInTheDocument();
+    const stats = alertFixture.evidenceRefs.stats;
+    expect(screen.getByText(new RegExp(`count:\\s*${stats.count}`))).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`meanSignedDelta:\\s*${stats.meanSignedDelta}`))).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`meanAbsError:\\s*${stats.meanAbsError}`))).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`over:\\s*${stats.overScoreCount}`))).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`under:\\s*${stats.underScoreCount}`))).toBeInTheDocument();
   });
 
   it("renders brand link to /admin/quality/brands/{clientProfileId}", async () => {
