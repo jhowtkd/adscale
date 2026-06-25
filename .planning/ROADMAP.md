@@ -34,8 +34,8 @@
 | 168 | Client-Agnostic Human Decision Intake | DECISION-01..05 | Complete | 2026-06-25 |
 | 169 | Real Corpus and Claim Gates | Complete    | 2026-06-25 | 2026-06-25 |
 | 170 | Product Narrative Rollout | Complete    | 2026-06-25 | 2026-06-25 |
-| 171 | Persistent Product Trust Baseline | 4/4 | Complete   | 2026-06-25 |
-| 172 | Operational Evidence UI and Release Gate | ALERT-01..04 | Planned | - |
+| 171 | Persistent Product Trust Baseline | Complete    | 2026-06-25 | 2026-06-25 |
+| 172 | Operational Evidence UI and Release Gate | ALERT-01..04 | Planned | 3 plans |
 
 ## Phase Details
 
@@ -149,7 +149,12 @@ Plans:
   3. UI distinguishes factual issues from promptable corpus-quality rules.
   4. Release checklist covers decision intake, real corpus/source gates, narrative rollout, settings persistence and alerts.
 
-**Plans:** 0/TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 172-01-PLAN.md — FactualAlertsPanel component with safe evidence links and unit tests
+- [ ] 172-02-PLAN.md — Mount alerts in corpus Learning tab and brand Propostas tab
+- [ ] 172-03-PLAN.md — v13.3 release gate, evidence artifact, and smoke checklist
 
 ---
 
