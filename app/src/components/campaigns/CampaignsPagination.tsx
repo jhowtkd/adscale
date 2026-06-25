@@ -42,9 +42,14 @@ export default function CampaignsPagination({
       className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 animate-fade-in"
       style={{ animationDelay: "200ms" }}
     >
-      <p className="text-sm text-[var(--text-muted)]">
-        {tc("showingResults", { start: startIndex, end: endIndex, total: totalCount })}
-      </p>
+      <div className="flex flex-col gap-1">
+        <span className="font-pixel text-[8px] uppercase tracking-wider text-[var(--text-muted)]">
+          pg. {visibleCurrentPage}/{totalPages}
+        </span>
+        <p className="text-sm text-[var(--text-muted)]">
+          {tc("showingResults", { start: startIndex, end: endIndex, total: totalCount })}
+        </p>
+      </div>
 
       <div className="flex items-center gap-2">
         {/* Prev */}
