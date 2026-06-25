@@ -1,4 +1,5 @@
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
+import { AssistantActionValidationError } from "@/server/repositories/assistant-action";
 import { containsDeniedPersistenceKeys } from "@/server/repositories/assistant-types";
 import {
   requireRole,
@@ -90,7 +91,15 @@ export async function evaluateToolCall(
     return deny("scope_mismatch");
   }
 
-  const handlerResult = await tool.handler(ctx, schemaResult.data);
+  let handlerResult;
+  try {
+    handlerResult = await tool.handler(ctx, schemaResult.data);
+  } catch (error) {
+    if (error instanceof AssistantActionValidationError) {
+      return deny("contract_validation_failed");
+    }
+    throw error;
+  }
   const summary = sanitizeSummary(handlerResult.summary);
   if (!summary) {
     return deny("sanitization_failed");

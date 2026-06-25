@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { WorkspaceMemberRole } from "@/server/auth/workspace";
+import { validateProposeAction } from "@/server/assistant/action-contracts/validate";
 import { createAssistantAction } from "@/server/repositories/assistant-action";
 import { stripDeniedFields } from "@/server/assistant/context/sanitize";
 import { containsDeniedPersistenceKeys } from "@/server/repositories/assistant-types";
@@ -27,7 +28,11 @@ export async function handleProposeAction(
     throw new Error("inputSnapshot contains denied persistence keys");
   }
 
-  const display = { label: parsed.label, actionType: parsed.actionType };
+  const { display } = await validateProposeAction(ctx, {
+    actionType: parsed.actionType,
+    label: parsed.label,
+    inputSnapshot,
+  });
 
   const { action } = await createAssistantAction(ctx.workspaceId, {
     threadId: ctx.threadId,
