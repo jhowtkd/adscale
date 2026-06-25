@@ -2,9 +2,10 @@
 phase: 178
 slug: conversation-persistence
 status: draft
-nyquist_compliant: false
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-06-25
+updated: 2026-06-25
 ---
 
 # Phase 178 — Validation Strategy
@@ -27,7 +28,7 @@ created: 2026-06-25
 
 ## Sampling Rate
 
-- **After every task commit:** Run `npx vitest run <changed-file>.test.ts -x`
+- **After every task commit:** Run task `<automated>` verify command
 - **After every plan wave:** Run `cd app && npm test`
 - **Before `$gsd-verify-work`:** Full suite must be green + `npm run build` + `drizzle-kit check`
 - **Max feedback latency:** 120 seconds
@@ -38,12 +39,16 @@ created: 2026-06-25
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 178-01-01 | 01 | 1 | EXEC-02 | unit | `npx vitest run src/server/repositories/assistant-thread.test.ts -x` | ❌ W0 | ⬜ pending |
-| 178-01-02 | 01 | 1 | EXEC-02 | unit | `npx vitest run src/server/repositories/assistant-message.test.ts -x` | ❌ W0 | ⬜ pending |
-| 178-01-03 | 01 | 1 | EXEC-02 | unit | `npx vitest run src/server/repositories/assistant-action.test.ts -x` | ❌ W0 | ⬜ pending |
-| 178-01-04 | 01 | 2 | EXEC-02 | unit | `npx vitest run src/server/repositories/assistant-job-sync.test.ts -x` | ❌ W0 | ⬜ pending |
-| 178-01-05 | 01 | 2 | EXEC-02 | unit | `npx vitest run src/server/jobs/derivation.test.ts -x -t assistant` | ❌ W0 | ⬜ pending |
-| 178-01-06 | 01 | 2 | EXEC-02 | route | `npx vitest run src/app/api/assistant/threads/\\[threadId\\]/route.test.ts -x` | ❌ W0 | ⬜ pending |
+| 178-01-01 | 01 | 1 | EXEC-02 | compile | `cd app && npx tsc --noEmit -p tsconfig.json` | ✅ | ⬜ pending |
+| 178-01-02 | 01 | 1 | EXEC-02 | migration | `cd app && npx drizzle-kit check` | ❌ W0 | ⬜ pending |
+| 178-01-03 | 01 | 1 | EXEC-02 | build | `cd app && npm run build` | ✅ | ⬜ pending |
+| 178-02-01 | 02 | 2 | EXEC-02 | unit | `cd app && npx vitest run src/server/repositories/assistant-thread.test.ts -x` | ❌ W0 | ⬜ pending |
+| 178-02-02 | 02 | 2 | EXEC-02 | unit | `cd app && npx vitest run src/server/repositories/assistant-thread.test.ts -x` | ❌ W0 | ⬜ pending |
+| 178-03-01 | 03 | 2 | EXEC-02 | unit | `cd app && npx vitest run src/server/repositories/assistant-message.test.ts -x` | ❌ W0 | ⬜ pending |
+| 178-03-02 | 03 | 2 | EXEC-02 | unit | `cd app && npx vitest run src/server/repositories/assistant-action.test.ts -x` | ❌ W0 | ⬜ pending |
+| 178-04-01 | 04 | 3 | EXEC-02 | unit | `cd app && npx vitest run src/server/repositories/assistant-job-sync.test.ts src/server/jobs/derivation.test.ts -x -t assistant` | ❌ W0 | ⬜ pending |
+| 178-04-02 | 04 | 3 | EXEC-02 | route | `cd app && npx vitest run src/app/api/assistant/threads/\\[threadId\\]/route.test.ts -x` | ❌ W0 | ⬜ pending |
+| 178-04-03 | 04 | 3 | EXEC-02 | integration | `cd app && npx vitest run src/server/repositories/assistant-thread.test.ts src/server/repositories/assistant-message.test.ts src/server/repositories/assistant-action.test.ts src/server/repositories/assistant-job-sync.test.ts -x && npm run build && npx drizzle-kit check` | ❌ W0 | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -51,13 +56,15 @@ created: 2026-06-25
 
 ## Wave 0 Requirements
 
-- [ ] `app/src/server/repositories/assistant-thread.test.ts` — thread scoping, default thread, campaign link
-- [ ] `app/src/server/repositories/assistant-message.test.ts` — stream ordering, sanitization guard
-- [ ] `app/src/server/repositories/assistant-action.test.ts` — lifecycle transitions, pending immutability
-- [ ] `app/src/server/repositories/assistant-job-sync.test.ts` — job status sync
-- [ ] `app/src/app/api/assistant/threads/[threadId]/route.test.ts` — auth + 404 paths
-- [ ] Migration `0057` + `_journal.json` entry
-- [ ] Extend `derivation.test.ts` with assistant action sync case
+Test files created during execution (not pre-existing):
+
+- [ ] `app/src/server/repositories/assistant-thread.test.ts` — thread scoping, default thread, campaign link (tasks 178-02-01, 178-02-02)
+- [ ] `app/src/server/repositories/assistant-message.test.ts` — stream ordering, sanitization guard (task 178-03-01)
+- [ ] `app/src/server/repositories/assistant-action.test.ts` — lifecycle transitions, pending immutability (task 178-03-02)
+- [ ] `app/src/server/repositories/assistant-job-sync.test.ts` — job status sync (task 178-04-01)
+- [ ] `app/src/app/api/assistant/threads/[threadId]/route.test.ts` — auth + 404 paths (task 178-04-02)
+- [ ] Migration `0057` + `_journal.json` entry (task 178-01-02)
+- [ ] Extend `derivation.test.ts` with assistant action sync case (task 178-04-01)
 
 ---
 
@@ -73,11 +80,11 @@ All phase behaviors have automated verification.
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 120s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify (178-01-01 through 178-04-03)
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING test file references
+- [x] No watch-mode flags
+- [x] Feedback latency < 120s
+- [x] `nyquist_compliant: true` set in frontmatter
 
 **Approval:** pending

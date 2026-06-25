@@ -442,17 +442,15 @@ await inngest.send({
 | A2 | FK update (set `campaign_id`) is acceptable migration strategy vs. copy-to-new-thread | Pattern 1 | UX may differ if history should split on campaign creation |
 | A3 | `isDefault` + partial unique index is chosen for default thread semantics | Pattern 1 | CHAT-04 behavior changes if user prefers "most recent" heuristic |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Should thread link-to-campaign copy messages or just update FK?**
+1. **Should thread link-to-campaign copy messages or just update FK?** — **RESOLVED: FK update**
    - What we know: CONTEXT allows discretion; user should not be blocked before campaign exists.
-   - What's unclear: Whether marketing wants separate histories after campaign creation.
-   - Recommendation: Default to **FK update** (`campaign_id` set on existing client thread) with `migrated_from_thread_id` audit; planner can add `linkThreadToCampaign()` task.
+   - Resolution: **FK update** — set `campaign_id` on existing client thread with `migrated_from_thread_id` audit column; do NOT copy messages to a new thread. Implemented via `linkThreadToCampaign()` in plan 02.
 
-2. **Confirm/cancel API auth — member vs owner?**
+2. **Confirm/cancel API auth — member vs owner?** — **RESOLVED: requireWorkspaceAccess only**
    - What we know: Most campaign routes use `requireWorkspaceAccess` without role gate.
-   - What's unclear: Whether action confirmation should require owner/admin (credit impact comes in Phase 180).
-   - Recommendation: Match existing campaign mutation pattern (`requireWorkspaceAccess` only) for 178; Phase 180 adds confirmation policy.
+   - Resolution: Match existing campaign mutation pattern (`requireWorkspaceAccess` only) for Phase 178; Phase 180 adds confirmation policy and credit-impact gates.
 
 ## Environment Availability
 
@@ -591,10 +589,10 @@ await inngest.send({
 | Architecture | HIGH | Codebase patterns directly applicable |
 | Pitfalls | HIGH | Grounded in Phase 177 + derivation job code |
 
-### Open Questions
+### Open Questions (RESOLVED)
 
-- Thread-to-campaign migration: FK update vs copy (recommend FK update)
-- Confirm/cancel role gates (recommend defer to Phase 180)
+- Thread-to-campaign migration: **FK update** with `migratedFromThreadId` audit (not copy)
+- Confirm/cancel auth: **requireWorkspaceAccess only**; Phase 180 adds confirmation policy
 
 ### Ready for Planning
 
