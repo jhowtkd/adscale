@@ -7,6 +7,7 @@ import { Trash2 } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import dynamic from "next/dynamic";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import { Badge } from "@/components/ui/badge";
 import PageFrame from "@/components/layout/PageFrame";
 import PageHeader from "@/components/layout/PageHeader";
 import PageSection from "@/components/layout/PageSection";
@@ -634,19 +635,13 @@ function CampaignWorkspaceHeader({
       }
       title={campaignName}
       meta={
-        <span
-          className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.2em] leading-tight"
-          style={{
-            backgroundColor: "rgba(0,179,74,0.15)",
-            color: "var(--accent-green)",
-          }}
-        >
+        <Badge variant="success" className="font-mono text-[10px] font-bold uppercase tracking-[0.2em]">
           <span
-            className="inline-block size-1.5 rounded-full"
-            style={{ backgroundColor: "var(--accent-green)" }}
+            className="inline-block size-1.5 rounded-full bg-[var(--success-dot)]"
+            aria-hidden="true"
           />
           Piloto
-        </span>
+        </Badge>
       }
       actions={
         <>
@@ -660,7 +655,7 @@ function CampaignWorkspaceHeader({
             <button
               type="button"
               onClick={onDelete}
-              className="min-h-10 shrink-0 rounded-md p-2 text-[var(--accent-rose)] transition-colors hover:bg-[rgba(244,63,94,0.08)]"
+              className="min-h-10 shrink-0 rounded-md p-2 text-[var(--danger-text)] transition-colors hover:bg-[var(--danger-bg)]"
               title={deleteLabel}
               aria-label={deleteLabel}
             >
