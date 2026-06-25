@@ -32,7 +32,7 @@
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
 | 168 | Client-Agnostic Human Decision Intake | DECISION-01..05 | Complete | 2026-06-25 |
-| 169 | Real Corpus and Claim Gates | 2/3 | In Progress|  |
+| 169 | Real Corpus and Claim Gates | SOURCE-01..05 | Complete | 2026-06-25 |
 | 170 | Product Narrative Rollout | BRAND-01..04 | Planned | - |
 | 171 | Persistent Product Trust Baseline | TRUST-01..05 | Planned | - |
 | 172 | Operational Evidence UI and Release Gate | ALERT-01..04 | Planned | - |
@@ -78,12 +78,12 @@ Plans:
   4. Brand-level claim gates use the selected profile's source/sample sufficiency.
   5. Release evidence separates technical regression from operational evidence status.
 
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [x] 169-01-PLAN.md - Source-labeled candidate promotion and intake
 - [x] 169-02-PLAN.md - Active-scope evidence and claim gates
-- [ ] 169-03-PLAN.md - Release evidence and phase verification
+- [x] 169-03-PLAN.md - Release evidence and phase verification
 
 ---
 
