@@ -3,10 +3,12 @@
 import Image from "next/image";
 import { useReducer, useRef, useCallback, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { Search, Upload, ImageIcon, Trash2, Tag } from "lucide-react";
+import { Search, Upload, Trash2, Tag, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import EmptyState from "@/components/ui/EmptyState";
 import PageFrame from "@/components/layout/PageFrame";
 import PageHeader from "@/components/layout/PageHeader";
 import Panel from "@/components/layout/Panel";
@@ -144,9 +146,8 @@ export default function LibraryPage() {
             <Button
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
-              className="bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-light)]"
             >
-              <Upload size={16} className="mr-2" />
+              <Upload size={16} aria-hidden="true" />
               {isUploading ? `${uploadProgress}%` : t("upload")}
             </Button>
           </>
@@ -165,7 +166,7 @@ export default function LibraryPage() {
           onClick={() => fileInputRef.current?.click()}
           className={`w-full rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
             dragOver
-              ? "border-[var(--accent-blue)] bg-[var(--accent-blue)]/5"
+              ? "border-primary bg-primary/5"
               : "border-[var(--border-dim)] bg-[var(--surface-base)]"
           }`}
         >
@@ -205,11 +206,23 @@ export default function LibraryPage() {
             ))}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center px-4 py-20 text-[var(--text-muted)]">
-            <ImageIcon size={48} className="mb-4 opacity-50" aria-hidden="true" />
-            <p className="text-lg font-medium text-[var(--text-primary)]">{t("emptyTitle")}</p>
-            <p className="mt-1 text-sm">{t("emptyDescription")}</p>
-          </div>
+          <EmptyState
+            icon={ImageIcon}
+            title={t("emptyTitle")}
+            description={t("emptyDescription")}
+            action={
+              debouncedSearch
+                ? {
+                    label: tCommon("clearFilters"),
+                    onClick: () => handleSearch(""),
+                  }
+                : {
+                    label: t("upload"),
+                    onClick: () => fileInputRef.current?.click(),
+                    icon: Upload,
+                  }
+            }
+          />
         )}
       </Panel>
 
@@ -281,13 +294,10 @@ function AssetCard({
         {asset.tags && asset.tags.length > 0 && (
           <div className="flex flex-wrap gap-1 pt-1">
             {asset.tags.slice(0, 3).map((tag) => (
-              <span
-                key={tag}
-                className="inline-flex items-center gap-1 rounded-full bg-[var(--surface-base)] px-1.5 py-0.5 text-xs text-[var(--text-secondary)]"
-              >
-                <Tag size={8} />
+              <Badge key={tag} variant="neutral" className="text-[10px] gap-1 px-1.5 py-0.5">
+                <Tag size={10} aria-hidden="true" />
                 {tag}
-              </span>
+              </Badge>
             ))}
             {asset.tags.length > 3 && (
               <span className="text-xs text-[var(--text-muted)]">
