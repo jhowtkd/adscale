@@ -1,0 +1,720 @@
+<!doctype html>
+<!--
+  ADScale — Restyling Wizard (Lab page 06)
+  Full restyling flow: 2 upload zones + 5 form fields + intensity selector + submit.
+  Mirrors /var/folders/95/s9tsrvnx7x7dp9t149ty6y980000gn/T/opencode/lab-base/_lab-base.html
+  Source: app/src/app/(dashboard)/restyling/page.tsx
+-->
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ADScale · Restilização de Criativo — Lab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=Press+Start+2P&display=swap">
+  <style>
+    /* ============================================
+       ADScale — Design Tokens (Light + Dark)
+       Extracted from globals.css of the ADScale_2 app.
+       ============================================ */
+    :root {
+      --font-inter: 'Inter', ui-sans-serif, system-ui, sans-serif;
+      --font-space-mono: 'Space Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+      --font-press-start: 'Press Start 2P', cursive;
+
+      --space-1: 0.25rem; --space-2: 0.5rem; --space-3: 0.75rem;
+      --space-4: 1rem; --space-5: 1.5rem; --space-6: 2rem; --space-7: 3rem;
+
+      --text-caption: 0.75rem; --text-label: 0.8125rem; --text-body: 0.875rem;
+      --text-body-lg: 1rem; --text-section: 1rem; --text-page: 1.25rem;
+      --text-display: 1.5rem;
+
+      --radius-control: 0.375rem; --radius-panel: 0.5rem;
+      --radius-object: 0.75rem; --radius-overlay: 0.75rem; --radius-pill: 9999px;
+
+      /* Light mode (canonical) */
+      --canvas: oklch(0.985 0.003 145);
+      --surface-base: oklch(0.998 0.002 145);
+      --surface-raised: oklch(0.968 0.005 145);
+      --surface-inset: oklch(0.945 0.007 145);
+      --surface-overlay: oklch(0.995 0.003 145);
+      --text-primary: oklch(0.18 0.012 145);
+      --text-secondary: oklch(0.38 0.012 145);
+      --text-muted: oklch(0.46 0.01 145);
+      --text-disabled: oklch(0.63 0.008 145);
+      --text-on-accent: oklch(0.16 0.02 145);
+      --border-subtle: oklch(0.18 0.012 145 / 0.06);
+      --border-default: oklch(0.18 0.012 145 / 0.12);
+      --border-strong: oklch(0.18 0.012 145 / 0.22);
+      --focus-ring: oklch(0.66 0.2 145);
+      --accent-primary: oklch(0.66 0.2 145);
+      --accent-primary-hover: oklch(0.72 0.22 145);
+      --accent-primary-subtle: oklch(0.66 0.2 145 / 0.12);
+      --accent-primary-text: oklch(0.43 0.15 145);
+      --success-bg: oklch(0.66 0.18 145 / 0.12);
+      --success-border: oklch(0.52 0.16 145 / 0.28);
+      --success-text: oklch(0.4 0.14 145);
+      --success-dot: oklch(0.5 0.17 145);
+      --warning-bg: oklch(0.68 0.14 82 / 0.16);
+      --warning-border: oklch(0.58 0.13 82 / 0.3);
+      --warning-text: oklch(0.39 0.1 82);
+      --warning-dot: oklch(0.56 0.13 82);
+      --danger-bg: oklch(0.58 0.2 18 / 0.12);
+      --danger-border: oklch(0.52 0.18 18 / 0.28);
+      --danger-text: oklch(0.43 0.17 18);
+      --danger-dot: oklch(0.52 0.19 18);
+      --info-bg: oklch(0.62 0.13 245 / 0.12);
+      --info-border: oklch(0.54 0.12 245 / 0.28);
+      --info-text: oklch(0.4 0.12 245);
+      --info-dot: oklch(0.54 0.14 245);
+      --neutral-bg: oklch(0.58 0.01 145 / 0.12);
+      --neutral-border: oklch(0.52 0.01 145 / 0.24);
+      --neutral-text: oklch(0.34 0.01 145);
+
+      /* Compatibility aliases used across the codebase */
+      --deep-bg: var(--canvas);
+      --border-dim: var(--border-subtle);
+      --border-medium: var(--border-default);
+      --accent-green: var(--accent-primary);
+      --accent-green-light: var(--accent-primary-hover);
+      --accent-green-dim: var(--accent-primary-subtle);
+      --accent-green-text: var(--accent-primary-text);
+      --accent-rose: var(--danger-text);
+      --ink: var(--text-on-accent);
+    }
+    .dark {
+      --canvas: oklch(0.15 0.008 145);
+      --surface-base: oklch(0.18 0.008 145);
+      --surface-raised: oklch(0.22 0.01 145);
+      --surface-inset: oklch(0.16 0.008 145);
+      --surface-overlay: oklch(0.2 0.01 145);
+      --text-primary: oklch(0.96 0.006 145);
+      --text-secondary: oklch(0.78 0.008 145);
+      --text-muted: oklch(0.65 0.008 145);
+    }
+
+    /* ============================================
+       Base reset + dot-grid background
+       ============================================ */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      font-family: var(--font-inter);
+      color: var(--text-primary);
+      background: var(--canvas);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    body { min-height: 100vh; }
+    a { color: inherit; text-decoration: none; }
+    button { font: inherit; cursor: pointer; border: 0; background: transparent; color: inherit; }
+    input, textarea, select { font: inherit; color: inherit; }
+
+    /* Dot grid background (matches app) */
+    .dot-grid {
+      background-color: var(--canvas);
+      background-image: radial-gradient(
+        circle,
+        oklch(0.18 0.012 145 / 0.05) 1px,
+        transparent 1px
+      );
+      background-size: 24px 24px;
+    }
+
+    /* ============================================
+       TopBar
+       ============================================ */
+    .topbar {
+      position: fixed; top: 0; right: 0; left: 0; z-index: 40;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 1rem;
+      height: 3.5rem;
+      padding: 0 1.5rem;
+      border-bottom: 1px solid var(--border-dim);
+      background: var(--surface-base);
+    }
+    .topbar-left { display: flex; align-items: center; gap: 2rem; min-width: 0; flex: 1; overflow: hidden; }
+    .topbar-logo { display: flex; align-items: center; gap: 0.5rem; padding: 0 0.5rem; border-radius: 0.375rem; }
+    .topbar-logo svg { display: block; height: 1.4rem; width: auto; }
+    .topbar-logo svg path { fill: var(--text-primary); }
+    .topbar-nav { display: flex; align-items: center; gap: 0.25rem; }
+    .topbar-nav a {
+      display: flex; align-items: center; gap: 0.5rem;
+      padding: 0.5rem 0.75rem; border-radius: 0.5rem;
+      font-size: var(--text-body); font-weight: 500;
+      color: var(--text-secondary);
+      transition: background 0.15s, color 0.15s;
+    }
+    .topbar-nav a:hover { background: var(--surface-raised); color: var(--text-primary); }
+    .topbar-nav a.active { background: var(--accent-green-dim); color: var(--accent-green-text); }
+    .topbar-nav a svg { width: 16px; height: 16px; flex-shrink: 0; }
+    .topbar-right { display: flex; align-items: center; gap: 0.625rem; flex-shrink: 0; }
+    .topbar-action {
+      width: 2.25rem; height: 2.25rem;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 9999px;
+      color: var(--text-muted);
+      transition: background 0.15s, color 0.15s;
+      position: relative;
+    }
+    .topbar-action:hover { background: var(--surface-raised); color: var(--text-primary); }
+    .topbar-action svg { width: 16px; height: 16px; }
+    .topbar-cta {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      padding: 0.625rem 1rem; border-radius: 0.375rem;
+      background: var(--accent-green);
+      color: var(--deep-bg);
+      font-size: var(--text-body); font-weight: 500;
+      transition: background 0.15s;
+    }
+    .topbar-cta:hover { background: var(--accent-green-light); }
+    .topbar-avatar {
+      width: 2.25rem; height: 2.25rem;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 9999px;
+      background: var(--accent-green-dim);
+      color: var(--accent-green-text);
+      font-size: 0.75rem; font-weight: 600;
+      box-shadow: 0 0 0 2px var(--surface-base), 0 0 0 3px var(--border-default);
+    }
+    .topbar-badge {
+      position: absolute; top: -2px; right: -2px;
+      min-width: 1.25rem; height: 1.25rem;
+      display: flex; align-items: center; justify-content: center;
+      padding: 0 0.25rem;
+      border-radius: 9999px;
+      background: var(--accent-rose);
+      color: var(--deep-bg);
+      font-size: 0.75rem; font-weight: 600;
+    }
+
+    /* ============================================
+       Bottom mobile nav
+       ============================================ */
+    .bottom-nav {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      display: none;
+      grid-template-columns: repeat(3, 1fr);
+      padding: 0.5rem 0.5rem calc(0.5rem + env(safe-area-inset-bottom, 0px));
+      border-top: 1px solid var(--border-dim);
+      background: var(--surface-base);
+      z-index: 40;
+    }
+    .bottom-nav a {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 0.125rem;
+      min-height: 2.75rem; padding: 0.5rem 0.25rem;
+      border-radius: 0.375rem;
+      font-size: 0.6875rem; font-weight: 500;
+      color: var(--text-secondary);
+    }
+    .bottom-nav a.active { background: var(--accent-green-dim); color: var(--accent-green-text); }
+    .bottom-nav a svg { width: 18px; height: 18px; }
+    @media (max-width: 767px) {
+      .bottom-nav { display: grid; }
+      .topbar-nav { display: none; }
+      .topbar-cta span { display: none; }
+    }
+
+    /* ============================================
+       Main + Page frames
+       ============================================ */
+    .shell-main { padding-top: 3.5rem; min-height: 100vh; }
+    @media (max-width: 767px) { .shell-main { padding-bottom: 5rem; } }
+    .page-frame {
+      width: 100%; min-width: 0;
+      padding: 1rem;
+    }
+    @media (min-width: 640px) { .page-frame { padding: 1.5rem; } }
+    @media (min-width: 1024px) { .page-frame { padding: 2rem; } }
+    .page-frame-operational { max-width: 80rem; margin: 0 auto; }
+    .page-frame-workspace { max-width: 87.5rem; margin: 0 auto; }
+    .page-frame-form { max-width: 40rem; margin: 0 auto; }
+    .page-frame-reading { max-width: 45rem; margin: 0 auto; }
+    .page-frame-wide { max-width: 100rem; margin: 0 auto; }
+
+    /* ============================================
+       PageHeader
+       ============================================ */
+    .page-header {
+      display: flex; flex-direction: column; gap: 1rem;
+      padding: 1.5rem 0;
+      border-bottom: 1px solid var(--border-dim);
+    }
+    @media (min-width: 640px) {
+      .page-header { flex-direction: row; align-items: flex-start; justify-content: space-between; }
+    }
+    .page-header-text { min-width: 0; }
+    .page-header h1 {
+      font-size: 1.25rem; font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+    }
+    .page-header p { font-size: var(--text-body); color: var(--text-secondary); margin-top: 0.25rem; }
+    .page-header-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
+
+    /* ============================================
+       PageSection
+       ============================================ */
+    .page-section { display: flex; flex-direction: column; gap: 1rem; }
+    .page-section-head {
+      display: flex; flex-direction: column; gap: 0.75rem;
+      align-items: flex-start;
+    }
+    @media (min-width: 640px) {
+      .page-section-head { flex-direction: row; align-items: flex-start; justify-content: space-between; }
+    }
+    .page-section-head h2 {
+      font-size: var(--text-section); font-weight: 600;
+      color: var(--text-primary);
+    }
+    .page-section-head p { font-size: var(--text-body); color: var(--text-secondary); }
+    .page-section-actions { display: flex; gap: 0.5rem; }
+
+    /* ============================================
+       Buttons
+       ============================================ */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 0.5rem;
+      padding: 0.625rem 1rem;
+      min-height: 2.5rem;
+      border-radius: var(--radius-control);
+      font-size: var(--text-body); font-weight: 500;
+      transition: background 0.15s, color 0.15s, transform 0.1s;
+      white-space: nowrap;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn-primary {
+      background: var(--accent-green);
+      color: var(--deep-bg);
+    }
+    .btn-primary:hover { background: var(--accent-green-light); }
+    .btn-outline {
+      background: var(--surface-base);
+      color: var(--text-primary);
+      border: 1px solid var(--border-default);
+    }
+    .btn-outline:hover { background: var(--surface-raised); }
+    .btn-ghost { background: transparent; color: var(--text-secondary); }
+    .btn-ghost:hover { background: var(--surface-raised); color: var(--text-primary); }
+    .btn-danger {
+      background: var(--danger-bg);
+      color: var(--danger-text);
+    }
+    .btn-danger:hover { background: var(--danger-border); }
+    .btn-sm { padding: 0.375rem 0.625rem; min-height: 2rem; font-size: 0.8125rem; }
+    .btn-icon { padding: 0; width: 2rem; height: 2rem; }
+    .btn svg { width: 16px; height: 16px; }
+
+    /* ============================================
+       Inputs
+       ============================================ */
+    .input {
+      width: 100%;
+      padding: 0.625rem 1rem;
+      min-height: 2.5rem;
+      border-radius: var(--radius-control);
+      border: 1px solid var(--border-dim);
+      background: var(--surface-base);
+      color: var(--text-primary);
+      font-size: var(--text-body); font-weight: 500;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .input:focus {
+      outline: none;
+      border-color: var(--accent-green);
+      box-shadow: 0 0 0 3px var(--accent-green-dim);
+    }
+    .input::placeholder { color: var(--text-muted); }
+    .input-error {
+      border-color: var(--danger-text);
+      box-shadow: 0 0 0 3px var(--danger-bg);
+    }
+    .label {
+      display: block;
+      font-size: var(--text-label); font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 0.375rem;
+    }
+    .label-required::after {
+      content: " *";
+      color: var(--accent-rose);
+      font-weight: 600;
+    }
+    .field-error {
+      font-size: var(--text-caption);
+      color: var(--accent-rose);
+      margin-top: 0.25rem;
+    }
+
+    /* ============================================
+       Upload zone (RestylingUpload)
+       ============================================ */
+    .upload-field { display: flex; flex-direction: column; }
+    .upload-field-label {
+      font-size: var(--text-body);
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 0.375rem;
+    }
+    .upload-field-desc {
+      font-size: var(--text-caption);
+      color: var(--text-muted);
+      margin-bottom: 0.75rem;
+    }
+    .upload-zone {
+      position: relative;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      min-height: 11rem;
+      padding: 1.5rem 1rem;
+      border: 2px dashed var(--border-medium);
+      border-radius: var(--radius-object);
+      background: var(--surface-raised);
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .upload-zone:hover {
+      border-color: var(--accent-green);
+      background: var(--accent-green-dim);
+    }
+    .upload-zone-icon {
+      width: 2rem; height: 2rem;
+      color: var(--text-muted);
+      margin-bottom: 0.75rem;
+    }
+    .upload-zone-title {
+      font-size: var(--text-body);
+      font-weight: 500;
+      color: var(--text-primary);
+      margin-bottom: 0.25rem;
+    }
+    .upload-zone-meta {
+      font-size: var(--text-caption);
+      color: var(--text-muted);
+    }
+    .upload-zone-error {
+      position: absolute;
+      bottom: 0.75rem;
+      left: 50%;
+      transform: translateX(-50%);
+      display: inline-flex; align-items: center; gap: 0.375rem;
+      padding: 0.375rem 0.75rem;
+      border-radius: var(--radius-control);
+      background: rgba(244, 63, 94, 0.08);
+      border: 1px solid oklch(from var(--accent-rose) l c h / 0.2);
+      font-size: var(--text-caption);
+      color: var(--accent-rose);
+    }
+    .upload-zone-error svg { width: 14px; height: 14px; }
+
+    /* ============================================
+       Intensity selector (3-option button group)
+       ============================================ */
+    .intensity-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.5rem;
+    }
+    .intensity-btn {
+      display: flex; flex-direction: column; align-items: center; gap: 0.25rem;
+      padding: 0.75rem;
+      border: 1px solid var(--border-dim);
+      border-radius: var(--radius-object);
+      background: var(--surface-base);
+      text-align: center;
+      transition: border-color 0.2s, background 0.2s, color 0.2s;
+    }
+    .intensity-btn:hover {
+      border-color: var(--border-medium);
+      background: var(--surface-raised);
+    }
+    .intensity-btn[aria-pressed="true"] {
+      border-color: var(--accent-green);
+      background: var(--accent-green-dim);
+    }
+    .intensity-btn-title {
+      font-size: var(--text-body);
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+    .intensity-btn[aria-pressed="true"] .intensity-btn-title {
+      color: var(--accent-green);
+    }
+    .intensity-btn-desc {
+      font-size: 0.6875rem;
+      line-height: 1.4;
+      color: var(--text-muted);
+    }
+    .intensity-btn[aria-pressed="true"] .intensity-btn-desc {
+      color: oklch(from var(--accent-green) l c h / 0.8);
+    }
+
+    /* ============================================
+       Eyebrow (mono + 8-bit pixel font)
+       ============================================ */
+    .eyebrow {
+      font-family: var(--font-press-start);
+      font-size: 8px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    /* ============================================
+       Utility
+       ============================================ */
+    .stack { display: flex; flex-direction: column; }
+    .row { display: flex; align-items: center; }
+    .gap-1 { gap: 0.25rem; } .gap-2 { gap: 0.5rem; } .gap-3 { gap: 0.75rem; }
+    .gap-4 { gap: 1rem; } .gap-6 { gap: 1.5rem; } .gap-8 { gap: 2rem; }
+    .text-xs { font-size: var(--text-caption); }
+    .text-sm { font-size: var(--text-body); }
+    .text-muted { color: var(--text-muted); }
+    .text-secondary { color: var(--text-secondary); }
+    .text-primary-c { color: var(--text-primary); }
+    .text-success { color: var(--success-text); }
+    .text-danger { color: var(--danger-text); }
+    .font-medium { font-weight: 500; }
+    .font-semibold { font-weight: 600; }
+    .font-mono { font-family: var(--font-space-mono); }
+    .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+    /* Layout grids */
+    .grid { display: grid; }
+    .grid-cols-1 { grid-template-columns: 1fr; }
+    .grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
+    .grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
+    .grid-cols-4 { grid-template-columns: repeat(4, 1fr); }
+    .grid-cols-6 { grid-template-columns: repeat(6, 1fr); }
+    @media (min-width: 768px) {
+      .md\:grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
+      .md\:grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
+      .md\:grid-cols-4 { grid-template-columns: repeat(4, 1fr); }
+    }
+    @media (min-width: 1024px) {
+      .lg\:grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
+      .lg\:grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
+      .lg\:grid-cols-6 { grid-template-columns: repeat(6, 1fr); }
+    }
+
+    /* Wizard-specific spacing */
+    .wizard-section { padding: 2rem 0; }
+    .wizard-section + .wizard-section { border-top: 1px solid var(--border-dim); }
+    .submit-row {
+      display: flex; align-items: center; gap: 0.75rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border-dim);
+    }
+  </style>
+</head>
+<body>
+<!-- TopBar -->
+<header class="topbar">
+  <div class="topbar-left">
+    <a href="index.html" class="topbar-logo" aria-label="ADScale — voltar ao início">
+      <!-- ADSCALE wordmark (vector from /public/adscale-logo.svg) -->
+      <svg viewBox="0 0 813.16 141.93" aria-hidden="true" focusable="false">
+        <g>
+          <path d="M70.96,6c2.3,0,4.14.77,5.78,2.4,1.64,1.64,2.41,3.48,2.41,5.79,0,3.07,1.15,5.77,3.32,7.79,2.06,1.92,4.62,2.94,7.41,2.94,2.3,0,4.14.77,5.78,2.4,1.64,1.64,2.41,3.48,2.41,5.79v94.81c0,2.28-.74,4.01-2.4,5.6-1.72,1.64-3.56,2.41-5.79,2.41s-4.15-.76-5.79-2.41c-1.64-1.64-2.4-3.48-2.4-5.78v-28.39c0-2.98-1.06-5.62-3.09-7.66-2.02-2.01-4.66-3.07-7.64-3.07h-37.85c-3.07,0-5.77,1.15-7.79,3.32-1.92,2.06-2.94,4.62-2.94,7.41v28.58c0,2.28-.74,4.01-2.4,5.6-1.72,1.64-3.56,2.41-5.79,2.41s-4.15-.76-5.79-2.41c-1.64-1.64-2.4-3.48-2.4-5.78V33.12c0-2.31.76-4.15,2.41-5.79,1.64-1.64,3.48-2.41,5.79-2.41,3.1,0,5.91-1.27,7.92-3.57,1.84-2.1,2.81-4.58,2.81-7.16,0-2.31.76-4.15,2.41-5.79,1.64-1.64,3.48-2.41,5.79-2.41h37.85M33.12,72.23h37.85c3.07,0,5.76-1.15,7.8-3.33,1.92-2.06,2.93-4.62,2.93-7.4v-28.39c0-2.98-1.06-5.62-3.09-7.66-2.02-2.01-4.66-3.07-7.64-3.07h-37.85c-3.07,0-5.77,1.15-7.79,3.32-1.92,2.06-2.94,4.62-2.94,7.41v28.39c0,3,1.07,5.64,3.07,7.64,2.01,2.02,4.66,3.09,7.66,3.09M70.96,0h-37.85c-3.91,0-7.26,1.39-10.03,4.16-2.78,2.78-4.16,6.12-4.16,10.03,0,1.13-.44,2.21-1.32,3.22-.88,1.01-2.02,1.51-3.41,1.51-3.91,0-7.26,1.39-10.03,4.16S0,29.21,0,33.12v94.62c0,3.91,1.39,7.26,4.16,10.03,2.77,2.78,6.12,4.16,10.03,4.16s7.1-1.35,9.93-4.07c2.84-2.71,4.26-6.02,4.26-9.93v-28.58c0-1.26.44-2.37,1.32-3.31.88-.95,2.02-1.42,3.41-1.42h37.85c1.39,0,2.52.44,3.41,1.32.88.88,1.32,2.02,1.32,3.41v28.39c0,3.91,1.39,7.26,4.16,10.03,2.77,2.78,6.12,4.16,10.03,4.16s7.1-1.35,9.94-4.07c2.84-2.71,4.26-6.02,4.26-9.93V33.12c0-3.91-1.39-7.25-4.16-10.03-2.78-2.77-6.12-4.16-10.03-4.16-1.26,0-2.37-.44-3.31-1.32-.95-.88-1.42-2.02-1.42-3.41,0-3.91-1.39-7.25-4.16-10.03-2.78-2.77-6.12-4.16-10.03-4.16h0ZM33.12,66.23c-1.39,0-2.53-.44-3.41-1.32-.88-.88-1.32-2.02-1.32-3.41v-28.39c0-1.26.44-2.37,1.32-3.31.88-.95,2.02-1.42,3.41-1.42h37.85c1.39,0,2.52.44,3.41,1.32.88.88,1.32,2.02,1.32,3.41v28.39c0,1.26-.44,2.37-1.32,3.31-.88.95-2.02,1.42-3.41,1.42h-37.85Z"/>
+          <path d="M193.96,6c2.3,0,4.14.77,5.78,2.4,1.64,1.64,2.41,3.48,2.41,5.79,0,2.99,1.07,5.64,3.08,7.64,2.01,2.02,4.66,3.09,7.65,3.09,2.3,0,4.14.77,5.78,2.4,1.64,1.64,2.41,3.48,2.41,5.79v75.69c0,2.31-.76,4.15-2.41,5.79-1.64,1.64-3.48,2.41-5.79,2.41-2.51,0-4.93.89-7,2.58-2.4,1.96-3.73,4.85-3.73,8.16,0,2.31-.76,4.15-2.41,5.79-1.64,1.64-3.48,2.41-5.79,2.41h-56.77c-2.28,0-4.1-.78-5.74-2.45-1.67-1.71-2.45-3.59-2.45-5.93V14.19c0-2.31.76-4.15,2.41-5.79,1.64-1.64,3.48-2.41,5.79-2.41h56.77M156.12,119.54h37.85c2.36,0,4.63-.83,6.77-2.47,2.55-1.96,3.96-4.89,3.96-8.27V33.12c0-2.78-1.01-5.34-2.94-7.41-2.03-2.17-4.72-3.32-7.79-3.32h-37.85c-3.07,0-5.77,1.15-7.79,3.32-1.92,2.06-2.94,4.62-2.94,7.41v75.69c0,2.79,1.02,5.35,2.93,7.4,2.03,2.18,4.72,3.33,7.8,3.33M193.96,0h-56.77c-3.91,0-7.26,1.39-10.03,4.16s-4.16,6.12-4.16,10.03v113.35c0,3.91,1.39,7.29,4.16,10.12,2.77,2.84,6.12,4.26,10.03,4.26h56.77c3.91,0,7.25-1.39,10.03-4.16s4.16-6.12,4.16-10.03c0-1.51.5-2.68,1.51-3.5,1.01-.82,2.08-1.23,3.22-1.23,3.91,0,7.25-1.39,10.03-4.16s4.16-6.12,4.16-10.03V33.12c0-3.91-1.39-7.25-4.16-10.03-2.78-2.77-6.12-4.16-10.03-4.16-1.39,0-2.52-.44-3.41-1.32-.88-.88-1.32-2.02-1.32-3.41,0-3.91-1.39-7.25-4.16-10.03-2.78-2.77-6.12-4.16-10.03-4.16h0ZM156.12,113.54c-1.39,0-2.53-.47-3.41-1.42-.88-.95-1.32-2.05-1.32-3.31V33.12c0-1.26.44-2.37,1.32-3.31.88-.95,2.02-1.42,3.41-1.42h37.85c1.39,0,2.52.47,3.41,1.42.88.95,1.32,2.05,1.32,3.31v75.69c0,1.51-.54,2.68-1.61,3.5-1.07.82-2.11,1.23-3.12,1.23h-37.85Z"/>
+          <path d="M335.89,6c2.3,0,4.14.77,5.78,2.4,1.64,1.64,2.41,3.48,2.41,5.79s-.76,4.15-2.41,5.79c-1.64,1.64-3.48,2.41-5.79,2.41h-56.77c-2.99,0-5.63,1.07-7.65,3.08-2.02,2.02-3.08,4.66-3.08,7.65v18.92c0,3,1.07,5.64,3.08,7.64,2.01,2.02,4.66,3.09,7.66,3.09h54.88c6.23,0,10.08,1.72,10.08,10.27v35.77c0,2.31-.76,4.15-2.41,5.79-1.64,1.64-3.48,2.41-5.79,2.41-3.07,0-5.77,1.15-7.79,3.32-1.92,2.06-2.94,4.62-2.94,7.41,0,2.31-.76,4.15-2.41,5.79-1.64,1.64-3.48,2.41-5.79,2.41h-56.77c-2.31,0-4.15-.76-5.79-2.41-1.64-1.64-2.4-3.48-2.4-5.78s.76-4.15,2.41-5.79,3.48-2.41,5.79-2.41h56.77c2.99,0,5.63-1.07,7.65-3.08,2.02-2.02,3.08-4.66,3.08-7.65v-18.92c0-2.98-1.06-5.62-3.09-7.66-2.02-2.01-4.66-3.07-7.64-3.07h-55.26c-3.45,0-5.93-.78-7.39-2.31-1.56-1.63-2.31-3.93-2.31-7.02v-36.71c0-2.31.76-4.15,2.41-5.79,1.64-1.64,3.48-2.41,5.79-2.41,3.07,0,5.76-1.15,7.8-3.33,1.92-2.06,2.93-4.62,2.93-7.4,0-2.31.76-4.15,2.41-5.79,1.64-1.64,3.48-2.41,5.79-2.41h56.77M335.89,0h-56.77c-3.91,0-7.26,1.39-10.03,4.16-2.78,2.78-4.16,6.12-4.16,10.03,0,1.26-.44,2.37-1.32,3.31-.88.95-2.02,1.42-3.41,1.42-3.91,0-7.26,1.39-10.03,4.16s-4.16,6.12-4.16,10.03v36.71c0,4.67,1.32,8.39,3.97,11.17,2.65,2.78,6.56,4.16,11.73,4.16h55.26c1.39,0,2.52.44,3.41,1.32.88.88,1.33,2.02,1.33,3.41v18.92c0,1.39-.44,2.53-1.33,3.41-.88.88-2.02,1.32-3.41,1.32h-56.77c-3.91,0-7.26,1.39-10.03,4.16s-4.16,6.12-4.16,10.03,1.39,7.26,4.16,10.03c2.77,2.78,6.12,4.16,10.03,4.16h56.77c3.91,0,7.25-1.39,10.03-4.16,2.77-2.77,4.16-6.12,4.16-10.03,0-1.26.44-2.37,1.32-3.31.88-.95,2.02-1.42,3.41-1.42,3.91,0,7.25-1.39,10.03-4.16s4.16-6.12,4.16-10.03v-35.77c0-10.85-5.36-16.27-16.08-16.27h-54.88c-1.39,0-2.53-.44-3.41-1.32-.88-.88-1.32-2.02-1.32-3.41v-18.92c0-1.39.44-2.52,1.32-3.41.88-.88,2.02-1.32,3.41-1.32h56.77c3.91,0,7.25-1.39,10.03-4.16s4.16-6.12,4.16-10.03-1.39-7.25-4.16-10.03c-2.78-2.77-6.12-4.16-10.03-4.16h0Z"/>
+          <path d="M458.89,6c2.3,0,4.14.77,5.78,2.4,1.64,1.64,2.41,3.48,2.41,5.79s-.76,4.15-2.41,5.79c-1.64,1.64-3.48,2.41-5.79,2.41h-56.77c-3.07,0-5.77,1.15-7.79,3.32-1.92,2.06-2.94,4.62-2.94,7.41v75.69c0,3.38,1.41,6.32,3.95,8.26,2.13,1.64,4.41,2.47,6.78,2.47h56.77c2.3,0,4.14.77,5.78,2.4,1.64,1.64,2.41,3.48,2.41,5.79s-.76,4.15-2.41,5.79c-1.64,1.64-3.48,2.41-5.79,2.41h-56.77c-2.31,0-4.15-.76-5.79-2.41-1.64-1.64-2.4-3.48-2.4-5.78,0-3.3-1.32-6.19-3.74-8.16-2.07-1.68-4.49-2.57-7-2.57-2.31,0-4.15-.76-5.79-2.41-1.64-1.64-2.4-3.48-2.4-5.78V33.12c0-2.31.76-4.15,2.41-5.79,1.64-1.64,3.48-2.41,5.79-2.41,2.99,0,5.63-1.07,7.65-3.08,2.02-2.02,3.08-4.66,3.08-7.65,0-2.31.76-4.15,2.41-5.79,1.64-1.64,3.48-2.41,5.79-2.41h56.77M458.89,0h-56.77c-3.91,0-7.26,1.39-10.03,4.16s-4.16,6.12-4.16,10.03c0,1.39-.44,2.52-1.33,3.41s-2.02,1.32-3.41,1.32c-3.91,0-7.26,1.39-10.03,4.16s-4.16,6.12-4.16,10.03v75.69c0,3.91,1.39,7.26,4.16,10.03,2.77,2.78,6.12,4.16,10.03,4.16,1.14,0,2.21.41,3.22,1.23,1.01.82,1.51,1.99,1.51,3.5,0,3.91,1.39,7.26,4.16,10.03,2.77,2.78,6.12,4.16,10.03,4.16h56.77c3.91,0,7.25-1.39,10.03-4.16s4.16-6.12,4.16-10.03-1.39-7.25-4.16-10.03c-2.78-2.77-6.12-4.16-10.03-4.16h-56.77c-1.01,0-2.05-.41-3.12-1.23-1.07-.82-1.61-1.99-1.61-3.5V33.12c0-1.26.44-2.37,1.32-3.31.88-.95,2.02-1.42,3.41-1.42h56.77c3.91,0,7.25-1.39,10.03-4.16s4.16-6.12,4.16-10.03-1.39-7.25-4.16-10.03c-2.78-2.77-6.12-4.16-10.03-4.16h0Z"/>
+          <path d="M562.97,6c2.3,0,4.14.77,5.79,2.4,1.64,1.64,2.41,3.48,2.41,5.79,0,3.07,1.15,5.77,3.32,7.79,2.06,1.92,4.62,2.94,7.41,2.94,2.3,0,4.14.77,5.78,2.4,1.64,1.64,2.41,3.48,2.41,5.79v94.81c0,2.28-.74,4.01-2.4,5.6-1.72,1.64-3.55,2.4-5.79,2.4s-4.15-.76-5.79-2.41c-1.64-1.64-2.4-3.48-2.4-5.78v-28.39c0-2.98-1.06-5.62-3.09-7.66-2.02-2.01-4.66-3.07-7.64-3.07h-37.85c-3.07,0-5.77,1.15-7.79,3.32-1.92,2.06-2.94,4.62-2.94,7.41v28.58c0,2.28-.74,4.01-2.4,5.6-1.72,1.64-3.56,2.41-5.79,2.41s-4.15-.76-5.79-2.41c-1.64-1.64-2.4-3.48-2.4-5.78V33.12c0-2.31.76-4.15,2.41-5.79,1.64-1.64,3.48-2.41,5.79-2.41,3.1,0,5.91-1.27,7.92-3.56,1.84-2.1,2.81-4.58,2.81-7.17,0-2.31.76-4.15,2.41-5.79s3.48-2.41,5.79-2.41h37.85M525.12,72.23h37.85c3.07,0,5.76-1.15,7.8-3.33,1.92-2.06,2.94-4.62,2.94-7.4v-28.39c0-2.98-1.06-5.62-3.09-7.66-2.02-2.01-4.66-3.07-7.64-3.07h-37.85c-3.07,0-5.77,1.15-7.79,3.32-1.92,2.06-2.94,4.62-2.94,7.41v28.39c0,2.99,1.07,5.64,3.07,7.64,2.01,2.02,4.66,3.09,7.66,3.09M562.97,0h-37.85c-3.91,0-7.26,1.39-10.03,4.16s-4.16,6.12-4.16,10.03c0,1.13-.44,2.21-1.33,3.22-.88,1.01-2.02,1.51-3.41,1.51-3.91,0-7.26,1.39-10.03,4.16s-4.16,6.12-4.16,10.03v94.62c0,3.91,1.39,7.26,4.16,10.03,2.77,2.78,6.12,4.16,10.03,4.16s7.1-1.35,9.94-4.07c2.84-2.71,4.26-6.02,4.26-9.93v-28.58c0-1.26.44-2.37,1.32-3.31.88-.95,2.02-1.42,3.41-1.42h37.85c1.39,0,2.52.44,3.41,1.32.88.88,1.33,2.02,1.33,3.41v28.39c0,3.91,1.39,7.26,4.16,10.03,2.77,2.78,6.12,4.16,10.03,4.16s7.1-1.35,9.93-4.07c2.84-2.71,4.26-6.02,4.26-9.93V33.12c0-3.91-1.39-7.25-4.16-10.03-2.78-2.77-6.12-4.16-10.03-4.16-1.26,0-2.37-.44-3.31-1.32-.95-.88-1.42-2.02-1.42-3.41,0-3.91-1.39-7.25-4.16-10.03-2.78-2.77-6.12-4.16-10.03-4.16h0ZM525.12,66.23c-1.39,0-2.53-.44-3.41-1.32-.88-.88-1.32-2.02-1.32-3.41v-28.39c0-1.26.44-2.37,1.32-3.31.88-.95,2.02-1.42,3.41-1.42h37.85c1.39,0,2.52.44,3.41,1.32.88.88,1.33,2.02,1.33,3.41v28.39c0,1.26-.44,2.37-1.33,3.31-.88.95-2.02,1.42-3.41,1.42h-37.85Z"/>
+          <path d="M629.2,6c2.3,0,4.14.77,5.78,2.4,1.64,1.65,2.41,3.48,2.41,5.79v94.62c0,2.79,1.02,5.35,2.93,7.4,2.03,2.18,4.72,3.33,7.8,3.33h47.31c2.3,0,4.14.77,5.78,2.4,1.64,1.64,2.41,3.48,2.41,5.79s-.76,4.15-2.41,5.79-3.48,2.41-5.79,2.41h-66.23c-2.31,0-4.15-.76-5.79-2.41-1.64-1.64-2.4-3.48-2.4-5.78V14.19c0-2.31.76-4.15,2.41-5.79s3.48-2.41,5.79-2.41M629.2,0c-3.91,0-7.26,1.39-10.03,4.16s-4.16,6.12-4.16,10.03v113.54c0,3.91,1.39,7.26,4.16,10.03,2.77,2.78,6.12,4.16,10.03,4.16h66.23c3.91,0,7.25-1.39,10.03-4.16s4.16-6.12,4.16-10.03-1.39-7.25-4.16-10.03c-2.78-2.77-6.12-4.16-10.03-4.16h-47.31c-1.39,0-2.53-.47-3.41-1.42-.88-.95-1.32-2.05-1.32-3.31V14.19c0-3.91-1.39-7.25-4.16-10.03-2.78-2.77-6.12-4.16-10.03-4.16h0Z"/>
+          <path d="M798.97,6c2.3,0,4.14.77,5.78,2.4,1.64,1.64,2.41,3.48,2.41,5.79s-.76,4.15-2.41,5.79c-1.64,1.64-3.48,2.41-5.79,2.41h-47.31c-2.18,0-4.33.67-6.38,2-1.62,1.05-4.35,3.58-4.35,8.73v18.92c0,6.52,4.21,10.73,10.73,10.73h37.85c2.3,0,4.14.77,5.79,2.41,1.64,1.64,2.41,3.48,2.41,5.79s-.76,4.15-2.41,5.79c-1.64,1.64-3.48,2.41-5.79,2.41h-37.85c-2.91,0-5.5.98-7.49,2.84-2.12,1.97-3.24,4.63-3.24,7.71v19.3c0,5.3,2.86,7.77,4.55,8.76,2,1.18,4.08,1.78,6.18,1.78h47.31c2.3,0,4.14.77,5.78,2.4,1.64,1.64,2.41,3.48,2.41,5.79s-.76,4.15-2.41,5.79c-1.64,1.64-3.48,2.41-5.79,2.41h-66.04c-3.62,0-5.17-1.33-6.03-2.34-1.58-1.86-2.35-3.71-2.35-5.66V14c0-1.98.75-3.78,2.35-5.67.85-1,2.41-2.34,6.03-2.34h66.04M798.97,0h-66.04c-4.54,0-8.08,1.48-10.6,4.45-2.53,2.97-3.79,6.15-3.79,9.56v113.92c0,3.41,1.26,6.59,3.79,9.56,2.52,2.97,6.05,4.45,10.6,4.45h66.04c3.91,0,7.25-1.39,10.03-4.16s4.16-6.12,4.16-10.03-1.39-7.25-4.16-10.03c-2.78-2.77-6.12-4.16-10.03-4.16h-47.31c-1.01,0-2.05-.31-3.12-.95-1.07-.63-1.61-1.83-1.61-3.6v-19.3c0-1.39.44-2.49,1.32-3.31.88-.82,2.02-1.23,3.41-1.23h37.85c3.91,0,7.25-1.39,10.03-4.16,2.77-2.77,4.16-6.12,4.16-10.03s-1.39-7.25-4.16-10.03c-2.78-2.77-6.12-4.16-10.03-4.16h-37.85c-3.16,0-4.73-1.58-4.73-4.73v-18.92c0-1.76.54-3,1.61-3.69,1.07-.69,2.11-1.04,3.12-1.04h47.31c3.91,0,7.25-1.39,10.03-4.16s4.16-6.12,4.16-10.03-1.39-7.25-4.16-10.03c-2.78-2.77-6.12-4.16-10.03-4.16h0Z"/>
+        </g>
+      </svg>
+    </a>
+    <nav class="topbar-nav" aria-label="Navegação principal">
+      <a href="dashboard.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect width="7" height="9" x="3" y="3" rx="1"/>
+          <rect width="7" height="5" x="14" y="3" rx="1"/>
+          <rect width="7" height="9" x="14" y="12" rx="1"/>
+          <rect width="7" height="5" x="3" y="16" rx="1"/>
+        </svg>
+        <span>Dashboard</span>
+      </a>
+      <a href="campaigns.html" class="active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/>
+        </svg>
+        <span>Campanhas</span>
+      </a>
+      <a href="settings.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
+        <span>Configurações</span>
+      </a>
+    </nav>
+  </div>
+  <div class="topbar-right">
+    <button class="topbar-action" type="button" aria-label="Notificações">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/>
+        <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
+      </svg>
+      <span class="topbar-badge">3</span>
+    </button>
+    <button class="topbar-action" type="button" aria-label="Alternar tema">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="4"/>
+        <path d="M12 2v2"/>
+        <path d="M12 20v2"/>
+        <path d="m4.93 4.93 1.41 1.41"/>
+        <path d="m17.66 17.66 1.41 1.41"/>
+        <path d="M2 12h2"/>
+        <path d="M20 12h2"/>
+        <path d="m6.34 17.66-1.41 1.41"/>
+        <path d="m19.07 4.93-1.41 1.41"/>
+      </svg>
+    </button>
+    <button class="topbar-avatar" type="button" aria-label="Menu da conta">JF</button>
+  </div>
+</header>
+
+<!-- Bottom mobile nav -->
+<nav class="bottom-nav" aria-label="Navegação mobile">
+  <a href="dashboard.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect width="7" height="9" x="3" y="3" rx="1"/>
+      <rect width="7" height="5" x="14" y="3" rx="1"/>
+      <rect width="7" height="9" x="14" y="12" rx="1"/>
+      <rect width="7" height="5" x="3" y="16" rx="1"/>
+    </svg>
+    <span>Dashboard</span>
+  </a>
+  <a href="campaigns.html" class="active">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/>
+    </svg>
+    <span>Campanhas</span>
+  </a>
+  <a href="settings.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+      <circle cx="12" cy="12" r="3"/>
+    </svg>
+    <span>Configurações</span>
+  </a>
+</nav>
+
+<main class="shell-main dot-grid">
+  <div class="page-frame page-frame-form">
+    <header class="page-header">
+      <div class="page-header-text">
+        <span class="eyebrow">restyling · wizard</span>
+        <h1 style="margin-top: 0.5rem;">Restilização de Criativo</h1>
+        <p>Redesenhe um criativo com novo estilo a partir de uma referência visual</p>
+      </div>
+    </header>
+
+    <form class="page-section" style="margin-top: 1.5rem;">
+
+      <!-- Section 1: 2 Upload zones (side by side) -->
+      <section class="wizard-section">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="upload-field">
+            <span class="upload-field-label">Imagem Base (conteúdo a ser restilado)</span>
+            <p class="upload-field-desc">Envie o criativo que deseja restilar</p>
+            <button class="upload-zone" type="button" aria-label="Enviar imagem base">
+              <svg class="upload-zone-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              <span class="upload-zone-title">Arraste e solte sua imagem aqui</span>
+              <span class="upload-zone-meta">Apenas PNG, JPG, WebP (Máx 50 MB)</span>
+            </button>
+            <input type="file" accept="image/png,image/jpeg,image/webp" class="sr-only" aria-label="Selecionar imagem base" />
+          </div>
+
+          <div class="upload-field">
+            <span class="upload-field-label">Referência de Estilo (visual desejado)</span>
+            <p class="upload-field-desc">Envie o estilo visual que deseja aplicar</p>
+            <button class="upload-zone" type="button" aria-label="Enviar referência de estilo">
+              <svg class="upload-zone-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              <span class="upload-zone-title">Arraste e solte sua imagem aqui</span>
+              <span class="upload-zone-meta">Apenas PNG, JPG, WebP (Máx 50 MB)</span>
+            </button>
+            <input type="file" accept="image/png,image/jpeg,image/webp" class="sr-only" aria-label="Selecionar referência de estilo" />
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 2: Form fields + intensity -->
+      <section class="wizard-section">
+        <div class="stack gap-5">
+          <!-- Name (required) -->
+          <div>
+            <label class="label label-required" for="nome-campanha">Nome da campanha</label>
+            <input id="nome-campanha" class="input" type="text" placeholder="Ex: Verão 2026 — Estilo minimalista" autofocus />
+          </div>
+
+          <!-- Client + Offer (side by side) -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div class="stack gap-1.5" style="--tw-gap: 0.375rem;">
+              <label class="label" for="cliente">Cliente / Marca</label>
+              <input id="cliente" class="input" type="text" placeholder="Ex: Loja XYZ" />
+            </div>
+            <div class="stack gap-1.5">
+              <label class="label" for="oferta">Objetivo / Oferta</label>
+              <input id="oferta" class="input" type="text" placeholder="Ex: 20% off em toda linha" />
+            </div>
+          </div>
+
+          <!-- CTA Text -->
+          <div>
+            <label class="label" for="cta-text">Texto do CTA</label>
+            <input id="cta-text" class="input" type="text" placeholder="Ex: Compre Agora" />
+          </div>
+
+          <!-- Intensity selector -->
+          <div>
+            <label class="label" style="margin-bottom: 0.75rem;">Intensidade do estilo</label>
+            <div class="intensity-grid" role="radiogroup" aria-label="Intensidade do estilo">
+              <button type="button" class="intensity-btn" role="radio" aria-checked="false" aria-pressed="false">
+                <span class="intensity-btn-title">Suave</span>
+                <span class="intensity-btn-desc">Aplica cor, textura e humor sem se afastar muito do criativo base.</span>
+              </button>
+              <button type="button" class="intensity-btn" role="radio" aria-checked="true" aria-pressed="true">
+                <span class="intensity-btn-title">Médio</span>
+                <span class="intensity-btn-desc">Equilibra o criativo base com tipografia, tratamento e ritmo da referência.</span>
+              </button>
+              <button type="button" class="intensity-btn" role="radio" aria-checked="false" aria-pressed="false">
+                <span class="intensity-btn-title">Forte</span>
+                <span class="intensity-btn-desc">Puxa mais da linguagem visual da referência sem copiar seu conteúdo.</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Submit row -->
+      <div class="submit-row">
+        <button type="button" class="btn btn-outline">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Iniciar Restilização</button>
+      </div>
+    </form>
+  </div>
+</main>
+
+<footer style="border-top: 1px solid var(--border-dim); padding: 1.5rem 2rem; text-align: center; background: var(--surface-base);">
+  <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem; max-width: 80rem; margin: 0 auto;">
+    <p style="font-size: var(--text-caption); color: var(--text-muted);">ADScale © 2026 · Versão 1 · Laboratory build</p>
+    <div style="display: flex; gap: 1rem; font-size: var(--text-caption); color: var(--text-muted);">
+      <a href="index.html">← Índice do laboratório</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,409 @@
+<!doctype html>
+<!--
+  ADScale — Settings · Index (Lab entry for /settings)
+  The settings area has 6 sub-tabs in the app (profile / workspace / team /
+  brand-kit / billing / plans). Only 2 are captured in the lab (team +
+  brand-kit). Profile, workspace, billing, plans, history, and privacy are
+  not yet implemented in the lab — links to those sub-tabs route here
+  instead of being 404.
+-->
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ADScale · Configurações — Lab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=Press+Start+2P&display=swap">
+  <style>
+    :root {
+      --font-inter: 'Inter', ui-sans-serif, system-ui, sans-serif;
+      --font-space-mono: 'Space Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+      --font-press-start: 'Press Start 2P', cursive;
+
+      --space-1: 0.25rem; --space-2: 0.5rem; --space-3: 0.75rem;
+      --space-4: 1rem; --space-5: 1.5rem; --space-6: 2rem; --space-7: 3rem;
+
+      --text-caption: 0.75rem; --text-label: 0.8125rem; --text-body: 0.875rem;
+      --text-body-lg: 1rem; --text-section: 1rem; --text-page: 1.25rem;
+      --text-display: 1.5rem;
+
+      --radius-control: 0.375rem; --radius-panel: 0.5rem;
+      --radius-object: 0.75rem; --radius-overlay: 0.75rem; --radius-pill: 9999px;
+
+      --canvas: oklch(0.985 0.003 145);
+      --surface-base: oklch(0.998 0.002 145);
+      --surface-raised: oklch(0.968 0.005 145);
+      --surface-inset: oklch(0.945 0.007 145);
+      --text-primary: oklch(0.18 0.012 145);
+      --text-secondary: oklch(0.38 0.012 145);
+      --text-muted: oklch(0.46 0.01 145);
+      --border-subtle: oklch(0.18 0.012 145 / 0.06);
+      --border-default: oklch(0.18 0.012 145 / 0.12);
+      --accent-primary: oklch(0.66 0.2 145);
+      --accent-primary-hover: oklch(0.72 0.22 145);
+      --accent-primary-subtle: oklch(0.66 0.2 145 / 0.12);
+      --accent-primary-text: oklch(0.43 0.15 145);
+      --success-bg: oklch(0.66 0.18 145 / 0.12);
+      --success-border: oklch(0.52 0.16 145 / 0.28);
+      --success-text: oklch(0.4 0.14 145);
+      --success-dot: oklch(0.5 0.17 145);
+      --danger-bg: oklch(0.58 0.2 18 / 0.12);
+      --danger-text: oklch(0.43 0.17 18);
+      --warning-bg: oklch(0.68 0.14 82 / 0.16);
+      --warning-border: oklch(0.58 0.13 82 / 0.3);
+      --warning-text: oklch(0.39 0.1 82);
+      --info-bg: oklch(0.62 0.13 245 / 0.12);
+      --info-border: oklch(0.54 0.12 245 / 0.28);
+      --info-text: oklch(0.4 0.12 245);
+      --neutral-bg: oklch(0.58 0.01 145 / 0.12);
+      --neutral-border: oklch(0.52 0.01 145 / 0.24);
+      --neutral-text: oklch(0.34 0.01 145);
+
+      --deep-bg: var(--canvas);
+      --border-dim: var(--border-subtle);
+      --border-medium: var(--border-default);
+      --accent-green: var(--accent-primary);
+      --accent-green-light: var(--accent-primary-hover);
+      --accent-green-dim: var(--accent-primary-subtle);
+      --accent-green-text: var(--accent-primary-text);
+      --accent-rose: var(--danger-text);
+      --ink: oklch(0.16 0.02 145);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      font-family: var(--font-inter);
+      color: var(--text-primary);
+      background: var(--canvas);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    body { min-height: 100vh; }
+    a { color: inherit; text-decoration: none; }
+    button { font: inherit; cursor: pointer; border: 0; background: transparent; color: inherit; }
+
+    .dot-grid {
+      background-color: var(--canvas);
+      background-image: radial-gradient(circle, oklch(0.18 0.012 145 / 0.05) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+
+    .topbar {
+      position: fixed; top: 0; right: 0; left: 0; z-index: 40;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 1rem; height: 3.5rem; padding: 0 1.5rem;
+      border-bottom: 1px solid var(--border-dim);
+      background: var(--surface-base);
+    }
+    .topbar-left { display: flex; align-items: center; gap: 2rem; min-width: 0; flex: 1; overflow: hidden; }
+    .topbar-logo { display: flex; align-items: center; gap: 0.5rem; padding: 0 0.5rem; border-radius: 0.375rem; }
+    .topbar-logo svg { display: block; height: 1.4rem; width: auto; }
+    .topbar-logo svg path { fill: var(--text-primary); }
+    .topbar-nav { display: flex; align-items: center; gap: 0.25rem; }
+    .topbar-nav a {
+      display: flex; align-items: center; gap: 0.5rem;
+      padding: 0.5rem 0.75rem; border-radius: 0.5rem;
+      font-size: var(--text-body); font-weight: 500;
+      color: var(--text-secondary);
+      transition: background 0.15s, color 0.15s;
+    }
+    .topbar-nav a:hover { background: var(--surface-raised); color: var(--text-primary); }
+    .topbar-nav a.active { background: var(--accent-green-dim); color: var(--accent-green-text); }
+    .topbar-nav a svg { width: 16px; height: 16px; flex-shrink: 0; }
+    .topbar-right { display: flex; align-items: center; gap: 0.625rem; flex-shrink: 0; }
+    .topbar-action {
+      width: 2.25rem; height: 2.25rem;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 9999px;
+      color: var(--text-muted);
+      transition: background 0.15s, color 0.15s;
+      position: relative;
+    }
+    .topbar-action:hover { background: var(--surface-raised); color: var(--text-primary); }
+    .topbar-action svg { width: 16px; height: 16px; }
+    .topbar-avatar {
+      width: 2.25rem; height: 2.25rem;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 9999px;
+      background: var(--accent-green-dim);
+      color: var(--accent-green-text);
+      font-size: 0.75rem; font-weight: 600;
+      box-shadow: 0 0 0 2px var(--surface-base), 0 0 0 3px var(--border-default);
+    }
+
+    .shell-main { padding-top: 3.5rem; min-height: 100vh; }
+    .page-frame { width: 100%; min-width: 0; padding: 1rem; }
+    @media (min-width: 640px) { .page-frame { padding: 1.5rem; } }
+    @media (min-width: 1024px) { .page-frame { padding: 2rem; } }
+    .page-frame-workspace { max-width: 87.5rem; margin: 0 auto; }
+
+    .page-header {
+      display: flex; flex-direction: column; gap: 1rem;
+      padding: 1.5rem 0;
+      border-bottom: 1px solid var(--border-dim);
+    }
+    .page-header h1 { font-size: 1.25rem; font-weight: 600; letter-spacing: -0.01em; }
+    .page-header p { font-size: var(--text-body); color: var(--text-secondary); margin-top: 0.25rem; }
+
+    .eyebrow {
+      font-family: var(--font-press-start);
+      font-size: 8px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .settings-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+    @media (min-width: 768px) {
+      .settings-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (min-width: 1024px) {
+      .settings-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+    .settings-card {
+      display: flex; flex-direction: column; gap: 0.75rem;
+      padding: 1.5rem;
+      border: 1px solid var(--border-dim);
+      border-radius: var(--radius-object);
+      background: var(--surface-base);
+      transition: border-color 0.15s, transform 0.1s;
+    }
+    .settings-card:hover { border-color: var(--border-default); }
+    .settings-card-icon {
+      width: 2.5rem; height: 2.5rem;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: var(--radius-control);
+      background: var(--accent-green-dim);
+      color: var(--accent-green);
+      margin-bottom: 0.25rem;
+    }
+    .settings-card-icon svg { width: 18px; height: 18px; }
+    .settings-card h3 {
+      font-size: var(--text-section);
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .settings-card p {
+      font-size: var(--text-body);
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+    .settings-card-foot {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-top: 0.5rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--border-dim);
+    }
+    .badge {
+      display: inline-flex; align-items: center; gap: 0.375rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: var(--radius-control);
+      font-size: 0.6875rem; font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .badge::before {
+      content: ""; width: 6px; height: 6px; border-radius: 9999px;
+      background: currentColor; flex-shrink: 0;
+    }
+    .badge-success { background: var(--success-bg); color: var(--success-text); border: 1px solid var(--success-border); }
+    .badge-info { background: var(--info-bg); color: var(--info-text); border: 1px solid var(--info-border); }
+    .badge-warning { background: var(--warning-bg); color: var(--warning-text); border: 1px solid var(--warning-border); }
+    .badge-neutral { background: var(--neutral-bg); color: var(--neutral-text); border: 1px solid var(--neutral-border); }
+
+    .open-arrow {
+      color: var(--text-muted);
+      font-size: 0.875rem;
+    }
+  </style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-left">
+    <a href="index.html" class="topbar-logo" aria-label="ADScale — voltar ao início">
+      <svg viewBox="0 0 813.16 141.93" aria-hidden="true" focusable="false">
+        <g>
+          <path d="M70.96,6c2.3,0,4.14.77,5.78,2.4,1.64,1.64,2.41,3.48,2.41,5.79,0,3.07,1.15,5.77,3.32,7.79,2.06,1.92,4.62,2.94,7.41,2.94,2.3,0,4.14.77,5.78,2.4,1.64,1.64,2.41,3.48,2.41,5.79v94.81c0,2.28-.74,4.01-2.4,5.6-1.72,1.64-3.56,2.41-5.79,2.41s-4.15-.76-5.79-2.41c-1.64-1.64-2.4-3.48-2.4-5.78v-28.39c0-2.98-1.06-5.62-3.09-7.66-2.02-2.01-4.66-3.07-7.64-3.07h-37.85c-3.07,0-5.77,1.15-7.79,3.32-1.92,2.06-2.94,4.62-2.94,7.41v28.58c0,2.28-.74,4.01-2.4,5.6-1.72,1.64-3.56,2.41-5.79,2.41s-4.15-.76-5.79-2.41c-1.64-1.64-2.4-3.48-2.4-5.78V33.12c0-2.31.76-4.15,2.41-5.79,1.64-1.64,3.48-2.41,5.79-2.41,3.1,0,5.91-1.27,7.92-3.57,1.84-2.1,2.81-4.58,2.81-7.16,0-2.31.76-4.15,2.41-5.79,1.64-1.64,3.48-2.41,5.79-2.41h37.85M33.12,72.23h37.85c3.07,0,5.76-1.15,7.8-3.33,1.92-2.06,2.93-4.62,2.93-7.4v-28.39c0-2.98-1.06-5.62-3.09-7.66-2.02-2.01-4.66-3.07-7.64-3.07h-37.85c-3.07,0-5.77,1.15-7.79,3.32-1.92,2.06-2.94,4.62-2.94,7.41v28.39c0,3,1.07,5.64,3.07,7.64,2.01,2.02,4.66,3.09,7.66,3.09M70.96,0h-37.85c-3.91,0-7.26,1.39-10.03,4.16-2.78,2.78-4.16,6.12-4.16,10.03,0,1.13-.44,2.21-1.32,3.22-.88,1.01-2.02,1.51-3.41,1.51-3.91,0-7.26,1.39-10.03,4.16S0,29.21,0,33.12v94.62c0,3.91,1.39,7.26,4.16,10.03,2.77,2.78,6.12,4.16,10.03,4.16s7.1-1.35,9.93-4.07c2.84-2.71,4.26-6.02,4.26-9.93v-28.58c0-1.26.44-2.37,1.32-3.31.88-.95,2.02-1.42,3.41-1.42h37.85c1.39,0,2.52.44,3.41,1.32.88.88,1.32,2.02,1.32,3.41v28.39c0,3.91,1.39,7.26,4.16,10.03,2.77,2.78,6.12,4.16,10.03,4.16s7.1-1.35,9.94-4.07c2.84-2.71,4.26-6.02,4.26-9.93V33.12c0-3.91-1.39-7.25-4.16-10.03-2.78-2.77-6.12-4.16-10.03-4.16-1.26,0-2.37-.44-3.31-1.32-.95-.88-1.42-2.02-1.42-3.41,0-3.91-1.39-7.25-4.16-10.03-2.78-2.77-6.12-4.16-10.03-4.16h0ZM33.12,66.23c-1.39,0-2.53-.44-3.41-1.32-.88-.88-1.32-2.02-1.32-3.41v-28.39c0-1.26.44-2.37,1.32-3.31.88-.95,2.02-1.42,3.41-1.42h37.85c1.39,0,2.52.44,3.41,1.32.88.88,1.32,2.02,1.32,3.41v28.39c0,1.26-.44,2.37-1.32,3.31-.88.95-2.02,1.42-3.41,1.42h-37.85Z"/>
+          <path d="M193.96,6c2.3,0,4.14.77,5.78,2.4,1.64,1.64,2.41,3.48,2.41,5.79,0,2.99,1.07,5.64,3.08,7.64,2.01,2.02,4.66,3.09,7.65,3.09,2.3,0,4.14.77,5.78,2.4,1.64,1.64,2.41,3.48,2.41,5.79v75.69c0,2.31-.76,4.15-2.41,5.79-1.64,1.64-3.48,2.41-5.79,2.41-2.51,0-4.93.89-7,2.58-2.4,1.96-3.73,4.85-3.73,8.16,0,2.31-.76,4.15-2.41,5.79-1.64,1.64-3.48,2.41-5.79,2.41h-56.77c-2.28,0-4.1-.78-5.74-2.45-1.67-1.71-2.45-3.59-2.45-5.93V14.19c0-2.31.76-4.15,2.41-5.79,1.64-1.64,3.48-2.41,5.79-2.41h56.77M156.12,119.54h37.85c2.36,0,4.63-.83,6.77-2.47,2.55-1.96,3.96-4.89,3.96-8.27V33.12c0-2.78-1.01-5.34-2.94-7.41-2.03-2.17-4.72-3.32-7.79-3.32h-37.85c-3.07,0-5.77,1.15-7.79,3.32-1.92,2.06-2.94,4.62-2.94,7.41v75.69c0,2.79,1.02,5.35,2.93,7.4,2.03,2.18,4.72,3.33,7.8,3.33M193.96,0h-56.77c-3.91,0-7.26,1.39-10.03,4.16s-4.16,6.12-4.16,10.03v113.35c0,3.91,1.39,7.29,4.16,10.12,2.77,2.84,6.12,4.26,10.03,4.26h56.77c3.91,0,7.25-1.39,10.03-4.16s4.16-6.12,4.16-10.03c0-1.51.5-2.68,1.51-3.5,1.01-.82,2.08-1.23,3.22-1.23,3.91,0,7.25-1.39,10.03-4.16s4.16-6.12,4.16-10.03V33.12c0-3.91-1.39-7.25-4.16-10.03-2.78-2.77-6.12-4.16-10.03-4.16-1.39,0-2.52-.44-3.41-1.32-.88-.88-1.32-2.02-1.32-3.41,0-3.91-1.39-7.25-4.16-10.03-2.78-2.77-6.12-4.16-10.03-4.16h0ZM156.12,113.54c-1.39,0-2.53-.47-3.41-1.42-.88-.95-1.32-2.05-1.32-3.31V33.12c0-1.26.44-2.37,1.32-3.31.88-.95,2.02-1.42,3.41-1.42h37.85c1.39,0,2.52.47,3.41,1.42.88.95,1.32,2.05,1.32,3.31v75.69c0,1.51-.54,2.68-1.61,3.5-1.07.82-2.11,1.23-3.12,1.23h-37.85Z"/>
+          <path d="M335.89,6c2.3,0,4.14.77,5.78,2.4,1.64,1.64,2.41,3.48,2.41,5.79s-.76,4.15-2.41,5.79c-1.64,1.64-3.48,2.41-5.79,2.41h-56.77c-2.99,0-5.63,1.07-7.65,3.08-2.02,2.02-3.08,4.66-3.08,7.65v18.92c0,3,1.07,5.64,3.08,7.64,2.01,2.02,4.66,3.09,7.66,3.09h54.88c6.23,0,10.08,1.72,10.08,10.27v35.77c0,2.31-.76,4.15-2.41,5.79-1.64,1.64-3.48,2.41-5.79,2.41-3.07,0-5.77,1.15-7.79,3.32-1.92,2.06-2.94,4.62-2.94,7.41,0,2.31-.76,4.15-2.41,5.79-1.64,1.64-3.48,2.41-5.79,2.41h-56.77c-2.31,0-4.15-.76-5.79-2.41-1.64-1.64-2.4-3.48-2.4-5.78s.76-4.15,2.41-5.79,3.48-2.41,5.79-2.41h56.77c2.99,0,5.63-1.07,7.65-3.08,2.02-2.02,3.08-4.66,3.08-7.65v-18.92c0-2.98-1.06-5.62-3.09-7.66-2.02-2.01-4.66-3.07-7.64-3.07h-55.26c-3.45,0-5.93-.78-7.39-2.31-1.56-1.63-2.31-3.93-2.31-7.02v-36.71c0-2.31.76-4.15,2.41-5.79,1.64-1.64,3.48-2.41,5.79-2.41,3.07,0,5.76-1.15,7.8-3.33,1.92-2.06,2.93-4.62,2.93-7.4,0-2.31.76-4.15,2.41-5.79,1.64-1.64,3.48-2.41,5.79-2.41h56.77M335.89,0h-56.77c-3.91,0-7.26,1.39-10.03,4.16-2.78,2.78-4.16,6.12-4.16,10.03,0,1.26-.44,2.37-1.32,3.31-.88.95-2.02,1.42-3.41,1.42-3.91,0-7.26,1.39-10.03,4.16s-4.16,6.12-4.16,10.03v36.71c0,4.67,1.32,8.39,3.97,11.17,2.65,2.78,6.56,4.16,11.73,4.16h55.26c1.39,0,2.52.44,3.41,1.32.88.88,1.33,2.02,1.33,3.41v18.92c0,1.39-.44,2.53-1.33,3.41-.88.88-2.02,1.32-3.41,1.32h-56.77c-3.91,0-7.26,1.39-10.03,4.16s-4.16,6.12-4.16,10.03,1.39,7.26,4.16,10.03c2.77,2.78,6.12,4.16,10.03,4.16h56.77c3.91,0,7.25-1.39,10.03-4.16,2.77-2.77,4.16-6.12,4.16-10.03,0-1.26.44-2.37,1.32-3.31.88-.95,2.02-1.42,3.41-1.42,3.91,0,7.25-1.39,10.03-4.16s4.16-6.12,4.16-10.03v-35.77c0-10.85-5.36-16.27-16.08-16.27h-54.88c-1.39,0-2.53-.44-3.41-1.32-.88-.88-1.32-2.02-1.32-3.41v-18.92c0-1.39.44-2.52,1.32-3.41.88-.88,2.02-1.32,3.41-1.32h56.77c3.91,0,7.25-1.39,10.03-4.16s4.16-6.12,4.16-10.03-1.39-7.25-4.16-10.03c-2.78-2.77-6.12-4.16-10.03-4.16h0Z"/>
+          <path d="M458.89,6c2.3,0,4.14.77,5.78,2.4,1.64,1.64,2.41,3.48,2.41,5.79s-.76,4.15-2.41,5.79c-1.64,1.64-3.48,2.41-5.79,2.41h-56.77c-3.07,0-5.77,1.15-7.79,3.32-1.92,2.06-2.94,4.62-2.94,7.41v75.69c0,3.38,1.41,6.32,3.95,8.26,2.13,1.64,4.41,2.47,6.78,2.47h56.77c2.3,0,4.14.77,5.78,2.4,1.64,1.64,2.41,3.48,2.41,5.79s-.76,4.15-2.41,5.79c-1.64,1.64-3.48,2.41-5.79,2.41h-56.77c-2.31,0-4.15-.76-5.79-2.41-1.64-1.64-2.4-3.48-2.4-5.78,0-3.3-1.32-6.19-3.74-8.16-2.07-1.68-4.49-2.57-7-2.57-2.31,0-4.15-.76-5.79-2.41-1.64-1.64-2.4-3.48-2.4-5.78V33.12c0-2.31.76-4.15,2.41-5.79,1.64-1.64,3.48-2.41,5.79-2.41,2.99,0,5.63-1.07,7.65-3.08,2.02-2.02,3.08-4.66,3.08-7.65,0-2.31.76-4.15,2.41-5.79,1.64-1.64,3.48-2.41,5.79-2.41h56.77M458.89,0h-56.77c-3.91,0-7.26,1.39-10.03,4.16s-4.16,6.12-4.16,10.03c0,1.39-.44,2.52-1.33,3.41s-2.02,1.32-3.41,1.32c-3.91,0-7.26,1.39-10.03,4.16s-4.16,6.12-4.16,10.03v75.69c0,3.91,1.39,7.26,4.16,10.03,2.77,2.78,6.12,4.16,10.03,4.16,1.14,0,2.21.41,3.22,1.23,1.01.82,1.51,1.99,1.51,3.5,0,3.91,1.39,7.26,4.16,10.03,2.77,2.78,6.12,4.16,10.03,4.16h56.77c3.91,0,7.25-1.39,10.03-4.16s4.16-6.12,4.16-10.03-1.39-7.25-4.16-10.03c-2.78-2.77-6.12-4.16-10.03-4.16h-56.77c-1.01,0-2.05-.41-3.12-1.23-1.07-.82-1.61-1.99-1.61-3.5V33.12c0-1.26.44-2.37,1.32-3.31.88-.95,2.02-1.42,3.41-1.42h56.77c3.91,0,7.25-1.39,10.03-4.16s4.16-6.12,4.16-10.03-1.39-7.25-4.16-10.03c-2.78-2.77-6.12-4.16-10.03-4.16h0Z"/>
+          <path d="M562.97,6c2.3,0,4.14.77,5.79,2.4,1.64,1.64,2.41,3.48,2.41,5.79,0,3.07,1.15,5.77,3.32,7.79,2.06,1.92,4.62,2.94,7.41,2.94,2.3,0,4.14.77,5.78,2.4,1.64,1.64,2.41,3.48,2.41,5.79v94.81c0,2.28-.74,4.01-2.4,5.6-1.72,1.64-3.55,2.4-5.79,2.4s-4.15-.76-5.79-2.41c-1.64-1.64-2.4-3.48-2.4-5.78v-28.39c0-2.98-1.06-5.62-3.09-7.66-2.02-2.01-4.66-3.07-7.64-3.07h-37.85c-3.07,0-5.77,1.15-7.79,3.32-1.92,2.06-2.94,4.62-2.94,7.41v28.58c0,2.28-.74,4.01-2.4,5.6-1.72,1.64-3.56,2.41-5.79,2.41s-4.15-.76-5.79-2.41c-1.64-1.64-2.4-3.48-2.4-5.78V33.12c0-2.31.76-4.15,2.41-5.79,1.64-1.64,3.48-2.41,5.79-2.41,3.1,0,5.91-1.27,7.92-3.56,1.84-2.1,2.81-4.58,2.81-7.17,0-2.31.76-4.15,2.41-5.79s3.48-2.41,5.79-2.41h37.85M525.12,72.23h37.85c3.07,0,5.76-1.15,7.8-3.33,1.92-2.06,2.94-4.62,2.94-7.4v-28.39c0-2.98-1.06-5.62-3.09-7.66-2.02-2.01-4.66-3.07-7.64-3.07h-37.85c-3.07,0-5.77,1.15-7.79,3.32-1.92,2.06-2.94,4.62-2.94,7.41v28.39c0,2.99,1.07,5.64,3.07,7.64,2.01,2.02,4.66,3.09,7.66,3.09M562.97,0h-37.85c-3.91,0-7.26,1.39-10.03,4.16s-4.16,6.12-4.16,10.03c0,1.13-.44,2.21-1.33,3.22-.88,1.01-2.02,1.51-3.41,1.51-3.91,0-7.26,1.39-10.03,4.16s-4.16,6.12-4.16,10.03v94.62c0,3.91,1.39,7.26,4.16,10.03,2.77,2.78,6.12,4.16,10.03,4.16s7.1-1.35,9.94-4.07c2.84-2.71,4.26-6.02,4.26-9.93v-28.58c0-1.26.44-2.37,1.32-3.31.88-.95,2.02-1.42,3.41-1.42h37.85c1.39,0,2.52.44,3.41,1.32.88.88,1.33,2.02,1.33,3.41v28.39c0,3.91,1.39,7.26,4.16,10.03,2.77,2.78,6.12,4.16,10.03,4.16s7.1-1.35,9.93-4.07c2.84-2.71,4.26-6.02,4.26-9.93V33.12c0-3.91-1.39-7.25-4.16-10.03-2.78-2.77-6.12-4.16-10.03-4.16-1.26,0-2.37-.44-3.31-1.32-.95-.88-1.42-2.02-1.42-3.41,0-3.91-1.39-7.25-4.16-10.03-2.78-2.77-6.12-4.16-10.03-4.16h0ZM525.12,66.23c-1.39,0-2.53-.44-3.41-1.32-.88-.88-1.32-2.02-1.32-3.41v-28.39c0-1.26.44-2.37,1.32-3.31.88-.95,2.02-1.42,3.41-1.42h37.85c1.39,0,2.52.44,3.41,1.32.88.88,1.33,2.02,1.33,3.41v28.39c0,1.26-.44,2.37-1.33,3.31-.88.95-2.02,1.42-3.41,1.42h-37.85Z"/>
+          <path d="M629.2,6c2.3,0,4.14.77,5.78,2.4,1.64,1.65,2.41,3.48,2.41,5.79v94.62c0,2.79,1.02,5.35,2.93,7.4,2.03,2.18,4.72,3.33,7.8,3.33h47.31c2.3,0,4.14.77,5.78,2.4,1.64,1.64,2.41,3.48,2.41,5.79s-.76,4.15-2.41,5.79-3.48,2.41-5.79,2.41h-66.23c-2.31,0-4.15-.76-5.79-2.41-1.64-1.64-2.4-3.48-2.4-5.78V14.19c0-2.31.76-4.15,2.41-5.79s3.48-2.41,5.79-2.41M629.2,0c-3.91,0-7.26,1.39-10.03,4.16s-4.16,6.12-4.16,10.03v113.54c0,3.91,1.39,7.26,4.16,10.03,2.77,2.78,6.12,4.16,10.03,4.16h66.23c3.91,0,7.25-1.39,10.03-4.16s4.16-6.12,4.16-10.03-1.39-7.25-4.16-10.03c-2.78-2.77-6.12-4.16-10.03-4.16h-47.31c-1.39,0-2.53-.47-3.41-1.42-.88-.95-1.32-2.05-1.32-3.31V14.19c0-3.91-1.39-7.25-4.16-10.03-2.78-2.77-6.12-4.16-10.03-4.16h0Z"/>
+          <path d="M798.97,6c2.3,0,4.14.77,5.78,2.4,1.64,1.64,2.41,3.48,2.41,5.79s-.76,4.15-2.41,5.79c-1.64,1.64-3.48,2.41-5.79,2.41h-47.31c-2.18,0-4.33.67-6.38,2-1.62,1.05-4.35,3.58-4.35,8.73v18.92c0,6.52,4.21,10.73,10.73,10.73h37.85c2.3,0,4.14.77,5.79,2.41,1.64,1.64,2.41,3.48,2.41,5.79s-.76,4.15-2.41,5.79c-1.64,1.64-3.48,2.41-5.79,2.41h-37.85c-2.91,0-5.5.98-7.49,2.84-2.12,1.97-3.24,4.63-3.24,7.71v19.3c0,5.3,2.86,7.77,4.55,8.76,2,1.18,4.08,1.78,6.18,1.78h47.31c2.3,0,4.14.77,5.78,2.4,1.64,1.64,2.41,3.48,2.41,5.79s-.76,4.15-2.41,5.79c-1.64,1.64-3.48,2.41-5.79,2.41h-66.04c-3.62,0-5.17-1.33-6.03-2.34-1.58-1.86-2.35-3.71-2.35-5.66V14c0-1.98.75-3.78,2.35-5.67.85-1,2.41-2.34,6.03-2.34h66.04M798.97,0h-66.04c-4.54,0-8.08,1.48-10.6,4.45-2.53,2.97-3.79,6.15-3.79,9.56v113.92c0,3.41,1.26,6.59,3.79,9.56,2.52,2.97,6.05,4.45,10.6,4.45h66.04c3.91,0,7.25-1.39,10.03-4.16s4.16-6.12,4.16-10.03-1.39-7.25-4.16-10.03c-2.78-2.77-6.12-4.16-10.03-4.16h-47.31c-1.01,0-2.05-.31-3.12-.95-1.07-.63-1.61-1.83-1.61-3.6v-19.3c0-1.39.44-2.49,1.32-3.31.88-.82,2.02-1.23,3.41-1.23h37.85c3.91,0,7.25-1.39,10.03-4.16,2.77-2.77,4.16-6.12,4.16-10.03s-1.39-7.25-4.16-10.03c-2.78-2.77-6.12-4.16-10.03-4.16h-37.85c-3.16,0-4.73-1.58-4.73-4.73v-18.92c0-1.76.54-3,1.61-3.69,1.07-.69,2.11-1.04,3.12-1.04h47.31c3.91,0,7.25-1.39,10.03-4.16s4.16-6.12,4.16-10.03-1.39-7.25-4.16-10.03c-2.78-2.77-6.12-4.16-10.03-4.16h0Z"/>
+        </g>
+      </svg>
+    </a>
+    <nav class="topbar-nav" aria-label="Navegação principal">
+      <a href="dashboard.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect width="7" height="9" x="3" y="3" rx="1"/>
+          <rect width="7" height="5" x="14" y="3" rx="1"/>
+          <rect width="7" height="9" x="14" y="12" rx="1"/>
+          <rect width="7" height="5" x="3" y="16" rx="1"/>
+        </svg>
+        <span>Dashboard</span>
+      </a>
+      <a href="campaigns.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/>
+        </svg>
+        <span>Campanhas</span>
+      </a>
+      <a href="settings.html" class="active" aria-current="page">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
+        <span>Configurações</span>
+      </a>
+    </nav>
+  </div>
+  <div class="topbar-right">
+    <button class="topbar-action" type="button" aria-label="Notificações">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/>
+        <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
+      </svg>
+    </button>
+    <button class="topbar-action" type="button" aria-label="Alternar tema">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="4"/>
+        <path d="M12 2v2"/><path d="M12 20v2"/>
+        <path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/>
+        <path d="M2 12h2"/><path d="M20 12h2"/>
+        <path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>
+      </svg>
+    </button>
+    <button class="topbar-avatar" type="button" aria-label="Menu da conta">JF</button>
+  </div>
+</header>
+
+<main class="shell-main dot-grid">
+  <div class="page-frame page-frame-workspace">
+    <header class="page-header">
+      <div>
+        <span class="eyebrow">configurações</span>
+        <h1 style="margin-top: 0.5rem;">Configurações do workspace</h1>
+        <p>Gerencie perfil, equipe, marca, cobrança e integrações em um só lugar</p>
+      </div>
+    </header>
+
+    <div class="settings-grid">
+
+      <a href="settings-team.html" class="settings-card">
+        <span class="settings-card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+        </span>
+        <h3>Equipe</h3>
+        <p>Convide membros, gerencie papéis e permissões de acesso ao workspace.</p>
+        <div class="settings-card-foot">
+          <span class="badge badge-success">Implementado</span>
+          <span class="open-arrow">Abrir →</span>
+        </div>
+      </a>
+
+      <a href="settings-brandkit.html" class="settings-card">
+        <span class="settings-card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 2 2 7l10 5 10-5-10-5z"/>
+            <path d="m2 17 10 5 10-5"/>
+            <path d="m2 12 10 5 10-5"/>
+          </svg>
+        </span>
+        <h3>Brand Kit</h3>
+        <p>Logos, paletas, tipografia e regras de voz que o laboratório usa como guia.</p>
+        <div class="settings-card-foot">
+          <span class="badge badge-success">Implementado</span>
+          <span class="open-arrow">Abrir →</span>
+        </div>
+      </a>
+
+      <div class="settings-card" style="opacity: 0.55;">
+        <span class="settings-card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+        </span>
+        <h3>Perfil</h3>
+        <p>Seu nome, foto e dados pessoais visíveis para o time.</p>
+        <div class="settings-card-foot">
+          <span class="badge badge-neutral">Fora do laboratório</span>
+          <span class="open-arrow">—</span>
+        </div>
+      </div>
+
+      <div class="settings-card" style="opacity: 0.55;">
+        <span class="settings-card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+            <line x1="8" y1="21" x2="16" y2="21"/>
+            <line x1="12" y1="17" x2="12" y2="21"/>
+          </svg>
+        </span>
+        <h3>Workspace</h3>
+        <p>Nome, domínio e identidade visual do workspace compartilhado.</p>
+        <div class="settings-card-foot">
+          <span class="badge badge-neutral">Fora do laboratório</span>
+          <span class="open-arrow">—</span>
+        </div>
+      </div>
+
+      <div class="settings-card" style="opacity: 0.55;">
+        <span class="settings-card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+            <line x1="1" y1="10" x2="23" y2="10"/>
+          </svg>
+        </span>
+        <h3>Faturamento</h3>
+        <p>Plano atual, método de pagamento e histórico de cobranças via Stripe.</p>
+        <div class="settings-card-foot">
+          <span class="badge badge-warning">Captura pendente</span>
+          <span class="open-arrow">—</span>
+        </div>
+      </div>
+
+      <div class="settings-card" style="opacity: 0.55;">
+        <span class="settings-card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/>
+            <path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/>
+            <path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/>
+          </svg>
+        </span>
+        <h3>Planos</h3>
+        <p>Starter / Pro / Scale — compare benefícios e faça upgrade.</p>
+        <div class="settings-card-foot">
+          <span class="badge badge-warning">Captura pendente</span>
+          <span class="open-arrow">—</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<footer style="border-top: 1px solid var(--border-dim); padding: 1.5rem 2rem; text-align: center; background: var(--surface-base);">
+  <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem; max-width: 80rem; margin: 0 auto;">
+    <p style="font-size: 0.75rem; color: var(--text-muted);">ADScale © 2026 · Versão 1 · Laboratory build</p>
+    <div style="display: flex; gap: 1rem; font-size: 0.75rem; color: var(--text-muted);">
+      <a href="index.html">← Índice do laboratório</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
