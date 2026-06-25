@@ -101,7 +101,13 @@ Plans:
   4. Tool calls are validated by server-side policy before any execution or action-card creation.
   5. Tests prove provider reasoning/thinking is neither displayed nor persisted.
 
-**Plans:** 0/1 plans complete
+**Plans:** 0/4 plans complete
+
+Plans:
+- [ ] 179-01-PLAN.md — AssistantModelClient interface, MiniMax adapter, reasoning sanitizer (AI-01, AI-02, AI-05)
+- [ ] 179-02-PLAN.md — Allowlisted context builder with sanitizer (AI-03)
+- [ ] 179-03-PLAN.md — Tool registry and deny-by-default policy gate (AI-04)
+- [ ] 179-04-PLAN.md — Orchestrator, SSE chat route, integration tests (AI-01–AI-05)
 
 ---
 
