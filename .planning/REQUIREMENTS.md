@@ -37,7 +37,7 @@ Corrigir a direcao pos-v13.2 para que ADScale prove tracao de produto de forma c
 - [ ] **BRAND-01**: Approved "Curator > operator" positioning is reflected in authenticated app copy where users make workflow decisions.
 - [ ] **BRAND-02**: Onboarding and empty states explain the curator role without referencing Cenbrap or internal calibration mechanics.
 - [ ] **BRAND-03**: Navigation, labels and call-to-action copy use consistent product language across campaign creation, generation, review and settings.
-- [ ] **BRAND-04**: Brand rollout has a review checklist so copy changes do not overclaim automation, performance lift or customer-real proof.
+- [x] **BRAND-04**: Brand rollout has a review checklist so copy changes do not overclaim automation, performance lift or customer-real proof.
 
 ### Product Trust Baseline (TRUST)
 
@@ -105,7 +105,7 @@ Corrigir a direcao pos-v13.2 para que ADScale prove tracao de produto de forma c
 | BRAND-01 | Phase 170 | Pending |
 | BRAND-02 | Phase 170 | Pending |
 | BRAND-03 | Phase 170 | Pending |
-| BRAND-04 | Phase 170 | Pending |
+| BRAND-04 | Phase 170 | Complete |
 | TRUST-01 | Phase 171 | Pending |
 | TRUST-02 | Phase 171 | Pending |
 | TRUST-03 | Phase 171 | Pending |
