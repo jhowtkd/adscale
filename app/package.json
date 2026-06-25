@@ -40,6 +40,7 @@
     "olhar-release-evidence:build": "npx tsx scripts/build-olhar-release-evidence.ts --calibration ../.planning/phases/142-cenbrap-calibration-and-release-evidence/142-CENBRAP-CALIBRATION.json --output ../.planning/phases/142-cenbrap-calibration-and-release-evidence/142-EVIDENCE.json",
     "real-quality-release-gate": "node scripts/run-real-quality-release-gate.mjs",
     "operational-quality-release-gate": "node scripts/run-operational-quality-release-gate.mjs",
+    "v13-3-release-gate": "node scripts/run-v13-3-release-gate.mjs",
     "sample-coverage-evidence": "npx tsx scripts/run-sample-coverage.ts --all-workspaces",
     "quality-trend-evidence": "npx tsx scripts/run-quality-trend.ts --all-workspaces"
   },
