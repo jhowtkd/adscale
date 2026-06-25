@@ -2,6 +2,7 @@
 
 ## Milestones
 
+- 🚧 **v13.5 Assistente Conversacional de Ações** - Phases 177-183 (active — roadmap defined 2026-06-25)
 - ✅ **v13.4 Fechamento de Evidência Operacional** - Phases 173-176 (shipped 2026-06-25; tech debt: live DB seed pending, operational `insufficient_sample`)
 - ✅ **v13.3 Tracao Multi-Cliente** - Phases 168-172 (shipped 2026-06-25; tech debt: operational evidence `insufficient_sample`, live owner smoke pending)
 - ✅ **v13.2 Calibracao Multi-Marca** - Phases 162-167 (shipped 2026-06-24; tech debt: generic real-client evidence still needed)
@@ -20,7 +21,158 @@
 
 ## Active Milestone
 
-_No active milestone — v13.4 shipped with tech debt. Run live corpus seed on owner workspace to close operational evidence._
+### 🚧 v13.5 Assistente Conversacional de Ações (Phases 177-183)
+
+**Milestone Goal:** Permitir que usuários operem ADScale por chat, com contratos mínimos por ação, preservando controle, créditos e isolamento multi-cliente.
+
+**Guiding constraints:**
+- O assistente não força formulário; ele pede o mínimo necessário para a próxima ação útil.
+- Ações rápidas não exigem briefing completo quando o contrato da ação não precisa dele.
+- Ações de escrita, crédito, memória, export/package ou job longo exigem action card confirmado.
+- Contexto enviado ao provider é amplo, mas allowlistado; não enviar segredos, URLs assinadas brutas ou payloads internos crus.
+- Review completo no assistente deve reutilizar componentes existentes, não duplicar a lógica visual do workspace.
+
+| # | Phase | Requirements | Status | Completed |
+|---|-------|--------------|--------|-----------|
+| 177 | Multi-Client Foundation | 1/1 | Complete   | 2026-06-25 |
+| 178 | Conversation Persistence | EXEC-02 | Pending | - |
+| 179 | Model Adapter and Tool Policy | AI-01, AI-02, AI-03, AI-04, AI-05 | Pending | - |
+| 180 | Action Contracts | ACT-01, ACT-02, EXEC-01 | Pending | - |
+| 181 | Assistant Surface | CHAT-01, CHAT-02, CHAT-03, CHAT-04 | Pending | - |
+| 182 | Quick Actions | ACT-03, ACT-04 | Pending | - |
+| 183 | Campaign Complete Happy Path | ACT-05, EXEC-03, EXEC-04 | Pending | - |
+
+## Phase Details
+
+### Phase 177: Multi-Client Foundation
+
+**Goal:** Remover a limitação de um `clientProfile` por workspace e garantir que todos os dados de marca relevantes fiquem isolados por cliente.
+
+**Depends on:** v13.2/v13.3 brand/clientProfile calibration infrastructure.
+
+**Requirements:** CLIENT-01, CLIENT-02, CLIENT-03
+
+**Success Criteria** (what must be TRUE):
+  1. Workspace can create and list multiple `clientProfile` records without violating DB constraints.
+  2. Brand kit, memory retrieval, references, voice config, corpus, and calibration rules resolve by `clientProfileId`.
+  3. Existing campaigns keep working after migration and resolve their linked or inferred client profile deterministically.
+  4. Regression tests prove no cross-client leakage in the updated scoped paths.
+
+**Plans:** 1/1 plans complete
+
+---
+
+### Phase 178: Conversation Persistence
+
+**Goal:** Persist assistant threads, messages, and action records with workspace/client/campaign scoping and job status support.
+
+**Depends on:** Phase 177 client scope decisions.
+
+**Requirements:** EXEC-02
+
+**Success Criteria** (what must be TRUE):
+  1. Server can create and retrieve threads scoped by workspace, client profile, and campaign.
+  2. Messages preserve user, assistant, tool, and action-card history without storing provider reasoning/thinking.
+  3. Action records support pending, confirmed, running, completed, failed, and canceled states.
+  4. Long-running jobs can update or be reflected in the related assistant action status.
+
+**Plans:** 0/1 plans complete
+
+---
+
+### Phase 179: Model Adapter and Tool Policy
+
+**Goal:** Introduce provider-agnostic assistant orchestration with MiniMax M3 as the first adapter and a server-side tool policy gate.
+
+**Depends on:** Phase 178 persistence.
+
+**Requirements:** AI-01, AI-02, AI-03, AI-04, AI-05
+
+**Success Criteria** (what must be TRUE):
+  1. `AssistantModelClient` supports streaming text through a provider adapter boundary.
+  2. MiniMax M3 adapter can produce assistant responses through the internal interface.
+  3. Context builder uses an allowlist and excludes secrets, raw signed URLs, internal evidence payloads, and out-of-scope customer data.
+  4. Tool calls are validated by server-side policy before any execution or action-card creation.
+  5. Tests prove provider reasoning/thinking is neither displayed nor persisted.
+
+**Plans:** 0/1 plans complete
+
+---
+
+### Phase 180: Action Contracts
+
+**Goal:** Define action contracts as the assistant's execution grammar: intent classification, required/optional inputs, roles, risk, credits, and confirmation.
+
+**Depends on:** Phase 179 tool policy.
+
+**Requirements:** ACT-01, ACT-02, EXEC-01
+
+**Success Criteria** (what must be TRUE):
+  1. User intent is classified into quick action or complete campaign flow before input collection.
+  2. Each supported action exposes required inputs, optional inputs, role gates, risk labels, credit impact, and confirmation policy.
+  3. Missing optional inputs produce honest risk copy rather than blocking the action.
+  4. Writing or credit-impacting actions produce confirmed action cards before execution.
+
+**Plans:** 0/1 plans complete
+
+---
+
+### Phase 181: Assistant Surface
+
+**Goal:** Ship `/assistant` and campaign drawer as the primary conversational operating surface.
+
+**Depends on:** Phases 178-180.
+
+**Requirements:** CHAT-01, CHAT-02, CHAT-03, CHAT-04
+
+**Success Criteria** (what must be TRUE):
+  1. Authenticated user can open `/assistant` from primary navigation.
+  2. Desktop assistant has three working areas: client/campaign/thread tree, chat, and contextual panel.
+  3. User can create a client, create a campaign draft, and start a thread from the assistant.
+  4. Campaign workspace drawer opens and continues the same campaign thread.
+  5. Mobile layout remains usable through tabs or equivalent responsive navigation.
+
+**Plans:** 0/1 plans complete
+
+---
+
+### Phase 182: Quick Actions
+
+**Goal:** Prove quick actions can run through chat without forcing a complete briefing.
+
+**Depends on:** Phase 180 contracts and Phase 181 surface.
+
+**Requirements:** ACT-03, ACT-04
+
+**Success Criteria** (what must be TRUE):
+  1. User can run restyling from the assistant with only base image and style reference as required inputs.
+  2. User can request format adaptation from an existing piece or output with only source and target format as required inputs.
+  3. User can request regeneration with a target derivation and feedback, without filling unrelated campaign fields.
+  4. Review, save-reference, and delivery package actions follow their own contracts and expose optional-missing risk copy when relevant.
+  5. Quick action tests prove full briefing is not required for the supported quick paths.
+
+**Plans:** 0/1 plans complete
+
+---
+
+### Phase 183: Campaign Complete Happy Path
+
+**Goal:** Complete the chat-first campaign path from loose idea to final package, reusing existing generation and review primitives.
+
+**Depends on:** Phases 177-182.
+
+**Requirements:** ACT-05, EXEC-03, EXEC-04
+
+**Success Criteria** (what must be TRUE):
+  1. User can go from selected/created client and loose idea to a campaign draft with the complete-campaign minimum brief.
+  2. User can confirm `Aplicar e gerar preview` with visible mode and credit impact.
+  3. Preview generation, approval, batch generation, review, and delivery package creation run through existing pipeline/components where available.
+  4. Assistant review surface reuses current review components rather than duplicating review logic.
+  5. Playwright smoke covers the happy path from idea to final package.
+
+**Plans:** 0/1 plans complete
+
+---
 
 ## Completed Milestone Context
 
@@ -30,97 +182,6 @@ _No active milestone — v13.4 shipped with tech debt. Run live corpus seed on o
 
 Archive: [v13.4-ROADMAP.md](milestones/v13.4-ROADMAP.md) · [v13.4-REQUIREMENTS.md](milestones/v13.4-REQUIREMENTS.md) · [v13.4-MILESTONE-AUDIT.md](milestones/v13.4-MILESTONE-AUDIT.md)
 
----
-
-### 🚧 v13.4 Fechamento de Evidência Operacional (Phases 173-176) — ARCHIVED BELOW
-
-**Milestone Goal:** Fechar o tech debt operacional da v13.3 — sair de `fixtureOnly: true` e `operationalEvidence: insufficient_sample` para amostra `real_customer` por `clientProfileId`, smoke owner com dado live, e release gate que só libera claims quando a suficiência passar.
-
-**Guiding constraints:**
-- Não abrir novo eixo criativo; só fechar evidência operacional.
-- Cenbrap permanece fixture/seed; o perfil alvo deve ser não-fixture ou explicitamente rotulado.
-- Claims de customer-real só desbloqueiam com evidência registrada — sem override manual.
-- Infraestrutura v13.3 (promoção genérica, claim gates, release gate) é ponto de partida, não reimplementação.
-
-| # | Phase | Requirements | Status | Completed |
-|---|-------|--------------|--------|-----------|
-| 173 | Live Real-Customer Corpus Intake | Complete    | 2026-06-25 | - |
-| 174 | Sample Sufficiency and Claim Honesty | Complete    | 2026-06-25 | - |
-| 175 | Owner Smoke and Evidence Capture | Complete    | 2026-06-25 | - |
-| 176 | Operational Release Gate and Claim Unlock | Complete    | 2026-06-25 | - |
-
-## Phase Details
-
-### Phase 173: Live Real-Customer Corpus Intake
-
-**Goal:** Seed at least one non-fixture `clientProfileId` with `real_customer` corpus rows through the generic v13.3 promotion/import path.
-
-**Depends on:** v13.3 Phase 169 source-labeled promotion and claim gate infrastructure.
-
-**Requirements**: LIVE-01, LIVE-02, LIVE-03
-
-**Success Criteria** (what must be TRUE):
-  1. Owner can promote or import rows with `real_customer` sourceLabel for a selected non-fixture profile without customer-specific scripts.
-  2. Active evidence scope shows `real_customer` counts alongside fixture/operator_imported composition for that profile.
-  3. UI and evidence copy keep Cenbrap as fixture/seed when it appears; real profile is the proof target.
-
-**Plans:** 1/1 plans complete
-
----
-
-### Phase 174: Sample Sufficiency and Claim Honesty
-
-**Goal:** Lift `fixtureOnly` only when sample sufficiency rules pass; keep claims withheld until honest.
-
-**Depends on:** Phase 173 live corpus rows.
-
-**Requirements**: SAMPLE-01, SAMPLE-02, SAMPLE-03
-
-**Success Criteria** (what must be TRUE):
-  1. `activeBrandSample.fixtureOnly` is `false` when the selected profile has sufficient `real_customer` sample.
-  2. Customer-real, agreement-rate and quality-improvement claims stay blocked when sufficiency fails.
-  3. Fixture-only rows alone never unlock customer-real claims.
-
-**Plans:** 1/1 plans complete
-
----
-
-### Phase 175: Owner Smoke and Evidence Capture
-
-**Goal:** Execute `172-RELEASE-CHECKLIST.md` with live workspace data and capture outcomes in the evidence artifact.
-
-**Depends on:** Phases 173–174; v13.3 Phase 172 release checklist and evidence template.
-
-**Requirements**: SMOKE-01, SMOKE-02, SMOKE-03, EVIDENCE-01
-
-**Success Criteria** (what must be TRUE):
-  1. Owner completes factual-alert, link-safety, and proposal-separation smoke items with live data.
-  2. Settings persistence smoke (save + hard refresh) is recorded pass/fail honestly.
-  3. `172-EVIDENCE.json` reflects updated `activeBrandSample` and operational smoke outcomes.
-
-**Plans:** 1/1 plans complete
-
----
-
-### Phase 176: Operational Release Gate and Claim Unlock
-
-**Goal:** Rerun release gate until operational evidence passes; apply claim unlock only with recorded proof.
-
-**Depends on:** Phase 175 evidence artifact update.
-
-**Requirements**: EVIDENCE-02, EVIDENCE-03
-
-**Success Criteria** (what must be TRUE):
-  1. Release gate reports `operationalEvidence` beyond `insufficient_sample` when criteria are met.
-  2. Root milestone status reflects operational pass (not `tech_debt` from insufficient sample).
-  3. Customer-real claim unlock policy enforces technical + operational pass — no silent override.
-
-**Plans:** 1/1 plans complete
-
----
-
-## Completed Milestone Context
-
 ### ✅ v13.3 Tracao Multi-Cliente (Phases 168-172)
 
 **Shipped 2026-06-25** with tech debt: `operationalEvidence: insufficient_sample`, `activeBrandSample.fixtureOnly: true`, owner smoke pending.
@@ -129,6 +190,6 @@ Archive: [v13.3-ROADMAP.md](milestones/v13.3-ROADMAP.md) · [v13.3-REQUIREMENTS.
 
 ## Progress
 
-**Current milestone:** None active — v13.4 complete (4/4 phases, passed_with_tech_debt)
+**Current milestone:** v13.5 — 0/7 phases complete
 
-**Next phase:** 173 — Live Real-Customer Corpus Intake
+**Next phase:** 177 — Multi-Client Foundation (`$gsd-execute-phase 177`)

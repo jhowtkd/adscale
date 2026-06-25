@@ -1,80 +1,95 @@
 ---
 gsd_state_version: 1.0
-milestone: v13.4
-milestone_name: Fechamento de Evidência Operacional
-status: completed
-stopped_at: Milestone v13.4 complete (passed_with_tech_debt)
-last_updated: "2026-06-25T12:18:29.096Z"
-last_activity: 2026-06-25 — Milestone v13.4 initialized
+milestone: v13.5
+milestone_name: Assistente Conversacional de Ações
+status: Phase 177 complete; ready for Phase 178
+stopped_at: Completed 177-01-PLAN.md
+last_updated: "2026-06-25T14:36:00Z"
+last_activity: 2026-06-25 — Phase 177 plan 01 executed (multi-client foundation)
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 4
-  completed_plans: 4
+  total_phases: 7
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-06-25 — v13.4 shipped with tech debt)
+See: .planning/PROJECT.md (updated 2026-06-25 — v13.5 started)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** v13.4 shipped (passed_with_tech_debt) — live DB seed pending
+**Current focus:** v13.5 Assistente Conversacional de Ações — chat-first action flow with minimum contracts per action.
 
 ## Current Position
 
-Phase: 176 of 176 (milestone complete)
-Plan: 4 of 4 complete
-Status: Milestone v13.4 archived — operational evidence infrastructure shipped
-Last activity: 2026-06-25 — v13.4 milestone audit + archive
+Phase: 178 of 183 (pending)
+Plan: —
+Status: Phase 177 complete; ready for `$gsd-plan-phase 178` or `$gsd-execute-phase 178`
+Last activity: 2026-06-25 — Phase 177 plan 01 executed (multi-client foundation)
 
-Progress: [██████████] 4/4 phases
+Progress: [#---------] 1/7 phases
 
 ## Performance Metrics
 
 | Phase | Plans | Status |
 |-------|-------|--------|
-| 173 | 1/1 | Complete |
-| 174 | 1/1 | Complete |
-| 175 | 1/1 | Complete |
-| 176 | 1/1 | Complete |
+| 177 | 1/1 | Complete |
+| 178 | 0/1 | Pending |
+| 179 | 0/1 | Pending |
+| 180 | 0/1 | Pending |
+| 181 | 0/1 | Pending |
+| 182 | 0/1 | Pending |
+| 183 | 0/1 | Pending |
+| Phase 177-multi-client-foundation P01 | 11 | 5 tasks | 24 files |
 
 ## Accumulated Context
 
-### Decisions (v13.4)
+### Decisions (v13.5)
 
-- [v13.4]: Close v13.3 operational tech debt — no new creative feature axes.
-- [v13.4]: Target at least one non-fixture `clientProfileId` with `real_customer` corpus; Cenbrap stays fixture/seed.
-- [v13.4]: `fixtureOnly` lifts only when sample sufficiency rules pass for the selected profile.
-- [v13.4]: Complete `172-RELEASE-CHECKLIST.md` with live workspace data before operational gate pass.
-- [v13.4]: Customer-real claims unlock only when technical regression AND operational evidence both pass — no manual override without recorded proof.
+- [v13.5]: The assistant is chat-first, not form-first; it asks for the minimum required for the next useful action.
+- [v13.5]: Quick actions and complete campaign flow use separate action contracts.
+- [v13.5]: Quick restyling must not require a full campaign brief.
+- [v13.5]: Complete campaign flow still requires a stronger minimum brief before preview/batch generation.
+- [v13.5]: Actions with write, credit, memory, export/package, or long-job impact require confirmed action cards.
+- [v13.5]: Model provider is abstracted behind `AssistantModelClient`; MiniMax M3 is the first adapter.
+- [v13.5]: Context sent to the provider is broad but allowlisted; do not send secrets, raw signed URLs, internal evidence payloads, or unrelated customer data.
+- [v13.5]: Provider reasoning/thinking is not displayed and not persisted.
+- [v13.5]: Review inside assistant reuses existing workspace review components rather than duplicating review logic.
+- [v13.5]: Object model for the assistant is `Cliente > Campanha > Thread`; no new project/folder entity in this milestone.
+- [Phase 177]: Brand kit ambiguity returns HTTP 409 instead of mutating an arbitrary profile.
+- [Phase 177]: Mem0 isolation uses profile-suffixed user ids plus metadata filters on search.
+- [Phase 177]: Legacy workspace brand-kit endpoints accept optional `clientProfileId` query/body field.
 
-### Carry-forward from v13.3
+### Carry-forward from v13.4
 
-- Technical regression already passes across phases 168–172.
-- `172-EVIDENCE.json` at `.planning/milestones/v13.3-phases/172-operational-evidence-ui-and-release-gate/`.
-- Release gate scripts resolve archived phase dir via `resolveV133PhaseDir()`.
+- v13.4 shipped operational evidence infrastructure with accepted tech debt.
+- Live operational pass remains pending: run live corpus seed on owner workspace with migrated DB, then refresh evidence and release gate.
+- `172-EVIDENCE.json` remains the v13.3/v13.4 operational evidence artifact until live manifest exists.
+- Customer-real claims remain blocked until operational evidence passes; v13.5 must not weaken claim honesty.
 
 ### Blockers/Concerns
 
-- **Live operational pass pending:** run `npm run seed:live-real-customer-corpus -- --confirm` on owner workspace with migrated DB (`DATABASE_URL`), then `npm run refresh:v13-3-operational-evidence` + `npm run v13-3-release-gate`.
-- Target profile from dry-run: **Cliente Teste Profile** (non-fixture) in Dev Admin workspace.
+- **Provider-data risk:** assistant context must be allowlisted from the start because v13.5 is customer-facing and multi-client.
+- **Scope risk:** "idea to final package" is the happy path, not full workspace parity for every advanced edge case.
+- **Operational tech debt:** live seed/smoke from v13.4 remains outside this milestone unless explicitly pulled in.
 
 ### Deferred Items
 
 | Category | Item | Status | Deferred At |
 |----------|------|--------|-------------|
+| v13.5+ | Meta/Google/TikTok integrations | Deferred | distribution after assistant operating loop |
+| v13.5+ | Full workspace parity inside chat | Deferred | after happy path proves value |
+| v13.5+ | Project/folder entity above campaign | Deferred | after usage data on Cliente > Campanha > Thread |
 | v14+ | Manual approve/deprecate calibration rules | Deferred | after operational evidence closed |
 | v14+ | Uncertainty queue routing automation | Deferred | needs real operating data |
 | v14+ | Multi-brand evidence dashboard | Deferred | after first real profile proves path |
-| v14+ | Competitor analysis, smart resize, perf learnings | Deferred | creative axis |
-| v14+ | Meta/Google/TikTok integrations | Deferred | v14+ distribution |
 
 ## Session Continuity
 
-Last session: 2026-06-25
-Stopped at: Milestone v13.4 complete (passed_with_tech_debt)
+Last session: 2026-06-25T14:35:20.795Z
+Stopped at: Completed 177-01-PLAN.md
 Resume file: None
-Next command: `$gsd-new-milestone` or live corpus seed on owner DB
+Next command: `$gsd-plan-phase 178` or `$gsd-execute-phase 178`
