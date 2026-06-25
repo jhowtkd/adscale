@@ -3,7 +3,7 @@
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, useMemo } from "react";
 import Link from "next/link";
-import { Trash2 } from "lucide-react";
+import { Trash2, MessageSquare } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import dynamic from "next/dynamic";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
@@ -54,6 +54,7 @@ import CampaignSkeleton from "@/components/campaigns/CampaignSkeleton";
 import CampaignErrorState from "@/components/campaigns/CampaignErrorState";
 import CampaignNotFoundState from "@/components/campaigns/CampaignNotFoundState";
 
+import CampaignAssistantDrawer from "@/components/assistant/CampaignAssistantDrawer";
 import { useCampaignWorkspace } from "@/lib/hooks/use-campaign-workspace";
 import type { ReviewDerivationVariables } from "@/lib/hooks/use-review";
 import { useBillingStatus } from "@/lib/hooks/use-billing";
@@ -85,6 +86,7 @@ export default function CampaignWorkspacePage() {
   }, [isNew]);
 
   const tc = useTranslations("common");
+  const tAssistant = useTranslations("assistant.drawer");
   const addToast = useAppStore((s) => s.addToast);
   const uploadAsset = useUploadAsset(campaignId);
 
@@ -106,6 +108,7 @@ export default function CampaignWorkspacePage() {
   });
   const pilotAssetIdRef = useRef<string | null>(null);
   const [showEstilizarModal, setShowEstilizarModal] = useState(false);
+  const [assistantDrawerOpen, setAssistantDrawerOpen] = useState(false);
   const {
     isDerivePanelOpen,
     derivePanelSession,
@@ -431,6 +434,10 @@ export default function CampaignWorkspacePage() {
         backLabel={tc("backToCampaigns")}
         deleteLabel={tc("deleteDraft")}
         onDelete={handleDeleteClick}
+        onOpenAssistant={() => setAssistantDrawerOpen(true)}
+        assistantOpenLabel={tAssistant("open")}
+        assistantDisabled={!campaign?.clientProfileId}
+        assistantDisabledTooltip={tAssistant("missingClientTooltip")}
       />
 
       <WorkspaceStageStrip workspaceState={workspaceState} className="mb-4 border-b border-[var(--border-dim)] pb-4" />
@@ -498,6 +505,13 @@ export default function CampaignWorkspacePage() {
         onRetryDerivations={() => void refetchDerivations()}
         readinessBlocking={readinessBlocking}
         onReadinessOverride={() => setReadinessOverrideActive(true)}
+      />
+
+      <CampaignAssistantDrawer
+        open={assistantDrawerOpen}
+        onOpenChange={setAssistantDrawerOpen}
+        campaignId={campaignId}
+        clientProfileId={campaign?.clientProfileId ?? ""}
       />
 
       <DerivationReviewSheet
@@ -611,6 +625,10 @@ interface CampaignWorkspaceHeaderProps {
   backLabel: string;
   deleteLabel: string;
   onDelete: () => void;
+  onOpenAssistant: () => void;
+  assistantOpenLabel: string;
+  assistantDisabled?: boolean;
+  assistantDisabledTooltip?: string;
 }
 
 function CampaignWorkspaceHeader({
@@ -621,6 +639,10 @@ function CampaignWorkspaceHeader({
   backLabel,
   deleteLabel,
   onDelete,
+  onOpenAssistant,
+  assistantOpenLabel,
+  assistantDisabled,
+  assistantDisabledTooltip,
 }: CampaignWorkspaceHeaderProps) {
   return (
     <PageHeader
@@ -645,6 +667,19 @@ function CampaignWorkspaceHeader({
       }
       actions={
         <>
+          {!isNew ? (
+            <button
+              type="button"
+              onClick={onOpenAssistant}
+              disabled={assistantDisabled}
+              title={assistantDisabled ? assistantDisabledTooltip : assistantOpenLabel}
+              aria-label={assistantOpenLabel}
+              className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-md border border-[var(--border-dim)] px-3 py-2 text-sm text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <MessageSquare size={16} aria-hidden="true" />
+              <span className="hidden sm:inline">{assistantOpenLabel}</span>
+            </button>
+          ) : null}
           {!isNew ? (
             <ContextualFeedbackButton
               contextKind="campaign"
