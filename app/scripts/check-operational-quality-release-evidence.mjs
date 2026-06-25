@@ -12,9 +12,12 @@ import {
 } from "./check-real-quality-release-evidence.mjs";
 import {
   EVIDENCE_SOURCE,
+  emptySourceComposition,
+  isFixtureOnlySourceComposition,
   isPlainObject,
   rejectClaimsWhenGuidanceBlocked,
   validateEvidenceSourceTag,
+  validateSourceComposition,
 } from "./lib/evidence-honesty.mjs";
 
 export { BLENDED_FIELD_DENYLIST };
@@ -65,7 +68,23 @@ const DEFAULT_QALIVE_REQUIREMENTS = [
   },
 ];
 
-export const OPERATIONAL_BLENDED_FIELD_DENYLIST = ["milestonePass", "overallOperationalPass"];
+export const OPERATIONAL_BLENDED_FIELD_DENYLIST = [
+  "milestonePass",
+  "overallOperationalPass",
+  "customerValidated",
+];
+
+export const ACTIVE_BRAND_SAMPLE_STATUSES = [
+  "ok",
+  "insufficient_sample",
+  "insufficient_source",
+  "claim_withheld",
+];
+
+const CUSTOMER_REAL_CLAIMS = [
+  "validated_against_customer_real",
+  "customer_real_validation",
+];
 
 const REQUIRED_REQUIREMENT_IDS = ["QALIVE-01", "QALIVE-02", "QALIVE-03", "QALIVE-04"];
 
@@ -79,7 +98,7 @@ const REQUIRED_TOP_LEVEL_SECTIONS = [
   "acceptedCaveats",
 ];
 
-const VALID_ROOT_STATUSES = ["ok", "gaps_found", "tech_debt", "blocked"];
+const VALID_ROOT_STATUSES = ["ok", "gaps_found", "tech_debt", "claim_withheld", "blocked"];
 
 function usage() {
   return "Usage: node app/scripts/check-operational-quality-release-evidence.mjs [--evidence PATH] [--skip-tests] [--aggregate] [--run-regression] [--technical-only]";
@@ -137,17 +156,210 @@ function resolveOperationalStatus(gates, alertFlags) {
   return "insufficient_sample";
 }
 
-export function deriveRootStatus(technicalStatus, operationalStatus) {
+export function deriveRootStatus(technicalStatus, operationalStatus, activeBrandSample = null) {
   if (technicalStatus === "fail") {
     return "blocked";
   }
-  if (operationalStatus === "ok") {
+
+  const brandStatus = activeBrandSample?.operationalStatus ?? null;
+  if (brandStatus === "claim_withheld" || brandStatus === "insufficient_source") {
+    return "claim_withheld";
+  }
+
+  if (operationalStatus === "ok" && (!activeBrandSample || brandStatus === "ok")) {
     return "ok";
   }
   if (operationalStatus === "gaps_found") {
     return "gaps_found";
   }
   return "tech_debt";
+}
+
+function resolveActiveBrandOperationalStatus(sourceComposition, evaluatedItemCount) {
+  const fixtureOnly = isFixtureOnlySourceComposition(sourceComposition);
+  if (fixtureOnly && evaluatedItemCount > 0) {
+    return "claim_withheld";
+  }
+  if (fixtureOnly) {
+    return "insufficient_source";
+  }
+  if (evaluatedItemCount < 5) {
+    return "insufficient_sample";
+  }
+  return "ok";
+}
+
+function resolveActiveBrandClaims(sourceComposition, operationalStatus) {
+  const fixtureOnly = isFixtureOnlySourceComposition(sourceComposition);
+  const claimsAllowed = ["global_corpus_evaluations_recorded"];
+  const claimsBlocked = [...CUSTOMER_REAL_CLAIMS];
+
+  if (!fixtureOnly && operationalStatus === "ok") {
+    claimsAllowed.push("validated_against_customer_real");
+    const blocked = new Set(claimsBlocked);
+    for (const claim of CUSTOMER_REAL_CLAIMS) {
+      blocked.delete(claim);
+    }
+    return {
+      claimsAllowed,
+      claimsBlocked: Array.from(blocked),
+    };
+  }
+
+  return { claimsAllowed, claimsBlocked };
+}
+
+function resolveActiveBrandNextActions(sourceComposition, operationalStatus) {
+  const fixtureOnly = isFixtureOnlySourceComposition(sourceComposition);
+  if (fixtureOnly) {
+    return [
+      "Import or promote real_customer corpus rows for the active brand before customer-real claims.",
+      "operator_imported and synthetic_fixture rows validate operation only — not market proof.",
+    ];
+  }
+  if (operationalStatus === "insufficient_sample") {
+    return [
+      "Evaluate corpus items in the human-quality queue — at least 5 human evaluations are required for the active brand.",
+    ];
+  }
+  return [];
+}
+
+export function buildActiveBrandSample(existingSample = {}, calibration = {}) {
+  const sourceComposition = isPlainObject(existingSample.sourceComposition)
+    ? { ...emptySourceComposition(), ...existingSample.sourceComposition }
+    : emptySourceComposition();
+  const evaluatedItemCount =
+    typeof existingSample.evaluatedItemCount === "number"
+      ? existingSample.evaluatedItemCount
+      : calibration.evaluatedItemCount ?? 0;
+  const operationalStatus =
+    existingSample.operationalStatus ??
+    resolveActiveBrandOperationalStatus(sourceComposition, evaluatedItemCount);
+  const fixtureOnly = isFixtureOnlySourceComposition(sourceComposition);
+  const claims =
+    Array.isArray(existingSample.claimsAllowed) && Array.isArray(existingSample.claimsBlocked)
+      ? {
+          claimsAllowed: existingSample.claimsAllowed,
+          claimsBlocked: existingSample.claimsBlocked,
+        }
+      : resolveActiveBrandClaims(sourceComposition, operationalStatus);
+
+  return {
+    workspaceId: existingSample.workspaceId ?? null,
+    clientProfileId: existingSample.clientProfileId ?? null,
+    sourceComposition,
+    evaluatedItemCount,
+    operationalStatus,
+    fixtureOnly,
+    claimsAllowed: claims.claimsAllowed,
+    claimsBlocked: claims.claimsBlocked,
+    nextActions:
+      Array.isArray(existingSample.nextActions) && existingSample.nextActions.length > 0
+        ? existingSample.nextActions
+        : resolveActiveBrandNextActions(sourceComposition, operationalStatus),
+  };
+}
+
+export function validateActiveBrandSample(activeBrandSample, errors, label = "operationalEvidence.activeBrandSample") {
+  if (!isPlainObject(activeBrandSample)) {
+    errors.push(`${label} must be an object`);
+    return;
+  }
+
+  if (
+    activeBrandSample.workspaceId != null &&
+    (typeof activeBrandSample.workspaceId !== "string" || !activeBrandSample.workspaceId)
+  ) {
+    errors.push(`${label}.workspaceId must be a non-empty string when present`);
+  }
+
+  if (
+    activeBrandSample.clientProfileId != null &&
+    (typeof activeBrandSample.clientProfileId !== "string" || !activeBrandSample.clientProfileId)
+  ) {
+    errors.push(`${label}.clientProfileId must be a non-empty string when present`);
+  }
+
+  validateSourceComposition(activeBrandSample.sourceComposition, label, errors);
+
+  if (
+    typeof activeBrandSample.evaluatedItemCount !== "number" ||
+    activeBrandSample.evaluatedItemCount < 0
+  ) {
+    errors.push(`${label}.evaluatedItemCount must be a non-negative number`);
+  }
+
+  if (!ACTIVE_BRAND_SAMPLE_STATUSES.includes(activeBrandSample.operationalStatus)) {
+    errors.push(
+      `${label}.operationalStatus must be one of: ${ACTIVE_BRAND_SAMPLE_STATUSES.join(", ")}`
+    );
+  }
+
+  if (typeof activeBrandSample.fixtureOnly !== "boolean") {
+    errors.push(`${label}.fixtureOnly must be a boolean`);
+  } else if (
+    activeBrandSample.fixtureOnly !==
+    isFixtureOnlySourceComposition(activeBrandSample.sourceComposition)
+  ) {
+    errors.push(`${label}.fixtureOnly must match sourceComposition.real_customer === 0`);
+  }
+
+  if (!Array.isArray(activeBrandSample.claimsAllowed)) {
+    errors.push(`${label}.claimsAllowed must be an array`);
+  }
+  if (!Array.isArray(activeBrandSample.claimsBlocked)) {
+    errors.push(`${label}.claimsBlocked must be an array`);
+  }
+  if (!Array.isArray(activeBrandSample.nextActions)) {
+    errors.push(`${label}.nextActions must be an array`);
+  } else {
+    for (const [index, action] of activeBrandSample.nextActions.entries()) {
+      if (typeof action !== "string" || !action) {
+        errors.push(`${label}.nextActions[${index}] must be a non-empty string`);
+      }
+    }
+  }
+}
+
+export function assertSourceClaimGates(evidence, errors) {
+  const activeBrandSample = evidence.operationalEvidence?.activeBrandSample;
+  if (!isPlainObject(activeBrandSample)) {
+    errors.push("SOURCE-05: operationalEvidence.activeBrandSample is required");
+    return;
+  }
+
+  validateActiveBrandSample(activeBrandSample, errors);
+
+  if (activeBrandSample.fixtureOnly) {
+    for (const claim of CUSTOMER_REAL_CLAIMS) {
+      if (activeBrandSample.claimsAllowed.includes(claim)) {
+        errors.push(
+          `SOURCE-05: fixture-only active brand sample must not allow customer-real claim "${claim}"`
+        );
+      }
+      if (!activeBrandSample.claimsBlocked.includes(claim)) {
+        errors.push(
+          `SOURCE-05: fixture-only active brand sample must block customer-real claim "${claim}"`
+        );
+      }
+    }
+  }
+
+  if (
+    activeBrandSample.operationalStatus === "claim_withheld" &&
+    CUSTOMER_REAL_CLAIMS.some((claim) => activeBrandSample.claimsAllowed.includes(claim))
+  ) {
+    errors.push(
+      "SOURCE-05: claim_withheld active brand sample must not include customer-real claims in claimsAllowed"
+    );
+  }
+
+  if (evidence.status === "ok" && activeBrandSample.operationalStatus !== "ok") {
+    errors.push(
+      "SOURCE-05: root status ok requires activeBrandSample.operationalStatus ok when active brand sample is present"
+    );
+  }
 }
 
 function buildTechnicalRegression(v125Core, v133Evidence) {
@@ -242,7 +454,15 @@ export function aggregateOperationalEvidence(existingEvidence = {}) {
 
   const operationalStatus = resolveOperationalStatus(gates, trendAlertFlags);
   const technicalRegression = buildTechnicalRegression(v125Core, v133Evidence);
-  const rootStatus = deriveRootStatus(technicalRegression.status, operationalStatus);
+  const activeBrandSample = buildActiveBrandSample(
+    existingEvidence.operationalEvidence?.activeBrandSample,
+    calibration
+  );
+  const rootStatus = deriveRootStatus(
+    technicalRegression.status,
+    operationalStatus,
+    activeBrandSample
+  );
   const evaluatedItemCount = calibration.evaluatedItemCount ?? 0;
 
   const merged = {
@@ -259,6 +479,7 @@ export function aggregateOperationalEvidence(existingEvidence = {}) {
       evidenceSource: EVIDENCE_SOURCE.LIVE_HUMAN,
       denominatorNote: LIVE_HUMAN_DENOMINATOR,
       evaluatedItemCount,
+      activeBrandSample,
       gates,
       sampleCoverage: resolveSampleCoverage(sampling),
     },
@@ -440,6 +661,12 @@ export function assertQalive02(evidence, errors) {
       "QALIVE-02: technicalRegression.status is fail — technical regression block must pass independently"
     );
   }
+
+  validateActiveBrandSample(
+    operational.activeBrandSample,
+    errors,
+    "operationalEvidence.activeBrandSample"
+  );
 }
 
 export function assertQalive03(evidence, errors) {
@@ -698,6 +925,7 @@ function main() {
   validateEvidenceShape(evidence, errors);
   assertQalive02(evidence, errors);
   assertQalive03(evidence, errors);
+  assertSourceClaimGates(evidence, errors);
 
   if (errors.length > 0) {
     writeVerification(evidence, errors);

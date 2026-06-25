@@ -7,6 +7,45 @@ export const EVIDENCE_SOURCE = {
   TECHNICAL_REGRESSION: "technical_regression",
 };
 
+export const SOURCE_LABELS = ["synthetic_fixture", "operator_imported", "real_customer"];
+
+export function emptySourceComposition() {
+  return {
+    synthetic_fixture: 0,
+    operator_imported: 0,
+    real_customer: 0,
+  };
+}
+
+/**
+ * @param {unknown} composition
+ * @param {string} prefix
+ * @param {string[]} errors
+ */
+export function validateSourceComposition(composition, prefix, errors) {
+  if (!isPlainObject(composition)) {
+    errors.push(`${prefix}.sourceComposition must be an object`);
+    return;
+  }
+
+  for (const label of SOURCE_LABELS) {
+    const value = composition[label];
+    if (typeof value !== "number" || value < 0 || Number.isNaN(value)) {
+      errors.push(`${prefix}.sourceComposition.${label} must be a non-negative number`);
+    }
+  }
+}
+
+/**
+ * @param {Record<string, number>} composition
+ */
+export function isFixtureOnlySourceComposition(composition) {
+  if (!isPlainObject(composition)) {
+    return true;
+  }
+  return (composition.real_customer ?? 0) === 0;
+}
+
 const VALID_EVIDENCE_SOURCES = new Set(Object.values(EVIDENCE_SOURCE));
 
 export function isPlainObject(value) {

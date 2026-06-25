@@ -267,6 +267,12 @@ describe("real-quality-release-evidence QA-23 metric separation", () => {
     expect(errors.some((error) => error.includes("overallPass"))).toBe(true);
   });
 
+  it("rejects customerValidated blended field at evidence root", () => {
+    const errors: string[] = [];
+    validateMetricSeparation({ customerValidated: true }, errors);
+    expect(errors.some((error) => error.includes("customerValidated"))).toBe(true);
+  });
+
   it("rejects meanHumanVisualScore duplicated in factualMetrics", () => {
     const errors: string[] = [];
     validateMetricSeparation(

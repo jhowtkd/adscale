@@ -4,6 +4,9 @@ import {
   aggregateOperationalEvidence,
   assertQalive02,
   assertQalive03,
+  assertSourceClaimGates,
+  buildActiveBrandSample,
+  deriveRootStatus,
   mergeRegressionIntoTechnical,
   PHASE_EVIDENCE_V126,
   validateRootBlendedFields,
@@ -30,7 +33,28 @@ type OperationalEvidence = {
   requirements: Array<{ id: string; result: string; automated: string }>;
 };
 
+function defaultActiveBrandSample(
+  overrides: Record<string, unknown> = {}
+): Record<string, unknown> {
+  return buildActiveBrandSample(
+    {
+      sourceComposition: {
+        synthetic_fixture: 0,
+        operator_imported: 0,
+        real_customer: 0,
+      },
+      evaluatedItemCount: 0,
+      ...overrides,
+    },
+    { evaluatedItemCount: 0 }
+  );
+}
+
 function baseEvidence(overrides: Partial<OperationalEvidence> = {}): OperationalEvidence {
+  const activeBrandSample =
+    (overrides.operationalEvidence as { activeBrandSample?: Record<string, unknown> } | undefined)
+      ?.activeBrandSample ?? defaultActiveBrandSample();
+
   return {
     schemaVersion: 1,
     milestoneVersion: "v12.6",
@@ -49,6 +73,7 @@ function baseEvidence(overrides: Partial<OperationalEvidence> = {}): Operational
       status: "insufficient_sample",
       evidenceSource: EVIDENCE_SOURCE.LIVE_HUMAN,
       evaluatedItemCount: 0,
+      activeBrandSample,
       gates: {
         qualityImprovement: {
           status: "insufficient_sample",
@@ -267,6 +292,41 @@ describe("resolveMilestoneStatus", () => {
     expect(result.rootStatus).toBe("tech_debt");
   });
 
+  it("returns claim_withheld when active brand sample lacks real_customer source", () => {
+    const activeBrandSample = defaultActiveBrandSample({
+      sourceComposition: {
+        synthetic_fixture: 2,
+        operator_imported: 1,
+        real_customer: 0,
+      },
+      evaluatedItemCount: 3,
+      operationalStatus: "claim_withheld",
+    });
+
+    const result = resolveMilestoneStatus("pass", "insufficient_sample", activeBrandSample);
+
+    expect(result.technicalStatus).toBe("pass");
+    expect(result.exitCode).toBe(0);
+    expect(result.rootStatus).toBe("claim_withheld");
+  });
+
+  it("returns ok when technical and active brand sample are both sufficient", () => {
+    const activeBrandSample = defaultActiveBrandSample({
+      sourceComposition: {
+        synthetic_fixture: 0,
+        operator_imported: 1,
+        real_customer: 5,
+      },
+      evaluatedItemCount: 6,
+      operationalStatus: "ok",
+    });
+
+    const result = resolveMilestoneStatus("pass", "ok", activeBrandSample);
+
+    expect(result.rootStatus).toBe("ok");
+    expect(result.exitCode).toBe(0);
+  });
+
   it("blocks with exit 1 when technical fails regardless of operational status", () => {
     const result = resolveMilestoneStatus("fail", "ok");
 
@@ -291,6 +351,83 @@ describe("operational-quality-release-evidence blended field denylist", () => {
   });
 });
 
+describe("deriveRootStatus", () => {
+  it("returns claim_withheld when active brand sample is fixture-only with rows", () => {
+    const activeBrandSample = defaultActiveBrandSample({
+      sourceComposition: {
+        synthetic_fixture: 1,
+        operator_imported: 0,
+        real_customer: 0,
+      },
+      evaluatedItemCount: 1,
+      operationalStatus: "claim_withheld",
+    });
+
+    expect(deriveRootStatus("pass", "insufficient_sample", activeBrandSample)).toBe(
+      "claim_withheld"
+    );
+  });
+});
+
+describe("operational-quality-release-evidence SOURCE-05 active brand sample", () => {
+  it("errors when activeBrandSample is missing from operationalEvidence", () => {
+    const evidence = baseEvidence();
+    delete (evidence.operationalEvidence as { activeBrandSample?: unknown }).activeBrandSample;
+
+    const errors = runQalive02(evidence);
+    expect(errors.some((error) => error.includes("activeBrandSample"))).toBe(true);
+  });
+
+  it("errors when sourceComposition is missing from activeBrandSample", () => {
+    const evidence = baseEvidence({
+      operationalEvidence: {
+        activeBrandSample: {
+          workspaceId: null,
+          clientProfileId: null,
+          evaluatedItemCount: 0,
+          operationalStatus: "insufficient_source",
+          fixtureOnly: true,
+          claimsAllowed: [],
+          claimsBlocked: ["validated_against_customer_real"],
+          nextActions: [],
+        },
+      },
+    });
+
+    const errors: string[] = [];
+    assertSourceClaimGates(evidence, errors);
+    expect(errors.some((error) => error.includes("sourceComposition"))).toBe(true);
+  });
+
+  it("errors when fixture-only active brand sample allows customer-real claims", () => {
+    const evidence = baseEvidence({
+      operationalEvidence: {
+        activeBrandSample: defaultActiveBrandSample({
+          sourceComposition: {
+            synthetic_fixture: 2,
+            operator_imported: 0,
+            real_customer: 0,
+          },
+          evaluatedItemCount: 2,
+          operationalStatus: "claim_withheld",
+          claimsAllowed: ["validated_against_customer_real"],
+          claimsBlocked: [],
+        }),
+      },
+    });
+
+    const errors: string[] = [];
+    assertSourceClaimGates(evidence, errors);
+    expect(errors.some((error) => error.includes("fixture-only"))).toBe(true);
+  });
+
+  it("rejects customerValidated blended field at root", () => {
+    const errors: string[] = [];
+    validateRootBlendedFields({ customerValidated: true }, errors);
+    expect(errors.some((error) => error.includes("customerValidated"))).toBe(true);
+  });
+});
+
 describe("aggregateOperationalEvidence", () => {
   it("aggregate: operationalEvidence.gates.trend.sourcePath points to 136 evidence path", () => {
     const merged = aggregateOperationalEvidence({});
@@ -300,6 +437,14 @@ describe("aggregateOperationalEvidence", () => {
     expect(merged.qualityImprovementClaimed).toBe(false);
     expect(merged.operationalEvidence.sampleCoverage?.sourcePath).toBe(
       PHASE_EVIDENCE_V126.sampling
+    );
+    expect(merged.operationalEvidence.activeBrandSample?.sourceComposition).toEqual({
+      synthetic_fixture: 0,
+      operator_imported: 0,
+      real_customer: 0,
+    });
+    expect(merged.operationalEvidence.activeBrandSample?.claimsBlocked).toContain(
+      "validated_against_customer_real"
     );
   });
 });
