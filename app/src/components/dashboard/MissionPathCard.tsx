@@ -105,6 +105,9 @@ export default function MissionPathCard() {
         <div className="flex items-center gap-2">
           <FlaskConical size={16} className="text-[var(--accent-green)]" aria-hidden="true" />
           <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("title")}</h2>
+          <span className="font-pixel text-[8px] uppercase tracking-wider text-[var(--text-muted)] ml-1">
+            v1
+          </span>
         </div>
         <div className="flex items-center gap-3">
           <span className="text-xs font-mono text-[var(--text-muted)]">
