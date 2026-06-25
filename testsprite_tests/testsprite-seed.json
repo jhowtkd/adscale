@@ -1,8 +1,8 @@
 {
   "email": "dev-admin@adscale.local",
   "password": "DevAdmin123!",
-  "workspaceId": "cbbd442a-1f70-431b-b58f-76c2d8f34fe7",
-  "campaignId": "ec415589-e46b-4e40-8bdd-e0f4bf1357ae",
+  "workspaceId": "37639999-c564-4b93-851e-6b625b712f6b",
+  "campaignId": "47d6bb04-2ac5-4c27-bcfb-ab91fcfa8b0b",
   "campaignName": "TestSprite E2E Campaign",
   "shareToken": "testsprite-e2e-share",
   "shareUrl": "http://localhost:3000/share/testsprite-e2e-share",
