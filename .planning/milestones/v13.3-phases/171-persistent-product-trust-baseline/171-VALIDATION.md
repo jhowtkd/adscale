@@ -1,10 +1,11 @@
 ---
 phase: 171
 slug: persistent-product-trust-baseline
-status: pending
+status: complete
 nyquist_compliant: true
 wave_0_complete: true
 created: 2026-06-25
+verified: 2026-06-25
 ---
 
 # Phase 171 — Validation Strategy
@@ -86,4 +87,4 @@ Existing infrastructure reused (no new Wave 0 scaffolds beyond migration):
 - [x] Feedback latency < 60s
 - [x] `nyquist_compliant: true` set in frontmatter after execution
 
-**Approval:** Phase 171 automated validation complete (2026-06-25)
+**Approval:** Phase 171 automated validation complete (2026-06-25). Manual browser UAT remains accepted milestone tech debt, tracked in the v13.3 audit.

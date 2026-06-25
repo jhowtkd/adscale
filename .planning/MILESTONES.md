@@ -1,5 +1,30 @@
 # Milestones: ADScale
 
+## v13.3 Tracao Multi-Cliente (Shipped with tech debt: 2026-06-25)
+
+**Phases completed:** 5 phases (168→172), 16 plans
+**Requirements:** 23/23 complete
+**Audit:** `tech_debt` — automated verification green; operational evidence `insufficient_sample`
+
+**Key accomplishments:**
+
+- Generic human-quality evaluation → decision/calibration bridge for any `clientProfileId` with cross-profile isolation tests (Phase 168)
+- Source-labeled corpus promotion with `fixtureOnly` claim gates and dual technical/operational release evidence (Phase 169)
+- "Curator > operator" narrative rollout with automated forbidden-pattern copy guard across authenticated surfaces (Phase 170)
+- Profile and workspace settings persisted via backend APIs; Zustand mock slices removed; honest tab gating (Phase 171)
+- `FactualAlertsPanel` with safe evidence links mounted in corpus Learning and brand Propostas tabs (Phase 172)
+- v13.3 release gate orchestrator (`run-v13-3-release-gate.mjs`) with `172-EVIDENCE.json`: `technicalRegression: pass`, `operationalEvidence: insufficient_sample`
+
+**Known tech debt (accepted):**
+
+- No production multi-brand `real_customer` corpus at scale; `activeBrandSample.fixtureOnly: true`
+- Owner smoke checklist (`172-RELEASE-CHECKLIST.md`) not completed with live workspace data
+- Manual UAT deferred: settings hard-refresh/logout, narrative tone walk, integrations badge visual spot-check
+
+Archive: [v13.3-ROADMAP.md](milestones/v13.3-ROADMAP.md) · [v13.3-REQUIREMENTS.md](milestones/v13.3-REQUIREMENTS.md) · [v13.3-MILESTONE-AUDIT.md](milestones/v13.3-MILESTONE-AUDIT.md)
+
+---
+
 ## v13.2 Calibração Multi-Marca (Shipped: 2026-06-24)
 
 **Phases completed:** 11 phases, 27 plans, 37 tasks

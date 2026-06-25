@@ -45,9 +45,9 @@ verified: 2026-06-25
 | 172-02-02 | 02 | 2 | ALERT-01, ALERT-03 | integration | `cd app && npm test -- --run src/components/admin/OwnerCalibrationPanel.test.tsx` | yes | green |
 | 172-03-01 | 03 | 3 | ALERT-04 | unit | `cd app && npm test -- --run tests/unit/release/v13-3-release-evidence.test.ts` | yes | green |
 | 172-03-02 | 03 | 3 | ALERT-04 | script | `node app/scripts/check-v13-3-release-evidence.mjs --skip-tests` | yes | green |
-| 172-03-03 | 03 | 3 | ALERT-01..04 | manual | See `172-RELEASE-CHECKLIST.md` smoke steps | yes | green |
+| 172-03-03 | 03 | 3 | ALERT-01..04 | manual | See `172-RELEASE-CHECKLIST.md` smoke steps | yes | deferred |
 
-*Status: pending · green · red · flaky*
+*Status: pending · green · red · flaky · deferred*
 
 ---
 
@@ -87,3 +87,5 @@ Plan 01 creates `FactualAlertsPanel.test.tsx` as part of Task 2 (TDD behavior bl
 - [x] `nyquist_compliant: true` after execution
 
 **Approval:** Phase 172 execution complete — 2026-06-25
+
+Manual owner smoke remains accepted milestone tech debt until `172-RELEASE-CHECKLIST.md` is completed against live workspace data. This does not change automated Nyquist coverage or the v13.3 technical release gate.

@@ -10,23 +10,38 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Current State
 
-v13.2 Calibração Multi-Marca is active as of 2026-06-23. O milestone generaliza calibração de gosto de marca para qualquer `clientProfile`, substitui hardcode Cenbrap por configuração por marca, conecta avaliações do corpus global a perfis/regras por cliente e aplica constraints no prompt-builder — com operação owner-only e claims gate honesto.
+v13.3 Tracao Multi-Cliente shipped 2026-06-25 with accepted tech debt. ADScale now proves client-agnostic product traction: generic human decision intake, source-labeled corpus with claim gates, curator narrative, persistent settings, and factual alerts work for any `clientProfile`. Cenbrap remains seed/fixture compatibility data only. Technical regression passes across phases 168–172; operational evidence is honestly `insufficient_sample` until live owner corpus and smoke complete.
 
-### v13.2 Calibração Multi-Marca — ACTIVE (started 2026-06-23)
+**Next:** Plan the next milestone via `$gsd-new-milestone`. Operational follow-up: run `172-RELEASE-CHECKLIST.md`, import `real_customer` corpus for at least one non-fixture brand, optional manual UAT for settings refresh and narrative tone.
 
-**Goal:** Generalizar calibração de gosto de marca para qualquer clientProfile, substituindo hardcode Cenbrap por configuração por marca e fechando o caminho corpus → perfil → regras aprovadas → prompt.
+### v13.3 Tracao Multi-Cliente — SHIPPED WITH TECH DEBT (2026-06-25)
 
-**Target features:**
-- Configuração de voz/constituição Olhar por `clientProfile` em vez de detecção hardcoded Cenbrap
-- Perfil de gosto e regras aprovadas inspecionáveis por marca no painel owner-only
-- Avaliações do corpus global alimentam sinais e propostas de regra para qualquer marca
-- Aceite owner de propostas cliente (`corpus_quality`) com aplicação no prompt-builder
-- Bootstrap de perfil por marca via decisões/avaliações importadas ou acumuladas
+**Goal:** Transformar a infraestrutura multi-marca em fluxo cliente-agnostico: decisoes humanas, corpus real, claims gate, narrativa e settings persistentes devem funcionar para qualquer cliente/marca.
+
+**Delivered:**
+- Generic human-quality evaluation → decision/calibration bridge for any `clientProfileId` with cross-profile isolation tests
+- Source-labeled corpus promotion/import with `fixtureOnly` claim gates and dual technical/operational release evidence
+- "Curator > operator" narrative rollout with automated copy guard across authenticated workflow surfaces
+- Profile and workspace settings persisted via backend APIs with deterministic save/error/loading UX
+- `FactualAlertsPanel` mounted in corpus Learning and brand Propostas tabs; v13.3 release gate orchestrator and `172-EVIDENCE.json`
+
+**Tech debt accepted:** `operationalEvidence: insufficient_sample` (`activeBrandSample.fixtureOnly: true`); owner smoke checklist not completed with live workspace data; manual UAT deferred for settings hard-refresh/logout, narrative tone walk, and live multi-brand corpus at scale.
+
+**Current status:** 23/23 requirements satisfied with automated verification. Customer-real, agreement-rate and quality-improvement claims remain blocked until sample/source sufficiency is real per brand.
+
+### v13.2 Calibracao Multi-Marca — SHIPPED (2026-06-24)
+
+**Goal:** Generalizar calibracao de gosto de marca para qualquer clientProfile, substituindo hardcode Cenbrap por configuracao por marca e fechando o caminho corpus → perfil → regras aprovadas → prompt.
+
+**Target features delivered:**
+- Configuracao de voz/constituicao Olhar por `clientProfile` em vez de deteccao hardcoded Cenbrap
+- Perfil de gosto e regras aprovadas inspecionaveis por marca no painel owner-only
+- Avaliacoes do corpus global alimentam propostas e regras para marcas
+- Aceite owner de propostas cliente (`corpus_quality`) com aplicacao no prompt-builder
 - Claims gate preserva honestidade de amostra e source composition por marca
+- Promocao cross-client sem vazamento de regras entre prompts de marcas diferentes
 
-**Why now:** v13.0 entregou infraestrutura brand-taste acoplada ao fluxo Cenbrap/fixtures; v13.1 criou corpus global owner-only, mas o aprendizado ainda não generaliza voz e regras para todas as marcas de forma produtizada.
-
-**Current status:** Milestone v13.2 started; Phase 162 ready to plan. Carry-forward: decisões Jhonatan Cenbrap pendentes, claims customer-real bloqueados até amostra suficiente.
+**Current status:** Phases 162-167 complete. Infrastructure shipped; v13.3 carries forward the product proof gap by making decision intake and real corpus explicitly client-agnostic.
 
 ### v13.1 Global Owner Quality Corpus — SHIPPED WITH TECH DEBT (2026-06-20)
 
@@ -385,14 +400,19 @@ Delivered: credit estimate transparency, enriched credit events, delivery/stale 
 - ✓ **FIX-01–05**: Ranked friction backlog, five surgical fixes, and v11.9 deferral doc — v11.8
 - ✓ **QA-01–03**: Instrumentation integration tests, owner 403 guards, test/lint/build green — v11.8
 
+### Validated (v13.3)
+
+- ✓ **DECISION-01..05**: Client-agnostic human decision intake with per-brand evidence isolation — v13.3
+- ✓ **SOURCE-01..05**: Source-labeled corpus promotion, composition surfaces, and claim gates — v13.3
+- ✓ **BRAND-01..04**: Curator > operator narrative rollout with copy guard — v13.3
+- ✓ **TRUST-01..05**: Persistent profile/workspace settings with honest tab gating — v13.3
+- ✓ **ALERT-01..04**: Factual issue alerts UI and v13.3 release gate — v13.3
+
 ### Active
 
-- [ ] Substituir hardcode Cenbrap por configuracao de voz/constituicao Olhar por `clientProfile`
-- [ ] Expor perfil de gosto e regras aprovadas por marca em superficie owner-only
-- [ ] Conectar avaliacoes do corpus global a sinais e propostas de regra por `clientProfile`
-- [ ] Permitir aceite owner de propostas cliente (`corpus_quality`) com aplicacao no prompt-builder
-- [ ] Bootstrap de perfil por marca a partir de decisoes/avaliacoes acumuladas
-- [ ] Preservar claims gate honesto por marca (amostra, source composition, fixture vs customer-real)
+- [ ] Complete owner smoke checklist with live workspace data (`172-RELEASE-CHECKLIST.md`)
+- [ ] Import `real_customer` corpus for at least one non-fixture `clientProfileId` to move operational evidence off `insufficient_sample`
+- [ ] Define next milestone scope via `$gsd-new-milestone`
 
 ### Validated (v10.0)
 
@@ -436,7 +456,7 @@ Delivered: credit estimate transparency, enriched credit events, delivery/stale 
 
 ## Context
 
-Current state: v13.2 active. v13.1 shipped global owner corpus infrastructure; v13.0 shipped brand-taste calibration but Cenbrap remains hardcoded. The immediate product goal is productizing per-brand taste calibration: any clientProfile gets inspectable profile, approved rules, and prompt constraints fed by global corpus evaluations — without Cenbrap-specific detection paths.
+Current state: v13.3 shipped 2026-06-25 with accepted tech debt. Client-agnostic traction infrastructure is in place: generic decision intake, source-labeled corpus with claim gates, curator narrative, persistent settings, and factual alerts for any `clientProfile`. Cenbrap remains seed/fixture only. Operational evidence is honestly `insufficient_sample` until live owner corpus and smoke complete; customer-real claims stay blocked by design.
 
 v12.7 treated ADScale as a tool that scales creative criterion, not just variation volume. v12.8 now tests that criterion operationally: real campaigns, contact sheets, human decisions and honest evidence refresh.
 
@@ -501,6 +521,7 @@ Key stack decisions:
 | Source labels before customer claims | Fixture rows can validate operation but cannot support customer-real claims | — Pending — v12.9 |
 | Human judgment as calibration, not throughput | Decisions should create reusable taste rules and reduce future uncertainty | ✓ Good — v13.0 infrastructure shipped |
 | Global owner corpus before global claims | Owner can review all generated creatives, but product claims require sample and source sufficiency | — Pending — v13.1 |
+| Client-agnostic traction before calibration depth | A test client fixture cannot become the product proof; generic decision/source flows and product trust come before deeper owner-only calibration panels | ✓ Good — v13.3 shipped with operational evidence debt |
 
 ## Evolution
 
@@ -520,7 +541,7 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-23 — v13.2 Calibração Multi-Marca started after v13.1 closure*
+*Last updated: 2026-06-25 — after v13.3 Tracao Multi-Cliente milestone completion*
 
 ## Milestone History
 

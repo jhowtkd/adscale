@@ -1,7 +1,7 @@
 ---
 phase: 169
 slug: real-corpus-and-claim-gates
-status: planned
+status: complete
 nyquist_compliant: true
 wave_0_complete: true
 created: 2026-06-25

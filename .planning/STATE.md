@@ -1,136 +1,81 @@
 ---
 gsd_state_version: 1.0
-milestone: v13.3
-milestone_name: Tracao Multi-Cliente
-status: verifying
-stopped_at: Completed 172-03-PLAN.md
-last_updated: "2026-06-25T09:19:31.256Z"
+milestone: null
+milestone_name: null
+status: milestone_complete
+stopped_at: Milestone v13.3 complete
+last_updated: "2026-06-25T12:30:00.000Z"
 last_activity: 2026-06-25
 progress:
-  total_phases: 5
-  completed_phases: 5
-  total_plans: 16
-  completed_plans: 16
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-06-25)
+See: .planning/PROJECT.md (updated 2026-06-25 after v13.3 completion)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** v13.3 — Tracao Multi-Cliente
+**Current focus:** Planning next milestone (`$gsd-new-milestone`)
 
 ## Current Position
 
-Phase: 170 of 172 (product narrative rollout)
-Plan: 3 of 3 — copy guard wave 0 complete
-Status: Phase complete — ready for verification
+Milestone: v13.3 Tracao Multi-Cliente — **shipped 2026-06-25** (tech debt accepted)
+Status: Milestone complete — no active phase
 Last activity: 2026-06-25
 
-Progress: [██░░░░░░░░] 2/5 phases
+Progress: v13.3 closed — 5 phases, 16 plans, 23/23 requirements
 
-## Performance Metrics
+## Shipped Milestone Summary (v13.3)
 
-**Velocity:** v13.2 Phases 162-167 complete; v13.3 planning reset started.
+| Phase | Plans | Status | Completed |
+|-------|-------|--------|-----------|
+| 168 Client-Agnostic Human Decision Intake | 3/3 | Complete | 2026-06-25 |
+| 169 Real Corpus and Claim Gates | 3/3 | Complete | 2026-06-25 |
+| 170 Product Narrative Rollout | 3/3 | Complete | 2026-06-25 |
+| 171 Persistent Product Trust Baseline | 4/4 | Complete | 2026-06-25 |
+| 172 Operational Evidence UI and Release Gate | 3/3 | Complete | 2026-06-25 |
 
-| Phase | Plans | Status |
-|-------|-------|--------|
-| 168 | 3/3 | Complete |
-| 169 | 3/3 | Complete |
-| 170 | 1/3 | In Progress |
-| 171 | 0/TBD | Planned |
-| 172 | 0/TBD | Planned |
-| Phase 169-real-corpus-and-claim-gates P01 | 12 | 3 tasks | 6 files |
-| Phase 169-real-corpus-and-claim-gates P02 | 18 | 4 tasks | 11 files |
-| Phase 169-real-corpus-and-claim-gates P03 | 12 | 4 tasks | 11 files |
-| Phase 170-product-narrative-rollout P01 | 8 | 2 tasks | 2 files |
-| Phase 170-product-narrative-rollout P02 | 5 | 2 tasks | 3 files |
-| Phase 170 P03 | 12 | 2 tasks | 8 files |
-| Phase 171-persistent-product-trust-baseline P01 | 25 | 3 tasks | 11 files |
-| Phase 171-persistent-product-trust-baseline P03 | 15 | 2 tasks | 3 files |
-| Phase 171-persistent-product-trust-baseline P02 | 12 | 2 tasks | 3 files |
-| Phase 171-persistent-product-trust-baseline P04 | 12 | 2 tasks | 5 files |
-| Phase 172-operational-evidence-ui-and-release-gate P01 | 4 | 2 tasks | 2 files |
-| Phase 172-operational-evidence-ui-and-release-gate P02 | 8 | 3 tasks | 4 files |
-| Phase 172-operational-evidence-ui-and-release-gate P03 | 12 | 3 tasks | 7 files |
+**Audit:** `tech_debt` — requirements 23/23, integration 14/14, flows 6/6 automated. `172-EVIDENCE.json`: `technicalRegression: pass`, `operationalEvidence: insufficient_sample`.
+
+**Archive:** `.planning/milestones/v13.3-ROADMAP.md` · `v13.3-REQUIREMENTS.md` · `v13.3-MILESTONE-AUDIT.md` · `v13.3-phases/`
 
 ## Accumulated Context
 
-### Decisions
+### Decisions (v13.3 — archived)
 
-- [v13.3]: Product proof must be client-agnostic. Cenbrap is seed/fixture compatibility data, not a product-model client.
-- [v13.3]: Human decision intake targets any `clientProfileId`, not a Cenbrap-specific workflow.
-- [v13.3]: Claims require source/sample sufficiency for the selected brand; fixture-only evidence validates operation only.
-- [v13.3]: Product trust and narrative take priority over deeper owner-only calibration operations.
-- [v13.3]: "Curator > operator" rollout belongs in authenticated workflow surfaces, not only marketing docs.
-- [v13.3]: Settings persistence is product trust groundwork, not a future feature axis.
-- [v13.2]: Replace Cenbrap hardcode with per-clientProfile Olhar/voice configuration.
-- [v13.2]: Owner-only operation for calibration; no workspace admin or end-user calibration UI.
-- [v13.2]: Corpus global evaluations feed per-brand profiles and `corpus_quality` rules.
-- [v13.2]: Prompt-builder is primary generation impact surface.
-- [v13.2]: No freeform voice editor — inspectable profile + approved rules only.
-- [Phase 168]: Evaluation-scoped idempotency keys prevent duplicate calibration signals on corpus evaluation retries
-- [Phase 168]: Skip calibration signal when corpus item clientProfileId is null; still record output decision evidence
-- [Phase 168]: Queue clientProfileId filter exposed in global corpus scope alongside other dimension filters
-- [Phase 168]: Fixture and operator-imported corpus rows show distinct inline evidence caveats
+- Product proof must be client-agnostic; Cenbrap is seed/fixture only
+- Claims require source/sample sufficiency per brand; fixture-only validates operation, not customer-real proof
+- Release evidence separates technical regression from operational evidence status
+- Settings persistence via API hooks is product trust groundwork
+- v13.3 root status `tech_debt` when technical pass and operational `insufficient_sample`
 
-- [Phase 168]: Per-brand evidence tests require profile-scoped signal filtering before buildPerBrandEvidenceReport
-- [Phase 168]: Cenbrap remains fixture/seed only; phase verification documents accepted gaps for customer-real corpus
-- [Phase 169]: Plan source-labeled corpus intake as generic promotion/import for any `clientProfileId`, not a Cenbrap-specific path
-- [Phase 169]: Claim gates must evaluate active workspace/profile source composition; operator-imported evidence remains distinct from real-customer proof
-- [Phase 169]: Release evidence must separate technical regression pass from operational source/sample sufficiency
-- [Phase 169]: Owner promotion accepts operator_imported/real_customer explicitly; synthetic_fixture only when candidate already has it
-- [Phase 169]: Candidate source label override persists at markCorpusCandidatePromoted for queue/evidence joins
-- [Phase 169]: fixtureOnly blocks customer-real claims when active scope has zero real_customer rows
-- [Phase 169]: Sampling sub-services accept clientProfileId so scoped evidence does not fall back to global rows
-- [Phase 169]: Owner global evidence route validates workspaceId/clientProfileId as UUID query params
-- [Phase 169]: Release evidence activeBrandSample separates technical pass from customer-real claim eligibility
-- [Phase 169]: claim_withheld root status when active brand scope has zero real_customer rows
-- [Phase 170]: Auth magic-link keys excluded from magic hype pattern in copy guard
-- [Phase 170]: Curator vocabulary positive tests deferred to Plan 02 via todo/skip
-- [Phase 170]: Gallery empty keys under derivation namespace; Plan 02 updated derivation.empty* not generation.*
-- [Phase 170]: Campaigns list empty copy uses common.* keys wired by useCampaignsPage
-- [Phase 170]: Workflow copy uses AI-assisted variation framing; human approval required before ship
-- [Phase 170]: Review olhar/export internals unchanged; curator framing on general guidance keys only
-- [Phase 171]: Profile PATCH rejects email via zod strict; workspace slug conflicts return 409 via pre-update lookup
-- [Phase 171]: canEdit optional on workspace settings GET; member save blocked via PATCH 403 until API exposes role
-- [Phase 171]: ProfileTab pendingAvatarFile uses state for reactive hasChanges; avatar uploads on Save
-- [Phase 171]: defaultTabId pinned to brandKit while profile/workspace tabs enabled for honest navigation
-- [Phase 171]: Zustand profile/workspace mock slices removed; API hooks are persistence source of truth
-- [Phase 172]: Stats displayed with labeled rows in FactualAlertsPanel for operator scanability
-- [Phase 172]: Corpus evidence links to /feedback with id label; artifacts count-only per D-02
-- [Phase 172]: Workspace Learning tab omits clientProfileId for workspace-level factual alerts
-- [Phase 172]: Factual alerts mounted above proposals with space-y-6 on both owner surfaces
-- [Phase 172]: v13.3 release gate uses phaseSurfaces 168-172 vitest subsets; operational insufficient_sample until live smoke
-- [Phase 172]: Root status tech_debt when technical pass and operational insufficient_sample (no customer overclaim)
+### Open Operational Follow-up (not blocking next milestone)
 
-### Blockers/Concerns
-
-- Existing Cenbrap evidence remains fixture/seed unless replaced or supplemented by generic real-client corpus and decisions.
-- Customer-real, agreement-rate and quality-improvement claims stay blocked until sample/source sufficiency is real per brand.
-- `marketing/brand/conceituacao.md` appears untracked in the current worktree; Phase 170 should confirm whether this copy is approved before applying it.
-- Local worktree has unrelated marketing/testsprite/media changes; keep planning edits scoped unless user asks to commit everything.
+- Run `172-RELEASE-CHECKLIST.md` against live workspace with real data
+- Import `real_customer` corpus for at least one non-fixture `clientProfileId`
+- Optional manual UAT: settings hard-refresh/logout, narrative tone walk, integrations badge visual spot-check
 
 ### Deferred Items
 
 | Category | Item | Status | Deferred At |
 |----------|------|--------|-------------|
-| v13.3+ | Manual approve/deprecate calibration rules | Deferred | tracao before calibration depth |
-| v13.3+ | Uncertainty queue routing automation | Deferred | needs real multi-client operating data |
-| v13.3+ | Multi-brand evidence dashboard index | Deferred | needs broader evidence first |
-| v13.3+ | Freeform voice constitution editor | Deferred | v13.2/v13.3 scoping |
-| v13.3+ | Competitor analysis UI | Deferred | creative axis after narrative/data foundation |
-| v13.3+ | Smart resize preview UI | Deferred | creative axis after narrative/data foundation |
-| v13.3+ | Performance learnings in generation prompt | Deferred | creative-learning axis after foundation |
-| v14+ | Meta/Google/TikTok integrations | Deferred | large OAuth/distribution surface |
+| v14+ | Manual approve/deprecate calibration rules | Deferred | after real multi-client evidence |
+| v14+ | Uncertainty queue routing automation | Deferred | needs real operating data |
+| v14+ | Multi-brand evidence dashboard index | Deferred | needs broader evidence first |
+| v14+ | Competitor analysis UI | Deferred | creative axis |
+| v14+ | Smart resize preview UI | Deferred | creative axis |
+| v14+ | Performance learnings in generation prompt | Deferred | creative-learning axis |
+| v14+ | Meta/Google/TikTok integrations | Deferred | large OAuth surface |
 
 ## Session Continuity
 
-Last session: 2026-06-25T09:19:31.253Z
-Stopped at: Completed 172-03-PLAN.md
+Last session: 2026-06-25
+Stopped at: Milestone v13.3 complete
 Resume file: None
-Next command: `$gsd-execute-phase 170` (Plan 02)
+Next command: `$gsd-new-milestone`

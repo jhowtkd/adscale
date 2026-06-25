@@ -2,7 +2,7 @@
 
 ## Milestones
 
-- 🚧 **v13.3 Tracao Multi-Cliente** - Phases 168-172 (active — roadmap defined 2026-06-25)
+- ✅ **v13.3 Tracao Multi-Cliente** - Phases 168-172 (shipped 2026-06-25; tech debt: operational evidence `insufficient_sample`, live owner smoke pending)
 - ✅ **v13.2 Calibracao Multi-Marca** - Phases 162-167 (shipped 2026-06-24; tech debt: generic real-client evidence still needed)
 - 🔄 **v13.1 Global Owner Quality Corpus** - Phases 157-161 (passed_with_tech_debt — commit pending)
 - ✅ **v13.0 Brand Taste Calibration Loop** - Phases 151-156 (shipped 2026-06-20; tech debt: fixture-only corpus, agreement claims blocked)
@@ -17,148 +17,28 @@
 - ✅ **v12.1 Memória Criativa e Aprendizado de Performance** - Phases 103-108 (shipped 2026-06-12)
 - ✅ **v12.0 Monetização Real** - Phases 97-102 (shipped 2026-06-11)
 
-## Active Milestone
+## Next Milestone
 
-### 🚧 v13.3 Tracao Multi-Cliente (Phases 168-172)
+No active milestone. Run `$gsd-new-milestone` to define the next version.
+
+## Completed Milestone Context
+
+### ✅ v13.3 Tracao Multi-Cliente (Phases 168-172)
 
 **Milestone Goal:** Corrigir a direcao pos-v13.2 para que ADScale prove tracao de produto de forma cliente-agnostica: decisoes humanas, corpus real, narrativa, settings persistentes e alertas operacionais devem funcionar para qualquer `clientProfile`, sem tratar Cenbrap como cliente-modelo.
 
-**Guiding constraints:**
-- Cenbrap can remain as fixture/seed compatibility data only.
-- External claims require sample/source sufficiency per selected brand.
-- Product trust and narrative take priority over deeper owner-only calibration operations.
-- Do not ship new creative feature axes before the customer-agnostic foundation is credible.
+**Completed 2026-06-25:**
+- Phase 168: Client-Agnostic Human Decision Intake (3/3 plans)
+- Phase 169: Real Corpus and Claim Gates (3/3 plans)
+- Phase 170: Product Narrative Rollout (3/3 plans)
+- Phase 171: Persistent Product Trust Baseline (4/4 plans)
+- Phase 172: Operational Evidence UI and Release Gate (3/3 plans)
 
-| # | Phase | Requirements | Status | Completed |
-|---|-------|--------------|--------|-----------|
-| 168 | Client-Agnostic Human Decision Intake | DECISION-01..05 | Complete | 2026-06-25 |
-| 169 | Real Corpus and Claim Gates | Complete    | 2026-06-25 | 2026-06-25 |
-| 170 | Product Narrative Rollout | Complete    | 2026-06-25 | 2026-06-25 |
-| 171 | Persistent Product Trust Baseline | Complete    | 2026-06-25 | 2026-06-25 |
-| 172 | Operational Evidence UI and Release Gate | 3/3 | Complete   | 2026-06-25 |
+**Tech debt accepted:** `172-EVIDENCE.json` reports `technicalRegression: pass` and `operationalEvidence: insufficient_sample` (`activeBrandSample.fixtureOnly: true`, zero `real_customer` rows). Owner smoke checklist (`172-RELEASE-CHECKLIST.md`) and manual UAT for settings refresh, narrative tone, and live multi-brand corpus remain operational follow-up — not blockers for milestone closure.
 
-## Phase Details
+**Carry-forward:** Customer-real, agreement-rate and quality-improvement claims stay blocked until live owner corpus and smoke complete per brand.
 
-### Phase 168: Client-Agnostic Human Decision Intake
-
-**Goal:** Let the owner record human creative judgments for any brand/profile without Cenbrap-specific scripts or assumptions.
-
-**Depends on:** v13.2 clientProfile-scoped calibration infrastructure and global corpus owner access.
-
-**Requirements**: DECISION-01, DECISION-02, DECISION-03, DECISION-04, DECISION-05
-
-**Success Criteria** (what must be TRUE):
-  1. Owner can record a bounded judgment for an eligible item tied to any `clientProfileId`.
-  2. Persisted decision evidence includes workspace, `clientProfileId`, source label, reviewer, reviewedAt, verdict and rationale.
-  3. UI and evidence copy explicitly frame Cenbrap as fixture/seed data when it appears.
-  4. Per-brand evidence updates from the generic decision path.
-  5. Cross-profile isolation is covered by automated tests.
-
-**Plans:** 3/3 plans complete
-
-Plans:
-- [x] 168-01-PLAN.md - Generic evaluation-to-decision bridge
-- [x] 168-02-PLAN.md - Client-agnostic queue UI and fixture-safe copy
-- [x] 168-03-PLAN.md - Evidence isolation and phase verification
-
----
-
-### Phase 169: Real Corpus and Claim Gates
-
-**Goal:** Give the product a generic path for real customer/operator corpus rows and keep claims blocked until source/sample sufficiency is real.
-
-**Depends on:** Phase 168
-
-**Requirements**: SOURCE-01, SOURCE-02, SOURCE-03, SOURCE-04, SOURCE-05
-
-**Success Criteria** (what must be TRUE):
-  1. Owner can import or promote corpus rows for any `clientProfileId` with explicit `sourceLabel`.
-  2. Evidence surfaces show `synthetic_fixture`, `operator_imported` and `real_customer` composition.
-  3. Fixture-only rows validate operation but never unlock customer-real claims.
-  4. Brand-level claim gates use the selected profile's source/sample sufficiency.
-  5. Release evidence separates technical regression from operational evidence status.
-
-**Plans:** 3/3 plans complete
-
-Plans:
-- [x] 169-01-PLAN.md - Source-labeled candidate promotion and intake
-- [x] 169-02-PLAN.md - Active-scope evidence and claim gates
-- [x] 169-03-PLAN.md - Release evidence and phase verification
-
----
-
-### Phase 170: Product Narrative Rollout
-
-**Goal:** Move approved product positioning into the authenticated app so users understand ADScale as a curator workflow, not a generic image generator.
-
-**Depends on:** marketing/brand/conceituacao.md approval status and existing app copy surfaces.
-
-**Requirements**: BRAND-01, BRAND-02, BRAND-03, BRAND-04
-
-**Success Criteria** (what must be TRUE):
-  1. "Curator > operator" language appears where it clarifies user workflow decisions.
-  2. Onboarding and empty states explain the curator role without internal calibration jargon.
-  3. Campaign creation, generation, review and settings use consistent product language.
-  4. Review checklist prevents overclaims about automation, performance lift or customer-real proof.
-
-**Plans:** 3/3 plans complete
-
-Plans:
-- [x] 170-01-PLAN.md — In-app copy checklist and automated copy guard (BRAND-04)
-- [x] 170-02-PLAN.md — Onboarding tour and empty-state curator narrative (BRAND-01, BRAND-02)
-- [x] 170-03-PLAN.md — Workflow copy alignment and phase verification (BRAND-01, BRAND-03, BRAND-04)
-
----
-
-### Phase 171: Persistent Product Trust Baseline
-
-**Goal:** Remove first-use trust breaks from settings by making profile and workspace state persistent, deterministic and honestly gated.
-
-**Depends on:** Existing settings UI and workspace/user APIs.
-
-**Requirements**: TRUST-01, TRUST-02, TRUST-03, TRUST-04, TRUST-05
-
-**Success Criteria** (what must be TRUE):
-  1. Profile settings save through backend persistence and survive refresh/login changes.
-  2. Workspace settings save through backend persistence and survive refresh/login changes.
-  3. Disabled tabs are hidden or shown with honest unavailable states.
-  4. Save, error and loading behavior is deterministic and tested.
-  5. Existing settings surfaces retain their current behavior.
-
-**Plans:** 4/4 plans complete
-
-Plans:
-- [x] 171-01-PLAN.md — Schema + profile/workspace settings APIs with route tests
-- [x] 171-02-PLAN.md — Profile hook and ProfileTab API wiring
-- [x] 171-03-PLAN.md — Workspace hook and WorkspaceTab API wiring
-- [x] 171-04-PLAN.md — Tab enablement, store cleanup, regression guard
-
----
-
-### Phase 172: Operational Evidence UI and Release Gate
-
-**Goal:** Surface existing factual issue alerts and close v13.3 with evidence that the new client-agnostic surfaces are usable and honest.
-
-**Depends on:** Phase 168, Phase 169 and existing factual-alerts API.
-
-**Requirements**: ALERT-01, ALERT-02, ALERT-03, ALERT-04
-
-**Success Criteria** (what must be TRUE):
-  1. Owner can see factual issue alerts in the quality/admin UI.
-  2. Alerts link to relevant workspace/profile/slice evidence without exposing private prompt or storage data.
-  3. UI distinguishes factual issues from promptable corpus-quality rules.
-  4. Release checklist covers decision intake, real corpus/source gates, narrative rollout, settings persistence and alerts.
-
-**Plans:** 3/3 plans complete
-
-Plans:
-- [x] 172-01-PLAN.md — FactualAlertsPanel component with safe evidence links and unit tests
-- [x] 172-02-PLAN.md — Mount alerts in corpus Learning tab and brand Propostas tab
-- [x] 172-03-PLAN.md — v13.3 release gate, evidence artifact, and smoke checklist
-
----
-
-## Completed Milestone Context
+Archive: [v13.3-ROADMAP.md](milestones/v13.3-ROADMAP.md) · [v13.3-REQUIREMENTS.md](milestones/v13.3-REQUIREMENTS.md) · [v13.3-MILESTONE-AUDIT.md](milestones/v13.3-MILESTONE-AUDIT.md)
 
 ### ✅ v13.2 Calibracao Multi-Marca (Phases 162-167)
 
@@ -174,7 +54,7 @@ Plans:
 
 **Carry-forward into v13.3:** v13.2 proved the infrastructure, but not customer-agnostic product traction. Cenbrap evidence remains fixture/seed unless replaced by generic real-client corpus and decisions.
 
-Previous archive: [v13.2-ROADMAP.md](milestones/v13.2-ROADMAP.md) · [v13.2-REQUIREMENTS.md](milestones/v13.2-REQUIREMENTS.md)
+Archive: [v13.2-ROADMAP.md](milestones/v13.2-ROADMAP.md) · [v13.2-REQUIREMENTS.md](milestones/v13.2-REQUIREMENTS.md)
 
 ## Progress
 
@@ -187,10 +67,10 @@ Previous archive: [v13.2-ROADMAP.md](milestones/v13.2-ROADMAP.md) · [v13.2-REQU
 | 166 | v13.2 | 2/2 | Complete | 2026-06-24 |
 | 167 | v13.2 | 3/3 | Complete | 2026-06-24 |
 | 168 | v13.3 | 3/3 | Complete | 2026-06-25 |
-| 169 | v13.3 | 0/3 | Planned | - |
-| 170 | v13.3 | 0/TBD | Planned | - |
-| 171 | v13.3 | 0/4 | Planned | - |
-| 172 | v13.3 | 0/TBD | Planned | - |
+| 169 | v13.3 | 3/3 | Complete | 2026-06-25 |
+| 170 | v13.3 | 3/3 | Complete | 2026-06-25 |
+| 171 | v13.3 | 4/4 | Complete | 2026-06-25 |
+| 172 | v13.3 | 3/3 | Complete | 2026-06-25 |
 
 ---
-*Roadmap updated: 2026-06-25 — v13.3 Tracao Multi-Cliente defined*
+*Roadmap updated: 2026-06-25 — v13.3 Tracao Multi-Cliente shipped with accepted tech debt*
