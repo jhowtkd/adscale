@@ -83,6 +83,20 @@ export function useAssistantChat(threadId: string | null) {
             const delta = typeof frame.data.text === "string" ? frame.data.text : "";
             assistantText += delta;
             setStreamingText(assistantText);
+          } else if (frame.event === "tool_summary") {
+            const toolName =
+              typeof frame.data.toolName === "string"
+                ? frame.data.toolName
+                : "tool";
+            const summary =
+              typeof frame.data.summary === "string" ? frame.data.summary : "";
+            const toolMessage: AssistantChatMessage = {
+              id: createLocalId("tool"),
+              type: "tool",
+              content: summary,
+              payload: { toolName, summary },
+            };
+            setMessages((prev) => [...prev, toolMessage]);
           } else if (frame.event === "action_card") {
             const actionRecordId =
               typeof frame.data.actionRecordId === "string"

@@ -129,7 +129,32 @@ export function useAssistantThreads(
   });
 }
 
-export function useAssistantThread(threadId: string | null) {
+const ACTIVE_ACTION_CARD_STATUSES = new Set([
+  "pending",
+  "confirmed",
+  "running",
+]);
+
+function threadHasActiveActionCards(
+  messages: AssistantMessage[] | undefined
+): boolean {
+  return (
+    messages?.some((message) => {
+      if (message.type !== "action_card") {
+        return false;
+      }
+      const status = message.payload.status;
+      return (
+        typeof status === "string" && ACTIVE_ACTION_CARD_STATUSES.has(status)
+      );
+    }) ?? false
+  );
+}
+
+export function useAssistantThread(
+  threadId: string | null,
+  options?: { pollWhileActive?: boolean }
+) {
   return useQuery({
     queryKey: threadId
       ? assistantThreadQueryKey(threadId)
@@ -137,6 +162,14 @@ export function useAssistantThread(threadId: string | null) {
     queryFn: () => fetchAssistantThread(threadId!),
     enabled: !!threadId,
     staleTime: STALE_TIME.DYNAMIC,
+    refetchInterval: options?.pollWhileActive
+      ? (query) => {
+          const data = query.state.data as AssistantThreadDetail | undefined;
+          return threadHasActiveActionCards(data?.messages)
+            ? STALE_TIME.REALTIME
+            : false;
+        }
+      : false,
   });
 }
 
