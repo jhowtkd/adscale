@@ -376,8 +376,22 @@
     {
       "idx": 53,
       "version": "7",
-      "when": 1782475200000,
+      "when": 1782561600000,
       "tag": "0054_rubric_calibration_reject",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1782648000000,
+      "tag": "0055_user_workspace_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1782734400000,
+      "tag": "0056_client_profiles_multi_workspace",
       "breakpoints": true
     }
   ]

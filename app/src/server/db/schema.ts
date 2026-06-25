@@ -315,7 +315,6 @@ export const clientProfiles = adscaleSchema.table(
       .$defaultFn(() => crypto.randomUUID()),
     workspaceId: uuid("workspace_id")
       .notNull()
-      .unique()
       .references(() => workspaces.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     description: text("description"),
