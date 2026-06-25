@@ -221,13 +221,8 @@ describe("product narrative copy guard (Phase 170 / BRAND-04)", () => {
   });
 
   describe("curator vocabulary (Plan 02)", () => {
-    it.todo(
-      "onboarding step descriptions include curator-role vocabulary once copy is rewritten in Plan 02"
-    );
-
-    // Scaffold assertion — enabled when Plan 02 lands (remove .todo above).
     for (const stepKey of CURATOR_STEP_KEYS) {
-      it.skip(`[Plan 02] onboarding.${stepKey} includes curator vocabulary`, () => {
+      it(`onboarding.${stepKey} includes curator vocabulary`, () => {
         const onboarding = getAtPath(en as JsonObject, "onboarding");
         expect(onboarding).toBeDefined();
         const desc = onboarding?.[stepKey];
