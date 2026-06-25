@@ -78,7 +78,8 @@ export async function insertCorpusCandidate(
 
 export async function markCorpusCandidatePromoted(
   candidateId: string,
-  corpusItemId: string
+  corpusItemId: string,
+  options?: { sourceLabel?: HumanQualitySourceLabel }
 ): Promise<HumanQualityCorpusCandidate | null> {
   const [candidate] = await db
     .update(humanQualityCorpusCandidates)
@@ -86,6 +87,7 @@ export async function markCorpusCandidatePromoted(
       promotedCorpusItemId: corpusItemId,
       promotedAt: new Date(),
       updatedAt: new Date(),
+      ...(options?.sourceLabel ? { sourceLabel: options.sourceLabel } : {}),
     })
     .where(eq(humanQualityCorpusCandidates.id, candidateId))
     .returning();
