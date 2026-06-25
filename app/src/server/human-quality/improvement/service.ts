@@ -12,6 +12,7 @@ const DEFAULT_EVALUATED_ROW_LIMIT = 500;
 
 export interface RunQualityImprovementInput {
   workspaceId?: string;
+  clientProfileId?: string;
   improvementDeployedAt?: string;
   cohort?: string;
   capturedAt?: string;
@@ -53,6 +54,7 @@ export async function runQualityImprovement(
   const [evaluatedRows, acceptedRows] = await Promise.all([
     listEvaluatedCorpusWithEvaluations({
       workspaceId: input.workspaceId,
+      clientProfileId: input.clientProfileId,
       cohort: input.cohort,
       limit: DEFAULT_EVALUATED_ROW_LIMIT,
     }),

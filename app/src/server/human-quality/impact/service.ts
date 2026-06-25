@@ -7,6 +7,7 @@ const DEFAULT_IMPACT_ROW_LIMIT = 500;
 
 export interface RunLearningImpactInput {
   workspaceId?: string;
+  clientProfileId?: string;
   cohort?: string;
   capturedAt?: string;
 }
@@ -22,6 +23,7 @@ export async function runLearningImpact(
 
   const evaluatedRows = await listEvaluatedCorpusWithEvaluations({
     workspaceId: input.workspaceId,
+    clientProfileId: input.clientProfileId,
     cohort: input.cohort,
     limit: DEFAULT_IMPACT_ROW_LIMIT,
   });

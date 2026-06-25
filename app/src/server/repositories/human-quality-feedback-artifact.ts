@@ -61,11 +61,17 @@ export async function listFeedbackArtifactIdsByCorpusItemIds(
 
 export async function countFeedbackArtifactsBySourceLabel(filters: {
   workspaceId?: string;
+  clientProfileId?: string;
   cohort?: HumanQualityCorpusCohort;
 } = {}): Promise<Record<HumanQualitySourceLabel, number>> {
   const conditions = [];
   if (filters.workspaceId) {
     conditions.push(eq(humanQualityFeedbackArtifacts.workspaceId, filters.workspaceId));
+  }
+  if (filters.clientProfileId) {
+    conditions.push(
+      eq(humanQualityFeedbackArtifacts.clientProfileId, filters.clientProfileId)
+    );
   }
   if (filters.cohort) {
     conditions.push(eq(humanQualityFeedbackArtifacts.cohort, filters.cohort));
