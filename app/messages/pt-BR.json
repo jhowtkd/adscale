@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "title": "ADScale — Variações Criativas com IA",
-    "description": "Transforme uma única peça criativa em dezenas de variações prontas para teste A/B no Meta Ads, TikTok e Google Ads."
+    "title": "ADScale — Fluxo de curadoria para variações criativas",
+    "description": "De uma peça base e um briefing a um lote de variações prontas — você faz o briefing, a IA auxilia, você cura o que vai ao ar."
   },
   "navigation": {
     "dashboard": "Dashboard",
@@ -430,8 +430,8 @@
       "TikTok": "TikTok Ads",
       "Google": "Google Ads"
     },
-    "manageCampaigns": "Gerencie suas campanhas e variações criativas",
-    "manageCampaignsShort": "Crie e gerencie variações criativas",
+    "manageCampaigns": "Faça briefing, gere lotes e cure campanhas no seu workspace",
+    "manageCampaignsShort": "Briefing → lote → curadoria de variações criativas",
     "listSubtitle": "{count, plural, one {# campanha} other {# campanhas}}",
     "searchPlaceholder": "Buscar campanhas...",
     "platformCount": "{count, plural, one {# plataforma} other {# plataformas}}",
@@ -442,7 +442,7 @@
     "viewBoard": "Quadro",
     "deleteTitle": "Excluir campanha",
     "createNew": "Criar nova campanha",
-    "createDescription": "Preencha os dados básicos da campanha. Você pode adicionar a peça-chave agora ou depois.",
+    "createDescription": "Comece com o briefing e a peça base. Gere um lote de variações e cure o que vai ao ar.",
     "clientProfile": "Perfil do cliente",
     "selectClientProfile": "Selecione um perfil de cliente",
     "keyCreative": "Peça-chave",
@@ -468,17 +468,17 @@
     "modes": {
       "artVariation": {
         "label": "Variar arte",
-        "description": "Gere novas versões no mesmo formato da peça base"
+        "description": "Variações de arte com auxílio da IA no mesmo formato da peça base — você revisa antes de publicar"
       },
       "formatAdaptation": {
         "label": "Variar formato",
-        "description": "Adapte a peça para 1:1, 4:5 e 9:16"
+        "description": "Adaptações de formato com auxílio da IA para 1:1, 4:5 e 9:16 — você cura as saídas antes de exportar"
       }
     },
     "continueToPlan": "Continuar para Plano",
     "backToPlan": "Voltar ao Plano",
     "skipPlan": "Pular Plano",
-    "generatingPlan": "Gerando plano criativo com IA...",
+    "generatingPlan": "Montando lote de variações a partir do seu briefing...",
     "generateDerivations": "Gerar variações",
     "kanban": {
       "draft": "Rascunho",
@@ -510,15 +510,15 @@
     "modes": {
       "artVariation": {
         "label": "Variar arte",
-        "description": "Gere novas versões no mesmo formato da peça base"
+        "description": "Variações de arte com auxílio da IA no mesmo formato da peça base — você revisa antes de publicar"
       },
       "formatAdaptation": {
         "label": "Variar formato",
-        "description": "Adapte a peça para 1:1, 4:5 e 9:16"
+        "description": "Adaptações de formato com auxílio da IA para 1:1, 4:5 e 9:16 — você cura as saídas antes de exportar"
       },
       "restyling": {
         "label": "Restilização",
-        "description": "Aplique um novo estilo visual mantendo a estrutura"
+        "description": "Variações de estilo com auxílio da IA mantendo a estrutura — aprovação humana obrigatória"
       }
     },
     "creativeLevel": {
@@ -530,22 +530,22 @@
         "conservative": "Mantém a essência da peça original, alterando apenas detalhes sutis",
         "balanced": "Equilibra inovação e familiaridade, ideal para testes A/B",
         "bold": "Mudanças visuais significativas enquanto preserva a mensagem central",
-        "extreme": "Reinvenção completa da peça, máxima criatividade e diferenciação"
+        "extreme": "Reinterpretação visual ousada — você ainda aprova cada saída antes de publicar"
       }
     }
   },
   "workspace": {
     "derivar": {
       "title": "Derivar criativo",
-      "description": "Escolha como deseja derivar novos criativos a partir do atual.",
+      "description": "Escolha como montar um lote de variações — você configura e aprova antes da geração.",
       "options": {
         "manualArt": {
           "title": "Criar novas variações",
-          "description": "Configure manualmente criatividade e CTAs na próxima etapa antes de gerar."
+          "description": "Configure criatividade e CTAs na próxima etapa — você controla o lote antes de gerar."
         },
         "autoArt": {
           "title": "Gerar novas variações",
-          "description": "Revise sugestões da IA na próxima etapa antes de gerar variações artísticas."
+          "description": "Revise sugestões da IA na próxima etapa — você aprova as configurações antes do lote rodar."
         },
         "singleFormat": {
           "title": "Variar tamanhos",
@@ -581,7 +581,7 @@
       "actions": {
         "back": "Voltar",
         "cancel": "Cancelar",
-        "confirm": "Gerar variações"
+        "confirm": "Gerar lote de variações"
       }
     },
     "actionBar": {
@@ -1148,7 +1148,7 @@
     "welcomeBack": "Bem-vindo de volta",
     "signInSubtitle": "Entre na sua conta ADScale",
     "createAccountTitle": "Crie sua conta",
-    "signUpSubtitle": "Comece a gerar variações de anúncios com IA",
+    "signUpSubtitle": "Entre como curador — a IA auxilia em lotes de variações a partir da sua peça base; você aprova o que vai ao ar.",
     "name": "Nome",
     "signingIn": "Entrando...",
     "creatingAccount": "Criando conta...",
@@ -1212,7 +1212,7 @@
     "workspace": {
       "title": "Workspace",
       "namePlaceholder": "Nome do workspace",
-      "descriptionPlaceholder": "Descreva seu workspace...",
+      "descriptionPlaceholder": "Seu workspace de curadoria para briefing, lotes e revisão",
       "urlPlaceholder": "https://suempresa.com"
     },
     "team": {
@@ -1409,8 +1409,8 @@
   "review": {
     "title": "Revisão",
     "reviewTitle": "Revisar {name}",
-    "feedbackPlaceholder": "O que você gostaria de mudar?",
-    "approve": "Aprovar",
+    "feedbackPlaceholder": "O que deve mudar antes de você aprovar esta variação?",
+    "approve": "Aprovar para exportar",
     "reject": "Rejeitar",
     "compare": "Comparar",
     "cancel": "Cancelar",
@@ -1456,7 +1456,7 @@
     "regenerationBlocking": "Problemas bloqueantes",
     "regenerationAdvisory": "Avisos (contexto opcional)",
     "regenerateWithFixesTitle": "Regenerar com correções",
-    "regenerateWithFixesDescription": "Revise o feedback abaixo. Ele será enviado ao job de regeneração.",
+    "regenerateWithFixesDescription": "Revise o feedback abaixo — você decide se regenera; só variações aprovadas vão ao ar.",
     "regenerateWithFixesConfirm": "Regenerar com correções",
     "approveBlockedInvalid": "Saída inválida — corrija com regeneração antes de aprovar",
     "olharLabel": "Olhar",
@@ -1503,22 +1503,22 @@
     }
   },
   "steps": {
-    "brief": "Brief",
-    "upload": "Upload",
-    "generation": "Geração",
-    "plan": "Plano Criativo",
+    "brief": "Briefing",
+    "upload": "Peça base",
+    "generation": "Config. do lote",
+    "plan": "Lote de variações",
     "gallery": "Galeria",
-    "review": "Revisão",
-    "continueToUpload": "Continuar para Upload →",
-    "backToBrief": "← Voltar para Brief",
-    "continueToGeneration": "Continuar para Geração →",
-    "backToUpload": "← Voltar para Upload",
-    "continueToPlan": "Continuar para Plano →",
-    "backToGeneration": "← Voltar para Geração",
-    "generatePlan": "Gerar variações →",
-    "startGeneration": "Iniciar Geração →",
+    "review": "Curadoria",
+    "continueToUpload": "Continuar para peça base →",
+    "backToBrief": "← Voltar para Briefing",
+    "continueToGeneration": "Continuar para config. do lote →",
+    "backToUpload": "← Voltar para peça base",
+    "continueToPlan": "Continuar para lote de variações →",
+    "backToGeneration": "← Voltar para config. do lote",
+    "generatePlan": "Gerar lote de variações →",
+    "startGeneration": "Iniciar geração do lote →",
     "backToPlan": "← Voltar para Galeria",
-    "reviewAll": "Revisar Tudo →",
+    "reviewAll": "Curar lote →",
     "backToGallery": "← Voltar para Galeria",
     "exportSelected": "Exportar selecionados",
     "goToStep": "Ir para {step}",
