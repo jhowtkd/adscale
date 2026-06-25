@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { Button } from "@/components/ui/button";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -236,31 +237,26 @@ export default function IntegrationsTab() {
                     <Settings size={14} />
                     {t("config")}
                   </button>
-                ) : (
-                  <button type="button"
+                ) : isConnected ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
                     onClick={() => handleConnect(integration.id)}
-                    className={cn(
-                      "h-8 px-3 rounded-md text-xs font-medium flex items-center gap-1.5",
-                      "transition-all duration-200 active:scale-[0.98]",
-                      isConnected
-                        ? "text-[var(--accent-rose)] hover:bg-[var(--accent-rose)]/10"
-                        : cn(
-                            "bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-light)]"
-                          )
-                    )}
+                    className="text-[var(--danger-text)] hover:bg-[var(--danger-bg)]"
                   >
-                    {isConnected ? (
-                      <>
-                        <Unlink size={14} />
-                        {t("disconnect")}
-                      </>
-                    ) : (
-                      <>
-                        <ExternalLink size={14} />
-                        {t("connect")}
-                      </>
-                    )}
-                  </button>
+                    <Unlink size={14} aria-hidden="true" />
+                    {t("disconnect")}
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => handleConnect(integration.id)}
+                  >
+                    <ExternalLink size={14} aria-hidden="true" />
+                    {t("connect")}
+                  </Button>
                 )}
               </div>
             </m.div>

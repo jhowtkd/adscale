@@ -39,6 +39,9 @@ const intensityOptions = [
   },
 ];
 
+const INPUT_BASE =
+  "h-10 bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-primary focus:ring-[3px] focus:ring-primary/15";
+
 export default function RestylingForm({
   name,
   onNameChange,
@@ -67,9 +70,8 @@ export default function RestylingForm({
           value={name}
           onChange={(e) => onNameChange(e.target.value)}
           className={cn(
-            "h-10 bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]",
-            "focus:border-[var(--accent-blue)] focus:ring-[3px] focus:ring-[rgba(99,102,241,0.15)]",
-            errors.name && "border-[var(--accent-rose)] ring-[3px] ring-[rgba(244,63,94,0.15)]"
+            INPUT_BASE,
+            errors.name && "border-[var(--danger-text)] ring-[3px] ring-[var(--danger-bg)]"
           )}
           autoFocus
         />
@@ -91,7 +93,7 @@ export default function RestylingForm({
               placeholder={t("clientPlaceholder")}
               value={client}
               onChange={(e) => onClientChange(e.target.value)}
-              className="h-10 bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-blue)] focus:ring-[3px] focus:ring-[rgba(99,102,241,0.15)]"
+              className={INPUT_BASE}
             />
           </div>
           <div className="space-y-1.5">
@@ -102,7 +104,7 @@ export default function RestylingForm({
               placeholder={t("offerPlaceholder")}
               value={offer}
               onChange={(e) => onOfferChange(e.target.value)}
-              className="h-10 bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-blue)] focus:ring-[3px] focus:ring-[rgba(99,102,241,0.15)]"
+              className={INPUT_BASE}
             />
           </div>
         </div>
@@ -117,7 +119,7 @@ export default function RestylingForm({
           placeholder={t("ctaTextPlaceholder")}
           value={ctaText}
           onChange={(e) => onCtaTextChange(e.target.value)}
-          className="h-10 bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-blue)] focus:ring-[3px] focus:ring-[rgba(99,102,241,0.15)]"
+          className={INPUT_BASE}
         />
       </div>
 
@@ -134,17 +136,18 @@ export default function RestylingForm({
                 key={option.value}
                 type="button"
                 onClick={() => onStyleIntensityChange(option.value)}
+                aria-pressed={isSelected}
                 className={cn(
                   "flex flex-col items-center gap-1 rounded-lg border p-3 text-center transition-all duration-200",
                   isSelected
-                    ? "border-[var(--accent-blue)] bg-[var(--accent-blue)]/10"
+                    ? "border-primary bg-primary/10"
                     : "border-[var(--border-dim)] bg-[var(--surface-base)] hover:border-[var(--border-medium)] hover:bg-[var(--surface-raised)]"
                 )}
               >
                 <span
                   className={cn(
                     "text-sm font-medium",
-                    isSelected ? "text-[var(--accent-blue)]" : "text-[var(--text-primary)]"
+                    isSelected ? "text-primary" : "text-[var(--text-primary)]"
                   )}
                 >
                   {t(option.labelKey)}
@@ -152,7 +155,7 @@ export default function RestylingForm({
                 <span
                   className={cn(
                     "text-[11px] leading-relaxed",
-                    isSelected ? "text-[var(--accent-blue)]/80" : "text-[var(--text-muted)]"
+                    isSelected ? "text-primary/80" : "text-[var(--text-muted)]"
                   )}
                 >
                   {t(option.descriptionKey)}

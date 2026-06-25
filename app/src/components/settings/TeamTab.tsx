@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";
 import { useTranslations } from "next-intl";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import {
   useWorkspaceMembers,
   useRemoveMember,
@@ -137,21 +138,17 @@ export default function TeamTab() {
             {t("membersCount", { count: members.length })}
           </span>
         </div>
-        <button type="button"
+        <Button
+          type="button"
+          size="sm"
           onClick={() => {
             const el = document.getElementById("invite-section");
             el?.scrollIntoView({ behavior: "smooth", block: "center" });
           }}
-          className={cn(
-            "h-9 px-4 rounded-md text-sm font-medium text-white flex items-center gap-2",
-            "bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-light)]",
-            "active:scale-[0.98]",
-            "transition-all duration-200"
-          )}
         >
-          <UserPlus size={16} />
+          <UserPlus size={16} aria-hidden="true" />
           <span>{t("invite")}</span>
-        </button>
+        </Button>
       </m.div>
 
       {/* Loading State */}
@@ -206,7 +203,7 @@ export default function TeamTab() {
                   "size-9 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0",
                   member.status === "Pending"
                     ? "bg-[var(--border-dim)] text-[var(--text-muted)]"
-                    : "bg-[var(--accent-blue-dim)] text-[var(--accent-blue-light)]"
+                    : "bg-primary/10 text-primary"
                 )}
               >
                 {getInitials(member.name)}
@@ -311,7 +308,7 @@ export default function TeamTab() {
               className={cn(
                 "h-10 rounded-md border px-3 text-sm",
                 "bg-[var(--surface-base)] text-[var(--text-primary)]",
-                "focus:outline-none focus:border-[var(--accent-blue)]",
+                "focus:outline-none focus:border-primary",
                 "transition-all duration-200 border-[var(--border-dim)]",
                 "appearance-none cursor-pointer"
               )}

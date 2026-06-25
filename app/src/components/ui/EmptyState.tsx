@@ -10,6 +10,7 @@ interface EmptyStateAction {
   label: string;
   href?: string;
   onClick?: () => void;
+  icon?: LucideIcon;
 }
 
 interface EmptyStateProps {
@@ -29,13 +30,16 @@ export default function EmptyState({
   action,
   steps,
 }: EmptyStateProps) {
+  const ActionIcon = action?.icon;
   const actionContent = action ? (
     action.href ? (
       <Button render={<Link href={action.href} />} nativeButton={false}>
+        {ActionIcon ? <ActionIcon size={16} strokeWidth={3} aria-hidden="true" /> : null}
         {action.label}
       </Button>
     ) : (
       <Button type="button" onClick={action.onClick}>
+        {ActionIcon ? <ActionIcon size={16} strokeWidth={3} aria-hidden="true" /> : null}
         {action.label}
       </Button>
     )

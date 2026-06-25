@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { BetaSessionsPanel } from "@/components/feedback/BetaSessionsPanel";
 import { OwnerAnalyticsPanel } from "@/components/feedback/OwnerAnalyticsPanel";
 import { cn } from "@/lib/utils";
@@ -244,8 +245,8 @@ export default function FeedbackTriagePage() {
               </p>
             </div>
             <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="rounded-md border border-[var(--accent-green)]/30 bg-[var(--accent-green)]/5 px-3 py-2">
-                <p className="font-medium text-[var(--accent-green)]">{t("healthy")}</p>
+              <div className="rounded-md border border-[var(--success-border)] bg-[var(--success-bg)] px-3 py-2">
+                <p className="font-medium text-[var(--success-text)]">{t("healthy")}</p>
                 <p className="text-lg font-bold text-[var(--text-primary)]">
                   {creditSignalsQuery.data.healthyCount}
                 </p>
@@ -253,8 +254,8 @@ export default function FeedbackTriagePage() {
                   {t("afterSpend", { count: creditSignalsQuery.data.positiveAfterSpendCount })}
                 </p>
               </div>
-              <div className="rounded-md border border-[var(--accent-rose)]/30 bg-[var(--accent-rose)]/5 px-3 py-2">
-                <p className="font-medium text-[var(--accent-rose)]">{t("frustration")}</p>
+              <div className="rounded-md border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-2">
+                <p className="font-medium text-[var(--danger-text)]">{t("frustration")}</p>
                 <p className="text-lg font-bold text-[var(--text-primary)]">
                   {creditSignalsQuery.data.frustrationCount}
                 </p>
@@ -335,7 +336,7 @@ export default function FeedbackTriagePage() {
             {detail.report.diagnosticContext &&
             (detail.report.diagnosticContext as Record<string, unknown>).source ===
               "mission_insight" ? (
-              <div className="rounded-lg border border-[var(--accent-green)]/20 bg-[var(--accent-green)]/5 p-4 space-y-2">
+              <div className="rounded-lg border border-[var(--success-border)] bg-[var(--success-bg)] p-4 space-y-2">
                 <h3 className="text-sm font-medium text-[var(--text-primary)]">
                   Mission insight
                 </h3>
@@ -357,7 +358,7 @@ export default function FeedbackTriagePage() {
                     className={cn(
                       "rounded-full px-2 py-1 text-[10px] font-medium uppercase tracking-wide",
                       value
-                        ? "bg-[rgba(0,179,74,0.15)] text-[var(--accent-green)]"
+                        ? "bg-[var(--success-bg)] text-[var(--success-text)]"
                         : "bg-[var(--surface-raised)] text-[var(--text-muted)]"
                     )}
                   >
@@ -394,20 +395,20 @@ export default function FeedbackTriagePage() {
             <div className="grid gap-3">
               <label className="grid gap-1 text-sm">
                 <span className="font-medium text-[var(--text-primary)]">Internal notes</span>
-                <textarea
+                <Textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   rows={4}
-                  className="rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 py-2 text-sm"
+                  className="bg-[var(--surface-raised)] border-[var(--border-dim)]"
                 />
               </label>
               <label className="grid gap-1 text-sm">
                 <span className="font-medium text-[var(--text-primary)]">Resolution summary</span>
-                <textarea
+                <Textarea
                   value={resolution}
                   onChange={(e) => setResolution(e.target.value)}
                   rows={3}
-                  className="rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 py-2 text-sm"
+                  className="bg-[var(--surface-raised)] border-[var(--border-dim)]"
                 />
               </label>
             </div>

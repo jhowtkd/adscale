@@ -1,0 +1,468 @@
+<!doctype html>
+<!--
+  ADScale — Laboratory Index
+  Static HTML launchpad for the 10 captured dashboard pages.
+  Each tile opens the rendered version of one Next.js route from the
+  refactor/visual-dashboard worktree. No JS required — just open index.html.
+-->
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ADScale · Laboratório de páginas (v1)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=Press+Start+2P&display=swap">
+  <style>
+    :root {
+      --font-inter: 'Inter', ui-sans-serif, system-ui, sans-serif;
+      --font-space-mono: 'Space Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+      --font-press-start: 'Press Start 2P', cursive;
+
+      --space-1: 0.25rem; --space-2: 0.5rem; --space-3: 0.75rem;
+      --space-4: 1rem; --space-5: 1.5rem; --space-6: 2rem; --space-7: 3rem;
+
+      --text-caption: 0.75rem; --text-label: 0.8125rem; --text-body: 0.875rem;
+      --text-body-lg: 1rem; --text-section: 1rem; --text-page: 1.25rem;
+      --text-display: 1.5rem;
+
+      --radius-control: 0.375rem; --radius-panel: 0.5rem;
+      --radius-object: 0.75rem; --radius-pill: 9999px;
+
+      --canvas: oklch(0.985 0.003 145);
+      --surface-base: oklch(0.998 0.002 145);
+      --surface-raised: oklch(0.968 0.005 145);
+      --text-primary: oklch(0.18 0.012 145);
+      --text-secondary: oklch(0.38 0.012 145);
+      --text-muted: oklch(0.46 0.01 145);
+      --border-subtle: oklch(0.18 0.012 145 / 0.06);
+      --border-default: oklch(0.18 0.012 145 / 0.12);
+      --accent-primary: oklch(0.66 0.2 145);
+      --accent-primary-hover: oklch(0.72 0.22 145);
+      --accent-primary-subtle: oklch(0.66 0.2 145 / 0.12);
+      --accent-primary-text: oklch(0.43 0.15 145);
+      --success-bg: oklch(0.66 0.18 145 / 0.12);
+      --success-border: oklch(0.52 0.16 145 / 0.28);
+      --success-text: oklch(0.4 0.14 145);
+      --warning-bg: oklch(0.68 0.14 82 / 0.16);
+      --warning-border: oklch(0.58 0.13 82 / 0.3);
+      --warning-text: oklch(0.39 0.1 82);
+      --info-bg: oklch(0.62 0.13 245 / 0.12);
+      --info-border: oklch(0.54 0.12 245 / 0.28);
+      --info-text: oklch(0.4 0.12 245);
+
+      --deep-bg: var(--canvas);
+      --border-dim: var(--border-subtle);
+      --accent-green: var(--accent-primary);
+      --accent-green-light: var(--accent-primary-hover);
+      --accent-green-dim: var(--accent-primary-subtle);
+      --accent-green-text: var(--accent-primary-text);
+      --ink: oklch(0.16 0.02 145);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      font-family: var(--font-inter);
+      color: var(--text-primary);
+      background: var(--canvas);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      line-height: 1.55;
+    }
+    body { min-height: 100vh; }
+    a { color: inherit; text-decoration: none; }
+    button { font: inherit; cursor: pointer; border: 0; background: transparent; color: inherit; }
+
+    .dot-grid {
+      background-color: var(--canvas);
+      background-image: radial-gradient(circle, oklch(0.18 0.012 145 / 0.05) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+
+    /* Page wrapper */
+    .page {
+      max-width: 80rem;
+      margin: 0 auto;
+      padding: 3rem 1.5rem 4rem;
+    }
+    @media (min-width: 768px) {
+      .page { padding: 4rem 2rem 5rem; }
+    }
+
+    /* Hero */
+    .hero {
+      display: flex; flex-direction: column;
+      gap: 1rem;
+      padding-bottom: 2rem;
+      border-bottom: 1px solid var(--border-dim);
+      margin-bottom: 2.5rem;
+    }
+    .eyebrow {
+      font-family: var(--font-press-start);
+      font-size: 8px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .hero h1 {
+      font-size: 1.75rem;
+      font-weight: 600;
+      letter-spacing: -0.025em;
+      color: var(--text-primary);
+      text-wrap: pretty;
+    }
+    .hero p {
+      font-size: var(--text-body-lg);
+      color: var(--text-secondary);
+      max-width: 60ch;
+      line-height: 1.55;
+    }
+    .hero-stats {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+    @media (min-width: 640px) {
+      .hero-stats { grid-template-columns: repeat(4, 1fr); }
+    }
+    .stat {
+      display: flex; flex-direction: column;
+      gap: 0.25rem;
+      padding: 0.875rem 1rem;
+      border: 1px solid var(--border-dim);
+      border-radius: var(--radius-control);
+      background: var(--surface-base);
+    }
+    .stat-value {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      font-variant-numeric: tabular-nums;
+    }
+    .stat-label {
+      font-size: var(--text-caption);
+      color: var(--text-muted);
+    }
+
+    /* Section heading */
+    .section-head {
+      display: flex; align-items: baseline; justify-content: space-between;
+      gap: 1rem;
+      margin: 2rem 0 1rem;
+    }
+    .section-head h2 {
+      font-size: var(--text-section);
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .section-head .count {
+      font-size: var(--text-caption);
+      color: var(--text-muted);
+      font-family: var(--font-space-mono);
+    }
+
+    /* Tile grid */
+    .tiles {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+    @media (min-width: 640px) {
+      .tiles { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (min-width: 1024px) {
+      .tiles { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (min-width: 1280px) {
+      .tiles { grid-template-columns: repeat(4, 1fr); }
+    }
+    .tile {
+      display: flex; flex-direction: column;
+      gap: 0.75rem;
+      padding: 1.25rem;
+      border: 1px solid var(--border-dim);
+      border-radius: var(--radius-object);
+      background: var(--surface-base);
+      transition: border-color 0.15s, transform 0.1s;
+    }
+    .tile:hover { border-color: var(--border-default); }
+    .tile-head {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 0.5rem;
+    }
+    .tile-num {
+      font-family: var(--font-space-mono);
+      font-size: var(--text-caption);
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+    }
+    .badge {
+      display: inline-flex; align-items: center; gap: 0.375rem;
+      padding: 0.125rem 0.5rem;
+      border-radius: var(--radius-control);
+      font-size: 0.6875rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .badge::before {
+      content: ""; width: 6px; height: 6px; border-radius: 9999px;
+      background: currentColor; flex-shrink: 0;
+    }
+    .badge-success { background: var(--success-bg); color: var(--success-text); border: 1px solid var(--success-border); }
+    .badge-warning { background: var(--warning-bg); color: var(--warning-text); border: 1px solid var(--warning-border); }
+    .badge-info { background: var(--info-bg); color: var(--info-text); border: 1px solid var(--info-border); }
+
+    .tile h3 {
+      font-size: var(--text-section);
+      font-weight: 600;
+      color: var(--text-primary);
+      line-height: 1.3;
+    }
+    .tile p {
+      font-size: var(--text-body);
+      color: var(--text-secondary);
+      line-height: 1.5;
+      flex: 1;
+    }
+    .tile-foot {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-top: 0.5rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--border-dim);
+      font-family: var(--font-space-mono);
+      font-size: var(--text-caption);
+      color: var(--text-muted);
+    }
+    .tile-foot .open {
+      color: var(--accent-green);
+      font-weight: 500;
+    }
+
+    /* Footer */
+    .footer {
+      border-top: 1px solid var(--border-dim);
+      padding: 1.5rem 0;
+      margin-top: 4rem;
+      text-align: center;
+    }
+    .footer p {
+      font-size: var(--text-caption);
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body class="dot-grid">
+  <div class="page">
+
+    <header class="hero">
+      <span class="eyebrow">laboratório · dashboard · v1</span>
+      <h1>ADScale — Laboratório de páginas</h1>
+      <p>
+        Versões estáticas (HTML + CSS) das 10 páginas dashboard capturadas após o
+        refactor visual. Cada arquivo é self-contained: tokens do globals.css,
+        topbar compartilhada, e os mesmos componentes da app. Use para revisar,
+        comparar ou experimentar sem subir o Next.js.
+      </p>
+      <div class="hero-stats">
+        <div class="stat">
+          <span class="stat-value">10</span>
+          <span class="stat-label">Páginas capturadas</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value">8.4 KB</span>
+          <span class="stat-label">Tokens compartilhados</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value">3</span>
+          <span class="stat-label">Sub-abas settings</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value">v1</span>
+          <span class="stat-label">Refactor jun 2026</span>
+        </div>
+      </div>
+    </header>
+
+    <section>
+      <div class="section-head">
+        <h2>Dashboard</h2>
+        <span class="count">7 páginas · routes / , /campaigns , /campaigns/[id] , /library , /templates , /restyling , /quick-tools/restyling , /feedback</span>
+      </div>
+      <div class="tiles">
+        <a href="dashboard.html" class="tile">
+          <div class="tile-head">
+            <span class="tile-num">01 · /</span>
+            <span class="badge badge-success">Capturado</span>
+          </div>
+          <h3>Home / Visão geral</h3>
+          <p>Mission path (Laboratório de Ads), campanha masonry, painel de créditos e atividade recente.</p>
+          <div class="tile-foot">
+            <span>dashboard.html</span>
+            <span class="open">Abrir →</span>
+          </div>
+        </a>
+
+        <a href="campaigns.html" class="tile">
+          <div class="tile-head">
+            <span class="tile-num">02 · /campaigns</span>
+            <span class="badge badge-success">Capturado</span>
+          </div>
+          <h3>Lista de campanhas</h3>
+          <p>Toolbar com filtros, tabela em masonry e paginação. Visão operacional padrão.</p>
+          <div class="tile-foot">
+            <span>campaigns.html</span>
+            <span class="open">Abrir →</span>
+          </div>
+        </a>
+
+        <a href="campaigns-detail.html" class="tile">
+          <div class="tile-head">
+            <span class="tile-num">03 · /campaigns/[id]</span>
+            <span class="badge badge-success">Capturado</span>
+          </div>
+          <h3>Detalhe da campanha</h3>
+          <p>Briefing, derivações, preflight, upload e pacote de entrega.</p>
+          <div class="tile-foot">
+            <span>campaigns-detail.html</span>
+            <span class="open">Abrir →</span>
+          </div>
+        </a>
+
+        <a href="library.html" class="tile">
+          <div class="tile-head">
+            <span class="tile-num">04 · /library</span>
+            <span class="badge badge-success">Capturado</span>
+          </div>
+          <h3>Biblioteca</h3>
+          <p>Assets do workspace: imagens, cópias aprovadas, fontes e logos com tags.</p>
+          <div class="tile-foot">
+            <span>library.html</span>
+            <span class="open">Abrir →</span>
+          </div>
+        </a>
+
+        <a href="templates.html" class="tile">
+          <div class="tile-head">
+            <span class="tile-num">05 · /templates</span>
+            <span class="badge badge-success">Capturado</span>
+          </div>
+          <h3>Templates salvos</h3>
+          <p>Briefings validados reutilizáveis em novas campanhas (modo art_variation / format_adaptation).</p>
+          <div class="tile-foot">
+            <span>templates.html</span>
+            <span class="open">Abrir →</span>
+          </div>
+        </a>
+
+        <a href="restyling.html" class="tile">
+          <div class="tile-head">
+            <span class="tile-num">06 · /restyling</span>
+            <span class="badge badge-success">Capturado</span>
+          </div>
+          <h3>Restilização (wizard)</h3>
+          <p>Wizard completo: upload base + estilo, briefing, intensidade e submissão.</p>
+          <div class="tile-foot">
+            <span>restyling.html</span>
+            <span class="open">Abrir →</span>
+          </div>
+        </a>
+
+        <a href="quick-tools-restyling.html" class="tile">
+          <div class="tile-head">
+            <span class="tile-num">07 · /quick-tools/restyling</span>
+            <span class="badge badge-success">Capturado</span>
+          </div>
+          <h3>Restyling rápido</h3>
+          <p>Form enxuto para restilizar uma peça rapidamente a partir de uma referência.</p>
+          <div class="tile-foot">
+            <span>quick-tools-restyling.html</span>
+            <span class="open">Abrir →</span>
+          </div>
+        </a>
+
+        <a href="feedback.html" class="tile">
+          <div class="tile-head">
+            <span class="tile-num">08 · /feedback</span>
+            <span class="badge badge-success">Capturado</span>
+          </div>
+          <h3>Painel beta + feedback</h3>
+          <p>OwnerAnalytics, canais de feedback e missões ativas no programa beta.</p>
+          <div class="tile-foot">
+            <span>feedback.html</span>
+            <span class="open">Abrir →</span>
+          </div>
+        </a>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>Configurações</h2>
+        <span class="count">3 páginas · routes /settings · sub-tabs Team / Brand Kit / Settings parent</span>
+      </div>
+      <div class="tiles">
+        <a href="settings.html" class="tile">
+          <div class="tile-head">
+            <span class="tile-num">09 · /settings</span>
+            <span class="badge badge-success">Capturado</span>
+          </div>
+          <h3>Configurações (índice)</h3>
+          <p>Hub das 6 sub-abas (perfil, workspace, equipe, marca, cobrança, planos).</p>
+          <div class="tile-foot">
+            <span>settings.html</span>
+            <span class="open">Abrir →</span>
+          </div>
+        </a>
+
+        <a href="settings-team.html" class="tile">
+          <div class="tile-head">
+            <span class="tile-num">10a · /settings/team</span>
+            <span class="badge badge-success">Capturado</span>
+          </div>
+          <h3>Equipe</h3>
+          <p>Convite de membros, papéis (admin / editor / visualizador) e remoção.</p>
+          <div class="tile-foot">
+            <span>settings-team.html</span>
+            <span class="open">Abrir →</span>
+          </div>
+        </a>
+
+        <a href="settings-brandkit.html" class="tile">
+          <div class="tile-head">
+            <span class="tile-num">10b · /settings/brand-kit</span>
+            <span class="badge badge-success">Capturado</span>
+          </div>
+          <h3>Brand Kit</h3>
+          <p>Logos, paletas, tipografia e regras de voz para o laboratório usar como guia.</p>
+          <div class="tile-foot">
+            <span>settings-brandkit.html</span>
+            <span class="open">Abrir →</span>
+          </div>
+        </a>
+
+        <div class="tile" style="opacity: 0.55;">
+          <div class="tile-head">
+            <span class="tile-num">10c</span>
+            <span class="badge badge-warning">Fora do lab</span>
+          </div>
+          <h3>Profile · Workspace · Billing · Plans</h3>
+          <p>Sub-abas adicionais do settings ainda não capturadas no laboratório. Mantidas como placeholder no hub.</p>
+          <div class="tile-foot">
+            <span>via settings.html → cards dim</span>
+            <span class="open">—</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <p>
+        ADScale © 2026 · Laboratory build · branch <code style="font-family: var(--font-space-mono);">refactor/visual-dashboard</code> · 14 commits refactor + 10 páginas estáticas.
+      </p>
+    </footer>
+
+  </div>
+</body>
+</html>

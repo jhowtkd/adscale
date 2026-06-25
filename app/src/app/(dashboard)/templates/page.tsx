@@ -51,11 +51,8 @@ export default function TemplatesPage() {
         title={tTemplate("title")}
         description={tTemplate("subtitle")}
         actions={
-          <Button
-            onClick={() => router.push("/campaigns")}
-            className="bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-light)]"
-          >
-            <Plus size={16} className="mr-2" />
+          <Button onClick={() => router.push("/campaigns")}>
+            <Plus size={16} aria-hidden="true" />
             {tTemplate("createFromCampaign")}
           </Button>
         }

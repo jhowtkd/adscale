@@ -168,11 +168,7 @@ export default function RestylingPage() {
           >
             {tCommon("cancel")}
           </Button>
-          <Button
-            type="submit"
-            disabled={isSubmitting}
-            className="bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-light)] hover:-translate-y-px active:scale-[0.98] transition-all duration-200 disabled:opacity-60"
-          >
+          <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? tCommon("loading") : t("submit")}
           </Button>
         </div>

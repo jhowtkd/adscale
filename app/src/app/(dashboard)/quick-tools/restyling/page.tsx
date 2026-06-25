@@ -158,7 +158,7 @@ export default function QuickToolsRestylingPage() {
               placeholder={t("namePlaceholder")}
               disabled={isSubmitting}
             />
-            {errors.name && <p className="text-sm text-red-500">{errors.name}</p>}
+            {errors.name && <p className="text-sm text-[var(--danger-text)]">{errors.name}</p>}
           </div>
 
           <div className="space-y-1.5">
@@ -308,7 +308,7 @@ function FilePicker({
           "flex min-h-[116px] cursor-pointer flex-col justify-between rounded-lg border border-dashed border-[var(--border-medium)] bg-[var(--surface-raised)] p-4 transition-colors",
           "hover:border-[var(--accent-green)] hover:bg-[var(--surface-base)]",
           disabled && "pointer-events-none opacity-60",
-          error && "border-[var(--accent-rose)] bg-[rgba(225,29,72,0.12)]"
+          error && "border-[var(--danger-text)] bg-[var(--danger-bg)]"
         )}
       >
         <span className="flex items-start gap-3">
@@ -338,7 +338,7 @@ function FilePicker({
         disabled={disabled}
         className="sr-only"
       />
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      {error && <p className="text-sm text-[var(--danger-text)]">{error}</p>}
     </div>
   );
 }

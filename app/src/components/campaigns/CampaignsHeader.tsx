@@ -27,11 +27,8 @@ export default function CampaignsHeader({ count, isLoading = false, onNewCampaig
       title={tc("pageTitle")}
       description={description}
       actions={
-        <Button
-          onClick={onNewCampaign}
-          className="h-9 bg-[var(--accent-green)] px-4 text-sm font-semibold text-[var(--ink)] transition-all duration-200 hover:-translate-y-px hover:bg-[var(--accent-green-light)] active:scale-[0.98]"
-        >
-          <Plus size={14} />
+        <Button onClick={onNewCampaign} size="sm">
+          <Plus size={14} aria-hidden="true" />
           {t("new")}
         </Button>
       }
