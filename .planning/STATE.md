@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v13.5
 milestone_name: Assistente Conversacional de Ações
-status: verifying
-stopped_at: Completed 181-assistant-surface-01-PLAN.md
-last_updated: "2026-06-25T21:12:35.199Z"
+status: executing
+stopped_at: Completed 181-assistant-surface-02-PLAN.md
+last_updated: "2026-06-25T21:12:46.439Z"
 last_activity: 2026-06-25
 progress:
   total_phases: 7
@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-06-25 — v13.5 started)
 
 ## Current Position
 
-Phase: 180 of 183 (in progress)
-Plan: 4 of 4 complete
-Status: Phase complete — ready for verification
+Phase: 181 of 183 (in progress)
+Plan: 2 of 5 complete
+Status: Ready to execute
 Last activity: 2026-06-25
 
 Progress: [#---------] 1/7 phases
@@ -40,7 +40,7 @@ Progress: [#---------] 1/7 phases
 | 178 | 0/1 | Pending |
 | 179 | 0/1 | Pending |
 | 180 | 1/4 | In Progress |
-| 181 | 0/1 | Pending |
+| 181 | 1/5 | In Progress |
 | 182 | 0/1 | Pending |
 | 183 | 0/1 | Pending |
 | Phase 177-multi-client-foundation P01 | 11 | 5 tasks | 24 files |
@@ -49,6 +49,7 @@ Progress: [#---------] 1/7 phases
 | Phase 180-action-contracts P03 | 8 | 2 tasks | 5 files |
 | Phase 180-action-contracts P04 | 5 | 2 tasks | 5 files |
 | Phase 181-assistant-surface P01 | 12 | 3 tasks | 9 files |
+| Phase 181-assistant-surface P02 | 15 | 3 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -68,7 +69,8 @@ Progress: [#---------] 1/7 phases
 - [Phase 177]: Mem0 isolation uses profile-suffixed user ids plus metadata filters on search.
 - [Phase 177]: Legacy workspace brand-kit endpoints accept optional `clientProfileId` query/body field.
 - [Phase 180]: Binary intent classifier runs server-side in orchestrator before model stream; ambiguous dual-match short-circuits with Portuguese clarify.
-- [Phase 180]: Skip path injects model fallback hint; classified path augments systemPrompt with intent family.
+- [Phase 181]: campaignId=null query sentinel filters client-level assistant threads on GET /api/assistant/threads
+- [Phase 181]: Assistant chat streaming uses fetch + readAssistantSseStream with AbortController, not EventSource
 
 ### Carry-forward from v13.4
 
@@ -96,7 +98,7 @@ Progress: [#---------] 1/7 phases
 
 ## Session Continuity
 
-Last session: 2026-06-25T21:12:35.196Z
-Stopped at: Completed 181-assistant-surface-01-PLAN.md
+Last session: 2026-06-25T21:12:46.436Z
+Stopped at: Completed 181-assistant-surface-02-PLAN.md
 Resume file: None
-Next command: `$gsd-execute-phase 180` plan 03 or `$gsd-execute-phase 180` plan 01
+Next command: `$gsd-execute-phase 181` plan 02
