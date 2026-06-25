@@ -166,4 +166,40 @@ describe("promoteCorpusCandidateToQueue", () => {
       })
     ).rejects.toMatchObject({ code: "invalid_source_label" });
   });
+
+  it("rejects candidates missing clientProfileId even with explicit source label", async () => {
+    mockGetCandidate.mockResolvedValue({
+      ...candidate,
+      clientProfileId: null,
+    } as never);
+
+    await expect(
+      promoteCorpusCandidateToQueue({
+        candidateId: CANDIDATE_ID,
+        cohort: "baseline",
+        sourceLabel: "real_customer",
+      })
+    ).rejects.toMatchObject({ code: "missing_client_profile" });
+
+    expect(mockInsert).not.toHaveBeenCalled();
+  });
+
+  it("does not mutate workspace, campaign, derivation or clientProfileId when overriding source label", async () => {
+    await promoteCorpusCandidateToQueue({
+      candidateId: CANDIDATE_ID,
+      cohort: "post_learning",
+      selectedByUserId: "owner-1",
+      sourceLabel: "operator_imported",
+    });
+
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: WORKSPACE_ID,
+        clientProfileId: candidate.clientProfileId,
+        campaignId: candidate.campaignId,
+        derivationId: candidate.derivationId,
+        cohort: "post_learning",
+      })
+    );
+  });
 });
