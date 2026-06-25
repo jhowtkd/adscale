@@ -29,6 +29,9 @@ The Vitest suite checks:
 - Locale key parity for narrative namespaces (`onboarding`, `dashboard.home`, `metadata`, `navigation`, `auth`, `campaign`, `steps`, `generation`, `library`, `template`, and top-level `review` guidance keys).
 - Forbidden claim patterns (Cenbrap, calibration, corpus, agreement rate, sample sufficiency, Olhar on general surfaces, magic/revolutionary hype, performance lift phrases).
 - Curator vocabulary in onboarding steps (enabled after Plan 02 copy rewrite).
+- Curator vocabulary in workflow keys: `metadata.description`, `auth.signUpSubtitle`, `campaign.createDescription`, `steps.reviewAll` (enabled after Plan 03).
+
+**Last verified:** 2026-06-25 (Phase 170 — see `.planning/phases/170-product-narrative-rollout/170-VERIFICATION.md`)
 
 ### Manual spot-check
 

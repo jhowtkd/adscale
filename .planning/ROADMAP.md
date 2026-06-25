@@ -33,7 +33,7 @@
 |---|-------|--------------|--------|-----------|
 | 168 | Client-Agnostic Human Decision Intake | DECISION-01..05 | Complete | 2026-06-25 |
 | 169 | Real Corpus and Claim Gates | Complete    | 2026-06-25 | 2026-06-25 |
-| 170 | Product Narrative Rollout | 2/3 | In Progress|  |
+| 170 | Product Narrative Rollout | Complete | 2026-06-25 | 2026-06-25 |
 | 171 | Persistent Product Trust Baseline | TRUST-01..05 | Planned | - |
 | 172 | Operational Evidence UI and Release Gate | ALERT-01..04 | Planned | - |
 
@@ -101,12 +101,12 @@ Plans:
   3. Campaign creation, generation, review and settings use consistent product language.
   4. Review checklist prevents overclaims about automation, performance lift or customer-real proof.
 
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [x] 170-01-PLAN.md — In-app copy checklist and automated copy guard (BRAND-04)
 - [x] 170-02-PLAN.md — Onboarding tour and empty-state curator narrative (BRAND-01, BRAND-02)
-- [ ] 170-03-PLAN.md — Workflow copy alignment and phase verification (BRAND-01, BRAND-03, BRAND-04)
+- [x] 170-03-PLAN.md — Workflow copy alignment and phase verification (BRAND-01, BRAND-03, BRAND-04)
 
 ---
 

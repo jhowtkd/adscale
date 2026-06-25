@@ -87,6 +87,33 @@ const CURATOR_STEP_KEYS = [
 ] as const;
 
 const CURATOR_VOCABULARY = /\b(curator|curate|brief|batch)\b/i;
+const CURATOR_VOCABULARY_PT = /\b(curador|curar|briefing|lote)\b/i;
+
+const WORKFLOW_CURATOR_KEYS_EN: Array<{ path: string; label: string }> = [
+  { path: "metadata.description", label: "metadata.description" },
+  { path: "auth.signUpSubtitle", label: "auth.signUpSubtitle" },
+  { path: "campaign.createDescription", label: "campaign.createDescription" },
+  { path: "steps.reviewAll", label: "steps.reviewAll" },
+];
+
+const WORKFLOW_CURATOR_KEYS_PT: Array<{ path: string; label: string }> = [
+  { path: "metadata.description", label: "metadata.description" },
+  { path: "auth.signUpSubtitle", label: "auth.signUpSubtitle" },
+  { path: "campaign.createDescription", label: "campaign.createDescription" },
+  { path: "steps.reviewAll", label: "steps.reviewAll" },
+];
+
+function getStringAtPath(obj: JsonObject, dotPath: string): string | undefined {
+  const parts = dotPath.split(".");
+  let current: JsonValue = obj;
+  for (const part of parts) {
+    if (current === null || typeof current !== "object" || Array.isArray(current)) {
+      return undefined;
+    }
+    current = (current as JsonObject)[part];
+  }
+  return typeof current === "string" ? current : undefined;
+}
 
 function getAtPath(obj: JsonObject, dotPath: string): JsonObject | undefined {
   const parts = dotPath.split(".");
@@ -228,6 +255,24 @@ describe("product narrative copy guard (Phase 170 / BRAND-04)", () => {
         const desc = onboarding?.[stepKey];
         expect(typeof desc).toBe("string");
         expect(CURATOR_VOCABULARY.test(desc as string)).toBe(true);
+      });
+    }
+  });
+
+  describe("curator vocabulary (Plan 03 workflow)", () => {
+    for (const { path, label } of WORKFLOW_CURATOR_KEYS_EN) {
+      it(`${label} includes curator vocabulary (en)`, () => {
+        const value = getStringAtPath(en as JsonObject, path);
+        expect(typeof value).toBe("string");
+        expect(CURATOR_VOCABULARY.test(value as string)).toBe(true);
+      });
+    }
+
+    for (const { path, label } of WORKFLOW_CURATOR_KEYS_PT) {
+      it(`${label} includes curator vocabulary (pt-BR)`, () => {
+        const value = getStringAtPath(ptBR as JsonObject, path);
+        expect(typeof value).toBe("string");
+        expect(CURATOR_VOCABULARY_PT.test(value as string)).toBe(true);
       });
     }
   });
