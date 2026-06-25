@@ -38,7 +38,7 @@
 | 178 | 4/4 | Complete    | 2026-06-25 | - |
 | 179 | 4/4 | Complete    | 2026-06-25 | - |
 | 180 | Action Contracts | Complete    | 2026-06-25 | 2026-06-25 |
-| 181 | Assistant Surface | CHAT-01, CHAT-02, CHAT-03, CHAT-04 | Pending | - |
+| 181 | Assistant Surface | 1/5 | In Progress|  |
 | 182 | Quick Actions | ACT-03, ACT-04 | Pending | - |
 | 183 | Campaign Complete Happy Path | ACT-05, EXEC-03, EXEC-04 | Pending | - |
 
@@ -150,10 +150,10 @@ Plans:
   4. Campaign workspace drawer opens and continues the same campaign thread.
   5. Mobile layout remains usable through tabs or equivalent responsive navigation.
 
-**Plans:** 0/5 plans complete
+**Plans:** 1/5 plans executed
 
 Plans:
-- [ ] 181-01-PLAN.md — Assistant client data layer (SSE parser + React Query hooks)
+- [x] 181-01-PLAN.md — Assistant client data layer (SSE parser + React Query hooks)
 - [ ] 181-02-PLAN.md — CHAT-01 mode toggle, `/assistant` route, AssistantShell layout
 - [ ] 181-03-PLAN.md — Navigation tree, empty state, create client/campaign/thread (CHAT-02/03)
 - [ ] 181-04-PLAN.md — Chat core, action cards, context panel, full page wiring

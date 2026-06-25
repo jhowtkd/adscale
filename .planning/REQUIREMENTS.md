@@ -23,9 +23,9 @@ Transformar ADScale em uma experiência chat-first para ações rápidas e campa
 ### Assistente
 
 - [ ] **CHAT-01**: User can access `/assistant` as a primary authenticated app section.
-- [ ] **CHAT-02**: User can navigate conversations by client, campaign, and thread.
-- [ ] **CHAT-03**: User can create a client and a campaign draft from the chat flow.
-- [ ] **CHAT-04**: User can continue the same campaign thread from a drawer inside the campaign workspace.
+- [x] **CHAT-02**: User can navigate conversations by client, campaign, and thread.
+- [x] **CHAT-03**: User can create a client and a campaign draft from the chat flow.
+- [x] **CHAT-04**: User can continue the same campaign thread from a drawer inside the campaign workspace.
 
 ### Action Contracts
 
@@ -88,9 +88,9 @@ Transformar ADScale em uma experiência chat-first para ações rápidas e campa
 | CLIENT-02 | Phase 177 | Complete |
 | CLIENT-03 | Phase 177 | Complete |
 | CHAT-01 | Phase 181 | Pending |
-| CHAT-02 | Phase 181 | Pending |
-| CHAT-03 | Phase 181 | Pending |
-| CHAT-04 | Phase 181 | Pending |
+| CHAT-02 | Phase 181 | Complete |
+| CHAT-03 | Phase 181 | Complete |
+| CHAT-04 | Phase 181 | Complete |
 | ACT-01 | Phase 180 | Complete |
 | ACT-02 | Phase 180 | Complete |
 | ACT-03 | Phase 182 | Pending |
