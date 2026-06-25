@@ -39,8 +39,8 @@
 | 179 | 4/4 | Complete    | 2026-06-25 | - |
 | 180 | Action Contracts | Complete    | 2026-06-25 | 2026-06-25 |
 | 181 | Assistant Surface | 5/5 | Complete   | 2026-06-25 |
-| 182 | Quick Actions | ACT-03, ACT-04 | Pending | - |
-| 183 | Campaign Complete Happy Path | ACT-05, EXEC-03, EXEC-04 | Pending | - |
+| 182 | Quick Actions | ACT-03, ACT-04 | Complete | 2026-06-25 |
+| 183 | Campaign Complete Happy Path | ACT-05, EXEC-03, EXEC-04 | Complete | 2026-06-25 |
 
 ## Phase Details
 
@@ -176,7 +176,11 @@ Plans:
   4. Review, save-reference, and delivery package actions follow their own contracts and expose optional-missing risk copy when relevant.
   5. Quick action tests prove full briefing is not required for the supported quick paths.
 
-**Plans:** 0/1 plans complete
+**Plans:** 2/2 plans complete
+
+Plans:
+- [x] 182-01-PLAN.md — Register ACT-04 quick action contracts
+- [x] 182-02-PLAN.md — Post-confirm execution wiring
 
 ---
 
@@ -195,7 +199,11 @@ Plans:
   4. Assistant review surface reuses current review components rather than duplicating review logic.
   5. Playwright smoke covers the happy path from idea to final package.
 
-**Plans:** 0/1 plans complete
+**Plans:** 2/2 plans complete
+
+Plans:
+- [x] 183-01-PLAN.md — start_complete_campaign executor (preview path)
+- [x] 183-02-PLAN.md — AssistantReviewPanel + Playwright smoke
 
 ---
 
@@ -215,6 +223,6 @@ Archive: [v13.3-ROADMAP.md](milestones/v13.3-ROADMAP.md) · [v13.3-REQUIREMENTS.
 
 ## Progress
 
-**Current milestone:** v13.5 — 0/7 phases complete
+**Current milestone:** v13.5 — 7/7 phases complete
 
-**Next phase:** 177 — Multi-Client Foundation (`$gsd-execute-phase 177`)
+**Status:** Milestone ready for audit/complete (`gsd-complete-milestone v13.5`)

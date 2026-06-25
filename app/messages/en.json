@@ -1855,6 +1855,12 @@
       "noRiskCopy": "No additional risk details",
       "noJobs": "No active jobs",
       "unknownAction": "Unknown action"
+    },
+    "review": {
+      "title": "Review",
+      "ready": "Creative ready for review ({format})",
+      "openReview": "Open review",
+      "noDerivation": "No generated creative to review in this campaign yet."
     }
   },
   "analytics": {

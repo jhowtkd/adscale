@@ -7,6 +7,7 @@ import {
   useAssistantThread,
   type AssistantMessage,
 } from "@/lib/hooks/use-assistant-threads";
+import AssistantReviewPanel from "./AssistantReviewPanel";
 
 export interface AssistantContextPanelProps {
   threadId: string | null;
@@ -136,6 +137,8 @@ export default function AssistantContextPanel({
               </p>
             )}
           </section>
+
+          <AssistantReviewPanel threadId={threadId} />
 
           <section data-testid="context-job-status">
             <h3 className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">

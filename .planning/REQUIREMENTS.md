@@ -31,9 +31,9 @@ Transformar ADScale em uma experiência chat-first para ações rápidas e campa
 
 - [x] **ACT-01**: System classifies user intent as a quick action or complete campaign flow before asking for inputs.
 - [x] **ACT-02**: Each supported action declares required inputs, optional inputs, allowed roles, risk copy, credit impact, and confirmation policy.
-- [ ] **ACT-03**: User can run quick restyling without completing a full campaign brief.
-- [ ] **ACT-04**: Format adaptation, regeneration, review, save-reference, and package actions use their own minimum input contracts.
-- [ ] **ACT-05**: Complete campaign flow requires a stronger minimum brief: client, product or offer, audience, objective, CTA, platform or initial format, critical constraints, and base creative.
+- [x] **ACT-03**: User can run quick restyling without completing a full campaign brief.
+- [x] **ACT-04**: Format adaptation, regeneration, review, save-reference, and package actions use their own minimum input contracts.
+- [x] **ACT-05**: Complete campaign flow requires a stronger minimum brief: client, product or offer, audience, objective, CTA, platform or initial format, critical constraints, and base creative.
 
 ### Modelo e Tools
 
@@ -47,8 +47,8 @@ Transformar ADScale em uma experiência chat-first para ações rápidas e campa
 
 - [x] **EXEC-01**: Actions that write data, spend credits, create jobs, persist memory, or export/package outputs require a confirmed action card.
 - [x] **EXEC-02**: Long-running actions use existing pipeline/Inngest job behavior and show status in the assistant thread.
-- [ ] **EXEC-03**: Full review inside the assistant reuses existing workspace review components instead of duplicating review logic in chat bubbles.
-- [ ] **EXEC-04**: User can complete the happy path from loose idea to final package: select/create client, create campaign draft, satisfy the relevant action contract, generate preview, approve direction, generate batch, review, and create delivery package.
+- [x] **EXEC-03**: Full review inside the assistant reuses existing workspace review components instead of duplicating review logic in chat bubbles.
+- [x] **EXEC-04**: User can complete the happy path from loose idea to final package: select/create client, create campaign draft, satisfy the relevant action contract, generate preview, approve direction, generate batch, review, and create delivery package.
 
 ## Future Requirements
 
@@ -93,9 +93,9 @@ Transformar ADScale em uma experiência chat-first para ações rápidas e campa
 | CHAT-04 | Phase 181 | Complete |
 | ACT-01 | Phase 180 | Complete |
 | ACT-02 | Phase 180 | Complete |
-| ACT-03 | Phase 182 | Pending |
-| ACT-04 | Phase 182 | Pending |
-| ACT-05 | Phase 183 | Pending |
+| ACT-03 | Phase 182 | Complete |
+| ACT-04 | Phase 182 | Complete |
+| ACT-05 | Phase 183 | Complete |
 | AI-01 | Phase 179 | Complete |
 | AI-02 | Phase 179 | Complete |
 | AI-03 | Phase 179 | Complete |
@@ -103,8 +103,8 @@ Transformar ADScale em uma experiência chat-first para ações rápidas e campa
 | AI-05 | Phase 179 | Complete |
 | EXEC-01 | Phase 180 | Complete |
 | EXEC-02 | Phase 178 | Complete |
-| EXEC-03 | Phase 183 | Pending |
-| EXEC-04 | Phase 183 | Pending |
+| EXEC-03 | Phase 183 | Complete |
+| EXEC-04 | Phase 183 | Complete |
 
 **Coverage:**
 - v13.5 requirements: 21 total
