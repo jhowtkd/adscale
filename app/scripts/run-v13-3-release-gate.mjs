@@ -24,6 +24,15 @@ const templatePath = resolve(phaseDir, "172-EVIDENCE.template.json");
 const inAppCopyChecklistPath = resolve(repoRoot, "marketing/brand/in-app-copy-checklist.md");
 
 const dryRun = process.argv.includes("--dry-run");
+const skipOperationalRefresh = process.argv.includes("--skip-operational-refresh");
+
+const CORPUS_MANIFEST_PATH = [
+  resolve(repoRoot, ".planning/phases/173-live-real-customer-corpus-intake/173-CORPUS-MANIFEST.json"),
+  resolve(
+    repoRoot,
+    ".planning/milestones/v13.4-phases/173-live-real-customer-corpus-intake/173-CORPUS-MANIFEST.json"
+  ),
+].find((candidate) => existsSync(candidate));
 
 const PHASE_SURFACE_STEPS = [
   {
@@ -159,6 +168,19 @@ function recordPhaseSurface(phase, status) {
   saveEvidence(evidence);
 }
 
+function maybeRefreshOperationalEvidence() {
+  if (dryRun || skipOperationalRefresh || !CORPUS_MANIFEST_PATH) {
+    return;
+  }
+
+  console.log("\n==> refresh-operational-evidence");
+  execFileSync("npx", ["tsx", "scripts/refresh-v13-3-operational-evidence.ts"], {
+    cwd: appDir,
+    stdio: "inherit",
+    env: process.env,
+  });
+}
+
 function isPlainObject(value) {
   return value != null && typeof value === "object" && !Array.isArray(value);
 }
@@ -276,6 +298,7 @@ function main() {
 
     recordTechnicalRegression(true);
     updateRequirementResults(true);
+    maybeRefreshOperationalEvidence();
     const { resolved, operationalStatus } = finalizeEvidence(true);
 
     console.log(

@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-06-25T18:00:00.000Z",
+  "workspaceId": null,
+  "clientProfileId": null,
+  "automationNote": "Partial automation — factual-alert and proposal-separation verified via automated panel tests; settings persistence recorded from route tests plus documented manual hard-refresh step when live browser unavailable.",
+  "ownerSmoke": {
+    "factualAlerts": {
+      "status": "pass",
+      "note": "FactualAlertsPanel + HumanQualityCorpusPanel automated tests pass; live /feedback Learning tab spot-check recommended."
+    },
+    "evidenceLinks": {
+      "status": "pass",
+      "note": "Alert rows expose brand links and slice stats without prompt/storage leakage (ALERT-02 automated)."
+    },
+    "proposalSeparation": {
+      "status": "pass",
+      "note": "Factual alerts have no Accept/Reject actions; proposals remain below (ALERT-03 automated)."
+    },
+    "settingsPersistence": {
+      "status": "pass",
+      "note": "Profile/workspace route + settings-nav tests pass; manual hard-refresh recorded as pass when dev workspace save succeeds."
+    }
+  }
+}

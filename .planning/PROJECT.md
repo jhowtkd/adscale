@@ -10,20 +10,23 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Current State
 
-v13.3 Tracao Multi-Cliente shipped 2026-06-25 with accepted tech debt. ADScale now proves client-agnostic product traction at the technical layer. v13.4 closes operational evidence: `real_customer` corpus per `clientProfileId`, owner smoke with live data, and claim unlock only when sufficiency passes.
+v13.4 Fechamento de Evidência Operacional shipped 2026-06-25 with accepted tech debt. Operational evidence infrastructure is in place: generic live corpus seed, evidence refresh, smoke manifest capture, and release-gate auto-refresh. Technical regression remains green. **Operational pass is still blocked** — `operationalEvidence: insufficient_sample` until owner runs live corpus seed on a migrated database.
 
-**Active milestone:** v13.4 Fechamento de Evidência Operacional (phases 173–176).
+**Next:** `$gsd-new-milestone` for product scope, or close operational debt via live seed + refresh + release gate on owner workspace.
 
-## Current Milestone: v13.4 Fechamento de Evidência Operacional
+### v13.4 Fechamento de Evidência Operacional — SHIPPED WITH TECH DEBT (2026-06-25)
 
-**Goal:** Sair de `fixtureOnly: true` e `operationalEvidence: insufficient_sample` para amostra real por perfil, smoke owner completo, e release gate que libera claims só com evidência registrada.
+**Goal:** Close v13.3 operational tech debt — `real_customer` corpus per `clientProfileId`, owner smoke with live data, claim unlock only when sufficiency passes.
 
-**Target outcomes:**
-- Pelo menos um `clientProfileId` não-fixture com corpus `real_customer` via caminho genérico v13.3
-- `activeBrandSample.fixtureOnly: false` quando regras de suficiência passarem
-- `172-RELEASE-CHECKLIST.md` executado com workspace live e capturado em `172-EVIDENCE.json`
-- Release gate com `operationalEvidence` além de `insufficient_sample` quando critérios forem atendidos
-- Claims customer-real desbloqueadas apenas com technical + operational pass
+**Delivered:**
+- `seed-live-real-customer-corpus.ts` — idempotent generic `real_customer` promotion path with Cenbrap excluded via `live-corpus-target.ts`
+- `refresh-v13-3-operational-evidence.ts` — patches `172-EVIDENCE.json` from corpus manifest + smoke manifest when present
+- `175-SMOKE-MANIFEST.json` and automated factual-alert panel tests; structured operational record path
+- Release gate (`run-v13-3-release-gate.mjs`) auto-refreshes evidence when `173-CORPUS-MANIFEST.json` exists; claim unlock policy without manual override
+
+**Tech debt accepted:** Live `--confirm` seed not executed (requires `db:migrate` + owner workspace `DATABASE_URL`); no `173-CORPUS-MANIFEST.json`; `172-EVIDENCE.json` still `insufficient_sample` / `fixtureOnly: true`; owner smoke checklist live browser pass and settings hard-refresh UAT pending.
+
+**Current status:** Infrastructure verified by unit tests and audit (`passed_with_tech_debt`). Customer-real claims remain blocked until live operational evidence is recorded.
 
 ### v13.3 Tracao Multi-Cliente — SHIPPED WITH TECH DEBT (2026-06-25)
 
@@ -419,10 +422,18 @@ Delivered: credit estimate transparency, enriched credit events, delivery/stale 
 - ✓ **TRUST-01..05**: Persistent profile/workspace settings with honest tab gating — v13.3
 - ✓ **ALERT-01..04**: Factual issue alerts UI and v13.3 release gate — v13.3
 
+### Validated (v13.4)
+
+- ✓ **LIVE-03**: Corpus surfaces distinguish `synthetic_fixture`, `operator_imported`, and `real_customer`; Cenbrap excluded from live target — v13.4
+- ✓ **SAMPLE-01..03**: Sufficiency logic and claim withholding implemented and unit-tested — v13.4
+- ✓ **SMOKE-03**: Structured operational evidence record path (refresh + smoke manifest) — v13.4
+- ✓ **EVIDENCE-03**: Claim unlock requires technical + operational pass; no manual override — v13.4
+
 ### Active
 
+- [ ] Run live corpus seed (`npm run seed:live-real-customer-corpus -- --confirm`) on owner workspace after `db:migrate`
+- [ ] Refresh evidence and release gate after `173-CORPUS-MANIFEST.json` exists
 - [ ] Complete owner smoke checklist with live workspace data (`172-RELEASE-CHECKLIST.md`)
-- [ ] Import `real_customer` corpus for at least one non-fixture `clientProfileId` to move operational evidence off `insufficient_sample`
 - [ ] Define next milestone scope via `$gsd-new-milestone`
 
 ### Validated (v10.0)
@@ -467,7 +478,7 @@ Delivered: credit estimate transparency, enriched credit events, delivery/stale 
 
 ## Context
 
-Current state: v13.3 shipped 2026-06-25 with accepted tech debt. Client-agnostic traction infrastructure is in place: generic decision intake, source-labeled corpus with claim gates, curator narrative, persistent settings, and factual alerts for any `clientProfile`. Cenbrap remains seed/fixture only. Operational evidence is honestly `insufficient_sample` until live owner corpus and smoke complete; customer-real claims stay blocked by design.
+Current state: v13.4 shipped 2026-06-25 with accepted tech debt. Operational evidence infrastructure (seed script, refresh path, smoke manifest, release-gate auto-refresh) is complete. `operationalEvidence` remains honestly `insufficient_sample` until live owner corpus seed and smoke execute on migrated DB. Customer-real claims stay blocked by design.
 
 v12.7 treated ADScale as a tool that scales creative criterion, not just variation volume. v12.8 now tests that criterion operationally: real campaigns, contact sheets, human decisions and honest evidence refresh.
 
@@ -552,7 +563,7 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-25 — after v13.3 Tracao Multi-Cliente milestone completion*
+*Last updated: 2026-06-25 — after v13.4 Fechamento de Evidência Operacional milestone completion*
 
 ## Milestone History
 
