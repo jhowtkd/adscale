@@ -51,10 +51,12 @@ const ITEM_ID = "550e8400-e29b-41d4-a716-446655440001";
 const CAMPAIGN_ID = "550e8400-e29b-41d4-a716-446655440003";
 const DERIVATION_ID = "550e8400-e29b-41d4-a716-446655440004";
 
+const CLIENT_PROFILE_ID = "550e8400-e29b-41d4-a716-446655440010";
+
 const pendingItem = {
   id: ITEM_ID,
   workspaceId: WORKSPACE_ID,
-  clientProfileId: "550e8400-e29b-41d4-a716-446655440010",
+  clientProfileId: CLIENT_PROFILE_ID,
   campaignId: CAMPAIGN_ID,
   derivationId: DERIVATION_ID,
   generationMode: "art_variation",
@@ -73,6 +75,12 @@ const pendingItem = {
   selectedAt: new Date().toISOString(),
   status: "pending",
   previewImageUrl: "https://cdn.example.com/preview.png",
+  sourceLabel: "operator_imported" as const,
+};
+
+const fixturePendingItem = {
+  ...pendingItem,
+  sourceLabel: "synthetic_fixture" as const,
 };
 
 const CAMPAIGN_ID_2 = "550e8400-e29b-41d4-a716-446655440011";
@@ -433,6 +441,139 @@ describe("HumanQualityCorpusPanel", () => {
 
     expect(await screen.findByText(/restyling · 1:1 · baseline · v1/)).toBeInTheDocument();
     expect(screen.getByLabelText("Visual score (0–100)")).toHaveValue(null);
+  });
+
+  it("passes clientProfileId filter to corpus queue API", async () => {
+    mockQueueOnly();
+
+    renderPanel();
+
+    const profileFilter = await screen.findByLabelText("Queue client profile ID filter");
+
+    fireEvent.change(profileFilter, {
+      target: { value: CLIENT_PROFILE_ID },
+    });
+
+    await waitFor(() => {
+      expect(mockApiFetch).toHaveBeenCalledWith(
+        expect.stringMatching(
+          new RegExp(`clientProfileId=${encodeURIComponent(CLIENT_PROFILE_ID)}`)
+        )
+      );
+    });
+  });
+
+  it("shows client profile id in current item metadata", async () => {
+    mockQueueOnly();
+
+    renderPanel();
+    useWorkspaceScope();
+
+    await screen.findByText("Current item");
+    expect(screen.getByText(CLIENT_PROFILE_ID)).toBeInTheDocument();
+  });
+
+  it("shows fixture-safe source copy without product-proof wording", async () => {
+    mockApiFetch.mockImplementation(async (url: string) => {
+      if (url.includes("human-quality-corpus")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => queueJson([fixturePendingItem]),
+        } as Response;
+      }
+      return { ok: false, status: 403 } as Response;
+    });
+
+    renderPanel();
+    useWorkspaceScope();
+
+    await screen.findByText("Current item");
+    expect(screen.getByText("Fixture/seed evidence")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Validates workflow only — not customer-real proof/)
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/product proof|customer-validated/i)).not.toBeInTheDocument();
+  });
+
+  async function submitMinimalEvaluation(
+    evaluationResponse: Record<string, unknown>
+  ) {
+    let queueCall = 0;
+    mockApiFetch.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url.includes("score-calibration") || url.includes("learning-impact")) {
+        return { ok: false, status: 403 } as Response;
+      }
+      if (url.includes("human-quality-corpus") && !init?.method) {
+        queueCall += 1;
+        return {
+          ok: true,
+          status: 200,
+          json: async () =>
+            queueJson(
+              queueCall === 1 ? [pendingItem, secondPendingItem] : [secondPendingItem],
+              { ...queueProgress, totalPending: queueCall === 1 ? 2 : 1 }
+            ),
+        } as Response;
+      }
+      if (url.includes("/evaluation") && init?.method === "POST") {
+        return {
+          ok: true,
+          status: 201,
+          json: async () => evaluationResponse,
+        } as Response;
+      }
+      return { ok: false, status: 500 } as Response;
+    });
+
+    renderPanel();
+
+    await screen.findByLabelText("Visual score (0–100)");
+    fireEvent.change(screen.getByLabelText("Visual score (0–100)"), {
+      target: { value: "70" },
+    });
+    fireEvent.change(screen.getByLabelText("Factual pass"), {
+      target: { value: "true" },
+    });
+    fireEvent.change(screen.getByLabelText("Reviewer intent"), {
+      target: { value: "approve" },
+    });
+    fireEvent.change(screen.getByLabelText("Primary visible failure reason"), {
+      target: { value: "other" },
+    });
+    fireEvent.change(screen.getByLabelText("Other reason"), {
+      target: { value: "Spacing" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Submit & next" }));
+
+    await waitFor(() => {
+      expect(mockApiFetch).toHaveBeenCalledWith(
+        `/api/feedback/human-quality-corpus/${ITEM_ID}/evaluation`,
+        expect.objectContaining({ method: "POST" })
+      );
+    });
+  }
+
+  it("submits evaluation successfully with legacy response shape (no decisionEvidence)", async () => {
+    await submitMinimalEvaluation({
+      item: { ...pendingItem, status: "evaluated" },
+      evaluation: { id: "eval-1" },
+    });
+
+    expect(await screen.findByText(/restyling · 1:1 · baseline · v1/)).toBeInTheDocument();
+  });
+
+  it("submits evaluation successfully when decisionEvidence is present", async () => {
+    await submitMinimalEvaluation({
+      item: { ...pendingItem, status: "evaluated" },
+      evaluation: { id: "eval-1" },
+      decisionEvidence: {
+        outputDecisionEventId: "ode-1",
+        calibrationSignalStatus: "recorded",
+      },
+    });
+
+    expect(await screen.findByText(/restyling · 1:1 · baseline · v1/)).toBeInTheDocument();
   });
 
   it("requests queue progress with includeProgress=true", async () => {
@@ -1027,8 +1168,6 @@ describe("HumanQualityCorpusPanel coverage tab", () => {
     expect(screen.getByText("impact_slice_arm")).toBeInTheDocument();
   });
 });
-
-const CLIENT_PROFILE_ID = "550e8400-e29b-41d4-a716-446655440010";
 
 const trendReport = {
   status: "ok" as const,

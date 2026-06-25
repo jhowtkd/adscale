@@ -24,10 +24,15 @@ import type { GroupSlice } from "@/server/human-quality/calibration/aggregate";
 import type { CalibrationComparison } from "@/server/human-quality/calibration/types";
 import type { AdjustmentProposalSummary } from "@/server/human-quality/calibration/report";
 import type { SampleGuidance } from "@/server/human-quality/sampling/types";
+import {
+  formatHumanQualitySourceLabel,
+  getHumanQualitySourceCaveat,
+} from "@/components/admin/calibration-status-copy";
 
 type CorpusQueueItem = {
   id: string;
   workspaceId: string;
+  clientProfileId?: string | null;
   campaignId: string;
   derivationId: string;
   generationMode: string;
@@ -354,6 +359,7 @@ type CorpusQueueFilterState = {
   generationMode: string;
   format: string;
   sourceLabel: HumanQualitySourceLabel | "";
+  clientProfileId: string;
   status: "pending" | "evaluated" | "removed";
 };
 
@@ -362,6 +368,7 @@ const DEFAULT_QUEUE_FILTERS: CorpusQueueFilterState = {
   generationMode: "",
   format: "",
   sourceLabel: "",
+  clientProfileId: "",
   status: "pending",
 };
 
@@ -409,6 +416,7 @@ async function fetchPendingQueue(
   if (filters.generationMode) params.set("generationMode", filters.generationMode);
   if (filters.format) params.set("format", filters.format);
   if (filters.sourceLabel) params.set("sourceLabel", filters.sourceLabel);
+  if (filters.clientProfileId) params.set("clientProfileId", filters.clientProfileId);
   const res = await apiFetch(`/api/feedback/human-quality-corpus?${params.toString()}`);
   if (res.status === 403) return null;
   if (!res.ok) throw new Error("failed");
@@ -2119,6 +2127,7 @@ export function HumanQualityCorpusPanel() {
       queueFilters.generationMode,
       queueFilters.format,
       queueFilters.sourceLabel,
+      queueFilters.clientProfileId,
       queueFilters.status,
     ],
     queryFn: () =>
@@ -2290,7 +2299,12 @@ export function HumanQualityCorpusPanel() {
         const err = await res.json().catch(() => ({}));
         throw new Error((err.error as string | undefined) ?? "Evaluation failed");
       }
-      return res.json();
+      const payload = (await res.json()) as {
+        item?: unknown;
+        evaluation?: unknown;
+        decisionEvidence?: unknown;
+      };
+      return payload;
     },
     onSuccess: () => {
       resetForm();
@@ -2303,6 +2317,7 @@ export function HumanQualityCorpusPanel() {
           queueFilters.generationMode,
           queueFilters.format,
           queueFilters.sourceLabel,
+          queueFilters.clientProfileId,
           queueFilters.status,
         ],
       });
@@ -2602,10 +2617,23 @@ export function HumanQualityCorpusPanel() {
                       <option value="">All sources</option>
                       {HUMAN_QUALITY_SOURCE_LABELS.map((label) => (
                         <option key={label} value={label}>
-                          {label}
+                          {formatHumanQualitySourceLabel(label)}
                         </option>
                       ))}
                     </select>
+                  </label>
+                  <label className="grid max-w-xs gap-1 text-xs">
+                    <span className="font-medium text-[var(--text-primary)]">Client profile</span>
+                    <input
+                      type="text"
+                      value={queueFilters.clientProfileId}
+                      onChange={(e) =>
+                        setQueueFilters({ ...queueFilters, clientProfileId: e.target.value })
+                      }
+                      aria-label="Queue client profile ID filter"
+                      placeholder="UUID (optional)"
+                      className="h-9 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-2 font-mono text-[11px]"
+                    />
                   </label>
                   <label className="grid max-w-xs gap-1 text-xs">
                     <span className="font-medium text-[var(--text-primary)]">Mode</span>
@@ -2710,8 +2738,14 @@ export function HumanQualityCorpusPanel() {
                   <MetadataRow label="Mode" value={currentItem.generationMode} />
                   <MetadataRow label="Format" value={currentItem.format || "—"} />
                   <MetadataRow label="Cohort" value={currentItem.cohort} />
+                  {currentItem.clientProfileId ? (
+                    <MetadataRow label="Client profile" value={currentItem.clientProfileId} />
+                  ) : null}
                   {currentItem.sourceLabel ? (
-                    <MetadataRow label="Source" value={currentItem.sourceLabel} />
+                    <MetadataRow
+                      label="Source"
+                      value={formatHumanQualitySourceLabel(currentItem.sourceLabel)}
+                    />
                   ) : null}
                   <MetadataRow label="Corpus version" value={`v${currentItem.corpusVersion}`} />
                   {snapshot?.qualityScore != null ? (
@@ -2721,6 +2755,13 @@ export function HumanQualityCorpusPanel() {
                     <MetadataRow label="Auto verdict" value={snapshot.qualityVerdict} />
                   ) : null}
                 </dl>
+
+                {currentItem.sourceLabel &&
+                getHumanQualitySourceCaveat(currentItem.sourceLabel) ? (
+                  <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-200/90">
+                    {getHumanQualitySourceCaveat(currentItem.sourceLabel)}
+                  </p>
+                ) : null}
 
                 {snapshot?.hardFailures && snapshot.hardFailures.length > 0 ? (
                   <div className="space-y-1">
