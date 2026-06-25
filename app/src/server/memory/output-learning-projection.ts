@@ -74,7 +74,7 @@ export async function projectOutputLearning(
 
   const content = buildProjectionContent(learning);
   const metadata = buildProjectionMetadata(learning);
-  const userId = getBrandMemoryUserId(learning.workspaceId);
+  const userId = getBrandMemoryUserId(learning.workspaceId, learning.clientProfileId);
 
   try {
     if (learning.mem0MemoryId) {

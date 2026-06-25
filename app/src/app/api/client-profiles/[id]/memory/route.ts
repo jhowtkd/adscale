@@ -26,6 +26,7 @@ export async function GET(
 
     const memory = await getBrandMemoryContext({
       workspaceId: workspace.id,
+      clientProfileId: profile.id,
       clientProfileName: profile.name,
       client: profile.name,
       limit: 6,

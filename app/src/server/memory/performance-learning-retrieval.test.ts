@@ -63,11 +63,10 @@ describe("searchPerformanceLearnings", () => {
   });
 
   it("resolves mem0 hits to canonical postgres rows", async () => {
-    getMem0Client.mockReturnValue({
-      search: vi.fn().mockResolvedValue([
-        { metadata: { learningId: "learning-1" }, score: 0.9, memory: "summary" },
-      ]),
-    });
+    const search = vi.fn().mockResolvedValue([
+      { metadata: { learningId: "learning-1" }, score: 0.9, memory: "summary" },
+    ]);
+    getMem0Client.mockReturnValue({ search });
     getLearningsByIds.mockResolvedValue([canonicalRow]);
 
     const result = await searchPerformanceLearnings({
@@ -75,6 +74,19 @@ describe("searchPerformanceLearnings", () => {
       clientProfileId: "client-1",
     });
 
+    expect(getBrandMemoryUserId).toHaveBeenCalledWith("ws-1", "client-1");
+    expect(search).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        user_id: "user_ws",
+        filters: {
+          AND: [
+            { metadata: { memoryType: "performance_learning" } },
+            { metadata: { clientProfileId: "client-1" } },
+          ],
+        },
+      })
+    );
     expect(result.source).toBe("mem0");
     expect(result.learnings[0]?.statement).toBe("test");
     expect(result.learnings[0]?.relevance).toBe(0.9);

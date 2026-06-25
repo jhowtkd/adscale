@@ -21,4 +21,13 @@ describe("mem0 client configuration", () => {
     const mod = await import("./mem0-client");
     expect(mod.getBrandMemoryUserId("workspace-1")).toBe("adscale_test_workspace-1");
   });
+
+  it("scopes user ids by client profile when provided", async () => {
+    process.env.NODE_ENV = "test";
+    process.env.MEM0_USER_PREFIX = "adscale_test";
+    const mod = await import("./mem0-client");
+    expect(mod.getBrandMemoryUserId("workspace-1", "profile-a")).toBe(
+      "adscale_test_workspace-1_profile-a"
+    );
+  });
 });

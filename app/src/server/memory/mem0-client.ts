@@ -8,8 +8,11 @@ export function isBrandMemoryEnabled() {
   return env.MEM0_ENABLED === "true" && Boolean(env.MEM0_API_KEY);
 }
 
-export function getBrandMemoryUserId(workspaceId: string) {
+export function getBrandMemoryUserId(workspaceId: string, clientProfileId?: string | null) {
   const prefix = env.MEM0_USER_PREFIX?.trim() || "adscale_workspace";
+  if (clientProfileId) {
+    return `${prefix}_${workspaceId}_${clientProfileId}`;
+  }
   return `${prefix}_${workspaceId}`;
 }
 
@@ -25,11 +28,14 @@ export function getMem0Client() {
   return mem0Client;
 }
 
-export async function ensureBrandMemoryScope(workspaceId: string) {
+export async function ensureBrandMemoryScope(
+  workspaceId: string,
+  clientProfileId?: string | null
+) {
   const client = getMem0Client();
   if (!client) return null;
 
-  const userId = getBrandMemoryUserId(workspaceId);
+  const userId = getBrandMemoryUserId(workspaceId, clientProfileId);
   try {
     return userId;
   } catch (error) {

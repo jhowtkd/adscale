@@ -16,6 +16,7 @@ export interface BrandMemoryContext {
 
 export interface BrandMemoryContextInput {
   workspaceId: string;
+  clientProfileId?: string | null;
   clientProfileName?: string | null;
   client?: string | null;
   product?: string | null;
@@ -93,12 +94,25 @@ export async function getBrandMemoryContext(
 
   try {
     const userId =
-      (await ensureBrandMemoryScope(input.workspaceId)) ?? getBrandMemoryUserId(input.workspaceId);
+      (await ensureBrandMemoryScope(input.workspaceId, input.clientProfileId)) ??
+      getBrandMemoryUserId(input.workspaceId, input.clientProfileId);
     const query = buildBrandMemorySearchQuery(input);
-    const results = await client.search(query, {
+    const searchOptions: {
+      user_id: string;
+      limit: number;
+      filters?: {
+        AND: Array<{ metadata: Record<string, string> }>;
+      };
+    } = {
       user_id: userId,
       limit: input.limit ?? 8,
-    });
+    };
+    if (input.clientProfileId) {
+      searchOptions.filters = {
+        AND: [{ metadata: { clientProfileId: input.clientProfileId } }],
+      };
+    }
+    const results = await client.search(query, searchOptions);
 
     const items = itemsFromResults(results as Mem0SearchResult[] | { results?: Mem0SearchResult[] });
     return {

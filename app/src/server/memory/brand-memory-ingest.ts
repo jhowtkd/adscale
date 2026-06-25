@@ -10,7 +10,7 @@ export async function ingestBrandMemoryEvent(event: BrandMemoryEvent) {
   }
 
   try {
-    const userId = getBrandMemoryUserId(event.workspaceId);
+    const userId = getBrandMemoryUserId(event.workspaceId, event.clientProfileId);
     const prepared = prepareBrandMemoryEvent(event, userId);
 
     await client.add([{ role: "user", content: prepared.content }], {

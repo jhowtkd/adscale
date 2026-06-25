@@ -62,7 +62,11 @@ describe("projectPerformanceLearning", () => {
     await expect(projectPerformanceLearning(baseLearning)).resolves.toEqual({
       status: "projected",
     });
-    expect(add).toHaveBeenCalled();
+    expect(getBrandMemoryUserId).toHaveBeenCalledWith("ws-1", "client-1");
+    expect(add).toHaveBeenCalledWith(
+      expect.any(Array),
+      expect.objectContaining({ user_id: "user_ws" })
+    );
     expect(updateLearningMem0Id).toHaveBeenCalledWith("learning-1", "ws-1", "mem-1");
   });
 

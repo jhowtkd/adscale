@@ -90,7 +90,7 @@ export async function searchPerformanceLearnings(
   }
 
   try {
-    const userId = getBrandMemoryUserId(input.workspaceId);
+    const userId = getBrandMemoryUserId(input.workspaceId, input.clientProfileId);
     const results = (await client.search(buildSearchQuery(input), {
       user_id: userId,
       limit: input.limit ?? 12,
