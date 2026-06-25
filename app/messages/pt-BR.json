@@ -1774,8 +1774,43 @@
       "chat": "Chat",
       "context": "Contexto"
     },
+    "tree": {
+      "title": "Conversas",
+      "newClient": "Novo cliente",
+      "newCampaign": "Nova campanha",
+      "newThread": "Nova thread",
+      "noClients": "Nenhum cliente ainda. Crie um para começar."
+    },
     "empty": {
+      "title": "Escolha uma conversa",
+      "body": "Selecione um cliente e uma thread na barra lateral, ou crie um novo cliente para começar a conversar com o assistente.",
+      "selectTree": "Ver conversas",
+      "createClient": "Criar cliente",
       "selectThread": "Selecione uma thread na árvore para começar a conversar."
+    },
+    "createClient": {
+      "title": "Novo cliente",
+      "description": "Adicione um perfil de cliente para organizar campanhas e conversas.",
+      "nameLabel": "Nome do cliente",
+      "namePlaceholder": "ex.: Acme Corp",
+      "submit": "Criar cliente",
+      "cancel": "Cancelar"
+    },
+    "createCampaign": {
+      "title": "Nova campanha",
+      "description": "Crie um rascunho de campanha vinculado a este cliente.",
+      "nameLabel": "Nome da campanha",
+      "namePlaceholder": "ex.: Lançamento de verão",
+      "submit": "Criar rascunho",
+      "cancel": "Cancelar"
+    },
+    "createThread": {
+      "title": "Nova thread",
+      "description": "Inicie uma conversa nomeada.",
+      "nameLabel": "Nome da thread",
+      "namePlaceholder": "ex.: Revisão criativa",
+      "submit": "Criar thread",
+      "cancel": "Cancelar"
     }
   },
   "analytics": {
