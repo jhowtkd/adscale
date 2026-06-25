@@ -37,11 +37,11 @@ Transformar ADScale em uma experiência chat-first para ações rápidas e campa
 
 ### Modelo e Tools
 
-- [ ] **AI-01**: `AssistantModelClient` abstracts the model provider from assistant orchestration.
-- [ ] **AI-02**: MiniMax M3 is implemented as the first assistant model adapter with text streaming.
-- [ ] **AI-03**: Context sent to the provider is broad enough for project-aware assistance but allowlisted to exclude secrets, raw signed URLs, internal evidence payloads, and out-of-scope customer data.
-- [ ] **AI-04**: Tool calls are validated server-side with deny-by-default permissions, role gates, schema validation, scope checks, and confirmation requirements.
-- [ ] **AI-05**: Provider reasoning or thinking fields are not displayed to users and are not persisted as conversation history.
+- [x] **AI-01**: `AssistantModelClient` abstracts the model provider from assistant orchestration.
+- [x] **AI-02**: MiniMax M3 is implemented as the first assistant model adapter with text streaming.
+- [x] **AI-03**: Context sent to the provider is broad enough for project-aware assistance but allowlisted to exclude secrets, raw signed URLs, internal evidence payloads, and out-of-scope customer data.
+- [x] **AI-04**: Tool calls are validated server-side with deny-by-default permissions, role gates, schema validation, scope checks, and confirmation requirements.
+- [x] **AI-05**: Provider reasoning or thinking fields are not displayed to users and are not persisted as conversation history.
 
 ### Execução e UX
 
@@ -96,11 +96,11 @@ Transformar ADScale em uma experiência chat-first para ações rápidas e campa
 | ACT-03 | Phase 182 | Pending |
 | ACT-04 | Phase 182 | Pending |
 | ACT-05 | Phase 183 | Pending |
-| AI-01 | Phase 179 | Pending |
-| AI-02 | Phase 179 | Pending |
-| AI-03 | Phase 179 | Pending |
-| AI-04 | Phase 179 | Pending |
-| AI-05 | Phase 179 | Pending |
+| AI-01 | Phase 179 | Complete |
+| AI-02 | Phase 179 | Complete |
+| AI-03 | Phase 179 | Complete |
+| AI-04 | Phase 179 | Complete |
+| AI-05 | Phase 179 | Complete |
 | EXEC-01 | Phase 180 | Pending |
 | EXEC-02 | Phase 178 | Complete |
 | EXEC-03 | Phase 183 | Pending |

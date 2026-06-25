@@ -36,7 +36,7 @@
 |---|-------|--------------|--------|-----------|
 | 177 | Multi-Client Foundation | Complete    | 2026-06-25 | 2026-06-25 |
 | 178 | 4/4 | Complete    | 2026-06-25 | - |
-| 179 | Model Adapter and Tool Policy | AI-01, AI-02, AI-03, AI-04, AI-05 | Pending | - |
+| 179 | 4/4 | Complete   | 2026-06-25 | - |
 | 180 | Action Contracts | ACT-01, ACT-02, EXEC-01 | Pending | - |
 | 181 | Assistant Surface | CHAT-01, CHAT-02, CHAT-03, CHAT-04 | Pending | - |
 | 182 | Quick Actions | ACT-03, ACT-04 | Pending | - |
@@ -101,7 +101,7 @@ Plans:
   4. Tool calls are validated by server-side policy before any execution or action-card creation.
   5. Tests prove provider reasoning/thinking is neither displayed nor persisted.
 
-**Plans:** 0/4 plans complete
+**Plans:** 4/4 plans complete
 
 Plans:
 - [ ] 179-01-PLAN.md — AssistantModelClient interface, MiniMax adapter, reasoning sanitizer (AI-01, AI-02, AI-05)
