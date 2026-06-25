@@ -31,7 +31,7 @@
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
-| 168 | Client-Agnostic Human Decision Intake | 2/3 | In Progress|  |
+| 168 | Client-Agnostic Human Decision Intake | DECISION-01..05 | Complete | 2026-06-25 |
 | 169 | Real Corpus and Claim Gates | SOURCE-01..05 | Planned | - |
 | 170 | Product Narrative Rollout | BRAND-01..04 | Planned | - |
 | 171 | Persistent Product Trust Baseline | TRUST-01..05 | Planned | - |
@@ -54,12 +54,12 @@
   4. Per-brand evidence updates from the generic decision path.
   5. Cross-profile isolation is covered by automated tests.
 
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans executed
 
 Plans:
 - [x] 168-01-PLAN.md - Generic evaluation-to-decision bridge
 - [x] 168-02-PLAN.md - Client-agnostic queue UI and fixture-safe copy
-- [ ] 168-03-PLAN.md - Evidence isolation and phase verification
+- [x] 168-03-PLAN.md - Evidence isolation and phase verification
 
 ---
 

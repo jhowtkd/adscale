@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v13.3
 milestone_name: Tracao Multi-Cliente
-status: executing
-stopped_at: Completed 168-02-PLAN.md
-last_updated: "2026-06-25T07:49:06.083Z"
+status: ready
+stopped_at: Completed 168-03-PLAN.md
+last_updated: "2026-06-25T08:00:00.000Z"
 last_activity: 2026-06-25
 progress:
   total_phases: 5
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 2
-  percent: 67
+  completed_plans: 3
+  percent: 20
 ---
 
 # Project State
@@ -26,12 +26,12 @@ See: .planning/PROJECT.md (updated 2026-06-25)
 
 ## Current Position
 
-Phase: 168 of 172 (client-agnostic human decision intake)
-Plan: 2 of 3 complete — next 168-02
+Phase: 169 of 172 (real corpus and claim gates)
+Plan: 0 of TBD — next Phase 169 planning/execution
 Status: Ready to execute
 Last activity: 2026-06-25
 
-Progress: [░░░░░░░░░░] 0/5 phases
+Progress: [█░░░░░░░░░] 1/5 phases
 
 ## Performance Metrics
 
@@ -39,12 +39,12 @@ Progress: [░░░░░░░░░░] 0/5 phases
 
 | Phase | Plans | Status |
 |-------|-------|--------|
-| 168 | 1/3 | In progress |
+| 168 | 3/3 | Complete |
 | 169 | 0/TBD | Planned |
 | 170 | 0/TBD | Planned |
 | 171 | 0/TBD | Planned |
 | 172 | 0/TBD | Planned |
-| Phase 168-client-agnostic-human-decision-intake P02 | 12 | 3 tasks | 4 files |
+| Phase 168-client-agnostic-human-decision-intake P03 | 15 | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -65,6 +65,9 @@ Progress: [░░░░░░░░░░] 0/5 phases
 - [Phase 168]: Skip calibration signal when corpus item clientProfileId is null; still record output decision evidence
 - [Phase 168]: Queue clientProfileId filter exposed in global corpus scope alongside other dimension filters
 - [Phase 168]: Fixture and operator-imported corpus rows show distinct inline evidence caveats
+
+- [Phase 168]: Per-brand evidence tests require profile-scoped signal filtering before buildPerBrandEvidenceReport
+- [Phase 168]: Cenbrap remains fixture/seed only; phase verification documents accepted gaps for customer-real corpus
 
 ### Blockers/Concerns
 
@@ -88,7 +91,7 @@ Progress: [░░░░░░░░░░] 0/5 phases
 
 ## Session Continuity
 
-Last session: 2026-06-25T07:49:06.079Z
-Stopped at: Completed 168-02-PLAN.md
+Last session: 2026-06-25T08:00:00.000Z
+Stopped at: Completed 168-03-PLAN.md
 Resume file: None
-Next command: `$gsd-execute-phase 168`
+Next command: `$gsd-plan-phase 169` or `$gsd-execute-phase 169`
