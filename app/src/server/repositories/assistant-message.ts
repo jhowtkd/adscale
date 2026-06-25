@@ -193,3 +193,18 @@ export async function touchAssistantThread(workspaceId: string, threadId: string
       )
     );
 }
+
+export async function getAssistantMessageById(workspaceId: string, messageId: string) {
+  const [row] = await db
+    .select()
+    .from(assistantMessages)
+    .where(
+      and(
+        eq(assistantMessages.id, messageId),
+        eq(assistantMessages.workspaceId, workspaceId)
+      )
+    )
+    .limit(1);
+
+  return row ?? null;
+}

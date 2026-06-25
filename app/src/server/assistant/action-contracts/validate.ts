@@ -1,5 +1,11 @@
 import { requireRole } from "@/server/auth/workspace";
-import { AssistantActionValidationError } from "@/server/repositories/assistant-action";
+import {
+  AssistantActionValidationError,
+  getAssistantActionById,
+  InvalidActionTransitionError,
+} from "@/server/repositories/assistant-action";
+import { getAssistantMessageById } from "@/server/repositories/assistant-message";
+import type { ActionStatus } from "@/server/repositories/assistant-types";
 import type { ToolHandlerContext } from "../tools/registry";
 import type { ActionContract } from "./types";
 import { getActionContract } from "./registry";
@@ -53,4 +59,40 @@ export async function validateProposeAction(
     },
     contract,
   };
+}
+
+export async function revalidateOnConfirm(
+  workspaceId: string,
+  actionId: string
+): Promise<void> {
+  const action = await getAssistantActionById(workspaceId, actionId);
+  if (!action) {
+    throw new AssistantActionValidationError("action_not_found");
+  }
+
+  if (action.status !== "pending") {
+    throw new InvalidActionTransitionError(
+      action.status as ActionStatus,
+      "confirmed"
+    );
+  }
+
+  const message = await getAssistantMessageById(workspaceId, action.messageId);
+  const payload = (message?.payload ?? {}) as Record<string, unknown>;
+  const display = payload.display as Record<string, unknown> | undefined;
+  const actionType = display?.actionType;
+
+  if (typeof actionType !== "string" || !actionType.trim()) {
+    throw new AssistantActionValidationError("unknown_action_type");
+  }
+
+  const contract = getActionContract(actionType);
+  if (!contract) {
+    throw new AssistantActionValidationError("unknown_action_type");
+  }
+
+  const parseResult = contract.inputSchema.safeParse(action.inputSnapshot);
+  if (!parseResult.success) {
+    throw new AssistantActionValidationError("invalid_action_inputs");
+  }
 }
