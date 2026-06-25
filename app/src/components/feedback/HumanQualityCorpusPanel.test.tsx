@@ -1457,6 +1457,25 @@ const learningProposal = {
   },
 };
 
+const factualAlertsFixture = [
+  {
+    workspaceId: WORKSPACE_ID,
+    clientProfileId: CLIENT_PROFILE_ID,
+    sliceKey: `${WORKSPACE_ID}:${CLIENT_PROFILE_ID}:factual_issue|art_variation|1:1`,
+    rationale: "factual_guard_review_required" as const,
+    evidenceRefs: {
+      corpusItemIds: ["item-1", "item-2", "item-3"],
+      stats: {
+        count: 3,
+        meanSignedDelta: 18,
+        meanAbsError: 18,
+        overScoreCount: 3,
+        underScoreCount: 0,
+      },
+    },
+  },
+];
+
 describe("HumanQualityCorpusPanel learning tab", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -1493,6 +1512,13 @@ describe("HumanQualityCorpusPanel learning tab", () => {
           ok: true,
           status: 200,
           json: async () => ({ proposals: [learningProposal] }),
+        } as Response;
+      }
+      if (url.includes("learning/factual-alerts")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ alerts: [] }),
         } as Response;
       }
       if (
@@ -1540,6 +1566,81 @@ describe("HumanQualityCorpusPanel learning tab", () => {
     expect(
       await screen.findByText(/2 global proposal\(s\) saved to rubric calibration adjustments/)
     ).toBeInTheDocument();
+  });
+
+  it("fetches and renders factual alerts above learning proposals on Learning tab", async () => {
+    mockApiFetch.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url.includes("ingestion/status")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            eligibleDerivations: 100,
+            totalCandidates: 40,
+            pendingQueue: 3,
+            evaluated: 12,
+            blockedMissingClientProfile: 2,
+          }),
+        } as Response;
+      }
+      if (url.includes("learning/factual-alerts")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ alerts: factualAlertsFixture }),
+        } as Response;
+      }
+      if (url.includes("learning/proposals") && !init?.method) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ proposals: [learningProposal] }),
+        } as Response;
+      }
+      if (
+        url.includes("score-calibration") ||
+        url.includes("learning-impact") ||
+        url.includes("quality-improvement") ||
+        url.includes("sample-coverage") ||
+        url.includes("quality-trend")
+      ) {
+        return { ok: false, status: 403 } as Response;
+      }
+      if (url.includes("human-quality-corpus") && !init?.method) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => queueJson([pendingItem]),
+        } as Response;
+      }
+      return { ok: false, status: 500 } as Response;
+    });
+
+    renderPanel();
+    useWorkspaceScope();
+
+    await screen.findByText("Human quality corpus");
+    fireEvent.click(screen.getByRole("button", { name: "Learning" }));
+
+    expect(await screen.findByTestId("factual-alerts-panel")).toBeInTheDocument();
+    expect(screen.getByText("Factual issue alerts")).toBeInTheDocument();
+    expect(screen.getByText(factualAlertsFixture[0].sliceKey)).toBeInTheDocument();
+
+    const proposalsHeading = await screen.findByText("Client learning proposals");
+    const alertsPanel = screen.getByTestId("factual-alerts-panel");
+    expect(
+      alertsPanel.compareDocumentPosition(proposalsHeading) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+
+    await waitFor(() => {
+      const factualAlertsCall = mockApiFetch.mock.calls.find(
+        ([url]) =>
+          typeof url === "string" && url.includes("/api/admin/quality/learning/factual-alerts")
+      );
+      expect(factualAlertsCall).toBeDefined();
+      expect(factualAlertsCall?.[0]).toContain(`workspaceId=${WORKSPACE_ID}`);
+    });
   });
 });
 
