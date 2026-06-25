@@ -24,16 +24,21 @@ vi.mock("@/server/assistant/context/context-builder", () => ({
   ),
 }));
 
-vi.mock("@/server/repositories/assistant-action", () => ({
-  createAssistantAction: vi.fn(() =>
-    Promise.resolve({
-      action: { id: "action-1" },
-      message: { id: "msg-1" },
-    })
-  ),
-}));
+vi.mock("@/server/repositories/assistant-action", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/server/repositories/assistant-action")>();
+  return {
+    ...actual,
+    createAssistantAction: vi.fn(() =>
+      Promise.resolve({
+        action: { id: "action-1" },
+        message: { id: "msg-1" },
+      })
+    ),
+  };
+});
 
-import { requireRole } from "@/server/auth/workspace";
+import { requireRole, WorkspaceAuthError } from "@/server/auth/workspace";
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import { createAssistantAction } from "@/server/repositories/assistant-action";
 
@@ -102,7 +107,7 @@ describe("evaluateToolCall", () => {
     expect(result.denialReason).toBe("scope_mismatch");
   });
 
-  it("allows propose_action with requiresConfirmation", async () => {
+  it("denies propose_action with unregistered actionType", async () => {
     const result = await evaluateToolCall(ctx, {
       name: "propose_action",
       argumentsJson: JSON.stringify({
@@ -110,10 +115,52 @@ describe("evaluateToolCall", () => {
         label: "Restyle creative",
       }),
     });
+    expect(result.allowed).toBe(false);
+    expect(result.denialReason).toBe("contract_validation_failed");
+    expect(mockCreateAction).not.toHaveBeenCalled();
+  });
+
+  it("allows propose_action with valid quick_restyle and enriched display", async () => {
+    const baseCreativeId = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11";
+    const result = await evaluateToolCall(ctx, {
+      name: "propose_action",
+      argumentsJson: JSON.stringify({
+        actionType: "quick_restyle",
+        label: "Restyle rápido",
+        inputSnapshot: { baseCreativeId },
+      }),
+    });
     expect(result.allowed).toBe(true);
     expect(result.requiresConfirmation).toBe(true);
     expect(result.actionRecordId).toBe("action-1");
-    expect(mockCreateAction).toHaveBeenCalled();
+    expect(mockCreateAction).toHaveBeenCalledWith(
+      "ws-1",
+      expect.objectContaining({
+        display: expect.objectContaining({
+          actionType: "quick_restyle",
+          confirmationPolicy: "required",
+          riskLabel: "medium",
+        }),
+      })
+    );
+  });
+
+  it("denies propose_action when role is forbidden", async () => {
+    mockRequireRole.mockRejectedValue(
+      new WorkspaceAuthError("forbidden", "Forbidden")
+    );
+
+    const result = await evaluateToolCall(ctx, {
+      name: "propose_action",
+      argumentsJson: JSON.stringify({
+        actionType: "quick_restyle",
+        label: "Restyle rápido",
+        inputSnapshot: {
+          baseCreativeId: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+        },
+      }),
+    });
+    expect(result.denialReason).toBe("forbidden");
   });
 
   it("denies summaries containing denied substrings", async () => {
