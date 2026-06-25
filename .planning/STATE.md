@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v13.5
 milestone_name: Assistente Conversacional de Ações
 status: verifying
-stopped_at: Completed 180-04-PLAN.md
-last_updated: "2026-06-25T19:25:37.196Z"
+stopped_at: Phase 181 context gathered
+last_updated: "2026-06-25T19:57:39.129Z"
 last_activity: 2026-06-25
 progress:
   total_phases: 7
@@ -95,7 +95,7 @@ Progress: [#---------] 1/7 phases
 
 ## Session Continuity
 
-Last session: 2026-06-25T19:22:51.587Z
-Stopped at: Completed 180-04-PLAN.md
-Resume file: None
+Last session: 2026-06-25T19:57:39.127Z
+Stopped at: Phase 181 context gathered
+Resume file: .planning/milestones/v13.5-phases/181-assistant-surface/181-CONTEXT.md
 Next command: `$gsd-execute-phase 180` plan 03 or `$gsd-execute-phase 180` plan 01
