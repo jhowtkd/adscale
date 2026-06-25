@@ -25,12 +25,16 @@ vi.mock("@/server/assistant/tools/policy", () => ({
 
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import { createAssistantMessage } from "@/server/repositories/assistant-message";
-import { buildAssistantContext } from "@/server/assistant/context/context-builder";
+import {
+  buildAssistantContext,
+  toAssistantModelRequest,
+} from "@/server/assistant/context/context-builder";
 import { evaluateToolCall } from "@/server/assistant/tools/policy";
 
 const mockGetThread = vi.mocked(getAssistantThreadById);
 const mockCreateMessage = vi.mocked(createAssistantMessage);
 const mockBuildContext = vi.mocked(buildAssistantContext);
+const mockToAssistantModelRequest = vi.mocked(toAssistantModelRequest);
 const mockEvaluateTool = vi.mocked(evaluateToolCall);
 
 function mockModelClient(events: AssistantStreamEvent[]): AssistantModelClient {
@@ -41,6 +45,21 @@ function mockModelClient(events: AssistantStreamEvent[]): AssistantModelClient {
       }
     },
   };
+}
+
+function capturingModelClient(
+  events: AssistantStreamEvent[] = [{ type: "done" }]
+) {
+  let capturedRequest: Parameters<AssistantModelClient["stream"]>[0] | undefined;
+  const client: AssistantModelClient = {
+    async *stream(request) {
+      capturedRequest = request;
+      for (const event of events) {
+        yield event;
+      }
+    },
+  };
+  return { client, getRequest: () => capturedRequest };
 }
 
 const baseInput = {
@@ -115,7 +134,8 @@ describe("runAssistantTurn", () => {
         type: "tool_call",
         id: "c1",
         name: "propose_action",
-        argumentsJson: '{"actionType":"restyle","label":"Restyle"}',
+        argumentsJson:
+          '{"actionType":"quick_restyle","label":"Restyle","baseCreativeId":"550e8400-e29b-41d4-a716-446655440000"}',
       },
       { type: "done" },
     ];
@@ -167,5 +187,79 @@ describe("runAssistantTurn", () => {
     }
 
     expect(turnEvents.some((e) => e.type === "error")).toBe(true);
+  });
+
+  it("short-circuits ambiguous intent with clarify message without streaming", async () => {
+    const streamSpy = vi.fn();
+    const throwingClient: AssistantModelClient = {
+      async *stream() {
+        streamSpy();
+        throw new Error("model stream should not be called");
+      },
+    };
+
+    const turnEvents = [];
+    for await (const event of runAssistantTurn({
+      ...baseInput,
+      userMessage:
+        "quero reestilizar e montar campanha completa para o lançamento",
+      modelClient: throwingClient,
+    })) {
+      turnEvents.push(event);
+    }
+
+    expect(streamSpy).not.toHaveBeenCalled();
+    expect(mockCreateMessage).toHaveBeenCalledWith("ws-1", {
+      threadId: "thread-1",
+      type: "assistant",
+      content:
+        "Você quer uma ação pontual ou montar uma campanha completa?",
+    });
+    expect(turnEvents).toEqual([
+      { type: "done", assistantMessageId: "assistant-msg" },
+    ]);
+  });
+
+  it("augments system prompt with quick_action when restyle keyword detected", async () => {
+    const { client, getRequest } = capturingModelClient([
+      { type: "text_delta", text: "Ok" },
+      { type: "done" },
+    ]);
+
+    const turnEvents = [];
+    for await (const event of runAssistantTurn({
+      ...baseInput,
+      userMessage: "quero reestilizar esse criativo",
+      modelClient: client,
+    })) {
+      turnEvents.push(event);
+    }
+
+    expect(getRequest()?.systemPrompt).toContain("quick_action");
+  });
+
+  it("does not clarify on greeting and still streams model response", async () => {
+    const streamSpy = vi.fn();
+    const client: AssistantModelClient = {
+      async *stream() {
+        streamSpy();
+        yield { type: "done" };
+      },
+    };
+
+    const turnEvents = [];
+    for await (const event of runAssistantTurn({
+      ...baseInput,
+      userMessage: "Olá",
+      modelClient: client,
+    })) {
+      turnEvents.push(event);
+    }
+
+    expect(streamSpy).toHaveBeenCalled();
+    expect(turnEvents.at(-1)).toEqual({
+      type: "done",
+      assistantMessageId: "assistant-msg",
+    });
   });
 });
