@@ -113,3 +113,85 @@ describe("FactualAlertsPanel — fetch and section shell", () => {
     expect(fetchUrl).toContain(`clientProfileId=${CLIENT_PROFILE_ID}`);
   });
 });
+
+describe("FactualAlertsPanel — safe evidence links and stats", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("shows sliceKey, workspaceId, clientProfileId, rationale, and stats per alert", async () => {
+    mockAlertsList([alertFixture]);
+    renderPanel();
+
+    await screen.findByText(alertFixture.sliceKey);
+
+    expect(screen.getByText(alertFixture.workspaceId)).toBeInTheDocument();
+    expect(screen.getByText(alertFixture.clientProfileId)).toBeInTheDocument();
+    expect(screen.getByText("factual_guard_review_required")).toBeInTheDocument();
+    expect(screen.getByText(String(alertFixture.evidenceRefs.stats.count))).toBeInTheDocument();
+    expect(screen.getByText(String(alertFixture.evidenceRefs.stats.meanSignedDelta))).toBeInTheDocument();
+    expect(screen.getByText(String(alertFixture.evidenceRefs.stats.meanAbsError))).toBeInTheDocument();
+    expect(screen.getByText(String(alertFixture.evidenceRefs.stats.overScoreCount))).toBeInTheDocument();
+    expect(screen.getByText(String(alertFixture.evidenceRefs.stats.underScoreCount))).toBeInTheDocument();
+  });
+
+  it("renders brand link to /admin/quality/brands/{clientProfileId}", async () => {
+    mockAlertsList([alertFixture]);
+    renderPanel();
+
+    const brandLink = await screen.findByRole("link", {
+      name: new RegExp(alertFixture.clientProfileId),
+    });
+    expect(brandLink).toHaveAttribute(
+      "href",
+      `/admin/quality/brands/${alertFixture.clientProfileId}`
+    );
+  });
+
+  it("renders each corpusItemId as link to /feedback with visible id label", async () => {
+    mockAlertsList([alertFixture]);
+    renderPanel();
+
+    for (const corpusItemId of alertFixture.evidenceRefs.corpusItemIds) {
+      const link = await screen.findByRole("link", { name: corpusItemId });
+      expect(link).toHaveAttribute("href", "/feedback");
+    }
+  });
+
+  it("shows artifact count only when artifactIds present — no raw artifact links", async () => {
+    mockAlertsList([alertFixture]);
+    renderPanel();
+
+    expect(
+      await screen.findByText(/3 artifacts referenced/i)
+    ).toBeInTheDocument();
+
+    const artifactLinks = screen
+      .queryAllByRole("link")
+      .filter((link) => String(link.getAttribute("href")).includes("artifact"));
+    expect(artifactLinks).toHaveLength(0);
+  });
+
+  it("does not render forbidden evidence fields in the DOM", async () => {
+    mockAlertsList([alertFixture]);
+    const { container } = renderPanel();
+
+    await screen.findByText(alertFixture.sliceKey);
+
+    const domText = container.textContent ?? "";
+    expect(domText).not.toContain("artifactRef");
+    expect(domText).not.toContain("storageKey");
+    expect(domText).not.toContain("evaluationNotes");
+  });
+
+  it("has no Accept, Reject, or Generate action buttons", async () => {
+    mockAlertsList([alertFixture]);
+    renderPanel();
+
+    await screen.findByText(alertFixture.sliceKey);
+
+    expect(screen.queryByRole("button", { name: /^accept$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^reject$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /generate/i })).not.toBeInTheDocument();
+  });
+});
