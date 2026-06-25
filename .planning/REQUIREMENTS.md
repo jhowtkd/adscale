@@ -45,7 +45,7 @@ Transformar ADScale em uma experiência chat-first para ações rápidas e campa
 
 ### Execução e UX
 
-- [ ] **EXEC-01**: Actions that write data, spend credits, create jobs, persist memory, or export/package outputs require a confirmed action card.
+- [x] **EXEC-01**: Actions that write data, spend credits, create jobs, persist memory, or export/package outputs require a confirmed action card.
 - [x] **EXEC-02**: Long-running actions use existing pipeline/Inngest job behavior and show status in the assistant thread.
 - [ ] **EXEC-03**: Full review inside the assistant reuses existing workspace review components instead of duplicating review logic in chat bubbles.
 - [ ] **EXEC-04**: User can complete the happy path from loose idea to final package: select/create client, create campaign draft, satisfy the relevant action contract, generate preview, approve direction, generate batch, review, and create delivery package.
@@ -101,7 +101,7 @@ Transformar ADScale em uma experiência chat-first para ações rápidas e campa
 | AI-03 | Phase 179 | Complete |
 | AI-04 | Phase 179 | Complete |
 | AI-05 | Phase 179 | Complete |
-| EXEC-01 | Phase 180 | Pending |
+| EXEC-01 | Phase 180 | Complete |
 | EXEC-02 | Phase 178 | Complete |
 | EXEC-03 | Phase 183 | Pending |
 | EXEC-04 | Phase 183 | Pending |
