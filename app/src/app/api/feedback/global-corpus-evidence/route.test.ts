@@ -65,6 +65,66 @@ describe("GET /api/feedback/global-corpus-evidence", () => {
     expect(mockRunEvidence).toHaveBeenCalled();
   });
 
+  it("passes workspaceId and clientProfileId scope params to evidence service", async () => {
+    mockRunEvidence.mockResolvedValue({
+      report: {
+        schemaVersion: 1,
+        capturedAt: "2026-06-20T00:00:00.000Z",
+        evaluatedItemCount: 5,
+        pendingItemCount: 0,
+        sourceComposition: {
+          synthetic_fixture: 0,
+          operator_imported: 0,
+          real_customer: 5,
+        },
+        fixtureOnly: false,
+        operationalStatus: "ok",
+        claimsAllowed: ["validated_against_customer_real"],
+        claimsBlocked: [],
+        withheldClaims: [],
+        dependsOnOperator: [],
+        brandTasteClientScopes: [],
+        sampleCoverage: {
+          schemaVersion: 1,
+          capturedAt: "2026-06-20T00:00:00.000Z",
+          evaluatedItemCount: 5,
+          gates: [],
+          sliceGaps: [],
+          nextGate: "release",
+          nextOperatorAction: "All gates satisfied",
+        },
+      },
+    });
+
+    const workspaceId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const clientProfileId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    const res = await GET(
+      new Request(
+        `http://localhost/api/feedback/global-corpus-evidence?workspaceId=${workspaceId}&clientProfileId=${clientProfileId}&cohort=baseline`
+      )
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockRunEvidence).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId,
+        clientProfileId,
+        cohort: "baseline",
+      })
+    );
+  });
+
+  it("rejects malformed workspaceId and clientProfileId query params", async () => {
+    const res = await GET(
+      new Request(
+        "http://localhost/api/feedback/global-corpus-evidence?workspaceId=not-a-uuid&clientProfileId=also-bad"
+      )
+    );
+
+    expect(res.status).toBe(400);
+    expect(mockRunEvidence).not.toHaveBeenCalled();
+  });
+
   it("rejects non-owner callers", async () => {
     const { WorkspaceAuthError } = await import("@/server/auth/workspace");
     mockRequireOwner.mockRejectedValue(

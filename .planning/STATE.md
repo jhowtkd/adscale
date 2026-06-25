@@ -1,92 +1,80 @@
 ---
 gsd_state_version: 1.0
-milestone: v13.2
-milestone_name: Calibração Multi-Marca
-status: executing
-stopped_at: Completed 167-03-PLAN.md
-last_updated: "2026-06-24T19:04:24.094Z"
-last_activity: 2026-06-24
+milestone: v13.4
+milestone_name: Fechamento de Evidência Operacional
+status: completed
+stopped_at: Milestone v13.4 complete (passed_with_tech_debt)
+last_updated: "2026-06-25T12:18:29.096Z"
+last_activity: 2026-06-25 — Milestone v13.4 initialized
 progress:
-  total_phases: 11
-  completed_phases: 11
-  total_plans: 27
-  completed_plans: 27
-  percent: 100
+  total_phases: 4
+  completed_phases: 4
+  total_plans: 4
+  completed_plans: 4
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-06-23)
+See: .planning/PROJECT.md (updated 2026-06-25 — v13.4 shipped with tech debt)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** Phase 167 — Global Cross-Client Promotion (Wave 1 complete)
+**Current focus:** v13.4 shipped (passed_with_tech_debt) — live DB seed pending
 
 ## Current Position
 
-Phase: 167 of 167 (global cross-client promotion)
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-06-24
+Phase: 176 of 176 (milestone complete)
+Plan: 4 of 4 complete
+Status: Milestone v13.4 archived — operational evidence infrastructure shipped
+Last activity: 2026-06-25 — v13.4 milestone audit + archive
 
-Progress: [███░░░░░░░] 1/3 plans in Phase 167
+Progress: [██████████] 4/4 phases
 
 ## Performance Metrics
 
-**Velocity:** v13.2 Phases 162-166 complete
-
 | Phase | Plans | Status |
 |-------|-------|--------|
-| 162 | 3/3 | Complete |
-| 163 | 3/3 | Complete |
-| 164 | 3/3 | Complete |
-| 165 | 3/3 | Complete |
-| 166 | 2/2 | Complete |
-| 167 | 1/3 | In Progress |
-| Phase 167-global-cross-client-promotion P01 | 8 | 1 tasks | 3 files |
-| Phase 167-global-cross-client-promotion P02 | 8 | 2 tasks | 14 files |
-| Phase 167-global-cross-client-promotion P03 | 12 | 2 tasks | 6 files |
+| 173 | 1/1 | Complete |
+| 174 | 1/1 | Complete |
+| 175 | 1/1 | Complete |
+| 176 | 1/1 | Complete |
 
 ## Accumulated Context
 
-### Decisions
+### Decisions (v13.4)
 
-- [v13.2]: Replace Cenbrap hardcode with per-clientProfile Olhar/voice configuration
-- [v13.2]: Owner-only operation — no workspace admin or end-user calibration UI
-- [v13.2]: Corpus global evaluations feed per-brand profiles and `corpus_quality` rules
-- [v13.2]: Prompt-builder is primary generation impact surface
-- [v13.2]: No freeform voice editor — inspectable profile + approved rules only
-- [Phase 167]: Harden existing cross-client.ts — do not re-implement detection thresholds
-- [Phase 167]: Global proposals under Calibration tab; Learning tab stays client-scoped
-- [Phase 167]: No reject cooldown for global proposals (dedupe by slice handles re-propose)
-- [Phase 167]: fixtureOnly global accept requires acknowledgeFixtureOnly (mirror client proposals)
-- [Phase 166]: Dedicated GET .../evidence API — do not bloat profile cache
-- [Phase 166]: buildPerBrandEvidenceReport scopes claims per clientProfileId
-- [Phase 167]: Always set fixtureOnly boolean on cross-client evidenceRefs (true/false), not only when true
-- [Phase 167]: primaryFailureReason on evidenceRefs uses rule rationale prefix; targetKey remains failure-bridge adjustment target
-- [Phase 167]: Use insufficient_acknowledgment error code for global fixture-only accept (distinct from client fixture_ack_required)
-- [Phase 167]: Global adjustment reject mirrors client proposal reject without cooldown period
-- [Phase 167]: Score-calibration report loads proposed adjustments from DB for id and evidenceRefs
-- [Phase 167]: Calibration tab reject uses window.prompt matching LearningProposalsTab UX
+- [v13.4]: Close v13.3 operational tech debt — no new creative feature axes.
+- [v13.4]: Target at least one non-fixture `clientProfileId` with `real_customer` corpus; Cenbrap stays fixture/seed.
+- [v13.4]: `fixtureOnly` lifts only when sample sufficiency rules pass for the selected profile.
+- [v13.4]: Complete `172-RELEASE-CHECKLIST.md` with live workspace data before operational gate pass.
+- [v13.4]: Customer-real claims unlock only when technical regression AND operational evidence both pass — no manual override without recorded proof.
+
+### Carry-forward from v13.3
+
+- Technical regression already passes across phases 168–172.
+- `172-EVIDENCE.json` at `.planning/milestones/v13.3-phases/172-operational-evidence-ui-and-release-gate/`.
+- Release gate scripts resolve archived phase dir via `resolveV133PhaseDir()`.
 
 ### Blockers/Concerns
 
-- 5 Jhonatan Cenbrap decisions still pending (carry-forward from v12.9)
-- Fixture-only corpus — customer-real claims blocked until sample/source sufficiency
+- **Live operational pass pending:** run `npm run seed:live-real-customer-corpus -- --confirm` on owner workspace with migrated DB (`DATABASE_URL`), then `npm run refresh:v13-3-operational-evidence` + `npm run v13-3-release-gate`.
+- Target profile from dry-run: **Cliente Teste Profile** (non-fixture) in Dev Admin workspace.
 
 ### Deferred Items
 
 | Category | Item | Status | Deferred At |
 |----------|------|--------|-------------|
-| v13.2+ | Workspace admin read-only calibration | Deferred | v13.2 scoping |
-| v13.2+ | Freeform voice constitution editor | Deferred | v13.2 scoping |
-| v13.2+ | Auto-prioritize uncalibrated brands | Deferred | v13.2 scoping |
+| v14+ | Manual approve/deprecate calibration rules | Deferred | after operational evidence closed |
+| v14+ | Uncertainty queue routing automation | Deferred | needs real operating data |
+| v14+ | Multi-brand evidence dashboard | Deferred | after first real profile proves path |
+| v14+ | Competitor analysis, smart resize, perf learnings | Deferred | creative axis |
+| v14+ | Meta/Google/TikTok integrations | Deferred | v14+ distribution |
 
 ## Session Continuity
 
-Last session: 2026-06-24T19:03:39.161Z
-Stopped at: Completed 167-03-PLAN.md
+Last session: 2026-06-25
+Stopped at: Milestone v13.4 complete (passed_with_tech_debt)
 Resume file: None
-Next command: `$gsd-execute-phase 167`
+Next command: `$gsd-new-milestone` or live corpus seed on owner DB

@@ -23,6 +23,7 @@ import {
   buildHumanQualityFeedbackArtifactPayload,
   resolveCorpusSourceLabel,
 } from "./feedback-artifact";
+import { recordHumanDecisionCalibrationEvidence } from "./human-decision-calibration";
 import type { HumanQualityCorpusItem } from "@/server/db/schema";
 import {
   buildQualitySnapshot,
@@ -521,5 +522,13 @@ export async function submitHumanEvaluation(input: SubmitHumanEvaluationInput) {
     payload,
   });
 
-  return { ...result, feedbackArtifact };
+  const decisionEvidence = await recordHumanDecisionCalibrationEvidence({
+    item: result.item,
+    evaluation: result.evaluation,
+    reviewerUserId: input.reviewerUserId,
+    sourceLabel,
+    feedbackArtifactId: feedbackArtifact.id,
+  });
+
+  return { ...result, feedbackArtifact, decisionEvidence };
 }

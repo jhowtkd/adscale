@@ -7,12 +7,13 @@ import {
   CorpusCandidatePromotionError,
   promoteCorpusCandidateToQueue,
 } from "@/server/human-quality/candidate-promotion";
-import { HUMAN_QUALITY_CORPUS_COHORTS } from "@/server/human-quality/corpus";
+import { HUMAN_QUALITY_CORPUS_COHORTS, HUMAN_QUALITY_SOURCE_LABELS } from "@/server/human-quality/corpus";
 
 const corpusLogger = logger.child("human-quality-corpus");
 
 const promoteSchema = z.object({
   cohort: z.enum(HUMAN_QUALITY_CORPUS_COHORTS),
+  sourceLabel: z.enum(HUMAN_QUALITY_SOURCE_LABELS).optional(),
 });
 
 export async function POST(
@@ -32,6 +33,7 @@ export async function POST(
       candidateId,
       cohort: parsed.data.cohort,
       selectedByUserId: user.id,
+      sourceLabel: parsed.data.sourceLabel,
     });
 
     corpusLogger.info("corpus candidate promoted", {

@@ -8,13 +8,13 @@ describe("settings tab navigation", () => {
   });
 
   it("keeps enabled tabs when requested", () => {
+    expect(resolveSettingsTab("profile")).toBe("profile");
+    expect(resolveSettingsTab("workspace")).toBe("workspace");
     expect(resolveSettingsTab("billing")).toBe("billing");
     expect(resolveSettingsTab("privacy")).toBe("privacy");
   });
 
   it("falls back to the first enabled tab for disabled tabs", () => {
-    expect(resolveSettingsTab("profile")).toBe("brandKit");
-    expect(resolveSettingsTab("workspace")).toBe("brandKit");
     expect(resolveSettingsTab("integrations")).toBe("brandKit");
   });
 
@@ -30,8 +30,8 @@ describe("settings tab navigation", () => {
     expect(isSettingsTabEnabled("plans")).toBe(true);
     expect(isSettingsTabEnabled("privacy")).toBe(true);
 
-    expect(isSettingsTabEnabled("profile")).toBe(false);
-    expect(isSettingsTabEnabled("workspace")).toBe(false);
+    expect(isSettingsTabEnabled("profile")).toBe(true);
+    expect(isSettingsTabEnabled("workspace")).toBe(true);
     expect(isSettingsTabEnabled("integrations")).toBe(false);
   });
 });

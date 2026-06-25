@@ -96,6 +96,27 @@ const profileFixture = {
   corpusSignalsNote: null,
 };
 
+const WORKSPACE_ID = brandsFixture.brands[0].workspaceId;
+
+const factualAlertsFixture = [
+  {
+    workspaceId: WORKSPACE_ID,
+    clientProfileId: CLIENT_PROFILE_ID,
+    sliceKey: `${WORKSPACE_ID}:${CLIENT_PROFILE_ID}:factual_issue|art_variation|1:1`,
+    rationale: "factual_guard_review_required" as const,
+    evidenceRefs: {
+      corpusItemIds: ["item-1", "item-2", "item-3"],
+      stats: {
+        count: 3,
+        meanSignedDelta: 18,
+        meanAbsError: 18,
+        overScoreCount: 3,
+        underScoreCount: 0,
+      },
+    },
+  },
+];
+
 function renderPanel(props?: Partial<Parameters<typeof OwnerCalibrationPanel>[0]>) {
   const onBrandChange = vi.fn();
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -131,6 +152,14 @@ function mockApis(options?: { profileForbidden?: boolean }) {
         ok: true,
         status: 200,
         json: async () => brandsFixture,
+      } as Response;
+    }
+
+    if (path.includes("/learning/factual-alerts")) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ alerts: factualAlertsFixture }),
       } as Response;
     }
 
@@ -207,5 +236,35 @@ describe("OwnerCalibrationPanel", () => {
     expect(await screen.findByTestId("learning-proposals-tab")).toHaveTextContent(
       `Proposals for ${CLIENT_PROFILE_ID} in ${brandsFixture.brands[0].workspaceId} (brand)`
     );
+  });
+
+  it("fetches brand-scoped factual alerts above proposals on Propostas tab", async () => {
+    mockApis();
+    renderPanel();
+
+    fireEvent.click(await screen.findByRole("tab", { name: "Propostas" }));
+
+    expect(await screen.findByTestId("factual-alerts-panel")).toBeInTheDocument();
+    expect(screen.getByText("Alertas de problema factual")).toBeInTheDocument();
+    expect(screen.getByText(factualAlertsFixture[0].sliceKey)).toBeInTheDocument();
+
+    const proposalsTab = screen.getByTestId("learning-proposals-tab");
+    const alertsPanel = screen.getByTestId("factual-alerts-panel");
+    expect(
+      alertsPanel.compareDocumentPosition(proposalsTab) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    expect(proposalsTab).toHaveTextContent(
+      `Proposals for ${CLIENT_PROFILE_ID} in ${WORKSPACE_ID} (brand)`
+    );
+
+    await vi.waitFor(() => {
+      const factualAlertsCall = mockApiFetch.mock.calls.find(
+        ([url]) =>
+          typeof url === "string" && url.includes("/api/admin/quality/learning/factual-alerts")
+      );
+      expect(factualAlertsCall).toBeDefined();
+      expect(factualAlertsCall?.[0]).toContain(`workspaceId=${WORKSPACE_ID}`);
+      expect(factualAlertsCall?.[0]).toContain(`clientProfileId=${CLIENT_PROFILE_ID}`);
+    });
   });
 });

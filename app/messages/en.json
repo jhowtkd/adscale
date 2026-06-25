@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "title": "ADScale — AI-Powered Creative Variants",
-    "description": "Transform a single base creative into dozens of A/B test-ready variations for Meta Ads, TikTok, and Google Ads."
+    "title": "ADScale — Curator Workflow for Creative Variations",
+    "description": "From one base creative and brief to a batch of platform-ready variations — you brief, AI assists, you curate what ships."
   },
   "navigation": {
     "dashboard": "Dashboard",
@@ -85,8 +85,8 @@
     "showingResults": "Showing {start}-{end} of {total} campaigns",
     "noCampaignsMatch": "No campaigns match your search",
     "adjustFilters": "Try adjusting your search terms or filters",
-    "noCampaignsYet": "No campaigns yet",
-    "createFirstCampaign": "Create your first campaign to start generating ad variations",
+    "noCampaignsYet": "No campaigns in your curation queue",
+    "createFirstCampaign": "Define a structured brief, generate variations as a batch, then curate what ships—create your first campaign to begin.",
     "clearAllFilters": "Clear all filters",
     "errorLoading": "Error loading campaigns",
     "deleteCampaignConfirm": "Are you sure you want to delete \"{name}\"? This action cannot be undone.",
@@ -211,10 +211,10 @@
       "viewModeLabel": "View mode",
       "viewGrid": "Grid view",
       "viewList": "List view",
-      "emptyNoResults": "No campaigns found",
-      "emptyNoCampaigns": "No campaigns yet",
-      "emptyAdjustSearch": "Try adjusting your search",
-      "emptyCreateHint": "Create your first campaign to start generating creatives with AI",
+      "emptyNoResults": "No campaigns match your search",
+      "emptyNoCampaigns": "Your curation queue is empty",
+      "emptyAdjustSearch": "Try adjusting your search terms",
+      "emptyCreateHint": "Define your brief, run a batch of variations, then curate what ships—start with your first campaign.",
       "createCampaign": "Create campaign",
       "errorTitle": "Failed to load",
       "errorDescription": "Could not load dashboard",
@@ -430,8 +430,8 @@
       "TikTok": "TikTok Ads",
       "Google": "Google Ads"
     },
-    "manageCampaigns": "Manage your campaigns and creative variants",
-    "manageCampaignsShort": "Create and manage creative variations",
+    "manageCampaigns": "Brief, generate batches, and curate campaigns in your workspace",
+    "manageCampaignsShort": "Brief → batch → curate creative variations",
     "listSubtitle": "{count, plural, one {# campaign} other {# campaigns}}",
     "searchPlaceholder": "Search campaigns...",
     "platformCount": "{count, plural, one {# platform} other {# platforms}}",
@@ -442,7 +442,7 @@
     "viewBoard": "Board",
     "deleteTitle": "Delete campaign",
     "createNew": "Create New Campaign",
-    "createDescription": "Fill in the basic campaign details. You can add the key creative now or later.",
+    "createDescription": "Start with briefing and your base creative. Generate a variation batch, then curate what ships.",
     "clientProfile": "Client Profile",
     "selectClientProfile": "Select a client profile",
     "keyCreative": "Key Creative",
@@ -468,17 +468,17 @@
     "modes": {
       "artVariation": {
         "label": "Vary art",
-        "description": "Generate new versions in the same format as the base creative"
+        "description": "AI-assisted art variations in the same format as your base creative — you review before shipping"
       },
       "formatAdaptation": {
         "label": "Vary format",
-        "description": "Adapt the creative to 1:1, 4:5, and 9:16"
+        "description": "AI-assisted format adaptations to 1:1, 4:5, and 9:16 — you curate outputs before export"
       }
     },
     "continueToPlan": "Continue to Plan",
     "backToPlan": "Back to Plan",
     "skipPlan": "Skip Plan",
-    "generatingPlan": "Generating creative plan with AI...",
+    "generatingPlan": "Building variation batch from your brief...",
     "generateDerivations": "Generate variants",
     "kanban": {
       "draft": "Draft",
@@ -510,15 +510,15 @@
     "modes": {
       "artVariation": {
         "label": "Vary art",
-        "description": "Generate new versions in the same format as the base creative"
+        "description": "AI-assisted art variations in the same format as your base creative — you review before shipping"
       },
       "formatAdaptation": {
         "label": "Vary format",
-        "description": "Adapt the creative to 1:1, 4:5, and 9:16"
+        "description": "AI-assisted format adaptations to 1:1, 4:5, and 9:16 — you curate outputs before export"
       },
       "restyling": {
         "label": "Restyling",
-        "description": "Apply a new visual style while maintaining structure"
+        "description": "AI-assisted style variations while preserving structure — human approval required"
       }
     },
     "creativeLevel": {
@@ -530,22 +530,22 @@
         "conservative": "Maintains the essence of the original piece, changing only subtle details",
         "balanced": "Balances innovation and familiarity, ideal for A/B testing",
         "bold": "Significant visual changes while preserving the central message",
-        "extreme": "Complete reinvention of the piece, maximum creativity and differentiation"
+        "extreme": "Bold visual reinterpretation — you still approve every output before it ships"
       }
     }
   },
   "workspace": {
     "derivar": {
       "title": "Derive creative",
-      "description": "Choose how to derive new creatives from the current one.",
+      "description": "Choose how to build a variation batch — you configure and approve before generation.",
       "options": {
         "manualArt": {
           "title": "Create new variations",
-          "description": "Manually configure creativity and CTAs on the next step before generating."
+          "description": "Configure creativity and CTAs on the next step — you control the batch before generation."
         },
         "autoArt": {
           "title": "Generate new variations",
-          "description": "Review AI suggestions on the next step before generating art variations."
+          "description": "Review AI suggestions on the next step — you approve settings before the batch runs."
         },
         "singleFormat": {
           "title": "Vary sizes",
@@ -581,7 +581,7 @@
       "actions": {
         "back": "Back",
         "cancel": "Cancel",
-        "confirm": "Generate variations"
+        "confirm": "Generate variation batch"
       }
     },
     "actionBar": {
@@ -826,9 +826,9 @@
     "qaReady": "Ready",
     "qaWarning": "Warning",
     "qaReview": "Review",
-    "emptyTitle": "No creative variants yet",
-    "emptyDescription": "Generate your first variations from the creative plan",
-    "emptyAction": "Generate variants",
+    "emptyTitle": "No variants to curate yet",
+    "emptyDescription": "Define your brief and run a generation batch—variations will appear here for you to approve or refine.",
+    "emptyAction": "Run batch generation",
     "selectAll": "Select all",
     "clearSelection": "Clear selection",
     "selectedCount": "{count} variants selected",
@@ -1148,7 +1148,7 @@
     "welcomeBack": "Welcome back",
     "signInSubtitle": "Sign in to your ADScale account",
     "createAccountTitle": "Create your account",
-    "signUpSubtitle": "Start generating ad variations with AI",
+    "signUpSubtitle": "Join as curator — AI assists with variation batches from your base creative; you approve what ships.",
     "name": "Name",
     "signingIn": "Signing in...",
     "creatingAccount": "Creating account...",
@@ -1212,7 +1212,7 @@
     "workspace": {
       "title": "Workspace",
       "namePlaceholder": "Your workspace name",
-      "descriptionPlaceholder": "Describe your workspace...",
+      "descriptionPlaceholder": "Your curator workspace for briefing, batches, and review",
       "urlPlaceholder": "https://yourcompany.com"
     },
     "team": {
@@ -1408,8 +1408,8 @@
   "review": {
     "title": "Review",
     "reviewTitle": "Review {name}",
-    "feedbackPlaceholder": "What would you like to change?",
-    "approve": "Approve",
+    "feedbackPlaceholder": "What should change before you approve this variation?",
+    "approve": "Approve for export",
     "reject": "Reject",
     "compare": "Compare",
     "cancel": "Cancel",
@@ -1431,7 +1431,7 @@
     "qualityScore": "Score",
     "hardFailuresTitle": "Issues blocking use",
     "polishSuggestionsTitle": "Improvement suggestions",
-    "blockingFailureHint": "Must fix before approve or export",
+    "blockingFailureHint": "Fix before you approve or export",
     "polishSuggestionHint": "Optional improvement — regenerate if you want",
     "hardFailureCodes": {
       "cta_drift": "CTA changed or missing",
@@ -1455,7 +1455,7 @@
     "regenerationBlocking": "Blocking issues",
     "regenerationAdvisory": "Advisory (optional context)",
     "regenerateWithFixesTitle": "Regenerate with fixes",
-    "regenerateWithFixesDescription": "Review the feedback below. It will be sent to the regeneration job.",
+    "regenerateWithFixesDescription": "Review the feedback below — you decide whether to regenerate; only approved variations ship.",
     "regenerateWithFixesConfirm": "Regenerate with fixes",
     "approveBlockedInvalid": "Invalid output — regenerate with fixes before approving",
     "olharLabel": "Olhar",
@@ -1502,22 +1502,22 @@
     }
   },
   "steps": {
-    "brief": "Brief",
-    "upload": "Upload",
-    "generation": "Generation",
-    "plan": "Creative Plan",
+    "brief": "Briefing",
+    "upload": "Base creative",
+    "generation": "Batch setup",
+    "plan": "Variation batch",
     "gallery": "Gallery",
-    "review": "Review",
-    "continueToUpload": "Continue to Upload →",
-    "backToBrief": "← Back to Brief",
-    "continueToGeneration": "Continue to Generation →",
-    "backToUpload": "← Back to Upload",
-    "continueToPlan": "Continue to Plan →",
-    "backToGeneration": "← Back to Generation",
-    "generatePlan": "Generate variants →",
-    "startGeneration": "Start Generation →",
+    "review": "Curation",
+    "continueToUpload": "Continue to base creative →",
+    "backToBrief": "← Back to Briefing",
+    "continueToGeneration": "Continue to batch setup →",
+    "backToUpload": "← Back to base creative",
+    "continueToPlan": "Continue to variation batch →",
+    "backToGeneration": "← Back to batch setup",
+    "generatePlan": "Generate variation batch →",
+    "startGeneration": "Start batch generation →",
     "backToPlan": "← Back to Gallery",
-    "reviewAll": "Review All →",
+    "reviewAll": "Curate batch →",
     "backToGallery": "← Back to Gallery",
     "exportSelected": "Export Selected",
     "goToStep": "Go to {step}",
@@ -1664,16 +1664,16 @@
     "back": "Back",
     "next": "Next",
     "finish": "Get started",
-    "step1Title": "Welcome to ADScale! 👋",
-    "step1Desc": "This is your dashboard. Track campaigns, credits, and quick actions here. Let's create your first campaign?",
-    "step2Title": "Quick actions",
-    "step2Desc": "Upload a base creative to generate AI variations, use restyling for new styles, or browse your library.",
-    "step3Title": "Track everything",
-    "step3Desc": "Your recent campaigns appear here. Track creative variant status, approve creatives, and export delivery packages.",
-    "step4Title": "Create New Campaign",
-    "step4Desc": "Click here to start a new campaign. You can create from scratch or use a template.",
-    "step5Title": "Your Credits",
-    "step5Desc": "Track your available credits and monthly usage. Upgrade when you need more."
+    "step1Title": "Welcome to ADScale",
+    "step1Desc": "You are the curator in this workspace. Define your brief here, run variations as a batch, and approve what ships.",
+    "step2Title": "Briefing inputs",
+    "step2Desc": "Quick actions feed your briefing—a base creative, library assets, or restyling gives you a starting point for the next batch.",
+    "step3Title": "Your curation queue",
+    "step3Desc": "Recent campaigns are your review queue. Open a campaign to curate variants, approve what ships, and export delivery packages.",
+    "step4Title": "Start with a brief",
+    "step4Desc": "Create a new campaign with a structured brief before generation—from scratch or from a saved template.",
+    "step5Title": "Workspace credits",
+    "step5Desc": "Credits power batch generation in your workspace. Track available balance and monthly usage here."
   },
   "template": {
     "title": "Templates",
@@ -1693,8 +1693,8 @@
     "ctaCount": "{count} CTAs defined",
     "formats": "Formats",
     "deleteConfirm": "Are you sure you want to delete this template?",
-    "emptyTitle": "No templates yet",
-    "emptyDescription": "Save a campaign briefing as a template to reuse it in new campaigns."
+    "emptyTitle": "No briefing templates yet",
+    "emptyDescription": "Save a campaign briefing as a template to reuse your curation patterns in new campaigns."
   },
   "library": {
     "title": "Library",
@@ -1703,8 +1703,8 @@
     "searchPlaceholder": "Search by name, tag or description...",
     "deleteConfirm": "Are you sure you want to delete this asset?",
     "deleteConfirmDescription": "Are you sure you want to delete \"{name}\"? This action cannot be undone.",
-    "emptyTitle": "No assets yet",
-    "emptyDescription": "Upload images, logos and videos to reuse them in campaigns.",
+    "emptyTitle": "No assets in your library yet",
+    "emptyDescription": "Upload base creatives, logos, and references—they feed your briefing and batch workflow.",
     "dropzoneLabel": "Drag and drop images here or click Upload",
     "dropzoneHint": "PNG, JPEG, WebP · Max 50MB",
     "uploadAriaLabel": "Upload library asset",

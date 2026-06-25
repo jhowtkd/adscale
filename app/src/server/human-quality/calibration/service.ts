@@ -18,6 +18,7 @@ import {
 
 export interface RunScoreCalibrationInput {
   workspaceId?: string;
+  clientProfileId?: string;
   cohort?: string;
   capturedAt?: string;
 }
@@ -65,6 +66,7 @@ export async function runScoreCalibration(
 
   const rows = await listEvaluatedCorpusWithEvaluations({
     workspaceId: input.workspaceId,
+    clientProfileId: input.clientProfileId,
     cohort: input.cohort,
   });
 

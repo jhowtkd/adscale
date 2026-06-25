@@ -1,6 +1,114 @@
-import { eq, and, asc, desc, sql } from "drizzle-orm";
+import { eq, and, asc, desc, sql, ne } from "drizzle-orm";
 import { db } from "../db";
 import { workspaces, workspaceMembers } from "../db/schema";
+
+export class WorkspaceSlugConflictError extends Error {
+  constructor(message = "Workspace slug already exists") {
+    super(message);
+    this.name = "WorkspaceSlugConflictError";
+  }
+}
+
+export interface WorkspaceSettingsRow {
+  name: string;
+  slug: string;
+  description: string | null;
+  industry: string | null;
+  website: string | null;
+  timezone: string | null;
+}
+
+export interface UpdateWorkspaceSettingsInput {
+  name?: string;
+  slug?: string;
+  description?: string;
+  industry?: string;
+  website?: string;
+  timezone?: string;
+}
+
+export interface WorkspaceSettingsResponse {
+  name: string;
+  slug: string;
+  description: string;
+  industry: string;
+  website: string;
+  timezone: string;
+}
+
+export function toWorkspaceSettingsResponse(
+  row: WorkspaceSettingsRow
+): WorkspaceSettingsResponse {
+  return {
+    name: row.name,
+    slug: row.slug,
+    description: row.description ?? "",
+    industry: row.industry ?? "",
+    website: row.website ?? "",
+    timezone: row.timezone ?? "",
+  };
+}
+
+export async function getWorkspaceSettings(
+  workspaceId: string
+): Promise<WorkspaceSettingsRow | null> {
+  const rows = await db
+    .select({
+      name: workspaces.name,
+      slug: workspaces.slug,
+      description: workspaces.description,
+      industry: workspaces.industry,
+      website: workspaces.website,
+      timezone: workspaces.timezone,
+    })
+    .from(workspaces)
+    .where(eq(workspaces.id, workspaceId))
+    .limit(1);
+
+  return rows[0] ?? null;
+}
+
+export async function updateWorkspaceSettings(
+  workspaceId: string,
+  input: UpdateWorkspaceSettingsInput
+): Promise<WorkspaceSettingsRow> {
+  if (input.slug !== undefined) {
+    const existing = await db
+      .select({ id: workspaces.id })
+      .from(workspaces)
+      .where(
+        and(eq(workspaces.slug, input.slug), ne(workspaces.id, workspaceId))
+      )
+      .limit(1);
+
+    if (existing.length > 0) {
+      throw new WorkspaceSlugConflictError();
+    }
+  }
+
+  const rows = await db
+    .update(workspaces)
+    .set({
+      ...input,
+      updatedAt: new Date(),
+    })
+    .where(eq(workspaces.id, workspaceId))
+    .returning({
+      name: workspaces.name,
+      slug: workspaces.slug,
+      description: workspaces.description,
+      industry: workspaces.industry,
+      website: workspaces.website,
+      timezone: workspaces.timezone,
+    });
+
+  const updated = rows[0];
+  if (!updated) {
+    throw new Error("Workspace not found");
+  }
+
+  return updated;
+}
 
 /** Prefer the user's own (owner) workspace; fall back to admin/member memberships. */
 const workspaceMembershipPriority = sql`CASE ${workspaceMembers.role} WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END`;

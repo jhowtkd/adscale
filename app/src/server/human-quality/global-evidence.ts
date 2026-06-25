@@ -54,6 +54,7 @@ export function mergeSourceComposition(
 export function isFixtureOnlySourceComposition(
   composition: Record<HumanQualitySourceLabel, number>
 ): boolean {
+  // No real_customer rows in the active scope — operator_imported and synthetic_fixture do not unlock customer-real claims.
   return composition.real_customer === 0;
 }
 
@@ -147,7 +148,7 @@ export function evaluateGlobalCorpusClaims(input: {
   if (input.fixtureOnly) {
     claimsBlocked.push("validated_against_customer_real");
     dependsOnOperator.push(
-      "Customer-real generated outputs still required for customer-real validation claims."
+      "No real_customer rows in the active scope — operator_imported and synthetic_fixture evidence cannot unlock customer-real validation claims."
     );
   } else if (input.evaluatedItemCount >= 5 && input.operationalStatus === "ok") {
     claimsAllowed.push("validated_against_customer_real");

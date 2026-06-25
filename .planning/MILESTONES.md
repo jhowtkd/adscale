@@ -1,5 +1,53 @@
 # Milestones: ADScale
 
+## v13.4 Fechamento de Evidência Operacional (Shipped with tech debt: 2026-06-25)
+
+**Phases completed:** 4 phases (173→176), 4 plans
+**Requirements:** 12/12 infrastructure verified; operational pass blocked on live DB seed
+**Audit:** `passed_with_tech_debt` — technical regression green; `operationalEvidence: insufficient_sample`
+
+**Key accomplishments:**
+
+- Generic live `real_customer` corpus seed script (`seed-live-real-customer-corpus.ts`) with Cenbrap-excluding target selection via `live-corpus-target.ts` (Phase 173)
+- Sample sufficiency and claim-honesty refresh logic in `refresh-v13-3-operational-evidence.ts` with unit tests (Phase 174)
+- Owner smoke manifest (`175-SMOKE-MANIFEST.json`) and automated panel coverage; structured operational record path wired (Phase 175)
+- Release gate auto-refresh when corpus manifest exists; claim unlock policy enforced without manual override (Phase 176)
+
+**Known tech debt (accepted):**
+
+- Live seed not executed: run `npm run db:migrate` then `npm run seed:live-real-customer-corpus -- --confirm` on owner workspace (`DATABASE_URL`)
+- No `173-CORPUS-MANIFEST.json` yet — `172-EVIDENCE.json` remains `insufficient_sample` / `fixtureOnly: true`
+- Owner smoke checklist (`172-RELEASE-CHECKLIST.md`) live browser pass and settings hard-refresh UAT still pending
+
+Archive: [v13.4-ROADMAP.md](milestones/v13.4-ROADMAP.md) · [v13.4-REQUIREMENTS.md](milestones/v13.4-REQUIREMENTS.md) · [v13.4-MILESTONE-AUDIT.md](milestones/v13.4-MILESTONE-AUDIT.md)
+
+---
+
+## v13.3 Tracao Multi-Cliente (Shipped with tech debt: 2026-06-25)
+
+**Phases completed:** 5 phases (168→172), 16 plans
+**Requirements:** 23/23 complete
+**Audit:** `tech_debt` — automated verification green; operational evidence `insufficient_sample`
+
+**Key accomplishments:**
+
+- Generic human-quality evaluation → decision/calibration bridge for any `clientProfileId` with cross-profile isolation tests (Phase 168)
+- Source-labeled corpus promotion with `fixtureOnly` claim gates and dual technical/operational release evidence (Phase 169)
+- "Curator > operator" narrative rollout with automated forbidden-pattern copy guard across authenticated surfaces (Phase 170)
+- Profile and workspace settings persisted via backend APIs; Zustand mock slices removed; honest tab gating (Phase 171)
+- `FactualAlertsPanel` with safe evidence links mounted in corpus Learning and brand Propostas tabs (Phase 172)
+- v13.3 release gate orchestrator (`run-v13-3-release-gate.mjs`) with `172-EVIDENCE.json`: `technicalRegression: pass`, `operationalEvidence: insufficient_sample`
+
+**Known tech debt (accepted):**
+
+- No production multi-brand `real_customer` corpus at scale; `activeBrandSample.fixtureOnly: true`
+- Owner smoke checklist (`172-RELEASE-CHECKLIST.md`) not completed with live workspace data
+- Manual UAT deferred: settings hard-refresh/logout, narrative tone walk, integrations badge visual spot-check
+
+Archive: [v13.3-ROADMAP.md](milestones/v13.3-ROADMAP.md) · [v13.3-REQUIREMENTS.md](milestones/v13.3-REQUIREMENTS.md) · [v13.3-MILESTONE-AUDIT.md](milestones/v13.3-MILESTONE-AUDIT.md)
+
+---
+
 ## v13.2 Calibração Multi-Marca (Shipped: 2026-06-24)
 
 **Phases completed:** 11 phases, 27 plans, 37 tasks

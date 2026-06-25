@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "title": "ADScale — Variações Criativas com IA",
-    "description": "Transforme uma única peça criativa em dezenas de variações prontas para teste A/B no Meta Ads, TikTok e Google Ads."
+    "title": "ADScale — Fluxo de curadoria para variações criativas",
+    "description": "De uma peça base e um briefing a um lote de variações prontas — você faz o briefing, a IA auxilia, você cura o que vai ao ar."
   },
   "navigation": {
     "dashboard": "Dashboard",
@@ -85,8 +85,8 @@
     "showingResults": "Mostrando {start}-{end} de {total} campanhas",
     "noCampaignsMatch": "Nenhuma campanha corresponde à sua busca",
     "adjustFilters": "Tente ajustar seus termos de busca ou filtros",
-    "noCampaignsYet": "Nenhuma campanha ainda",
-    "createFirstCampaign": "Crie sua primeira campanha para começar a gerar variações de anúncios",
+    "noCampaignsYet": "Nenhuma campanha na sua fila de curadoria",
+    "createFirstCampaign": "Defina um briefing estruturado, gere variações em batch e cure o que vai ao ar—crie sua primeira campanha para começar.",
     "clearAllFilters": "Limpar todos os filtros",
     "errorLoading": "Erro ao carregar campanhas",
     "deleteCampaignConfirm": "Tem certeza de que deseja excluir \"{name}\"? Esta ação não pode ser desfeita.",
@@ -211,10 +211,10 @@
       "viewModeLabel": "Visualização",
       "viewGrid": "Visualização em grade",
       "viewList": "Visualização em lista",
-      "emptyNoResults": "Nenhuma campanha encontrada",
-      "emptyNoCampaigns": "Nenhuma campanha ainda",
-      "emptyAdjustSearch": "Tente ajustar sua busca",
-      "emptyCreateHint": "Crie sua primeira campanha para começar a gerar criativos com IA",
+      "emptyNoResults": "Nenhuma campanha corresponde à busca",
+      "emptyNoCampaigns": "Sua fila de curadoria está vazia",
+      "emptyAdjustSearch": "Tente ajustar os termos de busca",
+      "emptyCreateHint": "Defina seu briefing, rode um batch de variações e cure o que vai ao ar—comece pela sua primeira campanha.",
       "createCampaign": "Criar campanha",
       "errorTitle": "Erro ao carregar",
       "errorDescription": "Erro ao carregar dashboard",
@@ -430,8 +430,8 @@
       "TikTok": "TikTok Ads",
       "Google": "Google Ads"
     },
-    "manageCampaigns": "Gerencie suas campanhas e variações criativas",
-    "manageCampaignsShort": "Crie e gerencie variações criativas",
+    "manageCampaigns": "Faça briefing, gere lotes e cure campanhas no seu workspace",
+    "manageCampaignsShort": "Briefing → lote → curadoria de variações criativas",
     "listSubtitle": "{count, plural, one {# campanha} other {# campanhas}}",
     "searchPlaceholder": "Buscar campanhas...",
     "platformCount": "{count, plural, one {# plataforma} other {# plataformas}}",
@@ -442,7 +442,7 @@
     "viewBoard": "Quadro",
     "deleteTitle": "Excluir campanha",
     "createNew": "Criar nova campanha",
-    "createDescription": "Preencha os dados básicos da campanha. Você pode adicionar a peça-chave agora ou depois.",
+    "createDescription": "Comece com o briefing e a peça base. Gere um lote de variações e cure o que vai ao ar.",
     "clientProfile": "Perfil do cliente",
     "selectClientProfile": "Selecione um perfil de cliente",
     "keyCreative": "Peça-chave",
@@ -468,17 +468,17 @@
     "modes": {
       "artVariation": {
         "label": "Variar arte",
-        "description": "Gere novas versões no mesmo formato da peça base"
+        "description": "Variações de arte com auxílio da IA no mesmo formato da peça base — você revisa antes de publicar"
       },
       "formatAdaptation": {
         "label": "Variar formato",
-        "description": "Adapte a peça para 1:1, 4:5 e 9:16"
+        "description": "Adaptações de formato com auxílio da IA para 1:1, 4:5 e 9:16 — você cura as saídas antes de exportar"
       }
     },
     "continueToPlan": "Continuar para Plano",
     "backToPlan": "Voltar ao Plano",
     "skipPlan": "Pular Plano",
-    "generatingPlan": "Gerando plano criativo com IA...",
+    "generatingPlan": "Montando lote de variações a partir do seu briefing...",
     "generateDerivations": "Gerar variações",
     "kanban": {
       "draft": "Rascunho",
@@ -510,15 +510,15 @@
     "modes": {
       "artVariation": {
         "label": "Variar arte",
-        "description": "Gere novas versões no mesmo formato da peça base"
+        "description": "Variações de arte com auxílio da IA no mesmo formato da peça base — você revisa antes de publicar"
       },
       "formatAdaptation": {
         "label": "Variar formato",
-        "description": "Adapte a peça para 1:1, 4:5 e 9:16"
+        "description": "Adaptações de formato com auxílio da IA para 1:1, 4:5 e 9:16 — você cura as saídas antes de exportar"
       },
       "restyling": {
         "label": "Restilização",
-        "description": "Aplique um novo estilo visual mantendo a estrutura"
+        "description": "Variações de estilo com auxílio da IA mantendo a estrutura — aprovação humana obrigatória"
       }
     },
     "creativeLevel": {
@@ -530,22 +530,22 @@
         "conservative": "Mantém a essência da peça original, alterando apenas detalhes sutis",
         "balanced": "Equilibra inovação e familiaridade, ideal para testes A/B",
         "bold": "Mudanças visuais significativas enquanto preserva a mensagem central",
-        "extreme": "Reinvenção completa da peça, máxima criatividade e diferenciação"
+        "extreme": "Reinterpretação visual ousada — você ainda aprova cada saída antes de publicar"
       }
     }
   },
   "workspace": {
     "derivar": {
       "title": "Derivar criativo",
-      "description": "Escolha como deseja derivar novos criativos a partir do atual.",
+      "description": "Escolha como montar um lote de variações — você configura e aprova antes da geração.",
       "options": {
         "manualArt": {
           "title": "Criar novas variações",
-          "description": "Configure manualmente criatividade e CTAs na próxima etapa antes de gerar."
+          "description": "Configure criatividade e CTAs na próxima etapa — você controla o lote antes de gerar."
         },
         "autoArt": {
           "title": "Gerar novas variações",
-          "description": "Revise sugestões da IA na próxima etapa antes de gerar variações artísticas."
+          "description": "Revise sugestões da IA na próxima etapa — você aprova as configurações antes do lote rodar."
         },
         "singleFormat": {
           "title": "Variar tamanhos",
@@ -581,7 +581,7 @@
       "actions": {
         "back": "Voltar",
         "cancel": "Cancelar",
-        "confirm": "Gerar variações"
+        "confirm": "Gerar lote de variações"
       }
     },
     "actionBar": {
@@ -826,9 +826,9 @@
     "qaReady": "Pronta",
     "qaWarning": "Atenção",
     "qaReview": "Revisar",
-    "emptyTitle": "Nenhuma variação criativa ainda",
-    "emptyDescription": "Gere suas primeiras variações a partir do plano criativo",
-    "emptyAction": "Gerar variações",
+    "emptyTitle": "Nenhuma variação para curar ainda",
+    "emptyDescription": "Defina seu briefing e rode um batch de geração—as variações aparecerão aqui para você aprovar ou refinar.",
+    "emptyAction": "Rodar batch de geração",
     "selectAll": "Selecionar tudo",
     "clearSelection": "Limpar seleção",
     "selectedCount": "{count} variações selecionadas",
@@ -1148,7 +1148,7 @@
     "welcomeBack": "Bem-vindo de volta",
     "signInSubtitle": "Entre na sua conta ADScale",
     "createAccountTitle": "Crie sua conta",
-    "signUpSubtitle": "Comece a gerar variações de anúncios com IA",
+    "signUpSubtitle": "Entre como curador — a IA auxilia em lotes de variações a partir da sua peça base; você aprova o que vai ao ar.",
     "name": "Nome",
     "signingIn": "Entrando...",
     "creatingAccount": "Criando conta...",
@@ -1212,7 +1212,7 @@
     "workspace": {
       "title": "Workspace",
       "namePlaceholder": "Nome do workspace",
-      "descriptionPlaceholder": "Descreva seu workspace...",
+      "descriptionPlaceholder": "Seu workspace de curadoria para briefing, lotes e revisão",
       "urlPlaceholder": "https://suempresa.com"
     },
     "team": {
@@ -1409,8 +1409,8 @@
   "review": {
     "title": "Revisão",
     "reviewTitle": "Revisar {name}",
-    "feedbackPlaceholder": "O que você gostaria de mudar?",
-    "approve": "Aprovar",
+    "feedbackPlaceholder": "O que deve mudar antes de você aprovar esta variação?",
+    "approve": "Aprovar para exportar",
     "reject": "Rejeitar",
     "compare": "Comparar",
     "cancel": "Cancelar",
@@ -1456,7 +1456,7 @@
     "regenerationBlocking": "Problemas bloqueantes",
     "regenerationAdvisory": "Avisos (contexto opcional)",
     "regenerateWithFixesTitle": "Regenerar com correções",
-    "regenerateWithFixesDescription": "Revise o feedback abaixo. Ele será enviado ao job de regeneração.",
+    "regenerateWithFixesDescription": "Revise o feedback abaixo — você decide se regenera; só variações aprovadas vão ao ar.",
     "regenerateWithFixesConfirm": "Regenerar com correções",
     "approveBlockedInvalid": "Saída inválida — corrija com regeneração antes de aprovar",
     "olharLabel": "Olhar",
@@ -1503,22 +1503,22 @@
     }
   },
   "steps": {
-    "brief": "Brief",
-    "upload": "Upload",
-    "generation": "Geração",
-    "plan": "Plano Criativo",
+    "brief": "Briefing",
+    "upload": "Peça base",
+    "generation": "Config. do lote",
+    "plan": "Lote de variações",
     "gallery": "Galeria",
-    "review": "Revisão",
-    "continueToUpload": "Continuar para Upload →",
-    "backToBrief": "← Voltar para Brief",
-    "continueToGeneration": "Continuar para Geração →",
-    "backToUpload": "← Voltar para Upload",
-    "continueToPlan": "Continuar para Plano →",
-    "backToGeneration": "← Voltar para Geração",
-    "generatePlan": "Gerar variações →",
-    "startGeneration": "Iniciar Geração →",
+    "review": "Curadoria",
+    "continueToUpload": "Continuar para peça base →",
+    "backToBrief": "← Voltar para Briefing",
+    "continueToGeneration": "Continuar para config. do lote →",
+    "backToUpload": "← Voltar para peça base",
+    "continueToPlan": "Continuar para lote de variações →",
+    "backToGeneration": "← Voltar para config. do lote",
+    "generatePlan": "Gerar lote de variações →",
+    "startGeneration": "Iniciar geração do lote →",
     "backToPlan": "← Voltar para Galeria",
-    "reviewAll": "Revisar Tudo →",
+    "reviewAll": "Curar lote →",
     "backToGallery": "← Voltar para Galeria",
     "exportSelected": "Exportar selecionados",
     "goToStep": "Ir para {step}",
@@ -1665,16 +1665,16 @@
     "back": "Voltar",
     "next": "Próximo",
     "finish": "Começar",
-    "step1Title": "Bem-vindo ao ADScale! 👋",
-    "step1Desc": "Este é seu dashboard. Aqui você acompanha campanhas, créditos e ações rápidas. Vamos criar sua primeira campanha?",
-    "step2Title": "Ações rápidas",
-    "step2Desc": "Envie um criativo base para gerar variações com IA, use a restilização para novos estilos, ou navegue na sua biblioteca.",
-    "step3Title": "Acompanhe tudo",
-    "step3Desc": "Suas campanhas recentes aparecem aqui. Acompanhe o status de variações criativas, aprove peças e exporte pacotes de entrega.",
-    "step4Title": "Criar Nova Campanha",
-    "step4Desc": "Clique aqui para iniciar uma nova campanha. Você pode escolher criar do zero ou usar um template.",
-    "step5Title": "Seus Créditos",
-    "step5Desc": "Acompanhe seus créditos disponíveis e consumo mensal. Upgrade quando precisar de mais."
+    "step1Title": "Bem-vindo ao ADScale",
+    "step1Desc": "Você é o curador neste workspace. Defina seu briefing aqui, rode variações em batch e aprove o que vai ao ar.",
+    "step2Title": "Entradas de briefing",
+    "step2Desc": "As ações rápidas alimentam seu briefing—criativo base, biblioteca ou restilização dão ponto de partida para o próximo batch.",
+    "step3Title": "Sua fila de curadoria",
+    "step3Desc": "Campanhas recentes são sua fila de revisão. Abra uma campanha para curar variações, aprovar o que entrega e exportar pacotes.",
+    "step4Title": "Comece pelo briefing",
+    "step4Desc": "Crie uma campanha com briefing estruturado antes da geração—do zero ou a partir de um template salvo.",
+    "step5Title": "Créditos do workspace",
+    "step5Desc": "Créditos sustentam geração em batch no workspace. Acompanhe saldo disponível e consumo mensal aqui."
   },
   "template": {
     "title": "Templates",
@@ -1694,8 +1694,8 @@
     "ctaCount": "{count} CTAs definidas",
     "formats": "Formatos",
     "deleteConfirm": "Tem certeza que deseja excluir este template?",
-    "emptyTitle": "Nenhum template ainda",
-    "emptyDescription": "Salve o briefing de uma campanha como template para reutilizá-lo em novas campanhas."
+    "emptyTitle": "Nenhum template de briefing ainda",
+    "emptyDescription": "Salve o briefing de uma campanha como template para reutilizar seus padrões de curadoria em novas campanhas."
   },
   "library": {
     "title": "Biblioteca",
@@ -1704,8 +1704,8 @@
     "searchPlaceholder": "Buscar por nome, tag ou descrição...",
     "deleteConfirm": "Tem certeza que deseja excluir este asset?",
     "deleteConfirmDescription": "Tem certeza que deseja excluir \"{name}\"? Esta ação não pode ser desfeita.",
-    "emptyTitle": "Nenhum asset ainda",
-    "emptyDescription": "Faça upload de imagens, logos e vídeos para reutilizá-los em campanhas.",
+    "emptyTitle": "Nenhum asset na biblioteca ainda",
+    "emptyDescription": "Envie criativos base, logos e referências—eles alimentam seu briefing e fluxo de batch.",
     "dropzoneLabel": "Arraste e solte imagens aqui ou clique em Upload",
     "dropzoneHint": "PNG, JPEG, WebP · Máx 50MB",
     "uploadAriaLabel": "Enviar asset para biblioteca",

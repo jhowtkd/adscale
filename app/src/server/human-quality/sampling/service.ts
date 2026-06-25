@@ -6,6 +6,7 @@ import { buildSampleCoverageReport, type SampleCoverageReport } from "./coverage
 
 export interface RunSampleCoverageInput {
   workspaceId?: string;
+  clientProfileId?: string;
   cohort?: string;
   capturedAt?: string;
 }
@@ -23,21 +24,25 @@ export async function runSampleCoverage(
     await Promise.all([
     runScoreCalibration({
       workspaceId: input.workspaceId,
+      clientProfileId: input.clientProfileId,
       cohort: input.cohort,
       capturedAt,
     }),
     runLearningImpact({
       workspaceId: input.workspaceId,
+      clientProfileId: input.clientProfileId,
       cohort: input.cohort,
       capturedAt,
     }),
     runQualityImprovement({
       workspaceId: input.workspaceId,
+      clientProfileId: input.clientProfileId,
       cohort: input.cohort,
       capturedAt,
     }),
     runQualityTrend({
       workspaceId: input.workspaceId,
+      clientProfileId: input.clientProfileId,
       cohort: input.cohort,
       capturedAt,
     }),

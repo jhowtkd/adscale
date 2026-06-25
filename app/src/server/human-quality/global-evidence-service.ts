@@ -13,6 +13,8 @@ import {
 import { runSampleCoverage } from "./sampling/service";
 
 export interface RunGlobalCorpusEvidenceInput {
+  workspaceId?: string;
+  clientProfileId?: string;
   cohort?: HumanQualityCorpusCohort;
   capturedAt?: string;
 }
@@ -25,12 +27,21 @@ export async function runGlobalCorpusEvidence(
   input: RunGlobalCorpusEvidenceInput = {}
 ): Promise<RunGlobalCorpusEvidenceResult> {
   const capturedAt = input.capturedAt ?? new Date().toISOString();
-  const filterOpts = { cohort: input.cohort };
+  const filterOpts = {
+    workspaceId: input.workspaceId,
+    clientProfileId: input.clientProfileId,
+    cohort: input.cohort,
+  };
 
   const [progress, sourceComposition, coverageResult, evaluatedRows] = await Promise.all([
-    getCorpusOperationsProgress(undefined, filterOpts),
+    getCorpusOperationsProgress(input.workspaceId, filterOpts),
     countFeedbackArtifactsBySourceLabel(filterOpts).catch(() => emptySourceComposition()),
-    runSampleCoverage({ cohort: input.cohort, capturedAt }),
+    runSampleCoverage({
+      workspaceId: input.workspaceId,
+      clientProfileId: input.clientProfileId,
+      cohort: input.cohort,
+      capturedAt,
+    }),
     listEvaluatedCorpusWithEvaluations(filterOpts),
   ]);
 

@@ -52,6 +52,9 @@ export const BLENDED_FIELD_DENYLIST = [
   "qualityImprovementPathRate",
   "safetyGuardPassRate",
   "factualFidelityRate",
+  "customerValidated",
+  "milestonePass",
+  "overallOperationalPass",
 ];
 
 const CROSS_BUCKET_RULES = [

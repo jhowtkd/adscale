@@ -8,7 +8,9 @@ import {
   insertCorpusItem,
 } from "@/server/repositories/human-quality-corpus";
 import type { HumanQualityCorpusCandidate, HumanQualityCorpusItem } from "@/server/db/schema";
+import type { HumanQualitySourceLabel } from "./corpus";
 import { classifyCohort, isHumanQualityCorpusCohort } from "./corpus";
+import { parseOwnerPromotionSourceLabel } from "./source-label";
 
 export class CorpusCandidatePromotionError extends Error {
   constructor(
@@ -25,6 +27,7 @@ export interface PromoteCorpusCandidateInput {
   cohort: string;
   selectedByUserId?: string;
   autoPromoted?: boolean;
+  sourceLabel?: string;
 }
 
 export interface PromoteCorpusCandidateResult {
@@ -70,6 +73,20 @@ export async function promoteCorpusCandidateToQueue(
     );
   }
 
+  const resolvedSourceLabel = parseOwnerPromotionSourceLabel(
+    input.sourceLabel,
+    candidate.sourceLabel
+  );
+  if (!resolvedSourceLabel.ok) {
+    throw new CorpusCandidatePromotionError(resolvedSourceLabel.error, "invalid_source_label");
+  }
+
+  const effectiveSourceLabel = resolvedSourceLabel.value;
+  const markOptions =
+    effectiveSourceLabel !== candidate.sourceLabel
+      ? { sourceLabel: effectiveSourceLabel as HumanQualitySourceLabel }
+      : undefined;
+
   const cohort = classifyCohort(input.cohort);
   const item = await insertCorpusItem({
     workspaceId: candidate.workspaceId,
@@ -87,7 +104,7 @@ export async function promoteCorpusCandidateToQueue(
   });
 
   const updatedCandidate =
-    (await markCorpusCandidatePromoted(candidate.id, item.id)) ?? candidate;
+    (await markCorpusCandidatePromoted(candidate.id, item.id, markOptions)) ?? candidate;
 
   return { candidate: updatedCandidate, item, created: true };
 }

@@ -33,6 +33,8 @@ export const user = adscaleSchema.table("user", {
   lowCreditsNotifiedAt: timestamp("low_credits_notified_at", { mode: "date" }),
   trialExpiringNotifiedAt: timestamp("trial_expiring_notified_at", { mode: "date" }),
   onboardingCompletedAt: timestamp("onboarding_completed_at", { mode: "date" }),
+  bio: text("bio"),
+  timezone: text("timezone"),
   createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
 });
@@ -99,6 +101,10 @@ export const workspaces = adscaleSchema.table("workspaces", {
     .$defaultFn(() => crypto.randomUUID()),
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
+  description: text("description"),
+  industry: text("industry"),
+  website: text("website"),
+  timezone: text("timezone"),
   createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
 });
