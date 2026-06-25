@@ -11,7 +11,22 @@ import {
 } from "./lib/evidence-honesty.mjs";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const phaseDir = resolve(repoRoot, ".planning/phases/172-operational-evidence-ui-and-release-gate");
+
+/** Shipped v13.3 phase dir — archived after milestone cleanup; active path kept as fallback. */
+export function resolveV133PhaseDir(root = repoRoot) {
+  const candidates = [
+    resolve(root, ".planning/milestones/v13.3-phases/172-operational-evidence-ui-and-release-gate"),
+    resolve(root, ".planning/phases/172-operational-evidence-ui-and-release-gate"),
+  ];
+  for (const dir of candidates) {
+    if (existsSync(resolve(dir, "172-EVIDENCE.template.json"))) {
+      return dir;
+    }
+  }
+  return candidates[0];
+}
+
+const phaseDir = resolveV133PhaseDir();
 const defaultEvidencePath = resolve(phaseDir, "172-EVIDENCE.template.json");
 
 export const BLENDED_FIELD_DENYLIST = [

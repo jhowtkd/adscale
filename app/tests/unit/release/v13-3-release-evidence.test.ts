@@ -10,16 +10,14 @@ import {
   REQUIRED_PHASE_SURFACE_KEYS,
   REQUIRED_REQUIREMENT_IDS,
   resolveMilestoneStatus,
+  resolveV133PhaseDir,
   validateEvidenceShape,
   validateRequirements,
   validateRootBlendedFields,
 } from "../../../scripts/check-v13-3-release-evidence.mjs";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../../../");
-const templatePath = resolve(
-  repoRoot,
-  ".planning/phases/172-operational-evidence-ui-and-release-gate/172-EVIDENCE.template.json"
-);
+const templatePath = resolve(resolveV133PhaseDir(repoRoot), "172-EVIDENCE.template.json");
 
 type RequirementRow = { id: string; result: string; automated: string };
 

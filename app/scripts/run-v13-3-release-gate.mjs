@@ -11,11 +11,14 @@ import {
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { resolveMilestoneStatus } from "./check-v13-3-release-evidence.mjs";
+import {
+  resolveMilestoneStatus,
+  resolveV133PhaseDir,
+} from "./check-v13-3-release-evidence.mjs";
 
 const appDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = resolve(appDir, "..");
-const phaseDir = resolve(repoRoot, ".planning/phases/172-operational-evidence-ui-and-release-gate");
+const phaseDir = resolveV133PhaseDir(repoRoot);
 const evidencePath = resolve(phaseDir, "172-EVIDENCE.json");
 const templatePath = resolve(phaseDir, "172-EVIDENCE.template.json");
 const inAppCopyChecklistPath = resolve(repoRoot, "marketing/brand/in-app-copy-checklist.md");
