@@ -2119,5 +2119,117 @@ export const waitlistSignups = adscaleSchema.table(
 export type WaitlistSignup = typeof waitlistSignups.$inferSelect;
 export type NewWaitlistSignup = typeof waitlistSignups.$inferInsert;
 
+// ============================================
+// Assistant conversation persistence (Phase 178)
+// ============================================
+
+export const assistantThreads = adscaleSchema.table(
+  "assistant_threads",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    clientProfileId: uuid("client_profile_id")
+      .notNull()
+      .references(() => clientProfiles.id, { onDelete: "cascade" }),
+    campaignId: uuid("campaign_id").references(() => campaigns.id, {
+      onDelete: "set null",
+    }),
+    name: text("name").notNull(),
+    isDefault: boolean("is_default").notNull().default(false),
+    migratedFromThreadId: uuid("migrated_from_thread_id"),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("assistant_threads_workspace_id_idx").on(table.workspaceId),
+    index("assistant_threads_client_profile_id_idx").on(table.clientProfileId),
+    index("assistant_threads_campaign_id_idx").on(table.campaignId),
+    uniqueIndex("assistant_threads_campaign_default_uidx")
+      .on(table.workspaceId, table.campaignId)
+      .where(sql`${table.isDefault} = true AND ${table.campaignId} IS NOT NULL`),
+    foreignKey({
+      columns: [table.migratedFromThreadId],
+      foreignColumns: [table.id],
+      name: "assistant_threads_migrated_from_fk",
+    }).onDelete("set null"),
+  ]
+);
+
+export const assistantMessages = adscaleSchema.table(
+  "assistant_messages",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    threadId: uuid("thread_id")
+      .notNull()
+      .references(() => assistantThreads.id, { onDelete: "cascade" }),
+    sequence: integer("sequence").notNull(),
+    type: text("type").notNull(),
+    content: text("content").notNull(),
+    payload: jsonb("payload")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    actionRecordId: uuid("action_record_id"),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("assistant_messages_thread_sequence_idx").on(table.threadId, table.sequence),
+    index("assistant_messages_workspace_id_idx").on(table.workspaceId),
+  ]
+);
+
+export const assistantActionRecords = adscaleSchema.table(
+  "assistant_action_records",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    threadId: uuid("thread_id")
+      .notNull()
+      .references(() => assistantThreads.id, { onDelete: "cascade" }),
+    messageId: uuid("message_id")
+      .notNull()
+      .references(() => assistantMessages.id, { onDelete: "cascade" }),
+    status: text("status").notNull(),
+    inputSnapshot: jsonb("input_snapshot")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    jobRefs: jsonb("job_refs")
+      .$type<Array<{ kind: string; id: string }>>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    safeError: text("safe_error"),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("assistant_action_records_workspace_id_idx").on(table.workspaceId),
+    index("assistant_action_records_thread_status_idx").on(
+      table.threadId,
+      table.status
+    ),
+  ]
+);
+
+export type AssistantThread = typeof assistantThreads.$inferSelect;
+export type NewAssistantThread = typeof assistantThreads.$inferInsert;
+export type AssistantMessage = typeof assistantMessages.$inferSelect;
+export type NewAssistantMessage = typeof assistantMessages.$inferInsert;
+export type AssistantActionRecord = typeof assistantActionRecords.$inferSelect;
+export type NewAssistantActionRecord = typeof assistantActionRecords.$inferInsert;
+
 export type PersonaSimulation = typeof personaSimulations.$inferSelect;
 export type NewPersonaSimulation = typeof personaSimulations.$inferInsert;

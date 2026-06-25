@@ -393,6 +393,13 @@
       "when": 1782734400000,
       "tag": "0056_client_profiles_multi_workspace",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1782820800000,
+      "tag": "0057_assistant_conversation",
+      "breakpoints": true
     }
   ]
 }
