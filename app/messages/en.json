@@ -1763,6 +1763,20 @@
     "noImages": "No images available in this gallery.",
     "publicGallery": "Public gallery"
   },
+  "assistant": {
+    "mode": {
+      "panel": "Panel",
+      "chat": "Chat"
+    },
+    "tabs": {
+      "tree": "Tree",
+      "chat": "Chat",
+      "context": "Context"
+    },
+    "empty": {
+      "selectThread": "Select a thread from the tree to start chatting."
+    }
+  },
   "analytics": {
     "approvalRate": "Approval rate",
     "activeDerivations": "Active creative variants",

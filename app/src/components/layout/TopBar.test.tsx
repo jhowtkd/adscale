@@ -27,9 +27,14 @@ vi.mock("@/lib/hooks/use-notifications", () => ({
   useClearAllNotifications: vi.fn(() => ({ mutate: vi.fn() })),
 }));
 
+const mockPush = vi.fn();
+const mockUsePathname = vi.fn(() => "/campaigns");
+const mockUseSearchParams = vi.fn(() => new URLSearchParams());
+
 vi.mock("next/navigation", () => ({
-  usePathname: vi.fn(() => "/campaigns"),
-  useRouter: vi.fn(() => ({ push: vi.fn() })),
+  usePathname: () => mockUsePathname(),
+  useRouter: () => ({ push: mockPush }),
+  useSearchParams: () => mockUseSearchParams(),
 }));
 
 vi.mock("@/components/ui/LanguageSwitcher", () => ({
@@ -60,9 +65,73 @@ function createWrapper() {
   };
 }
 
+const PANEL_RETURN_KEY = "adscale:panel-return";
+
+describe("TopBar mode toggle", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUsePathname.mockReturnValue("/campaigns");
+    mockUseSearchParams.mockReturnValue(new URLSearchParams());
+    sessionStorage.clear();
+    mockUseNotifications.mockReturnValue({ data: [] } as ReturnType<typeof useNotifications>);
+  });
+
+  it("navigates to /assistant when Chat segment is clicked", () => {
+    render(<TopBar />, { wrapper: createWrapper() });
+
+    fireEvent.click(screen.getByRole("button", { name: "chat" }));
+
+    expect(mockPush).toHaveBeenCalledWith("/assistant");
+    expect(sessionStorage.getItem(PANEL_RETURN_KEY)).toBe("/campaigns");
+  });
+
+  it("preserves threadId search param when switching to Chat", () => {
+    mockUseSearchParams.mockReturnValue(new URLSearchParams("threadId=thread-42"));
+
+    render(<TopBar />, { wrapper: createWrapper() });
+
+    fireEvent.click(screen.getByRole("button", { name: "chat" }));
+
+    expect(mockPush).toHaveBeenCalledWith("/assistant?threadId=thread-42");
+  });
+
+  it("navigates to stored panel route when Panel is clicked from assistant", () => {
+    mockUsePathname.mockReturnValue("/assistant");
+    sessionStorage.setItem(PANEL_RETURN_KEY, "/settings");
+
+    render(<TopBar />, { wrapper: createWrapper() });
+
+    fireEvent.click(screen.getByRole("button", { name: "panel" }));
+
+    expect(mockPush).toHaveBeenCalledWith("/settings");
+  });
+
+  it("falls back to / when no panel return path is stored", () => {
+    mockUsePathname.mockReturnValue("/assistant");
+
+    render(<TopBar />, { wrapper: createWrapper() });
+
+    fireEvent.click(screen.getByRole("button", { name: "panel" }));
+
+    expect(mockPush).toHaveBeenCalledWith("/");
+  });
+
+  it("marks Chat segment active on assistant routes", () => {
+    mockUsePathname.mockReturnValue("/assistant");
+
+    render(<TopBar />, { wrapper: createWrapper() });
+
+    expect(screen.getByRole("button", { name: "chat" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "panel" })).toHaveAttribute("aria-pressed", "false");
+  });
+});
+
 describe("TopBar notifications", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUsePathname.mockReturnValue("/campaigns");
+    mockUseSearchParams.mockReturnValue(new URLSearchParams());
+    mockUseNotifications.mockReturnValue({ data: [] } as ReturnType<typeof useNotifications>);
   });
 
   it("prefetches notifications on mount instead of waiting for panel open", () => {

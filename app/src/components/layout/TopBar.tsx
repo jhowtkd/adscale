@@ -14,7 +14,7 @@ import {
 } from "@/lib/hooks/use-notifications";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useScrollDirection } from "@/lib/hooks/use-scroll-direction";
 import { useIsMobile } from "@/lib/hooks/use-media-query";
 import {
@@ -45,11 +45,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+const PANEL_RETURN_KEY = "adscale:panel-return";
+
 export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
   const tCommon = useTranslations("common");
   const tNav = useTranslations("navigation");
   const tCampaign = useTranslations("campaign");
   const tSettings = useTranslations("settings");
+  const tAssistant = useTranslations("assistant.mode");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const bellRef = useRef<HTMLButtonElement | null>(null);
   const { data: session } = authClient.useSession();
@@ -63,6 +66,7 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
   const markAsRead = useMarkNotificationAsRead();
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const user = useAppStore((s) => s.user);
   const currentPageTitle = useAppStore((s) => s.currentPageTitle);
   const sessionUser = session?.user;
@@ -84,6 +88,23 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
   const notificationItems = notificationsData ?? [];
   const unreadCount = notificationItems.filter((n) => !n.readAt).length;
   const isDashboard = pathname === "/";
+  const isChatMode = pathname.startsWith("/assistant");
+
+  const switchToChat = () => {
+    if (!isChatMode) {
+      const query = searchParams.toString();
+      const returnPath = query ? `${pathname}?${query}` : pathname;
+      sessionStorage.setItem(PANEL_RETURN_KEY, returnPath);
+    }
+    const threadId = searchParams.get("threadId");
+    const query = threadId ? `?threadId=${encodeURIComponent(threadId)}` : "";
+    router.push(`/assistant${query}`);
+  };
+
+  const switchToPanel = () => {
+    const stored = sessionStorage.getItem(PANEL_RETURN_KEY);
+    router.push(stored ?? "/");
+  };
 
   const goToSettings = (tab: string) => {
     router.push(`/settings?tab=${tab}`);
@@ -138,6 +159,13 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
 
       {/* Right: Actions */}
       <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
+        <ModeToggle
+          isChatMode={isChatMode}
+          panelLabel={tAssistant("panel")}
+          chatLabel={tAssistant("chat")}
+          onSelectPanel={switchToPanel}
+          onSelectChat={switchToChat}
+        />
         <LanguageSwitcher className="[&_button]:size-9 [&_button]:justify-center [&_button]:gap-0 [&_button]:px-0 sm:[&_button]:h-9 sm:[&_button]:w-auto sm:[&_button]:gap-1 sm:[&_button]:px-2 [&_button_svg]:hidden sm:[&_button_svg]:block" />
         <FeedbackTriggerButton />
         <ThemeToggle className="size-9 sm:size-10" />
@@ -476,6 +504,55 @@ function groupNotificationsByDate(
 }
 
 // Navigation Link Component
+function ModeToggle({
+  isChatMode,
+  panelLabel,
+  chatLabel,
+  onSelectPanel,
+  onSelectChat,
+}: {
+  isChatMode: boolean;
+  panelLabel: string;
+  chatLabel: string;
+  onSelectPanel: () => void;
+  onSelectChat: () => void;
+}) {
+  return (
+    <div
+      role="group"
+      aria-label="Application mode"
+      className="flex items-center rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] p-0.5"
+    >
+      <button
+        type="button"
+        aria-pressed={!isChatMode}
+        onClick={onSelectPanel}
+        className={cn(
+          "rounded-md px-2 py-1 text-[11px] font-medium transition-colors sm:px-2.5 sm:py-1.5 sm:text-xs",
+          !isChatMode
+            ? "bg-[var(--accent-green-dim)] text-[var(--accent-green-text)]"
+            : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+        )}
+      >
+        {panelLabel}
+      </button>
+      <button
+        type="button"
+        aria-pressed={isChatMode}
+        onClick={onSelectChat}
+        className={cn(
+          "rounded-md px-2 py-1 text-[11px] font-medium transition-colors sm:px-2.5 sm:py-1.5 sm:text-xs",
+          isChatMode
+            ? "bg-[var(--accent-green-dim)] text-[var(--accent-green-text)]"
+            : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+        )}
+      >
+        {chatLabel}
+      </button>
+    </div>
+  );
+}
+
 function NavLink({
   href,
   icon: Icon,

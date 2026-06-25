@@ -1764,6 +1764,20 @@
     "noImages": "Nenhuma imagem disponível nesta galeria.",
     "publicGallery": "Galeria pública"
   },
+  "assistant": {
+    "mode": {
+      "panel": "Painel",
+      "chat": "Chat"
+    },
+    "tabs": {
+      "tree": "Árvore",
+      "chat": "Chat",
+      "context": "Contexto"
+    },
+    "empty": {
+      "selectThread": "Selecione uma thread na árvore para começar a conversar."
+    }
+  },
   "analytics": {
     "approvalRate": "Taxa de aprovação",
     "activeDerivations": "Variações criativas ativas",
