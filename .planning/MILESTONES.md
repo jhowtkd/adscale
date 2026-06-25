@@ -1,5 +1,21 @@
 # Milestones: ADScale
 
+## v13.4 Fechamento de Evidência Operacional (Active: 2026-06-25)
+
+**Phases planned:** 4 phases (173→176), 12 requirements
+**Goal:** Close v13.3 operational tech debt — real_customer corpus, sample sufficiency, owner smoke, operational release gate pass.
+
+**Scope:**
+- Live `real_customer` corpus for at least one non-fixture `clientProfileId`
+- Lift `fixtureOnly` only when sufficiency rules pass
+- Execute `172-RELEASE-CHECKLIST.md` with live workspace data
+- Update `172-EVIDENCE.json` and rerun release gate for operational pass
+- Claim unlock only with recorded technical + operational evidence
+
+**Not in scope:** new creative axes, distribution integrations, multi-brand dashboard, `conceituacao.md` production copy.
+
+---
+
 ## v13.3 Tracao Multi-Cliente (Shipped with tech debt: 2026-06-25)
 
 **Phases completed:** 5 phases (168→172), 16 plans

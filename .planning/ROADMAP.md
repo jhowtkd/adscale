@@ -2,6 +2,7 @@
 
 ## Milestones
 
+- 🚧 **v13.4 Fechamento de Evidência Operacional** - Phases 173-176 (active — roadmap defined 2026-06-25)
 - ✅ **v13.3 Tracao Multi-Cliente** - Phases 168-172 (shipped 2026-06-25; tech debt: operational evidence `insufficient_sample`, live owner smoke pending)
 - ✅ **v13.2 Calibracao Multi-Marca** - Phases 162-167 (shipped 2026-06-24; tech debt: generic real-client evidence still needed)
 - 🔄 **v13.1 Global Owner Quality Corpus** - Phases 157-161 (passed_with_tech_debt — commit pending)
@@ -17,60 +18,105 @@
 - ✅ **v12.1 Memória Criativa e Aprendizado de Performance** - Phases 103-108 (shipped 2026-06-12)
 - ✅ **v12.0 Monetização Real** - Phases 97-102 (shipped 2026-06-11)
 
-## Next Milestone
+## Active Milestone
 
-No active milestone. Run `$gsd-new-milestone` to define the next version.
+### 🚧 v13.4 Fechamento de Evidência Operacional (Phases 173-176)
+
+**Milestone Goal:** Fechar o tech debt operacional da v13.3 — sair de `fixtureOnly: true` e `operationalEvidence: insufficient_sample` para amostra `real_customer` por `clientProfileId`, smoke owner com dado live, e release gate que só libera claims quando a suficiência passar.
+
+**Guiding constraints:**
+- Não abrir novo eixo criativo; só fechar evidência operacional.
+- Cenbrap permanece fixture/seed; o perfil alvo deve ser não-fixture ou explicitamente rotulado.
+- Claims de customer-real só desbloqueiam com evidência registrada — sem override manual.
+- Infraestrutura v13.3 (promoção genérica, claim gates, release gate) é ponto de partida, não reimplementação.
+
+| # | Phase | Requirements | Status | Completed |
+|---|-------|--------------|--------|-----------|
+| 173 | Live Real-Customer Corpus Intake | LIVE-01..03 | Planned | - |
+| 174 | Sample Sufficiency and Claim Honesty | SAMPLE-01..03 | Planned | - |
+| 175 | Owner Smoke and Evidence Capture | SMOKE-01..03, EVIDENCE-01 | Planned | - |
+| 176 | Operational Release Gate and Claim Unlock | EVIDENCE-02..03 | Planned | - |
+
+## Phase Details
+
+### Phase 173: Live Real-Customer Corpus Intake
+
+**Goal:** Seed at least one non-fixture `clientProfileId` with `real_customer` corpus rows through the generic v13.3 promotion/import path.
+
+**Depends on:** v13.3 Phase 169 source-labeled promotion and claim gate infrastructure.
+
+**Requirements**: LIVE-01, LIVE-02, LIVE-03
+
+**Success Criteria** (what must be TRUE):
+  1. Owner can promote or import rows with `real_customer` sourceLabel for a selected non-fixture profile without customer-specific scripts.
+  2. Active evidence scope shows `real_customer` counts alongside fixture/operator_imported composition for that profile.
+  3. UI and evidence copy keep Cenbrap as fixture/seed when it appears; real profile is the proof target.
+
+**Plans:** 0/TBD
+
+---
+
+### Phase 174: Sample Sufficiency and Claim Honesty
+
+**Goal:** Lift `fixtureOnly` only when sample sufficiency rules pass; keep claims withheld until honest.
+
+**Depends on:** Phase 173 live corpus rows.
+
+**Requirements**: SAMPLE-01, SAMPLE-02, SAMPLE-03
+
+**Success Criteria** (what must be TRUE):
+  1. `activeBrandSample.fixtureOnly` is `false` when the selected profile has sufficient `real_customer` sample.
+  2. Customer-real, agreement-rate and quality-improvement claims stay blocked when sufficiency fails.
+  3. Fixture-only rows alone never unlock customer-real claims.
+
+**Plans:** 0/TBD
+
+---
+
+### Phase 175: Owner Smoke and Evidence Capture
+
+**Goal:** Execute `172-RELEASE-CHECKLIST.md` with live workspace data and capture outcomes in the evidence artifact.
+
+**Depends on:** Phases 173–174; v13.3 Phase 172 release checklist and evidence template.
+
+**Requirements**: SMOKE-01, SMOKE-02, SMOKE-03, EVIDENCE-01
+
+**Success Criteria** (what must be TRUE):
+  1. Owner completes factual-alert, link-safety, and proposal-separation smoke items with live data.
+  2. Settings persistence smoke (save + hard refresh) is recorded pass/fail honestly.
+  3. `172-EVIDENCE.json` reflects updated `activeBrandSample` and operational smoke outcomes.
+
+**Plans:** 0/TBD
+
+---
+
+### Phase 176: Operational Release Gate and Claim Unlock
+
+**Goal:** Rerun release gate until operational evidence passes; apply claim unlock only with recorded proof.
+
+**Depends on:** Phase 175 evidence artifact update.
+
+**Requirements**: EVIDENCE-02, EVIDENCE-03
+
+**Success Criteria** (what must be TRUE):
+  1. Release gate reports `operationalEvidence` beyond `insufficient_sample` when criteria are met.
+  2. Root milestone status reflects operational pass (not `tech_debt` from insufficient sample).
+  3. Customer-real claim unlock policy enforces technical + operational pass — no silent override.
+
+**Plans:** 0/TBD
+
+---
 
 ## Completed Milestone Context
 
 ### ✅ v13.3 Tracao Multi-Cliente (Phases 168-172)
 
-**Milestone Goal:** Corrigir a direcao pos-v13.2 para que ADScale prove tracao de produto de forma cliente-agnostica: decisoes humanas, corpus real, narrativa, settings persistentes e alertas operacionais devem funcionar para qualquer `clientProfile`, sem tratar Cenbrap como cliente-modelo.
-
-**Completed 2026-06-25:**
-- Phase 168: Client-Agnostic Human Decision Intake (3/3 plans)
-- Phase 169: Real Corpus and Claim Gates (3/3 plans)
-- Phase 170: Product Narrative Rollout (3/3 plans)
-- Phase 171: Persistent Product Trust Baseline (4/4 plans)
-- Phase 172: Operational Evidence UI and Release Gate (3/3 plans)
-
-**Tech debt accepted:** `172-EVIDENCE.json` reports `technicalRegression: pass` and `operationalEvidence: insufficient_sample` (`activeBrandSample.fixtureOnly: true`, zero `real_customer` rows). Owner smoke checklist (`172-RELEASE-CHECKLIST.md`) and manual UAT for settings refresh, narrative tone, and live multi-brand corpus remain operational follow-up — not blockers for milestone closure.
-
-**Carry-forward:** Customer-real, agreement-rate and quality-improvement claims stay blocked until live owner corpus and smoke complete per brand.
+**Shipped 2026-06-25** with tech debt: `operationalEvidence: insufficient_sample`, `activeBrandSample.fixtureOnly: true`, owner smoke pending.
 
 Archive: [v13.3-ROADMAP.md](milestones/v13.3-ROADMAP.md) · [v13.3-REQUIREMENTS.md](milestones/v13.3-REQUIREMENTS.md) · [v13.3-MILESTONE-AUDIT.md](milestones/v13.3-MILESTONE-AUDIT.md)
 
-### ✅ v13.2 Calibracao Multi-Marca (Phases 162-167)
-
-**Milestone Goal:** Generalizar calibracao de gosto de marca para qualquer `clientProfile`, removendo hardcode Cenbrap do caminho de geracao e adicionando owner-only surfaces para perfil, regras, propostas, evidencias e promocao cross-client.
-
-**Completed 2026-06-24:**
-- Phase 162: Per-Brand Voice Configuration
-- Phase 163: Corpus Learning Proposals
-- Phase 164: Prompt Rule Application
-- Phase 165: Owner Calibration Panel
-- Phase 166: Per-Brand Evidence Gate
-- Phase 167: Global Cross-Client Promotion
-
-**Carry-forward into v13.3:** v13.2 proved the infrastructure, but not customer-agnostic product traction. Cenbrap evidence remains fixture/seed unless replaced by generic real-client corpus and decisions.
-
-Archive: [v13.2-ROADMAP.md](milestones/v13.2-ROADMAP.md) · [v13.2-REQUIREMENTS.md](milestones/v13.2-REQUIREMENTS.md)
-
 ## Progress
 
-| Phase | Milestone | Plans Complete | Status | Completed |
-|-------|-----------|----------------|--------|-----------|
-| 162 | v13.2 | 3/3 | Complete | 2026-06-24 |
-| 163 | v13.2 | 3/3 | Complete | 2026-06-24 |
-| 164 | v13.2 | 3/3 | Complete | 2026-06-24 |
-| 165 | v13.2 | 3/3 | Complete | 2026-06-24 |
-| 166 | v13.2 | 2/2 | Complete | 2026-06-24 |
-| 167 | v13.2 | 3/3 | Complete | 2026-06-24 |
-| 168 | v13.3 | 3/3 | Complete | 2026-06-25 |
-| 169 | v13.3 | 3/3 | Complete | 2026-06-25 |
-| 170 | v13.3 | 3/3 | Complete | 2026-06-25 |
-| 171 | v13.3 | 4/4 | Complete | 2026-06-25 |
-| 172 | v13.3 | 3/3 | Complete | 2026-06-25 |
+**Current milestone:** v13.4 — 0/4 phases complete
 
----
-*Roadmap updated: 2026-06-25 — v13.3 Tracao Multi-Cliente shipped with accepted tech debt*
+**Next phase:** 173 — Live Real-Customer Corpus Intake

@@ -1,13 +1,13 @@
 ---
 gsd_state_version: 1.0
-milestone: null
-milestone_name: null
-status: milestone_complete
-stopped_at: Milestone v13.3 complete
-last_updated: "2026-06-25T12:30:00.000Z"
+milestone: v13.4
+milestone_name: Fechamento de Evidência Operacional
+status: defining
+stopped_at: Milestone v13.4 initialized
+last_updated: "2026-06-25T13:00:00.000Z"
 last_activity: 2026-06-25
 progress:
-  total_phases: 0
+  total_phases: 4
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -17,65 +17,64 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-06-25 after v13.3 completion)
+See: .planning/PROJECT.md (updated 2026-06-25 — v13.4 started)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-**Current focus:** Planning next milestone (`$gsd-new-milestone`)
+**Current focus:** v13.4 — Fechamento de Evidência Operacional
 
 ## Current Position
 
-Milestone: v13.3 Tracao Multi-Cliente — **shipped 2026-06-25** (tech debt accepted)
-Status: Milestone complete — no active phase
-Last activity: 2026-06-25
+Phase: 173 of 176 (live real-customer corpus intake)
+Plan: 0 of TBD — not started
+Status: Defining requirements complete — ready for discuss/plan
+Last activity: 2026-06-25 — Milestone v13.4 initialized
 
-Progress: v13.3 closed — 5 phases, 16 plans, 23/23 requirements
+Progress: [░░░░░░░░░░] 0/4 phases
 
-## Shipped Milestone Summary (v13.3)
+## Performance Metrics
 
-| Phase | Plans | Status | Completed |
-|-------|-------|--------|-----------|
-| 168 Client-Agnostic Human Decision Intake | 3/3 | Complete | 2026-06-25 |
-| 169 Real Corpus and Claim Gates | 3/3 | Complete | 2026-06-25 |
-| 170 Product Narrative Rollout | 3/3 | Complete | 2026-06-25 |
-| 171 Persistent Product Trust Baseline | 4/4 | Complete | 2026-06-25 |
-| 172 Operational Evidence UI and Release Gate | 3/3 | Complete | 2026-06-25 |
-
-**Audit:** `tech_debt` — requirements 23/23, integration 14/14, flows 6/6 automated. `172-EVIDENCE.json`: `technicalRegression: pass`, `operationalEvidence: insufficient_sample`.
-
-**Archive:** `.planning/milestones/v13.3-ROADMAP.md` · `v13.3-REQUIREMENTS.md` · `v13.3-MILESTONE-AUDIT.md` · `v13.3-phases/`
+| Phase | Plans | Status |
+|-------|-------|--------|
+| 173 | 0/TBD | Planned |
+| 174 | 0/TBD | Planned |
+| 175 | 0/TBD | Planned |
+| 176 | 0/TBD | Planned |
 
 ## Accumulated Context
 
-### Decisions (v13.3 — archived)
+### Decisions (v13.4)
 
-- Product proof must be client-agnostic; Cenbrap is seed/fixture only
-- Claims require source/sample sufficiency per brand; fixture-only validates operation, not customer-real proof
-- Release evidence separates technical regression from operational evidence status
-- Settings persistence via API hooks is product trust groundwork
-- v13.3 root status `tech_debt` when technical pass and operational `insufficient_sample`
+- [v13.4]: Close v13.3 operational tech debt — no new creative feature axes.
+- [v13.4]: Target at least one non-fixture `clientProfileId` with `real_customer` corpus; Cenbrap stays fixture/seed.
+- [v13.4]: `fixtureOnly` lifts only when sample sufficiency rules pass for the selected profile.
+- [v13.4]: Complete `172-RELEASE-CHECKLIST.md` with live workspace data before operational gate pass.
+- [v13.4]: Customer-real claims unlock only when technical regression AND operational evidence both pass — no manual override without recorded proof.
 
-### Open Operational Follow-up (not blocking next milestone)
+### Carry-forward from v13.3
 
-- Run `172-RELEASE-CHECKLIST.md` against live workspace with real data
-- Import `real_customer` corpus for at least one non-fixture `clientProfileId`
-- Optional manual UAT: settings hard-refresh/logout, narrative tone walk, integrations badge visual spot-check
+- Technical regression already passes across phases 168–172.
+- `172-EVIDENCE.json` at `.planning/milestones/v13.3-phases/172-operational-evidence-ui-and-release-gate/`.
+- Release gate scripts resolve archived phase dir via `resolveV133PhaseDir()`.
+
+### Blockers/Concerns
+
+- Requires live owner workspace access for smoke and real corpus seeding.
+- First real profile choice must be explicit (non-fixture brand with owner consent for corpus use).
 
 ### Deferred Items
 
 | Category | Item | Status | Deferred At |
 |----------|------|--------|-------------|
-| v14+ | Manual approve/deprecate calibration rules | Deferred | after real multi-client evidence |
+| v14+ | Manual approve/deprecate calibration rules | Deferred | after operational evidence closed |
 | v14+ | Uncertainty queue routing automation | Deferred | needs real operating data |
-| v14+ | Multi-brand evidence dashboard index | Deferred | needs broader evidence first |
-| v14+ | Competitor analysis UI | Deferred | creative axis |
-| v14+ | Smart resize preview UI | Deferred | creative axis |
-| v14+ | Performance learnings in generation prompt | Deferred | creative-learning axis |
-| v14+ | Meta/Google/TikTok integrations | Deferred | large OAuth surface |
+| v14+ | Multi-brand evidence dashboard | Deferred | after first real profile proves path |
+| v14+ | Competitor analysis, smart resize, perf learnings | Deferred | creative axis |
+| v14+ | Meta/Google/TikTok integrations | Deferred | v14+ distribution |
 
 ## Session Continuity
 
 Last session: 2026-06-25
-Stopped at: Milestone v13.3 complete
+Stopped at: Milestone v13.4 initialized
 Resume file: None
-Next command: `$gsd-new-milestone`
+Next command: `$gsd-discuss-phase 173`

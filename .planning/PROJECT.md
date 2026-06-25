@@ -10,9 +10,20 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Current State
 
-v13.3 Tracao Multi-Cliente shipped 2026-06-25 with accepted tech debt. ADScale now proves client-agnostic product traction: generic human decision intake, source-labeled corpus with claim gates, curator narrative, persistent settings, and factual alerts work for any `clientProfile`. Cenbrap remains seed/fixture compatibility data only. Technical regression passes across phases 168–172; operational evidence is honestly `insufficient_sample` until live owner corpus and smoke complete.
+v13.3 Tracao Multi-Cliente shipped 2026-06-25 with accepted tech debt. ADScale now proves client-agnostic product traction at the technical layer. v13.4 closes operational evidence: `real_customer` corpus per `clientProfileId`, owner smoke with live data, and claim unlock only when sufficiency passes.
 
-**Next:** Plan the next milestone via `$gsd-new-milestone`. Operational follow-up: run `172-RELEASE-CHECKLIST.md`, import `real_customer` corpus for at least one non-fixture brand, optional manual UAT for settings refresh and narrative tone.
+**Active milestone:** v13.4 Fechamento de Evidência Operacional (phases 173–176).
+
+## Current Milestone: v13.4 Fechamento de Evidência Operacional
+
+**Goal:** Sair de `fixtureOnly: true` e `operationalEvidence: insufficient_sample` para amostra real por perfil, smoke owner completo, e release gate que libera claims só com evidência registrada.
+
+**Target outcomes:**
+- Pelo menos um `clientProfileId` não-fixture com corpus `real_customer` via caminho genérico v13.3
+- `activeBrandSample.fixtureOnly: false` quando regras de suficiência passarem
+- `172-RELEASE-CHECKLIST.md` executado com workspace live e capturado em `172-EVIDENCE.json`
+- Release gate com `operationalEvidence` além de `insufficient_sample` quando critérios forem atendidos
+- Claims customer-real desbloqueadas apenas com technical + operational pass
 
 ### v13.3 Tracao Multi-Cliente — SHIPPED WITH TECH DEBT (2026-06-25)
 
