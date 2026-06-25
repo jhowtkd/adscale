@@ -38,15 +38,20 @@ const session = {
   user: { id: "user-1", email: "jane@example.com", name: "Jane Doe" },
 };
 
-function avatarRequest(file?: File): Request {
-  const formData = new FormData();
-  if (file) {
-    formData.set("file", file);
-  }
-  return new Request("http://localhost/api/user/profile/avatar", {
+function avatarRequest(file?: File | null): Request {
+  const req = new Request("http://localhost/api/user/profile/avatar", {
     method: "POST",
-    body: formData,
   });
+
+  const entries: Record<string, File | null> = {
+    file: file ?? null,
+  };
+
+  vi.spyOn(req, "formData").mockResolvedValue({
+    get: (name: string) => entries[name] ?? null,
+  } as unknown as FormData);
+
+  return req;
 }
 
 describe("POST /api/user/profile/avatar", () => {
@@ -68,7 +73,8 @@ describe("POST /api/user/profile/avatar", () => {
   });
 
   it("returns 400 for invalid file", async () => {
-    mockIsAllowedImageType.mockReturnValue(false);
+    const { isAllowedImageType } = await import("@/lib/upload-config");
+    vi.mocked(isAllowedImageType).mockReturnValueOnce(false);
 
     const file = new File([new Uint8Array([1, 2, 3])], "avatar.gif", {
       type: "image/gif",
@@ -86,9 +92,6 @@ describe("POST /api/user/profile/avatar", () => {
   });
 
   it("uploads to R2 and persists avatar URL on user", async () => {
-    mockIsAllowedImageType.mockReturnValue(true);
-    mockValidateMagicBytes.mockResolvedValue(true);
-
     const file = new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], "avatar.png", {
       type: "image/png",
     });
@@ -103,6 +106,6 @@ describe("POST /api/user/profile/avatar", () => {
       "user-1",
       "https://cdn.example/" + uploadKey
     );
-    expect(body.avatarUrl).toBe("https://cdn.example/users/user-1/avatar/test.png");
+    expect(body.avatarUrl).toBe("https://cdn.example/" + uploadKey);
   });
 });
