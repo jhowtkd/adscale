@@ -126,6 +126,12 @@ vi.mock("../repositories/usage", () => ({
   trackUsage: vi.fn(),
 }));
 
+const mockSyncAssistantActionFromJob = vi.hoisted(() => vi.fn(() => Promise.resolve(null)));
+
+vi.mock("../repositories/assistant-job-sync", () => ({
+  syncAssistantActionFromJob: mockSyncAssistantActionFromJob,
+}));
+
 vi.mock("./client", () => ({
   inngest: {
     createFunction: vi.fn((_opts: unknown, handler: unknown) => ({
@@ -334,6 +340,117 @@ describe("derivationJob", () => {
           op.args[2].fit === "contain"
       )
     ).toBe(false);
+  });
+
+  describe("assistant action sync", () => {
+    async function setupMinimalDerivationJob() {
+      mockGetDerivationById.mockResolvedValue({
+        id: "derivation-id",
+        campaignId: "campaign-id",
+        workspaceId: "workspace-1",
+        parentId: null,
+        status: "queued",
+        generationMode: "art_variation",
+        format: "1:1",
+        ctaText: "Shop Now",
+        variantIndex: 0,
+        feedback: null,
+        prompt: null,
+        qualityScore: null,
+        scoreStatus: "pending",
+      } as Awaited<ReturnType<typeof getDerivationById>>);
+
+      mockGetCampaignById.mockResolvedValue({
+        id: "campaign-id",
+        workspaceId: "workspace-1",
+        name: "Test Campaign",
+        client: "Acme",
+        product: "Widget",
+        objective: null,
+        audience: null,
+        platforms: null,
+        tone: null,
+        offer: "20% off",
+        constraints: null,
+        notes: null,
+        status: "generating",
+        generationMode: "art_variation",
+        creativeLevel: "balanced",
+        styleIntensity: "medium",
+        creativeDiagnosisStatus: "pending",
+        creativeDiagnosis: null,
+        creativeDiagnosisSource: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as Awaited<ReturnType<typeof getCampaignById>>);
+
+      mockGetAssetsByCampaign.mockResolvedValue([
+        {
+          id: "asset-1",
+          campaignId: "campaign-id",
+          workspaceId: "workspace-1",
+          key: "assets/campaign.png",
+          type: "image/png",
+          size: 1000,
+          width: 1080,
+          height: 1080,
+          role: "base",
+          metadata: null,
+          analysisStatus: null,
+          analyzedAt: null,
+          createdAt: new Date(),
+        },
+      ]);
+      mockGetPlanByCampaign.mockResolvedValue(null as never);
+    }
+
+    it("syncs assistant action when assistantActionId is provided", async () => {
+      await setupMinimalDerivationJob();
+
+      await runDerivationJob({
+        derivationId: "derivation-id",
+        campaignId: "campaign-id",
+        workspaceId: "workspace-1",
+        assistantActionId: "action-1",
+        locale: "en",
+        generationMode: "art_variation",
+        variantIndex: 0,
+        ctaText: "Shop Now",
+        format: "1:1",
+      });
+
+      expect(mockSyncAssistantActionFromJob).toHaveBeenCalledWith(
+        expect.objectContaining({
+          workspaceId: "workspace-1",
+          actionId: "action-1",
+          status: "processing",
+          jobRef: { kind: "derivation", id: "derivation-id" },
+        })
+      );
+      expect(mockSyncAssistantActionFromJob).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: "completed",
+        })
+      );
+    });
+
+    it("does not sync assistant action when assistantActionId is absent", async () => {
+      await setupMinimalDerivationJob();
+      mockSyncAssistantActionFromJob.mockClear();
+
+      await runDerivationJob({
+        derivationId: "derivation-id",
+        campaignId: "campaign-id",
+        workspaceId: "workspace-1",
+        locale: "en",
+        generationMode: "art_variation",
+        variantIndex: 0,
+        ctaText: "Shop Now",
+        format: "1:1",
+      });
+
+      expect(mockSyncAssistantActionFromJob).not.toHaveBeenCalled();
+    });
   });
 
   it("persists contract and provenance for campaign-asset art variation", async () => {

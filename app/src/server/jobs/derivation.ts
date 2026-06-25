@@ -69,6 +69,7 @@ import { normalizeCreativeDiagnosis } from "@/server/ai/creative-diagnosis";
 import { getTargetDimensions, formatToOpenAIImageSize, toOpenAISdkImageSize } from "@/lib/formats";
 import { captureAndAutoPromote } from "../human-quality/auto-promote";
 import { loadPromptCalibrationContext } from "../brand-taste/prompt-calibration-loader";
+import { syncAssistantActionFromJob } from "../repositories/assistant-job-sync";
 
 const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 120_000 });
 const IMAGE_GENERATION_TIMEOUT_MS = 5 * 60 * 1000;
@@ -237,7 +238,7 @@ export const derivationJob = inngest.createFunction(
     retries: 2,
     onFailure: async ({ event, error, step }) => {
       const originalEvent = event.data.event;
-      const { derivationId, campaignId, workspaceId, triggeredByUserId } = originalEvent.data;
+      const { derivationId, campaignId, workspaceId, triggeredByUserId, assistantActionId } = originalEvent.data;
       const message = error instanceof Error ? error.message : "Unknown error";
       logger.error(`[Inngest onFailure] derivationId=${derivationId} error=${message}`);
       await step.run("mark-failed", async () => {
@@ -250,6 +251,15 @@ export const derivationJob = inngest.createFunction(
           })
           .where(eq(derivations.id, derivationId));
         await refreshCampaignStatus(campaignId, workspaceId);
+        if (assistantActionId) {
+          await syncAssistantActionFromJob({
+            workspaceId,
+            actionId: assistantActionId,
+            status: "failed",
+            jobRef: { kind: "derivation", id: derivationId },
+            safeError: message,
+          });
+        }
       });
       await step.realtime.publish("status-failed", derivationChannel({ derivationId }).status, {
         derivationId,
@@ -274,7 +284,7 @@ export const derivationJob = inngest.createFunction(
     triggers: [{ event: "derivation.generate" }],
   },
   async ({ event, step }) => {
-    const { derivationId, campaignId, workspaceId, triggeredByUserId, locale, generationMode, variantIndex, ctaText, format, isPreview, styleAssetId } = event.data;
+    const { derivationId, campaignId, workspaceId, triggeredByUserId, locale, generationMode, variantIndex, ctaText, format, isPreview, styleAssetId, assistantActionId } = event.data;
     logger.info(`[derivationJob] START derivationId=${derivationId} campaignId=${campaignId} locale=${locale ?? "default"}`);
 
     let generationLog: DerivationGenerationLog = createGenerationLog(campaignId, derivationId);
@@ -308,6 +318,14 @@ export const derivationJob = inngest.createFunction(
         .update(derivations)
         .set({ status: "processing", updatedAt: new Date() })
         .where(eq(derivations.id, derivationId));
+      if (assistantActionId) {
+        await syncAssistantActionFromJob({
+          workspaceId,
+          actionId: assistantActionId,
+          status: "processing",
+          jobRef: { kind: "derivation", id: derivationId },
+        });
+      }
     });
     await step.realtime.publish("status-processing", derivationChannel({ derivationId }).status, {
       derivationId,
@@ -832,6 +850,14 @@ export const derivationJob = inngest.createFunction(
         })
         .where(eq(derivations.id, derivationId));
       await refreshCampaignStatus(campaignId, workspaceId);
+      if (assistantActionId) {
+        await syncAssistantActionFromJob({
+          workspaceId,
+          actionId: assistantActionId,
+          status: "completed",
+          jobRef: { kind: "derivation", id: derivationId },
+        });
+      }
     });
     await step.realtime.publish("status-completed", derivationChannel({ derivationId }).status, {
       derivationId,
