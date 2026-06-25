@@ -49,9 +49,9 @@ Corrigir a direcao pos-v13.2 para que ADScale prove tracao de produto de forma c
 
 ### Operational Evidence UI (ALERT)
 
-- [ ] **ALERT-01**: Owner can see factual issue alerts from the existing factual-alerts API in the quality/admin UI.
-- [ ] **ALERT-02**: Factual issue alerts link to the relevant workspace, `clientProfileId`, slice and evidence summary without exposing prompts or storage keys.
-- [ ] **ALERT-03**: Alert UI distinguishes factual issues from promptable corpus-quality rules, preventing accidental rule creation.
+- [x] **ALERT-01**: Owner can see factual issue alerts from the existing factual-alerts API in the quality/admin UI.
+- [x] **ALERT-02**: Factual issue alerts link to the relevant workspace, `clientProfileId`, slice and evidence summary without exposing prompts or storage keys.
+- [x] **ALERT-03**: Alert UI distinguishes factual issues from promptable corpus-quality rules, preventing accidental rule creation.
 - [ ] **ALERT-04**: The release checklist covers the new decision, source, brand, settings and alert surfaces.
 
 ## Future Requirements
@@ -111,9 +111,9 @@ Corrigir a direcao pos-v13.2 para que ADScale prove tracao de produto de forma c
 | TRUST-03 | Phase 171 | Complete |
 | TRUST-04 | Phase 171 | Complete |
 | TRUST-05 | Phase 171 | Complete |
-| ALERT-01 | Phase 172 | Pending |
-| ALERT-02 | Phase 172 | Pending |
-| ALERT-03 | Phase 172 | Pending |
+| ALERT-01 | Phase 172 | Complete |
+| ALERT-02 | Phase 172 | Complete |
+| ALERT-03 | Phase 172 | Complete |
 | ALERT-04 | Phase 172 | Pending |
 
 **Coverage:**
