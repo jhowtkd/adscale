@@ -9,6 +9,23 @@ vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
 }));
 
+vi.mock("@/components/ui/sheet", () => ({
+  Sheet: ({ children, open }: { children: React.ReactNode; open?: boolean }) =>
+    open ? <div data-testid="sheet">{children}</div> : null,
+  SheetContent: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="sheet-content">{children}</div>
+  ),
+  SheetHeader: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="sheet-header">{children}</div>
+  ),
+  SheetTitle: ({ children }: { children: React.ReactNode }) => (
+    <h2>{children}</h2>
+  ),
+  SheetBody: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="sheet-body">{children}</div>
+  ),
+}));
+
 vi.mock("@/lib/hooks/use-assistant-threads", () => ({
   useCreateAssistantThread: () => ({
     mutateAsync: mockMutateAsync,

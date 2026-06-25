@@ -1818,6 +1818,14 @@
       "close": "Close",
       "loading": "Loading conversation…"
     },
+    "drawer": {
+      "title": "Campaign assistant",
+      "open": "Open assistant",
+      "loading": "Starting conversation…",
+      "errorMissingClient": "Link a client profile to this campaign to use the assistant.",
+      "errorResolve": "Could not start the conversation. Try again.",
+      "missingClientTooltip": "Assign a client profile to enable the assistant."
+    },
     "actionCard": {
       "unknownAction": "Unknown action",
       "creditImpact": "Credit impact",

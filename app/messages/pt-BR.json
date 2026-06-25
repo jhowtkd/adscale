@@ -1819,6 +1819,14 @@
       "close": "Fechar",
       "loading": "Carregando conversa…"
     },
+    "drawer": {
+      "title": "Assistente da campanha",
+      "open": "Abrir assistente",
+      "loading": "Iniciando conversa…",
+      "errorMissingClient": "Vincule um perfil de cliente a esta campanha para usar o assistente.",
+      "errorResolve": "Não foi possível iniciar a conversa. Tente novamente.",
+      "missingClientTooltip": "Atribua um perfil de cliente para habilitar o assistente."
+    },
     "actionCard": {
       "unknownAction": "Ação desconhecida",
       "creditImpact": "Impacto em créditos",
