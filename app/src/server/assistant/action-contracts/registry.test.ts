@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import "./contracts";
 import {
   ACTION_CONTRACT_REGISTRY,
   getActionContract,
