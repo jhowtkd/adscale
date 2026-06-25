@@ -9,11 +9,6 @@ import {
   AssistantThreadValidationError,
 } from "@/server/repositories/assistant-thread";
 
-const listQuerySchema = z.object({
-  clientProfileId: z.string().uuid(),
-  campaignId: z.string().uuid().optional(),
-});
-
 const createThreadSchema = z.object({
   clientProfileId: z.string().uuid(),
   campaignId: z.string().uuid().optional(),
@@ -25,16 +20,31 @@ export async function GET(request: Request) {
   try {
     const { workspace } = await requireWorkspaceAccess(request);
     const url = new URL(request.url);
-    const parsed = listQuerySchema.safeParse({
-      clientProfileId: url.searchParams.get("clientProfileId"),
-      campaignId: url.searchParams.get("campaignId") ?? undefined,
-    });
+    const clientProfileId = url.searchParams.get("clientProfileId");
+    const rawCampaignId = url.searchParams.get("campaignId");
 
-    if (!parsed.success) {
-      return apiError("invalidInput", 400, parsed.error.flatten());
+    const clientParsed = z.string().uuid().safeParse(clientProfileId);
+    if (!clientParsed.success) {
+      return apiError("invalidInput", 400, clientParsed.error.flatten());
     }
 
-    const threads = await listAssistantThreads(workspace.id, parsed.data);
+    let campaignId: string | null | undefined;
+    if (rawCampaignId === null) {
+      campaignId = undefined;
+    } else if (rawCampaignId === "null") {
+      campaignId = null;
+    } else {
+      const campaignParsed = z.string().uuid().safeParse(rawCampaignId);
+      if (!campaignParsed.success) {
+        return apiError("invalidInput", 400, campaignParsed.error.flatten());
+      }
+      campaignId = campaignParsed.data;
+    }
+
+    const threads = await listAssistantThreads(workspace.id, {
+      clientProfileId: clientParsed.data,
+      campaignId,
+    });
     return NextResponse.json({ threads });
   } catch (error) {
     return handleApiError(error, "assistant.threads.GET");
