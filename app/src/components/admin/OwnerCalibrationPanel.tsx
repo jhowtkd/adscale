@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import ResponsiveTabs from "@/components/layout/ResponsiveTabs";
+import { FactualAlertsPanel } from "@/components/feedback/FactualAlertsPanel";
 import { LearningProposalsTab } from "@/components/feedback/LearningProposalsTab";
 import { BrandVoiceInspectPanel } from "./BrandVoiceInspectPanel";
 import { BrandTasteProfilePanel, fetchBrandTasteProfile } from "./BrandTasteProfilePanel";
@@ -135,12 +136,19 @@ export function OwnerCalibrationPanel({
           <BrandCalibrationRulesPanel clientProfileId={clientProfileId} />
         ) : null}
         {activeTab === "proposals" ? (
-          <LearningProposalsTab
-            workspaceId={workspaceId}
-            clientProfileId={clientProfileId}
-            variant="brand"
-            onOpenCalibration={() => setActiveTab("rules")}
-          />
+          <div className="space-y-6">
+            <FactualAlertsPanel
+              variant="brand"
+              workspaceId={workspaceId}
+              clientProfileId={clientProfileId}
+            />
+            <LearningProposalsTab
+              workspaceId={workspaceId}
+              clientProfileId={clientProfileId}
+              variant="brand"
+              onOpenCalibration={() => setActiveTab("rules")}
+            />
+          </div>
         ) : null}
       </div>
     </div>
