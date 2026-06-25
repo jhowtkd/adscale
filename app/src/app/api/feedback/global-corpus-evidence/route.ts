@@ -10,6 +10,8 @@ const evidenceLogger = logger.child("global-corpus-evidence");
 
 const querySchema = z.object({
   cohort: z.enum(HUMAN_QUALITY_CORPUS_COHORTS).optional(),
+  workspaceId: z.string().uuid().optional(),
+  clientProfileId: z.string().uuid().optional(),
 });
 
 export async function GET(request: Request) {
@@ -18,6 +20,8 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const parsed = querySchema.safeParse({
       cohort: searchParams.get("cohort") ?? undefined,
+      workspaceId: searchParams.get("workspaceId") ?? undefined,
+      clientProfileId: searchParams.get("clientProfileId") ?? undefined,
     });
 
     if (!parsed.success) {
@@ -26,6 +30,8 @@ export async function GET(request: Request) {
 
     const { report } = await runGlobalCorpusEvidence({
       cohort: parsed.data.cohort,
+      workspaceId: parsed.data.workspaceId,
+      clientProfileId: parsed.data.clientProfileId,
       capturedAt: new Date().toISOString(),
     });
 
