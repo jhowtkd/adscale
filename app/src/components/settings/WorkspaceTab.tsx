@@ -7,6 +7,9 @@ import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";
 import { useTranslations } from "next-intl";
 
+const FOCUS_RING =
+  "focus:outline-none focus:border-primary focus:ring-[3px] focus:ring-primary/15";
+
 const containerVariants = {
   hidden: { opacity: 0 },
   show: {
@@ -158,7 +161,7 @@ export default function WorkspaceTab() {
               "w-full rounded-md border px-3 py-2 text-sm resize-none",
               "bg-[var(--surface-base)] text-[var(--text-primary)]",
               "placeholder:text-[var(--text-muted)]",
-              "focus:outline-none focus:border-[var(--accent-blue)] focus:ring-[3px] focus:ring-[rgba(99,102,241,0.15)]",
+              FOCUS_RING,
               "transition-all duration-200 border-[var(--border-dim)]"
             )}
           />
@@ -175,7 +178,7 @@ export default function WorkspaceTab() {
             className={cn(
               "w-full h-10 rounded-md border px-3 text-sm",
               "bg-[var(--surface-base)] text-[var(--text-primary)]",
-              "focus:outline-none focus:border-[var(--accent-blue)] focus:ring-[3px] focus:ring-[rgba(99,102,241,0.15)]",
+              FOCUS_RING,
               "transition-all duration-200 border-[var(--border-dim)]",
               "appearance-none cursor-pointer"
             )}
@@ -207,7 +210,7 @@ export default function WorkspaceTab() {
               "w-full h-10 rounded-md border px-3 text-sm",
               "bg-[var(--surface-base)] text-[var(--text-primary)]",
               "placeholder:text-[var(--text-muted)]",
-              "focus:outline-none focus:border-[var(--accent-blue)] focus:ring-[3px] focus:ring-[rgba(99,102,241,0.15)]",
+              FOCUS_RING,
               "transition-all duration-200 border-[var(--border-dim)]"
             )}
           />
@@ -223,7 +226,7 @@ export default function WorkspaceTab() {
             className={cn(
               "w-full h-10 rounded-md border px-3 text-sm",
               "bg-[var(--surface-base)] text-[var(--text-primary)]",
-              "focus:outline-none focus:border-[var(--accent-blue)] focus:ring-[3px] focus:ring-[rgba(99,102,241,0.15)]",
+              FOCUS_RING,
               "transition-all duration-200 border-[var(--border-dim)]",
               "appearance-none cursor-pointer"
             )}
