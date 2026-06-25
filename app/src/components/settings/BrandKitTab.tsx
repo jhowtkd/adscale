@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";
 import { useTranslations } from "next-intl";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import {
   useBrandKit,
   useUpdateBrandKit,
@@ -16,6 +17,9 @@ import {
   useClearBrandKit,
 } from "@/lib/hooks/use-brand-kit";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+
+const FOCUS_RING =
+  "focus:outline-none focus:border-primary focus:ring-[3px] focus:ring-primary/15";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -360,28 +364,23 @@ export default function BrandKitTab() {
             {t("brandKit.subtitle")}
           </p>
         </div>
-        <button type="button"
+        <Button
+          type="button"
+          size="sm"
           onClick={handleExtract}
           disabled={extractBrandKit.isPending}
-          className={cn(
-            "h-9 px-4 rounded-md text-sm font-medium text-white flex items-center gap-2",
-            "bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-light)]",
-            "active:scale-[0.98]",
-            "transition-all duration-200",
-            "disabled:opacity-60 disabled:cursor-not-allowed"
-          )}
         >
           {extractBrandKit.isPending ? (
             <m.div
               animate={{ rotate: 360 }}
               transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-              className="size-4 border-2 border-white/30 border-t-white rounded-full"
+              className="size-4 border-2 border-current/30 border-t-current rounded-full"
             />
           ) : (
-            <Wand2 size={16} />
+            <Wand2 size={16} aria-hidden="true" />
           )}
           <span>{t("brandKit.extract")}</span>
-        </button>
+        </Button>
         <input
           ref={extractInputRef}
           type="file"
@@ -453,7 +452,7 @@ export default function BrandKitTab() {
                 "w-full rounded-md border px-3 py-2 text-sm resize-none",
                 "bg-[var(--surface-base)] text-[var(--text-primary)]",
                 "placeholder:text-[var(--text-muted)]",
-                "focus:outline-none focus:border-[var(--accent-blue)] focus:ring-[3px] focus:ring-[rgba(99,102,241,0.15)]",
+                FOCUS_RING,
                 "transition-all duration-200 border-[var(--border-dim)]"
               )}
             />
@@ -586,7 +585,7 @@ export default function BrandKitTab() {
                 "w-full rounded-md border px-3 py-2 text-sm resize-none",
                 "bg-[var(--surface-base)] text-[var(--text-primary)]",
                 "placeholder:text-[var(--text-muted)]",
-                "focus:outline-none focus:border-[var(--accent-blue)] focus:ring-[3px] focus:ring-[rgba(99,102,241,0.15)]",
+                FOCUS_RING,
                 "transition-all duration-200 border-[var(--border-dim)]"
               )}
             />
@@ -607,7 +606,7 @@ export default function BrandKitTab() {
                 "w-full rounded-md border px-3 py-2 text-sm resize-none",
                 "bg-[var(--surface-base)] text-[var(--text-primary)]",
                 "placeholder:text-[var(--text-muted)]",
-                "focus:outline-none focus:border-[var(--accent-blue)] focus:ring-[3px] focus:ring-[rgba(99,102,241,0.15)]",
+                FOCUS_RING,
                 "transition-all duration-200 border-[var(--border-dim)]"
               )}
             />
@@ -628,7 +627,7 @@ export default function BrandKitTab() {
                 "w-full rounded-md border px-3 py-2 text-sm resize-none",
                 "bg-[var(--surface-base)] text-[var(--text-primary)]",
                 "placeholder:text-[var(--text-muted)]",
-                "focus:outline-none focus:border-[var(--accent-blue)] focus:ring-[3px] focus:ring-[rgba(99,102,241,0.15)]",
+                FOCUS_RING,
                 "transition-all duration-200 border-[var(--border-dim)]"
               )}
             />
@@ -649,7 +648,7 @@ export default function BrandKitTab() {
                 "w-full rounded-md border px-3 py-2 text-sm resize-none",
                 "bg-[var(--surface-base)] text-[var(--text-primary)]",
                 "placeholder:text-[var(--text-muted)]",
-                "focus:outline-none focus:border-[var(--accent-blue)] focus:ring-[3px] focus:ring-[rgba(99,102,241,0.15)]",
+                FOCUS_RING,
                 "transition-all duration-200 border-[var(--border-dim)]"
               )}
             />
@@ -670,7 +669,7 @@ export default function BrandKitTab() {
                 "w-full rounded-md border px-3 py-2 text-sm resize-none",
                 "bg-[var(--surface-base)] text-[var(--text-primary)]",
                 "placeholder:text-[var(--text-muted)]",
-                "focus:outline-none focus:border-[var(--accent-blue)] focus:ring-[3px] focus:ring-[rgba(99,102,241,0.15)]",
+                FOCUS_RING,
                 "transition-all duration-200 border-[var(--border-dim)]"
               )}
             />
@@ -691,7 +690,7 @@ export default function BrandKitTab() {
                 "w-full rounded-md border px-3 py-2 text-sm resize-none",
                 "bg-[var(--surface-base)] text-[var(--text-primary)]",
                 "placeholder:text-[var(--text-muted)]",
-                "focus:outline-none focus:border-[var(--accent-blue)] focus:ring-[3px] focus:ring-[rgba(99,102,241,0.15)]",
+                FOCUS_RING,
                 "transition-all duration-200 border-[var(--border-dim)]"
               )}
             />
