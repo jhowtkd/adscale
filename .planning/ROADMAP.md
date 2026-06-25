@@ -34,7 +34,7 @@
 
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
-| 177 | Multi-Client Foundation | 1/1 | Complete   | 2026-06-25 |
+| 177 | Multi-Client Foundation | Complete    | 2026-06-25 | 2026-06-25 |
 | 178 | Conversation Persistence | EXEC-02 | Pending | - |
 | 179 | Model Adapter and Tool Policy | AI-01, AI-02, AI-03, AI-04, AI-05 | Pending | - |
 | 180 | Action Contracts | ACT-01, ACT-02, EXEC-01 | Pending | - |
