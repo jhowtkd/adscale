@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "milestoneVersion": "v13.3",
+  "capturedAt": "2026-06-25T12:00:00.000Z",
+  "verifiedAt": "2026-06-25T09:18:14.082Z",
+  "status": "tech_debt",
+  "technicalRegression": {
+    "status": "pass",
+    "evidenceSource": "technical_regression",
+    "gateMatrixPass": true,
+    "sourcePath": "app/scripts/run-v13-3-release-gate.mjs"
+  },
+  "operationalEvidence": {
+    "status": "insufficient_sample",
+    "evidenceSource": "live_human",
+    "denominatorNote": "Live owner smoke and customer-real corpus — not fixture-only proof",
+    "activeBrandSample": {
+      "workspaceId": null,
+      "clientProfileId": null,
+      "sourceComposition": {
+        "synthetic_fixture": 0,
+        "operator_imported": 0,
+        "real_customer": 0
+      },
+      "evaluatedItemCount": 0,
+      "operationalStatus": "insufficient_source",
+      "fixtureOnly": true,
+      "claimsAllowed": [
+        "global_corpus_evaluations_recorded"
+      ],
+      "claimsBlocked": [
+        "validated_against_customer_real",
+        "customer_real_validation"
+      ],
+      "nextActions": [
+        "Complete owner smoke checklist in 172-RELEASE-CHECKLIST.md with live workspace data.",
+        "Import or promote real_customer corpus rows before customer-real milestone claims."
+      ]
+    },
+    "gates": {
+      "decisionIntake": {
+        "status": "pending",
+        "evidenceSource": "live_human",
+        "phase": 168,
+        "label": "Human decision intake"
+      },
+      "sourceClaimGates": {
+        "status": "pending",
+        "evidenceSource": "live_human",
+        "phase": 169,
+        "label": "Source-labeled corpus and claim gates"
+      },
+      "narrativeRollout": {
+        "status": "pending",
+        "evidenceSource": "live_human",
+        "phase": 170,
+        "label": "Product narrative rollout"
+      },
+      "settingsPersistence": {
+        "status": "pending",
+        "evidenceSource": "live_human",
+        "phase": 171,
+        "label": "Profile and workspace settings persistence"
+      },
+      "factualAlerts": {
+        "status": "pending",
+        "evidenceSource": "live_human",
+        "phase": 172,
+        "label": "Factual issue alerts UI"
+      }
+    }
+  },
+  "phaseSurfaces": {
+    "168": {
+      "label": "decision-intake",
+      "status": "pass",
+      "automated": "cd app && npm test -- --run src/app/api/feedback/human-quality-corpus/[id]/evaluation/route.test.ts tests/unit/human-quality/human-quality-service.test.ts"
+    },
+    "169": {
+      "label": "source-gates",
+      "status": "pass",
+      "automated": "cd app && npm test -- --run tests/unit/release/real-quality-release-evidence.test.ts tests/unit/release/operational-quality-release-evidence.test.ts"
+    },
+    "170": {
+      "label": "narrative-rollout",
+      "status": "pass",
+      "automated": "test -f marketing/brand/in-app-copy-checklist.md && cd app && npm test -- --run tests/unit/i18n/product-narrative-copy.test.ts"
+    },
+    "171": {
+      "label": "settings-persistence",
+      "status": "pass",
+      "automated": "cd app && npm test -- --run src/app/api/user/profile/route.test.ts src/app/api/workspace/settings/route.test.ts src/app/(dashboard)/settings/settings-nav.test.ts"
+    },
+    "172": {
+      "label": "factual-alerts",
+      "status": "pass",
+      "automated": "cd app && npm test -- --run src/components/feedback/FactualAlertsPanel.test.tsx src/app/api/admin/quality/learning/factual-alerts/route.test.ts src/components/feedback/HumanQualityCorpusPanel.test.tsx src/components/admin/OwnerCalibrationPanel.test.tsx"
+    }
+  },
+  "automated": {
+    "technical:release-evidence-test": "pass",
+    "technical:phase-168-decision-intake": "pass",
+    "technical:phase-169-source-gates": "pass",
+    "technical:phase-170-narrative-rollout": "pass",
+    "technical:phase-171-settings-persistence": "pass",
+    "technical:phase-172-factual-alerts": "pass"
+  },
+  "requirements": [
+    {
+      "id": "ALERT-01",
+      "result": "pass",
+      "automated": "cd app && npm test -- --run src/components/feedback/HumanQualityCorpusPanel.test.tsx src/components/admin/OwnerCalibrationPanel.test.tsx"
+    },
+    {
+      "id": "ALERT-02",
+      "result": "pass",
+      "automated": "cd app && npm test -- --run src/components/feedback/FactualAlertsPanel.test.tsx"
+    },
+    {
+      "id": "ALERT-03",
+      "result": "pass",
+      "automated": "cd app && npm test -- --run src/components/feedback/FactualAlertsPanel.test.tsx"
+    },
+    {
+      "id": "ALERT-04",
+      "result": "pass",
+      "automated": "cd app && npm run v13-3-release-gate"
+    }
+  ]
+}

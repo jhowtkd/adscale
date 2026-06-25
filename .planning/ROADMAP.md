@@ -35,7 +35,7 @@
 | 169 | Real Corpus and Claim Gates | Complete    | 2026-06-25 | 2026-06-25 |
 | 170 | Product Narrative Rollout | Complete    | 2026-06-25 | 2026-06-25 |
 | 171 | Persistent Product Trust Baseline | Complete    | 2026-06-25 | 2026-06-25 |
-| 172 | Operational Evidence UI and Release Gate | 2/3 | In Progress|  |
+| 172 | Operational Evidence UI and Release Gate | 3/3 | Complete   | 2026-06-25 |
 
 ## Phase Details
 
@@ -149,12 +149,12 @@ Plans:
   3. UI distinguishes factual issues from promptable corpus-quality rules.
   4. Release checklist covers decision intake, real corpus/source gates, narrative rollout, settings persistence and alerts.
 
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [x] 172-01-PLAN.md — FactualAlertsPanel component with safe evidence links and unit tests
 - [x] 172-02-PLAN.md — Mount alerts in corpus Learning tab and brand Propostas tab
-- [ ] 172-03-PLAN.md — v13.3 release gate, evidence artifact, and smoke checklist
+- [x] 172-03-PLAN.md — v13.3 release gate, evidence artifact, and smoke checklist
 
 ---
 
