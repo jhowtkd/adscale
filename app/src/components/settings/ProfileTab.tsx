@@ -1,12 +1,18 @@
 "use client";
 
-import { useReducer, useRef, useEffect } from "react";
+import { useReducer, useRef, useEffect, useMemo, useState } from "react";
 import { m } from "framer-motion";
 import { Camera, Check, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";
 import { useTranslations } from "next-intl";
 import { useOnboarding } from "@/lib/hooks/use-onboarding";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  useUserProfile,
+  useUpdateUserProfile,
+  useUploadProfileAvatar,
+} from "@/lib/hooks/use-user-profile";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -29,13 +35,16 @@ const fieldClass = cn(
   "transition-all duration-200 border-[var(--border-dim)]"
 );
 
+const readOnlyFieldClass = cn(
+  fieldClass,
+  "cursor-not-allowed bg-[var(--surface-raised)] text-[var(--text-muted)]"
+);
+
 interface ProfileFormState {
   firstName: string;
   lastName: string;
-  email: string;
   bio: string;
   timezone: string;
-  avatarPreview: string;
   saveState: "idle" | "saving" | "saved";
 }
 
@@ -47,24 +56,29 @@ function profileFormReducer(
 }
 
 export default function ProfileTab() {
-  const profile = useAppStore((s) => s.profile);
-  const updateProfile = useAppStore((s) => s.updateProfile);
   const addToast = useAppStore((s) => s.addToast);
   const t = useTranslations("settings");
   const tc = useTranslations("common");
 
+  const { data: profile, isPending, isError, error } = useUserProfile();
+  const updateProfile = useUpdateUserProfile();
+  const uploadAvatar = useUploadProfileAvatar();
+
   const [form, updateForm] = useReducer(profileFormReducer, {
-    firstName: profile.firstName,
-    lastName: profile.lastName,
-    email: profile.email,
-    bio: profile.bio,
-    timezone: profile.timezone,
-    avatarPreview: profile.avatar,
+    firstName: "",
+    lastName: "",
+    bio: "",
+    timezone: "",
     saveState: "idle" as const,
   });
-  const { firstName, lastName, email, bio, timezone, avatarPreview, saveState } = form;
+  const { firstName, lastName, bio, timezone, saveState } = form;
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [pendingAvatarFile, setPendingAvatarFile] = useState<File | null>(null);
+  const [localAvatarPreview, setLocalAvatarPreview] = useState<string | null>(
+    null
+  );
 
   useEffect(() => {
     const saveTimeoutStore = saveTimeoutRef;
@@ -73,13 +87,35 @@ export default function ProfileTab() {
     };
   }, []);
 
-  const hasChanges =
-    firstName !== profile.firstName ||
-    lastName !== profile.lastName ||
-    email !== profile.email ||
-    bio !== profile.bio ||
-    timezone !== profile.timezone ||
-    avatarPreview !== profile.avatar;
+  useEffect(() => {
+    if (profile) {
+      requestAnimationFrame(() => {
+        updateForm({
+          firstName: profile.firstName,
+          lastName: profile.lastName,
+          bio: profile.bio,
+          timezone: profile.timezone,
+        });
+        setPendingAvatarFile(null);
+        setLocalAvatarPreview(null);
+      });
+    }
+  }, [profile]);
+
+  const hasProfileFieldChanges = useMemo(() => {
+    if (!profile) return false;
+    return (
+      firstName !== profile.firstName ||
+      lastName !== profile.lastName ||
+      bio !== profile.bio ||
+      timezone !== profile.timezone
+    );
+  }, [profile, firstName, lastName, bio, timezone]);
+
+  const hasChanges = hasProfileFieldChanges || pendingAvatarFile !== null;
+
+  const avatarDisplay =
+    localAvatarPreview ?? profile?.avatarUrl ?? "";
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -88,30 +124,53 @@ export default function ProfileTab() {
       addToast("error", tc("avatarSizeError"));
       return;
     }
+    setPendingAvatarFile(file);
     const reader = new FileReader();
     reader.onload = (ev) => {
-      updateForm({ avatarPreview: ev.target?.result as string });
+      setLocalAvatarPreview(ev.target?.result as string);
     };
     reader.readAsDataURL(file);
+    e.target.value = "";
   };
 
-  const { completed: onboardingCompleted, restart, isRestarting } = useOnboarding();
+  const handleRemoveAvatar = () => {
+    setPendingAvatarFile(null);
+    setLocalAvatarPreview(null);
+  };
+
+  const { completed: onboardingCompleted, restart, isRestarting } =
+    useOnboarding();
 
   const handleSave = async () => {
     updateForm({ saveState: "saving" });
-    await new Promise((r) => setTimeout(r, 800));
-    updateProfile({
-      firstName,
-      lastName,
-      email,
-      bio,
-      timezone,
-      avatar: avatarPreview,
-    });
-    updateForm({ saveState: "saved" });
-    addToast("success", tc("profileUpdated"));
-    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    saveTimeoutRef.current = setTimeout(() => updateForm({ saveState: "idle" }), 2000);
+    try {
+      if (pendingAvatarFile) {
+        await uploadAvatar.mutateAsync(pendingAvatarFile);
+        setPendingAvatarFile(null);
+        setLocalAvatarPreview(null);
+      }
+      if (hasProfileFieldChanges) {
+        await updateProfile.mutateAsync({
+          firstName,
+          lastName,
+          bio,
+          timezone,
+        });
+      }
+      updateForm({ saveState: "saved" });
+      addToast("success", tc("profileUpdated"));
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = setTimeout(
+        () => updateForm({ saveState: "idle" }),
+        2000
+      );
+    } catch (err) {
+      updateForm({ saveState: "idle" });
+      addToast(
+        "error",
+        err instanceof Error ? err.message : tc("error")
+      );
+    }
   };
 
   const handleRestartTour = () => {
@@ -119,7 +178,39 @@ export default function ProfileTab() {
     addToast("success", tc("tourRestarted"));
   };
 
-  const displayName = [firstName, lastName].filter(Boolean).join(" ") || email;
+  const email = profile?.email ?? "";
+  const displayName =
+    [firstName, lastName].filter(Boolean).join(" ") || email;
+
+  if (isPending) {
+    return (
+      <div className="max-w-[720px] space-y-8">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,220px)_1fr]">
+          <div className="flex flex-col items-center gap-3 lg:items-start">
+            <Skeleton className="size-24 rounded-full" />
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-3 w-40" />
+          </div>
+          <div className="space-y-4">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="space-y-2">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="rounded-lg border border-[var(--accent-rose)]/30 bg-[var(--accent-rose)]/10 px-4 py-3 text-sm text-[var(--accent-rose)]">
+        {error?.message || tc("error")}
+      </div>
+    );
+  }
 
   return (
     <m.div variants={containerVariants} initial="hidden" animate="show" className="space-y-8">
@@ -130,10 +221,10 @@ export default function ProfileTab() {
           lastName={lastName}
           displayName={displayName}
           email={email}
-          avatarPreview={avatarPreview}
+          avatarPreview={avatarDisplay}
           fileInputRef={fileInputRef}
           onAvatarChange={handleAvatarChange}
-          onRemoveAvatar={() => updateForm({ avatarPreview: "" })}
+          onRemoveAvatar={handleRemoveAvatar}
         />
 
         <div className="min-w-0 space-y-6">
@@ -185,7 +276,12 @@ export default function ProfileTab() {
         <button
           type="button"
           onClick={handleSave}
-          disabled={!hasChanges || saveState !== "idle"}
+          disabled={
+            !hasChanges ||
+            saveState !== "idle" ||
+            updateProfile.isPending ||
+            uploadAvatar.isPending
+          }
           className={cn(
             "flex h-10 items-center gap-2 rounded-md px-5 text-sm font-medium text-white",
             "bg-[var(--accent-green)] hover:bg-[var(--accent-green-light)]",
@@ -389,9 +485,10 @@ function ProfileFieldsSection({
             id="profile-email"
             type="email"
             value={email}
-            onChange={(e) => updateForm({ email: e.target.value })}
+            readOnly
+            disabled
             placeholder={t("profile.emailPlaceholder")}
-            className={fieldClass}
+            className={readOnlyFieldClass}
           />
           <p className="text-xs text-[var(--text-muted)]">{t("emailVerificationNote")}</p>
         </div>
