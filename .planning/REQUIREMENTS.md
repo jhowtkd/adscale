@@ -18,9 +18,9 @@ Corrigir a direcao pos-v13.2 para que ADScale prove tracao de produto de forma c
 
 ### Client-Agnostic Human Decisions (DECISION)
 
-- [ ] **DECISION-01**: Owner can record a human creative judgment for any eligible corpus or derivation item scoped to a `clientProfileId`, independent of Cenbrap.
+- [x] **DECISION-01**: Owner can record a human creative judgment for any eligible corpus or derivation item scoped to a `clientProfileId`, independent of Cenbrap.
 - [x] **DECISION-02**: Decision capture writes canonical calibration evidence with workspace, `clientProfileId`, source label, reviewer, reviewedAt, verdict and rationale.
-- [ ] **DECISION-03**: The UI copy and data model describe Cenbrap rows as seed/fixture compatibility data, not as product proof.
+- [x] **DECISION-03**: The UI copy and data model describe Cenbrap rows as seed/fixture compatibility data, not as product proof.
 - [x] **DECISION-04**: Decision evidence updates the per-brand evidence report without requiring brand-specific scripts.
 - [x] **DECISION-05**: Tests prove decisions for one `clientProfileId` cannot affect another profile's evidence, rules or prompt context.
 
@@ -92,9 +92,9 @@ Corrigir a direcao pos-v13.2 para que ADScale prove tracao de produto de forma c
 
 | Requirement | Phase | Status |
 | --- | --- | --- |
-| DECISION-01 | Phase 168 | Pending |
+| DECISION-01 | Phase 168 | Complete |
 | DECISION-02 | Phase 168 | Complete |
-| DECISION-03 | Phase 168 | Pending |
+| DECISION-03 | Phase 168 | Complete |
 | DECISION-04 | Phase 168 | Complete |
 | DECISION-05 | Phase 168 | Complete |
 | SOURCE-01 | Phase 169 | Pending |
