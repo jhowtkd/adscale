@@ -1773,8 +1773,43 @@
       "chat": "Chat",
       "context": "Context"
     },
+    "tree": {
+      "title": "Conversations",
+      "newClient": "New client",
+      "newCampaign": "New campaign",
+      "newThread": "New thread",
+      "noClients": "No clients yet. Create one to get started."
+    },
     "empty": {
+      "title": "Choose a conversation",
+      "body": "Select a client and thread in the sidebar, or create a new client to start chatting with the assistant.",
+      "selectTree": "Browse conversations",
+      "createClient": "Create client",
       "selectThread": "Select a thread from the tree to start chatting."
+    },
+    "createClient": {
+      "title": "New client",
+      "description": "Add a client profile to organize campaigns and conversations.",
+      "nameLabel": "Client name",
+      "namePlaceholder": "e.g. Acme Corp",
+      "submit": "Create client",
+      "cancel": "Cancel"
+    },
+    "createCampaign": {
+      "title": "New campaign",
+      "description": "Create a draft campaign linked to this client.",
+      "nameLabel": "Campaign name",
+      "namePlaceholder": "e.g. Summer launch",
+      "submit": "Create draft",
+      "cancel": "Cancel"
+    },
+    "createThread": {
+      "title": "New thread",
+      "description": "Start a named conversation thread.",
+      "nameLabel": "Thread name",
+      "namePlaceholder": "e.g. Creative review",
+      "submit": "Create thread",
+      "cancel": "Cancel"
     }
   },
   "analytics": {
