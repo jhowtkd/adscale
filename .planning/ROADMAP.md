@@ -35,7 +35,7 @@
 | # | Phase | Requirements | Status | Completed |
 |---|-------|--------------|--------|-----------|
 | 177 | Multi-Client Foundation | Complete    | 2026-06-25 | 2026-06-25 |
-| 178 | Conversation Persistence | EXEC-02 | Pending (4 plans) | - |
+| 178 | 4/4 | Complete    | 2026-06-25 | - |
 | 179 | Model Adapter and Tool Policy | AI-01, AI-02, AI-03, AI-04, AI-05 | Pending | - |
 | 180 | Action Contracts | ACT-01, ACT-02, EXEC-01 | Pending | - |
 | 181 | Assistant Surface | CHAT-01, CHAT-02, CHAT-03, CHAT-04 | Pending | - |
@@ -76,7 +76,7 @@
   3. Action records support pending, confirmed, running, completed, failed, and canceled states.
   4. Long-running jobs can update or be reflected in the related assistant action status.
 
-**Plans:** 0/4 plans complete
+**Plans:** 4/4 plans complete
 
 Plans:
 - [ ] 178-01-PLAN.md — Schema, types, and migration 0057 for assistant tables
