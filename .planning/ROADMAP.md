@@ -150,7 +150,14 @@ Plans:
   4. Campaign workspace drawer opens and continues the same campaign thread.
   5. Mobile layout remains usable through tabs or equivalent responsive navigation.
 
-**Plans:** 0/1 plans complete
+**Plans:** 0/5 plans complete
+
+Plans:
+- [ ] 181-01-PLAN.md — Assistant client data layer (SSE parser + React Query hooks)
+- [ ] 181-02-PLAN.md — CHAT-01 mode toggle, `/assistant` route, AssistantShell layout
+- [ ] 181-03-PLAN.md — Navigation tree, empty state, create client/campaign/thread (CHAT-02/03)
+- [ ] 181-04-PLAN.md — Chat core, action cards, context panel, full page wiring
+- [ ] 181-05-PLAN.md — Campaign workspace drawer with default thread (CHAT-04)
 
 ---
 
