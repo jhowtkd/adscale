@@ -41,10 +41,10 @@ Corrigir a direcao pos-v13.2 para que ADScale prove tracao de produto de forma c
 
 ### Product Trust Baseline (TRUST)
 
-- [ ] **TRUST-01**: Profile settings persist through the backend instead of local store timeout simulation.
-- [ ] **TRUST-02**: Workspace settings persist through the backend and survive refresh, logout/login and device changes.
+- [x] **TRUST-01**: Profile settings persist through the backend instead of local store timeout simulation.
+- [x] **TRUST-02**: Workspace settings persist through the backend and survive refresh, logout/login and device changes.
 - [ ] **TRUST-03**: Disabled settings tabs are either backed by real APIs or hidden behind honest unavailable states.
-- [ ] **TRUST-04**: Settings save/error/loading states are deterministic and tested.
+- [x] **TRUST-04**: Settings save/error/loading states are deterministic and tested.
 - [ ] **TRUST-05**: Existing brand kit, team, billing and privacy settings continue to work after profile/workspace persistence changes.
 
 ### Operational Evidence UI (ALERT)
@@ -106,10 +106,10 @@ Corrigir a direcao pos-v13.2 para que ADScale prove tracao de produto de forma c
 | BRAND-02 | Phase 170 | Complete |
 | BRAND-03 | Phase 170 | Complete |
 | BRAND-04 | Phase 170 | Complete |
-| TRUST-01 | Phase 171 | Pending |
-| TRUST-02 | Phase 171 | Pending |
+| TRUST-01 | Phase 171 | Complete |
+| TRUST-02 | Phase 171 | Complete |
 | TRUST-03 | Phase 171 | Pending |
-| TRUST-04 | Phase 171 | Pending |
+| TRUST-04 | Phase 171 | Complete |
 | TRUST-05 | Phase 171 | Pending |
 | ALERT-01 | Phase 172 | Pending |
 | ALERT-02 | Phase 172 | Pending |

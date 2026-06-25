@@ -33,8 +33,8 @@
 |---|-------|--------------|--------|-----------|
 | 168 | Client-Agnostic Human Decision Intake | DECISION-01..05 | Complete | 2026-06-25 |
 | 169 | Real Corpus and Claim Gates | Complete    | 2026-06-25 | 2026-06-25 |
-| 170 | Product Narrative Rollout | 3/3 | Complete   | 2026-06-25 |
-| 171 | Persistent Product Trust Baseline | TRUST-01..05 | Planned | - |
+| 170 | Product Narrative Rollout | Complete    | 2026-06-25 | 2026-06-25 |
+| 171 | Persistent Product Trust Baseline | 1/4 | In Progress|  |
 | 172 | Operational Evidence UI and Release Gate | ALERT-01..04 | Planned | - |
 
 ## Phase Details
@@ -125,7 +125,13 @@ Plans:
   4. Save, error and loading behavior is deterministic and tested.
   5. Existing settings surfaces retain their current behavior.
 
-**Plans:** 0/TBD
+**Plans:** 1/4 plans executed
+
+Plans:
+- [x] 171-01-PLAN.md — Schema + profile/workspace settings APIs with route tests
+- [ ] 171-02-PLAN.md — Profile hook and ProfileTab API wiring
+- [ ] 171-03-PLAN.md — Workspace hook and WorkspaceTab API wiring
+- [ ] 171-04-PLAN.md — Tab enablement, store cleanup, regression guard
 
 ---
 
@@ -178,7 +184,7 @@ Previous archive: [v13.2-ROADMAP.md](milestones/v13.2-ROADMAP.md) · [v13.2-REQU
 | 168 | v13.3 | 3/3 | Complete | 2026-06-25 |
 | 169 | v13.3 | 0/3 | Planned | - |
 | 170 | v13.3 | 0/TBD | Planned | - |
-| 171 | v13.3 | 0/TBD | Planned | - |
+| 171 | v13.3 | 0/4 | Planned | - |
 | 172 | v13.3 | 0/TBD | Planned | - |
 
 ---
