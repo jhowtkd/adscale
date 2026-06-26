@@ -10,11 +10,24 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Current State
 
-v13.5 Assistente Conversacional de Ações shipped 2026-06-25 (`passed_with_tech_debt`). ADScale now has a chat-first operating surface where the assistant asks only for the minimum information needed for the next useful action, while preserving credit control, action confirmation, auditability, and multi-client isolation.
+v13.6 Jornadas Guiadas do Chat Estratégico is active. ADScale is refining the chat-first assistant from a generic command surface into guided, action-oriented journeys that start from the user's real starting point: either they already have a creative piece, or they want to produce from zero with visual references.
 
-**Latest milestone:** v13.5 Assistente Conversacional de Ações (phases 177-183) — **archived** 2026-06-25 (`passed_with_tech_debt`).
+**Active milestone:** v13.6 Jornadas Guiadas do Chat Estratégico (phases 184-188) — started 2026-06-26.
 
-**Next:** `$gsd-new-milestone` for v13.6.
+**Latest shipped milestone:** v13.5 Assistente Conversacional de Ações (phases 177-183) — **archived** 2026-06-25 (`passed_with_tech_debt`).
+
+## Current Milestone: v13.6 Jornadas Guiadas do Chat Estratégico
+
+**Goal:** Tornar o modo chat menos genérico, conduzindo o usuário por fluxos acionáveis conforme a origem do trabalho criativo.
+
+**Target features:**
+- Entrada do `/assistant` com dois caminhos principais: `Já tenho peça` e `Produzir do zero`.
+- Estado estruturado e auditável para jornadas guiadas por thread, sem depender apenas do histórico textual.
+- Fluxo `Já tenho peça` com upload/base asset, auto-briefing, diagnóstico acionável e proposta de melhoria.
+- Fluxo `Produzir do zero` com briefing mínimo, seleção/upload de pelo menos 3 referências visuais e plano criativo antes da criação de campanha.
+- Action cards confirmáveis para custo/escrita, preservando isolamento multi-cliente, créditos, auditoria e retomada.
+
+**Guiding principle:** O chat deve conduzir o usuário até a próxima ação pronta sem transformar estratégia em relatório nem executar custo/escrita sem confirmação.
 
 ## Shipped Milestone: v13.5 Assistente Conversacional de Ações
 

@@ -2,6 +2,7 @@
 
 ## Milestones
 
+- 🔄 **v13.6 Jornadas Guiadas do Chat Estratégico** - Phases 184-188 (active; started 2026-06-26)
 - ✅ **v13.5 Assistente Conversacional de Ações** - Phases 177-183 (shipped 2026-06-25; tech debt: EXEC-04 live lifecycle human verify, migrations 0056/0057 ops)
 - ✅ **v13.4 Fechamento de Evidência Operacional** - Phases 173-176 (shipped 2026-06-25; tech debt: live DB seed pending, operational `insufficient_sample`)
 - ✅ **v13.3 Tracao Multi-Cliente** - Phases 168-172 (shipped 2026-06-25; tech debt: operational evidence `insufficient_sample`, live owner smoke pending)
@@ -21,7 +22,85 @@
 
 ## Active Milestone
 
-_None — run `$gsd-new-milestone` to define v13.6._
+### v13.6 Jornadas Guiadas do Chat Estratégico
+
+**Milestone Goal:** Tornar o modo chat menos genérico, conduzindo o usuário por fluxos acionáveis conforme a origem do trabalho criativo.
+
+**Requirements:** 29 total, 29 mapped
+
+| Phase | Name | Plans | Status | Target |
+|-------|------|-------|--------|--------|
+| 184 | Guided Flow State | 0/0 | Pending | Persistência e APIs |
+| 185 | Assistant Entry UX | 0/0 | Pending | Dois cards iniciais |
+| 186 | Existing Creative Path | 0/0 | Pending | Diagnóstico acionável |
+| 187 | From-Zero Path | 0/0 | Pending | Plano com 3 referências |
+| 188 | Action Integration and UAT | 0/0 | Pending | Action cards e smoke |
+
+### Phase 184: Guided Flow State
+
+**Goal:** Persist guided assistant journey state in a dedicated, scoped, resumable model.
+
+**Requirements:** FLOW-01, FLOW-02, FLOW-03, FLOW-04
+
+**Success criteria:**
+1. Repository/API layer can create, read and update a guided flow by workspace, clientProfile and thread.
+2. State records path, status, current step, slots, missing fields, asset ids, reference ids and optional campaign id.
+3. Cross-workspace, cross-client and cross-thread mutations are rejected.
+4. Persisted payloads cannot include reasoning/thinking, signed URLs, raw tool args or internal evidence.
+
+### Phase 185: Assistant Entry UX
+
+**Goal:** Replace the generic assistant start with two primary guided journey cards while preserving freeform chat entry.
+
+**Requirements:** ENTRY-01, ENTRY-02, ENTRY-03, ENTRY-04
+
+**Success criteria:**
+1. `/assistant` start surface presents `Já tenho peça` and `Produzir do zero` as primary cards above the composer.
+2. Freeform first messages are classified into a path or answered with one clarifying question.
+3. Returning to an existing thread shows path, step, missing inputs and next action.
+4. Desktop and mobile assistant layouts expose the same primary path choices without overlap.
+
+### Phase 186: Existing Creative Path
+
+**Goal:** Let users start from an existing creative, extract context, diagnose it and receive a confirmable improvement action.
+
+**Requirements:** EXIST-01, EXIST-02, EXIST-03, EXIST-04, EXIST-05
+
+**Success criteria:**
+1. User can upload or select a creative piece from the `Já tenho peça` path.
+2. The flow creates or links a draft campaign only after a valid creative asset exists for the selected client profile.
+3. Auto-briefing produces a briefing snapshot from the piece where current behavior supports it.
+4. Diagnosis summarizes creative issues, assumptions, missing inputs and recommended next action.
+5. User can confirm a proposed improvement action without re-entering extracted briefing fields.
+
+### Phase 187: From-Zero Path
+
+**Goal:** Let users produce from zero by collecting a minimum strategic brief and at least 3 visual references before campaign creation.
+
+**Requirements:** ZERO-01, ZERO-02, ZERO-03, ZERO-04, ZERO-05, ZERO-06
+
+**Success criteria:**
+1. User can start `Produzir do zero` without immediately creating an empty campaign.
+2. User can combine saved client references and new workspace uploads as visual references.
+3. The plan action is blocked until at least 3 visual references are selected.
+4. The minimum brief captures product/offer, audience, promise/objective, objections, CTA, platforms and constraints.
+5. Draft campaign is created only after creative plan approval and carries selectedReferenceIds plus briefing fields.
+6. The first ready action is a creative plan, not image generation.
+
+### Phase 188: Action Integration and UAT
+
+**Goal:** Wire both guided paths to safe confirmable actions and prove the assistant journeys through automated and human-readable evidence.
+
+**Requirements:** ACT-01, ACT-02, ACT-03, ACT-04, ACT-05, QA-01, QA-02, QA-03, QA-04, QA-05
+
+**Success criteria:**
+1. Cost/write operations still require confirmable assistant action cards.
+2. Existing-creative actions preserve uploaded creative as factual/base context.
+3. From-zero actions treat references as auxiliary visual direction and preserve literal CTA, offer and constraints.
+4. Async action payloads expose safe status/job links without denied persistence keys.
+5. Failed or canceled actions leave the guided flow resumable with a safe error and next step.
+6. Component, repository/API, contract and authenticated Playwright smoke coverage pass for both journeys.
+7. Milestone audit clearly separates implemented assistant flow from deferred live OpenAI/Inngest human verification.
 
 ## Shipped Milestones (detail)
 
@@ -60,6 +139,6 @@ Archive: [v13.3-ROADMAP.md](milestones/v13.3-ROADMAP.md) · [v13.3-REQUIREMENTS.
 
 ## Progress
 
-**Latest shipped:** v13.5 — 2026-06-25 (`passed_with_tech_debt`)
+**Active:** v13.6 — started 2026-06-26
 
-**Next:** `$gsd-new-milestone`
+**Next:** `$gsd-plan-phase 184`

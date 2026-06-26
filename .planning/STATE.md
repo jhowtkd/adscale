@@ -1,35 +1,45 @@
 ---
 gsd_state_version: 1.0
-milestone: v13.5
-milestone_name: Assistente Conversacional de Ações
-status: archived
-last_updated: "2026-06-25T23:06:00.000Z"
-last_activity: 2026-06-25
+milestone: v13.6
+milestone_name: Jornadas Guiadas do Chat Estratégico
+status: active
+last_updated: "2026-06-26T00:00:00.000Z"
+last_activity: 2026-06-26
 progress:
-  total_phases: 7
-  completed_phases: 7
-  total_plans: 18
-  completed_plans: 18
+  total_phases: 5
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
 
 ## Current Position
 
-Milestone: v13.5 archived (shipped 2026-06-25)
-Status: Planning next milestone — run `$gsd-new-milestone`
-Last activity: 2026-06-25
+Phase: 184 — Guided Flow State
+Plan: —
+Status: Ready to plan first phase
+Last activity: 2026-06-26 — Milestone v13.6 started and roadmap created
 
-## v13.5 Final Stats
+## Active Milestone
 
-| Phase | Plans | Status |
-|-------|-------|--------|
-| 177 | 1/1 | Complete |
-| 178 | 4/4 | Complete |
-| 179 | 4/4 | Complete |
-| 180 | 4/4 | Complete |
-| 181 | 5/5 | Complete |
-| 182 | 2/2 | Complete |
-| 183 | 2/2 | Complete |
+**v13.6 Jornadas Guiadas do Chat Estratégico**
 
-**Requirements:** 20/21 satisfied (`passed_with_tech_debt`)
+Goal: tornar o modo chat menos genérico, conduzindo o usuário por fluxos acionáveis conforme origem do trabalho criativo.
+
+## Phase Progress
+
+| Phase | Name | Plans | Status |
+|-------|------|-------|--------|
+| 184 | Guided Flow State | 0/0 | Pending |
+| 185 | Assistant Entry UX | 0/0 | Pending |
+| 186 | Existing Creative Path | 0/0 | Pending |
+| 187 | From-Zero Path | 0/0 | Pending |
+| 188 | Action Integration and UAT | 0/0 | Pending |
+
+## Project Reference
+
+See: `.planning/PROJECT.md` (updated 2026-06-26)
+
+**Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
+**Current focus:** Phase 184 — persist guided assistant flow state before building the two journey surfaces.
