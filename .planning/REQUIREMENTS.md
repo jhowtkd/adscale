@@ -29,36 +29,36 @@ Transformar o `/assistant` de um chat genérico em duas jornadas guiadas e acion
 
 ### Existing Creative Path
 
-- [ ] **EXIST-01**: User can upload or select an existing creative piece from the `Já tenho peça` path.
-- [ ] **EXIST-02**: System creates or links a draft campaign only after a valid creative asset is available for the selected client profile.
-- [ ] **EXIST-03**: System extracts a briefing snapshot from the piece using existing auto-briefing behavior where possible.
-- [ ] **EXIST-04**: User receives an actionable diagnosis with creative issues, extracted assumptions, missing inputs and recommended next action.
-- [ ] **EXIST-05**: User can confirm a proposed improvement action from the diagnosis without re-entering the same briefing fields.
+- [x] **EXIST-01**: User can upload or select an existing creative piece from the `Já tenho peça` path.
+- [x] **EXIST-02**: System creates or links a draft campaign only after a valid creative asset is available for the selected client profile.
+- [x] **EXIST-03**: System extracts a briefing snapshot from the piece using existing auto-briefing behavior where possible.
+- [x] **EXIST-04**: User receives an actionable diagnosis with creative issues, extracted assumptions, missing inputs and recommended next action.
+- [x] **EXIST-05**: User can confirm a proposed improvement action from the diagnosis without re-entering the same briefing fields.
 
 ### From-Zero Path
 
-- [ ] **ZERO-01**: User can start `Produzir do zero` without creating an empty campaign immediately.
-- [ ] **ZERO-02**: User can select existing client references and upload new workspace assets as visual references for the journey.
-- [ ] **ZERO-03**: System requires at least 3 visual references, combining saved references and new uploads, before proposing the creative plan action.
-- [ ] **ZERO-04**: User can provide the minimum strategic brief: product/offer, audience, promise/objective, objections, CTA, platforms and constraints.
-- [ ] **ZERO-05**: System creates the draft campaign only after the creative plan is approved, carrying selectedReferenceIds and briefing fields into the campaign.
-- [ ] **ZERO-06**: User can receive a creative plan action before any image generation is proposed.
+- [x] **ZERO-01**: User can start `Produzir do zero` without creating an empty campaign immediately.
+- [x] **ZERO-02**: User can select existing client references and upload new workspace assets as visual references for the journey.
+- [x] **ZERO-03**: System requires at least 3 visual references, combining saved references and new uploads, before proposing the creative plan action.
+- [x] **ZERO-04**: User can provide the minimum strategic brief: product/offer, audience, promise/objective, objections, CTA, platforms and constraints.
+- [x] **ZERO-05**: System creates the draft campaign only after the creative plan is approved, carrying selectedReferenceIds and briefing fields into the campaign.
+- [x] **ZERO-06**: User can receive a creative plan action before any image generation is proposed.
 
 ### Action Integration
 
-- [ ] **ACT-01**: Existing-cost or write operations remain behind confirmable assistant action cards.
-- [ ] **ACT-02**: `Já tenho peça` actions preserve the uploaded creative as factual/base context and do not treat style references as factual sources.
-- [ ] **ACT-03**: `Produzir do zero` actions treat visual references as auxiliary visual direction and preserve literal CTA, offer and constraints from the brief.
-- [ ] **ACT-04**: Action card payloads expose safe job/status links for async work without leaking denied persistence keys.
-- [ ] **ACT-05**: Failed or canceled guided actions leave the flow resumable with a safe user-facing error and next step.
+- [x] **ACT-01**: Existing-cost or write operations remain behind confirmable assistant action cards.
+- [x] **ACT-02**: `Já tenho peça` actions preserve the uploaded creative as factual/base context and do not treat style references as factual sources.
+- [x] **ACT-03**: `Produzir do zero` actions treat visual references as auxiliary visual direction and preserve literal CTA, offer and constraints from the brief.
+- [x] **ACT-04**: Action card payloads expose safe job/status links for async work without leaking denied persistence keys.
+- [x] **ACT-05**: Failed or canceled guided actions leave the flow resumable with a safe user-facing error and next step.
 
 ### Verification
 
-- [ ] **QA-01**: Automated component tests cover both entry cards, guided readiness states and blocked actions.
-- [ ] **QA-02**: Repository/API tests cover guided-flow persistence, transition validation and workspace/client isolation.
-- [ ] **QA-03**: Contract tests cover the 3-reference minimum and asset-required existing-creative path.
-- [ ] **QA-04**: Authenticated Playwright smoke covers both journeys through their first action card.
-- [ ] **QA-05**: Milestone audit distinguishes implemented assistant flow from any deferred live OpenAI/Inngest human verification.
+- [x] **QA-01**: Automated component tests cover both entry cards, guided readiness states and blocked actions.
+- [x] **QA-02**: Repository/API tests cover guided-flow persistence, transition validation and workspace/client isolation.
+- [x] **QA-03**: Contract tests cover the 3-reference minimum and asset-required existing-creative path.
+- [x] **QA-04**: Authenticated Playwright smoke covers both journeys through their first action card.
+- [x] **QA-05**: Milestone audit distinguishes implemented assistant flow from any deferred live OpenAI/Inngest human verification.
 
 ## Future Requirements
 
@@ -92,27 +92,27 @@ Transformar o `/assistant` de um chat genérico em duas jornadas guiadas e acion
 | ENTRY-02 | Phase 185 | Complete |
 | ENTRY-03 | Phase 185 | Complete |
 | ENTRY-04 | Phase 185 | Complete |
-| EXIST-01 | Phase 186 | Pending |
-| EXIST-02 | Phase 186 | Pending |
-| EXIST-03 | Phase 186 | Pending |
-| EXIST-04 | Phase 186 | Pending |
-| EXIST-05 | Phase 186 | Pending |
-| ZERO-01 | Phase 187 | Pending |
-| ZERO-02 | Phase 187 | Pending |
-| ZERO-03 | Phase 187 | Pending |
-| ZERO-04 | Phase 187 | Pending |
-| ZERO-05 | Phase 187 | Pending |
-| ZERO-06 | Phase 187 | Pending |
-| ACT-01 | Phase 188 | Pending |
-| ACT-02 | Phase 188 | Pending |
-| ACT-03 | Phase 188 | Pending |
-| ACT-04 | Phase 188 | Pending |
-| ACT-05 | Phase 188 | Pending |
-| QA-01 | Phase 188 | Pending |
-| QA-02 | Phase 188 | Pending |
-| QA-03 | Phase 188 | Pending |
-| QA-04 | Phase 188 | Pending |
-| QA-05 | Phase 188 | Pending |
+| EXIST-01 | Phase 186 | Complete |
+| EXIST-02 | Phase 186 | Complete |
+| EXIST-03 | Phase 186 | Complete |
+| EXIST-04 | Phase 186 | Complete |
+| EXIST-05 | Phase 186 | Complete |
+| ZERO-01 | Phase 187 | Complete |
+| ZERO-02 | Phase 187 | Complete |
+| ZERO-03 | Phase 187 | Complete |
+| ZERO-04 | Phase 187 | Complete |
+| ZERO-05 | Phase 187 | Complete |
+| ZERO-06 | Phase 187 | Complete |
+| ACT-01 | Phase 188 | Complete |
+| ACT-02 | Phase 188 | Complete |
+| ACT-03 | Phase 188 | Complete |
+| ACT-04 | Phase 188 | Complete |
+| ACT-05 | Phase 188 | Complete |
+| QA-01 | Phase 188 | Complete |
+| QA-02 | Phase 188 | Complete |
+| QA-03 | Phase 188 | Complete |
+| QA-04 | Phase 188 | Complete |
+| QA-05 | Phase 188 | Complete |
 
 **Coverage:**
 - v13.6 requirements: 29 total

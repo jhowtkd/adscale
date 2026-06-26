@@ -2,7 +2,7 @@
 
 ## Milestones
 
-- 🔄 **v13.6 Jornadas Guiadas do Chat Estratégico** - Phases 184-188 (active; started 2026-06-26)
+- 🔄 **v13.6 Jornadas Guiadas do Chat Estratégico** - Phases 184-188 (shipped 2026-06-26; tech debt: live OpenAI diagnosis human verify, full action-card E2E)
 - ✅ **v13.5 Assistente Conversacional de Ações** - Phases 177-183 (shipped 2026-06-25; tech debt: EXEC-04 live lifecycle human verify, migrations 0056/0057 ops)
 - ✅ **v13.4 Fechamento de Evidência Operacional** - Phases 173-176 (shipped 2026-06-25; tech debt: live DB seed pending, operational `insufficient_sample`)
 - ✅ **v13.3 Tracao Multi-Cliente** - Phases 168-172 (shipped 2026-06-25; tech debt: operational evidence `insufficient_sample`, live owner smoke pending)
@@ -22,21 +22,21 @@
 
 ## Active Milestone
 
-### v13.6 Jornadas Guiadas do Chat Estratégico
+_None — v13.6 shipped 2026-06-26. See milestones/v13.6-MILESTONE-AUDIT.md._
 
-**Milestone Goal:** Tornar o modo chat menos genérico, conduzindo o usuário por fluxos acionáveis conforme a origem do trabalho criativo.
+## Shipped: v13.6 Jornadas Guiadas do Chat Estratégico
 
-**Requirements:** 29 total, 29 mapped
+| Phase | Name | Plans | Status |
+|-------|------|-------|--------|
+| 184 | Guided Flow State | 2/2 | Complete |
+| 185 | Assistant Entry UX | 2/2 | Complete |
+| 186 | Existing Creative Path | 2/2 | Complete |
+| 187 | From-Zero Path | 2/2 | Complete |
+| 188 | Action Integration and UAT | 2/2 | Complete |
 
-| Phase | Name | Plans | Status | Target |
-|-------|------|-------|--------|--------|
-| 184 | Guided Flow State | 2/2 | Complete | Persistência e APIs |
-| 185 | Assistant Entry UX | 2/2 | Complete | Dois cards iniciais |
-| 186 | Existing Creative Path | 0/0 | Pending | Diagnóstico acionável |
-| 187 | From-Zero Path | 0/0 | Pending | Plano com 3 referências |
-| 188 | Action Integration and UAT | 0/0 | Pending | Action cards e smoke |
+Archive: [v13.6-MILESTONE-AUDIT.md](milestones/v13.6-MILESTONE-AUDIT.md)
 
-### Phase 184: Guided Flow State
+### Phase 184: Guided Flow State (reference)
 
 **Goal:** Persist guided assistant journey state in a dedicated, scoped, resumable model.
 
@@ -139,6 +139,4 @@ Archive: [v13.3-ROADMAP.md](milestones/v13.3-ROADMAP.md) · [v13.3-REQUIREMENTS.
 
 ## Progress
 
-**Active:** v13.6 — started 2026-06-26
-
-**Next:** `$gsd-discuss-phase 186 --auto`
+**Next:** Milestone v13.6 complete — see `.planning/milestones/v13.6-MILESTONE-AUDIT.md`
