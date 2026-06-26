@@ -6,6 +6,7 @@ import {
   acknowledgeExistingCreativeDiagnosis,
   selectExistingCreative,
 } from "@/server/assistant/guided-paths/existing-creative";
+import { emitGuidedFlowTelemetry } from "@/server/assistant/guided-flow-telemetry";
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import { GuidedFlowValidationError } from "@/server/repositories/guided-flow";
 
@@ -42,6 +43,33 @@ export async function POST(
       locale: request.headers.get("accept-language")?.split(",")[0] ?? undefined,
     });
 
+    emitGuidedFlowTelemetry({
+      workspaceId: workspace.id,
+      clientProfileId: thread.clientProfileId,
+      threadId,
+      guidedFlowId: result.guidedFlow.id,
+      path: result.guidedFlow.path,
+      step: result.guidedFlow.currentStep,
+      eventKey: "guided_input_supplied",
+      campaignId: result.campaignId,
+      metadata: {
+        inputType: "asset",
+        assetCount: result.guidedFlow.assetIds?.length ?? 1,
+        hadCampaign: true,
+      },
+    });
+
+    emitGuidedFlowTelemetry({
+      workspaceId: workspace.id,
+      clientProfileId: thread.clientProfileId,
+      threadId,
+      guidedFlowId: result.guidedFlow.id,
+      path: result.guidedFlow.path,
+      step: result.guidedFlow.currentStep,
+      eventKey: "guided_step_viewed",
+      campaignId: result.campaignId,
+    });
+
     return NextResponse.json(result);
   } catch (error) {
     if (error instanceof GuidedFlowValidationError) {
@@ -73,6 +101,17 @@ export async function PATCH(
       workspaceId: workspace.id,
       threadId,
       clientProfileId: thread.clientProfileId,
+    });
+
+    emitGuidedFlowTelemetry({
+      workspaceId: workspace.id,
+      clientProfileId: thread.clientProfileId,
+      threadId,
+      guidedFlowId: result.guidedFlow.id,
+      path: result.guidedFlow.path,
+      step: result.guidedFlow.currentStep,
+      eventKey: "guided_step_viewed",
+      campaignId: result.guidedFlow.campaignId,
     });
 
     return NextResponse.json(result);

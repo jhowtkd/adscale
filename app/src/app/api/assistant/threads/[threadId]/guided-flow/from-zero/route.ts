@@ -6,6 +6,7 @@ import {
   saveFromZeroBrief,
   saveFromZeroReferences,
 } from "@/server/assistant/guided-paths/from-zero";
+import { emitGuidedFlowTelemetry } from "@/server/assistant/guided-flow-telemetry";
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import { GuidedFlowValidationError } from "@/server/repositories/guided-flow";
 
@@ -51,14 +52,54 @@ export async function POST(
         return apiError("invalidInput", 400, parsed.error.flatten());
       }
 
-      const result = await saveFromZeroBrief({
-        workspaceId: workspace.id,
-        threadId,
-        clientProfileId: thread.clientProfileId,
-        answers: parsed.data.answers,
-      });
+      try {
+        const result = await saveFromZeroBrief({
+          workspaceId: workspace.id,
+          threadId,
+          clientProfileId: thread.clientProfileId,
+          answers: parsed.data.answers,
+        });
 
-      return NextResponse.json(result);
+        emitGuidedFlowTelemetry({
+          workspaceId: workspace.id,
+          clientProfileId: thread.clientProfileId,
+          threadId,
+          guidedFlowId: result.guidedFlow.id,
+          path: result.guidedFlow.path,
+          step: result.guidedFlow.currentStep,
+          eventKey: "guided_input_supplied",
+          metadata: { inputType: "brief" },
+        });
+        emitGuidedFlowTelemetry({
+          workspaceId: workspace.id,
+          clientProfileId: thread.clientProfileId,
+          threadId,
+          guidedFlowId: result.guidedFlow.id,
+          path: result.guidedFlow.path,
+          step: result.guidedFlow.currentStep,
+          eventKey: "guided_step_viewed",
+        });
+
+        return NextResponse.json(result);
+      } catch (error) {
+        if (
+          error instanceof GuidedFlowValidationError &&
+          error.message.toLowerCase().includes("brief incomplete")
+        ) {
+          emitGuidedFlowTelemetry({
+            workspaceId: workspace.id,
+            clientProfileId: thread.clientProfileId,
+            threadId,
+            path: "from_zero",
+            step: "collect_brief",
+            eventKey: "guided_action_blocked",
+            blockerCategory: "missing_brief_fields",
+            metadata: { reasonCode: "brief_incomplete" },
+          });
+          return apiError("invalidInput", 400, { message: error.message });
+        }
+        throw error;
+      }
     }
 
     if (body.kind === "references") {
@@ -67,14 +108,57 @@ export async function POST(
         return apiError("invalidInput", 400, parsed.error.flatten());
       }
 
-      const result = await saveFromZeroReferences({
-        workspaceId: workspace.id,
-        threadId,
-        clientProfileId: thread.clientProfileId,
-        referenceIds: parsed.data.referenceIds,
-      });
+      try {
+        const result = await saveFromZeroReferences({
+          workspaceId: workspace.id,
+          threadId,
+          clientProfileId: thread.clientProfileId,
+          referenceIds: parsed.data.referenceIds,
+        });
 
-      return NextResponse.json(result);
+        emitGuidedFlowTelemetry({
+          workspaceId: workspace.id,
+          clientProfileId: thread.clientProfileId,
+          threadId,
+          guidedFlowId: result.guidedFlow.id,
+          path: result.guidedFlow.path,
+          step: result.guidedFlow.currentStep,
+          eventKey: "guided_input_supplied",
+          metadata: {
+            inputType: "references",
+            referenceCount: result.referenceIds.length,
+          },
+        });
+        emitGuidedFlowTelemetry({
+          workspaceId: workspace.id,
+          clientProfileId: thread.clientProfileId,
+          threadId,
+          guidedFlowId: result.guidedFlow.id,
+          path: result.guidedFlow.path,
+          step: result.guidedFlow.currentStep,
+          eventKey: "guided_step_viewed",
+        });
+
+        return NextResponse.json(result);
+      } catch (error) {
+        if (
+          error instanceof GuidedFlowValidationError &&
+          error.message.toLowerCase().includes("visual references")
+        ) {
+          emitGuidedFlowTelemetry({
+            workspaceId: workspace.id,
+            clientProfileId: thread.clientProfileId,
+            threadId,
+            path: "from_zero",
+            step: "select_references",
+            eventKey: "guided_action_blocked",
+            blockerCategory: "missing_references",
+            metadata: { reasonCode: "insufficient_references" },
+          });
+          return apiError("invalidInput", 400, { message: error.message });
+        }
+        throw error;
+      }
     }
 
     return apiError("invalidInput", 400, { message: "Unknown kind" });
