@@ -2,11 +2,11 @@
 gsd_state_version: 1.0
 milestone: v13.7
 milestone_name: Qualidade Operacional das Jornadas Guiadas
-status: defining_requirements
-last_updated: "2026-06-26T18:20:00.000Z"
+status: roadmap_created
+last_updated: "2026-06-26T18:30:00.000Z"
 last_activity: 2026-06-26
 progress:
-  total_phases: 0
+  total_phases: 5
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -16,16 +16,26 @@ progress:
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 190 — Guided Journey Telemetry
 Plan: —
-Status: Defining requirements
-Last activity: 2026-06-26 — Milestone v13.7 started
+Status: Roadmap created — ready to plan Phase 190
+Last activity: 2026-06-26 — v13.7 requirements and roadmap created
 
 ## Active Milestone
 
 **v13.7 Qualidade Operacional das Jornadas Guiadas**
 
 Goal: transformar as jornadas guiadas do chat em operação mensurável, auditável e melhorável com evidência real de conclusão, bloqueio, qualidade percebida e execução segura.
+
+## Phase Progress
+
+| Phase | Name | Plans | Status |
+|-------|------|-------|--------|
+| 190 | Guided Journey Telemetry | 0/1 | Pending |
+| 191 | Operational Funnel Surface | 0/1 | Pending |
+| 192 | Staging Evidence Runbook | 0/1 | Pending |
+| 193 | Human Quality Feedback | 0/1 | Pending |
+| 194 | Operational Release Gate | 0/1 | Pending |
 
 ## Latest Shipped Milestone
 
@@ -41,7 +51,7 @@ Goal: tornar o modo chat menos genérico, conduzindo o usuário por fluxos acion
 - Human staging verify for live diagnosis/briefing quality
 - Live Inngest/campaign approval lifecycle verify inherited from v13.5/v13.6 staging debt
 
-## Phase Progress
+## Latest Shipped Phase Progress
 
 | Phase | Name | Plans | Status |
 |-------|------|-------|--------|

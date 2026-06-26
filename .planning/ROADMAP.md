@@ -2,6 +2,7 @@
 
 ## Milestones
 
+- 🔄 **v13.7 Qualidade Operacional das Jornadas Guiadas** - Phases 190-194 (active; defining operational evidence for guided chat journeys)
 - ✅ **v13.6 Jornadas Guiadas do Chat Estratégico** - Phases 184-189 (shipped 2026-06-26; tech debt: staging diagnosis/briefing + live lifecycle verify)
 - ✅ **v13.5 Assistente Conversacional de Ações** - Phases 177-183 (shipped 2026-06-25; tech debt: EXEC-04 live lifecycle human verify, migrations 0056/0057 ops)
 - ✅ **v13.4 Fechamento de Evidência Operacional** - Phases 173-176 (shipped 2026-06-25; tech debt: live DB seed pending, operational `insufficient_sample`)
@@ -22,7 +23,75 @@
 
 ## Active Milestone
 
-_None — v13.6 shipped with tech debt. Ready to define the next milestone._
+**v13.7 Qualidade Operacional das Jornadas Guiadas** — transformar as jornadas guiadas do chat em operação mensurável, auditável e melhorável.
+
+| Phase | Name | Plans | Status |
+|-------|------|-------|--------|
+| 190 | Guided Journey Telemetry | 0/1 | Pending |
+| 191 | Operational Funnel Surface | 0/1 | Pending |
+| 192 | Staging Evidence Runbook | 0/1 | Pending |
+| 193 | Human Quality Feedback | 0/1 | Pending |
+| 194 | Operational Release Gate | 0/1 | Pending |
+
+### Phase 190: Guided Journey Telemetry
+
+**Goal:** Capture safe, structured lifecycle events for both guided assistant journeys.
+
+**Requirements:** TEL-01, TEL-02, TEL-03, TEL-04
+
+**Success criteria:**
+1. Guided-flow start, step, blocker, action, failure and completion events are recorded.
+2. Events include workspace, clientProfile, thread, path and step scope.
+3. Events never store provider reasoning, signed URLs, raw tool args or prompt payloads.
+4. Repository/API access can query events by safe scope and time window.
+
+### Phase 191: Operational Funnel Surface
+
+**Goal:** Let owner/internal users inspect completion, abandonment and blockers by guided path.
+
+**Requirements:** FUN-01, FUN-02, FUN-03, FUN-04
+
+**Success criteria:**
+1. Funnel reporting shows starts, completions, abandonment and failures for each path.
+2. Step-level drop-off and top blocker categories are visible.
+3. Report output separates implementation coverage from real operational evidence.
+4. Investigation links/ids are safe and scoped.
+
+### Phase 192: Staging Evidence Runbook
+
+**Goal:** Record human staging evidence for live diagnosis, briefing, creative plan and approval lifecycle.
+
+**Requirements:** STG-01, STG-02, STG-03, STG-04
+
+**Success criteria:**
+1. Runbook defines exact checks for both guided paths.
+2. Evidence artifact records reviewer, environment, path, references and verdict.
+3. Staging covers one real-asset `Já tenho peça` journey and one 3-reference `Produzir do zero` journey.
+4. Provider/live failures are recorded as blockers or accepted tech debt without hiding implementation status.
+
+### Phase 193: Human Quality Feedback
+
+**Goal:** Capture safe human feedback on whether diagnosis and creative plans are actually useful.
+
+**Requirements:** QFB-01, QFB-02, QFB-03, QFB-04
+
+**Success criteria:**
+1. Operator can rate diagnosis utility with safe reason text.
+2. Operator can rate creative-plan readiness with safe reason text.
+3. Feedback is attached to guided path, step and thread context.
+4. Feedback remains read-only evidence and does not mutate prompts or calibration automatically.
+
+### Phase 194: Operational Release Gate
+
+**Goal:** Decide v13.7 release truthfully from implementation, automation, staging evidence and sample sufficiency.
+
+**Requirements:** GATE-01, GATE-02, GATE-03, GATE-04
+
+**Success criteria:**
+1. Release gate reports implementation, automated tests, staging evidence and sample sufficiency separately.
+2. Missing staging evidence produces a blocker or explicit warning.
+3. Customer-real quality claims remain blocked when evidence is insufficient.
+4. Milestone audit cites the gate artifact and separates shipped work from accepted debt.
 
 ## Shipped: v13.6 Jornadas Guiadas do Chat Estratégico
 
