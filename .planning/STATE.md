@@ -3,23 +3,23 @@ gsd_state_version: 1.0
 milestone: v13.6
 milestone_name: Jornadas Guiadas do Chat Estratégico
 status: not_shippable
-last_updated: "2026-06-26T18:30:00.000Z"
+last_updated: "2026-06-26T17:50:00.000Z"
 last_activity: 2026-06-26
 progress:
-  total_phases: 5
-  completed_phases: 5
-  total_plans: 10
-  completed_plans: 10
+  total_phases: 6
+  completed_phases: 6
+  total_plans: 11
+  completed_plans: 11
 ---
 
 # Project State
 
 ## Current Position
 
-Phase: —
-Plan: —
-Status: Milestone v13.6 not shippable — P0 build/migration fixed; QA-04 partial + staging verify pending
-Last activity: 2026-06-26 — P0 remediation verified (`npm run build` green, 31 guided tests pass)
+Phase: 189 — v13.6 Ship Gate
+Plan: 189-01
+Status: Milestone v13.6 not shippable — automated QA-04 closed; staging human verify pending
+Last activity: 2026-06-26 — Phase 189 verified (`npx playwright test tests/e2e/guided-assistant-journeys.spec.ts`, targeted Vitest, `npm run build`)
 
 ## Active Milestone (not shippable)
 
@@ -32,8 +32,8 @@ Goal: tornar o modo chat menos genérico, conduzindo o usuário por fluxos acion
 - B-02: migration 0058 in Drizzle journal
 
 **Open before ship:**
-- QA-04 e2e scope (entry cards only)
-- Human staging verify for diagnosis/briefing
+- Human staging verify for live diagnosis/briefing quality
+- Live Inngest/campaign approval lifecycle verify inherited from v13.5/v13.6 staging debt
 
 ## Phase Progress
 
@@ -44,10 +44,17 @@ Goal: tornar o modo chat menos genérico, conduzindo o usuário por fluxos acion
 | 186 | Existing Creative Path | 2/2 | Complete |
 | 187 | From-Zero Path | 2/2 | Complete |
 | 188 | Action Integration and UAT | 2/2 | Complete |
+| 189 | v13.6 Ship Gate | 1/1 | Complete |
+
+## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 189 added: v13.6 Ship Gate
 
 ## Project Reference
 
 See: `.planning/PROJECT.md` (updated 2026-06-26)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
-**Next:** staging spot-check (diagnosis/briefing) → expand Playwright to first action card or accept as human QA.
+**Next:** staging spot-check for live diagnosis/briefing quality.

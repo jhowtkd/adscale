@@ -2,7 +2,7 @@
 
 ## Milestones
 
-- 🔄 **v13.6 Jornadas Guiadas do Chat Estratégico** - Phases 184-188 (shipped 2026-06-26; tech debt: live OpenAI diagnosis human verify, full action-card E2E)
+- 🔄 **v13.6 Jornadas Guiadas do Chat Estratégico** - Phases 184-189 (not shippable; staging human verify pending)
 - ✅ **v13.5 Assistente Conversacional de Ações** - Phases 177-183 (shipped 2026-06-25; tech debt: EXEC-04 live lifecycle human verify, migrations 0056/0057 ops)
 - ✅ **v13.4 Fechamento de Evidência Operacional** - Phases 173-176 (shipped 2026-06-25; tech debt: live DB seed pending, operational `insufficient_sample`)
 - ✅ **v13.3 Tracao Multi-Cliente** - Phases 168-172 (shipped 2026-06-25; tech debt: operational evidence `insufficient_sample`, live owner smoke pending)
@@ -22,9 +22,9 @@
 
 ## Active Milestone
 
-_None — v13.6 shipped 2026-06-26. See milestones/v13.6-MILESTONE-AUDIT.md._
+**v13.6 Jornadas Guiadas do Chat Estratégico** — not shippable until staging human verification records live diagnosis/briefing quality.
 
-## Shipped: v13.6 Jornadas Guiadas do Chat Estratégico
+## Active: v13.6 Jornadas Guiadas do Chat Estratégico
 
 | Phase | Name | Plans | Status |
 |-------|------|-------|--------|
@@ -33,8 +33,9 @@ _None — v13.6 shipped 2026-06-26. See milestones/v13.6-MILESTONE-AUDIT.md._
 | 186 | Existing Creative Path | 2/2 | Complete |
 | 187 | From-Zero Path | 2/2 | Complete |
 | 188 | Action Integration and UAT | 2/2 | Complete |
+| 189 | v13.6 Ship Gate | 1/1 | Complete |
 
-Archive: [v13.6-MILESTONE-AUDIT.md](milestones/v13.6-MILESTONE-AUDIT.md)
+Audit: [v13.6-MILESTONE-AUDIT.md](milestones/v13.6-MILESTONE-AUDIT.md)
 
 ### Phase 184: Guided Flow State (reference)
 
@@ -91,7 +92,7 @@ Archive: [v13.6-MILESTONE-AUDIT.md](milestones/v13.6-MILESTONE-AUDIT.md)
 
 **Goal:** Wire both guided paths to safe confirmable actions and prove the assistant journeys through automated and human-readable evidence.
 
-**Requirements:** ACT-01, ACT-02, ACT-03, ACT-04, ACT-05, QA-01, QA-02, QA-03, QA-04, QA-05
+**Requirements:** ACT-01, ACT-02, ACT-03, ACT-04, ACT-05, QA-01, QA-02, QA-03, QA-05
 
 **Success criteria:**
 1. Cost/write operations still require confirmable assistant action cards.
@@ -101,6 +102,17 @@ Archive: [v13.6-MILESTONE-AUDIT.md](milestones/v13.6-MILESTONE-AUDIT.md)
 5. Failed or canceled actions leave the guided flow resumable with a safe error and next step.
 6. Component, repository/API, contract and authenticated Playwright smoke coverage pass for both journeys.
 7. Milestone audit clearly separates implemented assistant flow from deferred live OpenAI/Inngest human verification.
+
+### Phase 189: v13.6 Ship Gate
+
+**Goal:** Close the v13.6 release truth gap by proving first action-card confirmation at the browser layer and keeping staging-only human verification explicit.
+
+**Requirements:** QA-04, QA-05
+
+**Success criteria:**
+1. Authenticated Playwright smoke renders a guided action card and confirms it through the browser confirm route.
+2. Requirements, roadmap, state and milestone audit agree on the same v13.6 status.
+3. Any remaining staging/provider/live-human verification is documented as explicit tech debt, not hidden under shipped language.
 
 ## Shipped Milestones (detail)
 
