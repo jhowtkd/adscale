@@ -116,6 +116,49 @@ type ShareEngagementByAssistanceRow = {
   openRate: number | null;
 };
 
+type GuidedFlowFunnelResponse = {
+  implementationCoverage: {
+    telemetryEnabled: boolean;
+    pathsCovered: string[];
+    eventKeysObserved: string[];
+  };
+  operationalEvidence: {
+    sampleSufficient: boolean;
+    minSampleThreshold: number;
+    observedStarts: number;
+    note: string;
+  };
+  pathFunnel: Array<{
+    path: string;
+    starts: number;
+    completions: number;
+    abandonments: number;
+    failures: number;
+    blocked: number;
+  }>;
+  stepDropoff: Array<{
+    path: string;
+    step: string;
+    views: number;
+    dropoffs: number;
+  }>;
+  topBlockers: Array<{
+    path: string;
+    blockerCategory: string;
+    count: number;
+  }>;
+  investigationLinks: Array<{
+    threadId: string;
+    workspaceId: string;
+    clientProfileId: string;
+    path: string;
+    lastStep: string;
+    lastEventKey: string;
+    occurredAt: string;
+  }>;
+  totals: { events: number };
+};
+
 type FunnelResponse = {
   missionFunnel: MissionFunnelRow[];
   cockpitStageFunnel: CockpitStageFunnelRow[];
@@ -166,6 +209,13 @@ function buildQuery(filters: OwnerAnalyticsFilters) {
   if (filters.from) params.set("from", filters.from);
   if (filters.to) params.set("to", filters.to);
   return params.toString();
+}
+
+async function fetchGuidedFlowFunnel(query: string): Promise<GuidedFlowFunnelResponse | null> {
+  const res = await apiFetch(`/api/feedback/analytics/guided-flow-funnel?${query}`);
+  if (res.status === 403) return null;
+  if (!res.ok) throw new Error("failed");
+  return res.json();
 }
 
 async function fetchFunnel(query: string): Promise<FunnelResponse | null> {
@@ -352,6 +402,8 @@ export function OwnerAnalyticsPanel({
     dimensionLabel,
     operationLabel,
     assistanceLabel,
+    guidedPathLabel,
+    blockerLabel,
   } = useAnalyticsLabels();
 
   const [workspaceId, setWorkspaceId] = useState("");
@@ -372,6 +424,12 @@ export function OwnerAnalyticsPanel({
     retry: false,
   });
 
+  const guidedFlowQuery = useQuery({
+    queryKey: ["owner-analytics-guided-flow", filters],
+    queryFn: () => fetchGuidedFlowFunnel(query),
+    retry: false,
+  });
+
   const creditQuery = useQuery({
     queryKey: ["owner-analytics-credit", filters],
     queryFn: () => fetchCreditSignals(query),
@@ -381,6 +439,7 @@ export function OwnerAnalyticsPanel({
   if (funnelQuery.isFetched && funnelQuery.data === null) return null;
 
   const funnel = funnelQuery.data;
+  const guidedFlow = guidedFlowQuery.data;
   const credit = creditQuery.data;
   const exportUrl = `/api/feedback/analytics/export.csv?${query}`;
   const noDataLabel = t("noData");
@@ -570,6 +629,99 @@ export function OwnerAnalyticsPanel({
                       ])}
                     />
                   </FunnelSection>
+
+                  {guidedFlow ? (
+                    <>
+                      <FunnelSection title={t("sections.guidedFlowPathFunnel")}>
+                        <p className="mb-3 text-xs text-[var(--text-secondary)]">
+                          {guidedFlow.operationalEvidence.note}
+                        </p>
+                        <FunnelTable
+                          title=""
+                          noDataLabel={noDataLabel}
+                          headers={[
+                            t("columns.path"),
+                            t("columns.entered"),
+                            t("columns.completed"),
+                            t("columns.abandoned"),
+                            t("columns.failures"),
+                            t("columns.blocked"),
+                          ]}
+                          rows={guidedFlow.pathFunnel.map((row) => [
+                            <span key="path" className="font-medium text-[var(--text-primary)]">
+                              {guidedPathLabel(row.path)}
+                            </span>,
+                            <CountCell key="starts" value={row.starts} highlight="positive" />,
+                            <CountCell key="completed" value={row.completions} highlight="positive" />,
+                            <CountCell key="abandoned" value={row.abandonments} highlight="warning" />,
+                            <CountCell key="failures" value={row.failures} highlight="warning" />,
+                            <CountCell key="blocked" value={row.blocked} highlight="warning" />,
+                          ])}
+                        />
+                      </FunnelSection>
+
+                      <FunnelSection title={t("sections.guidedFlowStepDropoff")}>
+                        <FunnelTable
+                          title=""
+                          noDataLabel={noDataLabel}
+                          headers={[
+                            t("columns.path"),
+                            t("columns.step"),
+                            t("columns.entered"),
+                            t("columns.dropoffs"),
+                          ]}
+                          rows={guidedFlow.stepDropoff.map((row) => [
+                            <span key="path" className="font-medium text-[var(--text-primary)]">
+                              {guidedPathLabel(row.path)}
+                            </span>,
+                            <span key="step">{stepLabel(row.step)}</span>,
+                            <CountCell key="views" value={row.views} highlight="positive" />,
+                            <CountCell key="dropoffs" value={row.dropoffs} highlight="warning" />,
+                          ])}
+                        />
+                      </FunnelSection>
+
+                      <FunnelSection title={t("sections.guidedFlowBlockers")}>
+                        <FunnelTable
+                          title=""
+                          noDataLabel={noDataLabel}
+                          headers={[t("columns.path"), t("columns.blocker"), t("columns.count")]}
+                          rows={guidedFlow.topBlockers.map((row) => [
+                            <span key="path">{guidedPathLabel(row.path)}</span>,
+                            <span key="blocker">{blockerLabel(row.blockerCategory)}</span>,
+                            <CountCell key="count" value={row.count} highlight="warning" />,
+                          ])}
+                        />
+                      </FunnelSection>
+
+                      <FunnelSection title={t("sections.guidedFlowInvestigation")}>
+                        <FunnelTable
+                          title=""
+                          noDataLabel={noDataLabel}
+                          headers={[
+                            t("columns.thread"),
+                            t("columns.path"),
+                            t("columns.step"),
+                            t("columns.lastEvent"),
+                            t("columns.occurredAt"),
+                          ]}
+                          rows={guidedFlow.investigationLinks.map((row) => [
+                            <code key="thread" className="text-xs">
+                              {row.threadId}
+                            </code>,
+                            <span key="path">{guidedPathLabel(row.path)}</span>,
+                            <span key="step">{stepLabel(row.lastStep)}</span>,
+                            <span key="event" className="text-xs">
+                              {row.lastEventKey}
+                            </span>,
+                            <span key="at" className="text-xs text-[var(--text-secondary)]">
+                              {new Date(row.occurredAt).toLocaleString()}
+                            </span>,
+                          ])}
+                        />
+                      </FunnelSection>
+                    </>
+                  ) : null}
                 </div>
               </AnalyticsGroup>
 

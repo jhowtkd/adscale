@@ -2253,6 +2253,10 @@
         "cockpitStage": "Cockpit stage funnel",
         "recipeSelection": "Recipe selection funnel",
         "guidedBriefingAbandon": "Guided briefing abandon by step",
+        "guidedFlowPathFunnel": "Guided assistant path funnel",
+        "guidedFlowStepDropoff": "Guided journey step drop-off",
+        "guidedFlowBlockers": "Top guided journey blockers",
+        "guidedFlowInvestigation": "Investigation links (thread scope)",
         "creditSpendByStage": "Credits by stage",
         "creditSurprisesByOperation": "Credit surprises by operation",
         "creditSurprisesRecent": "Recent credit surprises",
@@ -2278,6 +2282,14 @@
         "tradeoffViewed": "Tradeoff viewed",
         "selected": "Selected",
         "abandons": "Abandons",
+        "path": "Path",
+        "failures": "Failures",
+        "blocked": "Blocked",
+        "dropoffs": "Drop-offs",
+        "blocker": "Blocker",
+        "thread": "Thread",
+        "lastEvent": "Last event",
+        "occurredAt": "Occurred at",
         "creditsSpent": "Credits spent",
         "spendEvents": "Spend events",
         "operation": "Operation",
@@ -2330,6 +2342,19 @@
       "assistanceLevels": {
         "hands_on": "Hands-on",
         "observe_only": "Observe only",
+        "unknown": "Unknown"
+      },
+      "guidedPaths": {
+        "existing_creative": "Already have creative",
+        "from_zero": "Produce from zero"
+      },
+      "blockers": {
+        "missing_asset": "Missing asset",
+        "missing_references": "Missing references",
+        "missing_brief_fields": "Missing brief fields",
+        "action_failure": "Action failure",
+        "validation_error": "Validation error",
+        "provider_failure": "Provider failure",
         "unknown": "Unknown"
       },
       "outcomes": {

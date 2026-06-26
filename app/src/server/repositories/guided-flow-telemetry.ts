@@ -108,3 +108,66 @@ export async function listGuidedFlowTelemetryEvents(
     .orderBy(desc(assistantGuidedFlowEvents.occurredAt))
     .limit(filters.limit ?? 500);
 }
+
+export interface OwnerGuidedFlowTelemetryListFilters {
+  workspaceId?: string;
+  clientProfileId?: string;
+  threadId?: string;
+  path?: string;
+  step?: string;
+  eventKey?: string;
+  from?: Date;
+  to?: Date;
+  limit?: number;
+}
+
+function buildOwnerTelemetryConditions(filters: OwnerGuidedFlowTelemetryListFilters) {
+  const conditions = [];
+
+  if (filters.workspaceId) {
+    conditions.push(eq(assistantGuidedFlowEvents.workspaceId, filters.workspaceId));
+  }
+  if (filters.clientProfileId) {
+    conditions.push(
+      eq(assistantGuidedFlowEvents.clientProfileId, filters.clientProfileId)
+    );
+  }
+  if (filters.threadId) {
+    conditions.push(eq(assistantGuidedFlowEvents.threadId, filters.threadId));
+  }
+  if (filters.path) {
+    conditions.push(eq(assistantGuidedFlowEvents.path, filters.path));
+  }
+  if (filters.step) {
+    conditions.push(eq(assistantGuidedFlowEvents.step, filters.step));
+  }
+  if (filters.eventKey) {
+    conditions.push(eq(assistantGuidedFlowEvents.eventKey, filters.eventKey));
+  }
+  if (filters.from) {
+    conditions.push(gte(assistantGuidedFlowEvents.occurredAt, filters.from));
+  }
+  if (filters.to) {
+    conditions.push(lte(assistantGuidedFlowEvents.occurredAt, filters.to));
+  }
+
+  return conditions;
+}
+
+export async function listGuidedFlowTelemetryEventsForOwner(
+  filters: OwnerGuidedFlowTelemetryListFilters = {}
+): Promise<AssistantGuidedFlowEvent[]> {
+  const conditions = buildOwnerTelemetryConditions(filters);
+  const query = db
+    .select()
+    .from(assistantGuidedFlowEvents)
+    .orderBy(desc(assistantGuidedFlowEvents.occurredAt));
+
+  if (conditions.length === 0) {
+    return query.limit(filters.limit ?? 5000);
+  }
+
+  return query
+    .where(and(...conditions))
+    .limit(filters.limit ?? 5000);
+}

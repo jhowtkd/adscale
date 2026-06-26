@@ -49,6 +49,16 @@ export function useAnalyticsLabels() {
     return formatFallbackKey(key);
   };
 
+  const guidedPathLabel = (key: string) => {
+    if (t.has(`guidedPaths.${key}`)) return t(`guidedPaths.${key}`);
+    return formatFallbackKey(key);
+  };
+
+  const blockerLabel = (key: string) => {
+    if (t.has(`blockers.${key}`)) return t(`blockers.${key}`);
+    return formatFallbackKey(key);
+  };
+
   return {
     t,
     missionLabel,
@@ -58,5 +68,7 @@ export function useAnalyticsLabels() {
     dimensionLabel,
     operationLabel,
     assistanceLabel,
+    guidedPathLabel,
+    blockerLabel,
   };
 }

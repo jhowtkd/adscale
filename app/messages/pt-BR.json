@@ -2254,6 +2254,10 @@
         "cockpitStage": "Funil de etapas do cockpit",
         "recipeSelection": "Funil de seleção de receita",
         "guidedBriefingAbandon": "Abandono do briefing guiado por etapa",
+        "guidedFlowPathFunnel": "Funil por jornada guiada",
+        "guidedFlowStepDropoff": "Abandono por etapa da jornada",
+        "guidedFlowBlockers": "Principais bloqueios da jornada",
+        "guidedFlowInvestigation": "Links de investigação (escopo thread)",
         "creditSpendByStage": "Créditos por etapa",
         "creditSurprisesByOperation": "Surpresas de crédito por operação",
         "creditSurprisesRecent": "Surpresas de crédito recentes",
@@ -2279,6 +2283,14 @@
         "tradeoffViewed": "Tradeoff visto",
         "selected": "Selecionadas",
         "abandons": "Abandonos",
+        "path": "Jornada",
+        "failures": "Falhas",
+        "blocked": "Bloqueios",
+        "dropoffs": "Abandonos na etapa",
+        "blocker": "Bloqueio",
+        "thread": "Thread",
+        "lastEvent": "Último evento",
+        "occurredAt": "Ocorrido em",
         "creditsSpent": "Créditos gastos",
         "spendEvents": "Eventos de gasto",
         "operation": "Operação",
@@ -2331,6 +2343,19 @@
       "assistanceLevels": {
         "hands_on": "Mãos na massa",
         "observe_only": "Somente observar",
+        "unknown": "Desconhecido"
+      },
+      "guidedPaths": {
+        "existing_creative": "Já tenho peça",
+        "from_zero": "Produzir do zero"
+      },
+      "blockers": {
+        "missing_asset": "Peça ausente",
+        "missing_references": "Referências ausentes",
+        "missing_brief_fields": "Campos do briefing ausentes",
+        "action_failure": "Falha na ação",
+        "validation_error": "Erro de validação",
+        "provider_failure": "Falha do provedor",
         "unknown": "Desconhecido"
       },
       "outcomes": {
