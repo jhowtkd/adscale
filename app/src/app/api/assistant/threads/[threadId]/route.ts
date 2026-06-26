@@ -5,6 +5,7 @@ import {
   getAssistantThreadById,
 } from "@/server/repositories/assistant-thread";
 import { listAssistantMessages } from "@/server/repositories/assistant-message";
+import { getGuidedFlowByThread } from "@/server/repositories/guided-flow";
 
 export async function GET(
   request: Request,
@@ -21,8 +22,16 @@ export async function GET(
       return apiError("threadNotFound", 404);
     }
 
-    const messages = await listAssistantMessages(workspace.id, threadId);
-    return NextResponse.json({ thread, messages });
+    const [messages, guidedFlow] = await Promise.all([
+      listAssistantMessages(workspace.id, threadId),
+      getGuidedFlowByThread(workspace.id, threadId),
+    ]);
+
+    return NextResponse.json({
+      thread,
+      messages,
+      ...(guidedFlow ? { guidedFlow } : {}),
+    });
   } catch (error) {
     return handleApiError(error, "assistant.threads.[threadId].GET");
   }

@@ -2224,12 +2224,60 @@ export const assistantActionRecords = adscaleSchema.table(
   ]
 );
 
+export const assistantGuidedFlows = adscaleSchema.table(
+  "assistant_guided_flows",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    clientProfileId: uuid("client_profile_id")
+      .notNull()
+      .references(() => clientProfiles.id, { onDelete: "cascade" }),
+    threadId: uuid("thread_id")
+      .notNull()
+      .references(() => assistantThreads.id, { onDelete: "cascade" }),
+    path: text("path").notNull(),
+    status: text("status").notNull(),
+    currentStep: text("current_step").notNull(),
+    slots: jsonb("slots")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    missingFields: jsonb("missing_fields")
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    assetIds: jsonb("asset_ids")
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    referenceIds: jsonb("reference_ids")
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    campaignId: uuid("campaign_id").references(() => campaigns.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("assistant_guided_flows_thread_id_uidx").on(table.threadId),
+    index("assistant_guided_flows_workspace_id_idx").on(table.workspaceId),
+  ]
+);
+
 export type AssistantThread = typeof assistantThreads.$inferSelect;
 export type NewAssistantThread = typeof assistantThreads.$inferInsert;
 export type AssistantMessage = typeof assistantMessages.$inferSelect;
 export type NewAssistantMessage = typeof assistantMessages.$inferInsert;
 export type AssistantActionRecord = typeof assistantActionRecords.$inferSelect;
 export type NewAssistantActionRecord = typeof assistantActionRecords.$inferInsert;
+export type AssistantGuidedFlow = typeof assistantGuidedFlows.$inferSelect;
+export type NewAssistantGuidedFlow = typeof assistantGuidedFlows.$inferInsert;
 
 export type PersonaSimulation = typeof personaSimulations.$inferSelect;
 export type NewPersonaSimulation = typeof personaSimulations.$inferInsert;

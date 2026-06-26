@@ -18,15 +18,21 @@ vi.mock("@/server/repositories/assistant-message", () => ({
   listAssistantMessages: vi.fn(),
 }));
 
+vi.mock("@/server/repositories/guided-flow", () => ({
+  getGuidedFlowByThread: vi.fn(),
+}));
+
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
 }));
 
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import { listAssistantMessages } from "@/server/repositories/assistant-message";
+import { getGuidedFlowByThread } from "@/server/repositories/guided-flow";
 
 const mockGetThread = vi.mocked(getAssistantThreadById);
 const mockListMessages = vi.mocked(listAssistantMessages);
+const mockGetGuidedFlow = vi.mocked(getGuidedFlowByThread);
 
 describe("GET /api/assistant/threads/[threadId]", () => {
   beforeEach(() => {
@@ -51,6 +57,7 @@ describe("GET /api/assistant/threads/[threadId]", () => {
     mockListMessages.mockResolvedValue(
       messages as Awaited<ReturnType<typeof listAssistantMessages>>
     );
+    mockGetGuidedFlow.mockResolvedValue(null);
 
     const res = await GET(new Request("http://localhost/api/assistant/threads/t1"), {
       params: Promise.resolve({ threadId: "t1" }),
@@ -60,5 +67,27 @@ describe("GET /api/assistant/threads/[threadId]", () => {
     expect(res.status).toBe(200);
     expect(body.thread).toEqual(thread);
     expect(body.messages).toEqual(messages);
+    expect(body.guidedFlow).toBeUndefined();
+  });
+
+  it("includes guidedFlow when present", async () => {
+    const thread = { id: "t1", workspaceId: "workspace-1", name: "Main" };
+    const messages = [{ id: "m1", sequence: 1 }];
+    const guidedFlow = { id: "flow-1", path: "from_zero", status: "active" };
+    mockGetThread.mockResolvedValue(thread as Awaited<ReturnType<typeof getAssistantThreadById>>);
+    mockListMessages.mockResolvedValue(
+      messages as Awaited<ReturnType<typeof listAssistantMessages>>
+    );
+    mockGetGuidedFlow.mockResolvedValue(
+      guidedFlow as Awaited<ReturnType<typeof getGuidedFlowByThread>>
+    );
+
+    const res = await GET(new Request("http://localhost/api/assistant/threads/t1"), {
+      params: Promise.resolve({ threadId: "t1" }),
+    });
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.guidedFlow).toEqual(guidedFlow);
   });
 });
