@@ -5,13 +5,17 @@ import AssistantTreeSidebar from "./AssistantTreeSidebar";
 
 const mockReplace = vi.fn();
 const mockOnSelectThread = vi.fn();
+const mockOnNewThread = vi.fn();
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: mockReplace }),
 }));
 
 vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string) => key,
+  useTranslations: () => (key: string, vars?: Record<string, string>) =>
+    key in { promptIn: true }
+      ? (vars ? `${key}:${JSON.stringify(vars)}` : key)
+      : key,
 }));
 
 vi.mock("@/lib/hooks/use-client-profiles", () => ({
@@ -36,16 +40,15 @@ vi.mock("@/lib/hooks/use-assistant-threads", () => ({
   useAssistantThreads: vi.fn(),
   useCreateAssistantThread: vi.fn(() => ({
     mutate: mockCreateThreadMutate,
+    mutateAsync: vi.fn(),
     isPending: false,
   })),
 }));
 
 import { useClientProfiles } from "@/lib/hooks/use-client-profiles";
-import { useCampaigns } from "@/lib/hooks/use-campaigns";
 import { useAssistantThreads } from "@/lib/hooks/use-assistant-threads";
 
 const mockUseClientProfiles = vi.mocked(useClientProfiles);
-const mockUseCampaigns = vi.mocked(useCampaigns);
 const mockUseAssistantThreads = vi.mocked(useAssistantThreads);
 
 function createWrapper() {
@@ -71,29 +74,11 @@ const clientFixture = {
   updatedAt: new Date(),
 };
 
-const campaignFixture = {
-  id: "camp-1",
-  workspaceId: "ws-1",
-  name: "Summer Launch",
-  clientProfileId: "client-1",
-  status: "draft" as const,
-  generationMode: "art_variation" as const,
-  platforms: [] as ("Meta" | "TikTok" | "Google")[],
-  variations: 0,
-  creditsUsed: 0,
-  totalDerivations: 0,
-  activeDerivations: 0,
-  failedDerivations: 0,
-  completedDerivations: 0,
-  lastModified: new Date(),
-  createdAt: new Date(),
-};
-
 const threadFixture = {
   id: "thread-1",
   workspaceId: "ws-1",
   clientProfileId: "client-1",
-  campaignId: "camp-1",
+  campaignId: null,
   name: "Main thread",
   isDefault: true,
   migratedFromThreadId: null,
@@ -110,36 +95,21 @@ describe("AssistantTreeSidebar", () => {
       isLoading: false,
     } as ReturnType<typeof useClientProfiles>);
 
-    mockUseCampaigns.mockReturnValue({
-      campaigns: [campaignFixture],
-      isLoading: false,
-    } as ReturnType<typeof useCampaigns>);
-
     mockUseAssistantThreads.mockImplementation(
-      (clientProfileId: string | null, campaignId?: string | null) => {
+      (clientProfileId: string | null) => {
         if (!clientProfileId) {
           return { data: [], isLoading: false } as ReturnType<
             typeof useAssistantThreads
           >;
         }
-        if (campaignId === null) {
-          return { data: [], isLoading: false } as ReturnType<
-            typeof useAssistantThreads
-          >;
-        }
-        if (campaignId === "camp-1") {
-          return { data: [threadFixture], isLoading: false } as ReturnType<
-            typeof useAssistantThreads
-          >;
-        }
-        return { data: [], isLoading: false } as ReturnType<
+        return { data: [threadFixture], isLoading: false } as ReturnType<
           typeof useAssistantThreads
         >;
       }
     );
   });
 
-  it("renders expandable client and campaign nodes with threads", async () => {
+  it("renders project nodes and expands to show threads directly (flat hierarchy)", async () => {
     render(
       <AssistantTreeSidebar onSelectThread={mockOnSelectThread} />,
       { wrapper: createWrapper() }
@@ -148,12 +118,6 @@ describe("AssistantTreeSidebar", () => {
     expect(screen.getByText("Acme Corp")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Acme Corp/i }));
-
-    await waitFor(() => {
-      expect(screen.getByText("Summer Launch")).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: /Summer Launch/i }));
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /Main thread/i })).toBeInTheDocument();
@@ -167,7 +131,6 @@ describe("AssistantTreeSidebar", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /Acme Corp/i }));
-    fireEvent.click(screen.getByRole("button", { name: /Summer Launch/i }));
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /Main thread/i })).toBeInTheDocument();
@@ -179,21 +142,26 @@ describe("AssistantTreeSidebar", () => {
     expect(mockReplace).toHaveBeenCalledWith("/assistant?threadId=thread-1");
   });
 
-  it("exposes header actions for creating entities when client context is set", () => {
+  it("invokes onNewThread with clientId when the new-chat action is clicked", async () => {
     render(
       <AssistantTreeSidebar
         onSelectThread={mockOnSelectThread}
-        contextClientId="client-1"
-        onNewClient={vi.fn()}
-        onNewCampaign={vi.fn()}
-        onNewThread={vi.fn()}
+        onNewThread={mockOnNewThread}
       />,
       { wrapper: createWrapper() }
     );
 
-    expect(screen.getByRole("button", { name: "newClient" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "newCampaign" })).not.toBeDisabled();
-    expect(screen.getByRole("button", { name: "newThread" })).not.toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: /Acme Corp/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "newChat" })
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "newChat" }));
+
+    expect(mockOnNewThread).toHaveBeenCalledWith("client-1");
   });
 
   it("highlights the active thread from selectedThreadId", async () => {
@@ -206,7 +174,6 @@ describe("AssistantTreeSidebar", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /Acme Corp/i }));
-    fireEvent.click(screen.getByRole("button", { name: /Summer Launch/i }));
 
     await waitFor(() => {
       const threadButton = screen.getByRole("button", { name: /Main thread/i });

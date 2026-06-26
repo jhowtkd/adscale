@@ -1775,18 +1775,40 @@
       "context": "Contexto"
     },
     "tree": {
-      "title": "Conversas",
+      "title": "Projetos",
       "newClient": "Novo cliente",
       "newCampaign": "Nova campanha",
       "newThread": "Nova thread",
-      "noClients": "Nenhum cliente ainda. Crie um para começar."
+      "newChat": "Novo chat",
+      "search": "Pesquisar",
+      "searchPlaceholder": "Pesquisar conversas…",
+      "noClients": "Nenhum cliente ainda. Crie um para começar.",
+      "noThreads": "Nenhuma conversa ainda.",
+      "showMore": "Mostrar mais",
+      "showLess": "Mostrar menos",
+      "untitled": "Sem título"
     },
     "empty": {
-      "title": "Escolha uma conversa",
-      "body": "Selecione um cliente e uma thread na barra lateral, ou crie um novo cliente para começar a conversar com o assistente.",
+      "title": "No que devemos trabalhar?",
+      "body": "Comece a conversar com o assistente do ADScale. Seu trabalho fica salvo em projetos e conversas na barra lateral.",
       "selectTree": "Ver conversas",
       "createClient": "Criar cliente",
       "selectThread": "Selecione uma thread na árvore para começar a conversar."
+    },
+    "start": {
+      "promptIn": "No que devemos trabalhar em {project}?",
+      "promptGeneric": "No que devemos trabalhar?",
+      "inputPlaceholder": "Faça o que quiser",
+      "accessFull": "Acesso completo",
+      "modelHigh": "Alta prioridade",
+      "send": "Enviar",
+      "submitting": "Criando conversa…",
+      "chooseProject": "Escolher projeto",
+      "noProjectsTitle": "Vamos começar criando um projeto",
+      "noProjectsBody": "Projetos organizam campanhas e conversas do assistente. Crie o primeiro para começar.",
+      "createFirstClient": "Criar primeiro projeto",
+      "recentChats": "Conversas recentes",
+      "emptyRecent": "Nenhuma conversa ainda — comece a digitar acima."
     },
     "createClient": {
       "title": "Novo cliente",

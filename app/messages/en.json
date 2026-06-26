@@ -1774,18 +1774,40 @@
       "context": "Context"
     },
     "tree": {
-      "title": "Conversations",
+      "title": "Projects",
       "newClient": "New client",
       "newCampaign": "New campaign",
       "newThread": "New thread",
-      "noClients": "No clients yet. Create one to get started."
+      "newChat": "New chat",
+      "search": "Search",
+      "searchPlaceholder": "Search conversations…",
+      "noClients": "No clients yet. Create one to get started.",
+      "noThreads": "No conversations yet.",
+      "showMore": "Show more",
+      "showLess": "Show less",
+      "untitled": "Untitled"
     },
     "empty": {
-      "title": "Choose a conversation",
-      "body": "Select a client and thread in the sidebar, or create a new client to start chatting with the assistant.",
+      "title": "What should we work on?",
+      "body": "Start chatting with the ADScale assistant. Your work is saved into projects and conversations in the sidebar.",
       "selectTree": "Browse conversations",
       "createClient": "Create client",
       "selectThread": "Select a thread from the tree to start chatting."
+    },
+    "start": {
+      "promptIn": "What should we work on in {project}?",
+      "promptGeneric": "What should we work on?",
+      "inputPlaceholder": "Do whatever you want",
+      "accessFull": "Full access",
+      "modelHigh": "High priority",
+      "send": "Send",
+      "submitting": "Creating conversation…",
+      "chooseProject": "Choose project",
+      "noProjectsTitle": "Let's start by creating a project",
+      "noProjectsBody": "Projects organize campaigns and assistant conversations. Create your first one to begin.",
+      "createFirstClient": "Create first project",
+      "recentChats": "Recent chats",
+      "emptyRecent": "No conversations yet — start typing above."
     },
     "createClient": {
       "title": "New client",

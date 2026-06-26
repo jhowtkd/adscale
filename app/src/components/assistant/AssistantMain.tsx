@@ -1,16 +1,47 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import AssistantChatCore from "./AssistantChatCore";
-import AssistantEmptyState from "./AssistantEmptyState";
+import AssistantStartComposer from "./AssistantStartComposer";
 import { useAssistantSurface } from "./AssistantSurfaceContext";
+import { useAssistantChat } from "@/lib/hooks/use-assistant-chat";
 
 export default function AssistantMain({ threadId }: { threadId?: string }) {
-  const { focusTree, openCreateClient } = useAssistantSurface();
+  const router = useRouter();
+  const {
+    openCreateClient,
+    pendingFirstMessage,
+    setPendingFirstMessage,
+  } = useAssistantSurface();
+  const { sendMessage } = useAssistantChat(threadId ?? null);
+
+  const sendingRef = useRef(false);
+
+  useEffect(() => {
+    if (!threadId || !pendingFirstMessage || sendingRef.current) {
+      return;
+    }
+    sendingRef.current = true;
+    const message = pendingFirstMessage;
+    setPendingFirstMessage(null);
+    void sendMessage(message).finally(() => {
+      sendingRef.current = false;
+    });
+  }, [threadId, pendingFirstMessage, sendMessage, setPendingFirstMessage]);
+
+  const handleSelectThread = (id: string) => {
+    router.replace(`/assistant?threadId=${id}`);
+  };
+
+  const handleStartThread = (id: string) => {
+    handleSelectThread(id);
+  };
 
   if (!threadId) {
     return (
-      <AssistantEmptyState
-        onSelectTree={focusTree}
+      <AssistantStartComposer
+        onSelectThread={handleStartThread}
         onCreateClient={openCreateClient}
       />
     );

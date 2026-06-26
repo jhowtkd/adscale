@@ -2,9 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import AssistantCreateCampaignDialog from "./AssistantCreateCampaignDialog";
 import AssistantCreateClientDialog from "./AssistantCreateClientDialog";
-import AssistantCreateThreadDialog from "./AssistantCreateThreadDialog";
 import AssistantTreeSidebar from "./AssistantTreeSidebar";
 import { useAssistantSurface } from "./AssistantSurfaceContext";
 
@@ -12,13 +10,19 @@ export default function AssistantSidebarPanel() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const selectedThreadId = searchParams.get("threadId") ?? undefined;
-  const { registerFocusTree, registerOpenCreateClient } = useAssistantSurface();
+  const {
+    registerFocusTree,
+    registerOpenCreateClient,
+    registerStartNewChat,
+    setActiveClientId,
+    activeClientId,
+  } = useAssistantSurface();
 
-  const [contextClientId, setContextClientId] = useState<string | null>(null);
+  const [contextClientId, setContextClientId] = useState<string | null>(
+    activeClientId
+  );
   const [expandClientId, setExpandClientId] = useState<string | null>(null);
   const [clientDialogOpen, setClientDialogOpen] = useState(false);
-  const [campaignDialogOpen, setCampaignDialogOpen] = useState(false);
-  const [threadDialogOpen, setThreadDialogOpen] = useState(false);
 
   const focusTree = useCallback(() => {
     const sidebar = document.querySelector(
@@ -27,25 +31,35 @@ export default function AssistantSidebarPanel() {
     sidebar?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, []);
 
+  const startNewChat = useCallback(() => {
+    router.replace("/assistant");
+  }, [router]);
+
   useEffect(() => {
     registerFocusTree(focusTree);
     registerOpenCreateClient(() => setClientDialogOpen(true));
-  }, [focusTree, registerFocusTree, registerOpenCreateClient]);
-
-  const navigateToThread = useCallback(
-    (threadId: string) => {
-      router.replace(`/assistant?threadId=${threadId}`);
-    },
-    [router]
-  );
+    registerStartNewChat(startNewChat);
+  }, [focusTree, registerFocusTree, registerOpenCreateClient, registerStartNewChat, startNewChat]);
 
   const handleClientCreated = (clientId: string) => {
     setContextClientId(clientId);
     setExpandClientId(clientId);
+    setActiveClientId(clientId);
+    router.replace("/assistant");
   };
 
-  const handleThreadCreated = (threadId: string) => {
-    navigateToThread(threadId);
+  const handleNewThread = (clientId: string) => {
+    setContextClientId(clientId);
+    setActiveClientId(clientId);
+    setExpandClientId(clientId);
+    router.replace("/assistant");
+  };
+
+  const handleContextClientChange = (clientId: string | null) => {
+    setContextClientId(clientId);
+    if (clientId) {
+      setActiveClientId(clientId);
+    }
   };
 
   return (
@@ -54,11 +68,11 @@ export default function AssistantSidebarPanel() {
         selectedThreadId={selectedThreadId}
         onSelectThread={() => {}}
         contextClientId={contextClientId}
-        onContextClientChange={setContextClientId}
+        onContextClientChange={handleContextClientChange}
+        onActiveClientChange={setActiveClientId}
         expandClientId={expandClientId}
         onNewClient={() => setClientDialogOpen(true)}
-        onNewCampaign={() => setCampaignDialogOpen(true)}
-        onNewThread={() => setThreadDialogOpen(true)}
+        onNewThread={handleNewThread}
       />
 
       <AssistantCreateClientDialog
@@ -66,24 +80,6 @@ export default function AssistantSidebarPanel() {
         onOpenChange={setClientDialogOpen}
         onSuccess={handleClientCreated}
       />
-
-      {contextClientId ? (
-        <AssistantCreateCampaignDialog
-          open={campaignDialogOpen}
-          onOpenChange={setCampaignDialogOpen}
-          clientProfileId={contextClientId}
-          onSuccess={() => setCampaignDialogOpen(false)}
-        />
-      ) : null}
-
-      {contextClientId ? (
-        <AssistantCreateThreadDialog
-          open={threadDialogOpen}
-          onOpenChange={setThreadDialogOpen}
-          clientProfileId={contextClientId}
-          onSuccess={handleThreadCreated}
-        />
-      ) : null}
     </>
   );
 }
