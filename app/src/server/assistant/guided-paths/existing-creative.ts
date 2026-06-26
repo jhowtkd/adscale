@@ -139,7 +139,7 @@ export async function selectExistingCreative(input: {
   };
 
   await updateCampaign(campaign.id, input.workspaceId, {
-    product: briefingSnapshot.product,
+    product: briefingSnapshot.product ?? undefined,
     offer: briefingSnapshot.offer,
     objective: briefingSnapshot.objective,
     audience: briefingSnapshot.audience,

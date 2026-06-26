@@ -4,7 +4,7 @@ import {
   initialStepForPath,
   type GuidedFlowPath,
   type GuidedFlowStatus,
-} from "@/server/repositories/guided-flow";
+} from "@/lib/guided-flow/types";
 import { assistantThreadQueryKey } from "./use-assistant-threads";
 
 export type { GuidedFlowPath, GuidedFlowStatus };

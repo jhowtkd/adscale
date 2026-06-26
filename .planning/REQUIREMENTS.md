@@ -57,7 +57,7 @@ Transformar o `/assistant` de um chat genérico em duas jornadas guiadas e acion
 - [x] **QA-01**: Automated component tests cover both entry cards, guided readiness states and blocked actions.
 - [x] **QA-02**: Repository/API tests cover guided-flow persistence, transition validation and workspace/client isolation.
 - [x] **QA-03**: Contract tests cover the 3-reference minimum and asset-required existing-creative path.
-- [x] **QA-04**: Authenticated Playwright smoke covers both journeys through their first action card.
+- [ ] **QA-04**: Authenticated Playwright smoke covers journey entry cards on `/assistant` (full first action-card confirm deferred to staging/human verify).
 - [x] **QA-05**: Milestone audit distinguishes implemented assistant flow from any deferred live OpenAI/Inngest human verification.
 
 ## Future Requirements

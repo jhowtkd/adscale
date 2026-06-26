@@ -3,13 +3,14 @@ import {
   mapGuidedAnswersToCampaignDraft,
   type GuidedBriefingAnswers,
 } from "@/server/ai/guided-briefing";
+import { FROM_ZERO_MIN_REFERENCES } from "@/lib/guided-flow/types";
 import {
   GuidedFlowValidationError,
   getGuidedFlowByThread,
   patchGuidedFlow,
 } from "@/server/repositories/guided-flow";
 
-export const FROM_ZERO_MIN_REFERENCES = 3;
+export { FROM_ZERO_MIN_REFERENCES };
 
 function assertFromZeroFlow(flow: Awaited<ReturnType<typeof getGuidedFlowByThread>>) {
   if (!flow) {

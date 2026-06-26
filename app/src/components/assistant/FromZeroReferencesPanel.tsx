@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { useClientReferences } from "@/lib/hooks/use-client-profiles";
 import { useWorkspaceAssets } from "@/lib/hooks/use-workspace-assets";
 import { useSaveFromZeroReferences } from "@/lib/hooks/use-from-zero-path";
-import { FROM_ZERO_MIN_REFERENCES } from "@/server/assistant/guided-paths/from-zero";
+import { FROM_ZERO_MIN_REFERENCES } from "@/lib/guided-flow/types";
 
 export interface FromZeroReferencesPanelProps {
   threadId: string;
