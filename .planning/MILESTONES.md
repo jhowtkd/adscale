@@ -1,5 +1,30 @@
 # Milestones: ADScale
 
+## v13.6 Jornadas Guiadas do Chat Estratégico (Shipped with tech debt: 2026-06-26)
+
+**Phases completed:** 6 phases (184→189), 11 plans
+**Requirements:** 29/29 implementation-level requirements evidenced
+**Audit:** `shipped_with_tech_debt` — P0 build/migration blockers remediated; QA-04 browser action-card confirmation smoke added in Phase 189
+
+**Key accomplishments:**
+
+- Dedicated guided-flow state persisted by workspace, clientProfile and assistant thread
+- `/assistant` entry with `Já tenho peça` and `Produzir do zero` guided journey cards
+- Existing-creative path with asset requirement, auto-briefing snapshot, diagnosis and confirmable improvement action
+- From-zero path with minimum brief, at least 3 references and creative plan before campaign creation
+- Confirmable action-card integration with safe payload/status behavior
+- Authenticated Playwright coverage for journey entry and first action-card browser confirmation
+
+**Known tech debt (accepted):**
+
+- Human staging verification for live OpenAI diagnosis/auto-briefing quality with real assets
+- EXEC-04 live Inngest lifecycle verification inherited from v13.5
+- From-zero campaign creation on plan approval still needs staging verification with a real thread
+
+Archive: [v13.6-MILESTONE-AUDIT.md](milestones/v13.6-MILESTONE-AUDIT.md)
+
+---
+
 ## v13.5 Assistente Conversacional de Ações (Shipped with tech debt: 2026-06-25)
 
 **Phases completed:** 7 phases (177→183), 18 plans

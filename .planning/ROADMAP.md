@@ -2,7 +2,7 @@
 
 ## Milestones
 
-- 🔄 **v13.6 Jornadas Guiadas do Chat Estratégico** - Phases 184-189 (not shippable; staging human verify pending)
+- ✅ **v13.6 Jornadas Guiadas do Chat Estratégico** - Phases 184-189 (shipped 2026-06-26; tech debt: staging diagnosis/briefing + live lifecycle verify)
 - ✅ **v13.5 Assistente Conversacional de Ações** - Phases 177-183 (shipped 2026-06-25; tech debt: EXEC-04 live lifecycle human verify, migrations 0056/0057 ops)
 - ✅ **v13.4 Fechamento de Evidência Operacional** - Phases 173-176 (shipped 2026-06-25; tech debt: live DB seed pending, operational `insufficient_sample`)
 - ✅ **v13.3 Tracao Multi-Cliente** - Phases 168-172 (shipped 2026-06-25; tech debt: operational evidence `insufficient_sample`, live owner smoke pending)
@@ -22,9 +22,9 @@
 
 ## Active Milestone
 
-**v13.6 Jornadas Guiadas do Chat Estratégico** — not shippable until staging human verification records live diagnosis/briefing quality.
+_None — v13.6 shipped with tech debt. Ready to define the next milestone._
 
-## Active: v13.6 Jornadas Guiadas do Chat Estratégico
+## Shipped: v13.6 Jornadas Guiadas do Chat Estratégico
 
 | Phase | Name | Plans | Status |
 |-------|------|-------|--------|

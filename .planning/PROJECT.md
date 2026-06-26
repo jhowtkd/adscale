@@ -10,13 +10,13 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Current State
 
-v13.6 Jornadas Guiadas do Chat Estratégico is active. ADScale is refining the chat-first assistant from a generic command surface into guided, action-oriented journeys that start from the user's real starting point: either they already have a creative piece, or they want to produce from zero with visual references.
+ADScale has shipped the guided strategic chat foundation. The `/assistant` now starts from two guided journeys — `Já tenho peça` and `Produzir do zero` — with persisted flow state and confirmable action cards.
 
-**Active milestone:** v13.6 Jornadas Guiadas do Chat Estratégico (phases 184-188) — started 2026-06-26.
+**Active milestone:** none — ready to define the next milestone.
 
-**Latest shipped milestone:** v13.5 Assistente Conversacional de Ações (phases 177-183) — **archived** 2026-06-25 (`passed_with_tech_debt`).
+**Latest shipped milestone:** v13.6 Jornadas Guiadas do Chat Estratégico (phases 184-189) — **shipped with tech debt** 2026-06-26.
 
-## Current Milestone: v13.6 Jornadas Guiadas do Chat Estratégico
+## Shipped Milestone: v13.6 Jornadas Guiadas do Chat Estratégico
 
 **Goal:** Tornar o modo chat menos genérico, conduzindo o usuário por fluxos acionáveis conforme a origem do trabalho criativo.
 
@@ -28,6 +28,8 @@ v13.6 Jornadas Guiadas do Chat Estratégico is active. ADScale is refining the c
 - Action cards confirmáveis para custo/escrita, preservando isolamento multi-cliente, créditos, auditoria e retomada.
 
 **Guiding principle:** O chat deve conduzir o usuário até a próxima ação pronta sem transformar estratégia em relatório nem executar custo/escrita sem confirmação.
+
+**Tech debt accepted:** human staging verification for live OpenAI diagnosis/auto-briefing quality; live Inngest/campaign approval lifecycle verification inherited from v13.5/v13.6 staging debt.
 
 ## Shipped Milestone: v13.5 Assistente Conversacional de Ações
 
