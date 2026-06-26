@@ -15,6 +15,10 @@ import AssistantMessageList, {
   type AssistantDisplayMessage,
 } from "./AssistantMessageList";
 import GuidedFlowResumeBanner from "./GuidedFlowResumeBanner";
+import ExistingCreativeSelectPanel from "./ExistingCreativeSelectPanel";
+import CreativeDiagnosisPanel from "./CreativeDiagnosisPanel";
+import FromZeroBriefPanel from "./FromZeroBriefPanel";
+import FromZeroReferencesPanel from "./FromZeroReferencesPanel";
 
 export interface AssistantChatCoreProps {
   threadId: string | null;
@@ -152,6 +156,32 @@ export default function AssistantChatCore({
         <>
           {data?.guidedFlow ? (
             <GuidedFlowResumeBanner guidedFlow={data.guidedFlow} />
+          ) : null}
+          {threadId &&
+          data?.guidedFlow?.path === "existing_creative" &&
+          data.guidedFlow.currentStep === "select_creative" ? (
+            <ExistingCreativeSelectPanel threadId={threadId} />
+          ) : null}
+          {threadId &&
+          data?.guidedFlow?.path === "from_zero" &&
+          data.guidedFlow.currentStep === "collect_brief" ? (
+            <FromZeroBriefPanel threadId={threadId} />
+          ) : null}
+          {threadId &&
+          data?.guidedFlow?.path === "from_zero" &&
+          data.guidedFlow.currentStep === "select_references" ? (
+            <FromZeroReferencesPanel
+              threadId={threadId}
+              clientProfileId={data.thread.clientProfileId}
+            />
+          ) : null}
+          {threadId &&
+          data?.guidedFlow?.path === "existing_creative" &&
+          data.guidedFlow.currentStep === "review_diagnosis" ? (
+            <CreativeDiagnosisPanel
+              threadId={threadId}
+              guidedFlow={data.guidedFlow}
+            />
           ) : null}
           <AssistantMessageList
             messages={displayMessages}

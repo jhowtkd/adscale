@@ -1963,9 +1963,48 @@
       "steps": {
         "select_creative": "Select creative",
         "collect_brief": "Collect brief",
+        "review_diagnosis": "Review diagnosis",
+        "confirm_improvement": "Confirm improvement",
         "select_references": "Select references",
+        "confirm_plan": "Confirm creative plan",
         "await_diagnosis": "Await diagnosis",
         "await_plan": "Await creative plan"
+      },
+      "existingCreative": {
+        "title": "Select your creative piece",
+        "subtitle": "Upload an image or pick from the workspace library.",
+        "upload": "Upload image",
+        "libraryHeading": "Workspace library",
+        "loading": "Loading assets…",
+        "emptyLibrary": "No library assets yet. Upload an image above.",
+        "uploadFailed": "Upload failed",
+        "selectFailed": "Failed to select creative",
+        "diagnosisTitle": "Creative diagnosis",
+        "assumptions": "Extracted assumptions",
+        "preserve": "Elements to preserve",
+        "opportunities": "Improvement opportunities",
+        "missing": "Uncertain fields: {fields}",
+        "recommendedAction": "Suggested next action: {action}",
+        "confirmDiagnosis": "Confirm and request improvement"
+      },
+      "fromZero": {
+        "briefTitle": "Minimum strategic brief",
+        "briefSubtitle": "Fill in the fields before choosing visual references.",
+        "productPlaceholder": "Product",
+        "offerPlaceholder": "Offer",
+        "audiencePlaceholder": "Audience",
+        "promisePlaceholder": "Promise / objective",
+        "objectionsPlaceholder": "Objections",
+        "ctaPlaceholder": "CTA",
+        "platformsPlaceholder": "Platforms",
+        "constraintsPlaceholder": "Constraints",
+        "saveBrief": "Save brief and continue",
+        "saveFailed": "Failed to save brief",
+        "referencesTitle": "Visual references",
+        "referencesSubtitle": "Select at least {min} references ({count} selected).",
+        "loading": "Loading references…",
+        "empty": "No references available. Save client references or upload library assets.",
+        "continue": "Continue to creative plan"
       }
     },
     "createClient": {

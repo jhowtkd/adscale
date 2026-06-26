@@ -1964,9 +1964,48 @@
       "steps": {
         "select_creative": "Selecionar criativo",
         "collect_brief": "Coletar brief",
+        "review_diagnosis": "Revisar diagnóstico",
+        "confirm_improvement": "Confirmar melhoria",
         "select_references": "Selecionar referências",
+        "confirm_plan": "Confirmar plano criativo",
         "await_diagnosis": "Aguardar diagnóstico",
         "await_plan": "Aguardar plano criativo"
+      },
+      "existingCreative": {
+        "title": "Selecione sua peça criativa",
+        "subtitle": "Envie uma imagem ou escolha da biblioteca do workspace.",
+        "upload": "Enviar imagem",
+        "libraryHeading": "Biblioteca do workspace",
+        "loading": "Carregando ativos…",
+        "emptyLibrary": "Nenhum ativo na biblioteca. Envie uma imagem acima.",
+        "uploadFailed": "Falha no upload",
+        "selectFailed": "Falha ao selecionar criativo",
+        "diagnosisTitle": "Diagnóstico da peça",
+        "assumptions": "Premissas extraídas",
+        "preserve": "Elementos a preservar",
+        "opportunities": "Oportunidades de melhoria",
+        "missing": "Campos ainda incertos: {fields}",
+        "recommendedAction": "Próxima ação sugerida: {action}",
+        "confirmDiagnosis": "Confirmar e pedir melhoria"
+      },
+      "fromZero": {
+        "briefTitle": "Brief estratégico mínimo",
+        "briefSubtitle": "Preencha os campos antes de escolher referências visuais.",
+        "productPlaceholder": "Produto",
+        "offerPlaceholder": "Oferta",
+        "audiencePlaceholder": "Público",
+        "promisePlaceholder": "Promessa / objetivo",
+        "objectionsPlaceholder": "Objeções",
+        "ctaPlaceholder": "CTA",
+        "platformsPlaceholder": "Plataformas",
+        "constraintsPlaceholder": "Restrições",
+        "saveBrief": "Salvar brief e continuar",
+        "saveFailed": "Falha ao salvar brief",
+        "referencesTitle": "Referências visuais",
+        "referencesSubtitle": "Selecione pelo menos {min} referências ({count} selecionadas).",
+        "loading": "Carregando referências…",
+        "empty": "Nenhuma referência disponível. Salve referências no cliente ou envie ativos na biblioteca.",
+        "continue": "Continuar para o plano criativo"
       }
     },
     "createClient": {

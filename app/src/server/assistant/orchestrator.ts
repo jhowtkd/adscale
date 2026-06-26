@@ -1,4 +1,6 @@
 import { buildAssistantContext, toAssistantModelRequest } from "@/server/assistant/context/context-builder";
+import { buildExistingCreativePromptAugment } from "@/server/assistant/guided-paths/existing-creative";
+import { buildFromZeroPromptAugment } from "@/server/assistant/guided-paths/from-zero";
 import {
   buildIntentPromptAugment,
   buildAttachmentPromptAugment,
@@ -79,7 +81,9 @@ export async function* runAssistantTurn(
     input.threadId
   );
 
-  if (!existingFlow || existingFlow.path === "unclassified") {
+  let activeFlow = existingFlow;
+
+  if (!activeFlow || activeFlow.path === "unclassified") {
     const guidedPathResult = classifyGuidedPath(input.userMessage);
 
     if (guidedPathResult.kind === "clarify") {
@@ -94,7 +98,7 @@ export async function* runAssistantTurn(
     }
 
     if (guidedPathResult.kind === "classified") {
-      await upsertGuidedFlow(
+      activeFlow = await upsertGuidedFlow(
         input.workspaceId,
         input.threadId,
         input.clientProfileId,
@@ -132,8 +136,30 @@ export async function* runAssistantTurn(
     attachments: input.attachments,
     hasCampaign: Boolean(thread.campaignId),
   });
+  const existingCreativeAugment =
+    activeFlow?.path === "existing_creative"
+      ? buildExistingCreativePromptAugment({
+          currentStep: activeFlow.currentStep,
+          slots: (activeFlow.slots ?? {}) as Record<string, unknown>,
+          assetIds: (activeFlow.assetIds ?? []) as string[],
+        })
+      : null;
 
-  const augmentParts = [intentAugment, attachmentAugment].filter(Boolean);
+  const fromZeroAugment =
+    activeFlow?.path === "from_zero"
+      ? buildFromZeroPromptAugment({
+          currentStep: activeFlow.currentStep,
+          slots: (activeFlow.slots ?? {}) as Record<string, unknown>,
+          referenceIds: (activeFlow.referenceIds ?? []) as string[],
+        })
+      : null;
+
+  const augmentParts = [
+    intentAugment,
+    attachmentAugment,
+    existingCreativeAugment,
+    fromZeroAugment,
+  ].filter(Boolean);
   if (augmentParts.length > 0) {
     request.systemPrompt = `${request.systemPrompt}\n${augmentParts.join("\n")}`;
   }
