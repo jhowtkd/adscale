@@ -1,124 +1,102 @@
-# Requirements: ADScale v13.6 Jornadas Guiadas do Chat Estratégico
+# Requirements: ADScale v13.7 Qualidade Operacional das Jornadas Guiadas
 
 **Defined:** 2026-06-26
 **Core Value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
 ## Milestone Scope
 
-Transformar o `/assistant` de um chat genérico em duas jornadas guiadas e acionáveis: `Já tenho peça` e `Produzir do zero`. A milestone deve preservar os contratos da v13.5: isolamento por workspace/clientProfile, confirmação antes de custo/escrita, payloads seguros, action cards auditáveis e reuso das superfícies maduras de campanha, asset, referência e review.
+Transformar as jornadas guiadas do `/assistant` em operação mensurável e melhorável. A v13.7 parte da v13.6 já implementada (`Já tenho peça` e `Produzir do zero`) e fecha a lacuna entre "funciona tecnicamente" e "tem evidência operacional de que conduz o usuário à próxima ação útil".
 
-**In scope:** entrada com dois cards principais, persistência estruturada da jornada por thread, diagnóstico acionável para peça existente, plano criativo do zero com pelo menos 3 referências visuais, integração com action cards e smoke UAT dos dois caminhos.
+**In scope:** telemetria por fluxo/etapa, funil operacional, staging runbook com artefatos seguros, feedback humano sobre utilidade de diagnóstico/plano, release gate que separa implementação verde de qualidade observada.
 
-**Out of scope:** geração automática sem confirmação, paridade total de todos os edge cases do workspace dentro do chat, novo motor visual sem referências, dashboard analítico avançado de abandono por etapa, integrações Meta/Google/TikTok e claims customer-real sem evidência operacional.
+**Out of scope:** novo fluxo guiado, geração automática sem confirmação, mudar motor de IA, dashboard analítico avançado público, claims customer-real sem amostra suficiente, aplicação automática de aprendizados em prompt sem revisão humana.
 
-## v13.6 Requirements
+## v13.7 Requirements
 
-### Guided Entry
+### Journey Telemetry
 
-- [x] **ENTRY-01**: User can start `/assistant` from two primary cards: `Já tenho peça` and `Produzir do zero`.
-- [x] **ENTRY-02**: User can still type a freeform first message, but the assistant classifies it into one guided path or asks one clarifying question.
-- [x] **ENTRY-03**: User can resume an existing guided thread and see the current path, step, missing inputs and next action.
-- [x] **ENTRY-04**: Mobile assistant users can access the same two paths without layout overlap or hidden primary actions.
+- [ ] **TEL-01**: System records guided-flow lifecycle events for start, step view, required input supplied, blocked action, action proposed, action confirmed, failure and completion.
+- [ ] **TEL-02**: Telemetry is scoped by workspace, clientProfile, assistant thread, path and step without storing provider reasoning, signed URLs, raw tool args or prompt payloads.
+- [ ] **TEL-03**: Telemetry distinguishes `existing_creative` and `from_zero` paths and records safe blocker categories such as missing asset, missing references, missing brief fields and action failure.
+- [ ] **TEL-04**: Telemetry can be queried deterministically for a time window, workspace/clientProfile and path without cross-workspace leakage.
 
-### Guided Flow State
+### Operational Funnel
 
-- [x] **FLOW-01**: System persists guided-flow state in a dedicated table scoped by workspace, clientProfile and assistant thread.
-- [x] **FLOW-02**: Guided-flow state records path, status, current step, slot values, missing fields, asset ids, reference ids and optional campaign id.
-- [x] **FLOW-03**: Guided-flow transitions reject cross-workspace, cross-client and cross-thread mutations.
-- [x] **FLOW-04**: Guided-flow state does not persist provider reasoning, signed URLs, raw tool args or internal evidence.
+- [ ] **FUN-01**: Owner/internal users can view guided journey starts, completions, abandonment and failure counts by path.
+- [ ] **FUN-02**: Owner/internal users can inspect step-level drop-off and top blocker categories for `Já tenho peça` and `Produzir do zero`.
+- [ ] **FUN-03**: Funnel reporting separates automated implementation coverage from real operational evidence and sample sufficiency.
+- [ ] **FUN-04**: Funnel output includes enough links or ids to investigate affected threads without exposing sensitive payloads.
 
-### Existing Creative Path
+### Staging Evidence
 
-- [x] **EXIST-01**: User can upload or select an existing creative piece from the `Já tenho peça` path.
-- [x] **EXIST-02**: System creates or links a draft campaign only after a valid creative asset is available for the selected client profile.
-- [x] **EXIST-03**: System extracts a briefing snapshot from the piece using existing auto-briefing behavior where possible.
-- [x] **EXIST-04**: User receives an actionable diagnosis with creative issues, extracted assumptions, missing inputs and recommended next action.
-- [x] **EXIST-05**: User can confirm a proposed improvement action from the diagnosis without re-entering the same briefing fields.
+- [ ] **STG-01**: A staging runbook defines the exact human checks for live diagnosis, auto-briefing, creative plan and campaign approval lifecycle.
+- [ ] **STG-02**: Staging evidence can be recorded as a structured artifact with reviewer, environment, path, thread/campaign references, verdict and safe notes.
+- [ ] **STG-03**: Staging evidence explicitly covers one `Já tenho peça` journey with a real asset and one `Produzir do zero` journey with at least 3 references.
+- [ ] **STG-04**: Staging evidence marks provider/live failures as blockers or accepted tech debt without changing implementation requirement status.
 
-### From-Zero Path
+### Human Quality Feedback
 
-- [x] **ZERO-01**: User can start `Produzir do zero` without creating an empty campaign immediately.
-- [x] **ZERO-02**: User can select existing client references and upload new workspace assets as visual references for the journey.
-- [x] **ZERO-03**: System requires at least 3 visual references, combining saved references and new uploads, before proposing the creative plan action.
-- [x] **ZERO-04**: User can provide the minimum strategic brief: product/offer, audience, promise/objective, objections, CTA, platforms and constraints.
-- [x] **ZERO-05**: System creates the draft campaign only after the creative plan is approved, carrying selectedReferenceIds and briefing fields into the campaign.
-- [x] **ZERO-06**: User can receive a creative plan action before any image generation is proposed.
+- [ ] **QFB-01**: Operator can rate whether a diagnosis was useful, incomplete or misleading with a short safe reason.
+- [ ] **QFB-02**: Operator can rate whether a from-zero creative plan was generation-ready, partially useful or unusable with a short safe reason.
+- [ ] **QFB-03**: Feedback is attached to guided-flow path, step and thread context without exposing prompts, provider reasoning or signed URLs.
+- [ ] **QFB-04**: Feedback is read-only operational evidence in this milestone and does not automatically alter prompts, calibration rules or generation behavior.
 
-### Action Integration
+### Release Gate
 
-- [x] **ACT-01**: Existing-cost or write operations remain behind confirmable assistant action cards.
-- [x] **ACT-02**: `Já tenho peça` actions preserve the uploaded creative as factual/base context and do not treat style references as factual sources.
-- [x] **ACT-03**: `Produzir do zero` actions treat visual references as auxiliary visual direction and preserve literal CTA, offer and constraints from the brief.
-- [x] **ACT-04**: Action card payloads expose safe job/status links for async work without leaking denied persistence keys.
-- [x] **ACT-05**: Failed or canceled guided actions leave the flow resumable with a safe user-facing error and next step.
-
-### Verification
-
-- [x] **QA-01**: Automated component tests cover both entry cards, guided readiness states and blocked actions.
-- [x] **QA-02**: Repository/API tests cover guided-flow persistence, transition validation and workspace/client isolation.
-- [x] **QA-03**: Contract tests cover the 3-reference minimum and asset-required existing-creative path.
-- [x] **QA-04**: Authenticated Playwright smoke covers journey entry cards on `/assistant` and first action-card confirmation in the browser; staging/human verify remains separate for live diagnosis/briefing quality.
-- [x] **QA-05**: Milestone audit distinguishes implemented assistant flow from any deferred live OpenAI/Inngest human verification.
+- [ ] **GATE-01**: Release gate reports implementation status, automated test status, staging evidence status and operational sample sufficiency separately.
+- [ ] **GATE-02**: Release gate blocks or warns on missing staging evidence for diagnosis/briefing and live lifecycle verification.
+- [ ] **GATE-03**: Release gate blocks customer-real quality claims when sample size or source composition is insufficient.
+- [ ] **GATE-04**: Milestone audit can cite the release gate artifact and distinguish shipped implementation, accepted tech debt and claims still blocked.
 
 ## Future Requirements
 
-### Advanced Guided Operations
+### Advanced Optimization
 
-- **OPS-01**: Owner can inspect drop-off and completion analytics by guided-flow path and step.
-- **OPS-02**: Assistant can automatically route low-confidence diagnoses to human review.
-- **OPS-03**: Assistant can propose calibration rule updates from repeated guided-flow outcomes.
-- **OPS-04**: Assistant can operate every campaign workspace edge case without opening the campaign page.
+- **OPT-01**: Assistant can adapt question order based on observed drop-off by path and client segment.
+- **OPT-02**: Assistant can suggest prompt/calibration changes from repeated diagnosis or plan feedback.
+- **OPT-03**: Owner can compare guided-flow performance across cohorts, acquisition channels and client profiles.
+- **OPT-04**: Product can A/B test journey entry copy and step ordering.
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Automatic generation without confirmation | Preserves credit control, auditability and user intent. |
-| Creating campaigns at the start of `Produzir do zero` | Avoids empty draft clutter; campaign is created only after plan approval. |
-| Requiring 3 brand-new uploads for every from-zero flow | Existing saved client references are valuable context and should count. |
-| Showing provider reasoning/thinking in chat | Violates the assistant persistence policy established in v13.5. |
-| Full workspace parity inside chat | v13.6 focuses on two high-value guided starts, not replacing every mature workspace surface. |
-| Customer-real quality claims | Still depends on operational evidence gates outside this assistant UX milestone. |
+| New guided journey beyond the two v13.6 paths | v13.7 proves and improves operational quality before expanding surface area. |
+| Automatic prompt or calibration mutation from feedback | Feedback must be reviewed before it changes generation behavior. |
+| Public customer analytics dashboard | This milestone is internal/owner operational evidence, not customer reporting. |
+| Customer-real quality claims | Require sufficient real sample/source evidence beyond basic implementation success. |
+| Replacing existing campaign/review surfaces | Guided chat should hand off safely to mature surfaces where appropriate. |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FLOW-01 | Phase 184 | Complete |
-| FLOW-02 | Phase 184 | Complete |
-| FLOW-03 | Phase 184 | Complete |
-| FLOW-04 | Phase 184 | Complete |
-| ENTRY-01 | Phase 185 | Complete |
-| ENTRY-02 | Phase 185 | Complete |
-| ENTRY-03 | Phase 185 | Complete |
-| ENTRY-04 | Phase 185 | Complete |
-| EXIST-01 | Phase 186 | Complete |
-| EXIST-02 | Phase 186 | Complete |
-| EXIST-03 | Phase 186 | Complete |
-| EXIST-04 | Phase 186 | Complete |
-| EXIST-05 | Phase 186 | Complete |
-| ZERO-01 | Phase 187 | Complete |
-| ZERO-02 | Phase 187 | Complete |
-| ZERO-03 | Phase 187 | Complete |
-| ZERO-04 | Phase 187 | Complete |
-| ZERO-05 | Phase 187 | Complete |
-| ZERO-06 | Phase 187 | Complete |
-| ACT-01 | Phase 188 | Complete |
-| ACT-02 | Phase 188 | Complete |
-| ACT-03 | Phase 188 | Complete |
-| ACT-04 | Phase 188 | Complete |
-| ACT-05 | Phase 188 | Complete |
-| QA-01 | Phase 188 | Complete |
-| QA-02 | Phase 188 | Complete |
-| QA-03 | Phase 188 | Complete |
-| QA-04 | Phase 189 | Complete |
-| QA-05 | Phase 188 | Complete |
+| TEL-01 | Phase 190 | Pending |
+| TEL-02 | Phase 190 | Pending |
+| TEL-03 | Phase 190 | Pending |
+| TEL-04 | Phase 190 | Pending |
+| FUN-01 | Phase 191 | Pending |
+| FUN-02 | Phase 191 | Pending |
+| FUN-03 | Phase 191 | Pending |
+| FUN-04 | Phase 191 | Pending |
+| STG-01 | Phase 192 | Pending |
+| STG-02 | Phase 192 | Pending |
+| STG-03 | Phase 192 | Pending |
+| STG-04 | Phase 192 | Pending |
+| QFB-01 | Phase 193 | Pending |
+| QFB-02 | Phase 193 | Pending |
+| QFB-03 | Phase 193 | Pending |
+| QFB-04 | Phase 193 | Pending |
+| GATE-01 | Phase 194 | Pending |
+| GATE-02 | Phase 194 | Pending |
+| GATE-03 | Phase 194 | Pending |
+| GATE-04 | Phase 194 | Pending |
 
 **Coverage:**
-- v13.6 requirements: 29 total
-- Mapped to phases: 29
+- v13.7 requirements: 20 total
+- Mapped to phases: 20
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-06-26*
-*Last updated: 2026-06-26 after v13.6 milestone creation*
+*Last updated: 2026-06-26 after v13.7 milestone creation*
