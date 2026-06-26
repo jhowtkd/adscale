@@ -10,11 +10,24 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Current State
 
-ADScale has shipped the guided strategic chat foundation. The `/assistant` now starts from two guided journeys — `Já tenho peça` and `Produzir do zero` — with persisted flow state and confirmable action cards.
+ADScale has shipped the guided strategic chat foundation. The `/assistant` now starts from two guided journeys — `Já tenho peça` and `Produzir do zero` — with persisted flow state and confirmable action cards. The next step is proving and improving those journeys operationally with real usage evidence instead of only implementation checks.
 
-**Active milestone:** none — ready to define the next milestone.
+**Active milestone:** v13.7 Qualidade Operacional das Jornadas Guiadas (phases 190-194) — started 2026-06-26.
 
 **Latest shipped milestone:** v13.6 Jornadas Guiadas do Chat Estratégico (phases 184-189) — **shipped with tech debt** 2026-06-26.
+
+## Current Milestone: v13.7 Qualidade Operacional das Jornadas Guiadas
+
+**Goal:** Transformar as jornadas guiadas do chat em operação mensurável, auditável e melhorável com evidência real de conclusão, bloqueio, qualidade percebida e execução segura.
+
+**Target features:**
+- Telemetria estruturada de início, etapa, bloqueio, ação confirmada, falha e conclusão por jornada guiada.
+- Painel/relatório operacional para comparar conclusão, abandono e fricção entre `Já tenho peça` e `Produzir do zero`.
+- Runbook e artefatos de staging para validar diagnóstico, briefing, plano criativo e aprovação de campanha com dados reais.
+- Captura de feedback humano/operador sobre utilidade do diagnóstico/plano sem aplicar aprendizado automaticamente.
+- Release gate que separa implementação verde, qualidade operacional observada e claims bloqueados por amostra insuficiente.
+
+**Guiding principle:** Jornada guiada só é produto se o usuário consegue chegar à ação certa com evidência de qualidade, não apenas se a UI e os testes passam.
 
 ## Shipped Milestone: v13.6 Jornadas Guiadas do Chat Estratégico
 

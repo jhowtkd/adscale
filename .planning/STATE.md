@@ -1,25 +1,31 @@
 ---
 gsd_state_version: 1.0
-milestone: v13.6
-milestone_name: Jornadas Guiadas do Chat Estratégico
-status: between_milestones
-last_updated: "2026-06-26T18:10:00.000Z"
+milestone: v13.7
+milestone_name: Qualidade Operacional das Jornadas Guiadas
+status: defining_requirements
+last_updated: "2026-06-26T18:20:00.000Z"
 last_activity: 2026-06-26
 progress:
-  total_phases: 6
-  completed_phases: 6
-  total_plans: 11
-  completed_plans: 11
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
 
 ## Current Position
 
-Phase: —
+Phase: Not started (defining requirements)
 Plan: —
-Status: Between milestones — v13.6 shipped_with_tech_debt; ready to define next milestone
-Last activity: 2026-06-26 — v13.6 accepted as shipped_with_tech_debt after Phase 189 automation closed QA-04
+Status: Defining requirements
+Last activity: 2026-06-26 — Milestone v13.7 started
+
+## Active Milestone
+
+**v13.7 Qualidade Operacional das Jornadas Guiadas**
+
+Goal: transformar as jornadas guiadas do chat em operação mensurável, auditável e melhorável com evidência real de conclusão, bloqueio, qualidade percebida e execução segura.
 
 ## Latest Shipped Milestone
 
@@ -51,10 +57,11 @@ Goal: tornar o modo chat menos genérico, conduzindo o usuário por fluxos acion
 ### Roadmap Evolution
 
 - Phase 189 added: v13.6 Ship Gate
+- Milestone v13.7 started: Qualidade Operacional das Jornadas Guiadas
 
 ## Project Reference
 
 See: `.planning/PROJECT.md` (updated 2026-06-26)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
-**Next:** define the next milestone.
+**Current focus:** v13.7 requirements and roadmap.
