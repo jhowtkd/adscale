@@ -7,6 +7,15 @@ import { containsDeniedPersistenceKeys } from "./assistant-types";
 export type GuidedFlowPath = "existing_creative" | "from_zero" | "unclassified";
 export type GuidedFlowStatus = "active" | "completed" | "abandoned" | "blocked";
 
+const INITIAL_STEP: Record<Exclude<GuidedFlowPath, "unclassified">, string> = {
+  existing_creative: "select_creative",
+  from_zero: "collect_brief",
+};
+
+export function initialStepForPath(path: Exclude<GuidedFlowPath, "unclassified">) {
+  return INITIAL_STEP[path];
+}
+
 export interface UpsertGuidedFlowInput {
   path: GuidedFlowPath;
   status: GuidedFlowStatus;

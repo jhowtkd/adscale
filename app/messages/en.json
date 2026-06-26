@@ -1940,7 +1940,33 @@
       "noProjectsBody": "Projects organize campaigns and assistant conversations. Create your first one to begin.",
       "createFirstClient": "Create first project",
       "recentChats": "Recent chats",
-      "emptyRecent": "No conversations yet — start typing above."
+      "emptyRecent": "No conversations yet — start typing above.",
+      "journeys": {
+        "existing_creative": {
+          "title": "I have a creative",
+          "subtitle": "Upload or select an existing piece for diagnosis and improvement"
+        },
+        "from_zero": {
+          "title": "Produce from zero",
+          "subtitle": "Build a strategic brief and visual references before generating"
+        }
+      }
+    },
+    "guidedFlow": {
+      "resumeLabel": "Journey in progress",
+      "missingFields": "{count, plural, one {# field pending} other {# fields pending}}",
+      "nextActionHint": "Next step: {step}",
+      "paths": {
+        "existing_creative": { "title": "I have a creative" },
+        "from_zero": { "title": "Produce from zero" }
+      },
+      "steps": {
+        "select_creative": "Select creative",
+        "collect_brief": "Collect brief",
+        "select_references": "Select references",
+        "await_diagnosis": "Await diagnosis",
+        "await_plan": "Await creative plan"
+      }
     },
     "createClient": {
       "title": "New client",

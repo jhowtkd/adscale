@@ -14,6 +14,7 @@ import AssistantChatInput from "./AssistantChatInput";
 import AssistantMessageList, {
   type AssistantDisplayMessage,
 } from "./AssistantMessageList";
+import GuidedFlowResumeBanner from "./GuidedFlowResumeBanner";
 
 export interface AssistantChatCoreProps {
   threadId: string | null;
@@ -148,12 +149,17 @@ export default function AssistantChatCore({
       {isLoading && threadId ? (
         <p className="p-4 text-sm text-[var(--text-muted)]">{t("loading")}</p>
       ) : (
-        <AssistantMessageList
-          messages={displayMessages}
-          streamingText={streamingText}
-          isStreaming={isStreaming}
-          threadId={threadId}
-        />
+        <>
+          {data?.guidedFlow ? (
+            <GuidedFlowResumeBanner guidedFlow={data.guidedFlow} />
+          ) : null}
+          <AssistantMessageList
+            messages={displayMessages}
+            streamingText={streamingText}
+            isStreaming={isStreaming}
+            threadId={threadId}
+          />
+        </>
       )}
 
       {error ? (

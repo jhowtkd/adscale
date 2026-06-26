@@ -1941,7 +1941,33 @@
       "noProjectsBody": "Projetos organizam campanhas e conversas do assistente. Crie o primeiro para começar.",
       "createFirstClient": "Criar primeiro projeto",
       "recentChats": "Conversas recentes",
-      "emptyRecent": "Nenhuma conversa ainda — comece a digitar acima."
+      "emptyRecent": "Nenhuma conversa ainda — comece a digitar acima.",
+      "journeys": {
+        "existing_creative": {
+          "title": "Já tenho peça",
+          "subtitle": "Envie ou selecione um criativo existente para diagnóstico e melhoria"
+        },
+        "from_zero": {
+          "title": "Produzir do zero",
+          "subtitle": "Monte um brief estratégico e referências visuais antes de gerar"
+        }
+      }
+    },
+    "guidedFlow": {
+      "resumeLabel": "Jornada em andamento",
+      "missingFields": "{count, plural, one {# campo pendente} other {# campos pendentes}}",
+      "nextActionHint": "Próximo passo: {step}",
+      "paths": {
+        "existing_creative": { "title": "Já tenho peça" },
+        "from_zero": { "title": "Produzir do zero" }
+      },
+      "steps": {
+        "select_creative": "Selecionar criativo",
+        "collect_brief": "Coletar brief",
+        "select_references": "Selecionar referências",
+        "await_diagnosis": "Aguardar diagnóstico",
+        "await_plan": "Aguardar plano criativo"
+      }
     },
     "createClient": {
       "title": "Novo cliente",

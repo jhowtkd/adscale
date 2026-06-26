@@ -31,6 +31,13 @@ vi.mock("@/lib/hooks/use-assistant-threads", () => ({
   }),
 }));
 
+vi.mock("@/lib/hooks/use-guided-flow", () => ({
+  useUpsertGuidedFlow: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+  }),
+}));
+
 import { useClientProfiles } from "@/lib/hooks/use-client-profiles";
 
 const mockUseClientProfiles = vi.mocked(useClientProfiles);
@@ -81,6 +88,7 @@ describe("AssistantStartComposer", () => {
     ).toBeInTheDocument();
     expect(screen.getByTestId("assistant-start-composer")).toBeInTheDocument();
     expect(screen.getByTestId("assistant-start-form")).toBeInTheDocument();
+    expect(screen.getByTestId("assistant-journey-cards")).toBeInTheDocument();
   });
 
   it("creates a thread and navigates when submitting a first message", async () => {

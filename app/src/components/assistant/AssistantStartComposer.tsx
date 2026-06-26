@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useClientProfiles } from "@/lib/hooks/use-client-profiles";
 import { useCreateAssistantThread } from "@/lib/hooks/use-assistant-threads";
+import { useUpsertGuidedFlow, type GuidedFlowPath } from "@/lib/hooks/use-guided-flow";
 import { useAssistantSurface } from "./AssistantSurfaceContext";
+import AssistantJourneyCards from "./AssistantJourneyCards";
 
 export interface AssistantStartComposerProps {
   onSelectThread: (threadId: string) => void;
@@ -23,6 +25,7 @@ export default function AssistantStartComposer({
   const router = useRouter();
   const { data: clients = [], isLoading: clientsLoading } = useClientProfiles();
   const createThread = useCreateAssistantThread();
+  const upsertGuidedFlow = useUpsertGuidedFlow();
   const {
     activeClientId,
     setActiveClientId,
@@ -37,6 +40,26 @@ export default function AssistantStartComposer({
     () => clients.find((c) => c.id === effectiveClientId) ?? null,
     [clients, effectiveClientId]
   );
+
+  const startJourney = async (path: Exclude<GuidedFlowPath, "unclassified">) => {
+    if (!effectiveClientId || createThread.isPending || upsertGuidedFlow.isPending) {
+      return;
+    }
+
+    setActiveClientId(effectiveClientId);
+
+    try {
+      const thread = await createThread.mutateAsync({
+        clientProfileId: effectiveClientId,
+        name: t(`journeys.${path}.title`),
+      });
+      await upsertGuidedFlow.mutateAsync({ threadId: thread.id, path });
+      onSelectThread(thread.id);
+      router.replace(`/assistant?threadId=${thread.id}`);
+    } catch {
+      // mutation errors surface via hook state
+    }
+  };
 
   const submit = async () => {
     const trimmed = value.trim();
@@ -110,7 +133,12 @@ export default function AssistantStartComposer({
     );
   }
 
-  const canSend = !!value.trim() && !!effectiveClientId && !createThread.isPending;
+  const canSend =
+    !!value.trim() &&
+    !!effectiveClientId &&
+    !createThread.isPending &&
+    !upsertGuidedFlow.isPending;
+  const journeyDisabled = createThread.isPending || upsertGuidedFlow.isPending;
 
   return (
     <div
@@ -120,6 +148,11 @@ export default function AssistantStartComposer({
       <h1 className="max-w-2xl text-center text-2xl font-medium text-[var(--text-primary)] sm:text-3xl">
         {promptHeading}
       </h1>
+
+      <AssistantJourneyCards
+        onSelectPath={(path) => void startJourney(path)}
+        disabled={journeyDisabled}
+      />
 
       <form
         onSubmit={handleSubmit}

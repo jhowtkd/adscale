@@ -1,6 +1,7 @@
 import { apiFetch } from "@/lib/api-client";
 import { STALE_TIME } from "@/lib/query-config";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { GuidedFlow } from "./use-guided-flow";
 
 export interface AssistantThread {
   id: string;
@@ -29,6 +30,7 @@ export interface AssistantMessage {
 export interface AssistantThreadDetail {
   thread: AssistantThread;
   messages: AssistantMessage[];
+  guidedFlow?: GuidedFlow;
 }
 
 function mapThread(thread: AssistantThread): AssistantThread {
@@ -82,6 +84,7 @@ async function fetchAssistantThread(
   return {
     thread: mapThread(data.thread as AssistantThread),
     messages: (data.messages as AssistantMessage[]).map(mapMessage),
+    ...(data.guidedFlow ? { guidedFlow: data.guidedFlow as GuidedFlow } : {}),
   };
 }
 

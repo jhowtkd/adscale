@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  classifyGuidedPath,
   classifyUserIntent,
   buildIntentPromptAugment,
 } from "./intent-classifier";
@@ -43,6 +44,33 @@ describe("classifyUserIntent", () => {
   it("skips messages with no action signal", () => {
     expect(classifyUserIntent("como funciona o assistente?")).toEqual({
       kind: "skip",
+    });
+  });
+});
+
+describe("classifyGuidedPath", () => {
+  it("classifies existing creative keywords", () => {
+    expect(classifyGuidedPath("já tenho uma peça pronta para adaptar")).toEqual({
+      kind: "classified",
+      path: "existing_creative",
+      source: "heuristic",
+    });
+  });
+
+  it("classifies from-zero keywords", () => {
+    expect(classifyGuidedPath("quero produzir do zero com referências visuais")).toEqual({
+      kind: "classified",
+      path: "from_zero",
+      source: "heuristic",
+    });
+  });
+
+  it("asks clarifying question when both paths match", () => {
+    expect(
+      classifyGuidedPath("já tenho peça mas quero produzir do zero")
+    ).toEqual({
+      kind: "clarify",
+      question: "Você já tem uma peça criativa ou quer produzir do zero?",
     });
   });
 });

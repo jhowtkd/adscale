@@ -7,6 +7,15 @@ export type IntentClassificationResult =
     }
   | { kind: "clarify"; question: string };
 
+export type GuidedPathClassificationResult =
+  | { kind: "skip" }
+  | {
+      kind: "classified";
+      path: "existing_creative" | "from_zero";
+      source: "heuristic";
+    }
+  | { kind: "clarify"; question: string };
+
 const GREETING_SKIP_PATTERN =
   /^(oi|olá|ola|hello|hi|hey|bom dia|boa tarde)\b/i;
 
@@ -18,6 +27,15 @@ const CAMPAIGN_KEYWORD_PATTERN =
 
 const CLARIFY_QUESTION =
   "Você quer uma ação pontual ou montar uma campanha completa?";
+
+const GUIDED_PATH_CLARIFY_QUESTION =
+  "Você já tem uma peça criativa ou quer produzir do zero?";
+
+const EXISTING_CREATIVE_PATTERN =
+  /\b(já tenho|tenho peça|peça pronta|criativo existente|anúncio pronto|imagem pronta|material pronto|adaptar peça|melhorar peça|diagnóstico)\b/i;
+
+const FROM_ZERO_PATTERN =
+  /\b(do zero|produzir do zero|criar do zero|nova peça|sem referência|briefing|campanha nova|estratégia|referências visuais)\b/i;
 
 const SKIP_FALLBACK_HINT =
   "If the user requests an executable action and intent is unclear, ask one clarifying question: quick action vs. complete campaign.";
@@ -51,6 +69,33 @@ export function classifyUserIntent(
       intent: "complete_campaign",
       source: "heuristic",
     };
+  }
+
+  return { kind: "skip" };
+}
+
+export function classifyGuidedPath(
+  userMessage: string
+): GuidedPathClassificationResult {
+  const trimmed = userMessage.trim();
+
+  if (GREETING_SKIP_PATTERN.test(trimmed) && trimmed.length < 40) {
+    return { kind: "skip" };
+  }
+
+  const existing = EXISTING_CREATIVE_PATTERN.test(trimmed);
+  const fromZero = FROM_ZERO_PATTERN.test(trimmed);
+
+  if (existing && fromZero) {
+    return { kind: "clarify", question: GUIDED_PATH_CLARIFY_QUESTION };
+  }
+
+  if (existing) {
+    return { kind: "classified", path: "existing_creative", source: "heuristic" };
+  }
+
+  if (fromZero) {
+    return { kind: "classified", path: "from_zero", source: "heuristic" };
   }
 
   return { kind: "skip" };

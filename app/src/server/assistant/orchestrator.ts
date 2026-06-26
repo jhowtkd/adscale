@@ -2,6 +2,7 @@ import { buildAssistantContext, toAssistantModelRequest } from "@/server/assista
 import {
   buildIntentPromptAugment,
   buildAttachmentPromptAugment,
+  classifyGuidedPath,
   classifyUserIntent,
 } from "@/server/assistant/action-contracts/intent-classifier";
 import { createMiniMaxModelAdapter } from "@/server/assistant/model/minimax-adapter";
@@ -10,6 +11,11 @@ import { assertNoReasoningInText, stripThinkBlocks } from "@/server/assistant/mo
 import { createAssistantMessage } from "@/server/repositories/assistant-message";
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import { containsDeniedPersistenceKeys } from "@/server/repositories/assistant-types";
+import {
+  getGuidedFlowByThread,
+  initialStepForPath,
+  upsertGuidedFlow,
+} from "@/server/repositories/guided-flow";
 import { listToolsForProvider } from "@/server/assistant/tools/registry";
 import { evaluateToolCall } from "@/server/assistant/tools/policy";
 
@@ -67,6 +73,39 @@ export async function* runAssistantTurn(
     clientProfileId: input.clientProfileId,
     threadId: input.threadId,
   });
+
+  const existingFlow = await getGuidedFlowByThread(
+    input.workspaceId,
+    input.threadId
+  );
+
+  if (!existingFlow || existingFlow.path === "unclassified") {
+    const guidedPathResult = classifyGuidedPath(input.userMessage);
+
+    if (guidedPathResult.kind === "clarify") {
+      const assistantMessage = await createAssistantMessage(input.workspaceId, {
+        threadId: input.threadId,
+        type: "assistant",
+        content: guidedPathResult.question,
+      });
+
+      yield { type: "done", assistantMessageId: assistantMessage.id };
+      return;
+    }
+
+    if (guidedPathResult.kind === "classified") {
+      await upsertGuidedFlow(
+        input.workspaceId,
+        input.threadId,
+        input.clientProfileId,
+        {
+          path: guidedPathResult.path,
+          status: "active",
+          currentStep: initialStepForPath(guidedPathResult.path),
+        }
+      );
+    }
+  }
 
   const intentResult = classifyUserIntent(input.userMessage);
 
