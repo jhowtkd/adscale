@@ -27,7 +27,7 @@
 
 | Phase | Name | Plans | Status |
 |-------|------|-------|--------|
-| 190 | Guided Journey Telemetry | 0/1 | Planned |
+| 190 | 1/1 | Complete   | 2026-06-26 |
 | 191 | Operational Funnel Surface | 0/1 | Pending |
 | 192 | Staging Evidence Runbook | 0/1 | Pending |
 | 193 | Human Quality Feedback | 0/1 | Pending |

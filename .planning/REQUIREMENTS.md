@@ -15,10 +15,10 @@ Transformar as jornadas guiadas do `/assistant` em operação mensurável e melh
 
 ### Journey Telemetry
 
-- [ ] **TEL-01**: System records guided-flow lifecycle events for start, step view, required input supplied, blocked action, action proposed, action confirmed, failure and completion.
-- [ ] **TEL-02**: Telemetry is scoped by workspace, clientProfile, assistant thread, path and step without storing provider reasoning, signed URLs, raw tool args or prompt payloads.
-- [ ] **TEL-03**: Telemetry distinguishes `existing_creative` and `from_zero` paths and records safe blocker categories such as missing asset, missing references, missing brief fields and action failure.
-- [ ] **TEL-04**: Telemetry can be queried deterministically for a time window, workspace/clientProfile and path without cross-workspace leakage.
+- [x] **TEL-01**: System records guided-flow lifecycle events for start, step view, required input supplied, blocked action, action proposed, action confirmed, failure and completion.
+- [x] **TEL-02**: Telemetry is scoped by workspace, clientProfile, assistant thread, path and step without storing provider reasoning, signed URLs, raw tool args or prompt payloads.
+- [x] **TEL-03**: Telemetry distinguishes `existing_creative` and `from_zero` paths and records safe blocker categories such as missing asset, missing references, missing brief fields and action failure.
+- [x] **TEL-04**: Telemetry can be queried deterministically for a time window, workspace/clientProfile and path without cross-workspace leakage.
 
 ### Operational Funnel
 
@@ -71,10 +71,10 @@ Transformar as jornadas guiadas do `/assistant` em operação mensurável e melh
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TEL-01 | Phase 190 | Pending |
-| TEL-02 | Phase 190 | Pending |
-| TEL-03 | Phase 190 | Pending |
-| TEL-04 | Phase 190 | Pending |
+| TEL-01 | Phase 190 | Complete |
+| TEL-02 | Phase 190 | Complete |
+| TEL-03 | Phase 190 | Complete |
+| TEL-04 | Phase 190 | Complete |
 | FUN-01 | Phase 191 | Pending |
 | FUN-02 | Phase 191 | Pending |
 | FUN-03 | Phase 191 | Pending |

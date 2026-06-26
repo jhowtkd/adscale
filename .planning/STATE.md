@@ -1,15 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v13.7
-milestone_name: Qualidade Operacional das Jornadas Guiadas
-status: phase_planned
-last_updated: "2026-06-26T18:45:00.000Z"
-last_activity: 2026-06-26
+milestone: v13.6
+milestone_name: Jornadas Guiadas do Chat Estratégico
+status: executing
+last_updated: "2026-06-26T18:22:02.910Z"
+last_activity: 2026-06-26 — Phase 190 plan and validation created
 progress:
-  total_phases: 5
-  completed_phases: 0
-  total_plans: 1
-  completed_plans: 0
+  total_phases: 11
+  completed_phases: 7
+  total_plans: 12
+  completed_plans: 12
+  percent: 100
 ---
 
 # Project State
@@ -44,10 +45,12 @@ Goal: transformar as jornadas guiadas do chat em operação mensurável, auditá
 Goal: tornar o modo chat menos genérico, conduzindo o usuário por fluxos acionáveis conforme origem do trabalho criativo.
 
 **P0 (resolved):**
+
 - B-01: client/server boundary — types/constants in `@/lib/guided-flow/types`
 - B-02: migration 0058 in Drizzle journal
 
 **Accepted tech debt:**
+
 - Human staging verify for live diagnosis/briefing quality
 - Live Inngest/campaign approval lifecycle verify inherited from v13.5/v13.6 staging debt
 
