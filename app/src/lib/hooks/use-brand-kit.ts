@@ -117,12 +117,13 @@ async function fetchBrandKit(clientProfileId?: string): Promise<BrandKitWithUrl 
 async function updateBrandKit(
   payload: Partial<
     Omit<BrandKit, "id" | "workspaceId" | "createdAt" | "updatedAt">
-  >
+  >,
+  clientProfileId?: string
 ): Promise<BrandKitWithUrl> {
   const res = await apiFetch("/api/workspace/brand-kit", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ ...payload, clientProfileId }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -156,14 +157,19 @@ async function extractBrandKit(file: File): Promise<ExtractedBrandKit> {
 
 async function uploadLogo(
   file: File,
+  clientProfileId?: string,
   onProgress?: (progress: number) => void
 ): Promise<{ reference: { id: string; assetKey: string; url: string }; logoAssetKey: string }> {
   const formData = new FormData();
   formData.append("file", file);
 
+  const logoUrl = clientProfileId
+    ? `/api/workspace/brand-kit/logo?clientProfileId=${encodeURIComponent(clientProfileId)}`
+    : "/api/workspace/brand-kit/logo";
+
   const res = await new Promise<Response>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", "/api/workspace/brand-kit/logo");
+    xhr.open("POST", logoUrl);
 
     xhr.upload.onprogress = (event) => {
       if (!event.lengthComputable || !onProgress) return;
@@ -195,8 +201,11 @@ async function uploadLogo(
   return data;
 }
 
-async function clearBrandKit(): Promise<BrandKitWithUrl | null> {
-  const res = await apiFetch("/api/workspace/brand-kit", {
+async function clearBrandKit(clientProfileId?: string): Promise<BrandKitWithUrl | null> {
+  const url = clientProfileId
+    ? `/api/workspace/brand-kit?clientProfileId=${encodeURIComponent(clientProfileId)}`
+    : "/api/workspace/brand-kit";
+  const res = await apiFetch(url, {
     method: "DELETE",
   });
   if (!res.ok) {
@@ -222,31 +231,28 @@ export function useBrandKit(clientProfileId?: string) {
   });
 }
 
-function getBrandKitQueryKey() {
-  return ["brand-kit"];
-}
-
-export function useUpdateBrandKit() {
+export function useUpdateBrandKit(clientProfileId?: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: updateBrandKit,
+    mutationFn: (payload: Parameters<typeof updateBrandKit>[0]) =>
+      updateBrandKit(payload, clientProfileId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: getBrandKitQueryKey() });
+      queryClient.invalidateQueries({ queryKey: ["brand-kit"] });
     },
   });
 }
 
-export function useExtractBrandKit() {
+export function useExtractBrandKit(clientProfileId?: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: extractBrandKit,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: getBrandKitQueryKey() });
+      queryClient.invalidateQueries({ queryKey: ["brand-kit", clientProfileId ?? null] });
     },
   });
 }
 
-export function useUploadLogo() {
+export function useUploadLogo(clientProfileId?: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({
@@ -255,19 +261,19 @@ export function useUploadLogo() {
     }: {
       file: File;
       onProgress?: (progress: number) => void;
-    }) => uploadLogo(file, onProgress),
+    }) => uploadLogo(file, clientProfileId, onProgress),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: getBrandKitQueryKey() });
+      queryClient.invalidateQueries({ queryKey: ["brand-kit"] });
     },
   });
 }
 
-export function useClearBrandKit() {
+export function useClearBrandKit(clientProfileId?: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: clearBrandKit,
+    mutationFn: () => clearBrandKit(clientProfileId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: getBrandKitQueryKey() });
+      queryClient.invalidateQueries({ queryKey: ["brand-kit"] });
     },
   });
 }

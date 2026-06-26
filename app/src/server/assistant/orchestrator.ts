@@ -1,6 +1,7 @@
 import { buildAssistantContext, toAssistantModelRequest } from "@/server/assistant/context/context-builder";
 import {
   buildIntentPromptAugment,
+  buildAttachmentPromptAugment,
   classifyUserIntent,
 } from "@/server/assistant/action-contracts/intent-classifier";
 import { createMiniMaxModelAdapter } from "@/server/assistant/model/minimax-adapter";
@@ -12,12 +13,21 @@ import { containsDeniedPersistenceKeys } from "@/server/repositories/assistant-t
 import { listToolsForProvider } from "@/server/assistant/tools/registry";
 import { evaluateToolCall } from "@/server/assistant/tools/policy";
 
+export interface AssistantChatAttachment {
+  assetId: string;
+  key: string;
+  type: string;
+  name: string;
+  size: number;
+}
+
 export interface AssistantTurnInput {
   workspaceId: string;
   clientProfileId: string;
   threadId: string;
   userId: string;
   userMessage: string;
+  attachments?: AssistantChatAttachment[];
   modelClient?: AssistantModelClient;
 }
 
@@ -40,7 +50,15 @@ export async function* runAssistantTurn(
   await createAssistantMessage(input.workspaceId, {
     threadId: input.threadId,
     type: "user",
-    content: input.userMessage,
+    content:
+      input.userMessage.trim() ||
+      (input.attachments?.length
+        ? `Imagem anexada: ${input.attachments.map((item) => item.name).join(", ")}`
+        : ""),
+    payload:
+      input.attachments && input.attachments.length > 0
+        ? { attachments: input.attachments }
+        : undefined,
   });
 
   const context = await buildAssistantContext({
@@ -70,8 +88,14 @@ export async function* runAssistantTurn(
   );
 
   const intentAugment = buildIntentPromptAugment(intentResult);
-  if (intentAugment) {
-    request.systemPrompt = `${request.systemPrompt}\n${intentAugment}`;
+  const attachmentAugment = buildAttachmentPromptAugment({
+    attachments: input.attachments,
+    hasCampaign: Boolean(thread.campaignId),
+  });
+
+  const augmentParts = [intentAugment, attachmentAugment].filter(Boolean);
+  if (augmentParts.length > 0) {
+    request.systemPrompt = `${request.systemPrompt}\n${augmentParts.join("\n")}`;
   }
 
   let assistantText = "";

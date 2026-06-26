@@ -156,10 +156,10 @@ export default function BrandKitTab() {
   const [selectedProfileId, setSelectedProfileId] = useState<string | undefined>(undefined);
   const [pendingProfileChoice, setPendingProfileChoice] = useState<string>("");
   const { data: brandKit, isLoading, isError, error } = useBrandKit(selectedProfileId);
-  const updateBrandKit = useUpdateBrandKit();
-  const extractBrandKit = useExtractBrandKit();
-  const uploadLogo = useUploadLogo();
-  const clearBrandKit = useClearBrandKit();
+  const updateBrandKit = useUpdateBrandKit(selectedProfileId);
+  const extractBrandKit = useExtractBrandKit(selectedProfileId);
+  const uploadLogo = useUploadLogo(selectedProfileId);
+  const clearBrandKit = useClearBrandKit(selectedProfileId);
 
   const ambiguityError =
     error instanceof BrandKitAmbiguousError ? error : null;

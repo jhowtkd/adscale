@@ -1,4 +1,5 @@
 import { readAssistantSseStream } from "@/lib/assistant/parse-sse";
+import type { ChatAttachment } from "@/lib/assistant/chat-attachments";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { assistantThreadQueryKey } from "./use-assistant-threads";
@@ -8,6 +9,11 @@ export interface AssistantChatMessage {
   type: "user" | "assistant" | "action_card" | "tool";
   content: string;
   payload: Record<string, unknown>;
+}
+
+export interface SendAssistantMessageInput {
+  text: string;
+  attachments?: ChatAttachment[];
 }
 
 function createLocalId(prefix: string) {
@@ -29,14 +35,18 @@ export function useAssistantChat(threadId: string | null) {
   }, []);
 
   const sendMessage = useCallback(
-    async (text: string) => {
+    async (input: string | SendAssistantMessageInput) => {
       if (!threadId) {
         setError("Selecione uma conversa antes de enviar mensagens.");
         return;
       }
 
+      const text = typeof input === "string" ? input : input.text;
+      const attachments =
+        typeof input === "string" ? undefined : input.attachments;
+
       const trimmed = text.trim();
-      if (!trimmed) {
+      if (!trimmed && (!attachments || attachments.length === 0)) {
         return;
       }
 
@@ -48,24 +58,42 @@ export function useAssistantChat(threadId: string | null) {
       setIsStreaming(true);
       setStreamingText("");
 
+      const userPayload: Record<string, unknown> = {};
+      if (attachments?.length) {
+        userPayload.attachments = attachments;
+      }
+
       const userMessage: AssistantChatMessage = {
         id: createLocalId("user"),
         type: "user",
         content: trimmed,
-        payload: {},
+        payload: userPayload,
       };
       setMessages((prev) => [...prev, userMessage]);
 
       let assistantText = "";
 
       try {
+        const body: Record<string, unknown> = { message: trimmed };
+        if (attachments?.length) {
+          body.attachments = attachments.map(
+            ({ assetId, key, type, name, size }) => ({
+              assetId,
+              key,
+              type,
+              name,
+              size,
+            })
+          );
+        }
+
         const response = await fetch(
           `/api/assistant/threads/${threadId}/chat`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             credentials: "include",
-            body: JSON.stringify({ message: trimmed }),
+            body: JSON.stringify(body),
             signal: controller.signal,
           }
         );
@@ -80,7 +108,8 @@ export function useAssistantChat(threadId: string | null) {
           controller.signal
         )) {
           if (frame.event === "text_delta") {
-            const delta = typeof frame.data.text === "string" ? frame.data.text : "";
+            const delta =
+              typeof frame.data.text === "string" ? frame.data.text : "";
             assistantText += delta;
             setStreamingText(assistantText);
           } else if (frame.event === "tool_summary") {
@@ -128,42 +157,10 @@ export function useAssistantChat(threadId: string | null) {
                 : "Erro no assistente";
             setError(message);
           } else if (frame.event === "done") {
-            if (assistantText) {
-              const assistantMessage: AssistantChatMessage = {
-                id: createLocalId("assistant"),
-                type: "assistant",
-                content: assistantText,
-                payload: {},
-              };
-              setMessages((prev) => [...prev, assistantMessage]);
-            }
-            setStreamingText("");
             await queryClient.invalidateQueries({
               queryKey: assistantThreadQueryKey(threadId),
             });
           }
-        }
-
-        if (assistantText && !controller.signal.aborted) {
-          setMessages((prev) => {
-            const hasAssistant = prev.some(
-              (message) =>
-                message.type === "assistant" && message.content === assistantText
-            );
-            if (hasAssistant) {
-              return prev;
-            }
-            return [
-              ...prev,
-              {
-                id: createLocalId("assistant"),
-                type: "assistant",
-                content: assistantText,
-                payload: {},
-              },
-            ];
-          });
-          setStreamingText("");
         }
       } catch (err) {
         if (controller.signal.aborted) {

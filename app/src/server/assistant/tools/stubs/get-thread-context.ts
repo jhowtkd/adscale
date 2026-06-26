@@ -1,10 +1,12 @@
 import { z } from "zod";
+import { logger } from "@/lib/logger";
 import type { WorkspaceMemberRole } from "@/server/auth/workspace";
 import { buildAssistantContext } from "@/server/assistant/context/context-builder";
 import { sanitizeContextValue } from "@/server/assistant/context/sanitize";
 import type { RegisteredTool, ToolHandlerContext, ToolHandlerResult } from "../registry";
 
-const MAX_SUMMARY_CHARS = 2000;
+export const GET_THREAD_CONTEXT_USER_SUMMARY =
+  "Contexto da conversa atualizado";
 
 export const getThreadContextSchema = z.object({}).strict();
 
@@ -18,12 +20,14 @@ export async function handleGetThreadContext(
   });
 
   const sanitized = sanitizeContextValue(context, ctx.clientProfileId);
-  let summary = JSON.stringify(sanitized);
-  if (summary.length > MAX_SUMMARY_CHARS) {
-    summary = `${summary.slice(0, MAX_SUMMARY_CHARS)}...`;
-  }
+  logger.debug("[get_thread_context] context refreshed", {
+    workspaceId: ctx.workspaceId,
+    threadId: ctx.threadId,
+    clientProfileId: ctx.clientProfileId,
+    contextBytes: JSON.stringify(sanitized).length,
+  });
 
-  return { summary };
+  return { summary: GET_THREAD_CONTEXT_USER_SUMMARY };
 }
 
 export const getThreadContextTool: RegisteredTool = {

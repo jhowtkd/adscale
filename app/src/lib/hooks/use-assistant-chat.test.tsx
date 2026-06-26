@@ -46,7 +46,7 @@ describe("useAssistantChat", () => {
     vi.unstubAllGlobals();
   });
 
-  it("streams text_delta and finalizes on done", async () => {
+  it("streams text_delta and finalizes on done without duplicating assistant reply", async () => {
     fetchMock.mockResolvedValue(
       sseResponse([
         { event: "text_delta", data: { text: "Hello" } },
@@ -80,9 +80,11 @@ describe("useAssistantChat", () => {
     expect(result.current.messages.some((m) => m.type === "user" && m.content === "Hi")).toBe(
       true
     );
-    expect(result.current.messages.some((m) => m.type === "assistant" && m.content === "Hello world")).toBe(
-      true
-    );
+    expect(
+      result.current.messages.filter(
+        (m) => m.type === "assistant" && m.content === "Hello world"
+      )
+    ).toHaveLength(0);
     expect(result.current.isStreaming).toBe(false);
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: ["assistant", "thread", "thread-1"],

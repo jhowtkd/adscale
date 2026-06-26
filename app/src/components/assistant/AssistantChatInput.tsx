@@ -1,16 +1,21 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useState, type FormEvent, type KeyboardEvent } from "react";
-import { Send } from "lucide-react";
+import { useCallback, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { ImagePlus, Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import {
+  uploadChatAttachment,
+  type ChatAttachment,
+} from "@/lib/assistant/chat-attachments";
+import { isAllowedImageType } from "@/lib/upload-config";
 
 export interface AssistantChatInputProps {
   disabled: boolean;
   isStreaming: boolean;
   noThread: boolean;
-  onSend: (text: string) => void;
+  onSend: (text: string, attachments?: ChatAttachment[]) => void;
 }
 
 export default function AssistantChatInput({
@@ -21,14 +26,46 @@ export default function AssistantChatInput({
 }: AssistantChatInputProps) {
   const t = useTranslations("assistant.chat");
   const [value, setValue] = useState("");
+  const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const submit = () => {
-    const trimmed = value.trim();
-    if (!trimmed || disabled || isStreaming) {
+  const canSend =
+    !disabled &&
+    !isStreaming &&
+    !isUploading &&
+    (value.trim().length > 0 || attachments.length > 0);
+
+  const addFile = useCallback(async (file: File) => {
+    if (!isAllowedImageType(file.type)) {
+      setUploadError("Use PNG, JPG ou WebP.");
       return;
     }
-    onSend(trimmed);
+
+    setUploadError(null);
+    setIsUploading(true);
+    try {
+      const uploaded = await uploadChatAttachment(file);
+      setAttachments((prev) => [...prev, uploaded]);
+    } catch (error) {
+      setUploadError(
+        error instanceof Error ? error.message : "Falha ao enviar imagem"
+      );
+    } finally {
+      setIsUploading(false);
+    }
+  }, []);
+
+  const submit = () => {
+    if (!canSend) {
+      return;
+    }
+    onSend(value.trim(), attachments.length > 0 ? attachments : undefined);
     setValue("");
+    setAttachments([]);
+    setUploadError(null);
   };
 
   const handleSubmit = (event: FormEvent) => {
@@ -43,20 +80,112 @@ export default function AssistantChatInput({
     }
   };
 
+  const handlePaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const file = Array.from(event.clipboardData.files).find((item) =>
+      isAllowedImageType(item.type)
+    );
+    if (!file) return;
+    event.preventDefault();
+    void addFile(file);
+  };
+
+  const handleDrop = (event: React.DragEvent) => {
+    event.preventDefault();
+    setDragOver(false);
+    const file = event.dataTransfer.files[0];
+    if (file) {
+      void addFile(file);
+    }
+  };
+
   return (
     <form
       onSubmit={handleSubmit}
-      className="border-t border-[var(--border-dim)] bg-[var(--surface-base)] p-4"
+      className={cn(
+        "border-t border-[var(--border-dim)] bg-[var(--surface-base)] p-4",
+        dragOver && "ring-2 ring-inset ring-[var(--accent-primary)]"
+      )}
       data-testid="assistant-chat-input"
+      onDragOver={(event) => {
+        event.preventDefault();
+        setDragOver(true);
+      }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={handleDrop}
     >
       {noThread ? (
         <p className="mb-2 text-xs text-[var(--text-muted)]">{t("noThreadHint")}</p>
       ) : null}
+
+      {attachments.length > 0 ? (
+        <div className="mb-2 flex flex-wrap gap-2">
+          {attachments.map((attachment) => (
+            <div
+              key={attachment.assetId}
+              className="relative"
+              data-testid="assistant-chat-attachment-preview"
+            >
+              {attachment.url ? (
+                <img
+                  src={attachment.url}
+                  alt={attachment.name}
+                  className="h-16 w-16 rounded-md border border-[var(--border-dim)] object-cover"
+                />
+              ) : (
+                <div className="flex h-16 w-16 items-center justify-center rounded-md border border-[var(--border-dim)] text-xs text-[var(--text-muted)]">
+                  {attachment.name}
+                </div>
+              )}
+              <button
+                type="button"
+                className="absolute -right-1 -top-1 rounded-full bg-[var(--surface-raised)] p-0.5 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                aria-label="Remover anexo"
+                onClick={() =>
+                  setAttachments((prev) =>
+                    prev.filter((item) => item.assetId !== attachment.assetId)
+                  )
+                }
+              >
+                <X className="size-3" aria-hidden="true" />
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {uploadError ? (
+        <p className="mb-2 text-xs text-[var(--danger-text)]" role="alert">
+          {uploadError}
+        </p>
+      ) : null}
+
       <div className="flex items-end gap-2">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) void addFile(file);
+            event.target.value = "";
+          }}
+        />
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          disabled={disabled || isStreaming || isUploading}
+          aria-label="Anexar imagem"
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <ImagePlus className="size-4" aria-hidden="true" />
+        </Button>
         <textarea
           value={value}
           onChange={(event) => setValue(event.target.value)}
           onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
           disabled={disabled || isStreaming}
           placeholder={t("inputPlaceholder")}
           rows={2}
@@ -67,7 +196,7 @@ export default function AssistantChatInput({
         <Button
           type="submit"
           size="sm"
-          disabled={disabled || isStreaming || !value.trim()}
+          disabled={!canSend}
           aria-label={t("send")}
         >
           <Send className="size-4" aria-hidden="true" />

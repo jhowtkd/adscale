@@ -4,10 +4,40 @@ import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import { runAssistantTurn } from "@/server/assistant/orchestrator";
 import { encodeAssistantSseEvent } from "@/server/assistant/stream/sse";
 import { apiError, handleApiError } from "@/lib/api-response";
+import { isAllowedImageType } from "@/lib/upload-config";
 
-const chatBodySchema = z.object({
-  message: z.string().trim().min(1),
+const attachmentSchema = z.object({
+  assetId: z.string().uuid(),
+  key: z.string().min(1),
+  type: z.string().min(1),
+  name: z.string().min(1),
+  size: z.number().int().positive(),
 });
+
+const chatBodySchema = z
+  .object({
+    message: z.string().trim(),
+    attachments: z.array(attachmentSchema).max(5).optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (!value.message && (!value.attachments || value.attachments.length === 0)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "message or attachments required",
+        path: ["message"],
+      });
+    }
+
+    for (const [index, attachment] of (value.attachments ?? []).entries()) {
+      if (!isAllowedImageType(attachment.type)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "invalid attachment type",
+          path: ["attachments", index, "type"],
+        });
+      }
+    }
+  });
 
 export async function POST(
   request: Request,
@@ -41,6 +71,7 @@ export async function POST(
             threadId,
             userId: user.id,
             userMessage: parsed.data.message,
+            attachments: parsed.data.attachments,
           })) {
             if (event.type === "text_delta") {
               controller.enqueue(

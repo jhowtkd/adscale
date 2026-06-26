@@ -201,7 +201,7 @@ export default function CampaignWorkspacePage() {
   const { data: billingStatus } = useBillingStatus();
 
   const { data: campaignAssets } = useCampaignAssets(campaignId);
-  const { data: brandKit } = useBrandKit();
+  const { data: brandKit } = useBrandKit(campaign?.clientProfileId ?? undefined);
   const reviewDerivation = useMemo(
     () => allDerivations.find((item) => item.id === reviewDerivationId) ?? null,
     [allDerivations, reviewDerivationId]

@@ -100,6 +100,69 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
     expect(body).not.toMatch(/reasoning|thinking|reasoning_details/);
   });
 
+  it("returns 400 for invalid attachment types", async () => {
+    const res = await POST(
+      new Request("http://localhost/api/assistant/threads/t1/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Veja esta imagem",
+          attachments: [
+            {
+              assetId: "00000000-0000-4000-8000-000000000001",
+              key: "workspaces/ws-1/assets/test.png",
+              type: "application/pdf",
+              name: "test.pdf",
+              size: 1024,
+            },
+          ],
+        }),
+      }),
+      { params: Promise.resolve({ threadId: "t1" }) }
+    );
+
+    expect(res.status).toBe(400);
+    expect(mockRunTurn).not.toHaveBeenCalled();
+  });
+
+  it("accepts message with valid image attachment", async () => {
+    mockRunTurn.mockImplementation(async function* () {
+      yield { type: "done", assistantMessageId: "msg-1" };
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/assistant/threads/t1/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Adaptar formatos",
+          attachments: [
+            {
+              assetId: "00000000-0000-4000-8000-000000000001",
+              key: "workspaces/ws-1/assets/test.png",
+              type: "image/png",
+              name: "test.png",
+              size: 1024,
+            },
+          ],
+        }),
+      }),
+      { params: Promise.resolve({ threadId: "t1" }) }
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockRunTurn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attachments: [
+          expect.objectContaining({
+            assetId: "00000000-0000-4000-8000-000000000001",
+            type: "image/png",
+          }),
+        ],
+      })
+    );
+  });
+
   it("returns 401 without workspace access", async () => {
     const { WorkspaceAuthError, AUTH_ERROR_CODES } = await import(
       "@/server/auth/errors"

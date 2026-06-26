@@ -23,8 +23,20 @@ type BaseMessageInput = {
   payload?: Record<string, unknown>;
 };
 
+export interface UserMessageAttachment {
+  assetId: string;
+  key: string;
+  type: string;
+  name: string;
+  size: number;
+}
+
 export type CreateAssistantMessageInput =
-  | (BaseMessageInput & { type: "user" | "assistant"; payload?: Record<string, never> })
+  | (BaseMessageInput & {
+      type: "user";
+      payload?: { attachments?: UserMessageAttachment[] };
+    })
+  | (BaseMessageInput & { type: "assistant"; payload?: Record<string, never> })
   | (BaseMessageInput & { type: "tool"; payload: ToolMessagePayload })
   | (BaseMessageInput & {
       type: "action_card";

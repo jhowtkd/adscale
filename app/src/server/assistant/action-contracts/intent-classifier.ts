@@ -22,6 +22,9 @@ const CLARIFY_QUESTION =
 const SKIP_FALLBACK_HINT =
   "If the user requests an executable action and intent is unclear, ask one clarifying question: quick action vs. complete campaign.";
 
+const LATERAL_QUESTION_HINT =
+  "When the user asks a short side question during an in-progress workflow, answer briefly and keep any pending state. Do not repeat the entire prior context block.";
+
 export function classifyUserIntent(
   userMessage: string
 ): IntentClassificationResult {
@@ -53,6 +56,24 @@ export function classifyUserIntent(
   return { kind: "skip" };
 }
 
+export function buildAttachmentPromptAugment(input: {
+  attachments?: Array<{ type: string }>;
+  hasCampaign: boolean;
+}): string | null {
+  const hasImage = input.attachments?.some((attachment) =>
+    attachment.type.startsWith("image/")
+  );
+  if (!hasImage) {
+    return null;
+  }
+
+  if (!input.hasCampaign) {
+    return "The user attached an image without an active campaign thread. Propose a quick format-variation action card when appropriate, and ask which target formats they want before spending credits.";
+  }
+
+  return "The user attached an image in a campaign thread. Associate the asset to the campaign context when confirmed before generation.";
+}
+
 export function buildIntentPromptAugment(
   result: IntentClassificationResult
 ): string | null {
@@ -61,8 +82,8 @@ export function buildIntentPromptAugment(
   }
 
   if (result.kind === "classified") {
-    return `Intent family: ${result.intent} — prefer contracts in that family when proposing actions.`;
+    return `Intent family: ${result.intent} — prefer contracts in that family when proposing actions.\n${LATERAL_QUESTION_HINT}`;
   }
 
-  return SKIP_FALLBACK_HINT;
+  return `${SKIP_FALLBACK_HINT}\n${LATERAL_QUESTION_HINT}`;
 }

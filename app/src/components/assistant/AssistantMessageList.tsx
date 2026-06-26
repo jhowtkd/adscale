@@ -20,6 +20,41 @@ export interface AssistantMessageListProps {
   threadId: string | null;
 }
 
+function looksLikeJsonPayload(value: string): boolean {
+  const trimmed = value.trim();
+  return trimmed.startsWith("{") || trimmed.startsWith("[");
+}
+
+function MessageAttachments({
+  attachments,
+}: {
+  attachments: Array<Record<string, unknown>>;
+}) {
+  if (attachments.length === 0) return null;
+
+  return (
+    <div className="mt-2 flex flex-wrap gap-2">
+      {attachments.map((attachment) => {
+        const url = typeof attachment.url === "string" ? attachment.url : null;
+        const name = typeof attachment.name === "string" ? attachment.name : "anexo";
+        const assetId =
+          typeof attachment.assetId === "string" ? attachment.assetId : name;
+
+        if (!url) return null;
+
+        return (
+          <img
+            key={assetId}
+            src={url}
+            alt={name}
+            className="max-h-24 max-w-[120px] rounded-md border border-white/20 object-cover"
+          />
+        );
+      })}
+    </div>
+  );
+}
+
 function MessageBubble({
   message,
 }: {
@@ -34,6 +69,11 @@ function MessageBubble({
       typeof message.payload.toolName === "string"
         ? message.payload.toolName
         : "tool";
+
+    if (toolName === "get_thread_context" || looksLikeJsonPayload(summary)) {
+      return null;
+    }
+
     return (
       <div
         className="text-xs text-[var(--text-muted)]"
@@ -54,6 +94,13 @@ function MessageBubble({
     [isUser, message.content]
   );
 
+  const attachments = useMemo(() => {
+    const raw = message.payload.attachments;
+    return Array.isArray(raw)
+      ? raw.filter((item): item is Record<string, unknown> => typeof item === "object" && item !== null)
+      : [];
+  }, [message.payload.attachments]);
+
   return (
     <div
       className={cn(
@@ -64,7 +111,10 @@ function MessageBubble({
       )}
       data-testid={`assistant-message-${message.type}`}
     >
-      {isUser ? displayContent : renderMarkdownLite(displayContent)}
+      {displayContent ? (
+        isUser ? displayContent : renderMarkdownLite(displayContent)
+      ) : null}
+      <MessageAttachments attachments={attachments} />
     </div>
   );
 }

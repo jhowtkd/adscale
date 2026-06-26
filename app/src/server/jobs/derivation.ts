@@ -70,6 +70,10 @@ import { getTargetDimensions, formatToOpenAIImageSize, toOpenAISdkImageSize } fr
 import { captureAndAutoPromote } from "../human-quality/auto-promote";
 import { loadPromptCalibrationContext } from "../brand-taste/prompt-calibration-loader";
 import { syncAssistantActionFromJob } from "../repositories/assistant-job-sync";
+import {
+  DERIVATION_USER_SAFE_ERROR,
+  sanitizeDerivationFailureError,
+} from "./derivation-error-sanitizer";
 
 const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 120_000 });
 const IMAGE_GENERATION_TIMEOUT_MS = 5 * 60 * 1000;
@@ -239,14 +243,21 @@ export const derivationJob = inngest.createFunction(
     onFailure: async ({ event, error, step }) => {
       const originalEvent = event.data.event;
       const { derivationId, campaignId, workspaceId, triggeredByUserId, assistantActionId } = originalEvent.data;
-      const message = error instanceof Error ? error.message : "Unknown error";
-      logger.error(`[Inngest onFailure] derivationId=${derivationId} error=${message}`);
+      const { userMessage, technicalDetail } = sanitizeDerivationFailureError(error);
+      const errorId = crypto.randomUUID();
+      logger.error("[Inngest onFailure] derivation failed", {
+        errorId,
+        derivationId,
+        workspaceId,
+        campaignId,
+        technicalDetail,
+      });
       await step.run("mark-failed", async () => {
         await db
           .update(derivations)
           .set({
             status: "failed",
-            prompt: message,
+            prompt: userMessage,
             updatedAt: new Date(),
           })
           .where(eq(derivations.id, derivationId));
@@ -257,7 +268,7 @@ export const derivationJob = inngest.createFunction(
             actionId: assistantActionId,
             status: "failed",
             jobRef: { kind: "derivation", id: derivationId },
-            safeError: message,
+            safeError: DERIVATION_USER_SAFE_ERROR,
           });
         }
       });

@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { useAssistantChat } from "@/lib/hooks/use-assistant-chat";
 import type { AssistantChatMessage } from "@/lib/hooks/use-assistant-chat";
+import type { ChatAttachment } from "@/lib/assistant/chat-attachments";
 import {
   useAssistantThread,
   type AssistantMessage,
@@ -18,6 +19,8 @@ export interface AssistantChatCoreProps {
   threadId: string | null;
   variant?: "full" | "drawer";
   onClose?: () => void;
+  pendingFirstMessage?: string | null;
+  onPendingFirstMessageConsumed?: () => void;
 }
 
 function mapServerMessage(message: AssistantMessage): AssistantDisplayMessage {
@@ -77,6 +80,8 @@ export default function AssistantChatCore({
   threadId,
   variant = "full",
   onClose,
+  pendingFirstMessage,
+  onPendingFirstMessageConsumed,
 }: AssistantChatCoreProps) {
   const t = useTranslations("assistant.chat");
   const { data, isLoading } = useAssistantThread(threadId, {
@@ -85,12 +90,39 @@ export default function AssistantChatCore({
   const { messages, streamingText, isStreaming, error, sendMessage } =
     useAssistantChat(threadId);
 
+  const sendingRef = useRef(false);
+
+  useEffect(() => {
+    if (!threadId || !pendingFirstMessage || sendingRef.current) {
+      return;
+    }
+    sendingRef.current = true;
+    const message = pendingFirstMessage;
+    onPendingFirstMessageConsumed?.();
+    void sendMessage(message).finally(() => {
+      sendingRef.current = false;
+    });
+  }, [
+    threadId,
+    pendingFirstMessage,
+    sendMessage,
+    onPendingFirstMessageConsumed,
+  ]);
+
   const displayMessages = useMemo(() => {
     const serverMessages = (data?.messages ?? []).map(mapServerMessage);
     return mergeMessages(serverMessages, messages);
   }, [data?.messages, messages]);
 
   const inputDisabled = !threadId;
+
+  const handleSend = (text: string, attachments?: ChatAttachment[]) => {
+    if (attachments?.length) {
+      void sendMessage({ text, attachments });
+      return;
+    }
+    void sendMessage(text);
+  };
 
   return (
     <div
@@ -137,7 +169,7 @@ export default function AssistantChatCore({
         disabled={inputDisabled}
         isStreaming={isStreaming}
         noThread={!threadId}
-        onSend={sendMessage}
+        onSend={handleSend}
       />
     </div>
   );
