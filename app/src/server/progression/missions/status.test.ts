@@ -28,7 +28,7 @@ describe("mission status", () => {
     const readiness = missions.find((mission) => mission.key === "readiness");
 
     expect(readiness?.status).toBe("blocked");
-    expect(readiness?.blockedReason).toContain("criativo base");
+    expect(readiness?.blockedReason).toBe("");
   });
 
   it("calculates progress percent from completed missions", () => {

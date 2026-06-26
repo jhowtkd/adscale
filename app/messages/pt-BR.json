@@ -258,7 +258,68 @@
       "blockedCta": "Complete o passo anterior",
       "error": "Não foi possível carregar seu progresso agora.",
       "retry": "Tentar novamente",
-      "updating": "Atualizando progresso"
+      "updating": "Atualizando progresso",
+      "levels": {
+        "aprendiz": {
+          "label": "Aprendiz de Laboratório",
+          "shortLabel": "Aprendiz",
+          "description": "Monte seu laboratório e faça seu primeiro experimento criativo."
+        },
+        "analista_criativo": {
+          "label": "Analista Criativo",
+          "shortLabel": "Analista",
+          "description": "Você já aprovou um criativo real e entende o fluxo básico."
+        },
+        "estrategista_ads": {
+          "label": "Estrategista de Ads",
+          "shortLabel": "Estrategista",
+          "description": "Gera, aprova e exporta variações com consistência estratégica."
+        },
+        "cientista_ads": {
+          "label": "Cientista de Ads",
+          "shortLabel": "Cientista",
+          "description": "Domina o ciclo completo: briefing, geração, aprovação, export e compartilhamento."
+        }
+      },
+      "evidence": {
+        "campaign_created": {
+          "label": "Primeira campanha",
+          "description": "Crie sua primeira campanha para iniciar um experimento."
+        },
+        "base_creative_uploaded": {
+          "label": "Criativo base enviado",
+          "description": "Envie o criativo base que servirá de referência para variações."
+        },
+        "readiness_ran": {
+          "label": "Análise de prontidão",
+          "description": "Rode a análise de prontidão para entender o potencial do criativo."
+        },
+        "derivation_generated": {
+          "label": "Variações geradas",
+          "description": "Gere suas primeiras variações a partir do criativo base."
+        },
+        "creative_approved": {
+          "label": "Criativo aprovado",
+          "description": "Aprove pelo menos uma variação para validar o experimento."
+        },
+        "creative_exported": {
+          "label": "Criativo exportado",
+          "description": "Exporte um criativo aprovado para uso nas plataformas."
+        },
+        "share_created": {
+          "label": "Link de compartilhamento",
+          "description": "Compartilhe resultados com cliente ou equipe."
+        }
+      },
+      "nextActionAllComplete": "Você completou todos os experimentos disponíveis. Continue refinando campanhas.",
+      "blockedReasons": {
+        "base_creative_uploaded": "Crie uma campanha antes de enviar o criativo base.",
+        "readiness_ran": "Envie um criativo base antes de rodar a análise de prontidão.",
+        "derivation_generated": "Complete a análise de prontidão antes de gerar variações.",
+        "creative_approved": "Gere variações antes de aprovar um criativo.",
+        "creative_exported": "Aprove um criativo antes de exportar.",
+        "share_created": "Aprove um criativo antes de compartilhar."
+      }
     },
     "missions": {
       "title": "Trilha de Missões",
@@ -281,6 +342,18 @@
         "regeneration": "Regenerar",
         "export": "Exportar",
         "share": "Compartilhar pacote"
+      },
+      "blockedReasons": {
+        "upload": "Crie uma campanha antes de enviar o criativo base.",
+        "readiness": "Envie um criativo base antes de rodar a análise de prontidão.",
+        "guided_briefing": "Complete a análise de prontidão antes de estruturar o briefing.",
+        "strategy_recipe": "Complete o briefing guiado antes de escolher a receita estratégica.",
+        "preview": "Escolha uma receita estratégica antes de gerar o preview.",
+        "batch": "Gere um preview antes de rodar o lote completo.",
+        "review": "Gere variações em lote antes de revisar criativos.",
+        "regeneration": "Revise pelo menos um criativo antes de regenerar com feedback.",
+        "export": "Aprove um criativo antes de exportar.",
+        "share": "Exporte um criativo antes de compartilhar."
       },
       "expand": "Ver trilha",
       "collapse": "Ocultar trilha",
@@ -487,7 +560,38 @@
       "approved": "Aprovada",
       "rejected": "Rejeitada"
     },
-    "generateWithoutPlan": "Gerar sem Plano"
+    "generateWithoutPlan": "Gerar sem Plano",
+    "derivationsSectionTitle": "Derivações",
+    "generatingDerivations": "Gerando derivações…",
+    "pilotSidebar": {
+      "pilotBadge": "Piloto",
+      "pilotImageAlt": "Piloto",
+      "clientProfileLabel": "Perfil do cliente",
+      "linkedBadge": "Vinculado",
+      "pendingBadge": "Pendente",
+      "noProfileLinked": "Sem perfil vinculado",
+      "createProfileFromClient": "Criar perfil a partir deste cliente",
+      "saving": "Salvando…",
+      "profileLinkHelp": "Necessário para aprendizados e revisão de qualidade.",
+      "addClientNameHint": "Adicione o nome do cliente na campanha para criar um perfil.",
+      "briefingSummaryLabel": "Resumo do briefing",
+      "briefingRowObjective": "Objetivo",
+      "briefingRowAudience": "Público",
+      "briefingRowTone": "Tom",
+      "briefingRowPlatforms": "Plataformas",
+      "briefingRowCta": "CTA",
+      "toastProfileLinked": "Perfil de cliente vinculado à campanha.",
+      "toastProfileLinkFailed": "Não foi possível vincular o perfil.",
+      "toastProfileCreatedAndLinked": "Perfil criado e vinculado à campanha.",
+      "toastProfileCreatedLinkFailed": "Perfil criado, mas não foi possível vincular.",
+      "toastProfileCreateFailed": "Não foi possível criar o perfil.",
+      "briefingReadinessSummary": "Briefing e readiness"
+    },
+    "deleteDialog": {
+      "title": "Excluir campanha",
+      "description": "Tem certeza que deseja excluir esta campanha? Esta ação não pode ser desfeita.",
+      "confirmLabel": "Excluir"
+    }
   },
   "generation": {
     "derivationMode": "Modo de Derivação",
@@ -1320,7 +1424,15 @@
       "clearWarning": "Isso removerá todas as informações do brand kit. O perfil permanecerá.",
       "clearButton": "Limpar",
       "cleared": "Brand kit limpo",
-      "confirmClear": "Tem certeza de que deseja limpar todas as informações do brand kit? Esta ação não pode ser desfeita."
+      "confirmClear": "Tem certeza de que deseja limpar todas as informações do brand kit? Esta ação não pode ser desfeita.",
+      "workspaceSelector": {
+        "title": "Selecione um perfil de cliente",
+        "description": "Sua conta tem mais de um perfil de cliente. Selecione qual perfil usar no Brand Kit para continuar.",
+        "placeholder": "Selecione um perfil",
+        "confirm": "Usar este perfil",
+        "cancel": "Cancelar",
+        "retryFailed": "Não foi possível carregar o Brand Kit com o perfil selecionado. Tente novamente."
+      }
     }
   },
   "errors": {
@@ -1405,7 +1517,9 @@
     "duplicate_corpus_item": "Esta saída já está na fila do corpus de qualidade.",
     "corpusAddFailed": "Não foi possível adicionar ao corpus de qualidade.",
     "corpusMissingContext": "Faltam dados de workspace ou campanha para selecionar no corpus.",
-    "invalid_quality_snapshot": "Esta saída tem metadados de aprendizado inválidos e não pode entrar no corpus."
+    "invalid_quality_snapshot": "Esta saída tem metadados de aprendizado inválidos e não pode entrar no corpus.",
+    "clientProfileNotFound": "Perfil de cliente não encontrado.",
+    "unknown": "Erro desconhecido. Tente novamente."
   },
   "review": {
     "title": "Revisão",
@@ -1965,7 +2079,7 @@
     "trigger": "Enviar feedback",
     "triggerShort": "Feedback",
     "reportThis": "Reportar problema",
-    "title": "Feedback beta",
+    "title": "Feedback",
     "description": "Conte o que deu errado ou o que devemos melhorar. O contexto de diagnóstico é anexado automaticamente.",
     "type": "Tipo",
     "severity": "Severidade",
@@ -2324,6 +2438,23 @@
         "subscription_required": "Assine para continuar criando anúncios",
         "past_due_recovery": "Pagamento pendente — atualize a cobrança para restaurar o acesso"
       }
+    }
+  },
+  "notificationPanel": {
+    "groupSummary": {
+      "one": "{count} nova notificação em \"{campaign}\"",
+      "many": "{count} novas notificações em \"{campaign}\"",
+      "oneNoCampaign": "{count} nova notificação",
+      "manyNoCampaign": "{count} novas notificações",
+      "unreadBadge": "{count} não lidas"
+    }
+  },
+  "demoMode": {
+    "badge": "Demo",
+    "badgeAriaLabel": "Conta de demonstração",
+    "restore": {
+      "label": "Restaurar dados de demonstração",
+      "stub": "Restauração de demo ainda indisponível — em breve."
     }
   }
 }

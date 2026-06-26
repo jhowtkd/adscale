@@ -180,6 +180,17 @@ export default function MissionPathCard() {
   );
 }
 
+function resolveMissionBlockedReason(
+  mission: MissionItem,
+  t: ReturnType<typeof useTranslations<"dashboard.missions">>
+): string | undefined {
+  if (mission.status !== "blocked") return undefined;
+  const key = `blockedReasons.${mission.key}`;
+  const value = t(key);
+  if (!value || value === key) return undefined;
+  return value;
+}
+
 function ActiveMissionPanel({
   mission,
   creditContext,
@@ -194,6 +205,7 @@ function ActiveMissionPanel({
   const label = t(`items.${mission.key}.label`);
   const description = t(`items.${mission.key}.description`);
   const ctaDisabled = mission.status === "blocked";
+  const blockedReasonText = resolveMissionBlockedReason(mission, t);
 
   return (
     <div className="rounded-lg border border-[var(--border-dim)] bg-[var(--deep-bg)] p-4">
@@ -202,10 +214,10 @@ function ActiveMissionPanel({
       </p>
       <p className="text-sm font-semibold text-[var(--text-primary)]">{label}</p>
       <p className="text-xs text-[var(--text-secondary)] mt-1">{description}</p>
-      {mission.blockedReason ? (
+      {blockedReasonText ? (
         <p className="text-xs text-[var(--accent-rose)] mt-2 flex items-start gap-1.5">
           <AlertCircle size={14} className="shrink-0 mt-0.5" aria-hidden="true" />
-          {mission.blockedReason}
+          {blockedReasonText}
         </p>
       ) : null}
 
@@ -218,9 +230,9 @@ function ActiveMissionPanel({
               "inline-flex w-full items-center justify-center gap-2 rounded-lg border-2 border-[var(--border-dim)] px-4 py-2.5 text-xs font-mono uppercase tracking-wider text-[var(--text-muted)]"
             )}
           >
-            {mission.blockedReason ?? t("blockedCta")}
+            {blockedReasonText ?? t("blockedCta")}
           </span>
-          {mission.blockedReason ? (
+          {blockedReasonText ? (
             <p className="text-[10px] text-center text-[var(--text-muted)]">{t("blockedCtaHint")}</p>
           ) : null}
         </div>
@@ -254,6 +266,7 @@ function MissionListItem({
 }) {
   const label = t(`items.${mission.key}.label`);
   const description = t(`items.${mission.key}.description`);
+  const blockedReasonText = resolveMissionBlockedReason(mission, t);
 
   return (
     <li
@@ -269,8 +282,8 @@ function MissionListItem({
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium text-[var(--text-primary)]">{label}</p>
         <p className="text-xs text-[var(--text-secondary)] mt-0.5">{description}</p>
-        {mission.status === "blocked" && mission.blockedReason ? (
-          <p className="text-xs text-[var(--accent-rose)] mt-1">{mission.blockedReason}</p>
+        {mission.status === "blocked" && blockedReasonText ? (
+          <p className="text-xs text-[var(--accent-rose)] mt-1">{blockedReasonText}</p>
         ) : null}
       </div>
       {mission.status === "blocked" ? (

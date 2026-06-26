@@ -2,8 +2,9 @@
 
 import Image from "next/image";
 import { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
-import { ImageIcon, Target, Users, MessageSquare, Monitor, MousePointer, Loader2 } from "lucide-react";
+import { ImageIcon, Target, Users, MessageSquare, Monitor, MousePointer, Loader2, UserPlus } from "lucide-react";
 import { useCampaignAssets } from "@/lib/hooks/use-assets";
 import { useUpdateCampaign } from "@/lib/hooks/use-campaigns";
 import { useClientProfiles, useCreateClientProfile } from "@/lib/hooks/use-client-profiles";
@@ -67,23 +68,26 @@ function ClientProfileLinkControl({
   clientName?: string | null;
   clientProfileId?: string | null;
 }) {
+  const t = useTranslations("campaign.pilotSidebar");
   const addToast = useAppStore((s) => s.addToast);
   const { data: profiles = [], isLoading } = useClientProfiles();
   const updateCampaign = useUpdateCampaign(campaignId);
   const createProfile = useCreateClientProfile();
   const selectedProfile = profiles.find((profile) => profile.id === clientProfileId);
   const isSaving = updateCampaign.isPending || createProfile.isPending;
-  const canCreateProfile = Boolean(clientName?.trim()) && profiles.length === 0;
+  const hasClientName = Boolean(clientName?.trim());
+  const canCreateProfile = hasClientName && profiles.length === 0;
+  const isEmptyState = profiles.length === 0 && !hasClientName;
 
   const handleProfileChange = (value: string) => {
     updateCampaign.mutate(
       { clientProfileId: value === "none" ? null : value },
       {
-        onSuccess: () => addToast("success", "Perfil de cliente vinculado à campanha."),
+        onSuccess: () => addToast("success", t("toastProfileLinked")),
         onError: (error) =>
           addToast(
             "error",
-            error instanceof Error ? error.message : "Não foi possível vincular o perfil."
+            error instanceof Error ? error.message : t("toastProfileLinkFailed")
           ),
       }
     );
@@ -99,11 +103,11 @@ function ClientProfileLinkControl({
           updateCampaign.mutate(
             { clientProfileId: profile.id },
             {
-              onSuccess: () => addToast("success", "Perfil criado e vinculado à campanha."),
+              onSuccess: () => addToast("success", t("toastProfileCreatedAndLinked")),
               onError: (error) =>
                 addToast(
                   "error",
-                  error instanceof Error ? error.message : "Perfil criado, mas não foi possível vincular."
+                  error instanceof Error ? error.message : t("toastProfileCreatedLinkFailed")
                 ),
             }
           );
@@ -111,7 +115,7 @@ function ClientProfileLinkControl({
         onError: (error) =>
           addToast(
             "error",
-            error instanceof Error ? error.message : "Não foi possível criar o perfil."
+            error instanceof Error ? error.message : t("toastProfileCreateFailed")
           ),
       }
     );
@@ -121,15 +125,15 @@ function ClientProfileLinkControl({
     <div className="border-t border-[var(--border-dim)] pt-4">
       <div className="mb-2 flex items-center justify-between gap-2">
         <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ghost)]">
-          Perfil do cliente
+          {t("clientProfileLabel")}
         </p>
         {selectedProfile ? (
           <span className="rounded-full bg-[var(--accent-green-dim)] px-2 py-0.5 text-[10px] font-medium text-[var(--accent-green-text)]">
-            Vinculado
+            {t("linkedBadge")}
           </span>
         ) : (
           <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-300">
-            Pendente
+            {t("pendingBadge")}
           </span>
         )}
       </div>
@@ -139,29 +143,43 @@ function ClientProfileLinkControl({
           value={clientProfileId ?? "none"}
           disabled={isLoading || isSaving}
           onChange={(event) => handleProfileChange(event.target.value)}
-          aria-label="Perfil do cliente"
-          className="h-9 w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2 text-xs text-[var(--text-primary)] disabled:opacity-60"
+          aria-label={t("clientProfileLabel")}
+          className={cn(
+            "h-9 w-full rounded-md border bg-[var(--surface-base)] px-2 text-xs text-[var(--text-primary)] transition-colors disabled:opacity-60",
+            !selectedProfile
+              ? "border-[var(--accent-green)]/60 hover:border-[var(--accent-green)] focus:border-[var(--accent-green)] focus:ring-2 focus:ring-[var(--accent-green-dim)]"
+              : "border-[var(--border-dim)]"
+          )}
         >
-          <option value="none">Sem perfil vinculado</option>
+          <option value="none">{t("noProfileLinked")}</option>
           {profiles.map((profile) => (
             <option key={profile.id} value={profile.id}>
               {profile.name}
             </option>
           ))}
         </select>
+      ) : isEmptyState ? (
+        <div className="rounded-md border border-dashed border-[var(--border-medium)] bg-[var(--surface-base)] px-3 py-2.5 text-xs text-[var(--text-muted)]">
+          {t("addClientNameHint")}
+        </div>
       ) : (
         <button
           type="button"
           disabled={!canCreateProfile || isSaving}
           onClick={handleCreateProfile}
-          className="inline-flex h-9 w-full items-center justify-center rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-3 text-xs font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-raised)] disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-3 text-xs font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-raised)] disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isSaving ? "Salvando…" : "Criar perfil a partir deste cliente"}
+          {isSaving ? (
+            <Loader2 size={12} className="animate-spin" aria-hidden="true" />
+          ) : (
+            <UserPlus size={12} aria-hidden="true" />
+          )}
+          {isSaving ? t("saving") : t("createProfileFromClient")}
         </button>
       )}
 
       <p className="mt-2 text-[11px] leading-snug text-[var(--text-muted)]">
-        Necessário para aprendizados e quality corpus.
+        {t("profileLinkHelp")}
       </p>
     </div>
   );
@@ -173,6 +191,7 @@ export default function PilotSidebar({
   briefing,
   onReadinessOverride,
 }: PilotSidebarProps) {
+  const t = useTranslations("campaign.pilotSidebar");
   const { data: assets, isLoading } = useCampaignAssets(campaignId);
   const [imageError, setImageError] = useState(false);
 
@@ -210,7 +229,7 @@ export default function PilotSidebar({
               <Image
                 key={pilotAsset?.id ?? pilotAsset?.url ?? "pilot"}
                 src={pilotImageUrl}
-                alt={campaign.name || "Piloto"}
+                alt={campaign.name || t("pilotImageAlt")}
                 fill
                 sizes="280px"
                 unoptimized
@@ -228,7 +247,7 @@ export default function PilotSidebar({
         <div>
           <div className="mb-2 flex items-center gap-2">
             <span className="inline-flex items-center rounded-full bg-[var(--accent-green-dim)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-[var(--accent-green-text)]">
-              Piloto
+              {t("pilotBadge")}
             </span>
             {campaign.client ? (
               <span className="inline-flex items-center rounded-full bg-[var(--surface-raised)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
@@ -250,32 +269,32 @@ export default function PilotSidebar({
         {hasBriefing ? (
           <div className="border-t border-[var(--border-dim)] pt-4 animate-fade-in">
             <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ghost)]">
-              Resumo do briefing
+              {t("briefingSummaryLabel")}
             </p>
             <div className="divide-y divide-[var(--border-dim)]">
               <BriefingRow
                 icon={<Target size={14} />}
-                label="Objetivo"
+                label={t("briefingRowObjective")}
                 value={briefing.objective}
               />
               <BriefingRow
                 icon={<Users size={14} />}
-                label="Público"
+                label={t("briefingRowAudience")}
                 value={briefing.audience}
               />
               <BriefingRow
                 icon={<MessageSquare size={14} />}
-                label="Tom"
+                label={t("briefingRowTone")}
                 value={briefing.tone}
               />
               <BriefingRow
                 icon={<Monitor size={14} />}
-                label="Plataformas"
+                label={t("briefingRowPlatforms")}
                 value={briefing.platforms}
               />
               <BriefingRow
                 icon={<MousePointer size={14} />}
-                label="CTA"
+                label={t("briefingRowCta")}
                 value={briefing.ctaText}
               />
             </div>

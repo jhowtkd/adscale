@@ -5,10 +5,11 @@ import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCampaigns, getWorkspaceCampaignCount } from "@/server/repositories/campaign";
 import { db } from "@/server/db";
 import { activityEvents } from "@/server/db/schema";
+import { filterFixtureCampaigns, shouldAllowFixtures } from "@/lib/demo-gating";
 
 export async function GET(request: Request) {
   try {
-    const { workspace } = await requireWorkspaceAccess(request);
+    const { workspace, user } = await requireWorkspaceAccess(request);
 
     const [campaignCount, campaignList, recentActivity] = await Promise.all([
       getWorkspaceCampaignCount(workspace.id),
@@ -21,6 +22,9 @@ export async function GET(request: Request) {
         .limit(5),
     ]);
 
+    const allowFixtures = shouldAllowFixtures(workspace, user);
+    const visibleCampaigns = filterFixtureCampaigns(campaignList, { allowFixtures });
+
     // Fallback: if no activity events, use recent campaigns as activity
     const activity =
       recentActivity.length > 0
@@ -30,7 +34,7 @@ export async function GET(request: Request) {
             message: (a.metadata as Record<string, unknown> | null)?.message ?? a.type,
             timestamp: a.createdAt,
           }))
-        : campaignList.slice(0, 5).map((c) => ({
+        : visibleCampaigns.slice(0, 5).map((c) => ({
             id: c.id,
             type: "campaign" as const,
             message: `Campaign "${c.name}" ${c.status === "draft" ? "created" : "updated"}`,

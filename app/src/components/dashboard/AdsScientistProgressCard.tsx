@@ -10,8 +10,7 @@ export default function AdsScientistProgressCard() {
   const t = useTranslations("dashboard.progression");
   const { data, isLoading, isError, refetch, isFetching } = useProgression();
 
-  if (isLoading && !data) {
-    return (
+  if (isLoading && !data) {    return (
       <div className="glass-card rounded-xl overflow-hidden" aria-busy="true">
         <div className="px-5 py-4 border-b border-[var(--border-dim)]">
           <div className="h-4 w-40 bg-[var(--surface-raised)] rounded animate-pulse" />
@@ -54,6 +53,13 @@ export default function AdsScientistProgressCard() {
 
   const { level, progressPercent, nextAction } = data;
   const ctaDisabled = nextAction.blocked;
+  const levelLabel = t(`levels.${level.key}.label`);
+  const levelDescription = t(`levels.${level.key}.description`);
+  const nextActionLabel = t(`evidence.${nextAction.key}.label`);
+  const nextActionDescription = t(`evidence.${nextAction.key}.description`);
+  const nextActionBlockedReason = nextAction.blocked
+    ? t(`blockedReasons.${nextAction.key}`)
+    : undefined;
 
   return (
     <div className="glass-card rounded-xl overflow-hidden">
@@ -70,8 +76,8 @@ export default function AdsScientistProgressCard() {
           <p className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)] mb-1">
             {t("currentLevel")}
           </p>
-          <p className="text-lg font-bold text-[var(--text-primary)]">{level.label}</p>
-          <p className="text-xs text-[var(--text-secondary)] mt-1">{level.description}</p>
+          <p className="text-lg font-bold text-[var(--text-primary)]">{levelLabel}</p>
+          <p className="text-xs text-[var(--text-secondary)] mt-1">{levelDescription}</p>
         </div>
 
         <div>
@@ -102,12 +108,12 @@ export default function AdsScientistProgressCard() {
           <p className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)] mb-1">
             {t("nextExperiment")}
           </p>
-          <p className="text-sm font-semibold text-[var(--text-primary)]">{nextAction.label}</p>
-          <p className="text-xs text-[var(--text-secondary)] mt-1">{nextAction.description}</p>
-          {nextAction.blocked && nextAction.blockedReason ? (
+          <p className="text-sm font-semibold text-[var(--text-primary)]">{nextActionLabel}</p>
+          <p className="text-xs text-[var(--text-secondary)] mt-1">{nextActionDescription}</p>
+          {nextAction.blocked && nextActionBlockedReason ? (
             <p className="text-xs text-[var(--accent-rose)] mt-2 flex items-start gap-1.5">
               <AlertCircle size={14} className="shrink-0 mt-0.5" aria-hidden="true" />
-              {nextAction.blockedReason}
+              {nextActionBlockedReason}
             </p>
           ) : null}
 

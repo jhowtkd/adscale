@@ -16,12 +16,21 @@ export interface BrandKitData {
   requiredElements?: string;
 }
 
+export interface BrandKitAvailableWorkspace {
+  id: string;
+  name: string;
+}
+
 export class BrandKitAmbiguityError extends Error {
+  readonly availableWorkspaces: BrandKitAvailableWorkspace[];
+
   constructor(
-    message = "Multiple client profiles exist; clientProfileId is required for brand kit operations"
+    message = "Multiple client profiles exist; clientProfileId is required for brand kit operations",
+    availableWorkspaces: BrandKitAvailableWorkspace[] = []
   ) {
     super(message);
     this.name = "BrandKitAmbiguityError";
+    this.availableWorkspaces = availableWorkspaces;
   }
 }
 
@@ -37,6 +46,15 @@ async function listWorkspaceProfiles(workspaceId: string) {
     .select()
     .from(clientProfiles)
     .where(eq(clientProfiles.workspaceId, workspaceId));
+}
+
+function toAvailableWorkspaces(
+  profiles: Awaited<ReturnType<typeof listWorkspaceProfiles>>
+): BrandKitAvailableWorkspace[] {
+  return profiles.map((profile) => ({
+    id: profile.id,
+    name: profile.name,
+  }));
 }
 
 export async function resolveBrandKitProfileId(
@@ -67,7 +85,10 @@ export async function resolveBrandKitProfileId(
   if (profiles.length === 0) {
     throw new BrandKitProfileNotFoundError("No client profile exists for this workspace");
   }
-  throw new BrandKitAmbiguityError();
+  throw new BrandKitAmbiguityError(
+    undefined,
+    toAvailableWorkspaces(profiles)
+  );
 }
 
 async function getBrandKitByProfileId(workspaceId: string, profileId: string) {
@@ -125,7 +146,10 @@ export async function upsertBrandKit(
   } else if (profiles.length === 1) {
     profileId = profiles[0].id;
   } else if (profiles.length > 1) {
-    throw new BrandKitAmbiguityError();
+    throw new BrandKitAmbiguityError(
+      undefined,
+      toAvailableWorkspaces(profiles)
+    );
   }
 
   const now = new Date();

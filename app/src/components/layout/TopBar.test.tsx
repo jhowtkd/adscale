@@ -225,6 +225,36 @@ describe("TopBar notifications", () => {
       expect(screen.getByText("Derivação pronta")).toBeInTheDocument();
     });
   });
+
+  it("collapses 39 identical derivation_completed notifications into a single consolidated row", async () => {
+    const now = Date.now();
+    const many = Array.from({ length: 39 }, (_, i) => ({
+      id: `notif-${i}`,
+      userId: "user-1",
+      workspaceId: "ws-1",
+      type: "derivation_completed",
+      title: "Derivação pronta",
+      message: 'Uma derivação da campanha "Cenbrap em Dobro - Teste" foi gerada com sucesso.',
+      derivationId: `deriv-${i}`,
+      campaignId: "camp-1",
+      readAt: null,
+      createdAt: new Date(now - i * 1000),
+      updatedAt: new Date(now - i * 1000),
+    }));
+    mockUseNotifications.mockReturnValue({ data: many } as ReturnType<typeof useNotifications>);
+
+    render(<TopBar />, { wrapper: createWrapper() });
+
+    const bell = screen.getByRole("button", { name: /notifications/i });
+    fireEvent.click(bell);
+
+    await waitFor(() => {
+      // The title "Derivação pronta" appears exactly once (one consolidated row)
+      expect(screen.getAllByText("Derivação pronta")).toHaveLength(1);
+    });
+    // The full list of 39 items is reflected in the header count
+    expect(screen.getByText(/39/)).toBeInTheDocument();
+  });
 });
 
 const ptTitleDict = {

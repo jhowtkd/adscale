@@ -1,15 +1,18 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { getTranslations } from "next-intl/server";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import {
   BrandKitAmbiguityError,
+  BrandKitAvailableWorkspace,
   BrandKitProfileNotFoundError,
   getBrandKit,
   getBrandKitByWorkspace,
   upsertBrandKit,
   deleteBrandKit,
 } from "@/server/db/repositories/brand-kit";
+import { getClientProfiles } from "@/server/repositories/client-reference";
 import { deleteObject } from "@/server/storage/r2";
 import { getPublicUrl } from "@/server/storage/r2";
 import { isWorkspaceAssetKey } from "@/server/repositories/asset";
@@ -33,16 +36,48 @@ function readClientProfileId(request: Request) {
   return new URL(request.url).searchParams.get("clientProfileId");
 }
 
-function handleBrandKitError(error: unknown) {
+/**
+ * Emits the descriptive 409 shape the frontend uses to render a workspace
+ * selector. The response keeps the legacy `error`/`code`/`details` envelope
+ * (so older clients still work) but adds a structured `details.availableWorkspaces`
+ * array and a stable `code: "workspace_ambiguous"`.
+ */
+async function ambiguousWorkspaceResponse(
+  availableWorkspaces: BrandKitAvailableWorkspace[]
+) {
+  const t = await getTranslations("errors");
+  const message = t("brandKitAmbiguous");
+  return NextResponse.json(
+    {
+      error: message,
+      code: "workspace_ambiguous",
+      message,
+      details: { availableWorkspaces },
+    },
+    { status: 409 }
+  );
+}
+
+async function clientProfileNotFoundResponse() {
+  const t = await getTranslations("errors");
+  const message = t("clientProfileNotFound");
+  return NextResponse.json(
+    {
+      error: message,
+      code: "client_profile_not_found",
+      message,
+      details: {},
+    },
+    { status: 404 }
+  );
+}
+
+async function handleBrandKitError(error: unknown) {
   if (error instanceof BrandKitAmbiguityError) {
-    return apiError("brandKitAmbiguous", 409, {
-      detail: error.message,
-    });
+    return ambiguousWorkspaceResponse(error.availableWorkspaces ?? []);
   }
   if (error instanceof BrandKitProfileNotFoundError) {
-    return apiError("clientProfileNotFound", 404, {
-      detail: error.message,
-    });
+    return clientProfileNotFoundResponse();
   }
   return null;
 }
@@ -56,13 +91,14 @@ export async function GET(request: Request) {
       : await getBrandKitByWorkspace(workspace.id);
 
     if (!brandKit && !clientProfileId) {
-      const profiles = await import("@/server/repositories/client-reference").then((mod) =>
-        mod.getClientProfiles(workspace.id)
-      );
+      const profiles = await getClientProfiles(workspace.id);
       if (profiles.length > 1) {
-        return apiError("brandKitAmbiguous", 409, {
-          detail: "Multiple client profiles exist; clientProfileId is required",
-        });
+        return ambiguousWorkspaceResponse(
+          profiles.map((profile) => ({
+            id: profile.id,
+            name: profile.name,
+          }))
+        );
       }
     }
 
@@ -71,7 +107,7 @@ export async function GET(request: Request) {
       logoUrl: brandKit?.logoAssetKey ? getPublicUrl(brandKit.logoAssetKey) : null,
     });
   } catch (error) {
-    const brandKitError = handleBrandKitError(error);
+    const brandKitError = await handleBrandKitError(error);
     if (brandKitError) return brandKitError;
     return handleApiError(error, "workspace.brand-kit.GET");
   }
@@ -103,7 +139,7 @@ export async function POST(request: Request) {
       logoUrl: brandKit.logoAssetKey ? getPublicUrl(brandKit.logoAssetKey) : null,
     });
   } catch (error) {
-    const brandKitError = handleBrandKitError(error);
+    const brandKitError = await handleBrandKitError(error);
     if (brandKitError) return brandKitError;
     return handleApiError(error, "workspace.brand-kit.POST");
   }
@@ -119,13 +155,14 @@ export async function DELETE(request: Request) {
       : await getBrandKitByWorkspace(workspace.id);
 
     if (!existing && !clientProfileId) {
-      const profiles = await import("@/server/repositories/client-reference").then((mod) =>
-        mod.getClientProfiles(workspace.id)
-      );
+      const profiles = await getClientProfiles(workspace.id);
       if (profiles.length > 1) {
-        return apiError("brandKitAmbiguous", 409, {
-          detail: "Multiple client profiles exist; clientProfileId is required",
-        });
+        return ambiguousWorkspaceResponse(
+          profiles.map((profile) => ({
+            id: profile.id,
+            name: profile.name,
+          }))
+        );
       }
     }
 
@@ -143,7 +180,7 @@ export async function DELETE(request: Request) {
       logoUrl: null,
     });
   } catch (error) {
-    const brandKitError = handleBrandKitError(error);
+    const brandKitError = await handleBrandKitError(error);
     if (brandKitError) return brandKitError;
     return handleApiError(error, "workspace.brand-kit.DELETE");
   }

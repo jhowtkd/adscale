@@ -16,6 +16,15 @@ vi.mock("next-intl", () => ({
       return labels[key] ?? key;
     }
 
+    if (namespace === "dashboard.progression") {
+      const progressionLabels: Record<string, string> = {
+        "levels.analista_criativo.label": "Analista Criativo",
+        "levels.analista_criativo.shortLabel": "Analista",
+        "levels.analista_criativo.description": "Voce ja aprovou um criativo real.",
+      };
+      return progressionLabels[key] ?? key;
+    }
+
     if (key === "progressAria") return `Progresso ${values?.percent}%`;
     if (key === "progressCount") return `${values?.completed}/${values?.total}`;
     if (key.startsWith("items.")) {
@@ -38,6 +47,7 @@ vi.mock("next-intl", () => ({
       allCompleteDescription: "Voce dominou o fluxo.",
       skipMission: "Pular por agora",
       "blockedResume.default": "Desbloquear",
+      "blockedReasons.readiness": "Envie um criativo base antes.",
     };
     if (key.startsWith("blockedResume.")) {
       return labels[key] ?? labels["blockedResume.default"];

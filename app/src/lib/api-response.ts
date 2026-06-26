@@ -10,19 +10,36 @@ export async function apiError(
   details?: unknown
 ) {
   const t = await getTranslations("errors");
-  const message = (() => {
-    try {
-      const translate = t as unknown as (key: string) => string;
-      return translate(code);
-    } catch {
-      return t("generic");
-    }
-  })();
+  const message = resolveErrorMessage(t, code);
 
   return NextResponse.json(
     { error: message, code, details },
     { status }
   );
+}
+
+/**
+ * Resolves an i18n error message for `code`, falling back to `errors.generic`
+ * (then `errors.unknown`) when the key is missing so a raw `errors.<code>` path
+ * never leaks to clients. `next-intl` returns the requested key path verbatim
+ * when the key is absent, so we detect that and substitute a safe default.
+ */
+function resolveErrorMessage(
+  t: Awaited<ReturnType<typeof getTranslations<"errors">>>,
+  code: string
+): string {
+  const translate = t as unknown as (key: string) => string;
+  const tryKey = (key: string): string | null => {
+    try {
+      const value = translate(key);
+      if (!value || value === key || value === `errors.${key}`) return null;
+      return value;
+    } catch {
+      return null;
+    }
+  };
+
+  return tryKey(code) ?? tryKey("generic") ?? tryKey("unknown") ?? "Unknown error";
 }
 
 export function apiSuccess<T>(data: T, status = 200) {

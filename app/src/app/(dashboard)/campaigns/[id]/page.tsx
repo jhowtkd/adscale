@@ -644,6 +644,7 @@ function CampaignWorkspaceHeader({
   assistantDisabled,
   assistantDisabledTooltip,
 }: CampaignWorkspaceHeaderProps) {
+  const tCampaign = useTranslations("campaign");
   return (
     <PageHeader
       className="mb-2"
@@ -662,7 +663,7 @@ function CampaignWorkspaceHeader({
             className="inline-block size-1.5 rounded-full bg-[var(--success-dot)]"
             aria-hidden="true"
           />
-          Piloto
+          {tCampaign("pilotSidebar.pilotBadge")}
         </Badge>
       }
       actions={
@@ -826,6 +827,7 @@ function CampaignWorkspaceCard({
   onReadinessOverride,
 }: CampaignWorkspaceCardProps) {
   const tApproval = useTranslations("clientApprovalPackage");
+  const tCampaign = useTranslations("campaign");
 
   return (
     <Panel
@@ -870,7 +872,7 @@ function CampaignWorkspaceCard({
         <div className="flex flex-col gap-6 p-4 sm:p-6 lg:flex-row">
           <details className="group lg:hidden rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)]">
             <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-[var(--text-primary)] [&::-webkit-details-marker]:hidden">
-              Briefing e readiness
+              {tCampaign("pilotSidebar.briefingReadinessSummary")}
             </summary>
             <div className="border-t border-[var(--border-dim)] p-4">
               <PilotSidebar
@@ -927,7 +929,7 @@ function CampaignWorkspaceCard({
               <ClientApprovalPackagePanel campaignId={campaignId} />
             </PageSection>
             <div id="mission-review">
-            <PageSection id="mission-export" title="Derivações">
+            <PageSection id="mission-export" title={tCampaign("derivationsSectionTitle")}>
               {isDerivationsError && derivationsErrorKind ? (
                 <div className="mb-3">
                   <DerivationLoadErrorBanner
@@ -939,7 +941,7 @@ function CampaignWorkspaceCard({
               {workspaceState === "gerando" && (
                 <p className="text-xs text-[var(--text-secondary)] mb-3 flex items-center gap-2">
                   <span className="inline-block size-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                  Gerando derivações…
+                  {tCampaign("generatingDerivations")}
                 </p>
               )}
               <DerivationGrid
@@ -1068,6 +1070,7 @@ function CampaignWorkspaceModals({
   derivePanelSession,
   recipePrefill,
 }: CampaignWorkspaceModalsProps) {
+  const tCampaign = useTranslations("campaign");
   return (
     <>
       {selectedDeliverySource && (
@@ -1124,9 +1127,9 @@ function CampaignWorkspaceModals({
       <ConfirmDialog
         open={visibility.delete}
         onOpenChange={onDeleteDialogOpenChange}
-        title="Excluir campanha"
-        description="Tem certeza que deseja excluir esta campanha? Esta ação não pode ser desfeita."
-        confirmLabel="Excluir"
+        title={tCampaign("deleteDialog.title")}
+        description={tCampaign("deleteDialog.description")}
+        confirmLabel={tCampaign("deleteDialog.confirmLabel")}
         variant="destructive"
         onConfirm={onConfirmDelete}
       />

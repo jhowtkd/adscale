@@ -12,6 +12,12 @@ import {
   useMarkNotificationAsRead,
   type NotificationItem,
 } from "@/lib/hooks/use-notifications";
+import {
+  consolidateNotifications,
+  type ConsolidatedNotification,
+  type NotificationLike,
+} from "@/lib/notifications/grouping";
+import { isDemoUser, type UserLike } from "@/lib/demo-gating";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -114,6 +120,8 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
   const tCampaign = useTranslations("campaign");
   const tSettings = useTranslations("settings");
   const tAssistant = useTranslations("assistant.mode");
+  const tNotificationPanel = useTranslations("notificationPanel");
+  const tDemoMode = useTranslations("demoMode");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const bellRef = useRef<HTMLButtonElement | null>(null);
   const { data: session } = authClient.useSession();
@@ -150,6 +158,10 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
   const unreadCount = notificationItems.filter((n) => !n.readAt).length;
   const isDashboard = pathname === "/";
   const isChatMode = pathname.startsWith("/assistant");
+  const sessionUserForDemo: UserLike | null = sessionUser
+    ? { id: sessionUser.id, email: sessionUser.email, name: sessionUser.name }
+    : null;
+  const isDemoUserFlag = isDemoUser(sessionUserForDemo);
 
   const headerTitle = useMemo(
     () =>
@@ -297,6 +309,7 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
                   onMarkAllAsRead={() => markAllAsRead.mutate()}
                   bellRef={bellRef}
                   tCommon={tCommon}
+                  tNotificationPanel={tNotificationPanel}
                 />
               )}
             </AnimatePresence>
@@ -326,6 +339,16 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
                 {sessionUser?.email || user.email}
               </span>
             </div>
+            {isDemoUserFlag && (
+              <div className="px-2 pb-2">
+                <span
+                  aria-label={tDemoMode("badgeAriaLabel")}
+                  className="inline-flex items-center rounded-full bg-[var(--accent-green-dim)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--accent-green-text)]"
+                >
+                  {tDemoMode("badge")}
+                </span>
+              </div>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => goToSettings("profile")} className="cursor-pointer p-2">
               <User size={16} />
@@ -347,6 +370,19 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
               <Shield size={16} />
               {tSettings("integrationsTab")}
             </DropdownMenuItem>
+            {isDemoUserFlag && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  disabled
+                  className="cursor-not-allowed p-2 opacity-70"
+                  title={tDemoMode("restore.stub")}
+                >
+                  <FolderOpen size={16} />
+                  {tDemoMode("restore.label")}
+                </DropdownMenuItem>
+              </>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               variant="destructive"
@@ -381,9 +417,10 @@ interface NotificationPanelProps {
   onMarkAllAsRead: () => void;
   bellRef: React.RefObject<HTMLButtonElement | null>;
   tCommon: (key: string) => string;
+  tNotificationPanel: (key: string, vars?: Record<string, string | number | Date>) => string;
 }
 
-function NotificationPanel({ items, onClose, onClear, onMarkAsRead, onMarkAllAsRead, bellRef, tCommon }: NotificationPanelProps) {
+function NotificationPanel({ items, onClose, onClear, onMarkAsRead, onMarkAllAsRead, bellRef, tCommon, tNotificationPanel }: NotificationPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const closePanel = useEffectEvent(onClose);
@@ -496,59 +533,90 @@ function NotificationPanel({ items, onClose, onClear, onMarkAsRead, onMarkAllAsR
             {tCommon("noNotifications")}
           </div>
         ) : (
-          groupNotificationsByDate(items, tCommon).map((group) => (
+          groupNotificationsByDate(items, tCommon).map((group) => {
+            const consolidated = consolidateNotifications(
+              group.items as NotificationLike[]
+            );
+            return (
             <div key={group.label}>
               <div className="sticky top-0 bg-[var(--surface-raised)] px-4 py-1.5 text-xs font-medium text-[var(--text-muted)] border-b border-[var(--border-dim)]">
                 {group.label}
               </div>
-              {group.items.map((item) => {
-            const href = item.campaignId
-              ? `/campaigns/${item.campaignId}${item.derivationId ? `?derivation=${item.derivationId}` : ""}`
-              : "#";
-            const Icon = item.type === "derivation_failed" ? AlertCircle : CheckCircle2;
-            const iconColor = item.type === "derivation_failed"
-              ? "text-[var(--accent-rose)] bg-[var(--accent-rose-dim)]"
-              : item.readAt
-                ? "bg-[var(--surface-raised)] text-[var(--text-muted)]"
-                : "bg-[var(--accent-green-dim)] text-[var(--accent-green-text)]";
+              {consolidated.map((batch) => {
+                const latest = batch.latest;
+                const href = batch.campaignId
+                  ? `/campaigns/${batch.campaignId}${latest.derivationId ? `?derivation=${latest.derivationId}` : ""}`
+                  : "#";
+                const Icon = batch.type === "derivation_failed" ? AlertCircle : CheckCircle2;
+                const iconColor = batch.type === "derivation_failed"
+                  ? "text-[var(--accent-rose)] bg-[var(--accent-rose-dim)]"
+                  : batch.allRead
+                    ? "bg-[var(--surface-raised)] text-[var(--text-muted)]"
+                    : "bg-[var(--accent-green-dim)] text-[var(--accent-green-text)]";
+                const campaignName = campaignNameFromBatch(batch);
 
-            return (
-              <Link
-                key={item.id}
-                href={href}
-                onClick={() => {
-                  if (!item.readAt) onMarkAsRead(item.id);
-                }}
-                className={cn(
-                  "flex gap-3 border-b border-[var(--border-dim)] px-4 py-3 last:border-b-0 transition-colors",
-                  item.readAt ? "opacity-60" : "hover:bg-[var(--surface-base)]"
-                )}
-              >
-                <div className={cn(
-                  "mt-0.5 flex size-8 items-center justify-center rounded-full shrink-0",
-                  iconColor
-                )}>
-                  <Icon size={14} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-[var(--text-primary)]">{item.title}</p>
-                  <p className="text-sm text-[var(--text-secondary)]">{item.message}</p>
-                  <p className="mt-1 text-xs text-[var(--text-muted)]">
-                    {formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}
-                  </p>
-                </div>
-                {!item.readAt && (
-                  <span className="mt-2 size-2 shrink-0 rounded-full bg-[var(--accent-green)]" />
-                )}
-              </Link>
-            );
-          })}
+                let summary: string;
+                if (batch.count === 1) {
+                  summary = latest.message;
+                } else if (campaignName) {
+                  summary = tNotificationPanel("groupSummary.many", { count: batch.count, campaign: campaignName });
+                } else {
+                  summary = tNotificationPanel("groupSummary.manyNoCampaign", { count: batch.count });
+                }
+
+                return (
+                  <Link
+                    key={batch.key}
+                    href={href}
+                    onClick={() => {
+                      for (const n of batch.notifications) {
+                        if (!n.readAt) onMarkAsRead(n.id);
+                      }
+                    }}
+                    className={cn(
+                      "flex gap-3 border-b border-[var(--border-dim)] px-4 py-3 last:border-b-0 transition-colors",
+                      batch.allRead ? "opacity-60" : "hover:bg-[var(--surface-base)]"
+                    )}
+                  >
+                    <div className={cn(
+                      "mt-0.5 flex size-8 items-center justify-center rounded-full shrink-0",
+                      iconColor
+                    )}>
+                      <Icon size={14} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-[var(--text-primary)]">{batch.title}</p>
+                      <p className="text-sm text-[var(--text-secondary)]">{summary}</p>
+                      <p className="mt-1 text-xs text-[var(--text-muted)]">
+                        {formatDistanceToNow(new Date(latest.createdAt), { addSuffix: true })}
+                        {batch.unreadCount > 0 && batch.count > 1 && (
+                          <span className="ml-2">
+                            {tNotificationPanel("groupSummary.unreadBadge", { count: batch.unreadCount })}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    {!batch.allRead && (
+                      <span className="mt-2 size-2 shrink-0 rounded-full bg-[var(--accent-green)]" />
+                    )}
+                  </Link>
+                );
+              })}
             </div>
-          ))
+            );
+          })
         )}
       </div>
     </m.div>
   );
+}
+
+function campaignNameFromBatch(batch: ConsolidatedNotification): string | null {
+  // Notification messages produced by `app/src/server/jobs/derivation.ts` wrap
+  // the campaign name in double quotes. Extract the first quoted segment.
+  const message = batch.latest.message ?? "";
+  const match = message.match(/"([^"]+)"/);
+  return match ? match[1] : null;
 }
 
 function groupNotificationsByDate(

@@ -16,6 +16,11 @@ export const EVIDENCE_ORDER: ProgressionEvidenceKey[] = [
 
 export interface LevelDefinition {
   key: ProgressionLevelKey;
+  /**
+   * Structural label kept for backward compatibility with the API response shape.
+   * Human-readable copy is resolved on the client via
+   * `dashboard.progression.levels.<key>.{label,shortLabel,description}`.
+   */
   label: string;
   shortLabel: string;
   description: string;
@@ -25,30 +30,30 @@ export interface LevelDefinition {
 export const LEVEL_DEFINITIONS: LevelDefinition[] = [
   {
     key: "aprendiz",
-    label: "Aprendiz de Laboratorio",
-    shortLabel: "Aprendiz",
-    description: "Monte seu laboratorio e faca seu primeiro experimento criativo.",
+    label: "",
+    shortLabel: "",
+    description: "",
     requiredEvidence: [],
   },
   {
     key: "analista_criativo",
-    label: "Analista Criativo",
-    shortLabel: "Analista",
-    description: "Voce ja aprovou um criativo real e entende o fluxo basico.",
+    label: "",
+    shortLabel: "",
+    description: "",
     requiredEvidence: ["creative_approved"],
   },
   {
     key: "estrategista_ads",
-    label: "Estrategista de Ads",
-    shortLabel: "Estrategista",
-    description: "Gera, aprova e exporta variacoes com consistencia estrategica.",
+    label: "",
+    shortLabel: "",
+    description: "",
     requiredEvidence: ["creative_approved", "derivation_generated", "creative_exported"],
   },
   {
     key: "cientista_ads",
-    label: "Cientista de Ads",
-    shortLabel: "Cientista",
-    description: "Domina o ciclo completo: briefing, geracao, aprovacao, export e compartilhamento.",
+    label: "",
+    shortLabel: "",
+    description: "",
     requiredEvidence: [
       "campaign_created",
       "base_creative_uploaded",
@@ -63,6 +68,11 @@ export const LEVEL_DEFINITIONS: LevelDefinition[] = [
 
 export interface EvidenceDefinition {
   key: ProgressionEvidenceKey;
+  /**
+   * Structural label kept for backward compatibility with the API response shape.
+   * Human-readable copy is resolved on the client via
+   * `dashboard.progression.evidence.<key>.{label,description}`.
+   */
   label: string;
   description: string;
   defaultHref: string;
@@ -73,57 +83,57 @@ export interface EvidenceDefinition {
 export const EVIDENCE_DEFINITIONS: Record<ProgressionEvidenceKey, EvidenceDefinition> = {
   campaign_created: {
     key: "campaign_created",
-    label: "Primeira campanha",
-    description: "Crie sua primeira campanha para iniciar um experimento.",
+    label: "",
+    description: "",
     defaultHref: "/campaigns/new",
   },
   base_creative_uploaded: {
     key: "base_creative_uploaded",
-    label: "Criativo base enviado",
-    description: "Envie o criativo base que servira de referencia para variacoes.",
+    label: "",
+    description: "",
     defaultHref: "/campaigns/new",
     prerequisite: "campaign_created",
-    blockedReason: "Crie uma campanha antes de enviar o criativo base.",
+    blockedReason: "",
   },
   readiness_ran: {
     key: "readiness_ran",
-    label: "Analise de prontidao",
-    description: "Rode a analise de prontidao para entender o potencial do criativo.",
+    label: "",
+    description: "",
     defaultHref: "/campaigns/new",
     prerequisite: "base_creative_uploaded",
-    blockedReason: "Envie um criativo base antes de rodar a analise de prontidao.",
+    blockedReason: "",
   },
   derivation_generated: {
     key: "derivation_generated",
-    label: "Variacoes geradas",
-    description: "Gere suas primeiras variacoes a partir do criativo base.",
+    label: "",
+    description: "",
     defaultHref: "/campaigns/new",
     prerequisite: "readiness_ran",
-    blockedReason: "Complete a analise de prontidao antes de gerar variacoes.",
+    blockedReason: "",
   },
   creative_approved: {
     key: "creative_approved",
-    label: "Criativo aprovado",
-    description: "Aprove pelo menos uma variacao para validar o experimento.",
+    label: "",
+    description: "",
     defaultHref: "/campaigns/new",
     prerequisite: "derivation_generated",
-    blockedReason: "Gere variacoes antes de aprovar um criativo.",
+    blockedReason: "",
   },
   creative_exported: {
     key: "creative_exported",
-    label: "Criativo exportado",
-    description: "Exporte um criativo aprovado para uso nas plataformas.",
+    label: "",
+    description: "",
     defaultHref: "/campaigns/new",
     prerequisite: "creative_approved",
-    blockedReason: "Aprove um criativo antes de exportar.",
+    blockedReason: "",
   },
   share_created: {
     key: "share_created",
-    label: "Link de compartilhamento",
-    description: "Compartilhe resultados com cliente ou equipe.",
+    label: "",
+    description: "",
     defaultHref: "/campaigns/new",
     prerequisite: "creative_approved",
-    blockedReason: "Aprove um criativo antes de compartilhar.",
+    blockedReason: "",
   },
 };
 
@@ -188,7 +198,7 @@ export function buildNextAction(
   return {
     key: "share_created",
     label: last.label,
-    description: "Voce completou todos os experimentos disponiveis. Continue refinando campanhas.",
+    description: "",
     href: hrefOverrides.share_created ?? last.defaultHref,
     blocked: false,
   };

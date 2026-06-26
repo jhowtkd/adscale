@@ -33,11 +33,75 @@ export interface ExtractedBrandKit {
   requiredElements: string;
 }
 
-async function fetchBrandKit(): Promise<BrandKitWithUrl | null> {
-  const res = await apiFetch("/api/workspace/brand-kit");
+export interface AvailableWorkspace {
+  id: string;
+  name: string;
+}
+
+/**
+ * Thrown when the brand-kit endpoint returns a 409 because the workspace has
+ * more than one client profile and no `clientProfileId` was supplied. Carries
+ * the list of profiles so the UI can render a selector.
+ */
+export class BrandKitAmbiguousError extends Error {
+  readonly availableWorkspaces: AvailableWorkspace[];
+  constructor(message: string, availableWorkspaces: AvailableWorkspace[]) {
+    super(message);
+    this.name = "BrandKitAmbiguousError";
+    this.availableWorkspaces = availableWorkspaces;
+  }
+}
+
+/**
+ * Thrown when the brand-kit endpoint returns a 404 because the supplied
+ * `clientProfileId` does not resolve to a real client profile.
+ */
+export class BrandKitProfileNotFoundError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "BrandKitProfileNotFoundError";
+  }
+}
+
+async function readBrandKitError(res: Response): Promise<{ message: string; body: Record<string, unknown> }> {
+  const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  const message =
+    (typeof body.error === "string" && body.error) ||
+    (typeof body.message === "string" && body.message) ||
+    "Failed to load brand kit";
+  return { message, body };
+}
+
+function extractAvailableWorkspaces(body: Record<string, unknown>): AvailableWorkspace[] {
+  const details = body.details as { availableWorkspaces?: unknown } | undefined;
+  const raw = details?.availableWorkspaces;
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter(
+      (entry): entry is AvailableWorkspace =>
+        typeof entry === "object" &&
+        entry !== null &&
+        typeof (entry as AvailableWorkspace).id === "string" &&
+        typeof (entry as AvailableWorkspace).name === "string"
+    )
+    .map((entry) => ({ id: entry.id, name: entry.name }));
+}
+
+async function fetchBrandKit(clientProfileId?: string): Promise<BrandKitWithUrl | null> {
+  const url = clientProfileId
+    ? `/api/workspace/brand-kit?clientProfileId=${encodeURIComponent(clientProfileId)}`
+    : "/api/workspace/brand-kit";
+  const res = await apiFetch(url);
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to load brand kit");
+    const { message, body } = await readBrandKitError(res);
+    const code = typeof body.code === "string" ? body.code : "";
+    if (res.status === 409 || code === "workspace_ambiguous") {
+      throw new BrandKitAmbiguousError(message, extractAvailableWorkspaces(body));
+    }
+    if (res.status === 404 || code === "client_profile_not_found") {
+      throw new BrandKitProfileNotFoundError(message);
+    }
+    throw new Error(message);
   }
   const data = await res.json();
   if (!data.brandKit) return null;
@@ -150,10 +214,10 @@ async function clearBrandKit(): Promise<BrandKitWithUrl | null> {
   };
 }
 
-export function useBrandKit() {
+export function useBrandKit(clientProfileId?: string) {
   return useQuery({
-    queryKey: ["brand-kit"],
-    queryFn: fetchBrandKit,
+    queryKey: ["brand-kit", clientProfileId ?? null],
+    queryFn: () => fetchBrandKit(clientProfileId),
     staleTime: STALE_TIME.STATIC,
   });
 }

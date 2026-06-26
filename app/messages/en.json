@@ -258,7 +258,68 @@
       "blockedCta": "Complete the previous step",
       "error": "We couldn't load your progression right now.",
       "retry": "Try again",
-      "updating": "Updating progression"
+      "updating": "Updating progression",
+      "levels": {
+        "aprendiz": {
+          "label": "Lab Apprentice",
+          "shortLabel": "Apprentice",
+          "description": "Set up your lab and run your first creative experiment."
+        },
+        "analista_criativo": {
+          "label": "Creative Analyst",
+          "shortLabel": "Analyst",
+          "description": "You've approved a real creative and understand the basic flow."
+        },
+        "estrategista_ads": {
+          "label": "Ads Strategist",
+          "shortLabel": "Strategist",
+          "description": "Generate, approve, and export variations with strategic consistency."
+        },
+        "cientista_ads": {
+          "label": "Ads Scientist",
+          "shortLabel": "Scientist",
+          "description": "Master the full cycle: briefing, generation, approval, export, and sharing."
+        }
+      },
+      "evidence": {
+        "campaign_created": {
+          "label": "First campaign",
+          "description": "Create your first campaign to start an experiment."
+        },
+        "base_creative_uploaded": {
+          "label": "Base creative uploaded",
+          "description": "Upload the base creative that variations will build from."
+        },
+        "readiness_ran": {
+          "label": "Readiness analysis",
+          "description": "Run the readiness analysis to understand the creative's potential."
+        },
+        "derivation_generated": {
+          "label": "Variations generated",
+          "description": "Generate your first variations from the base creative."
+        },
+        "creative_approved": {
+          "label": "Creative approved",
+          "description": "Approve at least one variation to validate the experiment."
+        },
+        "creative_exported": {
+          "label": "Creative exported",
+          "description": "Export an approved creative for use on platforms."
+        },
+        "share_created": {
+          "label": "Share link",
+          "description": "Share results with client or team."
+        }
+      },
+      "nextActionAllComplete": "You've completed every available experiment. Keep refining campaigns.",
+      "blockedReasons": {
+        "base_creative_uploaded": "Create a campaign before uploading the base creative.",
+        "readiness_ran": "Upload a base creative before running the readiness analysis.",
+        "derivation_generated": "Complete the readiness analysis before generating variations.",
+        "creative_approved": "Generate variations before approving a creative.",
+        "creative_exported": "Approve a creative before exporting.",
+        "share_created": "Approve a creative before sharing."
+      }
     },
     "missions": {
       "title": "Mission Path",
@@ -281,6 +342,18 @@
         "regeneration": "Regenerate",
         "export": "Export",
         "share": "Share package"
+      },
+      "blockedReasons": {
+        "upload": "Create a campaign before uploading the base creative.",
+        "readiness": "Upload a base creative before running the readiness analysis.",
+        "guided_briefing": "Complete the readiness analysis before structuring the briefing.",
+        "strategy_recipe": "Complete the guided briefing before choosing the strategy recipe.",
+        "preview": "Pick a strategy recipe before generating the preview.",
+        "batch": "Generate a preview before running the full batch.",
+        "review": "Generate a batch of variations before reviewing creatives.",
+        "regeneration": "Review at least one creative before regenerating with feedback.",
+        "export": "Approve a creative before exporting.",
+        "share": "Export a creative before sharing."
       },
       "expand": "View path",
       "collapse": "Hide path",
@@ -487,7 +560,38 @@
       "approved": "Approved",
       "rejected": "Rejected"
     },
-    "generateWithoutPlan": "Generate without Plan"
+    "generateWithoutPlan": "Generate without Plan",
+    "derivationsSectionTitle": "Derivations",
+    "generatingDerivations": "Generating derivations…",
+    "pilotSidebar": {
+      "pilotBadge": "Pilot",
+      "pilotImageAlt": "Pilot",
+      "clientProfileLabel": "Client profile",
+      "linkedBadge": "Linked",
+      "pendingBadge": "Pending",
+      "noProfileLinked": "No profile linked",
+      "createProfileFromClient": "Create profile from this client",
+      "saving": "Saving…",
+      "profileLinkHelp": "Required for learnings and quality review.",
+      "addClientNameHint": "Add the client name to the campaign to create a profile.",
+      "briefingSummaryLabel": "Briefing summary",
+      "briefingRowObjective": "Objective",
+      "briefingRowAudience": "Audience",
+      "briefingRowTone": "Tone",
+      "briefingRowPlatforms": "Platforms",
+      "briefingRowCta": "CTA",
+      "toastProfileLinked": "Client profile linked to the campaign.",
+      "toastProfileLinkFailed": "Could not link the profile.",
+      "toastProfileCreatedAndLinked": "Profile created and linked to the campaign.",
+      "toastProfileCreatedLinkFailed": "Profile created, but linking failed.",
+      "toastProfileCreateFailed": "Could not create the profile.",
+      "briefingReadinessSummary": "Briefing and readiness"
+    },
+    "deleteDialog": {
+      "title": "Delete campaign",
+      "description": "Are you sure you want to delete this campaign? This action cannot be undone.",
+      "confirmLabel": "Delete"
+    }
   },
   "generation": {
     "derivationMode": "Derivation Mode",
@@ -1320,7 +1424,15 @@
       "clearWarning": "This will remove all brand kit information. The profile will remain.",
       "clearButton": "Clear",
       "cleared": "Brand kit cleared",
-      "confirmClear": "Are you sure you want to clear all brand kit information? This action cannot be undone."
+      "confirmClear": "Are you sure you want to clear all brand kit information? This action cannot be undone.",
+      "workspaceSelector": {
+        "title": "Select a client profile",
+        "description": "Your account has more than one client profile. Select which profile to use in Brand Kit to continue.",
+        "placeholder": "Select a profile",
+        "confirm": "Use this profile",
+        "cancel": "Cancel",
+        "retryFailed": "Could not load the Brand Kit with the selected profile. Try again."
+      }
     }
   },
   "errors": {
@@ -1404,7 +1516,9 @@
     "duplicate_corpus_item": "This output is already in the quality corpus queue.",
     "corpusAddFailed": "Could not add to the quality corpus.",
     "corpusMissingContext": "Missing workspace or campaign context for corpus selection.",
-    "invalid_quality_snapshot": "This output has invalid learning metadata and cannot be added to the corpus."
+    "invalid_quality_snapshot": "This output has invalid learning metadata and cannot be added to the corpus.",
+    "clientProfileNotFound": "Client profile not found.",
+    "unknown": "Unknown error. Please try again."
   },
   "review": {
     "title": "Review",
@@ -1964,7 +2078,7 @@
     "trigger": "Send feedback",
     "triggerShort": "Feedback",
     "reportThis": "Report issue",
-    "title": "Beta feedback",
+    "title": "Feedback",
     "description": "Tell us what went wrong or what we should improve. Diagnostic context is attached automatically.",
     "type": "Type",
     "severity": "Severity",
@@ -2323,6 +2437,23 @@
         "subscription_required": "Subscribe to continue creating ads",
         "past_due_recovery": "Payment pending — update billing to restore access"
       }
+    }
+  },
+  "notificationPanel": {
+    "groupSummary": {
+      "one": "{count} new notification in \"{campaign}\"",
+      "many": "{count} new notifications in \"{campaign}\"",
+      "oneNoCampaign": "{count} new notification",
+      "manyNoCampaign": "{count} new notifications",
+      "unreadBadge": "{count} unread"
+    }
+  },
+  "demoMode": {
+    "badge": "Demo",
+    "badgeAriaLabel": "Demo account",
+    "restore": {
+      "label": "Restore demo data",
+      "stub": "Demo restore is not available yet — coming soon."
     }
   }
 }

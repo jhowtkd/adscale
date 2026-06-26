@@ -267,8 +267,8 @@ export function isMissionPrerequisiteMet(
 
 export function getMissionBlockedReason(key: MissionKey): string | undefined {
   const definition = MISSION_DEFINITIONS[key];
-  if (!definition.prerequisite || !definition.blockedReason) return undefined;
-  return definition.blockedReason;
+  if (!definition.prerequisite) return undefined;
+  return definition.blockedReason ?? "";
 }
 
 /** @internal exported for tests */

@@ -15,6 +15,9 @@ import {
   useExtractBrandKit,
   useUploadLogo,
   useClearBrandKit,
+  BrandKitAmbiguousError,
+  BrandKitProfileNotFoundError,
+  type AvailableWorkspace,
 } from "@/lib/hooks/use-brand-kit";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
@@ -150,11 +153,20 @@ export default function BrandKitTab() {
   const t = useTranslations("settings");
   const tc = useTranslations("common");
 
-  const { data: brandKit, isLoading, isError, error } = useBrandKit();
+  const [selectedProfileId, setSelectedProfileId] = useState<string | undefined>(undefined);
+  const [pendingProfileChoice, setPendingProfileChoice] = useState<string>("");
+  const { data: brandKit, isLoading, isError, error } = useBrandKit(selectedProfileId);
   const updateBrandKit = useUpdateBrandKit();
   const extractBrandKit = useExtractBrandKit();
   const uploadLogo = useUploadLogo();
   const clearBrandKit = useClearBrandKit();
+
+  const ambiguityError =
+    error instanceof BrandKitAmbiguousError ? error : null;
+  const profileNotFoundError =
+    error instanceof BrandKitProfileNotFoundError ? error : null;
+  const availableWorkspaces: AvailableWorkspace[] =
+    ambiguityError?.availableWorkspaces ?? [];
 
   const [state, updateState] = useReducer(brandKitReducer, initialBrandKitState);
   const {
@@ -403,13 +415,78 @@ export default function BrandKitTab() {
         </div>
       )}
 
-      {/* Error State */}
-      {isError && !isLoading && (
+      {/* Ambiguous Workspace — profile selector CTA */}
+      {ambiguityError && !isLoading && (
+        <m.div
+          variants={itemVariants}
+          className="rounded-lg border border-[var(--accent-green)]/40 bg-[var(--accent-green-dim)] px-4 py-4 space-y-3"
+          role="group"
+          aria-labelledby="brand-kit-workspace-selector-title"
+        >
+          <div>
+            <h4
+              id="brand-kit-workspace-selector-title"
+              className="text-sm font-semibold text-[var(--text-primary)]"
+            >
+              {t("brandKit.workspaceSelector.title")}
+            </h4>
+            <p className="text-xs text-[var(--text-secondary)] mt-1">
+              {t("brandKit.workspaceSelector.description")}
+            </p>
+          </div>
+          <select
+            value={pendingProfileChoice}
+            onChange={(e) => setPendingProfileChoice(e.target.value)}
+            aria-label={t("brandKit.workspaceSelector.placeholder")}
+            className={cn(
+              "w-full h-10 rounded-md border px-3 text-sm",
+              "bg-[var(--surface-base)] text-[var(--text-primary)]",
+              "focus:outline-none focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)0.15)]",
+              "transition-all duration-200 border-[var(--border-dim)]"
+            )}
+          >
+            <option value="">{t("brandKit.workspaceSelector.placeholder")}</option>
+            {availableWorkspaces.map((workspace) => (
+              <option key={workspace.id} value={workspace.id}>
+                {workspace.name}
+              </option>
+            ))}
+          </select>
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setPendingProfileChoice("");
+                setSelectedProfileId(undefined);
+              }}
+            >
+              {t("brandKit.workspaceSelector.cancel")}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              disabled={!pendingProfileChoice}
+              onClick={() => {
+                setSelectedProfileId(pendingProfileChoice);
+              }}
+            >
+              {t("brandKit.workspaceSelector.confirm")}
+            </Button>
+          </div>
+        </m.div>
+      )}
+
+      {/* Profile Not Found / Generic Error State */}
+      {isError && !isLoading && !ambiguityError && (
         <m.div
           variants={itemVariants}
           className="rounded-lg border border-[var(--accent-rose)]/30 bg-[var(--accent-rose)]/10 px-4 py-3 text-sm text-[var(--accent-rose)]"
         >
-          {error?.message || tc("error")}
+          {profileNotFoundError
+            ? t("brandKit.workspaceSelector.retryFailed")
+            : error?.message || tc("error")}
         </m.div>
       )}
 
@@ -762,8 +839,8 @@ export default function BrandKitTab() {
       <ConfirmDialog
         open={showClearDialog}
         onOpenChange={(open) => updateState({ showClearDialog: open })}
-        title={t("brandKit.clearTitle") || "Limpar Brand Kit"}
-        description={t("brandKit.confirmClear") || "Tem certeza que deseja limpar o Brand Kit? Esta ação não pode ser desfeita."}
+        title={t("brandKit.clearTitle")}
+        description={t("brandKit.confirmClear")}
         confirmLabel={t("brandKit.clearButton")}
         variant="destructive"
         onConfirm={() => {

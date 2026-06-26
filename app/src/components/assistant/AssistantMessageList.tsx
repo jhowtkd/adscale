@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { stripThinkBlocks } from "@/server/assistant/model/reasoning-sanitizer";
+import { renderMarkdownLite } from "./markdown-lite";
 import AssistantActionCard from "./AssistantActionCard";
 
 export interface AssistantDisplayMessage {
@@ -63,7 +64,7 @@ function MessageBubble({
       )}
       data-testid={`assistant-message-${message.type}`}
     >
-      {displayContent}
+      {isUser ? displayContent : renderMarkdownLite(displayContent)}
     </div>
   );
 }
@@ -101,7 +102,7 @@ export default function AssistantMessageList({
           className="max-w-[85%] rounded-lg bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-primary)] whitespace-pre-wrap"
           data-testid="assistant-streaming-bubble"
         >
-          {sanitizedStreamingText}
+          {renderMarkdownLite(sanitizedStreamingText)}
         </div>
       ) : null}
     </div>

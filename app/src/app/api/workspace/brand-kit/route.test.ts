@@ -17,6 +17,14 @@ vi.mock("@/server/repositories/client-reference", () => ({
 vi.mock("@/server/db/repositories/brand-kit", () => ({
   BrandKitAmbiguityError: class BrandKitAmbiguityError extends Error {
     name = "BrandKitAmbiguityError";
+    availableWorkspaces: { id: string; name: string }[] = [];
+    constructor(
+      message = "Multiple client profiles exist",
+      availableWorkspaces: { id: string; name: string }[] = []
+    ) {
+      super(message);
+      this.availableWorkspaces = availableWorkspaces;
+    }
   },
   BrandKitProfileNotFoundError: class BrandKitProfileNotFoundError extends Error {
     name = "BrandKitProfileNotFoundError";
@@ -78,7 +86,7 @@ describe("GET /api/workspace/brand-kit", () => {
     expect(mockGetBrandKit).toHaveBeenCalledWith("workspace-1", PROFILE_A);
   });
 
-  it("returns 409 when multiple profiles exist without clientProfileId", async () => {
+  it("returns 409 with availableWorkspaces when multiple profiles exist without clientProfileId", async () => {
     mockGetBrandKitByWorkspace.mockResolvedValue(null);
     mockGetClientProfiles.mockResolvedValue([
       { id: PROFILE_A, name: "Acme" },
@@ -86,7 +94,15 @@ describe("GET /api/workspace/brand-kit", () => {
     ] as Awaited<ReturnType<typeof getClientProfiles>>);
 
     const res = await GET(new Request("http://localhost/api/workspace/brand-kit"));
+    const body = await res.json();
+
     expect(res.status).toBe(409);
+    expect(body.code).toBe("workspace_ambiguous");
+    expect(body.details.availableWorkspaces).toEqual([
+      { id: PROFILE_A, name: "Acme" },
+      { id: PROFILE_B, name: "Beta" },
+    ]);
+    expect(body.message).toBe("brandKitAmbiguous");
   });
 });
 

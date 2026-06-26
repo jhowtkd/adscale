@@ -32,6 +32,19 @@ const PARITY_TARGETS: Array<{ path: string; filter?: (keys: string[]) => string[
   },
 ];
 
+/**
+ * Error keys that must exist in both catalogs (Sprint 1 / #2 reshape).
+ * Scoped separately because the top-level `errors` namespace contains
+ * pre-existing forbidden-pattern hits (e.g. "corpus") that are out of
+ * scope for this sprint — we only enforce parity for the brand-kit
+ * error keys we introduced.
+ */
+const BRAND_KIT_ERROR_PARITY_KEYS = [
+  "brandKitAmbiguous",
+  "clientProfileNotFound",
+  "unknown",
+] as const;
+
 const OLHAR_SURFACES = new Set([
   "onboarding",
   "dashboard.home",
@@ -273,6 +286,19 @@ describe("product narrative copy guard (Phase 170 / BRAND-04)", () => {
         const value = getStringAtPath(ptBR as JsonObject, path);
         expect(typeof value).toBe("string");
         expect(CURATOR_VOCABULARY_PT.test(value as string)).toBe(true);
+      });
+    }
+  });
+
+  describe("brand-kit error key parity (Sprint 1 / #2 reshape)", () => {
+    for (const key of BRAND_KIT_ERROR_PARITY_KEYS) {
+      it(`errors.${key} exists in both catalogs`, () => {
+        const enValue = getStringAtPath(en as JsonObject, `errors.${key}`);
+        const ptValue = getStringAtPath(ptBR as JsonObject, `errors.${key}`);
+        expect(typeof enValue, `errors.${key} missing in en.json`).toBe("string");
+        expect(typeof ptValue, `errors.${key} missing in pt-BR.json`).toBe("string");
+        expect((enValue as string).length).toBeGreaterThan(0);
+        expect((ptValue as string).length).toBeGreaterThan(0);
       });
     }
   });

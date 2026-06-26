@@ -69,6 +69,7 @@ function MissionKeyIcon({ missionKey, size = 18 }: { missionKey: MissionKey; siz
 
 export default function LaboratoryProgressPanel() {
   const t = useTranslations("dashboard.laboratory");
+  const tProgression = useTranslations("dashboard.progression");
   const tMissions = useTranslations("dashboard.missions");
   const missionInsight = useMissionInsightOptional();
   const progression = useProgression();
@@ -79,6 +80,16 @@ export default function LaboratoryProgressPanel() {
   const isError =
     (progression.isError && !progression.data) || (missions.isError && !missions.data);
   const isFetching = progression.isFetching || missions.isFetching;
+
+  const levelLabel = progression.data
+    ? tProgression(`levels.${progression.data.level.key}.label`)
+    : "";
+  const levelShortLabel = progression.data
+    ? tProgression(`levels.${progression.data.level.key}.shortLabel`)
+    : "";
+  const levelDescription = progression.data
+    ? tProgression(`levels.${progression.data.level.key}.description`)
+    : "";
 
   const handleSkipMission = (missionKey: MissionKey) => {
     missionInsight?.maybePromptMissionInsight({
@@ -167,7 +178,7 @@ export default function LaboratoryProgressPanel() {
         </div>
         <div className="flex items-center gap-1.5">
           <span className="rounded-full border border-[var(--border-dim)] bg-[var(--surface-raised)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-primary)]">
-            {progressionData.level.shortLabel}
+            {levelShortLabel}
           </span>
           <span className="text-[10px] font-mono text-[var(--text-muted)]">
             {tMissions("progressCount", { completed: completedCount, total: totalCount })}
@@ -188,9 +199,9 @@ export default function LaboratoryProgressPanel() {
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] sm:items-start">
             <div className="min-w-0 space-y-2">
               <div>
-                <p className="text-xs font-medium text-[var(--text-primary)]">{progressionData.level.label}</p>
+                <p className="text-xs font-medium text-[var(--text-primary)]">{levelLabel}</p>
                 <p className="line-clamp-2 text-[10px] leading-snug text-[var(--text-secondary)]">
-                  {progressionData.level.description}
+                  {levelDescription}
                 </p>
               </div>
 
@@ -279,6 +290,18 @@ export default function LaboratoryProgressPanel() {
   );
 }
 
+function resolveMissionBlockedReason(
+  mission: MissionItem,
+  tMissions: ReturnType<typeof useTranslations<"dashboard.missions">>
+): string | undefined {
+  if (!mission.blockedReason && mission.status !== "blocked") return undefined;
+  if (mission.status !== "blocked") return undefined;
+  const key = `blockedReasons.${mission.key}`;
+  const value = tMissions(key);
+  if (!value || value === key) return undefined;
+  return value;
+}
+
 function ActiveStep({
   mission,
   creditContext,
@@ -303,6 +326,7 @@ function ActiveStep({
   const label = tMissions(`items.${mission.key}.label`);
   const description = tMissions(`items.${mission.key}.description`);
   const ctaDisabled = mission.status === "blocked";
+  const blockedReasonText = resolveMissionBlockedReason(mission, tMissions);
 
   return (
     <div className="rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)]/40 p-2.5">
@@ -328,10 +352,10 @@ function ActiveStep({
         </div>
       </div>
 
-      {mission.blockedReason ? (
+      {blockedReasonText ? (
         <p className="mt-1.5 flex items-start gap-1 text-[10px] text-[var(--accent-rose)]">
           <AlertCircle size={12} className="mt-0.5 shrink-0" aria-hidden="true" />
-          {mission.blockedReason}
+          {blockedReasonText}
         </p>
       ) : null}
 
@@ -340,9 +364,9 @@ function ActiveStep({
       {ctaDisabled ? (
         <div className="mt-2 space-y-1">
           <span className="inline-flex items-center rounded-md border border-[var(--border-dim)] px-2.5 py-1.5 text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)]">
-            {mission.blockedReason ?? blockedCtaLabel}
+            {blockedReasonText ?? blockedCtaLabel}
           </span>
-          {mission.blockedReason ? (
+          {blockedReasonText ? (
             <p className="text-[9px] text-[var(--text-muted)]">{blockedCtaHint}</p>
           ) : null}
         </div>
@@ -377,6 +401,7 @@ function MissionListItem({
 }) {
   const label = t(`items.${mission.key}.label`);
   const description = t(`items.${mission.key}.description`);
+  const blockedReasonText = resolveMissionBlockedReason(mission, t);
 
   return (
     <li
@@ -395,8 +420,8 @@ function MissionListItem({
       <div className="min-w-0 flex-1">
         <p className="text-xs font-medium leading-tight text-[var(--text-primary)]">{label}</p>
         <p className="line-clamp-1 text-[10px] text-[var(--text-secondary)]">{description}</p>
-        {mission.status === "blocked" && mission.blockedReason ? (
-          <p className="text-[10px] text-[var(--accent-rose)]">{mission.blockedReason}</p>
+        {mission.status === "blocked" && blockedReasonText ? (
+          <p className="text-[10px] text-[var(--accent-rose)]">{blockedReasonText}</p>
         ) : null}
       </div>
       {mission.status === "blocked" ? (

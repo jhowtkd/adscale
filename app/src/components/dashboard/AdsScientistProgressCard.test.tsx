@@ -15,6 +15,13 @@ vi.mock("next-intl", () => ({
       error: "Nao foi possivel carregar seu progresso.",
       retry: "Tentar novamente",
       updating: "Atualizando progresso",
+      "levels.aprendiz.label": "Aprendiz de Laboratorio",
+      "levels.aprendiz.description": "Monte seu laboratorio.",
+      "evidence.campaign_created.label": "Primeira campanha",
+      "evidence.campaign_created.description": "Crie sua primeira campanha.",
+      "evidence.readiness_ran.label": "Analise de prontidao",
+      "evidence.readiness_ran.description": "Rode a analise.",
+      "blockedReasons.readiness_ran": "Envie um criativo base antes.",
     };
     return labels[key] ?? key;
   },

@@ -11,6 +11,7 @@ import {
   getClientReferencesByIds,
 } from "@/server/repositories/client-reference";
 import { recordBrandMemoryEvent } from "@/server/memory/brand-memory-dispatch";
+import { filterFixtureCampaigns, shouldAllowFixtures } from "@/lib/demo-gating";
 
 const createCampaignSchema = z.object({
   name: z.string().min(1).max(255),
@@ -37,7 +38,7 @@ function parsePositiveInt(value: string | null, fallback: number) {
 
 export async function GET(request: Request) {
   try {
-    const { workspace } = await requireWorkspaceAccess(request);
+    const { workspace, user } = await requireWorkspaceAccess(request);
     const url = new URL(request.url);
     const searchQuery = url.searchParams.get("q") ?? undefined;
     const statusFilter = (url.searchParams.get("status") ?? "all") as
@@ -71,7 +72,9 @@ export async function GET(request: Request) {
       limit,
       offset,
     });
-    return NextResponse.json(result);
+    const allowFixtures = shouldAllowFixtures(workspace, user);
+    const visibleCampaigns = filterFixtureCampaigns(result.campaigns, { allowFixtures });
+    return NextResponse.json({ ...result, campaigns: visibleCampaigns });
   } catch (error) {
     return handleApiError(error, "campaigns.GET");
   }

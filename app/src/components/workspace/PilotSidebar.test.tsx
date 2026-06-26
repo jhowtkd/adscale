@@ -53,6 +53,39 @@ vi.mock("@/lib/store", () => ({
     selector({ addToast }),
 }));
 
+vi.mock("next-intl", () => ({
+  useTranslations: (namespace: string) => (key: string) => {
+    if (namespace === "campaign.pilotSidebar") {
+      const labels: Record<string, string> = {
+        clientProfileLabel: "Perfil do cliente",
+        linkedBadge: "Vinculado",
+        pendingBadge: "Pendente",
+        noProfileLinked: "Sem perfil vinculado",
+        createProfileFromClient: "Criar perfil a partir deste cliente",
+        saving: "Salvando…",
+        addClientNameHint: "Adicione um nome de cliente à campanha para criar um perfil.",
+        profileLinkHelp: "Necessário para aprendizados e revisão de qualidade.",
+        toastProfileLinked: "Perfil de cliente vinculado à campanha.",
+        toastProfileLinkFailed: "Não foi possível vincular o perfil.",
+        toastProfileCreatedAndLinked: "Perfil criado e vinculado à campanha.",
+        toastProfileCreatedLinkFailed: "Perfil criado, mas não foi possível vincular.",
+        toastProfileCreateFailed: "Não foi possível criar o perfil.",
+        pilotBadge: "Piloto",
+        pilotImageAlt: "Imagem do piloto",
+        briefingSummaryLabel: "Resumo do briefing",
+        briefingRowObjective: "Objetivo",
+        briefingRowAudience: "Audiência",
+        briefingRowTone: "Tom de voz",
+        briefingRowPlatforms: "Plataformas",
+        briefingRowCta: "Chamada para ação",
+        briefingReadinessSummary: "Briefing e readiness",
+      };
+      return labels[key] ?? key;
+    }
+    return key;
+  },
+}));
+
 function renderSidebar(overrides: Partial<ComponentProps<typeof PilotSidebar>> = {}) {
   return render(
     <PilotSidebar
