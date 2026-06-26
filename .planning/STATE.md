@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v13.7
 milestone_name: Qualidade Operacional das Jornadas Guiadas
-status: roadmap_created
-last_updated: "2026-06-26T18:30:00.000Z"
+status: phase_planned
+last_updated: "2026-06-26T18:45:00.000Z"
 last_activity: 2026-06-26
 progress:
   total_phases: 5
   completed_phases: 0
-  total_plans: 0
+  total_plans: 1
   completed_plans: 0
 ---
 
@@ -17,9 +17,9 @@ progress:
 ## Current Position
 
 Phase: 190 — Guided Journey Telemetry
-Plan: —
-Status: Roadmap created — ready to plan Phase 190
-Last activity: 2026-06-26 — v13.7 requirements and roadmap created
+Plan: 190-01 — Guided Flow Telemetry Foundation
+Status: Phase planned — ready to execute Phase 190
+Last activity: 2026-06-26 — Phase 190 plan and validation created
 
 ## Active Milestone
 
@@ -31,7 +31,7 @@ Goal: transformar as jornadas guiadas do chat em operação mensurável, auditá
 
 | Phase | Name | Plans | Status |
 |-------|------|-------|--------|
-| 190 | Guided Journey Telemetry | 0/1 | Pending |
+| 190 | Guided Journey Telemetry | 0/1 | Planned |
 | 191 | Operational Funnel Surface | 0/1 | Pending |
 | 192 | Staging Evidence Runbook | 0/1 | Pending |
 | 193 | Human Quality Feedback | 0/1 | Pending |
@@ -68,10 +68,11 @@ Goal: tornar o modo chat menos genérico, conduzindo o usuário por fluxos acion
 
 - Phase 189 added: v13.6 Ship Gate
 - Milestone v13.7 started: Qualidade Operacional das Jornadas Guiadas
+- Phase 190 planned: Guided Flow Telemetry Foundation
 
 ## Project Reference
 
 See: `.planning/PROJECT.md` (updated 2026-06-26)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
-**Current focus:** v13.7 requirements and roadmap.
+**Current focus:** Phase 190 implementation.

@@ -27,7 +27,7 @@
 
 | Phase | Name | Plans | Status |
 |-------|------|-------|--------|
-| 190 | Guided Journey Telemetry | 0/1 | Pending |
+| 190 | Guided Journey Telemetry | 0/1 | Planned |
 | 191 | Operational Funnel Surface | 0/1 | Pending |
 | 192 | Staging Evidence Runbook | 0/1 | Pending |
 | 193 | Human Quality Feedback | 0/1 | Pending |
@@ -220,4 +220,4 @@ Archive: [v13.3-ROADMAP.md](milestones/v13.3-ROADMAP.md) · [v13.3-REQUIREMENTS.
 
 ## Progress
 
-**Next:** Milestone v13.6 complete — see `.planning/milestones/v13.6-MILESTONE-AUDIT.md`
+**Next:** Execute Phase 190 — `.planning/phases/190-guided-journey-telemetry/190-01-PLAN.md`
