@@ -36,8 +36,9 @@ const DEFAULT_MESSAGE_LIMIT = 20;
 function mapMessage(
   message: Awaited<ReturnType<typeof listAssistantMessages>>[number]
 ): AllowedContextShape["recentMessages"][number] {
+  const payload = (message.payload ?? {}) as Record<string, unknown>;
+
   if (message.type === "tool") {
-    const payload = (message.payload ?? {}) as Record<string, unknown>;
     return {
       role: message.type,
       content: message.content,
@@ -46,9 +47,28 @@ function mapMessage(
     };
   }
 
+  const rawAttachments = payload.attachments;
+  const attachments = Array.isArray(rawAttachments)
+    ? rawAttachments
+        .filter(
+          (item): item is Record<string, unknown> =>
+            typeof item === "object" && item !== null
+        )
+        .map((item) => ({
+          assetId: typeof item.assetId === "string" ? item.assetId : "",
+          key: typeof item.key === "string" ? item.key : "",
+          url: typeof item.url === "string" ? item.url : undefined,
+          type: typeof item.type === "string" ? item.type : "",
+          name: typeof item.name === "string" ? item.name : "",
+          size: typeof item.size === "number" ? item.size : 0,
+        }))
+        .filter((item) => item.assetId && item.key && item.type && item.name)
+    : [];
+
   return {
     role: message.type,
     content: message.content,
+    ...(attachments.length > 0 ? { attachments } : {}),
   };
 }
 
@@ -157,7 +177,17 @@ export function toModelMessages(
     .filter((m) => m.role === "user" || m.role === "assistant")
     .map((m) => ({
       role: m.role as "user" | "assistant",
-      content: m.content,
+      content:
+        m.role === "user" && m.attachments?.length
+          ? [
+              m.content,
+              `Attached assets: ${m.attachments
+                .map((attachment) => `${attachment.name} assetId=${attachment.assetId}`)
+                .join("; ")}`,
+            ]
+              .filter(Boolean)
+              .join("\n")
+          : m.content,
     }));
 
   return [...history, { role: "user", content: userMessage }];

@@ -26,14 +26,24 @@ vi.mock("@/server/assistant/orchestrator", () => ({
   runAssistantTurn: vi.fn(),
 }));
 
+vi.mock("@/server/repositories/workspace-asset", () => ({
+  getWorkspaceAssetById: vi.fn(),
+}));
+
+vi.mock("@/server/storage/r2", () => ({
+  getPublicUrl: vi.fn((key: string) => `https://cdn.example/${key}`),
+}));
+
 import { requireWorkspaceAccess, requireRole } from "@/server/auth/workspace";
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import { runAssistantTurn } from "@/server/assistant/orchestrator";
+import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
 
 const mockRequireAccess = vi.mocked(requireWorkspaceAccess);
 const mockRequireRole = vi.mocked(requireRole);
 const mockGetThread = vi.mocked(getAssistantThreadById);
 const mockRunTurn = vi.mocked(runAssistantTurn);
+const mockGetWorkspaceAsset = vi.mocked(getWorkspaceAssetById);
 
 async function collectSseBody(response: Response): Promise<string> {
   const reader = response.body?.getReader();
@@ -60,6 +70,14 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
       id: "thread-1",
       clientProfileId: "profile-1",
     } as Awaited<ReturnType<typeof getAssistantThreadById>>);
+    mockGetWorkspaceAsset.mockResolvedValue({
+      id: "00000000-0000-4000-8000-000000000001",
+      workspaceId: "ws-1",
+      key: "workspaces/ws-1/assets/test.png",
+      type: "image/png",
+      name: "test.png",
+      size: 1024,
+    } as Awaited<ReturnType<typeof getWorkspaceAssetById>>);
   });
 
   it("returns 404 when thread is missing", async () => {
@@ -156,11 +174,40 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
         attachments: [
           expect.objectContaining({
             assetId: "00000000-0000-4000-8000-000000000001",
+            key: "workspaces/ws-1/assets/test.png",
+            url: "https://cdn.example/workspaces/ws-1/assets/test.png",
             type: "image/png",
           }),
         ],
       })
     );
+  });
+
+  it("returns 404 when attachment asset does not belong to the workspace", async () => {
+    mockGetWorkspaceAsset.mockResolvedValue(null);
+
+    const res = await POST(
+      new Request("http://localhost/api/assistant/threads/t1/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Adaptar formatos",
+          attachments: [
+            {
+              assetId: "00000000-0000-4000-8000-000000000001",
+              key: "workspaces/ws-1/assets/test.png",
+              type: "image/png",
+              name: "test.png",
+              size: 1024,
+            },
+          ],
+        }),
+      }),
+      { params: Promise.resolve({ threadId: "t1" }) }
+    );
+
+    expect(res.status).toBe(404);
+    expect(mockRunTurn).not.toHaveBeenCalled();
   });
 
   it("returns 401 without workspace access", async () => {

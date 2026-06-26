@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { buildAssistantContext } from "./context-builder";
+import { buildAssistantContext, toModelMessages } from "./context-builder";
 
 vi.mock("@/server/repositories/assistant-thread", () => ({
   getAssistantThreadById: vi.fn(),
@@ -77,7 +77,18 @@ describe("buildAssistantContext", () => {
         id: "m1",
         type: "user",
         content: "Hello",
-        payload: {},
+        payload: {
+          attachments: [
+            {
+              assetId: "00000000-0000-4000-8000-000000000001",
+              key: "workspaces/ws-1/assets/test.png",
+              url: "https://cdn.example/workspaces/ws-1/assets/test.png",
+              type: "image/png",
+              name: "test.png",
+              size: 1024,
+            },
+          ],
+        },
       },
       {
         id: "m2",
@@ -101,6 +112,12 @@ describe("buildAssistantContext", () => {
     expect(result.clientProfile?.name).toBe("Acme");
     expect(result.campaign?.name).toBe("Launch");
     expect(result.recentMessages).toHaveLength(2);
+    expect(result.recentMessages[0]?.attachments?.[0]).toEqual(
+      expect.objectContaining({
+        assetId: "00000000-0000-4000-8000-000000000001",
+        url: "https://cdn.example/workspaces/ws-1/assets/test.png",
+      })
+    );
     expect(result.brandKit?.toneNotes).toBe("Friendly");
     expect(result.brandMemory?.block).toContain("CTAs");
   });
@@ -137,5 +154,33 @@ describe("buildAssistantContext", () => {
     const result = await buildAssistantContext(baseInput);
     const serialized = JSON.stringify(result);
     expect(serialized).not.toMatch(/signedUrl|reasoning|thinking|internalEvidence/);
+  });
+
+  it("includes attached asset ids in model message history", () => {
+    const messages = toModelMessages(
+      {
+        thread: { name: "Main" },
+        recentMessages: [
+          {
+            role: "user",
+            content: "Quero adaptar",
+            attachments: [
+              {
+                assetId: "00000000-0000-4000-8000-000000000001",
+                key: "workspaces/ws-1/assets/test.png",
+                type: "image/png",
+                name: "test.png",
+                size: 1024,
+              },
+            ],
+          },
+        ],
+      },
+      "Stories e landscape"
+    );
+
+    expect(messages[0]?.content).toContain(
+      "test.png assetId=00000000-0000-4000-8000-000000000001"
+    );
   });
 });

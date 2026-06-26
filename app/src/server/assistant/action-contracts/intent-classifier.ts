@@ -57,7 +57,7 @@ export function classifyUserIntent(
 }
 
 export function buildAttachmentPromptAugment(input: {
-  attachments?: Array<{ type: string }>;
+  attachments?: Array<{ assetId?: string; key?: string; type: string; name?: string }>;
   hasCampaign: boolean;
 }): string | null {
   const hasImage = input.attachments?.some((attachment) =>
@@ -68,10 +68,25 @@ export function buildAttachmentPromptAugment(input: {
   }
 
   if (!input.hasCampaign) {
-    return "The user attached an image without an active campaign thread. Propose a quick format-variation action card when appropriate, and ask which target formats they want before spending credits.";
+    return [
+      "The user attached an image without an active campaign thread.",
+      "Acknowledge the attachment and collect target formats, but do not propose an executable action card yet because generation requires a campaign-linked asset.",
+      "If the user wants to proceed, ask them to link this thread to a campaign or create a campaign first.",
+    ].join(" ");
   }
 
-  return "The user attached an image in a campaign thread. Associate the asset to the campaign context when confirmed before generation.";
+  const refs = input.attachments
+    ?.filter((attachment) => attachment.type.startsWith("image/"))
+    .map((attachment) => `${attachment.name ?? "image"} assetId=${attachment.assetId ?? "unknown"}`)
+    .join("; ");
+
+  return [
+    "The user attached an image in a campaign thread.",
+    refs ? `Available attached image references: ${refs}.` : "",
+    "Use the attached image as source context when proposing the next confirmed action, and do not invent asset ids.",
+  ]
+    .filter(Boolean)
+    .join(" ");
 }
 
 export function buildIntentPromptAugment(

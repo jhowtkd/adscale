@@ -60,7 +60,9 @@ export default function PlatformsDrawer({
 
   useEffect(() => {
     if (open) {
-      setSelected(toSelectionRecord(selectedPlatforms));
+      queueMicrotask(() => {
+        setSelected(toSelectionRecord(selectedPlatforms));
+      });
     }
   }, [open, selectedPlatforms]);
 

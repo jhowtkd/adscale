@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import TopBar from "@/components/layout/TopBar";
 import { cn } from "@/lib/utils";
@@ -17,20 +17,17 @@ export default function AssistantShell({
   main: ReactNode;
   contextPanel: ReactNode;
 }) {
-  const [contextOpen, setContextOpen] = useState(true);
+  const [contextOpen, setContextOpen] = useState(() => {
+    if (typeof window === "undefined") return true;
+    const stored = window.sessionStorage.getItem(CONTEXT_OPEN_KEY);
+    return stored === null ? true : stored === "true";
+  });
   const [mobileTab, setMobileTab] = useState<AssistantMobileTab>("chat");
-
-  useEffect(() => {
-    const stored = sessionStorage.getItem(CONTEXT_OPEN_KEY);
-    if (stored !== null) {
-      setContextOpen(stored === "true");
-    }
-  }, []);
 
   const toggleContext = () => {
     const next = !contextOpen;
     setContextOpen(next);
-    sessionStorage.setItem(CONTEXT_OPEN_KEY, String(next));
+    window.sessionStorage.setItem(CONTEXT_OPEN_KEY, String(next));
   };
 
   return (

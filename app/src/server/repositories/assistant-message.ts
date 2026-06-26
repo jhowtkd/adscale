@@ -26,6 +26,7 @@ type BaseMessageInput = {
 export interface UserMessageAttachment {
   assetId: string;
   key: string;
+  url?: string;
   type: string;
   name: string;
   size: number;

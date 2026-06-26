@@ -69,7 +69,7 @@ export interface ListPendingCorpusQueueInput {
   limit?: number;
 }
 
-export interface ListCorpusQueueInput extends ListCorpusQueueFilters {}
+export type ListCorpusQueueInput = ListCorpusQueueFilters;
 
 export interface CorpusQueueItemView {
   item: HumanQualityCorpusItem;

@@ -92,7 +92,10 @@ export async function POST(request: Request) {
       data: { assetId: asset.id, workspaceId: workspace.id, key },
     });
 
-    return NextResponse.json({ asset }, { status: 201 });
+    return NextResponse.json(
+      { asset: { ...asset, url: getPublicUrl(asset.key) } },
+      { status: 201 }
+    );
   } catch (error) {
     return handleApiError(error, "workspace.assets.POST");
   }

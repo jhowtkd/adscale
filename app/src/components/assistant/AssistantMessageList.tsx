@@ -89,17 +89,16 @@ function MessageBubble({
 
   const isUser = message.type === "user";
 
-  const displayContent = useMemo(
-    () => (isUser ? message.content : stripThinkBlocks(message.content)),
-    [isUser, message.content]
-  );
-
-  const attachments = useMemo(() => {
-    const raw = message.payload.attachments;
-    return Array.isArray(raw)
-      ? raw.filter((item): item is Record<string, unknown> => typeof item === "object" && item !== null)
-      : [];
-  }, [message.payload.attachments]);
+  const displayContent = isUser
+    ? message.content
+    : stripThinkBlocks(message.content);
+  const rawAttachments = message.payload.attachments;
+  const attachments = Array.isArray(rawAttachments)
+    ? rawAttachments.filter(
+        (item): item is Record<string, unknown> =>
+          typeof item === "object" && item !== null
+      )
+    : [];
 
   return (
     <div

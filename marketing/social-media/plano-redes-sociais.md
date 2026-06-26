@@ -9,7 +9,7 @@
 ### Cenário
 - ADScale está em **pré-lançamento** (produto construído, mas sem base de usuários abertos).
 - **ICP**: agência de marketing (decisor = dono/sócio; operacional = designer, gestor de tráfego, atendimento).
-- **Geografia**: Brasil + EUA (bilíngue desde o dia 1).
+- **Geografia**: Brasil + EUA (bilíngue desde o dia 1). [focar só no brasil por enquanto]
 - **Objetivo principal**: **autoridade e awareness** (não vendas diretas nesta fase).
 - **Cara**: founder-led — **Jhonatan pessoal** é a voz.
 
@@ -30,7 +30,7 @@ Construir uma base de **3.000–5.000 seguidores qualificados** em 90 dias, com 
 |-----------|--------------------|
 | **Founder-led real, não fingido.** | Jhonatan aparece. Rosto, voz, opinião. Não terceiriza a voz da marca. |
 | **Educação > promoção.** | 70% do conteúdo ensina ou mostra. 30% (no máximo) fala do produto. |
-| **Bilíngue com função, não por vaidade.** | PT-BR em IG e YT principal (onde tá o público brasileiro). EN em LinkedIn e YT EN (decisor global, mercado EUA). |
+| **Bilíngue com função, não por vaidade.** | PT-BR em IG e YT principal (onde tá o público brasileiro). EN em LinkedIn e YT EN (decisor global, mercado EUA). | [tirar]
 | **Reaproveitar é regra, exceção.** | Cada ideia nasce uma vez, vira 3–5 peças em formatos diferentes. |
 | **Volume sustentavel > picos.** | Frequência que **Jhonatan aguenta manter por 6 meses**, não sprint de 2 semanas. |
 
@@ -86,7 +86,7 @@ A estratégia detalhada está em [`canais/`](./canais/). Resumo aqui:
 |-------|--------------------|------------|-------------------|--------|
 | **Instagram** | Topo de funil + descoberta + humanização | 4–5 posts/semana + stories diários | Reels (15–60s), carrossel educativo, stories bastidores | PT-BR |
 | **LinkedIn** | Autoridade B2B + decisor de agência | 3–4 posts/semana | Texto longo (1.200–1.500 chars), micro-post, occasional carrossel PDF | **EN** |
-| **YouTube (canal principal)** | Fundo de funil + evergreen + SEO | 1 vídeo longo/mês + 4 shorts/mês | Tutorial, demo, behind-the-scenes, opinião | PT-BR |
+| **YouTube (canal principal)** | Fundo de funil + evergreen + SEO | 1 vídeo longo/mês + 4 shorts/mês | Tutorial, demo, behind-the-scenes, opinião | PT-BR | [nao vamos usar youtube por enquanto. trocar para threads]
 | **YouTube (canal EN ou trilha)** | Decisor EUA + alcance global | 1 vídeo longo/mês + 4 shorts/mês | Mesmo conteúdo adaptado, exemplos em USD/EN | EN |
 
 ---

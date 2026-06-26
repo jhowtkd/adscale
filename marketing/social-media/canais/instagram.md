@@ -66,7 +66,7 @@ Fonte: ADR `0002-cadencia-semanal.md`. Estrutura do carrossel híbrido: ADR `000
 
 **Regras:**
 - Voz do Jhonatan (sempre).
-- Sem tela do produto no corpo do Reel (highlights de texto em `#00e85e` são OK).
+- Sem tela do produto no corpo do Reel (highlights de texto em `#00e85e` são OK). [pode ter a tela sim]
 - Humor deadpan em camada fina (nunca como piada).
 - 1 CTA por Reel (link na bio OU save OU comentário, não os 3).
 

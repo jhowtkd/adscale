@@ -33,6 +33,14 @@ export interface MessageContext {
   content: string;
   toolName?: string;
   summary?: string;
+  attachments?: Array<{
+    assetId: string;
+    key: string;
+    url?: string;
+    type: string;
+    name: string;
+    size: number;
+  }>;
 }
 
 export interface BrandKitContext {

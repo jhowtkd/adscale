@@ -16,6 +16,7 @@ import { evaluateToolCall } from "@/server/assistant/tools/policy";
 export interface AssistantChatAttachment {
   assetId: string;
   key: string;
+  url?: string;
   type: string;
   name: string;
   size: number;

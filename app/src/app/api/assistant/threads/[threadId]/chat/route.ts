@@ -5,6 +5,8 @@ import { runAssistantTurn } from "@/server/assistant/orchestrator";
 import { encodeAssistantSseEvent } from "@/server/assistant/stream/sse";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { isAllowedImageType } from "@/lib/upload-config";
+import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
+import { getPublicUrl } from "@/server/storage/r2";
 
 const attachmentSchema = z.object({
   assetId: z.string().uuid(),
@@ -39,6 +41,35 @@ const chatBodySchema = z
     }
   });
 
+async function normalizeAttachments(
+  workspaceId: string,
+  attachments: z.infer<typeof attachmentSchema>[] | undefined
+) {
+  if (!attachments?.length) {
+    return undefined;
+  }
+
+  const normalized = [];
+  for (const attachment of attachments) {
+    const asset = await getWorkspaceAssetById(attachment.assetId, workspaceId);
+    if (!asset || asset.key !== attachment.key) {
+      return null;
+    }
+    if (!isAllowedImageType(asset.type)) {
+      return null;
+    }
+    normalized.push({
+      assetId: asset.id,
+      key: asset.key,
+      url: getPublicUrl(asset.key),
+      type: asset.type,
+      name: asset.name,
+      size: asset.size ?? attachment.size,
+    });
+  }
+  return normalized;
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ threadId: string }> }
@@ -62,6 +93,14 @@ export async function POST(
       return apiError("invalidInput", 400, parsed.error.flatten());
     }
 
+    const attachments = await normalizeAttachments(
+      workspace.id,
+      parsed.data.attachments
+    );
+    if (attachments === null) {
+      return apiError("assetNotFound", 404);
+    }
+
     const stream = new ReadableStream({
       async start(controller) {
         try {
@@ -71,7 +110,7 @@ export async function POST(
             threadId,
             userId: user.id,
             userMessage: parsed.data.message,
-            attachments: parsed.data.attachments,
+            attachments,
           })) {
             if (event.type === "text_delta") {
               controller.enqueue(

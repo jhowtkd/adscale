@@ -28,8 +28,6 @@ export default function CampaignAssistantDrawer({
   const t = useTranslations("assistant.drawer");
   const createThread = useCreateAssistantThread();
   const [threadId, setThreadId] = useState<string | null>(null);
-  const [resolving, setResolving] = useState(false);
-  const [resolveError, setResolveError] = useState<string | null>(null);
 
   const handleClose = useCallback(() => {
     onOpenChange(false);
@@ -41,8 +39,6 @@ export default function CampaignAssistantDrawer({
     }
 
     let cancelled = false;
-    setResolving(true);
-    setResolveError(null);
 
     void createThread
       .mutateAsync({
@@ -55,25 +51,21 @@ export default function CampaignAssistantDrawer({
           setThreadId(thread.id);
         }
       })
-      .catch((error: unknown) => {
-        if (!cancelled) {
-          setResolveError(
-            error instanceof Error ? error.message : t("errorResolve")
-          );
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setResolving(false);
-        }
-      });
+      .catch(() => null);
 
     return () => {
       cancelled = true;
     };
-  }, [open, threadId, clientProfileId, campaignId, createThread, t]);
+  }, [open, threadId, clientProfileId, campaignId, createThread]);
 
+  const resolveError = createThread.error
+    ? createThread.error instanceof Error
+      ? createThread.error.message
+      : t("errorResolve")
+    : null;
   const missingClient = open && !clientProfileId;
+  const resolving =
+    open && Boolean(clientProfileId) && !threadId && !resolveError;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>

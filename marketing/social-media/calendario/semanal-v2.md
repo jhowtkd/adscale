@@ -142,3 +142,4 @@ Ambos caminham juntos:
 ---
 
 *Mantido em `marketing/social-media/calendario/` · PT-BR · Versão 2 · Última atualização: 2026-06-25 · Owner: Jhonatan Soares*
+[minha dúvida ainda permanece de como vamos extrair esses conteúdos. queria colocar os top perfis que eu mesmo consumo pra gente kibar eles]

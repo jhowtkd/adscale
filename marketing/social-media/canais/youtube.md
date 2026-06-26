@@ -1,4 +1,5 @@
 # YouTube — Estratégia do Canal (v2)
+[deixar na geladeira]
 
 > **Canal de fundo de funil + evergreen + SEO + autoridade durável.**
 > Atualizado em 2026-06-25 com base nos ADRs 0001–0008.
