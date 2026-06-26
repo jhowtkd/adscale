@@ -262,4 +262,72 @@ describe("runAssistantTurn", () => {
       assistantMessageId: "assistant-msg",
     });
   });
+
+  it("strips inline reasoning blocks before persisting the assistant message", async () => {
+    const OPEN = "\u003Cthink\u003E";
+    const CLOSE = "\u003C/think\u003E";
+    const events: AssistantStreamEvent[] = [
+      { type: "text_delta", text: `${OPEN}Contrary to the user's report, this is a bug.${CLOSE}` },
+      { type: "text_delta", text: " Segue o plano: 5 variações." },
+      { type: "done" },
+    ];
+
+    const persistedContents: string[] = [];
+    mockCreateMessage.mockImplementation(async (_ws, input) => {
+      if (input.type === "user") return { id: "user-msg" };
+      if (input.type === "assistant") {
+        persistedContents.push(input.content);
+        return { id: "assistant-msg" };
+      }
+      return { id: "tool-msg" };
+    });
+
+    const turnEvents = [];
+    for await (const event of runAssistantTurn({
+      ...baseInput,
+      modelClient: mockModelClient(events),
+    })) {
+      turnEvents.push(event);
+    }
+
+    expect(turnEvents.at(-1)).toEqual({
+      type: "done",
+      assistantMessageId: "assistant-msg",
+    });
+    expect(persistedContents).toHaveLength(1);
+    const persisted = persistedContents[0];
+    expect(persisted).not.toContain(OPEN);
+    expect(persisted).not.toContain(CLOSE);
+    expect(persisted).toBe("Segue o plano: 5 variações.");
+  });
+
+  it("strips a truncated unclosed reasoning block before persisting", async () => {
+    const OPEN = "\u003Cthink\u003E";
+    const events: AssistantStreamEvent[] = [
+      { type: "text_delta", text: "Resposta visível" },
+      { type: "text_delta", text: `${OPEN}drafting and never closes` },
+      { type: "done" },
+    ];
+
+    const persistedContents: string[] = [];
+    mockCreateMessage.mockImplementation(async (_ws, input) => {
+      if (input.type === "user") return { id: "user-msg" };
+      if (input.type === "assistant") {
+        persistedContents.push(input.content);
+        return { id: "assistant-msg" };
+      }
+      return { id: "tool-msg" };
+    });
+
+    for await (const _event of runAssistantTurn({
+      ...baseInput,
+      modelClient: mockModelClient(events),
+    })) {
+      // drain
+    }
+
+    expect(persistedContents).toHaveLength(1);
+    expect(persistedContents[0]).toBe("Resposta visível");
+    expect(persistedContents[0]).not.toContain(OPEN);
+  });
 });

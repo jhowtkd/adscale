@@ -1365,6 +1365,7 @@
     "nameRequired": "Nome da campanha é obrigatório",
     "clientRequired": "Informe o nome do cliente",
     "clientProfileRequired": "Selecione um perfil de cliente",
+    "brandKitAmbiguous": "Sua conta tem mais de um perfil de cliente. Selecione qual perfil usar no Brand Kit para continuar.",
     "objectiveRequired": "Objetivo da campanha é obrigatório",
     "ctaRequired": "CTA principal é obrigatório",
     "platformRequired": "Selecione pelo menos uma plataforma",
@@ -1767,7 +1768,8 @@
   "assistant": {
     "mode": {
       "panel": "Painel",
-      "chat": "Chat"
+      "chat": "Chat",
+      "headerTitle": "Assistente"
     },
     "tabs": {
       "tree": "Árvore",

@@ -47,6 +47,67 @@ import {
 
 const PANEL_RETURN_KEY = "adscale:panel-return";
 
+const CAMPAIGN_DETAIL_PATH_REGEX = /^\/campaigns\/[^/]+$/;
+
+interface RouteTitleArgs {
+  pathname: string;
+  /** Translated campaign-name override set by /campaigns/[id] (or "" when not on a detail page). */
+  campaignDetailTitle: string;
+  tNav: (k: string) => string;
+  tCommon: (k: string) => string;
+  tSettings: (k: string) => string;
+  tAssistant: (k: string) => string;
+}
+
+export function deriveRouteTitle({
+  pathname,
+  campaignDetailTitle,
+  tNav,
+  tCommon,
+  tSettings,
+  tAssistant,
+}: RouteTitleArgs): string {
+  if (pathname === "/") return tNav("dashboard");
+
+  if (pathname === "/assistant" || pathname.startsWith("/assistant/")) {
+    return tAssistant("headerTitle");
+  }
+
+  if (pathname === "/campaigns" || pathname === "/campaigns/new") {
+    return tCommon("pageTitle");
+  }
+
+  if (CAMPAIGN_DETAIL_PATH_REGEX.test(pathname)) {
+    return campaignDetailTitle || tCommon("pageTitle");
+  }
+
+  if (pathname === "/settings" || pathname.startsWith("/settings/")) {
+    const segments = pathname.split("/").filter(Boolean);
+    const tabSegment = segments[1];
+    if (tabSegment && tabSegment !== "settings") {
+      const key = `${tabSegment}.title`;
+      const tabLabel = safeTranslate(tSettings, key);
+      if (tabLabel) return `${tSettings("title")} · ${tabLabel}`;
+    }
+    return tSettings("title");
+  }
+
+  const lastSegment = pathname.split("/").filter(Boolean).pop();
+  if (lastSegment) {
+    return lastSegment
+      .replace(/[-_]/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+  return tNav("dashboard");
+}
+
+function safeTranslate(t: (k: string) => string, key: string): string | null {
+  const value = t(key);
+  if (!value) return null;
+  if (value === key || value.endsWith(`.${key}`)) return null;
+  return value;
+}
+
 export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
   const tCommon = useTranslations("common");
   const tNav = useTranslations("navigation");
@@ -68,7 +129,7 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const user = useAppStore((s) => s.user);
-  const currentPageTitle = useAppStore((s) => s.currentPageTitle);
+  const campaignDetailTitle = useAppStore((s) => s.currentPageTitle);
   const sessionUser = session?.user;
   const displayName =
     sessionUser?.name?.trim() ||
@@ -89,6 +150,19 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
   const unreadCount = notificationItems.filter((n) => !n.readAt).length;
   const isDashboard = pathname === "/";
   const isChatMode = pathname.startsWith("/assistant");
+
+  const headerTitle = useMemo(
+    () =>
+      deriveRouteTitle({
+        pathname,
+        campaignDetailTitle,
+        tNav,
+        tCommon,
+        tSettings,
+        tAssistant,
+      }),
+    [pathname, campaignDetailTitle, tNav, tCommon, tSettings, tAssistant]
+  );
 
   const switchToChat = () => {
     if (!isChatMode) {
@@ -150,9 +224,9 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
           <NavLink href="/settings" icon={Settings} label={tNav("settings")} active={pathname.startsWith("/settings")} />
         </nav>
 
-        {!isDashboard && currentPageTitle ? (
+        {!isDashboard && headerTitle ? (
           <p className="hidden min-w-0 truncate text-sm font-semibold text-[var(--text-primary)] lg:block lg:max-w-[10rem] xl:max-w-xs">
-            {currentPageTitle}
+            {headerTitle}
           </p>
         ) : null}
       </div>

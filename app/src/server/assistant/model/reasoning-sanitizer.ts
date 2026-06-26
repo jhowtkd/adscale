@@ -67,3 +67,31 @@ export function assertNoReasoningInText(text: string): void {
 export function hasReasoningKeys(delta: Record<string, unknown>): boolean {
   return REASONING_DELTA_KEYS.some((key: ReasoningDeltaKey) => key in delta);
 }
+
+const THINK_OPEN_TAG = "<think>";
+const THINK_CLOSE_TAG = "</think>";
+
+function collapseWhitespace(text: string): string {
+  return text
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+export function stripThinkBlocks(text: string): string {
+  if (!text || !text.includes(THINK_OPEN_TAG) && !text.includes(THINK_CLOSE_TAG)) {
+    return text ?? "";
+  }
+
+  let result = text;
+
+  result = result.replace(/<think>[\s\S]*?<\/think>/g, "");
+
+  result = result.replace(/<think>[\s\S]*$/g, "");
+
+  result = result.replace(/^[\s\S]*<\/think>\s*/g, "");
+
+  result = result.replace(/<\/think>/g, "");
+
+  return collapseWhitespace(result);
+}

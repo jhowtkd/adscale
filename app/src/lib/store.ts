@@ -83,7 +83,7 @@ export const useAppStore = create<AppState>()(
     (set) => ({
       // ---- Initial state ----
       sidebarCollapsed: false,
-      currentPageTitle: "Dashboard",
+      currentPageTitle: "",
       toasts: [],
       user: {
         firstName: "User",

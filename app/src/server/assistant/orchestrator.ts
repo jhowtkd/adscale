@@ -5,7 +5,7 @@ import {
 } from "@/server/assistant/action-contracts/intent-classifier";
 import { createMiniMaxModelAdapter } from "@/server/assistant/model/minimax-adapter";
 import type { AssistantModelClient } from "@/server/assistant/model/client";
-import { assertNoReasoningInText } from "@/server/assistant/model/reasoning-sanitizer";
+import { assertNoReasoningInText, stripThinkBlocks } from "@/server/assistant/model/reasoning-sanitizer";
 import { createAssistantMessage } from "@/server/repositories/assistant-message";
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import { containsDeniedPersistenceKeys } from "@/server/repositories/assistant-types";
@@ -141,10 +141,12 @@ export async function* runAssistantTurn(
 
   assertNoReasoningInText(assistantText);
 
+  const sanitizedAssistantText = stripThinkBlocks(assistantText);
+
   const assistantMessage = await createAssistantMessage(input.workspaceId, {
     threadId: input.threadId,
     type: "assistant",
-    content: assistantText,
+    content: sanitizedAssistantText,
   });
 
   yield { type: "done", assistantMessageId: assistantMessage.id };

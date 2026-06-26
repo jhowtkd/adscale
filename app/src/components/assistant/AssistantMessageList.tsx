@@ -1,6 +1,8 @@
 "use client";
 
+import { useMemo } from "react";
 import { cn } from "@/lib/utils";
+import { stripThinkBlocks } from "@/server/assistant/model/reasoning-sanitizer";
 import AssistantActionCard from "./AssistantActionCard";
 
 export interface AssistantDisplayMessage {
@@ -46,6 +48,11 @@ function MessageBubble({
 
   const isUser = message.type === "user";
 
+  const displayContent = useMemo(
+    () => (isUser ? message.content : stripThinkBlocks(message.content)),
+    [isUser, message.content]
+  );
+
   return (
     <div
       className={cn(
@@ -56,7 +63,7 @@ function MessageBubble({
       )}
       data-testid={`assistant-message-${message.type}`}
     >
-      {message.content}
+      {displayContent}
     </div>
   );
 }
@@ -67,6 +74,11 @@ export default function AssistantMessageList({
   isStreaming,
   threadId,
 }: AssistantMessageListProps) {
+  const sanitizedStreamingText = useMemo(
+    () => (isStreaming && streamingText ? stripThinkBlocks(streamingText) : ""),
+    [isStreaming, streamingText]
+  );
+
   return (
     <div
       className="flex flex-1 flex-col gap-3 overflow-y-auto p-4"
@@ -84,12 +96,12 @@ export default function AssistantMessageList({
         }
         return <MessageBubble key={message.id} message={message} />;
       })}
-      {isStreaming && streamingText ? (
+      {isStreaming && sanitizedStreamingText ? (
         <div
           className="max-w-[85%] rounded-lg bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-primary)] whitespace-pre-wrap"
           data-testid="assistant-streaming-bubble"
         >
-          {streamingText}
+          {sanitizedStreamingText}
         </div>
       ) : null}
     </div>
