@@ -22,31 +22,31 @@ Transformar as jornadas guiadas do `/assistant` em operação mensurável e melh
 
 ### Operational Funnel
 
-- [ ] **FUN-01**: Owner/internal users can view guided journey starts, completions, abandonment and failure counts by path.
-- [ ] **FUN-02**: Owner/internal users can inspect step-level drop-off and top blocker categories for `Já tenho peça` and `Produzir do zero`.
-- [ ] **FUN-03**: Funnel reporting separates automated implementation coverage from real operational evidence and sample sufficiency.
-- [ ] **FUN-04**: Funnel output includes enough links or ids to investigate affected threads without exposing sensitive payloads.
+- [x] **FUN-01**: Owner/internal users can view guided journey starts, completions, abandonment and failure counts by path.
+- [x] **FUN-02**: Owner/internal users can inspect step-level drop-off and top blocker categories for `Já tenho peça` and `Produzir do zero`.
+- [x] **FUN-03**: Funnel reporting separates automated implementation coverage from real operational evidence and sample sufficiency.
+- [x] **FUN-04**: Funnel output includes enough links or ids to investigate affected threads without exposing sensitive payloads.
 
 ### Staging Evidence
 
-- [ ] **STG-01**: A staging runbook defines the exact human checks for live diagnosis, auto-briefing, creative plan and campaign approval lifecycle.
-- [ ] **STG-02**: Staging evidence can be recorded as a structured artifact with reviewer, environment, path, thread/campaign references, verdict and safe notes.
-- [ ] **STG-03**: Staging evidence explicitly covers one `Já tenho peça` journey with a real asset and one `Produzir do zero` journey with at least 3 references.
-- [ ] **STG-04**: Staging evidence marks provider/live failures as blockers or accepted tech debt without changing implementation requirement status.
+- [x] **STG-01**: A staging runbook defines the exact human checks for live diagnosis, auto-briefing, creative plan and campaign approval lifecycle.
+- [x] **STG-02**: Staging evidence can be recorded as a structured artifact with reviewer, environment, path, thread/campaign references, verdict and safe notes.
+- [x] **STG-03**: Staging evidence explicitly covers one `Já tenho peça` journey with a real asset and one `Produzir do zero` journey with at least 3 references.
+- [x] **STG-04**: Staging evidence marks provider/live failures as blockers or accepted tech debt without changing implementation requirement status.
 
 ### Human Quality Feedback
 
-- [ ] **QFB-01**: Operator can rate whether a diagnosis was useful, incomplete or misleading with a short safe reason.
-- [ ] **QFB-02**: Operator can rate whether a from-zero creative plan was generation-ready, partially useful or unusable with a short safe reason.
-- [ ] **QFB-03**: Feedback is attached to guided-flow path, step and thread context without exposing prompts, provider reasoning or signed URLs.
-- [ ] **QFB-04**: Feedback is read-only operational evidence in this milestone and does not automatically alter prompts, calibration rules or generation behavior.
+- [x] **QFB-01**: Operator can rate whether a diagnosis was useful, incomplete or misleading with a short safe reason.
+- [x] **QFB-02**: Operator can rate whether a from-zero creative plan was generation-ready, partially useful or unusable with a short safe reason.
+- [x] **QFB-03**: Feedback is attached to guided-flow path, step and thread context without exposing prompts, provider reasoning or signed URLs.
+- [x] **QFB-04**: Feedback is read-only operational evidence in this milestone and does not automatically alter prompts, calibration rules or generation behavior.
 
 ### Release Gate
 
-- [ ] **GATE-01**: Release gate reports implementation status, automated test status, staging evidence status and operational sample sufficiency separately.
-- [ ] **GATE-02**: Release gate blocks or warns on missing staging evidence for diagnosis/briefing and live lifecycle verification.
-- [ ] **GATE-03**: Release gate blocks customer-real quality claims when sample size or source composition is insufficient.
-- [ ] **GATE-04**: Milestone audit can cite the release gate artifact and distinguish shipped implementation, accepted tech debt and claims still blocked.
+- [x] **GATE-01**: Release gate reports implementation status, automated test status, staging evidence status and operational sample sufficiency separately.
+- [x] **GATE-02**: Release gate blocks or warns on missing staging evidence for diagnosis/briefing and live lifecycle verification.
+- [x] **GATE-03**: Release gate blocks customer-real quality claims when sample size or source composition is insufficient.
+- [x] **GATE-04**: Milestone audit can cite the release gate artifact and distinguish shipped implementation, accepted tech debt and claims still blocked.
 
 ## Future Requirements
 
@@ -75,22 +75,22 @@ Transformar as jornadas guiadas do `/assistant` em operação mensurável e melh
 | TEL-02 | Phase 190 | Complete |
 | TEL-03 | Phase 190 | Complete |
 | TEL-04 | Phase 190 | Complete |
-| FUN-01 | Phase 191 | Pending |
-| FUN-02 | Phase 191 | Pending |
-| FUN-03 | Phase 191 | Pending |
-| FUN-04 | Phase 191 | Pending |
-| STG-01 | Phase 192 | Pending |
-| STG-02 | Phase 192 | Pending |
-| STG-03 | Phase 192 | Pending |
-| STG-04 | Phase 192 | Pending |
-| QFB-01 | Phase 193 | Pending |
-| QFB-02 | Phase 193 | Pending |
-| QFB-03 | Phase 193 | Pending |
-| QFB-04 | Phase 193 | Pending |
-| GATE-01 | Phase 194 | Pending |
-| GATE-02 | Phase 194 | Pending |
-| GATE-03 | Phase 194 | Pending |
-| GATE-04 | Phase 194 | Pending |
+| FUN-01 | Phase 191 | Complete |
+| FUN-02 | Phase 191 | Complete |
+| FUN-03 | Phase 191 | Complete |
+| FUN-04 | Phase 191 | Complete |
+| STG-01 | Phase 192 | Complete |
+| STG-02 | Phase 192 | Complete |
+| STG-03 | Phase 192 | Complete |
+| STG-04 | Phase 192 | Complete |
+| QFB-01 | Phase 193 | Complete |
+| QFB-02 | Phase 193 | Complete |
+| QFB-03 | Phase 193 | Complete |
+| QFB-04 | Phase 193 | Complete |
+| GATE-01 | Phase 194 | Complete |
+| GATE-02 | Phase 194 | Complete |
+| GATE-03 | Phase 194 | Complete |
+| GATE-04 | Phase 194 | Complete |
 
 **Coverage:**
 - v13.7 requirements: 20 total
