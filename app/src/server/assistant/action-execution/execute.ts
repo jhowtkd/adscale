@@ -1,4 +1,4 @@
-import "@/server/assistant/action-contracts/contracts";
+import { resumeGuidedFlowAfterActionFailure } from "@/server/assistant/guided-paths/action-integration";
 import { getActionContract } from "@/server/assistant/action-contracts/registry";
 import {
   getAssistantActionById,
@@ -114,6 +114,14 @@ export async function executeConfirmedAssistantAction(
     await transitionAssistantAction(workspaceId, actionId, "failed", {
       safeError,
     });
+
+    await resumeGuidedFlowAfterActionFailure({
+      workspaceId,
+      threadId: action.threadId,
+      clientProfileId: thread.clientProfileId,
+      safeError,
+    }).catch(() => null);
+
     throw error;
   }
 }
