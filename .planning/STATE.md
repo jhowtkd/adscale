@@ -7,19 +7,19 @@ last_updated: "2026-06-26T00:00:00.000Z"
 last_activity: 2026-06-26
 progress:
   total_phases: 5
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  completed_phases: 1
+  total_plans: 2
+  completed_plans: 2
 ---
 
 # Project State
 
 ## Current Position
 
-Phase: 184 — Guided Flow State
+Phase: 185 — Assistant Entry UX
 Plan: —
-Status: Ready to plan first phase
-Last activity: 2026-06-26 — Milestone v13.6 started and roadmap created
+Status: Ready to plan
+Last activity: 2026-06-26 — Phase 184 complete (guided flow persistence)
 
 ## Active Milestone
 
@@ -31,7 +31,7 @@ Goal: tornar o modo chat menos genérico, conduzindo o usuário por fluxos acion
 
 | Phase | Name | Plans | Status |
 |-------|------|-------|--------|
-| 184 | Guided Flow State | 0/0 | Pending |
+| 184 | Guided Flow State | 2/2 | Complete |
 | 185 | Assistant Entry UX | 0/0 | Pending |
 | 186 | Existing Creative Path | 0/0 | Pending |
 | 187 | From-Zero Path | 0/0 | Pending |
@@ -42,4 +42,4 @@ Goal: tornar o modo chat menos genérico, conduzindo o usuário por fluxos acion
 See: `.planning/PROJECT.md` (updated 2026-06-26)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
-**Current focus:** Phase 184 — persist guided assistant flow state before building the two journey surfaces.
+**Current focus:** Phase 185 — replace generic assistant start with two guided journey cards.
