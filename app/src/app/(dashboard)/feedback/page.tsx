@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { BetaSessionsPanel } from "@/components/feedback/BetaSessionsPanel";
 import { OwnerAnalyticsPanel } from "@/components/feedback/OwnerAnalyticsPanel";
+import { GuidedFlowFeedbackPanel } from "@/components/feedback/GuidedFlowFeedbackPanel";
 import { cn } from "@/lib/utils";
 import PageFrame from "@/components/layout/PageFrame";
 import PageHeader from "@/components/layout/PageHeader";
@@ -190,6 +191,7 @@ export default function FeedbackTriagePage() {
       <PageHeader title={t("title")} description={t("description")} />
 
       <OwnerAnalyticsPanel sessionOptions={sessionOptions} />
+      <GuidedFlowFeedbackPanel />
       <BetaSessionsPanel />
       <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
         <Panel padding="md" className="space-y-4">
