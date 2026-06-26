@@ -1,50 +1,61 @@
-# LinkedIn — Estratégia do Canal
+# LinkedIn — Estratégia do Canal (v2)
 
-> Canal de **autoridade B2B + decisor de agência**.
-> Foco em donos de agência e head de marketing no Brasil e nos EUA.
-
----
-
-## Objetivo do canal
-
-Fazer o **dono de agência** ler e pensar: "essa é a voz que entende meu problema" → conectar → eventualmente perguntar sobre o produto.
+> **Canal de autoridade B2B + decisor de agência.**
+> Atualizado em 2026-06-25 com base nos ADRs 0001–0008.
+> Predominantemente **EN** (decisor global).
 
 ---
 
-## Público específico
+## 1. Objetivo do canal
+
+Fazer o **dono de agência** ou **head of marketing** ler e pensar: "essa é a voz que entende meu problema" → conectar → eventualmente perguntar sobre o produto (DM inbound ou waitlist).
+
+**Funil prático:**
+1. Post longo (1.200–1.500 chars) gera **autoridade + impressões**.
+2. Micro-post (200–400 chars) gera **frequência + replies**.
+3. Comentários em posts de decisores (prática diária) gera **rede** (reconhecimento).
+
+---
+
+## 2. Público específico
 
 - **Primário**: donos/sócios de agência de marketing (Brasil e EUA), head of marketing, head of growth.
 - **Secundário**: gestores de tráfego seniores, designers com cargo de liderança.
-- **Idioma**: **EN** (decisor global, abre portas nos EUA).
+- **Idioma**: **EN** predominante (decisor global, abre portas nos EUA).
 - **Onde estão**: feed pessoal (não página corporativa), newsletters, comentários em posts de referência.
 
----
-
-## Por que EN mesmo no Brasil?
-
-- Dono de agência brasileira que opera cliente gringo **já lê em EN**.
-- Decisor de agência nos EUA **não vai consumir PT** consistentemente.
-- LinkedIn em EN dobra o alcance potencial.
-- Permite que o mesmo post seja citado por contas gringas (crosspost).
-
-**Exceção**: se Jhonatan estiver ativo em círculos BR (RD Station, Resultados Digitais, comunidade brasileira), aí 1 em 4 posts pode ser em PT. Avaliar após Mês 1.
+**ICP raiz (de `conceituacao.md`):** qualquer pessoa/time que produz criativos pra ads pagos e sente gargalo de produção. Sub-ICP rotativo.
 
 ---
 
-## Formatos
+## 3. Formatos
 
-| Formato | % do conteúdo | Quando usar |
-|---------|----------------|-------------|
-| **Post longo texto (1.200–1.500 chars)** | 50% | Opinião, framework, provocação, lição técnica. |
-| **Micro-post (200–400 chars)** | 20% | Resposta a algo, comentário rápido, "1 thing I learned". |
-| **Carrossel PDF** | 20% | Framework visual, checklist, comparação. |
-| **Vídeo nativo (sem Reels)** | 10% | Mensagem rápida de câmera, demo de 60s. |
+| Formato | % | Quando usar | Pilar Lab Notes |
+|---------|---|-------------|-----------------|
+| **Post longo (1.200–1.500 chars)** | ~50% | Terça (Pilar A — Tese) + Sexta (Pilar C — Bastidor). Argumento, framework, provocação, lição técnica. | A ou C |
+| **Micro-post (200–400 chars)** | ~30% | Quinta (Pilar C — Bastidor) ou complemento de resposta a comentário. Reflexão curta, "1 thing I learned". | C (principal) + B (secundário) |
+| **Carrossel PDF** | ~10% | Ocasionalmente, quando brief pedir framework visual. | A ou B |
+| **Vídeo nativo (sem Reels)** | ~10% | Demo rápida de 60s quando tema pedir. | B |
 
-**Regra**: LinkedIn premia texto bem escrito. Vídeo/Reels aqui rendem menos que no IG. Apostar em texto.
+**Total:** 3 posts/semana (predominante texto, EN).
 
 ---
 
-## Estrutura típica de post longo
+## 4. Cadência semanal no LinkedIn
+
+| Dia | Pilar | Formato | Tempo |
+|-----|-------|---------|-------|
+| **Ter** | A — Tese | Post longo EN (1.200–1.500 chars) | 45 min |
+| **Qui** | C — Bastidor | Post texto EN (micro 200–400 ou long 1.200–1.500) | 45 min |
+| **Sex (parcial)** | C — Bastidor | Post pessoal-profissional (ver ADR 0008) | 30 min |
+
+Fonte: ADR `0002-cadencia-semanal.md`.
+
+**Exceção documentada:** se Jhonatan estiver ativo em círculos BR (RD Station, Resultados Digitais, comunidade brasileira), 1 em 4 posts pode ser em PT. Avaliar após Mês 1.
+
+---
+
+## 5. Estrutura típica de post longo
 
 ```
 Linha 1 (gancho): frase forte, polêmica, ou número específico. SEM "I" no começo. SEM "I'm excited to announce".
@@ -54,7 +65,7 @@ Penúltima linha: virada ou conclusão.
 Última linha: pergunta aberta (gera comentário) ou CTA (link nos comentários).
 ```
 
-**Regras de ouro**:
+**Regras de ouro:**
 - Sem "—" excessivo. Sem bullet points. LinkedIn penaliza formatação robótica.
 - Primeira linha tem que ser **excelente** (decide se vai ler o resto).
 - Terminar com **pergunta** aumenta comentários em 2–3x.
@@ -62,7 +73,7 @@ Penúltima linha: virada ou conclusão.
 
 ---
 
-## Estrutura típica de micro-post
+## 6. Estrutura típica de micro-post
 
 ```
 Linha 1: gancho
@@ -70,28 +81,29 @@ Linha 2–4: desenvolvimento em 1 ideia
 Última linha: reflexão ou pergunta
 ```
 
-Micro-post serve pra **frequência**. Post longo serve pra **profundidade**. Misturar.
+**Regra:** micro-post serve pra **frequência**. Post longo serve pra **profundidade**. Misturar.
 
 ---
 
-## Conteúdo que viraliza em LinkedIn B2B
+## 7. Conteúdo que viraliza em LinkedIn B2B
 
-Tipos com maior chance de tração em LinkedIn em 2026:
+Tipos com maior chance de tração em 2026 (atualizado com base nos 3 pilares Lab Notes):
 
-1. **Opinião controversa fundamentada** — "Most agencies are wrong about X. Here's why."
-2. **Bastidor técnico** — "How we solved X at ADScale." (build in public)
-3. **Lista com lição implícita** — "5 things I learned building a SaaS for ad creative teams."
-4. **Crítica construtiva** — "AdCreative.ai does X well, but here's where it falls short."
-5. **Estudo de caso com número** — "We helped agency Y do Z. Result: W."
-6. **Resposta a alguém maior** — "John Doe said X. Here's my take."
+1. **Opinião controversa fundamentada (Pilar A):** "Most agencies are wrong about X. Here's why."
+2. **Bastidor técnico (Pilar B):** "How we solved X at ADScale." (build in public)
+3. **Lista com lição implícita (Pilar B):** "5 things I learned building a SaaS for ad creative teams."
+4. **Crítica construtiva (Pilar A):** "AdCreative.ai does X well, but here's where it falls short."
+5. **Estudo de caso com número (Pilar A ou B):** "We helped agency Y do Z. Result: W."
+6. **Resposta a alguém maior (Pilar C):** "John Doe said X. Here's my take."
+7. **Pessoal-profissional (Pilar C, 20% do conteúdo):** "6 months building B2B SaaS. 3 things I learned." — limitada a 1/semana por ADR 0008.
 
-**Evitar**: motivacional vazio, "I quit my job and...", humildade falsa, threads longas demais (>8 parágrafos).
+**Evitar:** motivacional vazio, "I quit my job and...", humildade falsa, threads longas demais (>8 parágrafos).
 
 ---
 
-## Estratégia de engajamento (não é só postar)
+## 8. Engajamento ativo (não é só postar)
 
-LinkedIn funciona como **rede**, não canal de broadcast. 30 minutos por dia, divididos:
+LinkedIn funciona como **rede**, não canal de broadcast. 30 minutos por dia:
 
 | Atividade | Tempo |
 |-----------|-------|
@@ -104,32 +116,34 @@ LinkedIn funciona como **rede**, não canal de broadcast. 30 minutos por dia, di
 
 ---
 
-## Bio do perfil (LinkedIn)
+## 9. Bio do perfil
 
 ```
 Founder, ADScale
-Building AI that helps marketing agencies ship 10x more ad creatives
-without scaling headcount.
+Building AI that helps marketing teams ship 10x more ad creatives
+without scaling headcount. Curator > operator.
 Previously: [breve, só se relevante]
 🇧🇷🇺🇸 BR + US
 ```
 
 ---
 
-## KPIs
+## 10. KPIs
 
 | KPI | Meta mês 1 | Meta mês 3 |
 |-----|------------|------------|
 | Impressões médias por post | 1.500 | 8.000 |
 | Comentários qualificados/post | 5 | 15 |
-| Conexões com decisores (donos de agência, head of marketing) | 100 | 500 |
+| Conexões com decisores | 100 | 500 |
 | Pedidos de DM Inbound/semana | 3 | 15 |
 | Posts com > 5k impressões | 2 | 10/mês |
 | Posts com > 1 comentário de perfil "founder de agência" | 1 | 5/mês |
 
+**Premissa:** Nível A conservador (ADR 0006) = 12 LinkedIn posts no mês.
+
 ---
 
-## Anti-padrões (não fazer)
+## 11. Anti-padrões (não fazer)
 
 - Post motivacional com metáfora de montanha/super-herói.
 - "I'm humbled to announce..."
@@ -137,7 +151,9 @@ Previously: [breve, só se relevante]
 - #hashtag em LinkedIn (mais que 3 já é demais).
 - Compartilhar notícia sem opinião própria.
 - Repostar conteúdo de guru sem comentar.
+- Vida pessoal íntima (ver ADR `0008-tom-founder-pessoal.md` — 0% íntimo).
+- Pseudo-ciência ("lab notebook", "paper", "anomalia" em copy visível).
 
 ---
 
-*Subpasta de `marketing/social-media/canais/` · EN (com exceção documentada de PT) · Última atualização: 2026-06-23*
+*Subpasta de `marketing/social-media/canais/` · EN (com exceção documentada de PT) · Versão 2 · Última atualização: 2026-06-25 · Owner: Jhonatan Soares*
