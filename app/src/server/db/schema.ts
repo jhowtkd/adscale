@@ -2339,5 +2339,86 @@ export type NewAssistantGuidedFlow = typeof assistantGuidedFlows.$inferInsert;
 export type AssistantGuidedFlowEvent = typeof assistantGuidedFlowEvents.$inferSelect;
 export type NewAssistantGuidedFlowEvent = typeof assistantGuidedFlowEvents.$inferInsert;
 
+export const assistantGuidedFlowStagingEvidence = adscaleSchema.table(
+  "assistant_guided_flow_staging_evidence",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    clientProfileId: uuid("client_profile_id")
+      .notNull()
+      .references(() => clientProfiles.id, { onDelete: "cascade" }),
+    threadId: uuid("thread_id")
+      .notNull()
+      .references(() => assistantThreads.id, { onDelete: "cascade" }),
+    campaignId: uuid("campaign_id").references(() => campaigns.id, {
+      onDelete: "set null",
+    }),
+    path: text("path").notNull(),
+    environment: text("environment").notNull(),
+    reviewerUserId: text("reviewer_user_id").notNull(),
+    checkKey: text("check_key").notNull(),
+    verdict: text("verdict").notNull(),
+    safeNotes: text("safe_notes"),
+    referenceCounts: jsonb("reference_counts")
+      .$type<Record<string, number>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("assistant_guided_flow_staging_evidence_workspace_created_idx").on(
+      table.workspaceId,
+      table.createdAt
+    ),
+  ]
+);
+
+export const assistantGuidedFlowFeedback = adscaleSchema.table(
+  "assistant_guided_flow_feedback",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    clientProfileId: uuid("client_profile_id")
+      .notNull()
+      .references(() => clientProfiles.id, { onDelete: "cascade" }),
+    threadId: uuid("thread_id")
+      .notNull()
+      .references(() => assistantThreads.id, { onDelete: "cascade" }),
+    guidedFlowId: uuid("guided_flow_id").references(() => assistantGuidedFlows.id, {
+      onDelete: "set null",
+    }),
+    path: text("path").notNull(),
+    step: text("step").notNull(),
+    feedbackKind: text("feedback_kind").notNull(),
+    rating: text("rating").notNull(),
+    reasonText: text("reason_text"),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("assistant_guided_flow_feedback_thread_created_idx").on(
+      table.threadId,
+      table.createdAt
+    ),
+  ]
+);
+
+export type AssistantGuidedFlowStagingEvidence =
+  typeof assistantGuidedFlowStagingEvidence.$inferSelect;
+export type NewAssistantGuidedFlowStagingEvidence =
+  typeof assistantGuidedFlowStagingEvidence.$inferInsert;
+export type AssistantGuidedFlowFeedback = typeof assistantGuidedFlowFeedback.$inferSelect;
+export type NewAssistantGuidedFlowFeedback = typeof assistantGuidedFlowFeedback.$inferInsert;
+
 export type PersonaSimulation = typeof personaSimulations.$inferSelect;
 export type NewPersonaSimulation = typeof personaSimulations.$inferInsert;

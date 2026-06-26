@@ -414,6 +414,20 @@
       "when": 1782993600000,
       "tag": "0059_assistant_guided_flow_events",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1783080000000,
+      "tag": "0060_assistant_guided_flow_staging_evidence",
+      "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1783166400000,
+      "tag": "0061_assistant_guided_flow_feedback",
+      "breakpoints": true
     }
   ]
 }

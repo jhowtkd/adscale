@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "milestoneVersion": "v13.7",
+  "path": "existing_creative",
+  "environment": "staging",
+  "threadId": null,
+  "campaignId": null,
+  "checks": [
+    { "checkKey": "diagnosis", "verdict": "pending", "safeNotes": null },
+    { "checkKey": "briefing", "verdict": "pending", "safeNotes": null },
+    { "checkKey": "creative_plan", "verdict": "pending", "safeNotes": null },
+    { "checkKey": "approval_lifecycle", "verdict": "pending", "safeNotes": null }
+  ]
+}
