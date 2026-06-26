@@ -2270,6 +2270,64 @@ export const assistantGuidedFlows = adscaleSchema.table(
   ]
 );
 
+export const assistantGuidedFlowEvents = adscaleSchema.table(
+  "assistant_guided_flow_events",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    clientProfileId: uuid("client_profile_id")
+      .notNull()
+      .references(() => clientProfiles.id, { onDelete: "cascade" }),
+    threadId: uuid("thread_id")
+      .notNull()
+      .references(() => assistantThreads.id, { onDelete: "cascade" }),
+    guidedFlowId: uuid("guided_flow_id").references(() => assistantGuidedFlows.id, {
+      onDelete: "set null",
+    }),
+    path: text("path").notNull(),
+    step: text("step").notNull(),
+    eventKey: text("event_key").notNull(),
+    blockerCategory: text("blocker_category"),
+    actionRecordId: uuid("action_record_id").references(
+      () => assistantActionRecords.id,
+      { onDelete: "set null" }
+    ),
+    campaignId: uuid("campaign_id").references(() => campaigns.id, {
+      onDelete: "set null",
+    }),
+    metadata: jsonb("metadata")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    occurredAt: timestamp("occurred_at", { mode: "date" }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("assistant_guided_flow_events_workspace_occurred_idx").on(
+      table.workspaceId,
+      table.occurredAt
+    ),
+    index("assistant_guided_flow_events_workspace_client_path_occurred_idx").on(
+      table.workspaceId,
+      table.clientProfileId,
+      table.path,
+      table.occurredAt
+    ),
+    index("assistant_guided_flow_events_thread_occurred_idx").on(
+      table.threadId,
+      table.occurredAt
+    ),
+    index("assistant_guided_flow_events_guided_flow_occurred_idx").on(
+      table.guidedFlowId,
+      table.occurredAt
+    ),
+  ]
+);
+
 export type AssistantThread = typeof assistantThreads.$inferSelect;
 export type NewAssistantThread = typeof assistantThreads.$inferInsert;
 export type AssistantMessage = typeof assistantMessages.$inferSelect;
@@ -2278,6 +2336,8 @@ export type AssistantActionRecord = typeof assistantActionRecords.$inferSelect;
 export type NewAssistantActionRecord = typeof assistantActionRecords.$inferInsert;
 export type AssistantGuidedFlow = typeof assistantGuidedFlows.$inferSelect;
 export type NewAssistantGuidedFlow = typeof assistantGuidedFlows.$inferInsert;
+export type AssistantGuidedFlowEvent = typeof assistantGuidedFlowEvents.$inferSelect;
+export type NewAssistantGuidedFlowEvent = typeof assistantGuidedFlowEvents.$inferInsert;
 
 export type PersonaSimulation = typeof personaSimulations.$inferSelect;
 export type NewPersonaSimulation = typeof personaSimulations.$inferInsert;
