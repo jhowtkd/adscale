@@ -41,6 +41,7 @@
     "real-quality-release-gate": "node scripts/run-real-quality-release-gate.mjs",
     "operational-quality-release-gate": "node scripts/run-operational-quality-release-gate.mjs",
     "v13-3-release-gate": "node scripts/run-v13-3-release-gate.mjs",
+    "v13-7-release-gate": "node scripts/run-v13-7-release-gate.mjs",
     "seed:live-real-customer-corpus": "tsx scripts/seed-live-real-customer-corpus.ts",
     "refresh:v13-3-operational-evidence": "tsx scripts/refresh-v13-3-operational-evidence.ts",
     "sample-coverage-evidence": "npx tsx scripts/run-sample-coverage.ts --all-workspaces",

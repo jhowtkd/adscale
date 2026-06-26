@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "milestoneVersion": "v13.7",
+  "capturedAt": null,
+  "verifiedAt": null,
+  "status": "pending",
+  "implementation": {
+    "status": "pass",
+    "note": "Phases 190-193 automated surfaces implemented"
+  },
+  "automatedTests": {
+    "status": "pending",
+    "sourcePath": "app/scripts/run-v13-7-release-gate.mjs"
+  },
+  "stagingEvidence": {
+    "status": "pending",
+    "existingCreativeJourney": "pending",
+    "fromZeroJourney": "pending",
+    "runbookPath": "docs/staging/guided-journeys-v13-7-runbook.md"
+  },
+  "operationalSample": {
+    "status": "insufficient_sample",
+    "minStarts": 5,
+    "observedStarts": 0,
+    "claimsBlocked": ["customer_real_quality_claims"]
+  },
+  "acceptedTechDebt": [
+    "Live OpenAI diagnosis/briefing quality verify on staging",
+    "EXEC-04 live Inngest lifecycle verify inherited from v13.5/v13.6"
+  ],
+  "requirements": []
+}

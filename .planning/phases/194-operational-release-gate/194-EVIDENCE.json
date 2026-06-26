@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "milestoneVersion": "v13.7",
+  "capturedAt": null,
+  "verifiedAt": null,
+  "status": "passed_with_tech_debt",
+  "implementation": {
+    "status": "pass",
+    "note": "v13.7 guided operational phases 190-193"
+  },
+  "automatedTests": {
+    "status": "pass",
+    "steps": {
+      "telemetry-repository": {
+        "status": "pass",
+        "ok": true,
+        "command": "npm test -- --run src/server/repositories/guided-flow-telemetry.test.ts"
+      },
+      "telemetry-contract": {
+        "status": "pass",
+        "ok": true,
+        "command": "npm test -- --run src/server/assistant/guided-flow-telemetry.test.ts"
+      },
+      "guided-flow-funnel": {
+        "status": "pass",
+        "ok": true,
+        "command": "npm test -- --run src/server/assistant/guided-flow-funnel.test.ts src/app/api/feedback/analytics/guided-flow-funnel/route.test.ts"
+      },
+      "staging-evidence": {
+        "status": "pass",
+        "ok": true,
+        "command": "npm test -- --run src/server/repositories/guided-flow-staging-evidence.test.ts"
+      },
+      "quality-feedback": {
+        "status": "pass",
+        "ok": true,
+        "command": "npm test -- --run src/server/repositories/guided-flow-feedback.test.ts"
+      },
+      "guided-flow-routes": {
+        "status": "pass",
+        "ok": true,
+        "command": "npm test -- --run src/app/api/assistant/threads/[threadId]/guided-flow/route.test.ts src/app/api/assistant/threads/[threadId]/guided-flow/select-creative/route.test.ts src/app/api/assistant/threads/[threadId]/guided-flow/from-zero/route.test.ts"
+      },
+      "release-evidence-unit": {
+        "status": "pass",
+        "ok": true,
+        "command": "npm test -- --run tests/unit/release/v13-7-release-evidence.test.ts"
+      }
+    },
+    "verifiedAt": "2026-06-26T18:26:53.291Z"
+  },
+  "stagingEvidence": {
+    "status": "pending",
+    "existingCreativeJourney": "pending",
+    "fromZeroJourney": "pending",
+    "runbookPath": "docs/staging/guided-journeys-v13-7-runbook.md",
+    "warning": "Staging human evidence still pending — see docs/staging/guided-journeys-v13-7-runbook.md"
+  },
+  "operationalSample": {
+    "status": "insufficient_sample",
+    "minStarts": 5,
+    "observedStarts": 0,
+    "claimsBlocked": [
+      "customer_real_quality_claims"
+    ]
+  },
+  "acceptedTechDebt": [
+    "Live OpenAI diagnosis/briefing quality verify on staging",
+    "EXEC-04 live Inngest lifecycle verify inherited from v13.5/v13.6"
+  ],
+  "requirements": []
+}
