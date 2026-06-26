@@ -14,9 +14,13 @@ vi.mock("@/server/auth/workspace", async (importOriginal) => {
   };
 });
 
-vi.mock("@/server/repositories/dashboard", () => ({
-  getDashboardStats: vi.fn(),
-}));
+vi.mock("@/server/repositories/dashboard", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/server/repositories/dashboard")>();
+  return {
+    ...actual,
+    getDashboardStats: vi.fn(),
+  };
+});
 
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
@@ -58,9 +62,31 @@ describe("GET /api/dashboard/stats", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(mockGetDashboardStats).toHaveBeenCalledWith("workspace-1", "month");
+    expect(mockGetDashboardStats).toHaveBeenCalledWith("workspace-1", "month", "7");
     expect(body.totalCampaigns).toBe(5);
     expect(body.approvalRate).toBe(80);
+  });
+
+  it("forwards creditRange query param to getDashboardStats", async () => {
+    mockGetDashboardStats.mockResolvedValue({
+      totalCampaigns: 0,
+      campaignsChange: 0,
+      derivationsThisMonth: 0,
+      derivationsChange: 0,
+      approvalRate: 0,
+      approvalChange: 0,
+      creditsRemaining: 0,
+      creditsUsedThisMonth: 0,
+      creditsTotal: 0,
+      creditUsageSeries: [],
+      recentCampaigns: [],
+      recentActivity: [],
+      subscription: { planKey: null, status: "inactive" },
+    } as unknown as Awaited<ReturnType<typeof getDashboardStats>>);
+
+    await GET(new Request("http://localhost/api/dashboard/stats?creditRange=30"));
+
+    expect(mockGetDashboardStats).toHaveBeenCalledWith("workspace-1", "month", "30");
   });
 
   it("returns 401 when workspace access is unauthorized", async () => {

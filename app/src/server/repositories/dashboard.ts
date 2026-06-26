@@ -12,6 +12,65 @@ import { getCreditTransactionsForWorkspace } from "./credit-transactions";
 import { getPresignedDownloadUrl } from "@/server/storage/r2";
 
 export type AnalyticsPeriod = "week" | "month" | "quarter";
+export type CreditChartRange = "7" | "30" | "90";
+
+const CREDIT_RANGE_DAYS: Record<CreditChartRange, number> = {
+  "7": 7,
+  "30": 30,
+  "90": 90,
+};
+
+export function parseCreditChartRange(value: string | null | undefined): CreditChartRange {
+  if (value === "30" || value === "90") return value;
+  return "7";
+}
+
+function buildCreditUsageSeries(
+  creditTransactions: Awaited<ReturnType<typeof getCreditTransactionsForWorkspace>>,
+  creditBalance: number,
+  range: CreditChartRange,
+  now: Date
+): { date: string; used: number; remaining: number }[] {
+  const sumUsageBetween = (start: Date, end: Date) =>
+    Math.abs(
+      creditTransactions
+        .filter((t) => t.createdAt >= start && t.createdAt < end && t.amount < 0)
+        .reduce((sum, t) => sum + t.amount, 0)
+    );
+
+  if (range === "90") {
+    const weeks = 13;
+    return Array.from({ length: weeks }, (_, i) => {
+      const weekEnd = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() - (weeks - 1 - i) * 7
+      );
+      const weekStart = new Date(weekEnd.getFullYear(), weekEnd.getMonth(), weekEnd.getDate() - 6);
+      const bucketEnd = new Date(weekEnd.getFullYear(), weekEnd.getMonth(), weekEnd.getDate() + 1);
+
+      return {
+        date: weekStart.toISOString().split("T")[0],
+        used: sumUsageBetween(weekStart, bucketEnd),
+        remaining: Math.max(0, creditBalance),
+      };
+    });
+  }
+
+  const days = CREDIT_RANGE_DAYS[range];
+  return Array.from({ length: days }, (_, i) => {
+    const date = new Date(now.getTime() - (days - 1 - i) * 24 * 60 * 60 * 1000);
+    const dateStr = date.toISOString().split("T")[0];
+    const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const dayEnd = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
+
+    return {
+      date: dateStr,
+      used: sumUsageBetween(dayStart, dayEnd),
+      remaining: Math.max(0, creditBalance),
+    };
+  });
+}
 
 export interface DashboardStats {
   totalCampaigns: number;
@@ -82,7 +141,8 @@ function percentChange(current: number, previous: number): number {
 
 export async function getDashboardStats(
   workspaceId: string,
-  period: AnalyticsPeriod = "month"
+  period: AnalyticsPeriod = "month",
+  creditRange: CreditChartRange = "7"
 ): Promise<DashboardStats> {
   const periodStart = getPeriodStart(period);
   const previousPeriodStart = getPreviousPeriodStart(period);
@@ -137,8 +197,10 @@ export async function getDashboardStats(
       : 0;
 
   const now = new Date();
+  const resolvedCreditRange = parseCreditChartRange(creditRange);
+  const creditLookbackDays = CREDIT_RANGE_DAYS[resolvedCreditRange];
   const creditTransactions = await getCreditTransactionsForWorkspace(workspaceId, {
-    from: new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000),
+    from: new Date(now.getTime() - (creditLookbackDays - 1) * 24 * 60 * 60 * 1000),
     to: now,
   });
 
@@ -148,24 +210,12 @@ export async function getDashboardStats(
       .reduce((sum, t) => sum + t.amount, 0)
   );
 
-  const creditUsageSeries = Array.from({ length: 7 }, (_, i) => {
-    const date = new Date(now.getTime() - (6 - i) * 24 * 60 * 60 * 1000);
-    const dateStr = date.toISOString().split("T")[0];
-    const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    const dayEnd = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
-
-    const used = Math.abs(
-      creditTransactions
-        .filter((t) => t.createdAt >= dayStart && t.createdAt < dayEnd && t.amount < 0)
-        .reduce((sum, t) => sum + t.amount, 0)
-    );
-
-    return {
-      date: dateStr,
-      used,
-      remaining: Math.max(0, creditBalance),
-    };
-  });
+  const creditUsageSeries = buildCreditUsageSeries(
+    creditTransactions,
+    creditBalance,
+    resolvedCreditRange,
+    now
+  );
 
   const recentActivity = creditTransactions.slice(0, 10).map((t, index) => ({
     id: t.id ?? String(index),

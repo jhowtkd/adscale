@@ -4,6 +4,7 @@ import { useTranslations, useLocale } from "next-intl";
 import { AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import Panel from "@/components/layout/Panel";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface CreditPanelProps {
@@ -23,12 +24,14 @@ export default function CreditPanel({ remaining, total, planKey, renewalDate }: 
     <Panel padding="none">
       <div className="flex items-center justify-between border-b border-[var(--border-dim)] px-5 py-4">
         <h2 className="product-section-title text-sm text-[var(--text-primary)]">{t("title")}</h2>
-        <Link
-          href="/settings?tab=billing"
-          className="text-xs font-medium uppercase tracking-wider text-[var(--accent-green-dark)] transition-colors duration-200 hover:text-[var(--accent-green)]"
+        <Button
+          variant="default"
+          size="xs"
+          render={<Link href="/settings?tab=billing" />}
+          nativeButton={false}
         >
           {t("upgrade")}
-        </Link>
+        </Button>
       </div>
       <div className="p-5">
         <div className="mb-3 flex items-baseline justify-between">

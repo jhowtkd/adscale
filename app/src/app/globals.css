@@ -183,9 +183,9 @@
   --layer-skip-link: 100;
 
   /* Canonical light theme */
-  --canvas: oklch(0.985 0.003 145);
-  --surface-base: oklch(0.998 0.002 145);
-  --surface-raised: oklch(0.968 0.005 145);
+  --canvas: oklch(0.965 0.006 145);
+  --surface-base: oklch(0.992 0.004 145);
+  --surface-raised: oklch(0.955 0.007 145);
   --surface-inset: oklch(0.945 0.007 145);
   --surface-overlay: oklch(0.995 0.003 145);
   --text-primary: oklch(0.18 0.012 145);
@@ -196,11 +196,11 @@
   --border-subtle: oklch(0.18 0.012 145 / 0.06);
   --border-default: oklch(0.18 0.012 145 / 0.12);
   --border-strong: oklch(0.18 0.012 145 / 0.22);
-  --focus-ring: oklch(0.66 0.2 145);
-  --accent-primary: oklch(0.66 0.2 145);
-  --accent-primary-hover: oklch(0.72 0.22 145);
-  --accent-primary-subtle: oklch(0.66 0.2 145 / 0.12);
-  --accent-primary-text: oklch(0.43 0.15 145);
+  --focus-ring: oklch(0.62 0.21 145);
+  --accent-primary: oklch(0.62 0.21 145);
+  --accent-primary-hover: oklch(0.68 0.23 145);
+  --accent-primary-subtle: oklch(0.62 0.21 145 / 0.12);
+  --accent-primary-text: oklch(0.4 0.16 145);
   --neutral-bg: oklch(0.58 0.01 145 / 0.12);
   --neutral-border: oklch(0.52 0.01 145 / 0.24);
   --neutral-text: oklch(0.34 0.01 145);
@@ -221,6 +221,9 @@
   --info-border: oklch(0.54 0.12 245 / 0.28);
   --info-text: oklch(0.4 0.12 245);
   --info-dot: oklch(0.54 0.14 245);
+
+  /* Light-mode logo: stronger outline against warm canvas */
+  --logo-filter: contrast(1.18) brightness(0.88);
 
   /* Live compatibility aliases. Deprecated hue names remain callers-only. */
   --deep-bg: var(--canvas);
@@ -336,6 +339,8 @@
   --info-border: oklch(0.7 0.14 245 / 0.3);
   --info-text: oklch(0.76 0.13 245);
   --info-dot: oklch(0.7 0.14 245);
+
+  --logo-filter: none;
 }
 
 /* ============================================

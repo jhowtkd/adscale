@@ -18,4 +18,11 @@ describe("dashboard secondary surfaces", () => {
     expect(screen.getByText("dashboard.creditsPanel.lowBalance")).toBeInTheDocument();
     expect(screen.getByRole("progressbar", { name: "dashboard.creditsPanel.title" })).toBeInTheDocument();
   });
+
+  it("CreditPanel renders upgrade as a primary button link", () => {
+    render(<CreditPanel remaining={500} total={1000} planKey="starter" />);
+
+    const upgradeButton = screen.getByRole("button", { name: "dashboard.creditsPanel.upgrade" });
+    expect(upgradeButton).toHaveAttribute("href", "/settings?tab=billing");
+  });
 });

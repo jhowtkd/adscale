@@ -94,6 +94,19 @@
     "confirmDeleteDraft": "Excluir esta campanha rascunho?",
     "deleteDraft": "Excluir rascunho",
     "noPlatformsSet": "Nenhuma plataforma definida",
+    "addPlatform": "Adicionar plataforma",
+    "platformsSaved": "Plataformas atualizadas",
+    "failedSavePlatforms": "Não foi possível salvar as plataformas. Tente novamente.",
+    "platformsDrawer": {
+      "title": "Plataformas de veiculação",
+      "description": "Selecione onde esta campanha será veiculada.",
+      "save": "Salvar plataformas",
+      "metaFeed": "Meta Feed",
+      "metaStories": "Meta Stories",
+      "googleDisplay": "Google Display",
+      "tiktok": "TikTok",
+      "linkedin": "LinkedIn"
+    },
     "backToCampaigns": "Voltar para campanhas",
     "campaignNotFound": "Campanha não encontrada",
     "errorLoadingCampaign": "Erro ao carregar campanha",
@@ -229,7 +242,8 @@
     },
     "creditChart": {
       "title": "Créditos por semana",
-      "noData": "Sem dados de uso de créditos",
+      "noData": "Sem consumo de créditos ainda",
+      "noDataHint": "Execute uma campanha para ver seu primeiro lote contabilizado aqui.",
       "rangeAria": "Período de {range}"
     },
     "activity": {
@@ -563,6 +577,9 @@
     "generateWithoutPlan": "Gerar sem Plano",
     "derivationsSectionTitle": "Derivações",
     "generatingDerivations": "Gerando derivações…",
+    "briefingSaveRateLimit": "Muitas requisições em sequência. Aguarde alguns segundos e tente novamente.",
+    "briefingSaveFailed": "Não foi possível salvar o briefing. Tente novamente.",
+    "styleReferenceUploadFailed": "Erro ao fazer upload das referências de estilo",
     "pilotSidebar": {
       "pilotBadge": "Piloto",
       "pilotImageAlt": "Piloto",
@@ -1914,7 +1931,7 @@
     "start": {
       "promptIn": "No que devemos trabalhar em {project}?",
       "promptGeneric": "No que devemos trabalhar?",
-      "inputPlaceholder": "Faça o que quiser",
+      "inputPlaceholder": "Briefing inicial — cole um link, descreva o cliente ou peça uma sugestão",
       "accessFull": "Acesso completo",
       "modelHigh": "Alta prioridade",
       "send": "Enviar",

@@ -48,6 +48,8 @@ import OutputLearningRecommendationCard, {
   type RecipePrefillPayload,
 } from "@/components/campaigns/OutputLearningRecommendationCard";
 import CampaignClientSubtitle from "@/components/campaigns/CampaignClientSubtitle";
+import PlatformsDrawer from "@/components/campaigns/PlatformsDrawer";
+import { formatCampaignPlatforms } from "@/lib/campaign-platforms";
 import type { StrategyRecipePrefill } from "@/lib/hooks/use-strategy-recipe";
 import ContextualFeedbackButton from "@/components/feedback/ContextualFeedbackButton";
 import CampaignSkeleton from "@/components/campaigns/CampaignSkeleton";
@@ -58,6 +60,7 @@ import CampaignAssistantDrawer from "@/components/assistant/CampaignAssistantDra
 import { useCampaignWorkspace } from "@/lib/hooks/use-campaign-workspace";
 import type { ReviewDerivationVariables } from "@/lib/hooks/use-review";
 import { useBillingStatus } from "@/lib/hooks/use-billing";
+import { useUpdateCampaign } from "@/lib/hooks/use-campaigns";
 import { resolveConversionGateFromBilling } from "@/lib/billing/conversion-client";
 import { useDerivationFlow } from "@/lib/hooks/use-derivation-flow";
 import { usePreflightScore } from "@/lib/hooks/use-preflight";
@@ -86,9 +89,11 @@ export default function CampaignWorkspacePage() {
   }, [isNew]);
 
   const tc = useTranslations("common");
+  const tCampaign = useTranslations("campaign");
   const tAssistant = useTranslations("assistant.drawer");
   const addToast = useAppStore((s) => s.addToast);
   const uploadAsset = useUploadAsset(campaignId);
+  const updateCampaign = useUpdateCampaign(campaignId);
 
   const [personaSimulation, setPersonaSimulation] = useState<{
     isOpen: boolean;
@@ -109,6 +114,7 @@ export default function CampaignWorkspacePage() {
   const pilotAssetIdRef = useRef<string | null>(null);
   const [showEstilizarModal, setShowEstilizarModal] = useState(false);
   const [assistantDrawerOpen, setAssistantDrawerOpen] = useState(false);
+  const [platformsDrawerOpen, setPlatformsDrawerOpen] = useState(false);
   const {
     isDerivePanelOpen,
     derivePanelSession,
@@ -334,8 +340,8 @@ export default function CampaignWorkspacePage() {
     } catch (error) {
       const message =
         error instanceof Error && error.message === "rateLimitExceeded"
-          ? "Muitas requisições em sequência. Aguarde alguns segundos e tente novamente."
-          : "Não foi possível salvar o briefing. Tente novamente.";
+          ? tCampaign("briefingSaveRateLimit")
+          : tCampaign("briefingSaveFailed");
       addToast("error", message);
     }
   };
@@ -393,7 +399,7 @@ export default function CampaignWorkspacePage() {
           styleAssetIds.push(asset.id);
         }
       } catch {
-        addToast("error", "Erro ao fazer upload das referências de estilo");
+        addToast("error", tCampaign("styleReferenceUploadFailed"));
         return;
       }
     }
@@ -420,6 +426,17 @@ export default function CampaignWorkspacePage() {
   }
 
   const isDraft = campaign?.status === "draft";
+  const platformsText = formatCampaignPlatforms(campaign?.platforms);
+
+  const handleSavePlatforms = async (platforms: string[]) => {
+    try {
+      await updateCampaign.mutateAsync({ platforms });
+      addToast("success", tc("platformsSaved"));
+      setPlatformsDrawerOpen(false);
+    } catch {
+      addToast("error", tc("failedSavePlatforms"));
+    }
+  };
 
   return (
     <PageFrame
@@ -442,8 +459,20 @@ export default function CampaignWorkspacePage() {
 
       <WorkspaceStageStrip workspaceState={workspaceState} className="mb-4 border-b border-[var(--border-dim)] pb-4" />
 
-      {campaign && <CampaignClientSubtitle platformsText="" />}
+      {campaign && (
+        <CampaignClientSubtitle
+          platformsText={platformsText}
+          onAddPlatform={() => setPlatformsDrawerOpen(true)}
+        />
+      )}
 
+      <PlatformsDrawer
+        open={platformsDrawerOpen}
+        onOpenChange={setPlatformsDrawerOpen}
+        selectedPlatforms={campaign?.platforms ?? []}
+        isSaving={updateCampaign.isPending}
+        onSave={handleSavePlatforms}
+      />
       <CampaignWorkspaceCard
         campaignId={campaignId}
         campaign={campaign}

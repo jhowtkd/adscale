@@ -1,6 +1,7 @@
 "use client";
 
 import { useDashboardStats } from "@/lib/hooks/use-dashboard-stats";
+import type { CreditChartRange } from "@/server/repositories/dashboard";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { useOnboarding } from "@/lib/hooks/use-onboarding";
@@ -43,7 +44,8 @@ export default function DashboardPage() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [searchQuery, setSearchQuery] = useState("");
   const [period, setPeriod] = useState<"week" | "month" | "quarter">("month");
-  const { data: stats, isLoading, isFetching, error } = useDashboardStats(period);
+  const [creditRange, setCreditRange] = useState<CreditChartRange>("7");
+  const { data: stats, isLoading, isFetching, error } = useDashboardStats(period, creditRange);
   const statsPending = isLoading && !stats;
 
   const { completed: onboardingCompleted, isLoading: isOnboardingLoading, complete: completeOnboarding } = useOnboarding();
@@ -217,7 +219,12 @@ export default function DashboardPage() {
           <StatsSectionSkeleton />
         ) : (
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
-            <CreditChart data={stats!.creditUsageSeries} />
+            <CreditChart
+              data={stats!.creditUsageSeries}
+              range={creditRange}
+              onRangeChange={setCreditRange}
+              isFetching={isFetching}
+            />
             <div className="space-y-8">
               <div data-tour-step="5">
                 <CreditPanel

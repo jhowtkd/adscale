@@ -220,7 +220,8 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
             src="/images/logo.svg"
             alt=""
             aria-hidden="true"
-            className="block h-[clamp(0.8rem,2.56vw,1.6rem)] w-auto max-w-full object-contain object-left sm:h-[1.4rem] md:h-[1.6rem]"
+            className="topbar-logo block h-[clamp(0.8rem,2.56vw,1.6rem)] w-auto max-w-full object-contain object-left sm:h-[1.4rem] md:h-[1.6rem]"
+            style={{ filter: "var(--logo-filter)" }}
             width={813}
             height={142}
             priority

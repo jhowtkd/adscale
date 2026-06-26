@@ -102,6 +102,13 @@ describe("getDashboardStats", () => {
     expect(result.recentCampaigns).toHaveLength(1);
     expect(result.recentCampaigns[0]?.thumbnailUrl).toBeNull();
     expect(result.creditUsageSeries).toHaveLength(7);
+    expect(mockGetCreditTransactionsForWorkspace).toHaveBeenCalledWith(
+      "ws-1",
+      expect.objectContaining({
+        from: expect.any(Date),
+        to: expect.any(Date),
+      })
+    );
     expect(mockGetDerivationDashboardAnalytics).toHaveBeenCalledWith(
       "ws-1",
       expect.any(Date),
@@ -169,5 +176,86 @@ describe("getDashboardStats", () => {
     expect(result.approvalRate).toBe(0);
     expect(result.creditsRemaining).toBe(0);
     expect(result.subscription.status).toBe("inactive");
+  });
+
+  it("builds 30-day credit usage series when creditRange is 30", async () => {
+    mockGetWorkspaceCampaignCount.mockResolvedValue(0);
+    mockGetCampaignPeriodCounts.mockResolvedValue({ thisPeriod: 0, previousPeriod: 0 });
+    mockGetDerivationDashboardAnalytics.mockResolvedValue({
+      totalDerivations: 0,
+      derivationsThisPeriod: 0,
+      derivationsPreviousPeriod: 0,
+      approvedDerivations: 0,
+      approvedThisPeriod: 0,
+      approvedPreviousPeriod: 0,
+      avgGenerationTimeSeconds: 0,
+    });
+    mockGetCampaigns.mockResolvedValue([] as unknown as Awaited<ReturnType<typeof getCampaigns>>);
+    mockGetAvailableCreditGrants.mockResolvedValue([] as unknown as Awaited<ReturnType<typeof getAvailableCreditGrants>>);
+    mockGetActiveSubscriptionByWorkspace.mockResolvedValue(null);
+    mockGetCreditTransactionsForWorkspace.mockResolvedValue([]);
+
+    const result = await getDashboardStats("ws-1", "month", "30");
+
+    expect(result.creditUsageSeries).toHaveLength(30);
+  });
+
+  it("builds weekly credit usage series when creditRange is 90", async () => {
+    mockGetWorkspaceCampaignCount.mockResolvedValue(0);
+    mockGetCampaignPeriodCounts.mockResolvedValue({ thisPeriod: 0, previousPeriod: 0 });
+    mockGetDerivationDashboardAnalytics.mockResolvedValue({
+      totalDerivations: 0,
+      derivationsThisPeriod: 0,
+      derivationsPreviousPeriod: 0,
+      approvedDerivations: 0,
+      approvedThisPeriod: 0,
+      approvedPreviousPeriod: 0,
+      avgGenerationTimeSeconds: 0,
+    });
+    mockGetCampaigns.mockResolvedValue([] as unknown as Awaited<ReturnType<typeof getCampaigns>>);
+    mockGetAvailableCreditGrants.mockResolvedValue([] as unknown as Awaited<ReturnType<typeof getAvailableCreditGrants>>);
+    mockGetActiveSubscriptionByWorkspace.mockResolvedValue(null);
+    mockGetCreditTransactionsForWorkspace.mockResolvedValue([]);
+
+    const result = await getDashboardStats("ws-1", "month", "90");
+
+    expect(result.creditUsageSeries).toHaveLength(13);
+  });
+
+  it("aggregates credit usage into daily buckets", async () => {
+    mockGetWorkspaceCampaignCount.mockResolvedValue(0);
+    mockGetCampaignPeriodCounts.mockResolvedValue({ thisPeriod: 0, previousPeriod: 0 });
+    mockGetDerivationDashboardAnalytics.mockResolvedValue({
+      totalDerivations: 0,
+      derivationsThisPeriod: 0,
+      derivationsPreviousPeriod: 0,
+      approvedDerivations: 0,
+      approvedThisPeriod: 0,
+      approvedPreviousPeriod: 0,
+      avgGenerationTimeSeconds: 0,
+    });
+    mockGetCampaigns.mockResolvedValue([] as unknown as Awaited<ReturnType<typeof getCampaigns>>);
+    mockGetAvailableCreditGrants.mockResolvedValue([
+      { id: "grant-1", remaining: 100, amount: 100 },
+    ] as unknown as Awaited<ReturnType<typeof getAvailableCreditGrants>>);
+    mockGetActiveSubscriptionByWorkspace.mockResolvedValue(null);
+
+    const today = new Date();
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12);
+    mockGetCreditTransactionsForWorkspace.mockResolvedValue([
+      {
+        id: "tx-1",
+        amount: -5,
+        createdAt: todayStart,
+        description: "Derivation",
+        campaignName: "Test",
+      },
+    ] as unknown as Awaited<ReturnType<typeof getCreditTransactionsForWorkspace>>);
+
+    const result = await getDashboardStats("ws-1", "month", "7");
+    const todayKey = todayStart.toISOString().split("T")[0];
+    const todayPoint = result.creditUsageSeries.find((point) => point.date === todayKey);
+
+    expect(todayPoint?.used).toBe(5);
   });
 });

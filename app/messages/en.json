@@ -94,6 +94,19 @@
     "confirmDeleteDraft": "Delete this draft campaign?",
     "deleteDraft": "Delete draft",
     "noPlatformsSet": "No platforms set",
+    "addPlatform": "Add platform",
+    "platformsSaved": "Platforms updated",
+    "failedSavePlatforms": "Could not save platforms. Please try again.",
+    "platformsDrawer": {
+      "title": "Distribution platforms",
+      "description": "Select where this campaign will run.",
+      "save": "Save platforms",
+      "metaFeed": "Meta Feed",
+      "metaStories": "Meta Stories",
+      "googleDisplay": "Google Display",
+      "tiktok": "TikTok",
+      "linkedin": "LinkedIn"
+    },
     "backToCampaigns": "Back to campaigns",
     "campaignNotFound": "Campaign not found",
     "errorLoadingCampaign": "Error loading campaign",
@@ -229,7 +242,8 @@
     },
     "creditChart": {
       "title": "Credits by week",
-      "noData": "No credit usage data",
+      "noData": "No credit usage yet",
+      "noDataHint": "Run a campaign to see your first batch counted here.",
       "rangeAria": "Period {range}"
     },
     "activity": {
@@ -563,6 +577,9 @@
     "generateWithoutPlan": "Generate without Plan",
     "derivationsSectionTitle": "Derivations",
     "generatingDerivations": "Generating derivations…",
+    "briefingSaveRateLimit": "Too many requests in a row. Wait a few seconds and try again.",
+    "briefingSaveFailed": "Could not save the briefing. Please try again.",
+    "styleReferenceUploadFailed": "Failed to upload style references",
     "pilotSidebar": {
       "pilotBadge": "Pilot",
       "pilotImageAlt": "Pilot",
@@ -1913,7 +1930,7 @@
     "start": {
       "promptIn": "What should we work on in {project}?",
       "promptGeneric": "What should we work on?",
-      "inputPlaceholder": "Do whatever you want",
+      "inputPlaceholder": "Start your briefing — paste a link, describe the client, or ask for a suggestion",
       "accessFull": "Full access",
       "modelHigh": "High priority",
       "send": "Send",
