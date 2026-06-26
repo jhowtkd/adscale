@@ -31,7 +31,7 @@
 | Phase | Name | Plans | Status | Target |
 |-------|------|-------|--------|--------|
 | 184 | Guided Flow State | 2/2 | Complete | Persistência e APIs |
-| 185 | Assistant Entry UX | 0/0 | Pending | Dois cards iniciais |
+| 185 | Assistant Entry UX | 2/2 | Complete | Dois cards iniciais |
 | 186 | Existing Creative Path | 0/0 | Pending | Diagnóstico acionável |
 | 187 | From-Zero Path | 0/0 | Pending | Plano com 3 referências |
 | 188 | Action Integration and UAT | 0/0 | Pending | Action cards e smoke |
@@ -141,4 +141,4 @@ Archive: [v13.3-ROADMAP.md](milestones/v13.3-ROADMAP.md) · [v13.3-REQUIREMENTS.
 
 **Active:** v13.6 — started 2026-06-26
 
-**Next:** `$gsd-discuss-phase 185 --auto`
+**Next:** `$gsd-discuss-phase 186 --auto`

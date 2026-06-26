@@ -15,17 +15,17 @@ Transformar o `/assistant` de um chat genérico em duas jornadas guiadas e acion
 
 ### Guided Entry
 
-- [ ] **ENTRY-01**: User can start `/assistant` from two primary cards: `Já tenho peça` and `Produzir do zero`.
-- [ ] **ENTRY-02**: User can still type a freeform first message, but the assistant classifies it into one guided path or asks one clarifying question.
-- [ ] **ENTRY-03**: User can resume an existing guided thread and see the current path, step, missing inputs and next action.
-- [ ] **ENTRY-04**: Mobile assistant users can access the same two paths without layout overlap or hidden primary actions.
+- [x] **ENTRY-01**: User can start `/assistant` from two primary cards: `Já tenho peça` and `Produzir do zero`.
+- [x] **ENTRY-02**: User can still type a freeform first message, but the assistant classifies it into one guided path or asks one clarifying question.
+- [x] **ENTRY-03**: User can resume an existing guided thread and see the current path, step, missing inputs and next action.
+- [x] **ENTRY-04**: Mobile assistant users can access the same two paths without layout overlap or hidden primary actions.
 
 ### Guided Flow State
 
-- [ ] **FLOW-01**: System persists guided-flow state in a dedicated table scoped by workspace, clientProfile and assistant thread.
-- [ ] **FLOW-02**: Guided-flow state records path, status, current step, slot values, missing fields, asset ids, reference ids and optional campaign id.
-- [ ] **FLOW-03**: Guided-flow transitions reject cross-workspace, cross-client and cross-thread mutations.
-- [ ] **FLOW-04**: Guided-flow state does not persist provider reasoning, signed URLs, raw tool args or internal evidence.
+- [x] **FLOW-01**: System persists guided-flow state in a dedicated table scoped by workspace, clientProfile and assistant thread.
+- [x] **FLOW-02**: Guided-flow state records path, status, current step, slot values, missing fields, asset ids, reference ids and optional campaign id.
+- [x] **FLOW-03**: Guided-flow transitions reject cross-workspace, cross-client and cross-thread mutations.
+- [x] **FLOW-04**: Guided-flow state does not persist provider reasoning, signed URLs, raw tool args or internal evidence.
 
 ### Existing Creative Path
 
@@ -84,14 +84,14 @@ Transformar o `/assistant` de um chat genérico em duas jornadas guiadas e acion
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FLOW-01 | Phase 184 | Pending |
-| FLOW-02 | Phase 184 | Pending |
-| FLOW-03 | Phase 184 | Pending |
-| FLOW-04 | Phase 184 | Pending |
-| ENTRY-01 | Phase 185 | Pending |
-| ENTRY-02 | Phase 185 | Pending |
-| ENTRY-03 | Phase 185 | Pending |
-| ENTRY-04 | Phase 185 | Pending |
+| FLOW-01 | Phase 184 | Complete |
+| FLOW-02 | Phase 184 | Complete |
+| FLOW-03 | Phase 184 | Complete |
+| FLOW-04 | Phase 184 | Complete |
+| ENTRY-01 | Phase 185 | Complete |
+| ENTRY-02 | Phase 185 | Complete |
+| ENTRY-03 | Phase 185 | Complete |
+| ENTRY-04 | Phase 185 | Complete |
 | EXIST-01 | Phase 186 | Pending |
 | EXIST-02 | Phase 186 | Pending |
 | EXIST-03 | Phase 186 | Pending |
