@@ -67,7 +67,7 @@ describe("buildGuidedFlowFunnelSummary", () => {
           path: "existing_creative",
           starts: 1,
           completions: 0,
-          abandonments: 1,
+          abandonments: 0,
           blocked: 1,
         }),
       ])

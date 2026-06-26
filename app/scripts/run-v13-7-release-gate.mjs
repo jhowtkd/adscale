@@ -19,6 +19,7 @@ const templatePath = resolve(phaseDir, "194-EVIDENCE.template.json");
 const runbookPath = resolve(repoRoot, "docs/staging/guided-journeys-v13-7-runbook.md");
 
 const dryRun = process.argv.includes("--dry-run");
+const allowPendingStaging = process.argv.includes("--allow-pending-staging");
 
 const AUTOMATED_STEPS = [
   {
@@ -42,7 +43,14 @@ const AUTOMATED_STEPS = [
   },
   {
     id: "quality-feedback",
-    files: ["src/server/repositories/guided-flow-feedback.test.ts"],
+    files: [
+      "src/server/repositories/guided-flow-feedback.test.ts",
+      "src/app/api/assistant/threads/[threadId]/guided-flow/feedback/route.test.ts",
+    ],
+  },
+  {
+    id: "guided-flow-lifecycle",
+    files: ["src/server/assistant/guided-flow-telemetry-lifecycle.test.ts"],
   },
   {
     id: "guided-flow-routes",
@@ -123,12 +131,19 @@ function main() {
   if (evidence.stagingEvidence?.status === "pending") {
     evidence.stagingEvidence.warning =
       "Staging human evidence still pending — see docs/staging/guided-journeys-v13-7-runbook.md";
+    if (!allowPendingStaging) {
+      failed = true;
+      evidence.stagingEvidence.gateStatus = "blocked";
+    }
   }
 
   evidence.status = failed ? "blocked" : "passed_with_tech_debt";
   saveEvidence(evidence);
 
   if (failed) {
+    if (evidence.stagingEvidence?.status === "pending" && !allowPendingStaging) {
+      console.error("v13.7 release gate blocked: staging human evidence is still pending.");
+    }
     process.exit(1);
   }
 

@@ -1,7 +1,9 @@
 import { z } from "zod";
 import type { WorkspaceMemberRole } from "@/server/auth/workspace";
 import { validateProposeAction } from "@/server/assistant/action-contracts/validate";
+import { emitGuidedFlowActionProposed } from "@/server/assistant/guided-flow-telemetry-lifecycle";
 import { createAssistantAction } from "@/server/repositories/assistant-action";
+import { getGuidedFlowByThread } from "@/server/repositories/guided-flow";
 import { stripDeniedFields } from "@/server/assistant/context/sanitize";
 import { containsDeniedPersistenceKeys } from "@/server/repositories/assistant-types";
 import type { RegisteredTool, ToolHandlerContext, ToolHandlerResult } from "../registry";
@@ -40,6 +42,21 @@ export async function handleProposeAction(
     inputSnapshot,
     display,
   });
+
+  const guidedFlow = await getGuidedFlowByThread(ctx.workspaceId, ctx.threadId);
+  if (guidedFlow && guidedFlow.path !== "unclassified") {
+    emitGuidedFlowActionProposed({
+      workspaceId: ctx.workspaceId,
+      clientProfileId: ctx.clientProfileId,
+      threadId: ctx.threadId,
+      guidedFlowId: guidedFlow.id,
+      path: guidedFlow.path,
+      step: guidedFlow.currentStep,
+      actionRecordId: action.id,
+      campaignId: guidedFlow.campaignId,
+      actionType: parsed.actionType,
+    });
+  }
 
   return {
     summary: `Proposed action: ${parsed.label} (${parsed.actionType})`,

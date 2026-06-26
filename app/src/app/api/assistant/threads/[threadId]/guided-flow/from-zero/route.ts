@@ -70,15 +70,6 @@ export async function POST(
           eventKey: "guided_input_supplied",
           metadata: { inputType: "brief" },
         });
-        emitGuidedFlowTelemetry({
-          workspaceId: workspace.id,
-          clientProfileId: thread.clientProfileId,
-          threadId,
-          guidedFlowId: result.guidedFlow.id,
-          path: result.guidedFlow.path,
-          step: result.guidedFlow.currentStep,
-          eventKey: "guided_step_viewed",
-        });
 
         return NextResponse.json(result);
       } catch (error) {
@@ -128,15 +119,6 @@ export async function POST(
             inputType: "references",
             referenceCount: result.referenceIds.length,
           },
-        });
-        emitGuidedFlowTelemetry({
-          workspaceId: workspace.id,
-          clientProfileId: thread.clientProfileId,
-          threadId,
-          guidedFlowId: result.guidedFlow.id,
-          path: result.guidedFlow.path,
-          step: result.guidedFlow.currentStep,
-          eventKey: "guided_step_viewed",
         });
 
         return NextResponse.json(result);

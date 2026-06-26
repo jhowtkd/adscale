@@ -8,6 +8,7 @@ const PLAN_RATINGS = ["generation_ready", "partially_useful", "unusable"] as con
 
 export function GuidedFlowFeedbackPanel() {
   const [threadId, setThreadId] = useState("");
+  const [workspaceId, setWorkspaceId] = useState("");
   const [feedbackKind, setFeedbackKind] = useState<
     "diagnosis_utility" | "creative_plan_readiness"
   >("diagnosis_utility");
@@ -17,7 +18,7 @@ export function GuidedFlowFeedbackPanel() {
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (!threadId || !rating) return;
+    if (!threadId || !workspaceId || !rating) return;
     setStatus("saving");
     try {
       const res = await apiFetch(
@@ -25,7 +26,12 @@ export function GuidedFlowFeedbackPanel() {
         {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ feedbackKind, rating, reasonText: reasonText || null }),
+          body: JSON.stringify({
+            workspaceId,
+            feedbackKind,
+            rating,
+            reasonText: reasonText || null,
+          }),
         }
       );
       if (!res.ok) throw new Error("failed");
@@ -50,6 +56,16 @@ export function GuidedFlowFeedbackPanel() {
         </p>
       </div>
       <form onSubmit={handleSubmit} className="grid gap-3 sm:grid-cols-2">
+        <label className="grid gap-1 text-xs sm:col-span-2">
+          <span className="font-medium">Workspace ID</span>
+          <input
+            value={workspaceId}
+            onChange={(e) => setWorkspaceId(e.target.value)}
+            className="h-9 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-2 font-mono text-xs"
+            placeholder="uuid"
+            required
+          />
+        </label>
         <label className="grid gap-1 text-xs sm:col-span-2">
           <span className="font-medium">Thread ID</span>
           <input

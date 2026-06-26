@@ -3,7 +3,7 @@
   "milestoneVersion": "v13.7",
   "capturedAt": null,
   "verifiedAt": null,
-  "status": "passed_with_tech_debt",
+  "status": "blocked",
   "implementation": {
     "status": "pass",
     "note": "v13.7 guided operational phases 190-193"
@@ -34,7 +34,12 @@
       "quality-feedback": {
         "status": "pass",
         "ok": true,
-        "command": "npm test -- --run src/server/repositories/guided-flow-feedback.test.ts"
+        "command": "npm test -- --run src/server/repositories/guided-flow-feedback.test.ts src/app/api/assistant/threads/[threadId]/guided-flow/feedback/route.test.ts"
+      },
+      "guided-flow-lifecycle": {
+        "status": "pass",
+        "ok": true,
+        "command": "npm test -- --run src/server/assistant/guided-flow-telemetry-lifecycle.test.ts"
       },
       "guided-flow-routes": {
         "status": "pass",
@@ -47,14 +52,15 @@
         "command": "npm test -- --run tests/unit/release/v13-7-release-evidence.test.ts"
       }
     },
-    "verifiedAt": "2026-06-26T18:26:53.291Z"
+    "verifiedAt": "2026-06-26T18:51:26.188Z"
   },
   "stagingEvidence": {
     "status": "pending",
     "existingCreativeJourney": "pending",
     "fromZeroJourney": "pending",
     "runbookPath": "docs/staging/guided-journeys-v13-7-runbook.md",
-    "warning": "Staging human evidence still pending — see docs/staging/guided-journeys-v13-7-runbook.md"
+    "warning": "Staging human evidence still pending — see docs/staging/guided-journeys-v13-7-runbook.md",
+    "gateStatus": "blocked"
   },
   "operationalSample": {
     "status": "insufficient_sample",

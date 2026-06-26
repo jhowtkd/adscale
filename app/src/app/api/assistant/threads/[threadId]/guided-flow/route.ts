@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
-import { emitGuidedFlowLifecycleFromPatch } from "@/server/assistant/guided-flow-telemetry-lifecycle";
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import {
   GuidedFlowValidationError,
@@ -133,14 +132,6 @@ export async function PATCH(
         upsertParsed.data
       );
     }
-
-    emitGuidedFlowLifecycleFromPatch({
-      workspaceId: workspace.id,
-      clientProfileId: thread.clientProfileId,
-      threadId,
-      previous: existing,
-      next: guidedFlow,
-    });
 
     return NextResponse.json({ guidedFlow });
   } catch (error) {

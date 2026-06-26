@@ -6,6 +6,7 @@ import {
 } from "@/lib/guided-flow/types";
 import { db } from "../db";
 import { assistantGuidedFlows } from "../db/schema";
+import { emitGuidedFlowLifecycleFromPatch } from "@/server/assistant/guided-flow-telemetry-lifecycle";
 import { getAssistantThreadById } from "./assistant-thread";
 import { containsDeniedPersistenceKeys } from "./assistant-types";
 
@@ -145,6 +146,14 @@ export async function upsertGuidedFlow(
       )
       .returning();
 
+    emitGuidedFlowLifecycleFromPatch({
+      workspaceId,
+      clientProfileId,
+      threadId,
+      previous: existing,
+      next: updated!,
+    });
+
     return updated!;
   }
 
@@ -164,6 +173,14 @@ export async function upsertGuidedFlow(
       campaignId: input.campaignId ?? null,
     })
     .returning();
+
+  emitGuidedFlowLifecycleFromPatch({
+    workspaceId,
+    clientProfileId,
+    threadId,
+    previous: null,
+    next: created,
+  });
 
   return created;
 }
@@ -224,6 +241,14 @@ export async function patchGuidedFlow(
       )
     )
     .returning();
+
+  emitGuidedFlowLifecycleFromPatch({
+    workspaceId,
+    clientProfileId,
+    threadId,
+    previous: existing,
+    next: updated!,
+  });
 
   return updated!;
 }

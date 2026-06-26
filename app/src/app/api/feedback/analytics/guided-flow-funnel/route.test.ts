@@ -35,7 +35,8 @@ describe("GET /api/feedback/analytics/guided-flow-funnel", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(body.implementationCoverage.telemetryEnabled).toBe(true);
+    expect(body.implementationCoverage.telemetryEnabled).toBe(false);
+    expect(body.implementationCoverage.actionEventsObserved).toEqual([]);
     expect(body.operationalEvidence.sampleSufficient).toBe(false);
     expect(body.pathFunnel).toHaveLength(2);
   });

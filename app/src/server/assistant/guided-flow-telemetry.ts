@@ -11,7 +11,20 @@ export const GUIDED_FLOW_EVENT_KEYS = [
   "guided_action_proposed",
   "guided_action_confirmed",
   "guided_action_failed",
+  "guided_flow_abandoned",
   "guided_flow_completed",
+] as const;
+
+export const GUIDED_FLOW_CORE_EVENT_KEYS = [
+  "guided_flow_started",
+  "guided_step_viewed",
+  "guided_flow_completed",
+] as const;
+
+export const GUIDED_FLOW_ACTION_EVENT_KEYS = [
+  "guided_action_proposed",
+  "guided_action_confirmed",
+  "guided_action_failed",
 ] as const;
 
 export type GuidedFlowEventKey = (typeof GUIDED_FLOW_EVENT_KEYS)[number];

@@ -1,4 +1,8 @@
 import type { AssistantGuidedFlowEvent } from "@/server/db/schema";
+import {
+  GUIDED_FLOW_ACTION_EVENT_KEYS,
+  GUIDED_FLOW_CORE_EVENT_KEYS,
+} from "@/server/assistant/guided-flow-telemetry";
 
 export const GUIDED_FLOW_OPERATIONAL_MIN_SAMPLE = 5;
 
@@ -46,6 +50,7 @@ export interface GuidedFlowFunnelSummary {
     telemetryEnabled: boolean;
     pathsCovered: string[];
     eventKeysObserved: string[];
+    actionEventsObserved: string[];
   };
   operationalEvidence: {
     sampleSufficient: boolean;
@@ -58,21 +63,6 @@ export interface GuidedFlowFunnelSummary {
   topBlockers: GuidedBlockerCategoryRow[];
   investigationLinks: GuidedFlowInvestigationRow[];
   totals: { events: number };
-}
-
-function countByPathEvent(
-  events: AssistantGuidedFlowEvent[],
-  eventKey: string
-): Map<string, number> {
-  const counts = new Map<string, number>();
-  for (const event of events) {
-    if (event.eventKey !== eventKey) continue;
-    if (!TRACKED_PATHS.includes(event.path as (typeof TRACKED_PATHS)[number])) {
-      continue;
-    }
-    counts.set(event.path, (counts.get(event.path) ?? 0) + 1);
-  }
-  return counts;
 }
 
 function uniqueThreadsByPathEvent(
@@ -173,30 +163,42 @@ export function buildGuidedFlowFunnelSummary(
 ): GuidedFlowFunnelSummary {
   const startsByPath = uniqueThreadsByPathEvent(events, "guided_flow_started");
   const completionsByPath = uniqueThreadsByPathEvent(events, "guided_flow_completed");
-  const failuresByPath = countByPathEvent(events, "guided_action_failed");
-  const blockedByPath = countByPathEvent(events, "guided_action_blocked");
+  const abandonmentsByPath = uniqueThreadsByPathEvent(events, "guided_flow_abandoned");
+  const failuresByPath = uniqueThreadsByPathEvent(events, "guided_action_failed");
+  const blockedByPath = uniqueThreadsByPathEvent(events, "guided_action_blocked");
 
   const pathFunnel: GuidedPathFunnelRow[] = TRACKED_PATHS.map((path) => {
     const starts = startsByPath.get(path)?.size ?? 0;
     const completions = completionsByPath.get(path)?.size ?? 0;
+    const explicitAbandonments = abandonmentsByPath.get(path)?.size ?? 0;
     return {
       path,
       starts,
       completions,
-      abandonments: Math.max(0, starts - completions),
-      failures: failuresByPath.get(path) ?? 0,
-      blocked: blockedByPath.get(path) ?? 0,
+      abandonments: explicitAbandonments,
+      failures: failuresByPath.get(path)?.size ?? 0,
+      blocked: blockedByPath.get(path)?.size ?? 0,
     };
   });
 
   const observedStarts = pathFunnel.reduce((sum, row) => sum + row.starts, 0);
   const eventKeysObserved = [...new Set(events.map((event) => event.eventKey))].sort();
+  const pathsWithStarts = TRACKED_PATHS.filter(
+    (path) => (startsByPath.get(path)?.size ?? 0) > 0
+  );
+  const actionEventsObserved = GUIDED_FLOW_ACTION_EVENT_KEYS.filter((eventKey) =>
+    eventKeysObserved.includes(eventKey)
+  );
 
   return {
     implementationCoverage: {
-      telemetryEnabled: true,
-      pathsCovered: [...TRACKED_PATHS],
+      telemetryEnabled:
+        GUIDED_FLOW_CORE_EVENT_KEYS.every((eventKey) =>
+          eventKeysObserved.includes(eventKey)
+        ) && pathsWithStarts.length === TRACKED_PATHS.length,
+      pathsCovered: pathsWithStarts,
       eventKeysObserved,
+      actionEventsObserved,
     },
     operationalEvidence: {
       sampleSufficient: observedStarts >= GUIDED_FLOW_OPERATIONAL_MIN_SAMPLE,

@@ -53,7 +53,21 @@ vi.mock("@/server/repositories/assistant-action", () => ({
   },
 }));
 
+vi.mock("@/server/repositories/assistant-message", () => ({
+  getAssistantMessageById: vi.fn(),
+}));
+
+vi.mock("@/server/repositories/guided-flow", () => ({
+  getGuidedFlowByThread: vi.fn(),
+}));
+
+vi.mock("@/server/assistant/guided-flow-telemetry-lifecycle", () => ({
+  emitGuidedFlowActionConfirmed: vi.fn(),
+}));
+
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { getAssistantMessageById } from "@/server/repositories/assistant-message";
+import { getGuidedFlowByThread } from "@/server/repositories/guided-flow";
 import { revalidateOnConfirm } from "@/server/assistant/action-contracts/validate";
 import {
   AssistantActionValidationError,
@@ -67,6 +81,8 @@ const mockRequireWorkspaceAccess = vi.mocked(requireWorkspaceAccess);
 const mockRevalidateOnConfirm = vi.mocked(revalidateOnConfirm);
 const mockConfirmAssistantAction = vi.mocked(confirmAssistantAction);
 const mockExecuteConfirmed = vi.mocked(executeConfirmedAssistantAction);
+const mockGetMessage = vi.mocked(getAssistantMessageById);
+const mockGetFlow = vi.mocked(getGuidedFlowByThread);
 
 const ACTION_ID = "action-1";
 
@@ -83,12 +99,18 @@ describe("POST /api/assistant/actions/[actionId]/confirm", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockRevalidateOnConfirm.mockResolvedValue(undefined);
+    mockGetMessage.mockResolvedValue({
+      payload: { display: { actionType: "quick_restyle" } },
+    } as Awaited<ReturnType<typeof getAssistantMessageById>>);
+    mockGetFlow.mockResolvedValue(null);
   });
 
   it("returns 200 with executed action when revalidation passes", async () => {
     const confirmedAction = {
       id: ACTION_ID,
       workspaceId: "workspace-1",
+      threadId: "thread-1",
+      messageId: "message-1",
       status: "confirmed",
     };
     const runningAction = {

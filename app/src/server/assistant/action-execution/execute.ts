@@ -1,4 +1,5 @@
 import { resumeGuidedFlowAfterActionFailure } from "@/server/assistant/guided-paths/action-integration";
+import { emitGuidedFlowActionFailed } from "@/server/assistant/guided-flow-telemetry-lifecycle";
 import { getActionContract } from "@/server/assistant/action-contracts/registry";
 import {
   getAssistantActionById,
@@ -6,6 +7,7 @@ import {
 } from "@/server/repositories/assistant-action";
 import { getAssistantMessageById } from "@/server/repositories/assistant-message";
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
+import { getGuidedFlowByThread } from "@/server/repositories/guided-flow";
 import { getUserLocale } from "@/server/repositories/user";
 import {
   executeQuickFormatAdapt,
@@ -114,6 +116,25 @@ export async function executeConfirmedAssistantAction(
     await transitionAssistantAction(workspaceId, actionId, "failed", {
       safeError,
     });
+
+    const guidedFlow = await getGuidedFlowByThread(workspaceId, action.threadId);
+    if (guidedFlow && guidedFlow.path !== "unclassified") {
+      emitGuidedFlowActionFailed({
+        workspaceId,
+        clientProfileId: thread.clientProfileId,
+        threadId: action.threadId,
+        guidedFlowId: guidedFlow.id,
+        path: guidedFlow.path,
+        step: guidedFlow.currentStep,
+        actionRecordId: actionId,
+        campaignId: guidedFlow.campaignId,
+        actionType,
+        reasonCode:
+          error instanceof AssistantActionExecutionError
+            ? error.code
+            : "action_execution_failed",
+      });
+    }
 
     await resumeGuidedFlowAfterActionFailure({
       workspaceId,

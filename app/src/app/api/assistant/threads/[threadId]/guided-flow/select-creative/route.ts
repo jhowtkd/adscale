@@ -59,17 +59,6 @@ export async function POST(
       },
     });
 
-    emitGuidedFlowTelemetry({
-      workspaceId: workspace.id,
-      clientProfileId: thread.clientProfileId,
-      threadId,
-      guidedFlowId: result.guidedFlow.id,
-      path: result.guidedFlow.path,
-      step: result.guidedFlow.currentStep,
-      eventKey: "guided_step_viewed",
-      campaignId: result.campaignId,
-    });
-
     return NextResponse.json(result);
   } catch (error) {
     if (error instanceof GuidedFlowValidationError) {
@@ -101,17 +90,6 @@ export async function PATCH(
       workspaceId: workspace.id,
       threadId,
       clientProfileId: thread.clientProfileId,
-    });
-
-    emitGuidedFlowTelemetry({
-      workspaceId: workspace.id,
-      clientProfileId: thread.clientProfileId,
-      threadId,
-      guidedFlowId: result.guidedFlow.id,
-      path: result.guidedFlow.path,
-      step: result.guidedFlow.currentStep,
-      eventKey: "guided_step_viewed",
-      campaignId: result.guidedFlow.campaignId,
     });
 
     return NextResponse.json(result);

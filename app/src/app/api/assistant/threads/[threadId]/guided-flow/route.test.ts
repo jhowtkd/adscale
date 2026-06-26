@@ -23,10 +23,6 @@ vi.mock("@/server/repositories/guided-flow", () => ({
   },
 }));
 
-vi.mock("@/server/assistant/guided-flow-telemetry-lifecycle", () => ({
-  emitGuidedFlowLifecycleFromPatch: vi.fn(),
-}));
-
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
 }));
@@ -38,13 +34,11 @@ import {
   upsertGuidedFlow,
   GuidedFlowValidationError,
 } from "@/server/repositories/guided-flow";
-import { emitGuidedFlowLifecycleFromPatch } from "@/server/assistant/guided-flow-telemetry-lifecycle";
 
 const mockGetThread = vi.mocked(getAssistantThreadById);
 const mockGetFlow = vi.mocked(getGuidedFlowByThread);
 const mockUpsert = vi.mocked(upsertGuidedFlow);
 const mockPatch = vi.mocked(patchGuidedFlow);
-const mockEmitLifecycle = vi.mocked(emitGuidedFlowLifecycleFromPatch);
 
 const thread = {
   id: "t1",
@@ -127,12 +121,6 @@ describe("PATCH /api/assistant/threads/[threadId]/guided-flow", () => {
     expect(res.status).toBe(200);
     expect(body.guidedFlow).toEqual(guidedFlow);
     expect(mockUpsert).toHaveBeenCalled();
-    expect(mockEmitLifecycle).toHaveBeenCalledWith(
-      expect.objectContaining({
-        previous: null,
-        next: guidedFlow,
-      })
-    );
   });
 
   it("patches existing flow by default", async () => {

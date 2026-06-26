@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
-import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { requirePlatformOwner } from "@/server/auth/platform-owner";
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import { getGuidedFlowByThread } from "@/server/repositories/guided-flow";
 import {
@@ -11,6 +11,7 @@ import {
 } from "@/server/repositories/guided-flow-feedback";
 
 const createSchema = z.object({
+  workspaceId: z.string().uuid(),
   feedbackKind: z.enum(["diagnosis_utility", "creative_plan_readiness"]),
   rating: z.string().min(1),
   reasonText: z.string().max(256).nullable().optional(),
@@ -22,17 +23,22 @@ export async function GET(
   { params }: { params: Promise<{ threadId: string }> }
 ) {
   try {
-    const [{ workspace }, { threadId }] = await Promise.all([
-      requireWorkspaceAccess(request),
+    const [{ user }, { threadId }] = await Promise.all([
+      requirePlatformOwner(request),
       params,
     ]);
 
-    const thread = await getAssistantThreadById(workspace.id, threadId);
+    const parsedWorkspaceId = new URL(request.url).searchParams.get("workspaceId");
+    if (!parsedWorkspaceId) {
+      return apiError("invalidInput", 400, { message: "workspaceId is required" });
+    }
+
+    const thread = await getAssistantThreadById(parsedWorkspaceId, threadId);
     if (!thread) {
       return apiError("threadNotFound", 404);
     }
 
-    const feedback = await listGuidedFlowFeedbackByThread(workspace.id, threadId);
+    const feedback = await listGuidedFlowFeedbackByThread(parsedWorkspaceId, threadId);
     return NextResponse.json({ feedback });
   } catch (error) {
     return handleApiError(
@@ -47,28 +53,29 @@ export async function POST(
   { params }: { params: Promise<{ threadId: string }> }
 ) {
   try {
-    const [{ workspace, user }, { threadId }] = await Promise.all([
-      requireWorkspaceAccess(request),
+    const [{ user }, { threadId }] = await Promise.all([
+      requirePlatformOwner(request),
       params,
     ]);
 
-    const thread = await getAssistantThreadById(workspace.id, threadId);
-    if (!thread) {
-      return apiError("threadNotFound", 404);
-    }
-
-    const flow = await getGuidedFlowByThread(workspace.id, threadId);
-    if (!flow) {
-      return apiError("guidedFlowNotFound", 404);
-    }
-
-    const parsed = createSchema.safeParse(await request.json());
+    const body = await request.json();
+    const parsed = createSchema.safeParse(body);
     if (!parsed.success) {
       return apiError("invalidInput", 400, parsed.error.flatten());
     }
 
+    const thread = await getAssistantThreadById(parsed.data.workspaceId, threadId);
+    if (!thread) {
+      return apiError("threadNotFound", 404);
+    }
+
+    const flow = await getGuidedFlowByThread(parsed.data.workspaceId, threadId);
+    if (!flow) {
+      return apiError("guidedFlowNotFound", 404);
+    }
+
     const feedback = await insertGuidedFlowFeedback({
-      workspaceId: workspace.id,
+      workspaceId: parsed.data.workspaceId,
       clientProfileId: thread.clientProfileId,
       threadId,
       guidedFlowId: flow.id,

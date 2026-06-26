@@ -39,6 +39,10 @@ vi.mock("./assistant-thread", () => ({
   getAssistantThreadById: vi.fn(),
 }));
 
+vi.mock("@/server/assistant/guided-flow-telemetry-lifecycle", () => ({
+  emitGuidedFlowLifecycleFromPatch: vi.fn(),
+}));
+
 import { getAssistantThreadById } from "./assistant-thread";
 import {
   GuidedFlowValidationError,

@@ -72,11 +72,40 @@ export async function insertGuidedFlowFeedback(
   assertValidFeedbackRating(input.feedbackKind, input.rating);
   await assertFeedbackScope(input.workspaceId, input.clientProfileId, input.threadId);
 
+  const sanitizedReason = sanitizeFeedbackReasonText(input.reasonText);
+  const [existing] = await db
+    .select()
+    .from(assistantGuidedFlowFeedback)
+    .where(
+      and(
+        eq(assistantGuidedFlowFeedback.threadId, input.threadId),
+        eq(assistantGuidedFlowFeedback.feedbackKind, input.feedbackKind),
+        eq(assistantGuidedFlowFeedback.step, input.step)
+      )
+    )
+    .limit(1);
+
+  if (existing) {
+    const [row] = await db
+      .update(assistantGuidedFlowFeedback)
+      .set({
+        rating: input.rating,
+        reasonText: sanitizedReason,
+        userId: input.userId,
+        guidedFlowId: input.guidedFlowId ?? existing.guidedFlowId,
+        path: input.path,
+      })
+      .where(eq(assistantGuidedFlowFeedback.id, existing.id))
+      .returning();
+
+    return row;
+  }
+
   const [row] = await db
     .insert(assistantGuidedFlowFeedback)
     .values({
       ...input,
-      reasonText: sanitizeFeedbackReasonText(input.reasonText),
+      reasonText: sanitizedReason,
     })
     .returning();
 
