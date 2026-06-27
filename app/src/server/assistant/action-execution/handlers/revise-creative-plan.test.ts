@@ -20,7 +20,7 @@ const context = {
     proposalId: "00000000-0000-4000-8000-000000000301",
     lineageId: "00000000-0000-4000-8000-000000000101",
     sourceVersionId: "00000000-0000-4000-8000-000000000201",
-    payloadDigest: "abc123",
+    payloadDigest: "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
   },
 };
 
