@@ -4,8 +4,9 @@ import {
   type GuidedFlowPath,
   type GuidedFlowStatus,
 } from "@/lib/guided-flow/types";
+import type { GuidedFlowPresentation } from "@/lib/guided-flow/commands";
 import { db } from "../db";
-import { assistantGuidedFlows } from "../db/schema";
+import { assistantGuidedFlows, assistantGuidedFlowTransitions } from "../db/schema";
 import { emitGuidedFlowLifecycleFromPatch } from "@/server/assistant/guided-flow-telemetry-lifecycle";
 import { getAssistantThreadById } from "./assistant-thread";
 import { containsDeniedPersistenceKeys } from "./assistant-types";
@@ -39,6 +40,16 @@ export class GuidedFlowValidationError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "GuidedFlowValidationError";
+  }
+}
+
+export class GuidedFlowRevisionConflictError extends Error {
+  presentation: GuidedFlowPresentation | null;
+
+  constructor(message: string, presentation: GuidedFlowPresentation | null) {
+    super(message);
+    this.name = "GuidedFlowRevisionConflictError";
+    this.presentation = presentation;
   }
 }
 
@@ -251,4 +262,176 @@ export async function patchGuidedFlow(
   });
 
   return updated!;
+}
+
+export interface ApplyGuidedFlowCommandInput {
+  workspaceId: string;
+  threadId: string;
+  clientProfileId: string;
+  commandId: string;
+  commandType: string;
+  expectedRevision: number;
+  previousStep?: string | null;
+  nextStep?: string | null;
+  patch: {
+    path: GuidedFlowPath;
+    status: GuidedFlowStatus;
+    currentStep: string;
+    slots: Record<string, unknown>;
+    missingFields: string[];
+    assetIds: string[];
+    referenceIds: string[];
+    campaignId: string | null;
+    revision: number;
+    schemaVersion: number;
+    recoverableError: {
+      code: string;
+      message: string;
+      step?: string;
+      retryCommand?: string;
+    } | null;
+  };
+  metadata?: Record<string, unknown>;
+}
+
+export async function applyGuidedFlowCommand(input: ApplyGuidedFlowCommandInput) {
+  await assertThreadScope(
+    input.workspaceId,
+    input.threadId,
+    input.clientProfileId
+  );
+
+  const {
+    patch: {
+      slots,
+      missingFields,
+      assetIds,
+      referenceIds,
+      recoverableError,
+      revision,
+      ...scalarPatch
+    },
+  } = input;
+
+  assertSafeJson(slots, "slots");
+  assertSafeJson(missingFields, "missingFields");
+  assertSafeJson(assetIds, "assetIds");
+  assertSafeJson(referenceIds, "referenceIds");
+  if (recoverableError) {
+    assertSafeJson(recoverableError, "recoverableError");
+  }
+
+  return db.transaction(async (tx) => {
+    const existing = await getGuidedFlowByThread(input.workspaceId, input.threadId);
+
+    if (!existing) {
+      const [created] = await tx
+        .insert(assistantGuidedFlows)
+        .values({
+          workspaceId: input.workspaceId,
+          clientProfileId: input.clientProfileId,
+          threadId: input.threadId,
+          path: scalarPatch.path,
+          status: scalarPatch.status,
+          currentStep: scalarPatch.currentStep,
+          slots,
+          missingFields,
+          assetIds,
+          referenceIds,
+          campaignId: scalarPatch.campaignId,
+          revision,
+          schemaVersion: input.patch.schemaVersion,
+          recoverableError,
+        })
+        .returning();
+
+      await tx.insert(assistantGuidedFlowTransitions).values({
+        guidedFlowId: created!.id,
+        workspaceId: input.workspaceId,
+        commandId: input.commandId,
+        commandType: input.commandType,
+        expectedRevision: input.expectedRevision,
+        resultRevision: revision,
+        previousStep: input.previousStep ?? null,
+        nextStep: input.nextStep ?? null,
+        metadata: input.metadata ?? {},
+      });
+
+      emitGuidedFlowLifecycleFromPatch({
+        workspaceId: input.workspaceId,
+        clientProfileId: input.clientProfileId,
+        threadId: input.threadId,
+        previous: null,
+        next: created!,
+      });
+
+      return created!;
+    }
+
+    assertFlowScope(
+      input.workspaceId,
+      input.clientProfileId,
+      input.threadId,
+      existing
+    );
+
+    if (existing.revision !== input.expectedRevision) {
+      throw new GuidedFlowRevisionConflictError(
+        "Journey revision conflict",
+        null
+      );
+    }
+
+    const [updated] = await tx
+      .update(assistantGuidedFlows)
+      .set({
+        path: scalarPatch.path,
+        status: scalarPatch.status,
+        currentStep: scalarPatch.currentStep,
+        slots,
+        missingFields,
+        assetIds,
+        referenceIds,
+        campaignId: scalarPatch.campaignId,
+        revision,
+        schemaVersion: input.patch.schemaVersion,
+        recoverableError,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(assistantGuidedFlows.id, existing.id),
+          eq(assistantGuidedFlows.workspaceId, input.workspaceId),
+          eq(assistantGuidedFlows.threadId, input.threadId),
+          eq(assistantGuidedFlows.revision, input.expectedRevision)
+        )
+      )
+      .returning();
+
+    if (!updated) {
+      throw new GuidedFlowRevisionConflictError("Journey revision conflict", null);
+    }
+
+    await tx.insert(assistantGuidedFlowTransitions).values({
+      guidedFlowId: updated.id,
+      workspaceId: input.workspaceId,
+      commandId: input.commandId,
+      commandType: input.commandType,
+      expectedRevision: input.expectedRevision,
+      resultRevision: revision,
+      previousStep: input.previousStep ?? null,
+      nextStep: input.nextStep ?? null,
+      metadata: input.metadata ?? {},
+    });
+
+    emitGuidedFlowLifecycleFromPatch({
+      workspaceId: input.workspaceId,
+      clientProfileId: input.clientProfileId,
+      threadId: input.threadId,
+      previous: existing,
+      next: updated,
+    });
+
+    return updated;
+  });
 }
