@@ -2,7 +2,7 @@
 
 ## Milestones
 
-- 📋 **v13.8 Conversa Guiada Adaptativa** - Phases 195-200 (passed_with_tech_debt 2026-06-27)
+- ⚠ **v13.8 Conversa Guiada Adaptativa** - Phases 195-200 verified; implementation green, release evidence pending 2026-06-27
 - ✅ **v13.7 Qualidade Operacional das Jornadas Guiadas** - Phases 190-194 (shipped 2026-06-26; tech debt: human staging walks + insufficient operational sample)
 - ✅ **v13.6 Jornadas Guiadas do Chat Estratégico** - Phases 184-189 (shipped 2026-06-26; tech debt: staging diagnosis/briefing + live lifecycle verify)
 - ✅ **v13.5 Assistente Conversacional de Ações** - Phases 177-183 (shipped 2026-06-25; tech debt: EXEC-04 live lifecycle human verify, migrations 0056/0057 ops)

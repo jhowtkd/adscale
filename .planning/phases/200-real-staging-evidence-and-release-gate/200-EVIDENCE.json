@@ -1,0 +1,69 @@
+{
+  "milestone": "v13.8",
+  "status": "passed_with_tech_debt",
+  "implementation": {
+    "status": "pass",
+    "note": "v13.8 adaptive guided conversation phases 195-199"
+  },
+  "automatedTests": {
+    "status": "pass",
+    "steps": {
+      "journey-transition-engine": {
+        "status": "pass",
+        "ok": true,
+        "command": "npm test -- --run src/server/assistant/guided-conversation/transition.test.ts"
+      },
+      "guided-flow-commands-api": {
+        "status": "pass",
+        "ok": true,
+        "command": "npm test -- --run src/app/api/assistant/threads/[threadId]/guided-flow/commands/route.test.ts"
+      },
+      "guided-flow-repository": {
+        "status": "pass",
+        "ok": true,
+        "command": "npm test -- --run src/server/repositories/guided-flow.test.ts"
+      },
+      "from-zero-path": {
+        "status": "pass",
+        "ok": true,
+        "command": "npm test -- --run src/server/assistant/guided-paths/from-zero.test.ts"
+      },
+      "existing-creative-path": {
+        "status": "pass",
+        "ok": true,
+        "command": "npm test -- --run src/server/assistant/guided-paths/existing-creative.test.ts"
+      },
+      "diagnosis-panel": {
+        "status": "pass",
+        "ok": true,
+        "command": "npm test -- --run src/components/assistant/CreativeDiagnosisPanel.test.tsx"
+      },
+      "guided-flow-routes": {
+        "status": "pass",
+        "ok": true,
+        "command": "npm test -- --run src/app/api/assistant/threads/[threadId]/guided-flow/route.test.ts src/app/api/assistant/threads/[threadId]/guided-flow/select-creative/route.test.ts src/app/api/assistant/threads/[threadId]/guided-flow/from-zero/route.test.ts"
+      },
+      "release-evidence-unit": {
+        "status": "pass",
+        "ok": true,
+        "command": "npm test -- --run tests/unit/release/v13-8-release-evidence.test.ts"
+      }
+    },
+    "verifiedAt": "2026-06-27T13:53:01.509Z"
+  },
+  "stagingEvidence": {
+    "status": "pending",
+    "note": "Human staging walks for both adaptive journeys still required",
+    "warning": "Staging human evidence still pending — see docs/staging/guided-journeys-v13-8-runbook.md",
+    "gateStatus": "blocked"
+  },
+  "operationalSample": {
+    "status": "insufficient_sample",
+    "guidedStarts": 0,
+    "gateStatus": "blocked",
+    "warning": "Operational guided starts remain insufficient"
+  },
+  "inheritedDebt": {
+    "liveInngestLifecycle": "unverified"
+  }
+}

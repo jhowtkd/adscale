@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v13.8
 milestone_name: Conversa Guiada Adaptativa
 status: passed_with_tech_debt
-last_updated: "2026-06-27T13:00:00.000Z"
+last_updated: "2026-06-27T10:47:00-03:00"
 last_activity: 2026-06-27
 progress:
   total_phases: 6
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-26)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
-**Current focus:** v13.8 shipped with tech debt — staging walks and operational sample pending
+**Current focus:** v13.8 staging evidence and operational sample
 
 ## Current Position
 
 Phase: 200 of 200 (complete)
 Plan: 8 of 8
-Status: passed_with_tech_debt
-Last activity: 2026-06-27 — v13.8 phases 195-200 executed
+Status: passed_with_tech_debt / not shippable
+Last activity: 2026-06-27 — critical implementation gaps remediated and automated gate passed
 
 Progress: [██████████] 100%
 
@@ -61,17 +61,19 @@ Progress: [██████████] 100%
 
 ### Pending Todos
 
-None.
+- Execute both human staging walks from the v13.8 runbook.
+- Collect a sufficient operational sample and verify the live Inngest lifecycle.
+- Expand QA-02/QA-03 accessibility and Playwright scenario coverage.
 
 ### Blockers/Concerns
 
-- Operational guided starts remain zero; sample sufficiency is not established.
-- Human staging walks for adaptive journeys remain pending (see v13-8 runbook).
-- Live Inngest action lifecycle verification remains inherited.
-- ASSET-03, ACT-02..04, QA-03 partially stubbed — reference panel command API and expanded Playwright matrix.
+- Human staging walks remain pending.
+- Operational guided starts remain zero; sample is insufficient.
+- Live Inngest lifecycle remains unverified.
+- QA-02 and QA-03 remain partial; browser smoke passed but the full scenario matrix is not automated.
 
 ## Session Continuity
 
 Last session: 2026-06-27
-Stopped at: Completed v13.8 phases 195-200
+Stopped at: v13.8 implementation gap closure verified; release evidence still pending
 Resume file: None

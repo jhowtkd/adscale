@@ -36,20 +36,20 @@
 
 - [x] **ASSET-01**: User can select or upload the base creative and visual references without leaving the active guided turn.
 - [x] **ASSET-02**: User can add, remove, or replace resources while successful items remain selected when another item fails.
-- [ ] **ASSET-03**: User cannot advance from the from-zero reference step until at least three valid, scoped references are ready.
+- [x] **ASSET-03**: User cannot advance from the from-zero reference step until at least three valid, scoped references are ready.
 - [x] **ASSET-04**: User can retry failed upload or analysis idempotently, while late results tied to stale revisions or replaced assets are rejected.
 
 ### Confirmed Actions
 
 - [x] **ACT-01**: User sees action cards described by expected outcome, required writes, credit impact, and irreversible effects instead of internal action or job terminology.
-- [ ] **ACT-02**: User cannot confirm an action card after relevant journey state changes invalidate its source revision or reviewed snapshot digest.
-- [ ] **ACT-03**: User confirmation revalidates workspace/client scope, current inputs, readiness, credits, and action policy before execution.
-- [ ] **ACT-04**: User sees deterministic journey recovery after action success, cancellation, or failure without duplicate effects.
+- [x] **ACT-02**: User cannot confirm an action card after relevant journey state changes invalidate its source revision or reviewed snapshot digest.
+- [x] **ACT-03**: User confirmation revalidates workspace/client scope, current inputs, readiness, credits, and action policy before execution.
+- [x] **ACT-04**: User sees deterministic journey recovery after action success, cancellation, or failure without duplicate effects.
 
 ### Verification and Release Truth
 
 - [x] **QA-01**: Operator can query safe telemetry for answer, edit, back, switch, restart, retry, conflict, proposal, confirmation, failure, and completion events.
-- [x] **QA-02**: User can complete both journeys with keyboard navigation, coherent focus, status announcements, mobile layout, and accessible error recovery.
+- [ ] **QA-02**: User can complete both journeys with keyboard navigation, coherent focus, status announcements, mobile layout, and accessible error recovery.
 - [ ] **QA-03**: Authenticated Playwright covers both journeys across happy path, correction, reload/resume, switch/restart, resource replacement, retry, conflict, stale card, and confirmation.
 - [x] **QA-04**: Release evidence separately reports implementation, automated verification, real staging evidence, and operational sample sufficiency, keeping quality claims blocked when evidence is pending or insufficient.
 
@@ -103,22 +103,25 @@
 | DIAG-05 | Phase 197 | Complete |
 | ASSET-01 | Phase 198 | Complete |
 | ASSET-02 | Phase 198 | Complete |
-| ASSET-03 | Phase 198 | Pending |
+| ASSET-03 | Phase 198 | Complete |
 | ASSET-04 | Phase 198 | Complete |
 | ACT-01 | Phase 199 | Complete |
-| ACT-02 | Phase 199 | Pending |
-| ACT-03 | Phase 199 | Pending |
-| ACT-04 | Phase 199 | Pending |
+| ACT-02 | Phase 199 | Complete |
+| ACT-03 | Phase 199 | Complete |
+| ACT-04 | Phase 199 | Complete |
 | QA-01 | Phase 199 | Complete |
-| QA-02 | Phase 199 | Complete |
-| QA-03 | Phase 199 | Pending |
+| QA-02 | Phase 199 | Partial |
+| QA-03 | Phase 199 | Unsatisfied |
 | QA-04 | Phase 200 | Complete |
 
 **Coverage:**
 - v13.8 requirements: 30 total
 - Mapped to phases: 30
 - Unmapped: 0
+- Satisfied after gap closure: 28
+- Partial: 2 (QA-02, QA-03)
+- Unsatisfied implementation requirements: 0
 
 ---
 *Requirements defined: 2026-06-26*
-*Last updated: 2026-06-26 after v13.8 roadmap creation*
+*Last updated: 2026-06-27 after v13.8 gap closure verification*
