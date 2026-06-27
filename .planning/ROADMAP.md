@@ -336,7 +336,7 @@ Archive: [v13.3-ROADMAP.md](milestones/v13.3-ROADMAP.md) · [v13.3-REQUIREMENTS.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 203. Artifact Version Foundation | 0/TBD | Not started | — |
+| 203. Artifact Version Foundation | 1/2 | In Progress|  |
 | 204. Plan Iteration Loop | 0/TBD | Not started | — |
 | 205. Creative Iteration Loop | 0/TBD | Not started | — |
 | 206. Version Compare and Approval | 0/TBD | Not started | — |
