@@ -10,24 +10,36 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Current State
 
-ADScale has shipped the guided strategic chat foundation. The `/assistant` now starts from two guided journeys — `Já tenho peça` and `Produzir do zero` — with persisted flow state and confirmable action cards. The next step is proving and improving those journeys operationally with real usage evidence instead of only implementation checks.
+ADScale has shipped the guided strategic chat foundation and its operational telemetry. The `/assistant` starts from two guided journeys — `Já tenho peça` and `Produzir do zero` — but the experience still behaves like a fixed form embedded in chat. The next step is making both journeys conversational, progressive, editable, and resilient.
 
-**Active milestone:** v13.7 Qualidade Operacional das Jornadas Guiadas (phases 190-194) — started 2026-06-26.
+**Active milestone:** v13.8 Conversa Guiada Adaptativa — started 2026-06-26.
 
-**Latest shipped milestone:** v13.6 Jornadas Guiadas do Chat Estratégico (phases 184-189) — **shipped with tech debt** 2026-06-26.
+**Latest shipped milestone:** v13.7 Qualidade Operacional das Jornadas Guiadas (phases 190-194) — **shipped with tech debt** 2026-06-26.
 
-## Current Milestone: v13.7 Qualidade Operacional das Jornadas Guiadas
+## Current Milestone: v13.8 Conversa Guiada Adaptativa
+
+**Goal:** Transformar as jornadas rígidas do `/assistant` em conversas progressivas, corrigíveis e orientadas a decisões, preservando confirmação antes de custo/escrita.
+
+**Target features:**
+- Motor de jornada conversacional com transições explícitas, voltar, editar, trocar caminho, reiniciar e retomar sem perder contexto.
+- Briefing `Produzir do zero` em perguntas progressivas, com sugestões contextuais, respostas rápidas e resumo editável.
+- Diagnóstico `Já tenho peça` colaborativo, permitindo corrigir premissas e campos incertos antes de criar/alterar campanha.
+- Seleção e upload inline de referências, substituição de ativos e recuperação de erros dentro da jornada.
+- Action cards orientados a resultado e UAT completo dos dois caminhos com evidência staging e telemetria existente.
+
+**Guiding principle:** O chat deve conduzir uma decisão por vez, aceitar correção sem punição e mostrar claramente o que será executado antes de qualquer custo ou escrita.
+
+## Shipped Milestone: v13.7 Qualidade Operacional das Jornadas Guiadas
 
 **Goal:** Transformar as jornadas guiadas do chat em operação mensurável, auditável e melhorável com evidência real de conclusão, bloqueio, qualidade percebida e execução segura.
 
-**Target features:**
-- Telemetria estruturada de início, etapa, bloqueio, ação confirmada, falha e conclusão por jornada guiada.
-- Painel/relatório operacional para comparar conclusão, abandono e fricção entre `Já tenho peça` e `Produzir do zero`.
-- Runbook e artefatos de staging para validar diagnóstico, briefing, plano criativo e aprovação de campanha com dados reais.
-- Captura de feedback humano/operador sobre utilidade do diagnóstico/plano sem aplicar aprendizado automaticamente.
-- Release gate que separa implementação verde, qualidade operacional observada e claims bloqueados por amostra insuficiente.
+**Delivered:**
+- Telemetria estruturada e funil operacional por jornada/etapa.
+- Runbook e persistência de evidência staging.
+- Feedback humano de utilidade sem mutação automática de prompts.
+- Release gate separando implementação, staging e suficiência de amostra.
 
-**Guiding principle:** Jornada guiada só é produto se o usuário consegue chegar à ação certa com evidência de qualidade, não apenas se a UI e os testes passam.
+**Tech debt accepted:** human staging walks remain pending; operational sample remains `insufficient_sample` with zero observed starts; live Inngest lifecycle verification remains inherited.
 
 ## Shipped Milestone: v13.6 Jornadas Guiadas do Chat Estratégico
 
@@ -483,12 +495,12 @@ Delivered: credit estimate transparency, enriched credit events, delivery/stale 
 
 ### Active
 
-- [ ] Run live corpus seed (`npm run seed:live-real-customer-corpus -- --confirm`) on owner workspace after `db:migrate`
-- [ ] Refresh evidence and release gate after `173-CORPUS-MANIFEST.json` exists
-- [ ] Complete owner smoke checklist with live workspace data (`172-RELEASE-CHECKLIST.md`)
-- [ ] Apply assistant migrations `0056`/`0057` on staging/production
-- [ ] Owner smoke: `start_complete_campaign` full lifecycle (EXEC-04)
-- [ ] Define next milestone scope via `$gsd-new-milestone`
+- [ ] Make guided-flow state transitions support edit, back, path switch, restart, retry, and deterministic resume.
+- [ ] Replace the all-at-once from-zero brief form with adaptive one-question-at-a-time conversation and editable summary.
+- [ ] Let users correct diagnosis assumptions and missing fields before campaign creation or improvement proposal.
+- [ ] Support inline reference upload/selection and asset replacement inside guided journeys.
+- [ ] Rewrite action cards around user outcome, cost, and irreversible effects instead of internal action/job terminology.
+- [ ] Complete authenticated UAT and human staging evidence for both journeys; keep claims blocked while sample is insufficient.
 
 ### Validated (v10.0)
 
@@ -617,7 +629,7 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-25 — after v13.4 Fechamento de Evidência Operacional milestone completion*
+*Last updated: 2026-06-26 — after starting v13.8 Conversa Guiada Adaptativa*
 
 ## Milestone History
 
