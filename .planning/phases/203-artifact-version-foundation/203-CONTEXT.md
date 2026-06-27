@@ -16,7 +16,7 @@ Establish one immutable, scoped, resumable version model for creative plans and 
 ### Legacy adoption
 - Existing plans and creatives become version `v1` lazily when first accessed through the iterative chat; do not bulk-migrate the full historical corpus and do not limit versioning to newly created artifacts.
 - The imported `v1` records explicit legacy provenance and points to the original artifact. It must not invent triggering feedback or a synthetic explanation.
-- The first assistant thread that adopts an existing artifact owns its editable lineage. Other threads may consult it but cannot mutate that lineage.
+- The first assistant thread that adopts an existing artifact owns its version lineage. Other threads may still inspect the original campaign artifact through existing campaign permissions, but cannot read or mutate the thread-owned version history.
 - Legacy approval is mirrored: an already approved artifact becomes the approved current version; an unapproved artifact enters history without an approved current version.
 
 ### Approved current and working selection

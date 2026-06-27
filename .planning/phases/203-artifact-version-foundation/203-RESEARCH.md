@@ -39,7 +39,7 @@ Create `assistant_artifact_lineages` as the stable identity for one evolving pla
 - creative-only `formatKey` where applicable
 - timestamps
 
-Use a unique adoption key for the original artifact so concurrent lazy adoption cannot assign one source artifact to two editable thread-owned lineages. Reads from another thread may expose a bounded read-only view, but mutations must require the owning thread scope.
+Use a unique adoption key for the original artifact so concurrent lazy adoption cannot assign one source artifact to two editable thread-owned lineages. Another thread may still read the original plan or derivation through existing campaign permissions, but all reads and mutations of the version lineage require the owning thread scope.
 
 ### 2. Immutable artifact versions
 
@@ -129,7 +129,7 @@ Adoption should be a transaction:
 6. Mirror existing approval into `approvedCurrentVersionId`; otherwise leave it null.
 7. Set `workingVersionId` to `v1`.
 
-Handle a unique-race by reading the winning lineage and reapplying scope rules. Never silently transfer editable ownership to the second thread.
+Handle a unique-race by reading only enough ownership metadata to return a safe conflict. Never expose the winning lineage history or silently transfer ownership to the second thread.
 
 ## Resume Projection
 
@@ -232,4 +232,3 @@ Use two sequential plans:
 2. **Adoption and resume projection:** lazy legacy adoption, proposal queues, thread/API projection, conflict behavior, and integration tests.
 
 This split creates a stable persistence boundary before integrating it into the assistant thread read model.
-
