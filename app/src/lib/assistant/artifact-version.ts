@@ -1,0 +1,111 @@
+import { z } from "zod";
+
+export const artifactTypeSchema = z.enum(["plan", "creative"]);
+export type ArtifactType = z.infer<typeof artifactTypeSchema>;
+
+export const artifactOriginSchema = z.enum([
+  "legacy_import",
+  "native",
+  "revision",
+]);
+
+const boundedText = z.string().trim().max(2_000);
+const boundedTextList = z.array(z.string().trim().max(500)).max(50);
+
+export const planVersionSnapshotSchema = z
+  .object({
+    type: z.literal("plan"),
+    strategy: boundedText.nullable(),
+    angles: boundedTextList,
+    hooks: boundedTextList,
+    ctas: boundedTextList,
+    constraints: boundedText.nullable(),
+  })
+  .strict();
+
+export const creativeVersionSnapshotSchema = z
+  .object({
+    type: z.literal("creative"),
+    derivationId: z.string().uuid(),
+    outputKey: z.string().trim().min(1).max(1_024).nullable(),
+    format: z.string().trim().max(50).nullable(),
+    generationMode: z.string().trim().max(100).nullable(),
+    ctaText: z.string().trim().max(500).nullable(),
+    planVersionId: z.string().uuid().nullable(),
+  })
+  .strict();
+
+export const artifactVersionSnapshotSchema = z.discriminatedUnion("type", [
+  planVersionSnapshotSchema,
+  creativeVersionSnapshotSchema,
+]);
+export type ArtifactVersionSnapshot = z.infer<
+  typeof artifactVersionSnapshotSchema
+>;
+
+export const artifactVersionProvenanceSchema = z
+  .object({
+    origin: artifactOriginSchema,
+    originalArtifactId: z.string().uuid(),
+    sourceVersionId: z.string().uuid().nullable(),
+    messageId: z.string().uuid().nullable(),
+    actionId: z.string().uuid().nullable(),
+    planVersionId: z.string().uuid().nullable(),
+    format: z.string().trim().max(50).nullable(),
+    generationMode: z.string().trim().max(100).nullable(),
+  })
+  .strict();
+export type ArtifactVersionProvenance = z.infer<
+  typeof artifactVersionProvenanceSchema
+>;
+
+export const artifactVersionSummarySchema = z
+  .object({
+    id: z.string().uuid(),
+    lineageId: z.string().uuid(),
+    versionNumber: z.number().int().positive(),
+    sourceVersionId: z.string().uuid().nullable(),
+    status: z.string().trim().min(1).max(50),
+    snapshot: artifactVersionSnapshotSchema,
+    provenance: artifactVersionProvenanceSchema,
+    feedback: z.string().max(2_000).nullable(),
+    createdAt: z.coerce.date(),
+  })
+  .strict();
+
+export const artifactProposalSummarySchema = z
+  .object({
+    id: z.string().uuid(),
+    lineageId: z.string().uuid(),
+    sourceVersionId: z.string().uuid(),
+    proposalType: z.enum(["plan_revision", "creative_revision"]),
+    status: z.enum(["pending", "stale", "confirmed", "canceled"]),
+    feedback: z.string().max(2_000).nullable(),
+    payload: z.record(z.string(), z.unknown()),
+    createdAt: z.coerce.date(),
+    updatedAt: z.coerce.date(),
+  })
+  .strict();
+
+export const artifactVersionPresentationSchema = z
+  .object({
+    lineageId: z.string().uuid(),
+    artifactType: artifactTypeSchema,
+    approvedCurrent: artifactVersionSummarySchema.nullable(),
+    working: artifactVersionSummarySchema.nullable(),
+    versions: z.array(artifactVersionSummarySchema),
+    pendingProposals: z.array(artifactProposalSummarySchema),
+    generationStatus: z
+      .object({
+        status: z.string().trim().min(1).max(50),
+        safeError: z.string().max(500).nullable(),
+      })
+      .strict()
+      .nullable(),
+  })
+  .strict();
+
+export type ArtifactVersionPresentation = z.infer<
+  typeof artifactVersionPresentationSchema
+>;
+
