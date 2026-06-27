@@ -50,7 +50,7 @@ completed: 2026-06-27
 - Added safe ownership conflicts for attempts to access another thread's lineage.
 - Added bounded resume projection with distinct approved and working versions, proposal queues, and safe generation status.
 - Added authenticated GET/POST version route and integrated artifact state into thread reload.
-- Full focused gate passes: 28 tests, TypeScript, and Next production build.
+- Full focused gate passes: 29 tests, TypeScript, and Next production build.
 
 ## Task Commits
 
@@ -81,7 +81,7 @@ Supporting safety correction: `aaba5e70`.
 - **Found during:** Resume projection review
 - **Issue:** Returning Drizzle rows directly would include denormalized scope fields and reject strict proposal parsing.
 - **Fix:** Reconstructed version and proposal summaries field-by-field through shared schemas.
-- **Verification:** 28 focused tests and production build pass.
+- **Verification:** 29 focused tests and production build pass.
 - **Committed in:** `676e22c1`
 
 ## Issues Encountered

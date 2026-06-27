@@ -7,10 +7,10 @@
 
 ### Artifact Versioning
 
-- [ ] **VERS-01**: User can inspect immutable version history for a creative plan or generated creative.
-- [ ] **VERS-02**: User can see each version's source version, status, creation time, triggering feedback, and provenance.
-- [ ] **VERS-03**: User sees exactly one current approved version per artifact lineage.
-- [ ] **VERS-04**: User can reload the thread and resume selected versions, pending proposal, generation status, and approval state.
+- [x] **VERS-01**: User can inspect immutable version history for a creative plan or generated creative.
+- [x] **VERS-02**: User can see each version's source version, status, creation time, triggering feedback, and provenance.
+- [x] **VERS-03**: User sees exactly one current approved version per artifact lineage.
+- [x] **VERS-04**: User can reload the thread and resume selected versions, pending proposal, generation status, and approval state.
 
 ### Plan Iteration
 
@@ -36,9 +36,9 @@
 
 ### Safety and Verification
 
-- [ ] **SAFE-01**: Every version, proposal, comparison, and approval is isolated by workspace, client profile, campaign, and assistant thread.
+- [x] **SAFE-01**: Every version, proposal, comparison, and approval is isolated by workspace, client profile, campaign, and assistant thread.
 - [ ] **SAFE-02**: Confirmations, credit spends, generation jobs, callbacks, and retries cannot create duplicate versions or charges.
-- [ ] **SAFE-03**: Persisted version snapshots exclude reasoning, signed URLs, raw provider payloads, and unallowlisted prompt data.
+- [x] **SAFE-03**: Persisted version snapshots exclude reasoning, signed URLs, raw provider payloads, and unallowlisted prompt data.
 - [ ] **QA-01**: Operator can query safe telemetry for proposal, confirmation, generation, comparison, approval, promotion, failure, and retry events.
 - [ ] **QA-02**: Repository, API, component, contract, and authenticated Playwright tests cover plan and creative iteration, reload, conflict, failure, retry, comparison, approval, and promotion.
 
@@ -70,10 +70,10 @@
 
 | Requirement | Phase | Status |
 |---|---|---|
-| VERS-01 | Phase 203 | Pending |
-| VERS-02 | Phase 203 | Pending |
-| VERS-03 | Phase 203 | Pending |
-| VERS-04 | Phase 203 | Pending |
+| VERS-01 | Phase 203 | Complete |
+| VERS-02 | Phase 203 | Complete |
+| VERS-03 | Phase 203 | Complete |
+| VERS-04 | Phase 203 | Complete |
 | PLAN-01 | Phase 204 | Pending |
 | PLAN-02 | Phase 204 | Pending |
 | PLAN-03 | Phase 204 | Pending |
@@ -87,9 +87,9 @@
 | APPR-01 | Phase 206 | Pending |
 | APPR-02 | Phase 206 | Pending |
 | APPR-03 | Phase 206 | Pending |
-| SAFE-01 | Phase 203 | Pending |
+| SAFE-01 | Phase 203 | Complete |
 | SAFE-02 | Phase 205 | Pending |
-| SAFE-03 | Phase 203 | Pending |
+| SAFE-03 | Phase 203 | Complete |
 | QA-01 | Phase 207 | Pending |
 | QA-02 | Phase 207 | Pending |
 

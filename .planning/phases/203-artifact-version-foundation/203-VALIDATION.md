@@ -1,7 +1,7 @@
 ---
 phase: 203
 slug: artifact-version-foundation
-status: draft
+status: complete
 nyquist_compliant: true
 wave_0_complete: true
 created: 2026-06-27
@@ -32,12 +32,12 @@ created: 2026-06-27
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 203-01-01 | 01 | 1 | VERS-01, SAFE-03 | contract | `cd app && npm test -- --run src/lib/assistant/artifact-version.test.ts` | No - task creates | Pending |
-| 203-01-02 | 01 | 1 | VERS-01, VERS-02 | schema | `cd app && npm test -- --run src/server/repositories/artifact-version.test.ts` | No - task creates | Pending |
-| 203-01-03 | 01 | 1 | VERS-03, SAFE-01 | repository | `cd app && npm test -- --run src/server/repositories/artifact-version.test.ts` | No - task creates | Pending |
-| 203-02-01 | 02 | 2 | VERS-01, VERS-02, SAFE-01 | service | `cd app && npm test -- --run src/server/assistant/artifact-version/service.test.ts` | No - task creates | Pending |
-| 203-02-02 | 02 | 2 | VERS-04, SAFE-03 | repository/service | `cd app && npm test -- --run src/server/repositories/artifact-version.test.ts src/server/assistant/artifact-version/service.test.ts` | No - task creates | Pending |
-| 203-02-03 | 02 | 2 | VERS-04, SAFE-01 | route | `cd app && npm test -- --run 'src/app/api/assistant/threads/[threadId]/artifact-versions/route.test.ts' 'src/app/api/assistant/threads/[threadId]/route.test.ts'` | Thread test exists; artifact route test created by task | Pending |
+| 203-01-01 | 01 | 1 | VERS-01, SAFE-03 | contract | `cd app && npm test -- --run src/lib/assistant/artifact-version.test.ts` | Yes | Green |
+| 203-01-02 | 01 | 1 | VERS-01, VERS-02 | schema | `cd app && npm test -- --run src/server/repositories/artifact-version.test.ts` | Yes | Green |
+| 203-01-03 | 01 | 1 | VERS-03, SAFE-01 | repository | `cd app && npm test -- --run src/server/repositories/artifact-version.test.ts` | Yes | Green |
+| 203-02-01 | 02 | 2 | VERS-01, VERS-02, SAFE-01 | service | `cd app && npm test -- --run src/server/assistant/artifact-version/service.test.ts` | Yes | Green |
+| 203-02-02 | 02 | 2 | VERS-04, SAFE-03 | repository/service | `cd app && npm test -- --run src/server/repositories/artifact-version.test.ts src/server/assistant/artifact-version/service.test.ts` | Yes | Green |
+| 203-02-03 | 02 | 2 | VERS-04, SAFE-01 | route | `cd app && npm test -- --run 'src/app/api/assistant/threads/[threadId]/artifact-versions/route.test.ts' 'src/app/api/assistant/threads/[threadId]/route.test.ts'` | Yes | Green |
 
 ## Wave 0 Requirements
 
