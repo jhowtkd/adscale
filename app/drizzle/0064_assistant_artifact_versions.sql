@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS "adscale_app"."assistant_artifact_proposals" (
   "thread_id" uuid NOT NULL,
   "proposal_type" text NOT NULL,
   "status" text DEFAULT 'pending' NOT NULL,
-  "payload" jsonb DEFAULT '{}'::jsonb NOT NULL,
+  "payload" jsonb NOT NULL,
   "feedback" text,
   "created_at" timestamp DEFAULT now() NOT NULL,
   "updated_at" timestamp DEFAULT now() NOT NULL,

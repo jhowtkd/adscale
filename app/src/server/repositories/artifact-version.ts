@@ -1,10 +1,12 @@
 import { and, desc, eq, max, ne } from "drizzle-orm";
 import type {
+  ArtifactProposalPayload,
   ArtifactType,
   ArtifactVersionProvenance,
   ArtifactVersionSnapshot,
 } from "@/lib/assistant/artifact-version";
 import {
+  artifactProposalPayloadSchema,
   artifactVersionProvenanceSchema,
   artifactVersionSnapshotSchema,
 } from "@/lib/assistant/artifact-version";
@@ -364,10 +366,14 @@ export async function createArtifactProposal(input: {
   lineageId: string;
   sourceVersionId: string;
   proposalType: "plan_revision" | "creative_revision";
-  payload: Record<string, unknown>;
+  payload: ArtifactProposalPayload;
   feedback?: string | null;
 }) {
   assertSafeArtifactJson(input.payload, "proposal payload");
+  const payload = artifactProposalPayloadSchema.parse(input.payload);
+  if (payload.type !== input.proposalType) {
+    throw new ArtifactVersionValidationError("Proposal type does not match payload");
+  }
   const lineage = await getArtifactLineage(input.scope, input.lineageId);
   const source = await getArtifactVersion(input.scope, input.sourceVersionId);
   if (!lineage || !source || source.lineageId !== input.lineageId) {
@@ -381,7 +387,7 @@ export async function createArtifactProposal(input: {
       ...input.scope,
       proposalType: input.proposalType,
       status: "pending",
-      payload: input.payload,
+      payload,
       feedback: input.feedback?.slice(0, 2_000) ?? null,
     })
     .returning();

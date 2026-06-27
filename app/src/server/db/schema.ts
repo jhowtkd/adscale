@@ -2388,7 +2388,7 @@ export const assistantArtifactProposals = adscaleSchema.table(
     threadId: uuid("thread_id").notNull().references(() => assistantThreads.id, { onDelete: "cascade" }),
     proposalType: text("proposal_type").notNull(),
     status: text("status").notNull().default("pending"),
-    payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+    payload: jsonb("payload").$type<import("../../lib/assistant/artifact-version").ArtifactProposalPayload>().notNull(),
     feedback: text("feedback"),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),

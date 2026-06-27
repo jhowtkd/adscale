@@ -73,6 +73,41 @@ export const artifactVersionSummarySchema = z
   })
   .strict();
 
+const proposalChangeSchema = z
+  .object({
+    field: z.string().trim().min(1).max(100),
+    description: z.string().trim().min(1).max(500),
+  })
+  .strict();
+
+export const artifactProposalPayloadSchema = z.discriminatedUnion("type", [
+  z
+    .object({
+      type: z.literal("plan_revision"),
+      schemaVersion: z.literal(1),
+      summary: z.string().trim().min(1).max(1_000),
+      proposedSnapshot: planVersionSnapshotSchema,
+      changes: z.array(proposalChangeSchema).max(50),
+      writes: boundedTextList,
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("creative_revision"),
+      schemaVersion: z.literal(1),
+      summary: z.string().trim().min(1).max(1_000),
+      intendedChanges: boundedTextList,
+      format: z.string().trim().max(50).nullable(),
+      referenceIds: z.array(z.string().uuid()).max(50),
+      creditImpact: z.number().int().nonnegative(),
+      writes: boundedTextList,
+    })
+    .strict(),
+]);
+export type ArtifactProposalPayload = z.infer<
+  typeof artifactProposalPayloadSchema
+>;
+
 export const artifactProposalSummarySchema = z
   .object({
     id: z.string().uuid(),
@@ -81,7 +116,7 @@ export const artifactProposalSummarySchema = z
     proposalType: z.enum(["plan_revision", "creative_revision"]),
     status: z.enum(["pending", "stale", "confirmed", "canceled"]),
     feedback: z.string().max(2_000).nullable(),
-    payload: z.record(z.string(), z.unknown()),
+    payload: artifactProposalPayloadSchema,
     createdAt: z.coerce.date(),
     updatedAt: z.coerce.date(),
   })
@@ -108,4 +143,3 @@ export const artifactVersionPresentationSchema = z
 export type ArtifactVersionPresentation = z.infer<
   typeof artifactVersionPresentationSchema
 >;
-

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  artifactProposalPayloadSchema,
   artifactVersionProvenanceSchema,
   artifactVersionSnapshotSchema,
 } from "./artifact-version";
@@ -65,5 +66,33 @@ describe("artifact version contracts", () => {
       })
     ).toThrow();
   });
-});
 
+  it("accepts only allowlisted proposal payloads", () => {
+    expect(
+      artifactProposalPayloadSchema.parse({
+        type: "creative_revision",
+        schemaVersion: 1,
+        summary: "Increase product prominence",
+        intendedChanges: ["Larger product crop"],
+        format: "4:5",
+        referenceIds: [],
+        creditImpact: 1,
+        writes: ["new derivation"],
+      })
+    ).toMatchObject({ type: "creative_revision", creditImpact: 1 });
+
+    expect(() =>
+      artifactProposalPayloadSchema.parse({
+        type: "creative_revision",
+        schemaVersion: 1,
+        summary: "Unsafe",
+        intendedChanges: [],
+        format: null,
+        referenceIds: [],
+        creditImpact: 1,
+        writes: [],
+        inputPrompt: "hidden",
+      })
+    ).toThrow();
+  });
+});
