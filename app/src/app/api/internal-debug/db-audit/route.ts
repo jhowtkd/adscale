@@ -29,15 +29,11 @@ function checkAuth(request: Request): boolean {
 }
 
 async function getMigrations() {
-  // drizzle stores migrations in public.__drizzle_migrations (or similar)
+  // drizzle stores migrations in public.__drizzle_migrations
   const result = await db.execute(sql`
-    select
-      m.id,
-      m.hash,
-      m.created_at,
-      m."0070_index" as idx
-    from public."__drizzle_migrations" m
-    order by m.id
+    select id, hash, created_at
+    from public."__drizzle_migrations"
+    order by id
   `);
   return result.rows;
 }
@@ -55,6 +51,32 @@ async function checkMigrationsExist() {
     order by table_name, column_name
   `);
   return cols.rows;
+}
+
+async function checkSpecificMigrations() {
+  // drizzle stores raw migration SQL or hash in __drizzle_migrations
+  // We can't easily match by name, but we can confirm expected columns exist
+  // for 0062 + 0063.
+  const result = await db.execute(sql`
+    select
+      '0062_assistant_guided_flow_adaptive_state' as migration,
+      bool_and(
+        column_name in ('revision','schema_version','recoverable_error')
+      ) as columns_present
+    from information_schema.columns
+    where table_schema = 'adscale_app'
+      and table_name = 'assistant_guided_flows'
+    union all
+    select
+      '0063_assistant_action_guided_binding' as migration,
+      bool_and(
+        column_name in ('source_flow_revision','source_snapshot_digest')
+      ) as columns_present
+    from information_schema.columns
+    where table_schema = 'adscale_app'
+      and table_name = 'assistant_action_records'
+  `);
+  return result.rows;
 }
 
 async function getGuidedStartCounts() {
@@ -126,6 +148,7 @@ export async function GET(request: Request) {
         result.migrationsError = e instanceof Error ? e.message : String(e);
       }
       result.expectedColumns = await checkMigrationsExist();
+      result.specificMigrations = await checkSpecificMigrations();
     }
 
     if (action === "guided" || action === "all") {
