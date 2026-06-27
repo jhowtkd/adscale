@@ -12,6 +12,7 @@ export function buildReviseCreativePlanActionDisplay(input: {
   return {
     ...input.baseDisplay,
     actionType: "revise_creative_plan",
+    proposalId: input.proposal.proposalId,
     label: "Confirmar revisão do plano",
     summary: input.proposal.summary,
     sourceVersionLabel: input.proposal.sourceVersionLabel,

@@ -31,6 +31,36 @@ function parseStatus(payload: Record<string, unknown>): ActionCardStatus {
   return "pending";
 }
 
+function resolveProposalId(
+  payload: Record<string, unknown>,
+  display: ReturnType<typeof parseActionCardDisplay>
+): string | undefined {
+  const displayRecord = payload.display;
+  if (displayRecord && typeof displayRecord === "object") {
+    const proposalId = (displayRecord as Record<string, unknown>).proposalId;
+    if (typeof proposalId === "string") {
+      return proposalId;
+    }
+  }
+
+  const inputSnapshot = payload.inputSnapshot;
+  if (inputSnapshot && typeof inputSnapshot === "object") {
+    const proposalId = (inputSnapshot as Record<string, unknown>).proposalId;
+    if (typeof proposalId === "string") {
+      return proposalId;
+    }
+  }
+
+  if (display && "proposalId" in display) {
+    const proposalId = (display as { proposalId?: unknown }).proposalId;
+    if (typeof proposalId === "string") {
+      return proposalId;
+    }
+  }
+
+  return undefined;
+}
+
 export default function AssistantActionCard({
   threadId,
   payload,
@@ -47,6 +77,7 @@ export default function AssistantActionCard({
   const isActive = status === "confirmed" || status === "running";
   const isTerminal = isTerminalActionStatus(status);
   const isMutating = confirmMutation.isPending || cancelMutation.isPending;
+  const isRevisePlan = display?.actionType === "revise_creative_plan";
 
   const handleConfirm = () => {
     if (!threadId || !actionRecordId || !isPending) {
@@ -59,7 +90,10 @@ export default function AssistantActionCard({
     if (!threadId || !actionRecordId || isTerminal) {
       return;
     }
-    cancelMutation.mutate({ actionId: actionRecordId, threadId });
+    const proposalId = isRevisePlan
+      ? resolveProposalId(payload, display)
+      : undefined;
+    cancelMutation.mutate({ actionId: actionRecordId, threadId, proposalId });
   };
 
   const jobRef =
@@ -67,7 +101,6 @@ export default function AssistantActionCard({
       ? (payload.jobRef as Record<string, unknown>)
       : null;
 
-  const isRevisePlan = display?.actionType === "revise_creative_plan";
   const confirmLabel = isRevisePlan ? "Confirmar revisão do plano" : t("confirm");
 
   return (

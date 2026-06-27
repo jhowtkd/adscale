@@ -93,4 +93,35 @@ describe("useCancelAssistantAction", () => {
       queryKey: ["assistant", "thread", "thread-1"],
     });
   });
+
+  it("cancels artifact proposal before action when proposalId is provided", async () => {
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({}),
+    } as unknown as Response);
+
+    const { result } = renderHook(() => useCancelAssistantAction(), {
+      wrapper: createWrapper(),
+    });
+
+    await result.current.mutateAsync({
+      actionId: "action-1",
+      threadId: "thread-1",
+      proposalId: "proposal-1",
+    });
+
+    expect(mockApiFetch).toHaveBeenNthCalledWith(
+      1,
+      "/api/assistant/artifact-proposals/proposal-1/cancel",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ threadId: "thread-1" }),
+      })
+    );
+    expect(mockApiFetch).toHaveBeenNthCalledWith(
+      2,
+      "/api/assistant/actions/action-1/cancel",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
 });

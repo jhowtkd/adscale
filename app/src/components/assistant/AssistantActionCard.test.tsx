@@ -97,4 +97,29 @@ describe("AssistantActionCard", () => {
     ).toBeInTheDocument();
     expect(screen.queryByText("creditImpact")).not.toBeInTheDocument();
   });
+
+  it("passes proposalId when canceling a revise plan card", () => {
+    render(
+      <AssistantActionCard
+        threadId="thread-1"
+        payload={{
+          actionRecordId: "action-2",
+          status: "pending",
+          display: {
+            label: "Confirmar revisão do plano",
+            actionType: "revise_creative_plan",
+            proposalId: "proposal-99",
+            summary: "Revisão do plano",
+          },
+        }}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "cancel" }));
+    expect(mockCancelMutate).toHaveBeenCalledWith({
+      actionId: "action-2",
+      threadId: "thread-1",
+      proposalId: "proposal-99",
+    });
+  });
 });

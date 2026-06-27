@@ -13,6 +13,22 @@ async function confirmAssistantAction(actionId: string) {
   return res.json();
 }
 
+async function cancelArtifactProposal(proposalId: string, threadId: string) {
+  const res = await apiFetch(
+    `/api/assistant/artifact-proposals/${proposalId}/cancel`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ threadId }),
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Erro ao cancelar proposta");
+  }
+  return res.json();
+}
+
 async function cancelAssistantAction(actionId: string) {
   const res = await apiFetch(`/api/assistant/actions/${actionId}/cancel`, {
     method: "POST",
@@ -44,12 +60,20 @@ export function useConfirmAssistantAction() {
 export function useCancelAssistantAction() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       actionId,
+      threadId,
+      proposalId,
     }: {
       actionId: string;
       threadId: string;
-    }) => cancelAssistantAction(actionId),
+      proposalId?: string;
+    }) => {
+      if (proposalId) {
+        await cancelArtifactProposal(proposalId, threadId);
+      }
+      return cancelAssistantAction(actionId);
+    },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
         queryKey: assistantThreadQueryKey(variables.threadId),
