@@ -49,7 +49,7 @@
         "command": "npm test -- --run tests/unit/release/v13-8-release-evidence.test.ts"
       }
     },
-    "verifiedAt": "2026-06-27T13:53:01.509Z"
+    "verifiedAt": "2026-06-27T14:16:00.836Z"
   },
   "stagingEvidence": {
     "status": "pending",

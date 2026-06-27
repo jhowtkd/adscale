@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v13.8
 milestone_name: Conversa Guiada Adaptativa
 status: passed_with_tech_debt
-last_updated: "2026-06-27T14:30:00-03:00"
+last_updated: "2026-06-27T16:00:00-03:00"
 last_activity: 2026-06-27
 progress:
   total_phases: 8
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-26)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
-**Current focus:** v13.8 staging evidence and operational sample
+**Current focus:** Phase 202 staging evidence and operational sample
 
 ## Current Position
 
-Phase: 201 of 202 (passed_with_tech_debt — browser E2E pending auth repair)
+Phase: 202 of 202 (blocked — operator staging)
 Plan: 9 of 10
 Status: passed_with_tech_debt / not shippable
-Last activity: 2026-06-27 — Phase 201 UAT automation landed; Phase 202 staging blocked
+Last activity: 2026-06-27 — Phase 201 Playwright 28/28; behavioral UAT deepened; runner port fix
 
 Progress: [███████░░░] 75%
 
@@ -39,9 +39,9 @@ Progress: [███████░░░] 75%
 
 **Velocity:**
 
-- Total plans completed: 8
+- Total plans completed: 9
 - Average duration: ~30 min/plan
-- Total execution time: ~3 hours
+- Total execution time: ~3.5 hours
 
 **By Phase:**
 
@@ -49,6 +49,7 @@ Progress: [███████░░░] 75%
 |-------|-------|-------|----------|
 | 195 | 2 | 2 | ~40m |
 | 196-200 | 6 | 6 | ~25m |
+| 201 | 1 | 1 | ~45m |
 
 ## Accumulated Context
 
@@ -58,12 +59,12 @@ Progress: [███████░░░] 75%
 - Progressive briefing uses one question per turn with review_brief readiness gate.
 - Diagnosis corrections invalidate dependent proposals via transition engine.
 - Release verdict remains `passed_with_tech_debt` until staging evidence and operational sample exist.
+- Guided E2E uses API sign-in and reuses an existing dev server when port 3000 is up.
 
 ### Pending Todos
 
 - Phase 202: Execute both human staging walks from the v13.8 runbook.
 - Phase 202: Collect ≥5 operational guided starts and verify live Inngest lifecycle.
-- Repair dev-admin auth and run `npm run test:guided-e2e` to green browser matrix.
 - Pass release gate without `--allow-pending-staging`.
 
 ### Blockers/Concerns
@@ -71,10 +72,10 @@ Progress: [███████░░░] 75%
 - Human staging walks remain pending.
 - Operational guided starts remain zero; sample is insufficient.
 - Live Inngest lifecycle remains unverified.
-- QA-02 and QA-03 remain partial; browser smoke passed but the full scenario matrix is not automated.
+- QA-03 green with mocked API; live provider/staging paths still require Phase 202.
 
 ## Session Continuity
 
 Last session: 2026-06-27
-Stopped at: v13.8 implementation gap closure verified; release evidence still pending
-Resume file: None
+Stopped at: Phase 201 browser matrix green; Phase 202 awaiting operator
+Resume file: `.planning/phases/202-staging-release-gate/202-MANUAL-BLOCKERS.md`

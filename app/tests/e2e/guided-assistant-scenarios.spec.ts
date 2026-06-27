@@ -62,12 +62,16 @@ function basePresentation(overrides: Partial<GuidedPresentation> = {}): GuidedPr
 function threadDetail(options: {
   path?: "from_zero" | "existing_creative";
   currentStep?: string;
+  referenceIds?: string[];
+  slots?: Record<string, unknown>;
   presentation?: Partial<GuidedPresentation>;
   messages?: Array<Record<string, unknown>>;
   recoverableError?: Record<string, unknown> | null;
 }) {
   const path = options.path ?? "from_zero";
   const currentStep = options.currentStep ?? "collect_brief";
+  const defaultReferenceIds =
+    path === "from_zero" ? ["ref-1", "ref-2", "ref-3"] : [];
   return {
     thread: {
       id: THREAD_ID,
@@ -88,12 +92,13 @@ function threadDetail(options: {
       path,
       status: "active",
       currentStep,
-      slots: {},
+      slots: options.slots ?? {},
       missingFields: ["offer"],
       assetIds: path === "existing_creative" ? ["asset-1"] : [],
-      referenceIds: path === "from_zero" ? ["ref-1", "ref-2", "ref-3"] : [],
+      referenceIds: options.referenceIds ?? defaultReferenceIds,
       campaignId: null,
       recoverableError: options.recoverableError ?? null,
+      revision: 3,
       createdAt,
       updatedAt: createdAt,
     },
@@ -272,25 +277,72 @@ test.describe("guided assistant scenario matrix", () => {
   });
 
   test("retry clears recoverable error via clear_error control", async ({ page }) => {
-    await mockThreadRoute(
-      page,
-      threadDetail({
-        recoverableError: { code: "upload_failed", message: "Falha no upload da referência." },
-        presentation: {
-          allowedCommands: ["clear_error", "back"],
-          recoverableError: { code: "upload_failed", message: "Falha no upload da referência." },
+    let cleared = false;
+    let recoverableError: Record<string, unknown> | null = {
+      code: "upload_failed",
+      message: "Falha no upload da referência.",
+    };
+
+    await page.route(`**/api/assistant/threads/${THREAD_ID}`, async (route) => {
+      await route.fulfill({
+        json: threadDetail({
+          recoverableError,
+          presentation: {
+            allowedCommands: recoverableError
+              ? ["clear_error", "back"]
+              : ["back", "preview_restart", "preview_switch"],
+            recoverableError,
+          },
+        }),
+      });
+    });
+    await page.route("**/api/assistant/threads?**", async (route) => {
+      await route.fulfill({
+        json: {
+          threads: [
+            {
+              id: THREAD_ID,
+              workspaceId: "workspace-e2e",
+              clientProfileId: "client-e2e",
+              campaignId: null,
+              name: "Cenário guiado",
+              isDefault: false,
+              migratedFromThreadId: null,
+              createdAt,
+              updatedAt: createdAt,
+            },
+          ],
         },
-      })
-    );
-    await mockGuidedCommandsRoute(page);
+      });
+    });
+    await mockGuidedCommandsRoute(page, {
+      onCommand: (body) => {
+        const command = (body.command as { type?: string })?.type;
+        if (command === "clear_error") {
+          cleared = true;
+          recoverableError = null;
+          return {
+            status: 200,
+            json: {
+              presentation: basePresentation({
+                recoverableError: null,
+                allowedCommands: ["back", "preview_restart", "preview_switch"],
+              }),
+            },
+          };
+        }
+        return { status: 200, json: { presentation: basePresentation({ revision: 4 }) } };
+      },
+    });
 
     await page.goto(`/assistant?threadId=${THREAD_ID}`);
 
-    await expect(assistantSurface(page).getByTestId("guided-flow-resume-banner")).toContainText(
-      "Falha no upload da referência."
-    );
+    const banner = assistantSurface(page).getByTestId("guided-flow-resume-banner");
+    await expect(banner).toContainText("Falha no upload da referência.");
     const controls = assistantSurface(page).getByTestId("guided-flow-controls");
     await controls.getByRole("button", { name: /Tentar novamente/i }).click();
+    expect(cleared).toBe(true);
+    await expect(banner).not.toContainText("Falha no upload da referência.");
   });
 
   test("stale action confirm keeps card pending when server rejects", async ({ page }) => {
@@ -345,73 +397,60 @@ test.describe("guided assistant scenario matrix", () => {
     await expect(actionCard).toHaveAttribute("data-status", "pending");
   });
 
-  test("resource replacement shows references panel with selectable items", async ({
+  test("resource replacement posts set_references after swapping assets", async ({
     page,
   }) => {
+    let postedReferenceIds: string[] | null = null;
     await mockThreadRoute(
       page,
       threadDetail({
         currentStep: "select_references",
+        referenceIds: ["ref-1", "ref-2", "ref-3"],
         presentation: {
           currentStep: "select_references",
-          referenceIds: ["ref-1"],
+          referenceIds: ["ref-1", "ref-2", "ref-3"],
           allowedCommands: ["set_references", "back"],
         },
       })
     );
+    await mockGuidedCommandsRoute(page, {
+      onCommand: (body) => {
+        const command = body.command as { type?: string; referenceIds?: string[] };
+        if (command.type === "set_references") {
+          postedReferenceIds = command.referenceIds ?? [];
+          return {
+            status: 200,
+            json: {
+              presentation: basePresentation({
+                currentStep: "confirm_plan",
+                referenceIds: postedReferenceIds,
+                revision: 5,
+              }),
+            },
+          };
+        }
+        return { status: 200, json: { presentation: basePresentation({ revision: 4 }) } };
+      },
+    });
     await page.route("**/api/workspace/assets?**", async (route) => {
       await route.fulfill({
         json: {
-          assets: [
-            {
-              id: "ref-1",
-              workspaceId: "workspace-e2e",
-              name: "Ref 1",
-              key: "ref-1",
-              type: "image",
-              size: 1000,
-              width: 100,
-              height: 100,
-              tags: null,
-              aiDescription: null,
-              source: "upload",
-              metadata: null,
-              url: null,
-              createdAt,
-            },
-            {
-              id: "ref-2",
-              workspaceId: "workspace-e2e",
-              name: "Ref 2",
-              key: "ref-2",
-              type: "image",
-              size: 1000,
-              width: 100,
-              height: 100,
-              tags: null,
-              aiDescription: null,
-              source: "upload",
-              metadata: null,
-              url: null,
-              createdAt,
-            },
-            {
-              id: "ref-3",
-              workspaceId: "workspace-e2e",
-              name: "Ref 3",
-              key: "ref-3",
-              type: "image",
-              size: 1000,
-              width: 100,
-              height: 100,
-              tags: null,
-              aiDescription: null,
-              source: "upload",
-              metadata: null,
-              url: null,
-              createdAt,
-            },
-          ],
+          assets: ["ref-1", "ref-2", "ref-3", "ref-4"].map((id) => ({
+            id,
+            workspaceId: "workspace-e2e",
+            name: id,
+            key: id,
+            type: "image",
+            size: 1000,
+            width: 100,
+            height: 100,
+            tags: null,
+            aiDescription: null,
+            source: "upload",
+            metadata: null,
+            url: null,
+            createdAt,
+          })),
         },
       });
     });
@@ -423,50 +462,181 @@ test.describe("guided assistant scenario matrix", () => {
 
     const refsPanel = assistantSurface(page).getByTestId("from-zero-references-panel");
     await expect(refsPanel).toBeVisible({ timeout: 15_000 });
-    await expect(refsPanel.getByTestId("from-zero-ref-ref-1")).toBeVisible();
-    await expect(refsPanel.getByTestId("from-zero-ref-ref-2")).toBeVisible();
+    await refsPanel.getByTestId("from-zero-ref-ref-1").click();
+    await refsPanel.getByTestId("from-zero-ref-ref-4").click();
+    await refsPanel.getByTestId("from-zero-continue-references").click();
+
+    await expect.poll(() => postedReferenceIds).toEqual(["ref-2", "ref-3", "ref-4"]);
   });
 
-  test("existing_creative path shows diagnosis panel at review step", async ({
+  test("existing_creative path approves diagnosis and advances step", async ({
     page,
   }) => {
-    await mockThreadRoute(
-      page,
-      threadDetail({
-        path: "existing_creative",
-        currentStep: "review_diagnosis",
-        presentation: {
+    let approved = false;
+    let currentStep = "review_diagnosis";
+    const diagnosisSlots = {
+      diagnosis: { detectedConcept: "Campanha de tênis esportivo" },
+      assumptions: ["Público jovem urbano"],
+      recommendedAction: "quick_restyle",
+    };
+
+    await page.route(`**/api/assistant/threads/${THREAD_ID}`, async (route) => {
+      await route.fulfill({
+        json: threadDetail({
           path: "existing_creative",
-          currentStep: "review_diagnosis",
-          allowedCommands: ["correct_diagnosis_field", "approve_diagnosis"],
+          currentStep,
+          slots: diagnosisSlots,
+          presentation: {
+            path: "existing_creative",
+            currentStep,
+            allowedCommands:
+              currentStep === "review_diagnosis"
+                ? ["correct_diagnosis_field", "approve_diagnosis"]
+                : [],
+            diagnosisReview: {
+              assumptions: ["Público jovem urbano"],
+              missingFields: [],
+            },
+          },
+        }),
+      });
+    });
+    await page.route("**/api/assistant/threads?**", async (route) => {
+      await route.fulfill({
+        json: {
+          threads: [
+            {
+              id: THREAD_ID,
+              workspaceId: "workspace-e2e",
+              clientProfileId: "client-e2e",
+              campaignId: null,
+              name: "Cenário guiado",
+              isDefault: false,
+              migratedFromThreadId: null,
+              createdAt,
+              updatedAt: createdAt,
+            },
+          ],
         },
-      })
-    );
+      });
+    });
+    await mockGuidedCommandsRoute(page, {
+      onCommand: (body) => {
+        const command = (body.command as { type?: string })?.type;
+        if (command === "approve_diagnosis") {
+          approved = true;
+          currentStep = "confirm_improvement";
+          return {
+            status: 200,
+            json: {
+              presentation: basePresentation({
+                path: "existing_creative",
+                currentStep: "confirm_improvement",
+                allowedCommands: [],
+                revision: 5,
+              }),
+            },
+          };
+        }
+        return { status: 200, json: { presentation: basePresentation({ revision: 4 }) } };
+      },
+    });
 
     await page.goto(`/assistant?threadId=${THREAD_ID}`);
 
-    await expect(assistantSurface(page).getByTestId("creative-diagnosis-panel")).toBeVisible({
-      timeout: 15_000,
-    });
-    await expect(assistantSurface(page).getByTestId("acknowledge-diagnosis")).toBeVisible();
+    const panel = assistantSurface(page).getByTestId("creative-diagnosis-panel");
+    await expect(panel).toBeVisible({ timeout: 15_000 });
+    await expect(panel).toContainText("Campanha de tênis esportivo");
+    await panel.getByTestId("acknowledge-diagnosis").click();
+
+    expect(approved).toBe(true);
+    await expect(panel).not.toBeVisible({ timeout: 10_000 });
+    await expect(assistantSurface(page).getByTestId("guided-flow-resume-banner")).toContainText(
+      "Confirmar melhoria"
+    );
   });
 
-  test("keyboard navigation reaches journey cards and primary controls", async ({
+  test("keyboard navigation focuses journey cards and activates with Enter", async ({
     page,
   }) => {
+    let startedPath: string | null = null;
+    const newThreadId = "thread-keyboard-e2e";
+
+    await page.route("**/api/assistant/threads", async (route) => {
+      if (route.request().method() !== "POST") {
+        await route.continue();
+        return;
+      }
+      await route.fulfill({
+        json: {
+          thread: {
+            id: newThreadId,
+            workspaceId: "workspace-e2e",
+            clientProfileId: "client-e2e",
+            campaignId: null,
+            name: "Melhorar criativo existente",
+            isDefault: false,
+            migratedFromThreadId: null,
+            createdAt,
+            updatedAt: createdAt,
+          },
+        },
+      });
+    });
+    await page.route(
+      `**/api/assistant/threads/${newThreadId}/guided-flow/commands`,
+      async (route) => {
+        const body = route.request().postDataJSON() as {
+          command?: { type?: string; path?: string };
+        };
+        if (body.command?.type === "select_path") {
+          startedPath = body.command.path ?? null;
+        }
+        await route.fulfill({
+          json: {
+            guidedFlow: {
+              id: "guided-flow-keyboard",
+              threadId: newThreadId,
+              path: startedPath ?? "from_zero",
+              status: "active",
+              currentStep: "collect_brief",
+            },
+            presentation: basePresentation({
+              path: startedPath ?? "from_zero",
+              revision: 1,
+            }),
+          },
+        });
+      }
+    );
+    await page.route(`**/api/assistant/threads/${newThreadId}`, async (route) => {
+      await route.fulfill({
+        json: threadDetail({
+          path: (startedPath as "from_zero" | "existing_creative") ?? "from_zero",
+        }),
+      });
+    });
+
     await page.goto("/assistant");
 
     const surface = assistantSurface(page);
-    const existingCard = surface.getByTestId("assistant-journey-card-existing_creative");
-    await expect(existingCard).toBeVisible({ timeout: 15_000 });
+    await expect(surface.getByTestId("assistant-journey-cards")).toBeVisible({
+      timeout: 15_000,
+    });
 
-    await page.keyboard.press("Tab");
-    await page.keyboard.press("Tab");
+    let focusedCardId: string | null = null;
+    for (let step = 0; step < 30; step += 1) {
+      await page.keyboard.press("Tab");
+      const testId = await page.locator(":focus").getAttribute("data-testid");
+      if (testId?.startsWith("assistant-journey-card-")) {
+        focusedCardId = testId;
+        break;
+      }
+    }
 
-    const focused = page.locator(":focus");
-    await expect(focused).toBeVisible();
-    const tag = await focused.evaluate((el) => el.tagName.toLowerCase());
-    expect(["button", "a", "textarea", "input"]).toContain(tag);
+    expect(focusedCardId).toMatch(/assistant-journey-card-(existing_creative|from_zero)/);
+    await page.keyboard.press("Enter");
+    await expect.poll(() => startedPath).toMatch(/existing_creative|from_zero/);
   });
 });
 

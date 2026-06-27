@@ -55,17 +55,30 @@ function seedDevAdmin() {
   }
 }
 
+async function isServerReady() {
+  try {
+    const res = await fetch(`${baseUrl}/login`, { redirect: "manual" });
+    return res.ok || res.status === 307 || res.status === 308;
+  } catch {
+    return false;
+  }
+}
+
 let devProcess = null;
-const startedDevServer = process.env.E2E_SKIP_WEBSERVER !== "true";
+const preferOwnDevServer = process.env.E2E_SKIP_WEBSERVER !== "true";
 
 async function main() {
-  if (startedDevServer) {
-    devProcess = spawn("npm", ["run", "dev:next"], {
-      cwd: appDir,
-      stdio: "inherit",
-      env: { ...process.env, E2E_DISABLE_RATE_LIMIT: "true" },
-    });
-    await waitForServer();
+  if (preferOwnDevServer) {
+    if (await isServerReady()) {
+      console.log(`[guided-e2e] Reusing existing server at ${baseUrl}`);
+    } else {
+      devProcess = spawn("npm", ["run", "dev:next"], {
+        cwd: appDir,
+        stdio: "inherit",
+        env: { ...process.env, E2E_DISABLE_RATE_LIMIT: "true" },
+      });
+      await waitForServer();
+    }
   }
 
   seedDevAdmin();
