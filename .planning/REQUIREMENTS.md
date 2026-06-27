@@ -81,13 +81,44 @@
 
 ## Traceability
 
-Roadmap mapping pending.
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| FLOW-01 | Phase 195 | Pending |
+| FLOW-02 | Phase 195 | Pending |
+| FLOW-03 | Phase 195 | Pending |
+| FLOW-04 | Phase 195 | Pending |
+| FLOW-05 | Phase 195 | Pending |
+| FLOW-06 | Phase 195 | Pending |
+| FLOW-07 | Phase 195 | Pending |
+| ZERO-01 | Phase 196 | Pending |
+| ZERO-02 | Phase 196 | Pending |
+| ZERO-03 | Phase 196 | Pending |
+| ZERO-04 | Phase 196 | Pending |
+| ZERO-05 | Phase 196 | Pending |
+| ZERO-06 | Phase 196 | Pending |
+| DIAG-01 | Phase 197 | Pending |
+| DIAG-02 | Phase 197 | Pending |
+| DIAG-03 | Phase 197 | Pending |
+| DIAG-04 | Phase 197 | Pending |
+| DIAG-05 | Phase 197 | Pending |
+| ASSET-01 | Phase 198 | Pending |
+| ASSET-02 | Phase 198 | Pending |
+| ASSET-03 | Phase 198 | Pending |
+| ASSET-04 | Phase 198 | Pending |
+| ACT-01 | Phase 199 | Pending |
+| ACT-02 | Phase 199 | Pending |
+| ACT-03 | Phase 199 | Pending |
+| ACT-04 | Phase 199 | Pending |
+| QA-01 | Phase 199 | Pending |
+| QA-02 | Phase 199 | Pending |
+| QA-03 | Phase 199 | Pending |
+| QA-04 | Phase 200 | Pending |
 
 **Coverage:**
 - v13.8 requirements: 30 total
-- Mapped to phases: 0
-- Unmapped: 30
+- Mapped to phases: 30
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-06-26*
-*Last updated: 2026-06-26 after v13.8 requirements approval*
+*Last updated: 2026-06-26 after v13.8 roadmap creation*

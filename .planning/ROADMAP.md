@@ -2,6 +2,7 @@
 
 ## Milestones
 
+- 📋 **v13.8 Conversa Guiada Adaptativa** - Phases 195-200 (planned)
 - ✅ **v13.7 Qualidade Operacional das Jornadas Guiadas** - Phases 190-194 (shipped 2026-06-26; tech debt: human staging walks + insufficient operational sample)
 - ✅ **v13.6 Jornadas Guiadas do Chat Estratégico** - Phases 184-189 (shipped 2026-06-26; tech debt: staging diagnosis/briefing + live lifecycle verify)
 - ✅ **v13.5 Assistente Conversacional de Ações** - Phases 177-183 (shipped 2026-06-25; tech debt: EXEC-04 live lifecycle human verify, migrations 0056/0057 ops)
@@ -20,6 +21,91 @@
 - ✅ **v12.2 Refinamento Visual e Consistência da Interface** - Phases 109-114 (shipped 2026-06-14)
 - ✅ **v12.1 Memória Criativa e Aprendizado de Performance** - Phases 103-108 (shipped 2026-06-12)
 - ✅ **v12.0 Monetização Real** - Phases 97-102 (shipped 2026-06-11)
+
+## Phases
+
+- [ ] **Phase 195: Adaptive Journey State and Transition Contract** - Make every guided turn resumable, correctable, deterministic, and conflict-safe.
+- [ ] **Phase 196: Progressive From-Zero Conversation** - Guide users through one briefing decision at a time and a readiness-gated editable review.
+- [ ] **Phase 197: Collaborative Existing-Creative Diagnosis** - Let users correct and approve a provisional diagnosis before any campaign mutation.
+- [ ] **Phase 198: Inline Assets and Recovery** - Keep scoped asset selection, upload, replacement, partial failure, and retry inside the active turn.
+- [ ] **Phase 199: Reviewed Actions, Accessibility, and Automated UAT** - Bind safe action confirmation to reviewed state and verify both journeys across interaction modes.
+- [ ] **Phase 200: Real Staging Evidence and Release Gate** - Prove both journeys in staging and publish a release verdict that keeps evidence gaps explicit.
+
+## Phase Details
+
+### Phase 195: Adaptive Journey State and Transition Contract
+**Goal**: Users can navigate, correct, resume, switch, and recover a guided journey without losing valid context or allowing stale/model-owned transitions.
+**Depends on**: Phase 194
+**Requirements**: FLOW-01, FLOW-02, FLOW-03, FLOW-04, FLOW-05, FLOW-06, FLOW-07
+**Success Criteria** (what must be TRUE):
+  1. User can reload a thread and resume the exact persisted question, answers, resources, review state, and recoverable error.
+  2. User can go back or edit an earlier answer while unrelated confirmed answers remain and dependent diagnosis, readiness, or proposals become stale.
+  3. User can switch paths or restart only after seeing what will be retained and cleared.
+  4. User receives an explicit recovery choice when a stale tab or request loses a journey revision race, with no silent overwrite.
+  5. Free text and guided controls produce the same legal server-owned journey transitions; neither the model nor client-supplied IDs can choose journey state directly.
+**Plans**: TBD
+
+### Phase 196: Progressive From-Zero Conversation
+**Goal**: Users can turn an initial idea into a reviewed, action-ready briefing through a progressive and correctable conversation.
+**Depends on**: Phase 195
+**Requirements**: ZERO-01, ZERO-02, ZERO-03, ZERO-04, ZERO-05, ZERO-06
+**Success Criteria** (what must be TRUE):
+  1. User answers one meaningful briefing decision at a time using free text or valid quick replies, including `Não sei` and skip only where allowed.
+  2. User sees contextual suggestions with visible provenance and can ignore or edit them; the turn remains usable when AI suggestions fail.
+  3. Each accepted answer persists immediately and remains available after navigation, reload, or later correction.
+  4. User can review and edit a compact briefing summary before moving to references or an action proposal.
+  5. User cannot advance from briefing review until deterministic readiness rules for the intended action pass.
+**Plans**: TBD
+
+### Phase 197: Collaborative Existing-Creative Diagnosis
+**Goal**: Users can inspect, correct, and approve a diagnosis of an existing creative before ADScale proposes or performs campaign changes.
+**Depends on**: Phase 196
+**Requirements**: DIAG-01, DIAG-02, DIAG-03, DIAG-04, DIAG-05
+**Success Criteria** (what must be TRUE):
+  1. User can analyze a selected or uploaded creative provisionally without creating or mutating a campaign.
+  2. User sees observed facts, inferred assumptions, and uncertain or missing fields as distinct diagnosis content.
+  3. User can accept or correct assumptions and missing fields in the conversation; corrections preserve unrelated facts while refreshing stale dependent diagnosis, readiness, and proposals.
+  4. User must review and approve the current diagnosis snapshot before an improvement action proposal appears.
+**Plans**: TBD
+
+### Phase 198: Inline Assets and Recovery
+**Goal**: Users can manage all journey resources in context and recover from individual upload or analysis failures without losing successful work.
+**Depends on**: Phase 197
+**Requirements**: ASSET-01, ASSET-02, ASSET-03, ASSET-04
+**Success Criteria** (what must be TRUE):
+  1. User can select or upload a base creative and visual references without leaving the active guided turn.
+  2. User can add, remove, or replace resources while successful items stay selected if another item fails.
+  3. User cannot advance from the from-zero reference step until at least three valid references scoped to the current workspace and client are ready.
+  4. User can retry failed upload or analysis safely without duplicate effects, and late results for stale revisions or replaced assets cannot overwrite current intent.
+**Plans**: TBD
+
+### Phase 199: Reviewed Actions, Accessibility, and Automated UAT
+**Goal**: Users can understand and safely confirm current actions in either journey, with accessible interaction and comprehensive automated regression coverage.
+**Depends on**: Phase 198
+**Requirements**: ACT-01, ACT-02, ACT-03, ACT-04, QA-01, QA-02, QA-03
+**Success Criteria** (what must be TRUE):
+  1. User sees each action card in terms of expected outcome, required writes, credit impact, and irreversible effects rather than internal action or job names.
+  2. User cannot confirm a stale card, and confirmation revalidates workspace/client scope, current inputs, reviewed snapshot, readiness, credits, and action policy.
+  3. After action success, cancellation, or failure, the journey reaches a deterministic resumable state without duplicate effects.
+  4. Operator can query safe telemetry for answer, edit, back, switch, restart, retry, conflict, proposal, confirmation, failure, and completion events.
+  5. Both journeys pass authenticated browser coverage for happy path and recovery scenarios and remain operable by keyboard, coherent focus/status announcements, accessible errors, and mobile layout.
+**Plans**: TBD
+
+### Phase 200: Real Staging Evidence and Release Gate
+**Goal**: Operators can distinguish implemented behavior from real integration proof and release v13.8 only with an evidence-honest verdict.
+**Depends on**: Phase 199
+**Requirements**: QA-04
+**Success Criteria** (what must be TRUE):
+  1. Operator can inspect separate release evidence for implementation, automated verification, authenticated real staging walks, and operational sample sufficiency.
+  2. Staging evidence exercises both journeys with real provider, storage, persistence, action confirmation, recovery, resume, and telemetry, or names the exact pending human/live blocker.
+  3. Release claims remain blocked when staging evidence is pending, guided starts remain zero or insufficient, or the inherited live Inngest lifecycle is unverified.
+**Plans**: TBD
+
+## Inherited Evidence Debt
+
+- Operational guided-journey sample starts at zero and remains insufficient until real starts are observed.
+- Human staging walks for live diagnosis and briefing remain pending.
+- Live Inngest action lifecycle verification remains inherited and must stay explicit in the Phase 200 verdict.
 
 ## Shipped: v13.7 Qualidade Operacional das Jornadas Guiadas
 
@@ -160,4 +246,13 @@ Archive: [v13.3-ROADMAP.md](milestones/v13.3-ROADMAP.md) · [v13.3-REQUIREMENTS.
 
 ## Progress
 
-**Next:** Execute Phase 190 — `.planning/phases/190-guided-journey-telemetry/190-01-PLAN.md`
+**Execution Order:** 195 → 196 → 197 → 198 → 199 → 200
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 195. Adaptive Journey State and Transition Contract | 0/TBD | Not started | - |
+| 196. Progressive From-Zero Conversation | 0/TBD | Not started | - |
+| 197. Collaborative Existing-Creative Diagnosis | 0/TBD | Not started | - |
+| 198. Inline Assets and Recovery | 0/TBD | Not started | - |
+| 199. Reviewed Actions, Accessibility, and Automated UAT | 0/TBD | Not started | - |
+| 200. Real Staging Evidence and Release Gate | 0/TBD | Not started | - |
