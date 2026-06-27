@@ -46,6 +46,17 @@ export async function getPlanByCampaign(
   return result[0] ?? null;
 }
 
+export async function getPlanById(id: string, workspaceId: string) {
+  const result = await db
+    .select()
+    .from(creativePlans)
+    .where(
+      and(eq(creativePlans.id, id), eq(creativePlans.workspaceId, workspaceId))
+    )
+    .limit(1);
+  return result[0] ?? null;
+}
+
 export async function updatePlanStatus(
   id: string,
   workspaceId: string,
