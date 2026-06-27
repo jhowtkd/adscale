@@ -1,8 +1,8 @@
-# LinkedIn — Estratégia do Canal (v2)
+# LinkedIn — Estratégia do Canal (v3)
 
-> **Canal de autoridade B2B + decisor de agência (BR + EUA).**
-> Atualizado em 2026-06-26 com base nos ADRs 0001–0009.
-> Predominantemente **EN** (decisor global).
+> **Canal de autoridade B2B + decisor de agência (Brasil only).**
+> Atualizado em 2026-06-27 com base nos ADRs 0001–0011.
+> Idioma: **PT-BR** (mudou de EN — ADR 0010, Brasil-only).
 > **Boilerplate cross-canal (ICP, tom, anti-padrões, métricas base):** [`_shared.md`](_shared.md).
 
 ---
@@ -22,11 +22,9 @@ Fazer o **dono de agência** ou **head of marketing** ler e pensar: "essa é a v
 
 ICP raiz, sub-ICP rotativo, anti-ICP: [`_shared.md`](_shared.md) §1.
 
-- **Primário:** donos/sócios de agência de marketing (Brasil e EUA), head of marketing, head of growth.
+- **Primário:** donos/sócios de agência de marketing (Brasil), head of marketing, head of growth.
 - **Secundário:** gestores de tráfego seniores, designers com cargo de liderança.
-- **Idioma:** **EN** predominante (decisor global, abre portas nos EUA).
-
-**Exceção documentada:** se Jhonatan estiver ativo em círculos BR (RD Station, Resultados Digitais, comunidade brasileira), 1 em 4 posts pode ser em PT. Avaliar após Mês 1.
+- **Idioma:** **PT-BR** (mudou de EN em 2026-06-27 — ADR 0010, Brasil-only). Sem exceção.
 
 ---
 
@@ -39,7 +37,7 @@ ICP raiz, sub-ICP rotativo, anti-ICP: [`_shared.md`](_shared.md) §1.
 | **Carrossel PDF** | ~10% | Ocasionalmente, quando brief pedir framework visual. | A ou B |
 | **Vídeo nativo (sem Reels)** | ~10% | Demo rápida de 60s quando tema pedir. | B |
 
-**Total:** 3 posts/semana (predominante texto, EN).
+**Total:** 3 posts/semana (predominante texto, PT-BR).
 
 ---
 
@@ -47,8 +45,8 @@ ICP raiz, sub-ICP rotativo, anti-ICP: [`_shared.md`](_shared.md) §1.
 
 | Dia | Pilar | Formato | Tempo |
 |-----|-------|---------|-------|
-| **Ter** | A — Tese | Post longo EN (1.200–1.500 chars) | 45 min |
-| **Qui** | C — Bastidor | Post texto EN (micro 200–400 ou long 1.200–1.500) | 45 min |
+| **Ter** | A — Tese | Post longo PT-BR (1.200–1.500 chars) | 45 min |
+| **Qui** | C — Bastidor | Post texto PT-BR (micro 200–400 ou long 1.200–1.500) | 45 min |
 | **Sex (parcial)** | C — Bastidor | Post pessoal-profissional (ver ADR 0008) | 30 min |
 
 Fonte: [`../calendario/semanal-v2.md`](../calendario/semanal-v2.md) + ADR [`0002-cadencia-semanal.md`](../../../docs/adr/0002-cadencia-semanal.md).
@@ -112,7 +110,7 @@ LinkedIn funciona como **rede**, não canal de broadcast. 30 minutos por dia:
 | Responder TODOS os comentários nos próprios posts | 10 min |
 | DM ocasional após comentário relevante | oportunístico |
 
-**Nomes pra seguir e engajar** (BR + EN): donos de agência mid-size, fundadores de ferramentas SaaS adjacentes, autores de newsletters de marketing.
+**Nomes pra seguir e engajar** (BR): donos de agência mid-size, fundadores de ferramentas SaaS adjacentes, autores de newsletters de marketing.
 
 ---
 
@@ -121,9 +119,9 @@ LinkedIn funciona como **rede**, não canal de broadcast. 30 minutos por dia:
 ```
 Founder, ADScale
 Building AI that helps marketing teams ship 10x more ad creatives
-without scaling headcount. Curator > operator.
+without scaling headcount. {{ nota: tagline "Curator > operator" em revisão — Jhonatan questionou em 2026-06-27 }}
 Previously: [breve, só se relevante]
-🇧🇷🇺🇸 BR + US
+🇧🇷 Brasil
 ```
 
 ---
@@ -161,4 +159,4 @@ Lista completa (universal + LI): [`_shared.md`](_shared.md) §8.
 
 ---
 
-*Subpasta de `marketing/social-media/canais/` · EN (com exceção documentada de PT) · Versão 2 · Última atualização: 2026-06-26 · Owner: Jhonatan Soares*
+*Subpasta de `marketing/social-media/canais/` · **PT-BR only** (ADR 0010) · Versão 3 · Última atualização: 2026-06-27 · Owner: Jhonatan Soares*

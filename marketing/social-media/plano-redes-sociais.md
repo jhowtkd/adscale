@@ -1,6 +1,6 @@
 # Plano de Redes Sociais — ADScale
 
-> Estratégia para construir autoridade de Jhonatan como founder técnico de uma ferramenta para agências de marketing, no mercado Brasil + EUA, em Instagram, YouTube e LinkedIn.
+> Estratégia para construir autoridade de Jhonatan como founder técnico de uma ferramenta para agências de marketing, no mercado **Brasil only** (PT-BR), em **Instagram + LinkedIn + Threads**. YouTube congelado Q3 inteiro (ADR 0009). Bilíngue suspenso (ADR 0010). Threads entrou no lugar do YouTube (ADR 0011).
 
 ---
 
@@ -9,7 +9,7 @@
 ### Cenário
 - ADScale está em **pré-lançamento** (produto construído, mas sem base de usuários abertos).
 - **ICP**: agência de marketing (decisor = dono/sócio; operacional = designer, gestor de tráfego, atendimento).
-- **Geografia**: Brasil + EUA (bilíngue desde o dia 1). [focar só no brasil por enquanto]
+- **Geografia**: Brasil only. Bilíngue (PT + EN) suspenso — ver ADR 0010.
 - **Objetivo principal**: **autoridade e awareness** (não vendas diretas nesta fase).
 - **Cara**: founder-led — **Jhonatan pessoal** é a voz.
 
@@ -30,7 +30,7 @@ Construir uma base de **3.000–5.000 seguidores qualificados** em 90 dias, com 
 |-----------|--------------------|
 | **Founder-led real, não fingido.** | Jhonatan aparece. Rosto, voz, opinião. Não terceiriza a voz da marca. |
 | **Educação > promoção.** | 70% do conteúdo ensina ou mostra. 30% (no máximo) fala do produto. |
-| **Bilíngue com função, não por vaidade.** | PT-BR em IG e YT principal (onde tá o público brasileiro). EN em LinkedIn e YT EN (decisor global, mercado EUA). | [tirar]
+> {{ status: removido em 2026-06-27 — princípio "Bilíngue com função" saiu porque a geografia virou Brasil-only (ADR 0010). LinkedIn também passa a ser PT-BR. }}
 | **Reaproveitar é regra, exceção.** | Cada ideia nasce uma vez, vira 3–5 peças em formatos diferentes. |
 | **Volume sustentavel > picos.** | Frequência que **Jhonatan aguenta manter por 6 meses**, não sprint de 2 semanas. |
 
@@ -85,9 +85,8 @@ A estratégia detalhada está em [`canais/`](./canais/). Resumo aqui:
 | Canal | Objetivo principal | Frequência | Formato dominante | Idioma |
 |-------|--------------------|------------|-------------------|--------|
 | **Instagram** | Topo de funil + descoberta + humanização | 4–5 posts/semana + stories diários | Reels (15–60s), carrossel educativo, stories bastidores | PT-BR |
-| **LinkedIn** | Autoridade B2B + decisor de agência | 3–4 posts/semana | Texto longo (1.200–1.500 chars), micro-post, occasional carrossel PDF | **EN** |
-| **YouTube (canal principal)** | Fundo de funil + evergreen + SEO | 1 vídeo longo/mês + 4 shorts/mês | Tutorial, demo, behind-the-scenes, opinião | PT-BR | [nao vamos usar youtube por enquanto. trocar para threads]
-| **YouTube (canal EN ou trilha)** | Decisor EUA + alcance global | 1 vídeo longo/mês + 4 shorts/mês | Mesmo conteúdo adaptado, exemplos em USD/EN | EN |
+| **LinkedIn** | Autoridade B2B + decisor de agência | 3–4 posts/semana | Texto longo (1.200–1.500 chars), micro-post, occasional carrossel PDF | **PT-BR** (mudou de EN — ADR 0010) |
+| **Threads** | Topo de funil rápido + distribuição de texto + descoberta "lateral" | 3–4 posts/semana (reaproveitamento de IG/LI) | Texto curto conversacional (200–500 chars) + 1 imagem opcional | PT-BR |
 
 ---
 
@@ -95,11 +94,11 @@ A estratégia detalhada está em [`canais/`](./canais/). Resumo aqui:
 
 Uma ideia vira **5 peças** sem repetir.
 
-| Ideia original | IG Reel | IG Carrossel | LinkedIn Post | YouTube Short | YouTube Long |
-|----------------|---------|--------------|---------------|---------------|--------------|
-| "Por que agência precisa parar de tratar variação como projeto" | Reel 30s com tela gravada | 6 slides com argumento + dados | Post longo opinião | Short do Reel | Vídeo 12min com deep dive |
+| Ideia original | IG Reel | IG Carrossel | LinkedIn Post | Threads Post |
+|----------------|---------|--------------|---------------|--------------|
+| "Por que agência precisa parar de tratar variação como projeto" | Reel 30s com tela gravada | 6 slides com argumento + dados | Post longo opinião | Texto curto conversacional com link/hashtag |
 
-**Regra:** o conteúdo longo nasce primeiro (YouTube ou LinkedIn). Os outros são cortes/edit/reescrita.
+**Regra:** o conteúdo longo nasce primeiro (LinkedIn ou IG carrossel). Threads, Reels e carrosséis são cortes/edit/reescrita — reaproveitamento, não duplicação.
 
 ---
 
@@ -111,24 +110,26 @@ Recomendação inicial, ajustável após 30 dias:
 |-------|--------------------------|------------------|
 | Instagram | 3 posts + stories | 4–5 posts + stories |
 | LinkedIn | 2 posts | 3–4 posts |
-| YouTube | 1 long + 2 shorts | 1 long + 4 shorts |
-| **Total peças/semana** | ~7 | ~10 |
+| Threads | 2 posts | 3–4 posts |
+| **Total peças/semana** | ~7 | ~10–11 |
 
-Se ficar pesado, cortar YouTube long-form e manter só shorts. YouTube long-form dá mais resultado, mas exige mais.
+Threads é **reaproveitamento** das peças longas do LinkedIn/IG carrossel (texto curto + link/hashtag), não criação nova. Cadência IG+LI segue a do ADR 0009 (6 peças/sem).
 
 ---
 
 ## 7. Calendário semanal padrão
 
-| Dia | Instagram | LinkedIn | YouTube |
+| Dia | Instagram | LinkedIn | Threads |
 |-----|-----------|----------|---------|
-| **Seg** | Reel (provocação/opinião) | — | — |
+| **Seg** | Reel (provocação/opinião) | — | Texto curto (recap) |
 | **Ter** | — | Post longo (opinião/educação) | — |
-| **Qua** | Carrossel (educação prática) | — | — |
+| **Qua** | Carrossel (educação prática) | — | Texto curto (gancho do carrossel) |
 | **Qui** | Stories bastidor | Micro-post (resposta/comentário) | — |
-| **Sex** | Reel (caso/bastidor) | Post longo (caso/tutorial) | Short |
+| **Sex** | Reel (caso/bastidor) | Post longo (caso/tutorial) | Texto curto (recap do LI) |
 | **Sáb** | Stories light | — | — |
-| **Dom** | Descanso | Descanso | — |
+| **Dom** | Descanso | Descanso | Descanso |
+
+Domingo é descanso. Sábado é leve. Threads é reaproveitamento — não adiciona tempo de criação, é copy curta + colar link.
 
 Domingo é descanso. Sábado é leve. Isso protege a sustentabilidade.
 
@@ -141,15 +142,15 @@ Domingo é descanso. Sábado é leve. Isso protege a sustentabilidade.
 |-----|------|---------|
 | Seguidores IG | 500+ | Base inicial |
 | Conexões LinkedIn (aceites de donos de agência) | 100+ | Decisor qualificado |
-| Inscritos YouTube | 200+ | Evergreen |
-| Posts que viralizam (>1k impressões LinkedIn ou >5k views Reels) | 3+ | Validação de pauta |
+| Seguidores Threads | 200+ | Canal de descoberta "lateral" (reaproveitamento) |
+| Posts que viralizam (>1k impressões LinkedIn ou Threads, ou >5k views Reels) | 3+ | Validação de pauta |
 
 ### Fase 2 — Tração (Mês 2–3)
 | KPI | Meta | Por quê |
 |-----|------|---------|
 | Seguidores IG | 2.000+ | Escala |
 | Conexões LinkedIn com decisores | 500+ | Pipeline invisível |
-| Inscritos YouTube | 1.000+ | Conteúdo acumulando |
+| Seguidores Threads | 1.000+ | Canal de descoberta "lateral" |
 | Signups waitlist | 500+ | Lead quente |
 | Posts com comentários qualificados | 10+ por mês | Conversa real |
 
@@ -174,15 +175,14 @@ Domingo é descanso. Sábado é leve. Isso protege a sustentabilidade.
 ### Agendamento
 - **Meta Business Suite** (IG + Facebook gratuito).
 - **LinkedIn**: postar direto (agendador nativo funciona, mas tem limites).
-- **YouTube**: agendar pelo YouTube Studio.
+- **Threads**: postar direto (Meta nativo, sem agendador terceiro confiável ainda).
 
 ### Gestão
 - **Notion ou Trello**: banco de ideias + calendário editorial.
 - **Planilha ou `marketing/social-media/calendario/`**: controle semanal.
 
 ### Métricas
-- **Metricool** (ou similar gratuito): painel unificado IG + LinkedIn + YouTube.
-- **YouTube Studio**: nativo.
+- **Metricool** (ou similar gratuito): painel unificado IG + LinkedIn + Threads.
 - **PostHog** (já tem no produto): rastreamento da waitlist e conversão.
 
 ---
@@ -193,7 +193,7 @@ Domingo é descanso. Sábado é leve. Isso protege a sustentabilidade.
 |-------|-----------|
 | Founder cansa e para de postar | Frequência sustentável desde o dia 1. Aceitar dias menores. |
 | Conteúdo vira "auto-promoção" e cansa | Regra 70/30 (educação vs. produto). Marcar cada post com o pilar e checar. |
-| Canal EN do YouTube vira workload extra | Começar com **trilha EN no mesmo canal**, não canal separado. Separar só se virar viável. |
+| Threads vira workload extra (criação do zero) | Threads é só reaproveitamento de LI/IG (texto curto + link). Sem criação original no Q3. |
 | Pouco engajamento inicial | Engajar **com** a comunidade de outras contas (comentar em posts de referências, ser citado). Crescimento B2B é lento no começo. |
 | Conteúdo vira corporativo apesar de tudo | Manter 1 review mensal com alguém de fora (amigo, consultor, lead) que diga "isso tá com cara de Linkedniz" ou "isso soa como Jhonatan". |
 
@@ -211,4 +211,6 @@ Detalhes completos em [`launch/plano-lancamento.md`](../launch/plano-lancamento.
 
 ---
 
-*Mantido em `marketing/social-media/` · PT-BR · Última atualização: 2026-06-23*
+*Mantido em `marketing/social-media/` · PT-BR · Última atualização: 2026-06-27*
+
+> {{ status: atualizado em 2026-06-27 — Brasil-only (ADR 0010), YouTube → Threads (ADR 0011), LinkedIn PT-BR. Ver observações originais do Jhonatan em [CHANGELOG-2026-06-27]. }}

@@ -137,8 +137,9 @@ Esqueleto completo por tipo (opinião vs educação): ADR [`0007-carrossel-hibri
 ```
 Jhonatan Soares
 Construindo ADScale — IA que escala criativos pra performance.
-Curator > operator. Lab Notes toda semana.
-BR + EUA 🇧🇷🇺🇸
+{{ nota: tagline "Curator > operator" em revisão — Jhonatan questionou em 2026-06-27 }}
+Lab Notes toda semana.
+🇧🇷 Brasil
 ↓ waitlist aberta
 ```
 

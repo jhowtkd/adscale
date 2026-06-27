@@ -138,7 +138,7 @@ Preencher sexta 17h em `kanban/04-publicados.md`.
 
 ## 7. Pendências e melhorias
 
-> {{ pendência: como extrair conteúdo dos top perfis que Jhonatan consome pra gente kibar. Resposta pendente — Jhonatan vai passar lista de 5–10 perfis pra adicionar como Tier 3.5 no `fontes-pauta.md`. }}
+> {{ status: RESOLVIDO em 2026-06-27 (ciclo W26). Jhonatan passou os 8 perfis (7 IG + 1 website) — ver `fontes-pauta.md` §4.5 + `banco-teses/inbox/from-tier3-5-perfis-2026-W26.md`. Stalker já rodou primeira coleta (67 IDs próprios catalogados, 10 posts detalhados na janela 7d, 7 pautas geradas). }}
 
 ---
 

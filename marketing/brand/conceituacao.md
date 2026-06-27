@@ -168,7 +168,7 @@ A persona e a de um **cientista num laboratorio** — observa, experimenta, docu
 2. **Tecnico > motivacional.** Quando der pra ser especifico, seja. "10 derivacoes em 8 minutos" > "produza mais, mais rapido".
 3. **Confianca > empolgacao.** A gente nao promete revolucao. A gente mostra o que construiu e como funciona.
 4. **Pessoal, mas nao intimo.** Jhonatan aparece como founder, nao como influenciador. Bastidores, decisoes, aprendizados — sem expor vida pessoal.
-5. **Bilingue natural.** PT-BR no Instagram/YouTube principal. EN no LinkedIn pessoal e canal EN do YouTube. Nunca traducao literal — cada idioma tem seu jeito.
+5. **PT-BR only.** ADScale opera 100% em portugues brasileiro (Brasil-only, ver ADR 0010). Bilíngue (PT + EN) foi suspenso. Exceções: termos canonicos em EN quando nao ha traducao natural (ex.: "Curator", "Lab Notes", "build in public").
 
 ### 3.4 Estrutura de post (4 esqueletos)
 
@@ -189,9 +189,9 @@ A persona e a de um **cientista num laboratorio** — observa, experimenta, docu
 | Canal | Voz | Idioma |
 |-------|-----|--------|
 | **Instagram** | Casual-fundador. "Gravei isso de manha, olha o que saiu." | PT-BR |
-| **LinkedIn (Jhonatan)** | Profissional-fundador. Articulado mas sem corporate. | **EN** (decisor global) |
-| **YouTube (canal principal)** | Didatico, com humor seco. Mostra o processo. | PT-BR |
-| **YouTube (canal/trilha EN)** | Mesmo didatismo, ritmo mais pausado, exemplos em dolar. | EN |
+| **LinkedIn (Jhonatan)** | Profissional-fundador. Articulado mas sem corporate. | **PT-BR** (mudou de EN — ADR 0010, Brasil-only) |
+| **Threads** | Casual-fundador + texto curto conversacional. Recap de LI/IG. | PT-BR (ADR 0011) |
+| **YouTube (canal principal)** | Didatico, com humor seco. Mostra o processo. | **Congelado Q3 inteiro** (ADR 0009). Sem voz ativa no Q3. |
 
 ### 3.6 Formato de Reels (regra atualizada 2026-06-26)
 

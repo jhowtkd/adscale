@@ -1,9 +1,9 @@
 # YouTube — Estratégia do Canal (v2)
 
 > {{ status: CONGELADO no Q3 inteiro (até set/2026) — ver ADR 0009 }}
-> Atualizado em 2026-06-26 com base nos ADRs 0001–0009.
+> Atualizado em 2026-06-27 com base nos ADRs 0001–0011.
 > Canal mantido como **referência histórica** pra reativação no Q4+.
-> PT-BR (canal principal) + EN (trilha).
+> Quando reativar: PT-BR only (trilha EN suspensa por ADR 0010, Brasil-only).
 
 > **Este arquivo NÃO é playbook ativo no Q3.** É documentação do que existia e do que volta a valer quando o canal reativar. Ver seção 5 (Upgrade path) pra condições de reativação.
 

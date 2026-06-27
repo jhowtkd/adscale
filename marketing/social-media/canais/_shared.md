@@ -1,6 +1,8 @@
-# _shared — Boilerplate dos canais (IG / LinkedIn / YouTube)
+# _shared — Boilerplate dos canais (IG / LinkedIn / Threads)
 
-> **Arquivo compartilhado.** Não é playbook de canal — é o que vale pra **todos** os canais da ADScale. Cada arquivo de canal (instagram.md, linkedin.md, youtube.md) linka pra cá em vez de repetir.
+> **Arquivo compartilhado.** Não é playbook de canal — é o que vale pra **todos** os canais da ADScale. Cada arquivo de canal (instagram.md, linkedin.md, threads.md) linka pra cá em vez de repetir.
+>
+> **Canais ativos no Q3 (2026):** Instagram + LinkedIn + Threads. YouTube congelado (ADR 0009), Brasil-only (ADR 0010).
 >
 > Brand/tom canônico completo: [`marketing/brand/conceituacao.md`](../../brand/conceituacao.md). Este arquivo é só o operacional cross-canal.
 
@@ -33,7 +35,7 @@ Todos os canais operam com os mesmos 3 pilares (ADR 0001):
 
 | Pilar | Nome | Peso | Função primária |
 |-------|------|------|-----------------|
-| **A** | Lab Notes — Tese | 40% | Opinião fundamentada. Curator > operator. Polemiza. |
+| **A** | Lab Notes — Tese | 40% | Opinião fundamentada. {{ nota: "Curator > operator" foi questionado pelo Jhonatan em 2026-06-27 como "muito difícil de entender". Pendente reformulação ou abandono — perguntar antes de propagar. }} Polemiza. |
 | **B** | Lab Notes — Experimento | 40% | Processo, números, throughput, bastidor técnico. |
 | **C** | Lab Notes — Bastidor | 20% | Pegada pessoal do Jhonatan. Aprendizados de construir. |
 
@@ -156,11 +158,11 @@ Detalhe: [`brand/conceituacao.md`](../../brand/conceituacao.md) Parte 4.
 
 | Papel | Quem | Quando |
 |-------|------|--------|
-| **Curator** | Jhonatan | Briefing, priorização, aprovação |
-| **Operador** | Ferramentas (banco de teses, kanban, mavis review) | Execução mecânica |
+| **Curator** | Jhonatan | Briefing, priorização, aprovação {{ nota: termo em revisão, ver pergunta 2026-06-27 }} |
+| **Operador** | Ferramentas (banco de teses, kanban, mavis review) | Execução mecânica {{ nota: termo em revisão, ver pergunta 2026-06-27 }} |
 | **Gatekeeper** | Mavis (este agente) | Revisão automatizada antes de publicar |
 
-**Por que essa divisão:** ver crença central `Curator > operator` em [`CONTEXT.md`](../../../CONTEXT.md).
+**Por que essa divisão:** {{ pendência: crença central `Curator > operator` foi questionada pelo Jhonatan em 2026-06-27 ("muito difícil de entender"). Pendente decisão: reformular vocabulário, abandonar o conceito, ou manter como está. Atualizar [`CONTEXT.md`](../../../CONTEXT.md) e `tese-001` depois. }}
 
 ---
 
@@ -172,8 +174,8 @@ Detalhe: [`brand/conceituacao.md`](../../brand/conceituacao.md) Parte 4.
 | 3 pilares Lab Notes (canônico) | [`brand/mensagens-chave.md`](../../brand/mensagens-chave.md) v2 |
 | Decisões estratégicas (ADRs) | [`../../../docs/adr/`](../../../docs/adr/) |
 | Cadência semanal | [`../calendario/semanal-v2.md`](../calendario/semanal-v2.md) (Q3 sem Short — ver ADR 0009) |
-| Estratégia específica por canal | `instagram.md`, `linkedin.md`, `youtube.md` (nesta pasta) |
+| Estratégia específica por canal | `instagram.md`, `linkedin.md`, `threads.md` (nesta pasta) — `youtube.md` virou referência histórica (ADR 0009) |
 
 ---
 
-*Mantido em `marketing/social-media/canais/` · PT-BR (EN quando indicado) · Versão 2 · Última atualização: 2026-06-26 · Owner: Jhonatan Soares*
+*Mantido em `marketing/social-media/canais/` · **PT-BR only** (ADR 0010) · Versão 3 · Última atualização: 2026-06-27 · Owner: Jhonatan Soares*
