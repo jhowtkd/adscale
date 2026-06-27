@@ -70,33 +70,33 @@
 
 | Requirement | Phase | Status |
 |---|---|---|
-| VERS-01 | TBD | Pending |
-| VERS-02 | TBD | Pending |
-| VERS-03 | TBD | Pending |
-| VERS-04 | TBD | Pending |
-| PLAN-01 | TBD | Pending |
-| PLAN-02 | TBD | Pending |
-| PLAN-03 | TBD | Pending |
-| PLAN-04 | TBD | Pending |
-| CREV-01 | TBD | Pending |
-| CREV-02 | TBD | Pending |
-| CREV-03 | TBD | Pending |
-| CREV-04 | TBD | Pending |
-| COMP-01 | TBD | Pending |
-| COMP-02 | TBD | Pending |
-| APPR-01 | TBD | Pending |
-| APPR-02 | TBD | Pending |
-| APPR-03 | TBD | Pending |
-| SAFE-01 | TBD | Pending |
-| SAFE-02 | TBD | Pending |
-| SAFE-03 | TBD | Pending |
-| QA-01 | TBD | Pending |
-| QA-02 | TBD | Pending |
+| VERS-01 | Phase 203 | Pending |
+| VERS-02 | Phase 203 | Pending |
+| VERS-03 | Phase 203 | Pending |
+| VERS-04 | Phase 203 | Pending |
+| PLAN-01 | Phase 204 | Pending |
+| PLAN-02 | Phase 204 | Pending |
+| PLAN-03 | Phase 204 | Pending |
+| PLAN-04 | Phase 204 | Pending |
+| CREV-01 | Phase 205 | Pending |
+| CREV-02 | Phase 205 | Pending |
+| CREV-03 | Phase 205 | Pending |
+| CREV-04 | Phase 205 | Pending |
+| COMP-01 | Phase 206 | Pending |
+| COMP-02 | Phase 206 | Pending |
+| APPR-01 | Phase 206 | Pending |
+| APPR-02 | Phase 206 | Pending |
+| APPR-03 | Phase 206 | Pending |
+| SAFE-01 | Phase 203 | Pending |
+| SAFE-02 | Phase 205 | Pending |
+| SAFE-03 | Phase 203 | Pending |
+| QA-01 | Phase 207 | Pending |
+| QA-02 | Phase 207 | Pending |
 
 **Coverage:**
 - v13.9 requirements: 22 total
-- Mapped to phases: 0
-- Unmapped: 22
+- Mapped to phases: 22
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-06-27*
