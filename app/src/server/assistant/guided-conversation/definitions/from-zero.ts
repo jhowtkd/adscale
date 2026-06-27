@@ -34,15 +34,17 @@ export function existingCreativeBackTarget(currentStep: string): string | null {
   return EXISTING_CREATIVE_STEPS[index - 1];
 }
 
+const REVIEW_DEPENDENCIES = ["briefSnapshot", "briefReviewApproved", "recommendedAction"];
+
 export const FROM_ZERO_FIELD_DEPENDENCIES: Record<string, string[]> = {
-  product: ["promise", "recommendedAction"],
-  offer: ["promise", "cta", "recommendedAction", "diagnosis"],
-  audience: ["promise", "diagnosis", "recommendedAction"],
-  promise: ["recommendedAction"],
-  objections: ["recommendedAction"],
-  cta: ["recommendedAction", "diagnosis"],
-  platforms: ["recommendedAction"],
-  constraints: ["recommendedAction"],
+  product: ["promise", ...REVIEW_DEPENDENCIES],
+  offer: ["promise", "cta", "diagnosis", ...REVIEW_DEPENDENCIES],
+  audience: ["promise", "diagnosis", ...REVIEW_DEPENDENCIES],
+  promise: REVIEW_DEPENDENCIES,
+  objections: REVIEW_DEPENDENCIES,
+  cta: ["diagnosis", ...REVIEW_DEPENDENCIES],
+  platforms: REVIEW_DEPENDENCIES,
+  constraints: REVIEW_DEPENDENCIES,
 };
 
 export function fromZeroInitialStep() {

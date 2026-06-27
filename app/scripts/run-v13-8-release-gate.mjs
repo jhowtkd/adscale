@@ -176,7 +176,11 @@ function main() {
   saveEvidence(evidence);
 
   if (failed) {
-    console.error("v13.8 release gate blocked: automated checks failed.");
+    console.error(
+      evidence.automatedTests.status === "fail"
+        ? "v13.8 release gate blocked: automated checks failed."
+        : "v13.8 release gate blocked: required staging evidence is pending."
+    );
     process.exit(1);
   }
 

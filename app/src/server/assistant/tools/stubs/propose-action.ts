@@ -4,6 +4,10 @@ import { validateProposeAction } from "@/server/assistant/action-contracts/valid
 import { emitGuidedFlowActionProposed } from "@/server/assistant/guided-flow-telemetry-lifecycle";
 import { createAssistantAction } from "@/server/repositories/assistant-action";
 import { getGuidedFlowByThread } from "@/server/repositories/guided-flow";
+import {
+  assertGuidedActionReady,
+  guidedActionSnapshotDigest,
+} from "@/server/assistant/action-contracts/guided-binding";
 import { stripDeniedFields } from "@/server/assistant/context/sanitize";
 import { containsDeniedPersistenceKeys } from "@/server/repositories/assistant-types";
 import type { RegisteredTool, ToolHandlerContext, ToolHandlerResult } from "../registry";
@@ -36,24 +40,33 @@ export async function handleProposeAction(
     inputSnapshot,
   });
 
+  const guidedFlow = await getGuidedFlowByThread(ctx.workspaceId, ctx.threadId);
+  const reviewedFlow = guidedFlow?.path !== "unclassified" ? guidedFlow : null;
+  if (reviewedFlow) {
+    assertGuidedActionReady(reviewedFlow, parsed.actionType);
+  }
+
   const { action } = await createAssistantAction(ctx.workspaceId, {
     threadId: ctx.threadId,
     content: parsed.label,
     inputSnapshot,
     display,
+    sourceFlowRevision: reviewedFlow?.revision ?? null,
+    sourceSnapshotDigest: reviewedFlow
+      ? guidedActionSnapshotDigest(reviewedFlow, inputSnapshot)
+      : null,
   });
 
-  const guidedFlow = await getGuidedFlowByThread(ctx.workspaceId, ctx.threadId);
-  if (guidedFlow && guidedFlow.path !== "unclassified") {
+  if (reviewedFlow) {
     emitGuidedFlowActionProposed({
       workspaceId: ctx.workspaceId,
       clientProfileId: ctx.clientProfileId,
       threadId: ctx.threadId,
-      guidedFlowId: guidedFlow.id,
-      path: guidedFlow.path,
-      step: guidedFlow.currentStep,
+      guidedFlowId: reviewedFlow.id,
+      path: reviewedFlow.path,
+      step: reviewedFlow.currentStep,
       actionRecordId: action.id,
-      campaignId: guidedFlow.campaignId,
+      campaignId: reviewedFlow.campaignId,
       actionType: parsed.actionType,
     });
   }

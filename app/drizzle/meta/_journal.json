@@ -435,6 +435,13 @@
       "when": 1783252800000,
       "tag": "0062_assistant_guided_flow_adaptive_state",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1783339200000,
+      "tag": "0063_assistant_action_guided_binding",
+      "breakpoints": true
     }
   ]
 }

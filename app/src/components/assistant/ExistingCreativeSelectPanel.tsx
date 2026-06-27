@@ -7,21 +7,24 @@ import { ImageIcon, Loader2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { uploadChatAttachment } from "@/lib/assistant/chat-attachments";
 import { useWorkspaceAssets } from "@/lib/hooks/use-workspace-assets";
-import { useSelectExistingCreative } from "@/lib/hooks/use-existing-creative-path";
+import { useGuidedFlowCommand } from "@/lib/hooks/use-guided-flow-commands";
+import type { GuidedFlow } from "@/lib/hooks/use-guided-flow";
 import { cn } from "@/lib/utils";
 
 export interface ExistingCreativeSelectPanelProps {
   threadId: string;
+  guidedFlow: GuidedFlow;
 }
 
 export default function ExistingCreativeSelectPanel({
   threadId,
+  guidedFlow,
 }: ExistingCreativeSelectPanelProps) {
   const t = useTranslations("assistant.guidedFlow.existingCreative");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const { data, isLoading } = useWorkspaceAssets({ limit: 12 });
-  const selectCreative = useSelectExistingCreative(threadId);
+  const selectCreative = useGuidedFlowCommand(threadId);
 
   const assets = data?.assets ?? [];
 
@@ -29,7 +32,7 @@ export default function ExistingCreativeSelectPanel({
     setError(null);
     try {
       const uploaded = await uploadChatAttachment(file);
-      await selectCreative.mutateAsync(uploaded.assetId);
+      await handlePick(uploaded.assetId);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("uploadFailed"));
     }
@@ -38,7 +41,11 @@ export default function ExistingCreativeSelectPanel({
   const handlePick = async (workspaceAssetId: string) => {
     setError(null);
     try {
-      await selectCreative.mutateAsync(workspaceAssetId);
+      await selectCreative.mutateAsync({
+        commandId: crypto.randomUUID(),
+        expectedRevision: guidedFlow.revision ?? 0,
+        command: { type: "select_creative", workspaceAssetId },
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : t("selectFailed"));
     }

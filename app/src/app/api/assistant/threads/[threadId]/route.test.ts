@@ -73,7 +73,12 @@ describe("GET /api/assistant/threads/[threadId]", () => {
   it("includes guidedFlow when present", async () => {
     const thread = { id: "t1", workspaceId: "workspace-1", name: "Main" };
     const messages = [{ id: "m1", sequence: 1 }];
-    const guidedFlow = { id: "flow-1", path: "from_zero", status: "active" };
+    const guidedFlow = {
+      id: "flow-1", workspaceId: "workspace-1", clientProfileId: "profile-1", threadId: "t1",
+      path: "from_zero", status: "active", currentStep: "collect_brief", slots: {},
+      missingFields: [], assetIds: [], referenceIds: [], campaignId: null, revision: 0,
+      schemaVersion: 2, recoverableError: null, createdAt: new Date(), updatedAt: new Date(),
+    };
     mockGetThread.mockResolvedValue(thread as Awaited<ReturnType<typeof getAssistantThreadById>>);
     mockListMessages.mockResolvedValue(
       messages as Awaited<ReturnType<typeof listAssistantMessages>>
@@ -88,6 +93,6 @@ describe("GET /api/assistant/threads/[threadId]", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(body.guidedFlow).toEqual(guidedFlow);
+    expect(body.guidedFlow).toEqual(expect.objectContaining({ id: "flow-1", currentStep: "collect_brief", revision: 0 }));
   });
 });

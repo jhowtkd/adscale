@@ -23,6 +23,14 @@ vi.mock("@/server/assistant/tools/policy", () => ({
   evaluateToolCall: vi.fn(),
 }));
 
+vi.mock("@/server/repositories/guided-flow", () => ({
+  getGuidedFlowByThread: vi.fn(() => Promise.resolve(null)),
+}));
+
+vi.mock("@/server/assistant/guided-conversation/service", () => ({
+  applyGuidedConversationCommand: vi.fn(),
+}));
+
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import { createAssistantMessage } from "@/server/repositories/assistant-message";
 import {

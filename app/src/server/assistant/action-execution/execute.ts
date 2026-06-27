@@ -1,4 +1,4 @@
-import { resumeGuidedFlowAfterActionFailure } from "@/server/assistant/guided-paths/action-integration";
+import { transitionGuidedFlowAfterAction } from "@/server/assistant/guided-paths/action-integration";
 import { emitGuidedFlowActionFailed } from "@/server/assistant/guided-flow-telemetry-lifecycle";
 import { getActionContract } from "@/server/assistant/action-contracts/registry";
 import {
@@ -20,6 +20,7 @@ import {
 import { executeQuickRestyle } from "./handlers/quick-restyle";
 import { executeQuickSaveReference } from "./handlers/quick-save-reference";
 import { executeStartCompleteCampaign } from "./handlers/start-complete-campaign";
+import { executeCreateCreativePlan } from "./handlers/create-creative-plan";
 import type { ActionExecutionContext, ActionExecutionResult } from "./types";
 import { AssistantActionExecutionError } from "./types";
 
@@ -35,6 +36,7 @@ const HANDLERS: Record<string, Handler> = {
   quick_save_reference: executeQuickSaveReference,
   quick_package: executeQuickPackage,
   start_complete_campaign: executeStartCompleteCampaign,
+  create_creative_plan: executeCreateCreativePlan,
 };
 
 export async function executeConfirmedAssistantAction(
@@ -97,16 +99,34 @@ export async function executeConfirmedAssistantAction(
     const result = await handler(ctx);
 
     if (result.mode === "sync") {
-      return transitionAssistantAction(workspaceId, actionId, "completed", {
+      const completed = await transitionAssistantAction(workspaceId, actionId, "completed", {
         jobRef: result.jobRef,
         display: { executionSummary: result.resultSummary },
       });
+      await transitionGuidedFlowAfterAction({
+        workspaceId,
+        threadId: action.threadId,
+        clientProfileId: thread.clientProfileId,
+        actionId,
+        result: "completed",
+        campaignId: result.campaignId,
+      });
+      return completed;
     }
 
-    return transitionAssistantAction(workspaceId, actionId, "running", {
+    const running = await transitionAssistantAction(workspaceId, actionId, "running", {
       jobRef: result.jobRef,
       display: { executionSummary: result.resultSummary },
     });
+    await transitionGuidedFlowAfterAction({
+      workspaceId,
+      threadId: action.threadId,
+      clientProfileId: thread.clientProfileId,
+      actionId,
+      result: "running",
+      campaignId: result.campaignId,
+    });
+    return running;
   } catch (error) {
     const safeError =
       error instanceof AssistantActionExecutionError
@@ -136,10 +156,12 @@ export async function executeConfirmedAssistantAction(
       });
     }
 
-    await resumeGuidedFlowAfterActionFailure({
+    await transitionGuidedFlowAfterAction({
       workspaceId,
       threadId: action.threadId,
       clientProfileId: thread.clientProfileId,
+      actionId,
+      result: "failed",
       safeError,
     }).catch(() => null);
 

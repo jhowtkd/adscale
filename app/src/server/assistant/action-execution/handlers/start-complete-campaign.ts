@@ -20,6 +20,8 @@ import {
   getPlanByCampaign,
 } from "@/server/repositories/plan";
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
+import { materializeExistingCreativeCampaign } from "@/server/assistant/guided-paths/existing-creative";
+import { getGuidedFlowByThread } from "@/server/repositories/guided-flow";
 import type { ActionExecutionContext } from "../types";
 import { AssistantActionExecutionError } from "../types";
 
@@ -40,12 +42,27 @@ export async function executeStartCompleteCampaign(ctx: ActionExecutionContext) 
     );
   }
 
-  const thread = await getAssistantThreadById(ctx.workspaceId, ctx.threadId);
+  let thread = await getAssistantThreadById(ctx.workspaceId, ctx.threadId);
+  let baseCreativeId = parsed.data.baseCreativeId;
   if (!thread?.campaignId) {
-    throw new AssistantActionExecutionError(
-      "Complete campaign requires a campaign-scoped thread",
-      "scope_mismatch"
-    );
+    const flow = await getGuidedFlowByThread(ctx.workspaceId, ctx.threadId);
+    if (flow?.path !== "existing_creative") {
+      throw new AssistantActionExecutionError(
+        "Complete campaign requires a reviewed creative",
+        "scope_mismatch"
+      );
+    }
+    const materialized = await materializeExistingCreativeCampaign({
+      workspaceId: ctx.workspaceId,
+      threadId: ctx.threadId,
+      clientProfileId: ctx.clientProfileId,
+      workspaceAssetId: parsed.data.baseCreativeId,
+    });
+    baseCreativeId = materialized.baseCreativeId;
+    thread = await getAssistantThreadById(ctx.workspaceId, ctx.threadId);
+  }
+  if (!thread?.campaignId) {
+    throw new AssistantActionExecutionError("Campaign materialization failed", "scope_mismatch");
   }
 
   const campaignId = thread.campaignId;
@@ -55,7 +72,7 @@ export async function executeStartCompleteCampaign(ctx: ActionExecutionContext) 
   }
 
   const baseAsset = await getAssetWithMetadata(
-    parsed.data.baseCreativeId,
+    baseCreativeId,
     ctx.workspaceId
   );
   if (!baseAsset || baseAsset.campaignId !== campaignId) {
@@ -171,5 +188,6 @@ export async function executeStartCompleteCampaign(ctx: ActionExecutionContext) 
     mode: "async" as const,
     jobRef: { kind: "derivation" as const, id: derivation.id },
     resultSummary: `Preview generation queued (${derivation.id})`,
+    campaignId,
   };
 }

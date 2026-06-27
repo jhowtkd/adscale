@@ -30,15 +30,10 @@ vi.mock("next-intl/server", () => ({
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import {
   getGuidedFlowByThread,
-  patchGuidedFlow,
-  upsertGuidedFlow,
-  GuidedFlowValidationError,
 } from "@/server/repositories/guided-flow";
 
 const mockGetThread = vi.mocked(getAssistantThreadById);
 const mockGetFlow = vi.mocked(getGuidedFlowByThread);
-const mockUpsert = vi.mocked(upsertGuidedFlow);
-const mockPatch = vi.mocked(patchGuidedFlow);
 
 const thread = {
   id: "t1",
@@ -101,10 +96,7 @@ describe("PATCH /api/assistant/threads/[threadId]/guided-flow", () => {
     mockGetThread.mockResolvedValue(thread as Awaited<ReturnType<typeof getAssistantThreadById>>);
   });
 
-  it("upserts when no existing flow", async () => {
-    mockGetFlow.mockResolvedValue(null);
-    mockUpsert.mockResolvedValue(guidedFlow as Awaited<ReturnType<typeof upsertGuidedFlow>>);
-
+  it("rejects legacy mutation payloads", async () => {
     const res = await PATCH(
       new Request("http://localhost", {
         method: "PATCH",
@@ -117,49 +109,7 @@ describe("PATCH /api/assistant/threads/[threadId]/guided-flow", () => {
       { params: Promise.resolve({ threadId: "t1" }) }
     );
     const body = await res.json();
-
-    expect(res.status).toBe(200);
-    expect(body.guidedFlow).toEqual(guidedFlow);
-    expect(mockUpsert).toHaveBeenCalled();
-  });
-
-  it("patches existing flow by default", async () => {
-    mockGetFlow.mockResolvedValue(guidedFlow as Awaited<ReturnType<typeof getGuidedFlowByThread>>);
-    mockPatch.mockResolvedValue({
-      ...guidedFlow,
-      currentStep: "select_references",
-    } as Awaited<ReturnType<typeof patchGuidedFlow>>);
-
-    const res = await PATCH(
-      new Request("http://localhost", {
-        method: "PATCH",
-        body: JSON.stringify({ currentStep: "select_references" }),
-      }),
-      { params: Promise.resolve({ threadId: "t1" }) }
-    );
-    const body = await res.json();
-
-    expect(res.status).toBe(200);
-    expect(body.guidedFlow.currentStep).toBe("select_references");
-    expect(mockPatch).toHaveBeenCalled();
-  });
-
-  it("returns 400 on validation error", async () => {
-    mockGetFlow.mockResolvedValue(null);
-    mockUpsert.mockRejectedValue(new GuidedFlowValidationError("Thread not found"));
-
-    const res = await PATCH(
-      new Request("http://localhost", {
-        method: "PATCH",
-        body: JSON.stringify({
-          path: "from_zero",
-          status: "active",
-          currentStep: "collect_brief",
-        }),
-      }),
-      { params: Promise.resolve({ threadId: "t1" }) }
-    );
-
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(409);
+    expect(body.code).toBe("guidedFlowCommandsRequired");
   });
 });

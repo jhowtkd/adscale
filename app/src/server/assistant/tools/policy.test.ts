@@ -15,6 +15,10 @@ vi.mock("@/server/repositories/assistant-thread", () => ({
   getAssistantThreadById: vi.fn(),
 }));
 
+vi.mock("@/server/repositories/guided-flow", () => ({
+  getGuidedFlowByThread: vi.fn(() => Promise.resolve(null)),
+}));
+
 vi.mock("@/server/assistant/context/context-builder", () => ({
   buildAssistantContext: vi.fn(() =>
     Promise.resolve({
@@ -91,7 +95,7 @@ describe("evaluateToolCall", () => {
     });
     expect(result.allowed).toBe(true);
     expect(result.requiresConfirmation).toBe(false);
-    expect(result.sanitizedSummary).toContain("thread");
+    expect(result.sanitizedSummary).toBe("Contexto da conversa atualizado");
   });
 
   it("denies scope mismatch", async () => {
@@ -163,7 +167,7 @@ describe("evaluateToolCall", () => {
     expect(result.denialReason).toBe("forbidden");
   });
 
-  it("denies summaries containing denied substrings", async () => {
+  it("uses a fixed safe summary instead of thread content", async () => {
     const { buildAssistantContext } = await import(
       "@/server/assistant/context/context-builder"
     );
@@ -176,6 +180,7 @@ describe("evaluateToolCall", () => {
       name: "get_thread_context",
       argumentsJson: "{}",
     });
-    expect(result.denialReason).toBe("sanitization_failed");
+    expect(result.allowed).toBe(true);
+    expect(result.sanitizedSummary).toBe("Contexto da conversa atualizado");
   });
 });

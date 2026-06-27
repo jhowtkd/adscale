@@ -19,6 +19,7 @@ import ExistingCreativeSelectPanel from "./ExistingCreativeSelectPanel";
 import CreativeDiagnosisPanel from "./CreativeDiagnosisPanel";
 import FromZeroProgressiveBriefPanel from "./FromZeroProgressiveBriefPanel";
 import FromZeroReferencesPanel from "./FromZeroReferencesPanel";
+import GuidedFlowControls from "./GuidedFlowControls";
 
 export interface AssistantChatCoreProps {
   threadId: string | null;
@@ -155,12 +156,23 @@ export default function AssistantChatCore({
       ) : (
         <>
           {data?.guidedFlow ? (
-            <GuidedFlowResumeBanner guidedFlow={data.guidedFlow} />
+            <>
+              <GuidedFlowResumeBanner guidedFlow={data.guidedFlow} />
+              {threadId && data.guidedPresentation ? (
+                <GuidedFlowControls
+                  threadId={threadId}
+                  presentation={data.guidedPresentation}
+                />
+              ) : null}
+            </>
           ) : null}
           {threadId &&
           data?.guidedFlow?.path === "existing_creative" &&
           data.guidedFlow.currentStep === "select_creative" ? (
-            <ExistingCreativeSelectPanel threadId={threadId} />
+            <ExistingCreativeSelectPanel
+              threadId={threadId}
+              guidedFlow={data.guidedFlow}
+            />
           ) : null}
           {threadId &&
           data?.guidedFlow?.path === "from_zero" &&
@@ -178,6 +190,7 @@ export default function AssistantChatCore({
             <FromZeroReferencesPanel
               threadId={threadId}
               clientProfileId={data.thread.clientProfileId}
+              guidedFlow={data.guidedFlow}
             />
           ) : null}
           {threadId &&

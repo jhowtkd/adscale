@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
-  acknowledgeExistingCreativeDiagnosis,
+  analyzeExistingCreativeForJourney,
   buildExistingCreativePromptAugment,
-  selectExistingCreative,
+  materializeExistingCreativeCampaign,
 } from "./existing-creative";
 
 vi.mock("@/server/repositories/guided-flow", () => ({
@@ -10,7 +10,6 @@ vi.mock("@/server/repositories/guided-flow", () => ({
     name = "GuidedFlowValidationError";
   },
   getGuidedFlowByThread: vi.fn(),
-  patchGuidedFlow: vi.fn(),
 }));
 
 vi.mock("@/server/repositories/workspace-asset", () => ({
@@ -47,7 +46,7 @@ vi.mock("@/server/ai/creative-diagnosis", () => ({
   analyzeCreativeDiagnosis: vi.fn(),
 }));
 
-import { getGuidedFlowByThread, patchGuidedFlow } from "@/server/repositories/guided-flow";
+import { getGuidedFlowByThread } from "@/server/repositories/guided-flow";
 import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
 import { getClientProfile } from "@/server/repositories/client-reference";
 import { createCampaign, updateCampaign } from "@/server/repositories/campaign";
@@ -58,7 +57,6 @@ import { analyzeImageContent } from "@/server/ai/image-analysis";
 import { analyzeCreativeDiagnosis } from "@/server/ai/creative-diagnosis";
 
 const mockGetFlow = vi.mocked(getGuidedFlowByThread);
-const mockPatch = vi.mocked(patchGuidedFlow);
 const mockGetAsset = vi.mocked(getWorkspaceAssetById);
 const mockGetProfile = vi.mocked(getClientProfile);
 const mockCreateCampaign = vi.mocked(createCampaign);
@@ -99,7 +97,7 @@ describe("buildExistingCreativePromptAugment", () => {
       assetIds: ["asset-1"],
     });
 
-    expect(augment).toContain("quick_restyle");
+    expect(augment).toContain("start_complete_campaign");
     expect(augment).toContain("asset-1");
     expect(augment).toContain("20% off");
   });
@@ -115,7 +113,7 @@ describe("buildExistingCreativePromptAugment", () => {
   });
 });
 
-describe("selectExistingCreative", () => {
+describe("analyzeExistingCreativeForJourney", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetFlow.mockResolvedValue(baseFlow as Awaited<ReturnType<typeof getGuidedFlowByThread>>);
@@ -157,60 +155,48 @@ describe("selectExistingCreative", () => {
       status: "ready",
       source: "ai",
     });
-    mockPatch.mockResolvedValue({
-      ...baseFlow,
-      currentStep: "review_diagnosis",
-      campaignId: "camp-1",
-      assetIds: ["asset-1"],
-    } as Awaited<ReturnType<typeof patchGuidedFlow>>);
   });
 
-  it("creates campaign after asset selection and advances flow", async () => {
-    const result = await selectExistingCreative({
+  it("analyzes provisionally without creating a campaign", async () => {
+    const result = await analyzeExistingCreativeForJourney({
       workspaceId: "ws-1",
       threadId: "t-1",
       clientProfileId: "cp-1",
       workspaceAssetId: "wa-1",
     });
 
-    expect(mockCreateCampaign).toHaveBeenCalled();
-    expect(mockCreateAsset).toHaveBeenCalled();
-    expect(mockLinkThread).toHaveBeenCalledWith("ws-1", "t-1", "camp-1");
-    expect(mockUpdateCampaign).toHaveBeenCalled();
-    expect(mockPatch).toHaveBeenCalledWith(
-      "ws-1",
-      "t-1",
-      "cp-1",
-      expect.objectContaining({ currentStep: "review_diagnosis", campaignId: "camp-1" })
-    );
-    expect(result.campaignId).toBe("camp-1");
-    expect(result.campaignAssetId).toBe("asset-1");
+    expect(result.workspaceAssetId).toBe("wa-1");
+    expect(result.diagnosis.detectedConcept).toBe("Sale ad");
+    expect(mockCreateCampaign).not.toHaveBeenCalled();
+    expect(mockCreateAsset).not.toHaveBeenCalled();
+    expect(mockLinkThread).not.toHaveBeenCalled();
   });
 });
 
-describe("acknowledgeExistingCreativeDiagnosis", () => {
-  it("advances to confirm_improvement", async () => {
+describe("materializeExistingCreativeCampaign", () => {
+  it("creates the campaign only from an approved diagnosis", async () => {
     mockGetFlow.mockResolvedValue({
       ...baseFlow,
-      currentStep: "review_diagnosis",
-    } as Awaited<ReturnType<typeof getGuidedFlowByThread>>);
-    mockPatch.mockResolvedValue({
-      ...baseFlow,
       currentStep: "confirm_improvement",
-    } as Awaited<ReturnType<typeof patchGuidedFlow>>);
+      slots: {
+        reviewApproved: true,
+        briefingSnapshot: { product: "Shoes", offer: "Sale", objective: "Sales", audience: "Runners", ctaText: "Shop", constraints: "" },
+        diagnosis: { detectedConcept: "Sale ad", elementsToPreserve: [], variationOpportunities: [] },
+      },
+    } as Awaited<ReturnType<typeof getGuidedFlowByThread>>);
+    mockGetAsset.mockResolvedValue({ id: "wa-1", key: "x.jpg", type: "image/jpeg", size: 10 } as Awaited<ReturnType<typeof getWorkspaceAssetById>>);
+    mockGetProfile.mockResolvedValue({ id: "cp-1", name: "Acme" } as Awaited<ReturnType<typeof getClientProfile>>);
+    mockCreateCampaign.mockResolvedValue({ id: "camp-1" } as Awaited<ReturnType<typeof createCampaign>>);
+    mockCreateAsset.mockResolvedValue({ id: "asset-1" } as Awaited<ReturnType<typeof createAsset>>);
 
-    const result = await acknowledgeExistingCreativeDiagnosis({
+    const result = await materializeExistingCreativeCampaign({
       workspaceId: "ws-1",
       threadId: "t-1",
       clientProfileId: "cp-1",
+      workspaceAssetId: "wa-1",
     });
 
-    expect(mockPatch).toHaveBeenCalledWith(
-      "ws-1",
-      "t-1",
-      "cp-1",
-      expect.objectContaining({ currentStep: "confirm_improvement" })
-    );
-    expect(result.guidedFlow.currentStep).toBe("confirm_improvement");
+    expect(result.baseCreativeId).toBe("asset-1");
+    expect(mockLinkThread).toHaveBeenCalledWith("ws-1", "t-1", "camp-1");
   });
 });

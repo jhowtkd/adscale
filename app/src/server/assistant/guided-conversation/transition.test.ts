@@ -91,4 +91,68 @@ describe("transitionJourney", () => {
     expect(result.state.path).toBe("existing_creative");
     expect(result.state.currentStep).toBe("select_creative");
   });
+
+  it("accepts only validated references before confirm_plan", () => {
+    const result = transitionJourney(
+      baseState({ currentStep: "select_references", referenceIds: [] }),
+      {
+        type: "set_references",
+        referenceIds: ["r1", "r2", "r3"],
+      }
+    );
+
+    expect(result.state.currentStep).toBe("confirm_plan");
+    expect(result.state.referenceIds).toEqual(["r1", "r2", "r3"]);
+  });
+
+  it("rejects fewer than three references", () => {
+    expect(() =>
+      transitionJourney(baseState({ referenceIds: [] }), {
+        type: "set_references",
+        referenceIds: ["r1", "r2"],
+      })
+    ).toThrow(/three validated references/i);
+  });
+
+  it("stores provisional creative analysis without campaign mutation", () => {
+    const result = transitionJourney(
+      baseState({
+        path: "existing_creative",
+        currentStep: "select_creative",
+        campaignId: null,
+        referenceIds: [],
+      }),
+      {
+        type: "apply_creative_analysis",
+        workspaceAssetId: "asset-1",
+        diagnosis: { detectedConcept: "Oferta principal" },
+        briefingSnapshot: { offer: "50%" },
+        assumptions: ["Oferta principal"],
+        missingFields: ["audience"],
+      }
+    );
+
+    expect(result.state.currentStep).toBe("review_diagnosis");
+    expect(result.state.campaignId).toBeNull();
+    expect(result.state.assetIds).toEqual(["asset-1"]);
+  });
+
+  it("invalidates approved briefing derivatives after an edit", () => {
+    const result = transitionJourney(
+      baseState({
+        currentStep: "review_brief",
+        slots: {
+          answers: { audience: { value: "Old", source: "user", confirmed: true } },
+          briefSnapshot: { audience: "Old" },
+          briefReviewApproved: true,
+          recommendedAction: "create_creative_plan",
+        },
+      }),
+      { type: "edit_field", field: "audience", value: "New" }
+    );
+
+    expect(result.state.slots.briefSnapshot).toBeUndefined();
+    expect(result.state.slots.briefReviewApproved).toBe(false);
+    expect(result.state.slots.recommendedAction).toBeUndefined();
+  });
 });

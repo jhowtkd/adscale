@@ -1,6 +1,9 @@
 import { buildAssistantContext, toAssistantModelRequest } from "@/server/assistant/context/context-builder";
 import { buildExistingCreativePromptAugment } from "@/server/assistant/guided-paths/existing-creative";
 import { buildFromZeroPromptAugment } from "@/server/assistant/guided-paths/from-zero";
+import { applyGuidedConversationCommand } from "@/server/assistant/guided-conversation/service";
+import { journeyStateFromRow } from "@/server/assistant/guided-conversation/state";
+import { presentJourneyState } from "@/server/assistant/guided-conversation/presenter";
 import {
   buildIntentPromptAugment,
   buildAttachmentPromptAugment,
@@ -13,11 +16,7 @@ import { assertNoReasoningInText, stripThinkBlocks } from "@/server/assistant/mo
 import { createAssistantMessage } from "@/server/repositories/assistant-message";
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import { containsDeniedPersistenceKeys } from "@/server/repositories/assistant-types";
-import {
-  getGuidedFlowByThread,
-  initialStepForPath,
-  upsertGuidedFlow,
-} from "@/server/repositories/guided-flow";
+import { getGuidedFlowByThread } from "@/server/repositories/guided-flow";
 import { listToolsForProvider } from "@/server/assistant/tools/registry";
 import { evaluateToolCall } from "@/server/assistant/tools/policy";
 
@@ -98,16 +97,69 @@ export async function* runAssistantTurn(
     }
 
     if (guidedPathResult.kind === "classified") {
-      activeFlow = await upsertGuidedFlow(
-        input.workspaceId,
-        input.threadId,
-        input.clientProfileId,
-        {
-          path: guidedPathResult.path,
-          status: "active",
-          currentStep: initialStepForPath(guidedPathResult.path),
-        }
-      );
+      const selected = await applyGuidedConversationCommand({
+        workspaceId: input.workspaceId,
+        threadId: input.threadId,
+        clientProfileId: input.clientProfileId,
+        envelope: {
+          commandId: crypto.randomUUID(),
+          expectedRevision: activeFlow?.revision ?? 0,
+          command: { type: "select_path", path: guidedPathResult.path },
+        },
+      });
+      activeFlow = selected.guidedFlow;
+    }
+  }
+
+  if (activeFlow && activeFlow.path !== "unclassified") {
+    const state = journeyStateFromRow(activeFlow);
+    const presentation = presentJourneyState(state);
+    const normalized = input.userMessage.trim().toLowerCase();
+    let command:
+      | { type: "back" | "restart" }
+      | { type: "switch_path"; path: "existing_creative" | "from_zero" }
+      | { type: "answer_brief"; field: string; value: string }
+      | null = null;
+
+    if (/^(voltar|volte|anterior)$/.test(normalized)) {
+      command = { type: "back" };
+    } else if (/^(reiniciar|recomeçar|recomecar)$/.test(normalized)) {
+      command = { type: "restart" };
+    } else if (normalized.includes("trocar") && normalized.includes("do zero")) {
+      command = { type: "switch_path", path: "from_zero" };
+    } else if (normalized.includes("trocar") && normalized.includes("peça")) {
+      command = { type: "switch_path", path: "existing_creative" };
+    } else if (
+      activeFlow.path === "from_zero" &&
+      activeFlow.currentStep === "collect_brief" &&
+      presentation.prompt?.field &&
+      input.userMessage.trim()
+    ) {
+      command = {
+        type: "answer_brief",
+        field: presentation.prompt.field,
+        value: input.userMessage.trim(),
+      };
+    }
+
+    if (command) {
+      const result = await applyGuidedConversationCommand({
+        workspaceId: input.workspaceId,
+        threadId: input.threadId,
+        clientProfileId: input.clientProfileId,
+        envelope: {
+          commandId: crypto.randomUUID(),
+          expectedRevision: activeFlow.revision ?? 0,
+          command,
+        },
+      });
+      const assistantMessage = await createAssistantMessage(input.workspaceId, {
+        threadId: input.threadId,
+        type: "assistant",
+        content: `Etapa atualizada: ${result.presentation.currentStep}.`,
+      });
+      yield { type: "done", assistantMessageId: assistantMessage.id };
+      return;
     }
   }
 

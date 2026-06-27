@@ -6,6 +6,8 @@ import {
   cancelAssistantAction,
   InvalidActionTransitionError,
 } from "@/server/repositories/assistant-action";
+import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
+import { transitionGuidedFlowAfterAction } from "@/server/assistant/guided-paths/action-integration";
 
 const cancelSchema = z.object({
   safeError: z.string().trim().max(500).optional(),
@@ -34,6 +36,16 @@ export async function POST(
     );
     if (!action) {
       return apiError("actionNotFound", 404);
+    }
+    const thread = await getAssistantThreadById(workspace.id, action.threadId);
+    if (thread) {
+      await transitionGuidedFlowAfterAction({
+        workspaceId: workspace.id,
+        threadId: action.threadId,
+        clientProfileId: thread.clientProfileId,
+        actionId,
+        result: "canceled",
+      });
     }
 
     return NextResponse.json({ action });

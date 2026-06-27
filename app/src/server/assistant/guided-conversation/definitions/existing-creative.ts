@@ -23,6 +23,7 @@ export const EXISTING_CREATIVE_FIELD_DEPENDENCIES: Record<string, string[]> = {
   audience: ["diagnosis", "recommendedAction", "reviewApproved"],
   cta: ["diagnosis", "recommendedAction", "reviewApproved"],
   objective: ["diagnosis", "recommendedAction", "reviewApproved"],
+  assumptions: ["recommendedAction", "reviewApproved"],
 };
 
 export function existingCreativeInitialStep() {

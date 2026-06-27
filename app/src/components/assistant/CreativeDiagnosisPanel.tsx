@@ -23,6 +23,7 @@ export default function CreativeDiagnosisPanel({
   const command = useGuidedFlowCommand(threadId);
   const [editingField, setEditingField] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [editingAssumption, setEditingAssumption] = useState<number | null>(null);
 
   const revision = presentation?.revision ?? guidedFlow.revision ?? 0;
   const diagnosisReview = presentation?.diagnosisReview;
@@ -72,9 +73,18 @@ export default function CreativeDiagnosisPanel({
           <p className="text-xs font-medium text-[var(--text-muted)]">
             {t("assumptions")}
           </p>
-          <ul className="mt-1 list-disc pl-4 text-xs text-[var(--text-secondary)]">
-            {assumptions.map((item) => (
-              <li key={item}>{item}</li>
+          <ul className="mt-1 space-y-2 text-xs text-[var(--text-secondary)]">
+            {assumptions.map((item, index) => (
+              <li key={`${index}-${item}`} className="flex flex-wrap items-center gap-2">
+                {editingAssumption === index ? (
+                  <>
+                    <Input value={draft} onChange={(event) => setDraft(event.target.value)} className="h-8 max-w-xs text-xs" aria-label={`Corrigir hipótese ${index + 1}`} />
+                    <Button type="button" size="sm" variant="outline" disabled={!draft.trim() || command.isPending} onClick={() => void runCommand({ type: "correct_diagnosis_assumption", index, value: draft.trim() }).then(() => setEditingAssumption(null))}>Salvar</Button>
+                  </>
+                ) : (
+                  <><span>{item}</span><Button type="button" size="sm" variant="ghost" onClick={() => { setEditingAssumption(index); setDraft(item); }}>Corrigir</Button></>
+                )}
+              </li>
             ))}
           </ul>
         </div>

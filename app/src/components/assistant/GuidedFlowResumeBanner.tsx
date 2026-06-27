@@ -17,6 +17,11 @@ export default function GuidedFlowResumeBanner({
   }
 
   const missingCount = guidedFlow.missingFields.length;
+  const recoveryMessage =
+    guidedFlow.recoverableError &&
+    typeof guidedFlow.recoverableError.message === "string"
+      ? guidedFlow.recoverableError.message
+      : null;
 
   return (
     <div
@@ -32,9 +37,9 @@ export default function GuidedFlowResumeBanner({
         {t(`steps.${guidedFlow.currentStep}`)}
       </p>
       <p className="mt-1 text-xs text-[var(--text-secondary)]">
-        {missingCount > 0
+        {recoveryMessage ?? (missingCount > 0
           ? t("missingFields", { count: missingCount })
-          : t("nextActionHint", { step: t(`steps.${guidedFlow.currentStep}`) })}
+          : t("nextActionHint", { step: t(`steps.${guidedFlow.currentStep}`) }))}
       </p>
     </div>
   );

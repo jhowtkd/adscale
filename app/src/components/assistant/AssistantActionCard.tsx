@@ -77,11 +77,6 @@ export default function AssistantActionCard({
           <p className="text-sm font-medium text-[var(--text-primary)]">
             {display?.label ?? t("unknownAction")}
           </p>
-          {display?.actionType ? (
-            <p className="text-xs text-[var(--text-muted)]">
-              {display.actionType}
-            </p>
-          ) : null}
         </div>
         {display?.riskLabel ? (
           <Badge variant={getRiskLabelVariant(display.riskLabel)}>
@@ -138,9 +133,7 @@ export default function AssistantActionCard({
         ) : null}
         <span>{t(`status.${status}`)}</span>
         {jobRef && typeof jobRef.id === "string" ? (
-          <span className="font-mono text-[var(--text-muted)]">
-            ({String(jobRef.kind ?? "job")}: {jobRef.id})
-          </span>
+          <span className="text-[var(--text-muted)]">Processamento vinculado</span>
         ) : null}
       </div>
 

@@ -1,6 +1,11 @@
 import type { GuidedFlowPath, GuidedFlowStatus } from "@/lib/guided-flow/types";
 import { GUIDED_FLOW_SCHEMA_VERSION } from "@/lib/guided-flow/commands";
 import type { AssistantGuidedFlow } from "@/server/db/schema";
+import { z } from "zod";
+import {
+  FROM_ZERO_STEPS,
+  EXISTING_CREATIVE_STEPS,
+} from "./definitions/from-zero";
 
 export interface RecoverableError {
   code: string;
@@ -15,7 +20,9 @@ export interface JourneySlots {
     { value: string; source?: string; confirmed?: boolean; unknown?: boolean }
   >;
   briefingSnapshot?: Record<string, unknown>;
+  briefSnapshot?: Record<string, unknown>;
   briefAnswers?: Record<string, unknown>;
+  briefReviewApproved?: boolean;
   diagnosis?: Record<string, unknown>;
   assumptions?: string[];
   recommendedAction?: string;
@@ -81,6 +88,54 @@ function migrateLegacySlots(slots: Record<string, unknown>): JourneySlots {
   return migrated;
 }
 
+const commonStateSchema = z.object({
+  id: z.string(),
+  workspaceId: z.string(),
+  clientProfileId: z.string(),
+  threadId: z.string(),
+  status: z.enum(["active", "completed", "abandoned", "blocked"]),
+  revision: z.number().int().min(0),
+  schemaVersion: z.number().int().min(1),
+  slots: z.record(z.unknown()),
+  missingFields: z.array(z.string()),
+  assetIds: z.array(z.string()),
+  referenceIds: z.array(z.string()),
+  campaignId: z.string().nullable(),
+  recoverableError: z
+    .object({
+      code: z.string(),
+      message: z.string(),
+      step: z.string().optional(),
+      retryCommand: z.string().optional(),
+    })
+    .nullable(),
+});
+
+const journeyStateSchema = z.discriminatedUnion("path", [
+  commonStateSchema.extend({
+    path: z.literal("unclassified"),
+    currentStep: z.literal("start"),
+  }),
+  commonStateSchema.extend({
+    path: z.literal("from_zero"),
+    currentStep: z.enum(FROM_ZERO_STEPS),
+  }),
+  commonStateSchema.extend({
+    path: z.literal("existing_creative"),
+    currentStep: z.enum(EXISTING_CREATIVE_STEPS),
+  }),
+]);
+
+function migrateLegacyStep(path: string, step: string): string {
+  if (path === "existing_creative" && step === "await_diagnosis") {
+    return "review_diagnosis";
+  }
+  if (path === "from_zero" && step === "await_plan") {
+    return "confirm_plan";
+  }
+  return step;
+}
+
 export function journeyStateFromRow(row: AssistantGuidedFlow): JourneyState {
   const rawSlots = (row.slots ?? {}) as Record<string, unknown>;
   const slots =
@@ -88,16 +143,16 @@ export function journeyStateFromRow(row: AssistantGuidedFlow): JourneyState {
       ? migrateLegacySlots(rawSlots)
       : migrateLegacySlots(rawSlots);
 
-  return {
+  const candidate = {
     id: row.id,
     workspaceId: row.workspaceId,
     clientProfileId: row.clientProfileId,
     threadId: row.threadId,
     path: row.path as GuidedFlowPath,
     status: row.status as GuidedFlowStatus,
-    currentStep: row.currentStep,
+    currentStep: migrateLegacyStep(row.path, row.currentStep),
     revision: row.revision ?? 0,
-    schemaVersion: row.schemaVersion ?? GUIDED_FLOW_SCHEMA_VERSION,
+    schemaVersion: GUIDED_FLOW_SCHEMA_VERSION,
     slots,
     missingFields: (row.missingFields ?? []) as string[],
     assetIds: (row.assetIds ?? []) as string[],
@@ -107,6 +162,12 @@ export function journeyStateFromRow(row: AssistantGuidedFlow): JourneyState {
       row.recoverableError as Record<string, unknown> | null | undefined
     ),
   };
+
+  const parsed = journeyStateSchema.safeParse(candidate);
+  if (!parsed.success) {
+    throw new Error(`Invalid guided journey state: ${parsed.error.message}`);
+  }
+  return parsed.data as JourneyState;
 }
 
 export function journeyStateToPatch(state: JourneyState) {

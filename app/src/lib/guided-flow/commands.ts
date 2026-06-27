@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const GUIDED_FLOW_SCHEMA_VERSION = 1;
+export const GUIDED_FLOW_SCHEMA_VERSION = 2;
 
 export const guidedFlowPathSchema = z.enum([
   "existing_creative",
@@ -49,6 +49,19 @@ export const guidedCommandSchema = z.discriminatedUnion("type", [
     value: z.string(),
   }),
   z.object({ type: z.literal("approve_diagnosis") }),
+  z.object({
+    type: z.literal("correct_diagnosis_assumption"),
+    index: z.number().int().min(0),
+    value: z.string().min(1),
+  }),
+  z.object({
+    type: z.literal("select_creative"),
+    workspaceAssetId: z.string().uuid(),
+  }),
+  z.object({
+    type: z.literal("set_references"),
+    referenceIds: z.array(z.string().uuid()).min(3),
+  }),
 ]);
 
 export const guidedCommandEnvelopeSchema = z.object({

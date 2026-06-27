@@ -23,6 +23,7 @@ export interface GuidedFlow {
   assetIds: string[];
   referenceIds: string[];
   campaignId: string | null;
+  recoverableError?: Record<string, unknown> | null;
   revision?: number;
   schemaVersion?: number;
   createdAt: string;
@@ -38,10 +39,14 @@ async function upsertGuidedFlowRequest(
     mode?: "upsert" | "patch";
   }
 ): Promise<GuidedFlow> {
-  const res = await apiFetch(`/api/assistant/threads/${threadId}/guided-flow`, {
-    method: "PATCH",
+  const res = await apiFetch(`/api/assistant/threads/${threadId}/guided-flow/commands`, {
+    method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      commandId: crypto.randomUUID(),
+      expectedRevision: 0,
+      command: { type: "select_path", path: payload.path },
+    }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

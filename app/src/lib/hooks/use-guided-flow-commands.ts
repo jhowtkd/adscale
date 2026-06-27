@@ -26,7 +26,7 @@ async function postGuidedCommand(
 
   if (res.status === 409) {
     const data = await res.json();
-    const error = new Error(data.message ?? "Revision conflict");
+    const error = new Error("A jornada mudou em outra aba. Estado atualizado; revise e tente novamente.");
     (error as Error & { presentation?: GuidedFlowPresentation }).presentation =
       data.presentation;
     throw error;
@@ -50,6 +50,13 @@ export function useGuidedFlowCommand(threadId: string) {
       void queryClient.invalidateQueries({
         queryKey: assistantThreadQueryKey(threadId),
       });
+    },
+    onError: (error) => {
+      if ((error as Error & { presentation?: GuidedFlowPresentation }).presentation) {
+        void queryClient.invalidateQueries({
+          queryKey: assistantThreadQueryKey(threadId),
+        });
+      }
     },
   });
 }

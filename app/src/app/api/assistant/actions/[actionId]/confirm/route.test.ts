@@ -129,7 +129,7 @@ describe("POST /api/assistant/actions/[actionId]/confirm", () => {
 
     expect(res.status).toBe(200);
     expect(body.action).toEqual(runningAction);
-    expect(mockRevalidateOnConfirm).toHaveBeenCalledWith("workspace-1", ACTION_ID);
+    expect(mockRevalidateOnConfirm).toHaveBeenCalledWith("workspace-1", ACTION_ID, "user-1");
     expect(mockConfirmAssistantAction).toHaveBeenCalledWith("workspace-1", ACTION_ID);
     expect(mockExecuteConfirmed).toHaveBeenCalledWith(
       "workspace-1",

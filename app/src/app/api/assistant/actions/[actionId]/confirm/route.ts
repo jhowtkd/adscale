@@ -26,7 +26,7 @@ export async function POST(
       params,
     ]);
 
-    await revalidateOnConfirm(workspace.id, actionId);
+    await revalidateOnConfirm(workspace.id, actionId, user.id);
 
     const action = await confirmAssistantAction(workspace.id, actionId);
     if (!action) {

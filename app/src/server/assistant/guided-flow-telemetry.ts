@@ -52,6 +52,8 @@ export const ALLOWED_GUIDED_FLOW_METADATA_KEYS = [
   "reasonCode",
   "isRetry",
   "hadCampaign",
+  "commandType",
+  "revision",
 ] as const;
 
 const scalarValueSchema = z.union([

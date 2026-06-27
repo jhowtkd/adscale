@@ -23,6 +23,7 @@ export default function FromZeroProgressiveBriefPanel({
   const tProgressive = useTranslations("assistant.guidedFlow.progressive");
   const inputId = useId();
   const [draft, setDraft] = useState("");
+  const [editingField, setEditingField] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const command = useGuidedFlowCommand(threadId);
 
@@ -57,11 +58,36 @@ export default function FromZeroProgressiveBriefPanel({
           ? Object.entries(review)
               .filter(([, value]) => value?.trim())
               .map(([key, value]) => (
-                <div key={key} className="text-xs">
+                <div key={key} className="flex flex-wrap items-center gap-2 text-xs">
                   <span className="font-medium text-[var(--text-primary)]">
-                    {tProgressive(`fields.${key}` as "fields.product")}
+                    {tProgressive(`fields.${key}` as "fields.product")}:
                   </span>
-                  : {value}
+                  {editingField === key ? (
+                    <>
+                      <Input
+                        value={draft}
+                        onChange={(event) => setDraft(event.target.value)}
+                        className="h-8 max-w-xs text-xs"
+                        aria-label={tProgressive(`fields.${key}` as "fields.product")}
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={!draft.trim() || command.isPending}
+                        onClick={() => void sendCommand({ type: "edit_field", field: key, value: draft.trim() }).then(() => setEditingField(null))}
+                      >
+                        Salvar
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <span>{value}</span>
+                      <Button type="button" size="sm" variant="ghost" onClick={() => { setEditingField(key); setDraft(value); }}>
+                        Editar
+                      </Button>
+                    </>
+                  )}
                 </div>
               ))
           : null}
@@ -74,6 +100,7 @@ export default function FromZeroProgressiveBriefPanel({
         >
           {tProgressive("confirmReview")}
         </Button>
+        {error ? <p className="text-xs text-[var(--danger-text)]" role="alert">{error}</p> : null}
       </div>
     );
   }

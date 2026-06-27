@@ -83,6 +83,8 @@ export function getActiveBriefingPrompt(slots: Record<string, unknown>) {
       ? "suggestedOffer"
       : `suggested${field.charAt(0).toUpperCase()}${field.slice(1)}`;
   const hintValue = hints[suggestionKey] ?? hints[field];
+  const fallbackSuggestion = fallbackSuggestionForField(field);
+  const suggestionValue = hintValue ?? fallbackSuggestion;
 
   return {
     field,
@@ -90,12 +92,30 @@ export function getActiveBriefingPrompt(slots: Record<string, unknown>) {
     labelKey,
     allowSkip: SKIPPABLE_STEPS.has(nextStep),
     allowUnknown: SKIPPABLE_STEPS.has(nextStep),
-    quickReplies:
-      field === "cta" && hints.suggestedCta ? [hints.suggestedCta] : undefined,
-    suggestion: hintValue
-      ? { value: hintValue, source: hints[suggestionSourceKey(field)] ?? "brand" }
+    quickReplies: suggestionValue ? [suggestionValue] : undefined,
+    suggestion: suggestionValue
+      ? {
+          value: suggestionValue,
+          source: hintValue
+            ? hints[suggestionSourceKey(field)] ?? "brand"
+            : "sistema",
+        }
       : null,
   };
+}
+
+function fallbackSuggestionForField(field: string): string | null {
+  const suggestions: Record<string, string> = {
+    product: "Descreva o produto ou serviço principal",
+    offer: "Explique a oferta concreta desta campanha",
+    audience: "Defina o público mais importante",
+    promise: "Declare o principal benefício prometido",
+    objections: "Não sei",
+    cta: "Saiba mais",
+    platforms: "Instagram e Facebook",
+    constraints: "Não sei",
+  };
+  return suggestions[field] ?? null;
 }
 
 function suggestionSourceKey(field: string) {

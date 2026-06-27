@@ -1,31 +1,38 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
-import { ImageIcon } from "lucide-react";
+import { ImageIcon, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useClientReferences } from "@/lib/hooks/use-client-profiles";
 import { useWorkspaceAssets } from "@/lib/hooks/use-workspace-assets";
-import { useSaveFromZeroReferences } from "@/lib/hooks/use-from-zero-path";
+import { useGuidedFlowCommand } from "@/lib/hooks/use-guided-flow-commands";
+import type { GuidedFlow } from "@/lib/hooks/use-guided-flow";
+import { uploadChatAttachment } from "@/lib/assistant/chat-attachments";
 import { FROM_ZERO_MIN_REFERENCES } from "@/lib/guided-flow/types";
 
 export interface FromZeroReferencesPanelProps {
   threadId: string;
   clientProfileId: string;
+  guidedFlow: GuidedFlow;
 }
 
 export default function FromZeroReferencesPanel({
   threadId,
   clientProfileId,
+  guidedFlow,
 }: FromZeroReferencesPanelProps) {
   const t = useTranslations("assistant.guidedFlow.fromZero");
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const uploadRef = useRef<HTMLInputElement>(null);
+  const [selected, setSelected] = useState<Set<string>>(
+    () => new Set(guidedFlow.referenceIds ?? [])
+  );
   const [error, setError] = useState<string | null>(null);
   const { data: refs = [] } = useClientReferences(clientProfileId);
   const { data: assetsData, isLoading } = useWorkspaceAssets({ limit: 24 });
-  const saveReferences = useSaveFromZeroReferences(threadId);
+  const saveReferences = useGuidedFlowCommand(threadId);
 
   const workspaceAssets = assetsData?.assets ?? [];
 
@@ -59,7 +66,11 @@ export default function FromZeroReferencesPanel({
   const handleContinue = async () => {
     setError(null);
     try {
-      await saveReferences.mutateAsync([...selected]);
+      await saveReferences.mutateAsync({
+        commandId: crypto.randomUUID(),
+        expectedRevision: guidedFlow.revision ?? 0,
+        command: { type: "set_references", referenceIds: [...selected] },
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : t("saveFailed"));
     }
@@ -79,6 +90,29 @@ export default function FromZeroReferencesPanel({
       <p className="mt-1 text-xs text-[var(--text-muted)]">
         {t("referencesSubtitle", { min: FROM_ZERO_MIN_REFERENCES, count })}
       </p>
+
+      <input
+        ref={uploadRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          if (!file) return;
+          setError(null);
+          void uploadChatAttachment(file)
+            .then((asset) => {
+              setSelected((current) => new Set([...current, asset.assetId]));
+            })
+            .catch((cause) => {
+              setError(cause instanceof Error ? cause.message : t("saveFailed"));
+            });
+        }}
+      />
+      <Button type="button" size="sm" variant="outline" className="mt-3" onClick={() => uploadRef.current?.click()}>
+        <Upload className="mr-2 size-4" aria-hidden="true" /> Enviar referência
+      </Button>
 
       {isLoading ? (
         <p className="mt-3 text-xs text-[var(--text-muted)]">{t("loading")}</p>

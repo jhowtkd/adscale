@@ -33,4 +33,5 @@ export interface ActionExecutionResult {
   mode: "async" | "sync";
   jobRef?: JobRef;
   resultSummary?: string;
+  campaignId?: string;
 }

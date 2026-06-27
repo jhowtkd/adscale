@@ -11,6 +11,12 @@ import type { ActionContract } from "./types";
 import { getActionContract } from "./registry";
 import { buildRiskCopyLines } from "./risk-copy";
 import "./contracts";
+import { getGuidedFlowByThread } from "@/server/repositories/guided-flow";
+import { canSpend } from "@/server/billing/credits";
+import {
+  assertGuidedActionReady,
+  guidedActionSnapshotDigest,
+} from "./guided-binding";
 
 export interface ValidateProposeActionInput {
   actionType: string;
@@ -63,7 +69,8 @@ export async function validateProposeAction(
 
 export async function revalidateOnConfirm(
   workspaceId: string,
-  actionId: string
+  actionId: string,
+  userId: string
 ): Promise<void> {
   const action = await getAssistantActionById(workspaceId, actionId);
   if (!action) {
@@ -91,8 +98,40 @@ export async function revalidateOnConfirm(
     throw new AssistantActionValidationError("unknown_action_type");
   }
 
+  await requireRole(workspaceId, userId, contract.allowedRoles);
+
   const parseResult = contract.inputSchema.safeParse(action.inputSnapshot);
   if (!parseResult.success) {
     throw new AssistantActionValidationError("invalid_action_inputs");
+  }
+
+  if (contract.creditImpact.kind === "creditAction") {
+    const creditCheck = await canSpend(workspaceId, contract.creditImpact.action);
+    if (!creditCheck.allowed) {
+      throw new AssistantActionValidationError(creditCheck.reason);
+    }
+  }
+
+  const hasFlowRevision = typeof action.sourceFlowRevision === "number";
+  const hasSnapshotDigest = typeof action.sourceSnapshotDigest === "string";
+  if (hasFlowRevision !== hasSnapshotDigest) {
+    throw new AssistantActionValidationError("invalid_guided_action_binding");
+  }
+  if (hasFlowRevision && hasSnapshotDigest) {
+    const flow = await getGuidedFlowByThread(workspaceId, action.threadId);
+    if (!flow || flow.path === "unclassified") {
+      throw new AssistantActionValidationError("guided_flow_missing");
+    }
+    assertGuidedActionReady(flow, actionType);
+    if (flow.revision !== action.sourceFlowRevision) {
+      throw new AssistantActionValidationError("stale_guided_action");
+    }
+    const digest = guidedActionSnapshotDigest(
+      flow,
+      action.inputSnapshot as Record<string, unknown>
+    );
+    if (digest !== action.sourceSnapshotDigest) {
+      throw new AssistantActionValidationError("stale_guided_action");
+    }
   }
 }

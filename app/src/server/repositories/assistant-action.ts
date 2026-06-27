@@ -39,6 +39,8 @@ export interface CreateAssistantActionInput {
   content: string;
   inputSnapshot: Record<string, unknown>;
   display?: Record<string, unknown>;
+  sourceFlowRevision?: number | null;
+  sourceSnapshotDigest?: string | null;
 }
 
 function appendJobRef(existing: JobRef[], jobRef?: JobRef): JobRef[] {
@@ -80,6 +82,8 @@ export async function createAssistantAction(
       actionRecordId: actionId,
       status: "pending" as const,
       display: input.display ?? {},
+      sourceFlowRevision: input.sourceFlowRevision ?? null,
+      sourceSnapshotDigest: input.sourceSnapshotDigest ?? null,
     };
 
     if (containsDeniedPersistenceKeys(messagePayload)) {
@@ -109,6 +113,8 @@ export async function createAssistantAction(
         status: "pending",
         inputSnapshot: input.inputSnapshot,
         jobRefs: [],
+        sourceFlowRevision: input.sourceFlowRevision ?? null,
+        sourceSnapshotDigest: input.sourceSnapshotDigest ?? null,
       })
       .returning();
 

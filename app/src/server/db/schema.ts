@@ -2212,6 +2212,8 @@ export const assistantActionRecords = adscaleSchema.table(
       .notNull()
       .default(sql`'[]'::jsonb`),
     safeError: text("safe_error"),
+    sourceFlowRevision: integer("source_flow_revision"),
+    sourceSnapshotDigest: text("source_snapshot_digest"),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
   },
@@ -2220,6 +2222,10 @@ export const assistantActionRecords = adscaleSchema.table(
     index("assistant_action_records_thread_status_idx").on(
       table.threadId,
       table.status
+    ),
+    index("assistant_action_records_flow_binding_idx").on(
+      table.threadId,
+      table.sourceFlowRevision
     ),
   ]
 );

@@ -1,13 +1,13 @@
 import { analyzeCreativeDiagnosis } from "@/server/ai/creative-diagnosis";
 import { analyzeImageContent } from "@/server/ai/image-analysis";
+import { getCampaignById } from "@/server/repositories/campaign";
+import { createCampaign, updateCampaign } from "@/server/repositories/campaign";
 import { createAsset } from "@/server/repositories/asset";
 import { linkThreadToCampaign } from "@/server/repositories/assistant-thread";
-import { createCampaign, getCampaignById, updateCampaign } from "@/server/repositories/campaign";
 import { getClientProfile } from "@/server/repositories/client-reference";
 import {
   GuidedFlowValidationError,
   getGuidedFlowByThread,
-  patchGuidedFlow,
 } from "@/server/repositories/guided-flow";
 import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
 import { downloadBuffer } from "@/server/storage/r2";
@@ -56,6 +56,84 @@ function mapContentBriefToBriefingFields(content: {
   };
 }
 
+export async function materializeExistingCreativeCampaign(input: {
+  workspaceId: string;
+  threadId: string;
+  clientProfileId: string;
+  workspaceAssetId: string;
+}) {
+  const flow = await getGuidedFlowByThread(input.workspaceId, input.threadId);
+  if (
+    !flow ||
+    flow.path !== "existing_creative" ||
+    flow.currentStep !== "confirm_improvement" ||
+    (flow.slots as Record<string, unknown>)?.reviewApproved !== true
+  ) {
+    throw new GuidedFlowValidationError("Diagnosis must be approved before campaign creation");
+  }
+  if (flow.campaignId) {
+    const campaign = await getCampaignById(flow.campaignId, input.workspaceId);
+    const baseCreativeId = (flow.slots as Record<string, unknown>).baseCreativeId;
+    if (campaign && typeof baseCreativeId === "string") {
+      return { campaign, baseCreativeId };
+    }
+  }
+
+  const [workspaceAsset, profile] = await Promise.all([
+    getWorkspaceAssetById(input.workspaceAssetId, input.workspaceId),
+    getClientProfile(input.workspaceId, input.clientProfileId),
+  ]);
+  if (!workspaceAsset || !profile) {
+    throw new GuidedFlowValidationError("Creative or client profile not found");
+  }
+  const slots = (flow.slots ?? {}) as Record<string, unknown>;
+  const briefing = (slots.briefingSnapshot ?? {}) as Partial<BriefingSnapshot>;
+  const rawDiagnosis = (slots.diagnosis ?? {}) as Record<string, unknown>;
+  const diagnosis = {
+    detectedConcept:
+      typeof rawDiagnosis.detectedConcept === "string"
+        ? rawDiagnosis.detectedConcept
+        : "Conceito revisado",
+    elementsToPreserve: Array.isArray(rawDiagnosis.elementsToPreserve)
+      ? (rawDiagnosis.elementsToPreserve as string[])
+      : [],
+    variationOpportunities: Array.isArray(rawDiagnosis.variationOpportunities)
+      ? (rawDiagnosis.variationOpportunities as string[])
+      : [],
+  };
+
+  const campaign = await createCampaign(input.workspaceId, {
+    name: `${profile.name} — melhoria de peça`,
+    client: profile.name,
+    clientProfileId: profile.id,
+    product: briefing.product ?? undefined,
+    offer: briefing.offer,
+    objective: briefing.objective,
+    audience: briefing.audience,
+    constraints: briefing.constraints,
+    ctaVariants: briefing.ctaText ? [briefing.ctaText] : [],
+    creativeDiagnosisStatus: "ready",
+    creativeDiagnosis: diagnosis,
+    creativeDiagnosisSource: "edited",
+    generationMode: "art_variation",
+    status: "draft",
+  });
+  const campaignAsset = await createAsset(input.workspaceId, campaign.id, {
+    key: workspaceAsset.key,
+    type: workspaceAsset.type,
+    size: workspaceAsset.size ?? undefined,
+    width: workspaceAsset.width ?? undefined,
+    height: workspaceAsset.height ?? undefined,
+    role: "base",
+  });
+  await linkThreadToCampaign(input.workspaceId, input.threadId, campaign.id);
+  await updateCampaign(campaign.id, input.workspaceId, {
+    creativeDiagnosis: diagnosis,
+  });
+
+  return { campaign, baseCreativeId: campaignAsset.id };
+}
+
 function deriveMissingFields(snapshot: BriefingSnapshot): string[] {
   const missing: string[] = [];
   if (snapshot.confidence.offer < 0.7 || !snapshot.offer.trim()) {
@@ -73,7 +151,7 @@ function deriveMissingFields(snapshot: BriefingSnapshot): string[] {
   return missing;
 }
 
-export async function selectExistingCreative(input: {
+export async function analyzeExistingCreativeForJourney(input: {
   workspaceId: string;
   threadId: string;
   clientProfileId: string;
@@ -104,26 +182,6 @@ export async function selectExistingCreative(input: {
     throw new GuidedFlowValidationError("Client profile not found");
   }
 
-  const campaign = await createCampaign(input.workspaceId, {
-    name: `${profile.name} — peça existente`,
-    client: profile.name,
-    clientProfileId: input.clientProfileId,
-    status: "draft",
-    generationMode: "art_variation",
-    creativeDiagnosisStatus: "analyzing",
-  });
-
-  const campaignAsset = await createAsset(input.workspaceId, campaign.id, {
-    key: workspaceAsset.key,
-    type: workspaceAsset.type,
-    size: workspaceAsset.size ?? undefined,
-    width: workspaceAsset.width ?? undefined,
-    height: workspaceAsset.height ?? undefined,
-    role: "base",
-  });
-
-  await linkThreadToCampaign(input.workspaceId, input.threadId, campaign.id);
-
   const imageBuffer = await downloadBuffer(workspaceAsset.key);
   const mimeType = mimeTypeFromKey(workspaceAsset.key);
   const content = await analyzeImageContent(imageBuffer, mimeType);
@@ -138,18 +196,9 @@ export async function selectExistingCreative(input: {
     },
   };
 
-  await updateCampaign(campaign.id, input.workspaceId, {
-    product: briefingSnapshot.product ?? undefined,
-    offer: briefingSnapshot.offer,
-    objective: briefingSnapshot.objective,
-    audience: briefingSnapshot.audience,
-    constraints: briefingSnapshot.constraints,
-    ctaVariants: briefingSnapshot.ctaText ? [briefingSnapshot.ctaText] : [],
-  });
-
   const diagnosisResult = await analyzeCreativeDiagnosis({
     campaign: {
-      name: campaign.name,
+      name: `${profile.name} — peça existente`,
       client: profile.name,
       product: briefingSnapshot.product,
       objective: briefingSnapshot.objective,
@@ -166,66 +215,16 @@ export async function selectExistingCreative(input: {
     locale: input.locale,
   });
 
-  await updateCampaign(campaign.id, input.workspaceId, {
-    creativeDiagnosisStatus: diagnosisResult.status,
-    creativeDiagnosis: diagnosisResult.diagnosis,
-    creativeDiagnosisSource: diagnosisResult.source,
-    creativeDiagnosisUpdatedAt: new Date(),
-  });
-
   const missingFields = deriveMissingFields(briefingSnapshot);
   const assumptions = [diagnosisResult.diagnosis.detectedConcept];
 
-  const guidedFlow = await patchGuidedFlow(
-    input.workspaceId,
-    input.threadId,
-    input.clientProfileId,
-    {
-      currentStep: "review_diagnosis",
-      campaignId: campaign.id,
-      assetIds: [campaignAsset.id],
-      missingFields,
-      slots: {
-        briefingSnapshot,
-        diagnosis: diagnosisResult.diagnosis,
-        assumptions,
-        recommendedAction: "quick_restyle",
-        baseCreativeId: campaignAsset.id,
-      },
-    }
-  );
-
   return {
-    campaignId: campaign.id,
-    campaignAssetId: campaignAsset.id,
-    guidedFlow,
+    workspaceAssetId: workspaceAsset.id,
     briefingSnapshot,
     diagnosis: diagnosisResult.diagnosis,
+    assumptions,
     missingFields,
   };
-}
-
-export async function acknowledgeExistingCreativeDiagnosis(input: {
-  workspaceId: string;
-  threadId: string;
-  clientProfileId: string;
-}) {
-  const flow = await getGuidedFlowByThread(input.workspaceId, input.threadId);
-  if (!flow) {
-    throw new GuidedFlowValidationError("Guided flow not found");
-  }
-  if (flow.path !== "existing_creative" || flow.currentStep !== "review_diagnosis") {
-    throw new GuidedFlowValidationError("Flow is not at review_diagnosis step");
-  }
-
-  const guidedFlow = await patchGuidedFlow(
-    input.workspaceId,
-    input.threadId,
-    input.clientProfileId,
-    { currentStep: "confirm_improvement" }
-  );
-
-  return { guidedFlow };
 }
 
 export function buildExistingCreativePromptAugment(input: {
@@ -253,7 +252,7 @@ export function buildExistingCreativePromptAugment(input: {
 
   const lines = [
     "Guided path: existing_creative at confirm_improvement.",
-    `Propose quick_restyle with baseCreativeId=${baseCreativeId}.`,
+    `Propose start_complete_campaign with baseCreativeId=${baseCreativeId}. The server will materialize the reviewed workspace creative only after confirmation.`,
     "Do not ask the user to re-enter briefing fields already extracted from the creative.",
   ];
 

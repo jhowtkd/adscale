@@ -1,4 +1,5 @@
 import type { GuidedCommand } from "@/lib/guided-flow/commands";
+import { FROM_ZERO_MIN_REFERENCES } from "@/lib/guided-flow/types";
 import type { RetentionPreview } from "@/lib/guided-flow/commands";
 import { initialStepForPath } from "@/lib/guided-flow/types";
 import {
@@ -36,6 +37,21 @@ export interface TransitionResult {
   preview?: RetentionPreview;
   noop?: boolean;
 }
+
+export type GuidedTransitionCommand =
+  | GuidedCommand
+  | {
+      type: "apply_creative_analysis";
+      workspaceAssetId: string;
+      diagnosis: Record<string, unknown>;
+      briefingSnapshot: Record<string, unknown>;
+      assumptions: string[];
+      missingFields: string[];
+    }
+  | { type: "action_completed"; campaignId?: string | null }
+  | { type: "action_started"; campaignId?: string | null }
+  | { type: "action_failed"; safeError: string }
+  | { type: "action_canceled" };
 
 function emptyPathState(
   state: JourneyState,
@@ -118,6 +134,12 @@ function invalidateDependents(
     if (key === "reviewApproved") {
       nextSlots.reviewApproved = false;
     }
+    if (key === "briefSnapshot") {
+      delete nextSlots.briefSnapshot;
+    }
+    if (key === "briefReviewApproved") {
+      nextSlots.briefReviewApproved = false;
+    }
   }
 
   return { ...state, slots: nextSlots };
@@ -147,7 +169,7 @@ function applyBack(state: JourneyState): JourneyState {
 
 export function transitionJourney(
   state: JourneyState,
-  command: GuidedCommand
+  command: GuidedTransitionCommand
 ): TransitionResult {
   switch (command.type) {
     case "preview_switch":
@@ -347,6 +369,103 @@ export function transitionJourney(
       };
     }
 
+    case "set_references": {
+      if (state.path !== "from_zero" || state.currentStep !== "select_references") {
+        throw new GuidedTransitionError("References are only accepted during select_references");
+      }
+      const referenceIds = [...new Set(command.referenceIds)];
+      if (referenceIds.length < FROM_ZERO_MIN_REFERENCES) {
+        throw new GuidedTransitionError("At least three validated references are required");
+      }
+      return {
+        state: pushNavigationHistory(
+          {
+            ...state,
+            currentStep: "confirm_plan",
+            referenceIds,
+            missingFields: [],
+            recoverableError: null,
+            slots: {
+              ...state.slots,
+              referenceCount: referenceIds.length,
+              recommendedAction: "create_creative_plan",
+            },
+          },
+          "confirm_plan"
+        ),
+      };
+    }
+
+    case "select_creative":
+      throw new GuidedTransitionError("Creative selection must be resolved by the command service");
+
+    case "apply_creative_analysis": {
+      if (state.path !== "existing_creative" || state.currentStep !== "select_creative") {
+        throw new GuidedTransitionError("Creative analysis is only accepted during select_creative");
+      }
+      return {
+        state: pushNavigationHistory(
+          {
+            ...state,
+            currentStep: "review_diagnosis",
+            campaignId: null,
+            assetIds: [command.workspaceAssetId],
+            missingFields: command.missingFields,
+            recoverableError: null,
+            slots: {
+              ...state.slots,
+              briefingSnapshot: command.briefingSnapshot,
+              diagnosis: command.diagnosis,
+              assumptions: command.assumptions,
+              baseWorkspaceAssetId: command.workspaceAssetId,
+              recommendedAction: "start_complete_campaign",
+              reviewApproved: false,
+            },
+          },
+          "review_diagnosis"
+        ),
+      };
+    }
+
+    case "action_completed":
+      return {
+        state: {
+          ...state,
+          status: "completed",
+          campaignId: command.campaignId ?? state.campaignId,
+          recoverableError: null,
+        },
+      };
+
+    case "action_started":
+      return {
+        state: {
+          ...state,
+          status: "active",
+          campaignId: command.campaignId ?? state.campaignId,
+          recoverableError: null,
+        },
+      };
+
+    case "action_failed":
+      return {
+        state: {
+          ...state,
+          status: "blocked",
+          recoverableError: {
+            code: "action_failed",
+            message: command.safeError,
+            step: state.currentStep,
+            retryCommand: "clear_error",
+          },
+        },
+      };
+
+    case "action_canceled":
+      return {
+        state: { ...state, status: "active", recoverableError: null },
+      };
+
     case "correct_diagnosis_field": {
       if (state.path !== "existing_creative" || state.currentStep !== "review_diagnosis") {
         throw new GuidedTransitionError("Diagnosis correction is not active");
@@ -372,6 +491,29 @@ export function transitionJourney(
       );
 
       return { state: next };
+    }
+
+    case "correct_diagnosis_assumption": {
+      if (state.path !== "existing_creative" || state.currentStep !== "review_diagnosis") {
+        throw new GuidedTransitionError("Diagnosis correction is not active");
+      }
+      const assumptions = Array.isArray(state.slots.assumptions)
+        ? [...state.slots.assumptions]
+        : [];
+      if (command.index >= assumptions.length) {
+        throw new GuidedTransitionError("Diagnosis assumption not found");
+      }
+      assumptions[command.index] = command.value;
+      return {
+        state: invalidateDependents(
+          {
+            ...state,
+            slots: { ...state.slots, assumptions, reviewApproved: false },
+          },
+          "assumptions",
+          EXISTING_CREATIVE_FIELD_DEPENDENCIES
+        ),
+      };
     }
 
     case "approve_diagnosis": {
@@ -420,8 +562,16 @@ export function allowedCommandsForState(state: JourneyState): GuidedCommand["typ
     commands.push("confirm_brief_review", "edit_field");
   }
 
+  if (state.path === "from_zero" && state.currentStep === "select_references") {
+    commands.push("set_references");
+  }
+
+  if (state.path === "existing_creative" && state.currentStep === "select_creative") {
+    commands.push("select_creative");
+  }
+
   if (state.path === "existing_creative" && state.currentStep === "review_diagnosis") {
-    commands.push("correct_diagnosis_field", "approve_diagnosis");
+    commands.push("correct_diagnosis_field", "correct_diagnosis_assumption", "approve_diagnosis");
   }
 
   commands.push("back", "switch_path", "preview_switch", "restart", "edit_field");

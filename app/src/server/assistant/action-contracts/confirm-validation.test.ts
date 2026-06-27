@@ -24,16 +24,28 @@ vi.mock("@/server/repositories/assistant-message", () => ({
   getAssistantMessageById: vi.fn(),
 }));
 
+vi.mock("@/server/repositories/guided-flow", () => ({
+  getGuidedFlowByThread: vi.fn(),
+}));
+vi.mock("@/server/billing/credits", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/server/billing/credits")>();
+  return { ...actual, canSpend: vi.fn(() => Promise.resolve({ allowed: true, amount: 5, balance: 50 })) };
+});
+
 import {
   AssistantActionValidationError,
   InvalidActionTransitionError,
   getAssistantActionById,
 } from "@/server/repositories/assistant-action";
 import { getAssistantMessageById } from "@/server/repositories/assistant-message";
+import { getGuidedFlowByThread } from "@/server/repositories/guided-flow";
+import { canSpend } from "@/server/billing/credits";
 import { revalidateOnConfirm } from "./validate";
 
 const mockGetAction = vi.mocked(getAssistantActionById);
 const mockGetMessage = vi.mocked(getAssistantMessageById);
+const mockGetFlow = vi.mocked(getGuidedFlowByThread);
+const mockCanSpend = vi.mocked(canSpend);
 
 const WORKSPACE_ID = "ws-1";
 const ACTION_ID = "action-1";
@@ -45,7 +57,10 @@ const pendingAction = {
   workspaceId: WORKSPACE_ID,
   messageId: MESSAGE_ID,
   status: "pending" as const,
+  threadId: "thread-1",
   inputSnapshot: { baseCreativeId: BASE_CREATIVE_ID },
+  sourceFlowRevision: null,
+  sourceSnapshotDigest: null,
 };
 
 const actionCardMessage = {
@@ -62,6 +77,7 @@ const actionCardMessage = {
 describe("revalidateOnConfirm", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockCanSpend.mockResolvedValue({ allowed: true, amount: 5, balance: 50 });
   });
 
   it("throws action_not_found when action is missing", async () => {
@@ -126,5 +142,43 @@ describe("revalidateOnConfirm", () => {
     expect(snapshot).toEqual({ baseCreativeId: BASE_CREATIVE_ID });
     expect(mockGetAction).toHaveBeenCalledWith(WORKSPACE_ID, ACTION_ID);
     expect(mockGetMessage).toHaveBeenCalledWith(WORKSPACE_ID, MESSAGE_ID);
+  });
+
+  it("rejects confirmation when credits are insufficient", async () => {
+    mockGetAction.mockResolvedValue(pendingAction);
+    mockGetMessage.mockResolvedValue(actionCardMessage as Awaited<ReturnType<typeof getAssistantMessageById>>);
+    mockCanSpend.mockResolvedValue({ allowed: false, amount: 5, balance: 0, reason: "insufficient_credits" });
+    await expect(revalidateOnConfirm(WORKSPACE_ID, ACTION_ID, "user-1")).rejects.toThrow(
+      new AssistantActionValidationError("insufficient_credits")
+    );
+  });
+
+  it("rejects a guided action when the source revision is stale", async () => {
+    const inputSnapshot = {
+      productOffer: "Shoes - 20% off", audience: "Runners", objective: "Sales",
+      cta: "Shop now", platformOrFormat: "Instagram 4:5", constraints: "Keep logo",
+      baseCreativeId: BASE_CREATIVE_ID,
+    };
+    mockGetAction.mockResolvedValue({
+      ...pendingAction,
+      inputSnapshot,
+      sourceFlowRevision: 4,
+      sourceSnapshotDigest: "digest-from-revision-4",
+    });
+    mockGetMessage.mockResolvedValue({
+      ...actionCardMessage,
+      payload: { ...actionCardMessage.payload, display: { ...actionCardMessage.payload.display, actionType: "start_complete_campaign" } },
+    } as Awaited<ReturnType<typeof getAssistantMessageById>>);
+    mockGetFlow.mockResolvedValue({
+      id: "flow-1", workspaceId: WORKSPACE_ID, clientProfileId: "profile-1", threadId: "thread-1",
+      path: "existing_creative", status: "active", currentStep: "confirm_improvement",
+      slots: { reviewApproved: true }, missingFields: [], assetIds: [BASE_CREATIVE_ID], referenceIds: [],
+      campaignId: null, revision: 5, schemaVersion: 2, recoverableError: null,
+      createdAt: new Date(), updatedAt: new Date(),
+    });
+
+    await expect(revalidateOnConfirm(WORKSPACE_ID, ACTION_ID, "user-1")).rejects.toThrow(
+      new AssistantActionValidationError("stale_guided_action")
+    );
   });
 });

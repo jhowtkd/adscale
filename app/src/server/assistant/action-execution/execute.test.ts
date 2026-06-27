@@ -27,6 +27,10 @@ vi.mock("./handlers/quick-restyle", () => ({
   ),
 }));
 
+vi.mock("@/server/assistant/guided-paths/action-integration", () => ({
+  transitionGuidedFlowAfterAction: vi.fn(() => Promise.resolve(null)),
+}));
+
 import {
   getAssistantActionById,
   transitionAssistantAction,
