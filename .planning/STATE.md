@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v13.8
-milestone_name: Conversa Guiada Adaptativa
-status: milestone_complete_with_accepted_debt
-last_updated: "2026-06-27T19:00:00-03:00"
+milestone: v13.9
+milestone_name: Copiloto Criativo Iterativo
+status: defining_requirements
+last_updated: "2026-06-27T19:30:00-03:00"
 last_activity: 2026-06-27
 progress:
-  total_phases: 8
-  completed_phases: 8
-  total_plans: 10
-  completed_plans: 10
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -20,20 +20,20 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-26)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
-**Current focus:** v13.8 complete; next milestone not yet defined
+**Current focus:** v13.9 requirements definition
 
 ## Current Position
 
-Phase: 202 of 202 (closed by owner waiver)
-Plan: 10 of 10
-Status: milestone complete with accepted debt
-Last activity: 2026-06-27 — unavailable live evidence explicitly waived without changing observed values
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-06-27 — milestone v13.9 started
 
-Progress: [██████████] 100%
+Progress: [░░░░░░░░░░] 0%
 
 ## Previous Milestone
 
-**v13.7 Qualidade Operacional das Jornadas Guiadas** — shipped 2026-06-26
+**v13.8 Conversa Guiada Adaptativa** — shipped 2026-06-27 with accepted debt
 
 ## Performance Metrics
 
@@ -63,7 +63,7 @@ Progress: [██████████] 100%
 
 ### Pending Todos
 
-- Define the next milestone when product work resumes.
+- Define v13.9 requirements and roadmap.
 
 ### Accepted Debt
 
@@ -75,5 +75,5 @@ Progress: [██████████] 100%
 ## Session Continuity
 
 Last session: 2026-06-27
-Stopped at: v13.8 closed with explicit owner-accepted evidence debt
+Stopped at: v13.9 scope confirmed; defining requirements
 Resume file: None

@@ -12,22 +12,22 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ADScale has shipped the adaptive guided strategic chat. The `/assistant` starts from `Já tenho peça` and `Produzir do zero`, with progressive briefing, collaborative diagnosis, inline resources, revision-safe navigation, reviewed actions, and automated desktop/mobile coverage.
 
-**Active milestone:** none — v13.8 completed 2026-06-27 with accepted live-evidence debt.
+**Active milestone:** v13.9 Copiloto Criativo Iterativo — started 2026-06-27.
 
 **Latest shipped milestone:** v13.8 Conversa Guiada Adaptativa (phases 195-202) — **shipped with accepted debt** 2026-06-27.
 
-## Current Milestone: v13.8 Conversa Guiada Adaptativa
+## Current Milestone: v13.9 Copiloto Criativo Iterativo
 
-**Goal:** Transformar as jornadas rígidas do `/assistant` em conversas progressivas, corrigíveis e orientadas a decisões, preservando confirmação antes de custo/escrita.
+**Goal:** Fazer o chat continuar após diagnóstico ou plano, permitindo revisar, comparar, versionar e aprovar planos e criativos sem perder contexto.
 
 **Target features:**
-- Motor de jornada conversacional com transições explícitas, voltar, editar, trocar caminho, reiniciar e retomar sem perder contexto.
-- Briefing `Produzir do zero` em perguntas progressivas, com sugestões contextuais, respostas rápidas e resumo editável.
-- Diagnóstico `Já tenho peça` colaborativo, permitindo corrigir premissas e campos incertos antes de criar/alterar campanha.
-- Seleção e upload inline de referências, substituição de ativos e recuperação de erros dentro da jornada.
-- Action cards orientados a resultado e UAT completo dos dois caminhos com evidência staging e telemetria existente.
+- Loop conversacional pós-plano e pós-geração, sem encerrar a jornada na primeira ação.
+- Revisões versionadas de plano, ângulos, hooks, CTAs e direção criativa.
+- Comparação clara entre versões de plano e criativos dentro do contexto do chat.
+- Feedback do usuário transformado em alteração proposta, com impacto visível antes de custo/escrita.
+- Aprovação explícita de uma versão como estado atual, preservando histórico e origem das mudanças.
 
-**Guiding principle:** O chat deve conduzir uma decisão por vez, aceitar correção sem punição e mostrar claramente o que será executado antes de qualquer custo ou escrita.
+**Guiding principle:** Cada feedback deve produzir uma nova versão inspecionável; nada sobrescreve silenciosamente a versão aprovada.
 
 ## Shipped Milestone: v13.7 Qualidade Operacional das Jornadas Guiadas
 
