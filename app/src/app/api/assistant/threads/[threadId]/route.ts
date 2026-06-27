@@ -8,6 +8,7 @@ import { listAssistantMessages } from "@/server/repositories/assistant-message";
 import { getGuidedFlowByThread } from "@/server/repositories/guided-flow";
 import { journeyStateFromRow } from "@/server/assistant/guided-conversation/state";
 import { presentJourneyState } from "@/server/assistant/guided-conversation/presenter";
+import { getThreadArtifactVersionState } from "@/server/assistant/artifact-version/service";
 
 export async function GET(
   request: Request,
@@ -24,14 +25,16 @@ export async function GET(
       return apiError("threadNotFound", 404);
     }
 
-    const [messages, guidedFlow] = await Promise.all([
+    const [messages, guidedFlow, artifactVersionState] = await Promise.all([
       listAssistantMessages(workspace.id, threadId),
       getGuidedFlowByThread(workspace.id, threadId),
+      getThreadArtifactVersionState(workspace.id, threadId),
     ]);
 
     return NextResponse.json({
       thread,
       messages,
+      artifactVersionState,
       ...(guidedFlow
         ? {
             guidedFlow,

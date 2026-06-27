@@ -22,6 +22,10 @@ vi.mock("@/server/repositories/guided-flow", () => ({
   getGuidedFlowByThread: vi.fn(),
 }));
 
+vi.mock("@/server/assistant/artifact-version/service", () => ({
+  getThreadArtifactVersionState: vi.fn(),
+}));
+
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
 }));
@@ -29,14 +33,17 @@ vi.mock("next-intl/server", () => ({
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import { listAssistantMessages } from "@/server/repositories/assistant-message";
 import { getGuidedFlowByThread } from "@/server/repositories/guided-flow";
+import { getThreadArtifactVersionState } from "@/server/assistant/artifact-version/service";
 
 const mockGetThread = vi.mocked(getAssistantThreadById);
 const mockListMessages = vi.mocked(listAssistantMessages);
 const mockGetGuidedFlow = vi.mocked(getGuidedFlowByThread);
+const mockGetArtifactVersionState = vi.mocked(getThreadArtifactVersionState);
 
 describe("GET /api/assistant/threads/[threadId]", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetArtifactVersionState.mockResolvedValue({ lineages: [] });
   });
 
   it("returns 404 when thread is not in workspace", async () => {
@@ -67,6 +74,7 @@ describe("GET /api/assistant/threads/[threadId]", () => {
     expect(res.status).toBe(200);
     expect(body.thread).toEqual(thread);
     expect(body.messages).toEqual(messages);
+    expect(body.artifactVersionState).toEqual({ lineages: [] });
     expect(body.guidedFlow).toBeUndefined();
   });
 
