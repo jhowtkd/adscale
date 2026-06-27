@@ -76,7 +76,13 @@ Plans:
   2. Confirmed generation creates one child creative version linked to source creative and exact plan version.
   3. Duplicate confirmation, callback, or retry cannot duplicate charges, jobs, or versions.
   4. Failure/cancellation keeps source current and exposes safe idempotent retry.
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [ ] 205-01-PLAN.md — Creative iteration core domain: types, intent, digest, draft, proposal service with planVersionId binding
+- [ ] 205-02-PLAN.md — refundCredits billing function, CreditConfirmModal, AssistantActionCard creative revision display
+- [ ] 205-03-PLAN.md — revise_creative contract + handler (charge→enqueue→async), derivation job callbacks (version on success, refund on failure)
+- [ ] 205-04-PLAN.md — Service facade, orchestrator unified intent classifier, creative-revisions draft API route
 
 ### Phase 206: Version Compare and Approval
 **Goal**: Let users understand differences and explicitly choose the current plan or creative version.
@@ -342,6 +348,6 @@ Archive: [v13.3-ROADMAP.md](milestones/v13.3-ROADMAP.md) · [v13.3-REQUIREMENTS.
 |-------|----------------|--------|-----------|
 | 203. Artifact Version Foundation | 2/2 | Complete    | 2026-06-27 |
 | 204. Plan Iteration Loop | 2/2 | Complete    | 2026-06-27 |
-| 205. Creative Iteration Loop | 0/TBD | Not started | — |
+| 205. Creative Iteration Loop | 0/4 | Not started | — |
 | 206. Version Compare and Approval | 0/TBD | Not started | — |
 | 207. Iterative Copilot Integration and UAT | 0/TBD | Not started | — |
