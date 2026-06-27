@@ -1,6 +1,6 @@
 # Phase 201 Verification
 
-**Status:** passed_with_tech_debt (browser matrix green; live provider paths deferred to Phase 202)
+**Status:** closed_with_accepted_debt (browser matrix green; live provider paths waived by owner)
 
 ## Delivered
 
@@ -27,5 +27,5 @@ Behavioral coverage includes:
 
 | Requirement | Status | Evidence |
 |-------------|--------|----------|
-| QA-02 | Partial → strong | Component a11y 11/11; keyboard/focus/alert in E2E |
-| QA-03 | Partial → strong (mocked) | 28/28 Playwright; live staging in Phase 202 |
+| QA-02 | Partial — accepted debt | Component a11y 11/11; keyboard/focus/alert in E2E; full live shell not verified |
+| QA-03 | Partial — accepted debt | 28/28 Playwright with mocked APIs; live provider depth waived |

@@ -1,6 +1,8 @@
 # Phase 202 Manual Blockers
 
-**Status:** blocked — requires operator staging access
+**Status:** closed — requirements waived by product owner on 2026-06-27
+
+The values below remain historically accurate but no longer block v13.8. They were accepted as permanent milestone debt and must not be rewritten as completed evidence.
 
 ## Cannot automate in local dev
 

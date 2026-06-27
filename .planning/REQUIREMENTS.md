@@ -110,8 +110,8 @@
 | ACT-03 | Phase 199 | Complete |
 | ACT-04 | Phase 199 | Complete |
 | QA-01 | Phase 199 | Complete |
-| QA-02 | Phase 201 | Partial |
-| QA-03 | Phase 201 | Partial |
+| QA-02 | Phase 201 | Partial — accepted debt |
+| QA-03 | Phase 201 | Partial — accepted debt |
 | QA-04 | Phase 200 | Complete |
 
 **Coverage:**
@@ -119,9 +119,9 @@
 - Mapped to phases: 30
 - Unmapped: 0
 - Satisfied after gap closure: 28
-- Pending gap closure: 2 (QA-02, QA-03 partial in Phase 201)
-- Partial: 0
+- Partial with owner-accepted debt: 2 (QA-02, QA-03)
+- Release blockers: 0
 
 ---
 *Requirements defined: 2026-06-26*
-*Last updated: 2026-06-27 after v13.8 gap closure verification*
+*Last updated: 2026-06-27 after owner accepted remaining live-evidence debt*

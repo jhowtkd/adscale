@@ -146,26 +146,49 @@ function main() {
   const sampleInsufficient =
     evidence.operationalSample?.status === "insufficient_sample" ||
     (evidence.operationalSample?.guidedStarts ?? 0) < 5;
+  const inngestUnverified =
+    evidence.inheritedDebt?.liveInngestLifecycle !== "verified";
+  const acceptedDebtScopes = new Set(
+    evidence.releaseDecision?.status === "accepted_debt"
+      ? evidence.releaseDecision.scopes ?? []
+      : []
+  );
+  const stagingWaived = acceptedDebtScopes.has("human_staging_walks");
+  const sampleWaived = acceptedDebtScopes.has("operational_sample");
+  const inngestWaived = acceptedDebtScopes.has("live_inngest_lifecycle");
 
   if (stagingPending) {
     evidence.stagingEvidence.warning =
       "Staging human evidence still pending — see docs/staging/guided-journeys-v13-8-runbook.md";
-    if (!allowPendingStaging) {
+    if (!allowPendingStaging && !stagingWaived) {
       failed = true;
       evidence.stagingEvidence.gateStatus = "blocked";
+    } else if (stagingWaived) {
+      evidence.stagingEvidence.gateStatus = "accepted_debt";
     }
   }
 
   if (sampleInsufficient) {
     evidence.operationalSample = {
       ...evidence.operationalSample,
-      gateStatus: "blocked",
+      gateStatus: sampleWaived ? "accepted_debt" : "blocked",
       warning: "Operational guided starts remain insufficient",
     };
+    if (!allowPendingStaging && !sampleWaived) failed = true;
   }
 
-  evidence.status =
-    failed || stagingPending || sampleInsufficient
+  if (inngestUnverified) {
+    evidence.inheritedDebt = {
+      ...evidence.inheritedDebt,
+      gateStatus: inngestWaived ? "accepted_debt" : "blocked",
+    };
+    if (!allowPendingStaging && !inngestWaived) failed = true;
+  }
+
+  const hasAcceptedDebt = stagingWaived || sampleWaived || inngestWaived;
+  evidence.status = hasAcceptedDebt
+    ? "passed_with_accepted_debt"
+    : failed || stagingPending || sampleInsufficient || inngestUnverified
       ? "passed_with_tech_debt"
       : "passed";
 
@@ -179,13 +202,15 @@ function main() {
     console.error(
       evidence.automatedTests.status === "fail"
         ? "v13.8 release gate blocked: automated checks failed."
-        : "v13.8 release gate blocked: required staging evidence is pending."
+        : "v13.8 release gate blocked: required live evidence is pending."
     );
     process.exit(1);
   }
 
   console.log(
-    "v13.8 release gate automated checks passed (staging/sample debt may remain explicit)."
+    hasAcceptedDebt
+      ? "v13.8 release gate passed with explicit owner-accepted evidence debt."
+      : "v13.8 release gate passed with complete release evidence."
   );
 }
 

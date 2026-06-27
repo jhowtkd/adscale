@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v13.8
 milestone_name: Conversa Guiada Adaptativa
-status: passed_with_tech_debt
-last_updated: "2026-06-27T16:00:00-03:00"
+status: milestone_complete_with_accepted_debt
+last_updated: "2026-06-27T19:00:00-03:00"
 last_activity: 2026-06-27
 progress:
   total_phases: 8
-  completed_phases: 6
+  completed_phases: 8
   total_plans: 10
-  completed_plans: 9
-  percent: 75
+  completed_plans: 10
+  percent: 100
 ---
 
 # Project State
@@ -20,16 +20,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-26)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
-**Current focus:** Phase 202 staging evidence and operational sample
+**Current focus:** v13.8 complete; next milestone not yet defined
 
 ## Current Position
 
-Phase: 202 of 202 (blocked — operator staging)
-Plan: 9 of 10
-Status: passed_with_tech_debt / not shippable
-Last activity: 2026-06-27 — Phase 201 Playwright 28/28; behavioral UAT deepened; runner port fix
+Phase: 202 of 202 (closed by owner waiver)
+Plan: 10 of 10
+Status: milestone complete with accepted debt
+Last activity: 2026-06-27 — unavailable live evidence explicitly waived without changing observed values
 
-Progress: [███████░░░] 75%
+Progress: [██████████] 100%
 
 ## Previous Milestone
 
@@ -63,19 +63,17 @@ Progress: [███████░░░] 75%
 
 ### Pending Todos
 
-- Phase 202: Execute both human staging walks from the v13.8 runbook.
-- Phase 202: Collect ≥5 operational guided starts and verify live Inngest lifecycle.
-- Pass release gate without `--allow-pending-staging`.
+- Define the next milestone when product work resumes.
 
-### Blockers/Concerns
+### Accepted Debt
 
-- Human staging walks remain pending.
-- Operational guided starts remain zero; sample is insufficient.
+- Human staging walks were not executed.
+- Operational guided starts remain zero.
 - Live Inngest lifecycle remains unverified.
-- QA-03 green with mocked API; live provider/staging paths still require Phase 202.
+- QA-02/QA-03 are strong automated coverage but partial at live-provider depth.
 
 ## Session Continuity
 
 Last session: 2026-06-27
-Stopped at: Phase 201 browser matrix green; Phase 202 awaiting operator
-Resume file: `.planning/phases/202-staging-release-gate/202-MANUAL-BLOCKERS.md`
+Stopped at: v13.8 closed with explicit owner-accepted evidence debt
+Resume file: None

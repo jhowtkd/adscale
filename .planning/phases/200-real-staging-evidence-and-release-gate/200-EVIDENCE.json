@@ -1,6 +1,17 @@
 {
   "milestone": "v13.8",
-  "status": "blocked",
+  "status": "passed_with_accepted_debt",
+  "releaseDecision": {
+    "status": "accepted_debt",
+    "decidedBy": "product_owner",
+    "decidedAt": "2026-06-27T19:00:00-03:00",
+    "reason": "Live staging walks, a five-start operational sample, and Inngest dashboard verification are not operationally available and will not be pursued for v13.8.",
+    "scopes": [
+      "human_staging_walks",
+      "operational_sample",
+      "live_inngest_lifecycle"
+    ]
+  },
   "implementation": {
     "status": "pass",
     "note": "v13.8 adaptive guided conversation phases 195-199"
@@ -49,13 +60,13 @@
         "command": "npm test -- --run tests/unit/release/v13-8-release-evidence.test.ts"
       }
     },
-    "verifiedAt": "2026-06-27T18:25:00.000Z"
+    "verifiedAt": "2026-06-27T19:11:11.224Z"
   },
   "stagingEvidence": {
     "status": "pending",
     "note": "Human staging walks for both adaptive journeys still required. Operator action needed.",
     "warning": "Staging human evidence still pending — see docs/staging/guided-journeys-v13-8-runbook.md",
-    "gateStatus": "blocked",
+    "gateStatus": "accepted_debt",
     "infrastructureVerified": {
       "verifiedAt": "2026-06-27T18:25:00Z",
       "method": "SQL query via in-app /api/internal-debug/db-audit (Phase 202 audit)",
@@ -96,11 +107,12 @@
     "verifiedAt": "2026-06-27T18:25:00Z",
     "verifiedVia": "SQL count(*) from adscale_app.assistant_guided_flow_events where event_key = 'guided_flow_started'",
     "result": "0 rows — no real guided_flow_started events have been emitted in production",
-    "gateStatus": "blocked",
-    "warning": "Operational guided starts remain insufficient. Operator must run guided journeys in production to reach ≥5 starts."
+    "gateStatus": "accepted_debt",
+    "warning": "Operational guided starts remain insufficient"
   },
   "inheritedDebt": {
     "liveInngestLifecycle": "unverified",
-    "note": "Inngest dashboard access not available from this environment. Cannot verify live action lifecycle completion/failure without operator pulling Inngest logs."
+    "gateStatus": "accepted_debt",
+    "note": "Inngest dashboard access is unavailable; product owner accepted this as permanent v13.8 evidence debt."
   }
 }

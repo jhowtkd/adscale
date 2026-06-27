@@ -2,7 +2,7 @@
 
 ## Milestones
 
-- ⚠ **v13.8 Conversa Guiada Adaptativa** - Phases 195-200 verified; gap closure 201-202 in progress 2026-06-27
+- ✅ **v13.8 Conversa Guiada Adaptativa** - Phases 195-202 closed 2026-06-27 ([audit](milestones/v13.8-MILESTONE-AUDIT.md); live evidence debt accepted by owner)
 - ✅ **v13.7 Qualidade Operacional das Jornadas Guiadas** - Phases 190-194 (shipped 2026-06-26; tech debt: human staging walks + insufficient operational sample)
 - ✅ **v13.6 Jornadas Guiadas do Chat Estratégico** - Phases 184-189 (shipped 2026-06-26; tech debt: staging diagnosis/briefing + live lifecycle verify)
 - ✅ **v13.5 Assistente Conversacional de Ações** - Phases 177-183 (shipped 2026-06-25; tech debt: EXEC-04 live lifecycle human verify, migrations 0056/0057 ops)
@@ -30,8 +30,8 @@
 - [x] **Phase 198: Inline Assets and Recovery** - Keep scoped asset selection, upload, replacement, partial failure, and retry inside the active turn.
 - [x] **Phase 199: Reviewed Actions, Accessibility, and Automated UAT** - Bind safe action confirmation to reviewed state and verify both journeys across interaction modes.
 - [x] **Phase 200: Real Staging Evidence and Release Gate** - Prove both journeys in staging and publish a release verdict that keeps evidence gaps explicit.
-- [ ] **Phase 201: Automated UAT Gap Closure** - Complete QA-02/QA-03 Playwright scenario matrix, accessibility/keyboard coverage, and login flake fixes.
-- [ ] **Phase 202: Staging Release Gate** - Execute staging journeys, verify Inngest lifecycle, collect ≥5 operational guided starts, pass gate without `--allow-pending-staging`.
+- [x] **Phase 201: Automated UAT Gap Closure** - Automated browser matrix closed with mocked API; live-provider depth accepted as debt.
+- [x] **Phase 202: Staging Release Gate** - Closed by explicit owner waiver; zero starts and unverified live evidence remain recorded.
 
 ## Phase Details
 

@@ -9,6 +9,10 @@ const template = resolve(
   repoRoot,
   ".planning/phases/200-real-staging-evidence-and-release-gate/200-EVIDENCE.template.json"
 );
+const currentEvidence = resolve(
+  repoRoot,
+  ".planning/phases/200-real-staging-evidence-and-release-gate/200-EVIDENCE.json"
+);
 
 describe("v13.8 release evidence", () => {
   it("includes release gate script", () => {
@@ -28,5 +32,18 @@ describe("v13.8 release evidence", () => {
     const parsed = JSON.parse(readFileSync(template, "utf8"));
     expect(parsed.operationalSample.status).toBe("insufficient_sample");
     expect(parsed.stagingEvidence.status).toBe("pending");
+  });
+
+  it("records owner waiver without fabricating live evidence", () => {
+    const parsed = JSON.parse(readFileSync(currentEvidence, "utf8"));
+    expect(parsed.releaseDecision.status).toBe("accepted_debt");
+    expect(parsed.releaseDecision.scopes).toEqual([
+      "human_staging_walks",
+      "operational_sample",
+      "live_inngest_lifecycle",
+    ]);
+    expect(parsed.stagingEvidence.status).toBe("pending");
+    expect(parsed.operationalSample.guidedStarts).toBe(0);
+    expect(parsed.inheritedDebt.liveInngestLifecycle).toBe("unverified");
   });
 });

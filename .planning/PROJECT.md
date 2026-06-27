@@ -10,11 +10,11 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Current State
 
-ADScale has shipped the guided strategic chat foundation and its operational telemetry. The `/assistant` starts from two guided journeys — `Já tenho peça` and `Produzir do zero` — but the experience still behaves like a fixed form embedded in chat. The next step is making both journeys conversational, progressive, editable, and resilient.
+ADScale has shipped the adaptive guided strategic chat. The `/assistant` starts from `Já tenho peça` and `Produzir do zero`, with progressive briefing, collaborative diagnosis, inline resources, revision-safe navigation, reviewed actions, and automated desktop/mobile coverage.
 
-**Active milestone:** v13.8 Conversa Guiada Adaptativa — started 2026-06-26.
+**Active milestone:** none — v13.8 completed 2026-06-27 with accepted live-evidence debt.
 
-**Latest shipped milestone:** v13.7 Qualidade Operacional das Jornadas Guiadas (phases 190-194) — **shipped with tech debt** 2026-06-26.
+**Latest shipped milestone:** v13.8 Conversa Guiada Adaptativa (phases 195-202) — **shipped with accepted debt** 2026-06-27.
 
 ## Current Milestone: v13.8 Conversa Guiada Adaptativa
 

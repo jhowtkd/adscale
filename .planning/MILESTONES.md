@@ -1,5 +1,31 @@
 # Milestones: ADScale
 
+## v13.8 Conversa Guiada Adaptativa (Shipped with accepted debt: 2026-06-27)
+
+**Phases closed:** 8 phases (195→202), 10 plans
+**Requirements:** 28/30 complete, QA-02/QA-03 partial with accepted debt
+**Audit:** `shipped_with_accepted_debt` — implementation and automated matrix green; unavailable live evidence explicitly waived
+
+**Key accomplishments:**
+
+- Revision-safe deterministic guided conversation engine
+- Progressive from-zero briefing and collaborative existing-creative diagnosis
+- Inline resources with scoped readiness and recovery
+- Reviewed action binding, confirm-time revalidation and lifecycle recovery
+- 28/28 guided Playwright desktop/mobile matrix plus accessibility component coverage
+- Production migrations `0062` and `0063` verified
+
+**Known debt accepted by product owner:**
+
+- Human staging walks not executed
+- Operational guided starts remain zero
+- Live Inngest lifecycle unverified
+- QA-02/QA-03 do not prove live-provider behavior
+
+Archive: [v13.8-MILESTONE-AUDIT.md](milestones/v13.8-MILESTONE-AUDIT.md)
+
+---
+
 ## v13.6 Jornadas Guiadas do Chat Estratégico (Shipped with tech debt: 2026-06-26)
 
 **Phases completed:** 6 phases (184→189), 11 plans
