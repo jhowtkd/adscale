@@ -449,6 +449,13 @@
       "when": 1783425600000,
       "tag": "0064_assistant_artifact_versions",
       "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1783512000000,
+      "tag": "0065_assistant_plan_feedback_drafts",
+      "breakpoints": true
     }
   ]
 }
