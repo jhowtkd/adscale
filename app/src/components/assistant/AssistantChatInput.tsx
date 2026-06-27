@@ -16,6 +16,8 @@ export interface AssistantChatInputProps {
   isStreaming: boolean;
   noThread: boolean;
   onSend: (text: string, attachments?: ChatAttachment[]) => void;
+  draftText?: string;
+  onDraftTextChange?: (text: string) => void;
 }
 
 export default function AssistantChatInput({
@@ -23,9 +25,14 @@ export default function AssistantChatInput({
   isStreaming,
   noThread,
   onSend,
+  draftText,
+  onDraftTextChange,
 }: AssistantChatInputProps) {
   const t = useTranslations("assistant.chat");
-  const [value, setValue] = useState("");
+  const [localValue, setLocalValue] = useState("");
+  const isControlled = draftText !== undefined && onDraftTextChange !== undefined;
+  const value = isControlled ? draftText : localValue;
+  const setValue = isControlled ? onDraftTextChange : setLocalValue;
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -63,7 +70,9 @@ export default function AssistantChatInput({
       return;
     }
     onSend(value.trim(), attachments.length > 0 ? attachments : undefined);
-    setValue("");
+    if (!isControlled) {
+      setLocalValue("");
+    }
     setAttachments([]);
     setUploadError(null);
   };

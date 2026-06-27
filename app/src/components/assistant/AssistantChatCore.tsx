@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { useAssistantChat } from "@/lib/hooks/use-assistant-chat";
 import type { AssistantChatMessage } from "@/lib/hooks/use-assistant-chat";
 import type { ChatAttachment } from "@/lib/assistant/chat-attachments";
+import { usePlanFeedbackDraft } from "@/lib/hooks/use-plan-feedback-draft";
 import {
   useAssistantThread,
   type AssistantMessage,
@@ -95,6 +96,11 @@ export default function AssistantChatCore({
   });
   const { messages, streamingText, isStreaming, error, sendMessage } =
     useAssistantChat(threadId);
+  const draftEnabled = Boolean(threadId && data?.thread?.campaignId);
+  const { draftText, onDraftTextChange, clearDraft } = usePlanFeedbackDraft(
+    threadId,
+    { enabled: draftEnabled }
+  );
 
   const sendingRef = useRef(false);
 
@@ -123,11 +129,17 @@ export default function AssistantChatCore({
   const inputDisabled = !threadId;
 
   const handleSend = (text: string, attachments?: ChatAttachment[]) => {
-    if (attachments?.length) {
-      void sendMessage({ text, attachments });
-      return;
-    }
-    void sendMessage(text);
+    const send = async () => {
+      if (attachments?.length) {
+        await sendMessage({ text, attachments });
+      } else {
+        await sendMessage(text);
+      }
+      if (draftEnabled) {
+        await clearDraft();
+      }
+    };
+    void send();
   };
 
   return (
@@ -225,6 +237,8 @@ export default function AssistantChatCore({
         isStreaming={isStreaming}
         noThread={!threadId}
         onSend={handleSend}
+        draftText={draftEnabled ? draftText : undefined}
+        onDraftTextChange={draftEnabled ? onDraftTextChange : undefined}
       />
     </div>
   );

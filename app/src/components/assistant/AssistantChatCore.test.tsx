@@ -18,6 +18,12 @@ vi.mock("@/lib/hooks/use-assistant-threads", () => ({
   useAssistantThread: (...args: unknown[]) => mockUseAssistantThread(...args),
 }));
 
+const mockUsePlanFeedbackDraft = vi.fn();
+
+vi.mock("@/lib/hooks/use-plan-feedback-draft", () => ({
+  usePlanFeedbackDraft: (...args: unknown[]) => mockUsePlanFeedbackDraft(...args),
+}));
+
 vi.mock("./AssistantActionCard", () => ({
   default: ({ payload }: { payload: Record<string, unknown> }) => (
     <div data-testid="action-card">{String(payload.actionRecordId)}</div>
@@ -27,6 +33,12 @@ vi.mock("./AssistantActionCard", () => ({
 describe("AssistantChatCore", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUsePlanFeedbackDraft.mockReturnValue({
+      draftText: "",
+      onDraftTextChange: vi.fn(),
+      clearDraft: vi.fn(),
+      isLoading: false,
+    });
     mockUseAssistantChat.mockReturnValue({
       messages: [],
       streamingText: "",
@@ -92,5 +104,57 @@ describe("AssistantChatCore", () => {
     expect(screen.getByText("Hi")).toBeInTheDocument();
     expect(screen.getByText("Hello there")).toBeInTheDocument();
     expect(screen.getByText("Thinking")).toBeInTheDocument();
+  });
+
+  it("enables plan feedback draft hook for campaign threads", () => {
+    mockUseAssistantThread.mockReturnValue({
+      data: {
+        thread: { id: "thread-1", campaignId: "campaign-1" },
+        messages: [],
+      },
+      isLoading: false,
+    });
+
+    render(<AssistantChatCore threadId="thread-1" variant="full" />);
+
+    expect(mockUsePlanFeedbackDraft).toHaveBeenCalledWith("thread-1", {
+      enabled: true,
+    });
+  });
+
+  it("clears plan feedback draft after send on campaign threads", async () => {
+    const clearDraft = vi.fn().mockResolvedValue(undefined);
+    let draftText = "";
+    const onDraftTextChange = vi.fn((text: string) => {
+      draftText = text;
+    });
+    mockUsePlanFeedbackDraft.mockImplementation(() => ({
+      draftText,
+      onDraftTextChange,
+      clearDraft,
+      isLoading: false,
+    }));
+    mockUseAssistantThread.mockReturnValue({
+      data: {
+        thread: { id: "thread-1", campaignId: "campaign-1" },
+        messages: [],
+      },
+      isLoading: false,
+    });
+    mockSendMessage.mockResolvedValue(undefined);
+
+    const { rerender } = render(
+      <AssistantChatCore threadId="thread-1" variant="full" />
+    );
+
+    const input = screen.getByRole("textbox");
+    fireEvent.change(input, { target: { value: "Hello assistant" } });
+    rerender(<AssistantChatCore threadId="thread-1" variant="full" />);
+    fireEvent.click(screen.getByRole("button", { name: "send" }));
+
+    await vi.waitFor(() => {
+      expect(mockSendMessage).toHaveBeenCalledWith("Hello assistant");
+      expect(clearDraft).toHaveBeenCalled();
+    });
   });
 });
