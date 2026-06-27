@@ -17,7 +17,7 @@ import AssistantMessageList, {
 import GuidedFlowResumeBanner from "./GuidedFlowResumeBanner";
 import ExistingCreativeSelectPanel from "./ExistingCreativeSelectPanel";
 import CreativeDiagnosisPanel from "./CreativeDiagnosisPanel";
-import FromZeroBriefPanel from "./FromZeroBriefPanel";
+import FromZeroProgressiveBriefPanel from "./FromZeroProgressiveBriefPanel";
 import FromZeroReferencesPanel from "./FromZeroReferencesPanel";
 
 export interface AssistantChatCoreProps {
@@ -164,8 +164,13 @@ export default function AssistantChatCore({
           ) : null}
           {threadId &&
           data?.guidedFlow?.path === "from_zero" &&
-          data.guidedFlow.currentStep === "collect_brief" ? (
-            <FromZeroBriefPanel threadId={threadId} />
+          (data.guidedFlow.currentStep === "collect_brief" ||
+            data.guidedFlow.currentStep === "review_brief") ? (
+            <FromZeroProgressiveBriefPanel
+              threadId={threadId}
+              guidedFlow={data.guidedFlow}
+              presentation={data.guidedPresentation}
+            />
           ) : null}
           {threadId &&
           data?.guidedFlow?.path === "from_zero" &&
@@ -181,6 +186,7 @@ export default function AssistantChatCore({
             <CreativeDiagnosisPanel
               threadId={threadId}
               guidedFlow={data.guidedFlow}
+              presentation={data.guidedPresentation}
             />
           ) : null}
           <AssistantMessageList

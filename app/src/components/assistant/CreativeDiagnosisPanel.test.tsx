@@ -1,18 +1,17 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import CreativeDiagnosisPanel from "./CreativeDiagnosisPanel";
 
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string, values?: Record<string, string>) => {
-    if (values?.fields) return `${key}:${values.fields}`;
+    if (values?.field) return `${key}:${values.field}`;
     if (values?.action) return `${key}:${values.action}`;
     return key;
   },
 }));
 
-vi.mock("@/lib/hooks/use-existing-creative-path", () => ({
-  useAcknowledgeExistingDiagnosis: () => ({
+vi.mock("@/lib/hooks/use-guided-flow-commands", () => ({
+  useGuidedFlowCommand: () => ({
     mutateAsync: vi.fn(),
     isPending: false,
   }),
@@ -49,12 +48,12 @@ describe("CreativeDiagnosisPanel", () => {
 
     expect(screen.getByTestId("creative-diagnosis-panel")).toBeInTheDocument();
     expect(screen.getAllByText("Promo visual").length).toBeGreaterThan(0);
-    expect(screen.getByText("CTA")).toBeInTheDocument();
     expect(screen.getByTestId("acknowledge-diagnosis")).toBeInTheDocument();
   });
 
-  it("shows missing fields hint", () => {
+  it("shows missing fields with correction affordance", () => {
     render(<CreativeDiagnosisPanel threadId="t-1" guidedFlow={guidedFlow} />);
-    expect(screen.getByText("missing:audience")).toBeInTheDocument();
+    expect(screen.getByText("audience")).toBeInTheDocument();
+    expect(screen.getByText("correct")).toBeInTheDocument();
   });
 });

@@ -58,12 +58,18 @@ export async function saveFromZeroBrief(input: {
     input.threadId,
     input.clientProfileId,
     {
-      currentStep: "select_references",
+      currentStep: "review_brief",
       missingFields: [],
       slots: {
         ...((flow.slots ?? {}) as Record<string, unknown>),
         briefAnswers: input.answers,
         briefSnapshot,
+        answers: Object.fromEntries(
+          Object.entries(input.answers).map(([key, value]) => [
+            key,
+            { value: value ?? "", source: "legacy", confirmed: true },
+          ])
+        ),
       },
     }
   );

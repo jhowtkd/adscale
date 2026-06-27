@@ -29,7 +29,7 @@ function baseState(overrides: Partial<JourneyState> = {}): JourneyState {
 describe("transitionJourney", () => {
   it("goes back to the previous from_zero step", () => {
     const result = transitionJourney(baseState(), { type: "back" });
-    expect(result.state.currentStep).toBe("collect_brief");
+    expect(result.state.currentStep).toBe("review_brief");
   });
 
   it("rejects back at the first step", () => {

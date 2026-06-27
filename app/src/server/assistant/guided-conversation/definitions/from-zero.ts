@@ -2,6 +2,7 @@ import { initialStepForPath } from "@/lib/guided-flow/types";
 
 export const FROM_ZERO_STEPS = [
   "collect_brief",
+  "review_brief",
   "select_references",
   "confirm_plan",
 ] as const;

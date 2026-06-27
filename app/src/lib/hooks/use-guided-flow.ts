@@ -23,6 +23,8 @@ export interface GuidedFlow {
   assetIds: string[];
   referenceIds: string[];
   campaignId: string | null;
+  revision?: number;
+  schemaVersion?: number;
   createdAt: string;
   updatedAt: string;
 }

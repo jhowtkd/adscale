@@ -57,7 +57,7 @@ describe("saveFromZeroBrief", () => {
     mockGetFlow.mockResolvedValue(baseFlow as Awaited<ReturnType<typeof getGuidedFlowByThread>>);
     mockPatch.mockResolvedValue({
       ...baseFlow,
-      currentStep: "select_references",
+      currentStep: "review_brief",
     } as Awaited<ReturnType<typeof patchGuidedFlow>>);
   });
 
@@ -72,7 +72,7 @@ describe("saveFromZeroBrief", () => {
     ).rejects.toThrow(/Brief incomplete/);
   });
 
-  it("advances to select_references when complete", async () => {
+  it("advances to review_brief when complete", async () => {
     const result = await saveFromZeroBrief({
       workspaceId: "ws-1",
       threadId: "t-1",
@@ -83,9 +83,9 @@ describe("saveFromZeroBrief", () => {
       "ws-1",
       "t-1",
       "cp-1",
-      expect.objectContaining({ currentStep: "select_references" })
+      expect.objectContaining({ currentStep: "review_brief" })
     );
-    expect(result.guidedFlow.currentStep).toBe("select_references");
+    expect(result.guidedFlow.currentStep).toBe("review_brief");
   });
 });
 

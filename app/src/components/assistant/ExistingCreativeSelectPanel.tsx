@@ -126,9 +126,19 @@ export default function ExistingCreativeSelectPanel({
       </div>
 
       {error ? (
-        <p className="mt-3 text-xs text-[var(--danger-text)]" role="alert">
-          {error}
-        </p>
+        <div className="mt-3 space-y-2" role="alert">
+          <p className="text-xs text-[var(--danger-text)]">{error}</p>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={busy}
+            onClick={() => setError(null)}
+            data-testid="retry-creative-select"
+          >
+            {t("retry")}
+          </Button>
+        </div>
       ) : null}
     </div>
   );

@@ -6,6 +6,8 @@ import {
 } from "@/server/repositories/assistant-thread";
 import { listAssistantMessages } from "@/server/repositories/assistant-message";
 import { getGuidedFlowByThread } from "@/server/repositories/guided-flow";
+import { journeyStateFromRow } from "@/server/assistant/guided-conversation/state";
+import { presentJourneyState } from "@/server/assistant/guided-conversation/presenter";
 
 export async function GET(
   request: Request,
@@ -30,7 +32,12 @@ export async function GET(
     return NextResponse.json({
       thread,
       messages,
-      ...(guidedFlow ? { guidedFlow } : {}),
+      ...(guidedFlow
+        ? {
+            guidedFlow,
+            guidedPresentation: presentJourneyState(journeyStateFromRow(guidedFlow)),
+          }
+        : {}),
     });
   } catch (error) {
     return handleApiError(error, "assistant.threads.[threadId].GET");

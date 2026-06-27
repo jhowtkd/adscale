@@ -32,6 +32,23 @@ export const guidedCommandSchema = z.discriminatedUnion("type", [
     value: z.string(),
   }),
   z.object({ type: z.literal("clear_error") }),
+  z.object({
+    type: z.literal("answer_brief"),
+    field: z.string().min(1),
+    value: z.string(),
+    unknown: z.boolean().optional(),
+  }),
+  z.object({
+    type: z.literal("skip_brief_field"),
+    field: z.string().min(1),
+  }),
+  z.object({ type: z.literal("confirm_brief_review") }),
+  z.object({
+    type: z.literal("correct_diagnosis_field"),
+    field: z.string().min(1),
+    value: z.string(),
+  }),
+  z.object({ type: z.literal("approve_diagnosis") }),
 ]);
 
 export const guidedCommandEnvelopeSchema = z.object({
@@ -63,4 +80,19 @@ export interface GuidedFlowPresentation {
   navigationHistory: string[];
   allowedCommands: GuidedCommand["type"][];
   retentionPreview?: RetentionPreview;
+  prompt?: {
+    field: string;
+    labelKey: string;
+    quickReplies?: string[];
+    allowSkip?: boolean;
+    allowUnknown?: boolean;
+    suggestion?: { value: string; source: string } | null;
+  };
+  briefReview?: Record<string, string>;
+  diagnosisReview?: {
+    facts: string[];
+    assumptions: string[];
+    missingFields: string[];
+    editable: boolean;
+  };
 }

@@ -1964,6 +1964,7 @@
       "steps": {
         "select_creative": "Selecionar criativo",
         "collect_brief": "Coletar brief",
+        "review_brief": "Revisar brief",
         "review_diagnosis": "Revisar diagnóstico",
         "confirm_improvement": "Confirmar melhoria",
         "select_references": "Selecionar referências",
@@ -1980,11 +1981,17 @@
         "emptyLibrary": "Nenhum ativo na biblioteca. Envie uma imagem acima.",
         "uploadFailed": "Falha no upload",
         "selectFailed": "Falha ao selecionar criativo",
+        "retry": "Tentar novamente",
         "diagnosisTitle": "Diagnóstico da peça",
         "assumptions": "Premissas extraídas",
         "preserve": "Elementos a preservar",
         "opportunities": "Oportunidades de melhoria",
         "missing": "Campos ainda incertos: {fields}",
+        "observedFacts": "Fatos observados",
+        "uncertainFields": "Campos incertos ou ausentes",
+        "correct": "Corrigir",
+        "correctField": "Corrigir {field}",
+        "saveCorrection": "Salvar correção",
         "recommendedAction": "Próxima ação sugerida: {action}",
         "confirmDiagnosis": "Confirmar e pedir melhoria"
       },
@@ -2006,6 +2013,27 @@
         "loading": "Carregando referências…",
         "empty": "Nenhuma referência disponível. Salve referências no cliente ou envie ativos na biblioteca.",
         "continue": "Continuar para o plano criativo"
+      },
+      "progressive": {
+        "reviewTitle": "Revise o brief antes de continuar",
+        "confirmReview": "Confirmar brief e escolher referências",
+        "answerPlaceholder": "Sua resposta…",
+        "continue": "Continuar",
+        "skip": "Pular",
+        "unknown": "Não sei",
+        "suggestionFrom": "Sugestão ({source})",
+        "fields": {
+          "product": "Produto",
+          "offer": "Oferta",
+          "productOffer": "Produto e oferta",
+          "audience": "Público",
+          "promise": "Promessa / objetivo",
+          "objections": "Objeções",
+          "cta": "CTA",
+          "platforms": "Plataformas",
+          "constraints": "Restrições",
+          "objective": "Objetivo"
+        }
       }
     },
     "createClient": {

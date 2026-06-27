@@ -10,7 +10,10 @@ export interface RecoverableError {
 }
 
 export interface JourneySlots {
-  answers?: Record<string, { value: string; source?: string; confirmed?: boolean }>;
+  answers?: Record<
+    string,
+    { value: string; source?: string; confirmed?: boolean; unknown?: boolean }
+  >;
   briefingSnapshot?: Record<string, unknown>;
   briefAnswers?: Record<string, unknown>;
   diagnosis?: Record<string, unknown>;

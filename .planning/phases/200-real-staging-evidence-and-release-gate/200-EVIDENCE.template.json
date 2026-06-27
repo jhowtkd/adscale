@@ -1,0 +1,23 @@
+{
+  "milestone": "v13.8",
+  "status": "pending",
+  "implementation": {
+    "status": "pending",
+    "note": "Adaptive journey contract, progressive briefing, collaborative diagnosis, inline recovery"
+  },
+  "automatedTests": {
+    "status": "pending",
+    "steps": {}
+  },
+  "stagingEvidence": {
+    "status": "pending",
+    "note": "Human staging walks for both adaptive journeys still required"
+  },
+  "operationalSample": {
+    "status": "insufficient_sample",
+    "guidedStarts": 0
+  },
+  "inheritedDebt": {
+    "liveInngestLifecycle": "unverified"
+  }
+}

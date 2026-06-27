@@ -10,6 +10,14 @@ import {
   FROM_ZERO_FIELD_DEPENDENCIES,
 } from "./definitions/from-zero";
 import {
+  briefingReadinessPasses,
+  buildBriefReview,
+  getActiveBriefingPrompt,
+  isBriefingComplete,
+} from "./briefing-prompts";
+import { mapGuidedAnswersToCampaignDraft } from "@/server/ai/guided-briefing";
+import { answersFromJourneySlots } from "./briefing-prompts";
+import {
   journeyStateToPatch,
   navigationHistory,
   pushNavigationHistory,
@@ -242,6 +250,150 @@ export function transitionJourney(
       return { state: next };
     }
 
+    case "answer_brief": {
+      if (state.path !== "from_zero" || state.currentStep !== "collect_brief") {
+        throw new GuidedTransitionError("Brief answers are only accepted during collect_brief");
+      }
+
+      const answers = { ...(state.slots.answers ?? {}) };
+      answers[command.field] = {
+        value: command.unknown ? "" : command.value,
+        source: "user",
+        confirmed: true,
+        unknown: command.unknown,
+      };
+
+      const nextSlots = {
+        ...state.slots,
+        answers,
+      };
+
+      let nextStep = state.currentStep;
+      if (isBriefingComplete(nextSlots)) {
+        nextStep = "review_brief";
+      }
+
+      return {
+        state: pushNavigationHistory(
+          {
+            ...state,
+            currentStep: nextStep,
+            recoverableError: null,
+            slots: nextSlots,
+          },
+          nextStep
+        ),
+      };
+    }
+
+    case "skip_brief_field": {
+      if (state.path !== "from_zero" || state.currentStep !== "collect_brief") {
+        throw new GuidedTransitionError("Skip is only allowed during collect_brief");
+      }
+
+      const prompt = getActiveBriefingPrompt(state.slots);
+      if (!prompt?.allowSkip || prompt.field !== command.field) {
+        throw new GuidedTransitionError("Field cannot be skipped");
+      }
+
+      const answers = { ...(state.slots.answers ?? {}) };
+      answers[command.field] = {
+        value: "",
+        source: "user",
+        confirmed: true,
+        unknown: true,
+      };
+
+      const nextSlots = { ...state.slots, answers };
+      let nextStep = state.currentStep;
+      if (isBriefingComplete(nextSlots)) {
+        nextStep = "review_brief";
+      }
+
+      return {
+        state: pushNavigationHistory(
+          { ...state, currentStep: nextStep, slots: nextSlots },
+          nextStep
+        ),
+      };
+    }
+
+    case "confirm_brief_review": {
+      if (state.path !== "from_zero" || state.currentStep !== "review_brief") {
+        throw new GuidedTransitionError("Brief review is not active");
+      }
+      if (!briefingReadinessPasses(state.slots)) {
+        throw new GuidedTransitionError("Briefing readiness rules not satisfied");
+      }
+
+      const briefAnswers = answersFromJourneySlots(state.slots);
+      const briefSnapshot = mapGuidedAnswersToCampaignDraft(briefAnswers, "pt-BR");
+
+      return {
+        state: pushNavigationHistory(
+          {
+            ...state,
+            currentStep: "select_references",
+            missingFields: [],
+            slots: {
+              ...state.slots,
+              briefAnswers: briefAnswers as Record<string, unknown>,
+              briefSnapshot,
+              briefReviewApproved: true,
+            },
+          },
+          "select_references"
+        ),
+      };
+    }
+
+    case "correct_diagnosis_field": {
+      if (state.path !== "existing_creative" || state.currentStep !== "review_diagnosis") {
+        throw new GuidedTransitionError("Diagnosis correction is not active");
+      }
+
+      const briefingSnapshot = {
+        ...((state.slots.briefingSnapshot as Record<string, unknown>) ?? {}),
+        [command.field]: command.value,
+      };
+
+      let next = invalidateDependents(
+        {
+          ...state,
+          slots: {
+            ...state.slots,
+            briefingSnapshot,
+            reviewApproved: false,
+          },
+          missingFields: state.missingFields.filter((f) => f !== command.field),
+        },
+        command.field,
+        EXISTING_CREATIVE_FIELD_DEPENDENCIES
+      );
+
+      return { state: next };
+    }
+
+    case "approve_diagnosis": {
+      if (state.path !== "existing_creative" || state.currentStep !== "review_diagnosis") {
+        throw new GuidedTransitionError("Diagnosis review is not active");
+      }
+
+      return {
+        state: pushNavigationHistory(
+          {
+            ...state,
+            currentStep: "confirm_improvement",
+            slots: {
+              ...state.slots,
+              reviewApproved: true,
+            },
+          },
+          "confirm_improvement"
+        ),
+      };
+    }
+
     default: {
       const _exhaustive: never = command;
       throw new GuidedTransitionError(`Unsupported command: ${String(_exhaustive)}`);
@@ -258,6 +410,18 @@ export function allowedCommandsForState(state: JourneyState): GuidedCommand["typ
 
   if (state.path === "unclassified") {
     return ["select_path", ...commands];
+  }
+
+  if (state.path === "from_zero" && state.currentStep === "collect_brief") {
+    commands.push("answer_brief", "skip_brief_field");
+  }
+
+  if (state.path === "from_zero" && state.currentStep === "review_brief") {
+    commands.push("confirm_brief_review", "edit_field");
+  }
+
+  if (state.path === "existing_creative" && state.currentStep === "review_diagnosis") {
+    commands.push("correct_diagnosis_field", "approve_diagnosis");
   }
 
   commands.push("back", "switch_path", "preview_switch", "restart", "edit_field");
