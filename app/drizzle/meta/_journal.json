@@ -428,6 +428,13 @@
       "when": 1783166400000,
       "tag": "0061_assistant_guided_flow_feedback",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1783252800000,
+      "tag": "0062_assistant_guided_flow_adaptive_state",
+      "breakpoints": true
     }
   ]
 }

@@ -2261,12 +2261,51 @@ export const assistantGuidedFlows = adscaleSchema.table(
     campaignId: uuid("campaign_id").references(() => campaigns.id, {
       onDelete: "set null",
     }),
+    revision: integer("revision").notNull().default(0),
+    schemaVersion: integer("schema_version").notNull().default(1),
+    recoverableError: jsonb("recoverable_error").$type<Record<string, unknown> | null>(),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
   },
   (table) => [
     uniqueIndex("assistant_guided_flows_thread_id_uidx").on(table.threadId),
     index("assistant_guided_flows_workspace_id_idx").on(table.workspaceId),
+  ]
+);
+
+export const assistantGuidedFlowTransitions = adscaleSchema.table(
+  "assistant_guided_flow_transitions",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    guidedFlowId: uuid("guided_flow_id")
+      .notNull()
+      .references(() => assistantGuidedFlows.id, { onDelete: "cascade" }),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    commandId: text("command_id").notNull(),
+    commandType: text("command_type").notNull(),
+    expectedRevision: integer("expected_revision").notNull(),
+    resultRevision: integer("result_revision").notNull(),
+    previousStep: text("previous_step"),
+    nextStep: text("next_step"),
+    metadata: jsonb("metadata")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("assistant_guided_flow_transitions_flow_command_uidx").on(
+      table.guidedFlowId,
+      table.commandId
+    ),
+    index("assistant_guided_flow_transitions_guided_flow_created_idx").on(
+      table.guidedFlowId,
+      table.createdAt
+    ),
   ]
 );
 
@@ -2336,6 +2375,10 @@ export type AssistantActionRecord = typeof assistantActionRecords.$inferSelect;
 export type NewAssistantActionRecord = typeof assistantActionRecords.$inferInsert;
 export type AssistantGuidedFlow = typeof assistantGuidedFlows.$inferSelect;
 export type NewAssistantGuidedFlow = typeof assistantGuidedFlows.$inferInsert;
+export type AssistantGuidedFlowTransition =
+  typeof assistantGuidedFlowTransitions.$inferSelect;
+export type NewAssistantGuidedFlowTransition =
+  typeof assistantGuidedFlowTransitions.$inferInsert;
 export type AssistantGuidedFlowEvent = typeof assistantGuidedFlowEvents.$inferSelect;
 export type NewAssistantGuidedFlowEvent = typeof assistantGuidedFlowEvents.$inferInsert;
 
