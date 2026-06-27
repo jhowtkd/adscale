@@ -7,51 +7,51 @@
 
 ### Adaptive Flow Contract
 
-- [ ] **FLOW-01**: User journey state is parsed from a versioned path-and-step schema before it is read or changed.
-- [ ] **FLOW-02**: User actions change journey state only through server-owned typed commands and legal deterministic transitions.
-- [ ] **FLOW-03**: User can resume the exact persisted question, answers, resources, review state, and recoverable error after reload.
-- [ ] **FLOW-04**: User can go back or edit a prior answer while preserving unrelated confirmed answers and invalidating dependent derived content.
-- [ ] **FLOW-05**: User can switch path or restart after seeing which answers and resources will be retained or cleared.
-- [ ] **FLOW-06**: User receives explicit conflict recovery when another tab or stale request changes the same journey revision first.
-- [ ] **FLOW-07**: User free text and guided controls update the same canonical journey state without letting the model choose transitions or IDs.
+- [x] **FLOW-01**: User journey state is parsed from a versioned path-and-step schema before it is read or changed.
+- [x] **FLOW-02**: User actions change journey state only through server-owned typed commands and legal deterministic transitions.
+- [x] **FLOW-03**: User can resume the exact persisted question, answers, resources, review state, and recoverable error after reload.
+- [x] **FLOW-04**: User can go back or edit a prior answer while preserving unrelated confirmed answers and invalidating dependent derived content.
+- [x] **FLOW-05**: User can switch path or restart after seeing which answers and resources will be retained or cleared.
+- [x] **FLOW-06**: User receives explicit conflict recovery when another tab or stale request changes the same journey revision first.
+- [x] **FLOW-07**: User free text and guided controls update the same canonical journey state without letting the model choose transitions or IDs.
 
 ### From-Zero Conversation
 
-- [ ] **ZERO-01**: User answers one meaningful briefing decision at a time instead of completing an all-at-once form.
-- [ ] **ZERO-02**: User can answer each turn with free text or valid quick replies, including `Não sei` and optional skip where allowed.
-- [ ] **ZERO-03**: User receives contextual suggestions with visible provenance and can ignore or edit them when AI suggestions are unavailable or wrong.
-- [ ] **ZERO-04**: User accepted answers persist immediately and survive navigation, reload, and later correction.
-- [ ] **ZERO-05**: User reviews and edits a compact briefing summary before advancing to references or an action proposal.
-- [ ] **ZERO-06**: User cannot advance from briefing review until deterministic readiness rules for the intended action pass.
+- [x] **ZERO-01**: User answers one meaningful briefing decision at a time instead of completing an all-at-once form.
+- [x] **ZERO-02**: User can answer each turn with free text or valid quick replies, including `Não sei` and optional skip where allowed.
+- [x] **ZERO-03**: User receives contextual suggestions with visible provenance and can ignore or edit them when AI suggestions are unavailable or wrong.
+- [x] **ZERO-04**: User accepted answers persist immediately and survive navigation, reload, and later correction.
+- [x] **ZERO-05**: User reviews and edits a compact briefing summary before advancing to references or an action proposal.
+- [x] **ZERO-06**: User cannot advance from briefing review until deterministic readiness rules for the intended action pass.
 
 ### Collaborative Diagnosis
 
-- [ ] **DIAG-01**: User can analyze a selected or uploaded creative provisionally without creating or mutating a campaign before confirmation.
-- [ ] **DIAG-02**: User sees diagnosis content separated into observed facts, inferred assumptions, and uncertain or missing fields.
-- [ ] **DIAG-03**: User can accept or correct diagnosis assumptions and missing briefing fields inside the guided conversation.
-- [ ] **DIAG-04**: User correction invalidates stale dependent diagnosis, readiness, and action proposals without discarding unrelated confirmed facts.
-- [ ] **DIAG-05**: User reviews and approves a current diagnosis snapshot before receiving an improvement action proposal.
+- [x] **DIAG-01**: User can analyze a selected or uploaded creative provisionally without creating or mutating a campaign before confirmation.
+- [x] **DIAG-02**: User sees diagnosis content separated into observed facts, inferred assumptions, and uncertain or missing fields.
+- [x] **DIAG-03**: User can accept or correct diagnosis assumptions and missing briefing fields inside the guided conversation.
+- [x] **DIAG-04**: User correction invalidates stale dependent diagnosis, readiness, and action proposals without discarding unrelated confirmed facts.
+- [x] **DIAG-05**: User reviews and approves a current diagnosis snapshot before receiving an improvement action proposal.
 
 ### Inline Resources
 
-- [ ] **ASSET-01**: User can select or upload the base creative and visual references without leaving the active guided turn.
-- [ ] **ASSET-02**: User can add, remove, or replace resources while successful items remain selected when another item fails.
+- [x] **ASSET-01**: User can select or upload the base creative and visual references without leaving the active guided turn.
+- [x] **ASSET-02**: User can add, remove, or replace resources while successful items remain selected when another item fails.
 - [ ] **ASSET-03**: User cannot advance from the from-zero reference step until at least three valid, scoped references are ready.
-- [ ] **ASSET-04**: User can retry failed upload or analysis idempotently, while late results tied to stale revisions or replaced assets are rejected.
+- [x] **ASSET-04**: User can retry failed upload or analysis idempotently, while late results tied to stale revisions or replaced assets are rejected.
 
 ### Confirmed Actions
 
-- [ ] **ACT-01**: User sees action cards described by expected outcome, required writes, credit impact, and irreversible effects instead of internal action or job terminology.
+- [x] **ACT-01**: User sees action cards described by expected outcome, required writes, credit impact, and irreversible effects instead of internal action or job terminology.
 - [ ] **ACT-02**: User cannot confirm an action card after relevant journey state changes invalidate its source revision or reviewed snapshot digest.
 - [ ] **ACT-03**: User confirmation revalidates workspace/client scope, current inputs, readiness, credits, and action policy before execution.
 - [ ] **ACT-04**: User sees deterministic journey recovery after action success, cancellation, or failure without duplicate effects.
 
 ### Verification and Release Truth
 
-- [ ] **QA-01**: Operator can query safe telemetry for answer, edit, back, switch, restart, retry, conflict, proposal, confirmation, failure, and completion events.
-- [ ] **QA-02**: User can complete both journeys with keyboard navigation, coherent focus, status announcements, mobile layout, and accessible error recovery.
+- [x] **QA-01**: Operator can query safe telemetry for answer, edit, back, switch, restart, retry, conflict, proposal, confirmation, failure, and completion events.
+- [x] **QA-02**: User can complete both journeys with keyboard navigation, coherent focus, status announcements, mobile layout, and accessible error recovery.
 - [ ] **QA-03**: Authenticated Playwright covers both journeys across happy path, correction, reload/resume, switch/restart, resource replacement, retry, conflict, stale card, and confirmation.
-- [ ] **QA-04**: Release evidence separately reports implementation, automated verification, real staging evidence, and operational sample sufficiency, keeping quality claims blocked when evidence is pending or insufficient.
+- [x] **QA-04**: Release evidence separately reports implementation, automated verification, real staging evidence, and operational sample sufficiency, keeping quality claims blocked when evidence is pending or insufficient.
 
 ## Future Requirements
 
@@ -83,36 +83,36 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FLOW-01 | Phase 195 | Pending |
-| FLOW-02 | Phase 195 | Pending |
-| FLOW-03 | Phase 195 | Pending |
-| FLOW-04 | Phase 195 | Pending |
-| FLOW-05 | Phase 195 | Pending |
-| FLOW-06 | Phase 195 | Pending |
-| FLOW-07 | Phase 195 | Pending |
-| ZERO-01 | Phase 196 | Pending |
-| ZERO-02 | Phase 196 | Pending |
-| ZERO-03 | Phase 196 | Pending |
-| ZERO-04 | Phase 196 | Pending |
-| ZERO-05 | Phase 196 | Pending |
-| ZERO-06 | Phase 196 | Pending |
-| DIAG-01 | Phase 197 | Pending |
-| DIAG-02 | Phase 197 | Pending |
-| DIAG-03 | Phase 197 | Pending |
-| DIAG-04 | Phase 197 | Pending |
-| DIAG-05 | Phase 197 | Pending |
-| ASSET-01 | Phase 198 | Pending |
-| ASSET-02 | Phase 198 | Pending |
+| FLOW-01 | Phase 195 | Complete |
+| FLOW-02 | Phase 195 | Complete |
+| FLOW-03 | Phase 195 | Complete |
+| FLOW-04 | Phase 195 | Complete |
+| FLOW-05 | Phase 195 | Complete |
+| FLOW-06 | Phase 195 | Complete |
+| FLOW-07 | Phase 195 | Complete |
+| ZERO-01 | Phase 196 | Complete |
+| ZERO-02 | Phase 196 | Complete |
+| ZERO-03 | Phase 196 | Complete |
+| ZERO-04 | Phase 196 | Complete |
+| ZERO-05 | Phase 196 | Complete |
+| ZERO-06 | Phase 196 | Complete |
+| DIAG-01 | Phase 197 | Complete |
+| DIAG-02 | Phase 197 | Complete |
+| DIAG-03 | Phase 197 | Complete |
+| DIAG-04 | Phase 197 | Complete |
+| DIAG-05 | Phase 197 | Complete |
+| ASSET-01 | Phase 198 | Complete |
+| ASSET-02 | Phase 198 | Complete |
 | ASSET-03 | Phase 198 | Pending |
-| ASSET-04 | Phase 198 | Pending |
-| ACT-01 | Phase 199 | Pending |
+| ASSET-04 | Phase 198 | Complete |
+| ACT-01 | Phase 199 | Complete |
 | ACT-02 | Phase 199 | Pending |
 | ACT-03 | Phase 199 | Pending |
 | ACT-04 | Phase 199 | Pending |
-| QA-01 | Phase 199 | Pending |
-| QA-02 | Phase 199 | Pending |
+| QA-01 | Phase 199 | Complete |
+| QA-02 | Phase 199 | Complete |
 | QA-03 | Phase 199 | Pending |
-| QA-04 | Phase 200 | Pending |
+| QA-04 | Phase 200 | Complete |
 
 **Coverage:**
 - v13.8 requirements: 30 total

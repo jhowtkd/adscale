@@ -2,7 +2,7 @@
 
 ## Milestones
 
-- 📋 **v13.8 Conversa Guiada Adaptativa** - Phases 195-200 (planned)
+- 📋 **v13.8 Conversa Guiada Adaptativa** - Phases 195-200 (passed_with_tech_debt 2026-06-27)
 - ✅ **v13.7 Qualidade Operacional das Jornadas Guiadas** - Phases 190-194 (shipped 2026-06-26; tech debt: human staging walks + insufficient operational sample)
 - ✅ **v13.6 Jornadas Guiadas do Chat Estratégico** - Phases 184-189 (shipped 2026-06-26; tech debt: staging diagnosis/briefing + live lifecycle verify)
 - ✅ **v13.5 Assistente Conversacional de Ações** - Phases 177-183 (shipped 2026-06-25; tech debt: EXEC-04 live lifecycle human verify, migrations 0056/0057 ops)
@@ -24,12 +24,12 @@
 
 ## Phases
 
-- [ ] **Phase 195: Adaptive Journey State and Transition Contract** - Make every guided turn resumable, correctable, deterministic, and conflict-safe.
-- [ ] **Phase 196: Progressive From-Zero Conversation** - Guide users through one briefing decision at a time and a readiness-gated editable review.
-- [ ] **Phase 197: Collaborative Existing-Creative Diagnosis** - Let users correct and approve a provisional diagnosis before any campaign mutation.
-- [ ] **Phase 198: Inline Assets and Recovery** - Keep scoped asset selection, upload, replacement, partial failure, and retry inside the active turn.
-- [ ] **Phase 199: Reviewed Actions, Accessibility, and Automated UAT** - Bind safe action confirmation to reviewed state and verify both journeys across interaction modes.
-- [ ] **Phase 200: Real Staging Evidence and Release Gate** - Prove both journeys in staging and publish a release verdict that keeps evidence gaps explicit.
+- [x] **Phase 195: Adaptive Journey State and Transition Contract** - Make every guided turn resumable, correctable, deterministic, and conflict-safe.
+- [x] **Phase 196: Progressive From-Zero Conversation** - Guide users through one briefing decision at a time and a readiness-gated editable review.
+- [x] **Phase 197: Collaborative Existing-Creative Diagnosis** - Let users correct and approve a provisional diagnosis before any campaign mutation.
+- [x] **Phase 198: Inline Assets and Recovery** - Keep scoped asset selection, upload, replacement, partial failure, and retry inside the active turn.
+- [x] **Phase 199: Reviewed Actions, Accessibility, and Automated UAT** - Bind safe action confirmation to reviewed state and verify both journeys across interaction modes.
+- [x] **Phase 200: Real Staging Evidence and Release Gate** - Prove both journeys in staging and publish a release verdict that keeps evidence gaps explicit.
 
 ## Phase Details
 
@@ -250,9 +250,9 @@ Archive: [v13.3-ROADMAP.md](milestones/v13.3-ROADMAP.md) · [v13.3-REQUIREMENTS.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 195. Adaptive Journey State and Transition Contract | 0/TBD | Not started | - |
-| 196. Progressive From-Zero Conversation | 0/TBD | Not started | - |
-| 197. Collaborative Existing-Creative Diagnosis | 0/TBD | Not started | - |
-| 198. Inline Assets and Recovery | 0/TBD | Not started | - |
-| 199. Reviewed Actions, Accessibility, and Automated UAT | 0/TBD | Not started | - |
-| 200. Real Staging Evidence and Release Gate | 0/TBD | Not started | - |
+| 195. Adaptive Journey State and Transition Contract | 2/2 | Complete | 2026-06-27 |
+| 196. Progressive From-Zero Conversation | 1/1 | Complete | 2026-06-27 |
+| 197. Collaborative Existing-Creative Diagnosis | 1/1 | Complete | 2026-06-27 |
+| 198. Inline Assets and Recovery | 1/1 | Complete | 2026-06-27 |
+| 199. Reviewed Actions, Accessibility, and Automated UAT | 1/1 | Complete | 2026-06-27 |
+| 200. Real Staging Evidence and Release Gate | 1/1 | Complete | 2026-06-27 |
