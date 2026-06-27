@@ -1,7 +1,8 @@
 # Ritual Semanal — Sessão-âncora no Domingo
 
 > **O ritual que sustenta o sistema de conteúdo da ADScale.**
-> Versão 2 (2026-06-25) — baseada no ADR `0003-ritual-semanal-ancora-domingo.md`.
+> Versão 2 (2026-06-26) — baseada no ADR [`0003-ritual-semanal-ancora-domingo.md`](../../docs/adr/0003-ritual-semanal-ancora-domingo.md).
+> **Q3 (até set/2026):** cadência efetiva = 6 peças/sem (sem Short — ADR 0009).
 
 ---
 
@@ -9,11 +10,11 @@
 
 | Quando | Duração | O quê | Output |
 |--------|---------|-------|--------|
-| **DOM 19h–21h** | **2h** | Sessão-âncora: gestão, priorização, briefs | `kanban/02-briefs.md` com 7 cards prontos |
+| **DOM 19h–21h** | **2h** | Sessão-âncora: gestão, priorização, briefs | `kanban/02-briefs.md` com **6 cards** prontos (Q3, sem Short) |
 | **SEG 8h** | 30 min | Checkpoint Mavis (revisão automatizada) | Briefs validados antes da produção |
 | **SEX 17h** | 30 min | Review semanal + retroalimentação Banco de Teses | `04-publicados.md` atualizado + Banco incrementado |
 
-**Total semanal:** ~3h gestão + ~5h produção = **~8h/semana**.
+**Total semanal:** ~3h gestão + ~4h produção = **~7h/semana** (Q3 sem Short).
 
 ---
 

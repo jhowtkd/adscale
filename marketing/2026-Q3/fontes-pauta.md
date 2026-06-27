@@ -12,11 +12,13 @@
 | **Tier 1** | **60%** | Perguntas reais do ICP + Bastidor ADScale + Trends do nicho | Diário (consumo) + sessão-âncora (trends) |
 | **Tier 2** | **30%** | Concorrência + SEO | Semanal (60 min DOM, dentro da sessão-âncora) |
 | **Tier 3** | **10%** | Newsletters (Lenny's, Marketing Brew, The Verge AI, Benedict Evans, Casey Winters) | Diário (skim no consumo) |
+| **Tier 3.5** | (sub-Tier 3) | **Top perfis que Jhonatan acompanha pra kibar** | Diário (consumo) — 5–10 perfis |
 
 **Por que 60/30/10 (não 50/30/20 ou 70/20/10):**
 - **60% Tier 1** garante que o feed fala **com** o ICP, não sobre o ICP.
 - **30% Tier 2** mantém ADScale competitivo sem virar reativo.
 - **10% Tier 3** é o "arroz" — textura, não prato principal.
+- **Tier 3.5** (sub-Tier 3) não muda o peso — é operacionalização do "skim de perfis". Jhonatan já consome esses perfis, é só registrar pra alimentar teses.
 
 ---
 
@@ -119,6 +121,31 @@
 - **Newsletters são contexto, não pauta direta.** Jhonatan não posta "Li na Lenny's que X". Ele internaliza e cria a tese própria.
 - Risco de virar **curador** em vez de **autor** se Tier 3 dominar.
 - Tier 3 serve pra **manter vocabulário** ("termo novo do mercado = tese nova potencial"), não pra ditar pauta.
+
+---
+
+## 4.5. Tier 3.5 — Top perfis que Jhonatan acompanha pra kibar
+
+> **{{ lista-pendente-de-Jhonatan: 5–10 perfis que ele consome pra extrair conteúdo pro ADScale. Vai preencher quando quiser. }}**
+
+**O que entra:** perfis (LinkedIn, Twitter/X, IG) que Jhonatan **já acompanha** e considera referência. O objetivo não é copiar — é identificar padrões de pauta, ângulos, estrutura de copy que ressoam com público B2B de marketing.
+
+**Operacionalização:**
+- Perfis entram em `banco-teses/inbox/from-tier3-5-perfis-YYYY-WW.md` com anotações de padrão observado.
+- Sessão-âncora de domingo **lê essas anotações** junto com Tier 1 (perguntas reais) e Tier 2 (concorrência).
+- Quando uma observação vira tese defensável, move pro `banco-teses/tese-00X-*.md`.
+
+**Por que sub-Tier 3 e não Tier novo:**
+- Não muda o peso 60/30/10.
+- Jhonatan já consome esses perfis no hábito — só falta formalizar pra alimentar teses.
+- Complementa Tier 3 (newsletters) com fonte "viva" (perfis postam ao longo da semana, não 1×/semana).
+
+**Sugestões iniciais (Jhonatan vai revisar):**
+- Perfis de fundadores SaaS B2B (referência de build in public).
+- Perfis de head of marketing / growth de marcas conhecidas.
+- Perfis de designers/agências com bom track de conteúdo.
+- Perfis de autores de newsletters (mesmo que Jhonatan leia a newsletter inteira).
+- Perfis críticos do nicho (defensores de teses opostas — bom pra pilar A).
 
 ---
 

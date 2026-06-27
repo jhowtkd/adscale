@@ -193,17 +193,18 @@ A persona e a de um **cientista num laboratorio** — observa, experimenta, docu
 | **YouTube (canal principal)** | Didatico, com humor seco. Mostra o processo. | PT-BR |
 | **YouTube (canal/trilha EN)** | Mesmo didatismo, ritmo mais pausado, exemplos em dolar. | EN |
 
-### 3.6 Formato de Reels (regra fixa)
+### 3.6 Formato de Reels (regra atualizada 2026-06-26)
 
 **Default: Lab Notes.**
 - Estrutura argumentativa: **premissa → gargalo → tese → demonstracao → evidencia → CTA**.
 - Voz do Jhonatan.
-- Sem tela do produto no corpo (highlights de texto em verde accent sao OK).
 - Humor em camada fina (deadpan), nunca em piiada ou meme.
 
-**Excecao: demo/bastidor (tela gravada).**
-- Usar quando o tema for "como usar feature X" e a tela for argumento.
-- Nao e formato padrao.
+**Regra da tela (atualizada):** tela do produto **liberada** quando faz sentido narrativo — demo de feature, prova visual de experimento, bastidor tecnico, ou qualquer contexto em que a tela adiciona argumento em vez de enfeitar. Sem dogma.
+
+**Origem da mudanca:** decisao 2026-06-26 (revisao dos canais v2). A regra antiga ("sem tela no corpo") restringia desnecessariamente — Pilar B (Experimento) vive de mostrar processo, e mostrar sem tela vira so voz. Mantem-se a excecao anterior (demo/bastidor) e generaliza.
+
+{{ decisao-2026-06-26: regra da tela do Reel simplificada — "liberada quando faz sentido narrativo" em vez de dogma + excecao. Pilar B (Experimento) e o maior consumidor. }}
 
 ---
 

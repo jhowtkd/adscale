@@ -1,7 +1,8 @@
 # Stack de Qualidade — Essencial (4 blocos)
 
 > **Em vez de stack de produção, foco em qualidade do conteúdo antes da produção.**
-> Versão 2 (2026-06-25) — baseada no ADR `0004-stack-qualidade.md`.
+> Versão 2 (2026-06-26) — baseada no ADR [`0004-stack-qualidade.md`](../../docs/adr/0004-stack-qualidade.md).
+> **Q3 (até set/2026):** sem YouTube no escopo (ADR 0009) → Bloco 2 e Bloco 3 não alimentam canal YouTube.
 
 ---
 
@@ -178,7 +179,7 @@ Bloco 1 (consumo) é o único que roda **fora** da sessão-âncora — é diári
 ## 8. Conexão com o ritual e a cadência
 
 - **Ritual de domingo (ADR 0003):** Bloco 2 (pesquisa) + Bloco 3 (Banco de Teses) rodam na sessão-âncora.
-- **Cadência semanal (ADR 0002):** 7 peças/semana são a saída do Bloco 3 + checagem do Bloco 4.
+- **Cadência semanal (ADR 0002 + 0009):** **6 peças/semana no Q3** (3 IG + 3 LI, sem Short) são a saída do Bloco 3 + checagem do Bloco 4.
 - **Fontes de pauta (ADR 0005):** Bloco 1 (consumo) = Tier 1 + Tier 3. Bloco 2 (pesquisa) = Tier 2.
 
 ---

@@ -18,6 +18,7 @@
 | [0006](./0006-frequencia-nivel-a.md) | Frequência Nível A conservador (~7 peças/sem) | 2026-06-25 | ✅ Aceita |
 | [0007](./0007-carrossel-hibrido.md) | Carrossel Instagram alterna opinião/educação por post | 2026-06-25 | ✅ Aceita |
 | [0008](./0008-tom-founder-pessoal.md) | Tom founder-pessoal 80% / pessoal-profissional 20% / íntimo 0% | 2026-06-25 | ✅ Aceita |
+| [0009](./0009-youtube-congelado-q3.md) | YouTube congelado no Q3 inteiro (até set/2026). Cadência efetiva vira 6 peças/sem (sem Short). | 2026-06-26 | ✅ Aceita |
 
 ---
 

@@ -1,8 +1,9 @@
 # LinkedIn — Estratégia do Canal (v2)
 
-> **Canal de autoridade B2B + decisor de agência.**
-> Atualizado em 2026-06-25 com base nos ADRs 0001–0008.
+> **Canal de autoridade B2B + decisor de agência (BR + EUA).**
+> Atualizado em 2026-06-26 com base nos ADRs 0001–0009.
 > Predominantemente **EN** (decisor global).
+> **Boilerplate cross-canal (ICP, tom, anti-padrões, métricas base):** [`_shared.md`](_shared.md).
 
 ---
 
@@ -17,14 +18,15 @@ Fazer o **dono de agência** ou **head of marketing** ler e pensar: "essa é a v
 
 ---
 
-## 2. Público específico
+## 2. Público
 
-- **Primário**: donos/sócios de agência de marketing (Brasil e EUA), head of marketing, head of growth.
-- **Secundário**: gestores de tráfego seniores, designers com cargo de liderança.
-- **Idioma**: **EN** predominante (decisor global, abre portas nos EUA).
-- **Onde estão**: feed pessoal (não página corporativa), newsletters, comentários em posts de referência.
+ICP raiz, sub-ICP rotativo, anti-ICP: [`_shared.md`](_shared.md) §1.
 
-**ICP raiz (de `conceituacao.md`):** qualquer pessoa/time que produz criativos pra ads pagos e sente gargalo de produção. Sub-ICP rotativo.
+- **Primário:** donos/sócios de agência de marketing (Brasil e EUA), head of marketing, head of growth.
+- **Secundário:** gestores de tráfego seniores, designers com cargo de liderança.
+- **Idioma:** **EN** predominante (decisor global, abre portas nos EUA).
+
+**Exceção documentada:** se Jhonatan estiver ativo em círculos BR (RD Station, Resultados Digitais, comunidade brasileira), 1 em 4 posts pode ser em PT. Avaliar após Mês 1.
 
 ---
 
@@ -49,9 +51,7 @@ Fazer o **dono de agência** ou **head of marketing** ler e pensar: "essa é a v
 | **Qui** | C — Bastidor | Post texto EN (micro 200–400 ou long 1.200–1.500) | 45 min |
 | **Sex (parcial)** | C — Bastidor | Post pessoal-profissional (ver ADR 0008) | 30 min |
 
-Fonte: ADR `0002-cadencia-semanal.md`.
-
-**Exceção documentada:** se Jhonatan estiver ativo em círculos BR (RD Station, Resultados Digitais, comunidade brasileira), 1 em 4 posts pode ser em PT. Avaliar após Mês 1.
+Fonte: [`../calendario/semanal-v2.md`](../calendario/semanal-v2.md) + ADR [`0002-cadencia-semanal.md`](../../../docs/adr/0002-cadencia-semanal.md).
 
 ---
 
@@ -130,6 +130,8 @@ Previously: [breve, só se relevante]
 
 ## 10. KPIs
 
+Métricas universais: [`_shared.md`](_shared.md) §7.
+
 | KPI | Meta mês 1 | Meta mês 3 |
 |-----|------------|------------|
 | Impressões médias por post | 1.500 | 8.000 |
@@ -139,12 +141,15 @@ Previously: [breve, só se relevante]
 | Posts com > 5k impressões | 2 | 10/mês |
 | Posts com > 1 comentário de perfil "founder de agência" | 1 | 5/mês |
 
-**Premissa:** Nível A conservador (ADR 0006) = 12 LinkedIn posts no mês.
+**Premissa:** cadência Q3 efetiva = 3 LI posts/sem (sem Short). Volume mensal ≈ 12 posts.
 
 ---
 
-## 11. Anti-padrões (não fazer)
+## 11. Anti-padrões
 
+Lista completa (universal + LI): [`_shared.md`](_shared.md) §8.
+
+**LI-específicos:**
 - Post motivacional com metáfora de montanha/super-herói.
 - "I'm humbled to announce..."
 - "Agree?" no final de tudo.
@@ -156,4 +161,4 @@ Previously: [breve, só se relevante]
 
 ---
 
-*Subpasta de `marketing/social-media/canais/` · EN (com exceção documentada de PT) · Versão 2 · Última atualização: 2026-06-25 · Owner: Jhonatan Soares*
+*Subpasta de `marketing/social-media/canais/` · EN (com exceção documentada de PT) · Versão 2 · Última atualização: 2026-06-26 · Owner: Jhonatan Soares*
