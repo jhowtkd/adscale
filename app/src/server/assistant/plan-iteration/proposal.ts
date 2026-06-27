@@ -1,7 +1,4 @@
-import {
-  planVersionSnapshotSchema,
-  type PlanVersionSnapshot,
-} from "@/lib/assistant/artifact-version";
+import { planVersionSnapshotSchema } from "@/lib/assistant/artifact-version";
 import { getOpenAI } from "@/server/ai/utils";
 import { adoptArtifactForThread } from "@/server/assistant/artifact-version/service";
 import { buildPlanSnapshot } from "@/server/assistant/artifact-version/snapshots";
@@ -30,6 +27,7 @@ import type {
   PlanRevisionResult,
   PlanRevisionSource,
   PlanRevisionSourceResult,
+  PlanVersionSnapshot,
 } from "./types";
 
 const VAGUE_PATTERNS = [
@@ -268,7 +266,9 @@ export async function proposePlanRevision(input: {
   const generate =
     input.generateRevisedPlanSnapshot ?? defaultGenerateRevisedPlanSnapshot;
   const modelOutput = await generate(source.sourceSnapshot, feedback);
-  const proposedSnapshot = buildPlanSnapshot(modelOutput);
+  const proposedSnapshot = planVersionSnapshotSchema.parse(
+    buildPlanSnapshot(modelOutput)
+  );
   const changes = buildPlanSemanticChanges(source.sourceSnapshot, proposedSnapshot);
   const summary = buildNeutralSummary(changes);
   const head = await getArtifactHead(input.scope, source.lineageId);

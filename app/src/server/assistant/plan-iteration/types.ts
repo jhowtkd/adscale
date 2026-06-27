@@ -1,5 +1,8 @@
 import type { ArtifactProposalPayload } from "@/lib/assistant/artifact-version";
-import type { PlanVersionSnapshot } from "@/lib/assistant/artifact-version";
+import { planVersionSnapshotSchema } from "@/lib/assistant/artifact-version";
+import type { z } from "zod";
+
+export type PlanVersionSnapshot = z.infer<typeof planVersionSnapshotSchema>;
 
 export interface PlanRevisionSource {
   lineageId: string;

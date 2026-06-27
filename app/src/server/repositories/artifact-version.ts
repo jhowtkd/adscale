@@ -394,6 +394,20 @@ export async function createArtifactProposal(input: {
   return created!;
 }
 
+export async function getArtifactProposal(
+  scope: ArtifactScope,
+  proposalId: string
+) {
+  const [row] = await db
+    .select()
+    .from(assistantArtifactProposals)
+    .where(
+      and(eq(assistantArtifactProposals.id, proposalId), proposalScope(scope))
+    )
+    .limit(1);
+  return row ?? null;
+}
+
 export async function listArtifactProposals(
   scope: ArtifactScope,
   lineageId: string

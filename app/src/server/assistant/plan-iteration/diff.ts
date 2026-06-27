@@ -1,4 +1,7 @@
-import type { PlanVersionSnapshot } from "@/lib/assistant/artifact-version";
+import { planVersionSnapshotSchema } from "@/lib/assistant/artifact-version";
+import type { z } from "zod";
+
+type PlanVersionSnapshot = z.infer<typeof planVersionSnapshotSchema>;
 
 const PLAN_FIELDS = ["strategy", "angles", "hooks", "ctas", "constraints"] as const;
 type PlanField = (typeof PLAN_FIELDS)[number];

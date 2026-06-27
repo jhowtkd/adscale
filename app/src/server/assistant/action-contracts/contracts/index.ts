@@ -7,6 +7,7 @@ import { quickReviewContract } from "./quick-review";
 import { quickSaveReferenceContract } from "./quick-save-reference";
 import { startCompleteCampaignContract } from "./start-complete-campaign";
 import { createCreativePlanContract } from "./create-creative-plan";
+import { reviseCreativePlanContract } from "./revise-creative-plan";
 
 registerActionContract(quickRestyleContract);
 registerActionContract(quickFormatAdaptContract);
@@ -16,3 +17,4 @@ registerActionContract(quickSaveReferenceContract);
 registerActionContract(quickPackageContract);
 registerActionContract(startCompleteCampaignContract);
 registerActionContract(createCreativePlanContract);
+registerActionContract(reviseCreativePlanContract);
