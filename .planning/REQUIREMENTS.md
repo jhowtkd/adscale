@@ -1,102 +1,93 @@
-# Requirements: ADScale v13.7 Qualidade Operacional das Jornadas Guiadas
+# Requirements: ADScale v13.8 Conversa Guiada Adaptativa
 
 **Defined:** 2026-06-26
 **Core Value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
 
-## Milestone Scope
+## v13.8 Requirements
 
-Transformar as jornadas guiadas do `/assistant` em operação mensurável e melhorável. A v13.7 parte da v13.6 já implementada (`Já tenho peça` e `Produzir do zero`) e fecha a lacuna entre "funciona tecnicamente" e "tem evidência operacional de que conduz o usuário à próxima ação útil".
+### Adaptive Flow Contract
 
-**In scope:** telemetria por fluxo/etapa, funil operacional, staging runbook com artefatos seguros, feedback humano sobre utilidade de diagnóstico/plano, release gate que separa implementação verde de qualidade observada.
+- [ ] **FLOW-01**: User journey state is parsed from a versioned path-and-step schema before it is read or changed.
+- [ ] **FLOW-02**: User actions change journey state only through server-owned typed commands and legal deterministic transitions.
+- [ ] **FLOW-03**: User can resume the exact persisted question, answers, resources, review state, and recoverable error after reload.
+- [ ] **FLOW-04**: User can go back or edit a prior answer while preserving unrelated confirmed answers and invalidating dependent derived content.
+- [ ] **FLOW-05**: User can switch path or restart after seeing which answers and resources will be retained or cleared.
+- [ ] **FLOW-06**: User receives explicit conflict recovery when another tab or stale request changes the same journey revision first.
+- [ ] **FLOW-07**: User free text and guided controls update the same canonical journey state without letting the model choose transitions or IDs.
 
-**Out of scope:** novo fluxo guiado, geração automática sem confirmação, mudar motor de IA, dashboard analítico avançado público, claims customer-real sem amostra suficiente, aplicação automática de aprendizados em prompt sem revisão humana.
+### From-Zero Conversation
 
-## v13.7 Requirements
+- [ ] **ZERO-01**: User answers one meaningful briefing decision at a time instead of completing an all-at-once form.
+- [ ] **ZERO-02**: User can answer each turn with free text or valid quick replies, including `Não sei` and optional skip where allowed.
+- [ ] **ZERO-03**: User receives contextual suggestions with visible provenance and can ignore or edit them when AI suggestions are unavailable or wrong.
+- [ ] **ZERO-04**: User accepted answers persist immediately and survive navigation, reload, and later correction.
+- [ ] **ZERO-05**: User reviews and edits a compact briefing summary before advancing to references or an action proposal.
+- [ ] **ZERO-06**: User cannot advance from briefing review until deterministic readiness rules for the intended action pass.
 
-### Journey Telemetry
+### Collaborative Diagnosis
 
-- [x] **TEL-01**: System records guided-flow lifecycle events for start, step view, required input supplied, blocked action, action proposed, action confirmed, failure and completion.
-- [x] **TEL-02**: Telemetry is scoped by workspace, clientProfile, assistant thread, path and step without storing provider reasoning, signed URLs, raw tool args or prompt payloads.
-- [x] **TEL-03**: Telemetry distinguishes `existing_creative` and `from_zero` paths and records safe blocker categories such as missing asset, missing references, missing brief fields and action failure.
-- [x] **TEL-04**: Telemetry can be queried deterministically for a time window, workspace/clientProfile and path without cross-workspace leakage.
+- [ ] **DIAG-01**: User can analyze a selected or uploaded creative provisionally without creating or mutating a campaign before confirmation.
+- [ ] **DIAG-02**: User sees diagnosis content separated into observed facts, inferred assumptions, and uncertain or missing fields.
+- [ ] **DIAG-03**: User can accept or correct diagnosis assumptions and missing briefing fields inside the guided conversation.
+- [ ] **DIAG-04**: User correction invalidates stale dependent diagnosis, readiness, and action proposals without discarding unrelated confirmed facts.
+- [ ] **DIAG-05**: User reviews and approves a current diagnosis snapshot before receiving an improvement action proposal.
 
-### Operational Funnel
+### Inline Resources
 
-- [x] **FUN-01**: Owner/internal users can view guided journey starts, completions, abandonment and failure counts by path.
-- [x] **FUN-02**: Owner/internal users can inspect step-level drop-off and top blocker categories for `Já tenho peça` and `Produzir do zero`.
-- [x] **FUN-03**: Funnel reporting separates automated implementation coverage from real operational evidence and sample sufficiency.
-- [x] **FUN-04**: Funnel output includes enough links or ids to investigate affected threads without exposing sensitive payloads.
+- [ ] **ASSET-01**: User can select or upload the base creative and visual references without leaving the active guided turn.
+- [ ] **ASSET-02**: User can add, remove, or replace resources while successful items remain selected when another item fails.
+- [ ] **ASSET-03**: User cannot advance from the from-zero reference step until at least three valid, scoped references are ready.
+- [ ] **ASSET-04**: User can retry failed upload or analysis idempotently, while late results tied to stale revisions or replaced assets are rejected.
 
-### Staging Evidence
+### Confirmed Actions
 
-- [x] **STG-01**: A staging runbook defines the exact human checks for live diagnosis, auto-briefing, creative plan and campaign approval lifecycle.
-- [x] **STG-02**: Staging evidence can be recorded as a structured artifact with reviewer, environment, path, thread/campaign references, verdict and safe notes.
-- [x] **STG-03**: Staging evidence explicitly covers one `Já tenho peça` journey with a real asset and one `Produzir do zero` journey with at least 3 references.
-- [x] **STG-04**: Staging evidence marks provider/live failures as blockers or accepted tech debt without changing implementation requirement status.
+- [ ] **ACT-01**: User sees action cards described by expected outcome, required writes, credit impact, and irreversible effects instead of internal action or job terminology.
+- [ ] **ACT-02**: User cannot confirm an action card after relevant journey state changes invalidate its source revision or reviewed snapshot digest.
+- [ ] **ACT-03**: User confirmation revalidates workspace/client scope, current inputs, readiness, credits, and action policy before execution.
+- [ ] **ACT-04**: User sees deterministic journey recovery after action success, cancellation, or failure without duplicate effects.
 
-### Human Quality Feedback
+### Verification and Release Truth
 
-- [x] **QFB-01**: Operator can rate whether a diagnosis was useful, incomplete or misleading with a short safe reason.
-- [x] **QFB-02**: Operator can rate whether a from-zero creative plan was generation-ready, partially useful or unusable with a short safe reason.
-- [x] **QFB-03**: Feedback is attached to guided-flow path, step and thread context without exposing prompts, provider reasoning or signed URLs.
-- [x] **QFB-04**: Feedback is read-only operational evidence in this milestone and does not automatically alter prompts, calibration rules or generation behavior.
-
-### Release Gate
-
-- [x] **GATE-01**: Release gate reports implementation status, automated test status, staging evidence status and operational sample sufficiency separately.
-- [x] **GATE-02**: Release gate blocks or warns on missing staging evidence for diagnosis/briefing and live lifecycle verification.
-- [x] **GATE-03**: Release gate blocks customer-real quality claims when sample size or source composition is insufficient.
-- [x] **GATE-04**: Milestone audit can cite the release gate artifact and distinguish shipped implementation, accepted tech debt and claims still blocked.
+- [ ] **QA-01**: Operator can query safe telemetry for answer, edit, back, switch, restart, retry, conflict, proposal, confirmation, failure, and completion events.
+- [ ] **QA-02**: User can complete both journeys with keyboard navigation, coherent focus, status announcements, mobile layout, and accessible error recovery.
+- [ ] **QA-03**: Authenticated Playwright covers both journeys across happy path, correction, reload/resume, switch/restart, resource replacement, retry, conflict, stale card, and confirmation.
+- [ ] **QA-04**: Release evidence separately reports implementation, automated verification, real staging evidence, and operational sample sufficiency, keeping quality claims blocked when evidence is pending or insufficient.
 
 ## Future Requirements
 
-### Advanced Optimization
+### Adaptive Optimization
 
-- **OPT-01**: Assistant can adapt question order based on observed drop-off by path and client segment.
-- **OPT-02**: Assistant can suggest prompt/calibration changes from repeated diagnosis or plan feedback.
-- **OPT-03**: Owner can compare guided-flow performance across cohorts, acquisition channels and client profiles.
-- **OPT-04**: Product can A/B test journey entry copy and step ordering.
+- **OPT-01**: User receives question ordering tuned from sufficient real repair and progression telemetry.
+- **OPT-02**: User can reuse confirmed answers across threads with explicit provenance and consent.
+- **OPT-03**: User can inspect richer provenance explaining why each suggestion or inferred field was proposed.
+
+### Additional Modes
+
+- **MODE-01**: User can start additional guided journey types beyond `Já tenho peça` and `Produzir do zero`.
+- **MODE-02**: User can operate guided journeys by voice.
+- **MODE-03**: Multiple users can collaborate concurrently on one guided journey.
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| New guided journey beyond the two v13.6 paths | v13.7 proves and improves operational quality before expanding surface area. |
-| Automatic prompt or calibration mutation from feedback | Feedback must be reviewed before it changes generation behavior. |
-| Public customer analytics dashboard | This milestone is internal/owner operational evidence, not customer reporting. |
-| Customer-real quality claims | Require sufficient real sample/source evidence beyond basic implementation success. |
-| Replacing existing campaign/review surfaces | Guided chat should hand off safely to mature surfaces where appropriate. |
+| XState or another workflow runtime | Two bounded paths do not justify a second state runtime; typed deterministic transitions fit the existing stack. |
+| LangChain, Vercel AI SDK, or another AI orchestration framework | Existing model adapter, SSE, tools, and action contracts already cover the required provider boundary. |
+| Model-owned next-step selection | Journey control must remain deterministic, auditable, and safe to resume. |
+| Autonomous execution | Campaign writes, credits, generation, memory writes, and exports still require explicit action confirmation. |
+| Automatic learning from feedback | v13.8 records evidence but does not mutate prompts, policies, or ordering automatically. |
+| New guided journey paths | Milestone improves the two existing paths before expanding breadth. |
+| New operational dashboard | v13.7 already delivered funnel and evidence surfaces; v13.8 extends their event semantics only. |
 
 ## Traceability
 
-| Requirement | Phase | Status |
-|-------------|-------|--------|
-| TEL-01 | Phase 190 | Complete |
-| TEL-02 | Phase 190 | Complete |
-| TEL-03 | Phase 190 | Complete |
-| TEL-04 | Phase 190 | Complete |
-| FUN-01 | Phase 191 | Complete |
-| FUN-02 | Phase 191 | Complete |
-| FUN-03 | Phase 191 | Complete |
-| FUN-04 | Phase 191 | Complete |
-| STG-01 | Phase 192 | Complete |
-| STG-02 | Phase 192 | Complete |
-| STG-03 | Phase 192 | Complete |
-| STG-04 | Phase 192 | Complete |
-| QFB-01 | Phase 193 | Complete |
-| QFB-02 | Phase 193 | Complete |
-| QFB-03 | Phase 193 | Complete |
-| QFB-04 | Phase 193 | Complete |
-| GATE-01 | Phase 194 | Complete |
-| GATE-02 | Phase 194 | Complete |
-| GATE-03 | Phase 194 | Complete |
-| GATE-04 | Phase 194 | Complete |
+Roadmap mapping pending.
 
 **Coverage:**
-- v13.7 requirements: 20 total
-- Mapped to phases: 20
-- Unmapped: 0
+- v13.8 requirements: 30 total
+- Mapped to phases: 0
+- Unmapped: 30
 
 ---
 *Requirements defined: 2026-06-26*
-*Last updated: 2026-06-26 after v13.7 milestone creation*
+*Last updated: 2026-06-26 after v13.8 requirements approval*
